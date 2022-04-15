@@ -210,8 +210,9 @@ PrintBuildLog("build-log",
         llvm::cl::init(false));
 
 // turn on printing bytecode instructions after
-llvm::cl::opt<std::string>
-    LLVMOption("llvm-option", llvm::cl::desc("LLVM command line options"));
+llvm::cl::opt<std::string> LLVMOption(
+    "llvm-option",
+    llvm::cl::desc("A space-separated list of LLVM command line options"));
 
 llvm::cl::opt<bool>
 DumpHeuristicIR("dump-heuristic-IR",
@@ -230,13 +231,16 @@ llvm::cl::opt<bool> DumpKernelProperty("dump-kernel-property",
                                        llvm::cl::desc("Dump kernel properties"),
                                        llvm::cl::init(false));
 
-// Enable -time-passes in Volcano
-llvm::cl::opt<std::string>
-TimePasses("dump-time-passes",
-           llvm::cl::ValueOptional,
-           llvm::cl::desc("Generates compilation time detailed report for all the passes and print it to the file <filename>. "
-                          "The <filename> could be an absolute path or relative to the base directory."),
-           llvm::cl::value_desc("filename"));
+// Enable -time-passes option. Be careful that report is appended to the
+// specified filename. It is advised to delete the file before RUN or specify
+// "-" as filename.
+llvm::cl::opt<std::string> TimePasses(
+    "dump-time-passes", llvm::cl::ValueOptional,
+    llvm::cl::desc("Generates compilation time detailed report for all the "
+                   "passes and append it to the file <filename>. "
+                   "The <filename> could be an absolute path or relative to "
+                   "the base directory."),
+    llvm::cl::value_desc("filename"));
 
 // Debugging pass manager.
 llvm::cl::opt<std::string> DebugPassManager(

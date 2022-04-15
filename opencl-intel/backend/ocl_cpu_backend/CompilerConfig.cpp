@@ -45,7 +45,7 @@ void GlobalCompilerConfig::LoadDefaults()
     m_enableTiming = false;
     m_disableStackDump = true;
     m_infoOutputFile = "";
-    m_LLVMOptions = "";
+    m_LLVMOptions.clear();
     m_targetDevice = CPU_DEVICE;
 }
 
@@ -84,25 +84,25 @@ void GlobalCompilerConfig::LoadConfig()
 #endif // INTEL_PRODUCT_RELEASE
 
 // INTEL VPO BEGIN
-    m_LLVMOptions = "-vector-library=SVML ";
+    m_LLVMOptions.emplace_back("-vector-library=SVML");
 // INTEL VPO END
 
-    if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_LLVM_OPTIONS"))
-      m_LLVMOptions += Env;
+    if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_LLVM_OPTIONS")) {
+      std::vector<std::string> Options = SplitString(Env, ' ');
+      m_LLVMOptions.append(Options.begin(), Options.end());
+    }
 
     if (Intel::OpenCL::Utils::getEnvVar(Env,
                                         "CL_CONFIG_CPU_REQD_SUB_GROUP_SIZE")) {
-      m_LLVMOptions += "-reqd-sub-group-size=";
-      m_LLVMOptions += Env;
+      m_LLVMOptions.emplace_back("-reqd-sub-group-size=" + Env);
     }
 }
 
 void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
 {
     if( nullptr == pBackendOptions)
-    {
         return;
-    }
+
     m_infoOutputFile = pBackendOptions->GetStringValue(
         (int)CL_DEV_BACKEND_OPTION_TIME_PASSES, m_infoOutputFile.c_str());
     m_enableTiming = !m_infoOutputFile.empty();
@@ -113,24 +113,26 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
         static_cast<PassManagerType>(pBackendOptions->GetIntValue(
             CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE, PM_NONE));
     if (PM_LTO_NEW != passManagerType && !debugPassManager.empty())
-      m_LLVMOptions += " -debug-pass=" + debugPassManager;
+      m_LLVMOptions.emplace_back("-debug-pass=" + debugPassManager);
 
     std::string LLVMOption = pBackendOptions->GetStringValue(
         (int)CL_DEV_BACKEND_OPTION_LLVM_OPTION, "");
-    if (!LLVMOption.empty())
-      m_LLVMOptions += " " + LLVMOption;
+    if (!LLVMOption.empty()) {
+      std::vector<std::string> Options = SplitString(LLVMOption, ' ');
+      m_LLVMOptions.append(Options.begin(), Options.end());
+    }
 
     // C++ pipeline command line options.
-    m_LLVMOptions += " -enable-vec-clone=false";
+    m_LLVMOptions.emplace_back("-enable-vec-clone=false");
     ETransposeSize TransposeSize =
         parseTransposeSize(pBackendOptions->GetIntValue(
             (int)CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, TRANSPOSE_SIZE_NOT_SET));
     if (TRANSPOSE_SIZE_1 == TransposeSize)
-      m_LLVMOptions += " -vplan-driver=false";
+      m_LLVMOptions.emplace_back("-vplan-driver=false");
 
     if (TRANSPOSE_SIZE_AUTO != TransposeSize &&
         TRANSPOSE_SIZE_NOT_SET != TransposeSize)
-      m_LLVMOptions += " -dpcpp-force-vf=" + std::to_string((int)TransposeSize);
+      m_LLVMOptions.emplace_back("-dpcpp-force-vf=" + std::to_string((int)TransposeSize));
 
     m_targetDevice = static_cast<DeviceMode>(pBackendOptions->GetIntValue(
         (int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE));
@@ -140,17 +142,19 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
         int channelDepthEmulationMode = pBackendOptions->GetIntValue(
             (int)CL_DEV_BACKEND_OPTION_CHANNEL_DEPTH_EMULATION_MODE,
             (int)CHANNEL_DEPTH_MODE_STRICT);
-        m_LLVMOptions += " --channel-depth-emulation-mode="
-            + std::to_string(channelDepthEmulationMode);
-        m_LLVMOptions += " --dpcpp-remove-fpga-reg --dpcpp-demangle-fpga-pipes";
+        m_LLVMOptions.emplace_back("--channel-depth-emulation-mode="
+            + std::to_string(channelDepthEmulationMode));
+        m_LLVMOptions.emplace_back("--dpcpp-remove-fpga-reg");
+        m_LLVMOptions.emplace_back("--dpcpp-demangle-fpga-pipes");
     }
     else if (EYEQ_EMU_DEVICE == m_targetDevice)
     {
-        m_LLVMOptions += " -eyeq-div-crash-behavior";
+        m_LLVMOptions.emplace_back("-eyeq-div-crash-behavior");
     }
 
-    if (m_LLVMOptions.find("-enable-vplan-kernel-vectorizer")
-        == std::string::npos) {
+    if (llvm::find_if(m_LLVMOptions, [](std::string S) {
+          return S.find("-enable-vplan-kernel-vectorizer") != std::string::npos;
+        }) == m_LLVMOptions.end()) {
       // If VOLCANO_LLVM_OPTIONS doesn't try to override vectorizer choice
       // look at CL_CONFIG_CPU_VECTORIZER_MODE. Check also whether
       // VOLCANO_VECTORIZER_OPTIONS wants to override
@@ -160,21 +164,21 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
         static_cast<VectorizerType>(pBackendOptions->GetIntValue(
             (int)CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE, DEFAULT_VECTORIZER));
       if (VType == VOLCANO_VECTORIZER)
-        m_LLVMOptions += " -enable-vplan-kernel-vectorizer=0";
+        m_LLVMOptions.emplace_back("-enable-vplan-kernel-vectorizer=0");
     }
 
     bool EnableNativeSubgroups =
       pBackendOptions->GetBooleanValue(
         (int)CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS, false);
     if (EnableNativeSubgroups) {
-        m_LLVMOptions += " -enable-native-opencl-subgroups";
+        m_LLVMOptions.emplace_back("-enable-native-opencl-subgroups");
     }
 
     bool EnableSubgroupEmulation =
       pBackendOptions->GetBooleanValue(
         (int)CL_DEV_BACKEND_OPTION_SUBGROUP_EMULATION, true);
     if (!EnableSubgroupEmulation)
-      m_LLVMOptions += " -dpcpp-enable-subgroup-emulation=false";
+      m_LLVMOptions.emplace_back("-dpcpp-enable-subgroup-emulation=false");
 }
 
 void CompilerConfig::LoadDefaults()
