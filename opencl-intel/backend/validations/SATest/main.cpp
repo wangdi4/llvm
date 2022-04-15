@@ -210,8 +210,9 @@ PrintBuildLog("build-log",
         llvm::cl::init(false));
 
 // turn on printing bytecode instructions after
-llvm::cl::opt<std::string>
-    LLVMOption("llvm-option", llvm::cl::desc("LLVM command line options"));
+llvm::cl::opt<std::string> LLVMOption(
+    "llvm-option",
+    llvm::cl::desc("A space-separated list of LLVM command line options"));
 
 llvm::cl::opt<bool>
 DumpHeuristicIR("dump-heuristic-IR",

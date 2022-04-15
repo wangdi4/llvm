@@ -16,9 +16,8 @@
 
 #include "ICLDevBackendOptions.h"
 #include "common_dev_limits.h"
-
+#include "llvm/ADT/SmallVector.h"
 #include <string>
-#include <vector>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -49,7 +48,7 @@ public:
     /**
      * Pass command line options to LLVM
      */
-    virtual std::string LLVMOptions() const = 0;
+    virtual const llvm::SmallVectorImpl<std::string> &LLVMOptions() const = 0;
 
     virtual DeviceMode TargetDevice() const = 0;
 };
