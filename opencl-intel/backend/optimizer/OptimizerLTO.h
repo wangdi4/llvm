@@ -26,9 +26,9 @@ namespace DeviceBackend {
  */
 class OptimizerLTO : public Optimizer {
 public:
-  OptimizerLTO(llvm::Module *M,
+  OptimizerLTO(llvm::Module &M,
                llvm::SmallVector<llvm::Module *, 2> &RtlModules,
-               const intel::OptimizerConfig *Config, bool DebugPassManager);
+               const intel::OptimizerConfig &Config, bool DebugPassManager);
 
   ~OptimizerLTO();
 

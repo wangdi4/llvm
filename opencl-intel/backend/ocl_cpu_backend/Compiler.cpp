@@ -541,16 +541,16 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
     std::unique_ptr<Optimizer> optimizer;
     switch (m_passManagerType) {
     case PM_LTO_LEGACY:
-      optimizer = std::make_unique<OptimizerLTOLegacyPM>(pModule, BIModules,
-                                                         &optimizerConfig);
+      optimizer = std::make_unique<OptimizerLTOLegacyPM>(*pModule, BIModules,
+                                                         optimizerConfig);
       break;
     case PM_LTO_NEW:
       optimizer = std::make_unique<OptimizerLTO>(
-          pModule, BIModules, &optimizerConfig, !m_debugPassManager.empty());
+          *pModule, BIModules, optimizerConfig, !m_debugPassManager.empty());
       break;
     default:
       optimizer =
-          std::make_unique<OptimizerOCL>(pModule, BIModules, &optimizerConfig);
+          std::make_unique<OptimizerOCL>(*pModule, BIModules, optimizerConfig);
       break;
     };
 

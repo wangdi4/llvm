@@ -306,16 +306,16 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
 }
 
 static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
-                                       llvm::Module * /*M*/, unsigned OptLevel,
-                                       const intel::OptimizerConfig *pConfig,
+                                       llvm::Module & /*M*/, unsigned OptLevel,
+                                       const intel::OptimizerConfig &pConfig,
                                        bool isOcl20, bool isFpgaEmulator,
                                        bool UnrollLoops, bool isSPIRV,
                                        bool UseVplan) {
   bool HasGatherScatterPrefetch =
-      pConfig->GetCpuId()->HasGatherScatterPrefetch();
+      pConfig.GetCpuId()->HasGatherScatterPrefetch();
 
-  PM.add(createSetPreferVectorWidthPass(pConfig->GetCpuId()));
-  if (isSPIRV && pConfig->GetRelaxedMath()) {
+  PM.add(createSetPreferVectorWidthPass(pConfig.GetCpuId()));
+  if (isSPIRV && pConfig.GetRelaxedMath()) {
     PM.add(llvm::createAddFastMathLegacyPass());
   }
 
@@ -374,7 +374,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   }
 
   PM.add(llvm::createBasicAAWrapperPass());
-  if (pConfig->EnableOCLAA()) {
+  if (pConfig.EnableOCLAA()) {
     PM.add(createOCLAliasAnalysisPass());
     PM.add(createExternalAAWrapperPass(
       [](Pass &P, Function &, AAResults &AAR) {
@@ -396,7 +396,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   // barriers.
   bool UnitAtATime = true;
 
-  int rtLoopUnrollFactor = pConfig->GetRTLoopUnrollFactor();
+  int rtLoopUnrollFactor = pConfig.GetRTLoopUnrollFactor();
 
   bool allowAllocaModificationOpt = !HasGatherScatterPrefetch;
 
@@ -415,21 +415,21 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 }
 
 static void populatePassesPostFailCheck(
-    llvm::legacy::PassManagerBase &PM, llvm::Module *M,
+    llvm::legacy::PassManagerBase &PM, llvm::Module &M,
     SmallVector<Module *, 2> &pRtlModuleList, unsigned OptLevel,
-    const intel::OptimizerConfig *pConfig,
+    const intel::OptimizerConfig &pConfig,
     std::vector<std::string> &UndefinedExternals, bool isOcl20,
     bool isFpgaEmulator, bool isEyeQEmulator, bool UnrollLoops, bool UseVplan,
     bool IsSPIRV, bool IsSYCL, bool IsOMP, DebuggingServiceType debugType,
     bool UseTLSGlobals) {
-  bool isProfiling = pConfig->GetProfilingFlag();
-  bool HasGatherScatter = pConfig->GetCpuId()->HasGatherScatter();
+  bool isProfiling = pConfig.GetProfilingFlag();
+  bool HasGatherScatter = pConfig.GetCpuId()->HasGatherScatter();
   // Tune the maximum size of the basic block for memory dependency analysis
   // utilized by GVN.
   VectorVariant::ISAClass ISA =
-      VectorizerCommon::getCPUIdISA(pConfig->GetCpuId());
+      VectorizerCommon::getCPUIdISA(pConfig.GetCpuId());
 
-  if (pConfig->EnableOCLAA()) {
+  if (pConfig.EnableOCLAA()) {
     PM.add(createOCLAliasAnalysisPass());
     PM.add(createExternalAAWrapperPass(
       [](Pass &P, Function &, AAResults &AAR) {
@@ -526,7 +526,7 @@ static void populatePassesPostFailCheck(
     PM.add(createKernelSubGroupInfoPass());
 
   // In Apple build TRANSPOSE_SIZE_1 is not declared
-  if (pConfig->GetTransposeSize() != 1 /*TRANSPOSE_SIZE_1*/
+  if (pConfig.GetTransposeSize() != 1 /*TRANSPOSE_SIZE_1*/
       && OptLevel != 0) {
 
     // In profiling mode remove llvm.dbg.value calls before vectorizer.
@@ -563,7 +563,7 @@ static void populatePassesPostFailCheck(
         PM.add(createOCLReqdSubGroupSizePass());
 
         // Calculate VL.
-        PM.add(createWeightedInstCounter(true, pConfig->GetCpuId()));
+        PM.add(createWeightedInstCounter(true, pConfig.GetCpuId()));
 
         // This pass may throw VFAnalysisDiagInfo error if VF checking fails.
         // TODO: we should run SetVectorizationFactor unconditionally when we
@@ -615,11 +615,11 @@ static void populatePassesPostFailCheck(
         // in our implementation). The vec/no-vec decision belongs to the
         // programmer.
         if (!IsSYCL && !DisableVPlanCM)
-          PM.add(createVectorKernelDiscardPass(pConfig));
+          PM.add(createVectorKernelDiscardPass(&pConfig));
       } else {
         if (EmitKernelVectorizerSignOn)
           dbgs() << "OpenCL Kernel Vectorizer\n";
-        PM.add(createVectorizerPass(pRtlModuleList, pConfig));
+        PM.add(createVectorizerPass(pRtlModuleList, &pConfig));
       }
     }
 
@@ -674,7 +674,7 @@ static void populatePassesPostFailCheck(
 
   // Adding WG loops
   if (OptLevel > 0) {
-    if (pConfig->GetStreamingAlways())
+    if (pConfig.GetStreamingAlways())
       PM.add(createAddNTAttrLegacyPass());
     if (debugType == Native)
       PM.add(createImplicitGIDPass(/*HandleBarrier*/ false));
@@ -711,7 +711,7 @@ static void populatePassesPostFailCheck(
     PM.add(createCLStreamSamplerPass());
   }
 
-  if (pConfig->GetRelaxedMath()) {
+  if (pConfig.GetRelaxedMath()) {
     PM.add(createRelaxedPass());
   }
 
@@ -722,7 +722,7 @@ static void populatePassesPostFailCheck(
   else
     PM.add(llvm::createAddImplicitArgsLegacyPass());
 
-  PM.add(llvm::createResolveWICallLegacyPass(pConfig->GetUniformWGSize(), UseTLSGlobals));
+  PM.add(llvm::createResolveWICallLegacyPass(pConfig.GetUniformWGSize(), UseTLSGlobals));
   PM.add(llvm::createLocalBuffersLegacyPass(UseTLSGlobals));
   // clang converts OCL's local to global.
   // createLocalBuffersLegacyPass changes the local allocation from global to a
@@ -752,7 +752,7 @@ static void populatePassesPostFailCheck(
 
   if (!pRtlModuleList.empty()) {
     // Inline BI function
-    const char *CPUPrefix = pConfig->GetCpuId()->GetCPUPrefix();
+    const char *CPUPrefix = pConfig.GetCpuId()->GetCPUPrefix();
     assert(CPUPrefix && "CPU Prefix should not be null");
     PM.add(llvm::createBuiltinImportLegacyPass(pRtlModuleList, CPUPrefix));
     if (OptLevel > 0) {
@@ -845,15 +845,15 @@ static void populatePassesPostFailCheck(
 
 OptimizerOCL::~OptimizerOCL() {}
 
-OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
+OptimizerOCL::OptimizerOCL(llvm::Module &pModule,
                            llvm::SmallVector<llvm::Module *, 2> &RtlModules,
-                           const intel::OptimizerConfig *pConfig)
+                           const intel::OptimizerConfig &pConfig)
     : Optimizer(pModule, RtlModules, pConfig) {
-  TargetMachine* targetMachine = pConfig->GetTargetMachine();
+  TargetMachine* targetMachine = pConfig.GetTargetMachine();
   assert(targetMachine && "Uninitialized TargetMachine!");
 
   unsigned int OptLevel = 3;
-  if (pConfig->GetDisableOpt())
+  if (pConfig.GetDisableOpt())
     OptLevel = 0;
   DPCPPForceOptnone = OptLevel == 0;
 
@@ -864,7 +864,7 @@ OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
       targetMachine->getTargetIRAnalysis()));
 
   // Add an appropriate TargetLibraryInfo pass for the module's triple.
-  TargetLibraryInfoImpl TLII(Triple(pModule->getTargetTriple()));
+  TargetLibraryInfoImpl TLII(Triple(pModule.getTargetTriple()));
   m_PM.add(new TargetLibraryInfoWrapperPass(TLII));
 
   auto materializerPM = [this]() {
@@ -874,7 +874,7 @@ OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
     m_PM.add(llvm::createBuiltinLibInfoAnalysisLegacyPass(m_RtlModules));
     m_PM.add(createBuiltinLibInfoPass(m_RtlModules, ""));
     m_PM.add(createDPCPPEqualizerLegacyPass());
-    Triple TargetTriple(m_M->getTargetTriple());
+    Triple TargetTriple(m_M.getTargetTriple());
     if (!m_IsEyeQEmulator && TargetTriple.isArch64Bit()) {
       if (TargetTriple.isOSLinux())
         m_PM.add(createCoerceTypesLegacyPass());
@@ -927,10 +927,10 @@ private:
 };
 
 void OptimizerOCL::Optimize(llvm::raw_ostream &LogStream) {
-  m_M->getContext().setDiagnosticHandler(
+  m_M.getContext().setDiagnosticHandler(
       std::make_unique<OCLDiagnosticHandler>(LogStream));
 
-  m_PM.run(*m_M);
+  m_PM.run(m_M);
 
   // if there are still unsupported recursive calls after standard LLVM
   // optimizations applied, compilation will report failure.
@@ -951,21 +951,21 @@ void OptimizerOCL::Optimize(llvm::raw_ostream &LogStream) {
   }
 }
 
-Optimizer::Optimizer(llvm::Module *M,
+Optimizer::Optimizer(llvm::Module &M,
                      llvm::SmallVector<llvm::Module *, 2> &RtlModules,
-                     const intel::OptimizerConfig *Config)
-    : m_M(M), m_RtlModules(RtlModules), Config(Config),
-      m_IsSPIRV(CompilationUtils::generatedFromSPIRV(*M)),
-      m_IsSYCL(DPCPPKernelCompilationUtils::isGeneratedFromOCLCPP(*M)),
-      m_IsOMP(DPCPPKernelCompilationUtils::isGeneratedFromOMP(*M)),
-      m_IsFpgaEmulator(Config->isFpgaEmulator()),
-      m_IsEyeQEmulator(Config->isEyeQEmulator()) {
-  assert(Config && Config->GetCpuId() && "Invalid OptimizerConfig");
-  CPUPrefix = Config->GetCpuId()->GetCPUPrefix();
-  m_IsOcl20 = CompilationUtils::fetchCLVersionFromMetadata(*M) >=
+                     const intel::OptimizerConfig &OptConfig)
+    : m_M(M), m_RtlModules(RtlModules), Config(OptConfig),
+      m_IsSPIRV(CompilationUtils::generatedFromSPIRV(M)),
+      m_IsSYCL(DPCPPKernelCompilationUtils::isGeneratedFromOCLCPP(M)),
+      m_IsOMP(DPCPPKernelCompilationUtils::isGeneratedFromOMP(M)),
+      m_IsFpgaEmulator(Config.isFpgaEmulator()),
+      m_IsEyeQEmulator(Config.isEyeQEmulator()) {
+  assert(Config.GetCpuId() && "Invalid optimizer config");
+  CPUPrefix = Config.GetCpuId()->GetCPUPrefix();
+  m_IsOcl20 = CompilationUtils::fetchCLVersionFromMetadata(M) >=
               OclVersion::CL_VER_2_0;
-  m_debugType = getDebuggingServiceType(Config->GetDebugInfoFlag(), M,
-                                        Config->GetUseNativeDebuggerFlag());
+  m_debugType = getDebuggingServiceType(Config.GetDebugInfoFlag(), &M,
+                                        Config.GetUseNativeDebuggerFlag());
   m_UseTLSGlobals = (m_debugType == intel::Native) && !m_IsEyeQEmulator;
 }
 
@@ -999,10 +999,9 @@ bool Optimizer::hasFPGAChannelsWithDepthIgnored() const {
 }
 
 std::vector<std::string> Optimizer::GetInvalidGlobals(InvalidGVType Ty) const {
-  assert(m_M && "Module is nullptr");
   std::vector<std::string> Res;
 
-  for (auto &GV : m_M->globals()) {
+  for (auto &GV : m_M.globals()) {
     auto GVM = DPCPPKernelMetadataAPI::GlobalVariableMetadataAPI(&GV);
 
     switch (Ty) {
@@ -1020,10 +1019,9 @@ std::vector<std::string> Optimizer::GetInvalidGlobals(InvalidGVType Ty) const {
 
 std::vector<std::string>
 Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) const {
-  assert(m_M && "Module is NULL");
   std::vector<std::string> Res;
 
-  for (auto &F : *m_M) {
+  for (auto &F : m_M) {
     auto KMD = DPCPPKernelMetadataAPI::FunctionMetadataAPI(&F);
 
     bool Invalid = false;

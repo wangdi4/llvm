@@ -59,15 +59,15 @@ namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
 
-OptimizerLTO::OptimizerLTO(Module *M, SmallVector<Module *, 2> &RtlModuleList,
-                           const intel::OptimizerConfig *Config,
+OptimizerLTO::OptimizerLTO(Module &M, SmallVector<Module *, 2> &RtlModuleList,
+                           const intel::OptimizerConfig &Config,
                            bool DebugPassManager)
     : Optimizer(M, RtlModuleList, Config), DebugPassManager(DebugPassManager) {}
 
 OptimizerLTO::~OptimizerLTO() {}
 
 void OptimizerLTO::Optimize(raw_ostream &LogStream) {
-  TargetMachine *TM = Config->GetTargetMachine();
+  TargetMachine *TM = Config.GetTargetMachine();
   assert(TM && "Uninitialized TargetMachine!");
 
   PipelineTuningOptions PTO;
@@ -94,7 +94,7 @@ void OptimizerLTO::Optimize(raw_ostream &LogStream) {
 
   // Register the target library analysis directly and give it a customized
   // preset TLI.
-  Triple TargetTriple(m_M->getTargetTriple());
+  Triple TargetTriple(m_M.getTargetTriple());
   TLII.reset(new TargetLibraryInfoImpl(TargetTriple));
   FAM.registerPass([&] { return TargetLibraryAnalysis(*TLII); });
 
@@ -114,16 +114,16 @@ void OptimizerLTO::Optimize(raw_ostream &LogStream) {
 
   ModulePassManager MPM;
 
-  if (Config->GetDisableOpt())
+  if (Config.GetDisableOpt())
     MPM = PB.buildO0DefaultPipeline(OptimizationLevel::O0);
   else
     MPM = PB.buildPerModuleDefaultPipeline(OptimizationLevel::O3);
 
-  DPCPPForceOptnone = Config->GetDisableOpt();
+  DPCPPForceOptnone = Config.GetDisableOpt();
 
   registerLastPasses(MPM);
 
-  MPM.run(*m_M, MAM);
+  MPM.run(m_M, MAM);
 }
 
 void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
@@ -143,7 +143,7 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
               DPCPPKernelCompilationUtils::ADDRESS_SPACE_GENERIC)));
 
         MPM.addPass(DPCPPEqualizerPass());
-        Triple TargetTriple(m_M->getTargetTriple());
+        Triple TargetTriple(m_M.getTargetTriple());
         if (TargetTriple.isArch64Bit() && TargetTriple.isOSWindows())
           MPM.addPass(CoerceWin64TypesPass());
         MPM.addPass(DuplicateCalledKernelsPass());
@@ -192,13 +192,13 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
                                             OptimizationLevel Level) {
     MPM.addPass(
         ResolveSubGroupWICallPass(m_RtlModules, /*ResolveSGBarrier*/ false));
-    if (Level != OptimizationLevel::O0 && Config->GetStreamingAlways())
+    if (Level != OptimizationLevel::O0 && Config.GetStreamingAlways())
       MPM.addPass(createModuleToFunctionPassAdaptor(AddNTAttrPass()));
     MPM.addPass(DPCPPKernelWGLoopCreatorPass());
 
     // Can't run loop unroll between WGLoopCreator and LoopIdiom for scalar
     // workload, which would can from LoopIdiom.
-    if (Level != OptimizationLevel::O0 && Config->GetTransposeSize() != 1) {
+    if (Level != OptimizationLevel::O0 && Config.GetTransposeSize() != 1) {
       LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
       UnrollOpts.setPartial(false);
       UnrollOpts.setRuntime(true);
@@ -212,7 +212,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       MPM.addPass(AddTLSGlobalsPass());
     else
       MPM.addPass(AddImplicitArgsPass());
-    MPM.addPass(ResolveWICallPass(Config->GetUniformWGSize(), m_UseTLSGlobals));
+    MPM.addPass(ResolveWICallPass(Config.GetUniformWGSize(), m_UseTLSGlobals));
     MPM.addPass(LocalBuffersPass(m_UseTLSGlobals));
     MPM.addPass(BuiltinImportPass(m_RtlModules, CPUPrefix));
     if (Level != OptimizationLevel::O0)
