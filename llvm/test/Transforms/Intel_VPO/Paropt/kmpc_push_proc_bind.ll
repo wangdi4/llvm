@@ -34,14 +34,14 @@ entry:
   %i9 = alloca i32, align 4
   store i32 0, i32* %retval, align 4
 
-; CHECK: call void @__kmpc_push_proc_kind(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 2)
+; CHECK: call void @__kmpc_push_proc_bind(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 2)
 
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.PROC_BIND.MASTER"() ]
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ]
   store i32 0, i32* %.omp.lb, align 4
   store i32 999, i32* %.omp.ub, align 4
 
-; CHECK: call void @__kmpc_push_proc_kind(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 3)
+; CHECK: call void @__kmpc_push_proc_bind(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 3)
 
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.PROC_BIND.CLOSE"(), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
   %2 = load i32, i32* %.omp.lb, align 4
@@ -78,7 +78,7 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
   store i32 0, i32* %.omp.lb4, align 4
   store i32 999, i32* %.omp.ub5, align 4
 
-; CHECK: call void @__kmpc_push_proc_kind(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 4)
+; CHECK: call void @__kmpc_push_proc_bind(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 4)
 
   %7 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.PROC_BIND.SPREAD"(), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv3), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb4), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub5), "QUAL.OMP.PRIVATE"(i32* %i9) ]
   %8 = load i32, i32* %.omp.lb4, align 4
@@ -113,7 +113,7 @@ omp.inner.for.end15:                              ; preds = %omp.inner.for.cond6
 omp.loop.exit16:                                  ; preds = %omp.inner.for.end15
   call void @llvm.directive.region.exit(token %7) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() ]
 
-; CHECK-NOT: call void @__kmpc_push_proc_kind(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 0)
+; CHECK-NOT: call void @__kmpc_push_proc_bind(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 0)
 
   %13 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"() ]
   call void @llvm.directive.region.exit(token %13) [ "DIR.OMP.END.PARALLEL"() ]

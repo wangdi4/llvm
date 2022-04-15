@@ -869,9 +869,9 @@ public:
                             LoopInfo *LI, bool IsTargetSPIRV,
                             const StringRef LockNameSuffix);
 
-  /// Emits a call to __kmpc_push_proc_kind(LOC, TID, i32 policy), where
+  /// Emits a call to __kmpc_push_proc_bind(LOC, TID, i32 policy), where
   /// policy is: 2 for MASTER - 3 for CLOSE - 4 for SPREAD.
-  static CallInst *genKmpcPushProcKindCall(WRegionNode *W, StructType *IdentTy,
+  static CallInst *genKmpcPushProcBindCall(WRegionNode *W, StructType *IdentTy,
                                            Value *TidPtr,
                                            Instruction *InsertPt);
 
