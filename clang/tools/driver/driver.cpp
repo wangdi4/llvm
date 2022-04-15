@@ -359,9 +359,6 @@ static int ExecuteCC1Tool(SmallVectorImpl<const char *> &ArgV) {
 int main(int Argc, const char **Argv) {
   noteBottomOfStack();
   llvm::InitLLVM X(Argc, Argv);
-  llvm::setBugReportMsg("PLEASE submit a bug report to " BUG_REPORT_URL
-                        " and include the crash backtrace, preprocessed "
-                        "source, and associated run script.\n");
   SmallVector<const char *, 256> Args(Argv, Argv + Argc);
 
   if (llvm::sys::Process::FixupStandardFileDescriptors())
@@ -381,6 +378,15 @@ int main(int Argc, const char **Argv) {
   // response files written by clang will tokenize the same way in either mode.
   bool ClangCLMode =
       IsClangCL(getDriverMode(Args[0], llvm::makeArrayRef(Args).slice(1)));
+#if INTEL_CUSTOMIZATION
+  std::string Msg("PLEASE append the compiler options ");
+  Msg += ClangCLMode ? "\"/Qsave-temps -v\"" : "\"-save-temps -v\"";
+  Msg += ", rebuild the application to to get the full command which is "
+         "failing and submit a bug report to " BUG_REPORT_URL " which includes "
+         "the failing command, input files for the command and the crash "
+         "backtrace (if any).\n";
+  llvm::setBugReportMsg(Msg.c_str());
+#endif // INTEL_CUSTOMIZATION
   enum { Default, POSIX, Windows } RSPQuoting = Default;
   for (const char *F : Args) {
     if (strcmp(F, "--rsp-quoting=posix") == 0)
