@@ -35,7 +35,6 @@ define void @test() {
 ; AVX2:  LV: Found an estimated cost of 24 for VF 16 For instruction: %v0 = load double, ptr %in0, align 8
 ; AVX2:  LV: Found an estimated cost of 48 for VF 32 For instruction: %v0 = load double, ptr %in0, align 8
 ;
-<<<<<<< HEAD
 ; AVX512: LV: Found an estimated cost of 1 for VF 1 For instruction:   %v0 = load double, double* %in0, align 8
 ; AVX512: LV: Found an estimated cost of 3 for VF 2 For instruction:   %v0 = load double, double* %in0, align 8
 ; AVX512: LV: Found an estimated cost of 3 for VF 4 For instruction:   %v0 = load double, double* %in0, align 8
@@ -47,7 +46,6 @@ define void @test() {
 ; AVX512: LV: Found an estimated cost of 32 for VF 32 For instruction:   %v0 = load double, double* %in0, align 8
 ; AVX512: LV: Found an estimated cost of 64 for VF 64 For instruction:   %v0 = load double, double* %in0, align 8
 ; end INTEL_CUSTOMIZATION
-=======
 ; AVX512-LABEL: 'test'
 ; AVX512:  LV: Found an estimated cost of 1 for VF 1 For instruction: %v0 = load double, ptr %in0, align 8
 ; AVX512:  LV: Found an estimated cost of 3 for VF 2 For instruction: %v0 = load double, ptr %in0, align 8
@@ -56,7 +54,6 @@ define void @test() {
 ; AVX512:  LV: Found an estimated cost of 22 for VF 16 For instruction: %v0 = load double, ptr %in0, align 8
 ; AVX512:  LV: Found an estimated cost of 80 for VF 32 For instruction: %v0 = load double, ptr %in0, align 8
 ; AVX512:  LV: Found an estimated cost of 160 for VF 64 For instruction: %v0 = load double, ptr %in0, align 8
->>>>>>> be5c15c7aee1ef4964c88031555ed6b0f59ebc23
 ;
 entry:
   br label %for.body

@@ -35,7 +35,6 @@ define void @test() {
 ; AVX2:  LV: Found an estimated cost of 40 for VF 16 For instruction: %v0 = load i32, ptr %in0, align 4
 ; AVX2:  LV: Found an estimated cost of 84 for VF 32 For instruction: %v0 = load i32, ptr %in0, align 4
 ;
-<<<<<<< HEAD
 ; AVX512: LV: Found an estimated cost of 1 for VF 1 For instruction:   %v0 = load i32, i32* %in0, align 4
 ; AVX512: LV: Found an estimated cost of 5 for VF 2 For instruction:   %v0 = load i32, i32* %in0, align 4
 ; AVX512: LV: Found an estimated cost of 5 for VF 4 For instruction:   %v0 = load i32, i32* %in0, align 4
@@ -46,15 +45,6 @@ define void @test() {
 ; That affects LV selection between Interleaving, Gather/Scatter or Scalarization.
 ; AVX512: LV: Found an estimated cost of 64 for VF 32 For instruction:   %v0 = load i32, i32* %in0, align 4
 ; end INTEL_CUSTOMIZATION
-=======
-; AVX512-LABEL: 'test'
-; AVX512:  LV: Found an estimated cost of 1 for VF 1 For instruction: %v0 = load i32, ptr %in0, align 4
-; AVX512:  LV: Found an estimated cost of 5 for VF 2 For instruction: %v0 = load i32, ptr %in0, align 4
-; AVX512:  LV: Found an estimated cost of 5 for VF 4 For instruction: %v0 = load i32, ptr %in0, align 4
-; AVX512:  LV: Found an estimated cost of 8 for VF 8 For instruction: %v0 = load i32, ptr %in0, align 4
-; AVX512:  LV: Found an estimated cost of 22 for VF 16 For instruction: %v0 = load i32, ptr %in0, align 4
-; AVX512:  LV: Found an estimated cost of 92 for VF 32 For instruction: %v0 = load i32, ptr %in0, align 4
->>>>>>> be5c15c7aee1ef4964c88031555ed6b0f59ebc23
 ;
 entry:
   br label %for.body

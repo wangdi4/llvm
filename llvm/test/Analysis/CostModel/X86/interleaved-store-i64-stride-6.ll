@@ -29,7 +29,6 @@ define void @test() {
 ; AVX2:  LV: Found an estimated cost of 21 for VF 4 For instruction: store i64 %v5, ptr %out5, align 8
 ; AVX2:  LV: Found an estimated cost of 42 for VF 8 For instruction: store i64 %v5, ptr %out5, align 8
 ;
-<<<<<<< HEAD
 ; AVX512: LV: Found an estimated cost of 1 for VF 1 For instruction:   store i64 %v5, i64* %out5, align 8
 ; AVX512: LV: Found an estimated cost of 17 for VF 2 For instruction:   store i64 %v5, i64* %out5, align 8
 ; INTEL_CUSTOMIZATION
@@ -46,15 +45,6 @@ define void @test() {
 ; AVX512: LV: Found an estimated cost of 96 for VF 16 For instruction:   store i64 %v5, i64* %out5, align 8
 ; AVX512;: LV: Found an estimated cost of 204 for VF 32 For instruction:   store i64 %v5, i64* %out5, align 8
 ; end INTEL_CUSTOMIZATION
-=======
-; AVX512-LABEL: 'test'
-; AVX512:  LV: Found an estimated cost of 1 for VF 1 For instruction: store i64 %v5, ptr %out5, align 8
-; AVX512:  LV: Found an estimated cost of 17 for VF 2 For instruction: store i64 %v5, ptr %out5, align 8
-; AVX512:  LV: Found an estimated cost of 25 for VF 4 For instruction: store i64 %v5, ptr %out5, align 8
-; AVX512:  LV: Found an estimated cost of 51 for VF 8 For instruction: store i64 %v5, ptr %out5, align 8
-; AVX512:  LV: Found an estimated cost of 102 for VF 16 For instruction: store i64 %v5, ptr %out5, align 8
-; AVX512:  LV: Found an estimated cost of 204 for VF 32 For instruction: store i64 %v5, ptr %out5, align 8
->>>>>>> be5c15c7aee1ef4964c88031555ed6b0f59ebc23
 ;
 entry:
   br label %for.body
