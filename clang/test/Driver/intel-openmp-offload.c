@@ -370,6 +370,7 @@
 
 /// OpenMP offloading with LTO should produce objects for device
 // RUN: %clangxx -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=x86_64 -flto %s 2>&1 \
+// RUN: %clangxx -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=x86_64 -fast %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=LTO_OBJ_CHECK %s
 // LTO_OBJ_CHECK: clang{{.*}} "-triple" "x86_64"{{.*}} "-emit-obj"
 
