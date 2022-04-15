@@ -235,24 +235,6 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 #define OFFLOADSECTIONNAME "omp_offloading_entries"
 
-//#pragma OPENCL EXTENSION cl_khr_spir : enable
-
-// Get memory attributes for the given allocation size.
-static std::unique_ptr<std::vector<cl_mem_properties_intel>>
-getAllocMemProperties(size_t Size, cl_ulong MaxSize) {
-  std::vector<cl_mem_properties_intel> Properties;
-#if INTEL_CUSTOMIZATION
-  if (Size > MaxSize) {
-    Properties.push_back(CL_MEM_FLAGS_INTEL);
-    Properties.push_back(CL_MEM_ALLOW_UNRESTRICTED_SIZE_INTEL);
-  }
-#endif // INTEL_CUSTOMIZATION
-  Properties.push_back(0);
-
-  return std::make_unique<std::vector<cl_mem_properties_intel>>(
-      std::move(Properties));
-}
-
 class KernelInfoTy {
   uint32_t Version = 0;
   uint64_t Attributes1 = 0;
@@ -1454,6 +1436,10 @@ public:
   const KernelInfoTy *
       getKernelInfo(int32_t DeviceId, const cl_kernel &Kernel) const;
 
+  /// Get memory allocation properties to be used in memory allocation
+  std::unique_ptr<std::vector<cl_mem_properties_intel>>
+  getAllocMemProperties(int32_t DeviceId, size_t Size);
+
 #if INTEL_CUSTOMIZATION
   /// Check if the device is discrete.
   bool isDiscreteDevice(int32_t DeviceId) const;
@@ -1784,6 +1770,24 @@ const KernelInfoTy *RTLDeviceInfoTy::getKernelInfo(
 
   return nullptr;
 }
+
+// Get memory attributes for the given allocation size.
+std::unique_ptr<std::vector<cl_mem_properties_intel>>
+RTLDeviceInfoTy::getAllocMemProperties(int32_t DeviceId, size_t Size) {
+  std::vector<cl_mem_properties_intel> Properties;
+  size_t MaxSize = MaxMemAllocSize[DeviceId];
+#if INTEL_CUSTOMIZATION
+  if (Option.DeviceType == CL_DEVICE_TYPE_GPU && Size > MaxSize) {
+    Properties.push_back(CL_MEM_FLAGS_INTEL);
+    Properties.push_back(CL_MEM_ALLOW_UNRESTRICTED_SIZE_INTEL);
+  }
+#endif // INTEL_CUSTOMIZATION
+  Properties.push_back(0);
+
+  return std::make_unique<std::vector<cl_mem_properties_intel>>(
+      std::move(Properties));
+}
+
 #if INTEL_CUSTOMIZATION
 bool RTLDeviceInfoTy::isDiscreteDevice(int32_t DeviceId) const {
   switch (DeviceArchs[DeviceId]) {
@@ -2542,7 +2546,6 @@ static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *HstPtr,
   void *Base = nullptr;
   auto Context = DeviceInfo->getContext(DeviceId);
   size_t AllocSize = MeaningfulSize + MeaningfulOffset;
-  auto MaxSize = DeviceInfo->MaxMemAllocSize[DeviceId];
   int32_t AllocKind = TARGET_ALLOC_DEVICE;
 
   ProfileIntervalTy DataAllocTimer("DataAlloc", DeviceId);
@@ -2560,9 +2563,9 @@ static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *HstPtr,
       return nullptr;
     }
     cl_int RC;
+    auto AllocProp = DeviceInfo->getAllocMemProperties(DeviceId, AllocSize);
     CALL_CL_EXT_RVRC(DeviceId, Base, clDeviceMemAllocINTEL, RC, Context,
-                     DeviceInfo->Devices[DeviceId],
-                     getAllocMemProperties(AllocSize, MaxSize)->data(),
+                     DeviceInfo->Devices[DeviceId], AllocProp->data(),
                      AllocSize, Align);
     if (RC != CL_SUCCESS)
       return nullptr;
@@ -2593,10 +2596,10 @@ static void *dataAllocExplicit(
   auto Context = DeviceInfo->getContext(DeviceId);
   cl_int RC;
   void *Mem = nullptr;
-  auto MaxSize = DeviceInfo->MaxMemAllocSize[DeviceId];
   ProfileIntervalTy DataAllocTimer("DataAlloc", DeviceId);
   DataAllocTimer.start();
   auto ID = DeviceId;
+  auto AllocProp = DeviceInfo->getAllocMemProperties(DeviceId, Size);
 
   switch (Kind) {
   case TARGET_ALLOC_DEVICE:
@@ -2612,7 +2615,7 @@ static void *dataAllocExplicit(
       return nullptr;
     }
     CALL_CL_EXT_RVRC(DeviceId, Mem, clHostMemAllocINTEL, RC, Context,
-                     getAllocMemProperties(Size, MaxSize)->data(), Size, Align);
+                     AllocProp->data(), Size, Align);
     if (Mem) {
       DeviceInfo->MemAllocInfo[ID]->add(
           Mem, Mem, Size, Kind, false /* InPool */, true /* IsImplicitArg */);
@@ -2626,7 +2629,7 @@ static void *dataAllocExplicit(
       return nullptr;
     }
     CALL_CL_EXT_RVRC(DeviceId, Mem, clSharedMemAllocINTEL, RC, Context, Device,
-                     getAllocMemProperties(Size, MaxSize)->data(), Size, Align);
+                     AllocProp->data(), Size, Align);
     if (Mem) {
       DeviceInfo->MemAllocInfo[ID]->add(
           Mem, Mem, Size, Kind, false /* InPool */, true /* IsImplicitArg */);
@@ -3988,12 +3991,11 @@ EXTERN int32_t __tgt_rtl_set_function_ptr_map(
   // and transfer the host map to the allocated memory.
   size_t FnPtrMapSizeInBytes = Size * sizeof(__omp_offloading_fptr_map_t);
   void *FnPtrMapMem = nullptr;
+  auto AllocProp =
+      DeviceInfo->getAllocMemProperties(DeviceId, FnPtrMapSizeInBytes);
   CALL_CL_EXT_RVRC(DeviceId, FnPtrMapMem, clDeviceMemAllocINTEL, Rc,
                    DeviceInfo->getContext(DeviceId),
-                   DeviceInfo->Devices[DeviceId],
-                   getAllocMemProperties(
-                       FnPtrMapSizeInBytes,
-                       DeviceInfo->MaxMemAllocSize[DeviceId])->data(),
+                   DeviceInfo->Devices[DeviceId], AllocProp->data(),
                    FnPtrMapSizeInBytes, 0);
   if (Rc != CL_SUCCESS || !FnPtrMapMem)
     return OFFLOAD_FAIL;
@@ -4073,26 +4075,23 @@ EXTERN void *__tgt_rtl_alloc_per_hw_thread_scratch(
   // Only support USM
   cl_int RC;
   auto Context = DeviceInfo->getContext(DeviceId);
-  auto MaxSize = DeviceInfo->MaxMemAllocSize[DeviceId];
   auto Device = DeviceInfo->Devices[DeviceId];
   size_t AllocSize = ObjSize * NumHWThreads;
+  auto AllocProp = DeviceInfo->getAllocMemProperties(DeviceId, AllocSize);
 
   switch (AllocKind) {
   case TARGET_ALLOC_HOST:
     CALL_CL_EXT_RVRC(DeviceId, Mem, clHostMemAllocINTEL, RC, Context,
-                     getAllocMemProperties(AllocSize, MaxSize)->data(),
-                     AllocSize, 0 /* Align */);
+                     AllocProp->data(), AllocSize, 0 /* Align */);
     break;
   case TARGET_ALLOC_SHARED:
     CALL_CL_EXT_RVRC(DeviceId, Mem, clSharedMemAllocINTEL, RC, Context, Device,
-                     getAllocMemProperties(AllocSize, MaxSize)->data(),
-                     AllocSize, 0 /* Align */);
+                     AllocProp->data(), AllocSize, 0 /* Align */);
     break;
   case TARGET_ALLOC_DEVICE:
   default:
     CALL_CL_EXT_RVRC(DeviceId, Mem, clDeviceMemAllocINTEL, RC, Context, Device,
-                     getAllocMemProperties(AllocSize, MaxSize)->data(),
-                     AllocSize, 0 /* Align */);
+                     AllocProp->data(), AllocSize, 0 /* Align */);
   }
 
   if (RC != CL_SUCCESS) {
@@ -4585,8 +4584,7 @@ int32_t OpenCLProgramTy::initProgramData() {
 
   if (MemSize > 0) {
     cl_int RC;
-    auto MaxAlloc = DeviceInfo->MaxMemAllocSize[DeviceId];
-    auto AllocProp = getAllocMemProperties(MemSize, MaxAlloc);
+    auto AllocProp = DeviceInfo->getAllocMemProperties(DeviceId, MemSize);
     CALL_CL_EXT_RVRC(DeviceId, MemLB, clDeviceMemAllocINTEL, RC, Context,
                      Device, AllocProp->data(), MemSize, 0);
   }
