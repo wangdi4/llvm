@@ -1562,11 +1562,15 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
         LVP.insertAllZeroBypasses(cast<VPlanVector>(Plan), PlanDescr.getVF());
       }
 
-      // TODO: Unroller and SOA transform missing here.
+      // TODO: SOA transform missing here.
 
-      // Capture opt-report remarks for main VPLoop.
-      if (LpKind == CfgMergerPlanDescr::LoopType::LTMain)
+      if (LpKind == CfgMergerPlanDescr::LoopType::LTMain) {
+        // unroll is run on main loop only
+        if (auto *NonMaskedVPlan = dyn_cast<VPlanNonMasked>(Plan))
+          LVP.unroll(*NonMaskedVPlan);
+        // Capture opt-report remarks for main VPLoop.
         addOptReportRemarksForMainPlan(WRLp, PlanDescr);
+      }
 
       // Capture opt-report remarks for vectorized remainder loops.
       if (LpKind == CfgMergerPlanDescr::LoopType::LTRemainder &&
@@ -1604,9 +1608,9 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
     if (LoopIsHandled) {
       CandLoopsVectorized++;
-      // TODO: Is this placement of unroller correct? It is being run for the
-      // final VPlan before CG. Potentially problematic for merged CFG.
-      LVP.unroll(*cast<VPlanNonMasked>(Plan));
+      // When CFG merger is not enabled run unroller here.
+      if (LVP.mergerVPlans().empty())
+        LVP.unroll(*cast<VPlanNonMasked>(Plan));
       bool treeConflictsLowered =
           lowerTreeConflictsToDoublePermuteTreeReduction(Plan, VF, Fn);
       VCodeGen.setTreeConflictsLowered(treeConflictsLowered);
