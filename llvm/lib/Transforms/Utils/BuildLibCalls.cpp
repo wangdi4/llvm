@@ -1293,6 +1293,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_msvc_std_Xran:
     Changed |= setDoesNotReturn(F);
     return Changed;
+  case LibFunc_msvc_std_Xruntime_error:
+    return Changed;
   case LibFunc_msvc_std_numpunct_do_decimal_point:
   case LibFunc_msvc_std_numpunct_do_thousands_sep:
     Changed |= setDoesNotThrow(F);
