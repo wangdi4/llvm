@@ -960,8 +960,8 @@ static llvm::Triple computeTargetTriple(const Driver &D,
 static driver::LTOKind parseLTOMode(Driver &D, const llvm::opt::ArgList &Args,
                                     OptSpecifier OptEq, OptSpecifier OptNeg) {
 #if INTEL_CUSTOMIZATION
-  if (!Args.hasFlag(OptEq, OptNeg, false) && D.IsIntelMode() &&
-      Args.hasArgNoClaim(options::OPT_Ofast)) {
+  if (OptEq == options::OPT_flto_EQ && !Args.hasFlag(OptEq, OptNeg, false) &&
+      D.IsIntelMode() && Args.hasArgNoClaim(options::OPT_Ofast)) {
     driver::LTOKind LTOMode = LTOK_None;
     // When dealing with -fast, the behavior is the same as -Ofast, except
     // that -flto is implied
