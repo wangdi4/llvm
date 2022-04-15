@@ -40,9 +40,9 @@ namespace OpenCL {
 namespace DeviceBackend {
 
 OptimizerLTOLegacyPM::OptimizerLTOLegacyPM(
-    Module *M, SmallVector<Module *, 2> &RtlModuleList,
-    const intel::OptimizerConfig *Config)
-    : Optimizer(M, RtlModuleList, Config), FPM(M) {
+    Module &M, SmallVector<Module *, 2> &RtlModuleList,
+    const intel::OptimizerConfig &Config)
+    : Optimizer(M, RtlModuleList, Config), FPM(&M) {
   CreatePasses();
 }
 
@@ -50,14 +50,14 @@ OptimizerLTOLegacyPM::~OptimizerLTOLegacyPM() {}
 
 /// Ported from clang EmitAssemblyHelper::CreatePasses.
 void OptimizerLTOLegacyPM::CreatePasses() {
-  TargetMachine *TM = Config->GetTargetMachine();
+  TargetMachine *TM = Config.GetTargetMachine();
   assert(TM && "Uninitialized TargetMachine!");
 
-  Triple TargetTriple(m_M->getTargetTriple());
+  Triple TargetTriple(m_M.getTargetTriple());
   TLII.reset(new TargetLibraryInfoImpl(TargetTriple));
   PassManagerBuilder PMBuilder;
 
-  PMBuilder.OptLevel = Config->GetDisableOpt() ? 0 : 3;
+  PMBuilder.OptLevel = Config.GetDisableOpt() ? 0 : 3;
   PMBuilder.SizeLevel = 0;
   PMBuilder.SLPVectorize = false;
   PMBuilder.LoopVectorize = false;
@@ -128,7 +128,7 @@ void OptimizerLTOLegacyPM::registerPipelineStartCallback(
         MPM.add(createParseAnnotateAttributesPass());
         MPM.add(createBuiltinLibInfoAnalysisLegacyPass(m_RtlModules));
         MPM.add(createDPCPPEqualizerLegacyPass());
-        Triple TargetTriple(m_M->getTargetTriple());
+        Triple TargetTriple(m_M.getTargetTriple());
         if (TargetTriple.isArch64Bit() && TargetTriple.isOSWindows())
           MPM.add(createCoerceWin64TypesLegacyPass());
         MPM.add(createDuplicateCalledKernelsLegacyPass());
@@ -163,7 +163,7 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
         }
 
         VectorVariant::ISAClass ISA =
-            Intel::VectorizerCommon::getCPUIdISA(Config->GetCpuId());
+            Intel::VectorizerCommon::getCPUIdISA(Config.GetCpuId());
 
         MPM.add(createDPCPPKernelAnalysisLegacyPass());
         MPM.add(createWGLoopBoundariesLegacyPass());
@@ -171,7 +171,7 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
         MPM.add(createCFGSimplificationPass());
         MPM.add(createDeduceMaxWGDimLegacyPass());
         MPM.add(createInstToFuncCallLegacyPass(ISA));
-        if (Config->GetTransposeSize() == 1)
+        if (Config.GetTransposeSize() == 1)
           return;
 
         MPM.add(createSinCosFoldLegacyPass());
@@ -211,7 +211,7 @@ void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
 void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
                                              legacy::PassManagerBase &MPM) {
   if (OptLevel > 0) {
-    if (Config->GetTransposeSize() != 1) {
+    if (Config.GetTransposeSize() != 1) {
       MPM.add(createDPCPPKernelPostVecPass());
       MPM.add(createVPODirectiveCleanupPass());
       MPM.add(createHandleVPlanMaskLegacyPass(&getVPlanMaskedFuncs()));
@@ -223,13 +223,13 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
   }
   MPM.add(createResolveSubGroupWICallLegacyPass(m_RtlModules,
                                                 /*ResolveSGBarrier*/ false));
-  if (OptLevel > 0 && Config->GetStreamingAlways())
+  if (OptLevel > 0 && Config.GetStreamingAlways())
     MPM.add(createAddNTAttrLegacyPass());
   MPM.add(createDPCPPKernelWGLoopCreatorLegacyPass());
 
   // Can't run loop unroll between WGLoopCreator and LoopIdiom for scalar
   // workload, which can benefit from LoopIdiom.
-  if (OptLevel > 0 && Config->GetTransposeSize() != 1)
+  if (OptLevel > 0 && Config.GetTransposeSize() != 1)
     MPM.add(createLoopUnrollPass(OptLevel, false, false, 24, 0, 0, 1));
 
   // Resolve __intel_indirect_call for scalar kernels.
@@ -243,7 +243,7 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
     MPM.add(createAddTLSGlobalsLegacyPass());
   else
     MPM.add(createAddImplicitArgsLegacyPass());
-  MPM.add(createResolveWICallLegacyPass(Config->GetUniformWGSize(),
+  MPM.add(createResolveWICallLegacyPass(Config.GetUniformWGSize(),
                                         m_UseTLSGlobals));
   MPM.add(createLocalBuffersLegacyPass(m_UseTLSGlobals));
   MPM.add(createBuiltinImportLegacyPass(m_RtlModules, CPUPrefix));
@@ -331,16 +331,16 @@ void OptimizerLTOLegacyPM::registerLastPasses(PassManagerBuilder &PMBuilder) {
 }
 
 void OptimizerLTOLegacyPM::Optimize(raw_ostream &LogStream) {
-  MaterializerMPM.run(*m_M);
+  MaterializerMPM.run(m_M);
 
   FPM.doInitialization();
-  for (Function &F : *m_M) {
+  for (Function &F : m_M) {
     if (!F.isDeclaration())
       FPM.run(F);
   }
   FPM.doFinalization();
 
-  MPM.run(*m_M);
+  MPM.run(m_M);
 }
 
 } // namespace DeviceBackend
