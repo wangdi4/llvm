@@ -17,6 +17,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LoopStridedCodeMotion.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
@@ -290,6 +291,31 @@ void LoopStridedCodeMotionImpl::createPhiIncrementors(Instruction *I) {
   WIInfo.setValStrided(PN, dyn_cast<Constant>(Stride));
 }
 
+/// Return true if all users of I are ICmp/ExtractElement/Assume instructions.
+static bool IsVectorAssume(Instruction *I) {
+  ICmpInst *CmpUser;
+  if (!I->hasOneUse() || !(CmpUser = dyn_cast<ICmpInst>(*I->user_begin())))
+    return false;
+  using namespace llvm::PatternMatch;
+  CmpInst::Predicate Pred;
+  Constant *C;
+  if (!match(CmpUser, m_ICmp(Pred, m_Specific(I), m_Constant(C))) ||
+      Pred != ICmpInst::ICMP_ULT)
+    return false;
+  if (!dyn_cast<ConstantDataVector>(C) ||
+      C->getUniqueInteger() !=
+          ((uint64_t)std::numeric_limits<int32_t>::max() + 1ULL))
+    return false;
+
+  return llvm::all_of(CmpUser->users(), [](User *U) {
+    auto *EEI = dyn_cast<ExtractElementInst>(U);
+    if (!EEI || !EEI->hasOneUse())
+      return false;
+    return match(*EEI->user_begin(),
+                 m_Intrinsic<Intrinsic::assume>(m_Specific(EEI)));
+  });
+}
+
 bool LoopStridedCodeMotionImpl::canHoistInstruction(Instruction *I) {
   // Can move strided values or their intermediates.
   if (!WIInfo.isStrided(I) && !WIInfo.isStridedIntermediate(I)) {
@@ -323,6 +349,10 @@ bool LoopStridedCodeMotionImpl::canHoistInstruction(Instruction *I) {
       return false;
     }
   }
+
+  // Don't hoise If I is for llvm.assume usage.
+  if (IsVectorAssume(I))
+    return false;
 
   LLVM_DEBUG(dbgs() << "Can hoist " << *I << "\n");
 
