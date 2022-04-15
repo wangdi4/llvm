@@ -29,6 +29,11 @@
 // system macro (e.g. "linux").
 // RUN: %clangxx_memprof  %s -o %t -DPROFILE_NAME_VAR="/INVALID"
 // RUN: not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK-INVALID --dump-input=always
+//
+// INTEL_CUSTOMIZATION
+// log_path is not supported running in docker with root
+// XFAIL: *
+// end INTEL_CUSTOMIZATION
 
 #include <sanitizer/memprof_interface.h>
 
