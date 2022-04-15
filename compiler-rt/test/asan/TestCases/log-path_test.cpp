@@ -37,6 +37,11 @@
 // FIXME: log_path is not supported on Windows yet.
 // XFAIL: windows-msvc
 
+// INTEL_CUSTOMIZATION
+// log_path is not supported running in docker with root
+// XFAIL: *
+// end INTEL_CUSTOMIZATION
+
 #include <stdlib.h>
 #include <string.h>
 int main(int argc, char **argv) {
