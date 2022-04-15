@@ -990,11 +990,6 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
     addIntelLib("-lsvml", ToolChain, CmdArgs, Args);
     addIntelLib("-lirng", ToolChain, CmdArgs, Args);
-    if (const Arg *A = Args.getLastArg(options::OPT_intel_debug_Group))
-      if (StringRef(A->getValue()) == "parallel") {
-        addIntelLib("-lpdbx", ToolChain, CmdArgs, Args);
-        addIntelLib("-lpdbxinst", ToolChain, CmdArgs, Args);
-      }
     if (Args.hasFlag(options::OPT_qopt_matmul, options::OPT_qno_opt_matmul,
                      false))
       addIntelLib("-lmatmul", ToolChain, CmdArgs, Args);
