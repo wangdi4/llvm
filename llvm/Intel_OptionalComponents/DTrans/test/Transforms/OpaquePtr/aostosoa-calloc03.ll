@@ -66,7 +66,7 @@ define void @test01(i64 %some_val) {
 ; CHECK-NONOPAQUE: store i64** %[[FIELD3_ADDR_CAST:[0-9]+]], i64*** getelementptr inbounds (%__SOA_struct.test01, %__SOA_struct.test01* @__soa_struct.test01, i64 0, i32 3), align 8
 
 ; CHECK-OPAQUE: %[[FIELD0_ADDR:[0-9]+]] = getelementptr i8, ptr %mem, i64 0
-; CHECK-OPAQUE: store ptr %[[FIELD0_ADDR]], ptr getelementptr inbounds (%__SOA_struct.test01, ptr @__soa_struct.test01, i64 0, i32 0)
+; CHECK-OPAQUE: store ptr %[[FIELD0_ADDR]], ptr @__soa_struct.test01
 ; CHECK-OPAQUE: %[[FIELD0_SIZE:[0-9]+]] = mul i64 %[[ALLOC_COUNT]], 2
 ; CHECK-OPAQUE: %[[FIELD1_ALIGN_STEP1:[0-9]+]] = add i64 %[[FIELD0_SIZE]], 7
 ; CHECK-OPAQUE: %[[FIELD1_ALIGN_STEP2:[0-9]+]] = sdiv i64 %[[FIELD1_ALIGN_STEP1]], 8

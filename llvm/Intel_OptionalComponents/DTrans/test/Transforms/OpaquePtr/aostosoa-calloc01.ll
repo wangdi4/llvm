@@ -49,9 +49,9 @@ define void @test01() {
 ; CHECK-NONOPAQUE: %[[FIELD2_PTR:[0-9]+]] = bitcast i8* %[[FIELD2_ADDR]] to i64**
 ; CHECK-NONOPAQUE: store i64** %[[FIELD2_PTR]], i64*** getelementptr inbounds (%__SOA_struct.test01, %__SOA_struct.test01* @__soa_struct.test01, i64 0, i32 2), align 8
 
-; CHECK-OPAQUE: %annot_alloc = call ptr @llvm.ptr.annotation.p0(ptr %mem, ptr getelementptr inbounds ([38 x i8], ptr @__intel_dtrans_aostosoa_alloc, i32 0, i32 0), ptr getelementptr inbounds ([1 x i8], ptr @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, ptr null)
+; CHECK-OPAQUE: %annot_alloc = call ptr @llvm.ptr.annotation.p0(ptr %mem, ptr @__intel_dtrans_aostosoa_alloc, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK-OPAQUE: %[[FIELD0_ADDR:[0-9]+]] = getelementptr i8, ptr %mem, i64 0
-; CHECK-OPAQUE: store ptr %[[FIELD0_ADDR]], ptr getelementptr inbounds (%__SOA_struct.test01, ptr @__soa_struct.test01, i64 0, i32 0), align 8
+; CHECK-OPAQUE: store ptr %[[FIELD0_ADDR]], ptr @__soa_struct.test01, align 8
 ; CHECK-OPAQUE: %[[FIELD1_ADDR:[0-9]+]] = getelementptr i8, ptr %mem, i64 88
 ; CHECK-OPAQUE: store ptr %[[FIELD1_ADDR]], ptr getelementptr inbounds (%__SOA_struct.test01, ptr @__soa_struct.test01, i64 0, i32 1), align 8
 ; CHECK-OPAQUE: %[[FIELD2_ADDR:[0-9]+]] = getelementptr i8, ptr %mem, i64 176
@@ -67,7 +67,7 @@ define void @test01() {
 
 ; CHECK-NONOPAQUE: %alloc_idx = call i64* @llvm.ptr.annotation.p0i64(i64* getelementptr inbounds (%__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @glob, i64 0, i32 1), i8* getelementptr inbounds ([33 x i8], [33 x i8]* @__intel_dtrans_aostosoa_index, i32 0, i32 0), i8* getelementptr inbounds ([1 x i8], [1 x i8]* @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, i8* null)
 ; CHECK-NONOPAQUE: store i64 1, i64* getelementptr inbounds (%__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @glob, i64 0, i32 1)
-; CHECK-OPAQUE: %alloc_idx = call ptr @llvm.ptr.annotation.p0(ptr getelementptr inbounds (%__SOADT_struct.test01dep, ptr @glob, i64 0, i32 1), ptr getelementptr inbounds ([33 x i8], ptr @__intel_dtrans_aostosoa_index, i32 0, i32 0), ptr getelementptr inbounds ([1 x i8], ptr @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, ptr null)
+; CHECK-OPAQUE: %alloc_idx = call ptr @llvm.ptr.annotation.p0(ptr getelementptr inbounds (%__SOADT_struct.test01dep, ptr @glob, i64 0, i32 1), ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK-OPAQUE: store i64 1, ptr getelementptr inbounds (%__SOADT_struct.test01dep, ptr @glob, i64 0, i32 1)
 
   ret void

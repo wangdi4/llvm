@@ -20,14 +20,14 @@
 ; CHECK-NEXT:  HasUnknownCallSites: 0
 ; CHECK-NEXT:  Return Padding: -1
 ; CHECK-NEXT:  Value paddings:
-; CHECK-NEXT:  %i1 = tail call ptr @llvm.ptr.annotation.p0(ptr %i, ptr getelementptr inbounds ([16 x i8], ptr @0, i64 0, i64 0), ptr getelementptr inbounds ([11 x i8], ptr @.str, i64 0, i64 0), i32 4, ptr null) :: 32
+; CHECK-NEXT:  %i1 = tail call ptr @llvm.ptr.annotation.p0(ptr %i, ptr @0, ptr @.str, i32 4, ptr null) :: 32
 ; CHECK: ==== END OF INITIAL FUNCTION SET ====
 ; CHECK: ==== TRANSFORMED FUNCTION SET ====
 ; CHECK: Function info(callee):
 ; CHECK-NEXT:  HasUnknownCallSites: 0
 ; CHECK-NEXT:  Return Padding: 32
 ; CHECK-NEXT:  Value paddings:
-; CHECK-NEXT:  %i1 = tail call ptr @llvm.ptr.annotation.p0(ptr %i, ptr getelementptr inbounds ([16 x i8], ptr @0, i64 0, i64 0), ptr getelementptr inbounds ([11 x i8], ptr @.str, i64 0, i64 0), i32 4, ptr null) :: 32
+; CHECK-NEXT:  %i1 = tail call ptr @llvm.ptr.annotation.p0(ptr %i, ptr @0, ptr @.str, i32 4, ptr null) :: 32
 ; CHECK: Function info(caller):
 ; CHECK-NEXT:  HasUnknownCallSites: 0
 ; CHECK-NEXT:  Return Padding: 32

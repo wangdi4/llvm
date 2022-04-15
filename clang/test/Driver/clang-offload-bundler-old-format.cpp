@@ -1,7 +1,7 @@
 // REQUIRES: x86-registered-target
 // RUN: %clangxx -c %s -o %t_fat.o
 // RUN: %clangxx %t_fat.o -o %t.exe
-// RUN: clang-offload-bundler -type=o -targets=host-x86_64-unknown-linux-gnu,openmp-x86_64-pc-linux-gnu -outputs=%t_host.o,%t_device.o -inputs=%t_fat.o -unbundle
+// RUN: clang-offload-bundler -type=o -targets=host-x86_64-unknown-linux-gnu,openmp-x86_64-pc-linux-gnu -output=%t_host.o -output=%t_device.o -input=%t_fat.o -unbundle
 // RUN: %t.exe %t_device.o | FileCheck %s
 // CHECK:11
 

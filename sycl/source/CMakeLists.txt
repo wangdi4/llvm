@@ -120,8 +120,6 @@ function(add_sycl_rt_library LIB_NAME)
       OpenCL-ICD
       ${CMAKE_DL_LIBS}
       ${CMAKE_THREAD_LIBS_INIT}
-    PUBLIC
-      $<$<BOOL:${SYCL_BUILD_PI_CUDA}>:pi_cuda>
   )
 # INTEL_CUSTOMIZATION
 # FIXME: Temporary fix for self-build after (#1597), needed for

@@ -2350,7 +2350,8 @@ private:
       int getScoreAtLevel(Value *V1, Value *V2, int Level, int MaxLevel) {
         // Get the shallow score of V1 and V2.
         int ShallowScoreAtThisLevel =
-            VLOperands::getShallowScore(V1, V2, DL, SE, getNumLanes(), None, R.TTI);
+            VLOperands::getShallowScore(V1, V2, DL, SE, getNumLanes(), None,
+                                        R.TTI);
 
         // If reached MaxLevel,
         // or if V1 and V2 are not instructions,
@@ -2538,7 +2539,8 @@ private:
             Value *Right = getData(OpI, Lane).getLeaf();
             if (Left == Right ||
                 VLOperands::getShallowScore(Left, Right, DL, SE, getNumLanes(),
-                                            None, R.TTI) == VLOperands::ScoreFail) {
+                                            None, R.TTI) ==
+                VLOperands::ScoreFail) {
               AreConsecutive = false;
               break;
             }

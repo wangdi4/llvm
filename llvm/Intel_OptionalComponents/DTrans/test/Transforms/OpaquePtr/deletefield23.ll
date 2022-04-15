@@ -24,10 +24,26 @@
 
 define i32 @main(i32 %argc, i8** "intel_dtrans_func_index"="1" %argv) !intel.dtrans.func.type !5 {
   ; read dep.A
+  ; With opaque pointers, the GEP in this load could be elided, causing the field to be
+  ; marked with 'non-GEP access', which would make it non-deletable. This would make the
+  ; behavior different between the opaque pointer version of the test and non-opaque pointer.
+  ; Therefore, we need to use both fields of the structure to avoid %struct.dep from being
+  ; transformed.
   %val = load i32, i32* getelementptr inbounds (%struct.dep,
                                                 %struct.dep* @g_dep,
                                                 i64 0, i32 0)
 
+  %ptr = load %struct.test*, %struct.test** getelementptr inbounds (%struct.dep,
+                                                                    %struct.dep* @g_dep,
+                                                                    i64 0, i32 1)
+
+  %same = icmp eq %struct.test* %ptr, @g_del
+  br i1 %same, label %t2, label %t1
+
+t2:
+  ret i32 0
+
+t1:
   ; Read and write a pointer to del from dep
   store %struct.test* @g_del, %struct.test** getelementptr (%struct.dep,
                                                           %struct.dep* @g_dep,
@@ -50,7 +66,8 @@ define i32 @main(i32 %argc, i8** "intel_dtrans_func_index"="1" %argv) !intel.dtr
                                    i64 0, i32 1)
 
   %sum = add i32 %valA, %valC
-  ret i32 %sum
+  %result = add i32 %val, %sum
+  ret i32 %result
 }
 
 

@@ -262,8 +262,12 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   const bool IsMips = Triple.isMIPS();
   const bool IsHexagon = Arch == llvm::Triple::hexagon;
   const bool IsRISCV = Triple.isRISCV();
+  const bool IsCSKY = Triple.isCSKY();
 
-  if (IsMips && !SysRoot.empty())
+  if (IsCSKY)
+    SysRoot = SysRoot + SelectedMultilib.osSuffix();
+
+  if ((IsMips || IsCSKY) && !SysRoot.empty())
     ExtraOpts.push_back("--sysroot=" + SysRoot);
 
   // Do not use 'gnu' hash style for Mips targets because .gnu.hash
@@ -303,14 +307,6 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   const std::string OSLibDir = std::string(getOSLibDir(Triple, Args, Distro));
 #endif // INTEL_CUSTOMIZATION
   const std::string MultiarchTriple = getMultiarchTriple(D, Triple, SysRoot);
-  const std::string &ExtraPath = D.OverlayToolChainPath;
-
-  if (!D.OverlayToolChainPath.empty()) {
-    addPathIfExists(D, ExtraPath + "/lib/" + MultiarchTriple, Paths);
-    addPathIfExists(D, ExtraPath + "/lib/../" + OSLibDir, Paths);
-    addPathIfExists(D, ExtraPath + "/usr/lib/" + MultiarchTriple, Paths);
-    addPathIfExists(D, ExtraPath + "/usr/lib/../" + OSLibDir, Paths);
-  }
 
   // mips32: Debian multilib, we use /libo32, while in other case, /lib is
   // used. We need add both libo32 and /lib.
@@ -366,11 +362,6 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   }
 #endif // INTEL_CUSTOMIZATION
 
-  if (!D.OverlayToolChainPath.empty()) {
-    addPathIfExists(D, ExtraPath + "/lib", Paths);
-    addPathIfExists(D, ExtraPath + "/usr/lib", Paths);
-  }
-
   addPathIfExists(D, SysRoot + "/lib", Paths);
   addPathIfExists(D, SysRoot + "/usr/lib", Paths);
 }
@@ -416,6 +407,21 @@ std::string Linux::computeSysRoot() const {
     std::string AndroidSysRootPath = (ClangDir + "/../sysroot").str();
     if (getVFS().exists(AndroidSysRootPath))
       return AndroidSysRootPath;
+  }
+
+  if (getTriple().isCSKY()) {
+    // CSKY toolchains use different names for sysroot folder.
+    if (!GCCInstallation.isValid())
+      return std::string();
+    // GCCInstallation.getInstallPath() =
+    //   $GCCToolchainPath/lib/gcc/csky-linux-gnuabiv2/6.3.0
+    // Path = $GCCToolchainPath/csky-linux-gnuabiv2/libc
+    std::string Path = (GCCInstallation.getInstallPath() + "/../../../../" +
+                        GCCInstallation.getTriple().str() + "/libc")
+                           .str();
+    if (getVFS().exists(Path))
+      return Path;
+    return std::string();
   }
 
   if (!GCCInstallation.isValid() || !getTriple().isMIPS())
@@ -594,6 +600,11 @@ std::string Linux::getDynamicLinker(const ArgList &Args) const {
   }
   case llvm::Triple::ve:
     return "/opt/nec/ve/lib/ld-linux-ve.so.1";
+  case llvm::Triple::csky: {
+    LibDir = "lib";
+    Loader = "ld.so.1";
+    break;
+  }
   }
 
   if (Distro == Distro::Exherbo &&
@@ -643,10 +654,6 @@ void Linux::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
 
   if (DriverArgs.hasArg(options::OPT_nostdlibinc))
     return;
-
-  if (!D.OverlayToolChainPath.empty())
-    addExternCSystemInclude(DriverArgs, CC1Args,
-                            D.OverlayToolChainPath + "/include");
 
   // LOCAL_INCLUDE_DIR
   addSystemInclude(DriverArgs, CC1Args, SysRoot + "/usr/local/include");

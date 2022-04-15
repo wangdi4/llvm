@@ -1,6 +1,6 @@
 //===---------------- Intel_PaddedPtrPropagation.cpp ----------------------===//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -159,12 +159,15 @@ bool isPaddedMarkUpAnnotation(Value *V, int &Padding) {
   if (I->getIntrinsicID() != Intrinsic::ptr_annotation)
     return false;
 
-  if (auto *O = dyn_cast<ConstantExpr>(I->getArgOperand(1))) {
-    if (auto *G = dyn_cast<GlobalVariable>(O->getOperand(0))) {
-      if (auto *CA = dyn_cast<ConstantDataArray>(G->getInitializer())) {
-        auto S = CA->getAsCString();
-        return parsePaddedAnnotationStr(S, Padding);
-      }
+  // The ConstantExpr could be folded away if it had the form GEP(X,0,0)
+  // so tolerate that here.
+  Value *GV = I->getArgOperand(1);
+  if (auto OP = dyn_cast<ConstantExpr>(GV))
+    GV = OP->getOperand(0);
+  if (auto *G = dyn_cast<GlobalVariable>(GV)) {
+    if (auto *CA = dyn_cast<ConstantDataArray>(G->getInitializer())) {
+      auto S = CA->getAsCString();
+      return parsePaddedAnnotationStr(S, Padding);
     }
   }
   return false;
@@ -467,8 +470,8 @@ class PaddedPtrPropImpl {
   void collectSingleAllocsForType(dtrans::TypeInfo *TyInfo,
                                   StructFieldTracker &Fields);
   bool placeInitialAnnotations(Module &M);
-  bool processGepForInitialAllocations(GEPOperator *GEP,
-                                       StructFieldTracker &FieldMap);
+  bool processValueForInitialAllocations(Value *V,
+                                         StructFieldTracker &FieldMap);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(const string &msg, raw_ostream &OS) const;
@@ -853,14 +856,18 @@ void PaddedPtrPropImpl<InfoClass>::collectSingleAllocsForType(
 // corresponds to a structure field which is initialized by a single allocation
 // call.
 template <class InfoClass>
-bool PaddedPtrPropImpl<InfoClass>::processGepForInitialAllocations(
-    GEPOperator *GEP, StructFieldTracker &FieldMap) {
+bool PaddedPtrPropImpl<InfoClass>::processValueForInitialAllocations(
+    Value *V, StructFieldTracker &FieldMap) {
 
-  auto StructField = DTInfo.getStructField(GEP);
-  if (!StructField.first)
-    return false;
-
-  return FieldMap.contains(StructField.first, StructField.second);
+  if (auto GEP = dyn_cast<GEPOperator>(V)) {
+    auto StructField = DTInfo.getStructField(GEP);
+    if (StructField.first)
+      return FieldMap.contains(StructField.first, StructField.second);
+  } else if (auto GV = dyn_cast<GlobalVariable>(V)) {
+    if (auto STy = dyn_cast<StructType>(GV->getValueType()))
+      return FieldMap.contains(STy, 0);
+  }
+  return false;
 }
 
 // The function places an initial padding annotation based on DTrans single
@@ -888,10 +895,12 @@ bool PaddedPtrPropImpl<InfoClass>::placeInitialAnnotations(Module &M) {
         if (!DTInfo.hasSupportedPaddedMallocPtrType(Load))
           continue;
 
-        // Insert the annotations for the loads next to the GEPs referencing the
-        // structure fields initialized by a single allocation
-        auto *GEP = dyn_cast<GEPOperator>(Load->getPointerOperand());
-        if (GEP && processGepForInitialAllocations(GEP, FieldMap)) {
+        // Insert the annotations for the loads referencing the
+        // structure fields initialized by a single allocation.
+        // The loads may or may not be under a GEP. If not, they
+        // refer to the zero-element of a structure.
+        Value *V = Load->getPointerOperand();
+        if (processValueForInitialAllocations(V, FieldMap)) {
           insertPaddedMarkUp(Load,
               PaddedMallocData.getPaddedMallocSize(M), DTInfo);
           Modified = true;

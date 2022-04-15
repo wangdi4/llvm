@@ -5,6 +5,8 @@ set(LLVM_LINK_COMPONENTS
   Core
   Support
   TransformUtils
+  Passes
+  Vectorize
   )
 
 add_llvm_unittest(UtilsTests
@@ -23,6 +25,7 @@ add_llvm_unittest(UtilsTests
   LocalTest.cpp
   LoopRotationUtilsTest.cpp
   LoopUtilsTest.cpp
+  MemTransferLowering.cpp
   ModuleUtilsTest.cpp
   ScalarEvolutionExpanderTest.cpp
   SizeOptsTest.cpp

@@ -33,7 +33,7 @@
 ; OPAQUE: = load i64, ptr %i1
 ; OPAQUE: [[IV:%.*]] = load i64, ptr %i1.i64, align 4
 ; OPAQUE:  [[MUL:%.*]] = mul nsw i64 544, [[IV]]
-; OPAQUE: [[GEP1:%.*]] = getelementptr inbounds i8, ptr getelementptr inbounds ([12 x %ext_type], ptr @D, i64 0, i64 0, i32 0), i64 [[MUL]]
+; OPAQUE: [[GEP1:%.*]] = getelementptr inbounds i8, ptr @D
 ; OPAQUE: = getelementptr inbounds %base_type, ptr [[GEP1]]
 
 

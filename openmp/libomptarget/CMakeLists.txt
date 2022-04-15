@@ -214,10 +214,10 @@ set(LIBOMPTARGET_OPENMP_HOST_RTL_FOLDER "${LIBOMP_LIBRARY_DIR}" CACHE STRING
 
 # Build offloading plugins and device RTLs if they are available.
 add_subdirectory(plugins)
+if(INTEL_CUSTOMIZATION)
 add_subdirectory(deviceRTLs)
-if(NOT INTEL_CUSTOMIZATION)
+endif(INTEL_CUSTOMIZATION)
 add_subdirectory(DeviceRTL)
-endif(NOT INTEL_CUSTOMIZATION)
 add_subdirectory(tools)
 
 # Add tests.

@@ -24,15 +24,15 @@ define internal void @test01() {
   ret void
 }
 ; CHECK-LABEL: void @test01()
+; This instruction is only interesting for non-opaque pointers, because with opaque-pointers
+; the GEP can be removed.
 ; CHECK-NONOPAQUE: %v0 = load i64, i64* getelementptr inbounds (%struct.test01, %struct.test01* @test_var01, i64 0, i32 0)
-; CHECK-OPAQUE: %v0 = load i64, ptr getelementptr inbounds (%struct.test01, ptr @test_var01, i64 0, i32 0)
 ; CHECK-NONOPAQUE:         CE: i64* getelementptr inbounds (%struct.test01, %struct.test01* @test_var01, i64 0, i32 0)
-; CHECK-OPAQUE:         CE: ptr getelementptr inbounds (%struct.test01, ptr @test_var01, i64 0, i32 0)
-; CHECK-NEXT:    LocalPointerInfo:
-; CHECK-NEXT:      Aliased types:
-; CHECK-NEXT:        i64*{{ *$}}
-; CHECK-NEXT:      Element pointees:
-; CHECK-NEXT:        %struct.test01 @ 0
+; CHECK-NONOPAQUE:    LocalPointerInfo:
+; CHECK-NONOPAQUE:      Aliased types:
+; CHECK-NONOPAQUE:        i64*{{ *$}}
+; CHECK-NONOPAQUE:      Element pointees:
+; CHECK-NONOPAQUE:        %struct.test01 @ 0
 
 ; CHECK-NONOPAQUE:  %v1 = load double, double* getelementptr inbounds (%struct.test01, %struct.test01* @test_var01, i64 0, i32 1)
 ; CHECK-OPAQUE:  %v1 = load double, ptr getelementptr inbounds (%struct.test01, ptr @test_var01, i64 0, i32 1)

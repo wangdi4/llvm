@@ -1,4 +1,18 @@
-; RUN: opt -S -passes=wholeprogramdevirt -whole-program-visibility -pass-remarks=wholeprogramdevirt %s 2>&1 | FileCheck %s
+; -stats requires asserts
+; REQUIRES: asserts
+
+; INTEL_CUSTOMIZATION
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: intel_feature_sw_dtrans
+; We need to disable multiversioning from devirtualization since this is
+; a test case from the community.
+; end INTEL_FEATURE_SW_DTRANS
+; RUN: opt -S -passes=wholeprogramdevirt -whole-program-visibility -pass-remarks=wholeprogramdevirt \
+; INTEL_FEATURE_SW_DTRANS
+; RUN:        -wholeprogramdevirt-multiversion=false \
+; end INTEL_FEATURE_SW_DTRANS
+; RUN:        -stats %s 2>&1 | FileCheck %s
+; end INTEL_CUSTOMIZATION
 
 target datalayout = "e-p:64:64"
 target triple = "x86_64-unknown-linux-gnu"
@@ -45,3 +59,6 @@ declare void @llvm.assume(i1)
 !6 = !DILocation(line: 30, column: 32, scope: !5)
 !7 = distinct !DISubprogram(name: "vf", linkageName: "_ZN3vt12vfEv", scope: !1, file: !1, line: 13, isLocal: false, isDefinition: true, scopeLine: 13, flags: DIFlagPrototyped, isOptimized: false, unit: !0)
 !8 = !{i32 0, !"typeid"}
+
+; CHECK: 1 wholeprogramdevirt - Number of whole program devirtualization targets
+; CHECK: 1 wholeprogramdevirt - Number of single implementation devirtualizations

@@ -2229,7 +2229,7 @@ def fglobal_isel : Flag<["-"], "fglobal-isel">, Group<f_clang_Group>,
 def fexperimental_isel : Flag<["-"], "fexperimental-isel">, Group<f_clang_Group>,
   Alias<fglobal_isel>;
 defm legacy_pass_manager : BoolOption<"f", "legacy-pass-manager",
-  CodeGenOpts<"LegacyPassManager">, Default<"!static_cast<unsigned>(LLVM_ENABLE_NEW_PASS_MANAGER)">,
+  CodeGenOpts<"LegacyPassManager">, Default<"!static_cast<unsigned>(LLVM_ENABLE_NEW_PASS_MANAGER)">, // INTEL
   PosFlag<SetTrue, [], "Use the legacy pass manager in LLVM (deprecated, to be removed in a future release)">,
   NegFlag<SetFalse, [], "Use the new pass manager in LLVM">,
   BothFlags<[CC1Option]>>, Group<f_clang_Group>;
@@ -2727,7 +2727,6 @@ defm use_cxa_atexit : BoolFOption<"use-cxa-atexit",
   CodeGenOpts<"CXAAtExit">, DefaultTrue,
   NegFlag<SetFalse, [CC1Option], "Don't use __cxa_atexit for calling destructors">,
   PosFlag<SetTrue>>;
-def fno_unit_at_a_time : Flag<["-"], "fno-unit-at-a-time">, Group<f_Group>;
 def fno_unwind_tables : Flag<["-"], "fno-unwind-tables">, Group<f_Group>;
 def fno_verbose_asm : Flag<["-"], "fno-verbose-asm">, Group<f_Group>, Flags<[CC1Option]>,
   MarshallingInfoNegativeFlag<CodeGenOpts<"AsmVerbose">>;
@@ -3359,7 +3358,6 @@ def ftrapv_handler : Separate<["-"], "ftrapv-handler">, Group<f_Group>, Flags<[C
 def ftrap_function_EQ : Joined<["-"], "ftrap-function=">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Issue call to specified function rather than a trap instruction">,
   MarshallingInfoString<CodeGenOpts<"TrapFuncName">>;
-def funit_at_a_time : Flag<["-"], "funit-at-a-time">, Group<f_Group>;
 def funroll_loops : Flag<["-"], "funroll-loops">, Group<f_Group>,
   HelpText<"Turn on loop unroller">, Flags<[CC1Option]>;
 def fno_unroll_loops : Flag<["-"], "fno-unroll-loops">, Group<f_Group>,
@@ -4893,8 +4891,6 @@ def _output_class_directory_EQ : Joined<["--"], "output-class-directory=">, Alia
 def _output_class_directory : Separate<["--"], "output-class-directory">, Alias<foutput_class_dir_EQ>;
 def _output_EQ : Joined<["--"], "output=">, Alias<o>;
 def _output : Separate<["--"], "output">, Alias<o>;
-def _overlay_platform_toolchain_EQ : Joined<["--"], "overlay-platform-toolchain=">;
-def _overlay_platform_toolchain : Separate<["--"], "overlay-platform-toolchain">, Alias<_overlay_platform_toolchain_EQ>;
 def _param : Separate<["--"], "param">, Group<CompileOnly_Group>;
 def _param_EQ : Joined<["--"], "param=">, Alias<_param>;
 def _precompile : Flag<["--"], "precompile">, Flags<[NoXarchOption]>,
@@ -5688,6 +5684,7 @@ defm tree_salias : BooleanFFlag<"tree-salias">, Group<clang_ignored_f_Group>;
 defm tree_ter : BooleanFFlag<"tree-ter">, Group<clang_ignored_gcc_optimization_f_Group>;
 defm tree_vectorizer_verbose : BooleanFFlag<"tree-vectorizer-verbose">, Group<clang_ignored_f_Group>;
 defm tree_vrp : BooleanFFlag<"tree-vrp">, Group<clang_ignored_gcc_optimization_f_Group>;
+defm : BooleanFFlag<"unit-at-a-time">, Group<clang_ignored_gcc_optimization_f_Group>;
 defm unroll_all_loops : BooleanFFlag<"unroll-all-loops">, Group<clang_ignored_gcc_optimization_f_Group>;
 defm unsafe_loop_optimizations : BooleanFFlag<"unsafe-loop-optimizations">,
     Group<clang_ignored_gcc_optimization_f_Group>;
@@ -5807,15 +5804,16 @@ def fsycl_fp32_prec_sqrt : Flag<["-"], "fsycl-fp32-prec-sqrt">, Group<sycl_Group
 //===----------------------------------------------------------------------===//
 // FLangOption + CoreOption + NoXarchOption
 //===----------------------------------------------------------------------===//
-let Flags = [FlangOption, FlangOnlyOption, NoXarchOption, CoreOption] in {
+
 def Xflang : Separate<["-"], "Xflang">,
   HelpText<"Pass <arg> to the flang compiler">, MetaVarName<"<arg>">,
-  Flags<[NoXarchOption, CoreOption]>, Group<CompileOnly_Group>;
-}
+  Flags<[FlangOption, FlangOnlyOption, NoXarchOption, CoreOption]>,
+  Group<CompileOnly_Group>;
 
 //===----------------------------------------------------------------------===//
 // FlangOption and FC1 Options
 //===----------------------------------------------------------------------===//
+
 let Flags = [FC1Option, FlangOption, FlangOnlyOption] in {
 
 def cpp : Flag<["-"], "cpp">, Group<f_Group>,
@@ -5862,7 +5860,8 @@ defm implicit_none : OptInFC1FFlag<"implicit-none", "No implicit typing allowed 
 
 def fno_automatic : Flag<["-"], "fno-automatic">, Group<f_Group>,
   HelpText<"Implies the SAVE attribute for non-automatic local objects in subprograms unless RECURSIVE">;
-}
+
+} // let Flags = [FC1Option, FlangOption, FlangOnlyOption]
 
 def J : JoinedOrSeparate<["-"], "J">,
   Flags<[RenderJoined, FlangOption, FC1Option, FlangOnlyOption]>,
@@ -5872,6 +5871,7 @@ def J : JoinedOrSeparate<["-"], "J">,
 //===----------------------------------------------------------------------===//
 // FC1 Options
 //===----------------------------------------------------------------------===//
+
 let Flags = [FC1Option, FlangOnlyOption] in {
 
 def fget_definition : MultiArg<["-"], "fget-definition", 3>,
@@ -5926,13 +5926,7 @@ def emit_mlir : Flag<["-"], "emit-mlir">, Group<Action_Group>,
   HelpText<"Build the parse tree, then lower it to MLIR">;
 def emit_fir : Flag<["-"], "emit-fir">, Alias<emit_mlir>;
 
-}
-
-//===----------------------------------------------------------------------===//
-// CC1 Options
-//===----------------------------------------------------------------------===//
-
-let Flags = [CC1Option, NoDriverOption] in {
+} // let Flags = [FC1Option, FlangOnlyOption]
 
 //===----------------------------------------------------------------------===//
 // Target Options (cc1 + cc1as)
@@ -5967,6 +5961,7 @@ def darwin_target_variant_sdk_version_EQ : Joined<["-"],
 //===----------------------------------------------------------------------===//
 // Target Options (cc1 + cc1as + fc1)
 //===----------------------------------------------------------------------===//
+
 let Flags = [CC1Option, CC1AsOption, FC1Option, NoDriverOption] in {
 
 def triple : Separate<["-"], "triple">,
@@ -5979,6 +5974,8 @@ def triple : Separate<["-"], "triple">,
 //===----------------------------------------------------------------------===//
 // Target Options (other)
 //===----------------------------------------------------------------------===//
+
+let Flags = [CC1Option, NoDriverOption] in {
 
 def target_linker_version : Separate<["-"], "target-linker-version">,
   HelpText<"Target linker version">,
@@ -5994,9 +5991,13 @@ defm padding_on_unsigned_fixed_point : BoolOption<"f", "padding-on-unsigned-fixe
   NegFlag<SetFalse>>,
   ShouldParseIf<ffixed_point.KeyPath>;
 
+} // let Flags = [CC1Option, NoDriverOption]
+
 //===----------------------------------------------------------------------===//
 // Analyzer Options
 //===----------------------------------------------------------------------===//
+
+let Flags = [CC1Option, NoDriverOption] in {
 
 def analysis_UnoptimizedCFG : Flag<["-"], "unoptimized-cfg">,
   HelpText<"Generate unoptimized CFGs for all analyses">,
@@ -6148,15 +6149,20 @@ def analyzer_werror : Flag<["-"], "analyzer-werror">,
   HelpText<"Emit analyzer results as errors rather than warnings">,
   MarshallingInfoFlag<AnalyzerOpts<"AnalyzerWerror">>;
 
+} // let Flags = [CC1Option, NoDriverOption]
+
 //===----------------------------------------------------------------------===//
 // Migrator Options
 //===----------------------------------------------------------------------===//
+
 def migrator_no_nsalloc_error : Flag<["-"], "no-ns-alloc-error">,
   HelpText<"Do not error on use of NSAllocateCollectable/NSReallocateCollectable">,
+  Flags<[CC1Option, NoDriverOption]>,
   MarshallingInfoFlag<MigratorOpts<"NoNSAllocReallocError">>;
 
 def migrator_no_finalize_removal : Flag<["-"], "no-finalize-removal">,
   HelpText<"Do not remove finalize method in gc mode">,
+  Flags<[CC1Option, NoDriverOption]>,
   MarshallingInfoFlag<MigratorOpts<"NoFinalizeRemoval">>;
 
 //===----------------------------------------------------------------------===//
@@ -6164,6 +6170,7 @@ def migrator_no_finalize_removal : Flag<["-"], "no-finalize-removal">,
 //===----------------------------------------------------------------------===//
 
 let Flags = [CC1Option, CC1AsOption, NoDriverOption] in {
+
 def debug_info_kind_EQ : Joined<["-"], "debug-info-kind=">;
 def debug_info_macro : Flag<["-"], "debug-info-macro">,
   HelpText<"Emit macro debug information">,
@@ -6223,7 +6230,10 @@ def fno_use_ctor_homing: Flag<["-"], "fno-use-ctor-homing">,
     HelpText<"Don't use constructor homing for debug info">;
 def fuse_ctor_homing: Flag<["-"], "fuse-ctor-homing">,
     HelpText<"Use constructor homing if we are using limited debug info already">;
-}
+
+} // let Flags = [CC1Option, CC1AsOption, NoDriverOption]
+
+let Flags = [CC1Option, NoDriverOption] in {
 
 #if INTEL_CUSTOMIZATION
 def disable_intel_proprietary_opts : Flag<["-"],
@@ -6525,9 +6535,13 @@ def ehcontguard : Flag<["-"], "ehcontguard">,
 def fdenormal_fp_math_f32_EQ : Joined<["-"], "fdenormal-fp-math-f32=">,
    Group<f_Group>;
 
+} // let Flags = [CC1Option, NoDriverOption]
+
 //===----------------------------------------------------------------------===//
 // Dependency Output Options
 //===----------------------------------------------------------------------===//
+
+let Flags = [CC1Option, NoDriverOption] in {
 
 def sys_header_deps : Flag<["-"], "sys-header-deps">,
   HelpText<"Include system headers in dependency output">,
@@ -6544,9 +6558,13 @@ def dependency_filter : Separate<["-"], "dependency-filter">,
   HelpText<"Filter dependencies with prefix from the dependency output.">,
   MarshallingInfoString<DependencyOutputOpts<"DependencyFilter">>;
 
+} // let Flags = [CC1Option, NoDriverOption]
+
 //===----------------------------------------------------------------------===//
 // Diagnostic Options
 //===----------------------------------------------------------------------===//
+
+let Flags = [CC1Option, NoDriverOption] in {
 
 def diagnostic_log_file : Separate<["-"], "diagnostic-log-file">,
   HelpText<"Filename (or -) to log diagnostics to">,
@@ -6604,9 +6622,13 @@ def Wno_rewrite_macros : Flag<["-"], "Wno-rewrite-macros">,
   HelpText<"Silence ObjC rewriting warnings">,
   MarshallingInfoFlag<DiagnosticOpts<"NoRewriteMacros">>;
 
+} // let Flags = [CC1Option, NoDriverOption]
+
 //===----------------------------------------------------------------------===//
 // Frontend Options
 //===----------------------------------------------------------------------===//
+
+let Flags = [CC1Option, NoDriverOption] in {
 
 // This isn't normally used, it is just here so we can parse a
 // CompilerInvocation out of a driver-derived argument vector.
@@ -6671,6 +6693,13 @@ defm enable_noundef_analysis : BoolOption<"",
   PosFlag<SetTrue, [], "Enable">,
   NegFlag<SetFalse, [], "Disable">,
   BothFlags<[], " analyzing function argument and return types for mandatory definedness">>;
+defm opaque_pointers : BoolOption<"",
+  "opaque-pointers",
+  CodeGenOpts<"OpaquePointers">,
+  Default<"CLANG_ENABLE_OPAQUE_POINTERS_INTERNAL">,
+  PosFlag<SetTrue, [], "Enable">,
+  NegFlag<SetFalse, [], "Disable">,
+  BothFlags<[], " opaque pointers">>;
 def discard_value_names : Flag<["-"], "discard-value-names">,
   HelpText<"Discard value names in LLVM IR">,
   MarshallingInfoFlag<CodeGenOpts<"DiscardValueNames">>;
@@ -6912,28 +6941,27 @@ def aligned_alloc_unavailable : Flag<["-"], "faligned-alloc-unavailable">,
   MarshallingInfoFlag<LangOpts<"AlignedAllocationUnavailable">>,
   ShouldParseIf<faligned_allocation.KeyPath>;
 
+} // let Flags = [CC1Option, NoDriverOption]
+
 //===----------------------------------------------------------------------===//
 // Language Options
 //===----------------------------------------------------------------------===//
 
-let Flags = [CC1Option, CC1AsOption, FC1Option, NoDriverOption] in {
-
 def version : Flag<["-"], "version">,
   HelpText<"Print the compiler version">,
+  Flags<[CC1Option, CC1AsOption, FC1Option, NoDriverOption]>,
   MarshallingInfoFlag<FrontendOpts<"ShowVersion">>;
-
-} // let Flags = [CC1Option, CC1AsOption, FC1Option, NoDriverOption]
-
-let Flags = [CC1Option, CC1AsOption, NoDriverOption] in {
 
 def main_file_name : Separate<["-"], "main-file-name">,
   HelpText<"Main file name to use for debug info and source if missing">,
+  Flags<[CC1Option, CC1AsOption, NoDriverOption]>,
   MarshallingInfoString<CodeGenOpts<"MainFileName">>;
 def split_dwarf_output : Separate<["-"], "split-dwarf-output">,
   HelpText<"File name to use for split dwarf debug info output">,
+  Flags<[CC1Option, CC1AsOption, NoDriverOption]>,
   MarshallingInfoString<CodeGenOpts<"SplitDwarfOutput">>;
 
-}
+let Flags = [CC1Option, NoDriverOption] in {
 
 def fblocks_runtime_optional : Flag<["-"], "fblocks-runtime-optional">,
   HelpText<"Weakly link in the blocks runtime">,
@@ -7235,9 +7263,13 @@ def fobjc_gc_only : Flag<["-"], "fobjc-gc-only">, Group<f_Group>,
 def fobjc_gc : Flag<["-"], "fobjc-gc">, Group<f_Group>,
   HelpText<"Enable Objective-C garbage collection">;
 
+} // let Flags = [CC1Option, NoDriverOption]
+
 //===----------------------------------------------------------------------===//
 // Header Search Options
 //===----------------------------------------------------------------------===//
+
+let Flags = [CC1Option, NoDriverOption] in {
 
 def nostdsysteminc : Flag<["-"], "nostdsysteminc">,
   HelpText<"Disable standard system #include directories">,
@@ -7272,9 +7304,13 @@ def internal_externc_isystem : JoinedOrSeparate<["-"], "internal-externc-isystem
            "user-provided and are used to model system and standard headers' "
            "paths.">;
 
+} // let Flags = [CC1Option, NoDriverOption]
+
 //===----------------------------------------------------------------------===//
 // Preprocessor Options
 //===----------------------------------------------------------------------===//
+
+let Flags = [CC1Option, NoDriverOption] in {
 
 def chain_include : Separate<["-"], "chain-include">, MetaVarName<"<file>">,
   HelpText<"Include and chain a header file after turning it into PCH">;
@@ -7291,17 +7327,22 @@ def disable_pragma_debug_crash : Flag<["-"], "disable-pragma-debug-crash">,
   HelpText<"Disable any #pragma clang __debug that can lead to crashing behavior. This is meant for testing.">,
   MarshallingInfoFlag<PreprocessorOpts<"DisablePragmaDebugCrash">>;
 
+} // let Flags = [CC1Option, NoDriverOption]
+
 //===----------------------------------------------------------------------===//
 // OpenCL Options
 //===----------------------------------------------------------------------===//
 
 def cl_ext_EQ : CommaJoined<["-"], "cl-ext=">,
   HelpText<"OpenCL only. Enable or disable OpenCL extensions. The argument is a comma-separated sequence of one or more extension names, each prefixed by '+' or '-'.">,
+  Flags<[CC1Option, NoDriverOption]>,
   MarshallingInfoStringVector<TargetOpts<"OpenCLExtensionsAsWritten">>;
 
 //===----------------------------------------------------------------------===//
 // CUDA Options
 //===----------------------------------------------------------------------===//
+
+let Flags = [CC1Option, NoDriverOption] in {
 
 def fcuda_is_device : Flag<["-"], "fcuda-is-device">,
   HelpText<"Generate code for CUDA device">,
@@ -7316,24 +7357,32 @@ def fno_cuda_host_device_constexpr : Flag<["-"], "fno-cuda-host-device-constexpr
   HelpText<"Don't treat unattributed constexpr functions as __host__ __device__.">,
   MarshallingInfoNegativeFlag<LangOpts<"CUDAHostDeviceConstexpr">>;
 
+} // let Flags = [CC1Option, NoDriverOption]
+
 //===----------------------------------------------------------------------===//
 // OpenMP Options
 //===----------------------------------------------------------------------===//
 
 def fopenmp_is_device : Flag<["-"], "fopenmp-is-device">,
-  HelpText<"Generate code only for an OpenMP target device.">;
+  HelpText<"Generate code only for an OpenMP target device.">,
+  Flags<[CC1Option, NoDriverOption]>;
 def fopenmp_host_ir_file_path : Separate<["-"], "fopenmp-host-ir-file-path">,
-  HelpText<"Path to the IR file produced by the frontend for the host.">;
+  HelpText<"Path to the IR file produced by the frontend for the host.">,
+  Flags<[CC1Option, NoDriverOption]>;
 
 //===----------------------------------------------------------------------===//
 // SYCL Options
 //===----------------------------------------------------------------------===//
 
+let Flags = [CC1Option, NoDriverOption] in {
+
 def fsycl_is_device : Flag<["-"], "fsycl-is-device">,
   HelpText<"Generate code for SYCL device.">,
+  Flags<[CC1Option, NoDriverOption]>,
   MarshallingInfoFlag<LangOpts<"SYCLIsDevice">>;
 def fsycl_is_host : Flag<["-"], "fsycl-is-host">,
   HelpText<"SYCL host compilation">,
+  Flags<[CC1Option, NoDriverOption]>,
   MarshallingInfoFlag<LangOpts<"SYCLIsHost">>;
 def fsycl_int_header : Separate<["-"], "fsycl-int-header">,
   HelpText<"Generate SYCL integration header into this file.">,
@@ -7419,6 +7468,7 @@ defm cuda_approx_transcendentals : BoolFOption<"cuda-approx-transcendentals",
 //===----------------------------------------------------------------------===//
 // Frontend Options - cc1 + fc1
 //===----------------------------------------------------------------------===//
+
 let Flags = [CC1Option, FC1Option, NoDriverOption] in {
 let Group = Action_Group in {
 

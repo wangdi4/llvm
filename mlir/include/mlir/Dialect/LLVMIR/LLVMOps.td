@@ -21,16 +21,16 @@ include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
-def FMFnnan     : BitEnumAttrCaseBit<"nnan", 0>;
-def FMFninf     : BitEnumAttrCaseBit<"ninf", 1>;
-def FMFnsz      : BitEnumAttrCaseBit<"nsz", 2>;
-def FMFarcp     : BitEnumAttrCaseBit<"arcp", 3>;
-def FMFcontract : BitEnumAttrCaseBit<"contract", 4>;
-def FMFafn      : BitEnumAttrCaseBit<"afn", 5>;
-def FMFreassoc  : BitEnumAttrCaseBit<"reassoc", 6>;
-def FMFfast     : BitEnumAttrCaseBit<"fast", 7>;
+def FMFnnan     : I32BitEnumAttrCaseBit<"nnan", 0>;
+def FMFninf     : I32BitEnumAttrCaseBit<"ninf", 1>;
+def FMFnsz      : I32BitEnumAttrCaseBit<"nsz", 2>;
+def FMFarcp     : I32BitEnumAttrCaseBit<"arcp", 3>;
+def FMFcontract : I32BitEnumAttrCaseBit<"contract", 4>;
+def FMFafn      : I32BitEnumAttrCaseBit<"afn", 5>;
+def FMFreassoc  : I32BitEnumAttrCaseBit<"reassoc", 6>;
+def FMFfast     : I32BitEnumAttrCaseBit<"fast", 7>;
 
-def FastmathFlags_DoNotUse : BitEnumAttr<
+def FastmathFlags : I32BitEnumAttr<
     "FastmathFlags",
     "LLVM fastmath flags",
     [FMFnnan, FMFninf, FMFnsz, FMFarcp, FMFcontract, FMFafn, FMFreassoc, FMFfast
@@ -1921,4 +1921,34 @@ def LLVM_InlineAsmOp : LLVM_Op<"inline_asm", []> {
     }
   }];
 }
+
+//
+// LLVM Vector Predication operations.
+//
+
+// Integer Binary
+def LLVM_VPAddOp  : LLVM_VPBinaryI<"add">;
+def LLVM_VPSubOp  : LLVM_VPBinaryI<"sub">;
+def LLVM_VPMulOp  : LLVM_VPBinaryI<"mul">;
+def LLVM_VPSDivOp : LLVM_VPBinaryI<"sdiv">;
+def LLVM_VPUDivOp : LLVM_VPBinaryI<"udiv">;
+def LLVM_VPSRemOp : LLVM_VPBinaryI<"srem">;
+def LLVM_VPURemOp : LLVM_VPBinaryI<"urem">;
+def LLVM_VPAShrOp : LLVM_VPBinaryI<"ashr">;
+def LLVM_VPLShrOp : LLVM_VPBinaryI<"lshr">;
+def LLVM_VPShlOp  : LLVM_VPBinaryI<"shl">;
+def LLVM_VPOrOp   : LLVM_VPBinaryI<"or">;
+def LLVM_VPAndOp  : LLVM_VPBinaryI<"and">;
+def LLVM_VPXorOp  : LLVM_VPBinaryI<"xor">;
+
+// Float Binary
+def LLVM_VPFAddOp : LLVM_VPBinaryF<"fadd">;
+def LLVM_VPFSubOp : LLVM_VPBinaryF<"fsub">;
+def LLVM_VPFMulOp : LLVM_VPBinaryF<"fmul">;
+def LLVM_VPFDivOp : LLVM_VPBinaryF<"fdiv">;
+def LLVM_VPFRemOp : LLVM_VPBinaryF<"frem">;
+
+
+
+
 #endif // LLVMIR_OPS

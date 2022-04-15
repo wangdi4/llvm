@@ -4,9 +4,9 @@
 // UNSUPPORTED: i386-unknown-unknown
 // end INTEL_CUSTOMIZATION
 
-// RUN: %clang_cc1 -triple i386-unknown-unknown -emit-llvm -disable-llvm-passes -o - %s | FileCheck %s
-// RUN: %clang_cc1 -triple i386-unknown-unknown -emit-llvm -fcxx-exceptions -fexceptions -disable-llvm-passes -std=c++03 -o - %s | FileCheck --check-prefixes=CHECK-EH-03 %s
-// RUN: %clang_cc1 -triple i386-unknown-unknown -emit-llvm -fcxx-exceptions -fexceptions -disable-llvm-passes -std=c++11 -DCXX11 -o - %s | FileCheck --check-prefixes=CHECK-EH-11 %s
+// RUN: %clang_cc1 -no-opaque-pointers -triple i386-unknown-unknown -emit-llvm -disable-llvm-passes -o - %s | FileCheck %s
+// RUN: %clang_cc1 -no-opaque-pointers -triple i386-unknown-unknown -emit-llvm -fcxx-exceptions -fexceptions -disable-llvm-passes -std=c++03 -o - %s | FileCheck --check-prefixes=CHECK-EH-03 %s
+// RUN: %clang_cc1 -no-opaque-pointers -triple i386-unknown-unknown -emit-llvm -fcxx-exceptions -fexceptions -disable-llvm-passes -std=c++11 -DCXX11 -o - %s | FileCheck --check-prefixes=CHECK-EH-11 %s
 
 // Test code generation for the named return value optimization.
 class X {

@@ -61,7 +61,7 @@ struct Configuration {
   unsigned ltoo;
   unsigned optimize;
   llvm::StringRef thinLTOJobs;
-  bool ltoNewPassManager;
+  bool ltoNewPassManager; // INTEL
   bool ltoDebugPassManager;
   UnresolvedPolicy unresolvedSymbols;
 

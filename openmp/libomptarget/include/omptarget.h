@@ -466,7 +466,7 @@ void *llvm_omp_target_alloc_shared(size_t size, int device_num);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void *llvm_omp_get_dynamic_shared();
+void *llvm_omp_target_dynamic_shared_alloc();
 
 /// add the clauses of the requires directives in a given file
 #if INTEL_COLLAB

@@ -2,6 +2,10 @@
 ; RUN: opt < %s -enable-coroutines -passes='default<O2>' -opaque-pointers -S | FileCheck %s
 
 ; Same test as coro-retcon.ll, but with opaque pointers enabled.
+; INTEL_CUSTOMIZATION
+; xmain does not remove "gep...0" instructions, even though they are no-ops
+; with opaque pointers, as they carry TBAA information.
+; end INTEL_CUSTOMIZATION
 
 define ptr @f(ptr %buffer, i32 %n) {
 ; CHECK-LABEL: @f(
@@ -45,17 +49,15 @@ define i32 @main() {
 ; CHECK-NEXT:    call void @llvm.experimental.noalias.scope.decl(metadata [[META0:![0-9]+]])
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[N_VAL_RELOAD_I:%.*]] = load i32, ptr [[N_VAL_SPILL_ADDR_I]], align 4, !alias.scope !0
-; END INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[INC_I:%.*]] = add i32 [[N_VAL_RELOAD_I]], 1
-; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    store i32 [[INC_I]], ptr [[N_VAL_SPILL_ADDR_I]], align 4, !alias.scope !0
 ; END INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    call void @print(i32 [[INC_I]]), !noalias !0
 ; CHECK-NEXT:    call void @llvm.experimental.noalias.scope.decl(metadata [[META3:![0-9]+]])
 ; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[N_VAL_RELOAD_I3:%.*]] = load i32, ptr [[N_VAL_SPILL_ADDR_I]], align 4, !alias.scope !3
-; CHECK-NEXT:    [[INC_I4:%.*]] = add i32 [[N_VAL_RELOAD_I3]], 1
-; CHECK-NEXT:    call void @print(i32 [[INC_I4]]), !noalias !3
+; CHECK-NEXT:    [[N_VAL_RELOAD_I1:%.*]] = load i32, ptr [[N_VAL_SPILL_ADDR_I]], align 4, !alias.scope !3
+; CHECK-NEXT:    [[INC_I2:%.*]] = add i32 [[N_VAL_RELOAD_I1]], 1
+; CHECK-NEXT:    call void @print(i32 [[INC_I2]]), !noalias !3
 ; END INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret i32 0
 ;

@@ -147,7 +147,7 @@ using HoistingPointInfo = std::pair<BasicBlock *, SmallVecInsn>;
 using HoistingPointList = SmallVector<HoistingPointInfo, 4>;
 
 // A map from a pair of VNs to all the instructions with those VNs.
-using VNType = std::pair<unsigned, unsigned>;
+using VNType = std::pair<unsigned, uintptr_t>;
 
 using VNtoInsns = DenseMap<VNType, SmallVector<Instruction *, 4>>;
 
@@ -182,7 +182,7 @@ using InValuesType =
 
 // An invalid value number Used when inserting a single value number into
 // VNtoInsns.
-enum : unsigned { InvalidVN = ~2U };
+enum : uintptr_t { InvalidVN = ~(uintptr_t)2 };
 
 // Records all scalar instructions candidate for code hoisting.
 class InsnInfo {
@@ -208,7 +208,9 @@ public:
   void insert(LoadInst *Load, GVNPass::ValueTable &VN) {
     if (Load->isSimple()) {
       unsigned V = VN.lookupOrAdd(Load->getPointerOperand());
-      VNtoLoads[{V, InvalidVN}].push_back(Load);
+      // With opaque pointers we may have loads from the same pointer with
+      // different result types, which should be disambiguated.
+      VNtoLoads[{V, (uintptr_t)Load->getType()}].push_back(Load);
     }
   }
 
@@ -1211,6 +1213,8 @@ std::pair<unsigned, unsigned> GVNHoist::hoist(HoistingPointList &HPL) {
       DFSNumber[Repl] = DFSNumber[Last]++;
     }
 
+    // Drop debug location as per debug info update guide.
+    Repl->dropLocation();
     NR += removeAndReplace(InstructionsToHoist, Repl, DestBB, MoveAccess);
 
     if (isa<LoadInst>(Repl))

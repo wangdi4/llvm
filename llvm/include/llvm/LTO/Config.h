@@ -76,7 +76,7 @@ struct Config {
   bool DisableVerify = false;
 
   /// Use the new pass manager
-  bool UseNewPM = LLVM_ENABLE_NEW_PASS_MANAGER;
+  bool UseNewPM = LLVM_ENABLE_NEW_PASS_MANAGER; // INTEL
 
   /// Use the standard optimization pipeline.
   bool UseDefaultPipeline = false;

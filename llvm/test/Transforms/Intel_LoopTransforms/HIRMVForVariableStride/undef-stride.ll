@@ -1,7 +1,7 @@
-;RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-mv-variable-stride -print-after=hir-mv-variable-stride  -print-before=hir-mv-variable-stride < %s 2>&1 | FileCheck %s 
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-mv-variable-stride -print-after=hir-mv-variable-stride  -print-before=hir-mv-variable-stride < %s 2>&1 | FileCheck %s 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-mv-variable-stride,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 ;
-;RUN: opt -opaque-pointers -hir-ssa-deconstruction -hir-temp-cleanup -hir-mv-variable-stride -print-after=hir-mv-variable-stride  -print-before=hir-mv-variable-stride < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -hir-ssa-deconstruction -hir-temp-cleanup -hir-mv-variable-stride -print-after=hir-mv-variable-stride  -print-before=hir-mv-variable-stride < %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-mv-variable-stride,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 ; 
 ; Check MV does not happen when a variable stride is an undef.
@@ -42,7 +42,7 @@
 ; CHECK:               |   
 ; CHECK:               |   goto bb3;
 ; CHECK:               |   bb37_then:
-; CHECK:               |   %"bcint_$NBCT[]11_fetch" = (@"bcint_$NBCT")[0][i1];
+; CHECK:               |   %"bcint_$NBCT[]11_fetch" = (@"bcint_$NBCT"){{.*}}[i1];
 ; CHECK:               |   %int_sext23 = 4294967296 * %indvars.iv.out + -4294967296  >>  32;
 ; CHECK:               |
 ; CHECK:               |   + DO i2 = 0, 2, 1   <DO_LOOP>
@@ -67,7 +67,7 @@
 ; CHECK:              |   
 ; CHECK:              |   goto bb3;
 ; CHECK:              |   bb37_then:
-; CHECK:              |   %"bcint_$NBCT[]11_fetch" = (@"bcint_$NBCT")[0][i1];
+; CHECK:              |   %"bcint_$NBCT[]11_fetch" = (@"bcint_$NBCT"){{.*}}[i1];
 ; CHECK:              |   %int_sext23 = 4294967296 * %indvars.iv.out + -4294967296  >>  32;
 ; CHECK:              |
 ; CHECK:              |   + DO i2 = 0, 2, 1   <DO_LOOP>
