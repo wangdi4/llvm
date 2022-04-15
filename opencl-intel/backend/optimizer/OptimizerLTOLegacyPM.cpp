@@ -196,6 +196,10 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
                                               !m_IsSYCL && !m_IsOMP));
         MPM.add(createVectorVariantFillInLegacyPass());
         MPM.add(createUpdateCallAttrsLegacyPass());
+
+        MPM.add(createPromoteMemoryToRegisterPass());
+        MPM.add(createLoopSimplifyPass());
+        MPM.add(createLICMPass());
       });
 }
 

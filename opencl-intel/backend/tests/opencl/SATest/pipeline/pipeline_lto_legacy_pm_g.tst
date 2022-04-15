@@ -54,6 +54,9 @@
 ; CHECK-NEXT:     Fill-in addresses of vector variants
 ; CHECK-NEXT:     UpdateCallAttrs
 ; CHECK:          FunctionPass Manager
+; CHECK:            Promote Memory to Register
+; CHECK:            Canonicalize natural loops
+; CHECK:            Loop Invariant Code Motion
 ; CHECK-NOT:      VecClone
 ; CHECK:          FunctionPass Manager
 ; CHECK:            VPlan Vectorizer
