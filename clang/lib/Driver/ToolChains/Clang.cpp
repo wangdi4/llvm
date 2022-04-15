@@ -7572,19 +7572,15 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    RawTriple.isOSDarwin() && !KernelOrKext))
     CmdArgs.push_back("-fregister-global-dtors-with-atexit");
 
-<<<<<<< HEAD
-  // -fno-use-line-directives is default.
 #if INTEL_CUSTOMIZATION
   // -fuse-line-directives is default for Intel Windows
   if (Args.hasFlag(options::OPT_fuse_line_directives,
                    options::OPT_fno_use_line_directives,
                    D.IsIntelMode() && D.IsCLMode()))
-#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-fuse-line-directives");
-=======
+#endif // INTEL_CUSTOMIZATION
   Args.addOptInFlag(CmdArgs, options::OPT_fuse_line_directives,
                     options::OPT_fno_use_line_directives);
->>>>>>> bfafa105aab05e2c243e74114739b7d37f8ab0be
 
   // -fno-minimize-whitespace is default.
   if (Args.hasFlag(options::OPT_fminimize_whitespace,
