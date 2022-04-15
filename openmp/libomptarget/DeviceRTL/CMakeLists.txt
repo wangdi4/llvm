@@ -151,6 +151,10 @@ else()
   list(APPEND bc_flags -DOMPTARGET_DEBUG=0)
 endif()
 
+if(INTEL_CUSTOMIZATION)
+  list(APPEND bc_flags -Xclang -disable-intel-proprietary-opts)
+endif(INTEL_CUSTOMIZATION)
+
 function(compileDeviceRTLLibrary target_cpu target_name)
   set(target_bc_flags ${ARGN})
 
