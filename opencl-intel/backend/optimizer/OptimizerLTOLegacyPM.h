@@ -25,9 +25,9 @@ namespace DeviceBackend {
  */
 class OptimizerLTOLegacyPM : public Optimizer {
 public:
-  OptimizerLTOLegacyPM(llvm::Module *M,
+  OptimizerLTOLegacyPM(llvm::Module &M,
                        llvm::SmallVector<llvm::Module *, 2> &RtlModules,
-                       const intel::OptimizerConfig *Config);
+                       const intel::OptimizerConfig &Config);
 
   ~OptimizerLTOLegacyPM();
 

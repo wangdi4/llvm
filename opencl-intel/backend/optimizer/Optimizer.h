@@ -42,9 +42,9 @@ namespace DeviceBackend {
 
 class Optimizer {
 public:
-  Optimizer(llvm::Module *M,
+  Optimizer(llvm::Module &M,
             llvm::SmallVector<llvm::Module *, 2> &RtlModules,
-            const intel::OptimizerConfig *Config);
+            const intel::OptimizerConfig &Config);
 
   virtual ~Optimizer() {}
 
@@ -95,10 +95,10 @@ public:
   static const StringSet<> &getVPlanMaskedFuncs();
 
 protected:
-  llvm::Module *m_M;
+  llvm::Module &m_M;
   /// Builtin rtl modules (not owned by this class).
   llvm::SmallVector<llvm::Module *, 2> m_RtlModules;
-  const intel::OptimizerConfig *Config;
+  const intel::OptimizerConfig &Config;
   StringRef CPUPrefix;
   std::vector<std::string> m_undefinedExternalFunctions;
 
@@ -135,9 +135,9 @@ protected:
  */
 class OptimizerOCL : public Optimizer {
 public:
-  OptimizerOCL(llvm::Module *pModule,
+  OptimizerOCL(llvm::Module &pModule,
                llvm::SmallVector<llvm::Module *, 2> &RtlModules,
-               const intel::OptimizerConfig *pConfig);
+               const intel::OptimizerConfig &pConfig);
 
   ~OptimizerOCL();
 
