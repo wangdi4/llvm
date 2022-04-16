@@ -739,16 +739,11 @@ void OpenMPLateOutliner::emitClause(OpenMPClauseKind CK,
 }
 
 void OpenMPLateOutliner::emitImplicit(llvm::Value *V, llvm::Type *ElementType,
-                                      ImplicitClauseKind K) {
+                                      ImplicitClauseKind K, bool Handled) {
 
   ClauseEmissionHelper CEH(*this, OMPC_unknown);
   ClauseStringBuilder &CSB = CEH.getBuilder();
-  if (K == ICK_shared) {
-    // shared clauses do not need typed clauses.
-    addArg("QUAL.OMP.SHARED");
-    addArg(V);
-    return;
-  }
+
   switch (K) {
   case ICK_private:
   case ICK_linear_private:
@@ -762,13 +757,16 @@ void OpenMPLateOutliner::emitImplicit(llvm::Value *V, llvm::Type *ElementType,
   case ICK_linear_lastprivate:
     CSB.add("QUAL.OMP.LASTPRIVATE");
     break;
+  case ICK_shared:
+    CSB.add("QUAL.OMP.SHARED");
+    break;
   default:
     llvm_unreachable("Clause not allowed");
   }
   if (UseTypedClauses)
     CSB.setTyped();
   addArg(CSB.getString());
-  addSingleElementTypedArg(V, ElementType);
+  addSingleElementTypedArg(V, ElementType, Handled);
 }
 
 void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
@@ -793,17 +791,6 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
 
   ClauseEmissionHelper CEH(*this, OMPC_unknown);
   ClauseStringBuilder &CSB = CEH.getBuilder();
-  if (K == ICK_shared) {
-    // shared clauses are not typed.
-    const VarDecl *VD = getExplicitVarDecl(E);
-    bool IsRef = VD && VD->getType()->isReferenceType();
-    CSB.add("QUAL.OMP.SHARED");
-    if (IsRef)
-      CSB.setByRef();
-    addArg(CSB.getString());
-    addArg(E, IsRef);
-    return;
-  }
 
   switch (K) {
   case ICK_private:
@@ -831,15 +818,19 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
   case ICK_livein:
     CSB.add("QUAL.OMP.LIVEIN");
     break;
+  case ICK_shared:
+    CSB.add("QUAL.OMP.SHARED");
+    break;
   default:
     llvm_unreachable("Clause not allowed");
   }
   if (UseTypedClauses)
     CSB.setTyped();
   bool IsRef = false;
-  if (CurrentDirectiveKind == OMPD_task && K == ICK_specified_firstprivate) {
+  if (K == ICK_shared ||
+      (CurrentDirectiveKind == OMPD_task && K == ICK_specified_firstprivate)) {
     const VarDecl *VD = getExplicitVarDecl(E);
-    assert(VD && "expected VarDecl in implicit firstprivate");
+    assert(VD && "expected VarDecl in implicit clause");
     IsRef = VD->getType()->isReferenceType();
     if (IsRef)
       CSB.setByRef();
@@ -1058,11 +1049,8 @@ void OpenMPLateOutliner::addImplicitClauses() {
                isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared,
                                            CGF.getLangOpts().OpenMP)) {
       // Referenced but not defined in the region: shared
-      if (!alreadyHandled(V)) {
-        ClauseEmissionHelper CEH(*this, OMPC_shared);
-        addArg("QUAL.OMP.SHARED");
-        addArg(V, /*Handled=*/true);
-      }
+      if (!alreadyHandled(V))
+        emitImplicit(V, ElementType, ICK_shared, /*Handled=*/true);
     }
   }
 }
@@ -1141,8 +1129,10 @@ void OpenMPLateOutliner::emitOMPSharedClause(const OMPSharedClause *Cl) {
     bool IsRef = VD->getType()->isReferenceType();
     if (IsRef)
       CSB.setByRef();
+    if (UseTypedClauses)
+      CSB.setTyped();
     addArg(CSB.getString());
-    addArg(E, IsRef);
+    addTypedArg(E, IsRef);
   }
 }
 
