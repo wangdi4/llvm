@@ -899,6 +899,51 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
 
     return Cost;
   }
+  case VPInstruction::UMinSeq:
+  case VPInstruction::SMin:
+  case VPInstruction::UMin:
+  case VPInstruction::UMax:
+  case VPInstruction::SMax: {
+    assert(VPInst->getNumOperands() == 2 &&
+           "Unsupported form of [S|U][Min|Max]");
+    // UMinSeq instruction is lowered as:
+    // %cond.or = (%op1 == 0) || (%op2 == 0)
+    // select %cond.or == true ? 0 : UMin(%op1, %op2)
+    //
+    // Initialize Cost with vanilla UMin/SMin/UMax/SMax cost which is
+    // lowered into select.
+    Type *OpTy = VPInst->getOperand(0)->getType();
+    Type *VecOpTy = getWidenedType(OpTy, VF);
+
+    // Pick any condition code here frpm possible conditions for operation in
+    // question for the simplicity. We expect the cost doesn't depend on it.
+    VPInstructionCost Cost = TTI.getCmpSelInstrCost(
+      Instruction::Select, VecOpTy, VecOpTy, CmpInst::ICMP_ULT,
+      TTI::TCK_RecipThroughput);
+
+    // TODO: The entry condition to be extended once more Sequential operations
+    // are introduced.
+    if (Opcode == VPInstruction::UMinSeq) {
+      // Add Cost of extra instructions for Sequential operation.
+      Cost += TTI.getCmpSelInstrCost(
+        Instruction::ICmp, VecOpTy, VecOpTy, CmpInst::ICMP_EQ,
+        TTI::TCK_RecipThroughput) * VPInst->getNumOperands();
+
+      Type *VecInt1Ty =
+        getWidenedType(Type::getInt1Ty(*Plan->getLLVMContext()), VF);
+
+      // Select is used to implement logical (non commutative) OR operation.
+      Cost += TTI.getCmpSelInstrCost(
+        Instruction::Select, VecInt1Ty, VecInt1Ty, CmpInst::ICMP_EQ,
+        TTI::TCK_RecipThroughput);
+
+      Cost += TTI.getCmpSelInstrCost(
+        Instruction::Select, VecOpTy, VecInt1Ty, CmpInst::ICMP_EQ,
+        TTI::TCK_RecipThroughput);
+    }
+
+    return Cost;
+  }
   }
 }
 

@@ -2189,10 +2189,30 @@ VPDecomposerHIR::VPBlobDecompVisitor::decomposeNAryOp(const SCEVNAryExpr *Blob,
                                                       unsigned OpCode) {
   VPValue *DecompDef = nullptr;
   Type *ExprTy = Blob->getType();
+
+  // TODO:
+  // VPInstruction::UMinSeq is NOT commutative so the original operand order has
+  // to be honored as it is implemented for OpCode == VPInstruction::UMinSeq
+  // case below.
+  //
+  // This method handled commutative operations only before UMinSeq was
+  // introduced. Historically the code swaps the operands, which is unacceptable
+  // for UMinSeq (the default code below). Technically we should be able to
+  // remove 'not UMinSeq' code and handle both commutative and non commutative
+  // operations with the same code. However VPlan misses canonicalization pass
+  // for immediate operands of commutative operation thus such change would
+  // produce instructions such as mul 3, %op, i.e. with the first immediate
+  // operand.
+  //
+  // Thereby, before generalizing the code we might want to add canonicalization
+  // to avoid possible negative impact on downstream transformations and
+  // performance eventually.
+  //
   for (auto *SCOp : Blob->operands()) {
     VPValue *VPOp = Decomposer.decomposeBlobImplicitConv(visit(SCOp), ExprTy);
-    DecompDef =
-        Decomposer.combineDecompDefs(VPOp, DecompDef, Blob->getType(), OpCode);
+    DecompDef = (OpCode == VPInstruction::UMinSeq) ?
+      Decomposer.combineDecompDefs(DecompDef, VPOp, Blob->getType(), OpCode) :
+      Decomposer.combineDecompDefs(VPOp, DecompDef, Blob->getType(), OpCode);
   }
 
   return DecompDef;

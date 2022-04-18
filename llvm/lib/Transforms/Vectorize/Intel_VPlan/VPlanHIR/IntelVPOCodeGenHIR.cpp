@@ -5590,6 +5590,49 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
                                            InstName);
     break;
 
+  case VPInstruction::UMinSeq: {
+    // The code we emit for SCEVSequentialUMinExpr:
+    // if (op1 == 0 || op2 == 0)
+    //   return 0;
+    // else
+    //   return UMin(op1, op2);
+    //
+    // Such lowering provides UMinSeq(0, poison) = 0 semantics, meanwhile
+    // UMin(0, poison) = poison.
+
+    Type *VTy = getWidenedType(VPInst->getType(), VF);
+    Value *SaturationPoint = MinMaxIntrinsic::getSaturationPoint(
+      Intrinsic::umin, VTy);
+    RegDDRef *SatDDRef = DDRefUtilities.createConstDDRef(SaturationPoint);
+    RegDDRef *OneDDRef = DDRefUtilities.createConstDDRef(getWidenedType(
+                           Type::getInt1Ty(Context), VF), 1);
+
+    // Generate compares with Saturation point for each operand.
+    HLInst *CmpInst0 = HLNodeUtilities.createCmp(
+      ICmpInst::ICMP_EQ, RefOp0->clone(), SatDDRef->clone(), InstName);
+    HLInst *CmpInst1 = HLNodeUtilities.createCmp(
+      ICmpInst::ICMP_EQ, RefOp1->clone(), SatDDRef->clone(), InstName);
+
+    HLInst *SelInst = HLNodeUtilities.createSelect(
+      ICmpInst::ICMP_EQ, CmpInst0->getLvalDDRef()->clone(), OneDDRef->clone(),
+      OneDDRef->clone(), CmpInst1->getLvalDDRef()->clone(), InstName);
+
+    HLInst *ClassicUMinInst = HLNodeUtilities.createSelect(
+      CmpInst::ICMP_ULT, RefOp0->clone(), RefOp1->clone(),
+      RefOp0->clone(), RefOp1->clone(), InstName);
+
+    addInst(CmpInst0, Mask);
+    addInst(CmpInst1, Mask);
+    addInst(SelInst, Mask);
+    addInst(ClassicUMinInst, Mask);
+
+    NewInst = HLNodeUtilities.createSelect(
+      ICmpInst::ICMP_EQ, SelInst->getLvalDDRef()->clone(), OneDDRef->clone(),
+      SatDDRef->clone(), ClassicUMinInst->getLvalDDRef()->clone(), InstName);
+
+    break;
+  }
+
   case Instruction::GetElementPtr: {
     auto *GEP = cast<VPGEPInstruction>(VPInst);
     if (VPInst->getNumOperands() == 2) {
