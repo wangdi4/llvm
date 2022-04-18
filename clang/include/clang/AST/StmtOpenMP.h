@@ -3352,6 +3352,41 @@ class OMPAtomicDirective : public OMPExecutableDirective {
   void setCond(Expr *C) { Data->getChildren()[DataPositionTy::POS_Cond] = C; }
 
 public:
+  struct Expressions {
+    /// 'x' part of the associated expression/statement.
+    Expr *X = nullptr;
+    /// 'v' part of the associated expression/statement.
+    Expr *V = nullptr;
+    /// 'expr' part of the associated expression/statement.
+    Expr *E = nullptr;
+#if INTEL_COLLAB
+    /// 'expected' part of the associated expression/statement.
+    Expr *Expected = nullptr;
+    /// 'result' part of the associated expression/statement.
+    Expr *Result = nullptr;
+#endif // INTEL_COLLAB
+    /// UE Helper expression of the form:
+    /// 'OpaqueValueExpr(x) binop OpaqueValueExpr(expr)' or
+    /// 'OpaqueValueExpr(expr) binop OpaqueValueExpr(x)'.
+    Expr *UE = nullptr;
+    /// 'd' part of the associated expression/statement.
+    Expr *D = nullptr;
+    /// Conditional expression in `atomic compare` construct.
+    Expr *Cond = nullptr;
+    /// True if UE has the first form and false if the second.
+    bool IsXLHSInRHSPart;
+    /// True if original value of 'x' must be stored in 'v', not an updated one.
+    bool IsPostfixUpdate;
+#if INTEL_COLLAB
+    /// True for forms that result in a 'min' operation:
+    bool IsCompareMin;
+    /// True for forms that result in a 'max' operation:
+    bool IsCompareMax;
+    /// True for forms that update 'v' only when the condition is false.
+    bool IsConditionalCapture;
+#endif // INTEL_COLLAB
+  };
+
   /// Creates directive with a list of \a Clauses and 'x', 'v' and 'expr'
   /// parts of the atomic construct (see Section 2.12.6, atomic Construct, for
   /// detailed description of 'x', 'v' and 'expr').
@@ -3361,36 +3396,12 @@ public:
   /// \param EndLoc Ending Location of the directive.
   /// \param Clauses List of clauses.
   /// \param AssociatedStmt Statement, associated with the directive.
-  /// \param X 'x' part of the associated expression/statement.
-  /// \param V 'v' part of the associated expression/statement.
-  /// \param E 'expr' part of the associated expression/statement.
-#if INTEL_COLLAB
-  /// \param Expected 'expected' part of the associated expression/statement.
-  /// \param Result 'result' part of the associated expression/statement.
-#endif // INTEL_COLLAB
-  /// \param UE Helper expression of the form
-  /// 'OpaqueValueExpr(x) binop OpaqueValueExpr(expr)' or
-  /// 'OpaqueValueExpr(expr) binop OpaqueValueExpr(x)'.
-  /// \param D 'd' part of the associated expression/statement.
-  /// \param Cond Conditional expression in `atomic compare` construct.
-  /// \param IsXLHSInRHSPart true if \a UE has the first form and false if the
-  /// second.
-  /// \param IsPostfixUpdate true if original value of 'x' must be stored in
-  /// 'v', not an updated one.
-#if INTEL_COLLAB
-  /// \param IsCompareMin true if 'compare' min case
-  /// \param IsCompareMax true if 'compare' max case
-  /// \param IsConditionalCapture true if capture when condition is false.
-#endif // INTEL_COLLAB
-  static OMPAtomicDirective *
-  Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
-         ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt, Expr *X, Expr *V,
-         Expr *E, Expr *UE, Expr *D, Expr *Cond, bool IsXLHSInRHSPart,
-#if INTEL_COLLAB
-         Expr *Expected, Expr *Result, bool IsCompareMin, bool IsCompareMax,
-         bool IsConditionalCapture,
-#endif // INTEL_COLLAB
-         bool IsPostfixUpdate);
+  /// \param Exprs Associated expressions or statements.
+  static OMPAtomicDirective *Create(const ASTContext &C,
+                                    SourceLocation StartLoc,
+                                    SourceLocation EndLoc,
+                                    ArrayRef<OMPClause *> Clauses,
+                                    Stmt *AssociatedStmt, Expressions Exprs);
 
   /// Creates an empty directive with the place for \a NumClauses
   /// clauses.

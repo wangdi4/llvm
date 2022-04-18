@@ -13926,13 +13926,14 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
 
   setFunctionHasBranchProtectedScope();
 
-  return OMPAtomicDirective::Create(Context, StartLoc, EndLoc, Clauses, AStmt,
-                                    X, V, E, UE, D, CE, IsXLHSInRHSPart,
+  return OMPAtomicDirective::Create(
+      Context, StartLoc, EndLoc, Clauses, AStmt,
 #if INTEL_COLLAB
-                                    Expected, Result, IsCompareMin,
-                                    IsCompareMax, IsConditionalCapture,
+      {X, V, E, Expected, Result, UE, D, CE, IsXLHSInRHSPart, IsPostfixUpdate,
+       IsCompareMin, IsCompareMax, IsConditionalCapture});
+#else // INTEL_COLLAB
+      {X, V, E, UE, D, CE, IsXLHSInRHSPart, IsPostfixUpdate});
 #endif // INTEL_COLLAB
-                                    IsPostfixUpdate);
 }
 
 StmtResult Sema::ActOnOpenMPTargetDirective(ArrayRef<OMPClause *> Clauses,
