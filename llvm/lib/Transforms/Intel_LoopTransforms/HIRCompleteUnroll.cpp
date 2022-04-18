@@ -196,6 +196,10 @@ static cl::opt<bool> ForceConstantPropagation(
     cl::desc(
         "Force Constant Propagation in HIR Complete Unroll for all loops"));
 
+static cl::opt<unsigned> PerfectLoopDepthThreshold(
+    "hir-complete-unroll-perfect-loop-depth-threshold", cl::init(7), cl::Hidden,
+    cl::desc("Threshold for perfect loop depth"));
+
 // External interface
 namespace llvm {
 namespace loopopt {
@@ -2812,6 +2816,16 @@ bool HIRCompleteUnroll::isApplicable(const HLLoop *Loop) const {
   // Ignore vectorizable loops
   if (Loop->isVecLoop()) {
     LLVM_DEBUG(dbgs() << "Skipping complete unroll of vectorizable loop!\n");
+    return false;
+  }
+
+  // Ignore perfect loopnests with the deep depth
+  const HLLoop *InnermostLoop = nullptr;
+  if (!Loop->isInnermost() &&
+      HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop, false) &&
+      InnermostLoop->getNestingLevel() >= PerfectLoopDepthThreshold) {
+    LLVM_DEBUG(dbgs() << "Skipping complete unroll of perfect loopnest with "
+                         "deep loop depth!\n");
     return false;
   }
 
