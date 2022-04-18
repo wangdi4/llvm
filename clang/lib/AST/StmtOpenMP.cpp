@@ -1003,6 +1003,7 @@ OMPOrderedDirective *OMPOrderedDirective::CreateEmpty(const ASTContext &C,
 OMPAtomicDirective *
 OMPAtomicDirective::Create(const ASTContext &C, SourceLocation StartLoc,
                            SourceLocation EndLoc, ArrayRef<OMPClause *> Clauses,
+<<<<<<< HEAD
                            Stmt *AssociatedStmt, Expr *X, Expr *V, Expr *E,
                            Expr *UE, Expr *D, Expr *Cond, bool IsXLHSInRHSPart,
 #if INTEL_COLLAB
@@ -1034,6 +1035,19 @@ OMPAtomicDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->IsCompareMax = IsCompareMax;
   Dir->IsConditionalCapture = IsConditionalCapture;
 #endif // INTEL_COLLAB
+=======
+                           Stmt *AssociatedStmt, Expressions Exprs) {
+  auto *Dir = createDirective<OMPAtomicDirective>(
+      C, Clauses, AssociatedStmt, /*NumChildren=*/6, StartLoc, EndLoc);
+  Dir->setX(Exprs.X);
+  Dir->setV(Exprs.V);
+  Dir->setExpr(Exprs.E);
+  Dir->setUpdateExpr(Exprs.UE);
+  Dir->setD(Exprs.D);
+  Dir->setCond(Exprs.Cond);
+  Dir->IsXLHSInRHSPart = Exprs.IsXLHSInRHSPart;
+  Dir->IsPostfixUpdate = Exprs.IsPostfixUpdate;
+>>>>>>> 52e6a27690ca8e5f07cc646716c3736475b7746b
   return Dir;
 }
 
