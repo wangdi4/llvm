@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fintel-compatibility \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fintel-compatibility \
 // RUN:  -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
@@ -76,13 +76,13 @@ void oneA() {
   GoodIter it1;
 
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(%class.GoodIter* [[ONEA_IT1]]
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[ONEA_I]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[ONEA_IT1]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[ONEA_I]]
   // Initialize IV
   // CHECK: store {{.*}}[[ONEA_IV]]
   // Update it1
-  // CHECK: call{{.*}} %class.GoodIter* @_ZN8GoodIterpLEi
-  // CHECK-SAME: (%class.GoodIter* {{[^,]*}} [[ONEA_IT1]]
+  // CHECK: call{{.*}} ptr @_ZN8GoodIterpLEi
+  // CHECK-SAME: (ptr {{[^,]*}} [[ONEA_IT1]]
   // Update i
   // CHECK: store {{.*}}[[ONEA_I]]
   // CHECK: {{.*}} call{{.*}}baz
@@ -104,15 +104,15 @@ void oneA() {
 void oneB() {
   GoodIter begin1, end1;
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[ONEB_I]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(%class.GoodIter* [[ONEB_IT1]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[ONEB_I]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[ONEB_IT1]])
   // Initialize IV
   // CHECK: store {{.*}}[[ONEB_IV]]
   // Update i
   // CHECK: store {{.*}}[[ONEB_I]]
   // Update it1
-  // CHECK: call{{.*}} %class.GoodIter* @_ZN8GoodIterpLEi
-  // CHECK-SAME: (%class.GoodIter* {{[^,]*}} [[ONEB_IT1]]
+  // CHECK: call{{.*}} ptr @_ZN8GoodIterpLEi
+  // CHECK-SAME: (ptr {{[^,]*}} [[ONEB_IT1]]
   // CHECK: {{.*}} call{{.*}}baz
   // Increment IV
   // CHECK: store {{.*}}[[ONEB_IV]]
@@ -132,7 +132,7 @@ void two()
 {
   int i;
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(),
-  // CHECK-SAME: "QUAL.OMP.LASTPRIVATE"(i32* [[TWO_I]]
+  // CHECK-SAME: "QUAL.OMP.LASTPRIVATE"(ptr [[TWO_I]]
   // CHECK: store {{.*}}[[TWO_IV]]
   // CHECK: region.exit{{.*}}"DIR.OMP.END.PARALLEL.LOOP"()
   #pragma omp parallel for lastprivate(i)
@@ -148,7 +148,7 @@ void twoA()
 {
   int i;
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(),
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[TWOA_I]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[TWOA_I]]
   // CHECK: store {{.*}}[[TWOA_IV]]
   // CHECK: region.exit{{.*}}"DIR.OMP.END.PARALLEL.LOOP"()
   #pragma omp parallel for private(i)
@@ -164,7 +164,7 @@ void bar(int *);
 void threeA()
 {
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* @glob
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr @glob
   // CHECK: region.exit{{.*}}"DIR.OMP.END.PARALLEL.LOOP"()
   #pragma omp parallel for
   for (glob=0; glob < 2; ++glob)

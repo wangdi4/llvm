@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu | FileCheck %s
-// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fexceptions -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu | FileCheck %s
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c++14 -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu | FileCheck %s
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c++14 -fexceptions -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu | FileCheck %s
 //
 // Checking on "regular" loops
 //
@@ -13,7 +13,7 @@ void bar(int) noexcept;
 
 // CHECK-LABEL: @_Z3fooPiPS_
 void foo(int *arr1, int **arr2) {
-  // CHECK: [[ARR2:%arr2.*]] = alloca i32**,
+  // CHECK: [[ARR2:%arr2.*]] = alloca ptr,
   // CHECK: [[ILCV:%i.*]] = alloca i32,
   // CHECK: [[JLCV:%j.*]] = alloca i32,
   // CHECK: [[ITER:%iter.*]] = alloca i32,
@@ -42,8 +42,8 @@ void foo(int *arr1, int **arr2) {
 // CHECK: [[TOKENVAL:%[0-9]+]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: "DIR.OMP.SIMD"(),
 // CHECK-SAME: "QUAL.OMP.SAFELEN"(i32 4)
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IV]])
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[OMP_UB]])
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[OMP_IV]])
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr [[OMP_UB]])
 // CHECK: call void @llvm.directive.region.exit(token [[TOKENVAL]])
 // CHECK-SAME: [ "DIR.OMP.END.SIMD"() ]
   #pragma omp simd safelen(4)
@@ -53,8 +53,8 @@ void foo(int *arr1, int **arr2) {
 
 // CHECK: [[TOKENVAL2:%[0-9]+]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"(),
-// CHECK-SAME: "QUAL.OMP.SHARED"(i32*** [[ARR2]])
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i64* [[OMP_IV10]])
+// CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[ARR2]])
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[OMP_IV10]])
 // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"
 // CHECK: call void @llvm.directive.region.exit(token [[TOKENVAL2]])
 // CHECK-SAME: [ "DIR.OMP.END.PARALLEL.LOOP"() ]
@@ -64,9 +64,9 @@ void foo(int *arr1, int **arr2) {
       arr2[i][j] = 42+i+j;
 // CHECK: [[TOKENVAL3:%[0-9]+]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"()
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IV72]])
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[OMP_IV72]])
 // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %k
+// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr %k
 // CHECK: call void @llvm.directive.region.exit(token [[TOKENVAL3]])
 // CHECK-SAME: [ "DIR.OMP.END.PARALLEL.LOOP"() ]
   #pragma omp parallel for
@@ -75,9 +75,9 @@ void foo(int *arr1, int **arr2) {
   }
 // CHECK: [[TOKENVAL4:%[0-9]+]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: "DIR.OMP.LOOP"()
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IV88]])
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[OMP_IV88]])
 // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %k
+// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr %k
 // CHECK: call void @llvm.directive.region.exit(token [[TOKENVAL4]])
 // CHECK-SAME: [ "DIR.OMP.END.LOOP"() ]
   #pragma omp for
@@ -87,7 +87,7 @@ void foo(int *arr1, int **arr2) {
 
 // CHECK: [[TOKENVAL0:%[0-9]+]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: "DIR.OMP.LOOP"()
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IVAAA]])
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[OMP_IVAAA]])
 // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"
 // CHECK: [[TOKENVAL1:%[0-9]+]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: "DIR.OMP.SIMD"()
@@ -104,8 +104,8 @@ void foo(int *arr1, int **arr2) {
 
 // CHECK: [[TOKENVAL0:%[0-9]+]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"()
-// CHECK-SAME: "QUAL.OMP.SHARED"(i32** %arr1
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IV105]])
+// CHECK-SAME: "QUAL.OMP.SHARED"(ptr %arr1
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[OMP_IV105]])
 // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"
 // CHECK: [[TOKENVAL1:%[0-9]+]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: "DIR.OMP.SIMD"()
@@ -137,8 +137,8 @@ void foo(int *arr1, int **arr2) {
  }
 
 //CHECK: DIR.OMP.DISTRIBUTE.PARLOOP
-//CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IV218]])
-//CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[OMP_UB218]])
+//CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[OMP_IV218]])
+//CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr [[OMP_UB218]])
 //CHECK-SAME: "QUAL.OMP.PRIVATE"{{.*}}%zz1
 #pragma omp distribute parallel for
 for (int i=0; i<16; ++i) {
@@ -148,8 +148,8 @@ for (int i=0; i<16; ++i) {
 //CHECK: DIR.OMP.END.DISTRIBUTE.PARLOOP
 
 //CHECK: DIR.OMP.DISTRIBUTE.PARLOOP
-//CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IV236]])
-//CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[OMP_UB236]])
+//CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[OMP_IV236]])
+//CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr [[OMP_UB236]])
 //CHECK-SAME: "QUAL.OMP.PRIVATE"{{.*}}%zz1
 //CHECK: DIR.OMP.SIMD
 #pragma omp distribute parallel for simd
@@ -161,9 +161,9 @@ for (int i=0; i<16; ++i) {
 //CHECK: DIR.OMP.END.DISTRIBUTE.PARLOOP
 
 // CHECK: DIR.OMP.PARALLEL.LOOP
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IV255]])
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB255]])
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[OMP_UB255]])
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[OMP_IV255]])
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[OMP_LB255]])
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr [[OMP_UB255]])
   #pragma omp parallel for
   for (iter = first1(); iter < last1(); ++iter) {
     int pr = 4;
@@ -173,8 +173,8 @@ for (int i=0; i<16; ++i) {
 // CHECK: [[TV288:%[0-9]+]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: "DIR.OMP.SIMD"(),
 // CHECK-SAME: "QUAL.OMP.SAFELEN"(i32 4)
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IV288]])
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[OMP_UB288]])
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[OMP_IV288]])
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr [[OMP_UB288]])
 // CHECK: call void @llvm.directive.region.exit(token [[TV288]])
 // CHECK-SAME: [ "DIR.OMP.END.SIMD"() ]
   #pragma omp simd safelen(4)
@@ -210,7 +210,7 @@ void doacross_test(int (*v_ptr)[5][4])
   for (i = 1; i < M; i++) {
     for (j = 2; j < N; j++) {
   // CHECK: [[DAL1:%[0-9]+]] = load{{.*}}[[OMPLB]]
-  // CHECK: store i32 [[DAL1]], i32* [[OMPIV]]
+  // CHECK: store i32 [[DAL1]], ptr [[OMPIV]]
   // CHECK: [[DAL2:%[0-9]+]] = load{{.*}}[[OMPIV]]
   // CHECK: [[DAL3:%[0-9]+]] = load{{.*}}[[OMPUB]]
   // CHECK: icmp sle i32 [[DAL2]], [[DAL3]]
@@ -246,10 +246,10 @@ void doacross_test(int (*v_ptr)[5][4])
 
   //CHECK: call {{.*}}bar
   bar(0);
-  //CHECK: [[N22:%[0-9]+]] = load i32, i32* [[VARI]], align 4
+  //CHECK: [[N22:%[0-9]+]] = load i32, ptr [[VARI]], align 4
   //CHECK: [[SUB25:%sub[0-9]+]] = sub nsw i32 [[N22]], 1
   //CHECK: [[DIV26:%div[0-9]+]] = sdiv i32 [[SUB25]], 1
-  //CHECK: [[N23:%[0-9]+]] = load i32, i32* [[VARJ]], align 4
+  //CHECK: [[N23:%[0-9]+]] = load i32, ptr [[VARJ]], align 4
   //CHECK: [[SUB27:%sub[0-9]+]] = sub nsw i32 [[N23]], 2
   //CHECK: [[DIV28:%div[0-9]+]] = sdiv i32 [[SUB27]], 1
 
@@ -271,8 +271,8 @@ void doacross_test_two(int (*v_ptr)[5][4])
   int i, j;
   // CHECK: region.entry{{.*}}OMP.PARALLEL.LOOP
   // CHECK-SAME: ORDERED"(i32 2, i32 4, i32 2)
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[J]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[I]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[J]])
   #pragma omp parallel for ordered (2)
   for (i = 1; i < M; i++) {
     for (j = 2; j < N; j++) {

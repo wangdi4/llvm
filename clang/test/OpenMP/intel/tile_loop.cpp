@@ -1,16 +1,16 @@
-// RUN: %clang_cc1 -std=c++14 -fopenmp -fintel-compatibility \
+// RUN: %clang_cc1 -opaque-pointers -std=c++14 -fopenmp -fintel-compatibility \
 // RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu \
 // RUN:  -emit-pch -o %t %s
 
-// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fopenmp -fintel-compatibility \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fintel-compatibility \
 // RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu \
 // RUN:  -include-pch %t %s | FileCheck %s
 
-// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fopenmp \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c++14 -fopenmp \
 // RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu | FileCheck %s
 
-// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fexceptions -fopenmp \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c++14 -fexceptions -fopenmp \
 // RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu | FileCheck %s
 
@@ -32,19 +32,19 @@ void tile_test(int v_ptr[M][N])
   //CHECK: [[UBOUTER:%.omp.uncollapsed.ub.*]] = alloca i32,
   //CHECK: [[LBINNER:%.omp.uncollapsed.lb.*]] = alloca i32,
   //CHECK: [[UBINNER:%.omp.uncollapsed.ub.*]] = alloca i32,
-  //CHECK: store i32 0, i32* [[LBOUTER]],
-  //CHECK: store i32 31, i32* [[UBOUTER]],
-  //CHECK: store i32 0, i32* [[LBINNER]],
-  //CHECK: store i32 15, i32* [[UBINNER]],
+  //CHECK: store i32 0, ptr [[LBOUTER]],
+  //CHECK: store i32 31, ptr [[UBOUTER]],
+  //CHECK: store i32 0, ptr [[LBINNER]],
+  //CHECK: store i32 15, ptr [[UBINNER]],
   int i, j;
   //CHECK: region.entry{{.*}}OMP.PARALLEL.LOOP
   //CHECK-SAME-DIAG: QUAL.OMP.TILE"(i32 8, i32 16)
-  //CHECK-SAME-DIAG: QUAL.OMP.FIRSTPRIVATE"(i32* [[LBOUTER]])
-  //CHECK-SAME-DIAG: QUAL.OMP.FIRSTPRIVATE"(i32* [[LBINNER]])
-  //CHECK-SAME-DIAG: QUAL.OMP.PRIVATE"(i32* [[IVAR]])
-  //CHECK-SAME-DIAG: QUAL.OMP.PRIVATE"(i32* [[JVAR]])
-  //CHECK-SAME-DIAG: QUAL.OMP.NORMALIZED.IV"(i32* [[IVOUTER]], i32* [[IVINNER]])
-  //CHECK-SAME-DIAG: QUAL.OMP.NORMALIZED.UB"(i32* [[UBOUTER]], i32* [[UBINNER]])
+  //CHECK-SAME-DIAG: QUAL.OMP.FIRSTPRIVATE"(ptr [[LBOUTER]])
+  //CHECK-SAME-DIAG: QUAL.OMP.FIRSTPRIVATE"(ptr [[LBINNER]])
+  //CHECK-SAME-DIAG: QUAL.OMP.PRIVATE"(ptr [[IVAR]])
+  //CHECK-SAME-DIAG: QUAL.OMP.PRIVATE"(ptr [[JVAR]])
+  //CHECK-SAME-DIAG: QUAL.OMP.NORMALIZED.IV"(ptr [[IVOUTER]], ptr [[IVINNER]])
+  //CHECK-SAME-DIAG: QUAL.OMP.NORMALIZED.UB"(ptr [[UBOUTER]], ptr [[UBINNER]])
   #pragma omp parallel for tile(8,16)
   for (i = 16; i < 48; i++) {
     for (j = 8; j < 24; j++) {

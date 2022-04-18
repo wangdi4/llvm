@@ -1,10 +1,10 @@
-// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fintel-compatibility \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fintel-compatibility \
 // RUN:  -fopenmp -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s
-// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fintel-compatibility -DSPLIT \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fintel-compatibility -DSPLIT \
 // RUN:  -fopenmp -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s
-// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fexceptions \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fexceptions \
 // RUN:  -fintel-compatibility -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
@@ -24,23 +24,23 @@ void foo2() {
   int j = 20;
   // CHECK: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.TARGET"()
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[J]]
-  // CHECK: store i32 0, i32* [[OMP_LB]],
-  // CHECK: store i32 15, i32* [[OMP_UB]],
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[J]]
+  // CHECK: store i32 0, ptr [[OMP_LB]],
+  // CHECK: store i32 15, ptr [[OMP_UB]],
   // CHECK: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"()
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I]]),
-  // CHECK-SAME: "QUAL.OMP.SHARED"(i32* [[J]]),
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IV]]),
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]),
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[OMP_UB]])
-  // CHECK: [[L1:%[0-9]+]] = load i32, i32* [[OMP_IV]], align 4
-  // CHECK-NEXT: [[L2:%[0-9]+]] = load i32, i32* [[OMP_UB]], align 4
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[I]]),
+  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[J]]),
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[OMP_IV]]),
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[OMP_LB]]),
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr [[OMP_UB]])
+  // CHECK: [[L1:%[0-9]+]] = load i32, ptr [[OMP_IV]], align 4
+  // CHECK-NEXT: [[L2:%[0-9]+]] = load i32, ptr [[OMP_UB]], align 4
   // CHECK-NEXT: icmp sle i32 [[L1]], [[L2]]
-  // CHECK: [[L1:%[0-9]+]] = load i32, i32* [[OMP_IV]], align 4
-  // CHECK: store i32 {{.*}} i32* [[I]], align 4
-  // CHECK: [[L2:%[0-9]+]] = load i32, i32* [[I]], align 4
-  // CHECK: [[L3:%[0-9]+]] = load i32, i32* [[J]], align 4
+  // CHECK: [[L1:%[0-9]+]] = load i32, ptr [[OMP_IV]], align 4
+  // CHECK: store i32 {{.*}} ptr [[I]], align 4
+  // CHECK: [[L2:%[0-9]+]] = load i32, ptr [[I]], align 4
+  // CHECK: [[L3:%[0-9]+]] = load i32, ptr [[J]], align 4
   // CHECK-NEXT: {{call|invoke}} void {{.*}}bar
   // CHECK-SAME: (i32 noundef 42, i32 noundef [[L2]], i32 noundef [[L3]])
 

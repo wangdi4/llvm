@@ -1,14 +1,14 @@
-//RUN: %clang_cc1 -std=c++14 -fopenmp \
+//RUN: %clang_cc1 -opaque-pointers -std=c++14 -fopenmp \
 //RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline \
 //RUN:   -triple x86_64-unknown-linux-gnu \
 //RUN:   -emit-llvm -o - %s | FileCheck %s
 
-//RUN: %clang_cc1 -std=c++14 -fopenmp \
+//RUN: %clang_cc1 -opaque-pointers -std=c++14 -fopenmp \
 //RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline \
 //RUN:   -triple x86_64-unknown-linux-gnu \
 //RUN:   -emit-llvm-bc -o %t_host.bc %s
 
-//RUN: %clang_cc1 -std=c++14 -fopenmp \
+//RUN: %clang_cc1 -opaque-pointers -std=c++14 -fopenmp \
 //RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline \
 //RUN:   -triple spir64 -fopenmp-is-device \
 //RUN:   -fopenmp-host-ir-file-path %t_host.bc \
@@ -34,14 +34,14 @@ void test_imperfect_nest(const double *A, double *B)
   #pragma omp parallel for collapse(2)
   for(int k=0;k<5;k++)
   {
-    //CHECK: store i32 27, i32{{.*}} [[SI]]
+    //CHECK: store i32 27, ptr{{.*}} [[SI]]
     int sourceIndex      = 27;
-    //CHECK: store i32 42, i32{{.*}} [[DI]]
+    //CHECK: store i32 42, ptr{{.*}} [[DI]]
     int destinationIndex = 42;
     for(int l=0;l<5;l++)
     {
       int otherIndex = 86;
-      //CHECK: store i32 86, i32{{.*}} [[OI]]
+      //CHECK: store i32 86, ptr{{.*}} [[OI]]
       B[destinationIndex] = A[sourceIndex+otherIndex];
     }
   }

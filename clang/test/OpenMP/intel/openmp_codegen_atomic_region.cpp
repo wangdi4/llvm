@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:   -fintel-openmp-region-atomic \
 // RUN:   -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
@@ -9,7 +9,7 @@ void foo() {
 // CHECK: region.entry() [ "DIR.OMP.ATOMIC"()
 // CHECK-SAME: "QUAL.OMP.UPDATE"
 // CHECK-NEXT: fence acquire
-// CHECK-NEXT: load i64, i64*
+// CHECK-NEXT: load i64, ptr
 // CHECK-NEXT: add nsw i64 %{{.+}}, 1
 // CHECK-NEXT: store i64
 // CHECK-NEXT: fence release
@@ -19,7 +19,7 @@ void foo() {
 // CHECK: region.entry() [ "DIR.OMP.ATOMIC"()
 // CHECK-SAME: "QUAL.OMP.UPDATE"
 // CHECK-NEXT: fence acquire
-// CHECK-NEXT: load i64, i64*
+// CHECK-NEXT: load i64, ptr
 // CHECK-NEXT: add nsw i64 %{{.+}}, 1
 // CHECK-NEXT: store i64
 // CHECK-NEXT: fence release
@@ -29,7 +29,7 @@ void foo() {
 // CHECK: region.entry() [ "DIR.OMP.ATOMIC"()
 // CHECK-SAME: "QUAL.OMP.READ"
 // CHECK-NEXT: fence acquire
-// CHECK-NEXT: load i64, i64*
+// CHECK-NEXT: load i64, ptr
 // CHECK-NEXT: store i64
 // CHECK-NEXT: fence release
 // CHECK: region.exit{{.*}}"DIR.OMP.END.ATOMIC"()
@@ -38,7 +38,7 @@ void foo() {
 // CHECK: region.entry() [ "DIR.OMP.ATOMIC"()
 // CHECK-SAME: "QUAL.OMP.WRITE"
 // CHECK-NEXT: fence acquire
-// CHECK-NEXT: store i64 1, i64*
+// CHECK-NEXT: store i64 1, ptr
 // CHECK-NEXT: fence release
 // CHECK: region.exit{{.*}}"DIR.OMP.END.ATOMIC"()
 #pragma omp atomic write
@@ -46,7 +46,7 @@ void foo() {
 // CHECK: region.entry() [ "DIR.OMP.ATOMIC"()
 // CHECK-SAME: "QUAL.OMP.CAPTURE"
 // CHECK-NEXT: fence acquire
-// CHECK-NEXT: load i64, i64*
+// CHECK-NEXT: load i64, ptr
 // CHECK-NEXT: add nsw i64 %{{.+}}, 1
 // CHECK-NEXT: store i64
 // CHECK-NEXT: store i64
@@ -57,7 +57,7 @@ void foo() {
 // CHECK: region.entry() [ "DIR.OMP.ATOMIC"()
 // CHECK-SAME: "QUAL.OMP.UPDATE.SEQ_CST"
 // CHECK-NEXT: fence acquire
-// CHECK-NEXT: load i64, i64*
+// CHECK-NEXT: load i64, ptr
 // CHECK-NEXT: add nsw i64 %{{.+}}, 1
 // CHECK-NEXT: store i64
 // CHECK-NEXT: fence release
@@ -67,7 +67,7 @@ void foo() {
 // CHECK: region.entry() [ "DIR.OMP.ATOMIC"()
 // CHECK-SAME: "QUAL.OMP.UPDATE.SEQ_CST"
 // CHECK-NEXT: fence acquire
-// CHECK-NEXT: load i64, i64*
+// CHECK-NEXT: load i64, ptr
 // CHECK-NEXT: add nsw i64 %{{.+}}, 1
 // CHECK-NEXT: store i64
 // CHECK-NEXT: fence release
@@ -77,7 +77,7 @@ void foo() {
 // CHECK: region.entry() [ "DIR.OMP.ATOMIC"()
 // CHECK-SAME: "QUAL.OMP.READ.SEQ_CST"
 // CHECK-NEXT: fence acquire
-// CHECK-NEXT: load i64, i64*
+// CHECK-NEXT: load i64, ptr
 // CHECK-NEXT: store i64
 // CHECK-NEXT: fence release
 // CHECK: region.exit{{.*}}"DIR.OMP.END.ATOMIC"()
@@ -86,7 +86,7 @@ void foo() {
 // CHECK: region.entry() [ "DIR.OMP.ATOMIC"()
 // CHECK-SAME: "QUAL.OMP.WRITE.SEQ_CST"
 // CHECK-NEXT: fence acquire
-// CHECK-NEXT: store i64 1, i64*
+// CHECK-NEXT: store i64 1, ptr
 // CHECK-NEXT: fence release
 // CHECK: region.exit{{.*}}"DIR.OMP.END.ATOMIC"()
 #pragma omp atomic write seq_cst
@@ -94,7 +94,7 @@ void foo() {
 // CHECK: region.entry() [ "DIR.OMP.ATOMIC"()
 // CHECK-SAME: "QUAL.OMP.CAPTURE.SEQ_CST"
 // CHECK-NEXT: fence acquire
-// CHECK-NEXT: load i64, i64*
+// CHECK-NEXT: load i64, ptr
 // CHECK-NEXT: add nsw i64 %{{.+}}, 1
 // CHECK-NEXT: store i64
 // CHECK-NEXT: store i64

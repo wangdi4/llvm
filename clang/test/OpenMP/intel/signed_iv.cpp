@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 void call_foo(float *);
@@ -14,7 +14,7 @@ void foo(float *A, int N, int S, long long N64)
   //CHECK: "DIR.OMP.SIMD"
   //CHECK: icmp sle i32
   //CHECK: call void {{.*}}call_foo
-  //CHECK: load i32, i32* %.omp.iv
+  //CHECK: load i32, ptr %.omp.iv
   //CHECK-NEXT: add nsw i32 {{.*}}1{{$}}
   //CHECK-NEXT: store i32 {{.*}}%.omp.iv
   #pragma omp simd
@@ -26,7 +26,7 @@ void foo(float *A, int N, int S, long long N64)
   //CHECK: "DIR.OMP.SIMD"
   //CHECK: icmp sle i32
   //CHECK: call void {{.*}}call_foo
-  //CHECK: load i32, i32* %.omp.iv
+  //CHECK: load i32, ptr %.omp.iv
   //CHECK-NEXT: add nsw i32 {{.*}}1{{$}}
   //CHECK-NEXT: store i32 {{.*}}%.omp.iv
   #pragma omp simd
@@ -38,7 +38,7 @@ void foo(float *A, int N, int S, long long N64)
   //CHECK: "DIR.OMP.SIMD"
   //CHECK: icmp ule i32
   //CHECK: call void {{.*}}call_foo
-  //CHECK: load i32, i32* %.omp.iv
+  //CHECK: load i32, ptr %.omp.iv
   //CHECK-NEXT: add nuw i32 {{.*}}1{{$}}
   //CHECK-NEXT: store i32 {{.*}}%.omp.iv
   #pragma omp simd
@@ -49,7 +49,7 @@ void foo(float *A, int N, int S, long long N64)
   //CHECK: "DIR.OMP.SIMD"
   //CHECK: icmp ule i32
   //CHECK: call void {{.*}}call_foo
-  //CHECK: load i32, i32* %.omp.iv
+  //CHECK: load i32, ptr %.omp.iv
   //CHECK-NEXT: add nuw i32 {{.*}}1{{$}}
   //CHECK-NEXT: store i32 {{.*}}%.omp.iv
   #pragma omp simd
@@ -60,7 +60,7 @@ void foo(float *A, int N, int S, long long N64)
   //CHECK: "DIR.OMP.SIMD"
   //CHECK: icmp sle i32
   //CHECK: call void {{.*}}call_foo
-  //CHECK: load i32, i32* %.omp.iv
+  //CHECK: load i32, ptr %.omp.iv
   //CHECK-NEXT: add nsw i32 {{.*}}1{{$}}
   //CHECK-NEXT: store i32 {{.*}}%.omp.iv
   #pragma omp simd
@@ -74,7 +74,7 @@ void foo(float *A, int N, int S, long long N64)
   //CHECK: "DIR.OMP.SIMD"
   //CHECK: icmp sle i64
   //CHECK: call void {{.*}}call_foo
-  //CHECK: load i64, i64* %.omp.iv
+  //CHECK: load i64, ptr %.omp.iv
   //CHECK-NEXT: add nsw i64 {{.*}}1{{$}}
   //CHECK-NEXT: store i64 {{.*}}%.omp.iv
   #pragma omp simd
