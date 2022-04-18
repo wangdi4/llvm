@@ -30,12 +30,10 @@
 ;        ret ;
 ;  END REGION
 
-; XFAIL: *
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -debug-only=vplan-decomposer < %s 2>&1 | FileCheck %s
-; REQUIRES: asserts
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -vplan-print-after-hir-decomposer < %s 2>&1 | FileCheck %s
 
-; CHECK-NEXT: PlanEntry: VPlan IR for: foo:HIR.#1
-; CHECK-NEXT: External Defs Start:
+; CHECK-LABEL: VPlan after VPlanHIRDecomposer:
+; CHECK:      External Defs Start:
 ; CHECK-DAG:   [[ARR:%.*]] = {%arr}
 ; CHECK-DAG:   [[STOREMERGE:%.*]] = {%storemerge.lcssa}
 ; CHECK-NEXT: External Defs End:
@@ -59,41 +57,41 @@
 ; CHECK-NEXT:     [[BB5]]: # preds: [[BB4]]
 ; CHECK-NEXT:      br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:     [[BB7]]: # preds: [[BB5]], [[BB9:BB[0-9]+]]
-; CHECK-NEXT:      i32 [[IV2:%.*]] = phi  [ i32 0, [[BB5]] ],  [ i32 [[IV2_NEXT:%.*]], [[BB9]] ]
+; CHECK-NEXT:     [[BB7]]: # preds: [[BB5]], [[BB10:BB[0-9]+]]
+; CHECK-NEXT:      i32 [[IV2:%.*]] = phi  [ i32 0, [[BB5]] ],  [ i32 [[IV2_NEXT:%.*]], [[BB10]] ]
 ; CHECK-NEXT:      i1 [[CMP2:%.*]] = icmp eq i32 [[IV2]] i32 5
-; CHECK-NEXT:      br i1 [[CMP2]], [[BB8:BB[0-9]+]], [[BB9]]
+; CHECK-NEXT:      br i1 [[CMP2]], [[BB8:BB[0-9]+]], [[BB10]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:       [[BB9]]: # preds: [[BB7]]
+; CHECK-NEXT:       [[BB10]]: # preds: [[BB7]]
 ; CHECK-NEXT:        i32 [[IV2_NEXT:%.*]] = add i32 [[IV2]] i32 1
 ; CHECK-NEXT:        i1 [[CMP3:%.*]] = icmp slt i32 [[IV2_NEXT]] i32 50
-; CHECK-NEXT:        br i1 [[CMP3]], [[BB7]], [[BB10:BB[0-9]+]]
+; CHECK-NEXT:        br i1 [[CMP3]], [[BB7]], [[BB11:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:       [[BB10]]: # preds: [[BB9]]
+; CHECK-NEXT:       [[BB11]]: # preds: [[BB10]]
 ; CHECK-NEXT:        br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:       [[BB8]]: # preds: [[BB7]]
+; CHECK-NEXT:       [[BB6]]: # preds: [[BB11]]
+; CHECK-NEXT:        i32 [[COPY1:%.*]] = hir-copy i32 1 , OriginPhiId: -1
 ; CHECK-NEXT:        br <External Basic Block>
 ; CHECK-EMPTY:
-; FIXME: CFGBuilder incorrectly marks BB6 as MultiExitLandingPad for inner loop and adds
-; an edge from exiting block BB8 to BB6. This is wrong as the early exit block is still
-; inside the outer loop nest. We should create a standalone BB for it with BB11 being
-; treated as the multi-exit loop's landing pad.
-; CHECK-NEXT:     [[BB6]]: # preds: [[BB8]], [[BB10]]
-; CHECK-NEXT:      i32 [[COPY1:%.*]] = hir-copy i32 1 , OriginPhiId: -1
+; CHECK-NEXT:     [[BB8]]: # preds: [[BB7]]
 ; CHECK-NEXT:      br <External Basic Block>
 ; CHECK-EMPTY:
-; CHECK-NEXT:   [[BB11]]: # preds: [[BB6]], [[BB12:BB[0-9]+]], [[BB3]]
-; CHECK-NEXT:    i32 [[PHI:%.*]] = phi
+; CHECK-NEXT:     [[BB9:BB[0-9]+]]: # preds: [[BB8]]
+; CHECK-NEXT:      i32 [[COPY2:%.*]] = hir-copy i32 2 , OriginPhiId: -1
+; CHECK-NEXT:      br [[BB12:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:   [[BB12]]: # preds: [[BB6]], [[BB9]], [[BB3]]
+; CHECK-NEXT:    i32 [[PHI:%.*]] = phi [ i32 [[COPY2]], [[BB9]] ], [ i32 [[COPY1]], [[BB6]] ], [ i32 [[COPY0]], [[BB3]] ]
 ; CHECK-NEXT:    float [[CONV:%.*]] = sitofp i32 [[PHI]] to float
 ; CHECK-NEXT:    i64 [[IV1_NEXT:%.*]] = add i64 [[IV1]] i64 1
 ; CHECK-NEXT:    i1 [[CMP4:%.*]] = icmp slt i64 [[IV1_NEXT]] i64 100
 ; CHECK-NEXT:    br i1 [[CMP4]], [[BB3]], [[BB13:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:   [[BB13]]: # preds: [[BB11]]
+; CHECK-NEXT:   [[BB13]]: # preds: [[BB12]]
 ; CHECK-NEXT:    br [[BB14:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:   [[BB14]]]: # preds: [[BB13]]
+; CHECK-NEXT:   [[BB14]]: # preds: [[BB13]]
 ; CHECK-NEXT:    br <External Block>
 
 ; Function Attrs: nounwind

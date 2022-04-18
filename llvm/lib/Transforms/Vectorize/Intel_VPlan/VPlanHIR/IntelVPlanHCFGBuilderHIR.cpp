@@ -753,9 +753,10 @@ void PlainCFGBuilderHIR::visit(HLGoto *HGoto) {
 
   HLLabel *Label = HGoto->getTargetLabel();
   VPBasicBlock *LabelVPBB;
-  if (HGoto->isExternal() || !HLNodeUtils::contains(CurrentHLp, Label)) {
+  if (HGoto->isExternal() || !HLNodeUtils::contains(TheLoop, Label)) {
     // Exiting goto in multi-exit loop. Use multi-exit landing pad as successor
-    // of the goto VPBB.
+    // of the goto VPBB. This should be done only when target label is not
+    // inside the loop nest being decomposed.
     // TODO: When dealing with multi-loop H-CFGs, landing pad needs to properly
     // dispatch exiting gotos when labels have representation in VPlan. That
     // massaging should happen as a separate simplification step. Currently, all
