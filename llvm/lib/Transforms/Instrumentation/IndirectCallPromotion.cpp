@@ -124,6 +124,7 @@ static cl::opt<bool>
 
 namespace {
 
+<<<<<<< HEAD
 class PGOIndirectCallPromotionLegacyPass : public ModulePass {
 public:
   static char ID;
@@ -174,6 +175,8 @@ ModulePass *llvm::createPGOIndirectCallPromotionLegacyPass(bool InLTO,
 
 namespace {
 
+=======
+>>>>>>> 04e094a33629e97d4ec51db4d5ca56066d82b030
 // The class for main data structure to promote indirect calls to conditional
 // direct calls.
 class ICallPromotionFunc {
@@ -462,15 +465,6 @@ static bool promoteIndirectCalls(Module &M, ProfileSummaryInfo *PSI,
     }
   }
   return Changed;
-}
-
-bool PGOIndirectCallPromotionLegacyPass::runOnModule(Module &M) {
-  ProfileSummaryInfo *PSI =
-      &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
-
-  // Command-line option has the priority for InLTO.
-  return promoteIndirectCalls(M, PSI, InLTO | ICPLTOMode,
-                              SamplePGO | ICPSamplePGOMode);
 }
 
 PreservedAnalyses PGOIndirectCallPromotion::run(Module &M,

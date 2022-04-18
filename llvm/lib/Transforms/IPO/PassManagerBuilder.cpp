@@ -706,6 +706,7 @@ void PassManagerBuilder::populateFunctionPassManager(
   FPM.add(createEarlyCSEPass());
 }
 
+<<<<<<< HEAD
 // Do PGO instrumentation generation or use pass as the option specified.
 void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM,
                                            bool IsCS = false) {
@@ -774,6 +775,8 @@ void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM,
   }
 #endif // INTEL_CUSTOMIZATION
 }
+=======
+>>>>>>> 04e094a33629e97d4ec51db4d5ca56066d82b030
 void PassManagerBuilder::addFunctionSimplificationPasses(
     legacy::PassManagerBase &MPM) {
   // Start of function pass.
@@ -820,6 +823,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     MPM.add(createLibCallsShrinkWrapPass());
   addExtensionsToPM(EP_Peephole, MPM);
 
+<<<<<<< HEAD
   // Optimize memory intrinsic calls based on the profiled size information.
   if (SizeLevel == 0)
     MPM.add(createPGOMemOPSizeOptLegacyPass());
@@ -830,6 +834,8 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 #else // INTEL_FEATURE_SW_DTRANS
   bool SkipRecProgression = false;
 #endif // INTEL_FEATURE_SW_DTRANS
+=======
+>>>>>>> 04e094a33629e97d4ec51db4d5ca56066d82b030
   // TODO: Investigate the cost/benefit of tail call elimination on debugging.
   if (OptLevel > 1)
     MPM.add(createTailCallEliminationPass(SkipRecProgression));
@@ -1244,11 +1250,14 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
 
 void PassManagerBuilder::populateModulePassManager(
     legacy::PassManagerBase &MPM) {
+<<<<<<< HEAD
   // Whether this is a default or *LTO pre-link pipeline. The FullLTO post-link
   // is handled separately, so just check this is not the ThinLTO post-link.
   bool DefaultOrPreLinkPipeline = !PerformThinLTO;
 
   MPM.add(createXmainOptLevelWrapperPass(OptLevel)); // INTEL
+=======
+>>>>>>> 04e094a33629e97d4ec51db4d5ca56066d82b030
   MPM.add(createAnnotation2MetadataLegacyPass());
 
   if (!PGOSampleUse.empty()) {
@@ -1266,7 +1275,6 @@ void PassManagerBuilder::populateModulePassManager(
   // If all optimizations are disabled, just run the always-inline pass and,
   // if enabled, the function merging pass.
   if (OptLevel == 0) {
-    addPGOInstrPasses(MPM);
     if (Inliner) {
       MPM.add(createInlineReportSetupPass(getMDInlineReport())); // INTEL
       MPM.add(createInlineListsPass()); // INTEL: -[no]inline-list parsing
@@ -1339,8 +1347,6 @@ void PassManagerBuilder::populateModulePassManager(
   // earlier in the pass pipeline, here before globalopt. Otherwise imported
   // available_externally functions look unreferenced and are removed.
   if (PerformThinLTO) {
-    MPM.add(createPGOIndirectCallPromotionLegacyPass(/*InLTO = */ true,
-                                                     !PGOSampleUse.empty()));
     MPM.add(createLowerTypeTestsPass(nullptr, nullptr, true));
   }
 
@@ -1404,6 +1410,7 @@ void PassManagerBuilder::populateModulePassManager(
       createCFGSimplificationPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
           true))); // Clean up after IPCP & DAE
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Handle '#pragma vector aligned'.
   if (EnableHandlePragmaVectorAligned && OptLevel > 1)
@@ -1423,6 +1430,8 @@ void PassManagerBuilder::populateModulePassManager(
   if (!PerformThinLTO && EnablePGOCSInstrGen)
     MPM.add(createPGOInstrumentationGenCreateVarLegacyPass(PGOInstrGen));
 
+=======
+>>>>>>> 04e094a33629e97d4ec51db4d5ca56066d82b030
   // We add a module alias analysis pass here. In part due to bugs in the
   // analysis infrastructure this "works" in that the analysis stays alive
   // for the entire SCC pass run below.
@@ -1514,14 +1523,6 @@ void PassManagerBuilder::populateModulePassManager(
     // globals referenced by available external functions dead
     // and saves running remaining passes on the eliminated functions.
     MPM.add(createEliminateAvailableExternallyPass());
-
-  // CSFDO instrumentation and use pass. Don't invoke this for Prepare pass
-  // for LTO and ThinLTO -- The actual pass will be called after all inlines
-  // are performed.
-  // Need to do this after COMDAT variables have been eliminated,
-  // (i.e. after EliminateAvailableExternallyPass).
-  if (!(PrepareForLTO || PrepareForThinLTO))
-    addPGOInstrPasses(MPM, /* IsCS */ true);
 
   if (EnableOrderFileInstrumentation)
     MPM.add(createInstrOrderFilePass());
@@ -1858,13 +1859,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createIntelLoopAttrsWrapperPass(DTransEnabled));
 #endif // INTEL_CUSTOMIZATION
 
-    // Indirect call promotion. This should promote all the targets that are
-    // left by the earlier promotion pass that promotes intra-module targets.
-    // This two-step promotion is to save the compile time. For LTO, it should
-    // produce the same result as if we only do promotion here.
-    PM.add(
-        createPGOIndirectCallPromotionLegacyPass(true, !PGOSampleUse.empty()));
-
     // Propage constant function arguments by specializing the functions.
     if (EnableFunctionSpecialization && OptLevel > 2)
       PM.add(createFunctionSpecializationPass());
@@ -2004,9 +1998,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   }
 
   PM.add(createPruneEHPass());   // Remove dead EH info.
-
-  // CSFDO instrumentation and use pass.
-  addPGOInstrPasses(PM, /* IsCS */ true);
 
   // Infer attributes on declarations, call sites, arguments, etc. for an SCC.
   if (AttributorRun & AttributorRunOption::CGSCC)
