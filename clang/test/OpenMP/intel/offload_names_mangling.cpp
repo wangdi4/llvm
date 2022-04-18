@@ -1,4 +1,4 @@
-//RUN: %clang_cc1 -triple \
+//RUN: %clang_cc1 -opaque-pointers -triple \
 //RUN: x86_64-pc-windows-msvc -emit-llvm-bc \
 //RUN: -fintel-compatibility -fms-compatibility \
 //RUN: -fms-extensions -fms-compatibility \
@@ -6,7 +6,7 @@
 //RUN: x86-64 -fopenmp-late-outline \
 //RUN: -o %t_host.bc %s
 
-//RUN: %clang_cc1 -triple x86_64-pc-windows-msvc \
+//RUN: %clang_cc1 -opaque-pointers -triple x86_64-pc-windows-msvc \
 //RUN: -emit-llvm -disable-llvm-passes \
 //RUN: -fintel-compatibility -fms-compatibility \
 //RUN: -fms-extensions -fms-compatibility \
@@ -15,7 +15,7 @@
 //RUN: -o - %s \
 //RUN: | FileCheck %s --check-prefix=CHECK-HOST
 
-//RUN: %clang_cc1 -triple spir64 -aux-triple \
+//RUN: %clang_cc1 -opaque-pointers -triple spir64 -aux-triple \
 //RUN: x86_64-pc-windows-msvc -emit-llvm-bc \
 //RUN: -fintel-compatibility -fms-compatibility \
 //RUN: -fms-extensions -fms-compatibility \
@@ -24,7 +24,7 @@
 //RUN: -fopenmp-late-outline \
 //RUN: -o %t_targ.bc %s
 
-//RUN: %clang_cc1 -triple spir64 -aux-triple \
+//RUN: %clang_cc1 -opaque-pointers -triple spir64 -aux-triple \
 //RUN: x86_64-pc-windows-msvc \
 //RUN: -emit-llvm -disable-llvm-passes \
 //RUN: -fintel-compatibility -fms-compatibility \
@@ -68,9 +68,9 @@ void foo() {
   ;
 }
 
-// CHECK-HOST-DAG: define{{.*}}%class.C1* @"??0C1@@QEAA@XZ"
+// CHECK-HOST-DAG: define{{.*}}ptr @"??0C1@@QEAA@XZ"
 // CHECK-HOST-DAG: define{{.*}}void @"??1C1@@QEAA@XZ"
-// CHECK-HOST-DAG: define{{.*}}%class.C2* @"??0C2@@QEAA@XZ"
+// CHECK-HOST-DAG: define{{.*}}ptr @"??0C2@@QEAA@XZ"
 // CHECK-HOST-DAG: define{{.*}}void @"??1C2@@QEAA@XZ"
 // CHECK-HOST-DAG: define{{.*}}void @"?foo@@YAXXZ"
 
@@ -82,8 +82,8 @@ void foo() {
 // CHECK-HOST-DAG: !{{[0-9]+}} = !{{{.*}}, !"_Z3foov"
 // CHECK-HOST-DAG: !{{[0-9]+}} = !{{{.*}}, !"_ZN2C1C1Ev"
 // CHECK-HOST-DAG: !{{[0-9]+}} = !{{{.*}}, !"_ZN2C1D1Ev"
-// CHECK-HOST-DAG: !{{[0-9]+}} = !{{{.*}}, !"_Z2c2",{{.*}}%class.C2* @"?c2@@3VC2@@A"
-// CHECK-HOST-DAG: !{{[0-9]+}} = !{{{.*}}, !"_Z2c1",{{.*}}%class.C1* @"?c1@@3VC1@@A"
+// CHECK-HOST-DAG: !{{[0-9]+}} = !{{{.*}}, !"_Z2c2",{{.*}}ptr @"?c2@@3VC2@@A"
+// CHECK-HOST-DAG: !{{[0-9]+}} = !{{{.*}}, !"_Z2c1",{{.*}}ptr @"?c1@@3VC1@@A"
 
 // CHECK-TARG-DAG: define{{.*}}void @__omp_offloading__{{[a-f0-9]+}}_{{[a-f0-9]+}}_c1_l53_ctor
 // CHECK-TARG-DAG: define{{.*}}void @_ZN2C1C1Ev
@@ -107,5 +107,5 @@ void foo() {
 // CHECK-TARG-DAG: !{{[0-9]+}} = !{{{.*}}, !"_Z3foov"
 // CHECK-TARG-DAG: !{{[0-9]+}} = !{{{.*}}, !"_ZN2C1C1Ev"
 // CHECK-TARG-DAG: !{{[0-9]+}} = !{{{.*}}, !"_ZN2C1D1Ev"
-// CHECK-TARG-DAG: !{{[0-9]+}} = !{{{.*}}, !"_Z2c2",{{.*}}%class.C2 addrspace(1)* @c2
-// CHECK-TARG-DAG: !{{[0-9]+}} = !{{{.*}}, !"_Z2c1",{{.*}}%class.C1 addrspace(1)* @c1
+// CHECK-TARG-DAG: !{{[0-9]+}} = !{{{.*}}, !"_Z2c2",{{.*}}ptr addrspace(1) @c2
+// CHECK-TARG-DAG: !{{[0-9]+}} = !{{{.*}}, !"_Z2c1",{{.*}}ptr addrspace(1) @c1

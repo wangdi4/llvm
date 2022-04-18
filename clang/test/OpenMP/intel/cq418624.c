@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fintel-compatibility \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fintel-compatibility \
 // RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s
 
@@ -11,7 +11,7 @@ void foo(int m1, int n1, int m2, int **b, int n2 )
   unsigned i,j,k;
   i=0;
   // CHECK: DIR.OMP.PARALLEL.LOOP
-  // CHECK: QUAL.OMP.LASTPRIVATE{{.*}}i32* %j
+  // CHECK: QUAL.OMP.LASTPRIVATE{{.*}}ptr %j
   // CHECK: DIR.OMP.END.PARALLEL.LOOP
   #pragma omp parallel for lastprivate(j)
     for (j=m2+1;j>n2;j-=a[m2]) {
