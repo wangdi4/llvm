@@ -716,4 +716,8 @@ def err_drv_target_variant_invalid : Error<
   "unsupported '%0' value '%1'; use 'ios-macabi' instead">;
 def warn_drv_fsycl_with_c_type : Warning<
   "treating '%0' input as '%1' when -fsycl is used">, InGroup<ExpectedFileType>;
+
+def err_drv_invalid_directx_shader_module : Error<
+  "invalid profile : %0">;
+
 }

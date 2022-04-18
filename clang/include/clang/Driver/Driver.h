@@ -85,7 +85,8 @@ class Driver {
     GXXMode,
     CPPMode,
     CLMode,
-    FlangMode
+    FlangMode,
+    DXCMode
   } Mode;
 
   enum SaveTempsMode {
@@ -212,6 +213,7 @@ public:
   /// Other modes fall back to calling gcc which in turn calls gfortran.
   bool IsFlangMode() const { return Mode == FlangMode; }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// Whether the driver should follow Intel compiler behavior.
   bool IsIntelMode() const { return IntelMode; }
@@ -219,6 +221,10 @@ public:
   /// Whether the driver should follow Intel compiler behavior.
   bool IsDPCPPMode() const { return DPCPPMode; }
 #endif // INTEL_CUSTOMIZATION
+=======
+  /// Whether the driver should follow dxc.exe like behavior.
+  bool IsDXCMode() const { return Mode == DXCMode; }
+>>>>>>> 278a9831dcf274fa88a23c666f5ccb8406f87b80
 
   /// Only print tool bindings, don't build any jobs.
   unsigned CCCPrintBindings : 1;

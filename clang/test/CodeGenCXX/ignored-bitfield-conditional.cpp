@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 // RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s | FileCheck %s
+=======
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm -opaque-pointers -o - %s | FileCheck %s
+>>>>>>> 278a9831dcf274fa88a23c666f5ccb8406f87b80
 
 struct S {
   int field1 : 5;
