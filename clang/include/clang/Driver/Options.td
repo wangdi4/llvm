@@ -6712,13 +6712,9 @@ defm enable_noundef_analysis : BoolOption<"",
 defm opaque_pointers : BoolOption<"",
   "opaque-pointers",
   CodeGenOpts<"OpaquePointers">,
-<<<<<<< HEAD
-  DefaultFalse, // INTEL
-=======
   // FIXME: Upstream default is DefaultTrue, but llvm-spirv is broken after this
   //        change. Override to DefaultFalse until fixed downstream.
   DefaultFalse,
->>>>>>> 278a9831dcf274fa88a23c666f5ccb8406f87b80
   PosFlag<SetTrue, [], "Enable">,
   NegFlag<SetFalse, [], "Disable">,
   BothFlags<[], " opaque pointers">>;
