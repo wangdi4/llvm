@@ -1028,9 +1028,9 @@ include "X86SchedSkylakeClient.td"
 include "X86SchedSkylakeServer.td"
 include "X86SchedIceLake.td"
 #if INTEL_CUSTOMIZATION
-include "Intel_X86ScheduleGRT.td"
-include "Intel_X86ScheduleGLC.td"
+include "Intel_X86ScheduleADL.td"
 include "Intel_X86ScheduleSPR.td"
+include "Intel_X86ScheduleGRT.td"
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
@@ -1961,10 +1961,10 @@ def : ProcModel<"icelake-server", IceLakeModel,
 def : ProcModel<"tigerlake", IceLakeModel,
                 ProcessorFeatures.TGLFeatures, ProcessorFeatures.TGLTuning>;
 #if INTEL_CUSTOMIZATION
+def : ProcModel<"alderlake", ADLModel,
+                ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
 def : ProcModel<"sapphirerapids", SPRModel,
                 ProcessorFeatures.SPRFeatures, ProcessorFeatures.SPRTuning>;
-def : ProcModel<"alderlake", GLCModel,
-                ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
 def : ProcModel<"gracemont", GRTModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.GRTTuning>;
 #endif // INTEL_CUSTOMIZATION
