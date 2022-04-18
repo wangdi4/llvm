@@ -95,7 +95,7 @@ size_t mlir::moveLoopInvariantCode(
 
 size_t mlir::moveLoopInvariantCode(LoopLikeOpInterface loopLike) {
   return moveLoopInvariantCode(
-      {&loopLike.getLoopBody()},
+      &loopLike.getLoopBody(),
       [&](Value value, Region *) {
         return loopLike.isDefinedOutsideOfLoop(value);
       },
