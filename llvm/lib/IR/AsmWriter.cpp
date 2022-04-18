@@ -2177,6 +2177,7 @@ static void writeDISubprogram(raw_ostream &Out, const DISubprogram *N,
   Printer.printMetadata("retainedNodes", N->getRawRetainedNodes());
   Printer.printMetadata("thrownTypes", N->getRawThrownTypes());
   Printer.printMetadata("annotations", N->getRawAnnotations());
+  Printer.printString("targetFuncName", N->getTargetFuncName());
   Out << ")";
 }
 
