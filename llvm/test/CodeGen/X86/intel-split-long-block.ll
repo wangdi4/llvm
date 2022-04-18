@@ -193,12 +193,15 @@ define void @test(i256* %a, i256* %b, i256* %out) {
 ;
 ; NOSPLIT3-LABEL: test:
 ; NOSPLIT3:       # %bb.0: # %entry
-; NOSPLIT3-NEXT:    pushq %r14
+; NOSPLIT3-NEXT:    pushq %r15
 ; NOSPLIT3-NEXT:    .cfi_def_cfa_offset 16
-; NOSPLIT3-NEXT:    pushq %rbx
+; NOSPLIT3-NEXT:    pushq %r14
 ; NOSPLIT3-NEXT:    .cfi_def_cfa_offset 24
-; NOSPLIT3-NEXT:    .cfi_offset %rbx, -24
-; NOSPLIT3-NEXT:    .cfi_offset %r14, -16
+; NOSPLIT3-NEXT:    pushq %rbx
+; NOSPLIT3-NEXT:    .cfi_def_cfa_offset 32
+; NOSPLIT3-NEXT:    .cfi_offset %rbx, -32
+; NOSPLIT3-NEXT:    .cfi_offset %r14, -24
+; NOSPLIT3-NEXT:    .cfi_offset %r15, -16
 ; NOSPLIT3-NEXT:    movq %rdx, %r9
 ; NOSPLIT3-NEXT:    movq (%rdi), %rcx
 ; NOSPLIT3-NEXT:    movq 8(%rdi), %r8
@@ -222,32 +225,34 @@ define void @test(i256* %a, i256* %b, i256* %out) {
 ; NOSPLIT3-NEXT:    imulq %rcx, %rsi
 ; NOSPLIT3-NEXT:    addq %rdx, %rsi
 ; NOSPLIT3-NEXT:    addq %r14, %r10
-; NOSPLIT3-NEXT:    adcq %rbx, %rsi
 ; NOSPLIT3-NEXT:    movq %rcx, %rdx
-; NOSPLIT3-NEXT:    mulxq %rax, %r14, %rdi
+; NOSPLIT3-NEXT:    mulxq %rax, %r14, %r15
 ; NOSPLIT3-NEXT:    movq %r8, %rdx
-; NOSPLIT3-NEXT:    mulxq %rax, %rax, %rbx
-; NOSPLIT3-NEXT:    addq %rdi, %rax
-; NOSPLIT3-NEXT:    adcq $0, %rbx
+; NOSPLIT3-NEXT:    mulxq %rax, %rax, %rdi
+; NOSPLIT3-NEXT:    adcq %rbx, %rsi
+; NOSPLIT3-NEXT:    addq %r15, %rax
+; NOSPLIT3-NEXT:    adcq $0, %rdi
 ; NOSPLIT3-NEXT:    movq %rcx, %rdx
-; NOSPLIT3-NEXT:    mulxq %r11, %rcx, %rdi
+; NOSPLIT3-NEXT:    mulxq %r11, %rcx, %rbx
 ; NOSPLIT3-NEXT:    addq %rax, %rcx
-; NOSPLIT3-NEXT:    adcq %rbx, %rdi
+; NOSPLIT3-NEXT:    adcq %rdi, %rbx
 ; NOSPLIT3-NEXT:    setb %al
 ; NOSPLIT3-NEXT:    movzbl %al, %eax
 ; NOSPLIT3-NEXT:    movq %r8, %rdx
-; NOSPLIT3-NEXT:    mulxq %r11, %rdx, %rbx
-; NOSPLIT3-NEXT:    addq %rdi, %rdx
-; NOSPLIT3-NEXT:    adcq %rax, %rbx
+; NOSPLIT3-NEXT:    mulxq %r11, %rdx, %rdi
+; NOSPLIT3-NEXT:    addq %rbx, %rdx
+; NOSPLIT3-NEXT:    adcq %rax, %rdi
 ; NOSPLIT3-NEXT:    addq %r10, %rdx
-; NOSPLIT3-NEXT:    adcq %rsi, %rbx
+; NOSPLIT3-NEXT:    adcq %rsi, %rdi
 ; NOSPLIT3-NEXT:    movq %r14, (%r9)
 ; NOSPLIT3-NEXT:    movq %rcx, 8(%r9)
 ; NOSPLIT3-NEXT:    movq %rdx, 16(%r9)
-; NOSPLIT3-NEXT:    movq %rbx, 24(%r9)
+; NOSPLIT3-NEXT:    movq %rdi, 24(%r9)
 ; NOSPLIT3-NEXT:    popq %rbx
-; NOSPLIT3-NEXT:    .cfi_def_cfa_offset 16
+; NOSPLIT3-NEXT:    .cfi_def_cfa_offset 24
 ; NOSPLIT3-NEXT:    popq %r14
+; NOSPLIT3-NEXT:    .cfi_def_cfa_offset 16
+; NOSPLIT3-NEXT:    popq %r15
 ; NOSPLIT3-NEXT:    .cfi_def_cfa_offset 8
 ; NOSPLIT3-NEXT:    retq
 entry:
