@@ -52,11 +52,12 @@ enum ClangFlags {
   FlangOption = (1 << 14),
   FC1Option = (1 << 15),
   FlangOnlyOption = (1 << 16),
-  Ignored = (1 << 17),
+  DXCOption = (1 << 17),
+  Ignored = (1 << 18),
 #if INTEL_CUSTOMIZATION
-  DpcppUnsupported = (1 << 18),
-  DpcppHidden = (1 << 19),
-  DpcppOption = (1 << 20)
+  DpcppUnsupported = (1 << 19),
+  DpcppHidden = (1 << 20),
+  DpcppOption = (1 << 21)
 #endif // INTEL_CUSTOMIZATION
 };
 
