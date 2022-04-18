@@ -107,11 +107,11 @@ class HIRLoopCollapse {
 
   // an array storing relevant constant or symbolic (in CanonExpr *) TripCount
   // for each relevant loop in the loop nest.
-  std::array<TripCountTuple, MaxLoopNestLevel> TCArry;
+  std::array<TripCountTuple, MaxLoopNestLevel+1> TCArry;
 
   // an array storing the entire loop nest: [InnermostLp .. OutermostLp].
   // This helps mapping a particular level to its matching loop.
-  std::array<HLLoop *, MaxLoopNestLevel> LoopNest;
+  std::array<HLLoop *, MaxLoopNestLevel+1> LoopNest;
 
   // Save IV type for the collapse-able loop nest:
   Type *IVType = nullptr;
@@ -429,7 +429,7 @@ private:
 
   // Initialize the TripCount array
   void initializeTCArry(void) {
-    for (unsigned I = 0; I < MaxLoopNestLevel; ++I) {
+    for (unsigned I = 0; I <= MaxLoopNestLevel; ++I) {
       TCArry[I] = TripCountTuple();
     }
   }
@@ -476,7 +476,7 @@ private:
   unsigned matchCEOnIVLevels(CanonExpr *CE) const;
 
   unsigned matchSingleDimDynShapeArray(RegDDRef *Ref);
-  unsigned matchMultiDimDynShapeArray(RegDDRef *Ref, unsigned Level);
+  int matchMultiDimDynShapeArray(RegDDRef *Ref, unsigned Level);
 
 #ifndef NDEBUG
   // Print GEPRefVec and RefVec
