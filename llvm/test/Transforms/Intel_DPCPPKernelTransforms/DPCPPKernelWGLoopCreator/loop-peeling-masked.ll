@@ -89,15 +89,15 @@ define dso_local void @test(i32 addrspace(1)* nocapture noundef writeonly %dst) 
 ; CHECK-NEXT:    call void @llvm.masked.store.v16i32.p1v16i32(<16 x i32> zeroinitializer, <16 x i32> addrspace(1)* [[TMP7]], i32 4, <16 x i1> [[TMP6]])
 ; CHECK-NEXT:    [[DIM_0_VECTOR_INC_IND_VAR4]] = add nuw nsw i64 [[DIM_0_VECTOR_IND_VAR3]], 16
 ; CHECK-NEXT:    [[DIM_0_VECTOR_CMP_TO_MAX5:%.*]] = icmp sge i64 [[DIM_0_VECTOR_INC_IND_VAR4]], [[MAX_GID_DIM0]]
-; CHECK-NEXT:    br i1 [[DIM_0_VECTOR_CMP_TO_MAX5]], label [[DIM_0_VECTOR_EXIT2]], label [[MASKED_KERNEL_ENTRY]]
+; CHECK-NEXT:    br i1 [[DIM_0_VECTOR_CMP_TO_MAX5]], label [[DIM_0_VECTOR_EXIT2]], label [[MASKED_KERNEL_ENTRY]], !llvm.loop [[LOOP12:![0-9]+]]
 ; CHECK:       dim_0_vector_exit2:
 ; CHECK-NEXT:    [[DIM_1_VECTOR_INC_IND_VAR9]] = add nuw nsw i64 [[DIM_1_VECTOR_IND_VAR8]], 1
 ; CHECK-NEXT:    [[DIM_1_VECTOR_CMP_TO_MAX10:%.*]] = icmp sge i64 [[DIM_1_VECTOR_INC_IND_VAR9]], [[MAX_GID_DIM1]]
-; CHECK-NEXT:    br i1 [[DIM_1_VECTOR_CMP_TO_MAX10]], label [[DIM_1_VECTOR_EXIT7]], label [[DIM_0_VECTOR_PRE_HEAD1]]
+; CHECK-NEXT:    br i1 [[DIM_1_VECTOR_CMP_TO_MAX10]], label [[DIM_1_VECTOR_EXIT7]], label [[DIM_0_VECTOR_PRE_HEAD1]], !llvm.loop [[LOOP14:![0-9]+]]
 ; CHECK:       dim_1_vector_exit7:
 ; CHECK-NEXT:    [[DIM_2_VECTOR_INC_IND_VAR14]] = add nuw nsw i64 [[DIM_2_VECTOR_IND_VAR13]], 1
 ; CHECK-NEXT:    [[DIM_2_VECTOR_CMP_TO_MAX15:%.*]] = icmp sge i64 [[DIM_2_VECTOR_INC_IND_VAR14]], [[MAX_GID_DIM2]]
-; CHECK-NEXT:    br i1 [[DIM_2_VECTOR_CMP_TO_MAX15]], label [[DIM_2_VECTOR_EXIT12:%.*]], label [[DIM_1_VECTOR_PRE_HEAD6]]
+; CHECK-NEXT:    br i1 [[DIM_2_VECTOR_CMP_TO_MAX15]], label [[DIM_2_VECTOR_EXIT12:%.*]], label [[DIM_1_VECTOR_PRE_HEAD6]], !llvm.loop [[LOOP15:![0-9]+]]
 ; CHECK:       dim_2_vector_exit12:
 ; CHECK-NEXT:    br label [[RET]]
 ; CHECK:       ret:

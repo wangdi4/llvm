@@ -81,15 +81,15 @@ define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(i32* nocaptur
 ; CHECK-NEXT:    [[DIM_0_INC_IND_VAR]] = add nuw nsw i64 [[DIM_0_IND_VAR]], 1
 ; CHECK-NEXT:    [[DIM_0_CMP_TO_MAX:%.*]] = icmp eq i64 [[DIM_0_INC_IND_VAR]], [[MAX_GID_DIM0]]
 ; CHECK-NEXT:    [[DIM_0_INC_TID]] = add nuw nsw i64 [[DIM_0_TID]], 1
-; CHECK-NEXT:    br i1 [[DIM_0_CMP_TO_MAX]], label [[DIM_0_EXIT]], label [[SCALAR_KERNEL_ENTRY]]
+; CHECK-NEXT:    br i1 [[DIM_0_CMP_TO_MAX]], label [[DIM_0_EXIT]], label [[SCALAR_KERNEL_ENTRY]], !llvm.loop [[LOOP6:![0-9]+]]
 ; CHECK:       dim_0_exit:
 ; CHECK-NEXT:    [[DIM_1_INC_IND_VAR]] = add nuw nsw i64 [[DIM_1_IND_VAR]], 1
 ; CHECK-NEXT:    [[DIM_1_CMP_TO_MAX:%.*]] = icmp eq i64 [[DIM_1_INC_IND_VAR]], [[MAX_GID_DIM1]]
-; CHECK-NEXT:    br i1 [[DIM_1_CMP_TO_MAX]], label [[DIM_1_EXIT]], label [[DIM_0_PRE_HEAD]]
+; CHECK-NEXT:    br i1 [[DIM_1_CMP_TO_MAX]], label [[DIM_1_EXIT]], label [[DIM_0_PRE_HEAD]], !llvm.loop [[LOOP8:![0-9]+]]
 ; CHECK:       dim_1_exit:
 ; CHECK-NEXT:    [[DIM_2_INC_IND_VAR]] = add nuw nsw i64 [[DIM_2_IND_VAR]], 1
 ; CHECK-NEXT:    [[DIM_2_CMP_TO_MAX:%.*]] = icmp eq i64 [[DIM_2_INC_IND_VAR]], [[MAX_GID_DIM2]]
-; CHECK-NEXT:    br i1 [[DIM_2_CMP_TO_MAX]], label [[DIM_2_EXIT:%.*]], label [[DIM_1_PRE_HEAD]]
+; CHECK-NEXT:    br i1 [[DIM_2_CMP_TO_MAX]], label [[DIM_2_EXIT:%.*]], label [[DIM_1_PRE_HEAD]], !llvm.loop [[LOOP9:![0-9]+]]
 ; CHECK:       dim_2_exit:
 ; CHECK-NEXT:    br label [[RET]]
 ; CHECK:       ret:
@@ -124,6 +124,8 @@ entry:
 
 attributes #0 = { noinline }
 attributes #1 = { noinline }
+
+; CHECK: !{!"llvm.loop.unroll.disable"}
 
 !sycl.kernels = !{!0}
 !0 = !{void (i32*, i32*, i32*)* @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm}

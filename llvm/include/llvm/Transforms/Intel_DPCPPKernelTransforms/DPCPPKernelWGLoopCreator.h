@@ -139,6 +139,9 @@ private:
   /// Map from function to its return instruction.
   MapFunctionToReturnInst FuncReturn;
 
+  /// LoopRegion of scalar or masked remainder.
+  LoopRegion RemainderRegion;
+
   /// Collect the get_global_id(), get_local_id(), and return of F.
   /// F - kernel to collect information for.
   /// Gids - array of get_global_id call to fill.

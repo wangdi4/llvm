@@ -25,6 +25,7 @@ class RuntimeService;
 /// Struct that represent loop Region in the CFG.
 struct LoopRegion {
   BasicBlock *PreHeader = nullptr; // Pre header block of the loop.
+  BasicBlock *Header = nullptr;    // Header of the loop.
   BasicBlock *Exit = nullptr;      // Exit block of the loop.
 };
 
