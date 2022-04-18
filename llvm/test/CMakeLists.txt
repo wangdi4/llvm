@@ -26,6 +26,7 @@ llvm_canonicalize_cmake_booleans(
   INTEL_DTRANS_EXTRA_OPTS
 # end INTEL_FEATURE_SW_DTRANS
 # end INTEL_CUSTOMIZATION
+  LLVM_INCLUDE_DXIL_TESTS
   )
 
 configure_lit_site_cfg(
@@ -234,6 +235,10 @@ if(TARGET ocaml_llvm)
           ocaml_llvm_transform_utils
           ocaml_llvm_vectorize
         )
+endif()
+
+if (LLVM_INCLUDE_DXIL_TESTS)
+  list(APPEND LLVM_TEST_DEPENDS dxil-dis)
 endif()
 
 add_custom_target(llvm-test-depends DEPENDS ${LLVM_TEST_DEPENDS})
