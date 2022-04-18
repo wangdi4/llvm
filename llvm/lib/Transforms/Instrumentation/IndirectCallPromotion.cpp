@@ -124,59 +124,6 @@ static cl::opt<bool>
 
 namespace {
 
-<<<<<<< HEAD
-class PGOIndirectCallPromotionLegacyPass : public ModulePass {
-public:
-  static char ID;
-
-  PGOIndirectCallPromotionLegacyPass(bool InLTO = false, bool SamplePGO = false)
-      : ModulePass(ID), InLTO(InLTO), SamplePGO(SamplePGO) {
-    initializePGOIndirectCallPromotionLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<ProfileSummaryInfoWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
-  }
-
-  StringRef getPassName() const override { return "PGOIndirectCallPromotion"; }
-
-private:
-  bool runOnModule(Module &M) override;
-
-  // If this pass is called in LTO. We need to special handling the PGOFuncName
-  // for the static variables due to LTO's internalization.
-  bool InLTO;
-
-  // If this pass is called in SamplePGO. We need to add the prof metadata to
-  // the promoted direct call.
-  bool SamplePGO;
-};
-
-} // end anonymous namespace
-
-char PGOIndirectCallPromotionLegacyPass::ID = 0;
-
-INITIALIZE_PASS_BEGIN(PGOIndirectCallPromotionLegacyPass, "pgo-icall-prom",
-                      "Use PGO instrumentation profile to promote indirect "
-                      "calls to direct calls.",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(ProfileSummaryInfoWrapperPass)
-INITIALIZE_PASS_END(PGOIndirectCallPromotionLegacyPass, "pgo-icall-prom",
-                    "Use PGO instrumentation profile to promote indirect "
-                    "calls to direct calls.",
-                    false, false)
-
-ModulePass *llvm::createPGOIndirectCallPromotionLegacyPass(bool InLTO,
-                                                           bool SamplePGO) {
-  return new PGOIndirectCallPromotionLegacyPass(InLTO, SamplePGO);
-}
-
-namespace {
-
-=======
->>>>>>> 04e094a33629e97d4ec51db4d5ca56066d82b030
 // The class for main data structure to promote indirect calls to conditional
 // direct calls.
 class ICallPromotionFunc {

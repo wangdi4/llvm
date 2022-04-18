@@ -706,77 +706,6 @@ void PassManagerBuilder::populateFunctionPassManager(
   FPM.add(createEarlyCSEPass());
 }
 
-<<<<<<< HEAD
-// Do PGO instrumentation generation or use pass as the option specified.
-void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM,
-                                           bool IsCS = false) {
-  if (IsCS) {
-    if (!EnablePGOCSInstrGen && !EnablePGOCSInstrUse)
-      return;
-  } else if (!EnablePGOInstrGen && PGOInstrUse.empty() && PGOSampleUse.empty())
-    return;
-
-  // Perform the preinline and cleanup passes for O1 and above.
-  // We will not do this inline for context sensitive PGO (when IsCS is true).
-  if (OptLevel > 0 && !DisablePreInliner && PGOSampleUse.empty() && !IsCS) {
-    // Create preinline pass. We construct an InlineParams object and specify
-    // the threshold here to avoid the command line options of the regular
-    // inliner to influence pre-inlining. The only fields of InlineParams we
-    // care about are DefaultThreshold and HintThreshold.
-    InlineParams IP;
-    IP.DefaultThreshold = PreInlineThreshold;
-    // FIXME: The hint threshold has the same value used by the regular inliner
-    // when not optimzing for size. This should probably be lowered after
-    // performance testing.
-    // Use PreInlineThreshold for both -Os and -Oz. Not running preinliner makes
-    // the instrumented binary unusably large. Even if PreInlineThreshold is not
-    // correct thresold for -Oz, it is better than not running preinliner.
-    IP.HintThreshold = SizeLevel > 0 ? PreInlineThreshold : 325;
-    IP.PrepareForLTO = PrepareForLTO; // INTEL
-
-    MPM.add(createFunctionInliningPass(IP));
-    MPM.add(createSROAPass());
-    MPM.add(createEarlyCSEPass());             // Catch trivial redundancies
-    MPM.add(createCFGSimplificationPass(
-        SimplifyCFGOptions().convertSwitchRangeToICmp(
-            true)));                           // Merge & remove BBs
-#if INTEL_CUSTOMIZATION
-    // Combine silly seq's
-    addInstructionCombiningPass(MPM, !DTransEnabled);
-#endif // INTEL_CUSTOMIZATION
-    addExtensionsToPM(EP_Peephole, MPM);
-  }
-  if ((EnablePGOInstrGen && !IsCS) || (EnablePGOCSInstrGen && IsCS)) {
-    MPM.add(createPGOInstrumentationGenLegacyPass(IsCS));
-    // Add the profile lowering pass.
-    InstrProfOptions Options;
-    if (!PGOInstrGen.empty())
-      Options.InstrProfileOutput = PGOInstrGen;
-    Options.DoCounterPromotion = true;
-    Options.UseBFIInPromotion = IsCS;
-    MPM.add(createLoopRotatePass());
-    MPM.add(createInstrProfilingLegacyPass(Options, IsCS));
-  }
-  if (!PGOInstrUse.empty())
-    MPM.add(createPGOInstrumentationUseLegacyPass(PGOInstrUse, IsCS));
-  // Indirect call promotion that promotes intra-module targets only.
-  // For ThinLTO this is done earlier due to interactions with globalopt
-  // for imported functions. We don't run this at -O0.
-  if (OptLevel > 0 && !IsCS)
-    MPM.add(
-        createPGOIndirectCallPromotionLegacyPass(false, !PGOSampleUse.empty()));
-
-#if INTEL_CUSTOMIZATION
-  // The function splitting pass uses the PGO frequency info, and only
-  // makes sense to run during profile feedback.
-  if (EnableFunctionSplitting &&
-    (!PGOInstrUse.empty() || !PGOSampleUse.empty())) {
-    MPM.add(createFunctionSplittingWrapperPass());
-  }
-#endif // INTEL_CUSTOMIZATION
-}
-=======
->>>>>>> 04e094a33629e97d4ec51db4d5ca56066d82b030
 void PassManagerBuilder::addFunctionSimplificationPasses(
     legacy::PassManagerBase &MPM) {
   // Start of function pass.
@@ -823,19 +752,12 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     MPM.add(createLibCallsShrinkWrapPass());
   addExtensionsToPM(EP_Peephole, MPM);
 
-<<<<<<< HEAD
-  // Optimize memory intrinsic calls based on the profiled size information.
-  if (SizeLevel == 0)
-    MPM.add(createPGOMemOPSizeOptLegacyPass());
-
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   bool SkipRecProgression = PrepareForLTO && DTransEnabled;
 #else // INTEL_FEATURE_SW_DTRANS
   bool SkipRecProgression = false;
 #endif // INTEL_FEATURE_SW_DTRANS
-=======
->>>>>>> 04e094a33629e97d4ec51db4d5ca56066d82b030
   // TODO: Investigate the cost/benefit of tail call elimination on debugging.
   if (OptLevel > 1)
     MPM.add(createTailCallEliminationPass(SkipRecProgression));
@@ -1250,14 +1172,6 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
 
 void PassManagerBuilder::populateModulePassManager(
     legacy::PassManagerBase &MPM) {
-<<<<<<< HEAD
-  // Whether this is a default or *LTO pre-link pipeline. The FullLTO post-link
-  // is handled separately, so just check this is not the ThinLTO post-link.
-  bool DefaultOrPreLinkPipeline = !PerformThinLTO;
-
-  MPM.add(createXmainOptLevelWrapperPass(OptLevel)); // INTEL
-=======
->>>>>>> 04e094a33629e97d4ec51db4d5ca56066d82b030
   MPM.add(createAnnotation2MetadataLegacyPass());
 
   if (!PGOSampleUse.empty()) {
@@ -1410,28 +1324,12 @@ void PassManagerBuilder::populateModulePassManager(
       createCFGSimplificationPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
           true))); // Clean up after IPCP & DAE
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Handle '#pragma vector aligned'.
   if (EnableHandlePragmaVectorAligned && OptLevel > 1)
     MPM.add(createHandlePragmaVectorAlignedPass());
 #endif // INTEL_CUSTOMIZATION
 
-  // For SamplePGO in ThinLTO compile phase, we do not want to do indirect
-  // call promotion as it will change the CFG too much to make the 2nd
-  // profile annotation in backend more difficult.
-  // PGO instrumentation is added during the compile phase for ThinLTO, do
-  // not run it a second time
-  if (DefaultOrPreLinkPipeline && !PrepareForThinLTOUsingPGOSampleProfile)
-    addPGOInstrPasses(MPM);
-
-  // Create profile COMDAT variables. Lld linker wants to see all variables
-  // before the LTO/ThinLTO link since it needs to resolve symbols/comdats.
-  if (!PerformThinLTO && EnablePGOCSInstrGen)
-    MPM.add(createPGOInstrumentationGenCreateVarLegacyPass(PGOInstrGen));
-
-=======
->>>>>>> 04e094a33629e97d4ec51db4d5ca56066d82b030
   // We add a module alias analysis pass here. In part due to bugs in the
   // analysis infrastructure this "works" in that the analysis stays alive
   // for the entire SCC pass run below.
