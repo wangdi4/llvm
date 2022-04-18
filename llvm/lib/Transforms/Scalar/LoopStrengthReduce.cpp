@@ -6334,6 +6334,13 @@ DbgRewriteSalvageableDVIs(llvm::Loop *L, ScalarEvolution &SE,
       LLVM_DEBUG(dbgs() << "scev-salvage: value to recover SCEV: "
                         << *DVIRec.SCEV << '\n');
 
+#if INTEL_CUSTOMIZATION
+      // After phi cleanup, some recurrence SCEVs may not be valid any longer.
+      // Guard the code below with a validity check.
+      bool ValidSCEV = SE.isValid(DVIRec.SCEV) && SE.isValid(SCEVInductionVar); 
+      if (!ValidSCEV)
+        return;
+#endif // INTEL_CUSTOMIZATION
       // Create a simple expression if the IV and value to salvage SCEVs
       // start values differ by only a constant value.
       if (Optional<APInt> Offset =
