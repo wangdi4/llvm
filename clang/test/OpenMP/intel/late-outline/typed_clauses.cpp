@@ -374,4 +374,49 @@ void foo_linear_clauses()
   for (int z6=0; z6 < 10; ++z6) { }
 
 }
+
+//CHECK: define {{.*}}foo_shared_clauses
+void foo_shared_clauses(int n)
+{
+  //CHECK: [[Z:%z.*]] = alloca i32, align 4
+  //CHECK: [[ZP:%zp.*]] = alloca i32*, align 8
+  //CHECK: [[ZR:%zr.*]] = alloca i32*, align 8
+  //CHECK: [[ZPR:%zpr.*]] = alloca i32**, align 8
+  //CHECK: [[VLATMP:%omp.vla.tmp.*]] = alloca i64, align 8
+  int z = 3;
+  int *zp = &z;
+  int &zr = z;
+  int *(&zpr) = zp;
+
+  // Explicit shared
+  //CHECK: "DIR.OMP.PARALLEL"()
+  //CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(i32* [[Z]], i32 0, i32 1)
+  //CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(i32** [[ZP]], i32* null, i32 1)
+  //CHECK-SAME: "QUAL.OMP.SHARED:BYREF.TYPED"(i32** [[ZR]], i32 0, i32 1)
+  //CHECK-SAME: "QUAL.OMP.SHARED:BYREF.TYPED"(i32*** [[ZPR]], i32* null, i32 1)
+  #pragma omp parallel shared(z,zp,zr,zpr)
+  {
+    int i = z + *zp + zr + *zpr;
+  }
+
+  // Implicit shared, normal user variables
+  //CHECK: "DIR.OMP.PARALLEL"()
+  //CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(i32* [[Z]], i32 0, i32 1)
+  //CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(i32** [[ZP]], i32* null, i32 1)
+  //CHECK-SAME: "QUAL.OMP.SHARED:BYREF.TYPED"(i32** [[ZR]], i32 0, i32 1)
+  //CHECK-SAME: "QUAL.OMP.SHARED:BYREF.TYPED"(i32*** [[ZPR]], i32* null, i32 1)
+  #pragma omp parallel
+  {
+    int i = z + *zp + zr + *zpr;
+  }
+
+  // Implicit shared codegen temps
+  {
+    int vla[n];
+    //CHECK: "DIR.OMP.PARALLEL"()
+    //CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(i64* [[VLATMP]], i64 0, i32 1)
+    #pragma omp parallel private(vla)
+    {}
+  }
+}
 // end INTEL_COLLAB

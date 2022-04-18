@@ -175,7 +175,7 @@ std::pair<LoopRegion, PHINode *> createLoop(BasicBlock *Head, BasicBlock *Latch,
   // Upadte induction variable phi with the incoming values.
   IndVar->addIncoming(Begin, PreHead);
   IndVar->addIncoming(IncIndVar, Latch);
-  return {LoopRegion{PreHead, Exit}, IndVar};
+  return {LoopRegion{PreHead, Head, Exit}, IndVar};
 }
 
 void fillAtomicBuiltinUsers(Module &M, RuntimeService *RTService,

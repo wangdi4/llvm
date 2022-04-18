@@ -12,6 +12,7 @@
 #include "LoopPeeling.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -155,6 +156,23 @@ bool DPCPPKernelWGLoopCreatorPass::runImpl(Module &M) {
   return Changed;
 }
 
+static void disableLoopUnrollRecursively(Loop *L) {
+  LLVM_DEBUG(dbgs() << "Disable loop unroll for loop (header: "
+                    << L->getHeader()->getName() << ")\n");
+  L->setLoopAlreadyUnrolled();
+  for (Loop *L : L->getSubLoops())
+    disableLoopUnrollRecursively(L);
+}
+
+/// Disable loop unroll in scalar or masked remainder, since the loop trip
+/// count is very small (less than VF).
+static void disableRemainderLoopUnroll(Function &F, BasicBlock *Header) {
+  DominatorTree DT(F);
+  LoopInfo LI(DT);
+  if (Loop *L = LI.getLoopFor(Header))
+    disableLoopUnrollRecursively(L);
+}
+
 void DPCPPKernelWGLoopCreatorPass::processFunction(Function *F,
                                                    Function *VectorF,
                                                    unsigned VF) {
@@ -242,6 +260,9 @@ void DPCPPKernelWGLoopCreatorPass::processFunction(Function *F,
 
   // Create conditional jump over the WG loops in case of uniform early exit.
   handleUniformEE(NewRetBB);
+
+  if (NumDim > 0 && RemainderRegion.Header)
+    disableRemainderLoopUnroll(*Func, RemainderRegion.Header);
 
   // Now the masked kernel is a full workgroup which is organized as several
   // loops of vector kernel following by one masked kernel.
@@ -390,7 +411,9 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::createVectorAndRemainderLoops() {
                    ConstZero, "");
   BranchInst::Create(ScalarBlocks.PreHeader, RetBB, ScalarCmp, ScalarIf);
   BranchInst::Create(RetBB, ScalarBlocks.Exit);
-  return LoopRegion{LoopsEntry, RetBB};
+
+  RemainderRegion = ScalarBlocks;
+  return LoopRegion{LoopsEntry, nullptr, RetBB};
 }
 
 LoopRegion DPCPPKernelWGLoopCreatorPass::createVectorAndMaskedRemainderLoops() {
@@ -460,7 +483,8 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::createVectorAndMaskedRemainderLoops() {
 
   BranchInst::Create(RetBB, MaskedBlocks.Exit);
 
-  return LoopRegion{LoopsEntry, RetBB};
+  RemainderRegion = MaskedBlocks;
+  return LoopRegion{LoopsEntry, nullptr, RetBB};
 }
 
 // If peeling is enabled and vector kernel exists, we create 3 loops:
@@ -592,7 +616,8 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::createPeelAndVectorAndRemainderLoops(
   // Jump to peel exit if current remainder loop is peel loop.
   BranchInst::Create(PeelBlocks.Exit, RetBB, IsPeelLoop, RemainderBlocks.Exit);
 
-  return LoopRegion{PeelIf, RetBB};
+  RemainderRegion = RemainderBlocks;
+  return LoopRegion{PeelIf, nullptr, RetBB};
 }
 
 DPCPPKernelWGLoopCreatorPass::LoopBoundaries
@@ -888,6 +913,9 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::addWGLoops(
                     << " WG Loops. Head: " << Head->getName()
                     << ". Latch: " << Latch->getName() << "\n");
 
+  // Header of outmost loop.
+  BasicBlock *HeaderOutmost = nullptr;
+
   // Erase original return instruction.
   Ret->eraseFromParent();
 
@@ -930,8 +958,9 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::addWGLoops(
     // respectively.
     Head = Blocks.PreHeader;
     Latch = Blocks.Exit;
+    HeaderOutmost = Blocks.Header;
   }
-  return LoopRegion{Head, Latch};
+  return LoopRegion{Head, HeaderOutmost, Latch};
 }
 
 void DPCPPKernelWGLoopCreatorPass::replaceTIDsWithPHI(

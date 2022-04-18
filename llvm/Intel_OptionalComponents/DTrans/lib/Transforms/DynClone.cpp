@@ -942,6 +942,13 @@ bool DynCloneImpl<InfoClass>::prunePossibleCandidateFields(void) {
       MulOp = MaxLHS;
     }
 
+    if (match(MulOp, m_Intrinsic<Intrinsic::smax>())) {
+      auto *II = cast<IntrinsicInst>(MulOp);
+      MaxLHS = II->getOperand(0);
+      MaxRHS = II->getOperand(1);
+      MulOp = MaxLHS;
+    }
+
     ConstantInt *MaxC = dyn_cast_or_null<ConstantInt>(MaxRHS);
     LoadInst *Load = dyn_cast<LoadInst>(MulOp);
     if (!Load || (MaxRHS && !MaxC))

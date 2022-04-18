@@ -2716,7 +2716,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
             {
                 return CL_DEV_INVALID_VALUE;
             }
-            if (nullptr != pParent || numNodes <= 1)
+            if (nullptr != pParent || numNodes < 1)
             {
                 return CL_DEV_NOT_SUPPORTED;
             }

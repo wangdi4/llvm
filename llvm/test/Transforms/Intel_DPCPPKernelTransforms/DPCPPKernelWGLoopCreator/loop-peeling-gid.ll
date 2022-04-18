@@ -57,6 +57,9 @@ entry:
 ; CHECK-LABEL: dim_0_pre_head:
 ; CHECK-NEXT: br label %scalar_kernel_entry
 
+; CHECK-LABEL: scalar_kernel_entry:
+; CHECK: br i1 %{{.*}}, label %dim_0_exit, label %scalar_kernel_entry, !llvm.loop [[LOOP:![0-9]+]]
+
 ; CHECK-LABEL: dim_0_exit:
 ; CHECK-NEXT: br i1 %is.peel.loop, label %peel_exit, label %ret
 }
@@ -106,6 +109,9 @@ attributes #0 = { convergent norecurse nounwind "correctly-rounded-divide-sqrt-f
 attributes #1 = { convergent nounwind readnone "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "stackrealign" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #2 = { nounwind }
 attributes #3 = { convergent nounwind readnone }
+
+; CHECK: [[LOOP]] = distinct !{[[LOOP]], [[LOOPMD:![0-9]+]]}
+; CHECK-NEXT: [[LOOPMD]] = !{!"llvm.loop.unroll.disable"}
 
 !sycl.kernels = !{!0}
 
