@@ -29,8 +29,9 @@ define void @test() {
 ; AVX2:  LV: Found an estimated cost of 21 for VF 4 For instruction: store double %v5, ptr %out5, align 8
 ; AVX2:  LV: Found an estimated cost of 42 for VF 8 For instruction: store double %v5, ptr %out5, align 8
 ;
-; AVX512: LV: Found an estimated cost of 1 for VF 1 For instruction:   store double %v5, double* %out5, align 8
-; AVX512: LV: Found an estimated cost of 17 for VF 2 For instruction:   store double %v5, double* %out5, align 8
+; AVX512-LABEL: 'test'
+; AVX512:  LV: Found an estimated cost of 1 for VF 1 For instruction: store double %v5, ptr %out5, align 8
+; AVX512:  LV: Found an estimated cost of 17 for VF 2 For instruction: store double %v5, ptr %out5, align 8
 ; INTEL_CUSTOMIZATION
 ; TTI gather/scatter cost on AVX512 is tuned on xmain while on llorg it is formula-based.
 ; That affects LV selection between Interleaving, Gather/Scatter or Scalarization.
@@ -40,10 +41,10 @@ define void @test() {
 ; Due to mentioned TTI customization it selected gather/scatter over interleave and that effectively increased
 ; the number of vector registers uses so that it tipped over the number of vector registers available in HW (32).
 ; LV thus excluded this VF from further consideration.
-; AVX512: LV: Found an estimated cost of 24 for VF 4 For instruction:   store double %v5, double* %out5, align 8
-; AVX512: LV: Found an estimated cost of 48 for VF 8 For instruction:   store double %v5, double* %out5, align 8
-; AVX512: LV: Found an estimated cost of 96 for VF 16 For instruction:   store double %v5, double* %out5, align 8
-; AVX512;: LV: Found an estimated cost of 204 for VF 32 For instruction:   store double %v5, double* %out5, align 8
+; AVX512:  LV: Found an estimated cost of 24 for VF 4 For instruction: store double %v5, ptr %out5, align 8
+; AVX512:  LV: Found an estimated cost of 48 for VF 8 For instruction: store double %v5, ptr %out5, align 8
+; AVX512:  LV: Found an estimated cost of 96 for VF 16 For instruction: store double %v5, ptr %out5, align 8
+; AVX512;:  LV: Found an estimated cost of 204 for VF 32 For instruction: store double %v5, ptr %out5, align 8
 ; end INTEL_CUSTOMIZATION
 ;
 entry:

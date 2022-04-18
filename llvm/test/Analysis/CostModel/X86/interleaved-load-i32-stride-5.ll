@@ -38,7 +38,9 @@ define void @test() {
 ; AVX512:  LV: Found an estimated cost of 9 for VF 4 For instruction: %v0 = load i32, ptr %in0, align 4
 ; AVX512:  LV: Found an estimated cost of 18 for VF 8 For instruction: %v0 = load i32, ptr %in0, align 4
 ; AVX512:  LV: Found an estimated cost of 35 for VF 16 For instruction: %v0 = load i32, ptr %in0, align 4
-; AVX512:  LV: Found an estimated cost of 145 for VF 32 For instruction: %v0 = load i32, ptr %in0, align 4
+; INTEL_CUSTOMIZATION
+; AVX512:  LV: Found an estimated cost of 80 for VF 32 For instruction: %v0 = load i32, ptr %in0, align 4
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   br label %for.body

@@ -35,32 +35,18 @@ define void @test() {
 ; AVX2:  LV: Found an estimated cost of 20 for VF 16 For instruction: %v0 = load float, ptr %in0, align 4
 ; AVX2:  LV: Found an estimated cost of 44 for VF 32 For instruction: %v0 = load float, ptr %in0, align 4
 ;
-; AVX2: LV: Found an estimated cost of 1 for VF 1 For instruction:   %v0 = load float, float* %in0, align 4
-; AVX2: LV: Found an estimated cost of 6 for VF 2 For instruction:   %v0 = load float, float* %in0, align 4
-; AVX2: LV: Found an estimated cost of 5 for VF 4 For instruction:   %v0 = load float, float* %in0, align 4
-; AVX2: LV: Found an estimated cost of 10 for VF 8 For instruction:   %v0 = load float, float* %in0, align 4
-; AVX2: LV: Found an estimated cost of 20 for VF 16 For instruction:   %v0 = load float, float* %in0, align 4
-; AVX2: LV: Found an estimated cost of 44 for VF 32 For instruction:   %v0 = load float, float* %in0, align 4
-
-; AVX512: LV: Found an estimated cost of 1 for VF 1 For instruction:   %v0 = load float, float* %in0, align 4
-; AVX512: LV: Found an estimated cost of 4 for VF 2 For instruction:   %v0 = load float, float* %in0, align 4
-; AVX512: LV: Found an estimated cost of 4 for VF 4 For instruction:   %v0 = load float, float* %in0, align 4
-; AVX512: LV: Found an estimated cost of 6 for VF 8 For instruction:   %v0 = load float, float* %in0, align 4
-; AVX512: LV: Found an estimated cost of 12 for VF 16 For instruction:   %v0 = load float, float* %in0, align 4
-; INTEL_CUSTOMIZATION
-; TTI gather/scatter cost on AVX512 is tuned on xmain while on llorg it is formula-based.
-; That affects LV selection between Interleaving, Gather/Scatter or Scalarization.
-; AVX512: LV: Found an estimated cost of 48 for VF 32 For instruction:   %v0 = load float, float* %in0, align 4
-; AVX512: LV: Found an estimated cost of 96 for VF 64 For instruction:   %v0 = load float, float* %in0, align 4
-; end INTEL_CUSTOMIZATION
 ; AVX512-LABEL: 'test'
 ; AVX512:  LV: Found an estimated cost of 1 for VF 1 For instruction: %v0 = load float, ptr %in0, align 4
 ; AVX512:  LV: Found an estimated cost of 4 for VF 2 For instruction: %v0 = load float, ptr %in0, align 4
 ; AVX512:  LV: Found an estimated cost of 4 for VF 4 For instruction: %v0 = load float, ptr %in0, align 4
 ; AVX512:  LV: Found an estimated cost of 6 for VF 8 For instruction: %v0 = load float, ptr %in0, align 4
 ; AVX512:  LV: Found an estimated cost of 12 for VF 16 For instruction: %v0 = load float, ptr %in0, align 4
-; AVX512:  LV: Found an estimated cost of 51 for VF 32 For instruction: %v0 = load float, ptr %in0, align 4
-; AVX512:  LV: Found an estimated cost of 210 for VF 64 For instruction: %v0 = load float, ptr %in0, align 4
+; INTEL_CUSTOMIZATION
+; TTI gather/scatter cost on AVX512 is tuned on xmain while on llorg it is formula-based.
+; That affects LV selection between Interleaving, Gather/Scatter or Scalarization.
+; AVX512:  LV: Found an estimated cost of 48 for VF 32 For instruction: %v0 = load float, ptr %in0, align 4
+; AVX512:  LV: Found an estimated cost of 96 for VF 64 For instruction: %v0 = load float, ptr %in0, align 4
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   br label %for.body

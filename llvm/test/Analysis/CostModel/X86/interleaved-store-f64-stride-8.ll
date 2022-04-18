@@ -32,8 +32,10 @@ define void @test() {
 ; AVX512-LABEL: 'test'
 ; AVX512:  LV: Found an estimated cost of 1 for VF 1 For instruction: store double %v7, ptr %out7, align 8
 ; AVX512:  LV: Found an estimated cost of 23 for VF 2 For instruction: store double %v7, ptr %out7, align 8
-; AVX512:  LV: Found an estimated cost of 46 for VF 4 For instruction: store double %v7, ptr %out7, align 8
-; AVX512:  LV: Found an estimated cost of 80 for VF 8 For instruction: store double %v7, ptr %out7, align 8
+; INTEL_CUSTOMIZATION
+; AVX512:  LV: Found an estimated cost of 32 for VF 4 For instruction: store double %v7, ptr %out7, align 8
+; AVX512:  LV: Found an estimated cost of 64 for VF 8 For instruction: store double %v7, ptr %out7, align 8
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   br label %for.body
