@@ -3741,8 +3741,22 @@ EXTERN void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size, void *HstPtr,
 
 EXTERN void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size,
                                        void *HstPtr, void *HstBase) {
-  return DeviceInfo->dataAlloc(DeviceId, Size, 0, TARGET_ALLOC_DEFAULT,
-                               (intptr_t)HstPtr - (intptr_t)HstBase, false);
+  intptr_t Offset = (intptr_t)HstPtr - (intptr_t)HstBase;
+  int64_t AllocSize = Size;
+  if (Offset < 0) {
+    intptr_t AbsOffset = std::abs(Offset);
+    // If the offset is negative, then for our practical purposes it can be
+    // considered 0 because the base address of an array will be contained
+    // within or after the allocated memory.
+    Offset = 0;
+    // If the offset is negative and the size we map is not large enough to
+    // reach the base, then we must allocate extra memory up to the base
+    // (+1 to include at least the first byte the base is pointing to).
+    if (AbsOffset >= AllocSize)
+      AllocSize = AbsOffset + 1;
+  }
+  return DeviceInfo->dataAlloc(DeviceId, AllocSize, 0, TARGET_ALLOC_DEFAULT,
+                               Offset, false);
 }
 
 EXTERN void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
