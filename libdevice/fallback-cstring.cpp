@@ -112,12 +112,8 @@ static void *__devicelib_memset_uint32_aligned(void *dest, int c, size_t n) {
   __devicelib_memset_uint8_aligned(&dest_addr[idx], c, tailing_bytes);
   return dest;
 }
-<<<<<<< HEAD
-DEVICE_EXTERN_C
-=======
 
 DEVICE_EXTERN_C_INLINE
->>>>>>> c044d8277400af332d325ca268bf2bdcb4a96d77
 void *__devicelib_memset(void *dest, int c, size_t n) {
   if (dest == NULL || n == 0)
     return dest;

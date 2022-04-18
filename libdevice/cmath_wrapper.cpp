@@ -197,7 +197,6 @@ union _Dconst {            // pun float types as integer array
   { 0, w0 }
 
 #define _FXbig (float)((NBITS + 1) * 347L / 1000)
-<<<<<<< HEAD
 
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
@@ -205,10 +204,7 @@ union _Dconst {            // pun float types as integer array
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
 
-DEVICE_EXTERN_C
-=======
 DEVICE_EXTERN_C_INLINE
->>>>>>> c044d8277400af332d325ca268bf2bdcb4a96d77
 short _FDtest(float *px) { // categorize *px
   _Fval *ps = (_Fval *)(char *)px;
   short ret = 0;

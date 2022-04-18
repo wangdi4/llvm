@@ -9,17 +9,13 @@
 #include "wrapper.h"
 
 #ifdef __SPIR__
-<<<<<<< HEAD
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
 
-DEVICE_EXTERN_C
-=======
 DEVICE_EXTERN_C_INLINE
->>>>>>> c044d8277400af332d325ca268bf2bdcb4a96d77
 void *memcpy(void *dest, const void *src, size_t n) {
   return __devicelib_memcpy(dest, src, n);
 }

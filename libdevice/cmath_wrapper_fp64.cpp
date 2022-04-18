@@ -176,17 +176,13 @@ union _Dconst {            // pun float types as integer array
 
 #define _Xbig (double)((NBITS + 1) * 347L / 1000)
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
 
-DEVICE_EXTERN_C
-=======
 DEVICE_EXTERN_C_INLINE
->>>>>>> c044d8277400af332d325ca268bf2bdcb4a96d77
 short _Dtest(double *px) { // categorize *px
   _Dval *ps = (_Dval *)(char *)px;
 

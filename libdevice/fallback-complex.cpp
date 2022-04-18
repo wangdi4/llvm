@@ -15,7 +15,6 @@
 // To support fallback device libraries on-demand loading, please update the
 // DeviceLibFuncMap in llvm/tools/sycl-post-link/sycl-post-link.cpp if you add
 // or remove any item in this file.
-<<<<<<< HEAD
 
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
@@ -23,10 +22,7 @@
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
 
-DEVICE_EXTERN_C
-=======
 DEVICE_EXTERN_C_INLINE
->>>>>>> c044d8277400af332d325ca268bf2bdcb4a96d77
 float __devicelib_crealf(float __complex__ z) { return __real__(z); }
 
 DEVICE_EXTERN_C_INLINE
