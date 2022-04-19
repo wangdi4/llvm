@@ -64,6 +64,15 @@ class GoogleTest(TestFormat):
                         shard_size = shard_size // 2
                         nshard = int(math.ceil(num_tests / shard_size))
 
+                    # INTEL_CUSTOMIZATION
+                    # Some OCL framework tests must be run in isolation (due to
+                    # some initialization-once mechanism in OCL CPU RT).
+                    # Will upstream the final solution to the community.
+                    if getattr(localConfig, 'run_tests_in_isolation', False):
+                        shard_size = 1
+                        nshard = int(math.ceil(num_tests / shard_size))
+                    # end INTEL_CUSTOMIZATION
+
                     # Create one lit test for each shard.
                     for idx in range(nshard):
                         testPath = path_in_suite + (subdir, fn, str(idx),
