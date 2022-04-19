@@ -2687,6 +2687,14 @@ void HIRParser::parse(HLLoop *HLoop) {
     HLoop->setLegalMaxTripCount(MaxTC);
   }
 
+  unsigned LegalMaxTC;
+  if (HLoop->getPragmaBasedLegalMaxTripCount(LegalMaxTC)) {
+    auto CurLegalMaxTC = HLoop->getLegalMaxTripCount();
+
+    if (!CurLegalMaxTC || (LegalMaxTC < CurLegalMaxTC))
+      HLoop->setLegalMaxTripCount(LegalMaxTC);
+  }
+
   if (IsUnknown) {
     // Initialize Stride to 0 for unknown loops.
     auto ZeroRef = getDDRefUtils().createConstDDRef(IVType, 0);

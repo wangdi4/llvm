@@ -1177,6 +1177,20 @@ public:
     return true;
   }
 
+  /// Returns true if legal maximum trip count of loop is specified using pragma
+  /// and returns the value in \p MaxTripCount.
+  bool getPragmaBasedLegalMaxTripCount(unsigned &LegalMaxTripCount) const {
+    auto *MD = getLoopStringMetadata("llvm.loop.intel.max.trip_count");
+
+    if (!MD) {
+      return false;
+    }
+
+    LegalMaxTripCount =
+        mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
+    return true;
+  }
+
   /// Sets the pragma based maximum trip count of the loop to \p MaxTripCount.
   void setPragmaBasedMaximumTripCount(unsigned MaxTripCount);
 
