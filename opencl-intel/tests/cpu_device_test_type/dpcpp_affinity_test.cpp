@@ -31,6 +31,7 @@ extern bool gUseHalfProcessors;
 
 class DPCPPAffinityTest : public ::testing::Test {};
 
+#if 0  //temporarily disable this case.
 TEST_F(DPCPPAffinityTest, affinity) {
   const unsigned int *computeUnitMap;
   size_t count;
@@ -71,4 +72,5 @@ TEST_F(DPCPPAffinityTest, affinity) {
     ASSERT_EQ(computeUnitMap[i], cpuId) << (errMsg + std::to_string(i));
   }
 }
+#endif
 #endif
