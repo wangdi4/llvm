@@ -51,11 +51,21 @@ RelatedTypesSDHandler::RelatedTypesSDHandler() {
   // RelatedSDToOriginalSDMap.insert({RELATED_TYPE_SAFETY_DATA,
   //                                  ORIGINAL_SAFETY_DATA});
 
+  // Map "bad casting for related types" to "bad casting"
   RelatedSDToOriginalSDMap.insert({dtrans::BadCastingForRelatedTypes,
                                    dtrans::BadCasting});
+
+  // Map "bad mem func manipulation for related types" to "bad mem func
+  // manipulation"
   RelatedSDToOriginalSDMap.insert(
       {dtrans::BadMemFuncManipulationForRelatedTypes,
        dtrans::BadMemFuncManipulation});
+
+  // Map "bad pointer manipulation for related types" to "bad pointer
+  // manipulation"
+  RelatedSDToOriginalSDMap.insert(
+      {dtrans::BadPtrManipulationForRelatedTypes,
+       dtrans::BadPtrManipulation});
 
   for (auto Pair : RelatedSDToOriginalSDMap)
     AllRelatedTypesSafety |= Pair.first;

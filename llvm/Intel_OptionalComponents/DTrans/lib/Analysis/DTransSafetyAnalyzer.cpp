@@ -779,6 +779,27 @@ public:
   // load/store instructions to determine whether the FieldInfo object needs to
   // be marked as 'ComplexUse'
   void analyzeGEPOperator(GEPOperator *GEP) {
+
+    // Return true if the GEP is used to access the end of a structure's field
+    // to store information in the next field.
+    auto IsGepCollectingNextEntry = [this](GEPOperator *GEP) -> bool {
+      if (!GEP->hasOneUse())
+        return false;
+
+      StoreInst *SI = dyn_cast<StoreInst>(GEP->user_back());
+      if (!SI)
+        return false;
+
+      Value *Ptr = SI->getPointerOperand();
+      Value *Val = SI->getValueOperand();
+      ValueTypeInfo *PtrInfo = PTA.getValueTypeInfo(Ptr);
+
+      if (!PtrInfo)
+        return false;
+
+      return isStoringDataInNextEntry(SI, Val, Ptr, PtrInfo);
+    };
+
     Value *PtrOp = GEP->getPointerOperand();
     ValueTypeInfo *PtrInfo = PTA.getValueTypeInfo(PtrOp);
     if (!PtrInfo) {
@@ -802,9 +823,16 @@ public:
     assert(GEPInfo &&
            "Pointer type analyzer should have info about all GEP pointers");
     if (GEPInfo->getUnknownByteFlattenedGEP()) {
-      setAllAliasedTypeSafetyData(PtrInfo, dtrans::BadPtrManipulation,
-                                  "Byte flattened GEP could not be resolved",
-                                  GEP);
+      if (IsGepCollectingNextEntry(GEP))
+        setAllAliasedTypeSafetyData(PtrInfo,
+                                    dtrans::BadPtrManipulationForRelatedTypes,
+                                    "Byte flattened GEP used for accessing "
+                                    "next field", GEP);
+
+      else
+        setAllAliasedTypeSafetyData(PtrInfo, dtrans::BadPtrManipulation,
+                                    "Byte flattened GEP could not be resolved",
+                                    GEP);
       return;
     }
 
@@ -2969,7 +2997,7 @@ public:
       }
     };
 
-    auto HasNonDivBySizeUses = [](Value *V, uint64_t Size) {
+    auto HasNonDivBySizeUses = [this](Value *V, uint64_t Size) {
       for (auto *U : V->users()) {
         if (auto *BinOp = dyn_cast<BinaryOperator>(U)) {
           if (BinOp->getOpcode() != Instruction::SDiv &&
@@ -2978,6 +3006,12 @@ public:
           if (BinOp->getOperand(0) != V)
             return true;
           if (!dtrans::isValueMultipleOfSize(BinOp->getOperand(1), Size))
+            return true;
+          continue;
+        } else if (auto *Call = dyn_cast<CallBase>(U)) {
+          // NOTE: This can be relaxed in the future to check if the
+          // call is not an alloc function (AK_NotAlloc).
+          if (PTA.getAllocationCallKind(Call) != dtrans::AK_New)
             return true;
           continue;
         }
@@ -4739,13 +4773,19 @@ public:
     uint64_t Res;
     dtrans::TypeInfo *TI = DTInfo.getTypeInfo(AllocType);
     bool EndsInZeroSizedArray = TI ? TI->hasZeroSizedArrayAsLastField() : false;
-    if (!dtrans::isValueConstant(AllocSizeVal, &Res) &&
-        dtrans::traceNonConstantValue(AllocSizeVal, ElementSize,
+    if (!dtrans::isValueConstant(AllocSizeVal, &Res)) {
+      if (dtrans::traceNonConstantValue(AllocSizeVal, ElementSize,
                                       EndsInZeroSizedArray)) {
-      setBaseTypeInfoSafetyData(AllocType, dtrans::ComplexAllocSize,
-                                "Allocation is not direct multiple of size",
-                                Call);
-      return true;
+        setBaseTypeInfoSafetyData(AllocType, dtrans::ComplexAllocSize,
+                                  "Allocation is not direct multiple of size",
+                                  Call);
+        return true;
+      } else if (subForAllocIsGuarded(Call, Kind, ElementSize)) {
+        // Return true if the input for the call to new is given by a
+        // subtraction whose result will be a multiple of the structure's
+        // size.
+        return true;
+      }
     }
 
     return false;
@@ -6349,6 +6389,7 @@ private:
     case dtrans::BadMemFuncSize:
     case dtrans::BadPtrManipulation:
     case dtrans::BadMemFuncManipulationForRelatedTypes:
+    case dtrans::BadPtrManipulationForRelatedTypes:
     case dtrans::ComplexAllocSize:
     case dtrans::ContainsNestedStruct:
     case dtrans::DopeVector:
@@ -6411,6 +6452,7 @@ private:
     case dtrans::BadMemFuncManipulationForRelatedTypes:
     case dtrans::BadMemFuncSize:
     case dtrans::BadPtrManipulation:
+    case dtrans::BadPtrManipulationForRelatedTypes:
     case dtrans::ComplexAllocSize:
     case dtrans::ContainsNestedStruct:
     case dtrans::DopeVector:
@@ -6457,6 +6499,7 @@ private:
     switch (Data) {
     case dtrans::BadCastingForRelatedTypes:
     case dtrans::BadMemFuncManipulationForRelatedTypes:
+    case dtrans::BadPtrManipulationForRelatedTypes:
       return true;
     default:
       break;
