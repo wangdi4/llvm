@@ -2964,8 +2964,8 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
 
       // Notify the callback object that we've seen an inclusion directive.
       Callbacks->InclusionDirective(HashLoc, ImportTok, HeaderFilename.c_str(),
-                                    false, FilenameRange, *FE, "", "", nullptr,
-                                    FileCharacter);
+                                    false, FilenameRange, (*FE)->getLastRef(),
+                                    "", "", nullptr, FileCharacter);
     }
     FileID FID = SourceMgr.createFileID(*FE, FilenameTok.getLocation(), SrcMgr::C_System);
     EnterSourceFile(FID, /*Dir=*/nullptr, FilenameTok.getLocation());
