@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fintel-compatibility-enable=AllowExtraArgument %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility-enable=AllowExtraArgument %s -opaque-pointers -emit-llvm -o - | FileCheck %s
 
 void foo1(int *arg1, const int *arg2);
 int foo2(int arg1, int arg2, int *arg3);
@@ -10,10 +10,10 @@ void check() {
   int offset1, offset2;
   int *arg3;
 
-  // CHECK: call void @foo1(i32* noundef %{{.+}}, i32* noundef %{{.+}})
+  // CHECK: call void @foo1(ptr noundef %{{.+}}, ptr noundef %{{.+}})
   foo1(a1 + offset1, a2 + offset2, &arg3);
 
-  // CHECK: call i32 @foo2(i32 noundef %{{.+}}, i32 noundef %{{.+}}, i32* noundef %{{.+}})
+  // CHECK: call i32 @foo2(i32 noundef %{{.+}}, i32 noundef %{{.+}}, ptr noundef %{{.+}})
   foo2(offset1, offset2, a1, a2);
 
   // CHECK: call float @foo3()

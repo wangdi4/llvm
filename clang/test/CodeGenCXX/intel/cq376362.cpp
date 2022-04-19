@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fintel-compatibility -verify -triple x86_64-pc-linux-gnu -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility -verify -triple x86_64-pc-linux-gnu -emit-llvm -opaque-pointers -o - %s | FileCheck %s
 
 class A { public: ~A(); };
 
@@ -7,4 +7,4 @@ class B : private virtual :: A { public: ~B(); }; // expected-note {{declared pr
 class C : public virtual :: B { public: ~C(); }; // expected-warning {{inherited virtual base class '::A' has private destructor}}
 
 C::~C() {}
-// CHECK: call void @_ZN1AD2Ev(%class.A* {{[^,]*}})
+// CHECK: call void @_ZN1AD2Ev(ptr {{[^,]*}})

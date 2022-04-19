@@ -1,8 +1,8 @@
 // RUN: %clang_cc1 -triple x86_64-apple-darwin -fintel-compatibility -O1 \
-// RUN: -no-struct-path-tbaa -disable-llvm-optzns %s -emit-llvm -o - | \
+// RUN: -no-struct-path-tbaa -disable-llvm-optzns %s -opaque-pointers -emit-llvm -o - | \
 // RUN: FileCheck %s
 // RUN: %clang_cc1 -triple x86_64-apple-darwin -fintel-compatibility -O1 \
-// RUN:                     -disable-llvm-optzns %s -emit-llvm -o - | \
+// RUN:                     -disable-llvm-optzns %s -opaque-pointers -emit-llvm -o - | \
 // RUN: FileCheck %s -check-prefix=PATH
 namespace std {
 template <typename> struct complex {
@@ -36,8 +36,8 @@ void foo(complex<float> *dest, complex<float> *src1, complex<float> *src2) {
   // PATH: define {{.*}}@_ZNSt7complexIfEpLIfEERS0_RKS_IT_E{{.*}}
   // PATH: {{.*}} = load float, {{.*}} !tbaa [[TAG_float_field:!.*]]
   // PATH: {{.*}} = call noundef float @_ZNKSt7complexIfE4imagEv{{.*}}
-  // PATH: {{.*}} = getelementptr inbounds %"struct.std::complex", %"struct.std::complex"{{.*}} i32 0, !intel-tbaa [[TAG_scomplex:!.*]]
-  // CHECK: {{.*}} = getelementptr inbounds %"struct.std::complex", %"struct.std::complex"{{.*}} i32 0
+  // PATH: {{.*}} = getelementptr inbounds %"struct.std::complex", ptr {{.*}} i32 0, !intel-tbaa [[TAG_scomplex:!.*]]
+  // CHECK: {{.*}} = getelementptr inbounds %"struct.std::complex", ptr {{.*}} i32 0
 }
 // PATH: [[TYPE_char:!.*]] = !{!"omnipotent char", [[TAG_cxx_tbaa:!.*]], {{.*}}
 // PATH: [[TBAA_struct]] = !{i64 0, i64 4, [[TAG_float:!.*]], i64 4, i64 4, [[TAG_float]]}

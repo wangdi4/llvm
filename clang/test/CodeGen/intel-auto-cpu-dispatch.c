@@ -1,4 +1,4 @@
-// RUN: %clang_cc1  -ax=broadwell,skylake-avx512 -triple x86_64-linux-gnu -emit-llvm -o - %s -fopenmp -fintel-openmp-region -disable-llvm-passes | FileCheck %s
+// RUN: %clang_cc1  -ax=broadwell,skylake-avx512 -triple x86_64-linux-gnu -emit-llvm -o - %s -opaque-pointers -fopenmp -fintel-openmp-region -disable-llvm-passes | FileCheck %s
 
 // Declarations are not marked for auto-CPU dispatch
 // CHECK-DAG: declare i32 @foo() #{{[0-9]*}}
@@ -18,9 +18,9 @@ int __attribute__((target("arch=ivybridge"))) qax(void){ return 4; }
 
 // CHECK-DAG: define dso_local i32 @baz.S() #{{[0-9]*}} {
 // CHECK-DAG: define dso_local i32 @baz.A() #{{[0-9]*}} {
-// CHECK-DAG: define weak_odr i32 ()* @baz.resolver() comdat {
-// CHECK-DAG: @baz = weak_odr alias i32 (), i32 ()* @baz.ifunc
-// CHECK-DAG: @baz.ifunc = weak_odr ifunc i32 (), i32 ()* ()* @baz.resolver
+// CHECK-DAG: define weak_odr ptr @baz.resolver() comdat {
+// CHECK-DAG: @baz = weak_odr alias i32 (), ptr @baz.ifunc
+// CHECK-DAG: @baz.ifunc = weak_odr ifunc i32 (), ptr @baz.resolver
 int __attribute__((cpu_specific(ivybridge))) baz(void) { return 4;}
 int __attribute__((cpu_specific(generic))) baz(void) { return 4;}
 int __attribute__((cpu_dispatch(generic,ivybridge))) baz(void) { }

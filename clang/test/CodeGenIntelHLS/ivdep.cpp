@@ -1,4 +1,4 @@
-//RUN: %clang_cc1 -fhls -O0 -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s | FileCheck %s
+//RUN: %clang_cc1 -fhls -O0 -triple x86_64-unknown-linux-gnu -emit-llvm -opaque-pointers -o - %s | FileCheck %s
 
 #define SIZE 10
 unsigned char ucharVar[SIZE];
@@ -28,8 +28,8 @@ for (int i = 0; i < 10; ++i) {}
 void foo2()
 {
 //CHECK: alloca i32, align 4
-//CHECK: store i32 0, i32* %i, align 4
-//CHECK: load i32, i32* %i, align 4
+//CHECK: store i32 0, ptr %i, align 4
+//CHECK: load i32, ptr %i, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD6:![0-9]+]]
 #pragma ivdep array(ucharVar)
 for (int i = 0; i < 10; ++i) {}
@@ -40,8 +40,8 @@ for (int i = 0; i < 10; ++i) {}
 void foo2a()
 {
 //CHECK: alloca i32, align 4
-//CHECK: store i32 0, i32* %i, align 4
-//CHECK: load i32, i32* %i, align 4
+//CHECK: store i32 0, ptr %i, align 4
+//CHECK: load i32, ptr %i, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD9:![0-9]+]]
 #pragma ivdep array(ucharVar) safelen(4)
 for (int i = 0; i < 10; ++i) {}
@@ -52,8 +52,8 @@ for (int i = 0; i < 10; ++i) {}
 void foo3()
 {
 //CHECK: alloca i32, align 4
-//CHECK: store i32 0, i32* %i, align 4
-//CHECK: load i32, i32* %i, align 4
+//CHECK: store i32 0, ptr %i, align 4
+//CHECK: load i32, ptr %i, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD12:![0-9]+]]
 #pragma ivdep array(structVar) safelen(8)
 #pragma ivdep array(ucharVar) safelen(8)
@@ -65,8 +65,8 @@ for (int i = 0; i < 10; ++i) {}
 void foo4()
 {
 //CHECK: alloca i32, align 4
-//CHECK: store i32 0, i32* %i, align 4
-//CHECK: load i32, i32* %i, align 4
+//CHECK: store i32 0, ptr %i, align 4
+//CHECK: load i32, ptr %i, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD16:![0-9]+]]
 #pragma ivdep array(structVar) safelen(8)
 #pragma ivdep array(ucharVar) safelen(4)
@@ -78,8 +78,8 @@ for (int i = 0; i < 10; ++i) {}
 void foo5()
 {
 //CHECK: alloca i32, align 4
-//CHECK: store i32 0, i32* %i, align 4
-//CHECK: load i32, i32* %i, align 4
+//CHECK: store i32 0, ptr %i, align 4
+//CHECK: load i32, ptr %i, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD21:![0-9]+]]
 #pragma ivdep array(structVar) safelen(8)
 #pragma ivdep array(ucharVar)
@@ -91,8 +91,8 @@ for (int i = 0; i < 10; ++i) {}
 void foo6()
 {
 //CHECK: alloca i32, align 4
-//CHECK: store i32 0, i32* %i, align 4
-//CHECK: load i32, i32* %i, align 4
+//CHECK: store i32 0, ptr %i, align 4
+//CHECK: load i32, ptr %i, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD26:![0-9]+]]
 #pragma ivdep array(ucharVar) safelen(4)
 #pragma ivdep
@@ -104,8 +104,8 @@ for (int i = 0; i < 10; ++i) {}
 void foo7()
 {
 //CHECK: alloca i32, align 4
-//CHECK: store i32 0, i32* %i, align 4
-//CHECK: load i32, i32* %i, align 4
+//CHECK: store i32 0, ptr %i, align 4
+//CHECK: load i32, ptr %i, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD27:![0-9]+]]
 #pragma ivdep array(structVar2.tmp) safelen(8)
 #pragma ivdep array(ucharVar) safelen(4)
@@ -117,8 +117,8 @@ for (int i = 0; i < 10; ++i) {}
 void foo8()
 {
 //CHECK: alloca i32, align 4
-//CHECK: store i32 0, i32* %i, align 4
-//CHECK: load i32, i32* %i, align 4
+//CHECK: store i32 0, ptr %i, align 4
+//CHECK: load i32, ptr %i, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD32:![0-9]+]]
 #pragma ivdep array(ucharVar) safelen(8)
 #pragma ivdep safelen(4)
@@ -129,8 +129,7 @@ for (int i = 0; i < 10; ++i) {}
 // CHECK: define{{.*}}foo9
 void foo9(long* buffer1)
 {
-//CHECK: buffer1.addr = alloca i64*, align 8
-//CHECK: store i64* %buffer1, i64** %buffer1.addr, align 8
+//CHECK: buffer1.addr = alloca ptr, align 8
 //CHECK: br label %while.body, !llvm.loop [[MD35:![0-9]+]]
 #pragma ivdep array(buffer1)
 while (1) { }
@@ -144,9 +143,9 @@ int do_stuff(int N) {
   //CHECK: %N.addr = alloca i32, align 4
   //CHECK: %temp = alloca i32, align 4
   //CHECK: alloca i32, align 4
-  //CHECK: store i32 %N, i32* %N.addr, align 4
-  //CHECK: store i32 0, i32* %temp, align 4
-  //CHECK: store i32 0, i32* %i, align 4
+  //CHECK: store i32 %N, ptr %N.addr, align 4
+  //CHECK: store i32 0, ptr %temp, align 4
+  //CHECK: store i32 0, ptr %i, align 4
   //CHECK: br{{.*}}!llvm.loop [[MD38:![0-9]+]]
   #pragma ivdep safelen(LEN)
   for (int i = 0; i < N; ++i) {

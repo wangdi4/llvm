@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -O0 -fintel-compatibility -fhls -triple=x86_64-linux-gnu -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 %s -O0 -fintel-compatibility -fhls -triple=x86_64-linux-gnu -emit-llvm -opaque-pointers -o - | FileCheck %s
 
 template <typename T, int buffer, int ReadyLatency, int BitsPerSymbol,
           bool FirstSymbolInHighOrderBits, bool UsesPackets, bool UsesEmpty,
@@ -113,26 +113,14 @@ void TestStreamsBool() {
   StrOut.write(f, b, b, i);
   s = StrOut.tryWrite(f, b, b, i);
 }
-// CHECK: declare { %struct.Foo*, i8, i8, i32 } @llvm.intel.hls.instream.read.p0s_struct.Foos(i64, i32, i32, i32, i1, i1, i1, i1)
-// CHECK: declare { %struct.Foo*, i8, i8, i8, i32 } @llvm.intel.hls.instream.tryRead.p0s_struct.Foos(i64, i32, i32, i32, i1, i1, i1, i1)
+// CHECK: declare { ptr, i8, i8, i32 } @llvm.intel.hls.instream.read.p0(i64, i32, i32, i32, i1, i1, i1, i1)
+// CHECK: declare { ptr, i8, i8, i8, i32 } @llvm.intel.hls.instream.tryRead.p0(i64, i32, i32, i32, i1, i1, i1, i1)
 //
-// CHECK: declare void @llvm.intel.hls.instream.write.p0s_struct.Foos(%struct.Foo*, i64, i32, i32, i32, i1, i1, i1, i1, i1, i1, i32)
-// CHECK: declare i1 @llvm.intel.hls.instream.tryWrite.p0s_struct.Foos(%struct.Foo*, i64, i32, i32, i32, i1, i1, i1, i1, i1, i1, i32)
+// CHECK: declare void @llvm.intel.hls.instream.write.p0(ptr, i64, i32, i32, i32, i1, i1, i1, i1, i1, i1, i32)
+// CHECK: declare i1 @llvm.intel.hls.instream.tryWrite.p0(ptr, i64, i32, i32, i32, i1, i1, i1, i1, i1, i1, i32)
 //
-// CHECK: declare { %struct.Foo*, i8, i8, i32 } @llvm.intel.hls.outstream.read.p0s_struct.Foos(i64, i32, i32, i32, i1, i1, i1, i1)
-// CHECK: declare { %struct.Foo*, i8, i8, i8, i32 } @llvm.intel.hls.outstream.tryRead.p0s_struct.Foos(i64, i32, i32, i32, i1, i1, i1, i1)
+// CHECK: declare { ptr, i8, i8, i32 } @llvm.intel.hls.outstream.read.p0(i64, i32, i32, i32, i1, i1, i1, i1)
+// CHECK: declare { ptr, i8, i8, i8, i32 } @llvm.intel.hls.outstream.tryRead.p0(i64, i32, i32, i32, i1, i1, i1, i1)
 //
-// CHECK: declare void @llvm.intel.hls.outstream.write.p0s_struct.Foos(%struct.Foo*, i64, i32, i32, i32, i1, i1, i1, i1, i1, i1, i32)
-// CHECK: declare i1 @llvm.intel.hls.outstream.tryWrite.p0s_struct.Foos(%struct.Foo*, i64, i32, i32, i32, i1, i1, i1, i1, i1, i1, i32)
-
-// CHECK: declare { i1*, i8, i8, i32 } @llvm.intel.hls.instream.read.p0i1(i64, i32, i32, i32, i1, i1, i1, i1)
-// CHECK: declare { i1*, i8, i8, i8, i32 } @llvm.intel.hls.instream.tryRead.p0i1(i64, i32, i32, i32, i1, i1, i1, i1)
-//
-// CHECK: declare void @llvm.intel.hls.instream.write.p0i1(i1*, i64, i32, i32, i32, i1, i1, i1, i1, i1, i1, i32)
-// CHECK: declare i1 @llvm.intel.hls.instream.tryWrite.p0i1(i1*, i64, i32, i32, i32, i1, i1, i1, i1, i1, i1, i32)
-//
-// CHECK: declare { i1*, i8, i8, i32 } @llvm.intel.hls.outstream.read.p0i1(i64, i32, i32, i32, i1, i1, i1, i1)
-// CHECK: declare { i1*, i8, i8, i8, i32 } @llvm.intel.hls.outstream.tryRead.p0i1(i64, i32, i32, i32, i1, i1, i1, i1)
-//
-// CHECK: declare void @llvm.intel.hls.outstream.write.p0i1(i1*, i64, i32, i32, i32, i1, i1, i1, i1, i1, i1, i32)
-// CHECK: declare i1 @llvm.intel.hls.outstream.tryWrite.p0i1(i1*, i64, i32, i32, i32, i1, i1, i1, i1, i1, i1, i32)
+// CHECK: declare void @llvm.intel.hls.outstream.write.p0(ptr, i64, i32, i32, i32, i1, i1, i1, i1, i1, i1, i32)
+// CHECK: declare i1 @llvm.intel.hls.outstream.tryWrite.p0(ptr, i64, i32, i32, i32, i1, i1, i1, i1, i1, i1, i32)
