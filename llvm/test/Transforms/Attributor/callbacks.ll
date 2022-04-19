@@ -147,7 +147,10 @@ define void @t1_caller(i32* noalias %a) {
 ; IS__TUNIT_NPM-NEXT:    ret void
 ;
 ; IS__CGSCC_OPM-LABEL: define {{[^@]+}}@t1_caller
-; IS__CGSCC_OPM-SAME: (i32* noalias align 256 [[A:%.*]]) {
+; INTEL_CUSTOMIZATION
+; detect nocapture here
+; IS__CGSCC_OPM-SAME: (i32* noalias nocapture align 256 [[A:%.*]]) {
+; end INTEL_CUSTOMIZATION
 ; IS__CGSCC_OPM-NEXT:  entry:
 ; IS__CGSCC_OPM-NEXT:    [[B:%.*]] = alloca i32, align 32
 ; IS__CGSCC_OPM-NEXT:    [[C:%.*]] = alloca i32*, align 64
@@ -267,7 +270,10 @@ define void @t2_caller(i32* noalias %a) {
 ; IS__TUNIT_NPM-NEXT:    ret void
 ;
 ; IS__CGSCC_OPM-LABEL: define {{[^@]+}}@t2_caller
-; IS__CGSCC_OPM-SAME: (i32* noalias align 256 [[A:%.*]]) {
+; INTEL_CUSTOMIZATION
+; detect nocapture here
+; IS__CGSCC_OPM-SAME: (i32* noalias nocapture align 256 [[A:%.*]]) {
+; end INTEL_CUSTOMIZATION
 ; IS__CGSCC_OPM-NEXT:  entry:
 ; IS__CGSCC_OPM-NEXT:    [[B:%.*]] = alloca i32, align 32
 ; IS__CGSCC_OPM-NEXT:    [[C:%.*]] = alloca i32*, align 64
@@ -387,7 +393,10 @@ define void @t3_caller(i32* noalias %a) {
 ; IS__TUNIT_NPM-NEXT:    ret void
 ;
 ; IS__CGSCC_OPM-LABEL: define {{[^@]+}}@t3_caller
-; IS__CGSCC_OPM-SAME: (i32* noalias align 256 [[A:%.*]]) {
+; INTEL_CUSTOMIZATION
+; detect nocapture here
+; IS__CGSCC_OPM-SAME: (i32* noalias nocapture align 256 [[A:%.*]]) {
+; end INTEL_CUSTOMIZATION
 ; IS__CGSCC_OPM-NEXT:  entry:
 ; IS__CGSCC_OPM-NEXT:    [[B:%.*]] = alloca i32, align 32
 ; IS__CGSCC_OPM-NEXT:    [[C:%.*]] = alloca i32*, align 64
