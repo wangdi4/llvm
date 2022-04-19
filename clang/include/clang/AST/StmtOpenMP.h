@@ -3244,33 +3244,6 @@ public:
 class OMPAtomicDirective : public OMPExecutableDirective {
   friend class ASTStmtReader;
   friend class OMPExecutableDirective;
-#if INTEL_COLLAB
-  /// Used for 'atomic compare' constructs. True for forms that result in a
-  /// 'min' operation:
-  /// \code
-  /// x = expr < x ? expr : x;
-  /// x = x > expr ? expr : x;
-  /// if (expr < x) { x = expr; }
-  /// if (x > expr) { x = expr; }
-  /// \endcode
-  bool IsCompareMin = false;
-  /// Used for 'atomic compare' constructs. True for forms that result in a
-  /// 'max' operation:
-  /// \code
-  /// x = expr > x ? expr : x;
-  /// x = x < expr ? expr : x;
-  /// if (expr > x) { x = expr; }
-  /// if (x < expr) { x = expr; }
-  /// \endcode
-  bool IsCompareMax = false;
-  /// Used for 'atomic compare capture' constructs. True for forms that update
-  /// 'v' only when the condition is false.
-  /// \code
-  /// if(x == e) { x = d; } else { v = x; }
-  /// { r = x == e; if(r) { x = d; } else { v = x; } }
-  /// \endcode
-  bool IsConditionalCapture = false;
-#endif // INTEL_COLLAB
 
   struct FlagTy {
     /// Used for 'atomic update' or 'atomic capture' constructs. They may
@@ -3292,6 +3265,33 @@ class OMPAtomicDirective : public OMPExecutableDirective {
     /// This field is 1 for the first(postfix) form of the expression and 0
     /// otherwise.
     uint8_t IsPostfixUpdate : 1;
+#if INTEL_COLLAB
+    /// Used for 'atomic compare' constructs. 1 for forms that result in a
+    /// 'min' operation:
+    /// \code
+    /// x = expr < x ? expr : x;
+    /// x = x > expr ? expr : x;
+    /// if (expr < x) { x = expr; }
+    /// if (x > expr) { x = expr; }
+    /// \endcode
+    uint8_t IsCompareMin : 1;
+    /// Used for 'atomic compare' constructs. 1 for forms that result in a
+    /// 'max' operation:
+    /// \code
+    /// x = expr > x ? expr : x;
+    /// x = x < expr ? expr : x;
+    /// if (expr > x) { x = expr; }
+    /// if (x < expr) { x = expr; }
+    /// \endcode
+    uint8_t IsCompareMax : 1;
+    /// Used for 'atomic compare capture' constructs. 1 for forms that update
+    /// 'v' only when the condition is false.
+    /// \code
+    /// if(x == e) { x = d; } else { v = x; }
+    /// { r = x == e; if(r) { x = d; } else { v = x; } }
+    /// \endcode
+    uint8_t IsConditionalCapture : 1;
+#endif // INTEL_COLLAB
   } Flags;
 
   /// Build directive with the given start and end location.
@@ -3442,10 +3442,10 @@ public:
 
 #if INTEL_COLLAB
   /// Return true if atomic compare is 'min' form.
-  bool isCompareMin() const { return IsCompareMin; }
+  bool isCompareMin() const { return Flags.IsCompareMin; }
   /// Return true if atomic compare is 'max' form.
-  bool isCompareMax() const { return IsCompareMax; }
-  bool isConditionalCapture() const { return IsConditionalCapture; }
+  bool isCompareMax() const { return Flags.IsCompareMax; }
+  bool isConditionalCapture() const { return Flags.IsConditionalCapture; }
 #endif // INTEL_COLLAB
 
   bool isPostfixUpdate() const { return Flags.IsPostfixUpdate; }
