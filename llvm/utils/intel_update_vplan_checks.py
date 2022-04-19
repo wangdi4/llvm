@@ -52,7 +52,7 @@ SCRUB_KILL_COMMENT_RE = re.compile(r'^ *#+ +kill:.*\n')
 SCRUB_IR_COMMENT_RE = re.compile(r'\s*;.*')
 
 RUN_LINE_RE = re.compile('^\s*;\s*RUN:\s*(.*)$')
-IR_FUNCTION_RE = re.compile('^\s*define\s+(?:internal\s+)?[^@]*@([\w-]+)\s*\(')
+IR_FUNCTION_RE = re.compile(r'^\s*define\s+(?:internal\s+)?[^@]*@"?([\w.$-]+)"?\s*\(')
 OPT_FUNCTION_RE = re.compile(
     r'^\s*define\s+(?:internal\s+)?[^@]*@(?P<func>[\w-]+?)\s*\('
     r'(\s+)?[^)]*[^{]*\{\n(?P<body>.*?)^\}$',
@@ -388,6 +388,8 @@ def main():
       m = IR_FUNCTION_RE.match(input_line)
       if m:
         funcs.add(m.group(1))
+    if args.verbose:
+      print >>sys.stderr, 'Found %d functions' %(len(funcs))
 
     for prefixes, opt_args in prefix_list:
       opt_args += " --vplan-enable-names --hir-details-no-verbose-indent"
