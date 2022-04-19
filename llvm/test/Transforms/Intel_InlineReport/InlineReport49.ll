@@ -15,7 +15,7 @@
 ; CHECK: DEAD STATIC FUNC: foo
 ; CHECK: COMPILE FUNC: goo
 ; CHECK: COMPILE FUNC: main
-; CHECK: INLINE: foo{{.*}}<<Callee is single basic block>>
+; CHECK: INLINE: foo{{.*}}<<Callee is hot>>
 ; CHECK: INLINE: foo{{.*}}<<Callsite has hot profile>>
 ; CHECK: goo{{.*}}Callsite has cold profile
 

@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -152,6 +152,8 @@ typedef enum {
    InlrAlwaysInlineRecursive,
    InlrInlineList,
    InlrHotProfile,
+   InlrHotCallsite,
+   InlrHotCallee,
    InlrRecProClone,
    InlrHasExtractedRecursiveCall,
    InlrSingleLocalCall,
@@ -182,6 +184,8 @@ typedef enum {
    NinlrNoinlineList,
    NinlrColdCC,
    NinlrColdProfile,
+   NinlrColdCallsite,
+   NinlrColdCallee,
    NinlrDeleted,
    NinlrDuplicateCall,
    NinlrDynamicAlloca,
