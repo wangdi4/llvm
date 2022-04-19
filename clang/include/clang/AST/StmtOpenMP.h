@@ -3244,26 +3244,6 @@ public:
 class OMPAtomicDirective : public OMPExecutableDirective {
   friend class ASTStmtReader;
   friend class OMPExecutableDirective;
-<<<<<<< HEAD
-  /// Used for 'atomic update' or 'atomic capture' constructs. They may
-  /// have atomic expressions of forms
-  /// \code
-  /// x = x binop expr;
-  /// x = expr binop x;
-  /// \endcode
-  /// This field is true for the first form of the expression and false for the
-  /// second. Required for correct codegen of non-associative operations (like
-  /// << or >>).
-  bool IsXLHSInRHSPart = false;
-  /// Used for 'atomic update' or 'atomic capture' constructs. They may
-  /// have atomic expressions of forms
-  /// \code
-  /// v = x; <update x>;
-  /// <update x>; v = x;
-  /// \endcode
-  /// This field is true for the first(postfix) form of the expression and false
-  /// otherwise.
-  bool IsPostfixUpdate = false;
 #if INTEL_COLLAB
   /// Used for 'atomic compare' constructs. True for forms that result in a
   /// 'min' operation:
@@ -3291,7 +3271,6 @@ class OMPAtomicDirective : public OMPExecutableDirective {
   /// \endcode
   bool IsConditionalCapture = false;
 #endif // INTEL_COLLAB
-=======
 
   struct FlagTy {
     /// Used for 'atomic update' or 'atomic capture' constructs. They may
@@ -3314,7 +3293,6 @@ class OMPAtomicDirective : public OMPExecutableDirective {
     /// otherwise.
     uint8_t IsPostfixUpdate : 1;
   } Flags;
->>>>>>> e8760b51ee0f972587cb0af922a3f828ab6926d6
 
   /// Build directive with the given start and end location.
   ///
@@ -3461,8 +3439,6 @@ public:
   bool isXLHSInRHSPart() const { return Flags.IsXLHSInRHSPart; }
   /// Return true if 'v' expression must be updated to original value of
   /// 'x', false if 'v' must be updated to the new value of 'x'.
-<<<<<<< HEAD
-  bool isPostfixUpdate() const { return IsPostfixUpdate; }
 
 #if INTEL_COLLAB
   /// Return true if atomic compare is 'min' form.
@@ -3472,9 +3448,7 @@ public:
   bool isConditionalCapture() const { return IsConditionalCapture; }
 #endif // INTEL_COLLAB
 
-=======
   bool isPostfixUpdate() const { return Flags.IsPostfixUpdate; }
->>>>>>> e8760b51ee0f972587cb0af922a3f828ab6926d6
   /// Get 'v' part of the associated expression/statement.
   Expr *getV() {
     return cast_or_null<Expr>(Data->getChildren()[DataPositionTy::POS_V]);

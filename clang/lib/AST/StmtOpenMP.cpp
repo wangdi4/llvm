@@ -1020,18 +1020,13 @@ OMPAtomicDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setUpdateExpr(Exprs.UE);
   Dir->setD(Exprs.D);
   Dir->setCond(Exprs.Cond);
-<<<<<<< HEAD
-  Dir->IsXLHSInRHSPart = Exprs.IsXLHSInRHSPart;
-  Dir->IsPostfixUpdate = Exprs.IsPostfixUpdate;
 #if INTEL_COLLAB
   Dir->IsCompareMin = Exprs.IsCompareMin;
   Dir->IsCompareMax = Exprs.IsCompareMax;
   Dir->IsConditionalCapture = Exprs.IsConditionalCapture;
 #endif // INTEL_COLLAB
-=======
   Dir->Flags.IsXLHSInRHSPart = Exprs.IsXLHSInRHSPart ? 1 : 0;
   Dir->Flags.IsPostfixUpdate = Exprs.IsPostfixUpdate ? 1 : 0;
->>>>>>> e8760b51ee0f972587cb0af922a3f828ab6926d6
   return Dir;
 }
 
