@@ -80,6 +80,20 @@ ModulePass *createGCOVProfilerPass(const GCOVOptions &Options =
 
 ModulePass *createCGProfileLegacyPass();
 
+#if INTEL_CUSTOMIZATION
+// PGO Instrumention. Parameter IsCS indicates if this is the context sensitive
+// instrumentation.
+ModulePass *createPGOInstrumentationGenLegacyPass(bool IsCS = false);
+ModulePass *
+createPGOInstrumentationUseLegacyPass(StringRef Filename = StringRef(""),
+                                      bool IsCS = false);
+ModulePass *createPGOInstrumentationGenCreateVarLegacyPass(
+    StringRef CSInstrName = StringRef(""));
+ModulePass *createPGOIndirectCallPromotionLegacyPass(bool InLTO = false,
+                                                     bool SamplePGO = false);
+FunctionPass *createPGOMemOPSizeOptLegacyPass();
+#endif // INTEL_CUSTOMIZATION
+
 // The pgo-specific indirect call promotion function declared below is used by
 // the pgo-driven indirect call promotion and sample profile passes. It's a
 // wrapper around llvm::promoteCall, et al. that additionally computes !prof

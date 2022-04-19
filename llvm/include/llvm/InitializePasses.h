@@ -429,6 +429,13 @@ void initializeOptimizationRemarkEmitterWrapperPassPass(PassRegistry&);
 void initializeOptimizePHIsPass(PassRegistry&);
 void initializePAEvalPass(PassRegistry&);
 void initializePEIPass(PassRegistry&);
+#if INTEL_CUSTOMIZATION
+void initializePGOIndirectCallPromotionLegacyPassPass(PassRegistry&);
+void initializePGOInstrumentationGenLegacyPassPass(PassRegistry&);
+void initializePGOInstrumentationUseLegacyPassPass(PassRegistry&);
+void initializePGOInstrumentationGenCreateVarLegacyPassPass(PassRegistry&);
+void initializePGOMemOPSizeOptLegacyPassPass(PassRegistry&);
+#endif // INTEL_CUSTOMIZATION
 void initializePHIEliminationPass(PassRegistry&);
 void initializePartialInlinerLegacyPassPass(PassRegistry&);
 void initializePartiallyInlineLibCallsLegacyPassPass(PassRegistry&);
