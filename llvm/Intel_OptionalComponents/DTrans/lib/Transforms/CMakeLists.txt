@@ -20,6 +20,7 @@ add_llvm_component_library(LLVMIntel_DTransOpt
   DeleteField.cpp
   DeleteFieldOP.cpp
   ReorderFields.cpp
+  ReorderFieldsOP.cpp
   ResolveTypes.cpp
   EliminateROFieldAccess.cpp
   DynClone.cpp
