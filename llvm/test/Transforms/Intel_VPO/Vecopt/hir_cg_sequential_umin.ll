@@ -18,8 +18,7 @@ define void @foo(i8* %p1, i8* %p2, i1* %p3) {
 ; CHECK-NEXT:        |   [[DOTVEC90:%.*]] = ([[DOTVEC70]] == 1) ? zeroinitializer : [[DOTVEC80]]
 ; CHECK-NEXT:        |   (<4 x i1>*)([[P30:%.*]])[i1 + <i64 0, i64 1, i64 2, i64 3>] = [[DOTVEC90]] + -1
 ; CHECK-NEXT:        + END LOOP
-; CHECK:        [[PHI_TEMP0:%.*]] = 1024
-; CHECK-NEXT:        ret
+; CHECK:        ret
 ; CHECK-NEXT:  END REGION
 ;
 entry:
