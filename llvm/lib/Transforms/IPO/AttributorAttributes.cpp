@@ -3342,7 +3342,7 @@ struct AANoAliasCallSiteArgument final : AANoAliasImpl {
         LLVM_DEBUG(dbgs() << "[AANoAliasCSArg] Unknown user: " << *UserI
                           << "\n");
         return false;
-      case UseCaptureKind::PASSTHROUGH:
+      case UseCaptureKind::USER_MAY_CAPTURE: // INTEL_COLLAB
         Follow = true;
         return true;
       }
