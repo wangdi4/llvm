@@ -267,8 +267,10 @@ public:
   /// Part*(subvector size)-th element of the vector. Subvector size is
   /// determined by given vector size and number of parts to be divided into.
   /// Generated instruction is also attached to outgoing IR and l-val is
-  /// returned.
-  RegDDRef *extractSubVector(RegDDRef *Input, unsigned Part, unsigned NumParts);
+  /// returned. In case when \p LValRef is non-null, returned l-val is written
+  /// to \p LValRef.
+  RegDDRef *extractSubVector(RegDDRef *Input, unsigned Part, unsigned NumParts,
+                             RegDDRef *LValRef = nullptr);
 
   HLInst *createReverseVector(RegDDRef *ValRef);
 

@@ -1,7 +1,7 @@
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -target-feature +avx512bw -fms-compatibility -emit-llvm -o - %s | FileCheck %s
-// RUN: %clang_cc1 -triple x86_64-unknown-windows -target-feature +avx512bw -fms-compatibility -emit-llvm -o - %s | FileCheck %s
-// RUN: %clang_cc1 -triple i686-pc-linux -target-feature +avx512bw -fms-compatibility -emit-llvm -o - %s | FileCheck %s
-// RUN: %clang_cc1 -triple i686-pc-win32 -target-feature +avx512bw -fms-compatibility -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -target-feature +avx512bw -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-windows -target-feature +avx512bw -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple i686-pc-linux -target-feature +avx512bw -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple i686-pc-win32 -target-feature +avx512bw -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
 // Check SVML calling conventions are assigned correctly when compiling 512-bit SVML functions.
 
 typedef float __m512 __attribute__((__vector_size__(64), __aligned__(64)));
@@ -34,7 +34,7 @@ __attribute__((visibility("hidden"))) extern core_func_ptr * __svml_sinf16_mask_
 // CHECK: define dso_local svml_unified_cc_512 <16 x float> @__svml_sinf16_mask_chosen_core_func_init_internal(<16 x float> noundef %{{.*}}, <16 x i1> noundef %{{.*}}, <16 x float> noundef %{{.*}})
 __attribute__((intel_ocl_bicc))
 __m512 __svml_sinf16_mask_chosen_core_func_init_internal(__m512 r, __mmask16 mask, __m512 a) {
-// CHECK: call <16 x float> (<16 x float>, <16 x i1>, <16 x float>)** @__svml_sinf16_mask_chosen_core_func_get_ptr_internal()
+// CHECK: call ptr @__svml_sinf16_mask_chosen_core_func_get_ptr_internal()
   core_func_ptr *func_ptr = __svml_sinf16_mask_chosen_core_func_get_ptr_internal();
 // CHECK: call svml_unified_cc_512 <16 x float> {{.*}}(<16 x float> noundef %{{.*}}, <16 x i1> noundef %{{.*}}, <16 x float> noundef %{{.*}})
   return (*func_ptr)(r, mask, a);
@@ -42,7 +42,7 @@ __m512 __svml_sinf16_mask_chosen_core_func_init_internal(__m512 r, __mmask16 mas
 
 __declspec(align(64)) static core_func_ptr __svml_sinf16_mask_chosen_core_func = (core_func_ptr)(&__svml_sinf16_mask_chosen_core_func_init_internal);
 
-// CHECK: define hidden <16 x float> (<16 x float>, <16 x i1>, <16 x float>)** @__svml_sinf16_mask_chosen_core_func_get_ptr_internal()
+// CHECK: define hidden ptr @__svml_sinf16_mask_chosen_core_func_get_ptr_internal()
 core_func_ptr *__svml_sinf16_mask_chosen_core_func_get_ptr_internal(void) {
   return &__svml_sinf16_mask_chosen_core_func;
 }

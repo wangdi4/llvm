@@ -2687,6 +2687,14 @@ void HIRParser::parse(HLLoop *HLoop) {
     HLoop->setLegalMaxTripCount(MaxTC);
   }
 
+  unsigned LegalMaxTC;
+  if (HLoop->getPragmaBasedLegalMaxTripCount(LegalMaxTC)) {
+    auto CurLegalMaxTC = HLoop->getLegalMaxTripCount();
+
+    if (!CurLegalMaxTC || (LegalMaxTC < CurLegalMaxTC))
+      HLoop->setLegalMaxTripCount(LegalMaxTC);
+  }
+
   if (IsUnknown) {
     // Initialize Stride to 0 for unknown loops.
     auto ZeroRef = getDDRefUtils().createConstDDRef(IVType, 0);
@@ -2991,6 +2999,11 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi, unsigned Level,
   // UpdateSCEV : {(%ptr + 4),+,4)
   // StrideSCEV : 4
   auto StrideSCEV = ScopedSE.getMinusSCEV(UpdateSCEV, PhiSCEV);
+
+  if (isa<SCEVCouldNotCompute>(StrideSCEV)) {
+    return nullptr;
+  }
+
   auto StrideTy = StrideSCEV->getType();
   assert(StrideTy->isIntegerTy() && "stride is not an integer!");
 

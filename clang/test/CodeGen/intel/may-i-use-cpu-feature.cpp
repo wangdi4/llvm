@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -triple=x86_64-unknown-linux-gnu -fintel-compatibility -O0 -disable-llvm-passes -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -triple=x86_64-unknown-linux-gnu -fintel-compatibility -O0 -disable-llvm-passes -emit-llvm -opaque-pointers %s -o - | FileCheck %s
 
 #define FEAT_1 1U << 7
 #define FEAT_2 1U << 8
@@ -11,7 +11,7 @@ bool usage() {
   // CHECK: br label %[[INIT_CMP:.+]]
 
   // CHECK: [[INIT_CMP]]:
-  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[CMP_EQ:.+]] = icmp eq i64 %[[INDICATOR]], 0
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
@@ -20,7 +20,7 @@ bool usage() {
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
-  // CHECK-NEXT: %[[INDICATOR:[A-Za-z0-9_-]+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:[A-Za-z0-9_-]+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[JOIN:[A-Za-z0-9_-]+]] = and i64 %[[INDICATOR]], 384
   // CHECK-NEXT: %[[CHECK:[A-Za-z0-9_-]+]] = icmp eq i64 %[[JOIN]], 384
   // CHECK-NEXT: %[[CONV:[A-Za-z0-9_-]+]] = zext i1 %[[CHECK]] to i32
@@ -33,7 +33,7 @@ bool usage() {
   // CHECK-NEXT: br label %[[INIT_CMP:.+]]
 
   // CHECK: [[INIT_CMP]]:
-  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[CMP_EQ:.+]] = icmp eq i64 %[[INDICATOR]], 0
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
@@ -42,7 +42,7 @@ bool usage() {
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
-  // CHECK-NEXT: %[[INDICATOR:[A-Za-z0-9_-]+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:[A-Za-z0-9_-]+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[JOIN:[A-Za-z0-9_-]+]] = and i64 %[[INDICATOR]], 384
   // CHECK-NEXT: %[[CHECK:[A-Za-z0-9_-]+]] = icmp eq i64 %[[JOIN]], 384
   // CHECK-NEXT: ret i1 %[[CHECK]]
@@ -55,7 +55,7 @@ bool usage_ext_0() {
   // CHECK: br label %[[INIT_CMP:.+]]
 
   // CHECK: [[INIT_CMP]]:
-  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[CMP_EQ:.+]] = icmp eq i64 %[[INDICATOR]], 0
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
@@ -64,7 +64,7 @@ bool usage_ext_0() {
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
-  // CHECK-NEXT: %[[INDICATOR:[A-Za-z0-9_-]+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:[A-Za-z0-9_-]+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[JOIN:[A-Za-z0-9_-]+]] = and i64 %[[INDICATOR]], 384
   // CHECK-NEXT: %[[CHECK:[A-Za-z0-9_-]+]] = icmp eq i64 %[[JOIN]], 384
   // CHECK-NEXT: %[[CONV:[A-Za-z0-9_-]+]] = zext i1 %[[CHECK]] to i32
@@ -77,7 +77,7 @@ bool usage_ext_0() {
   // CHECK-NEXT: br label %[[INIT_CMP:.+]]
 
   // CHECK: [[INIT_CMP]]:
-  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[CMP_EQ:.+]] = icmp eq i64 %[[INDICATOR]], 0
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
@@ -86,7 +86,7 @@ bool usage_ext_0() {
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
-  // CHECK-NEXT: %[[INDICATOR:[A-Za-z0-9_-]+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:[A-Za-z0-9_-]+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[JOIN:[A-Za-z0-9_-]+]] = and i64 %[[INDICATOR]], 384
   // CHECK-NEXT: %[[CHECK:[A-Za-z0-9_-]+]] = icmp eq i64 %[[JOIN]], 384
   // CHECK-NEXT: ret i1 %[[CHECK]]
@@ -100,7 +100,7 @@ bool usage_ext_1() {
   // CHECK: br label %[[INIT_CMP:.+]]
 
   // CHECK: [[INIT_CMP]]:
-  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[CMP_EQ:.+]] = icmp eq i64 %[[INDICATOR]], 0
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
@@ -109,7 +109,7 @@ bool usage_ext_1() {
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
-  // CHECK-NEXT: %[[INDICATOR:[A-Za-z0-9_-]+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 1), align 8
+  // CHECK-NEXT: %[[INDICATOR:[A-Za-z0-9_-]+]] = load i64, ptr getelementptr inbounds ([2 x i64], ptr @__intel_cpu_feature_indicator_x, i64 0, i64 1), align 8
   // CHECK-NEXT: %[[JOIN:[A-Za-z0-9_-]+]] = and i64 %[[INDICATOR]], 384
   // CHECK-NEXT: %[[CHECK:[A-Za-z0-9_-]+]] = icmp eq i64 %[[JOIN]], 384
   // CHECK-NEXT: %[[CONV:[A-Za-z0-9_-]+]] = zext i1 %[[CHECK]] to i32
@@ -122,7 +122,7 @@ bool usage_ext_1() {
   // CHECK-NEXT: br label %[[INIT_CMP:.+]]
 
   // CHECK: [[INIT_CMP]]:
-  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[CMP_EQ:.+]] = icmp eq i64 %[[INDICATOR]], 0
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
@@ -131,7 +131,7 @@ bool usage_ext_1() {
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
-  // CHECK-NEXT: %[[INDICATOR:[A-Za-z0-9_-]+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 1), align 8
+  // CHECK-NEXT: %[[INDICATOR:[A-Za-z0-9_-]+]] = load i64, ptr getelementptr inbounds ([2 x i64], ptr @__intel_cpu_feature_indicator_x, i64 0, i64 1), align 8
   // CHECK-NEXT: %[[JOIN:[A-Za-z0-9_-]+]] = and i64 %[[INDICATOR]], 384
   // CHECK-NEXT: %[[CHECK:[A-Za-z0-9_-]+]] = icmp eq i64 %[[JOIN]], 384
   // CHECK-NEXT: ret i1 %[[CHECK]]
@@ -144,7 +144,7 @@ bool usage_str_0() {
   // CHECK: br label %[[INIT_CMP:.+]]
 
   // CHECK: [[INIT_CMP]]:
-  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[CMP_EQ:.+]] = icmp eq i64 %[[INDICATOR]], 0
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
@@ -153,7 +153,7 @@ bool usage_str_0() {
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
-  // CHECK-NEXT: %[[INDICATOR:[A-Za-z0-9_-]+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:[A-Za-z0-9_-]+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[JOIN:[A-Za-z0-9_-]+]] = and i64 %[[INDICATOR]], 8912896
   // CHECK-NEXT: %[[CHECK:[A-Za-z0-9_-]+]] = icmp eq i64 %[[JOIN]], 8912896
   // CHECK-NEXT: %[[CONV:[A-Za-z0-9_-]+]] = zext i1 %[[CHECK]] to i32
@@ -165,7 +165,7 @@ bool usage_str_0() {
   // CHECK-NEXT: br label %[[INIT_CMP:.+]]
 
   // CHECK: [[INIT_CMP]]:
-  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[CMP_EQ:.+]] = icmp eq i64 %[[INDICATOR]], 0
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
@@ -174,7 +174,7 @@ bool usage_str_0() {
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
-  // CHECK-NEXT: %[[INDICATOR:[A-Za-z0-9_-]+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:[A-Za-z0-9_-]+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[JOIN:[A-Za-z0-9_-]+]] = and i64 %[[INDICATOR]], 8912896
   // CHECK-NEXT: %[[CHECK:[A-Za-z0-9_-]+]] = icmp eq i64 %[[JOIN]], 8912896
   // CHECK-NEXT: ret i1 %[[CHECK]]
@@ -187,7 +187,7 @@ bool usage_str_1() {
   // CHECK: br label %[[INIT_CMP:.+]]
 
   // CHECK: [[INIT_CMP]]:
-  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[CMP_EQ:.+]] = icmp eq i64 %[[INDICATOR]], 0
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
@@ -196,10 +196,10 @@ bool usage_str_1() {
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
-  // CHECK-NEXT: %[[INDICATOR:[A-Za-z0-9_-]+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:[A-Za-z0-9_-]+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[JOIN:[A-Za-z0-9_-]+]] = and i64 %[[INDICATOR]], 8912896
   // CHECK-NEXT: %[[CHECK:[A-Za-z0-9_-]+]] = icmp eq i64 %[[JOIN]], 8912896
-  // CHECK-NEXT: %[[INDICATOR2:[A-Za-z0-9_-]+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 1), align 8
+  // CHECK-NEXT: %[[INDICATOR2:[A-Za-z0-9_-]+]] = load i64, ptr getelementptr inbounds ([2 x i64], ptr @__intel_cpu_feature_indicator_x, i64 0, i64 1), align 8
   // CHECK-NEXT: %[[JOIN2:[A-Za-z0-9_-]+]] = and i64 %[[INDICATOR2]], 9
   // CHECK-NEXT: %[[CHECK2:[A-Za-z0-9_-]+]] = icmp eq i64 %[[JOIN2]], 9
   // CHECK-NEXT: %[[AND_BOTH:[A-Za-z0-9_-]+]] = and i1 %[[CHECK]], %[[CHECK2]]
@@ -213,7 +213,7 @@ bool usage_str_1() {
   // CHECK-NEXT: br label %[[INIT_CMP:.+]]
 
   // CHECK: [[INIT_CMP]]:
-  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[CMP_EQ:.+]] = icmp eq i64 %[[INDICATOR]], 0
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
@@ -222,10 +222,10 @@ bool usage_str_1() {
   // CHECK-NEXT: br label %[[INIT_CMP]]
 
   // CHECK: [[REST]]:
-  // CHECK-NEXT: %[[INDICATOR:[A-Za-z0-9_-]+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:[A-Za-z0-9_-]+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[JOIN:[A-Za-z0-9_-]+]] = and i64 %[[INDICATOR]], 8912896
   // CHECK-NEXT: %[[CHECK:[A-Za-z0-9_-]+]] = icmp eq i64 %[[JOIN]], 8912896
-  // CHECK-NEXT: %[[INDICATOR2:[A-Za-z0-9_-]+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 1), align 8
+  // CHECK-NEXT: %[[INDICATOR2:[A-Za-z0-9_-]+]] = load i64, ptr getelementptr inbounds ([2 x i64], ptr @__intel_cpu_feature_indicator_x, i64 0, i64 1), align 8
   // CHECK-NEXT: %[[JOIN2:[A-Za-z0-9_-]+]] = and i64 %[[INDICATOR2]], 9
   // CHECK-NEXT: %[[CHECK2:[A-Za-z0-9_-]+]] = icmp eq i64 %[[JOIN2]], 9
   // CHECK-NEXT: %[[AND_BOTH:[A-Za-z0-9_-]+]] = and i1 %[[CHECK]], %[[CHECK2]]
@@ -242,7 +242,7 @@ bool zero_features_0() {
   // CHECK: br label %[[INIT_CMP:.+]]
 
   // CHECK: [[INIT_CMP]]:
-  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[CMP_EQ:.+]] = icmp eq i64 %[[INDICATOR]], 0
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
@@ -258,7 +258,7 @@ bool zero_features_0() {
   // CHECK-NEXT: br label %[[INIT_CMP:.+]]
 
   // CHECK: [[INIT_CMP]]:
-  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[CMP_EQ:.+]] = icmp eq i64 %[[INDICATOR]], 0
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
@@ -277,7 +277,7 @@ bool zero_features_1() {
   // CHECK: br label %[[INIT_CMP:.+]]
 
   // CHECK: [[INIT_CMP]]:
-  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[CMP_EQ:.+]] = icmp eq i64 %[[INDICATOR]], 0
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
@@ -293,7 +293,7 @@ bool zero_features_1() {
   // CHECK-NEXT: br label %[[INIT_CMP:.+]]
 
   // CHECK: [[INIT_CMP]]:
-  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[CMP_EQ:.+]] = icmp eq i64 %[[INDICATOR]], 0
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
@@ -312,7 +312,7 @@ bool zero_features_2() {
   // CHECK: br label %[[INIT_CMP:.+]]
 
   // CHECK: [[INIT_CMP]]:
-  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[CMP_EQ:.+]] = icmp eq i64 %[[INDICATOR]], 0
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 
@@ -329,7 +329,7 @@ bool zero_features_2() {
   // CHECK-NEXT: br label %[[INIT_CMP:.+]]
 
   // CHECK: [[INIT_CMP]]:
-  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+  // CHECK-NEXT: %[[INDICATOR:.+]] = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
   // CHECK-NEXT: %[[CMP_EQ:.+]] = icmp eq i64 %[[INDICATOR]], 0
   // CHECK-NEXT: br i1 %[[CMP_EQ]], label %[[INIT_BODY:.+]], label %[[REST:.+]]
 

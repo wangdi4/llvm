@@ -1,6 +1,6 @@
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fintel-compatibility -O3 %s -disable-llvm-optzns -emit-llvm -o - | FileCheck %s
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fintel-compatibility-enable=FakeLoad -O3 %s -disable-llvm-optzns -emit-llvm -o - | FileCheck %s
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fintel-compatibility -fintel-compatibility-disable=FakeLoad -O3 %s -disable-llvm-optzns -emit-llvm -o - | FileCheck %s --check-prefix=CHECK-DISABLED
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fintel-compatibility -O3 %s -disable-llvm-optzns -opaque-pointers -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fintel-compatibility-enable=FakeLoad -O3 %s -disable-llvm-optzns -opaque-pointers -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fintel-compatibility -fintel-compatibility-disable=FakeLoad -O3 %s -disable-llvm-optzns -opaque-pointers -emit-llvm -o - | FileCheck %s --check-prefix=CHECK-DISABLED
 //
 // Check that we generate fakeload intrinsic for the return pointers
 //
@@ -22,5 +22,5 @@ int foo(S& s, int i, int j) {
   return s.geta(i);
 }
 
-// CHECK:  %{{.*}} = call i32* @llvm.intel.fakeload.p0i32(i32* %{{.*}}, metadata !{{.*}})
-// CHECK-DISABLED-NOT:  %{{.*}} = call i32* @llvm.intel.fakeload.p0i32(i32* %{{.*}}, metadata !{{.*}})
+// CHECK:  %{{.*}} = call ptr @llvm.intel.fakeload.p0(ptr %{{.*}}, metadata !{{.*}})
+// CHECK-DISABLED-NOT:  %{{.*}} = call ptr @llvm.intel.fakeload.p0(ptr %{{.*}}, metadata !{{.*}})

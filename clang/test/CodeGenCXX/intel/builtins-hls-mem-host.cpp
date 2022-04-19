@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -O0 -fintel-compatibility -fhls -triple=x86_64-linux-gnu -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 %s -O0 -fintel-compatibility -fhls -triple=x86_64-linux-gnu -emit-llvm -opaque-pointers -o - | FileCheck %s
 
 struct Foo {
   char a, b, c, d;
@@ -49,8 +49,8 @@ void SanityBool() {
   auto b = *mm;
 }
 
-// CHECK: declare void @llvm.intel.hls.mm.host.init.p1024s_struct.Foos(%struct.Foo addrspace(1024)*, i32, i1, i32, i32, i32, i32, i32, i32, i32, i1)
-// CHECK: declare %struct.Foo addrspace(1024)* @llvm.intel.hls.mm.host.load.p1024s_struct.Foos(%struct.Foo addrspace(1024)*, i32, i1, i32, i32, i32, i32, i32, i32, i32, i1, i32)
+// CHECK: declare void @llvm.intel.hls.mm.host.init.p1024(ptr addrspace(1024), i32, i1, i32, i32, i32, i32, i32, i32, i32, i1)
+// CHECK: declare ptr addrspace(1024) @llvm.intel.hls.mm.host.load.p1024(ptr addrspace(1024), i32, i1, i32, i32, i32, i32, i32, i32, i32, i1, i32)
 
-// CHECK: declare void @llvm.intel.hls.mm.host.init.p0i8(i8*, i32, i1, i32, i32, i32, i32, i32, i32, i32, i1)
-// CHECK: declare i8* @llvm.intel.hls.mm.host.load.p0i8(i8*, i32, i1, i32, i32, i32, i32, i32, i32, i32, i1, i32)
+// CHECK: declare void @llvm.intel.hls.mm.host.init.p0(ptr, i32, i1, i32, i32, i32, i32, i32, i32, i32, i1)
+// CHECK: declare ptr @llvm.intel.hls.mm.host.load.p0(ptr, i32, i1, i32, i32, i32, i32, i32, i32, i32, i1, i32)

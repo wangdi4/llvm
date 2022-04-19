@@ -1424,7 +1424,8 @@ static bool isDebugMetadata(MDNode *Node) {
 static bool isLoopCountMetadata(MDNode *Node) {
   MDString *Str = getStringMetadata(Node);
 
-  return Str && Str->getString().startswith("llvm.loop.intel.loopcount");
+  return Str && (Str->getString().startswith("llvm.loop.intel.loopcount") ||
+                 Str->getString().equals("llvm.loop.intel.max.trip_count"));
 }
 
 static bool isParallelAccessMetadata(MDNode *Node) {

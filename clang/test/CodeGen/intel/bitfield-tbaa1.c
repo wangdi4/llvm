@@ -1,6 +1,6 @@
-// RUN: %clang_cc1 -triple x86_64-apple-darwin -fintel-compatibility -fintel-compatibility-enable=IntelTBAABF -O1 -disable-llvm-optzns %s -emit-llvm -o - | FileCheck %s
-// RUN: %clang_cc1 -triple x86_64-apple-darwin -fintel-compatibility -O1 -disable-llvm-optzns %s -emit-llvm -o - | FileCheck %s
-// RUN: %clang_cc1 -triple x86_64-apple-darwin -fintel-compatibility -fintel-compatibility-disable=IntelTBAABF -O1 -disable-llvm-optzns %s -emit-llvm -o - | FileCheck %s -check-prefix=CHECK-DISABLED
+// RUN: %clang_cc1 -triple x86_64-apple-darwin -fintel-compatibility -fintel-compatibility-enable=IntelTBAABF -O1 -disable-llvm-optzns -opaque-pointers %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-apple-darwin -fintel-compatibility -O1 -disable-llvm-optzns -opaque-pointers %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-apple-darwin -fintel-compatibility -fintel-compatibility-disable=IntelTBAABF -O1 -disable-llvm-optzns -opaque-pointers %s -emit-llvm -o - | FileCheck %s -check-prefix=CHECK-DISABLED
 struct in_t {
   int x,y,w;
     unsigned char  xage : 2;
@@ -18,29 +18,29 @@ struct in_t {
 int fum(struct in_t *sp) {
     sp->xage = 2;
 // CHECK-LABEL: define{{.*}}i32 @fum
-// CHECK:  %xage = getelementptr inbounds %struct.in_t, %struct.in_t* %0, i32 0, i32 3
-// CHECK:  %bf.load = load i16, i16* %xage, align 4, !tbaa [[TAG_6:!.*]]
-// CHECK-DISABLED-NOT: %bf.load = load i16, i16* %xage, align 4, !tbaa{{.*}}
+// CHECK:  %xage = getelementptr inbounds %struct.in_t, ptr %0, i32 0, i32 3
+// CHECK:  %bf.load = load i16, ptr %xage, align 4, !tbaa [[TAG_6:!.*]]
+// CHECK-DISABLED-NOT: %bf.load = load i16, ptr %xage, align 4, !tbaa{{.*}}
 // CHECK:  %bf.clear = and i16 %bf.load, -4
 // CHECK:  %bf.set = or i16 %bf.clear, 2
-// CHECK:  store i16 %bf.set, i16* %xage, align 4, !tbaa [[TAG_6]]
-// CHECK-DISABLED-NOT:  store i16 %bf.set, i16* %xage, align 4, !tbaa{{.*}}
+// CHECK:  store i16 %bf.set, ptr %xage, align 4, !tbaa [[TAG_6]]
+// CHECK-DISABLED-NOT:  store i16 %bf.set, ptr %xage, align 4, !tbaa{{.*}}
     sp->zage2 = 2;
-// CHECK:  %zage2 = getelementptr inbounds %struct.in_t, %struct.in_t* %1, i32 0, i32 3
-// CHECK:  %bf.load1 = load i16, i16* %zage2, align 4, !tbaa [[TAG_6]]
-// CHECK-DISABLED-NOT:  %bf.load1 = load i16, i16* %zage2, align 4, !tbaa{{.*}}
+// CHECK:  %zage2 = getelementptr inbounds %struct.in_t, ptr %1, i32 0, i32 3
+// CHECK:  %bf.load1 = load i16, ptr %zage2, align 4, !tbaa [[TAG_6]]
+// CHECK-DISABLED-NOT:  %bf.load1 = load i16, ptr %zage2, align 4, !tbaa{{.*}}
 // CHECK:  %bf.clear2 = and i16 %bf.load1, 15
 // CHECK:  %bf.set3 = or i16 %bf.clear2, 32
-// CHECK:  store i16 %bf.set3, i16* %zage2, align 4, !tbaa [[TAG_6]]
-// CHECK-DISABLED-NOT:  store i16 %bf.set3, i16* %zage2, align 4, !tbaa{{.*}}
+// CHECK:  store i16 %bf.set3, ptr %zage2, align 4, !tbaa [[TAG_6]]
+// CHECK-DISABLED-NOT:  store i16 %bf.set3, ptr %zage2, align 4, !tbaa{{.*}}
     sp->zage3 = 3;
-// CHECK:  %zage3 = getelementptr inbounds %struct.in_t, %struct.in_t* %2, i32 0, i32 5
-// CHECK:  %bf.load4 = load i16, i16* %zage3, align 4, !tbaa [[TAG_10:!.*]]
-// CHECK-DISABLED-NOT:  %bf.load4 = load i16, i16* %zage3, align 4, !tbaa{{.*}}
+// CHECK:  %zage3 = getelementptr inbounds %struct.in_t, ptr %2, i32 0, i32 5
+// CHECK:  %bf.load4 = load i16, ptr %zage3, align 4, !tbaa [[TAG_10:!.*]]
+// CHECK-DISABLED-NOT:  %bf.load4 = load i16, ptr %zage3, align 4, !tbaa{{.*}}
 // CHECK:  %bf.clear5 = and i16 %bf.load4, -4096
 // CHECK:  %bf.set6 = or i16 %bf.clear5, 3
-// CHECK:  store i16 %bf.set6, i16* %zage3, align 4, !tbaa [[TAG_10]]
-// CHECK-DISABLED-NOT:  store i16 %bf.set6, i16* %zage3, align 4, !tbaa{{.*}}
+// CHECK:  store i16 %bf.set6, ptr %zage3, align 4, !tbaa [[TAG_10]]
+// CHECK-DISABLED-NOT:  store i16 %bf.set6, ptr %zage3, align 4, !tbaa{{.*}}
     return sp->yage1 + sp->zage2 + sp->zage3;
 }
 int fum1(void) {
@@ -52,12 +52,12 @@ int fum1(void) {
   } S_type;
   S_type s;
   return s.bf = 42;
-// CHECK:  %bf.load = load i8, i8* %1, align 4, !tbaa [[TAG_11:!.*]]
-// CHECK-DISABLED-NOT:  %bf.load = load i8, i8* %1, align 4, !tbaa{{.*}}
+// CHECK:  %bf.load = load i8, ptr %s, align 4, !tbaa [[TAG_11:!.*]]
+// CHECK-DISABLED-NOT:  %bf.load = load i8, ptr %s, align 4, !tbaa{{.*}}
 // CHECK:  %bf.clear = and i8 %bf.load, -128
 // CHECK:  %bf.set = or i8 %bf.clear, 42
-// CHECK:  store i8 %bf.set, i8* %1, align 4, !tbaa [[TAG_11]]
-// CHECK-DISABLED-NOT:  store i8 %bf.set, i8* %1, align 4, !tbaa{{.*}}
+// CHECK:  store i8 %bf.set, ptr %s, align 4, !tbaa [[TAG_11]]
+// CHECK-DISABLED-NOT:  store i8 %bf.set, ptr %1, align 4, !tbaa{{.*}}
 }
 // CHECK: [[TYPE_char:!.*]] = !{!"omnipotent char",{{.*}}}
 // CHECK: = !{!"Simple C/C++ TBAA"}

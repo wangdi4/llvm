@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fexperimental-new-pass-manager -ffreestanding %s -O0 -triple=x86_64-apple-darwin -target-cpu skylake-avx512 -emit-llvm -o - -Wall -Werror | FileCheck %s
+// RUN: %clang_cc1 -fexperimental-new-pass-manager -ffreestanding %s -opaque-pointers -O0 -triple=x86_64-apple-darwin -target-cpu skylake-avx512 -emit-llvm -o - -Wall -Werror | FileCheck %s
 
 #include <immintrin.h>
 
@@ -51,7 +51,7 @@ unsigned short test_mm_reduce_min_epu16(__m128i __W){
 
 short test_mm_mask_reduce_max_epi16(__mmask8 __M, __m128i __W){
 // CHECK-LABEL: test_mm_mask_reduce_max_epi16
-// CHECK:  store i16 -32768, i16* %{{.*}}
+// CHECK:  store i16 -32768, ptr %{{.*}}
 // CHECK:  select <8 x i1> %{{.*}}, <8 x i16> %{{.*}}, <8 x i16> %{{.*}}
 // CHECK:  shufflevector <8 x i16> %{{.*}}, <8 x i16> %{{.*}}, <8 x i32> <i32 4, i32 5, i32 6, i32 7, i32 4, i32 5, i32 6, i32 7>
 // CHECK:  call <8 x i16> @llvm.smax.v8i16
@@ -65,7 +65,7 @@ short test_mm_mask_reduce_max_epi16(__mmask8 __M, __m128i __W){
 
 short test_mm_mask_reduce_min_epi16(__mmask8 __M, __m128i __W){
 // CHECK-LABEL: test_mm_mask_reduce_min_epi16
-// CHECK:  store i16 32767, i16* %{{.*}}
+// CHECK:  store i16 32767, ptr %{{.*}}
 // CHECK:  select <8 x i1> %{{.*}}, <8 x i16> %{{.*}}, <8 x i16> %{{.*}}
 // CHECK:  shufflevector <8 x i16> %{{.*}}, <8 x i16> %{{.*}}, <8 x i32> <i32 4, i32 5, i32 6, i32 7, i32 4, i32 5, i32 6, i32 7>
 // CHECK:  call <8 x i16> @llvm.smin.v8i16
@@ -79,7 +79,7 @@ short test_mm_mask_reduce_min_epi16(__mmask8 __M, __m128i __W){
 
 unsigned short test_mm_mask_reduce_max_epu16(__mmask8 __M, __m128i __W){
 // CHECK-LABEL: test_mm_mask_reduce_max_epu16
-// CHECK:  store <2 x i64> zeroinitializer, <2 x i64>* %{{.*}}
+// CHECK:  store <2 x i64> zeroinitializer, ptr %{{.*}}
 // CHECK:  select <8 x i1> %{{.*}}, <8 x i16> %{{.*}}, <8 x i16> %{{.*}}
 // CHECK:  shufflevector <8 x i16> %{{.*}}, <8 x i16> %{{.*}}, <8 x i32> <i32 4, i32 5, i32 6, i32 7, i32 4, i32 5, i32 6, i32 7>
 // CHECK:  call <8 x i16> @llvm.umax.v8i16
@@ -93,7 +93,7 @@ unsigned short test_mm_mask_reduce_max_epu16(__mmask8 __M, __m128i __W){
 
 unsigned short test_mm_mask_reduce_min_epu16(__mmask8 __M, __m128i __W){
 // CHECK-LABEL: test_mm_mask_reduce_min_epu16
-// CHECK:  store i16 -1, i16* %{{.*}}
+// CHECK:  store i16 -1, ptr %{{.*}}
 // CHECK:  select <8 x i1> %{{.*}}, <8 x i16> %{{.*}}, <8 x i16> %{{.*}}
 // CHECK:  shufflevector <8 x i16> %{{.*}}, <8 x i16> %{{.*}}, <8 x i32> <i32 4, i32 5, i32 6, i32 7, i32 4, i32 5, i32 6, i32 7>
 // CHECK:  call <8 x i16> @llvm.umin.v8i16
@@ -152,7 +152,7 @@ unsigned short test_mm256_reduce_max_epu16(__m256i __W){
 
 short test_mm256_mask_reduce_max_epi16(__mmask16 __M, __m256i __W){
 // CHECK-LABEL: test_mm256_mask_reduce_max_epi16
-// CHECK:  store i16 -32768, i16* %{{.*}}
+// CHECK:  store i16 -32768, ptr %{{.*}}
 // CHECK:  select <16 x i1> %{{.*}}, <16 x i16> %{{.*}}, <16 x i16> %{{.*}}
 // CHECK:  shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 0, i32 1>
 // CHECK:  shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 2, i32 3>
@@ -169,7 +169,7 @@ short test_mm256_mask_reduce_max_epi16(__mmask16 __M, __m256i __W){
 
 short test_mm256_mask_reduce_min_epi16(__mmask16 __M, __m256i __W){
 // CHECK-LABEL: test_mm256_mask_reduce_min_epi16
-// CHECK:  store i16 32767, i16* %{{.*}}
+// CHECK:  store i16 32767, ptr %{{.*}}
 // CHECK:  select <16 x i1> %{{.*}}, <16 x i16> %{{.*}}, <16 x i16> %{{.*}}
 // CHECK:  shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 0, i32 1>
 // CHECK:  shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 2, i32 3>
@@ -186,7 +186,7 @@ short test_mm256_mask_reduce_min_epi16(__mmask16 __M, __m256i __W){
 
 unsigned short test_mm256_mask_reduce_max_epu16(__mmask16 __M, __m256i __W){
 // CHECK-LABEL: test_mm256_mask_reduce_max_epu16
-// CHECK:  store <4 x i64> zeroinitializer, <4 x i64>* %{{.*}}
+// CHECK:  store <4 x i64> zeroinitializer, ptr %{{.*}}
 // CHECK:  select <16 x i1> %{{.*}}, <16 x i16> %{{.*}}, <16 x i16> %{{.*}}
 // CHECK:  shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 0, i32 1>
 // CHECK:  shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 2, i32 3>
@@ -203,7 +203,7 @@ unsigned short test_mm256_mask_reduce_max_epu16(__mmask16 __M, __m256i __W){
 
 unsigned short test_mm256_mask_reduce_min_epu16(__mmask16 __M, __m256i __W){
 // CHECK-LABEL: test_mm256_mask_reduce_min_epu16
-// CHECK:  store i16 -1, i16* %{{.*}}
+// CHECK:  store i16 -1, ptr %{{.*}}
 // CHECK:  select <16 x i1> %{{.*}}, <16 x i16> %{{.*}}, <16 x i16> %{{.*}}
 // CHECK:  shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 0, i32 1>
 // CHECK:  shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 2, i32 3>
@@ -291,7 +291,7 @@ unsigned char test_mm_reduce_min_epu8(__m128i __W){
 
 signed char test_mm_mask_reduce_max_epi8(__mmask16 __M, __m128i __W){
 // CHECK-LABEL: test_mm_mask_reduce_max_epi8
-// CHECK:  store i8 -128, i8* %{{.*}}
+// CHECK:  store i8 -128, ptr %{{.*}}
 // CHECK:  select <16 x i1> %{{.*}}, <16 x i8> %{{.*}}, <16 x i8> %{{.*}}
 // CHECK:  shufflevector <16 x i8> %{{.*}}, <16 x i8> %{{.*}}, <16 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
 // CHECK:  call <16 x i8> @llvm.smax.v16i8
@@ -307,7 +307,7 @@ signed char test_mm_mask_reduce_max_epi8(__mmask16 __M, __m128i __W){
 
 signed char test_mm_mask_reduce_min_epi8(__mmask16 __M, __m128i __W){
 // CHECK-LABEL: test_mm_mask_reduce_min_epi8
-// CHECK:  store i8 127, i8* %{{.*}}
+// CHECK:  store i8 127, ptr %{{.*}}
 // CHECK:  select <16 x i1> %{{.*}}, <16 x i8> %{{.*}}, <16 x i8> %{{.*}}
 // CHECK:  shufflevector <16 x i8> %{{.*}}, <16 x i8> %{{.*}}, <16 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
 // CHECK:  call <16 x i8> @llvm.smin.v16i8
@@ -323,7 +323,7 @@ signed char test_mm_mask_reduce_min_epi8(__mmask16 __M, __m128i __W){
 
 unsigned char test_mm_mask_reduce_max_epu8(__mmask16 __M, __m128i __W){
 // CHECK-LABEL: test_mm_mask_reduce_max_epu8
-// CHECK:  store <2 x i64> zeroinitializer, <2 x i64>* %{{.*}}
+// CHECK:  store <2 x i64> zeroinitializer, ptr %{{.*}}
 // CHECK:  select <16 x i1> %{{.*}}, <16 x i8> %{{.*}}, <16 x i8> %{{.*}}
 // CHECK:  shufflevector <16 x i8> %{{.*}}, <16 x i8> %{{.*}}, <16 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
 // CHECK:  call <16 x i8> @llvm.umax.v16i8
@@ -339,7 +339,7 @@ unsigned char test_mm_mask_reduce_max_epu8(__mmask16 __M, __m128i __W){
 
 unsigned char test_mm_mask_reduce_min_epu8(__mmask16 __M, __m128i __W){
 // CHECK-LABEL: test_mm_mask_reduce_min_epu8
-// CHECK:  store i8 -1, i8* %{{.*}}
+// CHECK:  store i8 -1, ptr %{{.*}}
 // CHECK:  select <16 x i1> %{{.*}}, <16 x i8> %{{.*}}, <16 x i8> %{{.*}}
 // CHECK:  shufflevector <16 x i8> %{{.*}}, <16 x i8> %{{.*}}, <16 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
 // CHECK:  call <16 x i8> @llvm.umin.v16i8
@@ -423,7 +423,7 @@ unsigned char test_mm256_reduce_min_epu8(__m256i __W){
 
 signed char test_mm256_mask_reduce_max_epi8(__mmask32 __M, __m256i __W){
 // CHECK-LABEL: test_mm256_mask_reduce_max_epi8
-// CHECK:  store i8 -128, i8* %{{.*}}
+// CHECK:  store i8 -128, ptr %{{.*}}
 // CHECK:  select <32 x i1> %{{.*}}, <32 x i8> %{{.*}}, <32 x i8> %{{.*}}
 // CHECK:  shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 0, i32 1>
 // CHECK:  shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 2, i32 3>
@@ -442,7 +442,7 @@ signed char test_mm256_mask_reduce_max_epi8(__mmask32 __M, __m256i __W){
 
 signed char test_mm256_mask_reduce_min_epi8(__mmask32 __M, __m256i __W){
 // CHECK-LABEL: test_mm256_mask_reduce_min_epi8
-// CHECK:  store i8 127, i8* %{{.*}}
+// CHECK:  store i8 127, ptr %{{.*}}
 // CHECK:  select <32 x i1> %{{.*}}, <32 x i8> %{{.*}}, <32 x i8> %{{.*}}
 // CHECK:  shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 0, i32 1>
 // CHECK:  shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 2, i32 3>
@@ -461,7 +461,7 @@ signed char test_mm256_mask_reduce_min_epi8(__mmask32 __M, __m256i __W){
 
 unsigned char test_mm256_mask_reduce_max_epu8(__mmask32 __M, __m256i __W){
 // CHECK-LABEL: test_mm256_mask_reduce_max_epu8
-// CHECK:  store <4 x i64> zeroinitializer, <4 x i64>* %{{.*}}
+// CHECK:  store <4 x i64> zeroinitializer, ptr %{{.*}}
 // CHECK:  select <32 x i1> %{{.*}}, <32 x i8> %{{.*}}, <32 x i8> %{{.*}}
 // CHECK:  shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 0, i32 1>
 // CHECK:  shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 2, i32 3>
@@ -480,7 +480,7 @@ unsigned char test_mm256_mask_reduce_max_epu8(__mmask32 __M, __m256i __W){
 
 unsigned char test_mm256_mask_reduce_min_epu8(__mmask32 __M, __m256i __W){
 // CHECK-LABEL: test_mm256_mask_reduce_min_epu8
-// CHECK:  store i8 -1, i8* %{{.*}}
+// CHECK:  store i8 -1, ptr %{{.*}}
 // CHECK:  select <32 x i1> %{{.*}}, <32 x i8> %{{.*}}, <32 x i8> %{{.*}}
 // CHECK:  shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 0, i32 1>
 // CHECK:  shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 2, i32 3>

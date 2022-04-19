@@ -1,9 +1,9 @@
-// RUN: %clang_cc1 -triple x86_64-unknown-unknown -fintel-compatibility -fms-compatibility %s -emit-llvm -debug-info-kind=limited -o - | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-unknown -fintel-compatibility -fms-compatibility %s -opaque-pointers -emit-llvm -debug-info-kind=limited -o - | FileCheck %s
 
 // CHECK-LINE: main
 int main()
 {
-  // CHECK: store i32 0, i32* %{{.+}}, !dbg ![[PROLOGUE:[0-9]+]]
+  // CHECK: store i32 0, ptr %{{.+}}, !dbg ![[PROLOGUE:[0-9]+]]
   return 0;
 }
 

@@ -3,6 +3,7 @@
 
 ; Check that we recognize the min/max/avg loopcount metadata.
 ; Also verify that max trip count estimate is refined using max loopcount metadata.
+; Verify that legal max tc is refined by loopcount_maximun and max.trip_count.
 
 ; CHECK: DO i1
 ; CHECK-SAME: <MAX_TC_EST = 10>  <LEGAL_MAX_TC = 10> <min_trip_count = 4> <avg_trip_count = 7> <max_trip_count = 10>
@@ -40,7 +41,8 @@ for.end:                                          ; preds = %for.end.loopexit, %
   ret void
 }
 
-!0 = distinct !{!0, !1, !2, !3}
+!0 = distinct !{!0, !1, !2, !3, !4}
 !1 = !{!"llvm.loop.intel.loopcount_minimum", i32 4}
 !2 = !{!"llvm.loop.intel.loopcount_maximum", i32 10}
 !3 = !{!"llvm.loop.intel.loopcount_average", i32 7}
+!4 = !{!"llvm.loop.intel.max.trip_count", i32 20}
