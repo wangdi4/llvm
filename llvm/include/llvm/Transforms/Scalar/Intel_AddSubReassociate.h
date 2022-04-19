@@ -410,7 +410,7 @@ private:
                                  CanonForm G1Leaves, CanonForm G2Leaves,
                                  CanonForm &SortedG1Leaves,
                                  CanonForm &BestSortedG1Leaves,
-                                 int64_t &BestScore);
+                                 int64_t &BestScore, int depth = 0);
   /// Returns false if we did not manage to get a good ordering that matches G2.
   bool getBestSortedLeaves(const Group &G1, const Group &G2,
                            CanonForm &BestSortedG1Leaves);
