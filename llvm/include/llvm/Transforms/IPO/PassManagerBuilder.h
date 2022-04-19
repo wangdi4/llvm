@@ -297,6 +297,10 @@ public:
 
   /// populateModulePassManager - This sets up the primary pass manager.
   void populateModulePassManager(legacy::PassManagerBase &MPM);
+#if INTEL_CUSTOMIZATION
+  void populateLTOPassManager(legacy::PassManagerBase &PM);
+  void populateThinLTOPassManager(legacy::PassManagerBase &PM);
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// Registers a function for adding a standard set of passes.  This should be

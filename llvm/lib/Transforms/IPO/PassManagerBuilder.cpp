@@ -2103,7 +2103,6 @@ void PassManagerBuilder::addLateLTOOptimizationPasses(
     PM.add(createMergeFunctionsPass());
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
                                       bool Simplify,
@@ -2517,7 +2516,6 @@ void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
     PM.add(createOptReportEmitterLegacyPass());
 }
 
-#endif // INTEL_CUSTOMIZATION
 
 void PassManagerBuilder::populateThinLTOPassManager(
     legacy::PassManagerBase &PM) {
@@ -2592,9 +2590,8 @@ void PassManagerBuilder::populateLTOPassManager(legacy::PassManagerBase &PM) {
   if (VerifyOutput)
     PM.add(createVerifierPass());
 }
+#endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 2e6ac54cf48aa04f7b05c382c33135b16d3f01ea
 LLVMPassManagerBuilderRef LLVMPassManagerBuilderCreate() {
   PassManagerBuilder *PMB = new PassManagerBuilder();
   return wrap(PMB);
@@ -2660,3 +2657,20 @@ LLVMPassManagerBuilderPopulateModulePassManager(LLVMPassManagerBuilderRef PMB,
   legacy::PassManagerBase *MPM = unwrap(PM);
   Builder->populateModulePassManager(*MPM);
 }
+
+#if INTEL_CUSTOMIZATION
+void LLVMPassManagerBuilderPopulateLTOPassManager(LLVMPassManagerBuilderRef PMB,
+                                                  LLVMPassManagerRef PM,
+                                                  LLVMBool Internalize,
+                                                  LLVMBool RunInliner) {
+  PassManagerBuilder *Builder = unwrap(PMB);
+  legacy::PassManagerBase *LPM = unwrap(PM);
+
+  // A small backwards compatibility hack. populateLTOPassManager used to take
+  // an RunInliner option.
+  if (RunInliner && !Builder->Inliner)
+    Builder->Inliner = createFunctionInliningPass();
+
+  Builder->populateLTOPassManager(*LPM);
+}
+#endif // INTEL_CUSTOMIZATION
