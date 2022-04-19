@@ -79,6 +79,7 @@ protected:
   bool skipTests = 0;
 };
 
+#ifdef _WIN32
 TEST_F(SubDevicesByNumaTest, createSubDevicesAndRunKernel) {
   const char *source = R"(
     extern int sched_getcpu (void);
@@ -296,3 +297,4 @@ TEST_F(SubDevicesByNumaTest, queryDeviceInfo) {
     ASSERT_OCL_SUCCESS(err, "clReleaseDevice");
   }
 }
+#endif

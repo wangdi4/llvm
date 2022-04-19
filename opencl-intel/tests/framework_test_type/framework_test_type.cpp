@@ -89,10 +89,12 @@ TEST(FrameworkTestType, Test_clfissionTwoQueuesTest)
     EXPECT_TRUE(fission_two_queues_test());
 }
 
+#ifdef _WIN32
 TEST(FrameworkTestType, Test_clfissionByNamesTest)
 {
     EXPECT_TRUE(fission_by_names_test());
 }
+#endif
 
 TEST(FrameworkTestType, Test_clfissionReadBufferBetweenDevicesTest)
 {
