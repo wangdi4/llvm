@@ -1356,21 +1356,29 @@ public:
     /// \returns the score of placing \p V1 and \p V2 in consecutive lanes.
     /// Also, checks if \p V1 and \p V2 are compatible with instructions in \p
     /// MainAltOps.
-    int getShallowScore(Value *V1, Value *V2, Instruction *U1, Instruction *U2,
-                        const DataLayout &DL, ScalarEvolution &SE, int NumLanes,
-                        ArrayRef<Value *> MainAltOps) {
+#if INTEL_CUSTOMIZATION
+    // Customization note: keep function as a static member and pass
+    // BoUpSLP argument explicitly.
+    static int getShallowScore(Value *V1, Value *V2, Instruction *U1,
+                               Instruction *U2, const DataLayout &DL,
+                               ScalarEvolution &SE, int NumLanes,
+                               ArrayRef<Value *> MainAltOps, const BoUpSLP &R) {
+#endif // INTEL_CUSTOMIZATION
       if (V1 == V2) {
         if (isa<LoadInst>(V1)) {
           // Retruns true if the users of V1 and V2 won't need to be extracted.
-          auto AllUsersAreInternal = [NumLanes, U1, U2, this](Value *V1,
-                                                              Value *V2) {
+#if INTEL_CUSTOMIZATION
+          auto AllUsersAreInternal = [U1, U2, &R](Value *V1, Value *V2) {
+#endif // INTEL_CUSTOMIZATION
             // Bail out if we have too many uses to save compilation time.
             static constexpr unsigned Limit = 8;
             if (V1->hasNUsesOrMore(Limit) || V2->hasNUsesOrMore(Limit))
               return false;
 
-            auto AllUsersVectorized = [U1, U2, this](Value *V) {
-              return llvm::all_of(V->users(), [U1, U2, this](Value *U) {
+#if INTEL_CUSTOMIZATION
+            auto AllUsersVectorized = [U1, U2, &R](Value *V) {
+              return llvm::all_of(V->users(), [U1, U2, &R](Value *U) {
+#endif // INTEL_CUSTOMIZATION
                 return U == U1 || U == U2 || R.getTreeEntry(U) != nullptr;
               });
             };
@@ -1564,7 +1572,9 @@ public:
 
       // Get the shallow score of V1 and V2.
       int ShallowScoreAtThisLevel =
-          getShallowScore(LHS, RHS, U1, U2, DL, SE, getNumLanes(), MainAltOps);
+#if INTEL_CUSTOMIZATION
+          getShallowScore(LHS, RHS, U1, U2, DL, SE, getNumLanes(), MainAltOps, R);
+#endif // INTEL_CUSTOMIZATION
 
       // If reached MaxLevel,
       //  or if V1 and V2 are not instructions,
@@ -2361,13 +2371,14 @@ private:
         }
       }
 
-      // We go through the operands of V1 and V2 until LEVEL
-      // and we count the number of matches.
-      int getScoreAtLevel(Value *V1, Value *V2, int Level, int MaxLevel) {
+      /// We go through the operands of V1 and V2 until LEVEL
+      /// and we count the number of matches.
+      /// V1 and V2 are operands of U1 and U2 respectively.
+      int getScoreAtLevel(Value *V1, Value *V2, Instruction *U1,
+                          Instruction *U2, int Level, int MaxLevel) {
         // Get the shallow score of V1 and V2.
-        int ShallowScoreAtThisLevel =
-            VLOperands::getShallowScore(V1, V2, DL, SE, getNumLanes(), None,
-                                        R.TTI);
+        int ShallowScoreAtThisLevel = VLOperands::getShallowScore(
+            V1, V2, U1, U2, DL, SE, getNumLanes(), None, R);
 
         // If reached MaxLevel,
         // or if V1 and V2 are not instructions,
@@ -2396,8 +2407,8 @@ private:
               continue;
             // Recursively calculate the cost at each level
             int TmpScore =
-                getScoreAtLevel(I1->getOperand(Op1I), I2->getOperand(Op2I),
-                                Level + 1, MaxLevel);
+                getScoreAtLevel(I1->getOperand(Op1I), I2->getOperand(Op2I), I1,
+                                I2, Level + 1, MaxLevel);
             if (TmpScore > 0 && TmpScore > MaxTmpScore) {
               MaxTmpScore = TmpScore;
               MaxOp2I = Op2I;
@@ -2540,7 +2551,8 @@ private:
       /// Return the look-ahead score, which tells us how much the sub-trees
       /// rooted at LHS and RHS match (the higher the better).
       int getLookAheadScore(Value *LHS, Value *RHS) {
-        int Score = getScoreAtLevel(LHS, RHS, 1, LookAheadMaxLevel);
+        int Score = getScoreAtLevel(LHS, RHS, /*U1=*/nullptr, /*U2=*/nullptr,
+                                    /*Level=*/1, LookAheadMaxLevel);
         return Score;
       }
 
@@ -2554,9 +2566,9 @@ private:
             Value *Left = getData(OpI, Lane - 1).getLeaf();
             Value *Right = getData(OpI, Lane).getLeaf();
             if (Left == Right ||
-                VLOperands::getShallowScore(Left, Right, DL, SE, getNumLanes(),
-                                            None, R.TTI) ==
-                VLOperands::ScoreFail) {
+                VLOperands::getShallowScore(
+                    Left, Right, /*U1=*/nullptr, /*U2=*/nullptr, DL, SE,
+                    getNumLanes(), None, R) == VLOperands::ScoreFail) {
               AreConsecutive = false;
               break;
             }
