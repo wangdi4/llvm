@@ -559,27 +559,6 @@ static TLSTy *getTLS() {
   return TLS;
 }
 
-/// Get initialized ZE structure
-template <typename T, ze_structure_type_t SType>
-static T getZEStructure() {
-  T Ret;
-  Ret.stype = SType;
-  Ret.pNext = nullptr;
-  return Ret;
-}
-const auto CommandQueueGroupPropertiesInit =
-    getZEStructure<ze_command_queue_group_properties_t,
-                   ZE_STRUCTURE_TYPE_COMMAND_QUEUE_GROUP_PROPERTIES>();
-const auto DevicePropertiesInit =
-    getZEStructure<ze_device_properties_t,
-                   ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES>();
-const auto DeviceComputePropertiesInit =
-    getZEStructure<ze_device_compute_properties_t,
-                   ZE_STRUCTURE_TYPE_DEVICE_COMPUTE_PROPERTIES>();
-const auto KernelPropertiesInit =
-    getZEStructure<ze_kernel_properties_t,
-                   ZE_STRUCTURE_TYPE_KERNEL_PROPERTIES>();
-
 int DebugLevel = getDebugLevel();
 
 class KernelInfoTy {
@@ -922,95 +901,63 @@ public:
 };
 int64_t RTLProfileTy::Multiplier;
 
-/// Get default command queue group ordinal
-static uint32_t getCmdQueueGroupOrdinal(ze_device_handle_t Device,
-                                        uint32_t &NumQueues) {
-  uint32_t groupCount = 0;
-  CALL_ZE_RET(UINT32_MAX, zeDeviceGetCommandQueueGroupProperties, Device,
-              &groupCount, nullptr);
-  std::vector<ze_command_queue_group_properties_t> groupProperties(
-      groupCount, CommandQueueGroupPropertiesInit);
-  CALL_ZE_RET(UINT32_MAX, zeDeviceGetCommandQueueGroupProperties, Device,
-              &groupCount, groupProperties.data());
-  uint32_t groupOrdinal = UINT32_MAX;
-  NumQueues = 0;
-  for (uint32_t i = 0; i < groupCount; i++) {
-    auto &flags = groupProperties[i].flags;
-    if (flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE) {
-      groupOrdinal = i;
-      NumQueues = groupProperties[i].numQueues;
+/// Get default compute group ordinal. Returns Ordinal-NumQueues pair
+static std::pair<uint32_t, uint32_t>
+getComputeOrdinal(ze_device_handle_t Device) {
+  std::pair<uint32_t, uint32_t> Ordinal{UINT32_MAX, 0};
+  uint32_t Count = 0;
+  CALL_ZE_RET(Ordinal, zeDeviceGetCommandQueueGroupProperties, Device, &Count,
+              nullptr);
+  ze_command_queue_group_properties_t Init
+      {ZE_STRUCTURE_TYPE_COMMAND_QUEUE_GROUP_PROPERTIES, nullptr};
+  std::vector<ze_command_queue_group_properties_t> Properties(Count, Init);
+  CALL_ZE_RET(Ordinal, zeDeviceGetCommandQueueGroupProperties, Device, &Count,
+              Properties.data());
+  for (uint32_t I = 0; I < Count; I++) {
+    if (Properties[I].flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE) {
+      Ordinal.first = I;
+      Ordinal.second = Properties[I].numQueues;
       break;
     }
   }
-
-  if (groupOrdinal == UINT32_MAX)
+  if (Ordinal.first == UINT32_MAX)
     DP("Error: no command queues are found\n");
 
-  return groupOrdinal;
+  return Ordinal;
 }
 
-/// Get multi-context command queue group ordinal and number of queues
-static uint32_t getCmdQueueGroupOrdinalCCS(ze_device_handle_t Device,
-                                           uint32_t &NumQueues) {
-  uint32_t groupCount = 0;
-  CALL_ZE_RET(UINT32_MAX, zeDeviceGetCommandQueueGroupProperties, Device,
-              &groupCount, nullptr);
-  std::vector<ze_command_queue_group_properties_t> groupProperties(
-      groupCount, CommandQueueGroupPropertiesInit);
-  CALL_ZE_RET(UINT32_MAX, zeDeviceGetCommandQueueGroupProperties, Device,
-              &groupCount, groupProperties.data());
-  uint32_t groupOrdinal = UINT32_MAX;
-  for (uint32_t i = 0; i < groupCount; i++) {
-    auto &flags = groupProperties[i].flags;
-    if (flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE &&
-        groupProperties[i].numQueues > 1) {
-      groupOrdinal = i;
-      NumQueues = groupProperties[i].numQueues;
-      DP("Found multi-context command queue group for deivce " DPxMOD
-         ", ordinal = %" PRIu32 ", number of queues = %" PRIu32 "\n",
-         DPxPTR(Device), groupOrdinal, NumQueues);
-      break;
-    }
-  }
-  if (groupOrdinal == UINT32_MAX)
-    DP("Could not find multi-context command queue group for device " DPxMOD
-       "\n", DPxPTR(Device));
-  return groupOrdinal;
-}
+/// Get copy command queue group ordinal. Returns Ordinal-NumQueues pair
+static std::pair<uint32_t, uint32_t>
+getCopyOrdinal(ze_device_handle_t Device, bool LinkCopy = false) {
+  std::pair<uint32_t, uint32_t> Ordinal{UINT32_MAX, 0};
+  uint32_t Count = 0;
+  CALL_ZE_RET(Ordinal, zeDeviceGetCommandQueueGroupProperties, Device, &Count,
+              nullptr);
+  ze_command_queue_group_properties_t Init
+      {ZE_STRUCTURE_TYPE_COMMAND_QUEUE_GROUP_PROPERTIES, nullptr};
+  std::vector<ze_command_queue_group_properties_t> Properties(Count, Init);
+  CALL_ZE_RET(Ordinal, zeDeviceGetCommandQueueGroupProperties, Device, &Count,
+              Properties.data());
 
-/// Get copy command queue group ordinal
-static std::pair<uint32_t, uint32_t> getCopyCmdQueueGroupOrdinal(
-    ze_device_handle_t Device, bool LinkCopy = false) {
-  uint32_t groupCount = 0;
-  std::pair<uint32_t, uint32_t> Ordinal(UINT32_MAX, 0);
-  CALL_ZE_RET(Ordinal, zeDeviceGetCommandQueueGroupProperties, Device,
-              &groupCount, nullptr);
-  std::vector<ze_command_queue_group_properties_t> groupProperties(
-      groupCount, CommandQueueGroupPropertiesInit);
-  CALL_ZE_RET(Ordinal, zeDeviceGetCommandQueueGroupProperties, Device,
-              &groupCount, groupProperties.data());
-
-
-  for (uint32_t i = 0; i < groupCount; i++) {
-    auto &flags = groupProperties[i].flags;
-    if ((flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY) &&
-        (flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE) == 0) {
-      auto NumQueues = groupProperties[i].numQueues;
+  for (uint32_t I = 0; I < Count; I++) {
+    auto &Flags = Properties[I].flags;
+    if ((Flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY) &&
+        (Flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE) == 0) {
+      auto NumQueues = Properties[I].numQueues;
       if (LinkCopy && NumQueues > 1) {
-        Ordinal = {i, NumQueues};
+        Ordinal = {I, NumQueues};
         DP("Found link copy command queue for device " DPxMOD ", ordinal = %"
            PRIu32 ", number of queues = %" PRIu32 "\n", DPxPTR(Device),
            Ordinal.first, Ordinal.second);
         break;
       } else if (!LinkCopy && NumQueues == 1) {
-        Ordinal = {i, NumQueues};
+        Ordinal = {I, NumQueues};
         DP("Found copy command queue for device " DPxMOD ", ordinal = %" PRIu32
            "\n", DPxPTR(Device), Ordinal.first);
         break;
       }
     }
   }
-
   return Ordinal;
 }
 
@@ -2468,19 +2415,16 @@ struct RTLDeviceInfoTy {
   std::vector<std::string> DeviceIdStr;
 
   /// Command queue group ordinals for each device
-  std::vector<uint32_t> CmdQueueGroupOrdinals;
-
-  /// Number of compute command queues for each device
-  std::vector<uint32_t> NumCCSQueues;
+  std::vector<std::pair<uint32_t, uint32_t>> ComputeOrdinals;
 
   /// Command queue group ordinals for copying
-  std::vector<uint32_t> CopyCmdQueueGroupOrdinals;
+  std::vector<std::pair<uint32_t, uint32_t>> CopyOrdinals;
 
   /// Command queue group ordinals and number of queues for link copy engines
-  std::vector<std::pair<uint32_t, uint32_t>> LinkCopyCmdQueueGroupOrdinals;
+  std::vector<std::pair<uint32_t, uint32_t>> LinkCopyOrdinals;
 
   /// Command queue index for each device
-  std::vector<uint32_t> CmdQueueIndices;
+  std::vector<uint32_t> ComputeIndices;
 
   /// Command lists/queues specialized for kernel batching
   std::vector<KernelBatchTy> BatchCmdQueues;
@@ -2507,9 +2451,6 @@ struct RTLDeviceInfoTy {
 
   /// Default device mutexes
   std::unique_ptr<std::mutex[]> Mutexes;
-
-  /// For internal data protection
-  std::unique_ptr<std::mutex[]> DataMutexes;
 
   /// For kernel preparation
   std::unique_ptr<std::mutex[]> KernelMutexes;
@@ -2551,7 +2492,7 @@ struct RTLDeviceInfoTy {
     auto CmdList = TLS->getCmdList(DeviceId);
     if (!CmdList) {
       CmdList = createCmdList(Context, Devices[DeviceId],
-                              CmdQueueGroupOrdinals[DeviceId],
+                              ComputeOrdinals[DeviceId].first,
                               DeviceIdStr[DeviceId]);
       TLS->setCmdList(DeviceId, CmdList);
     }
@@ -2574,9 +2515,9 @@ struct RTLDeviceInfoTy {
     if (!CmdQueue) {
       // Distribute to CCS queues
       uint32_t Index = __kmpc_global_thread_num(nullptr) %
-          NumCCSQueues[DeviceId];
+          ComputeOrdinals[DeviceId].second;
       CmdQueue = createCmdQueue(Context, Devices[DeviceId],
-                                CmdQueueGroupOrdinals[DeviceId], Index,
+                                ComputeOrdinals[DeviceId].first, Index,
                                 DeviceIdStr[DeviceId]);
       TLS->setCCSCmdQueue(DeviceId, CmdQueue);
     }
@@ -2601,15 +2542,15 @@ struct RTLDeviceInfoTy {
     auto CmdList = TLS->getCopyCmdList(DeviceId);
     if (!CmdList) {
       CmdList = createCmdList(Context, Devices[DeviceId],
-          CopyCmdQueueGroupOrdinals[DeviceId], DeviceIdStr[DeviceId]);
+          CopyOrdinals[DeviceId].first, DeviceIdStr[DeviceId]);
       TLS->setCopyCmdList(DeviceId, CmdList);
     }
     return CmdList;
   }
 
   bool usingCopyCmdQueue(int32_t DeviceId) {
-    if (CopyCmdQueueGroupOrdinals[DeviceId] == UINT32_MAX &&
-        LinkCopyCmdQueueGroupOrdinals[DeviceId].second == 0)
+    if (CopyOrdinals[DeviceId].first == UINT32_MAX &&
+        LinkCopyOrdinals[DeviceId].second == 0)
        return  false;
     return true;
   }
@@ -2632,7 +2573,7 @@ struct RTLDeviceInfoTy {
     auto CmdQueue = TLS->getCopyCmdQueue(DeviceId);
     if (!CmdQueue) {
       CmdQueue = createCmdQueue(Context, Devices[DeviceId],
-          CopyCmdQueueGroupOrdinals[DeviceId], 0, DeviceIdStr[DeviceId]);
+          CopyOrdinals[DeviceId].first, 0, DeviceIdStr[DeviceId]);
       TLS->setCopyCmdQueue(DeviceId, CmdQueue);
     }
     return CmdQueue;
@@ -2651,7 +2592,7 @@ struct RTLDeviceInfoTy {
         return getCmdList(DeviceId);
     }
 
-    auto &Ordinal = LinkCopyCmdQueueGroupOrdinals[DeviceId];
+    auto &Ordinal = LinkCopyOrdinals[DeviceId];
     auto TLS = getTLS();
     auto CmdList = TLS->getLinkCopyCmdList(DeviceId);
     if (!CmdList) {
@@ -2675,7 +2616,7 @@ struct RTLDeviceInfoTy {
         return getCmdQueue(DeviceId);
     }
 
-    auto &Ordinal = LinkCopyCmdQueueGroupOrdinals[DeviceId];
+    auto &Ordinal = LinkCopyOrdinals[DeviceId];
     auto TLS = getTLS();
     auto CmdQueue = TLS->getLinkCopyCmdQueue(DeviceId);
     if (!CmdQueue) {
@@ -3349,8 +3290,8 @@ uint32_t RTLDeviceInfoTy::getMemAllocType(const void *Ptr) {
 ze_command_queue_handle_t
 RTLDeviceInfoTy::createCommandQueue(int32_t DeviceId) {
   auto cmdQueue = createCmdQueue(Context, Devices[DeviceId],
-                                 CmdQueueGroupOrdinals[DeviceId],
-                                 CmdQueueIndices[DeviceId],
+                                 ComputeOrdinals[DeviceId].first,
+                                 ComputeIndices[DeviceId],
                                  DeviceIdStr[DeviceId]);
   return cmdQueue;
 }
@@ -3577,13 +3518,14 @@ static bool isValidSubDevice(int64_t DeviceIds) {
 
 static int32_t appendDeviceProperties(
     ze_device_handle_t Device, std::string IdStr, uint32_t QueueIndex = 0) {
-  ze_device_properties_t properties = DevicePropertiesInit;
-  ze_device_compute_properties_t computeProperties =
-      DeviceComputePropertiesInit;
+  ze_device_properties_t properties
+      {ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES, nullptr};
+  ze_device_compute_properties_t computeProperties
+      {ZE_STRUCTURE_TYPE_DEVICE_COMPUTE_PROPERTIES, nullptr};
   ze_device_memory_properties_t MemoryProperties
-    { ZE_STRUCTURE_TYPE_DEVICE_MEMORY_PROPERTIES, nullptr };
+      {ZE_STRUCTURE_TYPE_DEVICE_MEMORY_PROPERTIES, nullptr};
   ze_device_cache_properties_t CacheProperties
-    { ZE_STRUCTURE_TYPE_DEVICE_CACHE_PROPERTIES, nullptr };
+      {ZE_STRUCTURE_TYPE_DEVICE_CACHE_PROPERTIES, nullptr};
 
   DeviceInfo->Devices.push_back(Device);
 
@@ -3604,25 +3546,23 @@ static int32_t appendDeviceProperties(
   DeviceInfo->CacheProperties.push_back(CacheProperties);
 
   DeviceInfo->DeviceIdStr.push_back(IdStr);
-  uint32_t NumQueues = 0;
-  uint32_t QueueOrdinal = getCmdQueueGroupOrdinal(Device, NumQueues);
-  DeviceInfo->NumCCSQueues.push_back(NumQueues);
-  DeviceInfo->CmdQueueGroupOrdinals.push_back(QueueOrdinal);
-  DeviceInfo->CmdQueueIndices.push_back(QueueIndex);
+  auto ComputeOrdinal = getComputeOrdinal(Device);
+  DeviceInfo->ComputeOrdinals.push_back(ComputeOrdinal);
+  DeviceInfo->ComputeIndices.push_back(QueueIndex);
 
   auto UseCopyEngine = DeviceInfo->Option.UseCopyEngine;
 
   // Get main copy command queue ordinal if enabled
   std::pair<uint32_t, uint32_t> CopyOrdinal{UINT32_MAX, 0};
   if (UseCopyEngine == 1 || UseCopyEngine == 3)
-    CopyOrdinal = getCopyCmdQueueGroupOrdinal(Device);
-  DeviceInfo->CopyCmdQueueGroupOrdinals.push_back(CopyOrdinal.first);
+    CopyOrdinal = getCopyOrdinal(Device);
+  DeviceInfo->CopyOrdinals.push_back(CopyOrdinal);
 
   // Get link copy command queue ordinal if enabled
   CopyOrdinal = {UINT32_MAX, 0};
   if (UseCopyEngine == 2 || UseCopyEngine == 3)
-    CopyOrdinal = getCopyCmdQueueGroupOrdinal(Device, true);
-  DeviceInfo->LinkCopyCmdQueueGroupOrdinals.push_back(CopyOrdinal);
+    CopyOrdinal = getCopyOrdinal(Device, true);
+  DeviceInfo->LinkCopyOrdinals.push_back(CopyOrdinal);
 
   DP("Found a GPU device, Name = %s\n", properties.name);
 
@@ -3987,7 +3927,7 @@ static uint64_t computeThreadsNeeded(
   }
   for (int i = 1; i < 3; ++i) {
     if ((std::numeric_limits<uint64_t>::max)() / groupCount[0] <
-	groupCount[i])
+        groupCount[i])
       return (std::numeric_limits<uint64_t>::max)();
     groupCount[0] *= groupCount[i];
   }
@@ -4137,7 +4077,7 @@ static int32_t decideLoopKernelGroupArguments(
       groupSizes[2] = suggestedGroupSizes[2];
     } else {
       if (maxGroupSize > kernelWidth) {
-	groupSizes[0] = kernelWidth;
+        groupSizes[0] = kernelWidth;
       }
       if (distributeDim == 0) {
         // If there is a distribute dimension, then we do not use
@@ -4149,35 +4089,35 @@ static int32_t decideLoopKernelGroupArguments(
         // the kernel - this may allow more parallelism due to
         // the stalls being distributed across multiple HW threads rather
         // than across SIMD lanes within one HW thread.
-	assert(groupSizes[1] == 1 && groupSizes[2] == 1 &&
-	       "Unexpected group sizes for dimensions 1 or/and 2.");
-	uint32_t simdWidth = KernelProperty.SIMDWidth;
-	auto &deviceProperties = DeviceInfo->DeviceProperties[DeviceId];
-	uint32_t numEUsPerSubslice = deviceProperties.numEUsPerSubslice;
-	uint32_t numSubslices = deviceProperties.numSlices *
-	    deviceProperties.numSubslicesPerSlice;
-	uint32_t numThreadsPerEU = deviceProperties.numThreadsPerEU;
-	uint64_t totalThreads = uint64_t(numThreadsPerEU) * numEUsPerSubslice *
-	    numSubslices;
+        assert(groupSizes[1] == 1 && groupSizes[2] == 1 &&
+               "Unexpected group sizes for dimensions 1 or/and 2.");
+        uint32_t simdWidth = KernelProperty.SIMDWidth;
+        auto &deviceProperties = DeviceInfo->DeviceProperties[DeviceId];
+        uint32_t numEUsPerSubslice = deviceProperties.numEUsPerSubslice;
+        uint32_t numSubslices = deviceProperties.numSlices *
+            deviceProperties.numSubslicesPerSlice;
+        uint32_t numThreadsPerEU = deviceProperties.numThreadsPerEU;
+        uint64_t totalThreads = uint64_t(numThreadsPerEU) * numEUsPerSubslice *
+            numSubslices;
         totalThreads *= DeviceInfo->Option.ThinThreadsThreshold;
 
-	uint32_t groupSizePrev = groupSizes[0];
-	uint64_t threadsNeeded =
-	    computeThreadsNeeded(tripCounts, groupSizes, simdWidth);
-	while (threadsNeeded < totalThreads) {
-	  groupSizePrev = groupSizes[0];
+        uint32_t groupSizePrev = groupSizes[0];
+        uint64_t threadsNeeded =
+            computeThreadsNeeded(tripCounts, groupSizes, simdWidth);
+        while (threadsNeeded < totalThreads) {
+          groupSizePrev = groupSizes[0];
           // Try to half the local work size (if possible) and see
           // how many HW threads the kernel will require with this
           // new local work size.
           // In most implementations the initial groupSizes[0]
           // will be a power-of-two.
-	  if (groupSizes[0] <= 1)
-	    break;
-	  groupSizes[0] >>= 1;
-	  threadsNeeded =
-	      computeThreadsNeeded(tripCounts, groupSizes, simdWidth);
-	}
-	groupSizes[0] = groupSizePrev;
+          if (groupSizes[0] <= 1)
+            break;
+          groupSizes[0] >>= 1;
+          threadsNeeded =
+              computeThreadsNeeded(tripCounts, groupSizes, simdWidth);
+        }
+        groupSizes[0] = groupSizePrev;
       }
     }
   }
@@ -5115,7 +5055,7 @@ void RTLDeviceInfoTy::beginKernelBatch(int32_t DeviceId, uint32_t MaxKernels) {
   if (Batch.UseImmCmdList) {
     ze_command_queue_desc_t QueueDesc = {
       ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC, nullptr,
-      CmdQueueGroupOrdinals[DeviceId], 0, 0,
+      ComputeOrdinals[DeviceId].first, 0, 0,
       ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS, ZE_COMMAND_QUEUE_PRIORITY_NORMAL,
     };
     CALL_ZE_RET_VOID(zeCommandListCreateImmediate, Context, Devices[DeviceId],
@@ -5135,7 +5075,7 @@ void RTLDeviceInfoTy::beginKernelBatch(int32_t DeviceId, uint32_t MaxKernels) {
     DP("Initialized kernel batching with IMM.\n");
   } else {
     Batch.CmdList = createCmdList(Context, Devices[DeviceId],
-                                  CmdQueueGroupOrdinals[DeviceId],
+                                  ComputeOrdinals[DeviceId].first,
                                   DeviceIdStr[DeviceId]);
     Batch.CmdQueue = createCommandQueue(DeviceId);
     DP("Initialized kernel batching.\n");
@@ -5154,7 +5094,7 @@ void RTLDeviceInfoTy::initImmCmdList(int32_t DeviceId) {
   // Initialize immediate command list
   ze_command_queue_desc_t QueueDesc = {
     ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC, nullptr,
-    CmdQueueGroupOrdinals[DeviceId], 0, 0,
+    ComputeOrdinals[DeviceId].first, 0, 0,
     ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS, ZE_COMMAND_QUEUE_PRIORITY_NORMAL,
   };
   ze_command_list_handle_t CmdList;
@@ -5164,8 +5104,8 @@ void RTLDeviceInfoTy::initImmCmdList(int32_t DeviceId) {
   // For subdevices
   for (auto &SubLevel : SubDeviceIds[DeviceId]) {
     for (auto SubId : SubLevel) {
-      QueueDesc.ordinal = CmdQueueGroupOrdinals[SubId];
-      QueueDesc.index = CmdQueueIndices[SubId];
+      QueueDesc.ordinal = ComputeOrdinals[SubId].first;
+      QueueDesc.index = ComputeIndices[SubId];
       CALL_ZE_RET_VOID(zeCommandListCreateImmediate, Context, Devices[SubId],
                        &QueueDesc, &CmdList);
       ImmCmdLists[SubId] = CmdList;
@@ -5186,9 +5126,9 @@ int32_t RTLDeviceInfoTy::getSubDeviceId(int32_t DeviceId, uint32_t Level,
 /// Check if the device has access to copy engines (either main or link engines)
 bool RTLDeviceInfoTy::hasCopyEngineAccess(int32_t DeviceId, bool IsMain) {
   if (IsMain)
-    return (CopyCmdQueueGroupOrdinals[DeviceId] != UINT32_MAX);
+    return (CopyOrdinals[DeviceId].first != UINT32_MAX);
   else
-    return (LinkCopyCmdQueueGroupOrdinals[DeviceId].second > 0);
+    return (LinkCopyOrdinals[DeviceId].second > 0);
 }
 
 int32_t RTLDeviceInfoTy::findDevices() {
@@ -5243,8 +5183,7 @@ int32_t RTLDeviceInfoTy::findDevices() {
     for (uint32_t J = 0; J < SubDevices.size(); J++) {
       if (NumSub > 0)
         Tuples.emplace_back(SubDevices[J], I, J, -1);
-      uint32_t NumCCS = 0;
-      (void)getCmdQueueGroupOrdinalCCS(SubDevices[J], NumCCS);
+      uint32_t NumCCS = getComputeOrdinal(SubDevices[J]).second;
       for (uint32_t K = 0; K < NumCCS; K++)
         Tuples.emplace_back(SubDevices[J], I, J, K);
     }
@@ -5325,7 +5264,6 @@ int32_t RTLDeviceInfoTy::findDevices() {
   BatchCmdQueues.resize(NumRootDevices);
   ImmCmdLists.resize(NumDevices);
   Mutexes.reset(new std::mutex[NumDevices]);
-  DataMutexes.reset(new std::mutex[NumDevices]);
   KernelMutexes.reset(new std::mutex[NumDevices]);
 
   // Common event pool
@@ -6154,7 +6092,7 @@ int32_t LevelZeroProgramTy::buildKernels() {
     // Retrieve kernel properties
     auto &KernelProperties = DeviceInfo->KernelProperties[DeviceId][Kernels[I]];
     KernelProperties.Name = Name;
-    ze_kernel_properties_t KP = KernelPropertiesInit;
+    ze_kernel_properties_t KP{ZE_STRUCTURE_TYPE_KERNEL_PROPERTIES, nullptr};
     CALL_ZE_RET_FAIL(zeKernelGetProperties, Kernels[I], &KP);
     if (DeviceInfo->Option.ForcedKernelWidth > 0) {
       KernelProperties.Width = DeviceInfo->Option.ForcedKernelWidth;
@@ -6206,7 +6144,7 @@ int32_t LevelZeroProgramTy::initProgramData() {
       P.numSlices * P.numSubslicesPerSlice * P.numEUsPerSubslice;
   // If CCS is exposed as an OpenMP device, adjust EU count
   if (DeviceInfo->Option.DeviceMode == DEVICE_MODE_SUBSUB) {
-    uint32_t NumCCS = DeviceInfo->NumCCSQueues[DeviceId];
+    uint32_t NumCCS = DeviceInfo->ComputeOrdinals[DeviceId].second;
     if (NumCCS > 0)
       TotalEUs /= NumCCS;
   }
