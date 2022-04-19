@@ -357,7 +357,7 @@ set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of library directory name 
 set(INTEL_DEPLOY_UNIFIED_LAYOUT OFF CACHE BOOL "Build and deploy for a unified OneAPI directory layout")
 
 if(INTEL_DEPLOY_UNIFIED_LAYOUT)
-  add_compile_definitions(INTEL_DEPLOY_UNIFIED_LAYOUT=1)
+  add_compile_definitions(INTEL_DEPLOY_UNIFIED_LAYOUT)
   set(INTEL_DEPLOY_PKGCOMP_NAME "compiler" CACHE STRING "OneAPI deployment package component name")
   set(LLVM_TOOLS_INSTALL_DIR
     "${CMAKE_INSTALL_BINDIR}/${INTEL_DEPLOY_PKGCOMP_NAME}"

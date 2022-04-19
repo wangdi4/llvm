@@ -566,11 +566,7 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
   case VPInstruction::Abs: {
     // Cost of Abs instruction is computed as cost of a compare followed by
     // a select for now.
-    Type *OpTy = VPInst->getOperand(0)->getCMType();
-    if (!OpTy)
-      return VPInstructionCost::getUnknown();
-
-    Type *VecOpTy = getWidenedType(OpTy, VF);
+    Type *VecOpTy = getWidenedType(VPInst->getOperand(0)->getType(), VF);
     Type *CmpTy = Type::getInt1Ty(*(Plan->getLLVMContext()));
     Type *VecCmpTy =
         getWidenedType(CmpTy, cast<FixedVectorType>(VecOpTy)->getNumElements());
@@ -646,10 +642,10 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
   case VPInstruction::Not: // Treat same as Xor.
     return getArithmeticInstructionCost(
       Instruction::Xor, VPInst->getOperand(0), nullptr,
-      VPInst->getCMType(), VF);
+      VPInst->getType(), VF);
   case Instruction::FNeg:
     return getArithmeticInstructionCost(
-      Opcode, VPInst->getOperand(0), nullptr, VPInst->getCMType(), VF);
+      Opcode, VPInst->getOperand(0), nullptr, VPInst->getType(), VF);
   case Instruction::ICmp:
   case Instruction::FCmp: {
     // FIXME: Assuming all the compares are widened, which is obviously wrong
