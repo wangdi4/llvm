@@ -2516,7 +2516,6 @@ void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
     PM.add(createOptReportEmitterLegacyPass());
 }
 
-#endif // INTEL_CUSTOMIZATION
 
 void PassManagerBuilder::populateThinLTOPassManager(
     legacy::PassManagerBase &PM) {
@@ -2591,6 +2590,7 @@ void PassManagerBuilder::populateLTOPassManager(legacy::PassManagerBase &PM) {
   if (VerifyOutput)
     PM.add(createVerifierPass());
 }
+#endif // INTEL_CUSTOMIZATION
 
 LLVMPassManagerBuilderRef LLVMPassManagerBuilderCreate() {
   PassManagerBuilder *PMB = new PassManagerBuilder();
@@ -2658,6 +2658,7 @@ LLVMPassManagerBuilderPopulateModulePassManager(LLVMPassManagerBuilderRef PMB,
   Builder->populateModulePassManager(*MPM);
 }
 
+#if INTEL_CUSTOMIZATION
 void LLVMPassManagerBuilderPopulateLTOPassManager(LLVMPassManagerBuilderRef PMB,
                                                   LLVMPassManagerRef PM,
                                                   LLVMBool Internalize,
@@ -2672,3 +2673,4 @@ void LLVMPassManagerBuilderPopulateLTOPassManager(LLVMPassManagerBuilderRef PMB,
 
   Builder->populateLTOPassManager(*LPM);
 }
+#endif // INTEL_CUSTOMIZATION

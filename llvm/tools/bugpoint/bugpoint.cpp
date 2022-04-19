@@ -90,9 +90,11 @@ static cl::opt<bool>
 static cl::list<const PassInfo *, bool, PassNameParser>
     PassList(cl::desc("Passes available:"), cl::ZeroOrMore);
 
+#ifdef INTEL_CUSTOMIZATION
 static cl::opt<bool>
     StandardLinkOpts("std-link-opts",
                      cl::desc("Include the standard link time optimizations"));
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
     OptLevelO1("O1", cl::desc("Optimization level 1. Identical to 'opt -O1'"));
@@ -242,11 +244,13 @@ int main(int argc, char **argv) {
 
   AddToDriver PM(D);
 
+#ifdef INTEL_CUSTOMIZATION
   if (StandardLinkOpts) {
     PassManagerBuilder Builder;
     Builder.Inliner = createFunctionInliningPass();
     Builder.populateLTOPassManager(PM);
   }
+#endif // INTEL_CUSTOMIZATION
 
   if (OptLevelO1)
     AddOptimizationPasses(PM, 1, 0);
