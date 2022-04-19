@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -2121,6 +2121,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
       // behavior to prevent inlining of hot callsites during ThinLTO
       // compile phase.
       Threshold = HotCallSiteThreshold.getValue();
+      YesReasonVector.push_back(InlrHotCallsite); // INTEL
 #if INTEL_CUSTOMIZATION
     } else if (isColdCallSite(Call, CallerBFI)
 #if INTEL_FEATURE_SW_ADVANCED
@@ -2139,6 +2140,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
       // preventing it from being inlined.
       DisallowAllBonuses();
       Threshold = MinIfValid(Threshold, Params.ColdCallSiteThreshold);
+      NoReasonVector.push_back(NinlrColdCallsite); // INTEL
     } else if (PSI) {
       // Use callee's global profile information only if we have no way of
       // determining this via callsite information.
@@ -2148,6 +2150,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
         // that the callee is hot and treat it as a weaker hint for threshold
         // increase.
         Threshold = MaxIfValid(Threshold, Params.HintThreshold);
+        YesReasonVector.push_back(InlrHotCallee); // INTEL
       } else if (PSI->isFunctionEntryCold(&Callee)) {
         LLVM_DEBUG(dbgs() << "Cold callee.\n");
         // Do not apply bonuses for a cold callee including the
@@ -2156,6 +2159,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
         // preventing it from being inlined.
         DisallowAllBonuses();
         Threshold = MinIfValid(Threshold, Params.ColdThreshold);
+        NoReasonVector.push_back(NinlrColdCallee); // INTEL
       }
     }
   }
@@ -2779,11 +2783,15 @@ CallAnalyzer::analyzeBlock(BasicBlock *BB,
       return IR;
     }
 
-    if (shouldStop())
+#if INTEL_CUSTOMIZATION
+    if (shouldStop()) {
+      auto Reason = bestInlineReason(NoReasonVector, NinlrNotProfitable);
       return InlineResult::failure(
-                 "Call site analysis is not favorable to inlining.") // INTEL
-          .setIntelInlReason(NinlrNotProfitable);                    // INTEL
+                 "Call site analysis is not favorable to inlining.")
+          .setIntelInlReason(Reason);
+    }
   }
+#endif // INTEL_CUSTOMIZATION
 
   return InlineResult::success();
 }
