@@ -2276,7 +2276,8 @@ HLInst *VPOCodeGenHIR::replicateVectorElts(RegDDRef *Input,
 }
 
 RegDDRef *VPOCodeGenHIR::extractSubVector(RegDDRef *Input, unsigned Part,
-                                          unsigned NumParts) {
+                                          unsigned NumParts,
+                                          RegDDRef *LValRef) {
   if (!Input)
     return nullptr; // No vector to extract from.
 
@@ -2304,7 +2305,7 @@ RegDDRef *VPOCodeGenHIR::extractSubVector(RegDDRef *Input, unsigned Part,
   }
 
   auto *SubVec =
-      createShuffleWithUndef(Input, ShuffleMask, ".extracted.subvec");
+      createShuffleWithUndef(Input, ShuffleMask, ".extracted.subvec", LValRef);
   LLVM_DEBUG(dbgs() << "[VPOCGHIR] ExtractSubVec: "; SubVec->dump();
              dbgs() << "\n");
 
@@ -4078,9 +4079,6 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
 
   case VPInstruction::PrivateFinalUncond:
   case VPInstruction::PrivateFinalUncondMem: {
-    assert(!VPInst->getOperand(0)->getType()->isVectorTy() &&
-           "Private finalization for VectorTy not supported yet.");
-
     RegDDRef *OrigPrivDescr = nullptr;
     if (VPInst->getOpcode() == VPInstruction::PrivateFinalUncond) {
       // Scalar result of private finalization should be written back to
@@ -4091,14 +4089,21 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       OrigPrivDescr = getUniformScalarRef(ExtUse);
     }
     RegDDRef *VecRef = widenRef(VPInst->getOperand(0), getVF());
-    auto *PrivExtract = HLNodeUtilities.createExtractElementInst(
-        VecRef, getVF() - 1, "extracted.priv", OrigPrivDescr);
+
+    RegDDRef *ResultRef;
+    if (VPInst->getOperand(0)->getType()->isVectorTy()) {
+      ResultRef = extractSubVector(VecRef, getVF() - 1, getVF(), OrigPrivDescr);
+    } else {
+      HLInst *PrivExtract = HLNodeUtilities.createExtractElementInst(
+          VecRef, getVF() - 1, "extracted.priv", OrigPrivDescr);
+      addInstUnmasked(PrivExtract);
+      ResultRef = PrivExtract->getLvalDDRef();
+    }
     // Make the original private descriptor non-linear since we have a
     // definition to the temp in loop post-exit.
     if (OrigPrivDescr)
       OrigPrivDescr->getSingleCanonExpr()->setNonLinear();
-    addInstUnmasked(PrivExtract);
-    addVPValueScalRefMapping(VPInst, PrivExtract->getLvalDDRef(), 0 /*Lane*/);
+    addVPValueScalRefMapping(VPInst, ResultRef, 0 /*Lane*/);
 
     return;
   }
