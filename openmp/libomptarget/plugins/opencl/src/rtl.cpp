@@ -2496,37 +2496,21 @@ EXTERN void *__tgt_rtl_get_context_handle(int32_t DeviceId) {
   return (void *)context;
 }
 
-// Check if the pointer belongs to a device-accessible pointer ranges
-EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(
-    int32_t DeviceId, void *Ptr) {
-  // What we want here is to check if Ptr is a SVM/USM pointer.
-  // For GPU device, use the USM API to allow use of external memory allocation.
-  // For CPU device, use the existing internal data when SVM is enabled since
-  // USM API does not return consistent result.
-  int32_t Ret = 0;
-  if (DeviceInfo->Option.Flags.UseSVM &&
-      DeviceInfo->Option.DeviceType == CL_DEVICE_TYPE_CPU) {
-    if (DeviceInfo->MemAllocInfo[DeviceId]->contains(Ptr, 1))
-      Ret = 1;
-  } else {
-    cl_unified_shared_memory_type_intel memType = 0;
-    CALL_CL_EXT_RET(DeviceId, false, clGetMemAllocInfoINTEL,
-                    DeviceInfo->getContext(DeviceId), Ptr,
-                    CL_MEM_ALLOC_TYPE_INTEL, sizeof(memType), &memType,
-                    nullptr);
-    switch (memType) {
-    case CL_MEM_TYPE_HOST_INTEL:
-    case CL_MEM_TYPE_DEVICE_INTEL:
-    case CL_MEM_TYPE_SHARED_INTEL:    // Includes SVM on GPU
-      Ret = 1;
-      break;
-    case CL_MEM_TYPE_UNKNOWN_INTEL:   // Normal host memory
-    default:
-      Ret = 0;
-    }
-  }
-  DP("Ptr " DPxMOD " is %sa device-accessible pointer.\n", DPxPTR(Ptr),
-     Ret ? "" : "not ");
+EXTERN int32_t __tgt_rtl_requires_mapping(int32_t DeviceId, void *Ptr) {
+  // Force mapping for host memory with positive size
+  int32_t Ret;
+  cl_unified_shared_memory_type_intel MemType = 0;
+  CALL_CL_EXT_RET(DeviceId, false, clGetMemAllocInfoINTEL,
+                  DeviceInfo->getContext(DeviceId), Ptr,
+                  CL_MEM_ALLOC_TYPE_INTEL, sizeof(MemType), &MemType,
+                  nullptr);
+  if (MemType == CL_MEM_TYPE_UNKNOWN_INTEL || MemType == CL_MEM_TYPE_HOST_INTEL)
+    Ret = 1;
+  else
+    Ret = 0;
+
+  DP("Ptr " DPxMOD " %s mapping.\n", DPxPTR(Ptr),
+     Ret ? "requires" : "does not require");
   return Ret;
 }
 

@@ -33,7 +33,7 @@ VERS1.0 {
     __tgt_rtl_data_alloc_managed;
     __tgt_rtl_data_realloc;
     __tgt_rtl_data_aligned_alloc;
-    __tgt_rtl_is_device_accessible_ptr;
+    __tgt_rtl_requires_mapping;
     __tgt_rtl_init_ompt;
     __tgt_rtl_get_data_alloc_info;
     __tgt_rtl_push_subdevice;

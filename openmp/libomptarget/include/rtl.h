@@ -69,7 +69,7 @@ struct RTLInfoTy {
   typedef void *(data_alloc_managed_ty)(int32_t, int64_t);
   typedef void *(data_realloc_ty)(int32_t, void *, size_t, int32_t);
   typedef void *(data_aligned_alloc_ty)(int32_t, size_t, size_t, int32_t);
-  typedef int32_t(is_device_accessible_ptr_ty)(int32_t, void *);
+  typedef int32_t(requires_mapping_ty)(int32_t, void *);
   typedef void (init_ompt_ty)(void *);
   typedef int32_t(get_data_alloc_info_ty)(int32_t, int32_t, void *, void *);
   typedef int32_t(push_subdevice_ty)(int64_t);
@@ -164,7 +164,7 @@ struct RTLInfoTy {
   data_alloc_managed_ty *data_alloc_managed = nullptr;
   data_realloc_ty *data_realloc = nullptr;
   data_aligned_alloc_ty *data_aligned_alloc = nullptr;
-  is_device_accessible_ptr_ty *is_device_accessible_ptr = nullptr;
+  requires_mapping_ty *requires_mapping = nullptr;
   init_ompt_ty *init_ompt = nullptr;
   get_data_alloc_info_ty *get_data_alloc_info = nullptr;
   push_subdevice_ty *push_subdevice = nullptr;
