@@ -1356,6 +1356,7 @@ public:
     /// \returns the score of placing \p V1 and \p V2 in consecutive lanes.
     /// Also, checks if \p V1 and \p V2 are compatible with instructions in \p
     /// MainAltOps.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // Customization note: keep function as a static member and pass
     // BoUpSLP argument explicitly.
@@ -1370,24 +1371,38 @@ public:
 #if INTEL_CUSTOMIZATION
           auto AllUsersAreInternal = [U1, U2, &R](Value *V1, Value *V2) {
 #endif // INTEL_CUSTOMIZATION
+=======
+    int getShallowScore(Value *V1, Value *V2, Instruction *U1, Instruction *U2,
+                        const DataLayout &DL, ScalarEvolution &SE, int NumLanes,
+                        ArrayRef<Value *> MainAltOps) {
+      if (V1 == V2) {
+        if (isa<LoadInst>(V1)) {
+          // Retruns true if the users of V1 and V2 won't need to be extracted.
+          auto AllUsersAreInternal = [U1, U2, this](Value *V1, Value *V2) {
+>>>>>>> b1333f03d94e4099c2bbffb19eeb6df293c61500
             // Bail out if we have too many uses to save compilation time.
             static constexpr unsigned Limit = 8;
             if (V1->hasNUsesOrMore(Limit) || V2->hasNUsesOrMore(Limit))
               return false;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
             auto AllUsersVectorized = [U1, U2, &R](Value *V) {
               return llvm::all_of(V->users(), [U1, U2, &R](Value *U) {
 #endif // INTEL_CUSTOMIZATION
+=======
+            auto AllUsersVectorized = [U1, U2, this](Value *V) {
+              return llvm::all_of(V->users(), [U1, U2, this](Value *U) {
+>>>>>>> b1333f03d94e4099c2bbffb19eeb6df293c61500
                 return U == U1 || U == U2 || R.getTreeEntry(U) != nullptr;
               });
             };
             return AllUsersVectorized(V1) && AllUsersVectorized(V2);
           };
           // A broadcast of a load can be cheaper on some targets.
-          // TODO: For now accept a broadcast load with no other internal uses.
-          if (TTI->isLegalBroadcastLoad(V1->getType(), NumLanes) &&
-              (int)V1->getNumUses() == NumLanes)
+          if (R.TTI->isLegalBroadcastLoad(V1->getType(), NumLanes) &&
+              ((int)V1->getNumUses() == NumLanes ||
+               AllUsersAreInternal(V1, V2)))
             return VLOperands::ScoreSplatLoads;
         }
         return VLOperands::ScoreSplat;
@@ -1566,14 +1581,19 @@ public:
     ///   Look-ahead SLP: Auto-vectorization in the presence of commutative
     ///   operations, CGO 2018 by Vasileios Porpodas, Rodrigo C. O. Rocha,
     ///   Luís F. W. Góes
-    int getScoreAtLevelRec(Value *LHS, Value *RHS, int CurrLevel, int MaxLevel,
+    int getScoreAtLevelRec(Value *LHS, Value *RHS, Instruction *U1,
+                           Instruction *U2, int CurrLevel, int MaxLevel,
                            ArrayRef<Value *> MainAltOps) {
 
       // Get the shallow score of V1 and V2.
       int ShallowScoreAtThisLevel =
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
           getShallowScore(LHS, RHS, U1, U2, DL, SE, getNumLanes(), MainAltOps, R);
 #endif // INTEL_CUSTOMIZATION
+=======
+          getShallowScore(LHS, RHS, U1, U2, DL, SE, getNumLanes(), MainAltOps);
+>>>>>>> b1333f03d94e4099c2bbffb19eeb6df293c61500
 
       // If reached MaxLevel,
       //  or if V1 and V2 are not instructions,
@@ -1616,7 +1636,7 @@ public:
           // Recursively calculate the cost at each level
           int TmpScore =
               getScoreAtLevelRec(I1->getOperand(OpIdx1), I2->getOperand(OpIdx2),
-                                 CurrLevel + 1, MaxLevel, None);
+                                 I1, I2, CurrLevel + 1, MaxLevel, None);
           // Look for the best score.
           if (TmpScore > VLOperands::ScoreFail && TmpScore > MaxTmpScore) {
             MaxTmpScore = TmpScore;
@@ -1646,8 +1666,10 @@ public:
     int getLookAheadScore(Value *LHS, Value *RHS, ArrayRef<Value *> MainAltOps,
                           int Lane, unsigned OpIdx, unsigned Idx,
                           bool &IsUsed) {
-      int Score =
-          getScoreAtLevelRec(LHS, RHS, 1, LookAheadMaxDepth, MainAltOps);
+      // Keep track of the instruction stack as we recurse into the operands
+      // during the look-ahead score exploration.
+      int Score = getScoreAtLevelRec(LHS, RHS, /*U1=*/nullptr, /*U2=*/nullptr,
+                                     1, LookAheadMaxDepth, MainAltOps);
       if (Score) {
         int SplatScore = getSplatScore(Lane, OpIdx, Idx);
         if (Score <= -SplatScore) {
