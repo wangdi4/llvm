@@ -559,12 +559,6 @@ void PassBuilder::addInstCombinePass(FunctionPassManager &FPM,
 #else // INTEL_FEATURE_SW_DTRANS
   bool PreserveForDTrans = false;
 #endif // INTEL_FEATURE_SW_DTRANS
-#if 0
-  // FIXME: If this temporary workaround is still present in LPM pipeline at
-  // the time when we are switching NPM by default, this code-block can be
-  // enabled here. It's very disruptive to the pipeline, increasing the
-  // output of Intel_new-pm-O2-paropt.ll from 253 to 375 lines. So it would be
-  // cleaner if we never have to enable it here.
   if (RunVPOParopt) {
     // CMPLRLLVM-25424: temporary workaround for cases, where
     // the instructions combining pass inserts value definitions
@@ -577,7 +571,6 @@ void PassBuilder::addInstCombinePass(FunctionPassManager &FPM,
     // to stop fiddling with the optimization pipeline.
     FPM.addPass(VPOCFGRestructuringPass());
   }
-#endif
   FPM.addPass(InstCombinePass(PreserveForDTrans,
                               PrepareForLTO && EnableIPArrayTranspose,
                               EnableFcmpMinMaxCombine, EnableUpCasting));
