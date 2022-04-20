@@ -1356,7 +1356,6 @@ public:
     /// \returns the score of placing \p V1 and \p V2 in consecutive lanes.
     /// Also, checks if \p V1 and \p V2 are compatible with instructions in \p
     /// MainAltOps.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // Customization note: keep function as a static member and pass
     // BoUpSLP argument explicitly.
@@ -1385,14 +1384,6 @@ public:
             };
             return AllUsersVectorized(V1) && AllUsersVectorized(V2);
           };
-=======
-    static int getShallowScore(Value *V1, Value *V2, const DataLayout &DL,
-                               ScalarEvolution &SE, int NumLanes,
-                               ArrayRef<Value *> MainAltOps,
-                               const TargetTransformInfo *TTI) {
-      if (V1 == V2) {
-        if (isa<LoadInst>(V1)) {
->>>>>>> 359dbb0d3daa8295848a09ddd083c79f6851888e
           // A broadcast of a load can be cheaper on some targets.
           // TODO: For now accept a broadcast load with no other internal uses.
           if (TTI->isLegalBroadcastLoad(V1->getType(), NumLanes) &&
@@ -1580,13 +1571,9 @@ public:
 
       // Get the shallow score of V1 and V2.
       int ShallowScoreAtThisLevel =
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
           getShallowScore(LHS, RHS, U1, U2, DL, SE, getNumLanes(), MainAltOps, R);
 #endif // INTEL_CUSTOMIZATION
-=======
-          getShallowScore(LHS, RHS, DL, SE, getNumLanes(), MainAltOps, R.TTI);
->>>>>>> 359dbb0d3daa8295848a09ddd083c79f6851888e
 
       // If reached MaxLevel,
       //  or if V1 and V2 are not instructions,
