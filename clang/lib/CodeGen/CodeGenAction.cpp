@@ -335,9 +335,8 @@ namespace clang {
       if (!getModule())
         return;
 
-#if !INTEL_CUSTOMIZATION
       LLVMContext &Ctx = getModule()->getContext();
-
+#if !INTEL_CUSTOMIZATION
       std::unique_ptr<DiagnosticHandler> OldDiagnosticHandler =
           Ctx.getDiagnosticHandler();
       Ctx.setDiagnosticHandler(std::make_unique<ClangDiagnosticHandler>(
