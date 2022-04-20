@@ -148,11 +148,6 @@ using namespace llvm;
 
 #define DEBUG_TYPE "asm-printer"
 
-// FIXME: this option currently only applies to DWARF, and not CodeView, tables
-static cl::opt<bool>
-    DisableDebugInfoPrinting("disable-debug-info-print", cl::Hidden,
-                             cl::desc("Disable debug info printing"));
-
 const char DWARFGroupName[] = "dwarf";
 const char DWARFGroupDescription[] = "DWARF Emission";
 const char DbgTimerName[] = "emit";
@@ -320,9 +315,6 @@ bool AsmPrinter::doInitialization(Module &M) {
 
   OutStreamer->initSections(false, *TM.getMCSubtargetInfo());
 
-  if (DisableDebugInfoPrinting)
-    MMI->setDebugInfoAvailability(false);
-
   // Emit the version-min deployment target directive if needed.
   //
   // FIXME: If we end up with a collection of these sorts of Darwin-specific
@@ -397,6 +389,7 @@ bool AsmPrinter::doInitialization(Module &M) {
                             CodeViewLineTablesGroupName,
                             CodeViewLineTablesGroupDescription);
     }
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
     // Create the debug handler for traceback if there is a TraceBack
@@ -409,6 +402,10 @@ bool AsmPrinter::doInitialization(Module &M) {
 
     if ((!EmitCodeView && !TraceBackFlag) || M.getDwarfVersion()) {
       if (!DisableDebugInfoPrinting) {
+=======
+    if (!EmitCodeView || M.getDwarfVersion()) {
+      if (MMI->hasDebugInfo()) {
+>>>>>>> 9592e88f59cfd399e9285cfec50a23675f43a43a
         DD = new DwarfDebug(this);
         Handlers.emplace_back(std::unique_ptr<DwarfDebug>(DD), DbgTimerName,
                               DbgTimerDescription, DWARFGroupName,
