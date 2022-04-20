@@ -1310,6 +1310,10 @@ bool X86TTIImpl::hasCDI() const {
   return ST->hasCDI();
 }
 
+bool X86TTIImpl::displacementFoldable() const {
+  return true;
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 InstructionCost X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind,

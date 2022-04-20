@@ -30,6 +30,7 @@
 #include "InstCombineInternal.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"
+#include "llvm/ADT/DepthFirstIterator.h" // INTEL
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/InstructionSimplify.h"
@@ -1388,8 +1389,32 @@ Instruction *InstCombinerImpl::visitAdd(BinaryOperator &I) {
   }
 
   // A+B --> A|B iff A and B have no bits set in common.
-  if (haveNoCommonBitsSet(LHS, RHS, DL, &AC, &I, &DT))
-    return BinaryOperator::CreateOr(LHS, RHS);
+#if INTEL_CUSTOMIZATION
+  if (haveNoCommonBitsSet(LHS, RHS, DL, &AC, &I, &DT)) {
+    // Don't replace add with or if CodeGen can fold it into a memory operand.
+    bool HasOneConstantOp = isa<Constant>(LHS) || isa<Constant>(RHS);
+    bool AddIsFoldable =
+        getTargetTransformInfo().displacementFoldable() && HasOneConstantOp;
+    if (AddIsFoldable)
+      for (User *U : I.users()) {
+        for (auto It = df_begin(U); It != df_end(U);) {
+          if (isa<GetElementPtrInst>(*It)) {
+            It.skipChildren();
+            continue;
+          }
+          if (!isa<SExtInst>(*It)) {
+            AddIsFoldable = false;
+            break;
+          }
+          It++;
+        }
+        if (!AddIsFoldable)
+          break;
+      }
+    if (!AddIsFoldable)
+      return BinaryOperator::CreateOr(LHS, RHS);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // add (select X 0 (sub n A)) A  -->  select X A n
   {
