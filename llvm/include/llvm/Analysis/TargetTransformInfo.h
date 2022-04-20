@@ -1401,6 +1401,10 @@ public:
 
   // Indicate whether target has conflict detection instruction.
   bool hasCDI() const;
+
+  // Returns true if the target supports folding a constant displacement into
+  // its load instruction.
+  bool displacementFoldable() const;
 #endif // INTEL_CUSTOMIZATION
 
   /// \returns The type to use in a loop expansion of a memcpy call.
@@ -1904,6 +1908,7 @@ public:
   virtual bool needsStructuredCFG() const = 0;
   virtual const char *getISASetForIMLFunctions() const = 0;
   virtual bool hasCDI() const = 0;
+  virtual bool displacementFoldable() const = 0;
 #endif // INTEL_CUSTOMIZATION
   virtual Type *
   getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
@@ -2565,6 +2570,10 @@ public:
 
   bool hasCDI() const override {
     return Impl.hasCDI();
+  }
+
+  bool displacementFoldable() const override {
+    return Impl.displacementFoldable();
   }
 #endif // INTEL_CUSTOMIZATION
   Type *getMemcpyLoopLoweringType(

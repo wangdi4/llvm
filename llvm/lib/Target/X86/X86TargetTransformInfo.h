@@ -303,6 +303,7 @@ public:
       const Module *M) const;
   const char *getISASetForIMLFunctions() const;
   bool hasCDI() const;
+  bool displacementFoldable() const;
 #endif // INTEL_CUSTOMIZATION
   bool hasDivRemOp(Type *DataType, bool IsSigned);
   bool isFCmpOrdCheaperThanFCmpZero(Type *Ty);
