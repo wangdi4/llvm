@@ -270,7 +270,8 @@ template <> struct MappingTraits<SIMode> {
 struct SIMachineFunctionInfo final : public yaml::MachineFunctionInfo {
   uint64_t ExplicitKernArgSize = 0;
   unsigned MaxKernArgAlign = 0;
-  unsigned LDSSize = 0;
+  uint32_t LDSSize = 0;
+  uint32_t GDSSize = 0;
   Align DynLDSAlign;
   bool IsEntryFunction = false;
   bool NoSignedZerosFPMath = false;
@@ -283,13 +284,19 @@ struct SIMachineFunctionInfo final : public yaml::MachineFunctionInfo {
   // TODO: 10 may be a better default since it's the maximum.
   unsigned Occupancy = 0;
 
+  SmallVector<StringValue> WWMReservedRegs;
+
   StringValue ScratchRSrcReg = "$private_rsrc_reg";
   StringValue FrameOffsetReg = "$fp_reg";
   StringValue StackPtrOffsetReg = "$sp_reg";
 
+  unsigned BytesInStackArgArea = 0;
+  bool ReturnsVoid = true;
+
   Optional<SIArgumentInfo> ArgInfo;
   SIMode Mode;
   Optional<FrameIndex> ScavengeFI;
+  StringValue VGPRForAGPRCopy;
 
   SIMachineFunctionInfo() = default;
   SIMachineFunctionInfo(const llvm::SIMachineFunctionInfo &,
@@ -306,6 +313,7 @@ template <> struct MappingTraits<SIMachineFunctionInfo> {
                        UINT64_C(0));
     YamlIO.mapOptional("maxKernArgAlign", MFI.MaxKernArgAlign, 0u);
     YamlIO.mapOptional("ldsSize", MFI.LDSSize, 0u);
+    YamlIO.mapOptional("gdsSize", MFI.GDSSize, 0u);
     YamlIO.mapOptional("dynLDSAlign", MFI.DynLDSAlign, Align());
     YamlIO.mapOptional("isEntryFunction", MFI.IsEntryFunction, false);
     YamlIO.mapOptional("noSignedZerosFPMath", MFI.NoSignedZerosFPMath, false);
@@ -319,12 +327,17 @@ template <> struct MappingTraits<SIMachineFunctionInfo> {
                        StringValue("$fp_reg"));
     YamlIO.mapOptional("stackPtrOffsetReg", MFI.StackPtrOffsetReg,
                        StringValue("$sp_reg"));
+    YamlIO.mapOptional("bytesInStackArgArea", MFI.BytesInStackArgArea, 0u);
+    YamlIO.mapOptional("returnsVoid", MFI.ReturnsVoid, true);
     YamlIO.mapOptional("argumentInfo", MFI.ArgInfo);
     YamlIO.mapOptional("mode", MFI.Mode, SIMode());
     YamlIO.mapOptional("highBitsOf32BitAddress",
                        MFI.HighBitsOf32BitAddress, 0u);
     YamlIO.mapOptional("occupancy", MFI.Occupancy, 0);
+    YamlIO.mapOptional("wwmReservedRegs", MFI.WWMReservedRegs);
     YamlIO.mapOptional("scavengeFI", MFI.ScavengeFI);
+    YamlIO.mapOptional("vgprForAGPRCopy", MFI.VGPRForAGPRCopy,
+                       StringValue()); // Don't print out when it's empty.
   }
 };
 
@@ -427,7 +440,6 @@ private:
   unsigned GITPtrHigh;
 
   unsigned HighBitsOf32BitAddress;
-  unsigned GDSSize;
 
   // Current recorded maximum possible occupancy.
   unsigned Occupancy;
@@ -509,8 +521,6 @@ private:
 
 public:
   Register getVGPRForAGPRCopy() const {
-    assert(VGPRForAGPRCopy &&
-           "Valid VGPR for AGPR copy must have been identified by now");
     return VGPRForAGPRCopy;
   }
 
@@ -736,10 +746,6 @@ public:
 
   uint32_t get32BitAddressHighBits() const {
     return HighBitsOf32BitAddress;
-  }
-
-  unsigned getGDSSize() const {
-    return GDSSize;
   }
 
   unsigned getNumUserSGPRs() const {
