@@ -1356,7 +1356,6 @@ public:
     /// \returns the score of placing \p V1 and \p V2 in consecutive lanes.
     /// Also, checks if \p V1 and \p V2 are compatible with instructions in \p
     /// MainAltOps.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // Customization note: keep function as a static member and pass
     // BoUpSLP argument explicitly.
@@ -1371,29 +1370,15 @@ public:
 #if INTEL_CUSTOMIZATION
           auto AllUsersAreInternal = [U1, U2, &R](Value *V1, Value *V2) {
 #endif // INTEL_CUSTOMIZATION
-=======
-    int getShallowScore(Value *V1, Value *V2, Instruction *U1, Instruction *U2,
-                        const DataLayout &DL, ScalarEvolution &SE, int NumLanes,
-                        ArrayRef<Value *> MainAltOps) {
-      if (V1 == V2) {
-        if (isa<LoadInst>(V1)) {
-          // Retruns true if the users of V1 and V2 won't need to be extracted.
-          auto AllUsersAreInternal = [U1, U2, this](Value *V1, Value *V2) {
->>>>>>> b1333f03d94e4099c2bbffb19eeb6df293c61500
             // Bail out if we have too many uses to save compilation time.
             static constexpr unsigned Limit = 8;
             if (V1->hasNUsesOrMore(Limit) || V2->hasNUsesOrMore(Limit))
               return false;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
             auto AllUsersVectorized = [U1, U2, &R](Value *V) {
               return llvm::all_of(V->users(), [U1, U2, &R](Value *U) {
 #endif // INTEL_CUSTOMIZATION
-=======
-            auto AllUsersVectorized = [U1, U2, this](Value *V) {
-              return llvm::all_of(V->users(), [U1, U2, this](Value *U) {
->>>>>>> b1333f03d94e4099c2bbffb19eeb6df293c61500
                 return U == U1 || U == U2 || R.getTreeEntry(U) != nullptr;
               });
             };
@@ -1587,13 +1572,9 @@ public:
 
       // Get the shallow score of V1 and V2.
       int ShallowScoreAtThisLevel =
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
           getShallowScore(LHS, RHS, U1, U2, DL, SE, getNumLanes(), MainAltOps, R);
 #endif // INTEL_CUSTOMIZATION
-=======
-          getShallowScore(LHS, RHS, U1, U2, DL, SE, getNumLanes(), MainAltOps);
->>>>>>> b1333f03d94e4099c2bbffb19eeb6df293c61500
 
       // If reached MaxLevel,
       //  or if V1 and V2 are not instructions,
