@@ -5887,89 +5887,8 @@ static bool needToScheduleSingleInstruction(ArrayRef<Value *> VL) {
 }
 #endif
 
-<<<<<<< HEAD
-/// Generates key/subkey pair for the given value to provide effective sorting
-/// of the values and better detection of the vectorizable values sequences. The
-/// keys/subkeys can be used for better sorting of the values themselves (keys)
-/// and in values subgroups (subkeys).
-static std::pair<size_t, size_t> generateKeySubkey(
-    Value *V, const TargetLibraryInfo *TLI,
-    function_ref<hash_code(size_t, LoadInst *)> LoadsSubkeyGenerator,
-    bool AllowAlternate) {
-  hash_code Key = hash_value(V->getValueID() + 2);
-  hash_code SubKey = hash_value(0);
-  // Sort the loads by the distance between the pointers.
-  if (auto *LI = dyn_cast<LoadInst>(V)) {
-    Key = hash_combine(hash_value(LI->getParent()), Key);
-    if (LI->isSimple())
-      SubKey = hash_value(LoadsSubkeyGenerator(Key, LI));
-    else
-      SubKey = hash_value(LI);
-  } else if (isVectorLikeInstWithConstOps(V)) {
-    // Sort extracts by the vector operands.
-    if (isa<ExtractElementInst, UndefValue>(V))
-      Key = hash_value(Value::UndefValueVal + 1);
-    if (auto *EI = dyn_cast<ExtractElementInst>(V)) {
-      if (!isUndefVector(EI->getVectorOperand()) &&
-          !isa<UndefValue>(EI->getIndexOperand()))
-        SubKey = hash_value(EI->getVectorOperand());
-    }
-  } else if (auto *I = dyn_cast<Instruction>(V)) {
-    // Sort other instructions just by the opcodes except for CMPInst.
-    // For CMP also sort by the predicate kind.
-    if ((isa<BinaryOperator>(I) || isa<CastInst>(I)) &&
-        isValidForAlternation(I->getOpcode())) {
-      if (AllowAlternate)
-        Key = hash_value(isa<BinaryOperator>(I) ? 1 : 0);
-      else
-        Key = hash_combine(hash_value(I->getOpcode()), Key);
-      SubKey = hash_combine(
-          hash_value(I->getOpcode()), hash_value(I->getType()),
-          hash_value(isa<BinaryOperator>(I)
-                         ? I->getType()
-                         : cast<CastInst>(I)->getOperand(0)->getType()));
-    } else if (auto *CI = dyn_cast<CmpInst>(I)) {
-      CmpInst::Predicate Pred = CI->getPredicate();
-      if (CI->isCommutative())
-        Pred = std::min(Pred, CmpInst::getInversePredicate(Pred));
-      CmpInst::Predicate SwapPred = CmpInst::getSwappedPredicate(Pred);
-      SubKey = hash_combine(hash_value(I->getOpcode()), hash_value(Pred),
-                            hash_value(SwapPred),
-                            hash_value(CI->getOperand(0)->getType()));
-    } else if (auto *Call = dyn_cast<CallInst>(I)) {
-      Intrinsic::ID ID = getVectorIntrinsicIDForCall(Call, TLI);
-      if (isTriviallyVectorizable(ID))
-        SubKey = hash_combine(hash_value(I->getOpcode()), hash_value(ID));
-      else if (!VFDatabase(*Call).getMappings(*Call).empty())
-        SubKey = hash_combine(hash_value(I->getOpcode()),
-                              hash_value(Call->getCalledFunction()));
-      else
-        SubKey = hash_combine(hash_value(I->getOpcode()), hash_value(Call));
-      for (const CallBase::BundleOpInfo &Op : Call->bundle_op_infos())
-        SubKey = hash_combine(hash_value(Op.Begin), hash_value(Op.End),
-                              hash_value(Op.Tag), SubKey);
-    } else if (auto *Gep = dyn_cast<GetElementPtrInst>(I)) {
-      if (Gep->getNumOperands() == 2 && isa<ConstantInt>(Gep->getOperand(1)))
-        SubKey = hash_value(Gep->getPointerOperand());
-      else
-        SubKey = hash_value(Gep);
-    } else if (BinaryOperator::isIntDivRem(I->getOpcode()) &&
-               !isa<ConstantInt>(I->getOperand(1))) {
-      // Do not try to vectorize instructions with potentially high cost.
-      SubKey = hash_value(I);
-    } else {
-      SubKey = hash_value(I->getOpcode());
-    }
-    Key = hash_combine(hash_value(I->getParent()), Key);
-  }
-  return std::make_pair(Key, SubKey);
-}
-
 #if INTEL_CUSTOMIZATION
 void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
-=======
-void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
->>>>>>> 883571928c3416bb46e0cb63344915fccd9e6192
                             const EdgeInfo &UserTreeIdx) {
   // Since we are updating VL, we need a non-readonly VL, so create a copy.
   // TODO: Any better way of doing this?
@@ -12458,48 +12377,7 @@ public:
           NumReducedVals != ReduxWidth)
         break;
 
-<<<<<<< HEAD
-        // Intersect the fast-math-flags from all reduction operations.
-        FastMathFlags RdxFMF;
-        RdxFMF.set();
-        for (Value *RdxVal : VL) {
-          if (auto *FPMO = dyn_cast<FPMathOperator>(
-                  ReducedValsToOps.find(RdxVal)->second))
-            RdxFMF &= FPMO->getFastMathFlags();
-        }
-        // Estimate cost.
-#if INTEL_CUSTOMIZATION
-        InstructionCost TreeCost = V.getTreeCost(VL, /*ForReduction=*/true);
-#endif // INTEL_CUSTOMIZATION
-        InstructionCost ReductionCost =
-            getReductionCost(TTI, VL[0], ReduxWidth, RdxFMF);
-        InstructionCost Cost = TreeCost + ReductionCost;
-        if (!Cost.isValid()) {
-          LLVM_DEBUG(dbgs() << "Encountered invalid baseline cost.\n");
-          return nullptr;
-        }
-        if (Cost >= -SLPCostThreshold) {
-          V.getORE()->emit([&]() {
-            return OptimizationRemarkMissed(
-                       SV_NAME, "HorSLPNotBeneficial",
-                       ReducedValsToOps.find(VL[0])->second)
-                   << "Vectorizing horizontal reduction is possible"
-                   << "but not beneficial with cost " << ore::NV("Cost", Cost)
-                   << " and threshold "
-                   << ore::NV("Threshold", -SLPCostThreshold);
-          });
-#if INTEL_CUSTOMIZATION
-          V.undoMultiNodeReordering();
-#endif // INTEL_CUSTOMIZATION
-          AdjustReducedVals();
-          continue;
-        }
-#if INTEL_CUSTOMIZATION
-        V.cleanupMultiNodeReordering();
-#endif // INTEL_CUSTOMIZATION
-=======
       V.computeMinimumValueSizes();
->>>>>>> 883571928c3416bb46e0cb63344915fccd9e6192
 
       // Estimate cost.
       InstructionCost TreeCost =
@@ -12612,7 +12490,7 @@ public:
   unsigned numReductionValues() const { return ReducedVals.size(); }
 
 #if INTEL_CUSTOMIZATION
-  ArrayRef<SmallVector<Value*>> getReducedVals() const {
+  ArrayRef<Value*> getReducedVals() const {
     return makeArrayRef(ReducedVals);
   }
 #endif // INTEL_CUSTOMIZATION
@@ -12903,17 +12781,11 @@ static bool tryToVectorizeHorReductionOrInstOperands(
   SmallPtrSet<Value *, 8> VisitedInstrs;
   SmallVector<WeakTrackingVH> PostponedInsts;
   bool Res = false;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  auto &&TryToReduce =
-      [TTI, &SE, &DL, &P, &R,
-       &TLI](Instruction *Inst, Value *&B0, Value *&B1,
-             SmallVector<SmallVector<Value *>> &ReducedVals) -> Value * {
+  auto &&TryToReduce = [TTI, &P,
+                        &R](Instruction *Inst, Value *&B0, Value *&B1,
+                            SmallVector<Value *> &ReducedVals) -> Value * {
 #endif // INTEL_CUSTOMIZATION
-=======
-  auto &&TryToReduce = [TTI, &P, &R](Instruction *Inst, Value *&B0,
-                                     Value *&B1) -> Value * {
->>>>>>> 883571928c3416bb46e0cb63344915fccd9e6192
     bool IsBinop = matchRdxBop(Inst, B0, B1);
     bool IsSelect = match(Inst, m_Select(m_Value(), m_Value(), m_Value()));
     if (IsBinop || IsSelect) {
@@ -12938,7 +12810,7 @@ static bool tryToVectorizeHorReductionOrInstOperands(
     if (R.isDeleted(Inst))
       continue;
     Value *RedV; // INTEL
-    SmallVector<SmallVector<Value *>> ReducedVals; // INTEL
+    SmallVector<Value *> ReducedVals; // INTEL
     Value *B0 = nullptr, *B1 = nullptr;
     if (RedV = TryToReduce(Inst, B0, B1, ReducedVals)) { // INTEL
       Res = true;
