@@ -1354,6 +1354,7 @@ public:
     static const int ScoreAllUserVectorized = 1;
 
     /// \returns the score of placing \p V1 and \p V2 in consecutive lanes.
+    /// \p U1 and \p U2 are the users of \p V1 and \p V2.
     /// Also, checks if \p V1 and \p V2 are compatible with instructions in \p
     /// MainAltOps.
 #if INTEL_CUSTOMIZATION
@@ -1546,7 +1547,12 @@ public:
     }
 
     /// Go through the operands of \p LHS and \p RHS recursively until \p
-    /// MaxLevel, and return the cummulative score. For example:
+    /// MaxLevel, and return the cummulative score. \p U1 and \p U2 are
+    /// the users of \p LHS and \p RHS (that is \p LHS and \p RHS are operands
+    /// of \p U1 and \p U2), except at the beginning of the recursion where
+    /// these are set to nullptr.
+    ///
+    /// For example:
     /// \verbatim
     ///  A[0]  B[0]  A[1]  B[1]  C[0] D[0]  B[1] A[1]
     ///     \ /         \ /         \ /        \ /
