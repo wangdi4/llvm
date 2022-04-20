@@ -57,6 +57,7 @@ STATISTIC(NumInaccessibleMemOrArgMemOnly,
 STATISTIC(NumNoUnwind, "Number of functions inferred as nounwind");
 STATISTIC(NumNoCapture, "Number of arguments inferred as nocapture");
 STATISTIC(NumWriteOnlyArg, "Number of arguments inferred as writeonly");
+STATISTIC(NumExtArg, "Number of arguments inferred as signext/zeroext.");
 STATISTIC(NumReadOnlyArg, "Number of arguments inferred as readonly");
 STATISTIC(NumNoAlias, "Number of function returns inferred as noalias");
 STATISTIC(NumNoUndef, "Number of function returns inferred as noundef returns");
@@ -169,6 +170,16 @@ static bool setOnlyWritesMemory(Function &F, unsigned ArgNo) {
   return true;
 }
 
+static bool setArgExtAttr(Function &F, unsigned ArgNo,
+                          const TargetLibraryInfo &TLI, bool Signed = true) {
+  Attribute::AttrKind ExtAttr = TLI.getExtAttrForI32Param(Signed);
+  if (ExtAttr == Attribute::None || F.hasParamAttribute(ArgNo, ExtAttr))
+    return false;
+  F.addParamAttr(ArgNo, ExtAttr);
+  ++NumExtArg;
+  return true;
+}
+
 static bool setRetNoUndef(Function &F) {
   if (!F.getReturnType()->isVoidTy() &&
       !F.hasRetAttribute(Attribute::NoUndef)) {
@@ -278,14 +289,15 @@ static bool setAllocSize(Function &F, unsigned ElemSizeArg,
   return true;
 }
 
-bool llvm::inferNonMandatoryLibFuncAttrs(Module *M, StringRef Name,
-                                         const TargetLibraryInfo &TLI) {
+bool llvm::inferLibFuncAttributes(Module *M, StringRef Name,
+                                  const TargetLibraryInfo &TLI) {
   Function *F = M->getFunction(Name);
   if (!F)
     return false;
-  return inferNonMandatoryLibFuncAttrs(*F, TLI);
+  return inferLibFuncAttributes(*F, TLI);
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static bool isAllUsersFast(Function &F) {
   for (auto I = F.use_begin(), E = F.use_end(); I != E; ++I) {
@@ -299,6 +311,9 @@ static bool isAllUsersFast(Function &F) {
 
 bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
                                          const TargetLibraryInfo &TLI) {
+=======
+bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
+>>>>>>> 14d93907213302dcd57b6dd2baeb9adccc59ab61
   LibFunc TheLibFunc;
   if (!(TLI.getLibFunc(F, TheLibFunc) && TLI.has(TheLibFunc)))
     return false;
@@ -944,6 +959,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_putchar:
   case LibFunc_putchar_unlocked:
     Changed |= setRetAndArgsNoUndef(F);
+    Changed |= setArgExtAttr(F, 0, TLI);
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_popen:
@@ -2782,6 +2798,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_ldexp:
   case LibFunc_ldexpf:
   case LibFunc_ldexpl:
+    Changed |= setArgExtAttr(F, 1, TLI);
     Changed |= setWillReturn(F);
     if (!F.onlyReadsMemory() && isAllUsersFast(F)) // INTEL
       Changed |= setOnlyReadsMemory(F);            // INTEL
@@ -2926,83 +2943,6 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   }
 }
 
-static void setArgExtAttr(Function &F, unsigned ArgNo,
-                          const TargetLibraryInfo &TLI, bool Signed = true) {
-  Attribute::AttrKind ExtAttr = TLI.getExtAttrForI32Param(Signed);
-  if (ExtAttr != Attribute::None && !F.hasParamAttribute(ArgNo, ExtAttr))
-    F.addParamAttr(ArgNo, ExtAttr);
-}
-
-FunctionCallee llvm::getOrInsertLibFunc(Module *M, const TargetLibraryInfo &TLI,
-                                        LibFunc TheLibFunc, FunctionType *T,
-                                        AttributeList AttributeList) {
-  assert(TLI.has(TheLibFunc) &&
-         "Creating call to non-existing library function.");
-  StringRef Name = TLI.getName(TheLibFunc);
-  FunctionCallee C = M->getOrInsertFunction(Name, T, AttributeList);
-
-  // Make sure any mandatory argument attributes are added.
-
-  // Any outgoing i32 argument should be handled with setArgExtAttr() which
-  // will add an extension attribute if the target ABI requires it. Adding
-  // argument extensions is typically done by the front end but when an
-  // optimizer is building a library call on its own it has to take care of
-  // this. Each such generated function must be handled here with sign or
-  // zero extensions as needed.
-  Function &F = *M->getFunction(Name);
-  switch (TheLibFunc) {
-  case LibFunc_fputc:
-  case LibFunc_putchar:
-    setArgExtAttr(F, 0, TLI);
-    break;
-  case LibFunc_ldexp:
-  case LibFunc_ldexpf:
-  case LibFunc_ldexpl:
-  case LibFunc_memchr:
-  case LibFunc_strchr:
-    setArgExtAttr(F, 1, TLI);
-    break;
-  case LibFunc_memccpy:
-    setArgExtAttr(F, 2, TLI);
-    break;
-
-    // These are functions that are known to not need any argument extension
-    // on any target: A size_t argument (which may be an i32 on some targets)
-    // should not trigger the assert below.
-  case LibFunc_bcmp:
-  case LibFunc_calloc:
-  case LibFunc_fwrite:
-  case LibFunc_malloc:
-  case LibFunc_memcmp:
-  case LibFunc_memcpy_chk:
-  case LibFunc_mempcpy:
-  case LibFunc_memset_pattern16:
-  case LibFunc_snprintf:
-  case LibFunc_strlcat:
-  case LibFunc_strlcpy:
-  case LibFunc_strncat:
-  case LibFunc_strncmp:
-  case LibFunc_strncpy:
-  case LibFunc_vsnprintf:
-    break;
-
-  default:
-#ifndef NDEBUG
-    for (unsigned i = 0; i < T->getNumParams(); i++)
-      assert(!isa<IntegerType>(T->getParamType(i)) &&
-             "Unhandled integer argument.");
-#endif
-    break;
-  }
-
-  return C;
-}
-
-FunctionCallee llvm::getOrInsertLibFunc(Module *M, const TargetLibraryInfo &TLI,
-                                        LibFunc TheLibFunc, FunctionType *T) {
-  return getOrInsertLibFunc(M, TLI, TheLibFunc, T, AttributeList());
-}
-
 bool llvm::hasFloatFn(const TargetLibraryInfo *TLI, Type *Ty,
                       LibFunc DoubleFn, LibFunc FloatFn, LibFunc LongDoubleFn) {
   switch (Ty->getTypeID()) {
@@ -3017,9 +2957,9 @@ bool llvm::hasFloatFn(const TargetLibraryInfo *TLI, Type *Ty,
   }
 }
 
-StringRef llvm::getFloatFn(const TargetLibraryInfo *TLI, Type *Ty,
-                           LibFunc DoubleFn, LibFunc FloatFn,
-                           LibFunc LongDoubleFn, LibFunc &TheLibFunc) {
+StringRef llvm::getFloatFnName(const TargetLibraryInfo *TLI, Type *Ty,
+                               LibFunc DoubleFn, LibFunc FloatFn,
+                               LibFunc LongDoubleFn) {
   assert(hasFloatFn(TLI, Ty, DoubleFn, FloatFn, LongDoubleFn) &&
          "Cannot get name for unavailable function!");
 
@@ -3027,13 +2967,10 @@ StringRef llvm::getFloatFn(const TargetLibraryInfo *TLI, Type *Ty,
   case Type::HalfTyID:
     llvm_unreachable("No name for HalfTy!");
   case Type::FloatTyID:
-    TheLibFunc = FloatFn;
     return TLI->getName(FloatFn);
   case Type::DoubleTyID:
-    TheLibFunc = DoubleFn;
     return TLI->getName(DoubleFn);
   default:
-    TheLibFunc = LongDoubleFn;
     return TLI->getName(LongDoubleFn);
   }
 }
@@ -3056,8 +2993,8 @@ static Value *emitLibCall(LibFunc TheLibFunc, Type *ReturnType,
   Module *M = B.GetInsertBlock()->getModule();
   StringRef FuncName = TLI->getName(TheLibFunc);
   FunctionType *FuncType = FunctionType::get(ReturnType, ParamTypes, IsVaArgs);
-  FunctionCallee Callee = getOrInsertLibFunc(M, *TLI, TheLibFunc, FuncType);
-  inferNonMandatoryLibFuncAttrs(M, FuncName, *TLI);
+  FunctionCallee Callee = M->getOrInsertFunction(FuncName, FuncType);
+  inferLibFuncAttributes(M, FuncName, *TLI);
   CallInst *CI = B.CreateCall(Callee, Operands, FuncName);
   if (const Function *F =
           dyn_cast<Function>(Callee.getCallee()->stripPointerCasts()))
@@ -3134,8 +3071,8 @@ Value *llvm::emitMemCpyChk(Value *Dst, Value *Src, Value *Len, Value *ObjSize,
   AS = AttributeList::get(M->getContext(), AttributeList::FunctionIndex,
                           Attribute::NoUnwind);
   LLVMContext &Context = B.GetInsertBlock()->getContext();
-  FunctionCallee MemCpy = getOrInsertLibFunc(M, *TLI, LibFunc_memcpy_chk,
-      AttributeList::get(M->getContext(), AS), B.getInt8PtrTy(),
+  FunctionCallee MemCpy = M->getOrInsertFunction(
+      "__memcpy_chk", AttributeList::get(M->getContext(), AS), B.getInt8PtrTy(),
       B.getInt8PtrTy(), B.getInt8PtrTy(), DL.getIntPtrType(Context),
       DL.getIntPtrType(Context));
   Dst = castToCStr(Dst, B);
@@ -3269,15 +3206,14 @@ static void appendTypeSuffix(Value *Op, StringRef &Name,
   }
 }
 
-static Value *emitUnaryFloatFnCallHelper(Value *Op, LibFunc TheLibFunc,
-                                         StringRef Name, IRBuilderBase &B,
-                                         const AttributeList &Attrs,
-                                         const TargetLibraryInfo *TLI) {
+static Value *emitUnaryFloatFnCallHelper(Value *Op, StringRef Name,
+                                         IRBuilderBase &B,
+                                         const AttributeList &Attrs) {
   assert((Name != "") && "Must specify Name to emitUnaryFloatFnCall");
 
   Module *M = B.GetInsertBlock()->getModule();
-  FunctionCallee Callee = getOrInsertLibFunc(M, *TLI, TheLibFunc, Op->getType(),
-                                             Op->getType());
+  FunctionCallee Callee =
+      M->getOrInsertFunction(Name, Op->getType(), Op->getType());
   CallInst *CI = B.CreateCall(Callee, Op, Name);
 
   // The incoming attribute set may have come from a speculatable intrinsic, but
@@ -3292,16 +3228,12 @@ static Value *emitUnaryFloatFnCallHelper(Value *Op, LibFunc TheLibFunc,
   return CI;
 }
 
-Value *llvm::emitUnaryFloatFnCall(Value *Op, const TargetLibraryInfo *TLI,
-                                  StringRef Name, IRBuilderBase &B,
+Value *llvm::emitUnaryFloatFnCall(Value *Op, StringRef Name, IRBuilderBase &B,
                                   const AttributeList &Attrs) {
   SmallString<20> NameBuffer;
   appendTypeSuffix(Op, Name, NameBuffer);
 
-  LibFunc TheLibFunc;
-  TLI->getLibFunc(Name, TheLibFunc);
-
-  return emitUnaryFloatFnCallHelper(Op, TheLibFunc, Name, B, Attrs, TLI);
+  return emitUnaryFloatFnCallHelper(Op, Name, B, Attrs);
 }
 
 Value *llvm::emitUnaryFloatFnCall(Value *Op, const TargetLibraryInfo *TLI,
@@ -3309,24 +3241,23 @@ Value *llvm::emitUnaryFloatFnCall(Value *Op, const TargetLibraryInfo *TLI,
                                   LibFunc LongDoubleFn, IRBuilderBase &B,
                                   const AttributeList &Attrs) {
   // Get the name of the function according to TLI.
-  LibFunc TheLibFunc;
-  StringRef Name = getFloatFn(TLI, Op->getType(), DoubleFn, FloatFn,
-                              LongDoubleFn, TheLibFunc);
+  StringRef Name = getFloatFnName(TLI, Op->getType(),
+                                  DoubleFn, FloatFn, LongDoubleFn);
 
-  return emitUnaryFloatFnCallHelper(Op, TheLibFunc, Name, B, Attrs, TLI);
+  return emitUnaryFloatFnCallHelper(Op, Name, B, Attrs);
 }
 
 static Value *emitBinaryFloatFnCallHelper(Value *Op1, Value *Op2,
-                                          LibFunc TheLibFunc,
                                           StringRef Name, IRBuilderBase &B,
                                           const AttributeList &Attrs,
-                                          const TargetLibraryInfo *TLI) {
+                                          const TargetLibraryInfo *TLI = nullptr) {
   assert((Name != "") && "Must specify Name to emitBinaryFloatFnCall");
 
   Module *M = B.GetInsertBlock()->getModule();
-  FunctionCallee Callee = getOrInsertLibFunc(M, *TLI, TheLibFunc, Op1->getType(),
-                                             Op1->getType(), Op2->getType());
-  inferNonMandatoryLibFuncAttrs(M, Name, *TLI);
+  FunctionCallee Callee = M->getOrInsertFunction(Name, Op1->getType(),
+                                                 Op1->getType(), Op2->getType());
+  if (TLI != nullptr)
+    inferLibFuncAttributes(M, Name, *TLI);
   CallInst *CI = B.CreateCall(Callee, { Op1, Op2 }, Name);
 
   // The incoming attribute set may have come from a speculatable intrinsic, but
@@ -3341,19 +3272,15 @@ static Value *emitBinaryFloatFnCallHelper(Value *Op1, Value *Op2,
   return CI;
 }
 
-Value *llvm::emitBinaryFloatFnCall(Value *Op1, Value *Op2,
-                                   const TargetLibraryInfo *TLI,
-                                   StringRef Name, IRBuilderBase &B,
+Value *llvm::emitBinaryFloatFnCall(Value *Op1, Value *Op2, StringRef Name,
+                                   IRBuilderBase &B,
                                    const AttributeList &Attrs) {
   assert((Name != "") && "Must specify Name to emitBinaryFloatFnCall");
 
   SmallString<20> NameBuffer;
   appendTypeSuffix(Op1, Name, NameBuffer);
 
-  LibFunc TheLibFunc;
-  TLI->getLibFunc(Name, TheLibFunc);
-
-  return emitBinaryFloatFnCallHelper(Op1, Op2, TheLibFunc, Name, B, Attrs, TLI);
+  return emitBinaryFloatFnCallHelper(Op1, Op2, Name, B, Attrs);
 }
 
 Value *llvm::emitBinaryFloatFnCall(Value *Op1, Value *Op2,
@@ -3362,11 +3289,10 @@ Value *llvm::emitBinaryFloatFnCall(Value *Op1, Value *Op2,
                                    LibFunc LongDoubleFn, IRBuilderBase &B,
                                    const AttributeList &Attrs) {
   // Get the name of the function according to TLI.
-  LibFunc TheLibFunc;
-  StringRef Name = getFloatFn(TLI, Op1->getType(), DoubleFn, FloatFn,
-                              LongDoubleFn, TheLibFunc);
+  StringRef Name = getFloatFnName(TLI, Op1->getType(),
+                                  DoubleFn, FloatFn, LongDoubleFn);
 
-  return emitBinaryFloatFnCallHelper(Op1, Op2, TheLibFunc, Name, B, Attrs, TLI);
+  return emitBinaryFloatFnCallHelper(Op1, Op2, Name, B, Attrs, TLI);
 }
 
 Value *llvm::emitPutChar(Value *Char, IRBuilderBase &B,
@@ -3376,9 +3302,9 @@ Value *llvm::emitPutChar(Value *Char, IRBuilderBase &B,
 
   Module *M = B.GetInsertBlock()->getModule();
   StringRef PutCharName = TLI->getName(LibFunc_putchar);
-  FunctionCallee PutChar = getOrInsertLibFunc(M, *TLI, LibFunc_putchar,
-                                              B.getInt32Ty(), B.getInt32Ty());
-  inferNonMandatoryLibFuncAttrs(M, PutCharName, *TLI);
+  FunctionCallee PutChar =
+      M->getOrInsertFunction(PutCharName, B.getInt32Ty(), B.getInt32Ty());
+  inferLibFuncAttributes(M, PutCharName, *TLI);
   CallInst *CI = B.CreateCall(PutChar,
                               B.CreateIntCast(Char,
                               B.getInt32Ty(),
@@ -3399,9 +3325,9 @@ Value *llvm::emitPutS(Value *Str, IRBuilderBase &B,
 
   Module *M = B.GetInsertBlock()->getModule();
   StringRef PutsName = TLI->getName(LibFunc_puts);
-  FunctionCallee PutS = getOrInsertLibFunc(M, *TLI, LibFunc_puts, B.getInt32Ty(),
-                                           B.getInt8PtrTy());
-  inferNonMandatoryLibFuncAttrs(M, PutsName, *TLI);
+  FunctionCallee PutS =
+      M->getOrInsertFunction(PutsName, B.getInt32Ty(), B.getInt8PtrTy());
+  inferLibFuncAttributes(M, PutsName, *TLI);
   CallInst *CI = B.CreateCall(PutS, castToCStr(Str, B), PutsName);
   if (const Function *F =
           dyn_cast<Function>(PutS.getCallee()->stripPointerCasts()))
@@ -3416,10 +3342,10 @@ Value *llvm::emitFPutC(Value *Char, Value *File, IRBuilderBase &B,
 
   Module *M = B.GetInsertBlock()->getModule();
   StringRef FPutcName = TLI->getName(LibFunc_fputc);
-  FunctionCallee F = getOrInsertLibFunc(M, *TLI, LibFunc_fputc, B.getInt32Ty(),
-                                        B.getInt32Ty(), File->getType());
+  FunctionCallee F = M->getOrInsertFunction(FPutcName, B.getInt32Ty(),
+                                            B.getInt32Ty(), File->getType());
   if (File->getType()->isPointerTy())
-    inferNonMandatoryLibFuncAttrs(M, FPutcName, *TLI);
+    inferLibFuncAttributes(M, FPutcName, *TLI);
   Char = B.CreateIntCast(Char, B.getInt32Ty(), /*isSigned*/true,
                          "chari");
   CallInst *CI = B.CreateCall(F, {Char, File}, FPutcName);
@@ -3437,10 +3363,10 @@ Value *llvm::emitFPutS(Value *Str, Value *File, IRBuilderBase &B,
 
   Module *M = B.GetInsertBlock()->getModule();
   StringRef FPutsName = TLI->getName(LibFunc_fputs);
-  FunctionCallee F = getOrInsertLibFunc(M, *TLI, LibFunc_fputs, B.getInt32Ty(),
-                                        B.getInt8PtrTy(), File->getType());
+  FunctionCallee F = M->getOrInsertFunction(FPutsName, B.getInt32Ty(),
+                                            B.getInt8PtrTy(), File->getType());
   if (File->getType()->isPointerTy())
-    inferNonMandatoryLibFuncAttrs(M, FPutsName, *TLI);
+    inferLibFuncAttributes(M, FPutsName, *TLI);
   CallInst *CI = B.CreateCall(F, {castToCStr(Str, B), File}, FPutsName);
 
   if (const Function *Fn =
@@ -3457,12 +3383,12 @@ Value *llvm::emitFWrite(Value *Ptr, Value *Size, Value *File, IRBuilderBase &B,
   Module *M = B.GetInsertBlock()->getModule();
   LLVMContext &Context = B.GetInsertBlock()->getContext();
   StringRef FWriteName = TLI->getName(LibFunc_fwrite);
-  FunctionCallee F = getOrInsertLibFunc(M, *TLI, LibFunc_fwrite,
-       DL.getIntPtrType(Context), B.getInt8PtrTy(), DL.getIntPtrType(Context),
-       DL.getIntPtrType(Context), File->getType());
+  FunctionCallee F = M->getOrInsertFunction(
+      FWriteName, DL.getIntPtrType(Context), B.getInt8PtrTy(),
+      DL.getIntPtrType(Context), DL.getIntPtrType(Context), File->getType());
 
   if (File->getType()->isPointerTy())
-    inferNonMandatoryLibFuncAttrs(M, FWriteName, *TLI);
+    inferLibFuncAttributes(M, FWriteName, *TLI);
   CallInst *CI =
       B.CreateCall(F, {castToCStr(Ptr, B), Size,
                        ConstantInt::get(DL.getIntPtrType(Context), 1), File});
@@ -3481,9 +3407,9 @@ Value *llvm::emitMalloc(Value *Num, IRBuilderBase &B, const DataLayout &DL,
   Module *M = B.GetInsertBlock()->getModule();
   StringRef MallocName = TLI->getName(LibFunc_malloc);
   LLVMContext &Context = B.GetInsertBlock()->getContext();
-  FunctionCallee Malloc = getOrInsertLibFunc(M, *TLI, LibFunc_malloc,
-                                 B.getInt8PtrTy(), DL.getIntPtrType(Context));
-  inferNonMandatoryLibFuncAttrs(M, MallocName, *TLI);
+  FunctionCallee Malloc = M->getOrInsertFunction(MallocName, B.getInt8PtrTy(),
+                                                 DL.getIntPtrType(Context));
+  inferLibFuncAttributes(M, MallocName, *TLI);
   CallInst *CI = B.CreateCall(Malloc, Num, MallocName);
 
   if (const Function *F =
@@ -3502,9 +3428,9 @@ Value *llvm::emitCalloc(Value *Num, Value *Size, IRBuilderBase &B,
   StringRef CallocName = TLI.getName(LibFunc_calloc);
   const DataLayout &DL = M->getDataLayout();
   IntegerType *PtrType = DL.getIntPtrType((B.GetInsertBlock()->getContext()));
-  FunctionCallee Calloc = getOrInsertLibFunc(M, TLI, LibFunc_calloc,
-                                             B.getInt8PtrTy(), PtrType, PtrType);
-  inferNonMandatoryLibFuncAttrs(M, CallocName, TLI);
+  FunctionCallee Calloc =
+      M->getOrInsertFunction(CallocName, B.getInt8PtrTy(), PtrType, PtrType);
+  inferLibFuncAttributes(M, CallocName, TLI);
   CallInst *CI = B.CreateCall(Calloc, {Num, Size}, CallocName);
 
   if (const auto *F =
