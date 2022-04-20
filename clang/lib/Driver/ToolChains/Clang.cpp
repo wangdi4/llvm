@@ -4842,7 +4842,17 @@ void Clang::ClangTidySourceCheck(Compilation &C, const JobAction &JA,
     // Skip -Wcheck-unicode-security
     if (A->getOption().matches(options::OPT_Wcheck_unicode_security))
       continue;
-    ClangTidyArgs.push_back(TCArgs.MakeArgString(A->getAsString(TCArgs)));
+    if (getToolChain().getTriple().isWindowsMSVCEnvironment()) {
+      // There are a few options that are implied for Intel mode, we skip
+      // these for MSVC as they are unknown from the command line.
+      // Skip any input name options, as they are not parsed correctly.
+      if (A->getOption().matches(options::OPT_fveclib) ||
+          A->getOption().matches(options::OPT__SLASH_Tc) ||
+          A->getOption().matches(options::OPT__SLASH_Tp))
+        continue;
+    }
+    ClangTidyArgs.push_back(
+        TCArgs.MakeArgString(A->getBaseArg().getAsString(TCArgs)));
   }
 
   // Find clang-tidy.
