@@ -335,8 +335,6 @@ template <> struct MappingTraits<SIMachineFunctionInfo> {
 class SIMachineFunctionInfo final : public AMDGPUMachineFunction {
   friend class GCNTargetMachine;
 
-  Register TIDReg = AMDGPU::NoRegister;
-
   // Registers that may be reserved for spilling purposes. These may be the same
   // as the input registers.
   Register ScratchRSrcReg = AMDGPU::PRIVATE_RSRC_REG;
@@ -382,7 +380,6 @@ class SIMachineFunctionInfo final : public AMDGPUMachineFunction {
   std::unique_ptr<const AMDGPUGWSResourcePseudoSourceValue> GWSResourcePSV;
 
 private:
-  unsigned LDSWaveSpillSize = 0;
   unsigned NumUserSGPRs = 0;
   unsigned NumSystemSGPRs = 0;
 
@@ -470,9 +467,23 @@ public:
     bool IsDead = false;
   };
 
-  // Map WWM VGPR to a stack slot that is used to save/restore it in the
-  // prolog/epilog.
-  MapVector<Register, Optional<int>> WWMReservedRegs;
+  // Track VGPRs reserved for WWM.
+  SmallSetVector<Register, 8> WWMReservedRegs;
+
+  /// Track stack slots used for save/restore of reserved WWM VGPRs in the
+  /// prolog/epilog.
+
+  /// FIXME: This is temporary state only needed in PrologEpilogInserter, and
+  /// doesn't really belong here. It does not require serialization
+  SmallVector<int, 8> WWMReservedFrameIndexes;
+
+  void allocateWWMReservedSpillSlots(MachineFrameInfo &MFI,
+                                     const SIRegisterInfo &TRI);
+
+  auto wwmAllocation() const {
+    assert(WWMReservedRegs.size() == WWMReservedFrameIndexes.size());
+    return zip(WWMReservedRegs, WWMReservedFrameIndexes);
+  }
 
 private:
   // Track VGPR + wave index for each subregister of the SGPR spilled to
@@ -524,8 +535,8 @@ public:
                                 PerFunctionMIParsingState &PFS,
                                 SMDiagnostic &Error, SMRange &SourceRange);
 
-  void reserveWWMRegister(Register Reg, Optional<int> FI) {
-    WWMReservedRegs.insert(std::make_pair(Reg, FI));
+  void reserveWWMRegister(Register Reg) {
+    WWMReservedRegs.insert(Reg);
   }
 
   ArrayRef<SpilledReg> getSGPRToVGPRSpills(int FrameIndex) const {
@@ -568,10 +579,6 @@ public:
 
   int getScavengeFI(MachineFrameInfo &MFI, const SIRegisterInfo &TRI);
   Optional<int> getOptionalScavengeFI() const { return ScavengeFI; }
-
-  bool hasCalculatedTID() const { return TIDReg != 0; };
-  Register getTIDReg() const { return TIDReg; };
-  void setTIDReg(Register Reg) { TIDReg = Reg; }
 
   unsigned getBytesInStackArgArea() const {
     return BytesInStackArgArea;
@@ -910,10 +917,6 @@ public:
       return ArgInfo.WorkGroupIDZ.getRegister();
     }
     llvm_unreachable("unexpected dimension");
-  }
-
-  unsigned getLDSWaveSpillSize() const {
-    return LDSWaveSpillSize;
   }
 
   const AMDGPUBufferPseudoSourceValue *getBufferPSV(const SIInstrInfo &TII) {
