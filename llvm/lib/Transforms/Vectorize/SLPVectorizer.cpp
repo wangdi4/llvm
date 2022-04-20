@@ -12386,8 +12386,10 @@ public:
       V.computeMinimumValueSizes();
 
       // Estimate cost.
-      InstructionCost TreeCost =
-          V.getTreeCost(makeArrayRef(&ReducedVals[i], ReduxWidth));
+#if INTEL_CUSTOMIZATION
+      InstructionCost TreeCost = V.getTreeCost(
+          makeArrayRef(&ReducedVals[i], ReduxWidth), /*ForReduction=*/true);
+#endif // INTEL_CUSTOMIZATION
       InstructionCost ReductionCost =
           getReductionCost(TTI, ReducedVals[i], ReduxWidth, RdxFMF);
       InstructionCost Cost = TreeCost + ReductionCost;
@@ -12404,8 +12406,15 @@ public:
                  << " and threshold "
                  << ore::NV("Threshold", -SLPCostThreshold);
         });
+#if INTEL_CUSTOMIZATION
+        V.undoMultiNodeReordering();
+#endif // INTEL_CUSTOMIZATION
         break;
       }
+
+#if INTEL_CUSTOMIZATION
+      V.cleanupMultiNodeReordering();
+#endif // INTEL_CUSTOMIZATION
 
       LLVM_DEBUG(dbgs() << "SLP: Vectorizing horizontal reduction at cost:"
                         << Cost << ". (HorRdx)\n");
@@ -12790,7 +12799,7 @@ static bool tryToVectorizeHorReductionOrInstOperands(
 #if INTEL_CUSTOMIZATION
   auto &&TryToReduce = [TTI, &P,
                         &R](Instruction *Inst, Value *&B0, Value *&B1,
-                            SmallVector<Value *> &ReducedVals) -> Value * {
+                            SmallVectorImpl<Value *> &ReducedVals) -> Value * {
 #endif // INTEL_CUSTOMIZATION
     bool IsBinop = matchRdxBop(Inst, B0, B1);
     bool IsSelect = match(Inst, m_Select(m_Value(), m_Value(), m_Value()));
@@ -12815,7 +12824,7 @@ static bool tryToVectorizeHorReductionOrInstOperands(
     // iteration while stack was populated before that happened.
     if (R.isDeleted(Inst))
       continue;
-    Value *RedV; // INTEL
+    Value *RedV;                      // INTEL
     SmallVector<Value *> ReducedVals; // INTEL
     Value *B0 = nullptr, *B1 = nullptr;
     if (RedV = TryToReduce(Inst, B0, B1, ReducedVals)) { // INTEL
@@ -12826,12 +12835,10 @@ static bool tryToVectorizeHorReductionOrInstOperands(
       // If reduced values are comparisons then we want to direct
       // vectorizer first to make attempt to vectorize pair which
       // are operands of a same cmp instruction.
-      for (ArrayRef<Value *> Candidates : ReducedVals) {
-        for (Value *V : Candidates)
-          if (isa<CmpInst>(V) && VisitedInstrs.insert(V).second &&
-              Vectorize(cast<Instruction>(V), R))
-            Res = true;
-      }
+      for (Value *V : ReducedVals)
+        if (isa<CmpInst>(V) && VisitedInstrs.insert(V).second &&
+            Vectorize(cast<Instruction>(V), R))
+          Res = true;
     }
     if (Res) {
 #endif // INTEL_CUSTOMIZATION
