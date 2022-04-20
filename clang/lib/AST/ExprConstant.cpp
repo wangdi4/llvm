@@ -8311,7 +8311,7 @@ bool LValueExprEvaluator::VisitVarDecl(const Expr *E, const VarDecl *VD) {
 }
 
 bool LValueExprEvaluator::VisitCallExpr(const CallExpr *E) {
-  switch (unsigned BuiltinOp = E->getBuiltinCallee()) {
+  switch (E->getBuiltinCallee()) {
   case Builtin::BIas_const:
   case Builtin::BIforward:
   case Builtin::BImove:
