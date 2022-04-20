@@ -249,33 +249,30 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
               "exist for host address " DPxMOD " (%" PRId64 " bytes)",
               DPxPTR(HstPtrBegin), Size);
 #if INTEL_COLLAB
-  } else if (((PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
-               !managed_memory_supported()) ||
-              is_device_accessible_ptr(HstPtrBegin)) &&
+  } else if (!requiresMapping(HstPtrBegin)) {
+    // Let plugin decide if HstPtrBegin and Size requires mapping
+    DP("Return HstPtrBegin " DPxMOD " Size=%" PRId64
+       " for device-accessible memory\n", DPxPTR(HstPtrBegin), Size);
+    TargetPointer = HstPtrBegin;
+  } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
+             !HasCloseModifier && !managed_memory_supported()) {
 #else // INTEL_COLLAB
   } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
-#endif // INTEL_COLLAB
              !HasCloseModifier) {
+#endif // INTEL_COLLAB
     // If unified shared memory is active, implicitly mapped variables that are
     // not privatized use host address. Any explicitly mapped variables also use
     // host address where correctness is not impeded. In all other cases maps
     // are respected.
     // In addition to the mapping rules above, the close map modifier forces the
     // mapping of the variable to the device.
-#if !INTEL_COLLAB
     if (Size) {
-#endif // !INTEL_COLLAB
       DP("Return HstPtrBegin " DPxMOD " Size=%" PRId64 " for unified shared "
          "memory\n",
          DPxPTR((uintptr_t)HstPtrBegin), Size);
-#if INTEL_COLLAB
-      if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
-#endif // INTEL_COLLAB
-        IsHostPtr = true;
+      IsHostPtr = true;
       TargetPointer = HstPtrBegin;
-#if !INTEL_COLLAB
     }
-#endif // !INTEL_COLLAB
   } else if (HasPresentModifier) {
 #if INTEL_COLLAB
     DP("Mapping required by 'present' map type modifier does not exist for "
@@ -437,10 +434,13 @@ DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
          DynRefCountAction, HT.holdRefCountToStr().c_str(), HoldRefCountAction);
     TargetPointer = (void *)tp;
 #if INTEL_COLLAB
-  } else if ((PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
-                  !managed_memory_supported()) ||
-             is_device_accessible_ptr(HstPtrBegin)) {
-#else  // INTEL_COLLAB
+  } else if (!requiresMapping(HstPtrBegin)) {
+    DP("Get HstPtrBegin " DPxMOD " Size=%" PRId64
+       " for device-accessible memory\n", DPxPTR(HstPtrBegin), Size);
+    TargetPointer = HstPtrBegin;
+  } else if ((PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) &&
+             !managed_memory_supported()) {
+#else // INTEL_COLLAB
   } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
 #endif // INTEL_COLLAB
     // If the value isn't found in the mapping and unified shared memory
@@ -449,9 +449,6 @@ DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
     DP("Get HstPtrBegin " DPxMOD " Size=%" PRId64 " for unified shared "
        "memory\n",
        DPxPTR((uintptr_t)HstPtrBegin), Size);
-#if INTEL_COLLAB
-    if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
-#endif // INTEL_COLLAB
     IsHostPtr = true;
     TargetPointer = HstPtrBegin;
   }
@@ -896,11 +893,11 @@ void *DeviceTy::data_alloc_managed(int64_t Size) {
     return RTL->data_alloc(RTLDeviceID, Size, nullptr, TARGET_ALLOC_DEFAULT);
 }
 
-int32_t DeviceTy::is_device_accessible_ptr(void *Ptr) {
-  if (RTL->is_device_accessible_ptr)
-    return RTL->is_device_accessible_ptr(RTLDeviceID, Ptr);
+int32_t DeviceTy::requiresMapping(void *Ptr) {
+  if (RTL->requires_mapping)
+    return RTL->requires_mapping(RTLDeviceID, Ptr);
   else
-    return 0;
+    return 1;
 }
 
 int32_t DeviceTy::managed_memory_supported() {

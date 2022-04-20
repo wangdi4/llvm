@@ -3755,12 +3755,18 @@ EXTERN void *__tgt_rtl_data_aligned_alloc(
   return DeviceInfo->dataAlloc(DeviceId, Size, Align, Kind, 0, true);
 }
 
-EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(int32_t DeviceId, void *Ptr) {
-  int32_t ret = DeviceInfo->getMemAllocType(Ptr) != ZE_MEMORY_TYPE_UNKNOWN;
+int32_t __tgt_rtl_requires_mapping(int32_t DeviceId, void *Ptr) {
+  int32_t Ret;
+  auto AllocType = DeviceInfo->getMemAllocType(Ptr);
+  if (AllocType == ZE_MEMORY_TYPE_UNKNOWN || AllocType == ZE_MEMORY_TYPE_HOST)
+    Ret = 1;
+  else
+    Ret = 0;
 
-  DP("Ptr " DPxMOD " is %sa device accessible memory pointer.\n", DPxPTR(Ptr),
-     ret ? "" : "not ");
-  return ret;
+  DP("Ptr " DPxMOD " %s mapping\n", DPxPTR(Ptr),
+     Ret ? "requires" : "does not require");
+
+  return Ret;
 }
 
 static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
@@ -3786,7 +3792,8 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
   if (DiscreteDevice || TgtPtrType == ZE_MEMORY_TYPE_DEVICE) {
     void *SrcPtr = HstPtr;
     if (DiscreteDevice &&
-        static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize) {
+        static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize &&
+        DeviceInfo->getMemAllocType(HstPtr) != ZE_MEMORY_TYPE_HOST) {
       SrcPtr = DeviceInfo->getStagingBuffer().get();
       std::copy_n(
           static_cast<char *>(HstPtr), Size, static_cast<char *>(SrcPtr));
@@ -3838,7 +3845,8 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
   if (DiscreteDevice || TgtPtrType == ZE_MEMORY_TYPE_DEVICE) {
     void *DstPtr = HstPtr;
     if (DiscreteDevice &&
-        static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize) {
+        static_cast<size_t>(Size) <= DeviceInfo->Option.StagingBufferSize &&
+        DeviceInfo->getMemAllocType(HstPtr) != ZE_MEMORY_TYPE_HOST) {
       DstPtr = DeviceInfo->getStagingBuffer().get();
     }
     if (OFFLOAD_SUCCESS !=

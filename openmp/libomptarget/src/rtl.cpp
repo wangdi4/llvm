@@ -386,7 +386,7 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(get_context_handle);
     SET_OPTIONAL_INTERFACE_FN(get_data_alloc_info);
     SET_OPTIONAL_INTERFACE_FN(init_ompt);
-    SET_OPTIONAL_INTERFACE_FN(is_device_accessible_ptr);
+    SET_OPTIONAL_INTERFACE_FN(requires_mapping);
     SET_OPTIONAL_INTERFACE_FN(manifest_data_for_region);
     SET_OPTIONAL_INTERFACE_FN(push_subdevice);
     SET_OPTIONAL_INTERFACE_FN(pop_subdevice);
