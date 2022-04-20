@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 #
 # INTEL CONFIDENTIAL
@@ -405,12 +404,6 @@ intel_add_file(INTEL_HEADERS
 # end INTEL_FEATURE_XUCC
 # end INTEL_CUSTOMIZATION
 
-set(files
-  adxintrin.h
-  altivec.h
-  ammintrin.h
-  amxintrin.h
-=======
 # core_files list contains the headers shared by all platforms.
 # Please consider adding new platform specific headers
 # to platform specific lists below.
@@ -436,7 +429,6 @@ set(core_files
 
 set(arm_common_files
   # Headers shared by Arm and AArch64
->>>>>>> 2512a875ccac158bc9b654b09e3347db167e33df
   arm_acle.h
   )
 
