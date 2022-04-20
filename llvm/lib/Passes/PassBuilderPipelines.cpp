@@ -1390,7 +1390,6 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // Do basic inference of function attributes from known properties of system
   // libraries and other oracles.
   MPM.addPass(InferFunctionAttrsPass());
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (RunVPOOpt && RunVPOParopt)
     MPM.addPass(RequireAnalysisPass<VPOParoptConfigAnalysis, Module>());
@@ -1410,9 +1409,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   }
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-=======
   MPM.addPass(CoroEarlyPass());
->>>>>>> f9bee35689c48cc2651905c478d543f3b24d2adf
 
   // Create an early function pass manager to cleanup the output of the
   // frontend.
@@ -1439,8 +1436,6 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
   EarlyFPM.addPass(EarlyCSEPass());
-<<<<<<< HEAD
-  EarlyFPM.addPass(CoroEarlyPass());
 #if INTEL_COLLAB
 
   // Process OpenMP directives at -O1 and above
@@ -1451,8 +1446,6 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
     addVPOPasses(MPM, EarlyFPM, Level, /*RunVec=*/false);
   }
 #endif // INTEL_COLLAB
-=======
->>>>>>> f9bee35689c48cc2651905c478d543f3b24d2adf
   if (Level == OptimizationLevel::O3)
     EarlyFPM.addPass(CallSiteSplittingPass());
 

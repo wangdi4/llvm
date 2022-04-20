@@ -522,11 +522,7 @@ FUNCTION_PASS("cleanup-fakeloads", CleanupFakeLoadsPass()) // INTEL
 FUNCTION_PASS("consthoist", ConstantHoistingPass())
 FUNCTION_PASS("constraint-elimination", ConstraintEliminationPass())
 FUNCTION_PASS("chr", ControlHeightReductionPass())
-<<<<<<< HEAD
 FUNCTION_PASS("convert-to-subscript", ConvertGEPToSubscriptIntrinsicPass()) // INTEL
-FUNCTION_PASS("coro-early", CoroEarlyPass())
-=======
->>>>>>> f9bee35689c48cc2651905c478d543f3b24d2adf
 FUNCTION_PASS("coro-elide", CoroElidePass())
 FUNCTION_PASS("coro-cleanup", CoroCleanupPass())
 FUNCTION_PASS("correlated-propagation", CorrelatedValuePropagationPass())
