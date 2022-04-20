@@ -3903,6 +3903,44 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
   Ref->setBasePtrElementType(getBasePtrElementType(BaseGEPOp));
 }
 
+bool HIRParser::hasIncompatibleTypes(RegDDRef *Ref, Type *DimTy,
+                                     Type *ElemTy) const {
+
+  bool IsOpaquePtr =
+      DimTy->isPointerTy() && cast<PointerType>(DimTy)->isOpaque();
+
+  // Additional checks are only for opaque pointers.
+  // This is to incur the minimal changes in non-opaque ptr inputs.
+  if (!IsOpaquePtr)
+    return false;
+
+  if (!Ref->hasGEPInfo() || !ElemTy)
+    return false;
+
+  // This is immediate extension on the existing indexCE merging logic.
+  // Before this check, indexCE with DimElemTy, i.e. the new indexCE
+  // is added to current indexCE (i.e. indexCE at Ref->getNumDimensions())
+  unsigned DimElemTySize = getCanonExprUtils().getTypeSizeInBytes(ElemTy);
+  unsigned CurDimElemTySize = getCanonExprUtils().getTypeSizeInBytes(
+      Ref->getDimensionElementType(Ref->getNumDimensions()));
+
+  if (!CurDimElemTySize || !DimElemTySize)
+    return false;
+
+  bool TypeMatch = CurDimElemTySize == DimElemTySize;
+
+  if (TypeMatch)
+    return false;
+
+  // TODO:
+  // I thought this type size mismatch can happen only with opaque pointers
+  // so added following assertion. However, non-opaque pointers could have
+  // this case.
+  // assert(DimTy->isPointerTy() && cast<PointerType>(DimTy)->isOpaque());
+
+  return true;
+}
+
 void HIRParser::addPhiBaseGEPDimensions(const GEPOrSubsOperator *GEPOp,
                                         const GEPOrSubsOperator *InitGEPOp,
                                         RegDDRef *Ref, CanonExpr *IndexCE,
@@ -4025,12 +4063,22 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
       }
     }
 
+    // Check Dim Types
+    bool DimTypeMatch =
+        !hasIncompatibleTypes(Ref, CurBasePhi->getType(), ElemTy);
+
     // Non-linear base is parsed as base + zero offset: (%p)[0].
-    if (!IndexCE || !BaseVal) {
+    if (!DimTypeMatch) {
+      BaseVal = CurBasePhi;
+
+      // Break out of the do-while loop so the remaining part
+      // can be parsed separately, not added to the highest dim of
+      // Ref.
+      break;
+    } else if (!IndexCE || !BaseVal) {
       InitGEPOp = nullptr;
       BaseVal = CurBasePhi;
       IndexCE = getCanonExprUtils().createCanonExpr(OffsetTy);
-
     } else {
       ElementSize = getCanonExprUtils().getTypeSizeInBytes(ElemTy);
     }
