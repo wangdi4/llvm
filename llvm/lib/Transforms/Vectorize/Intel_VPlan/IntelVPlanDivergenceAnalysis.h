@@ -228,13 +228,15 @@ public:
     recomputeShapes(Seeds);
   }
 
-  // Clone instructions' vector shapes when we clone VPlan. This function is
-  // used when DA recomputation is not allowed.
-  void cloneVectorShapes(VPlanVector *ClonedVPlan,
-                         DenseMap<VPValue *, VPValue *> &OrigClonedValuesMap);
+  // Clone all data (instruction shapes, divergent block info) when we clone
+  // VPlan. This function is used when DA recomputation is not allowed.
+  void cloneDAData(VPlanVector *ClonedVPlan,
+                   DenseMap<VPValue *, VPValue *> &OrigClonedValuesMap);
 
-  // Disable DA recomputation. It is used when we clone DA during VPlan cloning.
-  // When we clone DA after the predicator, we cannot compute/recompute DA.
+  // Disable branch-divergence recomputation. When we clone DA after predicator,
+  // we cannot compute/recompute branch-divergence due to linearization. We can
+  // recalculate divergence for other instructions basing on their operands and
+  // block divergence info gathered during pre-predicator calculations.
   void disableDARecomputation() { DARecomputationDisabled = true; }
 
   /// Returns true if OldShape is not equal to NewShape.
@@ -257,6 +259,11 @@ private:
   /// Propagate divergence to all instructions in the region.
   /// Divergence is seeded by calls to \p markDivergent.
   void computeImpl();
+
+  // Clone instructions' vector shapes when we clone VPlan. This function is
+  // used when DA recomputation is not allowed.
+  void cloneVectorShapes(VPlanVector *ClonedVPlan,
+                         DenseMap<VPValue *, VPValue *> &OrigClonedValuesMap);
 
   /// Push the instruction to the Worklist.
   bool pushToWorklist(const VPInstruction &I);

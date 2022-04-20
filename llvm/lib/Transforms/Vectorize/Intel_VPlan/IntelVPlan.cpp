@@ -1709,7 +1709,7 @@ void VPlanVector::copyData(VPAnalysesFactoryBase &VPAF, UpdateDA UDA,
     if (UDA == UpdateDA::RecalculateDA)
       TargetPlan->computeDA();
     else if (UDA == UpdateDA::CloneDA) {
-      getVPlanDA()->cloneVectorShapes(TargetPlan, OrigClonedValuesMap);
+      getVPlanDA()->cloneDAData(TargetPlan, OrigClonedValuesMap);
       TargetPlan->getVPlanDA()->disableDARecomputation();
     }
   }

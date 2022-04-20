@@ -11,8 +11,9 @@
 ; CHECK: Running analysis: dtransOP::DTransSafetyAnalyzer on [module]
 ; CHECK: Running pass:  dtransOP::DeleteFieldOPPass on [module]
 ; CHECK: Invalidating analysis: dtransOP::DTransSafetyAnalyzer on [module]
-; CHECK: Running pass: dtransOP::AOSToSOAOPPass on [module]
+; CHECK-NEXT: Running pass: dtransOP::ReorderFieldsOPPass on [module]
 ; CHECK:Running analysis: dtransOP::DTransSafetyAnalyzer on [module]
+; CHECK: Running pass: dtransOP::AOSToSOAOPPass on [module]
 ; CHECK: Invalidating analysis: dtransOP::DTransSafetyAnalyzer on [module]
 ; CHECK: Running pass: dtransOP::DynClonePass on [module]
 

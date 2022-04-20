@@ -22,10 +22,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT:    store <4 x i32> [[BROADCAST_SPLAT:%.*]], <4 x i32>* [[TMP5]], align 4
 ; CHECK-NEXT:    br i1 [[CMP116:%.*]], label %[[VPLANNEDBB4:.*]], label %[[VPLANNEDBB5:.*]]
 ; CHECK:       VPlannedBB4:
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT20:%.*]] = insertelement <4 x i32> poison, i32 [[C:%.*]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT21:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT20]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    br label %[[VPLANNEDBB6:.*]]
 ; CHECK:       VPlannedBB6:
 ; CHECK-NEXT:    [[UNI_PHI7:%.*]] = phi i64 [ [[TMP9:%.*]], %[[VPLANNEDBB6]] ], [ 0, %[[VPLANNEDBB4]] ]
-; CHECK-NEXT:    [[VEC_PHI8:%.*]] = phi <4 x i32> [ [[TMP8:%.*]], %[[VPLANNEDBB6]] ], [ [[BROADCAST_SPLAT21:%.*]], %[[VPLANNEDBB4]] ]
+; CHECK-NEXT:    [[VEC_PHI8:%.*]] = phi <4 x i32> [ [[TMP8:%.*]], %[[VPLANNEDBB6]] ], [ [[BROADCAST_SPLAT21]], %[[VPLANNEDBB4]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP9:%.*]] = getelementptr i32, i32* [[B:%.*]], i64 [[UNI_PHI7]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = load i32, i32* [[SCALAR_GEP9]], align 4
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT10:%.*]] = insertelement <4 x i32> poison, i32 [[TMP6]], i32 0

@@ -45,6 +45,7 @@
 #include "Intel_DTrans/Transforms/PaddedPointerPropagation.h"
 #include "Intel_DTrans/Transforms/RemoveDTransTypeMetadata.h"
 #include "Intel_DTrans/Transforms/ReorderFields.h"
+#include "Intel_DTrans/Transforms/ReorderFieldsOP.h"
 #include "Intel_DTrans/Transforms/ResolveTypes.h"
 #include "Intel_DTrans/Transforms/SOAToAOS.h"
 #include "Intel_DTrans/Transforms/SOAToAOSOP.h"

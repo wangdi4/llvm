@@ -102,7 +102,7 @@ public:
 
   // Get the widened vector value for given value V. If the scalar value
   // has not been widened, we widen it by VF and store it in WidenMap
-  // before returning the widened value
+  // before returning the widened value.
   Value *getVectorValue(VPValue *V);
 
   // Get a vector of pointers corresponding to the private variable for each
@@ -424,6 +424,11 @@ private:
   // value maps. This is done when we encounter VPPushVF/VPPopVF so we don't
   // use values geneated for different loops/VPlans.
   void dropExternalValsFromMaps();
+
+  // Create broadcast of the external into vector with CurVF length. The
+  // broadcast is created at the current insertion point.
+  // No internal VPValue->Value maps are updated.
+  Value* getVectorValueForExternal(VPValue* V, unsigned CurVF);
 
   /// The original loop.
   Loop *OrigLoop;

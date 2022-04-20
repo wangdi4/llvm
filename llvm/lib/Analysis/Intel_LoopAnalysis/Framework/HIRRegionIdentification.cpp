@@ -577,7 +577,7 @@ bool HIRRegionIdentification::isSupported(Type *Ty, bool IsGEPRelated,
     return false;
   }
 
-  if (Ty->isX86_AMXTy()) {
+  if (Ty->isX86_AMXTy() || Ty->isX86_MMXTy()) {
     // It is not valid to create a pointer of this type which is required for us
     // to generate code as HIRCodeGen generates an alloca for every temp. As
     // such CG fails for this type so we need to disallow it.
@@ -1634,6 +1634,26 @@ static bool hasUnsupportedOperandBundle(const CallInst *CI) {
   return !isKnownLoopDirective(CI, true) && !isKnownLoopDirective(CI, false);
 }
 
+static bool isUnsupportedX86SSEIntrinsic(const CallInst *CI) {
+  if (!CI)
+    return false;
+
+  auto *Callee = CI->getCalledFunction();
+  if (!Callee)
+    return false;
+
+  StringRef Name = Callee->getName();
+  if (Name.empty())
+    return false;
+
+  if (!Name.startswith("llvm."))
+    return false;
+
+  Name = Name.substr(5);
+
+  return (Name.startswith("x86.sse") || Name.startswith("x86.ssse"));
+}
+
 bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
                                           const Loop *Lp) {
   auto FirstInst = BB->getFirstNonPHI();
@@ -1713,6 +1733,11 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
     if (auto CInst = dyn_cast<CallInst>(Inst)) {
       if (CInst->isInlineAsm()) {
         printOptReportRemark(Lp, "Inline assembly currently not supported.");
+        return false;
+      }
+
+      if (isUnsupportedX86SSEIntrinsic(CInst)) {
+        printOptReportRemark(Lp, "Skip loops with X86 SSE intrinsics.");
         return false;
       }
 

@@ -527,6 +527,10 @@ bool VPlanDivergenceAnalysis::propagateJoinDivergence(
 
 void VPlanDivergenceAnalysis::propagateBranchDivergence(
     const VPBasicBlock *CondBlock) {
+
+  assert(!DARecomputationDisabled &&
+         "Can't compute branch divergence for this VPlan!");
+
   LLVM_DEBUG(dbgs() << "propBranchDiv " << CondBlock->getName() << "\n");
   auto CtrlDivDesc = SDA->getJoinBlocks(*CondBlock->getTerminator());
   const auto *BranchLoop = VPLI->getLoopFor(CondBlock);
@@ -1685,9 +1689,6 @@ void VPlanDivergenceAnalysis::recomputeShapes(
     SmallPtrSetImpl<VPInstruction *> &Seeds,
     bool EnableFullDAVerificationAndPrint) {
 
-  assert(!DARecomputationDisabled &&
-         "DA should not be computed for this Cloned VPlan!");
-
   if (Seeds.empty())
     return;
 
@@ -1723,12 +1724,37 @@ void VPlanDivergenceAnalysis::recomputeShapes(
 
 #endif // INTEL_CUSTOMIZATION
 
-void VPlanDivergenceAnalysis::cloneVectorShapes(
+void VPlanDivergenceAnalysis::cloneDAData(
     VPlanVector *ClonedVPlan,
     DenseMap<VPValue *, VPValue *> &OrigClonedValuesMap) {
 
   auto *ClonedVPDA = ClonedVPlan->getVPlanDA();
   ClonedVPDA->Plan = ClonedVPlan;
+  for (const VPBasicBlock *BB : DivergentLoopExits)
+    ClonedVPDA->addDivergentLoopExit(*cast<VPBasicBlock>(
+        OrigClonedValuesMap[const_cast<VPBasicBlock *>(BB)]));
+
+  for (const VPBasicBlock *BB : DivergentJoinBlocks)
+    ClonedVPDA->markBlockJoinDivergent(*cast<VPBasicBlock>(
+        OrigClonedValuesMap[const_cast<VPBasicBlock *>(BB)]));
+
+  VPLoopInfo *ClonedLoopInfo = ClonedVPlan->getVPLoopInfo();
+  ClonedVPDA->VPLI = ClonedLoopInfo;
+  for (const VPLoop *Lp : DivergentLoops) {
+    const VPBasicBlock *Header = Lp->getHeader();
+    const VPLoop *ClonedLoop = ClonedLoopInfo->getLoopFor(cast<VPBasicBlock>(
+        OrigClonedValuesMap[const_cast<VPBasicBlock *>(Header)]));
+    ClonedVPDA->addDivergentLoops(*ClonedLoop);
+  }
+  cloneVectorShapes(ClonedVPlan, OrigClonedValuesMap);
+  ClonedVPDA->IsLCSSAForm = IsLCSSAForm;
+}
+
+void VPlanDivergenceAnalysis::cloneVectorShapes(
+    VPlanVector *ClonedVPlan,
+    DenseMap<VPValue *, VPValue *> &OrigClonedValuesMap) {
+
+  auto *ClonedVPDA = ClonedVPlan->getVPlanDA();
   for (const auto &Pair : OrigClonedValuesMap) {
     VPValue *OrigVal = Pair.first;
     VPValue *ClonedVal = Pair.second;

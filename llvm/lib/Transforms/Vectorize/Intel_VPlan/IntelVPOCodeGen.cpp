@@ -25,6 +25,7 @@
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -3449,6 +3450,36 @@ void VPOCodeGen::vectorizeLifetimeStartEndIntrinsic(VPCallInstruction *VPCall) {
   serializeWithPredication(VPCall);
 }
 
+Value *VPOCodeGen::getVectorValueForExternal(VPValue *V, unsigned CurVF) {
+  assert((isa<VPExternalDef>(V) || isa<VPConstant>(V) ||
+          isa<VPMetadataAsValue>(V)) &&
+         "Unknown external VPValue.");
+  assert(Plan->getVPlanDA()->isUniform(*V) && "External value is not uniform.");
+  Value *UnderlyingV = getScalarValue(V, 0 /*Lane*/);
+  assert(UnderlyingV &&
+         "External VPValues are expected to have underlying IR value set.");
+
+  Value *Widened;
+  // Broadcast V and save the value for future uses.
+  if (auto *ValVecTy = dyn_cast<VectorType>(V->getType())) {
+    assert(ValVecTy->getElementType()->isSingleValueType() &&
+           "Re-vectorization is supported for simple vectors only");
+    (void)ValVecTy;
+    // Widen the uniform vector variable as following
+    //                        <i32 0, i32 1>
+    //                             |
+    //                             |VF = 4
+    //                             |
+    //                             V
+    //          <i32 0, i32 1,i32 0, i32 1,i32 0, i32 1,i32 0, i32 1>
+    Widened = replicateVector(UnderlyingV, CurVF, Builder,
+                              "replicatedVal." + UnderlyingV->getName());
+  } else {
+    Widened = Builder.CreateVectorSplat(CurVF, UnderlyingV, "broadcast");
+  }
+  return Widened;
+}
+
 Value *VPOCodeGen::getVectorValue(VPValue *V) {
   // If we have this scalar in the map, return it.
   if (VPWidenMap.count(V))
@@ -3536,7 +3567,8 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
             replicateVector(ScalarValue, VF, Builder,
                             "replicatedVal." + ScalarValue->getName());
       } else
-        VectorValue = Builder.CreateVectorSplat(VF, ScalarValue, "broadcast");
+        VectorValue =
+            Builder.CreateVectorSplat(VF, ScalarValue, "broadcast");
 
       VPWidenMap[V] = VectorValue;
       return VectorValue;
@@ -3569,14 +3601,6 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
 
   // VPInstructions should already be handled, only external values are expected
   // here.
-  assert((isa<VPExternalDef>(V) || isa<VPConstant>(V) ||
-          isa<VPMetadataAsValue>(V)) &&
-         "Unknown external VPValue.");
-  assert(Plan->getVPlanDA()->isUniform(*V) && "External value is not uniform.");
-  Value *UnderlyingV = getScalarValue(V, 0 /*Lane*/);
-  assert(UnderlyingV &&
-         "External VPValues are expected to have underlying IR value set.");
-
   // Keep the VPValue for dropping when we switch VF.
   VPValsToFlushForVF.insert(V);
 
@@ -3587,24 +3611,7 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
   else
     Builder.SetInsertPoint(LoopVectorPreHeader->getTerminator());
 
-  // Broadcast V and save the value for future uses.
-  Value *Widened;
-  if (auto *ValVecTy = dyn_cast<VectorType>(V->getType())) {
-    assert(ValVecTy->getElementType()->isSingleValueType() &&
-           "Re-vectorization is supported for simple vectors only");
-    (void)ValVecTy;
-    // Widen the uniform vector variable as following
-    //                        <i32 0, i32 1>
-    //                             |
-    //                             |VF = 4
-    //                             |
-    //                             V
-    //          <i32 0, i32 1,i32 0, i32 1,i32 0, i32 1,i32 0, i32 1>
-    Widened = replicateVector(UnderlyingV, VF, Builder,
-                                    "replicatedVal." + UnderlyingV->getName());
-  } else {
-    Widened = Builder.CreateVectorSplat(VF, UnderlyingV, "broadcast");
-  }
+  Value *Widened = getVectorValueForExternal(V, VF);
   VPWidenMap[V] = Widened;
 
   return Widened;
@@ -4612,9 +4619,44 @@ void VPOCodeGen::fixNonInductionVPPhis() {
     for (unsigned I = 0; I < NumPhiValues; ++I) {
       auto *VPVal = VPPhi->getIncomingValue(I);
       auto *VPBB = VPPhi->getIncomingBlock(I);
+      BasicBlock *BB = State->CFG.VPBB2IREndBB[VPBB];
       bool IsScalar = Lane != -1;
-      Value *IncValue =
-          IsScalar ? getScalarValue(VPVal, Lane) : getVectorValue(VPVal);
+      Value *IncValue;
+      if (IsScalar) {
+        IncValue = getScalarValue(VPVal, Lane);
+      } else {
+        // At this point we have VF set to the main VPlan VF. So if we process a
+        // phi that is in the peel/remainder VPlan which has another VF we
+        // should be careful with uniform values that are fed into vector phis.
+        // We need to broadcast them with the correct VF. Also, the broadcasts
+        // should be placed correctly to avoid domination issues.
+
+        // First, get the needed VF.
+        Type *ValTy = Phi->getType();
+        assert(ValTy->isVectorTy() && "expected vector type");
+        unsigned CurVF = cast<FixedVectorType>(ValTy)->getNumElements();
+        Type *VPTy = VPVal->getType();
+        if (VPTy->isVectorTy()) {
+          // vectors are re-vectorized into vectors with OldVF x VF length.
+          unsigned NumElts = cast<FixedVectorType>(VPTy)->getNumElements();
+          CurVF /= NumElts;
+          assert(CurVF > 1 && "unexpected VF");
+        }
+
+        if (isa<VPExternalDef>(VPVal) || isa<VPConstant>(VPVal) ||
+            isa<VPMetadataAsValue>(VPVal)) {
+          // Externals: insert broadcast in the end of incoming block and don't
+          // update value maps.
+          IRBuilder<>::InsertPointGuard Guard(Builder);
+          Builder.SetInsertPoint(BB->getTerminator());
+          IncValue = getVectorValueForExternal(VPVal, CurVF);
+        } else {
+          // In case we have a uniform value here, we need to use the correct
+          // VF.
+          llvm::SaveAndRestore<unsigned> SvVF(VF, CurVF);
+          IncValue = getVectorValue(VPVal);
+        }
+      }
       // We can have a scenario when dealing with SOA pointers
       // where it is not the same as the targeted type. We have to insert a
       // bitcast it to an appropriate type.
@@ -4631,7 +4673,6 @@ void VPOCodeGen::fixNonInductionVPPhis() {
         // setting up builder's insertion point.
         IncValue = Builder.CreateBitCast(IncValue, Phi->getType());
       }
-      BasicBlock *BB = State->CFG.VPBB2IREndBB[VPBB];
       if (Plan->hasExplicitRemainder()) {
         if (auto *LiveOut = dyn_cast<VPRemainderOrigLiveOut>(VPVal)) {
           // Add outgoing from the scalar loop.
