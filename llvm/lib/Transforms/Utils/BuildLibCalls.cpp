@@ -297,7 +297,6 @@ bool llvm::inferLibFuncAttributes(Module *M, StringRef Name,
   return inferLibFuncAttributes(*F, TLI);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static bool isAllUsersFast(Function &F) {
   for (auto I = F.use_begin(), E = F.use_end(); I != E; ++I) {
@@ -309,11 +308,7 @@ static bool isAllUsersFast(Function &F) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
-                                         const TargetLibraryInfo &TLI) {
-=======
 bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
->>>>>>> 14d93907213302dcd57b6dd2baeb9adccc59ab61
   LibFunc TheLibFunc;
   if (!(TLI.getLibFunc(F, TheLibFunc) && TLI.has(TheLibFunc)))
     return false;

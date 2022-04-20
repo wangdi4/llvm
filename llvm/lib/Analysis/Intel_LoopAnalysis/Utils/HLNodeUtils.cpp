@@ -1197,7 +1197,7 @@ HLInst *HLNodeUtils::createDbgPuts(const TargetLibraryInfo &TLI,
   StringRef PutsName = TLI.getName(LibFunc_puts);
   FunctionCallee PutsCallee = getModule().getOrInsertFunction(
       PutsName, Type::getInt32Ty(Ctx), Type::getInt8PtrTy(Ctx, 0));
-  inferNonMandatoryLibFuncAttrs(&getModule(), PutsName, TLI);
+  inferLibFuncAttributes(&getModule(), PutsName, TLI);
 
   GlobalVariable *ConstStr =
       DummyIRBuilder->CreateGlobalString(Message, "hir.str");
