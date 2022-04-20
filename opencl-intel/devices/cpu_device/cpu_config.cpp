@@ -229,7 +229,9 @@ CPUDeviceConfig::GetExtensionsWithVersion() const
     GET_EXT_VER(OCL_EXT_KHR_DEPTH_IMAGES, 1, 0, 0);
     GET_EXT_VER(OCL_EXT_KHR_3D_IMAGE_WRITES, 1, 0, 0);
     GET_EXT_VER(OCL_EXT_KHR_IL_PROGRAM, 1, 0, 0);
-    GET_EXT_VER(OCL_EXT_KHR_SUBGROUP_BALLOT, 1, 0, 0);
+    // FIXME: Re-claim cl_khr_subgroup_ballot support when we implement all
+    // required builtins.
+    // GET_EXT_VER(OCL_EXT_KHR_SUBGROUP_BALLOT, 1, 0, 0);
 
     // common Intel extensions
     GET_EXT_VER(OCL_EXT_INTEL_UNIFIED_SHARED_MEMORY, 1, 0, 0);

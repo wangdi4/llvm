@@ -71,7 +71,10 @@ const std::map<std::string, cl_version> extRefCPU = {
     {"cl_intel_subgroups_long", CL_MAKE_VERSION(1, 0, 0)},
     {"cl_intel_subgroups_short", CL_MAKE_VERSION(1, 0, 0)},
     {"cl_khr_spirv_linkonce_odr", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_khr_subgroup_ballot", CL_MAKE_VERSION(1, 0, 0)}};
+    // FIXME: Re-claim cl_khr_subgroup_ballot support when we implement all
+    // required builtins.
+    // {"cl_khr_subgroup_ballot", CL_MAKE_VERSION(1, 0, 0)}
+    };
 
 TEST_F(CheckExtensions, CpuDevice) {
   // Query list of extension names from clGetPlatformInfo/clGetDeviceInfo
