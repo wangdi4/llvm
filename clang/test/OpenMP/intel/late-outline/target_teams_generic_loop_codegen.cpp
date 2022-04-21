@@ -1,19 +1,19 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -emit-pch -o %t -std=c++14 -fopenmp  -fopenmp-version=50 \
+// RUN: %clang_cc1 -opaque-pointers -emit-pch -o %t -std=c++14 -fopenmp  -fopenmp-version=50 \
 // RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s
 
-// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
 // RUN:  -include-pch %t -verify -fopenmp-version=50 \
 // RUN:  -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck --check-prefixes CHECK,CHECK-NEW %s
 
-//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes -fopenmp-version=50 \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
-//RUN: %clang_cc1 -triple spir64 \
+//RUN: %clang_cc1 -opaque-pointers -triple spir64 \
 //RUN:  -aux-triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
@@ -22,16 +22,16 @@
 //RUN:  -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s -check-prefixes TARG
 
-// RUN: %clang_cc1 -emit-pch -o %t -std=c++14 -fopenmp  -fopenmp-version=50 \
+// RUN: %clang_cc1 -opaque-pointers -emit-pch -o %t -std=c++14 -fopenmp  -fopenmp-version=50 \
 // RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu \
 // RUN:  -fno-openmp-new-depend-ir %s
 
-// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
 // RUN:  -include-pch %t -verify -fopenmp-version=50 \
 // RUN:  -triple x86_64-unknown-linux-gnu -fno-openmp-new-depend-ir %s \
 // RUN:  | FileCheck --check-prefixes CHECK,CHECK-OLD %s
 
-//RUN: %clang_cc1 -triple spir64 \
+//RUN: %clang_cc1 -opaque-pointers -triple spir64 \
 //RUN:  -aux-triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
@@ -74,23 +74,23 @@ void foo1() {
   //CHECK: "DIR.OMP.TARGET"(),
   //CHECK-DAG: "QUAL.OMP.IF"(i1 true),
   //CHECK-DAG: "QUAL.OMP.DEVICE"(i32 0),
-  //CHECK-DAG: "QUAL.OMP.MAP.TOFROM"(i32* [[PR]],
+  //CHECK-DAG: "QUAL.OMP.MAP.TOFROM"(ptr [[PR]],
   //CHECK: "DIR.OMP.TEAMS"(),
   //CHECK-DAG: "QUAL.OMP.NUM_TEAMS"(i32 8)
   //CHECK-DAG: "QUAL.OMP.THREAD_LIMIT"(i32 4)
-  //CHECK-DAG: "QUAL.OMP.SHARED"([1000 x i32]* @aaa)
-  //CHECK-DAG: "QUAL.OMP.ALLOCATE"(i64 4, i32* [[Z]], i64 1)
+  //CHECK-DAG: "QUAL.OMP.SHARED"(ptr @aaa)
+  //CHECK-DAG: "QUAL.OMP.ALLOCATE"(i64 4, ptr [[Z]], i64 1)
   //CHECK: "DIR.OMP.GENERICLOOP"(),
   //CHECK-DAG: "QUAL.OMP.BIND.TEAMS"()
   //CHECK-DAG: "QUAL.OMP.ORDER.CONCURRENT"()
-  //CHECK-DAG: "QUAL.OMP.LASTPRIVATE"(i32* [[I]])
-  //CHECK-DAG: "QUAL.OMP.LASTPRIVATE"(i32* [[J]])
-  //CHECK-DAG: "QUAL.OMP.REDUCTION.ADD"(i32* [[X]])
-  //CHECK-DAG: "QUAL.OMP.PRIVATE"(i32* [[Z]])
-  //CHECK-DAG: "QUAL.OMP.SHARED"([1000 x i32]* @aaa)
-  //CHECK-DAG: "QUAL.OMP.NORMALIZED.IV"(i32* [[IV]])
-  //CHECK-DAG: "QUAL.OMP.NORMALIZED.UB"(i32* [[UB]])
-  //CHECK-DAG: "QUAL.OMP.FIRSTPRIVATE"(i32* [[LB]])
+  //CHECK-DAG: "QUAL.OMP.LASTPRIVATE"(ptr [[I]])
+  //CHECK-DAG: "QUAL.OMP.LASTPRIVATE"(ptr [[J]])
+  //CHECK-DAG: "QUAL.OMP.REDUCTION.ADD"(ptr [[X]])
+  //CHECK-DAG: "QUAL.OMP.PRIVATE"(ptr [[Z]])
+  //CHECK-DAG: "QUAL.OMP.SHARED"(ptr @aaa)
+  //CHECK-DAG: "QUAL.OMP.NORMALIZED.IV"(ptr [[IV]])
+  //CHECK-DAG: "QUAL.OMP.NORMALIZED.UB"(ptr [[UB]])
+  //CHECK-DAG: "QUAL.OMP.FIRSTPRIVATE"(ptr [[LB]])
   //CHECK: "DIR.OMP.END.GENERICLOOP"()
   //CHECK: "DIR.OMP.END.TEAMS"()
   //CHECK: "DIR.OMP.END.TARGET"()
@@ -125,15 +125,14 @@ void task_target() {
   short y = 3;
   //CHECK-DAG: [[I:%i[0-9]*]] = alloca i32
   //CHECK-DAG: [[Y:%.+]] = alloca i16,
-  //CHECK-NEW-DAG: [[DARR:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], [1 x %struct.kmp_depend_info]* %.dep.arr.addr, i64 0, i64 0
-  //CHECK-NEW-DAG: [[KDI:%.*]] = bitcast %struct.kmp_depend_info* [[DARR]] to i8*
+  //CHECK-NEW-DAG: [[DARR:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], ptr %.dep.arr.addr, i64 0, i64 0
   //CHECK: DIR.OMP.TASK
   //CHECK-DAG: "QUAL.OMP.IF"(i32 0)
   //CHECK-DAG: "QUAL.OMP.TARGET.TASK"
-  //CHECK-OLD-DAG: "QUAL.OMP.DEPEND.OUT"(i16* [[Y]])
-  //CHECK-NEW-DAG: "QUAL.OMP.DEPARRAY"(i32 1, i8* [[KDI]])
+  //CHECK-OLD-DAG: "QUAL.OMP.DEPEND.OUT"(ptr [[Y]])
+  //CHECK-NEW-DAG: "QUAL.OMP.DEPARRAY"(i32 1, ptr [[DARR]])
   //CHECK: DIR.OMP.TARGET
-  //CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i16* [[Y]],
+  //CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[Y]],
   //CHECK: DIR.OMP.TEAMS
   //CHECK: DIR.OMP.GENERICLOOP
   //CHECK: DIR.OMP.END.GENERICLOOP

@@ -1,11 +1,11 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
+// RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
 // RUN:  -emit-llvm-bc -disable-llvm-passes -fcxx-exceptions \
 // RUN:  -fopenmp -fopenmp-targets=spir64 -fexceptions \
 // RUN:  -fopenmp-late-outline -fintel-compatibility -std=c++14 \
 // RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
-// RUN: %clang_cc1 -triple spir64 \
+// RUN: %clang_cc1 -opaque-pointers -triple spir64 \
 // RUN:  -emit-llvm -disable-llvm-passes -fcxx-exceptions \
 // RUN:  -fopenmp -fopenmp-targets=spir64 -fexceptions \
 // RUN:  -fopenmp-late-outline -fintel-compatibility -std=c++14 \
@@ -27,7 +27,7 @@ void foo(int a) {
   }
 }
 // CHECK: define {{.*}} spir_func void @_Z3fooi(i32 noundef %a)
-// CHECK:  call spir_func void @__cxa_throw(i8 addrspace(4)* {{.+}}, i8 addrspace(4)* {{.+}}, i8 addrspace(4)* null)
-// CHECK: declare spir_func void @__cxa_throw(i8 addrspace(4)*, i8 addrspace(4)*, i8 addrspace(4)*)
+// CHECK:  call spir_func void @__cxa_throw(ptr addrspace(4) {{.+}}, ptr addrspace(4) {{.+}}, ptr addrspace(4) null)
+// CHECK: declare spir_func void @__cxa_throw(ptr addrspace(4), ptr addrspace(4), ptr addrspace(4))
 
 // end INTEL_COLLAB

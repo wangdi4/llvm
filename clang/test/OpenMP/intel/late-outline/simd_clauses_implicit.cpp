@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:   -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 int x[5][3][0];
@@ -12,13 +12,13 @@ void A(int m, int n, int o) {
   // CHECK: [[K:%k.*]] = alloca i32,
 
   //CHECK: region.entry() [ "DIR.OMP.LOOP"()
-  //CHECK-SAME:"QUAL.OMP.PRIVATE"(i32* [[I]])
-  //CHECK-SAME:"QUAL.OMP.PRIVATE"(i32* [[J]])
-  //CHECK-SAME:"QUAL.OMP.PRIVATE"(i32* [[K]])
+  //CHECK-SAME:"QUAL.OMP.PRIVATE"(ptr [[I]])
+  //CHECK-SAME:"QUAL.OMP.PRIVATE"(ptr [[J]])
+  //CHECK-SAME:"QUAL.OMP.PRIVATE"(ptr [[K]])
   //CHECK: region.entry() [ "DIR.OMP.SIMD"()
-  //CHECK-SAME:"QUAL.OMP.PRIVATE"(i32* [[I]])
-  //CHECK-SAME:"QUAL.OMP.PRIVATE"(i32* [[J]])
-  //CHECK-SAME:"QUAL.OMP.PRIVATE"(i32* [[K]])
+  //CHECK-SAME:"QUAL.OMP.PRIVATE"(ptr [[I]])
+  //CHECK-SAME:"QUAL.OMP.PRIVATE"(ptr [[J]])
+  //CHECK-SAME:"QUAL.OMP.PRIVATE"(ptr [[K]])
   #pragma omp for simd collapse(3)
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
@@ -39,13 +39,13 @@ void B(int m, int n, int o) {
   int i,j,k;
 
   //CHECK: region.entry() [ "DIR.OMP.LOOP"()
-  //CHECK-SAME:"QUAL.OMP.LASTPRIVATE"(i32* [[I]])
-  //CHECK-SAME:"QUAL.OMP.LASTPRIVATE"(i32* [[J]])
-  //CHECK-SAME:"QUAL.OMP.LASTPRIVATE"(i32* [[K]])
+  //CHECK-SAME:"QUAL.OMP.LASTPRIVATE"(ptr [[I]])
+  //CHECK-SAME:"QUAL.OMP.LASTPRIVATE"(ptr [[J]])
+  //CHECK-SAME:"QUAL.OMP.LASTPRIVATE"(ptr [[K]])
   //CHECK: region.entry() [ "DIR.OMP.SIMD"()
-  //CHECK-SAME:"QUAL.OMP.LASTPRIVATE"(i32* [[I]])
-  //CHECK-SAME:"QUAL.OMP.LASTPRIVATE"(i32* [[J]])
-  //CHECK-SAME:"QUAL.OMP.LASTPRIVATE"(i32* [[K]])
+  //CHECK-SAME:"QUAL.OMP.LASTPRIVATE"(ptr [[I]])
+  //CHECK-SAME:"QUAL.OMP.LASTPRIVATE"(ptr [[J]])
+  //CHECK-SAME:"QUAL.OMP.LASTPRIVATE"(ptr [[K]])
   #pragma omp for simd collapse(3)
   for (i = 0; i < m; i++) {
     for (j = 0; j < n; j++) {
@@ -64,9 +64,9 @@ void C(int m, int n, int o) {
   int i, j, k;
 
   //CHECK: region.entry() [ "DIR.OMP.LOOP"()
-  //CHECK-SAME:"QUAL.OMP.LASTPRIVATE"(i32* [[I]])
+  //CHECK-SAME:"QUAL.OMP.LASTPRIVATE"(ptr [[I]])
   //CHECK: region.entry() [ "DIR.OMP.SIMD"()
-  //CHECK-SAME:"QUAL.OMP.LINEAR:IV"(i32* [[I]],
+  //CHECK-SAME:"QUAL.OMP.LINEAR:IV"(ptr [[I]],
   #pragma omp for simd // No collapse
   for (i = 0; i < m; i++) {
     for (j = 0; j < n; j++) {
@@ -87,15 +87,15 @@ void D(int m, int n, int o) {
   // CHECK: [[Z:%z.*]] = alloca i32,
 
   //CHECK: region.entry() [ "DIR.OMP.LOOP"()
-  //CHECK-SAME:"QUAL.OMP.PRIVATE"(i32* [[I]])
-  //CHECK-SAME:"QUAL.OMP.PRIVATE"(i32* [[J]])
-  //CHECK-SAME:"QUAL.OMP.PRIVATE"(i32* [[K]])
-  //CHECK-SAME:"QUAL.OMP.PRIVATE"(i32* [[Z]])
+  //CHECK-SAME:"QUAL.OMP.PRIVATE"(ptr [[I]])
+  //CHECK-SAME:"QUAL.OMP.PRIVATE"(ptr [[J]])
+  //CHECK-SAME:"QUAL.OMP.PRIVATE"(ptr [[K]])
+  //CHECK-SAME:"QUAL.OMP.PRIVATE"(ptr [[Z]])
   //CHECK: region.entry() [ "DIR.OMP.SIMD"()
-  //CHECK-SAME:"QUAL.OMP.LINEAR:IV"(i32* [[I]],
-  //CHECK-SAME:"QUAL.OMP.PRIVATE"(i32* [[J]])
-  //CHECK-SAME:"QUAL.OMP.PRIVATE"(i32* [[K]])
-  //CHECK-SAME:"QUAL.OMP.PRIVATE"(i32* [[Z]])
+  //CHECK-SAME:"QUAL.OMP.LINEAR:IV"(ptr [[I]],
+  //CHECK-SAME:"QUAL.OMP.PRIVATE"(ptr [[J]])
+  //CHECK-SAME:"QUAL.OMP.PRIVATE"(ptr [[K]])
+  //CHECK-SAME:"QUAL.OMP.PRIVATE"(ptr [[Z]])
   #pragma omp for simd // No collapse
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
@@ -112,10 +112,10 @@ void E() {
   int n = 2, s = 1, data[2] = { 1, 2};
   //CHECK: [[K:%k.*]] = alloca i32,
   //CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
-  //CHECK: [[L9:%[1-9]*]] = load i32, i32*
+  //CHECK: [[L9:%[1-9]*]] = load i32, ptr
   //CHECK: [[SUB:%.*]] = sub nsw i32 0, [[L9]]
   //CHECK: region.entry() [ "DIR.OMP.SIMD"()
-  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(i32* [[K]], i32 [[SUB]])
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(ptr [[K]], i32 [[SUB]])
   #pragma omp parallel for simd
   for (int k = n-1; k > 0; k -= 2*s)
     data[k] += data[k-s];
