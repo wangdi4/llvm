@@ -925,12 +925,14 @@ define i32 @test_v32i8_muti_uses(<32 x i8> %x, <32 x i8>%y, i32 %z) {
 ;
 ; AVX512-LABEL: test_v32i8_muti_uses:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpcmpeqb %ymm1, %ymm0, %ymm2 ; INTEL
-; AVX512-NEXT:    vpmovmskb %ymm2, %ecx ; INTEL
-; AVX512-NEXT:    vpsubb %ymm1, %ymm0, %ymm0 ; INTEL
-; AVX512-NEXT:    vptest %ymm0, %ymm0 ; INTEL
+; INTEL_CUSTOMIZATION
+; AVX512-NEXT:    vpcmpeqb %ymm1, %ymm0, %ymm2
+; AVX512-NEXT:    vpmovmskb %ymm2, %ecx
+; AVX512-NEXT:    vpsubb %ymm1, %ymm0, %ymm0
+; AVX512-NEXT:    vptest %ymm0, %ymm0
 ; AVX512-NEXT:    movl $16, %eax
-; AVX512-NEXT:    cmovnel %ecx, %eax ; INTEL
+; AVX512-NEXT:    cmovnel %ecx, %eax
+; end INTEL_CUSTOMIZATION
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
   %a = icmp eq <32 x i8> %x, %y
@@ -1209,10 +1211,12 @@ define i1 @bool_reduction_v16i8(<16 x i8> %x, <16 x i8> %y) {
 ;
 ; AVX512-LABEL: bool_reduction_v16i8:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpcmpgtb %xmm1, %xmm0, %xmm0 ; INTEL
-; AVX512-NEXT:    vpmovmskb %xmm0, %eax ; INTEL
-; AVX512-NEXT:    cmpw $-1, %ax ; INTEL
-; AVX512-NEXT:    sete %al ; INTEL
+; INTEL_CUSTOMIZATION
+; AVX512-NEXT:    vpcmpgtb %xmm1, %xmm0, %xmm0
+; AVX512-NEXT:    vpmovmskb %xmm0, %eax
+; AVX512-NEXT:    cmpw $-1, %ax
+; AVX512-NEXT:    sete %al
+; end INTEL_CUSTOMIZATION
 ; AVX512-NEXT:    retq
   %a = icmp sgt <16 x i8> %x, %y
   %s1 = shufflevector <16 x i1> %a, <16 x i1> undef, <16 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
@@ -1415,9 +1419,11 @@ define i1 @bool_reduction_v32i8(<32 x i8> %x, <32 x i8> %y) {
 ;
 ; AVX512-LABEL: bool_reduction_v32i8:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpsubb %ymm1, %ymm0, %ymm0 ; INTEL
-; AVX512-NEXT:    vptest %ymm0, %ymm0 ; INTEL
-; AVX512-NEXT:    sete %al ; INTEL
+; INTEL_CUSTOMIZATION
+; AVX512-NEXT:    vpsubb %ymm1, %ymm0, %ymm0
+; AVX512-NEXT:    vptest %ymm0, %ymm0
+; AVX512-NEXT:    sete %al
+; end INTEL_CUSTOMIZATION
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
   %a = icmp eq <32 x i8> %x, %y
