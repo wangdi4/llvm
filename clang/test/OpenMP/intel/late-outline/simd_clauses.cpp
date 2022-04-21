@@ -1,7 +1,7 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:   -triple x86_64-unknown-linux-gnu %s | FileCheck %s
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:   -fopenmp-version=50 -DOMP50 -triple x86_64-unknown-linux-gnu %s \
 // RUN: | FileCheck %s --check-prefixes=CHECK,CHECK50
 
@@ -18,10 +18,10 @@ void foo()
 {
   // CHECK: [[I_ADDR:%.+]] = alloca i32,
   // CHECK: [[J_ADDR:%.+]] = alloca i32,
-  // CHECK: [[Y_ADDR:%.+]] = alloca i32*,
-  // CHECK: [[Z_ADDR:%.+]] = alloca i32*,
-  // CHECK: [[X_ADDR:%.+]] = alloca i32*,
-  // CHECK: [[Q_ADDR:%.+]] = alloca i32*,
+  // CHECK: [[Y_ADDR:%.+]] = alloca ptr,
+  // CHECK: [[Z_ADDR:%.+]] = alloca ptr,
+  // CHECK: [[X_ADDR:%.+]] = alloca ptr,
+  // CHECK: [[Q_ADDR:%.+]] = alloca ptr,
   // CHECK: [[SIMPLE_ADDR:%.+]] = alloca double,
   int i,j;
   int *y,*z,*x, *q;
@@ -31,20 +31,18 @@ void foo()
   // CHECK-SAME: "QUAL.OMP.SAFELEN"(i32 4)
   // CHECK-SAME: "QUAL.OMP.SIMDLEN"(i32 4)
   // CHECK-SAME: "QUAL.OMP.COLLAPSE"(i32 2)
-  // CHECK-SAME: "QUAL.OMP.ALIGNED:PTR_TO_PTR"(i32** [[Y_ADDR]], i32 8)
-  // CHECK-SAME: "QUAL.OMP.ALIGNED:PTR_TO_PTR"(i32** [[Z_ADDR]], i32 8)
-  // CHECK-SAME: "QUAL.OMP.ALIGNED:PTR_TO_PTR"(i32** [[X_ADDR]], i32 4)
-  // CHECK-SAME: "QUAL.OMP.ALIGNED:PTR_TO_PTR"(i32** [[Q_ADDR]], i32 0)
-  // CHECK-SAME: "QUAL.OMP.LASTPRIVATE"(double* [[SIMPLE_ADDR]])
-  // CHECK-SAME: "QUAL.OMP.LASTPRIVATE:NONPOD"(%struct.A* @obj,
-  // CHECK-SAME: %struct.A* (%struct.A*)* @_ZTS1A.omp.def_constr,
-  // CHECK-SAME: void (%struct.A*, %struct.A*)* @_ZTS1A.omp.copy_assign,
-  // CHECK-SAME: void (%struct.A*)* @_ZTS1A.omp.destr)
-  // CHECK-SAME: QUAL.OMP.LASTPRIVATE:NONPOD"([4 x %struct.A]* @objarr,
-  // CHECK-SAME: %struct.A* (%struct.A*)*
-  // CHECK-SAME: @_ZTS1A.omp.def_constr, void (%struct.A*,
-  // CHECK-SAME: %struct.A*)* @_ZTS1A.omp.copy_assign,
-  // CHECK-SAME: void (%struct.A*)* @_ZTS1A.omp.destr)
+  // CHECK-SAME: "QUAL.OMP.ALIGNED:PTR_TO_PTR"(ptr [[Y_ADDR]], i32 8)
+  // CHECK-SAME: "QUAL.OMP.ALIGNED:PTR_TO_PTR"(ptr [[Z_ADDR]], i32 8)
+  // CHECK-SAME: "QUAL.OMP.ALIGNED:PTR_TO_PTR"(ptr [[X_ADDR]], i32 4)
+  // CHECK-SAME: "QUAL.OMP.ALIGNED:PTR_TO_PTR"(ptr [[Q_ADDR]], i32 0)
+  // CHECK-SAME: "QUAL.OMP.LASTPRIVATE"(ptr [[SIMPLE_ADDR]])
+  // CHECK-SAME: "QUAL.OMP.LASTPRIVATE:NONPOD"(ptr @obj,
+  // CHECK-SAME: ptr @_ZTS1A.omp.def_constr,
+  // CHECK-SAME: ptr @_ZTS1A.omp.copy_assign,
+  // CHECK-SAME: ptr @_ZTS1A.omp.destr)
+  // CHECK-SAME: QUAL.OMP.LASTPRIVATE:NONPOD"(ptr @objarr,
+  // CHECK-SAME: ptr @_ZTS1A.omp.def_constr, ptr @_ZTS1A.omp.copy_assign,
+  // CHECK-SAME: ptr @_ZTS1A.omp.destr)
   // CHECK: region.exit{{.*}}"DIR.OMP.END.SIMD"()
   #pragma omp simd safelen(4) simdlen(4) collapse(2) \
             aligned(y,z:8) aligned(x:4) aligned(q) \
@@ -63,15 +61,15 @@ struct S {
 
 //CHECK50-LABEL: simple_nontemporal
 void simple_nontemporal(float *a, float *b) {
-  //CHECK50: [[A:%a.*]] = alloca float*,
-  //CHECK50: [[B:%b.*]] = alloca float*,
+  //CHECK50: [[A:%a.*]] = alloca ptr,
+  //CHECK50: [[B:%b.*]] = alloca ptr,
   //CHECK50: [[S:%s.*]] = alloca %struct.S,
   S s, *p = &s;
 
   //CHECK50: region.entry() [ "DIR.OMP.SIMD"()
-  //CHECK50-SAME: "QUAL.OMP.NONTEMPORAL:PTR_TO_PTR"(float** [[A]]
-  //CHECK50-SAME: "QUAL.OMP.NONTEMPORAL:PTR_TO_PTR"(float** [[B]]
-  //CHECK50-SAME: "QUAL.OMP.NONTEMPORAL"(%struct.S* [[S]]
+  //CHECK50-SAME: "QUAL.OMP.NONTEMPORAL:PTR_TO_PTR"(ptr [[A]]
+  //CHECK50-SAME: "QUAL.OMP.NONTEMPORAL:PTR_TO_PTR"(ptr [[B]]
+  //CHECK50-SAME: "QUAL.OMP.NONTEMPORAL"(ptr [[S]]
   //CHECK50: region.exit{{.*}}"DIR.OMP.END.SIMD"()
   #pragma omp simd nontemporal(a, b) nontemporal(s)
   for (int i = 3; i < 32; i += 5) {
@@ -87,10 +85,10 @@ struct NT_test {
   void member() {
     //CHECK50: [[A:%a.*]] = getelementptr {{.*}}i32 0, i32 0
     //CHECK50: [[AR:%ar.*]] = getelementptr {{.*}}i32 0, i32 1
-    //CHECK50-NEXT: [[LAR:%[0-9].*]] = load i32*, i32** [[AR]],
+    //CHECK50-NEXT: [[LAR:%[0-9].*]] = load ptr, ptr [[AR]],
     //CHECK50: region.entry() [ "DIR.OMP.SIMD"()
-    //CHECK50-SAME: "QUAL.OMP.NONTEMPORAL"(i32* [[A]])
-    //CHECK50-SAME: "QUAL.OMP.NONTEMPORAL"(i32* [[LAR]])
+    //CHECK50-SAME: "QUAL.OMP.NONTEMPORAL"(ptr [[A]])
+    //CHECK50-SAME: "QUAL.OMP.NONTEMPORAL"(ptr [[LAR]])
     //CHECK50: region.exit{{.*}}"DIR.OMP.END.SIMD"()
     #pragma omp simd nontemporal(a) nontemporal(ar)
     for (int i = 0; i < 32; i += 4) {

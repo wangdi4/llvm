@@ -1,24 +1,24 @@
-//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o - %s \
 //RUN:    | FileCheck %s --check-prefixes ALL,HOST
 
-//RUN: %clang_cc1 -triple i386-unknown-linux-gnu \
+//RUN: %clang_cc1 -opaque-pointers -triple i386-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir \
 //RUN:  -fopenmp-late-outline -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o - %s \
 //RUN:    | FileCheck %s --check-prefixes ALL,HOST
 
-//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
-//RUN: %clang_cc1 -triple spir64 \
+//RUN: %clang_cc1 -opaque-pointers -triple spir64 \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
 //RUN:  -fopenmp-late-outline -fintel-compatibility \
@@ -26,13 +26,13 @@
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s --check-prefixes ALL,TARG
 
-//RUN: %clang_cc1 -triple i386-unknown-linux-gnu \
+//RUN: %clang_cc1 -opaque-pointers -triple i386-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir \
 //RUN:  -fopenmp-late-outline -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
-//RUN: %clang_cc1 -triple spir \
+//RUN: %clang_cc1 -opaque-pointers -triple spir \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir \
 //RUN:  -fopenmp-late-outline -fintel-compatibility \
@@ -40,18 +40,18 @@
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s --check-prefixes ALL,TARG
 
-//RUN: %clang_cc1 -fopenmp -fintel-compatibility -fopenmp-late-outline \
+//RUN: %clang_cc1 -opaque-pointers -fopenmp -fintel-compatibility -fopenmp-late-outline \
 //RUN:   -triple x86_64-unknown-linux-gnu -emit-pch %s -o %t
 
-//RUN: %clang_cc1 -fopenmp -fintel-compatibility -fopenmp-late-outline \
+//RUN: %clang_cc1 -opaque-pointers -fopenmp -fintel-compatibility -fopenmp-late-outline \
 //RUN:   -triple x86_64-unknown-linux-gnu -include-pch %t -emit-llvm %s -o - \
 //RUN:   | FileCheck %s --check-prefixes ALL,NEW-ALL,HOST,NEW-HOST
 
-//RUN: %clang_cc1 -fopenmp -fintel-compatibility -fopenmp-late-outline \
+//RUN: %clang_cc1 -opaque-pointers -fopenmp -fintel-compatibility -fopenmp-late-outline \
 //RUN:   -fno-openmp-new-depend-ir -triple x86_64-unknown-linux-gnu \
 //RUN:   -emit-pch %s -o %t
 
-//RUN: %clang_cc1 -fopenmp -fintel-compatibility -fopenmp-late-outline \
+//RUN: %clang_cc1 -opaque-pointers -fopenmp -fintel-compatibility -fopenmp-late-outline \
 //RUN:   -triple x86_64-unknown-linux-gnu -include-pch %t -emit-llvm %s -o - \
 //RUN:   -fno-openmp-new-depend-ir | \
 //RUN:   FileCheck %s --check-prefixes ALL,OLD-ALL,HOST,OLD-HOST
@@ -84,22 +84,22 @@ void caller2(int n, float* x, int dnum)
   //ALL: [[CAP1:%.capture.*]] = alloca i8, align 1
   //ALL: [[CAP2:%.capture.*]] = alloca i8, align 1
   //ALL: [[CAP3:%.capture.*]] = alloca i8, align 1
-  //TARG: [[DNUM_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[DNUM]] to i32 addrspace(4)*
-  //TARG: [[CAP_CAST:%.capture_.*]] = addrspacecast i32* [[CAP]] to i32 addrspace(4)*
+  //TARG: [[DNUM_CAST:%[a-z.0-9]+]] = addrspacecast ptr [[DNUM]] to ptr addrspace(4)
+  //TARG: [[CAP_CAST:%.capture_.*]] = addrspacecast ptr [[CAP]] to ptr addrspace(4)
 
-  //TARG: [[CAP_CAST1:%.capture_.*]] = addrspacecast i8* [[CAP1]] to i8 addrspace(4)*
-  //TARG: [[CAP_CAST2:%.capture_.*]] = addrspacecast i8* [[CAP2]] to i8 addrspace(4)*
-  //TARG: [[CAP_CAST3:%.capture_.*]] = addrspacecast i8* [[CAP3]] to i8 addrspace(4)*
+  //TARG: [[CAP_CAST1:%.capture_.*]] = addrspacecast ptr [[CAP1]] to ptr addrspace(4)
+  //TARG: [[CAP_CAST2:%.capture_.*]] = addrspacecast ptr [[CAP2]] to ptr addrspace(4)
+  //TARG: [[CAP_CAST3:%.capture_.*]] = addrspacecast ptr [[CAP3]] to ptr addrspace(4)
   #pragma omp target data map(tofrom:x[0:n]) \
                           use_device_ptr(x) device(dnum)
   {
     //ALL: [[T0:%[0-9]+]] = {{.*}}region.entry(){{.*}}"DIR.OMP.TARGET"()
     #pragma omp target
     {
-      //HOST: [[L:%[0-9]+]] = load i32, i32* [[DNUM]]
-      //HOST: [[L1:%[0-9]+]] = load i32, i32* [[CAP]]
-      //TARG: [[L:%[0-9]+]] = load i32, i32 addrspace(4)* [[DNUM_CAST]]
-      //TARG: [[L1:%[0-9]+]] = load i32, i32 addrspace(4)* [[CAP_CAST]]
+      //HOST: [[L:%[0-9]+]] = load i32, ptr [[DNUM]]
+      //HOST: [[L1:%[0-9]+]] = load i32, ptr [[CAP]]
+      //TARG: [[L:%[0-9]+]] = load i32, ptr addrspace(4) [[DNUM_CAST]]
+      //TARG: [[L1:%[0-9]+]] = load i32, ptr addrspace(4) [[CAP_CAST]]
       //ALL: [[T1:%[0-9]+]] = {{.*}}region.entry(){{.*}}DISPATCH
       //ALL-SAME: "QUAL.OMP.DEVICE"(i32 [[L1]])
       //ALL-NOT: "QUAL.OMP.FRISTPRIVATE"
@@ -126,10 +126,10 @@ void caller2(int n, float* x, int dnum)
 
       //ALL: [[T1:%[0-9]+]] = {{.*}}region.entry(){{.*}}TASK
       //ALL-SAME: "QUAL.OMP.IMPLICIT"
-      //HOST-SAME: "QUAL.OMP.SHARED"(i32* %m
-      //TARG-SAME: "QUAL.OMP.SHARED"(i32 addrspace(4)* %m.ascast
-      //HOST-SAME: "QUAL.OMP.SHARED"(float** %a
-      //TARG-SAME: "QUAL.OMP.SHARED"(float addrspace(4)* addrspace(4)* %a.ascast
+      //HOST-SAME: "QUAL.OMP.SHARED"(ptr %m
+      //TARG-SAME: "QUAL.OMP.SHARED"(ptr addrspace(4) %m.ascast
+      //HOST-SAME: "QUAL.OMP.SHARED"(ptr %a
+      //TARG-SAME: "QUAL.OMP.SHARED"(ptr addrspace(4) %a.ascast
       //ALL: [[T2:%[0-9]+]] = {{.*}}region.entry(){{.*}}DISPATCH
       //ALL-SAME: QUAL.OMP.NOWAIT
       #pragma omp dispatch nowait
@@ -138,16 +138,17 @@ void caller2(int n, float* x, int dnum)
       //ALL: region.exit(token [[T2]]) [ "DIR.OMP.END.DISPATCH"
       //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TASK"
 
-      //NEW-ALL: [[KDI:%[0-9]+]] = bitcast %struct.kmp_depend_info*
+      //NEW-ALL: [[DA:%[0-9]+]] = getelementptr inbounds [1 x %struct.kmp_depend_info], ptr %.dep.arr.addr, i64 0, i64 0
+
       //ALL: [[T1:%[0-9]+]] = {{.*}}region.entry(){{.*}}TASK
       //ALL-SAME: "QUAL.OMP.IMPLICIT"
-      //NEW-HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* %m
-      //NEW-ALL-SAME: "QUAL.OMP.DEPARRAY"(i32 1, i8* [[KDI]])
+      //NEW-HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr %m
+      //NEW-ALL-SAME: "QUAL.OMP.DEPARRAY"(i32 1, ptr [[DA]])
       //OLD-ALL-SAME: "QUAL.OMP.DEPEND.IN"
-      //OLD-HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* %m
-      //TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %m.ascast
-      //HOST-SAME: "QUAL.OMP.SHARED"(float** %a
-      //TARG-SAME: "QUAL.OMP.SHARED"(float addrspace(4)* addrspace(4)* %a.ascast
+      //OLD-HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr %m
+      //TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr addrspace(4) %m.ascast
+      //HOST-SAME: "QUAL.OMP.SHARED"(ptr %a
+      //TARG-SAME: "QUAL.OMP.SHARED"(ptr addrspace(4) %a.ascast
       //ALL: [[T2:%[0-9]+]] = {{.*}}region.entry(){{.*}}DISPATCH
       //ALL-NOT: "QUAL.OMP.FIRSTPRIVATE"
       //ALL-NOT: "QUAL.OMP.DEPEND.IN"
@@ -158,8 +159,8 @@ void caller2(int n, float* x, int dnum)
       //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TASK"
 
       //ALL: [[T1:%[0-9]+]] = {{.*}}region.entry(){{.*}}DISPATCH
-      //HOST-SAME: "QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(float** %a)
-      //TARG-SAME: "QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(float addrspace(4)* addrspace(4)* %a.ascast
+      //HOST-SAME: "QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(ptr %a)
+      //TARG-SAME: "QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(ptr addrspace(4) %a.ascast
       #pragma omp dispatch is_device_ptr(a)
       //ALL: call{{.*}}foo_base{{.*}}QUAL.OMP.DISPATCH.CALL
       foo_base(a, m);
@@ -173,10 +174,10 @@ void caller2(int n, float* x, int dnum)
      #pragma omp target
      for(int i = 0; i < 10; i++) {
        //ALL: [[FB:%frombool]] = zext i1 %cmp{{.*}} to i8
-       //HOST: store i8 [[FB]], i8* [[CAP1]]
-       //TARG: store i8 [[FB]], i8 addrspace(4)* [[CAP_CAST1]]
-       //HOST: [[L:%[0-9]+]] =  load i8, i8* [[CAP1]], align 1
-       //TARG: [[L:%[0-9]+]] =  load i8, i8 addrspace(4)* [[CAP_CAST1]], align 1
+       //HOST: store i8 [[FB]], ptr [[CAP1]]
+       //TARG: store i8 [[FB]], ptr addrspace(4) [[CAP_CAST1]]
+       //HOST: [[L:%[0-9]+]] =  load i8, ptr [[CAP1]], align 1
+       //TARG: [[L:%[0-9]+]] =  load i8, ptr addrspace(4) [[CAP_CAST1]], align 1
        //ALL: [[TB:%tobool]] = trunc i8 [[L]] to i1
        //ALL: [[T1:%[0-9]+]] = {{.*}}region.entry(){{.*}}DISPATCH
        //ALL-SAME: "QUAL.OMP.NOVARIANTS"(i1 [[TB]])
@@ -193,18 +194,18 @@ void caller2(int n, float* x, int dnum)
      #pragma omp target
      for(int i = 0; i < 10; i++) {
        //ALL: [[FB:%frombool[0-9]+]] = zext i1 %cmp{{.*}} to i8
-       //HOST: store i8 [[FB]], i8* [[CAP2]]
-       //TARG: store i8 [[FB]], i8 addrspace(4)* [[CAP_CAST2]]
+       //HOST: store i8 [[FB]], ptr [[CAP2]]
+       //TARG: store i8 [[FB]], ptr addrspace(4) [[CAP_CAST2]]
        //ALL: [[T1:%[0-9]+]] = {{.*}}region.entry(){{.*}}TASK
        //ALL-SAME: "QUAL.OMP.IMPLICIT"()
-       //HOST-SAME: "QUAL.OMP.SHARED"(i32* %dnum.addr)
-       //TARG-SAME: "QUAL.OMP.SHARED"(i32 addrspace(4)* %dnum.addr.ascast)
-       //HOST-SAME: "QUAL.OMP.SHARED"(float** %a.map.ptr.tmp
-       //TARG-SAME: "QUAL.OMP.SHARED"(float addrspace(4)* addrspace(4)* %a.map.ptr.tmp
-       //HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i8* [[CAP2]])
-       //TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i8 addrspace(4)* [[CAP_CAST2]])
-       //HOST: [[L:%[0-9]+]] =  load i8, i8* [[CAP2]], align 1
-       //TARG: [[L:%[0-9]+]] =  load i8, i8 addrspace(4)* [[CAP_CAST2]], align 1
+       //HOST-SAME: "QUAL.OMP.SHARED"(ptr %dnum.addr)
+       //TARG-SAME: "QUAL.OMP.SHARED"(ptr addrspace(4) %dnum.addr.ascast)
+       //HOST-SAME: "QUAL.OMP.SHARED"(ptr %a.map.ptr.tmp
+       //TARG-SAME: "QUAL.OMP.SHARED"(ptr addrspace(4) %a.map.ptr.tmp
+       //HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[CAP2]])
+       //TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr addrspace(4) [[CAP_CAST2]])
+       //HOST: [[L:%[0-9]+]] =  load i8, ptr [[CAP2]], align 1
+       //TARG: [[L:%[0-9]+]] =  load i8, ptr addrspace(4) [[CAP_CAST2]], align 1
        //ALL: [[TB:%tobool[0-9]+]] = trunc i8 [[L]] to i1
        //ALL: [[T2:%[0-9]+]] = {{.*}}region.entry(){{.*}}DISPATCH
        //ALL-SAME: "QUAL.OMP.NOWAIT"
@@ -215,24 +216,24 @@ void caller2(int n, float* x, int dnum)
        //ALL: region.exit(token [[T2]]) [ "DIR.OMP.END.DISPATCH"
        //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TASK"
        //ALL: [[FB1:%frombool[0-9]+]] = zext i1 %cmp{{.*}} to i8
-       //HOST: store i8 [[FB1]], i8* [[CAP3]]
-       //TARG: store i8 [[FB1]], i8 addrspace(4)* [[CAP_CAST3]]
+       //HOST: store i8 [[FB1]], ptr [[CAP3]]
+       //TARG: store i8 [[FB1]], ptr addrspace(4) [[CAP_CAST3]]
        //ALL: [[T1:%[0-9]+]] = {{.*}}region.entry(){{.*}}TASK
        //ALL-SAME: "QUAL.OMP.IMPLICIT"()
-       //HOST-SAME: "QUAL.OMP.SHARED"(i32* %dnum.addr)
-       //TARG-SAME: "QUAL.OMP.SHARED"(i32 addrspace(4)* %dnum.addr.ascast)
-       //HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(float** %a.map.ptr.tmp
-       //TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(float addrspace(4)* addrspace(4)* %a.map.ptr.tmp
-       //HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i8* [[CAP3]])
-       //TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i8 addrspace(4)* [[CAP_CAST3]])
-       //HOST: [[L1:%[0-9]+]] =  load i8, i8* [[CAP3]], align 1
-       //TARG: [[L1:%[0-9]+]] =  load i8, i8 addrspace(4)* [[CAP_CAST3]], align 1
+       //HOST-SAME: "QUAL.OMP.SHARED"(ptr %dnum.addr)
+       //TARG-SAME: "QUAL.OMP.SHARED"(ptr addrspace(4) %dnum.addr.ascast)
+       //HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr %a.map.ptr.tmp
+       //TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr addrspace(4) %a.map.ptr.tmp
+       //HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[CAP3]])
+       //TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr addrspace(4) [[CAP_CAST3]])
+       //HOST: [[L1:%[0-9]+]] =  load i8, ptr [[CAP3]], align 1
+       //TARG: [[L1:%[0-9]+]] =  load i8, ptr addrspace(4) [[CAP_CAST3]], align 1
        //ALL: [[TB1:%tobool[0-9]+]] = trunc i8 [[L1]] to i1
        //ALL: [[T2:%[0-9]+]] = {{.*}}region.entry(){{.*}}DISPATCH
        //ALL-SAME: "QUAL.OMP.NOWAIT"()
        //ALL-SAME: "QUAL.OMP.NOCONTEXT"(i1 [[TB1]])
-       //HOST-SAME: "QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(float** %a.map.ptr.tmp
-       //TARG-SAME: "QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(float addrspace(4)* addrspace(4)* %a.map.ptr.tmp
+       //HOST-SAME: "QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(ptr %a.map.ptr.tmp
+       //TARG-SAME: "QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(ptr addrspace(4) %a.map.ptr.tmp
        #pragma omp dispatch nowait nocontext(i < 5) is_device_ptr(a)
        //ALL: call{{.*}}foo_base{{.*}}QUAL.OMP.DISPATCH.CALL
        foo_base(a, dnum);

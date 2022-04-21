@@ -1,18 +1,18 @@
 // INTEL_COLLAB
-//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=x86_64 \
 //RUN:  -fopenmp-late-outline \
 //RUN:  -Werror -Wsource-uses-openmp -o - %s \
 //RUN:    | FileCheck %s --check-prefixes ALL,HOST
 
-//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=x86_64 \
 //RUN:  -fopenmp-late-outline \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
-//RUN: %clang_cc1 -triple x86_64 \
+//RUN: %clang_cc1 -opaque-pointers -triple x86_64 \
 //RUN:  -aux-triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=x86_64 \
@@ -21,10 +21,10 @@
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s --check-prefixes ALL,TARG
 
-//RUN: %clang_cc1 -fopenmp -fopenmp-late-outline \
+//RUN: %clang_cc1 -opaque-pointers -fopenmp -fopenmp-late-outline \
 //RUN:   -triple x86_64-unknown-linux-gnu -emit-pch %s -o %t
 
-//RUN: %clang_cc1 -fopenmp -fopenmp-late-outline \
+//RUN: %clang_cc1 -opaque-pointers -fopenmp -fopenmp-late-outline \
 //RUN:   -triple x86_64-unknown-linux-gnu -include-pch %t -emit-llvm %s -o - \
 //RUN:   | FileCheck %s --check-prefixes ALL,HOST
 
@@ -67,7 +67,7 @@ void caller2(int n, float* x, int dnum)
     //ALL: [[T0:%[0-9]+]] = {{.*}}region.entry(){{.*}}"DIR.OMP.TARGET"()
     #pragma omp target
     {
-      //ALL: [[L:%[0-9]+]] = load i32, i32* [[DNUM]]
+      //ALL: [[L:%[0-9]+]] = load i32, ptr [[DNUM]]
       //ALL: [[T1:%[0-9]+]] = {{.*}}region.entry(){{.*}}TARGET.VARIANT.DISPATCH
       //ALL-SAME: "QUAL.OMP.DEVICE"(i32 [[L]])
       #pragma omp target variant dispatch device(dnum)
@@ -80,7 +80,7 @@ void caller2(int n, float* x, int dnum)
     //ALL: [[T0:%[0-9]+]] = {{.*}}region.entry(){{.*}}"DIR.OMP.TARGET"()
     #pragma omp target
     {
-      //ALL: [[L:%[0-9]+]] = load i32, i32* [[DNUM]]
+      //ALL: [[L:%[0-9]+]] = load i32, ptr [[DNUM]]
       //ALL: [[T1:%[0-9]+]] = {{.*}}region.entry(){{.*}}TARGET.VARIANT.DISPATCH
       //ALL-SAME: "QUAL.OMP.DEVICE"(i32 [[L]])
       #pragma omp target variant dispatch device(dnum)
@@ -93,7 +93,7 @@ void caller2(int n, float* x, int dnum)
     //ALL: [[T0:%[0-9]+]] = {{.*}}region.entry(){{.*}}"DIR.OMP.TARGET"()
     #pragma omp target
     {
-      //ALL: [[L:%[0-9]+]] = load i32, i32* [[DNUM]]
+      //ALL: [[L:%[0-9]+]] = load i32, ptr [[DNUM]]
       //ALL: [[T1:%[0-9]+]] = {{.*}}region.entry(){{.*}}TARGET.VARIANT.DISPATCH
       //ALL-SAME: "QUAL.OMP.DEVICE"(i32 [[L]])
       #pragma omp target variant dispatch device(dnum)
@@ -109,8 +109,8 @@ void caller2(int n, float* x, int dnum)
     float *a, *b, *c;
     //ALL: [[T0:%[0-9]+]] = {{.*}}region.entry(){{.*}}"DIR.OMP.TARGET.DATA"()
     //ALL: [[T1:%[0-9]+]] = {{.*}}region.entry(){{.*}}TARGET.VARIANT.DISPATCH
-    //ALL-SAME: "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(float** %a
-    //ALL-SAME: float** %b{{.*}}, float** %c) ]
+    //ALL-SAME: "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(ptr %a
+    //ALL-SAME: ptr %b{{.*}}, ptr %c) ]
     #pragma omp target data map(tofrom:c[0:sizec]) map(to:a[0:sizea]) \
                             map(to:b[0:sizeb])
     {

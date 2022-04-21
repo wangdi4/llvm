@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 //
 // Verify use of allocate directive referencing all valid pre-defined
@@ -30,33 +30,24 @@ int main() {
   int v8 = 70;
   int v9 = 80;
 
-  // CHECK: [[V1_ALLOC:%.v1..void.addr[0-9]*]] = call i8* @__kmpc_alloc(i32 %0, i64 4, i8* null)
-  // CHECK-NEXT: [[V1ADDR:%.v1..addr[0-9]*]] = bitcast i8* [[V1_ALLOC]] to i32*
-  // CHECK-NEXT: store i32 0, i32* [[V1ADDR]], align 4
-  // CHECK: [[V2_ALLOC:%.v2..void.addr[0-9]*]] = call i8* @__kmpc_alloc(i32 %0, i64 4, i8* inttoptr (i64 1 to i8*))
-  // CHECK-NEXT: [[V2ADDR:%.v2..addr[0-9]*]] = bitcast i8* [[V2_ALLOC]] to i32*
-  // CHECK-NEXT: store i32 10, i32* [[V2ADDR]], align 4
-  // CHECK: [[V3_ALLOC:%.v3..void.addr[0-9]*]] = call i8* @__kmpc_alloc(i32 %0, i64 4, i8* inttoptr (i64 2 to i8*))
-  // CHECK-NEXT: [[V3ADDR:%.v3..addr[0-9]*]] = bitcast i8* [[V3_ALLOC]] to i32*
-  // CHECK-NEXT: store i32 20, i32* [[V3ADDR]], align 4
-  // CHECK: [[V4_ALLOC:%.v4..void.addr[0-9]*]] = call i8* @__kmpc_alloc(i32 %0, i64 4, i8* inttoptr (i64 3 to i8*))
-  // CHECK-NEXT: [[V4ADDR:%.v4..addr[0-9]*]] = bitcast i8* [[V4_ALLOC]] to i32*
-  // CHECK-NEXT: store i32 30, i32* [[V4ADDR]], align 4
-  // CHECK: [[V5_ALLOC:%.v5..void.addr[0-9]*]] = call i8* @__kmpc_alloc(i32 %0, i64 4, i8* inttoptr (i64 4 to i8*))
-  // CHECK-NEXT: [[V5ADDR:%.v5..addr[0-9]*]] = bitcast i8* [[V5_ALLOC]] to i32*
-  // CHECK-NEXT: store i32 40, i32* [[V5ADDR]], align 4
-  // CHECK: [[V6_ALLOC:%.v6..void.addr[0-9]*]] = call i8* @__kmpc_alloc(i32 %0, i64 4, i8* inttoptr (i64 5 to i8*))
-  // CHECK-NEXT: [[V6ADDR:%.v6..addr[0-9]*]] = bitcast i8* [[V6_ALLOC]] to i32*
-  // CHECK-NEXT: store i32 50, i32* [[V6ADDR]], align 4
-  // CHECK: [[V7_ALLOC:%.v7..void.addr[0-9]*]] = call i8* @__kmpc_alloc(i32 %0, i64 4, i8* inttoptr (i64 6 to i8*))
-  // CHECK-NEXT: [[V7ADDR:%.v7..addr[0-9]*]] = bitcast i8* [[V7_ALLOC]] to i32*
-  // CHECK-NEXT: store i32 60, i32* [[V7ADDR]], align 4
-  // CHECK: [[V8_ALLOC:%.v8..void.addr[0-9]*]] = call i8* @__kmpc_alloc(i32 %0, i64 4, i8* inttoptr (i64 7 to i8*))
-  // CHECK-NEXT: [[V8ADDR:%.v8..addr[0-9]*]] = bitcast i8* [[V8_ALLOC]] to i32*
-  // CHECK-NEXT: store i32 70, i32* [[V8ADDR]], align 4
-  // CHECK: [[V9_ALLOC:%.v9..void.addr[0-9]*]] = call i8* @__kmpc_alloc(i32 %0, i64 4, i8* inttoptr (i64 8 to i8*))
-  // CHECK-NEXT: [[V9ADDR:%.v9..addr[0-9]*]] = bitcast i8* [[V9_ALLOC]] to i32*
-  // CHECK-NEXT: store i32 80, i32* [[V9ADDR]], align 4
+  // CHECK: [[V1_ALLOC:%.v1..void.addr[0-9]*]] = call ptr @__kmpc_alloc(i32 %0, i64 4, ptr null)
+  // CHECK-NEXT: store i32 0, ptr [[V1_ALLOC]], align 4
+  // CHECK: [[V2_ALLOC:%.v2..void.addr[0-9]*]] = call ptr @__kmpc_alloc(i32 %0, i64 4, ptr inttoptr (i64 1 to ptr))
+  // CHECK-NEXT: store i32 10, ptr [[V2_ALLOC]], align 4
+  // CHECK: [[V3_ALLOC:%.v3..void.addr[0-9]*]] = call ptr @__kmpc_alloc(i32 %0, i64 4, ptr inttoptr (i64 2 to ptr))
+  // CHECK-NEXT: store i32 20, ptr [[V3_ALLOC]], align 4
+  // CHECK: [[V4_ALLOC:%.v4..void.addr[0-9]*]] = call ptr @__kmpc_alloc(i32 %0, i64 4, ptr inttoptr (i64 3 to ptr))
+  // CHECK-NEXT: store i32 30, ptr [[V4_ALLOC]], align 4
+  // CHECK: [[V5_ALLOC:%.v5..void.addr[0-9]*]] = call ptr @__kmpc_alloc(i32 %0, i64 4, ptr inttoptr (i64 4 to ptr))
+  // CHECK-NEXT: store i32 40, ptr [[V5_ALLOC]], align 4
+  // CHECK: [[V6_ALLOC:%.v6..void.addr[0-9]*]] = call ptr @__kmpc_alloc(i32 %0, i64 4, ptr inttoptr (i64 5 to ptr))
+  // CHECK-NEXT: store i32 50, ptr [[V6_ALLOC]], align 4
+  // CHECK: [[V7_ALLOC:%.v7..void.addr[0-9]*]] = call ptr @__kmpc_alloc(i32 %0, i64 4, ptr inttoptr (i64 6 to ptr))
+  // CHECK-NEXT: store i32 60, ptr [[V7_ALLOC]], align 4
+  // CHECK: [[V8_ALLOC:%.v8..void.addr[0-9]*]] = call ptr @__kmpc_alloc(i32 %0, i64 4, ptr inttoptr (i64 7 to ptr))
+  // CHECK-NEXT: store i32 70, ptr [[V8_ALLOC]], align 4
+  // CHECK: [[V9_ALLOC:%.v9..void.addr[0-9]*]] = call ptr @__kmpc_alloc(i32 %0, i64 4, ptr inttoptr (i64 8 to ptr))
+  // CHECK-NEXT: store i32 80, ptr [[V9_ALLOC]], align 4
 
 #pragma omp allocate(v1) allocator(omp_null_allocator)
 #pragma omp allocate(v2) allocator(omp_default_mem_alloc)
@@ -69,25 +60,21 @@ int main() {
 #pragma omp allocate(v9) allocator(omp_thread_mem_alloc)
 
   // CHECK: DIR.OMP.PARALLEL
-  // CHECK-SAME: "QUAL.OMP.SHARED"(i32* %.v1..addr)
-  // CHECK-SAME: "QUAL.OMP.SHARED"(i32* %.v2..addr)
+  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[V1_ALLOC]])
+  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[V2_ALLOC]])
   // CHECK: DIR.OMP.END.PARALLEL
 #pragma omp parallel
   { v1 = v2; }
 
-  // CHECK: [[V1ALLOC:%.v1..void.addr[0-9]*]] = call i8* @__kmpc_alloc(i32 %0, i64 4, i8* inttoptr (i64 2 to i8*))
-  // CHECK-NEXT: [[V1:%.v1..addr[0-9]*]] = bitcast i8* [[V1ALLOC]] to i32*
-  // CHECK-NEXT: [[V2ALLOC:%.v2..void.addr[0-9]*]] = call i8* @__kmpc_alloc(i32 %0, i64 4, i8* inttoptr (i64 3 to i8*))
-  // CHECK-NEXT: [[V2:%.v2..addr[0-9]*]] = bitcast i8* [[V2ALLOC]] to i32*
+  // CHECK: [[V1ALLOC:%.v1..void.addr[0-9]*]] = call ptr @__kmpc_alloc(i32 %0, i64 4, ptr inttoptr (i64 2 to ptr))
+  // CHECK-NEXT: [[V2ALLOC:%.v2..void.addr[0-9]*]] = call ptr @__kmpc_alloc(i32 %0, i64 4, ptr inttoptr (i64 3 to ptr))
 
   // CHECK: DIR.OMP.LOOP
   // CHECK-LABEL: omp.loop.exit:
   // CHECK: DIR.OMP.END.LOOP
 
-  // CHECK: [[ADDRV2:%[0-9]+]] = bitcast i32* [[V2]] to i8*
-  // CHECK-NEXT: call void @__kmpc_free(i32 %0, i8* [[ADDRV2]], i8* inttoptr (i64 3 to i8*))
-  // CHECK-NEXT: [[ADDRV1:%[0-9]+]] = bitcast i32* [[V1]] to i8*
-  // CHECK-NEXT: call void @__kmpc_free(i32 %0, i8* [[ADDRV1]], i8* inttoptr (i64 2 to i8*))
+  // CHECK-NEXT: call void @__kmpc_free(i32 %0, ptr [[V2ALLOC]], ptr inttoptr (i64 3 to ptr))
+  // CHECK-NEXT: call void @__kmpc_free(i32 %0, ptr [[V1ALLOC]], ptr inttoptr (i64 2 to ptr))
   {
     int v1;
     int v2;
@@ -101,24 +88,15 @@ int main() {
   // CHECK: DIR.OMP.SINGLE
   // CHECK: DIR.OMP.END.SINGLE
 
-  // CHECK: [[V9CAST:%[0-9]+]] = bitcast i32* [[V9ADDR]] to i8*
-  // CHECK-NEXT: call void @__kmpc_free(i32 %0, i8* [[V9CAST]], i8* inttoptr (i64 8 to i8*))
-  // CHECK-NEXT: [[V8CAST:%[0-9]+]] = bitcast i32* [[V8ADDR]] to i8*
-  // CHECK-NEXT: call void @__kmpc_free(i32 %0, i8* [[V8CAST]], i8* inttoptr (i64 7 to i8*))
-  // CHECK-NEXT: [[V7CAST:%[0-9]+]] = bitcast i32* [[V7ADDR]] to i8*
-  // CHECK-NEXT: call void @__kmpc_free(i32 %0, i8* [[V7CAST]], i8* inttoptr (i64 6 to i8*))
-  // CHECK-NEXT: [[V6CAST:%[0-9]+]] = bitcast i32* [[V6ADDR]] to i8*
-  // CHECK-NEXT: call void @__kmpc_free(i32 %0, i8* [[V6CAST]], i8* inttoptr (i64 5 to i8*))
-  // CHECK-NEXT: [[V5CAST:%[0-9]+]] = bitcast i32* [[V5ADDR]] to i8*
-  // CHECK-NEXT: call void @__kmpc_free(i32 %0, i8* [[V5CAST]], i8* inttoptr (i64 4 to i8*))
-  // CHECK-NEXT: [[V4CAST:%[0-9]+]] = bitcast i32* [[V4ADDR]] to i8*
-  // CHECK-NEXT: call void @__kmpc_free(i32 %0, i8* [[V4CAST]], i8* inttoptr (i64 3 to i8*))
-  // CHECK-NEXT: [[V3CAST:%[0-9]+]] = bitcast i32* [[V3ADDR]] to i8*
-  // CHECK-NEXT: call void @__kmpc_free(i32 %0, i8* [[V3CAST]], i8* inttoptr (i64 2 to i8*))
-  // CHECK-NEXT: [[V2CAST:%[0-9]+]] = bitcast i32* [[V2ADDR]] to i8*
-  // CHECK-NEXT: call void @__kmpc_free(i32 %0, i8* [[V2CAST]], i8* inttoptr (i64 1 to i8*))
-  // CHECK-NEXT: [[V1CAST:%[0-9]+]] = bitcast i32* [[V1ADDR]] to i8*
-  // CHECK-NEXT: call void @__kmpc_free(i32 %0, i8* [[V1CAST]], i8* null)
+  // CHECK: call void @__kmpc_free(i32 %0, ptr [[V9_ALLOC]], ptr inttoptr (i64 8 to ptr))
+  // CHECK-NEXT: call void @__kmpc_free(i32 %0, ptr [[V8_ALLOC]], ptr inttoptr (i64 7 to ptr))
+  // CHECK-NEXT: call void @__kmpc_free(i32 %0, ptr [[V7_ALLOC]], ptr inttoptr (i64 6 to ptr))
+  // CHECK-NEXT: call void @__kmpc_free(i32 %0, ptr [[V6_ALLOC]], ptr inttoptr (i64 5 to ptr))
+  // CHECK-NEXT: call void @__kmpc_free(i32 %0, ptr [[V5_ALLOC]], ptr inttoptr (i64 4 to ptr))
+  // CHECK-NEXT: call void @__kmpc_free(i32 %0, ptr [[V4_ALLOC]], ptr inttoptr (i64 3 to ptr))
+  // CHECK-NEXT: call void @__kmpc_free(i32 %0, ptr [[V3_ALLOC]], ptr inttoptr (i64 2 to ptr))
+  // CHECK-NEXT: call void @__kmpc_free(i32 %0, ptr [[V2_ALLOC]], ptr inttoptr (i64 1 to ptr))
+  // CHECK-NEXT: call void @__kmpc_free(i32 %0, ptr [[V1_ALLOC]], ptr null)
 #pragma omp single
   { v1 -= (v2 + v3 + v4 + v5 + v6 + v7 + v8 + v9); }
   return v1;

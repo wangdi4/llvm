@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 // CHECK-LABEL: foo_close
@@ -7,14 +7,14 @@ void foo_close(int ii){
   // Map of a scalar.
   int a = ii;
   // CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CLOSE"(i32* %a, i32* %a, i64 4, i64 1059
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CLOSE"(ptr %a, ptr %a, i64 4, i64 1059
   // CHECK:  region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target map(close, tofrom: a)
   {
     a++;
   }
   // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:ALWAYS.CLOSE"(i32* %a, i32* %a, i64 4, i64 1063
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:ALWAYS.CLOSE"(ptr %a, ptr %a, i64 4, i64 1063
   // CHECK:  region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target map(always, close, tofrom: a)
   {
@@ -29,7 +29,7 @@ void foo_constexpr()
   float v2[N];
 
 // CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.MAP.TO"([100 x float]* %v2, [100 x float]* %v2, i64 400, i64 33
+// CHECK-SAME: "QUAL.OMP.MAP.TO"(ptr %v2, ptr %v2, i64 400, i64 33
 // CHECK-NOT: "QUAL.OMP.MAP.TOFROM"
 // CHECK:  region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
 #pragma omp target teams distribute parallel for map(to: v2)
@@ -43,18 +43,18 @@ void foo_close_one(int arg)
 {
   float lb[arg];
   // CHECK: [[ARG:%.+]] = alloca i32
-  // CHECK: [[L:%[0-9]+]] = load i32, i32* [[ARG]]
+  // CHECK: [[L:%[0-9]+]] = load i32, ptr [[ARG]]
   // CHECK: [[L1:%[0-9]+]] = zext i32 [[L]] to i64
   // CHECK: [[VLA:%.+]] = alloca float, i64 [[L1]]
   // CHECK: [[L3:%[0-9]+]] =  mul nuw i64 [[L1]], 4
-  // CHECK: [[ARR:%.+]] = getelementptr inbounds float, float* [[VLA]], i64 0
+  // CHECK: [[ARR:%.+]] = getelementptr inbounds float, ptr [[VLA]], i64 0
   // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET.ENTER.DATA
-  // CHECK-SAME: "QUAL.OMP.MAP.TO:CLOSE"(float* [[VLA]], float* [[ARR]], i64 [[L3]], i64 1025
+  // CHECK-SAME: "QUAL.OMP.MAP.TO:CLOSE"(ptr [[VLA]], ptr [[ARR]], i64 [[L3]], i64 1025
   // CHECK:  region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET.ENTER.DATA"() ]
   #pragma omp target enter data map(close, to: lb)
   {++arg;}
   // CHECK: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET.ENTER.DATA
-  // CHECK-SAME: "QUAL.OMP.MAP.TO:ALWAYS.CLOSE"(float* %vla, {{.*}} 1029
+  // CHECK-SAME: "QUAL.OMP.MAP.TO:ALWAYS.CLOSE"(ptr %vla, {{.*}} 1029
   // CHECK:  region.exit(token [[TV2]]) [ "DIR.OMP.END.TARGET.ENTER.DATA"() ]
   #pragma omp target enter data map(always close, to: lb)
   {++arg;}
@@ -72,9 +72,9 @@ void B::start()
 {
   // CHECK: [[L8:%[0-9]+]] = sdiv exact i64
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%class.B* %this1, double** %zoo, i64 [[L8]], i64 32
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(double** %zoo, double* %arrayidx, i64 136, i64 281474976710675
-  // CHECK-SAME: "QUAL.OMP.MAP.FROM:CHAIN"(double** %xoo, double* %arrayidx4, i64 48, i64 281474976710674
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr %this1, ptr %zoo, i64 [[L8]], i64 32
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr %zoo, ptr %arrayidx, i64 136, i64 281474976710675
+  // CHECK-SAME: "QUAL.OMP.MAP.FROM:CHAIN"(ptr %xoo, ptr %arrayidx4, i64 48, i64 281474976710674
   #pragma omp target map(tofrom: zoo[7:17]) map(from: xoo[1:6])
   zoo[2] = 7,xoo[2] = 8;
  xoo[2] = 8;
@@ -96,10 +96,10 @@ typedef struct : public Base {
 void map_with_overlap_elems() {
   StructWithPtr s;
 // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%struct.StructWithPtr* %s, %struct.StructWithPtr* %s, {{.*}}, i64 32
-// CHECK-SAME: "QUAL.OMP.MAP.TO:CHAIN"(%struct.StructWithPtr* %s, %struct.StructWithPtr* %s, i64 {{56|28}}, i64 281474976710657
-// CHECK-SAME: "QUAL.OMP.MAP.TO:CHAIN"(i32** %ptr1, i32* %arrayidx, i64 4, i64 281474976710673
-// CHECK-SAME: "QUAL.OMP.MAP.TO:CHAIN"(i32** %ptrBase1, i32* %arrayidx3, i64 4, i64 281474976710673
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr %s, ptr %s, {{.*}}, i64 32
+// CHECK-SAME: "QUAL.OMP.MAP.TO:CHAIN"(ptr %s, ptr %s, i64 {{56|28}}, i64 281474976710657
+// CHECK-SAME: "QUAL.OMP.MAP.TO:CHAIN"(ptr %ptr1, ptr %arrayidx, i64 4, i64 281474976710673
+// CHECK-SAME: "QUAL.OMP.MAP.TO:CHAIN"(ptr %ptrBase1, ptr %arrayidx3, i64 4, i64 281474976710673
 #pragma omp target map(to:s, s.ptr1 [0:1], s.ptrBase1 [0:1])
   {
     s.val++;
@@ -117,20 +117,20 @@ private:
 public:
   Mapper (T* p) : ptr(p) {
     int *axx;
-  // CHECK: [[PT_TMP_MAP:%pt.map.ptr.tmp]] = alloca i32*, align 8
-  // CHECK: [[L1:%[0-9]+]] = load i32*, i32** %pt{{.}}
+  // CHECK: [[PT_TMP_MAP:%pt.map.ptr.tmp]] = alloca ptr, align 8
+  // CHECK: [[L1:%[0-9]+]] = load ptr, ptr %pt{{.}}
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME: "QUAL.OMP.MAP.TO"(i32** %axx, i32** %axx, i64 8, i64 33
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%class.Mapper* %this1, %class.AOO** %ptr{{.*}}, i64 8, i64 547
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[L1]],
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32** [[PT_TMP_MAP]]),
-  // CHECK: store i32* [[L1]]
+  // CHECK-SAME: "QUAL.OMP.MAP.TO"(ptr %axx, ptr %axx, i64 8, i64 33
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr %this1, ptr %ptr{{.*}}, i64 8, i64 547
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[L1]],
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[PT_TMP_MAP]]),
+  // CHECK: store ptr [[L1]]
   // CHECK: [[L:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT"(i32** [[PT_TMP_MAP]],
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT"(ptr [[PT_TMP_MAP]],
 #pragma omp target parallel for map(to:axx) reduction(+:pt[0:9])
     for (int i=0; i <20 ; i++) {
-  // CHECK:load i32*, i32** %axx,
-  // CHECK:load i32*, i32** [[PT_TMP_MAP]],
+  // CHECK:load ptr, ptr %axx,
+  // CHECK:load ptr, ptr [[PT_TMP_MAP]],
       axx[1] = 10;
       ptr[1] = 20;
       pt[1] = 20;
@@ -176,18 +176,18 @@ struct A {
 
   void foo()
   {
-  // CHECK: [[PTR:%ptr]] = alloca i32**
-  // CHECK: [[PT_TMP_MAP:%ptr.map.ptr.tmp]] = alloca i32*, align 8
-  // CHECK: [[L1:%[0-9]+]] = load i32**, i32*** %ptr3
-  // CHECK: [[L3:%[0-9]+]] = load i32*, i32** [[L1]]
+  // CHECK: [[PTR:%ptr]] = alloca ptr
+  // CHECK: [[PT_TMP_MAP:%ptr.map.ptr.tmp]] = alloca ptr, align 8
+  // CHECK: [[L1:%[0-9]+]] = load ptr, ptr %ptr3
+  // CHECK: [[L3:%[0-9]+]] = load ptr, ptr [[L1]]
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME "QUAL.OMP.PRIVATE"(i32** %ptr.map.ptr.tmp)
-  // CHECK: store i32* [[L3]], i32** [[PT_TMP_MAP]]
+  // CHECK-SAME "QUAL.OMP.PRIVATE"(ptr %ptr.map.ptr.tmp)
+  // CHECK: store ptr [[L3]], ptr [[PT_TMP_MAP]]
   // CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
-  // CHECK: "QUAL.OMP.REDUCTION.ADD:ARRSECT"(i32** [[PT_TMP_MAP]]
+  // CHECK: "QUAL.OMP.REDUCTION.ADD:ARRSECT"(ptr [[PT_TMP_MAP]]
     #pragma omp target parallel for reduction(+:ptr[:1])
     for (int i=0; i < 20 ; i++) {
-      // CHECK: load i32*, i32** [[PT_TMP_MAP]]
+      // CHECK: load ptr, ptr [[PT_TMP_MAP]]
       ptr[0] = 1;
     }
    // CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]

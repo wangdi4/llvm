@@ -1,5 +1,5 @@
 //INTEL_COLLAB
-//RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-version=50 \
+//RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-version=50 \
 //RUN:  -fopenmp-late-outline \
 //RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
@@ -18,7 +18,7 @@ void S::foo() {
   //CHECK: [[A:%a.*]] = getelementptr {{.*}}, i32 0, i32 0{{$}}
   //CHECK: [[PTR:%ptr.*]] = getelementptr {{.*}}, i32 0, i32 1{{$}}
   //CHECK: [[REF:%ref.*]] = getelementptr {{.*}}, i32 0, i32 2{{$}}
-  //CHECK: [[LREF:%[0-9]+]] = load i32*, i32** [[REF]], align 8
+  //CHECK: [[LREF:%[0-9]+]] = load ptr, ptr [[REF]], align 8
   //CHECK: [[AAPTR:%aaptr.*]] = getelementptr {{.*}}, i32 0, i32 3{{$}}
   //CHECK: [[ARR:%arr.*]] = getelementptr {{.*}}, i32 0, i32 4{{$}}
 
@@ -40,8 +40,8 @@ void foo() {
   int &j = i;
   int *k = &j;
   //CHECK-DAG: [[I:%i.*]] = alloca i32,
-  //CHECK-DAG: [[J:%j.*]] = alloca i32*,
-  //CHECK-DAG: [[K:%k.*]] = alloca i32*,
+  //CHECK-DAG: [[J:%j.*]] = alloca ptr,
+  //CHECK-DAG: [[K:%k.*]] = alloca ptr,
 
   //CHECK: "DIR.OMP.TARGET.DATA"()
   //CHECK: QUAL.OMP.USE_DEVICE_ADDR{{.*}}[[I]])
@@ -63,8 +63,8 @@ int main() {
   float vla[(int)a];
 
   //CHECK: [[A:%a.*]] = alloca float,
-  //CHECK: [[PTR:%ptr.*]] = alloca float*,
-  //CHECK: [[REF:%ref.*]] = alloca float*,
+  //CHECK: [[PTR:%ptr.*]] = alloca ptr,
+  //CHECK: [[REF:%ref.*]] = alloca ptr,
   //CHECK: [[ARR:%arr.*]] = alloca [4 x float],
   //CHECK: [[VLA:%vla.*]] = alloca float, i64
 
