@@ -74,7 +74,6 @@ static VecVec<T> transpose(const std::vector<std::vector<T>> &matrix) {
 
 VectInfo::VectInfo(Record *record) : m_builtins(4) {
   m_handleAlias = record->getValueAsBit("HandleAlias");
-  m_kernelCallOnce = record->getValueAsBit("KernelCallOnce");
   m_stride = record->getValueAsInt("Stride");
   const Record *pV1Func = record->getValueAsDef("v1Func");
   const Record *pV4Func = record->getValueAsDef("v4Func");
@@ -274,17 +273,17 @@ void VectInfoGenerator::run(raw_ostream &os) {
   // Record the num of types and num of variants for the same Builtin.
   // Since they share the same vector kind info.
   std::vector<std::pair<size_t, size_t>> numEntries;
-  std::vector<bool> kernelCallOnceAttrs;
+  std::vector<const OclBuiltin *> ScalarBuiltins;
   std::vector<unsigned> strides;
 
   for (Record *record : vectInfos) {
     VectInfo vectInfo{record};
 
-    kernelCallOnceAttrs.push_back(vectInfo.kernelCallOnce());
     strides.push_back(vectInfo.stride());
     const auto &builtins = vectInfo.getBuiltins();
 
     auto *pV1Builtin = builtins[0];
+    ScalarBuiltins.push_back(pV1Builtin);
     bool handleAlias = vectInfo.handleAlias() && m_DB.hasAlias(pV1Builtin);
 
     // Hold the alias names defined in AliasMap.
@@ -349,7 +348,7 @@ void VectInfoGenerator::run(raw_ostream &os) {
   auto funcIt = funcs.cbegin();
   size_t k = 0;
   for (const auto &numEntry : numEntries) {
-    VectEntry::kernelCallOnce = kernelCallOnceAttrs[k];
+    VectEntry::kernelCallOnce = ScalarBuiltins[k]->hasKernelCallOnce();
     VectEntry::stride = strides[k++];
     size_t i = 0;
     assert(
@@ -389,8 +388,8 @@ void VectInfoGenerator::run(raw_ostream &os) {
   }
   ssVPlan << "}\n";
 
-  assert(k == kernelCallOnceAttrs.size() && k == strides.size() &&
-         "the number of entries and kernel call once attrs should be the same");
+  assert(k == ScalarBuiltins.size() && k == strides.size() &&
+         "the number of entries and scalar builtins should be the same");
   assert(
       funcIt == funcs.cend() &&
       "the number of tblgen functions and llvm functions should be the same");

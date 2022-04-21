@@ -59,14 +59,10 @@ public:
 
   bool handleAlias() const { return m_handleAlias; }
 
-  bool kernelCallOnce() const { return m_kernelCallOnce; }
-
   unsigned stride() const { return m_stride; }
 
 private:
   bool m_handleAlias;
-
-  bool m_kernelCallOnce;
 
   unsigned m_stride;
 
