@@ -1386,9 +1386,9 @@ public:
             return AllUsersVectorized(V1) && AllUsersVectorized(V2);
           };
           // A broadcast of a load can be cheaper on some targets.
-          // TODO: For now accept a broadcast load with no other internal uses.
-          if (TTI->isLegalBroadcastLoad(V1->getType(), NumLanes) &&
-              (int)V1->getNumUses() == NumLanes)
+          if (R.TTI->isLegalBroadcastLoad(V1->getType(), NumLanes) &&
+              ((int)V1->getNumUses() == NumLanes ||
+               AllUsersAreInternal(V1, V2)))
             return VLOperands::ScoreSplatLoads;
         }
         return VLOperands::ScoreSplat;
@@ -1572,7 +1572,8 @@ public:
     ///   Look-ahead SLP: Auto-vectorization in the presence of commutative
     ///   operations, CGO 2018 by Vasileios Porpodas, Rodrigo C. O. Rocha,
     ///   Luís F. W. Góes
-    int getScoreAtLevelRec(Value *LHS, Value *RHS, int CurrLevel, int MaxLevel,
+    int getScoreAtLevelRec(Value *LHS, Value *RHS, Instruction *U1,
+                           Instruction *U2, int CurrLevel, int MaxLevel,
                            ArrayRef<Value *> MainAltOps) {
 
       // Get the shallow score of V1 and V2.
@@ -1622,7 +1623,7 @@ public:
           // Recursively calculate the cost at each level
           int TmpScore =
               getScoreAtLevelRec(I1->getOperand(OpIdx1), I2->getOperand(OpIdx2),
-                                 CurrLevel + 1, MaxLevel, None);
+                                 I1, I2, CurrLevel + 1, MaxLevel, None);
           // Look for the best score.
           if (TmpScore > VLOperands::ScoreFail && TmpScore > MaxTmpScore) {
             MaxTmpScore = TmpScore;
@@ -1652,8 +1653,10 @@ public:
     int getLookAheadScore(Value *LHS, Value *RHS, ArrayRef<Value *> MainAltOps,
                           int Lane, unsigned OpIdx, unsigned Idx,
                           bool &IsUsed) {
-      int Score =
-          getScoreAtLevelRec(LHS, RHS, 1, LookAheadMaxDepth, MainAltOps);
+      // Keep track of the instruction stack as we recurse into the operands
+      // during the look-ahead score exploration.
+      int Score = getScoreAtLevelRec(LHS, RHS, /*U1=*/nullptr, /*U2=*/nullptr,
+                                     1, LookAheadMaxDepth, MainAltOps);
       if (Score) {
         int SplatScore = getSplatScore(Lane, OpIdx, Idx);
         if (Score <= -SplatScore) {
