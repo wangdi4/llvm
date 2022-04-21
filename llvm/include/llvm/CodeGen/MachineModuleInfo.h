@@ -150,17 +150,8 @@ class MachineModuleInfo {
   /// point.  This is used to emit an undefined reference to _fltused.
   bool UsesMSVCFloatingPoint;
 
-<<<<<<< HEAD
-  /// True if the module calls the __morestack function indirectly, as is
-  /// required under the large code model on x86. This is used to emit
-  /// a definition of a symbol, __morestack_addr, containing the address. See
-  /// comments in lib/Target/X86/X86FrameLowering.cpp for more details.
-  bool UsesMorestackAddr;
-
   std::vector<NotifyEntry> NotifyAnnotations; // INTEL
 
-=======
->>>>>>> 3659780d58722ea38adf25f7116151f2ecf2d521
   /// Maps IR Functions to their corresponding MachineFunctions.
   DenseMap<const Function*, std::unique_ptr<MachineFunction>> MachineFunctions;
   /// Next unique number available for a MachineFunction.
@@ -227,15 +218,6 @@ public:
 
   void setUsesMSVCFloatingPoint(bool b) { UsesMSVCFloatingPoint = b; }
 
-<<<<<<< HEAD
-  bool usesMorestackAddr() const {
-    return UsesMorestackAddr;
-  }
-
-  void setUsesMorestackAddr(bool b) {
-    UsesMorestackAddr = b;
-  }
-
 #if INTEL_CUSTOMIZATION
   /// Record notify annotations associated with a particular label.
   void addNotifyAnnotation(NotifyEntry Entry) {
@@ -256,8 +238,6 @@ public:
   }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 3659780d58722ea38adf25f7116151f2ecf2d521
   /// Return the symbol to be used for the specified basic block when its
   /// address is taken.  This cannot be its normal LBB label because the block
   /// may be accessed outside its containing function.
