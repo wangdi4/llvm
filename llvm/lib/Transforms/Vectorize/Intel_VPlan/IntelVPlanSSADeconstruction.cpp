@@ -51,6 +51,11 @@ static void validateInductionPHI(VPPHINode *Phi, VPLoop *VLp,
          "Second operand of IV next instruction should be uniform.");
 }
 
+static bool isOuterMostLoopHeaderPhi(VPPHINode *Phi, VPlanVector &Plan) {
+  auto *CurrVLoop = Plan.getVPLoopInfo()->getLoopFor(Phi->getParent());
+  return CurrVLoop && CurrVLoop == *(Plan.getVPLoopInfo()->begin());
+}
+
 void VPlanSSADeconstruction::run() {
   VPLoop *VLoop = *(Plan.getVPLoopInfo()->begin());
   // Can't handle search loops.
@@ -136,7 +141,11 @@ void VPlanSSADeconstruction::run() {
         // deconstruction and CG. Consider the alternate solution if that's
         // needed in future - capture the deconstructed PHI's property in
         // HIRCopyInst and use that in DA to determine divergence/uniformity.
-        if (Plan.getVPlanDA()->isDivergent(Phi))
+        // TODO: Temporary hack to treat all outer loop header PHIs as divergent
+        // thereby ensuring they are not scalarized. Will be removed when
+        // HIRCopy opcode lowering is fully driven by SVA in CG.
+        if (Plan.getVPlanDA()->isDivergent(Phi) ||
+            isOuterMostLoopHeaderPhi(&Phi, Plan))
           Plan.getVPlanDA()->markDivergent(*CopyInst);
         else
           Plan.getVPlanDA()->markUniform(*CopyInst);
