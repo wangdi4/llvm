@@ -451,6 +451,13 @@ public:
     /// Alternate version of the above function, which takes in a directive ID.
     static bool isBeginDirectiveOfRegionsNeedingOutlining(int DirID);
 
+    /// If \p DirString is a end directive of a construct which needs
+    /// outlining, such as parallel, task etc., return \b true. Otherwise,
+    /// return \b false.
+    static bool isEndDirectiveOfRegionsNeedingOutlining(StringRef DirString);
+    /// Alternate version of the above function, which takes in a directive ID.
+    static bool isEndDirectiveOfRegionsNeedingOutlining(int DirID);
+
     /// Return true iff the ClauseID represents a DEPEND clause,
     /// such as QUAL_OMP_DEPEND_IN
     static bool isDependClause(int ClauseID);
