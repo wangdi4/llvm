@@ -36,7 +36,6 @@ static inline __attribute__((always_inline, gnu_inline))
 void pass(int x, ...) {
   int k = __builtin_va_arg_pack_len(); // expected-error {{use of unknown builtin '__builtin_va_arg_pack_len'}}
   foo(k, __builtin_va_arg_pack()); // expected-error {{use of unknown builtin '__builtin_va_arg_pack'}}
-  // expected-note@-1 {{did you mean }} expected-note@-2 {{declared here}}
 }
 #else
 #error Invalid Option
