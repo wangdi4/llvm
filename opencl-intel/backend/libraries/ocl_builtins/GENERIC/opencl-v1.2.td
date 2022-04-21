@@ -465,79 +465,77 @@ foreach bi = ["sincos", "native_sincos", "modf", "fract", "native_fract"] in {
 }
 
 //VecInfo for DPCPPKernelVecClone
-let KernelCallOnce = 0 in {
-  let Types = [v1f32, v1f64] in {
-    foreach bi = ["acos", "acosh", "acospi", "asin", "asinh", "asinpi", "atan", "atan2", "atanh", "atanpi",
-                  "atan2pi", "cbrt", "ceil", "copysign", "cos", "cosh", "cospi", "erfc", "erf", "exp", "exp2",
-                  "exp10", "expm1", "fabs", "fdim", "floor", "fma", "fmax", "fmax_common", "fmin", "fmin_common",
-                  "fmod", "hypot", "ilogb", "ldexp", "lgamma", "log", "log2", "log10", "log1p", "logb",
-                  "mad", "maxmag", "minmag", "nan", "nextafter", "pow", "pown", "powr", "remainder", "rint",
-                  "rootn", "round", "rsqrt", "sin", "sinh", "sinpi", "sqrt", "tan", "tanh", "tanpi", "tgamma", "trunc"] in {
-      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+let Types = [v1f32, v1f64] in {
+  foreach bi = ["acos", "acosh", "acospi", "asin", "asinh", "asinpi", "atan", "atan2", "atanh", "atanpi",
+                "atan2pi", "cbrt", "ceil", "copysign", "cos", "cosh", "cospi", "erfc", "erf", "exp", "exp2",
+                "exp10", "expm1", "fabs", "fdim", "floor", "fma", "fmax", "fmax_common", "fmin", "fmin_common",
+                "fmod", "hypot", "ilogb", "ldexp", "lgamma", "log", "log2", "log10", "log1p", "logb",
+                "mad", "maxmag", "minmag", "nan", "nextafter", "pow", "pown", "powr", "remainder", "rint",
+                "rootn", "round", "rsqrt", "sin", "sinh", "sinpi", "sqrt", "tan", "tanh", "tanpi", "tgamma", "trunc"] in {
+    def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
 
-      // masked version
-      let HandleAlias = 0 in {
-        def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
-      }
+    // masked version
+    let HandleAlias = 0 in {
+      def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
     }
   }
-
-  let Types = [v1f32] in {
-    foreach bi = ["half_cos", "half_divide", "half_exp", "half_exp2", "half_exp10",
-                  "half_log", "half_log2", "half_log10", "half_powr", "half_recip",
-                  "half_rsqrt", "half_sin", "half_sqrt", "half_tan"] in {
-      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
-
-      // masked version
-      let HandleAlias = 0 in {
-        def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
-      }
-    }
-  }
-
-  let Types = [v1f32, v1f64] in {
-    foreach bi = ["native_acos", "native_acosh", "native_acospi", "native_asin",
-                  "native_asinh", "native_asinpi", "native_atan", "native_atan2",
-                  "native_atanh", "native_atanpi", "native_atan2pi",
-                  "native_cbrt", "native_cos", "native_cosh", "native_cospi",
-                  "native_divide", "native_erfc", "native_erf", "native_exp",
-                  "native_exp2", "native_exp10", "native_expm1", "native_fdim",
-                  "native_fmax", "native_fmin", "native_fmod", "native_fract_pas",
-                  "native_fract_las", "native_fract_gas", "native_fract_gen",
-                  "native_fract_pas2", "native_hypot", "native_ilogb",
-                  "native_log", "native_log2", "native_log10", "native_log1p",
-                  "native_logb", "native_pow", "native_pown", "native_powr",
-                  "native_rcbrt", "native_recip", "native_rootn", "native_rsqrt",
-                  "native_sin", "native_sinh", "native_sinpi", "native_sqrt",
-                  "native_tan", "native_tanh", "native_tanpi"] in {
-      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
-
-      // masked version
-      let HandleAlias = 0 in {
-        def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
-      }
-    }
-  }
-
-  // sincos linear strided vectinfo
-  let HandleAlias = false in
-  foreach bi = ["sincos_pas", "sincos_las", "sincos_gas", "sincos_pas2"] in {
-    foreach is_native = [true, false] in {
-      defvar name = !if(is_native, "native_", "") # bi;
-
-      // f32 type, stride 4
-      let Types = [v1f32], Stride = 4 in {
-        def : VectInfo<[], !cast<OclBuiltin>(name), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided)>;
-        def : VectInfo<[], !cast<OclBuiltin>(name), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask)>;
-      }
-      // f64 type, stride 8
-      let Types = [v1f64], Stride = 8 in {
-        def : VectInfo<[], !cast<OclBuiltin>(name), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided)>;
-        def : VectInfo<[], !cast<OclBuiltin>(name), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask)>;
-      }
-    } // foreach is_native
-  } // foreach sincos builtins
 }
+
+let Types = [v1f32] in {
+  foreach bi = ["half_cos", "half_divide", "half_exp", "half_exp2", "half_exp10",
+                "half_log", "half_log2", "half_log10", "half_powr", "half_recip",
+                "half_rsqrt", "half_sin", "half_sqrt", "half_tan"] in {
+    def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+
+    // masked version
+    let HandleAlias = 0 in {
+      def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
+    }
+  }
+}
+
+let Types = [v1f32, v1f64] in {
+  foreach bi = ["native_acos", "native_acosh", "native_acospi", "native_asin",
+                "native_asinh", "native_asinpi", "native_atan", "native_atan2",
+                "native_atanh", "native_atanpi", "native_atan2pi",
+                "native_cbrt", "native_cos", "native_cosh", "native_cospi",
+                "native_divide", "native_erfc", "native_erf", "native_exp",
+                "native_exp2", "native_exp10", "native_expm1", "native_fdim",
+                "native_fmax", "native_fmin", "native_fmod", "native_fract_pas",
+                "native_fract_las", "native_fract_gas", "native_fract_gen",
+                "native_fract_pas2", "native_hypot", "native_ilogb",
+                "native_log", "native_log2", "native_log10", "native_log1p",
+                "native_logb", "native_pow", "native_pown", "native_powr",
+                "native_rcbrt", "native_recip", "native_rootn", "native_rsqrt",
+                "native_sin", "native_sinh", "native_sinpi", "native_sqrt",
+                "native_tan", "native_tanh", "native_tanpi"] in {
+    def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+
+    // masked version
+    let HandleAlias = 0 in {
+      def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
+    }
+  }
+}
+
+// sincos linear strided vectinfo
+let HandleAlias = false in
+foreach bi = ["sincos_pas", "sincos_las", "sincos_gas", "sincos_pas2"] in {
+  foreach is_native = [true, false] in {
+    defvar name = !if(is_native, "native_", "") # bi;
+
+    // f32 type, stride 4
+    let Types = [v1f32], Stride = 4 in {
+      def : VectInfo<[], !cast<OclBuiltin>(name), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided)>;
+      def : VectInfo<[], !cast<OclBuiltin>(name), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask)>;
+    }
+    // f64 type, stride 8
+    let Types = [v1f64], Stride = 8 in {
+      def : VectInfo<[], !cast<OclBuiltin>(name), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided), !cast<OclBuiltin>(name # _strided)>;
+      def : VectInfo<[], !cast<OclBuiltin>(name), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask), !cast<OclBuiltin>(name # _strided_mask)>;
+    }
+  } // foreach is_native
+} // foreach sincos builtins
 
 // OpenCL 1.2 rev 15, Table 6.10
 let Types = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
@@ -620,34 +618,32 @@ def min_mask     : OclBuiltin<"min",   (outs gentype:$ret), (ins gentype:$x, gen
 }
 
 // VectInfo for OclVecClone
-let KernelCallOnce = 0 in {
-  let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64] in {
-    foreach bi = ["abs", "abs_diff", "add_sat", "hadd", "rhadd",
-                  "clz", "mad_hi", "mad_sat", "mul_hi", "rotate",
-                  "sub_sat"] in {
-      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64] in {
+  foreach bi = ["abs", "abs_diff", "add_sat", "hadd", "rhadd",
+                "clz", "mad_hi", "mad_sat", "mul_hi", "rotate",
+                "sub_sat"] in {
+    def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
 
-      // masked version
-      let HandleAlias = 0 in {
-        def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
-      }
+    // masked version
+    let HandleAlias = 0 in {
+      def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
     }
   }
+}
 
-  let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32] in {
-    def intel_upsample : VectInfo<[], upsample, upsample, upsample, upsample>;
-  }
+let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32] in {
+  def intel_upsample : VectInfo<[], upsample, upsample, upsample, upsample>;
+}
 
-  let Types = [ v1i8, v1u8, v1i16, v1u16,
-                v1i32, v1u32, v1i64, v1u64,
-                v1f32, v1f64] in {
-    foreach bi = ["clamp", "max", "min"] in {
-      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+let Types = [ v1i8, v1u8, v1i16, v1u16,
+              v1i32, v1u32, v1i64, v1u64,
+              v1f32, v1f64] in {
+  foreach bi = ["clamp", "max", "min"] in {
+    def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
 
-      // masked version
-      let HandleAlias = 0 in {
-        def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
-      }
+    // masked version
+    let HandleAlias = 0 in {
+      def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
     }
   }
 }
@@ -661,11 +657,9 @@ def mul24   : OclBuiltin<"mul24", (outs gentype:$ret), (ins gentype:$x, gentype:
 }
 
 // VectInfo for OclVecClone
-let KernelCallOnce = 0 in {
-  let Types = [v1i32, v1u32] in {
-    def intel_mad24 : VectInfo<[], mad24, mad24, mad24, mad24>;
-    def intel_mul24 : VectInfo<[], mul24, mul24, mul24, mul24>;
-  }
+let Types = [v1i32, v1u32] in {
+  def intel_mad24 : VectInfo<[], mad24, mad24, mad24, mad24>;
+  def intel_mul24 : VectInfo<[], mul24, mul24, mul24, mul24>;
 }
 
 // OpenCL 1.2 rev 15, Table 6.12
@@ -696,15 +690,13 @@ def sign_mask          : OclBuiltin<"sign",        (outs gentype:$ret), (ins gen
 }
 
 // VectInfo for OclVecClone
-let KernelCallOnce = 0 in {
-  let Types = [v1f32, v1f64] in {
-    foreach bi = ["degrees", "mix", "radians", "step", "smoothstep", "sign"] in {
-      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+let Types = [v1f32, v1f64] in {
+  foreach bi = ["degrees", "mix", "radians", "step", "smoothstep", "sign"] in {
+    def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
 
-      // masked version
-      let HandleAlias = 0 in {
-        def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
-      }
+    // masked version
+    let HandleAlias = 0 in {
+      def intel_#bi#_mask : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask"), !cast<OclBuiltin>(bi#"_mask")>;
     }
   }
 }
@@ -787,13 +779,11 @@ def signbit_mask         : OclBuiltin<"signbit",         (outs rf2igentype:$ret)
 }
 
 // VectInfo for OclVecClone
-let KernelCallOnce = 0 in {
-  let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32,
-               v1i64, v1u64, v1f32, v1f64] in {
-    def intel_bitselect : VectInfo<[], bitselect, bitselect, bitselect, bitselect, bitselect, bitselect>;
-    def intel_iselect : VectInfo<[], iselect, iselect, iselect, iselect, iselect, iselect>;
-    def intel_uselect : VectInfo<[], uselect, uselect, uselect, uselect, uselect, uselect>;
-  }
+let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32,
+              v1i64, v1u64, v1f32, v1f64] in {
+  def intel_bitselect : VectInfo<[], bitselect, bitselect, bitselect, bitselect, bitselect, bitselect>;
+  def intel_iselect : VectInfo<[], iselect, iselect, iselect, iselect, iselect, iselect>;
+  def intel_uselect : VectInfo<[], uselect, uselect, uselect, uselect, uselect, uselect>;
 }
 
 // OpenCL 1.2 rev 15, Table 6.15
@@ -1143,23 +1133,21 @@ def _convert_f64_sat_rtn : OclBuiltin<"convert_$ReturnType_sat_rtn", (outs f64ge
 }
 
 // VectInfo for OclVecClone
-let KernelCallOnce = 0 in {
 // conversion to integer has satured mode.
-  let Types = [ v1i8, v1u8, v1i16, v1u16, v1i32,
-                v1u32, v1i64, v1u64, v1f32, v1f64] in {
-    foreach type = ["u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64"] in {
-      def intel_convert_#type : VectInfo<[], !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type)>;
-      def intel_convert_#type#_sat : VectInfo<[], !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat")>;
-    }
+let Types = [ v1i8, v1u8, v1i16, v1u16, v1i32,
+              v1u32, v1i64, v1u64, v1f32, v1f64] in {
+  foreach type = ["u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64"] in {
+    def intel_convert_#type : VectInfo<[], !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type)>;
+    def intel_convert_#type#_sat : VectInfo<[], !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat")>;
   }
+}
 
 // conversions from floating to integer also honor rounding mode as well as saturated mode.
-  let Types = [v1f32, v1f64] in {
-    foreach type = ["u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64"] in {
-      foreach op = ["rte", "rtz", "rtp", "rtn"] in {
-        def intel_convert_#type#_#op : VectInfo<[], !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op)>;
-        def intel_convert_#type#_sat_#op : VectInfo<[], !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op)>;
-      }
+let Types = [v1f32, v1f64] in {
+  foreach type = ["u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64"] in {
+    foreach op = ["rte", "rtz", "rtp", "rtn"] in {
+      def intel_convert_#type#_#op : VectInfo<[], !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op)>;
+      def intel_convert_#type#_sat_#op : VectInfo<[], !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op)>;
     }
   }
 }
@@ -1461,16 +1449,14 @@ let Types = [v1u32, v2u32, v3u32, v4u32, v8u32, v16u32, v32u32, v64u32],
   def urem          : OclBuiltin<"urem",      (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
 }
 
-let KernelCallOnce = 0 in {
-  let Types = [v1i32] in {
-    foreach bi = ["idiv", "irem"] in {
-      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
-    }
+let Types = [v1i32] in {
+  foreach bi = ["idiv", "irem"] in {
+    def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
   }
-  let Types = [v1u32] in {
-    foreach bi = ["udiv", "urem"] in {
-      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
-    }
+}
+let Types = [v1u32] in {
+  foreach bi = ["udiv", "urem"] in {
+    def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
   }
 }
 

@@ -1,6 +1,6 @@
 
 // Work-group functions and their vectorized versions
-let NeedForwardDecl = 1 in {
+let NeedForwardDecl = 1, VectorAttrs = [KERNEL_CALL_ONCE] in {
   let Types = [ v1i32, v4i32, v8i32, v16i32, v32i32, v64i32 ],
       Attrs = [OVERLOADABLE] in {
     def work_group_all : OclBuiltin<"work_group_all", (outs gentype:$ret), (ins gentype:$predicate), [], [], 1, 0>;

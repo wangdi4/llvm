@@ -137,6 +137,21 @@ protected:
   std::string m_CAttribute;
 };
 
+/// OclBuiltinVectorAttr
+class OclBuiltinVectorAttr {
+public:
+  explicit OclBuiltinVectorAttr(const Record *R)
+      : Attr(R->getValueAsString("Attr")) {
+    assert(R->isSubClassOf("OclBuiltinVectorAttr") &&
+           "Invalid OclBuiltinVectorAttr record.");
+  }
+
+  const std::string &getAttrName() const { return Attr; }
+
+protected:
+  std::string Attr;
+};
+
 /// OclBuiltin
 class OclBuiltin {
 public:
@@ -230,6 +245,13 @@ public:
 
   void removeAttribute(const OclBuiltinAttr&);
 
+  bool hasKernelCallOnce() const {
+    for (auto &VA : m_VectorAttrs)
+      if (VA->getAttrName() == "kernel-call-once")
+        return true;
+    return false;
+  }
+
   bool shouldGenerate() const;
 
 protected:
@@ -246,6 +268,7 @@ protected:
   bool m_HasVolatile;
   std::vector<const OclType*> m_Types;
   std::vector<const OclBuiltinAttr*> m_Attrs;
+  std::vector<const OclBuiltinVectorAttr *> m_VectorAttrs;
   std::vector<std::pair<const OclType*, std::string> > m_Outputs;
   std::vector<std::pair<const OclType*, std::string> > m_Inputs;
 };

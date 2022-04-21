@@ -1076,6 +1076,15 @@ def OVERLOADABLE : OclBuiltinAttr<"__attribute__((overloadable))">;
 def INLINE : OclBuiltinAttr<"__attribute__((always_inline))">;
 def INTERNAL_INLINE : OclBuiltinAttr<"inline __attribute__((always_inline))">;
 
+class OclBuiltinVectorAttr<string attr> {
+  string Attr = attr;
+}
+
+def KERNEL_CALL_ONCE : OclBuiltinVectorAttr<"kernel-call-once">;
+def KERNEL_UNIFORM_CALL : OclBuiltinVectorAttr<"kernel-uniform-call">;
+def KERNEL_CONVERGENT_CALL : OclBuiltinVectorAttr<"kernel-convergent-call">;
+def OPENCL_VEC_UNIFORM_RETURN : OclBuiltinVectorAttr<"opencl-vec-uniform-return">;
+
 // OclBuiltin
 class OclBuiltin<string name, dag outs, dag ins, list<OclType> types, list<OclBuiltinAttr> attrs = [], bit exclude = true, bit prefix = false> {
   string Name = name;
@@ -1091,6 +1100,7 @@ class OclBuiltin<string name, dag outs, dag ins, list<OclType> types, list<OclBu
   bit NeedForwardDecl = 0; // Non OCL builtin function need forwarding declaration.
   bit Exclude = exclude; // OCL builtin function that could be excluded from the build.
   bit Prefix = prefix; // OCL builtin function that could add prefix to its name.
+  list<OclBuiltinVectorAttr> VectorAttrs = [];
 }
 
 // A handy wrapper (macro) that takes care of "__spirv_" prefix and "INTEL" suffix.
@@ -1185,7 +1195,6 @@ def unimplemented : OclBuiltin<"unimplemented", (outs gentype:$ret), (ins gentyp
 class VectInfo<list<OclType> tys, OclBuiltin v1, OclBuiltin v4, OclBuiltin v8, OclBuiltin v16, OclBuiltin v32 = unimplemented, OclBuiltin v64 = unimplemented>{
   list<OclType> Types = tys;
   bit HandleAlias = 1;
-  bit KernelCallOnce = 1;
   bit NeedWidenTypes = 1;
   // If the 'Stride' field is a non-zero value, OclTableGen backend will emit
   // linear strided vector variants instead of uniform ones.

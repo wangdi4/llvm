@@ -453,6 +453,13 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
     }
   }
 
+  // VectorAttrs
+  {
+    std::vector<Record *> Attrs = R->getValueAsListOfDefs("VectorAttrs");
+    for (const Record *Attr : Attrs)
+      m_VectorAttrs.emplace_back(new OclBuiltinVectorAttr(Attr));
+  }
+
   // Optional ASQualifier
   if (R->getValue("ASQualifier"))
     m_AS = std::string(R->getValueAsString("ASQualifier"));
@@ -469,6 +476,9 @@ OclBuiltin::~OclBuiltin()
 {
   for (std::vector<const OclBuiltinAttr*>::const_iterator I = m_Attrs.begin(), E = m_Attrs.end(); I != E; ++I)
     delete *I;
+
+  for (auto *VA : m_VectorAttrs)
+    delete VA;
 }
 
 std::string
