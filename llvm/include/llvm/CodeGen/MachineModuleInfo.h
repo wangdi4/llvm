@@ -156,6 +156,7 @@ class MachineModuleInfo {
   /// comments in lib/Target/X86/X86FrameLowering.cpp for more details.
   bool UsesMorestackAddr;
 
+<<<<<<< HEAD
   /// True if the module contains split-stack functions. This is used to
   /// emit .note.GNU-split-stack section as required by the linker for
   /// special handling split-stack function calling no-split-stack function.
@@ -168,6 +169,8 @@ class MachineModuleInfo {
 
   std::vector<NotifyEntry> NotifyAnnotations; // INTEL
 
+=======
+>>>>>>> d7938b1a817006388f95de5ea2ee74daa7cde892
   /// Maps IR Functions to their corresponding MachineFunctions.
   DenseMap<const Function*, std::unique_ptr<MachineFunction>> MachineFunctions;
   /// Next unique number available for a MachineFunction.
@@ -242,6 +245,7 @@ public:
     UsesMorestackAddr = b;
   }
 
+<<<<<<< HEAD
   bool hasSplitStack() const {
     return HasSplitStack;
   }
@@ -277,6 +281,8 @@ public:
   }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> d7938b1a817006388f95de5ea2ee74daa7cde892
   /// Return the symbol to be used for the specified basic block when its
   /// address is taken.  This cannot be its normal LBB label because the block
   /// may be accessed outside its containing function.
