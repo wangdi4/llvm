@@ -1,6 +1,11 @@
 ## Test the -D and -U flags of llvm-ranlib
 ## Create an archive with timestamps but without symbol table
 ## Important: all `llvm-ar tv` calls must use TZ=UTC to produce identical values
+# INTEL_CUSTOMIZATION
+# This test started failing when we moved to a new test system which appears
+# not to recognize the TZ=UTC variable.
+# UNSUPPORTED: TRUE
+# end INTEL_CUSTOMIZATION
 # RUN: yaml2obj %S/../llvm-ar/Inputs/add-lib1.yaml -o %t.o
 # RUN: env TZ=UTC touch -t 200001020304 %t.o
 # RUN: rm -f %t.a %t-no-index.a && llvm-ar cqSU %t-no-index.a %t.o
