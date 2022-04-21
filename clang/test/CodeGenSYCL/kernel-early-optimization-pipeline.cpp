@@ -12,6 +12,6 @@
 //
 // INTEL_CUSTOMIZATION
 // Additionally check regular C++:
-// RUN: %clang_cc1 -O2 -triple x86_64 %s -mllvm -debug-pass=Structure -emit-llvm -o - 2>&1 | FileCheck %s --check-prefix=CHECK-CPP
+// RUN: %clang_cc1 -O2 -triple x86_64 %s -flegacy-pass-manager -mllvm -debug-pass=Structure -emit-llvm -o - 2>&1 | FileCheck %s --check-prefix=CHECK-CPP
 // CHECK-CPP: Transform sin and cos calls
 // end INTEL_CUSTOMIZATION
