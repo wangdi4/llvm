@@ -419,9 +419,6 @@ void narrowShuffleMaskElts(int Scale, ArrayRef<int> Mask,
 bool widenShuffleMaskElts(int Scale, ArrayRef<int> Mask,
                           SmallVectorImpl<int> &ScaledMask);
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
 /// Splits and processes shuffle mask depending on the number of input and
 /// output registers. The function does 2 main things: 1) splits the
 /// source/destination vectors into real registers; 2) do the mask analysis to
@@ -440,7 +437,6 @@ void processShuffleMasks(
     function_ref<void(ArrayRef<int>, unsigned)> SingleInputAction,
     function_ref<void(ArrayRef<int>, unsigned, unsigned)> ManyInputsAction);
 
->>>>>>> 2f49163b3365e5dc046b03e422a048dd45aee3f0
 /// Compute a map of integer instructions to their minimum legal type
 /// size.
 ///
@@ -480,6 +476,7 @@ computeMinimumValueSizes(ArrayRef<BasicBlock*> Blocks,
                          DemandedBits &DB,
                          const TargetTransformInfo *TTI=nullptr);
 
+#if INTEL_CUSTOMIZATION
 /// \brief This function marks the CallInst VecCall with the appropriate stride
 /// information determined by getExprStride(), which is used later in LLVM IR
 /// generation for loads/stores. Initial use of this information is used during
