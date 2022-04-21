@@ -39,8 +39,7 @@ define dso_local void @foo(i32* noalias nocapture noundef %A, i16* nocapture nou
 ; CHECK-VF4-NEXT:           |   [[CMP0:%.*]] = [[TMP0]] == 0
 ; CHECK-VF4-NEXT:           |   [[ALL_ZERO_CHECK0:%.*]] = [[CMP0]]
 ; CHECK-VF4-NEXT:           |   [[PHI_TEMP0:%.*]] = [[DOTVEC20]]
-; CHECK-VF4-NEXT:           |   [[UNIFCOND0:%.*]] = extractelement [[ALL_ZERO_CHECK0]],  0
-; CHECK-VF4-NEXT:           |   if ([[UNIFCOND0]] == 1)
+; CHECK-VF4-NEXT:           |   if ([[CMP0]] == 1)
 ; CHECK-VF4-NEXT:           |   {
 ; CHECK-VF4-NEXT:           |      goto [[BB0:BB.*]];
 ; CHECK-VF4-NEXT:           |   }
@@ -97,8 +96,7 @@ define dso_local void @foo(i32* noalias nocapture noundef %A, i16* nocapture nou
 ; CHECK-VF8-NEXT:           |   [[CMP0:%.*]] = [[TMP0]] == 0
 ; CHECK-VF8-NEXT:           |   [[ALL_ZERO_CHECK0:%.*]] = [[CMP0]]
 ; CHECK-VF8-NEXT:           |   [[PHI_TEMP0:%.*]] = [[DOTVEC20]]
-; CHECK-VF8-NEXT:           |   [[UNIFCOND0:%.*]] = extractelement [[ALL_ZERO_CHECK0]],  0
-; CHECK-VF8-NEXT:           |   if ([[UNIFCOND0]] == 1)
+; CHECK-VF8-NEXT:           |   if ([[CMP0]] == 1)
 ; CHECK-VF8-NEXT:           |   {
 ; CHECK-VF8-NEXT:           |      goto [[BB0:BB.*]];
 ; CHECK-VF8-NEXT:           |   }
