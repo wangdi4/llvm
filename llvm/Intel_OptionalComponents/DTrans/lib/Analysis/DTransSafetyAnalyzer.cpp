@@ -4881,6 +4881,54 @@ public:
     }
   }
 
+  // Return true if the input Value SetSize represents the size of the
+  // structure DTType. If not, then traverse through the zero element of the
+  // structure and check if the field's size is the same as SetSize. Else
+  // return false.
+  bool isSizeOfStructOrZeroElement(Value *SetSize, DTransType *DTType) {
+    if (!SetSize || !DTType)
+      return false;
+
+    if (dtrans::isValueEqualToSize(SetSize, 0))
+      return false;
+
+    DTransStructType *DTStruct = nullptr;
+    if (DTType->isPointerTy())
+      DTStruct = dyn_cast<DTransStructType>(DTType->getPointerElementType());
+    else
+      DTStruct = dyn_cast<DTransStructType>(DTType);
+
+    if (!DTStruct)
+      return false;
+
+    llvm::Type *StrLLVMTy = DTStruct->getLLVMType();
+    if (!StrLLVMTy->isSized())
+      return false;
+
+    uint64_t ElementSize = DL.getTypeAllocSize(StrLLVMTy);
+    if (ElementSize == 0)
+      return false;
+
+    if (dtrans::isValueEqualToSize(SetSize, ElementSize))
+      return true;
+
+    dtrans::MemfuncRegion RegionDesc;
+    llvm::StructType *CurrLLVMTy = cast<StructType>(StrLLVMTy);
+    while (CurrLLVMTy) {
+      if (analyzePartialStructUse(DL, CurrLLVMTy, /*FieldNum =*/ 0,
+                                  /*PrePadBytes = */ 0, SetSize,
+                                  &RegionDesc))
+        return true;
+
+      if (CurrLLVMTy->getNumElements() == 0)
+        return false;
+
+      CurrLLVMTy = dyn_cast<StructType>(CurrLLVMTy->getElementType(0));
+    }
+
+    return false;
+  }
+
   // Check the destination of a call to memset for safety.
   //
   // A safe call is one where it can be resolved that the operand to the
@@ -4995,6 +5043,40 @@ public:
 
     auto DestParentTy = PTA.getDominantAggregateUsageType(*DstInfo);
     if (!DestParentTy || !DestParentTy->isPointerTy()) {
+      // If we don't have a dominant aggregate type, but we know the type that
+      // encloses all the declaration and use aliases, and related types, then
+      // we are going to set BadMemFuncManipulationForRelatedTypes.
+      // For example:
+      //
+      // %struct.test.a = type { i32, i32, [4 x i8] }
+      // %struct.test.a.base = type { i32, i32 }
+      //
+      // %class.TestClass.Outer = type { %struct.test.a.base, [4 x i8] }
+      //
+      // define void @test01(ptr %ptr) {
+      // entry:
+      //   %0 = getelementptr inbounds %struct.test.a, ptr %ptr, i64 0, i32 0
+      //   %1 = load i32, ptr %0
+      //   call void @llvm.memset.p0i8.i64(ptr %ptr, i8 1, i64 8, i1 false)
+      //   ret void
+      // }
+      //
+      // Assume that the input argument of @test01 is a pointer to
+      // %class.TestClass.Outer. The GEP %0 accesses the field 0 of
+      // %class.TestClass.Outer as %struct.test.a, which is a related type
+      // of %struct.test.a.base. In this case we won't have a dominant
+      // aggregate type for %ptr, but the use is legal for related types.
+      if (auto *DestEnclosingType = getEnclosingParentDeclType(*DstInfo)) {
+        // We need to check that the size used for memset is the same as
+        // the structure's size, or the size of the zero element.
+        if(isSizeOfStructOrZeroElement(SetSize, DestEnclosingType)) {
+            setAllAliasedTypeSafetyData(DstInfo,
+                dtrans::BadMemFuncManipulationForRelatedTypes,
+                "memset used in a structure with related type", &I);
+            return;
+        }
+      }
+
       setAllAliasedTypeSafetyData(DstInfo, dtrans::AmbiguousPointerTarget,
                                   "memset could not identify dominant type",
                                   &I);
@@ -5331,8 +5413,63 @@ public:
     auto SrcParentTy = PTA.getDominantAggregateUsageType(*SrcInfo);
     if (!DestParentTy || !DestParentTy->isPointerTy() || !SrcParentTy ||
         !SrcParentTy->isPointerTy()) {
-      dtrans::SafetyData Data = dtrans::AmbiguousPointerTarget;
-      StringRef Reason = "memcpy/memmove - unidentified type for src or dest";
+      dtrans::SafetyData Data;
+      StringRef Reason;
+
+      // If there is no dominant aggregate type, then check if there is a main
+      // parent structure that encapsulates all the types through the zero
+      // element, and is the same for the source and destination types.
+      // For example:
+      //
+      // %struct.test.a = type { i32, i32, [4 x i8] }
+      // %struct.test.a.base = type { i32, i32 }
+      //
+      // %class.TestClass.Outer = type { %struct.test.a.base, [4 x i8] }
+      //
+      // define void @test01(ptr %ptr, ptr %ptr2) {
+      // entry:
+      //   %0 = getelementptr inbounds %struct.test.a, ptr %ptr, i64 0, i32 0
+      //   %1 = getelementptr inbounds %struct.test.a, ptr %ptr2, i64 0, i32 0
+      //   %2 = load i32, ptr %0
+      //   %3 = load i32, ptr %1
+      //   call void @llvm.memcpy.p0i8.p0i8.i64(ptr %ptr, ptr %ptr2, i64 8,
+      //                                        i1 false)
+      //   ret void
+      // }
+      //
+      // Assume that %ptr and %ptr2 are pointers to %class.TestClass.Outer. The
+      // GEP instructions %0 and %1 use the related type of the zero element,
+      // %struct.test.a. This will indicate that DstInfo and SrcInfo won't have
+      // a dominant aggregate type. Since we know that %class.TestClass.Outer
+      // encloses %struct.test.a.base, and it is a related type to
+      // %struct.test.a, then we are going to mark it a
+      // BadMemFuncManipulationForRelatedTypes.
+      //
+      // NOTE: Perhaps we may want to relax this in the future. The key idea
+      // is to prove that the use (VAT_Use) and declaration (VAT_Decl)
+      // information in DstInfo and SrcInfo are the same, and the size used in
+      // memcpy/memove covers all the types.
+      auto *DestEnclosingType = getEnclosingParentDeclType(*DstInfo);
+      auto *SrcEnclosingType = getEnclosingParentDeclType(*SrcInfo);
+      bool IsSizeLegal = false;
+      if (DestEnclosingType && SrcEnclosingType &&
+          DestEnclosingType->isPointerTy() &&
+          DestEnclosingType == SrcEnclosingType) {
+        // If the source and destination types are the same, then we need to
+        // check that the size passed to memcpy/memmove is the same as the
+        // size of the structure or the zero element.
+        IsSizeLegal =
+            isSizeOfStructOrZeroElement(SetSize, DestEnclosingType);
+      }
+
+      if (IsSizeLegal) {
+        Data = dtrans::BadMemFuncManipulationForRelatedTypes;
+        Reason = "memcpy/memmove - source or destination may contain "
+                 "related types";
+      } else {
+        Data = dtrans::AmbiguousPointerTarget;
+        Reason = "memcpy/memmove - unidentified type for src or dest";
+      }
       setAllAliasedTypeSafetyData(DstInfo, Data, Reason, &I);
       setAllAliasedTypeSafetyData(SrcInfo, Data, Reason, &I);
       return;
