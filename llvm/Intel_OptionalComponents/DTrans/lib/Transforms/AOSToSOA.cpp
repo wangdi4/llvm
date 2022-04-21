@@ -2594,10 +2594,9 @@ bool AOSToSOAPass::runImpl(
     std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
     WholeProgramInfo &WPInfo, AOSToSOAPass::DominatorTreeFuncType &GetDT) {
 
-  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
-  if (!WPInfo.isWholeProgramSafe() || !WPInfo.isAdvancedOptEnabled(TTIAVX2)) {
+  if (!WPInfo.isWholeProgramSafe()) {
     LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: inhibited -- not whole program safe "
-                         "or not AVX2\n");
+                         "\n");
     return false;
   }
 

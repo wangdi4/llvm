@@ -1,18 +1,15 @@
 ; RUN: opt < %s -S -whole-program-assume -dtrans-aostosoa 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -whole-program-assume -passes='dtrans-aostosoa,require<dtransanalysis>' 2>&1 | FileCheck %s
 
-; Verify that AOS-to-SOA is not triggered when Intel AVX2 is not enabled.
+; Verify that AOS-to-SOA is still triggered when Intel AVX2 is not enabled.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 %struct.test01 = type { i32, i32, i32, %struct.test01*, %struct.test02*, i8* }
 %struct.test02 = type { i16, %struct.test01*, %struct.test01* }
 
-; CHECK: %struct.test01 = type { i32, i32, i32, %struct.test01*, %struct.test02*, i8* }
-; CHECK: %struct.test02 = type { i16, %struct.test01*, %struct.test01* }
-
-; CHECK-NOT: %__SOADT_struct.test01 = type { i32, i32, i32, %__SOADT_struct.test01*, i32, i8* }
-; CHECK-NOT: %__SOA_struct.test02 = type { i16*, %__SOADT_struct.test01**, %__SOADT_struct.test01** }
+; CHECK-DAG:%__SOA_struct.test02 = type { i16*, %__SOADT_struct.test01**, %__SOADT_struct.test01** }
+; CHECK-DAG:%__SOADT_struct.test01 = type { i32, i32, i32, %__SOADT_struct.test01*, i32, i8* }
 
 @g_test01ptr = internal unnamed_addr global %struct.test01* zeroinitializer
 
