@@ -156,21 +156,8 @@ class MachineModuleInfo {
   /// comments in lib/Target/X86/X86FrameLowering.cpp for more details.
   bool UsesMorestackAddr;
 
-<<<<<<< HEAD
-  /// True if the module contains split-stack functions. This is used to
-  /// emit .note.GNU-split-stack section as required by the linker for
-  /// special handling split-stack function calling no-split-stack function.
-  bool HasSplitStack;
-
-  /// True if the module contains no-split-stack functions. This is used to
-  /// emit .note.GNU-no-split-stack section when it also contains split-stack
-  /// functions.
-  bool HasNosplitStack;
-
   std::vector<NotifyEntry> NotifyAnnotations; // INTEL
 
-=======
->>>>>>> d7938b1a817006388f95de5ea2ee74daa7cde892
   /// Maps IR Functions to their corresponding MachineFunctions.
   DenseMap<const Function*, std::unique_ptr<MachineFunction>> MachineFunctions;
   /// Next unique number available for a MachineFunction.
@@ -245,22 +232,6 @@ public:
     UsesMorestackAddr = b;
   }
 
-<<<<<<< HEAD
-  bool hasSplitStack() const {
-    return HasSplitStack;
-  }
-
-  void setHasSplitStack(bool b) {
-    HasSplitStack = b;
-  }
-
-  bool hasNosplitStack() const {
-    return HasNosplitStack;
-  }
-
-  void setHasNosplitStack(bool b) {
-    HasNosplitStack = b;
-  }
 #if INTEL_CUSTOMIZATION
   /// Record notify annotations associated with a particular label.
   void addNotifyAnnotation(NotifyEntry Entry) {
@@ -281,8 +252,6 @@ public:
   }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> d7938b1a817006388f95de5ea2ee74daa7cde892
   /// Return the symbol to be used for the specified basic block when its
   /// address is taken.  This cannot be its normal LBB label because the block
   /// may be accessed outside its containing function.
