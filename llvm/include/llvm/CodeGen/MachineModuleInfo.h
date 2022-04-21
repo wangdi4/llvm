@@ -62,7 +62,6 @@ namespace llvm {
 class BasicBlock;
 class Function;
 class LLVMTargetMachine;
-class MMIAddrLabelMap;
 class MachineFunction;
 class Module;
 class MCSymbol;
@@ -132,10 +131,6 @@ class MachineModuleInfo {
   unsigned CurCallSite;
 
   /// \}
-
-  /// This map keeps track of which symbol is being used for the specified
-  /// basic block's address of label.
-  MMIAddrLabelMap *AddrLabelSymbols;
 
   // TODO: Ideally, what we'd like is to have a switch that allows emitting
   // synchronous (precise at call-sites only) CFA into .eh_frame. However,
@@ -218,6 +213,7 @@ public:
 
   void setUsesMSVCFloatingPoint(bool b) { UsesMSVCFloatingPoint = b; }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// Record notify annotations associated with a particular label.
   void addNotifyAnnotation(NotifyEntry Entry) {
@@ -257,6 +253,8 @@ public:
   void takeDeletedSymbolsForFunction(const Function *F,
                                      std::vector<MCSymbol*> &Result);
 
+=======
+>>>>>>> 9209a519180b478f7a77d7c4781ea857536d77ed
   /// \name Exception Handling
   /// \{
 
