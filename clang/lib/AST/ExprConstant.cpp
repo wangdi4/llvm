@@ -9120,13 +9120,10 @@ static bool isOneByteCharacterType(QualType T) {
 bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
                                                 unsigned BuiltinOp) {
   switch (BuiltinOp) {
-<<<<<<< HEAD
   case Builtin::BI__fence: // INTEL
     return !evaluatePointer(E->getArg(0), Result); // INTEL
-=======
   case Builtin::BIaddressof:
   case Builtin::BI__addressof:
->>>>>>> 72315d02c432a0fe0acae9c96c69eac8d8e1a9f6
   case Builtin::BI__builtin_addressof:
     return evaluateLValue(E->getArg(0), Result);
   case Builtin::BI__builtin_assume_aligned: {
