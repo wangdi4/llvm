@@ -72,7 +72,6 @@ bool Builtin::Context::isBuiltinFunc(llvm::StringRef FuncName) {
   return false;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static bool CheckIntelBuiltinSupported(bool IsOtherwiseSupported,
                                        const Builtin::Info &BuiltinInfo,
@@ -93,13 +92,8 @@ static bool CheckIntelBuiltinSupported(bool IsOtherwiseSupported,
 }
 #endif // INTEL_CUSTOMIZATION
 
-/// Is this builtin supported according to the given language options?
-static bool builtinIsSupported(const Builtin::Info &BuiltinInfo,
-                               const LangOptions &LangOpts) {
-=======
 bool Builtin::Context::builtinIsSupported(const Builtin::Info &BuiltinInfo,
                                           const LangOptions &LangOpts) {
->>>>>>> f4be047db5b1febc757b73331280417946a05ab8
   bool BuiltinsUnsupported =
       (LangOpts.NoBuiltin || LangOpts.isNoBuiltinFunc(BuiltinInfo.Name)) &&
       strchr(BuiltinInfo.Attributes, 'f');
