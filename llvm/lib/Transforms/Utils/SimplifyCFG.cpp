@@ -3040,9 +3040,7 @@ static Optional<bool> FoldCondBranchOnPHIImpl(BranchInst *BI,
                                               AssumptionCache *AC) {
   BasicBlock *BB = BI->getParent();
   PHINode *PN = dyn_cast<PHINode>(BI->getCondition());
-  // NOTE: we currently cannot transform this case if the PHI node is used
-  // outside of the block.
-  if (!PN || PN->getParent() != BB || !PN->hasOneUse())
+  if (!PN || PN->getParent() != BB)
     return false;
 
   // Degenerate case of a single entry PHI.
@@ -3052,6 +3050,8 @@ static Optional<bool> FoldCondBranchOnPHIImpl(BranchInst *BI,
   }
 
   // Now we know that this block has multiple preds and two succs.
+  // Check that the block is small enough and values defined in the block are
+  // not used outside of it.
   if (!BlockIsSimpleEnoughToThreadThrough(BB))
     return false;
 
