@@ -55,6 +55,13 @@ static bool runCGProfilePass(
     if (!CalledF || !TTI.isLoweredToCall(CalledF) ||
         CalledF->hasDLLImportStorageClass())
       return;
+#if INTEL_CUSTOMIZATION
+    // Calls to __svml_ functions may get replaced with a call to a different
+    // __svml_ function during the MapIntrinToIml pass. Do not include these
+    // calls in the function reordering call graph profile. (CMPLRLLVM-36647)
+    if (CalledF->getName().startswith("__svml_"))
+      return;
+#endif // INTEL_CUSTOMIZATION
     uint64_t &Count = Counts[std::make_pair(F, CalledF)];
     Count = SaturatingAdd(Count, NewCount);
   };
