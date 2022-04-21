@@ -206,6 +206,10 @@ MODULE_PASS("dtrans-force-inline",           // INTEL
             dtrans::DTransForceInlinePass()) // INTEL
 MODULE_PASS("dtrans-force-inline-op",            // INTEL
             dtransOP::DTransForceInlineOPPass()) // INTEL
+MODULE_PASS("remove-all-dtranstypemetadata",              // INTEL
+            dtransOP::RemoveAllDTransTypeMetadataPass()) // INTEL
+MODULE_PASS("remove-dead-dtranstypemetadata",              // INTEL
+            dtransOP::RemoveDeadDTransTypeMetadataPass()) // INTEL
 #if !INTEL_PRODUCT_RELEASE
 MODULE_PASS("dtransop-optbasetest", dtransOP::DTransOPOptBaseTestPass()) // INTEL
 MODULE_PASS("dtrans-optbasetest", dtrans::OptBaseTestPass()) // INTEL

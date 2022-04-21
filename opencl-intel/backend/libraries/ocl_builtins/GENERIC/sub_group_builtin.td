@@ -17,6 +17,8 @@ defvar broadcast_extended_types = [v2i8, v2u8, v2i16, v2u16, v2i32, v2u32, v2i64
                                    v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64, v8f32, v8f64,
                                    v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64, v16f32, v16f64];
 
+let VectorAttrs = [KERNEL_CALL_ONCE] in {
+
 let NeedForwardDecl = 1, Types = [ v1u32 ],
    Attrs = [OVERLOADABLE] in {
   def get_sub_group_size : OclBuiltin<"get_sub_group_size", (outs uint:$ret), (ins void), [], [], 1, 0>;
@@ -393,6 +395,9 @@ Attrs = [OVERLOADABLE] in {
     def sub_group_ballot_vf # vf : OclBuiltin<"sub_group_ballot", (outs WidenType<v4u32, vf>.Tout:$ret), (ins gentype:$predicate, mask_type:$vec_mask), [WidenType<v1i32, vf>.Tout]>;
   }
 }
+
+} // VectorAttrs = [KERNEL_CALL_ONCE]
+
 //
 // Vectorizer table for scalar and vectorized versions of sub group functions
 //

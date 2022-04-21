@@ -1132,8 +1132,23 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
              "Broken stride assumption!");
       int64_t NewIdxStride =
           (ZeroDimStrideVal / PointedToTySize) * CurrIdxStride;
-      assert(NewIdxStride != 0 && "Idx has no stride.");
-      if (NewIdxStride == 1 || NewIdxStride == -1)
+
+      if (NewIdxStride == 0) {
+        // Consider the memory ref arr[0:i1:4(i32*:0)][0:i2:0(i32*:0)] and the
+        // index [0:i2:0(i32*:0)] in particular. For this particular dimension,
+        // the lower value is 0, index is i2, and stride is 0. IdxShape is
+        // computed based on the index operand(i2) which in this case is the
+        // loop IV. So, IdxShape being strided is correct. In addition to the
+        // index, we also need to take into account the stride value to compute
+        // the access stride. If the stride value is zero, the address that is
+        // being accessed is &arr + i1 * 4 + i2 * 0 ==> &arr + i1 * 4.
+        // If NewIdxStride is zero, we can effectively treat the resulting shape
+        // from indices as uniform. This should only happen for the case of
+        // ZeroDimStrideVal being zero due to the assertion check for it being a
+        // multiple of PointedToTySize above. We assert for the same here.
+        assert(ZeroDimStrideVal == 0 && "Expected 0 ZeroDimStrideVal");
+        IdxShape = getUniformVectorShape();
+      } else if (NewIdxStride == 1 || NewIdxStride == -1)
         IdxShape = getSequentialVectorShape(NewIdxStride);
       else
         IdxShape = getStridedVectorShape(NewIdxStride);

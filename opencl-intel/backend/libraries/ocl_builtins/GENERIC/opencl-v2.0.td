@@ -456,12 +456,10 @@ let Types = [intptr_t],
     defm "": _ATOMIC_FETCH_TYPE2_<"max", uintptr_t>;
 }
 
-let KernelCallOnce = 0 in {
-  let Types = [v1f32] in {
-    foreach bi = ["cos_rm", "divide_rm", "exp_rm", "exp2_rm", "exp10_rm",
-                  "log_rm", "log2_rm", "pow_rm", "sin_rm", "tan_rm",
-                  "sincos_pas_rm", "sincos_las_rm", "sincos_gas_rm", "sincos_gen_rm"] in {
-      def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
-    }
-  }
+let Types = [v1f32] in {
+foreach bi = ["cos_rm", "divide_rm", "exp_rm", "exp2_rm", "exp10_rm",
+                "log_rm", "log2_rm", "pow_rm", "sin_rm", "tan_rm",
+                "sincos_pas_rm", "sincos_las_rm", "sincos_gas_rm", "sincos_gen_rm"] in {
+    def intel_#bi : VectInfo<[], !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi), !cast<OclBuiltin>(bi)>;
+}
 }
