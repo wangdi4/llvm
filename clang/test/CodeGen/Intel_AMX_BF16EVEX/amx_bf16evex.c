@@ -5,7 +5,7 @@
 #include <immintrin.h>
 #include <stddef.h>
 // BF16-EVEX
-void test_tile_dpbf16pse() {
+void test_tile_dpbf16pse(void) {
   // CHECK-LABEL: @test_tile_dpbf16pse
   // CHECK: call void @llvm.x86.tdpbf16pse(i8 1, i8 2, i8 3)
   _tile_dpbf16pse(1, 2, 3);

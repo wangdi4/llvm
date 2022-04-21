@@ -5,7 +5,7 @@
 #include <immintrin.h>
 #include <stddef.h>
 // AMX-TILE2
-void test_tile_tilemov()
+void test_tile_tilemov(void)
 {
   // CHECK-LABEL: @test_tile_tilemov
   // CHECK: call void @llvm.x86.tilemov(i8 1, i8 2)

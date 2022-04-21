@@ -6,7 +6,7 @@
 #include <immintrin.h>
 #include <stddef.h>
 // FP16
-void test_tile_dpfp16ps() {
+void test_tile_dpfp16ps(void) {
   // CHECK-LABEL: @test_tile_dpfp16ps
   // CHECK: call void @llvm.x86.tdpfp16ps(i8 1, i8 2, i8 3)
   _tile_dpfp16ps(1, 2, 3);
