@@ -242,16 +242,9 @@ define <4 x float> @test_simplify_3_5(<4 x float> %x) {
 
 ; (float)pow((double)(float)x, 0.5)
 define float @shrink_pow_libcall_half(float %x) {
-; INTEL_CUSTOMIZATION
-; SQRT-LABEL: @shrink_pow_libcall_half(
-; SQRT-NEXT:    [[SQRTF:%.*]] = call fast float @sqrtf(float [[X:%.*]])
-; SQRT-NEXT:    ret float [[SQRTF]]
-;
-; we allow sqrt conversion for 32-bit floats with the fast FP model
-; NOSQRT-LABEL: @shrink_pow_libcall_half(
-; NOSQRT-NEXT:    [[SQRT:%.*]] = call fast float @llvm.sqrt.f32(float [[X:%.*]])
-; NOSQRT-NEXT:    ret float [[SQRT]]
-; end INTEL_CUSTOMIZATION
+; CHECK-LABEL: @shrink_pow_libcall_half(
+; CHECK-NEXT:    [[SQRTF:%.*]] = call fast float @sqrtf(float [[X:%.*]])
+; CHECK-NEXT:    ret float [[SQRTF]]
 ;
   %dx = fpext float %x to double
   %call = call fast double @pow(double %dx, double 0.5)
