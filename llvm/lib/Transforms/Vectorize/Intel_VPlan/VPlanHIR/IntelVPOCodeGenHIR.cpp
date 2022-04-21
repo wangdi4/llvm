@@ -5863,7 +5863,14 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     addVPValueScalRefMapping(VPInst, AllZeroCmp, 0);
     NewInst = HLNodeUtilities.createCopyInst(
         widenRef(AllZeroCmp->clone(), getVF()), "all.zero.check");
-    break;
+
+    // The generated copy instruction needs to be inserted unmasked so that
+    // all vector lanes get the same value.
+    assert(Plan->getVPlanDA()->isUniform(*VPInst) &&
+           "Expected AllZeroCheck to be uniform");
+    addInstUnmasked(NewInst);
+    addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());
+    return;
   }
 
   case VPInstruction::ConflictInsn: {
@@ -6615,12 +6622,8 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
         for (RegDDRef *Ref : If->op_ddrefs())
           MainLoop->addLiveInTemp(Ref);
       } else {
-        auto *CondRef = getWideRefForVPVal(CondBit);
-        assert(CondRef && "Missind widened DDRef!");
-        HLInst *Extract = HLNodeUtilities.createExtractElementInst(
-            CondRef->clone(), (unsigned)0, "unifcond");
-        addInst(Extract, nullptr /* Mask */);
-        CondRef = Extract->getLvalDDRef()->clone();
+        auto *CondRef = getOrCreateScalarRef(CondBit, 0 /*ScalarLaneID*/);
+        assert(CondRef && "Null scalar condition ref!");
         If = HLNodeUtilities.createHLIf(
             Pred, CondRef,
             DDRefUtilities.createConstDDRef(CondRef->getDestType(), 1));

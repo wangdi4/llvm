@@ -8,6 +8,9 @@
 ; a no-op for inactive lanes. This will cause a problem later when we try to extract lane 0
 ; value and lane 0 happens to be inactive causing wrong branch to be taken.
 ;
+; Fix emits the copy instruction unmasked and also avoids generating unnecessary
+; extractelement instructions by using lane 0 value if it is available already.
+;
 ; Incoming HIR:
 ;      + DO i1 = 0, 7, 1   <DO_LOOP> <simd>
 ;      |   %ubval = (%ub)[i1];
@@ -18,21 +21,19 @@
 ;      + END LOOP
 ;
 ; CHECK:           + DO i1 = 0, 7, 4   <DO_LOOP> <simd-vectorized> <novectorize>
-; CHECK-NEXT:      |   %all.zero.check10 = undef;
 ; CHECK-NEXT:      |   %.vec = (<4 x i64>*)(%ub)[i1];
 ; CHECK-NEXT:      |   %.vec3 = %.vec > 0;
 ; CHECK-NEXT:      |   %0 = bitcast.<4 x i1>.i4(%.vec3);
 ; CHECK-NEXT:      |   %cmp = %0 == 0;
 ; CHECK-NEXT:      |   %all.zero.check = %cmp;
-; CHECK-NEXT:      |   %unifcond = extractelement %all.zero.check,  0;
-; CHECK-NEXT:      |   if (%unifcond != 1)
+; CHECK-NEXT:      |   if (%cmp != 1)
 ; CHECK-NEXT:      |   {
 ; CHECK-NEXT:      |      %phi.temp = 0;
 ; CHECK-NEXT:      |      %phi.temp4 = %.vec3;
 ; CHECK-NEXT:      |
 ; CHECK-NEXT:      |      + UNKNOWN LOOP i2 <novectorize>
 ; CHECK-NEXT:      |      |   <i2 = 0>
-; CHECK-NEXT:      |      |   BB6.59:
+; CHECK-NEXT:      |      |   BB6.58:
 ; CHECK-NEXT:      |      |   %.vec6 = %.vec3  &  %phi.temp4;
 ; CHECK-NEXT:      |      |   (<4 x i64>*)(@A)[0][i2][i1] = i1 + <i64 0, i64 1, i64 2, i64 3>, Mask = @{%.vec6};
 ; CHECK-NEXT:      |      |   %.vec7 = i2 + 1 < %.vec;
@@ -40,17 +41,13 @@
 ; CHECK-NEXT:      |      |   %allz.and. = %.vec3  &  %.vec8;
 ; CHECK-NEXT:      |      |   %1 = bitcast.<4 x i1>.i4(%allz.and.);
 ; CHECK-NEXT:      |      |   %cmp9 = %1 == 0;
-; FIXME: The next instruction needs to be generated unmasked so that the subsequent
-; extractelement instruction gets the right value. Otherwise, the if condition is
-; using a potentially undefined value leading to undesirable behavior.
-; CHECK-NEXT:      |      |   %all.zero.check10 = %cmp9, Mask = @{%.vec3};
+; CHECK-NEXT:      |      |   %all.zero.check10 = %cmp9
 ; CHECK-NEXT:      |      |   %phi.temp = i2 + 1;
 ; CHECK-NEXT:      |      |   %phi.temp4 = %.vec8;
-; CHECK-NEXT:      |      |   %unifcond13 = extractelement %all.zero.check10,  0;
-; CHECK-NEXT:      |      |   if (%unifcond13 != 1)
+; CHECK-NEXT:      |      |   if (%cmp9 != 1)
 ; CHECK-NEXT:      |      |   {
 ; CHECK-NEXT:      |      |      <i2 = i2 + 1>
-; CHECK-NEXT:      |      |      goto BB6.59;
+; CHECK-NEXT:      |      |      goto BB6.58;
 ; CHECK-NEXT:      |      |   }
 ; CHECK-NEXT:      |      + END LOOP
 ; CHECK-NEXT:      |   }

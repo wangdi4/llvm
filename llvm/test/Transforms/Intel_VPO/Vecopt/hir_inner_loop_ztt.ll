@@ -22,8 +22,8 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local void @foo(i64 %n1, i64 %n2) local_unnamed_addr #0 {
 ; CHECK:       + DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK-NEXT:  |   %.vec = %n2 > 0;
-; CHECK-NEXT:  |   %unifcond = extractelement %.vec,  0;
-; CHECK-NEXT:  |   if (%unifcond == 1)
+; CHECK-NEXT:  |   %extract.0. = extractelement %.vec,  0;
+; CHECK-NEXT:  |   if (%extract.0. == 1)
 ; CHECK-NEXT:  |   {
 ; CHECK-NEXT:  |      %phi.temp = 0;
 ; CHECK-NEXT:  |      %upper = %n2 + -1;
