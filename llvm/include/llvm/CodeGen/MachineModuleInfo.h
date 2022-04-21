@@ -213,7 +213,6 @@ public:
 
   void setUsesMSVCFloatingPoint(bool b) { UsesMSVCFloatingPoint = b; }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// Record notify annotations associated with a particular label.
   void addNotifyAnnotation(NotifyEntry Entry) {
@@ -234,27 +233,6 @@ public:
   }
 #endif // INTEL_CUSTOMIZATION
 
-  /// Return the symbol to be used for the specified basic block when its
-  /// address is taken.  This cannot be its normal LBB label because the block
-  /// may be accessed outside its containing function.
-  MCSymbol *getAddrLabelSymbol(const BasicBlock *BB) {
-    return getAddrLabelSymbolToEmit(BB).front();
-  }
-
-  /// Return the symbol to be used for the specified basic block when its
-  /// address is taken.  If other blocks were RAUW'd to this one, we may have
-  /// to emit them as well, return the whole set.
-  ArrayRef<MCSymbol *> getAddrLabelSymbolToEmit(const BasicBlock *BB);
-
-  /// If the specified function has had any references to address-taken blocks
-  /// generated, but the block got deleted, return the symbol now so we can
-  /// emit it.  This prevents emitting a reference to a symbol that has no
-  /// definition.
-  void takeDeletedSymbolsForFunction(const Function *F,
-                                     std::vector<MCSymbol*> &Result);
-
-=======
->>>>>>> 9209a519180b478f7a77d7c4781ea857536d77ed
   /// \name Exception Handling
   /// \{
 
