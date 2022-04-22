@@ -1,11 +1,11 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -fopenmp-version=50 -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 //
-// RUN: %clang_cc1 -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -fopenmp -fopenmp-late-outline \
 // RUN:   -triple x86_64-unknown-linux-gnu -emit-pch %s -o %t
 
-// RUN: %clang_cc1 -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -fopenmp -fopenmp-late-outline \
 // RUN:   -triple x86_64-unknown-linux-gnu -include-pch %t -emit-llvm %s -o - \
 // RUN:   | FileCheck %s
 
@@ -47,12 +47,12 @@ int test(int n) {
 
   // subdevice(global:local)
   //
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* @global
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE1:%.capture_expr.[0-9]*]]
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* [[A:%a[0-9]*]]
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE2:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, i32* [[CE1]]
-  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, i32* [[CE2]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr @global
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE1:%.capture_expr.[0-9]*]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr [[A:%a[0-9]*]]
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE2:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, ptr [[CE1]]
+  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, ptr [[CE2]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[LD1]], i32 [[LD2]], i32 1)
   // CHECK: region.exit{{.*}}"DIR.OMP.END.TARGET"()
@@ -61,12 +61,12 @@ int test(int n) {
 
   // subdevice(<short>:<char>)
   //
-  // CHECK: [[LD:%[0-9]+]] = load i16, i16* %aa
-  // CHECK-NEXT: store i16 [[LD]], i16* [[CE1:%.capture_expr.[0-9]*]]
-  // CHECK: [[LD:%[0-9]+]] = load i8, i8* %c
-  // CHECK-NEXT: store i8 [[LD]], i8* [[CE2:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i16, i16* [[CE1]]
-  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i8, i8* [[CE2]]
+  // CHECK: [[LD:%[0-9]+]] = load i16, ptr %aa
+  // CHECK-NEXT: store i16 [[LD]], ptr [[CE1:%.capture_expr.[0-9]*]]
+  // CHECK: [[LD:%[0-9]+]] = load i8, ptr %c
+  // CHECK-NEXT: store i8 [[LD]], ptr [[CE2:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i16, ptr [[CE1]]
+  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i8, ptr [[CE2]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i16 [[LD1]], i8 [[LD2]], i32 1) ]
   // CHECK: region.exit{{.*}}"DIR.OMP.END.TARGET"()
@@ -75,10 +75,10 @@ int test(int n) {
 
   // subdevice(<struct field>) - only one argument
   //
-  // CHECK: %Y = getelementptr inbounds %struct.TT, %struct.TT* %d, i32 0, i32 1
-  // CHECK: [[LD:%[0-9]+]] = load i8, i8* %Y
-  // CHECK-NEXT: store i8 [[LD]], i8* [[CE1:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD:%[0-9]+]] = load i8, i8* [[CE1]]
+  // CHECK: %Y = getelementptr inbounds %struct.TT, ptr %d, i32 0, i32 1
+  // CHECK: [[LD:%[0-9]+]] = load i8, ptr %Y
+  // CHECK-NEXT: store i8 [[LD]], ptr [[CE1:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD:%[0-9]+]] = load i8, ptr [[CE1]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i8 [[LD]], i32 1, i32 1) ]
   // CHECK: region.exit{{.*}}"DIR.OMP.END.TARGET"()
@@ -95,10 +95,10 @@ int test(int n) {
 
   // subdevice(<function call>:maxint)
   //
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %a
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %a
   // CHECK-NEXT: [[CALL:%call[0-9]*]] = call noundef i32 @_Z4funci(i32 noundef [[LD]])
-  // CHECK-NEXT: store i32 [[CALL]], i32* [[CE1:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD:%[0-9]+]] = load i32, i32* [[CE1]]
+  // CHECK-NEXT: store i32 [[CALL]], ptr [[CE1:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD:%[0-9]+]] = load i32, ptr [[CE1]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[LD]], i32 2147483647, i32 1) ]
   // CHECK: region.exit{{.*}}"DIR.OMP.END.TARGET"()
@@ -107,19 +107,19 @@ int test(int n) {
 
   // subdevice(<ptr to int>:<ptr to int>:<variable>)
   //
-  // CHECK: %X = getelementptr inbounds %struct.TT.0, %struct.TT.0* %d2, i32 0, i32 0
-  // CHECK-NEXT: [[LD:%[0-9]+]] = load i32*, i32** %X
-  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, i32* [[LD]]
-  // CHECK-NEXT: store i32 [[LD1]], i32* [[CE1:%.capture_expr.[0-9]*]]
-  // CHECK: [[Y:%Y[0-9]*]] = getelementptr inbounds %struct.TT.0, %struct.TT.0* %d2, i32 0, i32 1
-  // CHECK: [[LD:%[0-9]+]] = load i32*, i32** [[Y]]
-  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, i32* [[LD]]
-  // CHECK-NEXT: store i32 [[LD1]], i32* [[CE2:%.capture_expr.[0-9]*]]
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %stride
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE3:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, i32* [[CE1]]
-  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, i32* [[CE2]]
-  // CHECK-NEXT: [[LD3:%[0-9]+]] = load i32, i32* [[CE3]]
+  // CHECK: %X = getelementptr inbounds %struct.TT.0, ptr %d2, i32 0, i32 0
+  // CHECK-NEXT: [[LD:%[0-9]+]] = load ptr, ptr %X
+  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, ptr [[LD]]
+  // CHECK-NEXT: store i32 [[LD1]], ptr [[CE1:%.capture_expr.[0-9]*]]
+  // CHECK: [[Y:%Y[0-9]*]] = getelementptr inbounds %struct.TT.0, ptr %d2, i32 0, i32 1
+  // CHECK: [[LD:%[0-9]+]] = load ptr, ptr [[Y]]
+  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, ptr [[LD]]
+  // CHECK-NEXT: store i32 [[LD1]], ptr [[CE2:%.capture_expr.[0-9]*]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %stride
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE3:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, ptr [[CE1]]
+  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, ptr [[CE2]]
+  // CHECK-NEXT: [[LD3:%[0-9]+]] = load i32, ptr [[CE3]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[LD1]], i32 [[LD2]], i32 [[LD3]]) ]
   // CHECK: region.exit{{.*}}"DIR.OMP.END.TARGET"()
@@ -128,12 +128,12 @@ int test(int n) {
 
   // subdevice with other target directives
   //
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %start
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %start
   // CHECK-NEXT: [[IDX:%idxprom[0-9]*]] = sext i32 [[LD]] to i64
-  // CHECK-NEXT: [[AINDEX:%arrayidx[0-9]*]] = getelementptr inbounds [10 x i32], [10 x i32]* %vec, i64 0, i64 [[IDX]]
-  // CHECK-NEXT: [[LD:%[0-9]+]] = load i32, i32* [[AINDEX]]
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE1:%.capture_expr.[0-9]*]]
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* [[CE1]]
+  // CHECK-NEXT: [[AINDEX:%arrayidx[0-9]*]] = getelementptr inbounds [10 x i32], ptr %vec, i64 0, i64 [[IDX]]
+  // CHECK-NEXT: [[LD:%[0-9]+]] = load i32, ptr [[AINDEX]]
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE1:%.capture_expr.[0-9]*]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr [[CE1]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET.ENTER.DATA"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i32 10, i32 20, i32 [[LD]])
   // CHECK: region.exit{{.*}}"DIR.OMP.END.TARGET.ENTER.DATA"()
@@ -145,8 +145,8 @@ int test(int n) {
   // CHECK: region.exit{{.*}}"DIR.OMP.END.TARGET.EXIT.DATA"()
   #pragma omp target exit data device(a) map(release: d.X) subdevice(30:40)
 
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %start
-  // CHECK: [[LD1:%[0-9]+]] = load i32, i32* %length
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %start
+  // CHECK: [[LD1:%[0-9]+]] = load i32, ptr %length
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET.DATA"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[LD]], i32 [[LD1]], i32 1)
   // CHECK: region.exit{{.*}}"DIR.OMP.END.TARGET.DATA"()
@@ -155,15 +155,15 @@ int test(int n) {
 
   // subdevice(<int param>:<int global>)
   //
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %n.addr
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE1:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD:%[0-9]+]] = load i32, i32* %n.addr
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE2:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD:%[0-9]+]] = load i32, i32* @global
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE3:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, i32* [[CE1]]
-  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, i32* [[CE2]]
-  // CHECK-NEXT: [[LD3:%[0-9]+]] = load i32, i32* [[CE3]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %n.addr
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE1:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD:%[0-9]+]] = load i32, ptr %n.addr
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE2:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD:%[0-9]+]] = load i32, ptr @global
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE3:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, ptr [[CE1]]
+  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, ptr [[CE2]]
+  // CHECK-NEXT: [[LD3:%[0-9]+]] = load i32, ptr [[CE3]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET.UPDATE"()
   // CHECK-SAME: "QUAL.OMP.DEVICE"(i32 [[LD1]])
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[LD2]], i32 [[LD3]], i32 1)
@@ -172,12 +172,12 @@ int test(int n) {
 
   // subdevice(<int param>:<int global>)
   //
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %start
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE1:%.capture_expr.[0-9]*]]
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %length
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE2:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, i32* [[CE1]]
-  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, i32* [[CE2]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %start
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE1:%.capture_expr.[0-9]*]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %length
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE2:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, ptr [[CE1]]
+  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, ptr [[CE2]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[LD1]], i32 [[LD2]], i32 1)
   // CHECK: region.exit{{.*}}"DIR.OMP.END.TARGET"()
@@ -185,12 +185,12 @@ int test(int n) {
   for(int i=0; i < 10; ++i)
     ++vec[i];
 
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* @global
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE1:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD:%[0-9]+]] = load i32, i32* %a
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE2:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, i32* [[CE1]]
-  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, i32* [[CE2]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr @global
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE1:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD:%[0-9]+]] = load i32, ptr %a
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE2:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, ptr [[CE1]]
+  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, ptr [[CE2]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[LD1]], i32 [[LD2]], i32 1)
   // CHECK: region.entry{{.*}} [ "DIR.OMP.PARALLEL"()
@@ -199,12 +199,12 @@ int test(int n) {
   #pragma omp target parallel subdevice(global:a)
   {}
 
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* @global
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE1:%.capture_expr.[0-9]*]]
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %a
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE2:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, i32* [[CE1]]
-  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, i32* [[CE2]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr @global
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE1:%.capture_expr.[0-9]*]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %a
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE2:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, ptr [[CE1]]
+  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, ptr [[CE2]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[LD1]], i32 [[LD2]], i32 1)
   // CHECK: region.entry{{.*}} [ "DIR.OMP.PARALLEL.LOOP"()
@@ -214,12 +214,12 @@ int test(int n) {
   for(int i=0; i < 10; ++i)
     ++vec[i];
 
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* @global
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE1:%.capture_expr.[0-9]*]]
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %a
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE2:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, i32* [[CE1]]
-  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, i32* [[CE2]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr @global
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE1:%.capture_expr.[0-9]*]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %a
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE2:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, ptr [[CE1]]
+  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, ptr [[CE2]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[LD1]], i32 [[LD2]], i32 1)
   // CHECK: region.entry{{.*}} [ "DIR.OMP.PARALLEL.LOOP"()
@@ -231,12 +231,12 @@ int test(int n) {
   for(int i=0; i < 10; ++i)
     ++vec[i];
 
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* @global
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE1:%.capture_expr.[0-9]*]]
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %a
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE2:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, i32* [[CE1]]
-  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, i32* [[CE2]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr @global
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE1:%.capture_expr.[0-9]*]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %a
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE2:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, ptr [[CE1]]
+  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, ptr [[CE2]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[LD1]], i32 [[LD2]], i32 1)
   // CHECK: region.entry{{.*}} [ "DIR.OMP.PARALLEL"()
@@ -248,12 +248,12 @@ int test(int n) {
   for(int i=0; i < 10; ++i)
     ++vec[i];
 
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %start
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE1:%.capture_expr.[0-9]*]]
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %length
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE2:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, i32* [[CE1]]
-  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, i32* [[CE2]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %start
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE1:%.capture_expr.[0-9]*]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %length
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE2:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, ptr [[CE1]]
+  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, ptr [[CE2]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[LD1]], i32 [[LD2]], i32 1)
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TEAMS"()
@@ -263,12 +263,12 @@ int test(int n) {
   for(int i=0; i < 10; ++i)
     ++vec[i];
 
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %start
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE1:%.capture_expr.[0-9]*]]
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %length
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE2:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, i32* [[CE1]]
-  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, i32* [[CE2]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %start
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE1:%.capture_expr.[0-9]*]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %length
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE2:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, ptr [[CE1]]
+  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, ptr [[CE2]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[LD1]], i32 [[LD2]], i32 1)
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TEAMS"()
@@ -280,12 +280,12 @@ int test(int n) {
   for(int i=0; i < 10; ++i)
     ++vec[i];
 
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %start
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE1:%.capture_expr.[0-9]*]]
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %length
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE2:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, i32* [[CE1]]
-  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, i32* [[CE2]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %start
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE1:%.capture_expr.[0-9]*]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %length
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE2:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, ptr [[CE1]]
+  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, ptr [[CE2]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[LD1]], i32 [[LD2]], i32 1)
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TEAMS"()
@@ -299,12 +299,12 @@ int test(int n) {
   for(int i=0; i < 10; ++i)
     ++vec[i];
 
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %start
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE1:%.capture_expr.[0-9]*]]
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %length
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE2:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, i32* [[CE1]]
-  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, i32* [[CE2]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %start
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE1:%.capture_expr.[0-9]*]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %length
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE2:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, ptr [[CE1]]
+  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, ptr [[CE2]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[LD1]], i32 [[LD2]], i32 1)
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TEAMS"()
@@ -316,12 +316,12 @@ int test(int n) {
   for(int i=0; i < 10; ++i)
     ++vec[i];
 
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %start
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE1:%.capture_expr.[0-9]*]]
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %length
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE2:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, i32* [[CE1]]
-  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, i32* [[CE2]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %start
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE1:%.capture_expr.[0-9]*]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %length
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE2:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, ptr [[CE1]]
+  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, ptr [[CE2]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[LD1]], i32 [[LD2]], i32 1)
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TEAMS"()
@@ -333,12 +333,12 @@ int test(int n) {
   for(int i=0; i < 10; ++i)
     ++vec[i];
 
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %start
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE1:%.capture_expr.[0-9]*]]
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %length
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE2:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, i32* [[CE1]]
-  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, i32* [[CE2]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %start
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE1:%.capture_expr.[0-9]*]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %length
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE2:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, ptr [[CE1]]
+  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, ptr [[CE2]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[LD1]], i32 [[LD2]], i32 1)
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TEAMS"()
@@ -354,45 +354,45 @@ int test(int n) {
 
   // subdevice - verify uses of optional level parameter
   //
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* [[A:%start[0-9]*]]
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE2:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, i32* [[CE2]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr [[A:%start[0-9]*]]
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE2:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, ptr [[CE2]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[LD1]], i32 1, i32 1)
   // CHECK: region.exit{{.*}}"DIR.OMP.END.TARGET"()
   #pragma omp target subdevice(0,start)
   {}
 
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* [[A:%start[0-9]*]]
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE2:%.capture_expr.[0-9]*]]
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* [[A:%length[0-9]*]]
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE3:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, i32* [[CE2]]
-  // CHECK-NEXT: [[LD3:%[0-9]+]] = load i32, i32* [[CE3]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr [[A:%start[0-9]*]]
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE2:%.capture_expr.[0-9]*]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr [[A:%length[0-9]*]]
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE3:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, ptr [[CE2]]
+  // CHECK-NEXT: [[LD3:%[0-9]+]] = load i32, ptr [[CE3]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 1, i32 [[LD2]], i32 [[LD3]], i32 1)
   // CHECK: region.exit{{.*}}"DIR.OMP.END.TARGET"()
   #pragma omp target subdevice(1,start:length)
   {}
   //
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* [[A:%start[0-9]*]]
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE2:%.capture_expr.[0-9]*]]
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* [[A:%length[0-9]*]]
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE3:%.capture_expr.[0-9]*]]
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* [[A:%stride[0-9]*]]
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE4:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, i32* [[CE2]]
-  // CHECK-NEXT: [[LD3:%[0-9]+]] = load i32, i32* [[CE3]]
-  // CHECK-NEXT: [[LD4:%[0-9]+]] = load i32, i32* [[CE4]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr [[A:%start[0-9]*]]
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE2:%.capture_expr.[0-9]*]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr [[A:%length[0-9]*]]
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE3:%.capture_expr.[0-9]*]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr [[A:%stride[0-9]*]]
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE4:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD2:%[0-9]+]] = load i32, ptr [[CE2]]
+  // CHECK-NEXT: [[LD3:%[0-9]+]] = load i32, ptr [[CE3]]
+  // CHECK-NEXT: [[LD4:%[0-9]+]] = load i32, ptr [[CE4]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 1, i32 [[LD2]], i32 [[LD3]], i32 [[LD4]])
   // CHECK: region.exit{{.*}}"DIR.OMP.END.TARGET"()
   #pragma omp target subdevice(1,start:length:stride)
   {}
 
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %start
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE1:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, i32* [[CE1]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %start
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE1:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, ptr [[CE1]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[LD1]], i32 1, i32 1)
   // CHECK: region.exit{{.*}}"DIR.OMP.END.TARGET"()
@@ -401,9 +401,9 @@ int test(int n) {
 
   // Verify out of range value for level is set to zero.
   //
-  // CHECK: [[LD:%[0-9]+]] = load i32, i32* %start
-  // CHECK-NEXT: store i32 [[LD]], i32* [[CE1:%.capture_expr.[0-9]*]]
-  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, i32* [[CE1]]
+  // CHECK: [[LD:%[0-9]+]] = load i32, ptr %start
+  // CHECK-NEXT: store i32 [[LD]], ptr [[CE1:%.capture_expr.[0-9]*]]
+  // CHECK-NEXT: [[LD1:%[0-9]+]] = load i32, ptr [[CE1]]
   // CHECK: region.entry{{.*}} [ "DIR.OMP.TARGET"()
   // CHECK-SAME: "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[LD1]], i32 1, i32 1)
   // CHECK: region.exit{{.*}}"DIR.OMP.END.TARGET"()

@@ -1,17 +1,17 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN: -triple x86_64-unknown-linux-gnu %s | FileCheck \
 // RUN: --check-prefixes=CHECK,INSTR %s
 //
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN: -triple x86_64-unknown-linux-gnu -DCOMBINED %s | \
 // RUN: FileCheck --check-prefixes=CHECK,INSTR %s
 //
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN: -fintel-openmp-region-atomic -triple x86_64-unknown-linux-gnu %s | \
 // RUN: FileCheck --check-prefixes=CHECK,REGION %s
 //
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN: -fintel-openmp-region-atomic -triple x86_64-unknown-linux-gnu \
 // RUN: -DCOMBINED %s | FileCheck --check-prefixes=CHECK,REGION %s
 
@@ -30,10 +30,10 @@ int main(int argc, char* argv[])
 //REGION: "DIR.OMP.ATOMIC"
 //REGION-SAME: "QUAL.OMP.UPDATE"
 //REGION: fence acquire
-//REGION: %[[ARRY:[a-z]+]] = getelementptr inbounds [1 x i32], [1 x i32]* %data, i64 0, i64 0
-//REGION: %[[AVAL:[0-9]+]] = load i32, i32* %[[ARRY]], align 4
+//REGION: %[[ARRY:[a-z]+]] = getelementptr inbounds [1 x i32], ptr %data, i64 0, i64 0
+//REGION: %[[AVAL:[0-9]+]] = load i32, ptr %[[ARRY]], align 4
 //REGION: %[[ADD:[0-9,a-z]+]] = add nsw i32 %[[AVAL]], 1
-//REGION: store i32 %[[ADD]], i32* %[[ARRY]], align 4
+//REGION: store i32 %[[ADD]], ptr %[[ARRY]], align 4
 //REGION: fence release
 //REGION: "DIR.OMP.END.ATOMIC"
 //CHECK: "DIR.OMP.END.TEAMS"

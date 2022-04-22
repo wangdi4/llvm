@@ -1,8 +1,8 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fintel-compatibility \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fintel-compatibility \
 // RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s
-// RUN: %clang_cc1 -emit-llvm -o - -fexceptions -fopenmp \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fexceptions -fopenmp \
 // RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
@@ -12,10 +12,10 @@ int foo(int);
 
 // CHECK-LABEL: bar1
 void bar1(int &d) {
-  // CHECK: [[DADDR:%d.*]] = alloca i32*, align
+  // CHECK: [[DADDR:%d.*]] = alloca ptr, align
   // CHECK: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"()
-  // CHECK-SAME: "QUAL.OMP.PRIVATE:BYREF"(i32** [[DADDR]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:BYREF"(ptr [[DADDR]])
   // CHECK: directive.region.exit(token [[T0]]) [ "DIR.OMP.END.PARALLEL.LOOP"
   #pragma omp parallel for private(d)
   for(int i=0;i<16;++i) {
@@ -25,10 +25,10 @@ void bar1(int &d) {
 
 // CHECK-LABEL: bar2
 void bar2(int &d) {
-  // CHECK: [[DADDR:%d.*]] = alloca i32*, align
+  // CHECK: [[DADDR:%d.*]] = alloca ptr, align
   // CHECK: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"()
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:BYREF"(i32** [[DADDR]])
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:BYREF"(ptr [[DADDR]])
   // CHECK: directive.region.exit(token [[T0]]) [ "DIR.OMP.END.PARALLEL.LOOP"
   #pragma omp parallel for firstprivate(d)
   for(int i=0;i<16;++i) {
@@ -38,10 +38,10 @@ void bar2(int &d) {
 
 // CHECK-LABEL: bar3
 void bar3(int &d) {
-  // CHECK: [[DADDR:%d.*]] = alloca i32*, align
+  // CHECK: [[DADDR:%d.*]] = alloca ptr, align
   // CHECK: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"()
-  // CHECK-SAME: "QUAL.OMP.LASTPRIVATE:BYREF"(i32** [[DADDR]])
+  // CHECK-SAME: "QUAL.OMP.LASTPRIVATE:BYREF"(ptr [[DADDR]])
   // CHECK: directive.region.exit(token [[T0]]) [ "DIR.OMP.END.PARALLEL.LOOP"
   #pragma omp parallel for lastprivate(d)
   for(int i=0;i<16;++i) {
@@ -51,10 +51,10 @@ void bar3(int &d) {
 
 // CHECK-LABEL: bar4
 void bar4(int &d) {
-  // CHECK: [[DADDR:%d.*]] = alloca i32*, align
+  // CHECK: [[DADDR:%d.*]] = alloca ptr, align
   // CHECK: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"()
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:BYREF"(i32** [[DADDR]])
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:BYREF"(ptr [[DADDR]])
   // CHECK: directive.region.exit(token [[T0]]) [ "DIR.OMP.END.PARALLEL.LOOP"
   #pragma omp parallel for reduction(+:d)
   for(int i=0;i<16;++i) {
@@ -63,13 +63,13 @@ void bar4(int &d) {
 }
 
 void bar5(int &yref, int other, short *&zptr_ref, float (*&y_arrptr_ref)[10]) {
-  // CHECK: [[YREFDADDR:%yref.addr.*]] = alloca i32*,
+  // CHECK: [[YREFDADDR:%yref.addr.*]] = alloca ptr,
   // CHECK: [[OTHERDADDR:%other.addr.*]] = alloca i32,
-  // CHECK: [[ZPTR_REFDADDR:%zptr_ref.addr.*]] = alloca i16**,
-  // CHECK: [[Y_ARRPTR_REFDADDR:%y_arrptr_ref.addr.*]] = alloca [10 x float]**,
-  // CHECK: [[YREF_ADDR:%yref_addr.*]] = alloca i32*,
-  // CHECK: [[ZPTR_REF_ADDR:%zptr_ref_addr.*]] = alloca i16**,
-  // CHECK: [[Y_ARRPTR_REF_ADDR:%y_arrptr_ref_addr.*]] = alloca [10 x float]**,
+  // CHECK: [[ZPTR_REFDADDR:%zptr_ref.addr.*]] = alloca ptr,
+  // CHECK: [[Y_ARRPTR_REFDADDR:%y_arrptr_ref.addr.*]] = alloca ptr,
+  // CHECK: [[YREF_ADDR:%yref_addr.*]] = alloca ptr,
+  // CHECK: [[ZPTR_REF_ADDR:%zptr_ref_addr.*]] = alloca ptr,
+  // CHECK: [[Y_ARRPTR_REF_ADDR:%y_arrptr_ref_addr.*]] = alloca ptr,
 
   int *yref_addr = &yref;
   short **zptr_ref_addr = &zptr_ref;
@@ -77,10 +77,10 @@ void bar5(int &yref, int other, short *&zptr_ref, float (*&y_arrptr_ref)[10]) {
 
   // CHECK: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"()
-  // CHECK-SAME: "QUAL.OMP.LINEAR:BYREF"(i32** [[YREFDADDR]], i32 1)
-  // CHECK-SAME: "QUAL.OMP.LINEAR"(i32* [[OTHERDADDR]], i32 1)
-  // CHECK-SAME: "QUAL.OMP.LINEAR:BYREF"(i16*** [[ZPTR_REFDADDR]], i32 1)
-  // CHECK-SAME: "QUAL.OMP.LINEAR:BYREF"([10 x float]*** [[Y_ARRPTR_REFDADDR]],
+  // CHECK-SAME: "QUAL.OMP.LINEAR:BYREF"(ptr [[YREFDADDR]], i32 1)
+  // CHECK-SAME: "QUAL.OMP.LINEAR"(ptr [[OTHERDADDR]], i32 1)
+  // CHECK-SAME: "QUAL.OMP.LINEAR:BYREF"(ptr [[ZPTR_REFDADDR]], i32 1)
+  // CHECK-SAME: "QUAL.OMP.LINEAR:BYREF"(ptr [[Y_ARRPTR_REFDADDR]],
   // CHECK-SAME: "QUAL.OMP.SHARED"{{.*}}[[YREF_ADDR]]
   // CHECK-SAME: "QUAL.OMP.SHARED"{{.*}}[[ZPTR_REF_ADDR]]
   // CHECK-SAME: "QUAL.OMP.SHARED"{{.*}}[[Y_ARRPTR_REF_ADDR]]
@@ -119,7 +119,7 @@ int bar6()
   A avar;
   int sum = 0;
 
-  //CHECK:[[L0:%[0-9]+]] = load {{.*}}Iterator{{.*}}capture_expr
+  //CHECK:[[L0:%[0-9]+]] = load ptr, ptr {{.*}}capture_expr
   //CHECK-NEXT: call {{.*}}_ZmiRK8IteratorS1_{{.*}}[[L0]]
   //CHECK: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   //CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"()

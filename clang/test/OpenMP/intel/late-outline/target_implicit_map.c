@@ -1,13 +1,13 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu -x c++ %s | FileCheck %s
 
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -fopenmp-declare-target-scalar-defaultmap-firstprivate \
 // RUN:  -triple x86_64-unknown-linux-gnu -x c++ %s | FileCheck %s \
 // RUN:  --check-prefix=FPRIVATE
 
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -fopenmp-declare-target-global-default-no-map \
 // RUN:  -triple x86_64-unknown-linux-gnu -x c++ %s | FileCheck %s \
 // RUN:  --check-prefix=LIVEIN
@@ -21,9 +21,9 @@ void foo_one()
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // FPRIVATE: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // LIVEIN: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* %share
-// FPRIVATE-SAME: "QUAL.OMP.MAP.TOFROM"(i32* %share
-// LIVEIN-SAME: "QUAL.OMP.MAP.TOFROM"(i32* %share
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr %share
+// FPRIVATE-SAME: "QUAL.OMP.MAP.TOFROM"(ptr %share
+// LIVEIN-SAME: "QUAL.OMP.MAP.TOFROM"(ptr %share
 #pragma omp target teams distribute  shared(share) defaultmap(tofrom:scalar)
   for (int i = 0 ; i < 10; i++)
     share = share + a[i];
@@ -42,9 +42,9 @@ void foo_two()
 // CHECK: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // FPRIVATE: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // LIVEIN: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"([10 x i32]* @{{.*}}x
-// FPRIVATE-SAME: "QUAL.OMP.MAP.TOFROM"([10 x i32]* @{{.*}}x
-// LIVEIN-SAME: "QUAL.OMP.LIVEIN"([10 x i32]* @{{.*}}x
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr @{{.*}}x
+// FPRIVATE-SAME: "QUAL.OMP.MAP.TOFROM"(ptr @{{.*}}x
+// LIVEIN-SAME: "QUAL.OMP.LIVEIN"(ptr @{{.*}}x
   #pragma omp target
     {
       x[1]=1;;
@@ -65,9 +65,9 @@ void foo_three()
 // CHECK: [[TV3:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // FPRIVATE: [[TV3:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // LIVEIN: [[TV3:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* @{{.*}}x1
-// FPRIVATE-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* @{{.*}}x1
-// LIVEIN-SAME: "QUAL.OMP.LIVEIN"(i32* @{{.*}}x1
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr @{{.*}}x1
+// FPRIVATE-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr @{{.*}}x1
+// LIVEIN-SAME: "QUAL.OMP.LIVEIN"(ptr @{{.*}}x1
   #pragma omp target
     x1 = 1;
 // CHECK: region.exit(token [[TV3]]) [ "DIR.OMP.END.TARGET"() ]
@@ -76,9 +76,9 @@ void foo_three()
 // CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // FPRIVATE: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // LIVEIN: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* @a
-// FPRIVATE-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* @a
-// LIVEIN: "QUAL.OMP.LIVEIN"(i32* @a
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr @a
+// FPRIVATE-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr @a
+// LIVEIN: "QUAL.OMP.LIVEIN"(ptr @a
   #pragma omp target
     a = 10;
 // CHECK: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
@@ -93,12 +93,12 @@ void foo_four()
 // CHECK: [[TV4:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // FPRIVATE: [[TV4:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // LIVEIN: [[TV4:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK:"QUAL.OMP.MAP.TOFROM"([10 x i32]* %y{{.*}}, [10 x i32]* %y{{.*}}, i64 40, i64 547
-// FPRIVATE:"QUAL.OMP.MAP.TOFROM"([10 x i32]* %y{{.*}}, [10 x i32]* %y{{.*}}, i64 40, i64 547
-// LIVEIN:"QUAL.OMP.MAP.TOFROM"([10 x i32]* %y{{.*}}, [10 x i32]* %y{{.*}}, i64 40, i64 547
-// CHECK-NOT: "QUAL.OMP.FIRSTPRIVATE"(i32* %y
-// FPRIVATE-NOT: "QUAL.OMP.FIRSTPRIVATE"(i32* %y
-// LIVEIN-NOT: "QUAL.OMP.LIVEIN"(i32* %y
+// CHECK:"QUAL.OMP.MAP.TOFROM"(ptr %y{{.*}}, ptr %y{{.*}}, i64 40, i64 547
+// FPRIVATE:"QUAL.OMP.MAP.TOFROM"(ptr %y{{.*}}, ptr %y{{.*}}, i64 40, i64 547
+// LIVEIN:"QUAL.OMP.MAP.TOFROM"(ptr %y{{.*}}, ptr %y{{.*}}, i64 40, i64 547
+// CHECK-NOT: "QUAL.OMP.FIRSTPRIVATE"(ptr %y
+// FPRIVATE-NOT: "QUAL.OMP.FIRSTPRIVATE"(ptr %y
+// LIVEIN-NOT: "QUAL.OMP.LIVEIN"(ptr %y
   #pragma omp target
     y[1] = 1;
 // CHECK: region.exit(token [[TV4]]) [ "DIR.OMP.END.TARGET"() ]
@@ -119,9 +119,9 @@ void foo_five() {
 // CHECK: [[TV5:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // FPRIVATE: [[TV5:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // LIVEIN: [[TV5:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%class.SharedArray* @data_a
-// FPRIVATE-SAME: "QUAL.OMP.MAP.TOFROM"(%class.SharedArray* @data_a
-// LIVEIN-SAME: "QUAL.OMP.LIVEIN"(%class.SharedArray* @data_a
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr @data_a
+// FPRIVATE-SAME: "QUAL.OMP.MAP.TOFROM"(ptr @data_a
+// LIVEIN-SAME: "QUAL.OMP.LIVEIN"(ptr @data_a
   #pragma omp target
   data_a.data = 1.23;
 // CHECK: region.exit(token [[TV5]]) [ "DIR.OMP.END.TARGET"() ]

@@ -1,8 +1,8 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 //
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN: -discard-value-names  -triple x86_64-unknown-linux-gnu %s |\
 // RUN:  FileCheck %s -check-prefix CHECK-DISNAME
 #pragma omp declare target
@@ -24,20 +24,20 @@ void xoo(int i) {
 int bar(void)
 {
   int len;
-//CHECK: [[L0:%[0-9]+]] = load i32*, i32** @arr, align 8
+//CHECK: [[L0:%[0-9]+]] = load ptr, ptr @arr, align 8
 //CHECK: [[AR:%arrayidx]] = getelementptr inbounds i32,
 //CHECK: [[L3:%[0-9]+]] = mul nuw i64
 //CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-//CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32** @arr, i32* [[AR]], i64 [[L3]], i64 19
+//CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr @arr, ptr [[AR]], i64 [[L3]], i64 19
   #pragma omp target map(tofrom: arr[:len])
   for( int i = 0; i < 10; i++)
     foo(i);
 //CHECK: region.exit{{.*}}DIR.OMP.END.TARGET
-//CHECK: [[L8:%[0-9]+]] = load %struct.st*, %struct.st** @sta
+//CHECK: [[L8:%[0-9]+]] = load ptr, ptr @sta
 //CHECK: [[AR1:%arrayidx1]] =  getelementptr inbounds %struct.st
 //CHECK: [[L11:%[0-9]+]] = mul nuw i64
 //CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-//CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%struct.st** @sta, %struct.st* [[AR1]], i64 [[L11]], i64 19
+//CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr @sta, ptr [[AR1]], i64 [[L11]], i64 19
   #pragma omp target map(tofrom: sta[:len])
   for( int i = 0; i < 10; i++)
     xoo(i);
@@ -48,11 +48,11 @@ int bar(void)
 void specified_alignment()
 {
   __attribute__((aligned(64))) int (*ptr)[10];
-//CHECK-DISNAME: [[L1:%[0-9]+]] = alloca [10 x i32]*, align 64
+//CHECK-DISNAME: [[L1:%[0-9]+]] = alloca ptr, align 64
 // Do not generate temp map
-//CHECK-DISNAME-NOT: alloca [10 x i32]*, align 64
+//CHECK-DISNAME-NOT: alloca ptr, align 64
 //CHECK-DISNAME-NEXT: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-//CHECK-DISNAME-SAME: "QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"([10 x i32]** [[L1]])
+//CHECK-DISNAME-SAME: "QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(ptr [[L1]])
   #pragma omp target is_device_ptr(ptr)
   {
     ptr[0][0] = 41;

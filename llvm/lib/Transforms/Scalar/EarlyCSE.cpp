@@ -45,6 +45,9 @@
 #include "llvm/Analysis/MemorySSAUpdater.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#if INTEL_COLLAB
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_COLLAB
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
@@ -623,6 +626,12 @@ public:
 
 private:
   unsigned ClobberCounter = 0;
+#if INTEL_COLLAB
+  // Maps blocks to their containing OpenMP region entry insts.
+  llvm::DenseMap<BasicBlock *, Instruction *> RegionEntryForBlock;
+  // The nesting of OpenMP region entries at the current block, if any.
+  std::stack<Instruction *> CurrentRegionEntry;
+#endif // INTEL_COLLAB
   // Almost a POD, but needs to call the constructors for the scoped hash
   // tables so that a new scope gets pushed on. These are RAII so that the
   // scope gets popped when the NodeScope is destroyed.
@@ -1251,6 +1260,12 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
   /// stores which can occur in bitfield code among other things.
   Instruction *LastStore = nullptr;
 
+#if INTEL_COLLAB
+  // Current block is dominated by a region entry, add it to the region
+  // map.
+  if (!CurrentRegionEntry.empty())
+    RegionEntryForBlock[BB] = CurrentRegionEntry.top();
+#endif // INTEL_COLLAB
   // See if any instructions in the block can be eliminated.  If so, do it.  If
   // not, add them to AvailableValues.
   for (Instruction &Inst : make_early_inc_range(BB->getInstList())) {
@@ -1399,10 +1414,57 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
       }
     }
 
+#if INTEL_COLLAB
+    // Prevent CSE across OpenMP outline regions, by tracking which blocks
+    // may be dominated by an OpenMP region entry instruction.
+    // Otherwise, values will be unexpectedly live-in to the region.
+    // VPO CFG restructuring must be done before this, to avoid region splits
+    // inside a block.
+    int OpenMPDirID = llvm::vpo::VPOAnalysisUtils::getRegionDirectiveID(&Inst);
+    if (llvm::vpo::VPOAnalysisUtils::isBeginDirectiveOfRegionsNeedingOutlining(
+            OpenMPDirID)) {
+      // entry directive, at end of its block (by VPO restructuring).
+      // Push a new region (the successor blocks will be part of the region).
+      CurrentRegionEntry.push(&Inst);
+      // Block memory movement as if the entry were a fence.
+      // Values will be blocked below.
+      ++CurrentGeneration;
+      LastStore = nullptr;
+    } else if (llvm::vpo::VPOAnalysisUtils::
+                   isEndDirectiveOfRegionsNeedingOutlining(OpenMPDirID)) {
+      // Exit directive, at start of its block. Pop the current region.
+      // This block will now be part of the enclosing region (if any).
+      if (!CurrentRegionEntry.empty())
+        CurrentRegionEntry.pop();
+      if (CurrentRegionEntry.empty())
+        RegionEntryForBlock.erase(BB);
+      else
+        RegionEntryForBlock[BB] = CurrentRegionEntry.top();
+      // Fence here also, as values cannot be live-out of the region.
+      ++CurrentGeneration;
+      LastStore = nullptr;
+    }
+#endif // INTEL_COLLAB
     // If this is a simple instruction that we can value number, process it.
     if (SimpleValue::canHandle(&Inst)) {
       // See if the instruction has an available value.  If so, use it.
       if (Value *V = AvailableValues.lookup(&Inst)) {
+#if INTEL_COLLAB
+        // If the available value and the duplicate value to replace,
+        // are of different OpenMP regions, don't CSE, so that values are
+        // not live across the outline boundary.
+        if (Instruction *I = dyn_cast<Instruction>(V)) {
+          if (RegionEntryForBlock.find(I->getParent()) !=
+              RegionEntryForBlock.find(Inst.getParent())) {
+            LLVM_DEBUG(dbgs() << "EarlyCSE: " << Inst
+                              << " not in same OMP region as " << *I << "\n");
+            // Make the duplicate value the current value, so that we CSE
+            // within regions.
+            AvailableValues.insert(&Inst, &Inst);
+            continue;
+          }
+        }
+#endif // INTEL_COLLAB
         LLVM_DEBUG(dbgs() << "EarlyCSE CSE: " << Inst << "  to: " << *V
                           << '\n');
         if (!DebugCounter::shouldExecute(CSECounter)) {
