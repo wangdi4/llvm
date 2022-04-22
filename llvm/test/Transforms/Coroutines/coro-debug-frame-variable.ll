@@ -1,6 +1,6 @@
-// INTEL_CUSTOMIZATION
+; INTEL_CUSTOMIZATION
 ; RUN: opt < %s -passes='default<O0>' -enable-coroutines -S | FileCheck %s
-// end INTEL_CUSTOMIZATION
+; end INTEL_CUSTOMIZATION
 
 ; Define a function 'f' that resembles the Clang frontend's output for the
 ; following C++ coroutine:
@@ -9,7 +9,7 @@
 ;     int i = 0;
 ;     ++i;
 ;     int x = {};
-;     print(i);  // Prints '1'
+;     print(i);  ; Prints '1'
 ;
 ;     co_await suspend_always();
 ;
@@ -17,10 +17,10 @@
 ;     x[0] = 1;
 ;     x[1] = 2;
 ;     ++i;
-;     print(i);  // Prints '2'
+;     print(i);  ; Prints '2'
 ;     ++j;
-;     print(j);  // Prints '1'
-;     print(x);  // Print '1'
+;     print(j);  ; Prints '1'
+;     print(x);  ; Print '1'
 ;   }
 ;
 ; The CHECKs verify that dbg.declare intrinsics are created for the coroutine

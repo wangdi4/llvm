@@ -1,6 +1,6 @@
-// INTEL_CUSTOMIZATION
+; INTEL_CUSTOMIZATION
 ; RUN: opt < %s -enable-coroutines -O0 -S
-// end INTEL_CUSTOMIZATION
+; end INTEL_CUSTOMIZATION
 
 %async_func_ptr = type <{ i32, i32 }>
 %Tsq = type <{}>

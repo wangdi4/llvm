@@ -1,7 +1,7 @@
-// INTEL_CUSTOMIZATION
+; INTEL_CUSTOMIZATION
 ; RUN: opt < %s -enable-coroutines -O0 -S | FileCheck --check-prefixes=CHECK %s
 ; RUN: opt < %s -enable-coroutines -passes='default<O0>' -S | FileCheck --check-prefixes=CHECK %s
-// end INTEL_CUSTOMIZATION
+; end INTEL_CUSTOMIZATION
 
 %swift.async_func_pointer = type <{ i32, i32 }>
 %swift.context = type { %swift.context*, void (%swift.context*)*, i64 }
