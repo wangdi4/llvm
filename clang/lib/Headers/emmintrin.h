@@ -2267,19 +2267,13 @@ static __inline__ __m128i __DEFAULT_FN_ATTRS _mm_madd_epi16(__m128i __a,
 ///    A 128-bit signed [8 x i16] vector.
 /// \returns A 128-bit signed [8 x i16] vector containing the greater value of
 ///    each comparison.
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_DSPV1 */
 #if !defined(__DSPV1_SUPPORTED__)
 /* end INTEL_FEATURE_ISA_DSPV1 */
 /* end INTEL_CUSTOMIZATION */
-static __inline__ __m128i __DEFAULT_FN_ATTRS
-_mm_max_epi16(__m128i __a, __m128i __b)
-{
-=======
 static __inline__ __m128i __DEFAULT_FN_ATTRS _mm_max_epi16(__m128i __a,
                                                            __m128i __b) {
->>>>>>> 6454ff35e0e7b0c0762c640031aa6c2b5d1f16ec
   return (__m128i)__builtin_elementwise_max((__v8hi)__a, (__v8hi)__b);
 }
 

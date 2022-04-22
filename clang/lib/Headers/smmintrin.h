@@ -678,21 +678,14 @@ _mm_stream_load_si128(__m128i const *__V) {
 /// \param __V2
 ///    A 128-bit vector of [16 x i8]
 /// \returns A 128-bit vector of [16 x i8] containing the lesser values.
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_DSPV1 */
 #if !defined(__DSPV1_SUPPORTED__)
 /* end INTEL_CUSTOMIZATION */
 /* end INTEL_FEATURE_ISA_DSPV1 */
-static __inline__  __m128i __DEFAULT_FN_ATTRS
-_mm_min_epi8 (__m128i __V1, __m128i __V2)
-{
-  return (__m128i) __builtin_elementwise_min((__v16qs) __V1, (__v16qs) __V2);
-=======
 static __inline__ __m128i __DEFAULT_FN_ATTRS _mm_min_epi8(__m128i __V1,
                                                           __m128i __V2) {
   return (__m128i)__builtin_elementwise_min((__v16qs)__V1, (__v16qs)__V2);
->>>>>>> 6454ff35e0e7b0c0762c640031aa6c2b5d1f16ec
 }
 
 /// Compares the corresponding elements of two 128-bit vectors of
