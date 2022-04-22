@@ -95,7 +95,7 @@ void test_mm_dsp_pmaskstdqu_epi8(__m128i * __A, __m128i __B, __m128i __C) {
   _mm_dsp_pmaskstdqu_epi8(__A, __B, __C);
 }
 
-void test_mm_dsp_ptestmxcsrflgs() {
+void test_mm_dsp_ptestmxcsrflgs(void) {
   // CHECK-LABEL: @test_mm_dsp_ptestmxcsrflgs(
   // CHECK: call void asm sideeffect "dvptestmxcsrflgs", "~{memory},~{dirflag},~{fpsr},~{flags}"()
   _mm_dsp_ptestmxcsrflgs();

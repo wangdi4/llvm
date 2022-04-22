@@ -49,12 +49,7 @@ if (MSVC)
   target_compile_options(xptid PRIVATE ${XPTI_CXX_FLAGS_DEBUG})
   target_compile_options(xpti PRIVATE ${XPTI_CXX_FLAGS_RELEASE})
 else()
-# Don't use libcxx library to build sycl library if it is not explicitly stated to do so
-  string( REPLACE "-stdlib=libc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
-
-# Don't link statically against standard C++ library
-  string( REPLACE "-static-libstdc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
-
+  intel_clear_stdlib()
 # end INTEL_CUSTOMIZATION
 endif()
 

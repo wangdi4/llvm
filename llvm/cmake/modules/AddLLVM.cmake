@@ -2463,4 +2463,25 @@ macro(dpcpptarget_add_resource_file target binary_name product_name file_descrip
     target_link_libraries(${target} PRIVATE ${resource_file})
   endif()
 endmacro()
+
+# Xmain's 2nd stage of selfbuild passes
+#
+#  -DLLVM_ENABLE_LIBCXX:BOOL=ON -DLLVM_STATIC_LINK_CXX_STDLIB:BOOL=ON
+#
+# But we still want to link some of our libraries/tools against libstdc++ as
+# some STL datastructures cross the API boundaries. This macro is used in such
+# places.
+macro(intel_clear_stdlib)
+  # Don't use libcxx library unless explicitly stated to do so.
+  if (NOT SYCL_USE_LIBCXX)
+    string( REPLACE "-stdlib=libc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
+    string( REPLACE "-stdlib=libc++" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
+    string( REPLACE "-stdlib=libc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
+  endif()
+
+  # Don't link statically against standard C++ library
+  string( REPLACE "-static-libstdc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
+  string( REPLACE "-static-libstdc++" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
+  string( REPLACE "-static-libstdc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
+endmacro(intel_clear_stdlib)
 # end INTEL_CUSTOMIZATION

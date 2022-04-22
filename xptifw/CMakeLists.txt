@@ -40,6 +40,7 @@ if(MSVC)
   add_compile_options("-WX-")
 else()
   add_compile_options("-Wno-error")
+  intel_clear_stdlib() # INTEL
 endif()
 
 if (SYCL_USE_LIBCXX)
