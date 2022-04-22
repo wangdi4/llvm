@@ -194,10 +194,9 @@ attributes #6 = { nounwind readnone willreturn }
 ; CHECK-NEXT:    store i16 addrspace(1)* [[_ARG_:%.*]], i16 addrspace(1)** [[ALLOCA__ARG_]], align 8
 ; CHECK-NEXT:    [[TMP0:%.*]] = tail call i64 @_Z13get_global_idj(i32 1)
 ; CHECK-NEXT:    [[TMP1:%.*]] = tail call i64 @_Z13get_global_idj(i32 0)
-; CHECK-NEXT:    [[TMP2:%.*]] = trunc i64 [[TMP1]] to i32
-; CHECK-NEXT:    [[TMP3:%.*]] = tail call i64 @_Z12get_local_idj(i32 1)
-; CHECK-NEXT:    [[TMP4:%.*]] = tail call i64 @_Z12get_local_idj(i32 0)
-; CHECK-NEXT:    [[TMP5:%.*]] = trunc i64 [[TMP4]] to i32
+; CHECK-NEXT:    [[TMP2:%.*]] = tail call i64 @_Z12get_local_idj(i32 1)
+; CHECK-NEXT:    [[TMP3:%.*]] = tail call i64 @_Z12get_local_idj(i32 0)
+; CHECK-NEXT:    [[TMP4:%.*]] = trunc i64 [[TMP3]] to i32
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION:%.*]]
 ; CHECK:       simd.begin.region:
 ; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER:%.*]]
@@ -205,33 +204,33 @@ attributes #6 = { nounwind readnone willreturn }
 ; CHECK-NEXT:    [[LOAD__ARG_:%.*]] = load i16 addrspace(1)*, i16 addrspace(1)** [[ALLOCA__ARG_]], align 8
 ; CHECK-NEXT:    br label [[VPLANNEDBB:%.*]]
 ; CHECK:       VPlannedBB:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <8 x i32> poison, i32 [[TMP5]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <8 x i32> poison, i32 [[TMP4]], i32 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <8 x i32> [[BROADCAST_SPLATINSERT]], <8 x i32> poison, <8 x i32> zeroinitializer
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT4:%.*]] = insertelement <8 x i32> poison, i32 [[TMP2]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT5:%.*]] = shufflevector <8 x i32> [[BROADCAST_SPLATINSERT4]], <8 x i32> poison, <8 x i32> zeroinitializer
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT4:%.*]] = insertelement <8 x i64> poison, i64 [[TMP1]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT5:%.*]] = shufflevector <8 x i64> [[BROADCAST_SPLATINSERT4]], <8 x i64> poison, <8 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB2:%.*]]
 ; CHECK:       VPlannedBB2:
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VPLANNEDBB2]] ], [ [[TMP40:%.*]], [[VPLANNEDBB35:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <8 x i32> [ <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>, [[VPLANNEDBB2]] ], [ [[TMP39:%.*]], [[VPLANNEDBB35]] ]
-; CHECK-NEXT:    [[TMP6:%.*]] = add nuw <8 x i32> [[BROADCAST_SPLAT]], [[VEC_PHI]]
-; CHECK-NEXT:    [[TMP7:%.*]] = sext <8 x i32> [[TMP6]] to <8 x i64>
-; CHECK-NEXT:    [[DOTEXTRACT_0_33:%.*]] = extractelement <8 x i64> [[TMP7]], i32 0
-; CHECK-NEXT:    [[TMP8:%.*]] = add nuw <8 x i32> [[BROADCAST_SPLAT5]], [[VEC_PHI]]
-; CHECK-NEXT:    [[TMP9:%.*]] = sext <8 x i32> [[TMP8]] to <8 x i64>
-; CHECK-NEXT:    [[DOTEXTRACT_0_32:%.*]] = extractelement <8 x i64> [[TMP9]], i32 0
-; CHECK-NEXT:    [[TMP10:%.*]] = icmp ult i64 [[TMP0]], 2147483648
-; CHECK-NEXT:    tail call void @llvm.assume(i1 [[TMP10]])
-; CHECK-NEXT:    [[TMP11:%.*]] = icmp ult <8 x i64> [[TMP9]], <i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648>
-; CHECK-NEXT:    [[DOTEXTRACT_7_:%.*]] = extractelement <8 x i1> [[TMP11]], i32 7
-; CHECK-NEXT:    [[DOTEXTRACT_6_:%.*]] = extractelement <8 x i1> [[TMP11]], i32 6
-; CHECK-NEXT:    [[DOTEXTRACT_5_:%.*]] = extractelement <8 x i1> [[TMP11]], i32 5
-; CHECK-NEXT:    [[DOTEXTRACT_4_:%.*]] = extractelement <8 x i1> [[TMP11]], i32 4
-; CHECK-NEXT:    [[DOTEXTRACT_3_:%.*]] = extractelement <8 x i1> [[TMP11]], i32 3
-; CHECK-NEXT:    [[DOTEXTRACT_2_:%.*]] = extractelement <8 x i1> [[TMP11]], i32 2
-; CHECK-NEXT:    [[DOTEXTRACT_1_:%.*]] = extractelement <8 x i1> [[TMP11]], i32 1
-; CHECK-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <8 x i1> [[TMP11]], i32 0
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VPLANNEDBB2]] ], [ [[TMP39:%.*]], [[VPLANNEDBB35:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <8 x i32> [ <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>, [[VPLANNEDBB2]] ], [ [[TMP38:%.*]], [[VPLANNEDBB35]] ]
+; CHECK-NEXT:    [[TMP5:%.*]] = add nuw <8 x i32> [[BROADCAST_SPLAT]], [[VEC_PHI]]
+; CHECK-NEXT:    [[TMP6:%.*]] = sext <8 x i32> [[TMP5]] to <8 x i64>
+; CHECK-NEXT:    [[DOTEXTRACT_0_33:%.*]] = extractelement <8 x i64> [[TMP6]], i32 0
+; CHECK-NEXT:    [[TMP7:%.*]] = sext <8 x i32> [[VEC_PHI]] to <8 x i64>
+; CHECK-NEXT:    [[TMP8:%.*]] = add nuw <8 x i64> [[TMP7]], [[BROADCAST_SPLAT5]]
+; CHECK-NEXT:    [[DOTEXTRACT_0_32:%.*]] = extractelement <8 x i64> [[TMP8]], i32 0
+; CHECK-NEXT:    [[TMP9:%.*]] = icmp ult i64 [[TMP0]], 2147483648
+; CHECK-NEXT:    tail call void @llvm.assume(i1 [[TMP9]])
+; CHECK-NEXT:    [[TMP10:%.*]] = icmp ult <8 x i64> [[TMP8]], <i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648>
+; CHECK-NEXT:    [[DOTEXTRACT_7_:%.*]] = extractelement <8 x i1> [[TMP10]], i32 7
+; CHECK-NEXT:    [[DOTEXTRACT_6_:%.*]] = extractelement <8 x i1> [[TMP10]], i32 6
+; CHECK-NEXT:    [[DOTEXTRACT_5_:%.*]] = extractelement <8 x i1> [[TMP10]], i32 5
+; CHECK-NEXT:    [[DOTEXTRACT_4_:%.*]] = extractelement <8 x i1> [[TMP10]], i32 4
+; CHECK-NEXT:    [[DOTEXTRACT_3_:%.*]] = extractelement <8 x i1> [[TMP10]], i32 3
+; CHECK-NEXT:    [[DOTEXTRACT_2_:%.*]] = extractelement <8 x i1> [[TMP10]], i32 2
+; CHECK-NEXT:    [[DOTEXTRACT_1_:%.*]] = extractelement <8 x i1> [[TMP10]], i32 1
+; CHECK-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <8 x i1> [[TMP10]], i32 0
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[DOTEXTRACT_0_]])
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[DOTEXTRACT_1_]])
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[DOTEXTRACT_2_]])
@@ -240,17 +239,17 @@ attributes #6 = { nounwind readnone willreturn }
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[DOTEXTRACT_5_]])
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[DOTEXTRACT_6_]])
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[DOTEXTRACT_7_]])
-; CHECK-NEXT:    [[TMP12:%.*]] = icmp ult i64 [[TMP3]], 2147483648
-; CHECK-NEXT:    tail call void @llvm.assume(i1 [[TMP12]])
-; CHECK-NEXT:    [[TMP13:%.*]] = icmp ult <8 x i64> [[TMP7]], <i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648>
-; CHECK-NEXT:    [[DOTEXTRACT_7_13:%.*]] = extractelement <8 x i1> [[TMP13]], i32 7
-; CHECK-NEXT:    [[DOTEXTRACT_6_12:%.*]] = extractelement <8 x i1> [[TMP13]], i32 6
-; CHECK-NEXT:    [[DOTEXTRACT_5_11:%.*]] = extractelement <8 x i1> [[TMP13]], i32 5
-; CHECK-NEXT:    [[DOTEXTRACT_4_10:%.*]] = extractelement <8 x i1> [[TMP13]], i32 4
-; CHECK-NEXT:    [[DOTEXTRACT_3_9:%.*]] = extractelement <8 x i1> [[TMP13]], i32 3
-; CHECK-NEXT:    [[DOTEXTRACT_2_8:%.*]] = extractelement <8 x i1> [[TMP13]], i32 2
-; CHECK-NEXT:    [[DOTEXTRACT_1_7:%.*]] = extractelement <8 x i1> [[TMP13]], i32 1
-; CHECK-NEXT:    [[DOTEXTRACT_0_6:%.*]] = extractelement <8 x i1> [[TMP13]], i32 0
+; CHECK-NEXT:    [[TMP11:%.*]] = icmp ult i64 [[TMP2]], 2147483648
+; CHECK-NEXT:    tail call void @llvm.assume(i1 [[TMP11]])
+; CHECK-NEXT:    [[TMP12:%.*]] = icmp ult <8 x i64> [[TMP6]], <i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648>
+; CHECK-NEXT:    [[DOTEXTRACT_7_13:%.*]] = extractelement <8 x i1> [[TMP12]], i32 7
+; CHECK-NEXT:    [[DOTEXTRACT_6_12:%.*]] = extractelement <8 x i1> [[TMP12]], i32 6
+; CHECK-NEXT:    [[DOTEXTRACT_5_11:%.*]] = extractelement <8 x i1> [[TMP12]], i32 5
+; CHECK-NEXT:    [[DOTEXTRACT_4_10:%.*]] = extractelement <8 x i1> [[TMP12]], i32 4
+; CHECK-NEXT:    [[DOTEXTRACT_3_9:%.*]] = extractelement <8 x i1> [[TMP12]], i32 3
+; CHECK-NEXT:    [[DOTEXTRACT_2_8:%.*]] = extractelement <8 x i1> [[TMP12]], i32 2
+; CHECK-NEXT:    [[DOTEXTRACT_1_7:%.*]] = extractelement <8 x i1> [[TMP12]], i32 1
+; CHECK-NEXT:    [[DOTEXTRACT_0_6:%.*]] = extractelement <8 x i1> [[TMP12]], i32 0
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[DOTEXTRACT_0_6]])
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[DOTEXTRACT_1_7]])
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[DOTEXTRACT_2_8]])
@@ -259,23 +258,23 @@ attributes #6 = { nounwind readnone willreturn }
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[DOTEXTRACT_5_11]])
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[DOTEXTRACT_6_12]])
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[DOTEXTRACT_7_13]])
-; CHECK-NEXT:    [[TMP14:%.*]] = call <128 x i16> @llvm.experimental.matrix.fill.v128i16.i16(i16 0, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
-; CHECK-NEXT:    [[TMP15:%.*]] = call i64 @get_sub_group_slice_length.(i32 128)
+; CHECK-NEXT:    [[TMP13:%.*]] = call <128 x i16> @llvm.experimental.matrix.fill.v128i16.i16(i16 0, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+; CHECK-NEXT:    [[TMP14:%.*]] = call i64 @get_sub_group_slice_length.(i32 128)
 ; CHECK-NEXT:    br label [[VPLANNEDBB14:%.*]]
 ; CHECK:       VPlannedBB14:
 ; CHECK-NEXT:    [[UNI_PHI15:%.*]] = phi i64 [ 0, [[VECTOR_BODY]] ], [ [[UNI_PHI18:%.*]], [[NEW_LOOP_LATCH14:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI16:%.*]] = phi <128 x i16> [ [[TMP14]], [[VECTOR_BODY]] ], [ [[UNI_PHI19:%.*]], [[NEW_LOOP_LATCH14]] ]
-; CHECK-NEXT:    [[TMP16:%.*]] = icmp slt i64 [[UNI_PHI15]], [[TMP15]]
-; CHECK-NEXT:    br i1 [[TMP16]], label [[VPLANNEDBB17:%.*]], label [[NEW_LOOP_LATCH14]]
+; CHECK-NEXT:    [[UNI_PHI16:%.*]] = phi <128 x i16> [ [[TMP13]], [[VECTOR_BODY]] ], [ [[UNI_PHI19:%.*]], [[NEW_LOOP_LATCH14]] ]
+; CHECK-NEXT:    [[TMP15:%.*]] = icmp slt i64 [[UNI_PHI15]], [[TMP14]]
+; CHECK-NEXT:    br i1 [[TMP15]], label [[VPLANNEDBB17:%.*]], label [[NEW_LOOP_LATCH14]]
 ; CHECK:       VPlannedBB17:
-; CHECK-NEXT:    [[TMP17:%.*]] = call i64 @get_sub_group_rowslice_id.v128i16.i64(<128 x i16> [[UNI_PHI16]], i32 8, i32 16, i64 [[UNI_PHI15]])
-; CHECK-NEXT:    call void @_ZGVbN8uv_sub_group_rowslice_insertelement.i16(i64 [[TMP17]], <8 x i16> <i16 16544, i16 16544, i16 16544, i16 16544, i16 16544, i16 16544, i16 16544, i16 16544>)
-; CHECK-NEXT:    [[TMP18:%.*]] = call <128 x i16> @sub_group_insert_rowslice_to_matrix.v128i16(i64 [[TMP17]])
-; CHECK-NEXT:    [[TMP19:%.*]] = add i64 [[UNI_PHI15]], 1
+; CHECK-NEXT:    [[TMP16:%.*]] = call i64 @get_sub_group_rowslice_id.v128i16.i64(<128 x i16> [[UNI_PHI16]], i32 8, i32 16, i64 [[UNI_PHI15]])
+; CHECK-NEXT:    call void @_ZGVbN8uv_sub_group_rowslice_insertelement.i16(i64 [[TMP16]], <8 x i16> <i16 16544, i16 16544, i16 16544, i16 16544, i16 16544, i16 16544, i16 16544, i16 16544>)
+; CHECK-NEXT:    [[TMP17:%.*]] = call <128 x i16> @sub_group_insert_rowslice_to_matrix.v128i16(i64 [[TMP16]])
+; CHECK-NEXT:    [[TMP18:%.*]] = add i64 [[UNI_PHI15]], 1
 ; CHECK-NEXT:    br label [[NEW_LOOP_LATCH14]]
 ; CHECK:       new.loop.latch14:
-; CHECK-NEXT:    [[UNI_PHI18]] = phi i64 [ [[TMP19]], [[VPLANNEDBB17]] ], [ undef, [[VPLANNEDBB14]] ]
-; CHECK-NEXT:    [[UNI_PHI19]] = phi <128 x i16> [ [[TMP18]], [[VPLANNEDBB17]] ], [ undef, [[VPLANNEDBB14]] ]
+; CHECK-NEXT:    [[UNI_PHI18]] = phi i64 [ [[TMP18]], [[VPLANNEDBB17]] ], [ undef, [[VPLANNEDBB14]] ]
+; CHECK-NEXT:    [[UNI_PHI19]] = phi <128 x i16> [ [[TMP17]], [[VPLANNEDBB17]] ], [ undef, [[VPLANNEDBB14]] ]
 ; CHECK-NEXT:    [[UNI_PHI20:%.*]] = phi i1 [ true, [[VPLANNEDBB17]] ], [ false, [[VPLANNEDBB14]] ]
 ; CHECK-NEXT:    br i1 [[UNI_PHI20]], label [[VPLANNEDBB14]], label [[VPLANNEDBB21:%.*]]
 ; CHECK:       VPlannedBB21:
@@ -284,51 +283,51 @@ attributes #6 = { nounwind readnone willreturn }
 ; CHECK:       VPlannedBB23:
 ; CHECK-NEXT:    [[UNI_PHI24:%.*]] = phi i64 [ [[UNI_PHI27:%.*]], [[NEW_LOOP_LATCH16:%.*]] ], [ 0, [[VPLANNEDBB21]] ]
 ; CHECK-NEXT:    [[UNI_PHI25:%.*]] = phi <128 x i16> [ [[UNI_PHI28:%.*]], [[NEW_LOOP_LATCH16]] ], [ [[UNI_PHI22]], [[VPLANNEDBB21]] ]
-; CHECK-NEXT:    [[TMP20:%.*]] = call i64 @get_sub_group_slice_length.(i32 128)
-; CHECK-NEXT:    [[TMP21:%.*]] = icmp ugt i64 [[TMP20]], [[UNI_PHI24]]
-; CHECK-NEXT:    br i1 [[TMP21]], label [[VPLANNEDBB26:%.*]], label [[NEW_LOOP_LATCH16]]
+; CHECK-NEXT:    [[TMP19:%.*]] = call i64 @get_sub_group_slice_length.(i32 128)
+; CHECK-NEXT:    [[TMP20:%.*]] = icmp ugt i64 [[TMP19]], [[UNI_PHI24]]
+; CHECK-NEXT:    br i1 [[TMP20]], label [[VPLANNEDBB26:%.*]], label [[NEW_LOOP_LATCH16]]
 ; CHECK:       VPlannedBB26:
-; CHECK-NEXT:    [[TMP22:%.*]] = call i64 @get_sub_group_rowslice_id.v128i16.i64(<128 x i16> [[UNI_PHI25]], i32 8, i32 16, i64 [[UNI_PHI24]])
-; CHECK-NEXT:    [[TMP23:%.*]] = call <8 x i16> @_ZGVbN8u_sub_group_rowslice_extractelement.i16(i64 [[TMP22]])
-; CHECK-NEXT:    [[TMP24:%.*]] = zext <8 x i16> [[TMP23]] to <8 x i32>
-; CHECK-NEXT:    [[TMP25:%.*]] = shl nuw <8 x i32> [[TMP24]], <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
-; CHECK-NEXT:    [[TMP26:%.*]] = bitcast <8 x i32> [[TMP25]] to <8 x float>
-; CHECK-NEXT:    [[TMP27:%.*]] = fadd fast <8 x float> [[TMP26]], <float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00>
-; CHECK-NEXT:    [[TMP28:%.*]] = bitcast <8 x float> [[TMP27]] to <8 x i32>
-; CHECK-NEXT:    [[TMP29:%.*]] = lshr <8 x i32> [[TMP28]], <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
-; CHECK-NEXT:    [[TMP30:%.*]] = trunc <8 x i32> [[TMP29]] to <8 x i16>
-; CHECK-NEXT:    [[TMP31:%.*]] = call i64 @get_sub_group_rowslice_id.v128i16.i64(<128 x i16> [[UNI_PHI25]], i32 8, i32 16, i64 [[UNI_PHI24]])
-; CHECK-NEXT:    call void @_ZGVbN8uv_sub_group_rowslice_insertelement.i16(i64 [[TMP31]], <8 x i16> [[TMP30]])
-; CHECK-NEXT:    [[TMP32:%.*]] = call <128 x i16> @sub_group_insert_rowslice_to_matrix.v128i16(i64 [[TMP31]])
-; CHECK-NEXT:    [[TMP33:%.*]] = add i64 [[UNI_PHI24]], 1
+; CHECK-NEXT:    [[TMP21:%.*]] = call i64 @get_sub_group_rowslice_id.v128i16.i64(<128 x i16> [[UNI_PHI25]], i32 8, i32 16, i64 [[UNI_PHI24]])
+; CHECK-NEXT:    [[TMP22:%.*]] = call <8 x i16> @_ZGVbN8u_sub_group_rowslice_extractelement.i16(i64 [[TMP21]])
+; CHECK-NEXT:    [[TMP23:%.*]] = zext <8 x i16> [[TMP22]] to <8 x i32>
+; CHECK-NEXT:    [[TMP24:%.*]] = shl nuw <8 x i32> [[TMP23]], <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
+; CHECK-NEXT:    [[TMP25:%.*]] = bitcast <8 x i32> [[TMP24]] to <8 x float>
+; CHECK-NEXT:    [[TMP26:%.*]] = fadd fast <8 x float> [[TMP25]], <float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00>
+; CHECK-NEXT:    [[TMP27:%.*]] = bitcast <8 x float> [[TMP26]] to <8 x i32>
+; CHECK-NEXT:    [[TMP28:%.*]] = lshr <8 x i32> [[TMP27]], <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
+; CHECK-NEXT:    [[TMP29:%.*]] = trunc <8 x i32> [[TMP28]] to <8 x i16>
+; CHECK-NEXT:    [[TMP30:%.*]] = call i64 @get_sub_group_rowslice_id.v128i16.i64(<128 x i16> [[UNI_PHI25]], i32 8, i32 16, i64 [[UNI_PHI24]])
+; CHECK-NEXT:    call void @_ZGVbN8uv_sub_group_rowslice_insertelement.i16(i64 [[TMP30]], <8 x i16> [[TMP29]])
+; CHECK-NEXT:    [[TMP31:%.*]] = call <128 x i16> @sub_group_insert_rowslice_to_matrix.v128i16(i64 [[TMP30]])
+; CHECK-NEXT:    [[TMP32:%.*]] = add i64 [[UNI_PHI24]], 1
 ; CHECK-NEXT:    br label [[NEW_LOOP_LATCH16]]
 ; CHECK:       new.loop.latch16:
-; CHECK-NEXT:    [[UNI_PHI27]] = phi i64 [ [[TMP33]], [[VPLANNEDBB26]] ], [ undef, [[VPLANNEDBB23]] ]
-; CHECK-NEXT:    [[UNI_PHI28]] = phi <128 x i16> [ [[TMP32]], [[VPLANNEDBB26]] ], [ undef, [[VPLANNEDBB23]] ]
+; CHECK-NEXT:    [[UNI_PHI27]] = phi i64 [ [[TMP32]], [[VPLANNEDBB26]] ], [ undef, [[VPLANNEDBB23]] ]
+; CHECK-NEXT:    [[UNI_PHI28]] = phi <128 x i16> [ [[TMP31]], [[VPLANNEDBB26]] ], [ undef, [[VPLANNEDBB23]] ]
 ; CHECK-NEXT:    [[UNI_PHI29:%.*]] = phi i1 [ true, [[VPLANNEDBB26]] ], [ false, [[VPLANNEDBB23]] ]
 ; CHECK-NEXT:    br i1 [[UNI_PHI29]], label [[VPLANNEDBB23]], label [[VPLANNEDBB30:%.*]]
 ; CHECK:       VPlannedBB30:
 ; CHECK-NEXT:    [[UNI_PHI31:%.*]] = phi <128 x i16> [ [[UNI_PHI25]], [[NEW_LOOP_LATCH16]] ]
-; CHECK-NEXT:    [[TMP34:%.*]] = sub i64 [[DOTEXTRACT_0_32]], [[DOTEXTRACT_0_33]]
-; CHECK-NEXT:    [[TMP35:%.*]] = sub i64 [[TMP0]], [[TMP3]]
-; CHECK-NEXT:    [[TMP36:%.*]] = shl i64 [[TMP35]], 7
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i16, i16 addrspace(1)* [[LOAD__ARG_]], i64 [[TMP36]]
-; CHECK-NEXT:    [[TMP37:%.*]] = and i64 [[TMP34]], -8
-; CHECK-NEXT:    [[SCALAR_GEP34:%.*]] = getelementptr inbounds i16, i16 addrspace(1)* [[SCALAR_GEP]], i64 [[TMP37]]
-; CHECK-NEXT:    [[TMP38:%.*]] = addrspacecast i16 addrspace(1)* [[SCALAR_GEP34]] to i16 addrspace(4)*
-; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP38]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
-; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP38]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
-; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP38]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
-; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP38]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
-; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP38]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
-; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP38]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
-; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP38]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
-; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP38]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+; CHECK-NEXT:    [[TMP33:%.*]] = sub i64 [[DOTEXTRACT_0_32]], [[DOTEXTRACT_0_33]]
+; CHECK-NEXT:    [[TMP34:%.*]] = sub i64 [[TMP0]], [[TMP2]]
+; CHECK-NEXT:    [[TMP35:%.*]] = shl i64 [[TMP34]], 7
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i16, i16 addrspace(1)* [[LOAD__ARG_]], i64 [[TMP35]]
+; CHECK-NEXT:    [[TMP36:%.*]] = and i64 [[TMP33]], -8
+; CHECK-NEXT:    [[SCALAR_GEP34:%.*]] = getelementptr inbounds i16, i16 addrspace(1)* [[SCALAR_GEP]], i64 [[TMP36]]
+; CHECK-NEXT:    [[TMP37:%.*]] = addrspacecast i16 addrspace(1)* [[SCALAR_GEP34]] to i16 addrspace(4)*
+; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP37]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP37]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP37]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP37]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP37]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP37]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP37]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP37]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
 ; CHECK-NEXT:    br label [[VPLANNEDBB35]]
 ; CHECK:       VPlannedBB35:
-; CHECK-NEXT:    [[TMP39]] = add nuw <8 x i32> [[VEC_PHI]], <i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8>
-; CHECK-NEXT:    [[TMP40]] = add nuw i32 [[UNI_PHI]], 8
-; CHECK-NEXT:    [[TMP41:%.*]] = icmp ult i32 [[TMP40]], 8
+; CHECK-NEXT:    [[TMP38]] = add nuw <8 x i32> [[VEC_PHI]], <i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8>
+; CHECK-NEXT:    [[TMP39]] = add nuw i32 [[UNI_PHI]], 8
+; CHECK-NEXT:    [[TMP40:%.*]] = icmp ult i32 [[TMP39]], 8
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY]], label [[VPLANNEDBB36:%.*]], !llvm.loop [[LOOP22:![0-9]+]]
 ; CHECK:       VPlannedBB36:
 ; CHECK-NEXT:    br label [[VPLANNEDBB37:%.*]]
@@ -339,17 +338,17 @@ attributes #6 = { nounwind readnone willreturn }
 ; CHECK-NEXT:    br label [[SIMD_END_REGION:%.*]]
 ; CHECK:       simd.loop.header:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i32 [ [[INDVAR:%.*]], [[SIMD_LOOP_LATCH:%.*]] ]
-; CHECK-NEXT:    [[ADD1:%.*]] = add nuw i32 [[TMP5]], [[INDEX]]
-; CHECK-NEXT:    [[TMP42:%.*]] = sext i32 [[ADD1]] to i64
-; CHECK-NEXT:    [[ADD:%.*]] = add nuw i32 [[TMP2]], [[INDEX]]
-; CHECK-NEXT:    [[TMP43:%.*]] = sext i32 [[ADD]] to i64
+; CHECK-NEXT:    [[ADD1:%.*]] = add nuw i32 [[TMP4]], [[INDEX]]
+; CHECK-NEXT:    [[TMP41:%.*]] = sext i32 [[ADD1]] to i64
+; CHECK-NEXT:    [[TMP42:%.*]] = sext i32 [[INDEX]] to i64
+; CHECK-NEXT:    [[ADD:%.*]] = add nuw i64 [[TMP42]], [[TMP1]]
 ; CHECK-NEXT:    [[CMP_I_I:%.*]] = icmp ult i64 [[TMP0]], 2147483648
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[CMP_I_I]])
-; CHECK-NEXT:    [[CMP_I33_I:%.*]] = icmp ult i64 [[TMP43]], 2147483648
+; CHECK-NEXT:    [[CMP_I33_I:%.*]] = icmp ult i64 [[ADD]], 2147483648
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[CMP_I33_I]])
-; CHECK-NEXT:    [[CMP_I40_I:%.*]] = icmp ult i64 [[TMP3]], 2147483648
+; CHECK-NEXT:    [[CMP_I40_I:%.*]] = icmp ult i64 [[TMP2]], 2147483648
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[CMP_I40_I]])
-; CHECK-NEXT:    [[CMP_I48_I:%.*]] = icmp ult i64 [[TMP42]], 2147483648
+; CHECK-NEXT:    [[CMP_I48_I:%.*]] = icmp ult i64 [[TMP41]], 2147483648
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[CMP_I48_I]])
 ; CHECK-NEXT:    [[MAT_INIT:%.*]] = call <128 x i16> @llvm.experimental.matrix.fill.v128i16.i16(i16 0, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
 ; CHECK-NEXT:    [[SG_SLICE_LENGTH:%.*]] = call i64 @get_sub_group_slice_length.(i32 128)
@@ -357,8 +356,8 @@ attributes #6 = { nounwind readnone willreturn }
 ; CHECK:       matrix.fill.slice.loop.header:
 ; CHECK-NEXT:    [[ELEMENT_INDEX:%.*]] = phi i64 [ 0, [[SIMD_LOOP_HEADER:%.*]] ], [ [[ELEMENT_INDEX_INC:%.*]], [[MATRIX_FILL_SLICE_LOOP:%.*]] ]
 ; CHECK-NEXT:    [[MAT:%.*]] = phi <128 x i16> [ [[MAT_INIT]], [[SIMD_LOOP_HEADER]] ], [ [[MAT_UPDATE3:%.*]], [[MATRIX_FILL_SLICE_LOOP]] ]
-; CHECK-NEXT:    [[TMP44:%.*]] = icmp slt i64 [[ELEMENT_INDEX]], [[SG_SLICE_LENGTH]]
-; CHECK-NEXT:    br i1 [[TMP44]], label [[MATRIX_FILL_SLICE_LOOP]], label [[MATRIX_FILL_SLICE_LOOP_END:%.*]]
+; CHECK-NEXT:    [[TMP43:%.*]] = icmp slt i64 [[ELEMENT_INDEX]], [[SG_SLICE_LENGTH]]
+; CHECK-NEXT:    br i1 [[TMP43]], label [[MATRIX_FILL_SLICE_LOOP]], label [[MATRIX_FILL_SLICE_LOOP_END:%.*]]
 ; CHECK:       matrix.fill.slice.loop:
 ; CHECK-NEXT:    [[ROWSLICE_ID2:%.*]] = call i64 @get_sub_group_rowslice_id.v128i16.i64(<128 x i16> [[MAT]], i32 8, i32 16, i64 [[ELEMENT_INDEX]])
 ; CHECK-NEXT:    call void @sub_group_rowslice_insertelement.i16(i64 [[ROWSLICE_ID2]], i16 16544)
@@ -379,11 +378,11 @@ attributes #6 = { nounwind readnone willreturn }
 ; CHECK-NEXT:    [[EXTRACT_ELEM:%.*]] = call i16 @sub_group_rowslice_extractelement.i16(i64 [[ROWSLICE_ID]])
 ; CHECK-NEXT:    [[CONV_I_I_I:%.*]] = zext i16 [[EXTRACT_ELEM]] to i32
 ; CHECK-NEXT:    [[SHL_I_I_I:%.*]] = shl nuw i32 [[CONV_I_I_I]], 16
-; CHECK-NEXT:    [[TMP45:%.*]] = bitcast i32 [[SHL_I_I_I]] to float
-; CHECK-NEXT:    [[ADD_I_I:%.*]] = fadd fast float [[TMP45]], 2.000000e+00
-; CHECK-NEXT:    [[TMP46:%.*]] = bitcast float [[ADD_I_I]] to i32
-; CHECK-NEXT:    [[TMP47:%.*]] = lshr i32 [[TMP46]], 16
-; CHECK-NEXT:    [[CONV_I5_I_I:%.*]] = trunc i32 [[TMP47]] to i16
+; CHECK-NEXT:    [[TMP44:%.*]] = bitcast i32 [[SHL_I_I_I]] to float
+; CHECK-NEXT:    [[ADD_I_I:%.*]] = fadd fast float [[TMP44]], 2.000000e+00
+; CHECK-NEXT:    [[TMP45:%.*]] = bitcast float [[ADD_I_I]] to i32
+; CHECK-NEXT:    [[TMP46:%.*]] = lshr i32 [[TMP45]], 16
+; CHECK-NEXT:    [[CONV_I5_I_I:%.*]] = trunc i32 [[TMP46]] to i16
 ; CHECK-NEXT:    [[ROWSLICE_ID4:%.*]] = call i64 @get_sub_group_rowslice_id.v128i16.i64(<128 x i16> [[SUB_A_SROA_0_0_I]], i32 8, i32 16, i64 [[INDVARS_IV]])
 ; CHECK-NEXT:    call void @sub_group_rowslice_insertelement.i16(i64 [[ROWSLICE_ID4]], i16 [[CONV_I5_I_I]])
 ; CHECK-NEXT:    [[MAT_UPDATE]] = call <128 x i16> @sub_group_insert_rowslice_to_matrix.v128i16(i64 [[ROWSLICE_ID4]])
@@ -391,8 +390,8 @@ attributes #6 = { nounwind readnone willreturn }
 ; CHECK-NEXT:    br label [[FOR_COND_I]]
 ; CHECK:       _ZZZ17matrix_verify_addItLm16ELm16EEvN2cl4sycl5queueER10big_matrixIT_XT0_EXT1_EERNS1_8nd_rangeILi2EEEfENKUlRNS1_7handlerEE_clESB_ENKUlNS1_7nd_itemILi2EEEE_clESE_.exit:
 ; CHECK-NEXT:    [[SUB_A_SROA_0_0_I_LCSSA:%.*]] = phi <128 x i16> [ [[SUB_A_SROA_0_0_I]], [[FOR_COND_I]] ]
-; CHECK-NEXT:    [[SUB5_I:%.*]] = sub nsw i64 [[TMP43]], [[TMP42]]
-; CHECK-NEXT:    [[SUB_I:%.*]] = sub nsw i64 [[TMP0]], [[TMP3]]
+; CHECK-NEXT:    [[SUB5_I:%.*]] = sub nsw i64 [[ADD]], [[TMP41]]
+; CHECK-NEXT:    [[SUB_I:%.*]] = sub nsw i64 [[TMP0]], [[TMP2]]
 ; CHECK-NEXT:    [[MUL21_I:%.*]] = shl nsw i64 [[SUB_I]], 7
 ; CHECK-NEXT:    [[ADD_PTR_I51_I:%.*]] = getelementptr inbounds i16, i16 addrspace(1)* [[LOAD__ARG_]], i64 [[MUL21_I]]
 ; CHECK-NEXT:    [[DIV_I:%.*]] = and i64 [[SUB5_I]], -8
