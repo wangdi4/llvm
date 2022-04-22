@@ -24,6 +24,8 @@ extern "C" {
 // LLVM in other languages.
 
 void LLVMAddThreadSanitizerPass(LLVMPassManagerRef PM);
+void LLVMAddAddressSanitizerFunctionPass(LLVMPassManagerRef PM);
+void LLVMAddAddressSanitizerModulePass(LLVMPassManagerRef PM);
 void LLVMAddMemorySanitizerLegacyPassPass(LLVMPassManagerRef PM); // INTEL
 void LLVMAddDataFlowSanitizerPass(LLVMPassManagerRef PM, int ABIListFilesNum,
                                   const char **ABIListFiles);
