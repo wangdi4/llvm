@@ -802,7 +802,8 @@ void PrecompiledPreamble::setupPreambleStorage(
     StringRef PCHPath = getInMemoryPreamblePath();
     PreprocessorOpts.ImplicitPCHInclude = std::string(PCHPath);
 
-    auto Buf = llvm::MemoryBuffer::getMemBuffer(Storage.memoryContents());
+    auto Buf = llvm::MemoryBuffer::getMemBuffer(
+        Storage.memoryContents(), PCHPath, /*RequiresNullTerminator=*/false);
     VFS = createVFSOverlayForPreamblePCH(PCHPath, std::move(Buf), VFS);
   }
 }
