@@ -235,18 +235,6 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
                DiagnosticsEngine &Diags, std::string Title,
                IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS)
     : Diags(Diags), VFS(std::move(VFS)), Mode(GCCMode),
-<<<<<<< HEAD
-      SaveTemps(SaveTempsNone), BitcodeEmbed(EmbedNone), LTOMode(LTOK_None),
-      ClangExecutable(ClangExecutable), SysRoot(DEFAULT_SYSROOT),
-      DriverTitle(Title), CCCPrintBindings(false), CCPrintOptions(false),
-      CCPrintHeaders(false), CCLogDiagnostics(false), CCGenDiagnostics(false),
-      CCPrintProcessStats(false), TargetTriple(TargetTriple), Saver(Alloc),
-      CheckInputsExist(true), GenReproducer(false),
-#if INTEL_CUSTOMIZATION
-      SuppressMissingInputWarning(false), IntelPrintOptions(false),
-      IntelMode(false), DPCPPMode(false) {
-#endif // INTEL_CUSTOMIZATION
-=======
       SaveTemps(SaveTempsNone), BitcodeEmbed(EmbedNone),
       CXX20HeaderType(HeaderMode_None), ModulesModeCXX20(false),
       LTOMode(LTOK_None), ClangExecutable(ClangExecutable),
@@ -254,8 +242,11 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
       CCPrintOptions(false), CCPrintHeaders(false), CCLogDiagnostics(false),
       CCGenDiagnostics(false), CCPrintProcessStats(false),
       TargetTriple(TargetTriple), Saver(Alloc), CheckInputsExist(true),
-      GenReproducer(false), SuppressMissingInputWarning(false) {
->>>>>>> dde4dea362833086e140c8dc94a72be367bd16c4
+      GenReproducer(false),
+#if INTEL_CUSTOMIZATION
+      SuppressMissingInputWarning(false), IntelPrintOptions(false),
+      IntelMode(false), DPCPPMode(false) {
+#endif // INTEL_CUSTOMIZATION
   // Provide a sane fallback if no VFS is specified.
   if (!this->VFS)
     this->VFS = llvm::vfs::getRealFileSystem();
