@@ -6,8 +6,6 @@
 // UNSUPPORTED: csa-registered-target
 // end INTEL_FEATURE_CSA
 // end INTEL_CUSTOMIZATION
-// CHECK: %opencl.pipe_wo_t
-// CHECK: %opencl.pipe_ro_t
 
 using WPipeTy = __attribute__((pipe("write_only"))) const int;
 SYCL_EXTERNAL WPipeTy WPipeCreator();

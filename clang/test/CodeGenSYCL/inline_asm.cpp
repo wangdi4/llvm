@@ -5,7 +5,8 @@ class kernel;
 template <typename name, typename Func>
 __attribute__((sycl_kernel)) void kernel_single_task(const Func &kernelFunc) {
   // CHECK: %[[ARRAY_A:[0-9a-z]+]] = alloca [100 x i32], align 4
-  // CHECK: %[[IDX:.*]] = addrspacecast ptr %[[ARRAY_A]] to ptr addrspace(4)
+  // CHECK: %[[IDX4:.*]] = addrspacecast ptr %[[ARRAY_A]] to ptr addrspace(4)
+  // CHECK: %[[IDX:.*]] = getelementptr inbounds [100 x i32], ptr addrspace(4) %[[IDX4]], i64 0, i64 0
   int a[100], i = 0;
   // CHECK: call void asm sideeffect
   // CHECK: ".decl V52 v_type=G type=d num_elts=16 align=GRF
