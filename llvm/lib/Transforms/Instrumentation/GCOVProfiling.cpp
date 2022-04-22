@@ -165,6 +165,41 @@ private:
   StringMap<bool> InstrumentedFiles;
 };
 
+#if INTEL_CUSTOMIZATION
+class GCOVProfilerLegacyPass : public ModulePass {
+public:
+  static char ID;
+  GCOVProfilerLegacyPass()
+      : GCOVProfilerLegacyPass(GCOVOptions::getDefault()) {}
+  GCOVProfilerLegacyPass(const GCOVOptions &Opts)
+      : ModulePass(ID), Profiler(Opts) {
+    initializeGCOVProfilerLegacyPassPass(*PassRegistry::getPassRegistry());
+  }
+  StringRef getPassName() const override { return "GCOV Profiler"; }
+
+  bool runOnModule(Module &M) override {
+    auto GetBFI = [this](Function &F) {
+      return &this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
+    };
+    auto GetBPI = [this](Function &F) {
+      return &this->getAnalysis<BranchProbabilityInfoWrapperPass>(F).getBPI();
+    };
+    auto GetTLI = [this](Function &F) -> const TargetLibraryInfo & {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
+    return Profiler.runOnModule(M, GetBFI, GetBPI, GetTLI);
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<BlockFrequencyInfoWrapperPass>();
+    AU.addRequired<TargetLibraryInfoWrapperPass>();
+  }
+
+private:
+  GCOVProfiler Profiler;
+};
+#endif // INTEL_CUSTOMIZATION
+
 struct BBInfo {
   BBInfo *Group;
   uint32_t Index;
@@ -199,6 +234,23 @@ struct Edge {
   }
 };
 }
+
+#if INTEL_CUSTOMIZATION
+char GCOVProfilerLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(
+    GCOVProfilerLegacyPass, "insert-gcov-profiling",
+    "Insert instrumentation for GCOV profiling", false, false)
+INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(BranchProbabilityInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_END(
+    GCOVProfilerLegacyPass, "insert-gcov-profiling",
+    "Insert instrumentation for GCOV profiling", false, false)
+
+ModulePass *llvm::createGCOVProfilerPass(const GCOVOptions &Options) {
+  return new GCOVProfilerLegacyPass(Options);
+}
+#endif // INTEL_CUSTOMIZATION
 
 static StringRef getFunctionName(const DISubprogram *SP) {
   if (!SP->getLinkageName().empty())

@@ -194,17 +194,14 @@ namespace {
       (void) llvm::createDomPrinterPass();
       (void) llvm::createDomOnlyViewerPass();
       (void) llvm::createDomViewerPass();
-<<<<<<< HEAD
-      (void) llvm::createGCOVProfilerPass();
 #if INTEL_CUSTOMIZATION
+      (void) llvm::createGCOVProfilerPass();
       (void) llvm::createPGOInstrumentationGenLegacyPass();
       (void) llvm::createPGOInstrumentationUseLegacyPass();
       (void) llvm::createPGOInstrumentationGenCreateVarLegacyPass();
       (void) llvm::createPGOIndirectCallPromotionLegacyPass();
       (void) llvm::createPGOMemOPSizeOptLegacyPass();
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 409eb5dc3efcaf35d9548440eaeb9db15a89aeca
       (void) llvm::createInstrProfilingLegacyPass();
       (void) llvm::createFunctionImportPass();
       (void) llvm::createFunctionInliningPass();

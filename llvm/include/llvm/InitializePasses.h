@@ -173,6 +173,7 @@ void initializeConstantMergeLegacyPassPass(PassRegistry&);
 void initializeConstraintEliminationPass(PassRegistry &);
 void initializeControlHeightReductionLegacyPassPass(PassRegistry&);
 void initializeConvertGEPToSubscriptIntrinsicLegacyPassPass(PassRegistry &); // INTEL
+void initializeGCOVProfilerLegacyPassPass(PassRegistry&); // INTEL
 void initializeCorrelatedValuePropagationPass(PassRegistry&);
 void initializeCostModelAnalysisPass(PassRegistry&);
 void initializeCrossDSOCFIPass(PassRegistry&);
