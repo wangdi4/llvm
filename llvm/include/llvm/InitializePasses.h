@@ -240,7 +240,6 @@ void initializeFunctionSpecializationLegacyPassPass(PassRegistry &);
 void initializeFunctionSplittingWrapperPass(PassRegistry&);        // INTEL
 void initializeGCMachineCodeAnalysisPass(PassRegistry&);
 void initializeGCModuleInfoPass(PassRegistry&);
-void initializeGCOVProfilerLegacyPassPass(PassRegistry&);
 void initializeGVNHoistLegacyPassPass(PassRegistry&);
 void initializeGVNLegacyPassPass(PassRegistry&);
 void initializeGVNSinkLegacyPassPass(PassRegistry&);

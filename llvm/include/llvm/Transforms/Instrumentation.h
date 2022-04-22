@@ -75,9 +75,6 @@ struct GCOVOptions {
   std::string Exclude;
 };
 
-ModulePass *createGCOVProfilerPass(const GCOVOptions &Options =
-                                   GCOVOptions::getDefault());
-
 ModulePass *createCGProfileLegacyPass();
 
 #if INTEL_CUSTOMIZATION
