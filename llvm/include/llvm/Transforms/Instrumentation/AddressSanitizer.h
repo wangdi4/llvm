@@ -126,7 +126,10 @@ private:
   AsanDtorKind DestructorKind;
 };
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> 0e0759f441c9d9433ae8f13ed9f274f3d3e856a8
 // Insert AddressSanitizer (address basic correctness checking) instrumentation
 FunctionPass *createAddressSanitizerFunctionPass(
     bool CompileKernel = false, bool Recover = false,
@@ -137,7 +140,10 @@ ModulePass *createModuleAddressSanitizerLegacyPassPass(
     bool CompileKernel = false, bool Recover = false, bool UseGlobalsGC = true,
     bool UseOdrIndicator = true,
     AsanDtorKind DestructorKind = AsanDtorKind::Global);
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 0e0759f441c9d9433ae8f13ed9f274f3d3e856a8
 
 struct ASanAccessInfo {
   const int32_t Packed;
