@@ -3,6 +3,7 @@
 ; RUN: opt < %s -passes='default<O2>' -opaque-pointers=1 -S | FileCheck %s
 
 ; INTEL_CUSTOMIZATION
+; RUN: opt < %s -enable-coroutines -passes='default<O2>' -opaque-pointers=1 -S | FileCheck %s
 ; xmain doesn't remove GEP...0 under opaque pointers, as it may have useful
 ; type information.
 ; end INTEL_CUSTOMIZATION

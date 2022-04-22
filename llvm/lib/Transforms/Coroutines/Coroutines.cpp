@@ -10,9 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Coroutines.h" // INTEL
 #include "CoroInstr.h"
 #include "CoroInternal.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm-c/Transforms/Coroutines.h" // INTEL
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
@@ -38,6 +40,57 @@
 #include <utility>
 
 using namespace llvm;
+
+#if INTEL_CUSTOMIZATION
+void llvm::initializeCoroutines(PassRegistry &Registry) {
+  initializeCoroEarlyLegacyPass(Registry);
+  initializeCoroSplitLegacyPass(Registry);
+  initializeCoroElideLegacyPass(Registry);
+  initializeCoroCleanupLegacyPass(Registry);
+}
+
+static void addCoroutineOpt0Passes(const PassManagerBuilder &Builder,
+                                   legacy::PassManagerBase &PM) {
+  PM.add(createCoroSplitLegacyPass());
+  PM.add(createCoroElideLegacyPass());
+
+  PM.add(createBarrierNoopPass());
+  PM.add(createCoroCleanupLegacyPass());
+}
+
+static void addCoroutineEarlyPasses(const PassManagerBuilder &Builder,
+                                    legacy::PassManagerBase &PM) {
+  PM.add(createCoroEarlyLegacyPass());
+}
+
+static void addCoroutineScalarOptimizerPasses(const PassManagerBuilder &Builder,
+                                              legacy::PassManagerBase &PM) {
+  PM.add(createCoroElideLegacyPass());
+}
+
+static void addCoroutineSCCPasses(const PassManagerBuilder &Builder,
+                                  legacy::PassManagerBase &PM) {
+  PM.add(createCoroSplitLegacyPass(Builder.OptLevel != 0));
+}
+
+static void addCoroutineOptimizerLastPasses(const PassManagerBuilder &Builder,
+                                            legacy::PassManagerBase &PM) {
+  PM.add(createCoroCleanupLegacyPass());
+}
+
+void llvm::addCoroutinePassesToExtensionPoints(PassManagerBuilder &Builder) {
+  Builder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
+                       addCoroutineEarlyPasses);
+  Builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
+                       addCoroutineOpt0Passes);
+  Builder.addExtension(PassManagerBuilder::EP_CGSCCOptimizerLate,
+                       addCoroutineSCCPasses);
+  Builder.addExtension(PassManagerBuilder::EP_ScalarOptimizerLate,
+                       addCoroutineScalarOptimizerPasses);
+  Builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
+                       addCoroutineOptimizerLastPasses);
+}
+#endif // INTEL_CUSTOMIZATION 
 
 // Construct the lowerer base class and initialize its members.
 coro::LowererBase::LowererBase(Module &M)
@@ -150,6 +203,48 @@ void coro::replaceCoroFree(CoroIdInst *CoroId, bool Elide) {
     CF->eraseFromParent();
   }
 }
+
+#if INTEL_CUSTOMIZATION
+// FIXME: This code is stolen from CallGraph::addToCallGraph(Function *F), which
+// happens to be private. It is better for this functionality exposed by the
+// CallGraph.
+static void buildCGN(CallGraph &CG, CallGraphNode *Node) {
+  Function *F = Node->getFunction();
+
+  // Look for calls by this function.
+  for (Instruction &I : instructions(F))
+    if (auto *Call = dyn_cast<CallBase>(&I)) {
+      const Function *Callee = Call->getCalledFunction();
+      if (!Callee || !Intrinsic::isLeaf(Callee->getIntrinsicID()))
+        // Indirect calls of intrinsics are not allowed so no need to check.
+        // We can be more precise here by using TargetArg returned by
+        // Intrinsic::isLeaf.
+        Node->addCalledFunction(Call, CG.getCallsExternalNode());
+      else if (!Callee->isIntrinsic())
+        Node->addCalledFunction(Call, CG.getOrInsertFunction(Callee));
+    }
+}
+
+// Rebuild CGN after we extracted parts of the code from ParentFunc into
+// NewFuncs. Builds CGNs for the NewFuncs and adds them to the current SCC.
+void coro::updateCallGraph(Function &ParentFunc, ArrayRef<Function *> NewFuncs,
+                           CallGraph &CG, CallGraphSCC &SCC) {
+  // Rebuild CGN from scratch for the ParentFunc
+  auto *ParentNode = CG[&ParentFunc];
+  ParentNode->removeAllCalledFunctions();
+  buildCGN(CG, ParentNode);
+
+  SmallVector<CallGraphNode *, 8> Nodes(SCC.begin(), SCC.end());
+
+  for (Function *F : NewFuncs) {
+    CallGraphNode *Callee = CG.getOrInsertFunction(F);
+    Nodes.push_back(Callee);
+    buildCGN(CG, Callee);
+  }
+
+  SCC.initialize(Nodes);
+}
+#endif // INTEL_CUSTOMIZATION
 
 static void clear(coro::Shape &Shape) {
   Shape.CoroBegin = nullptr;
@@ -655,3 +750,27 @@ void CoroAsyncEndInst::checkWellFormed() const {
          "match the tail arguments",
          MustTailCallFunc);
 }
+
+#if INTEL_CUSTOMIZATION
+void LLVMAddCoroEarlyPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createCoroEarlyLegacyPass());
+}
+
+void LLVMAddCoroSplitPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createCoroSplitLegacyPass());
+}
+
+void LLVMAddCoroElidePass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createCoroElideLegacyPass());
+}
+
+void LLVMAddCoroCleanupPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createCoroCleanupLegacyPass());
+}
+
+void
+LLVMPassManagerBuilderAddCoroutinePassesToExtensionPoints(LLVMPassManagerBuilderRef PMB) {
+  PassManagerBuilder *Builder = unwrap(PMB);
+  addCoroutinePassesToExtensionPoints(*Builder);
+}
+#endif // INTEL_CUSTOMIZATION
