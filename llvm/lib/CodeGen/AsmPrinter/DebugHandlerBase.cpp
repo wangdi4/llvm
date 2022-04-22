@@ -259,6 +259,10 @@ void DebugHandlerBase::beginFunction(const MachineFunction *MF) {
   // then we're not going to be able to do anything.
   LScopes.initialize(*MF);
   if (LScopes.empty()) {
+#if INTEL_CUSTOMIZATION
+    PrevInstLoc = DebugLoc();
+    PrevLabel = Asm->getFunctionBegin();
+#endif // INTEL_CUSTOMIZATION
     beginFunctionImpl(MF);
     return;
   }

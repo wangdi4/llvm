@@ -1896,25 +1896,6 @@ if (LLVM_INCLUDE_UTILS AND LLVM_INCLUDE_TOOLS)
 endif()
 
 if (INTEL_CUSTOMIZATION)
-  # Deploy extra pre-built pieces.
-  set(EXTRA_DEPLOY_DIR "$ENV{INFO_RDRIVE}/xmain_extra_deploy/$ENV{ICS_VARIANT}")
-  if (EXISTS ${EXTRA_DEPLOY_DIR})
-    message(STATUS "INTEL: will deploy extra pieces from ${EXTRA_DEPLOY_DIR}")
-
-    # Make sure to copy the files into the build structure as well.
-    # This helps keeping somewhat consistent behavior between the build
-    # and deploy structure.
-    set(EXTRA_DEPLOY_LIBS "${EXTRA_DEPLOY_DIR}/lib/")
-    add_custom_target(xmain-extra-libs ALL
-      COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${EXTRA_DEPLOY_LIBS} ${LLVM_LIBRARY_OUTPUT_INTDIR}
-      COMMENT
-        "Copying xmain extra libraries into ${LLVM_LIBRARY_OUTPUT_INTDIR} ...")
-
-    install(DIRECTORY ${EXTRA_DEPLOY_LIBS} DESTINATION lib
-      COMPONENT xmain-extra-libs)
-  endif()
-
   if (INTEL_CMAKE_DEPLOY)
 
     # The code below defines a set of CMake components that will
@@ -1941,8 +1922,6 @@ if (INTEL_CUSTOMIZATION)
       llvm-csa-ompplugin
 # end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION
-      # Extra xmain components
-      xmain-extra-libs
       # SYCL components: see sycl/CMakeLists.txt
       # LLVM tools directory readme
       bin-llvm-readme

@@ -3755,10 +3755,11 @@ EXTERN void *__tgt_rtl_data_aligned_alloc(
   return DeviceInfo->dataAlloc(DeviceId, Size, Align, Kind, 0, true);
 }
 
-int32_t __tgt_rtl_requires_mapping(int32_t DeviceId, void *Ptr) {
+int32_t __tgt_rtl_requires_mapping(int32_t DeviceId, void *Ptr, int64_t Size) {
   int32_t Ret;
   auto AllocType = DeviceInfo->getMemAllocType(Ptr);
-  if (AllocType == ZE_MEMORY_TYPE_UNKNOWN || AllocType == ZE_MEMORY_TYPE_HOST)
+  if (AllocType == ZE_MEMORY_TYPE_UNKNOWN ||
+      (AllocType == ZE_MEMORY_TYPE_HOST && Size > 0))
     Ret = 1;
   else
     Ret = 0;

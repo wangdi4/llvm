@@ -258,7 +258,7 @@ EXTERN void *__tgt_rtl_get_context_handle(int32_t ID);
 EXTERN void *__tgt_rtl_data_alloc_managed(int32_t ID, int64_t Size);
 
 // Check if the specified pointer and size requires mapping.
-EXTERN int32_t __tgt_rtl_requires_mapping(int32_t ID, void *Ptr);
+EXTERN int32_t __tgt_rtl_requires_mapping(int32_t ID, void *Ptr, int64_t Size);
 
 // Initialize OMPT interface
 EXTERN void __tgt_rtl_init_ompt(void *OmptGlobal);
