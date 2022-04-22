@@ -988,21 +988,6 @@ def Tuning2KDSB : SubtargetFeature<"2kdsb", "DSBSize", "DSB2K",
 def Tuning4KDSB : SubtargetFeature<"4kdsb", "DSBSize", "DSB4K",
                                "Target has 4K or above decoded stream buffer",
                                [Tuning2KDSB]>;
-def TuningCMULFalseDeps : SubtargetFeature<"false-deps-cmul",
-                               "HasCMULFalseDeps", "true",
-                               "CMUL has a false dependency on dest register">;
-def TuningPERMFalseDeps : SubtargetFeature<"false-deps-perm",
-                               "HasPERMFalseDeps", "true",
-                               "PERM has a false dependency on dest register">;
-def TuningRANGEFalseDeps : SubtargetFeature<"false-deps-range",
-                               "HasRANGEFalseDeps", "true",
-                               "RANGE has a false dependency on dest register">;
-def TuningGETMANTFalseDeps : SubtargetFeature<"false-deps-getmant",
-                               "HasGETMANTFalseDeps", "true",
-                               "GETMANT has a false dependency on dest register">;
-def TuningMULLQFalseDeps : SubtargetFeature<"false-deps-mullq",
-                               "HasMULLQFalseDeps", "true",
-                               "MULLQ has a false dependency on dest register">;
 def TuningMRN : SubtargetFeature<"mrn", "HasMRN", "true",
                                "Target has memory renaming feature">;
 #endif // INTEL_CUSTOMIZATION
@@ -1287,7 +1272,7 @@ def ProcessorFeatures {
   list<SubtargetFeature> ICXAdditionalFeatures = [FeaturePCONFIG,
                                                   FeatureCLWB,
                                                   FeatureWBNOINVD];
-  list<SubtargetFeature> ICXTuning = ICLTuning2;
+  list<SubtargetFeature> ICXTuning = ICLTuning2; // INTEL
   list<SubtargetFeature> ICXFeatures =
     !listconcat(ICLFeatures, ICXAdditionalFeatures);
 
@@ -1298,7 +1283,7 @@ def ProcessorFeatures {
                                                   FeatureMOVDIRI,
                                                   FeatureMOVDIR64B,
                                                   FeatureSHSTK];
-  list<SubtargetFeature> TGLTuning = ICLTuning2;
+  list<SubtargetFeature> TGLTuning = ICLTuning2; // INTEL
   list<SubtargetFeature> TGLFeatures =
     !listconcat(ICLFeatures, TGLAdditionalFeatures );
 
@@ -1320,25 +1305,16 @@ def ProcessorFeatures {
                                                   FeatureMOVDIRI,
                                                   FeatureMOVDIR64B,
                                                   FeatureUINTR];
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  list<SubtargetFeature> SPRAdditionalTuning = [TuningCMULFalseDeps,
+  list<SubtargetFeature> SPRAdditionalTuning = [TuningMULCFalseDeps,
                                                 TuningPERMFalseDeps,
                                                 TuningRANGEFalseDeps,
                                                 TuningGETMANTFalseDeps,
                                                 TuningMULLQFalseDeps,
                                                 Tuning4KDSB,
                                                 TuningMRN];
-  list<SubtargetFeature> SPRTuning = !listconcat(ICXTuning, SPRAdditionalTuning);
 #endif // INTEL_CUSTOMIZATION
-=======
-  list<SubtargetFeature> SPRAdditionalTuning = [TuningMULCFalseDeps,
-                                                TuningPERMFalseDeps,
-                                                TuningRANGEFalseDeps,
-                                                TuningGETMANTFalseDeps,
-                                                TuningMULLQFalseDeps];
   list<SubtargetFeature> SPRTuning = !listconcat(ICXTuning, SPRAdditionalTuning);
->>>>>>> 3e6b904f0a5075a3f33683ce38b5a4fd18280e5e
   list<SubtargetFeature> SPRFeatures =
     !listconcat(ICXFeatures, SPRAdditionalFeatures);
 
@@ -1509,17 +1485,12 @@ def ProcessorFeatures {
                                                   FeatureMOVDIRI,
                                                   FeatureMOVDIR64B,
                                                   FeatureWAITPKG];
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   list<SubtargetFeature> ADLAdditionalTuning = [Tuning4KDSB,
                                                 TuningPERMFalseDeps,
                                                 TuningMRN];
   list<SubtargetFeature> ADLTuning = !listconcat(TGLTuning, ADLAdditionalTuning);
 #endif // INTEL_CUSTOMIZATION
-=======
-  list<SubtargetFeature> ADLAdditionalTuning = [TuningPERMFalseDeps];
-  list<SubtargetFeature> ADLTuning = !listconcat(SKLTuning, ADLAdditionalTuning);
->>>>>>> 3e6b904f0a5075a3f33683ce38b5a4fd18280e5e
   list<SubtargetFeature> ADLFeatures =
     !listconcat(TRMFeatures, ADLAdditionalFeatures);
 

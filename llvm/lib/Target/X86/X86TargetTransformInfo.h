@@ -87,7 +87,7 @@ class X86TTIImpl : public BasicTTIImplBase<X86TTIImpl> {
       X86::TuningDSB,
       X86::Tuning2KDSB,
       X86::Tuning4KDSB,
-      X86::TuningCMULFalseDeps,
+      X86::TuningMULCFalseDeps,
       X86::TuningPERMFalseDeps,
       X86::TuningRANGEFalseDeps,
       X86::TuningGETMANTFalseDeps,
