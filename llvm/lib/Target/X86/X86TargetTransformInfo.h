@@ -96,6 +96,11 @@ class X86TTIImpl : public BasicTTIImplBase<X86TTIImpl> {
 #endif // INTEL_CUSTOMIZATION
       X86::TuningPadShortFunctions,
       X86::TuningPOPCNTFalseDeps,
+      X86::TuningMULCFalseDeps,
+      X86::TuningPERMFalseDeps,
+      X86::TuningRANGEFalseDeps,
+      X86::TuningGETMANTFalseDeps,
+      X86::TuningMULLQFalseDeps,
       X86::TuningSlow3OpsLEA,
       X86::TuningSlowDivide32,
       X86::TuningSlowDivide64,
