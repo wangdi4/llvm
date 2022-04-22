@@ -303,6 +303,21 @@ public:
       CallInst *CI,
       ArrayRef<std::pair<StringRef, ArrayRef<Value *>>> OpBundlesToAdd);
 
+  /// A version of addOperandBundlesInCall that accepts StringRef-SmallVector
+  /// pairs.
+  template <unsigned N = 4>
+  static CallInst *addOperandBundlesInCall(
+      CallInst *CI,
+      ArrayRef<std::pair<StringRef, SmallVector<Value *, N>>> OpBundlesToAdd) {
+    SmallVector<std::pair<StringRef, ArrayRef<Value *>>, 8> OpBundlesArrayRef;
+    llvm::transform(OpBundlesToAdd, std::back_inserter(OpBundlesArrayRef),
+                    [](const auto &In) {
+                      return std::make_pair(In.first, makeArrayRef(In.second));
+                    });
+
+    return VPOUtils::addOperandBundlesInCall(CI, OpBundlesArrayRef);
+  }
+
   /// Creates a clone of \p CI without any operand bundles whose tags match an
   /// entry in \p OpBundlesToRemove. Replaces all uses of the original \p CI
   /// with the new Instruction created.
