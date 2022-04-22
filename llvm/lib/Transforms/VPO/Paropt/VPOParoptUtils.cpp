@@ -6810,11 +6810,12 @@ SmallVector<OffloadEntry *, 8> VPOParoptUtils::loadOffloadMetadata(
         switch (Flags) {
           case RegionEntry::Region: {
             // Compose name.
-            SmallString<64u> Name;
+            SmallString<128u> Name;
             llvm::raw_svector_ostream(Name) << "__omp_offloading"
               << llvm::format("_%x", Device) << llvm::format("_%x_", File)
               << Parent << "_l" << Line;
             addEntry(new RegionEntry(Name, Flags), Idx);
+            Name.clear();
             break;
           }
           case RegionEntry::Ctor:
