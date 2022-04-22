@@ -27,23 +27,52 @@
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
-; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
 
-; CHECK:      Running pass: UnifyFunctionExitNodesPass
+; CHECK:      Running pass: DPCPPKernelAnalysisPass
+; CHECK-NEXT: Running pass: WGLoopBoundariesPass
+
+; CHECK:      Running pass: ReassociatePass
 ; CHECK-NEXT: Running pass: InferAddressSpacesPass
 ; CHECK-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-NEXT: Running pass: SROAPass
-; CHECK-NEXT: Running pass: EarlyCSEPass
+; CHECK:      Running pass: EarlyCSEPass
 ; CHECK-NEXT: Running pass: PromotePass
 ; CHECK-NEXT: Running pass: InstCombinePass
-
-; CHECK:      Running pass: ReassociatePass
 ; CHECK:      Running pass: SinCosFoldPass
-; CHECK:      Running pass: MathLibraryFunctionsReplacementPass
+; CHECK-NEXT: Running pass: MathLibraryFunctionsReplacementPass
+; CHECK-NEXT: Running pass: UnifyFunctionExitNodesPass
+; CHECK:      Running pass: DeduceMaxWGDimPass
+; CHECK-NEXT: Running pass: InstToFuncCallPass
+; CHECK-NEXT: Running pass: SetVectorizationFactorPass
+; CHECK-NEXT: Running analysis: VFAnalysis
+; CHECK-NEXT: Running pass: VectorVariantLowering
+; CHECK-NEXT: Running analysis: CallGraphAnalysis
+; CHECK-NEXT: Running pass: CreateSimdVariantPropagation
+; CHECK-NEXT: Running pass: SGSizeCollectorPass
+; CHECK-NEXT: Running pass: SGSizeCollectorIndirectPass
+; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::VectorizationDimensionAnalysis, llvm::Module>
+; CHECK-NEXT: Running analysis: VectorizationDimensionAnalysis
+; CHECK-NEXT: Running pass: DPCPPKernelVecClonePass
+; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-NEXT: Invalidating analysis: VFAnalysis
+; CHECK-NEXT: Invalidating analysis: CallGraphAnalysis
+; CHECK-NEXT: Invalidating analysis: VectorizationDimensionAnalysis
+; CHECK-NEXT: Running pass: VectorVariantFillIn
+; CHECK-NEXT: Running pass: UpdateCallAttrs
+
 ; CHECK:      Running pass: PromotePass
-; CHECK-NEXT: Running pass: LoopSimplifyPass
-; CHECK:      Running pass: LoopUnrollPass
+; CHECK:      Running pass: LoopSimplifyPass
+; CHECK:      Running pass: LICMPass
+
 ; CHECK-NOT:  Running pass: VecClonePass
+; CHECK:      Running pass: vpo::VPlanDriverPass
+
+; CHECK:      Running pass: DPCPPKernelPostVecPass
+; CHECK-NEXT: Running pass: InstCombinePass
+; CHECK:      Running pass: SimplifyCFGPass
+; CHECK-NEXT: Running pass: PromotePass
+; CHECK-NEXT: Running pass: ADCEPass
+; CHECK:      Running pass: HandleVPlanMask
 
 ; CHECK:      Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: DPCPPKernelWGLoopCreatorPass
@@ -52,7 +81,7 @@
 
 ; CHECK:      Running pass: PhiCanonicalization
 ; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
-; CHECK-NEXT: Running pass: Intel Kernel RedundantPhiNode
+; CHECK:      Running pass: Intel Kernel RedundantPhiNode
 ; CHECK:      Running pass: GroupBuiltinPass
 ; CHECK-NEXT: Running pass: Intel Kernel BarrierInFunction
 ; CHECK:      Running pass: ResolveSubGroupWICallPass
@@ -64,7 +93,7 @@
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
 ; CHECK-NEXT: Running analysis: DominanceFrontierAnalysis
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
-; CHECK-NEXT: Running pass: Intel Kernel Barrier
+; CHECK:      Running pass: Intel Kernel Barrier
 
 ; CHECK:      Running pass: AddImplicitArgsPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
@@ -80,6 +109,7 @@
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
 ; CHECK:      Running pass: InlinerPass
 ; CHECK:      Running pass: DeadArgumentEliminationPass
+; CHECK:      Running pass: SROAPass
 ; CHECK:      Running pass: LoopSimplifyPass
 ; CHECK:      Running pass: LICMPass
 ; CHECK:      Running pass: LoopIdiomRecognizePass

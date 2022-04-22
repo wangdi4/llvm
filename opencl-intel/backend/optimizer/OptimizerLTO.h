@@ -39,6 +39,9 @@ private:
   /// Register a callback to the start of the pipeline.
   void registerPipelineStartCallback(llvm::PassBuilder &PB);
 
+  /// Register a callback before the function optimization pipeline.
+  void registerOptimizerEarlyCallback(llvm::PassBuilder &PB);
+
   /// Register a callback to before the vectorizer.
   void registerVectorizerStartCallback(llvm::PassBuilder &PB);
 
