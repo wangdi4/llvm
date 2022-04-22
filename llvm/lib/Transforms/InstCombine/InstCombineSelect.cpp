@@ -1193,6 +1193,18 @@ static Instruction *canonicalizeSPF(SelectInst &Sel, ICmpInst &Cmp,
     return IC.replaceInstUsesWith(Sel, Abs);
   }
 
+#if INTEL_CUSTOMIZATION
+  // min/max seems to have some effect on reassociation, which causes extra
+  // register pressure in some cases.
+  auto HasAVX512 =
+      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512;
+  auto HasAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
+  auto &TTI = IC.getTargetTransformInfo();
+  if (TTI.isAdvancedOptEnabled(HasAVX512) ||
+      TTI.isAdvancedOptEnabled(HasAVX2)) {
+    return nullptr;
+  }
+#endif // INTEL_CUSTOMIZATION
   if (SelectPatternResult::isMinOrMax(SPF)) {
     Intrinsic::ID IntrinsicID;
     switch (SPF) {
