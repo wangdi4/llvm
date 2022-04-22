@@ -815,6 +815,27 @@ def TuningLZCNTFalseDeps : SubtargetFeature<"false-deps-lzcnt-tzcnt",
                                      "HasLZCNTFalseDeps", "true",
                                      "LZCNT/TZCNT have a false dependency on dest register">;
 
+def TuningMULCFalseDeps : SubtargetFeature<"false-deps-mulc",
+                               "HasMULCFalseDeps", "true",
+                               "VF[C]MULCPH/SH has a false dependency on dest register">;
+
+def TuningPERMFalseDeps : SubtargetFeature<"false-deps-perm",
+                               "HasPERMFalseDeps", "true",
+                               "VPERMD/Q/PS/PD has a false dependency on dest register">;
+
+def TuningRANGEFalseDeps : SubtargetFeature<"false-deps-range",
+                               "HasRANGEFalseDeps", "true",
+                               "VRANGEPD/PS/SD/SS has a false dependency on dest register">;
+
+def TuningGETMANTFalseDeps : SubtargetFeature<"false-deps-getmant",
+                               "HasGETMANTFalseDeps", "true",
+                               "VGETMANTSS/SD/SH and VGETMANDPS/PD(memory version) has a"
+                               " false dependency on dest register">;
+
+def TuningMULLQFalseDeps : SubtargetFeature<"false-deps-mullq",
+                               "HasMULLQFalseDeps", "true",
+                               "VPMULLQ has a false dependency on dest register">;
+
 def TuningSBBDepBreaking : SubtargetFeature<"sbb-dep-breaking",
                                      "HasSBBDepBreaking", "true",
                                      "SBB with same register has no source dependency">;
@@ -967,21 +988,6 @@ def Tuning2KDSB : SubtargetFeature<"2kdsb", "DSBSize", "DSB2K",
 def Tuning4KDSB : SubtargetFeature<"4kdsb", "DSBSize", "DSB4K",
                                "Target has 4K or above decoded stream buffer",
                                [Tuning2KDSB]>;
-def TuningCMULFalseDeps : SubtargetFeature<"false-deps-cmul",
-                               "HasCMULFalseDeps", "true",
-                               "CMUL has a false dependency on dest register">;
-def TuningPERMFalseDeps : SubtargetFeature<"false-deps-perm",
-                               "HasPERMFalseDeps", "true",
-                               "PERM has a false dependency on dest register">;
-def TuningRANGEFalseDeps : SubtargetFeature<"false-deps-range",
-                               "HasRANGEFalseDeps", "true",
-                               "RANGE has a false dependency on dest register">;
-def TuningGETMANTFalseDeps : SubtargetFeature<"false-deps-getmant",
-                               "HasGETMANTFalseDeps", "true",
-                               "GETMANT has a false dependency on dest register">;
-def TuningMULLQFalseDeps : SubtargetFeature<"false-deps-mullq",
-                               "HasMULLQFalseDeps", "true",
-                               "MULLQ has a false dependency on dest register">;
 def TuningMRN : SubtargetFeature<"mrn", "HasMRN", "true",
                                "Target has memory renaming feature">;
 #endif // INTEL_CUSTOMIZATION
@@ -1266,7 +1272,7 @@ def ProcessorFeatures {
   list<SubtargetFeature> ICXAdditionalFeatures = [FeaturePCONFIG,
                                                   FeatureCLWB,
                                                   FeatureWBNOINVD];
-  list<SubtargetFeature> ICXTuning = ICLTuning2;
+  list<SubtargetFeature> ICXTuning = ICLTuning2; // INTEL
   list<SubtargetFeature> ICXFeatures =
     !listconcat(ICLFeatures, ICXAdditionalFeatures);
 
@@ -1277,7 +1283,7 @@ def ProcessorFeatures {
                                                   FeatureMOVDIRI,
                                                   FeatureMOVDIR64B,
                                                   FeatureSHSTK];
-  list<SubtargetFeature> TGLTuning = ICLTuning2;
+  list<SubtargetFeature> TGLTuning = ICLTuning2; // INTEL
   list<SubtargetFeature> TGLFeatures =
     !listconcat(ICLFeatures, TGLAdditionalFeatures );
 
@@ -1300,15 +1306,15 @@ def ProcessorFeatures {
                                                   FeatureMOVDIR64B,
                                                   FeatureUINTR];
 #if INTEL_CUSTOMIZATION
-  list<SubtargetFeature> SPRAdditionalTuning = [TuningCMULFalseDeps,
+  list<SubtargetFeature> SPRAdditionalTuning = [TuningMULCFalseDeps,
                                                 TuningPERMFalseDeps,
                                                 TuningRANGEFalseDeps,
                                                 TuningGETMANTFalseDeps,
                                                 TuningMULLQFalseDeps,
                                                 Tuning4KDSB,
                                                 TuningMRN];
-  list<SubtargetFeature> SPRTuning = !listconcat(ICXTuning, SPRAdditionalTuning);
 #endif // INTEL_CUSTOMIZATION
+  list<SubtargetFeature> SPRTuning = !listconcat(ICXTuning, SPRAdditionalTuning);
   list<SubtargetFeature> SPRFeatures =
     !listconcat(ICXFeatures, SPRAdditionalFeatures);
 
