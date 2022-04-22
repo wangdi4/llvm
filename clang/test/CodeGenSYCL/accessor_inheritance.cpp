@@ -74,11 +74,7 @@ int main() {
 // CHECK: call spir_func void @_ZN2cl4sycl8accessorIcLi1ELNS0_6access4modeE1024ELNS2_6targetE2014ELNS2_11placeholderE0ENS0_3ext6oneapi22accessor_property_listIJEEEEC1Ev(ptr addrspace(4) {{[^,]*}} [[ACC_FIELD]])
 // CHECK: [[GEP1:%[a-zA-Z0-9_]+]] = getelementptr inbounds i8, ptr addrspace(4) [[GEP]], i64 20
 // Default constructor call
-<<<<<<< HEAD
-// CHECK: call spir_func void @_ZN2cl4sycl8accessorIcLi1ELNS0_6access4modeE1024ELNS2_6targetE2014ELNS2_11placeholderE0ENS0_3ext6oneapi22accessor_property_listIJEEEEC2Ev(ptr addrspace(4) {{[^,]*}})
-=======
 // CHECK: call spir_func void @_ZN2cl4sycl8accessorIcLi1ELNS0_6access4modeE1024ELNS2_6targetE2014ELNS2_11placeholderE0ENS0_3ext6oneapi22accessor_property_listIJEEEEC2Ev(ptr addrspace(4) {{[^,]*}} [[GEP1]])
->>>>>>> 89894127c2a34354f6076c189de41e558838f544
 
 // CHECK C field initialization
 // CHECK: [[FIELD_C:%[a-zA-Z0-9_]+]] = getelementptr inbounds %struct{{.*}}Captured, ptr addrspace(4) [[GEP]], i32 0, i32 2

@@ -148,40 +148,6 @@ int main() {
   // call void @void some_template<char const* (*)()>(char const* (*)())(ptr @decltype(__builtin_sycl_unique_stable_id(Derp::str)) func<Derp>())
 
   puts(__builtin_sycl_unique_stable_id(GlobalInt));
-<<<<<<< HEAD
-  // CHECK: call i32 @puts({{.+}} @[[GLOBAL_INT]]
-  puts(__builtin_sycl_unique_stable_id(StaticGlobalInt));
-  // CHECK: call i32 @puts({{.+}} @[[STATIC_GLOBAL_INT]]
-  puts(__builtin_sycl_unique_stable_id(ConstexprGlobalInt));
-  // CHECK: call i32 @puts({{.+}} @[[CONSTEXPR_GLOBAL_INT]]
-  puts(__builtin_sycl_unique_stable_id(StaticConstexprGlobalInt));
-  // CHECK: call i32 @puts({{.+}} @[[STATIC_CONSTEXPR_GLOBAL_INT]]
-
-  puts(__builtin_sycl_unique_stable_id(NS::NSInt));
-  // CHECK: call i32 @puts({{.+}} @[[NS_INT]]
-  puts(__builtin_sycl_unique_stable_id(NS::StaticNSInt));
-  // CHECK: call i32 @puts({{.+}} @[[STATIC_NS_INT]]
-  puts(__builtin_sycl_unique_stable_id(NS::ConstexprNSInt));
-  // CHECK: call i32 @puts({{.+}} @[[CONSTEXPR_NS_INT]]
-  puts(__builtin_sycl_unique_stable_id(NS::StaticConstexprNSInt));
-  // CHECK: call i32 @puts({{.+}} @[[STATIC_CONSTEXPR_NS_INT]]
-
-  puts(__builtin_sycl_unique_stable_id(AnonNSInt));
-  // CHECK: call i32 @puts({{.+}} @[[ANONNS_INT]]
-  puts(__builtin_sycl_unique_stable_id(StaticAnonNSInt));
-  // CHECK: call i32 @puts({{.+}} @[[STATIC_ANONNS_INT]]
-  puts(__builtin_sycl_unique_stable_id(ConstexprAnonNSInt));
-  // CHECK: call i32 @puts({{.+}} @[[CONSTEXPR_ANONNS_INT]]
-  puts(__builtin_sycl_unique_stable_id(StaticConstexprAnonNSInt));
-  // CHECK: call i32 @puts({{.+}} @[[STATIC_CONSTEXPR_ANONNS_INT]]
-
-  puts(__builtin_sycl_unique_stable_id(Struct::StaticStructInt));
-  // CHECK: call i32 @puts({{.+}} @[[STRUCT_STATIC_INT]]
-  puts(__builtin_sycl_unique_stable_id(Struct::StaticConstexprStructInt));
-  // CHECK: call i32 @puts({{.+}} @[[STRUCT_STATIC_CONSTEXPR_INT]]
-  puts(Wrapper<GlobalInt>::ID);
-  // CHECK: call i32 @puts({{.+}} @[[WRAPPED_GLOBAL_INT]]
-=======
   // CHECK: call i32 @puts({{.+}} @[[GLOBAL_INT]])
   puts(__builtin_sycl_unique_stable_id(StaticGlobalInt));
   // CHECK: call i32 @puts({{.+}} @[[STATIC_GLOBAL_INT]])
@@ -214,7 +180,6 @@ int main() {
   // CHECK: call i32 @puts({{.+}} @[[STRUCT_STATIC_CONSTEXPR_INT]])
   puts(Wrapper<GlobalInt>::ID);
   // CHECK: call i32 @puts({{.+}} @[[WRAPPED_GLOBAL_INT]])
->>>>>>> 89894127c2a34354f6076c189de41e558838f544
 
   // Ensure 'kernel naming' modifies the builtin. Wrapped in a lambda to make
   // sure it has its name changed when the kernel is named. All should have
@@ -223,11 +188,7 @@ int main() {
   []() {
     static int LocalLambda1;
     puts(__builtin_sycl_unique_stable_id(LocalLambda1));
-<<<<<<< HEAD
-    // CHECK: call i32 @puts({{.+}} @[[LOCAL_LAMBDA_1]]
-=======
     // CHECK: call i32 @puts({{.+}} @[[LOCAL_LAMBDA_1]])
->>>>>>> 89894127c2a34354f6076c189de41e558838f544
   }();
 
   // Modified by kernel instantiation.
@@ -236,22 +197,14 @@ int main() {
     auto Lambda = [](){};
     cl::sycl::kernel_single_task<decltype(Lambda)>(Lambda);
     puts(__builtin_sycl_unique_stable_id(LocalLambda2));
-<<<<<<< HEAD
-    // CHECK: call i32 @puts({{.+}} @[[LOCAL_LAMBDA_2]]
-=======
     // CHECK: call i32 @puts({{.+}} @[[LOCAL_LAMBDA_2]])
->>>>>>> 89894127c2a34354f6076c189de41e558838f544
   }();
 
   // Modified by mark-kernel-name builtin.
   []() {
     static int LocalLambda3;
     puts(__builtin_sycl_unique_stable_id(LocalLambda3));
-<<<<<<< HEAD
-    // CHECK: call i32 @puts({{.+}} @[[LOCAL_LAMBDA_3]]
-=======
     // CHECK: call i32 @puts({{.+}} @[[LOCAL_LAMBDA_3]])
->>>>>>> 89894127c2a34354f6076c189de41e558838f544
   }();
 
   TemplateFunc<float>();
