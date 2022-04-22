@@ -271,10 +271,13 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
               "exist for host address " DPxMOD " (%" PRId64 " bytes)",
               DPxPTR(HstPtrBegin), Size);
 #if INTEL_COLLAB
-  } else if (!requiresMapping(HstPtrBegin)) {
-    // Let plugin decide if HstPtrBegin and Size requires mapping
+  } else if (!requiresMapping(HstPtrBegin, Size)) {
+    // Let plugin decide if HstPtrBegin and Size requires mapping. Size check is
+    // done to differentiated implicit/explicit mapping
     DP("Return HstPtrBegin " DPxMOD " Size=%" PRId64
        " for device-accessible memory\n", DPxPTR(HstPtrBegin), Size);
+    if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
+      IsHostPtr = true;
     TargetPointer = HstPtrBegin;
   } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
              !HasCloseModifier && !managed_memory_supported()) {
@@ -456,9 +459,11 @@ DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
          DynRefCountAction, HT.holdRefCountToStr().c_str(), HoldRefCountAction);
     TargetPointer = (void *)tp;
 #if INTEL_COLLAB
-  } else if (!requiresMapping(HstPtrBegin)) {
+  } else if (!requiresMapping(HstPtrBegin, Size)) {
     DP("Get HstPtrBegin " DPxMOD " Size=%" PRId64
        " for device-accessible memory\n", DPxPTR(HstPtrBegin), Size);
+    if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
+      IsHostPtr = true;
     TargetPointer = HstPtrBegin;
   } else if ((PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) &&
              !managed_memory_supported()) {
@@ -915,9 +920,9 @@ void *DeviceTy::data_alloc_managed(int64_t Size) {
     return RTL->data_alloc(RTLDeviceID, Size, nullptr, TARGET_ALLOC_DEFAULT);
 }
 
-int32_t DeviceTy::requiresMapping(void *Ptr) {
+int32_t DeviceTy::requiresMapping(void *Ptr, int64_t Size) {
   if (RTL->requires_mapping)
-    return RTL->requires_mapping(RTLDeviceID, Ptr);
+    return RTL->requires_mapping(RTLDeviceID, Ptr, Size);
   else
     return 1;
 }

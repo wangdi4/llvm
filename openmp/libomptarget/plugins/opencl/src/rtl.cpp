@@ -2496,7 +2496,7 @@ EXTERN void *__tgt_rtl_get_context_handle(int32_t DeviceId) {
   return (void *)context;
 }
 
-EXTERN int32_t __tgt_rtl_requires_mapping(int32_t DeviceId, void *Ptr) {
+int32_t __tgt_rtl_requires_mapping(int32_t DeviceId, void *Ptr, int64_t Size) {
   // Force mapping for host memory with positive size
   int32_t Ret;
   cl_unified_shared_memory_type_intel MemType = 0;
@@ -2504,7 +2504,8 @@ EXTERN int32_t __tgt_rtl_requires_mapping(int32_t DeviceId, void *Ptr) {
                   DeviceInfo->getContext(DeviceId), Ptr,
                   CL_MEM_ALLOC_TYPE_INTEL, sizeof(MemType), &MemType,
                   nullptr);
-  if (MemType == CL_MEM_TYPE_UNKNOWN_INTEL || MemType == CL_MEM_TYPE_HOST_INTEL)
+  if (MemType == CL_MEM_TYPE_UNKNOWN_INTEL ||
+      (MemType == CL_MEM_TYPE_HOST_INTEL && Size > 0))
     Ret = 1;
   else
     Ret = 0;

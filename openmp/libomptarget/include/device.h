@@ -457,7 +457,7 @@ struct DeviceTy {
   void setDeviceHandle(void *Interop);
   void *get_context_handle();
   void *data_alloc_managed(int64_t Size);
-  int32_t requiresMapping(void *Ptr);
+  int32_t requiresMapping(void *Ptr, int64_t Size);
   int32_t managed_memory_supported();
   void *dataRealloc(void *Ptr, size_t Size, int32_t Kind);
   void *dataAlignedAlloc(size_t Align, size_t Size, int32_t Kind);
