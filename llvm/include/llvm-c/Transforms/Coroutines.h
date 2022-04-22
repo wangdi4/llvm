@@ -1,3 +1,4 @@
+// INTEL_CUSTOMIZATION
 /*===-- Coroutines.h - Coroutines Library C Interface -----------*- C++ -*-===*\
 |*                                                                            *|
 |* Part of the LLVM Project, under the Apache License v2.0 with LLVM          *|
@@ -54,3 +55,4 @@ void LLVMPassManagerBuilderAddCoroutinePassesToExtensionPoints(LLVMPassManagerBu
 LLVM_C_EXTERN_C_END
 
 #endif
+// end INTEL_CUSTOMIZATION

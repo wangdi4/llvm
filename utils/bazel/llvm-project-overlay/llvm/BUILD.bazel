@@ -1381,10 +1381,12 @@ cc_library(
         "lib/Transforms/Coroutines/*.cpp",
         "lib/Transforms/Coroutines/*.h",
     ]),
+// INTEL_CUSTOMIZATION
     hdrs = [
         "include/llvm-c/Transforms/Coroutines.h",
         "include/llvm/Transforms/Coroutines.h",
     ] + glob(["include/llvm/Transforms/Coroutines/*.h"]),
+// end INTEL_CUSTOMIZATION
     copts = llvm_copts,
     deps = [
         ":Analysis",

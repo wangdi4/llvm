@@ -257,6 +257,7 @@ PreservedAnalyses CoroEarlyPass::run(Module &M, ModuleAnalysisManager &) {
   return PA;
 }
 
+#if INTEL_CUSTOMIZATION
 namespace {
 
 struct CoroEarlyLegacy : public FunctionPass {
@@ -296,3 +297,4 @@ INITIALIZE_PASS(CoroEarlyLegacy, "coro-early",
                 "Lower early coroutine intrinsics", false, false)
 
 Pass *llvm::createCoroEarlyLegacyPass() { return new CoroEarlyLegacy(); }
+#endif // INTEL_CUSTOMIZATION

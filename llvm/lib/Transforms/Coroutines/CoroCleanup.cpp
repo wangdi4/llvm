@@ -142,6 +142,7 @@ PreservedAnalyses CoroCleanupPass::run(Function &F,
   return PreservedAnalyses::none();
 }
 
+#if INTEL_CUSTOMIZATION
 namespace {
 
 struct CoroCleanupLegacy : FunctionPass {
@@ -179,3 +180,4 @@ INITIALIZE_PASS(CoroCleanupLegacy, "coro-cleanup",
                 "Lower all coroutine related intrinsics", false, false)
 
 Pass *llvm::createCoroCleanupLegacyPass() { return new CoroCleanupLegacy(); }
+#endif // INTEL_CUSTOMIZATION

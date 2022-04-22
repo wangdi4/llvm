@@ -1,5 +1,7 @@
+// INTEL_CUSTOMIZATION
 ; RUN: opt < %s -enable-coroutines -passes='default<O2>' -S | FileCheck --check-prefixes=CHECK %s
 ; RUN: opt < %s -enable-coroutines -O0 -S | FileCheck --check-prefixes=CHECK-O0 %s
+// end INTEL_CUSTOMIZATION
 target datalayout = "p:64:64:64"
 
 %async.task = type { i64 }

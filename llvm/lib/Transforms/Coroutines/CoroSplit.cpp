@@ -1079,12 +1079,14 @@ static Function *createClone(Function &F, const Twine &Suffix,
   return Cloner.getFunction();
 }
 
+#if INTEL_CUSTOMIZATION
 /// Remove calls to llvm.coro.end in the original function.
 static void removeCoroEnds(const coro::Shape &Shape, CallGraph *CG) {
   for (auto End : Shape.CoroEnds) {
     replaceCoroEnd(End, Shape, Shape.FramePtr, /*in resume*/ false, CG);
   }
 }
+#endif // INTEL_CUSTOMIZATION
 
 static void updateAsyncFuncPointerContextSize(coro::Shape &Shape) {
   assert(Shape.ABI == coro::ABI::Async);
@@ -1957,6 +1959,7 @@ static coro::Shape splitCoroutine(Function &F,
   return Shape;
 }
 
+#if INTEL_CUSTOMIZATION
 static void
 updateCallGraphAfterCoroutineSplit(Function &F, const coro::Shape &Shape,
                                    const SmallVectorImpl<Function *> &Clones,
@@ -1970,6 +1973,7 @@ updateCallGraphAfterCoroutineSplit(Function &F, const coro::Shape &Shape,
   // Update call graph and add the functions we created to the SCC.
   coro::updateCallGraph(F, Clones, CG, SCC);
 }
+#endif // INTEL_CUSTOMIZATION
 
 static void updateCallGraphAfterCoroutineSplit(
     LazyCallGraph::Node &N, const coro::Shape &Shape,
@@ -2013,6 +2017,7 @@ static void updateCallGraphAfterCoroutineSplit(
   updateCGAndAnalysisManagerForFunctionPass(CG, C, N, AM, UR, FAM);
 }
 
+#if INTEL_CUSTOMIZATION
 // When we see the coroutine the first time, we insert an indirect call to a
 // devirt trigger function and mark the coroutine that it is now ready for
 // split.
@@ -2076,6 +2081,7 @@ static void createDevirtTriggerFunc(CallGraph &CG, CallGraphSCC &SCC) {
   Nodes.push_back(Node);
   SCC.initialize(Nodes);
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// Replace a call to llvm.coro.prepare.retcon.
 static void replacePrepare(CallInst *Prepare, LazyCallGraph &CG,
@@ -2113,6 +2119,8 @@ static void replacePrepare(CallInst *Prepare, LazyCallGraph &CG,
     Cast->eraseFromParent();
   }
 }
+
+#if INTEL_CUSTOMIZATION
 /// Replace a call to llvm.coro.prepare.retcon.
 static void replacePrepare(CallInst *Prepare, CallGraph &CG) {
   auto CastFn = Prepare->getArgOperand(0); // as an i8*
@@ -2166,6 +2174,7 @@ static void replacePrepare(CallInst *Prepare, CallGraph &CG) {
     Cast->eraseFromParent();
   }
 }
+#endif // INTEL_CUSTOMIZATION
 
 static bool replaceAllPrepares(Function *PrepareFn, LazyCallGraph &CG,
                                LazyCallGraph::SCC &C) {
@@ -2180,6 +2189,7 @@ static bool replaceAllPrepares(Function *PrepareFn, LazyCallGraph &CG,
   return Changed;
 }
 
+#if INTEL_CUSTOMIZATION
 /// Remove calls to llvm.coro.prepare.retcon, a barrier meant to prevent
 /// IPO from operating on calls to a retcon coroutine before it's been
 /// split.  This is only safe to do after we've split all retcon
@@ -2203,6 +2213,7 @@ static bool declaresCoroSplitIntrinsics(const Module &M) {
                                       "llvm.coro.prepare.retcon",
                                       "llvm.coro.prepare.async"});
 }
+#endif // INTEL_CUSTOMIZATION
 
 static void addPrepareFunction(const Module &M,
                                SmallVectorImpl<Function *> &Fns,
@@ -2272,6 +2283,7 @@ PreservedAnalyses CoroSplitPass::run(LazyCallGraph::SCC &C,
   return PreservedAnalyses::none();
 }
 
+#if INTEL_CUSTOMIZATION
 namespace {
 
 // We present a coroutine to LLVM as an ordinary function with suspension
@@ -2390,3 +2402,4 @@ INITIALIZE_PASS_END(
 Pass *llvm::createCoroSplitLegacyPass(bool OptimizeFrame) {
   return new CoroSplitLegacy(OptimizeFrame);
 }
+#endif // INTEL_CUSTOMIZATION

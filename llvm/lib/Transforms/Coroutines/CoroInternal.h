@@ -13,7 +13,7 @@
 
 #include "CoroInstr.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/Transforms/Coroutines.h"
+#include "llvm/Transforms/Coroutines.h" // INTEL
 
 namespace llvm {
 
@@ -21,10 +21,10 @@ class CallGraph;
 class CallGraphSCC;
 class PassRegistry;
 
-void initializeCoroEarlyLegacyPass(PassRegistry &);
-void initializeCoroSplitLegacyPass(PassRegistry &);
-void initializeCoroElideLegacyPass(PassRegistry &);
-void initializeCoroCleanupLegacyPass(PassRegistry &);
+void initializeCoroEarlyLegacyPass(PassRegistry &);   // INTEL
+void initializeCoroSplitLegacyPass(PassRegistry &);   // INTEL
+void initializeCoroElideLegacyPass(PassRegistry &);   // INTEL
+void initializeCoroCleanupLegacyPass(PassRegistry &); // INTEL
 
 // CoroEarly pass marks every function that has coro.begin with a string
 // attribute "coroutine.presplit"="0". CoroSplit pass processes the coroutine
@@ -54,8 +54,9 @@ bool declaresAnyIntrinsic(const Module &M);
 bool declaresIntrinsics(const Module &M,
                         const std::initializer_list<StringRef>);
 void replaceCoroFree(CoroIdInst *CoroId, bool Elide);
-void updateCallGraph(Function &Caller, ArrayRef<Function *> Funcs,
-                     CallGraph &CG, CallGraphSCC &SCC);
+void updateCallGraph(Function &Caller, ArrayRef<Function *> Funcs, // INTEL
+                     CallGraph &CG, CallGraphSCC &SCC);            // INTEL
+
 /// Recover a dbg.declare prepared by the frontend and emit an alloca
 /// holding a pointer to the coroutine frame.
 void salvageDebugInfo(

@@ -1,4 +1,6 @@
+// INTEL_CUSTOMIZATION
 ; RUN: opt < %s -passes='default<O0>' -enable-coroutines -S | FileCheck %s
+// end INTEL_CUSTOMIZATION
 
 ; Define a function 'f' that resembles the Clang frontend's output for the
 ; following C++ coroutine:

@@ -1,3 +1,4 @@
+// INTEL_CUSTOMIZATION
 //===- transforms_coroutines.go - Bindings for coroutines -----------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -21,3 +22,4 @@ func (pm PassManager) AddCoroEarlyPass()   { C.LLVMAddCoroEarlyPass(pm.C) }
 func (pm PassManager) AddCoroSplitPass()   { C.LLVMAddCoroSplitPass(pm.C) }
 func (pm PassManager) AddCoroElidePass()   { C.LLVMAddCoroElidePass(pm.C) }
 func (pm PassManager) AddCoroCleanupPass() { C.LLVMAddCoroCleanupPass(pm.C) }
+// end INTEL_CUSTOMIZATION
