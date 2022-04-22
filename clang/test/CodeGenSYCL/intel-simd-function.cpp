@@ -249,12 +249,10 @@ SYCL_EXTERNAL auto bar()
 //CHECK-NEXT: [[C1:%call[0-9]*]] = {{.*}}%ptrs
 
 //CHECK: [[L0:%[0-9]+]] = load i32 [[AS4]]*, i32 [[AS4]]* [[AS4]]* %[[ARG1_CAST]],
-//CHECK-NEXT: [[C2:%call[0-9]*]] = {{.*}}[[L0]]
-//CHECK-NEXT: [[L1:%[0-9]+]] = load i32, i32 [[AS4]]* [[C2]], align 4
+//CHECK-NEXT: [[L1:%[0-9]+]] = load i32, i32 [[AS4]]* [[L0]], align 4
 
 //CHECK: [[L2:%[0-9]+]] = load float [[AS4]]*, float [[AS4]]* [[AS4]]* %[[ARG2_CAST]],
-//CHECK-NEXT: [[C2:%call[0-9]*]] = {{.*}}[[L2]]
-//CHECK-NEXT: [[L3:%[0-9]+]] = load float, float [[AS4]]* [[C2]], align 4
+//CHECK-NEXT: [[L3:%[0-9]+]] = load float, float [[AS4]]* [[L2]], align 4
 
 //CHECK: @__intel_indirect_call_0
 //CHECK-SAME: [[C1]], i32 [[L1]], float [[L3]]) #[[CALL:[0-9]+]]

@@ -100,6 +100,7 @@
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-O-NEXT: Running pass: InlineReportSetupPass ;INTEL
 ; CHECK-O-NEXT: Running pass: InlineListsPass ;INTEL
+; CHECK-O-NEXT: Running pass: CoroEarlyPass
 ; CHECK-O-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
 ; CHECK-O-NEXT: Running pass: LowerExpectIntrinsicPass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
@@ -109,7 +110,6 @@
 ; CHECK-O-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-O-NEXT: Running pass: EarlyCSEPass
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
-; CHECK-O-NEXT: Running pass: CoroEarlyPass
 ; CHECK-O3-NEXT: Running pass: CallSiteSplittingPass
 ; CHECK-O-NEXT: Running pass: OpenMPOptPass
 ; CHECK-EP-PIPELINE-EARLY-SIMPLIFICATION-NEXT: Running pass: NoOpModulePass

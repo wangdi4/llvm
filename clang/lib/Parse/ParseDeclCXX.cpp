@@ -1071,7 +1071,7 @@ SourceLocation Parser::ParseDecltypeSpecifier(DeclSpec &DS) {
           Actions, Sema::ExpressionEvaluationContext::Unevaluated, nullptr,
           Sema::ExpressionEvaluationContextRecord::EK_Decltype);
       Result = Actions.CorrectDelayedTyposInExpr(
-          ParseExpression(), /*InitDecl=*/nullptr,
+          ParseCXXMaybeMutableAgnosticExpression(), /*InitDecl=*/nullptr,
           /*RecoverUncorrectedTypos=*/false,
           [](Expr *E) { return E->hasPlaceholderType() ? ExprError() : E; });
       if (Result.isInvalid()) {
@@ -3396,7 +3396,7 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
         break;
       }
 
-      if ((S->getFlags() & Scope::FnScope))
+      if (S->isFunctionScope())
         // If we're in a function or function template then this is a local
         // class rather than a nested class.
         break;

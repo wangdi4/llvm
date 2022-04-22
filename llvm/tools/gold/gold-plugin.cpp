@@ -210,8 +210,10 @@ namespace options {
   static std::vector<const char *> extra;
   // Sample profile file path
   static std::string sample_profile;
+#if INTEL_CUSTOMIZATION
   // New pass manager
-  static bool new_pass_manager = LLVM_ENABLE_NEW_PASS_MANAGER; // INTEL
+  static bool new_pass_manager = LLVM_ENABLE_NEW_PASS_MANAGER;
+#endif // INTEL_CUSTOMIZATION
   // Debug new pass manager
   static bool debug_pass_manager = false;
   // Directory to store the .dwo files.
@@ -306,9 +308,11 @@ namespace options {
     } else if (opt.consume_front("cs-profile-path=")) {
       cs_profile_path = std::string(opt);
     } else if (opt == "new-pass-manager") {
+  #if INTEL_CUSTOMIZATION
       new_pass_manager = true;
     } else if (opt == "legacy-pass-manager") {
       new_pass_manager = false;
+  #endif // INTEL_CUSTOMIZATION
     } else if (opt == "debug-pass-manager") {
       debug_pass_manager = true;
     } else if (opt == "whole-program-visibility") {
@@ -988,8 +992,10 @@ static std::unique_ptr<LTO> createLTO(IndexWriteCallback OnIndexWrite,
   Conf.RemarksHotnessThreshold = options::RemarksHotnessThreshold;
   Conf.RemarksFormat = options::RemarksFormat;
 
+#if INTEL_CUSTOMIZATION
   // Use new pass manager if set in driver
   Conf.UseNewPM = options::new_pass_manager;
+#endif // INTEL_CUSTOMIZATION
   // Debug new pass manager if requested
   Conf.DebugPassManager = options::debug_pass_manager;
 

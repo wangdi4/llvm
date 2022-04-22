@@ -15,7 +15,10 @@
 ; RUN: opt -thinlto-bc -thinlto-split-lto-unit -o %t.o %s
 ; RUN: opt -thinlto-bc -thinlto-split-lto-unit -o %t1.o %p/Inputs/cfi-unsat.ll
 
-; RUN: llvm-lto2 run %t.o %t1.o -save-temps -use-new-pm -pass-remarks=. \
+; RUN: llvm-lto2 run %t.o %t1.o -save-temps -pass-remarks=. \
+; INTEL_CUSTOMIZATION
+; RUN:   -use-new-pm=true \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -whole-program-visibility \
 ; RUN:   -o %t3 \
 ; RUN:   -r=%t.o,test2,px \

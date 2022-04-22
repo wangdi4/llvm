@@ -523,6 +523,7 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   case VPInstruction::FMax:
   case VPInstruction::SMin:
   case VPInstruction::UMin:
+  case VPInstruction::UMinSeq:
   case VPInstruction::FMin:
   case VPInstruction::Subscript:
   case VPInstruction::Blend:

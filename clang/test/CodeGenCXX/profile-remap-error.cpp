@@ -1,6 +1,8 @@
 // REQUIRES: x86-registered-target
 
-// RUN: not %clang_cc1 -triple x86_64-linux-gnu -fprofile-sample-use=%S/Inputs/profile-remap.samples -fprofile-remapping-file=%S/Inputs/profile-remap-error.map -fexperimental-new-pass-manager -O2 %s -emit-llvm -o - 2>&1 | FileCheck %s
+// INTEL_CUSTOMIZATION
+// RUN: not %clang_cc1 -fexperimental-new-pass-manager -triple x86_64-linux-gnu -fprofile-sample-use=%S/Inputs/profile-remap.samples -fprofile-remapping-file=%S/Inputs/profile-remap-error.map -O2 %s -emit-llvm -o - 2>&1 | FileCheck %s
+// end INTEL_CUSTOMIZATION
 
 // CHECK:      error: {{.*}}/profile-remap-error.map:1: Could not demangle 'unmangled' as a <name>; invalid mangling?
 // CHECK-NEXT: error: {{.*}}/profile-remap-error.map: Could not create remapper: Malformed sample profile data

@@ -75,8 +75,10 @@ struct Config {
   unsigned OptLevel = 2;
   bool DisableVerify = false;
 
+#if INTEL_CUSTOMIZATION
   /// Use the new pass manager
   bool UseNewPM = LLVM_ENABLE_NEW_PASS_MANAGER; // INTEL
+#endif // INTEL_CUSTOMIZATION
 
   /// Use the standard optimization pipeline.
   bool UseDefaultPipeline = false;

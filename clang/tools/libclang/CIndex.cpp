@@ -1459,6 +1459,7 @@ bool CursorVisitor::VisitTemplateParameters(
 bool CursorVisitor::VisitTemplateName(TemplateName Name, SourceLocation Loc) {
   switch (Name.getKind()) {
   case TemplateName::Template:
+  case TemplateName::UsingTemplate:
     return Visit(MakeCursorTemplateRef(Name.getAsTemplateDecl(), Loc, TU));
 
   case TemplateName::OverloadedTemplate:
@@ -1479,7 +1480,7 @@ bool CursorVisitor::VisitTemplateName(TemplateName Name, SourceLocation Loc) {
   case TemplateName::QualifiedTemplate:
     // FIXME: Visit nested-name-specifier.
     return Visit(MakeCursorTemplateRef(
-        Name.getAsQualifiedTemplateName()->getDecl(), Loc, TU));
+        Name.getAsQualifiedTemplateName()->getTemplateDecl(), Loc, TU));
 
   case TemplateName::SubstTemplateTemplateParm:
     return Visit(MakeCursorTemplateRef(
@@ -2638,6 +2639,10 @@ void OMPClauseEnqueue::VisitOMPUseDeviceAddrClause(
 }
 void OMPClauseEnqueue::VisitOMPIsDevicePtrClause(
     const OMPIsDevicePtrClause *C) {
+  VisitOMPClauseList(C);
+}
+void OMPClauseEnqueue::VisitOMPHasDeviceAddrClause(
+    const OMPHasDeviceAddrClause *C) {
   VisitOMPClauseList(C);
 }
 void OMPClauseEnqueue::VisitOMPNontemporalClause(
@@ -8369,7 +8374,8 @@ CXFile clang_getIncludedFile(CXCursor cursor) {
     return nullptr;
 
   const InclusionDirective *ID = getCursorInclusionDirective(cursor);
-  return const_cast<FileEntry *>(ID->getFile());
+  Optional<FileEntryRef> File = ID->getFile();
+  return const_cast<FileEntry *>(File ? &File->getFileEntry() : nullptr);
 }
 
 unsigned clang_Cursor_getObjCPropertyAttributes(CXCursor C, unsigned reserved) {

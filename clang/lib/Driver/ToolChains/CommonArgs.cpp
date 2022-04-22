@@ -280,6 +280,10 @@ void tools::AddLinkerInputs(const ToolChain &TC, const InputInfoList &Inputs,
       continue;
     }
 
+    // In some error cases, the input could be Nothing; skip those.
+    if (II.isNothing())
+      continue;
+
     // Otherwise, this is a linker input argument.
     const Arg &A = II.getInputArg();
 
@@ -682,6 +686,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
                                          Path));
   }
 
+#ifdef INTEL_CUSTOMIZATION
   // Pass an option to enable/disable the new pass manager.
   if (auto *A = Args.getLastArg(options::OPT_flegacy_pass_manager,
                                 options::OPT_fno_legacy_pass_manager)) {
@@ -690,6 +695,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
     else
       CmdArgs.push_back("-plugin-opt=new-pass-manager");
   }
+#endif // INTEL_CUSTOMIZATION
 
   // Setup statistics file output.
   SmallString<128> StatsFile = getStatsFileName(Args, Output, Input, D);
@@ -1502,6 +1508,19 @@ bool tools::addSanitizerRuntimes(const ToolChain &TC, const ArgList &Args,
 
   if (SanArgs.hasCrossDsoCfi() && !AddExportDynamic)
     CmdArgs.push_back("--export-dynamic-symbol=__cfi_check");
+
+  if (SanArgs.hasMemTag()) {
+    if (!TC.getTriple().isAndroid()) {
+      TC.getDriver().Diag(diag::err_drv_unsupported_opt_for_target)
+          << "-fsanitize=memtag*" << TC.getTriple().str();
+    }
+    CmdArgs.push_back(
+        Args.MakeArgString("--android-memtag-mode=" + SanArgs.getMemtagMode()));
+    if (SanArgs.hasMemtagHeap())
+      CmdArgs.push_back("--android-memtag-heap");
+    if (SanArgs.hasMemtagStack())
+      CmdArgs.push_back("--android-memtag-stack");
+  }
 
   return !StaticRuntimes.empty() || !NonWholeStaticRuntimes.empty();
 }

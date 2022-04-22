@@ -1478,14 +1478,23 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
           if (ASC->getDestAddressSpace() == NewAS) {
 #if INTEL_COLLAB
             auto *BCNewV = NewV;
-#if !ENABLE_OPAQUEPOINTER
+#endif // INTEL_COLLAB
             if (!cast<PointerType>(ASC->getType())
                     ->hasSameElementTypeAs(
                         cast<PointerType>(NewV->getType()))) {
+              BasicBlock::iterator InsertPos;
+              if (Instruction *NewVInst = dyn_cast<Instruction>(NewV))
+                InsertPos = std::next(NewVInst->getIterator());
+              else if (Instruction *VInst = dyn_cast<Instruction>(V))
+                InsertPos = std::next(VInst->getIterator());
+              else
+                InsertPos = ASC->getIterator();
+#if INTEL_COLLAB
               BCNewV = CastInst::Create(Instruction::BitCast, NewV,
-                                        ASC->getType(), "", ASC);
+                                        ASC->getType(), "", &*InsertPos);
+#endif // INTEL_COLLAB
             }
-#endif // !ENABLE_OPAQUEPOINTER
+#if INTEL_COLLAB
             ASC->replaceAllUsesWith(BCNewV);
 #endif // INTEL_COLLAB
             DeadInstructions.push_back(ASC);

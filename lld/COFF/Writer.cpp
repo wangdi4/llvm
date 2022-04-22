@@ -663,7 +663,7 @@ void Writer::run() {
 
   writeLLDMapFile(ctx);
   writeMapFile(ctx);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   ctx.outputSections.clear();
 #endif // INTEL_CUSTOMIZATION
 

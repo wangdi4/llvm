@@ -402,3 +402,19 @@ define i64 addrspace(2)* @load_non_integral_ptr_from_i8_data() {
   %v = load i64 addrspace(2)*, i64 addrspace(2)** bitcast ([16 x i8]* @g_i8_data to i64 addrspace(2)**)
   ret i64 addrspace(2)* %v
 }
+
+@g_i1 = constant i1 true
+
+define i8 @load_i8_from_i1() {
+; CHECK-LABEL: @load_i8_from_i1(
+; INTEL_CUSTOMIZATION
+; In general we don't know whether CG will zero-extend or sign-extend when
+; loading a bigger value from a smaller object. (b7826a1)
+; end INTEL_CUSTOMIZATION
+
+; CHECK-NEXT:    [[V:%.*]] = load i8, i8* bitcast (i1* @g_i1 to i8*), align 1
+; CHECK-NEXT:    ret i8 [[V]]
+;
+  %v = load i8, i8* bitcast (i1* @g_i1 to i8*)
+  ret i8 %v
+}

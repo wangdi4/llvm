@@ -706,6 +706,7 @@ void PassManagerBuilder::populateFunctionPassManager(
   FPM.add(createEarlyCSEPass());
 }
 
+#if INTEL_CUSTOMIZATION
 // Do PGO instrumentation generation or use pass as the option specified.
 void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM,
                                            bool IsCS = false) {
@@ -765,15 +766,15 @@ void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM,
     MPM.add(
         createPGOIndirectCallPromotionLegacyPass(false, !PGOSampleUse.empty()));
 
-#if INTEL_CUSTOMIZATION
   // The function splitting pass uses the PGO frequency info, and only
   // makes sense to run during profile feedback.
   if (EnableFunctionSplitting &&
     (!PGOInstrUse.empty() || !PGOSampleUse.empty())) {
     MPM.add(createFunctionSplittingWrapperPass());
   }
-#endif // INTEL_CUSTOMIZATION
 }
+#endif // INTEL_CUSTOMIZATION
+
 void PassManagerBuilder::addFunctionSimplificationPasses(
     legacy::PassManagerBase &MPM) {
   // Start of function pass.
@@ -820,9 +821,11 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     MPM.add(createLibCallsShrinkWrapPass());
   addExtensionsToPM(EP_Peephole, MPM);
 
+#if INTEL_CUSTOMIZATION
   // Optimize memory intrinsic calls based on the profiled size information.
   if (SizeLevel == 0)
     MPM.add(createPGOMemOPSizeOptLegacyPass());
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -1244,12 +1247,15 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
 
 void PassManagerBuilder::populateModulePassManager(
     legacy::PassManagerBase &MPM) {
+  MPM.add(createAnnotation2MetadataLegacyPass());
+
+#if INTEL_CUSTOMIZATION
   // Whether this is a default or *LTO pre-link pipeline. The FullLTO post-link
   // is handled separately, so just check this is not the ThinLTO post-link.
   bool DefaultOrPreLinkPipeline = !PerformThinLTO;
 
   MPM.add(createXmainOptLevelWrapperPass(OptLevel)); // INTEL
-  MPM.add(createAnnotation2MetadataLegacyPass());
+#endif // INTEL_CUSTOMIZATION
 
   if (!PGOSampleUse.empty()) {
     MPM.add(createPruneEHPass());
@@ -1266,7 +1272,7 @@ void PassManagerBuilder::populateModulePassManager(
   // If all optimizations are disabled, just run the always-inline pass and,
   // if enabled, the function merging pass.
   if (OptLevel == 0) {
-    addPGOInstrPasses(MPM);
+    addPGOInstrPasses(MPM); // INTEL
     if (Inliner) {
       MPM.add(createInlineReportSetupPass(getMDInlineReport())); // INTEL
       MPM.add(createInlineListsPass()); // INTEL: -[no]inline-list parsing
@@ -1339,8 +1345,10 @@ void PassManagerBuilder::populateModulePassManager(
   // earlier in the pass pipeline, here before globalopt. Otherwise imported
   // available_externally functions look unreferenced and are removed.
   if (PerformThinLTO) {
+#if INTEL_CUSTOMIZATION
     MPM.add(createPGOIndirectCallPromotionLegacyPass(/*InLTO = */ true,
                                                      !PGOSampleUse.empty()));
+#endif // INTEL_CUSTOMIZATION
     MPM.add(createLowerTypeTestsPass(nullptr, nullptr, true));
   }
 
@@ -1408,7 +1416,6 @@ void PassManagerBuilder::populateModulePassManager(
   // Handle '#pragma vector aligned'.
   if (EnableHandlePragmaVectorAligned && OptLevel > 1)
     MPM.add(createHandlePragmaVectorAlignedPass());
-#endif // INTEL_CUSTOMIZATION
 
   // For SamplePGO in ThinLTO compile phase, we do not want to do indirect
   // call promotion as it will change the CFG too much to make the 2nd
@@ -1422,6 +1429,7 @@ void PassManagerBuilder::populateModulePassManager(
   // before the LTO/ThinLTO link since it needs to resolve symbols/comdats.
   if (!PerformThinLTO && EnablePGOCSInstrGen)
     MPM.add(createPGOInstrumentationGenCreateVarLegacyPass(PGOInstrGen));
+#endif // INTEL_CUSTOMIZATION
 
   // We add a module alias analysis pass here. In part due to bugs in the
   // analysis infrastructure this "works" in that the analysis stays alive
@@ -1515,6 +1523,7 @@ void PassManagerBuilder::populateModulePassManager(
     // and saves running remaining passes on the eliminated functions.
     MPM.add(createEliminateAvailableExternallyPass());
 
+#if INTEL_CUSTOMIZATION
   // CSFDO instrumentation and use pass. Don't invoke this for Prepare pass
   // for LTO and ThinLTO -- The actual pass will be called after all inlines
   // are performed.
@@ -1522,7 +1531,7 @@ void PassManagerBuilder::populateModulePassManager(
   // (i.e. after EliminateAvailableExternallyPass).
   if (!(PrepareForLTO || PrepareForThinLTO))
     addPGOInstrPasses(MPM, /* IsCS */ true);
-
+#endif // INTEL_CUSTOMIZATION
   if (EnableOrderFileInstrumentation)
     MPM.add(createInstrOrderFilePass());
 
@@ -1856,7 +1865,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #if INTEL_CUSTOMIZATION
     // Compute the loop attributes
     PM.add(createIntelLoopAttrsWrapperPass(DTransEnabled));
-#endif // INTEL_CUSTOMIZATION
 
     // Indirect call promotion. This should promote all the targets that are
     // left by the earlier promotion pass that promotes intra-module targets.
@@ -1864,6 +1872,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     // produce the same result as if we only do promotion here.
     PM.add(
         createPGOIndirectCallPromotionLegacyPass(true, !PGOSampleUse.empty()));
+
+#endif // INTEL_CUSTOMIZATION
 
     // Propage constant function arguments by specializing the functions.
     if (EnableFunctionSpecialization && OptLevel > 2)
@@ -2005,8 +2015,10 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
   PM.add(createPruneEHPass());   // Remove dead EH info.
 
+#if INTEL_CUSTOMIZATION
   // CSFDO instrumentation and use pass.
   addPGOInstrPasses(PM, /* IsCS */ true);
+#endif // INTEL_CUSTOMIZATION
 
   // Infer attributes on declarations, call sites, arguments, etc. for an SCC.
   if (AttributorRun & AttributorRunOption::CGSCC)
@@ -2627,7 +2639,6 @@ void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
     PM.add(createOptReportEmitterLegacyPass());
 }
 
-#endif // INTEL_CUSTOMIZATION
 
 void PassManagerBuilder::populateThinLTOPassManager(
     legacy::PassManagerBase &PM) {
@@ -2702,6 +2713,7 @@ void PassManagerBuilder::populateLTOPassManager(legacy::PassManagerBase &PM) {
   if (VerifyOutput)
     PM.add(createVerifierPass());
 }
+#endif // INTEL_CUSTOMIZATION
 
 LLVMPassManagerBuilderRef LLVMPassManagerBuilderCreate() {
   PassManagerBuilder *PMB = new PassManagerBuilder();
@@ -2769,6 +2781,7 @@ LLVMPassManagerBuilderPopulateModulePassManager(LLVMPassManagerBuilderRef PMB,
   Builder->populateModulePassManager(*MPM);
 }
 
+#if INTEL_CUSTOMIZATION
 void LLVMPassManagerBuilderPopulateLTOPassManager(LLVMPassManagerBuilderRef PMB,
                                                   LLVMPassManagerRef PM,
                                                   LLVMBool Internalize,
@@ -2783,3 +2796,4 @@ void LLVMPassManagerBuilderPopulateLTOPassManager(LLVMPassManagerBuilderRef PMB,
 
   Builder->populateLTOPassManager(*LPM);
 }
+#endif // INTEL_CUSTOMIZATION

@@ -255,9 +255,9 @@ private:
   void addInitialAliasAnalysisPasses(legacy::PassManagerBase &PM) const;
   void addLTOOptimizationPasses(legacy::PassManagerBase &PM);
   void addLateLTOOptimizationPasses(legacy::PassManagerBase &PM);
-  void addPGOInstrPasses(legacy::PassManagerBase &MPM, bool IsCS);
   void addFunctionSimplificationPasses(legacy::PassManagerBase &MPM);
 #if INTEL_CUSTOMIZATION
+  void addPGOInstrPasses(legacy::PassManagerBase &MPM, bool IsCS);
   void addInstructionCombiningPass(legacy::PassManagerBase &MPM,
                                    bool EnableUpCasting) const;
 #endif // INTEL_CUSTOMIZATION
@@ -298,8 +298,10 @@ public:
 
   /// populateModulePassManager - This sets up the primary pass manager.
   void populateModulePassManager(legacy::PassManagerBase &MPM);
+#if INTEL_CUSTOMIZATION
   void populateLTOPassManager(legacy::PassManagerBase &PM);
   void populateThinLTOPassManager(legacy::PassManagerBase &PM);
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// Registers a function for adding a standard set of passes.  This should be

@@ -24,7 +24,9 @@
 // RUN: echo 'Target image 1' > %t.bin0
 // RUN: echo 'Target image 2' > %t.bin1
 // RUN: clang-offload-wrapper -kind=openmp -target=tg0 %t.bin0 -kind=sycl -target=tg1 %t.bin1 -o %t.wrapped.bc
-// RUN: %clang -fdeclspec %s %t.wrapped.bc -o %t.fat.bin
+// INTEL_CUSTOMIZATION
+// RUN: %clang -no-pie -fdeclspec %s %t.wrapped.bc -o %t.fat.bin
+// end INTEL_CUSTOMIZATION
 
 //
 // Extract target images.

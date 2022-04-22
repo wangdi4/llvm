@@ -104,7 +104,9 @@ CODEGENOPT(DisableO0ImplyOptNone , 1, 0) ///< Don't annonate function with optno
 CODEGENOPT(ExperimentalStrictFloatingPoint, 1, 0) ///< Enables the new, experimental
                                                   ///< strict floating point.
 CODEGENOPT(EnableNoundefAttrs, 1, 0) ///< Enable emitting `noundef` attributes on IR call arguments and return values
+#if INTEL_CUSTOMIZATION
 CODEGENOPT(LegacyPassManager, 1, 0) ///< Use the legacy pass manager.
+#endif // INTEL_CUSTOMIZATION
 CODEGENOPT(DebugPassManager, 1, 0) ///< Prints debug information for the new
                                    ///< pass manager.
 CODEGENOPT(DisableRedZone    , 1, 0) ///< Set when -mno-red-zone is enabled.
@@ -214,6 +216,7 @@ CODEGENOPT(NoExecStack       , 1, 0) ///< Set when -Wa,--noexecstack is enabled.
 CODEGENOPT(FatalWarnings     , 1, 0) ///< Set when -Wa,--fatal-warnings is
                                      ///< enabled.
 CODEGENOPT(NoWarn            , 1, 0) ///< Set when -Wa,--no-warn is enabled.
+CODEGENOPT(MisExpect         , 1, 0) ///< Set when -Wmisexpect is enabled
 CODEGENOPT(EnableSegmentedStacks , 1, 0) ///< Set when -fsplit-stack is enabled.
 CODEGENOPT(NoInlineLineTables, 1, 0) ///< Whether debug info should contain
                                      ///< inline line tables.

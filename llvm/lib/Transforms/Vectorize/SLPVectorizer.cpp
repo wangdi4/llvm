@@ -70,7 +70,6 @@
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
-#include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
@@ -1355,18 +1354,41 @@ public:
     static const int ScoreAllUserVectorized = 1;
 
     /// \returns the score of placing \p V1 and \p V2 in consecutive lanes.
+    /// \p U1 and \p U2 are the users of \p V1 and \p V2.
     /// Also, checks if \p V1 and \p V2 are compatible with instructions in \p
     /// MainAltOps.
-    static int getShallowScore(Value *V1, Value *V2, const DataLayout &DL,
+#if INTEL_CUSTOMIZATION
+    // Customization note: keep function as a static member and pass
+    // BoUpSLP argument explicitly.
+    static int getShallowScore(Value *V1, Value *V2, Instruction *U1,
+                               Instruction *U2, const DataLayout &DL,
                                ScalarEvolution &SE, int NumLanes,
-                               ArrayRef<Value *> MainAltOps,
-                               const TargetTransformInfo *TTI) {
+                               ArrayRef<Value *> MainAltOps, const BoUpSLP &R) {
+#endif // INTEL_CUSTOMIZATION
       if (V1 == V2) {
         if (isa<LoadInst>(V1)) {
+          // Retruns true if the users of V1 and V2 won't need to be extracted.
+#if INTEL_CUSTOMIZATION
+          auto AllUsersAreInternal = [U1, U2, &R](Value *V1, Value *V2) {
+#endif // INTEL_CUSTOMIZATION
+            // Bail out if we have too many uses to save compilation time.
+            static constexpr unsigned Limit = 8;
+            if (V1->hasNUsesOrMore(Limit) || V2->hasNUsesOrMore(Limit))
+              return false;
+
+#if INTEL_CUSTOMIZATION
+            auto AllUsersVectorized = [U1, U2, &R](Value *V) {
+              return llvm::all_of(V->users(), [U1, U2, &R](Value *U) {
+#endif // INTEL_CUSTOMIZATION
+                return U == U1 || U == U2 || R.getTreeEntry(U) != nullptr;
+              });
+            };
+            return AllUsersVectorized(V1) && AllUsersVectorized(V2);
+          };
           // A broadcast of a load can be cheaper on some targets.
-          // TODO: For now accept a broadcast load with no other internal uses.
-          if (TTI->isLegalBroadcastLoad(V1->getType(), NumLanes) &&
-              (int)V1->getNumUses() == NumLanes)
+          if (R.TTI->isLegalBroadcastLoad(V1->getType(), NumLanes) &&
+              ((int)V1->getNumUses() == NumLanes ||
+               AllUsersAreInternal(V1, V2)))
             return VLOperands::ScoreSplatLoads;
         }
         return VLOperands::ScoreSplat;
@@ -1525,7 +1547,12 @@ public:
     }
 
     /// Go through the operands of \p LHS and \p RHS recursively until \p
-    /// MaxLevel, and return the cummulative score. For example:
+    /// MaxLevel, and return the cummulative score. \p U1 and \p U2 are
+    /// the users of \p LHS and \p RHS (that is \p LHS and \p RHS are operands
+    /// of \p U1 and \p U2), except at the beginning of the recursion where
+    /// these are set to nullptr.
+    ///
+    /// For example:
     /// \verbatim
     ///  A[0]  B[0]  A[1]  B[1]  C[0] D[0]  B[1] A[1]
     ///     \ /         \ /         \ /        \ /
@@ -1545,12 +1572,15 @@ public:
     ///   Look-ahead SLP: Auto-vectorization in the presence of commutative
     ///   operations, CGO 2018 by Vasileios Porpodas, Rodrigo C. O. Rocha,
     ///   Luís F. W. Góes
-    int getScoreAtLevelRec(Value *LHS, Value *RHS, int CurrLevel, int MaxLevel,
+    int getScoreAtLevelRec(Value *LHS, Value *RHS, Instruction *U1,
+                           Instruction *U2, int CurrLevel, int MaxLevel,
                            ArrayRef<Value *> MainAltOps) {
 
       // Get the shallow score of V1 and V2.
       int ShallowScoreAtThisLevel =
-          getShallowScore(LHS, RHS, DL, SE, getNumLanes(), MainAltOps, R.TTI);
+#if INTEL_CUSTOMIZATION
+          getShallowScore(LHS, RHS, U1, U2, DL, SE, getNumLanes(), MainAltOps, R);
+#endif // INTEL_CUSTOMIZATION
 
       // If reached MaxLevel,
       //  or if V1 and V2 are not instructions,
@@ -1593,7 +1623,7 @@ public:
           // Recursively calculate the cost at each level
           int TmpScore =
               getScoreAtLevelRec(I1->getOperand(OpIdx1), I2->getOperand(OpIdx2),
-                                 CurrLevel + 1, MaxLevel, None);
+                                 I1, I2, CurrLevel + 1, MaxLevel, None);
           // Look for the best score.
           if (TmpScore > VLOperands::ScoreFail && TmpScore > MaxTmpScore) {
             MaxTmpScore = TmpScore;
@@ -1623,8 +1653,10 @@ public:
     int getLookAheadScore(Value *LHS, Value *RHS, ArrayRef<Value *> MainAltOps,
                           int Lane, unsigned OpIdx, unsigned Idx,
                           bool &IsUsed) {
-      int Score =
-          getScoreAtLevelRec(LHS, RHS, 1, LookAheadMaxDepth, MainAltOps);
+      // Keep track of the instruction stack as we recurse into the operands
+      // during the look-ahead score exploration.
+      int Score = getScoreAtLevelRec(LHS, RHS, /*U1=*/nullptr, /*U2=*/nullptr,
+                                     1, LookAheadMaxDepth, MainAltOps);
       if (Score) {
         int SplatScore = getSplatScore(Lane, OpIdx, Idx);
         if (Score <= -SplatScore) {
@@ -2345,13 +2377,14 @@ private:
         }
       }
 
-      // We go through the operands of V1 and V2 until LEVEL
-      // and we count the number of matches.
-      int getScoreAtLevel(Value *V1, Value *V2, int Level, int MaxLevel) {
+      /// We go through the operands of V1 and V2 until LEVEL
+      /// and we count the number of matches.
+      /// V1 and V2 are operands of U1 and U2 respectively.
+      int getScoreAtLevel(Value *V1, Value *V2, Instruction *U1,
+                          Instruction *U2, int Level, int MaxLevel) {
         // Get the shallow score of V1 and V2.
-        int ShallowScoreAtThisLevel =
-            VLOperands::getShallowScore(V1, V2, DL, SE, getNumLanes(), None,
-                                        R.TTI);
+        int ShallowScoreAtThisLevel = VLOperands::getShallowScore(
+            V1, V2, U1, U2, DL, SE, getNumLanes(), None, R);
 
         // If reached MaxLevel,
         // or if V1 and V2 are not instructions,
@@ -2380,8 +2413,8 @@ private:
               continue;
             // Recursively calculate the cost at each level
             int TmpScore =
-                getScoreAtLevel(I1->getOperand(Op1I), I2->getOperand(Op2I),
-                                Level + 1, MaxLevel);
+                getScoreAtLevel(I1->getOperand(Op1I), I2->getOperand(Op2I), I1,
+                                I2, Level + 1, MaxLevel);
             if (TmpScore > 0 && TmpScore > MaxTmpScore) {
               MaxTmpScore = TmpScore;
               MaxOp2I = Op2I;
@@ -2524,7 +2557,8 @@ private:
       /// Return the look-ahead score, which tells us how much the sub-trees
       /// rooted at LHS and RHS match (the higher the better).
       int getLookAheadScore(Value *LHS, Value *RHS) {
-        int Score = getScoreAtLevel(LHS, RHS, 1, LookAheadMaxLevel);
+        int Score = getScoreAtLevel(LHS, RHS, /*U1=*/nullptr, /*U2=*/nullptr,
+                                    /*Level=*/1, LookAheadMaxLevel);
         return Score;
       }
 
@@ -2538,9 +2572,9 @@ private:
             Value *Left = getData(OpI, Lane - 1).getLeaf();
             Value *Right = getData(OpI, Lane).getLeaf();
             if (Left == Right ||
-                VLOperands::getShallowScore(Left, Right, DL, SE, getNumLanes(),
-                                            None, R.TTI) ==
-                VLOperands::ScoreFail) {
+                VLOperands::getShallowScore(
+                    Left, Right, /*U1=*/nullptr, /*U2=*/nullptr, DL, SE,
+                    getNumLanes(), None, R) == VLOperands::ScoreFail) {
               AreConsecutive = false;
               break;
             }
@@ -6403,7 +6437,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 
         TE->setOperand(I, VectorOperands[I]);
       }
-
       buildTree_rec(VectorOperands[NumOps - 1], Depth + 1, {TE, NumOps - 1});
       return;
     }
@@ -12380,7 +12413,7 @@ public:
       }
 
 #if INTEL_CUSTOMIZATION
-       V.cleanupMultiNodeReordering();
+      V.cleanupMultiNodeReordering();
 #endif // INTEL_CUSTOMIZATION
 
       LLVM_DEBUG(dbgs() << "SLP: Vectorizing horizontal reduction at cost:"
@@ -12802,7 +12835,7 @@ static bool tryToVectorizeHorReductionOrInstOperands(
       // If reduced values are comparisons then we want to direct
       // vectorizer first to make attempt to vectorize pair which
       // are operands of a same cmp instruction.
-      for (auto *V : ReducedVals)
+      for (Value *V : ReducedVals)
         if (isa<CmpInst>(V) && VisitedInstrs.insert(V).second &&
             Vectorize(cast<Instruction>(V), R))
           Res = true;

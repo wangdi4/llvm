@@ -2501,12 +2501,12 @@ void ASTStmtReader::VisitOMPOrderedDirective(OMPOrderedDirective *D) {
 void ASTStmtReader::VisitOMPAtomicDirective(OMPAtomicDirective *D) {
   VisitStmt(D);
   VisitOMPExecutableDirective(D);
-  D->IsXLHSInRHSPart = Record.readBool();
-  D->IsPostfixUpdate = Record.readBool();
+  D->Flags.IsXLHSInRHSPart = Record.readBool() ? 1 : 0;
+  D->Flags.IsPostfixUpdate = Record.readBool() ? 1 : 0;
 #if INTEL_COLLAB
-  D->IsCompareMin = Record.readBool();
-  D->IsCompareMax = Record.readBool();
-  D->IsConditionalCapture = Record.readBool();
+  D->Flags.IsCompareMin = Record.readBool() ? 1 : 0;
+  D->Flags.IsCompareMax = Record.readBool() ? 1 : 0;
+  D->Flags.IsConditionalCapture = Record.readBool() ? 1 : 0;
 #endif // INTEL_COLLAB
 }
 

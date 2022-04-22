@@ -12,7 +12,6 @@ define i1 @test1(i32 %c) {
 ; This test runs at -O3 which will give significantly different results
 ; with xmain vs llorg. It is also testing failing behavior, needs to be updated
 ; when the function merging is fixed.
-
 ; CHECK-LABEL: @test1(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = insertelement <4 x i32> poison, i32 [[C:%.*]], i64 0
@@ -23,8 +22,8 @@ define i1 @test1(i32 %c) {
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp ne i4 [[TMP2]], 0
 ; CHECK-NEXT:    [[TMP4:%.*]] = or i1 [[TMP3]], [[_12]]
 ; CHECK-NEXT:    ret i1 [[TMP4]]
-; end INTEL_CUSTOMIZATION
 ;
+; end INTEL_CUSTOMIZATION
 entry:
   %_4 = alloca i8, align 1
   %_3 = alloca i8, align 1

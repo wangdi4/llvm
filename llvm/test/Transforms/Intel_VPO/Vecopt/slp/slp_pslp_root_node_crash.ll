@@ -44,8 +44,8 @@ define dso_local i32 @foo(i32 %t1, i32 %t4) local_unnamed_addr {
 ; INTADV-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP3]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; INTADV-NEXT:    [[TMP4:%.*]] = sub <4 x i32> [[TMP2]], [[SHUFFLE]]
 ; INTADV-NEXT:    [[TMP5:%.*]] = insertelement <4 x i32> poison, i32 [[I12]], i32 0
-; INTADV-NEXT:    [[SHUFFLE9:%.*]] = shufflevector <4 x i32> [[TMP5]], <4 x i32> poison, <4 x i32> zeroinitializer
-; INTADV-NEXT:    [[TMP6:%.*]] = sub <4 x i32> [[TMP4]], [[SHUFFLE9]]
+; INTADV-NEXT:    [[SHUFFLE3:%.*]] = shufflevector <4 x i32> [[TMP5]], <4 x i32> poison, <4 x i32> zeroinitializer
+; INTADV-NEXT:    [[TMP6:%.*]] = sub <4 x i32> [[TMP4]], [[SHUFFLE3]]
 ; INTADV-NEXT:    [[TMP7:%.*]] = add <4 x i32> [[TMP6]], <i32 50, i32 50, i32 50, i32 50>
 ; INTADV-NEXT:    [[TMP8:%.*]] = call i32 @llvm.vector.reduce.or.v4i32(<4 x i32> [[TMP7]])
 ; INTADV-NEXT:    [[OP_EXTRA:%.*]] = or i32 [[TMP8]], [[I15]]

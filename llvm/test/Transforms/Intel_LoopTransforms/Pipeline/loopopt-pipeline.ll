@@ -18,6 +18,7 @@
 ; NEWPM-NEXT: InferFunctionAttrsPass on [module]
 ; NEWPM-NEXT: InlineReportSetupPass on [module]
 ; NEWPM-NEXT: InlineListsPass on [module]
+; NEWPM-NEXT: CoroEarlyPass on [module]
 ; NEWPM-NEXT: LoopOptMarkerPass on f
 
 define void @f() "loopopt-pipeline"="full" {

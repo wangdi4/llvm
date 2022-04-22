@@ -128,6 +128,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/MisExpect.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <algorithm>
 #include <cassert>
@@ -449,7 +450,7 @@ struct SelectInstVisitor : public InstVisitor<SelectInstVisitor> {
   unsigned getNumOfSelectInsts() const { return NSIs; }
 };
 
-
+#if INTEL_CUSTOMIZATION
 class PGOInstrumentationGenLegacyPass : public ModulePass {
 public:
   static char ID;
@@ -524,9 +525,10 @@ private:
   }
   std::string InstrProfileOutput;
 };
-
+#endif // INTEL_CUSTOMIZATION
 } // end anonymous namespace
 
+#if INTEL_CUSTOMIZATION
 char PGOInstrumentationGenLegacyPass::ID = 0;
 
 INITIALIZE_PASS_BEGIN(PGOInstrumentationGenLegacyPass, "pgo-instr-gen",
@@ -567,6 +569,7 @@ ModulePass *
 llvm::createPGOInstrumentationGenCreateVarLegacyPass(StringRef CSInstrName) {
   return new PGOInstrumentationGenCreateVarLegacyPass(std::string(CSInstrName));
 }
+#endif // INTEL_CUSTOMIZATION
 
 namespace {
 
@@ -1738,6 +1741,7 @@ PGOInstrumentationGenCreateVar::run(Module &M, ModuleAnalysisManager &AM) {
   return PreservedAnalyses::all();
 }
 
+#if INTEL_CUSTOMIZATION
 bool PGOInstrumentationGenLegacyPass::runOnModule(Module &M) {
   if (skipModule(M))
     return false;
@@ -1753,6 +1757,7 @@ bool PGOInstrumentationGenLegacyPass::runOnModule(Module &M) {
   };
   return InstrumentAllFunctions(M, LookupTLI, LookupBPI, LookupBFI, IsCS);
 }
+#endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses PGOInstrumentationGen::run(Module &M,
                                              ModuleAnalysisManager &AM) {
@@ -2129,6 +2134,7 @@ PreservedAnalyses PGOInstrumentationUse::run(Module &M,
   return PreservedAnalyses::none();
 }
 
+#if INTEL_CUSTOMIZATION
 bool PGOInstrumentationUseLegacyPass::runOnModule(Module &M) {
   if (skipModule(M))
     return false;
@@ -2147,6 +2153,7 @@ bool PGOInstrumentationUseLegacyPass::runOnModule(Module &M) {
   return annotateAllFunctions(M, ProfileFileName, "", LookupTLI, LookupBPI,
                               LookupBFI, PSI, IsCS);
 }
+#endif // INTEL_CUSTOMIZATION
 
 static std::string getSimpleNodeName(const BasicBlock *Node) {
   if (!Node->getName().empty())
@@ -2172,6 +2179,8 @@ void llvm::setProfMetadata(Module *M, Instruction *TI,
                                            : Weights) {
     dbgs() << W << " ";
   } dbgs() << "\n";);
+
+  misexpect::checkExpectAnnotations(*TI, Weights, /*IsFrontend=*/false);
 
   TI->setMetadata(LLVMContext::MD_prof, MDB.createBranchWeights(Weights));
   if (EmitBranchProbability) {

@@ -38,16 +38,16 @@
 #include "llvm/Analysis/ModuleSummaryAnalysis.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/Bitcode/BitcodeWriterPass.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LLVMRemarkStreamer.h"
-#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/LegacyPassManager.h" // INTEL
 #include "llvm/IR/Mangler.h"
 #include "llvm/IR/PassTimingInfo.h"
 #include "llvm/IR/Verifier.h"
@@ -71,11 +71,11 @@
 #include "llvm/Support/Threading.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include "llvm/Transforms/IPO/FunctionImport.h"
 #include "llvm/Transforms/IPO/Internalize.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Transforms/IPO.h" // INTEL
+#include "llvm/Transforms/IPO/PassManagerBuilder.h" // INTEL
 #include "llvm/Transforms/IPO/WholeProgramDevirt.h"
 #include "llvm/Transforms/ObjCARC.h"
 #include "llvm/Transforms/Utils/FunctionImportUtils.h"
@@ -254,21 +254,16 @@ crossImportIntoModule(Module &TheModule, const ModuleSummaryIndex &Index,
   verifyLoadedModule(TheModule);
 }
 
-static void optimizeModule(Module &TheModule, TargetMachine &TM,
-                           unsigned OptLevel, bool Freestanding,
-                           ModuleSummaryIndex *Index) {
+#if INTEL_CUSTOMIZATION
+static void optimizeModuleLegacyPM(Module &TheModule, TargetMachine &TM,
+                                   unsigned OptLevel, bool Freestanding,
+                                   ModuleSummaryIndex *Index) {
   // Populate the PassManager
   PassManagerBuilder PMB;
   PMB.LibraryInfo = new TargetLibraryInfoImpl(TM.getTargetTriple());
   if (Freestanding)
     PMB.LibraryInfo->disableAllFunctions();
-#if INTEL_CUSTOMIZATION
-  PMB.Inliner = createFunctionInliningPass(OptLevel,
-                                           0     /*SizeOptLevel */,
-                                           false /*DisableInlineHotCallSite*/,
-                                           false /*PrepareForLTO*/,
-                                           true  /*LinkForLTO*/);
-#endif // INTEL_CUSTOMIZATION
+  PMB.Inliner = createFunctionInliningPass();
   // FIXME: should get it from the bitcode?
   PMB.OptLevel = OptLevel;
   PMB.LoopVectorize = true;
@@ -289,11 +284,11 @@ static void optimizeModule(Module &TheModule, TargetMachine &TM,
 
   PM.run(TheModule);
 }
+#endif // INTEL_CUSTOMIZATION
 
-static void optimizeModuleNewPM(Module &TheModule, TargetMachine &TM,
-                                unsigned OptLevel, bool Freestanding,
-                                bool DebugPassManager,
-                                ModuleSummaryIndex *Index) {
+static void optimizeModule(Module &TheModule, TargetMachine &TM,
+                           unsigned OptLevel, bool Freestanding,
+                           bool DebugPassManager, ModuleSummaryIndex *Index) {
   Optional<PGOOptions> PGOOpt;
   LoopAnalysisManager LAM;
   FunctionAnalysisManager FAM;
@@ -508,7 +503,8 @@ ProcessThinLTOModule(Module &TheModule, ModuleSummaryIndex &Index,
                      const ThinLTOCodeGenerator::CachingOptions &CacheOptions,
                      bool DisableCodeGen, StringRef SaveTempsDir,
                      bool Freestanding, unsigned OptLevel, unsigned count,
-                     bool UseNewPM, bool DebugPassManager) {
+                     bool UseNewPM, // INTEL
+                     bool DebugPassManager) {
 
   // "Benchmark"-like optimization: single-source case
   bool SingleModule = (ModuleMap.size() == 1);
@@ -548,11 +544,13 @@ ProcessThinLTOModule(Module &TheModule, ModuleSummaryIndex &Index,
     saveTempBitcode(TheModule, SaveTempsDir, count, ".3.imported.bc");
   }
 
+#if INTEL_CUSTOMIZATION
   if (UseNewPM)
-    optimizeModuleNewPM(TheModule, TM, OptLevel, Freestanding, DebugPassManager,
-                        &Index);
+    optimizeModule(TheModule, TM, OptLevel, Freestanding, DebugPassManager,
+                   &Index);
   else
-    optimizeModule(TheModule, TM, OptLevel, Freestanding, &Index);
+    optimizeModuleLegacyPM(TheModule, TM, OptLevel, Freestanding, &Index);
+#endif
 
   saveTempBitcode(TheModule, SaveTempsDir, count, ".4.opt.bc");
 
@@ -975,8 +973,14 @@ void ThinLTOCodeGenerator::optimize(Module &TheModule) {
   initTMBuilder(TMBuilder, Triple(TheModule.getTargetTriple()));
 
   // Optimize now
-  optimizeModule(TheModule, *TMBuilder.create(), OptLevel, Freestanding,
-                 nullptr);
+#if INTEL_CUSTOMIZATION
+  if (UseNewPM)
+    optimizeModule(TheModule, *TMBuilder.create(), OptLevel, Freestanding,
+                   DebugPassManager, nullptr);
+  else
+    optimizeModuleLegacyPM(TheModule, *TMBuilder.create(), OptLevel,
+                           Freestanding, nullptr);
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// Write out the generated object file, either from CacheEntryPath or from
@@ -1239,7 +1243,8 @@ void ThinLTOCodeGenerator::run() {
             ExportList, GUIDPreservedSymbols,
             ModuleToDefinedGVSummaries[ModuleIdentifier], CacheOptions,
             DisableCodeGen, SaveTempsDir, Freestanding, OptLevel, count,
-            UseNewPM, DebugPassManager);
+            UseNewPM, // INTEL
+            DebugPassManager);
 
         // Commit to the cache (if enabled)
         CacheEntry.write(*OutputBuffer);

@@ -368,6 +368,12 @@ public:
 
   /// This method is deprecated without replacement. Pointer element types are
   /// not available with opaque pointers.
+#ifndef INTEL_CUSTOMIZATION
+  // FIXME: Remove this macro once xmain is ready to use opaque pointers.
+  [[deprecated("Deprecated without replacement, see "
+               "https://llvm.org/docs/OpaquePointers.html for context and "
+               "migration instructions")]]
+#endif // INTEL_CUSTOMIZATION
   Type *getPointerElementType() const {
     return getNonOpaquePointerElementType();
   }

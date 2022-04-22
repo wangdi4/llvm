@@ -63,6 +63,7 @@ config.enable_proto_bor = @INTEL_ENABLE_PROTO_BIN_OPTRPT@
 config.include_intel_extra_opts = @INTEL_DTRANS_EXTRA_OPTS@
 # end INTEL_FEATURE_SW_DTRANS
 # end INTEL_CUSTOMIZATION
+config.dxil_tests = @LLVM_INCLUDE_DXIL_TESTS@
 
 import lit.llvm
 lit.llvm.initialize(lit_config, config)

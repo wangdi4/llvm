@@ -47,6 +47,7 @@
 #include "ToolChains/Gnu.h"
 #include "ToolChains/HIPAMD.h"
 #include "ToolChains/HIPSPV.h"
+#include "ToolChains/HLSL.h"
 #include "ToolChains/Haiku.h"
 #include "ToolChains/Hexagon.h"
 #include "ToolChains/Hurd.h"
@@ -299,6 +300,7 @@ void Driver::setDriverMode(StringRef Value) {
                    .Case("cpp", CPPMode)
                    .Case("cl", CLMode)
                    .Case("flang", FlangMode)
+                   .Case("dxc", DXCMode)
                    .Default(None))
     Mode = *M;
   else
@@ -1569,11 +1571,13 @@ bool Driver::loadConfigFile() {
     SmallString<128> CfgFilePath(
         CLOptions->getLastArgValue(options::OPT_intel_config));
     if (CfgFilePath.size() > 0 && llvm::sys::fs::is_regular_file(CfgFilePath)) {
-      if (!readConfigFile(CfgFilePath))
+      if (!readConfigFile(CfgFilePath)) {
         // The default .cfg file can be empty, allow for more config processing
         // if it is.
         if (CfgOptions.get()->size() > 0)
           return false;
+        CfgOptions.reset();
+      }
     }
   }
 #endif // INTEL_CUSTOMIZATION
@@ -1806,7 +1810,14 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
     T.setEnvironment(llvm::Triple::MSVC);
     T.setObjectFormat(llvm::Triple::COFF);
     TargetTriple = T.str();
+  } else if (IsDXCMode()) {
+    // clang-dxc target is build from target_profile option.
+    // Just set OS to shader model to select HLSLToolChain.
+    llvm::Triple T(TargetTriple);
+    T.setOS(llvm::Triple::ShaderModel);
+    TargetTriple = T.str();
   }
+
   if (const Arg *A = Args.getLastArg(options::OPT_target))
     TargetTriple = A->getValue();
   if (const Arg *A = Args.getLastArg(options::OPT_ccc_install_dir))
@@ -6738,6 +6749,13 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   ActionList MergerInputs;
 
   llvm::SmallVector<phases::ID, phases::MaxNumberOfPhases> PL;
+
+  // TODO: Do not use the new offloading driver at this time.  Offloading
+  // support for spir64 targets is not in place with this new path.
+  bool UseNewOffloadingDriver =
+      C.isOffloadingHostKind(Action::OFK_OpenMP) &&
+      Args.hasArg(options::OPT_fopenmp_new_driver);
+
   for (auto &I : Inputs) {
     types::ID InputType = I.first;
     const Arg *InputArg = I.second;
@@ -6753,15 +6771,14 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
 
     // Use the current host action in any of the offloading actions, if
     // required.
-    if (!Args.hasArg(options::OPT_fopenmp_new_driver))
-      if (OffloadBuilder.addHostDependenceToDeviceActions(Current, InputArg,
-                                                          Args))
+    if (!UseNewOffloadingDriver)
+      if (OffloadBuilder.addHostDependenceToDeviceActions(Current, InputArg, Args))
         break;
 
     for (phases::ID Phase : PL) {
 
       // Add any offload action the host action depends on.
-      if (!Args.hasArg(options::OPT_fopenmp_new_driver))
+      if (!UseNewOffloadingDriver)
         Current = OffloadBuilder.addDeviceDependencesToHostAction(
             Current, InputArg, Phase, PL.back(), FullPL);
       if (!Current)
@@ -6817,7 +6834,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
 
       // Try to build the offloading actions and add the result as a dependency
       // to the host.
-      if (Args.hasArg(options::OPT_fopenmp_new_driver))
+      if (UseNewOffloadingDriver)
         Current = BuildOffloadingActions(C, Args, I, Current);
 
       // FIXME: Should we include any prior module file outputs as inputs of
@@ -6839,9 +6856,8 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
 
       // Use the current host action in any of the offloading actions, if
       // required.
-      if (!Args.hasArg(options::OPT_fopenmp_new_driver))
-        if (OffloadBuilder.addHostDependenceToDeviceActions(Current, InputArg,
-                                                            Args))
+      if (!UseNewOffloadingDriver)
+        if (OffloadBuilder.addHostDependenceToDeviceActions(Current, InputArg, Args))
           break;
 
       if (Current->getType() == types::TY_Nothing)
@@ -6853,7 +6869,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
       Actions.push_back(Current);
 
     // Add any top level actions generated for offloading.
-    if (!Args.hasArg(options::OPT_fopenmp_new_driver))
+    if (!UseNewOffloadingDriver)
       OffloadBuilder.appendTopLevelActions(Actions, Current, InputArg);
     else if (Current)
       Current->propagateHostOffloadInfo(C.getActiveOffloadKinds(),
@@ -6922,7 +6938,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   }
 
   if (!LinkerInputs.empty()) {
-    if (!Args.hasArg(options::OPT_fopenmp_new_driver))
+    if (!UseNewOffloadingDriver)
       OffloadBuilder.makeHostLinkAction(LinkerInputs);
     types::ID LinkType(types::TY_Image);
     if (Args.hasArg(options::OPT_fsycl_link_EQ))
@@ -6931,7 +6947,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     // Check if this Linker Job should emit a static library.
     if (ShouldEmitStaticLibrary(Args)) {
       LA = C.MakeAction<StaticLibJobAction>(LinkerInputs, LinkType);
-    } else if (Args.hasArg(options::OPT_fopenmp_new_driver) &&
+    } else if (UseNewOffloadingDriver &&
                C.getActiveOffloadKinds() != Action::OFK_None) {
       LA = C.MakeAction<LinkerWrapperJobAction>(LinkerInputs, types::TY_Image);
       LA->propagateHostOffloadInfo(C.getActiveOffloadKinds(),
@@ -6939,7 +6955,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     } else {
       LA = C.MakeAction<LinkJobAction>(LinkerInputs, LinkType);
     }
-    if (!Args.hasArg(options::OPT_fopenmp_new_driver))
+    if (!UseNewOffloadingDriver)
       LA = OffloadBuilder.processHostLinkAction(LA);
     Actions.push_back(LA);
   }
@@ -8903,6 +8919,9 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
     case llvm::Triple::PS4:
       TC = std::make_unique<toolchains::PS4CPU>(*this, Target, Args);
       break;
+    case llvm::Triple::PS5:
+      TC = std::make_unique<toolchains::PS5CPU>(*this, Target, Args);
+      break;
     case llvm::Triple::Contiki:
       TC = std::make_unique<toolchains::Contiki>(*this, Target, Args);
       break;
@@ -8911,6 +8930,9 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
       break;
     case llvm::Triple::ZOS:
       TC = std::make_unique<toolchains::ZOS>(*this, Target, Args);
+      break;
+    case llvm::Triple::ShaderModel:
+      TC = std::make_unique<toolchains::HLSLToolChain>(*this, Target, Args);
       break;
     default:
       // Of these targets, Hexagon is the only one that might have
@@ -9166,7 +9188,13 @@ Driver::getIncludeExcludeOptionFlagMasks(bool IsClCompatMode) const {
   } else {
     ExcludedFlagsBitmask |= options::CLOption;
   }
-
+  if (IsDXCMode()) {
+    // Include DXC and Core options.
+    IncludedFlagsBitmask |= options::DXCOption;
+    IncludedFlagsBitmask |= options::CoreOption;
+  } else {
+    ExcludedFlagsBitmask |= options::DXCOption;
+  }
   return std::make_pair(IncludedFlagsBitmask, ExcludedFlagsBitmask);
 }
 

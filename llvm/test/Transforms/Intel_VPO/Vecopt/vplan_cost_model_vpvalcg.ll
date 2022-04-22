@@ -1852,7 +1852,7 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1.09375 for i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.3 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1.09375 for i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i32 [[VP2:%.*]] = smax i32 [[VP_LOAD_1]] i32 [[VP_LOAD]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i32 [[VP2:%.*]] = smax i32 [[VP_LOAD_1]] i32 [[VP_LOAD]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for i1 [[VP3:%.*]] = icmp sge i32 [[VP_LOAD]] i32 [[VP_LOAD_2]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i32 [[VP4:%.*]] = select i1 [[VP3]] i32 [[VP2]] i32 [[VP_LOAD_2]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.4 i64 0 i64 [[VP0]]
@@ -1872,7 +1872,7 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for i1 [[VP9:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
-; VPLAN-HIR-CM-VF4-NEXT:  [[BB2]]: base cost: 29.40625
+; VPLAN-HIR-CM-VF4-NEXT:  [[BB2]]: base cost: 30.40625
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
@@ -1880,7 +1880,7 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br <External Block>
 ; VPLAN-HIR-CM-VF4-NEXT:  [[BB4]]: base cost: 0
-; VPLAN-HIR-CM-VF4-NEXT:  Base Cost: 29.40625
+; VPLAN-HIR-CM-VF4-NEXT:  Base Cost: 30.40625
 ;
 ; VPLAN-HIR-CM-VF1-LABEL:  Cost Model for VPlan test_select:HIR.#{{[0-9]+}} with VF = 1:
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
@@ -1897,7 +1897,7 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.3 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i32 [[VP2:%.*]] = smax i32 [[VP_LOAD_1]] i32 [[VP_LOAD]]
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for i32 [[VP2:%.*]] = smax i32 [[VP_LOAD_1]] i32 [[VP_LOAD]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for i1 [[VP3:%.*]] = icmp sge i32 [[VP_LOAD]] i32 [[VP_LOAD_2]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for i32 [[VP4:%.*]] = select i1 [[VP3]] i32 [[VP2]] i32 [[VP_LOAD_2]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.4 i64 0 i64 [[VP0]]
@@ -1917,14 +1917,14 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for i1 [[VP9:%.*]] = icmp slt i64 [[VP1]] i64 1024
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
-; VPLAN-HIR-CM-VF1-NEXT:  [[BB2]]: base cost: 16
+; VPLAN-HIR-CM-VF1-NEXT:  [[BB2]]: base cost: 17
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB3]]: base cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br <External Block>
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB4]]: base cost: 0
-; VPLAN-HIR-CM-VF1-NEXT:  Base Cost: 16
+; VPLAN-HIR-CM-VF1-NEXT:  Base Cost: 17
 ;
 ; LLVM-CM-VF4-LABEL:  Printing analysis 'Cost Model Analysis' for function 'test_select':
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br label [[VECTOR_BODY0:%.*]]

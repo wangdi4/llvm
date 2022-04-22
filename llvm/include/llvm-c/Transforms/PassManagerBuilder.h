@@ -72,11 +72,13 @@ void
 LLVMPassManagerBuilderPopulateModulePassManager(LLVMPassManagerBuilderRef PMB,
                                                 LLVMPassManagerRef PM);
 
+#if INTEL_CUSTOMIZATION
 /** See llvm::PassManagerBuilder::populateLTOPassManager. */
 void LLVMPassManagerBuilderPopulateLTOPassManager(LLVMPassManagerBuilderRef PMB,
                                                   LLVMPassManagerRef PM,
                                                   LLVMBool Internalize,
                                                   LLVMBool RunInliner);
+#endif // INTEL_CUSTOMIZATION
 
 /**
  * @}

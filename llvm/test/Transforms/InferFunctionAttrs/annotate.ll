@@ -595,10 +595,14 @@ declare i64 @labs(i64)
 declare i32 @lchown(i8*, i32, i32)
 
 ; CHECK: declare double @ldexp(double, i32 signext) [[NOFREE_WILLRETURN_READNONE:#[0-9]+]] ;INTEL
-; CHECK-SYSTEMZ: declare double @ldexp(double, i32 signext)
 declare double @ldexp(double, i32)
 
 ; CHECK: declare float @ldexpf(float, i32 signext) [[NOFREE_WILLRETURN_READNONE]] ;INTEL
+; CHECK: declare double @ldexp(double, i32) [[NOFREE_WILLRETURN:#[0-9]+]]
+; CHECK-SYSTEMZ: declare double @ldexp(double, i32 signext)
+declare double @ldexp(double, i32)
+
+; CHECK: declare float @ldexpf(float, i32) [[NOFREE_WILLRETURN]]
 ; CHECK-SYSTEMZ: declare float @ldexpf(float, i32 signext)
 declare float @ldexpf(float, i32)
 

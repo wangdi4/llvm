@@ -225,8 +225,10 @@ public:
     OptLevel = (NewOptLevel > 3) ? 3 : NewOptLevel;
   }
 
+#if INTEL_CUSTOMIZATION
   /// Enable or disable the new pass manager.
   void setUseNewPM(unsigned Enabled) { UseNewPM = Enabled; }
+#endif // INTEL_CUSTOMIZATION
 
   /// Enable or disable debug output for the new pass manager.
   void setDebugPassManager(unsigned Enabled) { DebugPassManager = Enabled; }
@@ -347,9 +349,11 @@ private:
   /// IR Optimization Level [0-3].
   unsigned OptLevel = 3;
 
+#if INTEL_CUSTOMIZATION
   /// Flag to indicate whether the new pass manager should be used for IR
   /// optimizations.
   bool UseNewPM = true;
+#endif // INTEL_CUSTOMIZATION
 
   /// Flag to indicate whether debug output should be enabled for the new pass
   /// manager.

@@ -347,7 +347,6 @@
 // RUN: %clang -### -c -fno-inline -inline-level=0 -finline-hint-functions %s 2>&1 | FileCheck -check-prefix CHECK-INLINE-LEVEL %s
 // RUN: %clang -### -c -fno-inline -inline-level=1 %s 2>&1 | FileCheck -check-prefix CHECK-INLINE-LEVEL %s
 // CHECK-INLINE-LEVEL: "-fno-inline"
-// CHECK-INLINE-LEVEL: "-finline-hint-functions"
 
 // Behavior with /Qno-builtin- maps to -fno-builtin-
 // RUN: %clang_cl -### -c /Qno-builtin- %s 2>&1 | FileCheck -check-prefix CHECK-QNO-BUILTIN %s

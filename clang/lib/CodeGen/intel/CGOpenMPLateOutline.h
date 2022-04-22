@@ -373,6 +373,7 @@ class OpenMPLateOutliner {
   void emitOMPAffinityClause(const OMPAffinityClause *);
   void emitOMPSizesClause(const OMPSizesClause *);
   void emitOMPUseDeviceAddrClause(const OMPUseDeviceAddrClause *);
+  void emitOMPHasDeviceAddrClause(const OMPHasDeviceAddrClause *);
   void emitOMPInitClause(const OMPInitClause *);
   void emitOMPUseClause(const OMPUseClause *);
   void emitOMPNovariantsClause(const OMPNovariantsClause *);

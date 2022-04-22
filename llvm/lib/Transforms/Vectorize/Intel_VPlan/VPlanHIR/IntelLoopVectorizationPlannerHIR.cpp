@@ -185,12 +185,6 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
           }
         }
       }
-      // Check for UMinSeq instruction presence, which we don't have
-      // SVA/CM/CG support for yet.
-      if (Inst.getOpcode() == VPInstruction::UMinSeq) {
-        LLVM_DEBUG(dbgs() << "LVP: umin_seq() vectorization is not supported.");
-        return false;
-      }
     }
 
   // HIR-CG is not setup to deal with memory instructions outside the loop

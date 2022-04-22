@@ -353,7 +353,7 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(PHINode *Phi) {
     } else if (isa<PHINode>(V)) {
       if (V->use_empty())
         break;
-      Use &U = *(Phi->use_begin());
+      Use &U = *(V->use_begin());
       V = U.getUser();
     } else {
       break;

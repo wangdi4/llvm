@@ -85,7 +85,8 @@ class Driver {
     GXXMode,
     CPPMode,
     CLMode,
-    FlangMode
+    FlangMode,
+    DXCMode
   } Mode;
 
   enum SaveTempsMode {
@@ -219,6 +220,8 @@ public:
   /// Whether the driver should follow Intel compiler behavior.
   bool IsDPCPPMode() const { return DPCPPMode; }
 #endif // INTEL_CUSTOMIZATION
+  /// Whether the driver should follow dxc.exe like behavior.
+  bool IsDXCMode() const { return Mode == DXCMode; }
 
   /// Only print tool bindings, don't build any jobs.
   unsigned CCCPrintBindings : 1;

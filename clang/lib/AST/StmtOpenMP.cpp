@@ -1003,36 +1003,29 @@ OMPOrderedDirective *OMPOrderedDirective::CreateEmpty(const ASTContext &C,
 OMPAtomicDirective *
 OMPAtomicDirective::Create(const ASTContext &C, SourceLocation StartLoc,
                            SourceLocation EndLoc, ArrayRef<OMPClause *> Clauses,
-                           Stmt *AssociatedStmt, Expr *X, Expr *V, Expr *E,
-                           Expr *UE, Expr *D, Expr *Cond, bool IsXLHSInRHSPart,
-#if INTEL_COLLAB
-                           Expr *Expected, Expr *Result, bool IsCompareMin,
-                           bool IsCompareMax, bool IsConditionalCapture,
-#endif // INTEL_COLLAB
-                           bool IsPostfixUpdate) {
-#if INTEL_COLLAB
+                           Stmt *AssociatedStmt, Expressions Exprs) {
   auto *Dir = createDirective<OMPAtomicDirective>(
+#if INTEL_COLLAB
       C, Clauses, AssociatedStmt, /*NumChildren=*/8, StartLoc, EndLoc);
 #else // INTEL_COLLAB
-  auto *Dir = createDirective<OMPAtomicDirective>(
       C, Clauses, AssociatedStmt, /*NumChildren=*/6, StartLoc, EndLoc);
 #endif // INTEL_COLLAB
-  Dir->setX(X);
-  Dir->setV(V);
-  Dir->setExpr(E);
+  Dir->setX(Exprs.X);
+  Dir->setV(Exprs.V);
+  Dir->setExpr(Exprs.E);
 #if INTEL_COLLAB
-  Dir->setExpected(Expected);
-  Dir->setResult(Result);
+  Dir->setExpected(Exprs.Expected);
+  Dir->setResult(Exprs.Result);
 #endif // INTEL_COLLAB
-  Dir->setUpdateExpr(UE);
-  Dir->setD(D);
-  Dir->setCond(Cond);
-  Dir->IsXLHSInRHSPart = IsXLHSInRHSPart;
-  Dir->IsPostfixUpdate = IsPostfixUpdate;
+  Dir->setUpdateExpr(Exprs.UE);
+  Dir->setD(Exprs.D);
+  Dir->setCond(Exprs.Cond);
+  Dir->Flags.IsXLHSInRHSPart = Exprs.IsXLHSInRHSPart ? 1 : 0;
+  Dir->Flags.IsPostfixUpdate = Exprs.IsPostfixUpdate ? 1 : 0;
 #if INTEL_COLLAB
-  Dir->IsCompareMin = IsCompareMin;
-  Dir->IsCompareMax = IsCompareMax;
-  Dir->IsConditionalCapture = IsConditionalCapture;
+  Dir->Flags.IsCompareMin = Exprs.IsCompareMin ? 1 : 0;
+  Dir->Flags.IsCompareMax = Exprs.IsCompareMax ? 1 : 0;
+  Dir->Flags.IsConditionalCapture = Exprs.IsConditionalCapture ? 1 : 0;
 #endif // INTEL_COLLAB
   return Dir;
 }

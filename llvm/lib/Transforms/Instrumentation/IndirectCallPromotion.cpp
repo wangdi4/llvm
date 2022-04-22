@@ -122,8 +122,8 @@ static cl::opt<bool>
     ICPDUMPAFTER("icp-dumpafter", cl::init(false), cl::Hidden,
                  cl::desc("Dump IR after transformation happens"));
 
+#if INTEL_CUSTOMIZATION
 namespace {
-
 class PGOIndirectCallPromotionLegacyPass : public ModulePass {
 public:
   static char ID;
@@ -171,9 +171,9 @@ ModulePass *llvm::createPGOIndirectCallPromotionLegacyPass(bool InLTO,
                                                            bool SamplePGO) {
   return new PGOIndirectCallPromotionLegacyPass(InLTO, SamplePGO);
 }
+#endif // INTEL_CUSTOMIZATION
 
 namespace {
-
 // The class for main data structure to promote indirect calls to conditional
 // direct calls.
 class ICallPromotionFunc {
@@ -464,6 +464,7 @@ static bool promoteIndirectCalls(Module &M, ProfileSummaryInfo *PSI,
   return Changed;
 }
 
+#if INTEL_CUSTOMIZATION
 bool PGOIndirectCallPromotionLegacyPass::runOnModule(Module &M) {
   ProfileSummaryInfo *PSI =
       &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
@@ -472,6 +473,7 @@ bool PGOIndirectCallPromotionLegacyPass::runOnModule(Module &M) {
   return promoteIndirectCalls(M, PSI, InLTO | ICPLTOMode,
                               SamplePGO | ICPSamplePGOMode);
 }
+#endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses PGOIndirectCallPromotion::run(Module &M,
                                                 ModuleAnalysisManager &AM) {
