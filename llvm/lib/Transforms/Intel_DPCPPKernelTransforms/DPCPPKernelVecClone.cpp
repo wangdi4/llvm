@@ -457,6 +457,32 @@ static void optimizedUpdateAndMoveTID(Instruction *TIDCallInst, PHINode *Phi,
   TIDTrunc->moveBefore(EntryBlock->getTerminator());
 }
 
+// Utility to check if TID call has trunc or shl users.
+static bool HasTruncOrShlUsers(CallInst *CI) {
+  for (auto *U : CI->users()) {
+    for (auto It = df_begin(U), E = df_end(U); It != E;) {
+      if (auto *I = dyn_cast<Instruction>(*It)) {
+        switch (I->getOpcode()) {
+        case Instruction::Add:
+        case Instruction::Sub:
+        case Instruction::PHI:
+        case Instruction::Select:
+          It++;
+          break;
+        case Instruction::Shl:
+        case Instruction::Trunc:
+          return true;
+        default:
+          It.skipChildren();
+          break;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
 // Utility to check if TID call matches the below pattern -
 // %tid = call i64 get_global_id(i32 0)
 // %cmp = icmp ult i64 %tid, INT32_MAX+1
@@ -570,7 +596,7 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
                (FuncName == mangledGetGID() &&
                 ((LT2GigGlobalWorkSize == GWS_TRUE) ||
                  (LT2GigGlobalWorkSize == GWS_AUTO &&
-                  (IsOCL || TIDFitsInInt32(CI)))))))
+                  (IsOCL || (TIDFitsInInt32(CI) && HasTruncOrShlUsers(CI))))))))
             optimizedUpdateAndMoveTID(CI, Phi, EntryBlock);
           else
             updateAndMoveTID(CI, Phi, EntryBlock);
