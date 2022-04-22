@@ -6,7 +6,9 @@
 ; The hoisting is disabled in xmain in the pass builder.
 
 ; RUN: opt -S -passes="lto<O3>" %s | FileCheck %s
-; RUN: clang -O3 -o - -S -flto -emit-llvm %s | FileCheck %s
+; RUN: clang -flegacy-pass-manager -O3 -o - -S -flto -emit-llvm %s | FileCheck %s
+; RUN: clang -fno-legacy-pass-manager -mllvm -loopopt=1 -O3 -o - -S -flto -emit-llvm %s | FileCheck %s
+
 ; CHECK-LABEL: alloca_16
 ; CHECK-NOT: sdiv
 ; CHECK-LABEL: bb_new989_then

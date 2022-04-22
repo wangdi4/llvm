@@ -1537,8 +1537,7 @@ llvm::Value *CGOpenMPRuntime::getThreadID(CodeGenFunction &CGF,
   if (CGM.getLangOpts().OpenMPLateOutline && CGF.CapturedStmtInfo) {
     llvm::Value *TidAddr =
         CGF.CurFn->getParent()->getOrInsertGlobal("@tid.addr", CGF.CGM.Int32Ty);
-    ThreadID = CGF.Builder.CreateAlignedLoad(
-        TidAddr->getType()->getPointerElementType(), TidAddr,
+    ThreadID = CGF.Builder.CreateAlignedLoad(CGF.CGM.Int32Ty, TidAddr,
         CharUnits::fromQuantity(4), "my.tid");
     Elem.second.ThreadID = ThreadID;
     return ThreadID;
@@ -10765,7 +10764,7 @@ void CGOpenMPRuntime::emitUserDefinedMapper(const OMPDeclareMapperDecl *D,
         (CGM.getCodeGenOpts().getDebugInfo() == codegenoptions::NoDebugInfo)
 #if INTEL_COLLAB
             ? llvm::ConstantPointerNull::get(
-                  CGM.VoidPtrTy->getPointerElementType()->getPointerTo(
+                  llvm::PointerType::getWithSamePointeeType(CGM.VoidPtrTy,
                       CGM.getEffectiveAllocaAddrSpace()))
 #else  // INTEL_COLLAB
             ? llvm::ConstantPointerNull::get(CGM.VoidPtrTy)

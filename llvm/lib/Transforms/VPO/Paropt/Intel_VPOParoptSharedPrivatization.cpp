@@ -321,6 +321,47 @@ static SmallPtrSet<BasicBlock *, 16u> findWRNBlocks(WRegionNode *W, Value *V) {
   return BBs;
 }
 
+// Return the <ElementType, NumElements> pair for the alloca AI.
+ElementTypeAndNumElements getTypedClauseInfoForAlloca(AllocaInst *AI) {
+  Value *NumElements = AI->getArraySize();
+  Type *AllocatedTy = AI->getAllocatedType();
+
+  if (!NumElements)
+    return {AllocatedTy, IRBuilder<>(AI).getInt32(1)};
+
+  return {AllocatedTy, NumElements};
+}
+
+// Return the <ElementType, NumElements> pair, that should be used when
+// creating a PRIVATE clause for the typed item I.
+ElementTypeAndNumElements getTypedClauseInfoForTypedItem(Item *I) {
+  assert(I->getIsTyped() && "Item is not typed.");
+  assert((isa<SharedItem>(I) || isa<FirstprivateItem>(I) ||
+          isa<LastprivateItem>(I)) &&
+         "Unexpected clause item.");
+  assert(!I->getIsPointerToPointer() &&
+         "Typed ptr-to-ptrs are not supported yet.");
+  assert(!I->getIsNonPod() && "Typed NONPODs are not supported yet.");
+#if INTEL_CUSTOMIZATION
+  assert(!I->getIsF90NonPod() && "Typed F90_NONPODs are not supported yet.");
+  assert(!I->getIsF90DopeVector() && "Typed F90_DVs are not supported yet.");
+#endif // INTEL_CUSTOMIZATION
+
+  Type *ElementTy = I->getOrigItemElementTypeFromIR();
+  Value *NumElements = I->getNumElements();
+
+  if (!I->getIsByRef())
+    return {ElementTy, NumElements};
+
+  // When privatizing a BYREF operand, the analysis is done for the operand
+  // itself, so the PRIVATE should be added on the operand itself, not its
+  // byref pointee (i.e. without a BYREF modifier).
+  Type *OrigTy = I->getOrig()->getType();
+  Type *ByrefVarTy =
+      PointerType::get(ElementTy, OrigTy->getPointerAddressSpace());
+  return {ByrefVarTy, ConstantInt::get(NumElements->getType(), 1)};
+}
+
 // Return true if value V has uses inside work region W excluding
 // sub-regions where it is private.
 static bool hasWRNUses(WRegionNode *W, Value *V) {
@@ -519,10 +560,11 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
 
 // Remove item's uses from the clause bundles.
 template <typename ItemTy>
-static bool cleanupItem(WRegionNode *W, ItemTy *Item, int ClauseID,
-                        SmallSetVector<Value *, 8> &ToPrivatize, Function *F,
-                        WRegionListTy &WRegionList, OptReportBuilder &ORBuilder,
-                        bool hasOffloadCompilation) {
+static bool cleanupItem(
+    WRegionNode *W, ItemTy *Item, int ClauseID,
+    MapVector<Value *, llvm::Optional<ElementTypeAndNumElements>> &ToPrivatize,
+    Function *F, WRegionListTy &WRegionList, OptReportBuilder &ORBuilder,
+    bool hasOffloadCompilation) {
   bool Changed = false;
   Value *V = Item->getOrig();
 
@@ -557,6 +599,19 @@ static bool cleanupItem(WRegionNode *W, ItemTy *Item, int ClauseID,
                   VPOAnalysisUtils::getOmpClauseName(QUAL_OMP_PRIVATE))
                      .str());
 
+  // Add V to the list of items to be privatized.
+  if (!ToPrivatize.count(V)) {
+    if (Item->getIsTyped())
+      ToPrivatize.insert({V, getTypedClauseInfoForTypedItem(Item)});
+    else if (!V->getType()->isOpaquePointerTy())
+      ToPrivatize.insert({V, llvm::None});
+    else if (auto *AI = dyn_cast<AllocaInst>(V))
+      ToPrivatize.insert({AI, getTypedClauseInfoForAlloca(AI)});
+    else
+      llvm_unreachable("Need TYPED clause item to support opaque pointers.");
+  }
+
+  // And replace its uses in the clause list with null.
   auto *Entry = cast<CallInst>(W->getEntryDirective());
   for (auto &BOI : make_range(std::next(Entry->bundle_op_info_begin()),
                               Entry->bundle_op_info_end())) {
@@ -579,10 +634,57 @@ static bool cleanupItem(WRegionNode *W, ItemTy *Item, int ClauseID,
     }
   }
 
-  // And add item to the list that need to be privatized.
-  ToPrivatize.insert(V);
-
   return Changed;
+}
+
+bool VPOParoptTransform::addPrivateClausesToRegion(
+    WRegionNode *W,
+    ArrayRef<std::pair<Value *, llvm::Optional<ElementTypeAndNumElements>>>
+        ToPrivatize) {
+
+  if (ToPrivatize.empty())
+    return false;
+
+  assert(W->canHavePrivate() && "Region cannot have private clauses.");
+  PrivateClause &PrivC = W->getPriv();
+
+  StringRef PrivateClauseStr =
+      VPOAnalysisUtils::getClauseString(QUAL_OMP_PRIVATE);
+  std::string TypedPrivateClauseStr = PrivateClauseStr.str() + ":TYPED";
+
+  SmallVector<std::pair<StringRef, SmallVector<Value *, 3>>, 8> PrivateBundles;
+  PrivateBundles.reserve(ToPrivatize.size());
+
+  for (const auto &I : ToPrivatize) {
+    Value *V = I.first;
+
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Adding private clause for '";
+               V->printAsOperand(dbgs()); dbgs() << "'.\n");
+
+    if (!I.second.hasValue()) {
+      PrivateBundles.push_back({PrivateClauseStr, {V}});
+      PrivC.add(V);
+      continue;
+    }
+
+    Type *ElementTy = nullptr;
+    Value *NumElements = nullptr;
+    std::tie(ElementTy, NumElements) = I.second.getValue();
+    PrivateBundles.push_back(
+        {TypedPrivateClauseStr,
+         {V, Constant::getNullValue(ElementTy), NumElements}});
+
+    PrivC.add(V);
+    PrivateItem *PI = PrivC.back();
+    PI->setIsTyped(true);
+    PI->setOrigItemElementTypeFromIR(ElementTy);
+    PI->setNumElements(NumElements);
+  }
+
+  CallInst *NewEntry = VPOUtils::addOperandBundlesInCall(
+      cast<CallInst>(W->getEntryDirective()), makeArrayRef(PrivateBundles));
+  W->setEntryDirective(NewEntry);
+  return true;
 }
 
 bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
@@ -765,93 +867,78 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
     }
   }
 
+  if (!W->canHavePrivate())
+    return false;
+
   bool Changed = false;
-  if (W->canHavePrivate()) {
-    SmallSetVector<Value *, 8u> ToPrivatize;
+  MapVector<Value *, llvm::Optional<ElementTypeAndNumElements>> ToPrivatize;
 
-    auto CleanupRedundantItems = [this, W, &ToPrivatize](auto *Clause) {
-      bool Changed = false;
-      for (auto *Item : Clause->items()) {
-        // Do not try to simplify nonPOD items.
-        if (Item->getIsNonPod())
-          continue;
+  auto CleanupRedundantItems = [this, W, &ToPrivatize](auto *Clause) {
+    bool Changed = false;
+    for (auto *Item : Clause->items()) {
+      // Do not try to simplify nonPOD items.
+      if (Item->getIsNonPod())
+        continue;
 
-        Value *V = Item->getOrig();
-        if (!V || hasWRNUses(W, V))
-          continue;
+      Value *V = Item->getOrig();
+      if (!V || hasWRNUses(W, V))
+        continue;
 
-        // Special handling for the schedule chunk that is loaded from a shared
-        // pointer that has no uses inside the region
-        //
-        // void foo(int N, int C) {
-        // #pragma omp parallel for schedule(static, C)
-        //   for (int I = 0; I < N; ++I) {}
-        // }
-        //
-        // generated code looks as follows
-        //
-        // %.capture_expr.0 = alloca i32, align 4
-        // ...
-        // %5 = load i32, i32* %.capture_expr.0
-        // %6 = call token @llvm.directive.region.entry() [
-        //         "DIR.OMP.PARALLEL.LOOP"(),
-        //         "QUAL.OMP.SCHEDULE.STATIC"(i32 %5),
-        //         "QUAL.OMP.SHARED"(i32* %.capture_expr.0),
-        //         ...
-        //
-        // The load gets moved into the region later by paropt transform while
-        // lowering the loop, so turning shared %.capture_expr.0 into private
-        // leads to invalid results.
-        if (isa<SharedItem>(Item) && W->canHaveSchedule())
-          if (auto *Chunk =
-                  dyn_cast_or_null<LoadInst>(W->getSchedule().getChunkExpr()))
-            if (Chunk->getPointerOperand() == V)
-              continue;
+      // Special handling for the schedule chunk that is loaded from a shared
+      // pointer that has no uses inside the region
+      //
+      // void foo(int N, int C) {
+      // #pragma omp parallel for schedule(static, C)
+      //   for (int I = 0; I < N; ++I) {}
+      // }
+      //
+      // generated code looks as follows
+      //
+      // %.capture_expr.0 = alloca i32, align 4
+      // ...
+      // %5 = load i32, i32* %.capture_expr.0
+      // %6 = call token @llvm.directive.region.entry() [
+      //         "DIR.OMP.PARALLEL.LOOP"(),
+      //         "QUAL.OMP.SCHEDULE.STATIC"(i32 %5),
+      //         "QUAL.OMP.SHARED"(i32* %.capture_expr.0),
+      //         ...
+      //
+      // The load gets moved into the region later by paropt transform while
+      // lowering the loop, so turning shared %.capture_expr.0 into private
+      // leads to invalid results.
+      if (isa<SharedItem>(Item) && W->canHaveSchedule())
+        if (auto *Chunk =
+                dyn_cast_or_null<LoadInst>(W->getSchedule().getChunkExpr()))
+          if (Chunk->getPointerOperand() == V)
+            continue;
 
-        // Item's value is not used inside the region, so it should be safe to
-        // turn it into a private. Print a diagnostic that clause is redundant
-        // and remove item's uses from clause bundles.
-        Changed |= cleanupItem(W, Item, Clause->getClauseID(), ToPrivatize, F,
-                               WRegionList, ORBuilder, hasOffloadCompilation());
+      // Item's value is not used inside the region, so it should be safe to
+      // turn it into a private. Print a diagnostic that clause is redundant
+      // and remove item's uses from clause bundles.
+      Changed |= cleanupItem(W, Item, Clause->getClauseID(), ToPrivatize, F,
+                             WRegionList, ORBuilder, hasOffloadCompilation());
 
-        // Special case first-private items which can also be listed in the
-        // last-private clause. Item has to be cleaned up in both clauses.
-        if (isa<FirstprivateItem>(Item))
-          if (LastprivateClause *LPClause = W->getLprivIfSupported())
-            for (auto *LPItem : LPClause->items())
-              if (LPItem->getOrig() == V)
-                Changed |= cleanupItem(W, LPItem, LPClause->getClauseID(),
-                                       ToPrivatize, F, WRegionList, ORBuilder,
-                                       hasOffloadCompilation());
-      }
-      return Changed;
-    };
-
-    if (auto *Clause = W->getFprivIfSupported())
-      Changed |= CleanupRedundantItems(Clause);
-    if (auto *Clause = W->getSharedIfSupported())
-      Changed |= CleanupRedundantItems(Clause);
-    if (auto *Clause = W->getLprivIfSupported())
-      Changed |= CleanupRedundantItems(Clause);
-
-    if (!ToPrivatize.empty()) {
-      StringRef PrivateClause =
-          VPOAnalysisUtils::getClauseString(QUAL_OMP_PRIVATE);
-
-      SmallVector<std::pair<StringRef, ArrayRef<Value *>>, 8> PrivateBundles;
-      PrivateBundles.reserve(ToPrivatize.size());
-      for (Value *const &V : ToPrivatize) {
-        PrivateBundles.push_back({PrivateClause, ArrayRef<Value *>(&V, 1u)});
-        W->getPriv().add(V);
-      }
-
-      CallInst *NewEntry = VPOUtils::addOperandBundlesInCall(
-          cast<CallInst>(W->getEntryDirective()), PrivateBundles);
-      W->setEntryDirective(NewEntry);
-
-      Changed = true;
+      // Special case first-private items which can also be listed in the
+      // last-private clause. Item has to be cleaned up in both clauses.
+      if (isa<FirstprivateItem>(Item))
+        if (LastprivateClause *LPClause = W->getLprivIfSupported())
+          for (auto *LPItem : LPClause->items())
+            if (LPItem->getOrig() == V)
+              Changed |= cleanupItem(W, LPItem, LPClause->getClauseID(),
+                                     ToPrivatize, F, WRegionList, ORBuilder,
+                                     hasOffloadCompilation());
     }
-  }
+    return Changed;
+  };
+
+  if (auto *Clause = W->getFprivIfSupported())
+    Changed |= CleanupRedundantItems(Clause);
+  if (auto *Clause = W->getSharedIfSupported())
+    Changed |= CleanupRedundantItems(Clause);
+  if (auto *Clause = W->getLprivIfSupported())
+    Changed |= CleanupRedundantItems(Clause);
+
+  Changed |= addPrivateClausesToRegion(W, ToPrivatize.takeVector());
 
   // This routine does not change CFG, so there is no need to be refresh BB set.
   return Changed;
@@ -866,7 +953,7 @@ bool VPOParoptTransform::simplifyLastprivateClauses(WRegionNode *W) {
     return false;
 
   bool Changed = false;
-  SmallSetVector<Value *, 8u> ToPrivatize;
+  MapVector<Value *, llvm::Optional<ElementTypeAndNumElements>> ToPrivatize;
 
   for (LastprivateItem *Item : W->getLpriv().items()) {
     // Do not try to simplify byref items because existing analysis is not
@@ -977,23 +1064,7 @@ bool VPOParoptTransform::simplifyLastprivateClauses(WRegionNode *W) {
                       WRegionList, ORBuilder, hasOffloadCompilation());
   }
 
-  if (!ToPrivatize.empty()) {
-    StringRef PrivateClause =
-        VPOAnalysisUtils::getClauseString(QUAL_OMP_PRIVATE);
-
-    SmallVector<std::pair<StringRef, ArrayRef<Value *>>, 8> PrivateBundles;
-    PrivateBundles.reserve(ToPrivatize.size());
-    for (Value *const &V : ToPrivatize) {
-      PrivateBundles.push_back({PrivateClause, ArrayRef<Value *>(&V, 1u)});
-      W->getPriv().add(V);
-    }
-
-    CallInst *NewEntry = VPOUtils::addOperandBundlesInCall(
-        cast<CallInst>(W->getEntryDirective()), PrivateBundles);
-    W->setEntryDirective(NewEntry);
-
-    Changed = true;
-  }
+  Changed |= addPrivateClausesToRegion(W, ToPrivatize.takeVector());
 
   // This routine does not change CFG, so there is no need to be refresh BB set.
   return Changed;
