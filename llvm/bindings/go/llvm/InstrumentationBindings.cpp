@@ -34,6 +34,12 @@ void LLVMAddThreadSanitizerPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createThreadSanitizerLegacyPassPass());
 }
 
+#if INTEL_CUSTOMIZATION
+void LLVMAddMemorySanitizerLegacyPassPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createMemorySanitizerLegacyPassPass());
+}
+#endif // INTEL_CUSTOMIZATION
+
 void LLVMAddDataFlowSanitizerPass(LLVMPassManagerRef PM,
                                   int ABIListFilesNum,
                                   const char **ABIListFiles) {

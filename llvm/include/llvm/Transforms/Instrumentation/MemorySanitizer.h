@@ -35,6 +35,12 @@ struct MemorySanitizerOptions {
   bool EagerChecks;
 };
 
+#if INTEL_CUSTOMIZATION
+// Insert MemorySanitizer instrumentation (detection of uninitialized reads)
+FunctionPass *
+createMemorySanitizerLegacyPassPass(MemorySanitizerOptions Options = {});
+#endif // INTEL_CUSTOMIZATION
+
 /// A function pass for msan instrumentation.
 ///
 /// Instruments functions to detect unitialized reads. This function pass
