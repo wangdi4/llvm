@@ -15,6 +15,7 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
+#include "llvm/Transforms/Instrumentation/AddressSanitizer.h" // INTEL
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Instrumentation/MemorySanitizer.h"
 #include "llvm/Transforms/Instrumentation/ThreadSanitizer.h"
@@ -26,6 +27,14 @@ void LLVMAddThreadSanitizerPass(LLVMPassManagerRef PM) {
 }
 
 #if INTEL_CUSTOMIZATION
+void LLVMAddAddressSanitizerFunctionPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createAddressSanitizerFunctionPass());
+}
+
+void LLVMAddAddressSanitizerModulePass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createModuleAddressSanitizerLegacyPassPass());
+}
+
 void LLVMAddMemorySanitizerLegacyPassPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createMemorySanitizerLegacyPassPass());
 }

@@ -27,6 +27,14 @@ func (pm PassManager) AddThreadSanitizerPass() {
 func (pm PassManager) AddMemorySanitizerLegacyPassPass() {
 	C.LLVMAddMemorySanitizerLegacyPassPass(pm.C)
 }
+
+func (pm PassManager) AddAddressSanitizerFunctionPass() {
+	C.LLVMAddAddressSanitizerFunctionPass(pm.C)
+}
+
+func (pm PassManager) AddAddressSanitizerModulePass() {
+	C.LLVMAddAddressSanitizerModulePass(pm.C)
+}
 #endif // INTEL_CUSTOMIZATION
 
 func (pm PassManager) AddDataFlowSanitizerPass(abilist []string) {

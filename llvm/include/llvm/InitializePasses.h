@@ -94,6 +94,9 @@ void initializeIntel_OpenCLTransforms(PassRegistry&);
 // Intel_DPCPPKernelTransforms
 void initializeIntel_DPCPPKernelTransforms(PassRegistry&);
 
+void initializeModuleAddressSanitizerLegacyPassPass(PassRegistry &);
+void initializeASanGlobalsMetadataWrapperPassPass(PassRegistry &);
+void initializeAddressSanitizerLegacyPassPass(PassRegistry &);
 void initializeInlineListsPass(PassRegistry&);
 void initializeInlineReportSetupPass(PassRegistry&);
 void initializeInlineReportEmitterPass(PassRegistry&);
