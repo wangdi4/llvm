@@ -315,6 +315,7 @@ void initializeLegacyDivergenceAnalysisPass(PassRegistry&);
 void initializeLegacyLICMPassPass(PassRegistry&);
 void initializeLegacyLoopSinkPassPass(PassRegistry&);
 void initializeLegalizerPass(PassRegistry&);
+void initializeMemorySanitizerLegacyPassPass(PassRegistry&); // INTEL
 void initializeGISelCSEAnalysisWrapperPassPass(PassRegistry &);
 void initializeGISelKnownBitsAnalysisPass(PassRegistry &);
 void initializeLibCallsShrinkWrapLegacyPassPass(PassRegistry&);
@@ -406,7 +407,6 @@ void initializeMemDerefPrinterPass(PassRegistry&);
 void initializeMemoryDependenceWrapperPassPass(PassRegistry&);
 void initializeMemorySSAPrinterLegacyPassPass(PassRegistry&);
 void initializeMemorySSAWrapperPassPass(PassRegistry&);
-void initializeMemorySanitizerLegacyPassPass(PassRegistry&);
 void initializeMergeFunctionsLegacyPassPass(PassRegistry&);
 void initializeMergeICmpsLegacyPassPass(PassRegistry &);
 void initializeMergedLoadStoreMotionLegacyPassPass(PassRegistry&);

@@ -120,10 +120,10 @@ void llvm::initializeInstrumentation(PassRegistry &Registry) {
   initializePGOInstrumentationUseLegacyPassPass(Registry); // INTEL
   initializePGOIndirectCallPromotionLegacyPassPass(Registry); // INTEL
   initializePGOMemOPSizeOptLegacyPassPass(Registry);// INTEL
+  initializeMemorySanitizerLegacyPassPass(Registry); // INTEL
   initializeCGProfileLegacyPassPass(Registry);
   initializeInstrOrderFileLegacyPassPass(Registry);
   initializeInstrProfilingLegacyPassPass(Registry);
-  initializeMemorySanitizerLegacyPassPass(Registry);
   initializeHWAddressSanitizerLegacyPassPass(Registry);
   initializeThreadSanitizerLegacyPassPass(Registry);
   initializeModuleSanitizerCoverageLegacyPassPass(Registry);

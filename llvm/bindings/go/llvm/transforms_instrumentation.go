@@ -31,9 +31,11 @@ func (pm PassManager) AddThreadSanitizerPass() {
 	C.LLVMAddThreadSanitizerPass(pm.C)
 }
 
+#if INTEL_CUSTOMIZATION
 func (pm PassManager) AddMemorySanitizerLegacyPassPass() {
 	C.LLVMAddMemorySanitizerLegacyPassPass(pm.C)
 }
+#endif // INTEL_CUSTOMIZATION
 
 func (pm PassManager) AddDataFlowSanitizerPass(abilist []string) {
 	abiliststrs := make([]*C.char, len(abilist))

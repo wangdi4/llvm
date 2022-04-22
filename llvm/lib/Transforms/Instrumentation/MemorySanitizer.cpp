@@ -631,6 +631,7 @@ void insertModuleCtor(Module &M) {
       });
 }
 
+#if INTEL_CUSTOMIZATION
 /// A legacy function pass for msan instrumentation.
 ///
 /// Instruments functions to detect uninitialized reads.
@@ -657,6 +658,7 @@ struct MemorySanitizerLegacyPass : public FunctionPass {
   Optional<MemorySanitizer> MSan;
   MemorySanitizerOptions Options;
 };
+#endif // INTEL_CUSTOMIZATION
 
 template <class T> T getOptOrDefault(const cl::opt<T> &Opt, T Default) {
   return (Opt.getNumOccurrences() > 0) ? Opt : Default;
@@ -702,6 +704,7 @@ void MemorySanitizerPass::printPipeline(
   OS << ">";
 }
 
+#if INTEL_CUSTOMIZATION
 char MemorySanitizerLegacyPass::ID = 0;
 
 INITIALIZE_PASS_BEGIN(MemorySanitizerLegacyPass, "msan",
@@ -716,6 +719,7 @@ FunctionPass *
 llvm::createMemorySanitizerLegacyPassPass(MemorySanitizerOptions Options) {
   return new MemorySanitizerLegacyPass(Options);
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// Create a non-const global initialized with the given string.
 ///
@@ -1014,13 +1018,14 @@ void MemorySanitizer::initializeModule(Module &M) {
 }
 }
 
+#if INTEL_CUSTOMIZATION
 bool MemorySanitizerLegacyPass::doInitialization(Module &M) {
   if (!Options.Kernel)
     insertModuleCtor(M);
   MSan.emplace(M, Options);
   return true;
 }
-
+#endif // INTEL_CUSTOMIZATION
 namespace {
 
 /// A helper class that handles instrumentation of VarArg
