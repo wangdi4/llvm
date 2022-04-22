@@ -623,10 +623,6 @@ static uint64_t GetCtorAndDtorPriority(Triple &TargetTriple) {
 
 namespace {
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
->>>>>>> 0e0759f441c9d9433ae8f13ed9f274f3d3e856a8
 /// Module analysis for getting various metadata about the module.
 class ASanGlobalsMetadataWrapperPass : public ModulePass {
 public:
@@ -657,10 +653,6 @@ private:
 };
 
 char ASanGlobalsMetadataWrapperPass::ID = 0;
-<<<<<<< HEAD
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 0e0759f441c9d9433ae8f13ed9f274f3d3e856a8
 
 /// AddressSanitizer: instrument the code in module to find memory bugs.
 struct AddressSanitizer {
@@ -797,10 +789,6 @@ private:
   FunctionCallee AMDGPUAddressPrivate;
 };
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
->>>>>>> 0e0759f441c9d9433ae8f13ed9f274f3d3e856a8
 class AddressSanitizerLegacyPass : public FunctionPass {
 public:
   static char ID;
@@ -846,10 +834,6 @@ private:
   bool UseAfterScope;
   AsanDetectStackUseAfterReturnMode UseAfterReturn;
 };
-<<<<<<< HEAD
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 0e0759f441c9d9433ae8f13ed9f274f3d3e856a8
 
 class ModuleAddressSanitizer {
 public:
@@ -949,10 +933,6 @@ private:
   Function *AsanDtorFunction = nullptr;
 };
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
->>>>>>> 0e0759f441c9d9433ae8f13ed9f274f3d3e856a8
 class ModuleAddressSanitizerLegacyPass : public ModulePass {
 public:
   static char ID;
@@ -991,10 +971,6 @@ private:
   AsanDtorKind DestructorKind;
 };
 
-<<<<<<< HEAD
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 0e0759f441c9d9433ae8f13ed9f274f3d3e856a8
 // Stack poisoning does not play well with exception handling.
 // When an exception is thrown, we essentially bypass the code
 // that unpoisones the stack. This is why the run-time library has
@@ -1333,10 +1309,6 @@ PreservedAnalyses ModuleAddressSanitizerPass::run(Module &M,
   return Modified ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
->>>>>>> 0e0759f441c9d9433ae8f13ed9f274f3d3e856a8
 INITIALIZE_PASS(ASanGlobalsMetadataWrapperPass, "asan-globals-md",
                 "Read metadata to mark which globals should be instrumented "
                 "when running ASan.",
@@ -1379,10 +1351,6 @@ ModulePass *llvm::createModuleAddressSanitizerLegacyPassPass(
   return new ModuleAddressSanitizerLegacyPass(
       CompileKernel, Recover, UseGlobalsGC, UseOdrIndicator, Destructor);
 }
-<<<<<<< HEAD
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 0e0759f441c9d9433ae8f13ed9f274f3d3e856a8
 
 static size_t TypeSizeToSizeIndex(uint32_t TypeSize) {
   size_t Res = countTrailingZeros(TypeSize / 8);
