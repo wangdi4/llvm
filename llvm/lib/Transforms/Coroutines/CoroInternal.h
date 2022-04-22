@@ -34,6 +34,13 @@ void initializeCoroCleanupLegacyPass(PassRegistry &); // INTEL
 // attributes since these attributes are already used outside LLVM's
 // coroutine module.
 #define CORO_PRESPLIT_ATTR "coroutine.presplit"
+#if INTEL_CUSTOMIZATION
+#define CORO_DEVIRT_TRIGGER_FN "coro.devirt.trigger"
+#define UNPREPARED_FOR_SPLIT "0"
+#define PREPARED_FOR_SPLIT "1"
+#define ASYNC_RESTART_AFTER_SPLIT "2"
+#define CORO_DEVIRT_TRIGGER_FN "coro.devirt.trigger"
+#endif // INTEL_CUSTOMIZATION
 
 namespace coro {
 
