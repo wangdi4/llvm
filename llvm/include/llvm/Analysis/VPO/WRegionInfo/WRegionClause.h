@@ -367,6 +367,7 @@ class Item
       case IK_Copyin:
       case IK_Copyprivate:
       case IK_Linear:
+      case IK_Shared:
       case IK_Uniform:
         return true;
       default:
@@ -409,6 +410,10 @@ class SharedItem : public Item
     SharedItem(VAR Orig) : Item(Orig, IK_Shared), IsPassedDirectly(false) {}
     void setIsPassedDirectly(bool Flag) { IsPassedDirectly = Flag; }
     bool getIsPassedDirectly() const { return IsPassedDirectly; }
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
+      Item::print(OS, PrintType);
+      printIfTyped(OS, PrintType);
+    }
     static bool classof(const Item *I) { return I->getKind() == IK_Shared; }
 };
 

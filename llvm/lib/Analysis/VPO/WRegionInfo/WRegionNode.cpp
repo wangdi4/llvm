@@ -976,7 +976,7 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
 
     if (IsTyped) {
       assert((ClauseID == QUAL_OMP_UNIFORM || ClauseID == QUAL_OMP_COPYIN ||
-              ClauseID == QUAL_OMP_COPYPRIVATE) &&
+              ClauseID == QUAL_OMP_COPYPRIVATE || ClauseID == QUAL_OMP_SHARED) &&
              "Unexpected TYPED modifier in a clause that doesn't support it");
       assert(NumArgs == 3 && "Expected 3 arguments for TYPED clause");
       assert(I == 0 && "More than one variable in a TYPED clause");

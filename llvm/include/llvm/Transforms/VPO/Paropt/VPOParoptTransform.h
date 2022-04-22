@@ -112,6 +112,7 @@ enum DeviceArch : uint64_t {
 
 typedef SmallVector<WRegionNode *, 32> WRegionListTy;
 typedef std::unordered_map<const BasicBlock *, WRegionNode *> BBToWRNMapTy;
+typedef std::pair<Type*, Value*> ElementTypeAndNumElements;
 
 class VPOParoptModuleTransform;
 
@@ -631,6 +632,17 @@ private:
   // Convert 'IS_DEVICE_PTR' clauses in W to MAP, and 'IS_DEVICE_PTR:PTR_TO_PTR'
   // clauses to MAP + PRIVATE.
   bool addMapAndPrivateForIsDevicePtr(WRegionNode *W);
+
+  /// Add private clauses to \p W for Values in the \p ToPrivatize list.
+  /// If a Value in the list has associated ElementTypeAndNumElements
+  /// information, a Typed clause will be added, otherwise an untyped clause
+  /// will be added. The clauses are added to the region W's private clause list
+  /// as well as its entry directive. Returns true if any clause is added, false
+  /// otherwise.
+  static bool addPrivateClausesToRegion(
+      WRegionNode *W,
+      ArrayRef<std::pair<Value *, llvm::Optional<ElementTypeAndNumElements>>>
+          ToPrivatize);
 
   /// Update references of use_device_ptr operands in tgt data region to use the
   /// value updated by the tgt_data_init call.
