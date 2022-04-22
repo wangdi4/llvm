@@ -13,6 +13,7 @@
 #include "OptimizerLTO.h"
 #include "SPIRVToOCL.h"
 #include "VecConfig.h"
+#include "VectorizerCommon.h"
 
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -31,6 +32,7 @@
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
 #include "llvm/Transforms/Scalar/ADCE.h"
+#include "llvm/Transforms/Scalar/DCE.h"
 #include "llvm/Transforms/Scalar/DeadStoreElimination.h"
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
 #include "llvm/Transforms/Scalar/GVN.h"
@@ -80,7 +82,11 @@ void OptimizerLTO::Optimize(raw_ostream &LogStream) {
 
   Optional<PGOOptions> PGOOpt;
   PassInstrumentationCallbacks PIC;
-  StandardInstrumentations SI(DebugPassManager);
+  PrintPassOptions PrintPassOpts;
+  PrintPassOpts.Verbose = false;
+  PrintPassOpts.SkipAnalyses = false;
+  StandardInstrumentations SI(DebugPassManager, /*VerifyEachPass*/ false,
+                              PrintPassOpts);
   SI.registerCallbacks(PIC);
   PassBuilder PB(TM, PTO, PGOOpt, &PIC);
 
@@ -109,6 +115,7 @@ void OptimizerLTO::Optimize(raw_ostream &LogStream) {
   PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
   registerPipelineStartCallback(PB);
+  registerOptimizerEarlyCallback(PB);
   registerVectorizerStartCallback(PB);
   registerOptimizerLastCallback(PB);
 
@@ -152,16 +159,19 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
         MPM.addPass(AddFunctionAttrsPass());
         MPM.addPass(LinearIdResolverPass());
         MPM.addPass(createModuleToFunctionPassAdaptor(BuiltinCallToInstPass()));
-        MPM.addPass(DPCPPKernelAnalysisPass()); // FIXME move to VectorizerStart
       });
 }
 
-void OptimizerLTO::registerVectorizerStartCallback(PassBuilder &PB) {
-  PB.registerVectorizerStartEPCallback(
-      [this](FunctionPassManager &FPM, OptimizationLevel Level) {
-        FPM.addPass(UnifyFunctionExitNodesPass());
-
+void OptimizerLTO::registerOptimizerEarlyCallback(llvm::PassBuilder &PB) {
+  PB.registerOptimizerEarlyEPCallback(
+      [&](ModulePassManager &MPM, OptimizationLevel Level) {
+        MPM.addPass(DPCPPKernelAnalysisPass());
         if (Level != OptimizationLevel::O0) {
+          MPM.addPass(WGLoopBoundariesPass());
+          FunctionPassManager FPM;
+          FPM.addPass(DCEPass());
+          FPM.addPass(SimplifyCFGPass());
+          FPM.addPass(ReassociatePass());
           if (m_IsOcl20 || m_IsSPIRV) {
             // Repeat resolution of generic address space pointers after LLVM
             // IR was optimized.
@@ -177,31 +187,76 @@ void OptimizerLTO::registerVectorizerStartCallback(PassBuilder &PB) {
             // still non-inlined functions, then we don't have to inline new
             // ones.
           }
-
-          FPM.addPass(ReassociatePass());
-
-          if (Config.GetTransposeSize() == 1)
-            return;
-
-          FPM.addPass(SinCosFoldPass());
-
-          // Replace 'div' and 'rem' instructions with calls to optimized
-          // library functions
-          FPM.addPass(MathLibraryFunctionsReplacementPass());
-
-          FPM.addPass(PromotePass());
-          FPM.addPass(LoopSimplifyPass());
-          FPM.addPass(createFunctionToLoopPassAdaptor(
-              LICMPass(SetLicmMssaOptCap, SetLicmMssaNoAccForPromotionCap,
-                       /*AllowSpeculation*/ true),
-              /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/true));
+          if (Config.GetTransposeSize() != 1) {
+            FPM.addPass(SinCosFoldPass());
+            // Replace 'div' and 'rem' instructions with calls to optimized
+            // library functions
+            FPM.addPass(MathLibraryFunctionsReplacementPass());
+            FPM.addPass(UnifyFunctionExitNodesPass());
+          }
+          MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+          MPM.addPass(DeduceMaxWGDimPass());
         }
+        MPM.addPass(InstToFuncCallPass());
+
+        if (Config.GetTransposeSize() == 1)
+          return;
+
+        VectorVariant::ISAClass ISA =
+            Intel::VectorizerCommon::getCPUIdISA(Config.GetCpuId());
+        // Analyze and set VF for kernels.
+        MPM.addPass(SetVectorizationFactorPass(ISA));
+
+        // Create and materialize "vector-variants" attribute.
+        MPM.addPass(VectorVariantLowering(ISA));
+        MPM.addPass(CreateSimdVariantPropagation());
+        MPM.addPass(SGSizeCollectorPass(ISA));
+        MPM.addPass(SGSizeCollectorIndirectPass(ISA));
+
+        // We won't automatically switch vectorization dimension for SYCL.
+        if (!m_IsSYCL)
+          MPM.addPass(
+              RequireAnalysisPass<VectorizationDimensionAnalysis, Module>());
+
+        MPM.addPass(DPCPPKernelVecClonePass(getVectInfos(), ISA,
+                                            !m_IsSYCL && !m_IsOMP));
+        MPM.addPass(VectorVariantFillIn());
+        MPM.addPass(UpdateCallAttrs());
+      });
+}
+
+void OptimizerLTO::registerVectorizerStartCallback(PassBuilder &PB) {
+  PB.registerVectorizerStartEPCallback(
+      [this](FunctionPassManager &FPM, OptimizationLevel Level) {
+        if (Level == OptimizationLevel::O0 || Config.GetTransposeSize() == 1)
+          return;
+
+        FPM.addPass(PromotePass());
+        FPM.addPass(LoopSimplifyPass());
+        FPM.addPass(createFunctionToLoopPassAdaptor(
+            LICMPass(SetLicmMssaOptCap, SetLicmMssaNoAccForPromotionCap,
+                     /*AllowSpeculation*/ true),
+            /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/true));
       });
 }
 
 void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
   PB.registerOptimizerLastEPCallback([this](ModulePassManager &MPM,
                                             OptimizationLevel Level) {
+    // Post-vectorizer cleanup.
+    if (Config.GetTransposeSize() != 1) {
+      MPM.addPass(DPCPPKernelPostVecPass());
+      if (Level != OptimizationLevel::O0) {
+        FunctionPassManager FPM;
+        FPM.addPass(InstCombinePass());
+        FPM.addPass(SimplifyCFGPass());
+        FPM.addPass(PromotePass());
+        FPM.addPass(ADCEPass());
+        MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+      }
+      MPM.addPass(HandleVPlanMask(&getVPlanMaskedFuncs()));
+    }
+
     MPM.addPass(
         ResolveSubGroupWICallPass(m_RtlModules, /*ResolveSGBarrier*/ false));
     if (Level != OptimizationLevel::O0 && Config.GetStreamingAlways())
@@ -239,16 +294,15 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       FunctionPassManager FPM;
       FPM.addPass(SROAPass());
       FPM.addPass(LoopSimplifyPass());
-      FPM.addPass(createFunctionToLoopPassAdaptor(
-          LICMPass(SetLicmMssaOptCap,
-                   SetLicmMssaNoAccForPromotionCap,
-                   /*AllowSpeculation*/ true),
-          /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/true));
       LoopPassManager LPM;
+      LPM.addPass(LICMPass(SetLicmMssaOptCap, SetLicmMssaNoAccForPromotionCap,
+                           /*AllowSpeculation*/ true));
       LPM.addPass(LoopIdiomRecognizePass());
       LPM.addPass(LoopDeletionPass());
       LPM.addPass(LoopStridedCodeMotionPass());
-      FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM)));
+      FPM.addPass(
+          createFunctionToLoopPassAdaptor(std::move(LPM), /*UseMemorySSA=*/true,
+                                          /*UseBlockFrequencyInfo=*/true));
       FPM.addPass(SimplifyCFGPass());
       MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
     } else {

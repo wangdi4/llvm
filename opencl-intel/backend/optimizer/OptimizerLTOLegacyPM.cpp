@@ -26,7 +26,6 @@
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-#include "llvm/Transforms/VPO/VPOPasses.h"
 #include "llvm/Transforms/Vectorize.h"
 
 // If set, then optimization passes will process functions as if they have the
@@ -217,7 +216,6 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
   if (OptLevel > 0) {
     if (Config.GetTransposeSize() != 1) {
       MPM.add(createDPCPPKernelPostVecPass());
-      MPM.add(createVPODirectiveCleanupPass());
       MPM.add(createHandleVPlanMaskLegacyPass(&getVPlanMaskedFuncs()));
     }
     MPM.add(createInstructionCombiningPass());

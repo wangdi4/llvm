@@ -47,7 +47,7 @@
 ; CHECK-NOT:      SGSizeCollectorLegacy
 ; CHECK-NOT:      SGSizeCollectorIndirectLegacy
 ; CHECK-NOT:      DPCPPKernelVecClone pass
-; CHECK-NOT:      VPlan Vectorization Driver
+; CHECK-NOT:      VPlan Vectorizer
 ; CHECK-NOT:      VPlan post vectorization pass for DPCPP kernels
 ; CHECK:          ResolveSubGroupWICallLegacy
 ; CHECK-NEXT:     WGLoopCreatorLegacy
