@@ -1571,11 +1571,13 @@ bool Driver::loadConfigFile() {
     SmallString<128> CfgFilePath(
         CLOptions->getLastArgValue(options::OPT_intel_config));
     if (CfgFilePath.size() > 0 && llvm::sys::fs::is_regular_file(CfgFilePath)) {
-      if (!readConfigFile(CfgFilePath))
+      if (!readConfigFile(CfgFilePath)) {
         // The default .cfg file can be empty, allow for more config processing
         // if it is.
         if (CfgOptions.get()->size() > 0)
           return false;
+        CfgOptions.reset();
+      }
     }
   }
 #endif // INTEL_CUSTOMIZATION
