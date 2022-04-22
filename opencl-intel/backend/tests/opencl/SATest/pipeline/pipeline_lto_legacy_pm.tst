@@ -61,6 +61,7 @@
 ; CHECK:          FunctionPass Manager
 ; CHECK:            VPlan Vectorizer
 ; CHECK:          VPlan post vectorization pass for DPCPP kernels
+; CHECK:          HandleVPlanMask
 ; CHECK:          ResolveSubGroupWICallLegacy
 ; CHECK:          WGLoopCreatorLegacy
 ; CHECK:          Unroll loops

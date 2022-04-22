@@ -2,14 +2,36 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "spir64_x86_64-unknown-unknown"
 
 ; Function Attrs: convergent norecurse nounwind
-define dso_local spir_kernel void @test() #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !1 !kernel_arg_type !1 !kernel_arg_base_type !1 !kernel_arg_type_qual !1 !kernel_arg_name !1 !kernel_arg_host_accessible !1 !kernel_arg_pipe_depth !1 !kernel_arg_pipe_io !1 !kernel_arg_buffer_location !1 {
+define dso_local spir_kernel void @test(i32 addrspace(1)* noundef align 4 %a, i32 addrspace(1)* noundef align 4 %b) #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_name !5 !kernel_arg_host_accessible !6 !kernel_arg_pipe_depth !7 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 {
 entry:
+  %call = call spir_func i64 @_Z13get_global_idj(i32 noundef 0) #2
+  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %a, i64 %call
+  %0 = load i32, i32 addrspace(1)* %arrayidx, align 4, !tbaa !8
+  %mul = shl nsw i32 %0, 1
+  %arrayidx1 = getelementptr inbounds i32, i32 addrspace(1)* %b, i64 %call
+  store i32 %mul, i32 addrspace(1)* %arrayidx1, align 4, !tbaa !8
   ret void
 }
 
-attributes #0 = { convergent norecurse nounwind }
+; Function Attrs: convergent nounwind readnone willreturn
+declare spir_func i64 @_Z13get_global_idj(i32 noundef) #1
+
+attributes #0 = { convergent norecurse nounwind "frame-pointer"="none" "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "stackrealign" "uniform-work-group-size"="false" }
+attributes #1 = { convergent nounwind readnone willreturn "frame-pointer"="none" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "stackrealign" }
+attributes #2 = { convergent nounwind readnone willreturn }
 
 !opencl.ocl.version = !{!0}
+!opencl.spir.version = !{!0}
 
 !0 = !{i32 2, i32 0}
-!1 = !{}
+!1 = !{i32 1, i32 1}
+!2 = !{!"none", !"none"}
+!3 = !{!"int*", !"int*"}
+!4 = !{!"", !""}
+!5 = !{!"a", !"b"}
+!6 = !{i1 false, i1 false}
+!7 = !{i32 0, i32 0}
+!8 = !{!9, !9, i64 0}
+!9 = !{!"int", !10, i64 0}
+!10 = !{!"omnipotent char", !11, i64 0}
+!11 = !{!"Simple C/C++ TBAA"}

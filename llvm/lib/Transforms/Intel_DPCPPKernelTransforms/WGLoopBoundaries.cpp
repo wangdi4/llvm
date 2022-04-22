@@ -1676,7 +1676,6 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
-    AU.setPreservesCFG();
   }
 };
 
@@ -1698,10 +1697,5 @@ PreservedAnalyses WGLoopBoundariesPass::run(Module &M,
                                             ModuleAnalysisManager &AM) {
   BuiltinLibInfo *BLI = &AM.getResult<BuiltinLibInfoAnalysis>(M);
   WGLoopBoundariesImpl Impl(M, BLI->getRuntimeService());
-  if (!Impl.run())
-    return PreservedAnalyses::all();
-  PreservedAnalyses PA;
-  PA.preserve<CallGraphAnalysis>();
-  PA.preserveSet<CFGAnalyses>();
-  return PA;
+  return Impl.run() ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }

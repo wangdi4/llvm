@@ -21,12 +21,33 @@
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
-; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
+
+; CHECK:      Running pass: DPCPPKernelAnalysisPass
 
 ; CHECK-NOT:  Running pass: InferAddressSpacesPass
+
+; CHECK:      Running pass: SetVectorizationFactorPass
+; CHECK-NEXT: Running analysis: VFAnalysis
+; CHECK-NEXT: Running pass: VectorVariantLowering
+; CHECK-NEXT: Running pass: CreateSimdVariantPropagation
+; CHECK-NEXT: Running pass: SGSizeCollectorPass
+; CHECK-NEXT: Running pass: SGSizeCollectorIndirectPass
+; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::VectorizationDimensionAnalysis, llvm::Module>
+; CHECK-NEXT: Running analysis: VectorizationDimensionAnalysis
+; CHECK-NEXT: Running pass: DPCPPKernelVecClonePass
+; CHECK-NEXT: Invalidating analysis: VerifierAnalysis
+; CHECK-NEXT: Invalidating analysis: CallGraphAnalysis
+; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-NEXT: Invalidating analysis: VFAnalysis
+; CHECK-NEXT: Invalidating analysis: VectorizationDimensionAnalysis
+; CHECK-NEXT: Running pass: VectorVariantFillIn
+; CHECK-NEXT: Running pass: UpdateCallAttrs
+
 ; CHECK-NOT:  Running pass: VecClonePass
 
-; CHECK:      Running pass: UnifyFunctionExitNodesPass
+; CHECK:      Running pass: DPCPPKernelPostVecPass
+; CHECK:      Running pass: HandleVPlanMask
+
 ; CHECK:      Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: DPCPPKernelWGLoopCreatorPass
 

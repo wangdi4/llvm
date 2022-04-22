@@ -27,21 +27,25 @@
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
-; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
 
-; CHECK:      Running pass: UnifyFunctionExitNodesPass
+; CHECK:      Running pass: DPCPPKernelAnalysisPass
+; CHECK-NEXT: Running pass: WGLoopBoundariesPass
+
+; CHECK:      Running pass: ReassociatePass
 ; CHECK-NEXT: Running pass: InferAddressSpacesPass
 ; CHECK-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-NEXT: Running pass: SROAPass
-; CHECK-NEXT: Running pass: EarlyCSEPass
+; CHECK:      Running pass: EarlyCSEPass
 ; CHECK-NEXT: Running pass: PromotePass
 ; CHECK-NEXT: Running pass: InstCombinePass
+; CHECK:      Running pass: DeduceMaxWGDimPass
+; CHECK-NEXT: Running pass: InstToFuncCallPass
 
-; CHECK:      Running pass: ReassociatePass
-; CHECK-NOT:  Running pass: SinCosFoldPass
-; CHECK-NOT:  Running pass: MathLibraryFunctionsReplacementPass
-; CHECK:      Running pass: LoopUnrollPass
+; CHECK-NOT:  Running pass: DPCPPKernelVecClonePass
 ; CHECK-NOT:  Running pass: VecClonePass
+; CHECK-NOT:  Running pass: vpo::VPlanDriverPass
+; CHECK-NOT:  Running pass: DPCPPKernelPostVecPass
+; CHECK-NOT:  Running pass: HandleVPlanMask
 
 ; CHECK:      Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: DPCPPKernelWGLoopCreatorPass
@@ -50,8 +54,8 @@
 ; CHECK:      Running pass: PhiCanonicalization
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
-; CHECK-NEXT: Running pass: Intel Kernel RedundantPhiNode
-; CHECK-NEXT: Running pass: GroupBuiltin
+; CHECK:      Running pass: Intel Kernel RedundantPhiNode
+; CHECK:      Running pass: GroupBuiltinPass
 ; CHECK-NEXT: Running pass: Intel Kernel BarrierInFunction
 ; CHECK:      Running pass: ResolveSubGroupWICallPass
 ; CHECK:      Running pass: Intel Kernel SplitBBonBarrier
@@ -62,7 +66,7 @@
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
 ; CHECK-NEXT: Running analysis: DominanceFrontierAnalysis
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
-; CHECK-NEXT: Running pass: Intel Kernel Barrier
+; CHECK:      Running pass: Intel Kernel Barrier
 
 ; CHECK:      Running pass: AddImplicitArgsPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
