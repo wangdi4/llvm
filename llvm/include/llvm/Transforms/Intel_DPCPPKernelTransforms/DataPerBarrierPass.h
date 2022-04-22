@@ -69,15 +69,20 @@ public:
   /// Check if predecessors of given basic block is available.
   /// Return true if available, false otherwise.
   bool hasPredecessors(BasicBlock *pBB) {
-    return PredecessorMap.count(pBB);
+    if (PredecessorMap.find(pBB) == PredecessorMap.end())
+      FindPredecessors(pBB);
+    return !PredecessorMap[pBB].empty();
   }
 
   /// Return predecessors of a given basic block.
   /// BB pointer to basic block.
   /// Returns basic blocks set of predecessors.
   BasicBlockSet &getPredecessors(BasicBlock *BB) {
-    assert(PredecessorMap.count(BB) && "basic block has no predecessor data!");
-    return PredecessorMap[BB];
+    auto iter = PredecessorMap.find(BB);
+    if (iter != PredecessorMap.end())
+      return iter->second;
+
+    return FindPredecessors(BB);
   }
 
   /// Return Successors of given basic block.
@@ -117,7 +122,7 @@ private:
 
   /// Calculate Predecessors of given basic block.
   /// BB pointer to basic block.
-  void FindPredecessors(BasicBlock *BB);
+  BasicBlockSet &FindPredecessors(BasicBlock *BB);
 
   /// Calculate Successors of given basic block.
   /// BB pointer to basic block.
