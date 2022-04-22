@@ -44,8 +44,6 @@ declare void @_Z18work_group_barrierj(i32)
 
 ; CHECK: synchronize basic blocks
 
-; CHECK: basic blocks predecessors
-
 ; CHECK: synchronize basic blocks successors
 ; CHECK-NOT: +
 ; CHECK: +L1

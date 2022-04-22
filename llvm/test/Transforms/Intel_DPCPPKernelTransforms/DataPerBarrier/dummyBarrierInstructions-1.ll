@@ -58,8 +58,6 @@ declare void @dummy_barrier.()
 ; CHECK-NOT: +
 ; CHECK: *
 
-; CHECK: basic blocks predecessors
-
 ; CHECK: synchronize basic blocks successors
 ; CHECK-NOT: +
 ; CHECK: +L0

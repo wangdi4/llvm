@@ -39,11 +39,6 @@ L3:
 ; CHECK-NOT: -
 ; CHECK-NOT: *
 
-; CHECK: basic blocks predecessors
-; CHECK-NOT: +
-; CHECK-NOT: -
-; CHECK-NOT: *
-
 ; CHECK: synchronize basic blocks successors
 ; CHECK-NOT: +
 ; CHECK-NOT: -

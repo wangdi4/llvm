@@ -64,11 +64,6 @@ bool DataPerBarrier::runOnFunction(Function &F) {
     return false;
   }
 
-  // Calculate predecessors for all basic blocks.
-  for (auto &BB : F) {
-    FindPredecessors(&BB);
-  }
-
   // Calculate successors and sync predecessors only for sync basic blocks.
   for (Instruction *SyncInst : SyncsPerFuncMap[&F]) {
     BasicBlock *BB = SyncInst->getParent();
@@ -78,7 +73,7 @@ bool DataPerBarrier::runOnFunction(Function &F) {
   return false;
 }
 
-void DataPerBarrier::FindPredecessors(BasicBlock *BB) {
+BasicBlockSet &DataPerBarrier::FindPredecessors(BasicBlock *BB) {
   BasicBlockSet &Predecessors = PredecessorMap[BB];
   std::vector<BasicBlock *> BasicBlocksToHandle;
 
@@ -99,6 +94,8 @@ void DataPerBarrier::FindPredecessors(BasicBlock *BB) {
       BasicBlocksToHandle.push_back(PredBB);
     }
   }
+
+  return Predecessors;
 }
 
 void DataPerBarrier::FindSuccessors(BasicBlock *BB) {
@@ -178,21 +175,6 @@ void DataPerBarrier::print(raw_ostream &OS, const Module *M) const {
     for (const Instruction *SyncInst : SyncInstSet) {
       const BasicBlock *BB = SyncInst->getParent();
       // Print basic block name
-      OS << "\t-" << BB->getName() << "\n";
-    }
-    OS << "*"
-       << "\n";
-  }
-
-  // Run on all Predecessors
-  OS << "\nbasic blocks predecessors\n";
-  for (const auto &KV : PredecessorMap) {
-    const BasicBlock *BBB = KV.first;
-    // Print barrier basic block name
-    OS << "+" << BBB->getName() << "\n";
-    const BasicBlockSet &BBSet = KV.second;
-    for (const BasicBlock *BB : BBSet) {
-      // Print predecessor basic block name
       OS << "\t-" << BB->getName() << "\n";
     }
     OS << "*"
