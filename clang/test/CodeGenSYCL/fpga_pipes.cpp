@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // UNSUPPORTED: intel_opencl
 // RUN: %clang_cc1 -fsycl-is-device %s -opaque-pointers -emit-llvm -triple spir64-unknown-unknown -disable-llvm-passes -o - | FileCheck %s
 // INTEL_CUSTOMIZATION
@@ -8,6 +9,9 @@
 // end INTEL_CUSTOMIZATION
 // CHECK: %opencl.pipe_wo_t
 // CHECK: %opencl.pipe_ro_t
+=======
+// RUN: %clang_cc1 -fsycl-is-device %s -opaque-pointers -emit-llvm -triple spir64-unknown-unknown -disable-llvm-passes -o - | FileCheck %s
+>>>>>>> 89894127c2a34354f6076c189de41e558838f544
 
 using WPipeTy = __attribute__((pipe("write_only"))) const int;
 SYCL_EXTERNAL WPipeTy WPipeCreator();
