@@ -1715,7 +1715,10 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
 
   if (HasConfigFile)
     for (auto *Opt : *CLOptions) {
-      if (Opt->getOption().matches(options::OPT_config))
+#if INTEL_CUSTOMIZATION
+      if (Opt->getOption().matches(options::OPT_config) ||
+          Opt->getOption().matches(options::OPT_intel_config))
+#endif // INTEL_CUSTOMIZATION
         continue;
       const Arg *BaseArg = &Opt->getBaseArg();
       if (BaseArg == Opt)
