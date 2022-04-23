@@ -4213,6 +4213,18 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     return;
   }
 
+  case VPInstruction::PrivateLastValueNonPOD: {
+    RegDDRef *Orig = getOrCreateScalarRef(VPInst->getOperand(1), 0);
+    VPAllocatePrivate *Priv = cast<VPAllocatePrivate>(VPInst->getOperand(0));
+    RegDDRef *Res = getOrCreateScalarRef(Priv, getVF() - 1);
+    auto *CopyAssignFn =
+        cast<VPPrivateLastValueNonPODInst>(VPInst)->getCopyAssign();
+    auto *PrivCopyAssign =
+        HLNodeUtilities.createCall(CopyAssignFn, {Orig, Res});
+    addInstUnmasked(PrivCopyAssign);
+    return;
+  }
+
   default:
     llvm_unreachable("Unsupported VPLoopEntity instruction.");
   }
@@ -4638,6 +4650,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::PrivateFinalMaskedMem:
   case VPInstruction::PrivateFinalMasked:
   case VPInstruction::PrivateFinalArray:
+  case VPInstruction::PrivateLastValueNonPOD:
     widenLoopEntityInst(VPInst);
     return;
   case Instruction::ShuffleVector: {
@@ -5976,16 +5989,6 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     setVF(V.first);
     setUF(V.second);
     return;
-  }
-
-  case VPInstruction::PrivateLastValueNonPOD: {
-    RegDDRef *Orig = getScalRefForVPVal(VPInst->getOperand(1), 0)->clone();
-    VPAllocatePrivate *Priv = cast<VPAllocatePrivate>(VPInst->getOperand(0));
-    RegDDRef *Res = getOrCreateScalarRef(Priv, getVF() - 1);
-    auto *CopyAssignFn =
-        cast<VPPrivateLastValueNonPODInst>(VPInst)->getCopyAssign();
-    NewInst = HLNodeUtilities.createCall(CopyAssignFn, {Orig, Res});
-    break;
   }
 
   default:
