@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -116,6 +116,11 @@ STATISTIC(NumArgumentsDead, "Number of dead pointer args eliminated");
 static cl::opt<bool>
   ForceRemoveHomedArguments("argpro-force-remove-homed-arguments",
     cl::init(false), cl::ReallyHidden);
+// CMPLRLLVM-36992: Switch to allow one level of argument promotion
+// on recursive functions.
+static cl::opt<bool>
+  AllowSingleLevelRecursive("argpro-single-level-recursive",
+    cl::init(true), cl::ReallyHidden);
 #endif // INTEL_CUSTOMIZATION
 
 struct ArgPart {
@@ -689,12 +694,12 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
     if (Size.isScalable())
       return false;
 
+#if INTEL_CUSTOMIZATION
     // If this is a recursive function and one of the types is a pointer,
     // then promoting it might lead to recursive promotion.
-    if (IsRecursive && Ty->isPointerTy())
+    if (!AllowSingleLevelRecursive && IsRecursive && Ty->isPointerTy())
       return false;
 
-#if INTEL_CUSTOMIZATION
     if (isCallback)
       // Promoted argument should fit into pointer size.
       if (Size > DL.getTypeStoreSize(Arg->getType()))
@@ -709,7 +714,11 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
 
     // We limit promotion to only promoting up to a fixed number of elements of
     // the aggregate.
-    if (MaxElements > 0 && ArgParts.size() >= MaxElements) {
+#if INTEL_CUSTOMIZATION
+    // CMPLRLLVM-36992: Ensure that the same number of elements can be promoted
+    // as were promoted before the latest major community change.
+    if (MaxElements > 0 && ArgParts.size() > MaxElements) {
+#endif // INTEL_CUSTOMIZATION
       LLVM_DEBUG(dbgs() << "ArgPromotion of " << *Arg << " failed: "
                         << "more than " << MaxElements << " parts\n");
       return false;
@@ -981,7 +990,7 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
                  bool RemoveHomedArguments, unsigned MaxElements, // INTEL
                  Optional<function_ref<void(CallBase &OldCS, CallBase &NewCS)>>
                      ReplaceCallSite,
-                 const TargetTransformInfo &TTI, bool IsRecursive) {
+                 const TargetTransformInfo &TTI, bool &IsRecursive) { // INTEL
   RemoveHomedArguments |= ForceRemoveHomedArguments; // INTEL
   // Don't perform argument promotion for naked functions; otherwise we can end
   // up removing parameters that are seemingly 'not used' as they are referred
@@ -1195,6 +1204,14 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
                                              LazyCallGraph &CG,
                                              CGSCCUpdateResult &UR) {
   bool Changed = false, LocalChange;
+#if INTEL_CUSTOMIZATION
+    // CMPLRLLVM-36992: Keep track of recursive functions so that we perform 
+    // argument promotion on them at most once per pass invocation. When this
+    // optimization was re-implemented on 2020128 to be offset-based, we lost
+    // the ability to do any argument promotion on pointer arguments in
+    // recursive functions. We would like to restore that partially for xmain.
+    SmallPtrSet<Function *, 4> RecursiveFunctions;
+#endif // INTEL_CUSTOMIZATION
 
   // Iterate until we stop promoting from this SCC.
   do {
@@ -1206,6 +1223,10 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
     bool IsRecursive = C.size() > 1;
     for (LazyCallGraph::Node &N : C) {
       Function &OldF = N.getFunction();
+#if INTEL_CUSTOMIZATION
+      if (RecursiveFunctions.count(&OldF))
+        continue;
+#endif // INTEL_CUSTOMIZATION
 
       // FIXME: This lambda must only be used with this function. We should
       // skip the lambda and just get the AA results directly.
@@ -1223,6 +1244,11 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
       if (!NewF)
         continue;
       LocalChange = true;
+#if INTEL_CUSTOMIZATION
+      RecursiveFunctions.erase(&OldF);
+      if (IsRecursive)
+        RecursiveFunctions.insert(NewF);
+#endif // INTEL_CUSTOMIZATION
 
       // Directly substitute the functions in the call graph. Note that this
       // requires the old function to be completely dead and completely
@@ -1252,7 +1278,6 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
 #endif // INTEL_CUSTOMIZATION
       }
     }
-
     Changed |= LocalChange;
   } while (LocalChange);
 
@@ -1345,6 +1370,14 @@ bool ArgPromotion::runOnSCC(CallGraphSCC &SCC) {
   LegacyAARGetter AARGetter(*this);
 
   bool Changed = false, LocalChange;
+#if INTEL_CUSTOMIZATION
+    // CMPLRLLVM-36992: Keep track of recursive functions so that we perform 
+    // argument promotion on them at most once per pass invocation. When this
+    // optimization was re-implemented on 2022128 to be offset-based, we lost
+    // the ability to do any argument promotion on pointer arguments in
+    // recursive functions. We would like to restore that partially for xmain.
+    SmallPtrSet<Function *, 4> RecursiveFunctions;
+#endif // INTEL_CUSTOMIZATION
 
   // Iterate until we stop promoting from this SCC.
   do {
@@ -1355,6 +1388,11 @@ bool ArgPromotion::runOnSCC(CallGraphSCC &SCC) {
       Function *OldF = OldNode->getFunction();
       if (!OldF)
         continue;
+
+#if INTEL_CUSTOMIZATION
+      if (RecursiveFunctions.count(OldF))
+        continue;
+#endif // INTEL_CUSTOMIZATION
 
       auto ReplaceCallSite = [&](CallBase &OldCS, CallBase &NewCS) {
         Function *Caller = OldCS.getParent()->getParent();
@@ -1374,6 +1412,11 @@ bool ArgPromotion::runOnSCC(CallGraphSCC &SCC) {
                                IsRecursive)) {
 #endif // INTEL_CUSTOMIZATION
         LocalChange = true;
+#if INTEL_CUSTOMIZATION
+        RecursiveFunctions.erase(OldF);
+        if (IsRecursive)
+          RecursiveFunctions.insert(NewF);
+#endif // INTEL_CUSTOMIZATION
 
         // Update the call graph for the newly promoted function.
         CallGraphNode *NewNode = CG.getOrInsertFunction(NewF);
