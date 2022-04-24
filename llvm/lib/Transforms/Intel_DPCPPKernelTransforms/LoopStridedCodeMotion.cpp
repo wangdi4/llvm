@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LoopStridedCodeMotion.h"
+#include "llvm/Analysis/MemorySSA.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/PatternMatch.h"
@@ -566,7 +567,9 @@ LoopStridedCodeMotionPass::run(Loop &L, LoopAnalysisManager &AM,
   if (!Impl.run())
     return PreservedAnalyses::all();
 
-  PreservedAnalyses PA;
-  PA.preserveSet<CFGAnalyses>();
+  auto PA = getLoopPassPreservedAnalyses();
+  if (AR.MSSA)
+    PA.preserve<MemorySSAAnalysis>();
+
   return PA;
 }

@@ -50,6 +50,7 @@
 
 ; CHECK:      Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: DPCPPKernelWGLoopCreatorPass
+; CHECK:      Running pass: IndirectCallLowering
 
 ; CHECK:      Running analysis: InnerAnalysisManagerProxy
 ; CHECK-NEXT: Running pass: PhiCanonicalization
