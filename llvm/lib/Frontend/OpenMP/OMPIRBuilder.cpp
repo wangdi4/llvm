@@ -403,17 +403,16 @@ OpenMPIRBuilder::getOrCreateRuntimeFunction(Module &M, RuntimeFunction FnID) {
 #if INTEL_COLLAB
 #define OMP_RTL(Enum, Str, IsVarArg, ReturnType, ...)                          \
   case Enum: {                                                                 \
+    llvm::Type *RetTy = ReturnType;                                            \
     SmallVector<llvm::Type *, 5> ArgTys = {__VA_ARGS__};                       \
     if (unsigned PointerAS = getPointerAddressSpace(M)) {                      \
       if (auto *PT = dyn_cast<PointerType>(ReturnType))                        \
-        if (PT != IdentPtr)                                                    \
-          ReturnType = PointerType::getWithSamePointeeType(PT, PointerAS);     \
+        RetTy = PointerType::getWithSamePointeeType(PT, PointerAS);            \
       for (unsigned I = 0, E = ArgTys.size(); I < E; ++I)                      \
         if (auto *PT = dyn_cast<PointerType>(ArgTys[I]))                       \
-          if (PT != IdentPtr)                                                  \
-            ArgTys[I] = PointerType::getWithSamePointeeType(PT, PointerAS);    \
+          ArgTys[I] = PointerType::getWithSamePointeeType(PT, PointerAS);      \
     }                                                                          \
-    FnTy = FunctionType::get(ReturnType, ArgTys, IsVarArg);                    \
+    FnTy = FunctionType::get(RetTy, ArgTys, IsVarArg);                         \
     Fn = M.getFunction(Str);                                                   \
   } break;
 #else  // INTEL_COLLAB

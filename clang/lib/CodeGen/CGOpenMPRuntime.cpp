@@ -1465,8 +1465,18 @@ llvm::Value *CGOpenMPRuntime::emitUpdateLocation(CodeGenFunction &CGF,
                                                 Column, SrcLocStrSize);
   }
   unsigned Reserved2Flags = getDefaultLocationReserved2Flags();
+
+#if INTEL_COLLAB
+  return llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
+      OMPBuilder.getOrCreateIdent(SrcLocStr, SrcLocStrSize,
+                                  llvm::omp::IdentFlag(Flags), Reserved2Flags),
+      llvm::PointerType::getWithSamePointeeType(
+          cast<llvm::PointerType>(getIdentTyPointerTy()),
+          CGM.getEffectiveAllocaAddrSpace()));
+#else // INTEL_COLLAB
   return OMPBuilder.getOrCreateIdent(
       SrcLocStr, SrcLocStrSize, llvm::omp::IdentFlag(Flags), Reserved2Flags);
+#endif // INTEL_COLLAB
 }
 
 llvm::Value *CGOpenMPRuntime::getThreadID(CodeGenFunction &CGF,
