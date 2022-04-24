@@ -8500,7 +8500,7 @@ public:
               CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(LowestElem,
 #if INTEL_COLLAB
                   CGF.CGM.getLangOpts().OpenMPLateOutline
-                      ? llvm::PointerType::get(CGF.VoidPtrTy->getElementType(),
+                      ? llvm::PointerType::getWithSamePointeeType(CGF.VoidPtrTy,
                                                LowestElem.getPointer()
                                                    ->getType()
                                                    ->getPointerAddressSpace())
