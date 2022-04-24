@@ -1279,7 +1279,6 @@ public:
     /// \p U1 and \p U2 are the users of \p V1 and \p V2.
     /// Also, checks if \p V1 and \p V2 are compatible with instructions in \p
     /// MainAltOps.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // Customization note: keep function as a static member and pass
     // BoUpSLP argument explicitly.
@@ -1288,10 +1287,6 @@ public:
                                ScalarEvolution &SE, int NumLanes,
                                ArrayRef<Value *> MainAltOps, const BoUpSLP &R) {
 #endif // INTEL_CUSTOMIZATION
-=======
-    int getShallowScore(Value *V1, Value *V2, Instruction *U1, Instruction *U2,
-                        ArrayRef<Value *> MainAltOps) const {
->>>>>>> edf7bed87b77262abca0349f0f31f7e5092a5259
       if (V1 == V2) {
         if (isa<LoadInst>(V1)) {
           // Retruns true if the users of V1 and V2 won't need to be extracted.
@@ -1413,72 +1408,7 @@ public:
       return LookAheadHeuristics::ScoreFail;
     }
 
-<<<<<<< HEAD
-  private: // INTEL
-    /// \param Lane lane of the operands under analysis.
-    /// \param OpIdx operand index in \p Lane lane we're looking the best
-    /// candidate for.
-    /// \param Idx operand index of the current candidate value.
-    /// \returns The additional score due to possible broadcasting of the
-    /// elements in the lane. It is more profitable to have power-of-2 unique
-    /// elements in the lane, it will be vectorized with higher probability
-    /// after removing duplicates. Currently the SLP vectorizer supports only
-    /// vectorization of the power-of-2 number of unique scalars.
-    int getSplatScore(unsigned Lane, unsigned OpIdx, unsigned Idx) const {
-      Value *IdxLaneV = getData(Idx, Lane).V;
-      if (!isa<Instruction>(IdxLaneV) || IdxLaneV == getData(OpIdx, Lane).V)
-        return 0;
-      SmallPtrSet<Value *, 4> Uniques;
-      for (unsigned Ln = 0, E = getNumLanes(); Ln < E; ++Ln) {
-        if (Ln == Lane)
-          continue;
-        Value *OpIdxLnV = getData(OpIdx, Ln).V;
-        if (!isa<Instruction>(OpIdxLnV))
-          return 0;
-        Uniques.insert(OpIdxLnV);
-      }
-      int UniquesCount = Uniques.size();
-      int UniquesCntWithIdxLaneV =
-          Uniques.contains(IdxLaneV) ? UniquesCount : UniquesCount + 1;
-      Value *OpIdxLaneV = getData(OpIdx, Lane).V;
-      int UniquesCntWithOpIdxLaneV =
-          Uniques.contains(OpIdxLaneV) ? UniquesCount : UniquesCount + 1;
-      if (UniquesCntWithIdxLaneV == UniquesCntWithOpIdxLaneV)
-        return 0;
-      return (PowerOf2Ceil(UniquesCntWithOpIdxLaneV) -
-              UniquesCntWithOpIdxLaneV) -
-             (PowerOf2Ceil(UniquesCntWithIdxLaneV) - UniquesCntWithIdxLaneV);
-    }
-
-    /// \param Lane lane of the operands under analysis.
-    /// \param OpIdx operand index in \p Lane lane we're looking the best
-    /// candidate for.
-    /// \param Idx operand index of the current candidate value.
-    /// \returns The additional score for the scalar which users are all
-    /// vectorized.
-    int getExternalUseScore(unsigned Lane, unsigned OpIdx, unsigned Idx) const {
-      Value *IdxLaneV = getData(Idx, Lane).V;
-      Value *OpIdxLaneV = getData(OpIdx, Lane).V;
-      // Do not care about number of uses for vector-like instructions
-      // (extractelement/extractvalue with constant indices), they are extracts
-      // themselves and already externally used. Vectorization of such
-      // instructions does not add extra extractelement instruction, just may
-      // remove it.
-      if (isVectorLikeInstWithConstOps(IdxLaneV) &&
-          isVectorLikeInstWithConstOps(OpIdxLaneV))
-        return VLOperands::ScoreAllUserVectorized;
-      auto *IdxLaneI = dyn_cast<Instruction>(IdxLaneV);
-      if (!IdxLaneI || !isa<Instruction>(OpIdxLaneV))
-        return 0;
-      return R.areAllUsersVectorized(IdxLaneI, None)
-                 ? VLOperands::ScoreAllUserVectorized
-                 : 0;
-    }
-
-    /// Go through the operands of \p LHS and \p RHS recursively until \p
-=======
     /// Go through the operands of \p LHS and \p RHS recursively until
->>>>>>> edf7bed87b77262abca0349f0f31f7e5092a5259
     /// MaxLevel, and return the cummulative score. \p U1 and \p U2 are
     /// the users of \p LHS and \p RHS (that is \p LHS and \p RHS are operands
     /// of \p U1 and \p U2), except at the beginning of the recursion where
@@ -1510,13 +1440,9 @@ public:
 
       // Get the shallow score of V1 and V2.
       int ShallowScoreAtThisLevel =
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-          getShallowScore(LHS, RHS, U1, U2, DL, SE, getNumLanes(), MainAltOps, R);
+          getShallowScore(LHS, RHS, U1, U2, DL, SE, NumLanes, MainAltOps, R);
 #endif // INTEL_CUSTOMIZATION
-=======
-          getShallowScore(LHS, RHS, U1, U2, MainAltOps);
->>>>>>> edf7bed87b77262abca0349f0f31f7e5092a5259
 
       // If reached MaxLevel,
       //  or if V1 and V2 are not instructions,
@@ -2474,7 +2400,7 @@ private:
       int getScoreAtLevel(Value *V1, Value *V2, Instruction *U1,
                           Instruction *U2, int Level, int MaxLevel) {
         // Get the shallow score of V1 and V2.
-        int ShallowScoreAtThisLevel = VLOperands::getShallowScore(
+        int ShallowScoreAtThisLevel = LookAheadHeuristics::getShallowScore(
             V1, V2, U1, U2, DL, SE, getNumLanes(), None, R);
 
         // If reached MaxLevel,
@@ -2484,7 +2410,7 @@ private:
         auto *I1 = dyn_cast<Instruction>(V1);
         auto *I2 = dyn_cast<Instruction>(V2);
         if (Level == MaxLevel || !(I1 && I2) || I1 == I2 ||
-            ShallowScoreAtThisLevel == VLOperands::ScoreFail ||
+            ShallowScoreAtThisLevel == LookAheadHeuristics::ScoreFail ||
             (isa<LoadInst>(I1) && isa<LoadInst>(I2) && ShallowScoreAtThisLevel))
           return ShallowScoreAtThisLevel;
 
@@ -2663,9 +2589,9 @@ private:
             Value *Left = getData(OpI, Lane - 1).getLeaf();
             Value *Right = getData(OpI, Lane).getLeaf();
             if (Left == Right ||
-                VLOperands::getShallowScore(
+                LookAheadHeuristics::getShallowScore(
                     Left, Right, /*U1=*/nullptr, /*U2=*/nullptr, DL, SE,
-                    getNumLanes(), None, R) == VLOperands::ScoreFail) {
+                    getNumLanes(), None, R) == LookAheadHeuristics::ScoreFail) {
               AreConsecutive = false;
               break;
             }
