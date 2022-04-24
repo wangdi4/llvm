@@ -264,7 +264,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     MPM.addPass(DPCPPKernelWGLoopCreatorPass());
 
     // Can't run loop unroll between WGLoopCreator and LoopIdiom for scalar
-    // workload, which would can from LoopIdiom.
+    // workload, which can benefit from LoopIdiom.
     if (Level != OptimizationLevel::O0 && Config.GetTransposeSize() != 1) {
       LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
       UnrollOpts.setPartial(false);
@@ -272,6 +272,9 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       MPM.addPass(
           createModuleToFunctionPassAdaptor(LoopUnrollPass(UnrollOpts)));
     }
+
+    // Resolve __intel_indirect_call for scalar kernels.
+    MPM.addPass(IndirectCallLowering());
 
     addBarrierPasses(MPM, Level);
 
