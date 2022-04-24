@@ -1635,6 +1635,9 @@ public:
     /// Parameter for captured context
     CapturedContext,
 
+    /// Parameter for Thread private variable
+    ThreadPrivateVar,
+
     /// Other implicit parameter
     Other,
   };
