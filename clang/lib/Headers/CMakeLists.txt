@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 #
 # INTEL CONFIDENTIAL
@@ -405,38 +404,11 @@ intel_add_file(INTEL_HEADERS
 # end INTEL_FEATURE_XUCC
 # end INTEL_CUSTOMIZATION
 
-# core_files list contains the headers shared by all platforms.
-# Please consider adding new platform specific headers
-# to platform specific lists below.
-set(core_files
-  builtins.h
-  float.h
-  inttypes.h
-  iso646.h
-  limits.h
-  module.modulemap
-  stdalign.h
-  stdarg.h
-  stdatomic.h
-  stdbool.h
-  stddef.h
-  __stddef_max_align_t.h
-  stdint.h
-  stdnoreturn.h
-  tgmath.h
-  unwind.h
-  varargs.h
-  )
-
-set(arm_common_files
-  # Headers shared by Arm and AArch64
-=======
 set(files
   adxintrin.h
   altivec.h
   ammintrin.h
   amxintrin.h
->>>>>>> 38822b98fa3b9d740b9a68b0de34296205d20819
   arm_acle.h
   arm_cmse.h
   armintr.h
