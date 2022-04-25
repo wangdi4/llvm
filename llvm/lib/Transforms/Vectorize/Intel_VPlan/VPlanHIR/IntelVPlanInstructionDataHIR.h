@@ -35,6 +35,9 @@ class HLNode;
 namespace vpo {
 
 class VPInstruction;
+class VPExternalDef;
+class VPExternalUse;
+class VPValue;
 struct SymbaseIVLevelMapInfo;
 
 /// Class to hold the underlying HLNode of a master VPInstruction and its
@@ -541,6 +544,25 @@ public:
   ArrayRef<unsigned> fakeSymbases() const;
 
   void cloneFrom(const HIRSpecifics HIR);
+};
+
+// Wrapper for underlying HIR data of VPExternalDef and VPExternalUse.
+class HIROperandSpecifics {
+  PointerUnion<const VPExternalUse *, const VPExternalDef *> ExtObj;
+
+public:
+  HIROperandSpecifics(const VPExternalUse *ExtO) : ExtObj(ExtO) {}
+  HIROperandSpecifics(const VPExternalDef *ExtO) : ExtObj(ExtO) {}
+
+  unsigned getSymbase() const {
+    const VPOperandHIR *Operand = getOperand();
+    if (Operand && isa<VPBlob>(Operand))
+      return cast<VPBlob>(Operand)->getBlob()->getSymbase();
+    return loopopt::InvalidSymbase;
+  }
+
+private:
+  const VPOperandHIR *getOperand() const;
 };
 
 } // namespace vpo

@@ -38,22 +38,21 @@
 ; <25>               (%p1.addr.i)[0] = %add10.i;
 ; <26>               @llvm.directive.region.exit(%6); [ DIR.OMP.END.SIMD() ]
 ; <0>          END REGION
+;
+; The livein and liveout temps are different for the reductions, thus we are not
+; able to generate correct code for last value and bailout.
 
-
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-print-after-plain-cfg -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-print-after-plain-cfg -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-print-after-plain-cfg -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-print-after-plain-cfg -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; Check entities dump and VPlan IR
 ; CHECK: Reduction list
 ; CHECK: (+) Start: i32 [[V1_START:%.*]] Exit: i32 [[V1_EXIT:%.*]]
 ; CHECK: (+) Start: i32 [[V2_START:%.*]] Exit: i32 [[V2_EXIT:%.*]]
-; CHECK: i32 {{%vp.*}} = reduction-init i32 0 i32 [[V1_START]]
-; CHECK: i32 {{%vp.*}} = reduction-init i32 0 i32 [[V2_START]]
-; CHECK: i32 {{%vp.*}} = reduction-final{u_add} i32 [[V1_EXIT]]
-; CHECK: i32 {{%vp.*}} = reduction-final{u_add} i32 [[V2_EXIT]]
+; CHECK-NOT: reduction-init
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

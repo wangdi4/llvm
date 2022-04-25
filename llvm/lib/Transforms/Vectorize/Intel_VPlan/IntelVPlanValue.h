@@ -569,7 +569,7 @@ class VPExternalDef : public VPValue, public FoldingSetNode {
   friend class VPLiveInOutCreator;
   friend class VPOCodeGenHIR;
   friend class VPOCodeGen;
-  friend class VPLoopEntityList;
+  friend class HIROperandSpecifics;
 
 private:
   // Hold the DDRef or IV information related to this external definition.
@@ -626,6 +626,10 @@ public:
   VPExternalDef(const VPExternalDef &) = delete;
   VPExternalDef &operator=(const VPExternalDef &) const = delete;
 
+  const HIROperandSpecifics HIR() const {
+    return HIROperandSpecifics(this);
+  }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS) const override {
     if (getUnderlyingValue())
@@ -666,6 +670,7 @@ private:
   friend class VPOCodeGen;
   friend class VPOCodeGenHIR;
   friend class VPDecomposerHIR;
+  friend class HIROperandSpecifics;
 
   // Hold the DDRef or IV information related to this external use.
   std::unique_ptr<VPOperandHIR> HIROperand;
@@ -715,6 +720,10 @@ public:
 
   bool hasUnderlying() const {
     return getUnderlyingValue() != nullptr || HIROperand != nullptr;
+  }
+
+  const HIROperandSpecifics HIR() const {
+    return HIROperandSpecifics(this);
   }
 
   /// Adds operand with an underlying value. The underlying value points to the

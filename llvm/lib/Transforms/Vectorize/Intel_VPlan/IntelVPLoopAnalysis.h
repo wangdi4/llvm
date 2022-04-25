@@ -477,6 +477,14 @@ class VPLoopEntityList {
   using VPEntityAliasesTy = VPPrivate::VPEntityAliasesTy;
 
 public:
+  /// Importing error indicators.
+  enum class ImportError {
+    None = 0,
+    Reduction,
+    Induction,
+    Private,
+  };
+
   /// Add reduction described by \p K, \p MK, and \p Signed,
   /// with starting instruction \p Instr, incoming value \p Incoming, exiting
   /// instruction \p Exit and alloca-instruction \p AI.
@@ -695,6 +703,9 @@ public:
     return false;
   }
 
+  void setImportingError(ImportError ErrC) { ImportErr = ErrC;}
+  ImportError getImportingError() const { return ImportErr;}
+
   // Find implicit last privates in the loop and add their descriptors.
   // Implicit last private is a live out value which is assigned in the
   // loop and is not known as reduction/induction.
@@ -718,6 +729,8 @@ public:
 private:
   VPlanVector &Plan;
   VPLoop &Loop;
+
+  ImportError ImportErr = ImportError::None;
 
   VPReductionList ReductionList;
   VPInductionList InductionList;
@@ -781,11 +794,6 @@ private:
       Descr->addLinkedVPValue(Val);
     }
   }
-
-#if INTEL_CUSTOMIZATION
-  // Copy HIR operand from \p AI to \p V, if it exists.
-  static void updateHIROperand(VPValue *AI, VPLoadStoreInst *V);
-#endif //INTEL_CUSTOMIZATION
 
   // Create private memory allocator for VPLoopEntity if the corresponding
   // memory descriptor exists.
@@ -1039,7 +1047,7 @@ public:
   /// Return true if not all data is completed.
   bool isIncomplete() const;
   /// Attempt to fix incomplete data using VPlan and VPLoop.
-  void tryToCompleteByVPlan(const VPlanVector *Plan, const VPLoop *Loop);
+  void tryToCompleteByVPlan(VPlanVector *Plan, const VPLoop *Loop);
   /// Pass the data to VPlan
   void passToVPlan(VPlanVector *Plan, const VPLoop *Loop);
   /// Check if current reduction descriptor duplicates another that is already
@@ -1168,7 +1176,7 @@ public:
   /// Return true if not all data is completed.
   bool isIncomplete() const;
   /// Attemp to fix incomplete data using VPlan and VPLoop.
-  void tryToCompleteByVPlan(const VPlanVector *Plan, const VPLoop *Loop);
+  void tryToCompleteByVPlan(VPlanVector *Plan, const VPLoop *Loop);
   /// Pass the data to VPlan
   void passToVPlan(VPlanVector *Plan, const VPLoop *Loop);
   /// Check if current induction descriptor duplicates another that is already
@@ -1234,7 +1242,7 @@ public:
   bool isIncomplete() const { return ExitInst == nullptr; }
 
   /// Attemp to fix incomplete data using VPlan and VPLoop.
-  void tryToCompleteByVPlan(const VPlanVector *Plan, const VPLoop *Loop);
+  void tryToCompleteByVPlan(VPlanVector *Plan, const VPLoop *Loop);
 
   /// Pass the data to VPlan
   void passToVPlan(VPlanVector *Plan, const VPLoop *Loop);
