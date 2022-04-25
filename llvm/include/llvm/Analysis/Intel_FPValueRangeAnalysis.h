@@ -68,7 +68,7 @@ class FPValueRangeAnalysis {
                            FPValueRange NewRange);
 
 public:
-  FPValueRangeAnalysis(LazyValueInfo *LVI = nullptr, unsigned MaxIteration = 8)
+  FPValueRangeAnalysis(LazyValueInfo *LVI = nullptr, unsigned MaxIteration = 12)
       : LVI(LVI), MaxIteration(MaxIteration) {}
 
   // Computes and returns the FPValueRange for value \p V
