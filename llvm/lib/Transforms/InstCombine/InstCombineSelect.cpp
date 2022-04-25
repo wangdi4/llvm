@@ -2588,7 +2588,6 @@ Instruction *InstCombinerImpl::foldAndOrOfSelectUsingImpliedCond(Value *Op,
   }
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Returns the top of the current "compute chain":
 //   %1 = add %0, %0
@@ -2640,7 +2639,7 @@ static Instruction *TopOfComputeChain(Instruction *I) {
   return nullptr;
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 // Canonicalize select with fcmp to fabs(). -0.0 makes this tricky. We need
 // fast-math-flags (nsz) or fsub with +0.0 (not fneg) for this to work.
 static Instruction *foldSelectWithFCmpToFabs(SelectInst &SI,
@@ -2702,7 +2701,6 @@ static Instruction *foldSelectWithFCmpToFabs(SelectInst &SI,
 
   return nullptr;
 }
->>>>>>> 5805cfb90127195a9e8aa09716e989f286d0e22b
 
 Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
   Value *CondVal = SI.getCondition();
