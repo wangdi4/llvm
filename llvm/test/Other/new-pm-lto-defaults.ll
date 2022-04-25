@@ -160,7 +160,6 @@
 ; CHECK-O23SZ-NEXT: Running analysis: OuterAnalysisManagerProxy
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: ArgumentPromotionPass
-; CHECK-O23SZ-NEXT: Running pass: IPArrayTransposePass ;INTEL
 ; CHECK-O23SZ: Running pass: InstCombinePass
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
@@ -186,7 +185,8 @@
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: PostOrderFunctionAttrsPass on (foo)
 ; INTEL_CUSTOMIZATION
-; CHECK-O23SZ-NEXT: Running pass: InvalidateAnalysisPass<{{.*}}AndersensAA
+; CHECK-O23SZ-NEXT: Running pass: IPArrayTransposePass on [module]
+; CHECK-O23SZ: Running pass: InvalidateAnalysisPass<{{.*}}AndersensAA
 ; CHECK-O23SZ-NEXT: Invalidating analysis: AAManager on foo
 ; CHECK-O23SZ-NEXT: Invalidating analysis: AndersensAA on [module]
 ; CHECK-O23SZ-NEXT: Running pass: RequireAnalysisPass<{{.*}}AndersensAA
