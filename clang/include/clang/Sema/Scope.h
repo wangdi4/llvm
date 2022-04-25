@@ -140,10 +140,6 @@ public:
     /// parsed. If such a scope is a ContinueScope, it's invalid to jump to the
     /// continue block from here.
     ConditionVarScope = 0x2000000,
-<<<<<<< HEAD
-
-=======
->>>>>>> e759c171b2531dbf9895f3cb69183f2ac45e761f
 #if INTEL_COLLAB
     /// This is the scope of OpenMP simd directive.
     /// This flag is propagated to children scopes.
