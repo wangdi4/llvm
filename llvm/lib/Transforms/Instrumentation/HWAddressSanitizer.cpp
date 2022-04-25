@@ -389,6 +389,7 @@ private:
   GlobalValue *ThreadPtrGlobal = nullptr;
 };
 
+#if INTEL_CUSTOMIZATION
 class HWAddressSanitizerLegacyPass : public FunctionPass {
 public:
   // Pass identification, replacement for typeid.
@@ -451,9 +452,11 @@ private:
   bool Recover;
   bool DisableOptimization;
 };
+#endif // INTEL_CUSTOMIZATION
 
 } // end anonymous namespace
 
+#if INTEL_CUSTOMIZATION
 char HWAddressSanitizerLegacyPass::ID = 0;
 
 INITIALIZE_PASS_BEGIN(
@@ -475,6 +478,7 @@ llvm::createHWAddressSanitizerLegacyPassPass(bool CompileKernel, bool Recover,
   return new HWAddressSanitizerLegacyPass(CompileKernel, Recover,
                                           DisableOptimization);
 }
+#endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses HWAddressSanitizerPass::run(Module &M,
                                               ModuleAnalysisManager &MAM) {

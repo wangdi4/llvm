@@ -50,10 +50,12 @@ private:
   HWAddressSanitizerOptions Options;
 };
 
+#if INTEL_CUSTOMIZATION
 FunctionPass *
 createHWAddressSanitizerLegacyPassPass(bool CompileKernel = false,
                                        bool Recover = false,
                                        bool DisableOptimization = false);
+#endif // INTEL_CUSTOMIZATION
 
 namespace HWASanAccessInfo {
 

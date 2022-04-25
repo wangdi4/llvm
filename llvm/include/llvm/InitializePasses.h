@@ -254,7 +254,7 @@ void initializeHardwareLoopsPass(PassRegistry&);
 void initializeMIRProfileLoaderPassPass(PassRegistry &);
 void initializeMemProfilerLegacyPassPass(PassRegistry &);
 void initializeHotColdSplittingLegacyPassPass(PassRegistry&);
-void initializeHWAddressSanitizerLegacyPassPass(PassRegistry &);
+void initializeHWAddressSanitizerLegacyPassPass(PassRegistry &); // INTEL
 void initializeIPSCCPLegacyPassPass(PassRegistry&);
 void initializeIRCELegacyPassPass(PassRegistry&);
 void initializeIROutlinerLegacyPassPass(PassRegistry&);
