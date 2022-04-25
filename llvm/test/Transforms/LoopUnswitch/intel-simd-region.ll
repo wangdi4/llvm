@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-unswitch -verify-loop-info -S < %s 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -loop-unswitch -verify-loop-info -S < %s 2>&1 | FileCheck %s
 
 ; This simple test would normally unswitch, but should be inhibited by the presence of
 ; SIMD region.

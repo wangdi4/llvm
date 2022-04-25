@@ -444,6 +444,8 @@ if config.include_intel_extra_opts:
 config.substitutions.append(('%intel_devirt_options', intel_devirt_options))
 config.substitutions.append(('%intel_mllvm', intel_mllvm))
 config.substitutions.append(('%intel_plugin_devirt_options', intel_plugin_devirt_options))
+if config.new_pm_default:
+    config.available_features.add('new_pm_default')
 # end INTEL_CUSTOMIZATION
 
 if config.expensive_checks:
