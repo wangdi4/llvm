@@ -406,6 +406,10 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
 
   VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
+  if (LE->getImportingError() != VPLoopEntityList::ImportError::None) {
+    LLVM_DEBUG(dbgs() << "LVP: Entities import error.\n");
+    return 0;
+  }
   LE->analyzeImplicitLastPrivates();
 
   // Check legality of VPlan before proceeding with other transforms/analyses.

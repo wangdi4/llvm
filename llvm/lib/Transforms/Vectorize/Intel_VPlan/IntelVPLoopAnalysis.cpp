@@ -711,13 +711,11 @@ static void relinkLiveOuts(VPValue *From, VPValue *To, const VPLoop &Loop) {
 }
 
 #if INTEL_CUSTOMIZATION
-void VPLoopEntityList::updateHIROperand(VPValue *AI, VPLoadStoreInst *V) {
+static void updateHIROperand(VPValue *AI, VPLoadStoreInst *V) {
   if (auto *ExtDef = dyn_cast<VPExternalDef>(AI)) {
-    if (ExtDef->getOperandHIR()) {
-      unsigned ExtDefSym =
-          cast<VPBlob>(ExtDef->getOperandHIR())->getBlob()->getSymbase();
+    unsigned ExtDefSym = ExtDef->HIR().getSymbase();
+    if (ExtDefSym != loopopt::InvalidSymbase)
       V->HIR().setSymbase(ExtDefSym);
-    }
   }
 }
 #endif // INTEL_CUSTOMIZATION
@@ -1972,7 +1970,7 @@ VPPHINode *ReductionDescr::getLastNonheaderPHIUser(VPInstruction *VPInst,
 //
 // 6. Unknown recurrence type
 //    - Determined based on type of reduction's Exit/recurrence PHI/Start value.
-void ReductionDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
+void ReductionDescr::tryToCompleteByVPlan(VPlanVector *Plan,
                                           const VPLoop *Loop) {
   if (!Exit) {
     // Explicit reduction descriptors need further analysis to identify Exit
@@ -2048,6 +2046,28 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
   if (!RT) {
     RT = Exit ? Exit->getType()
               : (StartPhi ? StartPhi->getType() : Start->getType());
+  }
+  if (Exit && Start) {
+    // Compare symbases of incoming and outgoing values.
+    auto *ExtDef = dyn_cast<VPExternalDef>(Start);
+    if (!ExtDef) // can be a constant in LLVM IR.
+      return;
+
+    auto It = llvm::find_if(Exit->users(), [](const VPUser *U) {
+                    return isa<VPExternalUse>(U);
+                  });
+    if( It == Exit->user_end()) {
+      // If there is no VPExternalUse we will create it with the same symbase
+      // later.
+      return;
+    }
+    auto ExtUse = cast<VPExternalUse>(*It);
+    if (ExtUse->HIR().getSymbase() != ExtDef->HIR().getSymbase()) {
+      // Symbases of livein and liveout values are different.
+      // In that case we can't generate a correct code thus bailout.
+      VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
+      LE->setImportingError(VPLoopEntityList::ImportError::Reduction);
+    }
   }
 }
 
@@ -2294,7 +2314,7 @@ void PrivateDescr::checkParentVPLoop(const VPLoop *Loop) const {
   // AllocaInst in this function.
 }
 
-void PrivateDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
+void PrivateDescr::tryToCompleteByVPlan(VPlanVector *Plan,
                                         const VPLoop *Loop) {
   setIsMemOnly(true);
 
@@ -2607,7 +2627,7 @@ void InductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
     VPInd->setNeedCloseForm(true);
 }
 
-void InductionDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
+void InductionDescr::tryToCompleteByVPlan(VPlanVector *Plan,
                                           const VPLoop *Loop) {
   if (StartPhi == nullptr) {
     VPValue *V = InductionOp ? InductionOp : Start;

@@ -156,3 +156,9 @@ void HIRSpecifics::cloneFrom(const HIRSpecifics HIR) {
     assert(HIR.isValid() == isValid() &&
            "Cloned isValid() value should be equal to the original one");
 }
+
+const VPOperandHIR *HIROperandSpecifics::getOperand() const {
+  if (auto ExtUse = ExtObj.dyn_cast<const VPExternalUse *>())
+    return ExtUse->getOperandHIR();
+  return ExtObj.get<const VPExternalDef *>()->getOperandHIR();
+}
