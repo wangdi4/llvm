@@ -1,4 +1,5 @@
 //===- ScalarizeMaskedMemIntrin.cpp - Scalarize unsupported masked mem ----===//
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
@@ -17,6 +18,9 @@
 //
 // end INTEL_CUSTOMIZATION
 //                                    instrinsics
+=======
+//                                    intrinsics
+>>>>>>> a3173a8ea62749f18f0fd48b130f8137d5eeb35c
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
