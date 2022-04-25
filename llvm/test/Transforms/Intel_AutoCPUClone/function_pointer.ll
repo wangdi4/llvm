@@ -13,13 +13,13 @@
 ; }
 
 ; CHECK: define dso_local i32 @main.A()
-; CHECK: bitcast (void ()* @empty.A
+; CHECK: bitcast (void ()* @empty
 
 ; CHECK: define dso_local i32 @main.V()
-; CHECK: bitcast (void ()* @empty.V
+; CHECK: bitcast (void ()* @empty
 
 ; CHECK: define dso_local i32 @main.a()
-; CHECK: bitcast (void ()* @empty.a
+; CHECK: bitcast (void ()* @empty
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

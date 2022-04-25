@@ -18,13 +18,13 @@
 ; }
 
 ; CHECK: define dso_local void @foo.A
-; CHECK: store void ()* @empty.A
+; CHECK: store void ()* @empty
 
 ; CHECK: define dso_local void @foo.V
-; CHECK: store void ()* @empty.V
+; CHECK: store void ()* @empty
 
 ; CHECK: define dso_local void @foo.a
-; CHECK: store void ()* @empty.a
+; CHECK: store void ()* @empty
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
