@@ -1107,9 +1107,43 @@ public:
     if (!Info->canAliasToAggregatePointer())
       return;
 
-    if (!PTA.getDominantAggregateUsageType(*Info))
-      setAllAliasedTypeSafetyData(Info, dtrans::UnsafePtrMerge,
-                                  "Merge of conflicting pointer types", I);
+    if (!PTA.getDominantAggregateUsageType(*Info)) {
+      // Set UnsafePtrMergeRelatedTypes if the PHI node is merging pointers
+      // with related types. For example:
+      //   %class.MainClass = type { [4 x i32], i32, [4 x i8]}
+      //   %class.MainClass.base = type { [4 x i32], i32}
+      //
+      //   %class.TestClass.Inner = type { %class.MainClass.base,
+      //                                   [4 x i8] }
+      //
+      //   %class.TestClass.Outer = type { ptr, [4 x i8] }
+      //   ; %class.TestClass.Outer = type { %class.TestClass.Inner*,
+      //   ;                                 [4 x i8] }
+      //
+      //   entry:
+      //     %0 = load ptr, ptr %ptr
+      //     br label %br.loop
+      //
+      //   br.loop:
+      //     %phi = phi ptr [ %0, %entry ], [ %1, %br.loop ]
+      //     %1 = getelementptr inbounds %class.MainClass, ptr %phi, i64 0,
+      //                                                             i32 0
+      //
+      // Assume that the type of %ptr is %class.TestClass.Outer*, the loaded
+      // pointer in %0 will be %class.TestClass.Inner*. The PHI node will
+      // be selecting between %0 (%class.TestClass.Inner*) or
+      // %1 (%class.MainClass*). This will indicate that the PHI node %phi
+      // won't have a dominant aggregate type, but we can prove that
+      // all the declaration and use aliases are related types
+      // (%class.MainClass.base is related to %class.MainClass). Therefore
+      // mark the PHI node as UnsafePtrMergeRelatedTypes.
+      if (getEnclosingParentDeclType(*Info))
+        setAllAliasedTypeSafetyData(Info, dtrans::UnsafePtrMergeRelatedTypes,
+                                    "Merging pointers with related types", I);
+      else
+        setAllAliasedTypeSafetyData(Info, dtrans::UnsafePtrMerge,
+                                    "Merge of conflicting pointer types", I);
+    }
 
     // The merge is taking place on a type that was known to alias a pointer to
     // an aggregate type. If this is being done with the pointer having been
@@ -6243,9 +6277,28 @@ private:
       if (AliasedType == CurrParentType)
         continue;
 
-      if (!isa<DTransStructType>(AliasedType) &&
-          !isa<DTransArrayType>(AliasedType))
+      // If the base and padded types are in AliasesSet, then we are going
+      // to add one of them into AliasesStructsMap.
+      if (auto *DTStruct = dyn_cast<DTransStructType>(AliasedType)) {
+        auto *TyInfo = DTInfo.getTypeInfo(DTStruct);
+        auto *StInfo = dyn_cast_or_null<dtrans::StructInfo>(TyInfo);
+        if (!StInfo)
+          return false;
+
+        auto *RelatedInfo = StInfo->getRelatedType();
+        if (RelatedInfo) {
+          auto *RelatedDTSTruct =
+              dyn_cast_or_null<DTransStructType>(RelatedInfo->getDTransType());
+          if (!RelatedDTSTruct)
+            return false;
+
+          if (AliasesStructsMap.find(RelatedDTSTruct) !=
+              AliasesStructsMap.end())
+            continue;
+        }
+      } else if (!isa<DTransArrayType>(AliasedType)) {
         return false;
+      }
 
       AliasesStructsMap.insert({AliasedType, false});
     }
@@ -6497,6 +6550,7 @@ private:
     case dtrans::BadMemFuncManipulation:
     case dtrans::SystemObject:
     case dtrans::UnsafePtrMerge:
+    case dtrans::UnsafePtrMergeRelatedTypes:
     case dtrans::UnhandledUse:
       return true;
 
@@ -6612,6 +6666,7 @@ private:
     case dtrans::WholeStructureReference:
     case dtrans::UnhandledUse:
     case dtrans::UnsafePtrMerge:
+    case dtrans::UnsafePtrMergeRelatedTypes:
     case dtrans::UnsafePointerStore:
     case dtrans::UnsafePointerStoreConditional:
     case dtrans::UnsafePointerStorePending:
@@ -6637,6 +6692,7 @@ private:
     case dtrans::BadCastingForRelatedTypes:
     case dtrans::BadMemFuncManipulationForRelatedTypes:
     case dtrans::BadPtrManipulationForRelatedTypes:
+    case dtrans::UnsafePtrMergeRelatedTypes:
       return true;
     default:
       break;

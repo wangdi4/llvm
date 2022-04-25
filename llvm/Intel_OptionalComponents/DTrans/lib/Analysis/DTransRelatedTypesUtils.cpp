@@ -67,6 +67,11 @@ RelatedTypesSDHandler::RelatedTypesSDHandler() {
       {dtrans::BadPtrManipulationForRelatedTypes,
        dtrans::BadPtrManipulation});
 
+  // Map "unsafe pointer merge for related types" to "unsafe pointer merge"
+  RelatedSDToOriginalSDMap.insert(
+      {dtrans::UnsafePtrMergeRelatedTypes,
+       dtrans::UnsafePtrMerge});
+
   for (auto Pair : RelatedSDToOriginalSDMap)
     AllRelatedTypesSafety |= Pair.first;
 

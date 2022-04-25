@@ -674,6 +674,12 @@ const SafetyData StructCouldBeBaseABIPadding = 0x0000'4000'0000'0000;
 /// For an example of ABI padding, see StructCouldBeBaseABIPadding above.
 const SafetyData BadMemFuncManipulationForRelatedTypes = 0x0000'8000'0000'0000;
 
+/// This safety data is set when the type of a PHI node is identified for ABI
+/// padding, but the instruction and its incoming values won't affect the
+/// padded field. For an example of ABI padding, see
+/// StructCouldBeBaseABIPadding above.
+const SafetyData UnsafePtrMergeRelatedTypes = 0x0001'0000'0000'0000;
+
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
 /// or unsafe, but we will conservatively assume it is unsafe.
@@ -705,7 +711,7 @@ const SafetyData SDDeleteField =
     MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
     MemFuncNestedStructsPartialWrite | ComplexAllocSize |
     StructCouldHaveABIPadding | StructCouldBeBaseABIPadding |
-    BadMemFuncManipulationForRelatedTypes;
+    BadMemFuncManipulationForRelatedTypes | UnsafePtrMergeRelatedTypes;
 
 const SafetyData SDReorderFields =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -720,7 +726,8 @@ const SafetyData SDReorderFields =
     BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
     UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
     ComplexAllocSize | StructCouldHaveABIPadding |
-    StructCouldBeBaseABIPadding | BadMemFuncManipulationForRelatedTypes;
+    StructCouldBeBaseABIPadding | BadMemFuncManipulationForRelatedTypes |
+    UnsafePtrMergeRelatedTypes;
 
 const SafetyData SDReorderFieldsDependent =
     BadPtrManipulation | GlobalInstance | HasInitializerList |
@@ -741,7 +748,7 @@ const SafetyData SDFieldSingleValueNoFieldAddressTaken =
     UnsafePtrMerge | AddressTaken | MismatchedArgUse |
     BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
     MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
-    UnhandledUse;
+    UnsafePtrMergeRelatedTypes | UnhandledUse;
 
 const SafetyData SDFieldSingleValue =
     SDFieldSingleValueNoFieldAddressTaken | AnyFieldAddressTaken;
@@ -753,7 +760,8 @@ const SafetyData SDSingleAllocFunctionNoFieldAddressTaken =
     AddressTaken | MismatchedArgUse | BadCastingForRelatedTypes |
     BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
     UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
-    BadMemFuncManipulationForRelatedTypes | UnhandledUse;
+    BadMemFuncManipulationForRelatedTypes | UnsafePtrMergeRelatedTypes |
+    UnhandledUse;
 
 const SafetyData SDSingleAllocFunction =
     SDSingleAllocFunctionNoFieldAddressTaken | AnyFieldAddressTaken;
@@ -767,7 +775,8 @@ const SafetyData SDElimROFieldAccess =
     MismatchedElementAccessConditional | UnhandledUse |
     DopeVector | BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
     MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
-    MemFuncNestedStructsPartialWrite | BadMemFuncManipulationForRelatedTypes;
+    MemFuncNestedStructsPartialWrite | BadMemFuncManipulationForRelatedTypes |
+    UnsafePtrMergeRelatedTypes;
 
 //
 // Safety conditions for a structure to be considered for the AOS-to-SOA
@@ -786,7 +795,8 @@ const SafetyData SDAOSToSOA =
     BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
     UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
     ComplexAllocSize | StructCouldHaveABIPadding |
-    StructCouldBeBaseABIPadding | BadMemFuncManipulationForRelatedTypes;
+    StructCouldBeBaseABIPadding | BadMemFuncManipulationForRelatedTypes |
+    UnsafePtrMergeRelatedTypes;
 
 //
 // Safety conditions for a structure type that contains a pointer to a
@@ -802,7 +812,8 @@ const SafetyData SDAOSToSOADependent =
     DopeVector | BadCastingForRelatedTypes |
     BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
     UnsafePointerStoreRelatedTypes | ComplexAllocSize |
-    StructCouldHaveABIPadding | StructCouldBeBaseABIPadding;
+    StructCouldHaveABIPadding | StructCouldBeBaseABIPadding |
+    UnsafePtrMergeRelatedTypes;
 
 //
 // Safety conditions for a structure type that contains a pointer to a
@@ -823,7 +834,7 @@ const SafetyData SDAOSToSOADependentIndex32 =
     MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
     MemFuncNestedStructsPartialWrite | ComplexAllocSize |
     StructCouldHaveABIPadding | StructCouldBeBaseABIPadding |
-    BadMemFuncManipulationForRelatedTypes;
+    BadMemFuncManipulationForRelatedTypes | UnsafePtrMergeRelatedTypes;
 
 const SafetyData SDDynClone =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -838,7 +849,7 @@ const SafetyData SDDynClone =
     BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
     MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
     MemFuncNestedStructsPartialWrite | ComplexAllocSize |
-    BadMemFuncManipulationForRelatedTypes;
+    BadMemFuncManipulationForRelatedTypes | UnsafePtrMergeRelatedTypes;
 
 const SafetyData SDSOAToAOS =
     BadCasting | BadPtrManipulation | VolatileData | MismatchedElementAccess |
@@ -852,7 +863,8 @@ const SafetyData SDSOAToAOS =
     BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
     UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
     ComplexAllocSize | StructCouldHaveABIPadding |
-    StructCouldBeBaseABIPadding | BadMemFuncManipulationForRelatedTypes;
+    StructCouldBeBaseABIPadding | BadMemFuncManipulationForRelatedTypes |
+    UnsafePtrMergeRelatedTypes;
 
 const SafetyData SDMemInitTrimDown =
     BadCasting | BadPtrManipulation | VolatileData | MismatchedElementAccess |
@@ -866,7 +878,8 @@ const SafetyData SDMemInitTrimDown =
     BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
     UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
     ComplexAllocSize | StructCouldHaveABIPadding |
-    StructCouldBeBaseABIPadding | BadMemFuncManipulationForRelatedTypes;
+    StructCouldBeBaseABIPadding | BadMemFuncManipulationForRelatedTypes |
+    UnsafePtrMergeRelatedTypes;
 
 // Safety conditions for arrays with constant entries
 // NOTE: FieldAddressTakenReturn is conservative. We can extend the analysis
@@ -880,8 +893,7 @@ const SafetyData SDArraysWithConstantEntries =
     AddressTaken | NoFieldsInStruct | SystemObject | MismatchedArgUse |
     BadCastingPending | BadCastingConditional | UnsafePointerStorePending |
     UnsafePointerStoreConditional | MismatchedElementAccessConditional |
-    FieldAddressTakenReturn | BadMemFuncManipulationForRelatedTypes |
-    UnhandledUse;
+    FieldAddressTakenReturn | UnhandledUse;
 
 //
 // TODO: Update the list each time we add a new safety conditions check for a

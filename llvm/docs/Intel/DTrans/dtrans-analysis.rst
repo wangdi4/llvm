@@ -519,6 +519,14 @@ This safety data is set when a possible BadMemFuncManipulation can happen
 between types that have ABI padding, but it won't affect the padded field.
 See `StructCouldBeBaseABIPadding`_ for an example of ABI padding.
 
+UnsafePtrMergeRelatedTypes
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This safety data is set when the type of a PHI node is identified for ABI
+padding, but the instruction and its incoming values won't affect the
+padded field. See `StructCouldBeBaseABIPadding`_ for an example of ABI
+padding.
+
 UnhandledUse
 ~~~~~~~~~~~~
 This is a catch-all flag that will be used to mark any usage pattern that we
