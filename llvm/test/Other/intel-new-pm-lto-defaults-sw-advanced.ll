@@ -9,7 +9,8 @@
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O --check-prefix=CHECK-INTEL-SW-ADVANCED
 
 ; CHECK-INTEL-SW-ADVANCED: Running pass: IntelIPOPrefetchPass
-; CHECK-INTEL-SW-ADVANCED: Running pass: DeadArrayOpsEliminationPass
+; CHECK-INTEL-SW-ADVANCED: Running pass: IPArrayTransposePass on [module]
+; CHECK-INTEL-SW-ADVANCED-NEXT: Running pass: DeadArrayOpsEliminationPass
 
 ; Make sure we get the IR back out without changes when we print the module.
 ; CHECK-O-LABEL: define void @foo(i32 %n) local_unnamed_addr {

@@ -3020,16 +3020,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   FPM.addPass(SROAPass());
 
 #if INTEL_CUSTOMIZATION
-  if (EnableIPArrayTranspose)
-    MPM.addPass(IPArrayTransposePass());
-
-#if INTEL_FEATURE_SW_ADVANCED
-  if (DTransEnabled)
-    MPM.addPass(IPPredOptPass());
-  if (EnableDeadArrayOpsElim)
-    MPM.addPass(DeadArrayOpsEliminationPass());
-#endif // INTEL_FEATURE_SW_ADVANCED
-
   if (EnableMultiVersioning)
     FPM.addPass(MultiVersioningPass());
 #endif // INTEL_CUSTOMIZATION
@@ -3051,6 +3041,16 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
       createModuleToPostOrderCGSCCPassAdaptor(PostOrderFunctionAttrsPass()));
 
 #if INTEL_CUSTOMIZATION
+  if (EnableIPArrayTranspose)
+    MPM.addPass(IPArrayTransposePass());
+
+#if INTEL_FEATURE_SW_ADVANCED
+  if (DTransEnabled)
+    MPM.addPass(IPPredOptPass());
+  if (EnableDeadArrayOpsElim)
+    MPM.addPass(DeadArrayOpsEliminationPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
+
   if (EnableAndersen) {
     // Andersen's IP alias analysis
     // AndersensAA is stateless analysis that is not invalided by any passes.
