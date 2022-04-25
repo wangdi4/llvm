@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-temp-cleanup -analyze -hir-safe-reduction-analysis | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-temp-cleanup -analyze -enable-new-pm=0 -hir-safe-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" 2>&1 | FileCheck %s
 ;
 ; Check safe reduction is identified after temp cleanup.

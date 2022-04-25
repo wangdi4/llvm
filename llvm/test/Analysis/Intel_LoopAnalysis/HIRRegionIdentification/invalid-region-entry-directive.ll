@@ -1,4 +1,4 @@
-; RUN: opt < %s -analyze -hir-region-identification | FileCheck %s
+; RUN: opt < %s -analyze -enable-new-pm=0 -hir-region-identification | FileCheck %s
 ; RUN: opt < %s -passes="print<hir-region-identification>" -disable-output 2>&1 | FileCheck %s
 
 ; Verify that we create 2 regions with entry blocks bb404 and bb455 belonging to

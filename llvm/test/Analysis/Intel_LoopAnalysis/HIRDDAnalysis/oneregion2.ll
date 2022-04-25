@@ -8,7 +8,7 @@
 ;    for (j=0; j <  n; j++)
 ;        B[j] +=  1;
 ;
-; RUN: opt < %s -hir-ssa-deconstruction -hir-create-function-level-region  -hir-dd-analysis  -hir-dd-analysis-verify=Region -analyze  | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-create-function-level-region  -hir-dd-analysis  -hir-dd-analysis-verify=Region -analyze -enable-new-pm=0  | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-create-function-level-region -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
 ;
 ; CHECK-DAG:  (@B)[0][2] --> (@B)[0][%m] FLOW (=)

@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -analyze -tbaa -hir-framework -hir-framework-debug=symbase-assignment -debug-only=hir-framework < %s 2>&1 | FileCheck %s
+; RUN: opt -analyze -enable-new-pm=0 -tbaa -hir-framework -hir-framework-debug=symbase-assignment -debug-only=hir-framework < %s 2>&1 | FileCheck %s
 
 ; Verify that the two struct references obj[0].0[i1] and obj[0].1[i1] are assigned different symbases.
 

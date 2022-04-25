@@ -1,6 +1,6 @@
 ; RUN: llvm-as %S/../builtin-lib.rtl -o %t.rtl.bc
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes='require<dpcpp-kernel-builtin-info-analysis>,print<dpcpp-kernel-work-item-analysis>' %s -disable-output 2>&1 | FileCheck %s
-; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -analyze -dpcpp-kernel-work-item-analysis %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -analyze -enable-new-pm=0 -dpcpp-kernel-work-item-analysis %s -S -o - | FileCheck %s
 
 ; This test checks that WorkItemAnalysis pass calculates WI dependency for gep with structure base type.
 ; Test was generated from this soure code

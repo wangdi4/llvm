@@ -1,4 +1,4 @@
-; RUN: opt -tbaa -loop-accesses -analyze < %s | FileCheck %s
+; RUN: opt -tbaa -loop-accesses -analyze -enable-new-pm=0 < %s | FileCheck %s
 ;
 ; We expect there exist only one anti-dep in this loop.
 ;

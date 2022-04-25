@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -anders-aa -hir-framework -hir-framework-debug=symbase-assignment -debug-only=hir-framework 2>&1 | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -anders-aa -hir-framework -hir-framework-debug=symbase-assignment -debug-only=hir-framework 2>&1 | FileCheck %s
 ; With an Andersen-AA impl, aa and bb array refs should be in diff symbase
 ; Find aa and it's symbase, make sure there is no bb ref before or after
 ; with same symbase

@@ -5,7 +5,7 @@
 ;
 ;                q[i+j+k] =  p[6*i +8 *j][k-1];
 ;                p[2*i - 4*j][k] = 1;
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze -enable-new-pm=0 | FileCheck %s
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
 
 ; CHECK: DD graph for function main

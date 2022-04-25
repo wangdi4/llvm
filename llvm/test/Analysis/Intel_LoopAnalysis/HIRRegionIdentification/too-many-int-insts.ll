@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -analyze -hir-region-identification -xmain-opt-level=3 -debug-only=hir-region-identification 2>&1 | FileCheck %s
+; RUN: opt < %s -analyze -enable-new-pm=0 -hir-region-identification -xmain-opt-level=3 -debug-only=hir-region-identification 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="print<hir-region-identification>" -xmain-opt-level=3 -debug-only=hir-region-identification 2>&1 | FileCheck %s
 
 ; This is a test case from cpu2017/502.

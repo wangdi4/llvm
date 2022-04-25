@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -xmain-opt-level=3 | opt -xmain-opt-level=3 -analyze -hir-loop-statistics | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -xmain-opt-level=3 | opt -xmain-opt-level=3 -analyze -enable-new-pm=0 -hir-loop-statistics | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-loop-statistics>" -xmain-opt-level=3 -disable-output 2>&1 | FileCheck %s
 
 ; Check that we correctly parse the unknown loop. The bottom test "if (i1 < %n.addr.012)" has been shifted by -1 to adjust for the IV update copy which will be generated just before it during code gen.

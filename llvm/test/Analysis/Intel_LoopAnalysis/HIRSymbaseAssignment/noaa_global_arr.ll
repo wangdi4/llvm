@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -analyze -disable-basic-aa -hir-framework -hir-framework-debug=symbase-assignment -debug-only=hir-framework < %s 2>&1 | FileCheck %s
+; RUN: opt -analyze -enable-new-pm=0 -disable-basic-aa -hir-framework -hir-framework-debug=symbase-assignment -debug-only=hir-framework < %s 2>&1 | FileCheck %s
 ; Without an AA impl, both array refs should be in same symbase
 ; CHECK-DAG: {{.*@B.*\[.*}} {sb:[[Base1:[0-9]+]]}
 ; CHECK-DAG: {{.*@A.*\[.*}} {sb:[[Base1]]}

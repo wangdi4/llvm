@@ -1,6 +1,6 @@
 ; Testing for Distance Vector
 ;  M[k][j-1][i] = M[k+4][j][i] + M[k-m][j+2][i-2] +1;
-; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze -enable-new-pm=0 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
 ; CHECK-DAG: FLOW (= = =) (0 0 0)
 ; CHECK-DAG: ANTI (< < =) (4 1 0)

@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-dd-analysis -hir-dd-analysis-verify=Region < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output < %s 2>&1 | FileCheck %s
 
 ; Test checks that DD analysis recognizes zext blob as non-negative during DD.

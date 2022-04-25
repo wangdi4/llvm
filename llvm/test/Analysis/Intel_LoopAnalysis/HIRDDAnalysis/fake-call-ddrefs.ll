@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-framework -hir-dd-analysis -hir-dd-analysis-verify=Region -hir-cost-model-throttling=0 -hir-details 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -enable-new-pm=0 -hir-framework -hir-dd-analysis -hir-dd-analysis-verify=Region -hir-cost-model-throttling=0 -hir-details 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -hir-cost-model-throttling=0 -disable-output -hir-details 2>&1 | FileCheck %s
 
 ; Verify that DD forms edges for fake call refs.

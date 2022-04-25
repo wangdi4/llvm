@@ -15,7 +15,7 @@
 ; Test case for ivdep:
 ; when -hir-dd-test-assume-no-loop-carried-dep=1, DV for innermost loop for memory refs should be set as  =
 ;
-; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -hir-dd-test-assume-no-loop-carried-dep=1 -analyze | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -hir-dd-test-assume-no-loop-carried-dep=1 -analyze -enable-new-pm=0 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -hir-dd-test-assume-no-loop-carried-dep=1 -disable-output 2>&1 < %s | FileCheck %s
 ;
 ; CHECK-DAG: (%b)[i2 + 1024 * i3] --> (%c)[1024 * i1 + i2] ANTI (* * =) (? ? 0)

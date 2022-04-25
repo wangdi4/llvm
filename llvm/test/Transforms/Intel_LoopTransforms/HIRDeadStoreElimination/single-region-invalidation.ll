@@ -1,4 +1,4 @@
-; RUN: opt -hir-create-function-level-region -hir-ssa-deconstruction -hir-dead-store-elimination -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-create-function-level-region -hir-ssa-deconstruction -hir-dead-store-elimination -analyze -enable-new-pm=0 -hir-dd-analysis -hir-dd-analysis-verify=Region < %s 2>&1 | FileCheck %s
 ; RUN: opt -hir-create-function-level-region -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-dead-store-elimination,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region 2>&1 < %s -disable-output | FileCheck %s
 
 ; Check after the store (%A)[0][i1] being removed, the DDG will not contain %add edge.

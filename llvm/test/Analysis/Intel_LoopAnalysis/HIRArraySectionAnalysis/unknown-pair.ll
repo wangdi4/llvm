@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -scoped-noalias-aa -hir-runtime-dd -analyze -hir-array-section-analysis | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -scoped-noalias-aa -hir-runtime-dd -analyze -enable-new-pm=0 -hir-array-section-analysis | FileCheck %s
 ; RUN: opt < %s -aa-pipeline="basic-aa,scoped-noalias-aa" -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir-array-section-analysis>" -disable-output 2>&1 | FileCheck %s
 
 ; Check that result for %p and %q are * bacause they may alias. Check that result is available after RTDD.

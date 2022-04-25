@@ -1,9 +1,9 @@
 ; Checks scalar subgroup builtin is supported w/ subgroup emulation.
-; RUN: opt -dpcpp-force-vf=1 -dpcpp-enable-subgroup-emulation -dpcpp-kernel-vf-analysis -analyze %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-EMULATION
+; RUN: opt -dpcpp-force-vf=1 -dpcpp-enable-subgroup-emulation -dpcpp-kernel-vf-analysis -analyze -enable-new-pm=0 %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-EMULATION
 ; RUN: opt -dpcpp-force-vf=1 -dpcpp-enable-subgroup-emulation -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-EMULATION
 
 ; If subgroup emulation is disabled, then emits error on unimplemented scalar subgroup builtin.
-; RUN: not opt -dpcpp-force-vf=1 -dpcpp-enable-subgroup-emulation=false -dpcpp-kernel-vf-analysis -analyze %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-NO-EMULATION
+; RUN: not opt -dpcpp-force-vf=1 -dpcpp-enable-subgroup-emulation=false -dpcpp-kernel-vf-analysis -analyze -enable-new-pm=0 %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-NO-EMULATION
 ; RUN: not opt -dpcpp-force-vf=1 -dpcpp-enable-subgroup-emulation=false -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-NO-EMULATION
 
 ; CHECK-EMULATION-LABEL: Kernel --> VF:

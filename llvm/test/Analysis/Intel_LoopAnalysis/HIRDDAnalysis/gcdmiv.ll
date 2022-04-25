@@ -10,7 +10,7 @@
 ;   It is interpreted as no dependency for same iteration of i, but
 ;   has loop-carried dep
 ;
-; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze -enable-new-pm=0 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
 ;
 ; CHECK: DD graph for function gcdmiv:

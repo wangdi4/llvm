@@ -4,7 +4,7 @@
 
 ; 'max' recognition for safe reduction analysis, case of floats
 
-; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-temp-cleanup -hir-safe-reduction-analysis | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-temp-cleanup -hir-safe-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" 2>&1 | FileCheck %s
 
 ; CHECK:   %j.011 = (%j.011 >= %0) ? %j.011 : %0; <Safe Reduction>

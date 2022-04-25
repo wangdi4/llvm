@@ -1,11 +1,11 @@
-; RUN: opt < %s -enable-new-pm=0 -loop-simplify | opt -analyze -hir-region-identification | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -loop-simplify | opt -analyze -enable-new-pm=0 -hir-region-identification | FileCheck %s
 ; RUN: opt %s -passes="loop-simplify,print<hir-region-identification>" -disable-output 2>&1 | FileCheck %s
 
 ; Check formation of two regions
 ; CHECK: Region 1
 ; CHECK: Region 2
 
-; RUN: opt < %s -enable-new-pm=0 -loop-simplify | opt -analyze -hir-scc-formation | FileCheck --check-prefix=SCC %s
+; RUN: opt < %s -enable-new-pm=0 -loop-simplify | opt -analyze -enable-new-pm=0 -hir-scc-formation | FileCheck --check-prefix=SCC %s
 ; RUN: opt %s -passes="loop-simplify,print<hir-scc-formation>" -disable-output 2>&1 | FileCheck --check-prefix=SCC %s
 
 ; Check formation of two SCCs in the first region and none in the second.

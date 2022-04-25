@@ -1,4 +1,4 @@
-; RUN: opt < %s -xmain-opt-level=3 -analyze -hir-ssa-deconstruction -hir-framework 2>&1 | FileCheck %s
+; RUN: opt < %s -xmain-opt-level=3 -analyze -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework 2>&1 | FileCheck %s
 ; RUN: opt < %s -xmain-opt-level=3 -passes="hir-ssa-deconstruction,print<hir>" 2>&1 | FileCheck %s
 
 ; Verify that a 3-level convolution loopnest includes the preheader for the

@@ -1,4 +1,4 @@
-; RUN: opt < %s -indvars | opt -analyze -scalar-evolution | FileCheck %s
+; RUN: opt < %s -indvars | opt -analyze -enable-new-pm=0 -scalar-evolution | FileCheck %s
 
 ; Verfiy that we get a simplified backedge taken count for the inner loop in a
 ; triangular loopnest after indvars.

@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze -hir-create-function-level-region | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze -enable-new-pm=0 -hir-create-function-level-region | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -hir-create-function-level-region 2>&1 | FileCheck %s
 
 ; Unknown loop header labels can cause problems for the structured control flow

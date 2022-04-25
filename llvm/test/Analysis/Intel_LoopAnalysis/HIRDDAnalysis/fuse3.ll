@@ -5,7 +5,7 @@
 ;       B[2*j+1] +=  1;
 ;    }
 ;
-; RUN:  opt < %s -hir-ssa-deconstruction -hir-create-function-level-region -hir-dd-test-assume-loop-fusion -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze  | FileCheck %s
+; RUN:  opt < %s -hir-ssa-deconstruction -hir-create-function-level-region -hir-dd-test-assume-loop-fusion -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze -enable-new-pm=0   | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-create-function-level-region -hir-dd-test-assume-loop-fusion -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
 
 ; No dep for even/odd when invoked from Loop Fusion demand driven DD

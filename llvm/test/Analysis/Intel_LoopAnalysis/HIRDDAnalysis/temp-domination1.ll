@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -analyze  -hir-dd-analysis -hir-dd-analysis-verify=Region 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -analyze -enable-new-pm=0  -hir-dd-analysis -hir-dd-analysis-verify=Region 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region 2>&1 | FileCheck %s
 
 ; Input HIR-

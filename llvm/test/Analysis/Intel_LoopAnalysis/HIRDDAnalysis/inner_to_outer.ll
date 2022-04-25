@@ -1,7 +1,7 @@
 ; This test checks that the graph building for the outermost level produces the same edges as building for inner loops first and then outer loop.
 
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-dd-analysis -hir-dd-analysis-verify=Innermost,L1|sort > %t1.out
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-dd-analysis -hir-dd-analysis-verify=L1|sort > %t2.out
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-dd-analysis -hir-dd-analysis-verify=Innermost,L1|sort > %t1.out
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-dd-analysis -hir-dd-analysis-verify=L1|sort > %t2.out
 ; RUN: diff %t1.out %t2.out
 
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Innermost,L1 -disable-output 2>&1 | sort > %t3.out

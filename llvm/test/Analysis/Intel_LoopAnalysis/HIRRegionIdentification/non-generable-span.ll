@@ -1,4 +1,4 @@
-; RUN: opt < %s -analyze -hir-region-identification -disable-hir-create-fusion-regions=0 | FileCheck %s
+; RUN: opt < %s -analyze -enable-new-pm=0 -hir-region-identification -disable-hir-create-fusion-regions=0 | FileCheck %s
 ; RUN: opt < %s -passes="print<hir-region-identification>" -disable-hir-create-fusion-regions=0 2>&1 | FileCheck %s
 
 ; int bar();

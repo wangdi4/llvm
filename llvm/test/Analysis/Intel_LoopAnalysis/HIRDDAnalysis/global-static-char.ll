@@ -1,7 +1,7 @@
 ; Check that DDG doesn't contain an edge between statics.
 ; Please note that both statics @A and @B have a single symbase because of the char *%p ref.
 
-; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze -enable-new-pm=0 | FileCheck %s
 ; RUN: opt -passes="require<basic-aa>,hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
 
 ; CHECK: DD graph for function

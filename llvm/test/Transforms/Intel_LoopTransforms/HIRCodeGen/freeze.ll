@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-framework -hir-cg -print-after=hir-cg -force-hir-cg 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework -hir-cg -print-after=hir-cg -force-hir-cg 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-cg,print" < %s -force-hir-cg 2>&1 | FileCheck %s
 
 ; Verify that we form a loop containing freeze isntruction and successfully generate code for it.

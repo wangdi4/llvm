@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-unroll-and-jam -analyze -hir-dd-analysis -hir-dd-analysis-verify=Innermost < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-unroll-and-jam -analyze -enable-new-pm=0 -hir-dd-analysis -hir-dd-analysis-verify=Innermost < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-unroll-and-jam,print<hir-dd-analysis>" -hir-dd-analysis-verify=Innermost -disable-output 2>&1 < %s | FileCheck %s
 
 ; unroll and jam reuses instructions from original loopnnest when the remainder loop is not needed. Verify that we do not retain stale (duplicate) edges from the original loopnest.

@@ -1,7 +1,7 @@
 ; Test for constants mergeable with DDTests
 
 ; Check for different types using detailed print
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-framework 2>&1 -hir-details -hir-dd-analysis -hir-dd-analysis-verify=Region | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework 2>&1 -hir-details -hir-dd-analysis -hir-dd-analysis-verify=Region | FileCheck %s
 ; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction,print<hir-framework>,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -hir-details -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: %3 = (i64*)(%0)[%N + 1]

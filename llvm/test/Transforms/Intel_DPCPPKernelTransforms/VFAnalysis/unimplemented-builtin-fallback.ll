@@ -1,6 +1,6 @@
 ; Checks unimplemented builtin can fallback to recommended_vector_length in the context of "intel_vec_len_hint".
 
-; RUN: opt -dpcpp-kernel-vf-analysis -analyze %s -S 2>&1 | FileCheck %s
+; RUN: opt -dpcpp-kernel-vf-analysis -analyze -enable-new-pm=0 %s -S 2>&1 | FileCheck %s
 ; RUN: opt -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
 
 ; intel_vec_len_hint allow fallback

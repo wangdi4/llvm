@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-resource -analyze | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-resource -analyze -enable-new-pm=0 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-loop-resource>" -disable-output 2>&1 | FileCheck %s
 
 ; Check that the address cost of (%list.addr.011)[0].1 is accounted only once for the load.

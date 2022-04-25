@@ -1,4 +1,4 @@
-; RUN: opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze < %s | FileCheck %s
+; RUN: opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze -enable-new-pm=0 < %s | FileCheck %s
 ; RUN: opt -passes="print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
 
 ; without domination its unclear wheter type is flow or anti

@@ -3,7 +3,7 @@
 ;   s  +=  a[i];
 ;   s  +=  b[i] + i; }
 ;
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze  -hir-safe-reduction-analysis | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0  -hir-safe-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction,print<hir-safe-reduction-analysis>" -disable-output 2>&1 | FileCheck %s
 ; CHECK:    %add = %s.015  +  %0;  <Safe Reduction>
 ; CHECK:    %s.015 = %add  +  %add3; <Safe Reduction>

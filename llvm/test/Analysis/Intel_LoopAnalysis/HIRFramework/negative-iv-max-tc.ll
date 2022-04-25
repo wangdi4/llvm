@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -print-after=hir-ssa-deconstruction -analyze -hir-framework 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -print-after=hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print,print<hir>" 2>&1 | FileCheck %s
 
 ; Verify that the max trip count estimate of i3 loop is set as a sane value by

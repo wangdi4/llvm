@@ -34,12 +34,12 @@
 ; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF1
 
 ; RUN: opt < %s -S -vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
-; RUN:     -instcombine -simplifycfg  -cost-model -analyze \
+; RUN:     -instcombine -simplifycfg  -cost-model -analyze -enable-new-pm=0 \
 ; RUN:     -vector-library=SVML \
 ; RUN:     -vplan-force-vf=4 | FileCheck %s --check-prefix=LLVM-CM-VF4
 
 ; RUN: opt < %s -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
-; RUN:     -vector-library=SVML -analyze -cost-model \
+; RUN:     -vector-library=SVML -analyze -enable-new-pm=0 -cost-model \
 ; RUN:     | FileCheck %s --check-prefix=LLVM-CM-VF1
 
 

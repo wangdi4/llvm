@@ -2,7 +2,7 @@
 ;        for (long int j=0; j< n; j++)
 ;           s1  +=  a[j][i];
 ;
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-safe-reduction-analysis | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-safe-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction,print<hir-safe-reduction-analysis>" -disable-output 2>&1 | FileCheck %s
 ; CHECK:   DO i2 = 0, %n + -1, 1
 ; CHECK:   %s1.022 = %s1.022  +  %0; <Safe Reduction>
