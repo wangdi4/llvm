@@ -1,3 +1,7 @@
+; This test fails when the new pass manager is enabled by default.
+; CMPLRLLVM-33740
+; XFAIL: new_pm_default
+
 ; RUN: opt -S -O2 < %s | FileCheck %s --check-prefix=DEFAULT
 ; RUN: opt -S -O2 -sycl-opt < %s | FileCheck %s --check-prefix=SYCLOPT
 ;

@@ -1,5 +1,8 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
+; This test fails when the new pass manager is enabled by default.
+; CMPLRLLVM-37060
+; XFAIL: new_pm_default
 
 ; RUN: llvm-as %s -o %t.o
 ; INTEL - added loopopt in pipeline.
