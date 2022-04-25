@@ -1110,7 +1110,7 @@ Function *llvm::getOrInsertVectorLibFunction(
     SmallVector<Type *, 1> TysForDecl;
     TysForDecl.push_back(VecRetTy);
     for (auto &I : enumerate(ArgTys))
-      if (hasVectorInstrinsicOverloadedScalarOpd(ID, I.index()))
+      if (hasVectorIntrinsicOverloadedScalarOpd(ID, I.index()))
         TysForDecl.push_back(I.value());
     return Intrinsic::getDeclaration(M, ID, TysForDecl);
   }

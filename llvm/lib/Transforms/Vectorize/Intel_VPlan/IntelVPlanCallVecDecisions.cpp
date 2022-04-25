@@ -321,7 +321,7 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
     // intrinsic calls cannot be vectorized, they should be strictly serialized.
     for (auto *ArgOp : VPCall->arg_operands()) {
       unsigned ArgIdx = VPCall->getOperandIndex(ArgOp);
-      if (hasVectorInstrinsicScalarOpd(ID, ArgIdx) &&
+      if (hasVectorIntrinsicScalarOpd(ID, ArgIdx) &&
           Plan.getVPlanDA()->isDivergent(*ArgOp)) {
         VPCall->setSerializationReason(VPCallInstruction::
             SerializationReasonTy::SCALAR_OPERANDS);
