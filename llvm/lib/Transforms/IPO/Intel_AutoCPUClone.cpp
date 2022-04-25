@@ -299,7 +299,7 @@ static bool cloneFunctions(Module &M,
         return false;
 
       auto *CInst = dyn_cast<CallBase>(IFUse.getUser());
-      if (CInst && CInst->getCalledOperand() == Fn) {
+      if (CInst && CInst->isCallee(&IFUse)) {
         Function *Caller = CInst->getFunction();
         // If caller is a generic function skip it, as it already calls
         // the correct version:
@@ -316,33 +316,6 @@ static bool cloneFunctions(Module &M,
         return true;
       }
 
-      auto *SInst = dyn_cast<StoreInst>(IFUse.getUser());
-      if (SInst && SInst->getValueOperand() == Fn) {
-        Function *ParentFunc = SInst->getFunction();
-        // If ParentFunc is a generic function skip it, as it already refers to
-        // the correct use:
-        // foo.A
-        //   store @bar.A, ...
-        if (Orig2MultiFuncs.count(ParentFunc))
-          return false;
-
-        // If ParentFunc is a specialized version of a function then find the
-        // corresponding specialized version of the use.
-        if (MultiFunc2TargetExt.count(ParentFunc))
-          return false;
-
-        return true;
-      }
-
-      // Function pointers are initialized using constant cast expressions.
-      //   ... bitcast (void ()* @bar.A to i8*), ...
-      // Since constant cast expressions, themselves, can have multiple uses,
-      // we skip processing them here and handle them separately.
-      auto *CExpr = dyn_cast<ConstantExpr>(IFUse.getUser());
-      if (CExpr && CExpr->isCast()) {
-        return false;
-      }
-
       return true;
     });
 
@@ -356,7 +329,7 @@ static bool cloneFunctions(Module &M,
         continue;
 
       auto *CInst = dyn_cast<CallBase>(IFUse.getUser());
-      if (CInst && CInst->getCalledOperand() == Fn) {
+      if (CInst && CInst->isCallee(&IFUse)) {
         Function *Caller = CInst->getFunction();
         // If caller is a generic function skip it, as it already calls
         // the correct version:
@@ -374,62 +347,6 @@ static bool cloneFunctions(Module &M,
           CInst->setCalledOperand(Replacement);
           continue;
         }
-      }
-
-      auto *SInst = dyn_cast<StoreInst>(IFUse.getUser());
-      if (SInst && SInst->getValueOperand() == Fn) {
-        Function *ParentFunc = SInst->getFunction();
-        // If ParentFunc is a generic function skip it, as it already refers to
-        // the correct use:
-        // foo.A
-        //   store @bar.A, ...
-        if (Orig2MultiFuncs.count(ParentFunc))
-          continue;
-
-        // If ParentFunc is a specialized version of a function then find the
-        // corresponding specialized version of the use.
-        if (MultiFunc2TargetExt.count(ParentFunc)) {
-          GlobalValue *Replacement = Clones[MultiFunc2TargetExt[ParentFunc]];
-          assert(Replacement && "Expected that functions are multiversioned "
-                                "for all requested targets now!");
-          SInst->setOperand(0, Replacement);
-          continue;
-        }
-      }
-
-      // Constant expressions have multiple uses, thus iterate over all users and
-      // update each as necessary.
-      auto *CExpr = dyn_cast<ConstantExpr>(IFUse.getUser());
-      if (CExpr && CExpr->isCast()) {
-
-        for (auto CIt = CExpr->user_begin(), CEnd = CExpr->user_end(); CIt != CEnd;) {
-
-          User *CurrentUser = *CIt;
-          ++CIt;
-
-          auto *CInst = dyn_cast<Instruction>(CurrentUser);
-          if (CInst) {
-            Function *ParentFunc = CInst->getFunction();
-            // If ParentFunc is a generic function skip it, as it already refers to the
-            // correct version of the use
-            // foo.A
-            //   ... bitcast (void ()* @bar.A to i8*), ...
-            if (Orig2MultiFuncs.count(ParentFunc))
-              continue;
-
-            // If ParentFunc is a specialized version of a function then find the
-            // corresponding specialized version of the use.
-            if (MultiFunc2TargetExt.count(ParentFunc)) {
-              GlobalValue *Replacement = Clones[MultiFunc2TargetExt[ParentFunc]];
-              assert(Replacement && "Expected that functions are multiversioned "
-                                    "for all requested targets now!");
-              CInst->replaceUsesOfWith(CExpr, CExpr->getWithOperands({Replacement}));
-              continue;
-            }
-          }
-          CExpr->setOperand(0, Dispatcher);
-        }
-        continue;
       }
 
       llvm_unreachable("Unhandled case!");
