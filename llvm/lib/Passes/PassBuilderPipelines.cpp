@@ -1193,11 +1193,21 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
                                   ModulePassManager *MPM) {
 #else
                                   ThinOrFullLTOPhase Phase) {
+<<<<<<< HEAD
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   InlineParams IP = getInlineParamsFromOptLevel(Level, PrepareForLTO,
       LinkForLTO);
 #endif // INTEL_CUSTOMIZATION
+=======
+  InlineParams IP = getInlineParamsFromOptLevel(Level);
+  // For PreLinkThinLTO + SamplePGO, set hot-caller threshold to 0 to
+  // disable hot callsite inline (as much as possible [1]) because it makes
+  // profile annotation in the backend inaccurate.
+  //
+  // [1] Note the cost of a function could be below zero due to erased
+  // prologue / epilogue.
+>>>>>>> 408bb9a375ac9f69816823f99cf0a64c1ee8a931
   if (Phase == ThinOrFullLTOPhase::ThinLTOPreLink && PGOOpt &&
       PGOOpt->Action == PGOOptions::SampleUse)
     IP.HotCallSiteThreshold = 0;
@@ -1311,10 +1321,20 @@ PassBuilder::buildModuleInlinerPipeline(OptimizationLevel Level,
                                         ThinOrFullLTOPhase Phase) {
   ModulePassManager MPM;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   InlineParams IP = getInlineParamsFromOptLevel(Level, PrepareForLTO,
      LinkForLTO);
 #endif // INTEL_CUSTOMIZATION
+=======
+  InlineParams IP = getInlineParamsFromOptLevel(Level);
+  // For PreLinkThinLTO + SamplePGO, set hot-caller threshold to 0 to
+  // disable hot callsite inline (as much as possible [1]) because it makes
+  // profile annotation in the backend inaccurate.
+  //
+  // [1] Note the cost of a function could be below zero due to erased
+  // prologue / epilogue.
+>>>>>>> 408bb9a375ac9f69816823f99cf0a64c1ee8a931
   if (Phase == ThinOrFullLTOPhase::ThinLTOPreLink && PGOOpt &&
       PGOOpt->Action == PGOOptions::SampleUse)
     IP.HotCallSiteThreshold = 0;
