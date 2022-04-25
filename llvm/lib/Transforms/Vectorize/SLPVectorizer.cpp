@@ -1229,13 +1229,6 @@ public:
                         const BoUpSLP &R, int NumLanes, int MaxLevel)
         : DL(DL), SE(SE), R(R), NumLanes(NumLanes), MaxLevel(MaxLevel) {}
 
-#if INTEL_CUSTOMIZATION
-    // We eventually want to completely switch to community version of
-    // Look-ahead scores calculation stuff. For now enable access to
-    // getShallowScore routine and score constants so that it could be used from
-    // outside of the class.
-  public:
-#endif // INTEL_CUSTOMIZATION
     // The hard-coded scores listed here are not very important, though it shall
     // be higher for better matches to improve the resulting cost. When
     // computing the scores of matching one sub-tree with another, we are
@@ -1279,29 +1272,19 @@ public:
     /// \p U1 and \p U2 are the users of \p V1 and \p V2.
     /// Also, checks if \p V1 and \p V2 are compatible with instructions in \p
     /// MainAltOps.
-#if INTEL_CUSTOMIZATION
-    // Customization note: keep function as a static member and pass
-    // BoUpSLP argument explicitly.
-    static int getShallowScore(Value *V1, Value *V2, Instruction *U1,
-                               Instruction *U2, const DataLayout &DL,
-                               ScalarEvolution &SE, int NumLanes,
-                               ArrayRef<Value *> MainAltOps, const BoUpSLP &R) {
-#endif // INTEL_CUSTOMIZATION
+    int getShallowScore(Value *V1, Value *V2, Instruction *U1, Instruction *U2,
+                        ArrayRef<Value *> MainAltOps) const {
       if (V1 == V2) {
         if (isa<LoadInst>(V1)) {
           // Retruns true if the users of V1 and V2 won't need to be extracted.
-#if INTEL_CUSTOMIZATION
-          auto AllUsersAreInternal = [U1, U2, &R](Value *V1, Value *V2) {
-#endif // INTEL_CUSTOMIZATION
+          auto AllUsersAreInternal = [U1, U2, this](Value *V1, Value *V2) {
             // Bail out if we have too many uses to save compilation time.
             static constexpr unsigned Limit = 8;
             if (V1->hasNUsesOrMore(Limit) || V2->hasNUsesOrMore(Limit))
               return false;
 
-#if INTEL_CUSTOMIZATION
-            auto AllUsersVectorized = [U1, U2, &R](Value *V) {
-              return llvm::all_of(V->users(), [U1, U2, &R](Value *U) {
-#endif // INTEL_CUSTOMIZATION
+            auto AllUsersVectorized = [U1, U2, this](Value *V) {
+              return llvm::all_of(V->users(), [U1, U2, this](Value *U) {
                 return U == U1 || U == U2 || R.getTreeEntry(U) != nullptr;
               });
             };
@@ -1440,9 +1423,7 @@ public:
 
       // Get the shallow score of V1 and V2.
       int ShallowScoreAtThisLevel =
-#if INTEL_CUSTOMIZATION
-          getShallowScore(LHS, RHS, U1, U2, DL, SE, NumLanes, MainAltOps, R);
-#endif // INTEL_CUSTOMIZATION
+          getShallowScore(LHS, RHS, U1, U2, MainAltOps);
 
       // If reached MaxLevel,
       //  or if V1 and V2 are not instructions,
@@ -1502,6 +1483,56 @@ public:
       }
       return ShallowScoreAtThisLevel;
     }
+#if INTEL_CUSTOMIZATION
+    /// Version of getScoreAtLevelRec used specifically for scoring
+    /// when reordering Multi-Node operands.
+    /// TODO: can we switch on to getScoreAtLevelRec?
+    int getScoreAtLevel(Value *V1, Value *V2, Instruction *U1, Instruction *U2,
+                        int CurrLevel) {
+      // Get the shallow score of V1 and V2.
+      int ShallowScoreAtThisLevel = getShallowScore(V1, V2, U1, U2, None);
+
+      // If reached MaxLevel,
+      // or if V1 and V2 are not instructions,
+      // or if they are SPLAT,
+      // or if they are not consecutive, early return the current cost.
+      auto *I1 = dyn_cast<Instruction>(V1);
+      auto *I2 = dyn_cast<Instruction>(V2);
+      if (CurrLevel == MaxLevel || !(I1 && I2) || I1 == I2 ||
+          ShallowScoreAtThisLevel == LookAheadHeuristics::ScoreFail ||
+          (isa<LoadInst>(I1) && isa<LoadInst>(I2) && ShallowScoreAtThisLevel))
+        return ShallowScoreAtThisLevel;
+
+      assert(I1 && I2 && "Should have early exited.");
+      SmallSet<int, 4> Op2Used;
+
+      // Recursion towards the operands of I1 and I2. In this way we are
+      // collecting the total deep score.
+      for (int Op1I = 0, Op1E = I1->getNumOperands(); Op1I != Op1E; ++Op1I) {
+        // Try to pair op1I with the best operand of I2.
+        int MaxTmpScore = 0;
+        int MaxOp2I = -1;
+        for (int Op2I = 0, Op2E = I2->getNumOperands(); Op2I != Op2E; ++Op2I) {
+          // Skip operands already paired with Op1.
+          if (Op2Used.count(Op2I))
+            continue;
+          // Recursively calculate the cost at each level
+          int TmpScore =
+              getScoreAtLevel(I1->getOperand(Op1I), I2->getOperand(Op2I), I1,
+                              I2, CurrLevel + 1);
+          if (TmpScore > 0 && TmpScore > MaxTmpScore) {
+            MaxTmpScore = TmpScore;
+            MaxOp2I = Op2I;
+          }
+        }
+        if (MaxOp2I >= 0) {
+          Op2Used.insert(MaxOp2I);
+          ShallowScoreAtThisLevel += MaxTmpScore;
+        }
+      }
+      return ShallowScoreAtThisLevel;
+    }
+#endif // INTEL_CUSTOMIZATION
   };
   /// A helper data structure to hold the operands of a vector of instructions.
   /// This supports a fixed vector length for all operand vectors.
@@ -2394,57 +2425,6 @@ private:
         }
       }
 
-      /// We go through the operands of V1 and V2 until LEVEL
-      /// and we count the number of matches.
-      /// V1 and V2 are operands of U1 and U2 respectively.
-      int getScoreAtLevel(Value *V1, Value *V2, Instruction *U1,
-                          Instruction *U2, int Level, int MaxLevel) {
-        // Get the shallow score of V1 and V2.
-        int ShallowScoreAtThisLevel = LookAheadHeuristics::getShallowScore(
-            V1, V2, U1, U2, DL, SE, getNumLanes(), None, R);
-
-        // If reached MaxLevel,
-        // or if V1 and V2 are not instructions,
-        // or if they are SPLAT,
-        // or if they are not consecutive, early return the current cost.
-        auto *I1 = dyn_cast<Instruction>(V1);
-        auto *I2 = dyn_cast<Instruction>(V2);
-        if (Level == MaxLevel || !(I1 && I2) || I1 == I2 ||
-            ShallowScoreAtThisLevel == LookAheadHeuristics::ScoreFail ||
-            (isa<LoadInst>(I1) && isa<LoadInst>(I2) && ShallowScoreAtThisLevel))
-          return ShallowScoreAtThisLevel;
-
-        assert(I1 && I2 && "Should have early exited.");
-        SmallSet<int, 4> Op2Used;
-
-        // Recursion towards the operands of I1 and I2. In this way we are
-        // collecting the total deep score.
-        for (int Op1I = 0, Op1E = I1->getNumOperands(); Op1I != Op1E; ++Op1I) {
-          // Try to pair op1I with the best operand of I2.
-          int MaxTmpScore = 0;
-          int MaxOp2I = -1;
-          for (int Op2I = 0, Op2E = I2->getNumOperands(); Op2I != Op2E;
-               ++Op2I) {
-            // Skip operands already paired with Op1.
-            if (Op2Used.count(Op2I))
-              continue;
-            // Recursively calculate the cost at each level
-            int TmpScore =
-                getScoreAtLevel(I1->getOperand(Op1I), I2->getOperand(Op2I), I1,
-                                I2, Level + 1, MaxLevel);
-            if (TmpScore > 0 && TmpScore > MaxTmpScore) {
-              MaxTmpScore = TmpScore;
-              MaxOp2I = Op2I;
-            }
-          }
-          if (MaxOp2I >= 0) {
-            Op2Used.insert(MaxOp2I);
-            ShallowScoreAtThisLevel += MaxTmpScore;
-          }
-        }
-        return ShallowScoreAtThisLevel;
-      }
-
       /// This specifies the vectorization mode of each operand index
       enum class VecMode {
         Uninit = 0,
@@ -2574,24 +2554,29 @@ private:
       /// Return the look-ahead score, which tells us how much the sub-trees
       /// rooted at LHS and RHS match (the higher the better).
       int getLookAheadScore(Value *LHS, Value *RHS) {
-        int Score = getScoreAtLevel(LHS, RHS, /*U1=*/nullptr, /*U2=*/nullptr,
-                                    /*Level=*/1, LookAheadMaxLevel);
+        LookAheadHeuristics LookAhead(DL, SE, R, getNumLanes(),
+                                      LookAheadMaxLevel);
+        int Score = LookAhead.getScoreAtLevel(LHS, RHS, /*U1=*/nullptr,
+                                              /*U2=*/nullptr,
+                                              /*CurrLevel=*/1);
         return Score;
       }
 
       /// Return score of the MultiNode.
       int getScore() const {
-        int Score = 0;
         assert(!empty() && "requested score for empty Multi-Node");
+        LookAheadHeuristics LookAhead(DL, SE, R, getNumLanes(),
+                                      LookAheadMaxLevel);
+        int Score = 0;
         for (int OpI = 0, OpIMax = getNumOperands(); OpI != OpIMax; ++OpI) {
           bool AreConsecutive = true;
           for (unsigned Lane = 1; Lane != getNumLanes(); ++Lane) {
             Value *Left = getData(OpI, Lane - 1).getLeaf();
             Value *Right = getData(OpI, Lane).getLeaf();
             if (Left == Right ||
-                LookAheadHeuristics::getShallowScore(
-                    Left, Right, /*U1=*/nullptr, /*U2=*/nullptr, DL, SE,
-                    getNumLanes(), None, R) == LookAheadHeuristics::ScoreFail) {
+                LookAhead.getShallowScore(Left, Right, /*U1=*/nullptr,
+                                          /*U2=*/nullptr, None) ==
+                    LookAheadHeuristics::ScoreFail) {
               AreConsecutive = false;
               break;
             }
