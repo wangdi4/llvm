@@ -156,95 +156,138 @@ for.cond.cleanup:
 
 ; double frem_cyclic_phis(int n, double l, double p) {
 ;   double v = 3733;
-;   double i = NEXT();
+;   if (p == 0) return 0;
+;   NEXT();
 
 ;   for (int i = 0; i < n; ++i) {
 ;     double t = NEXT();
 
+;     if (t > l) NEXT();
 ;     int j = 0;
-;     while (true) {
+;     while (j < p) {
 ; #pragma nounroll
 ;       for (int k = 0; k < 4 && !unknown_f(); ++k, ++j) {
 ;         double t2 = NEXT();
 ;         if (t2 > p) break;
 ;       }
-;       if (j == 0) break;
-;       --j;
+;       if (j == 0) NEXT();
 ;     }
 
 ;   }
 
 ;   return v;
 ; }
-define double @frem_cyclic_phis(i32 %n, double %p) {
+define noundef double @frem_cyclic_phis(i32 noundef %n, double noundef %l, i32 noundef %p) {
 ; CHECK-LABEL: @frem_cyclic_phis(
 entry:
-  %cmp43 = icmp sgt i32 %n, 0
-  br i1 %cmp43, label %for.body, label %for.cond.cleanup
+  %cmp = icmp eq i32 %p, 0
+  br i1 %cmp, label %cleanup37, label %for.cond.preheader
 
-for.cond.cleanup:
-  %v.0.lcssa = phi double [ 1.979000e+03, %entry ], [ %v.3, %while.end ]
-  ret double %v.0.lcssa
+for.cond.preheader:
+  %cmp258 = icmp sgt i32 %n, 0
+  br i1 %cmp258, label %for.body.lr.ph, label %cleanup37
+
+for.body.lr.ph:
+  %conv = uitofp i32 %p to double
+  br label %for.body
 
 for.body:
 ; CHECK-LABEL: for.body:
-; CHECK:         [[PHI1:%.*]] = phi double [ [[PHI4:%.*]], %while.end ], [ 1.979000e+03, %entry ]
+; CHECK:         [[PHI1:%.*]] = phi double [ 1.979000e+03, %for.body.lr.ph ], [ [[PHI4:%.*]], %while.cond.while.end_crit_edge ]
 ; CHECK:         [[DIVIDEND_FP1:%.*]] = fmul fast double [[PHI1]], 2.401000e+03
 ; CHECK:         [[DIVIDEND_INT1:%.*]] = fptosi double [[DIVIDEND_FP1]] to i64
 ; CHECK-NEXT:    [[RESULT_INT1:%.*]] = srem i64 [[DIVIDEND_INT1]], 8191
 ; CHECK-NEXT:    [[RESULT_FP1:%.*]] = sitofp i64 [[RESULT_INT1]] to double
-  %v.045 = phi double [ %v.3, %while.end ], [ 1.979000e+03, %entry ]
-  %i1.044 = phi i32 [ %inc20, %while.end ], [ 0, %entry ]
-  %mul2 = fmul fast double %v.045, 2.401000e+03
-  %fmod.i39 = frem fast double %mul2, 8.191000e+03
-  br label %while.cond
+  %v.060 = phi double [ 1.979000e+03, %for.body.lr.ph ], [ %v.5, %while.cond.while.end_crit_edge ]
+  %i1.059 = phi i32 [ 0, %for.body.lr.ph ], [ %inc33, %while.cond.while.end_crit_edge ]
+  %mul3 = fmul fast double %v.060, 2.401000e+03
+  %fmod.i = frem fast double %mul3, 8.191000e+03
+  %div5 = fmul fast double %fmod.i, 0x3F20008004002001
+  %cmp6 = fcmp fast ogt double %div5, %l
+  br i1 %cmp6, label %if.then7, label %for.cond13.preheader.preheader
 
-while.cond:
-; CHECK-LABEL: while.cond:
-; CHECK:         [[PHI2:%.*]] = phi double [ [[RESULT_FP1]], %for.body ], [ [[PHI4]], %cleanup15 ]
-  %j.0 = phi i32 [ 0, %for.body ], [ %dec, %cleanup15 ]
-  %v.1 = phi double [ %fmod.i39, %for.body ], [ %v.3, %cleanup15 ]
-  %0 = add i32 %j.0, 4
+if.then7:
+; CHECK-LABEL: if.then7:
+; CHECK:         [[DIVIDEND_FP2:%.*]] = fmul fast double [[RESULT_FP1]], 2.401000e+03
+; CHECK:         [[DIVIDEND_INT2:%.*]] = fptosi double [[DIVIDEND_FP2]] to i64
+; CHECK-NEXT:    [[RESULT_INT2:%.*]] = srem i64 [[DIVIDEND_INT2]], 8191
+; CHECK-NEXT:    [[RESULT_FP2:%.*]] = sitofp i64 [[RESULT_INT2]] to double
+  %mul8 = fmul fast double %fmod.i, 2.401000e+03
+  %fmod.i49 = frem fast double %mul8, 8.191000e+03
+  br label %for.cond13.preheader.preheader
+
+for.cond13.preheader.preheader:
+; CHECK-LABEL: for.cond13.preheader.preheader:
+; CHECK:         [[PHI2:%.*]] = phi double [ [[RESULT_FP1]], %for.body ], [ [[RESULT_FP2:%.*]], %if.then7 ]
+  %v.256.ph = phi double [ %fmod.i, %for.body ], [ %fmod.i49, %if.then7 ]
+  br label %for.cond13.preheader
+
+for.cond13.preheader:
+; CHECK-LABEL: for.cond13.preheader:
+; CHECK:         [[PHI3:%.*]] = phi double [ [[PHI6:%.*]], %if.end31 ], [ [[PHI2]], %for.cond13.preheader.preheader ]
+  %j.057 = phi i32 [ %j.1.lcssa, %if.end31 ], [ 0, %for.cond13.preheader.preheader ]
+  %v.256 = phi double [ %v.5, %if.end31 ], [ %v.256.ph, %for.cond13.preheader.preheader ]
+  %0 = add i32 %j.057, 4
   br label %land.rhs
 
 land.rhs:
 ; CHECK-LABEL: land.rhs:
-; CHECK:         [[PHI3:%.*]] = phi double [ [[PHI2]], %while.cond ], [ [[RESULT_FP2:%.*]], %for.inc ]
-  %v.242 = phi double [ %v.1, %while.cond ], [ %fmod.i, %for.inc ]
-  %j.140 = phi i32 [ %j.0, %while.cond ], [ %inc14, %for.inc ]
-  %call7 = tail call zeroext i1 @_Z9unknown_fv()
-  br i1 %call7, label %cleanup15, label %for.body9
+; CHECK:         [[PHI4:%.*]] = phi double [ [[PHI3]], %for.cond13.preheader ], [ [[RESULT_FP2:%.*]], %for.inc ]
+  %j.153 = phi i32 [ %j.057, %for.cond13.preheader ], [ %inc24, %for.inc ]
+  %v.352 = phi double [ %v.256, %for.cond13.preheader ], [ %fmod.i50, %for.inc ]
+  %call15 = tail call noundef zeroext i1 @_Z9unknown_fv()
+  br i1 %call15, label %cleanup25, label %for.body17
 
-for.body9:
-; CHECK-LABEL: for.body9:
-; CHECK:         [[DIVIDEND_FP2:%.*]] = fmul fast double [[PHI3:%.*]], 2.401000e+03
-; CHECK:         [[DIVIDEND_INT2:%.*]] = fptosi double [[DIVIDEND_FP2]] to i64
-; CHECK-NEXT:    [[RESULT_INT2:%.*]] = srem i64 [[DIVIDEND_INT2]], 8191
-; CHECK-NEXT:    [[RESULT_FP2]] = sitofp i64 [[RESULT_INT2]] to double
-  %mul10 = fmul fast double %v.242, 2.401000e+03
-  %fmod.i = frem fast double %mul10, 8.191000e+03
-  %div12 = fmul fast double %fmod.i, 0x3F20008004002001
-  %cmp13 = fcmp fast ogt double %div12, %p
-  br i1 %cmp13, label %cleanup15, label %for.inc
+for.body17:
+; CHECK-LABEL: for.body17:
+; CHECK:         [[DIVIDEND_FP3:%.*]] = fmul fast double [[PHI4:%.*]], 2.401000e+03
+; CHECK:         [[DIVIDEND_INT3:%.*]] = fptosi double [[DIVIDEND_FP3]] to i64
+; CHECK-NEXT:    [[RESULT_INT3:%.*]] = srem i64 [[DIVIDEND_INT3]], 8191
+; CHECK-NEXT:    [[RESULT_FP3:%.*]] = sitofp i64 [[RESULT_INT3]] to double
+  %mul18 = fmul fast double %v.352, 2.401000e+03
+  %fmod.i50 = frem fast double %mul18, 8.191000e+03
+  %div20 = fmul fast double %fmod.i50, 0x3F20008004002001
+  %cmp21 = fcmp fast ogt double %div20, %conv
+  br i1 %cmp21, label %cleanup25, label %for.inc
 
 for.inc:
-  %inc14 = add i32 %j.140, 1
-  %exitcond = icmp eq i32 %inc14, %0
-  br i1 %exitcond, label %cleanup15, label %land.rhs
+  %inc24 = add i32 %j.153, 1
+  %exitcond.not = icmp eq i32 %inc24, %0
+  br i1 %exitcond.not, label %cleanup25, label %land.rhs
 
-cleanup15:
-; CHECK-LABEL: cleanup15:
-; CHECK:         [[PHI4]] = phi double [ [[PHI3]], %land.rhs ], [ [[RESULT_FP2]], %for.inc ], [ [[RESULT_FP2]], %for.body9 ]
-  %j.1.lcssa = phi i32 [ %j.140, %land.rhs ], [ %0, %for.inc ], [ %j.140, %for.body9 ]
-  %v.3 = phi double [ %v.242, %land.rhs ], [ %fmod.i, %for.inc ], [ %fmod.i, %for.body9 ]
-  %cmp16 = icmp eq i32 %j.1.lcssa, 0
-  %dec = add nsw i32 %j.1.lcssa, -1
-  br i1 %cmp16, label %while.end, label %while.cond
+cleanup25:
+; CHECK-LABEL: cleanup25:
+; CHECK:         [[PHI5:%.*]] = phi double [ [[PHI4]], %land.rhs ], [ [[RESULT_FP3]], %for.inc ], [ [[RESULT_FP3]], %for.body17 ]
+  %j.1.lcssa = phi i32 [ %j.153, %land.rhs ], [ %0, %for.inc ], [ %j.153, %for.body17 ]
+  %v.4 = phi double [ %v.352, %land.rhs ], [ %fmod.i50, %for.inc ], [ %fmod.i50, %for.body17 ]
+  %cmp26 = icmp eq i32 %j.1.lcssa, 0
+  br i1 %cmp26, label %if.then27, label %if.end31
 
-while.end:
-  %inc20 = add nuw nsw i32 %i1.044, 1
-  %exitcond46 = icmp eq i32 %inc20, %n
-  br i1 %exitcond46, label %for.cond.cleanup, label %for.body
+if.then27:
+; CHECK-LABEL: if.then27:
+; CHECK:         [[DIVIDEND_FP4:%.*]] = fmul fast double [[PHI5]], 2.401000e+03
+; CHECK:         [[DIVIDEND_INT4:%.*]] = fptosi double [[DIVIDEND_FP4]] to i64
+; CHECK-NEXT:    [[RESULT_INT4:%.*]] = srem i64 [[DIVIDEND_INT4]], 8191
+; CHECK-NEXT:    [[RESULT_FP4:%.*]] = sitofp i64 [[RESULT_INT4]] to double
+  %mul28 = fmul fast double %v.4, 2.401000e+03
+  %fmod.i51 = frem fast double %mul28, 8.191000e+03
+  br label %if.end31
+
+if.end31:
+; CHECK-LABEL: if.end31:
+; CHECK:         [[PHI6]] = phi double [ [[RESULT_FP4]], %if.then27 ], [ [[PHI5]], %cleanup25 ]
+  %v.5 = phi double [ %fmod.i51, %if.then27 ], [ %v.4, %cleanup25 ]
+  %cmp12 = icmp ult i32 %j.1.lcssa, %p
+  br i1 %cmp12, label %for.cond13.preheader, label %while.cond.while.end_crit_edge
+
+while.cond.while.end_crit_edge:
+  %inc33 = add nuw nsw i32 %i1.059, 1
+  %exitcond62.not = icmp eq i32 %inc33, %n
+  br i1 %exitcond62.not, label %cleanup37, label %for.body
+
+cleanup37:
+  %retval.0 = phi double [ 0.000000e+00, %entry ], [ 1.979000e+03, %for.cond.preheader ], [ %v.5, %while.cond.while.end_crit_edge ]
+  ret double %retval.0
 }
 
 declare zeroext i1 @_Z9unknown_fv()
