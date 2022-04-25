@@ -1113,6 +1113,7 @@ TEST_F(InstrRefLDVTest, MLocDiamondSpills) {
   // Create a stack location and ensure it's tracked.
   SpillLoc SL = {getRegByName("RSP"), StackOffset::getFixed(-8)};
   SpillLocationNo SpillNo = *MTracker->getOrTrackSpillLoc(SL);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XISA_COMMON
   // Some new ISAs like AMX2 etc. introduce more sub register indicators. See
@@ -1122,8 +1123,12 @@ TEST_F(InstrRefLDVTest, MLocDiamondSpills) {
   ASSERT_EQ(MTracker->getNumLocs(), 10u); // Tracks all possible stack locs.
 #endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
+=======
+  ASSERT_EQ(MTracker->getNumLocs(), 11u); // Tracks all possible stack locs.
+>>>>>>> 5db925023169f8a19419e68153682d1e518f8392
   // Locations are: RSP, stack slots from 2^3 bits wide up to 2^9 for zmm regs,
   // then slots for sub_8bit_hi and sub_16bit_hi ({8, 8} and {16, 16}).
+  // Finally, one for spilt fp80 registers.
 
   // Pick out the locations on the stack that various x86 regs would be written
   // to. HAX is the upper 16 bits of EAX.
