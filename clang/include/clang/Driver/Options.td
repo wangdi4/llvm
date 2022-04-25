@@ -5836,6 +5836,14 @@ def fsycl_fp32_prec_sqrt : Flag<["-"], "fsycl-fp32-prec-sqrt">, Group<sycl_Group
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
+// FLangOption + NoXarchOption
+//===----------------------------------------------------------------------===//
+
+def flang_experimental_exec : Flag<["-"], "flang-experimental-exec">,
+  Flags<[FlangOption, FlangOnlyOption, NoXarchOption, HelpHidden]>,
+  HelpText<"Enable support for generating executables (experimental)">;
+
+//===----------------------------------------------------------------------===//
 // FLangOption + CoreOption + NoXarchOption
 //===----------------------------------------------------------------------===//
 
