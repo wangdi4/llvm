@@ -1,4 +1,4 @@
-; RUN: opt -O2 -S -paropt=31 -pre-loopopt-vpo-passes=false -print-after=hir-temp-cleanup < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -O2 -S -paropt=31 -pre-loopopt-vpo-passes=false -print-after=hir-temp-cleanup < %s 2>&1 | FileCheck %s
 ; Note: -paropt=31 is an equivalent of -fiopenmp for the driver.
 
 ; Check that the loop will be recognized and vectorized inside loopopt without failures.

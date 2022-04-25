@@ -8,7 +8,7 @@
 ; CHECK: Running analysis: CallGraphAnalysis
 ; CHECK: Invalidating analysis: CallGraphAnalysis
 
-; RUN: opt -disable-output -disable-verify -debug-pass=Details %s 2>&1 \
+; RUN: opt -enable-new-pm=0 -disable-output -disable-verify -debug-pass=Details %s 2>&1 \
 ; RUN:     -dpcpp-kernel-add-implicit-args -dpcpp-kernel-resolve-wi-call \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-LEGACY
 

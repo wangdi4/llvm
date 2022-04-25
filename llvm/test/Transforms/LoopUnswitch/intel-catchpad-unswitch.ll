@@ -1,4 +1,4 @@
-; RUN: opt -loop-unswitch -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -loop-unswitch -S %s | FileCheck %s
 ; (pass not registered with new PM yet)
 
 ; CMPLRLLVM-33498:

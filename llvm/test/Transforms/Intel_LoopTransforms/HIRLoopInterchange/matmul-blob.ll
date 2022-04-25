@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -O2 -debug-only=hir-loop-interchange  -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -print-after=hir-loop-interchange  < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -O2 -debug-only=hir-loop-interchange  -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -print-after=hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange < %s 2>&1 | FileCheck %s
 ; CHECK:  Loopnest Interchanged: ( 1 2 3 ) --> ( 3 2 1 )
 ;
