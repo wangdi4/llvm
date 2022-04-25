@@ -197,13 +197,14 @@ void OptimizerLTO::registerOptimizerEarlyCallback(llvm::PassBuilder &PB) {
           MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
           MPM.addPass(DeduceMaxWGDimPass());
         }
-        MPM.addPass(InstToFuncCallPass());
+
+        VectorVariant::ISAClass ISA =
+            Intel::VectorizerCommon::getCPUIdISA(Config.GetCpuId());
+        MPM.addPass(InstToFuncCallPass(ISA));
 
         if (Config.GetTransposeSize() == 1)
           return;
 
-        VectorVariant::ISAClass ISA =
-            Intel::VectorizerCommon::getCPUIdISA(Config.GetCpuId());
         // Analyze and set VF for kernels.
         MPM.addPass(SetVectorizationFactorPass(ISA));
 
