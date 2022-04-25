@@ -374,8 +374,9 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopUnroller.h @ivankelarev @skozhukh
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanMaskedModeLoop.cpp @skozhukh @sguggill
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanMaskedModeLoop.h  @skozhukh @sguggill
-/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanOptrpt.h @karthik-senthil @ivankelarev
-/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanOptrpt.inc @karthik-senthil @ivankelarev
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanOptrpt.h @karthik-senthil @ivankelarev @speryt @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanOptrpt.cpp @karthik-senthil @ivankelarev @speryt @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanOptrpt.inc @karthik-senthil @ivankelarev @speryt @skozhukh
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanPragmaOmpOrderedSimdExtract.cpp @skozhukh @mamasten
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanPredicator.cpp @mamasten @offsake
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanPredicator.h @mamasten @offsake
