@@ -1,6 +1,6 @@
 ; Checks VF = 1 if dpcpp-force-optnone is enabled even when optnone is not present.
 
-; RUN: opt -dpcpp-force-optnone=true -dpcpp-kernel-vf-analysis -analyze %s -S 2>&1 | FileCheck %s
+; RUN: opt -dpcpp-force-optnone=true -dpcpp-kernel-vf-analysis -analyze -enable-new-pm=0 %s -S 2>&1 | FileCheck %s
 ; RUN: opt -dpcpp-force-optnone=true -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: Kernel --> VF:

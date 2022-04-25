@@ -1,4 +1,4 @@
-; RUN: opt -analyze -hir-region-identification < %s 2>&1 | FileCheck %s
+; RUN: opt -analyze -enable-new-pm=0 -hir-region-identification < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="print<hir-region-identification>" < %s 2>&1 | FileCheck %s
 
 ; CHECK-NOT: Region 1

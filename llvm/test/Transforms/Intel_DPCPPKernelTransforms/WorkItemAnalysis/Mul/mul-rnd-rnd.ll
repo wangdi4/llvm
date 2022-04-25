@@ -1,5 +1,5 @@
 ; RUN: opt -passes='require<dpcpp-kernel-builtin-info-analysis>,print<dpcpp-kernel-work-item-analysis>' %s -disable-output 2>&1 | FileCheck %s
-; RUN: opt -analyze -dpcpp-kernel-work-item-analysis %s -S -o - | FileCheck %s
+; RUN: opt -analyze -enable-new-pm=0 -dpcpp-kernel-work-item-analysis %s -S -o - | FileCheck %s
 
 ;__kernel void
 ;test_mul(__global int *in, __global int *out) {

@@ -2,7 +2,7 @@
 ; example: i and i-1
 
 ; Check for DD test output
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-dd-analysis -hir-dd-analysis-verify=Region | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction" | opt -passes="print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
 
 ; CHECK-DAG: (%b)[i1] --> (%b)[i1 + -1] ANTI (<)

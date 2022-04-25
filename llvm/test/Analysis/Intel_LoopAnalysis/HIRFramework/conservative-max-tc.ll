@@ -1,4 +1,4 @@
-; RUN: opt < %s -analyze -hir-ssa-deconstruction -hir-framework 2>&1 | FileCheck %s
+; RUN: opt < %s -analyze -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" 2>&1 | FileCheck %s
 
 ; Verify that the trip count estimate is conservatively evaluated to 10.

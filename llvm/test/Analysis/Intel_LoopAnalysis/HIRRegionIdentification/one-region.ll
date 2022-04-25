@@ -1,19 +1,19 @@
-; RUN: opt < %s -analyze -hir-region-identification -disable-hir-create-fusion-regions | FileCheck %s
+; RUN: opt < %s -analyze -enable-new-pm=0 -hir-region-identification -disable-hir-create-fusion-regions | FileCheck %s
 ; RUN: opt < %s -passes="print<hir-region-identification>" -disable-hir-create-fusion-regions -disable-output 2>&1 | FileCheck %s
 
-; RUN: opt < %s -analyze -hir-region-identification -disable-hir-create-fusion-regions -hir-create-function-level-region-filter-func=foo | FileCheck %s --check-prefix=ONEREG1
+; RUN: opt < %s -analyze -enable-new-pm=0 -hir-region-identification -disable-hir-create-fusion-regions -hir-create-function-level-region-filter-func=foo | FileCheck %s --check-prefix=ONEREG1
 ; RUN: opt < %s -passes="print<hir-region-identification>" -disable-hir-create-fusion-regions -disable-output 2>&1 -hir-create-function-level-region-filter-func=foo | FileCheck %s --check-prefix=ONEREG1
 
-; RUN: opt < %s -analyze -hir-region-identification -disable-hir-create-fusion-regions -hir-create-function-level-region-filter-func=bar | FileCheck %s --check-prefix=ONEREG2
+; RUN: opt < %s -analyze -enable-new-pm=0 -hir-region-identification -disable-hir-create-fusion-regions -hir-create-function-level-region-filter-func=bar | FileCheck %s --check-prefix=ONEREG2
 ; RUN: opt < %s -passes="print<hir-region-identification>" -disable-hir-create-fusion-regions -disable-output 2>&1 -hir-create-function-level-region-filter-func=bar | FileCheck %s --check-prefix=ONEREG2
 
-; RUN: opt < %s -analyze -hir-region-identification -hir-create-function-level-region -disable-hir-create-fusion-regions | FileCheck %s --check-prefix=ONEREGALL
+; RUN: opt < %s -analyze -enable-new-pm=0 -hir-region-identification -hir-create-function-level-region -disable-hir-create-fusion-regions | FileCheck %s --check-prefix=ONEREGALL
 ; RUN: opt < %s -passes="print<hir-region-identification>" -disable-output 2>&1 -hir-create-function-level-region -disable-hir-create-fusion-regions | FileCheck %s --check-prefix=ONEREGALL
 
-; RUN: opt < %s -analyze -hir-region-identification -hir-create-function-level-region -hir-create-function-level-region-filter-func=bar -disable-hir-create-fusion-regions | FileCheck %s --check-prefix=ONEREG3
+; RUN: opt < %s -analyze -enable-new-pm=0 -hir-region-identification -hir-create-function-level-region -hir-create-function-level-region-filter-func=bar -disable-hir-create-fusion-regions | FileCheck %s --check-prefix=ONEREG3
 ; RUN: opt < %s -passes="print<hir-region-identification>" -disable-output 2>&1 -hir-create-function-level-region -hir-create-function-level-region-filter-func=bar -disable-hir-create-fusion-regions | FileCheck %s --check-prefix=ONEREG3
 
-; RUN: opt < %s -analyze -hir-region-identification -disable-hir-create-fusion-regions -hir-create-function-level-region-filter-func=foo,bar | FileCheck %s --check-prefix=ONEREG4
+; RUN: opt < %s -analyze -enable-new-pm=0 -hir-region-identification -disable-hir-create-fusion-regions -hir-create-function-level-region-filter-func=foo,bar | FileCheck %s --check-prefix=ONEREG4
 ; RUN: opt < %s -passes="print<hir-region-identification>" -disable-hir-create-fusion-regions -disable-output 2>&1 -hir-create-function-level-region-filter-func=foo,bar | FileCheck %s --check-prefix=ONEREG4
 
 ; Verify the behavior of -hir-create-function-level-region -hir-create-function-level-region-filter-func.

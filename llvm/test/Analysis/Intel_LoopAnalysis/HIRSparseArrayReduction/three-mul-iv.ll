@@ -1,4 +1,4 @@
-; RUN: opt < %s -mattr=+avx512f -enable-intel-advanced-opts -analyze -hir-ssa-deconstruction -force-hir-sparse-array-reduction-analysis -hir-sparse-array-reduction-analysis | FileCheck %s
+; RUN: opt < %s -mattr=+avx512f -enable-intel-advanced-opts -analyze -enable-new-pm=0 -hir-ssa-deconstruction -force-hir-sparse-array-reduction-analysis -hir-sparse-array-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -mattr=+avx512f -enable-intel-advanced-opts -aa-pipeline=basic-aa -passes="hir-ssa-deconstruction,print<hir-sparse-array-reduction-analysis>" -force-hir-sparse-array-reduction-analysis -disable-output 2>&1 | FileCheck %s
 
 ; Check sparse array reduction for (@A)[0][i1 + %n];

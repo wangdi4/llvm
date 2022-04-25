@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -analyze -hir-region-identification -debug-only=hir-region-identification  2>&1 | FileCheck %s
+; RUN: opt < %s -analyze -enable-new-pm=0 -hir-region-identification -debug-only=hir-region-identification  2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="print<hir-region-identification>" -debug-only=hir-region-identification  2>&1 | FileCheck %s
 
 ; Verify that we don't form a region with volatile accesses even if it contains

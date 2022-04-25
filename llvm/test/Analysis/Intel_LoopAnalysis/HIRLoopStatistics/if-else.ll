@@ -1,7 +1,7 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-loop-statistics | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-loop-statistics | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-loop-statistics>" -disable-output 2>&1 | FileCheck %s
 
-; RUN: opt < %s -opaque-pointers -hir-ssa-deconstruction -analyze -hir-loop-statistics | FileCheck %s
+; RUN: opt < %s -opaque-pointers -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-loop-statistics | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -passes="hir-ssa-deconstruction,print<hir-loop-statistics>" -disable-output 2>&1 | FileCheck %s
 
 ; HIR-

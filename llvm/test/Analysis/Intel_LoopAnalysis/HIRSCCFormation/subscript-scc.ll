@@ -1,4 +1,4 @@
-; RUN: opt < %s -analyze -hir-scc-formation | FileCheck %s
+; RUN: opt < %s -analyze -enable-new-pm=0 -hir-scc-formation | FileCheck %s
 ; RUN: opt < %s -passes="print<hir-scc-formation>" 2>&1 -disable-output | FileCheck %s
 
 ; Check that SCC containing a subscript call is identified.

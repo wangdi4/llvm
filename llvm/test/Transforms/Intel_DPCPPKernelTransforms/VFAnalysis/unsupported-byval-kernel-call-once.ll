@@ -1,9 +1,9 @@
 ;; Have a byval function with kernel-call-once attribute, checks that vectorization is disabled.
-; RUN: opt -dpcpp-kernel-add-function-attrs -dpcpp-kernel-vf-analysis -analyze %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-NO-VECTORIZATION
+; RUN: opt -dpcpp-kernel-add-function-attrs -dpcpp-kernel-vf-analysis -analyze -enable-new-pm=0 %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-NO-VECTORIZATION
 ; RUN: opt -passes="dpcpp-kernel-add-function-attrs,print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-NO-VECTORIZATION
 
 ; If vectorization on byval/byref function is enabled, no need to do emulation then.
-; RUN: opt -dpcpp-enable-byval-byref-function-call-vectorization -dpcpp-kernel-add-function-attrs -dpcpp-kernel-vf-analysis -analyze %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-VECTORIZATION
+; RUN: opt -dpcpp-enable-byval-byref-function-call-vectorization -dpcpp-kernel-add-function-attrs -dpcpp-kernel-vf-analysis -analyze -enable-new-pm=0 %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-VECTORIZATION
 ; RUN: opt -dpcpp-enable-byval-byref-function-call-vectorization -passes="dpcpp-kernel-add-function-attrs,print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-VECTORIZATION
 
 ; CHECK-LABEL: Kernel --> VF:

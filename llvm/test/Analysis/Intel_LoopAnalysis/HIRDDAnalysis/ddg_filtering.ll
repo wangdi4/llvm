@@ -3,7 +3,7 @@
 ; The option -hir-dd-analysis-dump-nodes=-1 forces the HIRDDAnalysis pass to call getGraph() for each HLNode in the runOnFunction().
 ; DD Graphs are printed to the output.
 
-; RUN: opt -hir-ssa-deconstruction -analyze -hir-dd-analysis -hir-dd-analysis-dump-nodes=-1 < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-dd-analysis -hir-dd-analysis-dump-nodes=-1 < %s 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-dump-nodes=-1 2>&1 | FileCheck %s
 
 ; Source:

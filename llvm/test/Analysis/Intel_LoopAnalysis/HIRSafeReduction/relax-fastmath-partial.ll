@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -analyze -hir-safe-reduction-analysis -S 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -analyze -enable-new-pm=0 -hir-safe-reduction-analysis -S 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" -S 2>&1 < %s | FileCheck %s
 
 ; [Note] the safe reduction is on on a partial path (without Unsafe Albegra)

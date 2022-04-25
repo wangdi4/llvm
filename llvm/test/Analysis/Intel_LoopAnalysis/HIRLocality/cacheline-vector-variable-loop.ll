@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=8 -analyze -hir-locality-analysis -hir-spatial-locality | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=8 -analyze -enable-new-pm=0 -hir-locality-analysis -hir-spatial-locality | FileCheck %s
 
 ; HIR
 ;   BEGIN REGION { modified }

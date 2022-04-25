@@ -1,7 +1,7 @@
-; RUN: opt < %s -xmain-opt-level=3 -analyze -hir-ssa-deconstruction -hir-framework 2>&1 | FileCheck %s --check-prefix="OPT-CHECK"
+; RUN: opt < %s -xmain-opt-level=3 -analyze -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework 2>&1 | FileCheck %s --check-prefix="OPT-CHECK"
 ; RUN: opt < %s -xmain-opt-level=3 -passes="hir-ssa-deconstruction,print<hir>" 2>&1 | FileCheck %s --check-prefix="OPT-CHECK"
 
-; RUN: opt < %s -xmain-opt-level=2 -analyze -hir-ssa-deconstruction -hir-framework 2>&1 | FileCheck %s
+; RUN: opt < %s -xmain-opt-level=2 -analyze -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework 2>&1 | FileCheck %s
 ; RUN: opt < %s -xmain-opt-level=2 -passes="hir-ssa-deconstruction,print<hir>" 2>&1 | FileCheck %s
 
 ; Check that the loop containing user call @bar() will be recognized at O3 level.

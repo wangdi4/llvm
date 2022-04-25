@@ -1,4 +1,4 @@
-; RUN: opt -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-general-unroll -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze %s | FileCheck %s
+; RUN: opt -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-general-unroll -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze -enable-new-pm=0 %s | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-general-unroll,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
 
 ; Check that 6:34 %0 --> %0 FLOW (<) edge is not constructed because it's killed by <30> or <33>.

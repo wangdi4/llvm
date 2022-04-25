@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -analyze -hir-framework -hir-cg -force-hir-cg -print-after=hir-cg 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework -hir-cg -force-hir-cg -print-after=hir-cg 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-cg" -force-hir-cg -S 2>&1 < %s | FileCheck %s
 
 ; Verify that HIR does not contain any dbg intrinsics and CG does not create any

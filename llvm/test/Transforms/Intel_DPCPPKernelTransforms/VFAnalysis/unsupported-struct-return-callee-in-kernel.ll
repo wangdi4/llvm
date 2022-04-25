@@ -2,7 +2,7 @@
 ; so disable vectorization for kernel that contains both struct return type
 ; callees and sub groups
 
-; RUN: opt -dpcpp-kernel-add-function-attrs -dpcpp-kernel-vf-analysis -analyze %s -S 2>&1 | FileCheck %s
+; RUN: opt -dpcpp-kernel-add-function-attrs -dpcpp-kernel-vf-analysis -analyze -enable-new-pm=0 %s -S 2>&1 | FileCheck %s
 ; RUN: opt -passes="dpcpp-kernel-add-function-attrs,print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
 
 ; CHECK: warning: kernel "kernel": Kernel can't be vectorized due to unsupported struct type return in callee

@@ -9,7 +9,7 @@
 ;         s  +=  a[i];
 ;     }
 ;     d[j] = d[j] +s ;
-; RUN: opt < %s -loop-simplify  -hir-ssa-deconstruction | opt -hir-temp-cleanup -analyze  -hir-safe-reduction-analysis | FileCheck %s
+; RUN: opt < %s -loop-simplify  -hir-ssa-deconstruction | opt -hir-temp-cleanup -analyze -enable-new-pm=0  -hir-safe-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" 2>&1 | FileCheck %s
 
 ; CHECK: <Safe Reduction>

@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -analyze -enable-new-pm=0 -hir-dd-analysis -hir-dd-analysis-verify=Region 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,print<hir>,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

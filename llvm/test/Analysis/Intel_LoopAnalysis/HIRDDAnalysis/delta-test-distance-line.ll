@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region -debug-only=hir-dd-test -stats < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-dd-analysis -hir-dd-analysis-verify=Region -debug-only=hir-dd-test -stats < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-create-function-level-region -hir-dd-analysis-verify=Region -debug-only=hir-dd-test -disable-output -stats 2>&1 < %s | FileCheck %s
 
 ; The test case checks that delta test recognize mem refs independence in the following loop:

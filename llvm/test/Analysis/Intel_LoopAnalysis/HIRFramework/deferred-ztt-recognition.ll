@@ -1,4 +1,4 @@
-; RUN: opt < %s -analyze -hir-ssa-deconstruction -hir-framework -hir-details 2>&1 | FileCheck %s
+; RUN: opt < %s -analyze -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework -hir-details 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" -hir-details 2>&1 | FileCheck %s
 
 ; Verify that ztt of inner loop recognized and deferred by loop formation phase

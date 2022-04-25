@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-rematerialize -hir-dd-analysis -analyze -hir-dd-analysis-verify=Region < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-rematerialize -hir-dd-analysis -analyze -enable-new-pm=0 -hir-dd-analysis-verify=Region < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-rematerialize,print<hir-dd-analysis>" -aa-pipeline="basic-aa" -hir-dd-analysis-verify=Region < %s 2>&1 | FileCheck %s
 
 ; Check that invalidation after loop rematerialization happened. No spurious dd-edge remains.

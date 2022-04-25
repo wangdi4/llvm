@@ -26,11 +26,11 @@
 ; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=VPLAN-HIR-CM-SSE2
 
 ; RUN: opt < %s -S -vplan-vec  -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
-; RUN:     -vplan-force-vf=8 -instcombine -simplifycfg  -cost-model -analyze \
+; RUN:     -vplan-force-vf=8 -instcombine -simplifycfg  -cost-model -analyze -enable-new-pm=0 \
 ; RUN:     | FileCheck %s --check-prefix=LLVM-CM-AVX2
 
 ; RUN: opt < %s -S -vplan-vec  -mtriple=x86_64-unknown-unknown -mattr=+sse2 \
-; RUN:     -vplan-force-vf=8 -instcombine -simplifycfg  -cost-model -analyze \
+; RUN:     -vplan-force-vf=8 -instcombine -simplifycfg  -cost-model -analyze -enable-new-pm=0 \
 ; RUN:     | FileCheck %s --check-prefix=LLVM-CM-SSE2
 
 

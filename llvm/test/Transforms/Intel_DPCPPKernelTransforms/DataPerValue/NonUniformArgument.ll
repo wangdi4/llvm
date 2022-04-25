@@ -1,5 +1,5 @@
 ; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-data-per-value-analysis>'  %s -S | FileCheck %s
-; RUN: opt -analyze -dpcpp-kernel-data-per-value-analysis  %s -S | FileCheck %s
+; RUN: opt -analyze -enable-new-pm=0 -dpcpp-kernel-data-per-value-analysis  %s -S | FileCheck %s
 
 ;;*****************************************************************************
 ; This test checks the Barrier pass
