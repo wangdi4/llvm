@@ -1,19 +1,19 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -verify -fopenmp -fopenmp-late-outline %s
+// RUN: %clang_cc1 -opaque-pointers -verify -fopenmp -fopenmp-late-outline %s
 //
-// RUN: %clang_cc1 -verify -Wopenmp-allocate -fopenmp -fopenmp-late-outline %s
+// RUN: %clang_cc1 -opaque-pointers -verify -Wopenmp-allocate -fopenmp -fopenmp-late-outline %s
 //
-// RUN: %clang_cc1 -verify -Wno-openmp-allocate -DNOWARNING -fopenmp \
+// RUN: %clang_cc1 -opaque-pointers -verify -Wno-openmp-allocate -DNOWARNING -fopenmp \
 // RUN: -fopenmp-late-outline %s
 //
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
+// RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
 // RUN:  -emit-llvm-bc -disable-llvm-passes \
 // RUN:  -fopenmp -fopenmp-targets=spir64 \
 // RUN:  -fopenmp-late-outline \
 // RUN:  -o %t_spir.bc %s -DSPIR
 
 // Check current default for -fopenmp-target-malloc
-// RUN: %clang_cc1 -triple spir64 \
+// RUN: %clang_cc1 -opaque-pointers -triple spir64 \
 // RUN:  -aux-triple x86_64-unknown-linux-gnu \
 // RUN:  -fopenmp -fopenmp-targets=spir64 \
 // RUN:  -fopenmp-late-outline \
@@ -21,7 +21,7 @@
 // RUN:  %s -DSPIR -DDEVICE_ERROR -verify
 
 // Check -fopenmp-target-malloc
-// RUN: %clang_cc1 -triple spir64 \
+// RUN: %clang_cc1 -opaque-pointers -triple spir64 \
 // RUN:  -aux-triple x86_64-unknown-linux-gnu \
 // RUN:  -fopenmp -fopenmp-targets=spir64 -fopenmp-late-outline \
 // RUN:  -fopenmp-target-malloc \
@@ -29,7 +29,7 @@
 // RUN:  %s -DSPIR -verify
 
 // Check -fno-openmp-target-malloc
-// RUN: %clang_cc1 -triple spir64 \
+// RUN: %clang_cc1 -opaque-pointers -triple spir64 \
 // RUN:  -aux-triple x86_64-unknown-linux-gnu \
 // RUN:  -fopenmp -fopenmp-targets=spir64 -fopenmp-late-outline \
 // RUN:  -fno-openmp-target-malloc \
