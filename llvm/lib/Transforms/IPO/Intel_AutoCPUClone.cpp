@@ -153,6 +153,14 @@ static bool cloneFunctions(Module &M,
       continue;
     }
 
+    // Skip functions that are resolvers of other ifuncs.
+    if (any_of(M.ifuncs(),
+               [&](GlobalIFunc &GIF) {
+                 return GIF.getResolverFunction() == &Fn;
+               })) {
+      continue;
+    }
+
     // Names of Library functions that come from the ISO C standard are reserved
     // unconditionally. Redefining them with external linkage will rsult in
     // undefined behavior.
