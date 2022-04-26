@@ -1,6 +1,6 @@
 ; Check to see that __svml_atan2f4 is translated to the medium accuracy svml variant.
 
-; RUN: opt -vector-library=SVML -iml-trans -S < %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vector-library=SVML -iml-trans -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @vector_foo
 ; CHECK: call fast svml_cc <4 x float> @__svml_atan2f4(

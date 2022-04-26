@@ -240,10 +240,9 @@
 #include "llvm/Transforms/Scalar/Intel_LowerSubscriptIntrinsic.h" // INTEL
 #include "llvm/Transforms/Scalar/Intel_StdContainerOpt.h" // INTEL
 #include "llvm/Transforms/Scalar/Intel_TbaaMDPropagation.h" // INTEL
+#include "llvm/Transforms/Scalar/Intel_TransformFPGAReg.h" // INTEL
 #include "llvm/Transforms/Scalar/InductiveRangeCheckElimination.h"
-#if !INTEL_COLLAB
 #include "llvm/Transforms/Scalar/InferAddressSpaces.h"
-#endif // ! INTEL_COLLAB
 #include "llvm/Transforms/Scalar/InstSimplifyPass.h"
 #include "llvm/Transforms/Scalar/JumpThreading.h"
 #include "llvm/Transforms/Scalar/LICM.h"

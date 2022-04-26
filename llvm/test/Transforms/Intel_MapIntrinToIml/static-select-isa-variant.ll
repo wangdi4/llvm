@@ -1,9 +1,9 @@
 ; Check to see that SVML function calls are dispatched ISA-specific variants
 
-; RUN: opt -mtriple=i686-unknown-linux-gnu -vector-library=SVML -mattr=+sse2 -iml-trans -S < %s | FileCheck %s -check-prefixes=CHECK,CHECK-X86
-; RUN: opt -mtriple=x86_64-unknown-linux-gnu -vector-library=SVML -iml-trans -S < %s | FileCheck %s -check-prefixes=CHECK,CHECK-X86_64
-; RUN: opt -mtriple=i686-unknown-linux-gnu -vector-library=SVML -mattr=+sse2 -iml-trans -enable-intel-advanced-opts -S < %s | FileCheck %s -check-prefixes=CHECK,CHECK-X86
-; RUN: opt -mtriple=x86_64-unknown-linux-gnu -vector-library=SVML -iml-trans -enable-intel-advanced-opts -S < %s | FileCheck %s -check-prefixes=CHECK,CHECK-X86_64
+; RUN: opt -mtriple=i686-unknown-linux-gnu -enable-new-pm=0 -vector-library=SVML -mattr=+sse2 -iml-trans -S < %s | FileCheck %s -check-prefixes=CHECK,CHECK-X86
+; RUN: opt -mtriple=x86_64-unknown-linux-gnu -enable-new-pm=0 -vector-library=SVML -iml-trans -S < %s | FileCheck %s -check-prefixes=CHECK,CHECK-X86_64
+; RUN: opt -mtriple=i686-unknown-linux-gnu -enable-new-pm=0 -vector-library=SVML -mattr=+sse2 -iml-trans -enable-intel-advanced-opts -S < %s | FileCheck %s -check-prefixes=CHECK,CHECK-X86
+; RUN: opt -mtriple=x86_64-unknown-linux-gnu -enable-new-pm=0 -vector-library=SVML -iml-trans -enable-intel-advanced-opts -S < %s | FileCheck %s -check-prefixes=CHECK,CHECK-X86_64
 
 ; CHECK-LABEL: @vector_foo_dynamic
 ; CHECK: call fast svml_cc <4 x float> @__svml_acosf4(
