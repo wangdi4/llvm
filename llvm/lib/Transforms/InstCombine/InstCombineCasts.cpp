@@ -1575,7 +1575,6 @@ Instruction *InstCombinerImpl::visitSExt(SExtInst &CI) {
   unsigned SrcBitSize = SrcTy->getScalarSizeInBits();
   unsigned DestBitSize = DestTy->getScalarSizeInBits();
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Avoid some sext transforms if CI has a GEP + Load/Store user,
   // to avoid negatively impacting vectorizer's unit-stride analysis.
@@ -1609,14 +1608,8 @@ Instruction *InstCombinerImpl::visitSExt(SExtInst &CI) {
   };
 #endif // INTEL_CUSTOMIZATION
 
-  // If we know that the value being extended is positive, we can use a zext
-  // instead.
-  KnownBits Known = computeKnownBits(Src, 0, &CI);
-  if (Known.isNonNegative() && !AvoidSExtTransform(CI, Src)) // INTEL
-=======
   // If the value being extended is zero or positive, use a zext instead.
   if (isKnownNonNegative(Src, DL, 0, &AC, &CI, &DT))
->>>>>>> 6631907ad20f74eec47fee461f90a21531ec7822
     return CastInst::Create(Instruction::ZExt, Src, DestTy);
 
 #if INTEL_CUSTOMIZATION
