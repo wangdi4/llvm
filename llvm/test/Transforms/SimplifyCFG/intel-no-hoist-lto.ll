@@ -11,6 +11,7 @@
 ; gets reduced to unreachable by SimplifyCFG.
 ; CMPLRLLVM-37054
 ; XFAIL: new_pm_default
+; REQUIRES: DEBUG
 
 ; RUN: opt -S -passes="lto<O3>" %s | FileCheck %s
 ; RUN: clang -flegacy-pass-manager -O3 -o - -S -flto -emit-llvm %s | FileCheck %s
