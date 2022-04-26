@@ -353,6 +353,7 @@ MODULE_PASS("inlinereportsetup", InlineReportSetupPass()) // INTEL
 MODULE_PASS("inlinereportemitter", InlineReportEmitterPass()) // INTEL
 MODULE_PASS("intel-advancedfastcall", IntelAdvancedFastCallPass()) // INTEL
 MODULE_PASS("iparraytranspose", IPArrayTransposePass()) // INTEL
+MODULE_PASS("transform-fpga-reg", TransformFPGARegPass()) // INTEL
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
 MODULE_PASS("intel-ipoprefetch", IntelIPOPrefetchPass())
