@@ -1207,7 +1207,7 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
 #if INTEL_CUSTOMIZATION
     // CMPLRLLVM-36992: Keep track of recursive functions so that we perform 
     // argument promotion on them at most once per pass invocation. When this
-    // optimization was re-implemented on 2020128 to be offset-based, we lost
+    // optimization was re-implemented on 20220128 to be offset-based, we lost
     // the ability to do any argument promotion on pointer arguments in
     // recursive functions. We would like to restore that partially for xmain.
     SmallPtrSet<Function *, 4> RecursiveFunctions;
@@ -1373,7 +1373,7 @@ bool ArgPromotion::runOnSCC(CallGraphSCC &SCC) {
 #if INTEL_CUSTOMIZATION
     // CMPLRLLVM-36992: Keep track of recursive functions so that we perform 
     // argument promotion on them at most once per pass invocation. When this
-    // optimization was re-implemented on 2022128 to be offset-based, we lost
+    // optimization was re-implemented on 20220128 to be offset-based, we lost
     // the ability to do any argument promotion on pointer arguments in
     // recursive functions. We would like to restore that partially for xmain.
     SmallPtrSet<Function *, 4> RecursiveFunctions;

@@ -3,7 +3,8 @@
 ; conditional last privates.
 
 ; FIXME: Remove CHECKs for VPlan IR after removing temporary hack.
-; RUN: opt -disable-output %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-ssa-deconstruction -print-after=hir-vplan-vec 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -disable-output %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-ssa-deconstruction -print-after=hir-vplan-vec 2>&1 | FileCheck %s
+; RUN: opt -disable-output %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -vplan-print-after-ssa-deconstruction 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -87,9 +88,8 @@ define void @foo(i1 %cond, i32* %val) #1 {
 ; CHECK-NEXT:  Id: 0   i32 live-out0 -> [[VP25:%.*]] = {%priv}
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Id: 1   no underlying for i64 [[VP__IND_FINAL]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  *** IR Dump After VPlan HIR Vectorizer (hir-vplan-vec) ***
-; CHECK-NEXT:  Function: foo
+
+; CHECK-LABEL: Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  BEGIN REGION { modified }
 ; CHECK-NEXT:        [[PRIV0]] = undef

@@ -4665,7 +4665,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     }
 
     auto *Op0 = widenRef(VPInst->getOperand(0), VF);
-    auto *Op1 = widenRef(VPInst->getOperand(0), VF);
+    auto *Op1 = widenRef(VPInst->getOperand(1), VF);
     auto *Mask = cast<VPConstant>(VPInst->getOperand(2))->getConstant();
 
     unsigned OrigSrcVL = cast<FixedVectorType>(VPInst->getOperand(0)->getType())
