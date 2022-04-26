@@ -15,6 +15,7 @@ define void @foo(i64 *%a, i64 *%b) {
 ; CHECK-NEXT:  |   [[EXTRACTSUBVEC_0:%.*]] = shufflevector [[DOTVEC40]],  undef,  <i32 0, i32 1>
 ; CHECK-NEXT:  |   [[EXTRACTSUBVEC_50:%.*]] = shufflevector [[DOTVEC40]],  undef,  <i32 0, i32 1>
 ; CHECK-NEXT:  |   [[SHUFFLE60:%.*]] = shufflevector [[EXTRACTSUBVEC_0]],  [[EXTRACTSUBVEC_50]],  <i32 3, i32 0>
+; CHECK-NEXT:  |   [[SHUFFLE70:%.*]] = shufflevector [[DOTVEC20]],  [[DOTVEC20]] + <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>,  <i32 9, i32 0, i32 11, i32 2, i32 13, i32 4, i32 15, i32 6>;
 ; CHECK-NEXT:  + END LOOP
 ;
 entry:
@@ -33,6 +34,9 @@ header:
   %vec.uni = bitcast i64 %ld.uni to <2 x i32>
   %shuffle.uni = shufflevector <2 x i32> %vec.uni, <2 x i32> %vec.uni, <2 x i32><i32 3, i32 0>
 
+  %vec.add = add <2 x i32> %vec, <i32 1, i32 1>
+  %shuffle2 = shufflevector <2 x i32> %vec, <2 x i32> %vec.add, <2 x i32><i32 3, i32 0>
+  
   %iv.next = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 128
   br i1 %exitcond, label %exit, label %header
