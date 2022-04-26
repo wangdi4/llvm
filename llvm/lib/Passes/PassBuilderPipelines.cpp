@@ -1198,6 +1198,12 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   InlineParams IP = getInlineParamsFromOptLevel(Level, PrepareForLTO,
       LinkForLTO);
 #endif // INTEL_CUSTOMIZATION
+  // For PreLinkThinLTO + SamplePGO, set hot-caller threshold to 0 to
+  // disable hot callsite inline (as much as possible [1]) because it makes
+  // profile annotation in the backend inaccurate.
+  //
+  // [1] Note the cost of a function could be below zero due to erased
+  // prologue / epilogue.
   if (Phase == ThinOrFullLTOPhase::ThinLTOPreLink && PGOOpt &&
       PGOOpt->Action == PGOOptions::SampleUse)
     IP.HotCallSiteThreshold = 0;
@@ -1315,6 +1321,12 @@ PassBuilder::buildModuleInlinerPipeline(OptimizationLevel Level,
   InlineParams IP = getInlineParamsFromOptLevel(Level, PrepareForLTO,
      LinkForLTO);
 #endif // INTEL_CUSTOMIZATION
+  // For PreLinkThinLTO + SamplePGO, set hot-caller threshold to 0 to
+  // disable hot callsite inline (as much as possible [1]) because it makes
+  // profile annotation in the backend inaccurate.
+  //
+  // [1] Note the cost of a function could be below zero due to erased
+  // prologue / epilogue.
   if (Phase == ThinOrFullLTOPhase::ThinLTOPreLink && PGOOpt &&
       PGOOpt->Action == PGOOptions::SampleUse)
     IP.HotCallSiteThreshold = 0;
