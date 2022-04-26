@@ -46,6 +46,7 @@
 ; CHECK-NEXT: Running analysis: DTransImmutableAnalysis on [module]
 ; CHECK-NEXT: Running pass: dtransOP::MemInitTrimDownOPPass
 ; CHECK-NEXT: Running pass: dtransOP::SOAToAOSOPPreparePass
+; CHECK-NEXT: Running pass: dtransOP::CodeAlignPass
 ; CHECK-NEXT: Running pass: dtransOP::DeleteFieldOPPass
 ; CHECK-NEXT: Running pass: dtransOP::ReorderFieldsOPPass
 ; CHECK-NEXT: Running pass: dtransOP::AOSToSOAOPPass

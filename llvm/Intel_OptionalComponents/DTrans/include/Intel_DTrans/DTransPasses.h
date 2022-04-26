@@ -30,6 +30,7 @@
 #include "Intel_DTrans/Transforms/AOSToSOAOP.h"
 #include "Intel_DTrans/Transforms/AnnotatorCleaner.h"
 #include "Intel_DTrans/Transforms/CodeAlign.h"
+#include "Intel_DTrans/Transforms/CodeAlignOP.h"
 #include "Intel_DTrans/Transforms/CommuteCond.h"
 #include "Intel_DTrans/Transforms/DTransForceInline.h"
 #include "Intel_DTrans/Transforms/DTransForceInlineOP.h"

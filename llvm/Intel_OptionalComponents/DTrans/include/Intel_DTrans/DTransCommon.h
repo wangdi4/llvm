@@ -64,6 +64,7 @@ void initializeDTransMemInitTrimDownWrapperPass(PassRegistry&);
 void initializeDTransMemInitTrimDownOPWrapperPass(PassRegistry&);
 void initializeDTransMemManageTransWrapperPass(PassRegistry&);
 void initializeDTransCodeAlignWrapperPass(PassRegistry&);
+void initializeDTransCodeAlignOPWrapperPass(PassRegistry&);
 void initializeDTransTransposeWrapperPass(PassRegistry&);
 void initializeDTransCommuteCondWrapperPass(PassRegistry&);
 void initializeDTransCommuteCondOPWrapperPass(PassRegistry&);
