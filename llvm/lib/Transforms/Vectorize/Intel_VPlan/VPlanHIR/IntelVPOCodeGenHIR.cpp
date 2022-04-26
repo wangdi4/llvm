@@ -4297,67 +4297,12 @@ RegDDRef *VPOCodeGenHIR::generateCompareToZero(RegDDRef *Value,
   return CmpInst->getLvalDDRef();
 }
 
-void VPOCodeGenHIR::widenUniformLoadImpl(const VPLoadStoreInst *VPLoad,
-                                         RegDDRef *Mask) {
-  // For a uniform load, do a scalar load followed by a broadcast. We need to
-  // mask the scalar load appropriately. The mask to use is !AllZeroCheck(Mask)
-  // which will ensure that we do the load if any vector lane is active. Using a
-  // scalar load followed by broadcast is especially important for the masked
-  // case as we need to ensure that lane 0 value is properly set as it can feed
-  // unit stride memory references in cases like the following:
-  //     t1 = load unif_ptr @mask = cond
-  //     t2 = a[t1][i1]  @mask = cond
-  if (Mask) {
-    Mask =
-        generateCompareToZero(Mask, nullptr /* InstMask */, false /* Equal */);
-  }
-
+void VPOCodeGenHIR::generateUniformScalarLoad(const VPLoadStoreInst *VPLoad) {
+  // For a uniform load, do a scalar load.
   RegDDRef *MemRef = getMemoryRef(VPLoad, true /* Lane0Value */);
   auto *ScalarInst = HLNodeUtilities.createLoad(MemRef, ".unifload");
-  if (Mask) {
-    // Consider the case of a uniform load under a mask and the subsequent
-    // use of the loaded value.
-    //   if (cond) {
-    //      v = *unifp;
-    //        = v + 1
-    //   }
-    //
-    // The generated HIR can look like the following:
-    //     %0 = bitcast.<4 x i1>.i4(cond.vec);
-    //     %cmp = %0 != 0;
-    //     if (%cmp == 1) {
-    //        %.unifload = (unifp)[0];
-    //     }
-    //        = add %.unifload, 1
-    //
-    // Note that the load itself is done conditionally but the uses of the
-    // loaded value can be unmasked if the use itself is safe such as the
-    // use in an add instruction. However, when we generate the equivalent
-    // LLVM IR, we end with unnecessary PHIs in the loop header due to
-    // what appears to be a potential use of the value assigned in a
-    // previous iteration. These unnecessary PHIs increase register
-    // pressure and we avoid this by assigning undef to %.unifload before
-    // the conditional load.
-    //
-    //     %.unifload = undef
-    //     if (%cmp == 1) {
-    //        %.unifload = (unifp)[0];
-    //     }
-    //
-    HLInst *InitInst = generateInitWithUndef(ScalarInst->getLvalDDRef());
-    addInstUnmasked(InitInst);
-    HLIf *If = HLNodeUtilities.createHLIf(
-        PredicateTy::ICMP_EQ, Mask->clone(),
-        DDRefUtilities.createConstDDRef(Mask->getDestType(), 1));
-    addInst(If, nullptr /* Mask */);
-    HLNodeUtils::insertAsFirstThenChild(If, ScalarInst);
-  } else {
-    addInstUnmasked(ScalarInst);
-  }
-
+  addInstUnmasked(ScalarInst);
   addVPValueScalRefMapping(VPLoad, ScalarInst->getLvalDDRef(), 0);
-  addVPValueWideRefMapping(
-      VPLoad, widenRef(ScalarInst->getLvalDDRef()->clone(), getVF()));
 }
 
 void VPOCodeGenHIR::widenUnmaskedUniformStoreImpl(
@@ -4402,7 +4347,7 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
   if (!Plan->getVPlanDA()->isDivergent(*PtrOp)) {
     // Handle uniform load
     if (Opcode == Instruction::Load) {
-      widenUniformLoadImpl(VPLoadStore, Mask);
+      scalarizePredicatedUniformInst(VPLoadStore, Mask);
       return;
     } else if (!Mask) {
       // Handle unmasked uniform store
@@ -5758,8 +5703,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       return;
     }
     case VPCallInstruction::CallVecScenariosTy::DoNotWiden: {
-      // TODO: Support for DoNotWiden in HIR path(similar to LLVM path).
-      generateHIR(VPInst, Mask, false /*Widen*/, 0 /*LaneID*/);
+      scalarizePredicatedUniformInst(VPCall, Mask);
       return;
     }
     default: {
@@ -6408,6 +6352,89 @@ void VPOCodeGenHIR::serializeInstruction(const VPInstruction *VPInst,
 
   LLVM_DEBUG(dbgs() << "\n[VPOCGHIR] After serialization"; MainLoop->dump();
              dbgs() << "\n");
+}
+
+void VPOCodeGenHIR::scalarizePredicatedUniformInst(const VPInstruction *VPInst,
+                                                   RegDDRef *Mask) {
+  // Track marker and HLIf potentially created for masked scalarization.
+  HLNode *Marker = nullptr;
+  HLIf *If = nullptr;
+
+  // We need to mask the scalar instruction appropriately. The mask to use is
+  // !AllZeroCheck(Mask) which will ensure that we do the operation if any
+  // vector lane is active.
+  if (Mask) {
+    Mask =
+        generateCompareToZero(Mask, nullptr /* InstMask */, false /* Equal */);
+
+    // Consider the case of a uniform load under a mask and the subsequent
+    // use of the loaded value.
+    //   if (cond) {
+    //      v = *unifp;
+    //        = v + 1
+    //   }
+    //
+    // The generated HIR will look like the following:
+    //     %0 = bitcast.<4 x i1>.i4(cond.vec);
+    //     %cmp = %0 != 0;
+    //     if (%cmp == 1) {
+    //        %.unifload = (unifp)[0];
+    //     }
+    //        = add %.unifload, 1
+    //
+
+    If = HLNodeUtilities.createHLIf(
+        PredicateTy::ICMP_EQ, Mask->clone(),
+        DDRefUtilities.createConstDDRef(Mask->getDestType(), 1));
+    addInst(If, nullptr /* Mask */);
+    Marker = HLNodeUtilities.getOrCreateMarkerNode();
+    HLNodeUtils::insertAsFirstThenChild(If, Marker);
+    InsertPoint = Marker;
+  }
+
+  // Generate a scalar HLInst for given VPInstruction using operands for lane 0.
+  if (VPInst->getOpcode() == Instruction::Load)
+    generateUniformScalarLoad(cast<VPLoadStoreInst>(VPInst));
+  else
+    generateHIR(VPInst, Mask, false /*Widen*/, 0 /*Lane*/);
+
+  // Get l-val that scalar HLInst produces, if any.
+  RegDDRef *ScalarRef = getScalRefForVPVal(VPInst, 0 /*Lane*/);
+  if (ScalarRef) {
+    // Explicit bcast of uniform value to all vector lanes.
+    addVPValueWideRefMapping(VPInst, widenRef(ScalarRef->clone(), getVF()));
+  }
+
+  // If the scalarization is done under a mask, we would have created an HLIf
+  // to place the generated instructions. We can safely delete the Marker
+  // created inside this HLIf. Subsequent instructions need to be placed after
+  // this HLIf and we update the insertion point accordingly. We also generate
+  // l-val initialization with undef here if needed.
+  if (Mask) {
+    assert(If && Marker &&
+           "Expected an HLIf and Marker for masked scalarization.");
+    HLNodeUtils::remove(Marker);
+
+    // For the pseudo-example described earlier, note that the load itself is
+    // done conditionally but the uses of the loaded value can be unmasked if
+    // the use itself is safe such as the use in an add instruction. However,
+    // when we generate the equivalent LLVM IR, we end with unnecessary PHIs in
+    // the loop header due to what appears to be a potential use of the value
+    // assigned in a previous iteration. These unnecessary PHIs increase
+    // register pressure and we avoid this by assigning undef to %.unifload
+    // before the conditional load.
+    //
+    //     %.unifload = undef
+    //     if (%cmp == 1) {
+    //        %.unifload = (unifp)[0];
+    //     }
+    if (ScalarRef) {
+      HLInst *InitInst = generateInitWithUndef(ScalarRef);
+      HLNodeUtils::insertBefore(If, InitInst);
+    }
+
+    InsertPoint = If;
+  }
 }
 
 HLLabel *VPOCodeGenHIR::getBlockLabel(const VPBasicBlock *VPBB) {
