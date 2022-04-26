@@ -552,9 +552,7 @@ FUNCTION_PASS("functionrecognizer", FunctionRecognizerPass()) // INTEL
 #endif // INTEL_CUSTOMIZATION
 FUNCTION_PASS("gvn-sink", GVNSinkPass())
 FUNCTION_PASS("helloworld", HelloWorldPass())
-#if !INTEL_COLLAB
 FUNCTION_PASS("infer-address-spaces", InferAddressSpacesPass())
-#endif // !INTEL_COLLAB
 FUNCTION_PASS("instcombine", InstCombinePass())
 FUNCTION_PASS("instcount", InstCountPass())
 FUNCTION_PASS("instsimplify", InstSimplifyPass())
