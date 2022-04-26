@@ -2,7 +2,7 @@
 ; RUN: opt < %s -enable-intel-advanced-opts=true -passes=instcombine -S | FileCheck %s
 
 ; Checks that min/max intrinsic recognition is disabled when AVX512 or AVX2
-; advanced opts are enabled.
+; advanced opts are enabled, and loopopt has not run yet.
 
 target triple = "i686-pc-linux-gnu"
 
@@ -48,7 +48,31 @@ entry:
   ret void
 }
 
-attributes #0 = { "target-cpu"="skylake-avx512" "target-features"="+avx512f,+avx512vl,+avx512dq"}
-attributes #1 = { "target-cpu"="haswell" "target-features"="+adx,+aes,+avx,+avx2"}
+; This one does not have the "pre_loopopt" attribute so we expect min/max to
+; kick in.
+define void @control(i32* %x, i32* %y) #2 {
+; CHECK-LABEL: @control(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[TMP_1_I:%.*]] = load i32, i32* [[Y:%.*]], align 4
+; CHECK-NEXT:    [[TMP_3_I:%.*]] = load i32, i32* [[X:%.*]], align 4
+; CHECK-NEXT:    [[TMP0:%.*]] = call i32 @llvm.smin.i32(i32 [[TMP_1_I]], i32 [[TMP_3_I]])
+; CHECK-NEXT:    store i32 [[TMP0]], i32* [[X]], align 4
+; CHECK-NEXT:    ret void
+;
+entry:
+  %tmp.1.i = load i32, i32* %y         ; <i32> [#uses=1]
+  %tmp.3.i = load i32, i32* %x         ; <i32> [#uses=1]
+  %tmp.4.i = icmp slt i32 %tmp.1.i, %tmp.3.i              ; <i1> [#uses=1]
+  %retval.i = select i1 %tmp.4.i, i32* %y, i32* %x                ; <i32*> [#uses=1]
+  %tmp.4 = load i32, i32* %retval.i            ; <i32> [#uses=1]
+  store i32 %tmp.4, i32* %x
+  ret void
+}
+
+
+
+attributes #0 = { "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+avx512f,+avx512vl,+avx512dq"}
+attributes #1 = { "pre_loopopt" "target-cpu"="haswell" "target-features"="+adx,+aes,+avx,+avx2"}
+attributes #2 = { "target-cpu"="skylake-avx512" "target-features"="+avx512f,+avx512vl,+avx512dq"}
 
 
