@@ -262,7 +262,10 @@ void ReplaceableMetadataImpl::moveRef(void *Ref, void *New,
          "Reference without owner must be direct");
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> e83543f8c2ef79f82f2e291072a956e23ab08efa
 void ReplaceableMetadataImpl::SalvageDebugInfo(const Constant &C) {
   if (!C.isUsedByMetadata()) {
     return;
@@ -292,7 +295,10 @@ void ReplaceableMetadataImpl::SalvageDebugInfo(const Constant &C) {
     }
   }
 }
+<<<<<<< HEAD
 #endif
+=======
+>>>>>>> e83543f8c2ef79f82f2e291072a956e23ab08efa
 
 void ReplaceableMetadataImpl::replaceAllUsesWith(Metadata *MD) {
   if (UseMap.empty())

@@ -319,10 +319,15 @@ public:
   ///
   /// Replace all uses of this with \c MD, which is allowed to be null.
   void replaceAllUsesWith(Metadata *MD);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// Replace all uses of the constant with Undef in debug info metadata
   static void SalvageDebugInfo(const Constant &C);
 #endif
+=======
+   /// Replace all uses of the constant with Undef in debug info metadata
+  static void SalvageDebugInfo(const Constant &C); 
+>>>>>>> e83543f8c2ef79f82f2e291072a956e23ab08efa
   /// Returns the list of all DIArgList users of this.
   SmallVector<Metadata *> getAllArgListUsers();
 
