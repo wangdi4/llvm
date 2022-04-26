@@ -5,17 +5,8 @@
 ; In llorg, this is happening in the late-LTO SimplifyCFG pass.
 ; The hoisting is disabled in xmain in the pass builder.
 
-<<<<<<< HEAD
-; This test fails when the new pass manager is enabled by default.
-; In the case where clang is invoked (which it shouldn't be here), the
-; LowerSubscriptIntrinsicPass inserts poison and the whole function eventually
-; gets reduced to unreachable by SimplifyCFG.
-; CMPLRLLVM-37054
-; XFAIL: new_pm_default
 ; REQUIRES: DEBUG
 
-=======
->>>>>>> e1e9b112731a4414282193c853b7ca47725feda4
 ; RUN: opt -S -passes="lto<O3>" %s | FileCheck %s
 ; RUN: clang -flegacy-pass-manager -O3 -o - -S -flto -emit-llvm %s | FileCheck %s
 ; RUN: clang -fno-legacy-pass-manager -mllvm -loopopt=1 -O3 -o - -S -flto -emit-llvm %s | FileCheck %s
