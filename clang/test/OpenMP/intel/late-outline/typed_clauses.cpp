@@ -420,5 +420,41 @@ void foo_shared_clauses(int n)
     #pragma omp parallel private(vla)
     {}
   }
+
+  // Don't produce a typed clause for implicit vlas, at least for now.
+  {
+    int implicit_shared_vla[n];
+    //CHECK: [[IVLA:%vla.*]] = alloca i32,
+    //CHECK: "DIR.OMP.PARALLEL"()
+    //CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[IVLA]]
+    #pragma omp parallel
+    {
+      implicit_shared_vla[4] = 1;
+    }
+  }
+
+  // Explicit VLA can be typed.
+  {
+    int explicit_shared_vla[n];
+    //CHECK: [[EVLA:%vla.*]] = alloca i32,
+    //CHECK: store i64 [[SZ:%[0-9]+]], ptr %omp.vla.tmp{{[[0-9]*}}
+    //CHECK: "DIR.OMP.PARALLEL"()
+    //CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[EVLA]], i32 0, i64 [[SZ]]
+    #pragma omp parallel shared(explicit_shared_vla)
+    {
+      explicit_shared_vla[4] = 1;
+    }
+  }
+
+  // An implicit fixed array is okay.
+  {
+    int implicit_shared_fixed[42];
+    //CHECK: "DIR.OMP.PARALLEL"()
+    //CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr %implicit_shared_fixed{{[[0-9]*}}, i32 0, i64 42
+    #pragma omp parallel shared(implicit_shared_fixed)
+    {
+      implicit_shared_fixed[4] = 1;
+    }
+  }
 }
 // end INTEL_COLLAB
