@@ -7857,6 +7857,15 @@ private:
       SmallVector<OMPClauseMappableExprCommon::MappableExprComponentListRef, 4>>
       DevPointersMap;
 
+#if INTEL_COLLAB
+  /// Map between device addr declarations and their expression components.
+  /// The key value for declarations in 'this' is null.
+  llvm::DenseMap<
+      const ValueDecl *,
+      SmallVector<OMPClauseMappableExprCommon::MappableExprComponentListRef, 4>>
+      HasDevAddrsMap;
+#endif  // INTEL_COLLAB
+
   /// Map between lambda declarations and their map type.
   llvm::DenseMap<const ValueDecl *, const OMPMapClause *> LambdasMap;
 
@@ -8027,8 +8036,11 @@ private:
 
 #if INTEL_COLLAB
 public:
-  bool isDevPoingerMap(const ValueDecl *VD) const{
+  bool isDevPointersMap(const ValueDecl *VD) const{
     return DevPointersMap.count(VD);
+  }
+  bool isHasDevAddrsMap(const ValueDecl *VD) const{
+    return HasDevAddrsMap.count(VD);
   }
 #endif // INTEL_COLLAB
   /// Generate the base pointers, section pointers, sizes, map type bits, and
@@ -9279,7 +9291,8 @@ private:
       const Decl *D = Data.first;
       const ValueDecl *VD = cast_or_null<ValueDecl>(D);
 #if INTEL_COLLAB
-      if (CGF.CGM.getLangOpts().OpenMPLateOutline && isDevPoingerMap(VD))
+      if (CGF.CGM.getLangOpts().OpenMPLateOutline && (isDevPointersMap(VD) ||
+          isHasDevAddrsMap(VD)))
         continue;
 #endif  // INTEL_COLLAB
       for (const auto &M : Data.second) {
@@ -9405,6 +9418,10 @@ public:
     for (const auto *C : Dir.getClausesOfKind<OMPIsDevicePtrClause>())
       for (auto L : C->component_lists())
         DevPointersMap[std::get<0>(L)].push_back(std::get<1>(L));
+    // Extract has device addr clause information.
+    for (const auto *C : Dir.getClausesOfKind<OMPHasDeviceAddrClause>())
+      for (auto L : C->component_lists())
+        HasDevAddrsMap[std::get<0>(L)].push_back(std::get<1>(L));
     // Extract map information.
     for (const auto *C : Dir.getClausesOfKind<OMPMapClause>()) {
       if (C->getMapType() != OMPC_MAP_to)
@@ -10394,11 +10411,15 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
         continue;
       }
 
-      if ((CI->capturesThis() && MEHandler.isDevPoingerMap(nullptr)) ||
+      if ((CI->capturesThis() && MEHandler.isDevPointersMap(nullptr)) ||
           (!CI->capturesThis() &&
-           MEHandler.isDevPoingerMap(CI->getCapturedVar())))
+           MEHandler.isDevPointersMap(CI->getCapturedVar())))
         continue;
 
+      if ((CI->capturesThis() && MEHandler.isHasDevAddrsMap(nullptr)) ||
+          (!CI->capturesThis() &&
+           MEHandler.isHasDevAddrsMap(CI->getCapturedVar())))
+        continue;
       MappableExprsHandler::MapCombinedInfoTy CurInfo;
       MappableExprsHandler::StructRangeInfoTy PartialStruct;
 

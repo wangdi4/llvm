@@ -2466,6 +2466,27 @@ void OpenMPLateOutliner::emitOMPUseDeviceAddrClause(
   }
 }
 
+void OpenMPLateOutliner::emitOMPHasDeviceAddrClause(
+    const OMPHasDeviceAddrClause *Cl) {
+  for (auto *E : Cl->varlists()) {
+    const VarDecl *VD = getExplicitVarDecl(E);
+    assert(VD && "expected VarDecl in has_device_addr clause");
+    addExplicit(VD, OMPC_has_device_addr);
+    bool IsCapturedExpr = isa<OMPCapturedExprDecl>(VD);
+    bool IsRef = !IsCapturedExpr && VD->getType()->isReferenceType();
+    ClauseEmissionHelper CEH(*this, OMPC_has_device_addr,
+                             "QUAL.OMP.HAS_DEVICE_ADDR");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
+    if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
+        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
+      CSB.setArrSect();
+    if (IsRef)
+      CSB.setByRef();
+    addArg(CSB.getString());
+    addArg(E, IsRef);
+  }
+}
+
 void OpenMPLateOutliner::emitOMPNontemporalClause(
     const OMPNontemporalClause *Cl) {
   for (auto *E : Cl->varlists()) {
@@ -2552,8 +2573,6 @@ void OpenMPLateOutliner::emitOMPExclusiveClause(const OMPExclusiveClause *Cl) {
   }
 }
 
-void OpenMPLateOutliner::emitOMPHasDeviceAddrClause(
-    const OMPHasDeviceAddrClause *) {}
 void OpenMPLateOutliner::emitOMPReadClause(const OMPReadClause *) {}
 void OpenMPLateOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
 void OpenMPLateOutliner::emitOMPFromClause(const OMPFromClause *) {assert(false);}
@@ -3967,6 +3986,11 @@ void CodeGenFunction::RemapForLateOutlining(const OMPExecutableDirective &D,
        RemapVars.push_back(VarExpr ? VarExpr : Ref);
      }
   for (const auto *C : D.getClausesOfKind<OMPIsDevicePtrClause>())
+     for (const auto *Ref : C->varlists()) {
+       const Expr *VarExpr = OpenMPLateOutliner::getExplicitDeclRefOrNull(Ref);
+       RemapVars.push_back(VarExpr ? VarExpr : Ref);
+     }
+  for (const auto *C : D.getClausesOfKind<OMPHasDeviceAddrClause>())
      for (const auto *Ref : C->varlists()) {
        const Expr *VarExpr = OpenMPLateOutliner::getExplicitDeclRefOrNull(Ref);
        RemapVars.push_back(VarExpr ? VarExpr : Ref);
