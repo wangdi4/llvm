@@ -1,6 +1,6 @@
 ; Check to see that __svml_powf4 is translated to the high accuracy svml variant.
 
-; RUN: opt -vector-library=SVML -iml-trans -S < %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vector-library=SVML -iml-trans -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @foo
 ; CHECK: call svml_cc <4 x float> @__svml_powf4_ha

@@ -1,9 +1,9 @@
 ; Checks that MapIntrinToIml will do acosd -> __bwr_acosd conversion
 ; in case of imf-arch-consistency (CMPLRLLVM-10819)
 
-; RUN: opt -vector-library=SVML -iml-trans -S < %s | FileCheck %s
-; RUN: opt -vector-library=SVML -O0 -iml-trans -S < %s | FileCheck %s
-; RUN: opt -vector-library=SVML -passes="map-intrin-to-iml" -S < %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vector-library=SVML -iml-trans -S < %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vector-library=SVML -O0 -iml-trans -S < %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vector-library=SVML -passes="map-intrin-to-iml" -S < %s | FileCheck %s
 
 ; CHECK: %call = call double @__bwr_acosd
 
