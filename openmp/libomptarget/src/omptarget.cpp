@@ -763,8 +763,15 @@ static void applyToShadowMapEntries(DeviceTy &Device, CBTy CB, void *Begin,
 
   // If the map entry for the object was never marked as containing attached
   // pointers, no need to do any checking.
+#if INTEL_COLLAB
+  // Addressing CMPLRLLVM-37085.
+  // Seems like the getMayContainAttachedPointers access a field which has been freed.
+  // Disabling this check as 1) upstream version has changed the shadow pointer implementation
+  // 2)  This optimization is recent and does not make a significant improvement.
+#else // INTEL_COLLAB
   if (!TPR.Entry || !TPR.Entry->getMayContainAttachedPointers())
     return;
+#endif // INTEL_COLLAB
 
   uintptr_t LB = (uintptr_t)Begin;
   uintptr_t UB = LB + Size;
