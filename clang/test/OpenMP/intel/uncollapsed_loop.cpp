@@ -1,29 +1,29 @@
 // RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c++14 -fopenmp \
-// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline \
+// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:   -fintel-openmp-region-late-collapsed-loops \
 // RUN:   -triple x86_64-unknown-linux-gnu \
 // RUN:   | FileCheck %s --check-prefixes CHECK,HOST
 
 // RUN: %clang_cc1 -opaque-pointers -emit-llvm-bc -o %t_host.bc %s -std=c++14 -fopenmp \
-// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline \
+// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:   -fintel-openmp-region-late-collapsed-loops \
 // RUN:   -triple x86_64-unknown-linux-gnu
 
 // RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c++14 -fopenmp \
-// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline \
+// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:   -fintel-openmp-region-late-collapsed-loops \
 // RUN:   -triple spir64 -fopenmp-is-device \
 // RUN:   -fopenmp-host-ir-file-path %t_host.bc \
 // RUN:   | FileCheck %s --check-prefixes CHECK,TARG
 
 // RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c++14 -fexceptions -fopenmp \
-// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline \
+// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:   -fintel-openmp-region-late-collapsed-loops \
 // RUN:   -triple x86_64-unknown-linux-gnu \
 // RUN:   | FileCheck %s --check-prefixes CHECK,HOST
 
 // RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c++14 -fopenmp \
-// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline \
+// RUN:   -fopenmp-targets=spir64 -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:   -triple x86_64-unknown-linux-gnu \
 // RUN:   -fintel-openmp-region-early-collapsed-loops \
 // RUN:   | FileCheck %s --check-prefix OFF
@@ -77,8 +77,8 @@ void test_one(float *A0, float *A1, int Ni, int Nj, int Nk) {
   //CHECK: "DIR.OMP.TARGET"()
   //CHECK: "DIR.OMP.TEAMS"()
   //CHECK: "DIR.OMP.DISTRIBUTE.PARLOOP"()
-  //CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr[[AS]] [[IV_I]], ptr[[AS]] [[IV_J]])
-  //CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr[[AS]] [[UB_I]], ptr[[AS]] [[UB_J]])
+  //CHECK-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr[[AS]] [[IV_I]], i64 0, ptr[[AS]] [[IV_J]], i64 0)
+  //CHECK-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr[[AS]] [[UB_I]], i64 0, ptr[[AS]] [[UB_J]], i64 0)
   // Init the first iteration variable
   //CHECK: [[L22:%[0-9]*]] = load i64, ptr[[AS]] [[LB_I]]
   //CHECK: store i64 [[L22]], ptr[[AS]] [[IV_I]]
@@ -186,8 +186,8 @@ void test_two(float *A0, float *A1, int Ni, int Nj, int Nk) {
   //CHECK: "DIR.OMP.TARGET"()
   //CHECK: "DIR.OMP.TEAMS"()
   //CHECK: "DIR.OMP.DISTRIBUTE.PARLOOP"()
-  //CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr[[AS]] [[IV_I]], ptr[[AS]] [[IV_J]], ptr[[AS]] [[IV_K]])
-  //CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr[[AS]] [[UB_I]], ptr[[AS]] [[UB_J]], ptr[[AS]] [[UB_K]])
+  //CHECK-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr[[AS]] [[IV_I]], i64 0, ptr[[AS]] [[IV_J]], i64 0, ptr[[AS]] [[IV_K]], i64 0)
+  //CHECK-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr[[AS]] [[UB_I]], i64 0, ptr[[AS]] [[UB_J]], i64 0, ptr[[AS]] [[UB_K]], i64 0)
   //CHECK: "DIR.OMP.SIMD"()
   // Init the first iteration variable
   //CHECK: [[L22:%[0-9]*]] = load i64, ptr[[AS]] [[LB_I]]

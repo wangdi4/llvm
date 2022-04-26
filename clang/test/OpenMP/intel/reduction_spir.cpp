@@ -2,25 +2,25 @@
 //RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
-//RUN:  -Werror -Wsource-uses-openmp -o - %s
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
+//RUN:  -Werror -Wsource-uses-openmp -o %t.out.1 %s
 
 //RUN: %clang_cc1 -opaque-pointers -triple i386-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
-//RUN:  -Werror -Wsource-uses-openmp -o - %s
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
+//RUN:  -Werror -Wsource-uses-openmp -o %t.out.2 %s
 
 //RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
 //RUN: %clang_cc1 -opaque-pointers -triple spir64 \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
 //RUN:  -verify -Werror -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s
@@ -28,13 +28,13 @@
 //RUN: %clang_cc1 -opaque-pointers -triple i386-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
 //RUN: %clang_cc1 -opaque-pointers -triple spir \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
 //RUN:  -verify -Werror -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s
@@ -71,13 +71,13 @@ T tmain()
   // CHECK-SAME: "DIR.OMP.TARGET"
   // CHECK: call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.TEAMS"
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr addrspace(4) %arr.ascast,
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr addrspace(4) %arr.ascast
   // CHECK-SAME: ptr @.omp_combiner.
   // CHECK-SAME: ptr @.omp_initializer.)
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:BYREF"(ptr addrspace(4) %var.map.ptr.tmp.ascast,
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:BYREF.TYPED"(ptr addrspace(4) %var.map.ptr.tmp.ascast
   // CHECK-SAME: ptr @.omp_combiner.,
   // CHECK-SAME: ptr @.omp_initializer.)
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr addrspace(4) %var1.ascast,
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr addrspace(4) %var1.ascast
   // CHECK-SAME:  ptr @.omp_combiner.,
   // CHECK-SAME:  ptr @.omp_initializer.)
 #pragma omp target teams reduction(&:arr, var, var1)

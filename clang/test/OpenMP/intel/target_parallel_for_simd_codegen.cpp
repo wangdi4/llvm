@@ -1,11 +1,11 @@
 // RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fintel-compatibility \
-// RUN:  -fopenmp -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s \
+// RUN:  -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s
 // RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fintel-compatibility -DSPLIT \
-// RUN:  -fopenmp -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s \
+// RUN:  -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s
 // RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fexceptions \
-// RUN:  -fintel-compatibility -fopenmp -fopenmp-late-outline \
+// RUN:  -fintel-compatibility -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 // The CodeGen for combined directives should be the same as the
@@ -24,17 +24,17 @@ void foo1() {
 
   // CHECK: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.TARGET"()
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[J]]
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[J]]
 
   // CHECK: store i32 0, ptr [[OMP_LB]],
   // CHECK: store i32 15, ptr [[OMP_UB]],
 
   // CHECK: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"()
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[J]]),
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[OMP_IV]]),
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[OMP_LB]]),
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr [[OMP_UB]])
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[J]]
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[OMP_IV]]
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[OMP_LB]]
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[OMP_UB]]
 
   // CHECK: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.SIMD"()

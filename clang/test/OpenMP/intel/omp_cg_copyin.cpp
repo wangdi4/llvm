@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s | FileCheck %s
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-threadprivate-legacy -triple x86_64-unknown-linux-gnu %s| FileCheck %s -check-prefix CHECK-TPL
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-threadprivate-legacy -triple x86_64-unknown-linux-gnu %s| FileCheck %s -check-prefix CHECK-TPL
 
 void foo() {}
 
@@ -17,8 +17,8 @@ int main(int argc, char **argv) {
 static int     afoo_local_static;
 #pragma omp threadprivate(afoo_local_static)
 // CHECK: call {{.*}}"DIR.OMP.PARALLEL"
-// CHECK-SAME: "QUAL.OMP.COPYIN"(ptr
-// CHECK-TPL: "QUAL.OMP.COPYIN"(ptr @afoo
+// CHECK-SAME: "QUAL.OMP.COPYIN:TYPED"(ptr
+// CHECK-TPL: "QUAL.OMP.COPYIN:TYPED"(ptr @afoo
 #pragma omp parallel copyin(afoo, afoo_static, afoo_local_static)
 // CHECK: call void @_Z3foov()
   foo();

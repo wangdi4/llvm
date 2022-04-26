@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-threadprivate-legacy -triple x86_64-unknown-linux-gnu %s | FileCheck %s
-// RUN: %clang_cc1 -emit-llvm -o - -fexceptions -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-threadprivate-legacy -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-threadprivate-legacy -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - -fexceptions -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-threadprivate-legacy -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 struct AFoo {
   AFoo();
@@ -23,7 +23,10 @@ int main() {
 
   #pragma omp parallel firstprivate(b, cfoo)
   {
-// CHECK: [[TOKENVAL:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.SINGLE{{.*}}"QUAL.OMP.COPYPRIVATE"{{.*}}_ZZ4mainE1a{{.*}}"QUAL.OMP.COPYPRIVATE"{{.*}}b{{.*}}"QUAL.OMP.COPYPRIVATE:NONPOD"{{.*}}cfoo{{.*}}_ZTS4AFoo.omp.copy_assign
+// CHECK: [[TOKENVAL:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.SINGLE
+// CHECK-SAME: "QUAL.OMP.COPYPRIVATE:TYPED"{{.*}}_ZZ4mainE1a
+// CHECK-SAME: "QUAL.OMP.COPYPRIVATE:TYPED"{{.*}}b
+// CHECK-SAME: "QUAL.OMP.COPYPRIVATE:NONPOD.TYPED"{{.*}}cfoo{{.*}}_ZTS4AFoo.omp.copy_assign
 // CHECK: region.exit(token [[TOKENVAL]]) [ "DIR.OMP.END.SINGLE"() ]
     #pragma omp single copyprivate(a, b, cfoo)
     {
