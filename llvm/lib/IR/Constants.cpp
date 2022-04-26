@@ -742,17 +742,6 @@ static bool constantIsDead(const Constant *C, bool RemoveDeadUsers) {
   }
 
   if (RemoveDeadUsers) {
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-    // If C is only used by metadata, it should not be preserved but should
-    // have its uses replaced.
-    ReplaceableMetadataImpl::SalvageDebugInfo(*C);
-#endif
-    const_cast<Constant *>(C)->destroyConstant();
-  }
-  
-  return true; 
-=======
     // If C is only used by metadata, it should not be preserved but should
     // have its uses replaced.
     ReplaceableMetadataImpl::SalvageDebugInfo(*C);
@@ -760,7 +749,6 @@ static bool constantIsDead(const Constant *C, bool RemoveDeadUsers) {
   }
   
   return true;
->>>>>>> e83543f8c2ef79f82f2e291072a956e23ab08efa
 }
 
 void Constant::removeDeadConstantUsers() const {
