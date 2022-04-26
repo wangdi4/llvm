@@ -75,6 +75,8 @@ static cl::opt<GlobalWorkSizeLT2GState> LT2GigGlobalWorkSize(
 extern bool DPCPPEnableDirectFunctionCallVectorization;
 extern bool DPCPPEnableSubgroupDirectCallVectorization;
 
+extern cl::opt<VectorVariant::ISAClass> IsaEncodingOverride;
+
 // Static container storing all the vector info entries.
 // Each entry would be a tuple of three strings:
 // 1. scalar variant name
@@ -529,7 +531,10 @@ static bool isOptimizableSubgroupLocalId(const CallInst *CI) {
 DPCPPKernelVecCloneImpl::DPCPPKernelVecCloneImpl(ArrayRef<VectItem> VectInfos,
                                                  VectorVariant::ISAClass ISA,
                                                  bool IsOCL)
-    : VecCloneImpl(), VectInfos(VectInfos), ISA(ISA), IsOCL(IsOCL) {}
+    : VecCloneImpl(), VectInfos(VectInfos), ISA(ISA), IsOCL(IsOCL) {
+  if (IsaEncodingOverride.getNumOccurrences())
+    this->ISA = IsaEncodingOverride.getValue();
+}
 
 void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
                                                       Function *Clone,
@@ -702,6 +707,12 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
       if (std::get<1>(Variant) != KernelAttribute::CallOnce)
         KernelCallOnce = false;
     }
+
+    // On avx1/sse42, only builtins with "kernel-call-once" attribute have VF 32
+    // and 64 implementations.
+    if ((ISA == VectorVariant::XMM || ISA == VectorVariant::YMM1) && VF >= 32 &&
+        !KernelCallOnce)
+      continue;
 
     AttributeList AL = Call->getAttributes();
 
