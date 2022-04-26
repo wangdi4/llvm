@@ -1945,9 +1945,21 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
         }
         case CL_DEVICE_PARTITION_PROPERTIES:
             {
-                const cl_device_partition_property* pSupportedProperties;
-                pSupportedProperties       = CPU_SUPPORTED_FISSION_MODES;
-                *pinternalRetunedValueSize = sizeof(CPU_SUPPORTED_FISSION_MODES);
+                std::vector<cl_device_partition_property>
+                  supportedProperties(std::begin(CPU_SUPPORTED_FISSION_MODES),
+                                      std::end(CPU_SUPPORTED_FISSION_MODES));
+#ifndef WIN32
+                if (Intel::OpenCL::Utils::GetMaxNumaNode() <= 1) {
+                  auto it = std::find(supportedProperties.begin(),
+                                      supportedProperties.end(),
+                                      CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN);
+                  if (it != supportedProperties.end())
+                    supportedProperties.erase(it);
+                }
+#endif
+                *pinternalRetunedValueSize =
+                    supportedProperties.size() *
+                    sizeof(cl_device_partition_property);
 
                 if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
                 {
@@ -1956,7 +1968,8 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
                 //if OUT paramVal is NULL it should be ignored
                 if(nullptr != paramVal)
                 {
-                    MEMCPY_S(paramVal, valSize, pSupportedProperties, *pinternalRetunedValueSize);
+                    MEMCPY_S(paramVal, valSize, supportedProperties.data(),
+                             *pinternalRetunedValueSize);
                 }
                 return CL_DEV_SUCCESS;
             }
@@ -1976,13 +1989,14 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
                 //if OUT paramVal is NULL it should be ignored
                 if(nullptr != paramVal)
                 {
-                    *((cl_device_affinity_domain*)paramVal) =
+                  *((cl_device_affinity_domain *)paramVal) =
 #ifndef WIN32
-                      (cl_device_affinity_domain)(CL_DEVICE_AFFINITY_DOMAIN_NUMA
-                          | CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE);
-#else
-                      (cl_device_affinity_domain)0;
+                      Intel::OpenCL::Utils::GetMaxNumaNode() > 1
+                          ? (cl_device_affinity_domain)
+                            (CL_DEVICE_AFFINITY_DOMAIN_NUMA |
+                             CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE) :
 #endif // WIN32
+                            (cl_device_affinity_domain)0;
                 }
                 return CL_DEV_SUCCESS;
             }
@@ -2716,7 +2730,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
             {
                 return CL_DEV_INVALID_VALUE;
             }
-            if (nullptr != pParent || numNodes < 1)
+            if (nullptr != pParent || numNodes <= 1)
             {
                 return CL_DEV_NOT_SUPPORTED;
             }
