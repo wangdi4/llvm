@@ -12531,6 +12531,10 @@ private:
       VectorCost =
           TTI->getArithmeticReductionCost(RdxOpcode, VectorTy, FMF, CostKind);
       ScalarCost = TTI->getArithmeticInstrCost(RdxOpcode, ScalarTy, CostKind);
+#if INTEL_COLLAB
+      if (RdxKind == RecurKind::FAdd)
+	VectorCost += getFMALossCost(TTI, FirstReducedVal, FMF, ReduxWidth);
+#endif
       break;
     }
     case RecurKind::FMax:
@@ -12574,6 +12578,36 @@ private:
                       << " (It is a splitting reduction)\n");
     return VectorCost - ScalarCost;
   }
+
+#if INTEL_COLLAB
+  /// Calculate cost of losing FMA contraction opportunities when an fadd
+  /// reduction is fed by an SLP tree rooted at an fmul bundle.
+
+  // When a bundle of multiplies feeds a bundle of adds, and floating-point
+  // contracts are enabled, it may be more profitable to allow those to
+  // combine into FMAs than to perform a horizontal reduction.
+  InstructionCost getFMALossCost(const TargetTransformInfo *TTI,
+				 Value *TreeRootOp, FastMathFlags FMF,
+				 unsigned ReduxWidth) {
+    if (!FMF.allowContract())
+      return 0;
+
+    auto *MainInstr = dyn_cast<Instruction>(TreeRootOp);
+    if (!MainInstr
+	|| MainInstr->getOpcode() != Instruction::FMul
+	|| !MainInstr->hasAllowContract())
+      return 0;
+
+    // Preference would be to estimate the cost as adding a scalar add and a
+    // scalar multiply, and removing a scalar FMA; then scale by the number of
+    // reduction ops.  Without a good cost estimate for the FMA, use the
+    // cost of a scalar multiply and scale that.
+    TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
+    Type *ScalarTy = MainInstr->getType();
+    return ReduxWidth *
+      TTI->getArithmeticInstrCost(Instruction::FMul, ScalarTy, CostKind);
+  }
+#endif // INTEL_COLLAB
 
   /// Emit a horizontal reduction of the vectorized value.
   Value *emitReduction(Value *VectorizedValue, IRBuilder<> &Builder,
