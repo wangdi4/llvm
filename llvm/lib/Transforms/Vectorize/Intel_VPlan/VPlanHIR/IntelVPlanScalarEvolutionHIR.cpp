@@ -110,6 +110,10 @@ VPlanScalarEvolutionHIR::computeAddressSCEVImpl(const VPLoadStoreInst &LSI) {
   if (!Ref->isSingleDimension())
     return nullptr;
 
+  // TODO: Support for struct offsets.
+  if (Ref->hasTrailingStructOffsets())
+    return nullptr;
+
   // One-dimensional arrays have only one CanonExpr (index expression).
   const CanonExpr *AddressCE = Ref->getSingleCanonExpr();
   if (AddressCE->getDenominator() != 1)

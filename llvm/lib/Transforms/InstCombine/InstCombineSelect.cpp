@@ -1195,14 +1195,15 @@ static Instruction *canonicalizeSPF(SelectInst &Sel, ICmpInst &Cmp,
   }
 
 #if INTEL_CUSTOMIZATION
-  // min/max seems to have some effect on reassociation, which causes extra
-  // register pressure in some cases.
+  // Suppress min/max before loopopt, which is not yet fully optimized for
+  // these intrinsics.
   auto HasAVX512 =
       TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512;
   auto HasAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
   auto &TTI = IC.getTargetTransformInfo();
-  if (TTI.isAdvancedOptEnabled(HasAVX512) ||
-      TTI.isAdvancedOptEnabled(HasAVX2)) {
+  if (Cmp.getFunction()->isPreLoopOpt() &&
+      (TTI.isAdvancedOptEnabled(HasAVX512) ||
+       TTI.isAdvancedOptEnabled(HasAVX2))) {
     return nullptr;
   }
 #endif // INTEL_CUSTOMIZATION

@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fintel-compatibility \
-// RUN:  -fopenmp -fopenmp-late-outline \
+// RUN:  -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 namespace std {
@@ -76,8 +76,8 @@ void oneA() {
   GoodIter it1;
 
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[ONEA_IT1]]
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[ONEA_I]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[ONEA_IT1]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[ONEA_I]]
   // Initialize IV
   // CHECK: store {{.*}}[[ONEA_IV]]
   // Update it1
@@ -104,8 +104,8 @@ void oneA() {
 void oneB() {
   GoodIter begin1, end1;
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[ONEB_I]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[ONEB_IT1]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[ONEB_I]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[ONEB_IT1]]
   // Initialize IV
   // CHECK: store {{.*}}[[ONEB_IV]]
   // Update i
@@ -132,7 +132,7 @@ void two()
 {
   int i;
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(),
-  // CHECK-SAME: "QUAL.OMP.LASTPRIVATE"(ptr [[TWO_I]]
+  // CHECK-SAME: "QUAL.OMP.LASTPRIVATE:TYPED"(ptr [[TWO_I]]
   // CHECK: store {{.*}}[[TWO_IV]]
   // CHECK: region.exit{{.*}}"DIR.OMP.END.PARALLEL.LOOP"()
   #pragma omp parallel for lastprivate(i)
@@ -148,7 +148,7 @@ void twoA()
 {
   int i;
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(),
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[TWOA_I]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[TWOA_I]]
   // CHECK: store {{.*}}[[TWOA_IV]]
   // CHECK: region.exit{{.*}}"DIR.OMP.END.PARALLEL.LOOP"()
   #pragma omp parallel for private(i)
@@ -164,7 +164,7 @@ void bar(int *);
 void threeA()
 {
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr @glob
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr @glob
   // CHECK: region.exit{{.*}}"DIR.OMP.END.PARALLEL.LOOP"()
   #pragma omp parallel for
   for (glob=0; glob < 2; ++glob)

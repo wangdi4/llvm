@@ -824,9 +824,8 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
   default:
     llvm_unreachable("Clause not allowed");
   }
-  if (UseTypedClauses)
-    CSB.setTyped();
   bool IsRef = false;
+  bool IsSharedVLA = false;
   if (K == ICK_shared ||
       (CurrentDirectiveKind == OMPD_task && K == ICK_specified_firstprivate)) {
     const VarDecl *VD = getExplicitVarDecl(E);
@@ -834,11 +833,17 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
     IsRef = VD->getType()->isReferenceType();
     if (IsRef)
       CSB.setByRef();
+    IsSharedVLA = K == ICK_shared && VD->getType()->isVariablyModifiedType();
   }
+  if (UseTypedClauses && !IsSharedVLA)
+    CSB.setTyped();
   addArg(CSB.getString());
   bool NeedsTypedElements =
       K == ICK_normalized_iv || K == ICK_normalized_ub ? false : true;
-  addTypedArg(E, IsRef, NeedsTypedElements);
+  if (IsSharedVLA)
+    addArg(E, IsRef);
+  else
+    addTypedArg(E, IsRef, NeedsTypedElements);
 }
 
 void OpenMPLateOutliner::emitImplicit(const VarDecl *VD, ImplicitClauseKind K) {
@@ -2466,6 +2471,27 @@ void OpenMPLateOutliner::emitOMPUseDeviceAddrClause(
   }
 }
 
+void OpenMPLateOutliner::emitOMPHasDeviceAddrClause(
+    const OMPHasDeviceAddrClause *Cl) {
+  for (auto *E : Cl->varlists()) {
+    const VarDecl *VD = getExplicitVarDecl(E);
+    assert(VD && "expected VarDecl in has_device_addr clause");
+    addExplicit(VD, OMPC_has_device_addr);
+    bool IsCapturedExpr = isa<OMPCapturedExprDecl>(VD);
+    bool IsRef = !IsCapturedExpr && VD->getType()->isReferenceType();
+    ClauseEmissionHelper CEH(*this, OMPC_has_device_addr,
+                             "QUAL.OMP.HAS_DEVICE_ADDR");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
+    if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
+        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
+      CSB.setArrSect();
+    if (IsRef)
+      CSB.setByRef();
+    addArg(CSB.getString());
+    addArg(E, IsRef);
+  }
+}
+
 void OpenMPLateOutliner::emitOMPNontemporalClause(
     const OMPNontemporalClause *Cl) {
   for (auto *E : Cl->varlists()) {
@@ -2552,8 +2578,6 @@ void OpenMPLateOutliner::emitOMPExclusiveClause(const OMPExclusiveClause *Cl) {
   }
 }
 
-void OpenMPLateOutliner::emitOMPHasDeviceAddrClause(
-    const OMPHasDeviceAddrClause *) {}
 void OpenMPLateOutliner::emitOMPReadClause(const OMPReadClause *) {}
 void OpenMPLateOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
 void OpenMPLateOutliner::emitOMPFromClause(const OMPFromClause *) {assert(false);}
@@ -3967,6 +3991,11 @@ void CodeGenFunction::RemapForLateOutlining(const OMPExecutableDirective &D,
        RemapVars.push_back(VarExpr ? VarExpr : Ref);
      }
   for (const auto *C : D.getClausesOfKind<OMPIsDevicePtrClause>())
+     for (const auto *Ref : C->varlists()) {
+       const Expr *VarExpr = OpenMPLateOutliner::getExplicitDeclRefOrNull(Ref);
+       RemapVars.push_back(VarExpr ? VarExpr : Ref);
+     }
+  for (const auto *C : D.getClausesOfKind<OMPHasDeviceAddrClause>())
      for (const auto *Ref : C->varlists()) {
        const Expr *VarExpr = OpenMPLateOutliner::getExplicitDeclRefOrNull(Ref);
        RemapVars.push_back(VarExpr ? VarExpr : Ref);

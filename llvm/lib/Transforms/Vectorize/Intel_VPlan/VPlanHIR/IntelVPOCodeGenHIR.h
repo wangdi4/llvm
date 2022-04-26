@@ -197,6 +197,14 @@ public:
   /// scalar op and insertelement instructions into the then branch.
   void serializeInstruction(const VPInstruction *VPInst, RegDDRef *Mask);
 
+  /// Scalarize the given uniform instruction that should not be widened using
+  /// operands for lane 0. If Mask is non-null then predicated scalarization is
+  /// done on-the-fly by creating a HLIf for !AllZeroCheck(Mask) and inserting
+  /// the scalar instruction into the then branch. We also generate undef
+  /// initialization of l-val for masked scalarization, if needed.
+  void scalarizePredicatedUniformInst(const VPInstruction *VPInst,
+                                      RegDDRef *Mask);
+
   /// Adjust arguments passed to SVML functions to handle masks
   void addMaskToSVMLCall(Function *OrigF, AttributeList OrigAttrs,
                          SmallVectorImpl<RegDDRef *> &VecArgs,
@@ -895,11 +903,11 @@ private:
                                   bool Equal);
 
   // Implementation of load where the pointer operand being loaded from is
-  // uniform. VPLoad is the load instruction and Mask specifies the load Mask. A
-  // scalar load is done using the pointer operand and the value is
-  // broadcast to generate the vector value. If Mask is non-null, the load
-  // is done conditionally only if Mask is non-zero.
-  void widenUniformLoadImpl(const VPLoadStoreInst *VPLoad, RegDDRef *Mask);
+  // uniform. VPLoad is the load instruction. A scalar load is done using the
+  // pointer operand and the value is broadcast to generate the vector value.
+  // The load is done conditionally only if Mask is non-zero, handled by
+  // scalarizePredicatedUniformInst.
+  void generateUniformScalarLoad(const VPLoadStoreInst *VPLoad);
 
   // Implementation of store where the pointer operand being stored to is
   // uniform and the store is unmasked. VPStore is the store instruction. A

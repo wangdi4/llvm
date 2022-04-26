@@ -199,6 +199,7 @@ MODULE_PASS("dtrans-meminittrimdownop", dtransOP::MemInitTrimDownOPPass()) // IN
 MODULE_PASS("dtrans-memmanagetrans", dtrans::MemManageTransPass()) // INTEL
 MODULE_PASS("dtrans-normalizeop", dtransOP::DTransNormalizeOPPass()) // INTEL
 MODULE_PASS("dtrans-codealign", dtrans::CodeAlignPass())         // INTEL
+MODULE_PASS("dtrans-codealignop", dtransOP::CodeAlignPass())   // INTEL
 MODULE_PASS("dtrans-transpose", dtrans::TransposePass())         // INTEL
 MODULE_PASS("dtrans-commutecond", dtrans::CommuteCondPass())     // INTEL
 MODULE_PASS("dtrans-commutecondop", dtransOP::CommuteCondOPPass()) // INTEL

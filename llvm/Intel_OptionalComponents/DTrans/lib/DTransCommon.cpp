@@ -234,6 +234,7 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransMemInitTrimDownOPWrapperPass(PR);
   initializeDTransMemManageTransWrapperPass(PR);
   initializeDTransCodeAlignWrapperPass(PR);
+  initializeDTransCodeAlignOPWrapperPass(PR);
   initializeDTransTransposeWrapperPass(PR);
   initializeDTransCommuteCondWrapperPass(PR);
   initializeDTransCommuteCondOPWrapperPass(PR);
@@ -304,6 +305,7 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
     addPass(MPM, commutecond, dtransOP::CommuteCondOPPass());
     addPass(MPM, meminittrimdown, dtransOP::MemInitTrimDownOPPass());
     addPass(MPM, soatoaosprepare, dtransOP::SOAToAOSOPPreparePass());
+    addPass(MPM, codealign, dtransOP::CodeAlignPass());
     addPass(MPM, deletefield, dtransOP::DeleteFieldOPPass());
     addPass(MPM, reorderfields, dtransOP::ReorderFieldsOPPass());
     addPass(MPM, aostosoa, dtransOP::AOSToSOAOPPass());
@@ -369,6 +371,7 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
     addPass(PM, commutecond, createDTransCommuteCondOPWrapperPass());
     addPass(PM, meminittrimdown, createDTransMemInitTrimDownOPWrapperPass());
     addPass(PM, soatoaosprepare, createDTransSOAToAOSOPPrepareWrapperPass());
+    addPass(PM, codealign, createDTransCodeAlignOPWrapperPass());
     addPass(PM, deletefield, createDTransDeleteFieldOPWrapperPass());
     addPass(PM, reorderfields, createDTransReorderFieldsOPWrapperPass());
     addPass(PM, aostosoa, createDTransAOSToSOAOPWrapperPass());
@@ -450,6 +453,7 @@ void llvm::createDTransPasses() {
   (void)llvm::createDTransMemInitTrimDownWrapperPass();
   (void)llvm::createDTransMemManageTransWrapperPass();
   (void)llvm::createDTransCodeAlignWrapperPass();
+  (void)llvm::createDTransCodeAlignOPWrapperPass();
   (void)llvm::createDTransTransposeWrapperPass();
   (void)llvm::createDTransCommuteCondWrapperPass();
   (void)llvm::createDTransCommuteCondOPWrapperPass();

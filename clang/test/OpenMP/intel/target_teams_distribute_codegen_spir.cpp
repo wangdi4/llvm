@@ -1,25 +1,25 @@
 //RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
-//RUN:  -Werror -Wsource-uses-openmp -o - %s
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
+//RUN:  -Werror -Wsource-uses-openmp -o %t.out.1 %s
 
 //RUN: %clang_cc1 -opaque-pointers -triple i386-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
-//RUN:  -Werror -Wsource-uses-openmp -o - %s
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
+//RUN:  -Werror -Wsource-uses-openmp -o %t.out.1 %s
 
 //RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
 //RUN: %clang_cc1 -opaque-pointers -triple spir64 \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s
@@ -27,13 +27,13 @@
 //RUN: %clang_cc1 -opaque-pointers -triple i386-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
 //RUN: %clang_cc1 -opaque-pointers -triple spir \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s
@@ -63,15 +63,15 @@ void foo2() {
   int j = 20;
   // CHECK: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.TARGET"()
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr addrspace(4) [[J_CAST]]
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) [[J_CAST]]
   // CHECK: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.TEAMS"()
   // CHECK: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.DISTRIBUTE"()
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr addrspace(4) [[I_CAST]]),
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr addrspace(4) [[OMP_IV_CAST]]),
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr addrspace(4) [[OMP_LB_CAST]]),
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr addrspace(4) [[OMP_UB_CAST]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[I_CAST]]
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr addrspace(4) [[OMP_IV_CAST]]
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) [[OMP_LB_CAST]]
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr addrspace(4) [[OMP_UB_CAST]]
   // CHECK: [[L1:%[0-9]+]] = load i32, ptr addrspace(4) [[OMP_IV_CAST]], align 4
   // CHECK-NEXT: [[L2:%[0-9]+]] = load i32, ptr addrspace(4) [[OMP_UB_CAST]], align 4
   // CHECK-NEXT: icmp sle i32 [[L1]], [[L2]]

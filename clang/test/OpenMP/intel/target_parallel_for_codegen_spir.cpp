@@ -1,27 +1,27 @@
 //RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes -DSPLIT \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o - %s \
 //RUN: | FileCheck %s --check-prefixes ALL,HOST
 
 //RUN: %clang_cc1 -opaque-pointers -triple i386-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes -DSPLIT \
 //RUN:  -fopenmp -fopenmp-targets=spir \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o - %s \
 //RUN: | FileCheck %s --check-prefixes ALL,HOST
 
 //RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes -DSPLIT \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
 //RUN: %clang_cc1 -opaque-pointers -triple spir64 \
 //RUN:  -emit-llvm -disable-llvm-passes -DSPLIT \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s --check-prefixes ALL,TARG
@@ -29,13 +29,13 @@
 //RUN: %clang_cc1 -opaque-pointers -triple i386-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes -DSPLIT \
 //RUN:  -fopenmp -fopenmp-targets=spir \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
 //RUN: %clang_cc1 -opaque-pointers -triple spir \
 //RUN:  -emit-llvm -disable-llvm-passes -DSPLIT \
 //RUN:  -fopenmp -fopenmp-targets=spir \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s --check-prefixes ALL,TARG
@@ -43,25 +43,25 @@
 //RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.ll %s
 
 //RUN: %clang_cc1 -opaque-pointers -triple i386-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.ll %s
 
 //RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
 //RUN: %clang_cc1 -opaque-pointers -triple spir64 \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s --check-prefixes ALL,TARG
@@ -69,13 +69,13 @@
 //RUN: %clang_cc1 -opaque-pointers -triple i386-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
 //RUN: %clang_cc1 -opaque-pointers -triple spir \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s --check-prefixes ALL,TARG
@@ -108,24 +108,24 @@ void foo2() {
 
   // ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.TARGET"()
-  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[J]]),
-  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr addrspace(4) [[J_CAST]]),
-  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[OMP_LB]]),
-  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr addrspace(4) [[OMP_LB_CAST]]),
-  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[OMP_UB]]),
-  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr addrspace(4) [[OMP_UB_CAST]]),
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[J]]
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) [[J_CAST]]
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[OMP_LB]]
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) [[OMP_LB_CAST]]
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[OMP_UB]]
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) [[OMP_UB_CAST]]
   // ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.PARALLEL.LOOP"()
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(ptr [[I]]),
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(ptr addrspace(4) [[I_CAST]]),
-  // HOST-SAME: "QUAL.OMP.SHARED"(ptr [[J]]),
-  // TARG-SAME: "QUAL.OMP.SHARED"(ptr addrspace(4) [[J_CAST]]),
-  // HOST-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[OMP_IV]]),
-  // TARG-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr addrspace(4) [[OMP_IV_CAST]]),
-  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[OMP_LB]]),
-  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr addrspace(4) [[OMP_LB_CAST]]),
-  // HOST-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr [[OMP_UB]])
-  // TARG-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr addrspace(4) [[OMP_UB_CAST]])
+  // HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[I]]
+  // TARG-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[I_CAST]]
+  // HOST-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[J]]
+  // TARG-SAME: "QUAL.OMP.SHARED:TYPED"(ptr addrspace(4) [[J_CAST]]
+  // HOST-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[OMP_IV]]
+  // TARG-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr addrspace(4) [[OMP_IV_CAST]]
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[OMP_LB]]
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) [[OMP_LB_CAST]]
+  // HOST-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[OMP_UB]]
+  // TARG-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr addrspace(4) [[OMP_UB_CAST]]
   // HOST: [[L1:%[0-9]+]] = load i32, ptr [[OMP_IV]], align 4
   // TARG: [[L1:%[0-9]+]] = load i32, ptr addrspace(4) [[OMP_IV_CAST]], align 4
   // HOST-NEXT: [[L2:%[0-9]+]] = load i32, ptr [[OMP_UB]], align 4
@@ -170,10 +170,10 @@ void foo2_map() {
   int sixteen = 16;
   // ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.TARGET"()
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_LB]]),
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(ptr addrspace(4) [[OMP_LB_CAST]]),
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_UB]]),
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(ptr addrspace(4) [[OMP_UB_CAST]]),
+  // HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[OMP_LB]]
+  // TARG-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[OMP_LB_CAST]]
+  // HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[OMP_UB]]
+  // TARG-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[OMP_UB_CAST]]
   // HOST: store i32 0, ptr [[OMP_LB]],
   // TARG: store i32 0, ptr addrspace(4) [[OMP_LB_CAST]],
   // HOST: store i32 {{.*}}, ptr [[OMP_UB]],
@@ -205,10 +205,10 @@ void foo2_is_device_ptr() {
   int *p_sixteen = &sixteen;
   // ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.TARGET"()
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_LB]]),
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(ptr addrspace(4) [[OMP_LB_CAST]]),
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_UB]]),
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(ptr addrspace(4) [[OMP_UB_CAST]]),
+  // HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[OMP_LB]]
+  // TARG-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[OMP_LB_CAST]]
+  // HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[OMP_UB]]
+  // TARG-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[OMP_UB_CAST]]
   // HOST: store i32 0, ptr [[OMP_LB]],
   // TARG: store i32 0, ptr addrspace(4) [[OMP_LB_CAST]],
   // HOST: store i32 {{.*}}, ptr [[OMP_UB]],
@@ -238,10 +238,10 @@ void foo2_defaultmap() {
   int j = 20;
   // ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.TARGET"()
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_LB]]),
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(ptr addrspace(4) [[OMP_LB_CAST]]),
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_UB]]),
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(ptr addrspace(4) [[OMP_UB_CAST]]),
+  // HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[OMP_LB]]
+  // TARG-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[OMP_LB_CAST]]
+  // HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[OMP_UB]]
+  // TARG-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[OMP_UB_CAST]]
   // HOST: store i32 0, ptr [[OMP_LB]],
   // TARG: store i32 0, ptr addrspace(4) [[OMP_LB_CAST]],
   // HOST: store i32 {{.*}}, ptr [[OMP_UB]],
@@ -274,10 +274,10 @@ void foo2_global() {
   int j = 20;
   // ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.TARGET"()
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_LB]]),
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(ptr addrspace(4) [[OMP_LB_CAST]]),
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_UB]]),
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(ptr addrspace(4) [[OMP_UB_CAST]]),
+  // HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[OMP_LB]]
+  // TARG-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[OMP_LB_CAST]]
+  // HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[OMP_UB]]
+  // TARG-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[OMP_UB_CAST]]
   // HOST: store i32 0, ptr [[OMP_LB]],
   // TARG: store i32 0, ptr addrspace(4) [[OMP_LB_CAST]],
   // HOST: store i32 {{.*}}, ptr [[OMP_UB]],
@@ -308,10 +308,10 @@ void foo2_map_combined() {
   int sixteen = 16;
   // ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.TARGET"()
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_LB]]),
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(ptr addrspace(4) [[OMP_LB_CAST]]),
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_UB]]),
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(ptr addrspace(4) [[OMP_UB_CAST]]),
+  // HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[OMP_LB]]
+  // TARG-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[OMP_LB_CAST]]
+  // HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[OMP_UB]]
+  // TARG-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[OMP_UB_CAST]]
   // HOST: store i32 0, ptr [[OMP_LB]],
   // TARG: store i32 0, ptr addrspace(4) [[OMP_LB_CAST]],
   // HOST: store i32 {{.*}}, ptr [[OMP_UB]],
@@ -343,10 +343,10 @@ void foo2_global2() {
   int jj = 20;
   // ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.TARGET"()
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_LB1]]),
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(ptr addrspace(4) [[OMP_LB1_CAST]]),
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_UB1]]),
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(ptr addrspace(4) [[OMP_UB1_CAST]]),
+  // HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[OMP_LB1]]
+  // TARG-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[OMP_LB1_CAST]]
+  // HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[OMP_UB1]]
+  // TARG-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[OMP_UB1_CAST]]
   // HOST: store i32 0, ptr [[OMP_LB1]],
   // TARG: store i32 0, ptr addrspace(4) [[OMP_LB1_CAST]],
   // HOST: store i32 {{.*}}, ptr [[OMP_UB1]],
@@ -380,28 +380,28 @@ void foo3() {
   int j = 20;
   // ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.TARGET"()
-  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[J]]),
-  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr addrspace(4) [[J_CAST]]),
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_LB]]),
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(ptr addrspace(4) [[OMP_LB_CAST]]),
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_UB]])
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(ptr addrspace(4) [[OMP_UB_CAST]])
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[J]]
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) [[J_CAST]]
+  // HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[OMP_LB]]
+  // TARG-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[OMP_LB_CAST]]
+  // HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[OMP_UB]]
+  // TARG-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[OMP_UB_CAST]]
   // HOST: store i32 0, ptr [[OMP_LB]],
   // TARG: store i32 0, ptr addrspace(4) [[OMP_LB_CAST]],
   // HOST: store i32 15, ptr [[OMP_UB]],
   // TARG: store i32 15, ptr addrspace(4) [[OMP_UB_CAST]],
   // ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.PARALLEL.LOOP"()
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(ptr [[I]]),
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(ptr addrspace(4) [[I_CAST]]),
-  // HOST-SAME: "QUAL.OMP.SHARED"(ptr [[J]]),
-  // TARG-SAME: "QUAL.OMP.SHARED"(ptr addrspace(4) [[J_CAST]]),
-  // HOST-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[OMP_IV]]),
-  // TARG-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr addrspace(4) [[OMP_IV_CAST]]),
-  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[OMP_LB]]),
-  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr addrspace(4) [[OMP_LB_CAST]]),
-  // HOST-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr [[OMP_UB]])
-  // TARG-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr addrspace(4) [[OMP_UB_CAST]])
+  // HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[I]]
+  // TARG-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[I_CAST]]
+  // HOST-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[J]]
+  // TARG-SAME: "QUAL.OMP.SHARED:TYPED"(ptr addrspace(4) [[J_CAST]]
+  // HOST-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[OMP_IV]]
+  // TARG-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr addrspace(4) [[OMP_IV_CAST]]
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[OMP_LB]]
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) [[OMP_LB_CAST]]
+  // HOST-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[OMP_UB]]
+  // TARG-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr addrspace(4) [[OMP_UB_CAST]]
   // HOST: [[L1:%[0-9]+]] = load i32, ptr [[OMP_IV]], align 4
   // TARG: [[L1:%[0-9]+]] = load i32, ptr addrspace(4) [[OMP_IV_CAST]], align 4
   // HOST-NEXT: [[L2:%[0-9]+]] = load i32, ptr [[OMP_UB]], align 4
@@ -447,28 +447,28 @@ void foo4(int n) {
   int j = 20;
   // ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.TARGET"()
-  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[J]]),
-  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr addrspace(4) [[J_CAST]]),
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_LB]]),
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(ptr addrspace(4) [[OMP_LB_CAST]]),
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_UB]])
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(ptr addrspace(4) [[OMP_UB_CAST]])
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[J]]
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) [[J_CAST]]
+  // HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[OMP_LB]]
+  // TARG-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[OMP_LB_CAST]]
+  // HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[OMP_UB]]
+  // TARG-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[OMP_UB_CAST]]
   // HOST: store i32 0, ptr [[OMP_LB]],
   // TARG: store i32 0, ptr addrspace(4) [[OMP_LB_CAST]],
   // HOST: store i32 {{.*}}, ptr [[OMP_UB]],
   // TARG: store i32 {{.*}}, ptr addrspace(4) [[OMP_UB_CAST]],
   // ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.PARALLEL.LOOP"()
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(ptr [[I]]),
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(ptr addrspace(4) [[I_CAST]]),
-  // HOST-SAME: "QUAL.OMP.SHARED"(ptr [[J]]),
-  // TARG-SAME: "QUAL.OMP.SHARED"(ptr addrspace(4) [[J_CAST]]),
-  // HOST-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[OMP_IV]]),
-  // TARG-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr addrspace(4) [[OMP_IV_CAST]]),
-  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[OMP_LB]]),
-  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr addrspace(4) [[OMP_LB_CAST]]),
-  // HOST-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr [[OMP_UB]])
-  // TARG-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr addrspace(4) [[OMP_UB_CAST]])
+  // HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[I]]
+  // TARG-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[I_CAST]]
+  // HOST-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[J]]
+  // TARG-SAME: "QUAL.OMP.SHARED:TYPED"(ptr addrspace(4) [[J_CAST]]
+  // HOST-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[OMP_IV]]
+  // TARG-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr addrspace(4) [[OMP_IV_CAST]]
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[OMP_LB]]
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) [[OMP_LB_CAST]]
+  // HOST-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[OMP_UB]]
+  // TARG-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr addrspace(4) [[OMP_UB_CAST]]
   // HOST: [[L1:%[0-9]+]] = load i32, ptr [[OMP_IV]], align 4
   // TARG: [[L1:%[0-9]+]] = load i32, ptr addrspace(4) [[OMP_IV_CAST]], align 4
   // HOST-NEXT: [[L2:%[0-9]+]] = load i32, ptr [[OMP_UB]], align 4
@@ -518,12 +518,12 @@ void foo5(double *qq, int nq) {
 
   // ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.TARGET"()
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(ptr [[K]]),
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(ptr addrspace(4) [[K_CAST]]),
-  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[OMP_LB]]),
-  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr addrspace(4) [[OMP_LB_CAST]]),
-  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[OMP_UB]])
-  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr addrspace(4) [[OMP_UB_CAST]])
+  // HOST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[K]]
+  // TARG-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[K_CAST]]
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[OMP_LB]]
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) [[OMP_LB_CAST]]
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[OMP_UB]]
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) [[OMP_UB_CAST]]
   // ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.TEAMS"()
   // ALL: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
