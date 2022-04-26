@@ -1113,19 +1113,15 @@ TEST_F(InstrRefLDVTest, MLocDiamondSpills) {
   // Create a stack location and ensure it's tracked.
   SpillLoc SL = {getRegByName("RSP"), StackOffset::getFixed(-8)};
   SpillLocationNo SpillNo = *MTracker->getOrTrackSpillLoc(SL);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XISA_COMMON
   // Some new ISAs like AMX2 etc. introduce more sub register indicators. See
   // X86SubRegIdxRanges. We should change this value when upstream.
   ASSERT_EQ(MTracker->getNumLocs(), 55u); // Tracks all possible stack locs.
 #else // INTEL_FEATURE_XISA_COMMON
-  ASSERT_EQ(MTracker->getNumLocs(), 11u); // Tracks all possible stack locs.
+  ASSERT_EQ(MTracker->getNumLocs(), 10u); // Tracks all possible stack locs.
 #endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
-=======
-  ASSERT_EQ(MTracker->getNumLocs(), 10u); // Tracks all possible stack locs.
->>>>>>> 987cd7c3ed75b90de23ebf1845042646191f7bde
   // Locations are: RSP, stack slots from 2^3 bits wide up to 2^9 for zmm regs,
   // then slots for sub_8bit_hi and sub_16bit_hi ({8, 8} and {16, 16}).
 
