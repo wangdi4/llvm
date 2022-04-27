@@ -114,7 +114,6 @@ llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
 llvm::Pass *createOCLReqdSubGroupSizePass();
 
 llvm::ModulePass *createInfiniteLoopCreatorPass();
-llvm::ModulePass *createAutorunReplicatorPass();
 llvm::Pass *createCLBuiltinLICMPass();
 llvm::Pass *createCLStreamSamplerPass();
 llvm::Pass *createPreventDivisionCrashesPass();
@@ -354,7 +353,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
       PM.add(createChannelPipeTransformationPass());
       PM.add(createPipeIOTransformationPass());
       PM.add(createPipeOrderingPass());
-      PM.add(createAutorunReplicatorPass());
+      PM.add(createAutorunReplicatorLegacyPass());
       PM.add(createChannelsUsageAnalysisPass());
   }
 

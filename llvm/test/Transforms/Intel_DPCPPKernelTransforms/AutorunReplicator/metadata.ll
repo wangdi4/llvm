@@ -14,10 +14,10 @@
 ; ----------------------------------------------------
 ; Clang options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl -cl-std=CL2.0
 ; ----------------------------------------------------
-; Opt passes: -dpcpp-kernel-equalizer
-; ----------------------------------------------------
-; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -autorun-replicator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -autorun-replicator -verify %s -S | FileCheck %s --implicit-check-not get_compute_id
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-autorun-replicator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-autorun-replicator %s -S | FileCheck %s --implicit-check-not get_compute_id
+; RUN: opt -passes=dpcpp-kernel-autorun-replicator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-autorun-replicator %s -S | FileCheck %s --implicit-check-not get_compute_id
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-unknown-intelfpga"
 
@@ -25,23 +25,12 @@ target triple = "spir64-unknown-unknown-intelfpga"
 
 @ch = common addrspace(1) global [5 x %opencl.channel_t addrspace(1)*] zeroinitializer, align 4
 
-; CHECK: define {{.*}}@plus
-; CHECK: %arrayidx = getelementptr {{.*}}, i64 0, i64 0
-; CHECK: %add = add i64 0, 1
-
-; CHECK: define {{.*}}@plus.1
-; CHECK: %arrayidx = getelementptr {{.*}}, i64 0, i64 1
-; CHECK: %add = add i64 1, 1
-
-; CHECK: define {{.*}}@plus.2
-; CHECK: %arrayidx = getelementptr {{.*}}, i64 0, i64 2
-; CHECK: %add = add i64 2, 1
-
-; CHECK: define {{.*}}@plus.3
-; CHECK: %arrayidx = getelementptr {{.*}}, i64 0, i64 3
-; CHECK: %add = add i64 3, 1
-
-; CHECK-NOT: define {{.*}}@plus
+; CHECK: define void @plus() #0 [[ATTRIBUTES:.*]] {
+; CHECK: define void @plus.[[R1:[0-9]+]]() {{.*}} [[ATTRIBUTES]] {
+; CHECK: define void @plus.[[R2:[0-9]+]]() {{.*}} [[ATTRIBUTES]] {
+; CHECK: define void @plus.[[R3:[0-9]+]]() {{.*}} [[ATTRIBUTES]] {
+; CHECK: !sycl.kernels = !{![[K:[0-9]+]]}
+; CHECK: ![[K]] = !{{{.*}}@plus, {{.*}}@plus.[[R1]], {{.*}}@plus.[[R2]], {{.*}}@plus.[[R3]]}
 
 ; Function Attrs: nounwind
 define void @plus() #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !5 !kernel_arg_type !5 !kernel_arg_base_type !5 !kernel_arg_type_qual !5 !task !8 !autorun !8 !num_compute_units !9 {

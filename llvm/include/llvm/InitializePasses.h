@@ -728,6 +728,7 @@ void initializeAddFunctionAttrsLegacyPass(PassRegistry &);
 void initializeAddImplicitArgsLegacyPass(PassRegistry &);
 void initializeAddNTAttrLegacyPass(PassRegistry &);
 void initializeAddTLSGlobalsLegacyPass(PassRegistry &);
+void initializeAutorunReplicatorLegacyPass(PassRegistry &);
 void initializeBarrierInFunctionLegacyPass(PassRegistry &);
 void initializeBuiltinCallToInstLegacyPass(PassRegistry &);
 void initializeBuiltinImportLegacyPass(PassRegistry &);

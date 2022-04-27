@@ -213,7 +213,6 @@ endif( WIN32 )
 set( BACKEND_PASSES
     LLVMBarrier
     LLVMVectorizer
-    AutorunReplicator
     ChannelPipeTransformation
     ChannelsUsageAnalysis
     PipeIOTransformation

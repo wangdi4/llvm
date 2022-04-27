@@ -63,7 +63,6 @@ void initializePipeIOTransformationPass(llvm::PassRegistry&);
 void initializePipeSupportPass(llvm::PassRegistry&);
 void initializePipeOrderingPass(llvm::PassRegistry&);
 void initializeInfiniteLoopCreatorPass(llvm::PassRegistry&);
-void initializeAutorunReplicatorPass(llvm::PassRegistry&);
 void initializeStripIntelIPPass(llvm::PassRegistry&);
 void initializeOCLReqdSubGroupSizePass(llvm::PassRegistry&);
 void initializeChannelsUsageAnalysisPass(llvm::PassRegistry&);

@@ -480,6 +480,7 @@ namespace {
       (void)llvm::createAddImplicitArgsLegacyPass();
       (void)llvm::createAddNTAttrLegacyPass();
       (void)llvm::createAddTLSGlobalsLegacyPass();
+      (void)llvm::createAutorunReplicatorLegacyPass();
       (void)llvm::createResolveMatrixFillLegacyPass();
       (void)llvm::createResolveMatrixLayoutLegacyPass();
       (void)llvm::createResolveMatrixWISliceLegacyPass();

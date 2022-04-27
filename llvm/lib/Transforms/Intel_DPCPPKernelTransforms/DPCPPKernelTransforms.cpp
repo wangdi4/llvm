@@ -18,6 +18,7 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeAddImplicitArgsLegacyPass(Registry);
   initializeAddNTAttrLegacyPass(Registry);
   initializeAddTLSGlobalsLegacyPass(Registry);
+  initializeAutorunReplicatorLegacyPass(Registry);
   initializeBarrierInFunctionLegacyPass(Registry);
   initializeBuiltinCallToInstLegacyPass(Registry);
   initializeBuiltinImportLegacyPass(Registry);

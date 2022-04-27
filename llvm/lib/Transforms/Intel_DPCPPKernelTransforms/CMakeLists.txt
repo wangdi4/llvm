@@ -4,6 +4,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   AddImplicitArgs.cpp
   AddNTAttr.cpp
   AddTLSGlobals.cpp
+  AutorunReplicator.cpp
   BuiltinCallToInst.cpp
   BuiltinImport.cpp
   CoerceTypes.cpp
