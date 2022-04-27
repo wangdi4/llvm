@@ -120,15 +120,10 @@ endif()
 
 add_subdirectory(BLAKE3)
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 set (SUPPORT_SOURCES
 # end INTEL_CUSTOMIZATION
-
-=======
-add_llvm_component_library(LLVMSupport
   AddressRanges.cpp
->>>>>>> 854c33946fd4445a19458c0b12204f125ded7fad
   AArch64TargetParser.cpp
   ABIBreak.cpp
   ARMTargetParser.cpp
