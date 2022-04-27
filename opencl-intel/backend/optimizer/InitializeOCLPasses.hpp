@@ -50,7 +50,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializePipeSupportPass(Registry);
     intel::initializePipeOrderingPass(Registry);
     intel::initializeInfiniteLoopCreatorPass(Registry);
-    intel::initializeAutorunReplicatorPass(Registry);
     intel::initializeStripIntelIPPass(Registry);
     intel::initializeOCLReqdSubGroupSizePass(Registry);
     intel::initializeChannelsUsageAnalysisPass(Registry);

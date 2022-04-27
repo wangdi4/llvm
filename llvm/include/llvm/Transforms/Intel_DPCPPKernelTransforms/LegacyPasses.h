@@ -72,6 +72,7 @@ FunctionPass *createAddNTAttrLegacyPass();
 ModulePass *createAddImplicitArgsLegacyPass();
 FunctionPass *createAddFastMathLegacyPass();
 ModulePass *createAddTLSGlobalsLegacyPass();
+ModulePass *createAutorunReplicatorLegacyPass();
 ModulePass *createReduceCrossBarrierValuesLegacyPass();
 ModulePass *createResolveMatrixFillLegacyPass();
 ModulePass *createResolveMatrixLayoutLegacyPass();
