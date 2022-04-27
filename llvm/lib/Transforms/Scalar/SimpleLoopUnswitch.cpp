@@ -28,6 +28,10 @@
 #include "llvm/Analysis/MustExecute.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#if INTEL_CUSTOMIZATION
+// fix is targeted to HIR loopopt
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
@@ -2992,9 +2996,17 @@ static bool unswitchBestCondition(
     BestUnswitchTI = turnGuardIntoBranch(cast<IntrinsicInst>(BestUnswitchTI), L,
                                          ExitBlocks, DT, LI, MSSAU);
 #if INTEL_CUSTOMIZATION
-  if (unswitchingMayAffectPerfectLoopnest(LI, L, BestUnswitchTI, TLI))
+  if (unswitchingMayAffectPerfectLoopnest(LI, L, BestUnswitchTI, TLI)) {
+    LLVM_DEBUG(dbgs() << "NOT unswitching loop %" << L.getHeader()->getName()
+                      << ", loopnest may be perfect\n");
     return false;
-#endif // INTEL CUSTOMIZATION
+  }
+  if (vpo::VPOAnalysisUtils::getBeginLoopDirective(L)) {
+    LLVM_DEBUG(dbgs() << "NOT unswitching loop %" << L.getHeader()->getName()
+                      << ", since it has region directive\n");
+    return false;
+  }
+#endif // INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "  Unswitching non-trivial (cost = "
                     << BestUnswitchCost << ") terminator: " << *BestUnswitchTI
                     << "\n");
