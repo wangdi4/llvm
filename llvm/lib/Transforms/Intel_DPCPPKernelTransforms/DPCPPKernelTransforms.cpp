@@ -37,6 +37,7 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeDPCPPPreprocessSPIRVFriendlyIRLegacyPass(Registry);
   initializeDeduceMaxWGDimLegacyPass(Registry);
   initializeDuplicateCalledKernelsLegacyPass(Registry);
+  initializeExternalizeGlobalVariablesLegacyPass(Registry);
   initializeGroupBuiltinLegacyPass(Registry);
   initializeHandleVPlanMaskLegacyPass(Registry);
   initializeImplicitArgsAnalysisLegacyPass(Registry);

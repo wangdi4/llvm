@@ -1,5 +1,7 @@
-; RUN: %oclopt -externalize-global-variables -S %s -o %t.ll
-; RUN: FileCheck %s --input-file=%t.ll
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-externalize-global-variables -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-externalize-global-variables -S %s | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-externalize-global-variables -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-externalize-global-variables -S %s | FileCheck %s
 
 ; CHECK: @x1 = dso_local addrspace(1) global i32 0, align 4
 ; CHECK: @x2 = dso_local addrspace(1) global i32 0, align 4
@@ -150,3 +152,5 @@ attributes #0 = { nounwind }
 !12 = !{!"none", !"none"}
 !13 = !{!"int*", !"int*"}
 !14 = !{!"", !""}
+
+; DEBUGIFY-NOT: WARNING

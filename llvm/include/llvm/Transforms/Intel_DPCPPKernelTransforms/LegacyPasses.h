@@ -45,6 +45,7 @@ ModulePass *createDPCPPKernelAnalysisLegacyPass();
 ModulePass *createDPCPPPreprocessSPIRVFriendlyIRLegacyPass();
 ModulePass *createDeduceMaxWGDimLegacyPass();
 ModulePass *createDuplicateCalledKernelsLegacyPass();
+ModulePass *createExternalizeGlobalVariablesLegacyPass();
 FunctionPass *createPhiCanonicalizationLegacyPass();
 FunctionPass *createRedundantPhiNodeLegacyPass();
 ModulePass *
