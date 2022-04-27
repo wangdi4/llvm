@@ -227,8 +227,10 @@ bool VPOUtils::parSectTransformer(Function *F, DominatorTree *DT,
         new AllocaInst(IntTy, DL.getAllocaAddrSpace(), "num.sects", InsertPt);
     Instruction *Inst = Root->Children[0]->EntryBB->getFirstNonPHI();
     CallInst *CI = dyn_cast<CallInst>(Inst);
+
+    Value *ElementTyVal = Constant::getNullValue(IntTy);
     VPOUtils::addOperandBundlesInCall(
-        CI, {{"QUAL.OMP.NORMALIZED.UB", {NormalizedUB}}});
+        CI, {{"QUAL.OMP.NORMALIZED.UB:TYPED", {NormalizedUB, ElementTyVal}}});
   } else
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
@@ -718,9 +720,10 @@ void VPOUtils::doParSectTrans(Function *F, ParSectNode *Node, int Counter,
   Instruction *Inst = Node->EntryBB->getFirstNonPHI();
   CallInst *CI = dyn_cast<CallInst>(Inst);
 
+  Value *ElementTyVal = Constant::getNullValue(IntTy);
   VPOUtils::addOperandBundlesInCall(
-      CI, {{"QUAL.OMP.NORMALIZED.IV", {IV}},
-           {"QUAL.OMP.NORMALIZED.UB", {NormalizedUB}}});
+      CI, {{"QUAL.OMP.NORMALIZED.IV:TYPED", {IV, ElementTyVal}},
+           {"QUAL.OMP.NORMALIZED.UB:TYPED", {NormalizedUB, ElementTyVal}}});
 
   return;
 }
