@@ -96,6 +96,7 @@ STATISTIC(NumCallsDeleted, "Number of call sites deleted, not inlined");
 STATISTIC(NumDeleted, "Number of functions deleted because all callers found");
 STATISTIC(NumMergedAllocas, "Number of allocas merged together");
 
+/// Flag to disable manual alloca merging.
 ///
 /// Merging of allocas was originally done as a stack-size saving technique
 /// prior to LLVM's code generator having support for stack coloring based on
@@ -137,20 +138,6 @@ extern cl::opt<InlinerFunctionImportStatsOpts> InlinerFunctionImportStats;
 #if INTEL_FEATURE_SW_ADVANCED
 extern cl::opt<bool> DTransInlineHeuristics;
 #endif // INTEL_FEATURE_SW_ADVANCED
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-LegacyInlinerBase::LegacyInlinerBase(char &ID)
-    : CallGraphSCCPass(ID) {
-  Report = getInlineReport();
-  MDReport = getMDInlineReport();
-}
-
-LegacyInlinerBase::LegacyInlinerBase(char &ID, bool InsertLifetime)
-    : CallGraphSCCPass(ID), InsertLifetime(InsertLifetime) {
-  Report = getInlineReport();
-  MDReport = getMDInlineReport();
-}
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<std::string> CGSCCInlineReplayFile(
@@ -204,16 +191,18 @@ static cl::opt<CallSiteFormat::Format> CGSCCInlineReplayFormat(
                    "<Line Number>:<Column Number>.<Discriminator> (default)")),
     cl::desc("How cgscc inline replay file is formatted"), cl::Hidden);
 
-<<<<<<< HEAD
-static cl::opt<bool> InlineEnablePriorityOrder(
-    "inline-enable-priority-order", cl::Hidden, cl::init(false),
-    cl::desc("Enable the priority inline order for the inliner"));
-=======
-LegacyInlinerBase::LegacyInlinerBase(char &ID) : CallGraphSCCPass(ID) {}
+#if INTEL_CUSTOMIZATION
+LegacyInlinerBase::LegacyInlinerBase(char &ID) : CallGraphSCCPass(ID) {
+  Report = getInlineReport();
+  MDReport = getMDInlineReport();
+}
 
 LegacyInlinerBase::LegacyInlinerBase(char &ID, bool InsertLifetime)
-    : CallGraphSCCPass(ID), InsertLifetime(InsertLifetime) {}
->>>>>>> b9fc18f89acc85081ebffe1bf777c08af4474df4
+    : CallGraphSCCPass(ID), InsertLifetime(InsertLifetime) {
+  Report = getInlineReport();
+  MDReport = getMDInlineReport();
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// For this class, we declare that we require and preserve the call graph.
 /// If the derived class implements this method, it should
@@ -740,6 +729,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
       LocalChange = true;
     }
   } while (LocalChange);
+
   return Changed;
 }
 
@@ -1004,13 +994,9 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         }
      } // INTEL
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  if (Calls->empty()) {
+  if (Calls.empty()) {
     Report->endSCC();
-=======
-  if (Calls.empty())
->>>>>>> b9fc18f89acc85081ebffe1bf777c08af4474df4
     return PreservedAnalyses::all();
   }
 #endif // INTEL_CUSTOMIZATION
