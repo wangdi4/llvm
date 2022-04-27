@@ -123,7 +123,7 @@ add_subdirectory(BLAKE3)
 # INTEL_CUSTOMIZATION
 set (SUPPORT_SOURCES
 # end INTEL_CUSTOMIZATION
-
+  AddressRanges.cpp
   AArch64TargetParser.cpp
   ABIBreak.cpp
   ARMTargetParser.cpp
