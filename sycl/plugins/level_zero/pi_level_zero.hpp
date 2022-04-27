@@ -202,7 +202,7 @@ template <class T> struct ZeCache : private T {
   // order to disallow access other than through "->".
   //
   typedef std::function<void(T &)> InitFunctionType;
-  InitFunctionType Compute;
+  InitFunctionType Compute{nullptr};
   bool Computed{false};
 
   ZeCache() : T{} {}
@@ -1396,6 +1396,9 @@ struct _pi_kernel : _pi_object {
       : ZeKernel{Kernel}, OwnZeKernel{OwnZeKernel}, Program{Program},
         MemAllocs{}, SubmissionsCount{0} {}
 
+  // Completed initialization of PI kernel. Must be called after construction.
+  pi_result initialize();
+
   // Returns true if kernel has indirect access, false otherwise.
   bool hasIndirectAccess() {
     // Currently indirect access flag is set for all kernels and there is no API
@@ -1462,6 +1465,7 @@ struct _pi_kernel : _pi_object {
 
   // Cache of the kernel properties.
   ZeCache<ZeStruct<ze_kernel_properties_t>> ZeKernelProperties;
+  ZeCache<std::string> ZeKernelName;
 };
 
 #if INTEL_CUSTOMIZATION
