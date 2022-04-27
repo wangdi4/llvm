@@ -925,10 +925,9 @@ define i32 @test_v32i8_muti_uses(<32 x i8> %x, <32 x i8>%y, i32 %z) {
 ; AVX512-LABEL: test_v32i8_muti_uses:
 ; AVX512:       # %bb.0:
 ; INTEL_CUSTOMIZATION
-; AVX512-NEXT:    vpcmpeqb %ymm1, %ymm0, %ymm2
-; AVX512-NEXT:    vpmovmskb %ymm2, %ecx
-; AVX512-NEXT:    vpsubb %ymm1, %ymm0, %ymm0
-; AVX512-NEXT:    vptest %ymm0, %ymm0
+; AVX512-NEXT:    vpcmpeqb %ymm1, %ymm0, %ymm0
+; AVX512-NEXT:    vpmovmskb %ymm0, %ecx
+; AVX512-NEXT:    cmpl $-1, %ecx
 ; AVX512-NEXT:    movl $16, %eax
 ; AVX512-NEXT:    cmovnel %ecx, %eax
 ; end INTEL_CUSTOMIZATION
