@@ -343,6 +343,16 @@ void nested_simple_loops(int *A) {
     // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: kernel performance could be improved by unrolling this loop with a '#pragma unroll' directive [altera-unroll-loops]
     i++;
   } while (i < 100);
+
+  // INTEL_CUSTOMIZATION
+  for (int i = 0; i < 1000; ++i) {
+    std::vector<int> someVector(100, 0);
+    for (int j = 0; j < someVector.size(); ++j) {
+      // CHECK-MESSAGES: :[[@LINE-1]]:5: warning: kernel performance could be improved by unrolling this loop with a '#pragma unroll' directive [altera-unroll-loops]
+      A[0] += i + j;
+    }
+  }
+  // end INTEL_CUSTOMIZATION
 }
 
 // These loops are all correctly unrolled.

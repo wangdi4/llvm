@@ -1,6 +1,6 @@
 //===--- DTransOPOptBase.cpp - Base class for DTrans Transforms -----==//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -20,6 +20,7 @@
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransOPUtils.h"
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
+#include "Intel_DTrans/Analysis/DTransTypeMetadataBuilder.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
@@ -201,12 +202,11 @@ DTransOPTypeRemapper::computeReplacementType(llvm::Type *SrcTy) const {
   }
 
   if (SrcTy->isVectorTy()) {
-    Type *ReplTy =
-        computeReplacementType(cast<VectorType>(SrcTy)->getElementType());
+    auto *SrcVecTy = cast<FixedVectorType>(SrcTy);
+    Type *ReplTy = computeReplacementType(SrcVecTy->getElementType());
     if (!ReplTy)
       return nullptr;
-    return FixedVectorType::get(ReplTy,
-                                cast<VectorType>(SrcTy)->getNumElements());
+    return FixedVectorType::get(ReplTy, SrcVecTy->getNumElements());
   }
 
   if (auto *FunctionTy = dyn_cast<FunctionType>(SrcTy)) {
@@ -866,8 +866,7 @@ void DTransOPOptBase::convertGlobalVariables(Module &M, ValueMapper &Mapper) {
       // The GlobalVariable type may not be changing, because the type is 'p0'.
       // However, the DTrans type metadata attached to the variable may need to
       // be updated in this case.
-      if (MDNode *MD = TypeMetadataReader::getDTransMDNode(GV))
-        TypeMetadataReader::addDTransMDNode(GV, Mapper.mapMDNode(*MD));
+      remapDTransTypeMetadata(&GV, Mapper);
     }
   }
 
@@ -882,7 +881,7 @@ void DTransOPOptBase::convertGlobalVariables(Module &M, ValueMapper &Mapper) {
     // Give the derived class a chance to handle replacing the global variable.
     // This is necessary for cases where only the derived class will know how to
     // initialize the new variable, such as if fields are being deleted.
-    GlobalVariable *NewGV = createGlobalVariableReplacement(GV);
+    GlobalVariable *NewGV = createGlobalVariableReplacement(GV, Mapper);
     if (NewGV) {
       SubclassHandledGVMap.insert(GV);
     } else {
@@ -902,9 +901,7 @@ void DTransOPOptBase::convertGlobalVariables(Module &M, ValueMapper &Mapper) {
       NewGV->setAlignment(MaybeAlign(GV->getAlignment()));
       NewGV->copyAttributesFrom(GV);
       NewGV->copyMetadata(GV, /*Offset=*/0);
-
-      if (MDNode *MD = TypeMetadataReader::getDTransMDNode(*NewGV))
-        TypeMetadataReader::addDTransMDNode(*NewGV, Mapper.mapMDNode(*MD));
+      remapDTransTypeMetadata(NewGV, Mapper);
     }
 
     // Save the mapping in our local list for use when filling in the
@@ -973,6 +970,13 @@ void DTransOPOptBase::convertGlobalVariables(Module &M, ValueMapper &Mapper) {
       }
     }
   }
+}
+
+// If there is DTrans type metadata attached to the Value, then update the
+// metadata based on the type remapping taking place.
+void DTransOPOptBase::remapDTransTypeMetadata(Value *V, ValueMapper &Mapper) {
+  if (MDNode *MD = TypeMetadataReader::getDTransMDNode(*V))
+    DTransTypeMetadataBuilder::addDTransMDNode(*V, Mapper.mapMDNode(*MD));
 }
 
 void DTransOPOptBase::initializeGlobalVariableReplacementBaseImpl(
@@ -1127,7 +1131,7 @@ void DTransOPOptBase::transformIR(Module &M, ValueMapper &Mapper) {
         Remaps.emplace_back(Mapper.mapMDNode(*cast<MDNode>(TypeNode.get())));
 
       auto *UpdatedMDTypes = MDTuple::getDistinct(F.getContext(), Remaps);
-      TypeMetadataReader::addDTransMDNode(*ResultFunc, UpdatedMDTypes);
+      DTransTypeMetadataBuilder::addDTransMDNode(*ResultFunc, UpdatedMDTypes);
     }
   }
 

@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 ##===----------------------------------------------------------------------===##
 #
 # Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -11,15 +28,11 @@
 ##===----------------------------------------------------------------------===##
 
 # By default we will build NVPTX deviceRTL on a CUDA free system
-if(INTEL_CUSTOMIZATION)
-# Do not try to build unless native CUDA compiler exists.
-# Our build compiler or in-tree compiler does not allow emitting bitcode.
 set(LIBOMPTARGET_BUILD_NVPTX_BCLIB FALSE CACHE BOOL
   "Whether build NVPTX deviceRTL on CUDA free system.")
-endif(INTEL_CUSTOMIZATION)
 
-if (NOT (LIBOMPTARGET_DEP_CUDA_FOUND OR LIBOMPTARGET_BUILD_NVPTX_BCLIB))
-  libomptarget_say("Not building NVPTX deviceRTL by default on CUDA free system.")
+if (NOT LIBOMPTARGET_BUILD_NVPTX_BCLIB)
+  libomptarget_say("Not building NVPTX deviceRTL: Disabled by LIBOMPTARGET_BUILD_NVPTX_BCLIB")
   return()
 endif()
 
@@ -169,6 +182,7 @@ set(bc_flags -S -x c++ -O1 -std=c++14
              -mllvm -openmp-opt-disable
              -ffreestanding
              -target nvptx64
+             -fvisibility=hidden
              -Xclang -emit-llvm-bc
              -Xclang -aux-triple -Xclang ${aux_triple}
              -fopenmp -fopenmp-cuda-mode -Xclang -fopenmp-is-device

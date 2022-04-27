@@ -1,4 +1,21 @@
 //===- LoopInfo.cpp - Natural Loop Calculator -----------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -14,7 +31,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/IVDescriptors.h"
@@ -30,7 +46,6 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/Dominators.h"
-#include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Metadata.h"
@@ -38,9 +53,7 @@
 #include "llvm/IR/PrintPasses.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include <algorithm>
 using namespace llvm;
 
 // Explicitly instantiate methods in LoopInfoImpl.h for IR-level Loops.
@@ -710,11 +723,10 @@ class UnloopUpdater {
 
   // Flag the presence of an irreducible backedge whose destination is a block
   // directly contained by the original unloop.
-  bool FoundIB;
+  bool FoundIB = false;
 
 public:
-  UnloopUpdater(Loop *UL, LoopInfo *LInfo)
-      : Unloop(*UL), LI(LInfo), DFS(UL), FoundIB(false) {}
+  UnloopUpdater(Loop *UL, LoopInfo *LInfo) : Unloop(*UL), LI(LInfo), DFS(UL) {}
 
   void updateBlockParents();
 
@@ -756,6 +768,7 @@ void UnloopUpdater::updateBlockParents() {
   bool Changed = FoundIB;
   for (unsigned NIters = 0; Changed; ++NIters) {
     assert(NIters < Unloop.getNumBlocks() && "runaway iterative algorithm");
+    (void) NIters;
 
     // Iterate over the postorder list of blocks, propagating the nearest loop
     // from successors to predecessors as before.
@@ -1127,6 +1140,10 @@ llvm::Optional<int> llvm::getOptionalIntLoopAttribute(const Loop *TheLoop,
 int llvm::getIntLoopAttribute(const Loop *TheLoop, StringRef Name,
                               int Default) {
   return getOptionalIntLoopAttribute(TheLoop, Name).getValueOr(Default);
+}
+
+bool llvm::isFinite(const Loop *L) {
+  return L->getHeader()->getParent()->willReturn();
 }
 
 static const char *LLVMLoopMustProgress = "llvm.loop.mustprogress";

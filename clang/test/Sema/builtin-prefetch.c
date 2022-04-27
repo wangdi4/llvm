@@ -1,6 +1,11 @@
+// INTEL_CUSTOMIZATION
+// INTEL_FEATURE_ISA_PREFETCHST2
+// UNSUPPORTED: intel_feature_isa_prefetchst2
+// end INTEL_FEATURE_ISA_PREFETCHST2
+// end INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 -fsyntax-only -verify %s
 
-void foo() {
+void foo(void) {
   int a;
   __builtin_prefetch(&a);
   __builtin_prefetch(&a, 1);

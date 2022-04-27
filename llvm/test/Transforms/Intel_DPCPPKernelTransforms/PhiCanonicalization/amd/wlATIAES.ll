@@ -1,4 +1,6 @@
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 ; ModuleID = 'wlATIAES.cl'
@@ -1115,3 +1117,5 @@ for.end646:                                       ; preds = %shiftRowsInv.exit
   store <4 x i8> %xor676, <4 x i8> addrspace(1)* %arrayidx667, align 4
   ret void
 }
+
+; DEBUGIFY-NOT: WARNING

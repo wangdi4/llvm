@@ -123,15 +123,17 @@
 // CHECK-MKL-WIN-SYCL-TBB: clang{{.*}} "--dependent-lib=mkl_sycl" "--dependent-lib=mkl_intel_ilp64" "--dependent-lib=mkl_tbb_thread" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
 // CHECK-MKL-WIN-TBB: clang{{.*}} "--dependent-lib=mkl_intel_lp64" "--dependent-lib=mkl_tbb_thread" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
 // CHECK-MKL-WIN-CLUSTER: clang{{.*}} "--dependent-lib=mkl_intel_lp64" "--dependent-lib=mkl_cdft_core" "--dependent-lib=mkl_scalapack_lp64" "--dependent-lib=mkl_blacs_intelmpi_lp64" "--dependent-lib=mkl_sequential" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
-// CHECK-MKL-WIN-SYCL-NOT: clang-offload-bundler{{.*}} "-type=o" {{.*}} "-inputs=libmkl_sycl"
+// CHECK-MKL-WIN-SYCL-NOT: clang-offload-bundler{{.*}} "-type=o" {{.*}} "-input=libmkl_sycl"
 // CHECK-MKL-LIN-SYCL: "-DMKL_ILP64"
-// CHECK-MKL-LIN-SYCL: clang-offload-bundler{{.*}} "-type=a" "-targets=sycl-spir64-unknown-unknown" "-inputs={{.*}}mkl{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libmkl_sycl.a" "-outputs=[[LISTA:.+\.a]]" "-unbundle"
+// CHECK-MKL-LIN-SYCL: clang-offload-bundler{{.*}} "-type=aoo" "-targets=sycl-spir64-unknown-unknown" "-input={{.*}}mkl{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libmkl_sycl.a" "-output=[[LISTA:.+\.a]]" "-unbundle"
+// CHECK-MKL-LIN-SYCL: spirv-to-ir-wrapper{{.*}} "[[LISTA]]" "-o" "[[LISTTXT:.+\.txt]]"
 // CHECK-MKL-WIN-SYCL: clang{{.*}} "--dependent-lib=mkl_sycl" "--dependent-lib=mkl_intel_ilp64" "--dependent-lib=mkl_intel_thread" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
 // CHECK-MKL-WIN-SYCLD: clang{{.*}} "--dependent-lib=mkl_sycld" "--dependent-lib=mkl_intel_ilp64" "--dependent-lib=mkl_intel_thread" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
-// CHECK-MKL-WIN-SYCLD: clang-offload-bundler{{.*}} "-inputs={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}mkl_sycld.lib" "-outputs=[[LISTWIN:.+\.a]]" "-unbundle"
-// CHECK-MKL-WIN-SYCL: clang-offload-bundler{{.*}} "-inputs={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}mkl_sycl.lib" "-outputs=[[LISTWIN:.+\.a]]" "-unbundle"
-// CHECK-MKL-WIN-SYCL: llvm-link{{.*}} "[[LISTWIN]]"
-// CHECK-MKL-LIN-SYCL: llvm-link{{.*}} "[[LISTA]]"
+// CHECK-MKL-WIN-SYCLD: clang-offload-bundler{{.*}} "-input={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}mkl_sycld.lib" "-output=[[LISTWIN:.+\.a]]" "-unbundle"
+// CHECK-MKL-WIN-SYCL: clang-offload-bundler{{.*}} "-input={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}mkl_sycl.lib" "-output=[[LISTWIN:.+\.a]]" "-unbundle"
+// CHECK-MKL-WIN-SYCL: spirv-to-ir-wrapper{{.*}} "[[LISTWIN]]" "-o" "[[LISTWINTXT:.+\.txt]]"
+// CHECK-MKL-WIN-SYCL: llvm-link{{.*}} "@[[LISTWINTXT]]"
+// CHECK-MKL-LIN-SYCL: llvm-link{{.*}} "@[[LISTTXT]]"
 // CHECK-MKL-SYCL: llvm-spirv{{.*}}
 // CHECK-MKL-SYCL: clang-offload-wrapper{{.*}}
 // CHECK-MKL-SYCL: llc{{.*}}
@@ -204,10 +206,12 @@
 // CHECK-DAAL-WIN-PARALLEL: clang{{.*}} "--dependent-lib=onedal_core" "--dependent-lib=onedal_thread"
 // CHECK-DAAL-WIN-SEQUENTIAL: clang{{.*}} "--dependent-lib=onedal_core" "--dependent-lib=onedal_sequential"
 // CHECK-DAAL: "-internal-isystem" "{{.*}}tbb{{/|\\\\}}include" "-internal-isystem" "{{.*}}dal{{/|\\\\}}include"
-// CHECK-DAAL-WIN-SYCL: clang-offload-bundler{{.*}} "-inputs={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}onedal_sycl.lib" "-outputs=[[WINLIB:.+\.a]]" "-unbundle"
-// CHECK-DAAL-WIN-SYCL: llvm-link{{.*}} "[[WINLIB]]"
-// CHECK-DAAL-LIN-SYCL: clang-offload-bundler{{.*}} "-type=a" "-targets=sycl-spir64-unknown-unknown" "-inputs={{.*}}dal{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libonedal_sycl.a" "-outputs=[[LINLIB:.+\.a]]" "-unbundle"
-// CHECK-DAAL-LIN-SYCL: llvm-link{{.*}} "[[LINLIB]]"
+// CHECK-DAAL-WIN-SYCL: clang-offload-bundler{{.*}} "-input={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}onedal_sycl.lib" "-output=[[WINLIB:.+\.a]]" "-unbundle"
+// CHECK-DAAL-WIN-SYCL: spirv-to-ir-wrapper{{.*}} "[[WINLIB]]" "-o" "[[WINTXT:.+\.txt]]"
+// CHECK-DAAL-WIN-SYCL: llvm-link{{.*}} "@[[WINTXT]]"
+// CHECK-DAAL-LIN-SYCL: clang-offload-bundler{{.*}} "-type=aoo" "-targets=sycl-spir64-unknown-unknown" "-input={{.*}}dal{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libonedal_sycl.a" "-output=[[LINLIB:.+\.a]]" "-unbundle"
+// CHECK-DAAL-LIN-SYCL: spirv-to-ir-wrapper{{.*}} "[[LINLIB]]" "-o" "[[LINTXT:.+\.txt]]"
+// CHECK-DAAL-LIN-SYCL: llvm-link{{.*}} "@[[LINTXT]]"
 // CHECK-DAAL-SYCL: llvm-spirv{{.*}}
 // CHECK-DAAL-SYCL: clang-offload-wrapper{{.*}}
 // CHECK-DAAL-SYCL: llc{{.*}}
@@ -224,13 +228,14 @@
 // MKL-SHARED-OBJ-PHASES: 0: input, "{{.*}}", object, (host-sycl)
 // MKL-SHARED-OBJ-PHASES: 1: clang-offload-unbundler, {0}, object, (host-sycl)
 // MKL-SHARED-OBJ-PHASES: 2: linker, {1}, image, (host-sycl)
-// MKL-SHARED-OBJ-PHASES: 3: linker, {1}, ir, (device-sycl)
-// MKL-SHARED-OBJ-PHASES: 4: sycl-post-link, {3}, tempfiletable, (device-sycl)
-// MKL-SHARED-OBJ-PHASES: 5: file-table-tform, {4}, tempfilelist, (device-sycl)
-// MKL-SHARED-OBJ-PHASES: 6: llvm-spirv, {5}, tempfilelist, (device-sycl)
-// MKL-SHARED-OBJ-PHASES: 7: file-table-tform, {4, 6}, tempfiletable, (device-sycl)
-// MKL-SHARED-OBJ-PHASES: 8: clang-offload-wrapper, {7}, object, (device-sycl)
-// MKL-SHARED-OBJ-PHASES: 9: offload, "host-sycl (x86_64-unknown-linux-gnu)" {2}, "device-sycl (spir64-unknown-unknown)" {8}, image
+// MKL-SHARED-OBJ-PHASES: 3: spirv-to-ir-wrapper, {1}, ir, (device-sycl)
+// MKL-SHARED-OBJ-PHASES: 4: linker, {3}, ir, (device-sycl)
+// MKL-SHARED-OBJ-PHASES: 5: sycl-post-link, {4}, tempfiletable, (device-sycl)
+// MKL-SHARED-OBJ-PHASES: 6: file-table-tform, {5}, tempfilelist, (device-sycl)
+// MKL-SHARED-OBJ-PHASES: 7: llvm-spirv, {6}, tempfilelist, (device-sycl)
+// MKL-SHARED-OBJ-PHASES: 8: file-table-tform, {5, 7}, tempfiletable, (device-sycl)
+// MKL-SHARED-OBJ-PHASES: 9: clang-offload-wrapper, {8}, object, (device-sycl)
+// MKL-SHARED-OBJ-PHASES: 10: offload, "host-sycl (x86_64-unknown-linux-gnu)" {2}, "device-sycl (spir64-unknown-unknown)" {9}, image
 
 // AC Types tests (-qactypes)
 // RUN: env INTELFPGAOCLSDKROOT=/dummy/actypes \

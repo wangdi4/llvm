@@ -1,6 +1,6 @@
 //===--- Intel_MDInlineReport.h ----------------------------------*- C++ -*-===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -143,9 +143,9 @@ public:
     for (unsigned I = 0; I < ActiveInlinedCalls.size(); ++I)
       if (ActiveInlinedCalls[I] == OldCall) {
         ActiveInlinedCalls[I] = NewCall;
-        if (NewCall)
-          addCallback(NewCall,
-                      NewCall->getMetadata(MDInliningReport::CallSiteTag));
+        removeCallback(OldCall);
+        addCallback(NewCall,
+                    NewCall->getMetadata(MDInliningReport::CallSiteTag));
         break;
       }
   }
@@ -175,9 +175,26 @@ public:
   void replaceFunctionWithFunction(Function *OldFunction,
                                    Function *NewFunction);
 
-  // Replace 'OldCall' with 'NewCall'
-  void replaceCallBaseWithCallBase(CallBase *OldCall,
-                                   CallBase *NewCall);
+  // Replace 'OldFunction' with 'NewFunction'.
+  void cloneFunction(Function *OldFunction, Function *NewFunction,
+                     ValueToValueMapTy &VMap);
+
+  // Replace 'OldCall' with 'NewCall'.
+  void replaceCallBaseWithCallBase(CallBase *OldCall, CallBase *NewCall);
+
+  // Clone 'OldCall' to 'NewCall'.
+  void cloneCallBaseToCallBase(CallBase *OldCall, CallBase *NewCall);
+
+  // Set the callee of 'CB' to 'F'.
+  void setCalledFunction(CallBase *CB, Function *F);
+
+  // Delete all calls inside 'F'.
+  void deleteFunctionBody(Function *F);
+
+  // Indicate that 'CB' calls a specialized version of its caller under
+  // a multiversioning test.
+  void addMultiversionedCallSite(CallBase *CB);
+
 private:
   /// The Level is specified by the option -inline-report=N.
   /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level.
@@ -188,6 +205,8 @@ private:
   Metadata *CurrentCallInstReport;
   // Function called in the current call instruction.
   Function *CurrentCallee;
+  // Copy metadata 'OldMD' for use my another Function or CallBase.
+  Metadata *copyMD(LLVMContext &C, Metadata *OldMD);
 
   ///
   /// CallbackVM for Instructions and Functions in the InlineReport
@@ -251,7 +270,7 @@ private:
 public:
   // Add callback for function or instruction.
   void addCallback(Value *V, MDNode *MDIR) {
-    if (!V || !MDIR)
+    if (!V || !MDIR || IRCallbackMap.count(V))
       return;
     InliningReportCallback *IRCB = new InliningReportCallback(V, this, MDIR);
     IRCallbackMap.insert({V, IRCB});
@@ -259,7 +278,7 @@ public:
 
   // Remove callback from the map
   void removeCallback(Value *V) {
-    if (!V || IRCallbackMap.count(V) == 0)
+    if (!V || !IRCallbackMap.count(V))
       return;
     InliningReportCallback *IRCB = IRCallbackMap[V];
     IRCallbackMap.erase(V);

@@ -1,4 +1,21 @@
 //===- BasicAliasAnalysis.h - Stateless, local Alias Analysis ---*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -27,7 +44,6 @@
 
 namespace llvm {
 
-struct AAMDNodes;
 class AssumptionCache;
 class BasicBlock;
 class DataLayout;
@@ -88,7 +104,7 @@ public:
                 const TargetLibraryInfo &TLI, AssumptionCache &AC,
                 DominatorTree *DT = nullptr, PhiValues *PV = nullptr,
                 unsigned OptLevel = 2u) // INTEL
-      : AAResultBase(), DL(DL), F(F), TLI(TLI), AC(AC), DT(DT), PV(PV)
+      : DL(DL), F(F), TLI(TLI), AC(AC), DT(DT), PV(PV) // INTEL
 #if INTEL_CUSTOMIZATION
   {
     setupWithOptLevel(OptLevel);

@@ -1,4 +1,21 @@
 //===- TypeRecord.h ---------------------------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -111,7 +128,8 @@ public:
   }
 
   TypeIndex ContainingType;
-  PointerToMemberRepresentation Representation;
+  PointerToMemberRepresentation Representation =
+      PointerToMemberRepresentation::Unknown;
 };
 
 class TypeRecord {
@@ -160,8 +178,8 @@ public:
   TypeIndex getArgumentList() const { return ArgumentList; }
 
   TypeIndex ReturnType;
-  CallingConvention CallConv;
-  FunctionOptions Options;
+  CallingConvention CallConv = CallingConvention::NearC;
+  FunctionOptions Options = FunctionOptions::None;
   uint16_t ParameterCount = 0;
   TypeIndex ArgumentList;
 };
@@ -194,8 +212,8 @@ public:
   TypeIndex ReturnType;
   TypeIndex ClassType;
   TypeIndex ThisType;
-  CallingConvention CallConv;
-  FunctionOptions Options;
+  CallingConvention CallConv = CallingConvention::NearC;
+  FunctionOptions Options = FunctionOptions::None;
   uint16_t ParameterCount = 0;
   TypeIndex ArgumentList;
   int32_t ThisPointerAdjustment = 0;
@@ -209,7 +227,7 @@ public:
 
   LabelRecord(LabelType Mode) : TypeRecord(TypeRecordKind::Label), Mode(Mode) {}
 
-  LabelType Mode;
+  LabelType Mode = LabelType::Near;
 };
 
 // LF_MFUNC_ID
@@ -454,7 +472,7 @@ public:
   StringRef getUniqueName() const { return UniqueName; }
 
   uint16_t MemberCount = 0;
-  ClassOptions Options;
+  ClassOptions Options = ClassOptions::None;
   TypeIndex FieldList;
   StringRef Name;
   StringRef UniqueName;
@@ -585,7 +603,7 @@ public:
   uint32_t getAge() const { return Age; }
   StringRef getName() const { return Name; }
 
-  GUID Guid;
+  GUID Guid = {};
   uint32_t Age = 0;
   StringRef Name;
 };
@@ -986,10 +1004,17 @@ public:
 	       OEMTypeID == TypeLeafKind::LF_recOEM_MSF90_DESCRIPTOR;
   }
 
+  bool isF90HostReference() const {
+    return OEMIdentifier == TypeLeafKind::LF_OEM_IDENT_MSF90 &&
+	       OEMTypeID == TypeLeafKind::LF_recOEM_MSF90_HOST_REF;
+  }
+
   bool isValid() const {
     if (isF90DescribedArray() && TypeIndices.size() == 2 && Data.size() == 2)
       return true;
     if (isF90Descriptor() && TypeIndices.size() == 1 && Data.size() == 1)
+      return true;
+    if (isF90HostReference() && TypeIndices.size() == 1 && Data.size() == 1)
       return true;
     return false;
   }
@@ -1003,6 +1028,66 @@ public:
   TypeLeafKind OEMTypeID;
   SmallVector<TypeIndex, 2> TypeIndices;  // Max used is 2 for known records.
   SmallVector<uint32_t, 2> Data;          // Max used is 2 for known records.
+};
+
+// LF_DIMARRAY
+// This is used to encode a Fortran explicit array, with the following format:
+//    2 bytes          4 bytes     4 bytes    variable
+//   +----------------+-----------+----------+-------------+
+//   | LF_DIMARRAY    | @utype    | @diminfo | name        |
+//   +----------------+-----------+----------+-------------+
+//
+//   @utype:   Underlying type of the array.
+//   @diminfo: Index of the type record containing the dimension information.
+//   name:     Zero terminated UTF-8 encoded name of the array.
+//
+class DimArrayRecord : public TypeRecord {
+public:
+  DimArrayRecord() = default;
+  explicit DimArrayRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
+  DimArrayRecord(TypeIndex ElementType, TypeIndex DimInfo, StringRef Name)
+      : TypeRecord(TypeRecordKind::DimArray), ElementType(ElementType),
+        DimInfo(DimInfo), Name(Name) {}
+
+  TypeIndex getElementType() const { return ElementType; }
+  TypeIndex getDimInfo() const { return DimInfo; }
+  StringRef getName() const { return Name; }
+
+  TypeIndex ElementType;
+  TypeIndex DimInfo;
+  StringRef Name;
+};
+
+// LF_DIMCONLU
+// This is used to encode the dimension info of a Fortran explicit array.
+//    2 bytes          4 bytes     2 bytes    2*s*rank
+//   +----------------+-----------+----------+-------------+
+//   | LF_DIMCONLU    | @index    | rank     | bounds      |
+//   +----------------+-----------+----------+-------------+
+//
+//   @index: The type of the array index.
+//   rank:   The number of dimensions.
+//   bounds: Pairs of constants for the lower and upper bound
+//           of each dimension of the array. Each constant is
+//           of the size s specified by @index. The ordering
+//           is lower bound followed by upper bound for each
+//           dimension.
+//
+class DimConLURecord : public TypeRecord {
+public:
+  DimConLURecord() = default;
+  explicit DimConLURecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
+  DimConLURecord(TypeIndex IndexType, uint16_t Rank, ArrayRef<int64_t> Bounds)
+      : TypeRecord(TypeRecordKind::DimConLU), IndexType(IndexType), Rank(Rank),
+        Bounds(Bounds.begin(), Bounds.end()) {}
+
+  TypeIndex getIndexType() const { return IndexType; }
+  uint16_t  getRank() const { return Rank; }
+  ArrayRef<int64_t> getBounds() const { return Bounds; }
+
+  TypeIndex IndexType;
+  uint16_t Rank;
+  SmallVector<int64_t, 5> Bounds;
 };
 #endif //INTEL_CUSTOMIZATION
 

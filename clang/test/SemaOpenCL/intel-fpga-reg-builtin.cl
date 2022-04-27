@@ -9,7 +9,7 @@ struct st {
   float b;
 };
 
-void foo() {
+void foo(void) {
 #ifndef WITHOUTTRIPLE
   int a=123;
   int intArr[10] = {0};

@@ -1,4 +1,21 @@
 //===----- CGOpenCLRuntime.h - Interface to OpenCL Runtimes -----*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -18,6 +35,7 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/Type.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 
@@ -41,18 +59,21 @@ protected:
   llvm::Type *ChannelTy;
 #endif // INTEL_CUSTOMIZATION
   llvm::PointerType *SamplerTy;
+  llvm::StringMap<llvm::PointerType *> CachedTys;
 
   /// Structure for enqueued block information.
   struct EnqueuedBlockInfo {
     llvm::Function *InvokeFunc; /// Block invoke function.
     llvm::Function *Kernel;     /// Enqueued block kernel.
     llvm::Value *BlockArg;      /// The first argument to enqueued block kernel.
+    llvm::Type *BlockTy;        /// Type of the block argument.
   };
   /// Maps block expression to block information.
   llvm::DenseMap<const Expr *, EnqueuedBlockInfo> EnqueuedBlockMap;
 
   virtual llvm::Type *getPipeType(const PipeType *T, StringRef Name,
                                   llvm::Type *&PipeTy);
+  llvm::PointerType *getPointerType(const Type *T, StringRef Name);
 
 public:
 #if INTEL_CUSTOMIZATION
@@ -109,7 +130,7 @@ public:
   /// \param InvokeF invoke function emitted for the block expression.
   /// \param Block block literal emitted for the block expression.
   void recordBlockInfo(const BlockExpr *E, llvm::Function *InvokeF,
-                       llvm::Value *Block);
+                       llvm::Value *Block, llvm::Type *BlockTy);
 
   /// \return LLVM block invoke function emitted for an expression derived from
   /// the block expression.

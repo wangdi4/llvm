@@ -6,7 +6,7 @@
 ; Function: sub1_
 ;
 ;         BEGIN REGION { }
-;               + DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch.4") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647> <nounroll>
+;               + DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch.4") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>   <LEGAL_MAX_TC = 2147483647> <nounroll>
 ;               |   + DO i2 = 0, 2, 1   <DO_LOOP>
 ;               |   |   (%"sub1_$C6")[i2] = (%"sub1_$D2")[i2];
 ;               |   |
@@ -32,7 +32,7 @@
 ; Function: sub1_
 ;
 ;         BEGIN REGION { modified }
-;               + DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch.4") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647> <nounroll>
+;               + DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch.4") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>   <LEGAL_MAX_TC = 2147483647> <nounroll>
 ;               |   + DO i2 = -1, 3, 2   <DO_LOOP>
 ;               |   |   %tile_e_min = (i2 + 1 <= 3) ? i2 + 1 : 3;
 ;               |   |
@@ -74,7 +74,7 @@
 ;CHECK: Function: sub1_
 ;
 ;CHECK:         BEGIN REGION { }
-;CHECK:               + DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch.4") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647> <nounroll>
+;CHECK:               + DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch.4") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>   <LEGAL_MAX_TC = 2147483647> <nounroll>
 ;CHECK:               |   + DO i2 = 0, 2, 1   <DO_LOOP>
 ;CHECK:               |   |   (%"sub1_$C6")[i2] = (%"sub1_$D2")[i2];
 ;CHECK:               |   |
@@ -100,7 +100,7 @@
 ;CHECK: Function: sub1_
 ;
 ;CHECK:         BEGIN REGION { modified }
-;CHECK:               + DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch.4") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647> <nounroll>
+;CHECK:               + DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch.4") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>   <LEGAL_MAX_TC = 2147483647> <nounroll>
 ;CHECK:               |   + DO i2 = -1, 3, 2   <DO_LOOP>
 ;CHECK:               |   |   [[TILE_1:%tile_e_min[0-9]*]] = (i2 + 1 <= 3) ? i2 + 1 : 3;
 ;CHECK:               |   |

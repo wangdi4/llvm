@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 //===------- Intel_QsortRecognizer.cpp --------------------------------===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -47,6 +47,14 @@ static bool isQsort(Function *F) {
     Function *Callee = CB->getCalledFunction();
     if (!Callee || Callee == F)
       continue;
+    if (Callee->isIntrinsic()) {
+      switch (Callee->getIntrinsicID()) {      
+      case Intrinsic::smin:
+        continue;
+      default:
+        return false;
+      }
+    }
     if (CB->hasFnAttr("must-be-qsort-compare") &&
         Callee->hasFnAttribute("is-qsort-compare"))
       continue;

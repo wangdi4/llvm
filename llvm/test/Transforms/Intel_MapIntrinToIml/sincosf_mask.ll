@@ -1,6 +1,6 @@
 ; Ensure masked sincos is properly translated to high accuracy variant.
 
-; RUN: opt -vector-library=SVML -iml-trans -S < %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vector-library=SVML -iml-trans -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @vector_foo
 ; CHECK: %{{.*}} = call svml_avx512_cc { <16 x float>, <16 x float> } @__svml_sincosf16_ha_mask_z0({ <16 x float>, <16 x float> } %tmp2, <16 x i1> %tmp, <16 x float> %E)

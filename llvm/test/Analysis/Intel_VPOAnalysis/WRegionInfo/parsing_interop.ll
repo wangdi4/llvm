@@ -1,5 +1,5 @@
-; RUN: opt -vpo-wrncollection -analyze -S < %s 2>&1 | FileCheck %s
-; RUN: opt -passes='function(print<vpo-wrncollection>)' -S < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-wrncollection -analyze -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(print<vpo-wrncollection>)' -S %s 2>&1 | FileCheck %s
 ;
 ; Test src: Input IR is written by hand because FE does not yet handle interop.
 ; C++ example:

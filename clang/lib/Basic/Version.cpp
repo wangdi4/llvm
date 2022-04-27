@@ -1,4 +1,21 @@
 //===- Version.cpp - Clang Version Number -----------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -107,6 +124,16 @@ std::string getClangFullCPPVersion() {
   return buf;
 }
 
+llvm::SmallVector<std::pair<llvm::StringRef, llvm::StringRef>, 2>
+getSYCLVersionMacros(const LangOptions &LangOpts) {
+  if (LangOpts.getSYCLVersion() == LangOptions::SYCL_2017)
+    return {{"CL_SYCL_LANGUAGE_VERSION", "121"},
+            {"SYCL_LANGUAGE_VERSION", "201707"}};
+  if (LangOpts.getSYCLVersion() == LangOptions::SYCL_2020)
+    return {{"SYCL_LANGUAGE_VERSION", "202001"}};
+  llvm_unreachable("SYCL standard should be set");
+}
+
 #if INTEL_CUSTOMIZATION
 std::string getICXVersionString() {
   // XMAIN_BUILD_DATE_STAMP_STR is expected to be 8 characters of YYYYMMDD.
@@ -132,5 +159,4 @@ std::string getICXVersionNumber() {
   return XMAIN_VERSION_NUMBER;
 }
 #endif // INTEL_CUSTOMIZATION
-
 } // end namespace clang

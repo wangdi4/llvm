@@ -1,4 +1,21 @@
 //===--- SemaAttr.cpp - Semantic Analysis for Attributes ------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -476,6 +493,33 @@ void Sema::ActOnPragmaDetectMismatch(SourceLocation Loc, StringRef Name,
   Consumer.HandleTopLevelDecl(DeclGroupRef(PDMD));
 }
 
+void Sema::ActOnPragmaFPEvalMethod(SourceLocation Loc,
+                                   LangOptions::FPEvalMethodKind Value) {
+  FPOptionsOverride NewFPFeatures = CurFPFeatureOverrides();
+  switch (Value) {
+  default:
+    llvm_unreachable("invalid pragma eval_method kind");
+  case LangOptions::FEM_Source:
+    NewFPFeatures.setFPEvalMethodOverride(LangOptions::FEM_Source);
+    break;
+  case LangOptions::FEM_Double:
+    NewFPFeatures.setFPEvalMethodOverride(LangOptions::FEM_Double);
+    break;
+  case LangOptions::FEM_Extended:
+    NewFPFeatures.setFPEvalMethodOverride(LangOptions::FEM_Extended);
+    break;
+  }
+  if (getLangOpts().ApproxFunc)
+    Diag(Loc, diag::err_setting_eval_method_used_in_unsafe_context) << 0 << 0;
+  if (getLangOpts().AllowFPReassoc)
+    Diag(Loc, diag::err_setting_eval_method_used_in_unsafe_context) << 0 << 1;
+  if (getLangOpts().AllowRecip)
+    Diag(Loc, diag::err_setting_eval_method_used_in_unsafe_context) << 0 << 2;
+  FpPragmaStack.Act(Loc, PSK_Set, StringRef(), NewFPFeatures);
+  CurFPFeatures = NewFPFeatures.applyOverrides(getLangOpts());
+  PP.setCurrentFPEvalMethod(Loc, Value);
+}
+
 void Sema::ActOnPragmaFloatControl(SourceLocation Loc,
                                    PragmaMsStackAction Action,
                                    PragmaFloatControlKind Value) {
@@ -493,6 +537,13 @@ void Sema::ActOnPragmaFloatControl(SourceLocation Loc,
   case PFC_Precise:
     NewFPFeatures.setFPPreciseEnabled(true);
     FpPragmaStack.Act(Loc, Action, StringRef(), NewFPFeatures);
+    if (PP.getCurrentFPEvalMethod() ==
+            LangOptions::FPEvalMethodKind::FEM_Indeterminable &&
+        PP.getLastFPEvalPragmaLocation().isValid())
+      // A preceding `pragma float_control(precise,off)` has changed
+      // the value of the evaluation method.
+      // Set it back to its old value.
+      PP.setCurrentFPEvalMethod(SourceLocation(), PP.getLastFPEvalMethod());
     break;
   case PFC_NoPrecise:
     if (CurFPFeatures.getFPExceptionMode() == LangOptions::FPE_Strict)
@@ -502,6 +553,10 @@ void Sema::ActOnPragmaFloatControl(SourceLocation Loc,
     else
       NewFPFeatures.setFPPreciseEnabled(false);
     FpPragmaStack.Act(Loc, Action, StringRef(), NewFPFeatures);
+    PP.setLastFPEvalMethod(PP.getCurrentFPEvalMethod());
+    // `AllowFPReassoc` or `AllowReciprocal` option is enabled.
+    PP.setCurrentFPEvalMethod(
+        Loc, LangOptions::FPEvalMethodKind::FEM_Indeterminable);
     break;
   case PFC_Except:
     if (!isPreciseFPEnabled())
@@ -525,6 +580,12 @@ void Sema::ActOnPragmaFloatControl(SourceLocation Loc,
     }
     FpPragmaStack.Act(Loc, Action, StringRef(), NewFPFeatures);
     NewFPFeatures = FpPragmaStack.CurrentValue;
+    if (CurFPFeatures.getAllowFPReassociate() ||
+        CurFPFeatures.getAllowReciprocal())
+      // Since we are popping the pragma, we don't want to be passing
+      // a location here.
+      PP.setCurrentFPEvalMethod(SourceLocation(),
+                                CurFPFeatures.getFPEvalMethod());
     break;
   }
   CurFPFeatures = NewFPFeatures.applyOverrides(getLangOpts());
@@ -1122,6 +1183,23 @@ void Sema::ActOnPragmaFPContract(SourceLocation Loc,
 }
 
 void Sema::ActOnPragmaFPReassociate(SourceLocation Loc, bool IsEnabled) {
+  if (IsEnabled) {
+    // For value unsafe context, combining this pragma with eval method
+    // setting is not recommended. See comment in function FixupInvocation#506.
+    int Reason = -1;
+    if (getLangOpts().getFPEvalMethod() != LangOptions::FEM_UnsetOnCommandLine)
+      // Eval method set using the option 'ffp-eval-method'.
+      Reason = 1;
+    if (PP.getLastFPEvalPragmaLocation().isValid())
+      // Eval method set using the '#pragma clang fp eval_method'.
+      // We could have both an option and a pragma used to the set the eval
+      // method. The pragma overrides the option in the command line. The Reason
+      // of the diagnostic is overriden too.
+      Reason = 0;
+    if (Reason != -1)
+      Diag(Loc, diag::err_setting_eval_method_used_in_unsafe_context)
+          << Reason << 4;
+  }
   FPOptionsOverride NewFPFeatures = CurFPFeatureOverrides();
   NewFPFeatures.setAllowFPReassociateOverride(IsEnabled);
   FpPragmaStack.Act(Loc, PSK_Set, StringRef(), NewFPFeatures);
@@ -1220,8 +1298,9 @@ void Sema::PopPragmaVisibility(bool IsNamespaceEnd, SourceLocation EndLoc) {
 }
 
 template <typename Ty>
-static bool checkCommonAttributeFeatures(Sema& S, const Ty *Node,
-                                         const ParsedAttr& A) {
+static bool checkCommonAttributeFeatures(Sema &S, const Ty *Node,
+                                         const ParsedAttr &A,
+                                         bool SkipArgCountCheck) {
   // Several attributes carry different semantics than the parsing requires, so
   // those are opted out of the common argument checks.
   //
@@ -1247,26 +1326,30 @@ static bool checkCommonAttributeFeatures(Sema& S, const Ty *Node,
   if (A.hasCustomParsing())
     return false;
 
-  if (A.getMinArgs() == A.getMaxArgs()) {
-    // If there are no optional arguments, then checking for the argument count
-    // is trivial.
-    if (!A.checkExactlyNumArgs(S, A.getMinArgs()))
-      return true;
-  } else {
-    // There are optional arguments, so checking is slightly more involved.
-    if (A.getMinArgs() && !A.checkAtLeastNumArgs(S, A.getMinArgs()))
-      return true;
-    else if (!A.hasVariadicArg() && A.getMaxArgs() &&
-             !A.checkAtMostNumArgs(S, A.getMaxArgs()))
-      return true;
+  if (!SkipArgCountCheck) {
+    if (A.getMinArgs() == A.getMaxArgs()) {
+      // If there are no optional arguments, then checking for the argument
+      // count is trivial.
+      if (!A.checkExactlyNumArgs(S, A.getMinArgs()))
+        return true;
+    } else {
+      // There are optional arguments, so checking is slightly more involved.
+      if (A.getMinArgs() && !A.checkAtLeastNumArgs(S, A.getMinArgs()))
+        return true;
+      else if (!A.hasVariadicArg() && A.getMaxArgs() &&
+               !A.checkAtMostNumArgs(S, A.getMaxArgs()))
+        return true;
+    }
   }
 
   return false;
 }
 
-bool Sema::checkCommonAttributeFeatures(const Decl *D, const ParsedAttr &A) {
-  return ::checkCommonAttributeFeatures(*this, D, A);
+bool Sema::checkCommonAttributeFeatures(const Decl *D, const ParsedAttr &A,
+                                        bool SkipArgCountCheck) {
+  return ::checkCommonAttributeFeatures(*this, D, A, SkipArgCountCheck);
 }
-bool Sema::checkCommonAttributeFeatures(const Stmt *S, const ParsedAttr &A) {
-  return ::checkCommonAttributeFeatures(*this, S, A);
+bool Sema::checkCommonAttributeFeatures(const Stmt *S, const ParsedAttr &A,
+                                        bool SkipArgCountCheck) {
+  return ::checkCommonAttributeFeatures(*this, S, A, SkipArgCountCheck);
 }

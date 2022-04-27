@@ -22,7 +22,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cctype>
-#include <cstddef>
 #include <cstdlib>
 
 using namespace llvm;
@@ -57,6 +56,14 @@ void InlineAsm::destroyConstant() {
 FunctionType *InlineAsm::getFunctionType() const {
   return FTy;
 }
+
+#if INTEL_CUSTOMIZATION
+void InlineAsm::collectAsmStrs(SmallVectorImpl<StringRef> &AsmStrs) const {
+  StringRef AsmStr(AsmString);
+  AsmStrs.clear();
+  AsmStr.split(AsmStrs, "\n\t", -1, false);
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Parse - Analyze the specified string (e.g. "==&{eax}") and fill in the
 /// fields in this structure.  If the constraint string is not understood,

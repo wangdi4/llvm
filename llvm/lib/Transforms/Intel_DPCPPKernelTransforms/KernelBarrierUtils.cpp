@@ -477,7 +477,7 @@ Function *BarrierUtils::createFunctionDeclaration(const llvm::Twine &Name,
 }
 
 void BarrierUtils::SetFunctionAttributeReadNone(Function *Func) {
-  AttrBuilder attBuilder;
+  AttrBuilder attBuilder(Func->getContext());
   attBuilder.addAttribute(Attribute::NoUnwind)
       .addAttribute(
           Attribute::ReadNone) /* .addAttribute(Attribute::UWTable) */;

@@ -351,7 +351,8 @@ bool HIRVectorizationLegality::isMinMaxIdiomTemp(const DDRef *Ref,
     if ((IdiomDescr.second == HIRVectorIdioms::IdiomId::MinOrMax ||
          IdiomDescr.second == HIRVectorIdioms::IdiomId::MMFirstLastIdx ||
          IdiomDescr.second == HIRVectorIdioms::IdiomId::MMFirstLastVal) &&
-        DDRefUtils::areEqual(IdiomDescr.first->getLvalDDRef(), Ref))
+        DDRefUtils::areEqual(
+            static_cast<const HLInst *>(IdiomDescr.first)->getLvalDDRef(), Ref))
       return true;
 
   return false;
@@ -652,11 +653,33 @@ void PlainCFGBuilderHIR::visit(HLIf *HIf) {
   updateActiveVPBB(HIf);
   VPBasicBlock *ConditionVPBB = ActiveVPBB;
 
-  // Create (single, not decomposed) VPInstruction for HLIf's predicate and set
-  // it as condition bit of the active VPBasicBlock.
-  // TODO: Remove "not decomposed" when decomposing HLIfs.
-  VPInstruction *CondBit =
-      Decomposer.createVPInstructionsForNode(HIf, ActiveVPBB);
+  unsigned VecLoopLevel = TheLoop->getNestingLevel();
+  bool IsInvariantCondition =
+      all_of(HIf->op_ddrefs(), [VecLoopLevel](const RegDDRef *Ref) {
+        // Not invariant.
+        if (!Ref->isStructurallyInvariantAtLevel(VecLoopLevel))
+          return false;
+
+        // Not hoistable.
+        if (Ref->isMemRef())
+          return false;
+
+        for (const CanonExpr *CE : Ref->canons()) {
+          for (auto BlobIt : CE->blobs()) {
+            const BlobTy Blob = CE->getBlobUtils().getBlob(BlobIt.Index);
+            // Not hoistable either.
+            if (BlobUtils::mayContainUDivByZero(Blob))
+              return false;
+          }
+        }
+
+        return true;
+      });
+  VPValue *CondBit;
+  if (IsInvariantCondition)
+    CondBit = Plan->getVPExternalDefForIfCond(HIf);
+  else
+    CondBit = Decomposer.createVPInstructionsForNode(HIf, ActiveVPBB);
   CondBits[ConditionVPBB] = CondBit;
 
   // - Then branch -
@@ -730,9 +753,10 @@ void PlainCFGBuilderHIR::visit(HLGoto *HGoto) {
 
   HLLabel *Label = HGoto->getTargetLabel();
   VPBasicBlock *LabelVPBB;
-  if (HGoto->isExternal() || !HLNodeUtils::contains(CurrentHLp, Label)) {
+  if (HGoto->isExternal() || !HLNodeUtils::contains(TheLoop, Label)) {
     // Exiting goto in multi-exit loop. Use multi-exit landing pad as successor
-    // of the goto VPBB.
+    // of the goto VPBB. This should be done only when target label is not
+    // inside the loop nest being decomposed.
     // TODO: When dealing with multi-loop H-CFGs, landing pad needs to properly
     // dispatch exiting gotos when labels have representation in VPlan. That
     // massaging should happen as a separate simplification step. Currently, all
@@ -1657,6 +1681,9 @@ public:
           const HLLoop *L = Header2HLLoop[VPL->getHeader()];
           assert(L != nullptr && "Can't find Loop");
           LoopMap[L] = VPL;
+          // Capture opt-report remarks that are present for current loop in
+          // incoming HIR.
+          const_cast<VPLoop *>(VPL)->setOptReport(L->getOptReport());
           for (auto VLoop : *VPL)
             mapLoop2VPLoop(VLoop);
         };

@@ -1,4 +1,21 @@
 //===-- interception_linux.cpp ----------------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -401,6 +418,7 @@ static uptr AllocateMemoryForTrampoline(uptr image_address, size_t size) {
 // The following prologues cannot be patched because of the short jump
 // jumping to the patching region.
 
+#if SANITIZER_WINDOWS64
 // ntdll!wcslen in Win11
 //   488bc1          mov     rax,rcx
 //   0fb710          movzx   edx,word ptr [rax]
@@ -422,6 +440,7 @@ static const u8 kPrologueWithShortJump2[] = {
     0x4c, 0x8b, 0xc1, 0x8a, 0x01, 0x48, 0xff, 0xc1,
     0x84, 0xc0, 0x75, 0xf7,
 };
+#endif
 
 // Returns 0 on error.
 static size_t GetInstructionSize(uptr address, size_t* rel_offset = nullptr) {
@@ -606,6 +625,7 @@ static size_t GetInstructionSize(uptr address, size_t* rel_offset = nullptr) {
     case 0x246c8948:  // 48 89 6C 24 XX : mov QWORD ptr [rsp + XX], rbp
     case 0x245c8948:  // 48 89 5c 24 XX : mov QWORD PTR [rsp + XX], rbx
     case 0x24748948:  // 48 89 74 24 XX : mov QWORD PTR [rsp + XX], rsi
+    case 0x247c8948:  // 48 89 7c 24 XX : mov QWORD PTR [rsp + XX], rdi
     case 0x244C8948:  // 48 89 4C 24 XX : mov QWORD PTR [rsp + XX], rcx
     case 0x24548948:  // 48 89 54 24 XX : mov QWORD PTR [rsp + XX], rdx
     case 0x244c894c:  // 4c 89 4c 24 XX : mov QWORD PTR [rsp + XX], r9

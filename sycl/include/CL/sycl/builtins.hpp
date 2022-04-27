@@ -724,13 +724,21 @@ detail::enable_if_t<detail::is_geninteger<T>::value, T> clz(T x) __NOEXC {
   return __sycl_std::__invoke_clz<T>(x);
 }
 
-namespace ext {
-namespace intel {
 // geninteger ctz (geninteger x)
 template <typename T>
-sycl::detail::enable_if_t<sycl::detail::is_geninteger<T>::value, T>
-ctz(T x) __NOEXC {
+detail::enable_if_t<detail::is_geninteger<T>::value, T> ctz(T x) __NOEXC {
   return __sycl_std::__invoke_ctz<T>(x);
+}
+
+// geninteger ctz (geninteger x) for calls with deprecated namespace
+namespace ext {
+namespace intel {
+template <typename T>
+__SYCL_DEPRECATED(
+    "'sycl::ext::intel::ctz' is deprecated, use 'sycl::ctz' instead")
+sycl::detail::enable_if_t<sycl::detail::is_geninteger<T>::value, T> ctz(
+    T x) __NOEXC {
+  return sycl::ctz(x);
 }
 } // namespace intel
 } // namespace ext
@@ -1296,6 +1304,13 @@ template <typename T>
 detail::enable_if_t<detail::is_gentype<T>::value, T> bitselect(T a, T b,
                                                                T c) __NOEXC {
   return __sycl_std::__invoke_bitselect<T>(a, b, c);
+}
+
+// sgentype select (sgentype a, sgentype b, bool c)
+template <typename T>
+detail::enable_if_t<detail::is_sgentype<T>::value, T> select(T a, T b,
+                                                             bool c) __NOEXC {
+  return __sycl_std::__invoke_select<T>(a, b, static_cast<int>(c));
 }
 
 // geninteger select (geninteger a, geninteger b, igeninteger c)

@@ -31,6 +31,9 @@ add_llvm_component_library(LLVMCore
   InlineAsm.cpp
   Instruction.cpp
   Instructions.cpp
+# INTEL_CUSTOMIZATION
+  Intel_VectorVariant.cpp
+# end INTEL_CUSTOMIZATION
   IntrinsicInst.cpp
   LLVMContext.cpp
   LLVMContextImpl.cpp
@@ -61,6 +64,7 @@ add_llvm_component_library(LLVMCore
   User.cpp
   Value.cpp
   ValueSymbolTable.cpp
+  VectorBuilder.cpp
   Verifier.cpp
 
   ADDITIONAL_HEADER_DIRS

@@ -34,6 +34,10 @@ loop_exit:
   br label %exit
 
 exit:
+; dead loads, needed to get aa-eval to trigger
+  %ld.p = load float, float* %p, align 8
+  %ld.q = load float, float* %q, align 8
+
   ret void
 }
 

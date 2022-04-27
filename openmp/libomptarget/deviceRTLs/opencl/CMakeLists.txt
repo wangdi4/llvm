@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 # INTEL_COLLAB
 ##===----------------------------------------------------------------------===##
 #
@@ -115,7 +132,7 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
                   ${src_abs}
           COMMAND ${clang_offload_bundler}
                   --unbundle --type=o --targets=openmp-spir64
-                  --inputs=${filename}${objext} --outputs=${filename}.bc
+                  --input=${filename}${objext} --output=${filename}.bc
           DEPENDS ${src_abs} ${omp_cmplr} ${clang_offload_bundler}
           VERBATIM
         )
@@ -171,8 +188,8 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
       COMMAND ${ocl_cmplr} -c -o empty_host${objext} empty_host.c
       COMMAND ${clang_offload_bundler} --type=o
               --targets=${host_target_name},openmp-spir64,openmp-spir64_gen,openmp-spir64_x86_64
-              --inputs=empty_host${objext},${rtl_bc},${rtl_bc},${rtl_bc}
-              --outputs=${rtl_obj}
+              --input=empty_host${objext} --input=${rtl_bc} --input=${rtl_bc}
+              --input=${rtl_bc} --output=${rtl_obj}
       DEPENDS ${rtl_bc} ${ocl_cmplr} ${clang_offload_bundler}
       VERBATIM
     )

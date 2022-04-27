@@ -1,4 +1,4 @@
-; RUN: opt -loop-unroll -intel-loop-optreport=high -S < %s | FileCheck %s
+; RUN: opt -loop-unroll -intel-opt-report=high -S < %s | FileCheck %s
 
 ; Verify that partial unrolling adds the expected opt report remark and does not
 ; drop any existing remarks.

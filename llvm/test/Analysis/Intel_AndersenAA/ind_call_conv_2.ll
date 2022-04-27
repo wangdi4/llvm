@@ -3,7 +3,7 @@
 ; like "calloc" and "free" due to signature mismatches.
 
 ; RUN: opt < %s -intel-ind-call-force-andersen -anders-aa -indirectcallconv -S 2>&1 | FileCheck %s
-; RUN: opt < %s -intel-ind-call-force-andersen -passes='require<anders-aa>,function(indirectcallconv)' -S 2>&1 | FileCheck %s
+; RUN: opt < %s -intel-ind-call-force-andersen -passes='require<anders-aa>,indirectcallconv' -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -convert-to-subscript -S | opt -intel-ind-call-force-andersen -anders-aa -indirectcallconv -S 2>&1 | FileCheck %s
 
 ; CHECK: %call = call i8* @malloc(i64 100)

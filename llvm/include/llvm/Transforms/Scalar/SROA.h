@@ -1,4 +1,21 @@
 //===- SROA.h - Scalar Replacement Of Aggregates ----------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -15,6 +32,12 @@
 #ifndef LLVM_TRANSFORMS_SCALAR_SROA_H
 #define LLVM_TRANSFORMS_SCALAR_SROA_H
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/PassManager.h"
@@ -27,7 +50,6 @@ class AllocaInst;
 class AssumptionCache;
 class DominatorTree;
 class Function;
-class Instruction;
 class LLVMContext;
 class PHINode;
 class SelectInst;
@@ -110,6 +132,16 @@ class SROAPass : public PassInfoMixin<SROAPass> {
   /// currently in the promotable queue.
   SetVector<SelectInst *, SmallVector<SelectInst *, 2>> SpeculatableSelects;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  /// This class is used to set the DTrans type metadata on newly formed allocas
+  /// when DTrans type metadata is being used. This is needed for the DTrans
+  /// safety analyzer to perform analysis for the DTrans transformations. When
+  /// DTrans type metadata is not present in the IR, calls to methods of this
+  /// class will not do anything.
+  dtransOP::DTransTypeMetadataPropagator DTransTypeMetadataProp;
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 public:
   SROAPass() = default;
 

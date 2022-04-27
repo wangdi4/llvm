@@ -205,6 +205,26 @@ EXTERN void __kmpc_spmd_pop_num_threads(void) {
     __omp_spirv_spmd_num_threads[group_id] = 0;
 }
 
+/// Wrapper that marks begin of target region
+EXTERN void __kmpc_begin_spmd_target(void) {
+  __kmpc_spmd_push_num_threads(1);
+}
+
+/// Wrapper that marks end of target region
+EXTERN void __kmpc_end_spmd_target(void) {
+  __kmpc_spmd_pop_num_threads();
+}
+
+/// Wrapper that marks begin of parallel region
+EXTERN void __kmpc_begin_spmd_parallel(void) {
+  __kmpc_spmd_pop_num_threads();
+}
+
+/// Wrapper that marks end of parallel region
+EXTERN void __kmpc_end_spmd_parallel(void) {
+  __kmpc_spmd_push_num_threads(1);
+}
+
 #if !KMP_ASSUME_SIMPLE_SPMD_MODE
 /// Push simd limit -- not sure if we need this
 EXTERN void __kmpc_push_simd_limit(ident_t *loc, int tid, int simd_limit) {

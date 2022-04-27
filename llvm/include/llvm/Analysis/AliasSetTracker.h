@@ -1,4 +1,21 @@
 //===- llvm/Analysis/AliasSetTracker.h - Build Alias Sets -------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -23,13 +40,10 @@
 #include "llvm/Analysis/AliasAnalysis.h" // INTEL
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/IR/Instruction.h"
-#include "llvm/IR/Metadata.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/ValueHandle.h"
-#include "llvm/Support/Casting.h"
 #include <cassert>
 #include <cstddef>
-#include <cstdint>
 #include <iterator>
 #include <vector>
 
@@ -340,6 +354,11 @@ public:
   AliasResult aliasesPointer(const Value *Ptr, LocationSize Size,
                              const AAMDNodes &AAInfo, AAResults &AA) const;
   bool aliasesUnknownInst(const Instruction *Inst, AAResults &AA) const;
+#if INTEL_COLLAB
+
+  /// Check if alias set aliases with another alias set.
+  bool aliases(const AliasSet &AS, AAResults &AA) const;
+#endif // INTEL_COLLAB
 };
 
 inline raw_ostream& operator<<(raw_ostream &OS, const AliasSet &AS) {

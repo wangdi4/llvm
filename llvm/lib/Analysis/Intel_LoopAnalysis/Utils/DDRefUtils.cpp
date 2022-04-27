@@ -60,7 +60,9 @@ RegDDRef *DDRefUtils::createGEPRef(Type *BasePtrElementType, unsigned BasePtrBlo
   auto BaseCE =
       getCanonExprUtils().createSelfBlobCanonExpr(BasePtrBlobIndex, Level);
 
-  assert(BaseCE->getDestType()->isOpaquePointerTy() || (BasePtrElementType == BaseCE->getDestType()->getScalarType()->getPointerElementType()) && "Incorrect base ptr element type!");
+  assert(cast<PointerType>(BaseCE->getDestType()->getScalarType())->isOpaqueOrPointeeTypeMatches(BasePtrElementType)
+         && "Incorrect base ptr element type!");
+
   Ref->setBaseCE(BaseCE);
   Ref->setBasePtrElementType(BasePtrElementType);
   Ref->setInBounds(IsInBounds);
@@ -245,9 +247,12 @@ int DDRefUtils::compareOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2,
          "DimensionNum is invalid for Ref1");
   assert((Ref2->getNumDimensions() >= DimensionNum) &&
          "DimensionNum is invalid for Ref2");
-  assert((Ref1->getDimensionType(DimensionNum) ==
-          Ref2->getDimensionType(DimensionNum)) &&
-         "Invalid offset comparison for refs!");
+
+  // Comment the assertion when we use compareOffsets in sorting memref groups
+  // with opaque pointer enabled.
+  // assert((Ref1->getDimensionType(DimensionNum) ==
+  //         Ref2->getDimensionType(DimensionNum)) &&
+  //        "Invalid offset comparison for refs!");
 
   auto Offsets1 = Ref1->getTrailingStructOffsets(DimensionNum);
   auto Offsets2 = Ref2->getTrailingStructOffsets(DimensionNum);
@@ -273,6 +278,11 @@ bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
                                        const RegDDRef *Ref2, bool RelaxedMode) {
   assert(Ref1->hasGEPInfo() && Ref2->hasGEPInfo() &&
          "Ref1 and Ref2 should be GEP DDRef");
+
+  if (Ref1->getBasePtrElementType() != Ref2->getBasePtrElementType()) {
+    return false;
+  }
+
   auto BaseCE1 = Ref1->getBaseCE();
   auto BaseCE2 = Ref2->getBaseCE();
 
@@ -794,8 +804,17 @@ RegDDRef *DDRefUtils::simplifyConstArray(const RegDDRef *Ref) {
       Indices.push_back(Index);
     }
 
-    Constant *Val =
-        ConstantFoldLoadThroughGEPIndices(GV->getInitializer(), Indices);
+    Constant *Val = nullptr;
+    auto &DL = Ref->getCanonExprUtils().getDataLayout();
+    unsigned OffsetBits = DL.getIndexTypeSizeInBits(LocationGEP->getType());
+    APInt Offset(OffsetBits, 0);
+
+    if (LocationGEP->accumulateConstantOffset(DL, Offset)) {
+      Val = ConstantFoldLoadFromConst(GV->getInitializer(),
+                                      LocationGEP->getResultElementType(),
+                                      Offset, DL);
+    }
+
     // TODO: add support for constant GEP exprs.
     if (!Val || isa<GEPOperator>(Val)) {
       return nullptr;

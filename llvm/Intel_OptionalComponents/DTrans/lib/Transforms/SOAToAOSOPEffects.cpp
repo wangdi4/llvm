@@ -1,6 +1,6 @@
 //===-------------- SOAToAOSOPEffects.cpp - Part of SOAToAOSOPPass --------===//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -18,6 +18,7 @@
 
 #include "SOAToAOSOPEffects.h"
 
+#include "Intel_DTrans/Analysis/DTransAllocCollector.h"
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/Transforms/SOAToAOSOP.h"
 
@@ -32,6 +33,22 @@
 namespace llvm {
 namespace dtransOP {
 namespace soatoaosOP {
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// Routines that are ignored for transformation.
+cl::list<std::string>
+    DTransSOAToAOSOPIgnoreFuncs("dtrans-soatoaosop-ignore-funcs",
+                                cl::ReallyHidden);
+
+// Returns true if F is in list of ignored functions for SOAToAOSOP.
+bool isFunctionIgnoredForSOAToAOSOP(Function &F) {
+  for (auto &FName : DTransSOAToAOSOPIgnoreFuncs)
+    if (FName == F.getName())
+      return true;
+  return false;
+}
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 cl::opt<bool>
     DTransSOAToAOSOPComputeAllDep("enable-dtrans-soatoaosop-alldeps",
                                   cl::init(false), cl::Hidden,
@@ -290,6 +307,16 @@ const Dep *DepCompute::computeInstDep(const Instruction *I) const {
       break;
     }
 
+    if (auto *II = dyn_cast<IntrinsicInst>(I)) {
+      if (II->getIntrinsicID() == Intrinsic::umax) {
+        Dep::Container Args;
+        Args.insert(computeValueDep(II->getArgOperand(0)));
+        Args.insert(computeValueDep(II->getArgOperand(1)));
+        Rep = Dep::mkFunction(DM, Args);
+        break;
+      }
+    }
+
     SmallPtrSet<const Value *, 3> Args;
     auto *Call = cast<CallBase>(I);
     auto *Info = DTInfo.getCallInfo(I);
@@ -306,10 +333,16 @@ const Dep *DepCompute::computeInstDep(const Instruction *I) const {
       }
     }
 
-    // TODO: Add more code here to check for Dummy alloc / free calls by
-    // calling isDummyFuncWithThisAndIntArgs and isDummyFuncWithThisAndPtrArgs.
-    bool isDummyFuncWithInt = false;
-    bool isDummyFuncWithPtr = false;
+    bool isDummyFuncWithInt =
+        DTransAllocCollector::isDummyFuncWithThisAndIntArgs(
+            Call, TLI, DTInfo.getTypeMetadataReader());
+    bool isDummyFuncWithPtr =
+        DTransAllocCollector::isDummyFuncWithThisAndInt8PtrArgs(
+            Call, TLI, DTInfo.getTypeMetadataReader());
+    if (isDummyFuncWithInt)
+      collectSpecialAllocArgs(dtrans::AK_UserMallocThis, Call, Args, TLI);
+    else if (isDummyFuncWithPtr)
+      collectSpecialFreeArgs(dtrans::FK_UserFreeThis, Call, Args, TLI);
 
     Dep::Container Special;
     Dep::Container Remaining;
@@ -569,35 +602,40 @@ SOAToAOSOPApproximationDebug::Ignore::get() const {
 SOAToAOSOPApproximationDebug::Ignore::~Ignore() {}
 
 SOAToAOSOPApproximationDebug::Ignore
-SOAToAOSOPApproximationDebug::run(Function &F, FunctionAnalysisManager &AM) {
-  const auto &MAM = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
-  auto *DTInfo = MAM.getCachedResult<DTransSafetyAnalyzer>(*F.getParent());
-  auto *TLI = AM.getCachedResult<TargetLibraryAnalysis>(F);
-
-  if (!DTInfo || !TLI)
-    report_fatal_error("DTransAnalysis was not run before "
-                       "SOAToAOSOPApproximationDebug.");
+SOAToAOSOPApproximationDebug::run(Module &M, ModuleAnalysisManager &MAM) {
+  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto *DTInfo = &MAM.getResult<DTransSafetyAnalyzer>(M);
 
   std::unique_ptr<SOAToAOSOPApproximationDebugResult> Result(
       new SOAToAOSOPApproximationDebugResult());
 
-  DTransStructType *ClassType = getOPStructTypeOfMethod(&F, DTInfo);
-  if (!ClassType)
-    report_fatal_error(Twine("Cannot extract struct/class type from ") +
-                       F.getName() + ".");
+  for (auto &F : M) {
+    if (F.isDeclaration())
+      continue;
+    if (isFunctionIgnoredForSOAToAOSOP(F))
+      continue;
 
-  // Do analysis.
-  DepCompute DC(*DTInfo, F.getParent()->getDataLayout(), *TLI, &F, ClassType,
-                // *Result is filled-in.
-                *Result);
-  DC.computeDepApproximation();
+    DTransStructType *ClassType = getOPStructTypeOfMethod(&F, DTInfo);
+    if (!ClassType)
+      report_fatal_error(Twine("Cannot extract struct/class type from ") +
+                         F.getName() + ".");
 
-  // Dump results of analysis.
-  DEBUG_WITH_TYPE(DTRANS_SOADEP, {
-    dbgs() << "; Dump computed dependencies ";
-    DepMap::DepAnnotatedWriter Annotate(*Result);
-    F.print(dbgs(), &Annotate);
-  });
+    // Do analysis.
+    auto &TLI =
+        FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function *>(&F)));
+    DepCompute DC(*DTInfo, F.getParent()->getDataLayout(), TLI, &F, ClassType,
+                  // *Result is filled-in.
+                  *Result);
+    DC.computeDepApproximation();
+
+    // Dump results of analysis.
+    DEBUG_WITH_TYPE(DTRANS_SOADEP, {
+      dbgs() << "; Dump computed dependencies ";
+      DepMap::DepAnnotatedWriter Annotate(*Result);
+      F.print(dbgs(), &Annotate);
+    });
+  }
+
   return Ignore(Result.release());
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

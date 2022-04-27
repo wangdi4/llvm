@@ -2,7 +2,7 @@
 ; that the lower half elements are repeated in the upper half of the vector and that only the lower two elements are selected
 ; from the call result vector.
 
-; RUN: opt -vector-library=SVML -iml-trans -S < %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vector-library=SVML -iml-trans -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @vector_foo
 ; CHECK shufflevector <2 x float> %{{.*}}, <2 x float> undef, <4 x i32> <i32 0, i32 1, i32 0, i32 1>

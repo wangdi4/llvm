@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 add_llvm_component_library(LLVMTransformUtils
   AddDiscriminators.cpp
   AMDGPUEmitPrintf.cpp
@@ -33,8 +50,6 @@ add_llvm_component_library(LLVMTransformUtils
   InjectTLIMappings.cpp
   InstructionNamer.cpp
   IntegerDivision.cpp
-  InferAddressSpacesUtils.cpp
-# end INTEL_COLLAB
   Intel_CloneUtils.cpp # INTEL_CUSTOMIZATION
 # INTEL_COLLAB
   GeneralUtils.cpp
@@ -42,9 +57,10 @@ add_llvm_component_library(LLVMTransformUtils
   ../VPO/Utils/IntrinsicUtils.cpp # TODO: Move to lib/Transforms/Utils
 # end INTEL_COLLAB
 # INTEL_CUSTOMIZATION
-  Intel_RegionSplitter.cpp
   Intel_IMLUtils.cpp
+  Intel_InferAddressSpacesUtils.cpp
   Intel_ParseAnnotateAttributes.cpp
+  Intel_RegionSplitter.cpp
   Intel_VecClone.cpp                    #TODO: VEC to COLLAB
   Intel_X86EmitMultiVersionResolver.cpp
 #end INTEL_CUSTOMIZATION
@@ -59,13 +75,17 @@ add_llvm_component_library(LLVMTransformUtils
   LoopUnrollRuntime.cpp
   LoopUtils.cpp
   LoopVersioning.cpp
+  LowerAtomic.cpp
+  LowerGlobalDtors.cpp
   LowerInvoke.cpp
   LowerMemIntrinsics.cpp
   LowerSwitch.cpp
   MatrixUtils.cpp
   MemoryOpRemark.cpp
+  MemoryTaggingSupport.cpp
   Mem2Reg.cpp
   MetaRenamer.cpp
+  MisExpect.cpp
   ModuleUtils.cpp
   NameAnonGlobals.cpp
   PredicateInfo.cpp
@@ -105,8 +125,5 @@ add_llvm_component_library(LLVMTransformUtils
   LINK_COMPONENTS
   Analysis
   Core
-# INTEL_CUSTOMIZATION
-  Intel_OptReport
-# end INTEL_CUSTOMIZATION
   Support
   )

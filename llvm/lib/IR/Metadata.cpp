@@ -1,4 +1,21 @@
 //===- Metadata.cpp - Implement Metadata classes --------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,7 +30,6 @@
 #include "llvm/IR/Metadata.h"
 #include "LLVMContextImpl.h"
 #include "MetadataImpl.h"
-#include "SymbolTableListTraitsImpl.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -44,7 +60,6 @@
 #include "llvm/IR/TrackingMDRef.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
-#include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
@@ -52,8 +67,6 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <iterator>
-#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -248,6 +261,38 @@ void ReplaceableMetadataImpl::moveRef(void *Ref, void *New,
   assert((OwnerAndIndex.first || *static_cast<Metadata **>(New) == &MD) &&
          "Reference without owner must be direct");
 }
+
+#if INTEL_CUSTOMIZATION
+void ReplaceableMetadataImpl::SalvageDebugInfo(const Constant &C) {
+  if (!C.isUsedByMetadata()) {
+    return;
+  }
+
+  LLVMContext &Context = C.getType()->getContext();
+  auto &Store = Context.pImpl->ValuesAsMetadata;
+  auto I = Store.find(&C);
+  ValueAsMetadata *MD = I->second;
+  using UseTy =
+      std::pair<void *, std::pair<MetadataTracking::OwnerTy, uint64_t>>;
+  // Copy out uses and update value of Constant used by debug info metadata with undef below
+  SmallVector<UseTy, 8> Uses(MD->UseMap.begin(), MD->UseMap.end());
+
+  for (const auto &Pair : Uses) {
+    MetadataTracking::OwnerTy Owner = Pair.second.first;
+    if (!Owner)
+      continue;
+    if (!Owner.is<Metadata *>())
+      continue;
+    auto *OwnerMD = dyn_cast<MDNode>(Owner.get<Metadata *>());
+    if (!OwnerMD)
+      continue;
+    if (isa<DINode>(OwnerMD)) {
+      OwnerMD->handleChangedOperand(
+          Pair.first, ValueAsMetadata::get(UndefValue::get(C.getType())));
+    }
+  }
+}
+#endif
 
 void ReplaceableMetadataImpl::replaceAllUsesWith(Metadata *MD) {
   if (UseMap.empty())

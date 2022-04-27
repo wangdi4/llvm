@@ -6,18 +6,17 @@
 ; INTEL_CUSTOMIZATION
 ;CHECK:      Running pass: XmainOptLevelAnalysisInit on [module]
 ;CHECK-NEXT: Running analysis: XmainOptLevelAnalysis on [module]
+;CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::VPOParoptConfigAnalysis, llvm::Module> on [module]
+;CHECK-NEXT: Running analysis: VPOParoptConfigAnalysis on [module]
 ;CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}> on [module]
+;CHECK-NEXT: Running pass: LowerSubscriptIntrinsicPass on foo
 ; end INTEL_CUSTOMIZATION
 ;CHECK:      Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ;CHECK-NEXT: Running analysis: LoopAnalysis on foo
-;CHECK-NEXT: Invalidating analysis: DominatorTreeAnalysis on foo
-;CHECK-NEXT: Invalidating analysis: LoopAnalysis on foo
-;CHECK-NEXT: Running pass: VPOParoptLoopCollapsePass on foo
+;CHECK-NEXT: Running pass: VPOParoptApplyConfigPass on foo
 ;CHECK-NEXT: Running analysis: WRegionInfoAnalysis on foo
 ;CHECK-NEXT: Running analysis: WRegionCollectionAnalysis on foo
-;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
-;CHECK-NEXT: Running analysis: LoopAnalysis on foo
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-DAG:  Running analysis: TargetLibraryAnalysis on foo
 ;CHECK-DAG:  Running analysis: AssumptionAnalysis on foo
@@ -34,23 +33,16 @@
 ;CHECK-NEXT: Running analysis: StdContainerAA on foo
 ; end INTEL_CUSTOMIZATION
 ;CHECK-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis on foo
-;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
-;CHECK-NEXT: Invalidating analysis: DominatorTreeAnalysis on foo
-;CHECK-NEXT: Invalidating analysis: LoopAnalysis on foo
 ;CHECK-NEXT: Invalidating analysis: ScalarEvolutionAnalysis on foo
-;CHECK-NEXT: Invalidating analysis: BasicAA on foo
-;CHECK-NEXT: Invalidating analysis: AAManager on foo
 ;CHECK-NEXT: Invalidating analysis: WRegionCollectionAnalysis on foo
 ;CHECK-NEXT: Invalidating analysis: WRegionInfoAnalysis on foo
-;CHECK-NEXT: Running pass: LoopSimplifyPass on foo
-;CHECK-NEXT: Running analysis: LoopAnalysis on foo
-;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
-;CHECK-NEXT: Running pass: VPOParoptPreparePass on foo
+;CHECK-NEXT: Running pass: VPOParoptLoopCollapsePass on foo
 ;CHECK-NEXT: Running analysis: WRegionInfoAnalysis on foo
 ;CHECK-NEXT: Running analysis: WRegionCollectionAnalysis on foo
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
-;CHECK-NEXT: Running analysis: AAManager on foo
-;CHECK-NEXT: Running analysis: BasicAA on foo
+;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
+;CHECK-NEXT: Running pass: LoopSimplifyPass on foo
+;CHECK-NEXT: Running pass: VPOParoptPreparePass on foo
 ; INTEL_CUSTOMIZATION
 ;CHECK-NEXT: Running analysis: OptReportOptionsAnalysis on foo
 ;            Running pass: InlineListsPass on [module]
@@ -64,14 +56,10 @@
 ;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ;CHECK-NEXT: Running analysis: LoopAnalysis on foo
-;CHECK-NEXT: Invalidating analysis: DominatorTreeAnalysis on foo
-;CHECK-NEXT: Invalidating analysis: LoopAnalysis on foo
 ; INTEL_CUSTOMIZATION
 ;CHECK-NEXT: Running pass: VPOParoptOptimizeDataSharingPass on foo
 ;CHECK-NEXT: Running analysis: WRegionInfoAnalysis on foo
 ;CHECK-NEXT: Running analysis: WRegionCollectionAnalysis on foo
-;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
-;CHECK-NEXT: Running analysis: LoopAnalysis on foo
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-DAG:  Running analysis: TargetLibraryAnalysis on foo
 ;CHECK-DAG:  Running analysis: AssumptionAnalysis on foo
@@ -96,7 +84,6 @@
 ;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ; end INTEL_CUSTOMIZATION
 ;CHECK-NEXT: Running pass: VPOParoptPass on [module]
-;CHECK-NEXT: Running analysis: VPOParoptConfigAnalysis on [module]
 ; INTEL_CUSTOMIZATION
 ;CHECK-NEXT: Running analysis: OptReportOptionsAnalysis on [module]
 ; end INTEL_CUSTOMIZATION
@@ -106,7 +93,16 @@
 ;CHECK-NEXT: Running analysis: AAManager on foo
 ;CHECK-NEXT: Running analysis: BasicAA on foo
 ;CHECK-NEXT: Running pass: VPODirectiveCleanupPass on foo
+;CHECK-NEXT: Running pass: VPOCFGSimplifyPass on foo
 ;CHECK-NEXT: Running pass: AlwaysInlinerPass on [module]
+;            Running pass: CoroEarlyPass on foo
+;            Running analysis: InnerAnalysisManagerProxy<{{.*}}> on [module]
+;            Running analysis: LazyCallGraphAnalysis on [module]
+;            Running analysis: FunctionAnalysisManagerCGSCCProxy on (foo)
+;            Running analysis: OuterAnalysisManagerProxy<{{.*}}> on (foo)
+;            Running pass: CoroSplitPass on (foo)
+;            Running pass: CoroCleanupPass on foo
+;            Running pass: AnnotationRemarksPass on foo
 
 ; The IR below was taken from new-pm-O0-defaults.ll
 

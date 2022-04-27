@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-distribute-memrec | opt -analyze -force-hir-sparse-array-reduction-analysis -hir-sparse-array-reduction-analysis
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-distribute-memrec | opt -analyze -enable-new-pm=0 -force-hir-sparse-array-reduction-analysis -hir-sparse-array-reduction-analysis
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir-sparse-array-reduction-analysis>" -hir-cost-model-throttling=0 -force-hir-sparse-array-reduction-analysis -disable-output 2>&1 | FileCheck %s
 
 ; The loop does not have sparse array reduction of our interest and should pass sparse array reduction silently.

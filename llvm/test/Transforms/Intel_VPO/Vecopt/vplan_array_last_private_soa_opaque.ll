@@ -16,6 +16,7 @@ define void @foo() {
 ; CHECK:       VPlannedBB1:
 ; CHECK-NEXT:    br label [[VPLANNEDBB2:%.*]]
 ; CHECK:       VPlannedBB2:
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 96, ptr [[B3_I_LPRIV_SOA_VEC]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VPLANNEDBB2]] ], [ [[TMP2:%.*]], [[VPLANNEDBB6:%.*]] ]

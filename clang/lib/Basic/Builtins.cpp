@@ -1,4 +1,21 @@
 //===--- Builtins.cpp - Builtin function implementation -------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -21,10 +38,6 @@ static const Builtin::Info BuiltinInfo[] = {
   { "not a builtin function", nullptr, nullptr, nullptr, ALL_LANGUAGES,nullptr},
 #define BUILTIN(ID, TYPE, ATTRS)                                               \
   { #ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr },
-#if INTEL_CUSTOMIZATION
-#define OPENCLBUILTIN(ID, TYPE, ATTRS, LANGS, FEATURE)                         \
-  {#ID, TYPE, ATTRS, nullptr, LANGS, FEATURE},
-#endif // INTEL_CUSTOMIZATION
 #define LANGBUILTIN(ID, TYPE, ATTRS, LANGS)                                    \
   { #ID, TYPE, ATTRS, nullptr, LANGS, nullptr },
 #define LIBBUILTIN(ID, TYPE, ATTRS, HEADER, LANGS)                             \
@@ -52,9 +65,13 @@ void Builtin::Context::InitializeTarget(const TargetInfo &Target,
 }
 
 bool Builtin::Context::isBuiltinFunc(llvm::StringRef FuncName) {
-  for (unsigned i = Builtin::NotBuiltin + 1; i != Builtin::FirstTSBuiltin; ++i)
-    if (FuncName.equals(BuiltinInfo[i].Name))
+  bool InStdNamespace = FuncName.consume_front("std-");
+  for (unsigned i = Builtin::NotBuiltin + 1; i != Builtin::FirstTSBuiltin;
+       ++i) {
+    if (FuncName.equals(BuiltinInfo[i].Name) &&
+        (bool)strchr(BuiltinInfo[i].Attributes, 'z') == InStdNamespace)
       return strchr(BuiltinInfo[i].Attributes, 'f') != nullptr;
+  }
 
   return false;
 }
@@ -79,11 +96,11 @@ static bool CheckIntelBuiltinSupported(bool IsOtherwiseSupported,
 }
 #endif // INTEL_CUSTOMIZATION
 
-bool Builtin::Context::builtinIsSupported(const Builtin::Info &BuiltinInfo,
-                                          const LangOptions &LangOpts) {
+/// Is this builtin supported according to the given language options?
+static bool builtinIsSupported(const Builtin::Info &BuiltinInfo,
+                               const LangOptions &LangOpts) {
   bool BuiltinsUnsupported =
-      (LangOpts.NoBuiltin || LangOpts.isNoBuiltinFunc(BuiltinInfo.Name)) &&
-      strchr(BuiltinInfo.Attributes, 'f');
+      LangOpts.NoBuiltin && strchr(BuiltinInfo.Attributes, 'f') != nullptr;
   bool CorBuiltinsUnsupported =
       !LangOpts.Coroutines && (BuiltinInfo.Langs & COR_LANG);
   bool MathBuiltinsUnsupported =
@@ -93,16 +110,22 @@ bool Builtin::Context::builtinIsSupported(const Builtin::Info &BuiltinInfo,
   bool MSModeUnsupported =
       !LangOpts.MicrosoftExt && (BuiltinInfo.Langs & MS_LANG);
   bool ObjCUnsupported = !LangOpts.ObjC && BuiltinInfo.Langs == OBJC_LANG;
-  bool OclC1Unsupported = (LangOpts.OpenCLVersion / 100) != 1 &&
-                          (BuiltinInfo.Langs & ALL_OCLC_LANGUAGES ) ==  OCLC1X_LANG;
+  bool OclCUnsupported =
+      !LangOpts.OpenCL && (BuiltinInfo.Langs & ALL_OCL_LANGUAGES);
+  bool OclGASUnsupported =
+      !LangOpts.OpenCLGenericAddressSpace && (BuiltinInfo.Langs & OCL_GAS);
 #if INTEL_CUSTOMIZATION
-  bool OclC2PUnsupported =
-      (BuiltinInfo.Langs & ALL_OCLC_LANGUAGES) == OCLC2P_LANG &&
-      ((LangOpts.getOpenCLCompatibleVersion() < 200) ||
-       !OclBuiltinIsSupported(BuiltinInfo, LangOpts));
+  // Register target-specific pipe builtins
+  bool OclPipeUnsupported =
+      (!LangOpts.OpenCLPipes && (BuiltinInfo.Langs & OCL_PIPE)) ||
+      ((LangOpts.OpenCLVersion / 100) != 1 &&
+       (BuiltinInfo.Langs & ALL_OCL_PIPE) == INTEL_FPGA_PIPE1X);
 #endif // INTEL_CUSTOMIZATION
-  bool OclCUnsupported = !LangOpts.OpenCL &&
-                         (BuiltinInfo.Langs & ALL_OCLC_LANGUAGES);
+  // Device side enqueue is not supported until OpenCL 2.0. In 2.0 and higher
+  // support is indicated with language option for blocks.
+  bool OclDSEUnsupported =
+      (LangOpts.getOpenCLCompatibleVersion() < 200 || !LangOpts.Blocks) &&
+      (BuiltinInfo.Langs & OCL_DSE);
   bool OpenMPUnsupported = !LangOpts.OpenMP && BuiltinInfo.Langs == OMP_LANG;
   bool CUDAUnsupported = !LangOpts.CUDA && BuiltinInfo.Langs == CUDA_LANG;
   bool CPlusPlusUnsupported =
@@ -111,10 +134,10 @@ bool Builtin::Context::builtinIsSupported(const Builtin::Info &BuiltinInfo,
   // First parameter should be exactly the return statement from community.
   return CheckIntelBuiltinSupported(
         (!BuiltinsUnsupported && !CorBuiltinsUnsupported &&
-         !MathBuiltinsUnsupported && !OclCUnsupported && !OclC1Unsupported &&
-         !OclC2PUnsupported && !OpenMPUnsupported && !GnuModeUnsupported &&
-         !MSModeUnsupported && !ObjCUnsupported && !CPlusPlusUnsupported &&
-         !CUDAUnsupported), BuiltinInfo, LangOpts);
+         !MathBuiltinsUnsupported && !OclCUnsupported && !OclGASUnsupported &&
+         !OclPipeUnsupported && !OclDSEUnsupported && !OpenMPUnsupported &&
+         !GnuModeUnsupported && !MSModeUnsupported && !ObjCUnsupported &&
+         !CPlusPlusUnsupported && !CUDAUnsupported), BuiltinInfo, LangOpts);
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -138,6 +161,19 @@ void Builtin::Context::initializeBuiltins(IdentifierTable &Table,
   for (unsigned i = 0, e = AuxTSRecords.size(); i != e; ++i)
     Table.get(AuxTSRecords[i].Name)
         .setBuiltinID(i + Builtin::FirstTSBuiltin + TSRecords.size());
+
+  // Step #4: Unregister any builtins specified by -fno-builtin-foo.
+  for (llvm::StringRef Name : LangOpts.NoBuiltinFuncs) {
+    bool InStdNamespace = Name.consume_front("std-");
+    auto NameIt = Table.find(Name);
+    if (NameIt != Table.end()) {
+      unsigned ID = NameIt->second->getBuiltinID();
+      if (ID != Builtin::NotBuiltin && isPredefinedLibFunction(ID) &&
+          isInStdNamespace(ID) == InStdNamespace) {
+        Table.get(Name).setBuiltinID(Builtin::NotBuiltin);
+      }
+    }
+  }
 }
 
 unsigned Builtin::Context::getRequiredVectorWidth(unsigned ID) const {
@@ -217,30 +253,7 @@ bool Builtin::Context::performsCallback(unsigned ID,
 }
 
 bool Builtin::Context::canBeRedeclared(unsigned ID) const {
-  return ID == Builtin::NotBuiltin ||
-         ID == Builtin::BI__va_start ||
-         (!hasReferenceArgsOrResult(ID) &&
-          !hasCustomTypechecking(ID));
+  return ID == Builtin::NotBuiltin || ID == Builtin::BI__va_start ||
+         (!hasReferenceArgsOrResult(ID) && !hasCustomTypechecking(ID)) ||
+         isInStdNamespace(ID);
 }
-
-#if INTEL_CUSTOMIZATION
-bool Builtin::Context::OclBuiltinIsSupported(
-    const Builtin::Info &BuiltinInfo, const LangOptions &LangOpts) const {
-  if (!requiresFeatures(BuiltinInfo))
-    return true;
-
-  return llvm::StringSwitch<bool>(BuiltinInfo.Features)
-      // Blocks requires support for OpenCL C 2.0, or OpenCL C 3.0 or newer and
-      // the __opencl_c_device_enqueue feature.
-      .Case("__opencl_c_device_enqueue", LangOpts.Blocks)
-      .Case("__opencl_c_generic_address_space",
-            LangOpts.OpenCLGenericAddressSpace)
-      .Case("__opencl_c_pipes", LangOpts.OpenCLPipes)
-      .Default(false);
-}
-
-bool Builtin::Context::requiresFeatures(
-    const Builtin::Info &BuiltinInfo) const {
-  return BuiltinInfo.Features && llvm::StringRef(BuiltinInfo.Features) != "";
-}
-#endif // INTEL_CUSTOMIZATION

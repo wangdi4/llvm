@@ -1,5 +1,5 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
+; RUN: opt -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; Verify that all parameters to the outlined function are pointers.
 ; CHECK: define {{.*}} @_Z3fooPfx.DIR.OMP.PARALLEL.LOOP.{{[0-9]+}}.{{.*}}({{[^,]+}}*{{[^,]*}}, {{[^,]+}}*{{[^,]*}}, {{[^,]+}}*{{[^,]*}}, {{[^,]+}}*{{[^,]*}}, {{[^,]+}}*{{[^,]*}}, {{[^,]+}}*{{[^,]*}})

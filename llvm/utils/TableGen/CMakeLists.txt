@@ -1,4 +1,21 @@
 # INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
+# INTEL_CUSTOMIZATION
 set(INTEL_SOURCE_FILES_TO_BUILD)
 intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   COMPLEMENT LLVM_OPTIONAL_SOURCES
@@ -74,9 +91,11 @@ add_tablegen(llvm-tblgen LLVM
   SubtargetFeatureInfo.cpp
   TableGen.cpp
   Types.cpp
+  VarLenCodeEmitterGen.cpp
   X86DisassemblerTables.cpp
   X86EVEX2VEXTablesEmitter.cpp
   X86FoldTablesEmitter.cpp
+  X86MnemonicTables.cpp
   X86ModRMFilters.cpp
   X86RecognizableInstr.cpp
   WebAssemblyDisassemblerEmitter.cpp

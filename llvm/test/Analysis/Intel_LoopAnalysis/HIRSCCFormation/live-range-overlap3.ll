@@ -1,4 +1,5 @@
-; RUN: opt < %s -analyze -hir-scc-formation | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -analyze -hir-scc-formation | FileCheck %s
+; RUN: opt %s -passes="print<hir-scc-formation>" -disable-output 2>&1 | FileCheck %s
 
 ; Verify that we do not create SCC (v_ovm.0159 -> %v_ovm.2158 -> %or -> %or.lcssa) which has live-range overlap because %v_ovm.0159 is used in %or after the definition of %v_ovm.2158 in the same bblock.
 

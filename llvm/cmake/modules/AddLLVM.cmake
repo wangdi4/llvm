@@ -1,3 +1,4 @@
+include(GNUInstallDirs)
 include(LLVMDistributionSupport)
 include(LLVMProcessSources)
 include(LLVM-Config)
@@ -791,6 +792,7 @@ function(add_llvm_install_targets target)
                             ${prefix_option}
                             -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
                     USES_TERMINAL)
+  set_target_properties(${target} PROPERTIES FOLDER "Component Install Targets")
   add_custom_target(${target}-stripped
                     DEPENDS ${file_dependencies}
                     COMMAND "${CMAKE_COMMAND}"
@@ -799,6 +801,7 @@ function(add_llvm_install_targets target)
                             -DCMAKE_INSTALL_DO_STRIP=1
                             -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
                     USES_TERMINAL)
+  set_target_properties(${target}-stripped PROPERTIES FOLDER "Component Install Targets (Stripped)")
   if(target_dependencies)
     add_dependencies(${target} ${target_dependencies})
     add_dependencies(${target}-stripped ${target_dependencies})
@@ -897,7 +900,7 @@ macro(add_llvm_library name)
               ${export_to_llvmexports}
               LIBRARY DESTINATION lib${LLVM_LIBDIR_SUFFIX} COMPONENT ${name}
               ARCHIVE DESTINATION lib${LLVM_LIBDIR_SUFFIX} COMPONENT ${name}
-              RUNTIME DESTINATION bin COMPONENT ${name})
+              RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT ${name})
 
       if (NOT LLVM_ENABLE_IDE)
         add_llvm_install_targets(install-${name}
@@ -1277,12 +1280,14 @@ if(NOT LLVM_TOOLCHAIN_TOOLS)
     llvm-ar
     llvm-cov
     llvm-cxxfilt
+    llvm-dwp
     llvm-ranlib
     llvm-lib
     llvm-ml
     llvm-nm
     llvm-objcopy
     llvm-objdump
+    llvm-pdbutil
     llvm-rc
     llvm-readobj
     llvm-size
@@ -1371,7 +1376,7 @@ macro(add_llvm_example name)
   endif()
   add_llvm_executable(${name} ${ARGN})
   if( LLVM_BUILD_EXAMPLES )
-    install(TARGETS ${name} RUNTIME DESTINATION examples)
+    install(TARGETS ${name} RUNTIME DESTINATION "${LLVM_EXAMPLES_INSTALL_DIR}")
   endif()
   set_target_properties(${name} PROPERTIES FOLDER "Examples")
 endmacro(add_llvm_example name)
@@ -1580,36 +1585,13 @@ function(add_unittest test_suite test_name)
   string(FIND "${test_suite}" "SYCL" IS_SYCL_TEST)
   if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX AND UNIX AND NOT (${IS_SYCL_TEST} STREQUAL "-1"))
     list(APPEND LLVM_LINK_COMPONENTS Support_stdcpp) # gtest needs it for raw_ostream
-    add_llvm_executable(${test_name} IGNORE_EXTERNALIZE_DEBUGINFO NO_INSTALL_RPATH ${ARGN})
-    set(outdir ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
-    set_output_directory(${test_name} BINARY_DIR ${outdir} LIBRARY_DIR ${outdir})
-    target_link_libraries(${test_name} PRIVATE gtest_main_stdcpp gtest_stdcpp stdc++ ${LLVM_PTHREAD_LIB})
-    set_property(TARGET ${test_name} APPEND_STRING PROPERTY
-                 COMPILE_FLAGS " -stdlib=libstdc++")
   elseif (WIN32 AND NOT (${IS_SYCL_TEST} STREQUAL "-1"))
     list(APPEND LLVM_LINK_COMPONENTS Support_dyn) # gtest needs it for raw_ostream
-    add_llvm_executable(${test_name} IGNORE_EXTERNALIZE_DEBUGINFO NO_INSTALL_RPATH ${ARGN})
-    set(outdir ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
-    set_output_directory(${test_name} BINARY_DIR ${outdir} LIBRARY_DIR ${outdir})
-    target_link_libraries(${test_name} PRIVATE gtest_main_dyn gtest_dyn ${LLVM_PTHREAD_LIB})
-    foreach(flag_var
-        CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
-        CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-      string(REGEX REPLACE "/MT" "/MD" ${flag_var} "${${flag_var}}")
-      set(${flag_var} "${${flag_var}}" CACHE STRING "" FORCE)
-    endforeach()
   else()
     list(APPEND LLVM_LINK_COMPONENTS Support) # gtest needs it for raw_ostream
-    add_llvm_executable(${test_name} IGNORE_EXTERNALIZE_DEBUGINFO NO_INSTALL_RPATH ${ARGN})
-    set_msvc_crt_flags(${test_name})
-    set(outdir ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
-    set_output_directory(${test_name} BINARY_DIR ${outdir} LIBRARY_DIR ${outdir})
-    # libpthreads overrides some standard library symbols, so main
-    # executable must be linked with it in order to provide consistent
-    # API for all shared libaries loaded by this executable.
-    target_link_libraries(${test_name} PRIVATE gtest_main gtest ${LLVM_PTHREAD_LIB})
   endif()
   # end INTEL_CUSTOMIZATION
+  add_llvm_executable(${test_name} IGNORE_EXTERNALIZE_DEBUGINFO NO_INSTALL_RPATH ${ARGN})
 
   # The runtime benefits of LTO don't outweight the compile time costs for tests.
   if(LLVM_ENABLE_LTO)
@@ -1624,6 +1606,30 @@ function(add_unittest test_suite test_name)
                     LINK_FLAGS " -Wl,-mllvm,-O0")
     endif()
   endif()
+
+  set(outdir ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
+  set_output_directory(${test_name} BINARY_DIR ${outdir} LIBRARY_DIR ${outdir})
+  # libpthreads overrides some standard library symbols, so main
+  # executable must be linked with it in order to provide consistent
+  # API for all shared libaries loaded by this executable.
+  # INTEL_CUSTOMIZATION
+  if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX AND UNIX AND NOT (${IS_SYCL_TEST} STREQUAL "-1"))
+    target_link_libraries(${test_name} PRIVATE llvm_gtest_main_stdcpp llvm_gtest_stdcpp stdc++ ${LLVM_PTHREAD_LIB})
+    set_property(TARGET ${test_name} APPEND_STRING PROPERTY
+                 COMPILE_FLAGS " -stdlib=libstdc++")
+  elseif (WIN32 AND NOT (${IS_SYCL_TEST} STREQUAL "-1"))
+    target_link_libraries(${test_name} PRIVATE llvm_gtest_main_dyn llvm_gtest_dyn ${LLVM_PTHREAD_LIB})
+    foreach(flag_var
+        CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+        CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+      string(REGEX REPLACE "/MT" "/MD" ${flag_var} "${${flag_var}}")
+      set(${flag_var} "${${flag_var}}" CACHE STRING "" FORCE)
+    endforeach()
+  else()
+    set_msvc_crt_flags(${test_name})
+    target_link_libraries(${test_name} PRIVATE llvm_gtest_main llvm_gtest ${LLVM_PTHREAD_LIB})
+  endif()
+  # end INTEL_CUSTOMIZATION
 
   add_dependencies(${test_suite} ${test_name})
   get_target_property(test_suite_folder ${test_suite} FOLDER)
@@ -1735,14 +1741,11 @@ string(CONCAT LLVM_LIT_PATH_FUNCTION
 # path back to absolute form. This makes it possible to move a build directory
 # containing lit.cfg.py files from one machine to another.
 function(configure_lit_site_cfg site_in site_out)
-  cmake_parse_arguments(ARG "" "" "MAIN_CONFIG;OUTPUT_MAPPING;PATHS" ${ARGN})
+  cmake_parse_arguments(ARG "" "" "MAIN_CONFIG;PATHS" ${ARGN})
 
   if ("${ARG_MAIN_CONFIG}" STREQUAL "")
     get_filename_component(INPUT_DIR ${site_in} DIRECTORY)
     set(ARG_MAIN_CONFIG "${INPUT_DIR}/lit.cfg")
-  endif()
-  if ("${ARG_OUTPUT_MAPPING}" STREQUAL "")
-    set(ARG_OUTPUT_MAPPING "${site_out}")
   endif()
 
   foreach(c ${LLVM_TARGETS_TO_BUILD})
@@ -1754,13 +1757,15 @@ function(configure_lit_site_cfg site_in site_out)
 
   set_llvm_build_mode()
 
-  # The below might not be the build tree but provided binary tree.
+  # For standalone builds of subprojects, these might not be the build tree but
+  # a provided binary tree.
   set(LLVM_SOURCE_DIR ${LLVM_MAIN_SRC_DIR})
   set(LLVM_BINARY_DIR ${LLVM_BINARY_DIR})
   string(REPLACE "${CMAKE_CFG_INTDIR}" "${LLVM_BUILD_MODE}" LLVM_TOOLS_DIR "${LLVM_TOOLS_BINARY_DIR}")
   string(REPLACE "${CMAKE_CFG_INTDIR}" "${LLVM_BUILD_MODE}" LLVM_LIBS_DIR  "${LLVM_LIBRARY_DIR}")
-
-  # SHLIBDIR points the build tree.
+  # Like LLVM_{TOOLS,LIBS}_DIR, but pointing at the build tree.
+  string(REPLACE "${CMAKE_CFG_INTDIR}" "${LLVM_BUILD_MODE}" CURRENT_TOOLS_DIR "${LLVM_RUNTIME_OUTPUT_INTDIR}")
+  string(REPLACE "${CMAKE_CFG_INTDIR}" "${LLVM_BUILD_MODE}" CURRENT_LIBS_DIR  "${LLVM_LIBRARY_OUTPUT_INTDIR}")
   string(REPLACE "${CMAKE_CFG_INTDIR}" "${LLVM_BUILD_MODE}" SHLIBDIR "${LLVM_SHLIB_OUTPUT_INTDIR}")
 
   # FIXME: "ENABLE_SHARED" doesn't make sense, since it is used just for
@@ -1795,11 +1800,11 @@ function(configure_lit_site_cfg site_in site_out)
     string(CONCAT LIT_SITE_CFG_IN_HEADER "${LIT_SITE_CFG_IN_HEADER}"
       "import os\n"
       "target_env = \"${LLVM_TARGET_TRIPLE_ENV}\"\n"
-      "config.target_triple = config.environment[target_env] = os.environ.get(target_env, \"${TARGET_TRIPLE}\")\n"
+      "config.target_triple = config.environment[target_env] = os.environ.get(target_env, \"${LLVM_TARGET_TRIPLE}\")\n"
       )
 
     # This is expanded to; config.target_triple = ""+config.target_triple+""
-    set(TARGET_TRIPLE "\"+config.target_triple+\"")
+    set(LLVM_TARGET_TRIPLE "\"+config.target_triple+\"")
   endif()
 
   if (ARG_PATHS)
@@ -1970,7 +1975,11 @@ endfunction()
 
 function(add_lit_testsuites project directory)
   if (NOT LLVM_ENABLE_IDE)
-    cmake_parse_arguments(ARG "EXCLUDE_FROM_CHECK_ALL" "" "PARAMS;DEPENDS;ARGS" ${ARGN})
+    cmake_parse_arguments(ARG "EXCLUDE_FROM_CHECK_ALL" "FOLDER" "PARAMS;DEPENDS;ARGS" ${ARGN})
+    
+    if (NOT ARG_FOLDER)
+      set(ARG_FOLDER "Test Subdirectories")
+    endif()
 
     # Search recursively for test directories by assuming anything not
     # in a directory called Inputs contains tests.
@@ -1998,6 +2007,7 @@ function(add_lit_testsuites project directory)
           DEPENDS ${ARG_DEPENDS}
           ARGS ${ARG_ARGS}
         )
+        set_target_properties(check-${name_var} PROPERTIES FOLDER ${ARG_FOLDER})
       endif()
     endforeach()
   endif()
@@ -2453,4 +2463,25 @@ macro(dpcpptarget_add_resource_file target binary_name product_name file_descrip
     target_link_libraries(${target} PRIVATE ${resource_file})
   endif()
 endmacro()
+
+# Xmain's 2nd stage of selfbuild passes
+#
+#  -DLLVM_ENABLE_LIBCXX:BOOL=ON -DLLVM_STATIC_LINK_CXX_STDLIB:BOOL=ON
+#
+# But we still want to link some of our libraries/tools against libstdc++ as
+# some STL datastructures cross the API boundaries. This macro is used in such
+# places.
+macro(intel_clear_stdlib)
+  # Don't use libcxx library unless explicitly stated to do so.
+  if (NOT SYCL_USE_LIBCXX)
+    string( REPLACE "-stdlib=libc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
+    string( REPLACE "-stdlib=libc++" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
+    string( REPLACE "-stdlib=libc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
+  endif()
+
+  # Don't link statically against standard C++ library
+  string( REPLACE "-static-libstdc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
+  string( REPLACE "-static-libstdc++" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
+  string( REPLACE "-static-libstdc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
+endmacro(intel_clear_stdlib)
 # end INTEL_CUSTOMIZATION

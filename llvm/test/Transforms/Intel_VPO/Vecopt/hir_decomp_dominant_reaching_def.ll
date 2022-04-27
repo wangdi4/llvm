@@ -2,8 +2,10 @@
 ; Test to check correctness of decomposed HCFG when external definition of a
 ; DDRef is killed by an instruction inside the HLLoop being decomposed.
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-last-value-computation -hir-vplan-vec -vplan-print-after-vpentity-instrs -vplan-entities-dump -vplan-dump-external-defs-hir=0 -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-print-after-vpentity-instrs -vplan-entities-dump -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-last-value-computation -hir-vplan-vec -vplan-print-after-vpentity-instrs -vplan-entities-dump -vplan-dump-external-defs-hir=0 -disable-output -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-print-after-vpentity-instrs -vplan-entities-dump -vplan-dump-external-defs-hir=0 -disable-output -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-last-value-computation -hir-vplan-vec -vplan-print-after-vpentity-instrs -vplan-entities-dump -vplan-dump-external-defs-hir=0 -disable-output -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-print-after-vpentity-instrs -vplan-entities-dump -vplan-dump-external-defs-hir=0 -disable-output -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
 
 ; Input HIR
 ; <0>     BEGIN REGION { }
@@ -90,7 +92,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr {
 ; CHECK-NEXT:        + END LOOP
 ; CHECK:             [[ADD4260]] = @llvm.vector.reduce.add.v16i32([[DOTVEC90]])
 ; CHECK-NEXT:        [[ADD8240]] = @llvm.vector.reduce.add.v16i32([[DOTVEC100]])
-; CHECK-NEXT:        ([[S_RED0]])[0] = [[ADD8240]]
+; CHECK:             ([[S_RED0]])[0] = [[ADD8240]]
 ; CHECK-NEXT:        ([[S2_RED0]])[0] = [[ADD4260]]
 ; CHECK-NEXT:        ret [[ADD4260]] + [[ADD8240]] + 42
 ; CHECK-NEXT:  END REGION

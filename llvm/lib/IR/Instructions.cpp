@@ -1,4 +1,21 @@
 //===- Instructions.cpp - Implement the LLVM instructions -----------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -332,13 +349,13 @@ bool CallBase::isReturnNonNull() const {
   return false;
 }
 
-Value *CallBase::getReturnedArgOperand() const {
+Value *CallBase::getArgOperandWithAttribute(Attribute::AttrKind Kind) const {
   unsigned Index;
 
-  if (Attrs.hasAttrSomewhere(Attribute::Returned, &Index))
+  if (Attrs.hasAttrSomewhere(Kind, &Index))
     return getArgOperand(Index - AttributeList::FirstArgIndex);
   if (const Function *F = getCalledFunction())
-    if (F->getAttributes().hasAttrSomewhere(Attribute::Returned, &Index))
+    if (F->getAttributes().hasAttrSomewhere(Kind, &Index))
       return getArgOperand(Index - AttributeList::FirstArgIndex);
 
   return nullptr;
@@ -394,6 +411,27 @@ bool CallBase::hasFnAttrOnCalledFunction(StringRef Kind) const {
 
   return false;
 }
+
+template <typename AK>
+Attribute CallBase::getFnAttrOnCalledFunction(AK Kind) const {
+  // Operand bundles override attributes on the called function, but don't
+  // override attributes directly present on the call instruction.
+  if (isFnAttrDisallowedByOpBundle(Kind))
+    return Attribute();
+  Value *V = getCalledOperand();
+  if (auto *CE = dyn_cast<ConstantExpr>(V))
+    if (CE->getOpcode() == BitCast)
+      V = CE->getOperand(0);
+
+  if (auto *F = dyn_cast<Function>(V))
+    return F->getAttributes().getFnAttr(Kind);
+
+  return Attribute();
+}
+
+template Attribute
+CallBase::getFnAttrOnCalledFunction(Attribute::AttrKind Kind) const;
+template Attribute CallBase::getFnAttrOnCalledFunction(StringRef Kind) const;
 
 void CallBase::getOperandBundlesAsDefs(
     SmallVectorImpl<OperandBundleDef> &Defs) const {
@@ -534,9 +572,10 @@ CallBase *CallBase::removeOperandBundle(CallBase *CB, uint32_t ID,
 
 bool CallBase::hasReadingOperandBundles() const {
   // Implementation note: this is a conservative implementation of operand
-  // bundle semantics, where *any* non-assume operand bundle forces a callsite
-  // to be at least readonly.
-  return hasOperandBundles() && getIntrinsicID() != Intrinsic::assume;
+  // bundle semantics, where *any* non-assume operand bundle (other than
+  // ptrauth) forces a callsite to be at least readonly.
+  return hasOperandBundlesOtherThan(LLVMContext::OB_ptrauth) &&
+         getIntrinsicID() != Intrinsic::assume;
 }
 
 //===----------------------------------------------------------------------===//

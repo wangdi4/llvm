@@ -1,0 +1,53 @@
+; XFAIL: *
+; RUN: SATest -REF -config=%s.cfg -neat=0 >%t
+
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : SATest -REF -config=%s.cfg -neat=0 >%t
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : FileCheck %s <%t
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 0
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -453
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 0
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -453
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 0
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 0
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 0
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 0
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 2147483647
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 0
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -2147483648
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 0
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 3
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 7
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 3
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 3
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 3
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 4
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 0
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 3
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 2147483647
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 3
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -2147483648
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 3
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -123
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -123
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -123
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -123
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -123
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 0
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 0
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -123
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 2147483647
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -123
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -2147483648
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -123
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -345
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -678
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -345
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -345
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -345
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -333
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 0
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -345
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : 2147483647
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -345
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -2147483648
+; BUGBUG: The test should be aligned with rev.15 of the OCL2.0 spec (CQ CSSD100017717) : -345

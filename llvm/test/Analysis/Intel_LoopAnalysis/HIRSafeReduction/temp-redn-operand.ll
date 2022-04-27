@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -analyze -hir-safe-reduction-analysis | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -analyze -enable-new-pm=0 -hir-safe-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" 2>&1 | FileCheck %s
 
 ; Verify that we successfully identify %t2.09's safe reduction by ignoring the flow edge from the other temp operand %mul.

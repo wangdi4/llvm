@@ -1,4 +1,21 @@
 //===- BasicBlockUtils.cpp - BasicBlock Utilities --------------------------==//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -21,7 +38,6 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryDependenceAnalysis.h"
 #include "llvm/Analysis/MemorySSAUpdater.h"
-#include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
@@ -33,7 +49,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/PseudoProbe.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
@@ -66,7 +81,7 @@ static cl::opt<unsigned> MaxDeoptOrUnreachableSuccessorCheckDepth(
              "is followed by a block that either has a terminating "
              "deoptimizing call or is terminated with an unreachable"));
 
-void llvm::DetatchDeadBlocks(
+void llvm::detachDeadBlocks(
     ArrayRef<BasicBlock *> BBs,
     SmallVectorImpl<DominatorTree::UpdateType> *Updates,
     bool KeepOneInputPHIs) {
@@ -117,7 +132,7 @@ void llvm::DeleteDeadBlocks(ArrayRef <BasicBlock *> BBs, DomTreeUpdater *DTU,
 #endif
 
   SmallVector<DominatorTree::UpdateType, 4> Updates;
-  DetatchDeadBlocks(BBs, DTU ? &Updates : nullptr, KeepOneInputPHIs);
+  detachDeadBlocks(BBs, DTU ? &Updates : nullptr, KeepOneInputPHIs);
 
   if (DTU)
     DTU->applyUpdates(Updates);
@@ -1397,14 +1412,17 @@ void llvm::SplitCleanupPadPredecessors(BasicBlock *OrigBB,
   //
   // The cleanup block has 1 pred inside the loop (the catchswitch)
   // and 1 pred outside the loop (the invoke in the catch handler).
-  // We need to separate the invoke edge from the catchswitch, so that
-  // the cleanup block only has in-loop preds.
-  // But this is explicitly forbidden by LLVM, as a catchswitch and its
-  // catch body insts must all have the same unwind destination.
+  // We would like to separate the preds by making a new CleanupPad block and
+  // pointing the catchswitch (and any other in-loop preds) to it.
+  // But LLVM requires the invoke and catchswitch to have the same unwind
+  // destination.
   // If this is an OpenMP loop, we can just break the out-of-loop edge
   // (from the invoke) as any path from the catchswitch outside the loop,
   // is undefined. Then we generate a new cleanup block that is only reachable
   // from inside the loop.
+  //
+  // Only invoke preds can be handled like this, other insts such as cleanupret
+  // are not supported.
   //
   // The inverse of the above situation is not supported:
   // omp parallel {
@@ -1416,6 +1434,7 @@ void llvm::SplitCleanupPadPredecessors(BasicBlock *OrigBB,
   // cleanup:
   //
   // In this case, foo() is inside the loop, and the catchswitch is outside.
+  // We can only break out-of-loop edges.
   // The caller of this utility does not expect the loop exit edge from foo()
   // to be removed.
   bool NeedCSFixup = false;
@@ -1441,15 +1460,38 @@ void llvm::SplitCleanupPadPredecessors(BasicBlock *OrigBB,
     }
   }
 
+  SmallSet<BasicBlock *, 4> SplitPredsSet;
+  llvm::copy(SplitPreds,
+            std::inserter(SplitPredsSet, SplitPredsSet.begin()));
   // If one of the SplitPreds is dominated by a catchswitch, and that
   // catchswitch is not in SplitPreds itself, we cannot separate them.
-  if (CSPredBB && std::find(SplitPreds.begin(), SplitPreds.end(), CSPredBB) ==
-                      SplitPreds.end()) {
+  if (CSPredBB && !SplitPredsSet.contains(CSPredBB)) {
     for (auto *ToSplit : SplitPreds) {
       if (DT->dominates(CSPredBB, ToSplit)) {
         LLVM_DEBUG(
             dbgs() << "Catchswitch dominates loop exit, cannot break.\n");
         return;
+      }
+    }
+  }
+
+  // We can't break EH instructions. Check if the catchswitch has other pads
+  // that lead to the exit, but are outside the loop.
+  if (CSPredBB) {
+    for (auto *PredBB : predecessors(OrigBB)) {
+      if (!SplitPredsSet.contains(PredBB)) {
+        auto *Terminator = PredBB->getTerminator();
+        switch (Terminator->getOpcode()) {
+        case Instruction::CatchSwitch:
+        case Instruction::CatchRet:
+        case Instruction::CleanupRet:
+          if (DT->dominates(CSPredBB, PredBB)) {
+            LLVM_DEBUG(dbgs()
+                       << "Cannot modify EH instruction outside of loop:\n");
+            LLVM_DEBUG(dbgs() << *Terminator);
+            return;
+          }
+        }
       }
     }
   }

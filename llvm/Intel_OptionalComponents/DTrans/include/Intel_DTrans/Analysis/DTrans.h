@@ -1,6 +1,6 @@
 //===--------------- DTrans.h - Class definition -*- C++ -*----------------===//
 //
-// Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -29,6 +29,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Constant.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
@@ -121,7 +122,15 @@ public:
         ComplexUse(false), AddressTaken(false), MismatchedElementAccess(false),
         NonGEPAccess(false), SVKind(SVK_Complete), SVIAKind(SVK_Incomplete),
         SAFKind(SAFK_Top), SingleAllocFunction(nullptr), RWState(RWK_Top),
-        Frequency(0) {}
+        Frequency(0) {
+
+    // If the current field is an array of integers then we can collect
+    // constant entries for it.
+    if (auto *ArrTy = dyn_cast<llvm::ArrayType>(Ty.getLLVMType()))
+      canAddConstantEntriesForArray = ArrTy->getElementType()->isIntegerTy();
+    else
+      canAddConstantEntriesForArray = false;
+  }
 
   // Disallow copy
   FieldInfo(const FieldInfo&) = delete;
@@ -307,6 +316,40 @@ public:
   // is an array with constant entries.
   void addConstantEntryIntoTheArray(Constant *Index, Constant* ConstVal);
 
+  // Insert a new entry in ArrayWithConstEntriesMap.
+  //
+  // NOTE: This function replaces addConstantEntryIntoTheArray in the opaque
+  // pointers case. The function addConstantEntryIntoTheArray will be removed
+  // once we fully move from typed pointers to opaque pointers.
+  void addNewArrayConstantEntry(Constant *Index, Constant* ConstVal);
+
+  // Return the information if the current field is an array with
+  // constant entries
+  //
+  // NOTE: This is used for the opaque pointers case. The function
+  // getArrayWithConstantEntries will be removed once we move from typed
+  // pointers to opaque pointers.
+  const DenseMap<Constant*, Constant*>
+      &getArrayConstantEntries() const { return ArrayWithConstEntriesMap; }
+
+  // Return true if the current field is an array with constant entries
+  //
+  // NOTE: This function will replace isArrayWithConstantEntries in the
+  // opaque pointers case. The function isArrayWithConstantEntries will
+  // be removed once we fully move from typed pointers to opaque pointers.
+  bool isFieldAnArrayWithConstEntries();
+
+  // Disable all the data related to arrays with constant entries.
+  void disableArraysWithConstantEntries() {
+    canAddConstantEntriesForArray = false;
+    ArrayWithConstEntriesMap.clear();
+  }
+
+  // Return true if the entries of ArrayWithConstEntriesMap can be updated.
+  // Else return false.
+  bool canUpdateArrayWithConstantEntries() {
+    return canAddConstantEntriesForArray;
+  }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const { print(dbgs()); }
 
@@ -385,6 +428,20 @@ private:
   // entry in the pair is the index in the array, the second entry is
   // the constant value.
   SetVector< std::pair<Constant*, Constant*> > ArrayConstEntries;
+
+  // DenseMap that stores the index and the value that are constant if
+  // the current field is an array with constant entries. The first
+  // entry into the pair is the index in the array, the second entry is
+  // the constant value.
+  //
+  // NOTE: This will replace the set ArrayConstEntries when we fully move
+  // to opaque pointers and the typed pointers code is removed.
+  DenseMap<Constant*, Constant*> ArrayWithConstEntriesMap;
+
+  // True if it is enabled to insert new entries into ArrayWithConstEntriesMap,
+  // else false. Also, false means that the current field may be an array but
+  // the entries aren't constant, or the actual field is not even an array.
+  bool canAddConstantEntriesForArray;
 };
 
 /// DTrans optimization safety conditions for a structure type.
@@ -525,16 +582,28 @@ const SafetyData BadCastingConditional = 0x0000'0000'8000'0000;
 /// pointer store at the end of analysis by the bad casting analyzer.
 const SafetyData UnsafePointerStorePending = 0x0000'0001'0000'0000;
 
-/// Indicates that an unsafe pointer store  will occur only if specific
+/// Indicates that an unsafe pointer store will occur only if specific
 /// conditions are not fulfilled.  These conditions are noted by the bad
 /// casting analyzer, and involve certain functions' arguments being nullptr
 /// on entry to those functions.
 const SafetyData UnsafePointerStoreConditional = 0x0000'0002'0000'0000;
 
+/// A potential mismatched element access issue that will be either eliminated,
+/// converted to mismatched element access conditional, or converted to
+/// mismatched element access at the end of analysis by the bad casting
+/// analyzer.
+const SafetyData MismatchedElementAccessPending = 0x0000'0004'0000'0000;
+
+/// Indicates that an mismatched element access will occur only if specific
+/// conditions are not fulfilled.  These conditions are noted by the bad
+/// casting analyzer, and involve certain functions' arguments being nullptr
+/// on entry to those functions.
+const SafetyData MismatchedElementAccessConditional = 0x0000'0008'0000'0000;
+
 // End for use with BadCastingAnalyzer
 
 /// The structure was identified as a dope vector type.
-const SafetyData DopeVector = 0x0000'0004'0000'0000;
+const SafetyData DopeVector = 0x0000'0010'0000'0000;
 
 /// The following safety violations are for related types. These types are
 /// structures that have two types in the IR, where one type represents the
@@ -543,36 +612,73 @@ const SafetyData DopeVector = 0x0000'0004'0000'0000;
 
 /// This safety data is used for special bad casting cases that won't affect
 /// related types.
-const SafetyData BadCastingForRelatedTypes = 0x0000'0008'0000'0000;
+const SafetyData BadCastingForRelatedTypes = 0x0000'0020'0000'0000;
 
 /// This safety data is used to check if a bad pointer manipulation won't
 /// affect the related types.
-const SafetyData BadPtrManipulationForRelatedTypes = 0x0000'0010'0000'0000;
+const SafetyData BadPtrManipulationForRelatedTypes = 0x0000'0040'0000'0000;
 
 /// This safety data is used for a special mismatched element access to
 /// the zero field of a structure but won't affect the related types.
-const SafetyData MismatchedElementAccessRelatedTypes = 0x0000'0020'0000'0000;
+const SafetyData MismatchedElementAccessRelatedTypes = 0x0000'0080'0000'0000;
 
 /// This safety data is used for special unsafe pointer store to the zero
 /// field of a structure but won't affect related types.
-const SafetyData UnsafePointerStoreRelatedTypes = 0x0000'0040'0000'0000;
+const SafetyData UnsafePointerStoreRelatedTypes = 0x0000'0100'0000'0000;
 
 /// This safety data is used when a memory handling function (e.g. memcpy)
 /// modifies part of the nested structures, but it won't fully cover the
 /// field zero in the outer most structure.
-const SafetyData MemFuncNestedStructsPartialWrite = 0x0000'0080'0000'0000;
+const SafetyData MemFuncNestedStructsPartialWrite = 0x0000'0200'0000'0000;
 
 /// This safety data is used when the memory allocation size is constant, but
 /// is not a direct multiple of the element size. e.g. ElemSize * 4 + 128
-const SafetyData ComplexAllocSize = 0x0000'0100'0000'0000;
+const SafetyData ComplexAllocSize = 0x0000'0400'0000'0000;
 
 /// This safety data is used when the address of a field is passed as an
 /// argument to a callsite.
-const SafetyData FieldAddressTakenCall = 0x0000'0200'0000'0000;
+const SafetyData FieldAddressTakenCall = 0x0000'0800'0000'0000;
 
 /// This safety data is used when the address of a field is returned by a
 /// function.
-const SafetyData FieldAddressTakenReturn = 0x0000'0400'0000'0000;
+const SafetyData FieldAddressTakenReturn = 0x0000'1000'0000'0000;
+
+/// This safety data is used when a structure may have an extra field at the
+/// end that could be used for ABI padding. There will be a base structure too
+/// that doesn't have the extra field and uses the same name with '.base' at
+/// the end. For example:
+///
+///   %struct.test.a = type <{ i32, i32, [4 x i8] }>
+///   %struct.test.a.base = type <{ i32, i32 }>
+///
+/// The structure %struct.test.a is set as StructCouldHaveABIPadding since the
+/// last field is used for padding, and the structure %struct.test.a.base is
+/// the base structure.
+const SafetyData StructCouldHaveABIPadding = 0x0000'2000'0000'0000;
+
+/// This safety data is set when a structure is used as base structure for ABI
+/// padding. The structure will have '.base' at the end the of name, and there
+/// will be another structure related to it that have an extra field for
+/// padding. For example:
+///
+///   %struct.test.a = type <{ i32, i32, [4 x i8] }>
+///   %struct.test.a.base = type <{ i32, i32 }>
+///
+/// The structure %struct.test.a.base is set as StructCouldBeBaseABIPadding
+/// since it is the base structure of %struct.test.a, which is the padded
+/// structure.
+const SafetyData StructCouldBeBaseABIPadding = 0x0000'4000'0000'0000;
+
+/// This safety data is set when a possible BadMemFuncManipulation can happen
+/// between types that have ABI padding, but it won't affect the padded field.
+/// For an example of ABI padding, see StructCouldBeBaseABIPadding above.
+const SafetyData BadMemFuncManipulationForRelatedTypes = 0x0000'8000'0000'0000;
+
+/// This safety data is set when the type of a PHI node is identified for ABI
+/// padding, but the instruction and its incoming values won't affect the
+/// padded field. For an example of ABI padding, see
+/// StructCouldBeBaseABIPadding above.
+const SafetyData UnsafePtrMergeRelatedTypes = 0x0001'0000'0000'0000;
 
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
@@ -590,6 +696,8 @@ static const SafetyData AnyFieldAddressTaken =
 //
 // Safety conditions for field reordering and deletion.
 //
+
+// TODO: Delete fields need to be updated to enable the cases with ABI padding
 const SafetyData SDDeleteField =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
     VolatileData | MismatchedElementAccess | WholeStructureReference |
@@ -597,10 +705,13 @@ const SafetyData SDDeleteField =
     BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
     AddressTaken | NoFieldsInStruct | SystemObject | MismatchedArgUse |
     HasVTable | HasFnPtr | HasZeroSizedArray | HasFnPtr |
-    BadCastingConditional | UnsafePointerStoreConditional | DopeVector |
+    BadCastingConditional | UnsafePointerStoreConditional |
+    MismatchedElementAccessConditional | DopeVector |
     BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
     MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
-    MemFuncNestedStructsPartialWrite | ComplexAllocSize;
+    MemFuncNestedStructsPartialWrite | ComplexAllocSize |
+    StructCouldHaveABIPadding | StructCouldBeBaseABIPadding |
+    BadMemFuncManipulationForRelatedTypes | UnsafePtrMergeRelatedTypes;
 
 const SafetyData SDReorderFields =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -610,19 +721,23 @@ const SafetyData SDReorderFields =
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
     MismatchedArgUse | LocalInstance | HasCppHandling | BadCastingConditional |
-    UnsafePointerStoreConditional | UnhandledUse | DopeVector |
-    BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
-    MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
-    MemFuncNestedStructsPartialWrite | ComplexAllocSize;
+    UnsafePointerStoreConditional | MismatchedElementAccessConditional |
+    UnhandledUse | DopeVector | BadCastingForRelatedTypes |
+    BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
+    UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
+    ComplexAllocSize | StructCouldHaveABIPadding |
+    StructCouldBeBaseABIPadding | BadMemFuncManipulationForRelatedTypes |
+    UnsafePtrMergeRelatedTypes;
 
 const SafetyData SDReorderFieldsDependent =
     BadPtrManipulation | GlobalInstance | HasInitializerList |
     MemFuncPartialWrite | NoFieldsInStruct | LocalInstance |
-    BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
-    WholeStructureReference | VolatileData | BadMemFuncSize |
+    BadCastingConditional | UnsafePointerStoreConditional |
+    UnhandledUse | WholeStructureReference | VolatileData | BadMemFuncSize |
     BadMemFuncManipulation | AmbiguousPointerTarget | DopeVector |
     BadPtrManipulationForRelatedTypes | MemFuncNestedStructsPartialWrite |
-    ComplexAllocSize;
+    ComplexAllocSize | StructCouldHaveABIPadding |
+    StructCouldBeBaseABIPadding | BadMemFuncManipulationForRelatedTypes;
 
 //
 // Safety conditions for field single value analysis
@@ -633,7 +748,7 @@ const SafetyData SDFieldSingleValueNoFieldAddressTaken =
     UnsafePtrMerge | AddressTaken | MismatchedArgUse |
     BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
     MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
-    UnhandledUse;
+    UnsafePtrMergeRelatedTypes | UnhandledUse;
 
 const SafetyData SDFieldSingleValue =
     SDFieldSingleValueNoFieldAddressTaken | AnyFieldAddressTaken;
@@ -645,6 +760,7 @@ const SafetyData SDSingleAllocFunctionNoFieldAddressTaken =
     AddressTaken | MismatchedArgUse | BadCastingForRelatedTypes |
     BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
     UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
+    BadMemFuncManipulationForRelatedTypes | UnsafePtrMergeRelatedTypes |
     UnhandledUse;
 
 const SafetyData SDSingleAllocFunction =
@@ -655,10 +771,12 @@ const SafetyData SDElimROFieldAccess =
     MismatchedElementAccess | UnsafePointerStore | AnyFieldAddressTaken |
     BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
     HasInitializerList | UnsafePtrMerge | AddressTaken | MismatchedArgUse |
-    BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
+    BadCastingConditional | UnsafePointerStoreConditional |
+    MismatchedElementAccessConditional | UnhandledUse |
     DopeVector | BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
     MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
-    MemFuncNestedStructsPartialWrite;
+    MemFuncNestedStructsPartialWrite | BadMemFuncManipulationForRelatedTypes |
+    UnsafePtrMergeRelatedTypes;
 
 //
 // Safety conditions for a structure to be considered for the AOS-to-SOA
@@ -672,10 +790,13 @@ const SafetyData SDAOSToSOA =
     NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
     LocalInstance | MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
     HasCppHandling | HasZeroSizedArray | BadCastingConditional |
-    UnsafePointerStoreConditional | DopeVector | BadCastingForRelatedTypes |
+    UnsafePointerStoreConditional | MismatchedElementAccessConditional |
+    DopeVector | BadCastingForRelatedTypes |
     BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
     UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
-    ComplexAllocSize;
+    ComplexAllocSize | StructCouldHaveABIPadding |
+    StructCouldBeBaseABIPadding | BadMemFuncManipulationForRelatedTypes |
+    UnsafePtrMergeRelatedTypes;
 
 //
 // Safety conditions for a structure type that contains a pointer to a
@@ -687,9 +808,12 @@ const SafetyData SDAOSToSOADependent =
     UnsafePtrMerge | AmbiguousPointerTarget | AddressTaken | NoFieldsInStruct |
     NestedStruct | ContainsNestedStruct | SystemObject | MismatchedArgUse |
     GlobalArray | HasVTable | HasCppHandling | BadCastingConditional |
-    UnsafePointerStoreConditional | DopeVector | BadCastingForRelatedTypes |
+    UnsafePointerStoreConditional | MismatchedElementAccessConditional |
+    DopeVector | BadCastingForRelatedTypes |
     BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
-    UnsafePointerStoreRelatedTypes | ComplexAllocSize;
+    UnsafePointerStoreRelatedTypes | ComplexAllocSize |
+    StructCouldHaveABIPadding | StructCouldBeBaseABIPadding |
+    UnsafePtrMergeRelatedTypes;
 
 //
 // Safety conditions for a structure type that contains a pointer to a
@@ -705,9 +829,12 @@ const SafetyData SDAOSToSOADependentIndex32 =
     AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
     SystemObject | MismatchedArgUse | GlobalArray | HasVTable | HasCppHandling |
     HasZeroSizedArray | BadCastingConditional | UnsafePointerStoreConditional |
-    DopeVector | BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
+    MismatchedElementAccessConditional | DopeVector |
+    BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
     MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
-    MemFuncNestedStructsPartialWrite | ComplexAllocSize;
+    MemFuncNestedStructsPartialWrite | ComplexAllocSize |
+    StructCouldHaveABIPadding | StructCouldBeBaseABIPadding |
+    BadMemFuncManipulationForRelatedTypes | UnsafePtrMergeRelatedTypes;
 
 const SafetyData SDDynClone =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -718,10 +845,11 @@ const SafetyData SDDynClone =
     NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
     LocalInstance | MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
     HasZeroSizedArray | BadCastingConditional | UnsafePointerStoreConditional |
-    UnhandledUse | DopeVector | BadCastingForRelatedTypes |
-    BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
-    UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
-    ComplexAllocSize;
+    MismatchedElementAccessConditional | UnhandledUse | DopeVector |
+    BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
+    MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
+    MemFuncNestedStructsPartialWrite | ComplexAllocSize |
+    BadMemFuncManipulationForRelatedTypes | UnsafePtrMergeRelatedTypes;
 
 const SafetyData SDSOAToAOS =
     BadCasting | BadPtrManipulation | VolatileData | MismatchedElementAccess |
@@ -730,10 +858,13 @@ const SafetyData SDSOAToAOS =
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
     GlobalArray | HasFnPtr | HasZeroSizedArray | BadCastingConditional |
-    UnsafePointerStoreConditional | UnhandledUse | DopeVector |
-    BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
-    MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
-    MemFuncNestedStructsPartialWrite | ComplexAllocSize;
+    UnsafePointerStoreConditional | MismatchedElementAccessConditional |
+    UnhandledUse | DopeVector | BadCastingForRelatedTypes |
+    BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
+    UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
+    ComplexAllocSize | StructCouldHaveABIPadding |
+    StructCouldBeBaseABIPadding | BadMemFuncManipulationForRelatedTypes |
+    UnsafePtrMergeRelatedTypes;
 
 const SafetyData SDMemInitTrimDown =
     BadCasting | BadPtrManipulation | VolatileData | MismatchedElementAccess |
@@ -742,17 +873,13 @@ const SafetyData SDMemInitTrimDown =
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
     GlobalArray | HasFnPtr | HasZeroSizedArray | BadCastingConditional |
-    UnsafePointerStoreConditional | UnhandledUse | DopeVector |
-    BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
-    MismatchedElementAccessRelatedTypes | UnsafePointerStoreRelatedTypes |
-    MemFuncNestedStructsPartialWrite | ComplexAllocSize;
-
-// Safety conditions for structures with padding
-const SafetyData SDPaddedStructures =
-    BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
-    VolatileData | MismatchedElementAccess | UnsafePointerStore |
-    UnsafePtrMerge | BadMemFuncSize | BadMemFuncManipulation |
-    AmbiguousPointerTarget | AddressTaken | MismatchedArgUse | UnhandledUse;
+    UnsafePointerStoreConditional | MismatchedElementAccessConditional |
+    UnhandledUse | DopeVector | BadCastingForRelatedTypes |
+    BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
+    UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
+    ComplexAllocSize | StructCouldHaveABIPadding |
+    StructCouldBeBaseABIPadding | BadMemFuncManipulationForRelatedTypes |
+    UnsafePtrMergeRelatedTypes;
 
 // Safety conditions for arrays with constant entries
 // NOTE: FieldAddressTakenReturn is conservative. We can extend the analysis
@@ -765,7 +892,8 @@ const SafetyData SDArraysWithConstantEntries =
     MemFuncPartialWrite | BadMemFuncManipulation | AmbiguousPointerTarget |
     AddressTaken | NoFieldsInStruct | SystemObject | MismatchedArgUse |
     BadCastingPending | BadCastingConditional | UnsafePointerStorePending |
-    UnsafePointerStoreConditional | FieldAddressTakenReturn | UnhandledUse;
+    UnsafePointerStoreConditional | MismatchedElementAccessConditional |
+    FieldAddressTakenReturn | UnhandledUse;
 
 //
 // TODO: Update the list each time we add a new safety conditions check for a
@@ -916,13 +1044,9 @@ public:
   // in whose methods there was reference to this structure.
   // Lattice: {bottom = <nullptr, false>, <Type*, false>, top = <nullptr, true>}
   // Type should be some struct from which given type is reachable.
-  // insertFunction is a 'join' operation of this lattice.
+  // GlobalVariable (Instance): Treat conservatively by marking it as 'top'.
   class CallSubGraph {
     PointerIntPair<StructType *, 1, bool> State;
-    void setTop() {
-      State.setPointer(nullptr);
-      State.setInt(true);
-    }
   public:
     // State is zero-initialized to 'bottom'.
     CallSubGraph() = default;
@@ -932,19 +1056,27 @@ public:
     bool isTop() const {
       return State.getInt();
     }
+    void setTop() {
+      State.setPointer(nullptr);
+      State.setInt(true);
+    }
     StructType *getEnclosingType() const {
       assert(!isBottom() && !isTop() && "Invalid access to CallSubGraph");
       return State.getPointer();
     }
-    // If occurrence is not inside specific Function,
-    // then mark it as 'top'.
-    // It is a case of GlobalVariable.
-    void insertFunction(Function *F, StructType *ThisTy);
+    void setEnclosingType(StructType *STy) {
+      return State.setPointer(STy);
+    }
   };
 
-  void insertCallGraphNode(Function *F) {
-    SubGraph.insertFunction(F, cast<StructType>(getLLVMType()));
+  void setCallGraphEnclosingType(StructType *STy) {
+    SubGraph.setEnclosingType(STy);
   }
+
+  void setCallGraphTop() {
+    SubGraph.setTop();
+  }
+
   const CallSubGraph &getCallSubGraph() const { return SubGraph; }
 
   // Return the related type stored in the StructInfo
@@ -967,6 +1099,25 @@ public:
 
   // Indicate 'FieldNum' is BottomAllocFunc
   void updateSingleAllocFuncToBottom(unsigned FieldNum);
+
+  // Return true if the current structure is a base structure for ABI padding
+  bool isABIPaddingBaseStructure() { return RTForm == RT_BASE; }
+
+  // Return true if the current structure is a padded structure for ABI padding
+  bool isABIPaddingPaddedStructure() { return RTForm == RT_PADDED; }
+
+  // Return true if the current structure is base or padded structure for
+  // ABI padding
+  bool isUsedForABIPadding() {
+    return RelatedType &&
+           (isABIPaddingBaseStructure() || isABIPaddingPaddedStructure());
+  }
+
+  // Set the current structure as base structure for ABI padding
+  void setAsABIPaddingBaseStructure();
+
+  // Set the current structure as padded structure for ABI padding
+  void setAsABIPaddingPaddedStructure();
 
 private:
   SmallVector<FieldInfo, 16> Fields;
@@ -1005,6 +1156,19 @@ private:
   //   RelatedType for %class.A = %class.A.base
   //   RelatedType for %class.A.base = %class.A
   dtrans::StructInfo *RelatedType = nullptr;
+
+  // Enum for handling which related type form is the current class. This
+  // is used to identify if the current structure is base or padded structure
+  // when handling ABI padding.
+  enum RelatedTypeForm {
+    RT_TOP,                 // Structure is not set for ABI padding
+    RT_BASE,                // Base structure
+    RT_PADDED,              // Padded structure
+    RT_BOTTOM               // Can't be padded or base structure
+  };
+
+  // Used for tracking which type of ABI padding is the current structure.
+  RelatedTypeForm RTForm = RT_TOP;
 };
 
 class ArrayInfo : public TypeInfo {

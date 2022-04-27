@@ -1,4 +1,4 @@
-; RUN: opt < %s -inferattrs -S 2>&1 | FileCheck %s
+; RUN: opt -inferattrs -S %s 2>&1 | FileCheck %s
 ; CHECK-NOT: Function Attrs: nounwind readonly
 
 ; CMPLRLLVM-7246: -licm and -early-cse-memssa should not move function calls

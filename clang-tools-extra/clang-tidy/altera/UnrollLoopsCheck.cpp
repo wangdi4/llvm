@@ -104,6 +104,10 @@ UnrollLoopsCheck::unrollType(const Stmt *Statement, ASTContext *Context) {
         return NotUnrolled;
       case LoopHintAttr::ScalableWidth:
         return NotUnrolled;
+#if INTEL_CUSTOMIZATION
+      case LoopHintAttr::LoopExpr:
+        return NotUnrolled;
+#endif // INTEL_CUSTOMIZATION
       }
     }
   }

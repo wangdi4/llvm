@@ -20,6 +20,7 @@ entry:
 ; CHECK-LABEL: WGLoopsEntry:
 ; CHECK-NEXT: %init.gid.dim0 = extractvalue [7 x i64] %early_exit_call, 1
 ; CHECK-NEXT: %loop.size.dim0 = extractvalue [7 x i64] %early_exit_call, 2
+; CHECK-NEXT: %max.gid.dim0 = add i64 %init.gid.dim0, %loop.size.dim0
 ; CHECK-NEXT: [[GEP:%[0-9]+]] = getelementptr inbounds i32, i32 addrspace(1)* %dst, i64 %init.gid.dim0
 ; CHECK-NEXT: [[BITCAST:%[0-9]+]] = bitcast i32 addrspace(1)* [[GEP]] to <16 x i32> addrspace(1)*
 ; CHECK-NEXT: %peel.ptr2int = ptrtoint <16 x i32> addrspace(1)* [[BITCAST]] to i64
@@ -29,10 +30,10 @@ entry:
 ; CHECK-NEXT: %peel.ptr2int.and.req.align = and i64 %peel.ptr2int, 3
 ; CHECK-NEXT: %peel.ptr2int.req.aligned = icmp eq i64 %peel.ptr2int.and.req.align, 0
 ; CHECK-NEXT: %peel.size = select i1 %peel.ptr2int.req.aligned, i64 %peel.count.dynamic, i64 0
+; CHECK-NEXT: %max.peel.gid = add i64 %peel.size, %init.gid.dim0
 ; CHECK-NEXT: %vector.scalar.size = sub i64 %loop.size.dim0, %peel.size
 ; CHECK-NEXT: %vector.size = ashr i64 %vector.scalar.size, 4
 ; CHECK-NEXT: %num.vector.wi = shl i64 %vector.size, 4
-; CHECK-NEXT: %max.peel.gid = add i64 %peel.size, %init.gid.dim0
 ; CHECK-NEXT: %max.vector.gid = add i64 %num.vector.wi, %max.peel.gid
 ; CHECK-NEXT: %scalar.size = sub i64 %vector.scalar.size, %num.vector.wi
 ; CHECK: br label %peel_if
@@ -49,12 +50,15 @@ entry:
 
 ; CHECK-LABEL: remainder_pre_entry:
 ; CHECK-NEXT: %is.peel.loop = phi i1 [ false, %remainder_if ], [ true, %peel_pre_head ]
-; CHECK-NEXT: %scalar.init.gid = phi i64 [ %max.vector.gid, %remainder_if ], [ %init.gid.dim0, %peel_pre_head ]
-; CHECK-NEXT: %scalar.loop.size = phi i64 [ %scalar.size, %remainder_if ], [ %peel.size, %peel_pre_head ]
+; CHECK-NEXT: %peel.remainder.init.gid = phi i64 [ %init.gid.dim0, %peel_pre_head ], [ %max.vector.gid, %remainder_if ]
+; CHECK-NEXT: %peel.remainder.max.gid = phi i64 [ %max.peel.gid, %peel_pre_head ], [ %max.gid.dim0, %remainder_if ]
 ; CHECK-NEXT: br label %dim_0_pre_head
 
 ; CHECK-LABEL: dim_0_pre_head:
 ; CHECK-NEXT: br label %scalar_kernel_entry
+
+; CHECK-LABEL: scalar_kernel_entry:
+; CHECK: br i1 %{{.*}}, label %dim_0_exit, label %scalar_kernel_entry, !llvm.loop [[LOOP:![0-9]+]]
 
 ; CHECK-LABEL: dim_0_exit:
 ; CHECK-NEXT: br i1 %is.peel.loop, label %peel_exit, label %ret
@@ -106,6 +110,9 @@ attributes #1 = { convergent nounwind readnone "correctly-rounded-divide-sqrt-fp
 attributes #2 = { nounwind }
 attributes #3 = { convergent nounwind readnone }
 
+; CHECK: [[LOOP]] = distinct !{[[LOOP]], [[LOOPMD:![0-9]+]]}
+; CHECK-NEXT: [[LOOPMD]] = !{!"llvm.loop.unroll.disable"}
+
 !sycl.kernels = !{!0}
 
 !0 = !{void (i32 addrspace(1)*)* @test}
@@ -128,7 +135,8 @@ attributes #3 = { convergent nounwind readnone }
 !17 = !{i32 5}
 !18 = !{i32 64}
 
-; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-41: WARNING: Instruction with empty DebugLoc in function test
+; DEBUGIFY-COUNT-40: WARNING: Instruction with empty DebugLoc in function test
+; DEBUGIFY: WARNING: Missing line 1
+; DEBUGIFY: WARNING: Missing line 19
 ; DEBUGIFY: WARNING: Missing line 23
 ; DEBUGIFY-NOT: WARNING

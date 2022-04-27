@@ -1,5 +1,5 @@
 ; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-data-per-value-analysis>' -S < %s | FileCheck %s
-; RUN: opt -analyze -dpcpp-kernel-data-per-value-analysis -S < %s | FileCheck %s
+; RUN: opt -analyze -enable-new-pm=0 -dpcpp-kernel-data-per-value-analysis -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ; This test checks the Barrier pass
@@ -101,9 +101,13 @@ L2:
 ; CHECK-NOT: +
 ; CHECK-NOT: -
 ; CHECK-NOT: *
-; CHECK: Buffer Total Size:
-; CHECK: entry(1) : (32)
-; CHECK: DONE
+
+; CHECK: Function Equivalence Classes:
+; CHECK-NEXT: [main]: main foo
+
+; CHECK-NEXT: Buffer Total Size:
+; CHECK-NEXT: leader(main) : (32)
+; CHECK-NEXT: DONE
 
 declare void @_Z18work_group_barrierj(i32)
 declare i64 @_Z12get_local_idj(i32)

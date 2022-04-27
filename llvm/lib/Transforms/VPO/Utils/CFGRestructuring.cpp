@@ -48,12 +48,12 @@ static void splitBB(Instruction *SplitPoint, DominatorTree *DT, LoopInfo *LI,
   }
 }
 
-/// Directives are represented with @llvm.directive.region.entry/exit
-/// intrinsics. WRegion Construction requires that each such intrinsic be on
-/// a BasicBlock by itself, with no other instructions in the same BB except
-/// for the terminating unconditional branch.
-/// This is done by splitting the BB before and after the intrinsic.
-void VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
+// Directives are represented with @llvm.directive.region.entry/exit
+// intrinsics. WRegion Construction requires that each such intrinsic be on
+// a BasicBlock by itself, with no other instructions in the same BB except
+// for the terminating unconditional branch.
+// This is done by splitting the BB before and after the intrinsic.
+bool VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
 
   LLVM_DEBUG(dbgs() << "VPO CFG Restructuring \n");
 
@@ -69,6 +69,10 @@ void VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
   BasicBlock *FunctionEntryBB = &(F.getEntryBlock());
   unsigned Counter = 0; // Used to create unique names for newly created BBs
 
+  if (InstructionsToSplit.empty())
+    return false;
+
+  bool Changed = false;
   // Go through InstructionsToSplit to split the BBs according to the
   // aforementioned rules.
   for (Instruction *I : InstructionsToSplit) {
@@ -85,17 +89,21 @@ void VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
     // Split before I.
     // Optimization: skip this if I is BB's first instruction && BB has only
     // one predecessor && BB is not FunctionEntryBB.
-    if (IsFunctionEntry ||
-        (I != &(BB->front())) ||
-        (std::distance(pred_begin(BB), pred_end(BB))>1))
+    if (IsFunctionEntry || (I != &(BB->front())) ||
+        (std::distance(pred_begin(BB), pred_end(BB)) > 1)) {
       splitBB(I, DT, LI, DirString, Counter);
+      Changed = true;
+    }
 
-    if (VPOAnalysisUtils::isBeginDirectiveOfRegionsNeedingOutlining(DirString))
+    if (VPOAnalysisUtils::isBeginDirectiveOfRegionsNeedingOutlining(
+            DirString)) {
       // For regions that need outlining, create an extra empty BBlock before
       // the region entry's BBlock, otherwise code-generation for the region may
       // hinder the Loop recognition of any outer loop construct, if present.
       // Check par_in_section.ll Lit test for reference.
       splitBB(I, DT, LI, DirString, Counter);
+      Changed = true;
+    }
 
     // Split after I.
     BasicBlock::iterator Inst(I);
@@ -106,7 +114,10 @@ void VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
     if (BI && BI->isUnconditional())
       continue; // skip; don't split
     splitBB(SplitPoint, DT, LI, DirString, Counter);
+    Changed = true;
   }
+
+  return Changed;
 }
 
 using namespace llvm;
@@ -147,10 +158,7 @@ bool VPOCFGRestructuring::runOnFunction(Function &F) {
 
 bool VPOCFGRestructuringPass::runImpl(Function &F, DominatorTree *DT,
                                       LoopInfo *LI) {
-
-  VPOUtils::CFGRestructuring(F, DT, LI);
-
-  return true;
+  return VPOUtils::CFGRestructuring(F, DT, LI);
 }
 
 void VPOCFGRestructuring::getAnalysisUsage(AnalysisUsage &AU) const {

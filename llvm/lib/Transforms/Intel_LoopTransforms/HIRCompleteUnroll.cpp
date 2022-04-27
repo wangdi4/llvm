@@ -159,6 +159,11 @@ static cl::opt<unsigned> SmallLoopMemRefThreshold(
     cl::desc("Threshold for memory refs in small loops (higher probability of "
              "unrolling)"));
 
+static cl::opt<unsigned> BaseMemRefCost(
+    "hir-complete-unroll-base-memref-cost", cl::init(2), cl::Hidden,
+    cl::desc(
+        "Weightage assigned to each occurence of memory ref in cost model"));
+
 static cl::opt<unsigned>
     SmallLoopDDRefThreshold("hir-complete-unroll-small-ddref-threshold",
                             cl::init(32), cl::Hidden,
@@ -190,6 +195,10 @@ static cl::opt<bool> ForceConstantPropagation(
     "hir-complete-unroll-force-constprop", cl::init(false), cl::Hidden,
     cl::desc(
         "Force Constant Propagation in HIR Complete Unroll for all loops"));
+
+static cl::opt<unsigned> PerfectLoopDepthThreshold(
+    "hir-complete-unroll-perfect-loop-depth-threshold", cl::init(7), cl::Hidden,
+    cl::desc("Threshold for perfect loop depth"));
 
 // External interface
 namespace llvm {
@@ -550,7 +559,8 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   /// indicates that all the subscripts can be simplified to constants.
   /// Returns true if \p Ref can be simplified to a constant.
   bool addGEPCost(const RegDDRef *Ref, bool AddToVisitedSet,
-                  bool CanSimplifySubs, unsigned NumAddressSimplifications);
+                  bool CanSimplifySubs, unsigned NumAddressSimplifications,
+                  unsigned AddressCost);
 
   /// Returns true if \p Ref has been visited already. Sets \p AddToVisitedSet
   /// to true to indicate that \p Ref should be added to visited set. Sets \p
@@ -2026,11 +2036,11 @@ static bool isMemIdiomStore(const RegDDRef *StoreRef, const HLLoop *OuterLoop) {
 
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(
     const RegDDRef *Ref, bool AddToVisitedSet, bool CanSimplifySubs,
-    unsigned NumAddressSimplifications) {
+    unsigned NumAddressSimplifications, unsigned AddressCost) {
   assert(Ref->hasGEPInfo() && "GEP ref expected!");
 
   bool IsMemRef = Ref->isMemRef();
-  unsigned BaseCost = IsMemRef ? 2 : 1;
+  unsigned BaseCost = IsMemRef ? BaseMemRefCost : 1;
 
   // Here we account for savings from redundancies in GEP refs exposed due to
   // complete unroll.
@@ -2093,7 +2103,8 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(
       GEPCost += (UniqueOccurences * BaseCost);
       GEPSavings += ((GEPInfo.TotalOccurences - UniqueOccurences) * BaseCost);
 
-      // Account for address computations we saved.
+      // Account for address cost we incurred and computations we saved.
+      GEPCost += (UniqueOccurences * AddressCost);
       GEPSavings += (GEPInfo.TotalOccurences * NumAddressSimplifications);
 
       // This ref can be hoisted outside the unrolled loop so we add extra
@@ -2172,8 +2183,10 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processGEPRef(
 
   bool CanSimplify = true;
   unsigned NumAddressSimplifications = 0;
+  unsigned AddressCost = 0;
   bool AnyDimSimplified = false;
   bool HasNonZeroDimOrOffsets = false;
+  bool IsUnconditional = isUnconditionallyExecuted(Ref, CurLoop);
 
   // Processes embedded canon exprs and computes address simplification
   // opportunities. Address computation is associative. This means that
@@ -2193,6 +2206,12 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processGEPRef(
 
     if (!CanSimplifyDim) {
       CanSimplify = false;
+
+      // Account for code size increase of (index * stride) for each loop
+      // iteration when Ref is under control flow.
+      if (!IsUnconditional) {
+        ++AddressCost;
+      }
 
     } else {
       int64_t Val;
@@ -2238,8 +2257,18 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processGEPRef(
     }
   }
 
-  CanSimplify =
-      addGEPCost(Ref, AddToVisitedSet, CanSimplify, NumAddressSimplifications);
+  if (!IsUnconditional) {
+    // For conditional refs, cap max address cost/simplifications to
+    // BaseMemRefCost to prevent too much skewing in cost model.
+    // TODO: Improve weightage given to address simplifications so they don't
+    // dwarf other costs/savings.
+    if (NumAddressSimplifications > BaseMemRefCost) {
+      NumAddressSimplifications = BaseMemRefCost;
+    }
+  }
+
+  CanSimplify = addGEPCost(Ref, AddToVisitedSet, CanSimplify,
+                           NumAddressSimplifications, AddressCost);
 
   return CanSimplify;
 }
@@ -2790,6 +2819,16 @@ bool HIRCompleteUnroll::isApplicable(const HLLoop *Loop) const {
     return false;
   }
 
+  // Ignore perfect loopnests with the deep depth
+  const HLLoop *InnermostLoop = nullptr;
+  if (!Loop->isInnermost() &&
+      HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop, false) &&
+      InnermostLoop->getNestingLevel() >= PerfectLoopDepthThreshold) {
+    LLVM_DEBUG(dbgs() << "Skipping complete unroll of perfect loopnest with "
+                         "deep loop depth!\n");
+    return false;
+  }
+
   // Handle normalized loops only.
   if (!Loop->isNormalized()) {
     LLVM_DEBUG(dbgs() << "Skipping complete unroll of non-normalized loop!\n");
@@ -3135,6 +3174,12 @@ void HIRCompleteUnroll::doUnroll(HLLoop *Loop) {
 
   Loop->getParentRegion()->setGenCode();
 
+  // We may have to update number of exits of parent loops after unrolling inner
+  // multi-exit loop. Store the pointer to outermost loop before loop gets
+  // unrolled in transformLoop() below.
+  auto *OutermostParentLoop =
+      Loop->isMultiExit() ? Loop->getOutermostParentLoop() : nullptr;
+
   SmallVector<int64_t, MaxLoopNestLevel> IVValues;
   CanonExprUpdater CEUpdater(Loop->getNestingLevel(), IVValues,
                              Loop->hasCompleteUnrollEnablingPragma());
@@ -3142,6 +3187,10 @@ void HIRCompleteUnroll::doUnroll(HLLoop *Loop) {
   transformLoop(Loop, CEUpdater, true);
 
   assert(IVValues.empty() && "IV values were not cleaned up!");
+
+  if (OutermostParentLoop) {
+    HLNodeUtils::updateNumLoopExits(OutermostParentLoop);
+  }
 }
 
 // Transform (Complete Unroll) each loop inside the CandidateLoops vector

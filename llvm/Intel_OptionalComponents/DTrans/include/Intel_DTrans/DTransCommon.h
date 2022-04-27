@@ -1,6 +1,6 @@
 //===------------------ DTransCommon.h - Shared DTrans code ---------------===//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -45,6 +45,7 @@ void initializeDTransDeleteFieldOPWrapperPass(PassRegistry&);
 void initializeDTransPaddedMallocWrapperPass(PassRegistry&);
 void initializeDTransPaddedMallocOPWrapperPass(PassRegistry&);
 void initializeDTransReorderFieldsWrapperPass(PassRegistry&);
+void initializeDTransReorderFieldsOPWrapperPass(PassRegistry&);
 void initializeDTransResolveTypesWrapperPass(PassRegistry&);
 // Pass for elimination of unreachable access to field which is only read.
 void initializeDTransEliminateROFieldAccessWrapperPass(PassRegistry&);
@@ -56,15 +57,22 @@ void initializeDTransDynCloneOPWrapperPass(PassRegistry&);
 void initializeDTransSOAToAOSWrapperPass(PassRegistry&);
 void initializeDTransSOAToAOSOPWrapperPass(PassRegistry&);
 void initializeDTransSOAToAOSPrepareWrapperPass(PassRegistry&);
+void initializeDTransSOAToAOSOPPrepareWrapperPass(PassRegistry&);
 void initializeDTransAnnotatorCleanerWrapperPass(PassRegistry&);
 void initializeDTransWeakAlignWrapperPass(PassRegistry&);
 void initializeDTransMemInitTrimDownWrapperPass(PassRegistry&);
 void initializeDTransMemInitTrimDownOPWrapperPass(PassRegistry&);
 void initializeDTransMemManageTransWrapperPass(PassRegistry&);
 void initializeDTransCodeAlignWrapperPass(PassRegistry&);
+void initializeDTransCodeAlignOPWrapperPass(PassRegistry&);
 void initializeDTransTransposeWrapperPass(PassRegistry&);
 void initializeDTransCommuteCondWrapperPass(PassRegistry&);
 void initializeDTransCommuteCondOPWrapperPass(PassRegistry&);
+void initializeRemoveAllDTransTypeMetadataWrapperPass(PassRegistry &);
+void initializeRemoveDeadDTransTypeMetadataWrapperPass(PassRegistry &);
+void initializeDTransForceInlineWrapperPass(PassRegistry &);
+void initializeDTransForceInlineOPWrapperPass(PassRegistry &);
+void initializeDTransNormalizeOPWrapperPass(PassRegistry &);
 
 #if !INTEL_PRODUCT_RELEASE
 void initializeDTransOPOptBaseTestWrapperPass(PassRegistry&);

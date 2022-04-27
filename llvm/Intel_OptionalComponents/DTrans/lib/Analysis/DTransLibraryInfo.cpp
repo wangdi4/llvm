@@ -1,6 +1,6 @@
 //===-------DTransLibraryInfo.cpp - Library function information-----------===//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -402,6 +402,36 @@ DTransLibraryInfo::getDTransFunctionTypeImpl(Intrinsic::ID Id) {
         DTransVoidType,
         {DTransI8PtrType, DTransI8Type, DTransSizeType, DTransI1Type},
         /*IsVarArg=*/false);
+
+  case Intrinsic::prefetch:
+    // void @llvm.prefetch(i8*, i32, i32, i32)
+    return TM.getOrCreateFunctionType(
+        DTransVoidType,
+        {DTransI8PtrType, DTransI32Type, DTransI32Type, DTransI32Type},
+        /*IsVarArg=*/false);
+
+  case Intrinsic::stackrestore:
+    // void @llvm.stackrestore(i8*)
+    return TM.getOrCreateFunctionType(DTransVoidType, {DTransI8PtrType},
+                                      /*IsVarArg=*/false);
+
+  case Intrinsic::stacksave:
+    // i8* llvm.stacksave()
+    return TM.getOrCreateFunctionType(DTransI8PtrType, {},
+                                      /*IsVarArg=*/false);
+
+  case Intrinsic::vacopy:
+    // void @llvm.va_copy(i8*, i8*)
+    return TM.getOrCreateFunctionType(DTransVoidType,
+                                      {DTransI8PtrType, DTransI8PtrType},
+                                      /*IsVarArg=*/false);
+
+  case Intrinsic::vaend:
+  case Intrinsic::vastart:
+    // void @llvm.va_end(i8*)
+    // void @llvm.va_start(i8*)
+    return TM.getOrCreateFunctionType(DTransVoidType, {DTransI8PtrType},
+                                      /*IsVarArg=*/false);
   }
 
   return nullptr;

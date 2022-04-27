@@ -1,4 +1,21 @@
 //===--- CodeGenModule.h - Per-Module state for LLVM CodeGen ----*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -46,7 +63,6 @@ class GlobalValue;
 class DataLayout;
 class FunctionType;
 class LLVMContext;
-class OpenMPIRBuilder;
 class IndexedInstrProfReader;
 }
 
@@ -55,17 +71,13 @@ class ASTContext;
 class AtomicType;
 class FunctionDecl;
 class IdentifierInfo;
-class ObjCMethodDecl;
 class ObjCImplementationDecl;
-class ObjCCategoryImplDecl;
-class ObjCProtocolDecl;
 class ObjCEncodeExpr;
 class BlockExpr;
 class CharUnits;
 class Decl;
 class Expr;
 class Stmt;
-class InitListExpr;
 class StringLiteral;
 class NamedDecl;
 class ValueDecl;
@@ -78,13 +90,10 @@ class AnnotateAttr;
 class CXXDestructorDecl;
 class Module;
 class CoverageSourceInfo;
-class TargetAttr;
 class InitSegAttr;
-struct ParsedTargetAttr;
 
 namespace CodeGen {
 
-class CallArgList;
 class CodeGenFunction;
 class CodeGenTBAA;
 class CGCXXABI;
@@ -94,8 +103,6 @@ class CGOpenCLRuntime;
 class CGOpenMPRuntime;
 class CGCUDARuntime;
 class CGSYCLRuntime;
-class BlockFieldFlags;
-class FunctionArgList;
 class CoverageMappingModuleGen;
 class TargetCodeGenInfo;
 
@@ -312,7 +319,7 @@ private:
   const TargetInfo &Target;
   std::unique_ptr<CGCXXABI> ABI;
   llvm::LLVMContext &VMContext;
-  std::string ModuleNameHash = "";
+  std::string ModuleNameHash;
 
   std::unique_ptr<CodeGenTBAA> TBAA;
 
@@ -353,11 +360,14 @@ private:
   void AddPragmaCommentLib(StringRef Lib);
 
 #if INTEL_FEATURE_SW_DTRANS
+  using DTransCollection =
+      llvm::MapVector<const RecordDecl *,
+                      llvm::SmallVector<llvm::StructType *, 2>>;
+
   /// List of types used in the application, used later to generate DTrans
   /// metadata. Some RecordDecl's can be emitted as a base class, so they can
   /// have 2 representations, so we store/generate both.
-  llvm::MapVector<const RecordDecl *, llvm::SmallVector<llvm::StructType *, 2>>
-      DTransTypes;
+  DTransCollection DTransTypes;
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
@@ -379,7 +389,7 @@ private:
   /// for emission and therefore should only be output if they are actually
   /// used. If a decl is in this, then it is known to have not been referenced
   /// yet.
-  std::map<StringRef, GlobalDecl> DeferredDecls;
+  llvm::DenseMap<StringRef, GlobalDecl> DeferredDecls;
 
   /// This contains all the aliases that are deferred for emission until
   /// they or what they alias are actually used.  Note that the StringRef
@@ -397,8 +407,9 @@ private:
   /// is defined once we get to the end of the of the translation unit.
   std::vector<GlobalDecl> Aliases;
 
-  /// List of multiversion functions that have to be emitted.  Used to make sure
-  /// we properly emit the iFunc.
+  /// List of multiversion functions to be emitted. This list is processed in
+  /// conjunction with other deferred symbols and is used to ensure that
+  /// multiversion function resolvers and ifuncs are defined and emitted.
   std::vector<GlobalDecl> MultiVersionFuncs;
 
   typedef llvm::StringMap<llvm::TrackingVH<llvm::Constant> > ReplacementsTy;
@@ -443,13 +454,6 @@ private:
   llvm::MapVector<GlobalDecl, StringRef> MangledDeclNames;
   llvm::StringMap<GlobalDecl, llvm::BumpPtrAllocator> Manglings;
 
-  // An ordered map of canonical GlobalDecls paired with the cpu-index for
-  // cpu-specific name manglings.
-  llvm::MapVector<std::pair<GlobalDecl, unsigned>, StringRef>
-      CPUSpecificMangledDeclNames;
-  llvm::StringMap<std::pair<GlobalDecl, unsigned>, llvm::BumpPtrAllocator>
-      CPUSpecificManglings;
-
   /// Global annotations.
   std::vector<llvm::Constant*> Annotations;
 
@@ -459,9 +463,15 @@ private:
   /// Used for uniquing of annotation arguments.
   llvm::DenseMap<unsigned, llvm::Constant *> AnnotationArgs;
 
+  /// Used for uniquing of SYCL annotation arguments. SYCL annotations are
+  /// handled differently than regular annotations so they cannot share map.
+  llvm::DenseMap<unsigned, llvm::Constant *> SYCLAnnotationArgs;
+
   llvm::StringMap<llvm::GlobalVariable *> CFConstantStringMap;
 
   llvm::DenseMap<llvm::Constant *, llvm::GlobalVariable *> ConstantStringMap;
+  llvm::DenseMap<const UnnamedGlobalConstantDecl *, llvm::GlobalVariable *>
+      UnnamedGlobalConstantDeclMap;
   llvm::DenseMap<const Decl*, llvm::Constant *> StaticLocalDeclMap;
   llvm::DenseMap<const Decl*, llvm::GlobalVariable*> StaticLocalDeclGuardMap;
   llvm::DenseMap<const Expr*, llvm::Constant *> MaterializedGlobalTemporaryMap;
@@ -916,7 +926,9 @@ public:
 
   llvm::Function *CreateGlobalInitOrCleanUpFunction(
       llvm::FunctionType *ty, const Twine &name, const CGFunctionInfo &FI,
-      SourceLocation Loc = SourceLocation(), bool TLS = false);
+      SourceLocation Loc = SourceLocation(), bool TLS = false,
+      llvm::GlobalVariable::LinkageTypes Linkage =
+          llvm::GlobalVariable::InternalLinkage);
 
   /// Return the AST address space of the underlying global variable for D, as
   /// determined by its declaration. Normally this is the same as the address
@@ -962,6 +974,10 @@ public:
 
   /// Get the address of a GUID.
   ConstantAddress GetAddrOfMSGuidDecl(const MSGuidDecl *GD);
+
+  /// Get the address of a UnnamedGlobalConstant
+  ConstantAddress
+  GetAddrOfUnnamedGlobalConstantDecl(const UnnamedGlobalConstantDecl *GCD);
 
   /// Get the address of a template parameter object.
   ConstantAddress
@@ -1464,6 +1480,7 @@ public:
 
   StringRef getMangledName(GlobalDecl GD);
   StringRef getBlockMangledName(GlobalDecl GD, const BlockDecl *BD);
+  const GlobalDecl getMangledNameDecl(StringRef);
 
   void EmitTentativeDefinition(const VarDecl *D);
 
@@ -1534,6 +1551,14 @@ public:
   /// Add global annotations that are set on D, for the global GV. Those
   /// annotations are emitted during finalization of the LLVM code.
   void AddGlobalAnnotations(const ValueDecl *D, llvm::GlobalValue *GV);
+
+  /// Emit additional args of the annotation.
+  llvm::Constant *
+  EmitSYCLAnnotationArgs(const SYCLAddIRAnnotationsMemberAttr *Attr);
+
+  /// Add attributes from add_ir_attributes_global_variable on TND to GV.
+  void AddGlobalSYCLIRAttributes(llvm::GlobalVariable *GV,
+                                 const RecordDecl *RD);
 
   bool isInNoSanitizeList(SanitizerMask Kind, llvm::Function *Fn,
                           SourceLocation Loc) const;
@@ -1698,9 +1723,16 @@ public:
                                            TBAAAccessInfo *TBAAInfo = nullptr);
   bool stopAutoInit();
 
-  /// Print the postfix for externalized static variable for single source
-  /// offloading languages CUDA and HIP.
-  void printPostfixForExternalizedStaticVar(llvm::raw_ostream &OS) const;
+#if INTEL_COLLAB
+  /// Return string representing effects of an adjust_args clause.
+  std::string getDevPtrAttrString(GlobalDecl VariantFunc,
+                                  const FunctionDecl *BaseFunc,
+                                  const OMPDeclareVariantAttr *Attr);
+#endif // INTEL_COLLAB
+  /// Print the postfix for externalized static variable or kernels for single
+  /// source offloading languages CUDA and HIP.
+  void printPostfixForExternalizedDecl(llvm::raw_ostream &OS,
+                                       const Decl *D) const;
 
 private:
   llvm::Constant *GetOrCreateLLVMFunction(
@@ -1709,10 +1741,20 @@ private:
       llvm::AttributeList ExtraAttrs = llvm::AttributeList(),
       ForDefinition_t IsForDefinition = NotForDefinition);
 
-  llvm::Constant *GetOrCreateMultiVersionResolver(GlobalDecl GD,
-                                                  llvm::Type *DeclTy,
-                                                  const FunctionDecl *FD);
-  void UpdateMultiVersionNames(GlobalDecl GD, const FunctionDecl *FD);
+  // References to multiversion functions are resolved through an implicitly
+  // defined resolver function. This function is responsible for creating
+  // the resolver symbol for the provided declaration. The value returned
+  // will be for an ifunc (llvm::GlobalIFunc) if the current target supports
+  // that feature and for a regular function (llvm::GlobalValue) otherwise.
+  llvm::Constant *GetOrCreateMultiVersionResolver(GlobalDecl GD);
+
+  // In scenarios where a function is not known to be a multiversion function
+  // until a later declaration, it is sometimes necessary to change the
+  // previously created mangled name to align with requirements of whatever
+  // multiversion function kind the function is now known to be. This function
+  // is responsible for performing such mangled name updates.
+  void UpdateMultiVersionNames(GlobalDecl GD, const FunctionDecl *FD,
+                               StringRef &CurName);
 
   llvm::Constant *
   GetOrCreateLLVMGlobal(StringRef MangledName, llvm::Type *Ty, LangAS AddrSpace,
@@ -1737,7 +1779,6 @@ private:
   void EmitAliasDefinition(GlobalDecl GD);
   void emitIFuncDefinition(GlobalDecl GD);
   void emitCPUDispatchDefinition(GlobalDecl GD);
-  void EmitTargetClonesResolver(GlobalDecl GD);
   void EmitObjCPropertyImplementations(const ObjCImplementationDecl *D);
   void EmitObjCIvarInitializations(ObjCImplementationDecl *D);
 
@@ -1803,6 +1844,7 @@ private:
   // registered by the atexit subroutine using unatexit.
   void unregisterGlobalDtorsWithUnAtExit();
 
+  /// Emit deferred multiversion function resolvers and associated variants.
   void emitMultiVersionFunctions();
 
   /// Emit any vtables which we deferred and still have a use for.
@@ -1817,6 +1859,16 @@ private:
 
   /// Emit the link options introduced by imported modules.
   void EmitModuleLinkOptions();
+
+  /// Helper function for EmitStaticExternCAliases() to redirect ifuncs that
+  /// have a resolver name that matches 'Elem' to instead resolve to the name of
+  /// 'CppFunc'. This redirection is necessary in cases where 'Elem' has a name
+  /// that will be emitted as an alias of the name bound to 'CppFunc'; ifuncs
+  /// may not reference aliases. Redirection is only performed if 'Elem' is only
+  /// used by ifuncs in which case, 'Elem' is destroyed. 'true' is returned if
+  /// redirection is successful, and 'false' is returned otherwise.
+  bool CheckAndReplaceExternCIFuncs(llvm::GlobalValue *Elem,
+                                    llvm::GlobalValue *CppFunc);
 
   /// Emit aliases for internal-linkage declarations inside "C" language
   /// linkage specifications, giving them the "expected" name where possible.

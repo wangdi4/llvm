@@ -1,4 +1,21 @@
 //===- SymbolTable.cpp ----------------------------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -37,23 +54,30 @@ StringRef ltrim1(StringRef s, const char *chars) {
 
 void SymbolTable::addFile(InputFile *file) {
   log("Reading " + toString(file));
-  file->parse();
+  if (file->lazy) {
+    if (auto *f = dyn_cast<BitcodeFile>(file))
+      f->parseLazy();
+    else
+      cast<ObjFile>(file)->parseLazy();
+  } else {
+    file->parse();
+    if (auto *f = dyn_cast<ObjFile>(file)) {
+      ctx.objFileInstances.push_back(f);
+    } else if (auto *f = dyn_cast<BitcodeFile>(file)) {
+      ctx.bitcodeFileInstances.push_back(f);
+    } else if (auto *f = dyn_cast<ImportFile>(file)) {
+      ctx.importFileInstances.push_back(f);
+    }
+  }
 
   MachineTypes mt = file->getMachineType();
   if (config->machine == IMAGE_FILE_MACHINE_UNKNOWN) {
     config->machine = mt;
+    driver->addWinSysRootLibSearchPaths();
   } else if (mt != IMAGE_FILE_MACHINE_UNKNOWN && config->machine != mt) {
     error(toString(file) + ": machine type " + machineToStr(mt) +
           " conflicts with " + machineToStr(config->machine));
     return;
-  }
-
-  if (auto *f = dyn_cast<ObjFile>(file)) {
-    ctx.objFileInstances.push_back(f);
-  } else if (auto *f = dyn_cast<BitcodeFile>(file)) {
-    ctx.bitcodeFileInstances.push_back(f);
-  } else if (auto *f = dyn_cast<ImportFile>(file)) {
-    ctx.importFileInstances.push_back(f);
   }
 
   driver->parseDirectives(file);
@@ -75,9 +99,11 @@ static void forceLazy(Symbol *s) {
     l->file->addMember(l->sym);
     break;
   }
-  case Symbol::Kind::LazyObjectKind:
-    cast<LazyObject>(s)->file->fetch();
+  case Symbol::Kind::LazyObjectKind: {
+    InputFile *file = cast<LazyObject>(s)->file;
+    file->ctx.symtab.addFile(file);
     break;
+  }
   case Symbol::Kind::LazyDLLSymbolKind: {
     auto *l = cast<LazyDLLSymbol>(s);
     l->file->makeImport(l->sym);
@@ -126,7 +152,7 @@ getFileLineDwarf(const SectionChunk *c, uint32_t addr) {
   const DILineInfo &lineInfo = *optionalLineInfo;
   if (lineInfo.FileName == DILineInfo::BadString)
     return None;
-  return std::make_pair(saver.save(lineInfo.FileName), lineInfo.Line);
+  return std::make_pair(saver().save(lineInfo.FileName), lineInfo.Line);
 }
 
 static Optional<std::pair<StringRef, uint32_t>>
@@ -604,7 +630,8 @@ void SymbolTable::addLazyArchive(ArchiveFile *f, const Archive::Symbol &sym) {
   f->addMember(sym);
 }
 
-void SymbolTable::addLazyObject(LazyObjFile *f, StringRef n) {
+void SymbolTable::addLazyObject(InputFile *f, StringRef n) {
+  assert(f->lazy);
   Symbol *s;
   bool wasInserted;
   std::tie(s, wasInserted) = insert(n, f);
@@ -616,7 +643,8 @@ void SymbolTable::addLazyObject(LazyObjFile *f, StringRef n) {
   if (!u || u->weakAlias || s->pendingArchiveLoad)
     return;
   s->pendingArchiveLoad = true;
-  f->fetch();
+  f->lazy = false;
+  addFile(f);
 }
 
 void SymbolTable::addLazyDLLSymbol(DLLFile *f, DLLFile::Symbol *sym,

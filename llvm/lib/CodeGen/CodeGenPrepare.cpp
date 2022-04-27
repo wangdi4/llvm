@@ -1,4 +1,21 @@
 //===- CodeGenPrepare.cpp - Prepare a function for code generation --------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -23,10 +40,8 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
-#include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -402,6 +417,7 @@ class TypePromotionTransaction;
     bool optimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
                             Type *AccessTy, unsigned AddrSpace);
     bool optimizeGatherScatterInst(Instruction *MemoryInst, Value *Ptr);
+    bool optimizeGatherScatterInstExt(Instruction *MemoryInst, Value *Ptr); // INTEL
     bool optimizeInlineAsmInst(CallInst *CS);
     bool optimizeCallInst(CallInst *CI, bool &ModifiedDT);
     bool optimizeExt(Instruction *&I);
@@ -572,8 +588,11 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
 #if INTEL_CUSTOMIZATION
   // Split some critical edges where one of the sources is an indirect branch
   // or switch, to help generate sane code for PHIs involving such edges.
-  EverMadeChange |= SplitIndirectBrCriticalEdges(F, BPI.get(), BFI.get(),
-      EnableSwitchCriticalEdgeSplit, DontSplitColdCriticalEdge);
+  EverMadeChange |=
+      SplitIndirectBrCriticalEdges(F, /*IgnoreBlocksWithoutPHI=*/true,
+                                   BPI.get(), BFI.get(),
+                                   EnableSwitchCriticalEdgeSplit,
+                                   DontSplitColdCriticalEdge);
 #endif // INTEL_CUSTOMIZATION
 
   bool MadeChange = true;
@@ -2297,10 +2316,20 @@ bool CodeGenPrepare::optimizeCallInst(CallInst *CI, bool &ModifiedDT) {
       }
       break;
     }
-    case Intrinsic::masked_gather:
-      return optimizeGatherScatterInst(II, II->getArgOperand(0));
-    case Intrinsic::masked_scatter:
-      return optimizeGatherScatterInst(II, II->getArgOperand(1));
+#if INTEL_CUSTOMIZATION
+    case Intrinsic::masked_gather: {
+      bool Changed = false;
+      Changed |= optimizeGatherScatterInst(II, II->getArgOperand(0));
+      Changed |= optimizeGatherScatterInstExt(II, II->getArgOperand(0));
+      return Changed;
+    }
+    case Intrinsic::masked_scatter: {
+      bool Changed = false;
+      Changed |= optimizeGatherScatterInst(II, II->getArgOperand(1));
+      Changed |= optimizeGatherScatterInstExt(II, II->getArgOperand(1));
+      return Changed;
+    }
+#endif // INTEL_CUSTOMIZATION
     }
 
     SmallVector<Value *, 2> PtrOps;
@@ -3501,7 +3530,7 @@ private:
   bool AllAddrModesTrivial = true;
 
   /// Common Type for all different fields in addressing modes.
-  Type *CommonType;
+  Type *CommonType = nullptr;
 
   /// SimplifyQuery for simplifyInstruction utility.
   const SimplifyQuery &SQ;
@@ -3511,7 +3540,7 @@ private:
 
 public:
   AddressingModeCombiner(const SimplifyQuery &_SQ, Value *OriginalValue)
-      : CommonType(nullptr), SQ(_SQ), Original(OriginalValue) {}
+      : SQ(_SQ), Original(OriginalValue) {}
 
   /// Get the combined AddrMode
   const ExtAddrMode &getAddrMode() const {
@@ -4223,11 +4252,11 @@ bool TypePromotionHelper::canGetThrough(const Instruction *Inst,
 
   // We can get through binary operator, if it is legal. In other words, the
   // binary operator must have a nuw or nsw flag.
-  const BinaryOperator *BinOp = dyn_cast<BinaryOperator>(Inst);
-  if (isa_and_nonnull<OverflowingBinaryOperator>(BinOp) &&
-      ((!IsSExt && BinOp->hasNoUnsignedWrap()) ||
-       (IsSExt && BinOp->hasNoSignedWrap())))
-    return true;
+  if (const auto *BinOp = dyn_cast<BinaryOperator>(Inst))
+    if (isa<OverflowingBinaryOperator>(BinOp) &&
+        ((!IsSExt && BinOp->hasNoUnsignedWrap()) ||
+         (IsSExt && BinOp->hasNoSignedWrap())))
+      return true;
 
   // ext(and(opnd, cst)) --> and(ext(opnd), ext(cst))
   if ((Inst->getOpcode() == Instruction::And ||
@@ -4236,10 +4265,10 @@ bool TypePromotionHelper::canGetThrough(const Instruction *Inst,
 
   // ext(xor(opnd, cst)) --> xor(ext(opnd), ext(cst))
   if (Inst->getOpcode() == Instruction::Xor) {
-    const ConstantInt *Cst = dyn_cast<ConstantInt>(Inst->getOperand(1));
     // Make sure it is not a NOT.
-    if (Cst && !Cst->getValue().isAllOnes())
-      return true;
+    if (const auto *Cst = dyn_cast<ConstantInt>(Inst->getOperand(1)))
+      if (!Cst->getValue().isAllOnes())
+        return true;
   }
 
   // zext(shrl(opnd, cst)) --> shrl(zext(opnd), zext(cst))
@@ -4605,9 +4634,9 @@ bool AddressingModeMatcher::matchOperationAddr(User *AddrInst, unsigned Opcode,
     ConstantInt *RHS = dyn_cast<ConstantInt>(AddrInst->getOperand(1));
     if (!RHS || RHS->getBitWidth() > 64)
       return false;
-    int64_t Scale = RHS->getSExtValue();
-    if (Opcode == Instruction::Shl)
-      Scale = 1LL << Scale;
+    int64_t Scale = Opcode == Instruction::Shl
+                        ? 1LL << RHS->getLimitedValue(RHS->getBitWidth() - 1)
+                        : RHS->getSExtValue();
 
     return matchScaledValue(AddrInst->getOperand(0), Scale, Depth);
   }
@@ -4891,7 +4920,7 @@ static bool IsOperandAMemoryOperand(CallInst *CI, InlineAsm *IA, Value *OpVal,
     TLI.ComputeConstraintToUse(OpInfo, SDValue());
 
     // If this asm operand is our Value*, and if it isn't an indirect memory
-    // operand, we can't fold it!
+    // operand, we can't fold it!  TODO: Also handle C_Address?
     if (OpInfo.CallOperandVal == OpVal &&
         (OpInfo.ConstraintType != TargetLowering::C_Memory ||
          !OpInfo.isIndirect))
@@ -5508,6 +5537,60 @@ bool CodeGenPrepare::optimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+/// Rewrite GEP input to gather/scatter to enable SelectionDAGBuilder to find
+/// a uniform base to use for ISD::MGATHER/MSCATTER.
+///
+/// If GEP has splat value and non-splat value, try to scalarize splat value.
+///
+bool CodeGenPrepare::optimizeGatherScatterInstExt(Instruction *MemoryInst,
+  Value *Ptr) {
+
+  auto* GEP = dyn_cast<GetElementPtrInst>(Ptr);
+  if (!GEP)
+    return false;
+
+  // Don't optimize GEPs that don't have indices.
+  if (!GEP->hasIndices())
+    return false;
+
+  // If the GEP and the gather/scatter aren't in the same BB, don't optimize.
+  // FIXME: We should support this by sinking the GEP.
+  if (MemoryInst->getParent() != GEP->getParent())
+    return false;
+
+  unsigned E = GEP->getNumOperands();
+
+  bool ExistNonSplatVector = false;
+  bool HasSplatVector = false;
+
+  for (unsigned I = 0; I != E; ++I) {
+    Value *Op = GEP->getOperand(I);
+    if (!getSplatValue(Op)) {
+      if (GEP->getOperand(I)->getType()->isVectorTy())
+        ExistNonSplatVector = true;
+      continue;
+    }
+    HasSplatVector = true;
+  }
+
+  if (!(HasSplatVector && ExistNonSplatVector))
+    return false;
+
+  for (unsigned I = 0; I != E; ++I) {
+    Value *Op = GEP->getOperand(I);
+    Value *SplatValue = getSplatValue(Op);
+    if (!SplatValue)
+      continue;
+
+    // Simplify the operand.
+    GEP->setOperand(I, SplatValue);
+  }
+
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Rewrite GEP input to gather/scatter to enable SelectionDAGBuilder to find
 /// a uniform base to use for ISD::MGATHER/MSCATTER. SelectionDAGBuilder can
 /// only handle a 2 operand GEP in the same basic block or a splat constant
@@ -5674,6 +5757,7 @@ bool CodeGenPrepare::optimizeInlineAsmInst(CallInst *CS) {
     // Compute the constraint code and ConstraintType to use.
     TLI->ComputeConstraintToUse(OpInfo, SDValue());
 
+    // TODO: Also handle C_Address?
     if (OpInfo.ConstraintType == TargetLowering::C_Memory &&
         OpInfo.isIndirect) {
       Value *OpVal = CS->getArgOperand(ArgNo++);

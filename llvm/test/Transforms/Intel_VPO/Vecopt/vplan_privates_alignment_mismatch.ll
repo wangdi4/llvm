@@ -23,6 +23,11 @@ define void @foo(i32* nocapture readonly %iarr) {
 ; CHECK-NEXT:    [[F1_PRIV_LANE_1:%.*]] = alloca [3 x double], align 16
 ; CHECK-NEXT:    [[F1_PRIV_INSERT_1:%.*]] = insertelement <2 x [3 x double]*> [[F1_PRIV_INSERT_0]], [3 x double]* [[F1_PRIV_LANE_1]], i64 1
 ; CHECK:       VPlannedBB1:
+; CHECK-NEXT:    [[F1_PRIV_INSERT_1_BCAST:%.*]] = bitcast <2 x [3 x double]*> [[F1_PRIV_INSERT_1]] to <2 x i8*>
+; CHECK-NEXT:    [[EXTRACT_1:%.*]] = extractelement <2 x i8*> [[F1_PRIV_INSERT_1_BCAST:%.*]], i32 1
+; CHECK-NEXT:    [[EXTRACT_0:%.*]] = extractelement <2 x i8*> %0, i32 0
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 24, i8* [[EXTRACT_0]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 24, i8* [[EXTRACT_1]])
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [3 x double], <2 x [3 x double]*> [[F1_PRIV_INSERT_1]], <2 x i64> zeroinitializer, <2 x i64> <i64 2, i64 2>
 ; CHECK-NEXT:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds [3 x double], <2 x [3 x double]*> [[F1_PRIV_INSERT_1]], <2 x i64> zeroinitializer, <2 x i64> <i64 1, i64 1>
 ; CHECK-NEXT:    [[MM_VECTORGEP3:%.*]] = getelementptr inbounds [3 x double], <2 x [3 x double]*> [[F1_PRIV_INSERT_1]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer

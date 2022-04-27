@@ -2,7 +2,7 @@
 
 ; RUN: opt < %s -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework -hir-cost-model-throttling=0 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework -hir-cost-model-throttling=0 | FileCheck %s --check-prefix=CHECK-OPAQUE
-; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S -hir-cost-model-throttling=0 | FileCheck %s --check-prefix=CHECK-CG
+; RUN: opt < %s -enable-new-pm=0 -hir-ssa-deconstruction -hir-cg -force-hir-cg -S -hir-cost-model-throttling=0 | FileCheck %s --check-prefix=CHECK-CG
 
 ; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -opaque-pointers -hir-cost-model-throttling=0 -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s --check-prefix=CHECK-OPAQUE
 ; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-cost-model-throttling=0 -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
@@ -67,8 +67,7 @@
 ;
 ; CHECK: :13>            |   %cmp1 = %x.060 > 1.000000e+01;
 ; CHECK: :13>            |   %cmp3 = i1 < 10;
-; CHECK: :13>            |   %or.cond = %cmp3  |  %cmp1;
-; CHECK: :13>            |   if (%or.cond != 0)
+; CHECK: :13>            |   if (umax(%cmp3, %cmp1) != 0)
 ; CHECK: :13>            |   {
 ;
 ; CHECK: :14>            |      %0 = (%a)[i1];

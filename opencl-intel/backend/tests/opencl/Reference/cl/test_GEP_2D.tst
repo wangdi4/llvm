@@ -1,0 +1,10 @@
+; RUN: SATest -VAL -config=%s.cfg -neat=1 --force_ref > %t
+; RUN: FileCheck %s <%t
+;CHECK: 11.000000
+;CHECK: 22.000000
+;CHECK: 33.000000
+;CHECK: 44.000000
+;CHECK: 55.000000
+;CHECK: 66.000000
+;CHECK: 77.000000
+;CHECK: 88.000000

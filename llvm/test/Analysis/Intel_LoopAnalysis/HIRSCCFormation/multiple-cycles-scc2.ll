@@ -1,4 +1,5 @@
-; RUN: opt < %s -analyze -hir-scc-formation | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -analyze -hir-scc-formation | FileCheck %s
+; RUN: opt %s -passes="print<hir-scc-formation>" -disable-output 2>&1 | FileCheck %s
 
 ; Verify that we do not construct the SCC (%v_fnaob.1254 -> %v_fnaob.0261 -> 
 ; %xor105.lcssa -> %xor105 -> %xor97) which has multiple cycles. There are 3

@@ -7,7 +7,7 @@
 ;
 ; unsigned max recognition for safe reduction analysis
 ;
-; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-temp-cleanup -hir-safe-reduction-analysis | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-temp-cleanup -hir-safe-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" 2>&1 | FileCheck %s
 ;
 ; CHECK: %max.011 = (%0 >u %max.011) ? %0 : %max.011; <Safe Reduction>

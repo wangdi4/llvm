@@ -1,5 +1,5 @@
 ; RUN: opt -passes='require<dpcpp-kernel-builtin-info-analysis>,print<dpcpp-kernel-work-item-analysis>' %s -disable-output 2>&1 | FileCheck %s
-; RUN: opt -analyze -dpcpp-kernel-work-item-analysis %s -S -o - | FileCheck %s
+; RUN: opt -analyze -enable-new-pm=0 -dpcpp-kernel-work-item-analysis %s -S -o - | FileCheck %s
 
 ;kernel void test_fmul(global int *in, global float *out) {
 ;  int gid = get_global_id(0);

@@ -19,7 +19,7 @@ loop:
   %p1 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 0, i64 0, double* elementtype(double) nonnull %p, i64 1)
   %p2 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 0, i64 0, double* elementtype(double) nonnull %p1, i64 0)
   %p3 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 0, double* elementtype(double) nonnull %p2, i64 0)
-  %p4 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 0, i64 0, double* elementtype(double) nonnull %p3, i64 0)
+  %p4 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 0, i64 8, double* elementtype(double) nonnull %p3, i64 0)
   store double 1.0, double* %p4
 
   %ip = add nsw nuw i32 %i, 1

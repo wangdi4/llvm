@@ -23,6 +23,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportPrintUtils.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
@@ -47,10 +48,10 @@ struct HIROptReportEmitter {
 };
 
 struct HIROptReportEmitVisitor final : public HLNodeVisitorBase {
-  formatted_raw_ostream FOS;
+  formatted_raw_ostream &FOS;
   unsigned Depth;
 
-  HIROptReportEmitVisitor(raw_ostream &OS) : FOS(OS), Depth(0) {}
+  HIROptReportEmitVisitor(formatted_raw_ostream &FOS) : FOS(FOS), Depth(0) {}
 
   bool skipRecursion(const HLNode *Node) {
     const HLLoop *L = dyn_cast<HLLoop>(Node);
@@ -98,8 +99,7 @@ bool HIROptReportEmitter::run(Function &F, HIRFramework &HIRF) {
   if (DisableHIROptReportEmitter)
     return false;
 
-  // Use dbgs() as an output for now.
-  formatted_raw_ostream OS(dbgs());
+  formatted_raw_ostream &OS = OptReportOptions::getOutputStream();
   OS << "Report from: HIR Loop optimizations framework for : " << F.getName()
      << "\n";
 

@@ -1,4 +1,6 @@
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 ; ModuleID = 'intel_god_rays_scalar.ll'
@@ -1498,3 +1500,33 @@ declare float @_Z4sqrtf(float)
 declare float @_Z13convert_floati(i32)
 
 declare i32 @_Z3absi(i32)
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %62
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %phi-split-bb14
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %phi-split-bb9
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %phi-split-bb9
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %phi-split-bb14
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %62
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %269
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %335
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %379
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %396
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %phi-split-bb31
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %phi-split-bb32
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %phi-split-bb33
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function evaluateRayScalar --  br label %400
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %61
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %phi-split-bb14
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %phi-split-bb9
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %phi-split-bb9
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %phi-split-bb14
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %61
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %268
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %334
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %378
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %395
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %phi-split-bb31
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %phi-split-bb32
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %phi-split-bb33
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function intel_god_rays_scalar --  br label %evaluateRayScalar.exit
+; DEBUGIFY-NOT: WARNING

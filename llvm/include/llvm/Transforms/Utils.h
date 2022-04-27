@@ -1,4 +1,21 @@
 //===- llvm/Transforms/Utils.h - Utility Transformations --------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -159,6 +176,12 @@ FunctionPass *createAssumeSimplifyPass();
 // don't block SCEV.
 //
 Pass *createCanonicalizeFreezeInLoopsPass();
+
+//===----------------------------------------------------------------------===//
+// LowerGlobalDtorsLegacy - Lower @llvm.global_dtors by creating wrapper
+// functions that are registered in @llvm.global_ctors and which contain a call
+// to `__cxa_atexit` to register their destructor functions.
+ModulePass *createLowerGlobalDtorsLegacyPass();
 } // namespace llvm
 
 #endif

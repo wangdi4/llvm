@@ -98,4 +98,15 @@ __attribute__((allow_cpu_features(1ULL << 63))) void invalid_page_1() {}
 // expected-error@+1{{invalid bitmask value specified for 'allow_cpu_features' attribute}}
 __attribute__((allow_cpu_features(0, 1ULL << 63))) void invalid_page_2() {}
 
+// Page1 is full (with 2 exceptions), so 49 is a good bit here.
+__attribute__((allow_cpu_features(1ULL<<49, 0))) void valid_page_1(){}
+
+// Page2 hasn't reached bit 49 yet, so it is an invliad value.
+// expected-error@+1{{invalid bitmask value specified for 'allow_cpu_features' attribute}}
+__attribute__((allow_cpu_features(0, 1ULL<<49))) void invalid_page_2b(){}
+
+__attribute__((allow_cpu_features(1, 0))) void generic_mask(){}
+
+// '1' (aka 65) is movdiri in page2.
+__attribute__((allow_cpu_features(0, 1))) void valid_page_2(){}
 } // namespace InvalidParams

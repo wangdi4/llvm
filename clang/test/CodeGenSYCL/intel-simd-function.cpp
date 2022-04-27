@@ -220,7 +220,7 @@ constexpr auto makeSimdFunction() noexcept {
         detail::makeSimdFunctionImpl<F, T...>(L()));
 }
 
-//CHECK: define{{.*}}spir_func i32 @_Z3fooif
+//CHECK: define{{.*}}spir_func noundef i32 @_Z3fooif
 SYCL_EXTERNAL int foo(int i, float f) {return (int)f+i+1;}
 
 using namespace cl::sycl::intel;
@@ -235,10 +235,10 @@ SYCL_EXTERNAL auto bar()
 }
 
 // Call operator
-//CHECK: define{{.*}}i32 {{.*}}_EEEclEOiOf
+//CHECK: define{{.*}} noundef i32 {{.*}}_EEEclEOiOf
 //CHECK-SAME: class{{.*}}SimdFunction{{.*}}* {{[^,]*}} %this
-//CHECK-SAME: i32 [[AS4:addrspace\(4\)]]* align 4 dereferenceable(4) %args
-//CHECK-SAME: float [[AS4]]* align 4 dereferenceable(4) %args
+//CHECK-SAME: i32 [[AS4:addrspace\(4\)]]* noundef align 4 dereferenceable(4) %args
+//CHECK-SAME: float [[AS4]]* noundef align 4 dereferenceable(4) %args
 //CHECK: [[THISARG:%this.addr.*]] = alloca {{.*}}class{{.*}}SimdFunction{{.*}}*,
 //CHECK: [[ARG1:%args.addr.*]] = alloca i32 [[AS4]]*,
 //CHECK: [[ARG2:%args.addr.*]] = alloca float [[AS4]]*,
@@ -249,12 +249,10 @@ SYCL_EXTERNAL auto bar()
 //CHECK-NEXT: [[C1:%call[0-9]*]] = {{.*}}%ptrs
 
 //CHECK: [[L0:%[0-9]+]] = load i32 [[AS4]]*, i32 [[AS4]]* [[AS4]]* %[[ARG1_CAST]],
-//CHECK-NEXT: [[C2:%call[0-9]*]] = {{.*}}[[L0]]
-//CHECK-NEXT: [[L1:%[0-9]+]] = load i32, i32 [[AS4]]* [[C2]], align 4
+//CHECK-NEXT: [[L1:%[0-9]+]] = load i32, i32 [[AS4]]* [[L0]], align 4
 
 //CHECK: [[L2:%[0-9]+]] = load float [[AS4]]*, float [[AS4]]* [[AS4]]* %[[ARG2_CAST]],
-//CHECK-NEXT: [[C2:%call[0-9]*]] = {{.*}}[[L2]]
-//CHECK-NEXT: [[L3:%[0-9]+]] = load float, float [[AS4]]* [[C2]], align 4
+//CHECK-NEXT: [[L3:%[0-9]+]] = load float, float [[AS4]]* [[L2]], align 4
 
 //CHECK: @__intel_indirect_call_0
 //CHECK-SAME: [[C1]], i32 [[L1]], float [[L3]]) #[[CALL:[0-9]+]]

@@ -1,4 +1,21 @@
 //===- GlobalsModRef.h - Simple Mod/Ref AA for Globals ----------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -14,15 +31,14 @@
 #define LLVM_ANALYSIS_GLOBALSMODREF_H
 
 #include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Module.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Pass.h"
 #include <list>
 
 namespace llvm {
 class CallGraph;
+class Function;
 
 /// An alias analysis result set for globals.
 ///
@@ -78,6 +94,8 @@ class GlobalsAAResult : public AAResultBase<GlobalsAAResult> {
   explicit GlobalsAAResult(
       const DataLayout &DL,
       std::function<const TargetLibraryInfo &(Function &F)> GetTLI);
+
+  friend struct RecomputeGlobalsAAPass;
 
 public:
   GlobalsAAResult(GlobalsAAResult &&Arg);
@@ -140,6 +158,10 @@ public:
   typedef GlobalsAAResult Result;
 
   GlobalsAAResult run(Module &M, ModuleAnalysisManager &AM);
+};
+
+struct RecomputeGlobalsAAPass : PassInfoMixin<RecomputeGlobalsAAPass> {
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 };
 
 /// Legacy wrapper pass to provide the GlobalsAAResult object.

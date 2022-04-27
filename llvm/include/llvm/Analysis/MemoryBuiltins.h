@@ -1,4 +1,21 @@
 //==- llvm/Analysis/MemoryBuiltins.h - Calls to memory builtins --*- C++ -*-==//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -28,9 +45,9 @@
 namespace llvm {
 
 class AllocaInst;
+class AAResults;
 class Argument;
 class CallInst;
-class ConstantInt;
 class ConstantPointerNull;
 class DataLayout;
 class ExtractElementInst;
@@ -45,7 +62,6 @@ class IntToPtrInst;
 class LLVMContext;
 class LoadInst;
 class PHINode;
-class PointerType;
 class SelectInst;
 class Type;
 class UndefValue;
@@ -54,52 +70,34 @@ class Value;
 /// Tests if a value is a call or invoke to a library function that
 /// allocates or reallocates memory (either malloc, calloc, realloc, or strdup
 /// like).
-bool isAllocationFn(const Value *V, const TargetLibraryInfo *TLI,
-                    bool LookThroughBitCast = false);
+bool isAllocationFn(const Value *V, const TargetLibraryInfo *TLI);
 bool isAllocationFn(const Value *V,
-                    function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
-                    bool LookThroughBitCast = false);
+                    function_ref<const TargetLibraryInfo &(Function &)> GetTLI);
 
-/// Tests if a value is a call or invoke to a function that returns a
-/// NoAlias pointer (including malloc/calloc/realloc/strdup-like functions).
-bool isNoAliasFn(const Value *V, const TargetLibraryInfo *TLI,
-                 bool LookThroughBitCast = false);
-
+#if INTEL_CUSTOMIZATION
 /// Tests if a value is a call or invoke to a library function that
 /// allocates uninitialized memory (such as malloc).
-bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
-                    bool LookThroughBitCast = false);
+bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 bool isMallocLikeFn(const Value *V,
-                    function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
-                    bool LookThroughBitCast = false);
-#if INTEL_CUSTOMIZATION
+                    function_ref<const TargetLibraryInfo &(Function &)> GetTLI);
+
 /// Tests if a function is a call or invoke to a library function that
 /// allocates memory (e.g., malloc).
 bool isMallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
 #endif
 
-/// Tests if a value is a call or invoke to a library function that
-/// allocates uninitialized memory with alignment (such as aligned_alloc).
-bool isAlignedAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
-                          bool LookThroughBitCast = false);
-bool isAlignedAllocLikeFn(
-    const Value *V, function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
-    bool LookThroughBitCast = false);
-
+#if INTEL_CUSTOMIZATION
 /// Tests if a value is a call or invoke to a library function that
 /// allocates zero-filled memory (such as calloc).
-bool isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
-                    bool LookThroughBitCast = false);
+bool isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 
-#if INTEL_CUSTOMIZATION
 /// Tests if a function is a call or invoke to a library function that
 /// allocates memory (e.g., calloc).
 bool isCallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
 
 /// Tests if a value is a call or invoke to a library function that returns
 /// non-null result
-bool isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI,
-                 bool LookThroughBitCast = false);
+bool isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 
 /// Tests if a function is a call or invoke to a library function that
 /// allocates memory (e.g., new).
@@ -117,32 +115,19 @@ bool isDeleteFn(const Function *F, const TargetLibraryInfo *TLI);
 
 /// Tests if a value is a call or invoke to a library function that
 /// allocates memory similar to malloc or calloc.
-bool isMallocOrCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
-                            bool LookThroughBitCast = false);
+bool isMallocOrCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 
 /// Tests if a value is a call or invoke to a library function that
 /// allocates memory (either malloc, calloc, or strdup like).
-bool isAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
-                   bool LookThroughBitCast = false);
+bool isAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 
 /// Tests if a value is a call or invoke to a library function that
 /// reallocates memory (e.g., realloc).
-bool isReallocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
-                     bool LookThroughBitCast = false);
+bool isReallocLikeFn(const Value *V, const TargetLibraryInfo *TLI);
 
 /// Tests if a function is a call or invoke to a library function that
 /// reallocates memory (e.g., realloc).
 bool isReallocLikeFn(const Function *F, const TargetLibraryInfo *TLI);
-
-/// Tests if a value is a call or invoke to a library function that
-/// allocates memory and throws if an allocation failed (e.g., new).
-bool isOpNewLikeFn(const Value *V, const TargetLibraryInfo *TLI,
-                   bool LookThroughBitCast = false);
-
-/// Tests if a value is a call or invoke to a library function that
-/// allocates memory (strdup, strndup).
-bool isStrdupLikeFn(const Value *V, const TargetLibraryInfo *TLI,
-                    bool LookThroughBitCast = false);
 
 #if INTEL_CUSTOMIZATION
 /// Returns indices of size arguments of Malloc-like functions.
@@ -155,57 +140,6 @@ getAllocSizeArgumentIndices(const Value *I, const TargetLibraryInfo *TLI);
 /// within MemoryBuiltins.cpp as 'AllocationFnData'.
 bool isAllocationLibFunc(LibFunc LF);
 #endif // INTEL_CUSTOMIZATION
-
-//===----------------------------------------------------------------------===//
-//  malloc Call Utility Functions.
-//
-
-/// extractMallocCall - Returns the corresponding CallInst if the instruction
-/// is a malloc call.  Since CallInst::CreateMalloc() only creates calls, we
-/// ignore InvokeInst here.
-const CallInst *
-extractMallocCall(const Value *I,
-                  function_ref<const TargetLibraryInfo &(Function &)> GetTLI);
-inline CallInst *
-extractMallocCall(Value *I,
-                  function_ref<const TargetLibraryInfo &(Function &)> GetTLI) {
-  return const_cast<CallInst *>(extractMallocCall((const Value *) I, GetTLI));
-}
-
-/// getMallocType - Returns the PointerType resulting from the malloc call.
-/// The PointerType depends on the number of bitcast uses of the malloc call:
-///   0: PointerType is the malloc calls' return type.
-///   1: PointerType is the bitcast's result type.
-///  >1: Unique PointerType cannot be determined, return NULL.
-PointerType *getMallocType(const CallInst *CI, const TargetLibraryInfo *TLI);
-
-/// getMallocAllocatedType - Returns the Type allocated by malloc call.
-/// The Type depends on the number of bitcast uses of the malloc call:
-///   0: PointerType is the malloc calls' return type.
-///   1: PointerType is the bitcast's result type.
-///  >1: Unique PointerType cannot be determined, return NULL.
-Type *getMallocAllocatedType(const CallInst *CI, const TargetLibraryInfo *TLI);
-
-/// getMallocArraySize - Returns the array size of a malloc call.  If the
-/// argument passed to malloc is a multiple of the size of the malloced type,
-/// then return that multiple.  For non-array mallocs, the multiple is
-/// constant 1.  Otherwise, return NULL for mallocs whose array size cannot be
-/// determined.
-Value *getMallocArraySize(CallInst *CI, const DataLayout &DL,
-                          const TargetLibraryInfo *TLI,
-                          bool LookThroughSExt = false);
-
-//===----------------------------------------------------------------------===//
-//  calloc Call Utility Functions.
-//
-
-/// extractCallocCall - Returns the corresponding CallInst if the instruction
-/// is a calloc call.
-const CallInst *extractCallocCall(const Value *I, const TargetLibraryInfo *TLI);
-inline CallInst *extractCallocCall(Value *I, const TargetLibraryInfo *TLI) {
-  return const_cast<CallInst *>(extractCallocCall((const Value *) I, TLI));
-}
-
 
 //===----------------------------------------------------------------------===//
 //  free Call Utility Functions.
@@ -243,6 +177,46 @@ inline CallInst *isDeleteCall(Value *I, const TargetLibraryInfo *TLI,
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
+//  Properties of allocation functions
+//
+
+/// Return false if the allocation can have side effects on the program state
+/// we are required to preserve beyond the effect of allocating a new object.
+/// Ex: If our allocation routine has a counter for the number of objects
+/// allocated, and the program prints it on exit, can the value change due
+/// to optimization? Answer is highly language dependent.
+/// Note: *Removable* really does mean removable; it does not mean observable.
+/// A language (e.g. C++) can allow removing allocations without allowing
+/// insertion or speculative execution of allocation routines.
+bool isAllocRemovable(const CallBase *V, const TargetLibraryInfo *TLI);
+
+/// Gets the alignment argument for an aligned_alloc-like function, using either
+/// built-in knowledge based on fuction names/signatures or allocalign
+/// attributes. Note: the Value returned may not indicate a valid alignment, per
+/// the definition of the allocalign attribute.
+Value *getAllocAlignment(const CallBase *V, const TargetLibraryInfo *TLI);
+
+/// Return the size of the requested allocation.  With a trivial mapper, this is
+/// identical to calling getObjectSize(..., Exact).  A mapper function can be
+/// used to replace one Value* (operand to the allocation) with another.  This
+/// is useful when doing abstract interpretation.
+Optional<APInt> getAllocSize(const CallBase *CB,
+                             const TargetLibraryInfo *TLI,
+                             std::function<const Value*(const Value*)> Mapper);
+
+/// If this allocation function initializes memory to a fixed value, return
+/// said value in the requested type.  Otherwise, return nullptr.
+Constant *getInitialValueOfAllocation(const CallBase *Alloc,
+                                      const TargetLibraryInfo *TLI,
+                                      Type *Ty);
+
+/// If a function is part of an allocation family (e.g.
+/// malloc/realloc/calloc/free), return the identifier for its family
+/// of functions.
+Optional<StringRef> getAllocationFamily(const Value *I,
+                                        const TargetLibraryInfo *TLI);
+
+//===----------------------------------------------------------------------===//
 //  Utility functions to compute size of objects.
 //
 
@@ -268,6 +242,8 @@ struct ObjectSizeOpts {
   /// though they can't be evaluated. Otherwise, null is always considered to
   /// point to a 0 byte region of memory.
   bool NullIsUnknownSize = false;
+  /// If set, used for more accurate evaluation
+  AAResults *AA = nullptr;
 };
 
 /// Compute the size of the object pointed by Ptr. Returns true and the
@@ -287,6 +263,9 @@ bool getObjectSize(const Value *Ptr, uint64_t &Size, const DataLayout &DL,
 /// argument of the call to objectsize.
 Value *lowerObjectSizeCall(IntrinsicInst *ObjectSize, const DataLayout &DL,
                            const TargetLibraryInfo *TLI, bool MustSucceed);
+Value *lowerObjectSizeCall(IntrinsicInst *ObjectSize, const DataLayout &DL,
+                           const TargetLibraryInfo *TLI, AAResults *AA,
+                           bool MustSucceed);
 
 using SizeOffsetType = std::pair<APInt, APInt>;
 
@@ -333,7 +312,6 @@ public:
   SizeOffsetType visitConstantPointerNull(ConstantPointerNull&);
   SizeOffsetType visitExtractElementInst(ExtractElementInst &I);
   SizeOffsetType visitExtractValueInst(ExtractValueInst &I);
-  SizeOffsetType visitGEPOperator(GEPOperator &GEP);
   SizeOffsetType visitGlobalAlias(GlobalAlias &GA);
   SizeOffsetType visitGlobalVariable(GlobalVariable &GV);
   SizeOffsetType visitIntToPtrInst(IntToPtrInst &);
@@ -344,6 +322,12 @@ public:
   SizeOffsetType visitInstruction(Instruction &I);
 
 private:
+  SizeOffsetType findLoadSizeOffset(
+      LoadInst &LoadFrom, BasicBlock &BB, BasicBlock::iterator From,
+      SmallDenseMap<BasicBlock *, SizeOffsetType, 8> &VisitedBlocks,
+      unsigned &ScannedInstCount);
+  SizeOffsetType combineSizeOffset(SizeOffsetType LHS, SizeOffsetType RHS);
+  SizeOffsetType computeImpl(Value *V);
   bool CheckedZextOrTrunc(APInt &I);
 };
 

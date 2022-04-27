@@ -19,6 +19,7 @@
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelLoopVectorizationPlanner.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPOCodeGen.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlan.h"
+#include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCFGBuilder.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanHCFGBuilder.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -69,10 +70,12 @@ protected:
     TLI.reset(new TargetLibraryInfo(*TLIImpl));
     TTI.reset(new TargetTransformInfo(*DL.get()));
     AC.reset(new AssumptionCache(F));
-    auto Loop = LI->getLoopFor(LoopHeader);
+    auto *Loop = LI->getLoopFor(LoopHeader);
     SE.reset(new ScalarEvolution(F, *TLI, *AC, *DT, *LI));
-    PSE.reset(new PredicatedScalarEvolution(*SE, *Loop));
-    Legal.reset(new VPOVectorizationLegality(Loop, *PSE, &F));
+    if (Loop) {
+      PSE.reset(new PredicatedScalarEvolution(*SE, *Loop));
+      Legal.reset(new VPOVectorizationLegality(Loop, *PSE, &F));
+    }
     Externals.reset(new VPExternalValues(Ctx.get(), DL.get()));
     UVPI.reset(new VPUnlinkedInstructions());
     LVP.reset(new LoopVectorizationPlanner(
@@ -104,6 +107,14 @@ protected:
     LVP->runInitialVecSpecificTransforms(Plan.get());
     LVP->createLiveInOutLists(*Plan.get());
 
+    return Plan;
+  }
+
+  std::unique_ptr<VPlanNonMasked> buildFCFG(Function *F) {
+    doAnalysis(*F, &F->getEntryBlock());
+    auto Plan = std::make_unique<VPlanNonMasked>(*Externals, *UVPI);
+    VPlanFunctionCFGBuilder FCFGBuilder(Plan.get(), *F);
+    FCFGBuilder.buildCFG();
     return Plan;
   }
 

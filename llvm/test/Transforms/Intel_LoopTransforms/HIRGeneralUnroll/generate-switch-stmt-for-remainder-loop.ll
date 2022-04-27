@@ -16,7 +16,7 @@
 ; CHECK:     BEGIN REGION { modified }
 ; CHECK:           %tgu = (sext.i32.i64(%M))/u8;
 ;
-; CHECK:           + DO i1 = 0, %tgu + -1, 1 <DO_LOOP> <MAX_TC_EST = 268435455> <nounroll>
+; CHECK:           + DO i1 = 0, %tgu + -1, 1 <DO_LOOP> <MAX_TC_EST = 268435455>  <LEGAL_MAX_TC = 268435455> <nounroll>
 ; CHECK:           |   %0 = (%A)[8 * i1];
 ; CHECK:           |   %add = %0  +  1.000000e+00;
 ; CHECK:           |   (%A)[8 * i1] = %add;
@@ -91,6 +91,19 @@
 ; CHECK:              break;
 ; CHECK:           }
 ; CHECK:     END REGION
+;
+; Opt report:
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-general-unroll -hir-optreport-emitter -intel-opt-report=low -disable-output < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-general-unroll,hir-optreport-emitter" -intel-opt-report=low -disable-output < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
+;
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT:     remark #25439: Loop unrolled with remainder by 8
+; OPTREPORT: LOOP END
+;
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT: <Remainder loop>
+; OPTREPORT:     remark #25585: Loop converted to switch
+; OPTREPORT: LOOP END
 ;
 ;Module Before HIR
 ; ModuleID = 't.c'

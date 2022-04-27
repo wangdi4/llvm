@@ -1,3 +1,20 @@
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //==--- DiagnosticFrontendKinds.td - frontend diagnostics -----------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -47,6 +64,10 @@ def warn_fe_backend_unsupported_fp_rounding : Warning<
 def warn_fe_backend_unsupported_fp_exceptions : Warning<
     "overriding currently unsupported use of floating point exceptions "
     "on this target">, InGroup<UnsupportedFPOpt>;
+
+def err_incompatible_fp_eval_method_options : Error<
+    "option 'ffp-eval-method' cannot be used with option "
+    "%select{'fapprox-func'|'mreassociate'|'freciprocal'}0">;
 
 def remark_fe_backend_optimization_remark : Remark<"%0">, BackendInfo,
     InGroup<BackendOptimizationRemark>;
@@ -319,6 +340,11 @@ def warn_profile_data_missing : Warning<
 def warn_profile_data_unprofiled : Warning<
   "no profile data available for file \"%0\"">,
   InGroup<ProfileInstrUnprofiled>;
+def warn_profile_data_misexpect : Warning<
+  "Potential performance regression from use of __builtin_expect(): "
+  "Annotation was correct on %0 of profiled executions.">,
+  BackendInfo,
+  InGroup<MisExpect>;
 } // end of instrumentation issue category
 
 }

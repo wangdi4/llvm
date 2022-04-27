@@ -1,4 +1,21 @@
 //===-- VPlanPredicator.cpp -------------------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -110,7 +127,7 @@ VPValue *VPlanPredicator::getOrCreateNot(VPValue *Cond) {
     else
       Builder.setInsertPoint(Inst->getParent(), ++Inst->getIterator());
   else
-    Builder.setInsertPointFirstNonPhi(Plan.getEntryBlock());
+    Builder.setInsertPointFirstNonPhi(&Plan.getEntryBlock());
 
   auto *Not = Builder.createNot(Cond, Cond->getName() + ".not");
 
@@ -335,7 +352,7 @@ VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term,
   // as it will be a single-succ/single-pred edge for Block/SplitBlock).
   VPBasicBlock *Block = Term.OriginBlock;
 
-  SmallPtrSet<VPBasicBlock *, 2> DefBlocks = {Block, Plan.getEntryBlock()};
+  SmallPtrSet<VPBasicBlock *, 2> DefBlocks = {Block, &Plan.getEntryBlock()};
   SmallPtrSet<VPBasicBlock *, 16> LiveInBlocks;
   SmallVector<VPBasicBlock *, 8> IDFPHIBlocks;
   computeLiveInsForIDF(Term, LiveInBlocks);
@@ -482,14 +499,14 @@ bool VPlanPredicator::shouldPreserveOutgoingEdges(VPBasicBlock *Block) {
   VPBasicBlock *PostDom = Plan.getPDT()->getNode(Block)->getIDom()->getBlock();
   for (auto It = std::next(df_begin(Block)), End = df_end(Block);
        It != End;) {
+    // No outer edge going into the region.
+    if (!Plan.getDT()->dominates(Block, *It))
+      return false;
+
     if (*It == PostDom) {
       It.skipChildren();
       continue;
     }
-
-    // No outer edge going into the region.
-    if (!Plan.getDT()->dominates(Block, *It))
-      return false;
 
     // No intermix of subregions between each other.
     if (llvm::none_of(Block->getSuccessors(),
@@ -1188,7 +1205,7 @@ void VPlanPredicator::predicate() {
 
   // Calculate predicates for the blocks in the Plan, but don't lower them into
   // explicit VPInstructions.
-  Block2PredicateTermsAndUniformity[Plan.getEntryBlock()] = {{}, true};
+  Block2PredicateTermsAndUniformity[&Plan.getEntryBlock()] = {{}, true};
   for (VPBasicBlock *Block : RPOT)
     calculatePredicateTerms(Block);
 
@@ -1211,7 +1228,7 @@ void VPlanPredicator::predicate() {
   {
     // Name scope to ensure stale RPOT after std::swap below won't be misused.
     ReversePostOrderTraversal<VPBasicBlock *> PostLinearizationRPOT(
-        Plan.getEntryBlock());
+        &Plan.getEntryBlock());
     std::swap(RPOT, PostLinearizationRPOT);
   }
 
@@ -1240,4 +1257,4 @@ void VPlanPredicator::predicate() {
 }
 
 VPlanPredicator::VPlanPredicator(VPlanVector &Plan)
-    : Plan(Plan), VPLI(Plan.getVPLoopInfo()), RPOT(Plan.getEntryBlock()) {}
+    : Plan(Plan), VPLI(Plan.getVPLoopInfo()), RPOT(&Plan.getEntryBlock()) {}

@@ -10,11 +10,12 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/ADT/DepthFirstIterator.h"
+#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/CallGraph.h"
-#include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
@@ -85,6 +86,11 @@ const StringRef NAME_WORK_GROUP_SCAN_EXCLUSIVE_ADD =
     "work_group_scan_exclusive_add";
 const StringRef NAME_WORK_GROUP_SCAN_INCLUSIVE_ADD =
     "work_group_scan_inclusive_add";
+const StringRef NAME_WORK_GROUP_REDUCE_MUL = "work_group_reduce_mul";
+const StringRef NAME_WORK_GROUP_SCAN_EXCLUSIVE_MUL =
+    "work_group_scan_exclusive_mul";
+const StringRef NAME_WORK_GROUP_SCAN_INCLUSIVE_MUL =
+    "work_group_scan_inclusive_mul";
 const StringRef NAME_WORK_GROUP_REDUCE_MIN = "work_group_reduce_min";
 const StringRef NAME_WORK_GROUP_SCAN_EXCLUSIVE_MIN =
     "work_group_scan_exclusive_min";
@@ -106,6 +112,18 @@ const StringRef NAME_WORK_GROUP_RESERVE_WRITE_PIPE =
     "__work_group_reserve_write_pipe";
 const StringRef NAME_WORK_GROUP_COMMIT_WRITE_PIPE =
     "__work_group_commit_write_pipe";
+const StringRef NAME_WORK_GROUP_REDUCE_BITWISE_AND =
+    "work_group_reduce_bitwise_and";
+const StringRef NAME_WORK_GROUP_REDUCE_BITWISE_OR =
+    "work_group_reduce_bitwise_or";
+const StringRef NAME_WORK_GROUP_REDUCE_BITWISE_XOR =
+    "work_group_reduce_bitwise_xor";
+const StringRef NAME_WORK_GROUP_REDUCE_LOGICAL_AND =
+    "work_group_reduce_logical_and";
+const StringRef NAME_WORK_GROUP_REDUCE_LOGICAL_OR =
+    "work_group_reduce_logical_or";
+const StringRef NAME_WORK_GROUP_REDUCE_LOGICAL_XOR =
+    "work_group_reduce_logical_xor";
 const StringRef NAME_FINALIZE_WG_FUNCTION_PREFIX = "__finalize_";
 
 // KMP acquire/release
@@ -136,6 +154,7 @@ const StringRef NAME_SUB_GROUP_SCAN_INCLUSIVE_MAX =
 const StringRef NAME_GET_BASE_GID = "get_base_global_id.";
 const StringRef NAME_GET_SPECIAL_BUFFER = "get_special_buffer.";
 const StringRef NAME_PRINTF = "printf";
+const StringRef NAME_PRINTF_OPENCL = "__opencl_printf";
 
 /// Matrix slicing support.
 const StringRef NAME_GET_SUB_GROUP_SLICE_LENGTH = "get_sub_group_slice_length.";
@@ -305,7 +324,13 @@ bool isGetSpecialBuffer(StringRef S) { return S == NAME_GET_SPECIAL_BUFFER; }
 
 bool isPrefetch(StringRef S) { return isMangleOf(S, NAME_PREFETCH); }
 
+bool isOpenCLPrintf(StringRef S) { return S == NAME_PRINTF_OPENCL; }
+
 bool isPrintf(StringRef S) { return S == NAME_PRINTF; }
+
+StringRef nameOpenCLPrintf() { return NAME_PRINTF_OPENCL; }
+
+StringRef namePrintf() { return NAME_PRINTF; }
 
 // Work-Group builtins
 bool isWorkGroupAll(StringRef S) { return isMangleOf(S, NAME_WORK_GROUP_ALL); }
@@ -320,6 +345,10 @@ bool isWorkGroupReduceAdd(StringRef S) {
   return isMangleOf(S, NAME_WORK_GROUP_REDUCE_ADD);
 }
 
+bool isWorkGroupReduceMul(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_MUL);
+}
+
 bool isWorkGroupReduceMin(StringRef S) {
   return isMangleOf(S, NAME_WORK_GROUP_REDUCE_MIN);
 }
@@ -328,12 +357,44 @@ bool isWorkGroupReduceMax(StringRef S) {
   return isMangleOf(S, NAME_WORK_GROUP_REDUCE_MAX);
 }
 
+bool isWorkGroupReduceBitwiseAnd(StringRef S){
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_BITWISE_AND);
+}
+
+bool isWorkGroupReduceBitwiseOr(StringRef S){
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_BITWISE_OR);
+}
+
+bool isWorkGroupReduceBitwiseXor(StringRef S){
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_BITWISE_XOR);
+}
+
+bool isWorkGroupReduceLogicalAnd(StringRef S){
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_LOGICAL_AND);
+}
+
+bool isWorkGroupReduceLogicalOr(StringRef S){
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_LOGICAL_OR);
+}
+
+bool isWorkGroupReduceLogicalXor(StringRef S){
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_LOGICAL_XOR);
+}
+
 bool isWorkGroupScanExclusiveAdd(StringRef S) {
   return isMangleOf(S, NAME_WORK_GROUP_SCAN_EXCLUSIVE_ADD);
 }
 
 bool isWorkGroupScanInclusiveAdd(StringRef S) {
   return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_ADD);
+}
+
+bool isWorkGroupScanExclusiveMul(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_EXCLUSIVE_MUL);
+}
+
+bool isWorkGroupScanInclusiveMul(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_MUL);
 }
 
 bool isWorkGroupScanExclusiveMin(StringRef S) {
@@ -533,13 +594,17 @@ bool isWorkGroupAsyncOrPipeBuiltin(StringRef S, const Module &M) {
 bool isWorkGroupScan(StringRef S) {
   return isWorkGroupScanExclusiveAdd(S) || isWorkGroupScanInclusiveAdd(S) ||
          isWorkGroupScanExclusiveMin(S) || isWorkGroupScanInclusiveMin(S) ||
-         isWorkGroupScanExclusiveMax(S) || isWorkGroupScanInclusiveMax(S);
+         isWorkGroupScanExclusiveMax(S) || isWorkGroupScanInclusiveMax(S) ||
+         isWorkGroupScanExclusiveMul(S) || isWorkGroupScanInclusiveMul(S);
 }
 
-bool isWorkGroupUniform(StringRef S) {
+bool isWorkGroupBuiltinUniform(StringRef S) {
   return isWorkGroupAll(S) || isWorkGroupAny(S) || isWorkGroupBroadCast(S) ||
          isWorkGroupReduceAdd(S) || isWorkGroupReduceMin(S) ||
-         isWorkGroupReduceMax(S);
+         isWorkGroupReduceMax(S) || isWorkGroupReduceMul(S) ||
+         isWorkGroupReduceBitwiseAnd(S) || isWorkGroupReduceBitwiseOr(S) ||
+         isWorkGroupReduceBitwiseXor(S) || isWorkGroupReduceLogicalAnd(S) ||
+         isWorkGroupReduceLogicalOr(S) || isWorkGroupReduceLogicalXor(S);
 }
 
 bool isWorkGroupMin(StringRef S) {
@@ -552,7 +617,22 @@ bool isWorkGroupMax(StringRef S) {
          isWorkGroupScanInclusiveMax(S);
 }
 
-bool isWorkGroupDivergent(StringRef S) { return isWorkGroupScan(S); }
+bool isWorkGroupMul(StringRef S) {
+  return isWorkGroupReduceMul(S) || isWorkGroupScanExclusiveMul(S) ||
+         isWorkGroupScanInclusiveMul(S);
+}
+
+bool isWorkGroupBuiltinDivergent(StringRef S) { return isWorkGroupScan(S); }
+
+bool isWorkGroupUniform(StringRef S) {
+  return isWorkGroupBuiltinUniform(S) || isGetMaxSubGroupSize(S) ||
+         isGetNumSubGroups(S) || isGetEnqueuedNumSubGroups(S);
+}
+
+bool isWorkGroupDivergent(StringRef S) {
+  return isWorkGroupBuiltinDivergent(S) ||
+         (isSubGroupBuiltin(S) && !isWorkGroupUniform(S));
+}
 
 bool hasWorkGroupFinalizePrefix(StringRef S) {
   if (!isMangledName(S))
@@ -577,7 +657,7 @@ std::string removeWorkGroupFinalizePrefix(StringRef S) {
 }
 
 bool isWorkGroupBuiltin(StringRef S) {
-  return isWorkGroupUniform(S) || isWorkGroupDivergent(S);
+  return isWorkGroupBuiltinUniform(S) || isWorkGroupBuiltinDivergent(S);
 }
 
 bool isWorkGroupBarrier(StringRef S) {
@@ -760,6 +840,11 @@ std::string mangledGetLID() {
 
 std::string mangledGetGroupID() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GROUP_ID);
+}
+
+std::string mangledGetNumGroups() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(
+      NAME_GET_NUM_GROUPS);
 }
 
 std::string mangledGetLocalSize() {
@@ -1232,7 +1317,7 @@ CallInst *addMoreArgsToIndirectCall(CallInst *OldC, ArrayRef<Value *> NewArgs) {
   Args.append(NewArgs.begin(), NewArgs.end());
 
   auto *FPtrType = cast<PointerType>(OldC->getCalledOperand()->getType());
-  auto *FType = cast<FunctionType>(FPtrType->getElementType());
+  auto *FType = OldC->getFunctionType();
   SmallVector<Type *, 16> ArgTys;
   for (const auto &V : Args)
     ArgTys.push_back(V->getType());
@@ -1988,6 +2073,26 @@ void insertPrintf(const Twine &Prefix, Instruction *IP,
   Builder.CreateCall(PrintFunc, Args, "PRINT.");
 }
 
+bool isValidMatrixType(FixedVectorType *MatrixType) {
+  Type *DataType = MatrixType->getElementType();
+  switch (DataType->getTypeID()) {
+  case Type::IntegerTyID:
+    switch (DataType->getIntegerBitWidth()) {
+    case 8:
+    case 16: // bf16 is implemented using i16 in DPC++ header
+    case 32:
+      return true;
+    default:
+      return false;
+    }
+  case Type::FloatTyID:
+  case Type::BFloatTyID:
+    return true;
+  default:
+    return false;
+  }
+}
+
 /// Copied from llvm/lib/IR/Function.cpp:813
 /// Returns a stable mangling for the type specified for use in the name
 /// mangling scheme used by 'any' types in intrinsic signatures.  The mangling
@@ -2101,14 +2206,21 @@ CallInst *createGetSubGroupSliceLengthCall(unsigned TotalElementCount,
                                            Instruction *IP, const Twine &Name) {
   IRBuilder<> Builder(IP);
   auto *Arg = Builder.getInt32(TotalElementCount);
+  auto AL =
+      AttributeList()
+          .addFnAttribute(IP->getContext(), Attribute::ReadNone)
+          .addFnAttribute(IP->getContext(), Attribute::NoUnwind)
+          .addFnAttribute(IP->getContext(), Attribute::WillReturn)
+          .addFnAttribute(IP->getContext(), KernelAttribute::ConvergentCall);
   return generateCall(IP->getModule(), NAME_GET_SUB_GROUP_SLICE_LENGTH,
-                      Builder.getInt64Ty(), {Arg}, Builder);
+                      Builder.getInt64Ty(), {Arg}, Builder, Name, AL);
 }
 
 CallInst *createGetSubGroupRowSliceIdCall(Value *Matrix, unsigned R, unsigned C,
                                           Value *Index, Instruction *IP,
                                           const Twine &Name) {
   auto *MatrixType = cast<FixedVectorType>(Matrix->getType());
+  assert(isValidMatrixType(MatrixType) && "Unsupported matrix type");
   assert(MatrixType->getNumElements() == (R * C) &&
          "Matrix size doesn't match");
   IRBuilder<> Builder(IP);
@@ -2168,6 +2280,97 @@ CallInst *createSubGroupInsertRowSliceToMatrixCall(Value *RowSliceId,
                                 KernelAttribute::OCLVecUniformReturn);
   return generateCall(IP->getModule(), FnName, ReturnMatrixType, {RowSliceId},
                       Builder, Name, AL);
+}
+
+// Utility function for calculating private/local memory size with post order
+// traversal.
+void calculateMemorySizeWithPostOrderTraversal(
+    CallGraph &CG, DenseMap<Function *, size_t> &FnDirectSize,
+    DenseMap<Function *, size_t> &FnSize) {
+  // The recursive function or function that calls no other functions will be
+  // visited firstly and its private/local memory size will be calculated. And
+  // then private/local memory size for its callers will be calculated.
+  //
+  // The steps for calculating private/local memory size:
+  //   1. Visit F function in post order traversal of call graph.
+  //     1.1. Visit CalledFunc functions called by F (in call graph node of F)
+  //          and get maximum memory size for the CalledFunc functions.
+  //       1.1.1. Get the cached memory size for CalledFunc, if it's calculated.
+  //              Otherwise:
+  //         1.2.1. Calculate its memory size for CalledFunc.
+  //         1.2.2. If CalledFunc is recursive function, multiply its memory
+  //                size by (MAX_RECURSION_DEPTH - 1).
+  //       1.1.2. Compare the memory size for called functions and save maximum
+  //              memory size.
+  //     1.2. Add the maximum memory size for called functions to memory size
+  //          for F function.
+  //
+  // Post order traversal examples with recursion function
+  //   Example 1: test -> foo -> foo
+  //   Steps
+  //     1. Visit foo function
+  //       1.1. Visit called functions: foo
+  //         1.1.1. Calculate memory size for foo function and multiply it by
+  //                (MAX_RECURSION_DEPTH - 1).
+  //       1.2. Add it to memory size for foo function
+  //     2. Visit test function
+  //       2.1. Visit called functions: foo
+  //         2.1.1. Get cached memory size for foo function
+  //       2.2. Add it to memory size for test function
+  //   Example 2: test -> foo -> bar -> foo -> bar
+  //   Steps
+  //     1. Visit bar function
+  //       1.1. Visit called functions: foo
+  //         1.1.1. Calculate memory size for foo function and multiply
+  //                it by (MAX_RECURSION_DEPTH - 1).
+  //       1.2. Add memory size for foo function to memory size for bar function
+  //     2. Visit foo function
+  //       2.1. Visit called functions: bar
+  //         2.1.1. Multiply direct size by (MAX_RECURSION_DEPTH - 1) and add it
+  //                to memory size for bar function
+  //         2.1.2. Get cached memory size for bar function
+  //       2.2. Add memory size for bar function to memory size for foo function
+  //     3. Visit test function
+  //       3.1. Visit called functions: foo
+  //         3.1.1. Get cached memory size for foo function
+  //       3.2. Add memory size for foo function to memory size for test
+  //            function
+  DenseSet<Function *> VisitedSet;
+  for (auto I = po_begin(&CG), E = po_end(&CG); I != E; I++) {
+    Function *F = I->getFunction();
+    if (!F || F->isDeclaration())
+      continue;
+    size_t MaxSize = 0;
+    const CallGraphNode *CGNode = CG[F];
+    for (auto &CI : *CGNode) {
+      Function *CalledFunc = CI.second->getFunction();
+      if (!CalledFunc || CalledFunc->isDeclaration())
+        continue;
+
+      auto CalledFMD = DPCPPKernelMetadataAPI::FunctionMetadataAPI(CalledFunc);
+      bool IsRecursive =
+          CalledFMD.RecursiveCall.hasValue() && CalledFMD.RecursiveCall.get();
+      if (!FnSize.count(CalledFunc)) {
+        assert(FnDirectSize.count(CalledFunc) && "No direct size calculated!");
+        FnSize[CalledFunc] = FnDirectSize[CalledFunc];
+        if (IsRecursive)
+          FnSize[CalledFunc] *= (MAX_RECURSION_DEPTH - 1);
+        VisitedSet.insert(CalledFunc);
+      } else {
+        if (!VisitedSet.count(CalledFunc)) {
+          // Multiply direct size by (MAX_RECURSION_DEPTH - 1) and add it to
+          // memory size for indirect recursion (foo -> bar -> foo -> bar)
+          if (IsRecursive)
+            FnSize[CalledFunc] +=
+                FnDirectSize[CalledFunc] * (MAX_RECURSION_DEPTH - 1);
+          VisitedSet.insert(CalledFunc);
+        }
+      }
+      MaxSize = std::max(MaxSize, FnSize[CalledFunc]);
+    }
+
+    FnSize[F] = MaxSize + FnDirectSize[F];
+  }
 }
 
 } // end namespace DPCPPKernelCompilationUtils

@@ -1,4 +1,21 @@
 //===-- TargetLibraryInfo.def - Library information -------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -410,6 +427,9 @@ TLI_DEFINE_STRING_INTERNAL("?_Xout_of_range@std@@YAXPEBD@Z")
 /// static void __cdecl std::_String_val<struct std::_Simple_types<char> >::_Xran(void)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_Xran)
 TLI_DEFINE_STRING_INTERNAL("?_Xran@?$_String_val@U?$_Simple_types@D@std@@@std@@SAXXZ")
+/// void __cdecl std::_Xruntime_error(char const * __ptr64)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_Xruntime_error)
+TLI_DEFINE_STRING_INTERNAL("?_Xruntime_error@std@@YAXPEBD@Z")
 /// basic_string<CharType, Traits, Allocator>& append(const value_type* ptr, size_type count)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_string_append)
 TLI_DEFINE_STRING_INTERNAL("?append@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QEAAAEAV12@QEBD_K@Z")
@@ -1109,6 +1129,12 @@ TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcE
 /// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_replace_aux(unsigned long, unsigned long, unsigned long, char)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE14_M_replace_auxEmmmc)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE14_M_replace_auxEmmmc")
+/// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::append(char const*)
+TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6appendEPKc)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6appendEPKc")
+/// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::assign(char const*)
+TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6assignEPKc)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6assignEPKc")
 /// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::resize(unsigned long, char)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6resizeEmc)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6resizeEmc")
@@ -1133,12 +1159,21 @@ TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcE
 /// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::basic_string(char const*, std::allocator<char> const&)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2EPKcRKS3_)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2EPKcRKS3_")
+/// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::basic_string(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
+TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2ERKS4_)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2ERKS4_")
 /// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::basic_string(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, unsigned long, unsigned long)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2ERKS4_mm)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2ERKS4_mm")
 /// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::~basic_string()
 TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEED2Ev)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEED2Ev")
+/// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::operator=(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >&&)
+TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEaSEOS4_)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEaSEOS4_")
+/// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::operator=(char const*)
+TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEaSEPKc)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEaSEPKc")
 /// std::__cxx11::basic_stringbuf<char, std::char_traits<char>, std::allocator<char> >::setbuf(char*, long)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE6setbufEPcl)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE6setbufEPcl")
@@ -1178,6 +1213,9 @@ TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIc
 /// std::__cxx11::basic_stringstream<char, std::char_traits<char>, std::allocator<char> >::basic_stringstream()
 TLI_DEFINE_ENUM_INTERNAL(gnu_std_cxx11_basic_stringstream_ctor)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEEC1Ev")
+/// std::__cxx11::basic_stringstream<char, std::char_traits<char>, std::allocator<char> >::~basic_stringstream()
+TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEED1Ev)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEED1Ev")
 /// std::__cxx11::basic_istringstream<char, std::char_traits<char>, std::allocator<char> >::basic_istringstream(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::_Ios_Openmode
 TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1119basic_istringstreamIcSt11char_traitsIcESaIcEEC1ERKNS_12basic_stringIcS2_S3_EESt13_Ios_Openmode)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1119basic_istringstreamIcSt11char_traitsIcESaIcEEC1ERKNS_12basic_stringIcS2_S3_EESt13_Ios_Openmode")

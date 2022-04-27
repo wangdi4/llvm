@@ -1,13 +1,17 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=4 \
-; RUN:     | FileCheck %s
+; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
+; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
+; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=4 \
+; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
 ; The test verifies that CM doesn't crush on given input and fixes the costs
 ; of load/store of aggregate data type data.
 
-; CHECK: Cost 8000 for %complex_64bit = type { float, float } %vp{{[0-9]+}} = load %complex_64bit* %vp{{[0-9]+}}
-; CHECK: Cost 8000 for store %complex_64bit = type { float, float } %vp{{[0-9]+}} %complex_64bit* %vp{{[0-9]+}}
+; CHECK: Cost 8 for %complex_64bit = type { float, float } %vp{{[0-9]+}} = load %complex_64bit* %vp{{[0-9]+}}
+; CHECK: Cost 8 for store %complex_64bit = type { float, float } %vp{{[0-9]+}} %complex_64bit* %vp{{[0-9]+}}
 
 %complex_64bit = type { float, float }
 

@@ -76,7 +76,8 @@ RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
       IsCollapsed(Info.IsCollapsed), Alignment(Info.Alignment),
       CanUsePointeeSize(Info.CanUsePointeeSize),
       DimensionOffsets(Info.DimensionOffsets), DimTypes(Info.DimTypes),
-      DimElementTypes(Info.DimElementTypes), MDNodes(Info.MDNodes),
+      DimElementTypes(Info.DimElementTypes),
+      StrideIsExactMultiple(Info.StrideIsExactMultiple), MDNodes(Info.MDNodes),
       GepDbgLoc(Info.GepDbgLoc), MemDbgLoc(Info.MemDbgLoc),
       DummyGepLoc(nullptr) {
 
@@ -1823,6 +1824,9 @@ void RegDDRef::verify() const {
            "Mismatch between base ptr element type and dimension element type "
            "of the highest dimension!");
 
+    assert((GepInfo->StrideIsExactMultiple.size() == getNumDimensions()) &&
+           "Inconsistent GEPInfo!");
+
   } else if (isLval()) {
     assert(getSymbase() > GenericRvalSymbase &&
            "Invalid symbase for lval terminal ref!");
@@ -1876,7 +1880,8 @@ void std::default_delete<RegDDRef>::operator()(RegDDRef *Ref) const {
 void RegDDRef::addDimensionHighest(CanonExpr *IndexCE,
                                    ArrayRef<unsigned> TrailingOffsets,
                                    CanonExpr *LowerBoundCE, CanonExpr *StrideCE,
-                                   Type *DimTy, Type *DimElemTy) {
+                                   Type *DimTy, Type *DimElemTy,
+                                   bool IsExactMultiple) {
   // addDimension() assumes that the ref IS or WILL become a GEP reference.
   createGEP();
 
@@ -1900,12 +1905,14 @@ void RegDDRef::addDimensionHighest(CanonExpr *IndexCE,
 
   GepInfo->DimTypes.push_back(DimTy);
   GepInfo->DimElementTypes.push_back(DimElemTy);
+  GepInfo->StrideIsExactMultiple.push_back(IsExactMultiple);
 }
 
 void RegDDRef::addDimension(CanonExpr *IndexCE,
                             ArrayRef<unsigned> TrailingOffsets,
                             CanonExpr *LowerBoundCE, CanonExpr *StrideCE,
-                            Type *DimTy, Type *DimElemTy) {
+                            Type *DimTy, Type *DimElemTy,
+                            bool IsExactMultiple) {
   assert(IndexCE && "IndexCE is null!");
   Type *ScalarIndexCETy = IndexCE->getDestType()->getScalarType();
 
@@ -1961,6 +1968,8 @@ void RegDDRef::addDimension(CanonExpr *IndexCE,
   // Add Dimension type
   GepInfo->DimTypes.insert(GepInfo->DimTypes.begin(), DimTy);
   GepInfo->DimElementTypes.insert(GepInfo->DimElementTypes.begin(), DimElemTy);
+  GepInfo->StrideIsExactMultiple.insert(GepInfo->StrideIsExactMultiple.begin(),
+                                        IsExactMultiple);
 }
 
 void RegDDRef::removeDimension(unsigned DimensionIndex) {
@@ -1982,6 +1991,8 @@ void RegDDRef::removeDimension(unsigned DimensionIndex) {
     GepInfo->DimTypes.erase(GepInfo->DimTypes.begin() + ToRemoveDim);
     GepInfo->DimElementTypes.erase(GepInfo->DimElementTypes.begin() +
                                    ToRemoveDim);
+    GepInfo->StrideIsExactMultiple.erase(
+        GepInfo->StrideIsExactMultiple.begin() + ToRemoveDim);
 
     if (GepInfo->DimensionOffsets.size() > DimensionIndex) {
       GepInfo->DimensionOffsets.erase(GepInfo->DimensionOffsets.begin() +
@@ -2071,16 +2082,39 @@ unsigned RegDDRef::getNumDimensionElements(unsigned DimensionNum) const {
     int64_t CurDimStride, NextDimStride;
 
     if (!getDimensionStride(DimensionNum)->isIntConstant(&CurDimStride) ||
+        (CurDimStride == 0) ||
         !getDimensionStride(DimensionNum + 1)->isIntConstant(&NextDimStride) ||
-        CurDimStride == 0) {
+        (NextDimStride == 0)) {
       return 0;
     }
 
-    assert((NextDimStride % CurDimStride == 0) &&
-           "Higher dimension stride is not an exact multiple of lower "
-           "dimension stride!");
+    // Strides can be negative but we need to take absolute value when computing
+    // number of elements.
+    CurDimStride = std::abs(CurDimStride);
+    NextDimStride = std::abs(NextDimStride);
 
-    return NextDimStride / CurDimStride;
+    assert(NextDimStride >= CurDimStride &&
+           "Higher dimension stride is less than lower dimension stride!");
+
+    // In fortran, higher dim stride may not be an even multiple of lower dim
+    // stride due to array sections like this-
+    //
+    // type (real) :: b(5,5)
+    // b(1:5:2,1:4)
+    //
+    // sizeof(real) = 4 bytes
+    // LowerDimStride = 2 * 4 = 8 bytes
+    // HigherDimStride = 5 * 4 = 20 bytes
+    // Number of elements in lower dimension = (20 / 8) + 1 = 3.
+    //
+    // Note: This method of computing number of elements may not be precise in
+    // all cases. The actual info is present in 'extent' field of the dope
+    // vector.
+    // TODO: How to get extent information?
+    //
+    bool IsEvenlyDivisible = (NextDimStride % CurDimStride == 0);
+
+    return ((NextDimStride / CurDimStride) + (IsEvenlyDivisible ? 0 : 1));
   }
 
   return 0;

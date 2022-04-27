@@ -12,6 +12,7 @@
 #include "LoopPeeling.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -145,7 +146,7 @@ bool DPCPPKernelWGLoopCreatorPass::runImpl(Module &M) {
       KIMD.CanUniteWorkgroups.set(VKIMD.CanUniteWorkgroups.get());
     }
 
-    LLVM_DEBUG(dbgs() << "vectWidth for " << F->getName() << ": " << VectWidth
+    LLVM_DEBUG(dbgs() << "VF for " << F->getName() << ": " << VectWidth
                       << "\n";);
 
     processFunction(F, VectKernel, VectWidth);
@@ -155,10 +156,28 @@ bool DPCPPKernelWGLoopCreatorPass::runImpl(Module &M) {
   return Changed;
 }
 
+static void disableLoopUnrollRecursively(Loop *L) {
+  LLVM_DEBUG(dbgs() << "Disable loop unroll for loop (header: "
+                    << L->getHeader()->getName() << ")\n");
+  L->setLoopAlreadyUnrolled();
+  for (Loop *L : L->getSubLoops())
+    disableLoopUnrollRecursively(L);
+}
+
+/// Disable loop unroll in scalar or masked remainder, since the loop trip
+/// count is very small (less than VF).
+static void disableRemainderLoopUnroll(Function &F, BasicBlock *Header) {
+  DominatorTree DT(F);
+  LoopInfo LI(DT);
+  if (Loop *L = LI.getLoopFor(Header))
+    disableLoopUnrollRecursively(L);
+}
+
 void DPCPPKernelWGLoopCreatorPass::processFunction(Function *F,
                                                    Function *VectorF,
                                                    unsigned VF) {
   LLVM_DEBUG(dbgs() << "Creating loop for " << F->getName() << "\n";);
+  LLVM_DEBUG(dbgs().indent(2));
   LLVM_DEBUG(if (VectorF) {
     dbgs() << "Vector function name: " << VectorF->getName() << "\n";
   });
@@ -189,7 +208,7 @@ void DPCPPKernelWGLoopCreatorPass::processFunction(Function *F,
   // If no workgroup loop is created (no calls to get_*_id), avoid inlining the
   // vector function into the scalar one since there is only one workitem to be
   // executed.
-  if (HasSubGroupPath && NumDim && KIMD.VectorizedMaskedKernel.hasValue()) {
+  if (NumDim && KIMD.VectorizedMaskedKernel.hasValue()) {
     MaskedF = KIMD.VectorizedMaskedKernel.get();
     // Set vetorized masked kernel to F. This metadata can be used as an
     // indicator of vectorized masked kernel being used.
@@ -219,12 +238,10 @@ void DPCPPKernelWGLoopCreatorPass::processFunction(Function *F,
   initializeImplicitGID(Func);
 
   // Create loops.
-  LoopRegion WGLoopRegion =
-      MaskedF ? createVectorAndMaskedRemainderLoops()
-      : (VectorF && NumDim)
-          ? createVectorAndRemainderLoops()
-          : addWGLoops(RemainderEntry, false, RemainderRet, GidCalls, LidCalls,
-                       InitGIDs, LoopSizes);
+  LoopRegion WGLoopRegion = MaskedF ? createVectorAndMaskedRemainderLoops()
+                            : (VectorF && NumDim)
+                                ? createVectorAndRemainderLoops()
+                                : createScalarLoops();
   assert(WGLoopRegion.PreHeader && WGLoopRegion.Exit &&
          "Workgroup loop entry or exit not initialized");
 
@@ -243,6 +260,9 @@ void DPCPPKernelWGLoopCreatorPass::processFunction(Function *F,
 
   // Create conditional jump over the WG loops in case of uniform early exit.
   handleUniformEE(NewRetBB);
+
+  if (NumDim > 0 && RemainderRegion.Header)
+    disableRemainderLoopUnroll(*Func, RemainderRegion.Header);
 
   // Now the masked kernel is a full workgroup which is organized as several
   // loops of vector kernel following by one masked kernel.
@@ -317,6 +337,20 @@ void DPCPPKernelWGLoopCreatorPass::initializeImplicitGID(Function *F) {
   }
 }
 
+// Create the following scalar loops:
+//
+// scalar_preheader:
+//   scalar loops
+// return
+//
+LoopRegion DPCPPKernelWGLoopCreatorPass::createScalarLoops() {
+  LLVM_DEBUG(dbgs() << "Create scalar loops\n");
+  if (VectorF)
+    VectorF->eraseFromParent();
+  return addWGLoops(RemainderEntry, false, RemainderRet, GidCalls, LidCalls,
+                    InitGIDs, MaxGIDs);
+}
+
 // if the vector kernel exists then we create the following code:
 //
 // max_vector =
@@ -326,6 +360,7 @@ void DPCPPKernelWGLoopCreatorPass::initializeImplicitGID(Function *F) {
 //   scalar loops
 // return
 LoopRegion DPCPPKernelWGLoopCreatorPass::createVectorAndRemainderLoops() {
+  LLVM_DEBUG(dbgs() << "Create vector and scalar remainder loops\n");
   // Collect get_*_id and return instructions in the vector kernel.
   VectorRet = getFunctionData(VectorF, GidCallsVec, LidCallsVec);
 
@@ -339,21 +374,21 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::createVectorAndRemainderLoops() {
   if (Dim0Boundaries.PeelLoopSize)
     return createPeelAndVectorAndRemainderLoops(Dim0Boundaries);
 
-  ValueVec InitGIDsCopy = InitGIDs;   // hard copy.
-  ValueVec LoopSizesCopy = LoopSizes; // hard copy.
+  ValueVec InitGIDsCopy = InitGIDs; // hard copy.
+  Value *MaxGIDTemp = MaxGIDs[VectorizedDim];
 
   // Create vector loops.
-  LoopSizes[VectorizedDim] = Dim0Boundaries.VectorLoopSize;
+  MaxGIDs[VectorizedDim] = Dim0Boundaries.MaxVector;
   LoopRegion VectorBlocks =
       addWGLoops(VectorEntry, true, VectorRet, GidCallsVec, LidCallsVec,
-                 InitGIDsCopy, LoopSizes);
+                 InitGIDsCopy, MaxGIDs);
 
   // Create scalar loops.
   InitGIDsCopy[VectorizedDim] = Dim0Boundaries.MaxVector;
-  LoopSizes[VectorizedDim] = Dim0Boundaries.ScalarLoopSize;
+  MaxGIDs[VectorizedDim] = MaxGIDTemp;
   LoopRegion ScalarBlocks =
       addWGLoops(RemainderEntry, false, RemainderRet, GidCalls, LidCalls,
-                 InitGIDsCopy, LoopSizes);
+                 InitGIDsCopy, MaxGIDs);
 
   // Create blocks to jump over the loops.
   BasicBlock *LoopsEntry =
@@ -376,10 +411,13 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::createVectorAndRemainderLoops() {
                    ConstZero, "");
   BranchInst::Create(ScalarBlocks.PreHeader, RetBB, ScalarCmp, ScalarIf);
   BranchInst::Create(RetBB, ScalarBlocks.Exit);
-  return LoopRegion(LoopsEntry, RetBB);
+
+  RemainderRegion = ScalarBlocks;
+  return LoopRegion{LoopsEntry, nullptr, RetBB};
 }
 
 LoopRegion DPCPPKernelWGLoopCreatorPass::createVectorAndMaskedRemainderLoops() {
+  LLVM_DEBUG(dbgs() << "Create vector and masked remainder loops\n");
   // Do not create scalar remainder for subgroup kernels as the semantics does
   // not allow execution of workitems in a serial manner.
   // Intentionally forget about scalar kernel. Let DCE delete it.
@@ -399,20 +437,20 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::createVectorAndMaskedRemainderLoops() {
     return createPeelAndVectorAndRemainderLoops(Dim0Boundaries);
 
   ValueVec InitGIDsCopy = InitGIDs;   // hard copy.
-  ValueVec LoopSizesCopy = LoopSizes; // hard copy.
+  Value *MaxGIDTemp = MaxGIDs[VectorizedDim];
 
   // Create vector loops.
-  LoopSizes[VectorizedDim] = Dim0Boundaries.VectorLoopSize;
+  MaxGIDs[VectorizedDim] = Dim0Boundaries.MaxVector;
   LoopRegion VectorBlocks =
       addWGLoops(VectorEntry, true, VectorRet, GidCallsVec, LidCallsVec,
-                 InitGIDsCopy, LoopSizes);
+                 InitGIDsCopy, MaxGIDs);
 
   // Create masked vector loop.
   InitGIDsCopy[VectorizedDim] = Dim0Boundaries.MaxVector;
-  LoopSizes[VectorizedDim] = ConstOne;
+  MaxGIDs[VectorizedDim] = MaxGIDTemp;
   LoopRegion MaskedBlocks =
       addWGLoops(RemainderEntry, true, RemainderRet, GidCalls, LidCalls,
-                 InitGIDsCopy, LoopSizes);
+                 InitGIDsCopy, MaxGIDs);
 
   // Create blocks to jump over the loops.
   auto *LoopsEntry =
@@ -445,7 +483,8 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::createVectorAndMaskedRemainderLoops() {
 
   BranchInst::Create(RetBB, MaskedBlocks.Exit);
 
-  return LoopRegion(LoopsEntry, RetBB);
+  RemainderRegion = MaskedBlocks;
+  return LoopRegion{LoopsEntry, nullptr, RetBB};
 }
 
 // If peeling is enabled and vector kernel exists, we create 3 loops:
@@ -479,11 +518,16 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::createVectorAndMaskedRemainderLoops() {
 // ret
 LoopRegion DPCPPKernelWGLoopCreatorPass::createPeelAndVectorAndRemainderLoops(
     LoopBoundaries &Dim0Boundaries) {
+  LLVM_DEBUG(
+      dbgs() << (MaskedF
+                     ? "Create masked peel, vector and masked remainder loops"
+                     : "Create scalar peel, vector and scalar remainder loops")
+             << "\n");
+
   bool IsMasked = MaskedF != nullptr;
   Function *Func = IsMasked ? MaskedF : F;
 
   ValueVec InitGIDsCopy = InitGIDs;   // hard copy.
-  ValueVec LoopSizesCopy = LoopSizes; // hard copy.
 
   // Create peeling loop region.
   LoopRegion PeelBlocks;
@@ -503,10 +547,11 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::createPeelAndVectorAndRemainderLoops(
 
   // Create vector loop.
   InitGIDsCopy[VectorizedDim] = Dim0Boundaries.MaxPeel;
-  LoopSizes[VectorizedDim] = Dim0Boundaries.VectorLoopSize;
+  Value *MaxGIDTemp = MaxGIDs[VectorizedDim];
+  MaxGIDs[VectorizedDim] = Dim0Boundaries.MaxVector;
   LoopRegion VectorBlocks =
       addWGLoops(VectorEntry, true, VectorRet, GidCallsVec, LidCallsVec,
-                 InitGIDsCopy, LoopSizes);
+                 InitGIDsCopy, MaxGIDs);
 
   // Create peel/remainder loops.
   auto *IsPeelLoop = PHINode::Create(Type::getInt1Ty(*Ctx), 2, "is.peel.loop",
@@ -515,33 +560,36 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::createPeelAndVectorAndRemainderLoops(
   IsPeelLoop->addIncoming(ConstantInt::getTrue(*Ctx), PeelBlocks.PreHeader);
 
   Value *PeelInitGID = InitGIDs[VectorizedDim];
-  auto *RemainderInitGID = PHINode::Create(
-      PeelInitGID->getType(), 2, "scalar.init.gid", RemainderPreEntry);
-  RemainderInitGID->addIncoming(Dim0Boundaries.MaxVector, RemainderIf);
+  auto *RemainderInitGID =
+      PHINode::Create(IndTy, 2, "peel.remainder.init.gid", RemainderPreEntry);
   RemainderInitGID->addIncoming(PeelInitGID, PeelBlocks.PreHeader);
+  RemainderInitGID->addIncoming(Dim0Boundaries.MaxVector, RemainderIf);
   InitGIDsCopy[VectorizedDim] = RemainderInitGID;
 
-  auto *ScalarLoopSize =
-      PHINode::Create(Dim0Boundaries.ScalarLoopSize->getType(), 2,
-                      "scalar.loop.size", RemainderPreEntry);
-  ScalarLoopSize->addIncoming(Dim0Boundaries.ScalarLoopSize, RemainderIf);
-  ScalarLoopSize->addIncoming(Dim0Boundaries.PeelLoopSize,
-                              PeelBlocks.PreHeader);
+  auto *RemainerMaxGID =
+      PHINode::Create(IndTy, 2, "peel.remainder.max.gid", RemainderPreEntry);
+  RemainerMaxGID->addIncoming(Dim0Boundaries.MaxPeel, PeelBlocks.PreHeader);
+  RemainerMaxGID->addIncoming(MaxGIDTemp, RemainderIf);
+  MaxGIDs[VectorizedDim] = RemainerMaxGID;
 
   if (IsMasked) {
+    auto *ScalarLoopSize =
+        PHINode::Create(Dim0Boundaries.ScalarLoopSize->getType(), 2,
+                        "peel.remainder.loop.size", RemainderPreEntry);
+    ScalarLoopSize->addIncoming(Dim0Boundaries.PeelLoopSize,
+                                PeelBlocks.PreHeader);
+    ScalarLoopSize->addIncoming(Dim0Boundaries.ScalarLoopSize, RemainderIf);
+
     // Generate mask.
     auto *Mask = DPCPPKernelLoopUtils::generateRemainderMask(VF, ScalarLoopSize,
                                                              RemainderPreEntry);
     auto MaskArg = Func->arg_end() - 1;
     MaskArg->replaceAllUsesWith(Mask);
-    LoopSizes[VectorizedDim] = ConstOne;
-  } else {
-    LoopSizes[VectorizedDim] = ScalarLoopSize;
   }
 
   LoopRegion RemainderBlocks =
       addWGLoops(RemainderEntry, IsMasked, RemainderRet, GidCalls, LidCalls,
-                 InitGIDsCopy, LoopSizes);
+                 InitGIDsCopy, MaxGIDs);
 
   // Create blocks to jump over the loops.
   auto *PeelIf =
@@ -568,7 +616,8 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::createPeelAndVectorAndRemainderLoops(
   // Jump to peel exit if current remainder loop is peel loop.
   BranchInst::Create(PeelBlocks.Exit, RetBB, IsPeelLoop, RemainderBlocks.Exit);
 
-  return LoopRegion(PeelIf, RetBB);
+  RemainderRegion = RemainderBlocks;
+  return LoopRegion{PeelIf, nullptr, RetBB};
 }
 
 DPCPPKernelWGLoopCreatorPass::LoopBoundaries
@@ -589,28 +638,31 @@ DPCPPKernelWGLoopCreatorPass::getVectorLoopBoundaries(Value *InitVal,
             *NewEntry, *VectorEntry, InitGIDs))
       PeelLoopSize = PeelSize.getValue();
   }
-  Value *VectorScalarSize =
-      PeelLoopSize
-          ? BinaryOperator::Create(Instruction::Sub, DimSize, PeelLoopSize,
-                                   "vector.scalar.size", NewEntry)
-          : DimSize;
+  Value *VectorScalarSize;
+  Value *MaxPeel = nullptr;
+  if (PeelLoopSize) {
+    MaxPeel = BinaryOperator::Create(Instruction::Add, PeelLoopSize, InitVal,
+                                     "max.peel.gid", NewEntry);
+    VectorScalarSize =
+        BinaryOperator::Create(Instruction::Sub, DimSize, PeelLoopSize,
+                               "vector.scalar.size", NewEntry);
+  } else {
+    VectorScalarSize = DimSize;
+  }
 
   // vector loops size can be derived by shifting size with log VF bits.
   Value *VectorLoopSize = BinaryOperator::Create(
       Instruction::AShr, VectorScalarSize, LogVFConst, "vector.size", NewEntry);
   Value *NumVectorWI = BinaryOperator::Create(
       Instruction::Shl, VectorLoopSize, LogVFConst, "num.vector.wi", NewEntry);
-  Value *MaxPeel =
-      PeelLoopSize ? BinaryOperator::Create(Instruction::Add, PeelLoopSize,
-                                            InitVal, "max.peel.gid", NewEntry)
-                   : nullptr;
   Value *MaxVector = BinaryOperator::Create(Instruction::Add, NumVectorWI,
                                             PeelLoopSize ? MaxPeel : InitVal,
                                             "max.vector.gid", NewEntry);
   Value *ScalarLoopSize = BinaryOperator::Create(
       Instruction::Sub, VectorScalarSize, NumVectorWI, "scalar.size", NewEntry);
-  return LoopBoundaries(PeelLoopSize, VectorLoopSize, ScalarLoopSize, MaxPeel,
-                        MaxVector);
+
+  return LoopBoundaries{PeelLoopSize, VectorLoopSize, ScalarLoopSize, MaxPeel,
+                        MaxVector};
 }
 
 BasicBlock *DPCPPKernelWGLoopCreatorPass::inlineVectorFunction(BasicBlock *BB) {
@@ -800,6 +852,7 @@ void DPCPPKernelWGLoopCreatorPass::getLoopsBoundaries() {
   BaseGIDs.assign(MAX_WORK_DIM, nullptr);
   InitGIDs.clear();
   LoopSizes.clear();
+  MaxGIDs.clear();
   for (unsigned Dim = 0; Dim < NumDim; ++Dim) {
     Value *InitGID;
     Value *LoopSize;
@@ -818,6 +871,13 @@ void DPCPPKernelWGLoopCreatorPass::getLoopsBoundaries() {
     }
     InitGIDs.push_back(InitGID);
     LoopSizes.push_back(LoopSize);
+
+    // Create MaxGID for each dimension. Unsed MaxGID will be eliminated by
+    // later optimizations.
+    auto *MaxGID =
+        BinaryOperator::Create(Instruction::Add, InitGID, LoopSize,
+                               Twine("max.gid.dim") + Twine(Dim), NewEntry);
+    MaxGIDs.push_back(MaxGID);
   }
 }
 
@@ -836,7 +896,7 @@ void DPCPPKernelWGLoopCreatorPass::computeDimStr(unsigned Dim, bool IsVector) {
 
 LoopRegion DPCPPKernelWGLoopCreatorPass::addWGLoops(
     BasicBlock *KernelEntry, bool IsVector, ReturnInst *Ret, InstVecVec &GIDs,
-    InstVecVec &LIDs, ValueVec &InitGIDs, ValueVec &LoopSizes) {
+    InstVecVec &LIDs, ValueVec &InitGIDs, ValueVec &MaxGIDs) {
   assert(KernelEntry && Ret && "uninitialized parameters");
 
   // Move allocas and llvm.dbg.declare in the entry kernel entry block to the
@@ -849,6 +909,12 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::addWGLoops(
   // respectively.
   BasicBlock *Head = KernelEntry;
   BasicBlock *Latch = Ret->getParent();
+  LLVM_DEBUG(dbgs() << "  Add " << (IsVector ? "vector" : "scalar")
+                    << " WG Loops. Head: " << Head->getName()
+                    << ". Latch: " << Latch->getName() << "\n");
+
+  // Header of outmost loop.
+  BasicBlock *HeaderOutmost = nullptr;
 
   // Erase original return instruction.
   Ret->eraseFromParent();
@@ -860,14 +926,22 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::addWGLoops(
     unsigned ResolvedDim = resolveDimension(Dim);
     computeDimStr(ResolvedDim, IsVector);
     Value *IncBy = (ResolvedDim == VectorizedDim) ? Dim0IncBy : ConstOne;
+    LLVM_DEBUG(dbgs() << "    Add WG Loop for Dim " << Dim << " with step "
+                      << *IncBy << "\n");
     // Create the loop
-    LoopRegion Blocks = DPCPPKernelLoopUtils::createLoop(
-        Head, Latch, ConstZero, ConstOne, LoopSizes[ResolvedDim], DimStr, *Ctx);
-    // Modify get***id accordingly.
     Value *InitGID = InitGIDs[ResolvedDim];
-    if (!GIDs[ResolvedDim].empty())
-      replaceTIDsWithPHI(GIDs[ResolvedDim], InitGID, IncBy, Head,
-                         Blocks.PreHeader, Latch);
+    LoopRegion Blocks;
+    PHINode *IndVar;
+    std::tie(Blocks, IndVar) = DPCPPKernelLoopUtils::createLoop(
+        Head, Latch, InitGID, IncBy, MaxGIDs[ResolvedDim],
+        MaskedF ? CmpInst::ICMP_SGE : CmpInst::ICMP_EQ, DimStr, *Ctx);
+    // Modify get***id accordingly.
+    if (!GIDs[ResolvedDim].empty()) {
+      for (auto *TID : GIDs[ResolvedDim]) {
+        TID->replaceAllUsesWith(IndVar);
+        TID->eraseFromParent();
+      }
+    }
     if (!LIDs[ResolvedDim].empty()) {
       BasicBlock *InsertAtEnd = NewEntry;
       if (auto *PN = dyn_cast<PHINode>(InitGID))
@@ -884,8 +958,9 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::addWGLoops(
     // respectively.
     Head = Blocks.PreHeader;
     Latch = Blocks.Exit;
+    HeaderOutmost = Blocks.Header;
   }
-  return LoopRegion(Head, Latch);
+  return LoopRegion{Head, HeaderOutmost, Latch};
 }
 
 void DPCPPKernelWGLoopCreatorPass::replaceTIDsWithPHI(

@@ -873,10 +873,10 @@ checkAllocSite(CallBase *CallSite, Function *CandidateFunc, Value *Val,
       Value *Val = LI->getPointerOperand();
       if (auto *BC = dyn_cast<BitCastInst>(Val))
         Val = BC->getOperand(0);
-      CallInst *CI = extractMallocCall(Val, GetTLI);
-      if (!CI)
+      if (!isMallocLikeFn(Val, GetTLI))
         return false;
 
+      auto *CI = cast<CallInst>(Val);
       StoreInst *StoredOnceInst = nullptr;
       if (!StoredOnlyOnceMalloc(CI, &StoredOnceInst))
         return false;

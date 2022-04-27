@@ -1,4 +1,4 @@
-; RUN: opt < %s -analyze -hir-ssa-deconstruction -hir-framework 2>&1  | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt < %s -analyze -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework 2>&1  | FileCheck %s --check-prefix=CHECK-HIR
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" 2>&1  | FileCheck %s --check-prefix=CHECK-HIR
 
 ; Check that insertvalue and extractvalue instructions are parsed and printed correctly.

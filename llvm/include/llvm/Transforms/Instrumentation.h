@@ -78,6 +78,9 @@ struct GCOVOptions {
 ModulePass *createGCOVProfilerPass(const GCOVOptions &Options =
                                    GCOVOptions::getDefault());
 
+ModulePass *createCGProfileLegacyPass();
+
+#if INTEL_CUSTOMIZATION
 // PGO Instrumention. Parameter IsCS indicates if this is the context sensitive
 // instrumentation.
 ModulePass *createPGOInstrumentationGenLegacyPass(bool IsCS = false);
@@ -89,8 +92,7 @@ ModulePass *createPGOInstrumentationGenCreateVarLegacyPass(
 ModulePass *createPGOIndirectCallPromotionLegacyPass(bool InLTO = false,
                                                      bool SamplePGO = false);
 FunctionPass *createPGOMemOPSizeOptLegacyPass();
-
-ModulePass *createCGProfileLegacyPass();
+#endif // INTEL_CUSTOMIZATION
 
 // The pgo-specific indirect call promotion function declared below is used by
 // the pgo-driven indirect call promotion and sample profile passes. It's a

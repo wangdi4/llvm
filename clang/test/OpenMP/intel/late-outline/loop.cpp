@@ -1,6 +1,10 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
+// RUN:  -fopenmp-new-depend-ir -triple x86_64-unknown-linux-gnu %s \
+// RUN:  | FileCheck %s
 
 // Checking on "regular" loops
 //
@@ -14,8 +18,8 @@ void bar(int) noexcept;
 
 // CHECK-LABEL: @_Z3fooPiPS_
 void foo(int *arr1, int **arr2) {
-  // CHECK: [[ARR1:%arr1.*]] = alloca i32*,
-  // CHECK: [[ARR2:%arr2.*]] = alloca i32**,
+  // CHECK: [[ARR1:%arr1.*]] = alloca ptr,
+  // CHECK: [[ARR2:%arr2.*]] = alloca ptr,
   // CHECK: [[I:%i.*]] = alloca i32,
   // CHECK: [[J:%j.*]] = alloca i32,
   // CHECK: [[ITER:%iter.*]] = alloca i32,
@@ -33,7 +37,7 @@ void foo(int *arr1, int **arr2) {
 
 // CHECK: [[T4:%[0-9]+]] = call token {{.*}}region.entry() [ "DIR.OMP.SIMD"()
 // CHECK-SAME: "QUAL.OMP.SAFELEN"(i32 4)
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[IV]])
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[IV]])
 // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"
 // CHECK: region.exit(token [[T4]]) [ "DIR.OMP.END.SIMD"() ]
   #pragma omp simd safelen(4)
@@ -43,8 +47,8 @@ void foo(int *arr1, int **arr2) {
 
 // CHECK: [[T24:%[0-9]+]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: [ "DIR.OMP.PARALLEL.LOOP"(),
-// CHECK-SAME: "QUAL.OMP.SHARED"(i32*** [[ARR2]])
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i64* [[IV11]])
+// CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[ARR2]])
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[IV11]])
 // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"
 // CHECK: region.exit(token [[T24]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
   #pragma omp parallel for collapse(2)
@@ -54,9 +58,9 @@ void foo(int *arr1, int **arr2) {
 
 // CHECK: [[T42:%[0-9]+]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: [ "DIR.OMP.PARALLEL.LOOP"(),
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[IV72]])
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[IV72]])
 // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[K]])
+// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[K]])
 // CHECK: region.exit(token [[T42]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
   #pragma omp parallel for
   for (int k=0; k<10; k++) {
@@ -65,9 +69,9 @@ void foo(int *arr1, int **arr2) {
 
 // CHECK: [[T49:%[0-9]+]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: [ "DIR.OMP.LOOP"(),
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[IV88]])
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[IV88]])
 // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[K97]])
+// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[K97]])
 // CHECK: region.exit(token [[T49]]) [ "DIR.OMP.END.LOOP"() ]
   #pragma omp for
   for (int k=0; k<10; k++) {
@@ -76,8 +80,8 @@ void foo(int *arr1, int **arr2) {
 
 // CHECK: [[T61:%[0-9]+]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: [ "DIR.OMP.PARALLEL.LOOP"()
-// CHECK-SAME: "QUAL.OMP.SHARED"(i32** [[ARR1]])
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[IV105]])
+// CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[ARR1]])
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[IV105]])
 // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"
 
 // CHECK: [[T62:%[0-9]+]] = call token @llvm.directive.region.entry()
@@ -120,11 +124,11 @@ void multiloop(int in, int *arr)
   // CHECK: [[OMP_UB4:%.omp.ub.*]] = alloca i32,
   // CHECK: [[OMP_UB5:%.omp.ub.*]] = alloca i32,
   // CHECK: [ "DIR.OMP.PARALLEL"()
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[OMP_UB1]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[OMP_UB2]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[OMP_UB3]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[OMP_UB4]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[OMP_UB5]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_UB1]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_UB2]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_UB3]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_UB4]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_UB5]])
   // CHECK: [ "DIR.OMP.END.PARALLEL"() ]
   #pragma omp parallel
   {
@@ -173,13 +177,13 @@ void doacross_test(int (*v_ptr)[5][4])
   for (i = 1; i < M; i++) {
     for (j = 2; j < N; j++) {
   // CHECK: [[DAL1:%[0-9]+]] = load{{.*}}[[OMPLB]]
-  // CHECK: store i32 [[DAL1]], i32* [[OMPIV]]
+  // CHECK: store i32 [[DAL1]], ptr [[OMPIV]]
   // CHECK: [[DAL2:%[0-9]+]] = load{{.*}}[[OMPIV]]
   // CHECK: [[DAL3:%[0-9]+]] = load{{.*}}[[OMPUB]]
   // CHECK: icmp sle i32 [[DAL2]], [[DAL3]]
   // CHECK: [[DAL4:%[0-9]+]] = load{{.*}}[[OMPIV]]
   // CHECK: store i32{{.*}}[[VARI]]
-  // CHECK: store i32 2, i32* [[VARJ]]
+  // CHECK: store i32 2, ptr [[VARJ]]
 
   // CHECK: [[N6:%[0-9]+]] = load{{.*}}[[VARI]]
   // CHECK: [[S:%sub[0-9]*]] = sub nsw i32 [[N6]], 1
@@ -210,10 +214,10 @@ void doacross_test(int (*v_ptr)[5][4])
 
   //CHECK: call {{.*}}bar
   bar(0);
-  //CHECK: [[N22:%[0-9]+]] = load i32, i32* [[VARI]], align 4
+  //CHECK: [[N22:%[0-9]+]] = load i32, ptr [[VARI]], align 4
   //CHECK: [[SUB25:%sub[0-9]+]] = sub nsw i32 [[N22]], 1
   //CHECK: [[DIV26:%div[0-9]+]] = sdiv i32 [[SUB25]], 1
-  //CHECK: [[N23:%[0-9]+]] = load i32, i32* [[VARJ]], align 4
+  //CHECK: [[N23:%[0-9]+]] = load i32, ptr [[VARJ]], align 4
   //CHECK: [[SUB27:%sub[0-9]+]] = sub nsw i32 [[N23]], 2
   //CHECK: [[DIV28:%div[0-9]+]] = sdiv i32 [[SUB27]], 1
 
@@ -235,8 +239,8 @@ void doacross_test_two(int (*v_ptr)[5][4])
   int i, j;
   // CHECK: region.entry{{.*}}OMP.PARALLEL.LOOP
   // CHECK-SAME: ORDERED"(i32 2, i32 4, i32 2)
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[J]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[I]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[J]])
   #pragma omp parallel for ordered (2)
   for (i = 1; i < M; i++) {
     for (j = 2; j < N; j++) {
@@ -258,17 +262,17 @@ void nuw_incr_test(unsigned n1, int ldf, int* buf)
   }
   //CHECK: {{call|invoke}}{{.*}}i_inc_test_call
   // Expect 'add nuw' for this increment.
-  //CHECK: [[LL:%[0-9]+]] = load i32, i32* [[OMPIV]]
+  //CHECK: [[LL:%[0-9]+]] = load i32, ptr [[OMPIV]]
   //CHECK: [[ADD:%add[0-9]*]] = add nuw i32 [[LL]], 1
-  //CHECK: store i32 [[ADD]], i32* [[OMPIV]]
+  //CHECK: store i32 [[ADD]], ptr [[OMPIV]]
   //CHECK: "DIR.OMP.END.PARALLEL.LOOP"()
 
   // Just check that this increment is not affected.
   unsigned int j = 0;
   j = j + 1;
-  //CHECK: store i32 0, i32* [[JJ]]
-  //CHECK: [[L2:%[0-9]+]] = load i32, i32* [[JJ]]
+  //CHECK: store i32 0, ptr [[JJ]]
+  //CHECK: [[L2:%[0-9]+]] = load i32, ptr [[JJ]]
   //CHECK: [[A2:%add[0-9]*]] = add i32 [[L2]], 1
-  //CHECK: store i32 [[A2]], i32* [[JJ]]
+  //CHECK: store i32 [[A2]], ptr [[JJ]]
 }
 // end INTEL_COLLAB

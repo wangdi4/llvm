@@ -1088,8 +1088,8 @@ unsigned HIROptPredicate::getPossibleDefLevel(const HLIf *If, PUContext &PUC) {
   unsigned Level = 0;
 
   for (auto PI = If->pred_begin(), PE = If->pred_end(); PI != PE; ++PI) {
-    const RegDDRef *Ref1 = If->getPredicateOperandDDRef(PI, true);
-    const RegDDRef *Ref2 = If->getPredicateOperandDDRef(PI, false);
+    const RegDDRef *Ref1 = If->getLHSPredicateOperandDDRef(PI);
+    const RegDDRef *Ref2 = If->getRHSPredicateOperandDDRef(PI);
 
     Level = std::max(Level, getPossibleDefLevel(If, Ref1, PUC));
     if (Level == NonLinearLevel) {

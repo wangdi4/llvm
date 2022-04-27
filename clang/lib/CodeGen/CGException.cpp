@@ -1,4 +1,21 @@
 //===--- CGException.cpp - Emit LLVM Code for C++ exceptions ----*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -424,7 +441,8 @@ Address CodeGenFunction::getExceptionSlot() {
     Address A = CreateDefaultAlignTempAlloca(Int8PtrTy, "exn.slot");
     ExceptionSlot = A.getPointer();
     if (CapturedStmtInfo)
-      CapturedStmtInfo->recordValueDefinition(ExceptionSlot);
+      CapturedStmtInfo->recordValueDefinition(ExceptionSlot,
+                                              A.getElementType());
   }
 #else
   if (!ExceptionSlot)
@@ -439,7 +457,8 @@ Address CodeGenFunction::getEHSelectorSlot() {
     Address A = CreateDefaultAlignTempAlloca(Int32Ty, "ehselector.slot");
     EHSelectorSlot = A.getPointer();
     if (CapturedStmtInfo)
-      CapturedStmtInfo->recordValueDefinition(EHSelectorSlot);
+      CapturedStmtInfo->recordValueDefinition(EHSelectorSlot,
+                                              A.getElementType());
   }
 #else
   if (!EHSelectorSlot)
@@ -1891,7 +1910,7 @@ Address CodeGenFunction::recoverAddrOfEscapedLocal(CodeGenFunction &ParentCGF,
   llvm::Value *ChildVar =
       Builder.CreateBitCast(RecoverCall, ParentVar.getType());
   ChildVar->setName(ParentVar.getName());
-  return Address(ChildVar, ParentVar.getAlignment());
+  return ParentVar.withPointer(ChildVar);
 }
 
 void CodeGenFunction::EmitCapturedLocals(CodeGenFunction &ParentCGF,
@@ -1977,7 +1996,8 @@ void CodeGenFunction::EmitCapturedLocals(CodeGenFunction &ParentCGF,
           FrameRecoverFn, {ParentI8Fn, ParentFP,
                            llvm::ConstantInt::get(Int32Ty, FrameEscapeIdx)});
       ParentFP = Builder.CreateBitCast(ParentFP, CGM.VoidPtrPtrTy);
-      ParentFP = Builder.CreateLoad(Address(ParentFP, getPointerAlign()));
+      ParentFP = Builder.CreateLoad(
+          Address(ParentFP, CGM.VoidPtrTy, getPointerAlign()));
     }
   }
 

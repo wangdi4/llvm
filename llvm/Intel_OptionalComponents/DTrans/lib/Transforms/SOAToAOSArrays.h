@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSArrays.h - Part of SOAToAOSPass -------------===//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1277,6 +1277,12 @@ public:
         else if (ArrayIdioms::isExternaSideEffect(D, S)) {
           MC.HasExternalSideEffect = true;
           break;
+        } else if (auto *II = dyn_cast<IntrinsicInst>(&I)) {
+          if (II->getIntrinsicID() == Intrinsic::umax &&
+              isDependentOnIntegerFieldsOnly(D, S))
+            break;
+
+          DEBUG_WITH_TYPE(DTRANS_SOAARR, dbgs() << "; Unsupported intrinsic\n");
         }
         Handled = false;
         break;
@@ -1352,8 +1358,10 @@ public:
 
   static void copyArgAttrs(Argument *From, Argument *To) {
     auto *F = To->getParent();
-    AttrBuilder AB(F->getAttributes(), To->getArgNo());
-    AB.merge(AttrBuilder(F->getAttributes(), From->getArgNo()));
+    AttrBuilder AB(F->getContext(),
+                   F->getAttributes().getParamAttrs(To->getArgNo()));
+    AB.merge(AttrBuilder(F->getContext(),
+                         F->getAttributes().getParamAttrs(From->getArgNo())));
     if (AB.hasAttributes())
       To->addAttrs(AB);
   }

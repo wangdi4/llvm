@@ -1,5 +1,5 @@
 // CQ#364268
-// RUN: %clang_cc1 -emit-llvm -fintel-compatibility -triple x86_64-unknown-linux-gnu -o - %s | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -fintel-compatibility -triple x86_64-unknown-linux-gnu -opaque-pointers -o - %s | FileCheck %s
 
 typedef struct SC {
     unsigned char a;
@@ -16,6 +16,6 @@ typedef struct SB {
 } SB;
 
 
-// CHECK: define{{.*}}i32 @main(%struct.SA* %sa, %struct.SB* %sb)
+// CHECK: define{{.*}}i32 @main(ptr noundef %sa, ptr noundef %sb)
 int main(SA *sa, SB *sb) {
 }

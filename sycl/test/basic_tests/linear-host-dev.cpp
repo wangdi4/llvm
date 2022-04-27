@@ -31,8 +31,6 @@ int main(int argc, char *argv[]) {
   // CHECK-NEXT: 3
   // CHECK-NEXT: 4
   // CHECK-NEXT: 5
-#if DPCPP_HOST_DEVICE_SERIAL
-  // This check can reliably work only with serial host device
   q.submit([&](s::handler &h) {
     s::stream out(1024, 80, h);
 
@@ -41,13 +39,6 @@ int main(int argc, char *argv[]) {
     });
   });
   q.wait();
-#else
-  // Run simple loop for this test to pass on devices where output can
-  // appear in a different order
-  for (int i = 0; i <= 5; ++i) {
-    std::cout << i << std::endl;
-  }
-#endif
 
   return 0;
 }

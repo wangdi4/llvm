@@ -1,4 +1,21 @@
 //===- Local.h - Functions to perform local transformations -----*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -15,28 +32,20 @@
 #define LLVM_TRANSFORMS_UTILS_LOCAL_H
 
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Analysis/Utils/Local.h"
-#include "llvm/IR/Constant.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
-#include "llvm/IR/Operator.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/User.h"
-#include "llvm/IR/Value.h"
-#include "llvm/IR/ValueHandle.h"
-#include "llvm/Support/Casting.h"
 #include "llvm/Transforms/IPO/Intel_InlineReport.h"       // INTEL
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h"     // INTEL
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Utils/SimplifyCFGOptions.h"
 #include <cstdint>
-#include <limits>
 
 namespace llvm {
 
+class DataLayout;
+class Value;
+class WeakTrackingVH;
+class WeakVH;
+template <typename T> class SmallVectorImpl;
 class AAResults;
 class AllocaInst;
 class AssumptionCache;
@@ -44,9 +53,7 @@ class BasicBlock;
 class BranchInst;
 class CallBase;
 class CallInst;
-class DbgDeclareInst;
 class DbgVariableIntrinsic;
-class DbgValueInst;
 class DIBuilder;
 class DomTreeUpdater;
 class Function;
@@ -245,7 +252,7 @@ inline Align getKnownAlignment(Value *V, const DataLayout &DL,
 CallInst *createCallMatchingInvoke(InvokeInst *II);
 
 /// This function converts the specified invoek into a normall call.
-void changeToCall(InvokeInst *II, DomTreeUpdater *DTU = nullptr);
+CallInst *changeToCall(InvokeInst *II, DomTreeUpdater *DTU = nullptr);
 
 #if INTEL_CUSTOMIZATION
 namespace {

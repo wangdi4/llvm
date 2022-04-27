@@ -11,24 +11,31 @@ target triple = "x86_64-pc-linux"
 
 define fastcc i64 @foo() #0 {
 entry:
-  %call = tail call i64 @_Z12get_local_idj(i64 0)
+  tail call void @_Z7barrierj(i32 1)
+  %call = tail call i64 @_Z12get_local_idj(i32 0)
   ret i64 %call
 }
 
-declare i64 @_Z12get_local_idj(i64)
+declare void @_Z7barrierj(i32)
 
+declare i64 @_Z12get_local_idj(i32)
 
-define void @basic(i64 addrspace(1)* %local_id, i64 addrspace(1)* %sg_local_id) !recommended_vector_length !1 {
+declare i32 @_Z22get_sub_group_local_idv()
+
+define void @basic(i64 addrspace(1)* %local_id, i64 addrspace(1)* %sg_local_id) #4 !recommended_vector_length !1 {
 entry:
   %call = tail call fastcc i64 @foo()
   %arrayidx = getelementptr inbounds i64, i64 addrspace(1)* %local_id, i64 %call
   store i64 %call, i64 addrspace(1)* %arrayidx, align 8
+  %call.i = tail call i32 @_Z22get_sub_group_local_idv()
+  %conv.i = zext i32 %call.i to i64
+  %arrayidx2 = getelementptr inbounds i64, i64 addrspace(1)* %sg_local_id, i64 %call
+  store i64 %conv.i, i64 addrspace(1)* %arrayidx2, align 8
   ret void
 }
 
 ; CHECK: define fastcc <4 x i64> @_ZGVeM4_foo(<4 x i64> %mask) #2 {
-; CHECK: attributes #2 = {
-; CHECK-SAME: "widened-size"="4" }
+; CHECK: attributes #2 = { "may-have-openmp-directive"="true" "vector-variants"="_ZGVeM4_foo,_ZGVeN4_foo" "widened-size"="4" }
 
 attributes #0 = { "vector-variants"="_ZGVeM4_foo,_ZGVeN4_foo" }
 
@@ -51,8 +58,6 @@ attributes #0 = { "vector-variants"="_ZGVeM4_foo,_ZGVeN4_foo" }
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} load
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} icmp
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} br
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} getelementptr
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} store
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} add
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} icmp
@@ -66,8 +71,6 @@ attributes #0 = { "vector-variants"="_ZGVeM4_foo,_ZGVeN4_foo" }
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} bitcast
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} call
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} getelementptr
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} store
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} add
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} icmp
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} br

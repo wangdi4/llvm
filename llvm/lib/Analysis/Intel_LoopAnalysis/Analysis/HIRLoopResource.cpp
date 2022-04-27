@@ -264,14 +264,15 @@ struct LoopResourceInfo::LoopResourceVisitor::BlobCostEvaluator
   }
 
 private:
-  void visitMinMaxExpr(const SCEVMinMaxExpr *Expr) {
+  void visitMinMaxExpr(const SCEVNAryExpr *Expr) {
     unsigned Cost = LRV.getNormalizedCost(LRV.TTI.getCmpSelInstrCost(
         Instruction::ICmp, Expr->getType(),
         CmpInst::makeCmpResultType(Expr->getType()),
         CmpInst::BAD_ICMP_PREDICATE));
+
     LRV.SelfLRI->addIntOps(Cost, Expr->getNumOperands() - 1);
 
-    visitNAryExpr(cast<SCEVNAryExpr>(Expr));
+    visitNAryExpr(Expr);
   }
 
 public:
@@ -289,6 +290,20 @@ public:
 
   void visitUMinExpr(const SCEVUMinExpr *UMinBlob) {
     visitMinMaxExpr(UMinBlob);
+  }
+
+  void visitSequentialUMinExpr(const SCEVSequentialUMinExpr *Expr) {
+    auto NumOperands = Expr->getNumOperands();
+
+    // Sequential UMin generates extra 'Or' instructions in addition to (cmp +
+    // select) instructions.
+    if (NumOperands > 2) {
+      unsigned Cost = LRV.getNormalizedCost(
+          LRV.TTI.getArithmeticInstrCost(Instruction::Or, Expr->getType()));
+      LRV.SelfLRI->addIntOps(Cost, NumOperands - 2);
+    }
+
+    visitMinMaxExpr(Expr);
   }
 
   void visitUnknown(const SCEVUnknown *Unknown) {}

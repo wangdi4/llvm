@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 #To-Do:
 #1. Figure out why CMP0057 has to be set. Should have been taken care of earlier in the build
 #2. Use AddLLVM to modify the build and access config options
@@ -10,7 +27,7 @@ configure_file(
   @ONLY)
 
 if (SYCL_ENABLE_XPTI_TRACING)
-  if (NOT EXISTS ${LLVM_EXTERNAL_XPTI_SOURCE_DIR})
+  if (NOT DEFINED LLVM_EXTERNAL_XPTI_SOURCE_DIR)
     message (FATAL_ERROR "Undefined LLVM_EXTERNAL_XPTI_SOURCE_DIR variable: Must be set when XPTI tracing is set to ON")
   endif()
   include_directories(${LLVM_EXTERNAL_XPTI_SOURCE_DIR}/include)
@@ -31,6 +48,18 @@ function(add_sycl_rt_library LIB_NAME)
     add_library(${LIB_NAME} SHARED
                 $<TARGET_OBJECTS:${LIB_OBJ_NAME}>
                 ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
+  endif()
+
+  if (SYCL_ENABLE_COVERAGE)
+    target_compile_options(${LIB_OBJ_NAME} PUBLIC
+      -fprofile-instr-generate -fcoverage-mapping
+    )
+    target_compile_options(${LIB_NAME} PUBLIC
+      -fprofile-instr-generate -fcoverage-mapping
+    )
+    target_link_options(${LIB_NAME} PUBLIC
+      -fprofile-instr-generate -fcoverage-mapping
+    )
   endif()
 
   if (ARG_COMPILE_OPTIONS)
@@ -91,8 +120,6 @@ function(add_sycl_rt_library LIB_NAME)
       OpenCL-ICD
       ${CMAKE_DL_LIBS}
       ${CMAKE_THREAD_LIBS_INIT}
-    PUBLIC
-      $<$<BOOL:${SYCL_BUILD_PI_CUDA}>:pi_cuda>
   )
 # INTEL_CUSTOMIZATION
 # FIXME: Temporary fix for self-build after (#1597), needed for
@@ -142,6 +169,7 @@ set(SYCL_SOURCES
     "detail/context_impl.cpp"
     "detail/device_binary_image.cpp"
     "detail/device_filter.cpp"
+    "detail/device_global_map.cpp"
     "detail/device_impl.cpp"
     "detail/error_handling/enqueue_kernel.cpp"
     "detail/event_impl.cpp"
@@ -227,15 +255,7 @@ if (MSVC)
 
 # INTEL_CUSTOMIZATION
 else()
-# Don't use libcxx library to build sycl library if it is not explicitly stated to do so
-  string( REPLACE "-stdlib=libc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
-  string( REPLACE "-stdlib=libc++" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
-  string( REPLACE "-stdlib=libc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
-
-# Don't link statically against standard C++ library
-  string( REPLACE "-static-libstdc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
-  string( REPLACE "-static-libstdc++" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
-  string( REPLACE "-static-libstdc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
+intel_clear_stdlib()
 # end INTEL_CUSTOMIZATION
 endif()
 
@@ -255,13 +275,6 @@ if (NOT MSVC)
   endif()
 endif()
 # end INTEL_CUSTOMIZATION
-
-# Enable new IN_LIST operator.
-cmake_policy(SET CMP0057 NEW)
-
-if (libdevice IN_LIST LLVM_ENABLE_PROJECTS)
-  add_dependencies(sycl libsycldevice)
-endif()
 
 # INTEL_CUSTOMIZATION
 set(SYCL_ARCHIVE_INSTALL_DIR "lib${LLVM_LIBDIR_SUFFIX}")

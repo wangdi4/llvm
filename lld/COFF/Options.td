@@ -1,3 +1,20 @@
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 include "llvm/Option/OptParser.td"
 
 // link.exe accepts options starting with either a dash or a slash.
@@ -41,6 +58,7 @@ def color_diagnostics_eq: Joined<["--"], "color-diagnostics=">,
     MetaVarName<"[auto,always,never]">;
 def defaultlib : P<"defaultlib", "Add the library to the list of input files">;
 def delayload : P<"delayload", "Delay loaded DLL name">;
+def diasdkdir : P<"diasdkdir", "Set the location of the DIA SDK">;
 def entry   : P<"entry", "Name of entry point symbol">;
 def errorlimit : P<"errorlimit",
     "Maximum number of errors to emit before stopping (0 = no limit)">;
@@ -55,6 +73,8 @@ def guard   : P<"guard", "Control flow guard">;
 def heap    : P<"heap", "Size of the heap">;
 def ignore : P<"ignore", "Specify warning codes to ignore">;
 def implib  : P<"implib", "Import library name">;
+def noimplib : F<"noimplib">,
+    HelpText<"Don't output an import lib">;
 def lib : F<"lib">,
     HelpText<"Act like lib.exe; must be first argument if present">;
 def libpath : P<"libpath", "Additional library search path">;
@@ -89,9 +109,16 @@ def stack   : P<"stack", "Size of the stack">;
 def stub    : P<"stub", "Specify DOS stub file">;
 def subsystem : P<"subsystem", "Specify subsystem">;
 def timestamp : P<"timestamp", "Specify the PE header timestamp">;
+def vctoolsdir : P<"vctoolsdir", "Set the location of the VC tools">;
+def vctoolsversion : P<"vctoolsversion",
+    "Specify which VC tools version to use">;
 def version : P<"version", "Specify a version number in the PE header">;
 def wholearchive_file : P<"wholearchive",
     "Include all object files from this library">;
+def winsdkdir : P<"winsdkdir", "Set the location of the Windows SDK">;
+def winsdkversion : P<"winsdkversion", "Specify which SDK version to use">;
+def winsysroot : P<"winsysroot",
+    "Adds several subdirectories to the library search paths">;
 
 def disallowlib : Joined<["/", "-", "/?", "-?"], "disallowlib:">,
     Alias<nodefaultlib>;
@@ -158,7 +185,8 @@ def force_multiple : F<"force:multiple">,
     HelpText<"Allow multiply defined symbols when creating executables">;
 def force_multipleres : F<"force:multipleres">,
     HelpText<"Allow multiply defined resources when creating executables">;
-defm WX : B<"WX", "Treat warnings as errors", "Don't treat warnings as errors">;
+defm WX : B<"WX", "Treat warnings as errors",
+                  "Don't treat warnings as errors (default)">;
 
 defm allowbind : B<"allowbind", "Enable DLL binding (default)",
                    "Disable DLL binding">;
@@ -255,7 +283,7 @@ def threads
     : P<"threads", "Number of threads. '1' disables multi-threading. By "
                    "default all available hardware threads are used">;
 def call_graph_ordering_file: P<
-    "call-graph-ordering-file", 
+    "call-graph-ordering-file",
     "Layout sections to optimize the given callgraph">;
 defm call_graph_profile_sort: B<
     "call-graph-profile-sort",

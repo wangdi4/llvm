@@ -1,6 +1,6 @@
 //===-----------TypeMetadataReader.cpp - Decode metadata annotations-------===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -9,47 +9,92 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
+#include "Intel_DTrans/Analysis/DTransOPUtils.h"
+#include "Intel_DTrans/Analysis/DTransTypeMetadataBuilder.h"
+#include "Intel_DTrans/Analysis/DTransTypeMetadataConstants.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
-#include "Intel_DTrans/Analysis/DTransOPUtils.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Instructions.h"
 
 #define DEBUG_TYPE "dtrans-typemetadatareader"
 
 static llvm::cl::opt<bool> EnableStrictCheck(
     "dtrans-typemetadatareader-strict-check", llvm::cl::Hidden,
-    llvm::cl::init(true), llvm::cl::desc("verify that DTrans "
-    "metadata was collected for all structures"));
+    llvm::cl::init(true),
+    llvm::cl::desc("verify that DTrans "
+                   "metadata was collected for all structures"));
 
 namespace llvm {
 namespace dtransOP {
-// The tag name for the named metadata nodes that contains the list of structure
-// types. This node is used to identify all the nodes that describe the fields
-// of the structure so that we will know what all the original pointer type
-// fields were.
-const char *MDStructTypesTag = "intel.dtrans.types";
 
-// The tag name used for variables and instructions marked with DTrans type
-// information for pointer type recovery.
-const char *MDDTransTypeTag = "intel_dtrans_type";
-
-// Tag used for metadata on a Function declaration/definition to map a set
-// of metadata nodes of encoded types to attributes used on the return type
-// and parameters.
-const char *DTransFuncTypeMDTag = "intel.dtrans.func.type";
-
-// String attribute name that is set on return type and parameters to provide
-// indexing into the DTransFuncTypeMD metadata.
-const char *DTransFuncIndexTag = "intel_dtrans_func_index";
+bool TypeMetadataReader::hasDTransTypesMetadata(Module &M) {
+  return getDTransTypesMetadata(M) != nullptr;
+}
 
 NamedMDNode *TypeMetadataReader::getDTransTypesMetadata(Module &M) {
   NamedMDNode *DTMDTypes = M.getNamedMetadata(MDStructTypesTag);
   return DTMDTypes;
+}
+
+bool TypeMetadataReader::mapStructsToMDNodes(
+    Module &M, MapVector<StructType *, MDNode *> &Mapping, bool IncludeOpaque) {
+  NamedMDNode *DTransMD = TypeMetadataReader::getDTransTypesMetadata(M);
+  if (!DTransMD)
+    return false;
+
+  MapVector<StructType *, MDNode *> OpaqueTyMap;
+  for (auto *MD : DTransMD->operands()) {
+    if (MD->getNumOperands() < DTransStructMDConstants::MinOperandCount)
+      continue;
+
+    if (auto *MDS = dyn_cast<MDString>(
+            MD->getOperand(DTransStructMDConstants::RecTypeOffset)))
+      if (!MDS->getString().equals("S"))
+        continue;
+
+    // Ignore opaque structure definitions or malformed metadata
+    auto *FieldCountMD = dyn_cast<ConstantAsMetadata>(
+        MD->getOperand(DTransStructMDConstants::FieldCountOffset));
+    if (!FieldCountMD)
+      continue;
+
+    auto *TyMD = dyn_cast<ConstantAsMetadata>(
+        MD->getOperand(DTransStructMDConstants::StructTypeOffset));
+    if (!TyMD)
+      continue;
+    llvm::StructType *StTy = cast<llvm::StructType>(TyMD->getType());
+
+    int32_t FieldCount =
+        cast<ConstantInt>(FieldCountMD->getValue())->getSExtValue();
+    bool IsOpaqueStructTy = (FieldCount == -1);
+    if (IsOpaqueStructTy) {
+      // Opaque structure types will get added later, if requested when there is
+      // not a non-opaque version available.
+      OpaqueTyMap.insert({StTy, MD});
+      continue;
+    }
+
+    auto Res = Mapping.insert({StTy, MD});
+    if (!Res.second && Res.first->second != MD)
+      LLVM_DEBUG(dbgs() << "Structure " << *TyMD
+                        << " described by more than one metadata node");
+  }
+
+  if (IncludeOpaque) {
+    // Add any types that are not already in the mapping because only opaque
+    // type definitions were seen.
+    for (auto &KV : OpaqueTyMap)
+      Mapping.insert({KV.first, KV.second});
+  }
+
+  return true;
 }
 
 MDNode *TypeMetadataReader::getDTransMDNode(const Value &V) {
@@ -69,67 +114,6 @@ MDNode *TypeMetadataReader::getDTransMDNode(const Value &V) {
   }
 
   return nullptr;
-}
-
-void TypeMetadataReader::addDTransMDNode(Value &V, MDNode *MD) {
-  if (auto *F = dyn_cast<Function>(&V))
-    F->setMetadata(DTransFuncTypeMDTag, MD);
-  else if (auto *I = dyn_cast<Instruction>(&V))
-    I->setMetadata(MDDTransTypeTag, MD);
-  else if (auto *G = dyn_cast<GlobalObject>(&V))
-    G->setMetadata(MDDTransTypeTag, MD);
-  else
-    llvm_unreachable("Unexpected Value type passed into addDTransMDNode");
-}
-
-void TypeMetadataReader::setDTransFuncMetadata(Function *F,
-                                               DTransFunctionType *FnType) {
-
-  auto RemoveDTransFuncIndexAttribute = [](Function *F, unsigned Index) {
-    F->removeAttributeAtIndex(Index, DTransFuncIndexTag);
-  };
-
-  // Add a DTrans function index attribute to 'F' if 'Ty' requires an attribute
-  // because it refers to a pointer type, and update the MDTypeList with the
-  // metadata reference to add to the function. 'Index' is used to specify the
-  // return type or argument number the attribute will be attached to.
-  auto AddAttributeIfNeeded = [](Function *F, DTransType *Ty, unsigned Index,
-                                 SmallVectorImpl<Metadata *> &MDTypeList) {
-    if (hasPointerType(Ty)) {
-      Metadata *RetMD = Ty->createMetadataReference();
-      MDTypeList.push_back(RetMD);
-      // Attribute numbering starts with 1.
-      unsigned AttrNumber = MDTypeList.size();
-      std::string Label = std::to_string(AttrNumber);
-      Attribute Attr =
-          Attribute::get(F->getContext(), DTransFuncIndexTag, Label);
-      F->addAttributeAtIndex(Index, Attr);
-    }
-  };
-
-  // Clear any existing DTrans attributes for the function, and build the new
-  // attribute and metadata information for the function type.
-  F->setMetadata("intel.dtrans.func.type", nullptr);
-  SmallVector<Metadata *, 8> MDTypeList;
-  DTransType *RetTy = FnType->getReturnType();
-  assert(RetTy && "Invalid FnType");
-  LLVMContext &Ctx = F->getContext();
-  RemoveDTransFuncIndexAttribute(F, AttributeList::ReturnIndex);
-  AddAttributeIfNeeded(F, RetTy, AttributeList::ReturnIndex, MDTypeList);
-
-  unsigned NumArgs = FnType->getNumArgs();
-  for (unsigned ArgIdx = 0; ArgIdx < NumArgs; ++ArgIdx) {
-    RemoveDTransFuncIndexAttribute(F, AttributeList::FirstArgIndex + ArgIdx);
-    DTransType *ArgTy = FnType->getArgType(ArgIdx);
-    assert(ArgTy && "Invalid FnType");
-    AddAttributeIfNeeded(F, ArgTy, AttributeList::FirstArgIndex + ArgIdx,
-                         MDTypeList);
-  }
-
-  if (!MDTypeList.empty()) {
-    auto *MDTypes = MDTuple::getDistinct(Ctx, MDTypeList);
-    F->addMetadata(DTransFuncTypeMDTag, *MDTypes);
-  }
 }
 
 bool TypeMetadataReader::initialize(Module &M, bool StrictCheck) {
@@ -243,7 +227,7 @@ bool TypeMetadataReader::initialize(Module &M, bool StrictCheck) {
 
       RecoveryErrors = true;
       LLVM_DEBUG(dbgs() << "DTransStructType not created for: " << *P.first
-        << "\n");
+                        << "\n");
       continue;
     }
 
@@ -374,15 +358,31 @@ TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
                                              DTransStructType *DTStTy) {
   // Metadata is of the form:
   //   { !"S", struct.type zeroinitializer, i32 NumFields [,!MDRef[,!MDRef]* ] }
-  const unsigned FieldTyStartPos = 3;
+  const unsigned FieldTyStartPos = DTransStructMDConstants::FieldNodeOffset;
 
-  assert(MD->getOperand(0) && isa<MDString>(MD->getOperand(0)) &&
-         (cast<MDString>(MD->getOperand(0)))->getString().equals("S") &&
-         "improper MD node");
-  assert(MD->getNumOperands() >= 3 &&
-         "Incorrect MD encoding for structure description");
+  if (MD->getNumOperands() < DTransStructMDConstants::MinOperandCount) {
+    LLVM_DEBUG(dbgs() << "Metadata node for structure is incomplete: "
+                      << *DTStTy << ". MDNode = " << *MD << "\n");
+    return nullptr;
+  }
 
-  auto *FieldCountMD = dyn_cast<ConstantAsMetadata>(MD->getOperand(2));
+  unsigned RecTypeOffset = DTransStructMDConstants::RecTypeOffset;
+  if (!isa<MDString>(MD->getOperand(RecTypeOffset))) {
+    LLVM_DEBUG(dbgs() << "Metadata encoding incorrect for structure: "
+                      << *DTStTy << ". MDNode = " << *MD << "\n");
+    return nullptr;
+  }
+
+  auto RecType = cast<MDString>(MD->getOperand(RecTypeOffset));
+  if (!RecType->getString().equals("S")) {
+    LLVM_DEBUG(dbgs() << "Metadata encoding incorrect for structure: "
+                      << *DTStTy << ". MDNode = " << *MD << "\n");
+    return nullptr;
+  }
+
+  unsigned FieldCountOffset = DTransStructMDConstants::FieldCountOffset;
+  auto *FieldCountMD =
+      dyn_cast<ConstantAsMetadata>(MD->getOperand(FieldCountOffset));
   assert(FieldCountMD && "Expected metadata constant");
   int32_t FieldCount =
       cast<ConstantInt>(FieldCountMD->getValue())->getSExtValue();
@@ -418,7 +418,11 @@ TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
   unsigned NumOps = MD->getNumOperands();
   for (unsigned Idx = FieldTyStartPos; Idx < NumOps; ++Idx, ++FieldNum) {
     auto *FieldMD = dyn_cast<MDNode>(MD->getOperand(Idx));
-    assert(FieldMD && "Incorrect MD encoding for structure fields");
+    if (!FieldMD) {
+      LLVM_DEBUG(dbgs() << "Metadata encoding incorrect for structure: "
+                        << *DTStTy << ". MDNode = " << *MD << "\n");
+      return nullptr;
+    }
 
     DTransType *DTFieldTy = decodeMDNode(FieldMD);
     if (!DTFieldTy) {
@@ -476,6 +480,12 @@ DTransType *TypeMetadataReader::getDTransTypeFromMD(const Value *V) {
     DTransFunctionType *Ty = getDTransType(F);
     if (Ty)
       return Ty;
+    // Try to get type of newly created functions from MD for now
+    // since newly created functions are not in the table.
+    auto *MDTypeListNode = F->getMetadata(DTransFuncTypeMDTag);
+    if (!MDTypeListNode)
+      return nullptr;
+    return decodeDTransFuncType(*(const_cast<Function *>(F)), *MDTypeListNode);
   }
 
   MDNode *MD = getDTransMDNode(*V);
@@ -939,6 +949,21 @@ void TypeMetadataReader::cacheMDDecoding(MDNode *MD, DTransType *DTTy) {
 #if !INTEL_PRODUCT_RELEASE
 
 namespace llvm {
+
+static cl::opt<bool> ReportDecodedValues(
+    "dtrans-typemetadatareader-values", cl::ReallyHidden, cl::init(false),
+    cl::desc("Report types decoded by type metadata reader test pass"));
+
+static cl::opt<bool> ReportMissing(
+    "dtrans-typemetadatareader-missing", cl::ReallyHidden, cl::init(true),
+    cl::desc("Report missing metadata encountered by the reader test pass"));
+
+static cl::opt<bool> ReportErrors(
+    "dtrans-typemetadatareader-errors", cl::ReallyHidden, cl::init(true),
+    cl::desc("Report decoding errors and mismatches between the metadata "
+             "and the actual type. Mismatch reporting only supported "
+             "when using typed-pointers"));
+
 namespace dtransOP {
 
 class TypeMetadataTester {
@@ -952,7 +977,8 @@ public:
     bool AllResolved = Reader.initialize(M);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    TM.printTypes();
+    if (ReportDecodedValues)
+      TM.printTypes();
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
     dbgs() << DEBUG_TYPE << ": All structures types "
@@ -977,13 +1003,9 @@ public:
     // Determine whether the IR is using opaque pointers or not. When opaque
     // pointers are in use, all pointers of an address space should be
     // equivalent. Until opaque pointers become enabled, it's possible to check
-    // whether the metadata information mataches the pointer type in the IR.
-    bool OpaquePointersEnabled = false;
+    // whether the metadata information matches the pointer type in the IR.
     LLVMContext &Ctx = M.getContext();
-    llvm::Type *I8Ptr = llvm::Type::getInt8Ty(Ctx)->getPointerTo();
-    llvm::Type *I16Ptr = llvm::Type::getInt16Ty(Ctx)->getPointerTo();
-    if (I8Ptr == I16Ptr)
-      OpaquePointersEnabled = true;
+    bool OpaquePointersEnabled = !Ctx.supportsTypedPointers();
 
     // Check whether all the global variables that are expected to have metadata
     // have it.
@@ -993,30 +1015,28 @@ public:
         MDNode *MD = Reader.getDTransMDNode(GV);
         if (!MD) {
           ErrorsFound = true;
-          LLVM_DEBUG(dbgs()
-                     << DEBUG_TYPE
-                     << ":   ERROR: Missing var type metadata: " << GV << "\n");
+          if (ReportMissing)
+            dbgs() << "ERROR: Missing var type metadata: " << GV << "\n";
           continue;
         }
 
         DTransType *DType = Reader.decodeMDNode(MD);
         if (!DType) {
           ErrorsFound = true;
-          LLVM_DEBUG(dbgs() << DEBUG_TYPE
-                            << ":   ERROR: Failed to decode var type metadata: "
-                            << GV << " - " << *MD << "\n");
+          if (ReportErrors)
+            dbgs() << "ERROR: Failed to decode var type metadata: " << GV
+                   << " - " << *MD << "\n";
         } else {
-          LLVM_DEBUG(dbgs() << DEBUG_TYPE << ":  Decoded var type metadata: "
-                            << GV << " - " << *DType << "\n");
+          if (ReportDecodedValues)
+            dbgs() << "Decoded var type metadata: " << GV << " - " << *DType
+                   << "\n";
 
           if (!OpaquePointersEnabled && GVType != DType->getLLVMType()) {
             ErrorsFound = true;
-            LLVM_DEBUG(
-                dbgs()
-                << DEBUG_TYPE
-                << ":   ERROR: Metadata type does not match expected type: "
-                << GV.getName() << "\n  IR: " << *GV.getValueType()
-                << "\n  MD: " << *DType << "\n");
+            if (ReportErrors)
+              dbgs() << "ERROR: Metadata type does not match expected type: "
+                     << GV.getName() << "\n   IR: " << *GV.getValueType()
+                     << "\n   MD: " << *DType << "\n";
           }
         }
       }
@@ -1047,22 +1067,21 @@ public:
     if (dtrans::hasPointerType(FnType)) {
       DTransType *DType = Reader.getDTransType(&F);
       if (DType) {
-        LLVM_DEBUG(dbgs() << DEBUG_TYPE << ":   Decoded fn type metadata: "
-                          << *DType << "\n");
+        if (ReportDecodedValues)
+          dbgs() << "Decoded fn type metadata: " << F.getName() << " : "
+                 << *DType << "\n";
         if (!OpaquePointersEnabled && DType->getLLVMType() != FnType) {
           ErrorsFound = true;
-          LLVM_DEBUG(
-              dbgs()
-              << DEBUG_TYPE
-              << ":   ERROR: Metadata type does not match expected type: "
-              << F.getName() << "\n  IR: " << *FnType << "\n  MD: " << *DType
-              << "\n");
+          if (ReportErrors)
+            dbgs() << "ERROR: Metadata type does not match expected type: "
+                   << F.getName() << "\n   IR: " << *FnType
+                   << "\n   MD: " << *DType << "\n";
         }
       } else {
         ErrorsFound = true;
-        LLVM_DEBUG(dbgs() << DEBUG_TYPE
-                          << ":   ERROR: Missing fn type metadata for: "
-                          << F.getName() << "\n");
+        if (ReportMissing)
+          dbgs() << "ERROR: Missing fn type metadata for: " << F.getName()
+                 << "\n";
       }
     }
 
@@ -1073,27 +1092,31 @@ public:
           MDNode *MD = Reader.getDTransMDNode(*AI);
           if (!MD) {
             ErrorsFound = true;
-            LLVM_DEBUG(dbgs() << DEBUG_TYPE << ":   ERROR: Missing metadata: "
-                              << *AI << "\n");
+            if (ReportMissing)
+              dbgs() << "ERROR: Missing metadata: " << F.getName() << " : "
+                     << *AI << "\n";
             continue;
           }
 
           DTransType *DType = Reader.decodeMDNode(MD);
           if (!DType) {
             ErrorsFound = true;
-            LLVM_DEBUG(dbgs() << DEBUG_TYPE
-                              << ":   ERROR: Failed to decode metadata: " << *AI
-                              << " - " << *MD << "\n");
+            if (ReportErrors)
+              dbgs() << "ERROR: Failed to decode metadata: " << F.getName()
+                     << " : " << *AI << " - " << *MD << "\n";
           } else {
-            LLVM_DEBUG(dbgs() << DEBUG_TYPE << ":  Decoded metadata: " << *AI
-                              << " - " << *DType << "\n");
+            if (ReportDecodedValues)
+              dbgs() << "Decoded alloca metadata : " << F.getName() << " : "
+                     << *AI << " - " << *DType << "\n";
+
             if (!OpaquePointersEnabled && DType->getLLVMType() != AllocType) {
               ErrorsFound = true;
-              LLVM_DEBUG(dbgs() << DEBUG_TYPE
-                                << ":  ERROR: Metadata type does not match "
-                                   "expected type: "
-                                << *AI << "\n  IR: " << *AI->getAllocatedType()
-                                << "\n  MD: " << *DType << "\n");
+              if (ReportErrors)
+                dbgs() << F.getName()
+                       << "ERROR: Metadata type does not match expected type: "
+                       << F.getName() << " : " << *AI
+                       << "\n   IR: " << *AI->getAllocatedType()
+                       << "\n   MD: " << *DType << "\n";
             }
           }
         }
@@ -1103,28 +1126,30 @@ public:
           MDNode *MD = Reader.getDTransMDNode(*Call);
           if (!MD) {
             ErrorsFound = true;
-            LLVM_DEBUG(dbgs() << DEBUG_TYPE << ":   ERROR: Missing metadata: "
-                              << *Call << "\n");
+            if (ReportMissing)
+              dbgs() << "ERROR: Missing metadata: " << F.getName() << " : "
+                     << *Call << "\n";
             continue;
           }
 
           DTransType *DType = Reader.decodeMDNode(MD);
           if (!DType) {
             ErrorsFound = true;
-            LLVM_DEBUG(dbgs()
-                       << DEBUG_TYPE << ":   ERROR: Failed to decode metadata: "
-                       << *Call << " - " << *MD << "\n");
+            if (ReportErrors)
+              dbgs() << "ERROR: Failed to decode metadata: " << F.getName()
+                     << " : " << *Call << " - " << *MD << "\n";
           } else {
-            LLVM_DEBUG(dbgs() << DEBUG_TYPE << ":  Decoded metadata: " << *Call
-                              << " - " << *DType << "\n");
+            if (ReportDecodedValues)
+              dbgs() << "Decoded call metadata   : " << F.getName() << " : "
+                     << *Call << " - " << *DType << "\n";
+
             if (!OpaquePointersEnabled &&
                 DType->getLLVMType() != Call->getFunctionType()) {
-              LLVM_DEBUG(dbgs()
-                         << DEBUG_TYPE
-                         << ":   ERROR:  Metadata type does not match "
-                            "expected type: "
-                         << *Call << "\n  IR: " << *Call->getFunctionType()
-                         << "\nMD: " << *DType << "\n");
+              if (ReportErrors)
+                dbgs() << "ERROR:  Metadata type does not match expected type: "
+                       << F.getName() << " : " << *Call
+                       << "\n   IR: " << *Call->getFunctionType()
+                       << "\n   MD: " << *DType << "\n";
             }
           }
         }

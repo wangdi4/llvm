@@ -1,4 +1,5 @@
 ; RUN: opt -auto-cpu-clone < %s -S | FileCheck %s
+; RUN: opt -passes=auto-cpu-clone < %s -S | FileCheck %s
 
 ; The test checks that functions that have indirect goto's are not
 ; multiversioned

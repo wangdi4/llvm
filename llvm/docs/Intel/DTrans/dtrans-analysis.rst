@@ -399,6 +399,24 @@ casting analyzer, and involve certain functions' arguments being nullptr
 on entry to those functions. (See the description of the Bad Casting
 Analyzer below.) `Bad Casting Analyzer`_
 
+MismatchedElementAccessPending
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A potential mismatched element access issue that will be either eliminated,
+converted to mismatched element access conditional, or converted to mismatched
+element access at the end of analysis by the bad casting analyzer.
+(See the description of the Bad Casting Analyzer below.)
+`Bad Casting Analyzer`_
+
+MismatchedElementAccessConditional
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Indicates that a mismtched element access will occur only if specific
+conditions are not fulfilled.  These conditions are noted by the bad
+casting analyzer, and involve certain functions' arguments being nullptr
+on entry to those functions. (See the description of the Bad Casting
+Analyzer below.) `Bad Casting Analyzer`_
+
 DopeVector
 ~~~~~~~~~~
 The type was identified as a dope vector.
@@ -460,6 +478,54 @@ FieldAddressTakenReturn
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 This safety data is used when the address of a field is returned by a function.
+
+StructCouldHaveABIPadding
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This safety data is used when a structure may have an extra field at the end
+that could be used for ABI padding. There will be a base structure too that
+doesn't have the extra field and uses the same name with '.base' at the end.
+For example:
+
+.. code-block:: llvm
+
+  %struct.test.a = type <{ i32, i32, [4 x i8] }>
+  %struct.test.a.base = type <{ i32, i32 }>
+
+The structure %struct.test.a is set as StructCouldHaveABIPadding since the last
+field is used for padding, and the structure %struct.test.a.base is the base
+structure.
+
+StructCouldBeBaseABIPadding
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This safety data is set when a structure is used as base structure for ABI
+padding. The structure will have '.base' at the end the of name, and there will
+be another structure related to it that have an extra field for padding.
+For example:
+
+.. code-block:: llvm
+
+  %struct.test.a = type <{ i32, i32, [4 x i8] }>
+  %struct.test.a.base = type <{ i32, i32 }>
+
+The structure %struct.test.a.base is set as StructCouldBeBaseABIPadding since
+it is the base structure of %struct.test.a, which is the padded structure.
+
+BadMemFuncManipulationForRelatedTypes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This safety data is set when a possible BadMemFuncManipulation can happen
+between types that have ABI padding, but it won't affect the padded field.
+See `StructCouldBeBaseABIPadding`_ for an example of ABI padding.
+
+UnsafePtrMergeRelatedTypes
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This safety data is set when the type of a PHI node is identified for ABI
+padding, but the instruction and its incoming values won't affect the
+padded field. See `StructCouldBeBaseABIPadding`_ for an example of ABI
+padding.
 
 UnhandledUse
 ~~~~~~~~~~~~
@@ -1172,9 +1238,10 @@ UnsafePointerStorePending. In step (3), we have three choices:
       UnsafePointerStore violations to UnsafePointerStore.
   (3) We can determine that the safety conditions can be removed under
       certain conditions, and change the BadCastingPending violations
-      to BadCastingConditional and the UnsafePointerStore violations to
-      UnsafePointerStoreConditional. (This is what was illustrated in
-      the example above.)
+      to BadCastingConditional, the UnsafePointerStorePending violations to
+      UnsafePointerStoreConditional, and the MismatchedElementAccessPending
+      violations to MismatchedElementAccessConditional (This is what was
+      illustrated in the example above.)
 
 Further details on the operation of the bad casting analyzer, including
 examples with IR, can be found in the code in DTransAnalysis.cpp.

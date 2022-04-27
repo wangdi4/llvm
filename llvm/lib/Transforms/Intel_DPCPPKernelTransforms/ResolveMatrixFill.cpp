@@ -20,6 +20,7 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
 using namespace llvm;
@@ -63,12 +64,12 @@ static Value *createFillZeroCall(unsigned Rows, unsigned Cols,
   assert(MatrixType->getNumElements() == (Rows * Cols));
   Type *DataType = MatrixType->getElementType();
   Value *Zero = nullptr;
+  assert(DPCPPKernelCompilationUtils::isValidMatrixType(MatrixType) &&
+         "Unsupported matrix type");
   if (DataType->isIntegerTy())
     Zero = ConstantInt::get(DataType, 0);
-  else if (DataType->isFloatTy() || DataType->isBFloatTy())
-    Zero = ConstantFP::get(DataType, 0);
   else
-    llvm_unreachable("Unsupported matrix element type");
+    Zero = ConstantFP::get(DataType, 0);
   Value *ZeroMat = B.CreateIntrinsic(
       Intrinsic::experimental_matrix_fill, {MatrixType, DataType},
       {Zero, B.getInt32(Rows), B.getInt32(Cols), Layout, Scope}, nullptr,
@@ -143,10 +144,6 @@ static std::pair<bool, Value *> resolveMatrixFillCall(CallInst *CI) {
   unsigned Cols = cast<ConstantInt>(CI->getArgOperand(2))->getZExtValue();
   // Extract layout metadata from the fourth arg.
   auto *Layout = cast<MetadataAsValue>(CI->getArgOperand(3));
-  assert(cast<MDString>(Layout->getMetadata())
-             ->getString()
-             .equals("matrix.rowmajor") &&
-         "Only supports row major layout for now");
   // Extract scope metadata from the fifth arg.
   auto *Scope = cast<MetadataAsValue>(CI->getArgOperand(4));
   assert(cast<MDString>(Scope->getMetadata())

@@ -45,15 +45,13 @@ define void @var_tripcount() local_unnamed_addr {
 ; CHECK-NEXT:    FunctionPass Manager
 ; CHECK-NEXT:      Dominator Tree Construction [LoopOpt]
 ; CHECK-NEXT:      Natural Loop Information [LoopOpt]
+; CHECK-NEXT:      Pragma omp simd if clause reduction to simdlen(1) [LoopOpt]
 ; CHECK-NEXT:      Scalar Evolution Analysis [LoopOpt]
 ; CHECK-NEXT:      Post-Dominator Tree Construction [LoopOpt]
 ; CHECK-NEXT:      HIR Region Identification [LoopOpt]
 ;      CHECK:      VPlan HIR Vectorizer [Full LoopOpt]
 ; CHECK-NEXT:      VPlan HIR Vectorizer [Light LoopOpt]
-; CHECK-NEXT:      HIR PostVec Complete Unroll [LoopOpt]
-; CHECK-NEXT:      HIR General Unroll [LoopOpt]
-; CHECK-NEXT:      HIR Scalar Replacement of Array  [Full LoopOpt]
-; CHECK-NEXT:      HIR Code Generation [LoopOpt]
+;      CHECK:      HIR Code Generation [LoopOpt]
 ; CHECK-NEXT:      Simplify the CFG [LoopOpt]
 ; CHECK-NEXT:      Subscript Intrinsic Lowering [LoopOpt]
 ; CHECK-NEXT:      Dominator Tree Construction [LoopOpt]
@@ -97,6 +95,7 @@ define void @var_tripcount() local_unnamed_addr {
 ; CHECK-NEXT:    FunctionPass Manager
 ; CHECK-NEXT:      Dominator Tree Construction
 ; CHECK-NEXT:      Natural Loop Information
+; CHECK-NEXT:      Pragma omp simd if clause reduction to simdlen(1)
 ; CHECK-NEXT:      VPO CFGRestructuring
 ; CHECK-NEXT:      Replace known math operations with optimized library functions
 ; CHECK-NEXT:      LCSSA Verifier

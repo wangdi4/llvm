@@ -7,7 +7,7 @@
 ;        for (i=0; i <  n; i++) {
 ;            B[j][i]  += i * j;   }}
 ;
-; RUN: opt < %s -hir-ssa-deconstruction -hir-create-function-level-region -hir-dd-test-assume-loop-fusion -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze  | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-create-function-level-region -hir-dd-test-assume-loop-fusion -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze -enable-new-pm=0 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-create-function-level-region -hir-dd-test-assume-loop-fusion -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
 
 ; CHECK-DAG:   (@B)[0][i1][i2] --> (@B)[0][i1][i2] FLOW (= =)

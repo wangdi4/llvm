@@ -1,4 +1,21 @@
 //===--- SemaExceptionSpec.cpp - C++ Exception Specifications ---*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -342,8 +359,7 @@ bool Sema::CheckEquivalentExceptionSpec(FunctionDecl *Old, FunctionDecl *New) {
   if (!MissingExceptionSpecification)
     return ReturnValueOnError;
 
-  const FunctionProtoType *NewProto =
-    New->getType()->castAs<FunctionProtoType>();
+  const auto *NewProto = New->getType()->castAs<FunctionProtoType>();
 
   // The new function declaration is only missing an empty exception
   // specification "throw()". If the throw() specification came from a
@@ -372,8 +388,7 @@ bool Sema::CheckEquivalentExceptionSpec(FunctionDecl *Old, FunctionDecl *New) {
     return false;
   }
 
-  const FunctionProtoType *OldProto =
-    Old->getType()->castAs<FunctionProtoType>();
+  const auto *OldProto = Old->getType()->castAs<FunctionProtoType>();
 
   FunctionProtoType::ExceptionSpecInfo ESI = OldProto->getExceptionSpecType();
   if (ESI.Type == EST_Dynamic) {
@@ -399,9 +414,8 @@ bool Sema::CheckEquivalentExceptionSpec(FunctionDecl *Old, FunctionDecl *New) {
         NewProto->getExtProtoInfo().withExceptionSpec(ESI)));
   }
 
-  if (getLangOpts().MSVCCompat && ESI.Type != EST_DependentNoexcept) {
-    // Allow missing exception specifications in redeclarations as an extension.
-    DiagID = diag::ext_ms_missing_exception_specification;
+  if (getLangOpts().MSVCCompat && isDynamicExceptionSpec(ESI.Type)) {
+    DiagID = diag::ext_missing_exception_specification;
     ReturnValueOnError = false;
   } else if (New->isReplaceableGlobalAllocationFunction() &&
              ESI.Type != EST_DependentNoexcept) {
@@ -410,6 +424,10 @@ bool Sema::CheckEquivalentExceptionSpec(FunctionDecl *Old, FunctionDecl *New) {
     DiagID = diag::ext_missing_exception_specification;
     ReturnValueOnError = false;
   } else if (ESI.Type == EST_NoThrow) {
+    // Don't emit any warning for missing 'nothrow' in MSVC.
+    if (getLangOpts().MSVCCompat) {
+      return false;
+    }
     // Allow missing attribute 'nothrow' in redeclarations, since this is a very
     // common omission.
     DiagID = diag::ext_missing_exception_specification;
@@ -1494,10 +1512,6 @@ CanThrowResult Sema::canThrow(const Stmt *S) {
   case Stmt::OMPTargetTeamsDistributeSimdDirectiveClass:
   case Stmt::OMPTargetUpdateDirectiveClass:
 #if INTEL_COLLAB
-  case Stmt::OMPTeamsGenericLoopDirectiveClass:
-  case Stmt::OMPTargetTeamsGenericLoopDirectiveClass:
-  case Stmt::OMPParallelGenericLoopDirectiveClass:
-  case Stmt::OMPTargetParallelGenericLoopDirectiveClass:
   case Stmt::OMPTargetVariantDispatchDirectiveClass:
   case Stmt::OMPPrefetchDirectiveClass:
   case Stmt::OMPScopeDirectiveClass:
@@ -1518,6 +1532,10 @@ CanThrowResult Sema::canThrow(const Stmt *S) {
   case Stmt::OMPMaskedDirectiveClass:
   case Stmt::OMPMetaDirectiveClass:
   case Stmt::OMPGenericLoopDirectiveClass:
+  case Stmt::OMPTeamsGenericLoopDirectiveClass:
+  case Stmt::OMPTargetTeamsGenericLoopDirectiveClass:
+  case Stmt::OMPParallelGenericLoopDirectiveClass:
+  case Stmt::OMPTargetParallelGenericLoopDirectiveClass:
   case Stmt::ReturnStmtClass:
   case Stmt::SEHExceptStmtClass:
   case Stmt::SEHFinallyStmtClass:

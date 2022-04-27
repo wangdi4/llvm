@@ -1,4 +1,21 @@
 //===- llvm/CodeGen/TargetSubtargetInfo.h - Target Information --*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,12 +30,10 @@
 #ifndef LLVM_CODEGEN_TARGETSUBTARGETINFO_H
 #define LLVM_CODEGEN_TARGETSUBTARGETINFO_H
 
-#include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/CodeGen/PBQPRAConstraint.h"
-#include "llvm/CodeGen/ScheduleDAGMutation.h"
 #include "llvm/CodeGen/SchedulerRegistry.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Support/CodeGen.h"
@@ -28,6 +43,9 @@
 
 namespace llvm {
 
+class APInt;
+class MachineFunction;
+class ScheduleDAGMutation;
 class CallLowering;
 class InlineAsmLowering;
 class InstrItineraryData;
@@ -272,11 +290,6 @@ public:
   /// This heuristic may be compile time intensive, \p OptLevel provides
   /// a finer grain to tune the register allocator.
   virtual bool enableRALocalReassignment(CodeGenOpt::Level OptLevel) const;
-
-  /// True if the subtarget should consider the cost of local intervals
-  /// created by a split candidate when choosing the best split candidate. This
-  /// heuristic may be compile time intensive.
-  virtual bool enableAdvancedRASplitCost() const;
 
   /// Enable use of alias analysis during code generation (during MI
   /// scheduling, DAGCombine, etc.).

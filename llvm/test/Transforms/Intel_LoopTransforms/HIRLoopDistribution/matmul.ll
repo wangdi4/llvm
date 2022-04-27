@@ -45,8 +45,8 @@
 ; CHECK-NEXT: END LOOP
 ; CHECK: END REGION
 
-;RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-loop-distribute-loopnest -hir-cg -force-hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
-;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-loop-distribute-loopnest,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -force-hir-cg -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
+;RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-loop-distribute-loopnest -hir-cg -force-hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
+;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-loop-distribute-loopnest,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -force-hir-cg -intel-opt-report=low 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
 ;
 ;OPTREPORT: LOOP BEGIN
 ;OPTREPORT: <Distributed chunk1>

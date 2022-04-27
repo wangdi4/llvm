@@ -2,7 +2,7 @@
 ; try/catch inside parallel region.
 ; The invoke foo must not be converted to a call (by the fix for 8372)
 
-; RUN: opt < %s -vpo-paropt-prepare -S | FileCheck %s
+; RUN: opt -vpo-paropt-prepare -S %s | FileCheck %s
 ; CHECK: invoke void @_Z3foov
 
 %struct.thing = type { i8 }

@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser 2>&1 -hir-details | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser 2>&1 -hir-details | FileCheck %s
 
 ; for(i=-5; i<n; ++i) {
 ;   A[i+5] = i;

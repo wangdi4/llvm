@@ -1,4 +1,21 @@
 //===--- TargetOptions.h ----------------------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -75,8 +92,23 @@ public:
   /// address space.
   bool NVPTXUseShortPointers = false;
 
+  /// \brief If enabled, use precise square root
+  bool NVVMCudaPrecSqrt = false;
+
   /// \brief If enabled, allow AMDGPU unsafe floating point atomics.
   bool AllowAMDGPUUnsafeFPAtomics = false;
+
+  /// \brief Enumeration value for AMDGPU code object version, which is the
+  /// code object version times 100.
+  enum CodeObjectVersionKind {
+    COV_None,
+    COV_2 = 200,
+    COV_3 = 300,
+    COV_4 = 400,
+    COV_5 = 500,
+  };
+  /// \brief Code object version for AMDGPU.
+  CodeObjectVersionKind CodeObjectVersion;
 
   // The code model to be used as specified by the user. Corresponds to
   // CodeModel::Model enum defined in include/llvm/Support/CodeGen.h, plus
@@ -91,6 +123,13 @@ public:
   /// * CUDA compilation uses it to control parts of CUDA compilation
   ///   in clang that depend on specific version of the CUDA SDK.
   llvm::VersionTuple SDKVersion;
+
+  /// The name of the darwin target- ariant triple to compile for.
+  std::string DarwinTargetVariantTriple;
+
+  /// The version of the darwin target variant SDK which was used during the
+  /// compilation.
+  llvm::VersionTuple DarwinTargetVariantSDKVersion;
 
 #ifdef INTEL_CUSTOMIZATION
   /// If given, list of names of the target CPUs to multiversion code for

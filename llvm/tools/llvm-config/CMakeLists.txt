@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 set(LLVM_LINK_COMPONENTS support)
 
 set(BUILDVARIABLES_SRCPATH ${CMAKE_CURRENT_SOURCE_DIR}/BuildVariables.inc.in)
@@ -6,6 +23,12 @@ set(BUILDVARIABLES_OBJPATH ${CMAKE_CURRENT_BINARY_DIR}/BuildVariables.inc)
 # Add the llvm-config tool.
 add_llvm_tool(llvm-config
   llvm-config.cpp
+  # This utility doesn't use much of LLVM, so linking a shared library for the
+  # entire thing is overkill. Avoiding that especially saves on build time when cross
+  # compiling LLVM and building both cross and native `llvm-config`s. We don't
+  # want to build an entire native libLLVM.so in addition to the cross one just
+  # for the native `llvm-config`!
+  DISABLE_LLVM_LINK_LLVM_DYLIB
   )
 
 # Compute the substitution values for various items.

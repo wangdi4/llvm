@@ -10,7 +10,7 @@
 @Glob = internal global i32 0
 @IndirectGlob = internal global i32* null
 
-declare i8* @malloc(i32)
+declare noalias i8* @malloc(i32)
 declare void @bar(i32*)
 
 define void @test() {
@@ -23,5 +23,6 @@ define void @test() {
 define void @test1() {
   %ig = load i32*, i32** @IndirectGlob
   store i32 123, i32* @Glob
+  %ld.ig = load i32, i32* %ig, align 8
   ret void
 }

@@ -25,6 +25,8 @@ define i32 @sum_() {
 ; CHECK-NEXT:    br label [[VPLANNEDBB20:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB2:
+; CHECK-NEXT:    [[B3_I_LPRIV_VEC0_BCAST:%.*]] = bitcast [2 x %"QNCA_a0$i32*$rank2$"]* [[B3_I_LPRIV_VEC0]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 192, i8* [[B3_I_LPRIV_VEC0_BCAST]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:

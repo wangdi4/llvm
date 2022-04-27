@@ -1,4 +1,21 @@
 //===- lib/Linker/IRMover.cpp ---------------------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -9,6 +26,7 @@
 #include "llvm/Linker/IRMover.h"
 #include "LinkDiagnosticInfo.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/Triple.h"
 #if INTEL_CUSTOMIZATION
@@ -18,18 +36,22 @@
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+#include "llvm/IR/AutoUpgrade.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/Function.h"
 #include "llvm/IR/GVMaterializer.h"
+#include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/Module.h"
 #include "llvm/IR/PseudoProbe.h"
 #include "llvm/IR/TypeFinder.h"
 #include "llvm/Object/ModuleSymbolTable.h"
 #include "llvm/Support/CommandLine.h" // INTEL
 #include "llvm/Support/Error.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 #include <utility>
 using namespace llvm;
 
@@ -38,7 +60,6 @@ using namespace llvm;
 using namespace dtransOP;
 
 #define DEBUG_DTRANS_TYPES "irmover-dtrans-types"
-#define DEBUG_DTRANS_METADATA_LOSS "irmover-dtrans-metadata-loss"
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -100,6 +121,13 @@ static cl::opt<bool> EnableVerify(
 static cl::opt<bool> EnableQuickVerify(
     "irmover-enable-quick-module-verify", cl::Hidden, cl::init(false),
     cl::desc("enable a simple check in the destination module"));
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+static cl::opt<bool> TraceDTransMetadataLoss(
+    "irmover-trace-dtrans-metadata-loss", cl::Hidden, cl::init(false),
+    cl::desc("print a trace that shows which source module is inserting "
+             "llvm::StructType without DTrans metadata"));
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #endif // INTEL_FEATURE_SW_DTRANS
 
 // Normalizes struct name for type merging.
@@ -348,6 +376,16 @@ DTransStructsMap::DTransStructsMap(Module &M, bool AllowsIncompleteMD,
   // compile step then we can replace the 'false' with '!AllowsIncompleteMD'.
   MDReadCorrectly = DtransTypeMDReader->initialize(M, false);
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (TraceDTransMetadataLoss) {
+    // Always populate the DTrans map if we are debugging for missing metadata.
+    // This will print which source module is adding a structure without
+    // metadata.
+    populateDtransSTMap(TypesInModule);
+    return;
+  }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
   // If incomplete metadata is not allowed then there is no need to collect
   // the DTrans information
   if (!MDReadCorrectly && !AllowsIncompleteMD)
@@ -382,7 +420,8 @@ void DTransStructsMap::populateDtransSTMap(
       auto *DTField =
           dyn_cast_or_null<DTransStructType>(DTStr->getFieldType(I));
 
-      DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS, {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      if (TraceDTransMetadataLoss) {
         if (!DTField) {
           dbgs() << "    llvm::Type: " << *Field << "\n";
           dbgs() << "    DTransType: None\n\n";
@@ -393,7 +432,8 @@ void DTransStructsMap::populateDtransSTMap(
           DTField->dump();
           dbgs() << "\n\n";
         }
-      });
+      }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
       DTransSTMap.insert({Field, DTField});
       MapNested(Field, DTField, DTransSTMap, Visited);
@@ -408,7 +448,8 @@ void DTransStructsMap::populateDtransSTMap(
     DTransStructType *DTStruct = TM->getStructType(ST->getName());
     DTransSTMap.insert({ST, DTStruct});
 
-    DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS, {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (TraceDTransMetadataLoss) {
       if (!DTStruct) {
         dbgs() << "    llvm::Type: " << *ST << "\n";
         dbgs() << "    DTransType: None\n\n";
@@ -419,7 +460,8 @@ void DTransStructsMap::populateDtransSTMap(
         DTStruct->dump();
         dbgs() << "\n\n";
       }
-    });
+    }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
     MapNested(ST, DTStruct, DTransSTMap, Visited);
   }
@@ -868,10 +910,12 @@ bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM) {
       std::vector<StructType *> &TypesInModule) -> bool {
     assert(!(*DTMap) && "DTransStructsMap already allocated");
 
-    DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS, {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (TraceDTransMetadataLoss) {
       dbgs() << "  Checking for metadata loss in "
              << "source module:\n";
-    });
+    }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
     DTransStructsMap *DTNewMap =
         new DTransStructsMap(M, AllowsIncompleteMD, TypesInModule);
@@ -983,10 +1027,11 @@ bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM) {
       dbgs() << "Merging types from source module: "
              << SrcM.getName() << "\n\n");
 
-  DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS,
-      dbgs() << "Merging types from source module: "
-             << SrcM.getName() << "\n\n");
-
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (TraceDTransMetadataLoss)
+    dbgs() << "Merging types from source module: "
+           << SrcM.getName() << "\n\n";
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   std::vector<StructType *> SrcTypes = SrcM.getIdentifiedStructTypes();
   // NOTE: We collect the DTrans structures first because there is a chance
@@ -998,10 +1043,11 @@ bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM) {
     return false;
   }
 
-  DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS, {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (TraceDTransMetadataLoss)
     dbgs() << "  Checking for metadata loss in "
            << "destination module:\n";
-  });
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   // This SetVector will store the structures that have extra numbering at the
   // end of the name in the destination module. If we can't catch the type by
@@ -1986,7 +2032,7 @@ class IRLinker {
   std::unique_ptr<Module> SrcM;
 
   /// See IRMover::move().
-  std::function<void(GlobalValue &, IRMover::ValueAdder)> AddLazyFor;
+  IRMover::LazyCallback AddLazyFor;
 
   TypeMapTy TypeMap;
   GlobalValueMaterializer GValMaterializer;
@@ -2157,8 +2203,8 @@ public:
   IRLinker(Module &DstM, MDMapT &SharedMDs,
            IRMover::IdentifiedStructTypeSet &Set, std::unique_ptr<Module> SrcM,
            ArrayRef<GlobalValue *> ValuesToLink,
-           std::function<void(GlobalValue &, IRMover::ValueAdder)> AddLazyFor,
-           bool IsPerformingImport, DTransTypeManager *DstTM)
+           IRMover::LazyCallback AddLazyFor, bool IsPerformingImport,
+           DTransTypeManager *DstTM)
       : DstM(DstM), SrcM(std::move(SrcM)), AddLazyFor(std::move(AddLazyFor)),
         TypeMap(Set, DstTM), GValMaterializer(*this), LValMaterializer(*this),
         SharedMDs(SharedMDs), DstTM(DstTM), IsPerformingImport(IsPerformingImport),
@@ -2176,8 +2222,7 @@ public:
   IRLinker(Module &DstM, MDMapT &SharedMDs,
            IRMover::IdentifiedStructTypeSet &Set, std::unique_ptr<Module> SrcM,
            ArrayRef<GlobalValue *> ValuesToLink,
-           std::function<void(GlobalValue &, IRMover::ValueAdder)> AddLazyFor,
-           bool IsPerformingImport)
+           IRMover::LazyCallback AddLazyFor, bool IsPerformingImport)
       : DstM(DstM), SrcM(std::move(SrcM)), AddLazyFor(std::move(AddLazyFor)),
         TypeMap(Set), GValMaterializer(*this), LValMaterializer(*this),
         SharedMDs(SharedMDs), IsPerformingImport(IsPerformingImport),
@@ -2752,9 +2797,11 @@ void IRLinker::verifyDestinationModule() {
     return;
   }
 
-  DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS,
-      dbgs() << "  Checking for metadata loss in destination module "
-             << "verification:\n");
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (TraceDTransMetadataLoss)
+    dbgs() << "  Checking for metadata loss in destination module "
+           << "verification:\n";
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   // We need to create a new DTrans map since the destination module now
   // has new types.
@@ -2789,9 +2836,13 @@ void IRLinker::verifyDestinationModule() {
     if (!DTinMap) {
       assert(AllowsIncompleteMD && "Missing DTransStructType in "
                                    "destination metadata");
-      DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS,
-          dbgs() << "Warning: Missing DTrans type in metadata for: " << *ST
-                 << "\n");
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      if (TraceDTransMetadataLoss)
+        dbgs() << "Warning: Missing DTrans type in metadata for: " << *ST
+               << "\n";
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
       continue;
     }
 
@@ -2832,9 +2883,12 @@ void IRLinker::verifyDestinationModule() {
       if (!DTCleanNameST) {
         assert(AllowsIncompleteMD && "Missing DTransStructType in "
                                      "type mapper");
-        DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS,
-            dbgs() << "Warning: Missing DTrans type in map for: " << *ST
-                   << "\n");
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+       if (TraceDTransMetadataLoss)
+          dbgs() << "Warning: Missing DTrans type in map for: " << *ST << "\n";
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
         continue;
       }
 
@@ -2857,9 +2911,13 @@ void IRLinker::verifyDestinationModule() {
     if (!DTinDstTM) {
       assert(AllowsIncompleteMD && "Missing DTransStructType in destination "
           "type manager when it is available in DTrans metadata");
-      DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS,
-          dbgs() << "Warning: DTransStructType not generated in type "
-                 << "manager for: " << *ST << "\n");
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      if (TraceDTransMetadataLoss)
+        dbgs() << "Warning: DTransStructType not generated in type "
+               << "manager for: " << *ST << "\n";
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
       continue;
     }
     assert(DTinMap->compare(*DTinDstTM) && "Mismatch between DTrans type in "
@@ -2925,9 +2983,13 @@ void IRLinker::quickVerifyDestinationModule() {
       if (!DTCleanNameST) {
         assert(AllowsIncompleteMD && "Missing DTransStructType in "
                                      "type mapper");
-        DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS,
-            dbgs() << "Warning: Missing DTrans type in map for: " << *ST
-                   << "\n");
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+        if (TraceDTransMetadataLoss)
+          dbgs() << "Warning: Missing DTrans type in map for: " << *ST
+                 << "\n";
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
         continue;
       }
 
@@ -3213,10 +3275,11 @@ bool IRLinker::shouldLink(GlobalValue *DGV, GlobalValue &SGV) {
   // Callback to the client to give a chance to lazily add the Global to the
   // list of value to link.
   bool LazilyAdded = false;
-  AddLazyFor(SGV, [this, &LazilyAdded](GlobalValue &GV) {
-    maybeAdd(&GV);
-    LazilyAdded = true;
-  });
+  if (AddLazyFor)
+    AddLazyFor(SGV, [this, &LazilyAdded](GlobalValue &GV) {
+      maybeAdd(&GV);
+      LazilyAdded = true;
+    });
   return LazilyAdded;
 }
 
@@ -3469,8 +3532,15 @@ void IRLinker::linkNamedMDNodes() {
       continue;
     // Don't import pseudo probe descriptors here for thinLTO. They will be
     // emitted by the originating module.
-    if (IsPerformingImport && NMD.getName() == PseudoProbeDescMetadataName)
+    if (IsPerformingImport && NMD.getName() == PseudoProbeDescMetadataName) {
+      if (!DstM.getNamedMetadata(NMD.getName()))
+        emitWarning("Pseudo-probe ignored: source module '" +
+                    SrcM->getModuleIdentifier() +
+                    "' is compiled with -fpseudo-probe-for-profiling while "
+                    "destination module '" +
+                    DstM.getModuleIdentifier() + "' is not\n");
       continue;
+    }
     NamedMDNode *DestNMD = DstM.getOrInsertNamedMetadata(NMD.getName());
     // Add Src elements into Dest node.
     for (const MDNode *Op : NMD.operands())
@@ -3484,6 +3554,9 @@ Error IRLinker::linkModuleFlagsMetadata() {
   const NamedMDNode *SrcModFlags = SrcM->getModuleFlagsMetadata();
   if (!SrcModFlags)
     return Error::success();
+
+  // Check for module flag for updates before do anything.
+  UpgradeModuleFlags(*SrcM);
 
   // If the destination module doesn't have module flags yet, then just copy
   // over the source module's flags.
@@ -3567,11 +3640,15 @@ Error IRLinker::linkModuleFlagsMetadata() {
 
     // Diagnose inconsistent merge behavior types.
     if (SrcBehaviorValue != DstBehaviorValue) {
+      bool MinAndWarn = (SrcBehaviorValue == Module::Min &&
+                         DstBehaviorValue == Module::Warning) ||
+                        (DstBehaviorValue == Module::Min &&
+                         SrcBehaviorValue == Module::Warning);
       bool MaxAndWarn = (SrcBehaviorValue == Module::Max &&
                          DstBehaviorValue == Module::Warning) ||
                         (DstBehaviorValue == Module::Max &&
                          SrcBehaviorValue == Module::Warning);
-      if (!MaxAndWarn)
+      if (!(MaxAndWarn || MinAndWarn))
         return stringErr("linking module flags '" + ID->getString() +
                          "': IDs have conflicting behaviors in '" +
                          SrcM->getModuleIdentifier() + "' and '" +
@@ -3598,6 +3675,25 @@ Error IRLinker::linkModuleFlagsMetadata() {
           << *DstOp->getOperand(2) << "' from " << DstM.getModuleIdentifier()
           << ')';
       emitWarning(Str);
+    }
+
+    // Choose the minimum if either source or destination request Min behavior.
+    if (DstBehaviorValue == Module::Min || SrcBehaviorValue == Module::Min) {
+      ConstantInt *DstValue =
+          mdconst::extract<ConstantInt>(DstOp->getOperand(2));
+      ConstantInt *SrcValue =
+          mdconst::extract<ConstantInt>(SrcOp->getOperand(2));
+
+      // The resulting flag should have a Min behavior, and contain the minimum
+      // value from between the source and destination values.
+      Metadata *FlagOps[] = {
+          (DstBehaviorValue != Module::Min ? SrcOp : DstOp)->getOperand(0), ID,
+          (SrcValue->getZExtValue() < DstValue->getZExtValue() ? SrcOp : DstOp)
+              ->getOperand(2)};
+      MDNode *Flag = MDNode::get(DstM.getContext(), FlagOps);
+      DstModFlags->setOperand(DstIndex, Flag);
+      Flags[ID].first = Flag;
+      continue;
     }
 
     // Choose the maximum if either source or destination request Max behavior.
@@ -3857,8 +3953,11 @@ Error IRLinker::run() {
   DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES,
       dbgs() << "\n-------------------------------------------------------\n");
 
-  DEBUG_WITH_TYPE(DEBUG_DTRANS_METADATA_LOSS,
-      dbgs() << "\n-------------------------------------------------------\n");
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (TraceDTransMetadataLoss)
+    dbgs() << "\n-------------------------------------------------------\n";
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -3989,10 +4088,9 @@ IRMover::IRMover(Module &M) : Composite(M) {
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif //INTEL_CUSTOMIZATION
 
-Error IRMover::move(
-    std::unique_ptr<Module> Src, ArrayRef<GlobalValue *> ValuesToLink,
-    std::function<void(GlobalValue &, ValueAdder Add)> AddLazyFor,
-    bool IsPerformingImport) {
+Error IRMover::move(std::unique_ptr<Module> Src,
+                    ArrayRef<GlobalValue *> ValuesToLink,
+                    LazyCallback AddLazyFor, bool IsPerformingImport) {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   IRLinker TheIRLinker(Composite, SharedMDs, IdentifiedStructTypes,

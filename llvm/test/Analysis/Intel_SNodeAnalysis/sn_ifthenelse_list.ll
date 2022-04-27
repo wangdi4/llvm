@@ -1,4 +1,4 @@
-; RUN:  opt  -sna -analyze < %s | FileCheck %s
+; RUN:  opt  -sna -analyze -enable-new-pm=0 < %s | FileCheck %s
 ;
 ; The compiler expects the following output.
 ; CHECK: SN[5]  pred:  succ:

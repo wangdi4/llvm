@@ -2,13 +2,15 @@
 ; Test to check if VPlan HIR vectorizer can handle SCEVPtrToIntExpr in both
 ; HIR decomposer and vector CG.
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -vplan-print-after-plain-cfg -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM1
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -disable-output -vplan-print-after-plain-cfg -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM2
+; RUN: opt -vplan-enable-new-cfg-merge-hir=false -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir=false -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 
 define i64 @foo(i64** nocapture noalias %p1, i64* nocapture noalias %p2) {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
-; CHECK-NEXT:  VPlan IR for: foo:HIR
+; CHECK-NEXT:  VPlan IR for: foo:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%p1}
 ; CHECK-DAG:     [[VP1:%.*]] = {%p2}
@@ -27,7 +29,7 @@ define i64 @foo(i64** nocapture noalias %p1, i64* nocapture noalias %p2) {
 ; CHECK-NEXT:     i64 [[VP5:%.*]] = mul i64 [[VP4]] i64 42
 ; CHECK-NEXT:     store i64 [[VP5]] i64* [[P20:%.*]]
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:     i1 [[VP6:%.*]] = icmp sle i64 [[VP3]] i64 1023
+; CHECK-NEXT:     i1 [[VP6:%.*]] = icmp slt i64 [[VP3]] i64 1024
 ; CHECK-NEXT:     br i1 [[VP6]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
@@ -35,20 +37,18 @@ define i64 @foo(i64** nocapture noalias %p1, i64* nocapture noalias %p2) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
 ; CHECK-NEXT:     br <External Block>
+;
+; CHECK:       Function: foo
 ; CHECK-EMPTY:
-; PM1:         IR Dump After VPlan HIR Vectorizer
-; PM2:         IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
-; CHECK-NEXT:  Function: foo
-; CHECK-EMPTY:
-; CHECK-NEXT:  <0>          BEGIN REGION { modified }
-; CHECK-NEXT:  <16>               + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:  <17>               |   [[DOTVEC0:%.*]] = (<4 x i64*>*)([[P10]])[i1]
-; CHECK-NEXT:  <18>               |   [[DOTVEC10:%.*]] = ptrtoint.<4 x i64*>.<4 x i64>([[DOTVEC0]])
-; CHECK-NEXT:  <19>               |   [[DOTVEC20:%.*]] = [[DOTVEC10]]  *  42
-; CHECK-NEXT:  <20>               |   [[LAST0:%.*]] = extractelement [[DOTVEC20]],  3
-; CHECK-NEXT:  <21>               |   ([[P20]])[0] = [[LAST0]]
-; CHECK-NEXT:  <16>               + END LOOP
-; CHECK-NEXT:  <0>          END REGION
+; CHECK-NEXT:  BEGIN REGION { modified }
+; CHECK-NEXT:        + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<4 x i64*>*)([[P10]])[i1]
+; CHECK-NEXT:        |   [[DOTVEC10:%.*]] = ptrtoint.<4 x i64*>.<4 x i64>([[DOTVEC0]])
+; CHECK-NEXT:        |   [[DOTVEC20:%.*]] = [[DOTVEC10]]  *  42
+; CHECK-NEXT:        |   [[EXTRACT_3_0:%.*]] = extractelement [[DOTVEC20]],  3
+; CHECK-NEXT:        |   ([[P20]])[0] = [[EXTRACT_3_0]]
+; CHECK-NEXT:        + END LOOP
+; CHECK:       END REGION
 ;
 entry:
   br label %while.body.lr.ph.i

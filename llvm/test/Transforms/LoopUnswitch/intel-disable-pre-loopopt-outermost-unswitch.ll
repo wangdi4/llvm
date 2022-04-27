@@ -1,4 +1,5 @@
-; RUN: opt < %s -loop-unswitch -S < %s 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -loop-unswitch -S < %s 2>&1 | FileCheck %s
+; RUN: opt < %s -simple-loop-unswitch -enable-nontrivial-unswitch -S < %s 2>&1 | FileCheck %s
 
 ; Verify that we skip unswitching for conditional branches (%cmp1) even for
 ; outermost loops in externally visible function when "pre_loopopt" and
@@ -10,7 +11,7 @@
 @B = common dso_local local_unnamed_addr global [100 x i32] zeroinitializer, align 16
 
 ; CHECK: @foo
-; CHECK-NOT: br i1 true
+; CHECK-NOT: for.body.outer.us
 ; CHECK: ret void
 
 define void @foo(i64 %t) "pre_loopopt" "intel-lang"="fortran" {
@@ -58,7 +59,6 @@ for.end:                                          ; preds = %for.inc
 
 ; CHECK: @bar
 ; CHECK: for.body.outer.us:
-; CHECK: br i1 true
 ; CHECK: ret void
 
 define void @bar(i64 %t) {

@@ -9,9 +9,9 @@
 ; test must be separate.
 
 ; RUN: opt -disable-verify -debug-pass-manager -whole-program-assume    \
-; RUN:     -passes='lto<O2>,internalize'  -internalize-public-api-list main \
+; RUN:     -passes='lto<O2>' -internalize-public-api-list main          \
 ; RUN:     -S  %s -enable-npm-dtrans -dtrans-opaque-pointer-pipeline    \
-; RUN:     2>&1 \
+; RUN:     2>&1                                                         \
 ; RUN:     | FileCheck %s
 
 ; Basic orientation checks.
@@ -26,18 +26,29 @@
 ; CHECK-NEXT: Running analysis: TargetLibraryAnalysis on bar
 ; CHECK-NEXT: Running analysis: TargetIRAnalysis on foo
 ; CHECK-NEXT: Running analysis: TargetIRAnalysis on main
+; CHECK-NEXT: Running pass: OpenMPOptPass
 ; CHECK-NEXT: Running pass: GlobalDCEPass
+; CHECK-NEXT: Running pass: IntelIPOPrefetchPass
 ; CHECK-NEXT: Running pass: IntelFoldWPIntrinsicPass
 ; CHECK: Running pass: ForceFunctionAttrsPass
 ; CHECK-NEXT: Running pass: InferFunctionAttrsPass
+; CHECK: Running pass: OptimizeDynamicCastsPass
 ; CHECK: Running pass: {{.*}}SimplifyCFGPass{{.*}}
 ; CHECK-NEXT: Running pass: {{.*}}SimplifyCFGPass{{.*}}
+; CHECK-NEXT: Running pass: GlobalSplitPass
+; CHECK-NEXT: Running pass: WholeProgramDevirtPass
 
 ; Verify the DTrans passes get run next
+; CHECK-NEXT: Running pass: dtransOP::RemoveDeadDTransTypeMetadataPass on [module]
+; CHECK-NEXT: Running pass: dtransOP::DTransNormalizeOPPass
 ; CHECK-NEXT: Running pass: dtransOP::CommuteCondOPPass
 ; CHECK-NEXT: Running analysis: dtransOP::DTransSafetyAnalyzer
+; CHECK-NEXT: Running analysis: DTransImmutableAnalysis on [module]
 ; CHECK-NEXT: Running pass: dtransOP::MemInitTrimDownOPPass
+; CHECK-NEXT: Running pass: dtransOP::SOAToAOSOPPreparePass
+; CHECK-NEXT: Running pass: dtransOP::CodeAlignPass
 ; CHECK-NEXT: Running pass: dtransOP::DeleteFieldOPPass
+; CHECK-NEXT: Running pass: dtransOP::ReorderFieldsOPPass
 ; CHECK-NEXT: Running pass: dtransOP::AOSToSOAOPPass
 ; CHECK-NEXT: Running pass: dtrans::EliminateROFieldAccessPass
 ; CHECK-NEXT: Running pass: dtransOP::DynClonePass on
@@ -46,7 +57,6 @@
 ; CHECK-NEXT: Running pass: DopeVectorConstProp
 ; CHECK: Running pass: ArgumentPromotionPass on (foo)
 ; CHECK: Running pass: ArgumentPromotionPass on (main)
-; CHECK-NEXT: Running pass: OptimizeDynamicCastsPass
 
 ; Make sure we get the IR back out without changes when we print the module.
 ; CHECK-LABEL: define internal fastcc void @foo(i32 %n) unnamed_addr #0 {

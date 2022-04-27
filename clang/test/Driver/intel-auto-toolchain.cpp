@@ -9,7 +9,7 @@
 // RUN: touch %t_dir/ubuntu_14.04_multiarch_tree/usr/bin/g++
 // RUN: chmod 777 %t_dir/ubuntu_14.04_multiarch_tree/usr/bin/g++
 // RUN: env PATH=%t_dir/ubuntu_14.04_multiarch_tree/usr/bin \
-// RUN:  %clangxx --intel %s --target=x86_64-linux-gnu -### -o %t 2>&1 \
+// RUN: %clangxx --intel -no-pie %s --target=x86_64-linux-gnu -### -o %t 2>&1 \
 // RUN:   | FileCheck %s
 //
 // Test for header search toolchain detection.

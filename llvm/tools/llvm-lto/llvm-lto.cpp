@@ -46,6 +46,7 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/WithColor.h"
 #include "llvm/Target/TargetOptions.h"
 #include <algorithm>
 #include <cassert>
@@ -255,9 +256,11 @@ static cl::opt<bool> PrintMachOCPUOnly(
     cl::desc("Instead of running LTO, print the mach-o cpu in each IR file"),
     cl::cat(LTOCategory));
 
+#if INTEL_CUSTOMIZATION
 static cl::opt<bool> UseNewPM(
     "use-new-pm", cl::desc("Run LTO passes using the new pass manager"),
     cl::init(LLVM_ENABLE_NEW_PASS_MANAGER), cl::Hidden, cl::cat(LTOCategory));
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
     DebugPassManager("debug-pass-manager", cl::init(false), cl::Hidden,
@@ -267,7 +270,7 @@ static cl::opt<bool>
 namespace {
 
 struct ModuleInfo {
-  std::vector<bool> CanBeHidden;
+  BitVector CanBeHidden;
 };
 
 } // end anonymous namespace
@@ -496,7 +499,7 @@ static void createCombinedModuleSummaryIndex() {
   raw_fd_ostream OS(OutputFilename + ".thinlto.bc", EC,
                     sys::fs::OpenFlags::OF_None);
   error(EC, "error opening the file '" + OutputFilename + ".thinlto.bc'");
-  WriteIndexToFile(CombinedIndex, OS);
+  writeIndexToFile(CombinedIndex, OS);
   OS.close();
 }
 
@@ -603,7 +606,7 @@ public:
     ThinGenerator.setCacheMaxSizeFiles(ThinLTOCacheMaxSizeFiles);
     ThinGenerator.setCacheMaxSizeBytes(ThinLTOCacheMaxSizeBytes);
     ThinGenerator.setFreestanding(EnableFreestanding);
-    ThinGenerator.setUseNewPM(UseNewPM);
+    ThinGenerator.setUseNewPM(UseNewPM); // INTEL
     ThinGenerator.setDebugPassManager(DebugPassManager);
 
     // Add all the exported symbols to the table of symbols to preserve.
@@ -659,7 +662,7 @@ private:
     std::error_code EC;
     raw_fd_ostream OS(OutputFilename, EC, sys::fs::OpenFlags::OF_None);
     error(EC, "error opening the file '" + OutputFilename + "'");
-    WriteIndexToFile(*CombinedIndex, OS);
+    writeIndexToFile(*CombinedIndex, OS);
   }
 
   /// Load the combined index from disk, then compute and generate
@@ -697,7 +700,7 @@ private:
       std::error_code EC;
       raw_fd_ostream OS(OutputName, EC, sys::fs::OpenFlags::OF_None);
       error(EC, "error opening the file '" + OutputName + "'");
-      WriteIndexToFile(*Index, OS, &ModuleToSummariesForIndex);
+      writeIndexToFile(*Index, OS, &ModuleToSummariesForIndex);
     }
   }
 
@@ -1014,6 +1017,7 @@ int main(int argc, char **argv) {
 
   CodeGen.setCodePICModel(codegen::getExplicitRelocModel());
   CodeGen.setFreestanding(EnableFreestanding);
+  CodeGen.setDebugPassManager(DebugPassManager);
 
   CodeGen.setDebugInfo(LTO_DEBUG_MODEL_DWARF);
   CodeGen.setTargetOptions(Options);
@@ -1068,7 +1072,7 @@ int main(int argc, char **argv) {
   CodeGen.setOptLevel(OptLevel - '0');
   CodeGen.setAttrs(codegen::getMAttrs());
 
-  CodeGen.setUseNewPM(UseNewPM);
+  CodeGen.setUseNewPM(UseNewPM); // INTEL
 
   if (auto FT = codegen::getExplicitFileType())
     CodeGen.setFileType(FT.getValue());

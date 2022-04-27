@@ -1,3 +1,20 @@
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //==----------- platform_impl.cpp ------------------------------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -256,8 +273,23 @@ platform_impl::get_devices(info::device_type DeviceType) const {
       MPlatform, pi::cast<RT::PiDeviceType>(DeviceType), 0,
       pi::cast<RT::PiDevice *>(nullptr), &NumDevices);
 
-  if (NumDevices == 0)
+  if (NumDevices == 0) {
+    // If platform doesn't have devices (even without filter)
+    // LastDeviceIds[PlatformId] stay 0 that affects next platform devices num
+    // analysis. Doing adjustment by simple copy of last device num from
+    // previous platform.
+    // Needs non const plugin reference.
+    std::vector<plugin> &Plugins = RT::initialize();
+    auto It = std::find_if(Plugins.begin(), Plugins.end(),
+                           [&Platform = MPlatform](plugin &Plugin) {
+                             return Plugin.containsPiPlatform(Platform);
+                           });
+    if (It != Plugins.end()) {
+      std::lock_guard<std::mutex> Guard(*(It->getPluginMutex()));
+      (*It).adjustLastDeviceId(MPlatform);
+    }
     return Res;
+  }
 
   std::vector<RT::PiDevice> PiDevices(NumDevices);
   // TODO catch an exception and put it to list of asynchronous exceptions

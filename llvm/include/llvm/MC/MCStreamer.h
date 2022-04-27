@@ -1,4 +1,21 @@
 //===- MCStreamer.h - High-level Streaming Machine Code Output --*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,7 +30,6 @@
 #ifndef LLVM_MC_MCSTREAMER_H
 #define LLVM_MC_MCSTREAMER_H
 
-#include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
@@ -22,14 +38,14 @@
 #include "llvm/DebugInfo/CodeView/SymbolRecord.h"
 #include "llvm/MC/Intel_MCTrace.h" //INTEL
 #include "llvm/MC/MCDirectives.h"
+#include "llvm/MC/MCDwarf.h"
 #include "llvm/MC/MCLinkerOptimizationHint.h"
 #include "llvm/MC/MCPseudoProbe.h"
-#include "llvm/MC/MCSymbol.h"
 #include "llvm/MC/MCWinEH.h"
+#include "llvm/Support/ARMTargetParser.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/SMLoc.h"
-#include "llvm/Support/TargetParser.h"
 #include "llvm/Support/VersionTuple.h"
 #include <cassert>
 #include <cstdint>
@@ -40,21 +56,24 @@
 
 namespace llvm {
 
+class APInt;
 class AssemblerConstantPools;
 class MCAsmBackend;
-class MCCodeEmitter;
+class MCAssembler;
 class MCContext;
-struct MCDwarfFrameInfo;
 class MCExpr;
+class MCFragment;
 class MCInst;
 class MCInstPrinter;
 class MCRegister;
 class MCSection;
 class MCStreamer;
-class MCSymbolRefExpr;
 class MCSubtargetInfo;
-class raw_ostream;
+class MCSymbol;
+class MCSymbolRefExpr;
+class Triple;
 class Twine;
+class raw_ostream;
 
 namespace codeview {
 struct DefRangeRegisterRelHeader;
@@ -616,6 +635,12 @@ public:
   /// \param Rename - The value to which the Name parameter is
   /// changed at the end of assembly.
   virtual void emitXCOFFRenameDirective(const MCSymbol *Name, StringRef Rename);
+
+  /// Emit a XCOFF .ref directive which creates R_REF type entry in the
+  /// relocation table for one or more symbols.
+  ///
+  /// \param Sym - The symbol on the .ref directive.
+  virtual void emitXCOFFRefDirective(StringRef Sym);
 
   /// Emit an ELF .size directive.
   ///

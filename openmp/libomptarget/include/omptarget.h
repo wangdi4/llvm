@@ -343,6 +343,11 @@ struct __tgt_target_non_contig {
   uint64_t Stride;
 };
 
+struct __tgt_device_info {
+  void *Context = nullptr;
+  void *Device = nullptr;
+};
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -398,29 +403,6 @@ void * omp_get_mapped_ptr(void *host_ptr, int device_num);
 
 EXTERN
 int omp_target_is_accessible(const void *ptr, size_t size, int device_num);
-
-///
-/// 5.1 Interop Routines
-///
-EXTERN int omp_get_num_interop_properties(const omp_interop_t interop);
-
-EXTERN omp_intptr_t omp_get_interop_int(const omp_interop_t interop,
-    omp_interop_property_t property_id, int *ret_code);
-
-EXTERN void *omp_get_interop_ptr(const omp_interop_t interop,
-    omp_interop_property_t property_id, int *ret_code);
-
-EXTERN const char *omp_get_interop_str(const omp_interop_t interop,
-    omp_interop_property_t property_id, int *ret_code);
-
-EXTERN const char *omp_get_interop_name(const omp_interop_t interop,
-    omp_interop_property_t property_id);
-
-EXTERN const char *omp_get_interop_type_desc(const omp_interop_t interop,
-    omp_interop_property_t property_id);
-
-EXTERN const char *omp_get_interop_rc_desc(const omp_interop_t interop,
-    omp_interop_rc_t ret_code);
 
 /// Explicit target memory allocators
 /// Are we OK with omp_ prefix?
@@ -484,7 +466,7 @@ void *llvm_omp_target_alloc_shared(size_t size, int device_num);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void *llvm_omp_get_dynamic_shared();
+void *llvm_omp_target_dynamic_shared_alloc();
 
 /// add the clauses of the requires directives in a given file
 #if INTEL_COLLAB

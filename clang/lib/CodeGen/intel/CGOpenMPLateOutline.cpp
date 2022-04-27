@@ -1,5 +1,22 @@
 #if INTEL_COLLAB                                           // -*- C++ -*-
 //===--- CGOpenMPLateOutline.cpp - OpenMP Late-Outlining ------*- C++ -*---===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -453,34 +470,35 @@ Address OpenMPLateOutliner::emitOMPArraySectionExpr(const Expr *E,
 void OpenMPLateOutliner::addArg(StringRef Str) { BundleString = Str; }
 
 void OpenMPLateOutliner::addArg(llvm::Value *V, bool Handled, bool IsTyped,
-                                bool IsRef, llvm::Value *ZeroValue,
+                                llvm::Type *ElementType, llvm::Value *ZeroValue,
                                 llvm::Value *NumElements) {
   BundleValues.push_back(V);
   if (Handled)
     HandledValues.insert(V);
   if (IsTyped) {
-    auto *PT = cast<llvm::PointerType>(V->getType());
-    if (IsRef)
-      PT = cast<llvm::PointerType>(PT->getElementType());
-    addArg(ZeroValue ? ZeroValue
-                     : llvm::Constant::getNullValue(PT->getElementType()));
+    BundleValues.push_back(
+        ZeroValue ? ZeroValue : llvm::Constant::getNullValue(ElementType));
     if (NumElements)
-      addArg(NumElements);
+      BundleValues.push_back(NumElements);
   }
 }
 
-void OpenMPLateOutliner::addNoElementTypedArg(llvm::Value *V, bool Handled,
-                                              bool IsRef) {
-  addArg(V, Handled, UseTypedClauses, IsRef);
+void OpenMPLateOutliner::addNoElementTypedArg(llvm::Value *V,
+                                              llvm::Type *ElementType,
+                                              bool Handled) {
+  addArg(V, Handled, UseTypedClauses, ElementType);
 }
 
-void OpenMPLateOutliner::addSingleElementTypedArg(llvm::Value *V, bool Handled,
-                                                  bool IsRef) {
-  addArg(V, Handled, UseTypedClauses, IsRef, /*ZeroValue=*/nullptr, CGF.Builder.getInt32(1));
+void OpenMPLateOutliner::addSingleElementTypedArg(llvm::Value *V,
+                                                  llvm::Type *ElementType,
+                                                  bool Handled) {
+  addArg(V, Handled, UseTypedClauses, ElementType, /*ZeroValue=*/nullptr,
+         CGF.Builder.getInt32(1));
 }
 
 void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
-                                bool NeedsTypedElements) {
+                                bool NeedsTypedElements,
+                                llvm::Type *ElementType) {
   if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
       E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection)) {
     ArraySectionTy AS;
@@ -499,7 +517,7 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
       llvm::Value *Size = CGF.CGM.getSize(ElementSize);;
 
       addArg(llvm::Constant::getNullValue(
-          CGF.CGM.getTypes().ConvertType(BaseT)));
+          ElementType ? ElementType : CGF.CGM.getTypes().ConvertType(BaseT)));
 
       llvm::Value *BaseCast =
           CGF.Builder.CreatePtrToInt(V, CGF.PtrDiffTy, "sec.base.cast");
@@ -568,9 +586,9 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
       assert(LI && "expected load instruction for reference type");
       V = LI->getPointerOperand();
     }
+    llvm::Value *Elements = nullptr;
+    llvm::Value *ZeroValue = nullptr;
     if (IsTyped) {
-      llvm::Value *Elements = nullptr;
-      llvm::Value *ZeroValue = nullptr;
       if (const auto *AT = dyn_cast<ArrayType>(E->getType())) {
         QualType BaseT;
         Elements = CGF.emitArrayLength(AT, BaseT, Addr);
@@ -579,10 +597,10 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
         if (NeedsTypedElements)
           Elements = CGF.Builder.getInt32(1);
       }
-      addArg(V, /*Handled=*/true, /*IsTyped=*/true, IsRef, ZeroValue, Elements);
-    } else {
-      addArg(V, /*Handled=*/true);
     }
+    addArg(V, /*Handled=*/true, IsTyped,
+           ElementType ? ElementType : Addr.getElementType(), ZeroValue,
+           Elements);
   }
 }
 
@@ -720,16 +738,12 @@ void OpenMPLateOutliner::emitClause(OpenMPClauseKind CK,
   clearBundleTemps();
 }
 
-void OpenMPLateOutliner::emitImplicit(llvm::Value *V, ImplicitClauseKind K) {
+void OpenMPLateOutliner::emitImplicit(llvm::Value *V, llvm::Type *ElementType,
+                                      ImplicitClauseKind K, bool Handled) {
 
   ClauseEmissionHelper CEH(*this, OMPC_unknown);
   ClauseStringBuilder &CSB = CEH.getBuilder();
-  if (K == ICK_shared) {
-    // shared clauses do not need typed clauses.
-    addArg("QUAL.OMP.SHARED");
-    addArg(V);
-    return;
-  }
+
   switch (K) {
   case ICK_private:
   case ICK_linear_private:
@@ -743,13 +757,16 @@ void OpenMPLateOutliner::emitImplicit(llvm::Value *V, ImplicitClauseKind K) {
   case ICK_linear_lastprivate:
     CSB.add("QUAL.OMP.LASTPRIVATE");
     break;
+  case ICK_shared:
+    CSB.add("QUAL.OMP.SHARED");
+    break;
   default:
     llvm_unreachable("Clause not allowed");
   }
   if (UseTypedClauses)
     CSB.setTyped();
   addArg(CSB.getString());
-  addSingleElementTypedArg(V);
+  addSingleElementTypedArg(V, ElementType, Handled);
 }
 
 void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
@@ -765,7 +782,7 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
     addArg(CSB.getString());
     addTypedArg(E);
     auto *LD = cast<OMPLoopDirective>(&Directive);
-    addArg(CGF.EmitScalarExpr(LD->getLateOutlineLinearCounterStep()));
+    addArg(emitSpecialSIMDExpression(LD->getLateOutlineLinearCounterStep()));
     // Plain SIMD doesn't use the private/lastprivate clause but the
     // implicit clause kind is used to determine if the increment is emitted.
     if (CurrentDirectiveKind == OMPD_simd)
@@ -774,17 +791,6 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
 
   ClauseEmissionHelper CEH(*this, OMPC_unknown);
   ClauseStringBuilder &CSB = CEH.getBuilder();
-  if (K == ICK_shared) {
-    // shared clauses are not typed.
-    const VarDecl *VD = getExplicitVarDecl(E);
-    bool IsRef = VD && VD->getType()->isReferenceType();
-    CSB.add("QUAL.OMP.SHARED");
-    if (IsRef)
-      CSB.setByRef();
-    addArg(CSB.getString());
-    addArg(E, IsRef);
-    return;
-  }
 
   switch (K) {
   case ICK_private:
@@ -809,15 +815,35 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
   case ICK_normalized_ub:
     CSB.add("QUAL.OMP.NORMALIZED.UB");
     break;
+  case ICK_livein:
+    CSB.add("QUAL.OMP.LIVEIN");
+    break;
+  case ICK_shared:
+    CSB.add("QUAL.OMP.SHARED");
+    break;
   default:
     llvm_unreachable("Clause not allowed");
   }
-  if (UseTypedClauses)
+  bool IsRef = false;
+  bool IsSharedVLA = false;
+  if (K == ICK_shared ||
+      (CurrentDirectiveKind == OMPD_task && K == ICK_specified_firstprivate)) {
+    const VarDecl *VD = getExplicitVarDecl(E);
+    assert(VD && "expected VarDecl in implicit clause");
+    IsRef = VD->getType()->isReferenceType();
+    if (IsRef)
+      CSB.setByRef();
+    IsSharedVLA = K == ICK_shared && VD->getType()->isVariablyModifiedType();
+  }
+  if (UseTypedClauses && !IsSharedVLA)
     CSB.setTyped();
   addArg(CSB.getString());
   bool NeedsTypedElements =
       K == ICK_normalized_iv || K == ICK_normalized_ub ? false : true;
-  addTypedArg(E, /*IsRef=*/false, NeedsTypedElements);
+  if (IsSharedVLA)
+    addArg(E, IsRef);
+  else
+    addTypedArg(E, IsRef, NeedsTypedElements);
 }
 
 void OpenMPLateOutliner::emitImplicit(const VarDecl *VD, ImplicitClauseKind K) {
@@ -951,7 +977,12 @@ void OpenMPLateOutliner::addImplicitClauses() {
       // Normally all variables used in a target region are captured and
       // produce map clauses. We've disabled the captures for non-pointer
       // scalar variables so they will become firstprivate instead.
-      emitImplicit(VD, ICK_firstprivate);
+      if (OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD) &&
+          VD->hasGlobalStorage() &&
+          CGF.getLangOpts().OpenMPDeclareTargetGlobalDefaultNoMap)
+        emitImplicit(VD, ICK_livein);
+      else
+        emitImplicit(VD, ICK_firstprivate);
 #if INTEL_CUSTOMIZATION
       if (OptRepFPMapInfos.find(VD) != OptRepFPMapInfos.end())
         emitRemark(OptRepFPMapInfos[VD]);
@@ -982,15 +1013,18 @@ void OpenMPLateOutliner::addImplicitClauses() {
   // must use a ValueHandle since some Values are created but are not in the
   // final IR.  This is this is temporary until the back end can handle local
   // allocas correctly.
-  for (llvm::WeakTrackingVH &VH : ReferencedValues) {
+  for (auto &RV : ReferencedValues) {
+    llvm::WeakTrackingVH &VH = RV.first;
     if (!VH.pointsToAliveValue())
       continue;
     llvm::Value *V = VH;
+    llvm::Type *ElementType = RV.second;
     if (V->getName().find(".omp.iv") != StringRef::npos ||
         V->getName().find(".omp.ub") != StringRef::npos)
       continue;
     bool ValueFound = false;
-    for (llvm::WeakTrackingVH &VH : DefinedValues) {
+    for (auto &DV : DefinedValues) {
+      llvm::WeakTrackingVH &VH = DV.first;
       if (VH.pointsToAliveValue() && VH == V) {
         ValueFound = true;
         break;
@@ -1004,7 +1038,7 @@ void OpenMPLateOutliner::addImplicitClauses() {
         if (UseTypedClauses)
           CSB.setTyped();
         addArg(CSB.getString());
-        addSingleElementTypedArg(V, /*Handled=*/true);
+        addSingleElementTypedArg(V, ElementType, /*Handled=*/true);
       }
     } else if (CurrentDirectiveKind == OMPD_target) {
       if (!alreadyHandled(V)) {
@@ -1014,17 +1048,14 @@ void OpenMPLateOutliner::addImplicitClauses() {
         if (UseTypedClauses)
           CSB.setTyped();
         addArg(CSB.getString());
-        addSingleElementTypedArg(V, /*Handled=*/true);
+        addSingleElementTypedArg(V, ElementType, /*Handled=*/true);
       }
     } else if (CurrentDirectiveKind == OMPD_loop ||
                isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared,
                                            CGF.getLangOpts().OpenMP)) {
       // Referenced but not defined in the region: shared
-      if (!alreadyHandled(V)) {
-        ClauseEmissionHelper CEH(*this, OMPC_shared);
-        addArg("QUAL.OMP.SHARED");
-        addArg(V, /*Handled=*/true);
-      }
+      if (!alreadyHandled(V))
+        emitImplicit(V, ElementType, ICK_shared, /*Handled=*/true);
     }
   }
 }
@@ -1051,13 +1082,15 @@ void OpenMPLateOutliner::addRefsToOuter() {
           }
       }
     }
-    for (llvm::WeakTrackingVH &VH : DefinedValues) {
+    for (auto &DV : DefinedValues) {
+      llvm::WeakTrackingVH &VH = DV.first;
       if (VH.pointsToAliveValue())
-        CGF.CapturedStmtInfo->recordValueDefinition(VH);
+        CGF.CapturedStmtInfo->recordValueDefinition(DV.first, DV.second);
     }
-    for (llvm::WeakTrackingVH &VH : ReferencedValues) {
+    for (auto &RV : ReferencedValues) {
+      llvm::WeakTrackingVH &VH = RV.first;
       if (VH.pointsToAliveValue())
-        CGF.CapturedStmtInfo->recordValueReference(VH);
+        CGF.CapturedStmtInfo->recordValueReference(RV.first, RV.second);
     }
   }
 }
@@ -1101,8 +1134,10 @@ void OpenMPLateOutliner::emitOMPSharedClause(const OMPSharedClause *Cl) {
     bool IsRef = VD->getType()->isReferenceType();
     if (IsRef)
       CSB.setByRef();
+    if (UseTypedClauses)
+      CSB.setTyped();
     addArg(CSB.getString());
-    addArg(E, IsRef);
+    addTypedArg(E, IsRef);
   }
 }
 
@@ -1186,14 +1221,22 @@ void OpenMPLateOutliner::emitOMPLinearClause(const OMPLinearClause *Cl) {
     addExplicit(VD, OMPC_linear);
     bool IsCapturedExpr = isa<OMPCapturedExprDecl>(VD);
     bool IsRef = !IsCapturedExpr && VD->getType()->isReferenceType();
+    bool IsPtr = E->getType()->isPointerType();
     ClauseEmissionHelper CEH(*this, OMPC_linear, "QUAL.OMP.LINEAR");
     ClauseStringBuilder &CSB = CEH.getBuilder();
     if (IsRef)
       CSB.setByRef();
     if (UseTypedClauses)
       CSB.setTyped();
+    if (UseTypedClauses && IsPtr)
+      CSB.setPtrToPtr();
     addArg(CSB.getString());
-    addTypedArg(E, IsRef);
+    if (UseTypedClauses && IsPtr) {
+      llvm::Type *ElemTy =
+          CGF.ConvertTypeForMem(E->getType()->getPointeeType());
+      addArg(E, IsRef, UseTypedClauses, /*NeedsTypedElements=*/true, ElemTy);
+     } else
+      addTypedArg(E, IsRef);
     addArg(Cl->getStep() ? CGF.EmitScalarExpr(Cl->getStep())
                          : CGF.Builder.getInt32(1));
   }
@@ -1352,13 +1395,23 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
       CSB.setCmplx();
     if (IsRef)
       CSB.setByRef();
+    llvm::Type *ElemTy = nullptr;
     if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
-        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
+        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection)) {
       CSB.setArrSect();
+      QualType BaseTy = getArraySectionBase(E)->getType();
+      if (UseTypedClauses && BaseTy->isPointerType()) {
+        CSB.setPtrToPtr();
+        ElemTy = CGF.ConvertTypeForMem(BaseTy->getPointeeType());
+      }
+    }
     if (UseTypedClauses)
-        CSB.setTyped();
+      CSB.setTyped();
     addArg(CSB.getString());
-    addTypedArg(E, IsRef);
+    if (ElemTy)
+      addArg(E, IsRef, UseTypedClauses, /*NeedsTypedElements=*/true, ElemTy);
+    else
+      addTypedArg(E, IsRef);
     if (CombinerFn) {
       llvm::Value *Cons = llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
       llvm::Value *Des = llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
@@ -1372,6 +1425,11 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
       for (auto *FV : {Cons, Des, CombinerFn, Init})
         addArg(FV);
     }
+    if (const auto *C = dyn_cast<OMPReductionClause>(Cl))
+      if (C->getModifier() == OMPC_REDUCTION_inscan) {
+        CGF.addInscanVar(VD);
+        addArg(llvm::ConstantInt::get(CGF.SizeTy, CGF.getInscanVarIndex(VD)));
+      }
     ++I;
     ++IPriv;
     ++ILHS;
@@ -1687,8 +1745,11 @@ void OpenMPLateOutliner::emitOMPUntiedClause(const OMPUntiedClause *) {
 }
 
 void OpenMPLateOutliner::emitOMPDependClause(const OMPDependClause *Cl) {
+  // This function is needed until old IR for depend clause is no longer
+  // necessary and flag has been removed.
+  if (CGF.getLangOpts().OpenMPNewDependIR)
+    return;
   auto DepKind = Cl->getDependencyKind();
-
   if (DepKind == OMPC_DEPEND_source || DepKind == OMPC_DEPEND_sink) {
     ClauseEmissionHelper CEH(*this, OMPC_depend);
     if (DepKind == OMPC_DEPEND_source)
@@ -1817,6 +1878,9 @@ void OpenMPLateOutliner::emitOMPDefaultmapClause(
   case OMPC_DEFAULTMAP_MODIFIER_firstprivate:
     CSB.add("FIRSTPRIVATE");
     break;
+  case OMPC_DEFAULTMAP_MODIFIER_present:
+    CSB.add("PRESENT");
+    break;
   default:
      llvm_unreachable("Unexpected defaultmap modifier");
   }
@@ -1850,24 +1914,34 @@ void OpenMPLateOutliner::emitOMPUseDevicePtrClause(
 }
 
 void OpenMPLateOutliner::emitOMPNumTeamsClause(const OMPNumTeamsClause *Cl) {
-  ClauseEmissionHelper CEH(*this, OMPC_num_teams);
-  addArg("QUAL.OMP.NUM_TEAMS");
-  if (llvm::Value *V = CGF.getMappedClause(Cl)) {
-    addValueRef(V);
-    addArg(V, /*Handled=*/true);
+  ClauseEmissionHelper CEH(*this, OMPC_num_teams, "QUAL.OMP.NUM_TEAMS");
+  ClauseStringBuilder &CSB = CEH.getBuilder();
+  Address A = CGF.getMappedClause(Cl);
+  if (A.isValid()) {
+    addValueRef(A.getPointer(), A.getElementType());
+    if (UseTypedClauses)
+      CSB.setTyped();
+    addArg(CSB.getString());
+    addNoElementTypedArg(A.getPointer(), A.getElementType(), /*Handled=*/true);
   } else {
+    addArg(CSB.getString());
     addArg(CGF.EmitScalarExpr(Cl->getNumTeams()));
   }
 }
 
 void OpenMPLateOutliner::emitOMPThreadLimitClause(
     const OMPThreadLimitClause *Cl) {
-  ClauseEmissionHelper CEH(*this, OMPC_thread_limit);
-  addArg("QUAL.OMP.THREAD_LIMIT");
-  if (llvm::Value *V = CGF.getMappedClause(Cl)) {
-    addValueRef(V);
-    addArg(V, /*Handled=*/true);
+  ClauseEmissionHelper CEH(*this, OMPC_thread_limit, "QUAL.OMP.THREAD_LIMIT");
+  ClauseStringBuilder &CSB = CEH.getBuilder();
+  Address A = CGF.getMappedClause(Cl);
+  if (A.isValid()) {
+    addValueRef(A.getPointer(), A.getElementType());
+    if (UseTypedClauses)
+      CSB.setTyped();
+    addArg(CSB.getString());
+    addNoElementTypedArg(A.getPointer(), A.getElementType(), /*Handled=*/true);
   } else {
+    addArg(CSB.getString());
     addArg(CGF.EmitScalarExpr(Cl->getThreadLimit()));
   }
 }
@@ -1961,6 +2035,9 @@ void OpenMPLateOutliner::buildMapQualifier(
         break;
       case OMPC_MAP_MODIFIER_close:
         CSB.setClose();
+        break;
+      case OMPC_MAP_MODIFIER_present:
+        CSB.setPresent();
         break;
       case OMPC_MAP_MODIFIER_unknown:
         break;
@@ -2157,6 +2234,42 @@ void OpenMPLateOutliner::emitRemark(std::string Str) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+void OpenMPLateOutliner::emitOMPAllDependClauses() {
+  if (!CGF.getLangOpts().OpenMPNewDependIR ||
+      !Directive.hasClausesOfKind<OMPDependClause>())
+    return;
+
+  OMPTaskDataTy Data;
+  for (const auto *C : Directive.getClausesOfKind<OMPDependClause>()) {
+    auto DepKind = C->getDependencyKind();
+    if (DepKind == OMPC_DEPEND_source || DepKind == OMPC_DEPEND_sink) {
+      ClauseEmissionHelper CEH(*this, OMPC_depend);
+      if (DepKind == OMPC_DEPEND_source)
+        addArg("QUAL.OMP.DEPEND.SOURCE");
+      else 
+        addArg("QUAL.OMP.DEPEND.SINK");
+      for (unsigned I = 0, E = C->getNumLoops(); I < E; ++I)
+        addArg(CGF.EmitScalarExpr(C->getLoopData(I)));
+      continue; 
+    }
+    OMPTaskDataTy::DependData &DD =
+        Data.Dependences.emplace_back(DepKind, C->getModifier());
+    DD.DepExprs.append(C->varlist_begin(), C->varlist_end());
+  }
+  if (Data.Dependences.size() == 0)
+    return;
+
+  Address DependenciesArray = Address::invalid();
+  llvm::Value *NumOfElements;
+  std::tie(NumOfElements, DependenciesArray) =
+      CGF.CGM.getOpenMPRuntime().emitDependClause(CGF, Data.Dependences,
+                                                  Directive.getBeginLoc());
+  ClauseEmissionHelper CEH(*this, OMPC_unknown);
+  addArg("QUAL.OMP.DEPARRAY");
+  addArg(NumOfElements);
+  addArg(DependenciesArray.getPointer());
+}
+
 void OpenMPLateOutliner::emitOMPAllMapClauses() {
   for (const auto *C : Directive.getClausesOfKind<OMPMapClause>()) {
     for (const auto *E : C->varlists()) {
@@ -2211,9 +2324,6 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
           ImplicitMap.insert(std::make_pair(I.Var, ICK_shared));
       } else
         addExplicit(I.Var, OMPC_map);
-      if (FirstPrivateVars.find(I.Var) != FirstPrivateVars.end() &&
-          Ty.isConstant(CGF.getContext()))
-        MapFPrivates.emplace_back(I.Base, I.Var);
       if (CurrentDirectiveKind == OMPD_target)
         if ((Ty->isReferenceType() || Ty->isAnyPointerType()) &&
             isa<llvm::LoadInst>(I.Base)) {
@@ -2223,7 +2333,9 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
               !Ty.getNonReferenceType()->isPointerType()) {
             // Emit implicit clause instead map clause for
             // variable with reference type to non-pointer scalar.
-            emitImplicit(I.Base, ImplicitMap[I.Var]);
+            QualType VTy = I.Var->getType().getNonReferenceType();
+            emitImplicit(I.Base, CGF.ConvertTypeForMem(VTy),
+                         ImplicitMap[I.Var]);
             continue;
           }
         }
@@ -2359,6 +2471,27 @@ void OpenMPLateOutliner::emitOMPUseDeviceAddrClause(
   }
 }
 
+void OpenMPLateOutliner::emitOMPHasDeviceAddrClause(
+    const OMPHasDeviceAddrClause *Cl) {
+  for (auto *E : Cl->varlists()) {
+    const VarDecl *VD = getExplicitVarDecl(E);
+    assert(VD && "expected VarDecl in has_device_addr clause");
+    addExplicit(VD, OMPC_has_device_addr);
+    bool IsCapturedExpr = isa<OMPCapturedExprDecl>(VD);
+    bool IsRef = !IsCapturedExpr && VD->getType()->isReferenceType();
+    ClauseEmissionHelper CEH(*this, OMPC_has_device_addr,
+                             "QUAL.OMP.HAS_DEVICE_ADDR");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
+    if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
+        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
+      CSB.setArrSect();
+    if (IsRef)
+      CSB.setByRef();
+    addArg(CSB.getString());
+    addArg(E, IsRef);
+  }
+}
+
 void OpenMPLateOutliner::emitOMPNontemporalClause(
     const OMPNontemporalClause *Cl) {
   for (auto *E : Cl->varlists()) {
@@ -2405,13 +2538,43 @@ void OpenMPLateOutliner::emitOMPDataClause(const OMPDataClause *C) {
     if (UseTypedClauses)
       CSB.setTyped();
     addArg(CSB.getString());
-    addNoElementTypedArg(Tmp.getPointer());
+    addNoElementTypedArg(Tmp.getPointer(), Tmp.getElementType());
     addArg(CGF.EmitScalarExpr(Hint));
     llvm::Value *NumElemsVal = CGF.EmitScalarExpr(NumElems);
     NumElemsVal =
         CGF.Builder.CreateIntCast(NumElemsVal, CGF.CGM.SizeTy,
                                   /*isSigned=*/false);
     addArg(NumElemsVal);
+  }
+}
+
+void OpenMPLateOutliner::emitOMPInclusiveClause(const OMPInclusiveClause *Cl) {
+  for (auto *E : Cl->varlists()) {
+    const VarDecl *VD = getExplicitVarDecl(E);
+    assert(VD && "expected VarDecl in inclusive clause");
+    addExplicit(VD, OMPC_inclusive);
+    ClauseEmissionHelper CEH(*this, OMPC_inclusive, "QUAL.OMP.INCLUSIVE");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
+    if (UseTypedClauses)
+      CSB.setTyped();
+    addArg(CSB.getString());
+    addTypedArg(getExplicitDeclRefOrNull(E));
+    addArg(llvm::ConstantInt::get(CGF.SizeTy, CGF.getInscanVarIndex(VD)));
+  }
+}
+
+void OpenMPLateOutliner::emitOMPExclusiveClause(const OMPExclusiveClause *Cl) {
+  for (auto *E : Cl->varlists()) {
+    const VarDecl *VD = getExplicitVarDecl(E);
+    assert(VD && "expected VarDecl in exclusive clause");
+    addExplicit(VD, OMPC_exclusive);
+    ClauseEmissionHelper CEH(*this, OMPC_exclusive, "QUAL.OMP.EXCLUSIVE");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
+    if (UseTypedClauses)
+      CSB.setTyped();
+    addArg(CSB.getString());
+    addTypedArg(getExplicitDeclRefOrNull(E));
+    addArg(llvm::ConstantInt::get(CGF.SizeTy, CGF.getInscanVarIndex(VD)));
   }
 }
 
@@ -2439,10 +2602,10 @@ void OpenMPLateOutliner::emitOMPAcqRelClause(const OMPAcqRelClause *) {}
 void OpenMPLateOutliner::emitOMPAcquireClause(const OMPAcquireClause *) {}
 void OpenMPLateOutliner::emitOMPReleaseClause(const OMPReleaseClause *) {}
 void OpenMPLateOutliner::emitOMPRelaxedClause(const OMPRelaxedClause *) {}
-void OpenMPLateOutliner::emitOMPDepobjClause(const OMPDepobjClause *) {}
+void OpenMPLateOutliner::emitOMPDepobjClause(const OMPDepobjClause *) {
+  assert(false);
+}
 void OpenMPLateOutliner::emitOMPDetachClause(const OMPDetachClause *) {}
-void OpenMPLateOutliner::emitOMPInclusiveClause(const OMPInclusiveClause *) {}
-void OpenMPLateOutliner::emitOMPExclusiveClause(const OMPExclusiveClause *) {}
 void OpenMPLateOutliner::emitOMPUsesAllocatorsClause(
     const OMPUsesAllocatorsClause *) {}
 void OpenMPLateOutliner::emitOMPAffinityClause(const OMPAffinityClause *) {}
@@ -2542,6 +2705,7 @@ void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
     break;
   case OMPD_barrier:
   case OMPD_taskwait:
+  case OMPD_scan:
     if (IsBegin)
       CGF.Builder.CreateFence(llvm::AtomicOrdering::AcquireRelease);
     break;
@@ -2715,9 +2879,14 @@ OpenMPLateOutliner::~OpenMPLateOutliner() {
   setInsertPoint();
 
   for (auto &D : Directives) {
+    llvm::CallInst *MarkerCall = D.CallEntry;
+    CGF.Builder.SetInsertPoint(MarkerCall);
     D.CallEntry = CGF.Builder.CreateCall(RegionEntryDirective, {}, D.OpBundles);
+    if (MarkerCall != MarkerInstruction)
+      MarkerCall->eraseFromParent();
     D.clear();
     // Place the end directive in place of the start.
+    setInsertPoint();
     emitDirective(D, D.End);
   }
 
@@ -2739,6 +2908,12 @@ OpenMPLateOutliner::~OpenMPLateOutliner() {
   addRefsToOuter();
   if (CurrentDirectiveKind == OMPD_target)
     CGF.clearMappedTemps();
+  if (CurrentDirectiveKind == OMPD_simd)
+    for (const auto *C : Directive.getClausesOfKind<OMPReductionClause>())
+      if (C->getModifier() == OMPC_REDUCTION_inscan) {
+        CGF.clearInscanVars();
+        break;
+      }
 }
 
 void OpenMPLateOutliner::emitOMPParallelDirective() {
@@ -2836,6 +3011,10 @@ void OpenMPLateOutliner::emitOMPCriticalDirective(const StringRef Name) {
 void OpenMPLateOutliner::emitOMPOrderedDirective() {
   startDirectiveIntrinsicSet("DIR.OMP.ORDERED", "DIR.OMP.END.ORDERED",
                              OMPD_ordered);
+}
+void OpenMPLateOutliner::emitOMPScanDirective() {
+  startDirectiveIntrinsicSet("DIR.OMP.SCAN", "DIR.OMP.END.SCAN",
+                             OMPD_scan);
 }
 void OpenMPLateOutliner::emitOMPTargetDirective(int OffloadEntryIndex) {
   startDirectiveIntrinsicSet("DIR.OMP.TARGET", "DIR.OMP.END.TARGET",
@@ -3053,6 +3232,8 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
 #include "llvm/Frontend/OpenMP/OMP.inc"
     }
   }
+  if (!shouldSkipExplicitClause(OMPC_depend))
+    emitOMPAllDependClauses();
   if (!shouldSkipExplicitClause(OMPC_map) ||
       !shouldSkipExplicitClause(OMPC_from) ||
       !shouldSkipExplicitClause(OMPC_to))
@@ -3537,6 +3718,9 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_ordered:
     Outliner.emitOMPOrderedDirective();
     break;
+  case OMPD_scan:
+    Outliner.emitOMPScanDirective();
+    break;
   case OMPD_target: {
 #if INTEL_CUSTOMIZATION
     CGM.setHasTargetCode();
@@ -3670,7 +3854,6 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   // These directives are not yet implemented.
   case OMPD_requires:
   case OMPD_depobj:
-  case OMPD_scan:
   case OMPD_tile:
   case OMPD_unroll:
     break;
@@ -3808,6 +3991,11 @@ void CodeGenFunction::RemapForLateOutlining(const OMPExecutableDirective &D,
        RemapVars.push_back(VarExpr ? VarExpr : Ref);
      }
   for (const auto *C : D.getClausesOfKind<OMPIsDevicePtrClause>())
+     for (const auto *Ref : C->varlists()) {
+       const Expr *VarExpr = OpenMPLateOutliner::getExplicitDeclRefOrNull(Ref);
+       RemapVars.push_back(VarExpr ? VarExpr : Ref);
+     }
+  for (const auto *C : D.getClausesOfKind<OMPHasDeviceAddrClause>())
      for (const auto *Ref : C->varlists()) {
        const Expr *VarExpr = OpenMPLateOutliner::getExplicitDeclRefOrNull(Ref);
        RemapVars.push_back(VarExpr ? VarExpr : Ref);

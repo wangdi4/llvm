@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-cost-model-throttling=0 -analyze -hir-ssa-deconstruction -hir-framework 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-cost-model-throttling=0 -analyze -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework 2>&1 | FileCheck %s
 ; RUN: opt < %s -hir-cost-model-throttling=0 -passes="hir-ssa-deconstruction,print<hir>" 2>&1 | FileCheck %s
 
 ; Verify that the the test compiles successfully. It was failing in max trip

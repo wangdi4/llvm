@@ -1,4 +1,6 @@
+; RUN: opt %s -dpcpp-enable-direct-function-call-vectorization=true -dpcpp-kernel-sg-size-collector -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt %s -dpcpp-enable-direct-function-call-vectorization=true -dpcpp-kernel-sg-size-collector -S | FileCheck %s
+; RUN: opt %s -dpcpp-enable-direct-function-call-vectorization=true -passes=dpcpp-kernel-sg-size-collector -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt %s -dpcpp-enable-direct-function-call-vectorization=true -passes=dpcpp-kernel-sg-size-collector -S | FileCheck %s
 
 ; CHECK-NOT: vector-variant
@@ -62,3 +64,5 @@ attributes #0 = { nounwind "prefer-vector-width"="512" }
 !0 = !{void (float addrspace(1)*, float addrspace(1)*, i64, i64, i64, i64, i64)* @__omp_offloading_f66006ff_1a664__ZN17BoxBlurFloatLocal15execute_offloadEi_l565}
 !1 = !{i32 16}
 !2 = !{i32 4, i32 200000}
+
+; DEBUGIFY-NOT: WARNING

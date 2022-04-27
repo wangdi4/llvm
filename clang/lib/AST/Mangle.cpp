@@ -1,4 +1,21 @@
 //===--- Mangle.cpp - Mangle C++ Names --------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -229,11 +246,17 @@ void MangleContext::mangleName(GlobalDecl GD, raw_ostream &Out) {
   if (const CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(FD))
     if (!MD->isStatic())
       ++ArgWords;
-  for (const auto &AT : Proto->param_types())
+  for (const auto &AT : Proto->param_types()) {
+    // If an argument type is incomplete there is no way to get its size to
+    // correctly encode into the mangling scheme.
+    // Follow GCCs behaviour by simply breaking out of the loop.
+    if (AT->isIncompleteType())
+      break;
     // Size should be aligned to pointer size.
     ArgWords +=
         llvm::alignTo(ASTContext.getTypeSize(AT), TI.getPointerWidth(0)) /
         TI.getPointerWidth(0);
+  }
   Out << ((TI.getPointerWidth(0) / 8) * ArgWords);
 }
 

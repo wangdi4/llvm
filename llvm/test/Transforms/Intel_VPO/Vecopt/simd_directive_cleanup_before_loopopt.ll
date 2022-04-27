@@ -1,15 +1,24 @@
 ; Verify that SIMD directives are cleaned up before loop-opt passes even if VPlan fails to vectorize the SIMD loop.
 ; HIR VPlan now works before LLVM VPlan by default so we need -pre-loopopt-vpo-passes option to make this test work
 
-; RUN: opt -O3 -pre-loopopt-vpo-passes -print-after=vplan-vec -print-before=hir-ssa-deconstruction -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -O3 -enable-new-pm=0 -pre-loopopt-vpo-passes -print-after=vplan-vec -print-before=hir-ssa-deconstruction -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='default<O3>' -pre-loopopt-vpo-passes -print-after=hir-vplan-vec -print-after=vplan-vec -print-after=vpo-directive-cleanup -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -passes='default<O3>' -pre-loopopt-vpo-passes -print-after=hir-vplan-vec -print-after=vplan-vec -print-after=vpo-directive-cleanup -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+
+; Check that there is no HIR VPlan pass triggered in new pass manager run case
+; CHECK-NOT: IR Dump After vpo::VPlanDriverHIRPass
 
 ; Check that VPlan didn't vectorize loop (SIMD directive will be present)
-; CHECK-LABEL: IR Dump After VPlan Vectorizer
+; CHECK-LABEL: IR Dump After {{VPlan Vectorizer|vpo::VPlanDriverPass on main}}
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
 
+; CHECK-NOT: IR Dump After vpo::VPlanDriverHIRPass
+
 ; Check that SIMD driectives are removed before loop-opt
-; CHECK-LABEL: IR Dump Before HIR SSA Deconstruction
+; CHECK-LABEL: IR Dump {{Before HIR SSA Deconstruction|After VPODirectiveCleanupPass on main}}
 ; CHECK-NOT: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+
+; CHECK-NOT: IR Dump After vpo::VPlanDriverHIRPass
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -1,21 +1,27 @@
 ; Test to check HIR vector codegen support for vectorizable intrinsic calls with always scalar operands.
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output  < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output -vplan-enable-new-cfg-merge-hir=false  < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output -vplan-enable-new-cfg-merge-hir  < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
 
 ; Check that intrinsic calls are vectorized.
 ; CHECK-LABEL: ctlz_f64
-; CHECK: @llvm.ctlz.v4i64(%.vec,  {{-1|true}})
+; CHECK: @llvm.ctlz.v4i64([[VEC:%.*]],  {{-1|true}})
 
 ; CHECK-LABEL: cttz_f64
-; CHECK: @llvm.cttz.v4i64(%.vec,  {{-1|true}})
+; CHECK: @llvm.cttz.v4i64([[VEC:%.*]],  {{-1|true}})
 
 ; CHECK-LABEL: powi_f64
-; CHECK: @llvm.powi.v4f64.i32(%.vec,  %P)
+; CHECK: @llvm.powi.v4f64.i32([[VEC:%.*]],  %P)
 
 ; Check that call is serialized, when intrinsic with always scalar operand is loop variant.
 ; CHECK-LABEL: powi_f64_variant
 ; CHECK-COUNT-4: [[SERIAL_POW:%.*]] = @llvm.powi.f64.i32([[SCALAR_OP_1:%.*]], [[SCALAR_OP_2:.*]])
 
+; Check that call is vectorized, when intrinsic with always scalar operand is uniform despite
+; being loop variant.
+; CHECK-LABEL: powi_f64_uni_variant
+; CHECK: @llvm.powi.v4f64.i32([[VEC:%.*]],  %.unifload)
 
 declare i64  @llvm.ctlz.i64 (i64, i1) nounwind readnone
 
@@ -130,5 +136,25 @@ for.end.loopexit:                                 ; preds = %for.body
   br label %for.end
 
 for.end:                                          ; preds = %for.end.loopexit, %entry
+  ret void
+}
+
+; Test for scenario where powi's exponent operand (should be always scalar) is loop variant,
+; but uniform in nature.
+define void @powi_f64_uni_variant(double* noalias nocapture readonly %y, double* noalias nocapture %x, i32* %LP) {
+entry:
+  br label %for.body
+
+for.body: ; preds = %for.body.preheader, %for.body
+  %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %entry ]
+  %arrayidx = getelementptr inbounds double, double* %y, i64 %indvars.iv
+  %0 = load double, double* %arrayidx, align 8
+  %P = load i32, i32* %LP, align 4
+  %call = tail call double @llvm.powi.f64.i32(double %0, i32 %P) #4
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond = icmp eq i64 %indvars.iv, 99
+  br i1 %exitcond, label %for.end.loopexit, label %for.body
+
+for.end.loopexit: ; preds = %for.body
   ret void
 }

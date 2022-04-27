@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 # See docs/CMake.html for instructions about how to build LLVM with CMake.
 
 cmake_minimum_required(VERSION 3.13.4)
@@ -11,7 +28,7 @@ endif()
 set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
 
 if(NOT DEFINED LLVM_VERSION_MAJOR)
-  set(LLVM_VERSION_MAJOR 14)
+  set(LLVM_VERSION_MAJOR 15)
 endif()
 if(NOT DEFINED LLVM_VERSION_MINOR)
   set(LLVM_VERSION_MINOR 0)
@@ -28,9 +45,14 @@ if (NOT PACKAGE_VERSION)
     "${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_VERSION_PATCH}${LLVM_VERSION_SUFFIX}")
 endif()
 
+if(NOT DEFINED LLVM_SHLIB_SYMBOL_VERSION)
+  # "Symbol version prefix for libLLVM.so"
+  set(LLVM_SHLIB_SYMBOL_VERSION "LLVM_${LLVM_VERSION_MAJOR}")
+endif()
+
 set(INTEL_CUSTOMIZATION ON)
 
-if ((CMAKE_GENERATOR MATCHES "Visual Studio") AND (CMAKE_GENERATOR_TOOLSET STREQUAL ""))
+if ((CMAKE_GENERATOR MATCHES "Visual Studio") AND (MSVC_TOOLSET_VERSION LESS 142) AND (CMAKE_GENERATOR_TOOLSET STREQUAL ""))
   message(WARNING "Visual Studio generators use the x86 host compiler by "
                   "default, even for 64-bit targets. This can result in linker "
                   "instability and out of memory errors. To use the 64-bit "
@@ -46,7 +68,6 @@ endif()
 project(LLVM
   VERSION ${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_VERSION_PATCH}
   LANGUAGES C CXX ASM)
-
 
 if (INTEL_CUSTOMIZATION)
   set(DPCPP_VERSION_QUALITY " ")
@@ -70,6 +91,9 @@ if (INTEL_CUSTOMIZATION)
     )
 endif (INTEL_CUSTOMIZATION)
 
+# Must go after project(..)
+include(GNUInstallDirs)
+
 set(CMAKE_CXX_STANDARD 14 CACHE STRING "C++ standard to conform to")
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
 if (CYGWIN)
@@ -89,7 +113,7 @@ endif()
 # LLVM_EXTERNAL_${project}_SOURCE_DIR using LLVM_ALL_PROJECTS
 # This allows an easy way of setting up a build directory for llvm and another
 # one for llvm+clang+... using the same sources.
-set(LLVM_ALL_PROJECTS "clang;clang-tools-extra;compiler-rt;cross-project-tests;libc;libclc;libcxx;libcxxabi;libunwind;lld;lldb;mlir;openmp;polly;pstl")
+set(LLVM_ALL_PROJECTS "bolt;clang;clang-tools-extra;compiler-rt;cross-project-tests;libc;libclc;libcxx;libcxxabi;libunwind;lld;lldb;mlir;openmp;polly;pstl")
 set(LLVM_ALL_PROJECTS "${LLVM_ALL_PROJECTS};${LLVM_EXTERNAL_PROJECTS}")
 # The flang project is not yet part of "all" projects (see C++ requirements)
 set(LLVM_EXTRA_PROJECTS "flang")
@@ -102,7 +126,7 @@ if (INTEL_CUSTOMIZATION)
   set(LLVM_KNOWN_PROJECTS "${LLVM_ALL_PROJECTS};${LLVM_EXTRA_PROJECTS};${LLVM_INTEL_EXTRA_PROJECTS}")
 endif (INTEL_CUSTOMIZATION)
 set(LLVM_ENABLE_PROJECTS "" CACHE STRING
-	"Semicolon-separated list of projects to build (${LLVM_KNOWN_PROJECTS}), or \"all\".")
+    "Semicolon-separated list of projects to build (${LLVM_KNOWN_PROJECTS}), or \"all\".")
 foreach(proj ${LLVM_ENABLE_PROJECTS})
   if (NOT proj STREQUAL "all" AND NOT proj STREQUAL "llvm" AND NOT "${proj}" IN_LIST LLVM_KNOWN_PROJECTS)
      MESSAGE(FATAL_ERROR "${proj} isn't a known project: ${LLVM_KNOWN_PROJECTS}")
@@ -208,6 +232,10 @@ if(LLVM_CCACHE_BUILD)
   endif()
 endif()
 
+set(LLVM_EXTERNAL_PROJECT_BUILD_TOOL_ARGS "" CACHE STRING
+  "Optional arguments for the native tool used in CMake --build invocations for external projects.")
+mark_as_advanced(LLVM_EXTERNAL_PROJECT_BUILD_TOOL_ARGS)
+
 option(LLVM_DEPENDENCY_DEBUGGING "Dependency debugging mode to verify correctly expressed library dependencies (Darwin only)" OFF)
 
 # Some features of the LLVM build may be disallowed when dependency debugging is
@@ -228,11 +256,13 @@ if(LLVM_ENABLE_GISEL_COV)
   set(LLVM_GISEL_COV_PREFIX "${CMAKE_BINARY_DIR}/gisel-coverage-" CACHE STRING "Provide a filename prefix to collect the GlobalISel rule coverage")
 endif()
 
+set(LLVM_COMMON_CMAKE_UTILS ${CMAKE_CURRENT_SOURCE_DIR}/../cmake)
+
 # Add path for custom modules
-set(CMAKE_MODULE_PATH
-  ${CMAKE_MODULE_PATH}
+list(INSERT CMAKE_MODULE_PATH 0
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules"
+  "${LLVM_COMMON_CMAKE_UTILS}/Modules"
   )
 
 # Generate a CompilationDatabase (compile_commands.json file) for our build,
@@ -266,7 +296,7 @@ option(LLVM_APPEND_VC_REV
 
 set(PACKAGE_NAME LLVM)
 set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
-set(PACKAGE_BUGREPORT "https://bugs.llvm.org/")
+set(PACKAGE_BUGREPORT "https://github.com/llvm/llvm-project/issues/")
 
 if (INTEL_CUSTOMIZATION)
   set(PACKAGE_BUGREPORT "https://software.intel.com/en-us/support/priority-support")
@@ -320,7 +350,21 @@ endif()
 set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of library directory name (32/64)" )
 
 # INTEL_CUSTOMIZATION
-set(LLVM_TOOLS_INSTALL_DIR "bin-llvm" CACHE STRING "Path for binary subdirectory (defaults to 'bin-llvm')")
+
+# This is a transitional option which enables the new unified 2023 OneAPI
+# directory layout as per PREQS-1605. Currently the ICS "xmain" project builds
+# with this disabled, and "xmain-2023" builds with it enabled.
+set(INTEL_DEPLOY_UNIFIED_LAYOUT OFF CACHE BOOL "Build and deploy for a unified OneAPI directory layout")
+
+if(INTEL_DEPLOY_UNIFIED_LAYOUT)
+  add_compile_definitions(INTEL_DEPLOY_UNIFIED_LAYOUT)
+  set(INTEL_DEPLOY_PKGCOMP_NAME "compiler" CACHE STRING "OneAPI deployment package component name")
+  set(LLVM_TOOLS_INSTALL_DIR
+    "${CMAKE_INSTALL_BINDIR}/${INTEL_DEPLOY_PKGCOMP_NAME}"
+    CACHE STRING "Path for binary subdirectory")
+else()
+  set(LLVM_TOOLS_INSTALL_DIR "bin-llvm" CACHE STRING "Path for binary subdirectory (defaults to 'bin-llvm')")
+endif()
 
 # If configured to install a separate tools directory (as is the default)
 # install a README explaining its purpose.
@@ -337,6 +381,10 @@ mark_as_advanced(LLVM_TOOLS_INSTALL_DIR)
 set(LLVM_UTILS_INSTALL_DIR "${LLVM_TOOLS_INSTALL_DIR}" CACHE STRING
     "Path to install LLVM utilities (enabled by LLVM_INSTALL_UTILS=ON) (defaults to LLVM_TOOLS_INSTALL_DIR)")
 mark_as_advanced(LLVM_UTILS_INSTALL_DIR)
+
+set(LLVM_EXAMPLES_INSTALL_DIR "examples" CACHE STRING
+    "Path for examples subdirectory (enabled by LLVM_BUILD_EXAMPLES=ON) (defaults to 'examples')")
+mark_as_advanced(LLVM_EXAMPLES_INSTALL_DIR)
 
 # They are used as destination of target generators.
 set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/bin)
@@ -396,7 +444,7 @@ set(LLVM_TARGETS_TO_BUILD "all"
     CACHE STRING "Semicolon-separated list of targets to build, or \"all\".")
 
 set(LLVM_EXPERIMENTAL_TARGETS_TO_BUILD ""
-  CACHE STRING "Semicolon-separated list of experimental targets to build.")
+    CACHE STRING "Semicolon-separated list of experimental targets to build.")
 
 option(BUILD_SHARED_LIBS
   "Build all libraries as shared libraries instead of static" OFF)
@@ -499,6 +547,7 @@ option(LLVM_ENABLE_PEDANTIC "Compile with pedantic enabled." ON)
 option(LLVM_ENABLE_WERROR "Fail and stop if a warning is triggered." OFF)
 
 option(LLVM_ENABLE_DUMP "Enable dump functions even when assertions are disabled" OFF)
+option(LLVM_UNREACHABLE_OPTIMIZE "Optimize llvm_unreachable() as undefined behavior (default), guaranteed trap when OFF" ON)
 
 if( NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG" )
   option(LLVM_ENABLE_ASSERTIONS "Enable assertions" OFF)
@@ -644,7 +693,7 @@ endif(LLVM_BUILD_EXAMPLES)
 option(LLVM_BUILD_TESTS
   "Build LLVM unit tests. If OFF, just generate build targets." OFF)
 option(LLVM_INCLUDE_TESTS "Generate build targets for the LLVM unit tests." ON)
-option(LLVM_INCLUDE_GO_TESTS "Include the Go bindings tests in test build targets." ON)
+option(LLVM_INCLUDE_GO_TESTS "Include the Go bindings tests in test build targets." OFF)
 
 option(LLVM_BUILD_BENCHMARKS "Add LLVM benchmark targets to the list of default
 targets. If OFF, benchmarks still could be built using Benchmarks target." OFF)
@@ -657,9 +706,9 @@ option (LLVM_ENABLE_SPHINX "Use Sphinx to generate llvm documentation." OFF)
 option (LLVM_ENABLE_OCAMLDOC "Build OCaml bindings documentation." ON)
 option (LLVM_ENABLE_BINDINGS "Build bindings." ON)
 
-set(LLVM_INSTALL_DOXYGEN_HTML_DIR "share/doc/llvm/doxygen-html"
+set(LLVM_INSTALL_DOXYGEN_HTML_DIR "${CMAKE_INSTALL_DOCDIR}/llvm/doxygen-html"
     CACHE STRING "Doxygen-generated HTML documentation install directory")
-set(LLVM_INSTALL_OCAMLDOC_HTML_DIR "share/doc/llvm/ocaml-html"
+set(LLVM_INSTALL_OCAMLDOC_HTML_DIR "${CMAKE_INSTALL_DOCDIR}/llvm/ocaml-html"
     CACHE STRING "OCamldoc-generated HTML documentation install directory")
 
 option (LLVM_BUILD_EXTERNAL_COMPILER_RT
@@ -765,10 +814,23 @@ set(LLVM_PROFDATA_FILE "" CACHE FILEPATH
 include(config-ix)
 
 # By default, we target the host, but this can be overridden at CMake
-# invocation time.
-set(LLVM_DEFAULT_TARGET_TRIPLE "${LLVM_HOST_TRIPLE}" CACHE STRING
+# invocation time. Except on 64-bit AIX, where the system toolchain
+# expect 32-bit objects by default.
+if("${LLVM_HOST_TRIPLE}" MATCHES "^powerpc64-ibm-aix")
+  string(REGEX REPLACE "^powerpc64" "powerpc" LLVM_DEFAULT_TARGET_TRIPLE_default "${LLVM_HOST_TRIPLE}")
+else()
+  set(LLVM_DEFAULT_TARGET_TRIPLE_default "${LLVM_HOST_TRIPLE}")
+endif()
+
+set(LLVM_DEFAULT_TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE_default}" CACHE STRING
   "Default target for which LLVM will generate code." )
-set(TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE}")
+if (TARGET_TRIPLE)
+  message(WARNING "TARGET_TRIPLE is deprecated and will be removed in a future release. "
+                  "Please use LLVM_DEFAULT_TARGET_TRIPLE instead.")
+  set(LLVM_TARGET_TRIPLE "${TARGET_TRIPLE}")
+else()
+  set(LLVM_TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE}")
+endif()
 message(STATUS "LLVM host triple: ${LLVM_HOST_TRIPLE}")
 message(STATUS "LLVM default target triple: ${LLVM_DEFAULT_TARGET_TRIPLE}")
 
@@ -797,17 +859,17 @@ else()
 endif()
 option(LLVM_ENABLE_PLUGINS "Enable plugin support" ${LLVM_ENABLE_PLUGINS_default})
 
-# INTEL_CUSTOMIZATION
-# We want to keep the legacy pass manager enabled by default even
-# after the community changes the default here.
-set(LLVM_ENABLE_NEW_PASS_MANAGER FALSE CACHE BOOL # INTEL
+if(INTEL_CUSTOMIZATION)
+set(LLVM_ENABLE_NEW_PASS_MANAGER FALSE CACHE BOOL
   "Enable the new pass manager by default.")
-#end INTEL_CUSTOMIZATION
 if(NOT LLVM_ENABLE_NEW_PASS_MANAGER)
-  message(WARNING "Using the legacy pass manager for the optimization pipeline"
+#  message(FATAL_ERROR "Enabling the legacy pass manager on the cmake level is"
+#                      " no longer supported.")
+   message(WARNING "Using the legacy pass manager for the optimization pipeline"
                   " is deprecated. The functionality will degrade over time and"
                   " be removed in a future release.")
 endif()
+endif(INTEL_CUSTOMIZATION)
 
 include(HandleLLVMOptions)
 
@@ -1078,20 +1140,20 @@ if(INTEL_CUSTOMIZATION)
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_FP19)
 # end INTEL_FEATURE_ISA_AMX_FP19
 
-# INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+# INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 list(APPEND features_enabled_by_default
-     ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_DOTPROD_INT8)
-# end INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+     ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_VNNI_INT8)
+# end INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 
 # INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
 list(APPEND features_enabled_by_default
      ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_DOTPROD_PHPS)
 # end INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
 
-# INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+# INTEL_FEATURE_ISA_AVX_VNNI_INT8
 list(APPEND features_enabled_by_default
-     ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_DOTPROD_INT8)
-# end INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+     ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_VNNI_INT8)
+# end INTEL_FEATURE_ISA_AVX_VNNI_INT8
 
 # INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 list(APPEND features_enabled_by_default
@@ -1249,6 +1311,20 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
           ${LLVM_INTELFEATURE_PREFIX}_ISA_VPINSR_VPEXTR)
 #end INTEL_FEATURE_ISA_VPINSR_VPEXTR
+# INTEL_FEATURE_ISA_CMPCCXADD
+# AUTO GENERATED BY TOOL
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_CMPCCXADD)
+# end AUTO GENERATED BY TOOL
+# end INTEL_FEATURE_ISA_CMPCCXADD
+# INTEL_FEATURE_ISA_PREFETCHST2
+      list(APPEND features_enabled_by_default
+          ${LLVM_INTELFEATURE_PREFIX}_ISA_PREFETCHST2)
+# end INTEL_FEATURE_ISA_PREFETCHST2
+# INTEL_FEATURE_ISA_PREFETCHI
+      list(APPEND features_enabled_by_default
+          ${LLVM_INTELFEATURE_PREFIX}_ISA_PREFETCHI)
+# end INTEL_FEATURE_ISA_PREFETCHI
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"
@@ -1458,12 +1534,23 @@ if (NOT TENSORFLOW_AOT_PATH STREQUAL "")
     ARCHIVE DESTINATION lib${LLVM_LIBDIR_SUFFIX} COMPONENT tf_xla_runtime)
   set_property(GLOBAL APPEND PROPERTY LLVM_EXPORTS tf_xla_runtime)
   # Once we add more modules, we should handle this more automatically.
-  if (NOT DEFINED LLVM_INLINER_MODEL_PATH
+  if (DEFINED LLVM_OVERRIDE_MODEL_HEADER_INLINERSIZEMODEL)
+    set(LLVM_INLINER_MODEL_PATH "none")
+  elseif(NOT DEFINED LLVM_INLINER_MODEL_PATH
       OR "${LLVM_INLINER_MODEL_PATH}" STREQUAL ""
       OR "${LLVM_INLINER_MODEL_PATH}" STREQUAL "autogenerate")
     set(LLVM_INLINER_MODEL_PATH "autogenerate")
     set(LLVM_INLINER_MODEL_AUTOGENERATED 1)
   endif()
+  if (DEFINED LLVM_OVERRIDE_MODEL_HEADER_REGALLOCEVICTMODEL)
+    set(LLVM_RAEVICT_MODEL_PATH "none")
+  elseif(NOT DEFINED LLVM_RAEVICT_MODEL_PATH
+      OR "${LLVM_RAEVICT_MODEL_PATH}" STREQUAL ""
+      OR "${LLVM_RAEVICT_MODEL_PATH}" STREQUAL "autogenerate")
+    set(LLVM_RAEVICT_MODEL_PATH "autogenerate")
+    set(LLVM_RAEVICT_MODEL_AUTOGENERATED 1)
+  endif()
+
 endif()
 
 # Configure the three LLVM configuration header files.
@@ -1687,9 +1774,6 @@ if( LLVM_INCLUDE_TESTS )
     DEPENDS ${LLVM_LIT_DEPENDS} ${LLVM_ADDITIONAL_TEST_TARGETS}
     ARGS ${LLVM_LIT_EXTRA_ARGS}
     )
-  if(TARGET check-runtimes)
-    add_dependencies(check-all check-runtimes)
-  endif()
   add_custom_target(test-depends
                     DEPENDS ${LLVM_LIT_DEPENDS} ${LLVM_ADDITIONAL_TEST_DEPENDS})
   set_target_properties(test-depends PROPERTIES FOLDER "Tests")
@@ -1708,7 +1792,7 @@ endif()
 
 if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
   install(DIRECTORY include/llvm include/llvm-c
-    DESTINATION include
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
     COMPONENT llvm-headers
     FILES_MATCHING
     PATTERN "*.def"
@@ -1719,7 +1803,7 @@ if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
     )
 
   install(DIRECTORY ${LLVM_INCLUDE_DIR}/llvm ${LLVM_INCLUDE_DIR}/llvm-c
-    DESTINATION include
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
     COMPONENT llvm-headers
     FILES_MATCHING
     PATTERN "*.def"
@@ -1733,13 +1817,13 @@ if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
 
   if (LLVM_INSTALL_MODULEMAPS)
     install(DIRECTORY include/llvm include/llvm-c
-            DESTINATION include
+            DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
             COMPONENT llvm-headers
             FILES_MATCHING
             PATTERN "module.modulemap"
             )
     install(FILES include/llvm/module.install.modulemap
-            DESTINATION include/llvm
+            DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/llvm"
             COMPONENT llvm-headers
             RENAME "module.extern.modulemap"
             )
@@ -1812,25 +1896,6 @@ if (LLVM_INCLUDE_UTILS AND LLVM_INCLUDE_TOOLS)
 endif()
 
 if (INTEL_CUSTOMIZATION)
-  # Deploy extra pre-built pieces.
-  set(EXTRA_DEPLOY_DIR "$ENV{INFO_RDRIVE}/xmain_extra_deploy/$ENV{ICS_VARIANT}")
-  if (EXISTS ${EXTRA_DEPLOY_DIR})
-    message(STATUS "INTEL: will deploy extra pieces from ${EXTRA_DEPLOY_DIR}")
-
-    # Make sure to copy the files into the build structure as well.
-    # This helps keeping somewhat consistent behavior between the build
-    # and deploy structure.
-    set(EXTRA_DEPLOY_LIBS "${EXTRA_DEPLOY_DIR}/lib/")
-    add_custom_target(xmain-extra-libs ALL
-      COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${EXTRA_DEPLOY_LIBS} ${LLVM_LIBRARY_OUTPUT_INTDIR}
-      COMMENT
-        "Copying xmain extra libraries into ${LLVM_LIBRARY_OUTPUT_INTDIR} ...")
-
-    install(DIRECTORY ${EXTRA_DEPLOY_LIBS} DESTINATION lib
-      COMPONENT xmain-extra-libs)
-  endif()
-
   if (INTEL_CMAKE_DEPLOY)
 
     # The code below defines a set of CMake components that will
@@ -1841,13 +1906,13 @@ if (INTEL_CUSTOMIZATION)
     # component to one or more products, please contact ICLProcessTeam@intel.com
     set(INTEL_DEPLOY_COMPONENTS_LIST
       # LLVM components
-      clang lld llc llvm-link llvm-profdata llvm-spirv
+      clang lld llc llvm-link llvm-profdata llvm-profgen llvm-spirv
       clang_rt.profile-x86_64 clang_rt.profile-i386 llvm-config
       clang-resource-headers llvm-cov clang-tidy
       # XDEV components
       xdev-dpcpp xdev-icx xdev-ifx xdev-fpp xdev-xfortcom xdev-fort-target-rtl
       xdev-compilervars xdev-il0-llvm-common-headers xdev-il0-llvm-common-lib
-      xdev-support-scripts xdev-cmake-scripts
+      xdev-support-scripts xdev-cmake-scripts xdev-compiler-conf
       # OpenMP components
       llvm-opencl-ompplugin omptarget clang-offload-bundler omptarget-opencl-rtl
       llvm-x86_64-ompplugin llvm-objcopy clang-offload-wrapper
@@ -1857,8 +1922,6 @@ if (INTEL_CUSTOMIZATION)
       llvm-csa-ompplugin
 # end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION
-      # Extra xmain components
-      xmain-extra-libs
       # SYCL components: see sycl/CMakeLists.txt
       # LLVM tools directory readme
       bin-llvm-readme
@@ -1879,7 +1942,7 @@ if (INTEL_CUSTOMIZATION)
         # XDEV components
         xdev-icpx
         # CXX components
-        cxx cxxabi cxx-headers
+        cxx cxxabi cxx-headers cxxabi-headers
         )
 
       # CMPLRLLVM-20054: icx-lto is a release name for LLVMgold plugin.
@@ -1899,6 +1962,16 @@ if (INTEL_CUSTOMIZATION)
         llvm-symbolizer
         )
     endif()
+
+    set(INTEL_LIBDEV_DEPLOY_COMPONENTS_LIST
+      # Libdev components
+      libdev-libirc libdev-frtl libdev-libbfp754 libdev-libifport
+      libdev-libistrconv libdev-svml libdev-libimf
+    )
+
+    list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
+      ${INTEL_LIBDEV_DEPLOY_COMPONENTS_LIST}
+    )
 
     set(INTEL_OPENCL_DEPLOY_COMPONENTS_LIST
       # OpenCL components

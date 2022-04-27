@@ -1,4 +1,21 @@
 //===-- llvm/CodeGen/ISDOpcodes.h - CodeGen opcodes -------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -294,7 +311,7 @@ enum NodeType {
   /// subtraction. These nodes take three operands: The first two are normal lhs
   /// and rhs to the add or sub, and the third is a boolean indicating if there
   /// is an incoming carry. They produce two results: the normal result of the
-  /// add or sub, and a boolean that indicates if an overflow occured (*not*
+  /// add or sub, and a boolean that indicates if an overflow occurred (*not*
   /// flag, because it may be a store to memory, etc.). If the type of the
   /// boolean is not i1 then the high bits conform to getBooleanContents.
   SADDO_CARRY,
@@ -462,6 +479,9 @@ enum NodeType {
   STRICT_FSETCC,
   STRICT_FSETCCS,
 
+  // FPTRUNC_ROUND - This corresponds to the fptrunc_round intrinsic.
+  FPTRUNC_ROUND,
+
   /// FMA - Perform a * b + c with no intermediate rounding step.
   FMA,
 
@@ -613,6 +633,17 @@ enum NodeType {
   /// part.
   MULHU,
   MULHS,
+
+  /// AVGFLOORS/AVGFLOORU - Averaging add - Add two integers using an integer of
+  /// type i[N+1], halving the result by shifting it one bit right.
+  /// shr(add(ext(X), ext(Y)), 1)
+  AVGFLOORS,
+  AVGFLOORU,
+  /// AVGCEILS/AVGCEILU - Rounding averaging add - Add two integers using an
+  /// integer of type i[N+2], add 1 and halve the result by shifting it one bit
+  /// right. shr(add(ext(X), ext(Y), 1), 1)
+  AVGCEILS,
+  AVGCEILU,
 
   // ABDS/ABDU - Absolute difference - Return the absolute difference between
   // two numbers interpreted as signed/unsigned.
@@ -797,6 +828,10 @@ enum NodeType {
   /// The scalar width of the type given in operand 1 must be equal to, or
   /// smaller than, the scalar result type width. It may end up being smaller
   /// than the result width as a result of integer type legalization.
+  ///
+  /// After converting to the scalar integer type in operand 1, the value is
+  /// extended to the result VT. FP_TO_SINT_SAT sign extends and FP_TO_UINT_SAT
+  /// zero extends.
   FP_TO_SINT_SAT,
   FP_TO_UINT_SAT,
 

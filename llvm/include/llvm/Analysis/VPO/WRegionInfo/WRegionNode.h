@@ -1,4 +1,19 @@
 #if INTEL_COLLAB // -*- C++ -*-
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //===---------- WRegionNode.h - WRegion Graph Node --------------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -263,10 +278,13 @@ public:
   bool canHaveLastprivate() const;
   bool canHaveInReduction() const;
   bool canHaveReduction() const;
+  bool canHaveReductionInscan() const;
   bool canHaveCopyin() const;
   bool canHaveCopyprivate() const;
   bool canHaveLinear() const;
   bool canHaveUniform() const;
+  bool canHaveInclusive() const;
+  bool canHaveExclusive() const;
   bool canHaveMap() const;
   bool canHaveIsDevicePtr() const;
   bool canHaveUseDevicePtr() const;
@@ -284,6 +302,11 @@ public:
   bool canHaveAllocate() const;
   bool canHaveOrderedTripCounts() const;
   bool canHaveIf() const;
+  bool canHaveSizes() const;
+  bool canHaveLivein() const;
+#if INTEL_CUSTOMIZATION
+  bool canHaveDoConcurrent() const;
+#endif // INTEL_CUSTOMIZATION
   /// @}
 
   /// Returns `true` if the construct needs to be outlined into a separate
@@ -357,6 +380,7 @@ public:
                                             {WRNERROR(QUAL_OMP_IS_DEVICE_PTR);}
   virtual LastprivateClause &getLpriv()      {WRNERROR(QUAL_OMP_LASTPRIVATE); }
   virtual LinearClause &getLinear()          {WRNERROR(QUAL_OMP_LINEAR);      }
+  virtual LiveinClause &getLivein()          {WRNERROR(QUAL_OMP_LIVEIN);      }
   virtual MapClause &getMap()                {WRNERROR("MAP");                }
   virtual PrivateClause &getPriv()           {WRNERROR(QUAL_OMP_PRIVATE);     }
   virtual ReductionClause &getInRed()        {WRNERROR("IN_REDUCTION");       }
@@ -371,7 +395,10 @@ public:
 #endif //INTEL_CUSTOMIZATION
 
   virtual SharedClause &getShared()          {WRNERROR(QUAL_OMP_SHARED);      }
+  virtual SizesClause &getSizes()            {WRNERROR(QUAL_OMP_SIZES);       }
   virtual UniformClause &getUniform()        {WRNERROR(QUAL_OMP_UNIFORM);     }
+  virtual InclusiveClause &getInclusive()    {WRNERROR(QUAL_OMP_INCLUSIVE);   }
+  virtual ExclusiveClause &getExclusive()    {WRNERROR(QUAL_OMP_EXCLUSIVE);   }
   virtual UseDevicePtrClause &getUseDevicePtr()
                                            {WRNERROR(QUAL_OMP_USE_DEVICE_PTR);}
   virtual SubdeviceClause &getSubdevice()       {WRNERROR(QUAL_OMP_SUBDEVICE);}
@@ -400,11 +427,13 @@ public:
                                            {WRNERROR(QUAL_OMP_FIRSTPRIVATE);}
   virtual const FlushSet &getFlush() const {WRNERROR(QUAL_OMP_FLUSH);       }
   virtual const IsDevicePtrClause &getIsDevicePtr() const
-                                           {WRNERROR(QUAL_OMP_IS_DEVICE_PTR);}
+                                          {WRNERROR(QUAL_OMP_IS_DEVICE_PTR);}
   virtual const LastprivateClause &getLpriv() const
                                            {WRNERROR(QUAL_OMP_LASTPRIVATE); }
   virtual const LinearClause &getLinear() const
                                            {WRNERROR(QUAL_OMP_LINEAR);      }
+  virtual const LiveinClause &getLivein() const
+                                           {WRNERROR(QUAL_OMP_LIVEIN);      }
   virtual const MapClause &getMap() const  {WRNERROR("MAP");                }
   virtual const PrivateClause &getPriv() const
                                            {WRNERROR(QUAL_OMP_PRIVATE);     }
@@ -424,8 +453,14 @@ public:
 #endif //INTEL_CUSTOMIZATION
   virtual const SharedClause &getShared() const
                                            {WRNERROR(QUAL_OMP_SHARED);      }
+  virtual const SizesClause &getSizes() const
+                                           {WRNERROR(QUAL_OMP_SIZES);       }
   virtual const UniformClause &getUniform() const
                                            {WRNERROR(QUAL_OMP_UNIFORM);     }
+  virtual const InclusiveClause &getInclusive() const
+                                           {WRNERROR(QUAL_OMP_INCLUSIVE);   }
+  virtual const ExclusiveClause &getExclusive() const
+                                           {WRNERROR(QUAL_OMP_EXCLUSIVE);   }
   virtual const UseDevicePtrClause &getUseDevicePtr() const
                                          {WRNERROR(QUAL_OMP_USE_DEVICE_PTR);}
   virtual const SubdeviceClause &getSubdevice() const
@@ -441,6 +476,10 @@ public:
   virtual CallInst *getCall()             const {WRNERROR("DISPATCH CALL");   }
   virtual void setCancelKind(WRNCancelKind CK)  {WRNERROR("CANCEL TYPE");     }
   virtual WRNCancelKind getCancelKind()   const {WRNERROR("CANCEL TYPE");     }
+#if INTEL_CUSTOMIZATION
+  virtual void setIsDoConcurrent(bool B)    {WRNERROR(QUAL_EXT_DO_CONCURRENT);}
+  virtual bool getIsDoConcurrent() const    {WRNERROR(QUAL_EXT_DO_CONCURRENT);}
+#endif // INTEL_CUSTOMIZATION
   virtual void setCollapse(int N)               {WRNERROR(QUAL_OMP_COLLAPSE); }
   virtual int getCollapse()               const {WRNERROR(QUAL_OMP_COLLAPSE); }
   virtual void setDefault(WRNDefaultKind T)     {WRNERROR("DEFAULT");         }
@@ -449,6 +488,10 @@ public:
                                                 {WRNERROR("DEFAULTMAP");      }
   virtual WRNDefaultmapBehavior getDefaultmap(WRNDefaultmapCategory C) const
                                                 {WRNERROR("DEFAULTMAP");      }
+  virtual void setDepArray(EXPR E)              {WRNERROR(QUAL_OMP_DEPARRAY); }
+  virtual EXPR getDepArray()              const {WRNERROR(QUAL_OMP_DEPARRAY); }
+  virtual void setDepArrayNumDeps(EXPR E)       {WRNERROR(QUAL_OMP_DEPARRAY); }
+  virtual EXPR getDepArrayNumDeps()       const {WRNERROR(QUAL_OMP_DEPARRAY); }
   virtual void setDevice(EXPR E)                {WRNERROR(QUAL_OMP_DEVICE);   }
   virtual EXPR getDevice()                const {WRNERROR(QUAL_OMP_DEVICE);   }
   virtual void setFilter(EXPR E)                {WRNERROR(QUAL_OMP_FILTER);   }
@@ -614,13 +657,6 @@ public:
   virtual loopopt::HLNode *getExitHLNode() const  {WRNERROR("ExitHLNode");    }
   virtual void setHLLoop(loopopt::HLLoop *)       {WRNERROR("HLLoop");        }
   virtual loopopt::HLLoop *getHLLoop() const      {WRNERROR("HLLoop");        }
-  // Setter/getter for a thread limit attribute specified in VPOParoptConfig.
-  virtual void setConfiguredThreadLimit(uint64_t) {
-    WRNERROR(QUAL_OMP_THREAD_LIMIT);
-  }
-  virtual uint64_t getConfiguredThreadLimit() const {
-    WRNERROR(QUAL_OMP_THREAD_LIMIT);
-  }
 #endif //INTEL_CUSTOMIZATION
 
   /// Only these classes are allowed to create/modify/delete WRegionNode.
@@ -734,6 +770,7 @@ public:
 
   /// Returns the Children container (by ref)
   WRContainerImpl &getChildren() { return Children ; }
+  const WRContainerImpl &getChildren() const { return Children; }
 
   /// Returns the first child if it exists, otherwise returns null.
   WRegionNode *getFirstChild();
@@ -823,6 +860,7 @@ public:
   void setIsDistribute()         { Attributes |= WRNIsDistribute; }
   void setIsPar()                { Attributes |= WRNIsPar; }
   void setIsOmpLoop()            { Attributes |= WRNIsOmpLoop; }
+  void setIsOmpLoopTransform()   { Attributes |= WRNIsOmpLoopTransform; }
   void setIsSections()           { Attributes |= WRNIsSections; }
   void setIsTarget()             { Attributes |= WRNIsTarget; }
   void setIsTask()               { Attributes |= WRNIsTask; }
@@ -834,6 +872,9 @@ public:
   bool getIsDistribute()   const { return Attributes & WRNIsDistribute; }
   bool getIsPar()          const { return Attributes & WRNIsPar; }
   bool getIsOmpLoop()      const { return Attributes & WRNIsOmpLoop; }
+  bool getIsOmpLoopTransform() const {
+    return Attributes & WRNIsOmpLoopTransform;
+  }
   bool getIsSections()     const { return Attributes & WRNIsSections; }
   bool getIsTarget()       const { return Attributes & WRNIsTarget; }
   bool getIsTask()         const { return Attributes & WRNIsTask; }
@@ -899,6 +940,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
     WRNWorkshare,                     // IsOmpLoop
     WRNDistribute,                    // IsOmpLoop, IsDistribute
+    WRNTile,                          // IsOmpLoopTransform
     WRNAtomic,
     WRNBarrier,
     WRNCancel,
@@ -913,19 +955,21 @@ public:
     WRNTaskwait,
     WRNTaskyield,
     WRNInterop,
-    WRNScope
+    WRNScope,
+    WRNScan,
   };
 
   /// WRN primary attributes
   enum WRNAttributes : uint32_t {
-    WRNIsDistribute = 0x00000001,
-    WRNIsPar        = 0x00000002,
-    WRNIsOmpLoop    = 0x00000004,
-    WRNIsSections   = 0x00000008,
-    WRNIsTarget     = 0x00000010,
-    WRNIsTask       = 0x00000020,
-    WRNIsTeams      = 0x00000040,
-    WRNIsInterop    = 0x00000080
+    WRNIsDistribute       = 0x00000001,
+    WRNIsPar              = 0x00000002,
+    WRNIsOmpLoop          = 0x00000004,
+    WRNIsSections         = 0x00000008,
+    WRNIsTarget           = 0x00000010,
+    WRNIsTask             = 0x00000020,
+    WRNIsTeams            = 0x00000040,
+    WRNIsInterop          = 0x00000080,
+    WRNIsOmpLoopTransform = 0x00000100
   };
 
 private:
@@ -984,14 +1028,16 @@ private:
                                     LinearClause &C);
 
   /// Extract operands from a reduction clause
-#if INTEL_CUSTOMIZATION
-         void extractReductionOpndList(const Use *Args, unsigned NumArgs,
-#else
-  static void extractReductionOpndList(const Use *Args, unsigned NumArgs,
-#endif // INTEL_CUSTOMIZATION
-                                       const ClauseSpecifier &ClauseInfo,
-                                       ReductionClause &C, int ReductionKind,
-                                       bool IsInreduction);
+  void extractReductionOpndList(const Use *Args, unsigned NumArgs,
+                                const ClauseSpecifier &ClauseInfo,
+                                ReductionClause &C, int ReductionKind,
+                                bool IsInreduction);
+
+  /// Extract operands from an inclusive/exclusive clause.
+  template <typename ClauseItemTy>
+  void extractInclusiveExclusiveOpndList(const Use *Args, unsigned NumArgs,
+                                         const ClauseSpecifier &ClauseInfo,
+                                         Clause<ClauseItemTy> &C);
 
   /// Extract operands from a schedule clause
   static void extractScheduleOpndList(ScheduleClause &Sched, const Use *Args,
@@ -1007,6 +1053,11 @@ private:
 }; // class WRegionNode
 
 // Printing routines to help dump WRN content
+
+/// Print the DEPARRAY(N, Array) qual
+/// Returns true iff something was printed
+extern bool printDepArray(WRegionNode const *W, formatted_raw_ostream &OS,
+                          int Depth, unsigned Verbosity = 1);
 
 /// Auxiliary function to print a BB in a WRN dump.
 ///

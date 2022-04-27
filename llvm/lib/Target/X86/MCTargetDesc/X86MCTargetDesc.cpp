@@ -44,7 +44,16 @@ using namespace llvm;
 
 std::string X86_MC::ParseX86Triple(const Triple &TT) {
   std::string FS;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  if (TT.isArchXuCC())
+    // xucc-mode is enabled as default in xucc mode.
+    FS = "+64bit-mode,-32bit-mode,-16bit-mode,+xucc-mode";
+  else if (TT.isArch64Bit())
+#else // INTEL_FEATURE_XUCC
   if (TT.isArch64Bit())
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   // SSE2 should default to enabled in 64-bit mode, but can be turned off
   // explicitly.
     FS = "+64bit-mode,-32bit-mode,-16bit-mode,+sse2";
@@ -70,6 +79,97 @@ unsigned X86_MC::getDwarfRegFlavour(const Triple &TT, bool isEH) {
 
 bool X86_MC::hasLockPrefix(const MCInst &MI) {
   return MI.getFlags() & X86::IP_HAS_LOCK;
+}
+
+static bool isMemOperand(const MCInst &MI, unsigned Op, unsigned RegClassID) {
+  const MCOperand &Base = MI.getOperand(Op + X86::AddrBaseReg);
+  const MCOperand &Index = MI.getOperand(Op + X86::AddrIndexReg);
+  const MCRegisterClass &RC = X86MCRegisterClasses[RegClassID];
+
+  return (Base.isReg() && Base.getReg() != 0 && RC.contains(Base.getReg())) ||
+         (Index.isReg() && Index.getReg() != 0 && RC.contains(Index.getReg()));
+}
+
+bool X86_MC::is16BitMemOperand(const MCInst &MI, unsigned Op,
+                               const MCSubtargetInfo &STI) {
+  const MCOperand &Base = MI.getOperand(Op + X86::AddrBaseReg);
+  const MCOperand &Index = MI.getOperand(Op + X86::AddrIndexReg);
+
+  if (STI.hasFeature(X86::Is16Bit) && Base.isReg() && Base.getReg() == 0 &&
+      Index.isReg() && Index.getReg() == 0)
+    return true;
+  return isMemOperand(MI, Op, X86::GR16RegClassID);
+}
+
+bool X86_MC::is32BitMemOperand(const MCInst &MI, unsigned Op) {
+  const MCOperand &Base = MI.getOperand(Op + X86::AddrBaseReg);
+  const MCOperand &Index = MI.getOperand(Op + X86::AddrIndexReg);
+  if (Base.isReg() && Base.getReg() == X86::EIP) {
+    assert(Index.isReg() && Index.getReg() == 0 && "Invalid eip-based address");
+    return true;
+  }
+  if (Index.isReg() && Index.getReg() == X86::EIZ)
+    return true;
+  return isMemOperand(MI, Op, X86::GR32RegClassID);
+}
+
+#ifndef NDEBUG
+bool X86_MC::is64BitMemOperand(const MCInst &MI, unsigned Op) {
+  return isMemOperand(MI, Op, X86::GR64RegClassID);
+}
+#endif
+
+bool X86_MC::needsAddressSizeOverride(const MCInst &MI,
+                                      const MCSubtargetInfo &STI,
+                                      int MemoryOperand, uint64_t TSFlags) {
+  uint64_t AdSize = TSFlags & X86II::AdSizeMask;
+  bool Is16BitMode = STI.hasFeature(X86::Is16Bit);
+  bool Is32BitMode = STI.hasFeature(X86::Is32Bit);
+  bool Is64BitMode = STI.hasFeature(X86::Is64Bit);
+  if ((Is16BitMode && AdSize == X86II::AdSize32) ||
+      (Is32BitMode && AdSize == X86II::AdSize16) ||
+      (Is64BitMode && AdSize == X86II::AdSize32))
+    return true;
+  uint64_t Form = TSFlags & X86II::FormMask;
+  switch (Form) {
+  default:
+    break;
+  case X86II::RawFrmDstSrc: {
+    unsigned siReg = MI.getOperand(1).getReg();
+    assert(((siReg == X86::SI && MI.getOperand(0).getReg() == X86::DI) ||
+            (siReg == X86::ESI && MI.getOperand(0).getReg() == X86::EDI) ||
+            (siReg == X86::RSI && MI.getOperand(0).getReg() == X86::RDI)) &&
+           "SI and DI register sizes do not match");
+    return (!Is32BitMode && siReg == X86::ESI) ||
+           (Is32BitMode && siReg == X86::SI);
+  }
+  case X86II::RawFrmSrc: {
+    unsigned siReg = MI.getOperand(0).getReg();
+    return (!Is32BitMode && siReg == X86::ESI) ||
+           (Is32BitMode && siReg == X86::SI);
+  }
+  case X86II::RawFrmDst: {
+    unsigned siReg = MI.getOperand(0).getReg();
+    return (!Is32BitMode && siReg == X86::EDI) ||
+           (Is32BitMode && siReg == X86::DI);
+  }
+  }
+
+  // Determine where the memory operand starts, if present.
+  if (MemoryOperand < 0)
+    return false;
+
+  if (STI.hasFeature(X86::Is64Bit)) {
+    assert(!is16BitMemOperand(MI, MemoryOperand, STI));
+    return is32BitMemOperand(MI, MemoryOperand);
+  }
+  if (STI.hasFeature(X86::Is32Bit)) {
+    assert(!is64BitMemOperand(MI, MemoryOperand));
+    return is16BitMemOperand(MI, MemoryOperand, STI);
+  }
+  assert(STI.hasFeature(X86::Is16Bit));
+  assert(!is64BitMemOperand(MI, MemoryOperand));
+  return !is16BitMemOperand(MI, MemoryOperand, STI);
 }
 
 void X86_MC::initLLVMToSEHAndCVRegMapping(MCRegisterInfo *MRI) {
@@ -110,6 +210,15 @@ void X86_MC::initLLVMToSEHAndCVRegMapping(MCRegisterInfo *MRI) {
       {codeview::RegisterId::EDI, X86::EDI},
 
       {codeview::RegisterId::EFLAGS, X86::EFLAGS},
+
+      {codeview::RegisterId::ST0, X86::ST0},
+      {codeview::RegisterId::ST1, X86::ST1},
+      {codeview::RegisterId::ST2, X86::ST2},
+      {codeview::RegisterId::ST3, X86::ST3},
+      {codeview::RegisterId::ST4, X86::ST4},
+      {codeview::RegisterId::ST5, X86::ST5},
+      {codeview::RegisterId::ST6, X86::ST6},
+      {codeview::RegisterId::ST7, X86::ST7},
 
       {codeview::RegisterId::ST0, X86::FP0},
       {codeview::RegisterId::ST1, X86::FP1},
@@ -281,8 +390,8 @@ void X86_MC::initLLVMToSEHAndCVRegMapping(MCRegisterInfo *MRI) {
       {codeview::RegisterId::AMD64_XMM31, X86::XMM31},
 
   };
-  for (unsigned I = 0; I < array_lengthof(RegMap); ++I)
-    MRI->mapLLVMRegToCVReg(RegMap[I].Reg, static_cast<int>(RegMap[I].CVReg));
+  for (const auto &I : RegMap)
+    MRI->mapLLVMRegToCVReg(I.Reg, static_cast<int>(I.CVReg));
 }
 
 MCSubtargetInfo *X86_MC::createX86MCSubtargetInfo(const Triple &TT,
@@ -319,7 +428,14 @@ static MCRegisterInfo *createX86MCRegisterInfo(const Triple &TT) {
 static MCAsmInfo *createX86MCAsmInfo(const MCRegisterInfo &MRI,
                                      const Triple &TheTriple,
                                      const MCTargetOptions &Options) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  bool is64Bit = (TheTriple.getArch() == Triple::x86_64 ||
+                  TheTriple.getArch() == Triple::x86_64_xucc);
+#else // INTEL_FEATURE_XUCC
   bool is64Bit = TheTriple.getArch() == Triple::x86_64;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 
   MCAsmInfo *MAI;
   if (TheTriple.isOSBinFormatMachO()) {
@@ -594,7 +710,14 @@ static MCInstrAnalysis *createX86MCInstrAnalysis(const MCInstrInfo *Info) {
 
 // Force static initialization.
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86TargetMC() {
-  for (Target *T : {&getTheX86_32Target(), &getTheX86_64Target()}) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  for (Target *T : {&getTheX86_32Target(), &getTheX86_64Target(),
+                    &getTheX86_XuCCTarget()}) {
+#else // INTEL_FEATURE_XUCC
+for (Target *T : {&getTheX86_32Target(), &getTheX86_64Target()}) {
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
     // Register the MC asm info.
     RegisterMCAsmInfoFn X(*T, createX86MCAsmInfo);
 
@@ -635,6 +758,12 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86TargetMC() {
                                        createX86_32AsmBackend);
   TargetRegistry::RegisterMCAsmBackend(getTheX86_64Target(),
                                        createX86_64AsmBackend);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  TargetRegistry::RegisterMCAsmBackend(getTheX86_XuCCTarget(),
+                                       createX86_XuCCAsmBackend);
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 }
 
 MCRegister llvm::getX86SubSuperRegisterOrZero(MCRegister Reg, unsigned Size,

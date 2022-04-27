@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:   -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 void bar(int);
@@ -12,20 +12,20 @@ void test1()
 // CHECK: [[P_ONE:%p_one.*]] = alloca i32,
    int s_outer = 2;
 // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
-// CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(i32* [[S_OTHER_INNER]]
-// CHECK-SAME-DAG: "QUAL.OMP.SHARED"(i32* [[S_OUTER]]
-// CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(i32* [[S_INNER]]
-// CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(i32* [[P_ONE]]
+// CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(ptr [[S_OTHER_INNER]]
+// CHECK-SAME-DAG: "QUAL.OMP.SHARED"(ptr [[S_OUTER]]
+// CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(ptr [[S_INNER]]
+// CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(ptr [[P_ONE]]
    #pragma omp parallel
    {
      int s_inner = 3;
      int s_other_inner = 4;
 
 // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
-// CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(i32* [[S_OTHER_INNER]]
-// CHECK-SAME-DAG: "QUAL.OMP.SHARED"(i32* [[S_OUTER]]
-// CHECK-SAME-DAG: "QUAL.OMP.SHARED"(i32* [[S_INNER]]
-// CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(i32* [[P_ONE]]
+// CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(ptr [[S_OTHER_INNER]]
+// CHECK-SAME-DAG: "QUAL.OMP.SHARED"(ptr [[S_OUTER]]
+// CHECK-SAME-DAG: "QUAL.OMP.SHARED"(ptr [[S_INNER]]
+// CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(ptr [[P_ONE]]
      #pragma omp parallel private(s_other_inner)
      {
        int p_one = 1;
@@ -45,25 +45,25 @@ void test2()
   int t_outer = 2;
   int t_outer2 = 2;
   //CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
-  //CHECK-SAME-DAG: "QUAL.OMP.SHARED"(i32* [[T_OUTER2]])
-  //CHECK-SAME-DAG: "QUAL.OMP.SHARED"(i32* [[T_OUTER]])
-  //CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(i32* [[T_ONE]])
-  //CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(i32* [[T_INNER]])
+  //CHECK-SAME-DAG: "QUAL.OMP.SHARED"(ptr [[T_OUTER2]])
+  //CHECK-SAME-DAG: "QUAL.OMP.SHARED"(ptr [[T_OUTER]])
+  //CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(ptr [[T_ONE]])
+  //CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(ptr [[T_INNER]])
   #pragma omp parallel
   {
     //CHECK: region.entry() [ "DIR.OMP.TASK"()
-    // CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(i32* [[T_OUTER2]])
-    // CHECK-SAME-DAG: "QUAL.OMP.SHARED"(i32* [[T_OUTER]])
-    // CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(i32* [[T_ONE]])
-    // CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(i32* [[T_INNER]])
+    // CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(ptr [[T_OUTER2]])
+    // CHECK-SAME-DAG: "QUAL.OMP.SHARED"(ptr [[T_OUTER]])
+    // CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(ptr [[T_ONE]])
+    // CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(ptr [[T_INNER]])
     #pragma omp task private(t_outer2)
     {
       int t_inner = 4;
       //CHECK: region.entry() [ "DIR.OMP.TASK"()
-      // CHECK-SAME-DAG: "QUAL.OMP.SHARED"(i32* [[T_OUTER]])
-      // CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(i32* [[T_ONE]])
-      // CHECK-SAME-DAG: "QUAL.OMP.FIRSTPRIVATE"(i32* [[T_INNER]])
-      // CHECK-SAME-DAG: "QUAL.OMP.FIRSTPRIVATE"(i32* [[T_OUTER2]])
+      // CHECK-SAME-DAG: "QUAL.OMP.SHARED"(ptr [[T_OUTER]])
+      // CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(ptr [[T_ONE]])
+      // CHECK-SAME-DAG: "QUAL.OMP.FIRSTPRIVATE"(ptr [[T_INNER]])
+      // CHECK-SAME-DAG: "QUAL.OMP.FIRSTPRIVATE"(ptr [[T_OUTER2]])
       #pragma omp task
       {
         int t_one = 1;
@@ -86,10 +86,10 @@ void test3()
   #pragma omp parallel
   {
 // CHECK: region.entry() [ "DIR.OMP.LOOP"()
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[J]])
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[IV]])
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[LB]])
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[UB]])
+// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[J]])
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[IV]])
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[LB]])
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr [[UB]])
     #pragma omp for schedule(static, 1) firstprivate(a)
     for ( j = 0; j < 10; j++ ) { }
   }
@@ -102,14 +102,14 @@ struct A {
 };
 
 // CHECK: define{{.*}}test4_1
-// CHECK: [[THISADDR:%this.addr.*]] = alloca{{.*}}A*,
+// CHECK: [[THISADDR:%this.addr.*]] = alloca ptr,
 // CHECK: [[IPARM:%iparm.*]] = alloca i32,
 // CHECK: [[VARV:%varV.*]] = alloca i32,
-// CHECK: [[AP:%ap.*]] = alloca{{.*}}A*,
+// CHECK: [[AP:%ap.*]] = alloca ptr,
 // CHECK: [[LOCI:%loci.*]] = alloca i32,
 // CHECK: [[LOCI6:%loci.*]] = alloca i32,
 // CHECK: [[LOCI13:%loci.*]] = alloca i32,
-// CHECK: [[THIS1:%this.*]] = load{{.*}}A*, {{.*}}[[THISADDR]],
+// CHECK: [[THIS1:%this.*]] = load ptr, {{.*}}[[THISADDR]],
 void A::test4_1(int iparm)
 {
   int varV = 0;
@@ -151,7 +151,7 @@ void A::test4_1(int iparm)
 int *get();
 void target_test()
 {
-// CHECK: [[DATAPTR:%dataPtr.*]] = alloca i32*,
+// CHECK: [[DATAPTR:%dataPtr.*]] = alloca ptr,
 // CHECK: [[OTHER:%other.*]] = alloca i32,
 // CHECK: [[X:%x.*]] = alloca i32,
   int *dataPtr = get();
@@ -219,8 +219,8 @@ void MyClass2::execute_offload() {
   #pragma omp target map(from: _dst_[0:sz])
   #pragma omp parallel for
   for (int y = 0 ; y < 10 ; y++) {
-    //CHECK: call {{.*}}(%struct.vec2* {{[^,]*}} [[RESOLUTION]], float 2.000000e+00)
-    //CHECK: call {{.*}}(%struct.vec2* {{[^,]*}} [[REF_TMP]], float 1.000000e+00)
+    //CHECK: call {{.*}}(ptr noundef {{.*}} [[RESOLUTION]], float noundef 2.000000e+00)
+    //CHECK: call {{.*}}(ptr noundef {{.*}} [[REF_TMP]], float noundef 1.000000e+00)
     vec2 resolution(2.0f);
     vec2 vPos (1.0f * resolution);
     _dst_[ 5 ] = 1234;

@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-opt-predicate -print-after=hir-opt-predicate -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-opt-predicate -print-after=hir-opt-predicate -analyze -enable-new-pm=0 -hir-dd-analysis -hir-dd-analysis-verify=Region 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-predicate,print<hir>,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region 2>&1 | FileCheck %s
 
 ; Verify that all edges are omitted between (%A)[i1] and (%B)[i1] and %val.016's

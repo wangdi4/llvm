@@ -95,8 +95,9 @@ protected:
 // is useful for testing purposes.
 class VPlanPeelingCostModelLog final : public VPlanPeelingCostModel {
 public:
-  int getCost(VPLoadStoreInst *Mrf, int VF, Align Alignment) override {
-    return -Log2(Alignment);
+  VPInstructionCost
+  getCost(VPLoadStoreInst *Mrf, int VF, Align Alignment) override {
+    return -1 * static_cast<int>(Log2(Alignment));
   }
 };
 
@@ -348,7 +349,7 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Cost) {
   //   %ptr3: 4 -> 16 (cost -= 2)
   //   %ptr4: 4 ->  8 (cost -= 1)
   //   %ptr5: 4 -> 16 (cost -= 2)
-  Optional<std::pair<VPlanDynamicPeeling, int>> P4 =
+  Optional<std::pair<VPlanDynamicPeeling, VPInstructionCost>> P4 =
       VPPA->selectBestDynamicPeelingVariant(4, CM);
   EXPECT_EQ(P4->second, 5);
 
@@ -367,7 +368,7 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Cost) {
   //   %ptr3: 4 ->  4 (cost -= 0)
   //   %ptr4: 4 ->  4 (cost -= 0)
   //   %ptr5: 4 ->  4 (cost -= 0)
-  Optional<std::pair<VPlanDynamicPeeling, int>> P16 =
+  Optional<std::pair<VPlanDynamicPeeling, VPInstructionCost>> P16 =
       VPPA->selectBestDynamicPeelingVariant(16, CM);
   EXPECT_EQ(P16->second, 8);
 
@@ -657,7 +658,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost1) {
   //   %p4: 2 -> 2 (cost -= 0)
   //   %p5: 4 -> 4 (cost -= 0)
   //   %p6: 8 -> 8 (cost -= 0)
-  std::pair<VPlanStaticPeeling, int> P2 =
+  std::pair<VPlanStaticPeeling, VPInstructionCost> P2 =
       VPPA->selectBestStaticPeelingVariant(2, CM);
   EXPECT_EQ(P2.first.peelCount(), 0);
   EXPECT_EQ(P2.second, 3);
@@ -670,7 +671,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost1) {
   //   %p4: 2 ->  2 (cost -= 0)
   //   %p5: 4 ->  4 (cost -= 0)
   //   %p6: 8 ->  8 (cost -= 0)
-  std::pair<VPlanStaticPeeling, int> P4 =
+  std::pair<VPlanStaticPeeling, VPInstructionCost> P4 =
       VPPA->selectBestStaticPeelingVariant(4, CM);
   EXPECT_EQ(P4.first.peelCount(), 2);
   EXPECT_EQ(P4.second, 5);
@@ -683,7 +684,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost1) {
   //  %p4: 2 -> 16 (cost -= 3)
   //  %p5: 4 ->  8 (cost -= 1)
   //  %p6: 8 -> 64 (cost -= 3)
-  std::pair<VPlanStaticPeeling, int> P8 =
+  std::pair<VPlanStaticPeeling, VPInstructionCost> P8 =
       VPPA->selectBestStaticPeelingVariant(8, CM);
   EXPECT_EQ(P8.first.peelCount(), 7);
   EXPECT_EQ(P8.second, 7);
@@ -696,7 +697,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost1) {
   //  %p4: 2 ->  16 (cost -= 3)
   //  %p5: 4 ->   8 (cost -= 1)
   //  %p6: 8 -> 128 (cost -= 4)
-  std::pair<VPlanStaticPeeling, int> P16 =
+  std::pair<VPlanStaticPeeling, VPInstructionCost> P16 =
       VPPA->selectBestStaticPeelingVariant(16, CM);
   EXPECT_EQ(P16.first.peelCount(), 7);
   EXPECT_EQ(P16.second, 8);
@@ -787,7 +788,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p4: 2 ->  4 (cost -= 1)
   //  %p5: 4 ->  4 (cost -= 0)
   //  %p6: 8 -> 16 (cost -= 1)
-  std::pair<VPlanStaticPeeling, int> P2 =
+  std::pair<VPlanStaticPeeling, VPInstructionCost> P2 =
       VPPA->selectBestStaticPeelingVariant(2, CM);
   EXPECT_EQ(P2.first.peelCount(), 1);
   EXPECT_EQ(P2.second, 5);
@@ -800,7 +801,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p4: 2 ->  8 (cost -= 1)
   //  %p5: 4 ->  4 (cost -= 0)
   //  %p6: 8 -> 32 (cost -= 2)
-  std::pair<VPlanStaticPeeling, int> P4 =
+  std::pair<VPlanStaticPeeling, VPInstructionCost> P4 =
       VPPA->selectBestStaticPeelingVariant(4, CM);
   EXPECT_EQ(P4.first.peelCount(), 3);
   EXPECT_EQ(P4.second, 8);
@@ -813,7 +814,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p4: 2 ->  8 (cost -= 1)
   //  %p5: 4 ->  4 (cost -= 0)
   //  %p6: 8 -> 64 (cost -= 3)
-  std::pair<VPlanStaticPeeling, int> P8 =
+  std::pair<VPlanStaticPeeling, VPInstructionCost> P8 =
       VPPA->selectBestStaticPeelingVariant(8, CM);
   EXPECT_EQ(P8.first.peelCount(), 7);
   EXPECT_EQ(P8.second, 10);
@@ -826,7 +827,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p4: 2 ->   8 (cost -= 1)
   //  %p5: 4 ->   4 (cost -= 0)
   //  %p6: 8 -> 128 (cost -= 4)
-  std::pair<VPlanStaticPeeling, int> P16 =
+  std::pair<VPlanStaticPeeling, VPInstructionCost> P16 =
       VPPA->selectBestStaticPeelingVariant(16, CM);
   EXPECT_EQ(P16.first.peelCount(), 7);
   EXPECT_EQ(P16.second, 11);
@@ -839,7 +840,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p4: 2 ->   8 (cost -= 1)
   //  %p5: 4 ->   4 (cost -= 0)
   //  %p6: 8 -> 256 (cost -= 5)
-  std::pair<VPlanStaticPeeling, int> P32 =
+  std::pair<VPlanStaticPeeling, VPInstructionCost> P32 =
       VPPA->selectBestStaticPeelingVariant(32, CM);
   EXPECT_EQ(P32.first.peelCount(), 23);
   EXPECT_EQ(P32.second, 12);
@@ -852,7 +853,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p4: 2 ->   8 (cost -= 1)
   //  %p5: 4 ->   4 (cost -= 0)
   //  %p6: 8 -> 256 (cost -= 5)
-  std::pair<VPlanStaticPeeling, int> P64 =
+  std::pair<VPlanStaticPeeling, VPInstructionCost> P64 =
       VPPA->selectBestStaticPeelingVariant(64, CM);
   EXPECT_EQ(P64.first.peelCount(), 23);
   EXPECT_EQ(P64.second, 12);

@@ -324,7 +324,7 @@ void HIRGeneralUnroll::processGeneralUnroll(
 
       if (RemainderLoop->isConstTripLoop()) {
         // TODO: Perform complete unroll
-      } else if (UnrollFactor == 2) {
+      } else if (RemainderLoop->getLegalMaxTripCount() == 1) {
         // Replace the remainder loop with the first iteration when the unroll
         // factor is 2, because the remainder loop has at most one iteration
         if (DisableReplaceByFirstIteration) {
@@ -332,7 +332,9 @@ void HIRGeneralUnroll::processGeneralUnroll(
         }
 
         RemainderLoop->replaceByFirstIteration();
-      } else {
+      } else if (RemainderLoop->getLegalMaxTripCount() == (UnrollFactor - 1)) {
+        // Remainder loop may run the entire iteration range if legal max trip
+        // count was not set to expected value.
         replaceBySwitch(RemainderLoop, UnrollFactor);
       }
     }
@@ -376,6 +378,12 @@ void HIRGeneralUnroll::replaceBySwitch(HLLoop *RemainderLoop,
   if (!RemainderLoop->normalize()) {
     return;
   }
+
+  OptReportBuilder &ORBuilder =
+      RemainderLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
+  ORBuilder(*RemainderLoop)
+      .addRemark(OptReportVerbosity::Low, 25585u)
+      .preserveLostOptReport();
 
   HIRInvalidationUtils::invalidateBody(RemainderLoop);
 

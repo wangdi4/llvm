@@ -1,4 +1,19 @@
 #if INTEL_COLLAB //  -*- tablegen -*-
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //==---- Directives.td - Defines all parallelization and -*- tablegen -*----==//
 //                          vectorization directives and clauses.
 //
@@ -145,6 +160,12 @@ def "DIR.OMP.END.PREFETCH" : Directive;
 
 def "DIR.OMP.SCOPE" : Directive;
 def "DIR.OMP.END.SCOPE" : Directive;
+
+def "DIR.OMP.TILE" : Directive;
+def "DIR.OMP.END.TILE" : Directive;
+
+def "DIR.OMP.SCAN" : Directive;
+def "DIR.OMP.END.SCAN" : Directive;
 
 #if INTEL_CUSTOMIZATION
 // Directives used to mark begin/end of a loop determined by VPO vectorizer
@@ -294,6 +315,7 @@ def "QUAL.OMP.DEPEND.OUT" : Clause;
 def "QUAL.OMP.DEPEND.INOUT" : Clause;
 def "QUAL.OMP.DEPEND.SOURCE" : Clause;
 def "QUAL.OMP.DEPEND.SINK" : Clause;
+def "QUAL.OMP.DEPARRAY" : Clause;
 def "QUAL.OMP.ORDERED.THREADS" : Clause;
 def "QUAL.OMP.ORDERED.SIMD" : Clause;
 def "QUAL.OMP.CANCEL.PARALLEL" : Clause;
@@ -310,6 +332,9 @@ def "QUAL.OMP.ALLOCATE" : Clause;
 def "QUAL.OMP.NOCONTEXT" : Clause;
 def "QUAL.OMP.NOVARIANTS" : Clause;
 def "QUAL.OMP.DATA" : Clause;
+def "QUAL.OMP.SIZES" : Clause;
+def "QUAL.OMP.INCLUSIVE" : Clause;
+def "QUAL.OMP.EXCLUSIVE" : Clause;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 // Support Intel extension for CSA.
@@ -328,6 +353,7 @@ def "QUAL.OMP.IMPLICIT" : Clause;
 def "QUAL.OMP.DISPATCH.CALL" : Clause;
 def "QUAL.OMP.NORMALIZED.IV" : Clause;
 def "QUAL.OMP.NORMALIZED.UB" : Clause;
+def "QUAL.OMP.LIVEIN" : Clause;
 def "QUAL.OMP.CANCELLATION.POINTS" : Clause;
 def "QUAL.OMP.OPERAND.ADDR" : Clause;
 def "QUAL.OMP.JUMP.TO.END.IF" : Clause;
@@ -342,6 +368,10 @@ def "QUAL.OMP.OFFLOAD.HAS.TEAMS.REDUCTION" : Clause;
 // =====================================================================
 #if INTEL_CUSTOMIZATION
 def "QUAL.PRAGMA.ARRAY" : Clause;
+
+// Fortran DO_CONCURRENT Tag on OMP Target/Teams/GenericLoop construct
+def "QUAL.EXT.DO.CONCURRENT" : Clause;
 #endif // INTEL_CUSTOMIZATION
+
 
 #endif // INTEL_COLLAB

@@ -1,4 +1,21 @@
 //===--- CodeGenOptions.h ---------------------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -309,6 +326,14 @@ public:
   /// CUDA runtime back-end for incorporating them into host-side object file.
   std::string CudaGpuBinaryFileName;
 
+  /// List of filenames and metadata passed in using the -fembed-offload-object
+  /// option to embed device-side offloading objects into the host as a named
+  /// section. Input passed in as 'filename,kind,triple,arch'.
+  ///
+  /// NOTE: This will need to be expanded whenever we want to pass in more
+  ///       metadata, at some point this should be its own clang tool.
+  std::vector<std::string> OffloadObjects;
+
   /// The name of the file to which the backend should save YAML optimization
   /// records.
   std::string OptRecordFile;
@@ -340,7 +365,7 @@ public:
     std::shared_ptr<llvm::Regex> Regex;
 
     /// By default, optimization remark is missing.
-    OptRemark() : Kind(RK_Missing), Pattern(""), Regex(nullptr) {}
+    OptRemark() : Kind(RK_Missing), Regex(nullptr) {}
 
     /// Returns true iff the optimization remark holds a valid regular
     /// expression.
@@ -447,6 +472,10 @@ public:
   ///
   /// If threshold option is not specified, it is disabled by default.
   Optional<uint64_t> DiagnosticsHotnessThreshold = 0;
+
+  /// The maximum percentage profiling weights can deviate from the expected
+  /// values in order to be included in misexpect diagnostics.
+  Optional<uint64_t> DiagnosticsMisExpectTolerance = 0;
 
 public:
   // Define accessors/mutators for code generation options of enumeration type.

@@ -54,7 +54,7 @@
 ; RUN: opt < %s -passes='require<anders-aa>,function(sroa),function(aa-eval)' -aa-pipeline=basic-aa,anders-aa -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='require<anders-aa>,function(sroa),function(aa-eval)' -aa-pipeline=basic-aa,anders-aa -evaluate-loopcarried-alias -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 
-; CHECK-DAG: NoAlias:     double* %0, double* %G3
+; This is sufficient to check both incoming values of local_var.0.
 ; CHECK-DAG: NoAlias:     double* %G3, double* %local_var.0
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -86,6 +86,11 @@ L2:
   %call3 = tail call noalias i8* @malloc(i64 1024)
   store i8* %call3, i8** bitcast (double** @sumdeijda to i8**)
   %G3 = load double*, double** @riff
+
+; these loads are needed to trigger aa-eval
+  %ld.G3 = load double, double* %G3, align 8
+  %ld.ld2 = load double, double* %ld2
+
   ret i32 0
 }
 

@@ -1,4 +1,21 @@
 //===- RegionPass.cpp - Region Pass and Region Pass Manager ---------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -12,14 +29,16 @@
 // Most of this code has been COPIED from LoopPass.cpp
 //
 //===----------------------------------------------------------------------===//
+
 #include "llvm/Analysis/RegionPass.h"
+#include "llvm/Analysis/RegionInfo.h"
 #include "llvm/IR/OptBisect.h"
 #include "llvm/IR/PassTimingInfo.h"
 #include "llvm/IR/PrintPasses.h"
-#include "llvm/IR/StructuralHash.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Timer.h"
 #include "llvm/Support/raw_ostream.h"
+
 using namespace llvm;
 
 #define DEBUG_TYPE "regionpassmgr"
@@ -30,8 +49,7 @@ using namespace llvm;
 
 char RGPassManager::ID = 0;
 
-RGPassManager::RGPassManager()
-  : FunctionPass(ID), PMDataManager() {
+RGPassManager::RGPassManager() : FunctionPass(ID) {
   RI = nullptr;
   CurrentRegion = nullptr;
 }
@@ -96,12 +114,12 @@ bool RGPassManager::runOnFunction(Function &F) {
 
         TimeRegion PassTimer(getPassTimer(P));
 #ifdef EXPENSIVE_CHECKS
-        uint64_t RefHash = StructuralHash(F);
+        uint64_t RefHash = P->structuralHash(F);
 #endif
         LocalChanged = P->runOnRegion(CurrentRegion, *this);
 
 #ifdef EXPENSIVE_CHECKS
-        if (!LocalChanged && (RefHash != StructuralHash(F))) {
+        if (!LocalChanged && (RefHash != P->structuralHash(F))) {
           llvm::errs() << "Pass modifies its input and doesn't report it: "
                        << P->getPassName() << "\n";
           llvm_unreachable("Pass modifies its input and doesn't report it");

@@ -68,6 +68,7 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRNonZeroSinkingForPerfectLoopnestLegacyPassPass(Registry);
   initializeHIRIdentityMatrixSubstitutionLegacyPassPass(Registry);
   initializeHIRArrayScalarizationTestLauncherLegacyPassPass(Registry);
+  initializeHIRIfReversalLegacyPassPass(Registry);
 #if INTEL_FEATURE_SW_ADVANCED
   initializeHIRInterLoopBlockingLegacyPassPass(Registry);
   initializeHIRCrossLoopArrayContractionLegacyPassPass(Registry);

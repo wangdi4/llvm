@@ -1,4 +1,21 @@
 //===-Config.h - LLVM Link Time Optimizer Configuration ---------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -58,8 +75,13 @@ struct Config {
   unsigned OptLevel = 2;
   bool DisableVerify = false;
 
+#if INTEL_CUSTOMIZATION
   /// Use the new pass manager
-  bool UseNewPM = LLVM_ENABLE_NEW_PASS_MANAGER;
+  bool UseNewPM = LLVM_ENABLE_NEW_PASS_MANAGER; // INTEL
+#endif // INTEL_CUSTOMIZATION
+
+  /// Use the standard optimization pipeline.
+  bool UseDefaultPipeline = false;
 
   /// Flag to indicate that the optimizer should not assume builtins are present
   /// on the target.

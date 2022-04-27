@@ -1,4 +1,21 @@
 //===-- ControlHeightReduction.cpp - Control Height Reduction -------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -145,19 +162,19 @@ FunctionPass *llvm::createControlHeightReductionLegacyPass() {
 namespace {
 
 struct CHRStats {
-  CHRStats() : NumBranches(0), NumBranchesDelta(0),
-               WeightedNumBranchesDelta(0) {}
+  CHRStats() = default;
   void print(raw_ostream &OS) const {
     OS << "CHRStats: NumBranches " << NumBranches
        << " NumBranchesDelta " << NumBranchesDelta
        << " WeightedNumBranchesDelta " << WeightedNumBranchesDelta;
   }
-  uint64_t NumBranches;       // The original number of conditional branches /
-                              // selects
-  uint64_t NumBranchesDelta;  // The decrease of the number of conditional
-                              // branches / selects in the hot paths due to CHR.
-  uint64_t WeightedNumBranchesDelta; // NumBranchesDelta weighted by the profile
-                                     // count at the scope entry.
+  // The original number of conditional branches / selects
+  uint64_t NumBranches = 0;
+  // The decrease of the number of conditional branches / selects in the hot
+  // paths due to CHR.
+  uint64_t NumBranchesDelta = 0;
+  // NumBranchesDelta weighted by the profile count at the scope entry.
+  uint64_t WeightedNumBranchesDelta = 0;
 };
 
 // RegInfo - some properties of a Region.
@@ -2102,7 +2119,7 @@ bool ControlHeightReductionLegacyPass::runOnFunction(Function &F) {
   RegionInfo &RI = getAnalysis<RegionInfoPass>().getRegionInfo();
   std::unique_ptr<OptimizationRemarkEmitter> OwnedORE =
       std::make_unique<OptimizationRemarkEmitter>(&F);
-  return CHR(F, BFI, DT, PSI, RI, *OwnedORE.get()).run();
+  return CHR(F, BFI, DT, PSI, RI, *OwnedORE).run();
 }
 
 namespace llvm {

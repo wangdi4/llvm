@@ -12,92 +12,94 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(i32* nocapture %out, i32* nocapture readnone %dummy1, i32* nocapture readnone %dummy2) #0 !no_barrier_path !{i1 1} !vectorized_kernel !{void(i32*, i32*, i32*)* @_ZGVbN16uuuuuu_30ParallelForNDRangeImplKernel1DPiS_S_mmm} !vectorized_width !{i32 1} {
 ; CHECK-LABEL: @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(
-
-; CHECK-NEXT:    %base.gid.dim0 = call i64 @get_base_global_id.(i32 0)
-; CHECK-NEXT:    %local.size.dim0 = call i64 @_Z14get_local_sizej(i32 0)
-; CHECK-NEXT:    %base.gid.dim1 = call i64 @get_base_global_id.(i32 1)
-; CHECK-NEXT:    %local.size.dim1 = call i64 @_Z14get_local_sizej(i32 1)
-; CHECK-NEXT:    %base.gid.dim2 = call i64 @get_base_global_id.(i32 2)
-; CHECK-NEXT:    %local.size.dim2 = call i64 @_Z14get_local_sizej(i32 2)
-; CHECK-NEXT:    [[VECTOR_SIZE:%.*]] = ashr i64 %local.size.dim0, 4
+; CHECK-NEXT:    [[BASE_GID_DIM0:%.*]] = call i64 @get_base_global_id.(i32 0)
+; CHECK-NEXT:    [[LOCAL_SIZE_DIM0:%.*]] = call i64 @_Z14get_local_sizej(i32 0)
+; CHECK-NEXT:    [[MAX_GID_DIM0:%.*]] = add i64 [[BASE_GID_DIM0]], [[LOCAL_SIZE_DIM0]]
+; CHECK-NEXT:    [[BASE_GID_DIM1:%.*]] = call i64 @get_base_global_id.(i32 1)
+; CHECK-NEXT:    [[LOCAL_SIZE_DIM1:%.*]] = call i64 @_Z14get_local_sizej(i32 1)
+; CHECK-NEXT:    [[MAX_GID_DIM1:%.*]] = add i64 [[BASE_GID_DIM1]], [[LOCAL_SIZE_DIM1]]
+; CHECK-NEXT:    [[BASE_GID_DIM2:%.*]] = call i64 @get_base_global_id.(i32 2)
+; CHECK-NEXT:    [[LOCAL_SIZE_DIM2:%.*]] = call i64 @_Z14get_local_sizej(i32 2)
+; CHECK-NEXT:    [[MAX_GID_DIM2:%.*]] = add i64 [[BASE_GID_DIM2]], [[LOCAL_SIZE_DIM2]]
+; CHECK-NEXT:    [[VECTOR_SIZE:%.*]] = ashr i64 [[LOCAL_SIZE_DIM0]], 4
 ; CHECK-NEXT:    [[NUM_VECTOR_WI:%.*]] = shl i64 [[VECTOR_SIZE]], 4
-; CHECK-NEXT:    [[MAX_VECTOR_GID:%.*]] = add i64 [[NUM_VECTOR_WI]], %base.gid.dim0
-; CHECK-NEXT:    [[SCALAR_SIZE:%.*]] = sub i64 %local.size.dim0, [[NUM_VECTOR_WI]]
-; CHECK-NEXT:    [[DIM_0_VECTOR_INIT_LID:%.*]] = sub nuw nsw i64 %base.gid.dim0, %base.gid.dim0
-; CHECK-NEXT:    [[DIM_0_SCALAR_INIT_LID:%.*]] = sub nuw nsw i64 [[MAX_VECTOR_GID]], %base.gid.dim0
-; CHECK-NEXT:    br label %[[VECT_IF:vect_if]]
-; CHECK:       [[VECT_IF]]:
-; CHECK-NEXT:    [[TMP7:%.*]] = icmp ne i64 [[VECTOR_SIZE]], 0
-; CHECK-NEXT:    br i1 [[TMP7]], label %[[DIM_2_VECTOR_PRE_HEAD:dim_2_vector_pre_head]], label %[[SCALARIF:scalar_if]]
-; CHECK:       [[DIM_2_VECTOR_PRE_HEAD]]:
-; CHECK-NEXT:    br label %[[DIM_1_VECTOR_PRE_HEAD:dim_1_vector_pre_head]]
-; CHECK:       [[DIM_1_VECTOR_PRE_HEAD]]:
-; CHECK-NEXT:    [[DIM_2_VECTOR_IND_VAR:%.*]] = phi i64 [ 0, %[[DIM_2_VECTOR_PRE_HEAD]] ], [ [[DIM_2_VECTOR_INC_IND_VAR:%.*]], %[[DIM_1_VECTOR_EXIT:dim_1_vector_exit]] ]
-; CHECK-NEXT:    br label %[[DIM_0_VECTOR_PRE_HEAD:dim_0_vector_pre_head]]
-; CHECK:       [[DIM_0_VECTOR_PRE_HEAD]]:
-; CHECK-NEXT:    [[DIM_1_VECTOR_IND_VAR:%.*]] = phi i64 [ 0, %[[DIM_1_VECTOR_PRE_HEAD]] ], [ [[DIM_1_VECTOR_INC_IND_VAR:%.*]], %[[DIM_0_VECTOR_EXIT:dim_0_vector_exit]] ]
-; CHECK-NEXT:    br label %[[ENTRYVECTOR_FUNC:entryvector_func]]
-; CHECK:       [[ENTRYVECTOR_FUNC]]:
-; CHECK-NEXT:    [[DIM_0_VECTOR_IND_VAR:%.*]] = phi i64 [ 0, %[[DIM_0_VECTOR_PRE_HEAD]] ], [ [[DIM_0_VECTOR_INC_IND_VAR:%.*]], %[[ENTRYVECTOR_FUNC]] ]
-; CHECK-NEXT:    [[DIM0__TID:%.*]] = phi i64 [ [[DIM_0_VECTOR_INIT_LID]], %[[DIM_0_VECTOR_PRE_HEAD]] ], [ [[DIM0_INC_TID:%.*]], %[[ENTRYVECTOR_FUNC]] ]
-;; Check that trunc has been replaced correctly.
-; CHECK-NEXT:    [[TMP8:%.*]] = trunc i64 [[DIM0__TID]] to i32
-; CHECK-NEXT:    [[TMP9:%.*]] = add i32 0, [[TMP8]]
-; CHECK-NEXT:    [[DOTEXTRACT_0_VECTOR_FUNC:%.*]] = sext i32 [[TMP9]] to i64
+; CHECK-NEXT:    [[MAX_VECTOR_GID:%.*]] = add i64 [[NUM_VECTOR_WI]], [[BASE_GID_DIM0]]
+; CHECK-NEXT:    [[SCALAR_SIZE:%.*]] = sub i64 [[LOCAL_SIZE_DIM0]], [[NUM_VECTOR_WI]]
+; CHECK-NEXT:    [[DIM_0_VECTOR_SUB_LID:%.*]] = sub nuw nsw i64 [[BASE_GID_DIM0]], [[BASE_GID_DIM0]]
+; CHECK-NEXT:    [[DIM_0_SUB_LID:%.*]] = sub nuw nsw i64 [[MAX_VECTOR_GID]], [[BASE_GID_DIM0]]
+; CHECK-NEXT:    br label [[VECT_IF:%.*]]
+; CHECK:       vect_if:
+; CHECK-NEXT:    [[TMP1:%.*]] = icmp ne i64 [[VECTOR_SIZE]], 0
+; CHECK-NEXT:    br i1 [[TMP1]], label [[DIM_2_VECTOR_PRE_HEAD:%.*]], label [[SCALAR_IF:%.*]]
+; CHECK:       dim_2_vector_pre_head:
+; CHECK-NEXT:    br label [[DIM_1_VECTOR_PRE_HEAD:%.*]]
+; CHECK:       dim_1_vector_pre_head:
+; CHECK-NEXT:    [[DIM_2_VECTOR_IND_VAR:%.*]] = phi i64 [ [[BASE_GID_DIM2]], [[DIM_2_VECTOR_PRE_HEAD]] ], [ [[DIM_2_VECTOR_INC_IND_VAR:%.*]], [[DIM_1_VECTOR_EXIT:%.*]] ]
+; CHECK-NEXT:    br label [[DIM_0_VECTOR_PRE_HEAD:%.*]]
+; CHECK:       dim_0_vector_pre_head:
+; CHECK-NEXT:    [[DIM_1_VECTOR_IND_VAR:%.*]] = phi i64 [ [[BASE_GID_DIM1]], [[DIM_1_VECTOR_PRE_HEAD]] ], [ [[DIM_1_VECTOR_INC_IND_VAR:%.*]], [[DIM_0_VECTOR_EXIT:%.*]] ]
+; CHECK-NEXT:    br label [[ENTRYVECTOR_FUNC:%.*]]
+; CHECK:       entryvector_func:
+; CHECK-NEXT:    [[DIM_0_VECTOR_IND_VAR:%.*]] = phi i64 [ [[BASE_GID_DIM0]], [[DIM_0_VECTOR_PRE_HEAD]] ], [ [[DIM_0_VECTOR_INC_IND_VAR:%.*]], [[ENTRYVECTOR_FUNC]] ]
+; CHECK-NEXT:    [[DIM_0_VECTOR_TID:%.*]] = phi i64 [ [[DIM_0_VECTOR_SUB_LID]], [[DIM_0_VECTOR_PRE_HEAD]] ], [ [[DIM_0_VECTOR_INC_TID:%.*]], [[ENTRYVECTOR_FUNC]] ]
+; CHECK-NEXT:    [[TMP2:%.*]] = trunc i64 [[DIM_0_VECTOR_TID]] to i32
+; CHECK-NEXT:    [[TMP3:%.*]] = add i32 0, [[TMP2]]
+; CHECK-NEXT:    [[DOTEXTRACT_0_VECTOR_FUNC:%.*]] = sext i32 [[TMP3]] to i64
 ; CHECK-NEXT:    [[SCALAR_GEPVECTOR_FUNC:%.*]] = getelementptr inbounds i32, i32* [[OUT:%.*]], i64 [[DOTEXTRACT_0_VECTOR_FUNC]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[SCALAR_GEPVECTOR_FUNC]] to <16 x i32>*
-; CHECK-NEXT:    store <16 x i32> <i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345>, <16 x i32>* [[TMP0]], align 4
-; CHECK-NEXT:    [[DIM_0_VECTOR_INC_IND_VAR]] = add nuw nsw i64 [[DIM_0_VECTOR_IND_VAR]], 1
-; CHECK-NEXT:    [[DIM_0_VECTOR_CMP_TO_MAX:%.*]] = icmp eq i64 [[DIM_0_VECTOR_INC_IND_VAR]], [[VECTOR_SIZE]]
-; CHECK-NEXT:    [[DIM0_INC_TID]] = add nuw nsw i64 [[DIM0__TID]], 16
-; CHECK-NEXT:    br i1 [[DIM_0_VECTOR_CMP_TO_MAX]], label %[[DIM_0_VECTOR_EXIT]], label %[[ENTRYVECTOR_FUNC]]
-; CHECK:       [[DIM_0_VECTOR_EXIT]]:
+; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[SCALAR_GEPVECTOR_FUNC]] to <16 x i32>*
+; CHECK-NEXT:    store <16 x i32> <i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345, i32 12345>, <16 x i32>* [[TMP4]], align 4
+; CHECK-NEXT:    [[DIM_0_VECTOR_INC_IND_VAR]] = add nuw nsw i64 [[DIM_0_VECTOR_IND_VAR]], 16
+; CHECK-NEXT:    [[DIM_0_VECTOR_CMP_TO_MAX:%.*]] = icmp eq i64 [[DIM_0_VECTOR_INC_IND_VAR]], [[MAX_VECTOR_GID]]
+; CHECK-NEXT:    [[DIM_0_VECTOR_INC_TID]] = add nuw nsw i64 [[DIM_0_VECTOR_TID]], 16
+; CHECK-NEXT:    br i1 [[DIM_0_VECTOR_CMP_TO_MAX]], label [[DIM_0_VECTOR_EXIT]], label [[ENTRYVECTOR_FUNC]]
+; CHECK:       dim_0_vector_exit:
 ; CHECK-NEXT:    [[DIM_1_VECTOR_INC_IND_VAR]] = add nuw nsw i64 [[DIM_1_VECTOR_IND_VAR]], 1
-; CHECK-NEXT:    [[DIM_1_VECTOR_CMP_TO_MAX:%.*]] = icmp eq i64 [[DIM_1_VECTOR_INC_IND_VAR]], %local.size.dim1
-; CHECK-NEXT:    br i1 [[DIM_1_VECTOR_CMP_TO_MAX]], label %[[DIM_1_VECTOR_EXIT]], label %[[DIM_0_VECTOR_PRE_HEAD]]
-; CHECK:       [[DIM_1_VECTOR_EXIT]]:
+; CHECK-NEXT:    [[DIM_1_VECTOR_CMP_TO_MAX:%.*]] = icmp eq i64 [[DIM_1_VECTOR_INC_IND_VAR]], [[MAX_GID_DIM1]]
+; CHECK-NEXT:    br i1 [[DIM_1_VECTOR_CMP_TO_MAX]], label [[DIM_1_VECTOR_EXIT]], label [[DIM_0_VECTOR_PRE_HEAD]]
+; CHECK:       dim_1_vector_exit:
 ; CHECK-NEXT:    [[DIM_2_VECTOR_INC_IND_VAR]] = add nuw nsw i64 [[DIM_2_VECTOR_IND_VAR]], 1
-; CHECK-NEXT:    [[DIM_2_VECTOR_CMP_TO_MAX:%.*]] = icmp eq i64 [[DIM_2_VECTOR_INC_IND_VAR]], %local.size.dim2
-; CHECK-NEXT:    br i1 [[DIM_2_VECTOR_CMP_TO_MAX]], label %[[DIM_2_VECTOR_EXIT:dim_2_vector_exit]], label %[[DIM_1_VECTOR_PRE_HEAD]]
-; CHECK:       [[DIM_2_VECTOR_EXIT]]:
-; CHECK-NEXT:    br label %[[SCALARIF]]
-; CHECK:       [[SCALARIF]]:
-; CHECK-NEXT:    [[TMP1:%.*]] = icmp ne i64 [[SCALAR_SIZE]], 0
-; CHECK-NEXT:    br i1 [[TMP1]], label %[[DIM_2_PRE_HEAD:dim_2_pre_head]], label [[RET:%.*]]
-; CHECK:       [[DIM_2_PRE_HEAD]]:
-; CHECK-NEXT:    br label %[[DIM_1_PRE_HEAD:dim_1_pre_head]]
-; CHECK:       [[DIM_1_PRE_HEAD]]:
-; CHECK-NEXT:    [[DIM_2_IND_VAR:%.*]] = phi i64 [ 0, %[[DIM_2_PRE_HEAD]] ], [ [[DIM_2_INC_IND_VAR:%.*]], %[[DIM_1_EXIT:dim_1_exit]] ]
-; CHECK-NEXT:    br label %[[DIM_0_PRE_HEAD:dim_0_pre_head]]
-; CHECK:       [[DIM_0_PRE_HEAD]]:
-; CHECK-NEXT:    [[DIM_1_IND_VAR:%.*]] = phi i64 [ 0, %[[DIM_1_PRE_HEAD]] ], [ [[DIM_1_INC_IND_VAR:%.*]], %[[DIM_0_EXIT:dim_0_exit]] ]
-; CHECK-NEXT:    br label %[[SCALAR_KERNEL_ENTRY:scalar_kernel_entry]]
-; CHECK:       [[SCALAR_KERNEL_ENTRY]]:
-; CHECK-NEXT:    [[DIM_0_IND_VAR:%.*]] = phi i64 [ 0, %[[DIM_0_PRE_HEAD]] ], [ [[DIM_0_INC_IND_VAR:%.*]], %[[SCALAR_KERNEL_ENTRY]] ]
-; CHECK-NEXT:    [[DIM0__TID1:%.*]] = phi i64 [ [[DIM_0_SCALAR_INIT_LID]], %[[DIM_0_PRE_HEAD]] ], [ [[DIM0_INC_TID2:%.*]], %[[SCALAR_KERNEL_ENTRY]] ]
-; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, i32* [[OUT]], i64 [[DIM0__TID1]]
+; CHECK-NEXT:    [[DIM_2_VECTOR_CMP_TO_MAX:%.*]] = icmp eq i64 [[DIM_2_VECTOR_INC_IND_VAR]], [[MAX_GID_DIM2]]
+; CHECK-NEXT:    br i1 [[DIM_2_VECTOR_CMP_TO_MAX]], label [[DIM_2_VECTOR_EXIT:%.*]], label [[DIM_1_VECTOR_PRE_HEAD]]
+; CHECK:       dim_2_vector_exit:
+; CHECK-NEXT:    br label [[SCALAR_IF]]
+; CHECK:       scalar_if:
+; CHECK-NEXT:    [[TMP5:%.*]] = icmp ne i64 [[SCALAR_SIZE]], 0
+; CHECK-NEXT:    br i1 [[TMP5]], label [[DIM_2_PRE_HEAD:%.*]], label [[RET:%.*]]
+; CHECK:       dim_2_pre_head:
+; CHECK-NEXT:    br label [[DIM_1_PRE_HEAD:%.*]]
+; CHECK:       dim_1_pre_head:
+; CHECK-NEXT:    [[DIM_2_IND_VAR:%.*]] = phi i64 [ [[BASE_GID_DIM2]], [[DIM_2_PRE_HEAD]] ], [ [[DIM_2_INC_IND_VAR:%.*]], [[DIM_1_EXIT:%.*]] ]
+; CHECK-NEXT:    br label [[DIM_0_PRE_HEAD:%.*]]
+; CHECK:       dim_0_pre_head:
+; CHECK-NEXT:    [[DIM_1_IND_VAR:%.*]] = phi i64 [ [[BASE_GID_DIM1]], [[DIM_1_PRE_HEAD]] ], [ [[DIM_1_INC_IND_VAR:%.*]], [[DIM_0_EXIT:%.*]] ]
+; CHECK-NEXT:    br label [[SCALAR_KERNEL_ENTRY:%.*]]
+; CHECK:       scalar_kernel_entry:
+; CHECK-NEXT:    [[DIM_0_IND_VAR:%.*]] = phi i64 [ [[MAX_VECTOR_GID]], [[DIM_0_PRE_HEAD]] ], [ [[DIM_0_INC_IND_VAR:%.*]], [[SCALAR_KERNEL_ENTRY]] ]
+; CHECK-NEXT:    [[DIM_0_TID:%.*]] = phi i64 [ [[DIM_0_SUB_LID]], [[DIM_0_PRE_HEAD]] ], [ [[DIM_0_INC_TID:%.*]], [[SCALAR_KERNEL_ENTRY]] ]
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, i32* [[OUT]], i64 [[DIM_0_TID]]
 ; CHECK-NEXT:    store i32 12345, i32* [[ARRAYIDX]], align 4
 ; CHECK-NEXT:    [[DIM_0_INC_IND_VAR]] = add nuw nsw i64 [[DIM_0_IND_VAR]], 1
-; CHECK-NEXT:    [[DIM_0_CMP_TO_MAX:%.*]] = icmp eq i64 [[DIM_0_INC_IND_VAR]], [[SCALAR_SIZE]]
-; CHECK-NEXT:    [[DIM0_INC_TID2]] = add nuw nsw i64 [[DIM0__TID1]], 1
-; CHECK-NEXT:    br i1 [[DIM_0_CMP_TO_MAX]], label %[[DIM_0_EXIT]], label %[[SCALAR_KERNEL_ENTRY]]
-; CHECK:       [[DIM_0_EXIT]]:
+; CHECK-NEXT:    [[DIM_0_CMP_TO_MAX:%.*]] = icmp eq i64 [[DIM_0_INC_IND_VAR]], [[MAX_GID_DIM0]]
+; CHECK-NEXT:    [[DIM_0_INC_TID]] = add nuw nsw i64 [[DIM_0_TID]], 1
+; CHECK-NEXT:    br i1 [[DIM_0_CMP_TO_MAX]], label [[DIM_0_EXIT]], label [[SCALAR_KERNEL_ENTRY]], !llvm.loop [[LOOP6:![0-9]+]]
+; CHECK:       dim_0_exit:
 ; CHECK-NEXT:    [[DIM_1_INC_IND_VAR]] = add nuw nsw i64 [[DIM_1_IND_VAR]], 1
-; CHECK-NEXT:    [[DIM_1_CMP_TO_MAX:%.*]] = icmp eq i64 [[DIM_1_INC_IND_VAR]], %local.size.dim1
-; CHECK-NEXT:    br i1 [[DIM_1_CMP_TO_MAX]], label %[[DIM_1_EXIT]], label %[[DIM_0_PRE_HEAD]]
-; CHECK:       [[DIM_1_EXIT]]:
+; CHECK-NEXT:    [[DIM_1_CMP_TO_MAX:%.*]] = icmp eq i64 [[DIM_1_INC_IND_VAR]], [[MAX_GID_DIM1]]
+; CHECK-NEXT:    br i1 [[DIM_1_CMP_TO_MAX]], label [[DIM_1_EXIT]], label [[DIM_0_PRE_HEAD]], !llvm.loop [[LOOP8:![0-9]+]]
+; CHECK:       dim_1_exit:
 ; CHECK-NEXT:    [[DIM_2_INC_IND_VAR]] = add nuw nsw i64 [[DIM_2_IND_VAR]], 1
-; CHECK-NEXT:    [[DIM_2_CMP_TO_MAX:%.*]] = icmp eq i64 [[DIM_2_INC_IND_VAR]], %local.size.dim2
-; CHECK-NEXT:    br i1 [[DIM_2_CMP_TO_MAX]], label %[[DIM_2_EXIT:dim_2_exit]], label %[[DIM_1_PRE_HEAD]]
-; CHECK:       [[DIM_2_EXIT]]:
+; CHECK-NEXT:    [[DIM_2_CMP_TO_MAX:%.*]] = icmp eq i64 [[DIM_2_INC_IND_VAR]], [[MAX_GID_DIM2]]
+; CHECK-NEXT:    br i1 [[DIM_2_CMP_TO_MAX]], label [[DIM_2_EXIT:%.*]], label [[DIM_1_PRE_HEAD]], !llvm.loop [[LOOP9:![0-9]+]]
+; CHECK:       dim_2_exit:
 ; CHECK-NEXT:    br label [[RET]]
 ; CHECK:       ret:
-; CHECK-NEXT:    br label %[[EXIT:exit]]
-; CHECK:       [[EXIT]]:
+; CHECK-NEXT:    br label [[EXIT:%.*]]
+; CHECK:       exit:
 ; CHECK-NEXT:    ret void
 ;
+
+;; Check that trunc has been replaced correctly.
 ;; If we don't have optnone noinline should be removed
-; CHECK-NOT: noinline
 
 entry:
   %call = tail call i64 @_Z12get_local_idj(i64 0)
@@ -122,6 +124,8 @@ entry:
 
 attributes #0 = { noinline }
 attributes #1 = { noinline }
+
+; CHECK: !{!"llvm.loop.unroll.disable"}
 
 !sycl.kernels = !{!0}
 !0 = !{void (i32*, i32*, i32*)* @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm}

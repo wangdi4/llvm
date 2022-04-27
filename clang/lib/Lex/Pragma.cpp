@@ -1,4 +1,21 @@
 //===- Pragma.cpp - Pragma registration and handling ----------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -263,7 +280,12 @@ void Preprocessor::Handle_Pragma(Token &Tok) {
   }
 
   SourceLocation RParenLoc = Tok.getLocation();
-  std::string StrVal = getSpelling(StrTok);
+  bool Invalid = false;
+  std::string StrVal = getSpelling(StrTok, &Invalid);
+  if (Invalid) {
+    Diag(PragmaLoc, diag::err__Pragma_malformed);
+    return;
+  }
 
   // The _Pragma is lexically sound.  Destringize according to C11 6.10.9.1:
   // "The string literal is destringized by deleting any encoding prefix,
@@ -526,9 +548,8 @@ static llvm::Optional<Token> LexHeader(Preprocessor &PP,
     return llvm::None;
 
   // Search include directories for this file.
-  const DirectoryLookup *CurDir;
   File = PP.LookupFile(FilenameTok.getLocation(), Filename, isAngled, nullptr,
-                       nullptr, CurDir, nullptr, nullptr, nullptr, nullptr,
+                       nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
                        nullptr);
   if (!File) {
     if (!SuppressIncludeNotFoundError)

@@ -1,6 +1,6 @@
 ; Checks diagnostic message is emitted if WG/SG builtin with given VF is not implemented.
 
-; RUN: not opt -dpcpp-kernel-vf-analysis -analyze %s -S 2>&1 | FileCheck %s
+; RUN: not opt -dpcpp-kernel-vf-analysis -analyze -enable-new-pm=0 %s -S 2>&1 | FileCheck %s
 ; RUN: not opt -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
 
 ; intel_reqd_sub_group_size doesn't allow fallback

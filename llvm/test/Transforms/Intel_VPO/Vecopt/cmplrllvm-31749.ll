@@ -2,6 +2,9 @@
 ; REQUIRES: intel_feature_sw_advanced
 
 ; RUN: opt < %s -S -vplan-vec -enable-intel-advanced-opts | FileCheck %s
+;
+; The run line below used to crash w/o the fix to enable DA recalculation in clones
+; RUN: opt < %s -S -vplan-vec -enable-intel-advanced-opts -vplan-enable-non-masked-vectorized-remainder | FileCheck %s
 
 ; The test is generated from LAMMPS source code and corresponds to one of this
 ; application hot loops.

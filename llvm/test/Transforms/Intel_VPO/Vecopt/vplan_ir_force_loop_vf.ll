@@ -1,5 +1,6 @@
 ; RUN: opt < %s -vplan-vec -S -vplan-force-vf=4 -vplan-force-loop-vf=2:2 -vplan-force-loop-vf=3:8  -debug-only=LoopVectorizationPlanner  2>&1 | FileCheck %s --check-prefixes=CHECK,LLVM
-; RUN: opt < %s -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -vplan-force-vf=4 -vplan-force-loop-vf=2:2 -vplan-force-loop-vf=3:8  -debug-only=LoopVectorizationPlanner -print-after=hir-vplan-vec  2>&1 | FileCheck %s --check-prefixes=CHECK,HIR
+; RUN: opt < %s -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -vplan-force-vf=4 -vplan-force-loop-vf=2:2 -vplan-force-loop-vf=3:8  -debug-only=LoopVectorizationPlanner -print-after=hir-vplan-vec  2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefixes=CHECK,HIR
+; RUN: opt < %s -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -vplan-force-vf=4 -vplan-force-loop-vf=2:2 -vplan-force-loop-vf=3:8  -debug-only=LoopVectorizationPlanner -print-after=hir-vplan-vec  2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefixes=CHECK,HIR
 
 
 ; CHECK:      LVP: ForcedVF: 4
@@ -24,13 +25,13 @@
 ; HIR-NEXT:            + DO i1 = 0, 79, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; HIR-NEXT:            |   {{%.*}} = (<4 x float>*)(%ptr)[i1];
 ; HIR-NEXT:            + END LOOP
-; HIR-NEXT:      END REGION
+; HIR:           END REGION
 ; HIR-EMPTY:
 ; HIR-NEXT:      BEGIN REGION { modified }
 ; HIR-NEXT:            + DO i1 = 0, 79, 2   <DO_LOOP> <simd-vectorized> <novectorize>
 ; HIR-NEXT:            |   {{%.*}} = (<2 x float>*)(%ptr)[i1];
 ; HIR-NEXT:            + END LOOP
-; HIR-NEXT:      END REGION
+; HIR:           END REGION
 ; HIR-EMPTY:
 ; HIR-NEXT:      BEGIN REGION { modified }
 ; HIR-NEXT:            + DO i1 = 0, 79, 8   <DO_LOOP> <simd-vectorized> <novectorize>

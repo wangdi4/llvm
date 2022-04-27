@@ -1,6 +1,6 @@
 //===----- Intel_MultiVersion.cpp - Whole Function multi-versioning -*-----===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -213,9 +213,9 @@ class BoolMultiVersioningImpl {
 
   void buildClosures(const Argument &Arg,
                      SmallVectorImpl<BoolClosure> &Closures) const {
-    // We are interested only in a pointer-to-a-struct arguments.
+    // We are interested only in a pointer arguments.
     const auto *Type = dyn_cast<PointerType>(Arg.getType());
-    if (!Type || !Type->getElementType()->isStructTy())
+    if (!Type)
       return;
 
     LLVM_DEBUG(dbgs() << DEBUG_PREFIX "Building closure for " << F.getName()
@@ -417,7 +417,7 @@ class BoolMultiVersioningImpl {
     // All GEPs in the closure are expected to be the same, so we can clone any
     // of them (for example the first).
     auto *GEP = Builder.Insert<>(C.getGEPs().front().first->clone());
-    auto *GEPTy = GEP->getType()->getPointerElementType();
+    auto *GEPTy = (cast<GetElementPtrInst>(GEP))->getResultElementType();
     auto *Load = Builder.CreateLoad(GEPTy, GEP);
     auto *ICmp = Builder.CreateICmp(ICmpInst::ICMP_NE, Load,
                                     ConstantInt::get(Load->getType(), 0u));

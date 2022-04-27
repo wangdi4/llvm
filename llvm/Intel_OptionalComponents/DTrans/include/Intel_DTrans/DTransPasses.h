@@ -1,6 +1,6 @@
 //===------------------ DTransPasses.h - Passes for DTrans ---------------===//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -30,7 +30,11 @@
 #include "Intel_DTrans/Transforms/AOSToSOAOP.h"
 #include "Intel_DTrans/Transforms/AnnotatorCleaner.h"
 #include "Intel_DTrans/Transforms/CodeAlign.h"
+#include "Intel_DTrans/Transforms/CodeAlignOP.h"
 #include "Intel_DTrans/Transforms/CommuteCond.h"
+#include "Intel_DTrans/Transforms/DTransForceInline.h"
+#include "Intel_DTrans/Transforms/DTransForceInlineOP.h"
+#include "Intel_DTrans/Transforms/DTransNormalizeOP.h"
 #include "Intel_DTrans/Transforms/DTransPaddedMalloc.h"
 #include "Intel_DTrans/Transforms/DeleteField.h"
 #include "Intel_DTrans/Transforms/DeleteFieldOP.h"
@@ -40,11 +44,14 @@
 #include "Intel_DTrans/Transforms/MemInitTrimDownOP.h"
 #include "Intel_DTrans/Transforms/MemManageTrans.h"
 #include "Intel_DTrans/Transforms/PaddedPointerPropagation.h"
+#include "Intel_DTrans/Transforms/RemoveDTransTypeMetadata.h"
 #include "Intel_DTrans/Transforms/ReorderFields.h"
+#include "Intel_DTrans/Transforms/ReorderFieldsOP.h"
 #include "Intel_DTrans/Transforms/ResolveTypes.h"
 #include "Intel_DTrans/Transforms/SOAToAOS.h"
 #include "Intel_DTrans/Transforms/SOAToAOSOP.h"
 #include "Intel_DTrans/Transforms/SOAToAOSPrepare.h"
+#include "Intel_DTrans/Transforms/SOAToAOSOPPrepare.h"
 #include "Intel_DTrans/Transforms/Transpose.h"
 #include "Intel_DTrans/Transforms/WeakAlign.h"
 

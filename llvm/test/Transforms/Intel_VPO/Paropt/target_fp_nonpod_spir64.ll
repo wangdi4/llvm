@@ -1,7 +1,7 @@
-; RUN: opt < %s  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s -check-prefix=NOCTORDTOR -check-prefix=ALL
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -switch-to-offload  -S | FileCheck %s -check-prefix=NOCTORDTOR -check-prefix=ALL
-; RUN: opt < %s  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-emit-target-fp-ctor-dtor=true -S | FileCheck %s -check-prefix=CTORDTOR -check-prefix=ALL
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -switch-to-offload -vpo-paropt-emit-target-fp-ctor-dtor=true -S | FileCheck %s -check-prefix=CTORDTOR -check-prefix=ALL
+; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s -check-prefix=NOCTORDTOR -check-prefix=ALL
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -S %s | FileCheck %s -check-prefix=NOCTORDTOR -check-prefix=ALL
+; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-emit-target-fp-ctor-dtor=true -S %s | FileCheck %s -check-prefix=CTORDTOR -check-prefix=ALL
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -vpo-paropt-emit-target-fp-ctor-dtor=true -S %s | FileCheck %s -check-prefix=CTORDTOR -check-prefix=ALL
 
 ; Test src:
 
@@ -33,8 +33,7 @@
 ; CTORDTOR-DAG: %[[SRC]] = addrspacecast %class.C addrspace(1)* %c1.ascast to %class.C addrspace(4)*
 ; CTORDTOR-DAG: %[[DST]] = addrspacecast %class.C* %[[C1_NEW]] to %class.C addrspace(4)*
 
-; CTORDTOR-DAG: call spir_func void @_ZTS1C.omp.destr(%class.C addrspace(4)* %[[ARG:[^ ,)]+]]) [[ATTR2:#[0-9]+]]
-; CTORDTOR-DAG: %[[ARG]] = addrspacecast %class.C* %[[C1_NEW]] to %class.C addrspace(4)*
+; CTORDTOR-DAG: call spir_func void @_ZTS1C.omp.destr(%class.C addrspace(4)* %[[DST]]) [[ATTR2:#[0-9]+]]
 
 ; CTORDTOR-DAG: [[ATTR1]] = {{{.*}}"openmp-privatization-copyconstructor"{{.*}}}
 ; CTORDTOR-DAG: [[ATTR2]] = {{{.*}}"openmp-privatization-destructor"{{.*}}}

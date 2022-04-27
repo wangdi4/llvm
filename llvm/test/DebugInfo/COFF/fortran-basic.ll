@@ -1,4 +1,5 @@
-; RUN: llc < %s -filetype=obj | llvm-readobj - --codeview | FileCheck %s
+; This RUN line is INTEL CUSTOMIZATION.
+; RUN: llc -disable-intel-codeview-oem-extensions < %s -filetype=obj | llvm-readobj - --codeview | FileCheck %s
 ;
 ; The IR in this test derives from the following Fortran program:
 ;	program array

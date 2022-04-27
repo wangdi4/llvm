@@ -1,4 +1,21 @@
 //===----------- commands.cpp - SYCL commands -------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -31,6 +48,7 @@
 #include <detail/xpti_registry.hpp>
 
 #include <cassert>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -84,6 +102,50 @@ static std::string deviceToString(device Device) {
   else
     return "UNKNOWN";
 }
+
+static void applyFuncOnFilteredArgs(
+    const ProgramManager::KernelArgMask &EliminatedArgMask,
+    std::vector<ArgDesc> &Args,
+    std::function<void(detail::ArgDesc &Arg, int NextTrueIndex)> Func) {
+  if (EliminatedArgMask.empty()) {
+    for (ArgDesc &Arg : Args) {
+      Func(Arg, Arg.MIndex);
+    }
+  } else {
+    // TODO this is not necessary as long as we can guarantee that the
+    // arguments are already sorted (e. g. handle the sorting in handler
+    // if necessary due to set_arg(...) usage).
+    std::sort(Args.begin(), Args.end(), [](const ArgDesc &A, const ArgDesc &B) {
+      return A.MIndex < B.MIndex;
+    });
+    int LastIndex = -1;
+    size_t NextTrueIndex = 0;
+
+    for (ArgDesc &Arg : Args) {
+      // Handle potential gaps in set arguments (e. g. if some of them are
+      // set on the user side).
+      for (int Idx = LastIndex + 1; Idx < Arg.MIndex; ++Idx)
+        if (!EliminatedArgMask[Idx])
+          ++NextTrueIndex;
+      LastIndex = Arg.MIndex;
+
+      if (EliminatedArgMask[Arg.MIndex])
+        continue;
+
+      Func(Arg, NextTrueIndex);
+      ++NextTrueIndex;
+    }
+  }
+}
+
+#ifdef XPTI_ENABLE_INSTRUMENTATION
+static size_t deviceToID(const device &Device) {
+  if (Device.is_host())
+    return 0;
+  else
+    return reinterpret_cast<size_t>(getSyclObjImpl(Device)->getHandleRef());
+}
+#endif
 
 static std::string accessModeToString(access::mode Mode) {
   switch (Mode) {
@@ -381,18 +443,20 @@ void Command::emitInstrumentationDataProxy() {
 /// access mode to the buffer if it is due to an accessor
 /// @param IsCommand True if the dependency has a command object as the source,
 /// false otherwise
-void Command::emitEdgeEventForCommandDependence(Command *Cmd, void *ObjAddr,
-                                                const std::string &Prefix,
-                                                bool IsCommand) {
+void Command::emitEdgeEventForCommandDependence(
+    Command *Cmd, void *ObjAddr, bool IsCommand,
+    std::optional<access::mode> AccMode) {
 #ifdef XPTI_ENABLE_INSTRUMENTATION
   // Bail early if either the source or the target node for the given dependency
   // is undefined or NULL
   if (!(xptiTraceEnabled() && MTraceEvent && Cmd && Cmd->MTraceEvent))
     return;
+
   // If all the information we need for creating an edge event is available,
   // then go ahead with creating it; if not, bail early!
   xpti::utils::StringHelper SH;
   std::string AddressStr = SH.addressAsString<void *>(ObjAddr);
+  std::string Prefix = AccMode ? accessModeToString(AccMode.value()) : "Event";
   std::string TypeString = SH.nameWithAddressString(Prefix, AddressStr);
   // Create an edge with the dependent buffer address for which a command
   // object has been created as one of the properties of the edge
@@ -407,10 +471,12 @@ void Command::emitEdgeEventForCommandDependence(Command *Cmd, void *ObjAddr,
     EdgeEvent->source_id = SrcEvent->unique_id;
     EdgeEvent->target_id = TgtEvent->unique_id;
     if (IsCommand) {
-      xptiAddMetadata(EdgeEvent, "access_mode", TypeString.c_str());
-      xptiAddMetadata(EdgeEvent, "memory_object", AddressStr.c_str());
+      xpti::addMetadata(EdgeEvent, "access_mode",
+                        static_cast<int>(AccMode.value()));
+      xpti::addMetadata(EdgeEvent, "memory_object",
+                        reinterpret_cast<size_t>(ObjAddr));
     } else {
-      xptiAddMetadata(EdgeEvent, "event", TypeString.c_str());
+      xpti::addMetadata(EdgeEvent, "event", reinterpret_cast<size_t>(ObjAddr));
     }
     xptiNotifySubscribers(MStreamID, xpti::trace_edge_create,
                           detail::GSYCLGraphEvent, EdgeEvent, EdgeInstanceNo,
@@ -437,7 +503,7 @@ void Command::emitEdgeEventForEventDependence(Command *Cmd,
   if (Cmd && Cmd->MTraceEvent) {
     // If the event is associated with a command, we use this command's trace
     // event as the source of edge, hence modeling the control flow
-    emitEdgeEventForCommandDependence(Cmd, (void *)PiEventAddr, "Event", false);
+    emitEdgeEventForCommandDependence(Cmd, (void *)PiEventAddr, false);
     return;
   }
   if (PiEventAddr) {
@@ -455,7 +521,7 @@ void Command::emitEdgeEventForEventDependence(Command *Cmd,
         xptiMakeEvent(NodeName.c_str(), &VNPayload, xpti::trace_graph_event,
                       xpti_at::active, &VNodeInstanceNo);
     // Emit the virtual node first
-    xptiAddMetadata(NodeEvent, "kernel_name", NodeName.c_str());
+    xpti::addMetadata(NodeEvent, "kernel_name", NodeName);
     xptiNotifySubscribers(MStreamID, xpti::trace_node_create,
                           detail::GSYCLGraphEvent, NodeEvent, VNodeInstanceNo,
                           nullptr);
@@ -472,7 +538,8 @@ void Command::emitEdgeEventForEventDependence(Command *Cmd,
       xpti_td *TgtEvent = static_cast<xpti_td *>(MTraceEvent);
       EdgeEvent->source_id = NodeEvent->unique_id;
       EdgeEvent->target_id = TgtEvent->unique_id;
-      xptiAddMetadata(EdgeEvent, "event", EdgeName.c_str());
+      xpti::addMetadata(EdgeEvent, "event",
+                        reinterpret_cast<size_t>(PiEventAddr));
       xptiNotifySubscribers(MStreamID, xpti::trace_edge_create,
                             detail::GSYCLGraphEvent, EdgeEvent, EdgeInstanceNo,
                             nullptr);
@@ -596,9 +663,9 @@ Command *Command::addDep(DepDesc NewDep, std::vector<Command *> &ToCleanUp) {
   }
 
 #ifdef XPTI_ENABLE_INSTRUMENTATION
-  emitEdgeEventForCommandDependence(
-      NewDep.MDepCommand, (void *)NewDep.MDepRequirement->MSYCLMemObj,
-      accessModeToString(NewDep.MDepRequirement->MAccessMode), true);
+  emitEdgeEventForCommandDependence(NewDep.MDepCommand,
+                                    (void *)NewDep.MDepRequirement->MSYCLMemObj,
+                                    true, NewDep.MDepRequirement->MAccessMode);
 #endif
 
   return ConnectionCmd;
@@ -759,7 +826,8 @@ void Command::resolveReleaseDependencies(std::set<Command *> &DepList) {
         xpti_td *SrcTraceEvent = static_cast<xpti_td *>(Item->MTraceEvent);
         EdgeEvent->target_id = TgtTraceEvent->unique_id;
         EdgeEvent->source_id = SrcTraceEvent->unique_id;
-        xptiAddMetadata(EdgeEvent, "memory_object", AddressStr.c_str());
+        xpti::addMetadata(EdgeEvent, "memory_object",
+                          reinterpret_cast<size_t>(MAddress));
         xptiNotifySubscribers(MStreamID, xpti::trace_edge_create,
                               detail::GSYCLGraphEvent, EdgeEvent,
                               EdgeInstanceNo, nullptr);
@@ -801,9 +869,12 @@ void AllocaCommandBase::emitInstrumentationData() {
   // Set the relevant meta data properties for this command
   if (MTraceEvent && MFirstInstance) {
     xpti_td *TE = static_cast<xpti_td *>(MTraceEvent);
-    xptiAddMetadata(TE, "sycl_device",
-                    deviceToString(MQueue->get_device()).c_str());
-    xptiAddMetadata(TE, "memory_object", MAddressString.c_str());
+    xpti::addMetadata(TE, "sycl_device", deviceToID(MQueue->get_device()));
+    xpti::addMetadata(TE, "sycl_device_type",
+                      deviceToString(MQueue->get_device()));
+    xpti::addMetadata(TE, "sycl_device_name",
+                      getSyclObjImpl(MQueue->get_device())->getDeviceName());
+    xpti::addMetadata(TE, "memory_object", reinterpret_cast<size_t>(MAddress));
   }
 #endif
 }
@@ -916,12 +987,11 @@ void AllocaSubBufCommand::emitInstrumentationData() {
   // data that is available for the command
   if (MFirstInstance) {
     xpti_td *TE = static_cast<xpti_td *>(MTraceEvent);
-    xptiAddMetadata(TE, "offset",
-                    std::to_string(this->MRequirement.MOffsetInBytes).c_str());
-    std::string range = std::to_string(this->MRequirement.MAccessRange[0]) +
-                        "-" +
-                        std::to_string(this->MRequirement.MAccessRange[1]);
-    xptiAddMetadata(TE, "access_range", range.c_str());
+    xpti::addMetadata(TE, "offset", this->MRequirement.MOffsetInBytes);
+    xpti::addMetadata(TE, "access_range_start",
+                      this->MRequirement.MAccessRange[0]);
+    xpti::addMetadata(TE, "access_range_end",
+                      this->MRequirement.MAccessRange[1]);
     makeTraceEventEpilog();
   }
 #endif
@@ -992,10 +1062,13 @@ void ReleaseCommand::emitInstrumentationData() {
 
   if (MFirstInstance) {
     xpti_td *TE = static_cast<xpti_td *>(MTraceEvent);
-    xptiAddMetadata(TE, "sycl_device",
-                    deviceToString(MQueue->get_device()).c_str());
-    xptiAddMetadata(TE, "allocation_type",
-                    commandToName(MAllocaCmd->getType()).c_str());
+    xpti::addMetadata(TE, "sycl_device", deviceToID(MQueue->get_device()));
+    xpti::addMetadata(TE, "sycl_device_type",
+                      deviceToString(MQueue->get_device()));
+    xpti::addMetadata(TE, "sycl_device_name",
+                      getSyclObjImpl(MQueue->get_device())->getDeviceName());
+    xpti::addMetadata(TE, "allocation_type",
+                      commandToName(MAllocaCmd->getType()));
     makeTraceEventEpilog();
   }
 #endif
@@ -1105,9 +1178,12 @@ void MapMemObject::emitInstrumentationData() {
 
   if (MFirstInstance) {
     xpti_td *TE = static_cast<xpti_td *>(MTraceEvent);
-    xptiAddMetadata(TE, "sycl_device",
-                    deviceToString(MQueue->get_device()).c_str());
-    xptiAddMetadata(TE, "memory_object", MAddressString.c_str());
+    xpti::addMetadata(TE, "sycl_device", deviceToID(MQueue->get_device()));
+    xpti::addMetadata(TE, "sycl_device_type",
+                      deviceToString(MQueue->get_device()));
+    xpti::addMetadata(TE, "sycl_device_name",
+                      getSyclObjImpl(MQueue->get_device())->getDeviceName());
+    xpti::addMetadata(TE, "memory_object", reinterpret_cast<size_t>(MAddress));
     makeTraceEventEpilog();
   }
 #endif
@@ -1163,9 +1239,12 @@ void UnMapMemObject::emitInstrumentationData() {
 
   if (MFirstInstance) {
     xpti_td *TE = static_cast<xpti_td *>(MTraceEvent);
-    xptiAddMetadata(TE, "sycl_device",
-                    deviceToString(MQueue->get_device()).c_str());
-    xptiAddMetadata(TE, "memory_object", MAddressString.c_str());
+    xpti::addMetadata(TE, "sycl_device", deviceToID(MQueue->get_device()));
+    xpti::addMetadata(TE, "sycl_device_type",
+                      deviceToString(MQueue->get_device()));
+    xpti::addMetadata(TE, "sycl_device_name",
+                      getSyclObjImpl(MQueue->get_device())->getDeviceName());
+    xpti::addMetadata(TE, "memory_object", reinterpret_cast<size_t>(MAddress));
     makeTraceEventEpilog();
   }
 #endif
@@ -1248,13 +1327,20 @@ void MemCpyCommand::emitInstrumentationData() {
 
   if (MFirstInstance) {
     xpti_td *CmdTraceEvent = static_cast<xpti_td *>(MTraceEvent);
-    xptiAddMetadata(CmdTraceEvent, "sycl_device",
-                    deviceToString(MQueue->get_device()).c_str());
-    xptiAddMetadata(CmdTraceEvent, "memory_object", MAddressString.c_str());
-    std::string From = deviceToString(MSrcQueue->get_device());
-    std::string To = deviceToString(MQueue->get_device());
-    xptiAddMetadata(CmdTraceEvent, "copy_from", From.c_str());
-    xptiAddMetadata(CmdTraceEvent, "copy_to", To.c_str());
+    xpti::addMetadata(CmdTraceEvent, "sycl_device",
+                      deviceToID(MQueue->get_device()));
+    xpti::addMetadata(CmdTraceEvent, "sycl_device_type",
+                      deviceToString(MQueue->get_device()));
+    xpti::addMetadata(CmdTraceEvent, "sycl_device_name",
+                      getSyclObjImpl(MQueue->get_device())->getDeviceName());
+    xpti::addMetadata(CmdTraceEvent, "memory_object",
+                      reinterpret_cast<size_t>(MAddress));
+    xpti::addMetadata(CmdTraceEvent, "copy_from",
+                      reinterpret_cast<size_t>(
+                          getSyclObjImpl(MSrcQueue->get_device()).get()));
+    xpti::addMetadata(
+        CmdTraceEvent, "copy_to",
+        reinterpret_cast<size_t>(getSyclObjImpl(MQueue->get_device()).get()));
     makeTraceEventEpilog();
   }
 #endif
@@ -1343,9 +1429,21 @@ std::vector<StreamImplPtr> ExecCGCommand::getStreams() const {
   return {};
 }
 
+std::vector<std::shared_ptr<const void>>
+ExecCGCommand::getAuxiliaryResources() const {
+  if (MCommandGroup->getType() == CG::Kernel)
+    return ((CGExecKernel *)MCommandGroup.get())->getAuxiliaryResources();
+  return {};
+}
+
 void ExecCGCommand::clearStreams() {
   if (MCommandGroup->getType() == CG::Kernel)
     ((CGExecKernel *)MCommandGroup.get())->clearStreams();
+}
+
+void ExecCGCommand::clearAuxiliaryResources() {
+  if (MCommandGroup->getType() == CG::Kernel)
+    ((CGExecKernel *)MCommandGroup.get())->clearAuxiliaryResources();
 }
 
 cl_int UpdateHostRequirementCommand::enqueueImp() {
@@ -1410,13 +1508,20 @@ void MemCpyCommandHost::emitInstrumentationData() {
 
   if (MFirstInstance) {
     xpti_td *CmdTraceEvent = static_cast<xpti_td *>(MTraceEvent);
-    xptiAddMetadata(CmdTraceEvent, "sycl_device",
-                    deviceToString(MQueue->get_device()).c_str());
-    xptiAddMetadata(CmdTraceEvent, "memory_object", MAddressString.c_str());
-    std::string From = deviceToString(MSrcQueue->get_device());
-    std::string To = deviceToString(MQueue->get_device());
-    xptiAddMetadata(CmdTraceEvent, "copy_from", From.c_str());
-    xptiAddMetadata(CmdTraceEvent, "copy_to", To.c_str());
+    xpti::addMetadata(CmdTraceEvent, "sycl_device",
+                      deviceToID(MQueue->get_device()));
+    xpti::addMetadata(CmdTraceEvent, "sycl_device_type",
+                      deviceToString(MQueue->get_device()));
+    xpti::addMetadata(CmdTraceEvent, "sycl_device_name",
+                      getSyclObjImpl(MQueue->get_device())->getDeviceName());
+    xpti::addMetadata(CmdTraceEvent, "memory_object",
+                      reinterpret_cast<size_t>(MAddress));
+    xpti::addMetadata(CmdTraceEvent, "copy_from",
+                      reinterpret_cast<size_t>(
+                          getSyclObjImpl(MSrcQueue->get_device()).get()));
+    xpti::addMetadata(
+        CmdTraceEvent, "copy_to",
+        reinterpret_cast<size_t>(getSyclObjImpl(MQueue->get_device()).get()));
     makeTraceEventEpilog();
   }
 #endif
@@ -1501,9 +1606,14 @@ void EmptyCommand::emitInstrumentationData() {
 
   if (MFirstInstance) {
     xpti_td *CmdTraceEvent = static_cast<xpti_td *>(MTraceEvent);
-    xptiAddMetadata(CmdTraceEvent, "sycl_device",
-                    deviceToString(MQueue->get_device()).c_str());
-    xptiAddMetadata(CmdTraceEvent, "memory_object", MAddressString.c_str());
+    xpti::addMetadata(CmdTraceEvent, "sycl_device",
+                      deviceToID(MQueue->get_device()));
+    xpti::addMetadata(CmdTraceEvent, "sycl_device_type",
+                      deviceToString(MQueue->get_device()));
+    xpti::addMetadata(CmdTraceEvent, "sycl_device_name",
+                      getSyclObjImpl(MQueue->get_device())->getDeviceName());
+    xpti::addMetadata(CmdTraceEvent, "memory_object",
+                      reinterpret_cast<size_t>(MAddress));
     makeTraceEventEpilog();
   }
 #endif
@@ -1566,9 +1676,14 @@ void UpdateHostRequirementCommand::emitInstrumentationData() {
 
   if (MFirstInstance) {
     xpti_td *CmdTraceEvent = static_cast<xpti_td *>(MTraceEvent);
-    xptiAddMetadata(CmdTraceEvent, "sycl_device",
-                    deviceToString(MQueue->get_device()).c_str());
-    xptiAddMetadata(CmdTraceEvent, "memory_object", MAddressString.c_str());
+    xpti::addMetadata(CmdTraceEvent, "sycl_device",
+                      deviceToID(MQueue->get_device()));
+    xpti::addMetadata(CmdTraceEvent, "sycl_device_type",
+                      deviceToString(MQueue->get_device()));
+    xpti::addMetadata(CmdTraceEvent, "sycl_device_name",
+                      getSyclObjImpl(MQueue->get_device())->getDeviceName());
+    xpti::addMetadata(CmdTraceEvent, "memory_object",
+                      reinterpret_cast<size_t>(MAddress));
     makeTraceEventEpilog();
   }
 #endif
@@ -1621,7 +1736,9 @@ ExecCGCommand::ExecCGCommand(std::unique_ptr<detail::CG> CommandGroup,
         static_cast<detail::CGHostTask *>(MCommandGroup.get())->MQueue;
     MEvent->setNeedsCleanupAfterWait(true);
   } else if (MCommandGroup->getType() == CG::CGTYPE::Kernel &&
-             (static_cast<CGExecKernel *>(MCommandGroup.get()))->hasStreams())
+             (static_cast<CGExecKernel *>(MCommandGroup.get())->hasStreams() ||
+              static_cast<CGExecKernel *>(MCommandGroup.get())
+                  ->hasAuxiliaryResources()))
     MEvent->setNeedsCleanupAfterWait(true);
 
   emitInstrumentationDataProxy();
@@ -1634,19 +1751,20 @@ void ExecCGCommand::emitInstrumentationData() {
   // Create a payload with the command name and an event using this payload to
   // emit a node_create
   bool HasSourceInfo = false;
-  std::string KernelName, FromSource;
+  std::string KernelName;
+  std::optional<bool> FromSource;
   switch (MCommandGroup->getType()) {
   case detail::CG::Kernel: {
     auto KernelCG =
         reinterpret_cast<detail::CGExecKernel *>(MCommandGroup.get());
 
     if (KernelCG->MSyclKernel && KernelCG->MSyclKernel->isCreatedFromSource()) {
-      FromSource = "true";
+      FromSource = true;
       pi_kernel KernelHandle = KernelCG->MSyclKernel->getHandleRef();
       MAddress = KernelHandle;
       KernelName = MCommandGroup->MFunctionName;
     } else {
-      FromSource = "false";
+      FromSource = false;
       KernelName = demangleKernelName(KernelCG->getKernelName());
     }
   } break;
@@ -1692,20 +1810,91 @@ void ExecCGCommand::emitInstrumentationData() {
     if (CGKernelInstanceNo > 1)
       return;
 
-    xptiAddMetadata(CmdTraceEvent, "sycl_device",
-                    deviceToString(MQueue->get_device()).c_str());
+    xpti::addMetadata(CmdTraceEvent, "sycl_device",
+                      deviceToID(MQueue->get_device()));
+    xpti::addMetadata(CmdTraceEvent, "sycl_device_type",
+                      deviceToString(MQueue->get_device()));
+    xpti::addMetadata(CmdTraceEvent, "sycl_device_name",
+                      getSyclObjImpl(MQueue->get_device())->getDeviceName());
     if (!KernelName.empty()) {
-      xptiAddMetadata(CmdTraceEvent, "kernel_name", KernelName.c_str());
+      xpti::addMetadata(CmdTraceEvent, "kernel_name", KernelName);
     }
-    if (!FromSource.empty()) {
-      xptiAddMetadata(CmdTraceEvent, "from_source", FromSource.c_str());
+    if (FromSource.has_value()) {
+      xpti::addMetadata(CmdTraceEvent, "from_source", FromSource.value());
     }
     if (HasSourceInfo) {
-      xptiAddMetadata(CmdTraceEvent, "sym_function_name", KernelName.c_str());
-      xptiAddMetadata(CmdTraceEvent, "sym_source_file_name",
-                      MCommandGroup->MFileName.c_str());
-      xptiAddMetadata(CmdTraceEvent, "sym_line_no",
-                      std::to_string(MCommandGroup->MLine).c_str());
+      xpti::addMetadata(CmdTraceEvent, "sym_function_name", KernelName);
+      xpti::addMetadata(CmdTraceEvent, "sym_source_file_name",
+                        MCommandGroup->MFileName);
+      xpti::addMetadata(CmdTraceEvent, "sym_line_no", MCommandGroup->MLine);
+      xpti::addMetadata(CmdTraceEvent, "sym_column_no", MCommandGroup->MColumn);
+    }
+
+    if (MCommandGroup->getType() == detail::CG::Kernel) {
+      auto KernelCG =
+          reinterpret_cast<detail::CGExecKernel *>(MCommandGroup.get());
+      auto &NDRDesc = KernelCG->MNDRDesc;
+      std::vector<ArgDesc> Args;
+
+      auto FilterArgs = [&Args](detail::ArgDesc &Arg, int NextTrueIndex) {
+        Args.push_back({Arg.MType, Arg.MPtr, Arg.MSize, NextTrueIndex});
+      };
+      RT::PiProgram Program = nullptr;
+      RT::PiKernel Kernel = nullptr;
+      std::mutex *KernelMutex = nullptr;
+
+      std::shared_ptr<kernel_impl> SyclKernelImpl;
+      std::shared_ptr<device_image_impl> DeviceImageImpl;
+      auto KernelBundleImplPtr = KernelCG->getKernelBundle();
+
+      // Use kernel_bundle if available unless it is interop.
+      // Interop bundles can't be used in the first branch, because the kernels
+      // in interop kernel bundles (if any) do not have kernel_id
+      // and can therefore not be looked up, but since they are self-contained
+      // they can simply be launched directly.
+      if (KernelBundleImplPtr && !KernelBundleImplPtr->isInterop()) {
+        kernel_id KernelID =
+            detail::ProgramManager::getInstance().getSYCLKernelID(
+                KernelCG->MKernelName);
+        kernel SyclKernel =
+            KernelBundleImplPtr->get_kernel(KernelID, KernelBundleImplPtr);
+        Program = detail::getSyclObjImpl(SyclKernel)
+                      ->getDeviceImage()
+                      ->get_program_ref();
+      } else if (nullptr != KernelCG->MSyclKernel) {
+        auto SyclProg = detail::getSyclObjImpl(
+            KernelCG->MSyclKernel->get_info<info::kernel::program>());
+        Program = SyclProg->getHandleRef();
+      } else {
+        std::tie(Kernel, KernelMutex, Program) =
+            detail::ProgramManager::getInstance().getOrCreateKernel(
+                KernelCG->MOSModuleHandle, MQueue->getContextImplPtr(),
+                MQueue->getDeviceImplPtr(), KernelCG->MKernelName, nullptr);
+      }
+
+      ProgramManager::KernelArgMask EliminatedArgMask;
+      if (nullptr == KernelCG->MSyclKernel ||
+          !KernelCG->MSyclKernel->isCreatedFromSource()) {
+        EliminatedArgMask =
+            detail::ProgramManager::getInstance().getEliminatedKernelArgMask(
+                KernelCG->MOSModuleHandle, Program, KernelCG->MKernelName);
+      }
+
+      applyFuncOnFilteredArgs(EliminatedArgMask, KernelCG->MArgs, FilterArgs);
+
+      xpti::offload_kernel_enqueue_data_t KernelData{
+          {NDRDesc.GlobalSize[0], NDRDesc.GlobalSize[1], NDRDesc.GlobalSize[2]},
+          {NDRDesc.LocalSize[0], NDRDesc.LocalSize[1], NDRDesc.LocalSize[2]},
+          {NDRDesc.GlobalOffset[0], NDRDesc.GlobalOffset[1],
+           NDRDesc.GlobalOffset[2]},
+          Args.size()};
+      xpti::addMetadata(CmdTraceEvent, "enqueue_kernel_data", KernelData);
+      for (size_t i = 0; i < Args.size(); i++) {
+        std::string Prefix("arg");
+        xpti::offload_kernel_arg_data_t arg{(int)Args[i].MType, Args[i].MPtr,
+                                            Args[i].MSize, Args[i].MIndex};
+        xpti::addMetadata(CmdTraceEvent, Prefix + std::to_string(i), arg);
+      }
     }
 
     xptiNotifySubscribers(MStreamID, xpti::trace_node_create,
@@ -1835,15 +2024,6 @@ static pi_result SetKernelParamsAndLaunch(
       sampler *SamplerPtr = (sampler *)Arg.MPtr;
       RT::PiSampler Sampler = detail::getSyclObjImpl(*SamplerPtr)
                                   ->getOrCreateSampler(Queue->get_context());
-#if INTEL_CUSTOMIZATION
-      if (Plugin.getBackend() == (backend::level_zero)) {
-        // TODO: This is a workaround and should be reworked when
-        // piextDeviceGetNativeHandle will be implemented.
-        Plugin.call<PiApiKind::piKernelSetArg>(Kernel, NextTrueIndex,
-                                               sizeof(void *), Sampler);
-        break;
-      }
-#endif // INTEL_CUSTOMIZATION
       Plugin.call<PiApiKind::piextKernelSetArgSampler>(Kernel, NextTrueIndex,
                                                        &Sampler);
       break;
@@ -1875,35 +2055,7 @@ static pi_result SetKernelParamsAndLaunch(
     }
   };
 
-  if (EliminatedArgMask.empty()) {
-    for (ArgDesc &Arg : Args) {
-      setFunc(Arg, Arg.MIndex);
-    }
-  } else {
-    // TODO this is not necessary as long as we can guarantee that the arguments
-    // are already sorted (e. g. handle the sorting in handler if necessary due
-    // to set_arg(...) usage).
-    std::sort(Args.begin(), Args.end(), [](const ArgDesc &A, const ArgDesc &B) {
-      return A.MIndex < B.MIndex;
-    });
-    int LastIndex = -1;
-    size_t NextTrueIndex = 0;
-
-    for (ArgDesc &Arg : Args) {
-      // Handle potential gaps in set arguments (e. g. if some of them are set
-      // on the user side).
-      for (int Idx = LastIndex + 1; Idx < Arg.MIndex; ++Idx)
-        if (!EliminatedArgMask[Idx])
-          ++NextTrueIndex;
-      LastIndex = Arg.MIndex;
-
-      if (EliminatedArgMask[Arg.MIndex])
-        continue;
-
-      setFunc(Arg, NextTrueIndex);
-      ++NextTrueIndex;
-    }
-  }
+  applyFuncOnFilteredArgs(EliminatedArgMask, Args, setFunc);
 
   adjustNDRangePerKernel(NDRDesc, Kernel, *(Queue->getDeviceImplPtr()));
 
@@ -2244,6 +2396,7 @@ cl_int ExecCGCommand::enqueueImp() {
       } else {
         assert(MQueue->getPlugin().getBackend() ==
                backend::ext_intel_esimd_emulator);
+
         MQueue->getPlugin().call<PiApiKind::piEnqueueKernelLaunch>(
             nullptr,
             reinterpret_cast<pi_kernel>(ExecKernel->MHostKernel->getPtr()),
@@ -2317,15 +2470,16 @@ cl_int ExecCGCommand::enqueueImp() {
       Plugin.call<PiApiKind::piEventsWait>(RawEvents.size(), &RawEvents[0]);
     }
     std::vector<interop_handler::ReqToMem> ReqMemObjs;
-    // Extract the Mem Objects for all Requirements, to ensure they are available if
-    // a user ask for them inside the interop task scope
-    const auto& HandlerReq = ExecInterop->MRequirements;
-    std::for_each(std::begin(HandlerReq), std::end(HandlerReq), [&](Requirement* Req) {
-      AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
-      auto MemArg = reinterpret_cast<pi_mem>(AllocaCmd->getMemAllocation());
-      interop_handler::ReqToMem ReqToMem = std::make_pair(Req, MemArg);
-      ReqMemObjs.emplace_back(ReqToMem);
-    });
+    // Extract the Mem Objects for all Requirements, to ensure they are
+    // available if a user ask for them inside the interop task scope
+    const auto &HandlerReq = ExecInterop->MRequirements;
+    std::for_each(
+        std::begin(HandlerReq), std::end(HandlerReq), [&](Requirement *Req) {
+          AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
+          auto MemArg = reinterpret_cast<pi_mem>(AllocaCmd->getMemAllocation());
+          interop_handler::ReqToMem ReqToMem = std::make_pair(Req, MemArg);
+          ReqMemObjs.emplace_back(ReqToMem);
+        });
 
     std::sort(std::begin(ReqMemObjs), std::end(ReqMemObjs));
     interop_handler InteropHandler(std::move(ReqMemObjs), MQueue);
@@ -2432,7 +2586,9 @@ bool ExecCGCommand::supportsPostEnqueueCleanup() const {
   return Command::supportsPostEnqueueCleanup() &&
          (MCommandGroup->getType() != CG::CGTYPE::CodeplayHostTask) &&
          (MCommandGroup->getType() != CG::CGTYPE::Kernel ||
-          !(static_cast<CGExecKernel *>(MCommandGroup.get()))->hasStreams());
+          (!static_cast<CGExecKernel *>(MCommandGroup.get())->hasStreams() &&
+           !static_cast<CGExecKernel *>(MCommandGroup.get())
+                ->hasAuxiliaryResources()));
 }
 
 } // namespace detail

@@ -18,8 +18,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT:    [[RET_CAST0:%.*]] = bitcast <4 x i32>* [[VEC_RETVAL0]] to i32*
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 
-; CHECK:       simd.loop:
-; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0:%.*]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]
+; CHECK:       simd.loop.header:
+; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0:%.*]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_LATCH0:%.*]] ]
 ; CHECK-NEXT:    [[STRIDE_MUL0:%.*]] = mul i32 1, [[INDEX0]]
 ; CHECK-NEXT:    [[STRIDE_ADD0:%.*]] = add i32 [[LOAD_K0:%.*]], [[STRIDE_MUL0]]
 ; CHECK-NEXT:    [[IDXPROM0:%.*]] = sext i32 [[STRIDE_ADD0]] to i64
@@ -27,7 +27,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT:    [[TMP0:%.*]] = load i32, i32* [[ARRAYIDX0]], align 4
 ; CHECK-NEXT:    [[RET_CAST_GEP0:%.*]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[INDEX0]]
 ; CHECK-NEXT:    store i32 [[TMP0:%.*]], i32* [[RET_CAST_GEP0]], align 4
-; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH0]]
 
 ; CHECK:       return:
 ; CHECK-NEXT:    [[VEC_RET_CAST0:%.*]] = bitcast i32* [[RET_CAST0]] to <4 x i32>*

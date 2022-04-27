@@ -1,4 +1,21 @@
 //===- DeadArgumentElimination.cpp - Eliminate dead arguments -------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -29,7 +46,6 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
@@ -52,7 +68,6 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 #include <cassert>
-#include <cstdint>
 #include <utility>
 #include <vector>
 
@@ -338,7 +353,8 @@ bool DeadArgumentEliminationPass::RemoveDeadArgumentsFromCallers(Function &Fn) {
   SmallVector<unsigned, 8> UnusedArgs;
   bool Changed = false;
 
-  AttrBuilder UBImplyingAttributes = AttributeFuncs::getUBImplyingAttributes();
+  AttributeMask UBImplyingAttributes =
+      AttributeFuncs::getUBImplyingAttributes();
   for (Argument &Arg : Fn.args()) {
     if (!Arg.hasSwiftErrorAttr() && Arg.use_empty() &&
         !Arg.hasPassPointeeByValueCopyAttr()) {
@@ -356,7 +372,8 @@ bool DeadArgumentEliminationPass::RemoveDeadArgumentsFromCallers(Function &Fn) {
 
   for (Use &U : Fn.uses()) {
     CallBase *CB = dyn_cast<CallBase>(U.getUser());
-    if (!CB || !CB->isCallee(&U))
+    if (!CB || !CB->isCallee(&U) ||
+        CB->getFunctionType() != Fn.getFunctionType())
       continue;
 
     // Now go through all unused args and replace them with "undef".
@@ -630,7 +647,8 @@ void DeadArgumentEliminationPass::SurveyFunction(const Function &F) {
     // If the function is PASSED IN as an argument, its address has been
     // taken.
     const auto *CB = dyn_cast<CallBase>(U.getUser());
-    if (!CB || !CB->isCallee(&U)) {
+    if (!CB || !CB->isCallee(&U) ||
+        CB->getFunctionType() != F.getFunctionType()) {
       MarkLive(F);
       return;
     }
@@ -922,7 +940,7 @@ bool DeadArgumentEliminationPass::RemoveDeadStuffFromFunction(Function *F) {
   assert(NRetTy && "No new return type found?");
 
   // The existing function return attributes.
-  AttrBuilder RAttrs(PAL.getRetAttrs());
+  AttrBuilder RAttrs(F->getContext(), PAL.getRetAttrs());
 
   // Remove any incompatible attributes, but only if we removed all return
   // values. Otherwise, ensure that we don't have any conflicting attributes
@@ -973,7 +991,7 @@ bool DeadArgumentEliminationPass::RemoveDeadStuffFromFunction(Function *F) {
 
     // Adjust the call return attributes in case the function was changed to
     // return void.
-    AttrBuilder RAttrs(CallPAL.getRetAttrs());
+    AttrBuilder RAttrs(F->getContext(), CallPAL.getRetAttrs());
     RAttrs.remove(AttributeFuncs::typeIncompatible(NRetTy));
     AttributeSet RetAttrs = AttributeSet::get(F->getContext(), RAttrs);
 
@@ -996,7 +1014,7 @@ bool DeadArgumentEliminationPass::RemoveDeadStuffFromFunction(Function *F) {
           // this is not an expected case anyway
           ArgAttrVec.push_back(AttributeSet::get(
               F->getContext(),
-              AttrBuilder(Attrs).removeAttribute(Attribute::Returned)));
+              AttrBuilder(F->getContext(), Attrs).removeAttribute(Attribute::Returned)));
         } else {
           // Otherwise, use the original attributes.
           ArgAttrVec.push_back(Attrs);

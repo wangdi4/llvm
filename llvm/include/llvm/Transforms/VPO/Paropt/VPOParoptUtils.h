@@ -1,4 +1,19 @@
 #if INTEL_COLLAB // -*- C++ -*-
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //=-- VPOParoptUtils.h - Class definition for VPO Paropt utilites -*- C++ -*-=//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -190,6 +205,119 @@ namespace intrinsics {
   /// @}
 
 } // end namespace intrinsics
+
+/// Base class for offload entries. It is not supposed to be instantiated.
+class OffloadEntry {
+public:
+  enum EntryKind : unsigned {
+    RegionKind       = 0,
+    VarKind          = 1u,
+    IndirectFuncKind = 2u
+  };
+
+protected:
+  explicit OffloadEntry(EntryKind Kind, StringRef Name, uint32_t Flags)
+      : Kind(Kind), Name(Name), Flags(Flags) {}
+
+public:
+  virtual ~OffloadEntry() = default;
+
+  EntryKind getKind() const { return Kind; }
+
+  StringRef getName() const { return Name; }
+
+  Constant *getAddress() const { return Addr; }
+
+  void setAddress(Constant *NewAddr) {
+    assert(!Addr && "Address has been set before!");
+    Addr = NewAddr;
+  }
+
+  uint32_t getFlags() const { return Flags; }
+  void setFlags(uint32_t NewFlags) { Flags = NewFlags; }
+
+  virtual size_t getSize() const = 0;
+
+private:
+  EntryKind Kind;
+  SmallString<64u> Name;
+  Constant* Addr = nullptr;
+  uint32_t Flags = 0;
+};
+
+/// Target region entry.
+class RegionEntry final : public OffloadEntry {
+public:
+  enum : uint32_t {
+    Region = 0x00,
+    Ctor   = 0x02,
+    Dtor   = 0x04
+  };
+
+public:
+  RegionEntry(StringRef Name, uint32_t Flags)
+      : OffloadEntry(RegionKind, Name, Flags) {}
+
+  RegionEntry(GlobalValue *GV, uint32_t Flags)
+      : OffloadEntry(RegionKind, GV->getName(), Flags) {
+    setAddress(GV);
+  }
+
+  size_t getSize() const override { return 0; }
+
+  static bool classof(const OffloadEntry *E) {
+    return E->getKind() == RegionKind;
+  }
+};
+
+/// Global variable entry.
+class VarEntry final : public OffloadEntry {
+public:
+  enum : uint32_t {
+    DeclareTargetTo = 0x00,
+    DeclareTargetLink = 0x01
+  };
+
+public:
+  explicit VarEntry(GlobalVariable *Var, StringRef Name, uint32_t Flags)
+      : OffloadEntry(VarKind, Name, Flags) {
+    setAddress(Var);
+  }
+
+  size_t getSize() const override {
+    const auto *Var = cast<GlobalVariable>(getAddress());
+    auto *VarType = Var->getValueType();
+    // Global variables have pointer type always.
+    // For the purpose of the size calculation, we have to
+    // get the pointee's type.
+    return Var->getParent()->getDataLayout().getTypeAllocSize(VarType);
+  }
+
+  bool isDeclaration() const {
+    const auto *Var = cast<GlobalVariable>(getAddress());
+    return Var->isDeclaration();
+  }
+
+  static bool classof(const OffloadEntry *E) {
+    return E->getKind() == VarKind;
+  }
+};
+
+/// Global indirect function entry.
+class IndirectFunctionEntry final : public OffloadEntry {
+public:
+  enum : uint32_t {
+    DeclareTargetFptr = 0x08
+  };
+  IndirectFunctionEntry(Function *Func, StringRef Name)
+      : OffloadEntry(IndirectFuncKind, Name, DeclareTargetFptr) {
+    setAddress(Func);
+  }
+  size_t getSize() const override { return 0; }
+  static bool classof(const OffloadEntry *E) {
+    return E->getKind() == IndirectFuncKind;
+  }
+};
 
 /// This class contains a set of utility functions used by VPO Paropt
 /// Transformation passes.
@@ -741,6 +869,17 @@ public:
                             LoopInfo *LI, bool IsTargetSPIRV,
                             const StringRef LockNameSuffix);
 
+  /// Emits a call to __kmpc_push_proc_bind(LOC, TID, i32 policy), where
+  /// policy is: 2 for MASTER - 3 for CLOSE - 4 for SPREAD.
+  static CallInst *genKmpcPushProcBindCall(WRegionNode *W, StructType *IdentTy,
+                                           Value *TidPtr,
+                                           Instruction *InsertPt);
+
+  /// Emits a call to __kmpc_omp_taskyield(LOC, TID, i32 0)
+  /// The third argument is set to 0 and used for debug tracing.
+  static CallInst *genKmpcTaskyieldCall(WRegionNode *W, StructType *IdentTy,
+                                        Value *TidPtr, Instruction *InsertPt);
+
   /// Generate a call to query if the current thread is masked thread or a
   /// call to end_masked for the team of threads. Emitted call:
   /// \code
@@ -924,11 +1063,30 @@ public:
                                           CallInst *Call2,
                                           bool InsideRegion = false);
 
-  /// Returns a pair containing calls to `__kmpc_spmd_push_num_threads` and
-  /// `__kmpc_spmd_pop_num_threads`. If provided, \p NumThreads is used for the
-  /// push_num_threads call, otherwise, \b 1 is used by default.
+  /// \name Utilities related to __kmpc_[begin/end]_spmd_[target/parallel] calls.
+  /// @{
+  /// Generates an spmd codegen specific call to the function \p FnName.
+  static CallInst *genKmpcSpmdCallImpl(Module *M, StringRef FnName);
+
+  /// Returns a pair containing calls to `__kmpc_begin_spmd_parallel` and
+  /// `__kmpc_end_spmd_parallel`.
   static std::pair<CallInst *, CallInst *>
-  genKmpcSpmdPushPopNumThreadsCalls(Module *M, Value *NumThreads = nullptr);
+  genKmpcBeginEndSpmdParallelCalls(Module *M);
+
+  /// Returns a pair containing calls to `__kmpc_begin_spmd_target` and
+  /// `__kmpc_end_spmd_target`.
+  static std::pair<CallInst *, CallInst *>
+  genKmpcBeginEndSpmdTargetCalls(Module *M);
+
+  /// Delete any calls to \p CalledFnName in the function \p F, if present.
+  /// \returns \b true if any such deletion happens, \b false otherwise.
+  /// Asserts if a call to \p CalledFnName in \p F has any uses.
+  static bool deleteCallsInFunctionTo(Function *F, StringRef CalledFnName);
+
+  /// Delete any calls to `__kmpc_begin/end_spmd_target/parallel` in \p F.
+  /// \returns \b true if any such deletion happens, \b false otherwise.
+  static bool deleteKmpcBeginEndSpmdCalls(Function *F);
+  /// @}
 
   /// \name Utilities to emit calls to ctor, dtor, cctor, and copyassign.
   /// @{
@@ -1241,7 +1399,7 @@ public:
   /// \endcode
   static CallInst *genKmpcTaskWithDeps(WRegionNode *W, StructType *IdentTy,
                                        Value *TidPtr, Value *TaskAlloc,
-                                       Value *Dep, int DepNum,
+                                       Value *Dep, Value *NumDeps,
                                        Instruction *InsertPt);
 
   /// Generate a call to `__kmpc_omp_wait_deps`. Example:
@@ -1255,14 +1413,14 @@ public:
   ///          i8* /* 0 */)
   /// \endcode
   static CallInst *genKmpcTaskWaitDeps(WRegionNode *W, StructType *IdentTy,
-                                       Value *TidPtr, Value *Dep, int DepNum,
-                                       Instruction *InsertPt);
+                                       Value *TidPtr, Value *Dep,
+                                       Value *NumDeps, Instruction *InsertPt);
 
   /// Generic routine to generate `__kmpc_omp_task_with_deps` or
   /// `__kmpc_omp_wait_deps` calls.
   static CallInst *genKmpcTaskDepsGeneric(WRegionNode *W, StructType *IdentTy,
                                           Value *TidPtr, Value *TaskAlloc,
-                                          Value *Dep, int DepNum,
+                                          Value *Dep, Value *NumDeps,
                                           Instruction *InsertPt,
                                           StringRef FnName);
 
@@ -1864,6 +2022,11 @@ public:
                                 Instruction *InsertPt = nullptr,
                                 bool IsVarArg = false);
 
+  /// Returns the single call site for the given function. Asserts if there
+  /// are multiple callsites or no callsite. Uses such as address-taken
+  /// references are OK.
+  static CallInst *getSingleCallSite(Function *F);
+
   /// Creates new Function and outlines \p W region into it.
   /// \p DT DominatorTree is updated accordingly. If \p BBsToExtractIn is
   /// provided, only the BasicBlocks it contains are outlined, instead of the
@@ -2178,6 +2341,22 @@ public:
   /// It is vpo::ADDRESS_SPACE_GENERIC for SPIR-V targets, 0 - otherwise.
   /// \p M is used to identify the current target.
   static unsigned getDefaultAS(const Module *M);
+
+  /// Load offload metadata from the module and create offload entries that
+  /// need to be emitted after lowering all target constructs.
+  /// The entries are returned in the result vector.
+  static SmallVector<OffloadEntry *, 8> loadOffloadMetadata(const Module &M);
+
+  /// Erase "omp_offload.info" metadata from the module \p M.
+  static bool eraseOffloadMetadata(Module &M);
+
+  /// Given \p W pointing to an instance of WRNTargetNode and \p OffloadEntries
+  /// array of offload entries read by VPOParoptUtils::loadOffloadMetadata()
+  /// the function returns OffloadEntry data structure corresponding
+  /// to the given target region.
+  static OffloadEntry *getTargetRegionOffloadEntry(
+      const WRegionNode *W,
+      const SmallVectorImpl<OffloadEntry *> &OffloadEntries);
 
   /// Check if reduction item \p RedI is supported by atomic-free reduction.
   /// It is necessary to correctly match global buffers created at prepare

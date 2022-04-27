@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -analyze  -hir-safe-reduction-analysis | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -analyze -enable-new-pm=0  -hir-safe-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" -disable-output 2>&1 | FileCheck %s
 
 ; CHECK:   <Safe Reduction> Red Op: fadd <Has Unsafe Algebra- Yes> <Conditional- No>

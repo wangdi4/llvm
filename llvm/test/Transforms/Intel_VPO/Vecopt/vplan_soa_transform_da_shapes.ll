@@ -9,6 +9,8 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: [Shape: SOA Unit Stride, Stride: i64 8]] [1024 x i64]* [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4
+; CHECK-NEXT:     [DA: [Shape: SOA Unit Stride, Stride: i64 8]] i8* [[VP_ARR_SOA_PRIV64_BCAST:%.*]] = bitcast [1024 x i64]* [[VP_ARR_SOA_PRIV64]]
+; CHECK-NEXT:     [DA: [Shape: Random]] call i64 8192 i8* [[VP_ARR_SOA_PRIV64_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 [Serial]
 ; CHECK-NEXT:     [DA: [Shape: Unit Stride, Stride: i64 1]] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: [Shape: Uniform]] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: [Shape: Uniform]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1

@@ -1,4 +1,21 @@
 //===- IntelVPlanValue.h - Represent Values in Vectorizer Plan ------------===//
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Copyright (C) 2021 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -552,7 +569,7 @@ class VPExternalDef : public VPValue, public FoldingSetNode {
   friend class VPLiveInOutCreator;
   friend class VPOCodeGenHIR;
   friend class VPOCodeGen;
-  friend class VPLoopEntityList;
+  friend class HIROperandSpecifics;
 
 private:
   // Hold the DDRef or IV information related to this external definition.
@@ -591,6 +608,11 @@ private:
     setName(getOperandHIR()->getName());
   }
 
+  VPExternalDef(const loopopt::HLIf *If)
+      : VPValue(VPValue::VPExternalDefSC,
+                Type::getInt1Ty(If->getHLNodeUtils().getContext())),
+        HIROperand(new VPIfCond(If)) {}
+
   // DESIGN PRINCIPLE: Access to the underlying IR must be strictly limited to
   // the front-end and back-end of VPlan so that the middle-end is as
   // independent as possible of the underlying IR. We grant access to the
@@ -603,6 +625,10 @@ public:
   VPExternalDef() = delete;
   VPExternalDef(const VPExternalDef &) = delete;
   VPExternalDef &operator=(const VPExternalDef &) const = delete;
+
+  const HIROperandSpecifics HIR() const {
+    return HIROperandSpecifics(this);
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS) const override {
@@ -644,6 +670,7 @@ private:
   friend class VPOCodeGen;
   friend class VPOCodeGenHIR;
   friend class VPDecomposerHIR;
+  friend class HIROperandSpecifics;
 
   // Hold the DDRef or IV information related to this external use.
   std::unique_ptr<VPOperandHIR> HIROperand;
@@ -693,6 +720,10 @@ public:
 
   bool hasUnderlying() const {
     return getUnderlyingValue() != nullptr || HIROperand != nullptr;
+  }
+
+  const HIROperandSpecifics HIR() const {
+    return HIROperandSpecifics(this);
   }
 
   /// Adds operand with an underlying value. The underlying value points to the

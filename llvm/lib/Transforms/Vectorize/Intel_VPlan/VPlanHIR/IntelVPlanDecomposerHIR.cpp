@@ -587,8 +587,9 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
   }
 
   // Create a bitcast instruction if needed
-  auto BitCastDestElemTy = Ref->getBitCastDestVecOrElemType();
-  if (BitCastDestElemTy) {
+  auto *BitCastDestElemTy = Ref->getBitCastDestVecOrElemType();
+  if (BitCastDestElemTy &&
+      BitCastDestElemTy->getContext().supportsTypedPointers()) {
     LLVM_DEBUG(dbgs() << "VPDecomp: BitCastDestElemTy: ";
                BitCastDestElemTy->dump(); dbgs() << "\n");
     MemOpVPI = Builder.createNaryOp(
@@ -1321,10 +1322,10 @@ VPInstruction *VPDecomposerHIR::createLoopZtt(HLLoop *HLp,
   for (auto PredIt = PredBegin; PredIt != PredEnd; ++PredIt) {
     // Generate VPValues for the LHS and RHS of the DDRefs corresponding
     // to PredIt and generate Cmp instruction using predicate from PredIt.
-    auto *VPOp1 = decomposeVPOperand(
-        HLp->getZttPredicateOperandDDRef(PredIt, true /* IsLHS */));
-    auto *VPOp2 = decomposeVPOperand(
-        HLp->getZttPredicateOperandDDRef(PredIt, false /* IsLHS */));
+    auto *VPOp1 =
+        decomposeVPOperand(HLp->getLHSZttPredicateOperandDDRef(PredIt));
+    auto *VPOp2 =
+        decomposeVPOperand(HLp->getRHSZttPredicateOperandDDRef(PredIt));
     auto *CurVPInst = createCmpInst(*PredIt, VPOp1, VPOp2);
 
     // Combine using 'And' into CombinedVPInst if non-null
@@ -1506,7 +1507,7 @@ void VPDecomposerHIR::addIDFPhiNodes() {
   DenseMap<unsigned, SmallPtrSet<VPBasicBlock *, 8>> SymbaseUsingBlocks;
   Plan->computeDT();
   VPDominatorTree &DT = *(Plan->getDT());
-  VPBasicBlock *PlanEntry = Plan->getEntryBlock();
+  VPBasicBlock *PlanEntry = &Plan->getEntryBlock();
 
   ///// Populate use-def blocks of each tracked symbase //////
 
@@ -1730,7 +1731,7 @@ void VPDecomposerHIR::fixPhiNodes() {
 
   assert(Builder.getInsertBlock() &&
          "Current insertion VPBB for builder cannot be null.");
-  VPBasicBlock *PlanEntry = Plan->getEntryBlock();
+  VPBasicBlock *PlanEntry = &Plan->getEntryBlock();
   assert(PlanEntry && "Entry VPBB for Plan cannot be null.");
   LLVM_DEBUG(dbgs() << "PlanEntry: "; PlanEntry->getParent()->dump();
              dbgs() << "\n");
@@ -1758,9 +1759,9 @@ void VPDecomposerHIR::fixPhiNodes() {
 
     // This fixed PHI node might have an empty/null incoming value from one of
     // its predecessors. This could happen due to inaccuracies in DDG. We also
-    // consider PHIs with single operands here. In most cases such PHI nodes are
-    // not even needed. Following are possible cases :
-    // 1. The PHI node has just a single incoming value.
+    // consider PHIs with same incoming values along all edges here. In most
+    // cases such PHI nodes are not even needed. Following are possible cases :
+    // 1. The PHI node has just a single incoming value along all edges.
     //    Solution : We replace all uses of this PHI with its operand, and
     //    remove the PHI.
     // 2. The PHI node has no incoming value.
@@ -1771,7 +1772,12 @@ void VPDecomposerHIR::fixPhiNodes() {
     //    replace all uses of PHI with this instruction thereby removing the
     //    PHI.
 
-    if (FixedPhi->getNumIncomingValues() == 1) {
+    bool HasSameIncomingValues =
+        FixedPhi->getNumIncomingValues() > 0 &&
+        llvm::all_of(FixedPhi->incoming_values(), [FixedPhi](VPValue *InV) {
+          return InV == FixedPhi->getIncomingValue(0u);
+        });
+    if (HasSameIncomingValues) {
       // Solution for case 1
       LLVM_DEBUG(dbgs() << "VPDecomp fixPhiNodes : The fixed PHI node will be "
                            "replaced and removed:";
@@ -2183,10 +2189,30 @@ VPDecomposerHIR::VPBlobDecompVisitor::decomposeNAryOp(const SCEVNAryExpr *Blob,
                                                       unsigned OpCode) {
   VPValue *DecompDef = nullptr;
   Type *ExprTy = Blob->getType();
+
+  // TODO:
+  // VPInstruction::UMinSeq is NOT commutative so the original operand order has
+  // to be honored as it is implemented for OpCode == VPInstruction::UMinSeq
+  // case below.
+  //
+  // This method handled commutative operations only before UMinSeq was
+  // introduced. Historically the code swaps the operands, which is unacceptable
+  // for UMinSeq (the default code below). Technically we should be able to
+  // remove 'not UMinSeq' code and handle both commutative and non commutative
+  // operations with the same code. However VPlan misses canonicalization pass
+  // for immediate operands of commutative operation thus such change would
+  // produce instructions such as mul 3, %op, i.e. with the first immediate
+  // operand.
+  //
+  // Thereby, before generalizing the code we might want to add canonicalization
+  // to avoid possible negative impact on downstream transformations and
+  // performance eventually.
+  //
   for (auto *SCOp : Blob->operands()) {
     VPValue *VPOp = Decomposer.decomposeBlobImplicitConv(visit(SCOp), ExprTy);
-    DecompDef =
-        Decomposer.combineDecompDefs(VPOp, DecompDef, Blob->getType(), OpCode);
+    DecompDef = (OpCode == VPInstruction::UMinSeq) ?
+      Decomposer.combineDecompDefs(DecompDef, VPOp, Blob->getType(), OpCode) :
+      Decomposer.combineDecompDefs(VPOp, DecompDef, Blob->getType(), OpCode);
   }
 
   return DecompDef;
@@ -2266,6 +2292,12 @@ VPDecomposerHIR::VPBlobDecompVisitor::visitSMinExpr(const SCEVSMinExpr *Expr) {
 VPValue *
 VPDecomposerHIR::VPBlobDecompVisitor::visitUMinExpr(const SCEVUMinExpr *Expr) {
   return decomposeNAryOp(Expr, VPInstruction::UMin);
+}
+
+VPValue *
+VPDecomposerHIR::VPBlobDecompVisitor::visitSequentialUMinExpr(
+    const SCEVSequentialUMinExpr *Expr) {
+  return decomposeNAryOp(Expr, VPInstruction::UMinSeq);
 }
 
 VPValue *

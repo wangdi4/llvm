@@ -66,7 +66,7 @@
 ; CHECK-IR-MD: !14 = distinct !{!"intel.callsites.inlining.report", !15}
 ; CHECK-IR-MD: !15 = distinct !{!"intel.callsite.inlining.report", !9, null, !16, !17, !18, !19, !20, !21, !22, !"line: 0 col: 0", !2, !7}
 ; CHECK-IR-MD: !16 = !{!"isInlined: 0"}
-; CHECK-IR-MD: !17 = !{!"reason: 55"}
+; CHECK-IR-MD: !17 = !{!"reason: 40"}
 ; CHECK-IR-MD: !18 = !{!"inlineCost: -1"}
 ; CHECK-IR-MD: !19 = !{!"outerInlineCost: -1"}
 ; CHECK-IR-MD: !20 = !{!"inlineThreshold: -1"}
@@ -76,14 +76,14 @@
 ; CHECK-IR-MD: !24 = distinct !{!"intel.function.inlining.report", !25, !26, !2, !3, !10, !5, !6, !7}
 ; CHECK-IR-MD: !25 = !{!"name: bas"}
 ; CHECK-IR-MD: !26 = distinct !{!"intel.callsites.inlining.report", !27}
-; CHECK-IR-MD: !27 = distinct !{!"intel.callsite.inlining.report", !13, !28, !30, !31, !32, !19, !33, !21, !22, !"line: 0 col: 0", !2, !7}
+; CHECK-IR-MD: !27 = distinct !{!"intel.callsite.inlining.report", !13, !28, !31, !32, !33, !19, !34, !21, !22, !"line: 0 col: 0", !2, !7}
 ; CHECK-IR-MD: !28 = distinct !{!"intel.callsites.inlining.report", !29}
-; CHECK-IR-MD: !29 = distinct !{!"intel.callsite.inlining.report", !9, null, !16, !17, !18, !19, !20, !21, !22, !"line: 0 col: 0", !2, !7}
-; CHECK-IR-MD: !30 = !{!"isInlined: 1"}
-; CHECK-IR-MD: !31 = !{!"reason: 8"}
-; CHECK-IR-MD: !32 = !{!"inlineCost: -15000"}
-; CHECK-IR-MD: !33 = !{!"inlineThreshold: 337"}
-
+; CHECK-IR-MD: !29 = distinct !{!"intel.callsite.inlining.report", !9, null, !16, !30, !18, !19, !20, !21, !22, !"line: 0 col: 0", !2, !7}
+; CHECK-IR-MD: !30 = !{!"reason: 59"}
+; CHECK-IR-MD: !31 = !{!"isInlined: 1"}
+; CHECK-IR-MD: !32 = !{!"reason: 10"}
+; CHECK-IR-MD: !33 = !{!"inlineCost: -15000"}
+; CHECK-IR-MD: !34 = !{!"inlineThreshold: 337"}
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

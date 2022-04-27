@@ -13,16 +13,16 @@
 ; CHECK: |   %.vec1 = %.vec  ^  -1;
 ; CHECK: |   %.vec2 = i1 + <i32 0, i32 1, i32 2, i32 3> <u 30;
 ; CHECK: |   %.vec3 = %.vec1  &  %.vec2;
-; CHECK: |   %.vec4 = (<4 x i32>*)(%B)[i1]; Mask = @{%.vec3}
-; CHECK: |   (<4 x i32>*)(%A)[i1] = %.vec4 + 15; Mask = @{%.vec3}
-; CHECK: |   %.vec5 = (<4 x i32>*)(%B)[i1]; Mask = @{%.vec}
-; CHECK: |   (<4 x i32>*)(%A)[i1] = %.vec5 + 5; Mask = @{%.vec}
+; CHECK: |   %.vec4 = (<4 x i32>*)(%B)[i1], Mask = @{%.vec3};
+; CHECK: |   (<4 x i32>*)(%A)[i1] = %.vec4 + 15, Mask = @{%.vec3};
+; CHECK: |   %.vec5 = (<4 x i32>*)(%B)[i1], Mask = @{%.vec};
+; CHECK: |   (<4 x i32>*)(%A)[i1] = %.vec5 + 5, Mask = @{%.vec};
 ; CHECK: + END LOOP
 
 ; After DSE
 
-; CHECK: |   (<4 x i32>*)(%A)[i1] = %.vec4 + 15; Mask = @{%.vec3}
-; CHECK: |   (<4 x i32>*)(%A)[i1] = %.vec5 + 5; Mask = @{%.vec}
+; CHECK: |   (<4 x i32>*)(%A)[i1] = %.vec4 + 15, Mask = @{%.vec3};
+; CHECK: |   (<4 x i32>*)(%A)[i1] = %.vec5 + 5, Mask = @{%.vec};
 
 target datalayout = "e-m:e-p:32:32-p270:32:32-p271:32:32-p272:64:64-f64:32:64-f80:32-n8:16:32-S128"
 target triple = "i386-unknown-linux-gnu"

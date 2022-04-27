@@ -45,6 +45,7 @@ class FuseEdgeHeap;
 class FuseNode {
   SmallVector<HLLoop *, 4> LoopsVector;
   HLNode *BadNode = nullptr;
+  bool IsVectorizable = true;
   bool IsRemovedFlag = false;
   bool HasUnsafeSideEffects = false;
 
@@ -66,6 +67,10 @@ public:
     print(dbgs());
     dbgs() << "\n";
   }
+
+  bool isVectorizable() const { return IsVectorizable; }
+
+  void setVectorizable(bool Flag) { IsVectorizable = Flag; }
 
   unsigned getTopSortNumber() const;
 
@@ -232,6 +237,9 @@ private:
   // bad path sets.
   void updateBothWays(unsigned NodeV, unsigned NodeX, NodeMapTy &LocalPathFrom,
                       NodeMapTy &LocalPathTo);
+
+  // Skip fusion if one loop is vectorizable and another is not.
+  void excludePathPreventingVectorization(unsigned NodeV, unsigned NodeW);
 
   // Assume collapse V <- X, update path info.
   void updatePathInfo(unsigned NodeV, unsigned NodeX);

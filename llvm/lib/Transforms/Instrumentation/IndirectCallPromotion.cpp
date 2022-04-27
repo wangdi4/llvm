@@ -1,4 +1,21 @@
 //===- IndirectCallPromotion.cpp - Optimizations based on value profiling -===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,28 +30,20 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/IndirectCallPromotionAnalysis.h"
 #include "llvm/Analysis/IndirectCallVisitor.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
-#include "llvm/IR/Attributes.h"
-#include "llvm/IR/BasicBlock.h"
 #include "llvm/Analysis/Intel_WP.h"   // INTEL
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -46,7 +55,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Instrumentation/PGOInstrumentation.h"
-#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/CallPromotionUtils.h"
 #include <cassert>
 #include <cstdint>
@@ -114,8 +122,8 @@ static cl::opt<bool>
     ICPDUMPAFTER("icp-dumpafter", cl::init(false), cl::Hidden,
                  cl::desc("Dump IR after transformation happens"));
 
+#if INTEL_CUSTOMIZATION
 namespace {
-
 class PGOIndirectCallPromotionLegacyPass : public ModulePass {
 public:
   static char ID;
@@ -163,9 +171,9 @@ ModulePass *llvm::createPGOIndirectCallPromotionLegacyPass(bool InLTO,
                                                            bool SamplePGO) {
   return new PGOIndirectCallPromotionLegacyPass(InLTO, SamplePGO);
 }
+#endif // INTEL_CUSTOMIZATION
 
 namespace {
-
 // The class for main data structure to promote indirect calls to conditional
 // direct calls.
 class ICallPromotionFunc {
@@ -456,6 +464,7 @@ static bool promoteIndirectCalls(Module &M, ProfileSummaryInfo *PSI,
   return Changed;
 }
 
+#if INTEL_CUSTOMIZATION
 bool PGOIndirectCallPromotionLegacyPass::runOnModule(Module &M) {
   ProfileSummaryInfo *PSI =
       &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
@@ -464,6 +473,7 @@ bool PGOIndirectCallPromotionLegacyPass::runOnModule(Module &M) {
   return promoteIndirectCalls(M, PSI, InLTO | ICPLTOMode,
                               SamplePGO | ICPSamplePGOMode);
 }
+#endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses PGOIndirectCallPromotion::run(Module &M,
                                                 ModuleAnalysisManager &AM) {

@@ -1,4 +1,21 @@
 //===--- MicrosoftCXXABI.cpp - Emit LLVM Code from ASTs for a Module ------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -401,7 +418,9 @@ public:
       ArrayRef<const VarDecl *> CXXThreadLocalInitVars) override;
 
   bool usesThreadWrapperFunction(const VarDecl *VD) const override {
-    return false;
+    return getContext().getLangOpts().isCompatibleWithMSVC(
+               LangOptions::MSVC2019_5) &&
+           (!isEmittedWithConstantInitializer(VD) || mayNeedDestruction(VD));
   }
   LValue EmitThreadLocalVarDeclLValue(CodeGenFunction &CGF, const VarDecl *VD,
                                       QualType LValType) override;
@@ -797,6 +816,58 @@ public:
     CGM.addDTransType(RD, ST);
     return Ctx.getPointerType(ClangThrowInfoType);
   }
+
+  llvm::SmallVector<StringRef,4> TypeDescriptorTypeNames;
+
+  // Create a clang type for the MSVC-style RTTI type descriptor so that we can
+  // properly add this to the metadata.  This type is consistently just: {i8**,
+  // i8*, [N x i8]}, where N is based on the mangled CXXRTTI name of the type.
+  // Instead of re-calculating, we can just look into the type to find it.
+  void AddDTransTypeDescriptorType(llvm::StructType *TypeDescriptorType,
+                                   unsigned NameLen) {
+    if (!CGM.getCodeGenOpts().EmitDTransInfo)
+      return;
+
+    ASTContext &Ctx = CGM.getContext();
+
+    // If we've already created one of this size, we don't need to add another.
+    StringRef TDName = TypeDescriptorType->getName();
+
+    if (llvm::find(TypeDescriptorTypeNames, TDName) !=
+        TypeDescriptorTypeNames.end())
+      return;
+    TypeDescriptorTypeNames.push_back(TDName);
+
+    RecordDecl *RD = Ctx.buildImplicitRecord(TDName);
+    RD->startDefinition();
+
+    FieldDecl *VTable = FieldDecl::Create(
+        Ctx, RD, SourceLocation{}, SourceLocation{}, /*IdentifierInfo*/ nullptr,
+        Ctx.getPointerType(Ctx.getPointerType(Ctx.Char8Ty)), /*TInfo*/ nullptr,
+        /*Bitwidth*/ nullptr, /*mutable*/ false, ICIS_NoInit);
+    VTable->setAccess(AS_public);
+
+    FieldDecl *RuntimeData = FieldDecl::Create(
+        Ctx, RD, SourceLocation{}, SourceLocation{}, /*IdentifierInfo*/ nullptr,
+        Ctx.getPointerType(Ctx.Char8Ty), /*TInfo*/ nullptr,
+        /*Bitwidth*/ nullptr, /*mutable*/ false, ICIS_NoInit);
+    RuntimeData->setAccess(AS_public);
+
+    QualType NameTy = Ctx.getConstantArrayType(
+        Ctx.Char8Ty, {64, NameLen}, /*SizeExpr*/ nullptr, ArrayType::Normal,
+        /*IndexTypeQuals*/ 0);
+    FieldDecl *Name =
+        FieldDecl::Create(Ctx, RD, SourceLocation{}, SourceLocation{},
+                          /*IdentifierInfo*/ nullptr, NameTy, /*TInfo*/ nullptr,
+                          /*Bitwidth*/ nullptr, /*mutable*/ false, ICIS_NoInit);
+    Name->setAccess(AS_public);
+
+    RD->completeDefinition();
+    QualType DescriptorTy = Ctx.getRecordType(RD);
+    CGM.getTypes().setDTransRuntimeType(TypeDescriptorType, DescriptorTy,
+                                        {VTable, RuntimeData, Name});
+    CGM.addDTransType(RD, TypeDescriptorType);
+  }
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -1020,7 +1091,8 @@ MicrosoftCXXABI::performBaseAdjustment(CodeGenFunction &CGF, Address Value,
       Value.getElementType(), Value.getPointer(), Offset);
   CharUnits VBaseAlign =
     CGF.CGM.getVBaseAlignment(Value.getAlignment(), SrcDecl, PolymorphicBase);
-  return std::make_tuple(Address(Ptr, VBaseAlign), Offset, PolymorphicBase);
+  return std::make_tuple(Address(Ptr, CGF.Int8Ty, VBaseAlign), Offset,
+                         PolymorphicBase);
 }
 
 bool MicrosoftCXXABI::shouldTypeidBeNullChecked(bool IsDeref,
@@ -1555,7 +1627,7 @@ Address MicrosoftCXXABI::adjustThisArgumentForVirtualFunctionCall(
         Result.getElementType(), Result.getPointer(), VBaseOffset);
     CharUnits VBaseAlign =
       CGF.CGM.getVBaseAlignment(Result.getAlignment(), Derived, VBase);
-    Result = Address(VBasePtr, VBaseAlign);
+    Result = Address(VBasePtr, CGF.Int8Ty, VBaseAlign);
   }
   if (!StaticOffset.isZero()) {
     assert(StaticOffset.isPositive());
@@ -2031,7 +2103,7 @@ CGCallee MicrosoftCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
   llvm::Value *VFunc;
   if (CGF.ShouldEmitVTableTypeCheckedLoad(MethodDecl->getParent())) {
     VFunc = CGF.EmitVTableTypeCheckedLoad(
-        getObjectWithVPtr(), VTable,
+        getObjectWithVPtr(), VTable, Ty,
         ML.Index * CGM.getContext().getTargetInfo().getPointerWidth(0) / 8);
   } else {
     if (CGM.getCodeGenOpts().PrepareForLTO)
@@ -2302,10 +2374,10 @@ llvm::Value *MicrosoftCXXABI::performThisAdjustment(CodeGenFunction &CGF,
       assert(TA.Virtual.Microsoft.VBPtrOffset > 0);
       assert(TA.Virtual.Microsoft.VBOffsetOffset >= 0);
       llvm::Value *VBPtr;
-      llvm::Value *VBaseOffset =
-          GetVBaseOffsetFromVBPtr(CGF, Address(V, CGF.getPointerAlign()),
-                                  -TA.Virtual.Microsoft.VBPtrOffset,
-                                  TA.Virtual.Microsoft.VBOffsetOffset, &VBPtr);
+      llvm::Value *VBaseOffset = GetVBaseOffsetFromVBPtr(
+          CGF, Address(V, CGF.Int8Ty, CGF.getPointerAlign()),
+          -TA.Virtual.Microsoft.VBPtrOffset,
+          TA.Virtual.Microsoft.VBOffsetOffset, &VBPtr);
       V = CGF.Builder.CreateInBoundsGEP(CGF.Int8Ty, VBPtr, VBaseOffset);
     }
   }
@@ -2484,11 +2556,97 @@ void MicrosoftCXXABI::EmitThreadLocalInitFuncs(
   }
 }
 
+static llvm::GlobalValue *getTlsGuardVar(CodeGenModule &CGM) {
+  // __tls_guard comes from the MSVC runtime and reflects
+  // whether TLS has been initialized for a particular thread.
+  // It is set from within __dyn_tls_init by the runtime.
+  // Every library and executable has its own variable.
+  llvm::Type *VTy = llvm::Type::getInt8Ty(CGM.getLLVMContext());
+  llvm::Constant *TlsGuardConstant =
+      CGM.CreateRuntimeVariable(VTy, "__tls_guard");
+  llvm::GlobalValue *TlsGuard = cast<llvm::GlobalValue>(TlsGuardConstant);
+
+  TlsGuard->setThreadLocal(true);
+
+  return TlsGuard;
+}
+
+static llvm::FunctionCallee getDynTlsOnDemandInitFn(CodeGenModule &CGM) {
+  // __dyn_tls_on_demand_init comes from the MSVC runtime and triggers
+  // dynamic TLS initialization by calling __dyn_tls_init internally.
+  llvm::FunctionType *FTy =
+      llvm::FunctionType::get(llvm::Type::getVoidTy(CGM.getLLVMContext()), {},
+                              /*isVarArg=*/false);
+  return CGM.CreateRuntimeFunction(
+      FTy, "__dyn_tls_on_demand_init",
+      llvm::AttributeList::get(CGM.getLLVMContext(),
+                               llvm::AttributeList::FunctionIndex,
+                               llvm::Attribute::NoUnwind),
+      /*Local=*/true);
+}
+
+static void emitTlsGuardCheck(CodeGenFunction &CGF, llvm::GlobalValue *TlsGuard,
+                              llvm::BasicBlock *DynInitBB,
+                              llvm::BasicBlock *ContinueBB) {
+  llvm::LoadInst *TlsGuardValue =
+      CGF.Builder.CreateLoad(Address(TlsGuard, CGF.Int8Ty, CharUnits::One()));
+  llvm::Value *CmpResult =
+      CGF.Builder.CreateICmpEQ(TlsGuardValue, CGF.Builder.getInt8(0));
+  CGF.Builder.CreateCondBr(CmpResult, DynInitBB, ContinueBB);
+}
+
+static void emitDynamicTlsInitializationCall(CodeGenFunction &CGF,
+                                             llvm::GlobalValue *TlsGuard,
+                                             llvm::BasicBlock *ContinueBB) {
+  llvm::FunctionCallee Initializer = getDynTlsOnDemandInitFn(CGF.CGM);
+  llvm::Function *InitializerFunction =
+      cast<llvm::Function>(Initializer.getCallee());
+  llvm::CallInst *CallVal = CGF.Builder.CreateCall(InitializerFunction);
+  CallVal->setCallingConv(InitializerFunction->getCallingConv());
+
+  CGF.Builder.CreateBr(ContinueBB);
+}
+
+static void emitDynamicTlsInitialization(CodeGenFunction &CGF) {
+  llvm::BasicBlock *DynInitBB =
+      CGF.createBasicBlock("dyntls.dyn_init", CGF.CurFn);
+  llvm::BasicBlock *ContinueBB =
+      CGF.createBasicBlock("dyntls.continue", CGF.CurFn);
+
+  llvm::GlobalValue *TlsGuard = getTlsGuardVar(CGF.CGM);
+
+  emitTlsGuardCheck(CGF, TlsGuard, DynInitBB, ContinueBB);
+  CGF.Builder.SetInsertPoint(DynInitBB);
+  emitDynamicTlsInitializationCall(CGF, TlsGuard, ContinueBB);
+  CGF.Builder.SetInsertPoint(ContinueBB);
+}
+
 LValue MicrosoftCXXABI::EmitThreadLocalVarDeclLValue(CodeGenFunction &CGF,
                                                      const VarDecl *VD,
                                                      QualType LValType) {
-  CGF.CGM.ErrorUnsupported(VD, "thread wrappers");
-  return LValue();
+  // Dynamic TLS initialization works by checking the state of a
+  // guard variable (__tls_guard) to see whether TLS initialization
+  // for a thread has happend yet.
+  // If not, the initialization is triggered on-demand
+  // by calling __dyn_tls_on_demand_init.
+  emitDynamicTlsInitialization(CGF);
+
+  // Emit the variable just like any regular global variable.
+
+  llvm::Value *V = CGF.CGM.GetAddrOfGlobalVar(VD);
+  llvm::Type *RealVarTy = CGF.getTypes().ConvertTypeForMem(VD->getType());
+
+  unsigned AS = cast<llvm::PointerType>(V->getType())->getAddressSpace();
+  V = CGF.Builder.CreateBitCast(V, RealVarTy->getPointerTo(AS));
+
+  CharUnits Alignment = CGF.getContext().getDeclAlign(VD);
+  Address Addr(V, RealVarTy, Alignment);
+
+  LValue LV = VD->getType()->isReferenceType()
+                  ? CGF.EmitLoadOfReferenceLValue(Addr, VD->getType(),
+                                                  AlignmentSource::Decl)
+                  : CGF.MakeAddrLValue(Addr, LValType, AlignmentSource::Decl);
+  return LV;
 }
 
 static ConstantAddress getInitThreadEpochPtr(CodeGenModule &CGM) {
@@ -4051,6 +4209,11 @@ llvm::Constant *MicrosoftCXXABI::getAddrOfRTTIDescriptor(QualType Type) {
     llvm::ConstantDataArray::getString(CGM.getLLVMContext(), TypeInfoString)};
   llvm::StructType *TypeDescriptorType =
       getTypeDescriptorType(TypeInfoString);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  AddDTransTypeDescriptorType(TypeDescriptorType, TypeInfoString.size() + 1);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   auto *Var = new llvm::GlobalVariable(
       CGM.getModule(), TypeDescriptorType, /*isConstant=*/false,
       getLinkageForRTTI(Type),

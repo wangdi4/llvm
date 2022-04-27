@@ -1,4 +1,5 @@
-; RUN: opt < %s -analyze -scalar-evolution | FileCheck %s
+; RUN: opt < %s -analyze -enable-new-pm=0 -scalar-evolution | FileCheck %s
+; RUN: opt < %s -disable-output "-passes=print<scalar-evolution>" 2>&1 | FileCheck %s
 
 ; Verify that the smax expr in backedge taken count of the loop is simplified.
 ; Original the expr was like this-

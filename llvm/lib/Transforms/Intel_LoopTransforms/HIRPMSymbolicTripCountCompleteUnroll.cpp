@@ -574,8 +574,8 @@ bool HIRPMSymbolicTripCountCompleteUnroll::doHLIF0Test(void) {
   // Check the predicate's operands are:
   // Operand0: a (function) local variable
   // Operand1: 0 (an integer constant)
-  RegDDRef *LHSRef = HLIF0->getPredicateOperandDDRef(PredI, true);
-  RegDDRef *RHSRef = HLIF0->getPredicateOperandDDRef(PredI, false);
+  RegDDRef *LHSRef = HLIF0->getLHSPredicateOperandDDRef(PredI);
+  RegDDRef *RHSRef = HLIF0->getRHSPredicateOperandDDRef(PredI);
   // Examine both operands:
   LLVM_DEBUG(FOS << "LHSRef: "; LHSRef->dump(); FOS << "\n";);
   LLVM_DEBUG(FOS << "RHSRef: "; RHSRef->dump(); FOS << "\n";);
@@ -648,8 +648,8 @@ bool HIRPMSymbolicTripCountCompleteUnroll::doHLIF1Test(void) {
     return false;
   }
 
-  RegDDRef *LHSRef = HLIF1->getPredicateOperandDDRef(PredI, true);
-  RegDDRef *RHSRef = HLIF1->getPredicateOperandDDRef(PredI, false);
+  RegDDRef *LHSRef = HLIF1->getLHSPredicateOperandDDRef(PredI);
+  RegDDRef *RHSRef = HLIF1->getRHSPredicateOperandDDRef(PredI);
   // Examine both operands:
   LLVM_DEBUG(FOS << "LHSRef: "; LHSRef->dump(); FOS << "\n";);
   LLVM_DEBUG(FOS << "RHSRef: "; RHSRef->dump(); FOS << "\n";);

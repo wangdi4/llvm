@@ -1,6 +1,6 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
 ;
 ; In Fortran, when the variant function has string parameters, the compiler adds
 ; special hidden parameters at the end of the function call for the string lengths.

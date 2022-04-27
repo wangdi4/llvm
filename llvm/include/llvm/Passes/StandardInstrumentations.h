@@ -1,4 +1,21 @@
 //===- StandardInstrumentations.h ------------------------------*- C++ -*--===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -75,7 +92,7 @@ private:
 
 class OptBisectInstrumentation {
 public:
-  OptBisectInstrumentation() {}
+  OptBisectInstrumentation() = default;
   void registerCallbacks(PassInstrumentationCallbacks &PIC);
 };
 
@@ -191,17 +208,6 @@ public:
 protected:
   // Register required callbacks.
   void registerRequiredCallbacks(PassInstrumentationCallbacks &PIC);
-
-  // Return true when this is a defined function for which printing
-  // of changes is desired.
-  bool isInterestingFunction(const Function &F);
-
-  // Return true when this is a pass for which printing of changes is desired.
-  bool isInterestingPass(StringRef PassID);
-
-  // Return true when this is a pass on IR for which printing
-  // of changes is desired.
-  bool isInteresting(Any IR, StringRef PassID);
 
   // Called on the first IR processed.
   virtual void handleInitialIR(Any IR) = 0;
@@ -437,7 +443,7 @@ public:
   }
 
   // Return the label of the basic block reached on a transition on \p S.
-  const StringRef getSuccessorLabel(StringRef S) const {
+  StringRef getSuccessorLabel(StringRef S) const {
     assert(Successors.count(S) == 1 && "Expected to find successor.");
     return Successors.find(S)->getValue();
   }
@@ -503,7 +509,9 @@ class StandardInstrumentations {
   PrintPassInstrumentation PrintPass;
   TimePassesHandler TimePasses;
   OptNoneInstrumentation OptNone;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   OptBisectInstrumentation OptBisect;
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   PreservedCFGCheckerInstrumentation PreservedCFGChecker;
   IRChangedPrinter PrintChangedIR;
   PseudoProbeVerifier PseudoProbeVerification;

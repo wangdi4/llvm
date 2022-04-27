@@ -1,4 +1,21 @@
 //===- GVNHoist.cpp - Hoist scalar and load expressions -------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -54,11 +71,9 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Use.h"
@@ -132,7 +147,7 @@ using HoistingPointInfo = std::pair<BasicBlock *, SmallVecInsn>;
 using HoistingPointList = SmallVector<HoistingPointInfo, 4>;
 
 // A map from a pair of VNs to all the instructions with those VNs.
-using VNType = std::pair<unsigned, unsigned>;
+using VNType = std::pair<unsigned, uintptr_t>;
 
 using VNtoInsns = DenseMap<VNType, SmallVector<Instruction *, 4>>;
 
@@ -167,7 +182,7 @@ using InValuesType =
 
 // An invalid value number Used when inserting a single value number into
 // VNtoInsns.
-enum : unsigned { InvalidVN = ~2U };
+enum : uintptr_t { InvalidVN = ~(uintptr_t)2 };
 
 // Records all scalar instructions candidate for code hoisting.
 class InsnInfo {
@@ -193,7 +208,9 @@ public:
   void insert(LoadInst *Load, GVNPass::ValueTable &VN) {
     if (Load->isSimple()) {
       unsigned V = VN.lookupOrAdd(Load->getPointerOperand());
-      VNtoLoads[{V, InvalidVN}].push_back(Load);
+      // With opaque pointers we may have loads from the same pointer with
+      // different result types, which should be disambiguated.
+      VNtoLoads[{V, (uintptr_t)Load->getType()}].push_back(Load);
     }
   }
 
@@ -268,9 +285,11 @@ public:
 #if INTEL_CUSTOMIZATION
            MemoryDependenceResults *MD, MemorySSA *MSSA, bool HoistingGeps)
       : DT(DT), PDT(PDT), AA(AA), MD(MD), MSSA(MSSA),
-        MSSAUpdater(std::make_unique<MemorySSAUpdater>(MSSA)),
-        HoistingGeps(HoistingGeps) {}
 #endif // INTEL_CUSTOMIZATION
+        MSSAUpdater(std::make_unique<MemorySSAUpdater>(MSSA)),
+        HoistingGeps(HoistingGeps) {
+    MSSA->ensureOptimizedUses();
+  }
 
   bool run(Function &F);
 
@@ -1194,6 +1213,8 @@ std::pair<unsigned, unsigned> GVNHoist::hoist(HoistingPointList &HPL) {
       DFSNumber[Repl] = DFSNumber[Last]++;
     }
 
+    // Drop debug location as per debug info update guide.
+    Repl->dropLocation();
     NR += removeAndReplace(InstructionsToHoist, Repl, DestBB, MoveAccess);
 
     if (isa<LoadInst>(Repl))

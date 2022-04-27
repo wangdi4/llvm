@@ -12,9 +12,9 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/CallGraph.h"
-#include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/DiagnosticInfo.h"
+#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
@@ -39,6 +39,12 @@ static cl::opt<bool, true>
                                     cl::location(DPCPPEnableSubGroupEmulation),
                                     cl::Hidden,
                                     cl::desc("Enable sub-group emulation"));
+
+bool DPCPPForceOptnone = false;
+static cl::opt<bool, true> DPCPPForceOptnoneOpt(
+    "dpcpp-force-optnone", cl::location(DPCPPForceOptnone), cl::Hidden,
+    cl::desc("Force passes to process functions as if they have the optnone "
+             "attribute"));
 
 extern bool DPCPPEnableVectorizationOfByvalByrefFunctions;
 
@@ -93,7 +99,7 @@ void VFAnalysisInfo::deduceVF(Function *Kernel) {
   CanFallBackToDefaultVF = false;
 
   // optnone --> disable vectorization
-  if (Kernel->hasOptNone()) {
+  if (Kernel->hasOptNone() || DPCPPForceOptnone) {
     KernelToVF[Kernel] = 1;
     LLVM_DEBUG(dbgs() << "Initial VF<optnone mode>: " << KernelToVF[Kernel]
                       << '\n');
@@ -129,6 +135,22 @@ void VFAnalysisInfo::deduceVF(Function *Kernel) {
 bool VFAnalysisInfo::hasUnsupportedPatterns(Function *Kernel) {
   LLVM_DEBUG(dbgs() << "Checking unsupported patterns:\n");
   CallGraphNode *Node = (*CG)[Kernel];
+
+  // Unsupported: Kernel calls a function with struct or complex return type
+  if (hasFunctionCallInCGNodeIf(Node, [](const Function *CalledFunc) {
+        return CalledFunc &&
+               CalledFunc->hasFnAttribute(KernelAttribute::HasSubGroups) &&
+               CalledFunc->getReturnType()->isStructTy();
+      })) {
+    LLVM_DEBUG(
+        dbgs() << "Can't be vectorized - struct return type in callee\n");
+    Kernel->getContext().diagnose(VFAnalysisDiagInfo(
+        *Kernel,
+        "Kernel can't be vectorized due to unsupported struct type return in "
+        "callee",
+        VFDK_Warn_UnsupportedVectorizationPattern, DS_Warning));
+    return true;
+  }
 
   // Unsupported: Kernel calls a function with byval/byref args and
   // - Either the called function contains subgroups.

@@ -1,0 +1,129 @@
+//==- opt_report_proto.proto - Protobuf description of Optimization Reports ==//
+//
+// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements loopopt and vectorizer related Loop Optimization Reports
+// as a protobuf. It is used to encode the remarks/messages into compressed
+// binary format that can be used to generate binary opt-report.
+//
+//===----------------------------------------------------------------------===//
+
+syntax = "proto3";
+
+message BinOptReport {
+  uint32 major_version = 1;
+  uint32 minor_version = 2;
+
+  /* TODO: Currently we don't have text opt-report diagnostic remarks for each
+  of these properties below. Temporarily we are using a subset of properties
+  both for functionality and prototype purposes.
+  enum Property {
+    C_LOOP_INTERCHANGED = 0;
+    C_LOOP_REVERSED = 1;
+    C_LOOP_SKEWED = 2;
+    C_LOOP_SCALED = 3;
+    C_LOOP_FUSED = 4;
+    C_LOOP_PEELED = 5;
+    C_LOOP_MATERIALIZED = 6;
+    C_LOOP_REROLLED = 7;
+    C_LOOP_MEMOP_GENERATED = 8;
+    C_LOOP_REORDERED = 9;
+    C_LOOP_REMAINDER = 10;
+    C_LOOP_PARALLEL_LOOP_TYPE = 11;
+    C_LOOP_NUM_COLLAPSED = 12;
+    C_LOOP_MULTIVERSION_TYPE = 13;
+    C_LOOP_MULTIVERSION_VER = 14;
+    C_LOOP_DISTRIBUTED = 15;
+    C_LOOP_DISTRIBUTED_CHUNK = 16;
+    C_LOOP_PREDICATE_OPTIMIZED = 17;
+    C_LOOP_PREDICATE_OPTIMIZED_VER = 18;
+    C_LOOP_UNROLL_TYPE = 19;
+    C_LOOP_UNROLL_FACTOR = 20;
+    C_LOOP_BLOCKED_OR_STRIPMINED = 21;
+    C_LOOP_BLOCKING_FACTOR = 22;
+    C_LOOP_PREFETCHED = 23;
+    C_LOOP_NUM_PREFETCHED = 24;
+    C_LOOP_VEC_USER_INTRINSICS = 25;
+    C_LOOP_UNSIGNED_IV = 26;
+    C_LOOP_VECTORIZED = 27;
+    C_LOOP_VEC_PEEL = 28;
+    C_LOOP_VEC_REMAINDER = 29;
+    C_LOOP_VEC_SIMD = 30;
+    C_LOOP_VEC_SIMD_FUNCTION = 31;
+    C_LOOP_VEC_SILKP_ARRAY_NOT_LP = 32;
+    C_LOOP_VEC_MASKED = 33;
+    C_LOOP_VEC_HAS_UNALIGNED_MEM = 34;
+    C_LOOP_VEC_FE_GAIL_CODE = 35;
+    C_LOOP_VEC_SPEEDUP_FACTOR = 36;
+    C_LOOP_VEC_ALT_ALN = 37;
+    C_LOOP_VEC_TC_TYPE = 38;
+    C_LOOP_VEC_VL = 39;
+    C_LOOP_VEC_OVERHEAD = 40;
+    C_LOOP_VEC_MAIN_TYPE = 41;
+    C_LOOP_WITH_IRREGULAR_ACCESS = 42;
+    C_LOOP_DEPENDENCY_ANALYSIS_OVERRIDE = 43;
+    C_LOOP_COST_MODEL_OVERRIDE = 44;
+    C_LOOP_VEC_ORDERED = 45;
+    C_LOOP_VEC_NO_ZMM = 46;
+    C_LOOP_HAS_SIMD_REDUCTION = 47;
+    C_LOOP_VEC_HAS_REDUCTION = 48;
+    C_LOOP_VEC_HAS_FP_INDUCTION = 49;
+    C_LAST_OPT_RPT_PROPERTY = 50;
+  } */
+  enum Property {
+    C_LOOP_VECTORIZED = 0;
+    C_LOOP_VEC_VL = 1;
+    C_LOOP_COMPLETE_UNROLL = 2;
+    C_LOOP_COMPLETE_UNROLL_FACTOR = 3;
+    C_LOOP_UNROLL_WITH_REMAINDER = 4;
+    C_LOOP_UNROLL_WITHOUT_REMAINDER = 5;
+    C_LOOP_UNROLL_AND_JAM = 6;
+    C_LOOP_REMAINDER = 7;
+    C_LAST_OPT_RPT_PROPERTY = 8;
+  }
+
+  // NOTE: Enums cannot be used as map key in proto3. Hence we use int32 here;
+  // however keys will be translated to Property enum in both writer and reader
+  // implementations.
+  map<int32, string> property_msg_map = 3;
+
+  // Use one-of composition to represent different types of arguments to
+  // remarks.
+  message Arg {
+    oneof arg_type {
+      StringArg str_arg = 1;
+      Int32Arg int32_arg = 2;
+      // TODO: float args
+    }
+  }
+
+  message StringArg {
+    string value = 1;
+  }
+
+  message Int32Arg {
+    int32 value = 1;
+  }
+
+  message Remark {
+    Property prop_id = 1;
+    uint32 remark_id = 2;
+    repeated Arg args = 3;
+  }
+
+  message LoopOptReport {
+    string anchor_id = 1; // Unique ID used for anchoring
+    repeated Remark remarks = 2;
+  }
+
+  repeated LoopOptReport opt_reports = 4;
+}
+
+package opt_report_proto;

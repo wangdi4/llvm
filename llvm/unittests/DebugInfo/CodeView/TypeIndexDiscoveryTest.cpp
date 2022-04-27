@@ -240,6 +240,15 @@ static struct {
   std::vector<TypeIndex> Ids = {TypeIndex(49), TypeIndex(50)};
   std::vector<uint32_t> Data = {77, 88};
 } OEMType;
+
+static DimArrayRecord DimArray(TypeIndex(51), TypeIndex(52), "DimArray");
+
+static struct {
+  // IndexType has to be 32- or 64-bit integer. Here we use 64-bit int (or 19).
+  const TypeIndex IndexType{19};
+  std::vector<int64_t> Bounds = {-1, 5};
+  DimConLURecord Record{IndexType, 1, Bounds};
+} DimConLU;
 #endif //INTEL_CUSTOMIZATION
 }
 
@@ -623,5 +632,17 @@ TEST_F(TypeIndexIteratorTest, OEMType) {
       OEMType.Ids, OEMType.Data);
   writeTypeRecords(Record);
   checkTypeReferences(0, OEMType.Ids[0], OEMType.Ids[1]);
+}
+
+TEST_F(TypeIndexIteratorTest, DimArray) {
+  using namespace leafs;
+  writeTypeRecords(DimArray);
+  checkTypeReferences(0, DimArray.ElementType, DimArray.DimInfo);
+}
+
+TEST_F(TypeIndexIteratorTest, DimConLU) {
+  using namespace leafs;
+  writeTypeRecords(DimConLU.Record);
+  checkTypeReferences(0, DimConLU.IndexType);
 }
 #endif //INTEL_CUSTOMIZATION

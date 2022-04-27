@@ -25,13 +25,13 @@ void test_tile_tilestored64e(const void * base, size_t stride) {
   _tile_storede(1, base, stride);
 }
 
-void test_tile_tilemove() {
+void test_tile_tilemove(void) {
   // CHECK-LABEL: @test_tile_tilemove
   // CHECK: call void @llvm.x86.tilemove(i8 1, i8 2)
   _tile_tilemove(1, 2);
 }
 
-void test_tile_tilezeroe() {
+void test_tile_tilezeroe(void) {
   // CHECK-LABEL: @test_tile_tilezeroe
   // CHECK: call void @llvm.x86.tilezeroe(i8 1)
   _tile_zeroe(1);

@@ -1,14 +1,14 @@
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-paropt-prepare -vpo-paropt-ignore-regions-starting-with=1 -pass-remarks=openmp -S 2>&1 | FileCheck %s -check-prefix=IGNOREALL -check-prefix=ALL
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-paropt-prepare)' -vpo-paropt-ignore-regions-starting-with=1 -pass-remarks=openmp -S 2>&1 | FileCheck %s -check-prefix=IGNOREALL -check-prefix=ALL
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-paropt-prepare -vpo-paropt-ignore-regions-starting-with=1 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNOREALL -check-prefix=ALL
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-paropt-prepare)' -vpo-paropt-ignore-regions-starting-with=1 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNOREALL -check-prefix=ALL
 
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-paropt-prepare -vpo-paropt-ignore-regions-up-to=14 -pass-remarks=openmp -S 2>&1 | FileCheck %s -check-prefix=IGNOREALL -check-prefix=ALL
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-paropt-prepare)' -vpo-paropt-ignore-regions-up-to=14 -pass-remarks=openmp -S 2>&1 | FileCheck %s -check-prefix=IGNOREALL -check-prefix=ALL
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-paropt-prepare -vpo-paropt-ignore-regions-up-to=14 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNOREALL -check-prefix=ALL
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-paropt-prepare)' -vpo-paropt-ignore-regions-up-to=14 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNOREALL -check-prefix=ALL
 
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-paropt-prepare -vpo-paropt-ignore-regions-matching=4,8,9 -pass-remarks=openmp -S 2>&1 | FileCheck %s -check-prefix=IGNORERANGE -check-prefix=ALL
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-paropt-prepare)' -vpo-paropt-ignore-regions-matching=4,8,9 -pass-remarks=openmp -S 2>&1 | FileCheck %s -check-prefix=IGNORERANGE -check-prefix=ALL
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-paropt-prepare -vpo-paropt-ignore-regions-matching=4,8,9 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNORERANGE -check-prefix=ALL
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-paropt-prepare)' -vpo-paropt-ignore-regions-matching=4,8,9 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNORERANGE -check-prefix=ALL
 
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-paropt-prepare -vpo-paropt-ignore-regions-starting-with=4 -vpo-paropt-ignore-regions-up-to=9 -pass-remarks=openmp -S 2>&1 | FileCheck %s -check-prefix=IGNORERANGE -check-prefix=ALL
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-paropt-prepare)' -vpo-paropt-ignore-regions-starting-with=4 -vpo-paropt-ignore-regions-up-to=9 -pass-remarks=openmp -S 2>&1 | FileCheck %s -check-prefix=IGNORERANGE -check-prefix=ALL
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-paropt-prepare -vpo-paropt-ignore-regions-starting-with=4 -vpo-paropt-ignore-regions-up-to=9 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNORERANGE -check-prefix=ALL
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-paropt-prepare)' -vpo-paropt-ignore-regions-starting-with=4 -vpo-paropt-ignore-regions-up-to=9 -pass-remarks=openmp -S %s 2>&1 | FileCheck %s -check-prefix=IGNORERANGE -check-prefix=ALL
 
 ; Test src:
 

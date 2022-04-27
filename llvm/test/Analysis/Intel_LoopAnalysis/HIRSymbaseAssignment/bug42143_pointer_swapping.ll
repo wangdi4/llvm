@@ -5,7 +5,7 @@
 ; This test case was provided directly as IR. There should be a dependence between the two memory references.
 ; In our dependence analysis symbase assignment should assign them to one symbase.
 
-; RUN: opt -analyze -hir-framework -hir-framework-debug=symbase-assignment -debug-only=hir-framework < %s 2>&1 | FileCheck %s
+; RUN: opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=symbase-assignment -debug-only=hir-framework < %s 2>&1 | FileCheck %s
 
 ; CHECK-DAG: {{.*%p.*\[.*}} {sb:[[Base1:[0-9]+]]}
 ; CHECK-DAG: {{.*%q.*\[.*}} {sb:[[Base1]]}

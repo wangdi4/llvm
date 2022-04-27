@@ -1,4 +1,21 @@
 //===- Transform/Utils/BasicBlockUtils.h - BasicBlock Utils -----*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -18,21 +35,20 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/Analysis/DomTreeUpdater.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/CFG.h"
-#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Dominators.h"
 #include <cassert>
 
 namespace llvm {
-
+class BranchInst;
+class LandingPadInst;
+class Loop;
+class PHINode;
+template <typename PtrType> class SmallPtrSetImpl;
 class BlockFrequencyInfo;
 class BranchProbabilityInfo;
-class DominatorTree;
 class DomTreeUpdater;
 class Function;
-class Instruction;
 class LoopInfo;
 class MDNode;
 class MemoryDependenceResults;
@@ -46,9 +62,9 @@ class Value;
 /// instruction. If \p Updates is specified, collect all necessary DT updates
 /// into this vector. If \p KeepOneInputPHIs is true, one-input Phis in
 /// successors of blocks being deleted will be preserved.
-void DetatchDeadBlocks(ArrayRef <BasicBlock *> BBs,
-                       SmallVectorImpl<DominatorTree::UpdateType> *Updates,
-                       bool KeepOneInputPHIs = false);
+void detachDeadBlocks(ArrayRef <BasicBlock *> BBs,
+                      SmallVectorImpl<DominatorTree::UpdateType> *Updates,
+                      bool KeepOneInputPHIs = false);
 
 /// Delete the specified block, which must have no predecessors.
 void DeleteDeadBlock(BasicBlock *BB, DomTreeUpdater *DTU = nullptr,
@@ -556,7 +572,9 @@ BranchInst *GetIfCondition(BasicBlock *BB, BasicBlock *&IfTrue,
 // a profitability of an edge splitting.
 #endif // INTEL_CUSTOMIZATION
 // If BPI and BFI aren't non-null, BPI/BFI will be updated accordingly.
-bool SplitIndirectBrCriticalEdges(Function &F,
+// When `IgnoreBlocksWithoutPHI` is set to `true` critical edges leading to a
+// block without phi-instructions will not be split.
+bool SplitIndirectBrCriticalEdges(Function &F, bool IgnoreBlocksWithoutPHI,
                                   BranchProbabilityInfo *BPI = nullptr,
                                   BlockFrequencyInfo *BFI = nullptr, // INTEL
                                   bool ConsiderSwitch = false,       // INTEL

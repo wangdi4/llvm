@@ -14,7 +14,7 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_PREPARE_FOR_VEC_CLONE_H
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_PREPARE_FOR_VEC_CLONE_H
 
-#include "llvm/Analysis/Intel_VectorVariant.h"
+#include "llvm/IR/Intel_VectorVariant.h"
 
 namespace llvm {
 

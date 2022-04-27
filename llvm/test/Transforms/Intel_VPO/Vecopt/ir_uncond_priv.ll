@@ -24,7 +24,8 @@ define void @simd_loop(i32* %A, i32* %B) #0 {
 ; CHECK-NEXT:    br i1 [[TMP3]], label [[VECTOR_BODY]], label [[VPLANNEDBB3:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
 ; CHECK:       VPlannedBB3:
 ; CHECK-NEXT:    [[EXTRACTED_PRIV:%.*]] = extractelement <4 x i32> [[WIDE_LOAD]], i64 3
-; CHECK-NEXT:    store i32 [[EXTRACTED_PRIV]], i32* [[PRIVATE]], align 1
+; CHECK-NEXT:    [[PRIVATE_VEC_BCAST:%.*]] = bitcast <4 x i32>* [[PRIVATE_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[PRIVATE_VEC_BCAST]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]
 ; CHECK:       VPlannedBB4:
 ; CHECK-NEXT:    br label [[FINAL_MERGE:%.*]]

@@ -1,3 +1,20 @@
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //==-------- device_info.hpp - SYCL device info methods --------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -9,9 +26,6 @@
 #pragma once
 #include <CL/sycl/detail/common_info.hpp>
 #include <CL/sycl/detail/defines.hpp>
-#if INTEL_CUSTOMIZATION
-#include <CL/sycl/detail/host_device_intel/backend.hpp>
-#endif // INTEL_CUSTOMIZATION
 #include <CL/sycl/detail/os_util.hpp>
 #include <CL/sycl/detail/pi.hpp>
 #include <CL/sycl/device.hpp>
@@ -30,25 +44,6 @@
 __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace detail {
-
-#if INTEL_CUSTOMIZATION
-// Host device functionality is extended to support different
-// host device backends and each of then should device these
-// values.
-// There is no dedicated serial backend, but it still
-// required to have these functions.
-#if DPCPP_HOST_DEVICE_SERIAL
-static cl_uint getMaxComputeUnits() {
-  return 1;
-}
-
-static size_t getWorkGroupSize() { return 1; }
-
-static sycl::id<3> getMaxWorkItemSizes() {
-  return {1, 1, 1};
-}
-#endif /* DPCPP_HOST_DEVICE_SERIAL */
-#endif /* INTEL_CUSTIMIZATION */
 
 inline std::vector<info::fp_config> read_fp_bitfield(cl_device_fp_config bits) {
   std::vector<info::fp_config> result;
@@ -256,23 +251,6 @@ template <> struct get_device_info<bool, info::device::queue_profiling> {
   }
 };
 
-// Specialization for atomic64 that is necessary because
-// PI_DEVICE_INFO_ATOMIC_64 is currently only implemented for the cuda backend.
-template <> struct get_device_info<bool, info::device::atomic64> {
-  static bool get(RT::PiDevice dev, const plugin &Plugin) {
-
-    bool result = false;
-
-    RT::PiResult Err = Plugin.call_nocheck<PiApiKind::piDeviceGetInfo>(
-        dev, pi::cast<RT::PiDeviceInfo>(info::device::atomic64), sizeof(result),
-        &result, nullptr);
-    if (Err != PI_SUCCESS) {
-      return false;
-    }
-    return result;
-  }
-};
-
 // Specialization for atomic_memory_order_capabilities, PI returns a bitfield
 template <>
 struct get_device_info<std::vector<memory_order>,
@@ -285,6 +263,21 @@ struct get_device_info<std::vector<memory_order>,
             info::device::atomic_memory_order_capabilities),
         sizeof(pi_memory_order_capabilities), &result, nullptr);
     return readMemoryOrderBitfield(result);
+  }
+};
+
+// Specialization for atomic_memory_scope_capabilities, PI returns a bitfield
+template <>
+struct get_device_info<std::vector<memory_scope>,
+                       info::device::atomic_memory_scope_capabilities> {
+  static std::vector<memory_scope> get(RT::PiDevice dev, const plugin &Plugin) {
+    pi_memory_scope_capabilities result;
+    Plugin.call_nocheck<PiApiKind::piDeviceGetInfo>(
+        dev,
+        pi::cast<RT::PiDeviceInfo>(
+            info::device::atomic_memory_scope_capabilities),
+        sizeof(pi_memory_scope_capabilities), &result, nullptr);
+    return readMemoryScopeBitfield(result);
   }
 };
 
@@ -610,11 +603,7 @@ template <> inline cl_uint get_device_info_host<info::device::vendor_id>() {
 
 template <>
 inline cl_uint get_device_info_host<info::device::max_compute_units>() {
-#if INTEL_CUSTOMIZATION
-  return detail::getMaxComputeUnits();
-#else
   return 1;
-#endif /* INTEL_CUSTOMIZATION */
 }
 
 template <>
@@ -625,11 +614,7 @@ inline cl_uint get_device_info_host<info::device::max_work_item_dimensions>() {
 template <>
 inline id<3> get_device_info_host<info::device::max_work_item_sizes>() {
   // current value is the required minimum
-#if INTEL_CUSTOMIZATION
-  return detail::getMaxWorkItemSizes();
-#else
   return {1, 1, 1};
-#endif // INTEL_CUSTOMIZATION
 }
 
 template <>
@@ -668,11 +653,7 @@ get_device_info_host<info::device::ext_oneapi_max_work_groups_3d>() {
 
 template <>
 inline size_t get_device_info_host<info::device::max_work_group_size>() {
-#if INTEL_CUSTOMIZATION
-  return detail::getWorkGroupSize();
-#else
   return 1;
-#endif // INTEL_CUSTOMIZATION
 }
 
 template <>
@@ -795,6 +776,13 @@ inline std::vector<memory_order>
 get_device_info_host<info::device::atomic_memory_order_capabilities>() {
   return {memory_order::relaxed, memory_order::acquire, memory_order::release,
           memory_order::acq_rel, memory_order::seq_cst};
+}
+
+template <>
+inline std::vector<memory_scope>
+get_device_info_host<info::device::atomic_memory_scope_capabilities>() {
+  return {memory_scope::work_item, memory_scope::sub_group,
+          memory_scope::work_group, memory_scope::device, memory_scope::system};
 }
 
 template <>
@@ -1094,7 +1082,7 @@ inline bool get_device_info_host<info::device::preferred_interop_user_sync>() {
 
 template <> inline device get_device_info_host<info::device::parent_device>() {
   // TODO: implement host device partitioning
-  throw runtime_error(
+  throw invalid_object_error(
       "Partitioning to subdevices of the host device is not implemented yet",
       PI_INVALID_DEVICE);
 }
@@ -1164,6 +1152,13 @@ get_device_info_host<info::device::sub_group_independent_forward_progress>() {
 template <>
 inline bool get_device_info_host<info::device::kernel_kernel_pipe_support>() {
   return false;
+}
+
+template <>
+inline std::string get_device_info_host<info::device::backend_version>() {
+  throw runtime_error(
+      "Backend version feature is not supported on HOST device.",
+      PI_INVALID_DEVICE);
 }
 
 template <>

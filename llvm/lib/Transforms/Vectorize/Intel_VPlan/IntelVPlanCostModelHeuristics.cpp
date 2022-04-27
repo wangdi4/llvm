@@ -68,7 +68,6 @@ HeuristicBase::HeuristicBase(VPlanTTICostModel *CM, std::string Name) :
   CM(CM) {
   Plan = CM->Plan;
   VF = CM->VF;
-  UnknownCost = CM->UnknownCost;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   this->Name = Name;
 #else
@@ -78,13 +77,15 @@ HeuristicBase::HeuristicBase(VPlanTTICostModel *CM, std::string Name) :
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // VPlan scope format.
-void HeuristicBase::printCostChange(unsigned RefCost, unsigned NewCost,
-                                    const VPlan *, raw_ostream *OS) const {
+void HeuristicBase::printCostChange(
+  const VPInstructionCost &RefCost, const VPInstructionCost &NewCost,
+  const VPlan *, raw_ostream *OS) const {
   if (!OS || NewCost == RefCost)
     return;
 
-  if (NewCost == UnknownCost)
-    *OS << "Cost is set to Unknown by " << getName() << " heuristic\n";
+  if (!NewCost.isValid())
+    *OS << "Cost is set to " << NewCost << " by " << getName()
+        << " heuristic\n";
   else if (NewCost > RefCost)
     *OS << "Extra cost due to " << getName() << " heuristic is "
         << NewCost - RefCost << '\n';
@@ -97,17 +98,14 @@ void HeuristicBase::printCostChange(unsigned RefCost, unsigned NewCost,
 //  *name*(+num)
 // OR:
 //  *name*(-num)
-void HeuristicBase::printCostChange(unsigned RefCost, unsigned NewCost,
-                                    const VPInstruction *,
-                                    raw_ostream *OS) const {
-  if (!OS || NewCost == RefCost || NewCost == UnknownCost)
+void HeuristicBase::printCostChange(
+  const VPInstructionCost &RefCost, const VPInstructionCost &NewCost,
+  const VPInstruction *, raw_ostream *OS) const {
+  if (!OS || NewCost == RefCost || NewCost.isUnknown())
     return;
 
-  *OS << " *" << getName() << "*(";
-  if (NewCost > RefCost)
-    *OS << '+' << NewCost - RefCost << ')';
-  else
-    *OS << '-' << RefCost - NewCost << ')';
+  *OS << " *" << getName() << "*(" <<
+    (NewCost - RefCost).toString(true /* ForceSignPrint */) << ')';
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
@@ -241,9 +239,10 @@ bool HeuristicSLP::checkForSLPRedn(const VPReductionFinal *RednFinal,
   return true;
 }
 
-void HeuristicSLP::apply(unsigned TTICost, unsigned &Cost,
-                         const VPlanVector *Plan, raw_ostream *OS) const {
-  (void)TTICost;
+void HeuristicSLP::apply(
+  const VPInstructionCost &, VPInstructionCost &Cost,
+  const VPlanVector *Plan, raw_ostream *OS) const {
+
   if (VF == 1)
     return;
 
@@ -259,7 +258,7 @@ void HeuristicSLP::apply(unsigned TTICost, unsigned &Cost,
 
   // Gather all Store and Load Memrefs since SLP starts pattern search on
   // stores and on our cases we have consequent loads as well.
-  for (const VPBasicBlock *Block : depth_first(Plan->getEntryBlock()))
+  for (const VPBasicBlock *Block : depth_first(&Plan->getEntryBlock()))
     for (const VPInstruction &VPInst : *Block) {
       if (auto DDRef = getHIRMemref(&VPInst)) {
         if (VPInst.getOpcode() == Instruction::Store)
@@ -283,43 +282,7 @@ void HeuristicSLP::apply(unsigned TTICost, unsigned &Cost,
     Cost *= VF;
 }
 
-void HeuristicSearchLoop::apply(
-  unsigned TTICost, unsigned &Cost,
-  const VPlanVector *Plan, raw_ostream *OS) const {
-  (void)TTICost;
-  // Array ref which needs to be aligned via loop peeling, if any.
-  RegDDRef *PeelArrayRef = nullptr;
-  switch (VPlanIdioms::isSearchLoop(Plan, VF, true, PeelArrayRef)) {
-  case VPlanIdioms::Unsafe:
-    Cost = UnknownCost;
-    break;
-  case VPlanIdioms::SearchLoopStrEq:
-    // Without proper type information, cost model cannot properly compute the
-    // cost, thus hard code VF.
-    if (VF == 1)
-      Cost = VPlanTTIWrapper::Multiplier * 1000;
-    else if (VF != 32)
-      // Return some huge value, so that VectorCost still could be computed.
-      Cost = UnknownCost;
-    break;
-  case VPlanIdioms::SearchLoopPtrEq:
-    // Without proper type information, cost model cannot properly compute the
-    // cost, thus hard code VF.
-    if (VF == 1)
-      Cost = VPlanTTIWrapper::Multiplier * 1000;
-    else if (VF != 4)
-      // Return some huge value, so that VectorCost still could be computed.
-      Cost = UnknownCost;
-    break;
-  default:
-    // FIXME: Keep VF = 32 as unsupported right now due to huge perf
-    // regressions.
-    if (VF == 32)
-      Cost = UnknownCost;
-  }
-}
-
-unsigned HeuristicSpillFill::operator()(
+VPInstructionCost HeuristicSpillFill::operator()(
   const VPBasicBlock *VPBlock,
   LiveValuesTy &LiveValues,
   bool VectorRegsPressure) const {
@@ -354,8 +317,8 @@ unsigned HeuristicSpillFill::operator()(
   auto PHIs = (cast<VPBasicBlock>(OuterMostVPLoop->getHeader()))->getVPPhis();
   int NumberPHIs = llvm::count_if(PHIs, [&](auto& PHI) {
     return !SkipInst(&PHI);});
-  int FreeVecHWRegsNum = CM->VPTTI.getNumberOfRegisters(
-    CM->VPTTI.getRegisterClassForType(VectorRegsPressure)) - NumberPHIs;
+  int FreeVecHWRegsNum = CM->TTI.getNumberOfRegisters(
+    CM->TTI.getRegisterClassForType(VectorRegsPressure)) - NumberPHIs;
 
   for (const VPInstruction &VPInst : reverse(*VPBlock)) {
     if (SkipInst(&VPInst))
@@ -363,8 +326,8 @@ unsigned HeuristicSpillFill::operator()(
 
     // Zero-cost and unknown-cost instructions are ignored.  That might be
     // pseudo inst that don't induce real code on output.
-    unsigned InstCost = CM->getTTICost(&VPInst);
-    if (InstCost == UnknownCost || InstCost == 0)
+    VPInstructionCost InstCost = CM->getTTICost(&VPInst);
+    if (!InstCost.isValid() || InstCost == 0)
       continue;
 
     // Once definition is met the value is marked dead as the result of
@@ -406,15 +369,15 @@ unsigned HeuristicSpillFill::operator()(
         continue;
 
       const VPInstruction *OpInst = cast<VPInstruction>(Op);
-      unsigned OpInstCost = CM->getTTICost(OpInst);
-      if (OpInstCost == UnknownCost || OpInstCost == 0)
+      VPInstructionCost OpInstCost = CM->getTTICost(OpInst);
+      if (!OpInstCost.isValid() || OpInstCost == 0)
         continue;
 
       Type *OpScalTy = OpInst->getType()->getScalarType();
 
       if (VectorType::isValidElementType(OpScalTy))
         LiveValues[OpInst] = TranslateVPInstRPToHWRP(
-          CM->VPTTI.getNumberOfParts(getWidenedType(OpInst->getType(), VF)));
+          CM->TTI.getNumberOfParts(getWidenedType(OpInst->getType(), VF)));
       else
         // RP for aggregate types are modelled as if they serialized with
         // VF instructions.
@@ -464,9 +427,9 @@ unsigned HeuristicSpillFill::operator()(
       // Check for masked unit load/store presence in HW.
       if (CM->isUnitStrideLoadStore(&VPInst, NegativeStride)) {
         if ((IsMasked && IsLoad  &&
-             !CM->VPTTI.isLegalMaskedLoad(VTy, Alignment)) ||
+             !CM->TTI.isLegalMaskedLoad(VTy, Alignment)) ||
             (IsMasked && IsStore &&
-             !CM->VPTTI.isLegalMaskedStore(VTy, Alignment)))
+             !CM->TTI.isLegalMaskedStore(VTy, Alignment)))
           return true;
 
         return false;
@@ -483,8 +446,8 @@ unsigned HeuristicSpillFill::operator()(
 
       // Check for unsupported gather/scatter instruction.
       // Note: any gather/scatter is considered as masked.
-      if ((IsLoad && !CM->VPTTI.isLegalMaskedGather(VTy, Alignment)) ||
-          (IsStore && !CM->VPTTI.isLegalMaskedScatter(VTy, Alignment)))
+      if ((IsLoad && !CM->TTI.isLegalMaskedGather(VTy, Alignment)) ||
+          (IsStore && !CM->TTI.isLegalMaskedScatter(VTy, Alignment)))
         return true;
 
       return false;
@@ -492,11 +455,11 @@ unsigned HeuristicSpillFill::operator()(
 
     auto *LoadStore = dyn_cast<VPLoadStoreInst>(&VPInst);
     if (LoadStore && SerializableLoadStore(*LoadStore))
-      NumberLiveValuesCur += TranslateVPInstRPToHWRP(
-        // VPlanTTIWrapper::estimateNumberOfInstructions(InstCost) gives
-        // an estimation of the number of instructions the serialized
-        // load/store is implemented with.
-        VPlanTTIWrapper::estimateNumberOfInstructions(InstCost));
+      // Estimate number of machine instructions used to serialize given
+      // Load/Store basing on truncated to integer cost of given instruction.
+      // int(InstCost) gives an estimation of the number of instructions the
+      // serialized load/store is implemented with.
+      NumberLiveValuesCur += TranslateVPInstRPToHWRP(InstCost.getInt64Value());
 
     LLVM_DEBUG(auto LVNs = make_second_range(LiveValues);
                dbgs() << "RP = " << NumberLiveValuesCur << ", LV# = " <<
@@ -523,13 +486,13 @@ unsigned HeuristicSpillFill::operator()(
     return 0;
 
   unsigned AS = CM->DL->getAllocaAddrSpace();
-  unsigned RegBitWidth = CM->VPTTI.getLoadStoreVecRegBitWidth(AS);
+  unsigned RegBitWidth = CM->TTI.getLoadStoreVecRegBitWidth(AS);
   unsigned RegByteWidth = RegBitWidth / 8;
   Type *VecTy = getWidenedType(Type::getInt8Ty(*Plan->getLLVMContext()),
                                RegByteWidth);
-  unsigned StoreCost = CM->VPTTI.getMemoryOpCost(
+  VPInstructionCost StoreCost = CM->TTI.getMemoryOpCost(
     Instruction::Store, VecTy, Align(RegByteWidth), AS);
-  unsigned LoadCost = CM->VPTTI.getMemoryOpCost(
+  VPInstructionCost LoadCost = CM->TTI.getMemoryOpCost(
     Instruction::Load, VecTy, Align(RegByteWidth), AS);
 
   return NumberOfSpillsPerExtraReg *
@@ -538,15 +501,14 @@ unsigned HeuristicSpillFill::operator()(
 }
 
 void HeuristicSpillFill::apply(
-  unsigned TTICost, unsigned &Cost,
+  const VPInstructionCost &, VPInstructionCost &Cost,
   const VPlanVector *Plan, raw_ostream *OS) const {
-  (void)TTICost;
   // Don't run register pressure heuristics on TTI models that do not support
   // scalar or vector registers.
-  if (CM->VPTTI.getNumberOfRegisters(
-        CM->VPTTI.getRegisterClassForType(false)) == 0 ||
-      CM->VPTTI.getNumberOfRegisters(
-        CM->VPTTI.getRegisterClassForType(true)) == 0)
+  if (CM->TTI.getNumberOfRegisters(
+        CM->TTI.getRegisterClassForType(false)) == 0 ||
+      CM->TTI.getNumberOfRegisters(
+        CM->TTI.getRegisterClassForType(true)) == 0)
     return;
 
   // LiveValues map contains the liveness of the given instruction multiplied
@@ -570,7 +532,7 @@ void HeuristicSpillFill::apply(
   // Keep track of vector and scalar live values in separate maps.
   LiveValuesTy VecLiveValues, ScalLiveValues;
 
-  for (auto *Block : post_order(Plan->getEntryBlock())) {
+  for (auto *Block : post_order(&Plan->getEntryBlock())) {
     // For simplicity we pass LiveOut from previous block as LiveIn to the next
     // block in walk like walking through a linear sequence of BBs.
     // TODO:
@@ -592,29 +554,29 @@ void HeuristicSpillFill::apply(
 void HeuristicSpillFill::dump(raw_ostream &OS, const VPBasicBlock *VPBB) const {
   LiveValuesTy LiveValues;
   std::string ReturnStr;
-  unsigned ScalSpillFillCost = (*this)(VPBB, LiveValues, false);
+  VPInstructionCost ScalSpillFillCost = (*this)(VPBB, LiveValues, false);
   if (ScalSpillFillCost > 0)
     OS << "Block Scalar spill/fill approximate cost (not included "
-      "into base cost): " + std::to_string(ScalSpillFillCost) << '\n';
+      "into base cost): " << ScalSpillFillCost << '\n';
 
   if (VF > 1) {
     LiveValues.clear();
-    unsigned VecSpillFillCost = (*this)(VPBB, LiveValues, true);
+    VPInstructionCost VecSpillFillCost = (*this)(VPBB, LiveValues, true);
     if (VecSpillFillCost > 0)
       OS << "Block Vector spill/fill approximate cost (not included into "
-        "base cost): " + std::to_string(VecSpillFillCost) << '\n';
+        "base cost): " << VecSpillFillCost << '\n';
   }
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 void HeuristicGatherScatter::apply(
-  unsigned TTICost, unsigned &Cost,
+  const VPInstructionCost &TTICost, VPInstructionCost &Cost,
   const VPlanVector *Plan, raw_ostream *OS) const {
   if (VF == 1)
     return;
 
-  unsigned GSCost = 0;
-  for (auto *Block : depth_first(Plan->getEntryBlock()))
+  VPInstructionCost GSCost = 0;
+  for (auto *Block : depth_first(&Plan->getEntryBlock()))
     // FIXME: Use Block Frequency Info (or similar VPlan-specific analysis) to
     // correctly scale the cost of the basic block.
     GSCost += (*this)(Block);
@@ -624,28 +586,28 @@ void HeuristicGatherScatter::apply(
   // If CMGatherScatterThreshold is not specified in the command line the
   // default value for heuristic is different in ZMM-enabled context.
   if (CMGatherScatterThreshold.getNumOccurrences() == 0 &&
-      CM->VPTTI.getRegisterBitWidth(
-          TargetTransformInfo::RGK_FixedWidthVector) >= 512)
+      CM->TTI.getRegisterBitWidth(
+        TargetTransformInfo::RGK_FixedWidthVector) >= 512)
     CGThreshold = CMGatherScatterDefaultThresholdZMM;
 
   // Increase GatherScatter cost contribution in case Gathers/Scatters take too
   // much.
   if (TTICost * CGThreshold < GSCost * 100)
-    Cost += CMGatherScatterPenaltyFactor * GSCost;
+    Cost += CMGatherScatterPenaltyFactor.getValue() * GSCost;
 }
 
-unsigned HeuristicGatherScatter::operator()(
+VPInstructionCost HeuristicGatherScatter::operator()(
   const VPBasicBlock *VPBlock) const {
+  VPInstructionCost Cost = 0;
   if (VF == 1)
-    return 0;
+    return Cost;
 
-  unsigned Cost = 0;
   for (const VPInstruction &VPInst : *VPBlock)
     Cost += (*this)(&VPInst);
   return Cost;
 }
 
-unsigned HeuristicGatherScatter::operator()(
+VPInstructionCost HeuristicGatherScatter::operator()(
   const VPInstruction *VPInst) const {
   if (VF == 1)
     return 0;
@@ -665,10 +627,9 @@ unsigned HeuristicGatherScatter::operator()(
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void HeuristicGatherScatter::dump(raw_ostream &OS,
                                   const VPBasicBlock *VPBB) const {
-  unsigned GatherScatterCost = (*this)(VPBB);
+  VPInstructionCost GatherScatterCost = (*this)(VPBB);
   if (GatherScatterCost > 0)
-    OS << "Block total cost includes GS Cost: " <<
-      std::to_string(GatherScatterCost) << '\n';
+    OS << "Block total cost includes GS Cost: " << GatherScatterCost << '\n';
 }
 
 void HeuristicGatherScatter::dump(raw_ostream &OS,
@@ -880,14 +841,13 @@ void HeuristicPsadbw::initForVPlan() {
 
 // Does all neccesary target checks and return corrected VPlan Cost.
 void HeuristicPsadbw::apply(
-  unsigned TTICost, unsigned &Cost,
+  const VPInstructionCost &, VPInstructionCost &Cost,
   const VPlanVector *Plan, raw_ostream *OS) const {
-  (void)TTICost;
 
-  unsigned PatternCost = 0;
+  VPInstructionCost PatternCost = 0;
 
-  // Scaled PSADBW cost in terms of number of intructions.
-  const unsigned PsadbwCost = 1 * VPlanTTIWrapper::Multiplier;
+  // PSADBW cost in terms of number of intructions.
+  VPInstructionCost PsadbwCost = 1;
 
   for (auto PatternInstructionsEl : PsadbwPatternInsts) {
     const VPInstruction* SumCarryOut = PatternInstructionsEl.first;
@@ -905,12 +865,12 @@ void HeuristicPsadbw::apply(
     assert(!PatternInstructions.empty() &&
            "The set is not expected to be empty.");
 
-    unsigned CurrentPatternCost = 0;
+    VPInstructionCost CurrentPatternCost = 0;
     unsigned NumberOfExternalUses = 0;
 
     for (const VPInstruction *VPInst : PatternInstructions) {
-      unsigned InstCost = CM->getTTICost(VPInst);
-      if (InstCost != UnknownCost)
+      VPInstructionCost InstCost = CM->getTTICost(VPInst);
+      if (InstCost.isValid())
         CurrentPatternCost += InstCost;
 
       if ((VPInst == SumCarryOut && VPInst->getNumUsers() > 2) ||
@@ -955,7 +915,7 @@ void HeuristicPsadbw::dump(raw_ostream &OS, const VPInstruction *VPInst) const {
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 void HeuristicSVMLIDivIRem::apply(
-  unsigned TTICost, unsigned &Cost,
+  const VPInstructionCost &TTICost, VPInstructionCost &Cost,
   const VPInstruction *VPInst, raw_ostream *OS) const {
 
   if (VF == 1)
@@ -1013,13 +973,13 @@ void HeuristicSVMLIDivIRem::apply(
   if (ElemSize != 32 && ElemSize != 64)
     return;
 
-  unsigned ScalarCost = CM->getArithmeticInstructionCost(
+  VPInstructionCost ScalarCost = CM->getArithmeticInstructionCost(
     Opcode, VPInst->getOperand(0), VPInst->getOperand(1), ScalarTy, /*VF*/ 1);
 
-  if (ScalarCost == UnknownCost)
+  if (ScalarCost.isUnknown())
     return;
 
-  unsigned VectorCost;
+  VPInstructionCost VectorCost;
 
   if (ElemSize == 64)
     VectorCost = ScalarCost * VF * 2;
@@ -1032,11 +992,11 @@ void HeuristicSVMLIDivIRem::apply(
 
   // For operations with constant in argument basic cost model gives better
   // estimation, which we want to use instead of VectorCost.
-  Cost = std::min(VectorCost, TTICost);
+  Cost = VPInstructionCost::Min(VectorCost, TTICost);
 }
 
 void HeuristicOVLSMember::apply(
-  unsigned TTICost, unsigned &Cost,
+  const VPInstructionCost &TTICost, VPInstructionCost &Cost,
   const VPInstruction *VPInst, raw_ostream *OS) const {
 
   if (!UseOVLSCM || !CM->VLSA || VF == 1)
@@ -1054,11 +1014,9 @@ void HeuristicOVLSMember::apply(
   // OVLSTTICostModel::getInstructionCost() implementation fetches number of
   // elements using I->getType().
   //
-  VPlanVLSCostModel VLSCM(VF, CM->VPTTI.getTTI(),
-                          LoadStore->getType()->getContext());
-  /// OptVLSInterface costs are not scaled up yet.
-  unsigned VLSGroupCost =
-    VPlanTTIWrapper::Multiplier * OptVLSInterface::getGroupCost(*Group, VLSCM);
+  VPlanVLSCostModel VLSCM(VF, CM->TTI, LoadStore->getType()->getContext());
+  VPInstructionCost VLSGroupCost = VPInstructionCost{
+    OptVLSInterface::getGroupCost(*Group, VLSCM)};
 
   // If current load/store instruction is part of an optimized load/store group,
   // compare VLSGroupCost to TTI based cost for doing the interleaved access
@@ -1084,14 +1042,18 @@ void HeuristicOVLSMember::apply(
       Indices.push_back(i);
 
     // Calculate the cost of the whole interleaved group.
-    unsigned TTIInterleaveCost = CM->VPTTI.getInterleavedMemoryOpCost(
+    VPInstructionCost TTIInterleaveCost = CM->TTI.getInterleavedMemoryOpCost(
         LoadStore->getOpcode(), WideVecTy, InterleaveFactor, Indices,
         cast<VPLoadStoreInst>(LoadStore)->getAlignment(), AddrSpace,
         TTI::TCK_RecipThroughput, false /* UseMaskForCond */,
         false /* UseMaskForGaps */);
-    if (TTIInterleaveCost < VLSGroupCost)
+    if (!VLSGroupCost.isValid() || TTIInterleaveCost < VLSGroupCost)
       VLSGroupCost = TTIInterleaveCost;
   }
+
+  // If OVLS group exists but its cost is Unknown or Invalid we skip such group.
+  if (!VLSGroupCost.isValid())
+    return;
 
   if (ProcessedOVLSGroups.count(Group) != 0) {
     if (!ProcessedOVLSGroups[Group]) {
@@ -1122,7 +1084,7 @@ void HeuristicOVLSMember::apply(
     return;
   }
 
-  unsigned TTIGroupCost = 0;
+  VPInstructionCost TTIGroupCost = 0;
   for (OVLSMemref *OvlsMemref : Group->getMemrefVec())
     TTIGroupCost += CM->getLoadStoreCost(
       cast<VPVLSClientMemref>(OvlsMemref)->getInstruction(),
@@ -1131,8 +1093,7 @@ void HeuristicOVLSMember::apply(
   if (VLSGroupCost >= TTIGroupCost) {
     LLVM_DEBUG(dbgs() << "Cost for "; LoadStore->printWithoutAnalyses(dbgs());
                dbgs() << " was not reduced from " << Cost << " (TTI group cost "
-                      << TTIGroupCost << ") to group cost " << VLSGroupCost
-                      << '\n');
+               << TTIGroupCost << ") to group cost " << VLSGroupCost << '\n');
     ProcessedOVLSGroups[Group] = false;
     return;
   }

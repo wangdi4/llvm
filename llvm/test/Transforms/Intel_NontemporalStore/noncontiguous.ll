@@ -1,5 +1,5 @@
-; RUN: opt -enable-intel-advanced-opts -S -passes 'unaligned-nontemporal' < %s | FileCheck %s
-; RUN: opt -enable-intel-advanced-opts -S -unaligned-nontemporal < %s | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -S -passes 'unaligned-nontemporal' < %s | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -S -unaligned-nontemporal < %s | FileCheck %s
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Non-contiguous: step by 2 instead of 1.

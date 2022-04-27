@@ -1,3 +1,20 @@
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //==---------------- posix_pi.cpp ------------------------------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -21,14 +38,13 @@ namespace pi {
 void *loadOsLibrary(const std::string &PluginPath) {
   // TODO: Check if the option RTLD_NOW is correct. Explore using
   // RTLD_DEEPBIND option when there are multiple plugins.
-#if INTEL_CUSTOMIZATION
   void *so = dlopen(PluginPath.c_str(), RTLD_NOW);
   if (!so && trace(TraceLevel::PI_TRACE_ALL)) {
-    std::cerr << "SYCL_PI_TRACE[-1]: dlopen(" << PluginPath
-        << ") failed with <" << dlerror() << ">" << std::endl;
+    char *Error = dlerror();
+    std::cerr << "SYCL_PI_TRACE[-1]: dlopen(" << PluginPath << ") failed with <"
+              << (Error ? Error : "unknown error") << ">" << std::endl;
   }
   return so;
-#endif // INTEL_CUSTOMIZATION
 }
 
 int unloadOsLibrary(void *Library) { return dlclose(Library); }

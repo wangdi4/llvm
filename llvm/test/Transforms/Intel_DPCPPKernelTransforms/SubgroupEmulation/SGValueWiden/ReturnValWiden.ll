@@ -86,5 +86,5 @@ attributes #0 = { "vector-variants"="_ZGVbM16v__Z13sub_group_alli(_Z13sub_group_
 
 ; DEBUGIFY-NOT: WARNING
 ; FIXME: SGValueWiden does not respect llvm.dbg.value and llvm.dbg.addr
-; DEBUGIFY-COUNT-2: WARNING: Missing line
+; DEBUGIFY-COUNT-1: WARNING: Missing line
 ; DEBUGIFY-NOT: WARNING

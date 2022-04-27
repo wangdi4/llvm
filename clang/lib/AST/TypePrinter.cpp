@@ -1,4 +1,21 @@
 //===- TypePrinter.cpp - Pretty-Print Clang Types -------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -240,6 +257,7 @@ bool TypePrinter::canPrefixQualifiers(const Type *T,
     case Type::Pipe:
     case Type::BitInt:
     case Type::DependentBitInt:
+    case Type::BTFTagAttributed:
       CanPrefixQualifiers = true;
       break;
 
@@ -285,7 +303,7 @@ bool TypePrinter::canPrefixQualifiers(const Type *T,
     case Type::Attributed: {
       // We still want to print the address_space before the type if it is an
       // address_space attribute.
-      const auto *AttrTy = cast<AttributedType>(T);
+      const auto *AttrTy = cast<AttributedType>(UnderlyingType);
       CanPrefixQualifiers = AttrTy->getAttrKind() == attr::AddressSpace;
     }
   }
@@ -1451,7 +1469,8 @@ void TypePrinter::printTemplateTypeParmBefore(const TemplateTypeParmType *T,
     }
     OS << "auto";
   } else if (IdentifierInfo *Id = T->getIdentifier())
-    OS << Id->getName();
+    OS << (Policy.CleanUglifiedParameters ? Id->deuglifiedName()
+                                          : Id->getName());
   else
     OS << "type-parameter-" << T->getDepth() << '-' << T->getIndex();
 
@@ -1727,6 +1746,9 @@ void TypePrinter::printAttributedAfter(const AttributedType *T,
 #include "clang/Basic/AttrList.inc"
     llvm_unreachable("non-type attribute attached to type");
 
+  case attr::BTFTypeTag:
+    llvm_unreachable("BTFTypeTag attribute handled separately");
+
   case attr::OpenCLPrivateAddressSpace:
   case attr::OpenCLGlobalAddressSpace:
   case attr::OpenCLGlobalDeviceAddressSpace:
@@ -1809,11 +1831,19 @@ void TypePrinter::printAttributedAfter(const AttributedType *T,
   case attr::ArmMveStrictPolymorphism:
     OS << "__clang_arm_mve_strict_polymorphism";
     break;
-  case attr::BTFTypeTag:
-    OS << "btf_type_tag";
-    break;
   }
   OS << "))";
+}
+
+void TypePrinter::printBTFTagAttributedBefore(const BTFTagAttributedType *T,
+                                              raw_ostream &OS) {
+  printBefore(T->getWrappedType(), OS);
+  OS << " btf_type_tag(" << T->getAttr()->getBTFTypeTag() << ")";
+}
+
+void TypePrinter::printBTFTagAttributedAfter(const BTFTagAttributedType *T,
+                                             raw_ostream &OS) {
+  printAfter(T->getWrappedType(), OS);
 }
 
 void TypePrinter::printObjCInterfaceBefore(const ObjCInterfaceType *T,

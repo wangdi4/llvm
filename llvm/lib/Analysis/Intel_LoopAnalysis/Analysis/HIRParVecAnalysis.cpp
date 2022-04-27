@@ -265,16 +265,7 @@ bool HIRParVecAnalysisWrapperPass::runOnFunction(Function &F) {
   auto DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
   auto SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
 
-  // ParVecAnalysis runs in on-demand mode. runOnFunction is almost no-op.
-  // In the debug mode, run actual analysis in ParallelVector mode, print
-  // the result, and releas memory as if nothing happened. "opt -analyze"
-  // doesn't print anything.
-  LLVM_DEBUG(HPVA.reset(new HIRParVecAnalysis(true, TTI, TLI, HIRF, DDA, SRA)));
-  LLVM_DEBUG(HPVA->analyze(ParVecInfo::ParallelVector));
-  LLVM_DEBUG(HPVA->printAnalysis(dbgs()));
-
   HPVA.reset(new HIRParVecAnalysis(true, TTI, TLI, HIRF, DDA, SRA));
-
   return false;
 }
 
@@ -336,6 +327,8 @@ void HIRParVecAnalysis::markLoopBodyModified(const HLLoop *Lp) {
 }
 
 void HIRParVecAnalysis::printAnalysis(raw_ostream &OS) const {
+  auto *NonConst = const_cast<HIRParVecAnalysis *>(this);
+  NonConst->analyze(ParVecInfo::ParVecInfo::ParallelVector);
   ParVecPrintVisitor Vis(InfoMap, OS);
   HIRF.getHLNodeUtils().visitAll(Vis);
 }
@@ -720,6 +713,8 @@ public:
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
   bool tryMinMaxIdiom(HLDDNode *Node);
+  bool isRecognizedConflictIndex(RegDDRef *StoreMemDDRef,
+                                 const BlobDDRef *&NonLinearBlob);
   bool tryVConflictIdiom(HLDDNode *Node);
 };
 
@@ -936,6 +931,38 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
   return false;
 }
 
+// Types of conflict indexes currently identified by vconflict idiom
+// recognition.
+bool HIRIdiomAnalyzer::isRecognizedConflictIndex(
+    RegDDRef *StoreMemDDRef,
+    const BlobDDRef *&NonLinearBlob) {
+
+  if (StoreMemDDRef->isLinearAtLevel(Loop->getNestingLevel()) &&
+      StoreMemDDRef->getSingleCanonExpr()->getDenominator() != 1)
+    // E.g., (%A)[i1/u3]: [i1/u3] is linear but will result indexes
+    // repeating.
+    return true;
+
+  // Check that store memref has only one non-linear blob.
+  // TODO: Single non-linear blob handling simplifies the implementation,
+  //       but it seems possible to be able to handle multiple non-linear
+  //       blobs here. After all, multiple non-linear blobs are still
+  //       non-linear expressions. Need to investigate further.
+  NonLinearBlob = StoreMemDDRef->getSingleNonLinearBlobRef();
+  // <15>    + DO i1 = 0, 1023, 1   <DO_LOOP> <nounroll>
+  // <3>     |   %0 = (%B)[i1];
+  // <7>     |   %add = (%A)[%0]  +  1.000000e+00;
+  // <8>     |   (%A)[%0] = %add; // StoreMemDDRef = (%A)[%0]
+  // <15>    + END LOOP
+  // %0 is a single NonLinearBlob of (%A)[%0]
+  // Note: num incoming edges > 1 means that we can have something like a
+  // blob coming from multiple code paths (e.g., if/else)
+  if (NonLinearBlob && DDG.getNumIncomingEdges(NonLinearBlob) == 1)
+    return true;
+
+  return false;
+}
+
 // The "vconflict idiom" refers to the user code with vector data dependencies
 // that can be resolved using vconflict instruction. Particularly, dependencies
 // due to possible overlapped indexes in statements like
@@ -999,6 +1026,10 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
       StoreMemDDRef->isLinearAtLevel(Loop->getNestingLevel()))
     return Mismatch("Store memory ref is linear");
 
+  const BlobDDRef *NonLinearBlob = nullptr;
+  if (!isRecognizedConflictIndex(StoreMemDDRef, NonLinearBlob))
+    return Mismatch("Conflict index not supported");
+
   // The store address of the above example has two outgoing edges:
   // 8:7 (%A)[%0] --> (%A)[%0] FLOW (*) (?)
   // 8:8 (%A)[%0] --> (%A)[%0] OUTPUT (*) (?)
@@ -1055,33 +1086,22 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
     //  %tmp0 = redefine
     //  A[%tmp0] = %ld + 42
 
-    // If the store memref has only linear blobs then we know that their uses
-    // are defined outside current loop and hence index of such memrefs cannot
-    // be redefined.
-    if (StoreMemDDRef->isLinearAtLevel((Loop->getNestingLevel()))) {
-      assert(StoreMemDDRef->getSingleCanonExpr()->getDenominator() != 1 &&
-             "Expected early bailout for linear ref with denominator of 1");
-      continue;
+    if (NonLinearBlob) {
+      DDEdge *NonLinBlobToStoreEdge = *DDG.incoming_edges_begin(NonLinearBlob);
+      HLDDNode *NonLinBlobDefNode =
+          NonLinBlobToStoreEdge->getSrc()->getHLDDNode();
+      // Check if the node where non-linear blob for store is defined precedes
+      // the load as well. E.g., index is defined before the reference to the
+      // store (%0 is defined before %1).
+      //; <3>  %0 = (%B)[i1];
+      //; <6>  %1 = (%A)[%0];
+      //; <7>  %add = %1  +  2.000000e+00;
+      //; <8>  (%A)[%0] = %add;
+      if (NonLinBlobDefNode->getTopSortNum() >=
+          LoadRef->getHLDDNode()->getTopSortNum())
+        return Mismatch(
+            "Non-linear blob operand of store does not precede the load.");
     }
-
-    // Check that store memref has only one non-linear blob.
-    auto *NonLinearBlob = StoreMemDDRef->getSingleNonLinearBlobRef();
-    if (!NonLinearBlob)
-      return Mismatch("Multiple non-linear blobs in store memref.");
-
-    if (DDG.getNumIncomingEdges(NonLinearBlob) != 1)
-      return Mismatch(
-          "Multiple incoming edges to conflicting memref's non-linear blob.");
-
-    DDEdge *NonLinBlobToStoreEdge = *DDG.incoming_edges_begin(NonLinearBlob);
-    HLDDNode *NonLinBlobDefNode =
-        NonLinBlobToStoreEdge->getSrc()->getHLDDNode();
-    // Check if the node where non-linear blob for store is defined precedes the
-    // load as well.
-    if (NonLinBlobDefNode->getTopSortNum() >=
-        LoadRef->getHLDDNode()->getTopSortNum())
-      return Mismatch(
-          "Non-linear blob operand of store does not precede the load.");
   }
 
   if (FlowDepCnt == 0)
@@ -1118,6 +1138,12 @@ void HIRVectorIdiomAnalysis::gatherIdioms(const TargetTransformInfo *TTI,
     LLVM_DEBUG(dbgs() << "Any idiom recognition is disabled\n");
 }
 
-extern void llvm::loopopt::deleteHIRVectorIdioms(HIRVectorIdioms *p) {
-  delete p;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void HIRVecIdiom::dump() const {
+  if (is<const HLInst*>())
+    get<const HLInst*>()->dump();
+  else
+    get<const DDRef*>()->dump();
 }
+#endif
+

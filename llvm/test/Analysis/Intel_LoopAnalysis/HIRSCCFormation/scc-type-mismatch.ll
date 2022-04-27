@@ -1,4 +1,15 @@
-; RUN: opt < %s -loop-simplify | opt -analyze -hir-scc-formation | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -loop-simplify | opt -analyze -enable-new-pm=0 -hir-scc-formation | FileCheck %s
+
+; We use the --allow-empty flag with FileCheck for the new-format opt because:
+;
+; - new-format opt output is empty for this test, (old-format opt emits just one
+;       line: Printing analysis 'HIR SCC Formation' for function...).
+; - The check consists of 'CHECK-NOT' only, and has no 'CHECK' lines.
+;
+; TODO: If the lit-test is modified, and new-format opt is no longer empty,
+;     please make sure to remove the --allow-empty flag, and this comment.
+;
+; RUN: opt %s -passes="loop-simplify,print<hir-scc-formation>" -disable-output 2>&1 | FileCheck --allow-empty %s
 
 ; Check that the SCC with the type mismatch is removed (k.024 -> %.add -> %j.0 -> %conv10) so we don't form any SCCs.
 ; CHECK-NOT: SCC1

@@ -1,4 +1,4 @@
-; RUN: opt -O3 -paropt=31 -S < %s | FileCheck %s
+; RUN: opt -O3 -paropt=31 -S %s | FileCheck %s
 ;
 ;void foo(float * A, float * B, int N) {
 ;#pragma omp parallel for
@@ -867,7 +867,7 @@ declare float @llvm.fabs.f32(float)
 ; CHECK:   store float [[MUL]], float* [[AADDR]]
 ; CHECK: }
 
-; CHECK: define internal void [[OUTLINED_BAZ_TEAMS]](i32* nocapture readnone %tid, i32* nocapture readnone %bid, float* nocapture [[ABASE:%.+]], float* nocapture readonly [[BBASE:%.+]], i64 %{{.+}}) #{{[0-9]+}} {
+; CHECK: define internal void [[OUTLINED_BAZ_TEAMS]](i32* nocapture readnone %tid, i32* nocapture readnone %bid, float* nocapture writeonly [[ABASE:%.+]], float* nocapture readonly [[BBASE:%.+]], i64 %{{.+}}) #{{[0-9]+}} {
 ; CHECK:   call {{.*}} @__kmpc_fork_call({{.*}}, i32 4, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, float*, float*, i64, i64)* [[OUTLINED_BAZ_LOOP]] to void (i32*, i32*, ...)*), float* [[ABASE]], float* [[BBASE]], i64 0, i64 %{{.+}})
 ; CHECK: }
 

@@ -22,6 +22,10 @@
 
 #define DEBUG_TYPE "vplan-alignment-analysis"
 
+static cl::opt<bool>
+    ForceDynAlignment("vplan-force-dyn-alignment", cl::init(false), cl::Hidden,
+                      cl::desc("Force dynamic peeling for alignment."));
+
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -93,8 +97,8 @@ void VPlanDynamicPeeling::print(raw_ostream &OS) const {
 }
 #endif
 
-int VPlanPeelingCostModelSimple::getCost(VPLoadStoreInst *Mrf, int VF,
-                                         Align Alignment) {
+VPInstructionCost VPlanPeelingCostModelSimple::getCost(
+  VPLoadStoreInst *Mrf, int VF, Align Alignment) {
   auto Size = DL->getTypeAllocSize(Mrf->getValueType());
   Align BestAlign(VF * MinAlign(0, Size));
   auto Opcode = Mrf->getOpcode();
@@ -111,8 +115,8 @@ int VPlanPeelingCostModelSimple::getCost(VPLoadStoreInst *Mrf, int VF,
   llvm_unreachable("Unexpected Opcode");
 }
 
-int VPlanPeelingCostModelGeneral::getCost(VPLoadStoreInst *Mrf, int VF,
-                                          Align Alignment) {
+VPInstructionCost VPlanPeelingCostModelGeneral::getCost(
+  VPLoadStoreInst *Mrf, int VF, Align Alignment) {
   return CM->getLoadStoreCost(Mrf, Alignment, VF);
 }
 
@@ -146,20 +150,21 @@ VPlanPeelingAnalysis::selectBestPeelingVariant(int VF,
   auto Static = selectBestStaticPeelingVariant(VF, CM);
   if (EnableDynamic) {
     auto DynamicOrNone = selectBestDynamicPeelingVariant(VF, CM);
-    if (DynamicOrNone && DynamicOrNone->second > Static.second)
+    if (DynamicOrNone &&
+        (ForceDynAlignment || DynamicOrNone->second > Static.second))
       return std::make_unique<VPlanDynamicPeeling>(DynamicOrNone->first);
   }
   return std::make_unique<VPlanStaticPeeling>(Static.first);
 }
 
-std::pair<VPlanStaticPeeling, int>
+std::pair<VPlanStaticPeeling, VPInstructionCost>
 VPlanPeelingAnalysis::selectBestStaticPeelingVariant(
     int VF, VPlanPeelingCostModel &CM) {
   // We are going to compute profit for every possible static peel count and
   // select the most profitable one. The peel count can be any number in
   // [0...VF) interval. PeelCountProfit is a zero-initialized array of profits
   // for every possible peel count.
-  std::vector<int> PeelCountProfit(VF);
+  std::vector<VPInstructionCost> PeelCountProfit(VF);
 
   for (VPlanPeelingCandidate &Cand : CandidateMemrefs) {
     VPLoadStoreInst *Memref = Cand.memref();
@@ -177,7 +182,7 @@ VPlanPeelingAnalysis::selectBestStaticPeelingVariant(
       continue;
 
     // Initial cost of the memory access.
-    int CostBasis = CM.getCost(Memref, VF, ReqAlign);
+    VPInstructionCost CostBasis = CM.getCost(Memref, VF, ReqAlign);
 
     // How much we can improve alignment of the memref.
     int MaxExtraBits = std::min<int>(Known - Log2(ReqAlign), Log2_32(VF));
@@ -210,7 +215,7 @@ VPlanPeelingAnalysis::selectBestStaticPeelingVariant(
     //
     for (int ExtraBits = 1; ExtraBits <= MaxExtraBits; ++ExtraBits) {
       Align TgtAlign = ReqAlign * (1ULL << ExtraBits);
-      int NewCost = CM.getCost(Memref, VF, TgtAlign);
+      VPInstructionCost NewCost = CM.getCost(Memref, VF, TgtAlign);
 
       // Check if the new alignment is beneficial at all.
       if (NewCost == CostBasis)
@@ -262,11 +267,11 @@ VPlanPeelingAnalysis::selectBestStaticPeelingVariant(
 
   auto Iter = std::max_element(PeelCountProfit.begin(), PeelCountProfit.end());
   int BestPeelCount = std::distance(PeelCountProfit.begin(), Iter);
-  int MaxProfit = *Iter;
+  auto MaxProfit = *Iter;
   return { VPlanStaticPeeling(BestPeelCount), MaxProfit };
 }
 
-Optional<std::pair<VPlanDynamicPeeling, int>>
+Optional<std::pair<VPlanDynamicPeeling, VPInstructionCost>>
 VPlanPeelingAnalysis::selectBestDynamicPeelingVariant(
     int VF, VPlanPeelingCostModel &CM) {
   if (CandidateMemrefs.empty())
@@ -275,9 +280,10 @@ VPlanPeelingAnalysis::selectBestDynamicPeelingVariant(
   // Map every collected memref to {Peeling, Profit} pair.
   auto Map = map_range(
       CandidateMemrefs,
-      [this, VF, &CM](auto &Cand) -> std::pair<VPlanDynamicPeeling, int> {
+      [this, VF, &CM](auto &Cand) ->
+      std::pair<VPlanDynamicPeeling, VPInstructionCost> {
         Align ReqAlign(MinAlign(0, Cand.accessAddress().Step));
-        int CostBasis = 0, CostAlign = 0;
+        VPInstructionCost CostBasis = 0, CostAlign = 0;
         CostBasis += CM.getCost(Cand.memref(), VF, ReqAlign);
         CostAlign += CM.getCost(Cand.memref(), VF, ReqAlign * VF);
         for (auto &Congr : CongruentMemrefs[Cand.memref()]) {
@@ -285,7 +291,7 @@ VPlanPeelingAnalysis::selectBestDynamicPeelingVariant(
           auto TgtAlign = std::min(ReqAlign * VF, Congr.second);
           CostAlign += CM.getCost(Congr.first, VF, TgtAlign);
         }
-        int Profit = CostBasis - CostAlign;
+        VPInstructionCost Profit = CostBasis - CostAlign;
         VPlanDynamicPeeling Peeling(Cand.memref(), Cand.accessAddress(),
                                     ReqAlign * VF);
         return {std::move(Peeling), Profit};
@@ -370,7 +376,15 @@ void VPlanPeelingAnalysis::computeCongruentMemrefs() {
         if (!Diff)
           continue;
         auto KB = VPVT->getKnownBits(Diff, nullptr);
-        assert(!KB.isZero() && "Comparing same address?");
+
+        // We can have a case especially in HIR, where the base canon expressions
+        // coming from different memory references are different but are
+        // equivalent. For example the base CE from the load and store below:
+        //   a[i] = a[i] + 1
+        // Treat this case the same as CandBase == PrevBase.
+        if (KB.isZero())
+          continue;
+
         // "Alignment" of the pointer difference determines how much alignment
         // can be transferred from one memref to another. That is, as long as
         // alignment of Mrf1 is not greater than A, alignment of Mrf2 is going
@@ -483,8 +497,18 @@ Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
     return AlignFromIR;
 
   VPlanSCEV *Diff = VPSE->getMinusExpr(DstScev, SrcScev);
-  assert(Diff && "Cannot compute alignment for peeled memref");
+  // If we are unable to compute the diff, there is not much that we can
+  // do. Use alignment from IR.
+  if (!Diff)
+    return AlignFromIR;
+
   auto KB = VPVT->getKnownBits(Diff, &Memref);
+  if (KB.isZero()) {
+    // The memref is congruently equal to the peeling base. Return targeted
+    // peeling alignment. Note: the steps equality is checked above.
+    return DP.targetAlignment();
+  }
+
   Align AlignFromDiff{1ULL << KB.countMinTrailingZeros()};
 
   // Alignment of access cannot be larger than alignment of the step, which

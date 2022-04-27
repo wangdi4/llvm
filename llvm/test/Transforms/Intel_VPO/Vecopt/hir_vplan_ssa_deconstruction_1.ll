@@ -28,94 +28,82 @@
 ;         @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ;   END REGION
 
-
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=hir-vplan-vec -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=PM1
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=hir-vplan-vec -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=PM2
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=hir-vplan-vec -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-linearization-hir=false -vplan-force-vf=4 -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=hir-vplan-vec -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-linearization-hir=false -vplan-force-vf=4 -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
 define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2, i32 %n1) {
 ; CHECK-LABEL:  VPlan after SSA deconstruction:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
+; CHECK:          [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 99, UF = 1
-; CHECK-NEXT:     [DA: Div] float [[VP__RED_INIT:%.*]] = reduction-init float 0.000000e+00
-; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 100, UF = 1
+; CHECK-NEXT:     [DA: Div] float [[VP_RED_INIT:%.*]] = reduction-init float 0.000000e+00
+; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 {{.*}} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:     [DA: Div] float [[VP0:%.*]] = hir-copy float [[VP_RED_INIT]] , OriginPhiId: 0
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:     [DA: Div] float [[VP0:%.*]] = phi  [ float [[VP__RED_INIT]], [[BB1]] ],  [ float [[VP1:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP4:%.*]] = icmp eq i32 [[N10:%.*]] i32 0
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP4]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Div] float [[VP1:%.*]] = phi  [ float [[VP0]], [[BB1]] ],  [ float [[VP2:%.*]], [[BB3]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP3:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB3]] ]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP5:%.*]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[BB2]]
-; CHECK-NEXT:       [DA: Div] float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds float* [[ARR20:%.*]] i64 [[VP2]]
+; CHECK-NEXT:       [DA: Div] float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds float* [[ARR20:%.*]] i64 [[VP3]]
 ; CHECK-NEXT:       [DA: Div] float [[VP_LOAD:%.*]] = load float* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:       [DA: Div] float [[VP5:%.*]] = hir-copy float [[VP_LOAD]] , OriginPhiId: -1
-; CHECK-NEXT:       [DA: Div] float [[VP6:%.*]] = hir-copy float [[VP0]] , OriginPhiId: 0
-; CHECK-NEXT:       [DA: Div] float [[VP7:%.*]] = hir-copy float [[VP5]] , OriginPhiId: 1
+; CHECK-NEXT:       [DA: Div] float [[VP6:%.*]] = hir-copy float [[VP_LOAD]] , OriginPhiId: -1
+; CHECK-NEXT:       [DA: Div] float [[VP7:%.*]] = hir-copy float [[VP6]] , OriginPhiId: 1
 ; CHECK-NEXT:       [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:       [DA: Div] float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds float* [[ARR10:%.*]] i64 [[VP2]]
+; CHECK-NEXT:       [DA: Div] float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds float* [[ARR10:%.*]] i64 [[VP3]]
 ; CHECK-NEXT:       [DA: Div] float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:       [DA: Div] float [[VP8:%.*]] = hir-copy float [[VP_LOAD_1]] , OriginPhiId: -1
-; CHECK-NEXT:       [DA: Div] float [[VP9:%.*]] = hir-copy float [[VP0]] , OriginPhiId: 0
-; CHECK-NEXT:       [DA: Div] float [[VP10:%.*]] = hir-copy float [[VP8]] , OriginPhiId: 1
+; CHECK-NEXT:       [DA: Div] float [[VP9:%.*]] = hir-copy float [[VP8]] , OriginPhiId: 1
 ; CHECK-NEXT:       [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB5]]
-; CHECK-NEXT:     [DA: Div] float [[VP11:%.*]] = phi  [ float [[VP9]], [[BB4]] ],  [ float [[VP6]], [[BB5]] ]
-; CHECK-NEXT:     [DA: Div] float [[VP12:%.*]] = phi  [ float [[VP10]], [[BB4]] ],  [ float [[VP7]], [[BB5]] ]
-; CHECK-NEXT:     [DA: Div] float [[VP1]] = fadd float [[VP12]] float [[VP11]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP13:%.*]] = icmp sle i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP13]], [[BB2]], [[BB6:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Div] float [[VP10:%.*]] = phi  [ float [[VP9]], [[BB4]] ],  [ float [[VP7]], [[BB5]] ]
+; CHECK-NEXT:     [DA: Div] float [[VP11:%.*]] = fadd float [[VP10]] float [[VP1]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP4]] = add i64 [[VP3]] i64 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP12:%.*]] = icmp slt i64 [[VP4]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Div] float [[VP2]] = hir-copy float [[VP11]] , OriginPhiId: 0
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP12]], [[BB2]], [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB3]]
-; CHECK-NEXT:     [DA: Uni] float [[VP__RED_FINAL:%.*]] = reduction-final{fadd} float [[VP1]] float live-in1
+; CHECK-NEXT:     [DA: Uni] float [[VP_RED_FINAL:%.*]] = reduction-final{fadd} float [[VP11]] float {{.*}}
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
-; CHECK-NEXT:     [DA: Uni] br <External Block>
-; CHECK-EMPTY:
-; CHECK-NEXT:  External Uses:
+; CHECK:       External Uses:
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP__IND_FINAL]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Id: 1   float [[VP__RED_FINAL]] -> [[VP14:%.*]] = {%red.phi}
-; CHECK-EMPTY:
-; PM1:         IR Dump After VPlan HIR Vectorizer
-; PM2:         IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
-; CHECK-NEXT:  Function: foo
-; CHECK-EMPTY:
-; CHECK-NEXT:  <0>          BEGIN REGION { modified }
-; CHECK-NEXT:  <27>                  [[RED_VAR0:%.*]] = 0.000000e+00
-; CHECK-NEXT:  <26>               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:  <29>               |   [[DOTVEC0:%.*]] = [[N10]] == 0
-; CHECK-NEXT:  <30>               |   [[UNIFCOND0:%.*]] = extractelement [[DOTVEC0]],  0
-; CHECK-NEXT:  <31>               |   if ([[UNIFCOND0]] == 1)
-; CHECK-NEXT:  <31>               |   {
-; CHECK-NEXT:  <32>               |      goto [[BB4]].40
-; CHECK-NEXT:  <31>               |   }
-; CHECK-NEXT:  <35>               |   [[DOTVEC20:%.*]] = (<4 x float>*)([[ARR20]])[i1]
-; CHECK-NEXT:  <36>               |   [[DOTCOPY0:%.*]] = [[DOTVEC20]]
-; CHECK-NEXT:  <37>               |   [[PHI_TEMP0:%.*]] = [[RED_VAR0]]
-; CHECK-NEXT:  <38>               |   [[PHI_TEMP40:%.*]] = [[DOTCOPY0]]
-; CHECK-NEXT:  <39>               |   goto [[BB3]].46
-; CHECK-NEXT:  <40>               |   [[BB4]].40:
-; CHECK-NEXT:  <41>               |   [[DOTVEC60:%.*]] = (<4 x float>*)([[ARR10]])[i1]
-; CHECK-NEXT:  <42>               |   [[DOTCOPY70:%.*]] = [[DOTVEC60]]
-; CHECK-NEXT:  <43>               |   [[PHI_TEMP0]] = [[RED_VAR0]]
-; CHECK-NEXT:  <44>               |   [[PHI_TEMP40]] = [[DOTCOPY70]]
-; CHECK-NEXT:  <46>               |   [[BB3]].46:
-; CHECK-NEXT:  <47>               |   [[RED_VAR0]] = [[PHI_TEMP40]]  +  [[PHI_TEMP0]]
-; CHECK-NEXT:  <26>               + END LOOP
-; CHECK-NEXT:  <48>                  [[RED_PHI0:%.*]] = @llvm.vector.reduce.fadd.v4f32([[RED_PHI0]],  [[RED_VAR0]])
-; CHECK-NEXT:  <0>          END REGION
+; CHECK-NEXT:  Id: 1   float {{.*}} -> [[VP17:%.*]] = {%red.phi}
+; CHECK:       BEGIN REGION { modified }
+; CHECK-NEXT:        [[RED_INIT0:%.*]] = 0.000000e+00
+; CHECK-NEXT:        [[PHI_TEMP0:%.*]] = [[RED_INIT0]]
+; CHECK:             + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK-NEXT:        |   if ([[N10:%.*]] == 0)
+; CHECK-NEXT:        |   {
+; CHECK-NEXT:        |      [[DOTVEC50:%.*]] = (<4 x float>*)([[ARR10]])[i1]
+; CHECK-NEXT:        |      [[DOTCOPY60:%.*]] = [[DOTVEC50]]
+; CHECK-NEXT:        |      [[PHI_TEMP30:%.*]] = [[DOTCOPY60]]
+; CHECK-NEXT:        |   }
+; CHECK-NEXT:        |   else
+; CHECK-NEXT:        |   {
+; CHECK-NEXT:        |      [[DOTVEC0:%.*]] = (<4 x float>*)([[ARR20]])[i1]
+; CHECK-NEXT:        |      [[DOTCOPY20:%.*]] = [[DOTVEC0]]
+; CHECK-NEXT:        |      [[PHI_TEMP30]] = [[DOTCOPY20]]
+; CHECK-NEXT:        |   }
+; CHECK-NEXT:        |   [[DOTVEC80:%.*]] = [[PHI_TEMP30]]  +  [[PHI_TEMP0]]
+; CHECK-NEXT:        |   [[PHI_TEMP0]] = [[DOTVEC80]]
+; CHECK-NEXT:        + END LOOP
+; CHECK:             [[RED_PHI0:%.*]] = @llvm.vector.reduce.fadd.v4f32([[RED_PHI0]],  [[DOTVEC80]])
+; CHECK:       END REGION
 ;
 
 entry:

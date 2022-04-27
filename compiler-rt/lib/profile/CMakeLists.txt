@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 
 CHECK_CXX_SOURCE_COMPILES("
 #ifdef _WIN32
@@ -80,7 +97,7 @@ set(PROFILE_HEADERS
 if(WIN32)
   list(APPEND PROFILE_SOURCES
     WindowsMMap.c
-    )
+  )
 endif()
 
 include_directories(..)
@@ -127,6 +144,9 @@ string(REGEX REPLACE "-stdlib=[a-zA-Z+]*" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}
 # initializers. All other compilers accept this, though.
 # nonstandard extension used : 'identifier' : cannot be initialized using address of automatic variable
 append_list_if(COMPILER_RT_HAS_WD4221_FLAG /wd4221 EXTRA_FLAGS)
+
+# Disable 'nonstandard extension used: translation unit is empty'.
+append_list_if(COMPILER_RT_HAS_WD4206_FLAG /wd4206 EXTRA_FLAGS)
 
 if(APPLE)
   add_compiler_rt_runtime(clang_rt.profile

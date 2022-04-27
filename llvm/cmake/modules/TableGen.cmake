@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 # LLVM_TARGET_DEFINITIONS must contain the name of the .td file to process,
 # while LLVM_TARGET_DEPENDS may contain additional file dependencies.
 # Extra parameters for `tblgen' may come after `ofn' parameter.
@@ -16,13 +33,14 @@ if(INTEL_COLLAB)
 endif()
 
 function(tablegen project ofn)
+  cmake_parse_arguments(ARG "" "" "DEPENDS;EXTRA_INCLUDES" ${ARGN})
   # Validate calling context.
   if(NOT ${project}_TABLEGEN_EXE)
     message(FATAL_ERROR "${project}_TABLEGEN_EXE not set")
   endif()
 
   # Use depfile instead of globbing arbitrary *.td(s) for Ninja.
-  if(CMAKE_GENERATOR STREQUAL "Ninja")
+  if(CMAKE_GENERATOR MATCHES "Ninja")
     # Make output path relative to build.ninja, assuming located on
     # ${CMAKE_BINARY_DIR}.
     # CMake emits build targets as relative paths but Ninja doesn't identify
@@ -108,10 +126,16 @@ function(tablegen project ofn)
   # ("${${project}_TABLEGEN_TARGET}" STREQUAL "${${project}_TABLEGEN_EXE}")
   # but lets us having smaller and cleaner code here.
   get_directory_property(tblgen_includes INCLUDE_DIRECTORIES)
+  list(APPEND tblgen_includes ${ARG_EXTRA_INCLUDES})
+  # Filter out empty items before prepending each entry with -I
+  list(REMOVE_ITEM tblgen_includes "")
   list(TRANSFORM tblgen_includes PREPEND -I)
 
+  set(tablegen_exe ${${project}_TABLEGEN_EXE})
+  set(tablegen_depends ${${project}_TABLEGEN_TARGET} ${tablegen_exe})
+
   add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${ofn}
-    COMMAND ${${project}_TABLEGEN_EXE} ${ARGN} -I ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${tablegen_exe} ${ARG_UNPARSED_ARGUMENTS} -I ${CMAKE_CURRENT_SOURCE_DIR}
     ${tblgen_includes}
     ${LLVM_TABLEGEN_FLAGS}
     ${LLVM_TARGET_DEFINITIONS_ABSOLUTE}
@@ -120,7 +144,7 @@ function(tablegen project ofn)
     # The file in LLVM_TARGET_DEFINITIONS may be not in the current
     # directory and local_tds may not contain it, so we must
     # explicitly list it here:
-    DEPENDS ${${project}_TABLEGEN_TARGET} ${${project}_TABLEGEN_EXE}
+    DEPENDS ${ARG_DEPENDS} ${tablegen_depends}
       ${local_tds} ${global_tds}
       ${intel_tds} # INTEL_CUSTOMIZATION
     ${LLVM_TARGET_DEFINITIONS_ABSOLUTE}
@@ -155,7 +179,7 @@ macro(add_tablegen target project)
   set(LLVM_LINK_COMPONENTS ${LLVM_LINK_COMPONENTS} TableGen)
 
   # CMake doesn't let compilation units depend on their dependent libraries on some generators.
-  if(NOT CMAKE_GENERATOR STREQUAL "Ninja" AND NOT XCODE)
+  if(NOT CMAKE_GENERATOR MATCHES "Ninja" AND NOT XCODE)
     # FIXME: It leaks to user, callee of add_tablegen.
     set(LLVM_ENABLE_OBJLIB ON)
   endif()

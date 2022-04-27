@@ -348,7 +348,7 @@ bool CanonExpr::isIntVectorConstant(Constant **Val) const {
       ConstVal = ConstantInt::get(getDestType()->getScalarType(), ConstIntVal);
       *Val = ConstantVector::getSplat(
           ElementCount::getFixed(
-              cast<VectorType>(getDestType())->getNumElements()),
+              cast<FixedVectorType>(getDestType())->getNumElements()),
           ConstVal);
     }
 
@@ -373,7 +373,7 @@ bool CanonExpr::isFPVectorConstant(Constant **Val) const {
       ConstVal = ConstFPVal;
       *Val = ConstantVector::getSplat(
           ElementCount::getFixed(
-              cast<VectorType>(getDestType())->getNumElements()),
+              cast<FixedVectorType>(getDestType())->getNumElements()),
           ConstVal);
     }
 

@@ -19,8 +19,8 @@ using namespace llvm;
 ///
 /// \brief Print 'indentCount' indentations
 ///
-void llvm::printIndentCount(unsigned indentCount) {
-  llvm::errs().indent(indentCount * 3);
+void llvm::printIndentCount(formatted_raw_ostream &OS, unsigned indentCount) {
+  OS.indent(indentCount * 3);
 }
 
 StringRef llvm::getOpStr(Metadata *Node, StringRef Front) {
@@ -45,30 +45,26 @@ void llvm::getOpVal(Metadata *Node, StringRef Front, int64_t *Val) {
 }
 
 // Print the inlining option values
-void llvm::printOptionValues(unsigned OptLevel, unsigned SizeLevel) {
+void llvm::printOptionValues(formatted_raw_ostream &OS, unsigned OptLevel,
+                             unsigned SizeLevel) {
   InlineParams Params;
   if (!OptLevel && !SizeLevel)
     Params = llvm::getInlineParams();
   else
     Params = llvm::getInlineParams(OptLevel, SizeLevel);
-  llvm::errs() << "Option Values:\n";
-  llvm::errs() << "  inline-threshold: " << Params.DefaultThreshold << "\n";
-  llvm::errs() << "  inlinehint-threshold: "
-               << (Params.HintThreshold.hasValue()
-                       ? Params.HintThreshold.getValue()
-                       : 0)
-               << "\n";
-  llvm::errs() << "  inlinecold-threshold: "
-               << (Params.ColdThreshold.hasValue()
-                       ? Params.ColdThreshold.getValue()
-                       : 0)
-               << "\n";
-  llvm::errs() << "  inlineoptsize-threshold: "
-               << (Params.OptSizeThreshold.hasValue()
-                       ? Params.OptSizeThreshold.getValue()
-                       : 0)
-               << "\n";
-  llvm::errs() << "\n";
+  OS << "Option Values:\n";
+  OS << "  inline-threshold: " << Params.DefaultThreshold << "\n";
+  OS << "  inlinehint-threshold: "
+     << (Params.HintThreshold.hasValue() ? Params.HintThreshold.getValue() : 0)
+     << "\n";
+  OS << "  inlinecold-threshold: "
+     << (Params.ColdThreshold.hasValue() ? Params.ColdThreshold.getValue() : 0)
+     << "\n";
+  OS << "  inlineoptsize-threshold: "
+     << (Params.OptSizeThreshold.hasValue() ? Params.OptSizeThreshold.getValue()
+                                            : 0)
+     << "\n";
+  OS << "\n";
 }
 
 // Skip some llvm-specific intrinsics to make inline report shorter.

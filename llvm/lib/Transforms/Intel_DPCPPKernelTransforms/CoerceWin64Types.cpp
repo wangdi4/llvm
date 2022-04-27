@@ -209,7 +209,7 @@ updateCallInst(CallInst *CI, Function *NewFun,
     Value *ArgI = CI->getArgOperand(I);
     if (CI->paramHasAttr(I, Attribute::ByVal)) {
       auto *PT = cast<PointerType>(ArgI->getType());
-      Type *ElementTy = PT->getElementType();
+      Type *ElementTy = CI->getParamByValType(I);
       // In case that FE doesn't passing the size infomation.
       unsigned Alignment = ValueMap[I].first;
       uint64_t MemSize = ValueMap[I].second;

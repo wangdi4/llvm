@@ -5,12 +5,33 @@
 
 // Verify the table is generated correctly for both Option and no Option case.
 
-// CHECK: FArgumentNoalias
-// CHECK-NEXT: ----------------
-// CHECK-NEXT: .. csv-table::
-// CHECK-NEXT:    :header: "Option","Default","BugTracker","Customer","RegressionTest","Owner","CompatVersions",
+// CHECK: {{^}}HLS/FPGA Attributes{{$}}
+// CHECK-NEXT: ===================
 
-// CHECK: RotateIntrinsics
+// CHECK: {{^}}HLS/FPGA Pragmas{{$}}
+// CHECK-NEXT: ================
+
+// CHECK: {{^}}Intel Compatibility{{$}}
+// CHECK-NEXT: ===================
+
+// CHECK: {{^}}RotateIntrinsics{{$}}
 // CHECK-NEXT: ----------------
 // CHECK-NEXT: .. csv-table::
 // CHECK-NEXT:   :header: "BugTracker","Customer","RegressionTest","Owner","CompatVersions",
+
+// CHECK: {{^}}Intel Loop Pragmas{{$}}
+// CHECK-NEXT: ==================
+
+// CHECK: {{^}}Microsoft Compatibility{{$}}
+// CHECK-NEXT: =======================
+
+// CHECK: {{^}}OpenMP{{$}}
+// CHECK-NEXT: ======
+
+// CHECK: {{^}}Optimization{{$}}
+// CHECK-NEXT: ============
+
+// CHECK: {{^}}FArgumentNoalias{{$}}
+// CHECK-NEXT: ----------------
+// CHECK-NEXT: .. csv-table::
+// CHECK-NEXT:    :header: "Option","Default","BugTracker","Customer","RegressionTest","Owner","CompatVersions",

@@ -5,16 +5,16 @@
 // INTEL RUN: %clang_cc1 -fsyntax-only -verify -std=c11 -triple i686-pc-win32 \
 // INTEL RUN:  -isystem %S/Inputs/intel -fms-compatibility-version=17.00 %s
 
-noreturn int f(); // expected-error 1+{{}}
+noreturn int f(void); // expected-error 1+{{}}
 
 #include <stdnoreturn.h>
 #include <stdnoreturn.h>
 #include <stdnoreturn.h>
 
-int g();
-noreturn int g();
-int noreturn g();
-int g();
+int g(void);
+noreturn int g(void);
+int noreturn g(void);
+int g(void);
 
 #include <stdalign.h>
 _Static_assert(__alignas_is_defined, "");

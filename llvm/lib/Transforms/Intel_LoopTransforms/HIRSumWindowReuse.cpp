@@ -285,12 +285,12 @@ static bool isFirstIterationInitialization(const DDEdge *Edge,
     for (auto PredIt = If->pred_begin(), PredE = If->pred_end();
          PredIt != PredE; ++PredIt) {
       if (*PredIt == PredicateTy::ICMP_NE &&
-          DDRefUtils::areEqual(If->getPredicateOperandDDRef(PredIt, true),
+          DDRefUtils::areEqual(If->getLHSPredicateOperandDDRef(PredIt),
                                FinalCopy->getLvalDDRef()) &&
-          DDRefUtils::areEqual(If->getPredicateOperandDDRef(PredIt, false),
+          DDRefUtils::areEqual(If->getRHSPredicateOperandDDRef(PredIt),
                                FinalCopy->getRvalDDRef())) {
         SingleFireIf = If;
-        ConditionRef = If->getPredicateOperandDDRef(PredIt, true);
+        ConditionRef = If->getLHSPredicateOperandDDRef(PredIt);
         SingleFireCopy = FinalCopy;
       }
     }

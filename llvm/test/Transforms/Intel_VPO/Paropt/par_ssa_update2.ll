@@ -1,4 +1,5 @@
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes="function(loop-simplify,vpo-cfg-restructuring),vpo-paropt" -print-after-all -S %s | FileCheck %s
 
 ; This file checks whether the ssa update can generate correct code if
 ; there is only one live-in value.

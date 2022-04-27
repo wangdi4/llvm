@@ -1,7 +1,9 @@
 ; Check that prefetchw is working for vector refs
 ;
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -hir-prefetching -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -hir-prefetching-prefetchw=true -print-after=hir-prefetching < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-prefetching,print<hir>" -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -hir-prefetching-prefetchw=true < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false -hir-prefetching -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -hir-prefetching-prefetchw=true -print-after=hir-prefetching < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-prefetching,print<hir>" -vplan-enable-new-cfg-merge-hir=false -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -hir-prefetching-prefetchw=true < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -hir-prefetching -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -hir-prefetching-prefetchw=true -print-after=hir-prefetching < %s 2>&1 | FileCheck %s --check-prefix=MERGED-CFG
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-prefetching,print<hir>" -vplan-enable-new-cfg-merge-hir -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -hir-prefetching-prefetchw=true < %s 2>&1 | FileCheck %s --check-prefix=MERGED-CFG
 ;
 ;*** IR Dump Before HIR Prefetching ***
 ;
@@ -9,12 +11,12 @@
 ;<14>               %tgu = (zext.i32.i64(%t))/u4;
 ;<16>               if (0 <u 4 * %tgu)
 ;<16>               {
-;<15>                  + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 25000> <nounroll> <novectorize>
+;<15>                  + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 25000>   <LEGAL_MAX_TC = 536870911> <nounroll> <novectorize>
 ;<18>                  |   (<4 x i32>*)(@A)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][0] = i1 + <i64 0, i64 1, i64 2, i64 3>;
 ;<15>                  + END LOOP
 ;<16>               }
 ;<11>
-;<11>               + DO i1 = 4 * %tgu, zext.i32.i64(%t) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+;<11>               + DO i1 = 4 * %tgu, zext.i32.i64(%t) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>   <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ;<4>                |   (@A)[0][i1][0] = i1;
 ;<11>               + END LOOP
 ;<0>          END REGION
@@ -25,7 +27,7 @@
 ; CHECK:             %tgu = (zext.i32.i64(%t))/u4;
 ; CHECK:             if (0 <u 4 * %tgu)
 ; CHECK:             {
-; CHECK:                + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 25000> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:                + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 25000>   <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK:                |   (<4 x i32>*)(@A)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][0] = i1 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK:                |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 256][0]),  1,  3,  1);
 ; CHECK:                |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 257][0]),  1,  3,  1);
@@ -34,10 +36,24 @@
 ; CHECK:                + END LOOP
 ; CHECK:             }
 ;
-; CHECK:             + DO i1 = 4 * %tgu, zext.i32.i64(%t) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:             + DO i1 = 4 * %tgu, zext.i32.i64(%t) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>   <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK:             |   (@A)[0][i1][0] = i1;
 ; CHECK:             + END LOOP
 ; CHECK:       END REGION
+
+; TODO: Merged CFG rewiring uses gotos that vector CG cannot convert to proper ifs yet. Merge
+; the two checks when this happens.
+; MERGED-CFG:        + DO i1 = 0, %vec.tc2 + -1, 4   <DO_LOOP>  <MAX_TC_EST = 25000>  <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
+; MERGED-CFG:        |   (<4 x i32>*)(@A)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][0] = i1 + <i64 0, i64 1, i64 2, i64 3>;
+; MERGED-CFG:        |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 256][0]),  1,  3,  1);
+; MERGED-CFG:        |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 257][0]),  1,  3,  1);
+; MERGED-CFG:        |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 258][0]),  1,  3,  1);
+; MERGED-CFG:        |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 259][0]),  1,  3,  1);
+; MERGED-CFG:        + END LOOP
+
+; MERGED-CFG:        + DO i1 = %lb.tmp, zext.i32.i64(%t) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3>
+; MERGED-CFG:        |   (@A)[0][i1][0] = i1;
+; MERGED-CFG:        + END LOOP
 ;
 ;Module Before HIR
 ; ModuleID = 't.c'

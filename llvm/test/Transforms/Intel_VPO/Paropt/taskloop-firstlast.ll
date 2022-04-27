@@ -1,4 +1,4 @@
-; RUN: opt < %s -vpo-paropt -S | FileCheck %s
+; RUN: opt -vpo-paropt -S %s | FileCheck %s
 ;
 ; Test with both firstprivate and lastprivate.
 ; Checks for:

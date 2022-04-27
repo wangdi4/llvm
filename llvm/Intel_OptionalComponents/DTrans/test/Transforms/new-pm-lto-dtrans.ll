@@ -6,11 +6,9 @@
 ; test must be separate.
 
 ; RUN: opt -disable-verify -debug-pass-manager -whole-program-assume    \
-; RUN:     -enable-dtrans-soatoaos -enable-dtrans-deletefield           \
-; RUN:     -enable-resolve-types                                        \
-; RUN:     -passes='lto<O2>,internalize'  -internalize-public-api-list main \
-; RUN:     -S  %s -enable-npm-dtrans                  \
-; RUN:     2>&1 \
+; RUN:     -passes='lto<O2>' -internalize-public-api-list main          \
+; RUN:     -S  %s -enable-npm-dtrans                                    \
+; RUN:     2>&1                                                         \
 ; RUN:     | FileCheck %s
 
 ; Basic orientation checks.
@@ -25,12 +23,17 @@
 ; CHECK-NEXT: Running analysis: TargetLibraryAnalysis on bar
 ; CHECK-NEXT: Running analysis: TargetIRAnalysis on foo
 ; CHECK-NEXT: Running analysis: TargetIRAnalysis on main
+; CHECK-NEXT: Running pass: OpenMPOptPass
 ; CHECK-NEXT: Running pass: GlobalDCEPass
+; CHECK-NEXT: Running pass: IntelIPOPrefetchPass
 ; CHECK-NEXT: Running pass: IntelFoldWPIntrinsicPass
 ; CHECK: Running pass: ForceFunctionAttrsPass
 ; CHECK-NEXT: Running pass: InferFunctionAttrsPass
+; CHECK: Running pass: OptimizeDynamicCastsPass
 ; CHECK: Running pass: {{.*}}SimplifyCFGPass{{.*}}
 ; CHECK-NEXT: Running pass: {{.*}}SimplifyCFGPass{{.*}}
+; CHECK-NEXT: Running pass: GlobalSplitPass
+; CHECK-NEXT: Running pass: WholeProgramDevirtPass
 
 ; Verify that resolve types does not invoke DTransAnalysis
 ; CHECK-NEXT: Running pass: dtrans::ResolveTypes
@@ -60,7 +63,6 @@
 ; CHECK-NEXT: Running pass: DopeVectorConstProp
 ; CHECK: Running pass: ArgumentPromotionPass on (foo)
 ; CHECK: Running pass: ArgumentPromotionPass on (main)
-; CHECK-NEXT: Running pass: OptimizeDynamicCastsPass
 
 ; Make sure we get the IR back out without changes when we print the module.
 ; CHECK-LABEL: define internal fastcc void @foo(i32 %n) unnamed_addr #0 {

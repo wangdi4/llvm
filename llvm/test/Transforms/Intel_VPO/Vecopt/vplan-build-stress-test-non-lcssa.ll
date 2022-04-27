@@ -1,5 +1,5 @@
 ; Test that we can build VPlan in stress test mode for a loop not in LCSSA form.
-; RUN: opt -S -vplan-vec -vpo-vplan-build-stress-test -debug < %s 2>&1 | FileCheck %s
+; RUN: opt -S -enable-new-pm=0 -vplan-vec -vpo-vplan-build-stress-test -debug < %s 2>&1 | FileCheck %s
 ; RUN: opt -S -passes="lcssa,vplan-vec" -vpo-vplan-build-stress-test -debug < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 ; CHECK: Vectorization Plan{{.*}} Plain CFG

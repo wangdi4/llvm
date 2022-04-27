@@ -1,4 +1,21 @@
 //===- bugpoint.cpp - The LLVM Bugpoint utility ---------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -73,9 +90,11 @@ static cl::opt<bool>
 static cl::list<const PassInfo *, bool, PassNameParser>
     PassList(cl::desc("Passes available:"), cl::ZeroOrMore);
 
+#ifdef INTEL_CUSTOMIZATION
 static cl::opt<bool>
     StandardLinkOpts("std-link-opts",
                      cl::desc("Include the standard link time optimizations"));
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
     OptLevelO1("O1", cl::desc("Optimization level 1. Identical to 'opt -O1'"));
@@ -225,11 +244,13 @@ int main(int argc, char **argv) {
 
   AddToDriver PM(D);
 
+#ifdef INTEL_CUSTOMIZATION
   if (StandardLinkOpts) {
     PassManagerBuilder Builder;
     Builder.Inliner = createFunctionInliningPass();
     Builder.populateLTOPassManager(PM);
   }
+#endif // INTEL_CUSTOMIZATION
 
   if (OptLevelO1)
     AddOptimizationPasses(PM, 1, 0);

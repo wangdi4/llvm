@@ -1,6 +1,6 @@
 //===-------------- SOAToAOSOPArrays.cpp - Part of SOAToAOSOPPass ---------===//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -19,6 +19,7 @@
 #include "SOAToAOSOPArrays.h"
 
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
+#include "Intel_DTrans/Analysis/DTransTypeMetadataBuilder.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
 #include "Intel_DTrans/Transforms/SOAToAOSOP.h"
 
@@ -82,41 +83,44 @@ SOAToAOSOPArrayMethodsCheckDebug::Ignore::get() const {
 SOAToAOSOPArrayMethodsCheckDebug::Ignore::~Ignore() {}
 
 SOAToAOSOPArrayMethodsCheckDebug::Ignore
-SOAToAOSOPArrayMethodsCheckDebug::run(Function &F,
-                                      FunctionAnalysisManager &AM) {
+SOAToAOSOPArrayMethodsCheckDebug::run(Module &M, ModuleAnalysisManager &MAM) {
 
-  auto *Res = AM.getCachedResult<SOAToAOSOPApproximationDebug>(F);
-  auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
-  if (!Res)
-    report_fatal_error("SOAToAOSOPApproximationDebug was not run before "
-                       "SOAToAOSOPArrayMethodsCheckDebug.");
-
+  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto *Res = &MAM.getResult<SOAToAOSOPApproximationDebug>(M);
   const DepMap *DM = Res->get();
   if (!DM)
     report_fatal_error("Missing SOAToAOSOPApproximationDebug results before "
                        "SOAToAOSOPArrayMethodsCheckDebug.");
 
-  const auto &MAM = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
-  auto *DTInfo = MAM.getCachedResult<DTransSafetyAnalyzer>(*F.getParent());
-
-  ArraySummaryForIdiom S =
-      getParametersForSOAToAOSArrayMethodsCheckDebug(F, DTInfo);
-
-  LLVM_DEBUG(dbgs() << "; Checking array's method " << F.getName() << "\n");
+  auto *DTInfo = &MAM.getResult<DTransSafetyAnalyzer>(M);
 
   std::unique_ptr<SOAToAOSOPArrayMethodsCheckDebugResult> Result(
       new SOAToAOSOPArrayMethodsCheckDebugResult());
-  ComputeArrayMethodClassification MC(F.getParent()->getDataLayout(), *DM, S,
-                                      *Result, TLI);
-  Result->MK = MC.classify().first;
-  LLVM_DEBUG(dbgs() << "; Classification: " << Result->MK << "\n");
+  for (auto &F : M) {
+    if (F.isDeclaration())
+      continue;
+    if (isFunctionIgnoredForSOAToAOSOP(F))
+      continue;
 
-  // Dump results of analysis.
-  DEBUG_WITH_TYPE(DTRANS_SOAARR, {
-    dbgs() << "; Dump instructions needing update. Total = " << MC.getTotal();
-    ComputeArrayMethodClassification::AnnotatedWriter Annotate(MC);
-    F.print(dbgs(), &Annotate);
-  });
+    ArraySummaryForIdiom S =
+        getParametersForSOAToAOSArrayMethodsCheckDebug(F, DTInfo);
+
+    LLVM_DEBUG(dbgs() << "; Checking array's method " << F.getName() << "\n");
+
+    auto &TLI =
+        FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function *>(&F)));
+    ComputeArrayMethodClassification MC(F.getParent()->getDataLayout(), *DM, S,
+                                        *Result, TLI);
+    Result->MK = MC.classify().first;
+    LLVM_DEBUG(dbgs() << "; Classification: " << Result->MK << "\n");
+
+    // Dump results of analysis.
+    DEBUG_WITH_TYPE(DTRANS_SOAARR, {
+      dbgs() << "; Dump instructions needing update. Total = " << MC.getTotal();
+      ComputeArrayMethodClassification::AnnotatedWriter Annotate(MC);
+      F.print(dbgs(), &Annotate);
+    });
+  }
   return Ignore(Result.release());
 }
 
@@ -215,6 +219,9 @@ public:
   }
 
   void postprocessFunction(Function &OrigFunc, bool isCloned) override {
+    if (isFunctionIgnoredForSOAToAOSOP(OrigFunc))
+      return;
+
     ValueToValueMapTy NewVMap;
 
     // For typed pointers, all member functions will be cloned by
@@ -284,9 +291,8 @@ public:
     // Fix DTransFunctionType of new “Append” member function.
     auto *NewFunc = isCloned ? OrigFuncToCloneFuncMap[&OrigFunc] : &OrigFunc;
     auto *AppendFuncDTy = AppendsFuncToDTransTyMap[NewFunc];
-    auto &MD = DTInfo->getTypeMetadataReader();
     if (AppendFuncDTy)
-      MD.setDTransFuncMetadata(NewFunc, AppendFuncDTy);
+      DTransTypeMetadataBuilder::setDTransFuncMetadata(NewFunc, AppendFuncDTy);
 
     // TODO: Remove unnecessary BitCast instructions that convert from
     // pointer to pointer.
@@ -324,13 +330,17 @@ SOAToAOSArrayMethodsTransformDebug::run(Module &M, ModuleAnalysisManager &AM) {
 
   // It should be lit-test with single defined function at this point.
   Function *MethodToTest = nullptr;
-  for (auto &F : M)
+  for (auto &F : M) {
+    if (isFunctionIgnoredForSOAToAOSOP(F))
+      continue;
+
     if (!F.isDeclaration()) {
       if (MethodToTest)
         report_fatal_error("Single function definition per compilation unit is "
                            "allowed in SOAToAOSArrayMethodsTransformDebug.");
       MethodToTest = &F;
     }
+  }
 
   if (!MethodToTest)
     report_fatal_error(
@@ -347,10 +357,8 @@ SOAToAOSArrayMethodsTransformDebug::run(Module &M, ModuleAnalysisManager &AM) {
   };
   // SOAToAOSOPArrayMethodsCheckDebug uses SOAToAOSOPApproximationDebug
   // internally.
-  FAM.getResult<SOAToAOSOPApproximationDebug>(*MethodToTest);
-  auto &InstsToTransformPtr =
-      FAM.getResult<SOAToAOSOPArrayMethodsCheckDebug>(*MethodToTest);
-
+  AM.getResult<SOAToAOSOPApproximationDebug>(M);
+  auto &InstsToTransformPtr = AM.getResult<SOAToAOSOPArrayMethodsCheckDebug>(M);
   if (InstsToTransformPtr.get()->MK == MK_Unknown)
     report_fatal_error("Please debug array method's classification before "
                        "attempting to transform it.");

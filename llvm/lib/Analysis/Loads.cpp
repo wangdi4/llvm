@@ -1,4 +1,21 @@
 //===- Loads.cpp - Local load analysis ------------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,19 +30,14 @@
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumeBundleQueries.h"
-#include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/DataLayout.h"
-#include "llvm/IR/GlobalAlias.h"
-#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
 
@@ -221,7 +233,7 @@ bool llvm::isDereferenceableAndAlignedPointer(const Value *V, Align Alignment,
 }
 
 bool llvm::isDereferenceableAndAlignedPointer(const Value *V, Type *Ty,
-                                              MaybeAlign MA,
+                                              Align Alignment,
                                               const DataLayout &DL,
                                               const Instruction *CtxI,
                                               const DominatorTree *DT,
@@ -236,8 +248,6 @@ bool llvm::isDereferenceableAndAlignedPointer(const Value *V, Type *Ty,
   // determine the exact offset to the attributed variable, we can use that
   // information here.
 
-  // Require ABI alignment for loads without alignment specification
-  const Align Alignment = DL.getValueOrABITypeAlignment(MA, Ty);
   APInt AccessSize(DL.getPointerTypeSizeInBits(V->getType()),
                    DL.getTypeStoreSize(Ty));
   return isDereferenceableAndAlignedPointer(V, Alignment, AccessSize, DL, CtxI,
@@ -527,8 +537,8 @@ static Value *getAvailableLoadStore(Instruction *Inst, const Value *Ptr,
     if (CastInst::isBitOrNoopPointerCastable(Val->getType(), AccessTy, DL))
       return Val;
 
-    TypeSize StoreSize = DL.getTypeStoreSize(Val->getType());
-    TypeSize LoadSize = DL.getTypeStoreSize(AccessTy);
+    TypeSize StoreSize = DL.getTypeSizeInBits(Val->getType());
+    TypeSize LoadSize = DL.getTypeSizeInBits(AccessTy);
     if (TypeSize::isKnownLE(LoadSize, StoreSize))
       if (auto *C = dyn_cast<Constant>(Val))
         return ConstantFoldLoadFromConst(C, AccessTy, DL);

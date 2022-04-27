@@ -1,4 +1,19 @@
 #if INTEL_COLLAB
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //===--- ParSecTrans.cpp - Pre-pass Transformations of Parallel Sections --===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -50,6 +65,7 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
@@ -211,8 +227,10 @@ bool VPOUtils::parSectTransformer(Function *F, DominatorTree *DT,
         new AllocaInst(IntTy, DL.getAllocaAddrSpace(), "num.sects", InsertPt);
     Instruction *Inst = Root->Children[0]->EntryBB->getFirstNonPHI();
     CallInst *CI = dyn_cast<CallInst>(Inst);
+
+    Value *ElementTyVal = Constant::getNullValue(IntTy);
     VPOUtils::addOperandBundlesInCall(
-        CI, {{"QUAL.OMP.NORMALIZED.UB", {NormalizedUB}}});
+        CI, {{"QUAL.OMP.NORMALIZED.UB:TYPED", {NormalizedUB, ElementTyVal}}});
   } else
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
@@ -357,8 +375,10 @@ void VPOUtils::gatherImplicitSectionIterative(
 
     /// Add dominator children to worklist in reverse order to maintain preorder
     /// traversal
-    for (auto D = llvm::make_reverse_iterator(DomNode->end()),
-              E = llvm::make_reverse_iterator(DomNode->begin());
+#if INTEL_CUSTOMIZATION
+    for (auto D = std::make_reverse_iterator(DomNode->end()),
+              E = std::make_reverse_iterator(DomNode->begin());
+#endif // INTEL_CUSTOMIZATION
          D != E; ++D) {
       auto DomChildBB = (*D)->getBlock();
       Worklist.push(DomChildBB);
@@ -409,8 +429,10 @@ void VPOUtils::buildParSectTreeIterative(BasicBlock *BasicBlk,
     }
 
     /// Walk over dominator children.
-    for (auto D = llvm::make_reverse_iterator(DomNode->end()),
-              E = llvm::make_reverse_iterator(DomNode->begin());
+#if INTEL_CUSTOMIZATION
+    for (auto D = std::make_reverse_iterator(DomNode->end()),
+              E = std::make_reverse_iterator(DomNode->begin());
+#endif // INTEL_CUSTOMIZATION
          D != E; ++D) {
       auto DomChildBB = (*D)->getBlock();
       Worklist.push(DomChildBB);
@@ -698,9 +720,10 @@ void VPOUtils::doParSectTrans(Function *F, ParSectNode *Node, int Counter,
   Instruction *Inst = Node->EntryBB->getFirstNonPHI();
   CallInst *CI = dyn_cast<CallInst>(Inst);
 
+  Value *ElementTyVal = Constant::getNullValue(IntTy);
   VPOUtils::addOperandBundlesInCall(
-      CI, {{"QUAL.OMP.NORMALIZED.IV", {IV}},
-           {"QUAL.OMP.NORMALIZED.UB", {NormalizedUB}}});
+      CI, {{"QUAL.OMP.NORMALIZED.IV:TYPED", {IV, ElementTyVal}},
+           {"QUAL.OMP.NORMALIZED.UB:TYPED", {NormalizedUB, ElementTyVal}}});
 
   return;
 }

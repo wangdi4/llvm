@@ -1,0 +1,155 @@
+# REQUIRES: intel_feature_xucc
+# RUN: llvm-mc -triple x86_64_xucc-unknown-unknown --disassemble %s | FileCheck %s --check-prefixes=ATT
+# RUN: llvm-mc -triple x86_64_xucc-unknown-unknown --disassemble %s -x86-asm-syntax=intel --output-asm-variant=1 | FileCheck %s --check-prefixes=INTEL
+
+# ATT: acquireepoch (%rbx), %rax
+# INTEL: acquireepoch rax, xmmword ptr [rbx]
+0x0f,0x00,0x13
+
+# ATT: asidswitch_tlbflush %rax, %rbx
+# INTEL: asidswitch_tlbflush rbx, rax
+0x66,0x0f,0x03,0xd8
+
+# ATT: asidswitch_tlbflush (%rax), %rbx
+# INTEL: asidswitch_tlbflush rbx, qword ptr [rax]
+0x66,0x0f,0x03,0x18
+
+# ATT: cmodemov %rcx, %rax, %rbx
+# INTEL: cmodemov rbx, rax, rcx
+0x0f,0x03,0xd8
+
+# ATT: cmodemov %rcx, (%rax), %rbx
+# INTEL: cmodemov rbx, qword ptr [rax], rcx
+0x0f,0x03,0x18
+
+# ATT: getbasekey %rdx
+# INTEL: getbasekey rdx
+0x0f,0x00,0xe2
+
+# ATT: gmovlin (%rbx), %ax
+# INTEL: gmovlin ax, word ptr [rbx]
+0x66,0xf3,0x0f,0x02,0x03
+
+# ATT: gmovlin (%rbx), %eax
+# INTEL: gmovlin eax, dword ptr [rbx]
+0xf3,0x0f,0x02,0x03
+
+# ATT: gmovlin (%rbx), %rax
+# INTEL: gmovlin rax, qword ptr [rbx]
+0xf3,0x48,0x0f,0x02,0x03
+
+# ATT: gmovpphys (%rdx), %cx
+# INTEL: gmovpphys cx, word ptr [rdx]
+0x66,0xf3,0x0f,0xb4,0x0a
+
+# ATT: gmovpphys (%rdx), %ecx
+# INTEL: gmovpphys ecx, dword ptr [rdx]
+0xf3,0x0f,0xb4,0x0a
+
+# ATT: gmovpphys (%rdx), %rcx
+# INTEL: gmovpphys rcx, qword ptr [rdx]
+0xf3,0x48,0x0f,0xb4,0x0a
+
+# ATT: gmovpphys %cx, (%rdx)
+# INTEL: gmovpphys word ptr [rdx], cx
+0x66,0xf2,0x0f,0xb4,0x0a
+
+# ATT: gmovpphys  %ecx, (%rdx)
+# INTEL: gmovpphys  dword ptr [rdx], ecx
+0xf2,0x0f,0xb4,0x0a
+
+# ATT: gmovpphys  %rcx, (%rdx)
+# INTEL: gmovpphys  qword ptr [rdx], rcx
+0xf2,0x48,0x0f,0xb4,0x0a
+
+# ATT: gtranslaterd_noepc (%rax)
+# INTEL: gtranslaterd_noepc qword ptr [rax]
+0xf3,0x0f,0x00,0x28
+
+# ATT: gtranslatewr_noepc (%rdx)
+# INTEL: gtranslatewr_noepc qword ptr [rdx]
+0xf2,0x0f,0x00,0x2a
+
+# ATT: gtranslaterd_tioprm  (%rax)
+# INTEL: gtranslaterd_tioprm  qword ptr [rax]
+0x66,0xf3,0x0f,0x00,0x28
+
+# ATT: gtranslatewr_tioprm  (%rcx)
+# INTEL: gtranslatewr_tioprm  qword ptr [rcx]
+0x66,0xf2,0x0f,0x00,0x29
+
+# ATT: gtranslaterd_epc (%rbx)
+# INTEL: gtranslaterd_epc qword ptr [rbx]
+0xf3,0x0f,0x00,0x23
+
+# ATT: gtranslatewr_epc (%r14)
+# INTEL: gtranslatewr_epc qword ptr [r14]
+0xf2,0x41,0x0f,0x00,0x26
+
+# ATT: rsworld %rax, (%rbx)
+# INTEL: rsworld dword ptr [rbx], rax
+0xf3,0x66,0x0f,0xb5,0x03
+
+# ATT: spbusmsg (%rcx), %rax
+# INTEL: spbusmsg rax, qword ptr [rcx]
+0x66,0xf2,0x0f,0x03,0x01
+
+# ATT: spbusmsg %rcx, %rdx
+# INTEL: spbusmsg rdx, rcx
+0x66,0xf2,0x0f,0x03,0xca
+
+# ATT: svworld %rcx, (%rdx)
+# INTEL: svworld dword ptr [rdx], rcx
+0xf2,0x66,0x0f,0xb5,0x0a
+
+# ATT: loadseg %cs:(%rdx)
+# INTEL: loadseg xmmword ptr cs:[rdx]
+0x2e,0x0f,0xb2,0x02
+
+# ATT: loadseg %ss:(%rdx)
+# INTEL: loadseg xmmword ptr ss:[rdx]
+0x36,0x0f,0xb2,0x02
+
+# ATT: loadseg %ds:(%rdx)
+# INTEL: loadseg xmmword ptr ds:[rdx]
+0x3e,0x0f,0xb2,0x02
+
+# ATT: loadseg %es:(%rdx)
+# INTEL: loadseg xmmword ptr es:[rdx]
+0x26,0x0f,0xb2,0x02
+
+# ATT: loadseg %fs:(%rdx)
+# INTEL: loadseg xmmword ptr fs:[rdx]
+0x64,0x0f,0xb2,0x02
+
+# ATT: loadseg %gs:(%rdx)
+# INTEL: loadseg xmmword ptr gs:[rdx]
+0x65,0x0f,0xb2,0x02
+
+# ATT: storeseg %cs:(%rdx)
+# INTEL: storeseg xmmword ptr cs:[rdx]
+0x2e,0x0f,0xb4,0x02
+
+# ATT: storeseg %ss:(%rdx)
+# INTEL: storeseg xmmword ptr ss:[rdx]
+0x36,0x0f,0xb4,0x02
+
+# ATT: storeseg %ds:(%rdx)
+# INTEL: storeseg xmmword ptr ds:[rdx]
+0x3e,0x0f,0xb4,0x02
+
+# ATT: storeseg %es:(%rdx)
+# INTEL: storeseg xmmword ptr es:[rdx]
+0x26,0x0f,0xb4,0x02
+
+# ATT: storeseg %fs:(%rdx)
+# INTEL: storeseg xmmword ptr fs:[rdx]
+0x64,0x0f,0xb4,0x02
+
+# ATT: storeseg %gs:(%rdx)
+# INTEL: storeseg xmmword ptr gs:[rdx]
+0x65,0x0f,0xb4,0x02
+
+# ATT:   int1
+# INTEL: int1
+0xf1

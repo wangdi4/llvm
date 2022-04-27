@@ -1,4 +1,21 @@
 //===-- CodeViewTypes.def - All CodeView leaf types -------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -96,7 +113,7 @@ CV_TYPE(LF_OEM_IDENT_MSF90, 0xf090)
 // F90 OEM Type Record IDs.  Contained within an LF_OEM record.
 CV_TYPE(LF_recOEM_MSF90_DESCR_ARR, 0x0000)       /* Described Array */
 // CV_TYPE(LF_recOEM_MSF90_MODULE_DESCR, 0x0002) /* Module name */
-// CV_TYPE(LF_recOEM_MSF90_HOST_REF, 0x0003)     /* Host Reference */
+CV_TYPE(LF_recOEM_MSF90_HOST_REF, 0x0003)     /* Host Reference */
 // CV_TYPE(LF_recOEM_F090_HOST_PDATA, 0x0004)    /* Intel - post indexed data */
 CV_TYPE(LF_recOEM_MSF90_DESCRIPTOR, 0x0005)      /* Intel - generic descriptor type */
 #endif //INTEL_CUSTOMIZATION
@@ -176,7 +193,11 @@ CV_TYPE(LF_SKIP, 0x1200)
 CV_TYPE(LF_DEFARG_ST, 0x1202)
 CV_TYPE(LF_DERIVED, 0x1204)
 CV_TYPE(LF_DIMCONU, 0x1207)
+#if INTEL_CUSTOMIZATION
+TYPE_RECORD(LF_DIMCONLU, 0x1208, DimConLU)
+#else
 CV_TYPE(LF_DIMCONLU, 0x1208)
+#endif //INTEL_CUSTOMIZATION
 CV_TYPE(LF_DIMVARU, 0x1209)
 CV_TYPE(LF_DIMVARLU, 0x120a)
 
@@ -196,7 +217,11 @@ CV_TYPE(LF_MANAGED_ST, 0x140f)
 
 CV_TYPE(LF_ST_MAX, 0x1500)
 CV_TYPE(LF_TYPESERVER, 0x1501)
+#if INTEL_CUSTOMIZATION
+TYPE_RECORD(LF_DIMARRAY, 0x1508, DimArray)
+#else
 CV_TYPE(LF_DIMARRAY, 0x1508)
+#endif //INTEL_CUSTOMIZATION
 CV_TYPE(LF_ALIAS, 0x150a)
 CV_TYPE(LF_DEFARG, 0x150b)
 CV_TYPE(LF_FRIENDFCN, 0x150c)

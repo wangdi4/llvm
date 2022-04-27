@@ -1,4 +1,21 @@
 //===- ToolChain.cpp - Collections of tools for one platform --------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -68,25 +85,24 @@ static ToolChain::RTTIMode CalculateRTTIMode(const ArgList &Args,
       return ToolChain::RM_Disabled;
   }
 
-  // -frtti is default, except for the PS4 CPU.
-  return (Triple.isPS4CPU()) ? ToolChain::RM_Disabled : ToolChain::RM_Enabled;
+  // -frtti is default, except for the PS4.
+  return (Triple.isPS4()) ? ToolChain::RM_Disabled : ToolChain::RM_Enabled;
 }
 
 ToolChain::ToolChain(const Driver &D, const llvm::Triple &T,
                      const ArgList &Args)
     : D(D), Triple(T), Args(Args), CachedRTTIArg(GetRTTIArgument(Args)),
       CachedRTTIMode(CalculateRTTIMode(Args, Triple, CachedRTTIArg)) {
-  std::string RuntimePath = getRuntimePath();
-  if (getVFS().exists(RuntimePath))
-    getLibraryPaths().push_back(RuntimePath);
+  auto addIfExists = [this](path_list &List, const std::string &Path) {
+    if (getVFS().exists(Path))
+      List.push_back(Path);
+  };
 
-  std::string StdlibPath = getStdlibPath();
-  if (getVFS().exists(StdlibPath))
-    getFilePaths().push_back(StdlibPath);
-
-  std::string CandidateLibPath = getArchSpecificLibPath();
-  if (getVFS().exists(CandidateLibPath))
-    getFilePaths().push_back(CandidateLibPath);
+  for (const auto &Path : getRuntimePaths())
+    addIfExists(getLibraryPaths(), Path);
+  for (const auto &Path : getStdlibPaths())
+    addIfExists(getFilePaths(), Path);
+  addIfExists(getFilePaths(), getArchSpecificLibPath());
 }
 
 void ToolChain::setTripleEnvironment(llvm::Triple::EnvironmentType Env) {
@@ -109,6 +125,10 @@ bool ToolChain::useIntegratedAs() const {
 
 bool ToolChain::useRelaxRelocations() const {
   return ENABLE_X86_RELAX_RELOCATIONS;
+}
+
+bool ToolChain::defaultToIEEELongDouble() const {
+  return PPC_LINUX_DEFAULT_IEEELONGDOUBLE && getTriple().isOSLinux();
 }
 
 SanitizerArgs
@@ -151,6 +171,7 @@ static const DriverSuffix *FindDriverSuffix(StringRef ProgName, size_t &Pos) {
       {"cl", "--driver-mode=cl"},
       {"++", "--driver-mode=g++"},
       {"flang", "--driver-mode=flang"},
+      {"clang-dxc", "--driver-mode=dxc"},
   };
 
   for (size_t i = 0; i < llvm::array_lengthof(DriverSuffixes); ++i) {
@@ -371,6 +392,18 @@ Tool *ToolChain::getTableTform() const {
   return FileTableTform.get();
 }
 
+Tool *ToolChain::getSpirvToIrWrapper() const {
+  if (!SpirvToIrWrapper)
+    SpirvToIrWrapper.reset(new tools::SpirvToIrWrapper(*this));
+  return SpirvToIrWrapper.get();
+}
+
+Tool *ToolChain::getLinkerWrapper() const {
+  if (!LinkerWrapper)
+    LinkerWrapper.reset(new tools::LinkerWrapper(*this, getLink()));
+  return LinkerWrapper.get();
+}
+
 Tool *ToolChain::getTool(Action::ActionClass AC) const {
   switch (AC) {
   case Action::AssembleJobClass:
@@ -398,6 +431,7 @@ Tool *ToolChain::getTool(Action::ActionClass AC) const {
   case Action::PrecompileJobClass:
   case Action::HeaderModulePrecompileJobClass:
   case Action::PreprocessJobClass:
+  case Action::ExtractAPIJobClass:
   case Action::AnalyzeJobClass:
   case Action::MigrateJobClass:
   case Action::VerifyPCHJobClass:
@@ -431,6 +465,12 @@ Tool *ToolChain::getTool(Action::ActionClass AC) const {
 
   case Action::FileTableTformJobClass:
     return getTableTform();
+
+  case Action::SpirvToIrWrapperJobClass:
+    return getSpirvToIrWrapper();
+
+  case Action::LinkerWrapperJobClass:
+    return getLinkerWrapper();
   }
 
   llvm_unreachable("Invalid tool kind.");
@@ -554,16 +594,35 @@ const char *ToolChain::getCompilerRTArgString(const llvm::opt::ArgList &Args,
   return Args.MakeArgString(getCompilerRT(Args, Component, Type));
 }
 
-std::string ToolChain::getRuntimePath() const {
-  SmallString<128> P(D.ResourceDir);
-  llvm::sys::path::append(P, "lib", getTripleString());
-  return std::string(P.str());
+ToolChain::path_list ToolChain::getRuntimePaths() const {
+  path_list Paths;
+  auto addPathForTriple = [this, &Paths](const llvm::Triple &Triple) {
+    SmallString<128> P(D.ResourceDir);
+    llvm::sys::path::append(P, "lib", Triple.str());
+    Paths.push_back(std::string(P.str()));
+  };
+
+  addPathForTriple(getTriple());
+
+  // Android targets may include an API level at the end. We still want to fall
+  // back on a path without the API level.
+  if (getTriple().isAndroid() &&
+      getTriple().getEnvironmentName() != "android") {
+    llvm::Triple TripleWithoutLevel = getTriple();
+    TripleWithoutLevel.setEnvironmentName("android");
+    addPathForTriple(TripleWithoutLevel);
+  }
+
+  return Paths;
 }
 
-std::string ToolChain::getStdlibPath() const {
+ToolChain::path_list ToolChain::getStdlibPaths() const {
+  path_list Paths;
   SmallString<128> P(D.Dir);
   llvm::sys::path::append(P, "..", "lib", getTripleString());
-  return std::string(P.str());
+  Paths.push_back(std::string(P.str()));
+
+  return Paths;
 }
 
 std::string ToolChain::getArchSpecificLibPath() const {
@@ -1490,7 +1549,9 @@ void ToolChain::AddHIPIncludeArgs(const ArgList &DriverArgs,
                                   ArgStringList &CC1Args) const {}
 
 llvm::SmallVector<ToolChain::BitCodeLibraryInfo, 12>
-ToolChain::getHIPDeviceLibs(const ArgList &DriverArgs) const {
+ToolChain::getHIPDeviceLibs(
+    const ArgList &DriverArgs,
+    const Action::OffloadKind DeviceOffloadingKind) const {
   return {};
 }
 
@@ -1561,18 +1622,6 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
   DerivedArgList *DAL = new DerivedArgList(Args.getBaseArgs());
   const OptTable &Opts = getDriver().getOpts();
   bool Modified = false;
-#if INTEL_CUSTOMIZATION
-  // FIXME: in IsCLMode() the host optlevel is specified with '/' prefix.
-  //        For some reason we use default GNU toolchain for spir triple,
-  //        so the optlevel translation does not happen
-  //        (see MSVCToolChain::TranslateArgs). Next, the AddOptLevel() lambda
-  //        in Clang.cpp does not handle /O options. With all this
-  //        there is currently no way to enable optimizations for spir offload
-  //        on Windows.
-  //        We should probably figure out how to translate '/' options
-  //        for spir offload on Windows.
-  bool ExplicitOptLevelForTarget = false;
-#endif // INTEL_CUSTOMIZATION
 
   // Handle -Xopenmp-target and -Xsycl-target-frontend flags
   for (auto *A : Args) {
@@ -1612,8 +1661,10 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
       XOffloadTargetNoTriple =
         A->getOption().matches(options::OPT_Xopenmp_target);
       if (A->getOption().matches(options::OPT_Xopenmp_target_EQ)) {
+        llvm::Triple TT(getOpenMPTriple(A->getValue(0)));
+
         // Passing device args: -Xopenmp-target=<triple> -opt=val.
-        if (A->getValue(0) == getTripleString())
+        if (TT.getTriple() == getTripleString())
           Index = Args.getBaseArgs().MakeIndex(A->getValue(1));
         else
           continue;
@@ -1634,73 +1685,9 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
           Arg *A4 = OffloadTargetArg.release();
           AllocatedArgs.push_back(A4);
           DAL->append(A4);
-
-          // Tokenize the string.
-          SmallVector<const char *, 8> TargetArgs;
-          llvm::BumpPtrAllocator BPA;
-          llvm::StringSaver S(BPA);
-          llvm::cl::TokenizeGNUCommandLine(T.second, S, TargetArgs);
-          // Setup masks so Windows options aren't picked up for parsing
-          // Linux options
-          unsigned IncludedFlagsBitmask = 0;
-          unsigned ExcludedFlagsBitmask = options::NoDriverOption;
-          if (getDriver().IsCLMode()) {
-            // Include CL and Core options.
-            IncludedFlagsBitmask |= options::CLOption;
-            IncludedFlagsBitmask |= options::CoreOption;
-          } else {
-            ExcludedFlagsBitmask |= options::CLOption;
-          }
-          unsigned MissingArgIndex, MissingArgCount;
-          InputArgList NewArgs =
-              Opts.ParseArgs(TargetArgs, MissingArgIndex, MissingArgCount,
-                             IncludedFlagsBitmask, ExcludedFlagsBitmask);
-          for (Arg *NA : NewArgs) {
-            // Add the new arguments.
-            Arg *OffloadArg;
-            if (NA->getNumValues()) {
-              StringRef Value(NA->getValue());
-              OffloadArg = new Arg(
-                  NA->getOption(), Args.MakeArgString(NA->getSpelling()),
-                  Args.getBaseArgs().MakeIndex(NA->getSpelling()),
-                  Args.MakeArgString(Value.data()));
-            } else {
-              OffloadArg = new Arg(
-                  NA->getOption(), Args.MakeArgString(NA->getSpelling()),
-                  Args.getBaseArgs().MakeIndex(NA->getSpelling()));
-            }
-            std::unique_ptr<llvm::opt::Arg> A2(OffloadArg);
-            A2->setBaseArg(A);
-            Arg *A4 = A2.release();
-            AllocatedArgs.push_back(A4);
-            DAL->append(A4);
-          }
-          ExplicitOptLevelForTarget =
-              NewArgs.hasArg(options::OPT_O_Group, options::OPT__SLASH_O);
           Modified = true;
         } else
           DAL->append(A);
-        continue;
-      } else if (ExplicitOptLevelForTarget &&
-                 getDriver().IsIntelMode() &&
-                 (A->getOption().matches(options::OPT_O_Group) ||
-                  A->getOption().matches(options::OPT__SLASH_O))) {
-        // Ignore the optimization option specified for "host" compilation.
-        //
-        // ExplicitOptLevelForTarget means that there is an explicit
-        // optimization level in -fopenmp-targets=<target>="...",
-        // so we should honor it.
-        //
-        // If we add the host optlevel (including the default -O2), we will
-        // fail to honor the explicit optlevel for the target.
-        //
-        // FIXME: I believe this behavior should be true for all
-        //        options, i.e. options passed via -fopenmp-targets
-        //        must override the host options. Right now, it depends
-        //        on the order of the options, and there is no way
-        //        to override options added by default for Intel mode
-        //        (e.g. O2).
-        Modified = true;
         continue;
 #endif // INTEL_CUSTOMIZATION
       } else if (XOffloadTargetNoTriple) {
@@ -1772,7 +1759,51 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
     DAL->append(A);
     Modified = true;
   }
-
+#if INTEL_CUSTOMIZATION
+  // -fopenmp-targets=<triple>=<opts> support parsing.
+  for (StringRef Val : Args.getAllArgValues(options::OPT_fopenmp_targets_EQ)) {
+    // Capture options from -fopenmp-targets=<triple>=<opts>
+    std::pair<StringRef, StringRef> T = Val.split('=');
+    if (T.second.empty())
+      continue;
+    // Tokenize the string.
+    SmallVector<const char *, 8> TargetArgs;
+    llvm::BumpPtrAllocator BPA;
+    llvm::StringSaver S(BPA);
+    llvm::cl::TokenizeGNUCommandLine(T.second, S, TargetArgs);
+    // Setup masks so Windows options aren't picked up for parsing
+    // Linux options
+    unsigned IncludedFlagsBitmask = 0;
+    unsigned ExcludedFlagsBitmask = options::NoDriverOption;
+    if (getDriver().IsCLMode()) {
+      // Include CL and Core options.
+      IncludedFlagsBitmask |= options::CLOption;
+      IncludedFlagsBitmask |= options::CoreOption;
+    } else
+      ExcludedFlagsBitmask |= options::CLOption;
+    unsigned MissingArgIndex, MissingArgCount;
+    InputArgList NewArgs =
+        Opts.ParseArgs(TargetArgs, MissingArgIndex, MissingArgCount,
+                       IncludedFlagsBitmask, ExcludedFlagsBitmask);
+    for (Arg *NA : NewArgs) {
+      // Add the new arguments.
+      Arg *OffloadArg;
+      if (NA->getNumValues()) {
+        StringRef Value(NA->getValue());
+        OffloadArg = new Arg(
+            NA->getOption(), Args.MakeArgString(NA->getSpelling()),
+            Args.getBaseArgs().MakeIndex(NA->getSpelling()),
+            Args.MakeArgString(Value.data()));
+      } else {
+        OffloadArg = new Arg(
+            NA->getOption(), Args.MakeArgString(NA->getSpelling()),
+            Args.getBaseArgs().MakeIndex(NA->getSpelling()));
+      }
+      DAL->append(OffloadArg);
+      Modified = true;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   if (Modified)
     return DAL;
 

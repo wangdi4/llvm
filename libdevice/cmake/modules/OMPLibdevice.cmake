@@ -1,3 +1,18 @@
+#
+# INTEL CONFIDENTIAL
+#
+# Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
 # INTEL_COLLAB
 set(binary_dir "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 if (WIN32)
@@ -100,7 +115,7 @@ function(add_spv_file src dst)
             ${src} ${cmplr_obj_out}${dst}${objext}
     COMMAND ${clang_offload_bundler} -type=o -unbundle
             -targets=openmp-spir64
-            -inputs=${dst}${objext} -outputs=${dst}.target.bc
+            -input=${dst}${objext} -output=${dst}.target.bc
     COMMAND ${llvm_spirv} -spirv-ext=+all ${dst}.target.bc -o ${dst}
     MAIN_DEPENDENCY ${src}
     DEPENDS ${ARG_DEPENDS}

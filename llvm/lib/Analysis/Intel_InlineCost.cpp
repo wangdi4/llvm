@@ -1,6 +1,6 @@
 //===------- Intel_InlineCost.cpp ----------------------- -*------===//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -56,8 +56,8 @@
 #include "llvm/Support/raw_ostream.h"
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"
-#endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_InlineReportCommon.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
 #include <algorithm>
 #include <queue>
 
@@ -79,7 +79,7 @@ cl::opt<bool> EnablePreLTOInlineCost("pre-lto-inline-cost", cl::Hidden,
                                      cl::init(false),
                                      cl::desc("Enable pre-LTO inline cost"));
 
-static cl::opt<bool> DTransInlineHeuristics(
+cl::opt<bool> DTransInlineHeuristics(
     "dtrans-inline-heuristics", cl::Hidden, cl::init(false),
     cl::desc("inlining heuristics controlled under -qopt-mem-layout-trans"));
 
@@ -1851,10 +1851,17 @@ extern Optional<InlineResult> intelWorthNotInlining(
         .setIntelInlReason(NinlrSwitchComputations);
   if (preferNotToInlineForRecProgressionClone(Callee))
     return InlineResult::failure("recursive").setIntelInlReason(NinlrRecursive);
+
   if (preferToDelayInlineDecision(CandidateCall.getCaller(), PrepareForLTO,
-                                  QueuedCallers))
-    return InlineResult::failure("not profitable")
-        .setIntelInlReason(NinlrDelayInlineDecision);
+                                  QueuedCallers)) {
+    if (PrepareForLTO)
+      return InlineResult::failure("not profitable")
+          .setIntelInlReason(NinlrDelayInlineDecision);
+    else
+      return InlineResult::failure("not profitable")
+          .setIntelInlReason(NinlrDelayInlineDecisionLTO);
+  }
+
   if (preferToDelayInlineForCopyArrElems(CandidateCall, PrepareForLTO, *ILIC))
     return InlineResult::failure("not profitable")
         .setIntelInlReason(NinlrDelayInlineDecision);
@@ -2934,8 +2941,10 @@ static bool worthInliningForDeeplyNestedIfs(CallBase &CB,
                                             bool PrepareForLTO) {
   // Heuristic is enabled if option is unset and it is first inliner run
   // (on PrepareForLTO phase) OR if option is set to true.
-  if (((InliningForDeeplyNestedIfs != cl::BOU_UNSET) || !PrepareForLTO) &&
-      (InliningForDeeplyNestedIfs != cl::BOU_TRUE))
+  // CMPLRLLVM-34251: Put this heuristic under DTransInlineHeuristics test
+  if (!DTransInlineHeuristics ||
+      ((InliningForDeeplyNestedIfs != cl::BOU_UNSET) ||
+      !PrepareForLTO) && (InliningForDeeplyNestedIfs != cl::BOU_TRUE))
     return false;
 
   Function *Callee = CB.getCalledFunction();

@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 add_llvm_component_library(LLVMIntel_LoopTransforms
         Intel_LoopTransforms.cpp
         HIRSSADeconstruction.cpp
@@ -64,6 +81,7 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRIdentityMatrixSubstitution.cpp
         HIRArrayScalarizationTestLauncher.cpp
         HIRArrayScalarization.cpp
+        HIRIfReversal.cpp
 # INTEL_FEATURE_SW_ADVANCED
         HIRInterLoopBlocking.cpp
         HIRCrossLoopArrayContraction.cpp
@@ -83,7 +101,6 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         Analysis
         Core
         Intel_LoopAnalysis
-        Intel_OptReport
         Support
         TransformUtils
         )

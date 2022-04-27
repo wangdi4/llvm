@@ -52,6 +52,14 @@ public:
   getNonInlineUnsupportedFunctions(Module &M);
 };
 
+/// Create a broadcast sequence (insertelement + shufflevector).
+/// \param V value to broadcast.
+/// \param VectorWidth width of generated vector.
+/// \param InsertBefore instruction to insert new vector before.
+/// \return new broadcast vector.
+Instruction *createBroadcast(Value *V, unsigned VectorWidth,
+                             Instruction *InsertBefore);
+
 /// Generate type-conversion and place in given location
 ///  but on debug accpets only cases size(orig) >= size(target).
 /// \param Orig Source value.

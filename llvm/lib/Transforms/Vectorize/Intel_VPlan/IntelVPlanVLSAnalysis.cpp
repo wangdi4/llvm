@@ -88,7 +88,7 @@ void VPlanVLSAnalysis::collectMemrefs(
   if (!TTI->isAggressiveVLSProfitable())
     return;
 
-  for (const VPBasicBlock *Block : depth_first(Plan->getEntryBlock())) {
+  for (const VPBasicBlock *Block : depth_first(&Plan->getEntryBlock())) {
     for (const VPInstruction &VPInst : *Block) {
       auto *LoadStore = dyn_cast<VPLoadStoreInst>(&VPInst);
       if (!LoadStore)

@@ -1,4 +1,21 @@
 //===- InstCombineLoadStoreAlloca.cpp -------------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -17,15 +34,12 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/Intel_DopeVectorAnalysis.h" // INTEL
 #include "llvm/Analysis/Loads.h"
-#include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Transforms/InstCombine/InstCombiner.h"
-#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 using namespace llvm;
 using namespace PatternMatch;
@@ -302,16 +316,17 @@ void PointerReplacer::replace(Instruction *I) {
     assert(V && "Operand not replaced");
     SmallVector<Value *, 8> Indices;
     Indices.append(GEP->idx_begin(), GEP->idx_end());
-    auto *NewI = GetElementPtrInst::Create(
-        V->getType()->getPointerElementType(), V, Indices);
+    auto *NewI =
+        GetElementPtrInst::Create(GEP->getSourceElementType(), V, Indices);
     IC.InsertNewInstWith(NewI, *GEP);
     NewI->takeName(GEP);
     WorkMap[GEP] = NewI;
   } else if (auto *BC = dyn_cast<BitCastInst>(I)) {
     auto *V = getReplacement(BC->getOperand(0));
     assert(V && "Operand not replaced");
-    auto *NewT = PointerType::get(BC->getType()->getPointerElementType(),
-                                  V->getType()->getPointerAddressSpace());
+    auto *NewT = PointerType::getWithSamePointeeType(
+        cast<PointerType>(BC->getType()),
+        V->getType()->getPointerAddressSpace());
     auto *NewI = new BitCastInst(V, NewT);
     IC.InsertNewInstWith(NewI, *BC);
     NewI->takeName(BC);
@@ -346,8 +361,7 @@ void PointerReplacer::replacePointer(Instruction &I, Value *V) {
 #ifndef NDEBUG
   auto *PT = cast<PointerType>(I.getType());
   auto *NT = cast<PointerType>(V->getType());
-  assert(PT != NT && PT->getElementType() == NT->getElementType() &&
-         "Invalid usage");
+  assert(PT != NT && PT->hasSameElementTypeAs(NT) && "Invalid usage");
 #endif
   WorkMap[&I] = V;
 
@@ -1110,7 +1124,23 @@ static bool possibleUpcasting(Type *SrcTy, Type *DestTy) {
     assert(InTy && "Trying to collect type data from a nullptr");
     Type *CurrType = InTy;
     // NOTE: This won't work with opaque pointers type. We may need to return
-    // to this once we fix the issue with opaque pointers in DTrans.
+    // to this once we fix the issue with opaque pointers in DTrans. There is
+    // a chance that we may just remove this function. In the case of opaque
+    // pointers we will have the following:
+    //
+    //   %struct.Test = { ptr }
+    //
+    //   %tmp0 = getelementptr inbounds %struct.Test, ptr %0, i64 0, i32 0
+    //   %tmp1 = load ptr, ptr %0, align 8
+    //   %tmp2 = load ptr, ptr %tmp0, align 8
+    //
+    // Since there are no types then inst-combine will generate the following:
+    //
+    //   %struct.Test = { ptr }
+    //
+    //   %tmp1 = load ptr, ptr %0, align 8
+    //
+    // It just removes the redundant load.
     if (CurrType->isPointerTy())
       CurrType = CurrType->getPointerElementType();
     return dyn_cast<StructType>(CurrType);
@@ -1185,6 +1215,27 @@ static bool possibleUpcasting(Type *SrcTy, Type *DestTy) {
   };
 
   if (!SrcTy || !DestTy || SrcTy == DestTy)
+    return false;
+
+  // If the source or destination type is an opaque pointer and we reached this
+  // point then it means that a memory address is loaded as a different type,
+  // and inst-combine is trying to simplify it. For example:
+  //
+  //   %struct.Test = { ptr }
+  //
+  //   %tmp0 = getelementptr inbounds %struct.Test, ptr %0, i64 0, i32 0
+  //   %tmp1 = load ptr, ptr %0, align 8
+  //   %tmp2 = load i64, ptr %tmp0, align 8
+  //
+  // In the example above, %tmp1 is loading the 0 element of %struct.test and
+  // %tmp2 is loading the same address as an i64. The instruction %tmp2 will
+  // be simplified as
+  //
+  //   %tmp2.cast = ptrtoint ptr %tmp1 to i64
+  //
+  // In this case we just return false. This function is only used when typed
+  // pointers are supported where we can collect the upcasting of a structure.
+  if (SrcTy->isOpaquePointerTy() || DestTy->isOpaquePointerTy())
     return false;
 
   // Source and destination must be structures
@@ -1707,8 +1758,10 @@ Instruction *InstCombinerImpl::visitStoreInst(StoreInst &SI) {
 
     if (StoreInst *PrevSI = dyn_cast<StoreInst>(BBI)) {
       // Prev store isn't volatile, and stores to the same location?
-      if (PrevSI->isUnordered() && equivalentAddressValues(PrevSI->getOperand(1),
-                                                        SI.getOperand(1))) {
+      if (PrevSI->isUnordered() &&
+          equivalentAddressValues(PrevSI->getOperand(1), SI.getOperand(1)) &&
+          PrevSI->getValueOperand()->getType() ==
+              SI.getValueOperand()->getType()) {
         ++NumDeadStore;
         // Manually add back the original store to the worklist now, so it will
         // be processed after the operands of the removed store, as this may

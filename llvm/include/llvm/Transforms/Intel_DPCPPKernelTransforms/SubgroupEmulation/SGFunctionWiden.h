@@ -12,7 +12,7 @@
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_SG_EMULATION_SG_FUNCTION_WIDEN_H
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/Analysis/Intel_VectorVariant.h"
+#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGHelper.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"

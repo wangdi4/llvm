@@ -1,4 +1,21 @@
 //===- lib/MC/MCStreamer.cpp - Streaming Machine Code Output --------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -12,6 +29,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/BinaryFormat/COFF.h"
+#include "llvm/BinaryFormat/MachO.h"
 #include "llvm/DebugInfo/CodeView/SymbolRecord.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAsmInfo.h"
@@ -59,7 +77,7 @@ void MCTargetStreamer::changeSection(const MCSection *CurSection,
                                      MCSection *Section,
                                      const MCExpr *Subsection,
                                      raw_ostream &OS) {
-  Section->PrintSwitchToSection(*Streamer.getContext().getAsmInfo(),
+  Section->printSwitchToSection(*Streamer.getContext().getAsmInfo(),
                                 Streamer.getContext().getTargetTriple(), OS,
                                 Subsection);
 }
@@ -96,7 +114,7 @@ MCStreamer::MCStreamer(MCContext &Ctx)
   SectionStack.push_back(std::pair<MCSectionSubPair, MCSectionSubPair>());
 }
 
-MCStreamer::~MCStreamer() {}
+MCStreamer::~MCStreamer() = default;
 
 void MCStreamer::reset() {
   DwarfFrameInfos.clear();
@@ -1197,6 +1215,10 @@ void MCStreamer::emitXCOFFRenameDirective(const MCSymbol *Name,
                    "XCOFF targets");
 }
 
+void MCStreamer::emitXCOFFRefDirective(StringRef Name) {
+  llvm_unreachable("emitXCOFFRefDirective is only supported on XCOFF targets");
+}
+
 void MCStreamer::emitELFSize(MCSymbol *Symbol, const MCExpr *Value) {}
 void MCStreamer::emitELFSymverDirective(const MCSymbol *OriginalSym,
                                         StringRef Name, bool KeepOriginalSym) {}
@@ -1298,6 +1320,9 @@ static VersionTuple getMachoBuildVersionSupportedOS(const Triple &Target) {
     return VersionTuple(12);
   case Triple::WatchOS:
     return VersionTuple(5);
+  case Triple::DriverKit:
+    // DriverKit always uses the build version load command.
+    return VersionTuple();
   default:
     break;
   }
@@ -1322,6 +1347,8 @@ getMachoBuildVersionPlatformType(const Triple &Target) {
   case Triple::WatchOS:
     return Target.isSimulatorEnvironment() ? MachO::PLATFORM_WATCHOSSIMULATOR
                                            : MachO::PLATFORM_WATCHOS;
+  case Triple::DriverKit:
+    return MachO::PLATFORM_DRIVERKIT;
   default:
     break;
   }
@@ -1351,6 +1378,9 @@ void MCStreamer::emitVersionForTarget(
   case Triple::WatchOS:
     Version = Target.getWatchOSVersion();
     break;
+  case Triple::DriverKit:
+    Version = Target.getDriverKitVersion();
+    break;
   default:
     llvm_unreachable("unexpected OS type");
   }
@@ -1365,8 +1395,8 @@ void MCStreamer::emitVersionForTarget(
         DarwinTargetVariantTriple->isMacOSX()) {
       emitVersionForTarget(*DarwinTargetVariantTriple,
                            DarwinTargetVariantSDKVersion,
-                           /*TargetVariantTriple=*/nullptr,
-                           /*TargetVariantSDKVersion=*/VersionTuple());
+                           /*DarwinTargetVariantTriple=*/nullptr,
+                           /*DarwinTargetVariantSDKVersion=*/VersionTuple());
       emitDarwinTargetVariantBuildVersion(
           getMachoBuildVersionPlatformType(Target),
           LinkedTargetVersion.getMajor(),

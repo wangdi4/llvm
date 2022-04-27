@@ -1,17 +1,20 @@
-; RUN: opt -dpcpp-enable-native-subgroups -dpcpp-kernel-analysis -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-enable-native-subgroups -dpcpp-kernel-analysis -S < %s | FileCheck %s
+; RUN: opt -dpcpp-enable-native-subgroups -passes=dpcpp-kernel-analysis %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-enable-native-subgroups -dpcpp-kernel-analysis %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-enable-native-subgroups -passes=dpcpp-kernel-analysis %s -S | FileCheck %s
+; RUN: opt -dpcpp-enable-native-subgroups -dpcpp-kernel-analysis %s -S | FileCheck %s
 
-; RUN: opt -dpcpp-enable-native-subgroups -dpcpp-kernel-analysis -analyze -S < %s | FileCheck %s -check-prefix=CHECK-ANALYZE
+; RUN: opt -dpcpp-enable-native-subgroups -passes=dpcpp-kernel-analysis %s -S -debug -disable-output 2>&1| FileCheck %s -check-prefix=CHECK-DEBUG
+; RUN: opt -dpcpp-enable-native-subgroups -dpcpp-kernel-analysis %s -S -debug -disable-output 2>&1| FileCheck %s -check-prefix=CHECK-DEBUG
 
-; CHECK-ANALYZE: DPCPPKernelAnalysisPass
-; CHECK-ANALYZE-DAG: Kernel <testKernel1>: {{.*}} KernelHasSubgroups=1
-; CHECK-ANALYZE-DAG: Kernel <testKernel2>: {{.*}} KernelHasSubgroups=0
-; CHECK-ANALYZE-DAG: Kernel <testKernel3>: {{.*}} KernelHasSubgroups=1
+; CHECK-DEBUG: DPCPPKernelAnalysisPass
+; CHECK-DEBUG-DAG: Kernel <testKernel1>: {{.*}} KernelHasSubgroups=1
+; CHECK-DEBUG-DAG: Kernel <testKernel2>: {{.*}} KernelHasSubgroups=0
+; CHECK-DEBUG-DAG: Kernel <testKernel3>: {{.*}} KernelHasSubgroups=1
 
-; CHECK-ANALYZE: Functions that call subgroup builtins:
-; CHECK-ANALYZE-DAG: testKernel1
-; CHECK-ANALYZE-DAG: testKernel3
-; CHECK-ANALYZE-DAG: callee
+; CHECK-DEBUG: Functions that call subgroup builtins:
+; CHECK-DEBUG-DAG: testKernel1
+; CHECK-DEBUG-DAG: testKernel3
+; CHECK-DEBUG-DAG: callee
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -67,8 +70,8 @@ declare i64 @_Z14get_local_sizej(i32)
 !sycl.kernels = !{!0}
 !0 = !{void (i32 addrspace(1)*)* @testKernel1, void ()* @testKernel2, void (i32 addrspace(1)*)* @testKernel3}
 
-; CHECK-DAG: ![[#SGMD_TRUE]] = !{i1 true}
-; CHECK-DAG: ![[#SGMD_FALSE]] = !{i1 false}
+; CHECK: ![[#SGMD_TRUE]] = !{i1 true}
+; CHECK: ![[#SGMD_FALSE]] = !{i1 false}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: PASS

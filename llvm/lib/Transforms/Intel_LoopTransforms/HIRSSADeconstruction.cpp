@@ -282,6 +282,11 @@ Instruction *HIRSSADeconstruction::createCopy(Value *Val, StringRef Name,
   auto CInst = CallInst::Create(FunctionCallee(SSACopyFunc), {Val},
                                 Name + (IsLivein ? ".in" : ".out"));
 
+  // Copy available DebugLoc metadata
+  if (const auto *Inst = dyn_cast<Instruction>(Val)) {
+    CInst->setDebugLoc(Inst->getDebugLoc());
+  }
+
   attachMetadata(CInst, IsLivein ? Name : "",
                  IsLivein ? ScalarEvolution::HIRLiveKind::LiveIn
                           : ScalarEvolution::HIRLiveKind::LiveOut);
@@ -965,7 +970,9 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
 }
 
 static IntrinsicInst *findRegionEntryIntrinsic(BasicBlock *BB) {
-  for (auto &Inst : *BB) {
+
+  // Walk backwards to find the last entry intrinsic in the block.
+  for (auto &Inst : make_range(BB->rbegin(), BB->rend())) {
     auto *Intrin = dyn_cast<IntrinsicInst>(&Inst);
 
     if (!Intrin) {

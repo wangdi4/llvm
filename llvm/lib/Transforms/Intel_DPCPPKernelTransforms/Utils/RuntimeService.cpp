@@ -15,6 +15,7 @@
 using namespace llvm;
 using namespace DPCPPKernelCompilationUtils;
 using namespace NameMangleAPI;
+using namespace reflection;
 
 Function *
 RuntimeService::findFunctionInBuiltinModules(StringRef FuncName) const {
@@ -26,7 +27,7 @@ RuntimeService::findFunctionInBuiltinModules(StringRef FuncName) const {
   return nullptr;
 }
 
-bool RuntimeService::hasNoSideEffect(StringRef FuncName) {
+bool RuntimeService::hasNoSideEffect(StringRef FuncName) const {
   // Work item builtins and llvm intrinsics are not in runtime module so check
   // them first.
   if (isWorkItemBuiltin(FuncName))
@@ -61,7 +62,7 @@ bool RuntimeService::hasNoSideEffect(StringRef FuncName) {
     return true;
 
   // Respect horizontal builtin here, treat them as having a side effect.
-  // So far these are onl VPlan style masked functions.
+  // So far these are only VPlan style masked functions.
   if (needsVPlanStyleMask(FuncName))
     return false;
 
@@ -71,10 +72,16 @@ bool RuntimeService::hasNoSideEffect(StringRef FuncName) {
 
   // OpenCL 2.0 ndrange_1D/ndrange_2D/ndrange_3D builtins have a sret argument,
   // so doesNotAccessMemory() returns false.
-  auto IsNdrange_ndBuiltin = [](StringRef S) {
+  auto IsNdrangeNdBuiltin = [](StringRef S) {
     return S.startswith("_Z10ndrange_");
   };
-  return IsNdrange_ndBuiltin(FuncName);
+  return IsNdrangeNdBuiltin(FuncName);
+}
+
+bool RuntimeService::isAtomicBuiltin(StringRef FuncName) const {
+  if (!findFunctionInBuiltinModules(FuncName))
+    return false;
+  return DPCPPKernelCompilationUtils::isAtomicBuiltin(FuncName);
 }
 
 std::tuple<bool, bool, unsigned>
@@ -108,7 +115,7 @@ RuntimeService::isTIDGenerator(const CallInst *CI) const {
   return {true, false, Dim};
 }
 
-bool RuntimeService::isImageDescBuiltin(StringRef FuncName) {
+bool RuntimeService::isImageDescBuiltin(StringRef FuncName) const {
   return StringSwitch<bool>(FuncName)
       .Case("_Z16get_image_height", true)
       .Case("_Z15get_image_width", true)
@@ -118,7 +125,7 @@ bool RuntimeService::isImageDescBuiltin(StringRef FuncName) {
       .Default(false);
 }
 
-bool RuntimeService::isSafeLLVMIntrinsic(StringRef FuncName) {
+bool RuntimeService::isSafeLLVMIntrinsic(StringRef FuncName) const {
   return StringSwitch<bool>(FuncName)
       .Case("llvm.var.annotation", true)
       .Case("llvm.dbg.declare", true)
@@ -129,7 +136,33 @@ bool RuntimeService::isSafeLLVMIntrinsic(StringRef FuncName) {
       .Default(false);
 }
 
-bool RuntimeService::isSyncWithNoSideEffect(StringRef FuncName) {
+bool RuntimeService::isScalarMinMaxBuiltin(StringRef FuncName, bool &IsMin,
+                                           bool &IsSigned) const {
+  // FuncName need to be mangled min or max.
+  if (!isMangledName(FuncName))
+    return false;
+  StringRef StrippedName = stripName(FuncName);
+  IsMin = StrippedName.equals("min");
+  if (!IsMin && !StrippedName.equals("max"))
+    return false;
+
+  // Now that we know that this is min or max, demangle the builtin.
+  FunctionDescriptor Desc = demangle(FuncName);
+  assert(Desc.Parameters.size() == 2 && "min/max should have two parameters");
+  // The argument type should be (u)int/(u)long
+  RefParamType ArgTy = Desc.Parameters[0];
+  const auto *PTy = reflection::dyn_cast<PrimitiveType>(ArgTy.get());
+  if (!PTy)
+    return false;
+  TypePrimitiveEnum BasicTy = PTy->getPrimitive();
+  IsSigned = (BasicTy == PRIMITIVE_INT || BasicTy == PRIMITIVE_LONG);
+  if (!IsSigned && BasicTy != PRIMITIVE_UINT && BasicTy != PRIMITIVE_ULONG)
+    return false;
+
+  return true;
+}
+
+bool RuntimeService::isSyncWithNoSideEffect(StringRef FuncName) const {
   if (isWorkGroupBarrier(FuncName) || isSubGroupBarrier(FuncName))
     return true;
 
@@ -148,7 +181,7 @@ bool RuntimeService::isSyncWithNoSideEffect(StringRef FuncName) {
       .Default(false);
 }
 
-bool RuntimeService::isWorkItemBuiltin(StringRef FuncName) {
+bool RuntimeService::isWorkItemBuiltin(StringRef FuncName) const {
   return isGetGlobalId(FuncName) || isGetLocalId(FuncName) ||
          isGetLocalSize(FuncName) || isGetGlobalSize(FuncName) ||
          isGetGroupId(FuncName) || isGetWorkDim(FuncName) ||
@@ -161,7 +194,7 @@ bool RuntimeService::isWorkItemBuiltin(StringRef FuncName) {
          isGetEnqueuedNumSubGroups(FuncName);
 }
 
-bool RuntimeService::needsVPlanStyleMask(StringRef FuncName) {
+bool RuntimeService::needsVPlanStyleMask(StringRef FuncName) const {
   return FuncName.contains("intel_sub_group_ballot") ||
          FuncName.contains("sub_group_all") ||
          FuncName.contains("sub_group_any") ||
@@ -182,4 +215,24 @@ bool RuntimeService::needsVPlanStyleMask(StringRef FuncName) {
          FuncName.contains("intel_sub_group_shuffle") ||
          FuncName.contains("intel_sub_group_block_read") ||
          FuncName.contains("intel_sub_group_block_write");
+}
+
+bool RuntimeService::isSafeToSpeculativeExecute(StringRef FuncName) {
+  // Work item builtins are not in runtime module so check them first.
+  if (isWorkItemBuiltin(FuncName))
+    return true;
+
+  // Can not say anything on non-builtin function.
+  Function *F = findFunctionInBuiltinModules(FuncName);
+  if (!F)
+    return false;
+
+  // Special case built-ins that access memory but can be speculatively
+  // executed.
+  if (isImageDescBuiltin(FuncName))
+    return true;
+
+  // All built-ins that does not access memory and does not throw
+  // can be speculatively executed.
+  return F->doesNotAccessMemory() && F->doesNotThrow();
 }

@@ -52,6 +52,14 @@ define void @foo(i64 %n1, i32 %k1, float* nocapture %accumulated_grid, i32* noca
 ; CHECK-NEXT:    br label [[VPLANNEDBB20:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB2:
+; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_INPUT_VEC0_BCAST:%.*]] = bitcast <4 x float>* [[ACCUMULATED_OCCUPANCY_INPUT_VEC0]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[ACCUMULATED_OCCUPANCY_INPUT_VEC0_BCAST]])
+; CHECK-NEXT:    [[A2_VEC0_BCAST:%.*]] = bitcast <4 x i32>* [[A2_VEC0]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[A2_VEC0_BCAST]])
+; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC0_BCAST:%.*]] = bitcast <4 x float>* [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC0]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[ACCUMULATED_OCCUPANCY_OUTPUT_VEC0_BCAST]])
+; CHECK-NEXT:    [[COUNT_VEC0_BCAST:%.*]] = bitcast <4 x i64>* [[COUNT_VEC0]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 32, i8* [[COUNT_VEC0_BCAST]])
 ; CHECK-NEXT:    [[TMP3:%.*]] = bitcast float* [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BASE_ADDR_EXTRACT_0_0]] to i32*
 ; CHECK-NEXT:    [[TMP4:%.*]] = and i64 [[N10]], 4294967292
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]

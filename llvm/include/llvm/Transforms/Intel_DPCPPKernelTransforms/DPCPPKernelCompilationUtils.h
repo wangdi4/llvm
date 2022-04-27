@@ -217,8 +217,17 @@ StringRef nameGetBaseGID();
 /// Return true if string is "get_special_buffer."
 bool isGetSpecialBuffer(StringRef S);
 
+/// Return true if string is "__opencl_printf".
+bool isOpenCLPrintf(StringRef S);
+
 /// Return true if string is printf.
 bool isPrintf(StringRef S);
+
+/// Return "__opencl_printf.".
+StringRef nameOpenCLPrintf();
+
+/// Return "printf".
+StringRef namePrintf();
 
 /// Return pipe kind from builtin name.
 PipeKind getPipeKind(StringRef Name);
@@ -245,17 +254,27 @@ bool isWorkGroupBroadCast(StringRef S);
 bool isWorkGroupReduceAdd(StringRef S);
 bool isWorkGroupScanExclusiveAdd(StringRef S);
 bool isWorkGroupScanInclusiveAdd(StringRef S);
+bool isWorkGroupReduceMul(StringRef S);
+bool isWorkGroupScanExclusiveMul(StringRef S);
+bool isWorkGroupScanInclusiveMul(StringRef S);
 bool isWorkGroupReduceMin(StringRef S);
 bool isWorkGroupScanExclusiveMin(StringRef S);
 bool isWorkGroupScanInclusiveMin(StringRef S);
 bool isWorkGroupReduceMax(StringRef S);
 bool isWorkGroupScanExclusiveMax(StringRef S);
 bool isWorkGroupScanInclusiveMax(StringRef S);
+bool isWorkGroupReduceBitwiseAnd(StringRef S);
+bool isWorkGroupReduceBitwiseOr(StringRef S);
+bool isWorkGroupReduceBitwiseXor(StringRef S);
+bool isWorkGroupReduceLogicalAnd(StringRef S);
+bool isWorkGroupReduceLogicalOr(StringRef S);
+bool isWorkGroupReduceLogicalXor(StringRef S);
 bool isWorkGroupBuiltin(StringRef S);
 bool isWorkGroupAsyncOrPipeBuiltin(StringRef S, const Module &M);
 bool isWorkGroupScan(StringRef S);
 bool isWorkGroupMin(StringRef S);
 bool isWorkGroupMax(StringRef S);
+bool isWorkGroupMul(StringRef S);
 bool isAsyncWorkGroupCopy(StringRef S);
 bool isAsyncWorkGroupStridedCopy(StringRef S);
 bool isWorkGroupBarrier(StringRef S);
@@ -263,9 +282,17 @@ bool isWorkGroupBarrier(StringRef S);
 
 /// Returns true if \p S is a name of workgroup builtin, and it's uniform inside
 /// a workgroup.
-bool isWorkGroupUniform(StringRef S);
+bool isWorkGroupBuiltinUniform(StringRef S);
 
 /// Returns true if \p S is a name of workgroup builtin, and it's divergent
+/// inside a workgroup.
+bool isWorkGroupBuiltinDivergent(StringRef S);
+
+/// Returns true if \p S is a workgroup or subgroup builtin, and it is uniform
+/// inside a workgroup.
+bool isWorkGroupUniform(StringRef S);
+
+/// Returns true if \p S is a workgroup or subgroup builtin, and it is divergent
 /// inside a workgroup.
 bool isWorkGroupDivergent(StringRef S);
 
@@ -316,6 +343,9 @@ std::string mangledGetLID();
 
 /// Returns the mangled name of the function get_group_id.
 std::string mangledGetGroupID();
+
+/// Returns the mangled name of the function get_num_groups.
+std::string mangledGetNumGroups();
 
 /// Returns the mangled name of the function get_local_size.
 std::string mangledGetLocalSize();
@@ -567,6 +597,9 @@ void initializeVectInfoOnce(
 void insertPrintf(const Twine &Prefix, Instruction *IP,
                   ArrayRef<Value *> Inputs = None);
 
+/// Check whether the given FixedVectorType represents a valid SYCL matrix.
+bool isValidMatrixType(FixedVectorType *MatrixType);
+
 /// Create a get_sub_group_slice_length.() call.
 /// SIGNATURE:
 ///   i64 get_sub_group_slice_length.(i32 immarg %total.element.count)
@@ -626,6 +659,10 @@ CallInst *createSubGroupInsertRowSliceToMatrixCall(Value *RowSliceId,
                                                    Type *ReturnMatrixType,
                                                    Instruction *IP,
                                                    const Twine &Name = "");
+
+void calculateMemorySizeWithPostOrderTraversal(
+    CallGraph &CG, DenseMap<Function *, size_t> &FnDirectSize,
+    DenseMap<Function *, size_t> &FnSize);
 
 } // namespace DPCPPKernelCompilationUtils
 } // namespace llvm

@@ -1,3 +1,18 @@
+// INTEL_CUSTOMIZATION
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //==---- cg_types.hpp - Auxiliary types required by command group class ----==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -302,13 +317,6 @@ public:
       UpperBound[I] = Range[I] + Offset[I];
     }
 
-/* INTEL_CUSTOMIZATION */
-#if !DPCPP_HOST_DEVICE_SERIAL
-    ParallelFor(Range, [this](const sycl::id<Dims> Id) {
-      runKernelWithArg<const sycl::id<Dims>>(MKernel, Id);
-    });
-#else
-/* end INTEL_CUSTOMIZATION */
     detail::NDLoop<Dims>::iterate(
         /*LowerBound=*/Offset, Stride, UpperBound,
         [&](const sycl::id<Dims> &ID) {
@@ -317,7 +325,6 @@ public:
 
       runKernelWithArg<const sycl::id<Dims> &>(MKernel, ID);
     });
-#endif // INTEL
   }
 
   template <class ArgT = KernelArgType>
@@ -329,13 +336,7 @@ public:
     for (int I = 0; I < Dims; ++I)
       Range[I] = NDRDesc.GlobalSize[I];
 
-/* INTEL_CUSTOMIZATION */
-#if !DPCPP_HOST_DEVICE_SERIAL
-    ParallelFor(Range, [Range, this](sycl::id<Dims> ID) {
-#else
-/* end INTEL_CUSTOMIZATION */
     detail::NDLoop<Dims>::iterate(Range, [&](const sycl::id<Dims> ID) {
-#endif // INTEL
       sycl::item<Dims, /*Offset=*/false> Item =
           IDBuilder::createItem<Dims, false>(Range, ID);
       sycl::item<Dims, /*Offset=*/true> ItemWithOffset = Item;
@@ -360,15 +361,9 @@ public:
       UpperBound[I] = Range[I] + Offset[I];
     }
 
-/* INTEL_CUSTOMIZATION */
-#if !DPCPP_HOST_DEVICE_SERIAL
-    ParallelFor(Range, [Range, Offset, this](sycl::id<Dims> ID) {
-#else
-/* end INTEL_CUSTOMIZATION */
     detail::NDLoop<Dims>::iterate(
         /*LowerBound=*/Offset, Stride, UpperBound,
         [&](const sycl::id<Dims> &ID) {
-#endif // INTEL
       sycl::item<Dims, /*Offset=*/true> Item =
           IDBuilder::createItem<Dims, true>(Range, ID, Offset);
 
@@ -398,21 +393,11 @@ public:
       GlobalSize[I] = NDRDesc.GlobalSize[I];
     }
 
-/* INTEL_CUSTOMIZATION */
-#if !DPCPP_HOST_DEVICE_SERIAL
-    ParallelForNDRange(
-        LocalSize, GroupSize,
-        [=](const id<Dims> &GroupID, const id<Dims> &LocalID) {
-          sycl::group<Dims> Group = IDBuilder::createGroup<Dims>(
-              GlobalSize, LocalSize, GroupSize, GroupID);
-#else
-/* end INTEL_CUSTOMIZATION */
     detail::NDLoop<Dims>::iterate(GroupSize, [&](const id<Dims> &GroupID) {
       sycl::group<Dims> Group = IDBuilder::createGroup<Dims>(
           GlobalSize, LocalSize, GroupSize, GroupID);
 
       detail::NDLoop<Dims>::iterate(LocalSize, [&](const id<Dims> &LocalID) {
-#endif // INTEL
         id<Dims> GlobalID = GroupID * LocalSize + LocalID + GlobalOffset;
         const sycl::item<Dims, /*Offset=*/true> GlobalItem =
             IDBuilder::createItem<Dims, true>(GlobalSize, GlobalID,
@@ -423,9 +408,7 @@ public:
             IDBuilder::createNDItem<Dims>(GlobalItem, LocalItem, Group);
 
         runKernelWithArg<const sycl::nd_item<Dims>>(MKernel, NDItem);
-#if DPCPP_HOST_DEVICE_SERIAL // INTEL
       });
-#endif // INTEL
     });
   }
 
@@ -449,13 +432,7 @@ public:
       LocalSize[I] = NDRDesc.LocalSize[I];
       GlobalSize[I] = NDRDesc.GlobalSize[I];
     }
-/* INTEL_CUSTOMIZATION */
-#if !DPCPP_HOST_DEVICE_SERIAL
-    ParallelForWorkGroup(NGroups, [&](const id<Dims> &GroupID) {
-#else
-/* end INTEL_CUSTOMIZATION */
     detail::NDLoop<Dims>::iterate(NGroups, [&](const id<Dims> &GroupID) {
-#endif // INTEL
       sycl::group<Dims> Group =
           IDBuilder::createGroup<Dims>(GlobalSize, LocalSize, NGroups, GroupID);
       runKernelWithArg<sycl::group<Dims>>(MKernel, Group);

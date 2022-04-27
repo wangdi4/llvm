@@ -12,8 +12,8 @@ define i32 @bar(i32 %N) #0 {
 ; CHECK:       %vec.retval = alloca <16 x i32>, align 64
 ; CHECK:       [[RET_CAST:%.*]] = bitcast <16 x i32>* %vec.retval to i32*
 ; CHECK:      for:
-; CHECK-NEXT:  [[TOTAL:%.*]] = phi i32 [ 0, %simd.loop ], [ [[ADD:%.*]], %for ]
-; CHECK-NEXT:  [[I:%.*]] = phi i32 [ 0, %simd.loop ], [ [[INC:%.*]], %for ]
+; CHECK-NEXT:  [[TOTAL:%.*]] = phi i32 [ 0, %simd.loop.header ], [ [[ADD:%.*]], %for ]
+; CHECK-NEXT:  [[I:%.*]] = phi i32 [ 0, %simd.loop.header ], [ [[INC:%.*]], %for ]
 ; CHECK-NEXT:  [[RET_CAST_GEP:%.*]] = getelementptr i32, i32* [[RET_CAST]], i32
 ; CHECK-NEXT:  store i32 [[TOTAL]], i32* [[RET_CAST_GEP]], align 4
 ; CHECK-NEXT:  [[CALL:%.*]] = call i32 @foo(i32 [[I]])

@@ -1,10 +1,10 @@
 // INTEL_COLLAB
 // Check host code generation.
-// RUN: %clang_cc1 -verify -triple x86_64-unknown-linux-gnu -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu -emit-llvm %s -o - | FileCheck %s --check-prefix CHECK-HST --check-prefix CHECK-ALL
+// RUN: %clang_cc1 -opaque-pointers -verify -triple x86_64-unknown-linux-gnu -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu -emit-llvm %s -o - | FileCheck %s --check-prefix CHECK-HST --check-prefix CHECK-ALL
 //
 // Check target code generation. Need to create host IR.
-// RUN: %clang_cc1 -verify -triple x86_64-unknown-linux-gnu -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu -emit-llvm-bc %s -o %t-host.bc
-// RUN: %clang_cc1 -verify -triple x86_64-pc-linux-gnu -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu -fopenmp-is-device -fopenmp-host-ir-file-path %t-host.bc %s -emit-llvm -o - | FileCheck %s --check-prefix CHECK-TGT --check-prefix CHECK-ALL
+// RUN: %clang_cc1 -opaque-pointers -verify -triple x86_64-unknown-linux-gnu -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu -emit-llvm-bc %s -o %t-host.bc
+// RUN: %clang_cc1 -opaque-pointers -verify -triple x86_64-pc-linux-gnu -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu -fopenmp-is-device -fopenmp-host-ir-file-path %t-host.bc %s -emit-llvm -o - | FileCheck %s --check-prefix CHECK-TGT --check-prefix CHECK-ALL
 //
 // expected-no-diagnostics
 
@@ -32,8 +32,8 @@ S Var2;
 // CHECK-TGT-NEXT: call void @_Z3barv()
 // CHECK-TGT-NEXT: call void @llvm.directive.region.exit(token [[REGION]]) [ "DIR.OMP.END.TARGET"() ]
 
-// CHECK-TGT: define dso_local void @[[CTOR:__omp_offloading.*_ctor]]()
-// CHECK-TGT: define dso_local void @[[DTOR:__omp_offloading.*_dtor]]()
+// CHECK-TGT: define {{.*}}void @[[CTOR:__omp_offloading.*_ctor]]()
+// CHECK-TGT: define {{.*}}void @[[DTOR:__omp_offloading.*_dtor]]()
 
 // Target IR shoud not have variables that are not defined as "declare target".
 // CHECK-HST:     @Var3 = {{.*}}global i32 10
@@ -72,6 +72,6 @@ void goo() {
 // CHECK-ALL-DAG: !{{[0-9]+}} = !{i32 0, i32 {{-?[0-9]+}}, i32 {{-?[0-9]+}}, !"[[CTOR]]", i32 {{-?[0-9]+}}, i32 {{[0-9]+}}, i32 2}
 // CHECK-ALL-DAG: !{{[0-9]+}} = !{i32 0, i32 {{-?[0-9]+}}, i32 {{-?[0-9]+}}, !"[[DTOR]]", i32 {{-?[0-9]+}}, i32 {{[0-9]+}}, i32 4}
 // CHECK-ALL-DAG: !{{[0-9]+}} = !{i32 0, i32 {{-?[0-9]+}}, i32 {{-?[0-9]+}}, !"_Z3goov", i32 {{-?[0-9]+}}, i32 [[ENTRYIDX]], i32 0}
-// CHECK-ALL-DAG: !{{[0-9]+}} = !{i32 1, !"_Z4Var1", i32 {{[0-9]+}}, i32 {{[0-9]+}}, i32* @Var1}
-// CHECK-ALL-DAG: !{{[0-9]+}} = !{i32 1, !"_Z4Var2", i32 {{[0-9]+}}, i32 {{[0-9]+}}, %struct.S* @Var2}
+// CHECK-ALL-DAG: !{{[0-9]+}} = !{i32 1, !"_Z4Var1", i32 {{[0-9]+}}, i32 {{[0-9]+}}, ptr @Var1}
+// CHECK-ALL-DAG: !{{[0-9]+}} = !{i32 1, !"_Z4Var2", i32 {{[0-9]+}}, i32 {{[0-9]+}}, ptr @Var2}
 // end INTEL_COLLAB

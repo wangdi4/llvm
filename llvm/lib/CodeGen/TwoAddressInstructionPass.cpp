@@ -1,4 +1,21 @@
 //===- TwoAddressInstructionPass.cpp - Two-Address instruction pass -------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -28,7 +45,6 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/iterator_range.h"
@@ -50,7 +66,6 @@
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/MC/MCInstrDesc.h"
-#include "llvm/MC/MCInstrItineraries.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/CommandLine.h"
@@ -1802,11 +1817,11 @@ bool TwoAddressInstructionPass::runOnMachineFunction(MachineFunction &Func) {
         // From %reg = INSERT_SUBREG %reg, %subreg, subidx
         // To   %reg:subidx = COPY %subreg
         unsigned SubIdx = mi->getOperand(3).getImm();
-        mi->RemoveOperand(3);
+        mi->removeOperand(3);
         assert(mi->getOperand(0).getSubReg() == 0 && "Unexpected subreg idx");
         mi->getOperand(0).setSubReg(SubIdx);
         mi->getOperand(0).setIsUndef(mi->getOperand(1).isUndef());
-        mi->RemoveOperand(1);
+        mi->removeOperand(1);
         mi->setDesc(TII->get(TargetOpcode::COPY));
         LLVM_DEBUG(dbgs() << "\t\tconvert to:\t" << *mi);
 
@@ -1927,7 +1942,7 @@ eliminateRegSequence(MachineBasicBlock::iterator &MBBI) {
     LLVM_DEBUG(dbgs() << "Turned: " << MI << " into an IMPLICIT_DEF");
     MI.setDesc(TII->get(TargetOpcode::IMPLICIT_DEF));
     for (int j = MI.getNumOperands() - 1, ee = 0; j > ee; --j)
-      MI.RemoveOperand(j);
+      MI.removeOperand(j);
   } else {
     if (LIS)
       LIS->RemoveMachineInstrFromMaps(MI);

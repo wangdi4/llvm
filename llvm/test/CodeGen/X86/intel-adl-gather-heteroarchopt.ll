@@ -5,33 +5,29 @@
 ; Function Attrs: nofree norecurse nosync nounwind readonly uwtable
 define dso_local double @foo(double* noalias nocapture readonly %dst, double* noalias nocapture readonly %luval, i32** nocapture readonly %rowstart, i32* nocapture readnone %first_after_diagonal, i32 %N) local_unnamed_addr #0 {
 ; X64-LABEL: foo:
-; X64:       # %bb.0: # %entry.new
-; X64-NEXT:    pushq %rbx
-; X64-NEXT:    .cfi_def_cfa_offset 16
-; X64-NEXT:    subq $32, %rsp
+; X64:       # %bb.0: # %entry
+; X64-NEXT:    subq $40, %rsp
 ; X64-NEXT:    .cfi_def_cfa_offset 48
-; X64-NEXT:    .cfi_offset %rbx, -16
+; X64-NEXT:    testl %r8d, %r8d
+; X64-NEXT:    jle .LBB0_1
+; X64-NEXT:  # %bb.2: # %for.body.preheader
+; X64-NEXT:    movl %r8d, %r9d
 ; X64-NEXT:    rdpid %rax
 ; X64-NEXT:    movzbl %al, %eax
 ; X64-NEXT:    movq __cpu_core_type@GOTPCREL(%rip), %rcx
 ; X64-NEXT:    movb (%rcx,%rax), %al
 ; X64-NEXT:    testb %al, %al
-; X64-NEXT:    je .LBB0_14
-; X64-NEXT:  # %bb.1:
-; X64-NEXT:    cmpb $64, %al
-; X64-NEXT:    jne .LBB0_9
-; X64-NEXT:  .LBB0_2: # %entry
-; X64-NEXT:    testl %r8d, %r8d
-; X64-NEXT:    jle .LBB0_3
-; X64-NEXT:  # %bb.5: # %for.body.preheader
-; X64-NEXT:    movl %r8d, %r9d
+; X64-NEXT:    je .LBB0_11
+; X64-NEXT:  .LBB0_3:
 ; X64-NEXT:    decq %r9
 ; X64-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
 ; X64-NEXT:    xorl %r10d, %r10d
+; X64-NEXT:    cmpb $64, %al
+; X64-NEXT:    jne .LBB0_7
 ; X64-NEXT:    .p2align 4, 0x90
-; X64-NEXT:  .LBB0_6: # %loop.39
+; X64-NEXT:  .LBB0_4: # %loop.39
 ; X64-NEXT:    # =>This Loop Header: Depth=1
-; X64-NEXT:    # Child Loop BB0_7 Depth 2
+; X64-NEXT:    # Child Loop BB0_5 Depth 2
 ; X64-NEXT:    movl %r10d, %eax
 ; X64-NEXT:    notl %eax
 ; X64-NEXT:    addl %r8d, %eax
@@ -42,8 +38,8 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-NEXT:    vxorpd %xmm3, %xmm3, %xmm3
 ; X64-NEXT:    vxorpd %xmm4, %xmm4, %xmm4
 ; X64-NEXT:    .p2align 4, 0x90
-; X64-NEXT:  .LBB0_7: # %loop.48
-; X64-NEXT:    # Parent Loop BB0_6 Depth=1
+; X64-NEXT:  .LBB0_5: # %loop.48
+; X64-NEXT:    # Parent Loop BB0_4 Depth=1
 ; X64-NEXT:    # => This Inner Loop Header: Depth=2
 ; X64-NEXT:    vpmovzxdq {{.*#+}} ymm5 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
 ; X64-NEXT:    vpcmpeqd %ymm6, %ymm6, %ymm6
@@ -68,9 +64,9 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-NEXT:    addq $16, %rcx
 ; X64-NEXT:    leal -16(%rcx), %eax
 ; X64-NEXT:    cmpl $4080, %eax # imm = 0xFF0
-; X64-NEXT:    jb .LBB0_7
-; X64-NEXT:  # %bb.8: # %afterloop.48
-; X64-NEXT:    # in Loop: Header=BB0_6 Depth=1
+; X64-NEXT:    jb .LBB0_5
+; X64-NEXT:  # %bb.6: # %afterloop.48
+; X64-NEXT:    # in Loop: Header=BB0_4 Depth=1
 ; X64-NEXT:    vaddpd %ymm3, %ymm1, %ymm1
 ; X64-NEXT:    vaddpd %ymm4, %ymm2, %ymm2
 ; X64-NEXT:    vaddpd %ymm2, %ymm1, %ymm1
@@ -82,104 +78,73 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-NEXT:    addq $32768, %rsi # imm = 0x8000
 ; X64-NEXT:    cmpq %r9, %r10
 ; X64-NEXT:    leaq 1(%r10), %r10
-; X64-NEXT:    jne .LBB0_6
-; X64-NEXT:  .LBB0_4: # %for.cond.cleanup
-; X64-NEXT:    addq $32, %rsp
-; X64-NEXT:    .cfi_def_cfa_offset 16
-; X64-NEXT:    popq %rbx
-; X64-NEXT:    .cfi_def_cfa_offset 8
-; X64-NEXT:    vzeroupper
-; X64-NEXT:    retq
-; X64-NEXT:  .LBB0_14:
-; X64-NEXT:    .cfi_def_cfa_offset 48
-; X64-NEXT:    movl %r8d, {{[-0-9]+}}(%r{{[sb]}}p) # 4-byte Spill
-; X64-NEXT:    movq %rdx, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; X64-NEXT:    movq %rsi, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; X64-NEXT:    movq %rdi, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; X64-NEXT:    callq __detect_cpu_core_type_1n@PLT
-; X64-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdi # 8-byte Reload
-; X64-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rsi # 8-byte Reload
-; X64-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
-; X64-NEXT:    movl {{[-0-9]+}}(%r{{[sb]}}p), %r8d # 4-byte Reload
-; X64-NEXT:    cmpb $64, %al
-; X64-NEXT:    je .LBB0_2
-; X64-NEXT:  .LBB0_9: # %entry.clone
-; X64-NEXT:    testl %r8d, %r8d
-; X64-NEXT:    jle .LBB0_3
-; X64-NEXT:  # %bb.10: # %for.body.preheader.clone
-; X64-NEXT:    movl %r8d, %r9d
-; X64-NEXT:    decq %r9
-; X64-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
-; X64-NEXT:    xorl %r10d, %r10d
+; X64-NEXT:    jne .LBB0_4
+; X64-NEXT:    jmp .LBB0_10
 ; X64-NEXT:    .p2align 4, 0x90
-; X64-NEXT:  .LBB0_11: # %loop.39.clone
+; X64-NEXT:  .LBB0_7: # %loop.39.clone
 ; X64-NEXT:    # =>This Loop Header: Depth=1
-; X64-NEXT:    # Child Loop BB0_12 Depth 2
+; X64-NEXT:    # Child Loop BB0_8 Depth 2
 ; X64-NEXT:    movl %r10d, %eax
 ; X64-NEXT:    notl %eax
 ; X64-NEXT:    addl %r8d, %eax
 ; X64-NEXT:    movq (%rdx,%rax,8), %r11
 ; X64-NEXT:    vxorpd %xmm9, %xmm9, %xmm9
 ; X64-NEXT:    xorl %ecx, %ecx
-; X64-NEXT:    vxorpd %xmm11, %xmm11, %xmm11
+; X64-NEXT:    vxorpd %xmm12, %xmm12, %xmm12
 ; X64-NEXT:    vxorpd %xmm3, %xmm3, %xmm3
 ; X64-NEXT:    vxorpd %xmm4, %xmm4, %xmm4
 ; X64-NEXT:    .p2align 4, 0x90
-; X64-NEXT:  .LBB0_12: # %loop.48.clone
-; X64-NEXT:    # Parent Loop BB0_11 Depth=1
+; X64-NEXT:  .LBB0_8: # %loop.48.clone
+; X64-NEXT:    # Parent Loop BB0_7 Depth=1
 ; X64-NEXT:    # => This Inner Loop Header: Depth=2
-; X64-NEXT:    vmovdqu (%r11,%rcx,4), %xmm5
-; X64-NEXT:    vpextrd $2, %xmm5, %eax
-; X64-NEXT:    vpextrd $3, %xmm5, %ebx
-; X64-NEXT:    vmovdqu 16(%r11,%rcx,4), %xmm6
-; X64-NEXT:    vmovsd {{.*#+}} xmm7 = mem[0],zero
-; X64-NEXT:    vpextrd $2, %xmm6, %eax
-; X64-NEXT:    vmovhpd {{.*#+}} xmm8 = xmm7[0],mem[0]
-; X64-NEXT:    vmovdqu 32(%r11,%rcx,4), %xmm7
-; X64-NEXT:    vpextrd $3, %xmm6, %ebx
-; X64-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
-; X64-NEXT:    vmovhpd {{.*#+}} xmm10 = xmm1[0],mem[0]
-; X64-NEXT:    vmovd %xmm6, %eax
-; X64-NEXT:    vpextrd $1, %xmm6, %ebx
-; X64-NEXT:    vmovsd {{.*#+}} xmm6 = mem[0],zero
-; X64-NEXT:    vpextrd $2, %xmm7, %eax
-; X64-NEXT:    vmovdqu 48(%r11,%rcx,4), %xmm1
-; X64-NEXT:    vmovhpd {{.*#+}} xmm12 = xmm6[0],mem[0]
-; X64-NEXT:    vpextrd $3, %xmm7, %ebx
-; X64-NEXT:    vmovsd {{.*#+}} xmm2 = mem[0],zero
-; X64-NEXT:    vmovd %xmm7, %eax
-; X64-NEXT:    vmovhpd {{.*#+}} xmm2 = xmm2[0],mem[0]
-; X64-NEXT:    vpextrd $1, %xmm7, %ebx
-; X64-NEXT:    vmovsd {{.*#+}} xmm7 = mem[0],zero
-; X64-NEXT:    vmovd %xmm1, %eax
-; X64-NEXT:    vmovhpd {{.*#+}} xmm7 = xmm7[0],mem[0]
-; X64-NEXT:    vpextrd $2, %xmm1, %ebx
-; X64-NEXT:    vmovsd {{.*#+}} xmm6 = mem[0],zero
-; X64-NEXT:    vpextrd $3, %xmm1, %ebx
-; X64-NEXT:    vmovhpd {{.*#+}} xmm6 = xmm6[0],mem[0]
-; X64-NEXT:    vpextrd $1, %xmm1, %ebx
-; X64-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
-; X64-NEXT:    vmovd %xmm5, %eax
-; X64-NEXT:    vmovhpd {{.*#+}} xmm1 = xmm1[0],mem[0]
-; X64-NEXT:    vpextrd $1, %xmm5, %ebx
+; X64-NEXT:    movl 8(%r11,%rcx,4), %eax
 ; X64-NEXT:    vmovsd {{.*#+}} xmm5 = mem[0],zero
-; X64-NEXT:    vinsertf128 $1, %xmm10, %ymm12, %ymm10
-; X64-NEXT:    vinsertf128 $1, %xmm2, %ymm7, %ymm2
-; X64-NEXT:    vinsertf128 $1, %xmm6, %ymm1, %ymm1
+; X64-NEXT:    movl 12(%r11,%rcx,4), %eax
+; X64-NEXT:    vmovhpd {{.*#+}} xmm8 = xmm5[0],mem[0]
+; X64-NEXT:    movl (%r11,%rcx,4), %eax
+; X64-NEXT:    vmovsd {{.*#+}} xmm6 = mem[0],zero
+; X64-NEXT:    movl 4(%r11,%rcx,4), %eax
+; X64-NEXT:    vmovhpd {{.*#+}} xmm10 = xmm6[0],mem[0]
+; X64-NEXT:    movl 24(%r11,%rcx,4), %eax
+; X64-NEXT:    vmovsd {{.*#+}} xmm7 = mem[0],zero
+; X64-NEXT:    movl 28(%r11,%rcx,4), %eax
+; X64-NEXT:    vmovhpd {{.*#+}} xmm11 = xmm7[0],mem[0]
+; X64-NEXT:    movl 16(%r11,%rcx,4), %eax
+; X64-NEXT:    vmovsd {{.*#+}} xmm5 = mem[0],zero
+; X64-NEXT:    movl 20(%r11,%rcx,4), %eax
 ; X64-NEXT:    vmovhpd {{.*#+}} xmm5 = xmm5[0],mem[0]
-; X64-NEXT:    vfmadd231pd {{.*#+}} ymm4 = (ymm1 * mem) + ymm4
-; X64-NEXT:    vfmadd231pd {{.*#+}} ymm3 = (ymm2 * mem) + ymm3
-; X64-NEXT:    vfmadd231pd {{.*#+}} ymm11 = (ymm10 * mem) + ymm11
-; X64-NEXT:    vinsertf128 $1, %xmm8, %ymm5, %ymm1
-; X64-NEXT:    vfmadd231pd {{.*#+}} ymm9 = (ymm1 * mem) + ymm9
+; X64-NEXT:    movl 40(%r11,%rcx,4), %eax
+; X64-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
+; X64-NEXT:    movl 44(%r11,%rcx,4), %eax
+; X64-NEXT:    vmovhpd {{.*#+}} xmm1 = xmm1[0],mem[0]
+; X64-NEXT:    movl 32(%r11,%rcx,4), %eax
+; X64-NEXT:    vmovsd {{.*#+}} xmm6 = mem[0],zero
+; X64-NEXT:    movl 36(%r11,%rcx,4), %eax
+; X64-NEXT:    vmovhpd {{.*#+}} xmm6 = xmm6[0],mem[0]
+; X64-NEXT:    movl 56(%r11,%rcx,4), %eax
+; X64-NEXT:    vinsertf128 $1, %xmm8, %ymm10, %ymm8
+; X64-NEXT:    vmovsd {{.*#+}} xmm7 = mem[0],zero
+; X64-NEXT:    movl 60(%r11,%rcx,4), %eax
+; X64-NEXT:    vmovhpd {{.*#+}} xmm7 = xmm7[0],mem[0]
+; X64-NEXT:    movl 48(%r11,%rcx,4), %eax
+; X64-NEXT:    vinsertf128 $1, %xmm11, %ymm5, %ymm5
+; X64-NEXT:    vmovsd {{.*#+}} xmm2 = mem[0],zero
+; X64-NEXT:    movl 52(%r11,%rcx,4), %eax
+; X64-NEXT:    vmovhpd {{.*#+}} xmm2 = xmm2[0],mem[0]
+; X64-NEXT:    vinsertf128 $1, %xmm1, %ymm6, %ymm1
+; X64-NEXT:    vinsertf128 $1, %xmm7, %ymm2, %ymm2
+; X64-NEXT:    vfmadd231pd {{.*#+}} ymm4 = (ymm2 * mem) + ymm4
+; X64-NEXT:    vfmadd231pd {{.*#+}} ymm3 = (ymm1 * mem) + ymm3
+; X64-NEXT:    vfmadd231pd {{.*#+}} ymm12 = (ymm5 * mem) + ymm12
+; X64-NEXT:    vfmadd231pd {{.*#+}} ymm9 = (ymm8 * mem) + ymm9
 ; X64-NEXT:    addq $16, %rcx
 ; X64-NEXT:    leal -16(%rcx), %eax
 ; X64-NEXT:    cmpl $4080, %eax # imm = 0xFF0
-; X64-NEXT:    jb .LBB0_12
-; X64-NEXT:  # %bb.13: # %afterloop.48.clone
-; X64-NEXT:    # in Loop: Header=BB0_11 Depth=1
+; X64-NEXT:    jb .LBB0_8
+; X64-NEXT:  # %bb.9: # %afterloop.48.clone
+; X64-NEXT:    # in Loop: Header=BB0_7 Depth=1
 ; X64-NEXT:    vaddpd %ymm3, %ymm9, %ymm1
-; X64-NEXT:    vaddpd %ymm4, %ymm11, %ymm2
+; X64-NEXT:    vaddpd %ymm4, %ymm12, %ymm2
 ; X64-NEXT:    vaddpd %ymm2, %ymm1, %ymm1
 ; X64-NEXT:    vextractf128 $1, %ymm1, %xmm2
 ; X64-NEXT:    vaddpd %xmm2, %xmm1, %xmm1
@@ -189,15 +154,32 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-NEXT:    addq $32768, %rsi # imm = 0x8000
 ; X64-NEXT:    cmpq %r9, %r10
 ; X64-NEXT:    leaq 1(%r10), %r10
-; X64-NEXT:    jne .LBB0_11
-; X64-NEXT:    jmp .LBB0_4
-; X64-NEXT:  .LBB0_3: # %entry
+; X64-NEXT:    jne .LBB0_7
+; X64-NEXT:  .LBB0_10: # %for.cond.cleanup
+; X64-NEXT:    addq $40, %rsp
+; X64-NEXT:    .cfi_def_cfa_offset 8
+; X64-NEXT:    vzeroupper
+; X64-NEXT:    retq
+; X64-NEXT:  .LBB0_1: # %entry
+; X64-NEXT:    .cfi_def_cfa_offset 48
 ; X64-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; X64-NEXT:    addq $32, %rsp
-; X64-NEXT:    .cfi_def_cfa_offset 16
-; X64-NEXT:    popq %rbx
+; X64-NEXT:    addq $40, %rsp
 ; X64-NEXT:    .cfi_def_cfa_offset 8
 ; X64-NEXT:    retq
+; X64-NEXT:  .LBB0_11:
+; X64-NEXT:    .cfi_def_cfa_offset 48
+; X64-NEXT:    movl %r8d, {{[-0-9]+}}(%r{{[sb]}}p) # 4-byte Spill
+; X64-NEXT:    movq %rdx, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; X64-NEXT:    movq %rsi, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; X64-NEXT:    movq %rdi, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; X64-NEXT:    movq %r9, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
+; X64-NEXT:    callq __detect_cpu_core_type_1n@PLT
+; X64-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %r9 # 8-byte Reload
+; X64-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdi # 8-byte Reload
+; X64-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rsi # 8-byte Reload
+; X64-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rdx # 8-byte Reload
+; X64-NEXT:    movl {{[-0-9]+}}(%r{{[sb]}}p), %r8d # 4-byte Reload
+; X64-NEXT:    jmp .LBB0_3
 ;
 ; X86-LABEL: foo:
 ; X86:       # %bb.0: # %entry
@@ -210,77 +192,92 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-NEXT:    pushl %edi
 ; X86-NEXT:    pushl %esi
 ; X86-NEXT:    andl $-32, %esp
-; X86-NEXT:    subl $128, %esp
+; X86-NEXT:    subl $192, %esp
 ; X86-NEXT:    .cfi_offset %esi, -20
 ; X86-NEXT:    .cfi_offset %edi, -16
 ; X86-NEXT:    .cfi_offset %ebx, -12
-; X86-NEXT:    movl 24(%ebp), %eax
-; X86-NEXT:    testl %eax, %eax
+; X86-NEXT:    movl 24(%ebp), %edi
+; X86-NEXT:    testl %edi, %edi
 ; X86-NEXT:    jle .LBB0_1
-; X86-NEXT:  # %bb.3: # %for.body.preheader
-; X86-NEXT:    movl 12(%ebp), %edx
+; X86-NEXT:  # %bb.2: # %for.body.preheader
 ; X86-NEXT:    xorl %ebx, %ebx
-; X86-NEXT:    movl %eax, %ecx
-; X86-NEXT:    addl $-1, %ecx
-; X86-NEXT:    movl %ecx, {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Spill
-; X86-NEXT:    movl $0, %ecx
-; X86-NEXT:    adcl $-1, %ecx
-; X86-NEXT:    movl %ecx, (%esp) # 4-byte Spill
-; X86-NEXT:    vpxor %xmm0, %xmm0, %xmm0
+; X86-NEXT:    movl %edi, %eax
+; X86-NEXT:    addl $-1, %eax
+; X86-NEXT:    movl %eax, {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Spill
+; X86-NEXT:    movl $0, %eax
+; X86-NEXT:    adcl $-1, %eax
+; X86-NEXT:    movl %eax, {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Spill
+; X86-NEXT:    rdpid %eax
+; X86-NEXT:    movzbl %al, %eax
+; X86-NEXT:    movb __cpu_core_type(%eax), %al
+; X86-NEXT:    testb %al, %al
+; X86-NEXT:    je .LBB0_13
+; X86-NEXT:  .LBB0_3:
+; X86-NEXT:    movl 12(%ebp), %edx
 ; X86-NEXT:    movl 8(%ebp), %ecx
-; X86-NEXT:    xorl %esi, %esi
+; X86-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
+; X86-NEXT:    cmpb $64, %al
+; X86-NEXT:    jne .LBB0_8
+; X86-NEXT:  # %bb.4:
+; X86-NEXT:    xorl %eax, %eax
 ; X86-NEXT:    .p2align 4, 0x90
-; X86-NEXT:  .LBB0_4: # %loop.39
+; X86-NEXT:  .LBB0_5: # %loop.39
 ; X86-NEXT:    # =>This Loop Header: Depth=1
-; X86-NEXT:    # Child Loop BB0_5 Depth 2
-; X86-NEXT:    movl %esi, {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Spill
-; X86-NEXT:    vmovq %xmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 8-byte Folded Spill
+; X86-NEXT:    # Child Loop BB0_6 Depth 2
+; X86-NEXT:    movl %eax, {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Spill
+; X86-NEXT:    vmovsd %xmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 8-byte Spill
 ; X86-NEXT:    movl %ebx, %esi
 ; X86-NEXT:    notl %esi
-; X86-NEXT:    addl %eax, %esi
+; X86-NEXT:    addl %edi, %esi
 ; X86-NEXT:    movl 16(%ebp), %eax
 ; X86-NEXT:    movl (%eax,%esi,4), %esi
 ; X86-NEXT:    movl $-16, %edi
 ; X86-NEXT:    movl %ebx, {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Spill
 ; X86-NEXT:    shll $12, %ebx
-; X86-NEXT:    vpxor %xmm0, %xmm0, %xmm0
-; X86-NEXT:    vpxor %xmm1, %xmm1, %xmm1
-; X86-NEXT:    vxorpd %xmm3, %xmm3, %xmm3
-; X86-NEXT:    vxorpd %xmm4, %xmm4, %xmm4
-; X86-NEXT:    .p2align 4, 0x90
-; X86-NEXT:  .LBB0_5: # %loop.48
-; X86-NEXT:    # Parent Loop BB0_4 Depth=1
-; X86-NEXT:    # => This Inner Loop Header: Depth=2
-; X86-NEXT:    vmovdqa %ymm1, {{[-0-9]+}}(%e{{[sb]}}p) # 32-byte Spill
-; X86-NEXT:    vmovdqa %ymm0, {{[-0-9]+}}(%e{{[sb]}}p) # 32-byte Spill
-; X86-NEXT:    vpmovzxdq {{.*#+}} ymm6 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
 ; X86-NEXT:    vxorpd %xmm5, %xmm5, %xmm5
-; X86-NEXT:    vpcmpeqd %ymm7, %ymm7, %ymm7
-; X86-NEXT:    vgatherqpd %ymm7, (%ecx,%ymm6,8), %ymm5
-; X86-NEXT:    vpmovzxdq {{.*#+}} ymm6 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
-; X86-NEXT:    vxorpd %xmm7, %xmm7, %xmm7
-; X86-NEXT:    vpcmpeqd %ymm0, %ymm0, %ymm0
-; X86-NEXT:    vgatherqpd %ymm0, (%ecx,%ymm6,8), %ymm7
-; X86-NEXT:    vpmovzxdq {{.*#+}} ymm0 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
-; X86-NEXT:    vxorpd %xmm6, %xmm6, %xmm6
-; X86-NEXT:    vpcmpeqd %ymm1, %ymm1, %ymm1
-; X86-NEXT:    vgatherqpd %ymm1, (%ecx,%ymm0,8), %ymm6
-; X86-NEXT:    vpmovzxdq {{.*#+}} ymm0 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
 ; X86-NEXT:    vxorpd %xmm1, %xmm1, %xmm1
-; X86-NEXT:    vpcmpeqd %ymm2, %ymm2, %ymm2
-; X86-NEXT:    vgatherqpd %ymm2, (%ecx,%ymm0,8), %ymm1
-; X86-NEXT:    vmovapd {{[-0-9]+}}(%e{{[sb]}}p), %ymm0 # 32-byte Reload
+; X86-NEXT:    vxorpd %xmm2, %xmm2, %xmm2
+; X86-NEXT:    vxorps %xmm3, %xmm3, %xmm3
+; X86-NEXT:    .p2align 4, 0x90
+; X86-NEXT:  .LBB0_6: # %loop.48
+; X86-NEXT:    # Parent Loop BB0_5 Depth=1
+; X86-NEXT:    # => This Inner Loop Header: Depth=2
+; X86-NEXT:    vmovaps %ymm3, {{[-0-9]+}}(%e{{[sb]}}p) # 32-byte Spill
+; X86-NEXT:    vpmovzxdq {{.*#+}} ymm3 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
+; X86-NEXT:    vpcmpeqd %ymm7, %ymm7, %ymm7
+; X86-NEXT:    vxorpd %xmm4, %xmm4, %xmm4
+; X86-NEXT:    vgatherqpd %ymm7, (%ecx,%ymm3,8), %ymm4
+; X86-NEXT:    vmovapd %ymm4, {{[-0-9]+}}(%e{{[sb]}}p) # 32-byte Spill
+; X86-NEXT:    vpmovzxdq {{.*#+}} ymm4 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
+; X86-NEXT:    vpcmpeqd %ymm7, %ymm7, %ymm7
+; X86-NEXT:    vxorpd %xmm3, %xmm3, %xmm3
+; X86-NEXT:    vgatherqpd %ymm7, (%ecx,%ymm4,8), %ymm3
+; X86-NEXT:    vpmovzxdq {{.*#+}} ymm0 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
+; X86-NEXT:    vpcmpeqd %ymm7, %ymm7, %ymm7
+; X86-NEXT:    vmovapd %ymm1, %ymm4
+; X86-NEXT:    vxorpd %xmm1, %xmm1, %xmm1
+; X86-NEXT:    vgatherqpd %ymm7, (%ecx,%ymm0,8), %ymm1
+; X86-NEXT:    vpmovzxdq {{.*#+}} ymm0 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
+; X86-NEXT:    vmovdqa %ymm0, {{[-0-9]+}}(%e{{[sb]}}p) # 32-byte Spill
+; X86-NEXT:    vpcmpeqd %ymm7, %ymm7, %ymm7
+; X86-NEXT:    vmovapd %ymm2, %ymm0
+; X86-NEXT:    vxorpd %xmm2, %xmm2, %xmm2
+; X86-NEXT:    vmovapd {{[-0-9]+}}(%e{{[sb]}}p), %ymm6 # 32-byte Reload
+; X86-NEXT:    vgatherqpd %ymm7, (%ecx,%ymm6,8), %ymm2
 ; X86-NEXT:    leal 16(%ebx,%edi), %eax
-; X86-NEXT:    vfmadd231pd {{.*#+}} ymm3 = (ymm1 * mem) + ymm3
-; X86-NEXT:    vmovapd {{[-0-9]+}}(%e{{[sb]}}p), %ymm1 # 32-byte Reload
-; X86-NEXT:    vfmadd231pd {{.*#+}} ymm1 = (ymm6 * mem) + ymm1
-; X86-NEXT:    vfmadd231pd {{.*#+}} ymm0 = (ymm7 * mem) + ymm0
-; X86-NEXT:    vfmadd231pd {{.*#+}} ymm4 = (ymm5 * mem) + ymm4
+; X86-NEXT:    vfmadd231pd {{.*#+}} ymm0 = (ymm2 * mem) + ymm0
+; X86-NEXT:    vmovapd %ymm0, %ymm2
+; X86-NEXT:    vfmadd231pd {{.*#+}} ymm4 = (ymm1 * mem) + ymm4
+; X86-NEXT:    vmovapd %ymm4, %ymm1
+; X86-NEXT:    vfmadd231pd {{.*#+}} ymm5 = (ymm3 * mem) + ymm5
+; X86-NEXT:    vmovapd {{[-0-9]+}}(%e{{[sb]}}p), %ymm3 # 32-byte Reload
+; X86-NEXT:    vmovapd {{[-0-9]+}}(%e{{[sb]}}p), %ymm4 # 32-byte Reload
+; X86-NEXT:    vfmadd231pd {{.*#+}} ymm3 = (ymm4 * mem) + ymm3
 ; X86-NEXT:    addl $16, %edi
 ; X86-NEXT:    cmpl $4080, %edi # imm = 0xFF0
-; X86-NEXT:    jb .LBB0_5
-; X86-NEXT:  # %bb.6: # %afterloop.48
-; X86-NEXT:    # in Loop: Header=BB0_4 Depth=1
+; X86-NEXT:    jb .LBB0_6
+; X86-NEXT:  # %bb.7: # %afterloop.48
+; X86-NEXT:    # in Loop: Header=BB0_5 Depth=1
 ; X86-NEXT:    movl {{[-0-9]+}}(%e{{[sb]}}p), %edi # 4-byte Reload
 ; X86-NEXT:    movl %edi, %esi
 ; X86-NEXT:    addl $1, %esi
@@ -288,10 +285,10 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-NEXT:    movl %ebx, %eax
 ; X86-NEXT:    adcl $0, %eax
 ; X86-NEXT:    xorl {{[-0-9]+}}(%e{{[sb]}}p), %edi # 4-byte Folded Reload
-; X86-NEXT:    xorl (%esp), %ebx # 4-byte Folded Reload
+; X86-NEXT:    xorl {{[-0-9]+}}(%e{{[sb]}}p), %ebx # 4-byte Folded Reload
 ; X86-NEXT:    orl %edi, %ebx
-; X86-NEXT:    vaddpd %ymm3, %ymm0, %ymm0
-; X86-NEXT:    vaddpd %ymm4, %ymm1, %ymm1
+; X86-NEXT:    vaddpd %ymm2, %ymm5, %ymm0
+; X86-NEXT:    vaddpd %ymm3, %ymm1, %ymm1
 ; X86-NEXT:    vaddpd %ymm1, %ymm0, %ymm0
 ; X86-NEXT:    vextractf128 $1, %ymm0, %xmm1
 ; X86-NEXT:    vaddpd %xmm1, %xmm0, %xmm0
@@ -301,14 +298,109 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-NEXT:    # xmm1 = mem[0],zero
 ; X86-NEXT:    vaddsd %xmm0, %xmm1, %xmm0
 ; X86-NEXT:    movl %esi, %ebx
-; X86-NEXT:    movl %eax, %esi
-; X86-NEXT:    movl 24(%ebp), %eax
-; X86-NEXT:    jne .LBB0_4
-; X86-NEXT:    jmp .LBB0_2
+; X86-NEXT:    movl 24(%ebp), %edi
+; X86-NEXT:    jne .LBB0_5
+; X86-NEXT:    jmp .LBB0_12
 ; X86-NEXT:  .LBB0_1: # %entry
-; X86-NEXT:    vpxor %xmm0, %xmm0, %xmm0
-; X86-NEXT:  .LBB0_2: # %for.cond.cleanup
-; X86-NEXT:    vmovq %xmm0, {{[0-9]+}}(%esp)
+; X86-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
+; X86-NEXT:    jmp .LBB0_12
+; X86-NEXT:  .LBB0_8:
+; X86-NEXT:    xorl %eax, %eax
+; X86-NEXT:    .p2align 4, 0x90
+; X86-NEXT:  .LBB0_9: # %loop.39.clone
+; X86-NEXT:    # =>This Loop Header: Depth=1
+; X86-NEXT:    # Child Loop BB0_10 Depth 2
+; X86-NEXT:    movl %eax, {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Spill
+; X86-NEXT:    vmovsd %xmm0, {{[-0-9]+}}(%e{{[sb]}}p) # 8-byte Spill
+; X86-NEXT:    movl %ebx, %eax
+; X86-NEXT:    notl %eax
+; X86-NEXT:    addl %edi, %eax
+; X86-NEXT:    movl %ebx, %esi
+; X86-NEXT:    movl 16(%ebp), %edi
+; X86-NEXT:    movl (%edi,%eax,4), %ebx
+; X86-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
+; X86-NEXT:    movl $-16, %edi
+; X86-NEXT:    movl %esi, {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Spill
+; X86-NEXT:    shll $12, %esi
+; X86-NEXT:    vxorpd %xmm2, %xmm2, %xmm2
+; X86-NEXT:    vxorpd %xmm3, %xmm3, %xmm3
+; X86-NEXT:    vxorpd %xmm4, %xmm4, %xmm4
+; X86-NEXT:    .p2align 4, 0x90
+; X86-NEXT:  .LBB0_10: # %loop.48.clone
+; X86-NEXT:    # Parent Loop BB0_9 Depth=1
+; X86-NEXT:    # => This Inner Loop Header: Depth=2
+; X86-NEXT:    vmovapd %ymm0, {{[-0-9]+}}(%e{{[sb]}}p) # 32-byte Spill
+; X86-NEXT:    movl 72(%ebx,%edi,4), %eax
+; X86-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
+; X86-NEXT:    movl 76(%ebx,%edi,4), %eax
+; X86-NEXT:    vmovhpd {{.*#+}} xmm0 = xmm0[0],mem[0]
+; X86-NEXT:    movl 64(%ebx,%edi,4), %eax
+; X86-NEXT:    vmovsd {{.*#+}} xmm5 = mem[0],zero
+; X86-NEXT:    movl 68(%ebx,%edi,4), %eax
+; X86-NEXT:    vmovhpd {{.*#+}} xmm5 = xmm5[0],mem[0]
+; X86-NEXT:    movl 88(%ebx,%edi,4), %eax
+; X86-NEXT:    vmovsd {{.*#+}} xmm6 = mem[0],zero
+; X86-NEXT:    movl 92(%ebx,%edi,4), %eax
+; X86-NEXT:    vmovhpd {{.*#+}} xmm6 = xmm6[0],mem[0]
+; X86-NEXT:    movl 80(%ebx,%edi,4), %eax
+; X86-NEXT:    vmovsd {{.*#+}} xmm7 = mem[0],zero
+; X86-NEXT:    movl 84(%ebx,%edi,4), %eax
+; X86-NEXT:    vmovhpd {{.*#+}} xmm7 = xmm7[0],mem[0]
+; X86-NEXT:    movl 104(%ebx,%edi,4), %eax
+; X86-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
+; X86-NEXT:    movl 108(%ebx,%edi,4), %eax
+; X86-NEXT:    vmovhpd {{.*#+}} xmm1 = xmm1[0],mem[0]
+; X86-NEXT:    movl 96(%ebx,%edi,4), %eax
+; X86-NEXT:    vinsertf128 $1, %xmm0, %ymm5, %ymm5
+; X86-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
+; X86-NEXT:    movl 100(%ebx,%edi,4), %eax
+; X86-NEXT:    vmovhpd {{.*#+}} xmm0 = xmm0[0],mem[0]
+; X86-NEXT:    movl 120(%ebx,%edi,4), %eax
+; X86-NEXT:    vinsertf128 $1, %xmm6, %ymm7, %ymm6
+; X86-NEXT:    vmovsd {{.*#+}} xmm7 = mem[0],zero
+; X86-NEXT:    movl 124(%ebx,%edi,4), %eax
+; X86-NEXT:    vmovhpd {{.*#+}} xmm7 = xmm7[0],mem[0]
+; X86-NEXT:    movl 112(%ebx,%edi,4), %eax
+; X86-NEXT:    vinsertf128 $1, %xmm1, %ymm0, %ymm0
+; X86-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
+; X86-NEXT:    movl 116(%ebx,%edi,4), %eax
+; X86-NEXT:    vmovhpd {{.*#+}} xmm1 = xmm1[0],mem[0]
+; X86-NEXT:    vinsertf128 $1, %xmm7, %ymm1, %ymm1
+; X86-NEXT:    leal 16(%esi,%edi), %eax
+; X86-NEXT:    vfmadd231pd {{.*#+}} ymm4 = (ymm1 * mem) + ymm4
+; X86-NEXT:    vfmadd231pd {{.*#+}} ymm3 = (ymm0 * mem) + ymm3
+; X86-NEXT:    vmovapd {{[-0-9]+}}(%e{{[sb]}}p), %ymm0 # 32-byte Reload
+; X86-NEXT:    vfmadd231pd {{.*#+}} ymm2 = (ymm6 * mem) + ymm2
+; X86-NEXT:    vfmadd231pd {{.*#+}} ymm0 = (ymm5 * mem) + ymm0
+; X86-NEXT:    addl $16, %edi
+; X86-NEXT:    cmpl $4080, %edi # imm = 0xFF0
+; X86-NEXT:    jb .LBB0_10
+; X86-NEXT:  # %bb.11: # %afterloop.48.clone
+; X86-NEXT:    # in Loop: Header=BB0_9 Depth=1
+; X86-NEXT:    movl {{[-0-9]+}}(%e{{[sb]}}p), %edi # 4-byte Reload
+; X86-NEXT:    movl %edi, %esi
+; X86-NEXT:    addl $1, %esi
+; X86-NEXT:    movl {{[-0-9]+}}(%e{{[sb]}}p), %ebx # 4-byte Reload
+; X86-NEXT:    movl %ebx, %eax
+; X86-NEXT:    adcl $0, %eax
+; X86-NEXT:    xorl {{[-0-9]+}}(%e{{[sb]}}p), %edi # 4-byte Folded Reload
+; X86-NEXT:    xorl {{[-0-9]+}}(%e{{[sb]}}p), %ebx # 4-byte Folded Reload
+; X86-NEXT:    orl %edi, %ebx
+; X86-NEXT:    vaddpd %ymm3, %ymm0, %ymm0
+; X86-NEXT:    vaddpd %ymm4, %ymm2, %ymm1
+; X86-NEXT:    vaddpd %ymm1, %ymm0, %ymm0
+; X86-NEXT:    vextractf128 $1, %ymm0, %xmm1
+; X86-NEXT:    vaddpd %xmm1, %xmm0, %xmm0
+; X86-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
+; X86-NEXT:    vaddsd %xmm1, %xmm0, %xmm0
+; X86-NEXT:    vmovsd {{[-0-9]+}}(%e{{[sb]}}p), %xmm1 # 8-byte Reload
+; X86-NEXT:    # xmm1 = mem[0],zero
+; X86-NEXT:    vaddsd %xmm0, %xmm1, %xmm0
+; X86-NEXT:    movl %esi, %ebx
+; X86-NEXT:    movl 24(%ebp), %edi
+; X86-NEXT:    jne .LBB0_9
+; X86-NEXT:  .LBB0_12: # %for.cond.cleanup
+; X86-NEXT:    vmovsd %xmm0, {{[0-9]+}}(%esp)
 ; X86-NEXT:    fldl {{[0-9]+}}(%esp)
 ; X86-NEXT:    leal -12(%ebp), %esp
 ; X86-NEXT:    popl %esi
@@ -318,6 +410,10 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-NEXT:    .cfi_def_cfa %esp, 4
 ; X86-NEXT:    vzeroupper
 ; X86-NEXT:    retl
+; X86-NEXT:  .LBB0_13:
+; X86-NEXT:    .cfi_def_cfa %ebp, 8
+; X86-NEXT:    calll __detect_cpu_core_type_1n@PLT
+; X86-NEXT:    jmp .LBB0_3
 entry:
   %cmp26 = icmp sgt i32 %N, 0
   br i1 %cmp26, label %for.body.preheader, label %for.cond.cleanup

@@ -1,3 +1,20 @@
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //===- InferAddressSpace.cpp - --------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -9,7 +26,7 @@
 #if INTEL_COLLAB
 // This file implements the generic address space propagation. It can be applied
 // to CUDA as well as OpenCL programs.
-#else // INTEL_COLLAB
+#endif // INTEL_COLLAB
 // CUDA C/C++ includes memory space designation as variable type qualifers (such
 // as __global__ and __shared__). Knowing the space of a memory access allows
 // CUDA compilers to emit faster PTX loads and stores. For example, a load from
@@ -89,7 +106,6 @@
 //   %y2' = getelementptr %y', 1
 // Finally, it fixes the undef in %y' so that
 //   %y' = phi float addrspace(3)* [ %input, %y2' ]
-#endif // INTEL_COLLAB
 //
 //===----------------------------------------------------------------------===//
 
@@ -97,8 +113,6 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/None.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/AssumptionCache.h"
@@ -132,9 +146,6 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
-#if INTEL_COLLAB
-#include "llvm/Transforms/Utils/InferAddressSpacesUtils.h"
-#endif // INTEL_COLLAB
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <cassert>
@@ -155,64 +166,14 @@ static cl::opt<bool> AssumeDefaultIsFlatAddressSpace(
 static const unsigned UninitializedAddressSpace =
     std::numeric_limits<unsigned>::max();
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 static cl::opt<unsigned> OverrideFlatAS("override-flat-addr-space",
                                         cl::init(UninitializedAddressSpace));
-#endif // INTEL_CUSTOMIZATION
 
-#if INTEL_COLLAB
-namespace {
+static cl::opt<bool> RewriteOpenCLBuiltins("infer-as-rewrite-opencl-bis",
+                                           cl::init(false));
+#endif // INTEL_COLLAB
 
-/// InferAddressSpaces
-class InferAddressSpacesLegacyPass : public FunctionPass {
-
-public:
-  static char ID;
-
-  InferAddressSpacesLegacyPass()
-      : FunctionPass(ID) {}
-  InferAddressSpacesLegacyPass(unsigned AS) : FunctionPass(ID) {}
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesCFG();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
-  }
-
-  bool runOnFunction(Function &F) override;
-};
-
-} // end anonymous namespace
-
-char InferAddressSpacesLegacyPass::ID = 0;
-
-namespace llvm {
-
-void initializeInferAddressSpacesLegacyPassPass(PassRegistry &);
-
-} // end namespace llvm
-
-INITIALIZE_PASS(InferAddressSpacesLegacyPass, DEBUG_TYPE,
-                "Infer address spaces", false, false)
-
-bool InferAddressSpacesLegacyPass::runOnFunction(Function &F) {
-  if (skipFunction(F))
-    return false;
-
-  const TargetTransformInfo &TTI =
-      getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-
-  unsigned FlatAS = TTI.getFlatAddressSpace();
-#if INTEL_CUSTOMIZATION
-  if (OverrideFlatAS != UninitializedAddressSpace)
-    FlatAS = OverrideFlatAS;
-#endif // INTEL_CUSTOMIZATION
-  return InferAddrSpaces(TTI, FlatAS, F);
-}
-
-FunctionPass *llvm::createInferAddressSpacesPass(unsigned AddressSpace) {
-  return new InferAddressSpacesLegacyPass(AddressSpace);
-}
-#else // INTEL_COLLAB
 namespace {
 
 using ValueToAddrSpaceMapTy = DenseMap<const Value *, unsigned>;
@@ -248,7 +209,7 @@ public:
 
 class InferAddressSpacesImpl {
   AssumptionCache &AC;
-  DominatorTree *DT = nullptr;
+  const DominatorTree *DT = nullptr;
   const TargetTransformInfo *TTI = nullptr;
   const DataLayout *DL = nullptr;
 
@@ -279,10 +240,11 @@ class InferAddressSpacesImpl {
   // Changes the flat address expressions in function F to point to specific
   // address spaces if InferredAddrSpace says so. Postorder is the postorder of
   // all flat expressions in the use-def graph of function F.
-  bool rewriteWithNewAddressSpaces(
-      const TargetTransformInfo &TTI, ArrayRef<WeakTrackingVH> Postorder,
-      const ValueToAddrSpaceMapTy &InferredAddrSpace,
-      const PredicatedAddrSpaceMapTy &PredicatedAS, Function *F) const;
+  bool
+  rewriteWithNewAddressSpaces(ArrayRef<WeakTrackingVH> Postorder,
+                              const ValueToAddrSpaceMapTy &InferredAddrSpace,
+                              const PredicatedAddrSpaceMapTy &PredicatedAS,
+                              Function *F) const;
 
   void appendsFlatAddressExpressionToPostorderStack(
       Value *V, PostorderStackTy &PostorderStack,
@@ -306,7 +268,7 @@ class InferAddressSpacesImpl {
   unsigned getPredicatedAddrSpace(const Value &V, Value *Opnd) const;
 
 public:
-  InferAddressSpacesImpl(AssumptionCache &AC, DominatorTree *DT,
+  InferAddressSpacesImpl(AssumptionCache &AC, const DominatorTree *DT,
                          const TargetTransformInfo *TTI, unsigned FlatAddrSpace)
       : AC(AC), DT(DT), TTI(TTI), FlatAddrSpace(FlatAddrSpace) {}
   bool run(Function &F);
@@ -315,12 +277,6 @@ public:
 } // end anonymous namespace
 
 char InferAddressSpaces::ID = 0;
-
-namespace llvm {
-
-void initializeInferAddressSpacesPass(PassRegistry &);
-
-} // end namespace llvm
 
 INITIALIZE_PASS_BEGIN(InferAddressSpaces, DEBUG_TYPE, "Infer address spaces",
                       false, false)
@@ -404,8 +360,7 @@ getPointerOperands(const Value &V, const DataLayout &DL,
   switch (Op.getOpcode()) {
   case Instruction::PHI: {
     auto IncomingValues = cast<PHINode>(Op).incoming_values();
-    return SmallVector<Value *, 2>(IncomingValues.begin(),
-                                   IncomingValues.end());
+    return {IncomingValues.begin(), IncomingValues.end()};
   }
   case Instruction::BitCast:
   case Instruction::AddrSpaceCast:
@@ -567,6 +522,13 @@ InferAddressSpacesImpl::collectFlatAddressExpressions(Function &F) const {
         PushPtrOperand(
             cast<Operator>(I2P->getOperand(0))->getOperand(0));
     }
+#if INTEL_COLLAB
+    else if (auto *CI = dyn_cast<CallInst>(&I)) {
+      for (Value *Op : CI->args())
+        if (isa<PointerType>(Op->getType()))
+          PushPtrOperand(Op);
+    }
+#endif // INTEL_COLLAB
   }
 
   std::vector<WeakTrackingVH> Postorder; // The resultant postorder.
@@ -727,10 +689,13 @@ Value *InferAddressSpacesImpl::cloneInstructionWithNewAddressSpace(
   case Instruction::IntToPtr: {
     assert(isNoopPtrIntCastPair(cast<Operator>(I), *DL, TTI));
     Value *Src = cast<Operator>(I->getOperand(0))->getOperand(0);
-    assert(Src->getType()->getPointerAddressSpace() == NewAddrSpace);
-    if (Src->getType() != NewPtrType)
-      return new BitCastInst(Src, NewPtrType);
-    return Src;
+    if (Src->getType() == NewPtrType)
+      return Src;
+
+    // If we had a no-op inttoptr/ptrtoint pair, we may still have inferred a
+    // source address space from a generic pointer source need to insert a cast
+    // back.
+    return CastInst::CreatePointerBitCastOrAddrSpaceCast(Src, NewPtrType);
   }
   default:
     llvm_unreachable("Unexpected opcode");
@@ -798,7 +763,7 @@ static Value *cloneConstantExprWithNewAddressSpace(
       NewOperands.push_back(cast<Constant>(NewOperand));
       continue;
     }
-    if (auto CExpr = dyn_cast<ConstantExpr>(Operand))
+    if (auto *CExpr = dyn_cast<ConstantExpr>(Operand))
       if (Value *NewOperand = cloneConstantExprWithNewAddressSpace(
               CExpr, NewAddrSpace, ValueWithNewAddrSpace, DL, TTI)) {
         IsNew = true;
@@ -810,7 +775,7 @@ static Value *cloneConstantExprWithNewAddressSpace(
   }
 
   // If !IsNew, we will replace the Value with itself. However, replaced values
-  // are assumed to wrapped in a addrspace cast later so drop it now.
+  // are assumed to wrapped in an addrspacecast cast later so drop it now.
   if (!IsNew)
     return nullptr;
 
@@ -876,10 +841,10 @@ bool InferAddressSpacesImpl::run(Function &F) {
   if (AssumeDefaultIsFlatAddressSpace)
     FlatAddrSpace = 0;
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   if (OverrideFlatAS != UninitializedAddressSpace)
     FlatAddrSpace = OverrideFlatAS;
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
   if (FlatAddrSpace == UninitializedAddressSpace) {
     FlatAddrSpace = TTI->getFlatAddressSpace();
@@ -898,8 +863,8 @@ bool InferAddressSpacesImpl::run(Function &F) {
 
   // Changes the address spaces of the flat address expressions who are inferred
   // to point to a specific address space.
-  return rewriteWithNewAddressSpaces(*TTI, Postorder, InferredAddrSpace,
-                                     PredicatedAS, &F);
+  return rewriteWithNewAddressSpaces(Postorder, InferredAddrSpace, PredicatedAS,
+                                     &F);
 }
 
 // Constants need to be tracked through RAUW to handle cases with nested
@@ -1087,7 +1052,7 @@ static bool isSimplePointerUseValidToReplace(const TargetTransformInfo &TTI,
 }
 
 /// Update memory intrinsic uses that require more complex processing than
-/// simple memory instructions. Thse require re-mangling and may have multiple
+/// simple memory instructions. These require re-mangling and may have multiple
 /// pointer operands.
 static bool handleMemIntrinsicPtrUse(MemIntrinsic *MI, Value *OldV,
                                      Value *NewV) {
@@ -1179,9 +1144,196 @@ static Value::use_iterator skipToNextUser(Value::use_iterator I,
 
   return I;
 }
+#if INTEL_COLLAB
+static constexpr unsigned OpenCLPrivateAddrSpace = 0;
+
+static void mangleAddressSpacePointer(PointerType *PTy,
+                                      SmallVectorImpl<char> &Out) {
+  Out.clear();
+  unsigned AS = PTy->getAddressSpace();
+  if (AS == OpenCLPrivateAddrSpace) {
+    raw_svector_ostream(Out) << "P";
+    return;
+  }
+
+  SmallString<4> ASNum;
+  raw_svector_ostream(ASNum) << "AS" << AS;
+  raw_svector_ostream(Out) << "PU" << ASNum.size() << ASNum;
+}
+
+// Construct a new name that corresponds to th \p CI, but with an argument of
+// another type (matching the \p NewV). Note that this function does not handle
+// arbitraty mangled functions: it only works with a subset of OpenCL builtins
+// which guaranteed to not contain unexpected type names.
+static void remangleOpenCLBuiltin(CallInst *CI, Value *OldV, Value *NewV,
+                                  raw_ostream &NewName) {
+  Function *F = CI->getCalledFunction();
+  assert(F && "Indirect call is not supported.");
+  StringRef OldName = F->getName();
+
+  PointerType *OldVTy = cast<PointerType>(OldV->getType());
+
+  // Construct the mangling string for a pointer in the flat address space,
+  // e.g. PU3AS4 if flat address space is 4.
+  SmallString<8> FlatASMangling;
+  mangleAddressSpacePointer(OldVTy, FlatASMangling);
+
+  // Construct the mangling string for a pointer in a concrete address space,
+  // e.g. PU3AS1 if a concrete address space is global.
+  SmallString<8> ReplacementASMangling;
+  mangleAddressSpacePointer(cast<PointerType>(NewV->getType()),
+                            ReplacementASMangling);
+
+  // If we have more than one pointer argument in the flat address
+  // space, it will be mangled several times, so we need to know
+  // which occurence of FlatASMangling has to be replaced.
+  unsigned PtrArgOccurence = 0;
+  for (Value *Op : CI->args()) {
+    Type *OpTy = Op->getType();
+    if (PointerType *OpPTy = dyn_cast<PointerType>(OpTy)) {
+      if (OpPTy->getAddressSpace() == OldVTy->getAddressSpace()) {
+        ++PtrArgOccurence;
+        if (Op == OldV)
+          break;
+      }
+    }
+  }
+
+  size_t PtrManglingStart = 0;
+  size_t PtrManglingEnd = PtrManglingStart + FlatASMangling.size();
+
+  for (unsigned PtrManglingNo = 0; PtrManglingNo < PtrArgOccurence;
+       ++PtrManglingNo) {
+    PtrManglingStart = OldName.find(FlatASMangling, PtrManglingEnd);
+    PtrManglingEnd = PtrManglingStart + FlatASMangling.size();
+    assert(PtrManglingStart != OldName.npos &&
+           "Could not find Nth occurence of a pointer mangling substring.");
+  }
+
+  NewName << OldName.substr(0, PtrManglingStart);
+  NewName << ReplacementASMangling;
+  NewName << OldName.substr(PtrManglingEnd);
+}
+
+bool rewriteOpenCLBuiltinOperands(CallInst *CI, Value *OldV, Value *NewV) {
+  Function *OldF = CI->getCalledFunction();
+  if (!OldF)
+    return false; // indirect call
+
+  StringRef OldName = OldF->getName();
+  const char *SupportedBuiltins[] = {
+      "_Z5fract",
+      "_Z5frexp",
+      "_Z8lgamma_r",
+      "_Z4modf",
+      "_Z6remquo",
+      "_Z6sincos",
+      "_Z6vload2",
+      "_Z6vload8",
+      "_Z6vload3",
+      "_Z7vload16",
+      "_Z6vload4",
+      "_Z7vstore2",
+      "_Z7vstore3",
+      "_Z7vstore8",
+      "_Z7vstore4",
+      "_Z8vstore16",
+      "_Z11vloada_half",
+      "_Z12vloada_half2",
+      "_Z12vloada_half3",
+      "_Z12vloada_half4",
+      "_Z12vloada_half8",
+      "_Z13vloada_half16",
+      "_Z11vstore_half",
+      "_Z12vstore_half2",
+      "_Z12vstore_half3",
+      "_Z12vstore_half4",
+      "_Z12vstore_half8",
+      "_Z13vstore_half16",
+      "_Z11atomic_init",
+      "_Z12atomic_store",
+      "_Z21atomic_store_explicit",
+      "_Z11atomic_load",
+      "_Z20atomic_load_explicit",
+      "_Z15atomic_exchange",
+      "_Z24atomic_exchange_explicit",
+      "_Z30atomic_compare_exchange_strong",
+      "_Z39atomic_compare_exchange_strong_explicit",
+      "_Z28atomic_compare_exchange_weak",
+      "_Z37atomic_compare_exchange_weak_explicit",
+      "_Z16atomic_fetch_add",
+      "_Z25atomic_fetch_add_explicit",
+      "_Z16atomic_fetch_sub",
+      "_Z25atomic_fetch_sub_explicit",
+      "_Z15atomic_fetch_or",
+      "_Z24atomic_fetch_or_explicit",
+      "_Z16atomic_fetch_xor",
+      "_Z25atomic_fetch_xor_explicit",
+      "_Z16atomic_fetch_and",
+      "_Z25atomic_fetch_and_explicit",
+      "_Z16atomic_fetch_min",
+      "_Z25atomic_fetch_min_explicit",
+      "_Z16atomic_fetch_max",
+      "_Z25atomic_fetch_max_explicit",
+      "_Z24atomic_flag_test_and_set",
+      "_Z33atomic_flag_test_and_set_explicit",
+      "_Z17atomic_flag_clear",
+      "_Z26atomic_flag_clear_explicit",
+      // TODO: "_Z14enqueue_marker",
+      // TODO: "wait_group_events",
+  };
+
+  if (std::end(SupportedBuiltins) ==
+      std::find_if(std::begin(SupportedBuiltins), std::end(SupportedBuiltins),
+                   [OldName](const char *Supported) {
+                     return OldName.startswith(Supported);
+                   })) {
+    return false;
+  }
+
+  // According to OpenCL C spec: the behavior of atomic operations where pointer
+  // arguments to the atomic builtins refers to an atomic type in the private
+  // address space is undefined. So do not replace the first argument (w/atomic
+  // type in atomic builtins) with the one in private address space and return
+  // false.
+  if (OldName.contains("atomic") && (CI->getArgOperand(0) == OldV))
+    if (PointerType *PTy = dyn_cast<PointerType>(NewV->getType()))
+      if (PTy->getAddressSpace() == OpenCLPrivateAddrSpace)
+        return false;
+
+  SmallString<256> NewName;
+  raw_svector_ostream NewNameStream(NewName);
+  remangleOpenCLBuiltin(CI, OldV, NewV, NewNameStream);
+
+  Type *RetTy = CI->getType();
+  SmallVector<Type *, 4> NewTypes;
+  for (Value *Op : CI->args()) {
+    NewTypes.push_back((Op == OldV) ? NewV->getType() : Op->getType());
+  }
+
+  Function *NewF = cast<Function>(
+      CI->getModule()
+          ->getOrInsertFunction(
+              NewName,
+              FunctionType::get(RetTy, NewTypes,
+                                OldF->getFunctionType()->isVarArg()),
+              OldF->getAttributes())
+          .getCallee());
+
+  for (unsigned I = 0; I < CI->arg_size(); ++I) {
+    if (CI->getArgOperand(I) == OldV) {
+      CI->setArgOperand(I, NewV);
+      break;
+    }
+  }
+  CI->setCalledFunction(NewF);
+
+  return true;
+}
+#endif // INTEL_COLLAB
 
 bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
-    const TargetTransformInfo &TTI, ArrayRef<WeakTrackingVH> Postorder,
+    ArrayRef<WeakTrackingVH> Postorder,
     const ValueToAddrSpaceMapTy &InferredAddrSpace,
     const PredicatedAddrSpaceMapTy &PredicatedAS, Function *F) const {
   // For each address expression to be modified, creates a clone of it with its
@@ -1255,7 +1407,7 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
       I = skipToNextUser(I, E);
 
       if (isSimplePointerUseValidToReplace(
-              TTI, U, V->getType()->getPointerAddressSpace())) {
+              *TTI, U, V->getType()->getPointerAddressSpace())) {
         // If V is used as the pointer operand of a compatible memory operation,
         // sets the pointer operand to NewV. This replacement does not change
         // the element type, so the resultant load/store is still valid.
@@ -1277,6 +1429,13 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
         if (rewriteIntrinsicOperands(II, V, NewV))
           continue;
       }
+#if INTEL_COLLAB
+      if (RewriteOpenCLBuiltins) {
+        if (auto *CI = dyn_cast<CallInst>(CurUser))
+          if (rewriteOpenCLBuiltinOperands(CI, V, NewV))
+            continue;
+      }
+#endif // INTEL_COLLAB
 
       if (isa<Instruction>(CurUser)) {
         if (ICmpInst *Cmp = dyn_cast<ICmpInst>(CurUser)) {
@@ -1310,28 +1469,52 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
           }
         }
 
+#if INTEL_CUSTOMIZATION
+        // If the use is an ASC with the same space as the replacement NewV,
+        // remove it (possibly replacing it with a bitcast).
+#endif // INTEL_CUSTOMIZATION
         if (AddrSpaceCastInst *ASC = dyn_cast<AddrSpaceCastInst>(CurUser)) {
           unsigned NewAS = NewV->getType()->getPointerAddressSpace();
           if (ASC->getDestAddressSpace() == NewAS) {
+#if INTEL_COLLAB
+            auto *BCNewV = NewV;
+#endif // INTEL_COLLAB
             if (!cast<PointerType>(ASC->getType())
                     ->hasSameElementTypeAs(
                         cast<PointerType>(NewV->getType()))) {
-              NewV = CastInst::Create(Instruction::BitCast, NewV,
-                                      ASC->getType(), "", ASC);
+              BasicBlock::iterator InsertPos;
+              if (Instruction *NewVInst = dyn_cast<Instruction>(NewV))
+                InsertPos = std::next(NewVInst->getIterator());
+              else if (Instruction *VInst = dyn_cast<Instruction>(V))
+                InsertPos = std::next(VInst->getIterator());
+              else
+                InsertPos = ASC->getIterator();
+#if INTEL_COLLAB
+              BCNewV = CastInst::Create(Instruction::BitCast, NewV,
+                                        ASC->getType(), "", &*InsertPos);
+#endif // INTEL_COLLAB
             }
-            ASC->replaceAllUsesWith(NewV);
+#if INTEL_COLLAB
+            ASC->replaceAllUsesWith(BCNewV);
+#endif // INTEL_COLLAB
             DeadInstructions.push_back(ASC);
             continue;
           }
         }
 
         // Otherwise, replaces the use with flat(NewV).
-        if (Instruction *Inst = dyn_cast<Instruction>(V)) {
+        if (Instruction *VInst = dyn_cast<Instruction>(V)) {
           // Don't create a copy of the original addrspacecast.
           if (U == V && isa<AddrSpaceCastInst>(V))
             continue;
 
-          BasicBlock::iterator InsertPos = std::next(Inst->getIterator());
+          // Insert the addrspacecast after NewV.
+          BasicBlock::iterator InsertPos;
+          if (Instruction *NewVInst = dyn_cast<Instruction>(NewV))
+            InsertPos = std::next(NewVInst->getIterator());
+          else
+            InsertPos = std::next(VInst->getIterator());
+
           while (isa<PHINode>(InsertPos))
             ++InsertPos;
           U.set(new AddrSpaceCastInst(NewV, V->getType(), "", &*InsertPos));
@@ -1342,6 +1525,20 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
       }
     }
 
+#if INTEL_COLLAB
+    // Update debug variable intrinsics with the value change.
+    if (V->isUsedByMetadata()) {
+      if (auto *VAMD = ValueAsMetadata::getIfExists(V)) {
+        if (auto *MDAV = MetadataAsValue::getIfExists(V->getContext(), VAMD)) {
+          ValueAsMetadata *NewVAMD = ValueAsMetadata::get(NewV);
+          Value *NewMDAV = MetadataAsValue::get(NewV->getContext(), NewVAMD);
+          MDAV->replaceUsesWithIf(NewMDAV, [](Use &U) {
+            return isa<DbgVariableIntrinsic>(U.getUser());
+          });
+        }
+      }
+    }
+#endif // INTEL_COLLAB
     if (V->use_empty()) {
       if (Instruction *I = dyn_cast<Instruction>(V))
         DeadInstructions.push_back(I);
@@ -1392,4 +1589,12 @@ PreservedAnalyses InferAddressSpacesPass::run(Function &F,
   return PreservedAnalyses::all();
 }
 
+#if INTEL_COLLAB
+// The utility performs the propagation of specific address space from
+// type-quailifed variable declarations to its users.
+bool llvm::InferAddrSpaces(AssumptionCache *AC, DominatorTree *DT,
+                           const TargetTransformInfo *TTI, unsigned AddrSpace,
+                           Function &F) {
+  return InferAddressSpacesImpl(*AC, DT, TTI, AddrSpace).run(F);
+}
 #endif // INTEL_COLLAB

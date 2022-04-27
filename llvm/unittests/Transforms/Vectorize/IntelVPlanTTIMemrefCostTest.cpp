@@ -9,7 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanTTIWrapper.h"
+#include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCostModel.h"
 #include "IntelVPlanTestBase.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/CodeGen/CommandFlags.h"
@@ -25,6 +25,10 @@ namespace {
 
 static std::unique_ptr<TargetMachine>
 createTargetMachine(std::string CPUStr, std::string FeaturesStr) {
+  LLVMInitializeX86TargetInfo();
+  LLVMInitializeX86Target();
+  LLVMInitializeX86TargetMC();
+
   auto TT(Triple::normalize("x86_64--"));
   std::string Error;
 
@@ -36,213 +40,139 @@ createTargetMachine(std::string CPUStr, std::string FeaturesStr) {
 
 class VPlanTTIMemrefCostTest : public vpo::VPlanTestBase {
 protected:
-  const std::string CPUStr = "skx";
-  std::string FeaturesStr = "";
-
-  std::unique_ptr<DataLayout> DL;
   std::unique_ptr<TargetMachine> TM;
-  std::unique_ptr<VPlanTTIWrapper> VPTTI;
-
-  static unsigned constexpr AS = 0;
+  std::unique_ptr<VPlanNonMasked> Plan;
+  std::unique_ptr<VPlanCostModelInterface> CM;
+  SmallVector<const VPLoadStoreInst *, 16> VPInsts;
 
 protected:
-  static void SetUpTestCase() {
-    LLVMInitializeX86TargetInfo();
-    LLVMInitializeX86Target();
-    LLVMInitializeX86TargetMC();
-  }
-
   void SetUp() override {
-    TM = createTargetMachine(CPUStr, FeaturesStr);
-    buildVPTTI();
-  }
+    Module &M = parseModule(R"(
+        define void @foo(i32* %p32, i1* %p1, i8** %pp8, i8* %p8,
+                         double %dval, double* %pd) {
+        entry:
+          %lane = call i32 @llvm.vplan.laneid()
+          %gep0 = getelementptr inbounds i32, i32* %p32, i32 %lane
+          %val0 = load i32, i32* %gep0, align 1
+          %gep1 = getelementptr inbounds i1, i1* %p1, i32 %lane
+          %val1 = load i1,  i1*  %gep1, align 1
+          %gep2 = getelementptr inbounds i8*, i8** %pp8, i32 %lane
+          %val2 = load i8*, i8** %gep2, align 1
+          %gep3 = getelementptr inbounds i8, i8* %p8, i32 %lane
+          %val3 = load i8,  i8*  %gep3, align 1
+          store i32 %val0,  i32* %gep0, align 1
+          %gep4 = getelementptr inbounds double, double* %pd, i32 %lane
+          store double %dval, double* %gep4, align 1
+          ret void
+        }
 
-  void buildVPTTI() {
-    Module &M = parseModule(
-        "target datalayout = \"e-m:e-i64:64-f80:128-n8:16:32:64-S128\"\n"
-        "target triple = \"x86_64-unknown-linux-gnu\"\n"
+        declare i32 @llvm.vplan.laneid())"
+    );
 
-        "define void @foo(i32* %dst, i32* %src, i64 %size) {\n"
-        "entry:\n"
-        "  br label %for.body\n"
-        "for.body:\n"
-        "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
-        "  %counter_times_two = mul nsw nuw i64 %counter, 2\n"
-        "  %src.ptr = getelementptr inbounds i32, i32* %src, i64 "
-        "%counter_times_two\n"
-        "  %src.val = load i32, i32* %src.ptr, align 4\n"
-        "  %dst.val = add i32 %src.val, 42\n"
-        "  %dst.ptr = getelementptr inbounds i32, i32* %dst, i64 "
-        "%counter_times_two\n"
-        "  store i32 %dst.val, i32* %dst.ptr, align 4\n"
-        "  %counter.next = add nsw i64 %counter, 1\n"
-        "  %exitcond = icmp sge i64 %counter.next, %size\n"
-        "  br i1 %exitcond, label %exit, label %for.body\n"
-        "exit:\n"
-        "  ret void\n"
-        "}\n");
-
-    const Function *Func = M.getFunction("foo");
+    Function *Func = M.getFunction("foo");
     EXPECT_TRUE(Func);
+    Plan = buildFCFG(Func);
+
+    Plan->setVPLoopInfo(std::make_unique<VPLoopInfo>());
+    Plan->setVPlanDA(std::make_unique<VPlanDivergenceAnalysis>());
+    auto *DA = Plan->getVPlanDA();
+    auto *VPLInfo = Plan->getVPLoopInfo();
+
+    Plan->computeDT();
+    Plan->computePDT();
+    VPLInfo->analyze(*Plan->getDT());
+    DA->compute(Plan.get(), nullptr /* CandidateLoop */, Plan->getVPLoopInfo(),
+                *Plan->getDT(), *Plan->getPDT(), false /*Not in LCSSA form.*/);
+
+    TM = createTargetMachine("skx", "");
     auto TTIPass =
-        createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis());
+      createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis());
     const TargetTransformInfo &TTI =
-        (static_cast<TargetTransformInfoWrapperPass *>(TTIPass))->getTTI(*Func);
-    DL.reset(new DataLayout(&M));
-    VPTTI.reset(new VPlanTTIWrapper(TTI, *DL.get()));
+      (static_cast<TargetTransformInfoWrapperPass *>(TTIPass))->getTTI(*Func);
+
+    LoopVectorizationPlanner LVP(nullptr /* WRL */,
+                                 nullptr /* Loop */,
+                                 nullptr /* LoopInfo */,
+                                 nullptr /* LibraryInfo */,
+                                 &TTI, DL.get(),
+                                 nullptr /* DominatorTree */,
+                                 nullptr /* legality */,
+                                 nullptr /* VLSA*/);
+
+    CM = LVP.createCostModel(Plan.get(), 1);
+    for (const VPInstruction &VPInst : Plan->front())
+      if (auto VPLoadStore = dyn_cast<VPLoadStoreInst>(&VPInst))
+        VPInsts.push_back(VPLoadStore);
   }
 };
 
-TEST_F(VPlanTTIMemrefCostTest, CheckTMSetup) {
-  // Check the max vector register width to verify TM setup.
-  EXPECT_EQ(VPTTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector), 256u);
-}
-
 TEST_F(VPlanTTIMemrefCostTest, ScalarLoadCost) {
   // Expect regular cost for scalars.
-  const unsigned Expected = 1000;
-  const unsigned Alignment = 4;
-  auto ScalarType = Type::getInt32Ty(*Ctx);
-  auto Actual = VPTTI->getMemoryOpCost(Instruction::Load, ScalarType,
-                                       Align(Alignment), AS);
-  EXPECT_EQ(Actual, Expected);
+  EXPECT_EQ(CM->getLoadStoreCost(VPInsts[0], Align(4), 1 /* VF */), 1);
 }
 
 // Check irregular types.
 
 TEST_F(VPlanTTIMemrefCostTest, Check_1xi1) {
-  const unsigned Expected = 1000;
-  const unsigned Alignment = 4;
-  auto Type1xi1 = FixedVectorType::get(Type::getInt1Ty(*Ctx), 1);
-  auto Actual =
-      VPTTI->getMemoryOpCost(Instruction::Load, Type1xi1, Align(Alignment), AS);
-  EXPECT_EQ(Actual, Expected);
+  EXPECT_EQ(CM->getLoadStoreCost(VPInsts[1], Align(4), 1 /* VF */), 1);
 }
 
 TEST_F(VPlanTTIMemrefCostTest, Check1xi8Ptr) {
-  const unsigned Expected = 1000;
-  const unsigned Alignment = 4;
-  const unsigned VF = 1;
-  const auto Tyi8Ptr = Type::getInt8Ty(*Ctx);
-  auto Ty1xi8Ptr = FixedVectorType::get(Tyi8Ptr->getPointerTo(), VF);
-  auto Actual = VPTTI->getMemoryOpCost(Instruction::Store, Ty1xi8Ptr,
-                                       Align(Alignment), AS);
-  EXPECT_EQ(Actual, Expected);
+  EXPECT_EQ(CM->getLoadStoreCost(VPInsts[2], Align(4), 1 /* VF */), 1);
 }
 
 TEST_F(VPlanTTIMemrefCostTest, Check1xi8) {
-  const unsigned Expected = 1000;
-  const unsigned Alignment = 4;
-  const unsigned VF = 1;
-  const auto Tyi8 = Type::getInt8Ty(*Ctx);
-  auto Ty1xi8 = FixedVectorType::get(Tyi8, VF);
-  auto Actual =
-      VPTTI->getMemoryOpCost(Instruction::Store, Ty1xi8, Align(Alignment), AS);
-  EXPECT_EQ(Actual, Expected);
+  EXPECT_EQ(CM->getLoadStoreCost(VPInsts[3], Align(4), 1 /* VF */), 1);
 }
 
 TEST_F(VPlanTTIMemrefCostTest, Check7xi8) {
   // Read 7 x i8 (7 bytes).
   // Reading 7 bytes is less than Alignment, so it is aligned.
-  const unsigned Expected = 1000;
-  const unsigned Alignment = 8;
-  const unsigned VF = 7;
-  const auto Tyi8 = Type::getInt8Ty(*Ctx);
-  auto Ty7xi8 = FixedVectorType::get(Tyi8, VF);
-  auto Actual =
-      VPTTI->getMemoryOpCost(Instruction::Store, Ty7xi8, Align(Alignment), AS);
-  EXPECT_EQ(Actual, Expected);
+  EXPECT_EQ(CM->getLoadStoreCost(VPInsts[3], Align(8), 7 /* VF */), 1);
 }
 
 TEST_F(VPlanTTIMemrefCostTest, AlignedStore) {
-  const unsigned Expected = 1000;
-  const unsigned Alignment = 16;
-  const unsigned VF = 4;
   // Such store is aligned.
-  auto VecTy = FixedVectorType::get(Type::getInt32Ty(*Ctx), VF);
-  auto Actual =
-      VPTTI->getMemoryOpCost(Instruction::Store, VecTy, Align(Alignment), AS);
-  EXPECT_EQ(Actual, Expected);
+  EXPECT_EQ(CM->getLoadStoreCost(VPInsts[4], Align(16), 4 /* VF */), 1);
 }
 
 TEST_F(VPlanTTIMemrefCostTest, UnalignedStoreLowProbility) {
-  const unsigned Expected = 1188;
-  const unsigned Alignment = 4;
-  const unsigned VF = 4;
-  // Within the cache line it has low probability to be unaligned.
-  auto VecTy = FixedVectorType::get(Type::getInt32Ty(*Ctx), VF);
-  auto Actual =
-      VPTTI->getMemoryOpCost(Instruction::Store, VecTy, Align(Alignment), AS);
-  EXPECT_EQ(Actual, Expected);
+  // Within the cache line it has low probability to be unaligned
+  EXPECT_EQ(CM->getLoadStoreCost(VPInsts[4], Align(4), 4 /* VF */), 1.1875);
 }
 
 TEST_F(VPlanTTIMemrefCostTest, UnalignedStoreHighProbability) {
-  const unsigned Expected = 1875;
-  const unsigned Alignment = 8;
-  const unsigned VF = 16;
   // Within 64 byte cache line it has high probability to be unaligned.
-  auto VecTy = FixedVectorType::get(Type::getInt32Ty(*Ctx), VF);
-  auto Actual =
-      VPTTI->getMemoryOpCost(Instruction::Store, VecTy, Align(Alignment), AS);
-  EXPECT_EQ(Actual, Expected);
+  EXPECT_EQ(CM->getLoadStoreCost(VPInsts[4], Align(8), 16 /* VF */), 1.875);
 }
 
 TEST_F(VPlanTTIMemrefCostTest, Check2PartLoadCost) {
   // Expect double penalty for very wide store.
-  const unsigned Expected = 3876;
-  const unsigned Alignment = 4;
-  const unsigned VF = 32;
-  auto VecTy = FixedVectorType::get(Type::getInt32Ty(*Ctx), VF);
-  auto Actual =
-      VPTTI->getMemoryOpCost(Instruction::Store, VecTy, Align(Alignment), AS);
-  EXPECT_EQ(Actual, Expected);
+  EXPECT_EQ(CM->getLoadStoreCost(VPInsts[4], Align(4), 32 /* VF */), 3.875);
 }
 
 // Common cases
 
 TEST_F(VPlanTTIMemrefCostTest, Align64Size64) {
-  const unsigned Expected = 1000;
-  const unsigned Alignment = 64;
-  const unsigned VF = 16;
-  auto VecTy = FixedVectorType::get(Type::getFloatTy(*Ctx), VF);
-  auto Actual =
-      VPTTI->getMemoryOpCost(Instruction::Store, VecTy, Align(Alignment), AS);
-  EXPECT_EQ(Actual, Expected);
+  EXPECT_EQ(CM->getLoadStoreCost(VPInsts[4], Align(64), 16 /* VF */), 1);
 }
 
 TEST_F(VPlanTTIMemrefCostTest, Align32Size32) {
-  const unsigned Expected = 1000;
-  const unsigned Alignment = 32;
-  const unsigned VF = 8;
-  auto VecTy = FixedVectorType::get(Type::getFloatTy(*Ctx), VF);
-  auto Actual =
-      VPTTI->getMemoryOpCost(Instruction::Store, VecTy, Align(Alignment), AS);
-  EXPECT_EQ(Actual, Expected);
+  EXPECT_EQ(CM->getLoadStoreCost(VPInsts[4], Align(32), 8 /* VF */), 1);
 }
 
 TEST_F(VPlanTTIMemrefCostTest, Align64Size32) {
-  const unsigned Expected = 1000;
-  const unsigned Alignment = 64;
-  const unsigned VF = 8;
-  auto VecTy = FixedVectorType::get(Type::getFloatTy(*Ctx), VF);
-  auto Actual =
-      VPTTI->getMemoryOpCost(Instruction::Store, VecTy, Align(Alignment), AS);
-  EXPECT_EQ(Actual, Expected);
+  EXPECT_EQ(CM->getLoadStoreCost(VPInsts[4], Align(64), 8 /* VF */), 1);
 }
 
 // Consistency
 
 TEST_F(VPlanTTIMemrefCostTest, 2xVectorGives2xCost) {
   // Check that cost of <8 x double> is twice of <16 x double>
-  const unsigned Alignment = 8;
-  auto Ty8xdouble = FixedVectorType::get(Type::getDoubleTy(*Ctx), 8);
-  auto Ty16xdouble = FixedVectorType::get(Type::getDoubleTy(*Ctx), 16);
   const auto Ty8xdoubleCost =
-    VPTTI->getMemoryOpCost(
-      Instruction::Store, Ty8xdouble, Align(Alignment), AS);
+    CM->getLoadStoreCost(VPInsts[5], Align(8), 8  /* VF */);
   const auto Ty16xdoubleCost =
-    VPTTI->getMemoryOpCost(
-      Instruction::Store, Ty16xdouble, Align(Alignment), AS);
+    CM->getLoadStoreCost(VPInsts[5], Align(8), 16  /* VF */);
   EXPECT_TRUE(Ty8xdoubleCost * 2 == Ty16xdoubleCost);
 }
 

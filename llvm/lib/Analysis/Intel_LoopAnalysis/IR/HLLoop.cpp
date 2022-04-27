@@ -22,6 +22,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportPrintUtils.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
@@ -62,7 +63,7 @@ HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
     : HLDDNode(HNU, HLNode::HLLoopVal), OrigLoop(LLVMLoop), Ztt(nullptr),
       NestingLevel(0), IsInnermost(true), IVType(nullptr), HasSignedIV(false),
       DistributedForMemRec(false), LoopMetadata(LLVMLoop->getLoopID()),
-      MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
+      LegalMaxTripCount(0), MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
       HasDistributePoint(false), IsUndoSinkingCandidate(false),
       IsBlocked(false), ForcedVectorWidth(0), ForcedVectorUnrollFactor(0),
       VecTag(VecTagTy::NONE) {
@@ -90,7 +91,7 @@ HLLoop::HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
                RegDDRef *UpperDDRef, RegDDRef *StrideDDRef, unsigned NumEx)
     : HLDDNode(HNU, HLNode::HLLoopVal), OrigLoop(nullptr), Ztt(nullptr),
       NestingLevel(0), IsInnermost(true), HasSignedIV(false),
-      DistributedForMemRec(false), LoopMetadata(nullptr),
+      DistributedForMemRec(false), LoopMetadata(nullptr), LegalMaxTripCount(0),
       MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
       HasDistributePoint(false), IsUndoSinkingCandidate(false),
       IsBlocked(false), ForcedVectorWidth(0), ForcedVectorUnrollFactor(0),
@@ -118,6 +119,7 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
       LiveInSet(HLLoopObj.LiveInSet), LiveOutSet(HLLoopObj.LiveOutSet),
       DistributedForMemRec(HLLoopObj.DistributedForMemRec),
       LoopMetadata(HLLoopObj.LoopMetadata),
+      LegalMaxTripCount(HLLoopObj.LegalMaxTripCount),
       MaxTripCountEstimate(HLLoopObj.MaxTripCountEstimate),
       MaxTCIsUsefulForDD(HLLoopObj.MaxTCIsUsefulForDD),
       CmpDbgLoc(HLLoopObj.CmpDbgLoc), BranchDbgLoc(HLLoopObj.BranchDbgLoc),
@@ -139,9 +141,9 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
 
     for (auto ZIt = ztt_pred_begin(), EZIt = ztt_pred_end(); ZIt != EZIt;
          ++ZIt) {
-      setZttPredicateOperandDDRef((*ZttRefIt)->clone(), ZIt, true);
+      setLHSZttPredicateOperandDDRef((*ZttRefIt)->clone(), ZIt);
       ++ZttRefIt;
-      setZttPredicateOperandDDRef((*ZttRefIt)->clone(), ZIt, false);
+      setRHSZttPredicateOperandDDRef((*ZttRefIt)->clone(), ZIt);
       ++ZttRefIt;
     }
   }
@@ -158,6 +160,7 @@ HLLoop &HLLoop::operator=(HLLoop &&Lp) {
   HasSignedIV = Lp.HasSignedIV;
   DistributedForMemRec = Lp.DistributedForMemRec;
   LoopMetadata = Lp.LoopMetadata;
+  LegalMaxTripCount = Lp.LegalMaxTripCount;
   MaxTripCountEstimate = Lp.MaxTripCountEstimate;
   MaxTCIsUsefulForDD = Lp.MaxTCIsUsefulForDD;
   HasDistributePoint = Lp.HasDistributePoint;
@@ -511,6 +514,10 @@ void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
     OS << "  <MAX_TC_EST = " << MaxTripCountEstimate << ">";
   }
 
+  if (LegalMaxTripCount) {
+    OS << "  <LEGAL_MAX_TC = " << LegalMaxTripCount << ">";
+  }
+
   if (getMVTag()) {
     OS << "  <MVTag: " << getMVTag();
 
@@ -627,18 +634,18 @@ void HLLoop::addZttPredicate(const HLPredicate &Pred, RegDDRef *Ref1,
   RegDDRefs.resize(getNumOperandsInternal(), nullptr);
 
   /// Move the RegDDRefs to loop.
-  setZttPredicateOperandDDRef(Ztt->removePredicateOperandDDRef(LastIt, true),
-                              LastIt, true);
-  setZttPredicateOperandDDRef(Ztt->removePredicateOperandDDRef(LastIt, false),
-                              LastIt, false);
+  setLHSZttPredicateOperandDDRef(Ztt->removeLHSPredicateOperandDDRef(LastIt),
+                                 LastIt);
+  setRHSZttPredicateOperandDDRef(Ztt->removeRHSPredicateOperandDDRef(LastIt),
+                                 LastIt);
 }
 
 void HLLoop::removeZttPredicate(const_ztt_pred_iterator CPredI) {
   assert(hasZtt() && "Ztt is absent!");
 
   // Remove RegDDRefs from loop.
-  removeZttPredicateOperandDDRef(CPredI, true);
-  removeZttPredicateOperandDDRef(CPredI, false);
+  removeLHSZttPredicateOperandDDRef(CPredI);
+  removeRHSZttPredicateOperandDDRef(CPredI);
 
   // Erase the DDRef slots from loop.
   // Since erasing from the vector leads to shifting of elements, it is better
@@ -750,10 +757,9 @@ void HLLoop::setZtt(HLIf *ZttIf) {
 
   /// Move DDRef pointers to avoid unnecessary cloning.
   for (auto I = ztt_pred_begin(), E = ztt_pred_end(); I != E; I++) {
-    setZttPredicateOperandDDRef(Ztt->removePredicateOperandDDRef(I, true), I,
-                                true);
-    setZttPredicateOperandDDRef(Ztt->removePredicateOperandDDRef(I, false), I,
-                                false);
+    setLHSZttPredicateOperandDDRef(Ztt->removeLHSPredicateOperandDDRef(I), I),
+        setRHSZttPredicateOperandDDRef(Ztt->removeRHSPredicateOperandDDRef(I),
+                                       I);
   }
 }
 
@@ -767,10 +773,8 @@ HLIf *HLLoop::removeZtt() {
 
   /// Move Ztt DDRefs back to If.
   for (auto I = ztt_pred_begin(), E = ztt_pred_end(); I != E; I++) {
-    If->setPredicateOperandDDRef(removeZttPredicateOperandDDRef(I, true), I,
-                                 true);
-    If->setPredicateOperandDDRef(removeZttPredicateOperandDDRef(I, false), I,
-                                 false);
+    If->setLHSPredicateOperandDDRef(removeLHSZttPredicateOperandDDRef(I), I);
+    If->setRHSPredicateOperandDDRef(removeRHSZttPredicateOperandDDRef(I), I);
   }
 
   Ztt = nullptr;
@@ -1235,34 +1239,40 @@ static inline bool nodeIsDirective(const HLNode *Node, int DirectiveID) {
   return I->isDirective(DirectiveID);
 }
 
-static bool nodeHasDirective(const HLNode *Node, int DirectiveID) {
+static const HLInst *getDirectiveFromNode(const HLNode *Node, int DirectiveID) {
   while ((Node = Node->getPrevNode())) {
     if (nodeIsDirective(Node, DirectiveID)) {
-      return true;
+      return cast<HLInst>(Node);
     }
   }
-  return false;
+  return nullptr;
 }
 
-bool HLLoop::hasDirective(int DirectiveID) const {
+const HLInst *HLLoop::getDirective(int DirectiveID) const {
   // Allow SIMD loop detection if directive is inside loop's Preheader.
-  if (hasPreheader() &&
-      (nodeIsDirective(getLastPreheaderNode(), DirectiveID) ||
-       nodeHasDirective(getLastPreheaderNode(), DirectiveID))) {
-    return true;
+  if (hasPreheader()) {
+    auto *LastPreheaderNode = getLastPreheaderNode();
+
+    if (nodeIsDirective(LastPreheaderNode, DirectiveID))
+      return cast<HLInst>(LastPreheaderNode);
+
+    const HLInst *DirInst =
+        getDirectiveFromNode(LastPreheaderNode, DirectiveID);
+    if (DirInst)
+      return DirInst;
   }
 
   // Allow SIMD loop detection if directive is sibling node to HLLoop.
-  if (nodeHasDirective(this, DirectiveID)) {
-    return true;
+  if (const HLInst *DirInst = getDirectiveFromNode(this, DirectiveID)) {
+    return DirInst;
   }
 
   // Allow SIMD loop detection inside if conditions inside SIMD region
   if (auto *Parent = dyn_cast<HLIf>(getParent())) {
-    return nodeHasDirective(Parent, DirectiveID);
+    return getDirectiveFromNode(Parent, DirectiveID);
   }
 
-  return false;
+  return nullptr;
 }
 
 bool HLLoop::hasVectorizeIVDepPragma() const {
@@ -1983,11 +1993,11 @@ HLLoop *HLLoop::peelFirstIteration(bool UpdateMainLoop) {
     auto *PredI = PeelBottomTest->pred_begin();
     PeelBottomTest->replacePredicate(PredI, PredicateTy::FCMP_FALSE);
 
-    auto *LHS = PeelBottomTest->getPredicateOperandDDRef(PredI, true);
+    auto *LHS = PeelBottomTest->getLHSPredicateOperandDDRef(PredI);
     auto *UndefOp = getDDRefUtils().createUndefDDRef(LHS->getDestType());
 
-    PeelBottomTest->setPredicateOperandDDRef(UndefOp, PredI, true);
-    PeelBottomTest->setPredicateOperandDDRef(UndefOp->clone(), PredI, false);
+    PeelBottomTest->setLHSPredicateOperandDDRef(UndefOp, PredI);
+    PeelBottomTest->setRHSPredicateOperandDDRef(UndefOp->clone(), PredI);
 
   } else {
     // Since the loop is normalized, set peel loop UB to 0 so that it executes
@@ -2350,4 +2360,122 @@ void HLLoop::promoteNestingLevel(unsigned StartLevel) {
 
     Ref->makeConsistent(LVals, StartLevel + 1);
   });
+}
+
+/// Returns true if \p SC has either nsw or nuw flag.
+static bool isNoWrapIV(const SCEV *SC, const Loop *Lp) {
+  auto *AddRec = dyn_cast<SCEVAddRecExpr>(SC);
+
+  if (!AddRec || !AddRec->isAffine() || (AddRec->getLoop() != Lp)) {
+    return false;
+  }
+
+  return (AddRec->hasNoSignedWrap() || AddRec->hasNoUnsignedWrap());
+}
+
+/// Returns true if the IV of \p Lp has either nsw or nuw flag.
+static bool hasNoWrapIV(const Loop *Lp, ScalarEvolution &SE) {
+
+  auto *ExitingBB = Lp->getExitingBlock();
+
+  if (!ExitingBB) {
+    return false;
+  }
+
+  auto *BrInst = dyn_cast<BranchInst>(ExitingBB->getTerminator());
+
+  if (!BrInst || !BrInst->isConditional()) {
+    return false;
+  }
+
+  auto *Cmp = dyn_cast<ICmpInst>(BrInst->getCondition());
+
+  if (!Cmp) {
+    return false;
+  }
+
+  auto *SC0 = SE.getSCEV(Cmp->getOperand(0));
+  auto *SC1 = SE.getSCEV(Cmp->getOperand(1));
+
+  return (isNoWrapIV(SC0, Lp) || isNoWrapIV(SC1, Lp));
+}
+
+/// Returns true if \p Lp has ZTT in LLVM IR.
+static bool hasIRZtt(const Loop *Lp, DominatorTree &DT, ScalarEvolution &SE) {
+
+  // Go through dominating blocks of loop with single predecessors to look for
+  // ZTT so we know which path (true/false) the loop is in.
+  for (auto *DomNode = DT.getNode(Lp->getLoopPreheader()); DomNode != nullptr;
+       DomNode = DomNode->getIDom()) {
+    auto *BB = DomNode->getBlock();
+    auto *DomBB = BB->getSinglePredecessor();
+
+    if (!DomBB) {
+      continue;
+    }
+
+    auto *BrInst = dyn_cast<BranchInst>(DomBB->getTerminator());
+
+    if (!BrInst || !BrInst->isConditional()) {
+      continue;
+    }
+
+    bool IsFalseBranch = (BrInst->getSuccessor(0) != BB);
+
+    if (SE.isLoopZtt(Lp, BrInst, IsFalseBranch)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool HLLoop::canTripCountEqualIVTypeRangeSize() const {
+  assert(!isUnknown() && "Countable loop expected!");
+
+  // Trip count is known to be less than type range in the following cases-
+  // Ztt disallows this case.
+  if (hasSignedIV() || isConstTripLoop() || hasZtt()) {
+    return false;
+  }
+
+  bool IsDoLoop = isDo();
+  // If LegalMaxTripCount <= UMAX(IVType), then we know the trip count cannot be
+  // equal to type range. Cannot use legal max trip count for multi-exit loops
+  // as it may have been refined by ScalarEvolution using early-exits or using
+  // nowrap based semantics which may not apply if the loop exits using the
+  // early-exit.
+  if (IsDoLoop) {
+    uint64_t LegalMaxTC = getLegalMaxTripCount();
+    if (LegalMaxTC != 0) {
+      APInt MaxTypeVal = APInt::getMaxValue(IVType->getScalarSizeInBits());
+
+      if (LegalMaxTC <= MaxTypeVal.getZExtValue()) {
+        return false;
+      }
+    }
+  }
+
+  auto *Lp = getLLVMLoop();
+
+  if (!Lp) {
+    return true;
+  }
+
+  auto &HIRF = getHLNodeUtils().getHIRFramework();
+  auto &SE = HIRF.getScopedSE().getOrigSE();
+
+  if (IsDoLoop) {
+    // If single exit loops have nowrap IV, then the trip count cannot be
+    // equal to type range as it requires wrapping IV.
+    // TODO: ScalarEvolution should refine MaxBackedgeTakenCount using nowrap
+    // logic which will then be set in LegalMaxTripCount field of HLLoop.
+    if (hasNoWrapIV(Lp, SE)) {
+      return false;
+    }
+  }
+
+  // Ztt may not be part of the region (especially for multi-exit loops) or may
+  // have been extracted by a transformation. This check helps catch more cases.
+  return !hasIRZtt(Lp, HIRF.getDomTree(), SE);
 }

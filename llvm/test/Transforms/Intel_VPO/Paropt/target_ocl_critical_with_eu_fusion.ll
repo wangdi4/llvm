@@ -1,5 +1,5 @@
-; RUN: opt < %s  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-spirv-target-has-eu-fusion=true -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'  -switch-to-offload -vpo-paropt-spirv-target-has-eu-fusion=true -S  | FileCheck %s
+; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-spirv-target-has-eu-fusion=true -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -switch-to-offload -vpo-paropt-spirv-target-has-eu-fusion=true -S %s | FileCheck %s
 
 ; Original code:
 ; void test() {

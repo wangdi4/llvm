@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+#    Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 #
 #    The information and source code contained herein is the exclusive
 #    property of Intel Corporation. and may not be disclosed, examined
@@ -15,14 +15,20 @@ add_llvm_component_library(LLVMIntel_DTransOpt
   AOSToSOA.cpp
   AOSToSOAOP.cpp
   AnnotatorCleaner.cpp
+  ClassInfoOPUtils.cpp
   CodeAlign.cpp
+  CodeAlignOP.cpp
   CommuteCond.cpp
   DeleteField.cpp
   DeleteFieldOP.cpp
   ReorderFields.cpp
+  ReorderFieldsOP.cpp
   ResolveTypes.cpp
   EliminateROFieldAccess.cpp
   DynClone.cpp
+  DTransForceInline.cpp
+  DTransForceInlineOP.cpp
+  DTransNormalizeOP.cpp
   DTransOPOptBase.cpp
   DTransOPOptBaseTest.cpp
   DTransOptBase.cpp
@@ -33,18 +39,22 @@ add_llvm_component_library(LLVMIntel_DTransOpt
   MemInitTrimDownOP.cpp
   MemManageTrans.cpp
   PaddedPtrPropagation.cpp
+  RemoveDTransTypeMetadata.cpp
   SOAToAOS.cpp
   SOAToAOSArrays.cpp
   SOAToAOSClassInfo.cpp
   SOAToAOSCommon.cpp
   SOAToAOSEffects.cpp
+  SOAToAOSInternal.cpp
   SOAToAOSOP.cpp
   SOAToAOSOPArrays.cpp
   SOAToAOSOPClassInfo.cpp
   SOAToAOSOPCommon.cpp
   SOAToAOSOPEffects.cpp
+  SOAToAOSOPInternal.cpp
   SOAToAOSOPStruct.cpp
   SOAToAOSPrepare.cpp
+  SOAToAOSOPPrepare.cpp
   SOAToAOSStruct.cpp
   Transpose.cpp
   WeakAlign.cpp

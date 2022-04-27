@@ -1,4 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -disable-output -print-after=hir-runtime-dd -hir-runtime-dd < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -disable-output -print-after=hir-runtime-dd -hir-runtime-dd < %s 2>&1 | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -disable-output 2>&1 | FileCheck %s
 
 ; BEGIN REGION { }
 ;      + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>

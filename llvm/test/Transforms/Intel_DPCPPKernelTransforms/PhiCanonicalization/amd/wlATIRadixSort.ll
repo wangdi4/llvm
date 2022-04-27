@@ -1,4 +1,6 @@
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 ; ModuleID = 'wlATIRadixSort.cl'
@@ -136,3 +138,5 @@ for.end69:                                        ; preds = %for.body26
 }
 
 declare void @llvm.memset.p3i8.i32(i8 addrspace(3)* nocapture, i8, i32, i32, i1) nounwind
+
+; DEBUGIFY-NOT: WARNING

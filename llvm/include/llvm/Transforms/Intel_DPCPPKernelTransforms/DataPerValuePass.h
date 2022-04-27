@@ -12,6 +12,7 @@
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_DATA_PER_VALUE_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/IR/DataLayout.h"
@@ -89,12 +90,10 @@ public:
 
   /// Return stride size per work item in special buffer for given function.
   unsigned int getStrideSize(Function *F) {
-    assert(FunctionEntryMap.count(F) &&
-           "no structure stride data entry for F!");
-    unsigned int entry = FunctionEntryMap[F];
-    assert(EntryBufferDataMap.count(entry) &&
-           "no structure stride data for F entry!");
-    return EntryBufferDataMap[entry].BufferTotalSize;
+    assert(FuncEquivalenceClasses.findValue(F) !=
+               FuncEquivalenceClasses.end() &&
+           "F doesn't belong to any equivalence class!");
+    return getSpecialBufferData(F).BufferTotalSize;
   }
 
 private:
@@ -110,8 +109,6 @@ private:
     SpecialBufferData()
         : CurrentOffset(0), MaxAlignment(0), BufferTotalSize(0) {}
   };
-  using FunctionToEntryMap = MapVector<Function *, unsigned int>;
-  using EntryToBufferDataMap = MapVector<unsigned int, SpecialBufferData>;
 
   /// Entry point to the analysis.
   /// \param F function to analyze.
@@ -148,14 +145,14 @@ private:
                               unsigned int AllocaAlignment,
                               SpecialBufferData &BufferData);
 
-  /// Find all connected function into disjoint groups on given module.
+  /// Partition connected functions into equivalence classes on given module.
   /// M module to analyze.
   void calculateConnectedGraph(Module &M);
 
-  /// Replace all entry value equal to "from" in FunctionEntryMap with value
-  /// "To". From - the entry value to replace, To - the entry value to replace
-  /// with.
-  void fixEntryMap(unsigned int From, unsigned int To);
+  /// Retrieve special buffer data of F's equivalence class.
+  SpecialBufferData &getSpecialBufferData(Function *F) {
+    return LeaderFuncToBufferDataMap[FuncEquivalenceClasses.getLeaderValue(F)];
+  }
 
   /// Mark special argument and return values for given function by allocating
   /// place in special buffer for these values.
@@ -203,10 +200,11 @@ private:
   /// i1.
   ValueSet OneBitElementValues;
 
-  /// This holds a map between function and its entry in buffer data map.
-  FunctionToEntryMap FunctionEntryMap;
-  /// This holds a map between unique entry and buffer data.
-  EntryToBufferDataMap EntryBufferDataMap;
+  /// Equivalence classes connected by call edges.
+  EquivalenceClasses<Function *> FuncEquivalenceClasses;
+  /// This holds a map between the leader function of an equivalence class and
+  /// buffer data.
+  MapVector<Function *, SpecialBufferData> LeaderFuncToBufferDataMap;
 
   /// A map of maps between instructions and their cross-barrier users per
   /// function

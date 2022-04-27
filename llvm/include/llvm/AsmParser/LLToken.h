@@ -1,4 +1,21 @@
 //===- LLToken.h - Token Codes for LLVM Assembly Files ----------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -191,6 +208,7 @@ enum Kind {
 
   // Attributes:
   kw_attributes,
+  kw_allocalign,
   kw_allocsize,
   kw_alwaysinline,
   kw_argmemonly,
@@ -235,6 +253,7 @@ enum Kind {
   kw_nosync,
   kw_nocf_check,
   kw_nounwind,
+  kw_nosanitize_bounds,
   kw_nosanitize_coverage,
   kw_null_pointer_is_valid,
   kw_optforfuzzing,
@@ -268,6 +287,8 @@ enum Kind {
   kw_immarg,
   kw_byref,
   kw_mustprogress,
+  kw_sync,
+  kw_async,
 
   kw_type,
   kw_opaque,

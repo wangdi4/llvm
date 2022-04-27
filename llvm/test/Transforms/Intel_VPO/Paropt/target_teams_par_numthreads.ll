@@ -1,8 +1,8 @@
-; RUN: opt  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s | FileCheck %s -check-prefix=DEFAULT
-; RUN: opt < %s  -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S | FileCheck %s -check-prefix=DEFAULT
+; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s -check-prefix=DEFAULT
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s -check-prefix=DEFAULT
 
-; RUN: opt  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-simulate-get-num-threads-in-target=false -S < %s | FileCheck %s -check-prefix=DISABLED
-; RUN: opt < %s  -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-simulate-get-num-threads-in-target=false -S | FileCheck %s -check-prefix=DISABLED
+; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-simulate-get-num-threads-in-target=false -S %s | FileCheck %s -check-prefix=DISABLED
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-simulate-get-num-threads-in-target=false -S %s | FileCheck %s -check-prefix=DISABLED
 
 ; Test src:
 ;
@@ -21,19 +21,19 @@
 ; }
 
 ; DEFAULT: [[TARGET:%[^ ]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(){{.*}}]
-; DEFAULT: call spir_func void @__kmpc_spmd_push_num_threads(i32 1)
+; DEFAULT: call spir_func void @__kmpc_begin_spmd_target()
 ; DEFAULT: [[TEAMS:%[^ ]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(){{.*}}]
-; DEFAULT: call spir_func void @__kmpc_spmd_pop_num_threads()
+; DEFAULT: call spir_func void @__kmpc_begin_spmd_parallel()
 ; DEFAULT: [[PAR:%[^ ]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(){{.*}}]
 ; DEFAULT: call void @llvm.directive.region.exit(token [[PAR]]) [ "DIR.OMP.END.PARALLEL"() ]
-; DEFAULT: call spir_func void @__kmpc_spmd_push_num_threads(i32 1)
+; DEFAULT: call spir_func void @__kmpc_end_spmd_parallel()
 ; DEFAULT: call void @llvm.directive.region.exit(token [[TEAMS]]) [ "DIR.OMP.END.TEAMS"() ]
-; DEFAULT: call spir_func void @__kmpc_spmd_pop_num_threads()
+; DEFAULT: call spir_func void @__kmpc_end_spmd_target()
 ; DEFAULT: call void @llvm.directive.region.exit(token [[TARGET]]) [ "DIR.OMP.END.TARGET"() ]
 
 ; Check that these calls are not emitted with -vpo-paropt-simulate-get-num-threads-in-target=false.
-; DISABLED-NOT: call spir_func void @__kmpc_spmd_push_num_threads(i32 1)
-; DISABLED-NOT: call spir_func void @__kmpc_spmd_pop_num_threads()
+; DISABLED-NOT: call spir_func void @__kmpc_begin_spmd{{.*}}()
+; DISABLED-NOT: call spir_func void @__kmpc_end_spmd{{.*}}()
 ; DISABLED: [[TARGET:%[^ ]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(){{.*}}]
 ; DISABLED: [[TEAMS:%[^ ]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(){{.*}}]
 ; DISABLED: [[PAR:%[^ ]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(){{.*}}]

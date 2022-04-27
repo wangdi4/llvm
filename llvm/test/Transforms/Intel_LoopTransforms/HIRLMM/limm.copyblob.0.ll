@@ -53,8 +53,8 @@
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-lmm -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
-; RUN: opt -passes="hir-ssa-deconstruction,hir-lmm,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
+; RUN: opt -hir-ssa-deconstruction -hir-lmm -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
+; RUN: opt -passes="hir-ssa-deconstruction,hir-lmm,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-opt-report=low 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
 ;
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT:    LOOP BEGIN

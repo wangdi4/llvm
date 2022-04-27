@@ -1,4 +1,21 @@
 //===-- X86RegisterInfo.cpp - X86 Register Information --------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -26,6 +43,8 @@
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/TargetFrameLowering.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
+#include "llvm/CodeGen/TileShapeInfo.h"
+#include "llvm/CodeGen/VirtRegMap.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Type.h"
@@ -723,6 +742,62 @@ BitVector X86RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
                                  {X86::SIL, X86::DIL, X86::BPL, X86::SPL,
                                   X86::SIH, X86::DIH, X86::BPH, X86::SPH}));
   return Reserved;
+}
+
+bool X86RegisterInfo::isArgumentRegister(const MachineFunction &MF,
+                                         MCRegister Reg) const {
+  const X86Subtarget &ST = MF.getSubtarget<X86Subtarget>();
+  const TargetRegisterInfo &TRI = *ST.getRegisterInfo();
+  auto IsSubReg = [&](MCRegister RegA, MCRegister RegB) {
+    return TRI.isSuperOrSubRegisterEq(RegA, RegB);
+  };
+
+  if (!ST.is64Bit())
+    return llvm::any_of(
+               SmallVector<MCRegister>{X86::EAX, X86::ECX, X86::EDX},
+               [&](MCRegister &RegA) { return IsSubReg(RegA, Reg); }) ||
+           (ST.hasMMX() && X86::VR64RegClass.contains(Reg));
+
+  CallingConv::ID CC = MF.getFunction().getCallingConv();
+
+  if (CC == CallingConv::X86_64_SysV && IsSubReg(X86::RAX, Reg))
+    return true;
+
+  if (llvm::any_of(
+          SmallVector<MCRegister>{X86::RDX, X86::RCX, X86::R8, X86::R9},
+          [&](MCRegister &RegA) { return IsSubReg(RegA, Reg); }))
+    return true;
+
+  if (CC != CallingConv::Win64 &&
+      llvm::any_of(SmallVector<MCRegister>{X86::RDI, X86::RSI},
+                   [&](MCRegister &RegA) { return IsSubReg(RegA, Reg); }))
+    return true;
+
+  if (ST.hasSSE1() &&
+      llvm::any_of(SmallVector<MCRegister>{X86::XMM0, X86::XMM1, X86::XMM2,
+                                           X86::XMM3, X86::XMM4, X86::XMM5,
+                                           X86::XMM6, X86::XMM7},
+                   [&](MCRegister &RegA) { return IsSubReg(RegA, Reg); }))
+    return true;
+
+  return false;
+}
+
+bool X86RegisterInfo::isFixedRegister(const MachineFunction &MF,
+                                      MCRegister PhysReg) const {
+  const X86Subtarget &ST = MF.getSubtarget<X86Subtarget>();
+  const TargetRegisterInfo &TRI = *ST.getRegisterInfo();
+
+  // Stack pointer.
+  if (TRI.isSuperOrSubRegisterEq(X86::RSP, PhysReg))
+    return true;
+
+  // Don't use the frame pointer if it's being used.
+  const X86FrameLowering &TFI = *getFrameLowering(MF);
+  if (TFI.hasFP(MF) && TRI.isSuperOrSubRegisterEq(X86::RBP, PhysReg))
+    return true;
+
+  return X86GenRegisterInfo::isFixedRegister(MF, PhysReg);
 }
 
 void X86RegisterInfo::adjustStackMapLiveOutMask(uint32_t *Mask) const {

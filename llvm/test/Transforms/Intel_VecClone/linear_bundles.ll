@@ -3,7 +3,7 @@
 ; RUN: opt -vec-clone -S < %s | FileCheck %s
 ; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
-; CHECK-LABEL: @_ZGVbN4l2l5lu_foo1
+; CHECK-LABEL: @_ZGVbN4l8l20l4u_foo1
 ; CHECK-LABEL: simd.begin.region
 ; CHECK: %entry.region = call token @llvm.directive.region.entry()
 ; CHECK-SAME: QUAL.OMP.LINEAR
@@ -41,7 +41,7 @@ entry:
   ret i32 %add2
 }
 
-; CHECK-LABEL: @_ZGVbN4l2l2l2u_foo2
+; CHECK-LABEL: @_ZGVbN4l8l8l8u_foo2
 ; CHECK-LABEL: simd.begin.region
 ; CHECK: %entry.region = call token @llvm.directive.region.entry()
 ; CHECK-SAME: QUAL.OMP.LINEAR
@@ -74,7 +74,7 @@ entry:
   ret i32 %add2
 }
 
-; CHECK-LABEL: @_ZGVbN4lllu_foo3
+; CHECK-LABEL: @_ZGVbN4l4l4l4u_foo3
 ; CHECK-LABEL: simd.begin.region
 ; CHECK: %entry.region = call token @llvm.directive.region.entry()
 ; CHECK-SAME: QUAL.OMP.LINEAR
@@ -107,6 +107,6 @@ entry:
   ret i32 %add2
 }
 
-attributes #0 = { "vector-variants"="_ZGVbN4l2l5lu_foo1" }
-attributes #1 = { "vector-variants"="_ZGVbN4l2l2l2u_foo2" }
-attributes #2 = { "vector-variants"="_ZGVbN4lllu_foo3" }
+attributes #0 = { "vector-variants"="_ZGVbN4l8l20l4u_foo1" }
+attributes #1 = { "vector-variants"="_ZGVbN4l8l8l8u_foo2" }
+attributes #2 = { "vector-variants"="_ZGVbN4l4l4l4u_foo3" }

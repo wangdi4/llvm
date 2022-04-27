@@ -1,4 +1,21 @@
 /*===------- llvm/Config/llvm-config.h - llvm configuration -------*- C -*-===*/
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2021 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 /*                                                                            */
 /* Part of the LLVM Project, under the Apache License v2.0 with LLVM          */
 /* Exceptions.                                                                */
@@ -95,17 +112,19 @@
 /* Define if we have curl and want to use it */
 #cmakedefine LLVM_ENABLE_CURL ${LLVM_ENABLE_CURL}
 
+/* Define if zlib compression is available */
+#cmakedefine01 LLVM_ENABLE_ZLIB
+
 /* Define if LLVM was built with a dependency to the libtensorflow dynamic library */
 #cmakedefine LLVM_HAVE_TF_API
-
-/* Define if LLVM was built with a dependency to the tensorflow compiler */
-#cmakedefine LLVM_HAVE_TF_AOT
 
 /* Define to 1 if you have the <sysexits.h> header file. */
 #cmakedefine HAVE_SYSEXITS_H ${HAVE_SYSEXITS_H}
 
+// INTEL_CUSTOMIZATION
 /* Define to 1 to enable the experimental new pass manager by default */
 #cmakedefine01 LLVM_ENABLE_NEW_PASS_MANAGER
+// end INTEL_CUSTOMIZATION
 
 /* Define if the xar_open() function is supported on this platform. */
 #cmakedefine LLVM_HAVE_LIBXAR ${LLVM_HAVE_LIBXAR}
@@ -115,5 +134,15 @@
 
 /* Define if building LLVM with BUILD_SHARED_LIBS */
 #cmakedefine LLVM_BUILD_SHARED_LIBS
+
+/* Define if building LLVM with LLVM_FORCE_USE_OLD_TOOLCHAIN_LIBS */
+#cmakedefine LLVM_FORCE_USE_OLD_TOOLCHAIN ${LLVM_FORCE_USE_OLD_TOOLCHAIN}
+
+/* Define if llvm_unreachable should be optimized with undefined behavior
+ * in non assert builds */
+#cmakedefine01 LLVM_UNREACHABLE_OPTIMIZE
+
+/* Define to 1 if you have the DIA SDK installed, and to 0 if you don't. */
+#cmakedefine01 LLVM_ENABLE_DIA_SDK
 
 #endif

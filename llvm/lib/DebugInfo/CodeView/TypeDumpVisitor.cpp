@@ -1,4 +1,21 @@
 //===-- TypeDumpVisitor.cpp - CodeView type info dumper ----------*- C++-*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -8,14 +25,15 @@
 
 #include "llvm/DebugInfo/CodeView/TypeDumpVisitor.h"
 
-#include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/DebugInfo/CodeView/CVTypeVisitor.h"
-#include "llvm/DebugInfo/CodeView/Formatters.h"
+#include "llvm/DebugInfo/CodeView/RecordSerialization.h"
 #include "llvm/DebugInfo/CodeView/TypeCollection.h"
 #include "llvm/DebugInfo/CodeView/TypeIndex.h"
 #include "llvm/DebugInfo/CodeView/TypeRecord.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/ScopedPrinter.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 using namespace llvm::codeview;
@@ -590,6 +608,9 @@ Error TypeDumpVisitor::visitKnownRecord(CVType &CVR,
   } else if (OEMType.isF90Descriptor()) {
     printTypeIndex("RefType", Indices[0]);
     W->printNumber("DescrSize", Data[0]);
+  } else if (OEMType.isF90HostReference()) {
+    printTypeIndex("RefType", Indices[0]);
+    W->printNumber("Offset", int32_t(Data[0]));
   } else {
     for (size_t i = 0; i < Indices.size(); i++)
       printTypeIndex("Type", Indices[i]);
@@ -597,6 +618,27 @@ Error TypeDumpVisitor::visitKnownRecord(CVType &CVR,
       W->printNumber("Data", Data[i]);
   }
 
+  return Error::success();
+}
+
+Error TypeDumpVisitor::visitKnownRecord(CVType &CVR,
+                                        DimArrayRecord &DAT) {
+  printTypeIndex("ElementType", DAT.getElementType());
+  printTypeIndex("DimInfo", DAT.getDimInfo());
+  W->printString("Name", DAT.getName());
+  return Error::success();
+}
+
+Error TypeDumpVisitor::visitKnownRecord(CVType &CVR,
+                                        DimConLURecord &DCT) {
+  auto Rank = DCT.getRank();
+  printTypeIndex("IndexType", DCT.getIndexType());
+  W->printNumber("Rank", Rank);
+  auto Bounds = DCT.getBounds();
+  for (uint16_t i = 0; i < Rank; i++) {
+    W->printNumber("LowerBound", Bounds[2 * i]);
+    W->printNumber("UpperBound", Bounds[2 * i + 1]);
+  }
   return Error::success();
 }
 #endif //INTEL_CUSTOMIZATION

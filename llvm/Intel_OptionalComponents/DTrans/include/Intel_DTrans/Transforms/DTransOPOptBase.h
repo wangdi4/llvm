@@ -1,6 +1,6 @@
 //===-------- DTransOPOptBase.h - Base class for DTrans Transforms ---------==//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -241,7 +241,8 @@ protected:
   // that is having some field deleted, the base class would not know how to
   // initialize the value of a newly created variable, but the derived class
   // would.
-  virtual GlobalVariable *createGlobalVariableReplacement(GlobalVariable *GV) {
+  virtual GlobalVariable *createGlobalVariableReplacement(GlobalVariable *GV,
+                                                          ValueMapper &Mapper) {
     return nullptr;
   }
 
@@ -281,6 +282,8 @@ protected:
                                                    ValueMapper &Mapper) {
     initializeGlobalVariableReplacementBaseImpl(OrigGV, NewGV, Mapper);
   }
+
+  void remapDTransTypeMetadata(Value *V, ValueMapper &Mapper);
 
 private:
   //===-------------------------------------------------------------------===//

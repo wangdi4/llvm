@@ -9,7 +9,7 @@
 ; Check that -hir-runtime-dd-dbg adds a call to 'puts'.
 
 ; BEGIN REGION { }
-;       + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+;       + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>   <LEGAL_MAX_TC = 2147483647>
 ;       |   %0 = (%q)[i1];
 ;       |   (%p)[i1] = %0 + 1;
 ;       + END LOOP
@@ -23,7 +23,7 @@
 ; CHECK:       {
 ; CHECK:          %call = @puts(&((@hir.str)[0][0]));
 ;
-; CHECK:          + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <MVTag: 13>
+; CHECK:          + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>   <LEGAL_MAX_TC = 2147483647>  <MVTag: 13>
 ; CHECK:          |   %0 = (%q)[i1];
 ; CHECK:          |   (%p)[i1] = %0 + 1;
 ; CHECK:          + END LOOP
@@ -32,7 +32,7 @@
 ; CHECK:       {
 ; CHECK:          %call2 = @puts(&((@hir.str.1)[0][0]));
 ;
-; CHECK:          + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <MVTag: 13> <nounroll> <novectorize>
+; CHECK:          + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>   <LEGAL_MAX_TC = 2147483647>  <MVTag: 13> <nounroll> <novectorize>
 ; CHECK:          |   %0 = (%q)[i1];
 ; CHECK:          |   (%p)[i1] = %0 + 1;
 ; CHECK:          + END LOOP

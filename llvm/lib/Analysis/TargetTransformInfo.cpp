@@ -1,4 +1,21 @@
 //===- llvm/Analysis/TargetTransformInfo.cpp ------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -11,7 +28,6 @@
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/TargetTransformInfoImpl.h"
 #include "llvm/IR/CFG.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
@@ -21,7 +37,6 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <utility>
 
 using namespace llvm;
@@ -179,7 +194,7 @@ bool HardwareLoopInfo::isHardwareLoopCandidate(ScalarEvolution &SE,
 TargetTransformInfo::TargetTransformInfo(const DataLayout &DL)
     : TTIImpl(new Model<NoTTIImpl>(NoTTIImpl(DL))) {}
 
-TargetTransformInfo::~TargetTransformInfo() {}
+TargetTransformInfo::~TargetTransformInfo() = default;
 
 TargetTransformInfo::TargetTransformInfo(TargetTransformInfo &&Arg)
     : TTIImpl(std::move(Arg.TTIImpl)) {}
@@ -409,6 +424,11 @@ bool TargetTransformInfo::isLegalNTLoad(Type *DataType, Align Alignment) const {
   return TTIImpl->isLegalNTLoad(DataType, Alignment);
 }
 
+bool TargetTransformInfo::isLegalBroadcastLoad(Type *ElementTy,
+                                               unsigned NumElements) const {
+  return TTIImpl->isLegalBroadcastLoad(ElementTy, NumElements);
+}
+
 bool TargetTransformInfo::isLegalMaskedGather(Type *DataType,
                                               Align Alignment) const {
   return TTIImpl->isLegalMaskedGather(DataType, Alignment);
@@ -441,6 +461,16 @@ bool TargetTransformInfo::isLegalToTransformGather2PermuteLoad(
 bool TargetTransformInfo::isLegalMaskedScatter(Type *DataType,
                                                Align Alignment) const {
   return TTIImpl->isLegalMaskedScatter(DataType, Alignment);
+}
+
+bool TargetTransformInfo::forceScalarizeMaskedGather(VectorType *DataType,
+                                                     Align Alignment) const {
+  return TTIImpl->forceScalarizeMaskedGather(DataType, Alignment);
+}
+
+bool TargetTransformInfo::forceScalarizeMaskedScatter(VectorType *DataType,
+                                                      Align Alignment) const {
+  return TTIImpl->forceScalarizeMaskedScatter(DataType, Alignment);
 }
 
 bool TargetTransformInfo::isLegalMaskedCompressStore(Type *DataType) const {
@@ -773,12 +803,11 @@ InstructionCost TargetTransformInfo::getArithmeticInstrCost(
   return Cost;
 }
 
-InstructionCost TargetTransformInfo::getShuffleCost(ShuffleKind Kind,
-                                                    VectorType *Ty,
-                                                    ArrayRef<int> Mask,
-                                                    int Index,
-                                                    VectorType *SubTp) const {
-  InstructionCost Cost = TTIImpl->getShuffleCost(Kind, Ty, Mask, Index, SubTp);
+InstructionCost TargetTransformInfo::getShuffleCost(
+    ShuffleKind Kind, VectorType *Ty, ArrayRef<int> Mask, int Index,
+    VectorType *SubTp, ArrayRef<Value *> Args) const {
+  InstructionCost Cost =
+      TTIImpl->getShuffleCost(Kind, Ty, Mask, Index, SubTp, Args);
   assert(Cost >= 0 && "TTI should not produce negative costs!");
   return Cost;
 }
@@ -1023,6 +1052,14 @@ bool TargetTransformInfo::isAdvancedOptEnabled(AdvancedOptLevel AO) const {
   return TTIImpl->isAdvancedOptEnabled(AO);
 }
 
+bool TargetTransformInfo::isLibIRCAllowed() const {
+  return TTIImpl->isLibIRCAllowed();
+}
+
+unsigned TargetTransformInfo::getMaxScale() const {
+  return TTIImpl->getMaxScale();
+}
+
 bool TargetTransformInfo::adjustCallArgs(CallInst *CI) const {
   return TTIImpl->adjustCallArgs(CI);
 }
@@ -1055,22 +1092,28 @@ bool TargetTransformInfo::hasCDI() const {
     return TTIImpl->hasCDI();
 }
 
+bool TargetTransformInfo::displacementFoldable() const {
+  return TTIImpl->displacementFoldable();
+}
 #endif // INTEL_CUSTOMIZATION
 
 Type *TargetTransformInfo::getMemcpyLoopLoweringType(
     LLVMContext &Context, Value *Length, unsigned SrcAddrSpace,
-    unsigned DestAddrSpace, unsigned SrcAlign, unsigned DestAlign) const {
+    unsigned DestAddrSpace, unsigned SrcAlign, unsigned DestAlign,
+    Optional<uint32_t> AtomicElementSize) const {
   return TTIImpl->getMemcpyLoopLoweringType(Context, Length, SrcAddrSpace,
-                                            DestAddrSpace, SrcAlign, DestAlign);
+                                            DestAddrSpace, SrcAlign, DestAlign,
+                                            AtomicElementSize);
 }
 
 void TargetTransformInfo::getMemcpyLoopResidualLoweringType(
     SmallVectorImpl<Type *> &OpsOut, LLVMContext &Context,
     unsigned RemainingBytes, unsigned SrcAddrSpace, unsigned DestAddrSpace,
-    unsigned SrcAlign, unsigned DestAlign) const {
-  TTIImpl->getMemcpyLoopResidualLoweringType(OpsOut, Context, RemainingBytes,
-                                             SrcAddrSpace, DestAddrSpace,
-                                             SrcAlign, DestAlign);
+    unsigned SrcAlign, unsigned DestAlign,
+    Optional<uint32_t> AtomicCpySize) const {
+  TTIImpl->getMemcpyLoopResidualLoweringType(
+      OpsOut, Context, RemainingBytes, SrcAddrSpace, DestAddrSpace, SrcAlign,
+      DestAlign, AtomicCpySize);
 }
 
 bool TargetTransformInfo::areInlineCompatible(const Function *Caller,
@@ -1241,7 +1284,7 @@ TargetTransformInfo::getInstructionThroughput(const Instruction *I) const {
   }
 }
 
-TargetTransformInfo::Concept::~Concept() {}
+TargetTransformInfo::Concept::~Concept() = default;
 
 TargetIRAnalysis::TargetIRAnalysis() : TTICallback(&getDefaultTTI) {}
 

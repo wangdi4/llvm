@@ -1,7 +1,9 @@
 ;Test the prefetching pragma info is in the main loop rather than in the remainder loop
 ;
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -hir-prefetching -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -print-after=hir-prefetching -hir-details < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-prefetching,print<hir>" -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false -hir-prefetching -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -print-after=hir-prefetching -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-prefetching,print<hir>" -vplan-enable-new-cfg-merge-hir=false -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -hir-prefetching -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -print-after=hir-prefetching -hir-details < %s 2>&1 | FileCheck %s --check-prefix=MERGED-CFG
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-prefetching,print<hir>" -vplan-enable-new-cfg-merge-hir -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -hir-details < %s 2>&1 | FileCheck %s --check-prefix=MERGED-CFG
 ;
 ;*** IR Dump Before HIR Prefetching ***
 ;Function: sub
@@ -12,13 +14,13 @@
 ;<30>                  %tgu = (zext.i32.i64(%N))/u4;
 ;<32>                  if (0 <u 4 * %tgu)
 ;<32>                  {
-;<31>                     + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 2500> <auto-vectorized> <nounroll> <novectorize>
+;<31>                     + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 2500>  <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ;<34>                     |   %.vec = sitofp.<4 x i32>.<4 x float>(i1 + <i64 0, i64 1, i64 2, i64 3>);
 ;<35>                     |   (<4 x float>*)(@A)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][0] = %.vec;
 ;<31>                     + END LOOP
 ;<32>                  }
 ;<27>
-;<27>                  + DO i1 = 4 * %tgu, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+;<27>                  + DO i1 = 4 * %tgu, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>   <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ;<13>                  |   %conv = sitofp.i32.float(i1);
 ;<15>                  |   (@A)[0][i1][0] = %conv;
 ;<27>                  + END LOOP
@@ -37,7 +39,7 @@
 ; CHECK:              {
 ; CHECK:                 + Loop metadata: !llvm.loop
 ; CHECK-NEXT:            + Prefetching directives:{&((@A)[0]):1:40}
-; CHECK-NEXT:            + DO i64 i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 2500> <auto-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:            + DO i64 i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 2500> <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ;                        |
 ; CHECK:                 |   %.vec = sitofp.<4 x i32>.<4 x float>(i1 + <i64 0, i64 1, i64 2, i64 3>);
 ; CHECK:                 |   (<4 x float>*)(@A)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][0] = %.vec;
@@ -50,7 +52,7 @@
 ; CHECK:              }
 ;
 ; CHECK:              + Loop metadata: !llvm.loop
-; CHECK-NEXT:         + DO i64 i1 = 4 * %tgu, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK-NEXT:         + DO i64 i1 = 4 * %tgu, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>   <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ;                     |
 ; CHECK:              |   %conv = sitofp.i32.float(i1);
 ; CHECK:              |   (@A)[0][i1][0] = %conv;
@@ -59,6 +61,26 @@
 ; CHECK:           }
 ; CHECK:           ret ;
 ; CHECK:     END REGION
+
+; TODO: Merged CFG rewiring uses gotos that vector CG cannot convert to proper ifs yet. Merge
+; the two checks when this happens.
+; MERGED-CFG:         + Loop metadata: !llvm.loop
+; MERGED-CFG:         + Prefetching directives:{&((@A)[0]):1:40}
+; MERGED-CFG:         + DO i64 i1 = 0, %vec.tc3 + -1, 4   <DO_LOOP>  <MAX_TC_EST = 2500>  <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
+; MERGED-CFG:         |   %.vec4 = sitofp.<4 x i32>.<4 x float>(i1 + <i64 0, i64 1, i64 2, i64 3>);
+; MERGED-CFG:         |   (<4 x float>*)(@A)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][0] = %.vec4;
+; MERGED-CFG:         |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 160][0]),  0,  2,  1);
+; MERGED-CFG:         |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 161][0]),  0,  2,  1);
+; MERGED-CFG:         |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 162][0]),  0,  2,  1);
+; MERGED-CFG:         |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 163][0]),  0,  2,  1);
+; MERGED-CFG:         + END LOOP
+
+; MERGED-CFG:         + Loop metadata: !llvm.loop
+; MERGED-CFG:         + DO i64 i1 = %lb.tmp, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3>
+; MERGED-CFG:         |   %conv = sitofp.i32.float(i1);
+; MERGED-CFG:         |   (@A)[0][i1][0] = %conv;
+; MERGED-CFG:         + END LOOP
+;
 ;
 ;Module Before HIR
 ; ModuleID = 't1.c'

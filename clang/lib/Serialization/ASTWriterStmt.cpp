@@ -2302,36 +2302,12 @@ void ASTStmtWriter::VisitOMPSectionDirective(OMPSectionDirective *D) {
 }
 
 #if INTEL_COLLAB
-void ASTStmtWriter::VisitOMPTeamsGenericLoopDirective(
-    OMPTeamsGenericLoopDirective *D) {
-  VisitOMPLoopDirective(D);
-  Code = serialization::STMT_OMP_TEAMS_GENERIC_LOOP_DIRECTIVE;
-}
-
-void ASTStmtWriter::VisitOMPTargetTeamsGenericLoopDirective(
-    OMPTargetTeamsGenericLoopDirective *D) {
-  VisitOMPLoopDirective(D);
-  Code = serialization::STMT_OMP_TARGET_TEAMS_GENERIC_LOOP_DIRECTIVE;
-}
-
-void ASTStmtWriter::VisitOMPParallelGenericLoopDirective(
-    OMPParallelGenericLoopDirective *D) {
-  VisitOMPLoopDirective(D);
-  Code = serialization::STMT_OMP_PARALLEL_GENERIC_LOOP_DIRECTIVE;
-}
-
 void ASTStmtWriter::VisitOMPTargetVariantDispatchDirective(
     OMPTargetVariantDispatchDirective *D) {
   VisitStmt(D);
   Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
   Code = serialization::STMT_OMP_TARGET_VARIANT_DISPATCH_DIRECTIVE;
-}
-
-void ASTStmtWriter::VisitOMPTargetParallelGenericLoopDirective(
-    OMPTargetParallelGenericLoopDirective *D) {
-  VisitOMPLoopDirective(D);
-  Code = serialization::STMT_OMP_TARGET_PARALLEL_GENERIC_LOOP_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPPrefetchDirective(OMPPrefetchDirective *D) {
@@ -2681,6 +2657,30 @@ void ASTStmtWriter::VisitOMPMaskedDirective(OMPMaskedDirective *D) {
 void ASTStmtWriter::VisitOMPGenericLoopDirective(OMPGenericLoopDirective *D) {
   VisitOMPLoopDirective(D);
   Code = serialization::STMT_OMP_GENERIC_LOOP_DIRECTIVE;
+}
+
+void ASTStmtWriter::VisitOMPTeamsGenericLoopDirective(
+    OMPTeamsGenericLoopDirective *D) {
+  VisitOMPLoopDirective(D);
+  Code = serialization::STMT_OMP_TEAMS_GENERIC_LOOP_DIRECTIVE;
+}
+
+void ASTStmtWriter::VisitOMPTargetTeamsGenericLoopDirective(
+    OMPTargetTeamsGenericLoopDirective *D) {
+  VisitOMPLoopDirective(D);
+  Code = serialization::STMT_OMP_TARGET_TEAMS_GENERIC_LOOP_DIRECTIVE;
+}
+
+void ASTStmtWriter::VisitOMPParallelGenericLoopDirective(
+    OMPParallelGenericLoopDirective *D) {
+  VisitOMPLoopDirective(D);
+  Code = serialization::STMT_OMP_PARALLEL_GENERIC_LOOP_DIRECTIVE;
+}
+
+void ASTStmtWriter::VisitOMPTargetParallelGenericLoopDirective(
+    OMPTargetParallelGenericLoopDirective *D) {
+  VisitOMPLoopDirective(D);
+  Code = serialization::STMT_OMP_TARGET_PARALLEL_GENERIC_LOOP_DIRECTIVE;
 }
 
 //===----------------------------------------------------------------------===//

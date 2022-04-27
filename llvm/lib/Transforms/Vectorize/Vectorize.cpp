@@ -1,4 +1,21 @@
 //===-- Vectorize.cpp -----------------------------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -15,9 +32,9 @@
 #include "llvm/Transforms/Vectorize.h"
 #include "llvm-c/Initialization.h"
 #include "llvm-c/Transforms/Vectorize.h"
-#include "llvm/Analysis/Passes.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/PassRegistry.h"
 
 using namespace llvm;
 
@@ -30,6 +47,7 @@ void llvm::initializeVectorization(PassRegistry &Registry) {
   initializeLoadCoalescingLegacyPassPass(Registry);
   initializeMathLibraryFunctionsReplacementLegacyPassPass(Registry);
   initializeVPlanPragmaOmpOrderedSimdExtractPass(Registry);
+  initializeVPlanPragmaOmpSimdIfPass(Registry);
   initializeVPlanDriverPass(Registry);
   initializeVPlanDriverHIRPass(Registry);
   initializeVPlanFunctionVectorizerLegacyPassPass(Registry);
@@ -60,6 +78,10 @@ void LLVMAddMathLibraryFunctionReplacementPass(LLVMPassManagerRef PM) {
 
 void LLVMAddVPlanPragmaOmpOrderedSimdExtractPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createVPlanPragmaOmpOrderedSimdExtractPass());
+}
+
+void LLVMAddVPlanPragmaOmpSimdIfPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createVPlanPragmaOmpSimdIfPass());
 }
 
 void LLVMAddVPlanDriverPass(LLVMPassManagerRef PM) {

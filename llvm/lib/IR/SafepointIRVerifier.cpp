@@ -1,4 +1,21 @@
 //===-- SafepointIRVerifier.cpp - Verify gc.statepoint invariants ---------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -38,10 +55,8 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/Statepoint.h"
 #include "llvm/IR/Value.h"
 #include "llvm/InitializePasses.h"
@@ -358,6 +373,12 @@ static enum BaseType getBaseType(const Value *Val) {
       // Push in the true and false values
       Worklist.push_back(SI->getTrueValue());
       Worklist.push_back(SI->getFalseValue());
+      continue;
+    }
+    if (const auto *GCRelocate = dyn_cast<GCRelocateInst>(V)) {
+      // GCRelocates do not change null-ness or constant-ness of the value.
+      // So we can continue with derived pointer this instruction relocates.
+      Worklist.push_back(GCRelocate->getDerivedPtr());
       continue;
     }
     if (isa<Constant>(V)) {

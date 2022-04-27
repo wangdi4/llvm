@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze <%s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze -enable-new-pm=0 <%s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output <%s 2>&1 | FileCheck %s
 
 ; Check that linear DD refs were successfully delinearized. 

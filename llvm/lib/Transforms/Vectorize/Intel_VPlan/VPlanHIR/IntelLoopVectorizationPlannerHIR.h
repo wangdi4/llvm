@@ -44,6 +44,9 @@ private:
 
   HIRVectorizationLegality *HIRLegality;
 
+  /// True when target loop being vectorized is a search loop.
+  bool IsSearchLoop = false;
+
   std::shared_ptr<VPlanVector>
   buildInitialVPlan(VPExternalValues &Ext, VPUnlinkedInstructions &UVPI,
                     std::string VPlanName,
@@ -53,6 +56,10 @@ private:
   /// VPVectorTripCountCalculation.
   void emitVecSpecifics(VPlanVector *Plan) override;
 
+  /// Getters and setters for IsSearchLoop.
+  bool isSearchLoop() const { return IsSearchLoop; }
+  void setIsSearchLoop() { IsSearchLoop = true; }
+
 protected:
   /// Check whether everything in the loop body is supported at the moment.
   /// We can have some unimplemented things and it's better to gracefully
@@ -61,8 +68,8 @@ protected:
 
   void createLiveInOutLists(VPlanVector &Plan) override;
 
-  /// Check if HIR vectorizer suuports call pumping feature.
-  bool isCallPumpingSupported() const override { return false; }
+  /// Check if HIR vectorizer supports SOA privates.
+  bool isSOACodegenSupported() const override { return false; }
 
 public:
   LoopVectorizationPlannerHIR(WRNVecLoopNode *WRL, HLLoop *Lp,
@@ -75,7 +82,14 @@ public:
       : LoopVectorizationPlanner(WRL, /*Lp=*/nullptr, /*LI=*/nullptr, TLI, TTI,
                                  DL, nullptr, nullptr, VLSA),
         TheLoop(Lp), LightWeightMode(LightWeightMode), DDA(DDA),
-        HIRLegality(HIRLegal) {}
+        HIRLegality(HIRLegal) {
+    // Set the flag in scenario to indicate if we are dealing with a constant
+    // trip count loop. TODO - right now this is only done in the HIR path to
+    // generate better code for simple constant trip vectorization scenarios.
+    // Revisit this for the LLVM IR path later to see if it benefits there
+    // as well.
+    VecScenario.setIsConstTC(TheLoop->isConstTripLoop());
+  }
 
   /// Generate the HIR code for the body of the vectorized loop according to the
   /// best selected VPlan. This function returns true if code generation was
@@ -133,10 +147,8 @@ public:
   /// \p Forced indicates that Unroll Factor is forced.
   virtual unsigned getLoopUnrollFactor(bool *Forced = nullptr) override;
 
-  /// Create and return Plan/VF specific CostModel object basic on global
-  /// compilation settings such as presence of -x knob in command line.
-  std::unique_ptr<VPlanCostModelInterface> createCostModel(
-    const VPlanVector *Plan, unsigned VF) const final;
+  /// Detects and returns the current type of planning.
+  LoopVectorizationPlanner::PlannerType getPlannerType() const final;
 
   bool unroll(VPlanVector &Plan) override;
 

@@ -67,8 +67,8 @@
 // CHECK-NEXT: DisableSanitizerInstrumentation (SubjectMatchRule_function, SubjectMatchRule_objc_method, SubjectMatchRule_variable_is_global)
 // CHECK-NEXT: DisableTailCalls (SubjectMatchRule_function, SubjectMatchRule_objc_method)
 // CHECK-NEXT: EnableIf (SubjectMatchRule_function)
-// CHECK-NEXT: EnforceTCB (SubjectMatchRule_function)
-// CHECK-NEXT: EnforceTCBLeaf (SubjectMatchRule_function)
+// CHECK-NEXT: EnforceTCB (SubjectMatchRule_function, SubjectMatchRule_objc_method)
+// CHECK-NEXT: EnforceTCBLeaf (SubjectMatchRule_function, SubjectMatchRule_objc_method)
 // CHECK-NEXT: EnumExtensibility (SubjectMatchRule_enum)
 // CHECK-NEXT: Error (SubjectMatchRule_function)
 // CHECK-NEXT: ExcludeFromExplicitInstantiation (SubjectMatchRule_variable, SubjectMatchRule_function, SubjectMatchRule_record)
@@ -84,8 +84,10 @@
 // CHECK-NEXT: IBAction (SubjectMatchRule_objc_method_is_instance)
 // CHECK-NEXT: IFunc (SubjectMatchRule_function)
 // CHECK-NEXT: InitPriority (SubjectMatchRule_variable)
+// if INTEL_CUSTOMIZATION
 // CHECK-NEXT: IntelNamedSubGroupSize (SubjectMatchRule_function)
 // CHECK-NEXT: IntelReqdSubGroupSize (SubjectMatchRule_function)
+// endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: InternalLinkage (SubjectMatchRule_variable, SubjectMatchRule_function, SubjectMatchRule_record)
 // CHECK-NEXT: LTOVisibilityPublic (SubjectMatchRule_record)
 // CHECK-NEXT: Leaf (SubjectMatchRule_function)
@@ -115,6 +117,7 @@
 // CHECK-NEXT: NoMicroMips (SubjectMatchRule_function)
 // CHECK-NEXT: NoMips16 (SubjectMatchRule_function)
 // CHECK-NEXT: NoProfileFunction (SubjectMatchRule_function)
+// CHECK-NEXT: NoRandomizeLayout (SubjectMatchRule_record)
 // CHECK-NEXT: NoSanitize (SubjectMatchRule_function, SubjectMatchRule_objc_method, SubjectMatchRule_variable_is_global)
 // CHECK-NEXT: NoSanitizeSpecific (SubjectMatchRule_function, SubjectMatchRule_variable_is_global)
 // CHECK-NEXT: NoSpeculativeLoadHardening (SubjectMatchRule_function, SubjectMatchRule_objc_method)
@@ -173,6 +176,7 @@
 // CHECK-NEXT: PreferSoftLogic (SubjectMatchRule_function)
 // CHECK-NEXT: PropagateDSPPreference (SubjectMatchRule_function)
 // endif INTEL_CUSTOMIZATION
+// CHECK-NEXT: RandomizeLayout (SubjectMatchRule_record)
 // CHECK-NEXT: ReleaseHandle (SubjectMatchRule_variable_is_parameter)
 // CHECK-NEXT: RenderScriptKernel (SubjectMatchRule_function)
 // CHECK-NEXT: ReqdWorkGroupSize (SubjectMatchRule_function)
@@ -180,9 +184,16 @@
 // CHECK-NEXT: ReturnTypestate (SubjectMatchRule_function, SubjectMatchRule_variable_is_parameter)
 // CHECK-NEXT: ReturnsNonNull (SubjectMatchRule_objc_method, SubjectMatchRule_function)
 // CHECK-NEXT: ReturnsTwice (SubjectMatchRule_function)
+// if INTEL_CUSTOMIZATION
+// CHECK-NEXT: SYCLAddIRAnnotationsMember (SubjectMatchRule_field)
+// CHECK-NEXT: SYCLAddIRAttributesFunction (SubjectMatchRule_function)
+// CHECK-NEXT: SYCLAddIRAttributesGlobalVariable (SubjectMatchRule_record)
+// CHECK-NEXT: SYCLAddIRAttributesKernelParameter (SubjectMatchRule_variable_is_parameter)
 // CHECK-NEXT: SYCLDevice (SubjectMatchRule_function)
+// CHECK-NEXT: SYCLDeviceGlobal (SubjectMatchRule_record)
 // CHECK-NEXT: SYCLDeviceHas (SubjectMatchRule_function)
 // CHECK-NEXT: SYCLDeviceIndirectlyCallable (SubjectMatchRule_function)
+// CHECK-NEXT: SYCLGlobalVariableAllowed (SubjectMatchRule_record)
 // CHECK-NEXT: SYCLIntelFPGADisableLoopPipelining (SubjectMatchRule_function)
 // CHECK-NEXT: SYCLIntelFPGAInitiationInterval (SubjectMatchRule_function)
 // CHECK-NEXT: SYCLIntelFPGAMaxConcurrency (SubjectMatchRule_function)
@@ -197,11 +208,12 @@
 // CHECK-NEXT: SYCLIntelUseStallEnableClusters (SubjectMatchRule_function)
 // CHECK-NEXT: SYCLRegisterNum (SubjectMatchRule_variable_is_global)
 // CHECK-NEXT: SYCLSimd (SubjectMatchRule_function, SubjectMatchRule_variable_is_global)
+// endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: SYCLSpecialClass (SubjectMatchRule_record)
 // if INTEL_CUSTOMIZATION
 // CHECK-NEXT: SYCLUnmasked (SubjectMatchRule_function, SubjectMatchRule_function_is_member)
-// endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: SYCLUsesAspects (SubjectMatchRule_record, SubjectMatchRule_function)
+// endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: ScopedLockable (SubjectMatchRule_record)
 // CHECK-NEXT: Section (SubjectMatchRule_function, SubjectMatchRule_variable_is_global, SubjectMatchRule_objc_method, SubjectMatchRule_objc_property)
 // CHECK-NEXT: SetTypestate (SubjectMatchRule_function_is_member)
@@ -242,4 +254,5 @@
 // CHECK-NEXT: WorkGroupSizeHint (SubjectMatchRule_function)
 // CHECK-NEXT: XRayInstrument (SubjectMatchRule_function, SubjectMatchRule_objc_method)
 // CHECK-NEXT: XRayLogArgs (SubjectMatchRule_function, SubjectMatchRule_objc_method)
+// CHECK-NEXT: ZeroCallUsedRegs (SubjectMatchRule_function)
 // CHECK-NEXT: End of supported attributes.

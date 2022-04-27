@@ -19,6 +19,7 @@ namespace llvm {
 namespace loopopt {
 class CanonExpr;
 class HLLoop;
+class RegDDRef;
 }
 
 namespace vpo {
@@ -27,10 +28,17 @@ namespace vpo {
 // equivalent to {Base,+,Stride}<MainLoop>.
 struct VPlanAddRecHIR {
   loopopt::CanonExpr *Base;
+  // Original ref that the Base CanonExpr was part of. Used to make
+  // ref created from Base consistent during vector code generation.
+  // TODO - we need to see if we need to keep a vector of Refs for
+  // tracking MinusExpr SCEVs. At this point, this does not look
+  // necessary.
+  const loopopt::RegDDRef *Ref;
   int64_t Stride;
 
-  VPlanAddRecHIR(loopopt::CanonExpr *Base, int64_t Stride)
-      : Base(Base), Stride(Stride) {}
+  VPlanAddRecHIR(loopopt::CanonExpr *Base, int64_t Stride,
+                 const loopopt::RegDDRef *Ref = nullptr)
+      : Base(Base), Ref(Ref), Stride(Stride) {}
 };
 
 /// Implementation of VPlanScalarEvolution for HIR.
@@ -61,8 +69,9 @@ private:
 
   VPlanAddRecHIR *getMinusExprImpl(VPlanAddRecHIR *LHS, VPlanAddRecHIR *RHS);
 
-  VPlanAddRecHIR *makeVPlanAddRecHIR(loopopt::CanonExpr *Base,
-                                     int64_t Stride) const;
+  VPlanAddRecHIR *
+  makeVPlanAddRecHIR(loopopt::CanonExpr *Base, int64_t Stride,
+                     const loopopt::RegDDRef *Ref = nullptr) const;
 
 private:
   // Set of all VPlanAddRecHIR expressions created by the analysis. The analysis

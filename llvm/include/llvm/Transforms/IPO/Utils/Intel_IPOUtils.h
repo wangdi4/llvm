@@ -16,6 +16,7 @@
 #ifndef LLVM_TRANSFORMS_IPO_INTEL_UTIILTY_H
 #define LLVM_TRANSFORMS_IPO_INTEL_UTIILTY_H
 
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/Debug.h"
@@ -50,15 +51,6 @@ public:
   // Check if there is any floating-point argument
   static bool hasFloatArg(const Function &F);
 
-  // Check if there is any floating-point pointer argument
-  static bool hasFloatPtrArg(const Function &F);
-
-  // Count the # of Double-Pointer Argument(s) in a given Function
-  // E.g.
-  // int foo(int **p, ...);
-  // p is a called a double-pointer argument.
-  static unsigned countDoublePtrArgs(const Function &F);
-
   // Provide a StringRef used as MDNode key to suppress inline report
   static StringRef getSuppressInlineReportStringRef(void) {
     return StringRef("InlRpt.Suppress");
@@ -87,7 +79,7 @@ public:
   // Default constructor, needed for MultiVersionImpl's type declaration
   FunctionSignatureMatcher()
       : MinNumArgs(0), MaxNumArgs(0), MinNumIntArgs(0), MaxNumIntArgs(0),
-        MinNumDoublePtrArgs(0), MaxNumDoublePtrArgs(0), IsLeaf(false) {}
+        IsLeaf(false) {}
 
   // [Note]
   // Argument NumPtrArgs0 and NumPtrArgs1 represent individual values instead of
@@ -95,18 +87,12 @@ public:
   FunctionSignatureMatcher(unsigned MinNumArgs, unsigned MaxNumArgs,
                            unsigned MinNumIntArgs, unsigned MaxNumIntArgs,
                            unsigned NumPtrArgs0, unsigned NumPtrArgs1,
-                           unsigned MinNumDoublePtrArgs,
-                           unsigned MaxNumDoublePtrArgs, bool IsLeaf)
+                           bool IsLeaf)
       : MinNumArgs(MinNumArgs), MaxNumArgs(MaxNumArgs),
         MinNumIntArgs(MinNumIntArgs), MaxNumIntArgs(MaxNumIntArgs),
-        MinNumDoublePtrArgs(MinNumDoublePtrArgs),
-        MaxNumDoublePtrArgs(MaxNumDoublePtrArgs), IsLeaf(IsLeaf) {
+        IsLeaf(IsLeaf) {
 
     assert((MinNumArgs <= MaxNumArgs) && "Expect MinNumArgs <= MaxNumArgs");
-    assert((MinNumIntArgs <= MaxNumIntArgs) &&
-           "Expect MinNumIntArgs <= MaxNumIntArgs");
-    assert((MinNumDoublePtrArgs <= MaxNumDoublePtrArgs) &&
-           "Expect MinNumDoublePtrArgs <= MaxNumDoublePtrArgs");
 
     // Note: NumPtrArgs are treated as individual values, rather than a range!
     NumPtrArgsV.push_back(NumPtrArgs0);
@@ -120,7 +106,6 @@ public:
   // FunctionSignatureMatcher FSM(3 /*MinNumArgs*/, 3 /*MaxNumArgs*/,
   //                              1 /*MinNumIntArgs*/, 1 /*MaxNumIntArgs*/,
   //                              2 /*NumPtrArg0*/, 2 /*NumPtrArg1*/,
-  //                              1 /*MinNumDblPtRaRG */,1 /*MaxNumDblPtrArg */,
   //                              true /*IsLeaf*/);
   //
   // The above FSM object is used to match function foo(), where
@@ -134,20 +119,20 @@ public:
   // - NumArg matches: foo has 3 arguments
   // - NumIntArg matches: foo has 1 integer argument
   // - NumPtrArg matches: foo has 2 ptr arg (both p and q are ptr type)
-  // - NumDblPtrArg matches: foo has 1 dbl-ptr argument (q is ** type)
+  // - NumIntArg + NumPtrArg == NumArg: foo has 3 arguments, 1 is a integer
+  //                                    and 2 are pointers
   // and
   // - LeafFunc matches: foo is a leaf function
   //
   // Note:
-  // NumArg, NumIntArg, and NumDblPtrArg are provided in pairs because the same
-  // FSM object will be used to match multiple function calls. So the match is
+  // NumArg, and NumIntArg are provided in pairs because the same FSM object
+  // will be used to match multiple function calls. So the match is
   // not necessarily exact.
   //
-  // NumArgs and NumDblPtrArgs are used as bounds of a range, so search within
-  // a range is enough. However, for NumPtrArgs, it needs to be 2 concrete
-  // values instead of a range. As a result, the 2 individual values are pushed
-  // into NumPtrArgV vector, and searched linearly using std::find() or
-  // std::find_if().
+  // NumArgs are used as bounds of a range, so search within a range is enough.
+  // However, for NumPtrArgs, it needs to be 2 concrete values instead of a
+  // range. As a result, the 2 individual values are pushed into NumPtrArgV
+  // vector, and searched linearly using std::find() or std::find_if().
   //
   bool match(Function *F) const {
     assert(F && "Expect Function* F be a valid pointer\n");
@@ -173,14 +158,13 @@ public:
         NumPtrArgsV.end())
       return false;
 
-    // Check MinNumDoublePtrArgs, MaxNumDoublePtrArgs: strict compare
-    unsigned DblPtrArgCount = IPOUtils::countDoublePtrArgs(*F);
-    if (!IPOUtils::isInRange<unsigned>(DblPtrArgCount, MinNumDoublePtrArgs,
-                                       MaxNumDoublePtrArgs))
+    // Not allowing any Float argument type
+    if (IPOUtils::hasFloatArg(*F))
       return false;
 
-    // Not allowing any Float and Float* argument type
-    if (IPOUtils::hasFloatArg(*F) || IPOUtils::hasFloatPtrArg(*F))
+    // The number of arguments that are integer and arguments that are pointers
+    // should be equal to the number of arguments
+    if (IntArgCount + PtrArgCount != ArgCount)
       return false;
 
     return true;
@@ -190,7 +174,6 @@ private:
   unsigned MinNumArgs, MaxNumArgs;
   unsigned MinNumIntArgs, MaxNumIntArgs;
   std::vector<unsigned> NumPtrArgsV;
-  unsigned MinNumDoublePtrArgs, MaxNumDoublePtrArgs;
   bool IsLeaf;
 
 public:
@@ -211,10 +194,6 @@ public:
     for (auto V : NumPtrArgsV)
       S << V << ", ";
     S << "\n";
-
-    // unsigned MinNumDoublePtrArgs, MaxNumDoublePtrArgs;
-    S << "MinNumDoublePtrArgs: " << MinNumDoublePtrArgs
-      << ", MaxNumDoublePtrArgs: " << MaxNumDoublePtrArgs << "\n";
 
     // IsLeaf:
     S << "IsLeaf: " << std::boolalpha << IsLeaf << "\n";

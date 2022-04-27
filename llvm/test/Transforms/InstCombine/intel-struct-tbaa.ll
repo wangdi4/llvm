@@ -12,10 +12,10 @@ define dso_local void @use(%struct.a* %src) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds { i32, i32 }, ptr [[SRC:%.*]], i64 0, i32 0
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr [[TMP0]], align 4, !tbaa [[TBAA0:![0-9]+]]
-; CHECK-NEXT:    store i32 [[TMP1]], ptr getelementptr inbounds ([[STRUCT_A:%.*]], ptr @dest, i64 0, i32 0, i32 0), align 4, !tbaa [[TBAA0]]
+; CHECK-NEXT:    store i32 [[TMP1]], ptr @dest, align 4, !tbaa [[TBAA0]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds { i32, i32 }, ptr [[SRC]], i64 0, i32 1
 ; CHECK-NEXT:    [[TMP3:%.*]] = load i32, ptr [[TMP2]], align 4, !tbaa [[TBAA0]]
-; CHECK-NEXT:    store i32 [[TMP3]], ptr getelementptr inbounds ([[STRUCT_A]], ptr @dest, i64 0, i32 0, i32 1), align 4, !tbaa [[TBAA0]]
+; CHECK-NEXT:    store i32 [[TMP3]], ptr getelementptr inbounds ([[STRUCT_A:%.*]], ptr @dest, i64 0, i32 0, i32 1), align 4, !tbaa [[TBAA0]]
 ; CHECK-NEXT:    ret void
 ;
 entry:

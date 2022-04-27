@@ -35,6 +35,10 @@ public:
   }
 
 private:
+  using InstVec = DPCPPKernelCompilationUtils::InstVec;
+  using InstVecVec = DPCPPKernelCompilationUtils::InstVecVec;
+  using ValueVec = DPCPPKernelCompilationUtils::ValueVec;
+
   /// Struct that contains dimesion 0 loop attributes.
   struct LoopBoundaries {
     Value *PeelLoopSize;   // num peel loop iterations.
@@ -42,13 +46,6 @@ private:
     Value *ScalarLoopSize; // num scalar loop iterations.
     Value *MaxPeel;        // max peeling global id.
     Value *MaxVector;      // max vector global id.
-
-    /// C'tor.
-    LoopBoundaries(Value *PeelLoopSize, Value *VectorLoopSize,
-                   Value *ScalarLoopSize, Value *MaxPeel, Value *MaxVector)
-        : PeelLoopSize(PeelLoopSize), VectorLoopSize(VectorLoopSize),
-          ScalarLoopSize(ScalarLoopSize), MaxPeel(MaxPeel),
-          MaxVector(MaxVector) {}
   };
 
   /// LLVM context of the current module.
@@ -98,6 +95,9 @@ private:
   /// global_id lower bounds per dimension.
   ValueVec InitGIDs;
 
+  /// global_id upper bounds per dimension.
+  ValueVec MaxGIDs;
+
   /// base_global_id per dimension.
   ValueVec BaseGIDs;
 
@@ -139,6 +139,9 @@ private:
   /// Map from function to its return instruction.
   MapFunctionToReturnInst FuncReturn;
 
+  /// LoopRegion of scalar or masked remainder.
+  LoopRegion RemainderRegion;
+
   /// Collect the get_global_id(), get_local_id(), and return of F.
   /// F - kernel to collect information for.
   /// Gids - array of get_global_id call to fill.
@@ -175,11 +178,11 @@ private:
   /// GIDs - array with get_global_id calls.
   /// LIDs - array with get_local_id calls.
   /// InitGIDs - initial global id per dimension.
-  /// LoopSizes - number of loop iteration per dimension.
+  /// MaxGIDs - max (or upper bound) global id per dimension.
   /// Returns struct with preheader and exit block of the outmost loop.
   LoopRegion addWGLoops(BasicBlock *KernelEntry, bool IsVector, ReturnInst *Ret,
                         InstVecVec &GIDs, InstVecVec &LIDs, ValueVec &InitGIDs,
-                        ValueVec &LoopSizes);
+                        ValueVec &MaxGIDs);
 
   /// Replace the get***tid calls with incremented phi in loop head.
   /// TIDs - array of get***id to replace.
@@ -191,6 +194,10 @@ private:
   void replaceTIDsWithPHI(InstVec &TIDs, Value *InitVal, Value *IncBy,
                           BasicBlock *Head, BasicBlock *PreHead,
                           BasicBlock *Latch);
+
+  /// Create WG loops over scalar kernel.
+  /// Returns a struct with entry and exit block of the WG loop region.
+  LoopRegion createScalarLoops();
 
   /// Create WG loops over vector kernel and remainder loop over scalar kernel.
   /// Returns a struct with entry and exit block of the WG loop region.

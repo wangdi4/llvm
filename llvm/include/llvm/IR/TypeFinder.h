@@ -14,6 +14,7 @@
 #define LLVM_IR_TYPEFINDER_H
 
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/IR/Attributes.h"
 #include <cstddef>
 #include <vector>
 
@@ -32,6 +33,7 @@ class TypeFinder {
   // objects, we keep several helper maps.
   DenseSet<const Value*> VisitedConstants;
   DenseSet<const MDNode *> VisitedMetadata;
+  DenseSet<AttributeList> VisitedAttributes;
   DenseSet<Type*> VisitedTypes;
 
   std::vector<StructType*> StructTypes;
@@ -40,7 +42,15 @@ class TypeFinder {
 public:
   TypeFinder() = default;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  // When IncludeMD is set to 'true', types referenced in metadata nodes
+  // attached to GlobalVariable and Function objects will be collected.
+  void run(const Module &M, bool onlyNamed, bool IncludeMD = false);
+#else // INTEL_FEATURE_SW_DTRANS
   void run(const Module &M, bool onlyNamed);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   void clear();
 
   using iterator = std::vector<StructType*>::iterator;
@@ -74,6 +84,9 @@ private:
   /// incorporateMDNode - This method is used to walk the operands of an MDNode
   /// to find types hiding within.
   void incorporateMDNode(const MDNode *V);
+
+  /// Incorporate types referenced by attributes.
+  void incorporateAttributes(AttributeList AL);
 };
 
 } // end namespace llvm

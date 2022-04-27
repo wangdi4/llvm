@@ -1,4 +1,21 @@
 //===----------- rtl.cpp - Target independent OpenMP target RTL -----------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -92,7 +109,20 @@ static char *ProfileTraceFile = nullptr;
 
 __ATTRIBUTE__(constructor(101)) void init() { // INTEL
   DP("Init target library!\n");
-  PM = new PluginManager();
+
+  bool UseEventsForAtomicTransfers = true;
+  if (const char *ForceAtomicMap = getenv("LIBOMPTARGET_MAP_FORCE_ATOMIC")) {
+    std::string ForceAtomicMapStr(ForceAtomicMap);
+    if (ForceAtomicMapStr == "false" || ForceAtomicMapStr == "FALSE")
+      UseEventsForAtomicTransfers = false;
+    else if (ForceAtomicMapStr != "true" && ForceAtomicMapStr != "TRUE")
+      fprintf(stderr,
+              "Warning: 'LIBOMPTARGET_MAP_FORCE_ATOMIC' accepts only "
+              "'true'/'TRUE' or 'false'/'FALSE' as options, '%s' ignored\n",
+              ForceAtomicMap);
+  }
+
+  PM = new PluginManager(UseEventsForAtomicTransfers);
 
 #if INTEL_COLLAB
   OmptGlobal = new OmptGlobalTy();
@@ -317,6 +347,8 @@ void RTLsTy::LoadRTLs() {
        R.NumberOfDevices);
 
     // Optional functions
+    *((void **)&R.deinit_device) =
+        dlsym(dynlib_handle, "__tgt_rtl_deinit_device");
     *((void **)&R.init_requires) =
         dlsym(dynlib_handle, "__tgt_rtl_init_requires");
     *((void **)&R.data_submit_async) =
@@ -346,8 +378,6 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(data_alloc_managed);
     SET_OPTIONAL_INTERFACE_FN(data_realloc);
     SET_OPTIONAL_INTERFACE_FN(data_aligned_alloc);
-    SET_OPTIONAL_INTERFACE_FN(data_submit_nowait);
-    SET_OPTIONAL_INTERFACE_FN(data_retrieve_nowait);
     SET_OPTIONAL_INTERFACE_FN(get_offload_queue);
     SET_OPTIONAL_INTERFACE_FN(release_offload_queue);
     SET_OPTIONAL_INTERFACE_FN(get_device_name);
@@ -356,7 +386,7 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(get_context_handle);
     SET_OPTIONAL_INTERFACE_FN(get_data_alloc_info);
     SET_OPTIONAL_INTERFACE_FN(init_ompt);
-    SET_OPTIONAL_INTERFACE_FN(is_device_accessible_ptr);
+    SET_OPTIONAL_INTERFACE_FN(requires_mapping);
     SET_OPTIONAL_INTERFACE_FN(manifest_data_for_region);
     SET_OPTIONAL_INTERFACE_FN(push_subdevice);
     SET_OPTIONAL_INTERFACE_FN(pop_subdevice);
@@ -382,11 +412,6 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(alloc_per_hw_thread_scratch);
     SET_OPTIONAL_INTERFACE_FN(free_per_hw_thread_scratch);
     SET_OPTIONAL_INTERFACE(run_team_nd_region, run_target_team_nd_region);
-    SET_OPTIONAL_INTERFACE(run_region_nowait, run_target_region_nowait);
-    SET_OPTIONAL_INTERFACE(run_team_region_nowait,
-                           run_target_team_region_nowait);
-    SET_OPTIONAL_INTERFACE(run_team_nd_region_nowait,
-                           run_target_team_nd_region_nowait);
     #undef SET_OPTIONAL_INTERFACE
     #undef SET_OPTIONAL_INTERFACE_FN
 
@@ -413,6 +438,12 @@ void RTLsTy::LoadRTLs() {
     *((void **)&R.sync_event) = dlsym(dynlib_handle, "__tgt_rtl_sync_event");
     *((void **)&R.destroy_event) =
         dlsym(dynlib_handle, "__tgt_rtl_destroy_event");
+    *((void **)&R.release_async_info) =
+        dlsym(dynlib_handle, "__tgt_rtl_release_async_info");
+    *((void **)&R.init_async_info) =
+        dlsym(dynlib_handle, "__tgt_rtl_init_async_info");
+    *((void **)&R.init_device_info) =
+        dlsym(dynlib_handle, "__tgt_rtl_init_device_info");
   }
 
   DP("RTLs loaded!\n");

@@ -1,4 +1,4 @@
-; RUN: opt < %s -vpo-paropt -S 2>&1 | FileCheck %s
+; RUN: opt -vpo-paropt -S %s 2>&1 | FileCheck %s
 
 ; CHECK: define{{.*}}TASK
 ; ...

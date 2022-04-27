@@ -17,12 +17,61 @@ using namespace clang;
 using namespace CodeGen;
 
 namespace {
+class StructEmitTy {
+  using DataTy = llvm::PointerIntPair<const RecordDecl *, 1>;
+  DataTy Data;
+
+  StructEmitTy(DataTy D) : Data(D) {}
+
+public:
+  enum IsBase { Standard = 0, Base = 1 };
+  StructEmitTy(const RecordDecl *RD, IsBase B) : Data(RD, B) {
+    assert(RD && "Cannot be created without a valid RecordDecl");
+  }
+
+  const RecordDecl *getRecordDecl() { return Data.getPointer(); }
+  IsBase isBase() { return Data.getInt() ? Base : Standard; }
+
+  unsigned getHashValue() {
+    return llvm::DenseMapInfo<DataTy>::getHashValue(Data);
+  }
+
+  static StructEmitTy getTombstoneKey() {
+    return StructEmitTy(llvm::DenseMapInfo<DataTy>::getTombstoneKey());
+  }
+  static StructEmitTy getEmptyKey() {
+    return StructEmitTy(llvm::DenseMapInfo<DataTy>::getEmptyKey());
+  }
+  bool operator==(const StructEmitTy &RHS) const { return Data == RHS.Data; }
+};
+} // namespace
+
+namespace llvm {
+template <> struct DenseMapInfo<StructEmitTy, void> {
+  static inline StructEmitTy getEmptyKey() {
+    return StructEmitTy::getEmptyKey();
+  }
+  static inline StructEmitTy getTombstoneKey() {
+    return StructEmitTy::getTombstoneKey();
+  }
+
+  static unsigned getHashValue(StructEmitTy S) { return S.getHashValue(); }
+
+  static bool isEqual(const StructEmitTy &LHS, const StructEmitTy &RHS) {
+    return LHS == RHS;
+  }
+};
+} // namespace llvm
+
+namespace {
 // A type to walk through a type/function/etc and emit the metadata, then
 // returning the top-level metadata for adding whever it goes.
 // See documentation at llvm/llvm/docs/Intel/DTrans/dtrans-opaque-pointers.rst
 class DTransInfoGenerator {
   llvm::LLVMContext &Ctx;
   CodeGenModule &CGM;
+  llvm::SmallSetVector<StructEmitTy, 32> *AlreadyVisited = nullptr;
+  llvm::SmallSetVector<StructEmitTy, 32> *ToBeVisited = nullptr;
 
   // The types for VFPtr and VBPtr are fixed, as you can see in
   // CGRecordLowering::accumulateVPtrs. the VFPtr is always going to be a
@@ -79,11 +128,38 @@ class DTransInfoGenerator {
   // 'fields' of the root-struct layout types we care about.  This is the most
   // generalized/structured portion of the metadata generation.
   llvm::MDNode *CreateTypeMD(QualType ClangType, llvm::Type *LLVMType,
-                             const Expr *InitExpr);
+                             const Expr *InitExpr, bool IsABase = false);
+
+  void AddToBeVisited(QualType Ty, bool IsBase) {
+    if (!ToBeVisited)
+      return;
+    if (const RecordDecl *RD = Ty->getAsRecordDecl()) {
+      // The '.base' version in IR only happens for a polymorphic type, but any
+      // type we name we ALWAYS emit the 'normal' type.
+      RD = cast<RecordDecl>(RD->getCanonicalDecl());
+      StructEmitTy Emit{RD, StructEmitTy::Standard};
+      if (!AlreadyVisited->contains(Emit))
+        ToBeVisited->insert(Emit);
+
+      // If this is polymorphic and used as a base, add the '.base' version as
+      // well.
+      if (const CXXRecordDecl *CXXRD = Ty->getAsCXXRecordDecl()) {
+        StructEmitTy BaseEmit{RD, StructEmitTy::Base};
+        if (IsBase && !AlreadyVisited->contains(BaseEmit))
+          ToBeVisited->insert(BaseEmit);
+      }
+    }
+  }
 
 public:
   DTransInfoGenerator(llvm::LLVMContext &Ctx, CodeGenModule &CGM)
       : Ctx(Ctx), CGM(CGM) {}
+
+  DTransInfoGenerator(llvm::LLVMContext &Ctx, CodeGenModule &CGM,
+                      llvm::SmallSetVector<StructEmitTy, 32> *AlreadyVisited,
+                      llvm::SmallSetVector<StructEmitTy, 32> *ToBeVisited)
+      : Ctx(Ctx), CGM(CGM), AlreadyVisited(AlreadyVisited),
+        ToBeVisited(ToBeVisited) {}
 
   // Add a globally used type the metadata, and return the root node for this
   // type's metadata.
@@ -119,21 +195,52 @@ public:
 void CodeGenModule::EmitIntelDTransMetadata() {
   if (!getCodeGenOpts().EmitDTransInfo)
     return;
-  llvm::LLVMContext &Ctx = TheModule.getContext();
+
+  // Just the type finder itself isn't enough to determine whether we need to
+  // emit a type, we have to make sure we emit all the types that we end up
+  // seeing while visiting those types. Store a list of those we've already
+  // visited so we don't try to double-visit.  By storing these, DTransTypes
+  // needs to remain unmodified so these don't get invalidated, so make sure we
+  // work off copies after this.
+  // ToBeVisited needs to be a deterministic container, but Visited does not.
+  llvm::SmallSetVector<StructEmitTy, 32> Visited;
+  llvm::SmallSetVector<StructEmitTy, 32> ToBeVisited;
+
+  llvm::TypeFinder TFinder;
+  TFinder.run(getModule(), /*onlyNamed*/ false, /*IncludeMD*/ true);
+
+  for (const auto &Type : DTransTypes) {
+    assert(Type.second.size() <= 2 && "More than two representations?");
+    for (unsigned I = 0; I < Type.second.size(); ++I) {
+      if (llvm::is_contained(TFinder, Type.second[I])) {
+        ToBeVisited.insert(
+            {Type.first, I ? StructEmitTy::Base : StructEmitTy::Standard});
+      }
+    }
+  }
 
   llvm::NamedMDNode *DTransRootMD =
       TheModule.getOrInsertNamedMetadata("intel.dtrans.types");
+  llvm::LLVMContext &Ctx = TheModule.getContext();
+  DTransInfoGenerator Generator(Ctx, *this, &Visited, &ToBeVisited);
 
-  DTransInfoGenerator Generator(Ctx, *this);
+  // Loop through until we have no additional records added.
+  while (!ToBeVisited.empty()) {
+    // Work off of a copy, so we can modify this as the Generator finds new
+    // types.
+    llvm::SmallSetVector<StructEmitTy, 32> CurToBeVisited;
+    std::swap(CurToBeVisited, ToBeVisited);
+    Visited.insert(CurToBeVisited.begin(), CurToBeVisited.end());
 
-  // Create the type finder so we only generate metadata for the types in the
-  // IR.
-  llvm::TypeFinder TFinder;
-  TFinder.run(getModule(), /*onlyNamed*/ false);
-  for (const auto &Type : DTransTypes) {
-    for (llvm::StructType *ST : Type.second) {
-      if (llvm::is_contained(TFinder, ST))
-        DTransRootMD->addOperand(Generator.AddType(Type.first, ST));
+    for (StructEmitTy Emit : CurToBeVisited) {
+      // For some specific edge cases, there isn't a '.base' for 
+      // types used as a base, particularly polymorphic types that don't have
+      // any data members. Don't try to emit them, since one doesn't exist.
+      if (Emit.isBase() && DTransTypes[Emit.getRecordDecl()].size() < 2)
+        continue;
+      DTransRootMD->addOperand(
+          Generator.AddType(Emit.getRecordDecl(),
+                            DTransTypes[Emit.getRecordDecl()][Emit.isBase()]));
     }
   }
 }
@@ -327,6 +434,7 @@ llvm::MDNode *DTransInfoGenerator::AddType(const RecordDecl *RD,
           MD.push_back(CreateVBPtr());
         else {
           QualType ClangType = Layout.getTypeOfLLVMFieldNum(Idx);
+          bool IsABase = Layout.IsFieldNumBase(Idx);
           llvm::Type *LLVMType = ST->getElementType(Idx);
           // If ClangType is null here, this struct element is either padding,
           // or a bitfield. Padding is either an array of i8, or a single i8.
@@ -336,7 +444,7 @@ llvm::MDNode *DTransInfoGenerator::AddType(const RecordDecl *RD,
           if (ClangType.isNull())
             ClangType = FixupPaddingType(LLVMType);
 
-          MD.push_back(CreateTypeMD(ClangType, LLVMType, nullptr));
+          MD.push_back(CreateTypeMD(ClangType, LLVMType, nullptr, IsABase));
         }
       }
     }
@@ -423,7 +531,8 @@ QualType DTransInfoGenerator::FixupPaddingType(llvm::Type *LLVMType) {
 // generalized/structured portion of the metadata generation.
 llvm::MDNode *DTransInfoGenerator::CreateTypeMD(QualType ClangType,
                                                 llvm::Type *LLVMType,
-                                                const Expr *InitExpr) {
+                                                const Expr *InitExpr,
+                                                bool IsABase) {
   llvm::SmallVector<llvm::Metadata *> MD;
   // Format for these fields is:
   // !{<type> zeroinitializer, i32 <pointer level> }
@@ -501,6 +610,7 @@ llvm::MDNode *DTransInfoGenerator::CreateTypeMD(QualType ClangType,
   default: {
     // Handle the primative LLVM-IR types.  These types should just be
     // zero-init versions of the IR types.
+    AddToBeVisited(ClangType, IsABase);
     MD.push_back(CreateElementMD(ClangType, LLVMType, InitExpr));
     MD.push_back(llvm::ConstantAsMetadata::get(
         llvm::ConstantInt::get(llvm::Type::getInt32Ty(Ctx), PointerCount)));
@@ -807,7 +917,7 @@ llvm::MDNode *DTransInfoGenerator::CreateVectorTypeMD(QualType ClangType,
                                                       llvm::Type *LLVMType) {
   // Metadata format is: !{!"V", i32 <numElem>, !MDNode }
   assert(LLVMType->isVectorTy() && "Not a vector type?");
-  llvm::VectorType *VT = cast<llvm::VectorType>(LLVMType);
+  auto *VT = cast<llvm::FixedVectorType>(LLVMType);
 
   llvm::SmallVector<llvm::Metadata *> VecMD;
   VecMD.push_back(llvm::MDString::get(Ctx, "V"));

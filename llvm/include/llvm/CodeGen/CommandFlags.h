@@ -1,4 +1,21 @@
 //===-- CommandFlags.h - Command Line Flags Interface -----------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -16,11 +33,6 @@
 #define LLVM_CODEGEN_COMMANDFLAGS_H
 
 #include "llvm/ADT/FloatingPointMode.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/Triple.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/MC/MCTargetOptionsCommandFlags.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Target/TargetOptions.h"
 #include <string>
@@ -29,6 +41,9 @@
 namespace llvm {
 
 class Module;
+class AttrBuilder;
+class Function;
+class Triple;
 
 namespace codegen {
 
@@ -62,6 +77,8 @@ bool getEnableNoNaNsFPMath();
 
 bool getEnableNoSignedZerosFPMath();
 
+bool getEnableApproxFuncFPMath();
+
 bool getEnableNoTrappingFPMath();
 
 DenormalMode::DenormalModeKind getDenormalFPMath();
@@ -92,6 +109,8 @@ bool getStackRealign();
 std::string getTrapFuncName();
 
 bool getUseCtors();
+
+bool getLowerGlobalDtorsViaCxaAtExit();
 
 bool getRelaxELFRelocations();
 
@@ -132,6 +151,10 @@ bool getEnableFtzDaz();
 int getX87Precision();
 
 bool getDoFMAOpt();
+
+bool getIntelSpillParms();
+
+bool getIntelABICompatible();
 #endif // INTEL_CUSTOMIZATION
 
 bool getEmitCallSiteInfo();
@@ -150,6 +173,8 @@ bool getXRayOmitFunctionIndex();
 bool getDebugStrictDwarf();
 
 unsigned getAlignLoops();
+
+bool getJMCInstrument();
 
 /// Create this object with static storage to register codegen-related command
 /// line options.

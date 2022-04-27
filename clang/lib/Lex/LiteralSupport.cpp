@@ -1,4 +1,21 @@
 //===--- LiteralSupport.cpp - Code to parse and process literals ----------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -714,6 +731,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
   isFract = false;
   isAccum = false;
   hadError = false;
+  isBitInt = false;
 
   // This routine assumes that the range begin/end matches the regex for integer
   // and FP constants (specifically, the 'pp-number' regex), and assumes that
@@ -901,6 +919,24 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       if (isImaginary) break;   // Cannot be repeated.
       isImaginary = true;
       continue;  // Success.
+    case 'w':
+    case 'W':
+      if (isFPConstant)
+        break; // Invalid for floats.
+      if (HasSize)
+        break; // Invalid if we already have a size for the literal.
+
+      // wb and WB are allowed, but a mixture of cases like Wb or wB is not. We
+      // explicitly do not support the suffix in C++ as an extension because a
+      // library-based UDL that resolves to a library type may be more
+      // appropriate there.
+      if (!LangOpts.CPlusPlus && ((s[0] == 'w' && s[1] == 'b') ||
+          (s[0] == 'W' && s[1] == 'B'))) {
+        isBitInt = true;
+        HasSize = true;
+        ++s; // Skip both characters (2nd char skipped on continue).
+        continue; // Success.
+      }
     }
     // If we reached here, there was an error or a ud-suffix.
     break;
@@ -922,6 +958,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
         isFloat16 = false;
         isHalf = false;
         isImaginary = false;
+        isBitInt = false;
         MicrosoftInteger = 0;
         saw_fixed_point_suffix = false;
         isFract = false;
@@ -1151,8 +1188,14 @@ void NumericLiteralParser::ParseNumberStartingWithZero(SourceLocation TokLoc) {
   // floating point constant, the radix will change to 10. Octal floating
   // point constants are not permitted (only decimal and hexadecimal).
   radix = 8;
-  DigitsBegin = s;
+  const char *PossibleNewDigitStart = s;
   s = SkipOctalDigits(s);
+  // When the value is 0 followed by a suffix (like 0wb), we want to leave 0
+  // as the start of the digits. So if skipping octal digits does not skip
+  // anything, we leave the digit start where it was.
+  if (s != PossibleNewDigitStart)
+    DigitsBegin = PossibleNewDigitStart;
+
   if (s == ThisTokEnd)
     return; // Done, simple octal number like 01234
 

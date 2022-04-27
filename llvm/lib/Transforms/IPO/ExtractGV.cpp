@@ -9,9 +9,13 @@
 // This pass extracts global values
 //
 //===----------------------------------------------------------------------===//
-
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypeMetadataBuilder.h"
+#include "Intel_DTrans/Analysis/TypeMetadataReader.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/SetVector.h"
-#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/IPO.h"
@@ -114,9 +118,25 @@ namespace {
         makeVisible(F, Delete);
 
         if (Delete) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+          // Get any existing DTrans type metadata before the body is deleted
+          // because deleting the body will keep the DTrans type attributes on
+          // the function, but remove the DTrans type metadata attachment.
+          MDNode *MD = dtransOP::TypeMetadataReader::getDTransMDNode(F);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
           // Make this a declaration and drop it's comdat.
           F.deleteBody();
           F.setComdat(nullptr);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+          // Restore the DTrans type metadata onto the function declaration.
+          if (MD)
+            dtransOP::DTransTypeMetadataBuilder::addDTransMDNode(F, MD);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
         }
       }
 

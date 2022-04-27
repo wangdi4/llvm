@@ -1,4 +1,4 @@
-//RUN: %clang_cc1 -fhls -emit-llvm -triple x86_64-unknown-linux-gnu -o - %s | FileCheck %s
+//RUN: %clang_cc1 -fhls -emit-llvm -triple x86_64-unknown-linux-gnu -opaque-pointers -o - %s | FileCheck %s
 
 void __attribute__((cluster)) foo1() {}
 // CHECK: @_Z4foo1v{{.*}}!cluster [[CFOO1:![0-9]+]]
@@ -12,7 +12,7 @@ void __attribute__((cluster(""))) foo3() {}
 void foo4() {
   auto lambda = []() __attribute__((cluster("lambdaattr"))){};
   lambda();
-  // CHECK: @"_ZZ4foo4vENK3$_0clEv"(%class.anon* {{[^,]*}} %this){{.*}}!cluster [[LAMBDA:![0-9]+]]
+  // CHECK: @"_ZZ4foo4vENK3$_0clEv"(ptr {{[^,]*}} %this){{.*}}!cluster [[LAMBDA:![0-9]+]]
 }
 
 //CHECK: [[CFOO1]] = !{!"", i32 0}

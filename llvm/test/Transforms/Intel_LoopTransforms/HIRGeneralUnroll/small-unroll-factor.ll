@@ -18,7 +18,7 @@
 ; CHECK:     BEGIN REGION { modified }
 ; CHECK:           %tgu = (sext.i32.i64(%M))/u2;
 ;
-; CHECK:           + DO i1 = 0, %tgu + -1, 1 <DO_LOOP> <MAX_TC_EST = 1073741823> <nounroll>
+; CHECK:           + DO i1 = 0, %tgu + -1, 1 <DO_LOOP> <MAX_TC_EST = 1073741823>   <LEGAL_MAX_TC = 1073741823> <nounroll>
 ; CHECK:           |   %0 = (%A)[2 * i1];
 ; CHECK:           |   %add = %0  +  1.000000e+00;
 ; CHECK:           |   (%A)[2 * i1] = %add;

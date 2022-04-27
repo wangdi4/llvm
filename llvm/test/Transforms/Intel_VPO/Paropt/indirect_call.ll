@@ -1,5 +1,5 @@
-; RUN: opt -vpo-paropt -S < %s | FileCheck %s
-; RUN: opt -passes='vpo-paropt' -S < %s  | FileCheck %s
+; RUN: opt -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='vpo-paropt' -S %s | FileCheck %s
 ;
 ; The test is to make sure paropt does not crash when it
 ; encounters an indirect call.

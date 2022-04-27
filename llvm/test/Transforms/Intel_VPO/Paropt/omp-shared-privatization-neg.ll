@@ -1,4 +1,4 @@
-; RUN: opt -O3 -paropt=31 -S < %s | FileCheck %s
+; RUN: opt -O3 -paropt=31 -S %s | FileCheck %s
 ;
 ; Check that shared P is not privatized in the 'parallel for'. Privatization
 ; is not legal because P is captured by a nested task.

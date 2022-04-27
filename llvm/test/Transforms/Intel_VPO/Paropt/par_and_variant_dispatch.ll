@@ -1,5 +1,5 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S 2>&1 | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s 2>&1 | FileCheck %s
 
 ; Check that we can successfully outline the variant region,
 ; and code-extractor doesn't complain about DT being invalid.

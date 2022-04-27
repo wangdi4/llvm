@@ -110,6 +110,10 @@ static cl::opt<std::string> PrintDiagFunc(
     OPT_SWITCH "-print-diag-func", cl::ReallyHidden,
     cl::desc("Print Diag why " OPT_DESC " did not happen for the function."));
 
+static cl::opt<bool> PrintInterchangedLoop(
+    OPT_SWITCH "-print-affected-loops", cl::init(false), cl::ReallyHidden,
+    cl::desc("Print loops affected by " OPT_DESC " pass"));
+
 static void printSmallSetInt(SmallSet<unsigned, 4> &IntSet, std::string Msg) {
   formatted_raw_ostream FOS(dbgs());
   if (Msg.size()) {
@@ -176,6 +180,7 @@ enum DiagMsg {
   NON_LINEAR_DEF_OR_ALL_UNIT_STRIDES,
   ALREADY_IN_RIGHT_ORDER,
   BEST_LOCALITY_LOOP_CANNOT_BECOME_INNERMOST,
+  JUMP_THREADING_FRIENDLY,
   NUM_DIAGS
 };
 
@@ -189,6 +194,8 @@ inline std::array<std::string, NUM_DIAGS> createDiagMap() {
       "Cannot move best locality loop as innermost.";
   Map[ALREADY_IN_RIGHT_ORDER] =
       "Current Loop nest is already most favorable to locality.";
+  Map[JUMP_THREADING_FRIENDLY] =
+      "Current Loop nest order is jump-threading friendly.";
 
   return Map;
 }
@@ -483,6 +490,8 @@ struct HIRLoopInterchange::CollectCandidateLoops final
 
       if (!HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop)) {
         printDiag(NON_LINEAR_DEF_OR_ALL_UNIT_STRIDES, FuncName, Loop);
+      } else if (isJumpThreadingFriendly(Loop, InnermostLoop)) {
+        printDiag(JUMP_THREADING_FRIENDLY, FuncName, Loop);
       } else {
         LLVM_DEBUG(dbgs() << "\nHas non unit stride\n");
         CandidateLoopPair LoopPair =
@@ -502,7 +511,150 @@ struct HIRLoopInterchange::CollectCandidateLoops final
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
   bool skipRecursion(const HLNode *Node) const { return Node == SkipNode; }
+
+private:
+  // Note that this function assumes that non-unit stride
+  // exists by the caller side.
+  bool isJumpThreadingFriendly(const HLLoop *OutermostLoop,
+                               const HLLoop *InnermostLoop);
 };
+
+bool HIRLoopInterchange::CollectCandidateLoops::isJumpThreadingFriendly(
+    const HLLoop *OutermostLoop, const HLLoop *InnermostLoop) {
+
+  // Loop body has at least 2 ifs.
+  auto NumIfs = LIP.HLS.getSelfLoopStatistics(InnermostLoop).getNumIfs();
+  if (NumIfs < 2)
+    return false;
+
+  // Only consider 2-level loop
+  unsigned OutermostLevel = OutermostLoop->getNestingLevel();
+  unsigned InnermostLevel = InnermostLoop->getNestingLevel();
+  if (OutermostLevel + 1 != InnermostLevel)
+    return false;
+
+  // Small constant TC for the innermost loop
+  uint64_t InnerTC = 0;
+  if (!InnermostLoop->isConstTripLoop(&InnerTC) || InnerTC > 4)
+    return false;
+
+  // All Ifs are at the same lexical level
+  SmallVector<const HLIf *, 4> IfVec;
+  for (const HLNode &Node :
+       make_range(InnermostLoop->child_begin(), InnermostLoop->child_end())) {
+    if (const HLIf *If = dyn_cast<HLIf>(&Node))
+      IfVec.push_back(If);
+  }
+
+  // If some if-stmts are nested bail-out
+  if (IfVec.size() != NumIfs)
+    return false;
+
+  // Compare conditions
+  const HLIf *If = IfVec.front();
+  if (If->getNumPredicates() > 1)
+    return false;
+
+  auto PredI = If->pred_begin();
+  PredicateTy Pred = *PredI;
+  // Check Predicate first because it is much cheaper.
+  for (const HLIf *I : make_range(std::next(IfVec.begin()), IfVec.end())) {
+    if (I->getNumPredicates() > 1)
+      return false;
+
+    auto PI = I->pred_begin();
+    if (Pred != *PI)
+      return false;
+  }
+
+  // Check Pred Operands - first If
+  const RegDDRef *LHS = If->getLHSPredicateOperandDDRef(PredI);
+  const RegDDRef *RHS = If->getRHSPredicateOperandDDRef(PredI);
+
+  // We are looking for a specific pattern, where conditions of if-stmt
+  // are same across one or more iterations.
+  // For example, in the following pattern,
+  // at i2 = 0 two if-conds will be (%a)[0][i1]!=0 and (%a)[1][i1]!=0.
+  // at i2 = 1 two if-conds will be (%a)[1][i1]!=0 and (%a)[2][i1]!=0.
+  // Notice (%a)[1][i1]!=0 is common in the two iterations of i2.
+  // Chances are i2-loop is completely unrolled and the common conditions in
+  // two different iterations can be jump-threaded.
+  //  + DO i1 = 0, zext.i8.i64(%BC) + -1, 1
+  //  |  + DO i2 = 0, 3, 1   <DO_LOOP>
+  //  |  |   %2 = (%a)[i2][i1];
+  //  |  |   if (%2 != 0)
+  //  |  |   {
+  //  |  |     ...
+  //  |  |   }
+  //  |  |   %7 = (%a)[i2 + 1][i1];
+  //  |  |   if (%7 != 0)
+  //  |  |   {
+  //  |  |     ...
+  //  |  |   }
+  // A full example can be found at no-for-jumpthreading.ll
+  // In this specific case, we avoid loop-interchange.
+  // Notice that congruence of predicates (!= here) is already checked above.
+  // Here check operands of the conditions. If memrefs, should be in non-zero
+  // const-iteration distance. Otherwise, should be equal (Rvals here).
+  DDGraph DDG = DDA.getGraph(InnermostLoop);
+  const RegDDRef *FirstInputRefs[2] = {LHS, RHS};
+  const RegDDRef *FirstLoadSrcRefs[2] = {nullptr, nullptr};
+  for (int J = 0; J < 2; J++) {
+    if (FirstInputRefs[J]->isTerminalRef())
+      for (const DDEdge *Edge : DDG.incoming(FirstInputRefs[J])) {
+        const HLDDNode *Src = Edge->getSrc()->getHLDDNode();
+        if (const HLInst *Inst = dyn_cast<HLInst>(Src))
+          if (isa<LoadInst>(Inst->getLLVMInstruction())) {
+            FirstLoadSrcRefs[J] = Src->getRvalDDRef();
+            break;
+          }
+      }
+  }
+
+  // At least one side should be from load inst.
+  if (!FirstLoadSrcRefs[0] && !FirstLoadSrcRefs[1])
+    return false;
+
+  // Compare remaining Ifs against the first If
+  for (const HLIf *I : make_range(std::next(IfVec.begin()), IfVec.end())) {
+
+    const RegDDRef *ILhs = I->getLHSPredicateOperandDDRef(I->pred_begin());
+    const RegDDRef *IRhs = I->getRHSPredicateOperandDDRef(I->pred_begin());
+
+    const RegDDRef *InputRefs[2] = {ILhs, IRhs};
+    const RegDDRef *LoadSrcRefs[2] = {nullptr, nullptr};
+    for (int J = 0; J < 2; J++) {
+      if (InputRefs[J]->isTerminalRef())
+        for (const DDEdge *Edge : DDG.incoming(InputRefs[J])) {
+          const HLDDNode *Src = Edge->getSrc()->getHLDDNode();
+          if (const HLInst *Inst = dyn_cast<HLInst>(Src))
+            if (isa<LoadInst>(Inst->getLLVMInstruction())) {
+              LoadSrcRefs[J] = Src->getRvalDDRef();
+              break;
+            }
+        }
+    }
+
+    for (int J = 0; J < 2; J++)
+      if (FirstLoadSrcRefs[J]) {
+        int64_t Distance = 0;
+        // Memrefs should be in the const iteration distance
+        // to match across loop iterations.
+        if (!LoadSrcRefs[J] ||
+            !DDRefUtils::getConstIterationDistance(
+                FirstLoadSrcRefs[J], LoadSrcRefs[J], InnermostLevel, &Distance,
+                true) ||
+            Distance == 0 || std::llabs(Distance) > (long long)InnerTC)
+          return false;
+      } else {
+        // Non-memrefs should be the same.
+        if (!DDRefUtils::areEqual(FirstInputRefs[J], InputRefs[J], true))
+          return false;
+      }
+  }
+
+  return true;
+}
 
 // HIR loop Special interchange is designed to
 // 1. target perfect loop nests which can then enable tiling;
@@ -1501,6 +1653,15 @@ void HIRLoopInterchange::reportTransformation(OptReportBuilder &ORBuilder) {
 }
 
 bool HIRLoopInterchange::transformLoop(HLLoop *Loop) {
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (PrintInterchangedLoop) {
+    dbgs() << "Before Interchange:\n";
+    dbgs() << "Function: " << Loop->getHLNodeUtils().getFunction().getName() << "\n";
+    Loop->dump();
+  }
+#endif
+
   // Invalidate all analysis for InnermostLoop:
   HIRInvalidationUtils::invalidateBounds(InnermostLoop);
   HIRInvalidationUtils::invalidateBody(InnermostLoop);
@@ -1521,6 +1682,13 @@ bool HIRLoopInterchange::transformLoop(HLLoop *Loop) {
 
   LoopsInterchanged++;
   AnyLoopInterchanged = true;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (PrintInterchangedLoop) {
+    dbgs() << "After Interchange:\n";
+    Loop->dump();
+  }
+#endif
 
   return true;
 }

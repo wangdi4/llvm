@@ -40,7 +40,7 @@ define void @test01() {
 
  ; Verify the store for original allocation is changed to storing index
  ; element 1.
-; CHECK: %alloc_idx = call ptr @llvm.ptr.annotation.p0(ptr %field, ptr getelementptr inbounds ([33 x i8], ptr @__intel_dtrans_aostosoa_index, i32 0, i32 0), ptr getelementptr inbounds ([1 x i8], ptr @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, ptr null)
+; CHECK: %alloc_idx = call ptr @llvm.ptr.annotation.p0(ptr %field, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK: store i64 1, ptr %field
 
   %fa0 = getelementptr %struct.test01, ptr %st, i64 0, i32 0
@@ -57,7 +57,7 @@ define void @test01() {
 ; CHECK: %[[SOA_ADDR1:[0-9]+]] = getelementptr %__SOA_struct.test01, ptr @__soa_struct.test01, i64 0, i32 1
 ; CHECK: %[[FIELD1_BASE:[0-9]+]] = load ptr, ptr %[[SOA_ADDR1]]
 ; CHECK: %fa1 = getelementptr i64, ptr %[[FIELD1_BASE]], i64 1
-; CHECK: %alloc_idx1 = call ptr @llvm.ptr.annotation.p0(ptr %fa1, ptr getelementptr inbounds ([33 x i8], ptr @__intel_dtrans_aostosoa_index, i32 0, i32 0), ptr getelementptr inbounds ([1 x i8], ptr @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, ptr null)
+; CHECK: %alloc_idx1 = call ptr @llvm.ptr.annotation.p0(ptr %fa1, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK: store i64 0, ptr %fa1
 
   %fa2 = getelementptr %struct.test01, ptr %st, i64 0, i32 2

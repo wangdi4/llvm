@@ -85,6 +85,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/SIMDIntrinsicChecker.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
@@ -110,12 +111,21 @@ static cl::list<unsigned>
     TransformNodes(OPT_SWITCH "-nodes", cl::Hidden,
                    cl::desc("List nodes to transform by " OPT_DESC));
 
+static cl::opt<bool> BypassSIMDLoop(OPT_SWITCH "-bypass-simd", cl::init(false),
+                                    cl::Hidden,
+                                    cl::desc(OPT_DESC " skipps simd loops"));
+
+static cl::opt<bool>
+    SkipIVOverflowCheck(OPT_SWITCH "-relax-ov", cl::init(false), cl::Hidden,
+                        cl::desc(OPT_DESC " relaxes IV overflow check"));
+
 STATISTIC(LoopsSplit, "Loops split during optimization of predicates.");
 
 namespace {
 
 struct EqualCandidates : public SmallSetVector<HLIf *, 8> {
   bool HasUnsafeCall = false;
+  bool BothSidesIV = false;
 
   EqualCandidates(HLIf *If) { insert(If); }
 
@@ -179,7 +189,7 @@ public:
 
 private:
   static std::unique_ptr<CanonExpr>
-  findIVSolution(Type *IVType, const RegDDRef *LHSDDref, PredicateTy Pred,
+  findIVSolution(const HLLoop *Loop, const RegDDRef *LHSDDref, PredicateTy Pred,
                  const RegDDRef *RHSDDRef, unsigned Level,
                  bool &ShouldInvertCondition);
 
@@ -199,6 +209,18 @@ private:
 
   void addVarPredicateRemark(const EqualCandidates &Candidates, HLLoop *Loop,
                              OptReportBuilder &ORBuilder, unsigned RemarkID);
+
+  std::tuple<HLInst *, RegDDRef *, bool>
+  convertOneSideToStandAloneBlob(const RegDDRef *LHS, const RegDDRef *RHS,
+                                 unsigned Level);
+
+  static void replaceIfCondWithConvertedBlob(const EqualCandidates &Candidate,
+                                             HLInst *CopyInst,
+                                             RegDDRef *NewBlob,
+                                             bool IsLHSConverted, HLLoop *Loop);
+
+  static void cloneSIMDDirs(ArrayRef<HLLoop *> OutLoops,
+                            const SIMDIntrinsicChecker &SIC);
 };
 } // namespace
 
@@ -257,9 +279,10 @@ public:
 
     // Loop through predicates to check if they satisfy opt predicate
     // conditions.
+    bool BothSidesIV = false;
     for (auto Iter = If->pred_begin(), E = If->pred_end(); Iter != E; ++Iter) {
-      const RegDDRef *LHSRef = If->getPredicateOperandDDRef(Iter, true);
-      const RegDDRef *RHSRef = If->getPredicateOperandDDRef(Iter, false);
+      const RegDDRef *LHSRef = If->getLHSPredicateOperandDDRef(Iter);
+      const RegDDRef *RHSRef = If->getRHSPredicateOperandDDRef(Iter);
 
       bool LHSIV;
       bool RHSIV;
@@ -272,10 +295,20 @@ public:
       if ((LHSIV && RHSIV) || (!LHSIV && !RHSIV)) {
         return;
       }
+
+      // Exactly one of LHS or RHS has IV at Level.
+      // See if the other side has IV at another Level.
+      if (LHSIV && RHSRef->getSingleCanonExpr()->getFirstIVLevel() &&
+              RHSRef->isStructurallyInvariantAtLevel(Level) ||
+          RHSIV && LHSRef->getSingleCanonExpr()->getFirstIVLevel() &&
+              LHSRef->isStructurallyInvariantAtLevel(Level)) {
+        BothSidesIV = true;
+      }
     }
 
     Candidates.emplace_back(If);
     Candidates.back().HasUnsafeCall = Lookup.HasUnsafeCall;
+    Candidates.back().BothSidesIV = BothSidesIV;
   }
 
   void visit(const HLIf *If) { llvm_unreachable("Unexpected const HLIf."); }
@@ -296,6 +329,130 @@ public:
   bool skipRecursion(const HLNode *Node) const { return SkipNode == Node; }
 };
 
+std::tuple<HLInst *, RegDDRef *, bool>
+HIROptVarPredicate::convertOneSideToStandAloneBlob(const RegDDRef *LHS,
+                                                   const RegDDRef *RHS,
+                                                   unsigned Level) {
+  bool hasLHSIV = LHS->hasIV(Level);
+  bool hasRHSIV = RHS->hasIV(Level);
+  assert(hasLHSIV != hasRHSIV);
+  (void)hasLHSIV;
+
+  bool IsLHSReplaced = false;
+  if (hasRHSIV) {
+    std::swap(LHS, RHS);
+    IsLHSReplaced = true;
+  }
+
+  // ConvertToStandAloneBlob doesnt work when iv is present.
+  // Add following copy to Blobify (c*iv + k).
+  // %ivcopy = coeff * iv_anotherLevel + {const} + {blob}
+  HLInst *CopyInst =
+      HIRF.getHLNodeUtils().createCopyInst(RHS->clone(), "ivcopy");
+  RegDDRef *BlobRHS = CopyInst->getLvalDDRef()->clone();
+
+  // CopyInst is not inserted. BlobRHS is not yet attached either.
+  // Thus, using CopyInst's Lval as AuxRef for calling makeConsistent() of
+  // BlobRHS doesn't work.
+  // If subsequent checks pass, CopyInst will be inserted before current Loop.
+  BlobRHS->getSingleCanonExpr()->setDefinedAtLevel(Level - 1);
+
+  return {CopyInst, BlobRHS, IsLHSReplaced};
+}
+
+void HIROptVarPredicate::replaceIfCondWithConvertedBlob(
+    const EqualCandidates &Candidate, HLInst *CopyInst, RegDDRef *NewBlob,
+    bool IsLHSConverted, HLLoop *Loop) {
+
+  // Take care of the first If
+  HLIf *IfCandidate = Candidate.front();
+  auto PredI = IfCandidate->pred_begin();
+  RegDDRef *OrigLHS = IfCandidate->getLHSPredicateOperandDDRef(PredI);
+  RegDDRef *OrigRHS = IfCandidate->getRHSPredicateOperandDDRef(PredI);
+  RegDDRef *OldRef = IsLHSConverted ? OrigLHS : OrigRHS;
+  IfCandidate->replaceOperandDDRef(OldRef, NewBlob);
+
+  // Insert copy using original if-cond as aux refs.
+  // Notice that the copy needs to be inserted only once
+  // before the enclosing loop.
+  HLNodeUtils::insertBefore(Loop, CopyInst);
+  CopyInst->getLvalDDRef()->makeConsistent({OrigLHS, OrigRHS});
+  Loop->addLiveInTemp(CopyInst->getLvalDDRef());
+
+  // Take care of the rest of Ifs, if any.
+  for (HLIf *IfCandidate :
+       make_range(std::next(Candidate.begin()), Candidate.end())) {
+    auto PredI = IfCandidate->pred_begin();
+    RegDDRef *OrigLHS = IfCandidate->getLHSPredicateOperandDDRef(PredI);
+    RegDDRef *OrigRHS = IfCandidate->getRHSPredicateOperandDDRef(PredI);
+    RegDDRef *OldRef = IsLHSConverted ? OrigLHS : OrigRHS;
+    IfCandidate->replaceOperandDDRef(OldRef, NewBlob->clone());
+  }
+}
+
+static inline void cloneDirEntry(HLNode *Pos, const HLInst *DirSIMD,
+                                 ArrayRef<const HLInst *> AuxInsts) {
+  HLInst *Entry = DirSIMD->clone();
+  HLNodeUtils::insertBefore(Pos, Entry);
+  for (const HLInst *Load : AuxInsts)
+    HLNodeUtils::insertBefore(Pos, Load->clone());
+}
+
+static inline void cloneDirExit(HLNode *Pos, const HLInst *DirSIMDExit,
+                                ArrayRef<const HLInst *> AuxInsts) {
+  HLInst *Exit = DirSIMDExit->clone();
+  HLNodeUtils::insertAfter(Pos, Exit);
+  for (const HLInst *Store : AuxInsts)
+    HLNodeUtils::insertBefore(Exit, Store->clone());
+}
+
+void HIROptVarPredicate::cloneSIMDDirs(
+    ArrayRef<HLLoop *> OutLoops,
+    const SIMDIntrinsicChecker &SIC) {
+
+  unsigned NumOutLoops = OutLoops.size();
+  // If there is only one output loop, no more cloning is needed,
+  // so just return.
+  if (NumOutLoops <= 1)
+    return;
+
+  const HLInst *DirSIMD = SIC.getSIMDEntryInst();
+  const HLInst *DirSIMDExit = SIC.getSIMDExitInst();
+
+  // NumOutLoops >= 2
+  // Figure out if the there is a non-loop middle node
+  HLLoop *FirstLp = OutLoops.front();
+  HLLoop *LastLp = OutLoops[NumOutLoops - 1];
+  HLNode *NextNode = FirstLp->getNextNode();
+  if (!isa<HLLoop>(NextNode) && NextNode != LastLp) {
+    // If there is a non-loop middle node, clone/insert pre/post loops.
+    if (HLIf* If = dyn_cast<HLIf>(NextNode)) {
+      assert(If->getNumElseChildren() == 0);
+      cloneDirEntry(If->getFirstThenChild(), DirSIMD, SIC.getRedPreLoopInsts());
+      cloneDirExit(If->getLastThenChild(), DirSIMDExit, SIC.getRedPostLoopInsts());
+    } else {
+      cloneDirEntry(NextNode, DirSIMD, SIC.getRedPreLoopInsts());
+      cloneDirExit(NextNode, DirSIMDExit, SIC.getRedPostLoopInsts());
+    }
+  }
+
+  // First and last loops are handled differently
+  // First loop - add exit only
+  cloneDirExit(FirstLp, DirSIMDExit, SIC.getRedPostLoopInsts());
+
+  // Last - add entry only
+  cloneDirEntry(LastLp, DirSIMD, SIC.getRedPreLoopInsts());
+
+  // Middle loops, if any
+  for (unsigned I = 1; I < NumOutLoops - 1; I++) {
+    HLLoop *Lp = OutLoops[I];
+    // Exit
+    cloneDirExit(Lp, DirSIMDExit, SIC.getRedPostLoopInsts());
+    // Entry
+    cloneDirEntry(Lp, DirSIMD, SIC.getRedPreLoopInsts());
+  }
+}
+
 static bool hasIVAndConstOnly(const CanonExpr *CE, unsigned Level) {
   bool OneIVAndConstant = ((CE->getDenominator() == 1) &&
                            (CE->numBlobs() == 0) && (CE->numIVs() == 1));
@@ -311,19 +468,79 @@ static bool hasIVAndConstOnly(const CanonExpr *CE, unsigned Level) {
   return (Coeff == 1 || Coeff == -1) && (Index == InvalidBlobIndex);
 }
 
-static bool mayIVOverflowCE(const CanonExpr *CE, Type *IVType) {
-  unsigned Width = IVType->getPrimitiveSizeInBits();
+static bool mayIVOverflowCE(const CanonExpr *CE, const HLLoop *Loop) {
 
-  if (CE->getSrcType()->getPrimitiveSizeInBits() < Width ||
-      CE->getDestType()->getPrimitiveSizeInBits() < Width) {
+  unsigned Width = Loop->getIVType()->getPrimitiveSizeInBits();
+
+  if (CE->getSrcType()->getPrimitiveSizeInBits() >= Width &&
+      CE->getDestType()->getPrimitiveSizeInBits() >= Width)
+    return false;
+
+  if (!CE->isTrunc())
     return true;
+
+  uint64_t LegalMaxTC = Loop->getLegalMaxTripCount();
+  if (!LegalMaxTC)
+    return true;
+
+  // Only takes care of wrap-around logic in the context of
+  // signedness. Notice that EQ/NEQ will introduce sext and smin/max
+  // through opt var predicate.
+  //   + DO i32 i1 = 0, sext.i16.i32(%n) + -1, 1 <LEGAL_MAX_TC = 32767>
+  //   |   if (i1 == %d)
+  //   |   <RVAL-REG> LINEAR trunc.i32.i16(i1) {sb:2}
+  //   |   <RVAL-REG> LINEAR i16 %d {sb:7}
+  //   |   {
+  //   |      (%p)[i1] = i1;
+  //   |
+  //   |   }
+  //   |   else
+  //   |   {
+  //   |      (%q)[i1] = i1;
+  //   |   }
+  //   + END LOOP
+  //
+  // Will be transformed into
+  //
+  //  + DO i32 i1 = 0, smin(sext.i16.i32((-1 + %d)), (-1 + sext.i16.i32(%n))), 1
+  //  | (%q)[i1] = i1;
+  //  + END LOOP
+  //
+  //  if (smax(0, sext.i16.i32(%d)) < smin(sext.i16.i32(%d), (-1 +
+  //  sext.i16.i32(%n))) + 1)
+  //  {
+  //   (%p)[smax(0, sext.i16.i32(%d))] = smax(0, sext.i16.i32(%d));
+  //  }
+  //
+  //  + DO i32 i1 = 0, sext.i16.i32(%n) + -1 * smax(0, sext.i16.i32((1 + %d))) +
+  //  -1, 1 | (%q)[i1 + smax(0, sext.i16.i32((1 + %d)))] = i1 + smax(0,
+  //  sext.i16.i32((1 + %d)));
+  //  + END LOOP
+  //
+  // Notice with sext, having bit 1, at msb of the 16-bit (leftmost of the
+  // 16-bit) can lead
+  // to an incorrect transformation. E.g. %d = 0xFFFE, the condition in middle
+  // if-stmt is not met. smax(0, sext.i16.i32(0xfffe)) = 0,
+  // smin(sext.i16.i32(0xfffe), (-1 + sext.i16.i32(%n)) + 1) = 0xfffe = -2
+  // However, in the original loop before transformation the condition (i1  ==
+  // %d) could have been met (e.g. i1 = 0xfffe and LEGAL_MAX_TC were 2^16 - 1).
+  // To be safe, LEGAL_MAX_TC should fit in 2^15 - 1, not 2^16 - 1.
+  // Cannot use mayWraparound util, which uses getMaxValue in trunc.
+  // Canbe extended to use getMaxValue when contexts are zeroext, umin/max.
+
+  APInt MaxTypeVal =
+      APInt::getSignedMaxValue(CE->getDestType()->getScalarSizeInBits());
+
+  if (MaxTypeVal.getZExtValue() >= LegalMaxTC) {
+    LLVM_DEBUG(dbgs() << "Using LEGAL_MAX_TC\n");
+    return false;
   }
 
-  return false;
+  return true;
 }
 
 std::unique_ptr<CanonExpr> HIROptVarPredicate::findIVSolution(
-    Type *IVType, const RegDDRef *LHSDDref, PredicateTy Pred,
+    const HLLoop *Loop, const RegDDRef *LHSDDref, PredicateTy Pred,
     const RegDDRef *RHSDDRef, unsigned Level, bool &ShouldInvertCondition) {
 
   assert(LHSDDref->isTerminalRef() && RHSDDRef->isTerminalRef() &&
@@ -339,7 +556,8 @@ std::unique_ptr<CanonExpr> HIROptVarPredicate::findIVSolution(
     return nullptr;
   }
 
-  if (CmpInst::isUnsigned(Pred) || mayIVOverflowCE(LHS, IVType)) {
+  if (CmpInst::isUnsigned(Pred) ||
+      !SkipIVOverflowCheck && mayIVOverflowCE(LHS, Loop)) {
     return nullptr;
   }
 
@@ -347,6 +565,9 @@ std::unique_ptr<CanonExpr> HIROptVarPredicate::findIVSolution(
   std::unique_ptr<CanonExpr> Result(RHS->clone());
 
   int64_t LHSConst = LHS->getConstant();
+  // TODO: i2 != i1 + %207 the following if-cond is not true since
+  //       we will make the RHS a standalong blob after a copy.
+  //       However, revisit at some point to see the relevance.
   if (LHSConst != 0) {
     int64_t RHSConst;
     if (!RHS->isIntConstant(&RHSConst)) {
@@ -848,6 +1069,10 @@ void HIROptVarPredicate::splitLoop(
 
 bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
                                      SmallVectorImpl<HLLoop *> *OutLoops) {
+  LLVM_DEBUG(
+      dbgs() << "Function "
+             << Loop->getHLNodeUtils().getHIRFramework().getFunction().getName()
+             << ": \n");
   LLVM_DEBUG(dbgs() << "Processing loop <" << Loop->getNumber() << ">\n");
 
   if (!Loop->isDo()) {
@@ -860,9 +1085,18 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
     return false;
   }
 
-  if (Loop->isSIMD()) {
-    LLVM_DEBUG(dbgs() << "SIMD Loop skipped\n");
-    return false;
+  const HLInst *DirSIMD = Loop->getSIMDEntryIntrinsic();
+  SIMDIntrinsicChecker SIC(BypassSIMDLoop ? nullptr : DirSIMD, Loop);
+  if (DirSIMD) {
+    if (BypassSIMDLoop) {
+      LLVM_DEBUG(dbgs() << "SIMD Loop skipped.\n");
+      return false;
+    }
+
+    if (!SIC.isHandleable() || !SIC.areAllInPreAndPostLoop()) {
+      LLVM_DEBUG(dbgs() << "Unhandleable SIMD Loop.\n");
+      return false;
+    }
   }
 
   SmallVector<EqualCandidates, 4> Candidates;
@@ -876,6 +1110,7 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
        !LowerCE->convertToStandAloneBlobOrConstant()) ||
       (!UpperCE->isIntConstant() &&
        !UpperCE->convertToStandAloneBlobOrConstant())) {
+    LLVM_DEBUG(dbgs() << "Loop bounds are not stand-alone blobs.\n");
     return false;
   }
 
@@ -913,16 +1148,35 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
     }
 
     auto PredI = IfCandidate->pred_begin();
-    RegDDRef *LHS = IfCandidate->getPredicateOperandDDRef(PredI, true);
-    RegDDRef *RHS = IfCandidate->getPredicateOperandDDRef(PredI, false);
+    RegDDRef *LHS = IfCandidate->getLHSPredicateOperandDDRef(PredI);
+    RegDDRef *RHS = IfCandidate->getRHSPredicateOperandDDRef(PredI);
 
     PredicateTy Pred = *PredI;
+
+    bool HaveBothSidesIV = Candidate.BothSidesIV;
+    bool IsLHSConverted = false;
+    HLInst *CopyInst = nullptr;
+    RegDDRef *NewBlob = nullptr;
+    if (HaveBothSidesIV) {
+      // In case of BothSidesIV
+      // - createCopyInst of RHS or LHS
+      // - Use the Lval of the copy in place of RHS or LHS
+      // Note that actual insertion and replacement of operands
+      // do not happen yet.
+      std::tie(CopyInst, NewBlob, IsLHSConverted) =
+          convertOneSideToStandAloneBlob(LHS, RHS, Level);
+
+      if (IsLHSConverted)
+        LHS = NewBlob;
+      else
+        RHS = NewBlob;
+    }
 
     // Normalize IV limitation to the form: i < SplitPoint, predicate could be:
     // <, ==, !=
     bool ShouldInvertCondition = false;
-    std::unique_ptr<CanonExpr> SplitPoint(findIVSolution(
-        Loop->getIVType(), LHS, Pred, RHS, Level, ShouldInvertCondition));
+    std::unique_ptr<CanonExpr> SplitPoint(
+        findIVSolution(Loop, LHS, Pred, RHS, Level, ShouldInvertCondition));
 
     // Can not handle this candidate
     if (!SplitPoint) {
@@ -943,11 +1197,27 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
       continue;
     }
 
+    if (HaveBothSidesIV) {
+      // In case of BothSidesIV, prep transformations are needed
+      // before splitting the loop into multiple loops.
+      // - insert the copy in front of Ifs in Candidates
+      // - replace Ifs in Candidates with the new condition using new L/Rval
+      replaceIfCondWithConvertedBlob(Candidate, CopyInst, NewBlob,
+                                     IsLHSConverted, Loop);
+      LLVM_DEBUG(dbgs() << "BothSidesIV - Before splitLoop:\n"; Loop->dump());
+    }
+
     HLLoop *ParentLoop = Loop->getParentLoop();
     HLRegion *Region = Loop->getParentRegion();
 
+    SmallVector<HLLoop *, 4> OutLoopsVec;
+    if (DirSIMD && !OutLoops)
+      OutLoops = &OutLoopsVec;
     splitLoop(Loop, Candidate, LHS, Pred, RHS, LowerCE.get(), UpperCE.get(),
               SplitPoint.get(), ShouldInvertCondition, OutLoops);
+
+    if (DirSIMD)
+      cloneSIMDDirs(*OutLoops, SIC);
 
     if (SetRegionModified && Candidate.shouldGenCode(Loop)) {
       Region->setGenCode();
@@ -957,6 +1227,7 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
                                         : static_cast<HLNode *>(Region));
 
     LLVM_DEBUG(dbgs() << "While " OPT_DESC ":\n");
+    LLVM_DEBUG(Region->dump());
     LLVM_DEBUG(Region->dump(true));
     LLVM_DEBUG(dbgs() << "\n");
 

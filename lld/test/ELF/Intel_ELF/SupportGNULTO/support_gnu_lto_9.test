@@ -1,0 +1,36 @@
+# UNSUPPORTED: !linux
+
+# Test for checking that LLD links GNU LTO objects.
+# This test case handles when linking GNU LTO objects with archives that have GNU LTO members.
+
+# Make sure the archives don't exists
+# RUN: rm -f %t_arch.a
+
+# Compile with g++ and LTO
+# RUN: g++ -c -flto %S/Inputs/driver.cpp -o %t_driver.o
+# RUN: g++ -c -flto %S/Inputs/foo.cpp -o %t_foo.o
+
+# Compile with g++ and LTO
+# RUN: g++ -c -flto %S/Inputs/bar.cpp -o %t_bar.o
+# RUN: g++ -c -flto %S/Inputs/baz.cpp -o %t_baz.o
+
+# Create archive, call gcc-ar since it passes the LTO plugin to AR
+# RUN: gcc-ar rus %t_arch.a %t_bar.o %t_baz.o
+
+# Link
+# RUN: clang++ -fuse-ld=lld %t_driver.o %t_foo.o %t_arch.a -o %t_gnu_lto_test_9 > %t_out.txt 2>&1
+# RUN: cat %t_out.txt | FileCheck -check-prefix=CHECKLINK %s -allow-empty
+
+# The GNU LTO files message should appear twice, one message when doing the
+# partial linking to solve the GNU LTO objects from the archive, and another
+# message when dealing with the input objects %t_driver.o and %t_foo.o.
+CHECKLINK-NOT: error: undefined symbol: bar
+CHECKLINK-NOT: error: undefined symbol: baz
+CHECKLINK: GNU LTO files found in the command line.
+CHECKLINK: GNU LTO files found in the command line.
+
+# Check that the executable runs correctly
+# RUN: %t_gnu_lto_test_9 | FileCheck -check-prefix=CHECKRUN4 %s
+CHECKRUN4: FOO: 1
+CHECKRUN4: BAR: 2
+CHECKRUN4: BAZ: 3

@@ -1,4 +1,21 @@
 //===- llvm/Analysis/LoopInfo.h - Natural Loop Calculator -------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -44,7 +61,6 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/CFG.h"
-#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
@@ -55,9 +71,10 @@
 namespace llvm {
 
 class DominatorTree;
+class InductionDescriptor;
+class Instruction;
 class LoopInfo;
 class Loop;
-class InductionDescriptor;
 class MDNode;
 class MemorySSAUpdater;
 class ScalarEvolution;
@@ -535,7 +552,7 @@ public:
     DebugLoc End;
 
   public:
-    LocRange() {}
+    LocRange() = default;
     LocRange(DebugLoc Start) : Start(Start), End(Start) {}
     LocRange(DebugLoc Start, DebugLoc End)
         : Start(std::move(Start)), End(std::move(End)) {}
@@ -557,21 +574,24 @@ public:
 
   /// If the given value is an instruction inside of the loop and it can be
   /// hoisted, do so to make it trivially loop-invariant.
-  /// Return true if the value after any hoisting is loop invariant. This
-  /// function can be used as a slightly more aggressive replacement for
-  /// isLoopInvariant.
+  /// Return true if \c V is already loop-invariant, and false if \c V can't
+  /// be made loop-invariant. If \c V is made loop-invariant, \c Changed is
+  /// set to true. This function can be used as a slightly more aggressive
+  /// replacement for isLoopInvariant.
   ///
   /// If InsertPt is specified, it is the point to hoist instructions to.
   /// If null, the terminator of the loop preheader is used.
+  ///
   bool makeLoopInvariant(Value *V, bool &Changed,
                          Instruction *InsertPt = nullptr,
                          MemorySSAUpdater *MSSAU = nullptr) const;
 
   /// If the given instruction is inside of the loop and it can be hoisted, do
   /// so to make it trivially loop-invariant.
-  /// Return true if the instruction after any hoisting is loop invariant. This
-  /// function can be used as a slightly more aggressive replacement for
-  /// isLoopInvariant.
+  /// Return true if \c I is already loop-invariant, and false if \c I can't
+  /// be made loop-invariant. If \c I is made loop-invariant, \c Changed is
+  /// set to true. This function can be used as a slightly more aggressive
+  /// replacement for isLoopInvariant.
   ///
   /// If InsertPt is specified, it is the point to hoist instructions to.
   /// If null, the terminator of the loop preheader is used.
@@ -905,7 +925,7 @@ template <class BlockT, class LoopT> class LoopInfoBase {
   LoopInfoBase(const LoopInfoBase &) = delete;
 
 public:
-  LoopInfoBase() {}
+  LoopInfoBase() = default;
   ~LoopInfoBase() { releaseMemory(); }
 
   LoopInfoBase(LoopInfoBase &&Arg)
@@ -1102,7 +1122,7 @@ class LoopInfo : public LoopInfoBase<BasicBlock, Loop> {
   LoopInfo(const LoopInfo &) = delete;
 
 public:
-  LoopInfo() {}
+  LoopInfo() = default;
   explicit LoopInfo(const DominatorTreeBase<BasicBlock, false> &DomTree);
 
   LoopInfo(LoopInfo &&Arg) : BaseT(std::move(static_cast<BaseT &>(Arg))) {}
@@ -1345,6 +1365,10 @@ bool hasMustProgress(const Loop *L);
 /// Return true if this loop can be assumed to make progress.  (i.e. can't
 /// be infinite without side effects without also being undefined)
 bool isMustProgress(const Loop *L);
+
+/// Return true if this loop can be assumed to run for a finite number of
+/// iterations.
+bool isFinite(const Loop *L);
 
 /// Return whether an MDNode might represent an access group.
 ///

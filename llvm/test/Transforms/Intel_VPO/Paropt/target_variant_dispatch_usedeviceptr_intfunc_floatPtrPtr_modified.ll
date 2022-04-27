@@ -1,5 +1,5 @@
-; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-mapper-api=false -S < %s | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-mapper-api=false -S | FileCheck %s
+; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
 
 ; Test for TARGET VARIANT DISPATCH construct with a USE_DEVICE_PTR clause, where
 ; the clause operand is modified before being passed to the base call in the variant region.

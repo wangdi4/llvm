@@ -32,7 +32,7 @@
 ; END REGION
 
 ; CHECK: LOOPOPT_OPTREPORT: [RTDD]
-; CHECK-SAME: Non DO loops are not supported
+; CHECK-SAME: Loop is either not a DO loop or cannot be converted to a DO loop
 
 ;Module Before HIR; ModuleID = 'unknown-loop-module.ll'
 source_filename = "unknown-loop_2.cpp"

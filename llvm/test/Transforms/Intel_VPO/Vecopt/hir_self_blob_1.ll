@@ -1,8 +1,13 @@
 ; Test for successful vectorization - test should not crash.
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -S -vplan-force-vf=4 -print-after=hir-vplan-vec 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" < %s -S -vplan-force-vf=4 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -S -vplan-force-vf=4 -print-after=hir-vplan-vec 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" < %s -S -vplan-force-vf=4 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+
+; Check stability of merged CFG-based CG.
+; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -S -vplan-force-vf=4 -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" < %s -S -vplan-force-vf=4 -vplan-enable-new-cfg-merge-hir 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
 
 ; CHECK: DO i2 = 0, {{.*}}, 4
+
 ; ModuleID = '111.c'
 source_filename = "111.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

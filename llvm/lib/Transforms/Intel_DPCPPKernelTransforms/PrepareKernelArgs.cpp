@@ -26,6 +26,8 @@ using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-prepare-args"
 
+extern bool EnableTLSGlobals;
+
 namespace {
 
 uint64_t STACK_PADDING_BUFFER = DEV_MAXIMUM_ALIGN * 1;
@@ -81,7 +83,7 @@ ModulePass *llvm::createPrepareKernelArgsLegacyPass(bool UseTLSGlobals) {
 PreservedAnalyses PrepareKernelArgsPass::run(Module &M,
                                              ModuleAnalysisManager &AM) {
   ImplicitArgsInfo *IAInfo = &AM.getResult<ImplicitArgsAnalysis>(M);
-  if (!runImpl(M, false, IAInfo))
+  if (!runImpl(M, UseTLSGlobals, IAInfo))
     return PreservedAnalyses::all();
   return PreservedAnalyses::none();
 }
@@ -89,7 +91,7 @@ PreservedAnalyses PrepareKernelArgsPass::run(Module &M,
 bool PrepareKernelArgsPass::runImpl(Module &M, bool UseTLSGlobals,
                                     ImplicitArgsInfo *IAInfo) {
   this->M = &M;
-  this->UseTLSGlobals = UseTLSGlobals;
+  this->UseTLSGlobals = UseTLSGlobals | EnableTLSGlobals;
   this->IAInfo = IAInfo;
   LLVMContext &C = M.getContext();
   SizetTy = IntegerType::get(C, M.getDataLayout().getPointerSizeInBits());
@@ -130,7 +132,7 @@ Function *PrepareKernelArgsPass::createWrapper(Function *F) {
   // Copy attributes from the old kernel to the new one, and make the former
   // 'alwaysinline'.
   auto FnAttrs = F->getAttributes().getAttributes(AttributeList::FunctionIndex);
-  AttrBuilder B(std::move(FnAttrs));
+  AttrBuilder B(F->getContext(), std::move(FnAttrs));
   NewF->addFnAttrs(B);
   F->removeFnAttr(Attribute::OptimizeNone);
   F->removeFnAttr(Attribute::NoInline);
@@ -226,8 +228,8 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       size_t A = TypeAlignment::getAlignment(KArg);
       MaybeAlign MA = A > 0
                           ? MaybeAlign(A)
-                          : DL.getABITypeAlign(DestTy->getPointerElementType());
-      LoadInst *LI = Builder.CreateAlignedLoad(DestTy->getPointerElementType(),
+                          : DL.getABITypeAlign(CallIt->getType());
+      LoadInst *LI = Builder.CreateAlignedLoad(CallIt->getType(),
                                                PointerCast, MA, false);
       Arg = LI;
     }
@@ -480,12 +482,12 @@ void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
       continue;
 
     StringRef EEFName = EEF.getName();
-    if (!(EEFName.startswith("ocl20_enqueue_kernel_") ||
-          EEFName.equals("ocl20_get_kernel_wg_size") ||
-          EEFName.equals("ocl20_get_kernel_preferred_wg_size_multiple")))
+    if (!(EEFName.startswith("__ocl20_enqueue_kernel_") ||
+          EEFName.equals("__ocl20_get_kernel_wg_size") ||
+          EEFName.equals("__ocl20_get_kernel_preferred_wg_size_multiple")))
       continue;
 
-    unsigned BlockInvokeIdx = (EEFName.startswith("ocl20_enqueue_kernel_"))
+    unsigned BlockInvokeIdx = (EEFName.startswith("__ocl20_enqueue_kernel_"))
                                   ? (EEFName.contains("_events") ? 6 : 3)
                                   : 0;
 

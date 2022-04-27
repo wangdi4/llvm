@@ -1,6 +1,6 @@
 
 ; expect both i1 and i2 references
-; RUN: opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze < %s | FileCheck %s
+; RUN: opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze -enable-new-pm=0 < %s | FileCheck %s
 ; RUN: opt -passes="print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
 
 ; CHECK: DD graph for function
@@ -9,7 +9,7 @@
 ; CHECK-DAG: (@A)[0][i2] --> (@A)[0][i1] ANTI
 
 ; same as region wide for this particular single loop nest region
-; RUN: opt -hir-dd-analysis -hir-dd-analysis-verify=L1 -analyze < %s | FileCheck --check-prefix=L1 %s
+; RUN: opt -hir-dd-analysis -hir-dd-analysis-verify=L1 -analyze -enable-new-pm=0 < %s | FileCheck --check-prefix=L1 %s
 ; RUN: opt -passes="print<hir-dd-analysis>" -hir-dd-analysis-verify=L1 -disable-output 2>&1 < %s | FileCheck --check-prefix=L1 %s
 
 ; L1: DD graph for function
@@ -18,28 +18,28 @@
 ; L1-DAG: (@A)[0][i2] --> (@A)[0][i1] ANTI
 
 ; only i2 refs, the a[i1] is in l1
-; RUN: opt -hir-dd-analysis -hir-dd-analysis-verify=Innermost -analyze < %s | FileCheck --check-prefix=INNER %s
+; RUN: opt -hir-dd-analysis -hir-dd-analysis-verify=Innermost -analyze -enable-new-pm=0 < %s | FileCheck --check-prefix=INNER %s
 ; RUN: opt -passes="print<hir-dd-analysis>" -hir-dd-analysis-verify=Innermost -disable-output 2>&1 < %s | FileCheck --check-prefix=INNER %s
 
 ; INNER-NOT: (@A)[0][i1] --> (@A)[0][i2] FLOW
 ; INNER: (@A)[0][i2] --> (@A)[0][i2] OUTPUT
 
 ; same as innermost
-; RUN: opt -hir-dd-analysis -hir-dd-analysis-verify=L2 -analyze < %s | FileCheck --check-prefix=L2 %s
+; RUN: opt -hir-dd-analysis -hir-dd-analysis-verify=L2 -analyze -enable-new-pm=0 < %s | FileCheck --check-prefix=L2 %s
 ; RUN: opt -passes="print<hir-dd-analysis>" -hir-dd-analysis-verify=L2 -disable-output 2>&1 < %s | FileCheck --check-prefix=L2 %s
 
 ; L2-NOT: (@A)[0][i1] --> (@A)[0][i2] FLOW
 ; L2: (@A)[0][i2] --> (@A)[0][i2] OUTPUT
 
 ; no graph
-; RUN: opt -hir-dd-analysis -hir-dd-analysis-verify=L3 -analyze < %s| FileCheck --check-prefix=NONE %s
+; RUN: opt -hir-dd-analysis -hir-dd-analysis-verify=L3 -analyze -enable-new-pm=0 < %s| FileCheck --check-prefix=NONE %s
 ; RUN: opt -passes="print<hir-dd-analysis>" -hir-dd-analysis-verify=L3 -disable-output 2>&1 < %s | FileCheck --check-prefix=NONE %s
 
 ; NONE: DD graph for function
 ; NONE-NOT: -->
 
 ; overwrite innermost answers with region wide
-; RUN: opt -hir-dd-analysis -hir-dd-analysis-verify=L2,Region -analyze < %s | FileCheck --check-prefix=INOUT %s
+; RUN: opt -hir-dd-analysis -hir-dd-analysis-verify=L2,Region -analyze -enable-new-pm=0 < %s | FileCheck --check-prefix=INOUT %s
 ; RUN: opt -passes="print<hir-dd-analysis>" -hir-dd-analysis-verify=L2,Region -disable-output 2>&1 < %s | FileCheck --check-prefix=INOUT %s
 
 ; INOUT: DD graph for function

@@ -1,6 +1,6 @@
 ; REQUIRES: proto_bor
-; RUN: llc < %s -O3 -intel-loop-optreport=high -opt-report-embed -enable-protobuf-opt-report --filetype=obj -o %t1.o
-; RUN: llc < %p/Inputs/non_lto_linker_test_sub.ll -O3 -intel-loop-optreport=high -opt-report-embed -enable-protobuf-opt-report --filetype=obj -o %t2.o
+; RUN: llc < %s -O3 -intel-opt-report=high -opt-report-embed -enable-protobuf-opt-report --filetype=obj -o %t1.o
+; RUN: llc < %p/Inputs/non_lto_linker_test_sub.ll -O3 -intel-opt-report=high -opt-report-embed -enable-protobuf-opt-report --filetype=obj -o %t2.o
 ; RUN: ld.lld -e main %t1.o %t2.o -o %t.o
 ; RUN: intel-bin-opt-report %t.o | FileCheck %s
 

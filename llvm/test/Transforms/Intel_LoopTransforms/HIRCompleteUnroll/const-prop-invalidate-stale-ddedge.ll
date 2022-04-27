@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-pre-vec-complete-unroll -print-before=hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll -analyze -hir-dd-analysis -hir-dd-analysis-verify=Innermost 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-pre-vec-complete-unroll -print-before=hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll -analyze -enable-new-pm=0 -hir-dd-analysis -hir-dd-analysis-verify=Innermost 2>&1 < %s | FileCheck %s
 
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-pre-vec-complete-unroll,print<hir>,print<hir-dd-analysis>" -hir-dd-analysis-verify=Innermost 2>&1 | FileCheck %s
 

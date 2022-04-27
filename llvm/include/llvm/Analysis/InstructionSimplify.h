@@ -1,4 +1,21 @@
 //===-- InstructionSimplify.h - Fold instrs into simpler forms --*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -36,8 +53,6 @@
 #define LLVM_ANALYSIS_INSTRUCTIONSIMPLIFY_H
 
 #include "llvm/Analysis/TargetTransformInfo.h" // INTEL
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Operator.h"
 #include "llvm/IR/PatternMatch.h"
 
 namespace llvm {
@@ -50,6 +65,7 @@ class CallBase;
 class DataLayout;
 class DominatorTree;
 class Function;
+class Instruction;
 struct LoopStandardAnalysisResults;
 class MDNode;
 class OptimizationRemarkEmitter;
@@ -64,7 +80,7 @@ class Value;
 /// results if the users specified it is safe to use.
 struct InstrInfoQuery {
   InstrInfoQuery(bool UMD) : UseInstrInfo(UMD) {}
-  InstrInfoQuery() : UseInstrInfo(true) {}
+  InstrInfoQuery() = default;
   bool UseInstrInfo = true;
 
   MDNode *getMetadata(const Instruction *I, unsigned KindID) const {
@@ -254,8 +270,8 @@ Value *SimplifySelectInst(Value *Cond, Value *TrueVal, Value *FalseVal,
                           const SimplifyQuery &Q);
 
 /// Given operands for a GetElementPtrInst, fold the result or return null.
-Value *SimplifyGEPInst(Type *SrcTy, ArrayRef<Value *> Ops, bool InBounds,
-                       const SimplifyQuery &Q);
+Value *SimplifyGEPInst(Type *SrcTy, Value *Ptr, ArrayRef<Value *> Indices,
+                       bool InBounds, const SimplifyQuery &Q);
 
 /// Given operands for an InsertValueInst, fold the result or return null.
 Value *SimplifyInsertValueInst(Value *Agg, Value *Val, ArrayRef<unsigned> Idxs,

@@ -36,7 +36,7 @@ define <2 x i64> @mul_v2i64_0x8000000000000001(<2 x i64> %a0) nounwind {
 ; X64-AVX-LABEL: mul_v2i64_0x8000000000000001:
 ; X64-AVX:       # %bb.0:
 ; X64-AVX-NEXT:    vpsllq $63, %xmm0, %xmm1
-; X64-AVX-NEXT:    vpsubq %xmm1, %xmm0, %xmm0
+; X64-AVX-NEXT:    vpaddq %xmm0, %xmm1, %xmm0
 ; X64-AVX-NEXT:    retq
   %1 = mul <2 x i64> %a0, <i64 -9223372036854775807, i64 -9223372036854775807>
   ret <2 x i64> %1

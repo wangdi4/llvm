@@ -13,7 +13,9 @@
 ; ----------------------------------------------------
 
 ; RUN: llvm-as %p/fpga-pipes.rtl -o %t.rtl.bc
+; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-demangle-fpga-pipes -passes=dpcpp-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-demangle-fpga-pipes -passes=dpcpp-kernel-equalizer -S %s | FileCheck %s
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -S %s | FileCheck %s
 
 ; CHECK-LABEL: define void @test1

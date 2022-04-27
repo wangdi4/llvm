@@ -82,11 +82,8 @@ using namespace llvm::PatternMatch;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool> DTransPrintAllocations("dtrans-print-allocations",
                                             cl::ReallyHidden);
-
-static cl::opt<bool>
-    DTransPrintImmutableAnalyzedTypes("dtrans-print-immutable-types",
-                                      cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 // BlockFrequencyInfo is ignored while computing field frequency info
 // if this flag is true.
 // TODO: Disable this flag by default after doing more experiments and
@@ -990,6 +987,13 @@ public:
     if (isa<LoadInst>(V) || isa<SelectInst>(V) || isa<PHINode>(V))
       return true;
 
+    // A subtraction instruction with pointer-sized integers may also need to be
+    // treated as a possible pointer value to handle the case where one operand
+    // is from a PtrToInt, and the other is a constant integer.
+    if (auto *BinOp = dyn_cast<BinaryOperator>(V))
+      if (BinOp->getOpcode() == Instruction::Sub)
+        return true;
+
     // Otherwise, we don't need to analyze it as a pointer.
     return false;
   }
@@ -1237,6 +1241,18 @@ private:
       if (addDependency(Src, DependentVals))
         populateDependencyStack(Src, DependentVals);
       return;
+    }
+
+    if (auto *BinOp = dyn_cast<BinaryOperator>(V)) {
+      if (BinOp->getOpcode() == Instruction::Sub) {
+        Value *LeftOp = BinOp->getOperand(0);
+        Value *RightOp = BinOp->getOperand(1);
+        if (addDependency(LeftOp, DependentVals))
+          populateDependencyStack(LeftOp, DependentVals);
+        if (addDependency(RightOp, DependentVals))
+          populateDependencyStack(RightOp, DependentVals);
+        return;
+      }
     }
 
     // For PHI nodes we need to add all of the non-self incoming values.
@@ -1494,6 +1510,29 @@ private:
       Info.merge(SrcLPI);
       return;
     }
+    if (auto *BinOp = dyn_cast<BinaryOperator>(V)) {
+      // Treat the result of constant integer being subtracted from a PtrToInt
+      // value as still carrying the pointer type. This is necessary to perform
+      // checks if the subtract is subsequently used to subtract another
+      // PtrToInt value.
+      //   %prev = sub i64 %t2, 8
+      //   %offset = sub i64 %t1, %prev
+      //
+      // Subtracting a PtrToInt value from a constant or another PtrToInt value
+      // will not be tracked as carrying pointer type information.
+      if (BinOp->getOpcode() != Instruction::Sub)
+        return;
+      if (!isa<ConstantInt>(BinOp->getOperand(1)))
+        return;
+
+      // Copy any type information from the source operand. Unsupported cases,
+      // such as when the type is an element pointee and has a constant
+      // subtracted from it will be detected when using the LPI during
+      // visitBinaryOperator.
+      mergeOperandInfo(BinOp->getOperand(0), Info);
+      return;
+    }
+
     // The caller should have checked isDerivedValue() before calling this
     // function, and the above cases should cover all possible derived
     // values.
@@ -1958,7 +1997,8 @@ private:
     // value, even though it points to the same block of memory.
     // The GetElementPtr case will be handled elsewhere.
     if (isa<CastInst>(V) || isa<PHINode>(V) || isa<SelectInst>(V) ||
-        isa<BitCastOperator>(V) || isa<PtrToIntOperator>(V))
+        isa<BitCastOperator>(V) || isa<PtrToIntOperator>(V) ||
+        isa<BinaryOperator>(V))
       return true;
 
     // This assert is here to catch cases that I haven't thought about.
@@ -5115,7 +5155,8 @@ public:
           return;
 
         LocalPointerInfo &LPI = LPA.getLocalPointerInfo(V);
-        if (V->getType()->isPointerTy() || LPI.canAliasToAggregatePointer()) {
+        if (V->getType()->isPointerTy() || LPI.canAliasToAggregatePointer() ||
+            LPI.pointsToSomeElement()) {
           OS << "\n";
           LPI.print(OS, 4, ";");
           OS << ";      ";
@@ -8101,14 +8142,36 @@ private:
     assert(I.getOpcode() == Instruction::Sub &&
            "analyzeSub() called with unexpected opcode");
 
+    Value *LeftOp = I.getOperand(0);
+    Value *RightOp = I.getOperand(1);
     // If neither operand is of interest, we can ignore this instruction.
-    if (!isValueOfInterest(I.getOperand(0)) &&
-        !isValueOfInterest(I.getOperand(1)))
+    if (!isValueOfInterest(LeftOp) && !isValueOfInterest(RightOp))
       return;
 
-    LocalPointerInfo &LHSLPI = LPA.getLocalPointerInfo(I.getOperand(0));
-    LocalPointerInfo &RHSLPI = LPA.getLocalPointerInfo(I.getOperand(1));
+    // Check if the RHS can be found as part of a subtraction chain to support
+    // some simple cases where reassociation was done on the subtract chain
+    // when a constant integer is involved.
+    // For example:
+    //   %tmp = sub i64 %t1, 8
+    //   %offset = sub i64 %tmp, %t2
+    //
+    // TODO: This could be extended to also support:
+    //   %tmp = sub i64 %t2, 8
+    //   %offset = sub i64 %t1, %tmp
+    //
+    // Note: This should only be allowed for ptr-to-ptr types because the
+    // transformations do not support modifying a constant operand that is
+    // part of the subtraction chain. Those cases will be marked as
+    // "Unhandled use" because the subtract does not feed a divide
+    // operation.
+    LocalPointerInfo &LHSLPI = LPA.getLocalPointerInfo(LeftOp);
+    if (!isValueOfInterest(RightOp) && isa<ConstantInt>(I.getOperand(1)) &&
+        LHSLPI.isPtrToPtr() && I.hasOneUse())
+      if (auto *U = dyn_cast<BinaryOperator>(*I.user_begin()))
+        if (U->getOpcode() == Instruction::Sub && U->getOperand(0) == &I)
+          RightOp = U->getOperand(1);
 
+    LocalPointerInfo &RHSLPI = LPA.getLocalPointerInfo(RightOp);
     if (LHSLPI.pointsToSomeElement()) {
       LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation -- "
                         << "pointer to element used in sub instruction:\n"
@@ -8139,8 +8202,8 @@ private:
       LLVM_DEBUG(dbgs() << "dtrans-safety: Unhandled use -- "
                         << "sub instruction operands do not match:\n"
                         << "  " << I << "\n");
-      setValueTypeInfoSafetyData(I.getOperand(0), dtrans::UnhandledUse);
-      setValueTypeInfoSafetyData(I.getOperand(1), dtrans::UnhandledUse);
+      setValueTypeInfoSafetyData(LeftOp, dtrans::UnhandledUse);
+      setValueTypeInfoSafetyData(RightOp, dtrans::UnhandledUse);
       return;
     }
 
@@ -8646,6 +8709,103 @@ private:
                               /*IsPointerCarried=*/true);
   }
 
+  // SubGraph: A struct type is considered as enclosing type of another
+  // struct if all references of another structure are only reachable
+  // from member functions of the enclosing type. 'SubGraph' is used
+  // to represent enclosing type for struct in StructInfo.
+  //
+  // Lattice of properties of SubGraph:
+  //  {bottom = <nullptr, false>, <Type*, false>, top = <nullptr, true>}
+  // This function performs 'join' operation of the lattice.
+  // “Bottom” refers to unanalyzed case (initial value) and “top” refers
+  // to worst case (no enclosing type).
+  //
+  // updateSubGraphNode is called when any reference to "ThisTy" struct is
+  // noticed in "F".
+  //
+  void updateSubGraphNode(Function *F, StructType *ThisTy) {
+    auto *TI = cast<dtrans::StructInfo>(DTInfo.getTypeInfo(ThisTy));
+    auto &CG = TI->getCallSubGraph();
+
+    // If we could not approximate CallGraph by methods of some class,
+    // no need to analyze further.
+    if (CG.isTop())
+      return;
+
+    // If reference to ThisTy is encountered in global scope or
+    // inside function, which does not look like class method,
+    // then mark CallGraph approximation as 'top' or 'failed' approximation.
+    if (!F || F->arg_size() < 1) {
+      TI->setCallGraphTop();
+      return;
+    }
+    // Candidate for 'this' pointer;
+    auto *Ty = F->arg_begin()->getType();
+    if (!isa<PointerType>(Ty)) {
+      TI->setCallGraphTop();
+      return;
+    }
+    auto *StTy = dyn_cast<StructType>(Ty->getPointerElementType());
+    if (!StTy) {
+      TI->setCallGraphTop();
+      return;
+    }
+
+    // Ty >= ThisTy
+    //
+    // Check if ThisTy is reachable from Ty by recursion to
+    // structure's elements and following pointers.
+    std::function<bool(Type *, StructType *, int)> findSubType =
+        [&findSubType](Type *Ty, StructType *ThisTy, int Depth) -> bool {
+      Depth--;
+      if (Depth <= 0)
+        return false;
+      switch (Ty->getTypeID()) {
+      default:
+        return false;
+      case Type::StructTyID: {
+        auto *STy = cast<StructType>(Ty);
+        if (STy == ThisTy)
+          return true;
+        for (auto *FTy : STy->elements())
+          if (findSubType(FTy, ThisTy, Depth))
+            return true;
+        return false;
+      }
+      case Type::ArrayTyID:
+        if (findSubType(Ty->getArrayElementType(), ThisTy, Depth))
+          return true;
+        return false;
+      case Type::PointerTyID:
+        if (findSubType(Ty->getPointerElementType(), ThisTy, Depth))
+          return true;
+        return false;
+      }
+      llvm_unreachable("Non-exhaustive switch statement");
+    };
+
+    // !(StTy >= ThisTy)
+    // If ThisTy is not reachable from 'this' argument,
+    // then mark as 'top'
+    if (!findSubType(StTy, ThisTy, 5)) {
+      TI->setCallGraphTop();
+      return;
+    }
+
+    // Compute `join`.
+    // If cannot find least common approximation to old and new approximation,
+    // then mark as 'top'.
+    if (CG.isBottom()) {
+      TI->setCallGraphEnclosingType(StTy);
+    } else if (findSubType(StTy, CG.getEnclosingType(), 5)) {
+      TI->setCallGraphEnclosingType(StTy);
+    } else if (!findSubType(CG.getEnclosingType(), StTy, 5)) {
+      TI->setCallGraphTop();
+      return;
+    }
+    // else do nothing
+  }
+
   // This is a helper function that retrieves the aggregate type through
   // zero or more layers of indirection and sets the specified safety data
   // for that type.
@@ -8735,12 +8895,11 @@ private:
     // load/stores/calls, etc.
     auto &DT = DTInfo;
     std::function<void(llvm::Type *)> Propagate =
-        [&DT, F, &Propagate](llvm::Type *Ty) -> void {
+        [this, &DT, F, &Propagate](llvm::Type *Ty) -> void {
       if (!DT.isTypeOfInterest(Ty))
         return;
       if (auto *STy = dyn_cast<StructType>(Ty)) {
-        cast<dtrans::StructInfo>(DT.getOrCreateTypeInfo(STy))
-            ->insertCallGraphNode(F);
+        updateSubGraphNode(F, STy);
         for (auto FTy : STy->elements())
           Propagate(FTy);
       } else if (auto *ATy = dyn_cast<ArrayType>(Ty))
@@ -9453,7 +9612,7 @@ bool DTransAnalysisInfo::analyzeModule(
 
   // Go through the multiple StructInfo and check if there is a safety
   // violation that makes the padded field dirty. Also, this is the moment
-  // where we are going to merge the safety violations.
+  // where we are going to set which structures are base and padded structures.
   //
   // NOTE: A dirty padded field means that we don't have enough information
   // to make sure if the field is not being modified.
@@ -9472,49 +9631,97 @@ bool DTransAnalysisInfo::analyzeModule(
         size_t NumFields = StrInfo->getNumFields();
         auto &PaddedField = StrInfo->getField(NumFields - 1);
 
-        // NOTE: We don't check whether isValueUnused() is set since we don't
-        // want to trigger any transformation that depends on it (e.g.
-        // delete fields).
+        if (!PaddedField.isPaddedField())
+          return false;
+
+        // These are the conditions we use to invalidate the padded field.
+        // Perhaps some of them could be relaxed like address taken and
+        // complex use.
         if (PaddedField.isRead() || PaddedField.isWritten() ||
             PaddedField.hasComplexUse() || PaddedField.isAddressTaken() ||
-            PaddedField.isMismatchedElementAccess() ||
             !PaddedField.isNoValue() || !PaddedField.isTopAllocFunction())
           return true;
 
         return false;
       };
 
+      // Return true if the input structures are padded and base structures.
+      auto ArePaddedAndBaseStructures = [](dtrans::StructInfo *PaddedStruct,
+          dtrans::StructInfo *BaseStruct) -> bool {
+
+        assert((PaddedStruct->getRelatedType() == BaseStruct &&
+                BaseStruct->getRelatedType() == PaddedStruct) &&
+                "Incorrect related types set");
+
+        unsigned NumFieldsPadded = PaddedStruct->getNumFields();
+        unsigned NumFieldsBase = BaseStruct->getNumFields();
+
+        if (NumFieldsPadded - NumFieldsBase != 1)
+          return false;
+
+        // We know that there will be at least one field in the padded
+        // structures
+        auto &LastFieldPadded = PaddedStruct->getField(NumFieldsPadded - 1);
+        if (!LastFieldPadded.isPaddedField())
+          return false;
+
+        // If the base structure is not empty then the last field shouldn't
+        // be marked for ABI padding
+        if (NumFieldsBase > 0) {
+          auto &LastFieldBase = BaseStruct->getField(NumFieldsBase - 1);
+          if (LastFieldBase.isPaddedField())
+            return false;
+        }
+
+        return true;
+      };
+
       dtrans::StructInfo *RelatedTypeInfo = STInfo->getRelatedType();
       if (!RelatedTypeInfo)
         continue;
 
-      // If the safety test fails then mark the padded field as dirty.
-      // Also, check if the padded field has any safety violation that
+      const dtrans::SafetyData ABIPaddingSet =
+          dtrans::StructCouldHaveABIPadding |
+          dtrans::StructCouldBeBaseABIPadding;
+
+      // Skip those the structures that were analyzed already
+      if (STInfo->testSafetyData(ABIPaddingSet))
+        continue;
+
+      // Identify the base and padded structures
+      dtrans::StructInfo *BaseStruct = nullptr;
+      dtrans::StructInfo *PaddedStruct = nullptr;
+
+      if (ArePaddedAndBaseStructures(STInfo, RelatedTypeInfo)) {
+        PaddedStruct = STInfo;
+        BaseStruct = RelatedTypeInfo;
+      }
+      else if (ArePaddedAndBaseStructures(RelatedTypeInfo, STInfo)) {
+        PaddedStruct = RelatedTypeInfo;
+        BaseStruct = STInfo;
+      } else {
+        llvm_unreachable("Incorrect base and padded structures set");
+      }
+
+      // Check if the padded field has any safety violation that
       // could break the relationship.
-      bool BadSafetyData =
-          STInfo->testSafetyData(dtrans::SDPaddedStructures) ||
-          RelatedTypeInfo->testSafetyData(dtrans::SDPaddedStructures) ||
-          HasInvalidPaddedField(STInfo);
+      bool BadSafetyData = HasInvalidPaddedField(PaddedStruct);
 
       if (BadSafetyData) {
-        size_t NumFields = STInfo->getNumFields();
-        auto &Field = STInfo->getField(NumFields - 1);
-        if (Field.isPaddedField())
-          Field.invalidatePaddedField();
+        size_t NumFields = PaddedStruct->getNumFields();
+        auto &Field = PaddedStruct->getField(NumFields - 1);
+        Field.invalidatePaddedField();
       }
 
       // DTransTestPaddedStructs is used for testing purposes.
       if (!BadSafetyData || DTransTestPaddedStructs) {
-        STInfo->mergeSafetyDataWithRelatedType();
-        RelatedTypeInfo->mergeSafetyDataWithRelatedType();
-
-        // NOTE: We might want to merge the fields info. For now, the
-        // information related to the base and padded structures can be
-        // collected by referring the related type.
+        PaddedStruct->setSafetyData(dtrans::StructCouldHaveABIPadding);
+        BaseStruct->setSafetyData(dtrans::StructCouldBeBaseABIPadding);
       } else {
         // If the safety data fails then break the relationship between
         // padded and base.
-        STInfo->unsetRelatedType();
+        PaddedStruct->unsetRelatedType();
+        BaseStruct->unsetRelatedType();
       }
     }
   }
@@ -9669,7 +9876,7 @@ bool DTransAnalysisInfo::analyzeModule(
     dbgs().flush();
   }
 
-  if (DTransPrintImmutableAnalyzedTypes)
+  if (dtrans::DTransPrintImmutableAnalyzedTypes)
     DTImmutInfo.print(dbgs());
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
@@ -9812,7 +10019,7 @@ AnalysisKey DTransAnalysis::Key;
 bool DTransAnalysisInfo::invalidate(Module &M, const PreservedAnalyses &PA,
                                 ModuleAnalysisManager::Invalidator &Inv) {
   auto PAC = PA.getChecker<DTransAnalysis>();
-  return !PAC.preservedWhenStateless();
+  return !PAC.preserved();
 }
 
 DTransAnalysisInfo DTransAnalysis::run(Module &M, AnalysisManager<Module> &AM) {

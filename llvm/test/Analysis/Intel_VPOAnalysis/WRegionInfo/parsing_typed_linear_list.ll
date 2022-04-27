@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -vpo-cfg-restructuring -vpo-wrncollection -analyze -S < %s 2>&1 | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -S < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-wrncollection -analyze -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -S %s 2>&1 | FileCheck %s
 
 ; This code tests TYPED for the LINEAR clause
 ; The test is passed if LINEAR:TYPED clauses are parsed correctly

@@ -12,13 +12,13 @@
 ; Uplevel variable will consist of a single dope vector
 %uplevel_type = type { { i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }* }
 
-define dso_local void @MAIN__() {
+define dso_local void @MAIN__() #0 {
   call void @dv_test();
   ret void
 }
 
 ; This routine will create the dope vector, and pass it to a function
-define internal void @dv_test() {
+define internal void @dv_test() #0 {
   %"var$01" = alloca { i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, align 8
   %"var$01_$field0$" = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }* %"var$01", i64 0, i32 0
   %"var$01_$field1$" = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }* %"var$01", i64 0, i32 1
@@ -49,7 +49,7 @@ define internal void @dv_test() {
 
 ; This routine will create the uplevel variable from an incoming dope vector
 ; parameter
-define internal void @uplevel_creator({ i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }* %pDVin) {
+define internal void @uplevel_creator({ i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }* %pDVin) #0 {
   %up = alloca %uplevel_type
   %upField = getelementptr inbounds %uplevel_type, %uplevel_type* %up, i64 0, i32 0
   store { i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }* %pDVin, { i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }** %upField, align 8
@@ -59,7 +59,7 @@ define internal void @uplevel_creator({ i32*, i64, i64, i64, i64, i64, [1 x { i6
 
 ; This routine will take the uplevel variable as a parameter, and recursively
 ; call itself
-define internal void @uplevel_user(%uplevel_type* %pUplevel) {
+define internal void @uplevel_user(%uplevel_type* %pUplevel) #0 {
   %upField = getelementptr inbounds %uplevel_type, %uplevel_type* %pUplevel, i64 0, i32 0
   %pDV = load { i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }*, { i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }** %upField
 
@@ -96,3 +96,4 @@ done:
 
 declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8, i64, i32, i64*, i32)
 
+attributes #0 = {"intel-lang"="fortran"}

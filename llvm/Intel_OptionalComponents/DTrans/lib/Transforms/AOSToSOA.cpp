@@ -1,6 +1,6 @@
 //===---------------- AOSToSOA.cpp - DTransAOStoSOAPass -------------------===//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -2482,7 +2482,7 @@ private:
   // types that are not valid on the index type being used. This variable
   // holds the list of incompatible attributes that need to be removed
   // from function signatures and call sites for the cloned routines.
-  AttrBuilder IncompatiblePeelTypeAttrs;
+  AttributeMask IncompatiblePeelTypeAttrs;
 
   // A list of pointer conversion instructions (contains instructions that are
   // pointer to int, int to pointer, or pointer of original type to pointer of
@@ -2595,14 +2595,14 @@ bool AOSToSOAPass::runImpl(
     WholeProgramInfo &WPInfo, AOSToSOAPass::DominatorTreeFuncType &GetDT) {
 
   if (!WPInfo.isWholeProgramSafe()) {
-    LLVM_DEBUG(
-        dbgs() << "DTRANS-AOSTOSOA: inhibited -- not whole program safe");
+    LLVM_DEBUG(dbgs() << "DTRANS-AOSTOSOA: inhibited -- not whole program safe "
+                         "\n");
     return false;
   }
 
   if (!DTInfo.useDTransAnalysis()) {
     LLVM_DEBUG(
-        dbgs() << "DTRANS-AOSTOSOA: inhibited -- dtrans-analysis disabled");
+        dbgs() << "DTRANS-AOSTOSOA: inhibited -- dtrans-analysis disabled\n");
     return false;
   }
 
@@ -2759,6 +2759,7 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
         ACI->getAllocKind() != dtrans::AK_Malloc) {
       for (auto *AllocatedTy : ACI->getElementTypesRef().element_llvm_types()) {
         auto *TI = DTInfo.getTypeInfo(AllocatedTy);
+        assert(TI && "TypeInfo not found. DTransInfo out of date?");
         if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
           LLVM_DEBUG({
             if (std::find(CandidateTypes.begin(), CandidateTypes.end(),
@@ -3060,7 +3061,6 @@ PreservedAnalyses AOSToSOAPass::run(Module &M, ModuleAnalysisManager &AM) {
   // TODO: Mark the actual preserved analyses.
   PreservedAnalyses PA;
   PA.preserve<WholeProgramAnalysis>();
-  PA.abandon<DTransAnalysis>();
   return PA;
 }
 

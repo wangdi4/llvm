@@ -2,11 +2,15 @@
 
 ; Test to check VPlan unroller for an auto-vectorized loop with SafeReduction.
 
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-force-uf=3 -vplan-print-after-unroll -disable-output 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -S < %s -vplan-force-vf=4 -vplan-force-uf=3 -vplan-print-after-unroll -disable-output 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-force-uf=3 -vplan-print-after-unroll -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-force-uf=3 -vplan-print-after-unroll -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -vplan-force-uf=3 -vplan-print-after-unroll -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -vplan-force-uf=3 -vplan-print-after-unroll -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-force-uf=3 -print-after=hir-vplan-vec -disable-output 2>&1 | FileCheck %s --check-prefixes=CGCHECK,PM1
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -S < %s -vplan-force-vf=4 -vplan-force-uf=3 -print-after=hir-vplan-vec -disable-output 2>&1 | FileCheck %s --check-prefixes=CGCHECK,PM2
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-force-uf=3 -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefixes=CGCHECK
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-force-uf=3 -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefixes=CGCHECK
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -vplan-force-uf=3 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefixes=CGCHECK
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -vplan-force-uf=3 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefixes=CGCHECK
 
 
 ; int foo(int *a, int n) {
@@ -21,7 +25,7 @@
 ; BEGIN REGION { }
 ;       %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
 ;
-;       + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+;       + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>   <LEGAL_MAX_TC = 2147483647>
 ;       |   %acc.08 = (%a)[i1]  +  %acc.08; <Safe Reduction>
 ;       + END LOOP
 ;
@@ -40,18 +44,14 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CHECK-DAG:     [[VP1:%.*]] = {zext.i32.i64(%n) + -1}
 ; CHECK-DAG:     [[VP2:%.*]] = {%a}
 ; CHECK-NEXT:  External Defs End:
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_UB_INC:%.*]] = add i64 [[VP1]] i64 1
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_UB_INC]], UF = 3
-; CHECK-NEXT:     [DA: Div] i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 live-in0
-; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1
+
+; CHECK:          [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_UB_INC:%.*]], UF = 3
+; CHECK-NEXT:     [DA: Div] i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 {{.*}}
+; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 {{.*}} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], cloned.[[BB3:BB[0-9]+]]
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1:BB[0-9]+]], cloned.[[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP3:%.*]] = phi  [ i32 [[VP__RED_INIT]], [[BB1]] ],  [ i32 [[VP4:%.*]], cloned.[[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP5:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP6:%.*]], cloned.[[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP5]]
@@ -82,26 +82,22 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
-; CHECK-NEXT:     [DA: Uni] br <External Block>
+
+; CHECK:          [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0   i32 [[VP__RED_FINAL]] -> [[VP18:%.*]] = {%acc.08}
+; CHECK-NEXT:  Id: 0   i32 {{.*}} -> [[VP18:%.*]] = {%acc.08}
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Id: 1   no underlying for i64 [[VP__IND_FINAL]]
 ;
-; PM1:         IR Dump After VPlan HIR Vectorizer
-; PM2:         IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
-; CGCHECK-NEXT:  Function: foo
+; CGCHECK:       Function: foo
 ; CGCHECK-EMPTY:
 ; CGCHECK-NEXT:            BEGIN REGION { modified }
-; CGCHECK-NEXT:                 [[TGU0:%.*]] = (zext.i32.i64([[N0:%.*]]))/u12
-; CGCHECK-NEXT:                 if (0 <u 12 * [[TGU0]])
-; CGCHECK-NEXT:                 {
-; CGCHECK-NEXT:                    [[RED_INIT:%.*]] = 0
+
+; CGCHECK:                         [[RED_INIT:%red.init*]] = 0
 ; CGCHECK-NEXT:                    [[RED_INIT_INSERT:%.*]] = insertelement [[RED_INIT]],  [[ACC_080:%.*]],  0
 ; CGCHECK-NEXT:                    [[PHI_TEMP:%.*]] = [[RED_INIT_INSERT]]
-; CGCHECK:                         + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP>  <MAX_TC_EST = 178956970> <auto-vectorized> <nounroll> <novectorize>
+; CGCHECK:                         + DO i1 = 0, {{.*}} + -1, 12   <DO_LOOP>
 ; CGCHECK-NEXT:                    |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
 ; CGCHECK-NEXT:                    |   [[DOTVEC10:%.*]] = [[DOTVEC0]]  +  [[PHI_TEMP]]
 ; CGCHECK-NEXT:                    |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]
@@ -111,11 +107,11 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CGCHECK-NEXT:                    |   [[PHI_TEMP]] = [[DOTVEC50]]
 ; CGCHECK-NEXT:                    + END LOOP
 ; CGCHECK:                         [[ACC_080]] = @llvm.vector.reduce.add.v4i32([[DOTVEC50]])
-; CGCHECK-NEXT:                 }
-; CGCHECK:                      + DO i1 = 12 * [[TGU0]], zext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 11> <nounroll> <novectorize> <max_trip_count = 11>
+
+; CGCHECK:                      + DO i1 = {{.*}}, zext.i32.i64([[N0:%.*]]) + -1, 1   <DO_LOOP>
 ; CGCHECK-NEXT:                  |   [[ACC_080]] = ([[A0]])[i1]  +  [[ACC_080]]
 ; CGCHECK-NEXT:                 + END LOOP
-; CGCHECK-NEXT:            END REGION
+; CGCHECK:                 END REGION
 ;
 entry:
   %cmp6 = icmp sgt i32 %n, 0

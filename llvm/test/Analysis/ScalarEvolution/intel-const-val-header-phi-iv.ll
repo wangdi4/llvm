@@ -1,4 +1,4 @@
-; RUN: opt < %s -analyze -scalar-evolution | FileCheck %s
+; RUN: opt < %s -analyze -enable-new-pm=0 -scalar-evolution | FileCheck %s
 ; RUN: opt < %s -passes='print<scalar-evolution>' -S 2>&1 | FileCheck %s
 
 ; Verify that the header phi with both operands as constant is treated as an AddRec if the backedge taken count of the loop is 1.

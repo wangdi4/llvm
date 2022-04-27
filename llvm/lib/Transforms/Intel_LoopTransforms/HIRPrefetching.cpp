@@ -782,10 +782,10 @@ void HIRPrefetching::processIndirectPrefetching(
     if (CompareCE &&
         CanonExprUtils::getConstDistance(CompareCE, NewIndexCE, &Distance)) {
       if (Distance < 0) {
-        CheckIf->setPredicateOperandDDRef(PredicateLHS, CheckIf->pred_begin(),
-                                          true);
-        CheckIf->setPredicateOperandDDRef(PredicateRHS, CheckIf->pred_begin(),
-                                          false);
+        CheckIf->setLHSPredicateOperandDDRef(PredicateLHS,
+                                             CheckIf->pred_begin());
+        CheckIf->setRHSPredicateOperandDDRef(PredicateRHS,
+                                             CheckIf->pred_begin());
 
         CompareCE = NewIndexCE;
       }

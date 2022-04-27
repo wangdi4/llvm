@@ -78,6 +78,7 @@ extern bool VPlanEnableGeneralPeeling;
 class SingleLoopVecScenario {
 public:
   friend class LoopVectorizationPlanner; // to use set() methods
+  friend class LoopVectorizationPlannerHIR; // to use set() methods
 
   enum AuxLoopKind {
     LKNone = 0,
@@ -127,6 +128,22 @@ public:
   bool hasMaskedPeel() const { return Peel.Kind == LKMasked; }
   bool hasRemainder() const { return !Remainders.empty(); }
 
+  /// Simple main vector loop and scalar remainder scenario of a
+  /// a constant trip count loop. The main vector and scalar remainder
+  /// loops can be added for such scenarios without any checks to see
+  /// if they should be exercised.
+  bool isSimpleConstTCScenario() {
+    if (!IsConstTC)
+      return false;
+    if (Main.Kind != LKVector)
+      return false;
+    if (hasPeel())
+      return false;
+    if (!hasRemainder() || Remainders.size() > 1)
+      return false;
+    return Remainders[0].Kind == LKScalar;
+  }
+
   /// Return list of vector factors used for the current selection.
   void getUsedVFs(SmallSet<unsigned, 4> &Ret) {
     Ret.insert(Main.VF);
@@ -172,6 +189,7 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
+  void setIsConstTC(bool ConstTC) { IsConstTC = ConstTC; }
   void setMainUF(unsigned N) {MainUF = N;}
   void resetRemainders() { Remainders.clear(); }
 
@@ -211,6 +229,9 @@ private:
   AuxLoopDescr Peel;
   SmallVector<AuxLoopDescr, 1> Remainders;
   unsigned MainUF = 1; // Unroll factor of the main loop.
+
+  // Is the loop we are dealing with a constant trip loop?
+  bool IsConstTC = false;
 };
 
 inline raw_ostream &operator<<(raw_ostream &OS,
@@ -297,6 +318,21 @@ private:
 class LoopVectorizationPlanner {
   friend class VPlanTestBase;
 
+protected:
+  // PlannerType depends on global setting of -x knob and input type: LLVM-IR
+  // or HIR. PlannerType drives the approach of VPlan planning and cost
+  // modelling.
+  enum class PlannerType {
+    Base,        // Basic pipeline of planning is used for LLVM-IR input, which
+                 // currently kicks in for Intel and non-Intel targets for
+                 // #pragma forced vectorization loops only that bypassed HIR
+                 // vectorization (either HIR path is supressed or HIR pass
+                 // does not support such loops).
+    LightWeight, // Light weight type is used for non-Intel targets with HIR
+                 // VPlan input is activated.
+    Full         // The full mode is for Intel targets and HIR input.
+  };
+
 public:
 #if INTEL_CUSTOMIZATION
   LoopVectorizationPlanner(WRNVecLoopNode *WRL, Loop *Lp, LoopInfo *LI,
@@ -329,9 +365,12 @@ public:
   /// Select the best peeling variant for every VPlan.
   void selectBestPeelingVariants();
 
+  /// Detects and returns the current type of planning.
+  virtual PlannerType getPlannerType() const;
+
   /// Create and return Plan/VF specific CostModel object based on global
   /// compilation settings such as presence of -x knob in command line.
-  virtual std::unique_ptr<VPlanCostModelInterface> createCostModel(
+  std::unique_ptr<VPlanCostModelInterface> createCostModel(
     const VPlanVector *Plan, unsigned VF) const;
 
   /// Record CM's decision and dispose of all other VPlans.
@@ -357,7 +396,7 @@ public:
 
   /// Pre VPlan CodeGen pass to verify that we can lower the final VPlan into
   /// corresponding vector code.
-  bool canLowerVPlan(const VPlanVector &Plan);
+  bool canLowerVPlan(const VPlanVector &Plan, unsigned VF);
 
   /// Select the best plan and dispose all other VPlans.
   /// \Returns the selected vectorization factor and corresponding VPlan.
@@ -532,8 +571,8 @@ protected:
   virtual bool canProcessLoopBody(const VPlanVector &Plan,
                                   const VPLoop &Loop) const;
 
-  /// Check if vectorizer supports call pumping feature.
-  virtual bool isCallPumpingSupported() const { return true; }
+  /// Check if vectorizer supports SOA privates.
+  virtual bool isSOACodegenSupported() const { return true; }
 
   /// Register the choosen vectorization scenario: peel/remainder configuration,
   /// vector and unroll factors for main loop
@@ -656,6 +695,11 @@ private:
   /// A list of other additional VPlans, created during peel/remainders
   /// creation and cloning.
   SmallVector<std::unique_ptr<VPlan>, 2> AuxVPlans;
+
+  /// The Cost of a single iteration of scalar VPlan. Calculated far before
+  /// VF selection and kept in this member. Is not expected to be updated
+  /// once calculated.
+  VPInstructionCost ScalarIterationCost;
 };
 
 } // namespace vpo

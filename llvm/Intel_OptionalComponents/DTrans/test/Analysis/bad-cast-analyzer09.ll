@@ -2,9 +2,10 @@
 ; RUN: opt < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
-; This test case tests the bad cast analyzer on a case which removes bad
-; casting and unsafe pointer stores, but requires the addition of tests
-; in some functions.
+; This test case tests the bad cast analyzer on a case which has complicated
+; conditionals and loads and stores of global variables. It should fail with a
+; safety violation and retain the Bad casting and Unsafe pointer store
+; access violations.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

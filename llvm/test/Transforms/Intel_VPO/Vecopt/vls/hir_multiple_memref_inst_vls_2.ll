@@ -1,4 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 ;
 ; Test to check that correct vector code is generated for input HIR with
 ; multiple memrefs in the same HLInst. Incoming HIR into the vectorizer
@@ -32,7 +33,7 @@ define dso_local void @foo({ float, float }* nocapture %dest, { float, float }* 
 ; CHECK-NEXT:        |   (<4 x float>*)([[DEST0:%.*]])[i1 + <i64 0, i64 1, i64 2, i64 3>].0 = [[DOTVEC0]]
 ; CHECK-NEXT:        |   (<4 x float>*)([[DEST0]])[i1 + <i64 0, i64 1, i64 2, i64 3>].1 = [[DOTVEC50]]
 ; CHECK-NEXT:        + END LOOP
-; CHECK-NEXT:  END REGION
+; CHECK:       END REGION
 ;
 entry:
   br label %for.body

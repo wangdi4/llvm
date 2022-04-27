@@ -123,6 +123,15 @@ let Uses = [MXCSR] in
 
 defm DVPLUTSINCOSW : dspv1_2op_imm8_w<0xa3, "dvplutsincosw", loadv8i16>, TAPS;
 
+// Chapter 2
+defm DVPMULWS : dspv1_3op_w<0xcd, "dvpmulws", loadv8i16>, T_MAP8PS, VEX_W;
+let Uses = [MXCSR] in {
+  defm DVPMULUWR : dspv1_3op_w<0xc8, "dvpmuluwr", loadv8i16>, T_MAP8PS, VEX_W;
+  defm DVPMULWR : dspv1_3op_w<0xc8, "dvpmulwr", loadv8i16>, T_MAP8PD, VEX_W;
+  defm DVPMULWFRS : dspv1_3op_w<0xc9, "dvpmulwfrs", loadv8i16>, T_MAP8XD, VEX_W;
+}
+// end Chapter 2
+
 // Chapter 3
 defm DVPDPWUUQ : dspv1_3op_rw<0xc0, "dvpdpwuuq", loadv8i16>, T_MAP8PS, VEX_W;
 defm DVPDPWSSQ : dspv1_3op_rw<0xc0, "dvpdpwssq", loadv8i16>, T_MAP8XD, VEX_W;
@@ -150,16 +159,16 @@ defm DVPDPBWUSD  : dspv1_3op_imm8_rw<0xa8, "dvpdpbwusd", loadv8i16>, TAPD;
 defm DVPDPBWUSDS : dspv1_3op_imm8_rw<0xa9, "dvpdpbwusds", loadv8i16>, TAPD;
 // end Chapter 4
 
-// Chapter 6
+// Chapter 5
 defm DVPMULUWDQ     : dspv1_3op_imm8_w<0xa4, "dvpmuluwdq", loadv4i32>, TAXD, VEX_W;
 defm DVPMULWDQ      : dspv1_3op_imm8_w<0xa4, "dvpmulwdq", loadv4i32>, TAXS, VEX_W;
 defm DVPDPWDUUQ     : dspv1_3op_imm8_rw<0xa6, "dvpdpwduuq", loadv4i32>, TAXS, VEX_W;
 defm DVPDPWDSSQ     : dspv1_3op_imm8_rw<0xa6, "dvpdpwdssq", loadv4i32>, TAXD, VEX_W;
 defm DVPCR2BFRSDRE  : dspv1_3op_imm8_rw<0xa5, "dvpcr2bfrsdre", loadv8i16>, TAXD;
 defm DVPCR2BFRSDIMM : dspv1_3op_imm8_rw<0xa5, "dvpcr2bfrsdimm", loadv8i16>, TAXS;
-// end Chapter 6
+// end Chapter 5
 
-// Chapter 7
+// Chapter 6
 defm DVPMULUDHHQ : dspv1_3op_w<0xcb, "dvpmuludhhq", loadv4i32>,
                    T_MAP8XS, VEX_W;
 defm DVPMULDHHQ : dspv1_3op_w<0xcc, "dvpmuldhhq", loadv4i32>,
@@ -192,9 +201,9 @@ defm DVPNMACDHHQ : dspv1_3op_rw<0xec, "dvpnmacdhhq", loadv4i32>,
                    T_MAP8XS, VEX_W;
 defm DVPMSUBADDDLLQ : dspv1_3op_rw<0xe7, "dvpmsubadddllq", loadv4i32>,
                       T_MAP8PS, VEX_W;
-// end Chapter 7
+// end Chapter 6
 
-// Chapter 8
+// Chapter 7
 defm DVPDPBUUD :  dspv1_3op_rw<0xc1, "dvpdpbuud", loadv16i8>, T_MAP8PS;
 defm DVPDPBUUDS : dspv1_3op_rw<0xc2, "dvpdpbuuds", loadv16i8>, T_MAP8PS;
 defm DVPDPBSSD :  dspv1_3op_rw<0xc1, "dvpdpbssd", loadv16i8>, T_MAP8XD;
@@ -222,9 +231,39 @@ multiclass avxvnni_dsp<bits<8> Opcode, string OpcodeStr, SDNode OpNode> {
 
 defm DVPDPBUSD :  avxvnni_dsp<0xc1, "dvpdpbusd", X86Vpdpbusd>, T_MAP8PD;
 defm DVPDPBUSDS : avxvnni_dsp<0xc2, "dvpdpbusds", X86Vpdpbusds>, T_MAP8PD;
+// end Chapter 7
+
+// Chapter 8
+defm DVPDPINT4UUD : dspv1_3op_rw<0xc3, "dvpdpint4uud", loadv16i8>, T_MAP8PS;
+defm DVPDPINT4SSD : dspv1_3op_rw<0xc3, "dvpdpint4ssd", loadv16i8>, T_MAP8XD;
+defm DVPDPINT4USD : dspv1_3op_rw<0xc3, "dvpdpint4usd", loadv16i8>, T_MAP8PD;
+defm DVPDPINT4SUD : dspv1_3op_rw<0xc3, "dvpdpint4sud", loadv16i8>, T_MAP8XS;
 // end Chapter 8
 
-// Chapter 12
+// Chapter 9
+defm DVPSADACCUBWS : dspv1_3op_rw<0xdf, "dvpsadaccubws", loadv16i8>, T_MAP8XD, VEX_W;
+// end Chapter 9
+
+// Chapter 10
+defm DVPSRRSUQW : dspv1_2op_imm8_w<0xa0, "dvpsrrsuqw", loadv2i64>, TAPS, VEX_W;
+defm DVPSRVRSUQW : dspv1_3op_w<0xe0, "dvpsrvrsuqw", loadv2i64>, T_MAP8PS, VEX_W;
+defm DVPSLRSUQW : dspv1_2op_imm8_w<0xa0, "dvpslrsuqw", loadv2i64>, TAPD, VEX_W;
+defm DVPSLVRSUQW : dspv1_3op_w<0xe0, "dvpslvrsuqw", loadv2i64>, T_MAP8PD, VEX_W;
+defm DVPSRARSQW : dspv1_2op_imm8_w<0xa0, "dvpsrarsqw", loadv2i64>, TAXD, VEX_W;
+defm DVPSRAVRSQW : dspv1_3op_w<0xe0, "dvpsravrsqw", loadv2i64>, T_MAP8XD, VEX_W;
+defm DVPSLRSQW : dspv1_2op_imm8_w<0xa0, "dvpslrsqw", loadv2i64>, TAXS, VEX_W;
+defm DVPSLVRSQW : dspv1_3op_w<0xe0, "dvpslvrsqw", loadv2i64>, T_MAP8XS, VEX_W;
+defm DVPSRRSUQD : dspv1_2op_imm8_w<0xa1, "dvpsrrsuqd", loadv2i64>, TAPS, VEX_W;
+defm DVPSRVRSUQD : dspv1_3op_w<0xe1, "dvpsrvrsuqd", loadv2i64>, T_MAP8PS, VEX_W;
+defm DVPSLRSUQD : dspv1_2op_imm8_w<0xa1, "dvpslrsuqd", loadv2i64>, TAPD, VEX_W;
+defm DVPSLVRSUQD : dspv1_3op_w<0xe1, "dvpslvrsuqd", loadv2i64>, T_MAP8PD, VEX_W;
+defm DVPSRARSQD : dspv1_2op_imm8_w<0xa1, "dvpsrarsqd", loadv2i64>, TAXD, VEX_W;
+defm DVPSRAVRSQD : dspv1_3op_w<0xe1, "dvpsravrsqd", loadv2i64>, T_MAP8XD, VEX_W;
+defm DVPSLRSQD : dspv1_2op_imm8_w<0xa1, "dvpslrsqd", loadv2i64>, TAXS, VEX_W;
+defm DVPSLVRSQD : dspv1_3op_w<0xe1, "dvpslvrsqd", loadv2i64>, T_MAP8XS, VEX_W;
+// end Chapter 10
+
+// Chapter 11
 let Uses = [MXCSR] in {
   defm DVPSRARD :  dspv1_2op_imm8_w<0xa2, "dvpsrard", loadv4i32>, TAXD;
   defm DVPSRAVRD : dspv1_3op_w<0xe2, "dvpsravrd", loadv4i32>, T_MAP8XD;
@@ -235,16 +274,44 @@ defm DVPSLVSD :  dspv1_3op_w<0xe2, "dvpslvsd", loadv4i32>, T_MAP8XS;
 defm DVPSLSD :   dspv1_2op_imm8_w<0xa2, "dvpslsd", loadv4i32>, TAXS;
 defm DVPSLSUD :  dspv1_2op_imm8_w<0xa2, "dvpslsud", loadv4i32>, TAPD;
 defm DVPSLVSUD : dspv1_3op_w<0xe2, "dvpslvsud", loadv4i32>, T_MAP8PD;
-// end Chapter 12
+// end Chapter 11
 
-// Chapter 13
+// Chapter 12
 defm DVPHADDLSWUQ : dspv1_2op_w<0xd0, "dvphaddlswuq", loadv8i16>, T_MAP8PD, VEX_W;
 defm DVPHADDLSWQ : dspv1_2op_w<0xd0, "dvphaddlswq", loadv8i16>, T_MAP8PS, VEX_W;
 defm DVPHADDLSDUQ : dspv1_2op_w<0xd0, "dvphaddlsduq", loadv4i32>, T_MAP8PD;
 defm DVPHADDLSDQ : dspv1_2op_w<0xd0, "dvphaddlsdq", loadv4i32>, T_MAP8PS;
+// end Chapter 12
+
+// Chapter 14
+let Defs = [EFLAGS], Uses = [MXCSR] in
+  def DVPTESTMXCSRFLGS128 : I<0x77, RawFrm, (outs), (ins), "dvptestmxcsrflgs", []>, VEX, PD;
+// end Chapter 14
+
+// Chapter 13
+defm DVPCADDROTSRAW : dspv1_3op_imm8_w<0xa3, "dvpcaddrotsraw", loadv8i16>, TAXS;
+defm DVPCADDROTSRAD : dspv1_3op_imm8_w<0xa3, "dvpcaddrotsrad", loadv4i32>, TAPD;
 // end Chapter 13
 
+defm DVPUNPCKDQ : dspv1_3op_imm8_w<0xa7, "dvpunpckdq", loadv4i32>, TAXS; // Chapter 18
+
 // Chapter 19
+def DVPMASKLDDQUrm : I<0xbc, MRMSrcMem, (outs VR128:$dst),
+                     (ins VR128:$src1, i128mem:$src2),
+                     "dvpmasklddqu\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                     [(set VR128:$dst,
+                      (int_x86_dvpmasklddqu VR128:$src1, addr:$src2))]>,
+                      //(!cast<Intrinsic>("int_x86_dvpmasklddqu") VR128:$src1, addr:$src2))]>,
+                     T_MAP8XS, VEX_4V;
+def DVPMASKSTDQUmr : I<0xbe, MRMDestMem, (outs),
+                     (ins i128mem:$dst, VR128:$src1, VR128:$src2),
+                     "dvpmaskstdqu\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                     [(int_x86_dvpmaskstdqu addr:$dst,
+                     //[(!cast<Intrinsic>("int_x86_dvpmaskstdqu") addr:$dst,
+                      VR128:$src1, VR128:$src2)]>, VEX_4V, T_MAP8XS;
+// end Chapter 19
+
+// Chapter 20
 let Predicates = [Not64BitMode, HasDSPV1] in {
   multiclass dspv1_3op_w_ch19<bits<8> Opcode, string OpcodeStr, PatFrag MemOpFrag,
                          SDNode OpNode, ValueType VT> {
@@ -286,5 +353,5 @@ defm DVPMINSW : dspv1_3op_w_ch19<0xd2, "dvpminsw", loadv8i16, smin, v8i16>, T_MA
 defm DVPMINSD : dspv1_3op_w_ch19<0xd2, "dvpminsd", loadv4i32, smin, v4i32>, T_MAP8XS;
 defm DVPMINUW : dspv1_3op_w_ch19<0xd2, "dvpminuw", loadv8i16, umin, v8i16>, T_MAP8PD, VEX_W;
 defm DVPMINUD : dspv1_3op_w_ch19<0xd2, "dvpminud", loadv4i32, umin, v4i32>, T_MAP8XD;
-// end Chapter 19
+// end Chapter 20
 #endif // INTEL_FEATURE_ISA_DSPV1

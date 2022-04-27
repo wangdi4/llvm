@@ -64,7 +64,7 @@
 // RUN:   | FileCheck -check-prefix=CHECK_S_LLVM %s
 // CHECK_S_LLVM: clang{{.*}} "-fsycl-is-device"{{.*}} "-emit-llvm"{{.*}} "-o" "[[DEVICE:.+\.ll]]"
 // CHECK_S_LLVM: clang{{.*}} "-fsycl-is-host"{{.*}} "-emit-llvm"{{.*}} "-o" "[[HOST:.+\.ll]]"
-// CHECK_S_LLVM: clang-offload-bundler{{.*}} "-type=ll"{{.*}} "-inputs=[[DEVICE]],[[HOST]]"
+// CHECK_S_LLVM: clang-offload-bundler{{.*}} "-type=ll"{{.*}} "-input=[[DEVICE]]" "-input=[[HOST]]"
 
 /// Check for default device triple compilations based on object, archive or
 /// forced from command line.
@@ -87,7 +87,7 @@
 // RUN:    | FileCheck -check-prefix IMPLIED_DEVICE_LIB %s
 // RUN:  %clangxx -### -target x86_64-unknown-linux-gnu -fsycl -fintelfpga %S/Inputs/SYCL/liblin64.a %s 2>&1 \
 // RUN:    | FileCheck -check-prefix IMPLIED_DEVICE_LIB %s
-// IMPLIED_DEVICE_LIB: clang-offload-bundler{{.*}} "-type=a"{{.*}} "-targets=sycl-spir64_{{.*}}-unknown-unknown,sycl-spir64-unknown-unknown"{{.*}} "-unbundle"
+// IMPLIED_DEVICE_LIB: clang-offload-bundler{{.*}} "-type=aoo"{{.*}} "-targets=sycl-spir64_{{.*}}-unknown-unknown,sycl-spir64-unknown-unknown"{{.*}} "-unbundle"
 
 /// Check that the default device triple is not used with -fno-sycl-link-spirv
 // RUN:  %clangxx -### -target x86_64-unknown-linux-gnu -fsycl -fno-sycl-link-spirv -fsycl-targets=spir64_x86_64 %S/Inputs/SYCL/objlin64.o %s 2>&1 \
@@ -141,3 +141,17 @@
 // RUN:  %clangxx -### -Wl,-rpath,%S -fsycl -fintelfpga %t_empty.o %s 2>&1 \
 // RUN:    | FileCheck -check-prefix NO_DIR_CHECK %s
 // NO_DIR_CHECK-NOT: clang-offload-bundler: error: '{{.*}}': Is a directory
+
+// Device section checking only occur when offloading is enabled
+// RUN:  %clangxx -### -target x86_64-unknown-linux-gnu -fsycl %S/Inputs/SYCL/liblin64.a %s 2>&1 \
+// RUN:    | FileCheck -check-prefix CHECK_SECTION %s
+// RUN:  %clangxx -### -target x86_64-unknown-linux-gnu %S/Inputs/SYCL/liblin64.a %s 2>&1 \
+// RUN:    | FileCheck -check-prefix NO_CHECK_SECTION %s
+// CHECK_SECTION: clang-offload-bundler{{.*}} "-type=ao" "-targets=host-x86_64-unknown-linux-gnu"{{.*}} "-check-section"
+// CHECK_SECTION: clang-offload-bundler{{.*}} "-type=ao" "-targets=sycl-fpga_aocr-intel-unknown"{{.*}} "-check-section"
+// CHECK_SECTION: clang-offload-bundler{{.*}} "-type=ao" "-targets=sycl-fpga_aocx-intel-unknown"{{.*}} "-check-section"
+// CHECK_SECTION: clang-offload-bundler{{.*}} "-type=ao" "-targets=sycl-fpga_aocr_emu-intel-unknown"{{.*}} "-check-section"
+// NO_CHECK_SECTION-NOT: clang-offload-bundler{{.*}} "-type=ao" "-targets=host-x86_64-unknown-linux-gnu"{{.*}} "-check-section"
+// NO_CHECK_SECTION-NOT: clang-offload-bundler{{.*}} "-type=ao" "-targets=sycl-fpga_aocr-intel-unknown"{{.*}} "-check-section"
+// NO_CHECK_SECTION-NOT: clang-offload-bundler{{.*}} "-type=ao" "-targets=sycl-fpga_aocx-intel-unknown"{{.*}} "-check-section"
+// NO_CHECK_SECTION-NOT: clang-offload-bundler{{.*}} "-type=ao" "-targets=sycl-fpga_aocr_emu-intel-unknown"{{.*}} "-check-section"

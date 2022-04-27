@@ -68,8 +68,8 @@ declare void @dummy_barrier.()
 !1 = !{void (i64)* @__Vectorized_.main}
 !2 = !{i32 16}
 
-; CHECK-DAG: ![[SCAL]] = !{i32 {{[0-9]+}}}
-; CHECK-DAG: ![[VEC]] = !{i32 {{[0-9]+}}}
+; CHECK-DAG: ![[SCAL]] = !{i32 24}
+; CHECK-DAG: ![[VEC]] = !{i32 2}
 
 ;; barrier key values
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %pCurrBarrier = alloca i32, align 4

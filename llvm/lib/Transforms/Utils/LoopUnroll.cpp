@@ -1,4 +1,21 @@
 //===-- UnrollLoop.cpp - Loop unrolling utilities -------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -100,6 +117,17 @@ UnrollVerifyDomtree("unroll-verify-domtree", cl::Hidden,
     cl::init(false)
 #endif
                     );
+
+static cl::opt<bool>
+UnrollVerifyLoopInfo("unroll-verify-loopinfo", cl::Hidden,
+                    cl::desc("Verify loopinfo after unrolling"),
+#ifdef EXPENSIVE_CHECKS
+    cl::init(true)
+#else
+    cl::init(false)
+#endif
+                    );
+
 
 /// Check if unrolling created a situation where we need to insert phi nodes to
 /// preserve LCSSA form.
@@ -838,6 +866,9 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
   // Apply updates to the DomTree.
   DT = &DTU.getDomTree();
 
+  assert(!UnrollVerifyDomtree ||
+         DT->verify(DominatorTree::VerificationLevel::Fast));
+
   // At this point, the code is well formed.  We now simplify the unrolled loop,
   // doing constant propagation and dead code elimination as we go.
   simplifyLoopAfterUnroll(L, !CompletelyUnroll && ULO.Count > 1, LI, SE, DT, AC,
@@ -850,6 +881,10 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
   // Update LoopInfo if the loop is completely removed.
   if (CompletelyUnroll)
     LI->erase(L);
+
+  // LoopInfo should not be valid, confirm that.
+  if (UnrollVerifyLoopInfo)
+    LI->verify(*DT);
 
   // After complete unrolling most of the blocks should be contained in OuterL.
   // However, some of them might happen to be out of OuterL (e.g. if they

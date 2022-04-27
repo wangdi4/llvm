@@ -1284,8 +1284,8 @@ static HLIf *createNewIVComparison(HLLoop *Lp) {
 static HLIf *getIVComparisonIf(HLLoop *Lp, HLGoto *Goto) {
   if (auto *PrevIf = dyn_cast_or_null<HLIf>(Goto->getPrevNode())) {
     auto PredI = PrevIf->pred_begin();
-    const RegDDRef *LHSRef = PrevIf->getPredicateOperandDDRef(PredI, true);
-    const RegDDRef *RHSRef = PrevIf->getPredicateOperandDDRef(PredI, false);
+    const RegDDRef *LHSRef = PrevIf->getLHSPredicateOperandDDRef(PredI);
+    const RegDDRef *RHSRef = PrevIf->getRHSPredicateOperandDDRef(PredI);
     PredicateTy Pred = *PredI;
     unsigned Level;
     unsigned LoopLevel = Lp->getNestingLevel();

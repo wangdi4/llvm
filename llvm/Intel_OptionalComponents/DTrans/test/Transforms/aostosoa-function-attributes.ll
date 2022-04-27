@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -whole-program-assume -internalize -internalize-public-api-list main  -dtrans-aostosoa -dtrans-aostosoa-index32=false -dtrans-aostosoa-heur-override=struct.test01 -dtrans-usecrulecompat 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes='internalize,dtrans-aostosoa' -internalize-public-api-list main -dtrans-aostosoa-index32=false -dtrans-aostosoa-heur-override=struct.test01 -dtrans-usecrulecompat -whole-program-assume 2>&1 | FileCheck %s
+; RUN: opt < %s -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -internalize -internalize-public-api-list main  -dtrans-aostosoa -dtrans-aostosoa-index32=false -dtrans-aostosoa-heur-override=struct.test01 -dtrans-usecrulecompat 2>&1 | FileCheck %s
+; RUN: opt < %s -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes='internalize,dtrans-aostosoa' -internalize-public-api-list main -dtrans-aostosoa-index32=false -dtrans-aostosoa-heur-override=struct.test01 -dtrans-usecrulecompat 2>&1 | FileCheck %s
 
 
 ; This test verifies that function attributes on the function signatures and
@@ -127,7 +127,7 @@ define nonnull %struct.test01* @test01callee(%struct.test01* noalias nonnull rea
   %sel = select i1 undef, %struct.test01* %in1, %struct.test01* %in2
   ret %struct.test01* %sel
 }
-; CHECK: define internal i64 @test01callee.1(i64 %in1, i64 %in2, i8* noalias nonnull %in3) {
+; CHECK: define internal i64 @test01callee.1(i64 %in1, i64 %in2, i8* noalias nonnull %in3)
 
 
 ; Test with pointer to pointer of type being converted.
@@ -137,7 +137,7 @@ define nonnull %struct.test01** @test02callee(%struct.test01** noalias nonnull r
   %sel = select i1 undef, %struct.test01** %in1, %struct.test01** %in2
   ret %struct.test01** %sel
 }
-; CHECK define internal nonnull i64* @test02callee.2(i64* noalias nonnull readnone %in1, i64* nocapture %in2, i8* nonnull %in3) {
+; CHECK define internal nonnull i64* @test02callee.2(i64* noalias nonnull readnone %in1, i64* nocapture %in2, i8* nonnull %in3)
 
 
 ; Verify changes to attributes do not occur on the pointers of dependent

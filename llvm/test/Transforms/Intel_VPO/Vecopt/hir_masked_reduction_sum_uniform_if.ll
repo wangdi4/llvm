@@ -16,28 +16,29 @@
 ; END REGION
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPCHECK
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPCHECK
-
+; RUN: opt -vplan-enable-new-cfg-merge-hir=false -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir=false -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
 
 ; Checks for VPValue based code generation.
-; VPCHECK:                   %red.init = 0.000000e+00;
-; VPCHECK:                   %phi.temp = %red.init;
-; VPCHECK:                   + DO i1 = 0, 999, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; VPCHECK-NEXT:              |   %.vec = %N2 > 0;
-; VPCHECK-NEXT:              |   %phi.temp1 = %phi.temp;
-; VPCHECK-NEXT:              |   %unifcond = extractelement %.vec,  0;
-; VPCHECK-NEXT:              |   if (%unifcond == 1)
-; VPCHECK-NEXT:              |   {
-; VPCHECK-NEXT:              |      %.vec3 = (<4 x float>*)(@B)[0][i1];
-; VPCHECK-NEXT:              |      %.vec4 = (<4 x float>*)(@C)[0][i1];
-; VPCHECK-NEXT:              |      %.vec5 = %.vec3  +  %.vec4;
-; VPCHECK-NEXT:              |      %.vec6 = %phi.temp  +  %.vec5;
-; VPCHECK-NEXT:              |      %phi.temp1 = %.vec6;
-; VPCHECK-NEXT:              |   }
-; VPCHECK-NEXT:              |   %phi.temp = %phi.temp1;
-; VPCHECK-NEXT:              + END LOOP
-; VPCHECK:                   %tsum.015 = @llvm.vector.reduce.fadd.v4f32(%tsum.015,  %phi.temp1);
+; CHECK:      BEGIN REGION { modified }
+; CHECK-NEXT:       %red.init = 0.000000e+00;
+; CHECK-NEXT:       %phi.temp = %red.init;
+; CHECK:            + DO i1 = 0, 999, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK-NEXT:       |   %phi.temp1 = %phi.temp;
+; CHECK-NEXT:       |   if (%N2 > 0)
+; CHECK-NEXT:       |   {
+; CHECK-NEXT:       |      %.vec = (<4 x float>*)(@B)[0][i1];
+; CHECK-NEXT:       |      %.vec3 = (<4 x float>*)(@C)[0][i1];
+; CHECK-NEXT:       |      %.vec4 = %.vec  +  %.vec3;
+; CHECK-NEXT:       |      %.vec5 = %phi.temp  +  %.vec4;
+; CHECK-NEXT:       |      %phi.temp1 = %.vec5;
+; CHECK-NEXT:       |   }
+; CHECK-NEXT:       |   %phi.temp = %phi.temp1;
+; CHECK:            + END LOOP
+; CHECK:            %tsum.015 = @llvm.vector.reduce.fadd.v4f32(%tsum.015,  %phi.temp1);
+; CHECK:      END REGION
  
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

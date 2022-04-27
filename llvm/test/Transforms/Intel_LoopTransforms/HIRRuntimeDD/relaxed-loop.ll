@@ -8,7 +8,7 @@
 ;
 ;<0>          BEGIN REGION { }
 ;<62>               + DO i1 = 0, zext.i32.i64(%height) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2000>
-;<63>               |   + DO i2 = 0, %width + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>     
+;<63>               |   + DO i2 = 0, %width + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
 ;<12>               |   |   %2 = (%new_row)[3];                                                
 ;<14>               |   |   %sub = %2  ^  255;
 ;<15>               |   |   if (%channels > 0)
@@ -38,7 +38,7 @@
 ; CHECK:           |      %mv.and8 = %mv.test6  &  %mv.test7;
 ; CHECK:           |      if (%mv.and == 0 && %mv.and8 == 0)
 ; CHECK:           |      {
-; CHECK:           |         + DO i2 = 0, %width + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <MVTag: 63>
+; CHECK:           |         + DO i2 = 0, %width + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647> <MVTag: 63>
 ; CHECK:           |         |   %2 = (%new_row)[3];
 ; CHECK:           |         |   %sub = %2  ^  255;
 ; CHECK:           |         |   if (%channels > 0)
@@ -53,7 +53,7 @@
 ; CHECK:           |      }
 ; CHECK:           |      else
 ; CHECK:           |      {
-; CHECK:           |         + DO i2 = 0, %width + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <MVTag: 63> <nounroll> <novectorize>
+; CHECK:           |         + DO i2 = 0, %width + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647> <MVTag: 63> <nounroll> <novectorize>
 ; CHECK:           |         |   %2 = (%new_row)[3];
 ; CHECK:           |         |   %sub = %2  ^  255;
 ; CHECK:           |         |   if (%channels > 0)

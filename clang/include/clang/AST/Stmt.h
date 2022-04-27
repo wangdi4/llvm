@@ -1,4 +1,21 @@
 //===- Stmt.h - Classes for representing statements -------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -594,8 +611,8 @@ protected:
     unsigned : NumExprBits;
 
     /// The kind of source location builtin represented by the SourceLocExpr.
-    /// Ex. __builtin_LINE, __builtin_FUNCTION, ect.
-    unsigned Kind : 2;
+    /// Ex. __builtin_LINE, __builtin_FUNCTION, etc.
+    unsigned Kind : 3;
   };
 
   class StmtExprBitfields {
@@ -1244,7 +1261,7 @@ public:
   }
 
   /// Child Iterators: All subclasses must implement 'children'
-  /// to permit easy iteration over the substatements/subexpessions of an
+  /// to permit easy iteration over the substatements/subexpressions of an
   /// AST node.  This permits easy iteration over all nodes in the AST.
   using child_iterator = StmtIterator;
   using const_child_iterator = ConstStmtIterator;

@@ -1,6 +1,10 @@
-; RUN: opt -O2 -S -pass-remarks=loop-vectorize  -pass-remarks-analysis=loop-vectorize < %s 2>&1 | FileCheck %s
-; RUN: opt -O3 -S -pass-remarks=loop-vectorize  -pass-remarks-analysis=loop-vectorize < %s 2>&1 | FileCheck %s
-; RUN: opt -O1 -vectorize-loops -S -pass-remarks=loop-vectorize  -pass-remarks-analysis=loop-vectorize < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -O2 -S -pass-remarks=loop-vectorize  -pass-remarks-analysis=loop-vectorize < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -O3 -S -pass-remarks=loop-vectorize  -pass-remarks-analysis=loop-vectorize < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -O1 -vectorize-loops -S -pass-remarks=loop-vectorize  -pass-remarks-analysis=loop-vectorize < %s 2>&1 | FileCheck %s
+
+; RUN: opt -enable-new-pm=1 -O2 -S -pass-remarks=loop-vectorize  -pass-remarks-analysis=loop-vectorize < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=1 -O3 -S -pass-remarks=loop-vectorize  -pass-remarks-analysis=loop-vectorize < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=1 -O1 -vectorize-loops -S -pass-remarks=loop-vectorize  -pass-remarks-analysis=loop-vectorize < %s 2>&1 | FileCheck %s
 ; CHECK-NOT: remark: {{.*}} vectorized
 ; ModuleID = 't.c'
 source_filename = "t.c"

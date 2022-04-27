@@ -1,4 +1,21 @@
 //===- TypeFinder.cpp - Implement the TypeFinder class --------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -18,8 +35,10 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Use.h"
 #include "llvm/IR/User.h"
@@ -29,27 +48,58 @@
 
 using namespace llvm;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+void TypeFinder::run(const Module &M, bool onlyNamed, bool IncludeMD) {
+#else // INTEL_FEATURE_SW_DTRANS
 void TypeFinder::run(const Module &M, bool onlyNamed) {
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   OnlyNamed = onlyNamed;
 
   // Get types from global variables.
   for (const auto &G : M.globals()) {
-    incorporateType(G.getType());
+    incorporateType(G.getValueType());
     if (G.hasInitializer())
       incorporateValue(G.getInitializer());
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    if (IncludeMD) {
+      SmallVector<std::pair<unsigned, MDNode *>, 4> MDForGlobal;
+      G.getAllMetadata(MDForGlobal);
+      for (const auto &MD : MDForGlobal)
+        incorporateMDNode(MD.second);
+    }
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Get types from aliases.
   for (const auto &A : M.aliases()) {
-    incorporateType(A.getType());
+    incorporateType(A.getValueType());
     if (const Value *Aliasee = A.getAliasee())
       incorporateValue(Aliasee);
   }
 
+  // Get types from ifuncs.
+  for (const auto &GI : M.ifuncs())
+    incorporateType(GI.getValueType());
+
   // Get types from functions.
   SmallVector<std::pair<unsigned, MDNode *>, 4> MDForInst;
   for (const Function &FI : M) {
-    incorporateType(FI.getType());
+    incorporateType(FI.getFunctionType());
+    incorporateAttributes(FI.getAttributes());
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    if (IncludeMD) {
+      FI.getAllMetadata(MDForInst);
+      for (const auto &MD : MDForInst)
+        incorporateMDNode(MD.second);
+      MDForInst.clear();
+    }
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
     for (const Use &U : FI.operands())
       incorporateValue(U.get());
@@ -68,6 +118,13 @@ void TypeFinder::run(const Module &M, bool onlyNamed) {
         for (const auto &O : I.operands())
           if (&*O && !isa<Instruction>(&*O))
             incorporateValue(&*O);
+
+        if (auto *GEP = dyn_cast<GetElementPtrInst>(&I))
+          incorporateType(GEP->getSourceElementType());
+        if (auto *AI = dyn_cast<AllocaInst>(&I))
+          incorporateType(AI->getAllocatedType());
+        if (const auto *CB = dyn_cast<CallBase>(&I))
+          incorporateAttributes(CB->getAttributes());
 
         // Incorporate types hiding in metadata.
         I.getAllMetadataOtherThanDebugLoc(MDForInst);
@@ -138,6 +195,9 @@ void TypeFinder::incorporateValue(const Value *V) {
   if (isa<Instruction>(V))
     return;
 
+  if (auto *GEP = dyn_cast<GEPOperator>(V))
+    incorporateType(GEP->getSourceElementType());
+
   // Look in operands for types.
   const User *U = cast<User>(V);
   for (const auto &I : U->operands())
@@ -172,4 +232,14 @@ void TypeFinder::incorporateMDNode(const MDNode *V) {
       continue;
     }
   }
+}
+
+void TypeFinder::incorporateAttributes(AttributeList AL) {
+  if (!VisitedAttributes.insert(AL).second)
+    return;
+
+  for (AttributeSet AS : AL)
+    for (Attribute A : AS)
+      if (A.isTypeAttribute())
+        incorporateType(A.getValueAsType());
 }

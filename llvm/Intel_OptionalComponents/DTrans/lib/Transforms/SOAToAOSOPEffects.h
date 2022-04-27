@@ -1,6 +1,6 @@
 //===-------------- SOAToAOSOPEffects.h - Part of SOAToAOSOPPass ----------===//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -24,7 +24,6 @@
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
-#include "Intel_DTrans/Transforms/SOAToAOSOPExternal.h"
 
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SCCIterator.h"
@@ -38,6 +37,8 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
+#include "SOAToAOSOPInternal.h"
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/Support/FormattedStream.h"
@@ -49,6 +50,11 @@
 namespace llvm {
 namespace dtransOP {
 namespace soatoaosOP {
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+extern cl::list<std::string> DTransSOAToAOSOPIgnoreFuncs;
+bool isFunctionIgnoredForSOAToAOSOP(Function &F);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Checking if iterator is dereferenceable.
 template <typename WrappedIteratorTy, typename PredicateTy>
@@ -1080,22 +1086,38 @@ inline bool isSafeBitCast(const DataLayout &DL, const Value *V,
   if (!BC)
     return false;
 
-  auto *FromInfo = PTA.getValueTypeInfo(BC->getOperand(0));
-  if (!FromInfo)
+  auto *BCInfo = PTA.getValueTypeInfo(BC);
+  if (!BCInfo)
     return false;
+  // Check first and use if BCInfo is dominant type.
+  auto *BCTy = PTA.getDominantType(*BCInfo, ValueTypeInfo::VAT_Use);
   uint64_t ElemSize = -1ULL;
-  auto &AliasSet = FromInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
-  for (auto *FromTy : AliasSet) {
-    if (!FromTy->isPointerTy())
+  if (BCTy) {
+    if (!BCTy->isPointerTy())
       return false;
-    DTransType *ETy = FromTy->getPointerElementType();
+    DTransType *ETy = BCTy->getPointerElementType();
     Type *S = ETy->getLLVMType();
     if (!S->isSized())
       return false;
-    if (ElemSize == -1ULL)
-      ElemSize = DL.getTypeStoreSize(S);
-    else if (ElemSize != DL.getTypeStoreSize(S))
+    ElemSize = DL.getTypeStoreSize(S);
+  } else {
+    // If it doesn't have dominant type, makes sure it is safe bitcast.
+    auto *FromInfo = PTA.getValueTypeInfo(BC->getOperand(0));
+    if (!FromInfo)
       return false;
+    auto &AliasSet = FromInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
+    for (auto *FromTy : AliasSet) {
+      if (!FromTy->isPointerTy())
+        return false;
+      DTransType *ETy = FromTy->getPointerElementType();
+      Type *S = ETy->getLLVMType();
+      if (!S->isSized())
+        return false;
+      if (ElemSize == -1ULL)
+        ElemSize = DL.getTypeStoreSize(S);
+      else if (ElemSize != DL.getTypeStoreSize(S))
+        return false;
+    }
   }
   if (ElemSize == -1ULL)
     return false;

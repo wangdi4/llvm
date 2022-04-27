@@ -10,6 +10,7 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGFunctionWiden.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -174,7 +175,7 @@ Function *FunctionWidener::cloneFunction(Function &F, VectorVariant &V,
   SmallVector<AttributeSet, 4> ParamAttrs;
   for (auto &Pair : enumerate(Clone->args())) {
     Type *ArgType = Pair.value().getType();
-    AttrBuilder AB = AttributeFuncs::typeIncompatible(ArgType);
+    AttributeMask AB = AttributeFuncs::typeIncompatible(ArgType);
     // The following attributes are rejected in community code.
     // But they are accepted via INTEL_CUSTOMIZATION macro. CodeGen
     // can't process these attributes for vector value.
@@ -182,7 +183,7 @@ Function *FunctionWidener::cloneFunction(Function &F, VectorVariant &V,
     AB.addAttribute(Attribute::ZExt);
     AB.addAttribute(Attribute::SExt);
     // For <VF x pointer> sret.
-    AB.addStructRetAttr(ArgType);
+    AB.addAttribute(Attribute::StructRet);
     AttributeSet ParamAttr = Attrs.getParamAttrs(Pair.index());
     ParamAttrs.push_back(ParamAttr.removeAttributes(Context, AB));
   }
@@ -215,9 +216,28 @@ bool FunctionWidener::isWideCall(Instruction *I) {
 }
 
 Instruction *FunctionWidener::getInsertPoint(Instruction *I, Value *V) {
-
-  if (isWideCall(I) || isa<ReturnInst>(I)) {
+  if (isWideCall(I)) {
+    auto *CI = cast<CallInst>(I);
     auto *IP = I->getPrevNode();
+
+    if (Utils.getAllFunctionsWithSynchronization().count(
+            CI->getCalledFunction())) {
+      assert((cast<CallInst>(IP)->getCalledFunction() != nullptr &&
+              isWorkGroupBarrier(
+                  cast<CallInst>(IP)->getCalledFunction()->getName())) &&
+             "Expect workgroup barrier call before workgroup sync function.");
+      IP = IP->getPrevNode();
+      return getInsertPoint(IP, V);
+    }
+    if (!Helper.isBarrier(IP))
+      IP = Helper.insertBarrierBefore(I);
+    return getInsertPoint(IP, V);
+  }
+
+  if (isa<ReturnInst>(I)) {
+    auto *IP = I->getPrevNode();
+    if (Utils.isBarrierCall(IP))
+      IP = IP->getPrevNode();
     // The ending barrier may be deleted before
     // sg_barrier
     // %0 = sub_group_all(1)
@@ -232,7 +252,7 @@ Instruction *FunctionWidener::getInsertPoint(Instruction *I, Value *V) {
   if (Helper.isBarrier(I) || Helper.isDummyBarrier(I)) {
     auto *SyncBB = I->getParent();
     std::string BBName = SyncBB->getName().str();
-    SyncBB->setName("");
+    SyncBB->setName("sync.bb.");
     SyncBB->splitBasicBlock(I, BBName);
     return SyncBB->getTerminator();
   }

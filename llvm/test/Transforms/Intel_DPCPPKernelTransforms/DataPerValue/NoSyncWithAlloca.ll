@@ -1,5 +1,5 @@
 ; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-data-per-value-analysis>' -S < %s | FileCheck %s
-; RUN: opt -analyze -dpcpp-kernel-data-per-value-analysis -S < %s | FileCheck %s
+; RUN: opt -analyze -enable-new-pm=0 -dpcpp-kernel-data-per-value-analysis -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the DataPerValue pass
@@ -51,10 +51,12 @@ L2:
 ; CHECK-NOT: -
 ; CHECK-NOT: *
 
-; CHECK: Buffer Total Size:
-; CHECK: +main : [0]
-; CHECK: entry(0) : (8)
-; CHECK: DONE
+; CHECK: Function Equivalence Classes:
+; CHECK-NEXT: [main]: main
+
+; CHECK-NEXT: Buffer Total Size:
+; CHECK-NEXT: leader(main) : (8)
+; CHECK-NEXT: DONE
 
 declare i32 @_Z12get_local_idj(i32)
 

@@ -1,4 +1,21 @@
 //===- IntelVPlan.cpp - Vectorizer Plan -----------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -314,6 +331,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "smin";
   case VPInstruction::UMin:
     return "umin";
+  case VPInstruction::UMinSeq:
+    return "umin-seq";
   case VPInstruction::FMax:
     return "fmax";
   case VPInstruction::FMin:
@@ -394,10 +413,14 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "vp-general-mem-opt-conflict";
   case VPInstruction::TreeConflict:
     return "tree-conflict";
+  case VPInstruction::Permute:
+    return "permute";
   case VPInstruction::ConflictInsn:
     return "vpconflict-insn";
   case VPInstruction::PrivateLastValueNonPOD:
     return "private-last-value-nonpod";
+  case VPInstruction::CvtMaskToInt:
+    return "convert-mask-to-int";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);
@@ -777,6 +800,10 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
+unsigned VPInstruction::getNumSuccessors() const {
+  return cast<VPBranchInst>(this)->getNumSuccessors();
+}
+
 #if INTEL_CUSTOMIZATION
 VPlanVector::VPlanVector(VPlanKind K, VPExternalValues &E,
                          VPUnlinkedInstructions &UVPI)
@@ -914,7 +941,7 @@ void VPlanVector::execute(VPTransformState *State) {
     State->CFG.InsertBefore = MiddleBlock;
   }
 
-  ReversePostOrderTraversal<VPBasicBlock *> RPOT(getEntryBlock());
+  ReversePostOrderTraversal<VPBasicBlock *> RPOT(&getEntryBlock());
   for (VPBasicBlock *BB : RPOT) {
     LLVM_DEBUG(dbgs() << "LV: VPBlock in RPO " << BB->getName() << '\n');
     BB->execute(State);
@@ -961,7 +988,7 @@ void VPlanVector::execute(VPTransformState *State) {
 
 #if INTEL_CUSTOMIZATION
 void VPlanVector::executeHIR(VPOCodeGenHIR *CG) {
-  ReversePostOrderTraversal<VPBasicBlock *> RPOT(getEntryBlock());
+  ReversePostOrderTraversal<VPBasicBlock *> RPOT(&getEntryBlock());
 
   for (VPBasicBlock *VPBB : RPOT) {
     LLVM_DEBUG(dbgs() << "HIRV: VPBlock in RPO " << VPBB->getName() << '\n');
@@ -1112,10 +1139,10 @@ const Twine VPlanPrinter::getOrCreateName(const VPBasicBlock *BB) {
 }
 
 void VPlan::print(raw_ostream &OS, unsigned Indent) const {
-  ReversePostOrderTraversal<const VPBasicBlock *> RPOT(getEntryBlock());
+  ReversePostOrderTraversal<const VPBasicBlock *> RPOT(&getEntryBlock());
   SetVector<const VPBasicBlock *> Printed;
   SetVector<const VPBasicBlock *> SuccList;
-  SuccList.insert(getEntryBlock());
+  SuccList.insert(&getEntryBlock());
   std::string StrIndent = std::string(2, ' ');
   for (const VPBasicBlock *VPBB : RPOT) {
     VPBB->print(OS, Indent + SuccList.size() - 1);
@@ -1211,7 +1238,7 @@ void VPlanPrinter::dump(bool CFGOnly) {
   OS << "edge [fontname=Courier, fontsize=30]\n";
   OS << "compound=true\n";
 
-  for (const VPBasicBlock *BB : depth_first(Plan.getEntryBlock()))
+  for (const VPBasicBlock *BB : depth_first(&Plan.getEntryBlock()))
     dumpBasicBlock(BB, CFGOnly);
 
   OS << "}\n";
@@ -1331,10 +1358,15 @@ void VPBlendInst::addIncoming(VPValue *IncomingVal, VPValue *BlockPred, VPlan *P
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPInvSCEVWrapper::printImpl(raw_ostream & O) const {
-  O << "{ ";
-  VPlanScalarEvolutionLLVM::toSCEV(Scev)->print(O);
-  O << " }";
+void VPInvSCEVWrapper::printImpl(raw_ostream &O) const {
+  if (IsSCEV) {
+    O << "{ ";
+    VPlanScalarEvolutionLLVM::toSCEV(Scev)->print(O);
+    O << " }";
+  } else {
+    auto *AddRecHIR = VPlanScalarEvolutionHIR::toVPlanAddRecHIR(Scev);
+    O << *AddRecHIR;
+  }
 }
 
 void VPBlendInst::printImpl(raw_ostream &O) const {
@@ -1677,7 +1709,7 @@ void VPlanVector::copyData(VPAnalysesFactoryBase &VPAF, UpdateDA UDA,
     if (UDA == UpdateDA::RecalculateDA)
       TargetPlan->computeDA();
     else if (UDA == UpdateDA::CloneDA) {
-      getVPlanDA()->cloneVectorShapes(TargetPlan, OrigClonedValuesMap);
+      getVPlanDA()->cloneDAData(TargetPlan, OrigClonedValuesMap);
       TargetPlan->getVPlanDA()->disableDARecomputation();
     }
   }

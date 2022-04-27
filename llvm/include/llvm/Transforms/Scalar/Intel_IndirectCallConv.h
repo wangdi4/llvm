@@ -1,6 +1,6 @@
 //===- Intel_IndirectCallConv.cpp - Indirect call Conv transformation -===//
 ////
-//// Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
+//// Copyright (C) 2016-2022 Intel Corporation. All rights reserved.
 ////
 //// The information and source code contained herein is the exclusive
 //// property of Intel Corporation and may not be disclosed, examined
@@ -38,7 +38,7 @@ public:
   explicit IndirectCallConvPass(bool UseAndersen = false)
       : UseAndersen(UseAndersen) {}
 #endif // INTEL_FEATURE_SW_DTRANS
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 };
 
 } // end namespace llvm

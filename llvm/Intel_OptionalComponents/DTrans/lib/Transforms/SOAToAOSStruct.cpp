@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSStruct.cpp - Part of SOAToAOSPass -----------===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -150,15 +150,15 @@ SOAToAOSStructMethodsCheckDebug::Ignore::get() const {
 SOAToAOSStructMethodsCheckDebug::Ignore::~Ignore() {}
 
 SOAToAOSStructMethodsCheckDebug::Ignore
-SOAToAOSStructMethodsCheckDebug::run(Function &F, FunctionAnalysisManager &AM) {
-  const auto &MAM = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
-  auto *DTInfo = MAM.getCachedResult<DTransAnalysis>(*F.getParent());
-  auto *TLI = AM.getCachedResult<TargetLibraryAnalysis>(F);
-  if (!DTInfo || !TLI)
+SOAToAOSStructMethodsCheckDebug::run(Module &M, ModuleAnalysisManager &MAM) {
+  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto *DTInfo = &MAM.getResult<DTransAnalysis>(M);
+  if (!DTInfo)
     report_fatal_error("DTransAnalysis was not run before "
                        "SOAToAOSStructMethodsCheckDebug.");
 
-  auto *Res = AM.getCachedResult<SOAToAOSApproximationDebug>(F);
+  auto *Res = &MAM.getResult<SOAToAOSApproximationDebug>(M);
+
   if (!Res)
     report_fatal_error("SOAToAOSApproximationDebug was not run before "
                        "SOAToAOSStructMethodsCheckDebug.");
@@ -167,77 +167,88 @@ SOAToAOSStructMethodsCheckDebug::run(Function &F, FunctionAnalysisManager &AM) {
     report_fatal_error("Missing SOAToAOSApproximationDebug results before "
                        "SOAToAOSStructMethodsCheckDebug.");
 
-  SummaryForIdiom S = getParametersForSOAToAOSMethodsCheckDebug(F);
-
-  LLVM_DEBUG(dbgs() << "; Checking structure's method " << F.getName() << "\n");
-
-  auto P = getArrayTypesForSOAToAOSStructMethodsCheckDebug(F);
-
   std::unique_ptr<SOAToAOSStructMethodsCheckDebugResult> Result(
       new SOAToAOSStructMethodsCheckDebugResult());
 
-  for (auto &CmpKind : DTransSOAToAOSComparison)
-    if (CmpKind == "append")
-      Result->Appends =
-          getSOAToAOSArrayMethods(DTransSOAToAOSAppends, P.first, F);
-    else if (CmpKind == "cctor")
-      Result->CCtors =
-          getSOAToAOSArrayMethods(DTransSOAToAOSCCtors, P.first, F);
-    else if (CmpKind == "ctor")
-      Result->Ctors =
-          getSOAToAOSArrayMethods(DTransSOAToAOSCtors, P.first, F);
-    else if (CmpKind == "dtor")
-      Result->Dtors =
-          getSOAToAOSArrayMethods(DTransSOAToAOSDtors, P.first, F);
-    else
-      report_fatal_error("Incorrect value in dtrans-soatoaos-method-call-site-comparison."
-                         "append/cctor/ctor/dtor are allowed.");
+  for (auto &F : M) {
+    if (F.isDeclaration())
+      continue;
 
-  if (DTransSOAToAOSBasePtrOff == -1U)
-    report_fatal_error("dtrans-soatoaos-base-ptr-off was not provided.");
+    SummaryForIdiom S = getParametersForSOAToAOSMethodsCheckDebug(F);
 
-  StructureMethodAnalysis Checks(F.getParent()->getDataLayout(), *DTInfo, *TLI,
-                                 *DM, S, P.first,
-                                 *Result /*TransformationData*/);
-
-  bool SeenArrays = false;
-  bool CheckedAll = Checks.checkStructMethod(SeenArrays);
-  (void)CheckedAll;
-  LLVM_DEBUG(
-      dbgs() << "; IR: "
-             << (CheckedAll && SeenArrays
-                     ? " has only expected side-effects\n"
-                     : (SeenArrays
-                            ? " needs analysis of instructions)\n"
-                            : " no need to analyze: no accesses to arrays\n")));
-
-  // If there are no accesses to array, then there should be no instructions to
-  // update.
-  assert((SeenArrays || Checks.getTotal() == 0) &&
-         "Inconsistent checkStructMethod");
-
-  // Dump results of analysis.
-  DEBUG_WITH_TYPE(DTRANS_SOASTR, {
-    dbgs() << "; Dump instructions needing update. Total = "
-           << Checks.getTotal();
-    StructureMethodAnalysis::AnnotatedWriter Annotate(Checks);
-    F.print(dbgs(), &Annotate);
-  });
-
-  if (SeenArrays) {
-    CallSiteComparator Cmp(F.getParent()->getDataLayout(), *DTInfo, *TLI, *DM,
-                           S, P.first, P.second,
-                           *Result, /* CsllSiteComparator */
-                           *Result, /*TransformationData*/
-                           DTransSOAToAOSBasePtrOff);
-
-    bool Comparison = Cmp.canCallSitesBeMerged();
-    (void)Comparison;
-    LLVM_DEBUG(dbgs() << "; Array call sites analysis result: "
-                      << (Comparison
-                              ? "required call sites can be merged"
-                              : "problem with call sites required to be merged")
+    LLVM_DEBUG(dbgs() << "; Checking structure's method " << F.getName()
                       << "\n");
+
+    auto P = getArrayTypesForSOAToAOSStructMethodsCheckDebug(F);
+
+    for (auto &CmpKind : DTransSOAToAOSComparison)
+      if (CmpKind == "append")
+        Result->Appends =
+            getSOAToAOSArrayMethods(DTransSOAToAOSAppends, P.first, F);
+      else if (CmpKind == "cctor")
+        Result->CCtors =
+            getSOAToAOSArrayMethods(DTransSOAToAOSCCtors, P.first, F);
+      else if (CmpKind == "ctor")
+        Result->Ctors =
+            getSOAToAOSArrayMethods(DTransSOAToAOSCtors, P.first, F);
+      else if (CmpKind == "dtor")
+        Result->Dtors =
+            getSOAToAOSArrayMethods(DTransSOAToAOSDtors, P.first, F);
+      else
+        report_fatal_error(
+            "Incorrect value in dtrans-soatoaos-method-call-site-comparison."
+            "append/cctor/ctor/dtor are allowed.");
+
+    if (DTransSOAToAOSBasePtrOff == -1U)
+      report_fatal_error("dtrans-soatoaos-base-ptr-off was not provided.");
+
+    auto &TLI =
+        FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function *>(&F)));
+    StructureMethodAnalysis Checks(F.getParent()->getDataLayout(), *DTInfo, TLI,
+                                   *DM, S, P.first,
+                                   *Result /*TransformationData*/);
+
+    bool SeenArrays = false;
+    bool CheckedAll = Checks.checkStructMethod(SeenArrays);
+    (void)CheckedAll;
+    LLVM_DEBUG(
+        dbgs()
+        << "; IR: "
+        << (CheckedAll && SeenArrays
+                ? " has only expected side-effects\n"
+                : (SeenArrays
+                       ? " needs analysis of instructions)\n"
+                       : " no need to analyze: no accesses to arrays\n")));
+
+    // If there are no accesses to array, then there should be no instructions
+    // to update.
+    assert((SeenArrays || Checks.getTotal() == 0) &&
+           "Inconsistent checkStructMethod");
+
+    // Dump results of analysis.
+    DEBUG_WITH_TYPE(DTRANS_SOASTR, {
+      dbgs() << "; Dump instructions needing update. Total = "
+             << Checks.getTotal();
+      StructureMethodAnalysis::AnnotatedWriter Annotate(Checks);
+      F.print(dbgs(), &Annotate);
+    });
+
+    if (SeenArrays) {
+      CallSiteComparator Cmp(F.getParent()->getDataLayout(), *DTInfo, TLI, *DM,
+                             S, P.first, P.second,
+                             *Result, /* CsllSiteComparator */
+                             *Result, /*TransformationData*/
+                             DTransSOAToAOSBasePtrOff);
+
+      bool Comparison = Cmp.canCallSitesBeMerged();
+      (void)Comparison;
+      LLVM_DEBUG(
+          dbgs() << "; Array call sites analysis result: "
+                 << (Comparison
+                         ? "required call sites can be merged"
+                         : "problem with call sites required to be merged")
+                 << "\n");
+    }
   }
   return Ignore(Result.release());
 }
@@ -388,9 +399,9 @@ SOAToAOSStructMethodsTransformDebug::run(Module &M, ModuleAnalysisManager &AM) {
     return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function*>(&F)));
   };
   // SOAToAOSStructMethodsCheckDebug uses SOAToAOSApproximationDebug internally.
-  FAM.getResult<SOAToAOSApproximationDebug>(*MethodToTest);
-  auto &InstsToTransformPtr =
-      FAM.getResult<SOAToAOSStructMethodsCheckDebug>(*MethodToTest);
+  AM.getResult<SOAToAOSApproximationDebug>(M);
+
+  auto &InstsToTransformPtr = AM.getResult<SOAToAOSStructMethodsCheckDebug>(M);
 
   DTransTypeRemapper TypeRemapper;
   SOAStructMethodReplacement Transformer(

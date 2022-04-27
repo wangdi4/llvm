@@ -1,6 +1,6 @@
 //===-------------- SOAToAOSOPCommon.h - Part of SOAToAOSOPPass -----------===//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -22,14 +22,15 @@
 #error SOAToAOSOPCommon.h include in an non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
+#include "Intel_DTrans/Analysis/DTransAllocCollector.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Transforms/SOAToAOSOP.h"
-#include "Intel_DTrans/Transforms/SOAToAOSOPExternal.h"
 
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include "SOAToAOSOPEffects.h"
+#include "SOAToAOSOPInternal.h"
 
 namespace llvm {
 namespace dtransOP {
@@ -356,6 +357,9 @@ inline bool isSafeCallForAppend(Function *F, DTransSafetyInfo *DTInfo,
     auto *CB = dyn_cast_or_null<CallBase>(I);
     if (!CB)
       return false;
+    if (DTransAllocCollector::isDummyFuncWithThisAndIntArgs(
+            CB, TLI, DTInfo->getTypeMetadataReader()))
+      return true;
     auto *CallInfo = DTInfo->getCallInfo(CB);
     if (CallInfo && CallInfo->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc)
       return true;
@@ -401,6 +405,17 @@ inline void createAndMapNewAppendFunc(
     DenseMap<Function *, Function *> &OrigFuncToCloneFuncMap,
     DenseMap<Function *, Function *> &CloneFuncToOrigFuncMap,
     SmallDenseMap<Function *, DTransFunctionType *> &AppendsFuncToDTransTyMap) {
+
+  // For non-opaque pointers case, new update function was also created
+  // by DTransOPOptBase similar to the other member functions.
+  // Since update function is handled differently, delete the
+  // old function and create new update function with NewDTFunctionTy.
+  auto *OldF = OrigFuncToCloneFuncMap[F];
+  if (OldF) {
+    CloneFuncToOrigFuncMap[OldF] = nullptr;
+    OrigFuncToCloneFuncMap[F] = nullptr;
+    OldF->eraseFromParent();
+  }
   Function *NewF =
       Function::Create(cast<FunctionType>(NewDTFunctionTy->getLLVMType()),
                        F->getLinkage(), F->getName(), &M);

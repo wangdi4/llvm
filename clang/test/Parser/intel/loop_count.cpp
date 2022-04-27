@@ -2,6 +2,8 @@
 // RUN: %clang_cc1 -fintel-compatibility-enable=PragmaLoopCount  -fsyntax-only -verify %s
 #include <stdint.h>
 
+#define min(a,b) (((a) < (b)) ? (a) : (b))
+
 void simple_test() {
   int s = 0;
 #pragma loop_count(1,2) min=1 max=10 avg=5
@@ -19,6 +21,9 @@ void simple_test() {
   for (int i = 0; i < 10; ++i){s = s + i;}
 
   #pragma loop_count min(1), max=10, avg(5)
+  for (int i = 0; i < 10; ++i){s = s + i;}
+
+  #pragma loop_count min(min(1,2)), max=10, avg(5)
   for (int i = 0; i < 10; ++i){s = s + i;}
 
   // expected-warning@+1 {{invalid loop count '#pragma loop_count' - ignored}}

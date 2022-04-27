@@ -1,6 +1,6 @@
 //===-----------------------PtrTypeAnalyzer.cpp---------------------------===//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -393,6 +393,33 @@ public:
     return UnsupportedAddressSpaceSeen;
   }
 
+  // If there is not element-zero info tracked for the instruction, start
+  // tracking it. Otherwise, if the 'Ty' or 'Depth' values differ from what is
+  // tracked, mark the tracked data as an unknown type.
+  void addElementZeroPointer(Instruction *I, DTransType *Ty,
+                             unsigned int Depth) {
+    auto It = ElementZeroPointers.find(I);
+    if (It != ElementZeroPointers.end()) {
+      if (It->second.Ty != Ty || It->second.Depth != Depth) {
+        Ty = nullptr;
+        Depth = 0;
+        DEBUG_WITH_TYPE_P(
+            FNFilter, VERBOSE_TRACE,
+            dbgs() << "Warning: Element zero type already exists for: ["
+                   << I->getFunction()->getName() << "]" << *I << "\n");
+      }
+    }
+
+    ElementZeroPointers[I] = PtrTypeAnalyzer::ElementZeroInfo(Ty, Depth);
+  }
+
+  PtrTypeAnalyzer::ElementZeroInfo getElementZeroPointer(Instruction *I) const {
+    auto It = ElementZeroPointers.find(I);
+    if (It != ElementZeroPointers.end())
+      return It->second;
+    return PtrTypeAnalyzer::ElementZeroInfo(nullptr, 0);
+  }
+
 private:
   DTransTypeManager &TM;
   TypeMetadataReader &MDReader;
@@ -471,6 +498,10 @@ private:
 
   // 'true' if a Non-opaque pointer was seen during the analysis.
   bool SawNonOpaquePointer = false;
+
+  // Map of instructions that were identified as using element-zero of a
+  // contained type to information about element-zero type.
+  DenseMap<Instruction *, PtrTypeAnalyzer::ElementZeroInfo> ElementZeroPointers;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -493,6 +524,15 @@ class PtrTypeAnalyzerInstVisitor
     DT_SameType,     /* Keep the same level of indirection */
     DT_PointerToType /* Create a pointer to the type (i.e. Increase indirection
                         by 1 level) */
+  };
+
+  // Enum to describe result of byte-flattened GEP analysis.
+  enum BFG_Kind {
+    BFG_None,    // Not recognized as a byte flattened GEP to an aggregate type.
+    BFG_Unknown, // Could be a byte flattened GEP, but index not matched a known
+                 // element.
+    BFG_Identified // Identified as a byte flattened GEP to member of an
+                   // aggregate type.
   };
 
 public:
@@ -1041,6 +1081,12 @@ public:
   }
 
   void visitAllocaInst(AllocaInst &I) { analyzeValue(&I); }
+  void visitBinaryOperator(BinaryOperator &I) {
+    // To support safety analysis on pointer arithmetic, subtract instruction
+    // need to be analyzed to see if they carry pointer information.
+    if (I.getOpcode() == Instruction::Sub)
+      analyzeValue(&I);
+  }
   void visitBitCastInst(BitCastInst &I) { analyzeValue(&I); }
   void visitCallBase(CallBase &I) { analyzeValue(&I); }
   void visitExtractValueInst(ExtractValueInst &I) { analyzeValue(&I); }
@@ -1060,6 +1106,19 @@ public:
     // example:
     //   store i32 0, ptrtoint (i64 256 to i32*)
     ValueTypeInfo *PtrInfo = analyzeValue(I.getPointerOperand());
+    checkForElementZeroAccess(&I, I.getValueOperand()->getType(), PtrInfo,
+                              ValueTypeInfo::ValueAnalysisType::VAT_Decl);
+
+    // If the pointer operand is used to store a scalar type, note the type
+    // in the usage types for the pointer. TODO: May need to do something
+    // for storing pointer type as well.
+    if (!PtrInfo->getIsPartialPointerUse()) {
+      llvm::Type *ValTy = I.getValueOperand()->getType();
+      if (!dtrans::hasPointerType(ValTy))
+        PtrInfo->addTypeAlias(
+            ValueTypeInfo::VAT_Use,
+            TM.getOrCreatePointerType(TM.getOrCreateSimpleType(ValTy)));
+    }
 
     // Storing a 'null' constant is a special case, because a Value of
     // 'ptr null' may be used to represent any pointer type. For a store of a
@@ -1094,7 +1153,7 @@ public:
 
               if (auto ElemZeroPair = LocalPTA.getElementZeroType(PropAlias)) {
                 PointerInfo->addElementPointee(
-                    Kind, ElemZeroPair.getValue().first, 0);
+                    ValueTypeInfo::VAT_Use, ElemZeroPair.getValue().first, 0);
                 ValueInfo->addTypeAlias(Kind, ElemZeroPair.getValue().second);
 
                 // Need to defer updating the PointerInfo until the loop
@@ -1108,7 +1167,7 @@ public:
             }
 
             for (auto *Ty : PendingTypes)
-              PointerInfo->addTypeAlias(Kind, Ty);
+              PointerInfo->addTypeAlias(ValueTypeInfo::VAT_Use, Ty);
           };
 
       ValueTypeInfo *ValInfo = PTA.getOrCreateValueTypeInfo(&I, 0);
@@ -1315,8 +1374,6 @@ private:
           // Try to infer the type of something of the form:
           //   inttoptr i64 128 to i32*
           inferTypeFromUse(CE, Info);
-          if (Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use).empty())
-            Info->setUnhandled();
           return;
         }
 
@@ -1374,6 +1431,9 @@ private:
       break;
     case Instruction::Select:
       analyzeSelectInst(cast<SelectInst>(I), Info);
+      break;
+    case Instruction::Sub:
+      analyzeSubInst(cast<BinaryOperator>(I), Info);
       break;
       // TODO: Add other instructions analysis calls.
     }
@@ -1870,6 +1930,7 @@ private:
       switch (I->getOpcode()) {
       default:
         break;
+
       case Instruction::BitCast:
         if (AddDependency(I->getOperand(0), DependentVals))
           populateDependencyStack(I->getOperand(0), DependentVals);
@@ -1926,8 +1987,13 @@ private:
           populateDependencyStack(FV, DependentVals);
         break;
       }
-        // TODO: Add other instructions types the need to be analyzed to switch
-        // table.
+
+      case Instruction::Sub:
+        if (AddDependency(I->getOperand(0), DependentVals))
+          populateDependencyStack(I->getOperand(0), DependentVals);
+        if (AddDependency(I->getOperand(1), DependentVals))
+          populateDependencyStack(I->getOperand(1), DependentVals);
+        break;
       }
     }
   }
@@ -2520,6 +2586,19 @@ private:
       ResultInfo->setDependsOnUnhandled();
 
     llvm::Type *SrcTy = GEP.getSourceElementType();
+    // If the GEP is of the form:
+    //   %y = getelementptr i8, p0 %x, i64 <n>
+    // Check if the GEP should be processed as either a byte-flattened GEP or an
+    // array of 'i8' elements.
+    BFG_Kind ProcessedAsByteFlattenedGEP = BFG_None;
+    if (GEP.getNumIndices() == 1 && SrcTy == PTA.getLLVMI8Type()) {
+      ProcessedAsByteFlattenedGEP =
+          analyzePotentialByteFlattenedGEPAccess(GEP, ResultInfo);
+      if (ProcessedAsByteFlattenedGEP != BFG_Identified)
+        ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl,
+                                 PTA.getDTransI8PtrType());
+    }
+
 
     // When opaque pointers are used, the known type of pointer may not
     // match the indexed type, so add that type as one of the 'usage' types
@@ -2531,10 +2610,14 @@ private:
     // manner for something like:
     //   %NextHalf1 = getelementptr i32, i32* %HalfPtr1, i64 1
     //
+    // This is also not done for byte-flattened GEPs because the pointer is just
+    // using the i8 for computing the field address, not as a value type.
+    //
     // TODO: For non-simple source element types, we may need more metadata to
     // indicate the type that is being indexed to detect when the type is
     // different than expected.
-    if (!PointerInfo->getIsPartialPointerUse() &&
+    if (ProcessedAsByteFlattenedGEP == BFG_None &&
+        !PointerInfo->getIsPartialPointerUse() &&
         !GEP.getPointerOperandType()->isVectorTy() && TM.isSimpleType(SrcTy)) {
       DTransType *DTransSrcTy = TM.getOrCreateSimpleType(SrcTy);
       assert(DTransSrcTy && "Expected simple type");
@@ -2598,18 +2681,6 @@ private:
       return;
     }
 
-    // If the GEP is of the form:
-    //   %y = getelementptr i8, p0 %x, i64 <n>
-    // Check if the GEP should be processed as either a byte-flattened GEP or an
-    // array of 'i8' elements.
-    bool ProcessedAsByteFlattenedGEP = false;
-    if (SrcTy == PTA.getLLVMI8Type()) {
-      ProcessedAsByteFlattenedGEP =
-          analyzePotentialByteFlattenedGEPAccess(GEP, ResultInfo);
-      ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl,
-                               PTA.getDTransI8PtrType());
-    }
-
     // Zero or Single index operand GEPs of the form, result in the same
     // type as the base pointer.
     // For example, these cases result in the same type identified for %x:
@@ -2620,7 +2691,7 @@ private:
     // generating the same type as the pointer operand. However, there is a
     // special case when indexed type is an i8, since it may be a
     // byte-flattened GEP that needs to be analyzed.
-    if (!ProcessedAsByteFlattenedGEP)
+    if (ProcessedAsByteFlattenedGEP == BFG_None)
       propagate(PointerInfo, ResultInfo, /*Decl=*/true, /*Use=*/true,
                 DerefType::DT_SameType);
   }
@@ -2634,31 +2705,49 @@ private:
   // since the result should be an element within %pStruct, not a pointer to
   // %pStruct itself.
   //
-  bool analyzePotentialByteFlattenedGEPAccess(GEPOperator &GEP,
-                                              ValueTypeInfo *ResultInfo) {
+  BFG_Kind analyzePotentialByteFlattenedGEPAccess(GEPOperator &GEP,
+                                                  ValueTypeInfo *ResultInfo) {
 
     assert(GEP.getNumIndices() == 1 && "Only expecting single index value GEP");
 
     // The following conditions exclude it from being either a byte-flattened
     // GEP or an 'i8' array:
-    // - The type alias list saw the type as a pointer-to-pointer.
+    // - The type alias list saw the type as a pointer-to-pointer, which is not
+    //   for an element zero access.
     // - The type alias list does not contain any aggregate types
     ValueTypeInfo *BasePtrInfo = PTA.getOrCreateValueTypeInfo(&GEP, 0);
     bool HasStructType = false;
     bool HasArrayType = false;
-    for (auto *AliasTy :
-         BasePtrInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+    DTransType *IndexedType = nullptr;
+    DTransType *CheckAsElemZeroType = nullptr;
+    auto &AliasSet =
+        BasePtrInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl);
+    for (auto *AliasTy : AliasSet) {
       if (!AliasTy->isPointerTy())
         continue;
 
+      // If there is a pointer-to-pointer alias, it could be an alias of the
+      // element zero type. Save this to check later once we have a potential
+      // type being used for the byte-flattened GEP.
       DTransType *ElemType = AliasTy->getPointerElementType();
-      if (ElemType->isPointerTy())
-        return false;
+      if (ElemType->isPointerTy()) {
+        if (CheckAsElemZeroType)
+          return BFG_None;
+
+        CheckAsElemZeroType = AliasTy;
+        continue;
+      }
 
       if (ElemType->isStructTy()) {
         HasStructType = true;
+        if (IndexedType)
+          return BFG_None;
+        IndexedType = AliasTy;
       } else if (ElemType->isArrayTy()) {
         HasArrayType = true;
+        if (IndexedType)
+          return BFG_None;
+        IndexedType = AliasTy;
 
         // Also, check for array of structures.
         DTransType *BaseType =
@@ -2669,7 +2758,11 @@ private:
     }
 
     if (!HasStructType && !HasArrayType)
-      return false;
+      return BFG_None;
+
+    if (CheckAsElemZeroType)
+      if (!PTA.isElementZeroAccess(IndexedType, CheckAsElemZeroType))
+        return BFG_None;
 
     // We need to figure out which element of the aggregate is being accessed.
     //
@@ -2711,10 +2804,10 @@ private:
                               << "Byte-flattened indices were not recoverable: "
                               << GEP << "\n");
         ResultInfo->setUnknownByteFlattenedGEP();
-        return true;
+        return BFG_Unknown;
       }
 
-      return false;
+      return BFG_None;
     }
 
     // If it's just a char array being accessed, then add the element based on
@@ -2725,7 +2818,7 @@ private:
         ResultInfo->addElementPointee(ValueTypeInfo::VAT_Use, AggArType,
                                       APOffsetVal.getLimitedValue());
 
-      return true;
+      return BFG_Identified;
     }
 
     // If any of the offsets are negative, and it did not match the above check
@@ -2746,10 +2839,10 @@ private:
             dbgs() << "Byte-flattened indices contained negative index: " << GEP
                    << "\n");
         ResultInfo->setUnknownByteFlattenedGEP();
-        return true;
+        return BFG_Unknown;
       }
 
-      return false;
+      return BFG_None;
     }
 
     // Try all possible offsets to process the address as a byte-flattened GEP.
@@ -2787,7 +2880,7 @@ private:
           dbgs() << "Byte-flattened indices did not match aliased structure: "
                  << GEP << "\n");
       ResultInfo->setUnknownByteFlattenedGEP();
-      return true;
+      return BFG_Unknown;
     }
 
     // All offsets were valid, merge the element pointees collected into
@@ -2798,7 +2891,7 @@ private:
     for (auto &TyIdxPair : PendingByteGEPs)
       PTA.addByteFlattenedGEPMapping(&GEP, TyIdxPair.first, TyIdxPair.second);
 
-    return true;
+    return BFG_Identified;
   }
 
   // Return 'true' if 'Offset' is the address of an element of 'AggregateTy'.
@@ -3070,9 +3163,16 @@ private:
     //   In this case, the call sets 'LoadingAggregateType' to indicate the
     //   structure should not be traversed as a potential zero-element load.
     //
+    auto &LocalTM = this->TM;
     auto PropagateDereferencedType =
-        [](ValueTypeInfo *PointerInfo, ValueTypeInfo *ResultInfo,
-           ValueTypeInfo::ValueAnalysisType Kind, bool LoadingAggregateType) {
+        [&LocalTM](ValueTypeInfo *PointerInfo, ValueTypeInfo *ResultInfo,
+                   ValueTypeInfo::ValueAnalysisType Kind,
+                   bool LoadingAggregateType) {
+          // This may also identify that it appears that an element-zero
+          // location of an aggregate is being loaded. In this case the
+          // PointerInfo will be updated to reflect that the pointer operand is
+          // being used as an element-pointee.
+          SmallVector<DTransType *, 4> PendingTypes;
           for (auto *Alias : PointerInfo->getPointerTypeAliasSet(Kind)) {
             DTransType *PropAlias = nullptr;
             if (!Alias->isPointerTy())
@@ -3128,14 +3228,19 @@ private:
               }
 
               if (PrevNestedType->isAggregateType())
-                PointerInfo->addElementPointee(Kind, PrevNestedType, 0);
-              if (NestedType)
+                PointerInfo->addElementPointee(ValueTypeInfo::VAT_Use,
+                                               PrevNestedType, 0);
+              if (NestedType) {
                 ResultInfo->addTypeAlias(Kind, NestedType);
-
+                PendingTypes.push_back(LocalTM.getOrCreatePointerType(NestedType));
+              }
             } else {
               ResultInfo->addTypeAlias(Kind, PropAlias);
             }
           }
+
+          for (auto *Ty : PendingTypes)
+            PointerInfo->addTypeAlias(ValueTypeInfo::VAT_Use, Ty);
         };
 
     llvm::Type *ValTy = LI->getType();
@@ -3180,6 +3285,9 @@ private:
           ValueTypeInfo::VAT_Use,
           TM.getOrCreatePointerType(TM.getOrCreateSimpleType(LoadType)));
     }
+
+    checkForElementZeroAccess(LI, ValTy, PointerInfo,
+                              ValueTypeInfo::ValueAnalysisType::VAT_Decl);
 
     if (PointerInfo->getUnhandled() || PointerInfo->getDependsOnUnhandled())
       ResultInfo->setDependsOnUnhandled();
@@ -3266,6 +3374,46 @@ private:
     return Changed;
   }
 
+  void checkForElementZeroAccess(Instruction *I, llvm::Type *ValTy,
+                                 ValueTypeInfo *PointerInfo,
+                                 ValueTypeInfo::ValueAnalysisType Kind) {
+    for (auto *Alias : PointerInfo->getPointerTypeAliasSet(Kind)) {
+      DTransType *PropAlias = nullptr;
+      if (!Alias->isPointerTy())
+        continue;
+
+      PropAlias = Alias->getPointerElementType();
+      if (PropAlias->isAggregateType() &&
+          PropAlias->getNumContainedElements() != 0) {
+        DTransType *PrevNestedType = nullptr;
+        DTransType *NestedType = PropAlias;
+        unsigned int Depth = 0;
+        while (NestedType && NestedType->isAggregateType()) {
+          PrevNestedType = NestedType;
+          ++Depth;
+          if (auto *StTy = dyn_cast<DTransStructType>(NestedType))
+            NestedType = StTy->getFieldType(0);
+          else if (auto *ArTy = dyn_cast<DTransArrayType>(NestedType))
+            NestedType = ArTy->getElementType();
+          else
+            NestedType = nullptr;
+        }
+
+        if (NestedType && PrevNestedType->isAggregateType() &&
+            (ValTy->isPointerTy() ||
+             ValTy == PTA.getLLVMPointerSizedIntType() ||
+             NestedType->getLLVMType() == ValTy)) {
+          DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE,
+                            dbgs() << "Element-zero on: ["
+                                   << I->getFunction()->getName() << "]" << *I
+                                   << "\n"
+                                   << *PropAlias << " Depth=" << Depth << "\n");
+          PTA.addElementZeroPointer(I, PropAlias, Depth);
+        }
+      }
+    }
+  }
+
   void analyzePHINode(PHINode *PHI, ValueTypeInfo *ResultInfo) {
     SmallVector<Value *, 4> IncomingVals;
     for (Value *Val : PHI->incoming_values())
@@ -3279,12 +3427,14 @@ private:
     Value *Src = PTI->getPointerOperand();
     if (isCompilerConstant(Src)) {
       // The source pointer could be any type. We could try to infer the type by
-      // looking for a conversion of the value back to a pointer, but we do not
-      // expect to see a ptrtoint on a null/undef value, so just treat it as
-      // unhandled.
-      ResultInfo->setUnhandled();
-      LLVM_DEBUG(dbgs() << "PtrToInt from constant is not handled: " << *PTI
-                        << "\n");
+      // looking for a conversion of the value back to a pointer, but that is
+      // not likely to occur when the source value was a null/undef value. If
+      // the value is unused though, it can be ignored.
+      if (!PTI->users().empty()) {
+        ResultInfo->setUnhandled();
+        LLVM_DEBUG(dbgs() << "PtrToInt from constant is not handled: " << *PTI
+                          << "\n");
+      }
       return;
     }
 
@@ -3325,6 +3475,25 @@ private:
       if (!SrcInfo->isCompletelyAnalyzed())
         ResultInfo->setPartiallyAnalyzed();
     }
+  }
+
+  // An instruction that is effectively computing "Pointer - Constant", should
+  // propagate the information about the source pointer to "ResultInfo".
+  // All other cases, including "Constant - Pointer" do not result in the
+  // "ResultInfo" being tracked as a pointer type.
+  void analyzeSubInst(BinaryOperator *BinOp, ValueTypeInfo *ResultInfo) {
+    assert(BinOp->getOpcode() == Instruction::Sub &&
+           "Expected Sub instruction");
+    if (!isa<ConstantInt>(BinOp->getOperand(1)))
+      return;
+
+    ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(BinOp->getOperand(0));
+    propagate(SrcInfo, ResultInfo, true, true, DerefType::DT_SameType);
+    if (SrcInfo->getUnhandled() || SrcInfo->getDependsOnUnhandled())
+      ResultInfo->setDependsOnUnhandled();
+
+    if (!SrcInfo->isCompletelyAnalyzed())
+      ResultInfo->setPartiallyAnalyzed();
   }
 
   // Perform pointer type analysis for constant operator expressions
@@ -4281,6 +4450,11 @@ bool PtrTypeAnalyzer::sawOpaquePointer() const {
 }
 bool PtrTypeAnalyzer::sawNonOpaquePointer() const {
   return Impl->getSawNonOpaquePointer();
+}
+
+PtrTypeAnalyzer::ElementZeroInfo
+PtrTypeAnalyzer::getElementZeroPointer(Instruction *I) const {
+  return Impl->getElementZeroPointer(I);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

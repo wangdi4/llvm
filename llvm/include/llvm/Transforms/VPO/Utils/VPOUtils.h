@@ -1,4 +1,19 @@
 #if INTEL_COLLAB // -*- C++ -*-
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //===------ VPOUtils.h - Class definitions for VPO utilites -*- C++ -*-----===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -88,7 +103,9 @@ public:
   /// DominatorTreeWrapperPass and LoopInfoWrapperPass to be executed prior
   /// to it, when calling CFGRestructuring, we need to update DominatorTree
   /// and LoopInfo whenever a basic block splitting happens.
-  static void CFGRestructuring(Function &F, DominatorTree *DT = nullptr,
+  ///
+  /// \returns \b true if any change is made, \b false otherwise.
+  static bool CFGRestructuring(Function &F, DominatorTree *DT = nullptr,
                                LoopInfo *LI = nullptr);
 
   // Restore the clause operands by undoing the renaming done in the prepare
@@ -153,30 +170,19 @@ public:
 #endif  // INTEL_CUSTOMIZATION
 
   /// Generate a memcpy call with the destination argument \p D, the source
-  /// argument \p S and size argument \p Size. \p Align specifies
-  /// maximum guanranteed alignment of \p D and \p S. The new call is inserted
-  /// at the end of basic block \p BB.
-  /// \code
-  ///   call void @llvm.memcpy.p0i8.p0i8.i32(i8* bitcast (i32* @a to i8*),
-  ///                                        i8* %2,
-  ///                                        i32 4,
-  ///                                        i32 4,
-  ///                                        i1 false)
-  /// \endcode
+  /// argument \p S and size computed by multiplying \p Size and \p NumElements.
+  /// \p Align specifies maximum guaranteed alignment of \p D and \p S.
+  /// The new call is inserted using \p MemcpyBuilder IRBuilder.
   static CallInst *genMemcpy(Value *D, Value *S, uint64_t Size,
-                             unsigned Align, BasicBlock *BB);
-
-  /// Generate a memcpy call with the destination argument \p D, the source
-  /// argument \p S and size argument \p Size. \p Align specifies
-  /// maximum guanranteed alignment of \p D and \p S. The new call is inserted
-  /// using \p MemcpyBuilder IRBuilder.
-  static CallInst *genMemcpy(Value *D, Value *S, uint64_t Size,
-                             unsigned Align, IRBuilder<> &MemcpyBuilder);
+                             Value *NumElements, unsigned Align,
+                             IRBuilder<> &MemcpyBuilder);
 
   /// Generate a memset call with the pointer argument \p P, the value
   /// argument \p V and size argument \p Size. \p Align specifies
   /// maximum guanranteed alignment of \p P. The new call is inserted
   /// using \p MemsetBuilder IRBuilder.
+  // FIXME: get rid of the implicit scaling for array allocations
+  //        in this routine.
   static CallInst *genMemset(Value *P, Value *V, uint64_t Size,
                              unsigned Align, IRBuilder<> &MemsetBuilder);
 
@@ -277,21 +283,6 @@ public:
   /// \name Functions for vector code generation
   /// @{
 
-  /// Return a call to the `llvm.masked.gather` intrinsic. A null Mask
-  /// defaults to an unmasked gather. A null PassThru value uses undef value
-  /// for pass through value.
-  static CallInst *createMaskedGatherCall(Value *VecPtr, IRBuilder<> &Builder,
-                                          unsigned Alignment = 0,
-                                          Value *Mask = nullptr,
-                                          Value *PassThru = nullptr);
-
-  /// Return a call to the `llvm.masked.load intrinsic`. It uses the
-  /// interface provided by IRBuilder. A null PassThru value uses undef value
-  /// for pass through value.
-  static CallInst *createMaskedLoadCall(Value *VecPtr, IRBuilder<> &Builder,
-                                        unsigned Alignment, Value *Mask,
-                                        Value *PassThru = nullptr);
-
   /// Return a call to the `llvm.masked.scatter` intrinsic. A null Mask
   /// defaults to an unmasked scatter.
   static CallInst *createMaskedScatterCall(Value *VecPtr, Value *VecData,
@@ -311,6 +302,21 @@ public:
   static CallInst *addOperandBundlesInCall(
       CallInst *CI,
       ArrayRef<std::pair<StringRef, ArrayRef<Value *>>> OpBundlesToAdd);
+
+  /// A version of addOperandBundlesInCall that accepts StringRef-SmallVector
+  /// pairs.
+  template <unsigned N = 4>
+  static CallInst *addOperandBundlesInCall(
+      CallInst *CI,
+      ArrayRef<std::pair<StringRef, SmallVector<Value *, N>>> OpBundlesToAdd) {
+    SmallVector<std::pair<StringRef, ArrayRef<Value *>>, 8> OpBundlesArrayRef;
+    llvm::transform(OpBundlesToAdd, std::back_inserter(OpBundlesArrayRef),
+                    [](const auto &In) {
+                      return std::make_pair(In.first, makeArrayRef(In.second));
+                    });
+
+    return VPOUtils::addOperandBundlesInCall(CI, OpBundlesArrayRef);
+  }
 
   /// Creates a clone of \p CI without any operand bundles whose tags match an
   /// entry in \p OpBundlesToRemove. Replaces all uses of the original \p CI
@@ -349,6 +355,12 @@ public:
   /// Returns the next enclosing OpenMP begin directive, or nullptr if none.
   static IntrinsicInst *enclosingBeginDirective(Instruction *I,
                                                 DominatorTree *DT);
+
+  /// Find BlockAddress references in NewFunction that point to OldFunction,
+  /// and replace them. This must be called after all code has moved to
+  /// NewFunction.
+  static void replaceBlockAddresses(Function *OldFunction,
+                                    Function *NewFunction);
   /// @}
 };
 

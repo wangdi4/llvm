@@ -10,6 +10,7 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGValueWiden.h"
 #include "llvm/Analysis/VectorUtils.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -23,9 +24,14 @@ using namespace llvm;
 using namespace DPCPPKernelCompilationUtils;
 using namespace DPCPPKernelLoopUtils;
 
+extern bool DPCPPEnableSubGroupEmulation;
+
 #define DEBUG_TYPE "dpcpp-kernel-sg-emu-value-widen"
 
 bool SGValueWidenPass::runImpl(Module &M, const SGSizeInfo *SSI) {
+  if (!DPCPPEnableSubGroupEmulation)
+    return false;
+
   Helper.initialize(M);
   FunctionsToBeWidened = Helper.getAllFunctionsNeedEmulation();
 
@@ -140,32 +146,30 @@ bool SGValueWidenPass::runImpl(Module &M, const SGSizeInfo *SSI) {
 
   widenCalls();
 
+  // If all the conditions are met:
+  //   1) kernel A calls function B and kernel D calls same function B;
+  //   2) function B calls function C;
+  //   3) only the function body of kernel D has sub-group and function C has
+  //      barrier.
+  // Then the scalar version of both B and C should be preserved since kernel A
+  // is not widened.
+  // The better solution should be do not to widen functions only call
+  // work_group_barrier.
+  SmallVector<Function *, 4> FnToRemove;
+  for (Function *Fn : FunctionsToBeWidened) {
+    for (auto &I : instructions(Fn)) {
+      if (Helper.isBarrier(&I) || Helper.isDummyBarrier(&I))
+        InstsToBeRemoved.push_back(&I);
+    }
+    if (Fn->getName().endswith("_after_value_widen"))
+      FnToRemove.push_back(Fn);
+  }
+
   for (auto *I : InstsToBeRemoved)
     I->eraseFromParent();
 
-  // If the function should be emulated, then it must directly / indirectly call
-  // sub-group built-ins (FIXME: This is not true ATM, since we also emulate the
-  // functions which only call WG barrier once the kernel emulated). It's
-  // meaningless to preserve these scalar functions.
-  FuncVec FunctionToRemove;
-  FuncSet FunctionAdded;
-  for (Function *Fn : FunctionsToBeWidened)
-    FunctionToRemove.push_back(Fn);
-
-  while (!FunctionToRemove.empty()) {
-    Function *F = FunctionToRemove.pop_back_val();
-    if (FunctionAdded.insert(F)) {
-      for (User *U : F->users()) {
-        CallInst *CI = cast<CallInst>(U);
-        FunctionToRemove.push_back(CI->getFunction());
-      }
-    }
-    // Explicitly drop all referneces here, then we can remove these functions
-    // out of order.
-    F->dropAllReferences();
-  }
-  for (auto *F : FunctionAdded)
-    F->eraseFromParent();
+  for (auto *Fn : FnToRemove)
+    Fn->eraseFromParent();
 
   return true;
 }
@@ -777,7 +781,6 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<SGSizeAnalysisLegacy>();
-    AU.addPreserved<SGSizeAnalysisLegacy>();
   }
 
 private:

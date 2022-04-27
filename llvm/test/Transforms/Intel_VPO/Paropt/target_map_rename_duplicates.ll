@@ -1,5 +1,5 @@
-; RUN: opt < %s -vpo-paropt -S | FileCheck %s
-; RUN: opt < %s -aa-pipeline=basic-aa -passes='vpo-paropt' -S | FileCheck %s
+; RUN: opt -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -aa-pipeline=basic-aa -passes='vpo-paropt' -S %s | FileCheck %s
 ;
 ; Check that duplicate values in target entry's map bundles are renamed before
 ; outlining. That would guarantee that each map clause's base pointer always

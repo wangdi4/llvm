@@ -95,7 +95,13 @@ private:
   // once we determine that the rval has not been redefined in the inner loop.
   SmallVector<RegDDRef *, 8> InnerLoopUses;
 
-  // Indicates whether this temp can be legally substituted.
+  // Indicates whether this temp can be legally substituted. Temps are usually
+  // first made non-substitutable and then marked invalid. This allows for more
+  // substitution as uses of temp before it was marked non-substitutble can
+  // still be processed. For example a single use load temp whose use was
+  // discovered before it was marked non-substitutable can still be eliminated.
+  // TODO: Add a better decription of substitutable/valid for both load and
+  // liveout copy temps.
   bool IsSubstitutable;
 
   // Indicates discarded temps. This is so that we don't have to erase them from
@@ -127,6 +133,19 @@ public:
 
   bool isValid() const { return IsValid; }
   void markInvalid() { IsValid = false; }
+
+  void markNonSubstitutableOrInvalid(HLInst *InvalidatingInst) {
+    assert(isLoad() && "Attempt to access use ref for copy temp!");
+
+    if (UseRef && (UseRef->getHLDDNode()->getTopSortNum() >
+                   InvalidatingInst->getTopSortNum())) {
+      // Use of load temp was in a liveout copy temp's RvalDefInst and was
+      // reordered so the old use is no longer valid.
+      markInvalid();
+    } else {
+      markNonSubstitutable();
+    }
+  }
 
   RegDDRef *getUseRef() const {
     assert(isLoad() && "Attempt to access use ref for copy temp!");
@@ -186,6 +205,11 @@ public:
   // be substituted. Returns true/false based on whether it is successful in
   // moving the node.
   bool movedUseBeforeRvalDef(HLDDNode *UseNode);
+
+  // Tries to move single rval definition of temp after \p UseNode so temp can
+  // be substituted. Returns true/false based on whether it is successful in
+  // moving the node.
+  bool movedRvalDefAfterUse(HLDDNode *UseNode);
 };
 
 bool TempInfo::setSingleRvalDefInst(HLInst *RvalDefInst) {
@@ -227,6 +251,33 @@ void TempInfo::substituteInUseRef() {
     auto UseInst = dyn_cast<HLInst>(UseNode);
     RegDDRef *LvalRef = nullptr;
     unsigned Index = getBlobIndex();
+
+    // Skip the substitution if the def inst's next node prevents substitution.
+    // We check the next node because visitor could miss checking the next node
+    // if it changed due to reordering. This is the case where this load temp
+    // was a UseInst of a liveout copy temp and RvalDefInst of the liveout copy
+    // temp was moved after the load.
+    //
+    // For example, in the case below t2 load temp is substitutable before
+    // reordering but not afterwards-
+    //
+    // t1.out = t1
+    // t1 = t1 + 1
+    // t2 = A[t1.out]
+    // t3 = t2
+    //
+    // t2 = A[t1]
+    // t1 = t1 + 1
+    // t3 = t2
+    HLInst *NextInstAfterDef = dyn_cast<HLInst>(DefInst->getNextNode());
+
+    if (NextInstAfterDef && (NextInstAfterDef != UseInst)) {
+      unsigned NextInstLvalBlobIndex = NextInstAfterDef->getLvalBlobIndex();
+
+      if (DefInst->usesTempBlob(NextInstLvalBlobIndex)) {
+        return;
+      }
+    }
 
     // If use is in the copy, replace use inst by def inst by changing its lval.
     // This is so that we don't add memref to copy insts.
@@ -370,43 +421,111 @@ void TempInfo::processInnerLoopUses(HLLoop *InvalidatingLoop) {
   InnerLoopUses.clear();
 }
 
-bool TempInfo::movedUseBeforeRvalDef(HLDDNode *UseNode) {
-  assert(hasSingleRvalDefInst() && "Temp does not contain rval def!");
-
-  auto *UseInst = dyn_cast<HLInst>(UseNode);
-
-  if (!UseInst || UseInst->isCallInst()) {
-    return false;
-  }
-
-  // Do not move memrefs.
-  for (auto *Ref :
-       make_range(UseInst->op_ddref_begin(), UseInst->op_ddref_end())) {
-    if (Ref->isMemRef()) {
-      return false;
-    }
-  }
-
-  auto *RvalDefInst = getSingleRvalDefInst();
-
-  auto *Parent = RvalDefInst->getParent();
-  if (Parent != UseInst->getParent()) {
+static bool areInSameParent(HLInst *Inst1, HLInst *Inst2) {
+  auto *Parent = Inst1->getParent();
+  if (Parent != Inst2->getParent()) {
     return false;
   }
 
   // Only handle cases where both insts are in the same case of If/Switch
   // parent.
   if (auto *IfParent = dyn_cast<HLIf>(Parent)) {
-    if (IfParent->isThenChild(RvalDefInst) != IfParent->isThenChild(UseInst)) {
+    return IfParent->isThenChild(Inst1) == IfParent->isThenChild(Inst2);
+  }
+
+  if (auto *SwitchParent = dyn_cast<HLSwitch>(Parent)) {
+    return SwitchParent->getChildCaseNum(Inst1) ==
+           SwitchParent->getChildCaseNum(Inst2);
+  }
+  return true;
+}
+
+static bool canMoveNode(HLDDNode *Node) {
+  auto *Inst = dyn_cast<HLInst>(Node);
+
+  if (!Inst || Inst->isCallInst()) {
+    return false;
+  }
+
+  // Do not move memrefs.
+  for (auto *Ref : make_range(Inst->op_ddref_begin(), Inst->op_ddref_end())) {
+    if (Ref->isMemRef()) {
       return false;
     }
   }
 
-  if (auto *SwitchParent = dyn_cast<HLSwitch>(Parent)) {
-    if (SwitchParent->getChildCaseNum(RvalDefInst) !=
-        SwitchParent->getChildCaseNum(UseInst)) {
+  return true;
+}
+
+bool TempInfo::movedRvalDefAfterUse(HLDDNode *UseNode) {
+  assert(hasSingleRvalDefInst() && "Temp does not contain rval def!");
+
+  auto *RvalDefInst = getSingleRvalDefInst();
+
+  auto *UseInst = dyn_cast<HLInst>(UseNode);
+
+  if (!UseInst) {
+    return false;
+  }
+
+  if (!canMoveNode(RvalDefInst)) {
+    return false;
+  }
+
+  if (!areInSameParent(RvalDefInst, UseInst)) {
+    return false;
+  }
+
+  // It is possible that RvalDefInst was already moved before UseInst
+  // while processing another RvalDefInst.
+  // If so, we can trivially return true here.
+  if (UseInst->getTopSortNum() < RvalDefInst->getTopSortNum()) {
+    return true;
+  }
+
+  unsigned DefInstLvalBlobIndex = RvalDefInst->getLvalBlobIndex();
+
+  // Check if intermediate nodes prevent reordering.
+  for (auto *NextNode = RvalDefInst->getNextNode(),
+            *EndNode = UseInst->getNextNode();
+       NextNode != EndNode; NextNode = NextNode->getNextNode()) {
+
+    auto *Inst = dyn_cast<HLInst>(NextNode);
+
+    // Do not move across non-insts.
+    if (!Inst) {
       return false;
     }
+
+    // Illegal to move if lval of RvalDefInst is used by an intermediate inst.
+    if (Inst->usesTempBlob(DefInstLvalBlobIndex)) {
+      return false;
+    }
+
+    unsigned LvalBlobIndex = Inst->getLvalBlobIndex();
+
+    // Illegal to move if lval of an intermediate inst is used by RvalDefInst.
+    if (RvalDefInst->usesTempBlob(LvalBlobIndex)) {
+      return false;
+    }
+  }
+
+  HLNodeUtils::moveAfter(UseInst, RvalDefInst);
+  return true;
+}
+
+bool TempInfo::movedUseBeforeRvalDef(HLDDNode *UseNode) {
+  assert(hasSingleRvalDefInst() && "Temp does not contain rval def!");
+
+  if (!canMoveNode(UseNode)) {
+    return false;
+  }
+
+  auto *UseInst = cast<HLInst>(UseNode);
+  auto *RvalDefInst = getSingleRvalDefInst();
+
+  if (!areInSameParent(RvalDefInst, UseInst)) {
+    return false;
   }
 
   // It is possible that UseInst was already moved before RvalDefInst
@@ -416,16 +535,7 @@ bool TempInfo::movedUseBeforeRvalDef(HLDDNode *UseNode) {
     return true;
   }
 
-  auto &BU = UseInst->getBlobUtils();
-  auto *UseLvalRef = UseInst->getLvalDDRef();
-
-  unsigned UseLvalBlobIndex = InvalidBlobIndex;
-
-  if (UseLvalRef && UseLvalRef->isTerminalRef()) {
-    UseLvalBlobIndex = UseLvalRef->isSelfBlob()
-                           ? UseLvalRef->getSelfBlobIndex()
-                           : BU.findTempBlobIndex(UseLvalRef->getSymbase());
-  }
+  unsigned UseLvalBlobIndex = UseInst->getLvalBlobIndex();
 
   // Check if intermediate nodes prevent reordering.
   for (auto *PrevNode = UseInst->getPrevNode(),
@@ -440,33 +550,15 @@ bool TempInfo::movedUseBeforeRvalDef(HLDDNode *UseNode) {
     }
 
     // Illegal to move if lval of UseInst is used by an intermediate inst.
-    if (UseLvalBlobIndex != InvalidBlobIndex) {
-      for (auto *Ref :
-           make_range(Inst->op_ddref_begin(), Inst->op_ddref_end())) {
-        if (Ref->usesTempBlob(UseLvalBlobIndex)) {
-          return false;
-        }
-      }
+    if (Inst->usesTempBlob(UseLvalBlobIndex)) {
+      return false;
     }
 
-    auto *LvalRef = Inst->getLvalDDRef();
+    unsigned LvalBlobIndex = Inst->getLvalBlobIndex();
 
-    if (!LvalRef || !LvalRef->isTerminalRef()) {
-      continue;
-    }
-
-    unsigned LvalBlobIndex = LvalRef->isSelfBlob()
-                                 ? LvalRef->getSelfBlobIndex()
-                                 : BU.findTempBlobIndex(LvalRef->getSymbase());
-
-    if (LvalBlobIndex != InvalidBlobIndex) {
-      // Illegal to move if lval of an intermediate inst is used by UseInst.
-      for (auto *Ref :
-           make_range(UseInst->op_ddref_begin(), UseInst->op_ddref_end())) {
-        if (Ref->usesTempBlob(LvalBlobIndex)) {
-          return false;
-        }
-      }
+    // Illegal to move if lval of an intermediate inst is used by UseInst.
+    if (UseInst->usesTempBlob(LvalBlobIndex)) {
+      return false;
     }
   }
 
@@ -561,8 +653,10 @@ void TempSubstituter::processLiveoutTempUse(TempInfo &Temp, RegDDRef *UseRef) {
 
   auto *Node = UseRef->getHLDDNode();
   if (Temp.hasSingleRvalDefInst()) {
-    if (!Temp.movedUseBeforeRvalDef(Node)) {
-      // If reordering is unsuccessful, make the temp invalid.
+    // If use cannot be moved before single rval definition of temp, we can
+    // try if single rval definition of temp can be moved after use.
+    // If reordering is unsuccessful, make the temp invalid.
+    if (!Temp.movedUseBeforeRvalDef(Node) && !Temp.movedRvalDefAfterUse(Node)) {
       Temp.markInvalid();
       return;
     }
@@ -660,20 +754,12 @@ void TempSubstituter::updateTempCandidates(HLInst *HInst) {
 
   bool InvalidateLoads = false;
   auto Inst = HInst->getLLVMInstruction();
-  unsigned LvalBlobIndex = InvalidBlobIndex;
 
   if (Inst->mayWriteToMemory()) {
     InvalidateLoads = true;
   }
 
-  RegDDRef *LvalRef = HInst->getLvalDDRef();
-
-  if (LvalRef && LvalRef->isTerminalRef()) {
-    LvalBlobIndex =
-        LvalRef->isSelfBlob()
-            ? LvalRef->getSelfBlobIndex()
-            : HInst->getBlobUtils().findTempBlobIndex(LvalRef->getSymbase());
-  }
+  unsigned LvalBlobIndex = HInst->getLvalBlobIndex();
 
   if (!InvalidateLoads && (LvalBlobIndex == InvalidBlobIndex)) {
     return;
@@ -686,7 +772,7 @@ void TempSubstituter::updateTempCandidates(HLInst *HInst) {
     }
 
     if (InvalidateLoads && Temp.isLoad()) {
-      Temp.markNonSubstitutable();
+      Temp.markNonSubstitutableOrInvalid(HInst);
       continue;
     }
 
@@ -694,7 +780,7 @@ void TempSubstituter::updateTempCandidates(HLInst *HInst) {
         Temp.getRvalDDRef()->usesTempBlob(LvalBlobIndex)) {
 
       if (Temp.isLoad()) {
-        Temp.markNonSubstitutable();
+        Temp.markNonSubstitutableOrInvalid(HInst);
 
         // This call gives us the chance to substitute by reordering
         // instructions.

@@ -1,4 +1,21 @@
 //===- ADCE.cpp - Code to perform dead code elimination -------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -36,7 +53,6 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -580,6 +596,7 @@ bool AggressiveDeadCodeElimination::updateDeadRegions() {
   // Don't compute the post ordering unless we needed it.
   bool HavePostOrder = false;
   bool Changed = false;
+  SmallVector<DominatorTree::UpdateType, 10> DeletedEdges;
 
   for (auto *BB : BlocksWithDeadTerminators) {
     auto &Info = BlockInfo[BB];
@@ -618,7 +635,6 @@ bool AggressiveDeadCodeElimination::updateDeadRegions() {
     makeUnconditional(BB, PreferredSucc->BB);
 
     // Inform the dominators about the deleted CFG edges.
-    SmallVector<DominatorTree::UpdateType, 4> DeletedEdges;
     for (auto *Succ : RemovedSuccessors) {
       // It might have happened that the same successor appeared multiple times
       // and the CFG edge wasn't really removed.
@@ -630,12 +646,13 @@ bool AggressiveDeadCodeElimination::updateDeadRegions() {
       }
     }
 
-    DomTreeUpdater(DT, &PDT, DomTreeUpdater::UpdateStrategy::Eager)
-        .applyUpdates(DeletedEdges);
-
     NumBranchesRemoved += 1;
     Changed = true;
   }
+
+  if (!DeletedEdges.empty())
+    DomTreeUpdater(DT, &PDT, DomTreeUpdater::UpdateStrategy::Eager)
+        .applyUpdates(DeletedEdges);
 
   return Changed;
 }

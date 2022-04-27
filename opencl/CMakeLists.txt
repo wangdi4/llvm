@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 cmake_minimum_required(VERSION 3.14)
 
 include(FetchContent)
@@ -28,7 +45,7 @@ endif(INTEL_CUSTOMIZATION)
 # Repo tags/hashes
 
 set(OCL_HEADERS_TAG dcd5bede6859d26833cd85f0d6bbcee7382dc9b3)
-set(OCL_LOADER_TAG 5f8249691ec8c25775789498951f8e9eb62c201d)
+set(OCL_LOADER_TAG aec3952654832211636fc4af613710f80e203b0a)
 
 # OpenCL Headers
 if(NOT OpenCL_HEADERS)

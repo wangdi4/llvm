@@ -1,6 +1,6 @@
 //===------------ Intel_DTransUtils.cpp - Utilities for DTrans ------------===//
 //
-// Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -43,6 +43,12 @@ cl::opt<bool> dtrans::DTransPrintAnalyzedTypes("dtrans-print-types",
 /// calls (malloc, free, memset, etc) that may be useful to the transformations.
 cl::opt<bool> dtrans::DTransPrintAnalyzedCalls("dtrans-print-callinfo",
                                                cl::ReallyHidden);
+
+// Prints information that was stored into the DTransImmutableInfo result used
+// by HIR to get likely values that may be stored within structure fields.
+cl::opt<bool>
+    dtrans::DTransPrintImmutableAnalyzedTypes("dtrans-print-immutable-types",
+                                              cl::ReallyHidden);
 
 // Enables identification of structure fields that are loaded but never used in
 // a way that affects the program. (e.g. a field may be loaded, and not used or
@@ -122,20 +128,6 @@ StringRef dtrans::CRuleTypeKindName(CRuleTypeKind Kind) {
     return "True";
   }
   llvm_unreachable("Unexpected continuation past CRuleTypeKind switch.");
-}
-
-Function *dtrans::getCalledFunction(const CallBase &Call) {
-  Value *CalledValue = Call.getCalledOperand()->stripPointerCasts();
-  if (auto *CalledF = dyn_cast<Function>(CalledValue))
-    return CalledF;
-
-  if (auto *GA = dyn_cast<GlobalAlias>(CalledValue))
-    if (!GA->isInterposable())
-      if (auto *AliasF =
-              dyn_cast<Function>(GA->getAliasee()->stripPointerCasts()))
-        return AliasF;
-
-  return nullptr;
 }
 
 bool dtrans::isValueConstant(const Value *Val, uint64_t *ConstValue) {
@@ -513,6 +505,10 @@ const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
     return "Unsafe pointer store (pending)";
   if (SafetyInfo & dtrans::UnsafePointerStoreConditional)
     return "Unsafe pointer store (conditional)";
+  if (SafetyInfo & dtrans::MismatchedElementAccessPending)
+    return "Mismatched element access (pending)";
+  if (SafetyInfo & dtrans::MismatchedElementAccessConditional)
+    return "Mismatched element access (conditional)";
   if (SafetyInfo & dtrans::DopeVector)
     return "Dope vector";
   if (SafetyInfo & dtrans::BadCastingForRelatedTypes)
@@ -531,6 +527,14 @@ const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
     return "Field address taken call";
   if (SafetyInfo & dtrans::FieldAddressTakenReturn)
     return "Field address taken return";
+  if (SafetyInfo & dtrans::StructCouldHaveABIPadding)
+    return "Structure may have ABI padding";
+  if (SafetyInfo & dtrans::StructCouldBeBaseABIPadding)
+    return "Structure could be base for ABI padding";
+  if (SafetyInfo & dtrans::BadMemFuncManipulationForRelatedTypes)
+    return "Bad memfunc manipulation (related types)";
+  if (SafetyInfo & dtrans::UnsafePtrMergeRelatedTypes)
+    return "Unsafe pointer merge (related types)";
   if (SafetyInfo & dtrans::UnhandledUse)
     return "Unhandled use";
 
@@ -559,13 +563,19 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::HasFnPtr | dtrans::HasCppHandling | dtrans::HasZeroSizedArray |
       dtrans::BadCastingPending | dtrans::BadCastingConditional |
       dtrans::UnsafePointerStorePending |
-      dtrans::UnsafePointerStoreConditional | dtrans::DopeVector |
-      dtrans::BadCastingForRelatedTypes |
+      dtrans::UnsafePointerStoreConditional |
+      dtrans::MismatchedElementAccessPending |
+      dtrans::MismatchedElementAccessConditional |
+      dtrans::DopeVector | dtrans::BadCastingForRelatedTypes |
       dtrans::BadPtrManipulationForRelatedTypes |
       dtrans::MismatchedElementAccessRelatedTypes |
       dtrans::UnsafePointerStoreRelatedTypes |
       dtrans::MemFuncNestedStructsPartialWrite | dtrans::ComplexAllocSize |
       dtrans::FieldAddressTakenCall | dtrans::FieldAddressTakenReturn |
+      dtrans::StructCouldHaveABIPadding |
+      dtrans::StructCouldBeBaseABIPadding |
+      dtrans::BadMemFuncManipulationForRelatedTypes |
+      dtrans::UnsafePtrMergeRelatedTypes |
       dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
@@ -587,13 +597,19 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::HasCppHandling ^ dtrans::HasZeroSizedArray ^
            dtrans::BadCastingPending ^ dtrans::BadCastingConditional ^
            dtrans::UnsafePointerStorePending ^
-           dtrans::UnsafePointerStoreConditional ^ dtrans::DopeVector ^
-           dtrans::BadCastingForRelatedTypes ^
+           dtrans::UnsafePointerStoreConditional ^
+           dtrans::MismatchedElementAccessPending ^
+           dtrans::MismatchedElementAccessConditional ^
+           dtrans::DopeVector ^ dtrans::BadCastingForRelatedTypes ^
            dtrans::BadPtrManipulationForRelatedTypes ^
            dtrans::MismatchedElementAccessRelatedTypes ^
            dtrans::UnsafePointerStoreRelatedTypes ^
            dtrans::MemFuncNestedStructsPartialWrite ^ dtrans::ComplexAllocSize ^
            dtrans::FieldAddressTakenCall ^ dtrans::FieldAddressTakenReturn ^
+           dtrans::StructCouldHaveABIPadding ^
+           dtrans::StructCouldBeBaseABIPadding ^
+           dtrans::BadMemFuncManipulationForRelatedTypes ^
+           dtrans::UnsafePtrMergeRelatedTypes ^
            dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
 
@@ -870,92 +886,81 @@ void dtrans::FieldInfo::addConstantEntryIntoTheArray(Constant *Index,
   ArrayConstEntries.insert({Index, ConstVal});
 }
 
-// To represent call graph in C++ one stores outermost type,
-// in whose methods there was reference to this structure.
-//
-// Lattice of properties is
-//  {bottom = <nullptr, false>, <Type*, false>, top = <nullptr, true>}
-// Final result represents the structure type, whose methods can be used to
-// reach all uses of the given type ThisTy.
-void dtrans::StructInfo::CallSubGraph::insertFunction(Function *F,
-                                                      StructType *ThisTy) {
-  // If we could not approximate CallGraph by methods of some class,
-  // no need to analyze further.
-  if (isTop())
+// Insert a new entry in ArrayConstEntries assuming that the current field
+// is an array with constant entries. Index is the entry in the array that
+// is constant and ConstVal is the constant value for that index. If Index
+// is in the map then replace the value with nullptr. Also, nullptr for
+// ConstVal is allowed. It means that there is no constant for the index
+// accessed.
+void dtrans::FieldInfo::addNewArrayConstantEntry(Constant *Index,
+                                                 Constant* ConstVal) {
+  if (!canAddConstantEntriesForArray)
     return;
 
-  // If reference to ThisTy is encountered in global scope or
-  // inside function, which does not look like class method,
-  // then mark CallGraph approximation as 'top' or 'failed' approximation.
-  if (!F || F->arg_size() < 1) {
-    setTop();
-    return;
-  }
-  // Candidate for 'this' pointer;
-  auto *Ty = F->arg_begin()->getType();
-  if (!isa<PointerType>(Ty)) {
-    setTop();
-    return;
-  }
-  auto *StTy = dyn_cast<StructType>(Ty->getPointerElementType());
-  if (!StTy) {
-    setTop();
+  // Index is needed and must be a constant integer
+  if (!Index) {
+    disableArraysWithConstantEntries();
     return;
   }
 
-  // Ty >= ThisTy
-  //
-  // Check if ThisTy can be reachable from Ty by recursion to
-  // structure's elements and following pointers.
-  std::function<bool(Type *, StructType *, int)> findSubType =
-      [&findSubType](Type *Ty, StructType *ThisTy, int Depth) -> bool {
-    Depth--;
-    if (Depth <= 0)
-      return false;
-    switch (Ty->getTypeID()) {
-    default:
-      return false;
-    case Type::StructTyID: {
-      auto *STy = cast<StructType>(Ty);
-      if (STy == ThisTy)
-        return true;
-      for (auto *FTy : STy->elements())
-        if (findSubType(FTy, ThisTy, Depth))
-          return true;
-      return false;
+  // If canAddConstantEntriesForArray is true then it means that the current
+  // field is an array of integers
+  llvm::ArrayType *CurrArr = cast<llvm::ArrayType>(getLLVMType());
+  auto *ConstIntIndex = dyn_cast<ConstantInt>(Index);
+  auto *ConstIntVal = dyn_cast_or_null<ConstantInt>(ConstVal);
+  if (!ConstIntIndex) {
+    disableArraysWithConstantEntries();
+    return;
+  }
+
+  // A negative index means an out of bounds access, disable array
+  // with constant
+  if (ConstIntIndex->isNegative()) {
+    disableArraysWithConstantEntries();
+    return;
+  }
+
+  // The index must be within the bounds, else disable the arrays with constant
+  if (ConstIntIndex->getZExtValue() >= CurrArr->getNumElements()) {
+    disableArraysWithConstantEntries();
+    return;
+  }
+
+  // If there is a value then check if the types match
+  if (ConstIntVal) {
+    llvm::Type *ElemType = CurrArr->getElementType();
+    if (ElemType != ConstIntVal->getType()) {
+      disableArraysWithConstantEntries();
+      return;
     }
-    case Type::ArrayTyID:
-      if (findSubType(Ty->getArrayElementType(), ThisTy, Depth))
-        return true;
-      return false;
-    case Type::PointerTyID:
-      if (findSubType(Ty->getPointerElementType(), ThisTy, Depth))
-        return true;
-      return false;
-    }
-    llvm_unreachable("Non-exhaustive switch statement");
-  };
-
-  // !(StTy >= ThisTy)
-  // If ThisTy is not reachable from 'this' argument,
-  // then mark as 'top'
-  if (!findSubType(StTy, ThisTy, 5)) {
-    setTop();
-    return;
   }
 
-  // Compute `join`.
-  // If cannot find least common approximation to old and new approximation,
-  // then mark as 'top'.
-  if (isBottom()) {
-    State.setPointer(StTy);
-  } else if (findSubType(StTy, State.getPointer(), 5)) {
-    State.setPointer(StTy);
-  } else if (!findSubType(State.getPointer(), StTy, 5)) {
-    setTop();
-    return;
-  }
-  // else do nothing
+  // If the entry is not in the map then add it. Else, set it to nullptr if
+  // the value is not the same. If ConstVal is nullptr and not in the map,
+  // then it means that we are adding a non-constant integer for the input
+  // index.
+  auto It = ArrayWithConstEntriesMap.find(Index);
+  if (It == ArrayWithConstEntriesMap.end())
+    ArrayWithConstEntriesMap.insert({Index, ConstVal});
+  else if (It->second != ConstVal)
+    It->second = nullptr;
+}
+
+// Return true if the current field is an array with constant entries. Else
+// return false.
+bool dtrans::FieldInfo::isFieldAnArrayWithConstEntries() {
+  if (!canAddConstantEntriesForArray)
+    return false;
+
+  if (ArrayWithConstEntriesMap.empty())
+    return false;
+
+  // If all entries are nullptr then we don't have any information
+  for (auto Pair : ArrayWithConstEntriesMap)
+    if (Pair.second)
+      return true;
+
+  return false;
 }
 
 // This is a helper function used to break the relationship between
@@ -974,6 +979,8 @@ void StructInfo::unsetRelatedType() {
   if (LastField.isPaddedField())
     LastField.clearPaddedField();
 
+  RTForm = RT_BOTTOM;
+
   CurrRelated->unsetRelatedType();
 }
 
@@ -986,6 +993,62 @@ bool StructInfo::hasPaddedField() {
   dtrans::FieldInfo &Field = getField(LastField);
 
   return Field.isPaddedField();
+}
+
+// Set current structure as a base structure for ABI padding (RT_BASE) if it
+// isn't set (RT_TOP). If it is set and is not RT_BASE, it will set the
+// structure as RT_BOTTOM.
+void StructInfo::setAsABIPaddingBaseStructure() {
+  if (RTForm == RT_BASE)
+    return;
+
+  // If not top then something happened that broke the relationship
+  if (RTForm != RT_TOP) {
+    RTForm = RT_BOTTOM;
+    return;
+  }
+
+  if (!RelatedType)
+    return;
+
+  // Related type is already set, make sure that the current one is the base
+  // by checking the field size
+  size_t NumFields = getNumFields();
+  size_t RelatedNumFields = RelatedType->getNumFields();
+  if (RelatedNumFields - NumFields != 1) {
+    RTForm = RT_BOTTOM;
+    return;
+  }
+
+  RTForm = RT_BASE;
+}
+
+// Set current structure as a padded structure for ABI padding (RT_PADDED) if
+// it isn't set (RT_TOP). If it is set and is not RT_PADDED, it will set the
+// structure as RT_BOTTOM.
+void StructInfo::setAsABIPaddingPaddedStructure() {
+  if (RTForm == RT_PADDED)
+    return;
+
+  // If not top then something happened that broke the relationship
+  if (RTForm != RT_TOP) {
+    RTForm = RT_BOTTOM;
+    return;
+  }
+
+  if (!RelatedType)
+    return;
+
+  // Related type is already set, make sure that the current one is the padded
+  // by checking the field size
+  size_t NumFields = getNumFields();
+  size_t RelatedNumFields = RelatedType->getNumFields();
+  if (NumFields - RelatedNumFields != 1) {
+    RTForm = RT_BOTTOM;
+    return;
+  }
+
+  RTForm = RT_PADDED;
 }
 
 void StructInfo::updateNewSingleAllocFunc(unsigned FieldNum,
@@ -2265,4 +2328,28 @@ bool dtrans::analyzePartialAccessNestedStructures(const DataLayout &DL,
   }
 
   return false;
+}
+
+bool dtrans::compareStructName(const llvm::StructType *Ty1,
+                               const llvm::StructType *Ty2) {
+  if (Ty1->hasName() && Ty2->hasName())
+    return Ty1->getName() < Ty2->getName();
+
+  // Named structures before literal structures
+  if (Ty1->hasName())
+    return true;
+  if (Ty2->hasName())
+    return false;
+
+  // Compare the printed forms of two literal structures
+  std::string Lit1;
+  raw_string_ostream OS1(Lit1);
+  OS1 << *Ty1;
+  OS1.flush();
+
+  std::string Lit2;
+  raw_string_ostream OS2(Lit2);
+  OS2 << *Ty2;
+  OS2.flush();
+  return Lit1 < Lit2;
 }

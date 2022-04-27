@@ -5,12 +5,12 @@
 ;
 ; INPUT:
 ;<0>       BEGIN REGION { }
-;<29>            + DO i1 = 0, 99, 1   <DO_LOOP> <MAX_TC_EST = 100> <min_trip_count = 60> <avg_trip_count = 70> <max_trip_count = 100>
+;<29>            + DO i1 = 0, 99, 1   <DO_LOOP> <MAX_TC_EST = 100>  <LEGAL_MAX_TC = 100> <min_trip_count = 60> <avg_trip_count = 70> <max_trip_count = 100>
 ;<5>             |   (%a)[i1] = i1;
 ;<29>            + END LOOP
 ;<29>
 ;<30>
-;<30>            + DO i1 = 0, 99, 1   <DO_LOOP> <MAX_TC_EST = 100> <min_trip_count = 50> <avg_trip_count = 80> <max_trip_count = 100>
+;<30>            + DO i1 = 0, 99, 1   <DO_LOOP> <MAX_TC_EST = 100> <<LEGAL_MAX_TC = 100> min_trip_count = 50> <avg_trip_count = 80> <max_trip_count = 100>
 ;<17>            |   %1 = (%a)[i1];
 ;<20>            |   (%b)[i1] = %1 + 1;
 ;<30>            + END LOOP
@@ -21,7 +21,7 @@
 ;*** IR Dump After HIR Loop Fusion ***
 ;
 ; CHECK:     BEGIN REGION { modified }
-; CHECK:     DO i1 = 0, 99, 1   <DO_LOOP> <MAX_TC_EST = 100> <max_trip_count = 100>
+; CHECK:     DO i1 = 0, 99, 1   <DO_LOOP> <MAX_TC_EST = 100> <LEGAL_MAX_TC = 100> <max_trip_count = 100>
 ;
 source_filename = "enclosed-simple.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

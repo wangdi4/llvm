@@ -394,10 +394,10 @@ Value *Float128Expand::expandToLibCall(IRBuilder<> &Builder, Instruction *I,
     } else {
       VOp0 = VNT.lookup(Ops[0]);
       Args.push_back(VOp0);
-      // Set the mode to MODE_TOWARDZERO
-      if (isFPToILib(LibCallName))
-        Args.push_back(ConstantInt::get(Type::getInt32Ty(Ctx), 0, true));
     }
+    // Set the mode to MODE_TOWARDZERO
+    if (isFPToILib(LibCallName))
+      Args.push_back(ConstantInt::get(Type::getInt32Ty(Ctx), 0, true));
   } else {
     // Otherwise just push the argument.
     Args.push_back(Ops[0]);

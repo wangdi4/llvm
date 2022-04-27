@@ -1,4 +1,21 @@
 //===--- SemaStmtAttr.cpp - Statement Attribute Handling ------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -459,10 +476,14 @@ CheckForDuplicateSYCLIntelLoopCountAttrs(Sema &S,
   unsigned int MinCount = 0;
   unsigned int MaxCount = 0;
   unsigned int AvgCount = 0;
+  unsigned int Count = 0;
   for (const auto *A : OnlyLoopCountAttrs) {
     const auto *At = dyn_cast<SYCLIntelFPGALoopCountAttr>(A);
-    At->isMin() ? MinCount++ : At->isMax() ? MaxCount++ : AvgCount++;
-    if (MinCount > 1 || MaxCount > 1 || AvgCount > 1)
+    At->isMin()   ? MinCount++
+    : At->isMax() ? MaxCount++
+    : At->isAvg() ? AvgCount++
+                  : Count++;
+    if (MinCount > 1 || MaxCount > 1 || AvgCount > 1 || Count > 1)
       S.Diag(A->getLocation(), diag::err_sycl_loop_attr_duplication) << 1 << A;
   }
 }
@@ -1082,17 +1103,22 @@ static Attr *handleIntelPrefetchAttr(Sema &S, Stmt *St,
 
 namespace {
 class CallExprFinder : public ConstEvaluatedExprVisitor<CallExprFinder> {
-  bool FoundCallExpr = false;
+  bool FoundAsmStmt = false;
+  std::vector<const CallExpr *> CallExprs;
 
 public:
   typedef ConstEvaluatedExprVisitor<CallExprFinder> Inherited;
 
   CallExprFinder(Sema &S, const Stmt *St) : Inherited(S.Context) { Visit(St); }
 
-  bool foundCallExpr() { return FoundCallExpr; }
+  bool foundCallExpr() { return !CallExprs.empty(); }
+  const std::vector<const CallExpr *> &getCallExprs() { return CallExprs; }
 
-  void VisitCallExpr(const CallExpr *E) { FoundCallExpr = true; }
-  void VisitAsmStmt(const AsmStmt *S) { FoundCallExpr = true; }
+  bool foundAsmStmt() { return FoundAsmStmt; }
+
+  void VisitCallExpr(const CallExpr *E) { CallExprs.push_back(E); }
+
+  void VisitAsmStmt(const AsmStmt *S) { FoundAsmStmt = true; }
 
   void Visit(const Stmt *St) {
     if (!St)
@@ -1107,13 +1133,65 @@ static Attr *handleNoMergeAttr(Sema &S, Stmt *St, const ParsedAttr &A,
   NoMergeAttr NMA(S.Context, A);
   CallExprFinder CEF(S, St);
 
-  if (!CEF.foundCallExpr()) {
-    S.Diag(St->getBeginLoc(), diag::warn_nomerge_attribute_ignored_in_stmt)
-        << NMA.getSpelling();
+  if (!CEF.foundCallExpr() && !CEF.foundAsmStmt()) {
+    S.Diag(St->getBeginLoc(), diag::warn_attribute_ignored_no_calls_in_stmt)
+        << A;
     return nullptr;
   }
 
   return ::new (S.Context) NoMergeAttr(S.Context, A);
+}
+
+static Attr *handleNoInlineAttr(Sema &S, Stmt *St, const ParsedAttr &A,
+                                SourceRange Range) {
+  NoInlineAttr NIA(S.Context, A);
+  if (!NIA.isClangNoInline()) {
+    S.Diag(St->getBeginLoc(), diag::warn_function_attribute_ignored_in_stmt)
+        << "[[clang::noinline]]";
+    return nullptr;
+  }
+
+  CallExprFinder CEF(S, St);
+  if (!CEF.foundCallExpr()) {
+    S.Diag(St->getBeginLoc(), diag::warn_attribute_ignored_no_calls_in_stmt)
+        << A;
+    return nullptr;
+  }
+
+  for (const auto *CallExpr : CEF.getCallExprs()) {
+    const Decl *Decl = CallExpr->getCalleeDecl();
+    if (Decl->hasAttr<AlwaysInlineAttr>() || Decl->hasAttr<FlattenAttr>())
+      S.Diag(St->getBeginLoc(), diag::warn_function_stmt_attribute_precedence)
+          << A << (Decl->hasAttr<AlwaysInlineAttr>() ? 0 : 1);
+  }
+
+  return ::new (S.Context) NoInlineAttr(S.Context, A);
+}
+
+static Attr *handleAlwaysInlineAttr(Sema &S, Stmt *St, const ParsedAttr &A,
+                                    SourceRange Range) {
+  AlwaysInlineAttr AIA(S.Context, A);
+  if (!AIA.isClangAlwaysInline()) {
+    S.Diag(St->getBeginLoc(), diag::warn_function_attribute_ignored_in_stmt)
+        << "[[clang::always_inline]]";
+    return nullptr;
+  }
+
+  CallExprFinder CEF(S, St);
+  if (!CEF.foundCallExpr()) {
+    S.Diag(St->getBeginLoc(), diag::warn_attribute_ignored_no_calls_in_stmt)
+        << A;
+    return nullptr;
+  }
+
+  for (const auto *CallExpr : CEF.getCallExprs()) {
+    const Decl *Decl = CallExpr->getCalleeDecl();
+    if (Decl->hasAttr<NoInlineAttr>() || Decl->hasAttr<FlattenAttr>())
+      S.Diag(St->getBeginLoc(), diag::warn_function_stmt_attribute_precedence)
+          << A << (Decl->hasAttr<NoInlineAttr>() ? 2 : 1);
+  }
+
+  return ::new (S.Context) AlwaysInlineAttr(S.Context, A);
 }
 
 static Attr *handleMustTailAttr(Sema &S, Stmt *St, const ParsedAttr &A,
@@ -1669,6 +1747,8 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
   case ParsedAttr::AT_IntelPrefetch:
     return handleIntelPrefetchAttr(S, St, A, AL, Range);
 #endif // INTEL_CUSTOMIZATION
+  case ParsedAttr::AT_AlwaysInline:
+    return handleAlwaysInlineAttr(S, St, A, Range);
   case ParsedAttr::AT_FallThrough:
     return handleFallThroughAttr(S, St, A, Range);
   case ParsedAttr::AT_LoopHint:
@@ -1696,6 +1776,8 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
     return handleSuppressAttr(S, St, A, Range);
   case ParsedAttr::AT_NoMerge:
     return handleNoMergeAttr(S, St, A, Range);
+  case ParsedAttr::AT_NoInline:
+    return handleNoInlineAttr(S, St, A, Range);
   case ParsedAttr::AT_MustTail:
     return handleMustTailAttr(S, St, A, Range);
   case ParsedAttr::AT_Likely:
@@ -1714,8 +1796,7 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
   }
 }
 
-void Sema::ProcessStmtAttributes(Stmt *S,
-                                 const ParsedAttributesWithRange &InAttrs,
+void Sema::ProcessStmtAttributes(Stmt *S, const ParsedAttributes &InAttrs,
                                  SmallVectorImpl<const Attr *> &OutAttrs) {
   for (const ParsedAttr &AL : InAttrs) {
 #if INTEL_CUSTOMIZATION

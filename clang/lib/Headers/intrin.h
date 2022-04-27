@@ -1,5 +1,20 @@
-/* ===-------- intrin.h ---------------------------------------------------===
+/* ===-------- intrin.h ---------------------------------------------------=== */
+/* INTEL_CUSTOMIZATION */
+/*
+ * Modifications, Copyright (C) 2021 Intel Corporation
  *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
+/*
  * Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
  * See https://llvm.org/LICENSE.txt for license information.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -536,27 +551,6 @@ static __inline__ void __DEFAULT_FN_ATTRS __stosq(unsigned __int64 *__dst,
 |* Misc
 \*----------------------------------------------------------------------------*/
 #if defined(__i386__) || defined(__x86_64__)
-#if defined(__i386__)
-#define __cpuid_count(__leaf, __count, __eax, __ebx, __ecx, __edx)             \
-  __asm("cpuid"                                                                \
-        : "=a"(__eax), "=b"(__ebx), "=c"(__ecx), "=d"(__edx)                   \
-        : "0"(__leaf), "2"(__count))
-#else
-/* x86-64 uses %rbx as the base register, so preserve it. */
-#define __cpuid_count(__leaf, __count, __eax, __ebx, __ecx, __edx)             \
-  __asm("xchg{q} {%%rbx, %q1|%q1, rbx}\n"                                      \
-        "cpuid\n"                                                              \
-        "xchg{q} {%%rbx, %q1|%q1, rbx}"                                        \
-        : "=a"(__eax), "=r"(__ebx), "=c"(__ecx), "=d"(__edx)                   \
-        : "0"(__leaf), "2"(__count))
-#endif
-static __inline__ void __DEFAULT_FN_ATTRS __cpuid(int __info[4], int __level) {
-  __cpuid_count(__level, 0, __info[0], __info[1], __info[2], __info[3]);
-}
-static __inline__ void __DEFAULT_FN_ATTRS __cpuidex(int __info[4], int __level,
-                                                    int __ecx) {
-  __cpuid_count(__level, __ecx, __info[0], __info[1], __info[2], __info[3]);
-}
 static __inline__ void __DEFAULT_FN_ATTRS __halt(void) {
   __asm__ volatile("hlt");
 }

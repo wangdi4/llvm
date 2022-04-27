@@ -1,5 +1,5 @@
 
-;RUN: opt -S -basic-aa -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze %s | FileCheck %s
+;RUN: opt -S -basic-aa -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze -enable-new-pm=0 %s | FileCheck %s
 ; RUN: opt < %s -passes="require<basic-aa>,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
 
 ; matmul required suppressions of LICM and early CSE(did ld/st of c[][] in i3)

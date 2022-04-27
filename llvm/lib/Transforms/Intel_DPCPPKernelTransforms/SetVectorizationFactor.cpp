@@ -10,7 +10,7 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SetVectorizationFactor.h"
 #include "llvm/Analysis/CallGraph.h"
-#include "llvm/Analysis/Intel_VectorVariant.h"
+#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"

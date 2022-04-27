@@ -1,4 +1,21 @@
 //===- X86DisassemblerTables.cpp - Disassembler tables ----------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -15,9 +32,12 @@
 
 #include "X86DisassemblerTables.h"
 #include "X86DisassemblerShared.h"
-#include "llvm/ADT/STLExtras.h"
+#include "X86ModRMFilters.h"
+#include "llvm/ADT/STLArrayExtras.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Format.h"
+#include "llvm/Support/raw_ostream.h"
 #include <map>
 
 using namespace llvm;
@@ -37,7 +57,13 @@ static inline const char* stringForContext(InstructionContext insnContext) {
 #define ENUM_ENTRY_K_B(n, r, d) ENUM_ENTRY(n, r, d) ENUM_ENTRY(n##_K_B, r, d)\
         ENUM_ENTRY(n##_KZ, r, d) ENUM_ENTRY(n##_K, r, d) ENUM_ENTRY(n##_B, r, d)\
         ENUM_ENTRY(n##_KZ_B, r, d)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  INSTRUCTION_XUCC_CONTEXTS
+#else // INTEL_FEATURE_XUCC
   INSTRUCTION_CONTEXTS
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 #undef ENUM_ENTRY
 #undef ENUM_ENTRY_K_B
   }
@@ -102,8 +128,7 @@ static inline bool inheritsFrom(InstructionContext child,
   case IC_64BIT_ADSIZE:
     return (noPrefix && inheritsFrom(child, IC_64BIT_OPSIZE_ADSIZE, noPrefix));
   case IC_64BIT_OPSIZE_ADSIZE:
-    return (noPrefix &&
-            inheritsFrom(child, IC_64BIT_VEX_OPSIZE_ADSIZE, noPrefix));
+    return false;
   case IC_XD:
     return inheritsFrom(child, IC_64BIT_XD);
   case IC_XS:
@@ -124,11 +149,10 @@ static inline bool inheritsFrom(InstructionContext child,
   case IC_64BIT_OPSIZE:
     return inheritsFrom(child, IC_64BIT_REXW_OPSIZE) ||
            (!AdSize64 && inheritsFrom(child, IC_64BIT_OPSIZE_ADSIZE)) ||
-           (!AdSize64 && inheritsFrom(child, IC_64BIT_REXW_ADSIZE)) ||
-           (!AdSize64 && inheritsFrom(child, IC_64BIT_VEX_OPSIZE_ADSIZE));
+           (!AdSize64 && inheritsFrom(child, IC_64BIT_REXW_ADSIZE));
   case IC_64BIT_XD:
-    return (inheritsFrom(child, IC_64BIT_REXW_XD) ||
-            (!AdSize64 && inheritsFrom(child, IC_64BIT_XD_ADSIZE)));
+    return(inheritsFrom(child, IC_64BIT_REXW_XD) ||
+           (!AdSize64 && inheritsFrom(child, IC_64BIT_XD_ADSIZE)));
   case IC_64BIT_XS:
     return(inheritsFrom(child, IC_64BIT_REXW_XS) ||
            (!AdSize64 && inheritsFrom(child, IC_64BIT_XS_ADSIZE)));
@@ -158,12 +182,7 @@ static inline bool inheritsFrom(InstructionContext child,
   case IC_VEX_OPSIZE:
     return (VEX_LIG && VEX_WIG && inheritsFrom(child, IC_VEX_L_W_OPSIZE)) ||
            (VEX_WIG && inheritsFrom(child, IC_VEX_W_OPSIZE)) ||
-           (VEX_LIG && inheritsFrom(child, IC_VEX_L_OPSIZE)) ||
-           inheritsFrom(child, IC_64BIT_VEX_OPSIZE);
-  case IC_64BIT_VEX_OPSIZE:
-    return inheritsFrom(child, IC_64BIT_VEX_OPSIZE_ADSIZE);
-  case IC_64BIT_VEX_OPSIZE_ADSIZE:
-    return false;
+           (VEX_LIG && inheritsFrom(child, IC_VEX_L_OPSIZE));
   case IC_VEX_W:
     return VEX_LIG && inheritsFrom(child, IC_VEX_L_W);
   case IC_VEX_W_XS:
@@ -561,6 +580,16 @@ static inline bool inheritsFrom(InstructionContext child,
   case IC_EVEX_L2_W_XD_KZ_B:
   case IC_EVEX_L2_W_OPSIZE_KZ_B:
     return false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  case IC_XUCCPD:
+  case IC_XUCCPD_XS:
+  case IC_XUCCPD_XD:
+  case IC_XUCCXS_PD:
+  case IC_XUCCXD_PD:
+    return false;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   default:
     errs() << "Unknown instruction class: " <<
       stringForContext((InstructionContext)parent) << "\n";
@@ -585,7 +614,13 @@ static inline bool outranks(InstructionContext upper,
   ENUM_ENTRY(n##_K_B, r, d) ENUM_ENTRY(n##_KZ_B, r, d) \
   ENUM_ENTRY(n##_KZ, r, d) ENUM_ENTRY(n##_K, r, d) ENUM_ENTRY(n##_B, r, d)
   static int ranks[IC_max] = {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+    INSTRUCTION_XUCC_CONTEXTS
+#else // INTEL_FEATURE_XUCC
     INSTRUCTION_CONTEXTS
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   };
 #undef ENUM_ENTRY
 #undef ENUM_ENTRY_K_B
@@ -657,7 +692,7 @@ static const char* stringForDecisionType(ModRMDecisionType dt) {
 }
 
 DisassemblerTables::DisassemblerTables() {
-  for (unsigned i = 0; i < array_lengthof(Tables); i++)
+  for (unsigned i = 0; i < llvm::array_lengthof(Tables); i++)
     Tables[i] = std::make_unique<ContextDecision>();
 
   HasConflicts = false;
@@ -670,7 +705,6 @@ void DisassemblerTables::emitModRMDecision(raw_ostream &o1, raw_ostream &o2,
                                            unsigned &i1, unsigned &i2,
                                            unsigned &ModRMTableNum,
                                            ModRMDecision &decision) const {
-  static uint32_t sTableNumber = 0;
   static uint32_t sEntryNumber = 1;
   ModRMDecisionType dt = getDecisionType(decision);
 
@@ -750,8 +784,6 @@ void DisassemblerTables::emitModRMDecision(raw_ostream &o1, raw_ostream &o2,
   assert(sEntryNumber < 65536U &&
          "Index into ModRMDecision is too large for uint16_t!");
   (void)sEntryNumber;
-
-  ++sTableNumber;
 }
 
 void DisassemblerTables::emitOpcodeDecision(raw_ostream &o1, raw_ostream &o2,
@@ -888,9 +920,6 @@ void DisassemblerTables::emitContextTable(raw_ostream &o, unsigned &i) const {
     if ((index & ATTR_EVEX) || (index & ATTR_VEX) || (index & ATTR_VEXL)) {
       if (index & ATTR_EVEX)
         o << "IC_EVEX";
-      else if ((index & (ATTR_64BIT | ATTR_VEXL | ATTR_REXW | ATTR_OPSIZE)) ==
-               (ATTR_64BIT | ATTR_OPSIZE))
-        o << "IC_64BIT_VEX";
       else
         o << "IC_VEX";
 
@@ -902,13 +931,9 @@ void DisassemblerTables::emitContextTable(raw_ostream &o, unsigned &i) const {
       if (index & ATTR_REXW)
         o << "_W";
 
-      if (index & ATTR_OPSIZE) {
+      if (index & ATTR_OPSIZE)
         o << "_OPSIZE";
-        if ((index & (ATTR_64BIT | ATTR_EVEX | ATTR_VEX | ATTR_VEXL |
-                      ATTR_REXW | ATTR_ADSIZE)) ==
-            (ATTR_64BIT | ATTR_VEX | ATTR_ADSIZE))
-          o << "_ADSIZE";
-      } else if (index & ATTR_XD)
+      else if (index & ATTR_XD)
         o << "_XD";
       else if (index & ATTR_XS)
         o << "_XS";
@@ -922,7 +947,25 @@ void DisassemblerTables::emitContextTable(raw_ostream &o, unsigned &i) const {
         if (index & ATTR_EVEXB)
           o << "_B";
       }
-    } else if ((index & ATTR_64BIT) && (index & ATTR_REXW) && (index & ATTR_XS))
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+    } else if ((index & ATTR_XUCCPD) || (index & ATTR_XUCCXD) ||
+               (index & ATTR_XUCCXS)) {
+      if (index & ATTR_XUCCPD) {
+        o << "IC_XUCCPD";
+        if (index & ATTR_XS)
+          o << "_XS";
+        else if (index & ATTR_XD)
+          o << "_XD";
+      } else if (index & ATTR_XUCCXD) {
+        o << "IC_XUCCXD_PD";
+      } else if (index & ATTR_XUCCXS) {
+        o << "IC_XUCCXS_PD";
+      }
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
+    }
+    else if ((index & ATTR_64BIT) && (index & ATTR_REXW) && (index & ATTR_XS))
       o << "IC_64BIT_REXW_XS";
     else if ((index & ATTR_64BIT) && (index & ATTR_REXW) && (index & ATTR_XD))
       o << "IC_64BIT_REXW_XD";

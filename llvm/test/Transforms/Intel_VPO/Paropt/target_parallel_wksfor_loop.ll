@@ -1,7 +1,7 @@
-; RUN: opt < %s -switch-to-offload -vpo-paropt -S | FileCheck %s -check-prefix=DEFAULT -check-prefix=ALL
-; RUN: opt < %s -passes='vpo-paropt' -switch-to-offload -S | FileCheck %s -check-prefix=DEFAULT -check-prefix=ALL
-; RUN: opt < %s -switch-to-offload -vpo-paropt -vpo-paropt-emit-wks-loops-implicit-barrier-for-target=false -S | FileCheck %s -check-prefix=NO_BARRIER -check-prefix=ALL
-; RUN: opt < %s -passes='vpo-paropt' -switch-to-offload -vpo-paropt-emit-wks-loops-implicit-barrier-for-target=false -S | FileCheck %s -check-prefix=NO_BARRIER -check-prefix=ALL
+; RUN: opt -switch-to-offload -vpo-paropt -S %s | FileCheck %s -check-prefix=DEFAULT -check-prefix=ALL
+; RUN: opt -passes='vpo-paropt' -switch-to-offload -S %s | FileCheck %s -check-prefix=DEFAULT -check-prefix=ALL
+; RUN: opt -switch-to-offload -vpo-paropt -vpo-paropt-emit-wks-loops-implicit-barrier-for-target=false -S %s | FileCheck %s -check-prefix=NO_BARRIER -check-prefix=ALL
+; RUN: opt -passes='vpo-paropt' -switch-to-offload -vpo-paropt-emit-wks-loops-implicit-barrier-for-target=false -S %s | FileCheck %s -check-prefix=NO_BARRIER -check-prefix=ALL
 ;
 ; #include <iostream>
 ; int main()

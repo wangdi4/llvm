@@ -1,4 +1,21 @@
 //===--- Specifiers.h - Declaration and Type Specifiers ---------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -334,7 +351,7 @@ namespace clang {
     Unspecified,
     // Generally behaves like Nullable, except when used in a block parameter
     // that was imported into a swift async method. There, swift will assume
-    // that the parameter can get null even if no error occured. _Nullable
+    // that the parameter can get null even if no error occurred. _Nullable
     // parameters are assumed to only get null on error.
     NullableResult,
   };

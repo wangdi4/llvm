@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm -o - -fintel-compatibility -fopenmp \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fintel-compatibility -fopenmp \
 // RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s
 
@@ -11,16 +11,16 @@ void foo()
 {
   DistSIMDType distances_local_even[46];
   int i;
-  // CHECK: REDUCTION.MIN{{.*}}[46 x <8 x i16>]* %distances_local_even
+  // CHECK: REDUCTION.MIN{{.*}}ptr %distances_local_even
   #pragma omp parallel reduction(min:distances_local_even)
   for(i=0;i<10;++i) {}
-  // CHECK: REDUCTION.MAX{{.*}}[46 x <8 x i16>]* %distances_local_even
+  // CHECK: REDUCTION.MAX{{.*}}ptr %distances_local_even
   #pragma omp parallel reduction(max:distances_local_even)
   for(i=0;i<10;++i) {}
-  // CHECK: REDUCTION.ADD{{.*}}[46 x <8 x i16>]* %distances_local_even
+  // CHECK: REDUCTION.ADD{{.*}}ptr %distances_local_even
   #pragma omp parallel reduction(+:distances_local_even)
   for(i=0;i<10;++i) {}
-  // CHECK: REDUCTION.SUB{{.*}}[46 x <8 x i16>]* %distances_local_even
+  // CHECK: REDUCTION.SUB{{.*}}ptr %distances_local_even
   #pragma omp parallel reduction(-:distances_local_even)
   for(i=0;i<10;++i) {}
 }

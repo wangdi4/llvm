@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fintel-compatibility -verify %s
+// RUN: %clang_cc1 -fintel-compatibility -Wno-deprecated-non-prototype -verify %s
 
 void f(a, b)
   int; // expected-warning{{declaration does not declare a parameter}}

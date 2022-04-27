@@ -607,8 +607,8 @@ Value *CGVisitor::castToDestType(CanonExpr *CE, Value *Val) {
   // If the cast value is a scalar type and dest type is a vector, we need
   // to do a broadcast.
   if (DestTy->isVectorTy() && !Val->getType()->isVectorTy()) {
-    Val = Builder.CreateVectorSplat(cast<VectorType>(DestTy)->getNumElements(),
-                                    Val);
+    Val = Builder.CreateVectorSplat(
+        cast<FixedVectorType>(DestTy)->getNumElements(), Val);
   }
 
   return Val;
@@ -716,7 +716,7 @@ Value *CGVisitor::visitCanonExpr(CanonExpr *CE) {
 
     auto NullVal = ConstantPointerNull::get(PtrType);
     return Builder.CreateVectorSplat(
-        cast<VectorType>(SrcType)->getNumElements(), NullVal);
+        cast<FixedVectorType>(SrcType)->getNumElements(), NullVal);
   }
 
   BlobSum = sumBlobs(CE);
@@ -730,11 +730,11 @@ Value *CGVisitor::visitCanonExpr(CanonExpr *CE) {
         (IVSum && IVSum->getType()->isVectorTy())) {
       if (BlobSum && !(BlobSum->getType()->isVectorTy())) {
         BlobSum = Builder.CreateVectorSplat(
-            cast<VectorType>(SrcType)->getNumElements(), BlobSum);
+            cast<FixedVectorType>(SrcType)->getNumElements(), BlobSum);
       }
       if (IVSum && !(IVSum->getType()->isVectorTy())) {
         IVSum = Builder.CreateVectorSplat(
-            cast<VectorType>(SrcType)->getNumElements(), IVSum);
+            cast<FixedVectorType>(SrcType)->getNumElements(), IVSum);
       }
     } else {
       // Both BlobSum/IVSum are scalar, for C0/Denom use Scalar type.
@@ -892,7 +892,7 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
   // such cases. To workaround, the base pointer value needs to be broadcast.
   // If Ref's dest type is a vector, we need to do a broadcast.
   if (!BaseV->getType()->isVectorTy() && HasVectorIndices) {
-    auto VL = cast<VectorType>(Ref->getDestType())->getNumElements();
+    auto VL = cast<FixedVectorType>(Ref->getDestType())->getNumElements();
     BaseV = Builder.CreateVectorSplat(VL, BaseV);
   }
 
@@ -923,7 +923,8 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
 
       GEPVal =
           EmitSubsValue(&Builder, DL, DimElementTy, GEPVal, BasePtrElementTy,
-                        LowerVal, IndexVal, StrideVal, Ref->isInBounds(), true);
+                        LowerVal, IndexVal, StrideVal, Ref->isInBounds(),
+                        Ref->isStrideExactMultiple(DimNum));
 
       // Emit gep for dimension struct access.
       auto Offsets = Ref->getTrailingStructOffsets(DimNum);
@@ -935,7 +936,11 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
 
         // Try to merge Struct Offset GEP into previous GEP.
         auto *GepBase = dyn_cast<GetElementPtrInst>(GEPVal);
-        if (GepBase) {
+        // Sometimes EmitSubsValue() generates byte offset by bitcasting base to
+        // i8*. Since bitcasts are no-op with opaque pointers we need to check
+        // for type mismatches explicitly using DimElementTy and GepBase's
+        // result element type.
+        if (GepBase && (GepBase->getResultElementType() == DimElementTy)) {
           // We are recreating a new GEP by merging the offsets with a previous
           // GEP so the element type needs to be updated.
           GEPElemTy = GepBase->getSourceElementType();
@@ -965,12 +970,11 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
       // generated a new GEP for this dimension. EmitSubsValue() skips
       // generating new GEP for zero offsets.
       if ((DimNum != 1) && (PrevGEPVal != GEPVal)) {
-        if (auto *GEPOp = dyn_cast<GEPOperator>(GEPVal)) {
-          BasePtrElementTy = GEPOp->getResultElementType();
+        if (!Offsets.empty()) {
+          BasePtrElementTy = cast<GEPOperator>(GEPVal)->getResultElementType();
         } else {
           // In cases where the stride is non-constant, EmitSubsValue() emits
           // bitcast to/from i8* to do the offset computation in bytes.
-          assert(Offsets.empty() && "Dimension offsets not expected!");
           BasePtrElementTy = DimElementTy;
         }
         PrevGEPVal = GEPVal;
@@ -993,7 +997,7 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
         GEPVal->getType()->getScalarType()->getPointerAddressSpace());
 
     if (GEPVal->getType()->getScalarType() != DestScPtrTy) {
-      auto VL = cast<VectorType>(DestElTy)->getNumElements();
+      auto VL = cast<FixedVectorType>(DestElTy)->getNumElements();
 
       // We have a vector of pointers of BaseSrcType. We need to convert it to
       // vector of pointers of DestScType.
@@ -1026,17 +1030,17 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
   // want the address, the gep
   if (Ref->isRval()) {
     Instruction *LInst;
+    auto *RefDestTy = Ref->getDestType();
 
     if (GEPVal->getType()->isVectorTy()) {
-      LInst = VPOUtils::createMaskedGatherCall(GEPVal, Builder,
-                                               Ref->getAlignment(), MaskVal);
+      LInst = Builder.CreateMaskedGather(RefDestTy, GEPVal,
+                                         Align(Ref->getAlignment()), MaskVal);
     } else if (MaskVal) {
-      LInst = VPOUtils::createMaskedLoadCall(GEPVal, Builder,
-                                             Ref->getAlignment(), MaskVal);
+      LInst = Builder.CreateMaskedLoad(RefDestTy, GEPVal,
+                                       Align(Ref->getAlignment()), MaskVal);
     } else {
-      auto *ElemTy = Ref->getDestType();
       LInst = Builder.CreateAlignedLoad(
-          ElemTy, GEPVal, MaybeAlign(Ref->getAlignment()), false, "gepload");
+          RefDestTy, GEPVal, MaybeAlign(Ref->getAlignment()), false, "gepload");
     }
 
     setMetadata(LInst, Ref);
@@ -1307,8 +1311,8 @@ Value *CGVisitor::generatePredicate(HLIf *HIf, HLIf::const_pred_iterator P) {
   Value *CurPred = nullptr;
   Value *LHSVal, *RHSVal;
 
-  RegDDRef *LHSRef = HIf->getPredicateOperandDDRef(P, true);
-  RegDDRef *RHSRef = HIf->getPredicateOperandDDRef(P, false);
+  RegDDRef *LHSRef = HIf->getLHSPredicateOperandDDRef(P);
+  RegDDRef *RHSRef = HIf->getRHSPredicateOperandDDRef(P);
 
   // For undef predicate, we don't need to CG operands since end result
   // is undef anyway.
@@ -1784,8 +1788,7 @@ void CGVisitor::generateLvalStore(const HLInst *HInst, Value *StorePtr,
       //  %mload19 = load <4 x i32>, <4 x i32>* %t24
       //  %11 = select <4 x i1> %t22.18, <4 x i32> %10, <4 x i32> %mload19
       //  store <4 x i32> %11, <4 x i32>* %t24
-      auto *StorePtrTy = StorePtr->getType()->getPointerElementType();
-      auto MLoad = Builder.CreateLoad(StorePtrTy, StorePtr, "mload");
+      auto MLoad = Builder.CreateLoad(StoreVal->getType(), StorePtr, "mload");
       auto MSel = Builder.CreateSelect(MaskVal, StoreVal, MLoad);
       Builder.CreateStore(MSel, StorePtr);
     } else {
@@ -1873,7 +1876,7 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
     if (Ref->isRval() && DestTy->isVectorTy() &&
         !(OpVal->getType()->isVectorTy())) {
       OpVal = Builder.CreateVectorSplat(
-          cast<VectorType>(DestTy)->getNumElements(), OpVal);
+          cast<FixedVectorType>(DestTy)->getNumElements(), OpVal);
     }
 
     Ops.push_back(OpVal);
@@ -2066,11 +2069,11 @@ Value *CGVisitor::sumBlobs(CanonExpr *CE) {
     if (CEDestTy->isVectorTy()) {
       if (Res->getType()->isVectorTy() && !CurRes->getType()->isVectorTy()) {
         CurRes = Builder.CreateVectorSplat(
-            cast<VectorType>(CEDestTy)->getNumElements(), CurRes);
+            cast<FixedVectorType>(CEDestTy)->getNumElements(), CurRes);
       } else if (CurRes->getType()->isVectorTy() &&
                  !Res->getType()->isVectorTy()) {
         Res = Builder.CreateVectorSplat(
-            cast<VectorType>(CEDestTy)->getNumElements(), Res);
+            cast<FixedVectorType>(CEDestTy)->getNumElements(), Res);
       }
     }
 
@@ -2115,10 +2118,10 @@ Value *CGVisitor::sumIV(CanonExpr *CE) {
                "Unexpected scalar CE type for a vector type IV pair");
         if (!ResIsVec)
           Res = Builder.CreateVectorSplat(
-              cast<VectorType>(CETy)->getNumElements(), Res);
+              cast<FixedVectorType>(CETy)->getNumElements(), Res);
         if (!TempResIsVec)
           TempRes = Builder.CreateVectorSplat(
-              cast<VectorType>(CETy)->getNumElements(), TempRes);
+              cast<FixedVectorType>(CETy)->getNumElements(), TempRes);
       }
       Res = Builder.CreateAdd(Res, TempRes);
     }
@@ -2154,8 +2157,8 @@ Value *CGVisitor::IVPairCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt,
     // If the coefficient is a vector, broadcast IV.
     if (CoefTy->isVectorTy()) {
       assert(!IV->getType()->isVectorTy() && "Non-scalar IV");
-      IV = Builder.CreateVectorSplat(cast<VectorType>(CoefTy)->getNumElements(),
-                                     IV);
+      IV = Builder.CreateVectorSplat(
+          cast<FixedVectorType>(CoefTy)->getNumElements(), IV);
     }
     return Builder.CreateMul(CoefV, IV);
   } else {

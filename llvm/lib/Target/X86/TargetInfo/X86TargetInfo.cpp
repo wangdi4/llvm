@@ -18,6 +18,14 @@ Target &llvm::getTheX86_64Target() {
   static Target TheX86_64Target;
   return TheX86_64Target;
 }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+Target &llvm::getTheX86_XuCCTarget() {
+  static Target TheX86_XuCCTarget;
+  return TheX86_XuCCTarget;
+}
+#endif  // INTEL_FEATURE_XUCC
+#endif  // INTEL_CUSTOMIZATION
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86TargetInfo() {
   RegisterTarget<Triple::x86, /*HasJIT=*/true> X(
@@ -25,4 +33,10 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86TargetInfo() {
 
   RegisterTarget<Triple::x86_64, /*HasJIT=*/true> Y(
       getTheX86_64Target(), "x86-64", "64-bit X86: EM64T and AMD64", "X86");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  RegisterTarget<Triple::x86_64_xucc, /*HasJIT=*/true> Z(
+      getTheX86_XuCCTarget(), "x86_64_xucc", "64-bit X86: XuCC", "X86");
+#endif  // INTEL_FEATURE_XUCC
+#endif  // INTEL_CUSTOMIZATION
 }

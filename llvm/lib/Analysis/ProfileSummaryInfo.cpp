@@ -1,4 +1,21 @@
 //===- ProfileSummaryInfo.cpp - Global profile summary information --------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -15,7 +32,6 @@
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ProfileSummary.h"
 #include "llvm/InitializePasses.h"
@@ -97,8 +113,15 @@ Optional<uint64_t> ProfileSummaryInfo::getProfileCount(
 /// either means it is not hot or it is unknown whether it is hot or not (for
 /// example, no profile data is available).
 bool ProfileSummaryInfo::isFunctionEntryHot(const Function *F) const {
-  if (!F || !hasProfileSummary())
+#if INTEL_CUSTOMIZATION
+  // Make this consistent with ProfileSummaryInfo::isFunctionEntryCold
+  if (!F)
     return false;
+  if (F->hasFnAttribute(Attribute::Hot))
+    return true;
+  if (!hasProfileSummary())
+    return false;
+#endif // INTEL_CUSTOMIZATION
   auto FunctionCount = F->getEntryCount();
   // FIXME: The heuristic used below for determining hotness is based on
   // preliminary SPEC tuning for inliner. This will eventually be a

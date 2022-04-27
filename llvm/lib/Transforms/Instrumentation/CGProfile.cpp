@@ -13,14 +13,11 @@
 #include "llvm/Analysis/LazyBlockFrequencyInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/ProfileData/InstrProf.h"
 #include "llvm/Transforms/Instrumentation.h"
-
-#include <array>
 
 using namespace llvm;
 
@@ -58,6 +55,13 @@ static bool runCGProfilePass(
     if (!CalledF || !TTI.isLoweredToCall(CalledF) ||
         CalledF->hasDLLImportStorageClass())
       return;
+#if INTEL_CUSTOMIZATION
+    // Calls to __svml_ functions may get replaced with a call to a different
+    // __svml_ function during the MapIntrinToIml pass. Do not include these
+    // calls in the function reordering call graph profile. (CMPLRLLVM-36647)
+    if (CalledF->getName().startswith("__svml_"))
+      return;
+#endif // INTEL_CUSTOMIZATION
     uint64_t &Count = Counts[std::make_pair(F, CalledF)];
     Count = SaturatingAdd(Count, NewCount);
   };

@@ -1,5 +1,5 @@
 ; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-data-per-value-analysis>' %s | FileCheck %s
-; RUN: opt -analyze -dpcpp-kernel-data-per-value-analysis %s | FileCheck %s
+; RUN: opt -analyze -enable-new-pm=0 -dpcpp-kernel-data-per-value-analysis %s | FileCheck %s
 
 define void @test() {
 entry:
@@ -37,4 +37,6 @@ declare void @_Z18work_group_barrierj(i32)
 ; CHECK-NEXT: *
 ; CHECK-EMPTY:
 ; CHECK-NEXT: Group-B.2 Values
+; CHECK-NEXT: Function Equivalence Classes:
+; CHECK-NEXT: [test]: test
 ; CHECK-NEXT: Buffer Total Size:

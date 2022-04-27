@@ -1,3 +1,20 @@
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2021 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 //===-- X86InstPrinterCommon.cpp - X86 assembly instruction printing ------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -33,7 +50,8 @@ public:
                      raw_ostream &O);
 
 protected:
-  void printInstFlags(const MCInst *MI, raw_ostream &O);
+  void printInstFlags(const MCInst *MI, raw_ostream &O,
+                      const MCSubtargetInfo &STI);
   void printOptionalSegReg(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printVKPair(const MCInst *MI, unsigned OpNo, raw_ostream &OS);
 #if INTEL_CUSTOMIZATION
@@ -48,4 +66,4 @@ protected:
 
 } // end namespace llvm
 
-#endif // LLVM_LIB_TARGET_X86_MCTARGETDESC_X86ATTINSTPRINTER_H
+#endif // LLVM_LIB_TARGET_X86_MCTARGETDESC_X86INSTPRINTERCOMMON_H

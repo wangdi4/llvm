@@ -26,6 +26,8 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
 ; CHECK-NEXT:     float* [[VP_X]] = allocate-priv float*, OrigAlign = 4
+; CHECK-NEXT:     i8* [[VP_X_BCAST:%.*]] = bitcast float* [[VP_X]]
+; CHECK-NEXT:     call i64 4 i8* [[VP_X_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     float [[VP_X_RED_INIT]] = reduction-init float -0.000000e+00
 ; CHECK-NEXT:     store float [[VP_X_RED_INIT]] float* [[VP_X]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 0 i64 1
@@ -47,6 +49,8 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:     float [[VP_LOAD:%.*]] = load float* [[VP_X]]
 ; CHECK-NEXT:     float [[VP_X_RED_FINAL]] = reduction-final{fadd} float [[VP_LOAD]] float [[X_PROMOTED0]]
 ; CHECK-NEXT:     store float [[VP_X_RED_FINAL]] float* [[X0]]
+; CHECK-NEXT:     i8* [[VP_X_BCAST1:%.*]] = bitcast float* [[VP_X]]
+; CHECK-NEXT:     call i64 4 i8* [[VP_X_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -74,6 +78,8 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB1:
+; CHECK-NEXT:    [[X_VEC0_BCAST:%.*]] = bitcast <8 x float>* [[X_VEC0]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 32, i8* [[X_VEC0_BCAST]])
 ; CHECK-NEXT:    store <8 x float> <float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00>, <8 x float>* [[X_VEC0]], align 1
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
@@ -95,6 +101,8 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:    [[WIDE_LOAD50:%.*]] = load <8 x float>, <8 x float>* [[X_VEC0]], align 1
 ; CHECK-NEXT:    [[TMP5:%.*]] = call float @llvm.vector.reduce.fadd.v8f32(float [[X_PROMOTED0]], <8 x float> [[WIDE_LOAD50]])
 ; CHECK-NEXT:    store float [[TMP5]], float* [[X0]], align 1
+; CHECK-NEXT:    [[X_VEC0_BCAST:%.*]] = bitcast <8 x float>* [[X_VEC0]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 32, i8* [[X_VEC0_BCAST]])
 entry:
   %x = alloca float, align 4
   store float 2.000000e+00, float* %x, align 4

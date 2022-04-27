@@ -1,5 +1,5 @@
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-config=%S/Inputs/Intel_thread_limit_config.yaml -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-config=%S/Inputs/Intel_thread_limit_config.yaml -S | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-apply-config -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-config=%S/Inputs/Intel_thread_limit_config.yaml -S %s | FileCheck %s
+; RUN: opt -passes='require<vpo-paropt-config-analysis>,function(vpo-cfg-restructuring,vpo-paropt-apply-config,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-config=%S/Inputs/Intel_thread_limit_config.yaml -S %s | FileCheck %s
 
 ; Original code:
 ; void foo() {
@@ -10,9 +10,7 @@
 ; Check that ThreadLimit(33) in Inputs/Intel_thread_limit_config.yaml
 ; overrides thread_limit(17) clause:
 ; CHECK: call i32 @__tgt_target_teams_mapper({{.*}}, i8* @__omp_offloading_805_b42e4b__Z3foo_l2.region_id,{{.*}}, i32 0, i32 33)
-; Check that on the host Inputs/Intel_thread_limit_config.yaml does not
-; override the clause (there is not request for this yet):
-; CHECK: call void @__kmpc_push_num_teams({{.*}}, i32 0, i32 17)
+; CHECK: call void @__kmpc_push_num_teams({{.*}}, i32 0, i32 33)
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

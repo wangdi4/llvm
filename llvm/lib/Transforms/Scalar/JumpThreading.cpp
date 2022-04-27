@@ -1,4 +1,21 @@
 //===- JumpThreading.cpp - Thread control through conditional blocks ------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -60,7 +77,6 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Use.h"
-#include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -78,7 +94,6 @@
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
 #include <cassert>
-#include <cstddef>
 #include <cstdint>
 #include <iterator>
 #include <memory>
@@ -966,8 +981,8 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
   // Handle some boolean conditions.
   if (I->getType()->getPrimitiveSizeInBits() == 1) {
     using namespace PatternMatch;
-
-    assert(Preference == WantInteger && "One-bit non-integer type?");
+    if (Preference != WantInteger)
+      return false;
     // X | true -> true
     // X & false -> false
     Value *Op0, *Op1;
@@ -1049,8 +1064,8 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
 
   // Try to simplify some other binary operator values.
   } else if (BinaryOperator *BO = dyn_cast<BinaryOperator>(I)) {
-    assert(Preference != WantBlockAddress
-            && "A binary operator creating a block address?");
+    if (Preference != WantInteger)
+      return false;
 
     ThreadRegionInfoTy RegionInfoOp0;                                   // INTEL
     if (ConstantInt *CI = dyn_cast<ConstantInt>(BO->getOperand(1))) {
@@ -1078,7 +1093,8 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
 
   // Handle compare with phi operand, where the PHI is defined in this block.
   if (CmpInst *Cmp = dyn_cast<CmpInst>(I)) {
-    assert(Preference == WantInteger && "Compares only produce integers");
+    if (Preference != WantInteger)
+      return false;
     Type *CmpType = Cmp->getType();
     Value *CmpLHS = Cmp->getOperand(0);
     Value *CmpRHS = Cmp->getOperand(1);

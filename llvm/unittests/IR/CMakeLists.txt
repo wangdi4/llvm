@@ -27,6 +27,9 @@ add_llvm_unittest(IRTests
   PassBuilderCallbacksTest.cpp
   IRBuilderTest.cpp
   InstructionsTest.cpp
+# INTEL_CUSTOMIZATION
+  Intel_VectorVariantTest.cpp
+# end INTEL_CUSTOMIZATION
   IntrinsicsTest.cpp
   LegacyPassManagerTest.cpp
   MDBuilderTest.cpp
@@ -42,6 +45,7 @@ add_llvm_unittest(IRTests
   ValueHandleTest.cpp
   ValueMapTest.cpp
   ValueTest.cpp
+  VectorBuilderTest.cpp
   VectorTypesTest.cpp
   VerifierTest.cpp
   VPIntrinsicTest.cpp

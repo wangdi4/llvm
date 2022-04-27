@@ -4,7 +4,11 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
-; RUN:     | FileCheck %s
+; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
+; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts \
+; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
+; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
 define void @test(i8 *%p) local_unnamed_addr {
 ; CHECK-LABEL:  Cost Model for VPlan test:HIR.#{{[0-9]+}} with VF = 8:
@@ -19,36 +23,36 @@ define void @test(i8 *%p) local_unnamed_addr {
 ; CHECK-NEXT:  [[BB1]]: base cost: 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
-; CHECK-NEXT:    Cost 12000 for i64 [[VP2:%.*]] = mul i64 4 i64 [[VP0]]
-; CHECK-NEXT:    Cost 1000 for i8 [[VP3:%.*]] = trunc i64 [[VP2]] to i8
-; CHECK-NEXT:    Cost 12000 for i64 [[VP4:%.*]] = mul i64 4 i64 [[VP0]]
+; CHECK-NEXT:    Cost 12 for i64 [[VP2:%.*]] = mul i64 4 i64 [[VP0]]
+; CHECK-NEXT:    Cost 1 for i8 [[VP3:%.*]] = trunc i64 [[VP2]] to i8
+; CHECK-NEXT:    Cost 12 for i64 [[VP4:%.*]] = mul i64 4 i64 [[VP0]]
 ; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT:%.*]] = subscript i8* [[P0:%.*]] i64 [[VP4]]
-; CHECK-NEXT:    Cost 28000 for store i8 [[VP3]] i8* [[VP_SUBSCRIPT]] *OVLS*(-28000) AdjCost: 0
-; CHECK-NEXT:    Cost 12000 for i64 [[VP5:%.*]] = mul i64 4 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2000 for i64 [[VP6:%.*]] = add i64 [[VP5]] i64 1
-; CHECK-NEXT:    Cost 1000 for i8 [[VP7:%.*]] = trunc i64 [[VP6]] to i8
-; CHECK-NEXT:    Cost 12000 for i64 [[VP8:%.*]] = mul i64 4 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2000 for i64 [[VP9:%.*]] = add i64 [[VP8]] i64 1
+; CHECK-NEXT:    Cost 28 for store i8 [[VP3]] i8* [[VP_SUBSCRIPT]] *OVLS*(-28) AdjCost: 0
+; CHECK-NEXT:    Cost 12 for i64 [[VP5:%.*]] = mul i64 4 i64 [[VP0]]
+; CHECK-NEXT:    Cost 2 for i64 [[VP6:%.*]] = add i64 [[VP5]] i64 1
+; CHECK-NEXT:    Cost 1 for i8 [[VP7:%.*]] = trunc i64 [[VP6]] to i8
+; CHECK-NEXT:    Cost 12 for i64 [[VP8:%.*]] = mul i64 4 i64 [[VP0]]
+; CHECK-NEXT:    Cost 2 for i64 [[VP9:%.*]] = add i64 [[VP8]] i64 1
 ; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_1:%.*]] = subscript i8* [[P0]] i64 [[VP9]]
-; CHECK-NEXT:    Cost 28000 for store i8 [[VP7]] i8* [[VP_SUBSCRIPT_1]] *OVLS*(-28000) AdjCost: 0
-; CHECK-NEXT:    Cost 12000 for i64 [[VP10:%.*]] = mul i64 4 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2000 for i64 [[VP11:%.*]] = add i64 [[VP10]] i64 2
-; CHECK-NEXT:    Cost 1000 for i8 [[VP12:%.*]] = trunc i64 [[VP11]] to i8
-; CHECK-NEXT:    Cost 12000 for i64 [[VP13:%.*]] = mul i64 4 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2000 for i64 [[VP14:%.*]] = add i64 [[VP13]] i64 2
+; CHECK-NEXT:    Cost 28 for store i8 [[VP7]] i8* [[VP_SUBSCRIPT_1]] *OVLS*(-28) AdjCost: 0
+; CHECK-NEXT:    Cost 12 for i64 [[VP10:%.*]] = mul i64 4 i64 [[VP0]]
+; CHECK-NEXT:    Cost 2 for i64 [[VP11:%.*]] = add i64 [[VP10]] i64 2
+; CHECK-NEXT:    Cost 1 for i8 [[VP12:%.*]] = trunc i64 [[VP11]] to i8
+; CHECK-NEXT:    Cost 12 for i64 [[VP13:%.*]] = mul i64 4 i64 [[VP0]]
+; CHECK-NEXT:    Cost 2 for i64 [[VP14:%.*]] = add i64 [[VP13]] i64 2
 ; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_2:%.*]] = subscript i8* [[P0]] i64 [[VP14]]
-; CHECK-NEXT:    Cost 28000 for store i8 [[VP12]] i8* [[VP_SUBSCRIPT_2]] *OVLS*(-28000) AdjCost: 0
-; CHECK-NEXT:    Cost 12000 for i64 [[VP15:%.*]] = mul i64 4 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2000 for i64 [[VP16:%.*]] = add i64 [[VP15]] i64 3
-; CHECK-NEXT:    Cost 1000 for i8 [[VP17:%.*]] = trunc i64 [[VP16]] to i8
-; CHECK-NEXT:    Cost 12000 for i64 [[VP18:%.*]] = mul i64 4 i64 [[VP0]]
-; CHECK-NEXT:    Cost 2000 for i64 [[VP19:%.*]] = add i64 [[VP18]] i64 3
+; CHECK-NEXT:    Cost 28 for store i8 [[VP12]] i8* [[VP_SUBSCRIPT_2]] *OVLS*(-28) AdjCost: 0
+; CHECK-NEXT:    Cost 12 for i64 [[VP15:%.*]] = mul i64 4 i64 [[VP0]]
+; CHECK-NEXT:    Cost 2 for i64 [[VP16:%.*]] = add i64 [[VP15]] i64 3
+; CHECK-NEXT:    Cost 1 for i8 [[VP17:%.*]] = trunc i64 [[VP16]] to i8
+; CHECK-NEXT:    Cost 12 for i64 [[VP18:%.*]] = mul i64 4 i64 [[VP0]]
+; CHECK-NEXT:    Cost 2 for i64 [[VP19:%.*]] = add i64 [[VP18]] i64 3
 ; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_3:%.*]] = subscript i8* [[P0]] i64 [[VP19]]
-; CHECK-NEXT:    Cost 28000 for store i8 [[VP17]] i8* [[VP_SUBSCRIPT_3]] *OVLS*(-23000) AdjCost: 5000
-; CHECK-NEXT:    Cost 2000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:    Cost 8000 for i1 [[VP20:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:    Cost 28 for store i8 [[VP17]] i8* [[VP_SUBSCRIPT_3]] *OVLS*(-23) AdjCost: 5
+; CHECK-NEXT:    Cost 2 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:    Cost 8 for i1 [[VP20:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP20]], [[BB2]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:  [[BB2]]: base cost: 127000
+; CHECK-NEXT:  [[BB2]]: base cost: 127
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
@@ -56,7 +60,7 @@ define void @test(i8 *%p) local_unnamed_addr {
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CHECK-NEXT:    Cost 0 for br <External Block>
 ; CHECK-NEXT:  [[BB4]]: base cost: 0
-; CHECK-NEXT:  Base Cost: 127000
+; CHECK-NEXT:  Base Cost: 127
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

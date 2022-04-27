@@ -6,21 +6,14 @@
 # the only difference is that it will run only when GOLD is set as the default
 # linker (requires default_linker_gold).
 
-# Copy the files into the temporary directory, this is to prevent multiple
-# processes accessing the same files when running the test system in parallel.
-# RUN: cp %S/Inputs/driver.cpp driver_test_gold.cpp
-# RUN: cp %S/Inputs/foo.cpp foo_test_gold.cpp
-# RUN: cp %S/Inputs/bar.cpp bar_test_gold.cpp
-# RUN: cp %S/Inputs/baz.cpp baz_test_gold.cpp
-
-# Compile with G++ and LTO
-# RUN: g++ -c -flto driver_test_gold.cpp
-# RUN: g++ -c -flto foo_test_gold.cpp
-# RUN: g++ -c -flto bar_test_gold.cpp
-# RUN: g++ -c -flto baz_test_gold.cpp
+# Compile with g++ and LTO
+# RUN: g++ -c -flto %S/Inputs/driver.cpp -o %t_driver.o
+# RUN: g++ -c -flto %S/Inputs/foo.cpp -o %t_foo.o
+# RUN: g++ -c -flto %S/Inputs/bar.cpp -o %t_bar.o
+# RUN: g++ -c -flto %S/Inputs/baz.cpp -o %t_baz.o
 
 # Link
-# RUN: clang++ -fuse-ld=lld driver_test_gold.o foo_test_gold.o bar_test_gold.o baz_test_gold.o -o gnu_lto_test_gold > %t_out.txt 2>&1
+# RUN: clang++ -fuse-ld=lld %t_driver.o %t_foo.o %t_bar.o %t_baz.o -o %t_gnu_lto_test_gold > %t_out.txt 2>&1
 # RUN: cat %t_out.txt | FileCheck -check-prefix=CHECKLINK %s -allow-empty
 
 # Check that the files were linked correctly
@@ -28,10 +21,7 @@ CHECKLINK-NOT: error: undefined symbol: main
 CHECKLINK: GNU LTO files found in the command line.
 
 # Check that the executable runs correctly
-# RUN: ./gnu_lto_test_gold | FileCheck -check-prefix=CHECKRUN1 %s
+# RUN: %t_gnu_lto_test_gold | FileCheck -check-prefix=CHECKRUN1 %s
 CHECKRUN1: FOO: 1
 CHECKRUN1: BAR: 2
 CHECKRUN1: BAZ: 3
-
-# RUN: rm driver_test_gold.o foo_test_gold.o bar_test_gold.o baz_test_gold.o
-# RUN: rm gnu_lto_test_gold

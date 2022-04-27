@@ -599,15 +599,15 @@ bool HIRMultiExitLoopReroll::corresponds(const HLIf *If1, const HLIf *If2) {
       return false;
     }
 
-    auto *Lhs1 = If1->getPredicateOperandDDRef(PredIt1, true);
-    auto *Lhs2 = If2->getPredicateOperandDDRef(PredIt2, true);
+    auto *Lhs1 = If1->getLHSPredicateOperandDDRef(PredIt1);
+    auto *Lhs2 = If2->getLHSPredicateOperandDDRef(PredIt2);
 
     if (!corresponds(Lhs1, Lhs2)) {
       return false;
     }
 
-    auto *Rhs1 = If1->getPredicateOperandDDRef(PredIt1, false);
-    auto *Rhs2 = If2->getPredicateOperandDDRef(PredIt2, false);
+    auto *Rhs1 = If1->getRHSPredicateOperandDDRef(PredIt1);
+    auto *Rhs2 = If2->getRHSPredicateOperandDDRef(PredIt2);
 
     if (!corresponds(Rhs1, Rhs2)) {
       return false;

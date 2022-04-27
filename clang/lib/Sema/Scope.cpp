@@ -42,7 +42,12 @@ void Scope::setFlags(Scope *parent, unsigned flags) {
     if ((Flags & (FnScope | ClassScope | BlockScope | TemplateParamScope |
                   FunctionPrototypeScope | AtCatchScope | ObjCMethodScope)) ==
         0)
+#if INTEL_COLLAB
+      Flags |= parent->getFlags() & OpenMPSimdDirectiveScope |
+               parent->getFlags() & OpenMPSimdOnlyDirectiveScope;
+#else // INTEL_COLLAB
       Flags |= parent->getFlags() & OpenMPSimdDirectiveScope;
+#endif  // INTEL_COLLAB
   } else {
     Depth = 0;
     PrototypeDepth = 0;
@@ -91,7 +96,7 @@ void Scope::Init(Scope *parent, unsigned flags) {
   UsingDirectives.clear();
   Entity = nullptr;
   ErrorTrap.reset();
-  NRVO.setPointerAndInt(nullptr, 0);
+  NRVO.setPointerAndInt(nullptr, false);
 }
 
 bool Scope::containedInPrototypeScope() const {
@@ -168,6 +173,9 @@ void Scope::dumpImpl(raw_ostream &OS) const {
       {CompoundStmtScope, "CompoundStmtScope"},
       {ClassInheritanceScope, "ClassInheritanceScope"},
       {CatchScope, "CatchScope"},
+#if INTEL_COLLAB
+      {OpenMPSimdOnlyDirectiveScope, "OpenMPSimdOnlyDirectiveScope"},
+#endif  // INTEL_COLLAB
   };
 
   for (auto Info : FlagInfo) {

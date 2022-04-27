@@ -12,6 +12,7 @@
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_WORKITEM_ANALYSIS_H
 
 #include "llvm/IR/PassManager.h"
+#include <map>
 #include <queue>
 
 namespace llvm {
@@ -37,11 +38,9 @@ class WorkItemInfo {
 public:
   explicit WorkItemInfo(const Function &F, RuntimeService *RTService,
                         DominatorTree *DT, PostDominatorTree *PDT, LoopInfo *LI,
-                        SoaAllocaInfo *SA, unsigned Dim)
+                        SoaAllocaInfo *SA)
       : F(F), DT(DT), PDT(PDT), LI(LI), SA(SA), RTService(RTService),
-        FullJoin(nullptr) {
-    compute(Dim);
-  }
+        FullJoin(nullptr) {}
 
   using SchdConstMap = std::map<BasicBlock *, std::vector<BasicBlock *>>;
 

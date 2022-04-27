@@ -1,4 +1,4 @@
-; RUN: opt -O3 -paropt=31 -S %s | FileCheck %s
+; RUN: opt -O2 -paropt=31 -S %s | FileCheck %s
 ;
 ;    void bar(int, float, double);
 ;

@@ -1,4 +1,21 @@
 //===- AsmPrinter.cpp - Common AsmPrinter code ----------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -17,7 +34,6 @@
 #if INTEL_CUSTOMIZATION
 #include "Intel_TraceBackDebug.h"
 #include "intel/Intel_AsmOptReport.h"
-#include "intel/STIDebug.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #endif // INTEL_CUSTOMIZATION
 #include "PseudoProbePrinter.h"
@@ -54,7 +70,6 @@
 #include "llvm/CodeGen/MachineInstrBundle.h"
 #include "llvm/CodeGen/MachineJumpTableInfo.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
-#include "llvm/CodeGen/MachineMemOperand.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/MachineModuleInfoImpls.h"
 #include "llvm/CodeGen/MachineOperand.h"
@@ -91,28 +106,21 @@
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCDirectives.h"
-#include "llvm/MC/MCDwarf.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCSection.h"
 #include "llvm/MC/MCSectionCOFF.h"
 #include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCSectionMachO.h"
-#include "llvm/MC/MCSectionXCOFF.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/MC/MCSymbolELF.h"
-#include "llvm/MC/MCSymbolXCOFF.h"
 #include "llvm/MC/MCTargetOptions.h"
 #include "llvm/MC/MCValue.h"
 #include "llvm/MC/SectionKind.h"
-#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Pass.h"
-#include "llvm/Remarks/Remark.h"
-#include "llvm/Remarks/RemarkFormat.h"
 #include "llvm/Remarks/RemarkStreamer.h"
-#include "llvm/Remarks/RemarkStringTable.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
@@ -131,7 +139,6 @@
 #include <cinttypes>
 #include <cstdint>
 #include <iterator>
-#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -140,11 +147,6 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "asm-printer"
-
-// FIXME: this option currently only applies to DWARF, and not CodeView, tables
-static cl::opt<bool>
-    DisableDebugInfoPrinting("disable-debug-info-print", cl::Hidden,
-                             cl::desc("Disable debug info printing"));
 
 const char DWARFGroupName[] = "dwarf";
 const char DWARFGroupDescription[] = "DWARF Emission";
@@ -162,8 +164,6 @@ const char PPGroupName[] = "pseudo probe";
 const char PPGroupDescription[] = "Pseudo Probe Emission";
 
 #if INTEL_CUSTOMIZATION
-static const char *const STIDebugGroupName = "sti_info";
-static const char *const STIDebugGroupDescription = "STI Debug Info Emission";
 static const char *const OptReportGroupName = "optreport_info";
 static const char *const OptReportGroupDescription = "OptReport Info Emission";
 
@@ -270,6 +270,11 @@ void AsmPrinter::emitInitialRawDwarfLocDirective(const MachineFunction &MF) {
   if (DD) {
     assert(OutStreamer->hasRawTextSupport() &&
            "Expected assembly output mode.");
+    // This is NVPTX specific and it's unclear why.
+    // PR51079: If we have code without debug information we need to give up.
+    DISubprogram *MFSP = MF.getFunction().getSubprogram();
+    if (!MFSP)
+      return;
     (void)DD->emitInitialLocDirective(MF, /*CUID=*/0);
   }
 }
@@ -309,9 +314,6 @@ bool AsmPrinter::doInitialization(Module &M) {
       .getModuleMetadata(M);
 
   OutStreamer->initSections(false, *TM.getMCSubtargetInfo());
-
-  if (DisableDebugInfoPrinting)
-    MMI->setDebugInfoAvailability(false);
 
   // Emit the version-min deployment target directive if needed.
   //
@@ -382,18 +384,10 @@ bool AsmPrinter::doInitialization(Module &M) {
   if (MAI->doesSupportDebugInformation()) {
     bool EmitCodeView = M.getCodeViewFlag();
     if (EmitCodeView && TM.getTargetTriple().isOSWindows()) {
-#if INTEL_CUSTOMIZATION
-      if (MMI->getModule()->getModuleFlag("Intel STI") != nullptr) {
-        Handlers.emplace_back(STIDebug::create(this), DbgTimerName,
-                              DbgTimerDescription, STIDebugGroupName,
-                              STIDebugGroupDescription);
-      } else {
-        Handlers.emplace_back(std::make_unique<CodeViewDebug>(this),
-                              DbgTimerName, DbgTimerDescription,
-                              CodeViewLineTablesGroupName,
-                              CodeViewLineTablesGroupDescription);
-      }
-#endif // INTEL_CUSTOMIZATION
+      Handlers.emplace_back(std::make_unique<CodeViewDebug>(this),
+                            DbgTimerName, DbgTimerDescription,
+                            CodeViewLineTablesGroupName,
+                            CodeViewLineTablesGroupDescription);
     }
 
 #if INTEL_CUSTOMIZATION
@@ -406,7 +400,7 @@ bool AsmPrinter::doInitialization(Module &M) {
     }
 
     if ((!EmitCodeView && !TraceBackFlag) || M.getDwarfVersion()) {
-      if (!DisableDebugInfoPrinting) {
+      if (MMI->hasDebugInfo()) {
         DD = new DwarfDebug(this);
         Handlers.emplace_back(std::unique_ptr<DwarfDebug>(DD), DbgTimerName,
                               DbgTimerDescription, DWARFGroupName,
@@ -1223,12 +1217,14 @@ void AsmPrinter::emitBBAddrMapSection(const MachineFunction &MF) {
 }
 
 void AsmPrinter::emitPseudoProbe(const MachineInstr &MI) {
-  auto GUID = MI.getOperand(0).getImm();
-  auto Index = MI.getOperand(1).getImm();
-  auto Type = MI.getOperand(2).getImm();
-  auto Attr = MI.getOperand(3).getImm();
-  DILocation *DebugLoc = MI.getDebugLoc();
-  PP->emitPseudoProbe(GUID, Index, Type, Attr, DebugLoc);
+  if (PP) {
+    auto GUID = MI.getOperand(0).getImm();
+    auto Index = MI.getOperand(1).getImm();
+    auto Type = MI.getOperand(2).getImm();
+    auto Attr = MI.getOperand(3).getImm();
+    DILocation *DebugLoc = MI.getDebugLoc();
+    PP->emitPseudoProbe(GUID, Index, Type, Attr, DebugLoc);
+  }
 }
 
 void AsmPrinter::emitStackSizeSection(const MachineFunction &MF) {
@@ -1794,10 +1790,7 @@ void AsmPrinter::emitGlobalAlias(Module &M, const GlobalAlias &GA) {
   // Treat bitcasts of functions as functions also. This is important at least
   // on WebAssembly where object and function addresses can't alias each other.
   if (!IsFunction)
-    if (auto *CE = dyn_cast<ConstantExpr>(GA.getAliasee()))
-      if (CE->getOpcode() == Instruction::BitCast)
-        IsFunction =
-          CE->getOperand(0)->getType()->getPointerElementType()->isFunctionTy();
+    IsFunction = isa<Function>(GA.getAliasee()->stripPointerCasts());
 
   // AIX's assembly directive `.set` is not usable for aliasing purpose,
   // so AIX has to use the extra-label-at-definition strategy. At this
@@ -1824,8 +1817,18 @@ void AsmPrinter::emitGlobalAlias(Module &M, const GlobalAlias &GA) {
 
   // Set the symbol type to function if the alias has a function type.
   // This affects codegen when the aliasee is not a function.
-  if (IsFunction)
+  if (IsFunction) {
     OutStreamer->emitSymbolAttribute(Name, MCSA_ELF_TypeFunction);
+    if (TM.getTargetTriple().isOSBinFormatCOFF()) {
+      OutStreamer->BeginCOFFSymbolDef(Name);
+      OutStreamer->EmitCOFFSymbolStorageClass(
+          GA.hasLocalLinkage() ? COFF::IMAGE_SYM_CLASS_STATIC
+                               : COFF::IMAGE_SYM_CLASS_EXTERNAL);
+      OutStreamer->EmitCOFFSymbolType(COFF::IMAGE_SYM_DTYPE_FUNCTION
+                                      << COFF::SCT_COMPLEX_TYPE_SHIFT);
+      OutStreamer->EndCOFFSymbolDef();
+    }
+  }
 
   emitVisibility(Name, GA.getVisibility());
 
@@ -2659,7 +2662,8 @@ void AsmPrinter::emitLabelPlusOffset(const MCSymbol *Label, uint64_t Offset,
 // two boundary.  If a global value is specified, and if that global has
 // an explicit alignment requested, it will override the alignment request
 // if required for correctness.
-void AsmPrinter::emitAlignment(Align Alignment, const GlobalObject *GV) const {
+void AsmPrinter::emitAlignment(Align Alignment, const GlobalObject *GV,
+                               unsigned MaxBytesToEmit) const {
   if (GV)
     Alignment = getGVAlignment(GV, GV->getParent()->getDataLayout(), Alignment);
 
@@ -2672,9 +2676,9 @@ void AsmPrinter::emitAlignment(Align Alignment, const GlobalObject *GV) const {
       STI = &getSubtargetInfo();
     else
       STI = TM.getMCSubtargetInfo();
-    OutStreamer->emitCodeAlignment(Alignment.value(), STI);
+    OutStreamer->emitCodeAlignment(Alignment.value(), STI, MaxBytesToEmit);
   } else
-    OutStreamer->emitValueToAlignment(Alignment.value());
+    OutStreamer->emitValueToAlignment(Alignment.value(), 0, 1, MaxBytesToEmit);
 }
 
 //===----------------------------------------------------------------------===//
@@ -3474,7 +3478,7 @@ void AsmPrinter::emitBasicBlockStart(const MachineBasicBlock &MBB) {
   // Emit an alignment directive for this block, if needed.
   const Align Alignment = MBB.getAlignment();
   if (Alignment != Align(1))
-    emitAlignment(Alignment);
+    emitAlignment(Alignment, nullptr, MBB.getMaxBytesForAlignment());
 
   // Switch to a new section if this basic block must begin a section. The
   // entry block is always placed in the function section and is handled
@@ -3834,6 +3838,12 @@ bool AsmPrinter::isDwarf64() const {
 unsigned int AsmPrinter::getDwarfOffsetByteSize() const {
   return dwarf::getDwarfOffsetByteSize(
       OutStreamer->getContext().getDwarfFormat());
+}
+
+dwarf::FormParams AsmPrinter::getDwarfFormParams() const {
+  return {getDwarfVersion(), uint8_t(getPointerSize()),
+          OutStreamer->getContext().getDwarfFormat(),
+          MAI->doesDwarfUseRelocationsAcrossSections()};
 }
 
 unsigned int AsmPrinter::getUnitLengthFieldByteSize() const {

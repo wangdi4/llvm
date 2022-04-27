@@ -1,4 +1,6 @@
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 ; ModuleID = 'file.s'
@@ -899,3 +901,11 @@ UnifiedReturnBlock:                               ; preds = %520, %._crit_edge86
 }
 
 declare void @llvm.memset.p0i8.i64(i8* nocapture, i8, i64, i32, i1) nounwind
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function GenerateEdgePointsKernel --  br label %.outer.backedge
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function GenerateEdgePointsKernel --  br label %.critedge
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function GenerateEdgePointsKernel --  br label %508
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function GenerateEdgePointsKernel --  br label %phi-split-bb4
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function GenerateEdgePointsKernel --  br label %.loopexit
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function GenerateEdgePointsKernel --  br label %UnifiedReturnBlock
+; DEBUGIFY-NOT: WARNING

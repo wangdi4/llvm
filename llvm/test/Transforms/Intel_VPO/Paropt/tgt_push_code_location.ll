@@ -1,7 +1,7 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=true -S < %s | FileCheck %s --check-prefix=PCL -check-prefix=ALL
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=true -S < %s  | FileCheck %s --check-prefix=PCL -check-prefix=ALL
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=false -S < %s | FileCheck %s --check-prefix=NOPCL -check-prefix=ALL
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=false -S < %s  | FileCheck %s --check-prefix=NOPCL -check-prefix=ALL
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=true -S %s | FileCheck %s --check-prefix=PCL -check-prefix=ALL
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=true -S %s | FileCheck %s --check-prefix=PCL -check-prefix=ALL
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=false -S %s | FileCheck %s --check-prefix=NOPCL -check-prefix=ALL
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=false -S %s | FileCheck %s --check-prefix=NOPCL -check-prefix=ALL
 ;
 ;Test src:
 ;void foo(int* p)

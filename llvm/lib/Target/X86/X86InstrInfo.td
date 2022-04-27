@@ -1,4 +1,21 @@
 //===-- X86InstrInfo.td - Main X86 Instruction Definition --*- tablegen -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -876,11 +893,11 @@ def TILEQuad : RegisterOperand<TILEQUAD, "printTILEQuad"> {
 // Define X86-specific addressing mode.
 def addr      : ComplexPattern<iPTR, 5, "selectAddr", [], [SDNPWantParent]>;
 def lea32addr : ComplexPattern<i32, 5, "selectLEAAddr",
-                               [add, sub, mul, X86mul_imm, shl, or, frameindex],
+                               [add, sub, mul, X86mul_imm, shl, or, xor, frameindex],
                                []>;
 // In 64-bit mode 32-bit LEAs can use RIP-relative addressing.
 def lea64_32addr : ComplexPattern<i32, 5, "selectLEA64_32Addr",
-                                  [add, sub, mul, X86mul_imm, shl, or,
+                                  [add, sub, mul, X86mul_imm, shl, or, xor,
                                    frameindex, X86WrapperRIP],
                                   []>;
 
@@ -891,7 +908,7 @@ def tls32baseaddr : ComplexPattern<i32, 5, "selectTLSADDRAddr",
                                [tglobaltlsaddr], []>;
 
 def lea64addr : ComplexPattern<i64, 5, "selectLEAAddr",
-                        [add, sub, mul, X86mul_imm, shl, or, frameindex,
+                        [add, sub, mul, X86mul_imm, shl, or, xor, frameindex,
                          X86WrapperRIP], []>;
 
 def tls64addr : ComplexPattern<i64, 5, "selectTLSADDRAddr",
@@ -911,12 +928,12 @@ def relocImm : ComplexPattern<iAny, 1, "selectRelocImm",
 // X86 Instruction Predicate Definitions.
 def TruePredicate : Predicate<"true">;
 
-def HasCMov      : Predicate<"Subtarget->hasCMov()">;
-def NoCMov       : Predicate<"!Subtarget->hasCMov()">;
+def HasCMOV      : Predicate<"Subtarget->canUseCMOV()">;
+def NoCMOV       : Predicate<"!Subtarget->canUseCMOV()">;
 
 def HasMMX       : Predicate<"Subtarget->hasMMX()">;
-def Has3DNow     : Predicate<"Subtarget->has3DNow()">;
-def Has3DNowA    : Predicate<"Subtarget->has3DNowA()">;
+def Has3DNow     : Predicate<"Subtarget->hasThreeDNow()">;
+def Has3DNowA    : Predicate<"Subtarget->hasThreeDNowA()">;
 def HasSSE1      : Predicate<"Subtarget->hasSSE1()">;
 def UseSSE1      : Predicate<"Subtarget->hasSSE1() && !Subtarget->hasAVX()">;
 def HasSSE2      : Predicate<"Subtarget->hasSSE2()">;
@@ -974,14 +991,14 @@ def NoVLX_Or_NoBF16 : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasBF16()">
 def HasFP16      : Predicate<"Subtarget->hasFP16()">;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
-def HasAVX512DOTPRODINT8 : Predicate<"Subtarget->hasAVX512DOTPRODINT8()">;
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
-#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
-def HasAVXDOTPRODINT8 : Predicate<"Subtarget->hasAVXDOTPRODINT8()">;
-def NoVLX_Or_NoAVX512DOTPRODINT8 :
-    Predicate<"!Subtarget->hasVLX() || !Subtarget->hasAVX512DOTPRODINT8()">;
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
+def HasAVX512VNNIINT8 : Predicate<"Subtarget->hasAVX512VNNIINT8()">;
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
+#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
+def HasAVXVNNIINT8 : Predicate<"Subtarget->hasAVXVNNIINT8()">;
+def NoVLX_Or_NoAVX512VNNIINT8 :
+    Predicate<"!Subtarget->hasVLX() || !Subtarget->hasAVX512VNNIINT8()">;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
 def HasAVX512DOTPRODPHPS : Predicate<"Subtarget->hasAVX512DOTPRODPHPS()">;
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
@@ -1066,8 +1083,18 @@ def HasSGX       : Predicate<"Subtarget->hasSGX()">;
 def HasRDSEED    : Predicate<"Subtarget->hasRDSEED()">;
 def HasSSEPrefetch : Predicate<"Subtarget->hasSSEPrefetch()">;
 def NoSSEPrefetch : Predicate<"!Subtarget->hasSSEPrefetch()">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_PREFETCHI
+def HasPREFETCHI : Predicate<"Subtarget->hasPREFETCHI()">;
+#endif // INTEL_FEATURE_ISA_PREFETCHI
+#endif // INTEL_CUSTOMIZATION
 def HasPrefetchW : Predicate<"Subtarget->hasPrefetchW()">;
 def HasPREFETCHWT1 : Predicate<"Subtarget->hasPREFETCHWT1()">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_PREFETCHST2
+def HasPREFETCHST2 : Predicate<"Subtarget->hasPREFETCHST2()">;
+#endif // INTEL_FEATURE_ISA_PREFETCHST2
+#endif // INTEL_CUSTOMIZATION
 def HasLAHFSAHF  : Predicate<"Subtarget->hasLAHFSAHF()">;
 def HasMWAITX    : Predicate<"Subtarget->hasMWAITX()">;
 def HasCLZERO    : Predicate<"Subtarget->hasCLZERO()">;
@@ -1084,8 +1111,8 @@ def HasWBNOINVD  : Predicate<"Subtarget->hasWBNOINVD()">;
 def HasRDPID     : Predicate<"Subtarget->hasRDPID()">;
 def HasWAITPKG   : Predicate<"Subtarget->hasWAITPKG()">;
 def HasINVPCID   : Predicate<"Subtarget->hasINVPCID()">;
-def HasCmpxchg8b : Predicate<"Subtarget->hasCmpxchg8b()">;
-def HasCmpxchg16b: Predicate<"Subtarget->hasCmpxchg16b()">;
+def HasCX8       : Predicate<"Subtarget->hasCX8()">;
+def HasCX16      : Predicate<"Subtarget->hasCX16()">;
 def HasPCONFIG   : Predicate<"Subtarget->hasPCONFIG()">;
 def HasENQCMD    : Predicate<"Subtarget->hasENQCMD()">;
 #if INTEL_CUSTOMIZATION
@@ -1239,6 +1266,11 @@ def HasAMXV3 : Predicate<"Subtarget->hasAMXV3()">;
 #if INTEL_FEATURE_ISA_VPINSR_VPEXTR
 def HasVPINSRVPEXTR : Predicate<"Subtarget->hasVPINSRVPEXTR()">;
 #endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
+#if INTEL_FEATURE_ISA_CMPCCXADD
+// AUTO GENERATED BY TOOL
+def HasCMPCCXADD : Predicate<"Subtarget->hasCMPCCXADD()">;
+// end AUTO GENERATED BY TOOL
+#endif // INTEL_FEATURE_ISA_CMPCCXADD
 #endif // INTEL_CUSTOMIZATION
 def HasKL        : Predicate<"Subtarget->hasKL()">;
 def HasWIDEKL    : Predicate<"Subtarget->hasWIDEKL()">;
@@ -1251,17 +1283,25 @@ def HasAMXINT8   : Predicate<"Subtarget->hasAMXINT8()">;
 def HasUINTR     : Predicate<"Subtarget->hasUINTR()">;
 def HasCRC32     : Predicate<"Subtarget->hasCRC32()">;
 def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
-                             AssemblerPredicate<(all_of (not Mode64Bit)), "Not 64-bit mode">;
+                             AssemblerPredicate<(all_of (not Is64Bit)), "Not 64-bit mode">;
 def In64BitMode  : Predicate<"Subtarget->is64Bit()">,
-                             AssemblerPredicate<(all_of Mode64Bit), "64-bit mode">;
+                             AssemblerPredicate<(all_of Is64Bit), "64-bit mode">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+def NotXuCCMode : Predicate<"!Subtarget->isXuCC()">,
+                             AssemblerPredicate<(all_of (not ModeXuCC)), "Not XuCC mode">;
+def InXuCCMode  : Predicate<"Subtarget->isXuCC()">,
+                             AssemblerPredicate<(all_of ModeXuCC), "XuCC mode">;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 def IsLP64  : Predicate<"Subtarget->isTarget64BitLP64()">;
 def NotLP64 : Predicate<"!Subtarget->isTarget64BitLP64()">;
 def In16BitMode  : Predicate<"Subtarget->is16Bit()">,
-                             AssemblerPredicate<(all_of Mode16Bit), "16-bit mode">;
+                             AssemblerPredicate<(all_of Is16Bit), "16-bit mode">;
 def Not16BitMode : Predicate<"!Subtarget->is16Bit()">,
-                             AssemblerPredicate<(all_of (not Mode16Bit)), "Not 16-bit mode">;
+                             AssemblerPredicate<(all_of (not Is16Bit)), "Not 16-bit mode">;
 def In32BitMode  : Predicate<"Subtarget->is32Bit()">,
-                             AssemblerPredicate<(all_of Mode32Bit), "32-bit mode">;
+                             AssemblerPredicate<(all_of Is32Bit), "32-bit mode">;
 def IsWin64      : Predicate<"Subtarget->isTargetWin64()">;
 def NotWin64     : Predicate<"!Subtarget->isTargetWin64()">;
 def NotWin64WithoutFP : Predicate<"!Subtarget->isTargetWin64() ||"
@@ -2484,13 +2524,13 @@ def CMPXCHG64rm  : RI<0xB1, MRMDestMem, (outs), (ins i64mem:$dst, GR64:$src),
 
 let Defs = [EAX, EDX, EFLAGS], Uses = [EAX, EBX, ECX, EDX] in
 def CMPXCHG8B : I<0xC7, MRM1m, (outs), (ins i64mem:$dst),
-                  "cmpxchg8b\t$dst", []>, TB, Requires<[HasCmpxchg8b]>;
+                  "cmpxchg8b\t$dst", []>, TB, Requires<[HasCX8]>;
 
 let Defs = [RAX, RDX, EFLAGS], Uses = [RAX, RBX, RCX, RDX] in
 // NOTE: In64BitMode check needed for the AssemblerPredicate.
 def CMPXCHG16B : RI<0xC7, MRM1m, (outs), (ins i128mem:$dst),
                     "cmpxchg16b\t$dst", []>,
-                    TB, Requires<[HasCmpxchg16b,In64BitMode]>;
+                    TB, Requires<[HasCX16,In64BitMode]>;
 } // SchedRW, mayLoad, mayStore, hasSideEffects
 
 
@@ -3106,7 +3146,7 @@ let SchedRW = [WriteSystem] in {
     def TPAUSE : I<0xAE, MRM6r,
                      (outs), (ins GR32orGR64:$src), "tpause\t$src",
                      [(set EFLAGS, (X86tpause GR32orGR64:$src, EDX, EAX))]>,
-                     PD, Requires<[HasWAITPKG]>, NotMemoryFoldable;
+                     PD, Requires<[HasWAITPKG]>;
   }
 } // SchedRW
 
@@ -3194,7 +3234,7 @@ def : InstAlias<"clzero\t{%rax|rax}", (CLZERO64r)>, Requires<[In64BitMode]>;
 let SchedRW = [WriteSystem] in {
   let Uses = [EAX, EDX] in
   def INVLPGB32 : I<0x01, MRM_FE, (outs), (ins),
-                  "invlpgb}", []>,
+                  "invlpgb", []>,
                   PS, Requires<[Not64BitMode]>;
   let Uses = [RAX, EDX] in
   def INVLPGB64 : I<0x01, MRM_FE, (outs), (ins),
@@ -3258,6 +3298,28 @@ let Predicates = [HasUINTR, In64BitMode], SchedRW = [WriteSystem] in {
     def TESTUI : I<0x01, MRM_ED, (outs), (ins), "testui",
                    [(set EFLAGS, (X86testui))]>, XS;
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_PREFETCHST2
+//===----------------------------------------------------------------------===//
+// PREFETCHST2 Instruction
+//
+let Predicates = [HasPREFETCHST2], SchedRW = [WriteLoad] in
+  def PREFETCHST2 : I<0x18, MRM4m, (outs), (ins i8mem:$src),
+    "prefetchst2\t$src", [(prefetch addr:$src, (i32 2), (i32 1), (i32 1))]>, TB;
+#endif // INTEL_FEATURE_ISA_PREFETCHST2
+#if INTEL_FEATURE_ISA_PREFETCHI
+//===----------------------------------------------------------------------===//
+// PREFETCHIT0 and PREFETCHIT1 Instructions
+//
+let Predicates = [HasPREFETCHI], SchedRW = [WriteLoad] in {
+  def PREFETCHIT0 : I<0x18, MRM7m, (outs), (ins i8mem:$src),
+    "prefetchit0\t$src", [(prefetch addr:$src, (i32 1), (i32 3), (i32 0))]>, TB;
+  def PREFETCHIT1 : I<0x18, MRM6m, (outs), (ins i8mem:$src),
+    "prefetchit1\t$src", [(prefetch addr:$src, (i32 1), (i32 2), (i32 0))]>, TB;
+}
+#endif // INTEL_FEATURE_ISA_PREFETCHI
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // Pattern fragments to auto generate TBM instructions.
@@ -3379,7 +3441,7 @@ def CLFLUSHOPT : I<0xAE, MRM7m, (outs), (ins i8mem:$src),
 
 let Predicates = [HasCLWB], SchedRW = [WriteLoad] in
 def CLWB       : I<0xAE, MRM6m, (outs), (ins i8mem:$src), "clwb\t$src",
-                   [(int_x86_clwb addr:$src)]>, PD, NotMemoryFoldable;
+                   [(int_x86_clwb addr:$src)]>, PD;
 
 let Predicates = [HasCLDEMOTE], SchedRW = [WriteLoad] in
 def CLDEMOTE : I<0x1C, MRM0m, (outs), (ins i8mem:$src), "cldemote\t$src",
@@ -3444,6 +3506,9 @@ include "Intel_X86InstrMOVGET.td"
 #if INTEL_FEATURE_ISA_RAO_INT
 include "Intel_X86InstrRAOINT.td"
 #endif // INTEL_FEATURE_ISA_RAO_INT
+#if INTEL_FEATURE_XUCC
+include "Intel_X86XuCC.td"
+#endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
 
 // System instructions.

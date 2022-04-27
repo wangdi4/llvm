@@ -1,4 +1,21 @@
 //===- LegacyPassManagers.h - Legacy Pass Infrastructure --------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -90,7 +107,6 @@ template <typename T> class ArrayRef;
 class Module;
 class StringRef;
 class Value;
-class Timer;
 class PMDataManager;
 
 // enums for debugging strings
@@ -312,9 +328,7 @@ private:
 /// used by pass managers.
 class PMDataManager {
 public:
-  explicit PMDataManager() : TPM(nullptr), Depth(0) {
-    initializeAnalysisInfo();
-  }
+  explicit PMDataManager() { initializeAnalysisInfo(); }
 
   virtual ~PMDataManager();
 
@@ -438,7 +452,7 @@ public:
 
 protected:
   // Top level manager.
-  PMTopLevelManager *TPM;
+  PMTopLevelManager *TPM = nullptr;
 
   // Collection of pass that are managed by this manager
   SmallVector<Pass *, 16> PassVector;
@@ -468,7 +482,7 @@ private:
   // this manager.
   SmallVector<Pass *, 16> HigherLevelAnalysis;
 
-  unsigned Depth;
+  unsigned Depth = 0;
 };
 
 //===----------------------------------------------------------------------===//
@@ -481,8 +495,7 @@ private:
 class FPPassManager : public ModulePass, public PMDataManager {
 public:
   static char ID;
-  explicit FPPassManager()
-  : ModulePass(ID), PMDataManager() { }
+  explicit FPPassManager() : ModulePass(ID) {}
 
   /// run - Execute all of the passes scheduled for execution.  Keep track of
   /// whether any of the passes modifies the module, and if so, return true.

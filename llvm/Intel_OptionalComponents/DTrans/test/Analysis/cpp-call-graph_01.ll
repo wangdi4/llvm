@@ -1,16 +1,16 @@
 ; REQUIRES: asserts
-; RUN: opt -S < %s -whole-program-assume -dtransanalysis -disable-output -dtrans-print-types
-; RUN: opt -S < %s -whole-program-assume -passes='require<dtransanalysis>' -disable-output -dtrans-print-types
+; RUN: opt -S < %s -whole-program-assume -dtransanalysis -disable-output -dtrans-print-types 2>&1 | FileCheck %s
+; RUN: opt -S < %s -whole-program-assume -passes='require<dtransanalysis>' -disable-output -dtrans-print-types 2>&1 | FileCheck %s
 
 ; See explanation in C code.
 
 ; CHECK-LABEL: LLVMType: %struct.inner1 = type { i32 }
 ; CHECK: Call graph: top
-; CHECK: Safety data:{{.*}} Local instance {{.*}} Has C++ handling
+; CHECK: Safety data:{{.*}}
 ;
 ; CHECK-LABEL: LLVMType: %struct.inner2 = type { i32 }
 ; CHECK: Call graph: enclosing type: struct.outer
-; CHECK: Safety data:{{.*}} Has C++ handling
+; CHECK: Safety data:{{.*}}
 ;
 ; CHECK-LABEL: LLVMType: %struct.outer = type { %struct.inner1*, %struct.inner2* }
 ; CHECK: Call graph: top

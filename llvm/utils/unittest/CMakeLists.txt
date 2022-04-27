@@ -39,7 +39,7 @@ if (LLVM_PTHREAD_LIBRARY_PATH)
   list(APPEND LIBS pthread)
 endif()
 
-add_llvm_library(gtest
+add_llvm_library(llvm_gtest
   googletest/src/gtest-all.cc
   googlemock/src/gmock-all.cc
 
@@ -55,7 +55,7 @@ add_llvm_library(gtest
 
 # INTEL_CUSTOMIZATION
 if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
-    add_llvm_library(gtest_stdcpp
+    add_llvm_library(llvm_gtest_stdcpp
     googletest/src/gtest-all.cc
     googlemock/src/gmock-all.cc
 
@@ -72,7 +72,7 @@ if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
     stdc++
     )
 
-  target_include_directories(gtest_stdcpp
+  target_include_directories(llvm_gtest_stdcpp
     PUBLIC googletest/include googlemock/include
     PRIVATE googletest googlemock
   )
@@ -83,7 +83,7 @@ if (WIN32)
   else()
     set(_STL_LIB "/MD")
   endif()
-  add_llvm_library(gtest_dyn
+  add_llvm_library(llvm_gtest_dyn
     googletest/src/gtest-all.cc
     googlemock/src/gmock-all.cc
 
@@ -100,11 +100,11 @@ if (WIN32)
     ${_STL_LIB}
   )
 
-  target_include_directories(gtest_dyn
+  target_include_directories(llvm_gtest_dyn
     PUBLIC googletest/include googlemock/include
     PRIVATE googletest googlemock
   )
-  target_compile_definitions(gtest_dyn PUBLIC -D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING)
+  target_compile_definitions(llvm_gtest_dyn PUBLIC -D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING)
 endif()
 # end INTEL_CUSTOMIZATION
 # The googletest and googlemock sources don't presently use the 'override'
@@ -112,14 +112,14 @@ endif()
 # that warning here for any targets that link to gtest.
 if(CXX_SUPPORTS_SUGGEST_OVERRIDE_FLAG)
   add_definitions("-Wno-suggest-override")
-  set_target_properties(gtest PROPERTIES INTERFACE_COMPILE_OPTIONS "-Wno-suggest-override")
+  set_target_properties(llvm_gtest PROPERTIES INTERFACE_COMPILE_OPTIONS "-Wno-suggest-override")
 endif()
 
 if (NOT LLVM_ENABLE_THREADS)
-  target_compile_definitions(gtest PUBLIC GTEST_HAS_PTHREAD=0)
+  target_compile_definitions(llvm_gtest PUBLIC GTEST_HAS_PTHREAD=0)
 endif ()
 
-target_include_directories(gtest
+target_include_directories(llvm_gtest
   PUBLIC googletest/include googlemock/include
   PRIVATE googletest googlemock
   )
@@ -143,17 +143,16 @@ function (gtest_remove_dylib_from_link_interface target)
   endif()
 endfunction()
 
-gtest_remove_dylib_from_link_interface(gtest)
-gtest_remove_dylib_from_link_interface(gtest_main)
+gtest_remove_dylib_from_link_interface(llvm_gtest)
+gtest_remove_dylib_from_link_interface(llvm_gtest_main)
 # INTEL_CUSTOMIZATION
 if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
-  gtest_remove_dylib_from_link_interface(gtest_stdcpp)
-  gtest_remove_dylib_from_link_interface(gtest_main_stdcpp)
+  gtest_remove_dylib_from_link_interface(llvm_gtest_stdcpp)
+  gtest_remove_dylib_from_link_interface(llvm_gtest_main_stdcpp)
 endif()
 
 if (WIN32)
-  gtest_remove_dylib_from_link_interface(gtest_dyn)
-  gtest_remove_dylib_from_link_interface(gtest_main_dyn)
+  gtest_remove_dylib_from_link_interface(llvm_gtest_dyn)
+  gtest_remove_dylib_from_link_interface(llvm_gtest_main_dyn)
 endif()
 # end INTEL_CUSTOMIZATION
-

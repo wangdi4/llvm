@@ -1,10 +1,10 @@
 ; RUN: opt < %s -whole-program-assume -disable-output \
 ; RUN:      -debug-only=dtrans-soatoaos-deps \
-; RUN:      -passes='require<dtransanalysis>,function(require<soatoaos-approx>)' \
+; RUN:      -passes='require<dtransanalysis>,require<soatoaos-approx>' \
 ; RUN:      2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -disable-output \
 ; RUN:      -debug-only=dtrans-soatoaos-deps \
-; RUN:      -passes='require<dtransanalysis>,function(require<soatoaos-approx>)' \
+; RUN:      -passes='require<dtransanalysis>,require<soatoaos-approx>' \
 ; RUN:      2>&1 | FileCheck --check-prefix=CHECK-WF %s
 ; REQUIRES: asserts
 

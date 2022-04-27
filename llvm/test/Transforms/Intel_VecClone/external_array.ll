@@ -13,13 +13,15 @@
 ; CHECK-SAME: i32* %x.addr
 ; CHECK-SAME: QUAL.OMP.PRIVATE
 ; CHECK-SAME: i32* %i.addr
-; CHECK: simd.loop:
-; CHECK: %1 = load i32, i32* %i.addr
+; CHECK: simd.loop.header:
 ; CHECK: %stride.mul = mul i32 1, %index
-; CHECK: %stride.add = add i32 %1, %stride.mul
-; CHECK: %idxprom = sext i32 %stride.add to i64
-; CHECK: %arrayidx = getelementptr inbounds [128 x i32], [128 x i32]* @ext_a, i64 0, i64 %idxprom
-; CHECK: store i32 %0, i32* %arrayidx
+; CHECK-NEXT: %stride.add = add i32 %load.i, %stride.mul
+; CHECK-NEXT: store i32 %stride.add, i32* %i.addr
+; CHECK-NEXT: %0 = load i32, i32* %x.addr
+; CHECK-NEXT: %1 = load i32, i32* %i.addr
+; CHECK-NEXT: %idxprom = sext i32 %1 to i64
+; CHECK-NEXT: %arrayidx = getelementptr inbounds [128 x i32], [128 x i32]* @ext_a, i64 0, i64 %idxprom
+; CHECK-NEXT: store i32 %0, i32* %arrayidx
 
 ; ModuleID = 'external_array_assign.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -42,4 +44,4 @@ entry:
   ret void
 }
 
-attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbM4ul_,_ZGVbN4ul_" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbN4ul_" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }

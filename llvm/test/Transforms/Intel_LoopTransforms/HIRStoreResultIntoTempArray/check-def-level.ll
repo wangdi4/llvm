@@ -12,8 +12,8 @@
 ; CHECK:           |   %array_size = sext.i32.i64(%10) + 1  *  sext.i32.i64(%9) + 1;
 ; CHECK:           |   %array_size5 = sext.i32.i64(%15) + 1  *  %array_size;
 ; CHECK:           |   %TempArray = alloca %array_size5;
-; CHECK:           |   <LVAL-REG> NON-LINEAR double* %TempArray {sb:95}
-; CHECK:           |   <RVAL-REG> NON-LINEAR i64 %array_size5 {sb:94}
+; CHECK:           |   <LVAL-REG> NON-LINEAR double* %TempArray {sb:99}
+; CHECK:           |   <RVAL-REG> NON-LINEAR i64 %array_size5 {sb:98}
 ;                  |
 ; CHECK:           |   + DO i64 i2 = 0, sext.i32.i64(%15), 1   <DO_LOOP>
 ; CHECK:           |   |   + DO i64 i3 = 0, sext.i32.i64(%10), 1   <DO_LOOP>
@@ -27,11 +27,11 @@
 ; CHECK:           |   |   |   |   %71 = %70  *  2.000000e+00;
 ; CHECK:           |   |   |   |   %72 = %71  /  %61;
 ; CHECK:           |   |   |   |   (%TempArray)[i2][i3][i4] = @llvm.pow.f64(%72,  2.250000e+00);
-; CHECK:           |   |   |   |   <LVAL-REG> (LINEAR double* %TempArray{def@1})[LINEAR i64 i2][LINEAR i64 i3][LINEAR i64 i4] inbounds  {sb:96}
-; CHECK:           |   |   |   |      <BLOB> LINEAR double* %TempArray{def@1} {sb:95}
-; CHECK:           |   |   |   |      <BLOB> LINEAR i32 %10 {sb:21}
-; CHECK:           |   |   |   |      <BLOB> LINEAR i32 %9 {sb:30}
-; CHECK:           |   |   |   |   <RVAL-REG> NON-LINEAR double %72 {sb:49}
+; CHECK:           |   |   |   |   <LVAL-REG> (LINEAR double* %TempArray{def@1})[LINEAR i64 i2][LINEAR i64 i3][LINEAR i64 i4] inbounds  {sb:100}
+; CHECK:           |   |   |   |      <BLOB> LINEAR double* %TempArray{def@1} {sb:99}
+; CHECK:           |   |   |   |      <BLOB> LINEAR i32 %10 {sb:25}
+; CHECK:           |   |   |   |      <BLOB> LINEAR i32 %9 {sb:34}
+; CHECK:           |   |   |   |   <RVAL-REG> NON-LINEAR double %72 {sb:53}
 ; CHECK:           |   |   |   + END LOOP
 ; CHECK:           |   |   + END LOOP
 ; CHECK:           |   + END LOOP
@@ -42,20 +42,20 @@
 ; CHECK:           |   |   |   + DO i64 i4 = 0, sext.i32.i64(%9) + -1, 1   <DO_LOOP>
 ; CHECK:           |   |   |   |   %57 = i4 + 4  %  %9;
 ; CHECK:           |   |   |   |   %73 = (%TempArray)[i2][i3][i4];
-; CHECK:           |   |   |   |   <LVAL-REG> NON-LINEAR double %73 {sb:50}
-; CHECK:           |   |   |   |   <RVAL-REG> (LINEAR double* %TempArray{def@1})[LINEAR i64 i2][LINEAR i64 i3][LINEAR i64 i4] inbounds  {sb:97}
-; CHECK:           |   |   |   |      <BLOB> LINEAR double* %TempArray{def@1} {sb:95}
-; CHECK:           |   |   |   |      <BLOB> LINEAR i32 %10 {sb:21}
-; CHECK:           |   |   |   |      <BLOB> LINEAR i32 %9 {sb:30}
+; CHECK:           |   |   |   |   <LVAL-REG> NON-LINEAR double %73 {sb:54}
+; CHECK:           |   |   |   |   <RVAL-REG> (LINEAR double* %TempArray{def@1})[LINEAR i64 i2][LINEAR i64 i3][LINEAR i64 i4] inbounds  {sb:101}
+; CHECK:           |   |   |   |      <BLOB> LINEAR double* %TempArray{def@1} {sb:99}
+; CHECK:           |   |   |   |      <BLOB> LINEAR i32 %10 {sb:25}
+; CHECK:           |   |   |   |      <BLOB> LINEAR i32 %9 {sb:34}
 ;                  |   |   |   |
 ; CHECK:           |   |   |   |   %89 = (%TempArray)[i2 + 1][zext.i32.i64(%47) + -2][zext.i32.i64(%57) + -2];
-; CHECK:           |   |   |   |   <LVAL-REG> NON-LINEAR double %89 {sb:66}
-; CHECK:           |   |   |   |   <RVAL-REG> (LINEAR double* %TempArray{def@1})[LINEAR i64 i2 + 1][LINEAR i64 zext.i32.i64(%47) + -2{def@3}][NON-LINEAR i64 zext.i32.i64(%57) + -2] inbounds  {sb:97}
-; CHECK:           |   |   |   |      <BLOB> LINEAR double* %TempArray{def@1} {sb:95}
-; CHECK:           |   |   |   |      <BLOB> LINEAR i32 %10 {sb:21}
-; CHECK:           |   |   |   |      <BLOB> LINEAR i32 %9 {sb:30}
-; CHECK:           |   |   |   |      <BLOB> NON-LINEAR i32 %57 {sb:33}
-; CHECK:           |   |   |   |      <BLOB> LINEAR i32 %47{def@3} {sb:24}
+; CHECK:           |   |   |   |   <LVAL-REG> NON-LINEAR double %89 {sb:70}
+; CHECK:           |   |   |   |   <RVAL-REG> (LINEAR double* %TempArray{def@1})[LINEAR i64 i2 + 1][LINEAR i64 zext.i32.i64(%47) + -2{def@3}][NON-LINEAR i64 zext.i32.i64(%57) + -2] inbounds  {sb:101}
+; CHECK:           |   |   |   |      <BLOB> LINEAR double* %TempArray{def@1} {sb:99}
+; CHECK:           |   |   |   |      <BLOB> LINEAR i32 %10 {sb:25}
+; CHECK:           |   |   |   |      <BLOB> LINEAR i32 %9 {sb:34}
+; CHECK:           |   |   |   |      <BLOB> NON-LINEAR i32 %57 {sb:37}
+; CHECK:           |   |   |   |      <BLOB> LINEAR i32 %47{def@3} {sb:28}
 ;                  |   |   |   |
 ; CHECK:           |   |   |   |   %90 = %34  +  %73;
 ; CHECK:           |   |   |   |   %34 = %90  +  %89;

@@ -1,4 +1,21 @@
 //===-- llvm/CodeGen/MachineBasicBlock.cpp ----------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -11,8 +28,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/CodeGen/LiveIntervals.h"
+#include "llvm/CodeGen/LivePhysRegs.h"
 #include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -26,12 +43,10 @@
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/ModuleSlotTracker.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCContext.h"
-#include "llvm/Support/DataTypes.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
@@ -53,8 +68,7 @@ MachineBasicBlock::MachineBasicBlock(MachineFunction &MF, const BasicBlock *B)
     IrrLoopHeaderWeight = B->getIrrLoopHeaderWeight();
 }
 
-MachineBasicBlock::~MachineBasicBlock() {
-}
+MachineBasicBlock::~MachineBasicBlock() = default;
 
 /// Return the MCSymbol for this basic block.
 MCSymbol *MachineBasicBlock::getSymbol() const {
@@ -135,7 +149,7 @@ void ilist_callback_traits<MachineBasicBlock>::addNodeToList(
   // Make sure the instructions have their operands in the reginfo lists.
   MachineRegisterInfo &RegInfo = MF.getRegInfo();
   for (MachineInstr &MI : N->instrs())
-    MI.AddRegOperandsToUseLists(RegInfo);
+    MI.addRegOperandsToUseLists(RegInfo);
 }
 
 void ilist_callback_traits<MachineBasicBlock>::removeNodeFromList(
@@ -153,7 +167,7 @@ void ilist_traits<MachineInstr>::addNodeToList(MachineInstr *N) {
   // Add the instruction's register operands to their corresponding
   // use/def lists.
   MachineFunction *MF = Parent->getParent();
-  N->AddRegOperandsToUseLists(MF->getRegInfo());
+  N->addRegOperandsToUseLists(MF->getRegInfo());
   MF->handleInsertion(*N);
 }
 
@@ -165,7 +179,7 @@ void ilist_traits<MachineInstr>::removeNodeFromList(MachineInstr *N) {
   // Remove from the use/def lists.
   if (MachineFunction *MF = N->getMF()) {
     MF->handleRemoval(*N);
-    N->RemoveRegOperandsFromUseLists(MF->getRegInfo());
+    N->removeRegOperandsFromUseLists(MF->getRegInfo());
   }
 
   N->setParent(nullptr);

@@ -1,4 +1,21 @@
 //===--- CGRecordLayout.h - LLVM Record Layout Information ------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -93,8 +110,8 @@ struct CGBitFieldInfo {
   CharUnits VolatileStorageOffset;
 
   CGBitFieldInfo()
-      : Offset(), Size(), IsSigned(), StorageSize(), StorageOffset(),
-        VolatileOffset(), VolatileStorageSize(), VolatileStorageOffset() {}
+      : Offset(), Size(), IsSigned(), StorageSize(), VolatileOffset(),
+        VolatileStorageSize() {}
 
   CGBitFieldInfo(unsigned Offset, unsigned Size, bool IsSigned,
                  unsigned StorageSize, CharUnits StorageOffset)
@@ -208,6 +225,12 @@ public:
     return FieldInfo.lookup(FD);
   }
 
+  // Return whether the following non virtual base has a corresponding
+  // entry in the LLVM struct.
+  bool hasNonVirtualBaseLLVMField(const CXXRecordDecl *RD) const {
+    return NonVirtualBases.count(RD);
+  }
+
   unsigned getNonVirtualBaseLLVMFieldNo(const CXXRecordDecl *RD) const {
     assert(NonVirtualBases.count(RD) && "Invalid non-virtual base!");
     return NonVirtualBases.lookup(RD);
@@ -241,6 +264,24 @@ public:
 
   const FieldDecl *getUnionDecl() const {
     return UnionDecl;
+  }
+
+  bool IsFieldNumBase(unsigned Idx) const {
+    auto Result = llvm::find_if(
+        NonVirtualBases,
+        [Idx](const std::pair<const CXXRecordDecl *, unsigned> &Entry) {
+          return Entry.second == Idx;
+        });
+    if (Result != NonVirtualBases.end())
+      return true;
+    Result = llvm::find_if(
+        CompleteObjectVirtualBases,
+        [Idx](const std::pair<const CXXRecordDecl *, unsigned> &Entry) {
+          return Entry.second == Idx;
+        });
+    if (Result != CompleteObjectVirtualBases.end())
+      return true;
+    return false;
   }
 
   // Searches the various collections to find the field type for the LLVM

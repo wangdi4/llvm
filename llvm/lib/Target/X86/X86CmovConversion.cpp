@@ -1,4 +1,21 @@
 //====- X86CmovConversion.cpp - Convert Cmov to Branch --------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -97,6 +114,11 @@ static cl::opt<bool> ForceMemOperand(
     cl::desc("Convert cmovs to branches whenever they have memory operands."),
     cl::init(true), cl::Hidden);
 
+static cl::opt<bool> ForceAll(
+    "x86-cmov-converter-force-all",
+    cl::desc("Convert all cmovs to branches."),
+    cl::init(false), cl::Hidden);
+
 namespace {
 
 /// Converts X86 cmov instructions into branches when profitable.
@@ -174,11 +196,11 @@ bool X86CmovConverterPass::runOnMachineFunction(MachineFunction &MF) {
   TSchedModel.init(&STI);
 
   // Before we handle the more subtle cases of register-register CMOVs inside
-  // of potentially hot loops, we want to quickly remove all CMOVs with
-  // a memory operand. The CMOV will risk a stall waiting for the load to
-  // complete that speculative execution behind a branch is better suited to
-  // handle on modern x86 chips.
-  if (ForceMemOperand) {
+  // of potentially hot loops, we want to quickly remove all CMOVs (ForceAll) or
+  // the ones with a memory operand (ForceMemOperand option). The latter CMOV
+  // will risk a stall waiting for the load to complete that speculative
+  // execution behind a branch is better suited to handle on modern x86 chips.
+  if (ForceMemOperand || ForceAll) {
     CmovGroups AllCmovGroups;
     SmallVector<MachineBasicBlock *, 4> Blocks;
     for (auto &MBB : MF)
@@ -186,7 +208,8 @@ bool X86CmovConverterPass::runOnMachineFunction(MachineFunction &MF) {
     if (collectCmovCandidates(Blocks, AllCmovGroups, /*IncludeLoads*/ true)) {
       for (auto &Group : AllCmovGroups) {
         // Skip any group that doesn't do at least one memory operand cmov.
-        if (llvm::none_of(Group, [&](MachineInstr *I) { return I->mayLoad(); }))
+        if (ForceMemOperand && !ForceAll &&
+            llvm::none_of(Group, [&](MachineInstr *I) { return I->mayLoad(); }))
           continue;
 
         // For CMOV groups which we can rewrite and which contain a memory load,
@@ -196,6 +219,9 @@ bool X86CmovConverterPass::runOnMachineFunction(MachineFunction &MF) {
         convertCmovInstsToBranches(Group);
       }
     }
+    // Early return as ForceAll converts all CmovGroups.
+    if (ForceAll)
+      return Changed;
   }
 
   //===--------------------------------------------------------------------===//

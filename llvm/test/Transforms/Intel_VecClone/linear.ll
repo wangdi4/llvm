@@ -1,4 +1,4 @@
-; Check to see that the linear parameter i is updated with the correct stride, indicated by a mul/add instruction sequence after the load.
+; Check to see that the linear parameter i is updated with the correct stride.
 
 ; RUN: opt -vec-clone -S < %s | FileCheck %s
 ; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
@@ -16,11 +16,10 @@
 ; CHECK-SAME: i32* %x.addr
 ; CHECK-NEXT: br label %simd.loop
 
-; CHECK: simd.loop:
-; CHECK: %1 = load i32, i32* %i.addr
+; CHECK: simd.loop.header:
 ; CHECK: %stride.mul = mul i32 1, %index
-; CHECK: %stride.add = add i32 %1, %stride.mul
-; CHECK: %add = add nsw i32 %0, %stride.add
+; CHECK-NEXT: %stride.add = add i32 %load.i, %stride.mul
+; CHECK-NEXT: store i32 %stride.add, i32* %i.addr
 
 ; CHECK: simd.end.region:
 ; CHECK-NEXT: call void @llvm.directive.region.exit(token %entry.region)
@@ -44,5 +43,5 @@ entry:
   ret i32 %add
 }
 
-attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbM4lu_,_ZGVbN4lu_" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbN4lu_" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind uwtable "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }

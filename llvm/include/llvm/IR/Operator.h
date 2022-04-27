@@ -1,4 +1,21 @@
 //===-- llvm/Operator.h - Operator utility subclass -------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -18,6 +35,7 @@
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/FMF.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/IntrinsicInst.h" // INTEL
 #include "llvm/IR/Type.h"
@@ -161,105 +179,6 @@ public:
            (isa<ConstantExpr>(V) && classof(cast<ConstantExpr>(V)));
   }
 };
-
-/// Convenience struct for specifying and reasoning about fast-math flags.
-class FastMathFlags {
-private:
-  friend class FPMathOperator;
-
-  unsigned Flags = 0;
-
-  FastMathFlags(unsigned F) {
-    // If all 7 bits are set, turn this into -1. If the number of bits grows,
-    // this must be updated. This is intended to provide some forward binary
-    // compatibility insurance for the meaning of 'fast' in case bits are added.
-    if (F == 0x7F) Flags = ~0U;
-    else Flags = F;
-  }
-
-public:
-  // This is how the bits are used in Value::SubclassOptionalData so they
-  // should fit there too.
-  // WARNING: We're out of space. SubclassOptionalData only has 7 bits. New
-  // functionality will require a change in how this information is stored.
-  enum {
-    AllowReassoc    = (1 << 0),
-    NoNaNs          = (1 << 1),
-    NoInfs          = (1 << 2),
-    NoSignedZeros   = (1 << 3),
-    AllowReciprocal = (1 << 4),
-    AllowContract   = (1 << 5),
-    ApproxFunc      = (1 << 6)
-  };
-
-  FastMathFlags() = default;
-
-  static FastMathFlags getFast() {
-    FastMathFlags FMF;
-    FMF.setFast();
-    return FMF;
-  }
-
-  bool any() const { return Flags != 0; }
-  bool none() const { return Flags == 0; }
-  bool all() const { return Flags == ~0U; }
-
-  void clear() { Flags = 0; }
-  void set()   { Flags = ~0U; }
-
-  /// Flag queries
-  bool allowReassoc() const    { return 0 != (Flags & AllowReassoc); }
-  bool noNaNs() const          { return 0 != (Flags & NoNaNs); }
-  bool noInfs() const          { return 0 != (Flags & NoInfs); }
-  bool noSignedZeros() const   { return 0 != (Flags & NoSignedZeros); }
-  bool allowReciprocal() const { return 0 != (Flags & AllowReciprocal); }
-  bool allowContract() const   { return 0 != (Flags & AllowContract); }
-  bool approxFunc() const      { return 0 != (Flags & ApproxFunc); }
-  /// 'Fast' means all bits are set.
-  bool isFast() const          { return all(); }
-
-  /// Flag setters
-  void setAllowReassoc(bool B = true) {
-    Flags = (Flags & ~AllowReassoc) | B * AllowReassoc;
-  }
-  void setNoNaNs(bool B = true) {
-    Flags = (Flags & ~NoNaNs) | B * NoNaNs;
-  }
-  void setNoInfs(bool B = true) {
-    Flags = (Flags & ~NoInfs) | B * NoInfs;
-  }
-  void setNoSignedZeros(bool B = true) {
-    Flags = (Flags & ~NoSignedZeros) | B * NoSignedZeros;
-  }
-  void setAllowReciprocal(bool B = true) {
-    Flags = (Flags & ~AllowReciprocal) | B * AllowReciprocal;
-  }
-  void setAllowContract(bool B = true) {
-    Flags = (Flags & ~AllowContract) | B * AllowContract;
-  }
-  void setApproxFunc(bool B = true) {
-    Flags = (Flags & ~ApproxFunc) | B * ApproxFunc;
-  }
-  void setFast(bool B = true) { B ? set() : clear(); }
-
-  void operator&=(const FastMathFlags &OtherFlags) {
-    Flags &= OtherFlags.Flags;
-  }
-  void operator|=(const FastMathFlags &OtherFlags) {
-    Flags |= OtherFlags.Flags;
-  }
-  bool operator!=(const FastMathFlags &OtherFlags) const {
-    return Flags != OtherFlags.Flags;
-  }
-
-  /// Print fast-math flags to \p O.
-  void print(raw_ostream &O) const;
-};
-
-inline raw_ostream &operator<<(raw_ostream &O, FastMathFlags FMF) {
-  FMF.print(O);
-  return O;
-}
 
 /// Utility class for floating point operations which can have
 /// information about relaxed accuracy requirements attached to them.

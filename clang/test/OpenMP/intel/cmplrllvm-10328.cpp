@@ -46,8 +46,8 @@ int foo()
     return 0;
 }
 
-//Check-HOST: define dso_local i32 @"?foo@@YAHXZ"() #0 {
+//Check-HOST: define dso_local noundef i32 @"?foo@@YAHXZ"() #0 {
 
-//Check-TARG: define hidden spir_func i32 @_Z3foov() #0 {
+//Check-TARG: define dso_local spir_func noundef i32 @_Z3foov() #0 {
 
 

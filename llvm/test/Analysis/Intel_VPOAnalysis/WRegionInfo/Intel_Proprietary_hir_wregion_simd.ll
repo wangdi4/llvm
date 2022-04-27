@@ -1,8 +1,8 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
 ;
-; RUN: opt < %s -hir-framework  -vpo-wrncollection -vpo-wrninfo -hir-vplan-vec -debug-only=vpo-wrninfo 2>&1 | FileCheck %s
-; RUN: opt < %s -passes="hir-vplan-vec,print<hir-framework>,print<vpo-wrncollection>,require<vpo-wrninfo>" -debug-only=vpo-wrninfo 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-framework -vpo-wrncollection -vpo-wrninfo -hir-vplan-vec -debug-only=vpo-wrninfo %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-vplan-vec,print<hir-framework>,print<vpo-wrncollection>,require<vpo-wrninfo>" -debug-only=vpo-wrninfo %s 2>&1 | FileCheck %s
 ; WARNING!!!
 ; WARNING!!!      ** CONTAINS INTEL IP **
 ; WARNING!!!      DO NOT SHARE EXTERNALLY

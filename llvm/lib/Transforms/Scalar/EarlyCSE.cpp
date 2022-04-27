@@ -1,4 +1,21 @@
 //===- EarlyCSE.cpp - Simple and fast CSE pass ----------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -16,7 +33,6 @@
 #include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopedHashTable.h"
-#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
@@ -29,22 +45,22 @@
 #include "llvm/Analysis/MemorySSAUpdater.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#if INTEL_COLLAB
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_COLLAB
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Type.h"
-#include "llvm/IR/Use.h"
 #include "llvm/IR/Value.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -57,7 +73,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/AssumeBundleBuilder.h"
-#include "llvm/Transforms/Utils/GuardUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include <cassert>
 #include <deque>
@@ -611,6 +626,12 @@ public:
 
 private:
   unsigned ClobberCounter = 0;
+#if INTEL_COLLAB
+  // Maps blocks to their containing OpenMP region entry insts.
+  llvm::DenseMap<BasicBlock *, Instruction *> RegionEntryForBlock;
+  // The nesting of OpenMP region entries at the current block, if any.
+  std::stack<Instruction *> CurrentRegionEntry;
+#endif // INTEL_COLLAB
   // Almost a POD, but needs to call the constructors for the scoped hash
   // tables so that a new scope gets pushed on. These are RAII so that the
   // scope gets popped when the NodeScope is destroyed.
@@ -783,6 +804,21 @@ private:
       return getLoadStorePointerOperand(Inst);
     }
 
+    Type *getValueType() const {
+      // TODO: handle target-specific intrinsics.
+      if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(Inst)) {
+        switch (II->getIntrinsicID()) {
+        case Intrinsic::masked_load:
+          return II->getType();
+        case Intrinsic::masked_store:
+          return II->getArgOperand(0)->getType();
+        default:
+          return nullptr;
+        }
+      }
+      return getLoadStoreType(Inst);
+    }
+
     bool mayReadFromMemory() const {
       if (IntrID != 0)
         return Info.ReadMem;
@@ -829,10 +865,13 @@ private:
                         const ParseMemoryInst &Later);
 
   Value *getOrCreateResult(Value *Inst, Type *ExpectedType) const {
+    // TODO: We could insert relevant casts on type mismatch here.
     if (auto *LI = dyn_cast<LoadInst>(Inst))
-      return LI;
-    if (auto *SI = dyn_cast<StoreInst>(Inst))
-      return SI->getValueOperand();
+      return LI->getType() == ExpectedType ? LI : nullptr;
+    else if (auto *SI = dyn_cast<StoreInst>(Inst)) {
+      Value *V = SI->getValueOperand();
+      return V->getType() == ExpectedType ? V : nullptr;
+    }
     assert(isa<IntrinsicInst>(Inst) && "Instruction not supported");
     auto *II = cast<IntrinsicInst>(Inst);
     if (isHandledNonTargetIntrinsic(II->getIntrinsicID()))
@@ -1161,6 +1200,9 @@ bool EarlyCSE::overridingStores(const ParseMemoryInst &Earlier,
          "Violated invariant");
   if (Earlier.getPointerOperand() != Later.getPointerOperand())
     return false;
+  if (!Earlier.getValueType() || !Later.getValueType() ||
+      Earlier.getValueType() != Later.getValueType())
+    return false;
   if (Earlier.getMatchingId() != Later.getMatchingId())
     return false;
   // At the moment, we don't remove ordered stores, but do remove
@@ -1218,6 +1260,12 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
   /// stores which can occur in bitfield code among other things.
   Instruction *LastStore = nullptr;
 
+#if INTEL_COLLAB
+  // Current block is dominated by a region entry, add it to the region
+  // map.
+  if (!CurrentRegionEntry.empty())
+    RegionEntryForBlock[BB] = CurrentRegionEntry.top();
+#endif // INTEL_COLLAB
   // See if any instructions in the block can be eliminated.  If so, do it.  If
   // not, add them to AvailableValues.
   for (Instruction &Inst : make_early_inc_range(BB->getInstList())) {
@@ -1366,10 +1414,57 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
       }
     }
 
+#if INTEL_COLLAB
+    // Prevent CSE across OpenMP outline regions, by tracking which blocks
+    // may be dominated by an OpenMP region entry instruction.
+    // Otherwise, values will be unexpectedly live-in to the region.
+    // VPO CFG restructuring must be done before this, to avoid region splits
+    // inside a block.
+    int OpenMPDirID = llvm::vpo::VPOAnalysisUtils::getRegionDirectiveID(&Inst);
+    if (llvm::vpo::VPOAnalysisUtils::isBeginDirectiveOfRegionsNeedingOutlining(
+            OpenMPDirID)) {
+      // entry directive, at end of its block (by VPO restructuring).
+      // Push a new region (the successor blocks will be part of the region).
+      CurrentRegionEntry.push(&Inst);
+      // Block memory movement as if the entry were a fence.
+      // Values will be blocked below.
+      ++CurrentGeneration;
+      LastStore = nullptr;
+    } else if (llvm::vpo::VPOAnalysisUtils::
+                   isEndDirectiveOfRegionsNeedingOutlining(OpenMPDirID)) {
+      // Exit directive, at start of its block. Pop the current region.
+      // This block will now be part of the enclosing region (if any).
+      if (!CurrentRegionEntry.empty())
+        CurrentRegionEntry.pop();
+      if (CurrentRegionEntry.empty())
+        RegionEntryForBlock.erase(BB);
+      else
+        RegionEntryForBlock[BB] = CurrentRegionEntry.top();
+      // Fence here also, as values cannot be live-out of the region.
+      ++CurrentGeneration;
+      LastStore = nullptr;
+    }
+#endif // INTEL_COLLAB
     // If this is a simple instruction that we can value number, process it.
     if (SimpleValue::canHandle(&Inst)) {
       // See if the instruction has an available value.  If so, use it.
       if (Value *V = AvailableValues.lookup(&Inst)) {
+#if INTEL_COLLAB
+        // If the available value and the duplicate value to replace,
+        // are of different OpenMP regions, don't CSE, so that values are
+        // not live across the outline boundary.
+        if (Instruction *I = dyn_cast<Instruction>(V)) {
+          if (RegionEntryForBlock.find(I->getParent()) !=
+              RegionEntryForBlock.find(Inst.getParent())) {
+            LLVM_DEBUG(dbgs() << "EarlyCSE: " << Inst
+                              << " not in same OMP region as " << *I << "\n");
+            // Make the duplicate value the current value, so that we CSE
+            // within regions.
+            AvailableValues.insert(&Inst, &Inst);
+            continue;
+          }
+        }
+#endif // INTEL_COLLAB
         LLVM_DEBUG(dbgs() << "EarlyCSE CSE: " << Inst << "  to: " << *V
                           << '\n');
         if (!DebugCounter::shouldExecute(CSECounter)) {

@@ -96,8 +96,7 @@ void test(int i) {
   one(1);
 }
 
-//CHECK: declare spir_func i32 @_Z3zooi(i32) #[[ATT4:[0-9]+]]
-
+//CHECK: declare spir_func noundef i32 @_Z3zooi(i32 noundef) #[[ATT4:[0-9]+]]
 extern void qoo(func pt);
 extern void test1(){
 //CHECK:store{{.*}}@"_Z3barii$SIMDTable"
@@ -106,8 +105,8 @@ extern void test1(){
   xoo();
 }
 
-//CHECK: declare spir_func i32 @_Z3barii(i32, i32) #[[ATT5:[0-9]+]]
-//CHECK: declare spir_func i32 @_Z3mooi(i32) #[[ATT6:[0-9]+]]
+//CHECK: declare spir_func noundef i32 @_Z3barii(i32 noundef, i32 noundef) #[[ATT5:[0-9]+]]
+//CHECK: declare spir_func noundef i32 @_Z3mooi(i32 noundef) #[[ATT6:[0-9]+]]
 extern void qoo(func pt) {
 //CHECK:call{{.*}}@__intel_indirect_call_2
   pt(1,1);

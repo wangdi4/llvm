@@ -1,7 +1,18 @@
+function(link_llvm_libs target)
+  foreach(LIB ${ARGN})
+    target_include_directories(${target} SYSTEM PRIVATE ${LLVM_MAIN_INCLUDE_DIR})
+    target_link_libraries(${target} PRIVATE ${LIB})
+  endforeach()
+endfunction()
+
 add_subdirectory(sycl-ls)
 
 if (SYCL_ENABLE_XPTI_TRACING)
-  add_subdirectory(pi-trace)
+  if (UNIX)
+    add_subdirectory(sycl-prof)
+    add_subdirectory(sycl-trace)
+    add_subdirectory(sycl-sanitize)
+  endif()
 endif()
 
 # TODO: move each tool in its own sub-directory
@@ -22,6 +33,12 @@ endif()
 # INTEL_CUSTOMIZATON
 set(LEVEL_ZERO_HEADERS LevelZeroLoader::Headers)
 # end INTEL_CUSTOMIZATON
+if ("cuda" IN_LIST SYCL_ENABLE_PLUGINS)
+  set(SYCL_BUILD_PI_CUDA ON)
+endif()
+if ("hip" IN_LIST SYCL_ENABLE_PLUGINS)
+  set(SYCL_BUILD_PI_HIP ON)
+endif()
 
 target_link_libraries(get_device_count_by_type
   PRIVATE

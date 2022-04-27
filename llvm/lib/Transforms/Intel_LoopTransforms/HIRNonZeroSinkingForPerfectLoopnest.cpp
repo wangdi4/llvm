@@ -279,8 +279,8 @@ bool HIRNonZeroSinkingForPerfectLoopnest::doAnalysis(HLLoop *InnermostLp,
 
   auto PredI = IfNode->pred_begin();
 
-  const RegDDRef *LHSPredRef = IfNode->getPredicateOperandDDRef(PredI, true);
-  const RegDDRef *RHSPredRef = IfNode->getPredicateOperandDDRef(PredI, false);
+  const RegDDRef *LHSPredRef = IfNode->getLHSPredicateOperandDDRef(PredI);
+  const RegDDRef *RHSPredRef = IfNode->getRHSPredicateOperandDDRef(PredI);
 
   if (!RHSPredRef->isZero()) {
     return false;

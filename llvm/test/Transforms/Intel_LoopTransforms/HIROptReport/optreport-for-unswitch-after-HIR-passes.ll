@@ -7,8 +7,8 @@
 ;  }
 ;}
 
-; RUN: opt -hir-ssa-deconstruction -intel-loop-optreport=low -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -hir-cg -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
-; RUN: opt -hir-ssa-deconstruction -intel-loop-optreport=low -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -hir-optreport-emitter -hir-cg 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -hir-ssa-deconstruction -intel-opt-report=low -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -hir-cg -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -hir-ssa-deconstruction -intel-opt-report=low -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -hir-optreport-emitter -hir-cg 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 ;
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT:    remark: Loop has been unswitched via {{.*}}{{[[:space:]]}}

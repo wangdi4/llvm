@@ -19,7 +19,9 @@
 @import simple;
 const int x = MODULE_MACRO;
 
-// CHECK: PLEASE submit a bug report to {{.*}} and include the crash backtrace, preprocessed source, and associated run script.
+// INTEL_CUSTOMIZATION
+// CHECK: PLEASE append the compiler options
+// end INTEL_CUSTOMIZATION
 // CHECK: Preprocessed source(s) and associated run script(s) are located at:
 // CHECK-NEXT: note: diagnostic msg: {{.*}}.m
 // CHECK-NEXT: note: diagnostic msg: {{.*}}.cache

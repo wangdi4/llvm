@@ -225,6 +225,7 @@ define void @test08(ptr "intel_dtrans_func_index"="1" %ppS, ptr "intel_dtrans_fu
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT:   Aliased types:
 ; CHECK-NEXT:     %struct.test03**{{ *$}}
+; CHECK-NEXT:     i64*{{ *$}}
 ; CHECK-NEXT:   No element pointees.
 
 ; CHECK: Arg 1: ptr %pUnknown

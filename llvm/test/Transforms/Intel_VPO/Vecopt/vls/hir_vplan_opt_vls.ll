@@ -1,9 +1,15 @@
 ; RUN: opt < %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts \
-; RUN:     -debug 2>&1 | FileCheck %s
+; RUN:     -debug 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt < %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
+; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts \
+; RUN:     -debug 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 ; RUN: opt < %s -S -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts \
-; RUN:     -debug 2>&1 | FileCheck %s
+; RUN:     -debug 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt < %s -S -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" \
+; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts \
+; RUN:     -debug 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; #include <stdio.h>
@@ -26,10 +32,6 @@
 
 ; CHECK: VLSA: Added instruction
 ; CHECK-NEXT: VLSA: Added instruction
-; CHECK: Total Groups 1
-; CHECK: Fixed all OVLSTypes for previously collected memrefs.
-; CHECK: Total Groups 1
-; CHECK: Fixed all OVLSTypes for previously collected memrefs.
 ; CHECK: Total Groups 1
 ; CHECK: Fixed all OVLSTypes for previously collected memrefs.
 ; CHECK: Total Groups 1

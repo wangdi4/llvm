@@ -1,4 +1,4 @@
-// These are tests for slash alias of dpcpp options.
+// These are tests for slash alias of core options.
 
 // /fintelfpga
 // RUN:   %clang_cl -### -fsycl /fintelfpga %s 2>&1 \

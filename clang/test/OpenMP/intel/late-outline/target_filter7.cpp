@@ -38,9 +38,9 @@ int main(void)
   return 0;
 }
 
-//CHECK: define dso_local spir_func void {{.*}}@__omp_offloading_{{.*}}_ctor()
+//CHECK: define {{.*}}spir_func void {{.*}}@__omp_offloading_{{.*}}_ctor()
 //CHECK: define {{.*}}ZN3FooC2Ev{{.*}}#[[TARGET_DECLARE:[0-9]+]]
-//CHECK: define dso_local spir_func void {{.*}}@__omp_offloading_{{.*}}_dtor()
+//CHECK: define {{.*}}spir_func void {{.*}}@__omp_offloading_{{.*}}_dtor()
 //CHECK: define {{.*}}ZN3FooD2Ev{{.*}}#[[TARGET_DECLARE:[0-9]+]]
 
 //CHECK: attributes #[[TARGET_DECLARE]] = {{.*}}"openmp-target-declare"="true"

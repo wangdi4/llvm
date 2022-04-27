@@ -1,4 +1,4 @@
-; RUN: opt -wholeprogramanalysis -function-attrs -whole-program-assume -S %s | FileCheck %s --check-prefix=CHECK-TEST1
+; RUN: opt -enable-new-pm=0 -wholeprogramanalysis -function-attrs -whole-program-assume -S %s | FileCheck %s --check-prefix=CHECK-TEST1
 ; TODO: Include the run command for the new pass manager once we fix the
 ; whole program analysis in the new pass manager.
 ; RUN-TODO: opt -passes='require<wholeprogram>',function-attrs -whole-program-assume -S %s | FileCheck %s --check-prefix=CHECK-TEST1
@@ -20,7 +20,7 @@ define i8* @test1(i8* %0, i8* %1, i8* %2, i64 %3) {
 
 attributes #1 = { mustprogress nofree nounwind readonly }
 
-; RUN: opt -wholeprogramanalysis -function-attrs -S %s | FileCheck %s --check-prefix=CHECK-TEST2
+; RUN: opt -enable-new-pm=0 -wholeprogramanalysis -function-attrs -S %s | FileCheck %s --check-prefix=CHECK-TEST2
 ; TODO: Include the run command for the new pass manager once we fix the
 ; whole program analysis in the new pass manager.
 ; RUN-TODO: opt -passes='require<wholeprogram>',function-attrs -S %s | FileCheck %s --check-prefix=CHECK-TEST2
@@ -40,7 +40,7 @@ define i8* @test2(i8* %0, i8* %1, i8* %2, i64 %3) {
 
 attributes #2 = { mustprogress nofree nounwind readonly }
 
-; RUN: opt -wholeprogramanalysis -function-attrs -whole-program-assume  -S %s | FileCheck %s --check-prefix=CHECK-TEST3
+; RUN: opt -enable-new-pm=0 -wholeprogramanalysis -function-attrs -whole-program-assume  -S %s | FileCheck %s --check-prefix=CHECK-TEST3
 ; TODO: Include the run command for the new pass manager once we fix the
 ; whole program analysis in the new pass manager.
 ; RUN-TODO: opt -passes='require<wholeprogram>',function-attrs -whole-program-assume -S %s | FileCheck %s --check-prefix=CHECK-TEST3
@@ -60,7 +60,7 @@ define i8* @test3(i8* %0, i8* %1, i8* %2, i64 %3) {
 
 attributes #3 = { nofree nounwind readonly }
 
-; RUN: opt -wholeprogramanalysis -function-attrs -whole-program-assume  -S %s | FileCheck %s --check-prefix=CHECK-TEST4
+; RUN: opt -enable-new-pm=0 -wholeprogramanalysis -function-attrs -whole-program-assume  -S %s | FileCheck %s --check-prefix=CHECK-TEST4
 ; TODO: Include the run command for the new pass manager once we fix the
 ; whole program analysis in the new pass manager.
 ; RUN-TODO: opt -passes='require<wholeprogram>',function-attrs -whole-program-assume -S %s | FileCheck %s --check-prefix=CHECK-TEST4
@@ -80,7 +80,7 @@ define i8* @test4(i8* %0, i8* %1, i8* %2, i64 %3) {
 
 attributes #4 = { mustprogress nofree nounwind }
 
-; RUN: opt -wholeprogramanalysis -function-attrs -whole-program-assume  -S %s | FileCheck %s --check-prefix=CHECK-TEST5
+; RUN: opt -enable-new-pm=0 -wholeprogramanalysis -function-attrs -whole-program-assume  -S %s | FileCheck %s --check-prefix=CHECK-TEST5
 ; TODO: Include the run command for the new pass manager once we fix the
 ; whole program analysis in the new pass manager.
 ; RUN-TODO: opt -passes='require<wholeprogram>',function-attrs -whole-program-assume -S %s | FileCheck %s --check-prefix=CHECK-TEST5

@@ -1,4 +1,19 @@
 #if INTEL_COLLAB // -*- C++ -*-
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //===-- VPO/Paropt/VPOParoptTranform.h - Paropt Transform Class -*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -28,6 +43,7 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Pass.h"
 
 #include "llvm/ADT/EquivalenceClasses.h"
@@ -96,14 +112,7 @@ enum DeviceArch : uint64_t {
 
 typedef SmallVector<WRegionNode *, 32> WRegionListTy;
 typedef std::unordered_map<const BasicBlock *, WRegionNode *> BBToWRNMapTy;
-
-namespace VPOParoptAtomicFreeReduction {
-constexpr StringRef GlobalBufferAttr = "paropt_red_globalbuf";
-constexpr StringRef TeamsCounterAttr = "paropt_red_teamscounter";
-constexpr StringRef GlobalStoreMD = "paropt_red_globalstore";
-
-enum Kind { Kind_Local = 1, Kind_Global = 2 };
-} // namespace VPOParoptAtomicFreeReduction
+typedef std::pair<Type*, Value*> ElementTypeAndNumElements;
 
 class VPOParoptModuleTransform;
 
@@ -624,6 +633,17 @@ private:
   // clauses to MAP + PRIVATE.
   bool addMapAndPrivateForIsDevicePtr(WRegionNode *W);
 
+  /// Add private clauses to \p W for Values in the \p ToPrivatize list.
+  /// If a Value in the list has associated ElementTypeAndNumElements
+  /// information, a Typed clause will be added, otherwise an untyped clause
+  /// will be added. The clauses are added to the region W's private clause list
+  /// as well as its entry directive. Returns true if any clause is added, false
+  /// otherwise.
+  static bool addPrivateClausesToRegion(
+      WRegionNode *W,
+      ArrayRef<std::pair<Value *, llvm::Optional<ElementTypeAndNumElements>>>
+          ToPrivatize);
+
   /// Update references of use_device_ptr operands in tgt data region to use the
   /// value updated by the tgt_data_init call.
   void useUpdatedUseDevicePtrsInTgtDataRegion(
@@ -1117,7 +1137,7 @@ private:
   /// Rename duplicate values in \p W's map clauses.
   void renameDuplicateBasesInMapClauses(WRegionNode *W);
 
-  /// \name Utilities to emit kmpc_spmd_push/pop_num_threads for offloading.
+  /// \name Utilities to emit kmpc_begin/end_spmd calls for offloading.
   ///
   /// Code generation like this is needed to support `omp_get_num_threads()`
   /// in user code when hierarchical parallelism is used.
@@ -1125,43 +1145,37 @@ private:
   /// \code
   ///   #pragma omp target
   ///   {
-  ///     __kmpc_spmd_push_num_threads(1);
+  ///     __kmpc_begin_spmd_target();
   ///       ...
-  ///       __kmpc_spmd_pop_num_threads();
+  ///       __kmpc_begin_spmd_parallel();
   ///       #pragma omp parallel
   ///       {}
-  ///       __kmpc_spmd_push_num_threads(1)
+  ///       __kmpc_end_spmd_parallel()
   ///       ...
-  ///     __kmpc_spmd_pop_num_threads();
+  ///     __kmpc_end_spmd_target();
   ///   }
   /// \endcode
   ///
   /// Note that these calls are emitted only if the current module
-  /// contains `omp_get_num_threads` function, to avoid performance impact
-  /// of these calls and the barriers associated with them.
+  /// contains `omp_get_num_threads` function and Paropt determines that a
+  /// region may call it, to avoid performance impact of these calls and
+  /// the barriers associated with them.
   ///
   /// Emission of these calls can also be disabled using the command line flag:
   ///   -vpo-paropt-simulate-get-num-threads-in-target=false
   ///
   /// @{
   ///
-  /// Inserts calls to `__kmpc_spmd_pop_num_threads` and
-  /// `__kmpc_spmd_push_num_threads` around \p W. If \p InsideRegion is \b true,
-  /// the pop call is inserted after \p W's entry directive, and the push call
-  /// is inserted before \p W's exit directive. Otherwise, the pop call is
-  /// inserted before the entry directive, and push call is inserted after the
-  /// exit directive. By default, \p InsideRegion is false.
-  bool callPopPushNumThreadsAtRegionBoundary(WRegionNode *W,
-                                             bool InsideRegion = false);
+  /// Inserts calls to `__kmpc_begin_spmd_parallel` and
+  /// `__kmpc_end_spmd_parallel` around \p W. The calls are inserted outside
+  /// \p W's region entry/exit directives.
+  bool callBeginEndSpmdParallelAtRegionBoundary(WRegionNode *W);
 
-  /// Inserts calls to `__kmpc_spmd_push_num_threads` and
-  /// `__kmpc_spmd_pop_num_threads` around \p W. If \p InsideRegion is \b true,
-  /// the push call is inserted after \p W's entry directive, and the pop call
-  /// is inserted before \p W's exit directive. Otherwise, the push call is
-  /// inserted before the entry directive, and pop call is inserted after the
-  /// exit directive. By default, \p InsideRegion is false.
-  bool callPushPopNumThreadsAtRegionBoundary(WRegionNode *W,
-                                             bool InsideRegion = false);
+  /// Inserts calls to `__kmpc_begin_spmd_target` and
+  /// `__kmpc_end_spmd_target` at the boundary of \p W. The begin call is
+  /// inserted after \p W's entry directive, and the end call is inserted
+  /// before \p W's exit directive.
+  bool callBeginEndSpmdTargetAtRegionBoundary(WRegionNode *W);
 
   /// @}
 
@@ -1274,6 +1288,9 @@ private:
 
   /// Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);
+
+  /// Generate code for Taskyield construct.
+  bool genTaskyieldCode(WRegionNode *W);
 
   /// Generate code for masked/end masked construct and update LLVM
   /// control-flow and dominator tree accordingly
@@ -2328,6 +2345,25 @@ private:
   // set HasTeamsReduction attribute for the enclosing target region
   // (if any).
   void updateKernelHasTeamsReduction(const WRNTeamsNode *WT) const;
+
+  /// Remove all clauses from the given work region and all nested regions
+  /// except SIMD. SIMD directives remain unchanged in IR, but SIMD WRNs are
+  /// updated to have null entry/exit directives.
+  /// Return true if IR has been updated and false otherwise. Upon return
+  /// FoundSIMD is set to true if there were any SIMD directives found and to
+  /// false otherwise.
+  bool removeClausesFromNestedRegionsExceptSIMD(WRegionNode *W,
+                                                bool &FoundSIMD) const;
+
+  /// Recompute insertion points for barriers that need to be inserted after
+  /// parallel regions inside the given target region \p W inside outlined
+  /// function \p KernelF for the case when there are no instructions with side
+  /// effects outside of the parallel regions. Return true if barriers need to
+  /// be inserted with insertion points added to \p InsertBarrierAt or false
+  /// otherwise.
+  bool needBarriersAfterParallel(
+      WRegionNode *W, Function *KernelF,
+      SmallDenseMap<Instruction *, bool> &InsertBarrierAt);
 };
 
 } /// namespace vpo

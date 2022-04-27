@@ -559,6 +559,7 @@ static void fixOptions();
 #if INTEL_PRODUCT_RELEASE
 class HelpPrinter {
 public:
+  explicit HelpPrinter() = default;
   explicit HelpPrinter(StringMap<cl::Option *> OptMap_)
       : OptMap(std::move(OptMap_)) {}
 

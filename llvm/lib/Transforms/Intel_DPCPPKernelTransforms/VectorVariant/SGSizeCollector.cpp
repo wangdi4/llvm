@@ -13,12 +13,14 @@
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Analysis/CallGraph.h"
-#include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+
+#define DEBUG_TYPE "dpcpp-kernel-sg-size-collector"
 
 using namespace llvm;
 using namespace DPCPPKernelMetadataAPI;
@@ -101,19 +103,23 @@ bool SGSizeCollectorPass::runImpl(Module &M) {
         continue;
       }
 
+      bool isStructReturn = CalledFunc && CalledFunc->getReturnType()->isStructTy();
       if (!CalledFunc || CalledFunc->isIntrinsic() ||
           CalledFunc->isDeclaration() ||
           CalledFunc->getName().startswith("WG.boundaries.") ||
+          isStructReturn ||
           // Workaround for Vectorizer not supporting byval/byref
           // parameters. We can ignore the children as they won't be called
           // in vector context.
           (!EnableVectorizationOfByvalByrefFunctionsOpt &&
            DPCPPKernelCompilationUtils::hasByvalByrefArgs(CalledFunc))) {
-
+        if (isStructReturn) {
+          LLVM_DEBUG(dbgs() << "Vectorization for function with struct return "
+                            << "type is not supported\n");
+        }
         It = It.skipChildren();
         continue;
       }
-
       auto &Set = SGSizes[CalledFunc];
       if (Set.count(VecLength)) {
         It = It.skipChildren();
@@ -128,7 +134,6 @@ bool SGSizeCollectorPass::runImpl(Module &M) {
   // Update vector length information according to the call graph.
   for (auto It : SGSizes) {
     Function *F = It.first;
-
     StringRef VarsStr;
     DenseSet<unsigned> ExistingVars;
     if (F->hasFnAttribute(KernelAttribute::VectorVariants)) {
@@ -166,7 +171,6 @@ bool SGSizeCollectorPass::runImpl(Module &M) {
     F->addFnAttr(KernelAttribute::VectorVariants, join(Variants, ","));
     Modified = true;
   }
-
   return Modified;
 }
 

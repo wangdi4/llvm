@@ -18,8 +18,6 @@
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/Module.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
@@ -123,24 +121,12 @@ static bool doesEmitDebugInfo(const MachineInstr *MI) {
 }
 
 void TraceBackDebug::beginInstruction(const MachineInstr *MI) {
-  // TODO:
-  // X86::Int_MemBarrier emits nothing and should be a MetaInstruction,
-  // but for some historic reasons, we didn't mark it correctly.
-  //
-  // Due to module dependency reasons, we can not check
-  // MI->getOpcode() == X86::Int_MemBarrier here, so we do it in a hackery
-  // way...
-  //
-  // https://reviews.llvm.org/D92842 makes MemBarrier target independent.
-  // We can remove this check after it is landed.
-  const TargetInstrInfo *TII = MI->getMF()->getSubtarget().getInstrInfo();
-  bool IsMemBarrier = (TII->getName(MI->getOpcode()) == "Int_MemBarrier");
   const DebugLoc &DL = MI->getDebugLoc();
   // We won't add a line record for the instruction when
   // - If no need to emit debug info.
   // - If this is a meta-instruction, such as DBG_VALUE and CFI locations
   //   so it doesn't produce any executable instruction.
-  if (!doesEmitDebugInfo(MI) || MI->isMetaInstruction() || IsMemBarrier) {
+  if (!doesEmitDebugInfo(MI) || MI->isMetaInstruction()) {
     DebugHandlerBase::beginInstruction(MI);
     return;
   }

@@ -1,4 +1,4 @@
-; RUN: opt -hir-create-function-level-region -hir-details -hir-ssa-deconstruction -analyze -hir-framework < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-create-function-level-region -hir-details -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework < %s 2>&1 | FileCheck %s
 ; RUN: opt -hir-create-function-level-region -hir-details -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 < %s | FileCheck %s
 
 ; Verify that cleanup phase is able to remove identical nested ifs so that

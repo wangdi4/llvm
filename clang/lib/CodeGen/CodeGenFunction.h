@@ -1,4 +1,21 @@
 //===-- CodeGenFunction.h - Per-Function state for LLVM CodeGen -*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -46,7 +63,6 @@ namespace llvm {
 class BasicBlock;
 class LLVMContext;
 class MDNode;
-class Module;
 class SwitchInst;
 class Twine;
 class Value;
@@ -55,13 +71,11 @@ class CanonicalLoopInfo;
 
 namespace clang {
 class ASTContext;
-class BlockDecl;
 class CXXDestructorDecl;
 class CXXForRangeStmt;
 class CXXTryStmt;
 class Decl;
 class LabelDecl;
-class EnumConstantDecl;
 class FunctionDecl;
 class FunctionProtoType;
 class LabelStmt;
@@ -80,7 +94,6 @@ class ObjCAtSynchronizedStmt;
 class ObjCAutoreleasePoolStmt;
 class OMPUseDevicePtrClause;
 class OMPUseDeviceAddrClause;
-class ReturnsNonNullAttr;
 class IntelInlineAttr; // INTEL
 class SVETypeFlags;
 class OMPExecutableDirective;
@@ -93,12 +106,10 @@ namespace CodeGen {
 class CodeGenTypes;
 class CGCallee;
 class CGFunctionInfo;
-class CGRecordLayout;
 class CGBlockInfo;
 class CGCXXABI;
 class BlockByrefHelpers;
 class BlockByrefInfo;
-class BlockFlags;
 class BlockFieldFlags;
 class RegionCodeGenTy;
 class TargetCodeGenInfo;
@@ -208,10 +219,11 @@ template <> struct DominatingValue<RValue> {
                 AggregateAddress, ComplexAddress };
 
     llvm::Value *Value;
+    llvm::Type *ElementType;
     unsigned K : 3;
     unsigned Align : 29;
-    saved_type(llvm::Value *v, Kind k, unsigned a = 0)
-      : Value(v), K(k), Align(a) {}
+    saved_type(llvm::Value *v, llvm::Type *e, Kind k, unsigned a = 0)
+      : Value(v), ElementType(e), K(k), Align(a) {}
 
   public:
     static bool needsSaving(RValue value);
@@ -243,11 +255,10 @@ public:
   /// A jump destination is an abstract label, branching to which may
   /// require a jump out through normal cleanups.
   struct JumpDest {
-    JumpDest() : Block(nullptr), ScopeDepth(), Index(0) {}
-    JumpDest(llvm::BasicBlock *Block,
-             EHScopeStack::stable_iterator Depth,
+    JumpDest() : Block(nullptr), Index(0) {}
+    JumpDest(llvm::BasicBlock *Block, EHScopeStack::stable_iterator Depth,
              unsigned Index)
-      : Block(Block), ScopeDepth(Depth), Index(Index) {}
+        : Block(Block), ScopeDepth(Depth), Index(Index) {}
 
     bool isValid() const { return Block != nullptr; }
     llvm::BasicBlock *getBlock() const { return Block; }
@@ -464,8 +475,8 @@ public:
 #if INTEL_COLLAB
     virtual void recordVariableDefinition(const VarDecl *VD) {}
     virtual void recordVariableReference(const VarDecl *VD) {}
-    virtual void recordValueDefinition(llvm::Value *) {}
-    virtual void recordValueReference(llvm::Value *) {}
+    virtual void recordValueDefinition(llvm::Value *V, llvm::Type *ElemTy) {}
+    virtual void recordValueReference(llvm::Value *V, llvm::Type *ElemTy) {}
     virtual void recordValueSuppression(llvm::Value *) {}
     virtual void recordFirstPrivateVars(const VarDecl *VD) {}
     virtual bool inTargetVariantDispatchRegion() { return false; }
@@ -639,6 +650,12 @@ public:
 
   /// True if the current statement has nomerge attribute.
   bool InNoMergeAttributedStmt = false;
+
+  /// True if the current statement has noinline attribute.
+  bool InNoInlineAttributedStmt = false;
+
+  /// True if the current statement has always_inline attribute.
+  bool InAlwaysInlineAttributedStmt = false;
 
   // The CallExpr within the current statement that the musttail attribute
   // applies to.  nullptr if there is no 'musttail' on the current statement.
@@ -1244,15 +1261,14 @@ public:
     /// Enter a new OpenMP private scope.
     explicit OMPPrivateScope(CodeGenFunction &CGF) : RunCleanupsScope(CGF) {}
 
-    /// Registers \p LocalVD variable as a private and apply \p PrivateGen
-    /// function for it to generate corresponding private variable. \p
-    /// PrivateGen returns an address of the generated private variable.
+    /// Registers \p LocalVD variable as a private with \p Addr as the address
+    /// of the corresponding private variable. \p
+    /// PrivateGen is the address of the generated private variable.
     /// \return true if the variable is registered as private, false if it has
     /// been privatized already.
-    bool addPrivate(const VarDecl *LocalVD,
-                    const llvm::function_ref<Address()> PrivateGen) {
+    bool addPrivate(const VarDecl *LocalVD, Address Addr) {
       assert(PerformCleanup && "adding private to dead scope");
-      return MappedVars.setVarAddr(CGF, LocalVD, PrivateGen());
+      return MappedVars.setVarAddr(CGF, LocalVD, Addr);
     }
 
 #if INTEL_COLLAB
@@ -1297,11 +1313,11 @@ public:
     if (It == ClauseMap.end())
       ClauseMap.insert({C, Addr});
   }
-  llvm::Value *getMappedClause(const OMPClause* C) {
+  Address getMappedClause(const OMPClause *C) {
     auto It = ClauseMap.find(C);
     if (It == ClauseMap.end())
-      return nullptr;
-    return It->second.getPointer();
+      return Address::invalid();
+    return It->second;
   }
   typedef llvm::DenseMap<const OMPClause*, Address> ClauseMapTy;
   ClauseMapTy ClauseMap;
@@ -1883,11 +1899,12 @@ public:
         const Expr *E = Z.first;
         llvm::Value *V = Z.second.first;
         CharUnits Align = Z.second.second;
-        Address A(V, Align);
+        Address A(V, CGF.ConvertTypeForMem(CGF.getContext().getSizeType()),
+                  Align);
         CGF.VLASizeMap[E] = CGF.Builder.CreateLoad(A);
         if (CGF.CapturedStmtInfo)
-          CGF.CapturedStmtInfo->recordValueReference(
-              cast<llvm::LoadInst>(CGF.VLASizeMap[E])->getPointerOperand());
+          CGF.CapturedStmtInfo->recordValueReference(A.getPointer(),
+                                                     A.getElementType());
       }
     }
     ~CGVLASizeMapHandler() {
@@ -2705,9 +2722,8 @@ public:
   /// Derived is the presumed address of an object of type T after a
   /// cast. If T is a polymorphic class type, emit a check that the virtual
   /// table for Derived belongs to a class derived from T.
-  void EmitVTablePtrCheckForCast(QualType T, llvm::Value *Derived,
-                                 bool MayBeNull, CFITypeCheckKind TCK,
-                                 SourceLocation Loc);
+  void EmitVTablePtrCheckForCast(QualType T, Address Derived, bool MayBeNull,
+                                 CFITypeCheckKind TCK, SourceLocation Loc);
 
   /// EmitVTablePtrCheckForCall - Virtual method MD is being called via VTable.
   /// If vptr CFI is enabled, emit a check that VTable is valid.
@@ -2731,7 +2747,9 @@ public:
   bool ShouldEmitVTableTypeCheckedLoad(const CXXRecordDecl *RD);
 
   /// Emit a type checked load from the given vtable.
-  llvm::Value *EmitVTableTypeCheckedLoad(const CXXRecordDecl *RD, llvm::Value *VTable,
+  llvm::Value *EmitVTableTypeCheckedLoad(const CXXRecordDecl *RD,
+                                         llvm::Value *VTable,
+                                         llvm::Type *VTableTy,
                                          uint64_t VTableByteOffset);
 
   /// EnterDtorCleanups - Enter the cleanups necessary to complete the
@@ -2929,6 +2947,9 @@ public:
     return EmitLoadOfReferenceLValue(RefLVal);
   }
 
+  /// Load a pointer with type \p PtrTy stored at address \p Ptr.
+  /// Note that \p PtrTy is the type of the loaded pointer, not the addresses
+  /// it is loaded from.
   Address EmitLoadOfPointer(Address Ptr, const PointerType *PtrTy,
                             LValueBaseInfo *BaseInfo = nullptr,
                             TBAAAccessInfo *TBAAInfo = nullptr);
@@ -3206,8 +3227,13 @@ public:
   llvm::Value *LoadCXXThis() {
     assert(CXXThisValue && "no 'this' value for this function");
 #if INTEL_COLLAB
-    if (CapturedStmtInfo)
-      CapturedStmtInfo->recordValueReference(CXXThisValue);
+    if (CapturedStmtInfo) {
+      assert(CurFuncDecl && "expected member function decl");
+      QualType TagType = getContext().getTagDeclType(
+          cast<CXXMethodDecl>(CurFuncDecl)->getParent());
+      CapturedStmtInfo->recordValueReference(CXXThisValue,
+                                             ConvertTypeForMem(TagType));
+    }
 #endif  // INTEL_COLLAB
     return CXXThisValue;
   }
@@ -3988,6 +4014,7 @@ public:
   void EmitOMPTargetTeamsDistributeSimdDirective(
       const OMPTargetTeamsDistributeSimdDirective &S);
   void EmitOMPGenericLoopDirective(const OMPGenericLoopDirective &S);
+  void EmitOMPInteropDirective(const OMPInteropDirective &S);
 
   /// Emit device code for the target directive.
   static void EmitOMPTargetDeviceFunction(CodeGenModule &CGM,
@@ -4142,6 +4169,9 @@ private:
   void EmitSections(const OMPExecutableDirective &S);
 
 #if INTEL_COLLAB
+  /// InscanVars - This keeps track of variables which specified in
+  /// inscan clause and used when process in/exclusive clause.
+  llvm::DenseMap<const VarDecl *, unsigned> InscanVars;
   /// MapTemps - This keeps track of variables with pointer type which
   /// is privatized.
   llvm::DenseMap<const VarDecl *, bool> MapTemps;
@@ -4166,6 +4196,14 @@ public:
     return MapTemps.find(VD) != MapTemps.end();
   }
   void clearMappedTemps() { MapTemps.clear(); }
+  unsigned getInscanVarIndex(const VarDecl *VD) {
+    return InscanVars[VD];
+  }
+  void addInscanVar(const VarDecl *VD) {
+    if (InscanVars.find(VD) == InscanVars.end())
+      InscanVars[VD] = InscanVars.size() + 1;
+  }
+  void clearInscanVars() { InscanVars.clear(); }
   static bool requiresImplicitTask(const OMPExecutableDirective &S);
   static bool requiresImplicitTaskgroup(const OMPExecutableDirective &S,
                                         bool TopLevel = false);
@@ -4414,6 +4452,7 @@ public:
   LValue EmitObjCIsaExpr(const ObjCIsaExpr *E);
   LValue EmitCompoundLiteralLValue(const CompoundLiteralExpr *E);
   LValue EmitInitListLValue(const InitListExpr *E);
+  void EmitIgnoredConditionalOperator(const AbstractConditionalOperator *E);
   LValue EmitConditionalOperatorLValue(const AbstractConditionalOperator *E);
   LValue EmitCastLValue(const CastExpr *E);
   LValue EmitMaterializeTemporaryExpr(const MaterializeTemporaryExpr *E);
@@ -4791,6 +4830,11 @@ public:
   RValue EmitBuiltinGenerateSIMDVariant(const CallExpr *E);
   RValue EmitBuiltinCallSIMDVariant(const CallExpr *E);
 #endif  // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  RValue EmitOMPIndirectCall(llvm::FunctionType *IRFuncTy,
+                             const SmallVectorImpl<llvm::Value *> &IRArgs,
+                             llvm::Value *FnPtr);
+#endif // INTEL_COLLAB
 
   enum class MSVCIntrin;
   llvm::Value *EmitMSVCBuiltinExpr(MSVCIntrin BuiltinID, const CallExpr *E);
@@ -5055,6 +5099,17 @@ public:
   Address EmitHLSFieldAnnotations(const FieldDecl *D, Address V,
                                   StringRef AnnotStr);
 #endif // INTEL_CUSTOMIZATION
+
+  /// Emit a "sycl-properties" annotation call (intrinsic).
+  llvm::Value *
+  EmitSYCLAnnotationCall(llvm::Function *AnnotationFn,
+                         llvm::Value *AnnotatedVal, SourceLocation Location,
+                         const SYCLAddIRAnnotationsMemberAttr *Attr);
+
+  /// Emit sycl field annotations for given field & value. Returns the
+  /// annotation result.
+  Address EmitFieldSYCLAnnotations(const FieldDecl *D, Address V);
+
   /// Emit Intel FPGA field annotations for the given field and value. Returns
   /// the annotation result.
   Address EmitIntelFPGAFieldAnnotations(const FieldDecl *D, Address V,
@@ -5221,6 +5276,11 @@ public:
   /// Set the codegen fast-math flags.
   void SetFastMathFlags(FPOptions FPFeatures);
 
+  // Truncate or extend a boolean vector to the requested number of elements.
+  llvm::Value *emitBoolVecConversion(llvm::Value *SrcVec,
+                                     unsigned NumElementsDst,
+                                     const llvm::Twine &Name = "");
+
 private:
   llvm::MDNode *getRangeForLoadFromType(QualType Ty);
   void EmitReturnOfRValue(RValue RV, QualType Ty);
@@ -5250,13 +5310,14 @@ private:
                         SmallVectorImpl<llvm::Value *> &IRCallArgs,
                         unsigned &IRCallArgPos);
 
-  llvm::Value* EmitAsmInput(const TargetInfo::ConstraintInfo &Info,
-                            const Expr *InputExpr, std::string &ConstraintStr);
+  std::pair<llvm::Value *, llvm::Type *>
+  EmitAsmInput(const TargetInfo::ConstraintInfo &Info, const Expr *InputExpr,
+               std::string &ConstraintStr);
 
-  llvm::Value* EmitAsmInputLValue(const TargetInfo::ConstraintInfo &Info,
-                                  LValue InputValue, QualType InputType,
-                                  std::string &ConstraintStr,
-                                  SourceLocation Loc);
+  std::pair<llvm::Value *, llvm::Type *>
+  EmitAsmInputLValue(const TargetInfo::ConstraintInfo &Info, LValue InputValue,
+                     QualType InputType, std::string &ConstraintStr,
+                     SourceLocation Loc);
 
   /// Attempts to statically evaluate the object size of E. If that
   /// fails, emits code to figure the size of E out for us. This is

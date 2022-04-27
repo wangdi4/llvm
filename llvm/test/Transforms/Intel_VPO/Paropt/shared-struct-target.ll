@@ -2,7 +2,7 @@
 ; region, without considering the target clause and the entire enclosing
 ; target region.
 
-; RUN: opt < %s -S -xmain-opt-level=3 -vpo-cfg-restructuring -vpo-paropt | FileCheck %s
+; RUN: opt -S -xmain-opt-level=3 -vpo-cfg-restructuring -vpo-paropt %s | FileCheck %s
 ; CHECK: tmpcast = bitcast {{.*}} %alpha
 ; CHECK: call {{.*}}tgt_target_teams
 ; CHECK: call {{.*}}kmpc_fork_teams{{.*}}tmpcast

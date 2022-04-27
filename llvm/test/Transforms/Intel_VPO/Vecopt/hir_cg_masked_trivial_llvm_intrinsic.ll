@@ -16,16 +16,17 @@
 ; <23>          @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; <0>     END REGION
 
-; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -S -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -S -vplan-force-vf=4 -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
+; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -S -vplan-force-vf=4 -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
 
 
-; CHECK:            + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>
-; CHECK-NEXT:       |   %llvm.exp.v4f64 = undef
-; CHECK-NEXT:       |   %.vec = (<4 x double>*)(%y)[i1];
-; CHECK-NEXT:       |   [[CMP:%.*]] = %.vec == %key;
-; CHECK-NEXT:       |   %llvm.exp.v4f64 = @llvm.exp.v4f64(%.vec); Mask = @{[[CMP]]}
-; CHECK-NEXT:       |   (<4 x double>*)(%x)[i1] = %llvm.exp.v4f64; Mask = @{[[CMP]]}
+; CHECK:            + DO i1 = 0, {{.*}}, 4   <DO_LOOP>
+; CHECK-NEXT:       |   [[LD:%.*]] = (<4 x double>*)(%y)[i1];
+; CHECK-NEXT:       |   [[CMP:%.*]] = [[LD]] == %key;
+; CHECK-NEXT:       |   %llvm.exp.v4f64 = @llvm.exp.v4f64([[LD]]);
+; CHECK-NEXT:       |   (<4 x double>*)(%x)[i1] = %llvm.exp.v4f64, Mask = @{[[CMP]]};
 ; CHECK-NEXT:       + END LOOP
 
 ; Check generated LLVM call after HIR-CG

@@ -1,5 +1,5 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-wrncollection -analyze -S < %s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-wrncollection -analyze -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -disable-output %s 2>&1 | FileCheck %s
 
 ; The test contains hand-modified IR to add "QUAL.OMP.IMPLCIT" clause
 ; to the taskgroup/task directives in the original IR.

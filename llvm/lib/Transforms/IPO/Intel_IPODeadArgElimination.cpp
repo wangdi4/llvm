@@ -1,6 +1,6 @@
 //=-- Intel_IPODeadArgElimination.cpp - Simplified dead arg elimination -*-=//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -518,7 +518,7 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
 
   // Collect the arguments attribute list, return and function attributes
   const AttributeList &ArgsAttrList = F->getAttributes();
-  AttrBuilder RAttrs(ArgsAttrList.getRetAttrs());
+  AttrBuilder RAttrs(F->getContext(), ArgsAttrList.getRetAttrs());
   AttributeSet RetAttrs = AttributeSet::get(F->getContext(), RAttrs);
   AttributeSet FnAttrs = ArgsAttrList.getFnAttrs();
 
@@ -564,6 +564,16 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
   NF->setAttributes(NewArgsAttrList);
   NF->takeName(F);
 
+  // Clone the metadata from the function F to the new function
+  SmallVector<std::pair<unsigned, MDNode *>, 1> MDs;
+  F->getAllMetadata(MDs);
+  for (auto MD : MDs)
+    NF->addMetadata(MD.first, *MD.second);
+
+  // Set the inlining report for the new function
+  getInlineReport()->replaceFunctionWithFunction(F, NF);
+  getMDInlineReport()->replaceFunctionWithFunction(F, NF);
+
   // Update the call sites to function F
   std::vector<Value *> LiveArgs;
   LiveArgsAttrVec.clear();
@@ -571,7 +581,7 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
     // Get the call, actual parameters and return attributes
     CallBase &Call = cast<CallBase>(*F->user_back());
     const AttributeList &CallAttrList = Call.getAttributes();
-    AttrBuilder CallRAttrs(CallAttrList.getRetAttrs());
+    AttrBuilder CallRAttrs(F->getContext(), CallAttrList.getRetAttrs());
     AttributeSet CallRetAttrs = AttributeSet::get(F->getContext(), CallRAttrs);
     AttributeSet CallFnAttrs = CallAttrList.getFnAttrs();
 
@@ -662,16 +672,6 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
     LiveArg->takeName(Arg);
     LiveArgI++;
   }
-
-  // Clone the metadata from the function F to the new function
-  SmallVector<std::pair<unsigned, MDNode *>, 1> MDs;
-  F->getAllMetadata(MDs);
-  for (auto MD : MDs)
-    NF->addMetadata(MD.first, *MD.second);
-
-  // Set the inlining report for the new function
-  getInlineReport()->replaceFunctionWithFunction(F, NF);
-  getMDInlineReport()->replaceFunctionWithFunction(F, NF);
 
   LLVM_DEBUG({
     dbgs() << "    Function: " << NF->getName() << "\n"

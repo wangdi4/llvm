@@ -1,4 +1,19 @@
 //===------------ spirv_types.hpp --- SPIRV types -------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -108,9 +123,13 @@ enum class GroupOperation : uint32_t {
   ExclusiveScan = 2
 };
 
-enum class MatrixLayout { RowMajor, ColumnMajor, PackedA, PackedB };
+enum class MatrixLayout : uint32_t {
+  RowMajor = 0,
+  ColumnMajor = 1,
+  PackedA = 2,
+  PackedB = 3
+};
 
-// INTEL_CUSTOMIZATION
 // TODO: replace the following W/A with a better solution when we have it.
 // The following structure is used to represent the joint matrix type in the
 // LLVM IR. The structure has a pointer to a multidimensional array member which
@@ -130,7 +149,6 @@ template <typename T, std::size_t R, std::size_t C, MatrixLayout U,
 struct __spirv_JointMatrixINTEL {
   T (*Value)[R][C][static_cast<size_t>(U) + 1][static_cast<size_t>(S) + 1];
 };
-// INTEL_CUSTOMIZATION
 
 } // namespace __spv
 

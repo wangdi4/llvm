@@ -1,5 +1,5 @@
-; RUN: opt < %s -switch-to-offload -vpo-paropt  -S | FileCheck %s
-; RUN: opt < %s -passes='vpo-paropt' -switch-to-offload  -S | FileCheck %s
+; RUN: opt -switch-to-offload -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='vpo-paropt' -switch-to-offload -S %s | FileCheck %s
 
 ; Checks that in the SPIR64 target compilation we replace printf()
 ; with the OCL builtin version _Z18__spirv_ocl_printfPU3AS2ci()

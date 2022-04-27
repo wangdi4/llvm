@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -whole-program-assume -disable-output -padded-pointer-prop-op -padded-pointer-info < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -whole-program-assume -disable-output -padded-pointer-info -passes="padded-pointer-prop-op" < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -disable-output -dtrans-normalizeop -padded-pointer-prop-op -padded-pointer-info < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -whole-program-assume -disable-output -padded-pointer-info -passes="module(dtrans-normalizeop),padded-pointer-prop-op" < %s 2>&1 | FileCheck %s
 
 ; Checks merging of the padding of function arguments
 
@@ -8,13 +8,13 @@
 ; CHECK: Function info(caller1):
 ; CHECK-NEXT: HasUnknownCallSites: 0
 ; CHECK-NEXT: Value paddings:
-; CHECK-NEXT: %t3 = call ptr @llvm.ptr.annotation.p0(ptr %arr, ptr getelementptr inbounds ([16 x i8], ptr @0, i64 0, i64 0), ptr getelementptr inbounds ([7 x i8], ptr @.str, i64 0, i64 0), i32 9, ptr null) :: 32
-; CHECK-NEXT: %t1 = call ptr @llvm.ptr.annotation.p0(ptr %arrayidx, ptr getelementptr inbounds ([15 x i8], ptr @2, i64 0, i64 0), ptr getelementptr inbounds ([7 x i8], ptr @.str, i64 0, i64 0), i32 8, ptr null) :: 4
+; CHECK-NEXT: %t3 = call ptr @llvm.ptr.annotation.p0(ptr %arr, ptr @0, ptr @.str, i32 9, ptr null) :: 32
+; CHECK-NEXT: %t1 = call ptr @llvm.ptr.annotation.p0(ptr %arrayidx, ptr @2, ptr @.str, i32 8, ptr null) :: 4
 ; CHECK: Function info(caller2):
 ; CHECK-NEXT: HasUnknownCallSites: 0
 ; CHECK-NEXT: Value paddings:
-; CHECK-NEXT: %t3 = call ptr @llvm.ptr.annotation.p0(ptr %arr, ptr getelementptr inbounds ([16 x i8], ptr @3, i64 0, i64 0), ptr getelementptr inbounds ([7 x i8], ptr @.str, i64 0, i64 0), i32 9, ptr null) :: 16
-; CHECK-NEXT: %t1 = call ptr @llvm.ptr.annotation.p0(ptr %arrayidx, ptr getelementptr inbounds ([15 x i8], ptr @1, i64 0, i64 0), ptr getelementptr inbounds ([7 x i8], ptr @.str, i64 0, i64 0), i32 8, ptr null) :: 8
+; CHECK-NEXT: %t3 = call ptr @llvm.ptr.annotation.p0(ptr %arr, ptr @3, ptr @.str, i32 9, ptr null) :: 16
+; CHECK-NEXT: %t1 = call ptr @llvm.ptr.annotation.p0(ptr %arrayidx, ptr @1, ptr @.str, i32 8, ptr null) :: 8
 ; CHECK: ==== END OF INITIAL FUNCTION SET ====
 
 ; CHECK: ==== TRANSFORMED FUNCTION SET ====
@@ -29,13 +29,13 @@
 ; CHECK: Function info(caller1):
 ; CHECK-NEXT: HasUnknownCallSites: 0
 ; CHECK-NEXT: Value paddings:
-; CHECK-NEXT: %t3 = call ptr @llvm.ptr.annotation.p0(ptr %arr, ptr getelementptr inbounds ([16 x i8], ptr @0, i64 0, i64 0), ptr getelementptr inbounds ([7 x i8], ptr @.str, i64 0, i64 0), i32 9, ptr null) :: 32
-; CHECK-NEXT: %t1 = call ptr @llvm.ptr.annotation.p0(ptr %arrayidx, ptr getelementptr inbounds ([15 x i8], ptr @2, i64 0, i64 0), ptr getelementptr inbounds ([7 x i8], ptr @.str, i64 0, i64 0), i32 8, ptr null) :: 4
+; CHECK-NEXT: %t3 = call ptr @llvm.ptr.annotation.p0(ptr %arr, ptr @0, ptr @.str, i32 9, ptr null) :: 32
+; CHECK-NEXT: %t1 = call ptr @llvm.ptr.annotation.p0(ptr %arrayidx, ptr @2, ptr @.str, i32 8, ptr null) :: 4
 ; CHECK: Function info(caller2):
 ; CHECK-NEXT: HasUnknownCallSites: 0
 ; CHECK-NEXT: Value paddings:
-; CHECK-NEXT: %t3 = call ptr @llvm.ptr.annotation.p0(ptr %arr, ptr getelementptr inbounds ([16 x i8], ptr @3, i64 0, i64 0), ptr getelementptr inbounds ([7 x i8], ptr @.str, i64 0, i64 0), i32 9, ptr null) :: 16
-; CHECK-NEXT: %t1 = call ptr @llvm.ptr.annotation.p0(ptr %arrayidx, ptr getelementptr inbounds ([15 x i8], ptr @1, i64 0, i64 0), ptr getelementptr inbounds ([7 x i8], ptr @.str, i64 0, i64 0), i32 8, ptr null) :: 8
+; CHECK-NEXT: %t3 = call ptr @llvm.ptr.annotation.p0(ptr %arr, ptr @3, ptr @.str, i32 9, ptr null) :: 16
+; CHECK-NEXT: %t1 = call ptr @llvm.ptr.annotation.p0(ptr %arrayidx, ptr @1, ptr @.str, i32 8, ptr null) :: 8
 ; CHECK: ==== END OF TRANSFORMED FUNCTION SET ====
 
 

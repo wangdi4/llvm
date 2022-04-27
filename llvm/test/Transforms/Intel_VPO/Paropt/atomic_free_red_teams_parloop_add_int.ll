@@ -1,5 +1,7 @@
-; RUN: opt < %s -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-atomic-free-red-local-buf-size=0  -S | FileCheck %s
-; RUN: opt < %s -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-atomic-free-red-local-buf-size=0  -S | FileCheck %s
+; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-atomic-free-red-local-buf-size=0 -S %s | FileCheck %s
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-atomic-free-red-local-buf-size=0 -S %s | FileCheck %s
+; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-atomic-free-red-local-buf-size=0 -S %s | FileCheck -check-prefix=MAP %s
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-atomic-free-red-local-buf-size=0 -S %s | FileCheck -check-prefix=MAP %s
 
 
 ;
@@ -72,6 +74,8 @@ target device_triples = "spir64"
 ; CHECK: br label %atomic.free.red.global.update.header
 ; CHECK-LABEL: atomic.free.red.global.update.store:
 ; CHECK: store i32 %[[SUM_PHI]], i32 addrspace(1)* %
+
+; MAP: call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(){{.*}}"QUAL.OMP.MAP.TO"(i32 addrspace(1)* @red_buf, i32 addrspace(1)* @red_buf, i64 4096, i64 128), "QUAL.OMP.MAP.TO"(i32 addrspace(1)* @teams_counter, i32 addrspace(1)* @teams_counter, i64 4, i64 129)
 
 ; Function Attrs: convergent noinline nounwind
 define hidden i32 @main() #0 {

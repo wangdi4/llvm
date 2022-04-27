@@ -1,5 +1,22 @@
-/*===-- clang-c/Index.h - Indexing Public C Interface -------------*- C -*-===*\
-|*                                                                            *|
+/*===-- clang-c/Index.h - Indexing Public C Interface -------------*- C -*-===*\ */
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2021 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
+/*                                                                            *|
 |* Part of the LLVM Project, under the Apache License v2.0 with LLVM          *|
 |* Exceptions.                                                                *|
 |* See https://llvm.org/LICENSE.txt for license information.                  *|
@@ -2599,17 +2616,30 @@ enum CXCursorKind {
   /** OpenMP loop directive.
    */
   CXCursor_OMPGenericLoopDirective = 295,
+
+  /** OpenMP teams loop directive.
+   */
+  CXCursor_OMPTeamsGenericLoopDirective = 296,
+
+  /** OpenMP target teams loop directive.
+   */
+  CXCursor_OMPTargetTeamsGenericLoopDirective = 297,
+
+  /** OpenMP parallel loop directive.
+   */
+  CXCursor_OMPParallelGenericLoopDirective = 298,
+
+  /** OpenMP target parallel loop directive.
+   */
+  CXCursor_OMPTargetParallelGenericLoopDirective = 299,
+
 #if INTEL_COLLAB
-  CXCursor_OMPTargetVariantDispatchDirective = 296,
-  CXCursor_OMPTeamsGenericLoopDirective = 297,
-  CXCursor_OMPTargetTeamsGenericLoopDirective = 298,
-  CXCursor_OMPParallelGenericLoopDirective = 299,
-  CXCursor_OMPTargetParallelGenericLoopDirective = 300,
+  CXCursor_OMPTargetVariantDispatchDirective = 300,
   CXCursor_OMPPrefetchDirective = 301,
   CXCursor_OMPScopeDirective = 302,
   CXCursor_LastStmt = CXCursor_OMPScopeDirective,
 #else /* INTEL_COLLAB */
-  CXCursor_LastStmt = CXCursor_OMPGenericLoopDirective,
+  CXCursor_LastStmt = CXCursor_OMPTargetParallelGenericLoopDirective,
 #endif /* INTEL_COLLAB */
 
 /**
@@ -3416,20 +3446,21 @@ enum CXTypeKind {
 
   CXType_ExtVector = 176,
   CXType_Atomic = 177,
+  CXType_BTFTagAttributed = 178,
 
   /* SPIRV builtin types. */
-  CXType_SampledOCLImage1dRO = 178,
-  CXType_SampledOCLImage1dArrayRO = 179,
-  CXType_SampledOCLImage1dBufferRO = 180,
-  CXType_SampledOCLImage2dRO = 181,
-  CXType_SampledOCLImage2dArrayRO = 182,
-  CXType_SampledOCLImage2dDepthRO = 183,
-  CXType_SampledOCLImage2dArrayDepthRO = 184,
-  CXType_SampledOCLImage2dMSAARO = 185,
-  CXType_SampledOCLImage2dArrayMSAARO = 186,
-  CXType_SampledOCLImage2dMSAADepthRO = 187,
-  CXType_SampledOCLImage2dArrayMSAADepthRO = 188,
-  CXType_SampledOCLImage3dRO = 189
+  CXType_SampledOCLImage1dRO = 200,
+  CXType_SampledOCLImage1dArrayRO = 201,
+  CXType_SampledOCLImage1dBufferRO = 202,
+  CXType_SampledOCLImage2dRO = 203,
+  CXType_SampledOCLImage2dArrayRO = 204,
+  CXType_SampledOCLImage2dDepthRO = 205,
+  CXType_SampledOCLImage2dArrayDepthRO = 206,
+  CXType_SampledOCLImage2dMSAARO = 207,
+  CXType_SampledOCLImage2dArrayMSAARO = 208,
+  CXType_SampledOCLImage2dMSAADepthRO = 209,
+  CXType_SampledOCLImage2dArrayMSAADepthRO = 210,
+  CXType_SampledOCLImage3dRO = 211
 };
 
 /**
@@ -3932,7 +3963,7 @@ enum CXTypeNullabilityKind {
   /**
    * Generally behaves like Nullable, except when used in a block parameter that
    * was imported into a swift async method. There, swift will assume that the
-   * parameter can get null even if no error occured. _Nullable parameters are
+   * parameter can get null even if no error occurred. _Nullable parameters are
    * assumed to only get null on error.
    */
   CXTypeNullability_NullableResult = 4

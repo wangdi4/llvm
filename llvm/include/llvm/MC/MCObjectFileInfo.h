@@ -1,4 +1,21 @@
 //===-- llvm/MC/MCObjectFileInfo.h - Object File Info -----------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,11 +30,12 @@
 #ifndef LLVM_MC_MCOBJECTFILEINFO_H
 #define LLVM_MC_MCOBJECTFILEINFO_H
 
-#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/Triple.h"
-#include "llvm/MC/MCSymbol.h"
-#include "llvm/Support/CodeGen.h"
+#include "llvm/BinaryFormat/Swift.h"
 #include "llvm/Support/VersionTuple.h"
+
+#include <array>
 
 namespace llvm {
 class MCContext;
@@ -237,6 +255,10 @@ protected:
   MCSection *ReadOnly8Section = nullptr;
   MCSection *ReadOnly16Section = nullptr;
 
+  // Swift5 Reflection Data Sections
+  std::array<MCSection *, binaryformat::Swift5ReflectionSectionKind::last>
+      Swift5ReflectionSections = {};
+
 public:
   void initMCObjectFileInfo(MCContext &MCCtx, bool PIC,
                             bool LargeCodeModel = false);
@@ -439,6 +461,15 @@ public:
 
   bool isPositionIndependent() const { return PositionIndependent; }
 
+  // Swift5 Reflection Data Sections
+  MCSection *getSwift5ReflectionSection(
+      llvm::binaryformat::Swift5ReflectionSectionKind ReflSectionKind) {
+    return ReflSectionKind !=
+                   llvm::binaryformat::Swift5ReflectionSectionKind::unknown
+               ? Swift5ReflectionSections[ReflSectionKind]
+               : nullptr;
+  }
+
 private:
   bool PositionIndependent = false;
   MCContext *Ctx = nullptr;
@@ -450,6 +481,7 @@ private:
   void initELFMCObjectFileInfo(const Triple &T, bool Large);
   void initGOFFMCObjectFileInfo(const Triple &T);
   void initCOFFMCObjectFileInfo(const Triple &T);
+  void initSPIRVMCObjectFileInfo(const Triple &T);
   void initWasmMCObjectFileInfo(const Triple &T);
   void initXCOFFMCObjectFileInfo(const Triple &T);
   MCSection *getDwarfComdatSection(const char *Name, uint64_t Hash) const;

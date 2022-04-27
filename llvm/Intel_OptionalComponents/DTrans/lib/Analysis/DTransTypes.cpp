@@ -883,5 +883,36 @@ void DTransTypeManager::printTypes() const {
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+DTransType *DTransTypeBuilder::getVoidTy() {
+  return TM.getOrCreateAtomicType(Type::getVoidTy(TM.getContext()));
+}
+
+DTransType *DTransTypeBuilder::getIntNTy(unsigned N) {
+  return TM.getOrCreateAtomicType(Type::getIntNTy(TM.getContext(), N));
+}
+
+DTransPointerType *DTransTypeBuilder::getPointerToTy(DTransType *DTy) {
+  return TM.getOrCreatePointerType(DTy);
+}
+
+DTransFunctionType *DTransTypeBuilder::getFunctionType(
+    DTransType *DTRetTy, ArrayRef<DTransType *> ParamTypes, bool IsVarArg) {
+  return TM.getOrCreateFunctionType(DTRetTy, ParamTypes, IsVarArg);
+}
+
+DTransStructType *DTransTypeBuilder::getStructTy(llvm::StructType *Ty) {
+  return TM.getOrCreateStructType(Ty);
+}
+
+void DTransTypeBuilder::populateDTransStructType(
+    DTransStructType *DStructTy, ArrayRef<DTransType *> FieldTypes) {
+  for (unsigned I = 0, NumFields = DStructTy->getNumFields(); I < NumFields;
+       ++I) {
+    dtransOP::DTransFieldMember &Field = DStructTy->getField(I);
+    Field.addResolvedType(FieldTypes[I]);
+  }
+}
+
+
 } // namespace dtransOP
 } // end namespace llvm

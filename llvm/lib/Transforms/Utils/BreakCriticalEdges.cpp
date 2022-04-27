@@ -1,4 +1,21 @@
 //===- BreakCriticalEdges.cpp - Critical Edge Elimination Pass ------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -27,9 +44,7 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Type.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -329,21 +344,16 @@ llvm::SplitKnownCriticalEdge(Instruction *TI, unsigned SuccNum,
 // If ConsiderSwitch flag is enabled, in case of absence of indirectbr
 // predecessor consider an unique switch predecessor as a candidate.
 static BasicBlock *
-findIBRPredecessor(BasicBlock *BB,
-                   SmallVectorImpl<BasicBlock *> &OtherPreds,
+findIBRPredecessor(BasicBlock *BB, SmallVectorImpl<BasicBlock *> &OtherPreds,
                    bool ConsiderSwitch) {
 #endif // INTEL_CUSTOMIZATION
-  // If the block doesn't have any PHIs, we don't care about it, since there's
-  // no point in splitting it.
-  PHINode *PN = dyn_cast<PHINode>(BB->begin());
-  if (!PN)
-    return nullptr;
-
-  // Collect and classify all the unique predecessors. // INTEL
+  // Verify we have exactly one IBR predecessor.
+  // Conservatively bail out if one of the other predecessors is not a "regular"
+  // terminator (that is, not a switch or a br).
   BasicBlock *IBB = nullptr;
+  // Collect and classify all the unique predecessors. // INTEL
   SmallSetVector<BasicBlock *, 4> UniqueSwitchPreds; // INTEL
-  for (unsigned Pred = 0, E = PN->getNumIncomingValues(); Pred != E; ++Pred) {
-    BasicBlock *PredBB = PN->getIncomingBlock(Pred);
+  for (BasicBlock *PredBB : predecessors(BB)) {
     Instruction *PredTerm = PredBB->getTerminator();
     switch (PredTerm->getOpcode()) {
 #if INTEL_CUSTOMIZATION
@@ -385,6 +395,7 @@ findIBRPredecessor(BasicBlock *BB,
 }
 
 bool llvm::SplitIndirectBrCriticalEdges(Function &F,
+                                        bool IgnoreBlocksWithoutPHI,
                                         BranchProbabilityInfo *BPI,
                                         BlockFrequencyInfo *BFI,  // INTEL
                                         bool ConsiderSwitch,      // INTEL
@@ -412,6 +423,8 @@ bool llvm::SplitIndirectBrCriticalEdges(Function &F,
   bool Changed = false;
   while (!Targets.empty()) {                     // INTEL
     BasicBlock *Target = Targets.pop_back_val(); // INTEL
+    if (IgnoreBlocksWithoutPHI && Target->phis().empty())
+      continue;
     SmallVector<BasicBlock *, 16> OtherPreds;
     BasicBlock *IBRPred = findIBRPredecessor(Target, OtherPreds, // INTEL
                                              ConsiderSwitch);    // INTEL

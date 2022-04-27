@@ -4,7 +4,10 @@
 
 ; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
 ; RUN:      -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -opaque-pointers \
-; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -disable-output -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -disable-output -vplan-force-vf=4 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
+; RUN:      -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -opaque-pointers \
+; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -disable-output -vplan-force-vf=4 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -44,7 +47,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT:             |   }
 ; CHECK-NEXT:             + END LOOP
 ; CHECK-NEXT:          }
-; CHECK:               + DO i1 = 4 * %tgu, -1 * %peel.factor1 + 76, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:               + DO i1 = 4 * %tgu, -1 * %peel.factor1 + 76, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 3> <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 ; CHECK-NEXT:          |   if ((%t4)[i1 + %peel.factor1] == &((%t1)[0]))
 ; CHECK-NEXT:          |   {
 ; CHECK-NEXT:          |      %gep = &((%t4)[i1 + %peel.factor1]);

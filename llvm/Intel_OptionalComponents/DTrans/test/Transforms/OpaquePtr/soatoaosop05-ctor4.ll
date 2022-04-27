@@ -2,9 +2,9 @@
 ; can't be merged since the calls (@Not_Ctor1 and @Not_Ctor2) are not
 ; constructor calls.
 
-; RUN: opt < %s -whole-program-assume -disable-output                                                                   \
-; RUN:          -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-struct                                                      \
-; RUN:          -passes='require<dtrans-safetyanalyzer>,function(require<soatoaosop-approx>,require<soatoaosop-struct-methods>)'   \
+; RUN: opt < %s -whole-program-assume -disable-output                                                                     \
+; RUN:          -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-struct                                                    \
+; RUN:          -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-struct-methods>'    \
 ; RUN:          -dtrans-soatoaosop-array-type=struct.Arr                                                                  \
 ; RUN:          -dtrans-soatoaosop-array-type=struct.Arr.0                                                                \
 ; RUN:          -dtrans-soatoaosop-base-ptr-off=2                                                                         \
@@ -13,9 +13,9 @@
 ; RUN:          -dtrans-soatoaosop-array-ctor=_ZN3ArrIPfEC2Ei                                                             \
 ; RUN:       2>&1 | FileCheck %s
 ;
-; RUN: opt < %s -opaque-pointers -whole-program-assume -disable-output                                                                   \
-; RUN:          -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-struct                                                      \
-; RUN:          -passes='require<dtrans-safetyanalyzer>,function(require<soatoaosop-approx>,require<soatoaosop-struct-methods>)'   \
+; RUN: opt < %s -opaque-pointers -whole-program-assume -disable-output                                                    \
+; RUN:          -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-struct                                                    \
+; RUN:          -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-struct-methods>'    \
 ; RUN:          -dtrans-soatoaosop-array-type=struct.Arr                                                                  \
 ; RUN:          -dtrans-soatoaosop-array-type=struct.Arr.0                                                                \
 ; RUN:          -dtrans-soatoaosop-base-ptr-off=2                                                                         \

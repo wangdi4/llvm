@@ -1,4 +1,21 @@
 //===- TypeRecordMapping.cpp ------------------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,10 +24,28 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/CodeView/TypeRecordMapping.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/Twine.h"
+
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/DebugInfo/CodeView/CVTypeVisitor.h"
+#include "llvm/DebugInfo/CodeView/CodeViewRecordIO.h"
 #include "llvm/DebugInfo/CodeView/EnumTables.h"
+#include "llvm/DebugInfo/CodeView/RecordSerialization.h"
+#include "llvm/DebugInfo/CodeView/TypeIndex.h"
+#include "llvm/DebugInfo/CodeView/TypeRecord.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MD5.h"
+#include "llvm/Support/ScopedPrinter.h"
+
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <vector>
 
 using namespace llvm;
 using namespace llvm::codeview;
@@ -771,7 +806,7 @@ Error TypeRecordMapping::visitKnownRecord(CVType &CVR,
   } else {
     if (Record.isF90DescribedArray())
       DataCount = 2;
-	else if (Record.isF90Descriptor())
+	else if (Record.isF90Descriptor() || Record.isF90HostReference())
       DataCount = 1;
     else
       DataCount = 0;
@@ -784,6 +819,56 @@ Error TypeRecordMapping::visitKnownRecord(CVType &CVR,
   }
   if (IO.isReading())
     assert(Record.isValid() && "Malformed OEMTypeRecord!");
+
+  return Error::success();
+}
+
+Error TypeRecordMapping::visitKnownRecord(CVType &CVR, DimArrayRecord &Record) {
+  error(IO.mapInteger(Record.ElementType, "ElementType"));
+  error(IO.mapInteger(Record.DimInfo, "DimInfo"));
+  error(IO.mapStringZ(Record.Name, "Name"));
+
+  return Error::success();
+}
+
+static bool isInt32(TypeIndex TI) {
+  SimpleTypeKind STK = TI.getSimpleKind();
+  return (STK == SimpleTypeKind::Int32 || STK == SimpleTypeKind::Int32Long);
+}
+
+static bool isInt64(TypeIndex TI) {
+  SimpleTypeKind STK = TI.getSimpleKind();
+  return (STK == SimpleTypeKind::Int64 || STK == SimpleTypeKind::Int64Quad);
+}
+
+Error TypeRecordMapping::visitKnownRecord(CVType &CVR, DimConLURecord &Record) {
+  error(IO.mapInteger(Record.IndexType, "IndexType"));
+  error(IO.mapInteger(Record.Rank, "Rank"));
+  TypeIndex TI = Record.IndexType;
+  for (int i = 0; i < 2 * Record.Rank; i++) {
+    if (IO.isReading()) {
+      if (isInt32(TI)) {
+        int32_t B;
+        error(IO.mapInteger(B, "Bound"));
+        Record.Bounds.push_back(B);
+      } else if (isInt64(TI)) {
+        int64_t B;
+        error(IO.mapInteger(B, "Bound"));
+        Record.Bounds.push_back(B);
+      } else {
+        return make_error<CodeViewError>(cv_error_code::corrupt_record);
+      }
+    } else {
+      if (isInt32(TI)) {
+        int32_t B = Record.Bounds[i];
+        error(IO.mapInteger(B, "Bound"));
+      } else if (isInt64(TI)) {
+        error(IO.mapInteger(Record.Bounds[i], "Bound"));
+      } else {
+        return make_error<CodeViewError>(cv_error_code::corrupt_record);
+      }
+    }
+  }
 
   return Error::success();
 }

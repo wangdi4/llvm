@@ -1,6 +1,6 @@
 //=DPCPPKernelVecClone.cpp - Vector function to loop transform -*- C++ -*----=//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -47,7 +47,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPPrepareKernelForVecClone.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/VectorizerUtils.h"
 
 #define SV_NAME "dpcpp-kernel-vec-clone"
@@ -76,6 +75,8 @@ static cl::opt<GlobalWorkSizeLT2GState> LT2GigGlobalWorkSize(
 extern bool DPCPPEnableDirectFunctionCallVectorization;
 extern bool DPCPPEnableSubgroupDirectCallVectorization;
 
+extern cl::opt<VectorVariant::ISAClass> IsaEncodingOverride;
+
 // Static container storing all the vector info entries.
 // Each entry would be a tuple of three strings:
 // 1. scalar variant name
@@ -83,25 +84,6 @@ extern bool DPCPPEnableSubgroupDirectCallVectorization;
 // 3. mangled vector variant name
 static std::vector<std::tuple<std::string, std::string, std::string>>
     ExtendedVectInfos;
-
-namespace llvm {
-
-template <> struct GraphTraits<User *> {
-  using NodeRef = User *;
-  using ChildIteratorType = Value::user_iterator;
-
-  static NodeRef getEntryNode(NodeRef N) { return N; }
-
-  static inline ChildIteratorType child_begin(NodeRef N) {
-    return N->user_begin();
-  }
-
-  static inline ChildIteratorType child_end(NodeRef N) {
-    return N->user_end();
-  }
-};
-
-} // namespace llvm
 
 using DefUseTreeChildSet = SmallPtrSet<Instruction *, 8>;
 using DefUseTree = SmallDenseMap<Instruction *, DefUseTreeChildSet>;
@@ -120,7 +102,7 @@ enum class FnAction {
 
 class DPCPPKernelVecCloneLegacy : public ModulePass {
 private:
-  DPCPPKernelVecClonePass Impl;
+  DPCPPKernelVecCloneImpl Impl;
 
 public:
   static char ID;
@@ -129,11 +111,22 @@ public:
       ArrayRef<VectItem> VectInfos = {},
       VectorVariant::ISAClass ISA = VectorVariant::XMM, bool IsOCL = false);
 
-  bool runOnModule(Module &M) override;
+  bool runOnModule(Module &M) override {
+    auto *VD = getAnalysisIfAvailable<VectorizationDimensionAnalysisLegacy>();
+    Impl.setVectorizationDimensionMap(VD ? &VD->getResult() : nullptr);
+    return Impl.runImpl(M);
+  }
 
   /// Returns the name of the pass.
   llvm::StringRef getPassName() const override {
     return "DPCPPKernelVecCloneLegacy";
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    // For SYCL program, we always do vectorization on dim 0, so the pass won't
+    // be added into the pipeline.
+    AU.addUsedIfAvailable<VectorizationDimensionAnalysisLegacy>();
+    AU.addPreserved<VectorizationDimensionAnalysisLegacy>();
   }
 };
 
@@ -144,7 +137,7 @@ char DPCPPKernelVecCloneLegacy::ID = 0;
 static const char lv_name[] = SV_NAME;
 INITIALIZE_PASS_BEGIN(DPCPPKernelVecCloneLegacy, SV_NAME, lv_name,
                       false /* not modifies CFG */, false /* is_analysis */)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(VectorizationDimensionAnalysisLegacy)
 INITIALIZE_PASS_END(DPCPPKernelVecCloneLegacy, SV_NAME, lv_name,
                     false /* not modifies CFG */, false /* is_analysis */)
 
@@ -152,10 +145,6 @@ DPCPPKernelVecCloneLegacy::DPCPPKernelVecCloneLegacy(
     ArrayRef<VectItem> VectInfos, VectorVariant::ISAClass ISA, bool IsOCL)
     : ModulePass(ID), Impl(VectInfos, ISA, IsOCL) {
   initializeDPCPPKernelVecCloneLegacyPass(*PassRegistry::getPassRegistry());
-}
-
-bool DPCPPKernelVecCloneLegacy::runOnModule(Module &M) {
-  return Impl.runImpl(M);
 }
 
 ModulePass *llvm::createDPCPPKernelVecClonePass(ArrayRef<VectItem> VectInfos,
@@ -171,26 +160,29 @@ DPCPPKernelVecClonePass::DPCPPKernelVecClonePass(ArrayRef<VectItem> VectInfos,
 
 PreservedAnalyses DPCPPKernelVecClonePass::run(Module &M,
                                                ModuleAnalysisManager &AM) {
-  return runImpl(M) ? PreservedAnalyses::none() : PreservedAnalyses::all();
+  Impl.setVectorizationDimensionMap(
+      AM.getCachedResult<VectorizationDimensionAnalysis>(M));
+  return Impl.runImpl(M) ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
 
-bool DPCPPKernelVecClonePass::runImpl(Module &M) { return Impl.runImpl(M); }
-
-// Remove the "recommended_vector_length" metadata from the original kernel.
+// "recommended_vector_length" metadata is removed in DPCPPKernelPostVec.
 // "recommened_vector_length" metadata is used only by DPCPPKernelVecClone.
 // The rest DPCPP kernel transform passes recognize the "vector_width" metadata.
 // Thus, we add "vector_width" metadata to original kernel and cloned kernel.
-static void updateMetadata(Function &F, Function *Clone) {
+static void updateKernelMetadata(Function &F, Function *Clone, unsigned VecDim,
+                                 bool CanUniteWorkgroups) {
   KernelInternalMetadataAPI KIMD(&F);
-  // Get VL from the attribute from the original kernel.
+  // Get VL from the metadata from the original kernel.
   unsigned VectorLength =
       KIMD.RecommendedVL.hasValue() ? KIMD.RecommendedVL.get() : 1;
 
   KernelInternalMetadataAPI CKIMD(Clone);
-  // Set the "vector_width" attribute to the cloned kernel.
+  // Set the "vector_width" metadata to the cloned kernel.
   CKIMD.VectorizedWidth.set(VectorLength);
-  // Set the attribute that points to the orginal kernel of the clone.
+  CKIMD.VectorizationDimension.set(VecDim);
+  // Set the metadata that points to the orginal kernel of the clone.
   CKIMD.ScalarKernel.set(&F);
+  CKIMD.CanUniteWorkgroups.set(CanUniteWorkgroups);
 
   // Set "vector_width" for the original kernel.
   KIMD.VectorizedWidth.set(1);
@@ -467,6 +459,32 @@ static void optimizedUpdateAndMoveTID(Instruction *TIDCallInst, PHINode *Phi,
   TIDTrunc->moveBefore(EntryBlock->getTerminator());
 }
 
+// Utility to check if TID call has trunc or shl users.
+static bool HasTruncOrShlUsers(CallInst *CI) {
+  for (auto *U : CI->users()) {
+    for (auto It = df_begin(U), E = df_end(U); It != E;) {
+      if (auto *I = dyn_cast<Instruction>(*It)) {
+        switch (I->getOpcode()) {
+        case Instruction::Add:
+        case Instruction::Sub:
+        case Instruction::PHI:
+        case Instruction::Select:
+          It++;
+          break;
+        case Instruction::Shl:
+        case Instruction::Trunc:
+          return true;
+        default:
+          It.skipChildren();
+          break;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
 // Utility to check if TID call matches the below pattern -
 // %tid = call i64 get_global_id(i32 0)
 // %cmp = icmp ult i64 %tid, INT32_MAX+1
@@ -513,7 +531,10 @@ static bool isOptimizableSubgroupLocalId(const CallInst *CI) {
 DPCPPKernelVecCloneImpl::DPCPPKernelVecCloneImpl(ArrayRef<VectItem> VectInfos,
                                                  VectorVariant::ISAClass ISA,
                                                  bool IsOCL)
-    : VecCloneImpl(), VectInfos(VectInfos), ISA(ISA), IsOCL(IsOCL) {}
+    : VecCloneImpl(), VectInfos(VectInfos), ISA(ISA), IsOCL(IsOCL) {
+  if (IsaEncodingOverride.getNumOccurrences())
+    this->ISA = IsaEncodingOverride.getValue();
+}
 
 void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
                                                       Function *Clone,
@@ -534,9 +555,16 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
       {mangledGetGlobalLinearId(), FnAction::AssertIfEncountered},
       {mangledGetLocalLinearId(), FnAction::AssertIfEncountered}};
 
-  auto Kernels = getKernels(*F.getParent());
-  std::set<Function *> KernelsSet(Kernels.begin(), Kernels.end());
-  bool IsKernel = KernelsSet.count(&F);
+  bool IsKernel = find(Kernels, &F) != Kernels.end();
+
+  unsigned VecDim = 0;
+  bool CanUniteWorkgroups = false;
+  if (VDMap && IsKernel) {
+    const auto It = VDMap->find(&F);
+    assert(It != VDMap->end() && "VectorizeDimInfo is not found");
+    VecDim = It->second.getVectorizeDim();
+    CanUniteWorkgroups = It->second.getCanUniteWorkGroups();
+  }
 
   // Collect all Kernel function built-ins.
   SmallVector<Instruction *, 4> InstsToRemove;
@@ -564,8 +592,7 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
         ConstantInt *C = dyn_cast<ConstantInt>(CI->getArgOperand(0));
         assert(C && "The function argument must be constant");
         unsigned dim = C->getValue().getZExtValue();
-        if (dim == 0) {
-          // Currently, only zero dimension is vectorized.
+        if (dim == VecDim) {
           // If the get-id calls return i32 (e.g., on 32-bit target), there's
           // no truncation, so we don't need to do special optimization.
           bool TIDIsInt32 = CI->getType()->isIntegerTy(32);
@@ -574,7 +601,7 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
                (FuncName == mangledGetGID() &&
                 ((LT2GigGlobalWorkSize == GWS_TRUE) ||
                  (LT2GigGlobalWorkSize == GWS_AUTO &&
-                  (IsOCL || TIDFitsInInt32(CI)))))))
+                  (IsOCL || (TIDFitsInInt32(CI) && HasTruncOrShlUsers(CI))))))))
             optimizedUpdateAndMoveTID(CI, Phi, EntryBlock);
           else
             updateAndMoveTID(CI, Phi, EntryBlock);
@@ -618,7 +645,7 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
   const unsigned VF = Variant.getVlen();
 
   if (IsKernel)
-    updateMetadata(F, Clone);
+    updateKernelMetadata(F, Clone, VecDim, CanUniteWorkgroups);
   else
     Clone->addFnAttr("widened-size", std::to_string(VF));
 
@@ -681,6 +708,12 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
         KernelCallOnce = false;
     }
 
+    // On avx1/sse42, only builtins with "kernel-call-once" attribute have VF 32
+    // and 64 implementations.
+    if ((ISA == VectorVariant::XMM || ISA == VectorVariant::YMM1) && VF >= 32 &&
+        !KernelCallOnce)
+      continue;
+
     AttributeList AL = Call->getAttributes();
 
     AL = AL.addFnAttribute(Call->getContext(), "vector-variants", Variants);
@@ -719,10 +752,24 @@ static ReturnInfoTy PopulateOCLBuiltinReturnInfo() {
     RetInfo.push_back({std::string("_Z20work_group_broadcast") + Type + "mmm",
                        VectorKind::uniform()});
 
-    for (auto Op : {"add", "min", "max"})
+    for (auto Op : {"add", "min", "max", "mul"})
       RetInfo.push_back({std::string("_Z21work_group_reduce_") + Op + Type,
                          VectorKind::uniform()});
   }
+  const char WorkGroupIntegerTypes[] = {'c', 'h', 's', 't', 'i', 'j', 'l', 'm'};
+  for (char Type : WorkGroupIntegerTypes) {
+    for (const auto *Op : {"bitwise_and", "bitwise_xor"})
+      RetInfo.push_back({std::string("_Z29work_group_reduce_") + Op + Type,
+                        VectorKind::uniform()});
+    RetInfo.push_back({std::string("_Z28work_group_reduce_bitwise_or") + Type,
+                  VectorKind::uniform()});
+  }
+  RetInfo.push_back({std::string("_Z29work_group_reduce_logical_andi"),
+                    VectorKind::uniform()});
+  RetInfo.push_back({std::string("_Z28work_group_reduce_logical_ori"),
+                    VectorKind::uniform()});
+  RetInfo.push_back({std::string("_Z29work_group_reduce_logical_xori"),
+                    VectorKind::uniform()});
 
   // Sub group uniform built-ins
   RetInfo.push_back({std::string("_Z13sub_group_alli"), VectorKind::uniform()});
@@ -799,7 +846,7 @@ void DPCPPKernelVecCloneImpl::languageSpecificInitializations(Module &M) {
             CI->getContext(), "kernel-uniform-call"));
   }
 
-  auto Kernels = getKernels(M);
+  Kernels = getKernels(M).getList();
 
   if (Kernels.empty()) {
     LLVM_DEBUG(dbgs() << lv_name << ":"

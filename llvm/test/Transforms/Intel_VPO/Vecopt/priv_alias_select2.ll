@@ -14,7 +14,11 @@ declare void @llvm.directive.region.exit(token)
 define void @select_two_privates(i64 %init1, i64 %init2, i64* %ptr, i1 zeroext %pred) {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK:          double* [[VP_PRIV2:%.*]] = allocate-priv double*, OrigAlign = 8
+; CHECK-NEXT:     i8* [[VP_PRIV2_BCAST:%.*]] = bitcast double* [[VP_PRIV2]]
+; CHECK-NEXT:     call i64 8 i8* [[VP_PRIV2_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     i64* [[VP_PRIV1:%.*]] = allocate-priv i64*, OrigAlign = 8
+; CHECK-NEXT:     i8* [[VP_PRIV1_BCAST:%.*]] = bitcast i64* [[VP_PRIV1]]
+; CHECK-NEXT:     call i64 8 i8* [[VP_PRIV1_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     i64* [[VP_P2_ALIAS:%.*]] = bitcast double* [[VP_PRIV2]]
 ; CHECK-NEXT:     i64* [[VP_SELECT:%.*]] = select i1 [[PRED0:%.*]] i64* [[VP_PRIV1]] i64* [[VP_P2_ALIAS]]
 

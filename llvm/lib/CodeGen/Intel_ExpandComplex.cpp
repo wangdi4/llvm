@@ -124,6 +124,20 @@ bool expandComplexInstruction(IntrinsicInst *CI, const TargetLowering *TLI,
       CI->eraseFromParent();
       return true;
     }
+    case TargetLowering::ComplexABI::Integer: {
+      // This ABI form packs the type as a small struct in an integer register.
+      // All we need to do is move the integer to a vector register, without any
+      // other munging.
+      uint64_t Width = ComplexVectorTy->getPrimitiveSizeInBits().getFixedSize();
+      Type *IntegerTy = Builder.getIntNTy(Width);
+      FunctionCallee Func = CI->getModule()->getOrInsertFunction(Name,
+        IntegerTy, FloatTy, FloatTy, FloatTy, FloatTy);
+      Value *NewResult = Builder.CreateBitCast(
+        Builder.CreateCall(Func, {LhsR, LhsI, RhsR, RhsI}), ComplexVectorTy);
+      CI->replaceAllUsesWith(NewResult);
+      CI->eraseFromParent();
+      return true;
+    }
     case TargetLowering::ComplexABI::Memory: {
       // Allocate a struct for the return type in the entry block. Stack slot
       // coloring should remove duplicate allocations.
@@ -137,7 +151,7 @@ bool expandComplexInstruction(IntrinsicInst *CI, const TargetLowering *TLI,
       }
 
       AttributeList Attrs;
-      AttrBuilder AB(Attrs, 0);
+      AttrBuilder AB(CI->getContext(), Attrs.getRetAttrs());
       AB.addStructRetAttr(ComplexStructTy);
       FunctionCallee Func = CI->getModule()->getOrInsertFunction(Name, Attrs,
         Type::getVoidTy(CI->getContext()),

@@ -13,8 +13,8 @@
 ; CHECK:      [[GID_CALL:%.*]] = tail call i64 @_Z13get_global_idj(i32 0)
 ; CHECK-NEXT: [[GID_CALL_TRUNC:%.*]] = trunc i64 [[GID_CALL]] to i32
 
-; CHECK-LABEL: simd.loop:
-; CHECK-NEXT:  [[IDX:%.*]] = phi i32 [ 0, %simd.loop.preheader ], [ [[INDVAR:%.*]], %simd.loop.exit ]
+; CHECK-LABEL: simd.loop.header:
+; CHECK-NEXT:  [[IDX:%.*]] = phi i32 [ 0, %simd.loop.preheader ], [ [[INDVAR:%.*]], %simd.loop.latch ]
 ; CHECK-NEXT:  [[ADD_IDX_GID:%.*]] = add nuw i32 [[GID_CALL_TRUNC]], [[IDX]]
 ; CHECK-NEXT:  [[ADD_IDX_GID_SEXT:%.*]] = sext i32 [[ADD_IDX_GID]] to i64
 ; CHECK-NEXT:  [[ASSUME_CMP:%.*]] = icmp ult i64 [[ADD_IDX_GID_SEXT]], 2147483648

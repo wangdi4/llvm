@@ -115,7 +115,8 @@ public:
   RuntimeDDResult isSegmentSupported(const HLLoop *Loop,
                                      const HLLoop *InnermostLoop) const;
 
-  void replaceIVWithBounds(const HLLoop *Loop, const HLLoop *InnerLoop);
+  void replaceIVWithBounds(const HLLoop *Loop, const HLLoop *InnerLoop,
+                           RegDDRef *UnknownLoopUBRef);
 
   void makeConsistent(ArrayRef<const RegDDRef *> AuxRefs, unsigned Level);
 
@@ -145,7 +146,16 @@ struct LoopContext {
   SmallVector<Segment, ExpectedNumberOfTests> SegmentList;
   SmallVector<PredicateTuple, 8> PreConditions;
   SmallVector<unsigned, 8> DelinearizedGroupIndices;
+  DenseMap<unsigned, unsigned> SplitedGroupsOriginalIndices;
   RTDDMethod Method = RTDDMethod::Compare;
+
+  // For convertible unknown loops, we need to create upper bound-related
+  // instructions just after the analysis, so we can use the upper-bound temp
+  // in IVSegments (which is built before the transformation). Those
+  // instructions need to be saved somewhere (e.g., here in LoopContext) for
+  // later use in the transformation.
+  HLInst *UnknownLoopUBLoad = nullptr;
+  HLInst *UnknownLoopUBMax = nullptr;
 
 #ifndef NDEBUG
   LLVM_DUMP_METHOD void dump() {
@@ -202,7 +212,14 @@ private:
   // a specified loopnest.
   // It also fills the applicability vector for the further use.
   void processLoopnest(const HLLoop *OuterLoop, const HLLoop *InnerLoop,
-                       SmallVectorImpl<IVSegment> &IVSegments);
+                       SmallVectorImpl<IVSegment> &IVSegments,
+                       RegDDRef *UnknownLoopUBRef);
+
+  // Check if a given loop is an UNKNOWN loop convertible to a DO loop.
+  bool isConvertibleUnknownLoop(const HLLoop *Loop);
+
+  // Create load and max/ext instructions for the unknown-loop upper-bound.
+  void createUnknownLoopUBInsts(LoopContext &Context);
 
   // Returns required DD tests for an arbitrary loop L.
   RuntimeDDResult computeTests(HLLoop *Loop, LoopContext &Context);

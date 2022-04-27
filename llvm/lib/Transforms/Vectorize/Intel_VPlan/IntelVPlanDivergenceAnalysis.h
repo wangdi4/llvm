@@ -1,3 +1,20 @@
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Copyright (C) 2021 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 #if INTEL_COLLAB
 //===--- IntelVPlanDivergenceAnalysis.h - Divergence Analysis -*- C++ ---*-===//
 //
@@ -17,7 +34,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_DIVERGENCE_ANALYSIS_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_DIVERGENCE_ANALYSIS_H
 
-#include "IntelVPlanSyncDependenceAnalysis.h"
+#include "llvm/Analysis/SyncDependenceAnalysis.h"
 #include "IntelVPlanVectorShape.h"
 #include "llvm/ADT/DenseSet.h"
 #include <queue>
@@ -211,13 +228,15 @@ public:
     recomputeShapes(Seeds);
   }
 
-  // Clone instructions' vector shapes when we clone VPlan. This function is
-  // used when DA recomputation is not allowed.
-  void cloneVectorShapes(VPlanVector *ClonedVPlan,
-                         DenseMap<VPValue *, VPValue *> &OrigClonedValuesMap);
+  // Clone all data (instruction shapes, divergent block info) when we clone
+  // VPlan. This function is used when DA recomputation is not allowed.
+  void cloneDAData(VPlanVector *ClonedVPlan,
+                   DenseMap<VPValue *, VPValue *> &OrigClonedValuesMap);
 
-  // Disable DA recomputation. It is used when we clone DA during VPlan cloning.
-  // When we clone DA after the predicator, we cannot compute/recompute DA.
+  // Disable branch-divergence recomputation. When we clone DA after predicator,
+  // we cannot compute/recompute branch-divergence due to linearization. We can
+  // recalculate divergence for other instructions basing on their operands and
+  // block divergence info gathered during pre-predicator calculations.
   void disableDARecomputation() { DARecomputationDisabled = true; }
 
   /// Returns true if OldShape is not equal to NewShape.
@@ -240,6 +259,11 @@ private:
   /// Propagate divergence to all instructions in the region.
   /// Divergence is seeded by calls to \p markDivergent.
   void computeImpl();
+
+  // Clone instructions' vector shapes when we clone VPlan. This function is
+  // used when DA recomputation is not allowed.
+  void cloneVectorShapes(VPlanVector *ClonedVPlan,
+                         DenseMap<VPValue *, VPValue *> &OrigClonedValuesMap);
 
   /// Push the instruction to the Worklist.
   bool pushToWorklist(const VPInstruction &I);
@@ -345,11 +369,6 @@ private:
   /// Propagate induced value divergence due to control divergence in the
   /// CondBit of \p CondBlock.
   void propagateBranchDivergence(const VPBasicBlock *CondBlock); // INTEL
-
-  /// Propagate divergent caused by a divergent loop exit.
-  ///
-  /// \param ExitingLoop is a divergent loop.
-  void propagateLoopDivergence(const VPLoop &ExitingLoop);
 
   /// Return the type size in bytes.
   unsigned getTypeSizeInBytes(Type *Ty) const;
@@ -460,7 +479,7 @@ private:
   DenseSet<const VPLoop *> DivergentLoops;
 
   // The SDA links divergent branches to divergent control-flow joins.
-  std::unique_ptr<SyncDependenceAnalysis> SDA;
+  std::unique_ptr<SyncDependenceAnalysisImpl<VPBasicBlock>> SDA;
 
   // Use simplified code path for LCSSA form.
   bool IsLCSSAForm = false;
@@ -476,11 +495,6 @@ private:
 
   // Unique-elements of the Worklist.
   DenseSet<const VPInstruction*> OnWorklist;
-
-  // Keep track of instructions that form CondBits and the actual block(s)
-  // containing the CondBit.
-  using BlockVectorTy = SmallVector<const VPBasicBlock *, 4>;
-  DenseMap<const VPValue *, BlockVectorTy> CondBit2BlockMap;
 
   // Disable DA recalculation.
   bool DARecomputationDisabled = false;

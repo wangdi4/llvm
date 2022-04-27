@@ -540,7 +540,7 @@ VPValue *VLSTransform::adjustBasePtrForReverse(VPValue *Base,
     return Result;
   }
 
-  auto *Ty = BaseTy->getElementType();
+  auto *Ty = BaseTy->getPointerElementType();
   // We rely on no gaps and equal sizes here.
   assert(DL.getTypeSizeInBits(GroupTy->getElementType()) ==
              DL.getTypeSizeInBits(Ty) &&

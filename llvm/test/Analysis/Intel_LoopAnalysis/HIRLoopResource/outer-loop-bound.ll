@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-loop-resource | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-loop-resource | FileCheck %s
 ; RUN: opt < %s -passes=hir-ssa-deconstruction | opt -passes="print<hir-loop-resource>" -disable-output 2>&1 | FileCheck %s
 
 ; Src code-
@@ -37,7 +37,7 @@
 ; CHECK: + END LOOP
 
 ; Verify that i1 loop's total resource is marked as memory bound (even when cost of integer operations and memory operations is same) because of i2 loop.
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-loop-resource -hir-print-total-resource | FileCheck -check-prefix=TOTAL %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-loop-resource -hir-print-total-resource | FileCheck -check-prefix=TOTAL %s
 ; RUN: opt < %s -passes=hir-ssa-deconstruction | opt -passes="print<hir-loop-resource>" -hir-print-total-resource -disable-output 2>&1 | FileCheck -check-prefix=TOTAL %s
 
 ; TOTAL: + DO i1 = 0, %n + -1, 1   <DO_LOOP>

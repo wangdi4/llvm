@@ -1,3 +1,20 @@
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2021 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 #if INTEL_CUSTOMIZATION
 //===--- Target RTLs Implementation ---------------------------------------===//
 //
@@ -151,6 +168,21 @@ TRACE_FN_DEF(zeCommandListCreate)(
   TRACE_FN_ARG_PTR(phCommandList);
   TRACE_FN_ARG_END();
   return rc;
+}
+
+TRACE_FN_DEF(zeCommandListCreateImmediate)(
+    ze_context_handle_t hContext,
+    ze_device_handle_t hDevice,
+    const ze_command_queue_desc_t *altdesc,
+    ze_command_list_handle_t *phCommandList) {
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hContext);
+  TRACE_FN_ARG_PTR(hDevice);
+  TRACE_FN_ARG_PTR(altdesc);
+  TRACE_FN_ARG_PTR(phCommandList);
+  TRACE_FN_ARG_END();
+  return zeCommandListCreateImmediate(hContext, hDevice, altdesc,
+                                      phCommandList);
 }
 
 TRACE_FN_DEF(zeCommandListDestroy)(
@@ -317,6 +349,30 @@ TRACE_FN_DEF(zeDeviceGetSubDevices)(
   TRACE_FN_ARG_PTR(phSubdevices);
   TRACE_FN_ARG_END();
   return rc;
+}
+
+TRACE_FN_DEF(zeDeviceGetMemoryProperties)(
+    ze_device_handle_t hDevice,
+    uint32_t *pCount,
+    ze_device_memory_properties_t *pMemProperties) {
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hDevice);
+  TRACE_FN_ARG_PTR(pCount);
+  TRACE_FN_ARG_PTR(pMemProperties);
+  TRACE_FN_ARG_END();
+  return zeDeviceGetMemoryProperties(hDevice, pCount, pMemProperties);
+}
+
+TRACE_FN_DEF(zeDeviceGetCacheProperties)(
+    ze_device_handle_t hDevice,
+    uint32_t *pCount,
+    ze_device_cache_properties_t *pCacheProperties) {
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hDevice);
+  TRACE_FN_ARG_PTR(pCount);
+  TRACE_FN_ARG_PTR(pCacheProperties);
+  TRACE_FN_ARG_END();
+  return zeDeviceGetCacheProperties(hDevice, pCount, pCacheProperties);
 }
 
 TRACE_FN_DEF(zeDriverGet)(
@@ -783,6 +839,18 @@ TRACE_FN_DEF(zeModuleGetProperties)(
   TRACE_FN_ARG_PTR(pModuleProperties);
   TRACE_FN_ARG_END();
   return rc;
+}
+
+TRACE_FN_DEF(zeModuleGetKernelNames)(
+    ze_module_handle_t hModule,
+    uint32_t *pCount,
+    const char **pNames) {
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hModule);
+  TRACE_FN_ARG_PTR(pCount);
+  TRACE_FN_ARG_PTR(pNames);
+  TRACE_FN_ARG_END();
+  return zeModuleGetKernelNames(hModule, pCount, pNames);
 }
 
 #define CALL_ZE(Rc, Fn, ...)                                                   \

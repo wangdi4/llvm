@@ -1,4 +1,21 @@
 //===--- Driver.h - Clang GCC Compatible Driver -----------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -12,6 +29,7 @@
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/LLVM.h"
 #include "clang/Driver/Action.h"
+#include "clang/Driver/InputInfo.h"
 #include "clang/Driver/Options.h"
 #include "clang/Driver/Phases.h"
 #include "clang/Driver/ToolChain.h"
@@ -38,13 +56,14 @@ namespace clang {
 
 namespace driver {
 
-  class Command;
-  class Compilation;
-  class InputInfo;
-  class JobList;
-  class JobAction;
-  class SanitizerArgs;
-  class ToolChain;
+typedef SmallVector<InputInfo, 4> InputInfoList;
+
+class Command;
+class Compilation;
+class JobList;
+class JobAction;
+class SanitizerArgs;
+class ToolChain;
 
 /// Describes the kind of LTO mode selected via -f(no-)?lto(=.*)? options.
 enum LTOKind {
@@ -66,7 +85,8 @@ class Driver {
     GXXMode,
     CPPMode,
     CLMode,
-    FlangMode
+    FlangMode,
+    DXCMode
   } Mode;
 
   enum SaveTempsMode {
@@ -171,9 +191,11 @@ public:
   /// The file to log CC_LOG_DIAGNOSTICS output to, if enabled.
   std::string CCLogDiagnosticsFilename;
 
+  /// An input type and its arguments.
+  using InputTy = std::pair<types::ID, const llvm::opt::Arg *>;
+
   /// A list of inputs and their types for the given arguments.
-  typedef SmallVector<std::pair<types::ID, const llvm::opt::Arg *>, 16>
-      InputList;
+  using InputList = SmallVector<InputTy, 16>;
 
   /// Whether the driver should follow g++ like behavior.
   bool CCCIsCXX() const { return Mode == GXXMode; }
@@ -198,6 +220,8 @@ public:
   /// Whether the driver should follow Intel compiler behavior.
   bool IsDPCPPMode() const { return DPCPPMode; }
 #endif // INTEL_CUSTOMIZATION
+  /// Whether the driver should follow dxc.exe like behavior.
+  bool IsDXCMode() const { return Mode == DXCMode; }
 
   /// Only print tool bindings, don't build any jobs.
   unsigned CCCPrintBindings : 1;
@@ -438,6 +462,18 @@ public:
   void BuildUniversalActions(Compilation &C, const ToolChain &TC,
                              const InputList &BAInputs) const;
 
+  /// BuildOffloadingActions - Construct the list of actions to perform for the
+  /// offloading toolchain that will be embedded in the host.
+  ///
+  /// \param C - The compilation that is being built.
+  /// \param Args - The input arguments.
+  /// \param Input - The input type and arguments
+  /// \param HostAction - The host action used in the offloading toolchain.
+  Action *BuildOffloadingActions(Compilation &C,
+                                 llvm::opt::DerivedArgList &Args,
+                                 const InputTy &Input,
+                                 Action *HostAction) const;
+
   /// Check that the file referenced by Value exists. If it doesn't,
   /// issue a diagnostic and return false.
   /// If TypoCorrect is true and the file does not exist, see if it looks
@@ -549,13 +585,12 @@ public:
   /// BuildJobsForAction - Construct the jobs to perform for the action \p A and
   /// return an InputInfo for the result of running \p A.  Will only construct
   /// jobs for a given (Action, ToolChain, BoundArch, DeviceKind) tuple once.
-  InputInfo
-  BuildJobsForAction(Compilation &C, const Action *A, const ToolChain *TC,
-                     StringRef BoundArch, bool AtTopLevel, bool MultipleArchs,
-                     const char *LinkingOutput,
-                     std::map<std::pair<const Action *, std::string>, InputInfo>
-                         &CachedResults,
-                     Action::OffloadKind TargetDeviceOffloadKind) const;
+  InputInfoList BuildJobsForAction(
+      Compilation &C, const Action *A, const ToolChain *TC, StringRef BoundArch,
+      bool AtTopLevel, bool MultipleArchs, const char *LinkingOutput,
+      std::map<std::pair<const Action *, std::string>, InputInfoList>
+          &CachedResults,
+      Action::OffloadKind TargetDeviceOffloadKind) const;
 
   /// Returns the default name for linked images (e.g., "a.out").
   const char *getDefaultImageName() const;
@@ -655,9 +690,9 @@ private:
   ///
   /// \param[in] HostTC is the host ToolChain paired with the device
   ///
-  /// \param[in] Action (e.g. OFK_Cuda/OFK_OpenMP/OFK_SYCL) is an Offloading
-  /// action that is optionally passed to a ToolChain (used by CUDA, to specify
-  /// if it's used in conjunction with OpenMP)
+  /// \param[in] TargetDeviceOffloadKind (e.g. OFK_Cuda/OFK_OpenMP/OFK_SYCL) is
+  /// an Offloading action that is optionally passed to a ToolChain (used by
+  /// CUDA, to specify if it's used in conjunction with OpenMP)
   ///
   /// Will cache ToolChains for the life of the driver object, and create them
   /// on-demand.
@@ -680,10 +715,10 @@ private:
   /// Helper used in BuildJobsForAction.  Doesn't use the cache when building
   /// jobs specifically for the given action, but will use the cache when
   /// building jobs for the Action's inputs.
-  InputInfo BuildJobsForActionNoCache(
+  InputInfoList BuildJobsForActionNoCache(
       Compilation &C, const Action *A, const ToolChain *TC, StringRef BoundArch,
       bool AtTopLevel, bool MultipleArchs, const char *LinkingOutput,
-      std::map<std::pair<const Action *, std::string>, InputInfo>
+      std::map<std::pair<const Action *, std::string>, InputInfoList>
           &CachedResults,
       Action::OffloadKind TargetDeviceOffloadKind) const;
 

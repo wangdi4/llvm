@@ -1,4 +1,21 @@
 //===-- CodeGen.cpp -------------------------------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -24,6 +41,7 @@ void llvm::initializeCodeGen(PassRegistry &Registry) {
   initializeBranchFolderPassPass(Registry);
   initializeBranchRelaxationPass(Registry);
   initializeCFGuardLongjmpPass(Registry);
+  initializeCFIFixupPass(Registry);
   initializeCFIInstrInserterPass(Registry);
   initializeCheckDebugMachineModulePass(Registry);
   initializeCodeGenPreparePass(Registry);
@@ -50,6 +68,7 @@ void llvm::initializeCodeGen(PassRegistry &Registry) {
   initializeIndirectBrExpandPassPass(Registry);
   initializeInterleavedLoadCombinePass(Registry);
   initializeInterleavedAccessPass(Registry);
+  initializeJMCInstrumenterPass(Registry);
   initializeLiveDebugValuesPass(Registry);
   initializeLiveDebugVariablesPass(Registry);
   initializeLiveIntervalsPass(Registry);
@@ -57,6 +76,7 @@ void llvm::initializeCodeGen(PassRegistry &Registry) {
   initializeLiveStacksPass(Registry);
   initializeLiveVariablesPass(Registry);
   initializeLocalStackSlotPassPass(Registry);
+  initializeLowerGlobalDtorsLegacyPassPass(Registry);
   initializeLowerIntrinsicsPass(Registry);
   initializeMIRAddFSDiscriminatorsPass(Registry);
   initializeMIRCanonicalizerPass(Registry);

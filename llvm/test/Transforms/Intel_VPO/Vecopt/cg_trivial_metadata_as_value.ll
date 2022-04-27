@@ -3,7 +3,8 @@
 ; represented via VPMetadataAsValue in VPlan CFG.
 
 ; RUN: opt < %s -S -vplan-vec -vplan-force-vf=2 | FileCheck %s --check-prefix=LLVM-IR
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=2 -vplan-enable-new-cfg-merge-hir=false -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=2 -vplan-enable-new-cfg-merge-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
 
 define void @mod_gauss_hermite_mp_derquadgausshermite_(double* %ptr, double %T_fetch, i64 %N) local_unnamed_addr {
 ; LLVM-IR-LABEL: @mod_gauss_hermite_mp_derquadgausshermite_(
@@ -27,26 +28,18 @@ define void @mod_gauss_hermite_mp_derquadgausshermite_(double* %ptr, double %T_f
 ; LLVM-IR-NEXT:    br i1 [[TMP9]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], [[LOOP0:!llvm.loop !.*]]
 ;
 ; HIR-LABEL:Function: mod_gauss_hermite_mp_derquadgausshermite_
-; HIR-LABEL:          BEGIN REGION { modified }
-; HIR-NEXT:               %tgu = (smax(0, %N) + 1)/u2;
-; HIR-NEXT:               if (0 <u 2 * %tgu)
-; HIR-NEXT:               {
-; HIR-NEXT:                  + DO i1 = 0, 2 * %tgu + -1, 2   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
-; HIR-NEXT:                  |   %.vec = (<2 x double>*)(%ptr)[i1];
-; HIR-NEXT:                  |   %serial.temp = undef;
-; HIR-NEXT:                  |   %extract.0. = extractelement %.vec,  0;
-; HIR-NEXT:                  |   %llvm.experimental.constrained.fmul.f64 = @llvm.experimental.constrained.fmul.f64(%extract.0.,  %T_fetch,  !"round.dynamic",  !"fpexcept.strict");
-; HIR-NEXT:                  |   %serial.temp = insertelement %serial.temp,  %llvm.experimental.constrained.fmul.f64,  0;
-; HIR-NEXT:                  |   %extract.1. = extractelement %.vec,  1;
-; HIR-NEXT:                  |   %llvm.experimental.constrained.fmul.f642 = @llvm.experimental.constrained.fmul.f64(%extract.1.,  %T_fetch,  !"round.dynamic",  !"fpexcept.strict");
-; HIR-NEXT:                  |   %serial.temp = insertelement %serial.temp,  %llvm.experimental.constrained.fmul.f642,  1;
-; HIR-NEXT:                  + END LOOP
-; HIR-NEXT:               }
-; HIR-LABEL:               + DO i1 = 2 * %tgu, smax(0, %N), 1   <DO_LOOP>  <MAX_TC_EST = 1> <nounroll> <novectorize> <max_trip_count = 1>
-; HIR-NEXT:               |   %"mod_gauss_hermite_mp_h2d_[][]_fetch" = (%ptr)[i1];
-; HIR-NEXT:               |   %mul = @llvm.experimental.constrained.fmul.f64(%"mod_gauss_hermite_mp_h2d_[][]_fetch",  %T_fetch,  !"round.dynamic",  !"fpexcept.strict");
-; HIR-NEXT:               + END LOOP
-; HIR-NEXT:          END REGION
+; HIR-LABEL:         BEGIN REGION { modified }
+; HIR:                  + DO i1 = 0, {{.*}}, 2   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
+; HIR-NEXT:             |   [[LD:%.*]] = (<2 x double>*)(%ptr)[i1];
+; HIR-NEXT:             |   %serial.temp = undef;
+; HIR-NEXT:             |   [[EXTRACT_0:%.*]] = extractelement [[LD]],  0;
+; HIR-NEXT:             |   [[CALL_0:%.*]] = @llvm.experimental.constrained.fmul.f64([[EXTRACT_0]],  %T_fetch,  !"round.dynamic",  !"fpexcept.strict");
+; HIR-NEXT:             |   %serial.temp = insertelement %serial.temp,  [[CALL_0]],  0;
+; HIR-NEXT:             |   [[EXTRACT_1:%.*]] = extractelement [[LD]],  1;
+; HIR-NEXT:             |   [[CALL_1:%.*]] = @llvm.experimental.constrained.fmul.f64([[EXTRACT_1]],  %T_fetch,  !"round.dynamic",  !"fpexcept.strict");
+; HIR-NEXT:             |   %serial.temp = insertelement %serial.temp,  [[CALL_1]],  1;
+; HIR-NEXT:             + END LOOP
+; HIR:               END REGION
 ;
 DIR.OMP.SIMD.1:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

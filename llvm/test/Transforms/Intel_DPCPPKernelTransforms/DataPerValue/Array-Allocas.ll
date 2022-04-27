@@ -1,5 +1,5 @@
 ; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-data-per-value-analysis>' -S < %s | FileCheck %s
-; RUN: opt -analyze -dpcpp-kernel-data-per-value-analysis -S < %s | FileCheck %s
+; RUN: opt -analyze -enable-new-pm=0 -dpcpp-kernel-data-per-value-analysis -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the DataPerValue pass
@@ -31,11 +31,12 @@ L0:
 ; CHECK: -p (0)
 ; CHECK: -p1 (16)
 
-; CHECK: Buffer Total Size:
-; CHECK-NOT: entry
-; CHECK: entry(0) : (24)
-; CHECK-NOT: entry
-; CHECK: DONE
+; CHECK: Function Equivalence Classes:
+; CHECK-NEXT: [main]: main
+
+; CHECK-NEXT: Buffer Total Size:
+; CHECK-NEXT: leader(main) : (24)
+; CHECK-NEXT: DONE
 
 !sycl.kernels = !{!0}
 

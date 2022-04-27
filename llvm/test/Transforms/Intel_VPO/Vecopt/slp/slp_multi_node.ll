@@ -8,17 +8,14 @@ define void @simple(i32 *%a, i32 *%b, i32 *%c) #0 {
 ; CHECK-LABEL: @simple(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[GEP_A0:%.*]] = getelementptr i32, i32* [[A:%.*]], i32 0
-; CHECK-NEXT:    [[GEP_A1:%.*]] = getelementptr i32, i32* [[A]], i32 1
 ; CHECK-NEXT:    [[GEP_B0:%.*]] = getelementptr i32, i32* [[B:%.*]], i32 0
-; CHECK-NEXT:    [[GEP_B1:%.*]] = getelementptr i32, i32* [[B]], i32 1
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[GEP_A0]] to <2 x i32>*
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[GEP_B0]] to <2 x i32>*
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
 ; CHECK-NEXT:    [[TMP4:%.*]] = add <2 x i32> [[TMP3]], <i32 42, i32 43>
 ; CHECK-NEXT:    [[TMP5:%.*]] = add <2 x i32> [[TMP4]], [[TMP1]]
-; CHECK-NEXT:    [[GEP1:%.*]] = getelementptr inbounds i32, i32* [[C:%.*]], i64 1
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[C]] to <2 x i32>*
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[C:%.*]] to <2 x i32>*
 ; CHECK-NEXT:    store <2 x i32> [[TMP5]], <2 x i32>* [[TMP6]], align 4
 ; CHECK-NEXT:    ret void
 ;
@@ -55,19 +52,17 @@ define void @negative_different_sign_reorder(i32 *%a, i32 *%b, i32* %c) #0 {
 ; CHECK-LABEL: @negative_different_sign_reorder(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[GEP_A0:%.*]] = getelementptr i32, i32* [[A:%.*]], i32 0
-; CHECK-NEXT:    [[GEP_A1:%.*]] = getelementptr i32, i32* [[A]], i32 1
 ; CHECK-NEXT:    [[GEP_B0:%.*]] = getelementptr i32, i32* [[B:%.*]], i32 0
 ; CHECK-NEXT:    [[GEP_B1:%.*]] = getelementptr i32, i32* [[B]], i32 1
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[GEP_A0]] to <2 x i32>*
-; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[B0:%.*]] = load i32, i32* [[GEP_B0]], align 4
 ; CHECK-NEXT:    [[B1:%.*]] = load i32, i32* [[GEP_B1]], align 4
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[GEP_A0]] to <2 x i32>*
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = insertelement <2 x i32> <i32 poison, i32 43>, i32 [[B0]], i32 0
 ; CHECK-NEXT:    [[TMP3:%.*]] = add <2 x i32> [[TMP2]], [[TMP1]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = insertelement <2 x i32> <i32 42, i32 poison>, i32 [[B1]], i32 1
 ; CHECK-NEXT:    [[TMP5:%.*]] = sub <2 x i32> [[TMP4]], [[TMP3]]
-; CHECK-NEXT:    [[GEP1:%.*]] = getelementptr inbounds i32, i32* [[C:%.*]], i64 1
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[C]] to <2 x i32>*
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[C:%.*]] to <2 x i32>*
 ; CHECK-NEXT:    store <2 x i32> [[TMP5]], <2 x i32>* [[TMP6]], align 4
 ; CHECK-NEXT:    ret void
 ;
@@ -103,17 +98,14 @@ define void @wrap_flags_simple(i32 *%a, i32 *%b, i32 *%c) #0 {
 ; CHECK-LABEL: @wrap_flags_simple(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[GEP_A0:%.*]] = getelementptr i32, i32* [[A:%.*]], i32 0
-; CHECK-NEXT:    [[GEP_A1:%.*]] = getelementptr i32, i32* [[A]], i32 1
 ; CHECK-NEXT:    [[GEP_B0:%.*]] = getelementptr i32, i32* [[B:%.*]], i32 0
-; CHECK-NEXT:    [[GEP_B1:%.*]] = getelementptr i32, i32* [[B]], i32 1
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[GEP_A0]] to <2 x i32>*
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[GEP_B0]] to <2 x i32>*
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
 ; CHECK-NEXT:    [[TMP4:%.*]] = add <2 x i32> [[TMP3]], <i32 42, i32 43>
 ; CHECK-NEXT:    [[TMP5:%.*]] = add <2 x i32> [[TMP4]], [[TMP1]]
-; CHECK-NEXT:    [[GEP1:%.*]] = getelementptr inbounds i32, i32* [[C:%.*]], i64 1
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[C]] to <2 x i32>*
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[C:%.*]] to <2 x i32>*
 ; CHECK-NEXT:    store <2 x i32> [[TMP5]], <2 x i32>* [[TMP6]], align 4
 ; CHECK-NEXT:    ret void
 ;
@@ -153,19 +145,17 @@ define void @fmf_flags_simple(float *%a, float *%b, float *%c) #0 {
 ; CHECK-LABEL: @fmf_flags_simple(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[GEP_A0:%.*]] = getelementptr float, float* [[A:%.*]], i64 0
-; CHECK-NEXT:    [[GEP_A1:%.*]] = getelementptr float, float* [[A]], i64 1
 ; CHECK-NEXT:    [[GEP_B0:%.*]] = getelementptr float, float* [[B:%.*]], i64 0
 ; CHECK-NEXT:    [[GEP_B1:%.*]] = getelementptr float, float* [[B]], i64 1
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast float* [[GEP_A0]] to <2 x float>*
-; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x float>, <2 x float>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[B0:%.*]] = load float, float* [[GEP_B0]], align 4
 ; CHECK-NEXT:    [[B1:%.*]] = load float, float* [[GEP_B1]], align 4
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast float* [[GEP_A0]] to <2 x float>*
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x float>, <2 x float>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = insertelement <2 x float> <float poison, float 4.300000e+01>, float [[B0]], i32 0
 ; CHECK-NEXT:    [[TMP3:%.*]] = fadd fast <2 x float> [[TMP2]], [[TMP1]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = insertelement <2 x float> <float 4.200000e+01, float poison>, float [[B1]], i32 1
 ; CHECK-NEXT:    [[TMP5:%.*]] = fadd fast <2 x float> [[TMP3]], [[TMP4]]
-; CHECK-NEXT:    [[GEP1:%.*]] = getelementptr inbounds float, float* [[C:%.*]], i64 1
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast float* [[C]] to <2 x float>*
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast float* [[C:%.*]] to <2 x float>*
 ; CHECK-NEXT:    store <2 x float> [[TMP5]], <2 x float>* [[TMP6]], align 4
 ; CHECK-NEXT:    ret void
 ;
@@ -201,9 +191,7 @@ define void @wrap_flags_jr33142(i32 *%a, i32 *%b, i32 *%c) #0 {
 ; CHECK-LABEL: @wrap_flags_jr33142(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[GEP_A0:%.*]] = getelementptr i32, i32* [[A:%.*]], i32 0
-; CHECK-NEXT:    [[GEP_A1:%.*]] = getelementptr i32, i32* [[A]], i32 1
 ; CHECK-NEXT:    [[GEP_B0:%.*]] = getelementptr i32, i32* [[B:%.*]], i32 0
-; CHECK-NEXT:    [[GEP_B1:%.*]] = getelementptr i32, i32* [[B]], i32 1
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[GEP_A0]] to <2 x i32>*
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[GEP_B0]] to <2 x i32>*
@@ -211,8 +199,7 @@ define void @wrap_flags_jr33142(i32 *%a, i32 *%b, i32 *%c) #0 {
 ; CHECK-NEXT:    [[TMP4:%.*]] = mul nuw nsw <2 x i32> [[TMP1]], <i32 7, i32 7>
 ; CHECK-NEXT:    [[TMP5:%.*]] = add <2 x i32> <i32 -1, i32 -1>, [[TMP3]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = add <2 x i32> [[TMP5]], [[TMP4]]
-; CHECK-NEXT:    [[GEP1:%.*]] = getelementptr inbounds i32, i32* [[C:%.*]], i64 1
-; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i32* [[C]] to <2 x i32>*
+; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i32* [[C:%.*]] to <2 x i32>*
 ; CHECK-NEXT:    store <2 x i32> [[TMP6]], <2 x i32>* [[TMP7]], align 4
 ; CHECK-NEXT:    ret void
 ;
@@ -254,9 +241,7 @@ define void @wrap_flags_alt_opcode(i32 *%a, i32 *%b, i32 *%c) #0 {
 ; CHECK-LABEL: @wrap_flags_alt_opcode(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[GEP_A0:%.*]] = getelementptr i32, i32* [[A:%.*]], i32 0
-; CHECK-NEXT:    [[GEP_A1:%.*]] = getelementptr i32, i32* [[A]], i32 1
 ; CHECK-NEXT:    [[GEP_B0:%.*]] = getelementptr i32, i32* [[B:%.*]], i32 0
-; CHECK-NEXT:    [[GEP_B1:%.*]] = getelementptr i32, i32* [[B]], i32 1
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[GEP_A0]] to <2 x i32>*
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[GEP_B0]] to <2 x i32>*
@@ -265,8 +250,7 @@ define void @wrap_flags_alt_opcode(i32 *%a, i32 *%b, i32 *%c) #0 {
 ; CHECK-NEXT:    [[TMP5:%.*]] = sub <2 x i32> [[TMP1]], <i32 42, i32 43>
 ; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <2 x i32> [[TMP4]], <2 x i32> [[TMP5]], <2 x i32> <i32 0, i32 3>
 ; CHECK-NEXT:    [[TMP7:%.*]] = add <2 x i32> [[TMP6]], [[TMP3]]
-; CHECK-NEXT:    [[GEP1:%.*]] = getelementptr inbounds i32, i32* [[C:%.*]], i64 1
-; CHECK-NEXT:    [[TMP8:%.*]] = bitcast i32* [[C]] to <2 x i32>*
+; CHECK-NEXT:    [[TMP8:%.*]] = bitcast i32* [[C:%.*]] to <2 x i32>*
 ; CHECK-NEXT:    store <2 x i32> [[TMP7]], <2 x i32>* [[TMP8]], align 4
 ; CHECK-NEXT:    ret void
 ;

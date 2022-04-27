@@ -1,4 +1,4 @@
-; RUN: opt < %s -vpo-paropt -scoped-noalias-aa -licm -S 2>&1 | FileCheck %s
+; RUN: opt -vpo-paropt -scoped-noalias-aa -licm -S %s 2>&1 | FileCheck %s
 
 ; After paropt, the load of c0 should be hoisted by LICM as invariant.
 ; VPO outlines the for loop and generates noalias sets for the load and store.

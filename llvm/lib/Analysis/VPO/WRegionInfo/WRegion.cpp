@@ -1,4 +1,19 @@
 #if INTEL_COLLAB
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //===----- WRegion.cpp - Implements the WRegion class ---------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -229,6 +244,10 @@ void WRNParallelLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   vpo::printExtraForParallel(this, OS, Depth, Verbosity);
   vpo::printExtraForOmpLoop(this, OS, Depth, Verbosity);
   vpo::printExtraForCancellationPoints(this, OS, Depth, Verbosity);
+#if INTEL_CUSTOMIZATION
+  unsigned Indent = 2 * Depth;
+  vpo::printBool("EXT_DO_CONCURRENT", getIsDoConcurrent(), OS, Indent, Verbosity);
+#endif // INTEL_CUSTOMIZATION
 }
 
 //
@@ -305,6 +324,9 @@ void WRNTeamsNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   vpo::printVal("NUM_TEAMS", getNumTeams(), OS, Indent, Verbosity);
   vpo::printStr("DEFAULT", WRNDefaultName[getDefault()], OS, Indent,
                 Verbosity);
+#if INTEL_CUSTOMIZATION
+  vpo::printBool("EXT_DO_CONCURRENT", getIsDoConcurrent(), OS, Indent, Verbosity);
+#endif // INTEL_CUSTOMIZATION
 }
 
 //
@@ -336,6 +358,10 @@ void WRNDistributeParLoopNode::printExtra(formatted_raw_ostream &OS,
   // Similar to WRNParallelLoopNode::printExtra
   vpo::printExtraForParallel(this, OS, Depth, Verbosity);
   vpo::printExtraForOmpLoop(this, OS, Depth, Verbosity);
+#if INTEL_CUSTOMIZATION
+  unsigned Indent = 2 * Depth;
+  vpo::printBool("EXT_DO_CONCURRENT", getIsDoConcurrent(), OS, Indent, Verbosity);
+#endif // INTEL_CUSTOMIZATION
 }
 
 //
@@ -348,7 +374,6 @@ WRNTargetNode::WRNTargetNode(BasicBlock *BB)
   setIsTarget();
   setIf(nullptr);
   setDevice(nullptr);
-  setNowait(false);
   setParLoopNdInfoAlloca(nullptr);
   setOffloadEntryIdx(-1);
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetNode<" << getNumber() << ">\n");
@@ -358,6 +383,10 @@ WRNTargetNode::WRNTargetNode(BasicBlock *BB)
 void WRNTargetNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                unsigned Verbosity) const {
   vpo::printExtraForTarget(this, OS, Depth, Verbosity);
+#if INTEL_CUSTOMIZATION
+  unsigned Indent = 2 * Depth;
+  vpo::printBool("EXT_DO_CONCURRENT", getIsDoConcurrent(), OS, Indent, Verbosity);
+#endif // INTEL_CUSTOMIZATION
 }
 
 //
@@ -369,15 +398,16 @@ WRNInteropNode::WRNInteropNode(BasicBlock* BB)
     : WRegionNode(WRegionNode::WRNInterop, BB) {
   setIsInterop();
   setDevice(nullptr);
-  setNowait(false);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNInteropNode<" << getNumber() << ">\n");
 }
 
 // printer
-void WRNInteropNode::printExtra(formatted_raw_ostream& OS, unsigned Depth,
-    unsigned Verbosity) const {
-    vpo::printExtraForInterop(this, OS, Depth, Verbosity);
+void WRNInteropNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                unsigned Verbosity) const {
+  unsigned Indent = 2 * Depth;
+  vpo::printVal("DEVICE", getDevice(), OS, Indent, Verbosity);
+  vpo::printBool("NOWAIT", getNowait(), OS, Indent, Verbosity);
 }
 
 //
@@ -410,7 +440,6 @@ WRNTargetEnterDataNode::WRNTargetEnterDataNode(BasicBlock *BB)
   setIsTarget();
   setIf(nullptr);
   setDevice(nullptr);
-  setNowait(false);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetEnterDataNode<" << getNumber()
                     << ">\n");
@@ -433,7 +462,6 @@ WRNTargetExitDataNode::WRNTargetExitDataNode(BasicBlock *BB)
   setIsTarget();
   setIf(nullptr);
   setDevice(nullptr);
-  setNowait(false);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetExitDataNode<" << getNumber()
                     << ">\n");
@@ -456,7 +484,6 @@ WRNTargetUpdateNode::WRNTargetUpdateNode(BasicBlock *BB)
   setIsTarget();
   setIf(nullptr);
   setDevice(nullptr);
-  setNowait(false);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetUpdateNode<" << getNumber()
                     << ">\n");
@@ -477,7 +504,6 @@ WRNTargetVariantNode::WRNTargetVariantNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNTargetVariant, BB) {
   setIsTarget();
   setDevice(nullptr);
-  setNowait(false);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetVariantNode<" << getNumber()
                     << ">\n");
@@ -501,7 +527,6 @@ WRNDispatchNode::WRNDispatchNode(BasicBlock *BB)
   setDevice(nullptr);
   setNocontext(nullptr);
   setNovariants(nullptr);
-  setNowait(false);
   setCall(nullptr);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNDispatchNode<" << getNumber()
@@ -673,6 +698,28 @@ void WRNVecLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   vpo::printVal("IF", getIf(), OS, Indent, Verbosity);
   vpo::printStr("ORDER", WRNLoopOrderName[getLoopOrder()], OS, Indent,
                 Verbosity);
+#if INTEL_CUSTOMIZATION
+  vpo::printBool("EXT_DO_CONCURRENT", getIsDoConcurrent(), OS, Indent, Verbosity);
+#endif // INTEL_CUSTOMIZATION
+
+  if (getRed().empty() ||
+      llvm::none_of(getRed().items(),
+                    [](ReductionItem *RI) { return RI->getIsInscan(); }))
+    return;
+
+  OS.indent(Indent) << "REDUCTION-INSCAN maps: ";
+
+  for (auto *RI : getRed().items()) {
+    if (!RI->getIsInscan())
+      continue;
+
+    auto *ScanI =
+        WRegionUtils::getInclusiveExclusiveItemForReductionItem(this, RI);
+    OS << "(" << RI->getInscanIdx() << ": "
+       << (isa<InclusiveItem>(ScanI) ? "INCLUSIVE" : "EXCLUSIVE") << ") ";
+  }
+
+  OS << "\n";
 }
 
 //
@@ -685,7 +732,6 @@ WRNWksLoopNode::WRNWksLoopNode(BasicBlock *BB, LoopInfo *Li)
   setIsOmpLoop();
   setCollapse(0);
   setOrdered(-1);
-  setNowait(false);
   setLoopOrder(WRNLoopOrderAbsent);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNWksLoopNode<" << getNumber() << ">\n");
@@ -696,6 +742,10 @@ void WRNWksLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                 unsigned Verbosity) const {
   vpo::printExtraForOmpLoop(this, OS, Depth, Verbosity);
   vpo::printExtraForCancellationPoints(this, OS, Depth, Verbosity);
+#if INTEL_CUSTOMIZATION
+  unsigned Indent = 2 * Depth;
+  vpo::printBool("EXT_DO_CONCURRENT", getIsDoConcurrent(), OS, Indent, Verbosity);
+#endif // INTEL_CUSTOMIZATION
 }
 
 //
@@ -707,7 +757,6 @@ WRNSectionsNode::WRNSectionsNode(BasicBlock *BB, LoopInfo *Li)
     : WRegionNode(WRegionNode::WRNSections, BB), WRNLI(Li) {
   setIsOmpLoop();
   setIsSections();
-  setNowait(false);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNSectionsNode<" << getNumber() << ">\n");
 }
@@ -741,7 +790,6 @@ WRNSectionNode::WRNSectionNode(BasicBlock *BB)
 WRNWorkshareNode::WRNWorkshareNode(BasicBlock *BB, LoopInfo *Li)
     : WRegionNode(WRegionNode::WRNWorkshare, BB), WRNLI(Li) {
   setIsOmpLoop();
-  setNowait(false);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNWorkshareNode<" << getNumber() << ">\n");
 }
@@ -888,7 +936,7 @@ void WRNOrderedNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
 
 // constructor
 WRNSingleNode::WRNSingleNode(BasicBlock *BB)
-    : WRegionNode(WRegionNode::WRNSingle, BB), Nowait(false) {
+    : WRegionNode(WRegionNode::WRNSingle, BB) {
   LLVM_DEBUG(dbgs() << "\nCreated WRNSingleNode <" << getNumber() << ">\n");
 }
 
@@ -984,7 +1032,6 @@ WRNTaskyieldNode::WRNTaskyieldNode(BasicBlock *BB)
 // constructor
 WRNScopeNode::WRNScopeNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNScope, BB) {
-  setNowait(false);
   LLVM_DEBUG(dbgs() << "\nCreated WRNScopeNode<" << getNumber() << ">\n");
 }
 
@@ -994,6 +1041,49 @@ void WRNScopeNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   vpo::printBool("NOWAIT", getNowait(), OS, 2*Depth, Verbosity);
 }
 
+//
+// Methods for WRNTileNode
+//
+
+// constructor
+WRNTileNode::WRNTileNode(BasicBlock *BB, LoopInfo *Li)
+    : WRegionNode(WRegionNode::WRNTile, BB), WRNLI(Li) {
+  setIsOmpLoopTransform();
+
+  LLVM_DEBUG(dbgs() << "\nCreated WRNTileNode<" << getNumber() << ">\n");
+}
+
+//
+// Methods for WRNScanNode
+//
+
+// constructor
+WRNScanNode::WRNScanNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNScan, BB) {
+  LLVM_DEBUG(dbgs() << "\nCreated WRNScanNode<" << getNumber() << ">\n");
+}
+
+// printer
+void WRNScanNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                             unsigned Verbosity) const {
+  unsigned Indent = 2 * Depth;
+  auto printReductionTypeForIdx = [&](InclusiveExclusiveItemBase *IEI) {
+    uint64_t Idx = IEI->getInscanIdx();
+    auto *RI =
+        WRegionUtils::getReductionItemForInclusiveExclusiveItem(this, IEI);
+    OS << "(" << Idx << ": " + RI->getOpName() << ") ";
+  };
+
+  if (getInclusive().empty() && getExclusive().empty())
+    return;
+
+  OS.indent(Indent) << "INSCAN-REDUCTION maps: ";
+  for (auto *InI : getInclusive().items())
+    printReductionTypeForIdx(InI);
+  for (auto *ExI : getExclusive().items())
+    printReductionTypeForIdx(ExI);
+  OS << "\n";
+}
 
 //
 // Methods for WRNGenericLoopNode
@@ -1085,6 +1175,9 @@ void WRNGenericLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   vpo::printStr("LOOPORDER", WRNLoopOrderName[getLoopOrder()], OS, Indent,
                 Verbosity);
   vpo::printInt("COLLAPSE", getCollapse(), OS, Indent, Verbosity);
+#if INTEL_CUSTOMIZATION
+  vpo::printBool("EXT_DO_CONCURRENT", getIsDoConcurrent(), OS, Indent, Verbosity);
+#endif // INTEL_CUSTOMIZATION
 }
 
 //
@@ -1144,15 +1237,6 @@ void vpo::printExtraForOmpLoop(WRegionNode const *W, formatted_raw_ostream &OS,
   // WRNs with getIsPar()==true don't have the Nowait clause
   if (!(W->getIsPar()))
     vpo::printBool("NOWAIT", W->getNowait(), OS, Indent, Verbosity);
-}
-
-void vpo::printExtraForInterop(WRegionNode const* W, formatted_raw_ostream& OS,
-    int Depth, unsigned Verbosity) {
-  assert(W->getIsInterop() &&
-         "printExtraInterop is for WRNs with getIsInterop()==true");
-  unsigned Indent = 2 * Depth;
-  vpo::printVal("DEVICE", W->getDevice(), OS, Indent, Verbosity);
-  vpo::printBool("NOWAIT", W->getNowait(), OS, Indent, Verbosity);
 }
 
 // Print the fields common to WRNs for which getIsTarget()==true.

@@ -5,7 +5,7 @@
 ;                        A[i3][i4][i2][i1] = A[i3+1][i4-1][i2-1][i1+n] + 1 ;
 ;
 
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze -enable-new-pm=0 | FileCheck %s
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s | FileCheck %s
 
 ; CHECK: DD graph for function sub1

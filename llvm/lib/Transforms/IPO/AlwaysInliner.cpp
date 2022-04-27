@@ -1,3 +1,21 @@
+//===- AlwaysInliner.cpp - Code to inline always_inline functions ----------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //===- InlineAlways.cpp - Code to inline always_inline functions ----------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -16,16 +34,11 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InlineCost.h"
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/IR/CallingConv.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/Type.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h" // INTEL
-#include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
@@ -66,38 +79,45 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
     if (F.isPresplitCoroutine())
       continue;
 
-    if (!F.isDeclaration() && F.hasFnAttribute(Attribute::AlwaysInline) &&
-        isInlineViable(F).isSuccess()) {
+    if (!F.isDeclaration() && isInlineViable(F).isSuccess()) {
       Calls.clear();
 
       for (User *U : F.users())
         if (auto *CB = dyn_cast<CallBase>(U))
-          if (CB->getCalledFunction() == &F)
-            Calls.insert(CB);
+          if (CB->getCalledFunction() == &F &&
+                CB->hasFnAttr(Attribute::AlwaysInline) &&
+                !CB->getAttributes().hasFnAttr(Attribute::NoInline))
+              Calls.insert(CB);
 
       for (CallBase *CB : Calls) {
         Function *Caller = CB->getCaller();
         OptimizationRemarkEmitter ORE(Caller);
-        InlineCost IC = shouldInline( //INTEL
-            *CB,
-            [&](CallBase &CB) {
-              return InlineCost::getAlways("always inline attribute");
-            },
-            ORE);
-        assert(IC.getIsRecommended()); // INTEL
-        emitInlinedIntoBasedOnCost(ORE, CB->getDebugLoc(), CB->getParent(), F,
-                        *Caller, IC, false, DEBUG_TYPE); // INTEL
+        DebugLoc DLoc = CB->getDebugLoc();
+        BasicBlock *Block = CB->getParent();
 
         InlineFunctionInfo IFI(
             /*cg=*/nullptr, GetAssumptionCache, &PSI,
-            &FAM.getResult<BlockFrequencyAnalysis>(*(CB->getCaller())),
+            &FAM.getResult<BlockFrequencyAnalysis>(*Caller),
             &FAM.getResult<BlockFrequencyAnalysis>(F));
 
         InlineResult Res = InlineFunction(
             *CB, IFI, getReport(), getMDReport(),          // INTEL
             &FAM.getResult<AAManager>(F), InsertLifetime); // INTEL
-        assert(Res.isSuccess() && "unexpected failure to inline");
-        (void)Res;
+        if (!Res.isSuccess()) {
+          ORE.emit([&]() {
+            return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", // INTEL
+                                            CB->getDebugLoc(), CB->getParent()) // INTEL
+                   << "'" << ore::NV("Callee", &F) << "' is not inlined into '"
+                   << ore::NV("Caller", Caller)
+                   << "': " << ore::NV("Reason", Res.getFailureReason());
+          });
+          continue;
+        }
+
+        emitInlinedIntoBasedOnCost(
+            ORE, DLoc, Block, F, *Caller,
+            InlineCost::getAlways("always inline attribute"),
+            /*ForProfileContext=*/false, DEBUG_TYPE);
 
         // Merge the attributes based on the inlining.
         AttributeFuncs::mergeAttributesForInlining(*Caller, F);
@@ -105,10 +125,12 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
         Changed = true;
       }
 
-      // Remember to try and delete this function afterward. This both avoids
-      // re-walking the rest of the module and avoids dealing with any iterator
-      // invalidation issues while deleting functions.
-      InlinedFunctions.push_back(&F);
+      if (F.hasFnAttribute(Attribute::AlwaysInline)) {
+        // Remember to try and delete this function afterward. This both avoids
+        // re-walking the rest of the module and avoids dealing with any
+        // iterator invalidation issues while deleting functions.
+        InlinedFunctions.push_back(&F);
+      }
     }
   }
 
@@ -130,7 +152,7 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
   if (!InlinedFunctions.empty()) {
     // Now we just have the comdat functions. Filter out the ones whose comdats
     // are not actually dead.
-    filterDeadComdatFunctions(M, InlinedFunctions);
+    filterDeadComdatFunctions(InlinedFunctions);
     // The remaining functions are actually dead.
     for (Function *F : InlinedFunctions) {
       M.getFunctionList().erase(F);
@@ -249,6 +271,9 @@ InlineCost AlwaysInlinerLegacyPass::getInlineCost(CallBase &CB) {
   if (!CB.hasFnAttr(Attribute::AlwaysInline))
     return InlineCost::getNever("no alwaysinline attribute",  // INTEL
                                 NinlrNotAlwaysInline); // INTEL
+
+  if (Callee->hasFnAttribute(Attribute::AlwaysInline) && CB.isNoInline())
+    return InlineCost::getNever("noinline call site attribute");
 
   auto IsViable = isInlineViable(*Callee);
   if (!IsViable.isSuccess())

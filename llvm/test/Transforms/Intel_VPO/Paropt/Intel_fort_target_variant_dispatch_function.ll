@@ -1,7 +1,7 @@
 ; INTEL_CUSTOMIZATION
 ;
-; RUN: opt -vpo-paropt-prepare -S < %s | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -S | FileCheck %s
+; RUN: opt -vpo-paropt-prepare -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-paropt-prepare)' -S %s | FileCheck %s
 ;
 ; Comple the Fortran source code below with ifx -c -fiopenmp -fopenmp-targets=spir64
 ;

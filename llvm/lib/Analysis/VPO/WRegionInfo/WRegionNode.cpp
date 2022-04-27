@@ -1,4 +1,19 @@
 #if INTEL_COLLAB
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //===-- WRegionNode.cpp - Implements the WRegionNode class ----------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -69,7 +84,10 @@ DenseMap<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNTaskgroup, "taskgroup"},
     {WRegionNode::WRNTaskwait, "taskwait"},
     {WRegionNode::WRNTaskyield, "taskyield"},
-    {WRegionNode::WRNScope, "scope"}};
+    {WRegionNode::WRNScope, "scope"},
+    {WRegionNode::WRNTile, "tile"},
+    {WRegionNode::WRNScan, "scan"},
+};
 
 // constructor for LLVM IR representation
 WRegionNode::WRegionNode(unsigned SCID, BasicBlock *BB)
@@ -104,7 +122,7 @@ WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID), Attributes(0) {
 /// 1. Update the WRN's ExitDir and ExitBB
 /// 2. Some clause operands appear in multiple clauses (eg firstprivate and
 //     lastprivate). Mark the affected ClauseItems accordingly.
-/// 3. If the WRN is for a loop construct:
+/// 3. If the WRN is for a loop or loop-transform construct:
 ///    3a. Find the associated Loop from the LoopInfo.
 ///    3b. If the WRN is a taskloop, set its SchedCode for grainsize/numtasks.
 void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
@@ -249,7 +267,7 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
     } // for (AllocateItem *AllocI : getAllocate().items())
   }   // if (hastAllocate)
 
-  if (getIsOmpLoop()) {
+  if (getIsOmpLoop() || getIsOmpLoopTransform()) {
     LoopInfo *LI = getWRNLoopInfo().getLoopInfo();
     assert(LI && "LoopInfo not present in a loop construct");
     BasicBlock *EntryBB = getEntryBBlock();
@@ -429,7 +447,7 @@ void WRegionNode::printBody(formatted_raw_ostream &OS, bool PrintChildren,
 #endif // INTEL_CUSTOMIZATION
   {
     printEntryExitBB(OS, Depth, Verbosity);
-    if (getIsOmpLoop())
+    if (getIsOmpLoop() || getIsOmpLoopTransform())
       printLoopBB(OS, Depth, Verbosity);
   }
 
@@ -472,6 +490,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
   if (canHaveLastprivate())
     PrintedSomething |= getLpriv().print(OS, Depth, Verbosity);
 
+  if (canHaveLivein())
+    PrintedSomething |= getLivein().print(OS, Depth, Verbosity);
+
   if (canHaveInReduction())
     PrintedSomething |= getInRed().print(OS, Depth, Verbosity);
 
@@ -493,6 +514,12 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
   if (canHaveUniform())
     PrintedSomething |= getUniform().print(OS, Depth, Verbosity);
 
+  if (canHaveInclusive())
+    PrintedSomething |= getInclusive().print(OS, Depth, Verbosity);
+
+  if (canHaveExclusive())
+    PrintedSomething |= getExclusive().print(OS, Depth, Verbosity);
+
   if (canHaveMap())
     PrintedSomething |= getMap().print(OS, Depth, Verbosity);
 
@@ -508,8 +535,10 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
   if (canHaveUseDevicePtr())
     PrintedSomething |= getUseDevicePtr().print(OS, Depth, Verbosity);
 
-  if (canHaveDepend())
+  if (canHaveDepend()) {
     PrintedSomething |= getDepend().print(OS, Depth, Verbosity);
+    PrintedSomething |= vpo::printDepArray(this, OS, Depth, Verbosity);
+  }
 
   if (canHaveDepSrcSink())
     PrintedSomething |= getDepSink().print(OS, Depth, Verbosity);
@@ -528,6 +557,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
 
   if (canHaveData())
     PrintedSomething |= getData().print(OS, Depth, Verbosity);
+
+  if (canHaveSizes())
+    PrintedSomething |= getSizes().print(OS, Depth, Verbosity);
 
   if (PrintedSomething)
     OS << "\n";
@@ -572,7 +604,7 @@ void WRegionNode::printEntryExitBB(formatted_raw_ostream &OS, unsigned Depth,
 
 void WRegionNode::printLoopBB(formatted_raw_ostream &OS, unsigned Depth,
                               unsigned Verbosity) const {
-  if (getIsOmpLoop())
+  if (getIsOmpLoop() || getIsOmpLoopTransform())
     getWRNLoopInfo().print(OS, Depth, Verbosity);
 }
 
@@ -774,6 +806,11 @@ void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
   case QUAL_OMP_OFFLOAD_HAS_TEAMS_REDUCTION:
     setHasTeamsReduction();
     break;
+#if INTEL_CUSTOMIZATION
+  case QUAL_EXT_DO_CONCURRENT:
+    setIsDoConcurrent(true);
+    break;
+#endif // INTEL_CUSTOMIZATION
   default:
     llvm_unreachable("Unknown ClauseID in handleQual()");
   }
@@ -939,7 +976,7 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
 
     if (IsTyped) {
       assert((ClauseID == QUAL_OMP_UNIFORM || ClauseID == QUAL_OMP_COPYIN ||
-              ClauseID == QUAL_OMP_COPYPRIVATE) &&
+              ClauseID == QUAL_OMP_COPYPRIVATE || ClauseID == QUAL_OMP_SHARED) &&
              "Unexpected TYPED modifier in a clause that doesn't support it");
       assert(NumArgs == 3 && "Expected 3 arguments for TYPED clause");
       assert(I == 0 && "More than one variable in a TYPED clause");
@@ -1022,6 +1059,10 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
   } else if (IsTyped) { // Typed PODs
     assert(NumArgs == 3 && "Expected 3 arguments for a Typed POD");
     Value *V = Args[0];
+    if (!V || isa<ConstantPointerNull>(V)) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << " Ignoring null clause operand.\n");
+      return;
+    }
     C.add(V);
     C.back()->setIsTyped(true);
     C.back()->setOrigItemElementTypeFromIR(Args[1]->getType());
@@ -1350,15 +1391,33 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
            ReductionKind == ReductionItem::WRNReductionMult)) &&
          "The COMPLEX modifier is for ADD/SUB/MUL reduction only");
 
-  if (ClauseInfo.getIsTask()) {
+  auto emitError = [&](const Twine &Msg) {
     Instruction *EntryDir = getEntryDirective();
     Function *F = EntryDir->getFunction();
     F->getContext().diagnose(
-        DiagnosticInfoUnsupported(*F,
-                                  "task reduction-modifier on a reduction "
-                                  "clause is currently not supported",
-                                  EntryDir->getDebugLoc()));
+        DiagnosticInfoUnsupported(*F, Msg, EntryDir->getDebugLoc()));
+  };
+
+  if (ClauseInfo.getIsTask()) {
+    emitError("task reduction-modifier on a reduction clause is currently not "
+              "supported");
     return;
+  }
+
+  uint64_t InscanIdx = 0;
+  if (ClauseInfo.getIsInscan()) {
+    if (!canHaveReductionInscan())
+      emitError("reduction(inscan) is not supported on the " + getName() +
+                " construct.");
+
+    // The last opnd of an inscan reduction item should be an integer index.
+    Value *InscanIdxV = Args[NumArgs - 1];
+
+    assert(isa<ConstantInt>(InscanIdxV) && "Inscan idx is not a constant int.");
+    InscanIdx = cast<ConstantInt>(InscanIdxV)->getZExtValue();
+    assert(InscanIdx > 0 && "Inscan idx should be >= 1.");
+
+    NumArgs -= 1;
   }
 
   bool IsTyped = ClauseInfo.getIsTyped();
@@ -1376,6 +1435,10 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
     RI->setIsComplex(IsComplex);
     RI->setIsInReduction(IsInReduction);
     RI->setIsByRef(ClauseInfo.getIsByRef());
+    if (InscanIdx) {
+      RI->setIsInscan(true);
+      RI->setInscanIdx(InscanIdx);
+    }
     // TODO: This code will be added once we start supporting task
     // reduction-modifier on a Reduction clause
     //   if (IsTask)
@@ -1440,6 +1503,26 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
       }
       C.add(V);
       ReductionItem *RI = C.back();
+
+      if (InscanIdx) {
+        RI->setIsInscan(true);
+        RI->setInscanIdx(InscanIdx);
+
+        // Make sure we don't get multiple operands in a single QUAL if InScan
+        // modifier is present. TODO: Expand this restriction to apply in
+        // general.
+        unsigned ExpectedNumArgs =
+            1 + // Orig
+            (IsTyped ? 2 : 0) +
+            (ReductionKind == ReductionItem::WRNReductionUdr ? 4 : 0);
+        // The Inscan idx was already removed from the list. The remaining
+        // bundle opnds should all correspond to a single reduction item.
+        assert(NumArgs == ExpectedNumArgs &&
+               "Unexpected number of arguments for reduction clause with "
+               "inscan.");
+        (void)ExpectedNumArgs;
+      }
+
       RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
       RI->setIsUnsigned(IsUnsigned);
       RI->setIsComplex(IsComplex);
@@ -1479,6 +1562,31 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
       }
     }
   }
+}
+
+template <typename ClauseItemTy>
+void WRegionNode::extractInclusiveExclusiveOpndList(
+    const Use *Args, unsigned NumArgs, const ClauseSpecifier &ClauseInfo,
+    Clause<ClauseItemTy> &C) {
+  assert((ClauseInfo.getId() == QUAL_OMP_INCLUSIVE ||
+          ClauseInfo.getId() == QUAL_OMP_EXCLUSIVE) &&
+         "Unexpected clause.");
+  assert(!ClauseInfo.getIsTyped() &&
+         "Typed clauses are not supported for Inclusive/Exclusive clauses.");
+  assert(NumArgs == 2 && "Inclusive/Exclusive quals should only have two "
+                         "operands: var and inscan_idx");
+
+  C.add(Args[0]);
+
+  uint64_t InscanIdx = 0;
+  Value *InscanIdxV = Args[1];
+
+  assert(isa<ConstantInt>(InscanIdxV) && "Inscan idx is not a constant int.");
+  InscanIdx = cast<ConstantInt>(InscanIdxV)->getZExtValue();
+  assert(InscanIdx > 0 && "Inscan idx should be >= 1.");
+
+  auto *CI = C.back();
+  CI->setInscanIdx(InscanIdx);
 }
 
 //
@@ -1615,6 +1723,11 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     extractDependOpndList(Args, NumArgs, ClauseInfo, getDepend(), IsIn);
     break;
   }
+  case QUAL_OMP_DEPARRAY:
+    assert(NumArgs == 2 && "Expected 2 operands in DEPARRAY qual");
+    setDepArrayNumDeps(Args[0]);
+    setDepArray(Args[1]);
+    break;
   case QUAL_OMP_ORDERED: {
     assert(isa<ConstantInt>(Args[0]) &&
            "Non-constant Value of N for ordered(N).");
@@ -1688,6 +1801,16 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     extractQualOpndList<UniformClause>(Args, NumArgs, ClauseInfo, getUniform());
     break;
   }
+  case QUAL_OMP_INCLUSIVE: {
+    extractInclusiveExclusiveOpndList<InclusiveItem>(Args, NumArgs, ClauseInfo,
+                                                     getInclusive());
+    break;
+  }
+  case QUAL_OMP_EXCLUSIVE: {
+    extractInclusiveExclusiveOpndList<ExclusiveItem>(Args, NumArgs, ClauseInfo,
+                                                     getExclusive());
+    break;
+  }
   case QUAL_OMP_LINEAR: {
     extractLinearOpndList(Args, NumArgs, ClauseInfo, getLinear());
     break;
@@ -1731,6 +1854,14 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   }
   case QUAL_OMP_FLUSH: {
     extractQualOpndList<FlushSet>(Args, NumArgs, ClauseID, getFlush());
+    break;
+  }
+  case QUAL_OMP_SIZES: {
+    extractQualOpndList<SizesClause>(Args, NumArgs, ClauseID, getSizes());
+    break;
+  }
+  case QUAL_OMP_LIVEIN: {
+    extractQualOpndList<LiveinClause>(Args, NumArgs, ClauseID, getLivein());
     break;
   }
   case QUAL_OMP_ALLOCATE: {
@@ -2120,9 +2251,8 @@ bool WRegionNode::canHavePrivate() const {
 
 bool WRegionNode::canHaveFirstprivate() const {
   unsigned SubClassID = getWRegionKindID();
-
-  // similar to canHavePrivate except for SIMD,
-  // which has Private but not Firstprivate
+  if (SubClassID == WRNTile) // TODO: remove Firstprivate from Tile
+    return true;
   if (SubClassID == WRNVecLoop || SubClassID == WRNGenericLoop ||
       SubClassID == WRNScope)
     return false;
@@ -2172,6 +2302,20 @@ bool WRegionNode::canHaveReduction() const {
   case WRNSections:
   case WRNGenericLoop:
   case WRNScope:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveReductionInscan() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+#if 0 // TODO: Enable when Scan on worksharing loop is supported.
+  case WRNParallelLoop:
+  case WRNWksLoop:
+#endif
+  case WRNVecLoop:
+  case WRNGenericLoop:
     return true;
   }
   return false;
@@ -2361,6 +2505,24 @@ bool WRegionNode::canHaveCollapse() const {
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+bool WRegionNode::canHaveDoConcurrent() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNTarget:
+  case WRNTeams:
+  case WRNGenericLoop:
+  case WRNDistributeParLoop:
+  case WRNParallelLoop:
+  case WRNWksLoop:
+  case WRNVecLoop:
+    return true;
+  }
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool WRegionNode::canHaveAllocate() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
@@ -2410,6 +2572,46 @@ bool WRegionNode::canHaveIf() const {
   case WRNTaskloop:
   case WRNVecLoop:
   case WRNCancel:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveSizes() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNTile:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveLivein() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNGenericLoop:
+  case WRNVecLoop:
+  case WRNWksLoop:
+  case WRNTarget:
+  case WRNTile:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveInclusive() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNScan:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveExclusive() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNScan:
     return true;
   }
   return false;
@@ -2474,6 +2676,32 @@ void WRegionNode::errorClause(int ClauseID) const {
 }
 
 // Printing routines to help dump WRN content
+
+// Prints DEPARRAY( i32 Num , i8* Array )
+bool vpo::printDepArray(WRegionNode const *W, formatted_raw_ostream &OS,
+                        int Depth, unsigned Verbosity) {
+  assert((W->getDepArrayNumDeps() && W->getDepArray() ||
+          !W->getDepArrayNumDeps() && !W->getDepArray()) &&
+         "Corrupt DEPARRAY IR: args must be both null or both non-null");
+
+  unsigned Indent = 2 * Depth;
+
+  if (W->getDepArrayNumDeps()) {
+    OS.indent(Indent) << "DEPARRAY( ";
+    W->getDepArrayNumDeps()->printAsOperand(OS);
+    OS << " , ";
+    W->getDepArray()->printAsOperand(OS);
+    OS << " )\n";
+    return true;
+  }
+
+  if (Verbosity >= 1) {
+    OS.indent(Indent) << "DEPARRAY: UNSPECIFIED\n";
+    return true;
+  }
+
+  return false;
+}
 
 // Auxiliary function to print a BB in a WRN dump
 // If BB is null:

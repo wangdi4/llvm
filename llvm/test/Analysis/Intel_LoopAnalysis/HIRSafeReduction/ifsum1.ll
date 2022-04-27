@@ -4,7 +4,7 @@
 ;    if (B[j] > 0)tsum += B[j] + C[j];
 ; }
 ;
-; RUN: opt < %s  -hir-ssa-deconstruction   -analyze  -hir-temp-cleanup   -hir-safe-reduction-analysis | FileCheck %s
+; RUN: opt < %s  -hir-ssa-deconstruction   -analyze -enable-new-pm=0  -hir-temp-cleanup   -hir-safe-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" 2>&1 | FileCheck %s
 ;
 ; CHECK:   <Safe Reduction> Red Op: fadd <Has Unsafe Algebra- Yes> <Conditional- Yes>

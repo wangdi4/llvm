@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 if(${CMAKE_VERSION} VERSION_LESS 3.14)
     macro(FetchContent_MakeAvailable NAME)
         FetchContent_GetProperties(${NAME})
@@ -13,11 +30,12 @@ endif()
 if (NOT TARGET LLVMGenXIntrinsics)
   if (NOT DEFINED LLVMGenXIntrinsics_SOURCE_DIR)
     set(LLVMGenXIntrinsics_GIT_REPO https://github.com/intel/vc-intrinsics.git)
-
-    # Author: Aleksander Us <aleksander.us@intel.com>
-    # Date:   Mon Oct 18 18:03:24 2021 +0000
-    #     Wrap arg_size for call instructions
-    set(LLVMGenXIntrinsics_GIT_TAG 6a7e93d3d90638b6565d97cef96ffaf0f77d688c)
+    # commit 8b6e209fe1269a2c6470b36dfbaa0e051d2a100f (master)
+    # Author: Konstantin Vladimirov <konstantin.vladimirov@intel.com>
+    # Date:   Tue Feb 8 10:47:03 2022 +0000
+    # introducing named barrier support in adaptor pass
+    # named barrier required for DPC++ and other customers
+    set(LLVMGenXIntrinsics_GIT_TAG 8b6e209fe1269a2c6470b36dfbaa0e051d2a100f)
 
     if (INTEL_CUSTOMIZATION)
       # for xmain builds the LLVMGenXIntrinsics_GIT_REPO is constructed from
@@ -28,11 +46,12 @@ if (NOT TARGET LLVMGenXIntrinsics)
       # default repo path for public xmain builds, not using ICS
       set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel-innersource)
       set(LLVMGenXIntrinsics_GIT_REPO_NAME applications.compilers.source.vc-intrinsics.git)
-      # commit a7a3efa116ae165132508f3f9a975fccb196fede
-      # Author: Anatoly Parshintsev <anatoly.parshintsev@intel.com>
-      # Date:   Wed Jan 26 15:11:43 2022 +0000
-      # Fix potential null pointer dereference
-      set(LLVMGenXIntrinsics_GIT_TAG a7a3efa116ae165132508f3f9a975fccb196fede)
+      # commit 8b6e209fe1269a2c6470b36dfbaa0e051d2a100f (master)
+      # Author: Konstantin Vladimirov <konstantin.vladimirov@intel.com>
+      # Date:   Tue Feb 8 10:47:03 2022 +0000
+      # introducing named barrier support in adaptor pass
+      # named barrier required for DPC++ and other customers
+      set(LLVMGenXIntrinsics_GIT_TAG 8b6e209fe1269a2c6470b36dfbaa0e051d2a100f)
 
       # Determine if the build is embargo and provide specific settings.
       set(IS_INTERNAL_ESIMD_BUILD FALSE)
@@ -42,11 +61,11 @@ if (NOT TARGET LLVMGenXIntrinsics)
       if (IS_INTERNAL_ESIMD_BUILD)
         # override git repo name and tag for the internal ESIMD EMBARGO build
         set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
-        # commit ff01922c50630c6fc935fea601e18791fce0d3eb
-        # Author: Parshintsev Anatoly <anatoly.parshintsev@intel.com>
-        # Date:   Tue Feb 1 13:52:23 2022 +0300
-        # Fix issue detected by static analysis tools (#177)
-        set(LLVMGenXIntrinsics_GIT_TAG ff01922c50630c6fc935fea601e18791fce0d3eb)
+        # commit 86c90afd3c5e56bf24d1a368bbb2bbf1714de9e8
+        # Author: Nikita Rudenko <nikita.rudenko@intel.com>
+        # Date:   Wed Feb 2 20:47:10 2022 +0300
+        # Put DEBUG_TYPE macro after includes
+        set(LLVMGenXIntrinsics_GIT_TAG 86c90afd3c5e56bf24d1a368bbb2bbf1714de9e8)
 
         add_compile_definitions(__INTEL_EMBARGO__)
         # LLVM_CMAKE_DIR is required by the internal vc-intrinsics repo, but is
@@ -102,13 +121,16 @@ set_property(GLOBAL PROPERTY LLVMGenXIntrinsics_SOURCE_PROP ${LLVMGenXIntrinsics
 set_property(GLOBAL PROPERTY LLVMGenXIntrinsics_BINARY_PROP ${LLVMGenXIntrinsics_BINARY_DIR})
 
 add_llvm_component_library(LLVMSYCLLowerIR
+  ESIMD/LowerESIMD.cpp
+  ESIMD/LowerESIMDVLoadVStore.cpp
+  ESIMD/LowerESIMDVecArg.cpp
+  ESIMD/ESIMDVerifier.cpp
+  LowerInvokeSimd.cpp
   LowerWGScope.cpp
-  LowerESIMD.cpp
-  LowerESIMDVLoadVStore.cpp
-  LowerESIMDVecArg.cpp
   LowerWGLocalMemory.cpp
-  ESIMDVerifier.cpp
   MutatePrintfAddrspace.cpp
+
+  LocalAccessorToSharedMemory.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/SYCLLowerIR

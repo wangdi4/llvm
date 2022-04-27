@@ -19,7 +19,6 @@
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/GuardUtils.h"
-#include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopIterator.h"
@@ -28,6 +27,7 @@
 #include "llvm/Analysis/MemorySSAUpdater.h"
 #include "llvm/Analysis/MustExecute.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
@@ -49,7 +49,9 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/GenericDomTree.h"
+#include "llvm/Support/InstructionCost.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Scalar/LoopPassManager.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -2699,7 +2701,9 @@ static int CalculateUnswitchCostMultiplier(
 
 static bool unswitchBestCondition(
     Loop &L, DominatorTree &DT, LoopInfo &LI, AssumptionCache &AC,
-    AAResults &AA, TargetTransformInfo &TTI,
+#if INTEL_CUSTOMIZATION
+    AAResults &AA, TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
+#endif // INTEL CUSTOMIZATION
     function_ref<void(bool, bool, ArrayRef<Loop *>)> UnswitchCB,
     ScalarEvolution *SE, MemorySSAUpdater *MSSAU,
     function_ref<void(Loop &, StringRef)> DestroyLoopCB) {
@@ -2987,7 +2991,10 @@ static bool unswitchBestCondition(
   if (isGuard(BestUnswitchTI))
     BestUnswitchTI = turnGuardIntoBranch(cast<IntrinsicInst>(BestUnswitchTI), L,
                                          ExitBlocks, DT, LI, MSSAU);
-
+#if INTEL_CUSTOMIZATION
+  if (unswitchingMayAffectPerfectLoopnest(LI, L, BestUnswitchTI, TLI))
+    return false;
+#endif // INTEL CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "  Unswitching non-trivial (cost = "
                     << BestUnswitchCost << ") terminator: " << *BestUnswitchTI
                     << "\n");
@@ -3020,8 +3027,10 @@ static bool unswitchBestCondition(
 /// done.
 static bool
 unswitchLoop(Loop &L, DominatorTree &DT, LoopInfo &LI, AssumptionCache &AC,
-             AAResults &AA, TargetTransformInfo &TTI, bool Trivial,
-             bool NonTrivial,
+#if INTEL_CUSTOMIZATION
+             AAResults &AA, TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
+             bool Trivial, bool NonTrivial,
+#endif // INTEL_CUSTOMIZATION
              function_ref<void(bool, bool, ArrayRef<Loop *>)> UnswitchCB,
              ScalarEvolution *SE, MemorySSAUpdater *MSSAU,
              function_ref<void(Loop &, StringRef)> DestroyLoopCB) {
@@ -3072,7 +3081,9 @@ unswitchLoop(Loop &L, DominatorTree &DT, LoopInfo &LI, AssumptionCache &AC,
 
   // Try to unswitch the best invariant condition. We prefer this full unswitch to
   // a partial unswitch when possible below the threshold.
-  if (unswitchBestCondition(L, DT, LI, AC, AA, TTI, UnswitchCB, SE, MSSAU,
+#if INTEL_CUSTOMIZATION
+  if (unswitchBestCondition(L, DT, LI, AC, AA, TLI, TTI, UnswitchCB, SE, MSSAU,
+#endif // INTEL_CUSTOMIZATION
                             DestroyLoopCB))
     return true;
 
@@ -3130,8 +3141,11 @@ PreservedAnalyses SimpleLoopUnswitchPass::run(Loop &L, LoopAnalysisManager &AM,
     if (VerifyMemorySSA)
       AR.MSSA->verifyMemorySSA();
   }
-  if (!unswitchLoop(L, AR.DT, AR.LI, AR.AC, AR.AA, AR.TTI, Trivial, NonTrivial,
-                    UnswitchCB, &AR.SE,
+
+#if INTEL_CUSTOMIZATION
+  if (!unswitchLoop(L, AR.DT, AR.LI, AR.AC, AR.AA, AR.TLI, AR.TTI, Trivial,
+                    NonTrivial, UnswitchCB, &AR.SE,
+#endif // INTEL_CUSTOMIZATION
                     MSSAU.hasValue() ? MSSAU.getPointer() : nullptr,
                     DestroyLoopCB))
     return PreservedAnalyses::all();
@@ -3178,6 +3192,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<AssumptionCacheTracker>();
+    AU.addRequired<TargetLibraryInfoWrapperPass>(); // INTEL
     AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.addRequired<MemorySSAWrapperPass>();
     AU.addPreserved<MemorySSAWrapperPass>();
@@ -3200,6 +3215,7 @@ bool SimpleLoopUnswitchLegacyPass::runOnLoop(Loop *L, LPPassManager &LPM) {
   auto &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
   auto &AA = getAnalysis<AAResultsWrapperPass>().getAAResults();
+  auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F); // INTEL
   auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   MemorySSA *MSSA = &getAnalysis<MemorySSAWrapperPass>().getMSSA();
   MemorySSAUpdater MSSAU(MSSA);
@@ -3232,8 +3248,9 @@ bool SimpleLoopUnswitchLegacyPass::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   if (VerifyMemorySSA)
     MSSA->verifyMemorySSA();
-
-  bool Changed = unswitchLoop(*L, DT, LI, AC, AA, TTI, true, NonTrivial,
+#if INTEL_CUSTOMIZATION
+  bool Changed = unswitchLoop(*L, DT, LI, AC, AA, TLI, TTI, true, NonTrivial,
+#endif // INTEL_CUSTOMIZATION
                               UnswitchCB, SE, &MSSAU, DestroyLoopCB);
 
   if (VerifyMemorySSA)
@@ -3254,6 +3271,7 @@ INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopPass)
 INITIALIZE_PASS_DEPENDENCY(MemorySSAWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass) // INTEL
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(SimpleLoopUnswitchLegacyPass, "simple-loop-unswitch",
                     "Simple unswitch loops", false, false)

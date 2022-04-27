@@ -8,16 +8,16 @@
 ;  return;
 ;}
 
-; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT-NEXT:     remark #25439: Loop unrolled with remainder by {{[0-9]+}}
 ; OPTREPORT-NEXT: LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT: LOOP BEGIN
-; OPTREPORT-NEXT:     <Remainder>
+; OPTREPORT-NEXT:     <Remainder loop>
 ; OPTREPORT-NEXT: LOOP END
 
-; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -hir-cg -intel-loop-optreport=low < %s -S | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -hir-cg -intel-opt-report=low < %s -S | FileCheck %s
 
 ; CHECK: [[M1:!.*]] = distinct !{[[M1]], {{!.*}}, [[M2:!.*]]}
 ; CHECK: [[M2]] = distinct !{!"intel.optreport.rootnode", [[M3:!.*]]}
@@ -28,7 +28,7 @@
 ; CHECK: [[M7]] = distinct !{!"intel.optreport.rootnode", [[M8:!.*]]}
 ; CHECK: [[M8]] = distinct !{!"intel.optreport", [[M9:!.*]]}
 ; CHECK: [[M9]] = !{!"intel.optreport.origin", [[M10:!.*]]}
-; CHECK: [[M10]] = !{!"intel.optreport.remark", i32 0, !"Remainder"}
+; CHECK: [[M10]] = !{!"intel.optreport.remark", i32 25491, !"Remainder loop"}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

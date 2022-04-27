@@ -1,4 +1,21 @@
 //===- Parsing, selection, and construction of pass pipelines --*- C++ -*--===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -84,6 +101,11 @@ public:
   // analyses after various module->function or cgscc->function adaptors in the
   // default pipelines.
   bool EagerlyInvalidateAnalyses;
+
+#if INTEL_CUSTOMIZATION
+  /// Disable Intel proprietary optimizations.
+  bool DisableIntelProprietaryOpts;
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// This class provides access to building LLVM's passes.
@@ -102,6 +124,7 @@ public:
 
 #if INTEL_CUSTOMIZATION
   bool PrepareForLTO; // We are in the compile step of an LTO compilation
+  bool LinkForLTO; // We are in the link step of an LTO compilation
   /// We are after SLP pass.
   bool AfterSLPVectorizer;
 #endif // INTEL_CUSTOMIZATION
@@ -394,8 +417,14 @@ public:
 
 #if INTEL_COLLAB
   void addVPOPreparePasses(FunctionPassManager &FPM);
-  void addVPOPasses(ModulePassManager &MPM, OptimizationLevel Level,
-                    bool RunVec, bool Simplify = false);
+  /// Adds VPO function/module passes to \p FPM and \p MPM.
+  /// \p FPM is flushed into \p MPM before adding any Module passes.
+  /// May add Function passes to \p FPM after its last flush into \p MPM. So,
+  /// callers are responsible for flushing the FPM back into MPM after this
+  /// function returns.
+  void addVPOPasses(ModulePassManager &MPM, FunctionPassManager &FPM,
+                    OptimizationLevel Level, bool RunVec,
+                    bool Simplify = false);
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   void addVPlanVectorizer(ModulePassManager &MPM, FunctionPassManager &FPM,
@@ -412,6 +441,8 @@ public:
   void addWholeProgramUtils(WholeProgramUtils WPUtils) {
     this->WPUtils = std::move(WPUtils);
   }
+
+  bool isLoopOptEnabled(OptimizationLevel Level);
 
   void addLoopOptAndAssociatedVPOPasses(ModulePassManager &MPM,
                                         FunctionPassManager &FPM,
@@ -515,11 +546,38 @@ public:
 
   /// Register a callback for a default optimizer pipeline extension point
   ///
+  /// This extension point allows adding optimizations before the function
+  /// optimization pipeline.
+  void registerOptimizerEarlyEPCallback(
+      const std::function<void(ModulePassManager &, OptimizationLevel)> &C) {
+    OptimizerEarlyEPCallbacks.push_back(C);
+  }
+
+  /// Register a callback for a default optimizer pipeline extension point
+  ///
   /// This extension point allows adding optimizations at the very end of the
   /// function optimization pipeline.
   void registerOptimizerLastEPCallback(
       const std::function<void(ModulePassManager &, OptimizationLevel)> &C) {
     OptimizerLastEPCallbacks.push_back(C);
+  }
+
+  /// Register a callback for a default optimizer pipeline extension point
+  ///
+  /// This extension point allows adding optimizations at the start of the full
+  /// LTO pipeline.
+  void registerFullLinkTimeOptimizationEarlyEPCallback(
+      const std::function<void(ModulePassManager &, OptimizationLevel)> &C) {
+    FullLinkTimeOptimizationEarlyEPCallbacks.push_back(C);
+  }
+
+  /// Register a callback for a default optimizer pipeline extension point
+  ///
+  /// This extension point allows adding optimizations at the end of the full
+  /// LTO pipeline.
+  void registerFullLinkTimeOptimizationLastEPCallback(
+      const std::function<void(ModulePassManager &, OptimizationLevel)> &C) {
+    FullLinkTimeOptimizationLastEPCallbacks.push_back(C);
   }
 
   /// Register a callback for parsing an AliasAnalysis Name to populate
@@ -643,9 +701,15 @@ private:
       CGSCCOptimizerLateEPCallbacks;
   SmallVector<std::function<void(FunctionPassManager &, OptimizationLevel)>, 2>
       VectorizerStartEPCallbacks;
+  // Module callbacks
+  SmallVector<std::function<void(ModulePassManager &, OptimizationLevel)>, 2>
+      OptimizerEarlyEPCallbacks;
   SmallVector<std::function<void(ModulePassManager &, OptimizationLevel)>, 2>
       OptimizerLastEPCallbacks;
-  // Module callbacks
+  SmallVector<std::function<void(ModulePassManager &, OptimizationLevel)>, 2>
+      FullLinkTimeOptimizationEarlyEPCallbacks;
+  SmallVector<std::function<void(ModulePassManager &, OptimizationLevel)>, 2>
+      FullLinkTimeOptimizationLastEPCallbacks;
   SmallVector<std::function<void(ModulePassManager &, OptimizationLevel)>, 2>
       PipelineStartEPCallbacks;
   SmallVector<std::function<void(ModulePassManager &, OptimizationLevel)>, 2>

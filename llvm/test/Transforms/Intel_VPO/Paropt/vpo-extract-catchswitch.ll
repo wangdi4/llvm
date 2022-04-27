@@ -1,4 +1,4 @@
-; RUN: opt -vpo-paropt %s -S | FileCheck %s
+; RUN: opt -vpo-paropt -S %s | FileCheck %s
 
 ; INTEL_CUSTOMIZATION
 ; CMPLRLLVM-28173:

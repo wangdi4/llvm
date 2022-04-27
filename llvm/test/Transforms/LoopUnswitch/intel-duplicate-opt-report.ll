@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-unswitch -S < %s 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -loop-unswitch -S < %s 2>&1 | FileCheck %s
 
 ; Verify that we do not duplicate loop opt report when cloning loops (during unswitching or otherwise).
 

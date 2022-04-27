@@ -1,4 +1,6 @@
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 ; ModuleID = 'wlcs.ll'
@@ -420,3 +422,7 @@ declare <4 x i32> @_Z7isequalDv4_fS_(<4 x float>, <4 x float>)
 declare <4 x i32> @_Z3maxDv4_iS_(<4 x i32>, <4 x i32>)
 
 declare void @llvm.memset.p0i8.i64(i8* nocapture, i8, i64, i32, i1) nounwind
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function Lcs --  br label %152
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function Lcs --  br label %152
+; DEBUGIFY-NOT: WARNING

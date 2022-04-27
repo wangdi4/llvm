@@ -1,4 +1,5 @@
-; RUN: opt < %s -loop-unswitch -S < %s 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -loop-unswitch -S < %s 2>&1 | FileCheck %s
+; RUN: opt < %s -simple-loop-unswitch -enable-nontrivial-unswitch -S < %s 2>&1 | FileCheck %s
 
 ; Verify that we skip unswitching for conditional branches (%cmp1) that may affect
 ; perfect loopnest when "pre_loopopt" attribute is present.
@@ -7,7 +8,7 @@
 @B = common dso_local local_unnamed_addr global [100 x i32] zeroinitializer, align 16
 
 ; CHECK: @foo
-; CHECK-NOT: br i1 true
+; CHECK-NOT: for.body.us
 ; CHECK: ret void
 
 define void @foo(i64 %t, float %f) "pre_loopopt" {
@@ -56,7 +57,7 @@ for.end:                                          ; preds = %for.inc
 
 ; Verify that unswitching triggers even in the absence of "pre_loopopt".
 ; CHECK: @foo1
-; CHECK: br i1 true
+; CHECK: for.body.us
 ; CHECK: ret void
 
 define void @foo1(i64 %t, float %f) {
@@ -107,7 +108,7 @@ for.end:                                          ; preds = %for.inc
 ; attribute if a volatile access is present.
 
 ; CHECK: @foo2
-; CHECK: br i1 true
+; CHECK: for.body.us
 ; CHECK: ret void
 
 define void @foo2(i64 %t, float %f) "pre_loopopt" {

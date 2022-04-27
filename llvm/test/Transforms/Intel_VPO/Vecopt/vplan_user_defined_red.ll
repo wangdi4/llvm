@@ -1,7 +1,9 @@
 ; RUN: opt -disable-output -vplan-vec -debug-only=vpo-ir-loop-vectorize-legality -debug-only=vplan-vec  < %s 2>&1 | FileCheck %s
 ; RUN: opt -disable-output -passes="vplan-vec" -debug-only=vpo-ir-loop-vectorize-legality -debug-only=vplan-vec  < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -debug-only=vplan-vec -debug-only=HIRLegality < %s 2>&1 | FileCheck %s --check-prefix=HIR
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -debug-only=vplan-vec -debug-only=HIRLegality < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -debug-only=vplan-vec -debug-only=HIRLegality < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -debug-only=vplan-vec -debug-only=HIRLegality < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -debug-only=vplan-vec -debug-only=HIRLegality < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -debug-only=vplan-vec -debug-only=HIRLegality < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR
 ; REQUIRES: asserts
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

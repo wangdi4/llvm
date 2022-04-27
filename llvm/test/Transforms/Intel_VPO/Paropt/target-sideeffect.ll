@@ -1,5 +1,5 @@
-; RUN: opt -switch-to-offload -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt  -S < %s | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload  -S | FileCheck %s
+; RUN: opt -switch-to-offload -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -S %s | FileCheck %s
 
 ; Test src:
 ;#pragma omp target map(to:f[0:100]) map(from:r[0:100])

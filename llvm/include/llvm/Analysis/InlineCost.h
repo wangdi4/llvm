@@ -1,4 +1,21 @@
 //===- InlineCost.h - Cost analysis for inliner -----------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,18 +30,22 @@
 #ifndef LLVM_ANALYSIS_INLINECOST_H
 #define LLVM_ANALYSIS_INLINECOST_H
 
-#include "llvm/Analysis/AssumptionCache.h"
-#include "llvm/Analysis/CallGraphSCCPass.h"
+#include "llvm/ADT/APInt.h"
+#include "llvm/ADT/Optional.h"
+#include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/Analysis/InlineModelFeatureMaps.h"
 #include "llvm/Analysis/Intel_WP.h"           // INTEL
 #include "llvm/Analysis/LoopInfo.h"           // INTEL
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/ADT/SmallSet.h"                // INTEL
+#include "llvm/IR/PassManager.h"
 #include <cassert>
 #include <climits>
+#include <map>                                // INTEL
 
 namespace llvm {
-class AssumptionCacheTracker;
+class AssumptionCache;
+class OptimizationRemarkEmitter;
 class BlockFrequencyInfo;
 class CallBase;
 class DataLayout;
@@ -60,6 +81,9 @@ const unsigned BasicBlockSuccRatio = 210; // INTEL
 /// Do not inline dynamic allocas that have been constant propagated to be
 /// static allocas above this amount in bytes.
 const uint64_t MaxSimplifiedDynamicAllocaToInline = 65536;
+
+const char FunctionInlineCostMultiplierAttributeName[] =
+    "function-inline-cost-multiplier";
 } // namespace InlineConstants
 
 // The cost-benefit pair computed by cost-benefit analysis.
@@ -128,6 +152,8 @@ typedef enum {
    InlrAlwaysInlineRecursive,
    InlrInlineList,
    InlrHotProfile,
+   InlrHotCallsite,
+   InlrHotCallee,
    InlrRecProClone,
    InlrHasExtractedRecursiveCall,
    InlrSingleLocalCall,
@@ -158,6 +184,8 @@ typedef enum {
    NinlrNoinlineList,
    NinlrColdCC,
    NinlrColdProfile,
+   NinlrColdCallsite,
+   NinlrColdCallee,
    NinlrDeleted,
    NinlrDuplicateCall,
    NinlrDynamicAlloca,
@@ -202,7 +230,8 @@ typedef enum {
    NinlrNotMandatory,
    NinlrUnsplitCoroutineCall,
    NinlrByvalArgsWithoutAllocaAS,
-   NinlrStackProtectMismatch,
+   NinlrMultiversionedCallsite,
+   NinlrDelayInlineDecisionLTO,   // Delay inlining during LTO
    NinlrLast // Just a marker placed after the last non-inlining reason
 } InlineReason;
 
@@ -428,6 +457,12 @@ struct InlineParams {
   /// Threshold to use for callees with inline hint.
   Optional<int> HintThreshold;
 
+#if INTEL_CUSTOMIZATION
+  /// Threshold to use for callees with ODR linkage, double callsites and
+  /// inline hint.
+  Optional<int> DoubleCallSiteHintThreshold;
+#endif // INTEL_CUSTOMIZATION
+
   /// Threshold to use for cold callees.
   Optional<int> ColdThreshold;
 
@@ -471,6 +506,8 @@ struct InlineParams {
   /// Indicate whether we allow inlining for recursive call.
   Optional<bool> AllowRecursiveCall = false;
 };
+
+Optional<int> getStringFnAttrAsInt(CallBase &CB, StringRef AttrKind);
 
 /// Generate the parameters to tune the inline cost analysis based only on the
 /// commandline options.
@@ -593,5 +630,14 @@ public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM);
 };
 } // namespace llvm
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+// Return 'true' if inlining deferral should be performed even when the
+// community default is 'false'.
+
+extern bool intelEnableInlineDeferral(void);
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
 
 #endif

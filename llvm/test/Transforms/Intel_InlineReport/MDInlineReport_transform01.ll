@@ -53,7 +53,7 @@
 ; CHECK-NEXT: [[Y_FIR]] = distinct !{!"intel.function.inlining.report", [[Y_NAME]], [[Y_CSs:![0-9]+]], [[MODULE_NAME]], [[IS_DEAD_1:![0-9]+]], [[IS_DECL_0]], [[LINK_L:![0-9]+]], [[LANG_C]], [[SUPPRESS_PRINT:![0-9]+]]}
 ; CHECK-NEXT: [[Y_CSs]] = distinct !{!"intel.callsites.inlining.report", [[Z_Y_CS:![0-9]+]]}
 ; CHECK-NEXT: [[Z_Y_CS]] = distinct !{!"intel.callsite.inlining.report", [[Z_NAME]], null, [[IS_INL_0]]{{.*}}
-; CHECK-NEXT: [[IS_DEAD_1]] = !{!"isDead: 1"}
+; CHECK: [[IS_DEAD_1]] = !{!"isDead: 1"}
 ; CHECK-NEXT: [[LINK_L]] = !{!"linkage: L"}
 ; CHECK-NEXT: [[Z_FIR]] = distinct !{!"intel.function.inlining.report", [[Z_NAME]], null, [[MODULE_NAME]], [[IS_DEAD_0]], [[IS_DECL_1]], [[LINK_A]], [[LANG_C]]}
 
@@ -119,7 +119,7 @@ declare !intel.function.inlining.report !41 dso_local void @z(...)
 !20 = !{!"moduleName: test1.c"}
 !21 = distinct !{!"intel.callsite.inlining.report", !22, null, !13, !23, !15, !16, !17, !18, !19, !"line: 11 col: 3", !20, !58}
 !22 = !{!"name: b"}
-!23 = !{!"reason: 30"}
+!23 = !{!"reason: 39"}
 !24 = !{!"isDead: 0"}
 !25 = !{!"isDeclaration: 0"}
 !26 = !{!"linkage: A"}

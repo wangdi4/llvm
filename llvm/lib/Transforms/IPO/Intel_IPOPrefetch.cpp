@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 //===----  Intel_IPOPrefetch.cpp - Intel IPO Prefetch   --------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1212,28 +1212,100 @@ static bool getLoadsFromArg(Function *F, const unsigned ArgIdx,
 }
 
 //
+// Return structure type if the input argument is a pointer to a structure,
+// else return nullptr. This function traverses through the users of the
+// input argument and check if all the users are GEPs and/or call
+// instructions.
+//
+static StructType* getStructureFromPtr(Argument *Arg,
+                                       SetVector<Argument *> &VisitedArgs) {
+
+  if (!Arg)
+    return nullptr;
+
+  if (!Arg->getType()->isPointerTy() || Arg->getParent()->isVarArg())
+    return nullptr;
+
+  if(!VisitedArgs.insert(Arg))
+    return nullptr;
+
+  StructType *Result = nullptr;
+  for (auto *U : Arg->users()) {
+    StructType *ST = nullptr;
+    // We need to prove that the structure type is the same among the called
+    // functions
+    if (auto *Call = dyn_cast<CallInst>(U)) {
+      Function *CalledFunc = Call->getCalledFunction();
+      if (!CalledFunc || CalledFunc->isVarArg())
+        return nullptr;
+
+      // Find the argument number
+      unsigned ArgNo = Call->arg_size();
+      for (unsigned I = 0, E = Call->arg_size(); I < E; ++I) {
+        if (cast<Value>(Arg) == Call->getArgOperand(I)) {
+          ArgNo = I;
+          break;
+        }
+      }
+
+      if (ArgNo >= Call->arg_size())
+        return nullptr;
+
+      Argument *NewArg = CalledFunc->getArg(ArgNo);
+
+      // If the argument was visited then skip the recursion
+      if (VisitedArgs.contains(NewArg))
+        continue;
+
+      ST = getStructureFromPtr(NewArg, VisitedArgs);
+    }
+
+    // If we pull the source type from the GEP, then it should be a structure
+    else if (auto *GEP = dyn_cast<GetElementPtrInst>(U)) {
+      ST = dyn_cast<StructType>(GEP->getSourceElementType());
+    }
+
+    if (!ST)
+      return nullptr;
+
+    if (!Result)
+      Result = ST;
+    else if (Result != ST)
+      return nullptr;
+  }
+
+  return Result;
+}
+
+//
 // Get the argument index for a struct-type argument.
 // Expect there is only 1 struct-type* argument.
 // If so, return true, and the index is returned in ArgIdx.
 //
 static bool getStructArgIndex(Function *F, unsigned &ArgIdx) {
-  SmallVector<unsigned, 4> StructTypeArgIdxVec;
+  Argument *ArgFound = nullptr;
 
-  // collect all StructType* function arg(s)
+  // Traverse through the users of each argument and check if we can collect
+  // the structure type from the GEPs
   for (unsigned I = 0, E = F->arg_size(); I < E; ++I) {
-    Argument *arg = F->getArg(I);
-    if (PointerType *PtrTy = dyn_cast<PointerType>(arg->getType())) {
-      auto PointeeTy = PtrTy->getPointerElementType();
-      if (isa<StructType>(PointeeTy))
-        StructTypeArgIdxVec.push_back(I);
+    Argument *CurrArg = F->getArg(I);
+    if (CurrArg->getType()->isPointerTy()) {
+      SetVector<Argument *> VisitedArgs;
+      StructType *ResultTy = getStructureFromPtr(CurrArg, VisitedArgs);
+
+      if (ResultTy) {
+        if (!ArgFound)
+          ArgFound = CurrArg;
+        else
+          return false;
+      }
     }
   }
 
-  // return true if only 1 struct-type arg is available.
-  if (StructTypeArgIdxVec.size() != 1)
+  if (!ArgFound)
     return false;
 
-  ArgIdx = StructTypeArgIdxVec[0];
+  ArgIdx = ArgFound->getArgNo();
   return true;
 }
 
@@ -1484,8 +1556,6 @@ bool IPOPrefetcher::identifyDLFunctions(void) {
           DLFuncMinIntArgs /* MaxNumIntArg: 3 */,
           DLFuncMinIntPtrArgs /* NumMinPtrArg: 7 */,
           DLFuncMaxIntPtrArgs /* NumMaxPtrArg: 7 */,
-          DLFuncMinDltIntPtrArgs /* MinNumDoublePtrArgs: 0 */,
-          DLFuncMaxDltIntPtrArgs /* MaxNumDoublePtrArgs: 0 */,
           false /* LeafFunc */); // make it false for debugging only!
 
   auto isDLFunction = [&](Function *F) { return DLFuncMatcher.match(F); };
@@ -1531,8 +1601,6 @@ bool IPOPrefetcher::identifyPrefetchPositions(Function *F) {
                                DL0HostFuncMaxIntArgs /* MaxNumIntArg: 4 */,
                                DL0HostFuncMinIntPtrArgs /* NumPtrArg0: 1 */,
                                DL0HostFuncMaxIntPtrArgs /* NumPtrArg1: 1 */,
-                               0 /* MinNumDoublePtrArgs: 0 */,
-                               0 /* MaxNumDoublePtrArgs: 0 */,
                                false /* LeafFunc */),
 
       FunctionSignatureMatcher(DL1HostFuncMinArgs /* MinNumArg: 6 */,
@@ -1541,8 +1609,6 @@ bool IPOPrefetcher::identifyPrefetchPositions(Function *F) {
                                DL1HostFuncMaxIntArgs /* MaxNumIntArg: 5 */,
                                DL1HostFuncMinIntPtrArgs /* NumPtrArg0: 1 */,
                                DL1HostFuncMaxIntPtrArgs /* NumPtrArg1: 1 */,
-                               0 /* MinNumDoublePtrArgs: 0 */,
-                               0 /* MaxNumDoublePtrArgs: 0 */,
                                false /* LeafFunc */),
   };
 
@@ -1615,9 +1681,9 @@ bool IPOPrefetcher::identifyPrefetchPositions(Function *F) {
 
       // entry1:
       BasicBlockInfo(nullptr,        /* BasicBlock * BB  */
-                     138,            /* unsigned Index   */
-                     26,             /* unsigned NumInst */
-                     4,              /* unsigned NumPred */
+                     137,            /* unsigned Index   */
+                     25,             /* unsigned NumInst */
+                     3,              /* unsigned NumPred */
                      2,              /* unsigned NumSucc */
                      BBSC_Large,     /* BasicBlockSizeCategory SizeCategory */
                      BBIR_4thQuarter /*BasicBlockIndexRange IndexRange)*/
@@ -1738,7 +1804,7 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
   std::vector<Type *> RetTypes;
 
   // The existing function's return attributes.
-  AttrBuilder RAttrs(PAL.getRetAttrs());
+  AttrBuilder RAttrs(F->getContext(), PAL.getRetAttrs());
 
   // Remove any incompatible attributes, but only if we removed all return
   // values. Otherwise, ensure that we don't have any conflicting attributes
@@ -1891,13 +1957,13 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
 
     for (auto I : {AttributeList::ReturnIndex, AttributeList::FunctionIndex})
       if (Attrs.hasAttributesAtIndex(I))
-        NewAttrs = NewAttrs.addAttributesAtIndex(Ctx, I, Attrs.getAttributes(I));
+        NewAttrs = NewAttrs.addAttributesAtIndex(Ctx, I, AttrBuilder(Ctx, Attrs.getAttributes(I)));
 
     for (unsigned I = 0; I < NParams; ++I) {
       Tys.push_back(FTy->getParamType(I));
       if (Attrs.hasParamAttrs(I))
         NewAttrs = NewAttrs.addParamAttributes(Ctx, NumNewArgs,
-                                               Attrs.getParamAttrs(I));
+                                               AttrBuilder(Ctx, Attrs.getParamAttrs(I)));
       ++NumNewArgs;
     }
 

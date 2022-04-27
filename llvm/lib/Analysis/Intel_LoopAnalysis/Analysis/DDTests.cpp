@@ -5886,7 +5886,7 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
     // Skip self output dep for temp for now.
     // In theory, it's needed. but for analysis, we can just rely on flow &
     // anti alone
-    assert(SrcDDRef != DstDDRef && "DD does not creat self output edges.");
+    assert(SrcDDRef != DstDDRef && "DD does not create self output edges.");
 
     //  Make SrcDDRef to be one that comes first in lexical order
     //  and switch DVs when reversed.
@@ -5970,6 +5970,15 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
       if (IsReversed) {
         BackwardDV.swap(ForwardDV);
       }
+    } else if ((IsFlow || IsAnti) && LCALoop &&
+               !LCALoop->isLiveIn(SrcDDRef->getSymbase())) {
+      // Make non-live-in temps all (=) for FLOW and ANTI dep
+      for (unsigned II = 1; II <= Levels; ++II) {
+        ForwardDV[II - 1] = DVKind::EQ;
+      }
+      if (IsReversed) {
+        BackwardDV.swap(ForwardDV);
+      }
     }
 
     if (ForwardDV[0] != DVKind::NONE || BackwardDV[0] != DVKind::NONE) {
@@ -5993,13 +6002,13 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
                             DstNum);
   } else {
     // (3) Leftmost is <
-    //     Srce->Dest
+    //     Src->Dest
     if (!Result->isReversed()) {
       for (unsigned II = 1; II <= Levels; ++II) {
         ForwardDV[II - 1] = Result->getDirection(II);
       }
     } else {
-      //  Dest->Srce
+      //  Dest->Src
       for (unsigned II = 1; II <= Levels; ++II) {
         BackwardDV[II - 1] = Result->getDirection(II);
       }

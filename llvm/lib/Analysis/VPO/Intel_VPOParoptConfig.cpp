@@ -145,12 +145,21 @@ uint64_t VPOParoptConfig::getKernelThreadLimit(StringRef Name) const {
   return KC->ThreadLimit;
 }
 
+uint64_t VPOParoptConfig::getKernelNumTeams(StringRef Name) const {
+  auto KC = getKernelConfig(Name);
+  if (!KC)
+    return 0;
+
+  return KC->NumTeams;
+}
+
 // YAML IO mappings.
 void MappingTraits<vpo::KernelConfig>::mapping(
     IO &IO, vpo::KernelConfig &KernelConfig) {
   IO.mapRequired("Name", KernelConfig.Name);
   IO.mapOptional("SPMDSIMDWidth", KernelConfig.SPMDSIMDWidth, 0);
   IO.mapOptional("ThreadLimit", KernelConfig.ThreadLimit, 0);
+  IO.mapOptional("NumTeams", KernelConfig.NumTeams, 0);
 }
 
 void MappingTraits<vpo::Config>::mapping(

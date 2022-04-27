@@ -1,4 +1,19 @@
 #if INTEL_COLLAB
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //==- OpenMPDirectivesAndClauses.cpp - Utils for OpenMP directives/clauses -==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -49,7 +64,7 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
       IsScheduleSimd(false), IsMapAggrHead(false), IsMapAggr(false),
       IsMapChainLink(false), IsIV(false), IsInitTarget(false),
       IsInitTargetSync(false), IsInitPrefer(false), IsTask(false),
-      IsTyped(false) {
+      IsInscan(false), IsTyped(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
   // Split Name into the BaseName and Modifier substrings
@@ -169,6 +184,8 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
           setIsComplex();
         else if (ModSubString[i] == "TASK")        // for reduction clause
           setIsTask();
+        else if (ModSubString[i] == "INSCAN")      // for reduction clause
+          setIsInscan();
         else if (ModSubString[i] == "CONDITIONAL") // for lastprivate clause
           setIsConditional();
         else if (ModSubString[i] == "AGGRHEAD")    // map chain head
@@ -188,10 +205,10 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
   }
 }
 
-StringRef VPOAnalysisUtils::getDirectiveString(Instruction *I){
+StringRef VPOAnalysisUtils::getDirectiveString(const Instruction *I) {
   StringRef DirString;  // ctor initializes its data to nullptr
   if (I) {
-    IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
+    const IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
     if (Call) {
       DirString = VPOAnalysisUtils::getRegionDirectiveString(I);
     }
@@ -261,7 +278,7 @@ int VPOAnalysisUtils::getDirectiveID(StringRef DirFullName) {
   return -1;
 }
 
-int VPOAnalysisUtils::getDirectiveID(Instruction *I) {
+int VPOAnalysisUtils::getDirectiveID(const Instruction *I) {
   StringRef DirString = VPOAnalysisUtils::getDirectiveString(I);
   return VPOAnalysisUtils::getDirectiveID(DirString);
 }
@@ -300,6 +317,7 @@ bool VPOAnalysisUtils::isBeginDirective(int DirID) {
   case DIR_OMP_DISTRIBUTE_PARLOOP:
   case DIR_OMP_GENERICLOOP:
   case DIR_OMP_SCOPE:
+  case DIR_OMP_TILE:
 #if INTEL_CUSTOMIZATION
   case DIR_VPO_AUTO_VEC:
   case DIR_PRAGMA_IVDEP:
@@ -316,7 +334,7 @@ bool VPOAnalysisUtils::isBeginDirective(StringRef DirString) {
   return VPOAnalysisUtils::isBeginDirective(DirID);
 }
 
-bool VPOAnalysisUtils::isBeginDirective(Instruction *I) {
+bool VPOAnalysisUtils::isBeginDirective(const Instruction *I) {
   int DirID = VPOAnalysisUtils::getDirectiveID(I);
   return VPOAnalysisUtils::isBeginDirective(DirID);
 }
@@ -334,6 +352,7 @@ bool VPOAnalysisUtils::isBeginLoopDirective(int DirID) {
   case DIR_OMP_DISTRIBUTE:
   case DIR_OMP_DISTRIBUTE_PARLOOP:
   case DIR_OMP_GENERICLOOP:
+  case DIR_OMP_TILE:
   case DIR_PRAGMA_BLOCK_LOOP:
     return true;
   }
@@ -378,6 +397,8 @@ bool VPOAnalysisUtils::isEndDirective(int DirID) {
   case DIR_OMP_END_DISTRIBUTE_PARLOOP:
   case DIR_OMP_END_GENERICLOOP:
   case DIR_OMP_END_SCOPE:
+  case DIR_OMP_END_TILE:
+  case DIR_OMP_END_SCAN:
 #if INTEL_CUSTOMIZATION
   case DIR_VPO_END_AUTO_VEC:
   case DIR_PRAGMA_END_IVDEP:
@@ -412,6 +433,7 @@ bool VPOAnalysisUtils::isEndLoopDirective(int DirID) {
   case DIR_OMP_END_DISTRIBUTE:
   case DIR_OMP_END_DISTRIBUTE_PARLOOP:
   case DIR_OMP_END_GENERICLOOP:
+  case DIR_OMP_END_TILE:
   case DIR_PRAGMA_END_BLOCK_LOOP:
     return true;
   }
@@ -462,6 +484,7 @@ bool VPOAnalysisUtils::isStandAloneBeginDirective(int DirID) {
   case DIR_OMP_THREADPRIVATE:
   case DIR_OMP_INTEROP:
   case DIR_OMP_PREFETCH:
+  case DIR_OMP_SCAN:
     return true;
   }
   return false;
@@ -495,6 +518,7 @@ bool VPOAnalysisUtils::isStandAloneEndDirective(int DirID) {
   case DIR_OMP_END_CANCELLATION_POINT:
   case DIR_OMP_END_INTEROP:
   case DIR_OMP_END_PREFETCH:
+  case DIR_OMP_END_SCAN:
     return true;
   }
   return false;
@@ -590,6 +614,8 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
     return DIR_OMP_END_DISTRIBUTE_PARLOOP;
   case DIR_OMP_SCOPE:
       return DIR_OMP_END_SCOPE;
+  case DIR_OMP_TILE:
+      return DIR_OMP_END_TILE;
 
 #if INTEL_CUSTOMIZATION
   // Non-OpenMP Directives
@@ -628,6 +654,8 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
       return DIR_OMP_END_INTEROP;
   case DIR_OMP_PREFETCH:
       return DIR_OMP_END_PREFETCH;
+  case DIR_OMP_SCAN:
+      return DIR_OMP_END_SCAN;
   }
   return -1;
 }
@@ -654,11 +682,34 @@ bool VPOAnalysisUtils::isBeginDirectiveOfRegionsNeedingOutlining(int DirID) {
   return false;
 }
 
+bool VPOAnalysisUtils::isEndDirectiveOfRegionsNeedingOutlining(
+    StringRef DirString) {
+  return VPOAnalysisUtils::isEndDirectiveOfRegionsNeedingOutlining(
+      VPOAnalysisUtils::getDirectiveID(DirString));
+}
+
+bool VPOAnalysisUtils::isEndDirectiveOfRegionsNeedingOutlining(int DirID) {
+  switch (DirID) {
+  case DIR_OMP_END_PARALLEL:
+  case DIR_OMP_END_PARALLEL_LOOP:
+  case DIR_OMP_END_PARALLEL_SECTIONS:
+  case DIR_OMP_END_PARALLEL_WORKSHARE:
+  case DIR_OMP_END_DISTRIBUTE_PARLOOP:
+  case DIR_OMP_END_TASK:
+  case DIR_OMP_END_TASKLOOP:
+  case DIR_OMP_END_TEAMS:
+  case DIR_OMP_END_TARGET:
+    return true;
+  }
+  return false;
+}
+
 bool VPOAnalysisUtils::isDependClause(int ClauseID) {
   switch(ClauseID) {
     case QUAL_OMP_DEPEND_IN:
     case QUAL_OMP_DEPEND_INOUT:
     case QUAL_OMP_DEPEND_OUT:
+    case QUAL_OMP_DEPARRAY:
     return true;
   }
   return false;
@@ -827,6 +878,9 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_ORDER_CONCURRENT:
     case QUAL_OMP_OFFLOAD_KNOWN_NDRANGE:
     case QUAL_OMP_OFFLOAD_HAS_TEAMS_REDUCTION:
+#if INTEL_CUSTOMIZATION
+    case QUAL_EXT_DO_CONCURRENT:
+#endif // INTEL_CUSTOMIZATION
       return 0;
 
     // Clauses that take one argument

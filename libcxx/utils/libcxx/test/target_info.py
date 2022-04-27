@@ -91,15 +91,9 @@ class LinuxLocalTI(DefaultTargetInfo):
         super(LinuxLocalTI, self).__init__(full_config)
 
     def add_cxx_compile_flags(self, flags):
-        # INTEL_CUSTOMIZATION
-        # Disable fast float point in libcxx lit testing since Werror
-        # "comparison with NaN always evaluates to false in fast floating point
-        # modes" will break tests build
         flags += ['-D__STDC_FORMAT_MACROS',
                   '-D__STDC_LIMIT_MACROS',
-                  '-D__STDC_CONSTANT_MACROS',
-                  '-ffp-model=precise']
-        # end INTEL_CUSTOMIZATION
+                  '-D__STDC_CONSTANT_MACROS']
 
     def add_cxx_link_flags(self, flags):
         enable_threads = ('libcpp-has-no-threads' not in
@@ -107,12 +101,6 @@ class LinuxLocalTI(DefaultTargetInfo):
         llvm_unwinder = self.full_config.get_lit_bool('llvm_unwinder', False)
         shared_libcxx = self.full_config.get_lit_bool('enable_shared', True)
         flags += ['-lm']
-        # INTEL_CUSTOMIZATION
-        # Libcxx tests are built with '-nodefaultlibs' flag, we need to
-        # manually add libirc and svml to link command.
-        flags += ['-lirc']
-        flags += ['-lsvml']
-        # end INTEL_CUSTOMIZATION
         if not llvm_unwinder:
             flags += ['-lgcc_s', '-lgcc']
         if enable_threads:

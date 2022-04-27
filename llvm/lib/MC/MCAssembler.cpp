@@ -1,4 +1,21 @@
 //===- lib/MC/MCAssembler.cpp - Assembler Backend Implementation ----------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -27,7 +44,6 @@
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCObjectWriter.h"
 #include "llvm/MC/MCSection.h"
-#include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCSymbol.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/MC/Intel_MCTrace.h"
@@ -39,15 +55,17 @@
 #include "llvm/Support/EndianStream.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/LEB128.h"
-#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <cstdint>
-#include <cstring>
 #include <tuple>
 #include <utility>
 
 using namespace llvm;
+
+namespace llvm {
+class MCSubtargetInfo;
+}
 
 #define DEBUG_TYPE "assembler"
 
@@ -337,7 +355,7 @@ uint64_t MCAssembler::computeFragmentSize(const MCAsmLayout &Layout,
 
     // Insert extra Nops for code alignment if the target define
     // shouldInsertExtraNopBytesForCodeAlign target hook.
-    if (AF.getParent()->UseCodeAlign() && AF.hasEmitNops() &&
+    if (AF.getParent()->useCodeAlign() && AF.hasEmitNops() &&
         getBackend().shouldInsertExtraNopBytesForCodeAlign(AF, Size))
       return Size;
 
@@ -887,7 +905,7 @@ void MCAssembler::layout(MCAsmLayout &Layout) {
         MCAlignFragment &AF = cast<MCAlignFragment>(Frag);
         // Insert fixup type for code alignment if the target define
         // shouldInsertFixupForCodeAlign target hook.
-        if (Sec.UseCodeAlign() && AF.hasEmitNops())
+        if (Sec.useCodeAlign() && AF.hasEmitNops())
           getBackend().shouldInsertFixupForCodeAlign(*this, Layout, AF);
         continue;
       }

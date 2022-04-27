@@ -5,10 +5,10 @@
 ; CHECK: define dso_local void @_ZGVbN4l__Z3fooi
 ; CHECK:       simd.loop.preheader:
 ; CHECK-NEXT:    [[LOAD_A0:%.*]] = load i32, i32* [[ALLOCA_A0:%.*]], align 4
-; CHECK-NEXT:    br label [[SIMD_LOOP0:%.*]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER0:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop:
-; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0:%.*]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]
+; CHECK-NEXT:  simd.loop.header:
+; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0:%.*]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_LATCH0:%.*]] ]
 ; CHECK-NEXT:    [[STRIDE_MUL0:%.*]] = mul i32 1, [[INDEX0]]
 ; CHECK-NEXT:    [[STRIDE_ADD0:%.*]] = add i32 [[LOAD_A0]], [[STRIDE_MUL0]]
 ; CHECK-NEXT:    [[TOBOOL0:%.*]] = icmp eq i32 [[STRIDE_ADD0]], 0
@@ -44,10 +44,10 @@ for.end.split:
 ; CHECK: define dso_local void @_ZGVbN4l__Z4fooi
 ; CHECK:       simd.loop.preheader:
 ; CHECK-NEXT:    [[LOAD_A0:%.*]] = load i64, i64* [[ALLOCA_A0:%.*]], align 8
-; CHECK-NEXT:    br label [[SIMD_LOOP0:%.*]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER0:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  simd.loop:
-; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0:%.*]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]
+; CHECK-NEXT:  simd.loop.header:
+; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0:%.*]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_LATCH0:%.*]] ]
 ; CHECK-NEXT:    [[PHI_CAST0:%.*]] = zext i32 [[INDEX0]] to i64
 ; CHECK-NEXT:    [[STRIDE_MUL0:%.*]] = mul i64 1, [[PHI_CAST0]]
 ; CHECK-NEXT:    [[STRIDE_ADD0:%.*]] = add i64 [[LOAD_A0]], [[STRIDE_MUL0]]

@@ -1,4 +1,21 @@
 //===- llvm/lib/CodeGen/AsmPrinter/CodeViewDebug.h --------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -97,6 +114,9 @@ class LLVM_LIBRARY_VISIBILITY CodeViewDebug : public DebugHandlerBase {
     const DILocalVariable *DIVar = nullptr;
     SmallVector<LocalVarDefRange, 1> DefRanges;
     bool UseReferenceType = false;
+#if INTEL_CUSTOMIZATION
+    uint32_t UplevelOffset = 0;
+#endif // INTEL_CUSTOMIZATION
   };
 
   struct CVGlobalVariable {
@@ -409,10 +429,20 @@ class LLVM_LIBRARY_VISIBILITY CodeViewDebug : public DebugHandlerBase {
   codeview::TypeIndex lowerType(const DIType *Ty, const DIType *ClassTy);
   codeview::TypeIndex lowerTypeAlias(const DIDerivedType *Ty);
 #if INTEL_CUSTOMIZATION
+  codeview::TypeIndex lowerTypeOemMSF90HostReference(
+      codeview::TypeIndex RefType,
+      uint32_t Offset);
   codeview::TypeIndex lowerTypeOemMSF90Descriptor(
       const DIStringType *Ty,
       codeview::TypeIndex RefType);
   codeview::TypeIndex lowerTypeOemMSF90DescribedArray(const DICompositeType *Ty);
+  // We create a TypeIndex cache specifically for DimInfo because,
+  // unlike other type indices that have a 1-to-1 mapping to a DINode,
+  // DimInfo consists of multiple DINode's (or MDTuple), which as
+  // a whole maps to one type index.
+  DenseMap<const MDTuple *, codeview::TypeIndex> DimInfoIndices;
+  codeview::TypeIndex getDimInfo(const DINodeArray Subranges);
+  codeview::TypeIndex lowerTypeFortranExplicitArray(const DICompositeType *Ty);
 #endif // INTEL_CUSTOMIZATION
   codeview::TypeIndex lowerTypeArray(const DICompositeType *Ty);
   codeview::TypeIndex lowerTypeString(const DIStringType *Ty);

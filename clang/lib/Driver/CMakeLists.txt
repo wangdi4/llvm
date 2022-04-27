@@ -1,4 +1,21 @@
 # INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
+# INTEL_CUSTOMIZATION
 set(INTEL_SOURCE_FILES_TO_BUILD)
 intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   COMPLEMENT LLVM_OPTIONAL_SOURCES
@@ -20,6 +37,7 @@ set(LLVM_LINK_COMPONENTS
   Option
   ProfileData
   Support
+  WindowsDriver
   )
 
 if(WIN32)
@@ -42,6 +60,7 @@ add_clang_library(clangDriver
   ToolChain.cpp
   ToolChains/Arch/AArch64.cpp
   ToolChains/Arch/ARM.cpp
+  ToolChains/Arch/CSKY.cpp
   ToolChains/Arch/M68k.cpp
   ToolChains/Arch/Mips.cpp
   ToolChains/Arch/PPC.cpp
@@ -64,6 +83,7 @@ add_clang_library(clangDriver
 # INTEL_CUSTOMIZATION
   ${INTEL_SOURCE_FILES_TO_BUILD}
 # end INTEL_CUSTOMIZATION
+  ToolChains/CSKYToolChain.cpp
   ToolChains/Cuda.cpp
   ToolChains/Darwin.cpp
   ToolChains/DragonFly.cpp
@@ -76,6 +96,7 @@ add_clang_library(clangDriver
   ToolChains/HIPAMD.cpp
   ToolChains/HIPSPV.cpp
   ToolChains/Hexagon.cpp
+  ToolChains/HLSL.cpp
   ToolChains/Hurd.cpp
   ToolChains/Linux.cpp
   ToolChains/MipsLinux.cpp

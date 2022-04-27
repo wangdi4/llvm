@@ -90,6 +90,23 @@ typedef int (*TargetDataFuncPtrTy)(ident_t *, DeviceTy &, int32_t, void **,
 #ifdef __cplusplus
 extern "C" {
 #endif
+/*!
+ * The ident structure that describes a source location.
+ * The struct is identical to the one in the kmp.h file.
+ * We maintain the same data structure for compatibility.
+ */
+typedef int kmp_int32;
+typedef intptr_t kmp_intptr_t;
+// Compiler sends us this info:
+typedef struct kmp_depend_info {
+  kmp_intptr_t base_addr;
+  size_t len;
+  struct {
+    bool in : 1;
+    bool out : 1;
+    bool mtx : 1;
+  } flags;
+} kmp_depend_info_t;
 // functions that extract info from libomp; keep in sync
 #if INTEL_COLLAB
 #ifdef _WIN32
@@ -97,9 +114,12 @@ extern "C" {
 // FIXME: we should actually include omp.h instead of declaring
 //        omp_get_default_device() ourselves.
 int __cdecl omp_get_default_device(void);
-int32_t __cdecl __kmpc_omp_taskwait(void *loc_ref, int32_t gtid);
 int32_t __cdecl __kmpc_global_thread_num(void *);
 int __cdecl __kmpc_get_target_offload(void);
+void __cdecl __kmpc_omp_wait_deps(ident_t *loc_ref, kmp_int32 gtid,
+                                  kmp_int32 ndeps, kmp_depend_info_t *dep_list,
+                                  kmp_int32 ndeps_noalias,
+                                  kmp_depend_info_t *noalias_dep_list);
 void __cdecl __kmpc_proxy_task_completed_ooo(void *);
 #else
 // We do not have to make these weak just to be able
@@ -107,9 +127,12 @@ void __cdecl __kmpc_proxy_task_completed_ooo(void *);
 // To make this work without weak, we have to make sure -Wl,-z,defs
 // is not passed to the linker, so just keep it as-is.
 int omp_get_default_device(void) __attribute__((weak));
-int32_t __kmpc_omp_taskwait(void *loc_ref, int32_t gtid) __attribute__((weak));
 int32_t __kmpc_global_thread_num(void *) __attribute__((weak));
 int __kmpc_get_target_offload(void) __attribute__((weak));
+void __kmpc_omp_wait_deps(ident_t *loc_ref, kmp_int32 gtid, kmp_int32 ndeps,
+                          kmp_depend_info_t *dep_list, kmp_int32 ndeps_noalias,
+                          kmp_depend_info_t *noalias_dep_list)
+    __attribute__((weak));
 void __kmpc_proxy_task_completed_ooo(void *);
 void kmp_set_defaults(const char *);
 #endif
@@ -117,6 +140,10 @@ void kmp_set_defaults(const char *);
 int omp_get_default_device(void) __attribute__((weak));
 int32_t __kmpc_global_thread_num(void *) __attribute__((weak));
 int __kmpc_get_target_offload(void) __attribute__((weak));
+void __kmpc_omp_wait_deps(ident_t *loc_ref, kmp_int32 gtid, kmp_int32 ndeps,
+                          kmp_depend_info_t *dep_list, kmp_int32 ndeps_noalias,
+                          kmp_depend_info_t *noalias_dep_list)
+    __attribute__((weak));
 #endif // INTEL_COLLAB
 #ifdef __cplusplus
 }
@@ -129,7 +156,9 @@ int __kmpc_get_target_offload(void) __attribute__((weak));
 /// dump a table of all the host-target pointer pairs on failure
 static inline void dumpTargetPointerMappings(const ident_t *Loc,
                                              DeviceTy &Device) {
-  if (Device.HostDataToTargetMap.empty())
+  DeviceTy::HDTTMapAccessorTy HDTTMap =
+      Device.HostDataToTargetMap.getExclusiveAccessor();
+  if (HDTTMap->empty())
     return;
 
   SourceInfo Kernel(Loc);
@@ -139,18 +168,16 @@ static inline void dumpTargetPointerMappings(const ident_t *Loc,
   INFO(OMP_INFOTYPE_ALL, Device.DeviceID, "%-18s %-18s %s %s %s %s\n",
        "Host Ptr", "Target Ptr", "Size (B)", "DynRefCount", "HoldRefCount",
        "Declaration");
-  Device.DataMapMtx.lock();
-  for (const auto &HostTargetMap : Device.HostDataToTargetMap) {
-    SourceInfo Info(HostTargetMap.HstPtrName);
+  for (const auto &It : *HDTTMap) {
+    HostDataToTargetTy &HDTT = *It.HDTT;
+    SourceInfo Info(HDTT.HstPtrName);
     INFO(OMP_INFOTYPE_ALL, Device.DeviceID,
          DPxMOD " " DPxMOD " %-8" PRIuPTR " %-11s %-12s %s at %s:%d:%d\n",
-         DPxPTR(HostTargetMap.HstPtrBegin), DPxPTR(HostTargetMap.TgtPtrBegin),
-         HostTargetMap.HstPtrEnd - HostTargetMap.HstPtrBegin,
-         HostTargetMap.dynRefCountToStr().c_str(),
-         HostTargetMap.holdRefCountToStr().c_str(), Info.getName(),
-         Info.getFilename(), Info.getLine(), Info.getColumn());
+         DPxPTR(HDTT.HstPtrBegin), DPxPTR(HDTT.TgtPtrBegin),
+         HDTT.HstPtrEnd - HDTT.HstPtrBegin, HDTT.dynRefCountToStr().c_str(),
+         HDTT.holdRefCountToStr().c_str(), Info.getName(), Info.getFilename(),
+         Info.getLine(), Info.getColumn());
   }
-  Device.DataMapMtx.unlock();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

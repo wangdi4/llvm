@@ -1,4 +1,21 @@
 //===- LegacyPassManager.cpp - LLVM Pass Infrastructure Implementation ----===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -12,28 +29,23 @@
 
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/Statistic.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManagers.h"
-#include "llvm/IR/LegacyPassNameParser.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassTimingInfo.h"
 #include "llvm/IR/PrintPasses.h"
-#include "llvm/IR/StructuralHash.h"
 #include "llvm/Support/Chrono.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/ManagedStatic.h"
-#include "llvm/Support/Mutex.h"
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/Timer.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
-#include <unordered_set>
+
 using namespace llvm;
 
 // See PassManagers.h for Pass Manager infrastructure overview.
@@ -264,9 +276,9 @@ private:
   bool wasRun;
 public:
   static char ID;
-  explicit FunctionPassManagerImpl() :
-    Pass(PT_PassManager, ID), PMDataManager(),
-    PMTopLevelManager(new FPPassManager()), wasRun(false) {}
+  explicit FunctionPassManagerImpl()
+      : Pass(PT_PassManager, ID), PMTopLevelManager(new FPPassManager()),
+        wasRun(false) {}
 
   /// \copydoc FunctionPassManager::add()
   void add(Pass *P) {
@@ -401,8 +413,7 @@ namespace {
 class MPPassManager : public Pass, public PMDataManager {
 public:
   static char ID;
-  explicit MPPassManager() :
-    Pass(PT_PassManager, ID), PMDataManager() { }
+  explicit MPPassManager() : Pass(PT_PassManager, ID) {}
 
   // Delete on the fly managers.
   ~MPPassManager() override {
@@ -496,9 +507,8 @@ class PassManagerImpl : public Pass,
 
 public:
   static char ID;
-  explicit PassManagerImpl() :
-    Pass(PT_PassManager, ID), PMDataManager(),
-                              PMTopLevelManager(new MPPassManager()) {}
+  explicit PassManagerImpl()
+      : Pass(PT_PassManager, ID), PMTopLevelManager(new MPPassManager()) {}
 
   /// \copydoc PassManager::add()
   void add(Pass *P) {
@@ -1558,13 +1568,13 @@ bool FPPassManager::runOnFunction(Function &F) {
       PassManagerPrettyStackEntry X(FP, F);
       TimeRegion PassTimer(getPassTimer(FP));
 #ifdef EXPENSIVE_CHECKS
-      uint64_t RefHash = StructuralHash(F);
+      uint64_t RefHash = FP->structuralHash(F);
 #endif
       if (llvm::legacy::doesLoopOptPipelineAllowToRunWithDebug(FP, F)) // INTEL
       LocalChanged |= FP->runOnFunction(F);
 
 #if defined(EXPENSIVE_CHECKS) && !defined(NDEBUG)
-      if (!LocalChanged && (RefHash != StructuralHash(F))) {
+      if (!LocalChanged && (RefHash != FP->structuralHash(F))) {
         llvm::errs() << "Pass modifies its input and doesn't report it: "
                      << FP->getPassName() << "\n";
         llvm_unreachable("Pass modifies its input and doesn't report it");
@@ -1678,13 +1688,13 @@ MPPassManager::runOnModule(Module &M) {
       TimeRegion PassTimer(getPassTimer(MP));
 
 #ifdef EXPENSIVE_CHECKS
-      uint64_t RefHash = StructuralHash(M);
+      uint64_t RefHash = MP->structuralHash(M);
 #endif
 
       LocalChanged |= MP->runOnModule(M);
 
 #ifdef EXPENSIVE_CHECKS
-      assert((LocalChanged || (RefHash == StructuralHash(M))) &&
+      assert((LocalChanged || (RefHash == MP->structuralHash(M))) &&
              "Pass modifies its input and doesn't report it.");
 #endif
 
@@ -1951,4 +1961,4 @@ void FunctionPass::assignPassManager(PMStack &PMS,
   PM->add(this);
 }
 
-legacy::PassManagerBase::~PassManagerBase() {}
+legacy::PassManagerBase::~PassManagerBase() = default;

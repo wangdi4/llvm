@@ -26,15 +26,18 @@
 ; RUN: opt -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -verify -print-after=hir-vplan-vec -S -vplan-force-vf=16 < %s 2>&1 | FileCheck -D#VL=16 --check-prefixes=CHECK,CHECK-512 %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg,verify" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=16 < %s 2>&1 | FileCheck -D#VL=16 --check-prefixes=CHECK,CHECK-512 %s
 
+; RUN: opt -vplan-enable-new-cfg-merge-hir -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -verify -print-after=hir-vplan-vec -S -vplan-force-vf=4 < %s 2>&1 | FileCheck -D#VL=4 --check-prefixes=CHECK,CHECK-128 %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg,verify" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=4 < %s 2>&1 | FileCheck -D#VL=4 --check-prefixes=CHECK,CHECK-128 %s
+
+; RUN: opt -vplan-enable-new-cfg-merge-hir -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -verify -print-after=hir-vplan-vec -S -vplan-force-vf=16 < %s 2>&1 | FileCheck -D#VL=16 --check-prefixes=CHECK,CHECK-512 %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg,verify" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=16 < %s 2>&1 | FileCheck -D#VL=16 --check-prefixes=CHECK,CHECK-512 %s
 
 ; Check to see that the main vector loop was vectorized with svml and
 ; remainder loop broadcasts the call arguments and uses svml to match the main
 ; vector loop.
 
 ; CHECK-LABEL: Function: unit_strided
-; CHECK:      if (0 <u [[#VL]] * %tgu)
-; CHECK-NEXT: {
-; CHECK-NEXT:    + DO i1 = 0, [[#VL]] * %tgu + -1, [[#VL]]   <DO_LOOP>  <MAX_TC_EST = {{.*}}> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:         + DO i1 = 0, {{.*}} + -1, [[#VL]]   <DO_LOOP>  <MAX_TC_EST = {{.*}}> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:    |   [[SRC_UNIT:%.*]] = sitofp.<[[#VL]] x i32>.<[[#VL]] x float>(i1 + <i64 0, i64 1, i64 2, i64 3
 ; CHECK-NEXT:    |   [[RET_UNIT:%.*]] = @__svml_sincosf[[#VL]]([[SRC_UNIT]]);
 ; CHECK-NEXT:    |   %sincos.sin = extractvalue [[RET_UNIT]], 0;
@@ -46,12 +49,12 @@
 ; CHECK-512:     |   [[RET_MASK_UNIT:%.*]] = @__svml_sincosf16_mask(undef, [[MASK_UNIT:%.*]], [[SRC_UNIT]]);
 ; CHECK-NEXT:    |   [[SIN_MASK_UNIT:%.*]] = extractvalue [[RET_MASK_UNIT]], 0;
 ; CHECK-NEXT:    |   [[COS_MASK_UNIT:%.*]] = extractvalue [[RET_MASK_UNIT]], 1;
-; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%sinB)[i1] = [[SIN_MASK_UNIT]]; Mask = @{[[MASK_UNIT]]}
-; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%cosB)[i1] = [[COS_MASK_UNIT]]; Mask = @{[[MASK_UNIT]]}
+; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%sinB)[i1] = [[SIN_MASK_UNIT]], Mask = @{[[MASK_UNIT]]};
+; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%cosB)[i1] = [[COS_MASK_UNIT]], Mask = @{[[MASK_UNIT]]};
 ; CHECK-NEXT:    + END LOOP
-; CHECK-NEXT: }
+; CHECK:      }
 
-; CHECK:      + DO i1 = [[#VL]] * %tgu, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = [[#VL-1]]> <nounroll> <novectorize> <max_trip_count = [[#VL-1]]>
+; CHECK:      + DO i1 = {{.*}}, zext.i32.i64(%N) + -1, 1   <DO_LOOP>
 ; CHECK-NEXT: |   %conv = sitofp.i32.float(i1);
 ; CHECK-NEXT: |   %copy = %conv;
 ; CHECK-NEXT: |   [[RET_REM_UNIT:%.*]] = @__svml_sincosf[[#VL]](%copy);
@@ -76,9 +79,7 @@
 
 ; Check to see that non-unit-strided destinations of sincos are vectorized to scatters
 ; CHECK-LABEL: Function: non_unit_strided
-; CHECK:      if (0 <u [[#VL]] * %tgu)
-; CHECK-NEXT: {
-; CHECK-NEXT:    + DO i1 = 0, [[#VL]] * %tgu + -1, [[#VL]]   <DO_LOOP>  <MAX_TC_EST = {{.*}}> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:         + DO i1 = 0, {{.*}}, [[#VL]]   <DO_LOOP>
 ; CHECK-NEXT:    |   [[SRC_NONUNIT:%.*]] = sitofp.<[[#VL]] x i32>.<[[#VL]] x float>(i1 + <i64 0, i64 1, i64 2, i64 3
 ; CHECK:         |   [[RET_NONUNIT:%.*]] = @__svml_sincosf[[#VL]]([[SRC_NONUNIT]]);
 ; CHECK-NEXT:    |   %sincos.sin = extractvalue [[RET_NONUNIT]], 0;
@@ -90,12 +91,12 @@
 ; CHECK-512:     |   [[RET_MASK_NONUNIT:%.*]] = @__svml_sincosf16_mask(undef, [[MASK_NONUNIT:%.*]], [[SRC_NONUNIT]]);
 ; CHECK-NEXT:    |   [[SIN_MASK_NONUNIT:%.*]] = extractvalue [[RET_MASK_NONUNIT]], 0;
 ; CHECK-NEXT:    |   [[COS_MASK_NONUNIT:%.*]] = extractvalue [[RET_MASK_NONUNIT]], 1;
-; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%sinB)[2 * i1 + <i64 0, i64 2, i64 4, i64 6{{.*}}] = [[SIN_MASK_NONUNIT]]; Mask = @{[[MASK_NONUNIT]]}
-; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%cosB)[2 * i1 + <i64 0, i64 2, i64 4, i64 6{{.*}}] = [[COS_MASK_NONUNIT]]; Mask = @{[[MASK_NONUNIT]]}
+; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%sinB)[2 * i1 + <i64 0, i64 2, i64 4, i64 6{{.*}}] = [[SIN_MASK_NONUNIT]], Mask = @{[[MASK_NONUNIT]]};
+; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%cosB)[2 * i1 + <i64 0, i64 2, i64 4, i64 6{{.*}}] = [[COS_MASK_NONUNIT]], Mask = @{[[MASK_NONUNIT]]};
 ; CHECK-NEXT:    + END LOOP
-; CHECK-NEXT: }
+; CHECK:      }
 
-; CHECK:      + DO i1 = [[#VL]] * %tgu, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = [[#VL-1]]> <nounroll> <novectorize> <max_trip_count = [[#VL-1]]>
+; CHECK:      + DO i1 = {{.*}}, zext.i32.i64(%N) + -1, 1   <DO_LOOP>
 ; CHECK-NEXT: |   %conv = sitofp.i32.float(i1);
 ; CHECK-NEXT: |   %copy = %conv;
 ; CHECK-NEXT: |   [[RET_REM_NONUNIT:%.*]] = @__svml_sincosf[[#VL]](%copy);

@@ -13,6 +13,7 @@ define void @merge_uniform_strided_soa_geps() {
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 16384, ptr [[ARR_SOA_PRIV64_SOA_VEC]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP1:%.*]], [[VPLANNEDBB8:%.*]] ]
@@ -37,6 +38,7 @@ define void @merge_uniform_strided_soa_geps() {
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i64 [[TMP1]], 1024
 ; CHECK-NEXT:    br i1 [[TMP2]], label [[VECTOR_BODY]], label [[VPLANNEDBB13:%.*]], !llvm.loop [[LOOP2:![0-9]+]]
 ; CHECK:       VPlannedBB10:
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 16384, ptr [[ARR_SOA_PRIV64_SOA_VEC]])
 ;
 entry:
   %arr.soa.priv64 = alloca [1024 x i64], align 4

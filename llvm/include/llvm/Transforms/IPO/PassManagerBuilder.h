@@ -1,4 +1,21 @@
 // llvm/Transforms/IPO/PassManagerBuilder.h - Build Standard Pass -*- C++ -*-=//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -17,7 +34,6 @@
 #include "llvm-c/Transforms/PassManagerBuilder.h"
 #include "llvm/Support/Intel_WP_utils.h"   // INTEL
 #include <functional>
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -25,7 +41,6 @@ namespace llvm {
 class ModuleSummaryIndex;
 class Pass;
 class TargetLibraryInfoImpl;
-class TargetMachine;
 class InlineReportBuilder; // INTEL
 
 // The old pass manager infrastructure is hidden in a legacy namespace now.
@@ -240,9 +255,9 @@ private:
   void addInitialAliasAnalysisPasses(legacy::PassManagerBase &PM) const;
   void addLTOOptimizationPasses(legacy::PassManagerBase &PM);
   void addLateLTOOptimizationPasses(legacy::PassManagerBase &PM);
-  void addPGOInstrPasses(legacy::PassManagerBase &MPM, bool IsCS);
   void addFunctionSimplificationPasses(legacy::PassManagerBase &MPM);
 #if INTEL_CUSTOMIZATION
+  void addPGOInstrPasses(legacy::PassManagerBase &MPM, bool IsCS);
   void addInstructionCombiningPass(legacy::PassManagerBase &MPM,
                                    bool EnableUpCasting) const;
 #endif // INTEL_CUSTOMIZATION
@@ -283,8 +298,10 @@ public:
 
   /// populateModulePassManager - This sets up the primary pass manager.
   void populateModulePassManager(legacy::PassManagerBase &MPM);
+#if INTEL_CUSTOMIZATION
   void populateLTOPassManager(legacy::PassManagerBase &PM);
   void populateThinLTOPassManager(legacy::PassManagerBase &PM);
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// Registers a function for adding a standard set of passes.  This should be

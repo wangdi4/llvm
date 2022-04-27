@@ -1,11 +1,13 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
+; This test fails when the new pass manager is enabled by default.
+; CMPLRLLVM-37060
+; XFAIL: new_pm_default
 
 ; RUN: llvm-as %s -o %t.o
 ; INTEL - added loopopt in pipeline.
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
-; RUN:    --plugin-opt=save-temps \
-; RUN:    -shared %t.o -o %t2.o
+; RUN:    --plugin-opt=save-temps -shared %t.o -o %t2.o
 ; RUN: llvm-dis %t2.o.0.4.opt.bc -o - | FileCheck %s
 
 ; test that the vectorizer is run.

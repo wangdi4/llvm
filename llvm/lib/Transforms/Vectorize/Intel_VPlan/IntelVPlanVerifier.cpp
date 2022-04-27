@@ -81,7 +81,7 @@ void VPlanVerifier::verifyLoops(
 #endif
 
   unsigned BBNum = 0;
-  for (const VPBasicBlock *VPBB : depth_first(Plan->getEntryBlock())) {
+  for (const VPBasicBlock *VPBB : depth_first(&Plan->getEntryBlock())) {
     verifyBlock(VPBB);
     ++BBNum;
   }
@@ -234,19 +234,19 @@ void VPlanVerifier::verifyFPToUIInst(const VPInstruction *I) const {
   // Get the source and destination types
   Type *SrcTy = I->getOperand(0)->getType();
   Type *DstTy = I->getType();
-  bool SrcVec = SrcTy->isVectorTy();
-  bool DstVec = DstTy->isVectorTy();
 
-  assert(SrcVec == DstVec &&
-         "FPToUI source and dest must both be vector or scalar");
   assert(SrcTy->isFPOrFPVectorTy() && "FPToUI source must be FP or FP vector");
   assert(DstTy->isIntOrIntVectorTy() &&
          "FPToUI result must be integer or integer vector");
 
-  if (SrcVec && DstVec)
-    assert(cast<VectorType>(SrcTy)->getNumElements() ==
-               cast<VectorType>(DstTy)->getNumElements() &&
+  auto *SrcVecTy = dyn_cast<FixedVectorType>(SrcTy);
+  auto *DstVecTy = dyn_cast<FixedVectorType>(DstTy);
+  if (SrcVecTy && DstVecTy)
+    assert(SrcVecTy->getNumElements() == DstVecTy->getNumElements() &&
            "FPToUI source and dest vector length mismatch");
+  else
+    assert(!SrcTy->isVectorTy() && !DstTy->isVectorTy() &&
+           "FPToUI source and dest must both be vector or scalar");
 }
 
 void VPlanVerifier::verifyFPToSIInst(const VPInstruction *I) const {
@@ -254,59 +254,54 @@ void VPlanVerifier::verifyFPToSIInst(const VPInstruction *I) const {
   // Get the source and destination types
   Type *SrcTy = I->getOperand(0)->getType();
   Type *DstTy = I->getType();
-  bool SrcVec = SrcTy->isVectorTy();
-  bool DstVec = DstTy->isVectorTy();
-
-  assert(SrcVec == DstVec &&
-         "FPToSI source and dest must both be vector or scalar");
   assert(SrcTy->isFPOrFPVectorTy() && "FPToSI source must be FP or FP vector");
   assert(DstTy->isIntOrIntVectorTy() &&
          "FPToSI result must be integer or integer vector");
 
-  if (SrcVec && DstVec)
-    assert(cast<VectorType>(SrcTy)->getNumElements() ==
-               cast<VectorType>(DstTy)->getNumElements() &&
+  auto *SrcVecTy = dyn_cast<FixedVectorType>(SrcTy);
+  auto *DstVecTy = dyn_cast<FixedVectorType>(DstTy);
+  if (SrcVecTy && DstVecTy)
+    assert(SrcVecTy->getNumElements() == DstVecTy->getNumElements() &&
            "FPToSI source and dest vector length mismatch");
-
+  else
+    assert(!SrcTy->isVectorTy() && !DstTy->isVectorTy() &&
+           "FPToSI source and dest must both be vector or scalar");
 }
 
 void VPlanVerifier::verifyUIToFPInst(const VPInstruction *I) const {
   assert(I->getOpcode() == Instruction::UIToFP);
   Type *SrcTy = I->getOperand(0)->getType();
   Type *DstTy = I->getType();
-  bool SrcVec = SrcTy->isVectorTy();
-  bool DstVec = DstTy->isVectorTy();
-
-  assert(SrcVec == DstVec &&
-         "UIToFP source and dest must both be vector or scalar");
   assert(SrcTy->isIntOrIntVectorTy() &&
          "UIToFP source must be integer or integer vector");
   assert(DstTy->isFPOrFPVectorTy() && "UIToFP result must be FP or FP vector");
 
-  if (SrcVec && DstVec)
-    assert(cast<VectorType>(SrcTy)->getNumElements() ==
-               cast<VectorType>(DstTy)->getNumElements() &&
+  auto *SrcVecTy = dyn_cast<FixedVectorType>(SrcTy);
+  auto *DstVecTy = dyn_cast<FixedVectorType>(DstTy);
+  if (SrcVecTy && DstVecTy)
+    assert(SrcVecTy->getNumElements() == DstVecTy->getNumElements() &&
            "UIToFP source and dest vector length mismatch");
-
+  else
+    assert(!SrcTy->isVectorTy() && !DstTy->isVectorTy() &&
+           "UIToFP source and dest must both be vector or scalar");
 }
 
 void VPlanVerifier::verifySIToFPInst(const VPInstruction *I) const {
   assert(I->getOpcode() == Instruction::SIToFP);
   Type *SrcTy = I->getOperand(0)->getType();
   Type *DstTy = I->getType();
-  bool SrcVec = SrcTy->isVectorTy();
-  bool DstVec = DstTy->isVectorTy();
-
-  assert(SrcVec == DstVec &&
-         "SIToFP source and dest must both be vector or scalar");
   assert(SrcTy->isIntOrIntVectorTy() &&
          "SIToFP source must be integer or integer vector");
   assert(DstTy->isFPOrFPVectorTy() && "SIToFP result must be FP or FP vector");
 
-  if (SrcVec && DstVec)
-    assert(cast<VectorType>(SrcTy)->getNumElements() ==
-               cast<VectorType>(DstTy)->getNumElements() &&
+  auto *SrcVecTy = dyn_cast<FixedVectorType>(SrcTy);
+  auto *DstVecTy = dyn_cast<FixedVectorType>(DstTy);
+  if (SrcVecTy && DstVecTy)
+    assert(SrcVecTy->getNumElements() == DstVecTy->getNumElements() &&
            "SIToFP source and dest vector length mismatch");
+  else
+    assert(!SrcTy->isVectorTy() && !DstTy->isVectorTy() &&
+           "SIToFP source and dest must both be vector or scalar");
 }
 
 void VPlanVerifier::verifyIntToPtrInst(const VPInstruction *I) const {
@@ -314,24 +309,21 @@ void VPlanVerifier::verifyIntToPtrInst(const VPInstruction *I) const {
   // Get the source and destination types
   Type *SrcTy = I->getOperand(0)->getType();
   Type *DstTy = I->getType();
-
   assert(SrcTy->isIntOrIntVectorTy() && "IntToPtr source must be an integral");
   assert(DstTy->isPtrOrPtrVectorTy() && "IntToPtr result must be a pointer");
-  assert(SrcTy->isVectorTy() == DstTy->isVectorTy() &&
-         "IntToPtr type mismatch");
 
-  auto *Ptr = dyn_cast<PointerType>(DstTy->getScalarType());
-  if (Ptr)
+  if (auto *Ptr = dyn_cast<PointerType>(DstTy->getScalarType()))
     assert(!DL.isNonIntegralPointerType(Ptr) &&
            "inttoptr not supported for non-integral pointers");
 
-  if (SrcTy->isVectorTy()) {
-    assert(cast<VectorType>(SrcTy)->getNumElements() ==
-               cast<VectorType>(DstTy)->getNumElements() &&
+  auto *SrcVecTy = dyn_cast<FixedVectorType>(SrcTy);
+  auto *DstVecTy = dyn_cast<FixedVectorType>(DstTy);
+  if (SrcVecTy && DstVecTy)
+    assert(SrcVecTy->getNumElements() == DstVecTy->getNumElements() &&
            "IntToPtr Vector width mismatch");
-  }
-
-  (void)DstTy;
+  else
+    assert(!SrcTy->isVectorTy() && !DstTy->isVectorTy() &&
+           "IntToPtr type mismatch");
 }
 
 void VPlanVerifier::verifyPtrToIntInst(const VPInstruction *I) const {
@@ -344,16 +336,18 @@ void VPlanVerifier::verifyPtrToIntInst(const VPInstruction *I) const {
   assert(SrcTy->isVectorTy() == DstTy->isVectorTy() &&
          "PtrToInt type mismatch");
 
-  auto *Ptr = dyn_cast<PointerType>(DstTy->getScalarType());
-  if (Ptr)
+  if (auto *Ptr = dyn_cast<PointerType>(DstTy->getScalarType()))
     assert(!DL.isNonIntegralPointerType(Ptr) &&
-           "ptrtoint not supported for non-integral pointers");
+           "PtrToInt not supported for non-integral pointers");
 
-  if (SrcTy->isVectorTy()) {
-    assert(cast<VectorType>(SrcTy)->getNumElements() ==
-               cast<VectorType>(DstTy)->getNumElements() &&
+  auto *SrcVecTy = dyn_cast<FixedVectorType>(SrcTy);
+  auto *DstVecTy = dyn_cast<FixedVectorType>(DstTy);
+  if (SrcVecTy && DstVecTy)
+    assert(SrcVecTy->getNumElements() == DstVecTy->getNumElements() &&
            "PtrToInt Vector width mismatch");
-  }
+  else
+    assert(!SrcTy->isVectorTy() && !DstTy->isVectorTy() &&
+           "PtrToInt type mismatch");
 }
 
 void VPlanVerifier::verifyBitCastInst(const VPInstruction *I) const {
@@ -362,32 +356,28 @@ void VPlanVerifier::verifyBitCastInst(const VPInstruction *I) const {
   Type *DstTy = I->getType();
 
   assert((SrcTy && DstTy) && "Invalid Src or Dst type");
-  PointerType *SrcPtrTy = dyn_cast<PointerType>(SrcTy->getScalarType());
-  PointerType *DstPtrTy = dyn_cast<PointerType>(DstTy->getScalarType());
+  auto *SrcPtrTy = dyn_cast<PointerType>(SrcTy->getScalarType());
+  auto *DstPtrTy = dyn_cast<PointerType>(DstTy->getScalarType());
 
-  assert((!SrcPtrTy == !DstPtrTy) &&
+  assert(!SrcPtrTy == !DstPtrTy &&
          "BitCast implies a no-op cast of type only. No bits change");
-
-  if (!SrcPtrTy)
-    assert(
-        (SrcTy->getPrimitiveSizeInBits() == DstTy->getPrimitiveSizeInBits()) &&
-        "Source and Dstination bit widths should be identical.");
 
   if (SrcPtrTy)
     assert(SrcPtrTy->getAddressSpace() == DstPtrTy->getAddressSpace() &&
            "Bitcast: pointer address spaces must match");
+  else
+    assert(SrcTy->getPrimitiveSizeInBits() == DstTy->getPrimitiveSizeInBits() &&
+           "Source and Dstination bit widths should be identical.");
+  (void)DstPtrTy;
 
   // A vector of pointers must have the same number of elements.
-  auto *SrcVecTy = dyn_cast<VectorType>(SrcTy);
-  auto *DstVecTy = dyn_cast<VectorType>(DstTy);
+  auto *SrcVecTy = dyn_cast<FixedVectorType>(SrcTy);
+  auto *DstVecTy = dyn_cast<FixedVectorType>(DstTy);
 
-  if (SrcVecTy && DstVecTy) {
+  if (SrcVecTy && DstVecTy)
     assert(
         SrcVecTy->getNumElements() == DstVecTy->getNumElements() &&
         "BitCast: A vector of pointers must have the same number of elements.");
-  }
-
-  (void)DstPtrTy;
 }
 
 void VPlanVerifier::verifyBinaryOperator(const VPInstruction *BI) const {

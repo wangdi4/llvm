@@ -23,6 +23,22 @@
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
 
+; Further check that reroll can be suppressed using a compiler flag
+
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-reroll  -print-after=hir-loop-reroll -hir-loop-reroll-size-threshold=3 < %s 2>&1 | FileCheck %s --check-prefix=NOREROLL
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-reroll,print<hir>" -hir-loop-reroll-size-threshold=3 -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s --check-prefix=NOREROLL
+
+; NOREROLL: Function: foo
+
+; NOREROLL:     BEGIN REGION { }
+; NOREROLL:           + DO i1 = 0, (sext.i32.i64(%n) + -1)/u4, 1   <DO_LOOP>  <MAX_TC_EST = 2>
+; NOREROLL:           |   (@B)[0][4 * i1] = 4 * i1 + ((1 + %n) * %n);
+; NOREROLL:           |   (@B)[0][4 * i1 + 1] = 4 * i1 + ((2 + %n) * %n) + 1;
+; NOREROLL:           |   (@B)[0][4 * i1 + 2] = 4 * i1 + ((1 + %n) * %n) + 2;
+; NOREROLL:           |   (@B)[0][4 * i1 + 3] = 4 * i1 + ((2 + %n) * %n) + 3;
+; NOREROLL:           + END LOOP
+; NOREROLL:     END REGION
+
 ;Module Before HIR; ModuleID = 'blob-no-pattern.c'
 source_filename = "blob-no-pattern.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

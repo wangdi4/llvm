@@ -1,4 +1,21 @@
 //===- Symbols.h ------------------------------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -37,7 +54,8 @@ public:
     UndefinedKind,
     CommonKind,
     DylibKind,
-    LazyKind,
+    LazyArchiveKind,
+    LazyObjectKind,
   };
 
   virtual ~Symbol() {}
@@ -51,6 +69,9 @@ public:
   }
 
   bool isLive() const { return used; }
+  bool isLazy() const {
+    return symbolKind == LazyArchiveKind || symbolKind == LazyObjectKind;
+  }
 
   virtual uint64_t getVA() const { return 0; }
 
@@ -59,7 +80,7 @@ public:
   // Only undefined or dylib symbols can be weak references. A weak reference
   // need not be satisfied at runtime, e.g. due to the symbol not being
   // available on a given target platform.
-  virtual bool isWeakRef() const { llvm_unreachable("cannot be a weak ref"); }
+  virtual bool isWeakRef() const { return false; }
 
   virtual bool isTlv() const { llvm_unreachable("cannot be TLV"); }
 
@@ -83,9 +104,9 @@ public:
   // on whether it is a thread-local. A given symbol cannot be referenced by
   // both these sections at once.
   uint32_t gotIndex = UINT32_MAX;
-
+  uint32_t lazyBindOffset = UINT32_MAX;
+  uint32_t stubsHelperIndex = UINT32_MAX;
   uint32_t stubsIndex = UINT32_MAX;
-
   uint32_t symtabIndex = UINT32_MAX;
 
   InputFile *getFile() const { return file; }
@@ -105,7 +126,7 @@ public:
   // True if this symbol was referenced by a regular (non-bitcode) object.
   bool isUsedInRegularObj : 1;
 
-  // True if an undefined or dylib symbol is used from a live section.
+  // True if this symbol is used from a live section.
   bool used : 1;
 };
 
@@ -113,8 +134,9 @@ class Defined : public Symbol {
 public:
   Defined(StringRefZ name, InputFile *file, InputSection *isec, uint64_t value,
           uint64_t size, bool isWeakDef, bool isExternal, bool isPrivateExtern,
-          bool isThumb, bool isReferencedDynamically, bool noDeadStrip,
-          bool canOverrideWeakDef = false, bool isWeakDefCanBeHidden = false);
+          bool includeInSymtab, bool isThumb, bool isReferencedDynamically,
+          bool noDeadStrip, bool canOverrideWeakDef = false,
+          bool isWeakDefCanBeHidden = false, bool interposable = false);
 
   bool isWeakDef() const override { return weakDef; }
   bool isExternalWeakDef() const {
@@ -140,6 +162,8 @@ public:
   bool privateExtern : 1;
   // Whether this symbol should appear in the output symbol table.
   bool includeInSymtab : 1;
+  // Whether this symbol was folded into a different symbol during ICF.
+  bool wasIdenticalCodeFolded : 1;
   // Only relevant when compiling for Thumb-supporting arm32 archs.
   bool thumb : 1;
   // Symbols marked referencedDynamically won't be removed from the output's
@@ -154,6 +178,14 @@ public:
   // metadata. This is information only for the static linker and not written
   // to the output.
   bool noDeadStrip : 1;
+  // Whether references to this symbol can be interposed at runtime to point to
+  // a different symbol definition (with the same name). For example, if both
+  // dylib A and B define an interposable symbol _foo, and we load A before B at
+  // runtime, then all references to _foo within dylib B will point to the
+  // definition in dylib A.
+  //
+  // Only extern symbols may be interposable.
+  bool interposable : 1;
 
   bool weakDefCanBeHidden : 1;
 
@@ -254,9 +286,6 @@ public:
 
   static bool classof(const Symbol *s) { return s->kind() == DylibKind; }
 
-  uint32_t stubsHelperIndex = UINT32_MAX;
-  uint32_t lazyBindOffset = UINT32_MAX;
-
   RefState getRefState() const { return refState; }
 
   void reference(RefState newState) {
@@ -280,18 +309,30 @@ private:
   const bool tlv : 1;
 };
 
-class LazySymbol : public Symbol {
+class LazyArchive : public Symbol {
 public:
-  LazySymbol(ArchiveFile *file, const llvm::object::Archive::Symbol &sym)
-      : Symbol(LazyKind, sym.getName(), file), sym(sym) {}
+  LazyArchive(ArchiveFile *file, const llvm::object::Archive::Symbol &sym)
+      : Symbol(LazyArchiveKind, sym.getName(), file), sym(sym) {}
 
   ArchiveFile *getFile() const { return cast<ArchiveFile>(file); }
   void fetchArchiveMember();
 
-  static bool classof(const Symbol *s) { return s->kind() == LazyKind; }
+  static bool classof(const Symbol *s) { return s->kind() == LazyArchiveKind; }
 
 private:
   const llvm::object::Archive::Symbol sym;
+};
+
+// A defined symbol in an ObjFile/BitcodeFile surrounded by --start-lib and
+// --end-lib.
+class LazyObject : public Symbol {
+public:
+  LazyObject(InputFile &file, StringRef name)
+      : Symbol(LazyObjectKind, name, &file) {
+    isUsedInRegularObj = false;
+  }
+
+  static bool classof(const Symbol *s) { return s->kind() == LazyObjectKind; }
 };
 
 union SymbolUnion {
@@ -299,7 +340,8 @@ union SymbolUnion {
   alignas(Undefined) char b[sizeof(Undefined)];
   alignas(CommonSymbol) char c[sizeof(CommonSymbol)];
   alignas(DylibSymbol) char d[sizeof(DylibSymbol)];
-  alignas(LazySymbol) char e[sizeof(LazySymbol)];
+  alignas(LazyArchive) char e[sizeof(LazyArchive)];
+  alignas(LazyObject) char f[sizeof(LazyObject)];
 };
 
 template <typename T, typename... ArgT>

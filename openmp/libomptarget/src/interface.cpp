@@ -34,6 +34,8 @@
 extern bool isOffloadDisabled();
 
 #if INTEL_COLLAB
+static uint32_t useSingleQueue = 0;
+
 static int64_t GetEncodedDeviceID(int64_t &DeviceID) {
   if (DeviceID == OFFLOAD_DEVICE_DEFAULT)
     return omp_get_default_device();
@@ -638,6 +640,8 @@ EXTERN void *__tgt_create_interop_obj(
     int64_t device_code, bool is_async, void *async_obj) {
   int64_t device_id = EXTRACT_BITS(device_code, 31, 0);
 
+  static std::once_flag Flag{};
+
   DP("Call to __tgt_create_interop_obj with device_id %" PRId64 ", is_async %s"
      ", async_obj " DPxMOD "\n", device_id, is_async ? "true" : "false",
      DPxPTR(async_obj));
@@ -670,6 +674,11 @@ EXTERN void *__tgt_create_interop_obj(
     DP("Failed to malloc memory for interop object\n");
     return NULL;
   }
+   std::call_once(Flag, []() {
+   useSingleQueue = 0;
+   if (char *EnvStr = getenv("LIBOMPTARGET_INTEROP_USE_SINGLE_QUEUE"))
+         useSingleQueue = std::atoi(EnvStr);
+   });
 
   obj->device_id = device_id;
   obj->device_code = device_code; // Preserve 64-bit device encoding
@@ -696,7 +705,7 @@ EXTERN int __tgt_release_interop_obj(void *interop_obj) {
 
   __tgt_interop_obj *obj = static_cast<__tgt_interop_obj *>(interop_obj);
   DeviceTy &Device = *PM->Devices[obj->device_id];
-  if (obj->queue && obj->is_async)
+  if (obj->queue && obj->is_async && !useSingleQueue)
     Device.release_offload_queue(obj->queue);
   free(interop_obj);
 
@@ -756,7 +765,8 @@ EXTERN int __tgt_get_interop_property(
   case INTEROP_OFFLOAD_QUEUE:
     if (!interop->queue)
       PM->Devices[interop->device_id]->get_offload_queue(
-          interop, interop->is_async ? true /*create_new*/ : false);
+          interop, (!interop->is_async || useSingleQueue)
+                        ? false : true /*create_new*/);
     *property_value = interop->queue;
     break;
   case INTEROP_PLATFORM_HANDLE:

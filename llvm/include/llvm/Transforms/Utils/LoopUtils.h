@@ -1,4 +1,21 @@
 //===- llvm/Transforms/Utils/LoopUtils.h - Loop utilities -------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,18 +30,17 @@
 #ifndef LLVM_TRANSFORMS_UTILS_LOOPUTILS_H
 #define LLVM_TRANSFORMS_UTILS_LOOPUTILS_H
 
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/IVDescriptors.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
 namespace llvm {
 
 template <typename T> class DomTreeNodeBase;
 using DomTreeNode = DomTreeNodeBase<BasicBlock>;
+class StringRef;
+class AnalysisUsage;
+class TargetTransformInfo;
 class AAResults;
-class AliasSet;
-class AliasSetTracker;
 class BasicBlock;
 class BlockFrequencyInfo;
 class ICFLoopSafetyInfo;
@@ -37,7 +53,6 @@ class MemorySSAUpdater;
 class OptimizationRemarkEmitter;
 class PredIteratorCache;
 class ScalarEvolution;
-class ScalarEvolutionExpander;
 class SCEV;
 class SCEVExpander;
 class TargetLibraryInfo;
@@ -50,8 +65,6 @@ typedef std::pair<const RuntimeCheckingPtrGroup *,
 
 template <typename T> class Optional;
 template <typename T, unsigned N> class SmallSetVector;
-template <typename T, unsigned N> class SmallVector;
-template <typename T> class SmallVectorImpl;
 template <typename T, unsigned N> class SmallPriorityWorklist;
 
 BasicBlock *InsertPreheaderForLoop(Loop *L, DominatorTree *DT, LoopInfo *LI,
@@ -151,7 +164,7 @@ protected:
 /// this function is called by \p sinkRegionForLoopNest.
 bool sinkRegion(DomTreeNode *, AAResults *, LoopInfo *, DominatorTree *,
                 BlockFrequencyInfo *, TargetLibraryInfo *,
-                TargetTransformInfo *, Loop *CurLoop, MemorySSAUpdater *,
+                TargetTransformInfo *, Loop *CurLoop, MemorySSAUpdater &,
                 ICFLoopSafetyInfo *, SinkAndHoistLICMFlags &,
                 OptimizationRemarkEmitter *, Loop *OutermostLoop = nullptr);
 
@@ -160,7 +173,7 @@ bool sinkRegion(DomTreeNode *, AAResults *, LoopInfo *, DominatorTree *,
 bool sinkRegionForLoopNest(DomTreeNode *, AAResults *, LoopInfo *,
                            DominatorTree *, BlockFrequencyInfo *,
                            TargetLibraryInfo *, TargetTransformInfo *, Loop *,
-                           MemorySSAUpdater *, ICFLoopSafetyInfo *,
+                           MemorySSAUpdater &, ICFLoopSafetyInfo *,
                            SinkAndHoistLICMFlags &,
                            OptimizationRemarkEmitter *);
 
@@ -172,10 +185,13 @@ bool sinkRegionForLoopNest(DomTreeNode *, AAResults *, LoopInfo *,
 /// BlockFrequencyInfo, TargetLibraryInfo, Loop, AliasSet information for all
 /// instructions of the loop and loop safety information as arguments.
 /// Diagnostics is emitted via \p ORE. It returns changed status.
+/// \p AllowSpeculation is whether values should be hoisted even if they are not
+/// guaranteed to execute in the loop, but are safe to speculatively execute.
 bool hoistRegion(DomTreeNode *, AAResults *, LoopInfo *, DominatorTree *,
                  BlockFrequencyInfo *, TargetLibraryInfo *, Loop *,
-                 MemorySSAUpdater *, ScalarEvolution *, ICFLoopSafetyInfo *,
-                 SinkAndHoistLICMFlags &, OptimizationRemarkEmitter *, bool);
+                 MemorySSAUpdater &, ScalarEvolution *, ICFLoopSafetyInfo *,
+                 SinkAndHoistLICMFlags &, OptimizationRemarkEmitter *, bool,
+                 bool AllowSpeculation);
 
 /// This function deletes dead loops. The caller of this function needs to
 /// guarantee that the loop is infact dead.
@@ -205,13 +221,15 @@ void breakLoopBackedge(Loop *L, DominatorTree &DT, ScalarEvolution &SE,
 /// LoopInfo, DominatorTree, Loop, AliasSet information for all instructions
 /// of the loop and loop safety information as arguments.
 /// Diagnostics is emitted via \p ORE. It returns changed status.
+/// \p AllowSpeculation is whether values should be hoisted even if they are not
+/// guaranteed to execute in the loop, but are safe to speculatively execute.
 bool promoteLoopAccessesToScalars(
     const SmallSetVector<Value *, 8> &, SmallVectorImpl<BasicBlock *> &,
     SmallVectorImpl<Instruction *> &, SmallVectorImpl<MemoryAccess *> &,
     PredIteratorCache &, LoopInfo *, DominatorTree *, const TargetLibraryInfo *,
     const TargetTransformInfo *, // INTEL
-    Loop *, MemorySSAUpdater *, ICFLoopSafetyInfo *,
-    OptimizationRemarkEmitter *);
+    Loop *, MemorySSAUpdater &, ICFLoopSafetyInfo *,
+    OptimizationRemarkEmitter *, bool AllowSpeculation);
 
 /// Does a BFS from a given node to all of its children inside a given loop.
 /// The returned vector of nodes includes the starting point.
@@ -344,9 +362,9 @@ void getLoopAnalysisUsage(AnalysisUsage &AU);
 /// true when moving out of loop and not true when moving into loops.
 /// If \p ORE is set use it to emit optimization remarks.
 bool canSinkOrHoistInst(Instruction &I, AAResults *AA, DominatorTree *DT,
-                        Loop *CurLoop, AliasSetTracker *CurAST,
-                        MemorySSAUpdater *MSSAU, bool TargetExecutesOncePerLoop,
-                        SinkAndHoistLICMFlags *LICMFlags = nullptr,
+                        Loop *CurLoop, MemorySSAUpdater &MSSAU,
+                        bool TargetExecutesOncePerLoop,
+                        SinkAndHoistLICMFlags &LICMFlags,
                         OptimizationRemarkEmitter *ORE = nullptr);
 
 /// Returns the comparison predicate used when expanding a min/max reduction.
@@ -436,6 +454,15 @@ bool cannotBeMinInLoop(const SCEV *S, const Loop *L, ScalarEvolution &SE,
 /// Returns true if loop \p L preheader or any of its predecessors has an
 /// OpenMP SIMD directive.
 bool isOmpSIMDLoop(Loop *L);
+
+// Unswitching can interfere with LoopOpt's ability to recognize ztt and
+// form perfect loopnests.
+// This function is used to bailout from LLVM's loop unswitching pass and let
+// LoopOpt perform unswitching if certain criteria are satisfied. It checks if
+// unswitching \p Inst in \p Lp interferes with LoopOpt.
+bool unswitchingMayAffectPerfectLoopnest(LoopInfo &LI, const Loop &Lp,
+                                         const Instruction *Inst,
+                                         TargetLibraryInfo &TLI);
 #endif // INTEL_CUSTOMIZATION
 
 enum ReplaceExitVal { NeverRepl, OnlyCheapRepl, NoHardUse, AlwaysRepl };

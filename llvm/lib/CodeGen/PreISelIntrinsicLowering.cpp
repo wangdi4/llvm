@@ -1,4 +1,21 @@
 //===- PreISelIntrinsicLowering.cpp - Pre-ISel intrinsic lowering pass ----===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -19,10 +36,8 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
-#include "llvm/IR/User.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
@@ -99,7 +114,7 @@ static bool lowerObjCCall(Function &F, const char *NewFn,
       objcarc::ARCInstKind Kind = objcarc::getAttachedARCFunctionKind(CB);
       (void)Kind;
       assert((Kind == objcarc::ARCInstKind::RetainRV ||
-              Kind == objcarc::ARCInstKind::ClaimRV) &&
+              Kind == objcarc::ARCInstKind::UnsafeClaimRV) &&
              "use expected to be the argument of operand bundle "
              "\"clang.arc.attachedcall\"");
       U.set(FCache.getCallee());

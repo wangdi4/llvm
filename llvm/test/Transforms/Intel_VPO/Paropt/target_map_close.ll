@@ -1,5 +1,5 @@
-; RUN: opt < %s -vpo-paropt  -S | FileCheck %s
-; RUN: opt < %s -passes='vpo-paropt'  -S | FileCheck %s
+; RUN: opt -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='vpo-paropt' -S %s | FileCheck %s
 ;
 ; Test support for the "CLOSE" map-type modifier.
 ; C source:

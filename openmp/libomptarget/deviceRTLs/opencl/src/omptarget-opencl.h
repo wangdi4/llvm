@@ -1,3 +1,20 @@
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2021 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 #if INTEL_COLLAB
 //===--- omptarget-opencl.h - header for the OpenCL device RTL ------------===//
 //
@@ -414,6 +431,18 @@ EXTERN void __kmpc_spmd_push_num_threads(int num_threads);
 /// Pop num_threads in SPMD kernel
 EXTERN void __kmpc_spmd_pop_num_threads(void);
 
+/// Wrapper that marks begin of target region
+EXTERN void __kmpc_begin_spmd_target(void);
+
+/// Wrapper that marks end of target region
+EXTERN void __kmpc_end_spmd_target(void);
+
+/// Wrapper that marks begin of parallel region
+EXTERN void __kmpc_begin_spmd_parallel(void);
+
+/// Wrapper that marks end of parallel region
+EXTERN void __kmpc_end_spmd_parallel(void);
+
 #if !KMP_ASSUME_SIMPLE_SPMD_MODE
 /// Push simd_limit for the next region
 EXTERN void __kmpc_push_simd_limit(ident_t *loc, int tid, int simd_limit);
@@ -821,6 +850,8 @@ EXTERN size_t omp_capture_affinity(char *buf, size_t size, const char *fmt);
 EXTERN int omp_is_initial_device(void);
 
 EXTERN int omp_get_initial_device(void);
+
+EXTERN double omp_get_wtime(void);
 
 EXTERN void kmp_global_barrier_init(void);
 

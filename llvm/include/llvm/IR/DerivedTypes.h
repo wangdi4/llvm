@@ -1,4 +1,21 @@
 //===- llvm/DerivedTypes.h - Classes for handling data types ----*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -24,6 +41,10 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/TypeSize.h"
+#ifdef INTEL_CUSTOMIZATION
+// Required for VectorType::getNumElements()
+#include "llvm/Support/WithColor.h"
+#endif
 #include <cassert>
 #include <cstdint>
 
@@ -419,19 +440,6 @@ public:
   VectorType(const VectorType &) = delete;
   VectorType &operator=(const VectorType &) = delete;
 
-  /// Get the number of elements in this vector. It does not make sense to call
-  /// this function on a scalable vector, and this will be moved into
-  /// FixedVectorType in a future commit
-#ifdef INTEL_CUSTOMIZATION
-  /// Temporarily commenting this out until the massive changes it induces
-  /// are addressed.
-  /// LLVM_ATTRIBUTE_DEPRECATED(
-  /// inline unsigned getNumElements() const,
-  /// "Calling this function via a base VectorType is deprecated. Either call "
-  /// "getElementCount() and handle the case where Scalable is true or cast to "
-  /// "FixedVectorType.");
-  inline unsigned getNumElements() const;
-#endif // INTEL_CUSTOMIZATION
   Type *getElementType() const { return ContainedType; }
 
   /// This static method is the primary way to construct an VectorType.
@@ -533,21 +541,6 @@ public:
            T->getTypeID() == ScalableVectorTyID;
   }
 };
-
-unsigned VectorType::getNumElements() const {
-  ElementCount EC = getElementCount();
-#ifdef STRICT_FIXED_SIZE_VECTORS
-  assert(!EC.isScalable() &&
-         "Request for fixed number of elements from scalable vector");
-#else
-  if (EC.isScalable())
-    WithColor::warning()
-        << "The code that requested the fixed number of elements has made the "
-           "assumption that this vector is not scalable. This assumption was "
-           "not correct, and this may lead to broken code\n";
-#endif
-  return EC.getKnownMinValue();
-}
 
 /// Class to represent fixed width SIMD vectors
 class FixedVectorType : public VectorType {
@@ -695,9 +688,14 @@ public:
                                              unsigned AddressSpace) {
     if (PT->isOpaque())
       return get(PT->getContext(), AddressSpace);
-    return get(PT->getElementType(), AddressSpace);
+    return get(PT->PointeeTy, AddressSpace);
   }
 
+#ifdef INTEL_CUSTOMIZATION
+#else // INTEL_CUSTOMIZATION
+  [[deprecated("Pointer element types are deprecated. You can *temporarily* "
+               "use Type::getPointerElementType() instead")]]
+#endif // INTEL_CUSTOMIZATION
   Type *getElementType() const {
     assert(!isOpaque() && "Attempting to get element type of opaque pointer");
     return PointeeTy;

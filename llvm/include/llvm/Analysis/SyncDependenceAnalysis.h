@@ -16,28 +16,34 @@
 #ifndef LLVM_ANALYSIS_SYNCDEPENDENCEANALYSIS_H
 #define LLVM_ANALYSIS_SYNCDEPENDENCEANALYSIS_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Analysis/LoopInfo.h"
+#include <map>
 #include <memory>
 #include <unordered_map>
+#include <vector>
+
+#include "llvm/IR/Intel_VPlanTemplateHelper.h" // INTEL
 
 namespace llvm {
 
 class BasicBlock;
 class DominatorTree;
-class Loop;
+class Instruction;
+class LoopInfo;
 class PostDominatorTree;
 
+template <class BasicBlock> // INTEL
 using ConstBlockSet = SmallPtrSet<const BasicBlock *, 4>;
+template <class BasicBlock> // INTEL
 struct ControlDivergenceDesc {
+  using ConstBlockSet = llvm::ConstBlockSet<BasicBlock>; // INTEL
   // Join points of divergent disjoint paths.
   ConstBlockSet JoinDivBlocks;
   // Divergent loop exits
   ConstBlockSet LoopDivBlocks;
 };
 
+template <class BasicBlock> // INTEL
 struct ModifiedPO {
   std::vector<const BasicBlock *> LoopPO;
   std::unordered_map<const BasicBlock *, unsigned> POIndex;
@@ -57,11 +63,17 @@ struct ModifiedPO {
 ///
 /// This analysis relates points of divergent control to points of converging
 /// divergent control. The analysis requires all loops to be reducible.
-class SyncDependenceAnalysis {
+#if INTEL_CUSTOMIZATION
+// INTEL: Templatize for VPlan hierarchy.
+template <class BasicBlockTy> class SyncDependenceAnalysisImpl {
+  INTEL_INJECT_VPLAN_TEMPLATIZATION(BasicBlockTy);
+
 public:
-  ~SyncDependenceAnalysis();
-  SyncDependenceAnalysis(const DominatorTree &DT, const PostDominatorTree &PDT,
-                         const LoopInfo &LI);
+  using ControlDivergenceDesc = llvm::ControlDivergenceDesc<BasicBlockTy>;
+  ~SyncDependenceAnalysisImpl();
+  SyncDependenceAnalysisImpl(const DominatorTree &DT,
+                             const PostDominatorTree &PDT, const LoopInfo &LI);
+#endif // INTEL_CUSTOMIZATION
 
   /// \brief Computes divergent join points and loop exits caused by branch
   /// divergence in \p Term.
@@ -77,7 +89,7 @@ public:
 private:
   static ControlDivergenceDesc EmptyDivergenceDesc;
 
-  ModifiedPO LoopPO;
+  ModifiedPO<BasicBlock> LoopPO; // INTEL
 
   const DominatorTree &DT;
   const PostDominatorTree &PDT;
@@ -86,6 +98,10 @@ private:
   std::map<const Instruction *, std::unique_ptr<ControlDivergenceDesc>>
       CachedControlDivDescs;
 };
+
+#if INTEL_CUSTOMIZATION
+using SyncDependenceAnalysis = SyncDependenceAnalysisImpl<llvm::BasicBlock>;
+#endif // INTEL_CUSTOMIZATION
 
 } // namespace llvm
 

@@ -11,6 +11,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Transforms/RemoveDTransTypeMetadata.h"
+#include "Intel_DTrans/Analysis/TypeMetadataReader.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Bitcode/BitcodeWriterPass.h"
@@ -21,6 +27,7 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FileSystem.h"
@@ -58,6 +65,15 @@ static cl::opt<bool> KeepConstInit("keep-const-init",
                               cl::desc("Keep initializers of constants"),
                               cl::cat(ExtractCat));
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+static cl::opt<bool> KeepDTransTypeMetadata(
+    "keep-dtranstypemetadata", cl::ReallyHidden, cl::init(true),
+    cl::desc("Keep the DTrans types metadata attached to functions when "
+             "converting definitions to declarations"),
+    cl::cat(ExtractCat));
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 static cl::opt<bool>
     Recursive("recursive", cl::desc("Recursively extract all called functions"),
               cl::cat(ExtractCat));
@@ -310,6 +326,19 @@ int main(int argc, char **argv) {
 
   // Materialize requisite global values.
   if (!DeleteFn) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    // In order to get the DTrans type metadata attached to a function, it needs
+    // to have been materialized. During the GV Extraction pass, we need to read
+    // the metadata for all the functions that will be converted from a
+    // definition to a declaration, so materialize them all here, instead of
+    // just the functions that are going to be extracted.
+    if (KeepDTransTypeMetadata &&
+        dtransOP::TypeMetadataReader::hasDTransTypesMetadata(*M))
+      ExitOnErr(M->materializeAll());
+    else
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
     for (size_t i = 0, e = GVs.size(); i != e; ++i)
       Materialize(*GVs[i]);
   } else {
@@ -370,6 +399,14 @@ int main(int argc, char **argv) {
     Passes.add(createGlobalDCEPass());           // Delete unreachable globals
   Passes.add(createStripDeadDebugInfoPass());    // Remove dead debug info
   Passes.add(createStripDeadPrototypesPass());   // Remove dead func decls
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  if (KeepDTransTypeMetadata)
+    Passes.add(createRemoveDeadDTransTypeMetadataWrapperPass());
+  else
+    Passes.add(createRemoveAllDTransTypeMetadataWrapperPass());
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   std::error_code EC;
   ToolOutputFile Out(OutputFilename, EC, sys::fs::OF_None);

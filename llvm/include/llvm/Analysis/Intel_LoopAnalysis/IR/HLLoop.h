@@ -37,6 +37,7 @@ namespace loopopt {
 class CanonExpr;
 class RegDDRef;
 class HLLoopParallelTraits;
+class HLInst;
 
 typedef std::pair<int, RegDDRef *> LevelAndFactorPairTy;
 
@@ -147,6 +148,8 @@ private:
   /// This loop's characteristics related to parallelism.
   std::unique_ptr<HLLoopParallelTraits> ParTraits;
 
+  uint64_t LegalMaxTripCount;
+
   uint64_t MaxTripCountEstimate;
   // This flag is set for stripmined loops so DD can override the Upper Bound to
   // derive a more refined DV.
@@ -248,7 +251,7 @@ protected:
                                  MDNode **ExternalLoopMetadata);
 
   /// Return true if the specified directive is attached to the loop.
-  bool hasDirective(int DirectiveID) const;
+  const HLInst *getDirective(int DirectiveID) const;
 
   /// Returns underlying LLVM loop.
   const Loop *getLLVMLoop() const { return OrigLoop; }
@@ -275,6 +278,21 @@ protected:
   void addPrefetchingPragmaInfo(const RegDDRef *Var, int Hint, int Dist) {
     PrefetchingInfoVec.emplace_back(Var, Hint, Dist);
   }
+
+  /// Returns the LHS/RHS operand DDRef of the predicate based on the
+  /// IsLHS flag.
+  RegDDRef *getZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
+                                        bool IsLHS) const;
+
+  /// Sets the LHS/RHS operand DDRef of the predicate based on the IsLHS
+  /// flag.
+  void setZttPredicateOperandDDRef(RegDDRef *Ref,
+                                   const_ztt_pred_iterator CPredI, bool IsLHS);
+
+  /// Removes and returns the LHS/RHS operand DDRef of the predicate
+  /// based on the IsLHS flag.
+  RegDDRef *removeZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
+                                           bool IsLHS);
 
 public:
   /// Prints preheader of loop.
@@ -379,20 +397,39 @@ public:
   /// Inverts PredicateTy in CPredI.
   void invertZttPredicate(const_ztt_pred_iterator CPredI);
 
-  /// Returns the LHS/RHS operand DDRef of the predicate based on the
-  /// IsLHS flag.
-  RegDDRef *getZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
-                                        bool IsLHS) const;
+  /// Returns the LHS operand DDRef of the predicate.
+  RegDDRef *
+  getLHSZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI) const {
+    return getZttPredicateOperandDDRef(CPredI, true);
+  }
 
-  /// Sets the LHS/RHS operand DDRef of the predicate based on the IsLHS
-  /// flag.
-  void setZttPredicateOperandDDRef(RegDDRef *Ref,
-                                   const_ztt_pred_iterator CPredI, bool IsLHS);
+  /// Returns the RHS operand DDRef of the predicate.
+  RegDDRef *
+  getRHSZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI) const {
+    return getZttPredicateOperandDDRef(CPredI, false);
+  }
 
-  /// Removes and returns the LHS/RHS operand DDRef of the predicate
-  /// based on the IsLHS flag.
-  RegDDRef *removeZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
-                                           bool IsLHS);
+  /// Sets the LHS operand DDRef of the predicate.
+  void setLHSZttPredicateOperandDDRef(RegDDRef *Ref,
+                                      const_ztt_pred_iterator CPredI) {
+    setZttPredicateOperandDDRef(Ref, CPredI, true);
+  }
+
+  /// Sets the RHS operand DDRef of the predicate.
+  void setRHSZttPredicateOperandDDRef(RegDDRef *Ref,
+                                      const_ztt_pred_iterator CPredI) {
+    setZttPredicateOperandDDRef(Ref, CPredI, false);
+  }
+
+  /// Removes and returns the LHS operand DDRef of the predicate.
+  RegDDRef *removeLHSZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI) {
+    return removeZttPredicateOperandDDRef(CPredI, true);
+  }
+
+  /// Removes and returns the RHS operand DDRef of the predicate.
+  RegDDRef *removeRHSZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI) {
+    return removeZttPredicateOperandDDRef(CPredI, false);
+  }
 
   /// Returns true if this Ref belongs to ztt.
   bool isZttOperandDDRef(const RegDDRef *Ref) const;
@@ -752,7 +789,12 @@ public:
   virtual void verify() const override;
 
   /// Checks whether SIMD directive is attached to the loop.
-  bool isSIMD() const { return hasDirective(DIR_OMP_SIMD); }
+  bool isSIMD() const { return getDirective(DIR_OMP_SIMD); }
+
+  /// Return SIMD Entry intrinsic
+  const HLInst* getSIMDEntryIntrinsic() const {
+    return getDirective(DIR_OMP_SIMD);
+  }
 
   /// Checks whether SIMD directive is attached to the loop or its parents.
   bool isInSIMDRegion() const {
@@ -767,7 +809,7 @@ public:
 
   /// Checks whether we have a vectorizable loop by checking if SIMD
   /// or AUTO_VEC directive is attached to the loop.
-  bool isVecLoop() const { return isSIMD() || hasDirective(DIR_VPO_AUTO_VEC); }
+  bool isVecLoop() const { return isSIMD() || getDirective(DIR_VPO_AUTO_VEC); }
 
   unsigned getMVTag() const { return MVTag; }
 
@@ -1135,6 +1177,20 @@ public:
     return true;
   }
 
+  /// Returns true if legal maximum trip count of loop is specified using pragma
+  /// and returns the value in \p MaxTripCount.
+  bool getPragmaBasedLegalMaxTripCount(unsigned &LegalMaxTripCount) const {
+    auto *MD = getLoopStringMetadata("llvm.loop.intel.max.trip_count");
+
+    if (!MD) {
+      return false;
+    }
+
+    LegalMaxTripCount =
+        mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
+    return true;
+  }
+
   /// Sets the pragma based maximum trip count of the loop to \p MaxTripCount.
   void setPragmaBasedMaximumTripCount(unsigned MaxTripCount);
 
@@ -1191,6 +1247,15 @@ public:
 
   /// Returns true if loop has pragma to disable fusion.
   bool hasFusionDisablingPragma() const;
+
+  // This info can be used for legality checks as opposed to
+  // MaxTripCountEstimate which can only be used for profitability checks. 0
+  // means no info.
+  uint64_t getLegalMaxTripCount() const { return LegalMaxTripCount; }
+
+  void setLegalMaxTripCount(uint64_t LegalMaxTC) {
+    LegalMaxTripCount = LegalMaxTC;
+  }
 
   // 0 means no estimate.
   uint64_t getMaxTripCountEstimate() const { return MaxTripCountEstimate; }
@@ -1380,6 +1445,23 @@ public:
 
   /// Clears the prefetching pragma vector
   void clearPrefetchingPragmaInfo() { PrefetchingInfoVec.clear(); }
+
+  /// Some countable loops can be written in a way that their trip count is
+  /// equal to type's range size which is 1 more than unsigned max value. There
+  /// was an assumption in loopopt framework that this does not happen. However,
+  /// HIR CG is able to generate the right code for the loops. Some
+  /// transformations like general unroll and vectorization may require special
+  /// code generation to handle this case.
+  ///
+  /// As an example, following loop has a tip count equal to 2 ^ 32 if n is
+  /// equal to 5-
+  ///
+  /// unsigned i = n;
+  ///
+  /// do {
+  ///   i++;
+  /// } while (i != 5);
+  bool canTripCountEqualIVTypeRangeSize() const;
 };
 
 /// Loop information related to its parallel characteristics, such as

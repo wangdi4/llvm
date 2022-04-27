@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-post-vec-complete-unroll -analyze -hir-safe-reduction-analysis  | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-post-vec-complete-unroll -analyze -enable-new-pm=0 -hir-safe-reduction-analysis  | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-post-vec-complete-unroll,print<hir-safe-reduction-analysis>" -disable-output 2>&1 | FileCheck %s
 
 ; Checks that safe reduction is recognized after loop unrolling

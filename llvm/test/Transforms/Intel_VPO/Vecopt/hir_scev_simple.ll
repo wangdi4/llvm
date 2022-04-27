@@ -3,7 +3,21 @@
 ; RUN:     -vplan-enable-peeling-hir -vplan-enable-general-peeling-hir \
 ; RUN:     -debug-only=vplan-scalar-evolution,vplan-alignment-analysis \
 ; RUN:     -print-before=hir-vplan-vec -disable-output < %s 2>&1 \
-; RUN: | FileCheck %s
+; RUN: -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+;
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
+; RUN:     -vplan-force-vf=4 \
+; RUN:     -vplan-enable-peeling-hir -vplan-enable-general-peeling-hir \
+; RUN:     -debug-only=vplan-scalar-evolution,vplan-alignment-analysis \
+; RUN:     -print-before=hir-vplan-vec -disable-output < %s 2>&1 \
+; RUN: -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+;
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
+; RUN:     -vplan-force-vf=4 \
+; RUN:     -vplan-enable-peeling-hir \
+; RUN:     -debug-only=vplan-scalar-evolution,vplan-alignment-analysis \
+; RUN:     -print-before=hir-vplan-vec -disable-output < %s 2>&1 \
+; RUN: -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 ;
 ; REQUIRES: asserts
 ;
@@ -29,6 +43,10 @@
 ; CHECK-NEXT:  computeAddressSCEV([DA: Div] i32 %vp{{.*}} = load i32* [[LD_PTR:%.*]])
 ; CHECK-NEXT:    -> {(%src),+,4}
 ; CHECK-NEXT:  computeAddressSCEV([DA: Div] store i32 %vp{{.*}} i32* [[ST_PTR:%.*]])
+; CHECK-NEXT:    -> {(%dst),+,4}
+; CHECK-NEXT:  computeAddressSCEV(i32 %vp{{.*}} = load i32* [[LD_PTR_CLONE:%.*]])
+; CHECK-NEXT:    -> {(%src),+,4}
+; CHECK-NEXT:  computeAddressSCEV(store i32 %vp{{.*}} i32* [[ST_PTR_CLONE:%.*]])
 ; CHECK-NEXT:    -> {(%dst),+,4}
 ; CHECK-NEXT:  getMinusExpr({(%dst),+,0},
 ; CHECK-NEXT:               {(%src),+,0})

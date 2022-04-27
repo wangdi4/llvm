@@ -1,4 +1,4 @@
-; Check that -analyze prints framework info and -hir-framework-details turns on/off framework info in regular print.
+; Check that -analyze -enable-new-pm=0 prints framework info and -hir-framework-details turns on/off framework info in regular print.
 
 ; RUN: opt -hir-ssa-deconstruction -analyze -hir-framework -enable-new-pm=0 < %s 2>&1 | FileCheck %s
 ; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -hir-framework-details -S < %s 2>&1 | FileCheck %s

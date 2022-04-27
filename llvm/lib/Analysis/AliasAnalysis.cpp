@@ -1,3 +1,20 @@
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //==- AliasAnalysis.cpp - Generic Alias Analysis Interface Implementation --==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -45,7 +62,6 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 #include "llvm/InitializePasses.h"
@@ -314,7 +330,7 @@ ModRefInfo AAResults::getModRefInfo(const CallBase *Call,
 
   if (onlyReadsMemory(MRB))
     Result = clearMod(Result);
-  else if (doesNotReadMemory(MRB))
+  else if (onlyWritesMemory(MRB))
     Result = clearRef(Result);
 
   if (onlyAccessesArgPointees(MRB) || onlyAccessesInaccessibleOrArgMem(MRB)) {
@@ -395,7 +411,7 @@ ModRefInfo AAResults::getModRefInfo(const CallBase *Call1,
   // from Call1 reading memory written by Call2.
   if (onlyReadsMemory(Call1B))
     Result = clearMod(Result);
-  else if (doesNotReadMemory(Call1B))
+  else if (onlyWritesMemory(Call1B))
     Result = clearRef(Result);
 
   // If Call2 only access memory through arguments, accumulate the mod/ref
@@ -777,7 +793,8 @@ ModRefInfo AAResults::getModRefInfoForMaskedScatter(const IntrinsicInst *MS,
   Value *DataToWrite = MS->getArgOperand(0);
 
   // BasePtr may be vector or scalar. DataToWrite is always a vector.
-  unsigned NumElts = cast<VectorType>(DataToWrite->getType())->getNumElements();
+  auto *VecTy = cast<VectorType>(DataToWrite->getType());
+  unsigned NumElts = VecTy->getElementCount().getKnownMinValue();
   // A vector of MemoryLocation saving memory locations for all elements
   // of PtrVec.
   SmallVector<MemoryLocation, 4> PtrVecMemLocs(NumElts, MemoryLocation());
@@ -1145,6 +1162,29 @@ bool llvm::isIdentifiedObject(const Value *V) {
 
 bool llvm::isIdentifiedFunctionLocal(const Value *V) {
   return isa<AllocaInst>(V) || isNoAliasCall(V) || isNoAliasOrByValArgument(V);
+}
+
+bool llvm::isNotVisibleOnUnwind(const Value *Object,
+                                bool &RequiresNoCaptureBeforeUnwind) {
+  RequiresNoCaptureBeforeUnwind = false;
+
+  // Alloca goes out of scope on unwind.
+  if (isa<AllocaInst>(Object))
+    return true;
+
+  // Byval goes out of scope on unwind.
+  if (auto *A = dyn_cast<Argument>(Object))
+    return A->hasByValAttr();
+
+  // A noalias return is not accessible from any other code. If the pointer
+  // does not escape prior to the unwind, then the caller cannot access the
+  // memory either.
+  if (isNoAliasCall(Object)) {
+    RequiresNoCaptureBeforeUnwind = true;
+    return true;
+  }
+
+  return false;
 }
 
 void llvm::getAAResultsAnalysisUsage(AnalysisUsage &AU) {

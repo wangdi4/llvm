@@ -470,6 +470,8 @@ HLInst *HLNodeUtils::createCastHLInst(Type *DestTy, unsigned Opcode,
     return createTrunc(DestTy, Op, Name, LvalRef);
   case Instruction::BitCast:
     return createBitCast(DestTy, Op, Name, LvalRef);
+  case Instruction::AddrSpaceCast:
+    return createAddrSpaceCast(DestTy, Op, Name, LvalRef);
   case Instruction::PtrToInt:
     return createPtrToInt(DestTy, Op, Name, LvalRef);
   case Instruction::IntToPtr:
@@ -2757,11 +2759,17 @@ HLNode *HLNodeUtils::getImmediateChildContainingNode(HLNode *ParentNode,
 struct StructuredFlowChecker final : public HLNodeVisitorBase {
   bool IsPDom;
   const HLNode *TargetNode;
+  // Target node is being for 2 different purposes-
+  // 1) To signify end of traveral (early-exit from the visitor).
+  // 2) To check jumps across target in post-domination mode.
+  // This flag indicates whether it can be used for 1) or just 2).
+  bool TargetEndsTraversal;
   bool IsStructured;
   bool IsDone;
 
   StructuredFlowChecker(bool PDom, const HLNode *TNode,
-                        const HLLoop *ParentLoop, HIRLoopStatistics *HLS);
+                        bool TargetEndsTraversal, const HLLoop *ParentLoop,
+                        HIRLoopStatistics *HLS);
 
   // Returns true if visitor is done.
   bool visit(const HLNode *Node);
@@ -2777,9 +2785,11 @@ struct StructuredFlowChecker final : public HLNodeVisitorBase {
 };
 
 StructuredFlowChecker::StructuredFlowChecker(bool PDom, const HLNode *TNode,
+                                             bool TargetEndsTraversal,
                                              const HLLoop *ParentLoop,
                                              HIRLoopStatistics *HLS)
-    : IsPDom(PDom), TargetNode(TNode), IsStructured(true), IsDone(false) {
+    : IsPDom(PDom), TargetNode(TNode), TargetEndsTraversal(TargetEndsTraversal),
+      IsStructured(true), IsDone(false) {
   // Query HIRLoopStatistics for a possible faster response.
   if (HLS && ParentLoop) {
     if (IsPDom) {
@@ -2801,7 +2811,7 @@ StructuredFlowChecker::StructuredFlowChecker(bool PDom, const HLNode *TNode,
 }
 
 bool StructuredFlowChecker::visit(const HLNode *Node) {
-  if (Node == TargetNode) {
+  if (TargetEndsTraversal && (Node == TargetNode)) {
     IsDone = true;
   }
 
@@ -2907,7 +2917,12 @@ bool HLNodeUtils::hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
     return true;
   }
 
-  StructuredFlowChecker SFC(PostDomination, TargetNode,
+  // 'Upward' traversal is backward traversal of HIR. If TargetNode is the
+  // LastNode of the range, StructuredFlowChecker will exit early using 'IsDone'
+  // mechanism and skip all the checks which is not the intention.
+  bool TargetEndsTraversal = (!UpwardTraversal || (TargetNode != LastNode));
+
+  StructuredFlowChecker SFC(PostDomination, TargetNode, TargetEndsTraversal,
                             FirstNode->getParentLoop(), HLS);
 
   // Don't need to recurse into loops.
@@ -3301,47 +3316,52 @@ HLNodeUtils::VALType HLNodeUtils::getMinMaxBlobValue(unsigned BlobIdx,
   return (BoundCoeff > 0) ? VALType::IsMin : VALType::IsMax;
 }
 
-class LiveInBlobChecker {
+class InvariantBlobChecker {
 private:
   HLRegion *Reg;
   BlobUtils &BU;
-  bool IsLiveIn;
+  bool IsInvariant;
 
 public:
-  LiveInBlobChecker(HLRegion *Reg, BlobUtils &BU)
-      : Reg(Reg), BU(BU), IsLiveIn(true) {}
+  InvariantBlobChecker(HLRegion *Reg, BlobUtils &BU)
+      : Reg(Reg), BU(BU), IsInvariant(true) {}
 
   bool follow(const SCEV *SC) {
     if (BU.isTempBlob(SC)) {
       unsigned Symbase = BU.findTempBlobSymbase(SC);
 
-      if (!Reg->isLiveIn(Symbase)) {
-        IsLiveIn = false;
+      if (!Reg->isInvariant(Symbase)) {
+        IsInvariant = false;
       }
 
-      return false;
-
-    } else if (BlobUtils::isConstantVectorBlob(SC) ||
-               BlobUtils::isConstantFPBlob(SC)) {
-      // Constants are not considered livein.
-      IsLiveIn = false;
       return false;
     }
 
     return !isDone();
   }
 
-  bool isDone() const { return !IsLiveIn; }
-  bool isLiveInBlob() const { return IsLiveIn; }
+  bool isDone() const { return !IsInvariant; }
+  bool isInvariantBlob() const { return IsInvariant; }
 };
 
-bool HLNodeUtils::isRegionLiveIn(HLRegion *Reg, BlobUtils &BU,
-                                 unsigned BlobIdx) {
-  LiveInBlobChecker LBC(Reg, BU);
-  SCEVTraversal<LiveInBlobChecker> Checker(LBC);
-  Checker.visitAll(BU.getBlob(BlobIdx));
+bool HLNodeUtils::isRegionInvariant(HLRegion *Reg, BlobUtils &BU,
+                                    unsigned BlobIdx) {
 
-  return LBC.isLiveInBlob();
+  auto *Blob = BU.getBlob(BlobIdx);
+
+  // Ignore vector/fp constant blobs. Even though they are invariant, the
+  // callers can't do anything with them.
+  // TODO: This is a hack. We should bailout in the caller instead.
+  if (BlobUtils::isConstantVectorBlob(Blob) ||
+      BlobUtils::isConstantFPBlob(Blob)) {
+    return false;
+  }
+
+  InvariantBlobChecker LBC(Reg, BU);
+  SCEVTraversal<InvariantBlobChecker> Checker(LBC);
+  Checker.visitAll(Blob);
+
+  return LBC.isInvariantBlob();
 }
 
 bool HLNodeUtils::getMinBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
@@ -3354,7 +3374,7 @@ bool HLNodeUtils::getMinBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
 
   auto &BU = ParentNode->getBlobUtils();
 
-  if (isRegionLiveIn(ParentNode->getParentRegion(), BU, BlobIdx)) {
+  if (isRegionInvariant(ParentNode->getParentRegion(), BU, BlobIdx)) {
     return BU.getMinBlobValue(BlobIdx, Val);
   }
 
@@ -3375,7 +3395,7 @@ bool HLNodeUtils::getMaxBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
   }
 
   auto &BU = ParentNode->getBlobUtils();
-  if (isRegionLiveIn(ParentNode->getParentRegion(), BU, BlobIdx) &&
+  if (isRegionInvariant(ParentNode->getParentRegion(), BU, BlobIdx) &&
       BU.getMaxBlobValue(BlobIdx, Val)) {
     return true;
   }
@@ -3812,9 +3832,31 @@ bool HLNodeUtils::mayWraparound(const CanonExpr *CE, unsigned Level,
     return false;
   }
 
-  // Need a test case for truncation without wraparound.
   if (CE->isTrunc()) {
-    return true;
+    // For standalone IVs like trunc.i64.i32(i1), check whether the destination
+    // type is big enough to fit the max legal trip count of the loop. If it is,
+    // there can be no wraparound.
+    unsigned LoopLevel;
+    if (!ParentNode || !CE->isStandAloneIV(true, &LoopLevel)) {
+      return true;
+    }
+
+    auto *ParentLp = ParentNode->getParentLoopAtLevel(LoopLevel);
+
+    uint64_t LegalMaxTC = ParentLp->getLegalMaxTripCount();
+
+    if (!LegalMaxTC) {
+      return true;
+    }
+
+    unsigned DstTySize =
+        CE->getDestType()->getScalarType()->getScalarSizeInBits();
+
+    // CE is already trunc, hasSignedIV() is applicable only to
+    // IV type, likely to be source type of the trunc.
+    APInt MaxTypeVal = APInt::getMaxValue(DstTySize);
+
+    return (MaxTypeVal.getZExtValue() < LegalMaxTC);
   }
 
   // We only handle zext for now as we have real test cases for it.
@@ -3910,9 +3952,12 @@ bool HLNodeUtils::isKnownPredicate(const CanonExpr *LHS, PredicateTy Pred,
     bool IsSigned = CmpInst::isSigned(Pred);
     unsigned BitWidth = LHS->getDestType()->getIntegerBitWidth();
 
-    assert(LHS->getSrcType() == LHS->getDestType() &&
-           RHS->getSrcType() == RHS->getDestType() && "Cast is not expected");
     assert(LHS->getDestType() == RHS->getDestType() && "LHS/RHS type mismatch");
+    if (LHS->getSrcType() != LHS->getDestType() ||
+        RHS->getSrcType() != RHS->getDestType()) {
+      // With cast, just bail out.
+      return false;
+    }
 
     APInt LHSAPInt(BitWidth, LHSVal, IsSigned);
     APInt RHSAPInt(BitWidth, RHSVal, IsSigned);
@@ -4587,9 +4632,15 @@ struct PredicateTraits {
   }
 
   static const RegDDRef *
-  getPredicateOperandDDRef(const HLIf *If, HLIf::const_pred_iterator CPredI,
-                           bool IsLHS) {
-    return If->getPredicateOperandDDRef(CPredI, IsLHS);
+  getLHSPredicateOperandDDRef(const HLIf *If,
+                              HLIf::const_pred_iterator CPredI) {
+    return If->getLHSPredicateOperandDDRef(CPredI);
+  }
+
+  static const RegDDRef *
+  getRHSPredicateOperandDDRef(const HLIf *If,
+                              HLIf::const_pred_iterator CPredI) {
+    return If->getRHSPredicateOperandDDRef(CPredI);
   }
 };
 
@@ -4607,9 +4658,15 @@ struct ZttPredicateTraits {
   }
 
   static const RegDDRef *
-  getPredicateOperandDDRef(const HLLoop *Loop,
-                           HLLoop::const_ztt_pred_iterator CPredI, bool IsLHS) {
-    return Loop->getZttPredicateOperandDDRef(CPredI, IsLHS);
+  getLHSPredicateOperandDDRef(const HLLoop *Loop,
+                              HLLoop::const_ztt_pred_iterator CPredI) {
+    return Loop->getLHSZttPredicateOperandDDRef(CPredI);
+  }
+
+  static const RegDDRef *
+  getRHSPredicateOperandDDRef(const HLLoop *Loop,
+                              HLLoop::const_ztt_pred_iterator CPredI) {
+    return Loop->getRHSZttPredicateOperandDDRef(CPredI);
   }
 };
 
@@ -4633,10 +4690,10 @@ static bool areEqualConditionsImpl(const T *NodeA, const T *NodeB) {
       return false;
     }
 
-    if (!DDRefUtils::areEqual(PT::getPredicateOperandDDRef(NodeA, IA, true),
-                              PT::getPredicateOperandDDRef(NodeB, IB, true)) ||
-        !DDRefUtils::areEqual(PT::getPredicateOperandDDRef(NodeA, IA, false),
-                              PT::getPredicateOperandDDRef(NodeB, IB, false))) {
+    if (!DDRefUtils::areEqual(PT::getLHSPredicateOperandDDRef(NodeA, IA),
+                              PT::getLHSPredicateOperandDDRef(NodeB, IB)) ||
+        !DDRefUtils::areEqual(PT::getRHSPredicateOperandDDRef(NodeA, IA),
+                              PT::getRHSPredicateOperandDDRef(NodeB, IB))) {
       return false;
     }
   }

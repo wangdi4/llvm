@@ -5,7 +5,7 @@
 ;
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -hir-loop-blocking-algo=kandr -print-before=hir-loop-blocking < %s 2>&1 | FileCheck %s --check-prefix=KANDR
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -print-before=hir-loop-blocking   < %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -hir-loop-blocking-algo=outer -print-before=hir-loop-blocking -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region < %s 2>&1 | FileCheck %s --check-prefix=OUTER
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -hir-loop-blocking-algo=outer -print-before=hir-loop-blocking -analyze -enable-new-pm=0 -hir-dd-analysis -hir-dd-analysis-verify=Region < %s 2>&1 | FileCheck %s --check-prefix=OUTER
 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -hir-loop-blocking-algo=kandr 2>&1 < %s | FileCheck %s --check-prefix=KANDR
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa"  2>&1 < %s | FileCheck %s --check-prefix=DEFAULT

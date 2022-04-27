@@ -1,4 +1,21 @@
 //===- TableGen.cpp - Top-Level TableGen implementation for LLVM ----------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -63,6 +80,7 @@ enum ActionType {
   GenGICombiner,
   GenX86EVEX2VEXTables,
   GenX86FoldTables,
+  GenX86MnemonicTables,
   GenRegisterBank,
   GenExegesis,
   GenAutomata,
@@ -158,6 +176,8 @@ cl::opt<ActionType> Action(
                    "Generate X86 EVEX to VEX compress tables"),
         clEnumValN(GenX86FoldTables, "gen-x86-fold-tables",
                    "Generate X86 fold tables"),
+        clEnumValN(GenX86MnemonicTables, "gen-x86-mnemonic-tables",
+                   "Generate X86 mnemonic tables"),
         clEnumValN(GenRegisterBank, "gen-register-bank",
                    "Generate registers bank descriptions"),
         clEnumValN(GenExegesis, "gen-exegesis",
@@ -306,6 +326,9 @@ bool LLVMTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
   case GenX86EVEX2VEXTables:
     EmitX86EVEX2VEXTables(Records, OS);
     break;
+  case GenX86MnemonicTables:
+    EmitX86MnemonicTables(Records, OS);
+    break;
   case GenX86FoldTables:
     EmitX86FoldTables(Records, OS);
     break;
@@ -338,7 +361,8 @@ int main(int argc, char **argv) {
 #define __has_feature(x) 0
 #endif
 
-#if __has_feature(address_sanitizer) || defined(__SANITIZE_ADDRESS__) ||       \
+#if __has_feature(address_sanitizer) ||                                        \
+    (defined(__SANITIZE_ADDRESS__) && defined(__GNUC__)) ||                    \
     __has_feature(leak_sanitizer)
 
 #include <sanitizer/lsan_interface.h>

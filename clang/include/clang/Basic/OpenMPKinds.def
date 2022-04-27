@@ -1,4 +1,21 @@
 //===--- OpenMPKinds.def - OpenMP directives and clauses list ---*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -90,6 +107,7 @@
 #endif
 OPENMP_DIRECTIVE_SIMD_SUBSET(declare_simd)
 OPENMP_DIRECTIVE_SIMD_SUBSET(declare_reduction)
+OPENMP_DIRECTIVE_SIMD_SUBSET(scan)
 
 // OpenMP directives in the -qopenmp-tbb subset
 #ifndef OPENMP_DIRECTIVE_TBB_SUBSET
@@ -139,6 +157,7 @@ OPENMP_DIRECTIVE_SPIR_SUBSET(for)
 OPENMP_DIRECTIVE_SPIR_SUBSET(for_simd)
 OPENMP_DIRECTIVE_SPIR_SUBSET(parallel_for_simd)
 OPENMP_DIRECTIVE_SPIR_SUBSET(distribute_parallel_for)
+OPENMP_DIRECTIVE_SPIR_SUBSET(distribute_parallel_for_simd)
 OPENMP_DIRECTIVE_SPIR_SUBSET(parallel_sections)
 OPENMP_DIRECTIVE_SPIR_SUBSET(sections)
 OPENMP_DIRECTIVE_SPIR_SUBSET(section)
@@ -203,6 +222,7 @@ OPENMP_DEPEND_KIND(mutexinoutset)
 OPENMP_DEPEND_KIND(depobj)
 OPENMP_DEPEND_KIND(source)
 OPENMP_DEPEND_KIND(sink)
+OPENMP_DEPEND_KIND(inoutset)
 
 // Modifiers for 'linear' clause.
 OPENMP_LINEAR_KIND(val)

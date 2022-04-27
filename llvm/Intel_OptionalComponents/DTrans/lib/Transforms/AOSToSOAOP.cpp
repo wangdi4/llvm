@@ -1,6 +1,6 @@
 //==== AOSToSOAOP.cpp - AOS-to-SOA with support for opaque pointers ====//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -63,6 +63,7 @@
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/Analysis/DTransOPUtils.h"
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
+#include "Intel_DTrans/Analysis/DTransTypeMetadataBuilder.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/DTransCommon.h"
@@ -137,7 +138,7 @@ struct SOAIndexInfoTy {
   // types that are not valid on the index type being used. This variable
   // holds the list of incompatible attributes that need to be removed
   // from function signatures and call sites for the cloned routines.
-  AttrBuilder IncompatibleTypeAttrs;
+  AttributeMask IncompatibleTypeAttrs;
 };
 
 // This structure holds the information about structure type that is going to be
@@ -204,6 +205,10 @@ struct PerFunctionInfo {
   // type being transformed.
   SmallVector<GetElementPtrInst *, 16> GEPsToConvert;
   SmallVector<ByteGEPInfo, 16> ByteGEPsToConvert;
+
+  // Alloca instructions that should be converted from allocating a pointer to
+  // allocating an integer for the peeling index.
+  SmallVector<AllocaInst *, 2> AllocasToConvert;
 
   // Load/Store cases where the pointer to structure being transformed is
   // loaded/stored as a pointer-sized integer.
@@ -407,6 +412,7 @@ private: // methods
   void convertGEP(GetElementPtrInst *GEP);
   void convertByteGEP(GetElementPtrInst *GEP, DTransStructType *OrigStructTy,
                       size_t FieldNum);
+  void convertAlloca(AllocaInst *AI);
   void convertPtrSizedIntLoad(LoadInst *LI, DTransStructType *DTransTy);
   void convertPtrSizedIntStore(StoreInst *SI, DTransStructType *DTransTy);
   void convertDepGEP(GetElementPtrInst *GEP);
@@ -1082,11 +1088,24 @@ void AOSCollector::visitAllocaInst(AllocaInst &I) {
   while (BaseType->isArrayTy())
     BaseType = BaseType->getArrayElementType();
 
-  while (BaseType->isPointerTy())
+  unsigned PtrLevel = 0;
+  while (BaseType->isPointerTy()) {
     BaseType = BaseType->getPointerElementType();
+    ++PtrLevel;
+  }
 
   if (!Transform.isTypeToTransform(BaseType->getLLVMType()))
     return;
+
+  // Because the type being allocated will have one less level of indirection,
+  // if the type was originally just a pointer to the structure then it needs to
+  // be transformed to an integer allocation. In the typed pointer IR, this
+  // happens automatically via the TypeRemapper. However, with opaque pointers
+  // we need to handle this in the convertAlloca routine. We only need to handle
+  // it for the case of one level of indirection because the allocation type
+  // remains 'ptr' for all other cases, and just the metadata needs updating.
+  if (I.getType()->isOpaquePointerTy() && PtrLevel == 1)
+    FuncInfo.AllocasToConvert.push_back(&I);
 
   FuncInfo.InstMDToUpdate.push_back({&I, DType});
 }
@@ -1339,6 +1358,7 @@ void AOSToSOAOPTransformImpl::processFunction(Function &F) {
   auto FuncInfoProcessFunctionComplete = [this]() {
     FuncInfo->GEPsToConvert.clear();
     FuncInfo->ByteGEPsToConvert.clear();
+    FuncInfo->AllocasToConvert.clear();
     FuncInfo->PtrSizedIntLoadsToConvert.clear();
     FuncInfo->PtrSizedIntStoresToConvert.clear();
     FuncInfo->BCsToConvert.clear();
@@ -1375,6 +1395,8 @@ void AOSToSOAOPTransformImpl::processFunction(Function &F) {
   for (auto &Free : FuncInfo->FreesToConvert)
     convertFreeCall(Free.first, Free.second);
 
+  for (auto *AI : FuncInfo->AllocasToConvert)
+    convertAlloca(AI);
   for (auto *GEP : FuncInfo->GEPsToConvert)
     convertGEP(GEP);
   for (auto &GEPInfo : FuncInfo->ByteGEPsToConvert)
@@ -1540,7 +1562,7 @@ void AOSToSOAOPTransformImpl::postprocessFunction(Function &OrigFunc,
     //      ; %__SOADTstruct.test01dep*
     //
     auto *DReplTy = cast<DTransFunctionType>(TypeRemapper.remapType(DTy));
-    TypeMetadataReader::setDTransFuncMetadata(Func, DReplTy);
+    DTransTypeMetadataBuilder::setDTransFuncMetadata(Func, DReplTy);
   }
 
   DEBUG_WITH_TYPE(AOSTOSOA_VERBOSE,
@@ -2107,6 +2129,24 @@ void AOSToSOAOPTransformImpl::convertDepByteGEP(GetElementPtrInst *GEP,
   uint64_t NewOffset = SL->getElementOffset(FieldNum);
   GEP->setOperand(1,
                   ConstantInt::get(GEP->getOperand(1)->getType(), NewOffset));
+}
+
+// Modify an allocation that was used to allocate a pointer to the type being
+// transformed to be an allocation of the peeling index type, which is an
+// integer type. For example, when 'ptr' represents a pointer to the type being
+// transformed:
+//   %local = alloca ptr
+// becomes:
+//   %local = alloca i32
+//
+// Note: This is only reachable when opaque pointers are used because the code
+// relies on the TypeRemapper to handle this when typed pointers are in use.
+void AOSToSOAOPTransformImpl::convertAlloca(AllocaInst *AI) {
+  assert(AI->getType()->isOpaquePointerTy() &&
+         "Only opaque pointer uses expected");
+  assert(!AI->getAllocatedType()->isArrayTy() && "Unexpected array type");
+
+  AI->setAllocatedType(IndexInfo.LLVMType);
 }
 
 // A load of a pointer to the structure done as a pointer sized integer load
@@ -2714,7 +2754,7 @@ void AOSToSOAOPTransformImpl::updateDTransMetadata(Instruction *I,
   DTransType *NewTy = TypeRemapper.remapType(Ty);
   MDNode *NewMD =
       hasPointerType(NewTy) ? NewTy->createMetadataReference() : nullptr;
-  TypeMetadataReader::addDTransMDNode(*I, NewMD);
+  DTransTypeMetadataBuilder::addDTransMDNode(*I, NewMD);
 }
 
 void AOSToSOAOPTransformImpl::updateCallAttributes(CallBase *Call) {
@@ -2762,7 +2802,7 @@ bool AOSToSOAOPTransformImpl::updateAttributeList(
   llvm::Type *CloneRetTy = CloneFnType->getReturnType();
   if (OrigRetTy->isPointerTy() && !CloneRetTy->isPointerTy()) {
     AttributeSet RetAttrs = Attrs.getAttributes(AttributeList::ReturnIndex);
-    if (AttrBuilder(RetAttrs).overlaps(IndexInfo.IncompatibleTypeAttrs)) {
+    if (AttrBuilder(Ctx, RetAttrs).overlaps(IndexInfo.IncompatibleTypeAttrs)) {
       Attrs = Attrs.removeRetAttributes(Ctx, IndexInfo.IncompatibleTypeAttrs);
       Changed = true;
     }
@@ -2775,7 +2815,8 @@ bool AOSToSOAOPTransformImpl::updateAttributeList(
     if (OrigArgTy->isPointerTy() && !CloneArgTy->isPointerTy()) {
       AttributeSet ParamAttrs =
           Attrs.getAttributes(ArgIdx + AttributeList::FirstArgIndex);
-      if (AttrBuilder(ParamAttrs).overlaps(IndexInfo.IncompatibleTypeAttrs)) {
+      if (AttrBuilder(Ctx, ParamAttrs).overlaps(
+            IndexInfo.IncompatibleTypeAttrs)) {
         Attrs =
             Attrs.removeAttributesAtIndex(Ctx,
                                         ArgIdx + AttributeList::FirstArgIndex,
@@ -3126,12 +3167,18 @@ void AOSToSOAOPPass::qualifyCandidates(StructInfoVecImpl &CandidateTypes,
 
 // Check for types in 'CandidateTypes' that are not supported by the
 // transformation.
-// 1. Types that are used as arrays are not supported, for example
-//     [4 x struct.test]. Because we would need to handle all the allocation
+// 1. Types that are used as arrays are not supported. For example
+//     [4 x %struct.test]. Because we would need to handle all the allocation
 //     checks and transformation code for these arrays, as well.
-// 2. Types that contain arrays are not supported. This restriction could be
+// 2. Arrays of direct pointers to the type are not supported. For example
+//     [4 x %struct.test*], which would be [4 x ptr] with opaque pointers.
+//    The conversion of this when pointer shrinking is enabled would result
+//    in the type [4 x i32], and could require converting the array type
+//    specified for users, such as a getelementptr to be modified, which is not
+//    supported.
+// 3. Types that contain arrays are not supported. This restriction could be
 //     relaxed in a future version.
-// 3. Types that contain vectors are not supported.
+// 4. Types that contain vectors are not supported.
 //
 // Return 'true' if candidates remain after this filtering.
 bool AOSToSOAOPPass::qualifyCandidatesTypes(StructInfoVecImpl &CandidateTypes,
@@ -3146,9 +3193,13 @@ bool AOSToSOAOPPass::qualifyCandidatesTypes(StructInfoVecImpl &CandidateTypes,
     while (isa<DTransArrayType>(ElemTy))
       ElemTy = ElemTy->getArrayElementType();
 
+    if (auto PtrTy = dyn_cast<DTransPointerType>(ElemTy))
+      ElemTy = ElemTy->getPointerElementType();
     if (!isa<DTransStructType>(ElemTy))
       continue;
 
+    // The type in the array is either a structure or direct pointer to a
+    // structure. Add the type to list of disallowed types.
     auto *ElemTI = DTInfo.getTypeInfo(ElemTy);
     assert(ElemTI && "Expecting TypeInfo objeect for structure type");
     ArrayElemTypes.insert(cast<dtrans::StructInfo>(ElemTI));
@@ -3251,10 +3302,12 @@ bool AOSToSOAOPPass::qualifyCalls(Module &M, WholeProgramInfo &WPInfo,
         DTransType *AllocatedTy = TypeList.getElemDTransType(0);
         if (AllocatedTy->isStructTy()) {
           // Save the first allocation seen, otherwise disqualify the type.
-          auto *TI = dyn_cast<StructInfo>(DTInfo.getTypeInfo(AllocatedTy));
+          auto *TI = DTInfo.getTypeInfo(AllocatedTy);
+          assert(TI && "TypeInfo not found. DTransInfo out of date?");
+          auto *STI = cast<StructInfo>(TI);
           Instruction *Inst = CInfo->getInstruction();
-          if (!AllocTypeInfoToInstr.insert(std::make_pair(TI, Inst)).second) {
-            Disqualified.insert(TI);
+          if (!AllocTypeInfoToInstr.insert(std::make_pair(STI, Inst)).second) {
+            Disqualified.insert(STI);
             LLVM_DEBUG(dbgs()
                        << "AOS-to-SOA rejecting -- Too many allocations: "
                        << *AllocatedTy << "\n");
@@ -3515,9 +3568,16 @@ bool AOSToSOAOPPass::checkAllocationUsers(Instruction *AllocCall,
 
     case Instruction::GetElementPtr:
       // For the opaque pointer version, the allocated pointer can be
-      // directly used as a pointer to a structure in the GetElementPtr
-      // instructions.
-      if (cast<GetElementPtrInst>(I)->getNumIndices() != 2) {
+      // directly used as a pointer to a structure with GetElementPtr
+      // instructions. The transformation needs to be supported for 1 and 2
+      // index versions that are indexing using a structure type (we know the
+      // structure type is correct because the safety checks have all passed).
+      // However, a usage in a byte-flattened GEP form is currently not
+      // supported because it would require additional logic for the
+      // convertByteGEP routine to handle the instruction after the
+      // convertAllocCall routine has processed it.
+      if (cast<GetElementPtrInst>(I)->getNumIndices() > 2 ||
+          !cast<GetElementPtrInst>(I)->getSourceElementType()->isStructTy()) {
         *Unsupported = I;
         return false;
       }
@@ -3575,7 +3635,6 @@ PreservedAnalyses AOSToSOAOPPass::run(Module &M, ModuleAnalysisManager &AM) {
 
   PreservedAnalyses PA;
   PA.preserve<WholeProgramAnalysis>();
-  PA.abandon<DTransSafetyAnalyzer>();
   return PA;
 }
 

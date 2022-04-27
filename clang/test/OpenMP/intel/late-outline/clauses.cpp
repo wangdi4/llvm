@@ -1,7 +1,7 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
-// RUN: %clang_cc1 -disable-llvm-passes -emit-llvm -o - \
+// RUN: %clang_cc1 -opaque-pointers -disable-llvm-passes -emit-llvm -o - \
 // RUN:  -fopenmp -fopenmp-late-outline -O2 \
 // RUN:  -triple x86_64-unknown-linux-gnu %s \
 // RUN: | FileCheck %s --check-prefix OPT
@@ -33,24 +33,24 @@ void bar(int if_val, int num_threads_val) {
 
   // if
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[IF1_ADDR]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[IF1_ADDR]])
   // CHECK-SAME: "QUAL.OMP.IF"(i1 true)
   #pragma omp parallel private(if1) if(1)
   { foo(); }
 
-  // CHECK: [[ILOAD1:%.+]] = load i32, i32* [[IF_VAL_ADDR]]
+  // CHECK: [[ILOAD1:%.+]] = load i32, ptr [[IF_VAL_ADDR]]
   // CHECK-NEXT: [[TOBOOL:%.+]] = icmp ne i32 [[ILOAD1]], 0
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[IF2_ADDR]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[IF2_ADDR]])
   // CHECK-SAME: "QUAL.OMP.IF"(i1 [[TOBOOL]])
   // CHECK: region.exit{{.*}}"DIR.OMP.END.PARALLEL"
   #pragma omp parallel private(if2) if(if_val)
   { foo(); }
 
-  // CHECK: [[L1:%.+]] = load i32, i32* [[IF1_ADDR]]
+  // CHECK: [[L1:%.+]] = load i32, ptr [[IF1_ADDR]]
   // CHECK-NEXT: [[TB2:%.+]] = icmp ne i32 [[L1]], 0
   // CHECK-NEXT: br i1 [[TB2]]
-  // CHECK: [[L2:%.+]] = load i32, i32* [[IF2_ADDR]]
+  // CHECK: [[L2:%.+]] = load i32, ptr [[IF2_ADDR]]
   // CHECK-NEXT: [[TB3:%.+]] = icmp ne i32 [[L2]], 0
   // CHECK: [[P5:%.+]] = phi i1
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
@@ -61,46 +61,46 @@ void bar(int if_val, int num_threads_val) {
 
   // proc_bind
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[PB1_ADDR]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[PB1_ADDR]])
   // CHECK-SAME: "QUAL.OMP.PROC_BIND.MASTER"
   #pragma omp parallel private(pb1) proc_bind(master)
   { foo(); }
 
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[PB2_ADDR]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[PB2_ADDR]])
   // CHECK-SAME: "QUAL.OMP.PROC_BIND.CLOSE"
   #pragma omp parallel private(pb2) proc_bind(close)
   { foo(); }
 
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[PB3_ADDR]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[PB3_ADDR]])
   // CHECK-SAME: "QUAL.OMP.PROC_BIND.SPREAD"
   #pragma omp parallel private(pb3) proc_bind(spread)
   { foo(); }
 
   // num_threads
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[NT1_ADDR]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[NT1_ADDR]])
   // CHECK-SAME: "QUAL.OMP.NUM_THREADS"(i32 8)
   #pragma omp parallel private(nt1) num_threads(8)
   { foo(); }
 
-  // CHECK: [[ILOAD2:%.*]] = load i32, i32* [[NUM_THREADS_VAL_ADDR]]
+  // CHECK: [[ILOAD2:%.*]] = load i32, ptr [[NUM_THREADS_VAL_ADDR]]
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[NT2_ADDR]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[NT2_ADDR]])
   // CHECK-SAME: "QUAL.OMP.NUM_THREADS"(i32 [[ILOAD2]])
   #pragma omp parallel private(nt2) num_threads(num_threads_val)
   { foo(); }
 
   // default
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[DF1_ADDR]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[DF1_ADDR]])
   // CHECK-SAME: "QUAL.OMP.DEFAULT.NONE"
   #pragma omp parallel private(df1) default(none)
   { foo(); }
 
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[DF2_ADDR]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[DF2_ADDR]])
   // CHECK-SAME: "QUAL.OMP.DEFAULT.SHARED"
   #pragma omp parallel private(df2) default(shared)
   { foo(); }
@@ -111,7 +111,7 @@ void bar2()
 {
   //OPT: [[CDS:%cleanup.dest.slot.*]] = alloca i32,
   //OPT: region.entry() [ "DIR.OMP.PARALLEL"()
-  //OPT-SAME: "QUAL.OMP.PRIVATE"(i32* [[CDS]])
+  //OPT-SAME: "QUAL.OMP.PRIVATE"(ptr [[CDS]])
   //OPT: "DIR.OMP.END.PARALLEL"
   #pragma omp parallel
   {
@@ -124,7 +124,7 @@ void bar2()
   }
 
   //OPT: region.entry() [ "DIR.OMP.PARALLEL"()
-  //OPT-SAME: "QUAL.OMP.PRIVATE"(i32* [[CDS]])
+  //OPT-SAME: "QUAL.OMP.PRIVATE"(ptr [[CDS]])
   //OPT: "DIR.OMP.END.PARALLEL"
   #pragma omp parallel
   {
@@ -141,8 +141,8 @@ void baz(int);
 void bar3()
 {
   //CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
-  //CHECK-SAME: "QUAL.OMP.SHARED"(i32* @_ZL5st_b1)
-  //CHECK-SAME: "QUAL.OMP.SHARED"(i32* @_ZZ4bar3vE5st_b3)
+  //CHECK-SAME: "QUAL.OMP.SHARED"(ptr @_ZL5st_b1)
+  //CHECK-SAME: "QUAL.OMP.SHARED"(ptr @_ZZ4bar3vE5st_b3)
   //CHECK: "DIR.OMP.END.PARALLEL"
   #pragma omp parallel
   {
@@ -173,9 +173,9 @@ void bar4(float c0, float *Anext, const int nx)
   //CHECK: [[I3:%i3.*]] = alloca i32,
 
   //CHECK: region.entry() [ "DIR.OMP.TARGET"()
-  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I1]])
+  //CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[I1]])
   //CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
-  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I1]])
+  //CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[I1]])
   //CHECK: "DIR.OMP.END.PARALLEL.LOOP"
   //CHECK: "DIR.OMP.END.TARGET"
   #pragma omp target map(alloc:Anext[0:nx])
@@ -184,8 +184,8 @@ void bar4(float c0, float *Anext, const int nx)
     Anext[i1] = c0;
   }
   //CHECK: region.entry() [ "DIR.OMP.TARGET"()
-  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I2]])
-  //CHECK-NOT: "DIR.OMP.SIMD"(){{.*}}"QUAL.OMP.PRIVATE"(i32* [[I2]])
+  //CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[I2]])
+  //CHECK-NOT: "DIR.OMP.SIMD"(){{.*}}"QUAL.OMP.PRIVATE"(ptr [[I2]])
   //CHECK: "DIR.OMP.END.SIMD"
   //CHECK: "DIR.OMP.END.TARGET"
   #pragma omp target map(alloc:Anext[0:nx])
@@ -194,10 +194,10 @@ void bar4(float c0, float *Anext, const int nx)
     Anext[i2] = c0;
   }
   //CHECK: region.entry() [ "DIR.OMP.TARGET"()
-  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I3]])
+  //CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[I3]])
   //CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
-  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I3]])
-  //CHECK-NOT: "DIR.OMP.SIMD"(){{.*}}"QUAL.OMP.PRIVATE"(i32* [[I3]])
+  //CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[I3]])
+  //CHECK-NOT: "DIR.OMP.SIMD"(){{.*}}"QUAL.OMP.PRIVATE"(ptr [[I3]])
   //CHECK: "DIR.OMP.END.SIMD"
   //CHECK: "DIR.OMP.END.PARALLEL.LOOP"
   //CHECK: "DIR.OMP.END.TARGET"
@@ -207,9 +207,9 @@ void bar4(float c0, float *Anext, const int nx)
     Anext[i3] = c0;
   }
   //CHECK: region.entry() [ "DIR.OMP.TARGET"()
-  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[J1]])
+  //CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[J1]])
   //CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
-  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[J1]])
+  //CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[J1]])
   //CHECK: "DIR.OMP.END.PARALLEL.LOOP"
   //CHECK: "DIR.OMP.END.TARGET"
   #pragma omp target map(alloc:Anext[0:nx])
@@ -218,7 +218,7 @@ void bar4(float c0, float *Anext, const int nx)
     Anext[j1] = c0;
   }
   //CHECK: region.entry() [ "DIR.OMP.TARGET"()
-  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[J2]])
+  //CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[J2]])
   //CHECK: region.entry() [ "DIR.OMP.SIMD"()
   //CHECK: "DIR.OMP.END.SIMD"
   //CHECK: "DIR.OMP.END.TARGET"
@@ -228,9 +228,9 @@ void bar4(float c0, float *Anext, const int nx)
     Anext[j2] = c0;
   }
   //CHECK: region.entry() [ "DIR.OMP.TARGET"()
-  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[J3]])
+  //CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[J3]])
   //CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
-  //CHECK-SAME: "QUAL.OMP.LASTPRIVATE"(i32* [[J3]])
+  //CHECK-SAME: "QUAL.OMP.LASTPRIVATE"(ptr [[J3]])
   //CHECK: region.entry() [ "DIR.OMP.SIMD"()
   //CHECK-SAME: "QUAL.OMP.LINEAR:IV"
   //CHECK: "DIR.OMP.END.SIMD"
@@ -265,28 +265,28 @@ int A_bar6, B_bar6;
 void bar6()
 {
   //CHECK: "DIR.OMP.TARGET.UPDATE"()
-  //CHECK-DAG: "QUAL.OMP.MAP.TO"([9 x i32]* @bar6BBB, i32* getelementptr inbounds ([9 x i32], [9 x i32]* @bar6BBB, i64 0, i64 5), i64 8, i64 1
-  //CHECK-DAG: "QUAL.OMP.MAP.TO"([9 x i32]* @bar6AAA, i32* getelementptr inbounds ([9 x i32], [9 x i32]* @bar6AAA, i64 0, i64 2), i64 16, i64 1
+  //CHECK-DAG: "QUAL.OMP.MAP.TO"(ptr @bar6BBB, ptr getelementptr inbounds ([9 x i32], ptr @bar6BBB, i64 0, i64 5), i64 8, i64 1
+  //CHECK-DAG: "QUAL.OMP.MAP.TO"(ptr @bar6AAA, ptr getelementptr inbounds ([9 x i32], ptr @bar6AAA, i64 0, i64 2), i64 16, i64 1
   //CHECK: "DIR.OMP.END.TARGET.UPDATE"()
   #pragma omp target update to(bar6BBB[5:2], bar6AAA[2:4])
   //CHECK: "DIR.OMP.TARGET.UPDATE"()
-  //CHECK-DAG: "QUAL.OMP.MAP.TO"([9 x i32]* @bar6BBB, i32* getelementptr inbounds ([9 x i32], [9 x i32]* @bar6BBB, i64 0, i64 2), i64 12, i64 1
-  //CHECK-DAG: "QUAL.OMP.MAP.TO"([9 x i32]* @bar6AAA, i32* getelementptr inbounds ([9 x i32], [9 x i32]* @bar6AAA, i64 0, i64 6), i64 4, i64 1
+  //CHECK-DAG: "QUAL.OMP.MAP.TO"(ptr @bar6BBB, ptr getelementptr inbounds ([9 x i32], ptr @bar6BBB, i64 0, i64 2), i64 12, i64 1
+  //CHECK-DAG: "QUAL.OMP.MAP.TO"(ptr @bar6AAA, ptr getelementptr inbounds ([9 x i32], ptr @bar6AAA, i64 0, i64 6), i64 4, i64 1
   //CHECK: "DIR.OMP.END.TARGET.UPDATE"()
   #pragma omp target update to(bar6BBB[2:3], bar6AAA[6])
   //CHECK: "DIR.OMP.TARGET.UPDATE"()
-  //CHECK-DAG: "QUAL.OMP.MAP.FROM"([9 x i32]* @bar6BBB, i32* getelementptr inbounds ([9 x i32], [9 x i32]* @bar6BBB, i64 0, i64 5), i64 8, i64 2
-  //CHECK-DAG: "QUAL.OMP.MAP.FROM"([9 x i32]* @bar6AAA, i32* getelementptr inbounds ([9 x i32], [9 x i32]* @bar6AAA, i64 0, i64 2), i64 12, i64 2
+  //CHECK-DAG: "QUAL.OMP.MAP.FROM"(ptr @bar6BBB, ptr getelementptr inbounds ([9 x i32], ptr @bar6BBB, i64 0, i64 5), i64 8, i64 2
+  //CHECK-DAG: "QUAL.OMP.MAP.FROM"(ptr @bar6AAA, ptr getelementptr inbounds ([9 x i32], ptr @bar6AAA, i64 0, i64 2), i64 12, i64 2
   //CHECK: "DIR.OMP.END.TARGET.UPDATE"()
   #pragma omp target update from(bar6BBB[5:2], bar6AAA[2:3])
   //CHECK: "DIR.OMP.TARGET.UPDATE"()
-  //CHECK-DAG: "QUAL.OMP.MAP.FROM"([9 x i32]* @bar6BBB, i32* getelementptr inbounds ([9 x i32], [9 x i32]* @bar6BBB, i64 0, i64 2), i64 12, i64 2
-  //CHECK-DAG: "QUAL.OMP.MAP.FROM"([9 x i32]* @bar6AAA, i32* getelementptr inbounds ([9 x i32], [9 x i32]* @bar6AAA, i64 0, i64 6), i64 4, i64 2
+  //CHECK-DAG: "QUAL.OMP.MAP.FROM"(ptr @bar6BBB, ptr getelementptr inbounds ([9 x i32], ptr @bar6BBB, i64 0, i64 2), i64 12, i64 2
+  //CHECK-DAG: "QUAL.OMP.MAP.FROM"(ptr @bar6AAA, ptr getelementptr inbounds ([9 x i32], ptr @bar6AAA, i64 0, i64 6), i64 4, i64 2
   //CHECK: "DIR.OMP.END.TARGET.UPDATE"()
   #pragma omp target update from(bar6BBB[2:3], bar6AAA[6])
   //CHECK: "DIR.OMP.TARGET.UPDATE"()
-  //CHECK-SAME: "QUAL.OMP.MAP.TO"(i32* @B_bar6, i32* @B_bar6, i64 4, i64 1
-  //CHECK-SAME: "QUAL.OMP.MAP.FROM"(i32* @A_bar6, i32* @A_bar6, i64 4, i64 2
+  //CHECK-SAME: "QUAL.OMP.MAP.TO"(ptr @B_bar6, ptr @B_bar6, i64 4, i64 1
+  //CHECK-SAME: "QUAL.OMP.MAP.FROM"(ptr @A_bar6, ptr @A_bar6, i64 4, i64 2
   //CHECK: "DIR.OMP.END.TARGET.UPDATE"()
   #pragma omp target update from(A_bar6) to(B_bar6)
 }
@@ -299,130 +299,130 @@ void bar7(float *A, int N, int S)
   int i;
   //CHECK: [[ULL:%ull.*]] = alloca i64,
   unsigned long long ull;
-  //CHECK: [[FP:%fp.*]] = alloca float*,
+  //CHECK: [[FP:%fp.*]] = alloca ptr,
   float *fp;
 
   // step 1
   //CHECK: "DIR.OMP.SIMD"
-  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(i32* [[I]], i32 1)
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(ptr [[I]], i32 1)
   //CHECK: call void {{.*}}call_bar7
-  //CHECK: load i32, i32* %.omp.iv
+  //CHECK: load i32, ptr %.omp.iv
   //CHECK-NEXT: add nsw i32 {{.*}}1{{$}}
   //CHECK-NEXT: store i32 {{.*}}%.omp.iv
-  //CHECK-NEXT: [[L1:%[0-9]+]] = load i32, i32* [[I]]
+  //CHECK-NEXT: [[L1:%[0-9]+]] = load i32, ptr [[I]]
   //CHECK-NEXT: [[ADD1:%add[0-9]*]] = add nsw i32 [[L1]], 1
-  //CHECK-NEXT: store i32 [[ADD1]], i32* [[I]]
+  //CHECK-NEXT: store i32 [[ADD1]], ptr [[I]]
   #pragma omp simd
   for (i=0;i<N;i++) { call_bar7(&A[i]); }
   //CHECK: "DIR.OMP.END.SIMD"
 
   // step -1
   //CHECK: "DIR.OMP.SIMD"
-  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(i32* [[I]], i32 -1)
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(ptr [[I]], i32 -1)
   //CHECK: call void {{.*}}call_bar7
-  //CHECK: load i32, i32* %.omp.iv
+  //CHECK: load i32, ptr %.omp.iv
   //CHECK-NEXT: add nuw i32 {{.*}}1{{$}}
   //CHECK-NEXT: store i32 {{.*}}%.omp.iv
-  //CHECK-NEXT: [[L1:%[0-9]+]] = load i32, i32* [[I]]
+  //CHECK-NEXT: [[L1:%[0-9]+]] = load i32, ptr [[I]]
   //CHECK-NEXT: [[SUB1:%sub[0-9]*]] = sub nsw i32 [[L1]], 1
-  //CHECK-NEXT: store i32 [[SUB1]], i32* [[I]]
+  //CHECK-NEXT: store i32 [[SUB1]], ptr [[I]]
   #pragma omp simd
   for (i=N;i>=0;i--) { call_bar7(&A[i]); }
   //CHECK: "DIR.OMP.END.SIMD"
 
   // step 4
   //CHECK: "DIR.OMP.SIMD"
-  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(i32* [[I]], i32 4)
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(ptr [[I]], i32 4)
   //CHECK: call void {{.*}}call_bar7
-  //CHECK: load i32, i32* %.omp.iv
+  //CHECK: load i32, ptr %.omp.iv
   //CHECK-NEXT: add {{.*}} i32 {{.*}}1{{$}}
   //CHECK-NEXT: store i32 {{.*}}%.omp.iv
-  //CHECK-NEXT: [[L1:%[0-9]+]] = load i32, i32* [[I]]
+  //CHECK-NEXT: [[L1:%[0-9]+]] = load i32, ptr [[I]]
   //CHECK-NEXT: [[ADD1:%add[0-9]*]] = add nsw i32 [[L1]], 4
-  //CHECK-NEXT: store i32 [[ADD1]], i32* [[I]]
+  //CHECK-NEXT: store i32 [[ADD1]], ptr [[I]]
   #pragma omp simd
   for (i=0;i<N;i+=4) { call_bar7(&A[i]); }
   //CHECK: "DIR.OMP.END.SIMD"
 
   // step -8
   //CHECK: "DIR.OMP.SIMD"
-  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(i32* [[I]], i32 -8)
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(ptr [[I]], i32 -8)
   //CHECK: call void {{.*}}call_bar7
-  //CHECK: load i32, i32* %.omp.iv
+  //CHECK: load i32, ptr %.omp.iv
   //CHECK-NEXT: add nuw i32 {{.*}}1{{$}}
   //CHECK-NEXT: store i32 {{.*}}%.omp.iv
-  //CHECK-NEXT: [[L1:%[0-9]+]] = load i32, i32* [[I]]
+  //CHECK-NEXT: [[L1:%[0-9]+]] = load i32, ptr [[I]]
   //CHECK-NEXT: [[SUB1:%sub[0-9]*]] = sub nsw i32 [[L1]], 8
-  //CHECK-NEXT: store i32 [[SUB1]], i32* [[I]]
+  //CHECK-NEXT: store i32 [[SUB1]], ptr [[I]]
   #pragma omp simd
   for (i=N;i>=0;i-=8) { call_bar7(&A[i]); }
   //CHECK: "DIR.OMP.END.SIMD"
 
   // another form: step -8
   //CHECK: "DIR.OMP.SIMD"
-  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(i32* [[I]], i32 -8)
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(ptr [[I]], i32 -8)
   //CHECK: call void {{.*}}call_bar7
-  //CHECK: load i32, i32* %.omp.iv
+  //CHECK: load i32, ptr %.omp.iv
   //CHECK-NEXT: add nuw i32 {{.*}}1{{$}}
   //CHECK-NEXT: store i32 {{.*}}%.omp.iv
-  //CHECK-NEXT: [[L1:%[0-9]+]] = load i32, i32* [[I]]
+  //CHECK-NEXT: [[L1:%[0-9]+]] = load i32, ptr [[I]]
   //CHECK-NEXT: [[SUB1:%sub[0-9]*]] = sub nsw i32 [[L1]], 8
-  //CHECK-NEXT: store i32 [[SUB1]], i32* [[I]]
+  //CHECK-NEXT: store i32 [[SUB1]], ptr [[I]]
   #pragma omp simd
   for (i=N;i>=0;i=i-8) { call_bar7(&A[i]); }
   //CHECK: "DIR.OMP.END.SIMD"
 
-  //CHECK: [[LC:%[0-9]+]] = load i32, i32* %S.addr,
-  //CHECK-NEXT: store i32 [[LC]], i32* [[CAPS:%.capture_expr.[0-9]*]]
+  //CHECK: [[LC:%[0-9]+]] = load i32, ptr %S.addr,
+  //CHECK-NEXT: store i32 [[LC]], ptr [[CAPS:%.capture_expr.[0-9]*]]
 
   // non-constant step
   //CHECK: icmp slt i32 0,
-  //CHECK: [[LC:%[0-9]+]] = load i32, i32* [[CAPS]],
+  //CHECK: [[LC:%[0-9]+]] = load i32, ptr [[CAPS]],
   //CHECK: "DIR.OMP.SIMD"
-  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(i32* [[I]], i32 [[LC]])
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(ptr [[I]], i32 [[LC]])
   //CHECK: call void {{.*}}call_bar7
-  //CHECK: load i32, i32* %.omp.iv
+  //CHECK: load i32, ptr %.omp.iv
   //CHECK-NEXT: add nsw i32 {{.*}}1{{$}}
   //CHECK-NEXT: store i32 {{.*}}%.omp.iv
-  //CHECK-NEXT: [[L1:%[0-9]+]] = load i32, i32* [[I]]
-  //CHECK-NEXT: [[L2:%[0-9]+]] = load i32, i32* [[CAPS]]
+  //CHECK-NEXT: [[L1:%[0-9]+]] = load i32, ptr [[I]]
+  //CHECK-NEXT: [[L2:%[0-9]+]] = load i32, ptr [[CAPS]]
   //CHECK-NEXT: [[ADD1:%add[0-9]*]] = add nsw i32 [[L1]], [[L2]]
-  //CHECK-NEXT: store i32 [[ADD1]], i32* [[I]]
+  //CHECK-NEXT: store i32 [[ADD1]], ptr [[I]]
   #pragma omp simd
   for (i=0;i<N;i+=S) { call_bar7(&A[i]); }
   //CHECK: "DIR.OMP.END.SIMD"
 
   // non-int
   //CHECK: "DIR.OMP.SIMD"
-  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(i64* [[ULL]], i32 -8)
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(ptr [[ULL]], i32 -8)
   //CHECK: call void {{.*}}call_bar7
-  //CHECK: load i64, i64* %.omp.iv
+  //CHECK: load i64, ptr %.omp.iv
   //CHECK-NEXT: add nuw i64 {{.*}}1{{$}}
   //CHECK-NEXT: store i64 {{.*}}%.omp.iv
-  //CHECK-NEXT: [[L1:%[0-9]+]] = load i64, i64* [[ULL]]
+  //CHECK-NEXT: [[L1:%[0-9]+]] = load i64, ptr [[ULL]]
   //CHECK-NEXT: [[SUB1:%sub[0-9]*]] = sub i64 [[L1]], 8
-  //CHECK-NEXT: store i64 [[SUB1]], i64* [[ULL]]
+  //CHECK-NEXT: store i64 [[SUB1]], ptr [[ULL]]
   #pragma omp simd
   for (ull=N;ull>=0;ull-=8) { call_bar7(&A[ull]); }
   //CHECK: "DIR.OMP.END.SIMD"
 
   //CHECK: "DIR.OMP.SIMD"
-  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(float** [[FP]], i32 4)
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(ptr [[FP]], i32 4)
   //CHECK: call void {{.*}}call_bar7
-  //CHECK: load i64, i64* %.omp.iv
+  //CHECK: load i64, ptr %.omp.iv
   //CHECK-NEXT: add nsw i64 {{.*}}1{{$}}
   //CHECK-NEXT: store i64 {{.*}}%.omp.iv
-  //CHECK-NEXT: [[L1:%[0-9]+]] = load float*, float** [[FP]]
-  //CHECK-NEXT: [[ADD1:%add.ptr[0-9]*]] = getelementptr inbounds float, float* [[L1]], i64 4
-  //CHECK-NEXT: store float* [[ADD1]], float** [[FP]]
+  //CHECK-NEXT: [[L1:%[0-9]+]] = load ptr, ptr [[FP]]
+  //CHECK-NEXT: [[ADD1:%add.ptr[0-9]*]] = getelementptr inbounds float, ptr [[L1]], i64 4
+  //CHECK-NEXT: store ptr [[ADD1]], ptr [[FP]]
   #pragma omp simd
   for (fp=&A[2];fp<&A[14];fp+=4) { call_bar7(fp); }
   //CHECK: "DIR.OMP.END.SIMD"
 
   //CHECK: "DIR.OMP.DISTRIBUTE.PARLOOP"
-  //CHECK-SAME: "QUAL.OMP.LASTPRIVATE"(i32* [[I]])
+  //CHECK-SAME: "QUAL.OMP.LASTPRIVATE"(ptr [[I]])
   //CHECK: "DIR.OMP.SIMD"
-  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(i32* [[I]], i32 4)
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(ptr [[I]], i32 4)
   #pragma omp distribute parallel for simd
   for (i=0;i<N;i+=4) { call_bar7(&A[i]); }
   //CHECK: "DIR.OMP.END.SIMD"

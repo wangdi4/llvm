@@ -51,19 +51,33 @@ bool ForceComplexTyReductionVec = false;
 } // namespace vpo
 } // namespace llvm
 
-/// The function collects Load and Store instruction that access the
-/// reduction variable \p RedVarPtr.
+/// The function collects Load, Store, and non-intrinsic call instructions that
+/// access the reduction variable \p RedVarPtr.
 static void collectAllRelevantUsers(Value *RedVarPtr,
                                     SmallVectorImpl<Value *> &Users) {
-  for (auto U : RedVarPtr->users()) {
-    if (isa<LoadInst>(U) || isa<StoreInst>(U))
-      Users.push_back(U);
-    else if (isa<BitCastInst>(U)) {
-      Value *Ptr = getPtrThruCast<BitCastInst>(RedVarPtr);
-      if (Ptr != RedVarPtr)
-        for (auto U : Ptr->users())
-          if (isa<LoadInst>(U) || isa<StoreInst>(U))
-            Users.push_back(U);
+  SmallVector<Value *, 4> WorkList;
+  SmallSet<User *, 4> Visited;
+
+  WorkList.push_back(RedVarPtr);
+  while (!WorkList.empty()) {
+    auto *CurrVal = WorkList.pop_back_val();
+
+    for (auto U : CurrVal->users()) {
+      if (isa<LoadInst>(U) || isa<StoreInst>(U)) {
+        Users.push_back(U);
+        continue;
+      }
+      if (auto CI = dyn_cast<CallInst>(U)) {
+        if (!CI->getCalledFunction() || !CI->getCalledFunction()->isIntrinsic())
+          Users.push_back(U);
+        continue;
+      }
+      if (isa<BitCastInst>(U)) {
+        WorkList.push_back(U);
+        continue;
+      }
+      if (isa<AddrSpaceCastInst>(U))
+        WorkList.push_back(U);
     }
   }
 }
@@ -112,7 +126,7 @@ static bool isOrHasScalableTy(Type *InTy) {
 
     if (auto *CastTy = dyn_cast<PointerType>(Ty))
       if (!CastTy->isOpaque())
-        WL.insert(CastTy->getElementType());
+        WL.insert(CastTy->getPointerElementType());
 
     if (auto *CastTy = dyn_cast<VectorType>(Ty))
       WL.insert(CastTy->getElementType());
@@ -310,19 +324,24 @@ bool VPOVectorizationLegality::doesReductionUsePhiNodes(
   return (StartV && LoopHeaderPhiNode);
 }
 
-/// Return true if the reduction variable \p RedVarPtr is stored inside the
-/// loop and capture the store instruction in \p Store.
-bool VPOVectorizationLegality::isReductionVarStoredInsideTheLoop(
-    Value *RedVarPtr, StoreInst *&Store) {
+bool VPOVectorizationLegality::isReductionVarUpdatedInTheLoop(
+    Value *RedVarPtr, Instruction *&CallOrStore) {
   SmallVector<Value *, 4> Users;
-  Store = nullptr;
+  CallOrStore = nullptr;
+  CallInst *Call = nullptr;
   collectAllRelevantUsers(RedVarPtr, Users);
   for (auto U : Users) {
     if (auto SI = dyn_cast<StoreInst>(U))
       if (!TheLoop->isLoopInvariant(SI)) {
-        Store = SI;
+        CallOrStore = SI;
         return true;
       }
+    if (auto CI = dyn_cast<CallInst>(U))
+     Call = CI;
+  }
+  if (Call) {
+    CallOrStore = Call;
+    return true;
   }
   return false;
 }
@@ -510,7 +529,7 @@ void VPOVectorizationLegality::parseMinMaxReduction(Value *RedVarPtr,
   PHINode *LoopHeaderPhiNode = nullptr;
   Instruction *MinMaxResultInst = nullptr;
   Value *StartV = nullptr;
-  StoreInst *ReductionStore = nullptr;
+  Instruction *ReductionUse = nullptr;
   if (doesReductionUsePhiNodes(RedVarPtr, LoopHeaderPhiNode, StartV)) {
     using namespace PatternMatch;
     auto It = find_if(LoopHeaderPhiNode->users(), [this](auto *U) {
@@ -525,10 +544,10 @@ void VPOVectorizationLegality::parseMinMaxReduction(Value *RedVarPtr,
     SmallPtrSet<Instruction *, 4> CastInsts;
     FastMathFlags FMF = FastMathFlags::getFast();
     RecurrenceDescriptor RD(StartV, MinMaxResultInst, Kind, FMF, nullptr,
-                            StartV->getType(), true, false, CastInsts);
+                            StartV->getType(), true, false, CastInsts, -1U);
     ExplicitReductions[LoopHeaderPhiNode] = {RD, RedVarPtr};
-  } else if (isReductionVarStoredInsideTheLoop(RedVarPtr, ReductionStore))
-    InMemoryReductions[RedVarPtr] = std::make_pair(Kind, ReductionStore);
+  } else if (isReductionVarUpdatedInTheLoop(RedVarPtr, ReductionUse))
+    InMemoryReductions[RedVarPtr] = std::make_pair(Kind, ReductionUse);
 }
 
 void VPOVectorizationLegality::parseBinOpReduction(Value *RedVarPtr,
@@ -565,7 +584,7 @@ void VPOVectorizationLegality::parseBinOpReduction(Value *RedVarPtr,
   PHINode *ReductionPhi = nullptr;
   bool UsePhi = false;
   bool UseMemory = false;
-  StoreInst *ReductionStore = nullptr;
+  Instruction *ReductionUse = nullptr;
   if ((UsePhi = doesReductionUsePhiNodes(RedVarPtr, ReductionPhi, StartV))) {
     Value *CombinerV = (ReductionPhi->getIncomingValue(0) == StartV)
                            ? ReductionPhi->getIncomingValue(1)
@@ -578,11 +597,11 @@ void VPOVectorizationLegality::parseBinOpReduction(Value *RedVarPtr,
     SmallPtrSet<Instruction *, 4> CastInsts;
     FastMathFlags FMF = FastMathFlags::getFast();
     RecurrenceDescriptor RD(StartV, Combiner, Kind, FMF, nullptr,
-                            ReductionPhi->getType(), true, false, CastInsts);
+                            ReductionPhi->getType(), true, false, CastInsts, -1U);
     ExplicitReductions[ReductionPhi] = {RD, RedVarPtr};
   } else if ((UseMemory =
-                  isReductionVarStoredInsideTheLoop(RedVarPtr, ReductionStore)))
-    InMemoryReductions[RedVarPtr] = std::make_pair(Kind, ReductionStore);
+                  isReductionVarUpdatedInTheLoop(RedVarPtr, ReductionUse)))
+    InMemoryReductions[RedVarPtr] = std::make_pair(Kind, ReductionUse);
 
   if (!UsePhi && !UseMemory)
     LLVM_DEBUG(dbgs() << "LV: Explicit reduction pattern is not recognized ");

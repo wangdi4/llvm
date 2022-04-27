@@ -1,4 +1,19 @@
 #if INTEL_COLLAB
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //===------ VPOParoptTask.cpp - Transformation of WRegion for tasking -----===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -223,13 +238,10 @@ void VPOParoptTransform::genLprivFiniForTaskLoop(LastprivateItem *LprivI,
   } else if (!VPOUtils::canBeRegisterized(ItemTy, DL) ||
              NumElements) {
     uint64_t Size = DL.getTypeAllocSize(ItemTy);
-    if (NumElements) {
-      auto *CI = dyn_cast<ConstantInt>(NumElements);
-      assert(CI && "Lastprivate item should have been classified as VLA.");
-      Size *= CI->getZExtValue();
-    }
-    VPOUtils::genMemcpy(Dst, Src, Size, DL.getABITypeAlignment(ItemTy),
-                        Builder);
+    assert((!NumElements || isa<ConstantInt>(NumElements)) &&
+           "Lastprivate item should have been classified as VLA.");
+    VPOUtils::genMemcpy(Dst, Src, Size, NumElements,
+                        DL.getABITypeAlignment(ItemTy), Builder);
   } else {
     LoadInst *Load = Builder.CreateLoad(ItemTy, Src);
     Builder.CreateStore(Load, Dst);
@@ -1734,6 +1746,18 @@ void VPOParoptTransform::resetValueInTaskDependClause(WRegionNode *W) {
     return;
 
   DependClause const &DepClause = W->getDepend();
+  Value *DepArray = W->getDepArray();
+
+  if (DepArray) {
+    Value *NumDeps = W->getDepArrayNumDeps();
+    assert(NumDeps && "Corrupt DEPARRAY IR");
+    assert(DepClause.empty() && "Cannot have both DEPEND and DEPARRAY IR");
+    resetValueInOmpClauseGeneric(W, DepArray);
+    if (!isa<ConstantInt>(NumDeps)) // usually constant if DEPOBJ is not used
+      resetValueInOmpClauseGeneric(W, NumDeps);
+    return;
+  }
+
   if (DepClause.empty())
     return;
   for (DependItem *DepI : DepClause.items()) {
@@ -1756,21 +1780,39 @@ void VPOParoptTransform::genTaskDeps(WRegionNode *W, StructType *IdentTy,
                                      Value *TidPtr, Value *TaskAlloc,
                                      AllocaInst *DummyTaskTDependRec,
                                      Instruction *InsertPt, bool IsTaskWait) {
-  IRBuilder<> Builder(InsertPt);
+  Value *Dep = W->getDepArray(); // pointer to the beginning of the dep array
+  Value *NumDeps = nullptr;  // number of elements in the dep array
 
-  Value *BaseTaskTDependGep = Builder.CreateInBoundsGEP(
-      DummyTaskTDependRec->getAllocatedType(), DummyTaskTDependRec,
-      {Builder.getInt32(0), Builder.getInt32(0)});
-  LLVMContext &C = F->getContext();
-  Value *Dep = Builder.CreateBitCast(BaseTaskTDependGep, Type::getInt8PtrTy(C));
-  DependClause const &DepClause = W->getDepend();
+  // The QUAL.OMP.DEPEND and the QUAL.OMP.DEPARRAY forms cannot be mixed
+  // in the same DIR.OMP.TASK.
+
+  if (Dep) {
+    // The QUAL.OMP.DEPARRAY form is used.
+    NumDeps = W->getDepArrayNumDeps();
+    assert(NumDeps && "Corrupt DEPARRAY IR: missing NumDeps");
+    assert(!DummyTaskTDependRec && "Cannot have both DEPEND and DEPARRAY IR");
+  } else {
+    // The QUAL.OMP.DEPEND form is used.
+    // TODO: remove this codepath when both FEs emit
+    //       the QUAL.OMP.DEPARRAY form by default.
+    assert(DummyTaskTDependRec && "Missing depend info array");
+
+    IRBuilder<> Builder(InsertPt);
+    Value *BaseTaskTDependGep = Builder.CreateInBoundsGEP(
+        DummyTaskTDependRec->getAllocatedType(), DummyTaskTDependRec,
+        {Builder.getInt32(0), Builder.getInt32(0)});
+    LLVMContext &C = F->getContext();
+    Dep = Builder.CreateBitCast(BaseTaskTDependGep, Type::getInt8PtrTy(C));
+    DependClause const &DepClause = W->getDepend();
+    NumDeps = Builder.getInt32(DepClause.size());
+  }
 
   if (!IsTaskWait)
     VPOParoptUtils::genKmpcTaskWithDeps(W, IdentTy, TidPtr, TaskAlloc, Dep,
-                                        DepClause.size(), InsertPt);
+                                        NumDeps, InsertPt);
   else
-    VPOParoptUtils::genKmpcTaskWaitDeps(W, IdentTy, TidPtr, Dep,
-                                        DepClause.size(), InsertPt);
+    VPOParoptUtils::genKmpcTaskWaitDeps(W, IdentTy, TidPtr, Dep, NumDeps,
+                                        InsertPt);
 }
 
 // Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop or
@@ -1932,7 +1974,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
         genFLPrivateTaskDup(W, KmpTaskTTWithPrivatesTy));
   } else {
     if (!VIf) {
-      if (!DummyTaskTDependRec)
+      if (!DummyTaskTDependRec && !W->getDepArray())
         VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtrHolder, TaskAllocCI,
                                     NewCall);
       else
@@ -1944,7 +1986,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
 
       VPOParoptUtils::buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, NewCall, DT);
       IRBuilder<> ElseBuilder(ElseTerm);
-      if (!DummyTaskTDependRec)
+      if (!DummyTaskTDependRec && !W->getDepArray())
         VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtrHolder, TaskAllocCI,
                                     ThenTerm);
       else {
@@ -1988,21 +2030,12 @@ bool VPOParoptTransform::genTaskWaitCode(WRegionNode *W) {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskWaitCode\n");
 
   DependClause const &DepClause = W->getDepend();
-  Instruction *InsertPt = W->getEntryBBlock()->getTerminator();
-  IRBuilder<> Builder(InsertPt);
 
-  if (!DepClause.empty()) {
+  if (!DepClause.empty() || W->getDepArray()) {
+    Instruction *InsertPt = W->getEntryBBlock()->getTerminator();
     AllocaInst *DummyTaskTDependRec = genDependInitForTask(W, InsertPt);
-
-    Value *BaseTaskTDependGep = Builder.CreateInBoundsGEP(
-        DummyTaskTDependRec->getAllocatedType(), DummyTaskTDependRec,
-        {Builder.getInt32(0), Builder.getInt32(0)});
-    LLVMContext &C = F->getContext();
-    Value *Dep =
-        Builder.CreateBitCast(BaseTaskTDependGep, Type::getInt8PtrTy(C));
-
-    VPOParoptUtils::genKmpcTaskWaitDeps(W, IdentTy, TidPtrHolder, Dep,
-                                        DepClause.size(), InsertPt);
+    genTaskDeps(W, IdentTy, TidPtrHolder, /*TaskAlloc=*/nullptr,
+                DummyTaskTDependRec, InsertPt, true);
   }
 
   VPOParoptUtils::genKmpcTaskWait(W, IdentTy, TidPtrHolder,

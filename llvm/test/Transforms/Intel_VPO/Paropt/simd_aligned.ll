@@ -1,5 +1,5 @@
-; RUN: opt < %s -mattr=avx512f -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s --check-prefixes=CHECK
-; RUN: opt < %s -mattr=avx512f -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s --check-prefixes=CHECK
+; RUN: opt -mattr=avx512f -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s --check-prefixes=CHECK
+; RUN: opt -mattr=avx512f -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s --check-prefixes=CHECK
 
 ; Original code:
 ; void foo(int *A, int *B, unsigned N) {

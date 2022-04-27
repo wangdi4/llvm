@@ -278,6 +278,18 @@ static void getFactoredWeights(HIRTransformUtils::ProfInfo *Prof,
   }
 }
 
+void HIRTransformUtils::adjustTCEstimatesForUnrollOrVecFactor(
+    HLLoop *NewLoop, unsigned UnrollOrVecFactor) {
+  NewLoop->setMaxTripCountEstimate(
+      NewLoop->getMaxTripCountEstimate() / UnrollOrVecFactor,
+      NewLoop->isMaxTripCountEstimateUsefulForDD());
+
+  NewLoop->setLegalMaxTripCount(NewLoop->getLegalMaxTripCount() /
+                                UnrollOrVecFactor);
+
+  NewLoop->dividePragmaBasedTripCount(UnrollOrVecFactor);
+}
+
 HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, uint64_t NewTripCount,
     const RegDDRef *NewTCRef, bool NeedRemainderLoop,
@@ -351,12 +363,8 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
       NewLoop->getZtt()->setProfileData(Prof->Quotient, Prof->FalseWeight);
     }
 
-    // Update unrolled/vectorized loop's trip count estimate.
-    NewLoop->setMaxTripCountEstimate(
-        NewLoop->getMaxTripCountEstimate() / UnrollOrVecFactor,
-        NewLoop->isMaxTripCountEstimateUsefulForDD());
-
-    NewLoop->dividePragmaBasedTripCount(UnrollOrVecFactor);
+    // Update unrolled/vectorized loop's max trip count info.
+    adjustTCEstimatesForUnrollOrVecFactor(NewLoop, UnrollOrVecFactor);
   }
 
   if (Prof) {
@@ -403,12 +411,53 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
   return NewLoop;
 }
 
-void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
-                                             unsigned UnrollOrVecFactor,
-                                             uint64_t NewTripCount,
-                                             const RegDDRef *NewTCRef,
-                                             const bool HasRuntimeCheck,
-                                             const ProfInfo *Prof) {
+// Generates the following extra checks for the remainder loop to handle special
+// case when trip count of the loop may be equal to range of IV type which is
+// interpreted as zero-
+//
+// %bound.check = 8 * %tgu <u OrigTC; // Orig ZTT
+// %zero.tc.check = OrigTC == 0;
+// %combined.ztt = %bound.check  |  %zero.tc.check;
+// if (%combined.ztt != 0)            // New ZTT
+void generateZeroTripZtt(HLLoop *RemainderLoop, RegDDRef *OrigTCRef) {
+
+  auto &HNU = RemainderLoop->getHLNodeUtils();
+  auto *OrigZtt = RemainderLoop->extractZtt();
+
+  auto PredIt = OrigZtt->pred_begin();
+  auto *LHS = OrigZtt->removeLHSPredicateOperandDDRef(PredIt);
+  auto *RHS = OrigZtt->removeRHSPredicateOperandDDRef(PredIt);
+
+  auto *BoundCmpInst = HNU.createCmp(*PredIt, LHS, RHS, "bound.check");
+
+  auto *ZeroRef =
+      OrigZtt->getDDRefUtils().createNullDDRef(OrigTCRef->getDestType());
+  auto *ZeroTripCmpInst =
+      HNU.createCmp(CmpInst::ICMP_EQ, OrigTCRef, ZeroRef, "zero.tc.check");
+
+  auto *OrLHS = BoundCmpInst->getLvalDDRef()->clone();
+  auto *OrRHS = ZeroTripCmpInst->getLvalDDRef()->clone();
+
+  auto *OrInst = HNU.createOr(OrLHS, OrRHS, "combined.ztt");
+
+  HLNodeUtils::insertBefore(OrigZtt, BoundCmpInst);
+  HLNodeUtils::insertBefore(OrigZtt, ZeroTripCmpInst);
+  HLNodeUtils::insertBefore(OrigZtt, OrInst);
+
+  auto *OrRef = OrInst->getLvalDDRef();
+
+  auto *ZeroOrRef =
+      OrRef->getDDRefUtils().createNullDDRef(OrRef->getDestType());
+
+  OrigZtt->setLHSPredicateOperandDDRef(OrRef->clone(), PredIt);
+  OrigZtt->setRHSPredicateOperandDDRef(ZeroOrRef, PredIt);
+  OrigZtt->replacePredicate(PredIt, CmpInst::ICMP_NE);
+}
+
+void HIRTransformUtils::processRemainderLoop(
+    HLLoop *OrigLoop, unsigned UnrollOrVecFactor, uint64_t NewTripCount,
+    const RegDDRef *NewTCRef, const bool HasRuntimeCheck,
+    bool NeedZeroTripCheck, const ProfInfo *Prof) {
   // Mark Loop bounds as modified.
   HIRInvalidationUtils::invalidateBounds(OrigLoop);
 
@@ -422,6 +471,7 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
     LBCE->setConstant(NewTripCount * UnrollOrVecFactor);
   } else {
 
+    RegDDRef *OrigTCRef = OrigLoop->getTripCountDDRef();
     // Non-constant trip loop, lb = (UnrollOrVecFactor)*t.
     RegDDRef *NewLBRef = NewTCRef->clone();
     auto Ret =
@@ -445,10 +495,15 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
       OrigLoop->getZtt()->setProfileData(Prof->Remainder, Prof->FalseWeight);
     }
 
+    if (NeedZeroTripCheck) {
+      generateZeroTripZtt(OrigLoop, OrigTCRef);
+    }
+
     // Update remainder loop's trip count estimate.
     // TODO: can set useful for DD flag if loop is normalized.
-    if (!HasRuntimeCheck) {
+    if (!HasRuntimeCheck && !NeedZeroTripCheck) {
       OrigLoop->setMaxTripCountEstimate(UnrollOrVecFactor - 1);
+      OrigLoop->setLegalMaxTripCount(UnrollOrVecFactor - 1);
       // New max trip count metadata can be applied.
       OrigLoop->setPragmaBasedMaximumTripCount(UnrollOrVecFactor - 1);
     }
@@ -476,56 +531,6 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
   LLVM_DEBUG(OrigLoop->dump());
 }
 
-HLIf *HIRTransformUtils::createZttIf(const HLLoop *Loop, bool IsSigned) {
-  // Trip > 0
-  RegDDRef *LBRef = Loop->getLowerDDRef()->clone();
-  RegDDRef *UBRef = Loop->getUpperDDRef()->clone();
-
-  // The ZTT will look like [ LB < UB + 1 ]. This form is the safest one as UB
-  // can not be MAX_VALUE and it's safe to add 1. Transformations are free to do
-  // UB - 1.
-  UBRef->getSingleCanonExpr()->addConstant(1, true);
-
-  HLIf *ZttIf = Loop->getHLNodeUtils().createHLIf(
-      IsSigned ? PredicateTy::ICMP_SLT : PredicateTy::ICMP_ULT, LBRef, UBRef);
-
-  return ZttIf;
-}
-
-void HIRTransformUtils::addExplicitZttIf(HLLoop *Loop) {
-  HLIf *ZttIf = createZttIf(Loop, Loop->hasSignedIV());
-  HLNodeUtils::insertBefore(Loop, ZttIf);
-  HLNodeUtils::moveAsLastThenChild(ZttIf, Loop);
-
-  // Make Consistent of If's predicate
-  for (auto PI = ZttIf->pred_begin(), PE = ZttIf->pred_end(); PI != PE; ++PI) {
-    ZttIf->getPredicateOperandDDRef(PI, true)->makeConsistent(
-        {Loop->getUpperDDRef()});
-    ZttIf->getPredicateOperandDDRef(PI, false)->makeConsistent(
-        {Loop->getUpperDDRef()});
-  }
-}
-
-static bool isPostiveTCGuaranteed(const HLLoop* Loop) {
-
-  if (Loop->hasZtt() || Loop->isConstTripLoop())
-    return true;
-
-  // Note that following check sometimes doesn't work.
-  //    Loop->getUpperCanonExpr()->isUnsignedDiv()
-  // For example, %t + -2, isUnsignedDiv() can be true.
-  // Thus, explicit check using scev form is used to
-  // recognize udiv. (e.g. ((%t + %t2*%a) /u %t3)).
-  const CanonExpr *UCE = Loop->getUpperCanonExpr();
-  if (UCE->numBlobs() == 1 && UCE->getDenominator() > 0 &&
-      isa<SCEVUDivExpr>(
-        (UCE->getBlobUtils()).getBlob(UCE->getSingleBlobIndex()))) {
-    return true;
-  }
-
-  return false;
-}
-
 HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, bool &NeedRemainderLoop,
     OptReportBuilder &ORBuilder, OptimizationType OptTy, HLLoop **PeelLoop,
@@ -536,6 +541,7 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
   uint64_t TrueVal = 0;
   uint64_t FalseVal = 0;
   bool ProfExists = OrigLoop->extractProfileData(TrueVal, FalseVal);
+  bool NeedZeroTripCheck = false;
 
   if (PeelArrayRef) {
     // Generic peeling of the loop to align acceses to the memref PeelArrayRef
@@ -547,8 +553,13 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
       // Initiate bail-out for prod build
       return nullptr;
     }
-    if (PeelLoop)
+    if (PeelLoop) {
       *PeelLoop = PeelLp;
+      assert((OptTy == OptimizationType::Vectorizer) &&
+             "OptimizationType should be Vectorizer");
+      // Remark: Peeled loop for vectorization
+      ORBuilder(*PeelLp).addOrigin(25518u);
+    }
 
     // After peeling a new ZTT was created for the main loop, extract it and add
     // outside the loop.
@@ -558,17 +569,10 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
     // called extractZtt..()
   } else {
 
-    // See if ztt should be created before unroll to be safe
-    // Notice that HIR LMM or LastValueComputation passes
-    // can add instructions in Preheader and Postexit,
-    // into the loop that did not have Ztt. The passes
-    // generally doesn't createZtt. That is alright with
-    // those passes, but a bug can occur if the loop
-    // is later unrolled and the trip count is zero.
-    // hasPreheader might be alright.
-    // !OrigLoop->hasZtt() will be maintained after the call.
-    if (OrigLoop->hasPostexit() && !isPostiveTCGuaranteed(OrigLoop))
-      addExplicitZttIf(OrigLoop);
+    // Skip zero trip checks if runtime checks need to be emitted as the setup
+    // is mutually exclusive.
+    NeedZeroTripCheck = (!RuntimeChecks || RuntimeChecks->empty()) &&
+                        OrigLoop->canTripCountEqualIVTypeRangeSize();
 
     // Extract Ztt, preheader, and postexit.
     // Notice that if OrigLoop hasZtt() was not true, no effect.
@@ -605,19 +609,22 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
   // remainder loop is needed.
   if (NeedRemainderLoop) {
     processRemainderLoop(OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef,
-                         RuntimeCheck != nullptr, ProfExists ? &Prof : nullptr);
+                         RuntimeCheck != nullptr, NeedZeroTripCheck,
+                         ProfExists ? &Prof : nullptr);
     HLNodeUtils::addCloningInducedLiveouts(MainLoop, OrigLoop);
 
     // Since OrigLoop became a remainder and will be lexicographicaly
     // second to MainLoop, we move all the next siblings back there.
     ORBuilder(*MainLoop).moveSiblingsTo(*OrigLoop);
     if (OptTy == OptimizationType::Vectorizer) {
-      ORBuilder(*OrigLoop).addOrigin("Remainder loop for vectorization");
+      // Remark: Remainder loop for vectorization
+      ORBuilder(*OrigLoop).addOrigin(25519u);
     } else {
       assert(((OptTy == OptimizationType::Unroll) ||
               (OptTy == OptimizationType::UnrollAndJam)) &&
              "Invalid optimization type!");
-      ORBuilder(*OrigLoop).addOrigin("Remainder");
+      // Remark: Remainder loop
+      ORBuilder(*OrigLoop).addOrigin(25491u);
     }
   } else
     assert((!RuntimeChecks || RuntimeChecks->empty()) &&
@@ -986,6 +993,7 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
     if (MinInstRequired) {
       Lp->addLiveInTemp(MinBlobSymbase);
       Lp->setMaxTripCountEstimate(StripmineSize, true);
+      Lp->setLegalMaxTripCount(StripmineSize);
     }
 
     // Normalize
@@ -1179,6 +1187,7 @@ bool HIRTransformUtils::multiplyTripCount(HLLoop *Lp, unsigned Multiplier) {
   }
 
   Lp->setMaxTripCountEstimate(Lp->getMaxTripCountEstimate() * Multiplier);
+  Lp->setLegalMaxTripCount(Lp->getLegalMaxTripCount() * Multiplier);
 
   updateTripCountPragma(Lp, Multiplier);
   return true;
@@ -1205,11 +1214,11 @@ void HIRTransformUtils::cloneOrRemoveZttPredicates(
     RegDDRef *RHS;
 
     if (Clone) {
-      LHS = Loop->getZttPredicateOperandDDRef(PredI, true)->clone();
-      RHS = Loop->getZttPredicateOperandDDRef(PredI, false)->clone();
+      LHS = Loop->getLHSZttPredicateOperandDDRef(PredI)->clone();
+      RHS = Loop->getRHSZttPredicateOperandDDRef(PredI)->clone();
     } else {
-      LHS = Loop->removeZttPredicateOperandDDRef(PredI, true);
-      RHS = Loop->removeZttPredicateOperandDDRef(PredI, false);
+      LHS = Loop->removeLHSZttPredicateOperandDDRef(PredI);
+      RHS = Loop->removeRHSZttPredicateOperandDDRef(PredI);
     }
 
     ZTTs.emplace_back(LHS, *PredI, RHS);

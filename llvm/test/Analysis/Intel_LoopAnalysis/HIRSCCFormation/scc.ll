@@ -1,4 +1,5 @@
-; RUN: opt < %s -loop-simplify | opt -analyze -hir-scc-formation | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -loop-simplify | opt -analyze -enable-new-pm=0 -hir-scc-formation | FileCheck %s
+; RUN: opt %s -passes="loop-simplify,print<hir-scc-formation>" -disable-output 2>&1 | FileCheck %s
 
 ; Check formation of one SCC
 ; CHECK: Region 1

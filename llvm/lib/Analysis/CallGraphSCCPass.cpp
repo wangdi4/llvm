@@ -1,4 +1,21 @@
 //===- CallGraphSCCPass.cpp - Pass that operates BU on call graph ---------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -29,7 +46,6 @@
 #include "llvm/IR/OptBisect.h"
 #include "llvm/IR/PassTimingInfo.h"
 #include "llvm/IR/PrintPasses.h"
-#include "llvm/IR/StructuralHash.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -62,7 +78,7 @@ class CGPassManager : public ModulePass, public PMDataManager {
 public:
   static char ID;
 
-  explicit CGPassManager() : ModulePass(ID), PMDataManager() {}
+  explicit CGPassManager() : ModulePass(ID) {}
 
   /// Execute all of the passes scheduled for execution.  Keep track of
   /// whether any of the passes modifies the module, and if so, return true.
@@ -479,7 +495,7 @@ bool CGPassManager::RunAllPassesOnSCC(CallGraphSCC &CurSCC, CallGraph &CG,
     initializeAnalysisImpl(P);
 
 #ifdef EXPENSIVE_CHECKS
-    uint64_t RefHash = StructuralHash(CG.getModule());
+    uint64_t RefHash = P->structuralHash(CG.getModule());
 #endif
 
     // Actually run this pass on the current SCC.
@@ -489,7 +505,7 @@ bool CGPassManager::RunAllPassesOnSCC(CallGraphSCC &CurSCC, CallGraph &CG,
     Changed |= LocalChanged;
 
 #ifdef EXPENSIVE_CHECKS
-    if (!LocalChanged && (RefHash != StructuralHash(CG.getModule()))) {
+    if (!LocalChanged && (RefHash != P->structuralHash(CG.getModule()))) {
       llvm::errs() << "Pass modifies its input and doesn't report it: "
                    << P->getPassName() << "\n";
       llvm_unreachable("Pass modifies its input and doesn't report it");

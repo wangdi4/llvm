@@ -1,0 +1,62 @@
+; RUN: opt -passes=dpcpp-kernel-implicit-gid -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-implicit-gid -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-implicit-gid -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-implicit-gid -S %s | FileCheck %s
+
+; This test checks that gids for debugging are inserted when there is only
+; DISubprogram attached to the function (DILocation or debug intrinsic may
+; be optimized out for some cases).
+
+; CHECK: define {{.*}} void @foo
+; CHECK: %__ocl_dbg_gid0 = alloca i64
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0{{.*}}
+; CHECK-NEXT: %__ocl_dbg_gid1 = alloca i64
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid1{{.*}}
+; CHECK-NEXT: %__ocl_dbg_gid2 = alloca i64
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid2{{.*}}
+; CHECK-NEXT: %GlobalID_0 = call i64 @_Z13get_global_idj(i32 0)
+; CHECK-NEXT: store volatile i64 %GlobalID_0, i64* %__ocl_dbg_gid0
+; CHECK-NEXT: %GlobalID_1 = call i64 @_Z13get_global_idj(i32 1)
+; CHECK-NEXT: store volatile i64 %GlobalID_1, i64* %__ocl_dbg_gid1
+; CHECK-NEXT: %GlobalID_2 = call i64 @_Z13get_global_idj(i32 2)
+; CHECK-NEXT: store volatile i64 %GlobalID_2, i64* %__ocl_dbg_gid2
+; CHECK: ret void
+; CHECK: !{{[0-9]+}} = !DILocalVariable(name: "__ocl_dbg_gid0", {{.*}}
+; CHECK: !{{[0-9]+}} = !DILocalVariable(name: "__ocl_dbg_gid1", {{.*}}
+; CHECK: !{{[0-9]+}} = !DILocalVariable(name: "__ocl_dbg_gid2", {{.*}}
+
+target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
+target triple = "spir64-unknown-unknown"
+
+; Function Attrs: convergent nounwind
+define spir_kernel void @foo() #0 !dbg !8 !kernel_arg_addr_space !2 !kernel_arg_access_qual !2 !kernel_arg_type !2 !kernel_arg_base_type !2 !kernel_arg_type_qual !2 !kernel_arg_host_accessible !2 !kernel_arg_pipe_depth !2 !kernel_arg_pipe_io !2 !kernel_arg_buffer_location !2 {
+entry:
+  ret void
+}
+
+attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "uniform-work-group-size"="true" "unsafe-fp-math"="false" "use-soft-float"="false" }
+
+!llvm.dbg.cu = !{!0}
+!llvm.module.flags = !{!3, !4}
+!opencl.enable.FP_CONTRACT = !{}
+!opencl.ocl.version = !{!5}
+!opencl.spir.version = !{!6}
+!opencl.used.extensions = !{!2}
+!opencl.used.optional.core.features = !{!2}
+!opencl.compiler.options = !{!2}
+!llvm.ident = !{!7}
+
+!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang version 8.0.0 ", isOptimized: true, runtimeVersion: 0, emissionKind: FullDebug, enums: !2, nameTableKind: None)
+!1 = !DIFile(filename: "/tmp/<stdin>", directory: "/data/xmain/ics-ws/xmain/llvm/projects/opencl")
+!2 = !{}
+!3 = !{i32 2, !"Debug Info Version", i32 3}
+!4 = !{i32 1, !"wchar_size", i32 4}
+!5 = !{i32 1, i32 0}
+!6 = !{i32 1, i32 2}
+!7 = !{!"clang version 8.0.0 "}
+!8 = distinct !DISubprogram(name: "foo", scope: !9, file: !9, line: 1, type: !10, isLocal: false, isDefinition: true, scopeLine: 2, flags: DIFlagPrototyped, isOptimized: true, unit: !0, retainedNodes: !2)
+!9 = !DIFile(filename: "/tmp/1.cl", directory: "/data/xmain/ics-ws/xmain/llvm/projects/opencl")
+!10 = !DISubroutineType(cc: DW_CC_LLVM_OpenCLKernel, types: !11)
+!11 = !{null}
+
+; DEBUGIFY-NOT: WARNING

@@ -39,7 +39,7 @@ define i32 @test01() {
 ; CHECK-OPAQUE: %p0 = getelementptr %__SOADT_struct.test01dep, ptr @var01, i64 0, i32 0
 ; CHECK-OPAQUE: %p1 = getelementptr %__SOADT_struct.test01dep, ptr @var01, i64 0, i32 1
 ; CHECK-OPAQUE: store ptr null, ptr %p0
-; CHECK-OPAQUE: call ptr @llvm.ptr.annotation.p0(ptr %p1, ptr getelementptr inbounds ([33 x i8], ptr @__intel_dtrans_aostosoa_index, i32 0, i32 0), ptr getelementptr inbounds ([1 x i8], ptr @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, ptr null)
+; CHECK-OPAQUE: call ptr @llvm.ptr.annotation.p0(ptr %p1, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK-OPAQUE: store i64 0, ptr %p1
 ; CHECK-OPAQUE: ret i32 0
 

@@ -76,7 +76,9 @@
 // CHECK-NO-MIX-GEN-USE: '{{[a-z=-]*}}' not allowed with '{{[a-z=-]*}}'
 
 // RUN: %clang_cl -### /FA -fprofile-instr-use -- %s 2>&1 | FileCheck -check-prefix=CHECK-PROFILE-USE %s
+// RUN: %clang_cl -### /FA -fprofile-use -- %s 2>&1 | FileCheck -check-prefix=CHECK-PROFILE-USE %s
 // RUN: %clang_cl -### /FA -fprofile-instr-use=/tmp/somefile.prof -- %s 2>&1 | FileCheck -check-prefix=CHECK-PROFILE-USE-FILE %s
+// RUN: %clang_cl -### /FA -fprofile-use=/tmp/somefile.prof -- %s 2>&1 | FileCheck -check-prefix=CHECK-PROFILE-USE-FILE %s
 // CHECK-PROFILE-USE: "-fprofile-instrument-use-path=default.profdata"
 // CHECK-PROFILE-USE-FILE: "-fprofile-instrument-use-path=/tmp/somefile.prof"
 
@@ -117,6 +119,9 @@
 
 // RUN: %clang_cl /Gw /Gw- -### -- %s 2>&1 | FileCheck -check-prefix=Gw_ %s
 // Gw_-NOT: -fdata-sections
+
+// RUN: %clang_cl /hotpatch -### -- %s 2>&1 | FileCheck -check-prefix=hotpatch %s
+// hotpatch: -fms-hotpatch
 
 // RUN: %clang_cl /Imyincludedir -### -- %s 2>&1 | FileCheck -check-prefix=SLASH_I %s
 // RUN: %clang_cl /I myincludedir -### -- %s 2>&1 | FileCheck -check-prefix=SLASH_I %s
@@ -390,6 +395,8 @@
 // RUN:    /volatile:iso \
 // RUN:    /w12345 \
 // RUN:    /wd1234 \
+// RUN:    /Wv \
+// RUN:    /Wv:17 \
 // RUN:    /Zc:__cplusplus \
 // RUN:    /Zc:auto \
 // RUN:    /Zc:forScope \
@@ -482,8 +489,6 @@
 // RUN:     /GZ \
 // RUN:     /H \
 // RUN:     /homeparams \
-// RUN:     /hotpatch \
-// RUN:     /JMC \
 // RUN:     /kernel \
 // RUN:     /LN \
 // RUN:     /MP \
@@ -596,7 +601,7 @@
 // RUN: %clang_cl /Z7 -gdwarf /c -### -- %s 2>&1 | FileCheck -check-prefix=Z7_gdwarf %s
 // Z7_gdwarf: "-gcodeview"
 // Z7_gdwarf: "-debug-info-kind=constructor"
-// Z7_gdwarf: "-dwarf-version=4"
+// Z7_gdwarf: "-dwarf-version=
 
 // RUN: %clang_cl -fmsc-version=1800 -TP -### -- %s 2>&1 | FileCheck -check-prefix=CXX11 %s
 // CXX11: -std=c++11
@@ -757,7 +762,7 @@
 
 // Validate that the default triple is used when run an empty tools dir is specified
 // RUN: %clang_cl -vctoolsdir "" -### -- %s 2>&1 | FileCheck %s --check-prefix VCTOOLSDIR
-// VCTOOLSDIR: "-triple" "{{[a-zA-Z0-9_-]*}}-pc-windows-msvc19.14.0"
+// VCTOOLSDIR: "-triple" "{{[a-zA-Z0-9_-]*}}-pc-windows-msvc19.20.0"
 
 // Validate that built-in include paths are based on the supplied path
 // RUN: %clang_cl --target=aarch64-pc-windows-msvc -vctoolsdir "/fake" -winsdkdir "/foo" -winsdkversion 10.0.12345.0 -### -- %s 2>&1 | FileCheck %s --check-prefix FAKEDIR
@@ -777,7 +782,21 @@
 // RUN: %clang_cl -### --intel -fprofile-instr-generate -- %s 2>&1 | FileCheck -check-prefix=CHECK-LINK-INCREMENTAL-NO %s
 // RUN: %clang_cl -### --intel -fprofile-instr-generate %s /link /incremental -- 2>&1 | FileCheck -check-prefix=CHECK-INCREMENTAL-INVALID %s
 // CHECK-LINK-INCREMENTAL-NO: link.exe{{.*}} "-incremental:no"
-// CHECK-INCREMENTAL-INVALID: clang{{.*}} error: invalid argument '-fprofile-instr-generate' not allowed with '-incremental'
+// CHECK-INCREMENTAL-INVALID: icx{{.*}} error: invalid argument '-fprofile-instr-generate' not allowed with '-incremental'
 // end INTEL_CUSTOMIZATION
+// Accept both the -target and --target= spellings.
+// RUN: %clang_cl --target=i686-pc-windows-msvc19.14.0 -### -- %s 2>&1 | FileCheck -check-prefix=TARGET %s
+// RUN: %clang_cl -target i686-pc-windows-msvc19.14.0  -### -- %s 2>&1 | FileCheck -check-prefix=TARGET %s
+// TARGET: "-triple" "i686-pc-windows-msvc19.14.0"
 
-void f() { }
+// RUN: %clang_cl /JMC /c -### -- %s 2>&1 | FileCheck %s --check-prefix JMCWARN
+// JMCWARN: /JMC requires debug info. Use '/Zi', '/Z7' or debug options that enable debugger's stepping function; option ignored
+
+// RUN: %clang_cl /JMC /c -### -- %s 2>&1 | FileCheck %s --check-prefix NOJMC
+// RUN: %clang_cl /JMC /Z7 /JMC- /c -### -- %s 2>&1 | FileCheck %s --check-prefix NOJMC
+// NOJMC-NOT: -fjmc
+
+// RUN: %clang_cl /JMC /Z7 /c -### -- %s 2>&1 | FileCheck %s --check-prefix JMC
+// JMC: -fjmc
+
+void f(void) { }

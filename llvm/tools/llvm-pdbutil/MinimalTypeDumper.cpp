@@ -1,4 +1,21 @@
 //===- MinimalTypeDumper.cpp ---------------------------------- *- C++ --*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -8,8 +25,6 @@
 
 #include "MinimalTypeDumper.h"
 
-#include "FormatUtil.h"
-#include "LinePrinter.h"
 #include "TypeReferenceTracker.h"
 
 #include "llvm-pdbutil.h"
@@ -19,8 +34,13 @@
 #include "llvm/DebugInfo/CodeView/Formatters.h"
 #include "llvm/DebugInfo/CodeView/LazyRandomTypeCollection.h"
 #include "llvm/DebugInfo/CodeView/TypeRecord.h"
+#include "llvm/DebugInfo/PDB/Native/FormatUtil.h"
+#include "llvm/DebugInfo/PDB/Native/LinePrinter.h"
+#include "llvm/DebugInfo/PDB/Native/NativeSession.h"
+#include "llvm/DebugInfo/PDB/Native/PDBFile.h"
 #include "llvm/DebugInfo/PDB/Native/TpiHashing.h"
 #include "llvm/DebugInfo/PDB/Native/TpiStream.h"
+#include "llvm/Object/COFF.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/MathExtras.h"
 
@@ -544,6 +564,30 @@ Error MinimalTypeDumpVisitor::visitKnownRecord(CVType &CVR,
     for (auto I : Indices)
       P.formatLine("Data = {0}", I);
   }
+  return Error::success();
+}
+
+Error MinimalTypeDumpVisitor::visitKnownRecord(CVType &CVR,
+                                               DimArrayRecord &DAT) {
+  if (DAT.Name.empty()) {
+    P.formatLine("dim info: {0}, element type: {1}", DAT.DimInfo,
+                 DAT.ElementType);
+  } else {
+    P.formatLine("name: {0}, dim info: {1}, element type: {2}",
+                 DAT.Name, DAT.DimInfo, DAT.ElementType);
+  }
+  return Error::success();
+}
+
+Error MinimalTypeDumpVisitor::visitKnownRecord(CVType &CVR,
+                                               DimConLURecord &DCT) {
+  uint16_t Rank = DCT.Rank;
+  P.formatLine("index type: {0}, rank: {1}", DCT.IndexType,
+               Rank);
+  for (uint16_t i = 0; i < Rank; i++)
+    P.formatLine("Rank {0} bounds: ({1}, {2})", i + 1, DCT.Bounds[2 * i],
+                 DCT.Bounds[2 * i + 1]);
+
   return Error::success();
 }
 #endif //INTEL_CUSTOMIZATION

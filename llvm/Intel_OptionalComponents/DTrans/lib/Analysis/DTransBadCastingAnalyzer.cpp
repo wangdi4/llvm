@@ -348,14 +348,14 @@ bool DTransBadCastingAnalyzer::gepiMatchesCandidate(GetElementPtrInst *GEPI) {
 // Assuming 'BB' is a special guard conditional basic block, return the
 // basic block which is the target of the taken path.
 //
-// For example, this is a special guard coniditonal basic block:
+// For example, this is a special guard conditional basic block:
 //   %11 = getelementptr inbounds %struct.lzma_next_coder_s, \
 //       %struct.lzma_next_coder_s* %0, i64 0, i32 0
 //   %12 = load i8*, i8** %11, align 8, !tbaa !34
 //   %13 = icmp eq i8* %12, null
 //   %14 = bitcast i8* %12 to %struct.lzma_coder_s.260*
 //   br i1 %13, label %15, label %44
-// and the basic block returned will be the one starting with %label15.
+// and the basic block returned will be the one starting with label 15.
 //
 BasicBlock *DTransBadCastingAnalyzer::getTakenPathOfSpecialGuardConditional(
     BasicBlock *BB) {
@@ -378,7 +378,7 @@ BasicBlock *DTransBadCastingAnalyzer::getTakenPathOfSpecialGuardConditional(
 //   %13 = icmp eq i8* %12, null
 //   %14 = bitcast i8* %12 to %struct.lzma_coder_s.260*
 //   br i1 %13, label %15, label %44
-// and the basic block returned will be the one starting with %label44.
+// and the basic block returned will be the one starting with label 44.
 //
 BasicBlock *DTransBadCastingAnalyzer::getNotTakenPathOfSpecialGuardConditional(
     BasicBlock *BB) {
@@ -702,7 +702,7 @@ bool DTransBadCastingAnalyzer::analyzeStore(dtrans::FieldInfo &FI,
   auto *LastArg = cast<ConstantInt>(ConstIndex);
   uint64_t Index = LastArg->getLimitedValue();
   if (Index == CandidateVoidField) {
-    // Check if the store is from a allocation bit cast to a specific type.
+    // Check if the store is from an allocation bit cast to a specific type.
     BitCastInst *BCI = findSingleBitCastAlloc(STI);
     if (BCI) {
       // The bit cast better be a pointer type, since it comes from an
@@ -718,7 +718,7 @@ bool DTransBadCastingAnalyzer::analyzeStore(dtrans::FieldInfo &FI,
           // A PHINode may join an access to stored value with other
           // "fake" sources that will never actually reach to the PHINode.
           // For now, it is enough to check that such a "fake" source
-          // can only come from the special gaurd conditional basic block.
+          // can only come from the special guard conditional basic block.
           // This can be generalized if it is found useful.
           for (unsigned I = 0; I < PHIN->getNumIncomingValues(); ++I) {
             BasicBlock *BB = PHIN->getIncomingBlock(I);
@@ -802,13 +802,13 @@ bool DTransBadCastingAnalyzer::analyzeStore(dtrans::FieldInfo &FI,
 }
 
 //
-// If 'SI' needs to be a alloc store to validate the removal of the bad
+// If 'SI' needs to be an alloc store to validate the removal of the bad
 // casting and unsafe pointer store safety violations, check if it is
 // already determined to be one, and if not, save it as a pending store
 // that will be checked later.
 //
 void DTransBadCastingAnalyzer::handlePotentialAllocStore(StoreInst *SI) {
-  if (AllocStores.find(SI) != AllocStores.end())
+  if (AllocStores.find(SI) == AllocStores.end())
     PendingStores.insert(SI);
 }
 
@@ -862,7 +862,7 @@ bool DTransBadCastingAnalyzer::isInnocuousLoadOfCall(CallInst *CI, LoadInst *LI,
 
 //
 // Return 'true' if all of the uses of 'I' are in basic blocks that are
-// either dominated by a potential alloc store or in a dead ibasic blcck
+// either dominated by a potential alloc store or in a dead basic blcck
 // when the special condition is applied to the Function in which
 // 'I' appears.
 //
@@ -1047,7 +1047,7 @@ bool DTransBadCastingAnalyzer::analyzeLoad(dtrans::FieldInfo &FI,
       setFoundViolation(true);
       return false;
     }
-    // If it is an instruction in a basic blocks that will be determined to be
+    // If it is an instruction in a basic block that will be determined to be
     // dead if the special conditional expression test is added, this is OK,
     // but record that the function it appears in needs the conditional test.
     auto I = cast<Instruction>(U);

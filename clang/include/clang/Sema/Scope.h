@@ -140,6 +140,11 @@ public:
     /// parsed. If such a scope is a ContinueScope, it's invalid to jump to the
     /// continue block from here.
     ConditionVarScope = 0x2000000,
+#if INTEL_COLLAB
+    /// This is the scope of OpenMP simd directive.
+    /// This flag is propagated to children scopes.
+    OpenMPSimdOnlyDirectiveScope = 0x4000000,
+#endif  // INTEL_COLLAB
   };
 
 private:
@@ -364,11 +369,15 @@ public:
   }
 
   /// isFunctionScope() - Return true if this scope is a function scope.
-  bool isFunctionScope() const { return (getFlags() & Scope::FnScope); }
+  bool isFunctionScope() const { return getFlags() & Scope::FnScope; }
 
   /// isClassScope - Return true if this scope is a class/struct/union scope.
-  bool isClassScope() const {
-    return (getFlags() & Scope::ClassScope);
+  bool isClassScope() const { return getFlags() & Scope::ClassScope; }
+
+  /// Determines whether this scope is between inheritance colon and the real
+  /// class/struct definition.
+  bool isClassInheritanceScope() const {
+    return getFlags() & Scope::ClassInheritanceScope;
   }
 
   /// isInCXXInlineMethodScope - Return true if this scope is a C++ inline
@@ -426,6 +435,9 @@ public:
     return getFlags() & Scope::AtCatchScope;
   }
 
+  /// isCatchScope - Return true if this scope is a C++ catch statement.
+  bool isCatchScope() const { return getFlags() & Scope::CatchScope; }
+
   /// isSwitchScope - Return true if this scope is a switch scope.
   bool isSwitchScope() const {
     for (const Scope *S = this; S; S = S->getParent()) {
@@ -462,6 +474,14 @@ public:
     return getFlags() & Scope::OpenMPSimdDirectiveScope;
   }
 
+#if INTEL_COLLAB
+  /// Determine whether this scope is (or is nested into) some OpenMP
+  /// loop simd directive scope (for example, 'omp simd').
+  bool isOpenMPSimdOnlyDirectiveScope() const {
+    return getFlags() & Scope::OpenMPSimdOnlyDirectiveScope;
+  }
+#endif // INTEL_COLLAB
+
   /// Determine whether this scope is a loop having OpenMP loop
   /// directive attached.
   bool isOpenMPLoopScope() const {
@@ -469,8 +489,19 @@ public:
     return P && P->isOpenMPLoopDirectiveScope();
   }
 
+  /// Determine whether this scope is a while/do/for statement, which can have
+  /// continue statements embedded into it.
+  bool isContinueScope() const {
+    return getFlags() & ScopeFlags::ContinueScope;
+  }
+
   /// Determine whether this scope is a C++ 'try' block.
   bool isTryScope() const { return getFlags() & Scope::TryScope; }
+
+  /// Determine whether this scope is a function-level C++ try or catch scope.
+  bool isFnTryCatchScope() const {
+    return getFlags() & ScopeFlags::FnTryCatchScope;
+  }
 
   /// Determine whether this scope is a SEH '__try' block.
   bool isSEHTryScope() const { return getFlags() & Scope::SEHTryScope; }
@@ -482,6 +513,10 @@ public:
   bool isCompoundStmtScope() const {
     return getFlags() & Scope::CompoundStmtScope;
   }
+
+  /// Determine whether this scope is a controlling scope in a
+  /// if/switch/while/for statement.
+  bool isControlScope() const { return getFlags() & Scope::ControlScope; }
 
   /// Returns if rhs has a higher scope depth than this.
   ///

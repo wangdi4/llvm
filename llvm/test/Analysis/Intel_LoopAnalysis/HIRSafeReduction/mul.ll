@@ -2,7 +2,7 @@
 
 ; Check output of 'mul' opcode for safe reduction analysis
 
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-safe-reduction-analysis  | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-safe-reduction-analysis  | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-safe-reduction-analysis>" -disable-output 2>&1 | FileCheck %s
 
 ; CHECK:   %j.07 = %0  *  %j.07; <Safe Reduction>

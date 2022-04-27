@@ -32,7 +32,9 @@
 
 // CHECK-WITHOUT-G-NOT: -debug-info-kind
 // CHECK-WITH-G: "-debug-info-kind=constructor"
+// INTEL_CUSTOMIZATION
 // CHECK-WITH-G: "-dwarf-version=4"
+// end INTEL_CUSTOMIZATION
 // CHECK-WITH-G-DWARF2: "-dwarf-version=2"
 
 // CHECK-WITH-G-STANDALONE: "-debug-info-kind=standalone"

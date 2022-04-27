@@ -1,7 +1,7 @@
 ; OMP taskloop with 2 firstprivate objects. Verify copy constructor and
 ; destructor.
 
-; RUN: opt < %s  -vpo-paropt  -S | FileCheck %s
+; RUN: opt -vpo-paropt -S %s | FileCheck %s
 
 ; clang creates wrappers for the object copy constructor and destructor.
 

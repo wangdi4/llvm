@@ -1,4 +1,19 @@
 #if INTEL_COLLAB // -*- C++ -*-
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //===-- VPOAnalysisUtils.h - Class definitions for VPO utilites -*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -44,6 +59,14 @@ class Constant;
 class LLVMContext;
 
 namespace vpo {
+
+namespace VPOParoptAtomicFreeReduction {
+constexpr StringRef GlobalBufferAttr = "paropt_red_globalbuf";
+constexpr StringRef TeamsCounterAttr = "paropt_red_teamscounter";
+constexpr StringRef GlobalStoreMD = "paropt_red_globalstore";
+
+enum Kind { Kind_Local = 1, Kind_Global = 2 };
+} // namespace VPOParoptAtomicFreeReduction
 
 typedef SmallVector<BasicBlock *, 32> VPOSmallVectorBB;
 typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
@@ -148,6 +171,12 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      Modifier = "TASK"
 ///      Id = QUAL_OMP_REDUCTION_ADD
 ///
+/// * INSCAN modifier on REDUCTION clause. Example:
+///      FullName = "QUAL.OMP.REDUCTION.ADD:INSCAN"
+///      BaseName = "QUAL.OMP.REDUCTION.ADD"
+///      Modifier = "INSCAN"
+///      Id = QUAL_OMP_REDUCTION_ADD
+///
 /// Id is the enum corresponding to BaseName.
 class ClauseSpecifier {
 private:
@@ -201,6 +230,7 @@ private:
 
   // Modifier for reduction clause
   bool IsTask:1;
+  bool IsInscan:1;
 
   bool IsTyped : 1; // needed in case of data type transfer
 
@@ -226,6 +256,7 @@ public:
   void setIsInitTargetSync()       { IsInitTargetSync = true; }
   void setIsInitPrefer()           { IsInitPrefer = true; }
   void setIsTask()                 { IsTask = true; }
+  void setIsInscan()               { IsInscan = true; }
   void setIsScheduleMonotonic()    { IsScheduleMonotonic = true; }
   void setIsScheduleNonmonotonic() { IsScheduleNonmonotonic = true; }
   void setIsScheduleSimd()         { IsScheduleSimd = true; }
@@ -257,6 +288,7 @@ public:
   bool getIsInitTargetSync() const { return IsInitTargetSync; }
   bool getIsInitPrefer() const { return IsInitPrefer; }
   bool getIsTask() const { return IsTask; }
+  bool getIsInscan() const { return IsInscan; }
   bool getIsScheduleMonotonic() const { return IsScheduleMonotonic; }
   bool getIsScheduleNonmonotonic() const { return IsScheduleNonmonotonic; }
   bool getIsScheduleSimd() const { return IsScheduleSimd; }
@@ -312,7 +344,7 @@ public:
 
     /// If the instruction is a directive, return the directive name.
     /// Otherwise, return an empty StringRef.
-    static StringRef getDirectiveString(Instruction *I);
+    static StringRef getDirectiveString(const Instruction *I);
 
     /// Returns the string corresponding to a directive.
     static StringRef getDirectiveString(int Id);
@@ -345,7 +377,7 @@ public:
     /// Returns the ID (enum) corresponding to a directive,
     /// or -1 if \p DirFullName does not correspond to a directive name.
     static int getDirectiveID(StringRef DirFullName);
-    static int getDirectiveID(Instruction *I);
+    static int getDirectiveID(const Instruction *I);
 
     /// Returns the ID (enum) corresponding to a clause,
     /// or -1 if \p ClauseFullName does not correspond to a clause name.
@@ -357,7 +389,7 @@ public:
     /// DIR_OMP_PARALLEL and DIR_OMP_SIMD.
     static bool isBeginDirective(int DirID);
     static bool isBeginDirective(StringRef DirString);
-    static bool isBeginDirective(Instruction *I);
+    static bool isBeginDirective(const Instruction *I);
     static bool isBeginDirective(BasicBlock *BB);
 
     /// Return true for a directive that begins a loop region, such as
@@ -418,6 +450,13 @@ public:
     static bool isBeginDirectiveOfRegionsNeedingOutlining(StringRef DirString);
     /// Alternate version of the above function, which takes in a directive ID.
     static bool isBeginDirectiveOfRegionsNeedingOutlining(int DirID);
+
+    /// If \p DirString is a end directive of a construct which needs
+    /// outlining, such as parallel, task etc., return \b true. Otherwise,
+    /// return \b false.
+    static bool isEndDirectiveOfRegionsNeedingOutlining(StringRef DirString);
+    /// Alternate version of the above function, which takes in a directive ID.
+    static bool isEndDirectiveOfRegionsNeedingOutlining(int DirID);
 
     /// Return true iff the ClauseID represents a DEPEND clause,
     /// such as QUAL_OMP_DEPEND_IN

@@ -1,6 +1,6 @@
 //===------------------------PtrTypeAnalyzer.h----------------------------===//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -276,6 +276,15 @@ public:
     return AggregatePointerAliasCount[Kind] != 0;
   }
 
+  // Return 'true' if the specified type 'Ty' is in the alias set specified by
+  // 'Kind'.
+  bool canPointTo(DTransType* Ty, ValueAnalysisType Kind = VAT_Use) const {
+    for (auto *AliasTy : PointerTypeAliases[Kind])
+      if (AliasTy == Ty)
+        return true;
+    return false;
+  }
+
   // Indicates there is more than one aggregate type in the alias set, specified
   // by 'Kind'.
   bool
@@ -402,6 +411,29 @@ inline bool operator<(const ValueTypeInfo::PointeeLoc &A,
 // transformation passes.
 class PtrTypeAnalyzer {
 public:
+  //
+  // Structure to track information about an element-zero access for GEP
+  // insertion.
+  //
+  // %struct.test00outer = type { %struct.test00inner }
+  // %struct.test00inner = type { %struct.test00inner_impl* }
+  //
+  // If a pointer to type %struct.test00outer is used for accessing
+  // %struct.test00inner_impl*, this will be tracked as '%struct.test00outer'
+  // with a depth value of 2 (First field of outer would be Depth=1, field in
+  // the structure nested in outer is Depth=2).
+  //
+  struct ElementZeroInfo {
+    // Outer type that the element-zero access is taking place from.
+    DTransType *Ty;
+    // Number of nesting levels to get to the element that is going to be
+    // referenced.
+    unsigned int Depth;
+    ElementZeroInfo() : ElementZeroInfo(nullptr, 0) {}
+    ElementZeroInfo(DTransType *Ty, unsigned int Depth)
+        : Ty(Ty), Depth(Depth) {}
+  };
+
   PtrTypeAnalyzer(
       LLVMContext &Ctx, DTransTypeManager &TM, TypeMetadataReader &MDReader,
       const DataLayout &DL,
@@ -507,6 +539,10 @@ public:
 
   // Return 'true' if non-opaque pointer types were seen.
   bool sawNonOpaquePointer() const;
+
+  // If the Instruction has element-zero access information, return it.
+  // Otherwise, an empty ElementZeroInfo structure is returned.
+  ElementZeroInfo getElementZeroPointer(Instruction *I) const;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dumpPTA(Module &M);

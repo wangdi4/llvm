@@ -1,14 +1,16 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -inline -ip-cloning -ip-cloning-after-inl -ip-cloning-force-heuristics-off -inline-report=0xe807 -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='cgscc(inline),module(post-inline-ip-cloning)' -ip-cloning-force-heuristics-off -inline-report=0xe807 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -inline -ip-cloning -ip-cloning-after-inl -ip-cloning-force-heuristics-off -inline-report=0xe807 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt < %s -passes='cgscc(inline),module(post-inline-ip-cloning)' -ip-cloning-force-heuristics-off -inline-report=0xe807 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -ip-cloning -ip-cloning-after-inl -ip-cloning-force-heuristics-off -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD 
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline),module(post-inline-ip-cloning)' -ip-cloning-force-heuristics-off -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
-; Check that the classic inlining report includes the results of cloning
+; Check that the inlining report includes the results of cloning
 ; after inlining. Also check that it does NOT include 'Newly created callsite',
 ; 'Not tested for inlining', or 'DELETE' messages.
 
-; CHECK: COMPILE FUNC: myadd
-; CHECK: COMPILE FUNC: mysub
+; CHECK-CL: COMPILE FUNC: myadd
+; CHECK-CL: COMPILE FUNC: mysub
 ; CHECK: COMPILE FUNC: main
 ; CHECK: myadd.1{{.*}}Callee has noinline attribute{{.*}}
 ; CHECK: myadd.2{{.*}}Callee has noinline attribute{{.*}}
@@ -18,6 +20,8 @@
 ; CHECK-NOT: Newly created callsite
 ; CHECK-NOT: Not tested for inlining
 ; CHECK-NOT: DELETE
+; CHECK-MD: COMPILE FUNC: myadd
+; CHECK-MD: COMPILE FUNC: mysub
 ; CHECK: COMPILE FUNC: myadd.1
 ; CHECK: COMPILE FUNC: myadd.2
 ; CHECK: COMPILE FUNC: mysub.3

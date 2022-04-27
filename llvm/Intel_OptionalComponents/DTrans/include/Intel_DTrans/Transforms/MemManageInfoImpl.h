@@ -95,7 +95,7 @@ class MemManageCandidateInfo {
   constexpr static int MaxNumAllocatorInterfaceFuncs = 7;
 
   // Max Pre-LTO limit: Size of interface functions of Allocator.
-  constexpr static int MaxPreLTOSizeAllocatorInterfaceFunc = 25;
+  constexpr static int MaxPreLTOSizeAllocatorInterfaceFunc = 30;
 
   // Max LTO limit: Size of interface functions of Allocator.
   constexpr static int MaxLTOSizeAllocatorInterfaceFunc = 100;
@@ -802,6 +802,8 @@ bool MemManageCandidateInfo::collectMemberFunctions(bool AtLTO) {
     for (const auto &I : instructions(F))
       if (auto *CB = dyn_cast<CallBase>(&I)) {
         if (isa<DbgInfoIntrinsic>(*CB))
+          continue;
+        if (CB->isLifetimeStartOrEnd())
           continue;
         auto *Callee = dtrans::getCalledFunction(*CB);
         if (!Callee)

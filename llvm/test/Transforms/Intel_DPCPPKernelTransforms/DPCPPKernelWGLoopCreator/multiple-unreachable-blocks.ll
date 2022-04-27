@@ -1,8 +1,8 @@
 ; Check no assertion is raised if UnifyFunctionExitNodes pass changes the
 ; function with multiple unreachable blocks.
 
-; RUN: opt -dpcpp-kernel-wgloop-creator %s -S | FileCheck %s -check-prefix=CHECK-LEGACY
-; RUN: opt -dpcpp-kernel-wgloop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY-LEGACY %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-wgloop-creator %s -S | FileCheck %s -check-prefix=CHECK-LEGACY
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-wgloop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY-LEGACY %s
 
 ; RUN: opt -passes=dpcpp-kernel-wgloop-creator %s -S | FileCheck %s -check-prefix=CHECK-NEW
 ; RUN: opt -passes=dpcpp-kernel-wgloop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY-NEW %s

@@ -1,4 +1,4 @@
-; RUN: opt < %s -tbaa -hir-ssa-deconstruction -analyze -hir-array-section-analysis | FileCheck %s
+; RUN: opt < %s -tbaa -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-array-section-analysis | FileCheck %s
 ; RUN: opt < %s -aa-pipeline="basic-aa,tbaa" -passes="hir-ssa-deconstruction,print<hir-array-section-analysis>" -disable-output 2>&1 | FileCheck %s
 
 ; BEGIN REGION { }

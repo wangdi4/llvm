@@ -1,6 +1,5 @@
 ; Check handling of upconverting a linear (variable %i) to ensure stride calculation
-; is inserted correctly and the old convert (sext) uses the stride instead of the old
-; reference to %i.
+; is inserted correctly.
 
 ; RUN: opt -vec-clone -S < %s | FileCheck %s
 ; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
@@ -12,11 +11,12 @@
 ; CHECK-SAME: QUAL.OMP.SIMDLEN
 ; CHECK-SAME: i32 2
 ; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %i.addr)
-; CHECK: simd.loop:
-; CHECK: %0 = load i32, i32* %i.addr
-; CHECK-NEXT: %stride.mul = mul i32 1, %index
-; CHECK-NEXT: %stride.add = add i32 %0, %stride.mul
-; CHECK-NEXT: %conv = sext i32 %stride.add to i64
+; CHECK: simd.loop.header:
+; CHECK: %stride.mul = mul i32 1, %index
+; CHECK-NEXT: %stride.add = add i32 %load.i, %stride.mul
+; CHECK-NEXT: store i32 %stride.add, i32* %i.addr
+; CHECK-NEXT: %0 = load i32, i32* %i.addr
+; CHECK-NEXT: %conv = sext i32 %0 to i64
 
 ; ModuleID = 'convert.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -36,4 +36,4 @@ entry:
   ret i64 %add
 }
 
-attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbM2vl_,_ZGVbN2vl_" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbN2vl_" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }

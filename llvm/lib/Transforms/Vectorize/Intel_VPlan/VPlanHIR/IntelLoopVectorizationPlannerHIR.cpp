@@ -119,9 +119,10 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlannerHIR::buildInitialVPlan(
   // loops such as avoiding predicate calculations.
   auto *VPLI = Plan->getVPLoopInfo();
   assert(VPLI->size() == 1 && "Expected 1 loop");
-  bool SearchLoop = (*VPLI->begin())->getUniqueExitBlock() == nullptr;
+  if ((*VPLI->begin())->getUniqueExitBlock() == nullptr)
+    setIsSearchLoop();
 
-  if (ForceLinearizationHIR || SearchLoop)
+  if (ForceLinearizationHIR || isSearchLoop())
     Plan->markFullLinearizationForced();
   Plan->disableActiveLaneInstructions();
 
@@ -162,6 +163,14 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
         if (!CalledF)
           continue;
 
+        auto *UnderlyingCall = VPCall->getUnderlyingCallInst();
+        if (UnderlyingCall &&
+            vpo::VPOAnalysisUtils::isBeginDirective(UnderlyingCall)) {
+          LLVM_DEBUG(dbgs() << "LVP: unsupported nested begin directive. "
+                            << *UnderlyingCall << "\n");
+          return false;
+        }
+
         LibFunc CallF;
         if (TLI->getLibFunc(*CalledF, CallF) &&
             (CallF == LibFunc_sincos || CallF == LibFunc_sincosf)) {
@@ -184,7 +193,7 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
   // operations during initialization and finalization. Walking the VPlan
   // instructions will not work as this check is done before we insert entity
   // related instructions.
-  if (LE->hasInMemoryReductionInduction())
+  if (LE->hasInMemoryInduction())
     return false;
 
   // Check whether all reductions are supported
@@ -235,14 +244,11 @@ unsigned LoopVectorizationPlannerHIR::getLoopUnrollFactor(bool *Forced) {
   return UF;
 }
 
-std::unique_ptr<VPlanCostModelInterface>
-LoopVectorizationPlannerHIR::createCostModel(
-  const VPlanVector *Plan, unsigned VF) const {
+LoopVectorizationPlanner::PlannerType
+LoopVectorizationPlannerHIR::getPlannerType() const {
   if (LightWeightMode)
-    return VPlanCostModelLite::makeUniquePtr(Plan, VF, TTI, TLI, DL,
-                                             VF > 1 ? VLSA : nullptr);
-  else
-    return LoopVectorizationPlanner::createCostModel(Plan, VF);
+    return PlannerType::LightWeight;
+  return LoopVectorizationPlanner::getPlannerType();
 }
 
 bool LoopVectorizationPlannerHIR::unroll(VPlanVector &Plan) {
@@ -261,7 +267,7 @@ bool LoopVectorizationPlannerHIR::unroll(VPlanVector &Plan) {
 
 void LoopVectorizationPlannerHIR::emitPeelRemainderVPLoops(unsigned VF,
                                                            unsigned UF) {
-  if (!EnableNewCFGMerge || !EnableNewCFGMergeHIR)
+  if (isSearchLoop() || !EnableNewCFGMerge || !EnableNewCFGMergeHIR)
     return;
   assert(getBestVF() > 1 && "Unexpected VF");
   VPlanVector *Plan = getBestVPlan();
@@ -269,12 +275,21 @@ void LoopVectorizationPlannerHIR::emitPeelRemainderVPLoops(unsigned VF,
 
   VPlanCFGMerger CFGMerger(*Plan, VF, UF);
 
+  // Set the flag to indicate if we are dealing with a simple main vector
+  // scalar remainder scenario with known trip counts.
+  CFGMerger.setIsSimpleConstTCScenario(VecScenario.isSimpleConstTCScenario());
+
   // Run CFGMerger.
-  CFGMerger.createMergedCFG(VecScenario, MergerVPlans);
+  CFGMerger.createMergedCFG(VecScenario, MergerVPlans, TheLoop);
 }
 
 void LoopVectorizationPlannerHIR::createMergerVPlans(
     VPAnalysesFactoryBase &VPAF) {
+  // Search loop representation is not yet explicit and search loop idiom
+  // recognition is picky. Avoid emitting merged CFG for search loops.
+  if (isSearchLoop())
+    return;
+
   assert(MergerVPlans.empty() && "Non-empty list of VPlans");
   if (EnableNewCFGMerge && EnableNewCFGMergeHIR) {
     assert(getBestVF() > 1 && "Unexpected VF");

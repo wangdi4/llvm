@@ -1,4 +1,21 @@
 //===- PartialInlining.cpp - Inline parts of functions --------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -14,7 +31,6 @@
 #include "llvm/Transforms/IPO/PartialInlining.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/None.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
@@ -41,6 +57,7 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/IR/User.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -58,8 +75,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
-#include <functional>
-#include <iterator>
 #include <memory>
 #include <tuple>
 #include <vector>
@@ -205,8 +220,7 @@ struct FunctionOutliningInfo {
 };
 
 struct FunctionOutliningMultiRegionInfo {
-  FunctionOutliningMultiRegionInfo()
-      : ORI() {}
+  FunctionOutliningMultiRegionInfo() = default;
 
   // Container for outline regions
   struct OutlineRegionInfo {
@@ -234,11 +248,12 @@ struct PartialInlinerImpl {
       ProfileSummaryInfo &ProfSI,
       function_ref<BlockFrequencyInfo &(Function &)> GBFI, // INTEL
       InliningLoopInfoCache *InlLoopIC,                    // INTEL
-      bool RunLTOPartialInline, bool EnableSpecialCases)   // INTEL
+      bool RunLTOPartialInline, bool EnableSpecialCases,
+      WholeProgramInfo &WPInfo)   // INTEL
       : GetAssumptionCache(GetAC), LookupAssumptionCache(LookupAC),
         GetTTI(GTTI), GetBFI(GBFI), GetTLI(GTLI), ILIC(InlLoopIC), // INTEL
         PSI(ProfSI), RunLTOPartialInline(RunLTOPartialInline),     // INTEL
-        EnableSpecialCases(EnableSpecialCases) {}                  // INTEL
+        EnableSpecialCases(EnableSpecialCases), WPInfo(WPInfo) {}  // INTEL
   bool run(Module &M);
   // Main part of the transformation that calls helper functions to find
   // outlining candidates, clone & outline the function, and attempt to
@@ -409,6 +424,9 @@ private:
   // Special cases of partial inlining should be handled
   bool EnableSpecialCases = false;
 
+  // Whole program analysis
+  WholeProgramInfo &WPInfo;
+
 #if INTEL_FEATURE_SW_DTRANS
   // The current function that is being partially inlined is a target
   // of a virtual function
@@ -459,11 +477,12 @@ struct PartialInlinerLegacyPass : public ModulePass {
 #endif // INTEL_CUSTOMIZATION
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addPreserved<WholeProgramWrapperPass>();     // INTEL
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<ProfileSummaryInfoWrapperPass>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addRequired<WholeProgramWrapperPass>();             // INTEL
+    AU.addPreserved<WholeProgramWrapperPass>();            // INTEL
   }
 
   bool runOnModule(Module &M) override {
@@ -493,10 +512,12 @@ struct PartialInlinerLegacyPass : public ModulePass {
     };
 
 #if INTEL_CUSTOMIZATION
+    WholeProgramInfo &WPInfo =
+        getAnalysis<WholeProgramWrapperPass>().getResult();
     auto ILIC = std::make_unique<InliningLoopInfoCache>();
     return PartialInlinerImpl(GetAssumptionCache, LookupAssumptionCache, GetTTI,
                               GetTLI, PSI, nullptr, ILIC.get(),
-                              RunLTOPartialInline, EnableSpecialCases)
+                              RunLTOPartialInline, EnableSpecialCases, WPInfo)
         .run(M);
 #endif // INTEL_CUSTOMIZATION
   }
@@ -853,7 +874,7 @@ BranchProbability PartialInlinerImpl::getOutliningCallBBRelativeFreq(
   auto OutlineRegionRelFreq = BranchProbability::getBranchProbability(
       OutliningCallFreq.getFrequency(), EntryFreq.getFrequency());
 
-  if (hasProfileData(*Cloner.OrigFunc, *Cloner.ClonedOI.get()))
+  if (hasProfileData(*Cloner.OrigFunc, *Cloner.ClonedOI))
     return OutlineRegionRelFreq;
 
 #if INTEL_CUSTOMIZATION
@@ -1126,6 +1147,9 @@ void PartialInlinerImpl::computeCallsiteToProfCountMap(
       continue;
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+    // Don't bother with BlockAddress used by CallBr for asm goto.
+    if (isa<BlockAddress>(User))
+      continue;
     CallBase *CB = getSupportedCallBase(User);
     Function *Caller = CB->getCaller();
     if (CurrentCaller != Caller) {
@@ -1699,7 +1723,6 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
 
   bool AnyInline = false;
   for (User *User : Users) {
-
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
     // If the function is a virtual target then, there may be users that
@@ -1709,6 +1732,9 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
       continue;
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+    // Don't bother with BlockAddress used by CallBr for asm goto.
+    if (isa<BlockAddress>(User))
+      continue;
 
     CallBase *CB = getSupportedCallBase(User);
 
@@ -1783,6 +1809,7 @@ bool PartialInlinerImpl::run(Module &M) {
     RunLTOPartialInline = true;
   if (ForceEnableSpecialCasesPartialInline)
     EnableSpecialCases = true;
+  (void) WPInfo;
 #endif // INTEL_CUSTOMIZATION
   std::vector<Function *> Worklist;
   Worklist.reserve(M.size());
@@ -1828,6 +1855,7 @@ INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(ProfileSummaryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)                  // INTEL
 INITIALIZE_PASS_END(PartialInlinerLegacyPass, "partial-inliner",
                     "Partial Inliner", false, false)
 
@@ -1865,12 +1893,13 @@ PreservedAnalyses PartialInlinerPass::run(Module &M,
   ProfileSummaryInfo &PSI = AM.getResult<ProfileSummaryAnalysis>(M);
 
 #if INTEL_CUSTOMIZATION
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
   PreservedAnalyses PA;
   PA.preserve<WholeProgramAnalysis>();
   auto ILIC = std::make_unique<InliningLoopInfoCache>();
   if (PartialInlinerImpl(GetAssumptionCache, LookupAssumptionCache, GetTTI,
                          GetTLI, PSI, GetBFI, ILIC.get(), RunLTOPartialInline,
-                         EnableSpecialCases)
+                         EnableSpecialCases, WPInfo)
           .run(M))
     return PA;
 #endif // INTEL_CUSTOMIZATION

@@ -1,37 +1,37 @@
 // INTEL_COLLAB
 //
-// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -disable-llvm-passes \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c++14 -disable-llvm-passes \
 // RUN:  -fexceptions -fcxx-exceptions \
 // RUN:  -fopenmp -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu \
 // RUN:  | FileCheck %s --check-prefixes=BOTH,NOOPT
 
 // Same as above adding -O2
-// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -disable-llvm-passes -O2 \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c++14 -disable-llvm-passes -O2 \
 // RUN:  -fexceptions -fcxx-exceptions \
 // RUN:  -fopenmp -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu \
 // RUN:  | FileCheck %s -check-prefixes=BOTH,OPT
 
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fopenmp \
+// RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu -fopenmp \
 // RUN: -fexceptions -fcxx-exceptions \
 // RUN: -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu \
 // RUN: -DTARGET_TEST -emit-llvm %s -o - \
 // RUN:  | FileCheck %s --check-prefix TTEST
 //
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fopenmp \
+// RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu -fopenmp \
 // RUN: -fexceptions -fcxx-exceptions \
 // RUN: -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu \
 // RUN: -DTARGET_TEST -emit-llvm-bc %s -o %t-targ-host.bc
 
-// RUN: %clang_cc1 -triple x86_64-pc-linux-gnu -fopenmp \
+// RUN: %clang_cc1 -opaque-pointers -triple x86_64-pc-linux-gnu -fopenmp \
 // RUN: -fexceptions -fcxx-exceptions \
 // RUN: -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu \
 // RUN: -fopenmp-is-device -fopenmp-host-ir-file-path %t-targ-host.bc \
 // RUN: -DTARGET_TEST -emit-llvm %s -o - \
 // RUN:  | FileCheck %s --check-prefix TTEST
 
-// RUN: %clang_cc1 -triple x86_64-pc-windows-msvc19.29.30133 -fopenmp \
+// RUN: %clang_cc1 -opaque-pointers -triple x86_64-pc-windows-msvc19.29.30133 -fopenmp \
 // RUN: -fexceptions -fcxx-exceptions -fopenmp-late-outline -DWTEST \
 // RUN: -emit-llvm %s -o - \
 // RUN:  | FileCheck %s --check-prefix WTEST
@@ -51,8 +51,6 @@ void test_loops(float *x)
   #pragma omp parallel for
   for (int i = 0; i < 10; ++i)
     try { bar(x); } catch(...) {}
-  //OPT: [[TLP]]:
-  //OPT: br label %[[TH1:terminate.handler.*]]
 
   //BOTH: call token{{.*}}DIR.OMP.PARALLEL.LOOP
   //BOTH: invoke void{{.*}}goo
@@ -61,18 +59,11 @@ void test_loops(float *x)
   for (int i = 0; i < 10; ++i)
     try { goo(x); } catch(...) {}
 
-  //OPT: [[TH1]]:
-  //OPT: call void @__clang_call_terminate
+  //BOTH: [[TLP]]:
+  //BOTH: call void @__clang_call_terminate
+  //BOTH: [[TLP20]]:
+  //BOTH: call void @__clang_call_terminate
 
-  //NOOPT: [[TLP]]:
-  //NOOPT: call void @__clang_call_terminate
-  //NOOPT: [[TLP20]]:
-  //NOOPT: call void @__clang_call_terminate
-
-  //OPT: [[TLP20]]:
-  //OPT: br label %[[TH2:terminate.handler.*]]
-  //OPT: [[TH2]]:
-  //OPT: call void @__clang_call_terminate
 }
 
 
@@ -152,7 +143,7 @@ void test_try_param ()
   //BOTH: [[TRYPARAM:%try_param.*]] = alloca i32
 
   //BOTH: DIR.OMP.PARALLEL
-  //BOTH-SAME: "QUAL.OMP.PRIVATE"(i32* [[TRYPARAM]])
+  //BOTH-SAME: "QUAL.OMP.PRIVATE"(ptr [[TRYPARAM]])
   //BOTH: DIR.OMP.END.PARALLEL
   #pragma omp parallel
   {
@@ -175,15 +166,15 @@ void __attribute__ ((noinline)) target_throw_foo(int i)
 //TTEST: define{{.*}}target_throw
 void target_throw() {
 
-  //TTEST: [[EXNSLOT:%exn.slot.*]] = alloca i8*
+  //TTEST: [[EXNSLOT:%exn.slot.*]] = alloca ptr
   //TTEST: [[EHSEL:%ehselector.slot.*]] = alloca i32
 
-  //TTEST: [[EXNSLOT2:%exn.slot.*]] = alloca i8*
+  //TTEST: [[EXNSLOT2:%exn.slot.*]] = alloca ptr
   //TTEST: [[EHSEL2:%ehselector.slot.*]] = alloca i32
 
   //TTEST: DIR.OMP.TARGET
-  //TTEST-SAME: "QUAL.OMP.PRIVATE"(i8** [[EXNSLOT]])
-  //TTEST-SAME: "QUAL.OMP.PRIVATE"(i32* [[EHSEL]])
+  //TTEST-SAME: "QUAL.OMP.PRIVATE"(ptr [[EXNSLOT]])
+  //TTEST-SAME: "QUAL.OMP.PRIVATE"(ptr [[EHSEL]])
   #pragma omp target parallel for
   for (int i = 0; i < 100; i++) {
     try {
@@ -193,8 +184,8 @@ void target_throw() {
     catch (...) { }
   }
   //TTEST: DIR.OMP.TARGET
-  //TTEST-SAME: "QUAL.OMP.PRIVATE"(i8** [[EXNSLOT2]])
-  //TTEST-SAME: "QUAL.OMP.PRIVATE"(i32* [[EHSEL2]])
+  //TTEST-SAME: "QUAL.OMP.PRIVATE"(ptr [[EXNSLOT2]])
+  //TTEST-SAME: "QUAL.OMP.PRIVATE"(ptr [[EHSEL2]])
   #pragma omp target parallel for
   for (int i = 0; i < 100; i++) {
     try {

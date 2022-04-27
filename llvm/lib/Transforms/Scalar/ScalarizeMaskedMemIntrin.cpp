@@ -1,4 +1,21 @@
 //===- ScalarizeMaskedMemIntrin.cpp - Scalarize unsupported masked mem ----===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //                                    instrinsics
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -25,11 +42,9 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 #include "llvm/InitializePasses.h"
@@ -38,7 +53,6 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Local.h" // INTEL
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include <algorithm>
 #include <cassert>
 
 using namespace llvm;
@@ -59,6 +73,11 @@ static cl::opt<unsigned>
 MaxConst("scalarize-masked-mem-intrin-max-const", cl::Hidden, cl::init(1),
   cl::desc("Maximum constant count in GEP's elements when it can do "
     "tryScalarizeGEP. (default = 1)"));
+
+static cl::opt<unsigned>
+MaxScalar("scalarize-masked-mem-intrin-max-scalar", cl::Hidden, cl::init(10),
+  cl::desc("Maximum scalar count in GEP's elements when it can do "
+    "tryScalarizeGEP. (default = 10)"));
 #endif // INTEL_CUSTOMIZATION
 
 namespace {
@@ -555,8 +574,9 @@ static Constant *legalConst(Constant *C, unsigned &ConstCount) {
 // Return true iff all the leaf variables are splat vectors
 // and only constants are real vectors.
 static bool isSplatAndConst(Value *V, unsigned Depth, unsigned &LoadCount,
-                            unsigned &ConstCount) {
-  if (Depth > MaxDepth || LoadCount > MaxLoads || ConstCount > MaxConst)
+                            unsigned &ConstCount, unsigned &ScalarCount) {
+  if (Depth > MaxDepth || LoadCount > MaxLoads || ConstCount > MaxConst ||
+      ScalarCount > MaxScalar)
     return false;
 
   if (auto Bin = dyn_cast<BinaryOperator>(V)) {
@@ -574,28 +594,38 @@ static bool isSplatAndConst(Value *V, unsigned Depth, unsigned &LoadCount,
     }
 
     if (getSplatValue(LHS)) {
+      ScalarCount++;
       if (auto *C = dyn_cast<Constant>(RHS))
         return legalConst(C, ConstCount);
-      return isSplatAndConst(RHS, Depth + 1, LoadCount, ConstCount);
+      return isSplatAndConst(RHS, Depth + 1, LoadCount, ConstCount,
+                             ScalarCount);
     }
     if (auto *C = dyn_cast<Constant>(LHS)) {
       if (!legalConst(C, ConstCount))
         return false;
-      if (getSplatValue(RHS))
+      if (getSplatValue(RHS)) {
+        ScalarCount++;
         return true;
-      return isSplatAndConst(RHS, Depth + 1, LoadCount, ConstCount);
+      }
+      return isSplatAndConst(RHS, Depth + 1, LoadCount, ConstCount,
+                            ScalarCount);
     }
     if (getSplatValue(RHS)) {
+      ScalarCount++;
       if (auto *C = dyn_cast<Constant>(LHS))
         return legalConst(C, ConstCount);
-      return isSplatAndConst(LHS, Depth + 1, LoadCount, ConstCount);
+      return isSplatAndConst(LHS, Depth + 1, LoadCount, ConstCount,
+                             ScalarCount);
     }
     if (auto *C = dyn_cast<Constant>(RHS)) {
       if (!legalConst(C, ConstCount))
         return false;
-      if (getSplatValue(LHS))
+      if (getSplatValue(LHS)) {
+        ScalarCount++;
         return true;
-      return isSplatAndConst(LHS, Depth + 1, LoadCount, ConstCount);
+      }
+      return isSplatAndConst(LHS, Depth + 1, LoadCount, ConstCount,
+                             ScalarCount);
     }
   } else if (isa<LoadInst>(V)) {
     ++LoadCount;
@@ -603,7 +633,7 @@ static bool isSplatAndConst(Value *V, unsigned Depth, unsigned &LoadCount,
       return true;
   } else if (auto ZExt = dyn_cast<ZExtInst>(V))
     return isSplatAndConst(ZExt->getOperand(0), Depth + 1, LoadCount,
-                           ConstCount);
+                           ConstCount, ScalarCount);
 
   return false;
 }
@@ -657,17 +687,26 @@ static Value *createSplatAndConstExpr(Value *V, unsigned Element,
 // the scalars into vector registers, doing the address arithmetic there, and
 // then extracting the address for each element.
 static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
-                              IRBuilder<> &Builder, const TargetTransformInfo &TTI) {
+                              IRBuilder<> &Builder, unsigned &LoadCount,
+                              unsigned &ConstCount, unsigned &ScalarCount,
+                              const TargetTransformInfo &TTI) {
   Value *Base = GEP->getPointerOperand();
   Type *BasePtrTy = GEP->getSourceElementType();
-  unsigned LoadCount = 0;
-  unsigned ConstCount = 0;
 
   // Base should be a scalar, or a splatted scalar.
   if (Base->getType()->isVectorTy()) {
-    Base = getSplatValue(Base);
-    if (!Base)
-      return nullptr;
+    Value *Splat = getSplatValue(Base);
+    if (Splat) {
+      Base = Splat;
+    } else {
+      auto NGEP = dyn_cast<GetElementPtrInst>(Base);
+      if (!NGEP)
+        return nullptr;
+      Base = tryScalarizeGEP(NGEP, Element, Builder, LoadCount,
+                             ConstCount, ScalarCount, TTI);
+      if (!Base)
+        return nullptr;
+    }
   }
 
   // Found a scalar to use for base. Now try to find scalars for the indices.
@@ -698,7 +737,7 @@ static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
         continue;
       } else if (TTI.isAdvancedOptEnabled(
               TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42) &&
-              isSplatAndConst(GEPIdx, 1, LoadCount, ConstCount)) {
+              isSplatAndConst(GEPIdx, 1, LoadCount, ConstCount, ScalarCount)) {
         Indices.push_back(nullptr);
         continue;
       }
@@ -722,8 +761,12 @@ static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
 static Value *getScalarAddress(Value *Ptrs, unsigned Element,
                                IRBuilder<> &Builder,
                                const TargetTransformInfo &TTI) {
+  unsigned LoadCount = 0;
+  unsigned ConstCount = 0;
+  unsigned ScalarCount = 0;
   if (auto *GEP = dyn_cast<GetElementPtrInst>(Ptrs))
-    if (Value *V = tryScalarizeGEP(GEP, Element, Builder, TTI))
+    if (Value *V = tryScalarizeGEP(GEP, Element, Builder, LoadCount,
+                                   ConstCount, ScalarCount, TTI))
       return V;
 
   return Builder.CreateExtractElement(Ptrs, Element, "Ptr" + Twine(Element));
@@ -1313,8 +1356,14 @@ static bool optimizeCallInst(CallInst *CI, bool &ModifiedDT,
       scalarizeMaskedStore(DL, CI, DTU, ModifiedDT);
       return true;
     case Intrinsic::masked_gather: {
+      MaybeAlign MA =
+          cast<ConstantInt>(CI->getArgOperand(1))->getMaybeAlignValue();
+      Type *LoadTy = CI->getType();
+      Align Alignment = DL.getValueOrABITypeAlignment(MA,
+                                                      LoadTy->getScalarType());
 #if INTEL_CUSTOMIZATION
-      if (!TTI.shouldScalarizeMaskedGather(CI))
+      if (!TTI.shouldScalarizeMaskedGather(CI) &&
+          !TTI.forceScalarizeMaskedGather(cast<VectorType>(LoadTy), Alignment))
 #endif // INTEL_CUSTOMIZATION
         return false;
       scalarizeMaskedGather(DL, CI, DTU, ModifiedDT, TTI);
@@ -1326,7 +1375,9 @@ static bool optimizeCallInst(CallInst *CI, bool &ModifiedDT,
       Type *StoreTy = CI->getArgOperand(0)->getType();
       Align Alignment = DL.getValueOrABITypeAlignment(MA,
                                                       StoreTy->getScalarType());
-      if (TTI.isLegalMaskedScatter(StoreTy, Alignment))
+      if (TTI.isLegalMaskedScatter(StoreTy, Alignment) &&
+          !TTI.forceScalarizeMaskedScatter(cast<VectorType>(StoreTy),
+                                           Alignment))
         return false;
       scalarizeMaskedScatter(DL, CI, DTU, ModifiedDT, TTI);
       return true;

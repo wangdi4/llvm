@@ -14,7 +14,10 @@
 ;  return sum;
 ;}
 
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter -vplan-force-vf=4 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; TODO: Different checks are seen because of difference in ordering blocks between legacy and merged CFG-based CG. Scalar remainder
+; is on false branch of its top test in merged CFG-based HIR.
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter -vplan-force-vf=4 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter -vplan-force-vf=4 2>&1 < %s -S | FileCheck %s -check-prefix=MERGED-CFG-OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
@@ -29,7 +32,23 @@
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -hir-cg -vplan-force-vf=4 -intel-loop-optreport=low < %s -S | FileCheck %s
+; MERGED-CFG-OPTREPORT: LOOP BEGIN{{[[:space:]]}}
+; MERGED-CFG-OPTREPORT-NEXT:     LOOP BEGIN
+; MERGED-CFG-OPTREPORT-NEXT:         remark #15300: LOOP WAS VECTORIZED
+; MERGED-CFG-OPTREPORT-NEXT:         remark #15305: vectorization support: vector length {{.*}}
+; MERGED-CFG-OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
+; MERGED-CFG-OPTREPORT-NEXT:     LOOP BEGIN
+; MERGED-CFG-OPTREPORT-NEXT:         remark #25436: Loop completely unrolled by 10
+; MERGED-CFG-OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
+; MERGED-CFG-OPTREPORT-NEXT:     LOOP BEGIN
+; MERGED-CFG-OPTREPORT-NEXT:         <Remainder loop for vectorization>
+; MERGED-CFG-OPTREPORT-NEXT:     LOOP END
+; MERGED-CFG-OPTREPORT-NEXT: LOOP END
+
+; TODO: Different checks are seen because of difference in ordering blocks between legacy and merged CFG-based CG. Scalar remainder
+; is on false branch of its top test in merged CFG-based HIR.
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false -hir-cg -vplan-force-vf=4 -intel-opt-report=low < %s -S | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-enable-new-cfg-merge-hir=true -hir-cg -vplan-force-vf=4 -intel-opt-report=low < %s -S | FileCheck %s --check-prefix=MERGED-CFG
 
 ; CHECK: [[M1:!.*]] = distinct !{[[M1]]{{.*}}[[M2:!.*]]{{.*}}}
 ; CHECK: [[M2]] = distinct !{!"intel.optreport.rootnode", [[M3:!.*]]}
@@ -46,7 +65,24 @@
 ; CHECK: [[M13]] = !{!"intel.optreport.remarks", [[M14:!.*]]}
 ; CHECK: [[M14]] = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 10}
 ; CHECK: [[M15]] = !{!"intel.optreport.origin", [[M16:!.*]]}
-; CHECK: [[M16]] = !{!"intel.optreport.remark", i32 0, !"Remainder loop for vectorization"}
+; CHECK: [[M16]] = !{!"intel.optreport.remark", i32 25519, !"Remainder loop for vectorization"}
+
+; MERGED-CFG: [[M1:!.*]] = distinct !{[[M1]]{{.*}}[[M2:!.*]]{{.*}}}
+; MERGED-CFG: [[M2]] = distinct !{!"intel.optreport.rootnode", [[M3:!.*]]}
+; MERGED-CFG: [[M3]] = distinct !{!"intel.optreport", [[M10:!.*]], [[M4:!.*]]}
+; MERGED-CFG: [[M10]] = !{!"intel.optreport.next_sibling", [[M11:!.*]]}
+; MERGED-CFG: [[M11]] = distinct !{!"intel.optreport.rootnode", [[M12:!.*]]}
+; MERGED-CFG: [[M12]] = distinct !{!"intel.optreport", [[M13:!.*]]}
+; MERGED-CFG: [[M13]] = !{!"intel.optreport.remarks", [[M14:!.*]]}
+; MERGED-CFG: [[M14]] = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 10}
+; MERGED-CFG: [[M4]] = !{!"intel.optreport.remarks", [[M5:!.*]], [[M6:!.*]]}
+; MERGED-CFG: [[M5]] = !{!"intel.optreport.remark", i32 15300, !"LOOP WAS VECTORIZED"}
+; MERGED-CFG: [[M6]] = !{!"intel.optreport.remark", i32 15305, !"vectorization support: vector length %s", {{.*}}}
+; MERGED-CFG: [[M7:!.*]] = distinct !{[[M7]]{{.*}}[[M8:!.*]]{{.*}}}
+; MERGED-CFG: [[M8]] = distinct !{!"intel.optreport.rootnode", [[M9:!.*]]}
+; MERGED-CFG: [[M9]] = distinct !{!"intel.optreport", [[M15:!.*]]}
+; MERGED-CFG: [[M15]] = !{!"intel.optreport.origin", [[M16:!.*]]}
+; MERGED-CFG: [[M16]] = !{!"intel.optreport.remark", i32 25519, !"Remainder loop for vectorization"}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

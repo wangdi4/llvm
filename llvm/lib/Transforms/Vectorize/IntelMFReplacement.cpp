@@ -96,14 +96,14 @@ static bool isCos(CallInst *Call) {
 
 // Returns attribute { nounwind }
 static AttributeList getNoUnwindAttr(LLVMContext &C) {
-  AttrBuilder AB;
+  AttrBuilder AB(C);
   AB.addAttribute(Attribute::NoUnwind);
   return AttributeList::get(C, AttributeList::FunctionIndex, AB);
 }
 
 // Returns attributes { nounwind, readnone, willreturn }
 static AttributeList getPureAttr(LLVMContext &C) {
-  AttrBuilder AB;
+  AttrBuilder AB(C);
   AB.addAttribute(Attribute::NoUnwind);
   AB.addAttribute(Attribute::ReadNone);
   AB.addAttribute(Attribute::WillReturn);
@@ -207,7 +207,7 @@ static bool LLVM_ATTRIBUTE_UNUSED combineSinCos(CallInst *Call,
     SinVal->setFast(true);
 
   // Load the cosine result from the alloca temporary.
-  auto *CosVal = B.CreateAlignedLoad(CosTmp->getType()->getPointerElementType(),
+  auto *CosVal = B.CreateAlignedLoad(AngleType,
                                      CosTmp, DL.getStackAlignment(), "cos.val");
   LLVM_DEBUG(dbgs() << __FUNCTION__ << "Generated sincos\n"
                     << SinVal << "\n"
@@ -374,6 +374,11 @@ char MathLibraryFunctionsReplacementLegacyPass::ID = 0;
 PreservedAnalyses
 MathLibraryFunctionsReplacementPass::run(Function &F,
                                          FunctionAnalysisManager &AM) {
+  // Return without any change if instruction to function replacement is
+  // disabled.
+  if (DisableMFReplacement)
+    return PreservedAnalyses::all();
+
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   MathLibraryFunctionsReplacement G(DT);
   // Update the last parameter if the new PM is enabled with bisection.

@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 add_llvm_component_library(LLVMAsmPrinter
   AccelTable.cpp
   AddressPool.cpp
@@ -14,9 +31,9 @@ add_llvm_component_library(LLVMAsmPrinter
   DwarfCFIException.cpp
   DwarfCompileUnit.cpp
   DwarfDebug.cpp
-#if INTEL_CUSTOMIZATION
+# INTEL_CUSTOMIZATION
   Intel_TraceBackDebug.cpp
-#end INTEL_CUSTOMIZATION
+# end INTEL_CUSTOMIZATION
   DwarfExpression.cpp
   DwarfFile.cpp
   DwarfStringPool.cpp
@@ -28,13 +45,9 @@ add_llvm_component_library(LLVMAsmPrinter
   WinCFGuard.cpp
   WinException.cpp
   CodeViewDebug.cpp
-#***INTEL
-  intel/STIDebug.cpp
-  intel/STIIR.cpp
-  intel/pdbInterface.cpp
-#if INTEL_CUSTOMIZATION
+# INTEL_CUSTOMIZATION
   intel/Intel_AsmOptReport.cpp
-#end INTEL_CUSTOMIZATION
+# end INTEL_CUSTOMIZATION
   WasmException.cpp
 
   DEPENDS
@@ -57,9 +70,4 @@ add_llvm_component_library(LLVMAsmPrinter
   Support
   Target
   )
-
-if(INTEL_CUSTOMIZATION)
-  target_link_libraries(LLVMAsmPrinter PRIVATE LLVMIntel_OptReport)
-  target_link_libraries(LLVMAsmPrinter PRIVATE LLVMIntel_OptReportSupport)
-endif(INTEL_CUSTOMIZATION)
 

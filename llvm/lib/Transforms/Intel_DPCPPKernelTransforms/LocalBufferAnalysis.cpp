@@ -9,6 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LocalBufferAnalysis.h"
+#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InstIterator.h"
@@ -37,7 +38,7 @@ void LocalBufferInfo::updateLocalsMap(GlobalValue *LocalVal, User *U) {
     }
     // Parent of Instruction is BasicBlock
     // Parent of BasicBlock is Function
-    Function *F = I->getParent()->getParent();
+    Function *F = I->getFunction();
     // Add LocalVal to the set of local values used by F
     LocalUsageMap[F].insert(LocalVal);
   } else if (isa<Constant>(U)) {
@@ -80,59 +81,35 @@ void LocalBufferInfo::updateDirectLocals(Module &M) {
   } // Find globals done.
 }
 
-size_t LocalBufferInfo::calculateLocalsSize(Function *F, unsigned MaxDepth) {
-  --MaxDepth;
-
-  if (!F || F->isDeclaration() || !MaxDepth) {
-    // Not module function, no need for local buffer, return size zero.
-    return 0;
-  }
-
-  if (LocalSizeMap.count(F)) {
-    // local size of this function already calculated.
-    return LocalSizeMap[F];
-  }
-
+void LocalBufferInfo::calculateDirectLocalsSize() {
   DataLayout DL(M);
-  size_t LocalBufferSize = 0;
+  for (auto &F : *M) {
+    size_t DirectLocalSize = 0;
 
-  for (GlobalValue *LclBuff : LocalUsageMap[F]) {
-    assert(LclBuff &&
-           "locals container contains something other than GlobalValue!");
+    for (GlobalValue *LocalGV : LocalUsageMap[&F]) {
+      assert(LocalGV &&
+             "locals container contains something other than GlobalValue!");
 
-    // Calculate required buffer size.
-    size_t ArraySize =
-        DL.getTypeAllocSize(LclBuff->getType()->getElementType());
-    assert(0 != ArraySize && "local buffer size is zero!");
+      // Calculate required buffer size.
+      size_t ArraySize = DL.getTypeAllocSize(LocalGV->getValueType());
+      assert(0 != ArraySize && "local buffer size is zero!");
 
-    // Advance total implicit size.
-    LocalBufferSize += ADJUST_SIZE_TO_MAXIMUM_ALIGN(ArraySize);
-  }
-
-  // Update direct local size of this function.
-  DirectLocalSizeMap[F] = LocalBufferSize;
-
-  size_t ExtraLocalBufferSize = 0;
-  // look for calls to other kernels.
-  for (auto &N : *(*CG)[F]) {
-    auto *CI = cast<CallInst>(*N.first);
-    size_t CallLocalSize = calculateLocalsSize(CI->getCalledFunction(), MaxDepth);
-    if (ExtraLocalBufferSize < CallLocalSize) {
-      // Found Function that needs more local size,
-      // update max ExtraLocalBufferSize
-      ExtraLocalBufferSize = CallLocalSize;
+      // Advance total implicit size.
+      DirectLocalSize += ADJUST_SIZE_TO_MAXIMUM_ALIGN(ArraySize);
     }
+
+    // Update direct local size of this function.
+    DirectLocalSizeMap[&F] = DirectLocalSize;
   }
+}
 
-  LocalBufferSize += ExtraLocalBufferSize;
-
-  // Update the local size of this function
-  LocalSizeMap[F] = LocalBufferSize;
-  return LocalBufferSize;
+void LocalBufferInfo::calculateLocalsSize(CallGraph *CG) {
+  calculateDirectLocalsSize();
+  DPCPPKernelCompilationUtils::calculateMemorySizeWithPostOrderTraversal(
+      *CG, DirectLocalSizeMap, LocalSizeMap);
 }
 
 void LocalBufferInfo::analyzeModule(CallGraph *CG) {
-  this->CG = CG;
   LocalUsageMap.clear();
   LocalSizeMap.clear();
   DirectLocalSizeMap.clear();
@@ -140,12 +117,7 @@ void LocalBufferInfo::analyzeModule(CallGraph *CG) {
   // Initialize localUsageMap
   updateDirectLocals(*M);
 
-  for (auto &F : *M) {
-    auto FMD = DPCPPKernelMetadataAPI::FunctionMetadataAPI(&F);
-    bool isRecursive = FMD.RecursiveCall.hasValue() && FMD.RecursiveCall.get();
-    unsigned MaxDepth = isRecursive ? MAX_RECURSION_DEPTH : UINT_MAX;
-    calculateLocalsSize(&F, MaxDepth);
-  }
+  calculateLocalsSize(CG);
 }
 
 // Provide a definition for the static class member used to identify passes.

@@ -4,7 +4,7 @@
 ; Regression test for CMPLRLLVM-22598.
 
 ; RUN: opt < %s -S -disable-verify -intel-ind-call-force-andersen -anders-aa -indirectcallconv 2>&1 | FileCheck %s
-; RUN: opt < %s -S -disable-verify -intel-ind-call-force-andersen -passes='require<anders-aa>,function(indirectcallconv)' 2>&1 | FileCheck %s
+; RUN: opt < %s -S -disable-verify -intel-ind-call-force-andersen -passes='require<anders-aa>,indirectcallconv' 2>&1 | FileCheck %s
 
 %"class.std::_Lockit" = type { i32 }
 %class.ColumnEditorDlg = type { i64, %"class.std::_Lockit"* }

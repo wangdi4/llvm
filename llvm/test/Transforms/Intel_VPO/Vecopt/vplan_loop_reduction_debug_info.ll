@@ -2,13 +2,17 @@
 ; REQUIRES: asserts
 ; RUN: opt -disable-output -vplan-vec -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s --check-prefixes=CHECKPCFG
 ; RUN: opt -disable-output -vplan-vec -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s --check-prefixes=CHECKVPE
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s --check-prefixes=CHECKHIRPCFG
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s --check-prefixes=CHECKHIRVPE
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefixes=CHECKHIRPCFG
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefixes=CHECKHIRPCFG
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefixes=CHECKHIRVPE
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefixes=CHECKHIRVPE
 
 ; RUN: opt -disable-output -passes="vplan-vec" -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s --check-prefixes=CHECKPCFG
 ; RUN: opt -disable-output -passes="vplan-vec" -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s --check-prefixes=CHECKVPE
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s --check-prefixes=CHECKHIRPCFG
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s --check-prefixes=CHECKHIRVPE
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefixes=CHECKHIRPCFG
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-dump-debug-loc -vplan-print-after-plain-cfg < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefixes=CHECKHIRPCFG
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefixes=CHECKHIRVPE
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-dump-debug-loc -vplan-print-after-vpentity-instrs < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefixes=CHECKHIRVPE
 
 ; Test debug location information on VPlan at specific points of vectorizer pipeline
 ; Original code source lines:
@@ -88,6 +92,12 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKVPE-NEXT:     i32* [[VP_S_RED:%.*]] = allocate-priv i32*, OrigAlign = 4
 ; CHECKVPE-NEXT:      DbgLoc:
 ; CHECKVPE-EMPTY:
+; CHECKVPE-NEXT:     i8* [[VP_S_RED_BCAST:%.*]] = bitcast i32* [[VP_S_RED]]
+; CHECKVPE-NEXT:      DbgLoc: sum.cpp:10:1
+; CHECKVPE-EMPTY:
+; CHECKVPE-NEXT:     call i64 4 i8* [[VP_S_RED_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
+; CHECKVPE-NEXT:      DbgLoc: sum.cpp:10:1
+; CHECKVPE-EMPTY:
 ; CHECKVPE-NEXT:     i32 [[VP_S_REDRED_INIT:%.*]] = reduction-init i32 0 i32 [[S_RED_PROMOTED0:%.*]]
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKVPE-EMPTY:
@@ -145,6 +155,12 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKVPE-NEXT:     store i32 [[VP_S_REDRED_FINAL]] i32* [[S_RED0:%.*]]
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKVPE-EMPTY:
+; CHECKVPE-NEXT:     i8* [[VP_S_RED_BCAST1:%.*]] = bitcast i32* [[VP_S_RED]]
+; CHECKVPE-NEXT:      DbgLoc: sum.cpp:12:10
+; CHECKVPE-EMPTY:
+; CHECKVPE-NEXT:     call i64 4 i8* [[VP_S_RED_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
+; CHECKVPE-NEXT:      DbgLoc: sum.cpp:12:10
+; CHECKVPE-EMPTY:
 ; CHECKVPE-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKVPE-EMPTY:
@@ -171,7 +187,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRPCFG-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKHIRPCFG:         [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECKHIRPCFG-NEXT:     i32 [[VP3:%.*]] = phi  [ i32 [[TMP2:%.*]], [[BB1]] ],  [ i32 [[VP4:%.*]], [[BB2]] ]
-; CHECKHIRPCFG-NEXT:      DbgLoc: sum.cpp:0
+; CHECKHIRPCFG-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKHIRPCFG-EMPTY:
 ; CHECKHIRPCFG-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
 ; CHECKHIRPCFG-NEXT:      DbgLoc:
@@ -238,7 +254,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKHIRVPE:         [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECKHIRVPE-NEXT:     i32 [[VP3:%.*]] = phi  [ i32 [[VP_RED_INIT]], [[BB1]] ],  [ i32 [[VP4:%.*]], [[BB2]] ]
-; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:0
+; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
 ; CHECKHIRVPE-NEXT:      DbgLoc:

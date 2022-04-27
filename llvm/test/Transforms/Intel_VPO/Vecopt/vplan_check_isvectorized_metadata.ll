@@ -2,8 +2,8 @@
 ; Tests whether we emit the right metadata in vector and scalar loops.
 
 ; RUN: opt < %s -S -vplan-vec -vplan-force-vf=2 | FileCheck %s --check-prefix=LLVM-IR
-; RUN: opt < %s -S -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -vplan-force-vf=2 | FileCheck %s --check-prefix=HIR
-; RUN: opt < %s -S -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -vplan-force-vf=2 -vplan-enable-new-cfg-merge-hir | FileCheck %s --check-prefix=HIR-CFGMERGE
+; RUN: opt < %s -S -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -vplan-force-vf=2 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
+; RUN: opt < %s -S -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -vplan-force-vf=2 -vplan-enable-new-cfg-merge-hir -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR
 
 ; LLVM-IR:    br i1 [[TMP7:%.*]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0:%.*]], !llvm.loop !0
 ;
@@ -14,11 +14,6 @@
 
 ; HIR:     !1 = distinct !{!1, !2, !3, !4, !5}
 ; HIR:     !5 = !{!"llvm.loop.isvectorized", i32 1}
-
-; HIR-CFGMERGE:        br i1 [[EXIT_COND:%.*]], label [[HEADER:%.*]], label [[EXIT:%.*]], !llvm.loop !1
-
-; HIR-CFGMERGE:     !1 = distinct !{!1, !2, !3, !4, !5, !6}
-; HIR-CFGMERGE:     !6 = !{!"llvm.loop.isvectorized", i32 1}
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

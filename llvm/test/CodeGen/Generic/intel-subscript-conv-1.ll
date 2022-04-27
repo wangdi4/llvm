@@ -21,7 +21,7 @@
 ; OPAQUE-NEXT:  call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 0, i64 32, ptr elementtype(i32)
 ; OPAQUE-NEXT:  call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 4, ptr elementtype(i32)
 
-; OPAQUE: call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 0, i64 2880, ptr elementtype(i32) getelementptr inbounds ([10 x [9 x [8 x i32]]], ptr @A, i64 0, i64 0, i64 0, i64 0), i64 0)
+; OPAQUE: call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 0, i64 2880, ptr elementtype(i32) {{.*}}, i64 0)
 ; OPAQUE-NEXT: call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 0, i64 288, ptr elementtype(i32) {{.*}}, i64 1)
 ; OPAQUE-NEXT: call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 0, i64 32, ptr elementtype(i32) {{.*}}, i64 2)
 ; OPAQUE-NEXT: call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 4, ptr elementtype(i32) {{.*}}, i64 3)

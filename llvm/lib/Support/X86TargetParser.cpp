@@ -1,4 +1,21 @@
 //===-- X86TargetParser - Parser for X86 features ---------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -12,7 +29,6 @@
 
 #include "llvm/Support/X86TargetParser.h"
 #include "llvm/ADT/StringSwitch.h"
-#include "llvm/ADT/Triple.h"
 #include <numeric>
 
 using namespace llvm;
@@ -175,28 +191,6 @@ constexpr FeatureBitset FeaturesKNM = FeaturesKNL | FeatureAVX512VPOPCNTDQ;
 #if INTEL_CUSTOMIZATION
 constexpr FeatureBitset FeaturesCommonAVX512 =
     FeaturesBroadwell | FeatureAES | FeatureAVX512F | FeatureAVX512CD;
-#if INTEL_FEATURE_ISA_AVX256
-#define ENABLE_ISA_AVX256
-constexpr FeatureBitset FeaturesCommonAVX256 =
-#endif // INTEL_FEATURE_ISA_AVX256
-#ifdef ENABLE_ISA_AVX256
-    FeatureAVX512FP16 |
-#endif
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
-#ifdef ENABLE_ISA_AVX256
-    FeatureAVXDOTPRODINT8 |
-#endif
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-#ifdef ENABLE_ISA_AVX256
-    FeatureAVXDOTPRODPHPS |
-#endif
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-#if INTEL_FEATURE_ISA_AVX256
-    FeaturesX86_64_V4 | FeatureAVX512BF16 | FeatureAVX512VNNI |
-    FeatureAVX512VBMI | FeatureAVX512VBMI2 | FeatureAVX512VPOPCNTDQ |
-    FeatureAVX512IFMA | FeatureAVX512BITALG | FeatureAVX512VP2INTERSECT;
-#endif // INTEL_FEATURE_ISA_AVX256
 #endif // INTEL_CUSTOMIZATION
 
 // Intel Skylake processors.
@@ -235,6 +229,68 @@ constexpr FeatureBitset FeaturesSapphireRapids =
     FeatureAVXVNNI | FeatureCLDEMOTE | FeatureENQCMD | FeatureMOVDIR64B |
     FeatureMOVDIRI | FeaturePTWRITE | FeatureSERIALIZE | FeatureSHSTK |
     FeatureTSXLDTRK | FeatureUINTR | FeatureWAITPKG;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256
+#define ENABLE_ISA_AVX256
+// FIXME: Need to add AVX512-BF16-NE
+// FIXME: Need to add PBNDKB
+constexpr FeatureBitset FeaturesCommonAVX256 =
+#endif // INTEL_FEATURE_ISA_AVX256
+#ifdef ENABLE_ISA_AVX256
+#if INTEL_FEATURE_ISA_AMX_FP16
+    FeatureAMX_FP16 |
+#endif // INTEL_FEATURE_ISA_AMX_FP16
+#if INTEL_FEATURE_ISA_PREFETCHI
+    FeaturePREFETCHI |
+#endif // INTEL_FEATURE_ISA_PREFETCHI
+#if INTEL_FEATURE_ISA_AVX_IFMA
+    FeatureAVXIFMA |
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+// FIXME: Need to change to AVX-NE-CONVERT
+    FeatureAVXCONVERT |
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX_VNNI_INT16
+    FeatureAVXVNNIINT16 |
+#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
+#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
+    FeatureAVXVNNIINT8 |
+#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
+#if INTEL_FEATURE_ISA_AVX512_MEDIAX
+    FeatureAVX512MEDIAX |
+#endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+// FIXME: Need to change to AVX512-NE-CONVERT
+    FeatureAVX512CONVERT |
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+// FIXME: Need to change to AVX512-VNNI-FP16
+    FeatureAVX512DOTPRODPHPS |
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX512_VNNI_INT16
+    FeatureAVX512VNNIINT16 |
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT16
+#if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
+    FeatureAVX512VNNIINT8 |
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
+#if INTEL_FEATURE_ISA_CMPCCXADD
+    FeatureCMPCCXADD |
+#endif // INTEL_FEATURE_ISA_CMPCCXADD
+#if INTEL_FEATURE_ISA_SM3
+    FeatureSM3 |
+#endif // INTEL_FEATURE_ISA_SM3
+#if INTEL_FEATURE_ISA_SM4
+    FeatureSM4 |
+#endif // INTEL_FEATURE_ISA_SM4
+#if INTEL_FEATURE_ISA_SHA512
+    FeatureSHA512 |
+#endif // INTEL_FEATURE_ISA_SHA512
+#endif // ENABLE_ISA_AVX256
+#if INTEL_FEATURE_ISA_AVX256
+    FeaturesSapphireRapids;
+#undef ENABLE_ISA_AVX256
+#endif // INTEL_FEATURE_ISA_AVX256
+#endif // INTEL_CUSTOMIZATION
 
 // Intel Atom processors.
 // Bonnell has feature parity with Core2 and adds MOVBE.
@@ -622,9 +678,9 @@ constexpr FeatureBitset ImpliedFeaturesHRESET = {};
 #if INTEL_FEATURE_ISA_AVX_IFMA
 static constexpr FeatureBitset ImpliedFeaturesAVXIFMA = FeatureAVX2;
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
-#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
-static constexpr FeatureBitset ImpliedFeaturesAVXDOTPRODINT8 = FeatureAVX2;
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
+static constexpr FeatureBitset ImpliedFeaturesAVXVNNIINT8 = FeatureAVX2;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 static constexpr FeatureBitset ImpliedFeaturesAVXDOTPRODPHPS = FeatureAVX2;
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
@@ -651,10 +707,10 @@ static constexpr FeatureBitset ImpliedFeaturesAVXMOVGET = FeatureAVX2;
 #if INTEL_FEATURE_ISA_AVX512_MOVGET
 static constexpr FeatureBitset ImpliedFeaturesAVX512MOVGET = FeatureAVX512F;
 #endif // INTEL_FEATURE_ISA_AVX512_MOVGET
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
-static constexpr FeatureBitset ImpliedFeaturesAVX512DOTPRODINT8 = FeatureAVX512F |
-    FeatureAVXDOTPRODINT8;
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
+static constexpr FeatureBitset ImpliedFeaturesAVX512VNNIINT8 = FeatureAVX512F |
+    FeatureAVXVNNIINT8;
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
 static constexpr FeatureBitset ImpliedFeaturesAVX512DOTPRODPHPS = FeatureAVX512F |
     FeatureAVX512FP16 | FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL |
@@ -805,6 +861,17 @@ static constexpr FeatureBitset ImpliedFeaturesAMX_V3 = FeatureAMX_TILE;
 #if INTEL_FEATURE_ISA_VPINSR_VPEXTR
 static constexpr FeatureBitset ImpliedFeaturesVPINSR_VPEXTR = FeatureAVX512F;
 #endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
+#if INTEL_FEATURE_ISA_CMPCCXADD
+// AUTO GENERATED BY TOOL
+static constexpr FeatureBitset ImpliedFeaturesCMPCCXADD = FeatureAVX2;
+// end AUTO GENERATED BY TOOL
+#endif // INTEL_FEATURE_ISA_CMPCCXADD
+#if INTEL_FEATURE_ISA_PREFETCHST2
+static constexpr FeatureBitset ImpliedFeaturesPREFETCHST2 = {};
+#endif // INTEL_FEATURE_ISA_PREFETCHST2
+#if INTEL_FEATURE_ISA_PREFETCHI
+static constexpr FeatureBitset ImpliedFeaturesPREFETCHI = {};
+#endif // INTEL_FEATURE_ISA_PREFETCHI
 #endif // INTEL_CUSTOMIZATION
 static constexpr FeatureBitset ImpliedFeaturesAVX512FP16 =
     FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL;

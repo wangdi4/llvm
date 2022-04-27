@@ -1,4 +1,21 @@
 //===- LoopAnalysisManager.h - Loop analysis management ---------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -30,7 +47,6 @@
 #define LLVM_ANALYSIS_LOOPANALYSISMANAGER_H
 
 #include "llvm/Analysis/Intel_Andersens.h"   // INTEL
-#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
@@ -88,7 +104,7 @@ typedef InnerAnalysisManagerProxy<LoopAnalysisManager, Function>
 template <> class LoopAnalysisManagerFunctionProxy::Result {
 public:
   explicit Result(LoopAnalysisManager &InnerAM, LoopInfo &LI)
-      : InnerAM(&InnerAM), LI(&LI), MSSAUsed(false) {}
+      : InnerAM(&InnerAM), LI(&LI) {}
   Result(Result &&Arg)
       : InnerAM(std::move(Arg.InnerAM)), LI(Arg.LI), MSSAUsed(Arg.MSSAUsed) {
     // We have to null out the analysis manager in the moved-from state
@@ -137,7 +153,7 @@ public:
 private:
   LoopAnalysisManager *InnerAM;
   LoopInfo *LI;
-  bool MSSAUsed;
+  bool MSSAUsed = false;
 };
 
 /// Provide a specialized run method for the \c LoopAnalysisManagerFunctionProxy

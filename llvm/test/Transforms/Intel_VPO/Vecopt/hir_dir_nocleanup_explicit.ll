@@ -3,38 +3,34 @@
 ; int *foo(long n, int *p)
 ; {
 ;   int i1;
-; 
+;
 ; #pragma omp simd
 ;   for (i1 = 0; i1 < 1024; i1++)  {
 ;     p[n * i1] = i1;
 ;   }
-; 
+;
 ;   return p;
 ; }
-; 
+;
 ; Test to check that we leave the simd directives around when we do not vectorize the explicit simd loop.
-; RUN: opt -vplan-force-vf=1 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -print-before=hir-vplan-vec -S < %s 2>&1 | FileCheck %s -check-prefixes=PM1
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec" -vplan-force-vf=1 -print-after=hir-vplan-vec -print-before=hir-vplan-vec -S < %s 2>&1 | FileCheck %s -check-prefixes=PM2
+; RUN: opt -enable-new-pm=0 -vplan-force-vf=1 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -print-before=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vplan-force-vf=1 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -print-before=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-vplan-vec,print<hir>" -vplan-force-vf=1 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-vplan-vec,print<hir>" -vplan-force-vf=1 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
-; 
-; PM1:         IR Dump Before VPlan HIR Vectorizer
-; PM2:         IR Dump Before{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
-; CHECK: BEGIN REGION   
+;
+; CHECK: BEGIN REGION
 ; CHECK: %t4 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD() ]
 ; CHECK: DO i1 = 0, 1023, 1
 ; CHECK: @llvm.directive.region.exit(%t4); [ DIR.OMP.END.SIMD() ]
 ; CHECK: END REGION
 
-; PM1:         IR Dump After VPlan HIR Vectorizer
-; PM2:         IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
-; CHECK: BEGIN REGION   
+; CHECK: BEGIN REGION
 ; CHECK: %t4 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD() ]
 ; CHECK: DO i1 = 0, 1023, 1
 ; CHECK: @llvm.directive.region.exit(%t4); [ DIR.OMP.END.SIMD() ]
 ; CHECK: END REGION
 
-; ModuleID = 'simdtest.c'
-source_filename = "simdtest.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 

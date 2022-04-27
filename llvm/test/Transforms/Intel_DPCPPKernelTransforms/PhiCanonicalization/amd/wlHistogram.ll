@@ -1,4 +1,6 @@
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 ; ModuleID = 'wlHistogram.cl'
@@ -440,3 +442,11 @@ for.end31.loopexit:                               ; preds = %for.inc28.us
 for.end31:                                        ; preds = %for.end31.loopexit, %for.body.lr.ph, %entry
   ret void
 }
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function histogramGrouped --  br label %for.end83
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function histogramStep2int --  br label %for.end31
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function histogramStep2int2 --  br label %for.end31
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function histogramStep2int4 --  br label %for.end31
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function histogramStep2int8 --  br label %for.end31
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function histogramStep2int16 --  br label %for.end31
+; DEBUGIFY-NOT: WARNING

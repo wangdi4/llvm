@@ -12,6 +12,7 @@
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_RUNTIME_SERVICES_H
 
 #include "llvm/IR/Instructions.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DevLimits.h"
 
 namespace llvm {
 
@@ -28,10 +29,15 @@ public:
   /// \ FuncName Function name to look for.
   Function *findFunctionInBuiltinModules(StringRef FuncName) const;
 
+  unsigned getNumJitDimensions() const { return MAX_WORK_DIM; }
+
   /// Return true if the function has no side effects. This means it can be
   /// safely vectorized regardless if it is being masked.
   /// @param FuncName Function name to check.
-  bool hasNoSideEffect(StringRef FuncName);
+  bool hasNoSideEffect(StringRef FuncName) const;
+
+  /// Returns true if the function is atomic built-in.
+  bool isAtomicBuiltin(StringRef FuncName) const;
 
   /// Check if \p CI is an TID generator with constant operator.
   /// \returns a tuple of
@@ -42,25 +48,38 @@ public:
 
   /// Return true if the function is a descriptor of image built-in.
   /// \param FuncName Function name to check.
-  bool isImageDescBuiltin(StringRef FuncName);
+  bool isImageDescBuiltin(StringRef FuncName) const;
 
   /// Return true if the function is a safe llvm initrinsic.
   /// \param FuncName Function name to check.
-  bool isSafeLLVMIntrinsic(StringRef FuncName);
+  bool isSafeLLVMIntrinsic(StringRef FuncName) const;
+
+  /// Checks if \pFuncName is mangled scalar min or max name.
+  /// \param FuncName input mangled name.
+  /// \param IsMin will be true if it is min builtin.
+  /// \param IsSigned will be true if it is signd min/max builtin.
+  /// \returns true iff funcName is scalar min/max builtin.
+  bool isScalarMinMaxBuiltin(StringRef FuncName, bool &IsMin,
+                             bool &IsSigned) const;
 
   /// Return true if the function is synchronization function with no side
   /// effects.
   /// \param FuncName Function name to check.
-  bool isSyncWithNoSideEffect(StringRef FuncName);
+  bool isSyncWithNoSideEffect(StringRef FuncName) const;
 
   /// Return true if the function is a work-item builtin.
   /// \param FuncName Function name to check.
-  bool isWorkItemBuiltin(StringRef FuncName);
+  bool isWorkItemBuiltin(StringRef FuncName) const;
 
   /// Return true if the function needs 'VPlan' style masking, meaning it has
   /// i32 mask as the last argument.
   /// \param FuncName Function name to check.
-  bool needsVPlanStyleMask(StringRef FuncName);
+  bool needsVPlanStyleMask(StringRef FuncName) const;
+
+  /// Return true if func_name is safe to speculative execute, and hence
+  ///        can be hoisted even if it is under control flow.
+  /// \param FuncName Function name to check.
+  bool isSafeToSpeculativeExecute(StringRef FuncName);
 
 private:
   SmallVector<Module *, 2> BuiltinModules;

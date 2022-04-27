@@ -18,6 +18,8 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANCOSTMODELHEURISTICS_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANCOSTMODELHEURISTICS_H
 
+#include "llvm/Analysis/TargetTransformInfo.h"
+
 #if INTEL_FEATURE_SW_ADVANCED
 
 namespace llvm {
@@ -40,7 +42,6 @@ protected:
   // Some utility stuff that is referenced within heuristics quite frequently.
   const VPlanVector *Plan;
   unsigned VF;
-  unsigned UnknownCost;
   HeuristicBase(VPlanTTICostModel *CM, std::string Name);
 
 public:
@@ -62,9 +63,11 @@ public:
   // VPInstruction, the output line is short and w/o '\n' meaining that
   // several Heuristics are expected to report in a single line. Output format
   // for basic block is undefined and unused yet.
-  void printCostChange(unsigned RefCost, unsigned NewCost,
+  void printCostChange(const VPInstructionCost &RefCost,
+                       const VPInstructionCost &NewCost,
                        const VPlan *Scope, raw_ostream *OS) const;
-  void printCostChange(unsigned RefCost, unsigned NewCost,
+  void printCostChange(const VPInstructionCost &RefCost,
+                       const VPInstructionCost &NewCost,
                        const VPInstruction *Scope, raw_ostream *OS) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   // An heuristic can feature the VPlan level initialization routine which is
@@ -148,18 +151,7 @@ class HeuristicSLP : public HeuristicBase {
 
 public:
   HeuristicSLP(VPlanTTICostModel *CM) : HeuristicBase(CM, "SLP breaking") {};
-  void apply(unsigned TTICost, unsigned &Cost,
-             const VPlanVector *Plan, raw_ostream *OS = nullptr) const;
-};
-
-// Heurstic that searches for Search Loop idioms within VPlan.
-// Returns the cost of vectorizing SearchLoop if such loop is detected or
-// unmodified Cost otherwise.
-class HeuristicSearchLoop : public HeuristicBase {
-public:
-  HeuristicSearchLoop(VPlanTTICostModel *CM) :
-    HeuristicBase(CM, "SearchLoop Idiom") {};
-  void apply(unsigned TTICost, unsigned &Cost,
+  void apply(const VPInstructionCost &TTICost, VPInstructionCost &Cost,
              const VPlanVector *Plan, raw_ostream *OS = nullptr) const;
 };
 
@@ -174,13 +166,13 @@ class HeuristicSpillFill : public HeuristicBase {
   // and the map is updated by this method and contains LiveIn values after the
   // call.
   using LiveValuesTy = DenseMap<const VPInstruction*, int>;
-  unsigned operator()(const VPBasicBlock *VPBB,
-                      LiveValuesTy &LiveValues,
-                      bool VectorRegsPressure) const;
+  VPInstructionCost operator()(const VPBasicBlock *VPBB,
+                               LiveValuesTy &LiveValues,
+                               bool VectorRegsPressure) const;
 public:
   HeuristicSpillFill(VPlanTTICostModel *CM) :
     HeuristicBase(CM, "Spill/Fill") {};
-  void apply(unsigned TTICost, unsigned &Cost,
+  void apply(const VPInstructionCost &TTICost, VPInstructionCost &Cost,
              const VPlanVector *Plan, raw_ostream *OS = nullptr) const;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   using HeuristicBase::dump;
@@ -194,12 +186,12 @@ public:
 // most likely are implemented with gather or scatter HW instructions
 // or just serialized).
 class HeuristicGatherScatter : public HeuristicBase {
-  unsigned operator()(const VPInstruction *VPInst) const;
-  unsigned operator()(const VPBasicBlock *VPBlock) const;
+  VPInstructionCost operator()(const VPInstruction *VPInst) const;
+  VPInstructionCost operator()(const VPBasicBlock *VPBlock) const;
 public:
   HeuristicGatherScatter(VPlanTTICostModel *CM) :
     HeuristicBase(CM, "Gather/Scatter") {};
-  void apply(unsigned TTICost, unsigned &Cost,
+  void apply(const VPInstructionCost &TTICost, VPInstructionCost &Cost,
              const VPlanVector *Plan, raw_ostream *OS = nullptr) const;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   using HeuristicBase::dump;
@@ -236,7 +228,7 @@ public:
     HeuristicBase(CM, "psadbw pattern") {};
   // TODO:
   // The method should return Cost of psadbw instruction instead of zero.
-  void apply(unsigned TTICost, unsigned &Cost,
+  void apply(const VPInstructionCost &TTICost, VPInstructionCost &Cost,
              const VPlanVector *Plan, raw_ostream *OS = nullptr) const;
   void initForVPlan();
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -252,7 +244,7 @@ class HeuristicSVMLIDivIRem : public HeuristicBase {
 public:
   HeuristicSVMLIDivIRem(VPlanTTICostModel *CM) :
     HeuristicBase(CM, "IDiv/IRem") {};
-  void apply(unsigned TTICost, unsigned &Cost,
+  void apply(const VPInstructionCost &TTICost, VPInstructionCost &Cost,
              const VPInstruction *VPInst, raw_ostream *OS = nullptr) const;
 };
 
@@ -272,7 +264,7 @@ class HeuristicOVLSMember : public HeuristicBase {
 
 public:
   HeuristicOVLSMember(VPlanTTICostModel *CM) : HeuristicBase(CM, "OVLS") {};
-  void apply(unsigned TTICost, unsigned &Cost,
+  void apply(const VPInstructionCost &TTICost, VPInstructionCost &Cost,
              const VPInstruction *VPInst, raw_ostream *OS = nullptr) const;
 };
 

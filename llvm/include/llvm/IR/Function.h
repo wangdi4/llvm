@@ -1,4 +1,21 @@
 //===- llvm/Function.h - Class to represent a single function ---*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -32,8 +49,6 @@
 #include "llvm/IR/OperandTraits.h"
 #include "llvm/IR/SymbolTableListTraits.h"
 #include "llvm/IR/Value.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Compiler.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -364,7 +379,7 @@ public:
   /// Remove function attribute from this function.
   void removeFnAttr(StringRef Kind);
 
-  void removeFnAttrs(const AttrBuilder &Attrs);
+  void removeFnAttrs(const AttributeMask &Attrs);
 
   /// removes the attribute from the return value list of attributes.
   void removeRetAttr(Attribute::AttrKind Kind);
@@ -373,7 +388,7 @@ public:
   void removeRetAttr(StringRef Kind);
 
   /// removes the attributes from the return value list of attributes.
-  void removeRetAttrs(const AttrBuilder &Attrs);
+  void removeRetAttrs(const AttributeMask &Attrs);
 
   /// removes the attribute from the list of attributes.
   void removeParamAttr(unsigned ArgNo, Attribute::AttrKind Kind);
@@ -382,7 +397,7 @@ public:
   void removeParamAttr(unsigned ArgNo, StringRef Kind);
 
   /// removes the attribute from the list of attributes.
-  void removeParamAttrs(unsigned ArgNo, const AttrBuilder &Attrs);
+  void removeParamAttrs(unsigned ArgNo, const AttributeMask &Attrs);
 
   /// Return true if the function has the attribute.
   bool hasFnAttribute(Attribute::AttrKind Kind) const;
@@ -509,10 +524,10 @@ public:
   }
 
   /// Determine if the function does not access or only writes memory.
-  bool doesNotReadMemory() const {
+  bool onlyWritesMemory() const {
     return doesNotAccessMemory() || hasFnAttribute(Attribute::WriteOnly);
   }
-  void setDoesNotReadMemory() {
+  void setOnlyWritesMemory() {
     addFnAttr(Attribute::WriteOnly);
   }
 
@@ -623,15 +638,19 @@ public:
   bool willReturn() const { return hasFnAttribute(Attribute::WillReturn); }
   void setWillReturn() { addFnAttr(Attribute::WillReturn); }
 
+  /// Get what kind of unwind table entry to generate for this function.
+  UWTableKind getUWTableKind() const {
+    return AttributeSets.getUWTableKind();
+  }
+
   /// True if the ABI mandates (or the user requested) that this
   /// function be in a unwind table.
   bool hasUWTable() const {
-    return hasFnAttribute(Attribute::UWTable);
+    return getUWTableKind() != UWTableKind::None;
   }
-  void setHasUWTable() {
-    addFnAttr(Attribute::UWTable);
+  void setUWTableKind(UWTableKind K) {
+    addFnAttr(Attribute::getWithUWTableKind(getContext(), K));
   }
-
   /// True if this function needs an unwind table.
   bool needsUnwindTableEntry() const {
     return hasUWTable() || !doesNotThrow() || hasPersonalityFn();
@@ -898,7 +917,7 @@ public:
   /// Indicate the Function was compiled by the Fortran compiler or is
   /// a Fortran specific libFunc.
   void setFortran() {
-    llvm::AttrBuilder Attrs;
+    llvm::AttrBuilder Attrs(getContext());
     Attrs.addAttribute("intel-lang", "fortran");
     addFnAttrs(Attrs);
   };

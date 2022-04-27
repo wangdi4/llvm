@@ -1,4 +1,19 @@
 #if INTEL_COLLAB
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //===--- VPOParoptModuleTranform.h - Paropt Module Transforms ---*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -192,122 +207,8 @@ private:
   bool cloneDeclareTargetFunctions(
       std::function<bool(Function *F)> DummyBranchDeleter) const;
 
-  /// Base class for offload entries. It is not supposed to be instantiated.
-  class OffloadEntry {
-  public:
-    enum EntryKind : unsigned {
-      RegionKind       = 0,
-      VarKind          = 1u,
-      IndirectFuncKind = 2u
-    };
-
-  protected:
-    explicit OffloadEntry(EntryKind Kind, StringRef Name, uint32_t Flags)
-      : Kind(Kind), Name(Name), Flags(Flags)
-    {}
-
-  public:
-    virtual ~OffloadEntry() = default;
-
-    EntryKind getKind() const { return Kind; }
-
-    StringRef getName() const { return Name; }
-
-    Constant *getAddress() const { return Addr; }
-
-    void setAddress(Constant *NewAddr) {
-      assert(!Addr && "Address has been set before!");
-      Addr = NewAddr;
-    }
-
-    uint32_t getFlags() const { return Flags; }
-    void setFlags(uint32_t NewFlags) { Flags = NewFlags; }
-
-    virtual size_t getSize() const = 0;
-
-  private:
-    EntryKind Kind;
-    SmallString<64u> Name;
-    Constant* Addr = nullptr;
-    uint32_t Flags = 0;
-  };
-
-  /// Target region entry.
-  class RegionEntry final : public OffloadEntry {
-  public:
-    enum : uint32_t {
-      Region = 0x00,
-      Ctor   = 0x02,
-      Dtor   = 0x04
-    };
-
-  public:
-    RegionEntry(StringRef Name, uint32_t Flags)
-      : OffloadEntry(RegionKind, Name, Flags) {}
-
-    RegionEntry(GlobalValue *GV, uint32_t Flags)
-      : OffloadEntry(RegionKind, GV->getName(), Flags) {
-      setAddress(GV);
-    }
-
-    size_t getSize() const override { return 0; }
-
-    static bool classof(const OffloadEntry *E) {
-      return E->getKind() == RegionKind;
-    }
-  };
-
-  /// Global variable entry.
-  class VarEntry final : public OffloadEntry {
-  public:
-    enum : uint32_t {
-      DeclareTargetTo = 0x00,
-      DeclareTargetLink = 0x01
-    };
-
-  public:
-    explicit VarEntry(GlobalVariable *Var, StringRef Name, uint32_t Flags)
-      : OffloadEntry(VarKind, Name, Flags) {
-      setAddress(Var);
-    }
-
-    size_t getSize() const override {
-      const auto *Var = cast<GlobalVariable>(getAddress());
-      auto *VarType = Var->getValueType();
-      // Global variables have pointer type always.
-      // For the purpose of the size calculation, we have to
-      // get the pointee's type.
-      return Var->getParent()->getDataLayout().getTypeAllocSize(VarType);
-    }
-
-    bool isDeclaration() const {
-      const auto *Var = cast<GlobalVariable>(getAddress());
-      return Var->isDeclaration();
-    }
-
-    static bool classof(const OffloadEntry *E) {
-      return E->getKind() == VarKind;
-    }
-  };
-
-  /// Global indirect function entry.
-  class IndirectFunctionEntry final : public OffloadEntry {
-  public:
-    enum : uint32_t {
-      DeclareTargetFptr = 0x08
-    };
-    IndirectFunctionEntry(Function *Func, StringRef Name)
-      : OffloadEntry(IndirectFuncKind, Name, DeclareTargetFptr) {
-      setAddress(Func);
-    }
-    size_t getSize() const override { return 0; }
-    static bool classof(const OffloadEntry *E) {
-      return E->getKind() == IndirectFuncKind;
-    }
-  };
-
   /// Offload entries.
-  SmallVector<OffloadEntry*, 8u> OffloadEntries;
+  SmallVector<OffloadEntry *, 8> OffloadEntries;
 
   /// Return true if the program is compiled at the offload mode.
   bool hasOffloadCompilation() const {
@@ -334,10 +235,6 @@ private:
 
   /// Process the device information into the triples.
   void processDeviceTriples();
-
-  /// Load offload metadata from the module and create offload entries that
-  /// need to be emitted after lowering all target constructs.
-  void loadOffloadMetadata();
 
   /// Generate offload entry table. It should be done after completing all
   /// transformations.  Returns true, if the table was generated,

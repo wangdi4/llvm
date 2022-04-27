@@ -1,4 +1,4 @@
-; RUN: opt < %s -analyze -hir-region-identification -hir-huge-loop-size=5 -xmain-opt-level=3 | FileCheck %s
+; RUN: opt < %s -analyze -enable-new-pm=0 -hir-region-identification -hir-huge-loop-size=5 -xmain-opt-level=3 | FileCheck %s
 ; RUN: opt < %s -passes="print<hir-region-identification>" -disable-output -hir-huge-loop-size=5 -xmain-opt-level=3 2>&1 | FileCheck %s
 
 ; Test checks that the huge outer loop is not throttled considering the inner unknown loop.

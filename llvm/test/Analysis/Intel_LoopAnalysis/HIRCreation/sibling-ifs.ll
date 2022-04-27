@@ -1,4 +1,5 @@
-; RUN: opt < %s -analyze -hir-framework -hir-framework-debug=creation | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -analyze -hir-framework -hir-framework-debug=creation | FileCheck %s
+; RUN: opt %s -passes="print<hir-framework>" -hir-framework-debug=creation -disable-output 2>&1 | FileCheck %s
 
 ; Verify that we do not throttle this loopnest due to presence of multiple sibling ifs.
 ; CHECK: BEGIN REGION
@@ -32,7 +33,8 @@
 ; CHECK: END REGION
 
 ; Check that we throttle loop when number of ifs is greater than threshold.
-; RUN: opt < %s -analyze -hir-framework -hir-loop-if-threshold=1 -hir-region-print-cost-model-stats -debug-only=hir-region-identification 2>&1 | FileCheck -check-prefix=COST-MODEL %s
+; RUN: opt < %s -enable-new-pm=0 -analyze -hir-framework -hir-loop-if-threshold=1 -hir-region-print-cost-model-stats -debug-only=hir-region-identification 2>&1 | FileCheck -check-prefix=COST-MODEL %s
+; RUN: opt %s -passes="print<hir-framework>" -hir-loop-if-threshold=1 -hir-region-print-cost-model-stats -debug-only=hir-region-identification -disable-output 2>&1 | FileCheck -check-prefix=COST-MODEL %s
 ; COST-MODEL: Loop throttled due to presence of too many ifs.
 
 ; Verify that the second conditional branch condition %cmp2 which is invariant

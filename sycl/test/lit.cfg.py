@@ -56,22 +56,6 @@ def getAdditionalFlags():
             print("Unknown host backend: " + backend)
 
     return flags
-
-llvm_config.use_clang(additional_flags=getAdditionalFlags())
-
-# Add an extra include directory which points to a fake sycl/sycl.hpp (which just points to CL/sycl.hpp)
-# location to workaround compiler versions which do not provide this header
-# TODO: Remove the code below once sycl/sycl.hpp is supported in xmain compiler
-check_sycl_hpp_file='sycl_hpp_include.cpp'
-with open(check_sycl_hpp_file, 'w') as fp:
-     fp.write('#include <sycl/sycl.hpp>\n')
-     fp.write('int main() {}')
-sycl_hpp_available = subprocess.getstatusoutput(config.clang+' -fsycl  ' + check_sycl_hpp_file)
-if sycl_hpp_available[0] != 0:
-    if platform.system() == 'Windows':
-        llvm_config.with_environment('INCLUDE', config.extra_include, append_path=True)
-    else:
-        llvm_config.with_environment('CPATH', config.extra_include, append_path=True)
 # end INTEL_CUSTOMIZATION
 
 # Propagate some variables from the host environment.
@@ -151,6 +135,10 @@ config.substitutions.append( ('%sycl_triple',  triple ) )
 if triple == 'nvptx64-nvidia-cuda-sycldevice':
     config.available_features.add('cuda')
 
+# INTEL_CUSTOMIZATION
+additional_flags = getAdditionalFlags() + config.sycl_clang_extra_flags.split(' ')
+# end INTEL_CUSTOMIZATION
+
 if config.cuda_be == "ON":
     config.available_features.add('cuda_be')
 
@@ -166,14 +154,29 @@ if triple == 'nvptx64-nvidia-cuda':
 if triple == 'amdgcn-amd-amdhsa':
     config.available_features.add('hip_amd')
     # For AMD the specific GPU has to be specified with --offload-arch
-    if not re.match('.*--offload-arch.*', config.sycl_clang_extra_flags):
-        raise Exception("Error: missing --offload-arch flag when trying to "  \
-                        "run lit tests for AMD GPU, please add "              \
-                        "--hip-amd-arch=<target> to buildbot/configure.py or add"  \
-                        "`-Xsycl-target-backend=amdgcn-amd-amdhsa --offload-arch=<target>` to " \
-                        "the CMake variable SYCL_CLANG_EXTRA_FLAGS")
+    if not any([f.startswith('--offload-arch') for f in additional_flags]):
+        # If the offload arch wasn't specified in SYCL_CLANG_EXTRA_FLAGS,
+        # hardcode it to gfx906, this is fine because only compiler tests
+        additional_flags += ['-Xsycl-target-backend=amdgcn-amd-amdhsa',
+                            '--offload-arch=gfx906']
+
+llvm_config.use_clang(additional_flags=additional_flags)
 
 # INTEL_CUSTOMIZATION
+# Add an extra include directory which points to a fake sycl/sycl.hpp (which just points to CL/sycl.hpp)
+# location to workaround compiler versions which do not provide this header
+# TODO: Remove the code below once sycl/sycl.hpp is supported in xmain compiler
+check_sycl_hpp_file='sycl_hpp_include.cpp'
+with open(check_sycl_hpp_file, 'w') as fp:
+     fp.write('#include <sycl/sycl.hpp>\n')
+     fp.write('int main() {}')
+sycl_hpp_available = subprocess.getstatusoutput(config.clang+' -fsycl  ' + check_sycl_hpp_file)
+if sycl_hpp_available[0] != 0:
+    if platform.system() == 'Windows':
+        llvm_config.with_environment('INCLUDE', config.extra_include, append_path=True)
+    else:
+        llvm_config.with_environment('CPATH', config.extra_include, append_path=True)
+
 # Needed for disable some test in case of use of particular linker
 # Check if the default linker is set in the ICS options
 ics_setopts = os.environ.get("ICS_SETOPTS")

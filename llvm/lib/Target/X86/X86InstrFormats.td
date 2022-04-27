@@ -1,4 +1,21 @@
 //===-- X86InstrFormats.td - X86 Instruction Formats -------*- tablegen -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -163,7 +180,17 @@ def PS     : Prefix<4>; // Similar to NoPrfx, but disassembler uses this to know
                         // decode to this instruction. e.g. ANDSS/ANDSD don't
                         // exist, but the 0xf2/0xf3 encoding shouldn't
                         // disable to ANDPS.
-
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+class XuCCPrefix<bits<2> val> {
+  bits<2> Value = val;
+}
+def NoXuCCPrfx : XuCCPrefix<0>;   // No prefix
+def XuCCPD     : XuCCPrefix<1>;   // 66
+def XuCCXS     : XuCCPrefix<2>;   // F3
+def XuCCXD     : XuCCPrefix<3>;   // F2
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
 // Class specifying the opcode map.
 class Map<bits<4> val> {
@@ -217,7 +244,7 @@ class OpSize32 { OperandSize OpSize = OpSize32; }
 class AdSize16 { AddressSize AdSize = AdSize16; }
 class AdSize32 { AddressSize AdSize = AdSize32; }
 class AdSize64 { AddressSize AdSize = AdSize64; }
-class REX_W  { bit hasREX_WPrefix = 1; }
+class REX_W  { bit hasREX_W = 1; }
 class LOCK   { bit hasLockPrefix = 1; }
 class REP    { bit hasREPPrefix = 1; }
 class TB     { Map OpMap = TB; }
@@ -277,6 +304,13 @@ class EVEX_V256 { bit hasEVEX_L2 = 0; bit hasVEX_L = 1; }
 class EVEX_V128 { bit hasEVEX_L2 = 0; bit hasVEX_L = 0; }
 class NOTRACK { bit hasNoTrackPrefix = 1; }
 class SIMD_EXC { list<Register> Uses = [MXCSR]; bit mayRaiseFPException = 1; }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+class XuCCPD  { XuCCPrefix XuCCOpPrefix = XuCCPD; }   // 66
+class XuCCXS  { XuCCPrefix XuCCOpPrefix = XuCCXS; }   // F3
+class XuCCXD  { XuCCPrefix XuCCOpPrefix = XuCCXD; }   // F2
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 
 // Specify AVX512 8-bit compressed displacement encoding based on the vector
 // element size in bits (8, 16, 32, 64) and the CDisp8 form.
@@ -350,7 +384,7 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   bits<3> OpPrefixBits = OpPrefix.Value;
   Map OpMap = OB;           // Which opcode map does this inst have?
   bits<4> OpMapBits = OpMap.Value;
-  bit hasREX_WPrefix  = 0;  // Does this inst require the REX.W prefix?
+  bit hasREX_W  = 0;  // Does this inst require the REX.W prefix?
   FPFormat FPForm = NotFP;  // What flavor of FP instruction is this?
   bit hasLockPrefix = 0;    // Does this inst have a 0xF0 prefix?
   Domain ExeDomain = d;
@@ -401,6 +435,12 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   bit notEVEX2VEXConvertible = 0; // Prevent EVEX->VEX conversion.
   bit ExplicitVEXPrefix = 0; // Force the instruction to use VEX encoding.
   bit EmitVEXOrEVEXPrefix = 0; // Force the instruction to emit prefix. // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  XuCCPrefix XuCCOpPrefix = NoXuCCPrfx; // Which XuCC prefix byte does this inst have?
+  bits<2> XuCCOpPrefixBits = XuCCOpPrefix.Value;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   // Force to check predicate before compress EVEX to VEX encoding.
   bit checkVEXPredicate = 0;
   // TSFlags layout should be kept in sync with X86BaseInfo.h.
@@ -410,7 +450,7 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   // No need for 3rd bit, we don't need to distinguish NoPrfx from PS.
   let TSFlags{12-11} = OpPrefixBits{1-0};
   let TSFlags{16-13} = OpMapBits;
-  let TSFlags{17}    = hasREX_WPrefix;
+  let TSFlags{17}    = hasREX_W;
   let TSFlags{21-18} = ImmT.Value;
   let TSFlags{24-22} = FPForm.Value;
   let TSFlags{25}    = hasLockPrefix;
@@ -434,6 +474,9 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   // Force the instruction to use VEX encoding.
   let TSFlags{55}    = ExplicitVEXPrefix;
   let TSFlags{56}    = EmitVEXOrEVEXPrefix;
+#if INTEL_FEATURE_XUCC
+  let TSFlags{58-57} = XuCCOpPrefixBits;
+#endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
 }
 

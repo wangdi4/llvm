@@ -1,4 +1,21 @@
 //===- MCAssembler.h - Object File Generation -------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -10,7 +27,6 @@
 #define LLVM_MC_MCASSEMBLER_H
 
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator.h"
@@ -18,20 +34,34 @@
 #include "llvm/BinaryFormat/MachO.h"
 #include "llvm/MC/MCDirectives.h"
 #include "llvm/MC/MCDwarf.h"
-#include "llvm/MC/MCFixup.h"
-#include "llvm/MC/MCFragment.h"
 #include "llvm/MC/MCLinkerOptimizationHint.h"
 #include "llvm/MC/MCSymbol.h"
+#include "llvm/Support/SMLoc.h"
 #include "llvm/Support/VersionTuple.h"
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
 namespace llvm {
 
+class MCBoundaryAlignFragment;
+class MCCVDefRangeFragment;
+class MCCVInlineLineTableFragment;
+class MCDwarfCallFrameFragment;
+class MCDwarfLineAddrFragment;
+class MCEncodedFragment;
+class MCFixup;
+class MCLEBFragment;
+class MCPseudoProbeAddrFragment;
+class MCRelaxableFragment;
+class MCSymbolRefExpr;
+class raw_ostream;
 class MCAsmBackend;
 class MCAsmLayout;
 class MCContext;

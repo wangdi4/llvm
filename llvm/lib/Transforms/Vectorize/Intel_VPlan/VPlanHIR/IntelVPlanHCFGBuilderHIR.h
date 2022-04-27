@@ -22,6 +22,7 @@
 #include "../IntelVPlanEntityDescr.h"
 #include "../IntelVPlanHCFGBuilder.h"
 #include "IntelVPlanVerifierHIR.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRVecIdioms.h"
 
 using namespace llvm::loopopt;
 
@@ -33,9 +34,6 @@ class DDGraph;
 class HLLoop;
 class HIRSafeReductionAnalysis;
 class HLInst;
-template <class T> class VectorIdioms;
-using HIRVectorIdioms = VectorIdioms<HLInst>;
-extern void deleteHIRVectorIdioms(HIRVectorIdioms *);
 class HIRDDAnalysis;
 class RegDDRef;
 class DDRef;
@@ -268,10 +266,8 @@ private:
   PrivatesNonPODListTy PrivatesNonPODList;
   LinearListTy LinearList;
   ReductionListTy ReductionList;
-  struct HIRVectorIdiomDeleter {
-    void operator()(HIRVectorIdioms *p) { deleteHIRVectorIdioms(p); }
-  };
-  using IdiomListTy = std::unique_ptr<HIRVectorIdioms, HIRVectorIdiomDeleter>;
+
+  using IdiomListTy = std::unique_ptr<HIRVectorIdioms>;
   // List of idioms recognized for each corresponding HLLoop.
   // NOTE: Map is made mutable since the const getter method repopulates the
   // list of idioms on the fly if no entry is found for a given loop. Check

@@ -2,11 +2,13 @@
 ; Check VPlan decomposition and codegen approaches for a simple Fortran-based loop nest with
 ; struct accesses.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-dump-subscript-details -disable-output< %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -vplan-dump-subscript-details -disable-output< %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-dump-subscript-details -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -vplan-dump-subscript-details -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=VPVALUE-CG,PM1
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=2 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=VPVALUE-CG,PM2
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -disable-output -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s --check-prefixes=VPVALUE-CG
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -disable-output -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s --check-prefixes=VPVALUE-CG
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -disable-output -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s --check-prefixes=VPVALUE-CG
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -disable-output -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s --check-prefixes=VPVALUE-CG
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -44,15 +46,13 @@ define dso_local void @foo(i32 %n, %struct.A* noalias nocapture readonly %arr) {
 ; VPLAN-IR-NEXT:    [[BB4]]: # preds: [[BB3]]
 ; VPLAN-IR-NEXT:     br <External Block>
 ;
-; PM1:         IR Dump After VPlan HIR Vectorizer
-; PM2:         IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
-; VPVALUE-CG-NEXT:  Function: foo
+; VPVALUE-CG:       Function: foo
 ; VPVALUE-CG-EMPTY:
 ; VPVALUE-CG-NEXT:            BEGIN REGION { modified }
 ; VPVALUE-CG-NEXT:                 + DO i1 = 0, 1023, 2   <DO_LOOP> <auto-vectorized> <novectorize>
 ; VPVALUE-CG-NEXT:                 |   (<2 x i32>*)([[ARR0:%.*]])[0][i1 + <i64 0, i64 1>].1 = 10 * i1 + 10 * <i32 0, i32 1>
 ; VPVALUE-CG-NEXT:                 + END LOOP
-; VPVALUE-CG-NEXT:            END REGION
+; VPVALUE-CG:                 END REGION
 ;
 entry:
   br label %for.body

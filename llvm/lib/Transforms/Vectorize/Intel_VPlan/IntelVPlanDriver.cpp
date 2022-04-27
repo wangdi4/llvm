@@ -59,7 +59,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#include "llvm/Analysis/Intel_VectorVariant.h"
+#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #endif // INTEL_CUSTOMIZATION
 
@@ -74,7 +74,7 @@ static cl::opt<bool> DisableCodeGen(
         "Disable VPO codegen, when true, the pass stops at VPlan creation"));
 
 static cl::opt<bool> EnableOuterLoopHIR(
-    "enable-vplan-outer-loop-hir", cl::init(false), cl::Hidden,
+    "enable-vplan-outer-loop-hir", cl::init(true), cl::Hidden,
     cl::desc("Enable vectorization of outer loops in VPlan HIR path"));
 
 // TODO: Unify with LoopVectorize's vplan-build-stress-test?
@@ -103,7 +103,7 @@ static cl::opt<bool>
                                    "alignment of memory accesses"));
 
 static cl::opt<bool> VPlanEnablePeelingHIROpt(
-    "vplan-enable-peeling-hir", cl::init(false), cl::Hidden,
+    "vplan-enable-peeling-hir", cl::init(true), cl::Hidden,
     cl::desc("Enable generation of peel loops to improve "
              "alignment of memory accesses in HIR path"));
 
@@ -116,7 +116,7 @@ static cl::opt<bool> VPlanEnableGeneralPeelingOpt(
         "peeling. Pragma [no]dynamic_align always overrides both switches."));
 
 static cl::opt<bool> VPlanEnableGeneralPeelingHIROpt(
-    "vplan-enable-general-peeling-hir", cl::init(false), cl::Hidden,
+    "vplan-enable-general-peeling-hir", cl::init(true), cl::Hidden,
     cl::desc(
         "Enable peeling in general for HIR path. When true this effectively "
         "enables static peeling, dynamic peeling needs an additional switch "
@@ -225,6 +225,9 @@ static bool canProcessMaskedVariant(const VPlan &P) {
     switch (I.getOpcode()) {
     default:
       break;
+    // Cloning of VPRegion is not implemented yet, hence we can't support masked
+    // variants for CFGs containing them.
+    case VPInstruction::GeneralMemOptConflict:
     // We need special processing for those instructions in masked mode,
     // as we need to extract last value not from (VF-1)th lane but from
     // the lane defined by the execution mask.
@@ -411,64 +414,8 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   LVP.buildInitialVPlans();
 #endif // INTEL_CUSTOMIZATION
 
-  if (EnableMaskedVariant) {
-    DenseMap<VPlanVector *, std::shared_ptr<VPlanMasked>> OrigClonedVPlans;
-    for (auto &Pair : LVP.getAllVPlans()) {
-      std::shared_ptr<VPlanVector> Plan = Pair.second.MainPlan;
-      VPLoop *VLoop = Plan->getMainLoop(true);
-      // Masked variant is not generated for loops without normalized induction.
-      if (!VLoop->hasNormalizedInduction()) {
-        LLVM_DEBUG(dbgs() << "skipping masked_mode: non-normalized "
-                          << Plan->getName() << "\n";);
-        continue;
-      }
-      if (Pair.second.MaskedModeLoop)
-        // Already have it.
-        continue;
-
-      auto It = OrigClonedVPlans.find(Plan.get());
-      if (It != OrigClonedVPlans.end()) {
-        // We have already cloned that main loop, add the same clone for
-        // this VF.
-        LVP.appendVPlanPair(
-            Pair.first, LoopVectorizationPlanner::VPlanPair{Plan, It->second});
-        continue;
-      }
-      // Check if we can process VPlan in masked mode. E.g. the code for some
-      // entities processing is not implemented yet.
-      if (!canProcessMaskedVariant(*Plan)) {
-        LLVM_DEBUG(dbgs() << "skipping masked_mode: can't process "
-                          << Plan->getName() << "\n";);
-        continue;
-      }
-
-      // Check whether we have a known TC and it's a power of two and is
-      // less than maximum VF. In such cases the masked mode loop will be
-      // most likely not used. (Peeling will be unprofitable and remainder
-      // can be created unmasked.) This will allow us saving compile time
-      // e.g. during function vectorization.
-      // TODO: implement target check, i.e. whether target has instructions
-      // to implement masked operations. If there are no such insructions we
-      // don't enable masked variants. Though, that probably better to leave
-      // for cost modeling.
-      uint64_t TripCount = VLoop->getTripCountInfo().TripCount;
-      if (!VLoop->getTripCountInfo().IsEstimated) {
-        auto Max = *(std::max_element(LVP.getVectorFactors().begin(),
-                                      LVP.getVectorFactors().end()));
-        if (isPowerOf2_64(TripCount) && TripCount <= Max) {
-          LLVM_DEBUG(dbgs() << "skipping masked_mode: trip count "
-                            << Plan->getName() << "\n";);
-          continue;
-        }
-      }
-
-      MaskedModeLoopCreator MML(cast<VPlanNonMasked>(Plan.get()), VPAF);
-      std::shared_ptr<VPlanMasked> MaskedPlan = MML.createMaskedModeLoop();
-      OrigClonedVPlans[Plan.get()] = MaskedPlan;
-      LVP.appendVPlanPair(
-          Pair.first, LoopVectorizationPlanner::VPlanPair{Plan, MaskedPlan});
-    }
-  }
+  if (EnableMaskedVariant)
+    generateMaskedModeVPlans(&LVP, &VPAF);
 
   // VPlan Predicator
   LVP.predicate();
@@ -580,7 +527,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   if (DisableCodeGen)
     return false;
 
-  if (VF == 1 || !LVP.canLowerVPlan(*Plan)) {
+  if (VF == 1 || !LVP.canLowerVPlan(*Plan, VF)) {
     // Emit opt report remark if a VPlan candidate SIMD loop was not vectorized.
     // TODO: Emit reason for bailing out.
     VPlanOptReportBuilder(ORBuilder, LI)
@@ -948,8 +895,12 @@ void VPlanDriverImpl::addOptReportRemarks(WRNVecLoopNode *WRLp,
                           OptReportVerbosity::High, 15569);
   // The new vectorized loop is stored in MainLoop
   Loop *MainLoop = VCodeGen->getMainLoop();
-  // Adds remark LOOP WAS VECTORIZED
-  VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15300);
+  if (WRLp && WRLp->isOmpSIMDLoop())
+    // Adds remark SIMD LOOP WAS VECTORIZED
+    VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15301);
+  else
+    // Adds remark LOOP WAS VECTORIZED
+    VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15300);
   // Add remark about VF
   VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15305,
                         Twine(VCodeGen->getVF()).str());
@@ -957,7 +908,13 @@ void VPlanDriverImpl::addOptReportRemarks(WRNVecLoopNode *WRLp,
   if (VCodeGen->getUF() > 1)
     VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15399,
                           Twine(VCodeGen->getUF()).str());
-  VCodeGen->getOptReportStatsTracker().emitRemarks(VPORBuilder, MainLoop);
+
+  // VPLoop corresponding to MainLoop should be the outer most loop in CFG.
+  auto *Plan = cast<VPlanVector>(VCodeGen->getPlan());
+  auto *OuterMostVLp = *(Plan->getVPLoopInfo()->begin());
+  VCodeGen->getPlan()
+      ->getOptRptStatsForLoop(OuterMostVLp)
+      .emitRemarks(VPORBuilder, MainLoop);
 
   // If remainder loop was generated for MainLoop, report that it is currently
   // not vectorized
@@ -973,6 +930,8 @@ void VPlanDriverImpl::addOptReportRemarksForMainPlan(
          "Only main loop plan descriptors expected here.");
   auto *VPLpInfo = cast<VPlanVector>(MainPlanDescr.getVPlan())->getVPLoopInfo();
   auto *MainVPLoop = *VPLpInfo->begin();
+  OptReportStatsTracker &OptRptStats =
+      MainPlanDescr.getVPlan()->getOptRptStatsForLoop(MainVPLoop);
 
   // TODO: This remark should be added by CM, not this late after
   // CFGMerger.
@@ -984,16 +943,18 @@ void VPlanDriverImpl::addOptReportRemarksForMainPlan(
           TTI::AdvancedOptLevel::AO_TargetHasIntelAVX512)) {
     // 15569 remark is "Compiler has chosen to target XMM/YMM vector."
     // "Try using -mprefer-vector-width=512 to override."
-    ORBuilder(*MainVPLoop, *VPLpInfo)
-        .addRemark(OptReportVerbosity::High, 15569u);
+    OptRptStats.GeneralRemarks.emplace_back(15569u, OptReportVerbosity::High);
   }
 
-  // Adds remark LOOP WAS VECTORIZED
-  ORBuilder(*MainVPLoop, *VPLpInfo).addRemark(OptReportVerbosity::Low, 15300u);
+  if (WRLp && WRLp->isOmpSIMDLoop())
+    // Adds remark SIMD LOOP WAS VECTORIZED
+    OptRptStats.GeneralRemarks.emplace_back(15301u, OptReportVerbosity::Low);
+  else
+    // Adds remark LOOP WAS VECTORIZED
+    OptRptStats.GeneralRemarks.emplace_back(15300u, OptReportVerbosity::Low);
   // Add remark about VF
-  ORBuilder(*MainVPLoop, *VPLpInfo)
-      .addRemark(OptReportVerbosity::Low, 15305u,
-                 Twine(MainPlanDescr.getVF()).str());
+  OptRptStats.GeneralRemarks.emplace_back(15305u, OptReportVerbosity::Low,
+                                          Twine(MainPlanDescr.getVF()).str());
 }
 
 void VPlanDriverImpl::addOptReportRemarksForVecRemainder(
@@ -1002,20 +963,21 @@ void VPlanDriverImpl::addOptReportRemarksForVecRemainder(
          "Only remainder loop plan descriptors expected here.");
   auto *VPLI = cast<VPlanVector>(PlanDescr.getVPlan())->getVPLoopInfo();
   auto *OuterLp = *VPLI->begin();
+  OptReportStatsTracker &OptRptStats =
+      PlanDescr.getVPlan()->getOptRptStatsForLoop(OuterLp);
 
-  // remark #25519: REMAINDER LOOP FOR VECTORIZATION.
-  ORBuilder(*OuterLp, *VPLI).addOrigin(25519u);
+  // remark #25519: Reminder loop for vectorization
+  OptRptStats.OriginRemarks.emplace_back(25519u);
   if (PlanDescr.isNonMaskedVecRemainder())
     // remark #15439: remainder loop was vectorized (unmasked)
-    ORBuilder(*OuterLp, *VPLI).addRemark(OptReportVerbosity::Low, 15439u);
+    OptRptStats.GeneralRemarks.emplace_back(15439u, OptReportVerbosity::Low);
   else
     // remark #15440: remainder loop was vectorized (masked)
-    ORBuilder(*OuterLp, *VPLI).addRemark(OptReportVerbosity::Low, 15440u);
+    OptRptStats.GeneralRemarks.emplace_back(15440u, OptReportVerbosity::Low);
 
   // Add remark about VF
-  ORBuilder(*OuterLp, *VPLI)
-      .addRemark(OptReportVerbosity::Low, 15305u,
-                 Twine(PlanDescr.getVF()).str());
+  OptRptStats.GeneralRemarks.emplace_back(15305u, OptReportVerbosity::Low,
+                                          Twine(PlanDescr.getVF()).str());
 }
 
 void VPlanDriverImpl::addOptReportRemarksForVecPeel(
@@ -1024,15 +986,16 @@ void VPlanDriverImpl::addOptReportRemarksForVecPeel(
          "Only peel loop plan descriptors expected here.");
   auto *VPLI = cast<VPlanVector>(PlanDescr.getVPlan())->getVPLoopInfo();
   auto *OuterLp = *VPLI->begin();
+  OptReportStatsTracker &OptRptStats =
+      PlanDescr.getVPlan()->getOptRptStatsForLoop(OuterLp);
 
-  // remark #25518: PEELED LOOP FOR VECTORIZATION.
-  ORBuilder(*OuterLp, *VPLI).addOrigin(25518u);
+  // remark #25518: Peeled loop for vectorization
+  OptRptStats.OriginRemarks.emplace_back(25518u);
   // remark #15437: peel loop was vectorized
-  ORBuilder(*OuterLp, *VPLI).addRemark(OptReportVerbosity::Low, 15437u);
+  OptRptStats.GeneralRemarks.emplace_back(15437u, OptReportVerbosity::Low);
   // Add remark about VF
-  ORBuilder(*OuterLp, *VPLI)
-      .addRemark(OptReportVerbosity::Low, 15305u,
-                 Twine(PlanDescr.getVF()).str());
+  OptRptStats.GeneralRemarks.emplace_back(15305u, OptReportVerbosity::Low,
+                                          Twine(PlanDescr.getVF()).str());
 }
 
 void VPlanDriverImpl::populateVPlanAnalyses(LoopVectorizationPlanner &LVP,
@@ -1043,6 +1006,66 @@ void VPlanDriverImpl::populateVPlanAnalyses(LoopVectorizationPlanner &LVP,
       Plan.setVPSE(VPAF.createVPSE());
     if (!Plan.getVPVT())
       Plan.setVPVT(VPAF.createVPVT(Plan.getVPSE()));
+  }
+}
+
+void VPlanDriverImpl::generateMaskedModeVPlans(LoopVectorizationPlanner *LVP,
+                                               VPAnalysesFactoryBase *VPAF) {
+  DenseMap<VPlanVector *, std::shared_ptr<VPlanMasked>> OrigClonedVPlans;
+  for (auto &Pair : LVP->getAllVPlans()) {
+    std::shared_ptr<VPlanVector> Plan = Pair.second.MainPlan;
+    VPLoop *VLoop = Plan->getMainLoop(true);
+    // Masked variant is not generated for loops without normalized induction.
+    if (!VLoop->hasNormalizedInduction()) {
+      LLVM_DEBUG(dbgs() << "skipping masked_mode: non-normalized "
+                        << Plan->getName() << "\n";);
+      continue;
+    }
+    if (Pair.second.MaskedModeLoop)
+      // Already have it.
+      continue;
+
+    auto It = OrigClonedVPlans.find(Plan.get());
+    if (It != OrigClonedVPlans.end()) {
+      // We have already cloned that main loop, add the same clone for
+      // this VF.
+      LVP->appendVPlanPair(
+          Pair.first, LoopVectorizationPlanner::VPlanPair{Plan, It->second});
+      continue;
+    }
+    // Check if we can process VPlan in masked mode. E.g. the code for some
+    // entities processing is not implemented yet.
+    if (!canProcessMaskedVariant(*Plan)) {
+      LLVM_DEBUG(dbgs() << "skipping masked_mode: can't process "
+                        << Plan->getName() << "\n";);
+      continue;
+    }
+
+    // Check whether we have a known TC and it's a power of two and is
+    // less than maximum VF. In such cases the masked mode loop will be
+    // most likely not used. (Peeling will be unprofitable and remainder
+    // can be created unmasked.) This will allow us saving compile time
+    // e.g. during function vectorization.
+    // TODO: implement target check, i.e. whether target has instructions
+    // to implement masked operations. If there are no such insructions we
+    // don't enable masked variants. Though, that probably better to leave
+    // for cost modeling.
+    uint64_t TripCount = VLoop->getTripCountInfo().TripCount;
+    if (!VLoop->getTripCountInfo().IsEstimated) {
+      auto Max = *(std::max_element(LVP->getVectorFactors().begin(),
+                                    LVP->getVectorFactors().end()));
+      if (isPowerOf2_64(TripCount) && TripCount <= Max) {
+        LLVM_DEBUG(dbgs() << "skipping masked_mode: trip count "
+                          << Plan->getName() << "\n";);
+        continue;
+      }
+    }
+
+    MaskedModeLoopCreator MML(cast<VPlanNonMasked>(Plan.get()), *VPAF);
+    std::shared_ptr<VPlanMasked> MaskedPlan = MML.createMaskedModeLoop();
+    OrigClonedVPlans[Plan.get()] = MaskedPlan;
+    LVP->appendVPlanPair(Pair.first,
+                         LoopVectorizationPlanner::VPlanPair{Plan, MaskedPlan});
   }
 }
 
@@ -1369,7 +1392,7 @@ bool VPlanDriverHIRImpl::runImpl(
 bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
                                      WRNVecLoopNode *WRLp) {
   // Enable peeling for HIR path from command line switch
-  VPlanEnablePeeling = VPlanEnablePeelingHIROpt;
+  VPlanEnablePeeling = VPlanEnablePeelingHIROpt && VPlanEnablePeelingOpt;
   VPlanEnableGeneralPeeling = VPlanEnableGeneralPeelingHIROpt;
 
   // TODO: How do we allow stress-testing for HIR path?
@@ -1433,10 +1456,12 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   VPlanName = std::string(Fn.getName()) + ":HIR";
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   LVP.readLoopMetadata();
-  if (isOmpSIMDLoop && ((LVP.isDynAlignEnabled() && !VPlanEnablePeeling) ||
-                        LVP.isVecRemainderEnforced())) {
-    // Temporary. If peeling and/or remainder vectorization are enforced,
-    // bailout relying on the vplan-vec after loop opt.
+  if (isOmpSIMDLoop &&
+      (LVP.isDynAlignEnabled() || LVP.isVecRemainderEnforced()) &&
+      (!EnableNewCFGMergeHIR || !VPlanEnableGeneralPeeling)) {
+    // If peeling and/or remainder vectorization are enforced,
+    // bailout relying on the vplan-vec after loop opt if either
+    // cfg merger or general peeling is disabled.
     LLVM_DEBUG(dbgs() << "Delegating peel and remainder vectorization to post "
                          "loopopt vplan-vec\n");
     return false;
@@ -1457,6 +1482,9 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   // TODO: Move after predication.
   if (VPlanConstrStressTest)
     return false;
+
+  if (EnableMaskedVariantHIR && EnableMaskedVariant)
+    generateMaskedModeVPlans(&LVP, &VPAF);
 
   // VPlan Predicator
   LVP.predicate();
@@ -1507,6 +1535,9 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   unsigned UF = LVP.getLoopUnrollFactor();
 
+  // Tracker to collect info about loops emitted by CFGMerger.
+  MergedCFGInfo MCFGI;
+
   // Start preparations to generate auxiliary loops.
   if (VF > 1) {
     LVP.createMergerVPlans(VPAF);
@@ -1514,6 +1545,14 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     // Run some VPlan-to-VPlan transforms for each new auxiliary loop created by
     // CFGMerger.
     for (const CfgMergerPlanDescr &PlanDescr : LVP.mergerVPlans()) {
+      // Update tracker based on loop type.
+      if (PlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTPeel)
+        MCFGI.setPeelLoopEmitted(true);
+      else if (PlanDescr.getLoopType() ==
+               CfgMergerPlanDescr::LoopType::LTRemainder)
+        MCFGI.setRemainderLoopEmitted(true);
+
+      auto LpKind = PlanDescr.getLoopType();
       VPlan *Plan = PlanDescr.getVPlan();
 
       if (isa<VPlanVector>(Plan)) {
@@ -1523,7 +1562,25 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
         LVP.insertAllZeroBypasses(cast<VPlanVector>(Plan), PlanDescr.getVF());
       }
 
-      // TODO: Unroller and SOA transform missing here.
+      // TODO: SOA transform missing here.
+
+      if (LpKind == CfgMergerPlanDescr::LoopType::LTMain) {
+        // unroll is run on main loop only
+        if (auto *NonMaskedVPlan = dyn_cast<VPlanNonMasked>(Plan))
+          LVP.unroll(*NonMaskedVPlan);
+        // Capture opt-report remarks for main VPLoop.
+        addOptReportRemarksForMainPlan(WRLp, PlanDescr);
+      }
+
+      // Capture opt-report remarks for vectorized remainder loops.
+      if (LpKind == CfgMergerPlanDescr::LoopType::LTRemainder &&
+          isa<VPlanVector>(Plan))
+        addOptReportRemarksForVecRemainder(PlanDescr);
+
+      // Capture opt-report remarks for vectorized peel loops.
+      if (LpKind == CfgMergerPlanDescr::LoopType::LTPeel &&
+          isa<VPlanVector>(Plan))
+        addOptReportRemarksForVecPeel(PlanDescr);
     }
 
     LVP.emitPeelRemainderVPLoops(VF, UF);
@@ -1535,12 +1592,13 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   if (!DisableCodeGen) {
     RegDDRef *PeelArrayRef = nullptr;
     VPlanIdioms::Opcode SearchLoopOpcode =
-        VPlanIdioms::isSearchLoop(Plan, VF, true, PeelArrayRef);
+        VPlanIdioms::isSearchLoop(Plan, true, PeelArrayRef);
     VPOCodeGenHIR VCodeGen(TLI, TTI, SafeRedAnalysis, &VLSA, Plan, Fn, Lp,
                            ORBuilder, &HIRVecLegal, SearchLoopOpcode,
-                           PeelArrayRef, isOmpSIMDLoop);
+                           PeelArrayRef, isOmpSIMDLoop, MCFGI);
     bool LoopIsHandled =
-        (VF != 1 && VCodeGen.loopIsHandled(Lp, VF) && LVP.canLowerVPlan(*Plan));
+        (VF != 1 && VCodeGen.loopIsHandled(Lp, VF) &&
+         LVP.canLowerVPlan(*Plan, VF));
 
     // Erase intrinsics before and after the loop if we either vectorized the
     // loop or if this loop is an auto vectorization candidate. SIMD Intrinsics
@@ -1550,13 +1608,19 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
     if (LoopIsHandled) {
       CandLoopsVectorized++;
-      // TODO: Is this placement of unroller correct? It is being run for the
-      // final VPlan before CG. Potentially problematic for merged CFG.
-      LVP.unroll(*cast<VPlanNonMasked>(Plan));
+      // When CFG merger is not enabled run unroller here.
+      if (LVP.mergerVPlans().empty())
+        LVP.unroll(*cast<VPlanNonMasked>(Plan));
+      bool treeConflictsLowered =
+          lowerTreeConflictsToDoublePermuteTreeReduction(Plan, VF, Fn);
+      VCodeGen.setTreeConflictsLowered(treeConflictsLowered);
       if (LVP.executeBestPlan(&VCodeGen, UF)) {
         ModifiedLoop = true;
-        VPlanDriverImpl::addOptReportRemarks<VPOCodeGenHIR, loopopt::HLLoop>(
-            WRLp, VPORBuilder, &VCodeGen);
+        // Use HLLoop based opt-report generation for non-merged CFG-based CG.
+        // TODO: Drop this when merged CFG-based CG is used by default.
+        if (LVP.mergerVPlans().empty())
+          VPlanDriverImpl::addOptReportRemarks<VPOCodeGenHIR, loopopt::HLLoop>(
+              WRLp, VPORBuilder, &VCodeGen);
         // Mark loops with "vectorize.enable" metadata as "isvectorized" so that
         // WarnMissedTransforms pass will not complain that this loop is not
         // vectorized. We also tag the main vector loop based on

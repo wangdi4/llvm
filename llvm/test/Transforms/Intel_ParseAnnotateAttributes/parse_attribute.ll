@@ -1,6 +1,9 @@
 ;; Check correct parsing from annotation attribute to a function attribute
 
-; RUN: opt -parse-annotate -S < %s | FileCheck %s
+; There is an implementation of this pass for the new pass manager, but it
+; is not in the pass registry, so this run line fails. It's not clear that
+; this pass is even used. If it is, the pass registry should be updated. 
+; RUN: opt -enable-new-pm=0 -parse-annotate -S < %s | FileCheck %s
 
 @.str = private unnamed_addr constant [12 x i8] c"sycl_kernel\00", section "llvm.metadata"
 @.str.1 = private unnamed_addr constant [11 x i8] c"simple.cpp\00", section "llvm.metadata"

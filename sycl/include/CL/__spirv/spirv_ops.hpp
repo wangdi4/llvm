@@ -1,3 +1,18 @@
+// INTEL_CUSTOMIZATION
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //==----------- spirv_ops.hpp --- SPIRV operations -------------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -273,6 +288,29 @@ __SPIRV_ATOMICS(__SPIRV_ATOMIC_UNSIGNED, unsigned long)
 __SPIRV_ATOMICS(__SPIRV_ATOMIC_UNSIGNED, unsigned long long)
 __SPIRV_ATOMICS(__SPIRV_ATOMIC_MINMAX, Min)
 __SPIRV_ATOMICS(__SPIRV_ATOMIC_MINMAX, Max)
+
+#undef __SPIRV_ATOMICS
+#undef __SPIRV_ATOMIC_AND
+#undef __SPIRV_ATOMIC_BASE
+#undef __SPIRV_ATOMIC_CMP_EXCHANGE
+#undef __SPIRV_ATOMIC_EXCHANGE
+#undef __SPIRV_ATOMIC_FADD
+#undef __SPIRV_ATOMIC_FLOAT
+#undef __SPIRV_ATOMIC_FMAX
+#undef __SPIRV_ATOMIC_FMIN
+#undef __SPIRV_ATOMIC_IADD
+#undef __SPIRV_ATOMIC_ISUB
+#undef __SPIRV_ATOMIC_LOAD
+#undef __SPIRV_ATOMIC_MINMAX
+#undef __SPIRV_ATOMIC_OR
+#undef __SPIRV_ATOMIC_SIGNED
+#undef __SPIRV_ATOMIC_SMAX
+#undef __SPIRV_ATOMIC_SMIN
+#undef __SPIRV_ATOMIC_STORE
+#undef __SPIRV_ATOMIC_UMAX
+#undef __SPIRV_ATOMIC_UMIN
+#undef __SPIRV_ATOMIC_UNSIGNED
+#undef __SPIRV_ATOMIC_XOR
 
 extern SYCL_EXTERNAL __attribute__((opencl_global)) void *
 __spirv_GenericCastToPtrExplicit_ToGlobal(const void *Ptr,
@@ -772,6 +810,68 @@ template <typename dataT>
 extern SYCL_EXTERNAL void
 __spirv_TaskSequenceReleaseINTEL(dataT *Data) noexcept;
 /* end INTEL_CUSTOMIZATION */
+
+// Native builtin extension
+
+extern SYCL_EXTERNAL float __clc_native_tanh(float);
+extern SYCL_EXTERNAL __ocl_vec_t<float, 2>
+    __clc_native_tanh(__ocl_vec_t<float, 2>);
+extern SYCL_EXTERNAL __ocl_vec_t<float, 3>
+    __clc_native_tanh(__ocl_vec_t<float, 3>);
+extern SYCL_EXTERNAL __ocl_vec_t<float, 4>
+    __clc_native_tanh(__ocl_vec_t<float, 4>);
+extern SYCL_EXTERNAL __ocl_vec_t<float, 8>
+    __clc_native_tanh(__ocl_vec_t<float, 8>);
+extern SYCL_EXTERNAL __ocl_vec_t<float, 16>
+    __clc_native_tanh(__ocl_vec_t<float, 16>);
+
+extern SYCL_EXTERNAL _Float16 __clc_native_tanh(_Float16);
+extern SYCL_EXTERNAL __ocl_vec_t<_Float16, 2>
+    __clc_native_tanh(__ocl_vec_t<_Float16, 2>);
+extern SYCL_EXTERNAL __ocl_vec_t<_Float16, 3>
+    __clc_native_tanh(__ocl_vec_t<_Float16, 3>);
+extern SYCL_EXTERNAL __ocl_vec_t<_Float16, 4>
+    __clc_native_tanh(__ocl_vec_t<_Float16, 4>);
+extern SYCL_EXTERNAL __ocl_vec_t<_Float16, 8>
+    __clc_native_tanh(__ocl_vec_t<_Float16, 8>);
+extern SYCL_EXTERNAL __ocl_vec_t<_Float16, 16>
+    __clc_native_tanh(__ocl_vec_t<_Float16, 16>);
+
+extern SYCL_EXTERNAL _Float16 __clc_native_exp2(_Float16);
+extern SYCL_EXTERNAL __ocl_vec_t<_Float16, 2>
+    __clc_native_exp2(__ocl_vec_t<_Float16, 2>);
+extern SYCL_EXTERNAL __ocl_vec_t<_Float16, 3>
+    __clc_native_exp2(__ocl_vec_t<_Float16, 3>);
+extern SYCL_EXTERNAL __ocl_vec_t<_Float16, 4>
+    __clc_native_exp2(__ocl_vec_t<_Float16, 4>);
+extern SYCL_EXTERNAL __ocl_vec_t<_Float16, 8>
+    __clc_native_exp2(__ocl_vec_t<_Float16, 8>);
+extern SYCL_EXTERNAL __ocl_vec_t<_Float16, 16>
+    __clc_native_exp2(__ocl_vec_t<_Float16, 16>);
+
+#define __CLC_BF16(...)                                                        \
+  extern SYCL_EXTERNAL __SYCL_EXPORT __VA_ARGS__ __clc_fabs(                   \
+      __VA_ARGS__) noexcept;                                                   \
+  extern SYCL_EXTERNAL __SYCL_EXPORT __VA_ARGS__ __clc_fmin(                   \
+      __VA_ARGS__, __VA_ARGS__) noexcept;                                      \
+  extern SYCL_EXTERNAL __SYCL_EXPORT __VA_ARGS__ __clc_fmax(                   \
+      __VA_ARGS__, __VA_ARGS__) noexcept;                                      \
+  extern SYCL_EXTERNAL __SYCL_EXPORT __VA_ARGS__ __clc_fma(                    \
+      __VA_ARGS__, __VA_ARGS__, __VA_ARGS__) noexcept;
+
+#define __CLC_BF16_SCAL_VEC(TYPE)                                              \
+  __CLC_BF16(TYPE)                                                             \
+  __CLC_BF16(__ocl_vec_t<TYPE, 2>)                                             \
+  __CLC_BF16(__ocl_vec_t<TYPE, 3>)                                             \
+  __CLC_BF16(__ocl_vec_t<TYPE, 4>)                                             \
+  __CLC_BF16(__ocl_vec_t<TYPE, 8>)                                             \
+  __CLC_BF16(__ocl_vec_t<TYPE, 16>)
+
+__CLC_BF16_SCAL_VEC(uint16_t)
+__CLC_BF16_SCAL_VEC(uint32_t)
+
+#undef __CLC_BF16_SCAL_VEC
+#undef __CLC_BF16
 
 #else // if !__SYCL_DEVICE_ONLY__
 

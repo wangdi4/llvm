@@ -1,4 +1,19 @@
 #if INTEL_COLLAB
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //==-- VPOParoptUtils.cpp - Utilities for VPO Paropt Transforms -*- C++ -*--==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -47,6 +62,7 @@
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/Analysis/DTransTypes.h"
+#include "Intel_DTrans/Analysis/DTransTypeMetadataBuilder.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #endif // INTEL_FEATURE_SW_DTRANS
 
@@ -127,6 +143,18 @@ static cl::opt<bool> KeepBlocksOrder(
     "vpo-paropt-keep-blocks-order", cl::Hidden, cl::init(true),
     cl::desc("Keep the order of blocks during function outlining."));
 
+// When the function in the TARGET VARIANT DISPATCH construct is variadic,
+// controls where the interop obj is inserted in the variant call:
+//   flag = true:  as the last argument (default, for backward compatibility).
+//   flag = false: after the fixed arguments but before the vararg arguments;
+//                 this behavior matches that of OMP5.1 DISPATCH construct.
+// Note that this flag doesn't affect OMP5.1 DISPATCH.
+static cl::opt<bool> PutInteropAfterVararg(
+    "vpo-paropt-put-interop-after-vararg", cl::Hidden,
+    cl::init(true),
+    cl::desc(
+        "Put interop after last arg in a variant dispatch variadic function."));
+
 // Get the TidPtrHolder global variable @tid.addr.
 // Assert if the variable is not found or is not i32.
 GlobalVariable *VPOParoptUtils::getTidPtrHolder(Module *M) {
@@ -186,15 +214,13 @@ VPOParoptUtils::getOrCreateStructType(Function *F, StringRef Name,
 //   typedef void(*kmpc_micro)(kmp_int32 *global_tid, kmp_int32 *bound_tid, ...)
 dtransOP::DTransFunctionType *VPOParoptUtils::getKmpcMicroDTransType(
     dtransOP::DTransTypeManager &TM) {
-  LLVMContext &C = TM.getContext();
-  dtransOP::DTransType *DVoidTy = TM.getOrCreateAtomicType(Type::getVoidTy(C));
-  dtransOP::DTransType *DInt32Ty =
-      TM.getOrCreateAtomicType(Type::getInt32Ty(C));
-  dtransOP::DTransType *DInt32PtrTy =
-      TM.getOrCreatePointerType(DInt32Ty);
+  dtransOP::DTransTypeBuilder DTB(TM);
+  dtransOP::DTransType *DVoidTy = DTB.getVoidTy();
+  dtransOP::DTransType *DInt32Ty = DTB.getIntNTy(32);
+  dtransOP::DTransType *DInt32PtrTy = DTB.getPointerToTy(DInt32Ty);
   dtransOP::DTransType *ArgTypes[] = {DInt32PtrTy, DInt32PtrTy};
   dtransOP::DTransFunctionType *DKmpcMicroTy =
-      TM.getOrCreateFunctionType(DVoidTy, ArgTypes, /*IsVarArg=*/true);
+      DTB.getFunctionType(DVoidTy, ArgTypes, /*IsVarArg=*/true);
   return DKmpcMicroTy;
 }
 
@@ -214,32 +240,22 @@ dtransOP::DTransStructType *VPOParoptUtils::getIdentStructDTransType(
   if (DStructTy)
     return DStructTy;
 
-  LLVMContext &C = TM.getContext();
+  dtransOP::DTransTypeBuilder DTB(TM);
 
   // Create a representation of the ident_t in the DTrans type space.
-  DStructTy = TM.getOrCreateStructType(IdentTy);
+  DStructTy = DTB.getStructTy(IdentTy);
 
   // Get the DTransTypes for the fields.
-  dtransOP::DTransType *DInt32Ty =
-      TM.getOrCreateAtomicType(Type::getInt32Ty(C));
-  dtransOP::DTransType *DInt8PtrTy =
-      TM.getOrCreateAtomicType(Type::getInt8Ty(C));
-  DInt8PtrTy = TM.getOrCreatePointerType(DInt8PtrTy);
+  dtransOP::DTransType *DInt32Ty = DTB.getIntNTy(32);
+  dtransOP::DTransType *DInt8Ty = DTB.getIntNTy(8);
+  dtransOP::DTransType *DInt8PtrTy = DTB.getPointerToTy(DInt8Ty);
 
   dtransOP::DTransType *DTransDataTypes[] = {DInt32Ty,
                                              DInt32Ty,
                                              DInt32Ty,
                                              DInt32Ty,
                                              DInt8PtrTy};
-
-  // Populate the body of the structure,
-  // and then ask for a metadata encoding of it.
-  for (unsigned I = 0, NumFields = DStructTy->getNumFields();
-       I < NumFields; ++I) {
-    dtransOP::DTransFieldMember &Field = DStructTy->getField(I);
-    Field.addResolvedType(DTransDataTypes[I]);
-  }
-
+  DTB.populateDTransStructType(DStructTy, DTransDataTypes);
   return DStructTy;
 }
 #endif // INTEL_FEATURE_SW_DTRANS
@@ -976,11 +992,6 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode *W,
         ThreadLimit = getOrLoadClauseArgValueWithSext(ThreadLimitPtr,
                                                       ThreadLimitTy,
                                                       Int32Ty, Builder);
-#if INTEL_CUSTOMIZATION
-      uint64_t KernelThreadLimit = W->getConfiguredThreadLimit();
-      if (KernelThreadLimit > 0)
-        ThreadLimit = Builder.getInt32(KernelThreadLimit);
-#endif // INTEL_CUSTOMIZATION
     }
   } else {
     // HostAddr==null means FnName is not __tgt_target or __tgt_target_teams
@@ -1580,9 +1591,9 @@ CallInst *VPOParoptUtils::genKmpcTask(WRegionNode *W, StructType *IdentTy,
 CallInst *VPOParoptUtils::genKmpcTaskWithDeps(WRegionNode *W,
                                               StructType *IdentTy,
                                               Value *TidPtr, Value *TaskAlloc,
-                                              Value *Dep, int DepNum,
+                                              Value *Dep, Value *NumDeps,
                                               Instruction *InsertPt) {
-  return genKmpcTaskDepsGeneric(W, IdentTy, TidPtr, TaskAlloc, Dep, DepNum,
+  return genKmpcTaskDepsGeneric(W, IdentTy, TidPtr, TaskAlloc, Dep, NumDeps,
                                 InsertPt, "__kmpc_omp_task_with_deps");
 }
 
@@ -1597,9 +1608,9 @@ CallInst *VPOParoptUtils::genKmpcTaskWithDeps(WRegionNode *W,
 CallInst *VPOParoptUtils::genKmpcTaskWaitDeps(WRegionNode *W,
                                               StructType *IdentTy,
                                               Value *TidPtr, Value *Dep,
-                                              int DepNum,
+                                              Value *NumDeps,
                                               Instruction *InsertPt) {
-  return genKmpcTaskDepsGeneric(W, IdentTy, TidPtr, nullptr, Dep, DepNum,
+  return genKmpcTaskDepsGeneric(W, IdentTy, TidPtr, nullptr, Dep, NumDeps,
                                 InsertPt, "__kmpc_omp_wait_deps");
 }
 
@@ -1607,7 +1618,7 @@ CallInst *VPOParoptUtils::genKmpcTaskWaitDeps(WRegionNode *W,
 //  __kmpc_omp_wait_deps.
 CallInst *VPOParoptUtils::genKmpcTaskDepsGeneric(
     WRegionNode *W, StructType *IdentTy, Value *TidPtr, Value *TaskAlloc,
-    Value *Dep, int DepNum, Instruction *InsertPt, StringRef FnName) {
+    Value *Dep, Value *NumDeps, Instruction *InsertPt, StringRef FnName) {
 
   IRBuilder<> Builder(InsertPt);
   BasicBlock *B = W->getEntryBBlock();
@@ -1623,7 +1634,7 @@ CallInst *VPOParoptUtils::genKmpcTaskDepsGeneric(
   TaskArgs.push_back(Builder.CreateLoad(Builder.getInt32Ty(), TidPtr));
   if (TaskAlloc)
     TaskArgs.push_back(TaskAlloc);
-  TaskArgs.push_back(Builder.getInt32(DepNum));
+  TaskArgs.push_back(NumDeps);
   TaskArgs.push_back(Dep);
   TaskArgs.push_back(Builder.getInt32(0));
   TaskArgs.push_back(ConstantPointerNull::get(Type::getInt8PtrTy(C)));
@@ -3575,6 +3586,39 @@ CallInst *VPOParoptUtils::genKmpcTaskgroupOrEndTaskgroupCall(
   return TaskgroupOrEndCall;
 }
 
+// Emits a call to __kmpc_push_proc_bind(LOC, TID, i32 policy)
+CallInst *VPOParoptUtils::genKmpcPushProcBindCall(WRegionNode *W,
+                                                  StructType *IdentTy,
+                                                  Value *TidPtr,
+                                                  Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  Value *Policy = Builder.getInt32(W->getProcBind());
+
+  CallInst *KmpcPushProcBindCall =
+      genKmpcCallWithTid(W, IdentTy, TidPtr, InsertPt, "__kmpc_push_proc_bind",
+                         nullptr, {Policy}, /*insert=*/true);
+
+  addFuncletOperandBundle(KmpcPushProcBindCall, W->getDT());
+  return KmpcPushProcBindCall;
+}
+
+// Emits a call to __kmpc_omp_taskyield(LOC, TID, i32 0)
+CallInst *VPOParoptUtils::genKmpcTaskyieldCall(WRegionNode *W,
+                                               StructType *IdentTy,
+                                               Value *TidPtr,
+                                               Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  // Zero is used for debug tracing.
+  Value *Zero = Builder.getInt32(0);
+
+  CallInst *TaskyieldCall =
+      genKmpcCallWithTid(W, IdentTy, TidPtr, InsertPt, "__kmpc_omp_taskyield",
+                         nullptr, {Zero}, /*insert=*/true);
+
+  addFuncletOperandBundle(TaskyieldCall, W->getDT());
+  return TaskyieldCall;
+}
+
 // This function generates a call to query if the current thread is a masked
 // thread. Or, generates a call to end_masked for the team of threads.
 //   %masked = call @__kmpc_masked(%ident_t* %loc, i32 %tid, i32 %filter)
@@ -4172,28 +4216,83 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
     FnArgTypes.push_back(ArgType);
   }
 
+  // At this point, the FnArgs and FnArgTypes of the variant call is the same
+  // as the base call. If !InteropObj then the lists are ready for genCall.
+
   if (InteropObj != nullptr) {
-    // If !InteropPosition, then InteropObj is appended as the last arg.
-    // Otherwise, InteropPosition.getValue() is the position of the InteropObj
-    // in the arg list. The position is 1-based (ie, first arg is position 1,
-    // not 0).
-    if (InteropPosition) {
-      assert(!IsVarArg &&
-             "Unexpected VarArg variant function when InteropPosition is used");
-      uint64_t Position = InteropPosition.getValue();
-      auto ArgsIter = FnArgs.begin() + Position - 1;
-      FnArgs.insert(ArgsIter, InteropObj);
-      auto ArgTypesIter = FnArgTypes.begin() + Position - 1;
-      FnArgTypes.insert(ArgTypesIter, Int8PtrTy);
-    } else {
-      FnArgs.push_back(InteropObj);
-      if (!IsVarArg)
-        // If not VarArg, then the signature of the variant function has one
-        // more parameter (for void *interopObj) than the base function, so
-        // we need to update FnArgTypes accordingly.
+    // Case 1: non-variadic functions
+    //
+    // Case 1a: No InteropPosition
+    // Add the interop obj as the last argument of the variant call. E.g.,
+    //   base decl:    void foo_base(int a, int b)
+    //   variant decl: void foo_vrnt(int a, int b, omp_interop_t interop)
+    //   base call:    foo_base(1, 2)
+    //   variant call: foo_vrnt(1, 2, interop);
+    //
+    // Case 1b: With InteropPosition
+    // Add the interop obj at the position (1-based) specified. E.g.,
+    //   InteropPosition==3
+    //   base decl:    void foo_base(int a, int b, int c)
+    //   variant decl: void foo_vrnt(int a, int b, omp_interop_t interop, int c)
+    //   base call:    foo_base(1, 2, 3)
+    //   variant call: foo_vrnt(1, 2, interop, 3);
+    //
+    // Case 2: variadic functions
+    //
+    // (2a) If construct is OMP5.1 DISPATCH then the interop obj goes after
+    // the fixed arguments but before the vararg args (...).
+    //
+    // If construct is TARGET VARIANT DISPATCH then placement is controlled
+    // by the PutInteropAfterVararg flag:
+    //   (2a) false: same placement as for OMP5.1 DISPATCH
+    //   (2b) true: as the last argument of the variadic function call
+    //
+    // VarArg Case 2a: Insert interop obj immediately after the fixed args,
+    // but before varargs.
+    // (For OMP5.1 DISPTACH, and also for
+    //  TARGET VARIANT DISPATCH with PutInteropAfterVararg == false.) E.g.,
+    //   base decl:    void foo_base(int a, int b, ...)
+    //   variant decl: void foo_vrnt(int a, int b, omp_interop_t interop, ...)
+    //   base call:    foo_base(1, 2, 3, 4)
+    //   variant call: foo_vrnt(1, 2, interop, 3, 4)
+    //
+    // VarArg Case 2b: interop obj is the last arg of the variant call.
+    // (For TARGET VARIANT DISPATCH with PutInteropAfterVararg == true.) E.g.,
+    //   base decl:    void foo_base(int a, int b, ...)
+    //   variant decl: void foo_vrnt(int a, int b, ...)
+    //   base call:    foo_base(1, 2, 3, 4)
+    //   variant call: foo_vrnt(1, 2, 3, 4, interop)
+
+    if (!IsVarArg) { // Case 1: non-variadic
+      if (!InteropPosition) {
+        // Case 1a. No InteropPosition. Add interop as last arg.
+        FnArgs.push_back(InteropObj);
         FnArgTypes.push_back(Int8PtrTy);
+      } else {
+        // Case 1b. With InteropPosition.
+        // The position is 1-based (ie, first arg is position 1, not 0).
+        uint64_t Position = InteropPosition.getValue();
+        auto ArgsIter = FnArgs.begin() + Position - 1;
+        FnArgs.insert(ArgsIter, InteropObj);
+        auto ArgTypesIter = FnArgTypes.begin() + Position - 1;
+        FnArgTypes.insert(ArgTypesIter, Int8PtrTy);
+      }
+    } else { // Case 2: variadic
+      assert(!InteropPosition &&
+             "Unexpected VarArg variant function when InteropPosition is used");
+      if (isa<WRNDispatchNode>(W) || !PutInteropAfterVararg) {
+        // Case 2a: Add interop right after the fixed args but before varargs
+        uint64_t Position = FnArgTypes.size() + 1; // number of fixed args + 1
+        auto ArgsIter = FnArgs.begin() + Position - 1;
+        FnArgs.insert(ArgsIter, InteropObj);
+        FnArgTypes.push_back(Int8PtrTy);
+      } else {
+        // Case 2b: Add interop as last argument
+        FnArgs.push_back(InteropObj);
+        // FnArgTypes is the same as the base decl's. No change needed.
+      }
     }
-  }
+  } // if (InteropObj)
 
   CallInst *VariantCall = genCall(M, VariantName, ReturnTy, FnArgs, FnArgTypes,
                                   InsertPt, IsTail, IsVarArg,
@@ -4885,33 +4984,92 @@ void VPOParoptUtils::insertCallsAtRegionBoundary(WRegionNode *W,
   }
 }
 
-std::pair<CallInst *, CallInst *>
-VPOParoptUtils::genKmpcSpmdPushPopNumThreadsCalls(Module *M,
-                                                  Value *NumThreads) {
+CallInst *VPOParoptUtils::genKmpcSpmdCallImpl(Module *M, StringRef FnName) {
   assert(M && "Module is null.");
+  assert(VPOAnalysisUtils::isTargetSPIRV(M) &&
+         "SPMD calls should be emitted only for spirv target.");
 
   LLVMContext &C = M->getContext();
   auto *VoidTy = Type::getVoidTy(C);
-  auto *RetTy = VoidTy;
 
-  if (!NumThreads)
-    NumThreads = ConstantInt::get(Type::getInt32Ty(C), 1);
+  CallInst *Call = genCall(M, FnName, VoidTy, {});
+  assert(Call && "Could not emit spmd call.");
 
-  CallInst *PushCall =
-      genCall(M, "__kmpc_spmd_push_num_threads", RetTy, {NumThreads});
-  assert(PushCall && "Could not emit __kmpc_spmd_push_num_threads");
+  Call->getCalledFunction()->setConvergent();
+  setFuncCallingConv(Call, M);
 
-  CallInst *PopCall = genCall(M, "__kmpc_spmd_pop_num_threads", RetTy, {});
-  assert(PopCall && "Could not emit __kmpc_spmd_pop_num_threads");
+  return Call;
+}
 
-  PushCall->getCalledFunction()->setConvergent();
-  setFuncCallingConv(PushCall, M);
-  PopCall->getCalledFunction()->setConvergent();
-  setFuncCallingConv(PopCall, M);
+std::pair<CallInst *, CallInst *>
+VPOParoptUtils::genKmpcBeginEndSpmdParallelCalls(Module *M) {
+
+  CallInst *BeginCall =
+      VPOParoptUtils::genKmpcSpmdCallImpl(M, "__kmpc_begin_spmd_parallel");
+  CallInst *EndCall =
+      VPOParoptUtils::genKmpcSpmdCallImpl(M, "__kmpc_end_spmd_parallel");
 
   LLVM_DEBUG(dbgs() << __FUNCTION__
-                    << ": Push/Pop num_threads calls generated.\n");
-  return {PushCall, PopCall};
+                    << ": begin/end_spmd_parallel calls generated.\n");
+  return {BeginCall, EndCall};
+}
+
+std::pair<CallInst *, CallInst *>
+VPOParoptUtils::genKmpcBeginEndSpmdTargetCalls(Module *M) {
+
+  CallInst *BeginCall =
+      VPOParoptUtils::genKmpcSpmdCallImpl(M, "__kmpc_begin_spmd_target");
+  CallInst *EndCall =
+      VPOParoptUtils::genKmpcSpmdCallImpl(M, "__kmpc_end_spmd_target");
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__
+                    << ": begin/end_spmd_target calls generated.\n");
+  return {BeginCall, EndCall};
+}
+
+bool VPOParoptUtils::deleteCallsInFunctionTo(Function *F,
+                                             StringRef CalledFnName) {
+  auto *CalledFn = F->getParent()->getFunction(CalledFnName);
+  if (!CalledFn) // CalledFn not present in module.
+    return false;
+
+  SmallVector<Value *, 8> CallsToDelete;
+
+  llvm::copy_if(CalledFn->users(), std::back_inserter(CallsToDelete),
+                [&F, &CalledFn](User *U) {
+                  auto *Call = dyn_cast<CallBase>(U);
+                  return Call && Call->getCalledOperand() == CalledFn &&
+                         Call->getFunction() == F;
+                });
+
+  if (CallsToDelete.empty())
+    return false;
+
+  for (auto *Call : CallsToDelete) {
+    assert(Call->hasNUses(0) && "Cannot delete call with uses.");
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Deleting call '" << *Call
+                      << "' from function '";
+               F->printAsOperand(dbgs(), false); dbgs() << "'.\n");
+    cast<Instruction>(Call)->eraseFromParent();
+  }
+
+  return true;
+}
+
+bool VPOParoptUtils::deleteKmpcBeginEndSpmdCalls(Function *F) {
+  if (!VPOAnalysisUtils::isTargetSPIRV(F->getParent()))
+    return false;
+
+  bool Changed =
+      VPOParoptUtils::deleteCallsInFunctionTo(F, "__kmpc_begin_spmd_target");
+  Changed |=
+      VPOParoptUtils::deleteCallsInFunctionTo(F, "__kmpc_end_spmd_target");
+  Changed |=
+      VPOParoptUtils::deleteCallsInFunctionTo(F, "__kmpc_begin_spmd_parallel");
+  Changed |=
+      VPOParoptUtils::deleteCallsInFunctionTo(F, "__kmpc_end_spmd_parallel");
+
+  return Changed;
 }
 
 // Emit Constructor Call and insert it via created IRBuilder
@@ -5175,8 +5333,8 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
   if (IsTargetSPIRV && AI->isArrayAllocation()) {
     LLVM_DEBUG(dbgs() <<
                "Requested privatization alloca with non-constant size:\n" <<
-               "\tElementType:\n" << *AI->getAllocatedType() << "\n" <<
-               "\tSize:\n" << *AI->getArraySize() << "\n");
+               "\tElementType: " << *AI->getAllocatedType() << "\n" <<
+               "\tSize: " << *AI->getArraySize() << "\n");
 #if INTEL_CUSTOMIZATION
 #if 0
     // FIXME: either re-enable this or come up with a solution.
@@ -5499,6 +5657,41 @@ std::tuple<Type *, Value *, Value *>
   } else {
     assert(NumElements && "Expected variable length array.");
     GepIndices.push_back(Zero);
+    // We may end up here in several cases.
+    //
+    // 1. Non-opaque pointers:
+    //   a. The item is a VLA, and so BaseAddr is a pointer to some
+    //      non-array type. To get the array head pointer, we just
+    //      need to generate a GEP(BaseAddr, 0).
+    //   b. The item is from a TYPED clause and it may be:
+    //     i. VLA (NumElements is not a ConstantInt):
+    //       Again, BaseAddr is a pointer to some non-array type,
+    //       and we just need GEP(BaseAddr, 0).
+    //     ii. Constant sized array (NumElements is a ConstantInt):
+    //       BaseAddr is a pointer to some array type (since this case
+    //       is for non-opaque pointers), but ObjTy is the array's element
+    //       type (i.e. non-array type). So using ObjTy for GEP(0) is illegal.
+    //       Since we need to support multi-dimensional arrays, we just
+    //       cast BaseAddr to be a pointer to array [ObjTy x NumElements],
+    //       and then generate GEP(0) for this casted pointer.
+    // 2. Opaque pointers:
+    //   BaseAddr is just an opaque pointer, and ObjTy is a non-array type.
+    //   a. If NumElements is not a ConstantInt, then this is a VLA item.
+    //     We just generate GEP(BaseAddr, 0).
+    //   b. Otherwise, the item is a constant sized array. We could also
+    //     just generate GEP(BaseAddr, 0), but we do the same pointer casting
+    //     as in 1.b.ii. This is not required, but it simplifies the check
+    //     for when we want to generate the cast. In addition, having a GEP
+    //     representing the underlying array with its size may be useful
+    //     for type deduction somewhere else in the compiler.
+    if (auto CI = dyn_cast<ConstantInt>(NumElements)) {
+      // TYPED clause case.
+      ObjTy = ArrayType::get(ObjTy, CI->getZExtValue());
+      BaseAddr = Builder.CreatePointerCast(BaseAddr,
+          PointerType::get(ObjTy,
+                           cast<PointerType>(
+                               BaseAddr->getType())->getAddressSpace()));
+    }
   }
 
   Value *ArrayBegin =
@@ -5525,9 +5718,10 @@ Constant *VPOParoptUtils::getMinMaxIntVal(Type *Ty, bool IsUnsigned,
                                APInt::getSignedMinValue(BitWidth);
 
   ConstantInt *MinMaxVal = ConstantInt::get(Ty->getContext(), MinMaxAPInt);
-  if (VectorType *VTy = dyn_cast<VectorType>(Ty))
-    return ConstantVector::getSplat(ElementCount::getFixed(VTy->getNumElements()),
-                                    MinMaxVal);
+  if (Ty->isVectorTy())
+    return ConstantVector::getSplat(
+        ElementCount::getFixed(cast<FixedVectorType>(Ty)->getNumElements()),
+        MinMaxVal);
   return MinMaxVal;
 }
 
@@ -5944,6 +6138,21 @@ orderBlocksForOutlining(ArrayRef<BasicBlock *> Blocks) {
   return OrderedBlocks;
 }
 
+// Gets the single call site for the given function. Asserts if there are
+// multiple callsites or no callsite. Uses such as address-taken references
+// are OK.
+CallInst *VPOParoptUtils::getSingleCallSite(Function *F) {
+  CallInst *CallSite = nullptr;
+  for (auto *U : F->users()) {
+    if (isa<CallInst>(U)) {
+      assert(!CallSite && "Multiple callsites found for outlined function");
+      CallSite = cast<CallInst>(U);
+    }
+  }
+  assert(CallSite && "No callsite found for outlined function");
+  return CallSite;
+}
+
 Function *VPOParoptUtils::genOutlineFunction(
     const WRegionNode &W, DominatorTree *DT, AssumptionCache *AC,
     llvm::Optional<ArrayRef<BasicBlock *>> BBsToExtractIn, std::string Suffix) {
@@ -6046,6 +6255,7 @@ Function *VPOParoptUtils::genOutlineFunction(
                    /* AssumptionCache */ AC,
                    /* AllowVarArgs */ false,
                    /* AllowAlloca */ true,
+                   /* AllocationBlock */ nullptr, // INTEL
                    /* Suffix */ Suffix,
                    /* AllowEHTypeID */ true,
                    /* AllowUnreachableBlocks */
@@ -6067,9 +6277,8 @@ Function *VPOParoptUtils::genOutlineFunction(
   CodeExtractorAnalysisCache CEAC(*W.getEntryBBlock()->getParent());
   auto *NewFunction = CE.extractCodeRegion(CEAC, /* hoistAlloca */ true);
   assert(NewFunction && "Code extraction failed for the region.");
-  assert(NewFunction->hasOneUse() && "New function should have one use.");
 
-  auto *CallSite = cast<CallInst>(NewFunction->user_back());
+  auto *CallSite = getSingleCallSite(NewFunction);
 
   // Remove the extracted blocks from the LoopInfo of enclosing regions. The
   // Loops and Blocks in the extracted function are no longer valid
@@ -6497,7 +6706,8 @@ VPOParoptUtils::getItemInfo(const Item *I) {
     return false;
   };
 
-  auto getItemInfoIfTyped = [I, &ElementType, &NumElements]() -> bool {
+  auto getItemInfoIfTyped = [I, &ElementType, &NumElements,
+                             &AddrSpace]() -> bool {
     if (!I->getIsTyped())
       return false;
     ElementType = I->getOrigItemElementTypeFromIR();
@@ -6505,6 +6715,8 @@ VPOParoptUtils::getItemInfo(const Item *I) {
     if (auto *ConstNumElements = dyn_cast<ConstantInt>(NumElements))
       if (ConstNumElements->isOneValue())
         NumElements = nullptr;
+    // The final addresspace is inherited from the clause's item.
+    AddrSpace = cast<PointerType>(I->getOrig()->getType())->getAddressSpace();
     return true;
   };
 
@@ -6532,7 +6744,8 @@ VPOParoptUtils::getItemInfo(const Item *I) {
              ElementType->print(dbgs()); if (NumElements) {
                dbgs() << ", NumElements: ";
                NumElements->printAsOperand(dbgs());
-             } dbgs() << "\n");
+             } dbgs() << ", AddrSpace: " << AddrSpace;
+             dbgs() << "\n");
   return std::make_tuple(ElementType, NumElements, AddrSpace);
 }
 
@@ -6540,6 +6753,133 @@ VPOParoptUtils::getItemInfo(const Item *I) {
 // It is vpo::ADDRESS_SPACE_GENERIC for SPIR-V targets, 0 - otherwise.
 unsigned VPOParoptUtils::getDefaultAS(const Module *M) {
   return VPOAnalysisUtils::isTargetSPIRV(M) ? vpo::ADDRESS_SPACE_GENERIC : 0;
+}
+
+// Return an array of offload entries read from "omp_offloading.info" metadata.
+SmallVector<OffloadEntry *, 8> VPOParoptUtils::loadOffloadMetadata(
+    const Module &M) {
+  SmallVector<OffloadEntry *, 8> OffloadEntries;
+  auto *MD = M.getNamedMetadata("omp_offload.info");
+  if (!MD)
+    return OffloadEntries;
+
+  // Helper for adding offload entries - resizes entries containter as needed.
+  auto && addEntry = [&](OffloadEntry *E, size_t Idx) {
+    auto NewSize = Idx + 1u;
+    if (OffloadEntries.size() < NewSize)
+      OffloadEntries.resize(NewSize);
+    assert(!OffloadEntries[Idx] && "more than one entry with the same index");
+    OffloadEntries[Idx] = E;
+  };
+
+  // Populate offload entries using information from the offload metadata.
+  for (auto *Node : MD->operands()) {
+    auto && getMDInt = [Node](unsigned I) {
+      auto *V = cast<ConstantAsMetadata>(Node->getOperand(I));
+      return cast<ConstantInt>(V->getValue())->getZExtValue();
+    };
+
+    auto && getMDString = [Node](unsigned I) {
+      auto *V = cast<MDString>(Node->getOperand(I));
+      return V->getString();
+    };
+
+    auto && getMDVar = [Node](unsigned I) -> GlobalVariable * {
+      if (I >= Node->getNumOperands())
+        return nullptr;
+      auto *V = cast<ConstantAsMetadata>(Node->getOperand(I));
+      return cast<GlobalVariable>(V->getValue());
+    };
+
+    auto && getMDFunc = [Node](unsigned I) -> Function * {
+      if (I >= Node->getNumOperands())
+        return nullptr;
+      auto *V = cast<ConstantAsMetadata>(Node->getOperand(I));
+      return cast<Function>(V->getValue());
+    };
+
+    switch (getMDInt(0)) {
+      case OffloadEntry::EntryKind::RegionKind: {
+        auto Device = getMDInt(1u);
+        auto File = getMDInt(2u);
+        auto Parent = getMDString(3u);
+        auto Line = getMDInt(4u);
+        auto Idx = getMDInt(5u);
+        auto Flags = getMDInt(6u);
+
+        switch (Flags) {
+          case RegionEntry::Region: {
+            // Compose name.
+            SmallString<128u> Name;
+            llvm::raw_svector_ostream(Name) << "__omp_offloading"
+              << llvm::format("_%x", Device) << llvm::format("_%x_", File)
+              << Parent << "_l" << Line;
+            addEntry(new RegionEntry(Name, Flags), Idx);
+            Name.clear();
+            break;
+          }
+          case RegionEntry::Ctor:
+          case RegionEntry::Dtor: {
+            auto *GV = M.getNamedValue(Parent);
+            assert(GV && "no value for ctor/dtor offload entry");
+            addEntry(new RegionEntry(GV, Flags), Idx);
+            break;
+          }
+          default:
+            llvm_unreachable("unexpected entry kind");
+        }
+        break;
+      }
+      case OffloadEntry::EntryKind::VarKind: {
+        auto Name = getMDString(1u);
+        auto Flags = getMDInt(2u);
+        auto Idx = getMDInt(3u);
+        auto *Var = getMDVar(4u);
+
+        assert(Var && "no global variable with given name");
+        assert(Var->isTargetDeclare() && "must be a target declare variable");
+        addEntry(new VarEntry(Var, Name, Flags), Idx);
+        break;
+      }
+      case OffloadEntry::EntryKind::IndirectFuncKind: {
+        auto Name = getMDString(1u);
+        auto Idx = getMDInt(2u);
+        auto *Func = getMDFunc(3u);
+        assert(Func && "missing function in IndirectFuncKind metadata.");
+        assert(!Func->isDeclaration() && "must be a function definition.");
+        assert(Func->getAttributes().hasFnAttr("openmp-target-declare") &&
+               "must be a target declare function.");
+        addEntry(new IndirectFunctionEntry(Func, Name), Idx);
+        break;
+      }
+      default:
+        llvm_unreachable("unexpected metadata!");
+    }
+  }
+
+  return OffloadEntries;
+}
+
+// Erase "omp_offload.info" metadate from the module.
+bool VPOParoptUtils::eraseOffloadMetadata(Module &M) {
+  auto *MD = M.getNamedMetadata("omp_offload.info");
+  if (!MD)
+    return false;
+
+  MD->eraseFromParent();
+  return true;
+}
+
+// Return offload entry corresponding to the given target region.
+OffloadEntry *VPOParoptUtils::getTargetRegionOffloadEntry(
+    const WRegionNode *W,
+    const SmallVectorImpl<OffloadEntry *> &OffloadEntries) {
+  assert(isa<WRNTargetNode>(W) && "expected target region.");
+  int Idx = W->getOffloadEntryIdx();
+  assert(Idx >= 0 && "target region with no entry index");
+  auto *Entry = OffloadEntries[Idx];
+  assert(Entry && "entry index with no entry");
+  return Entry;
 }
 
 bool VPOParoptUtils::supportsAtomicFreeReduction(const ReductionItem *RedI) {

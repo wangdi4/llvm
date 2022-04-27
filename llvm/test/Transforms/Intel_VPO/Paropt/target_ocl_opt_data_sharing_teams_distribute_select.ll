@@ -1,5 +1,5 @@
-; RUN: opt -switch-to-offload -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing -vpo-paropt %s -S | FileCheck %s
-; RUN: opt -passes='function(vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt' -switch-to-offload %s -S | FileCheck %s
+; RUN: opt -switch-to-offload -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt' -switch-to-offload -S %s | FileCheck %s
 
 ; Original code:
 ; const int& max(const int &a, const int &b) {

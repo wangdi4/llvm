@@ -1,32 +1,20 @@
-; RUN: opt %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -disable-output 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir=false %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -disable-output 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -disable-output 2>&1 | FileCheck %s
 
 define void @foo() {
 ; CHECK:      BEGIN REGION { modified }
-; CHECK-NEXT:       %tgu = (%spec.select309)/u4;
-; CHECK-NEXT:       if (0 <u 4 * %tgu)
-; CHECK-NEXT:       {
-; CHECK-NEXT:          %red.init = %1;
-; CHECK-NEXT:          %red.init1 = %retval.sroa.2.0.copyload.sroa.speculate.load.false;
-; CHECK-NEXT:          %phi.temp = %red.init1;
-; CHECK-NEXT:          %phi.temp2 = %red.init;
-; CHECK:               + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:          |   %.vec = (<4 x double>*)(%0)[i1];
-; CHECK-NEXT:          |   %.vec4 = (%phi.temp2 > %.vec) ? i1 + <i64 0, i64 1, i64 2, i64 3> : %phi.temp;
-; CHECK-NEXT:          |   %.vec5 = (%phi.temp2 > %.vec) ? %.vec : %phi.temp2;
-; CHECK-NEXT:          |   %phi.temp = %.vec4;
-; CHECK-NEXT:          |   %phi.temp2 = %.vec5;
-; CHECK-NEXT:          + END LOOP
-; CHECK:               %1 = @llvm.vector.reduce.fmin.v4f64(%.vec5);
-; CHECK-NEXT:          %idx.blend = (%1 == %.vec5) ? %.vec4 : <i64 -1, i64 -1, i64 -1, i64 -1>;
-; CHECK-NEXT:          %retval.sroa.2.0.copyload.sroa.speculate.load.false = @llvm.vector.reduce.umin.v4i64(%idx.blend);
-; CHECK-NEXT:       }
+; CHECK:               + END LOOP
+; CHECK:               %1 = @llvm.vector.reduce.fmin.v4f64(%.[[vec5:.*]]);
+; CHECK-NEXT:          %[[idxblend:.*]] = (%1 == %.[[vec5]]) ? %.[[vec4:.*]] : <i64 -1, i64 -1, i64 -1, i64 -1>;
+; CHECK-NEXT:          %retval.sroa.2.0.copyload.sroa.speculate.load.false = @llvm.vector.reduce.umin.v4i64(%[[idxblend]]);
+; CHECK:            }
 ;
-; CHECK:            + DO i1 = 4 * %tgu, %spec.select309 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:            + DO i1 = {{.*}}, %spec.select309 + -1, 1   <DO_LOOP>
 ; CHECK-NEXT:       |   %2 = (%0)[i1];
 ; CHECK-NEXT:       |   %retval.sroa.2.0.copyload.sroa.speculate.load.false = (%1 > %2) ? i1 : %retval.sroa.2.0.copyload.sroa.speculate.load.false;
 ; CHECK-NEXT:       |   %1 = (%1 > %2) ? %2 : %1;
 ; CHECK-NEXT:       + END LOOP
-; CHECK-NEXT: END REGION
+; CHECK:      END REGION
 ;
 entry:
   %0 = load double*, double** undef

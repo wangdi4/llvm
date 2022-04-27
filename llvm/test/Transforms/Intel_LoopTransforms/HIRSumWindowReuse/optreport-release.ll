@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sum-window-reuse -hir-cg -simplifycfg -intel-ir-optreport-emitter -intel-loop-optreport=low -force-hir-cg -disable-output 2>&1 < %s | FileCheck %s
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sum-window-reuse,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-loop-optreport=low -force-hir-cg -disable-output 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sum-window-reuse -hir-cg -simplifycfg -intel-ir-optreport-emitter -intel-opt-report=low -force-hir-cg -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sum-window-reuse,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-opt-report=low -force-hir-cg -disable-output 2>&1 | FileCheck %s
 
 ; This test checks that OptReport generation in HIRSumWindowReuse is disabled in
 ; the release build.

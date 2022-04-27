@@ -401,11 +401,6 @@ class HIRParser {
   /// resulting value.
   const Value *traceSingleOperandPhis(const Value *Val) const;
 
-  /// Check if \p GEPOp is compatible with existing chain represented by \p
-  /// StridesV. If compatible, GEPOp strides will merged into StrideV.
-  bool isCompatibleGEOpWithChain(const GEPOrSubsOperator *GEPOp,
-                                 SmallVector<Value *, 8> &StridesV) const;
-
   // Returns true if it is valid to parse this GEPOrSubsOperator.
   bool isValidGEPOp(const GEPOrSubsOperator *GEPOp,
                     bool SkipLiveRangeCheck = false) const;
@@ -421,6 +416,14 @@ class HIRParser {
   /// Returns the element type of pointer phi in \p ElemTy if successful.
   CanonExpr *createHeaderPhiIndexCE(const PHINode *Phi, unsigned Level,
                                     Type **ElemTy);
+
+  /// Compare the sizes of current dimension element type
+  /// at the highest dimension of \p Ref and the dimension element type
+  /// of the new index CE.
+  /// Return true if the sizes are not the same.
+  /// Otherwise, currently, new index CE is added to indexCE of the existing
+  /// highest CE.
+  bool hasIncompatibleTypes(RegDDRef *Ref, Type *DimTy, Type *ElemTy) const;
 
   /// Wrapper for merging IndexCE2 into IndexCE1.
   static void mergeIndexCE(CanonExpr *IndexCE1, const CanonExpr *IndexCE2);

@@ -1,6 +1,6 @@
 //===------- DTransImmutableAnalysis.cpp - DTrans Immutable Analysis ------===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -107,8 +107,20 @@ DTransImmutableInfo::getConstantEntriesFromArray(StructType *StructTy,
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void DTransImmutableInfo::print(raw_ostream &OS) const {
+  // Create a vector which will be sorted by the Structure type for printing.
+  std::vector<std::pair<StructType *, StructInfo *>> StructsAndInfos;
+  StructsAndInfos.reserve(StructInfoMap.size());
+  std::copy(StructInfoMap.begin(), StructInfoMap.end(),
+            std::back_inserter(StructsAndInfos));
+  llvm::sort(StructsAndInfos,
+             [](const std::pair<StructType *, StructInfo *> &Entry1,
+                const std::pair<StructType *, StructInfo *> &Entry2) {
+               StructType *Ty1 = Entry1.first;
+               StructType *Ty2 = Entry2.first;
+               return dtrans::compareStructName(Ty1, Ty2);
+             });
 
-  for (auto &Info : StructInfoMap) {
+  for (auto &Info : StructsAndInfos) {
     OS << "StructType: ";
     Info.first->print(OS);
     OS << "\n";
@@ -120,12 +132,10 @@ void DTransImmutableInfo::print(raw_ostream &OS) const {
 
       OS.indent(4);
       OS << "Likely Values: ";
-
       for (auto &Val : FieldInfo.LikelyValues) {
         Val->printAsOperand(OS, false);
         OS << " ";
       }
-
       OS << "\n";
 
       OS.indent(4);
@@ -135,7 +145,6 @@ void DTransImmutableInfo::print(raw_ostream &OS) const {
         Val->printAsOperand(OS, false);
         OS << " ";
       }
-
       OS << "\n";
 
       if (!FieldInfo.ConstantEntriesInArray.empty()) {

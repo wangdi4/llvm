@@ -1,4 +1,21 @@
 //===- InlineAdvisor.h - Inlining decision making abstraction -*- C++ ---*-===//
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2021 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -10,11 +27,10 @@
 #define LLVM_ANALYSIS_INLINEADVISOR_H
 
 #include "llvm/Analysis/InlineCost.h"
-#include "llvm/Analysis/Utils/ImportedFunctionsInliningStatistics.h"
+#include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/PassManager.h"
 #include <memory>
-#include <unordered_set>
 
 namespace llvm {
 class BasicBlock;
@@ -23,6 +39,8 @@ class Function;
 class InlineReport;        // INTEL
 class InlineReportBuilder; // INTEL
 class Module;
+class OptimizationRemark;
+class ImportedFunctionsInliningStatistics;
 class OptimizationRemarkEmitter;
 struct ReplayInlinerSettings;
 
@@ -72,7 +90,9 @@ public:
   /// Call after inlining succeeded, and did not result in deleting the callee.
   void recordInlining();
 
-  /// Call after inlining succeeded, and resulted in deleting the callee.
+  /// Call after inlining succeeded, and results in the callee being
+  /// delete-able, meaning, it has no more users, and will be cleaned up
+  /// subsequently.
   void recordInliningWithCalleeDeleted();
 
   /// Call after the decision for a call site was to not inline.
@@ -174,14 +194,13 @@ public:
 
   /// This must be called when the Inliner pass is exited, as function passes
   /// may be run subsequently. This allows an implementation of InlineAdvisor
-  /// to prepare for a partial update.
-  virtual void onPassExit() {}
+  /// to prepare for a partial update, based on the optional SCC.
+  virtual void onPassExit(LazyCallGraph::SCC *SCC = nullptr) {}
 
-  /// Called when the module is invalidated. We let the advisor implementation
-  /// decide what to refresh - in the case of the development mode
-  /// implementation, for example, we wouldn't want to delete the whole object
-  /// and need to re-load the model evaluator.
-  virtual void onModuleInvalidated() {}
+  /// Support for printer pass
+  virtual void print(raw_ostream &OS) const {
+    OS << "Unimplemented InlineAdvisor print\n";
+  }
 
 protected:
   InlineAdvisor(Module &M, FunctionAnalysisManager &FAM);
@@ -198,19 +217,6 @@ protected:
   FunctionAnalysisManager &FAM;
   std::unique_ptr<ImportedFunctionsInliningStatistics> ImportedFunctionsStats;
 
-  /// We may want to defer deleting functions to after the inlining for a whole
-  /// module has finished. This allows us to reliably use function pointers as
-  /// unique identifiers, as an efficient implementation detail of the
-  /// InlineAdvisor. Otherwise, it is possible the memory allocator
-  /// re-allocate Function objects at the same address of a deleted Function;
-  /// and Functions are potentially created during the function passes called
-  /// after each SCC inlining (e.g. argument promotion does that).
-  void freeDeletedFunctions();
-
-  bool isFunctionDeleted(const Function *F) const {
-    return DeletedFunctions.count(F);
-  }
-
   enum class MandatoryInliningKind { NotMandatory, Always, Never };
 
   static MandatoryInliningKind getMandatoryKind(CallBase &CB,
@@ -221,8 +227,6 @@ protected:
 
 private:
   friend class InlineAdvice;
-  void markFunctionAsDeleted(Function *F);
-  std::unordered_set<const Function *> DeletedFunctions;
 };
 
 /// The default (manual heuristics) implementation of the InlineAdvisor. This
@@ -242,8 +246,6 @@ private:
             InlineCost **IC = nullptr) override;
 #endif // INTEL_CUSTOMIZATION
 
-  void onPassExit() override { freeDeletedFunctions(); }
-
   InlineParams Params;
 };
 
@@ -257,8 +259,6 @@ public:
     Result(Module &M, ModuleAnalysisManager &MAM) : M(M), MAM(MAM) {}
     bool invalidate(Module &, const PreservedAnalyses &PA,
                     ModuleAnalysisManager::Invalidator &) {
-      if (Advisor && !PA.areAllPreserved())
-        Advisor->onModuleInvalidated();
       // Check whether the analysis has been explicitly invalidated. Otherwise,
       // it's stateless and remains preserved.
       auto PAC = PA.getChecker<InlineAdvisorAnalysis>();
@@ -277,16 +277,23 @@ public:
   Result run(Module &M, ModuleAnalysisManager &MAM) { return Result(M, MAM); }
 };
 
-#ifdef LLVM_HAVE_TF_AOT
+/// Printer pass for the FunctionPropertiesAnalysis results.
+class InlineAdvisorAnalysisPrinterPass
+    : public PassInfoMixin<InlineAdvisorAnalysisPrinterPass> {
+  raw_ostream &OS;
+
+public:
+  explicit InlineAdvisorAnalysisPrinterPass(raw_ostream &OS) : OS(OS) {}
+
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
+};
+
 std::unique_ptr<InlineAdvisor>
 getReleaseModeAdvisor(Module &M, ModuleAnalysisManager &MAM);
-#endif
 
-#ifdef LLVM_HAVE_TF_API
 std::unique_ptr<InlineAdvisor>
 getDevelopmentModeAdvisor(Module &M, ModuleAnalysisManager &MAM,
                           std::function<bool(CallBase &)> GetDefaultAdvice);
-#endif
 
 // Default (manual policy) decision making helper APIs. Shared with the legacy
 // pass manager inliner.

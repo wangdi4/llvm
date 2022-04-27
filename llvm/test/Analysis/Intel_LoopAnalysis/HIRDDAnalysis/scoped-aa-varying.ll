@@ -1,7 +1,7 @@
-; RUN: opt -hir-ssa-deconstruction %s | opt -scoped-noalias-aa -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction %s | opt -scoped-noalias-aa -analyze -hir-dd-analysis -hir-dd-analysis-verify=L2,L1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction %s | opt -scoped-noalias-aa -analyze -hir-dd-analysis -hir-dd-analysis-verify=L1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction %s | opt -scoped-noalias-aa -analyze -hir-dd-analysis -hir-dd-analysis-verify=L2 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction %s | opt -scoped-noalias-aa -analyze -enable-new-pm=0 -hir-dd-analysis -hir-dd-analysis-verify=Region | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction %s | opt -scoped-noalias-aa -analyze -enable-new-pm=0 -hir-dd-analysis -hir-dd-analysis-verify=L2,L1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction %s | opt -scoped-noalias-aa -analyze -enable-new-pm=0 -hir-dd-analysis -hir-dd-analysis-verify=L1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction %s | opt -scoped-noalias-aa -analyze -enable-new-pm=0 -hir-dd-analysis -hir-dd-analysis-verify=L2 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction" | opt -passes="require<scoped-noalias-aa>,print<hir-dd-analysis>"  -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction" | opt -passes="require<scoped-noalias-aa>,print<hir-dd-analysis>"  -hir-dd-analysis-verify=L2,L1 -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction" | opt -passes="require<scoped-noalias-aa>,print<hir-dd-analysis>"  -hir-dd-analysis-verify=L1 -disable-output 2>&1 | FileCheck %s

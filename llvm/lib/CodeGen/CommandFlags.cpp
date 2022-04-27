@@ -1,4 +1,21 @@
 //===-- CommandFlags.cpp - Command Line Flags Interface ---------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,7 +30,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/CommandFlags.h"
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/Triple.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
+#include "llvm/MC/MCTargetOptionsCommandFlags.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Host.h"
@@ -58,6 +80,7 @@ CGOPT(bool, EnableUnsafeFPMath)
 CGOPT(bool, EnableNoInfsFPMath)
 CGOPT(bool, EnableNoNaNsFPMath)
 CGOPT(bool, EnableNoSignedZerosFPMath)
+CGOPT(bool, EnableApproxFuncFPMath)
 CGOPT(bool, EnableNoTrappingFPMath)
 CGOPT(bool, EnableAIXExtendedAltivecABI)
 CGOPT(DenormalMode::DenormalModeKind, DenormalFPMath)
@@ -73,6 +96,7 @@ CGOPT(bool, StackSymbolOrdering)
 CGOPT(bool, StackRealign)
 CGOPT(std::string, TrapFuncName)
 CGOPT(bool, UseCtors)
+CGOPT(bool, LowerGlobalDtorsViaCxaAtExit)
 CGOPT(bool, RelaxELFRelocations)
 CGOPT_EXP(bool, DataSections)
 CGOPT_EXP(bool, FunctionSections)
@@ -91,15 +115,21 @@ CGOPT(bool, EnableAddrsig)
 CGOPT(bool, EnableIntelAdvancedOpts)
 CGOPT(int, X87Precision)
 CGOPT(bool, DoFMAOpt)
+CGOPT(bool, IntelSpillParms)
 #endif // INTEL_CUSTOMIZATION
 CGOPT(bool, EmitCallSiteInfo)
 CGOPT(bool, EnableMachineFunctionSplitter)
 CGOPT(bool, EnableDebugEntryValues)
-CGOPT_EXP(bool, ValueTrackingVariableLocations)
 CGOPT(bool, ForceDwarfFrameSection)
 CGOPT(bool, XRayOmitFunctionIndex)
 CGOPT(bool, DebugStrictDwarf)
 CGOPT(unsigned, AlignLoops)
+CGOPT(bool, JMCInstrument)
+
+#if INTEL_CUSTOMIZATION
+extern cl::opt<bool> IntelLibIRCAllowed;
+extern cl::opt<bool> IntelABICompatible;
+#endif // INTEL_CUSTOMIZATION
 
 codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
 #define CGBINDOPT(NAME)                                                        \
@@ -224,6 +254,12 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
       cl::init(false));
   CGBINDOPT(EnableNoSignedZerosFPMath);
 
+  static cl::opt<bool> EnableApproxFuncFPMath(
+      "enable-approx-func-fp-math",
+      cl::desc("Enable FP math optimizations that assume approx func"),
+      cl::init(false));
+  CGBINDOPT(EnableApproxFuncFPMath);
+
   static cl::opt<bool> EnableNoTrappingFPMath(
       "enable-no-trapping-fp-math",
       cl::desc("Enable setting the FP exceptions build "
@@ -339,6 +375,12 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
                                 cl::init(false));
   CGBINDOPT(UseCtors);
 
+  static cl::opt<bool> LowerGlobalDtorsViaCxaAtExit(
+      "lower-global-dtors-via-cxa-atexit",
+      cl::desc("Lower llvm.global_dtors (global destructors) via __cxa_atexit"),
+      cl::init(true));
+  CGBINDOPT(LowerGlobalDtorsViaCxaAtExit);
+
   static cl::opt<bool> RelaxELFRelocations(
       "relax-elf-relocations",
       cl::desc(
@@ -445,6 +487,12 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
                                 cl::desc("Enable the global FMA opt."),
                                 cl::init(true), cl::Hidden);
   CGBINDOPT(DoFMAOpt);
+
+  /// This internal switch can be used to turn on the spill parameters feature.
+  static cl::opt<bool> IntelSpillParms("intel-spill-parms",
+                                       cl::desc("Enable spill parameters."),
+                                       cl::init(false), cl::Hidden);
+  CGBINDOPT(IntelSpillParms);
 #endif // INTEL_CUSTOMIZATION
 
   static cl::opt<bool> EmitCallSiteInfo(
@@ -459,12 +507,6 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
       cl::desc("Enable debug info for the debug entry values."),
       cl::init(false));
   CGBINDOPT(EnableDebugEntryValues);
-
-  static cl::opt<bool> ValueTrackingVariableLocations(
-      "experimental-debug-variable-locations",
-      cl::desc("Use experimental new value-tracking variable locations"),
-      cl::init(false));
-  CGBINDOPT(ValueTrackingVariableLocations);
 
   static cl::opt<bool> EnableMachineFunctionSplitter(
       "split-machine-functions",
@@ -490,6 +532,12 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
   static cl::opt<unsigned> AlignLoops("align-loops",
                                       cl::desc("Default alignment for loops"));
   CGBINDOPT(AlignLoops);
+
+  static cl::opt<bool> JMCInstrument(
+      "enable-jmc-instrument",
+      cl::desc("Instrument functions with a call to __CheckForDebuggerJustMyCode"),
+      cl::init(false));
+  CGBINDOPT(JMCInstrument);
 
 #undef CGBINDOPT
 
@@ -527,6 +575,7 @@ codegen::InitTargetOptionsFromCodeGenFlags(const Triple &TheTriple) {
   Options.NoInfsFPMath = getEnableNoInfsFPMath();
   Options.NoNaNsFPMath = getEnableNoNaNsFPMath();
   Options.NoSignedZerosFPMath = getEnableNoSignedZerosFPMath();
+  Options.ApproxFuncFPMath = getEnableApproxFuncFPMath();
   Options.NoTrappingFPMath = getEnableNoTrappingFPMath();
 
   DenormalMode::DenormalModeKind DenormKind = getDenormalFPMath();
@@ -543,6 +592,7 @@ codegen::InitTargetOptionsFromCodeGenFlags(const Triple &TheTriple) {
   Options.GuaranteedTailCallOpt = getEnableGuaranteedTailCallOpt();
   Options.StackSymbolOrdering = getStackSymbolOrdering();
   Options.UseInitArray = !getUseCtors();
+  Options.LowerGlobalDtorsViaCxaAtExit = getLowerGlobalDtorsViaCxaAtExit();
   Options.RelaxELFRelocations = getRelaxELFRelocations();
   Options.DataSections =
       getExplicitDataSections().getValueOr(TheTriple.hasDefaultDataSections());
@@ -561,8 +611,11 @@ codegen::InitTargetOptionsFromCodeGenFlags(const Triple &TheTriple) {
   Options.EmitAddrsig = getEnableAddrsig();
 #if INTEL_CUSTOMIZATION
   Options.IntelAdvancedOptim = getEnableIntelAdvancedOpts();
+  Options.IntelLibIRCAllowed = IntelLibIRCAllowed;
   Options.X87Precision = getX87Precision();
   Options.DoFMAOpt = getDoFMAOpt();
+  Options.IntelSpillParms = getIntelSpillParms();
+  Options.IntelABICompatible = IntelABICompatible;
 #endif // INTEL_CUSTOMIZATION
   Options.EmitCallSiteInfo = getEmitCallSiteInfo();
   Options.EnableDebugEntryValues = getEnableDebugEntryValues();
@@ -570,12 +623,7 @@ codegen::InitTargetOptionsFromCodeGenFlags(const Triple &TheTriple) {
   Options.XRayOmitFunctionIndex = getXRayOmitFunctionIndex();
   Options.DebugStrictDwarf = getDebugStrictDwarf();
   Options.LoopAlignment = getAlignLoops();
-
-  if (auto Opt = getExplicitValueTrackingVariableLocations())
-    Options.ValueTrackingVariableLocations = *Opt;
-  else
-    Options.ValueTrackingVariableLocations =
-        getDefaultValueTrackingVariableLocations(TheTriple);
+  Options.JMCInstrument = getJMCInstrument();
 
   Options.MCOptions = mc::InitMCTargetOptionsFromFlags();
 
@@ -652,7 +700,7 @@ void codegen::setFunctionAttributes(StringRef CPU, StringRef Features,
                                     Function &F) {
   auto &Ctx = F.getContext();
   AttributeList Attrs = F.getAttributes();
-  AttrBuilder NewAttrs;
+  AttrBuilder NewAttrs(Ctx);
 
   if (!CPU.empty() && !F.hasFnAttribute("target-cpu"))
     NewAttrs.addAttribute("target-cpu", CPU);
@@ -688,6 +736,7 @@ void codegen::setFunctionAttributes(StringRef CPU, StringRef Features,
   HANDLE_BOOL_ATTR(EnableNoInfsFPMathView, "no-infs-fp-math");
   HANDLE_BOOL_ATTR(EnableNoNaNsFPMathView, "no-nans-fp-math");
   HANDLE_BOOL_ATTR(EnableNoSignedZerosFPMathView, "no-signed-zeros-fp-math");
+  HANDLE_BOOL_ATTR(EnableApproxFuncFPMathView, "approx-func-fp-math");
 
   if (DenormalFPMathView->getNumOccurrences() > 0 &&
       !F.hasFnAttribute("denormal-fp-math")) {
@@ -730,8 +779,3 @@ void codegen::setFunctionAttributes(StringRef CPU, StringRef Features,
     setFunctionAttributes(CPU, Features, F);
 }
 
-bool codegen::getDefaultValueTrackingVariableLocations(const llvm::Triple &T) {
-  if (T.getArch() == llvm::Triple::x86_64)
-    return true;
-  return false;
-}

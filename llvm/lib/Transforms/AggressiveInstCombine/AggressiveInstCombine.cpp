@@ -1,4 +1,21 @@
 //===- AggressiveInstCombine.cpp ------------------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -24,7 +41,6 @@
 #include "llvm/Analysis/Intel_WP.h"            // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -36,6 +52,10 @@
 
 using namespace llvm;
 using namespace PatternMatch;
+
+namespace llvm {
+class DataLayout;
+}
 
 #define DEBUG_TYPE "aggressive-instcombine"
 
@@ -201,14 +221,13 @@ static bool foldGuardedFunnelShift(Instruction &I, const DominatorTree &DT) {
 /// of 'and' ops, then we also need to capture the fact that we saw an
 /// "and X, 1", so that's an extra return value for that case.
 struct MaskOps {
-  Value *Root;
+  Value *Root = nullptr;
   APInt Mask;
   bool MatchAndChain;
-  bool FoundAnd1;
+  bool FoundAnd1 = false;
 
   MaskOps(unsigned BitWidth, bool MatchAnds)
-      : Root(nullptr), Mask(APInt::getZero(BitWidth)), MatchAndChain(MatchAnds),
-        FoundAnd1(false) {}
+      : Mask(APInt::getZero(BitWidth)), MatchAndChain(MatchAnds) {}
 };
 
 /// This is a recursive helper for foldAnyOrAllBitsSet() that walks through a

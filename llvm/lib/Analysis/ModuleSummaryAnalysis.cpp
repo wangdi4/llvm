@@ -1,4 +1,21 @@
 //===- ModuleSummaryAnalysis.cpp - Module summary index builder -----------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -38,7 +55,6 @@
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ModuleSummaryIndex.h"
@@ -497,8 +513,7 @@ static void computeFunctionSummary(
                               HasIndirBranchToBlockAddress;
   GlobalValueSummary::GVFlags Flags(
       F.getLinkage(), F.getVisibility(), NotEligibleForImport,
-      /* Live = */ false, F.isDSOLocal(),
-      F.hasLinkOnceODRLinkage() && F.hasGlobalUnnamedAddr());
+      /* Live = */ false, F.isDSOLocal(), F.canBeOmittedFromSymbolTable());
   FunctionSummary::FFlags FunFlags{
       F.hasFnAttribute(Attribute::ReadNone),
       F.hasFnAttribute(Attribute::ReadOnly),
@@ -619,8 +634,7 @@ static void computeVariableSummary(ModuleSummaryIndex &Index,
   bool NonRenamableLocal = isNonRenamableLocal(V);
   GlobalValueSummary::GVFlags Flags(
       V.getLinkage(), V.getVisibility(), NonRenamableLocal,
-      /* Live = */ false, V.isDSOLocal(),
-      V.hasLinkOnceODRLinkage() && V.hasGlobalUnnamedAddr());
+      /* Live = */ false, V.isDSOLocal(), V.canBeOmittedFromSymbolTable());
 
   VTableFuncList VTableFuncs;
   // If splitting is not enabled, then we compute the summary information
@@ -683,8 +697,7 @@ computeAliasSummary(ModuleSummaryIndex &Index, const GlobalAlias &A,
   bool NonRenamableLocal = isNonRenamableLocal(A);
   GlobalValueSummary::GVFlags Flags(
       A.getLinkage(), A.getVisibility(), NonRenamableLocal,
-      /* Live = */ false, A.isDSOLocal(),
-      A.hasLinkOnceODRLinkage() && A.hasGlobalUnnamedAddr());
+      /* Live = */ false, A.isDSOLocal(), A.canBeOmittedFromSymbolTable());
   auto AS = std::make_unique<AliasSummary>(Flags);
   auto *Aliasee = A.getAliaseeObject();
   auto AliaseeVI = Index.getValueInfo(Aliasee->getGUID());
@@ -761,8 +774,7 @@ ModuleSummaryIndex llvm::buildModuleSummaryIndex(
               GlobalValue::InternalLinkage, GlobalValue::DefaultVisibility,
               /* NotEligibleToImport = */ true,
               /* Live = */ true,
-              /* Local */ GV->isDSOLocal(),
-              GV->hasLinkOnceODRLinkage() && GV->hasGlobalUnnamedAddr());
+              /* Local */ GV->isDSOLocal(), GV->canBeOmittedFromSymbolTable());
           CantBePromoted.insert(GV->getGUID());
           // Create the appropriate summary type.
           if (Function *F = dyn_cast<Function>(GV)) {

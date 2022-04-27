@@ -31,6 +31,7 @@ struct KernelConfig {
   std::string Name;
   uint8_t SPMDSIMDWidth{0};
   uint64_t ThreadLimit{0};
+  uint64_t NumTeams{0};
 };
 
 struct Config {
@@ -67,6 +68,7 @@ public:
 
   uint8_t getKernelSPMDSIMDWidth(StringRef Name) const;
   uint64_t getKernelThreadLimit(StringRef Name) const;
+  uint64_t getKernelNumTeams(StringRef Name) const;
 };
 
 class VPOParoptConfigAnalysis :

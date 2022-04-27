@@ -1,6 +1,6 @@
 //===--------------------DTransSafetyAnalyzer.h--------------------------===//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -26,6 +26,7 @@
 
 namespace llvm {
 class BlockFrequencyInfo;
+class DTransImmutableInfo;
 class Function;
 class GEPOperator;
 class Module;
@@ -37,6 +38,7 @@ class DTransType;
 class DTransTypeManager;
 class PtrTypeAnalyzer;
 class TypeMetadataReader;
+class DTransRelatedTypesUtils;
 
 // This class holds the results of the safety analysis of the aggregate
 // types, and provides the interfaces needed by the transformations to query
@@ -69,6 +71,12 @@ public:
 
   ~DTransSafetyInfo();
 
+  // Returns true if the module requires runtime validation of possible bad cast
+  // issues. Returns functions where runtime checks are required.
+  bool requiresBadCastValidation(SetVector<Function *> &Func,
+                                 unsigned &ArgumentIndex,
+                                 unsigned &StructIndex) const;
+
   /// Handle invalidation events in the new pass manager.
   bool invalidate(Module &M, const PreservedAnalyses &PA,
                   ModuleAnalysisManager::Invalidator &Inv);
@@ -89,6 +97,7 @@ public:
 
   // Collect the safety bits for the structure types
   void analyzeModule(Module &M, GetTLIFnType GetTLI, WholeProgramInfo &WPInfo,
+                     DTransImmutableInfo *DTImmutInfo,
                      function_ref<BlockFrequencyInfo &(Function &)> GetBFI);
 
   // Cleanup memory, and set object back to default state.
@@ -273,6 +282,7 @@ public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAnalyzedTypes();
   void printCallInfo();
+  void printArraysWithConstantEntriesInformation();
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
@@ -328,6 +338,10 @@ private:
   // Indicates whether the module was completely analyzed for safety checks.
   bool DTransSafetyAnalysisRan = false;
 
+  // A set of functions where bad cast safety issue validation required in
+  // runtime.
+  SetVector<Function *> FunctionsRequireBadCastValidation;
+
   // Indicates that a Fortran function was seen. This will disable
   // DTransUseCRuleCompat.
   bool SawFortran = false;
@@ -337,6 +351,16 @@ private:
   DTransType *getFieldTy(StructType *STy, unsigned Idx);
 
   DTransType *getFieldPETy(StructType *STy, unsigned Idx);
+
+  // Helper utility to handle the related types (types with ABI padding and
+  // base).
+  std::unique_ptr<DTransRelatedTypesUtils> RelatedTypesUtils;
+
+  // Finalize the analysis for the fields that are arrays with constant entries
+  void postProcessArraysWithConstantEntries();
+
+  // Create a dtrans::TypeInfo for the input DTransType
+  dtrans::TypeInfo *createTypeInfo(DTransType *Ty);
 };
 
 class DTransSafetyAnalyzer : public AnalysisInfoMixin<DTransSafetyAnalyzer> {

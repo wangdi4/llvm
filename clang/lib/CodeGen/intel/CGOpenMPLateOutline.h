@@ -1,5 +1,22 @@
 #if INTEL_COLLAB                                           // -*- C++ -*-
 //===--- CGOpenMPLateOutline.h - OpenMP Late-Outlining --------*- C++ -*---===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -89,6 +106,7 @@ class OpenMPLateOutliner {
     bool Simd = false;
     bool Always = false;
     bool Close = false;
+    bool Present = false;
     bool Cmplx = false;
     bool PtrToPtr = false;
     bool Chain = false;
@@ -127,6 +145,8 @@ class OpenMPLateOutliner {
         addSeparated("ALWAYS");
       if (Close)
         addSeparated("CLOSE");
+      if (Present)
+        addSeparated("PRESENT");
       if (Cmplx)
         addSeparated("CMPLX");
       if (PtrToPtr)
@@ -162,6 +182,7 @@ class OpenMPLateOutliner {
     void setSimd() { Simd = true; }
     void setAlways() { Always = true; }
     void setClose() { Close =  true; }
+    void setPresent() { Present =  true; }
     void setCmplx() { Cmplx = true; }
     void setPtrToPtr() {PtrToPtr = true; }
     void setChain() { Chain = true; }
@@ -194,6 +215,7 @@ class OpenMPLateOutliner {
     ICK_normalized_ub,
     // A firstprivate specified with an implicit OMPFirstprivateClause.
     ICK_specified_firstprivate,
+    ICK_livein,
     ICK_unknown
   };
 
@@ -237,19 +259,21 @@ class OpenMPLateOutliner {
 
   // Add a llvm::Value directly.
   void addArg(llvm::Value *V, bool Handled = false, bool IsTyped = false,
-              bool IsRef = false, llvm::Value *ZeroValue = nullptr,
+              llvm::Type *ElementType = nullptr,
+              llvm::Value *ZeroValue = nullptr,
               llvm::Value *NumElements = nullptr);
 
   // Add an llvm::Value with extra 'typed' arguments.
-  void addNoElementTypedArg(llvm::Value *V, bool Handled = false,
-                            bool IsRef = false);
+  void addNoElementTypedArg(llvm::Value *V, llvm::Type *ElementType,
+                            bool Handled = false);
 
-  void addSingleElementTypedArg(llvm::Value *V, bool Handled = false,
-                                bool IsRef = false);
+  void addSingleElementTypedArg(llvm::Value *V, llvm::Type *ElementType,
+                                bool Handled = false);
 
   // Add an argument that is the result of emitting an Expr.
   void addArg(const Expr *E, bool IsRef = false, bool IsTyped = false,
-              bool NeedsTypedElements = true);
+              bool NeedsTypedElements = true,
+              llvm::Type *ElementType = nullptr);
 
   // Add through the Expr with 'typed' arguments.
   void addTypedArg(const Expr *E, bool IsRef = false,
@@ -277,6 +301,7 @@ class OpenMPLateOutliner {
                          const SmallVector<OpenMPMapModifierKind, 1> Modifiers,
                          const VarDecl *MapVar);
   void emitOMPAllMapClauses();
+  void emitOMPAllDependClauses();
   void emitOMPMapClause(const OMPMapClause *C);
   void emitOMPScheduleClause(const OMPScheduleClause *C);
   void emitOMPFirstprivateClause(const OMPFirstprivateClause *Cl);
@@ -348,6 +373,7 @@ class OpenMPLateOutliner {
   void emitOMPAffinityClause(const OMPAffinityClause *);
   void emitOMPSizesClause(const OMPSizesClause *);
   void emitOMPUseDeviceAddrClause(const OMPUseDeviceAddrClause *);
+  void emitOMPHasDeviceAddrClause(const OMPHasDeviceAddrClause *);
   void emitOMPInitClause(const OMPInitClause *);
   void emitOMPUseClause(const OMPUseClause *);
   void emitOMPNovariantsClause(const OMPNovariantsClause *);
@@ -414,13 +440,12 @@ class OpenMPLateOutliner {
   std::set<const VarDecl *, VarCompareTy> VarRefs;
   llvm::DenseSet<const VarDecl *> FirstPrivateVars;
   llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapTemps;
-  llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapFPrivates;
 #if INTEL_CUSTOMIZATION
   llvm::MapVector<const VarDecl *, std::string> OptRepFPMapInfos;
 #endif  // INTEL_CUSTOMIZATION
 
-  std::vector<llvm::WeakTrackingVH> DefinedValues;
-  std::vector<llvm::WeakTrackingVH> ReferencedValues;
+  std::vector<std::pair<llvm::WeakTrackingVH, llvm::Type *>> DefinedValues;
+  std::vector<std::pair<llvm::WeakTrackingVH, llvm::Type *>> ReferencedValues;
   llvm::DenseSet<llvm::Value *> HandledValues;
 
   bool UseTypedClauses = false;
@@ -443,14 +468,11 @@ public:
       llvm::Type *Ty = MT.first->getType();
       Address A = CGF.CreateDefaultAlignTempAlloca(Ty, MT.second->getName() +
                                                            ".map.ptr.tmp");
+      if (MT.second->getType()->isReferenceType())
+        A.setRemovedReference();
       CGF.Builder.CreateStore(MT.first, A);
       PrivateScope.addPrivateNoTemps(MT.second, [A]() -> Address { return A; });
       CGF.addMappedTemp(MT.second, MT.second->getType()->isReferenceType());
-    }
-    for (auto FP : MapFPrivates) {
-      llvm::Value *V = FP.first;
-      Address A = Address(V, CGF.getContext().getDeclAlign(FP.second));
-      PrivateScope.addPrivateNoTemps(FP.second, [A]() -> Address { return A; });
     }
     PrivateScope.Privatize();
   }
@@ -501,6 +523,7 @@ public:
   void emitOMPInteropDirective();
   void emitOMPPrefetchDirective();
   void emitOMPScopeDirective();
+  void emitOMPScanDirective();
   void emitVLAExpressions() {
     if (needsVLAExprEmission())
       CGF.VLASizeMapHandler->EmitVLASizeExpressions();
@@ -511,17 +534,18 @@ public:
   void emitImplicitLoopBounds(const OMPLoopDirective *LD);
   void emitImplicit(Expr *E, ImplicitClauseKind K);
   void emitImplicit(const VarDecl *VD, ImplicitClauseKind K);
-  void emitImplicit(llvm::Value *V, ImplicitClauseKind K);
+  void emitImplicit(llvm::Value *V, llvm::Type *ElementType,
+                    ImplicitClauseKind K, bool Handled = false);
   void addVariableDef(const VarDecl *VD) { VarDefs.insert(VD); }
   void addVariableRef(const VarDecl *VD) { VarRefs.insert(VD); }
   void addFirstPrivateVars(const VarDecl *VD) { FirstPrivateVars.insert(VD); }
-  void addValueDef(llvm::Value *V) {
+  void addValueDef(llvm::Value *V, llvm::Type *ElemTy) {
     llvm::WeakTrackingVH VH = V;
-    DefinedValues.push_back(VH);
+    DefinedValues.push_back({VH, ElemTy});
   }
-  void addValueRef(llvm::Value *V) {
+  void addValueRef(llvm::Value *V, llvm::Type *ElemTy) {
     llvm::WeakTrackingVH VH = V;
-    ReferencedValues.push_back(VH);
+    ReferencedValues.push_back({VH, ElemTy});
   }
   void addValueSuppress(llvm::Value *V) { HandledValues.insert(V); }
   OpenMPDirectiveKind getCurrentDirectiveKind() { return CurrentDirectiveKind; }
@@ -543,7 +567,27 @@ public:
     // Create a marker call at the start of the region.  The values generated
     // from clauses must be inserted before this point.
     ApplyDebugLocation DL (CGF, Directive.getBeginLoc());
-    MarkerInstruction = CGF.Builder.CreateCall(RegionEntryDirective, {});
+    // Create a marker for each directive.
+    for (auto &D : Directives)
+      D.CallEntry = CGF.Builder.CreateCall(RegionEntryDirective, {});
+    // If there are directives use the first directive as the main marker
+    // for clauses.
+    MarkerInstruction = Directives.empty()
+                            ? CGF.Builder.CreateCall(RegionEntryDirective, {})
+                            : Directives[0].CallEntry;
+  }
+  llvm::Value *emitSpecialSIMDExpression(const Expr* E) {
+    if (Directives.empty() ||
+        Directives[Directives.size() - 1].DKind != llvm::omp::OMPD_simd)
+      return CGF.EmitScalarExpr(E);
+
+    // Emit an expression just above the SIMD directive.
+    CGBuilderTy::InsertPoint SavedIP = CGF.Builder.saveIP();
+    const DirectiveIntrinsicSet &D = Directives[Directives.size() - 1];
+    CGF.Builder.SetInsertPoint(D.CallEntry);
+    llvm::Value *V = CGF.EmitScalarExpr(E);
+    CGF.Builder.restoreIP(SavedIP);
+    return V;
   }
   static bool isFirstDirectiveInSet(const OMPExecutableDirective &S,
                                     OpenMPDirectiveKind Kind);
@@ -631,12 +675,12 @@ public:
   void recordVariableReference(const VarDecl *VD) override {
     Outliner.addVariableRef(VD);
   }
-  void recordValueDefinition(llvm::Value *V) override {
-    Outliner.addValueDef(V);
-    Outliner.addValueRef(V);
+  void recordValueDefinition(llvm::Value *V, llvm::Type *ElemTy) override {
+    Outliner.addValueDef(V, ElemTy);
+    Outliner.addValueRef(V, ElemTy);
   }
-  void recordValueReference(llvm::Value *V) override {
-    Outliner.addValueRef(V);
+  void recordValueReference(llvm::Value *V, llvm::Type *ElemTy) override {
+    Outliner.addValueRef(V, ElemTy);
   }
   void recordValueSuppression(llvm::Value *V) override {
     Outliner.addValueSuppress(V);

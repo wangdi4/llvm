@@ -1,4 +1,21 @@
 //===- llvm/Analysis/AliasAnalysis.h - Alias Analysis Interface -*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -38,7 +55,6 @@
 #define LLVM_ANALYSIS_ALIASANALYSIS_H
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/None.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/MemoryLocation.h"
@@ -61,11 +77,11 @@ class DominatorTree;
 class FenceInst;
 class Function;
 class IntrinsicInst;    // INTEL
-class InvokeInst;
 class LoopInfo;
 class PreservedAnalyses;
 class TargetLibraryInfo;
 class Value;
+template <typename> class SmallPtrSetImpl;
 
 /// The possible results of an alias query.
 ///
@@ -419,8 +435,12 @@ class EarliestEscapeInfo final : public CaptureInfo {
   /// This is used for cache invalidation purposes.
   DenseMap<Instruction *, TinyPtrVector<const Value *>> Inst2Obj;
 
+  const SmallPtrSetImpl<const Value *> &EphValues;
+
 public:
-  EarliestEscapeInfo(DominatorTree &DT, const LoopInfo &LI) : DT(DT), LI(LI) {}
+  EarliestEscapeInfo(DominatorTree &DT, const LoopInfo &LI,
+                     const SmallPtrSetImpl<const Value *> &EphValues)
+      : DT(DT), LI(LI), EphValues(EphValues) {}
 
   bool isNotCapturedBeforeOrAt(const Value *Object,
                                unsigned PtrCaptureMaxUses, // INTEL
@@ -775,7 +795,7 @@ public:
 
   /// Checks if functions with the specified behavior are known to only write
   /// memory (or not access memory at all).
-  static bool doesNotReadMemory(FunctionModRefBehavior MRB) {
+  static bool onlyWritesMemory(FunctionModRefBehavior MRB) {
     return !isRefSet(createModRefInfo(MRB));
   }
 
@@ -1503,6 +1523,14 @@ bool isIdentifiedObject(const Value *V);
 /// arguments other than itself, which is not necessarily true for
 /// IdentifiedObjects.
 bool isIdentifiedFunctionLocal(const Value *V);
+
+/// Return true if Object memory is not visible after an unwind, in the sense
+/// that program semantics cannot depend on Object containing any particular
+/// value on unwind. If the RequiresNoCaptureBeforeUnwind out parameter is set
+/// to true, then the memory is only not visible if the object has not been
+/// captured prior to the unwind. Otherwise it is not visible even if captured.
+bool isNotVisibleOnUnwind(const Value *Object,
+                          bool &RequiresNoCaptureBeforeUnwind);
 
 /// A manager for alias analyses.
 ///

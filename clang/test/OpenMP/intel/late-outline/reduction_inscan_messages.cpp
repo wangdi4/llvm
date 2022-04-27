@@ -6,12 +6,12 @@
 // warnings and are ignored.
 
 #define N 16
-
+int scan_a;
 int main(){
-  int a[N], simd_scan[N], scan_a;
+  int a[N], simd_scan[N];
   scan_a = 0;
   // expected-warning@+1 {{unsupported modifier 'inscan' - ignored}}
-  #pragma omp simd reduction(inscan, +:scan_a)
+  #pragma omp for simd reduction(inscan, +:scan_a)
   for(int i = 0; i < N; i++){
     scan_a += a[i];
     // expected-warning@+1 {{OpenMP directive 'scan' unimplemented - ignored}}

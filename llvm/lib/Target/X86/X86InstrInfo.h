@@ -1,4 +1,21 @@
 //===-- X86InstrInfo.h - X86 Instruction Information ------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -40,13 +57,21 @@ std::pair<CondCode, bool> getX86ConditionCode(CmpInst::Predicate Predicate);
 /// Return a cmov opcode for the given register size in bytes, and operand type.
 unsigned getCMovOpcode(unsigned RegBytes, bool HasMemoryOperand = false);
 
-// Turn jCC instruction into condition code.
+/// Return the source operand # for condition code by \p MCID. If the
+/// instruction doesn't have a condition code, return -1.
+int getCondSrcNoFromDesc(const MCInstrDesc &MCID);
+
+/// Return the condition code of the instruction. If the instruction doesn't
+/// have a condition code, return X86::COND_INVALID.
+CondCode getCondFromMI(const MachineInstr &MI);
+
+// Turn JCC instruction into condition code.
 CondCode getCondFromBranch(const MachineInstr &MI);
 
-// Turn setCC instruction into condition code.
+// Turn SETCC instruction into condition code.
 CondCode getCondFromSETCC(const MachineInstr &MI);
 
-// Turn CMov instruction into condition code.
+// Turn CMOV instruction into condition code.
 CondCode getCondFromCMov(const MachineInstr &MI);
 
 /// GetOppositeBranchCondition - Return the inverse of the specified cond,
@@ -569,7 +594,7 @@ public:
   MachineBasicBlock::iterator
   insertOutlinedCall(Module &M, MachineBasicBlock &MBB,
                      MachineBasicBlock::iterator &It, MachineFunction &MF,
-                     const outliner::Candidate &C) const override;
+                     outliner::Candidate &C) const override;
 
   bool isVecSpillInst(const MachineInstr &MI) const; // INTEL
 #define GET_INSTRINFO_HELPER_DECLS
@@ -661,7 +686,8 @@ private:
   ///   CMP %1, %2   and  %3 = SUB %2, %1  ; IsSwapped=true
   bool isRedundantFlagInstr(const MachineInstr &FlagI, Register SrcReg,
                             Register SrcReg2, int64_t ImmMask, int64_t ImmValue,
-                            const MachineInstr &OI, bool *IsSwapped) const;
+                            const MachineInstr &OI, bool *IsSwapped,
+                            int64_t *ImmDelta) const;
 };
 
 } // namespace llvm

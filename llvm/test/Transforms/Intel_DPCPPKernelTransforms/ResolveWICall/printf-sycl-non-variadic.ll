@@ -53,7 +53,7 @@ declare i32 @printf(i8 addrspace(2)*, ...) #0
 ; CHECK-NEXT: [[GEP12:%[0-9]+]] = getelementptr inbounds [72 x i8], [72 x i8]* %temp_arg_buf, i32 0, i32 64
 ; CHECK-NEXT: %arg_val9 = bitcast i8* [[GEP12]] to i64*
 ; CHECK-NEXT: store i64 %{{.*}}, i64* %arg_val9, align 1
-; CHECK-NEXT: %translated_opencl_printf_call = call i32 @opencl_printf(i8 addrspace(2)* %7, i8* [[GEP0]]
+; CHECK-NEXT: %translated_opencl_printf_call = call i32 @__opencl_printf(i8 addrspace(2)* %7, i8* [[GEP0]]
 
 ; Function Attrs: noinline nounwind optnone
 define void @_Z11do_d_i_testv(i8 addrspace(3)* noalias %pLocalMemBase, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias %pWorkDim, i64* noalias %pWGId, [4 x i64] %BaseGlbId, i8* noalias %pSpecialBuf, {}* noalias %RuntimeHandle) #1 {

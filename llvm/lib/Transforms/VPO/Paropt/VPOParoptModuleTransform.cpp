@@ -1,4 +1,19 @@
 #if INTEL_COLLAB
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //===--- VPOParoptModuleTranform.cpp - Paropt Module Transforms --- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -35,7 +50,7 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#include "llvm/Transforms/Utils/InferAddressSpacesUtils.h"
+#include "llvm/Transforms/Utils/Intel_InferAddressSpacesUtils.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -54,10 +69,6 @@ static constexpr char LLVM_INTRIN_PREF0[] = "llvm.";
 static cl::opt<bool> PreserveDeviceIntrin(
   "vpo-paropt-preserve-llvm-intrin", cl::Hidden, cl::init(false),
   cl::desc("Preserve LLVM intrinsics for device SIMD code generation"));
-
-static cl::opt<bool> UseOffloadMetadata(
-  "vpo-paropt-use-offload-metadata", cl::Hidden, cl::init(true),
-  cl::desc("Use offload metadata created by clang in paropt lowering."));
 
 unsigned llvm::vpo::SpirvOffloadEntryAddSpace;
 static cl::opt<unsigned, true> SpirvOffloadEntryAddSpaceOpt(
@@ -102,6 +113,8 @@ std::unordered_map<std::string, std::string> llvm::vpo::OCLBuiltin = {
 //  Exponential functions
     {"llvm.exp.f32",          "_Z15__spirv_ocl_expf"},
     {"_ZSt3expf",             "_Z15__spirv_ocl_expf"},
+
+    {"exp10f",                "_Z17__spirv_ocl_exp10f"},
 
     {"llvm.exp2.f32",         "_Z16__spirv_ocl_exp2f"},
     {"_ZSt4exp2f",            "_Z16__spirv_ocl_exp2f"},
@@ -217,6 +230,7 @@ std::unordered_map<std::string, std::string> llvm::vpo::OCLBuiltin = {
 
 //  Exponential functions
     {"llvm.exp.f64",          "_Z15__spirv_ocl_expd"},
+    {"exp10",                 "_Z17__spirv_ocl_exp10d"},
     {"llvm.exp2.f64",         "_Z16__spirv_ocl_exp2d"},
     {"llvm.log.f64",          "_Z15__spirv_ocl_logd"},
     {"llvm.log2.f64",         "_Z16__spirv_ocl_log2d"},
@@ -346,7 +360,7 @@ void VPOParoptModuleTransform::replaceSincosWithOCLBuiltin(Function *F,
   FunctionCallee FnC = M.getOrInsertFunction(NewName, FnTy);
 
   OCLSincosDecl = cast<Function>(FnC.getCallee());
-  OCLSincosDecl->copyAttributesFrom(SincosDecl);
+  OCLSincosDecl->setDSOLocal(true);
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ":\nOld sincos decl: " << *SincosDecl
                     << "\nOCL sincos decl: " << *OCLSincosDecl << "\n");
@@ -426,7 +440,10 @@ bool VPOParoptModuleTransform::doParoptTransforms(
   processDeviceTriples();
 
   if (!DisableOffload) {
-    loadOffloadMetadata();
+    OffloadEntries = VPOParoptUtils::loadOffloadMetadata(M);
+    // This is the last point, where we want to read the offload metadata,
+    // so erase it here.
+    Changed |= VPOParoptUtils::eraseOffloadMetadata(M);
   }
 
   if (IsTargetSPIRV)
@@ -786,8 +803,20 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
     if (!IsBETargetDeclare) {
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Remove " << F.getName() << "\n");
       DeadFunctions.push_back(&F);
-      if (!F.isDeclaration())
+      if (!F.isDeclaration()) {
         F.deleteBody();
+        // 1. If F is virtual or overrides a virtual function in a base class
+        //    then the vtable has a reference to F (so F.getNumUses() > 0).
+        //    This ref causes F.deleteBody() to leave behind a declaration of F.
+        // 2. If F is a template function then it will have a comdat of "any".
+        // 3. If F is both #1 && #2 then the declaration left behind will
+        //    have a comdat, and the verifier will assert with the messsage
+        //    "Declaration may not be in a Comdat!".
+        //    Solution is to remove the comdat from the declaration.
+        if (F.isDeclaration() && F.getNumUses() && F.hasComdat() &&
+            F.getComdat()->getSelectionKind() == Comdat::Any)
+          F.setComdat(nullptr);
+      }
     } else {
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Emit " << F.getName()
                         << ": IsBETargetDeclare == true\n");
@@ -875,126 +904,12 @@ StructType *VPOParoptModuleTransform::getTgtOffloadEntryTy() {
   return TgtOffloadEntryTy;
 }
 
-void VPOParoptModuleTransform::loadOffloadMetadata() {
-  if (!UseOffloadMetadata)
-    return;
-
-  auto *MD = M.getNamedMetadata("omp_offload.info");
-  if (!MD)
-    return;
-
-  // Helper for adding offload entries - resizes entries containter as needed.
-  auto && addEntry = [&](OffloadEntry *E, size_t Idx) {
-    auto NewSize = Idx + 1u;
-    if (OffloadEntries.size() < NewSize)
-      OffloadEntries.resize(NewSize);
-    assert(!OffloadEntries[Idx] && "more than one entry with the same index");
-    OffloadEntries[Idx] = E;
-  };
-
-  // Populate offload entries using information from the offload metadata.
-  for (auto *Node : MD->operands()) {
-    auto && getMDInt = [Node](unsigned I) {
-      auto *V = cast<ConstantAsMetadata>(Node->getOperand(I));
-      return cast<ConstantInt>(V->getValue())->getZExtValue();
-    };
-
-    auto && getMDString = [Node](unsigned I) {
-      auto *V = cast<MDString>(Node->getOperand(I));
-      return V->getString();
-    };
-
-    auto && getMDVar = [Node](unsigned I) -> GlobalVariable * {
-      if (I >= Node->getNumOperands())
-        return nullptr;
-      auto *V = cast<ConstantAsMetadata>(Node->getOperand(I));
-      return cast<GlobalVariable>(V->getValue());
-    };
-
-    auto && getMDFunc = [Node](unsigned I) -> Function * {
-      if (I >= Node->getNumOperands())
-        return nullptr;
-      auto *V = cast<ConstantAsMetadata>(Node->getOperand(I));
-      return cast<Function>(V->getValue());
-    };
-
-    switch (getMDInt(0)) {
-      case OffloadEntry::EntryKind::RegionKind: {
-        auto Device = getMDInt(1u);
-        auto File = getMDInt(2u);
-        auto Parent = getMDString(3u);
-        auto Line = getMDInt(4u);
-        auto Idx = getMDInt(5u);
-        auto Flags = getMDInt(6u);
-
-        switch (Flags) {
-          case RegionEntry::Region: {
-            // Compose name.
-            SmallString<64u> Name;
-            llvm::raw_svector_ostream(Name) << "__omp_offloading"
-              << llvm::format("_%x", Device) << llvm::format("_%x_", File)
-              << Parent << "_l" << Line;
-            addEntry(new RegionEntry(Name, Flags), Idx);
-            break;
-          }
-          case RegionEntry::Ctor:
-          case RegionEntry::Dtor: {
-            auto *GV = M.getNamedValue(Parent);
-            assert(GV && "no value for ctor/dtor offload entry");
-            addEntry(new RegionEntry(GV, Flags), Idx);
-            break;
-          }
-          default:
-            llvm_unreachable("unexpected entry kind");
-        }
-        break;
-      }
-      case OffloadEntry::EntryKind::VarKind: {
-        auto Name = getMDString(1u);
-        auto Flags = getMDInt(2u);
-        auto Idx = getMDInt(3u);
-        auto *Var = getMDVar(4u);
-
-        assert(Var && "no global variable with given name");
-        assert(Var->isTargetDeclare() && "must be a target declare variable");
-        addEntry(new VarEntry(Var, Name, Flags), Idx);
-        break;
-      }
-      case OffloadEntry::EntryKind::IndirectFuncKind: {
-        auto Name = getMDString(1u);
-        auto Idx = getMDInt(2u);
-        auto *Func = getMDFunc(3u);
-        assert(Func && "missing function in IndirectFuncKind metadata.");
-        assert(!Func->isDeclaration() && "must be a function definition.");
-        assert(Func->getAttributes().hasFnAttr("openmp-target-declare") &&
-               "must be a target declare function.");
-        addEntry(new IndirectFunctionEntry(Func, Name), Idx);
-        break;
-      }
-      default:
-        llvm_unreachable("unexpected metadata!");
-    }
-  }
-
-  // Remove offload metadata from the module after parsing.
-  MD->eraseFromParent();
-}
-
 Constant* VPOParoptModuleTransform::registerTargetRegion(WRegionNode *W,
                                                          Constant *Func) {
   auto && getOffloadEntry = [&]() -> OffloadEntry* {
-    if (!UseOffloadMetadata) {
-      // Old behavior where offload entries are created on the fly.
-      auto *Entry = new RegionEntry(Func->getName(), RegionEntry::Region);
-      OffloadEntries.push_back(Entry);
-      return Entry;
-    }
-
     // Find existing entry in the table.
-    int Idx = W->getOffloadEntryIdx();
-    assert(Idx >= 0 && "target region with no entry index");
-    auto *Entry = OffloadEntries[Idx];
-    assert(Entry && "entry index with no entry");
+    auto *Entry =
+        VPOParoptUtils::getTargetRegionOffloadEntry(W, OffloadEntries);
 
     // Update outlined function name.
     Func->setName(Entry->getName());
@@ -1186,6 +1101,13 @@ bool VPOParoptModuleTransform::cloneDeclareTargetFunctions(
     // need to delete those branches before removing any directives.
     Changed |= DummyBranchDeleter(F);
     VPOUtils::stripDirectives(*F, { DIR_OMP_TARGET, DIR_OMP_END_TARGET });
+    // We should also delete any __kmpc_[begin/end]_spmd_[target/parallel] calls
+    // in the function. These calls are used to simulate omp_get_num_threads
+    // support in target regions for spir64 targets. We are deleting the target
+    // directives here, and we also currently ignore parallel constructs in
+    // declare-target functions during codegen, so we need to get rid of their
+    // corresponding spmd calls as well.
+    VPOParoptUtils::deleteKmpcBeginEndSpmdCalls(F);
     Changed = true;
   }
 

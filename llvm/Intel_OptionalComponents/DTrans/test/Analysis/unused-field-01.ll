@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -whole-program-assume -passes="require<dtransanalysis>" -dtrans-print-types -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -analyze -dtransanalysis -dtrans-print-types 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -analyze -enable-new-pm=0 -dtransanalysis -dtrans-print-types 2>&1 | FileCheck %s
 
 ; Check that the second field (%y) is marked as UnusedValue
 

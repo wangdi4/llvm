@@ -1,4 +1,6 @@
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 ; ModuleID = 'wlPrefixSum.cl'
@@ -176,3 +178,6 @@ for.end73.loopexit:                               ; preds = %for.body61
 for.end73:                                        ; preds = %for.end73.loopexit, %for.cond57.preheader
   ret void
 }
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function prefixSumStep1 --  br label %for.end57
+; DEBUGIFY-NOT: WARNING

@@ -1,4 +1,21 @@
 //===- MachineBlockPlacement.cpp - Basic Block Code Layout optimization ---===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -34,13 +51,13 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/BlockFrequencyInfoImpl.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
+#include "llvm/CodeGen/MBFIWrapper.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
 #include "llvm/CodeGen/MachineBranchProbabilityInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
-#include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/MachinePostDominators.h"
 #include "llvm/CodeGen/MachineSizeOpts.h"
 #include "llvm/CodeGen/TailDuplicator.h"
@@ -115,6 +132,12 @@ static cl::opt<unsigned> AlignAllNonFallThruBlocks(
     cl::desc("Force the alignment of all blocks that have no fall-through "
              "predecessors (i.e. don't add nops that are executed). In log2 "
              "format (e.g 4 means align on 16B boundaries)."),
+    cl::init(0), cl::Hidden);
+
+static cl::opt<unsigned> MaxBytesForAlignmentOverride(
+    "max-bytes-for-alignment",
+    cl::desc("Forces the maximum bytes allowed to be emitted when padding for "
+             "alignment"),
     cl::init(0), cl::Hidden);
 
 // FIXME: Find a good default for this flag and remove the flag.
@@ -215,10 +238,8 @@ static cl::opt<unsigned> TriangleChainCount(
     cl::init(2),
     cl::Hidden);
 
-static cl::opt<bool> EnableExtTspBlockPlacement(
-    "enable-ext-tsp-block-placement", cl::Hidden, cl::init(false),
-    cl::desc("Enable machine block placement based on the ext-tsp model, "
-             "optimizing I-cache utilization."));
+extern cl::opt<bool> EnableExtTspBlockPlacement;
+extern cl::opt<bool> ApplyExtTspWithoutProfile;
 
 namespace llvm {
 extern cl::opt<unsigned> StaticLikelyProb;
@@ -3222,10 +3243,22 @@ void MachineBlockPlacement::alignBlocks() {
 
     if (ChainBB->getAlignment() > Align) // INTEL
       continue; // INTEL
+
+    auto DetermineMaxAlignmentPadding = [&]() {
+      // Set the maximum bytes allowed to be emitted for alignment.
+      unsigned MaxBytes;
+      if (MaxBytesForAlignmentOverride.getNumOccurrences() > 0)
+        MaxBytes = MaxBytesForAlignmentOverride;
+      else
+        MaxBytes = TLI->getMaxPermittedBytesForAlignment(ChainBB);
+      ChainBB->setMaxBytesForAlignment(MaxBytes);
+    };
+
     // Force alignment if all the predecessors are jumps. We already checked
     // that the block isn't cold above.
     if (!LayoutPred->isSuccessor(ChainBB)) {
       ChainBB->setAlignment(Align);
+      DetermineMaxAlignmentPadding();
       continue;
     }
 
@@ -3236,8 +3269,10 @@ void MachineBlockPlacement::alignBlocks() {
     BranchProbability LayoutProb =
         MBPI->getEdgeProbability(LayoutPred, ChainBB);
     BlockFrequency LayoutEdgeFreq = MBFI->getBlockFreq(LayoutPred) * LayoutProb;
-    if (LayoutEdgeFreq <= (Freq * ColdProb))
+    if (LayoutEdgeFreq <= (Freq * ColdProb)) {
       ChainBB->setAlignment(Align);
+      DetermineMaxAlignmentPadding();
+    }
   }
 }
 
@@ -3696,7 +3731,8 @@ bool MachineBlockPlacement::runOnMachineFunction(MachineFunction &MF) {
   }
 
   // Apply a post-processing optimizing block placement.
-  if (MF.size() >= 3 && EnableExtTspBlockPlacement) {
+  if (MF.size() >= 3 && EnableExtTspBlockPlacement &&
+      (ApplyExtTspWithoutProfile || MF.getFunction().hasProfileData())) {
     // Find a new placement and modify the layout of the blocks in the function.
     applyExtTsp();
 
@@ -3711,17 +3747,30 @@ bool MachineBlockPlacement::runOnMachineFunction(MachineFunction &MF) {
   ComputedEdges.clear();
   ChainAllocator.DestroyAll();
 
+  bool HasMaxBytesOverride =
+      MaxBytesForAlignmentOverride.getNumOccurrences() > 0;
+
   if (AlignAllBlock)
     // Align all of the blocks in the function to a specific alignment.
-    for (MachineBasicBlock &MBB : MF)
-      MBB.setAlignment(Align(1ULL << AlignAllBlock));
+    for (MachineBasicBlock &MBB : MF) {
+      if (HasMaxBytesOverride)
+        MBB.setAlignment(Align(1ULL << AlignAllBlock),
+                         MaxBytesForAlignmentOverride);
+      else
+        MBB.setAlignment(Align(1ULL << AlignAllBlock));
+    }
   else if (AlignAllNonFallThruBlocks) {
     // Align all of the blocks that have no fall-through predecessors to a
     // specific alignment.
     for (auto MBI = std::next(MF.begin()), MBE = MF.end(); MBI != MBE; ++MBI) {
       auto LayoutPred = std::prev(MBI);
-      if (!LayoutPred->isSuccessor(&*MBI))
-        MBI->setAlignment(Align(1ULL << AlignAllNonFallThruBlocks));
+      if (!LayoutPred->isSuccessor(&*MBI)) {
+        if (HasMaxBytesOverride)
+          MBI->setAlignment(Align(1ULL << AlignAllNonFallThruBlocks),
+                            MaxBytesForAlignmentOverride);
+        else
+          MBI->setAlignment(Align(1ULL << AlignAllNonFallThruBlocks));
+      }
     }
   }
 #if INTEL_CUSTOMIZATION

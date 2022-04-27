@@ -80,8 +80,11 @@ const Instruction *HIRParser::getCurInst() const {
     auto Term = BB->getTerminator();
     auto BrInst = dyn_cast<BranchInst>(Term);
 
-    return cast<Instruction>(BrInst->getCondition());
-
+    if (isa<Instruction>(BrInst->getCondition())) {
+      return cast<Instruction>(BrInst->getCondition());
+    } else {
+      return cast<Instruction>(BrInst);
+    }
   } else if (auto Switch = dyn_cast<HLSwitch>(CurNode)) {
     auto BB = HIRC.getSrcBBlock(Switch);
     return BB->getTerminator();
@@ -525,7 +528,9 @@ bool HIRParser::replaceTempBlobByConstant(unsigned BlobIndex,
 }
 
 static bool isUMaxBlob(BlobTy Blob) { return isa<SCEVUMaxExpr>(Blob); }
-static bool isUMinBlob(BlobTy Blob) { return isa<SCEVUMinExpr>(Blob); }
+static bool isUMinBlob(BlobTy Blob) {
+  return isa<SCEVUMinExpr>(Blob) || isa<SCEVSequentialUMinExpr>(Blob);
+}
 
 /// Returns true if this Blob represents a min/max expr with an AddRec
 /// Operand.
@@ -905,6 +910,13 @@ const SCEV *HIRParser::BlobProcessor::getSubstituteSCEV(const SCEV *SC) {
     return nullptr;
   }
 
+  // Avoid substitution of AddRec operand into Unknown loop bottom test.
+  if (HIRP->ScopedSE.containsAddRecurrence(SC) &&
+      isa<HLIf>(HIRP->getCurNode()) &&
+      cast<HLIf>(HIRP->getCurNode())->isUnknownLoopBottomTest()) {
+    return nullptr;
+  }
+
   OrigInst = findOrigInst(nullptr, SC, &IsTruncOrSExt, &IsZExt, &IsNegation,
                           &ConstMultiplier, &Additive);
 
@@ -948,7 +960,7 @@ const Instruction *
 HIRParser::BlobProcessor::searchSCEVValues(const SCEV *SC) const {
   auto ValSet = HIRP->ScopedSE.getSCEVValues(SC);
 
-  if (!ValSet) {
+  if (ValSet.empty()) {
     return nullptr;
   }
 
@@ -956,13 +968,8 @@ HIRParser::BlobProcessor::searchSCEVValues(const SCEV *SC) const {
 
   // Look for an instruction in the set which dominates current instruction as
   // it should appear lexically before the current instruction.
-  for (auto &ValOffsetPair : (*ValSet)) {
-
-    if (ValOffsetPair.second) {
-      continue;
-    }
-
-    auto Inst = dyn_cast<Instruction>(ValOffsetPair.first);
+  for (auto Val : ValSet) {
+    auto Inst = dyn_cast<Instruction>(Val);
 
     if (!Inst) {
       continue;
@@ -1423,6 +1430,9 @@ void HIRParser::printBlob(raw_ostream &OS, BlobTy Blob) const {
       OpStr = ", ";
     } else if (isa<SCEVUMinExpr>(NArySCEV)) {
       OS << "umin(";
+      OpStr = ", ";
+    } else if (isa<SCEVSequentialUMinExpr>(NArySCEV)) {
+      OS << "umin_seq(";
       OpStr = ", ";
     } else {
       llvm_unreachable("Blob contains AddRec!");
@@ -2262,7 +2272,8 @@ bool HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
   } else if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
     return parseAddRec(RecSCEV, CE, Level, IndicateFailure);
 
-  } else if (isa<SCEVMinMaxExpr>(SC) || isa<SCEVPtrToIntExpr>(SC)) {
+  } else if (isa<SCEVMinMaxExpr>(SC) || isa<SCEVSequentialMinMaxExpr>(SC) ||
+             isa<SCEVPtrToIntExpr>(SC)) {
     // TODO: extend DDRef representation to handle min/max.
     return parseBlob(SC, CE, Level, 0, IndicateFailure);
   }
@@ -2440,13 +2451,13 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level, bool IsTop,
       SC = ScopedSE.getTruncateOrSignExtend(SC, FinalIntTy);
     }
 
-    if (parseRecursive(SC, CE, Level, IsTop, !EnableCastHiding, true)) {
-      parseMetadata(OrigVal, CE);
-    } else {
+    if (!parseRecursive(SC, CE, Level, IsTop, !EnableCastHiding, true)) {
       getCanonExprUtils().destroy(CE);
       CE = parseAsBlob(OrigVal, Level, FinalIntTy);
     }
   }
+
+  parseMetadata(getCurInst(), CE);
 
   assert((CE->getDestType() == OrigVal->getType() ||
           (CE->getDestType() == FinalIntTy)) &&
@@ -2658,6 +2669,7 @@ void HIRParser::parse(HLLoop *HLoop) {
           (MaxTC = ScopedSE.getScopedSmallConstantMaxTripCount(
                const_cast<Loop *>(Lp)))) {
         HLoop->setMaxTripCountEstimate(MaxTC);
+        HLoop->setLegalMaxTripCount(MaxTC);
       }
     }
   }
@@ -2669,6 +2681,18 @@ void HIRParser::parse(HLLoop *HLoop) {
     if (!CurMaxTC || (MaxTC < CurMaxTC)) {
       HLoop->setMaxTripCountEstimate(MaxTC);
     }
+
+    // Assume pragma based information is more refined than the info provided by
+    // ScalarEvolution.
+    HLoop->setLegalMaxTripCount(MaxTC);
+  }
+
+  unsigned LegalMaxTC;
+  if (HLoop->getPragmaBasedLegalMaxTripCount(LegalMaxTC)) {
+    auto CurLegalMaxTC = HLoop->getLegalMaxTripCount();
+
+    if (!CurLegalMaxTC || (LegalMaxTC < CurLegalMaxTC))
+      HLoop->setLegalMaxTripCount(LegalMaxTC);
   }
 
   if (IsUnknown) {
@@ -2825,12 +2849,12 @@ void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
     }
 
     HLoop->replaceZttPredicate(BeginPredIter, Preds[0]);
-    HLoop->setZttPredicateOperandDDRef(Refs[0], BeginPredIter, true);
-    HLoop->setZttPredicateOperandDDRef(Refs[1], BeginPredIter, false);
+    HLoop->setLHSZttPredicateOperandDDRef(Refs[0], BeginPredIter);
+    HLoop->setRHSZttPredicateOperandDDRef(Refs[1], BeginPredIter);
   } else {
     If->replacePredicate(BeginPredIter, Preds[0]);
-    If->setPredicateOperandDDRef(Refs[0], BeginPredIter, true);
-    If->setPredicateOperandDDRef(Refs[1], BeginPredIter, false);
+    If->setLHSPredicateOperandDDRef(Refs[0], BeginPredIter);
+    If->setRHSPredicateOperandDDRef(Refs[1], BeginPredIter);
   }
 
   for (unsigned I = 1, E = Preds.size(); I < E; ++I) {
@@ -2975,6 +2999,11 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi, unsigned Level,
   // UpdateSCEV : {(%ptr + 4),+,4)
   // StrideSCEV : 4
   auto StrideSCEV = ScopedSE.getMinusSCEV(UpdateSCEV, PhiSCEV);
+
+  if (isa<SCEVCouldNotCompute>(StrideSCEV)) {
+    return nullptr;
+  }
+
   auto StrideTy = StrideSCEV->getType();
   assert(StrideTy->isIntegerTy() && "stride is not an integer!");
 
@@ -3134,6 +3163,7 @@ class DimInfo {
   Type *Ty = nullptr;
   Type *ElemTy = nullptr;
   Value *Stride = nullptr;
+  bool IsExactMultiple = true;
 
   SmallVector<Value *, 4> Indices;
   SmallVector<Value *, 4> IndicesLB;
@@ -3149,6 +3179,9 @@ public:
 
   Value *getStride() const { return Stride; }
   void setStride(Value *Stride) { this->Stride = Stride; }
+
+  bool isStrideExactMultiple() const { return IsExactMultiple; }
+  void setStrideIsExactMultiple(bool Flag) { IsExactMultiple = Flag; }
 
   // Adds an \p Idx to the dimension. Later these indices will be merged into a
   // single CanonExpr.
@@ -3419,6 +3452,7 @@ std::list<ArrayInfo> HIRParser::GEPChain::parseGEPOp(const SubscriptInst *Sub) {
   Dim.setElementType(Sub->getElementType());
   Dim.setStride(Sub->getStride());
   Dim.addIndex(Sub->getIndex(), Sub->getLowerBound());
+  Dim.setStrideIsExactMultiple(Sub->isExact());
 
   return {Arr};
 }
@@ -3743,6 +3777,9 @@ bool HIRParser::GEPChain::extend(const HIRParser &Parser,
       CurDim.setType(NextDim.getType());
       CurDim.setElementType(NextDim.getElementType());
       CurDim.setStride(NextDim.getStride());
+      // Reset exact flag if either of two dims are not exact.
+      CurDim.setStrideIsExactMultiple(CurDim.isStrideExactMultiple() &&
+                                      NextDim.isStrideExactMultiple());
 
       for (auto Idx : zip(NextDim.indices(), NextDim.indicesLB())) {
         CurDim.addIndex(std::get<0>(Idx), std::get<1>(Idx));
@@ -3856,13 +3893,52 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
       }
 
       Ref->addDimensionHighest(IndexCE, StructOffsets, LowerCE, StrideCE,
-                               Dim.getType(), Dim.getElementType());
+                               Dim.getType(), Dim.getElementType(),
+                               Dim.isStrideExactMultiple());
     }
   }
 
   auto *BaseGEPOp = Chain.getBase();
 
   Ref->setBasePtrElementType(getBasePtrElementType(BaseGEPOp));
+}
+
+bool HIRParser::hasIncompatibleTypes(RegDDRef *Ref, Type *DimTy,
+                                     Type *ElemTy) const {
+
+  bool IsOpaquePtr =
+      DimTy->isPointerTy() && cast<PointerType>(DimTy)->isOpaque();
+
+  // Additional checks are only for opaque pointers.
+  // This is to incur the minimal changes in non-opaque ptr inputs.
+  if (!IsOpaquePtr)
+    return false;
+
+  if (!Ref->hasGEPInfo() || !ElemTy)
+    return false;
+
+  // This is immediate extension on the existing indexCE merging logic.
+  // Before this check, indexCE with DimElemTy, i.e. the new indexCE
+  // is added to current indexCE (i.e. indexCE at Ref->getNumDimensions())
+  unsigned DimElemTySize = getCanonExprUtils().getTypeSizeInBytes(ElemTy);
+  unsigned CurDimElemTySize = getCanonExprUtils().getTypeSizeInBytes(
+      Ref->getDimensionElementType(Ref->getNumDimensions()));
+
+  if (!CurDimElemTySize || !DimElemTySize)
+    return false;
+
+  bool TypeMatch = CurDimElemTySize == DimElemTySize;
+
+  if (TypeMatch)
+    return false;
+
+  // TODO:
+  // I thought this type size mismatch can happen only with opaque pointers
+  // so added following assertion. However, non-opaque pointers could have
+  // this case.
+  // assert(DimTy->isPointerTy() && cast<PointerType>(DimTy)->isOpaque());
+
+  return true;
 }
 
 void HIRParser::addPhiBaseGEPDimensions(const GEPOrSubsOperator *GEPOp,
@@ -3987,12 +4063,22 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
       }
     }
 
+    // Check Dim Types
+    bool DimTypeMatch =
+        !hasIncompatibleTypes(Ref, CurBasePhi->getType(), ElemTy);
+
     // Non-linear base is parsed as base + zero offset: (%p)[0].
-    if (!IndexCE || !BaseVal) {
+    if (!DimTypeMatch) {
+      BaseVal = CurBasePhi;
+
+      // Break out of the do-while loop so the remaining part
+      // can be parsed separately, not added to the highest dim of
+      // Ref.
+      break;
+    } else if (!IndexCE || !BaseVal) {
       InitGEPOp = nullptr;
       BaseVal = CurBasePhi;
       IndexCE = getCanonExprUtils().createCanonExpr(OffsetTy);
-
     } else {
       ElementSize = getCanonExprUtils().getTypeSizeInBytes(ElemTy);
     }
@@ -4067,11 +4153,9 @@ static void setSelfRefElementTypeAndStride(RegDDRef *Ref, Type *ElementTy) {
 
   Ref->setBasePtrElementType(ElementTy);
 
-  // We cannot set stride for opaque structures.
-  if (auto *StructTy = dyn_cast<StructType>(ElementTy)) {
-    if (StructTy->isOpaque()) {
-      return;
-    }
+  // We cannot set stride for non-sized types.
+  if (!ElementTy->isSized()) {
+    return;
   }
 
   // Update the stride using element type info.
@@ -5008,9 +5092,18 @@ RegDDRef *HIRParser::delinearizeSingleRef(const RegDDRef *Ref,
 
   const CanonExpr *LinearIndexCE = Ref->getSingleCanonExpr();
 
-  RegDDRef *NewRef = DRU.createMemRef(Ref->getBasePtrElementType(), Ref->getBasePtrBlobIndex(),
-                                      Ref->getBaseCE()->getDefinedAtLevel(),
-                                      Ref->getSymbase());
+  unsigned BaseBlobIndex = Ref->getBasePtrBlobIndex();
+
+  // Base has invalid blob index if it is null or undef.
+  // Give up on such cases for now because createMemRef asserts on invalid blob
+  // index.
+  if (BaseBlobIndex == InvalidBlobIndex) {
+    return nullptr;
+  }
+
+  RegDDRef *NewRef = DRU.createMemRef(
+      Ref->getBasePtrElementType(), BaseBlobIndex,
+      Ref->getBaseCE()->getDefinedAtLevel(), Ref->getSymbase());
 
   Type *IndexType = LinearIndexCE->getSrcType();
   Type *DimType = Ref->getDimensionType(1);

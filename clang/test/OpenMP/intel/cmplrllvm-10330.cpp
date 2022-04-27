@@ -46,8 +46,8 @@ int main()
     return 0;
 }
 
-//Check-HOST: define dso_local i32 @main() #0 {
+//Check-HOST: define dso_local noundef i32 @main() #0 {
 
-//Check-TARG: define hidden i32 @main() #0 {
+//Check-TARG: define dso_local noundef i32 @main() #0 {
 
 

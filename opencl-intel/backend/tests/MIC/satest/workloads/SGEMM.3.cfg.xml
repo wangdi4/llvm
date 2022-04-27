@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<RunConfiguration>
+  <ProgramFile compilation_flags="-DK_DOUBLE_PRECISION -cl-mad-enable -DWI_TILE_SIZE=32 -DWG_SIZE_0=16 -DWG_SIZE_1=4">SGEMM.2.c</ProgramFile>
+  <ProgramFileType>CL</ProgramFileType>
+  <UseVTune>0</UseVTune>
+  <UseVectorizer>1</UseVectorizer>
+  <KernelConfiguration Name="Foo">
+    <WorkDimention>1</WorkDimention>
+    <LocalWorkSize>16</LocalWorkSize>
+    <GlobalWorkSize>16</GlobalWorkSize>
+    <GlobalWorkOffset>0</GlobalWorkOffset>
+    <InputDataFile>SGEMM.3.c.dat.xml</InputDataFile>
+    <InputDataFileType>xml</InputDataFileType>
+    <ReferenceDataFile>SGEMM.3.c.ref.xml</ReferenceDataFile>
+    <ReferenceDataFileType>xml</ReferenceDataFileType>
+    <NeatDataFile>SGEMM.3.c.neat.xml</NeatDataFile>
+    <NeatDataFileType>xml</NeatDataFileType>
+  </KernelConfiguration>
+</RunConfiguration>

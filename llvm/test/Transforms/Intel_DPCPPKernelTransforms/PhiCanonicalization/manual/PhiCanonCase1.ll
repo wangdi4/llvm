@@ -1,4 +1,6 @@
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 ; ModuleID = 'PhiCanonCase1.c'
@@ -44,3 +46,7 @@ if.end18:                                         ; preds = %if.then14, %if.then
 }
 
 declare i32 @_Z13get_global_idj(i32) readnone
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function PhiCanonCase1 --  br label %phi-split-bb1
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function PhiCanonCase1 --  br label %if.end18
+; DEBUGIFY-NOT: WARNING

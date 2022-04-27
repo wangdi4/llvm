@@ -1,4 +1,19 @@
 #if INTEL_COLLAB
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //===------- VPOParoptPrepare.cpp - Paropt Prepare Pass for OpenMP --------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -44,6 +59,7 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Analysis/VPO/Intel_VPOParoptConfig.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -70,6 +86,7 @@ INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
 #if INTEL_CUSTOMIZATION
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
+INITIALIZE_PASS_DEPENDENCY(VPOParoptConfigWrapper)
 #endif // INTEL_CUSTOMIZATION
 INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
 INITIALIZE_PASS_END(VPOParoptPrepare, "vpo-paropt-prepare",
@@ -100,6 +117,7 @@ void VPOParoptPrepare::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<WRegionInfoWrapperPass>();
 #if INTEL_CUSTOMIZATION
   AU.addRequired<OptReportOptionsPass>();
+  AU.addRequired<VPOParoptConfigWrapper>();
 #endif // INTEL_CUSTOMIZATION
   AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
 }
@@ -126,6 +144,8 @@ bool VPOParoptPrepare::runOnFunction(Function &F) {
 
 #if INTEL_CUSTOMIZATION
   ORVerbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
+  auto &ParoptConfig = getAnalysis<VPOParoptConfigWrapper>().getResult();
+  WI.setVPOParoptConfig(&ParoptConfig);
 #endif // INTEL_CUSTOMIZATION
   auto &ORE = getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
 
@@ -222,6 +242,10 @@ PreservedAnalyses VPOParoptPreparePass::run(Function &F,
 
 #if INTEL_CUSTOMIZATION
   ORVerbosity = AM.getResult<OptReportOptionsAnalysis>(F).getVerbosity();
+  auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
+  auto *ParoptConfig =
+      MAMProxy.getCachedResult<VPOParoptConfigAnalysis>(*F.getParent());
+  WI.setVPOParoptConfig(ParoptConfig);
 #endif // INTEL_CUSTOMIZATION
   auto &ORE = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
 

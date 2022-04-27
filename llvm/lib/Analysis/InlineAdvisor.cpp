@@ -1,4 +1,21 @@
 //===- InlineAdvisor.cpp - analysis pass implementation -------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,14 +30,16 @@
 
 #include "llvm/Analysis/InlineAdvisor.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/ReplayInlineAdvisor.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/Utils/ImportedFunctionsInliningStatistics.h"
 #include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/IR/Instructions.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -28,6 +47,9 @@ using namespace llvm;
 using namespace InlineReportTypes; // INTEL
 
 #define DEBUG_TYPE "inline"
+#ifdef LLVM_HAVE_TF_AOT_INLINERSIZEMODEL
+#define LLVM_HAVE_TF_AOT
+#endif
 
 // This weirdly named statistic tracks the number of times that, when attempting
 // to inline a function A into B, we analyze the callers of B in order to see
@@ -149,7 +171,13 @@ llvm::InlineCost static getDefaultInlineAdvice(
   };
   return llvm::shouldInline(
       CB, GetInlineCost, ORE,
-      Params.EnableDeferral.getValueOr(EnableInlineDeferral));
+#if INTEL_CUSTOMIZATION
+      Params.EnableDeferral.getValueOr(EnableInlineDeferral)
+#if INTEL_FEATURE_SW_ADVANCED
+          || intelEnableInlineDeferral()
+#endif // INTEL_FEATURE_SW_ADVANCED
+      );
+#endif // INTEL_CUSTOMIZATION
 }
 
 #if INTEL_CUSTOMIZATION
@@ -173,18 +201,6 @@ InlineAdvice::InlineAdvice(InlineAdvisor *Advisor, CallBase &CB,
       DLoc(CB.getDebugLoc()), Block(CB.getParent()), ORE(ORE),
       IsInliningRecommended(IsInliningRecommended), IC(IC) {} // INTEL
 
-void InlineAdvisor::markFunctionAsDeleted(Function *F) {
-  assert((!DeletedFunctions.count(F)) &&
-         "Cannot put cause a function to become dead twice!");
-  DeletedFunctions.insert(F);
-}
-
-void InlineAdvisor::freeDeletedFunctions() {
-  for (auto *F : DeletedFunctions)
-    delete F;
-  DeletedFunctions.clear();
-}
-
 void InlineAdvice::recordInlineStatsIfNeeded() {
   if (Advisor->ImportedFunctionsStats)
     Advisor->ImportedFunctionsStats->recordInline(*Caller, *Callee);
@@ -199,7 +215,6 @@ void InlineAdvice::recordInlining() {
 void InlineAdvice::recordInliningWithCalleeDeleted() {
   markRecorded();
   recordInlineStatsIfNeeded();
-  Advisor->markFunctionAsDeleted(Callee);
   recordInliningWithCalleeDeletedImpl();
 }
 
@@ -491,7 +506,7 @@ std::string llvm::formatCallSiteLocation(DebugLoc DLoc,
 }
 
 void llvm::addLocationToRemarks(OptimizationRemark &Remark, DebugLoc DLoc) {
-  if (!DLoc.get()) {
+  if (!DLoc) {
     return;
   }
 
@@ -563,8 +578,6 @@ InlineAdvisor::~InlineAdvisor() {
     ImportedFunctionsStats->dump(InlinerFunctionImportStats ==
                                  InlinerFunctionImportStatsOpts::Verbose);
   }
-
-  freeDeletedFunctions();
 }
 
 #if INTEL_CUSTOMIZATION
@@ -652,4 +665,14 @@ InlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
 
 OptimizationRemarkEmitter &InlineAdvisor::getCallerORE(CallBase &CB) {
   return FAM.getResult<OptimizationRemarkEmitterAnalysis>(*CB.getCaller());
+}
+
+PreservedAnalyses
+InlineAdvisorAnalysisPrinterPass::run(Module &M, ModuleAnalysisManager &MAM) {
+  const auto *IA = MAM.getCachedResult<InlineAdvisorAnalysis>(M);
+  if (!IA)
+    OS << "No Inline Advisor\n";
+  else
+    IA->getAdvisor()->print(OS);
+  return PreservedAnalyses::all();
 }

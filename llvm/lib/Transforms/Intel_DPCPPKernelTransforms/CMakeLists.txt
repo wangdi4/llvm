@@ -3,6 +3,8 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   AddFunctionAttrs.cpp
   AddImplicitArgs.cpp
   AddNTAttr.cpp
+  AddTLSGlobals.cpp
+  AutorunReplicator.cpp
   BuiltinCallToInst.cpp
   BuiltinImport.cpp
   CoerceTypes.cpp
@@ -18,12 +20,18 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DPCPPKernelWGLoopCreator.cpp
   DPCPPKernelAnalysis.cpp
   DPCPPPreprocessSPIRVFriendlyIR.cpp
+  DeduceMaxWGDim.cpp
+  ExternalizeGlobalVariables.cpp
   HandleVPlanMask.cpp
   ImplicitArgsAnalysis.cpp
+  ImplicitGID.cpp
+  InstToFuncCall.cpp
   InternalizeNonKernelFunc.cpp
   LocalBufferAnalysis.cpp
   LocalBuffers.cpp
   LinearIdResolver.cpp
+  LoopStridedCodeMotion.cpp
+  LoopWIAnalysis.cpp
   DuplicateCalledKernelsPass.cpp
   PhiCanonicalization.cpp
   RedundantPhiNodePass.cpp
@@ -35,7 +43,9 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DataPerValuePass.cpp
   BarrierPass.cpp
   BarrierInFunctionPass.cpp
+  ReduceCrossBarrierValues.cpp
   ResolveMatrixFill.cpp
+  ResolveMatrixLayout.cpp
   ResolveMatrixWISlice.cpp
   ResolveSubGroupWICall.cpp
   ResolveWICall.cpp
@@ -45,6 +55,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   PrepareKernelArgs.cpp
   CleanupWrappedKernel.cpp
   SetVectorizationFactor.cpp
+  SinCosFold.cpp
   SubgroupEmulation/SGBarrierPropagate.cpp
   SubgroupEmulation/SGBarrierSimplify.cpp
   SubgroupEmulation/SGBuiltin.cpp
@@ -62,9 +73,12 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   VectorVariant/VectorVariantFillIn.cpp
   VectorVariant/VectorVariantLowering.cpp
   VFAnalysis.cpp
+  VectorizationDimensionAnalysis.cpp
+  WGLoopBoundaries.cpp
   WorkItemAnalysis.cpp
 
   Utils/CPUDetect.cpp
+  Utils/DPCPPStatistic.cpp
   Utils/FunctionDescriptor.cpp
   Utils/ImplicitArgsUtils.cpp
   Utils/LoopPeeling.cpp

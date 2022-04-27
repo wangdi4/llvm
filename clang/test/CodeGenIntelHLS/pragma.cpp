@@ -1,5 +1,5 @@
-//RUN: %clang_cc1 -fhls -O0 -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s | FileCheck %s
-//RUN: %clang_cc1 -fhls -triple x86_64-unknown-linux-gnu -debug-info-kind=limited -emit-llvm -o %t %s
+//RUN: %clang_cc1 -fhls -O0 -triple x86_64-unknown-linux-gnu -emit-llvm -opaque-pointers -o - %s | FileCheck %s
+//RUN: %clang_cc1 -fhls -triple x86_64-unknown-linux-gnu -debug-info-kind=limited -emit-llvm -opaque-pointers -o %t %s
 
 void bar(int i);
 int ibar(int i);
@@ -143,90 +143,90 @@ void foo_ivdep(int select)
   for (int i=0;i<32;++i) { bar(i); }
 
   int myArray[32];
-  //CHECK: load i32, i32* %i8, align 4
+  //CHECK: load i32, ptr %i8, align 4
   //CHECK: %idxprom = sext i32 %8 to i64
-  //CHECK: %arrayidx = getelementptr inbounds [32 x i32], [32 x i32]* %myArray, i64 0, i64 %idxprom, !llvm.index.group [[IVDEP3:![0-9]+]]
-  //CHECK: store i32 %call, i32* %arrayidx, align 4
+  //CHECK: %arrayidx = getelementptr inbounds [32 x i32], ptr %myArray, i64 0, i64 %idxprom, !llvm.index.group [[IVDEP3:![0-9]+]]
+  //CHECK: store i32 %call, ptr %arrayidx, align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP4:![0-9]+]]
   #pragma ivdep array(myArray)
   for (int i=0;i<32;++i) { myArray[i] = ibar(i); }
 
-  //CHECK: load i32, i32* %i15, align 4
+  //CHECK: load i32, ptr %i15, align 4
   //CHECK: %idxprom20 = sext i32 %12 to i64
-  //CHECK: %arrayidx21 = getelementptr inbounds [32 x i32], [32 x i32]* %myArray, i64 0, i64 %idxprom20, !llvm.index.group [[IVDEP5:![0-9]+]]
-  //CHECK: store i32 %call19, i32* %arrayidx21, align 4
+  //CHECK: %arrayidx21 = getelementptr inbounds [32 x i32], ptr %myArray, i64 0, i64 %idxprom20, !llvm.index.group [[IVDEP5:![0-9]+]]
+  //CHECK: store i32 %call19, ptr %arrayidx21, align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP6:![0-9]+]]
   #pragma ivdep safelen(8) array(myArray)
   for (int i=0;i<32;++i) { myArray[i] = ibar(i); }
 
-  //CHECK: load i32, i32* %i25, align 4
+  //CHECK: load i32, ptr %i25, align 4
   //CHECK: %idxprom30 = sext i32 %16 to i64
-  //CHECK: %arrayidx31 = getelementptr inbounds [32 x i32], [32 x i32]* %myArray, i64 0, i64 %idxprom30, !llvm.index.group [[IVDEP7:![0-9]+]]
-  //CHECK: store i32 %call29, i32* %arrayidx31, align 4
+  //CHECK: %arrayidx31 = getelementptr inbounds [32 x i32], ptr %myArray, i64 0, i64 %idxprom30, !llvm.index.group [[IVDEP7:![0-9]+]]
+  //CHECK: store i32 %call29, ptr %arrayidx31, align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP8:![0-9]+]]
   #pragma unroll 4
   #pragma ivdep safelen(8) array(myArray)
   for (int i=0;i<32;++i) { myArray[i] = ibar(i); }
 
-  //CHECK: load i32, i32* %i35, align 4
+  //CHECK: load i32, ptr %i35, align 4
   //CHECK: %idxprom40 = sext i32 %20 to i64
-  //CHECK: %arrayidx41 = getelementptr inbounds [32 x i32], [32 x i32]* %myArray, i64 0, i64 %idxprom40, !llvm.index.group [[IVDEP9:![0-9]+]]
-  //CHECK: store i32 %call39, i32* %arrayidx41, align 4
+  //CHECK: %arrayidx41 = getelementptr inbounds [32 x i32], ptr %myArray, i64 0, i64 %idxprom40, !llvm.index.group [[IVDEP9:![0-9]+]]
+  //CHECK: store i32 %call39, ptr %arrayidx41, align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP10:![0-9]+]]
   #pragma ivdep safelen(8) array(myArray)
   #pragma unroll 4
   for (int i=0;i<32;++i) { myArray[i] = ibar(i); }
 
-  //CHECK: load i32, i32* %i45, align 4
+  //CHECK: load i32, ptr %i45, align 4
   //CHECK: %idxprom50 = sext i32 %24 to i64
-  //CHECK: %arrayidx51 = getelementptr inbounds [32 x i32], [32 x i32]* getelementptr inbounds (%struct.SIVDep, %struct.SIVDep* @SV, i32 0, i32 0), i64 0, i64 %idxprom50, !llvm.index.group   [[IVDEP11:![0-9]+]]
-  //CHECK: store i32 %call49, i32* %arrayidx51, align 4
+  //CHECK: %arrayidx51 = getelementptr inbounds [32 x i32], ptr @SV, i64 0, i64 %idxprom50, !llvm.index.group   [[IVDEP11:![0-9]+]]
+  //CHECK: store i32 %call49, ptr %arrayidx51, align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP12:![0-9]+]]
   #pragma ivdep array(SV.A)
   for (int i=0;i<32;++i) { SV.A[i] = ibar(i); }
 
-  //CHECK: load i32, i32* %i55, align 4
-  //CHECK: load %struct.SIVDep2*, %struct.SIVDep2** @Sv2p, align 8
-  //CHECK: getelementptr inbounds %struct.SIVDep2, %struct.SIVDep2* %28, i32 0, i32 0
-  //CHECK: %arrayidx60 = getelementptr inbounds [8 x [16 x %struct.SIVDep]], [8 x [16 x %struct.SIVDep]]* %X, i64 0, i64 2
-  //CHECK: %arrayidx61 = getelementptr inbounds [16 x %struct.SIVDep], [16 x %struct.SIVDep]* %arrayidx60, i64 0, i64 3
-  //CHECK: %A = getelementptr inbounds %struct.SIVDep, %struct.SIVDep* %arrayidx61, i32 0, i32 0
-  //CHECK  load i32, i32* %i55, align 4
+  //CHECK: load i32, ptr %i55, align 4
+  //CHECK: load ptr, ptr @Sv2p, align 8
+  //CHECK: getelementptr inbounds %struct.SIVDep2, ptr %28, i32 0, i32 0
+  //CHECK: %arrayidx60 = getelementptr inbounds [8 x [16 x %struct.SIVDep]], ptr %X, i64 0, i64 2
+  //CHECK: %arrayidx61 = getelementptr inbounds [16 x %struct.SIVDep], ptr %arrayidx60, i64 0, i64 3
+  //CHECK: %A = getelementptr inbounds %struct.SIVDep, ptr %arrayidx61, i32 0, i32 0
+  //CHECK  load i32, ptr %i55, align 4
   //CHECK: %idxprom62 = sext i32 %29 to i64
-  //CHECK: %arrayidx63 = getelementptr inbounds [32 x i32], [32 x i32]* %A, i64 0, i64 %idxprom62, !llvm.index.group [[IVDEP13:![0-9]+]]
-  //CHECK: store i32 %call59, i32* %arrayidx63, align 4
+  //CHECK: %arrayidx63 = getelementptr inbounds [32 x i32], ptr %A, i64 0, i64 %idxprom62, !llvm.index.group [[IVDEP13:![0-9]+]]
+  //CHECK: store i32 %call59, ptr %arrayidx63, align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP14:![0-9]+]]
   #pragma ivdep array(Sv2p->X[2][3].A)
   for (int i=0;i<32;++i) { Sv2p->X[2][3].A[i] = ibar(i); }
 
   int myArray2[32];
   int *ptr = select ? myArray : myArray2;
-  //CHECK: load i32*, i32** %ptr, align 8
-  //CHECK: load i32, i32* %i67, align 4
+  //CHECK: load ptr, ptr %ptr, align 8
+  //CHECK: load i32, ptr %i67, align 4
   //CHECK: %idxprom72 = sext i32 %35 to i64
-  //CHECK: %arrayidx73 = getelementptr inbounds i32, i32* %34, i64 %idxprom72, !llvm.index.group [[IVDEP15:![0-9]+]]
-  //CHECK: store i32 %call71, i32* %arrayidx73, align 4
+  //CHECK: %arrayidx73 = getelementptr inbounds i32, ptr %34, i64 %idxprom72, !llvm.index.group [[IVDEP15:![0-9]+]]
+  //CHECK: store i32 %call71, ptr %arrayidx73, align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP16:![0-9]+]]
   #pragma ivdep array(ptr)
   for (int i=0;i<32;++i) { ptr[i] = ibar(i); }
 
-  //CHECK: getelementptr inbounds [32 x i32], [32 x i32]* %myArray, i64 0, i64 16
-  //CHECK: store i32* %arrayidx77, i32** %ptr, align 8
-  //CHECK: store i32 0, i32* %i78, align 4
+  //CHECK: getelementptr inbounds [32 x i32], ptr %myArray, i64 0, i64 16
+  //CHECK: store ptr %arrayidx77, ptr %ptr, align 8
+  //CHECK: store i32 0, ptr %i78, align 4
   ptr = &myArray[16];
-  //CHECK: load i32*, i32** %ptr, align 8
-  //CHECK: load i32, i32* %i78, align 4
+  //CHECK: load ptr, ptr %ptr, align 8
+  //CHECK: load i32, ptr %i78, align 4
   //CHECK: %idxprom83 = sext i32 %40 to i64
-  //CHECK: %arrayidx84 = getelementptr inbounds i32, i32* %39, i64 %idxprom83, !llvm.index.group [[IVDEP17:![0-9]+]]
-  //CHECK: store i32 %call82, i32* %arrayidx84, align 4
+  //CHECK: %arrayidx84 = getelementptr inbounds i32, ptr %39, i64 %idxprom83, !llvm.index.group [[IVDEP17:![0-9]+]]
+  //CHECK: store i32 %call82, ptr %arrayidx84, align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP18:![0-9]+]]
   #pragma ivdep array(ptr)
   for (int i=0;i<32;++i) { ptr[i] = ibar(i); }
 
-  //CHECK: load i32, i32* %i88, align 4
+  //CHECK: load i32, ptr %i88, align 4
   //CHECK: %idxprom93 = sext i32 %44 to i64
-  //CHECK: %arrayidx94 = getelementptr inbounds [32 x i32], [32 x i32]* %myArray, i64 0, i64 %idxprom93, !llvm.index.group [[IVDEP19:![0-9]+]]
-  //CHECK: store i32 %call92, i32* %arrayidx94, align 4
+  //CHECK: %arrayidx94 = getelementptr inbounds [32 x i32], ptr %myArray, i64 0, i64 %idxprom93, !llvm.index.group [[IVDEP19:![0-9]+]]
+  //CHECK: store i32 %call92, ptr %arrayidx94, align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP20:![0-9]+]]
   #pragma ivdep array(myArray2)
   #pragma ivdep array(myArray)

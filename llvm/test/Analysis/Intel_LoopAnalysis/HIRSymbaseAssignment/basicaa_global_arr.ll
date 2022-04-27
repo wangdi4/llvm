@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -analyze -basic-aa -hir-framework -hir-framework-debug=symbase-assignment -debug-only=hir-framework < %s 2>&1 | FileCheck %s
+; RUN: opt -analyze -enable-new-pm=0 -basic-aa -hir-framework -hir-framework-debug=symbase-assignment -debug-only=hir-framework < %s 2>&1 | FileCheck %s
 ; With an AA impl, array refs should be in diff symbase
 ; Find A[] and it's symbase, make sure there is no B[] ref before or after
 ; with same symbase

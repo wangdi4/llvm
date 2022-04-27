@@ -2,26 +2,28 @@
 ; LIT test to check enabling of VPValue based code-generation by default. We
 ; check this by ensuring that operations are unmasked in vector code generation
 ; when we do not explicitly throw the flag to enable VPValue based code
-; generation (check prefix to be used is VPVAL for this case).
+; generation.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1  | FileCheck %s --check-prefixes=VPVAL,PM1
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=VPVAL,PM2
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1  | FileCheck %s --check-prefixes=VPVAL,PM1
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=VPVAL,PM2
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
 
 define void @foo(i64* noalias nocapture readonly %larr, float* noalias nocapture %farr) {
-;PM1:         IR Dump After VPlan HIR Vectorizer
-;PM2:         IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
-; VPVAL:               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; VPVAL-NEXT:          |   %.vec2 = undef;
-; VPVAL-NEXT:          |   %.vec = (<4 x i64>*)(%larr)[i1];
-; VPVAL-NEXT:          |   %.vec1 = %.vec > 111;
-; VPVAL-NEXT:          |   %.vec2 = (<4 x float>*)(%farr)[i1]; Mask = @{%.vec1}
-; VPVAL-NEXT:          |   %.vec3 =  - %.vec2;
-; VPVAL-NEXT:          |   (<4 x float>*)(%farr)[i1] = %.vec3; Mask = @{%.vec1}
-; VPVAL-NEXT:          + END LOOP
+; CHECK:               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK-NEXT:          |   %.vec2 = undef;
+; CHECK-NEXT:          |   %.vec = (<4 x i64>*)(%larr)[i1];
+; CHECK-NEXT:          |   %.vec1 = %.vec > 111;
+; CHECK-NEXT:          |   %.vec2 = (<4 x float>*)(%farr)[i1], Mask = @{%.vec1};
+; CHECK-NEXT:          |   %.vec3 =  - %.vec2;
+; CHECK-NEXT:          |   (<4 x float>*)(%farr)[i1] = %.vec3, Mask = @{%.vec1};
+; CHECK-NEXT:          + END LOOP
 ;
 entry:
   br label %for.body

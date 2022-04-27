@@ -1,4 +1,21 @@
 //===---- StmtProfile.cpp - Profile implementation for Stmt ASTs ----------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -37,6 +54,10 @@ namespace {
     virtual ~StmtProfiler() {}
 
     void VisitStmt(const Stmt *S);
+
+    void VisitStmtNoChildren(const Stmt *S) {
+      HandleStmtClass(S->getStmtClass());
+    }
 
     virtual void HandleStmtClass(Stmt::StmtClass SC) = 0;
 
@@ -218,7 +239,7 @@ namespace {
 void StmtProfiler::VisitStmt(const Stmt *S) {
   assert(S && "Requires non-null Stmt pointer");
 
-  HandleStmtClass(S->getStmtClass());
+  VisitStmtNoChildren(S);
 
   for (const Stmt *SubStmt : S->children()) {
     if (SubStmt)
@@ -908,6 +929,10 @@ void OMPClauseProfiler::VisitOMPIsDevicePtrClause(
     const OMPIsDevicePtrClause *C) {
   VisitOMPClauseList(C);
 }
+void OMPClauseProfiler::VisitOMPHasDeviceAddrClause(
+    const OMPHasDeviceAddrClause *C) {
+  VisitOMPClauseList(C);
+}
 void OMPClauseProfiler::VisitOMPNontemporalClause(
     const OMPNontemporalClause *C) {
   VisitOMPClauseList(C);
@@ -1007,26 +1032,6 @@ void StmtProfiler::VisitOMPSectionDirective(const OMPSectionDirective *S) {
 void StmtProfiler::VisitOMPTargetVariantDispatchDirective(
     const OMPTargetVariantDispatchDirective *S) {
   VisitOMPExecutableDirective(S);
-}
-
-void StmtProfiler::VisitOMPTeamsGenericLoopDirective(
-    const OMPTeamsGenericLoopDirective *S) {
-  VisitOMPLoopDirective(S);
-}
-
-void StmtProfiler::VisitOMPTargetTeamsGenericLoopDirective(
-    const OMPTargetTeamsGenericLoopDirective *S) {
-  VisitOMPLoopDirective(S);
-}
-
-void StmtProfiler::VisitOMPParallelGenericLoopDirective(
-    const OMPParallelGenericLoopDirective *S) {
-  VisitOMPLoopDirective(S);
-}
-
-void StmtProfiler::VisitOMPTargetParallelGenericLoopDirective(
-    const OMPTargetParallelGenericLoopDirective *S) {
-  VisitOMPLoopDirective(S);
 }
 
 void StmtProfiler::VisitOMPPrefetchDirective(const OMPPrefetchDirective *S) {
@@ -1286,6 +1291,26 @@ void StmtProfiler::VisitOMPMaskedDirective(const OMPMaskedDirective *S) {
 
 void StmtProfiler::VisitOMPGenericLoopDirective(
     const OMPGenericLoopDirective *S) {
+  VisitOMPLoopDirective(S);
+}
+
+void StmtProfiler::VisitOMPTeamsGenericLoopDirective(
+    const OMPTeamsGenericLoopDirective *S) {
+  VisitOMPLoopDirective(S);
+}
+
+void StmtProfiler::VisitOMPTargetTeamsGenericLoopDirective(
+    const OMPTargetTeamsGenericLoopDirective *S) {
+  VisitOMPLoopDirective(S);
+}
+
+void StmtProfiler::VisitOMPParallelGenericLoopDirective(
+    const OMPParallelGenericLoopDirective *S) {
+  VisitOMPLoopDirective(S);
+}
+
+void StmtProfiler::VisitOMPTargetParallelGenericLoopDirective(
+    const OMPTargetParallelGenericLoopDirective *S) {
   VisitOMPLoopDirective(S);
 }
 
@@ -2058,7 +2083,11 @@ StmtProfiler::VisitCXXTemporaryObjectExpr(const CXXTemporaryObjectExpr *S) {
 
 void
 StmtProfiler::VisitLambdaExpr(const LambdaExpr *S) {
-  VisitExpr(S);
+  // Do not recursively visit the children of this expression. Profiling the
+  // body would result in unnecessary work, and is not safe to do during
+  // deserialization.
+  VisitStmtNoChildren(S);
+
   // C++20 [temp.over.link]p5:
   //   Two lambda-expressions are never considered equivalent.
   VisitDecl(S->getLambdaClass());

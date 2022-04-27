@@ -1,10 +1,10 @@
 ; RUN: opt < %s -whole-program-assume -disable-output -debug-only=dtrans-soatoaos-deps          \
-; RUN:          -passes='require<dtransanalysis>,function(require<soatoaos-approx>)'            \
+; RUN:          -passes='require<dtransanalysis>,require<soatoaos-approx>'                      \
 ; RUN:          -dtrans-free-functions="XMemory::operator delete(void*)"                        \
 ; RUN:       2>&1 | FileCheck --check-prefix=CHECK-DEP %s
 ; RUN: opt < %s -whole-program-assume -disable-output                                           \
 ; RUN:          -debug-only=dtrans-soatoaos,dtrans-soatoaos-struct                              \
-; RUN:          -passes='require<dtransanalysis>,function(require<soatoaos-approx>,require<soatoaos-struct-methods>)' \
+; RUN:          -passes='require<dtransanalysis>,require<soatoaos-approx>,require<soatoaos-struct-methods>' \
 ; RUN:          -dtrans-soatoaos-mem-off=3                                                      \
 ; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.0                               \
 ; RUN:          -dtrans-soatoaos-array-type=class.ValueVectorOf.1                               \

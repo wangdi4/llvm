@@ -1,4 +1,21 @@
 //===--- Linux.h - Linux ToolChain Implementations --------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -197,9 +214,15 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   // Add the Intel installed library search path
   if (D.IsIntelMode()) {
     SmallString<128> LibDir(D.Dir);
-    llvm::sys::path::append(LibDir, "../compiler/lib");
-    llvm::sys::path::append(LibDir, Arch == llvm::Triple::x86_64 ? "intel64_lin"
-                                                                 : "ia32_lin");
+    llvm::sys::path::append(LibDir, "..");
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+    llvm::sys::path::append(LibDir, "..",
+                            Arch == llvm::Triple::x86_64 ? "lib" : "lib32");
+#else
+    llvm::sys::path::append(LibDir, "compiler", "lib",
+                            Arch == llvm::Triple::x86_64 ? "intel64_lin"
+                                                         : "ia32_lin");
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
     getFilePaths().push_back(Args.MakeArgString(LibDir));
   }
 #endif // INTEL_CUSTOMIZATION
@@ -239,8 +262,12 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   const bool IsMips = Triple.isMIPS();
   const bool IsHexagon = Arch == llvm::Triple::hexagon;
   const bool IsRISCV = Triple.isRISCV();
+  const bool IsCSKY = Triple.isCSKY();
 
-  if (IsMips && !SysRoot.empty())
+  if (IsCSKY)
+    SysRoot = SysRoot + SelectedMultilib.osSuffix();
+
+  if ((IsMips || IsCSKY) && !SysRoot.empty())
     ExtraOpts.push_back("--sysroot=" + SysRoot);
 
   // Do not use 'gnu' hash style for Mips targets because .gnu.hash
@@ -321,18 +348,19 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
 
   Generic_GCC::AddMultiarchPaths(D, SysRoot, OSLibDir, Paths);
 
-  // Similar to the logic for GCC above, if we are currently running Clang
-  // inside of the requested system root, add its parent library path to those
-  // searched.
-  // FIXME: It's not clear whether we should use the driver's installed
-  // directory ('Dir' below) or the ResourceDir.
-  if (StringRef(D.Dir).startswith(SysRoot)) {
-    // Even if OSLibDir != "lib", this is needed for Clang in the build
-    // directory (not installed) to find libc++.
+  // The deprecated -DLLVM_ENABLE_PROJECTS=libcxx configuration installs
+  // libc++.so in D.Dir+"/../lib/". Detect this path.
+  // TODO Remove once LLVM_ENABLE_PROJECTS=libcxx is unsupported.
+  if (StringRef(D.Dir).startswith(SysRoot) &&
+      (D.getVFS().exists(D.Dir + "/../lib/libc++.so") ||
+       Args.hasArg(options::OPT_fsycl))) { // INTEL
     addPathIfExists(D, D.Dir + "/../lib", Paths);
-    if (OSLibDir != "lib")
-      addPathIfExists(D, D.Dir + "/../" + OSLibDir, Paths);
+#if INTEL_CUSTOMIZATION
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+    addPathIfExists(D, D.Dir + "/../../lib", Paths);
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
   }
+#endif // INTEL_CUSTOMIZATION
 
   addPathIfExists(D, SysRoot + "/lib", Paths);
   addPathIfExists(D, SysRoot + "/usr/lib", Paths);
@@ -342,6 +370,12 @@ ToolChain::RuntimeLibType Linux::GetDefaultRuntimeLibType() const {
   if (getTriple().isAndroid())
     return ToolChain::RLT_CompilerRT;
   return Generic_ELF::GetDefaultRuntimeLibType();
+}
+
+unsigned Linux::GetDefaultDwarfVersion() const {
+  if (getTriple().isAndroid())
+    return 4;
+  return ToolChain::GetDefaultDwarfVersion();
 }
 
 ToolChain::CXXStdlibType Linux::GetDefaultCXXStdlibType() const {
@@ -373,6 +407,21 @@ std::string Linux::computeSysRoot() const {
     std::string AndroidSysRootPath = (ClangDir + "/../sysroot").str();
     if (getVFS().exists(AndroidSysRootPath))
       return AndroidSysRootPath;
+  }
+
+  if (getTriple().isCSKY()) {
+    // CSKY toolchains use different names for sysroot folder.
+    if (!GCCInstallation.isValid())
+      return std::string();
+    // GCCInstallation.getInstallPath() =
+    //   $GCCToolchainPath/lib/gcc/csky-linux-gnuabiv2/6.3.0
+    // Path = $GCCToolchainPath/csky-linux-gnuabiv2/libc
+    std::string Path = (GCCInstallation.getInstallPath() + "/../../../../" +
+                        GCCInstallation.getTriple().str() + "/libc")
+                           .str();
+    if (getVFS().exists(Path))
+      return Path;
+    return std::string();
   }
 
   if (!GCCInstallation.isValid() || !getTriple().isMIPS())
@@ -551,6 +600,11 @@ std::string Linux::getDynamicLinker(const ArgList &Args) const {
   }
   case llvm::Triple::ve:
     return "/opt/nec/ve/lib/ld-linux-ve.so.1";
+  case llvm::Triple::csky: {
+    LibDir = "lib";
+    Loader = "ld.so.1";
+    break;
+  }
   }
 
   if (Distro == Distro::Exherbo &&
@@ -721,7 +775,7 @@ bool Linux::IsAArch64OutlineAtomicsDefault(const ArgList &Args) const {
 }
 
 bool Linux::IsMathErrnoDefault() const {
-  if (getTriple().isAndroid())
+  if (getTriple().isAndroid() || getTriple().isMusl())
     return false;
   return Generic_ELF::IsMathErrnoDefault();
 }

@@ -1,3 +1,18 @@
+// INTEL_CUSTOMIZATION
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //==-------------- CG.hpp - SYCL standard header file ----------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -15,9 +30,6 @@
 #include <CL/sycl/detail/common.hpp>
 #include <CL/sycl/detail/export.hpp>
 #include <CL/sycl/detail/helpers.hpp>
-/* INTEL_CUSTOMIZATION */
-#include <CL/sycl/detail/host_device_intel/backend.hpp>
-/* end INTEL_CUSTOMIZATION */
 #include <CL/sycl/detail/host_profiling_info.hpp>
 #include <CL/sycl/detail/kernel_desc.hpp>
 #include <CL/sycl/detail/type_traits.hpp>
@@ -251,6 +263,7 @@ public:
   std::string MKernelName;
   detail::OSModuleHandle MOSModuleHandle;
   std::vector<std::shared_ptr<detail::stream_impl>> MStreams;
+  std::vector<std::shared_ptr<const void>> MAuxiliaryResources;
 
   CGExecKernel(NDRDescT NDRDesc, std::unique_ptr<HostKernelBase> HKernel,
                std::shared_ptr<detail::kernel_impl> SyclKernel,
@@ -262,6 +275,7 @@ public:
                std::vector<ArgDesc> Args, std::string KernelName,
                detail::OSModuleHandle OSModuleHandle,
                std::vector<std::shared_ptr<detail::stream_impl>> Streams,
+               std::vector<std::shared_ptr<const void>> AuxiliaryResources,
                CGTYPE Type, detail::code_location loc = {})
       : CG(Type, std::move(ArgsStorage), std::move(AccStorage),
            std::move(SharedPtrStorage), std::move(Requirements),
@@ -269,7 +283,8 @@ public:
         MNDRDesc(std::move(NDRDesc)), MHostKernel(std::move(HKernel)),
         MSyclKernel(std::move(SyclKernel)), MArgs(std::move(Args)),
         MKernelName(std::move(KernelName)), MOSModuleHandle(OSModuleHandle),
-        MStreams(std::move(Streams)) {
+        MStreams(std::move(Streams)),
+        MAuxiliaryResources(std::move(AuxiliaryResources)) {
     assert((getType() == RunOnHostIntel || getType() == Kernel) &&
            "Wrong type of exec kernel CG.");
   }
@@ -278,6 +293,10 @@ public:
   std::string getKernelName() const { return MKernelName; }
   std::vector<std::shared_ptr<detail::stream_impl>> getStreams() const {
     return MStreams;
+  }
+
+  std::vector<std::shared_ptr<const void>> getAuxiliaryResources() const {
+    return MAuxiliaryResources;
   }
 
   std::shared_ptr<detail::kernel_bundle_impl> getKernelBundle() {
@@ -294,6 +313,9 @@ public:
 
   void clearStreams() { MStreams.clear(); }
   bool hasStreams() { return !MStreams.empty(); }
+
+  void clearAuxiliaryResources() { MAuxiliaryResources.clear(); }
+  bool hasAuxiliaryResources() { return !MAuxiliaryResources.empty(); }
 };
 
 /// "Copy memory" command group class.
@@ -447,11 +469,11 @@ public:
   pi_mem_advice getAdvice() {
     auto ExtendedMembers = getExtendedMembers();
     if (!ExtendedMembers)
-      return PI_MEM_ADVISE_UNKNOWN;
+      return PI_MEM_ADVICE_UNKNOWN;
     for (const ExtendedMemberT &EM : *ExtendedMembers)
       if ((ExtendedMembersType::HANDLER_MEM_ADVICE == EM.MType) && EM.MData)
         return *std::static_pointer_cast<pi_mem_advice>(EM.MData);
-    return PI_MEM_ADVISE_UNKNOWN;
+    return PI_MEM_ADVICE_UNKNOWN;
   }
 };
 

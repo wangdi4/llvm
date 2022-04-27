@@ -1,5 +1,5 @@
-; RUN: opt < %s -switch-to-offload -vpo-paropt-enable-device-simd-codegen -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
-; RUN: opt < %s -switch-to-offload -vpo-paropt-enable-device-simd-codegen -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S | FileCheck %s
+; RUN: opt -switch-to-offload -vpo-paropt-enable-device-simd-codegen -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -switch-to-offload -vpo-paropt-enable-device-simd-codegen -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; Test src:
 

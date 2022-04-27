@@ -1,4 +1,21 @@
 //===--- ASTCommon.cpp - Common stuff for ASTReader/ASTWriter----*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -402,6 +419,7 @@ bool serialization::isRedeclarableDeclKind(unsigned Kind) {
   case Decl::Field:
   case Decl::MSProperty:
   case Decl::MSGuid:
+  case Decl::UnnamedGlobalConstant:
   case Decl::TemplateParamObject:
   case Decl::ObjCIvar:
   case Decl::ObjCAtDefsField:
@@ -488,7 +506,9 @@ bool serialization::needsAnonymousDeclarationNumber(const NamedDecl *D) {
   // Otherwise, we only care about anonymous class members / block-scope decls.
   // FIXME: We need to handle lambdas and blocks within inline / templated
   // variables too.
-  if (D->getDeclName() || !isa<RecordDecl>(D->getLexicalDeclContext()))
+  if (D->getDeclName())
+    return false;
+  if (!isa<RecordDecl, ObjCInterfaceDecl>(D->getLexicalDeclContext()))
     return false;
   return isa<TagDecl>(D) || isa<FieldDecl>(D);
 }

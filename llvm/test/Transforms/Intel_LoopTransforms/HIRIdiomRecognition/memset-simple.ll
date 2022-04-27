@@ -23,8 +23,8 @@
 ; CHECK:      }
 ; CHECK: END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-idiom -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter -disable-output 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-idiom,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-loop-optreport=low -disable-output 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-idiom -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter -disable-output 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-idiom,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-opt-report=low -disable-output 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ;
 ;OPTREPORT: Global optimization report for : foo
 ;

@@ -18,6 +18,8 @@ define void @_ZGVeN16uuu__ZTSZZ4mainENKUlRN2cl4sycl7handlerEE_clES2_E11AtomicTes
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     i64* [[VP__SROA_0:%.*]] = allocate-priv i64*, OrigAlign = 8
+; CHECK-NEXT:     i8* [[VP__SROA_0_BCAST:%.*]] = bitcast i64* [[VP__SROA_0]]
+; CHECK-NEXT:     call i64 8 i8* [[VP__SROA_0_BCAST:%.*]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     i64 addrspace(4)* [[VP__SROA_0_0__SROA_CAST:%.*]] = addrspacecast i64* [[VP__SROA_0]]
 ; CHECK-NEXT:     i64 addrspace(4)* [[VP_SELECT:%.*]] = select i1 [[CMP_I_I0:%.*]] i64 addrspace(4)* [[VP__SROA_0_0__SROA_CAST]] i64 addrspace(4)* [[ALT0:%.*]]
 ; CHECK:          br [[BB2:BB[0-9]+]]

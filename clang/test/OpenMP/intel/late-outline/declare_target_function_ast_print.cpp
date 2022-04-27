@@ -52,7 +52,7 @@ int foo2();
 //PRINT: #pragma omp end declare target
 //DUMP: FunctionDecl{{.*}}foo3 'int ()'
 //DUMP-NEXT: OMPDeclareTargetDeclAttr{{.*}}Implicit MT_To DT_Any
-//DUMP-NEXT: OMPDeclareSimdDeclAttr
+//DUMP: OMPDeclareSimdDeclAttr
 [[omp::directive(declare simd)]]
 [[ompx::directive(declare target function)]]
 int foo3();
@@ -63,7 +63,7 @@ int foo3();
 //PRINT: #pragma omp end declare target
 //DUMP: FunctionDecl{{.*}}foo4 'int ()'
 //DUMP-NEXT: OMPDeclareTargetDeclAttr{{.*}}Implicit MT_To DT_Any
-//DUMP-NEXT: OMPDeclareSimdDeclAttr
+//DUMP: OMPDeclareSimdDeclAttr
 [[omp::sequence(directive(declare simd),
                 ompx::directive(declare target function))]]
 int foo4();
@@ -85,7 +85,7 @@ int foo5();
 //PRINT: #pragma omp end declare target
 //DUMP: FunctionDecl{{.*}}foo6 'int ()'
 //DUMP-NEXT: OMPDeclareTargetDeclAttr{{.*}}Implicit MT_To DT_Any
-//DUMP-NEXT: OMPDeclareSimdDeclAttr
+//DUMP: OMPDeclareSimdDeclAttr
 [[omp::sequence(omp::directive(declare simd),
                 ompx::directive(declare target function))]]
 int foo6();

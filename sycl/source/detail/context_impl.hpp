@@ -149,7 +149,7 @@ public:
   ///  cl_intel_devicelib_complex -> #<pi_program with complex functions>
   ///  etc.
   ///
-  /// See `doc/extensions/C-CXX-StandardLibrary/DeviceLibExtensions.rst' for
+  /// See `doc/design/DeviceLibExtensions.rst' for
   /// more details.
   ///
   /// \returns a map with device library programs.
@@ -160,10 +160,6 @@ public:
 
   KernelProgramCache &getKernelProgramCache() const;
 
-  Locked<RT::PiKernel> getNonCachedKernelLock(RT::PiKernel &K) const {
-    return MNonCachedKernelLock.lockKernel(K);
-  }
-
   /// Returns true if and only if context contains the given device.
   bool hasDevice(std::shared_ptr<detail::device_impl> Device) const;
 
@@ -171,6 +167,11 @@ public:
   ///
   /// \return a native handle.
   pi_native_handle getNative() const;
+
+  // Returns true if buffer_location property is supported by devices
+  bool isBufferLocationSupported() const;
+
+  enum PropertySupport { NotSupported = 0, Supported = 1, NotChecked = 2 };
 
 private:
   async_handler MAsyncHandler;
@@ -182,7 +183,7 @@ private:
   std::map<std::pair<DeviceLibExt, RT::PiDevice>, RT::PiProgram>
       MCachedLibPrograms;
   mutable KernelProgramCache MKernelProgramCache;
-  mutable NonCachedKernelLock MNonCachedKernelLock;
+  mutable PropertySupport MSupportBufferLocationByDevices;
 };
 
 } // namespace detail

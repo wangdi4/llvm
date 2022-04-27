@@ -15,6 +15,7 @@
 
 #include "llvm/Analysis/Intel_OptReport/OptReport.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportPrintUtils.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/CodeGen/Passes.h"
@@ -88,7 +89,7 @@ bool MachineOptReportEmitter::runOnMachineFunction(MachineFunction &MF) {
 
   const Function &F = MF.getFunction();
   const MachineLoopInfo &MLI = getAnalysis<MachineLoopInfo>();
-  formatted_raw_ostream OS(dbgs());
+  formatted_raw_ostream &OS = OptReportOptions::getOutputStream();
   OS << "Global Mloop optimization report for : " << F.getName() << "\n";
 
   // First check that there are attached reports to the function itself.

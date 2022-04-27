@@ -1,4 +1,21 @@
 //===-LTO.cpp - LLVM Link Time Optimizer ----------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -47,6 +64,7 @@
 #include "llvm/Support/ThreadPool.h"
 #include "llvm/Support/Threading.h"
 #include "llvm/Support/TimeProfiler.h"
+#include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/VCSRevision.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
@@ -134,7 +152,7 @@ void llvm::computeLTOCacheKey(
   AddUnsigned(Conf.CGOptLevel);
   AddUnsigned(Conf.CGFileType);
   AddUnsigned(Conf.OptLevel);
-  AddUnsigned(Conf.UseNewPM);
+  AddUnsigned(Conf.UseNewPM); // INTEL
   AddUnsigned(Conf.Freestanding);
   AddString(Conf.OptPipeline);
   AddString(Conf.AAPipeline);
@@ -885,8 +903,7 @@ Error LTO::linkRegularLTO(RegularLTOState::AddedModule Mod,
     Keep.push_back(GV);
   }
 
-  return RegularLTO.Mover->move(std::move(Mod.M), Keep,
-                                [](GlobalValue &, IRMover::ValueAdder) {},
+  return RegularLTO.Mover->move(std::move(Mod.M), Keep, nullptr,
                                 /* IsPerformingImport */ false);
 }
 
@@ -1205,7 +1222,7 @@ public:
       : Conf(Conf), CombinedIndex(CombinedIndex),
         ModuleToDefinedGVSummaries(ModuleToDefinedGVSummaries) {}
 
-  virtual ~ThinBackendProc() {}
+  virtual ~ThinBackendProc() = default;
   virtual Error start(
       unsigned Task, BitcodeModule BM,
       const FunctionImporter::ImportMapTy &ImportList,
@@ -1409,7 +1426,7 @@ public:
                       sys::fs::OpenFlags::OF_None);
     if (EC)
       return errorCodeToError(EC);
-    WriteIndexToFile(CombinedIndex, OS, &ModuleToSummariesForIndex);
+    writeIndexToFile(CombinedIndex, OS, &ModuleToSummariesForIndex);
 
     if (ShouldEmitImportsFiles) {
       EC = EmitImportsFiles(ModulePath, NewModulePath + ".imports",
@@ -1657,9 +1674,8 @@ lto::setupStatsFile(StringRef StatsFilename) {
 // is to sort them per size so that the largest module get schedule as soon as
 // possible. This is purely a compile-time optimization.
 std::vector<int> lto::generateModulesOrdering(ArrayRef<BitcodeModule *> R) {
-  std::vector<int> ModulesOrdering;
-  ModulesOrdering.resize(R.size());
-  std::iota(ModulesOrdering.begin(), ModulesOrdering.end(), 0);
+  auto Seq = llvm::seq<int>(0, R.size());
+  std::vector<int> ModulesOrdering(Seq.begin(), Seq.end());
   llvm::sort(ModulesOrdering, [&](int LeftIndex, int RightIndex) {
     auto LSize = R[LeftIndex]->getBuffer().size();
     auto RSize = R[RightIndex]->getBuffer().size();

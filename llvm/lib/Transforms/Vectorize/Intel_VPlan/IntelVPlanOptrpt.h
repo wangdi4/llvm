@@ -28,10 +28,23 @@ class VPLoop;
 class VPLoopInfo;
 
 struct OptReportStatsTracker {
+  struct RemarkRecord {
+    unsigned RemarkID;
+    OptReportVerbosity::Level MessageVerbosity;
+    std::string Msg;
+
+    // High verbosity is assumed
+    RemarkRecord(unsigned ID, std::string Msg = "")
+        : RemarkID(ID), MessageVerbosity(OptReportVerbosity::High), Msg(Msg){};
+    RemarkRecord(unsigned ID, OptReportVerbosity::Level Verbosity,
+                 std::string Msg = "")
+        : RemarkID(ID), MessageVerbosity(Verbosity), Msg(Msg){};
+  };
+
   // Fields.
 #define VPLAN_OPTRPT_HANDLE(ID, NAME) int NAME = 0;
-#define VPLAN_OPTRPT_VEC_HANDLE(VEC)                                           \
-  SmallVector<std::pair<unsigned, std::string>, 32> VEC;
+#define VPLAN_OPTRPT_VEC_HANDLE(VEC) SmallVector<RemarkRecord, 32> VEC;
+#define VPLAN_OPTRPT_ORIGIN_VEC_HANDLE(VEC) SmallVector<RemarkRecord, 32> VEC;
 #include "IntelVPlanOptrpt.inc"
 
 public:

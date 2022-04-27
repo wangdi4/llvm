@@ -88,8 +88,8 @@
 //
 #include "IntelVPlanVectorizeIndirectCalls.h"
 #include "IntelVPlanCallVecDecisions.h"
-#include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/Analysis/VectorUtils.h"
+#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "IndirectCallCodeGenerator"

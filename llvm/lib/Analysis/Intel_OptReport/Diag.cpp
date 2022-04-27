@@ -25,7 +25,7 @@ using namespace llvm;
 /// messages need to stay within 8-bit offset from 15300.
 const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {15300, "LOOP WAS VECTORIZED"},
-    {15301, "%s WAS VECTORIZED"},
+    {15301, "SIMD LOOP WAS VECTORIZED"},
     {15302, "routine skipped: vectorization disabled due to -mno-sse, "
             "-mno-sse2, -mia32, and/or -no-vec flag"},
     {15303,
@@ -464,7 +464,7 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {25488, "LOOP WAS REROLLED"},
     {25489, "MEMOP WAS GENERATED FOR THIS LOOP"},
     {25490, "LOOP STMTS WERE REORDERED"},
-    {25491, "REMAINDER LOOP"},
+    {25491, "Remainder loop"},
     {25492, "AUTO PARALLELIZED LOOP"},
     {25493, "OPENMP LOOP"},
     {25494, "CILK FOR LOOP"},
@@ -491,8 +491,8 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {25515, "LOOP WAS PREFETCHED"},
     {25516, ", LINES = "},
     {25517, "LOOP WAS VECTORIZED"},
-    {25518, "PEELED LOOP FOR VECTORIZATION"},
-    {25519, "REMAINDER LOOP FOR VECTORIZATION"},
+    {25518, "Peeled loop for vectorization"},
+    {25519, "Remainder loop for vectorization"},
     {25520, "SIMD LOOP"},
     {25521, "SIMD ENABLED VECTOR FUNCTION"},
     {25522, "CILK PLUS ARRAY NOTATION LOOP"},
@@ -517,6 +517,10 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {25581, "Loop has been row-wise multiversioned"},
     {25583, "Number of Array Refs Scalar Replaced In Loop: %d"},
     {25584, "Inner loop sums optimized with sum window reuse"},
+    {25585, "Loop converted to switch"},
+    {25586, "Peeled loop for fusion"},
+    {25587, "Loop has reduction"},
+    {25588, "Loop has SIMD reduction"},
 };
 
 const char *OptReportDiag::getMsg(unsigned Id) {

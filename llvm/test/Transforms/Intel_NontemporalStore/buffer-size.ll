@@ -1,13 +1,13 @@
-; RUN: opt -enable-intel-advanced-opts -S -passes 'unaligned-nontemporal,verify' -unaligned-nontemporal-buffer-size=1 < %s | FileCheck %s --check-prefixes=ALL,BS1
-; RUN: opt -enable-intel-advanced-opts -S -unaligned-nontemporal -verify -unaligned-nontemporal-buffer-size=1 < %s | FileCheck %s --check-prefixes=ALL,BS1
-; RUN: opt -enable-intel-advanced-opts -S -passes 'unaligned-nontemporal,verify' -unaligned-nontemporal-buffer-size=512 < %s | FileCheck %s --check-prefixes=ALL,BS512
-; RUN: opt -enable-intel-advanced-opts -S -unaligned-nontemporal -verify -unaligned-nontemporal-buffer-size=512 < %s | FileCheck %s --check-prefixes=ALL,BS512
-; RUN: opt -enable-intel-advanced-opts -S -passes 'unaligned-nontemporal,verify' -unaligned-nontemporal-buffer-size=543 < %s | FileCheck %s --check-prefixes=ALL,BS543
-; RUN: opt -enable-intel-advanced-opts -S -unaligned-nontemporal -verify -unaligned-nontemporal-buffer-size=543 < %s | FileCheck %s --check-prefixes=ALL,BS543
-; RUN: opt -enable-intel-advanced-opts -S -passes 'unaligned-nontemporal,verify' -unaligned-nontemporal-buffer-size=544 < %s | FileCheck %s --check-prefixes=ALL,BS544
-; RUN: opt -enable-intel-advanced-opts -S -unaligned-nontemporal -verify -unaligned-nontemporal-buffer-size=544 < %s | FileCheck %s --check-prefixes=ALL,BS544
-; RUN: opt -enable-intel-advanced-opts -S -passes 'unaligned-nontemporal,verify' -unaligned-nontemporal-buffer-size=545 < %s | FileCheck %s --check-prefixes=ALL,BS545
-; RUN: opt -enable-intel-advanced-opts -S -unaligned-nontemporal -verify -unaligned-nontemporal-buffer-size=545 < %s | FileCheck %s --check-prefixes=ALL,BS545
+; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -S -passes 'unaligned-nontemporal,verify' -unaligned-nontemporal-buffer-size=1 < %s | FileCheck %s --check-prefixes=ALL,BS1
+; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -S -unaligned-nontemporal -verify -unaligned-nontemporal-buffer-size=1 < %s | FileCheck %s --check-prefixes=ALL,BS1
+; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -S -passes 'unaligned-nontemporal,verify' -unaligned-nontemporal-buffer-size=512 < %s | FileCheck %s --check-prefixes=ALL,BS512
+; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -S -unaligned-nontemporal -verify -unaligned-nontemporal-buffer-size=512 < %s | FileCheck %s --check-prefixes=ALL,BS512
+; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -S -passes 'unaligned-nontemporal,verify' -unaligned-nontemporal-buffer-size=543 < %s | FileCheck %s --check-prefixes=ALL,BS543
+; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -S -unaligned-nontemporal -verify -unaligned-nontemporal-buffer-size=543 < %s | FileCheck %s --check-prefixes=ALL,BS543
+; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -S -passes 'unaligned-nontemporal,verify' -unaligned-nontemporal-buffer-size=544 < %s | FileCheck %s --check-prefixes=ALL,BS544
+; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -S -unaligned-nontemporal -verify -unaligned-nontemporal-buffer-size=544 < %s | FileCheck %s --check-prefixes=ALL,BS544
+; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -S -passes 'unaligned-nontemporal,verify' -unaligned-nontemporal-buffer-size=545 < %s | FileCheck %s --check-prefixes=ALL,BS545
+; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -S -unaligned-nontemporal -verify -unaligned-nontemporal-buffer-size=545 < %s | FileCheck %s --check-prefixes=ALL,BS545
 target triple = "x86_64-unknown-linux-gnu"
 
 define void @example(<8 x i64>* %dest) "target-features"="+avx512f" {

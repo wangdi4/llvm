@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 include(GetLibraryName)
 
 # Ensure that libSupport does not carry any static global initializer.
@@ -90,7 +107,7 @@ if(LLVM_INTEGRATED_CRT_ALLOC)
     add_definitions(-DENABLE_OVERRIDE -DENABLE_PRELOAD)
     set(ALLOCATOR_FILES "${LLVM_INTEGRATED_CRT_ALLOC}/rpmalloc/rpmalloc.c")
   elseif(LLVM_INTEGRATED_CRT_ALLOC MATCHES "snmalloc$")
-    set(ALLOCATOR_FILES "${LLVM_INTEGRATED_CRT_ALLOC}/src/override/malloc.cc" "${LLVM_INTEGRATED_CRT_ALLOC}/src/override/new.cc")
+    set(ALLOCATOR_FILES "${LLVM_INTEGRATED_CRT_ALLOC}/src/snmalloc/override/new.cc")
     set(system_libs ${system_libs} "mincore.lib" "-INCLUDE:malloc")
   elseif(LLVM_INTEGRATED_CRT_ALLOC MATCHES "mimalloc$")
     set(MIMALLOC_LIB "${LLVM_INTEGRATED_CRT_ALLOC}/out/msvc-x64/Release/mimalloc-static.lib")
@@ -101,9 +118,12 @@ if(LLVM_INTEGRATED_CRT_ALLOC)
   endif()
 endif()
 
+add_subdirectory(BLAKE3)
+
 # INTEL_CUSTOMIZATION
 set (SUPPORT_SOURCES
 # end INTEL_CUSTOMIZATION
+
   AArch64TargetParser.cpp
   ABIBreak.cpp
   ARMTargetParser.cpp
@@ -137,6 +157,9 @@ set (SUPPORT_SOURCES
   ConvertUTF.cpp
   ConvertUTFWrapper.cpp
   CrashRecoveryContext.cpp
+  CSKYAttributes.cpp
+  CSKYAttributeParser.cpp
+  CSKYTargetParser.cpp
   DataExtractor.cpp
   Debug.cpp
   DebugCounter.cpp
@@ -241,6 +264,7 @@ set (SUPPORT_SOURCES
   Z3Solver.cpp
 
   ${ALLOCATOR_FILES}
+  $<TARGET_OBJECTS:LLVMSupportBlake3>
 
 # System
   Atomic.cpp

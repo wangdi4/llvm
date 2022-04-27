@@ -15,6 +15,7 @@
 #include "IntelVPlanScalarEvolution.h"
 
 #include <llvm/IR/DataLayout.h>
+#include <llvm/Support/InstructionCost.h>
 #include <llvm/Support/KnownBits.h>
 
 namespace llvm {
@@ -136,7 +137,8 @@ public:
 
   /// Compute cost of unit stride memory access \p Mrf with the given
   /// \p Alignment and \p VF.
-  virtual int getCost(VPLoadStoreInst *Mrf, int VF, Align Alignment) = 0;
+  virtual VPInstructionCost getCost(
+    VPLoadStoreInst *Mrf, int VF, Align Alignment) = 0;
 };
 
 /// A simple (but reasonable) implementation of VPlanPeelingCostModel. It
@@ -146,7 +148,8 @@ class VPlanPeelingCostModelSimple final : public VPlanPeelingCostModel {
 public:
   VPlanPeelingCostModelSimple(const DataLayout &DL) : DL(&DL) {}
 
-  int getCost(VPLoadStoreInst *Mrf, int VF, Align Alignment) override;
+  VPInstructionCost getCost(
+    VPLoadStoreInst *Mrf, int VF, Align Alignment) override;
 
 private:
   const DataLayout *DL;
@@ -160,7 +163,8 @@ public:
     assert(CM && "CostModel pointer should not be NULL.");
   }
 
-  int getCost(VPLoadStoreInst *Mrf, int VF, Align Alignment) override;
+  VPInstructionCost getCost(
+    VPLoadStoreInst *Mrf, int VF, Align Alignment) override;
 
 private:
   const VPlanCostModelInterface *CM;
@@ -221,12 +225,12 @@ public:
   /// Returns best static peeling variant and its profit. The algorithm for
   /// selecting best peeling variant always succeeds. In the worst case
   /// {StaticPeeling(0), 0} is returned.
-  std::pair<VPlanStaticPeeling, int>
+  std::pair<VPlanStaticPeeling, VPInstructionCost>
   selectBestStaticPeelingVariant(int VF, VPlanPeelingCostModel &CM);
 
   /// Returns best dynamic peeling variant and its profit. None is returned when
   /// there's no analyzable memrefs in the loop.
-  Optional<std::pair<VPlanDynamicPeeling, int>>
+  Optional<std::pair<VPlanDynamicPeeling, VPInstructionCost>>
   selectBestDynamicPeelingVariant(int VF, VPlanPeelingCostModel &CM);
 
 private:

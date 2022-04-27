@@ -599,8 +599,7 @@ bool ScalarExpansion::isSafeToRecompute(const RegDDRef *SrcRef,
 // Scalar Expansion inserts a temparray store after the definition
 // of x and a temparray load before the use of B[x]. However, because
 // the original use is under an if-node, we want the corresponding load
-// to be inside the if-node, as opposed to before the if, which is the
-// default node used by SCEX.
+// to be inside the if-node, as opposed to before the if.
 static HLNode *getInsertionNodeForIf(RegDDRef *Src, DDRef *Dst,
                                      HLNode *FirstNode) {
   HLIf *SrcParentIf = dyn_cast_or_null<HLIf>(Src->getHLDDNode()->getParent());
@@ -618,6 +617,7 @@ static HLNode *getInsertionNodeForIf(RegDDRef *Src, DDRef *Dst,
   if (!SrcParentIf || !DstParentIf) {
     return FirstNode;
   }
+
   // Find equivalent HLIf parent for both Src and Dst. The Dst may be at a
   // deeper if nesting than the src, so we traverse up the Dst parent chain.
   // If there is a deeper nesting, save the if ancestor that is the immediate
@@ -650,6 +650,7 @@ static HLNode *getInsertionNodeForIf(RegDDRef *Src, DDRef *Dst,
     }
     return false;
   };
+
   bool SrcPath = SrcParentIf->isThenChild(Src->getHLDDNode());
 
   // TODO: Return the Node in DstPath corresponding to the def in the first
@@ -664,9 +665,11 @@ static HLNode *getInsertionNodeForIf(RegDDRef *Src, DDRef *Dst,
   // manually iterate the nodes
   bool DstPath = isNodeInThenPath(
       DstParentIf, DstIfAncestor ? DstIfAncestor : Dst->getHLDDNode());
+
   if (SrcPath != DstPath) {
     return FirstNode;
   }
+
   return DstPath ? DstParentIf->getFirstThenChild()
                  : DstParentIf->getFirstElseChild();
 }

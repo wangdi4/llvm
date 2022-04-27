@@ -43,7 +43,7 @@
 //
 // RUN: %clang_cl -### /Qaxbroadwell %s -c 2>&1 | \
 // RUN:  FileCheck %s --check-prefixes=CHECK-AX-BROADWELL
-// RUN: %clang_cl -### /Qaxcore-avx2,broadwell %s -c 2>&1 | \
+// RUN: %clang_cl -### /QaxCORE-AVX2,broadwell %s -c 2>&1 | \
 // RUN:  FileCheck %s -check-prefixes=CHECK-AX-BOTH
 //
 // CHECK-AX-BROADWELL: "-ax=broadwell"
@@ -347,7 +347,6 @@
 // RUN: %clang -### -c -fno-inline -inline-level=0 -finline-hint-functions %s 2>&1 | FileCheck -check-prefix CHECK-INLINE-LEVEL %s
 // RUN: %clang -### -c -fno-inline -inline-level=1 %s 2>&1 | FileCheck -check-prefix CHECK-INLINE-LEVEL %s
 // CHECK-INLINE-LEVEL: "-fno-inline"
-// CHECK-INLINE-LEVEL: "-finline-hint-functions"
 
 // Behavior with /Qno-builtin- maps to -fno-builtin-
 // RUN: %clang_cl -### -c /Qno-builtin- %s 2>&1 | FileCheck -check-prefix CHECK-QNO-BUILTIN %s
@@ -578,35 +577,55 @@
 // CHECK-PCH-USE: "-include-pch"
 
 // Behavior with -qopt-report
-// RUN: %clang -### -qopt-report -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
-// RUN: %clang_cl -### -Qopt-report -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
-// RUN: %clang -### -qopt-report=2 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
-// RUN: %clang_cl -### -Qopt-report:2 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
-// RUN: %clang -### -qopt-report2 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
-// RUN: %clang_cl -### -Qopt-report2 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
-// RUN: %clang -### -qopt-report=med -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
-// RUN: %clang_cl -### -Qopt-report:med -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
-// RUN: %clang -### -fiopenmp -fopenmp-targets=spir64 -S -qopt-report=3 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-NAME %s
-// RUN: %clang_cl -### -Qiopenmp -Qopenmp-targets=spir64 -S -Qopt-report=3 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-NAME %s
+// RUN: mkdir -p %t_dir
+// RUN: touch %t_dir/dummy.c
+// RUN: %clang -### -qopt-report -c %t_dir/dummy.c 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang_cl -### -Qopt-report -c %t_dir/dummy.c 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang -### -qopt-report=2 -c %t_dir/dummy.c 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang_cl -### -Qopt-report:2 -c %t_dir/dummy.c 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang -### -qopt-report2 -c %t_dir/dummy.c 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang_cl -### -Qopt-report2 -c %t_dir/dummy.c 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang -### -qopt-report=med -c %t_dir/dummy.c 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang_cl -### -Qopt-report:med -c %t_dir/dummy.c 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
 // CHECK-OPT-REPORT: "-debug-info-kind=line-tables-only"
 // CHECK-OPT-REPORT: "-opt-record-file" "{{.*}}.yaml"
 // CHECK-OPT-REPORT: "-opt-record-format" "yaml"
-// CHECK-OPT-REPORT: "-mllvm" "-intel-loop-optreport-emitter=ir"
+// CHECK-OPT-REPORT: "-mllvm" "-intel-opt-report-emitter=ir"
 // CHECK-OPT-REPORT: "-mllvm" "-enable-ra-report"
-// CHECK-OPT-REPORT: "-mllvm" "-intel-loop-optreport=medium"
+// CHECK-OPT-REPORT: "-mllvm" "-intel-opt-report=medium"
 // CHECK-OPT-REPORT: "-mllvm" "-intel-ra-spillreport=medium"
 // CHECK-OPT-REPORT: "-mllvm" "-inline-report=0x2819"
+// CHECK-OPT-REPORT: "-mllvm" "-intel-opt-report-file=dummy.optrpt"
+
+// -qopt-report-file checks
+// RUN: %clang -### -qopt-report -qopt-report-file=report-out.file -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-FILE %s
+// RUN: %clang_cl -### -Qopt-report -Qopt-report-file:report-out.file -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-FILE %s
+// RUN: %clang -### -qopt-report-file=report-out.file -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-FILE %s
+// RUN: %clang_cl -### -Qopt-report-file:report-out.file -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-FILE %s
+// CHECK-OPT-REPORT-FILE: "-mllvm" "-intel-opt-report-file=report-out.file"
+
+// RUN: %clang -### -ipo -fuse-ld=lld -qopt-report %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-FILE-IPO %s
+// RUN: %clang_cl -### -Qipo -fuse-ld=lld -Qopt-report %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-FILE-IPO %s
+// CHECK-OPT-REPORT-FILE-IPO: "-mllvm" "-intel-opt-report-file=intel-options.optrpt"
+// CHECK-OPT-REPORT-FILE-IPO: -intel-opt-report-file=ipo_out.optrpt
+
+// RUN: %clang -### -ipo -fuse-ld=lld -qopt-report -o %t_dir/out.exe %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-FILE-IPO-DIR %s
+// RUN: %clang_cl -### -Qipo -fuse-ld=lld -Qopt-report -o %t_dir/out.exe %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-FILE-IPO-DIR %s
+// CHECK-OPT-REPORT-FILE-IPO-DIR: -intel-opt-report-file={{.*}}_dir{{(/|\\\\)}}ipo_out.optrpt
+
+// RUN: %clang -### -fiopenmp -fopenmp-targets=spir64 -S -qopt-report=3 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-NAME %s
+// RUN: %clang_cl -### -Qiopenmp -Qopenmp-targets=spir64 -S -Qopt-report=3 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-NAME %s
 // CHECK-OPT-REPORT-NAME: "-opt-record-file" "intel-options-openmp-spir64.opt.yaml"
 
 // RUN: %clang -### -qopt-report=min -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MIN %s
 // RUN: %clang_cl -### -Qopt-report:min -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MIN %s
-// CHECK-OPT-REPORT-MIN: "-mllvm" "-intel-loop-optreport=low"
+// CHECK-OPT-REPORT-MIN: "-mllvm" "-intel-opt-report=low"
 // CHECK-OPT-REPORT-MIN: "-mllvm" "-intel-ra-spillreport=low"
 // CHECK-OPT-REPORT-MIN: "-mllvm" "-inline-report=0x19"
 
 // RUN: %clang -### -qopt-report=max -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MAX %s
 // RUN: %clang_cl -### -Qopt-report:max -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MAX %s
-// CHECK-OPT-REPORT-MAX: "-mllvm" "-intel-loop-optreport=high"
+// CHECK-OPT-REPORT-MAX: "-mllvm" "-intel-opt-report=high"
 // CHECK-OPT-REPORT-MAX: "-mllvm" "-intel-ra-spillreport=high"
 // CHECK-OPT-REPORT-MAX: "-mllvm" "-inline-report=0xf859"
 
@@ -745,7 +764,8 @@
 
 // -fortlib
 // RUN: %clang -### --intel -target x86_64-unknown-linux -fortlib %s 2>&1 | FileCheck -check-prefix=LIBS_FORTRAN %s
-// LIBS_FORTRAN: "--as-needed" "-lpthread" "--no-as-needed"{{.*}} "-Bstatic" "-lifcoremt" "-Bdynamic"
+// LIBS_FORTRAN: "-Bstatic" "-lifcoremt"
+// LIBS_FORTRAN-SAME: "--as-needed" "-lpthread" "--no-as-needed"
 
 // Verify /Qextend-arguments= and /Qextend-arguments: are accepted
 // They are aliases to -fextend-arguments= and the functionality is tested in fextend-args.c
@@ -776,6 +796,7 @@
 // RUN: %clang -### -sox -c %s 2>&1 | FileCheck -check-prefix=SOX %s
 // RUN: %clang_cl -### /Qsox -c %s 2>&1 | FileCheck -check-prefix=SOX %s
 // RUN: %clang -### -c %s 2>&1 | FileCheck -check-prefix=NOSOX %s
+// RUN: %clang -### -no-sox -c %s 2>&1 | FileCheck -check-prefix=NOSOX %s
 // SOX: -sox=
 // SOX-SAME: -### -sox -c {{.*}}intel-options.c
 // NOSOX-NOT: -sox
@@ -857,3 +878,48 @@
 // RUN: %clang_cl -### /Qglobal-hoist- /Qglobal-hoist %s 2>&1 | FileCheck --check-prefix=NO-GLOBAL-LOADS-UNSAFE %s
 // GLOBAL-LOADS-UNSAFE: clang{{.*}} "-mllvm" "-global-loads-unsafe"
 // NO-GLOBAL-LOADS-UNSAFE-NOT: "-mllvm" "-global-loads-unsafe"
+
+// Tests for binary output 'name' check
+// RUN: %clang -### --intel -help %s 2>&1 | FileCheck -check-prefix HELP-CHECK %s
+// RUN: %clang_cl -### --intel -help  %s 2>&1 | FileCheck -check-prefix HELP-CHECK %s
+// HELP-CHECK: USAGE: icx [options] file...
+
+// RUN: not %clang -### --intel --- %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK %s
+// SUPPORT-CHECK: icx: error: unsupported option '---'
+
+// RUN: %clang_cl -### --intel --- %s 2>&1 | FileCheck -check-prefix SUPPORT-CHECK-WIN %s
+// SUPPORT-CHECK-WIN: icx: warning: unknown argument ignored in clang-cl: '---' [-Wunknown-argument]
+
+// -fp-model=consistent is equivalent to -fp-model=precise -fimf-arch-consistency=true -no-fma
+// RUN: %clang -### -fp-model=consistent -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=FP-MODEL-CONSISTENT %s
+// RUN: %clang -### -fp-model=consistent -ffp-contract=on -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefixes=FFP-CONTRACT-ON,ARCH-CONSISTENCY-TRUE %s
+// RUN: %clang -### -ffp-contract=on -fp-model=consistent -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefixes=FFP-CONTRACT-OFF,ARCH-CONSISTENCY-TRUE %s
+// RUN: %clang -### -fp-model=consistent -fp-model=fast -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefixes=FDENORMAL-FP-MATH,FFP-CONTRACT-FAST,ARCH-CONSISTENCY-TRUE %s
+// RUN: %clang -### -fp-model=fast -fp-model=consistent -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefixes=NO-FDENORMAL-FP-MATH,FFP-CONTRACT-OFF,ARCH-CONSISTENCY-TRUE %s
+// RUN: %clang -### -fp-model=consistent -fp-model=precise -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefixes=FFP-CONTRACT-ON,ARCH-CONSISTENCY-TRUE %s
+// RUN: %clang -### -fp-model=precise -fp-model=consistent -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefixes=FFP-CONTRACT-OFF,ARCH-CONSISTENCY-TRUE %s
+// RUN: %clang -### -fp-model=consistent -fp-model=strict -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefixes=FFP-CONTRACT-OFF,FFP-EXCEPTION-BEHAVIOR-STRICT,ARCH-CONSISTENCY-TRUE %s
+// RUN: %clang -### -fp-model=strict -fp-model=consistent -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefixes=FFP-CONTRACT-OFF,FFP-EXCEPTION-BEHAVIOR-STRICT,ARCH-CONSISTENCY-TRUE %s
+// FP-MODEL-CONSISTENT: "-cc1"{{.*}} "-fmath-errno" "-ffp-contract=off"{{.*}} "-mGLOB_imf_attr=arch-consistency:true"
+// FFP-CONTRACT-ON: "-ffp-contract=on"
+// FFP-CONTRACT-OFF: "-ffp-contract=off"
+// FDENORMAL-FP-MATH: "-fdenormal-fp-math=preserve-sign,preserve-sign"
+// FFP-CONTRACT-FAST: "-ffp-contract=fast"
+// NO-FDENORMAL-FP-MATH-NOT: "-fdenormal-fp-math=preserve-sign,preserve-sign"
+// FFP-EXCEPTION-BEHAVIOR-STRICT: "-ffp-exception-behavior=strict"
+// ARCH-CONSISTENCY-TRUE: "-mGLOB_imf_attr=arch-consistency:true"
+
+// -fopenmp-declare-target-scalar-defaultmap 
+// RUN: %clang -### -fopenmp-declare-target-scalar-defaultmap=firstprivate %s 2>&1 | FileCheck -check-prefix CHECK-OPENMP-DECLARE-TARGET-SCALAR-DEFAULTMAP %s
+// RUN: %clang_cl -### /Qopenmp-declare-target-scalar-defaultmap=firstprivate  %s 2>&1 | FileCheck -check-prefix CHECK-OPENMP-DECLARE-TARGET-SCALAR-DEFAULTMAP %s
+// RUN: %clang_cl -### /Qopenmp-declare-target-scalar-defaultmap:firstprivate  %s 2>&1 | FileCheck -check-prefix CHECK-OPENMP-DECLARE-TARGET-SCALAR-DEFAULTMAP %s
+// CHECK-OPENMP-DECLARE-TARGET-SCALAR-DEFAULTMAP: "-fopenmp-declare-target-scalar-defaultmap-firstprivate"

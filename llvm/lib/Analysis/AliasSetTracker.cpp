@@ -1,4 +1,21 @@
 //===- AliasSetTracker.cpp - Alias Sets Tracker implementation-------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,16 +30,12 @@
 #include "llvm/Analysis/AliasSetTracker.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/GuardUtils.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Config/llvm-config.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Value.h"
@@ -266,6 +279,25 @@ bool AliasSet::aliasesUnknownInst(const Instruction *Inst,
   return false;
 }
 
+#if INTEL_COLLAB
+bool AliasSet::aliases(const AliasSet &AS, AliasAnalysis &AA) const {
+  if (AliasAny)
+    return true;
+
+  for (iterator I = begin(), E = end(); I != E; ++I)
+    if (AS.aliasesPointer(I.getPointer(), I.getSize(), I.getAAInfo(), AA))
+      return true;
+
+  if (!UnknownInsts.empty())
+    for (unsigned I = 0, E = UnknownInsts.size(); I < E; ++I)
+      if (const Instruction *Inst = getUnknownInst(I))
+        if (AS.aliasesUnknownInst(Inst, AA))
+          return true;
+
+  return false;
+}
+
+#endif // INTEL_COLLAB
 Instruction* AliasSet::getUniqueInstruction() {
   if (AliasAny)
     // May have collapses alias set

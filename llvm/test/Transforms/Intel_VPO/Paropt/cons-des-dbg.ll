@@ -1,4 +1,4 @@
-; RUN: opt < %s -S -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt | FileCheck %s
+; RUN: opt -S -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt %s | FileCheck %s
 ; CHECK: %non_pod_of_A.priv ={{.*}} !dbg [[DBG:![0-9]+]]
 ; CHECK: call {{.*}}omp.def_constr{{.*}} !dbg [[DBG]]
 ; CHECK: call {{.*}}omp.destr{{.*}} !dbg [[DBG]]

@@ -1,4 +1,21 @@
 //===--- Clang.h - Clang Tool and ToolChain Implementations ====-*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,8 +23,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_Clang_H
-#define LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_Clang_H
+#ifndef LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_CLANG_H
+#define LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_CLANG_H
 
 #include "MSVC.h"
 #include "clang/Basic/DebugInfoOptions.h"
@@ -265,6 +282,36 @@ public:
 
   bool hasIntegratedCPP() const override { return false; }
   bool hasGoodDiagnostics() const override { return true; }
+  void ConstructJob(Compilation &C, const JobAction &JA,
+                    const InputInfo &Output, const InputInfoList &Inputs,
+                    const llvm::opt::ArgList &TCArgs,
+                    const char *LinkingOutput) const override;
+};
+
+/// SPIR-V to LLVM-IR wrapper tool
+class LLVM_LIBRARY_VISIBILITY SpirvToIrWrapper final : public Tool {
+public:
+  SpirvToIrWrapper(const ToolChain &TC)
+      : Tool("Convert SPIR-V to LLVM-IR if needed", "spirv-to-ir-wrapper", TC) {
+  }
+
+  bool hasIntegratedCPP() const override { return false; }
+  bool hasGoodDiagnostics() const override { return true; }
+  void ConstructJob(Compilation &C, const JobAction &JA,
+                    const InputInfo &Output, const InputInfoList &Inputs,
+                    const llvm::opt::ArgList &TCArgs,
+                    const char *LinkingOutput) const override;
+};
+
+/// Linker wrapper tool.
+class LLVM_LIBRARY_VISIBILITY LinkerWrapper final : public Tool {
+  const Tool *Linker;
+
+public:
+  LinkerWrapper(const ToolChain &TC, const Tool *Linker)
+      : Tool("Offload::Linker", "linker", TC), Linker(Linker) {}
+
+  bool hasIntegratedCPP() const override { return false; }
   void ConstructJob(Compilation &C, const JobAction &JA,
                     const InputInfo &Output, const InputInfoList &Inputs,
                     const llvm::opt::ArgList &TCArgs,

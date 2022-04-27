@@ -392,13 +392,15 @@ int32_t __tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
 }
 
 #if INTEL_COLLAB
-EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(int32_t DeviceId, void *Ptr) {
-  int32_t Ret = 0;
+int32_t __tgt_rtl_requires_mapping(int32_t DeviceId, void *Ptr, int64_t Size) {
+  int32_t Ret;
   std::lock_guard<std::mutex> Lock(DeviceInfo.Mtx);
   if (DeviceInfo.DevicePtrs.count(Ptr) > 0)
+    Ret = 0;
+  else
     Ret = 1;
-  DP("Ptr " DPxMOD " is %sa device accessible memory pointer.\n", DPxPTR(Ptr),
-     Ret ? "" : "not ");
+  DP("Ptr " DPxMOD " %s mapping.\n", DPxPTR(Ptr),
+     Ret ? "requires" : "does not require");
   return Ret;
 }
 #endif // INTEL_COLLAB

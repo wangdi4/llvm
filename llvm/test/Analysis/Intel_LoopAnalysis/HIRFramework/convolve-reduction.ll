@@ -1,4 +1,4 @@
-; RUN: opt < %s -xmain-opt-level=3 -analyze -hir-ssa-deconstruction -hir-framework 2>&1 | FileCheck %s
+; RUN: opt < %s -xmain-opt-level=3 -analyze -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework 2>&1 | FileCheck %s
 ; RUN: opt < %s -xmain-opt-level=3 -passes="hir-ssa-deconstruction,print<hir>" 2>&1 | FileCheck %s
 
 ; Verify that we build 4-level convolution loopnest even though the number of nested ifs (7) in i2 loop exceed threshold of 6.

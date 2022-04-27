@@ -1,5 +1,5 @@
-;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute-memrec -hir-cg -force-hir-cg -intel-ir-optreport-emitter -intel-loop-optreport=low -disable-output < %s 2>&1 | FileCheck %s
-;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,hir-cg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -force-hir-cg -intel-loop-optreport=low -disable-output   < %s 2>&1 | FileCheck %s
+;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute-memrec -hir-cg -force-hir-cg -intel-ir-optreport-emitter -intel-opt-report=low -disable-output < %s 2>&1 | FileCheck %s
+;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,hir-cg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -force-hir-cg -intel-opt-report=low -disable-output   < %s 2>&1 | FileCheck %s
 
 ; Check that pragma before first statement in loop results in no distribution, marked
 ; in opt-report

@@ -1,4 +1,6 @@
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 ; ModuleID = 'PhiCanonCase5.c'
@@ -70,3 +72,9 @@ declare i32 @_Z13get_global_idj(i32) readnone
 !3 = !{i32 3, i32 3, i32 3, i32 3}
 !4 = !{!"int", !"int", !"float*", !"float*"}
 !5 = !{!"arg1", !"arg2", !"a", !"b"}
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function PhiCanonCase5 --  br label %phi-split-bb1
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function PhiCanonCase5 --  br label %if.end39
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function PhiCanonCase5 --  br label %phi-split-bb5
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function PhiCanonCase5 --  br label %if.end39
+; DEBUGIFY-NOT: WARNING

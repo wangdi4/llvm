@@ -1,4 +1,21 @@
 //===- llvm/Module.h - C++ class to represent a VM module -------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -47,9 +64,7 @@ class GVMaterializer;
 class LLVMContext;
 class MemoryBuffer;
 class ModuleSummaryIndex;
-class Pass;
 class RandomNumberGenerator;
-template <class PtrType> class SmallPtrSetImpl;
 class StructType;
 class VersionTuple;
 
@@ -148,9 +163,12 @@ public:
     /// Takes the max of the two values, which are required to be integers.
     Max = 7,
 
+    /// Takes the min of the two values, which are required to be integers.
+    Min = 8,
+
     // Markers:
     ModFlagBehaviorFirstVal = Error,
-    ModFlagBehaviorLastVal = Max
+    ModFlagBehaviorLastVal = Min
   };
 
   /// Checks if Metadata represents a valid ModFlagBehavior, and stores the
@@ -922,8 +940,8 @@ public:
   void setRtLibUseGOT();
 
   /// Get/set whether synthesized functions should get the uwtable attribute.
-  bool getUwtable() const;
-  void setUwtable();
+  UWTableKind getUwtable() const;
+  void setUwtable(UWTableKind Kind);
 
   /// Get/set whether synthesized functions should get the "frame-pointer"
   /// attribute.
@@ -973,10 +991,17 @@ public:
   /// @returns a string containing the target variant triple.
   StringRef getDarwinTargetVariantTriple() const;
 
+  /// Set the target variant triple which is a string describing a variant of
+  /// the target host platform.
+  void setDarwinTargetVariantTriple(StringRef T);
+
   /// Get the target variant version build SDK version metadata.
   ///
   /// An empty version is returned if no such metadata is attached.
   VersionTuple getDarwinTargetVariantSDKVersion() const;
+
+  /// Set the target variant version build SDK version metadata.
+  void setDarwinTargetVariantSDKVersion(VersionTuple Version);
 };
 
 /// Given "llvm.used" or "llvm.compiler.used" as a global name, collect the

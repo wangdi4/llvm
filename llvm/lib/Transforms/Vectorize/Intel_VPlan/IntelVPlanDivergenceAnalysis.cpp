@@ -1,3 +1,20 @@
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 //===----------------- IntelVPlanDivergenceAnalysis.cpp -------------------===//
 //
@@ -44,7 +61,6 @@
 #include "IntelVPlan.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanLoopInfo.h"
-#include "IntelVPlanSyncDependenceAnalysis.h"
 #include "IntelVPlanUtils.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -509,73 +525,31 @@ bool VPlanDivergenceAnalysis::propagateJoinDivergence(
   return false;
 }
 
-#if INTEL_CUSTOMIZATION
-// Main source of community code divergence here is that we don't represent
-// branch instructions explicitly in VPlan yet. Thus, we have to use the
-// condition of the branch to determine if the branch is divergent. Not a big
-// deal, but we should be able to easily match the community code once VPlan
-// is updated.
-#endif // INTEL_CUSTOMIZATION
 void VPlanDivergenceAnalysis::propagateBranchDivergence(
     const VPBasicBlock *CondBlock) {
+
+  assert(!DARecomputationDisabled &&
+         "Can't compute branch divergence for this VPlan!");
+
   LLVM_DEBUG(dbgs() << "propBranchDiv " << CondBlock->getName() << "\n");
+  auto CtrlDivDesc = SDA->getJoinBlocks(*CondBlock->getTerminator());
   const auto *BranchLoop = VPLI->getLoopFor(CondBlock);
 
-  // whether there is a divergent loop exit from @BranchLoop (if any)
-  bool IsBranchLoopDivergent = false;
-
-  // @BranchLoop is a divergent loop due to the divergent branch created by
-  // @Cond.
-  for (const auto *JoinBlock : SDA->joinBlocks(*CondBlock)) {
-    if (propagateJoinDivergence(*JoinBlock, BranchLoop)) {
-      addDivergentLoopExit(*JoinBlock);
-      IsBranchLoopDivergent |= true;
-    }
-
-    if (IsBranchLoopDivergent) {
-      if (!addDivergentLoops(*BranchLoop))
-        return;
-      propagateLoopDivergence(*BranchLoop);
-    }
+  for (auto *JoinBlock : CtrlDivDesc.JoinDivBlocks) {
+    if (!addJoinDivergentBlock(*JoinBlock))
+      continue;
+    pushPHINodes(*JoinBlock, false);
   }
-}
-
-void VPlanDivergenceAnalysis::propagateLoopDivergence(
-    const VPLoop &ExitingLoop) {
-  // VPlan VPLoop inherits from LoopBase, which does not have a getName method.
-  // We can easily implement one to match community version.
-  LLVM_DEBUG(dbgs() << "propLoopDiv " << ExitingLoop << "\n");
-
-  // don't propagate beyond region
-  if (!inRegion(*ExitingLoop.getHeader()))
-    return;
-
-  const auto *BranchLoop = ExitingLoop.getParentLoop();
-
-  // Uses of loop-carried values could occur anywhere
-  // within the dominance region of the definition. All loop-carried
-  // definitions are dominated by the loop header (reducible control).
-  // Thus all users have to be in the dominance region of the loop header,
-  // except PHI nodes that can also live at the fringes of the dom region
-  // (incoming defining value).
-  if (!IsLCSSAForm)
-    taintLoopLiveOuts(*ExitingLoop.getHeader());
-
-  // whether there is a divergent loop exit from @BranchLoop (if any)
-  bool IsBranchLoopDivergent = false;
-
-  // iterate over all blocks reachable by disjoint paths from exits of
-  // @ExitingLoop also iterates over loop exits (of @BranchLoop) that in turn
-  // become divergent.
-  for (const auto *JoinBlock : SDA->joinBlocks(ExitingLoop))
-    IsBranchLoopDivergent |= propagateJoinDivergence(*JoinBlock, BranchLoop);
-
-  // @BranchLoop is divergent due to divergent loop exit in @ExitingLoop
-  if (IsBranchLoopDivergent) {
-    assert(BranchLoop && "parent loop not found for loop with divergent exit");
-    if (!DivergentLoops.insert(BranchLoop).second)
-      return;
-    propagateLoopDivergence(*BranchLoop);
+  for (auto *JoinBlock : CtrlDivDesc.LoopDivBlocks) {
+    if (!addJoinDivergentBlock(*JoinBlock))
+      continue;
+    pushPHINodes(*JoinBlock, false);
+    addDivergentLoopExit(*JoinBlock);
+    DivergentLoops.insert(BranchLoop);
+    if (!addDivergentLoops(*BranchLoop))
+      continue;
+    if (!IsLCSSAForm)
+      taintLoopLiveOuts(*BranchLoop->getHeader());
   }
 }
 
@@ -604,18 +578,18 @@ void VPlanDivergenceAnalysis::computeImpl() {
       ShapeUpdated |= updateVectorShape(&I, NewShape);
     }
 
-    if (ShapeUpdated) {
-      pushUsers(I);
+    if (!ShapeUpdated)
+      continue;
 
-      // Propagate branch divergence from the block(s) containing the CondBit.
-      // TODO: this code should be removed after the introduction of the
-      // VPInstruction for branches.
-      if (!NewShape.isUniform() && CondBit2BlockMap.count(&I)) {
-        // propagate control divergence to affected instructions
-        for (auto *Block : CondBit2BlockMap[&I])
-          propagateBranchDivergence(Block);
-      }
-    }
+    pushUsers(I);
+
+    // Branches are special - we need to propagate divergence to the
+    // VPBasicBlocks.
+    auto *Br = dyn_cast<VPBranchInst>(&I);
+    if (!Br || NewShape.isUniform())
+      continue;
+
+    propagateBranchDivergence(Br->getParent());
   }
 }
 
@@ -759,7 +733,7 @@ void VPlanDivergenceAnalysis::verifyBasicBlock(const VPBasicBlock *VPBB) {
 // Also ensure that divergent/uniform properties are consistent with vector
 // shapes.
 void VPlanDivergenceAnalysis::verifyVectorShapes() {
-  for (VPBasicBlock *VPBB : depth_first(Plan->getEntryBlock()))
+  for (VPBasicBlock *VPBB : depth_first(&Plan->getEntryBlock()))
     verifyBasicBlock(VPBB);
 }
 
@@ -769,7 +743,7 @@ void VPlanDivergenceAnalysis::verifyVectorShapes() {
 // based and not Module based (function DA).
 void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) {
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(VPLp ? VPLp->getHeader()
-                                                      : Plan->getEntryBlock());
+                                                      : &Plan->getEntryBlock());
   OS << "\nPrinting Divergence info for ";
   if (VPLp)
     OS << *VPLp;
@@ -1049,8 +1023,7 @@ VPlanDivergenceAnalysis::computeVectorShapeForSOAGepInst(const VPInstruction *I)
     auto *Gep = dyn_cast<VPGEPInstruction>(I);
     Type *PointedToTy =
         Gep ? Gep->getResultElementType()
-            : cast<PointerType>(cast<VPSubscriptInst>(I)->getType())
-                  ->getElementType();
+            : cast<VPSubscriptInst>(I)->getType()->getPointerElementType();
     uint64_t PointedToTySize = getTypeSizeInBytes(PointedToTy);
     // For known strides:
     // 1) Uniform gep on an array-private should result in strided-access with
@@ -1159,8 +1132,23 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
              "Broken stride assumption!");
       int64_t NewIdxStride =
           (ZeroDimStrideVal / PointedToTySize) * CurrIdxStride;
-      assert(NewIdxStride != 0 && "Idx has no stride.");
-      if (NewIdxStride == 1 || NewIdxStride == -1)
+
+      if (NewIdxStride == 0) {
+        // Consider the memory ref arr[0:i1:4(i32*:0)][0:i2:0(i32*:0)] and the
+        // index [0:i2:0(i32*:0)] in particular. For this particular dimension,
+        // the lower value is 0, index is i2, and stride is 0. IdxShape is
+        // computed based on the index operand(i2) which in this case is the
+        // loop IV. So, IdxShape being strided is correct. In addition to the
+        // index, we also need to take into account the stride value to compute
+        // the access stride. If the stride value is zero, the address that is
+        // being accessed is &arr + i1 * 4 + i2 * 0 ==> &arr + i1 * 4.
+        // If NewIdxStride is zero, we can effectively treat the resulting shape
+        // from indices as uniform. This should only happen for the case of
+        // ZeroDimStrideVal being zero due to the assertion check for it being a
+        // multiple of PointedToTySize above. We assert for the same here.
+        assert(ZeroDimStrideVal == 0 && "Expected 0 ZeroDimStrideVal");
+        IdxShape = getUniformVectorShape();
+      } else if (NewIdxStride == 1 || NewIdxStride == -1)
         IdxShape = getSequentialVectorShape(NewIdxStride);
       else
         IdxShape = getStridedVectorShape(NewIdxStride);
@@ -1611,6 +1599,8 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::TreeConflict)
     NewShape = getRandomVectorShape();
+  else if (Opcode == VPInstruction::CvtMaskToInt)
+    NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::Blend)
     NewShape = getRandomVectorShape();
   else {
@@ -1676,28 +1666,13 @@ void VPlanDivergenceAnalysis::compute(VPlanVector *P, VPLoop *CandidateLoop,
   DT = &VPDomTree;
   PDT = &VPPostDomTree;
   IsLCSSAForm = IsLCSSA;
-  SDA = std::make_unique<SyncDependenceAnalysis>(
-      CandidateLoop ? CandidateLoop->getHeader() : P->getEntryBlock(),
-      VPDomTree, VPPostDomTree, *VPLInfo);
+  SDA = std::make_unique<llvm::SyncDependenceAnalysisImpl<VPBasicBlock>>(
+      *DT, *PDT, *VPLI);
   // Push everything to the worklist.
-  ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan->getEntryBlock());
-  for (auto *BB : RPOT) {
-    // Sometimes the CondBit exists in a different block than the instruction
-    // forming the CondBit. To properly propagate branch divergence, what we
-    // really need to know is which Block uses the instruction as the CondBit.
-    // This code piggybacks off the RPO traversal here to prevent further cost
-    // in computeImpl() and keeps a map of the Instruction to the block(s)
-    // containing the CondBit that computeImpl() will use to properly propagate
-    // branch divergence. CondBits using VPExternalDefs not included here, but
-    // we should be doing the right thing in computeImpl() by not propagating
-    // divergence for them anyway. Please see vplan_da_condbit_separate_block.ll
-    // as an example.
-    if (VPInstruction *CondBitInst =
-            dyn_cast_or_null<VPInstruction>(BB->getCondBit()))
-      CondBit2BlockMap[CondBitInst].push_back(BB);
+  ReversePostOrderTraversal<VPBasicBlock *> RPOT(&Plan->getEntryBlock());
+  for (auto *BB : RPOT)
     for (auto &Inst : *BB)
       pushToWorklist(Inst);
-  }
 
   // Compute the shapes of instructions - iterate until fixed point is reached.
   computeImpl();
@@ -1728,9 +1703,6 @@ void VPlanDivergenceAnalysis::compute(VPlanVector *P, VPLoop *CandidateLoop,
 void VPlanDivergenceAnalysis::recomputeShapes(
     SmallPtrSetImpl<VPInstruction *> &Seeds,
     bool EnableFullDAVerificationAndPrint) {
-
-  assert(!DARecomputationDisabled &&
-         "DA should not be computed for this Cloned VPlan!");
 
   if (Seeds.empty())
     return;
@@ -1767,12 +1739,37 @@ void VPlanDivergenceAnalysis::recomputeShapes(
 
 #endif // INTEL_CUSTOMIZATION
 
-void VPlanDivergenceAnalysis::cloneVectorShapes(
+void VPlanDivergenceAnalysis::cloneDAData(
     VPlanVector *ClonedVPlan,
     DenseMap<VPValue *, VPValue *> &OrigClonedValuesMap) {
 
   auto *ClonedVPDA = ClonedVPlan->getVPlanDA();
   ClonedVPDA->Plan = ClonedVPlan;
+  for (const VPBasicBlock *BB : DivergentLoopExits)
+    ClonedVPDA->addDivergentLoopExit(*cast<VPBasicBlock>(
+        OrigClonedValuesMap[const_cast<VPBasicBlock *>(BB)]));
+
+  for (const VPBasicBlock *BB : DivergentJoinBlocks)
+    ClonedVPDA->markBlockJoinDivergent(*cast<VPBasicBlock>(
+        OrigClonedValuesMap[const_cast<VPBasicBlock *>(BB)]));
+
+  VPLoopInfo *ClonedLoopInfo = ClonedVPlan->getVPLoopInfo();
+  ClonedVPDA->VPLI = ClonedLoopInfo;
+  for (const VPLoop *Lp : DivergentLoops) {
+    const VPBasicBlock *Header = Lp->getHeader();
+    const VPLoop *ClonedLoop = ClonedLoopInfo->getLoopFor(cast<VPBasicBlock>(
+        OrigClonedValuesMap[const_cast<VPBasicBlock *>(Header)]));
+    ClonedVPDA->addDivergentLoops(*ClonedLoop);
+  }
+  cloneVectorShapes(ClonedVPlan, OrigClonedValuesMap);
+  ClonedVPDA->IsLCSSAForm = IsLCSSAForm;
+}
+
+void VPlanDivergenceAnalysis::cloneVectorShapes(
+    VPlanVector *ClonedVPlan,
+    DenseMap<VPValue *, VPValue *> &OrigClonedValuesMap) {
+
+  auto *ClonedVPDA = ClonedVPlan->getVPlanDA();
   for (const auto &Pair : OrigClonedValuesMap) {
     VPValue *OrigVal = Pair.first;
     VPValue *ClonedVal = Pair.second;

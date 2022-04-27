@@ -1,4 +1,21 @@
 //===-- X86DisassemblerDecoderInternal.h - Disassembler decoder -*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -594,6 +611,17 @@ enum VectorExtensionType {
   TYPE_XOP          = 0x4
 };
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+enum XuCCPrefixType {
+  XuCC_PREFIX_NONE = 0x0,
+  XuCC_PREFIX_66 = 0x1,
+  XuCC_PREFIX_F2 = 0x2,
+  XuCC_PREFIX_F3 = 0x3
+};
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
+
 /// The specification for how to extract and interpret a full instruction and
 /// its operands.
 struct InstructionSpecifier {
@@ -626,6 +654,14 @@ struct InternalInstruction {
   VectorExtensionType vectorExtensionType;
   // The value of the REX prefix, if present
   uint8_t rexPrefix;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  uint8_t xuccExtensionPrefix[2];
+  // The type of the xucc extension prefix
+  XuCCPrefixType xuccExtensionType;
+  bool isXuCCMode;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   // The segment override type
   uint8_t segmentOverride; // INTEL
   // 1 if the prefix byte, 0xf2 or 0xf3 is xacquire or xrelease

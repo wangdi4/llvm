@@ -1,4 +1,21 @@
 //===- InlineCost.cpp - Cost analysis for inliner -------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -18,7 +35,6 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
-#include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
@@ -28,6 +44,7 @@
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -86,6 +103,7 @@ static InlineReason bestInlineReason(const InlineReasonVector& ReasonVector,
 }
 
 extern cl::opt<bool> InlineForXmain;
+extern cl::opt<bool> DTransInlineHeuristics;
 extern cl::opt<bool> EnablePreLTOInlineCost;
 extern cl::opt<unsigned> IntelInlineReportLevel;
 
@@ -101,6 +119,16 @@ static cl::opt<int>
                      cl::ZeroOrMore,
                      cl::desc("Default amount of inlining to perform"));
 
+// We introduce this option since there is a minor compile-time win by avoiding
+// addition of TTI attributes (target-features in particular) to inline
+// candidates when they are guaranteed to be the same as top level methods in
+// some use cases. If we avoid adding the attribute, we need an option to avoid
+// checking these attributes.
+static cl::opt<bool> IgnoreTTIInlineCompatible(
+    "ignore-tti-inline-compatible", cl::Hidden, cl::init(false),
+    cl::desc("Ignore TTI attributes compatibility check between callee/caller "
+             "during inline cost calculation"));
+
 static cl::opt<bool> PrintInstructionComments(
     "print-instruction-comments", cl::Hidden, cl::init(false),
     cl::desc("Prints comments for instruction based on inline cost analysis"));
@@ -112,6 +140,13 @@ static cl::opt<int> InlineThreshold(
 static cl::opt<int> HintThreshold(
     "inlinehint-threshold", cl::Hidden, cl::init(325), cl::ZeroOrMore,
     cl::desc("Threshold for inlining functions with inline hint"));
+
+#if INTEL_CUSTOMIZATION
+static cl::opt<int> DoubleCallSiteHintThreshold(
+    "double-callsite-inlinehint-threshold", cl::Hidden, cl::init(675),
+    cl::ZeroOrMore,
+    cl::desc("Threshold for inlining double callsite fxns with inline hint"));
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<int>
     ColdCallSiteThreshold("inline-cold-callsite-threshold", cl::Hidden,
@@ -179,33 +214,18 @@ static cl::opt<bool> DisableGEPConstOperand(
     "disable-gep-const-evaluation", cl::Hidden, cl::init(false),
     cl::desc("Disables evaluation of GetElementPtr with constant operands"));
 
-namespace {
-class InlineCostCallAnalyzer;
-
-/// This function behaves more like CallBase::hasFnAttr: when it looks for the
-/// requested attribute, it check both the call instruction and the called
-/// function (if it's available and operand bundles don't prohibit that).
-Attribute getFnAttr(CallBase &CB, StringRef AttrKind) {
-  Attribute CallAttr = CB.getFnAttr(AttrKind);
-  if (CallAttr.isValid())
-    return CallAttr;
-
-  // Operand bundles override attributes on the called function, but don't
-  // override attributes directly present on the call instruction.
-  if (!CB.isFnAttrDisallowedByOpBundle(AttrKind))
-    if (const Function *F = CB.getCalledFunction())
-      return F->getFnAttribute(AttrKind);
-
-  return {};
-}
-
+namespace llvm {
 Optional<int> getStringFnAttrAsInt(CallBase &CB, StringRef AttrKind) {
-  Attribute Attr = getFnAttr(CB, AttrKind);
+  Attribute Attr = CB.getFnAttr(AttrKind);
   int AttrValue;
   if (Attr.getValueAsString().getAsInteger(10, AttrValue))
     return None;
   return AttrValue;
 }
+} // namespace llvm
+
+namespace {
+class InlineCostCallAnalyzer;
 
 // This struct is used to store information about inline cost of a
 // particular instruction
@@ -245,7 +265,7 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   friend class InstVisitor<CallAnalyzer, bool>;
 
 protected:
-  virtual ~CallAnalyzer() {}
+  virtual ~CallAnalyzer() = default;
   /// The TargetTransformInfo available for this compilation.
   const TargetTransformInfo &TTI;
 
@@ -415,7 +435,7 @@ protected:
   DenseMap<Value *, std::pair<Value *, APInt>> ConstantOffsetPtrs;
 
   /// Keep track of dead blocks due to the constant arguments.
-  SetVector<BasicBlock *> DeadBlocks;
+  SmallPtrSet<BasicBlock *, 16> DeadBlocks;
 
   /// The mapping of the blocks to their known unique successors due to the
   /// constant arguments.
@@ -424,10 +444,10 @@ protected:
   /// Model the elimination of repeated loads that is expected to happen
   /// whenever we simplify away the stores that would otherwise cause them to be
   /// loads.
-  bool EnableLoadElimination;
+  bool EnableLoadElimination = true;
 
   /// Whether we allow inlining for recursive call.
-  bool AllowRecursiveCall;
+  bool AllowRecursiveCall = false;
 
   SmallPtrSet<Value *, 16> LoadAddrSet;
 
@@ -527,8 +547,7 @@ public:
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
 #if INTEL_CUSTOMIZATION
-        CandidateCall(Call), EnableLoadElimination(true), AllowRecursiveCall(false),
-        SingleBB(true)
+        CandidateCall(Call), SingleBB(true)
 #if INTEL_FEATURE_SW_ADVANCED
         , FoundForgivable(false)
 #endif // INTEL_FEATURE_SW_ADVANCED
@@ -1015,6 +1034,11 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
             getStringFnAttrAsInt(CandidateCall, "function-inline-cost"))
       Cost = *AttrCost;
 
+    if (Optional<int> AttrCostMult = getStringFnAttrAsInt(
+            CandidateCall,
+            InlineConstants::FunctionInlineCostMultiplierAttributeName))
+      Cost *= *AttrCostMult;
+
     if (Optional<int> AttrThreshold =
             getStringFnAttrAsInt(CandidateCall, "function-inline-threshold"))
       Threshold = *AttrThreshold;
@@ -1211,7 +1235,7 @@ public:
     return None;
   }
 
-  virtual ~InlineCostCallAnalyzer() {}
+  virtual ~InlineCostCallAnalyzer() = default;
   int getThreshold() const { return Threshold; }
   int getCost() const { return Cost; }
   Optional<CostBenefitPair> getCostBenefitPair() { return CostBenefit; }
@@ -1289,6 +1313,9 @@ private:
     if (IsIndirectCall) {
       InlineParams IndirectCallParams = {/* DefaultThreshold*/ 0,
                                          /*HintThreshold*/ {},
+#if INTEL_CUSTOMIZATION
+                                         /*DoubleCallSiteHintThreshold*/ {},
+#endif // INTEL_CUSTOMIZATION
                                          /*ColdThreshold*/ {},
                                          /*OptSizeThreshold*/ {},
                                          /*OptMinSizeThreshold*/ {},
@@ -2032,6 +2059,22 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
     LastCallToStaticBonus = 0;
   };
 
+#if INTEL_CUSTOMIZATION
+#ifndef _WIN32
+  auto IsDoubleCallSite = [](Function &F) -> bool {
+    unsigned Count = 0;
+    for (User *U : F.users()) {
+      auto CB = dyn_cast<CallBase>(U);
+      if (!CB)
+        return false;
+      if (++Count > 2)
+        return false;
+    }
+    return Count == 2;
+  };
+#endif
+#endif // INTEL_CUSTOMIZATION
+
   // Use the OptMinSizeThreshold or OptSizeThreshold knob if they are available
   // and reduce the threshold if the caller has the necessary attribute.
   if (Caller->hasMinSize()) {
@@ -2051,9 +2094,16 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
 #if INTEL_CUSTOMIZATION
     if (Callee.hasFnAttribute(Attribute::InlineHint) ||
         Call.hasFnAttr(Attribute::InlineHint) ||
-        Call.hasFnAttr(Attribute::InlineHintRecursive))
+        Call.hasFnAttr(Attribute::InlineHintRecursive)) {
 #endif // INTEL_CUSTOMIZATION
       Threshold = MaxIfValid(Threshold, Params.HintThreshold);
+#if INTEL_CUSTOMIZATION
+#ifndef _WIN32
+      if (Callee.hasLinkOnceODRLinkage() && IsDoubleCallSite(Callee))
+        Threshold = MaxIfValid(Threshold, Params.DoubleCallSiteHintThreshold);
+#endif
+    }
+#endif // INTEL_CUSTOMIZATION
 
     // FIXME: After switching to the new passmanager, simplify the logic below
     // by checking only the callsite hotness/coldness as we will reliably
@@ -2071,7 +2121,18 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
       // behavior to prevent inlining of hot callsites during ThinLTO
       // compile phase.
       Threshold = HotCallSiteThreshold.getValue();
-    } else if (isColdCallSite(Call, CallerBFI)) {
+      YesReasonVector.push_back(InlrHotCallsite); // INTEL
+#if INTEL_CUSTOMIZATION
+    } else if (isColdCallSite(Call, CallerBFI)
+#if INTEL_FEATURE_SW_ADVANCED
+        // CMPLRLLVM-35609: Ignore cold static profiles for
+        // "intel-mempool-destructor" Functions as inlining them can simplify
+        // code through indirect call specialization, etc.
+        && !(Callee.hasFnAttribute("intel-mempool-destructor") &&
+        Params.PrepareForLTO.getValueOr(false))
+#endif // INTEL_FEATURE_SW_ADVANCED
+        ) {
+#endif // INTEL_CUSTOMIZATION
       LLVM_DEBUG(dbgs() << "Cold callsite.\n");
       // Do not apply bonuses for a cold callsite including the
       // LastCallToStatic bonus. While this bonus might result in code size
@@ -2079,6 +2140,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
       // preventing it from being inlined.
       DisallowAllBonuses();
       Threshold = MinIfValid(Threshold, Params.ColdCallSiteThreshold);
+      NoReasonVector.push_back(NinlrColdCallsite); // INTEL
     } else if (PSI) {
       // Use callee's global profile information only if we have no way of
       // determining this via callsite information.
@@ -2088,6 +2150,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
         // that the callee is hot and treat it as a weaker hint for threshold
         // increase.
         Threshold = MaxIfValid(Threshold, Params.HintThreshold);
+        YesReasonVector.push_back(InlrHotCallee); // INTEL
       } else if (PSI->isFunctionEntryCold(&Callee)) {
         LLVM_DEBUG(dbgs() << "Cold callee.\n");
         // Do not apply bonuses for a cold callee including the
@@ -2096,6 +2159,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
         // preventing it from being inlined.
         DisallowAllBonuses();
         Threshold = MinIfValid(Threshold, Params.ColdThreshold);
+        NoReasonVector.push_back(NinlrColdCallee); // INTEL
       }
     }
   }
@@ -2364,14 +2428,14 @@ bool CallAnalyzer::visitCallBase(CallBase &Call) {
   if (isa<CallInst>(Call) && cast<CallInst>(Call).cannotDuplicate())
     ContainsNoDuplicateCall = true;
 
-  Value *Callee = Call.getCalledOperand();
-  Function *F = dyn_cast_or_null<Function>(Callee);
+  Function *F = Call.getCalledFunction();
   bool IsIndirectCall = !F;
   if (IsIndirectCall) {
     // Check if this happens to be an indirect function call to a known function
     // in this inline context. If not, we've done all we can.
+    Value *Callee = Call.getCalledOperand();
     F = dyn_cast_or_null<Function>(SimplifiedValues.lookup(Callee));
-    if (!F) {
+    if (!F || F->getFunctionType() != Call.getFunctionType()) {
       onCallArgumentSetup(Call);
 
       if (!Call.onlyReadsMemory())
@@ -2719,11 +2783,15 @@ CallAnalyzer::analyzeBlock(BasicBlock *BB,
       return IR;
     }
 
-    if (shouldStop())
+#if INTEL_CUSTOMIZATION
+    if (shouldStop()) {
+      auto Reason = bestInlineReason(NoReasonVector, NinlrNotProfitable);
       return InlineResult::failure(
-                 "Call site analysis is not favorable to inlining.") // INTEL
-          .setIntelInlReason(NinlrNotProfitable);                    // INTEL
+                 "Call site analysis is not favorable to inlining.")
+          .setIntelInlReason(Reason);
+    }
   }
+#endif // INTEL_CUSTOMIZATION
 
   return InlineResult::success();
 }
@@ -2796,7 +2864,7 @@ void CallAnalyzer::findDeadBlocks(BasicBlock *CurrBB, BasicBlock *NextBB) {
     NewDead.push_back(Succ);
     while (!NewDead.empty()) {
       BasicBlock *Dead = NewDead.pop_back_val();
-      if (DeadBlocks.insert(Dead))
+      if (DeadBlocks.insert(Dead).second)
         // Continue growing the dead block lists.
         for (BasicBlock *S : successors(Dead))
           if (IsNewlyDead(S))
@@ -3014,7 +3082,8 @@ static bool functionsHaveCompatibleAttributes(
   // object, and always returns the same object (which is overwritten on each
   // GetTLI call). Therefore we copy the first result.
   auto CalleeTLI = GetTLI(*Callee);
-  return TTI.areInlineCompatible(Caller, Callee) &&
+  return (IgnoreTTIInlineCompatible ||
+          TTI.areInlineCompatible(Caller, Callee)) &&
          GetTLI(*Caller).areInlineCompatible(CalleeTLI,
                                              InlineCallerSupersetNoBuiltin) &&
          AttributeFuncs::areInlineCompatible(*Caller, *Callee);
@@ -3077,6 +3146,9 @@ Optional<int> llvm::getInliningCostEstimate(
 #endif // INTEL_CUSTOMIZATION
   const InlineParams Params = {/* DefaultThreshold*/ 0,
                                /*HintThreshold*/ {},
+#if INTEL_CUSTOMIZATION
+                               /*DoubleCallSiteHintThreshold*/ {},
+#endif // INTEL_CUSTOMIZATION
                                /*ColdThreshold*/ {},
                                /*OptSizeThreshold*/ {},
                                /*OptMinSizeThreshold*/ {},
@@ -3178,6 +3250,9 @@ Optional<InlineResult> llvm::getAttributeBasedInliningDecision(
   // Calls to functions with always-inline attributes should be inlined
   // whenever possible.
   if (Call.hasFnAttr(Attribute::AlwaysInline)) {
+    if (Call.getAttributes().hasFnAttr(Attribute::NoInline))
+      return InlineResult::failure("noinline call site attribute");
+
     auto IsViable = isInlineViable(*Callee);
 #if INTEL_CUSTOMIZATION
     if (IsViable.isSuccess())
@@ -3235,19 +3310,6 @@ Optional<InlineResult> llvm::getAttributeBasedInliningDecision(
   if (Call.isNoInline())
     return {InlineResult::failure("noinline call site attribute") // INTEL
                 .setIntelInlReason(NinlrNoinlineCallsite)};       // INTEL
-
-  // Don't inline functions if one does not have any stack protector attribute
-  // but the other does.
-  if (Caller->hasStackProtectorFnAttr() && !Callee->hasStackProtectorFnAttr())
-    return InlineResult::failure(
-        "stack protected caller but "                   // INTEL
-        "callee requested no stack protector")          // INTEL
-        .setIntelInlReason(NinlrStackProtectMismatch);  // INTEL
-  if (Callee->hasStackProtectorFnAttr() && !Caller->hasStackProtectorFnAttr())
-    return InlineResult::failure(
-        "stack protected callee but "                   // INTEL
-        "caller requested no stack protector")          // INTEL
-        .setIntelInlReason(NinlrStackProtectMismatch);  // INTEL
 
   return None;
 }
@@ -3396,7 +3458,7 @@ InlineResult llvm::isInlineViable(Function &F) {
 
 InlineParams llvm::getInlineParams(int Threshold) {
   InlineParams Params;
-  Params.PrepareForLTO = EnablePreLTOInlineCost;     // INTEL
+  Params.PrepareForLTO = EnablePreLTOInlineCost; // INTEL
 
   // This field is the threshold to use for a callee by default. This is
   // derived from one or more of:
@@ -3412,6 +3474,10 @@ InlineParams llvm::getInlineParams(int Threshold) {
 
   // Set the HintThreshold knob from the -inlinehint-threshold.
   Params.HintThreshold = HintThreshold;
+
+  // Set the  DoubleCallSiteHintThreshold knob from the
+  // -double-callsite-inlinehint-threshold.
+  Params.DoubleCallSiteHintThreshold = DoubleCallSiteHintThreshold;
 
   // Set the HotCallSiteThreshold knob from the -hot-callsite-threshold.
   Params.HotCallSiteThreshold = HotCallSiteThreshold;
@@ -3499,7 +3565,7 @@ InlineParams llvm::getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
     InlParams = getInlineParams();
   else
     InlParams = getInlineParams(OptLevel, SizeOptLevel);
-  InlParams.PrepareForLTO = PrepareForLTO;
+  InlParams.PrepareForLTO = PrepareForLTO || EnablePreLTOInlineCost;
   InlParams.LinkForLTO = LinkForLTO;
   //
   // Note that the InlineOptLevel is not being set to the OptLevel in all
@@ -3547,3 +3613,12 @@ InlineCostAnnotationPrinterPass::run(Function &F,
   }
   return PreservedAnalyses::all();
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+extern bool intelEnableInlineDeferral(void) {
+  return InlineForXmain && DTransInlineHeuristics;
+}
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
+

@@ -1,4 +1,21 @@
 //===- Version.h - Clang Version Number -------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -15,7 +32,9 @@
 #ifndef LLVM_CLANG_BASIC_VERSION_H
 #define LLVM_CLANG_BASIC_VERSION_H
 
+#include "clang/Basic/LangOptions.h"
 #include "clang/Basic/Version.inc"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 
 #if INTEL_CUSTOMIZATION
@@ -76,6 +95,11 @@ namespace clang {
   /// for use in the CPP __VERSION__ macro, which includes the clang version
   /// number, the repository version, and the vendor tag.
   std::string getClangFullCPPVersion();
+
+  /// Retrieves a string representing the SYCL standard version for use in
+  /// the CL_SYCL_LANGUAGE_VERSION and SYCL_LANGUAGE_VERSION macros.
+  llvm::SmallVector<std::pair<llvm::StringRef, llvm::StringRef>, 2>
+  getSYCLVersionMacros(const LangOptions &LangOpts);
 
 #if INTEL_CUSTOMIZATION
   std::string getDPCPPProductName();

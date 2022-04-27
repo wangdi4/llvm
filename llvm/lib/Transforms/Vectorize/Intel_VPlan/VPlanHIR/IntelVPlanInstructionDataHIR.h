@@ -35,6 +35,9 @@ class HLNode;
 namespace vpo {
 
 class VPInstruction;
+class VPExternalDef;
+class VPExternalUse;
+class VPValue;
 struct SymbaseIVLevelMapInfo;
 
 /// Class to hold the underlying HLNode of a master VPInstruction and its
@@ -76,7 +79,7 @@ private:
 
 protected:
   /// Enumeration to keep track of the concrete sub-classes of VPOperandHIR.
-  enum { VPBlobSC, VPIndVarSC, VPCanonExprSC };
+  enum { VPBlobSC, VPIndVarSC, VPCanonExprSC, VPIfCondSC };
 
   VPOperandHIR(const unsigned char ID) : SubclassID(ID) {}
 
@@ -318,6 +321,41 @@ public:
   }
 };
 
+class VPIfCond final : public VPOperandHIR {
+private:
+  const loopopt::HLIf *If;
+public:
+  VPIfCond(const loopopt::HLIf *If) : VPOperandHIR(VPIfCondSC), If(If) {
+    assert(If && "Unexpected nullptr.");
+  }
+  bool isStructurallyEqual(const VPOperandHIR *U) const override {
+    auto *Other = dyn_cast<VPIfCond>(U);
+    return Other && Other->If == If;
+  }
+  void Profile(FoldingSetNodeID &ID) const override {
+    ID.AddPointer(If);
+    ID.AddInteger(0 /*Symbase*/);
+    ID.AddInteger(0 /*IVLevel*/);
+  }
+  void print(raw_ostream &OS) const override {
+    OS << "%vp" << (unsigned short)(unsigned long long)this;
+  }
+
+  void printDetail(raw_ostream &OS) const override {
+    formatted_raw_ostream FOS(OS);
+    FOS << " %vp" << (unsigned short)(unsigned long long)this << " = {";
+    If->printHeader(FOS, 0);
+    FOS << "}\n";
+  }
+
+  const loopopt::HLIf *getIf() const { return If; }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPOperandHIR *U) {
+    return U->getSubclassID() == VPIfCondSC;
+  }
+};
+
 /// Hold all the HIR-specific data and interfaces for a VPInstruction.
 class HIRSpecificsData {
   // VPInstruction needs access to the ctor.
@@ -506,6 +544,25 @@ public:
   ArrayRef<unsigned> fakeSymbases() const;
 
   void cloneFrom(const HIRSpecifics HIR);
+};
+
+// Wrapper for underlying HIR data of VPExternalDef and VPExternalUse.
+class HIROperandSpecifics {
+  PointerUnion<const VPExternalUse *, const VPExternalDef *> ExtObj;
+
+public:
+  HIROperandSpecifics(const VPExternalUse *ExtO) : ExtObj(ExtO) {}
+  HIROperandSpecifics(const VPExternalDef *ExtO) : ExtObj(ExtO) {}
+
+  unsigned getSymbase() const {
+    const VPOperandHIR *Operand = getOperand();
+    if (Operand && isa<VPBlob>(Operand))
+      return cast<VPBlob>(Operand)->getBlob()->getSymbase();
+    return loopopt::InvalidSymbase;
+  }
+
+private:
+  const VPOperandHIR *getOperand() const;
 };
 
 } // namespace vpo

@@ -1,4 +1,6 @@
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 ; ModuleID = 'wlMersenneTwister.cl'
@@ -363,3 +365,19 @@ declare <4 x float> @__logf4(<4 x float>)
 declare <4 x float> @__cosf4(<4 x float>)
 
 declare <4 x float> @__sinf4(<4 x float>)
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function gaussianRand --  br label %phi-split-bb1
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function gaussianRand --  br label %phi-split-bb2
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function gaussianRand --  br label %phi-split-bb3
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function gaussianRand --  br label %phi-split-bb4
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function gaussianRand --  br label %phi-split-bb5
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function gaussianRand --  br label %NewDefault
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function gaussianRand --  br label %phi-split-bb13
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function gaussianRand --  br label %phi-split-bb13
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function gaussianRand --  br label %phi-split-bb31
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function gaussianRand --  br label %phi-split-bb26
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function gaussianRand --  br label %phi-split-bb26
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function gaussianRand --  br label %phi-split-bb31
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function gaussianRand --  br label %sw.epilog
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function gaussianRand --  br label %for.end328
+; DEBUGIFY-NOT: WARNING

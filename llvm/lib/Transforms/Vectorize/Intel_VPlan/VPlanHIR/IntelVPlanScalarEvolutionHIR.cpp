@@ -82,8 +82,8 @@ VPlanScalarEvolutionHIR::asConstStepInduction(VPlanSCEV *OpaqueExpr) const {
   if (!Expr)
     return None;
 
-  return VPConstStepInduction{toVPlanSCEV(makeVPlanAddRecHIR(Expr->Base, 0)),
-                              Expr->Stride};
+  return VPConstStepInduction{
+      toVPlanSCEV(makeVPlanAddRecHIR(Expr->Base, 0, Expr->Ref)), Expr->Stride};
 }
 
 // Check if access address of a load/store instruction can be represented as
@@ -108,6 +108,10 @@ VPlanScalarEvolutionHIR::computeAddressSCEVImpl(const VPLoadStoreInst &LSI) {
 
   // FIXME: Support multidimensional arrays.
   if (!Ref->isSingleDimension())
+    return nullptr;
+
+  // TODO: Support for struct offsets.
+  if (Ref->hasTrailingStructOffsets())
     return nullptr;
 
   // One-dimensional arrays have only one CanonExpr (index expression).
@@ -171,7 +175,7 @@ VPlanScalarEvolutionHIR::computeAddressSCEVImpl(const VPLoadStoreInst &LSI) {
   int64_t MainLoopIVCoeff;
   AddressCE->getIVCoeff(MainLoopLevel, nullptr, &MainLoopIVCoeff);
 
-  return makeVPlanAddRecHIR(AdjustedBase, ElementSize * MainLoopIVCoeff);
+  return makeVPlanAddRecHIR(AdjustedBase, ElementSize * MainLoopIVCoeff, Ref);
 }
 
 VPlanAddRecHIR *VPlanScalarEvolutionHIR::getMinusExprImpl(VPlanAddRecHIR *LHS,
@@ -186,10 +190,10 @@ VPlanAddRecHIR *VPlanScalarEvolutionHIR::getMinusExprImpl(VPlanAddRecHIR *LHS,
   return makeVPlanAddRecHIR(Diff, LHS->Stride - RHS->Stride);
 }
 
-VPlanAddRecHIR *
-VPlanScalarEvolutionHIR::makeVPlanAddRecHIR(loopopt::CanonExpr *Base,
-                                            int64_t Stride) const {
-  auto SmartPtr = std::make_unique<VPlanAddRecHIR>(Base, Stride);
+VPlanAddRecHIR *VPlanScalarEvolutionHIR::makeVPlanAddRecHIR(
+    loopopt::CanonExpr *Base, int64_t Stride,
+    const loopopt::RegDDRef *Ref) const {
+  auto SmartPtr = std::make_unique<VPlanAddRecHIR>(Base, Stride, Ref);
   VPlanAddRecHIR *Ptr = SmartPtr.get();
   Storage.emplace_back(std::move(SmartPtr));
   return Ptr;

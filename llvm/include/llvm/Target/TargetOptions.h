@@ -1,4 +1,21 @@
 //===-- llvm/Target/TargetOptions.h - Target Options ------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -132,21 +149,25 @@ namespace llvm {
           IntelLibIRCAllowed(false),               // INTEL
           X87Precision(0),                         // INTEL
           DoFMAOpt(true),                          // INTEL
+          IntelSpillParms(false),                  // INTEL
+          IntelABICompatible(false),               // INTEL
           GuaranteedTailCallOpt(false), StackSymbolOrdering(true),
           EnableFastISel(false), EnableGlobalISel(false), UseInitArray(false),
-          DisableIntegratedAS(false), RelaxELFRelocations(false),
-          FunctionSections(false), DataSections(false),
-          IgnoreXCOFFVisibility(false), XCOFFTracebackTable(true),
-          UniqueSectionNames(true), UniqueBasicBlockSectionNames(false),
-          TrapUnreachable(false), NoTrapAfterNoreturn(false), TLSSize(0),
-          EmulatedTLS(false), ExplicitEmulatedTLS(false), EnableIPRA(false),
+          LowerGlobalDtorsViaCxaAtExit(false), DisableIntegratedAS(false),
+          RelaxELFRelocations(false), FunctionSections(false),
+          DataSections(false), IgnoreXCOFFVisibility(false),
+          XCOFFTracebackTable(true), UniqueSectionNames(true),
+          UniqueBasicBlockSectionNames(false), TrapUnreachable(false),
+          NoTrapAfterNoreturn(false), TLSSize(0), EmulatedTLS(false),
+          ExplicitEmulatedTLS(false), EnableIPRA(false),
           EmitStackSizeSection(false), EnableMachineOutliner(false),
           EnableMachineFunctionSplitter(false), SupportsDefaultOutlining(false),
           EmitAddrsig(false), EmitCallSiteInfo(false),
           SupportsDebugEntryValues(false), EnableDebugEntryValues(false),
-          ValueTrackingVariableLocations(false),
-          ForceDwarfFrameSection(false), XRayOmitFunctionIndex(false),
-          DebugStrictDwarf(false),
+          ValueTrackingVariableLocations(false), ForceDwarfFrameSection(false),
+          XRayOmitFunctionIndex(false), DebugStrictDwarf(false),
+          Hotpatch(false), PPCGenScalarMASSEntries(false), JMCInstrument(false),
+          EnableCFIFixup(false), MisExpect(false),
           FPDenormalMode(DenormalMode::IEEE, DenormalMode::IEEE) {}
 
     /// DisableFramePointerElim - This returns true if frame pointer elimination
@@ -232,6 +253,20 @@ namespace llvm {
 
     /// DoFMAOpt - Enable the global FMA opt.
     unsigned DoFMAOpt : 1;
+
+    /// IntelSpillParms - Enable incoming parameters spill.
+    /// This is a "special" flag for oracle.
+    /// Oracle wants all incoming parameters passed in integer registers to be
+    /// spilled onto the stack (they don't care where). Not only do they want
+    /// them spilled, but they also want all spilled registers to be full 64bit
+    /// registers (for x86-64). These spills will get picked up by their own
+    /// internal tools.
+    unsigned IntelSpillParms : 1;
+
+    /// IntelABICompatible - This option is to solve ABI compatibility issues.
+    /// It is usually difficult to modify ABI in the community, and modification
+    /// here is a compromise.
+    unsigned IntelABICompatible : 1;
 #endif // INTEL_CUSTOMIZATION
 
     /// GuaranteedTailCallOpt - This flag is enabled when -tailcallopt is
@@ -268,6 +303,10 @@ namespace llvm {
     /// UseInitArray - Use .init_array instead of .ctors for static
     /// constructors.
     unsigned UseInitArray : 1;
+
+    /// Use __cxa_atexit to register global destructors; determines how
+    /// llvm.global_dtors is lowered.
+    unsigned LowerGlobalDtorsViaCxaAtExit : 1;
 
     /// Disable the integrated assembler.
     unsigned DisableIntegratedAS : 1;
@@ -365,6 +404,22 @@ namespace llvm {
     /// When set to true, don't use DWARF extensions in later DWARF versions.
     /// By default, it is set to false.
     unsigned DebugStrictDwarf : 1;
+
+    /// Emit the hotpatch flag in CodeView debug.
+    unsigned Hotpatch : 1;
+
+    /// Enables scalar MASS conversions
+    unsigned PPCGenScalarMASSEntries : 1;
+
+    /// Enable JustMyCode instrumentation.
+    unsigned JMCInstrument : 1;
+
+    /// Enable the CFIFixup pass.
+    unsigned EnableCFIFixup : 1;
+
+    /// When set to true, enable MisExpect Diagnostics
+    /// By default, it is set to false
+    unsigned MisExpect : 1;
 
     /// Name of the stack usage file (i.e., .su file) if user passes
     /// -fstack-usage. If empty, it can be implied that -fstack-usage is not

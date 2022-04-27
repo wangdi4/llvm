@@ -1,5 +1,5 @@
-; RUN: opt -enable-intel-advanced-opts -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
-; RUN: opt -enable-intel-advanced-opts -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Verify that we are able to successfully multiversion the loop using library call.
 ; It was compfailing during type normalization because element type was not set correctly.

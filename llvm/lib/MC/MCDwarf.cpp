@@ -1,4 +1,21 @@
 //===- lib/MC/MCDwarf.cpp - MCDwarf implementation ------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -396,8 +413,7 @@ static void emitOneV5FileEntry(MCStreamer *MCOS, const MCDwarfFile &DwarfFile,
   if (EmitMD5) {
     const MD5::MD5Result &Cksum = *DwarfFile.Checksum;
     MCOS->emitBinaryData(
-        StringRef(reinterpret_cast<const char *>(Cksum.Bytes.data()),
-                  Cksum.Bytes.size()));
+        StringRef(reinterpret_cast<const char *>(Cksum.data()), Cksum.size()));
   }
   if (HasSource) {
     if (LineStr)
@@ -579,7 +595,7 @@ Expected<unsigned> MCDwarfLineTable::tryGetFile(StringRef &Directory,
 
 static bool isRootFile(const MCDwarfFile &RootFile, StringRef &Directory,
                        StringRef &FileName, Optional<MD5::MD5Result> Checksum) {
-  if (RootFile.Name.empty() || RootFile.Name != FileName.data())
+  if (RootFile.Name.empty() || StringRef(RootFile.Name) != FileName)
     return false;
   return RootFile.Checksum == Checksum;
 }
@@ -604,7 +620,7 @@ MCDwarfLineTableHeader::tryGetFile(StringRef &Directory,
     trackMD5Usage(Checksum.hasValue());
     HasSource = (Source != None);
   }
-  if (isRootFile(RootFile, Directory, FileName, Checksum) && DwarfVersion >= 5)
+  if (DwarfVersion >= 5 && isRootFile(RootFile, Directory, FileName, Checksum))
     return 0;
   if (FileNumber == 0) {
     // File numbers start with 1 and/or after any file numbers

@@ -1,5 +1,5 @@
-; RUN: opt < %s -argpromotion -S | FileCheck %s
-; RUN: opt < %s -passes='argpromotion' -S | FileCheck %s
+; RUN: opt -argpromotion -S %s | FileCheck %s
+; RUN: opt -passes='argpromotion' -S %s | FileCheck %s
 
 ; Original code:
 ; #pragma omp declare target

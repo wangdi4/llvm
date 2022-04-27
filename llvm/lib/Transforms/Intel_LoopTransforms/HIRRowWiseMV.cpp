@@ -929,9 +929,9 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
               ZTTEnd  = ParentLp->ztt_pred_end();
          ZTTIter != ZTTEnd; ++ZTTIter) {
       const RegDDRef *const Left =
-        ParentLp->getZttPredicateOperandDDRef(ZTTIter, true);
+          ParentLp->getLHSZttPredicateOperandDDRef(ZTTIter);
       const RegDDRef *const Right =
-        ParentLp->getZttPredicateOperandDDRef(ZTTIter, false);
+          ParentLp->getRHSZttPredicateOperandDDRef(ZTTIter);
       ZTTLoop->addZttPredicate(*ZTTIter, Left->clone(), Right->clone());
     }
   }

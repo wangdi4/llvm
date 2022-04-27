@@ -1,69 +1,69 @@
-//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s --check-prefix=HOST --check-prefix=ALL
 
-//RUN: %clang_cc1 -triple i386-unknown-linux-gnu \
+//RUN: %clang_cc1 -opaque-pointers -triple i386-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s --check-prefix=HOST --check-prefix=ALL
 
-//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
-//RUN: %clang_cc1 -triple spir64 \
+//RUN: %clang_cc1 -opaque-pointers -triple spir64 \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s --check-prefix=TARG-SPIR --check-prefix=ALL
 
-//RUN: %clang_cc1 -triple i386-unknown-linux-gnu \
+//RUN: %clang_cc1 -opaque-pointers -triple i386-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
-//RUN: %clang_cc1 -triple spir \
+//RUN: %clang_cc1 -opaque-pointers -triple spir \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s --check-prefix=TARG-SPIR --check-prefix=ALL
 
-//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
+//RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes -fno-intel-openmp-use-llvm-atomic \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host_old_atomic.bc %s
 
-//RUN: %clang_cc1 -triple spir64 \
+//RUN: %clang_cc1 -opaque-pointers -triple spir64 \
 //RUN:  -emit-llvm -disable-llvm-passes -fno-intel-openmp-use-llvm-atomic \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host_old_atomic.bc \
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s --check-prefix=TARG-SPIR-OLD --check-prefix=ALL
 
-//RUN: %clang_cc1 -triple i386-unknown-linux-gnu \
+//RUN: %clang_cc1 -opaque-pointers -triple i386-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes -fno-intel-openmp-use-llvm-atomic \
 //RUN:  -fopenmp -fopenmp-targets=spir \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host_old_atomic.bc %s
 
-//RUN: %clang_cc1 -triple spir \
+//RUN: %clang_cc1 -opaque-pointers -triple spir \
 //RUN:  -emit-llvm -disable-llvm-passes -fno-intel-openmp-use-llvm-atomic \
 //RUN:  -fopenmp -fopenmp-targets=spir \
-//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fintel-compatibility \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host_old_atomic.bc \
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s --check-prefix=TARG-SPIR-OLD --check-prefix=ALL
@@ -211,8 +211,8 @@ void foo1()
   #pragma omp target
   {
     int i = 0;
-    //HOST: atomicrmw add i32* %i{{.*}}monotonic
-    //TARG-SPIR: atomicrmw add i32 addrspace(4)* %i{{.*}}monotonic
+    //HOST: atomicrmw add ptr %i{{.*}}monotonic
+    //TARG-SPIR: atomicrmw add ptr addrspace(4) %i{{.*}}monotonic
     //TARG-SPIR-OLD: call{{.*}}__atomic_load
     //TARG-SPIR-OLD: call{{.*}}__atomic_compare_exchange
     #pragma omp atomic
@@ -258,6 +258,23 @@ void foo1()
   #pragma omp target
   #pragma omp teams
   #pragma omp distribute parallel for
+  for (i=0;i<16;++i) {}
+
+  //ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TARGET"
+  //ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TEAMS"
+  //ALL: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.DISTRIBUTE.PARLOOP"
+  //ALL: [[T3:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.SIMD"
+  //ALL: region.exit(token [[T3]]) [ "DIR.OMP.END.SIMD"
+  //ALL: region.exit(token [[T2]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"
+  //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TEAMS"
+  //ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
+  #pragma omp target
+  #pragma omp teams
+  #pragma omp distribute parallel for simd
   for (i=0;i<16;++i) {}
 
   //ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
@@ -359,10 +376,10 @@ ios_base *Obj;
 void bar(...);
 void execute_offload () {
 //TARG-SPIR: [[IBASE:%ibase.*]] = alloca i32,
-//TARG-SPIR: [[IBASE_CAST:%[a-z.0-9]+]] = addrspacecast i32* [[IBASE]] to i32 addrspace(4)*
+//TARG-SPIR: [[IBASE_CAST:%[a-z.0-9]+]] = addrspacecast ptr [[IBASE]] to ptr addrspace(4)
    bar(Obj);
 //TARG-SPIR: DIR.OMP.TARGET
-//TARG-SPIR-SAME: "QUAL.OMP.PRIVATE"(i32 addrspace(4)* [[IBASE_CAST]])
+//TARG-SPIR-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[IBASE_CAST]]
 //TARG-SPIR: DIR.OMP.END.TARGET
    #pragma omp target
        int ibase = 3;
@@ -426,8 +443,8 @@ void hp_bar(int M, int N)
 
       hp_func(444);
 
-      //HOST: atomicrmw add i32* %myV{{.*}}monotonic
-      //TARG-SPIR: atomicrmw add i32 addrspace(4)* %myV{{.*}}monotonic
+      //HOST: atomicrmw add ptr %myV{{.*}}monotonic
+      //TARG-SPIR: atomicrmw add ptr addrspace(4) %myV{{.*}}monotonic
       //TARG-SPIR-OLD: call{{.*}}__atomic_load
       //TARG-SPIR-OLD: call{{.*}}__atomic_compare_exchange
       #pragma omp atomic
@@ -495,8 +512,8 @@ void hp_bar(int M, int N)
 
       hp_func(333);
 
-      //HOST: atomicrmw add i32* %myV{{.*}}monotonic
-      //TARG-SPIR: atomicrmw add i32 addrspace(4)* %myV{{.*}}monotonic
+      //HOST: atomicrmw add ptr %myV{{.*}}monotonic
+      //TARG-SPIR: atomicrmw add ptr addrspace(4) %myV{{.*}}monotonic
       //TARG-SPIR-OLD: call{{.*}}__atomic_load
       //TARG-SPIR-OLD: call{{.*}}__atomic_compare_exchange
       #pragma omp atomic

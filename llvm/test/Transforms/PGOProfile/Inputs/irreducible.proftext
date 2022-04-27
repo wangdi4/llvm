@@ -14,16 +14,23 @@ _Z11irreducibleii
 
 _Z11irreduciblePh
 # Func Hash:
-331779889035882993
+# INTEL_CUSTOMIZATION
+# SplitIndirectBrCriticalEdges generates different IR in xmain,
+# causing the hash value to change and the blocks that get
+# counters to change.
+599005161913147739
+# end INTEL_CUSTOMIZATION
 # Num Counters:
 9
 # Counter Values:
-100
 300
 99
 300
 201
 1
+# INTEL_CUSTOMIZATION
+0
 1
+# end INTEL_CUSTOMIZATION
 0
 0

@@ -25,7 +25,7 @@
 // release branch is taken.  This allows us to differentiate via version
 // output if the compiler is from the developent or release branch.  For
 // example, the 2021.3.0 update will have "3.0" as the string.
-#define XMAIN_VERSION_STRING "1.0"
+#define XMAIN_VERSION_STRING "2.0"
 
 #ifndef BUILD_DATE_STAMP
 #define BUILD_DATE_STAMP        YYYYMMDD

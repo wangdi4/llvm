@@ -1,4 +1,6 @@
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 ; ModuleID = 'sample7.bc'
@@ -56,3 +58,6 @@ for.end22:                                        ; preds = %for.end22.loopexit,
 }
 
 declare i32 @_Z12get_local_idj(i32)
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function func --  br label %for.end22
+; DEBUGIFY-NOT: WARNING

@@ -97,6 +97,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
@@ -251,29 +252,45 @@ Segment IVSegment::genSegment() const {
   return Segment(Ref1, Ref2);
 }
 
-static unsigned getMinMaxZeroBlob(BlobUtils &BU, unsigned Index,
-                                  bool IsMinBlob) {
+static unsigned getMinMaxConstantBlob(BlobUtils &BU, unsigned Index,
+                                      int64_t Constant, bool IsSigned,
+                                      bool IsMinBlob) {
   BlobTy Blob = BU.getBlob(Index);
 
-  // We don't have to keep zero blob in the table.
-  BlobTy ZeroBlob = BU.createBlob(0, Blob->getType(), false, nullptr);
+  // We don't have to keep the constant blob in the table.
+  BlobTy ConstantBlob =
+      BU.createBlob(Constant, Blob->getType(), false, nullptr);
 
   unsigned MinMaxBlobIndex;
 
   if (IsMinBlob) {
-    BU.createSMinBlob(Blob, ZeroBlob, true, &MinMaxBlobIndex);
+    if (IsSigned) {
+      BU.createSMinBlob(Blob, ConstantBlob, true, &MinMaxBlobIndex);
+    } else {
+      BU.createUMinBlob(Blob, ConstantBlob, true, &MinMaxBlobIndex);
+    }
   } else {
-    BU.createSMaxBlob(Blob, ZeroBlob, true, &MinMaxBlobIndex);
+    if (IsSigned) {
+      BU.createSMaxBlob(Blob, ConstantBlob, true, &MinMaxBlobIndex);
+    } else {
+      BU.createUMaxBlob(Blob, ConstantBlob, true, &MinMaxBlobIndex);
+    }
   }
 
   return MinMaxBlobIndex;
+}
+
+static unsigned getMinMaxZeroBlob(BlobUtils &BU, unsigned Index,
+                                  bool IsMinBlob) {
+  return getMinMaxConstantBlob(BU, Index, 0, true, IsMinBlob);
 }
 
 // Returns true if IV replacement succeeded, false if failed and {} if no
 // replacement required.
 static Optional<bool> replaceIVByBound(CanonExpr *CE, const HLLoop *Loop,
                                        const HLLoop *InnerLoop,
-                                       bool IsLowerBound) {
+                                       bool IsLowerBound,
+                                       RegDDRef *UnknownLoopUBRef = nullptr) {
   unsigned Level = Loop->getNestingLevel();
 
   unsigned IVBlobIndex;
@@ -321,7 +338,14 @@ static Optional<bool> replaceIVByBound(CanonExpr *CE, const HLLoop *Loop,
     Bound = Loop->getUpperDDRef();
   } else {
     auto *LowerRef = Loop->getLowerDDRef();
-    auto *UpperRef = Loop->getUpperDDRef();
+    const RegDDRef *UpperRef;
+    if (Loop->isUnknown()) {
+      assert(UnknownLoopUBRef &&
+             "Candidate unknown loop does not have an upper-bound ref");
+      UpperRef = UnknownLoopUBRef;
+    } else {
+      UpperRef = Loop->getUpperDDRef();
+    }
 
     // If IV direction is negative UpperRef will correspond to the lowest
     // memory address.
@@ -356,9 +380,11 @@ static Optional<bool> replaceIVByBound(CanonExpr *CE, const HLLoop *Loop,
 // The method replaces \p Loop IV with the appropriate bounds depending on
 // \p IsLowerBound value.
 static void replaceIVByBound(RegDDRef *Ref, const HLLoop *Loop,
-                             const HLLoop *InnerLoop, bool IsLowerBound) {
+                             const HLLoop *InnerLoop, bool IsLowerBound,
+                             RegDDRef *UnknownLoopUBRef) {
   for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
-    auto Ret = replaceIVByBound(CE, Loop, InnerLoop, IsLowerBound);
+    auto Ret =
+        replaceIVByBound(CE, Loop, InnerLoop, IsLowerBound, UnknownLoopUBRef);
 
     assert((!Ret || *Ret) &&
            "Assuming replace will always succeed as we already checked if both "
@@ -449,15 +475,17 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
         return NON_PROFITABLE_SUBS;
       }
 
-      const CanonExpr *UpperBoundCE = LoopI->getUpperCanonExpr();
+      if (!LoopI->isUnknown()) {
+        const CanonExpr *UpperBoundCE = LoopI->getUpperCanonExpr();
 
-      // Check if CE and UpperBoundCE are mergeable and check if UpperBoundCE
-      // denominator equals one as we will not be able to replace IV with such
-      // upper bound. This is because b*(x/d) != (b*x)/d.
-      if ((UpperBoundCE->getDenominator() != 1 ||
-           !CanonExprUtils::mergeable(CE, UpperBoundCE, true)) &&
-          !UpperBoundCE->canConvertToStandAloneBlobOrConstant()) {
-        return UPPER_SUB_TYPE_MISMATCH;
+        // Check if CE and UpperBoundCE are mergeable and check if UpperBoundCE
+        // denominator equals one as we will not be able to replace IV with such
+        // upper bound. This is because b*(x/d) != (b*x)/d.
+        if ((UpperBoundCE->getDenominator() != 1 ||
+             !CanonExprUtils::mergeable(CE, UpperBoundCE, true)) &&
+            !UpperBoundCE->canConvertToStandAloneBlobOrConstant()) {
+          return UPPER_SUB_TYPE_MISMATCH;
+        }
       }
       assert((CanonExprUtils::mergeable(CE, LoopI->getLowerCanonExpr(), true) ||
               LoopI->getLowerCanonExpr()
@@ -496,12 +524,12 @@ void IVSegment::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
 // The method will replace IV @ Level inside segment bounds, depending on
 // direction of IV, constant and blob coefficients. The result segment represent
 // lower and upper address accessed inside a loopnest.
-void IVSegment::replaceIVWithBounds(const HLLoop *Loop,
-                                    const HLLoop *InnerLoop) {
+void IVSegment::replaceIVWithBounds(const HLLoop *Loop, const HLLoop *InnerLoop,
+                                    RegDDRef *UnknownLoopUBRef) {
   assert(!isEmpty());
 
-  replaceIVByBound(Lower.get(), Loop, InnerLoop, true);
-  replaceIVByBound(Upper.get(), Loop, InnerLoop, false);
+  replaceIVByBound(Lower.get(), Loop, InnerLoop, true, UnknownLoopUBRef);
+  replaceIVByBound(Upper.get(), Loop, InnerLoop, false, UnknownLoopUBRef);
 }
 
 #ifndef NDEBUG
@@ -532,7 +560,7 @@ const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
   case DELINEARIZATION_FAILED:
     return "Delinearization failed";
   case NON_DO_LOOP:
-    return "Non DO loops are not supported";
+    return "Loop is either not a DO loop or cannot be converted to a DO loop";
   case UNROLL_PRAGMA_LOOP:
     return "Unroll pragma loops are not supported";
   case IVDEP_PRAGMA_LOOP:
@@ -571,9 +599,54 @@ bool HIRRuntimeDD::isProfitable(const HLLoop *Loop) {
   return (!LS.hasCallsWithUnknownAliasing() && !LS.hasSwitches());
 }
 
+// Creates the following two HLInsts for an Unknown Loop's Upper Bound and saves
+// them in the Loop's Context (to be inserted into HIR during transformation):
+//
+// (1) Load Inst for the Upper Bound, e.g.,
+//
+//       %2 = (%LoopCount)[i1];
+//
+// (2) Copy Inst that processes the RHS Temp from the Bottom Test as well as the
+// Temp from the previous Load to create the upper bound ref, e.g., one of:
+//
+//       %ub = smax(1, %2) + -1;
+//       %ub = smax(1, sext.i32.i64(%2)) + -1;
+//       %ub = umax(1, %2) + -1;
+//       %ub = umax(1, zext.i32.i64(%2)) + -1;
+//
+//     where %ub represents the Upper Bound of the loop.
+void HIRRuntimeDD::createUnknownLoopUBInsts(LoopContext &Context) {
+  const HLLoop *Loop = Context.Loop;
+
+  auto *BottomTest = Loop->getBottomTest();
+
+  // For now, we only handle the UB Load in the bottom tests's previous node.
+  // TODO: Generalize so that the UB Load could be anywhere in the loop body.
+  Context.UnknownLoopUBLoad = cast<HLInst>(BottomTest->getPrevNode())->clone();
+
+  // Clone temp from the bottom test's RHS instead of the cloned Load's lval.
+  // (This way we don't have to check sext/zext).
+  auto *PredIt = BottomTest->pred_begin();
+  auto *UBRef = BottomTest->getRHSPredicateOperandDDRef(PredIt)->clone();
+  auto *UBCE = UBRef->getSingleCanonExpr();
+  UBCE->convertToStandAloneBlobOrConstant();
+
+  // Replace the blob with its smax(1, ...), or umax, and add -1,
+  // e.g., '%2' is replaced with 'smax(1, %2) + -1' if comparison is signed.
+  unsigned BlobIndex = UBCE->getSingleBlobIndex();
+  unsigned MaxBlobIndex =
+      getMinMaxConstantBlob(UBRef->getBlobUtils(), BlobIndex, 1,
+                            (*PredIt) == CmpInst::ICMP_SLT, false);
+  UBCE->replaceBlob(BlobIndex, MaxBlobIndex);
+  UBCE->addConstant(-1, true);
+
+  Context.UnknownLoopUBMax = Loop->getHLNodeUtils().createCopyInst(UBRef, "ub");
+}
+
 void HIRRuntimeDD::processLoopnest(const HLLoop *OuterLoop,
                                    const HLLoop *InnermostLoop,
-                                   SmallVectorImpl<IVSegment> &IVSegments) {
+                                   SmallVectorImpl<IVSegment> &IVSegments,
+                                   RegDDRef *UnknownLoopUBRef) {
 
   assert(InnermostLoop->isInnermost() &&
          "InnermostLoop is not an innermost loop");
@@ -587,14 +660,22 @@ void HIRRuntimeDD::processLoopnest(const HLLoop *OuterLoop,
        LoopI != LoopE; LoopI = LoopI->getParentLoop()) {
 
     AuxRefs.push_back(LoopI->getLowerDDRef());
-    AuxRefs.push_back(LoopI->getUpperDDRef());
+    if (LoopI->isUnknown()) {
+      assert((LoopI == OuterLoop && LoopI->isInnermost()) &&
+             "Unknown loop is either not a candidate or not an innermost loop");
+      assert(UnknownLoopUBRef &&
+             "Candidate unknown loop does not have an upper-bound ref");
+      AuxRefs.push_back(UnknownLoopUBRef);
+    } else {
+      AuxRefs.push_back(LoopI->getUpperDDRef());
+    }
 
     for (unsigned I = 0; I < SegmentCount; ++I) {
       if (IVSegments[I].isEmpty()) {
         continue;
       }
 
-      IVSegments[I].replaceIVWithBounds(LoopI, InnermostLoop);
+      IVSegments[I].replaceIVWithBounds(LoopI, InnermostLoop, UnknownLoopUBRef);
     }
   }
 
@@ -944,6 +1025,20 @@ static void clearNotInvolvedGroups(
   }
 }
 
+static bool unknownLoopInLoopNest(const HLLoop *Loop,
+                                  const HLLoop *InnermostLoop) {
+  assert(InnermostLoop->isInnermost() &&
+         "InnermostLoop is not an innermost loop");
+  for (const HLLoop *LoopI = InnermostLoop, *LoopE = Loop->getParentLoop();
+       LoopI != LoopE; LoopI = LoopI->getParentLoop()) {
+    if (LoopI->isUnknown()) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // Check whether RTDD can happen before a relaxed non-perfect loopnest.
 // The pattern is matched by Geekbench6.0/Camera
 static bool canLoopBeRelaxed(HLLoop *Loop, const HLLoop *&InnermostLoop) {
@@ -965,6 +1060,10 @@ static bool canLoopBeRelaxed(HLLoop *Loop, const HLLoop *&InnermostLoop) {
     return false;
   }
 
+  if (unknownLoopInLoopNest(Loop, InnermostLoop)) {
+    return false;
+  }
+
   for (const HLNode &Node :
        make_range(Loop->child_begin(), std::prev(Loop->child_end()))) {
     const HLInst *HInst = dyn_cast<HLInst>(&Node);
@@ -974,7 +1073,7 @@ static bool canLoopBeRelaxed(HLLoop *Loop, const HLLoop *&InnermostLoop) {
 
     const RegDDRef *Lval = HInst->getLvalDDRef();
 
-    if (!Lval->isTerminalRef()) {
+    if (!Lval || !Lval->isTerminalRef()) {
       return false;
     }
   }
@@ -987,39 +1086,163 @@ canHelpScalarReplacementOrMemoryMotion(const HLLoop *InnermostLoop) {
   return HIRLoopLocality::hasTemporalLocality(InnermostLoop, 2, true, false);
 }
 
+// We look for the UNKNOWN loop of the following form:
+//
+// UNKNOWN LOOP iN       <--- Loop is innermost.
+//   ...                 <--- All mem-refs are linear-at-level.
+//   ...                      There is only one Lval mem-ref.
+//   %2 = <mem-ref>;     <--- Load for UB just before the Bottom test.
+//   if (iN + 1 < %2)    <--- Bottom test of this form.
+//   {                        Comparison can be signed (<) or unsigned (<u).
+//     ...
+//   }
+// END LOOP
+bool HIRRuntimeDD::isConvertibleUnknownLoop(const HLLoop *Loop) {
+  if (!Loop->isUnknown() || !Loop->isInnermost()) {
+    return false;
+  }
+
+  auto *BottomTest = Loop->getBottomTest();
+  auto *PredIt = BottomTest->pred_begin();
+  if ((*PredIt) != CmpInst::ICMP_SLT && (*PredIt) != CmpInst::ICMP_ULT) {
+    return false;
+  }
+
+  auto *LHSRef = BottomTest->getLHSPredicateOperandDDRef(PredIt);
+  auto *RHSRef = BottomTest->getRHSPredicateOperandDDRef(PredIt);
+  if (!LHSRef->isTerminalRef() || !RHSRef->isTerminalRef()) {
+    return false;
+  }
+
+  unsigned Level = Loop->getNestingLevel();
+
+  // Check for the pattern iN + 1 in the BottomTest LHS.
+  auto *CE = LHSRef->getSingleCanonExpr();
+  if (CE->numIVs() != 1 || CE->numBlobs() != 0 || CE->getDenominator() != 1 ||
+      CE->getIVConstCoeff(Level) != 1 || CE->getConstant() != 1 ||
+      CE->getIVBlobCoeff(Level) != InvalidBlobIndex) {
+    return false;
+  }
+
+  // For now, we only handle the UB Load in the bottom tests's previous node.
+  // TODO: Generalize so that the UB Load could be anywhere in the loop body.
+  auto *UBLoad = dyn_cast_or_null<HLInst>(BottomTest->getPrevNode());
+  if (!UBLoad || !isa<LoadInst>(UBLoad->getLLVMInstruction())) {
+    return false;
+  }
+
+  if (!UBLoad->getRvalDDRef()->isStructurallyInvariantAtLevel(Level)) {
+    return false;
+  }
+
+  // Refs might have sext or zext, so we need to compare CEs instead of
+  // RegDDRefs.
+  auto *LvalCE = UBLoad->getLvalDDRef()->getSingleCanonExpr();
+  if (!CanonExprUtils::areEqual(RHSRef->getSingleCanonExpr(), LvalCE, true)) {
+    return false;
+  }
+
+  // For the loop body (i.e., not including the Bottom Test and the Load for the
+  // Upper Bound), determine:
+  // (1) If all mem-refs are linear at level.
+  // (2) The number of Lval mem-refs.
+  bool MemRefsAreLinearAtLevel = true;
+  unsigned NumLvalMemRefs = 0;
+  ForEach<const HLDDNode>::visitRange(
+      Loop->child_begin(), UBLoad->getIterator(),
+      [&Level, &MemRefsAreLinearAtLevel,
+       &NumLvalMemRefs](const HLDDNode *Node) {
+        for (const RegDDRef *Ref :
+             make_range(Node->ddref_begin(), Node->ddref_end())) {
+          if (Ref->isMemRef()) {
+            if (!Ref->isLinearAtLevel(Level)) {
+              MemRefsAreLinearAtLevel = false;
+            }
+            if (Ref->isLval()) {
+              NumLvalMemRefs++;
+            }
+          }
+        }
+      });
+
+  return MemRefsAreLinearAtLevel && NumLvalMemRefs == 1;
+}
+
+static bool isLoadOnly(RefGroupTy &Group) {
+  for (auto &Ref : Group) {
+    if (Ref->isLval()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Split the group if two adjacent refs do not have constant distance and they
+// are from different parent loop. For example, A[i1], A[i1+1], A[i2], A[i2+1]
+// will be split into 2 groups-
+// A[i1], A[i1+1] and  A[i2], A[i2+1], if A[i1+1] and A[i2] are from different
+// parent loops. We will bail out the case if the rest of refs in the split
+// group do not have constant distance.
 static void
 splitRefGroups(RefGroupVecTy &Groups,
-               DenseMap<const RegDDRef *, unsigned> &RefGroupIndex) {
+               DenseMap<const RegDDRef *, unsigned> &RefGroupIndex,
+               DenseMap<unsigned, unsigned> &SplitedGroupsOriginalIndices) {
   unsigned GroupSize = Groups.size();
 
   for (unsigned I = 0; I < GroupSize; ++I) {
-    if (Groups[I].size() < 2) {
+    unsigned CurGroupSize = Groups[I].size();
+    // Restrict splitting to load-only groups for profitability
+    if (CurGroupSize < 2) {
       continue;
     }
 
-    for (unsigned J = 0, EE = Groups[I].size() - 1; J < EE; ++J) {
+    if (!isLoadOnly(Groups[I])) {
+      continue;
+    }
+
+    bool CanGroupBeSplitted = true;
+
+    for (unsigned J = 0, EE = CurGroupSize - 1; J < EE; ++J) {
       if (DDRefUtils::haveConstDimensionDistances(Groups[I][J],
                                                   Groups[I][J + 1], false)) {
         continue;
       }
 
-      if (Groups[I][J]->getHLDDNode()->getParentLoop()->getNestingLevel() ==
-          Groups[I][J + 1]->getHLDDNode()->getParentLoop()->getNestingLevel()) {
+      if (Groups[I][J]->getParentLoop() == Groups[I][J + 1]->getParentLoop()) {
         continue;
       }
 
-      Groups.resize(++GroupSize);
+      // Check whether two adjacent refs in the group have constant distance.
+      // If not, the group cannot be the slpit group candidate.
+      for (unsigned M = J + 1, E = CurGroupSize - 1; M < E; ++M) {
+        if (!DDRefUtils::haveConstDimensionDistances(Groups[I][M],
+                                                     Groups[I][M + 1], false)) {
+          CanGroupBeSplitted = false;
+          break;
+        }
+      }
+
+      if (!CanGroupBeSplitted) {
+        break;
+      }
+
+      // Group size increased by 1 due to a new splited group
+      Groups.resize(Groups.size() + 1);
+
+      unsigned NewGroupIdx = Groups.size() - 1;
+
+      // Record the new group's original group index which will be used in
+      // DDRefsIndep().
+      SplitedGroupsOriginalIndices[NewGroupIdx] = I;
 
       // Update the group index for the refs which will be in the new group
-      for (unsigned K = J + 1, End = Groups[I].size(); K < End; ++K) {
-        auto GroupI = RefGroupIndex.find(Groups[I][K]);
-        assert(GroupI != RefGroupIndex.end() &&
-               "Cannot find the group index\n");
-        GroupI->second = GroupSize - 1;
+      for (unsigned K = J + 1, End = CurGroupSize; K < End; ++K) {
+        RefGroupIndex[Groups[I][K]] = NewGroupIdx;
         Groups.back().push_back(Groups[I][K]);
       }
 
       Groups[I].resize(J + 1);
+
       break;
     }
   }
@@ -1043,8 +1266,12 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     return ALREADY_MV;
   }
 
+  bool ConvertibleUnknownLoop = false;
   if (!Loop->isDo()) {
-    return NON_DO_LOOP;
+    ConvertibleUnknownLoop = isConvertibleUnknownLoop(Loop);
+    if (!ConvertibleUnknownLoop) {
+      return NON_DO_LOOP;
+    }
   }
 
   if (!isProfitable(Loop)) {
@@ -1116,11 +1343,13 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   // Populate reference groups split by base blob index.
   // Populate a reference-to-group-number map.
   DDRefIndexGrouping Grouping(Groups, Refs);
+  DenseMap<unsigned, unsigned> &SplitedGroupsOriginalIndices =
+      Context.SplitedGroupsOriginalIndices;
 
   // Split the Group if the size of Group is larger than 2 and the elements are
   // from different parent loops and they do not have constant distance
   if (CanLoopBeRelaxed) {
-    splitRefGroups(Groups, Grouping.getIndex());
+    splitRefGroups(Groups, Grouping.getIndex(), SplitedGroupsOriginalIndices);
   }
 
   // Dump ref groups after split.
@@ -1264,7 +1493,14 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     return NON_PROFITABLE;
   }
 
-  processLoopnest(Loop, InnermostLoop, IVSegments);
+  if (ConvertibleUnknownLoop) {
+    createUnknownLoopUBInsts(Context);
+  }
+
+  processLoopnest(Loop, InnermostLoop, IVSegments,
+                  ConvertibleUnknownLoop
+                      ? Context.UnknownLoopUBMax->getLvalDDRef()
+                      : nullptr);
 
   // Check if LibraryCall method is required.
   if (Context.Method == RTDDMethod::LibraryCall) {
@@ -1486,7 +1722,7 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
     TestIdx += 1;
   }
 
-  AttrBuilder AB;
+  AttrBuilder AB(LLVMContext);
   AB.addAttribute(Attribute::Speculatable)
       .addAttribute(Attribute::ReadOnly)
       .addAttribute(Attribute::ArgMemOnly);
@@ -1676,6 +1912,32 @@ void HIRRuntimeDD::generateHLNodes(LoopContext &Context,
   HLLoop *NoAliasLoop = Context.Loop;
   HLLoop *ClonedLoop = Context.Loop->clone(&LoopMapper);
 
+  // If the candidate loop is UNKNOWN, we convert it into a DO loop for the Then
+  // block of the RTDD checks.
+  if (NoAliasLoop->isUnknown()) {
+    // Remove UNKNOWN-loop-specific elements: label, load for UB, bottom-test.
+    HLNodeUtils::remove(NoAliasLoop->getHeaderLabel());
+    auto *BottomTest = NoAliasLoop->getBottomTest();
+    HLNodeUtils::remove(BottomTest->getPrevNode());
+    HLNodeUtils::remove(BottomTest);
+
+    auto *UBLoad = Context.UnknownLoopUBLoad;
+    auto *UBMax = Context.UnknownLoopUBMax;
+
+    // Insert the Load and Max HLInsts in HIR before the loop.
+    // (Add live-in for the Max Lval, and make Rval consistent).
+    HLNodeUtils::insertBefore(NoAliasLoop, UBLoad);
+    HLNodeUtils::insertBefore(NoAliasLoop, UBMax);
+    NoAliasLoop->addLiveInTemp(UBMax->getLvalDDRef()->getSymbase());
+    UBMax->getRvalDDRef()->makeConsistent({UBLoad->getLvalDDRef()});
+
+    // Set loop's Upper Bound and Stride to convert the UKNOWN loop into a DO
+    // loop. (Call makeConsistent for Upper-ref after setting the Stride).
+    NoAliasLoop->setUpperDDRef(UBMax->getLvalDDRef()->clone());
+    NoAliasLoop->getStrideDDRef()->getSingleCanonExpr()->setConstant(1);
+    NoAliasLoop->getUpperDDRef()->makeConsistent({UBMax->getLvalDDRef()});
+  }
+
   OptReportBuilder &ORBuilder =
       NoAliasLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
@@ -1734,10 +1996,10 @@ void HIRRuntimeDD::generateHLNodes(LoopContext &Context,
     auto MVTag = Loop->getNumber();
     Loop->setMVTag(MVTag);
 
-    HLLoop *OrigLoop = LoopMapper.getMapped(Loop);
-    OrigLoop->setMVTag(MVTag);
-    OrigLoop->markDoNotVectorize();
-    OrigLoop->markDoNotUnroll();
+    HLLoop *ElseCaseLoop = LoopMapper.getMapped(Loop);
+    ElseCaseLoop->setMVTag(MVTag);
+    ElseCaseLoop->markDoNotVectorize();
+    ElseCaseLoop->markDoNotUnroll();
 
     if (Loop->isInnermost()) {
       HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Loop);
@@ -1750,7 +2012,19 @@ void HIRRuntimeDD::markDDRefsIndep(LoopContext &Context) {
       Context.Loop->getHLNodeUtils().getHIRFramework().getContext();
   RefGroupVecTy &Groups = Context.Groups;
 
-  auto Size = Groups.size();
+  DenseMap<unsigned, unsigned> &SplitedGroupsOriginalIndices =
+      Context.SplitedGroupsOriginalIndices;
+
+  // The splited group should have the same ScopeId as its original group.
+  // Thus, we need to merge the split group back to the original group.
+  for (auto Idx : SplitedGroupsOriginalIndices) {
+    unsigned GroupId = Idx.first;
+    unsigned OriginalId = Idx.second;
+    Groups[OriginalId].append(Groups[GroupId].begin(), Groups[GroupId].end());
+  }
+
+  auto Size = Groups.size() - SplitedGroupsOriginalIndices.size();
+
   MDBuilder MDB(LLVMContext);
 
   MDNode *Domain = MDB.createAnonymousAliasScopeDomain();
@@ -1794,7 +2068,7 @@ bool HIRRuntimeDD::run() {
   if (DisableLibraryCallSwitch ||
       !TTI.isAdvancedOptEnabled(
           TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42) ||
-      !TLI.has(LibFunc_qsort)) {
+      !TTI.isLibIRCAllowed() || !TLI.has(LibFunc_qsort)) {
     LLVM_DEBUG(dbgs() << "[RTDD] Libraries are not available. The Library Call "
                          "Method will be disabled.\n");
     EnableLibraryCallMethod = false;

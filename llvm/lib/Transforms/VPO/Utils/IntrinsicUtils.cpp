@@ -1,4 +1,19 @@
 #if INTEL_COLLAB
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //==-- IntrinsicUtils.cpp - Utilities for VPO related intrinsics -*- C++ -*-==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -99,22 +114,6 @@ bool VPOUtils::stripDirectives(Function &F, ArrayRef<int> IDs) {
   return changed;
 }
 
-CallInst *VPOUtils::createMaskedGatherCall(Value *VecPtr,
-                                           IRBuilder<> &Builder,
-                                           unsigned Alignment,
-                                           Value *Mask,
-                                           Value *PassThru) {
-  auto *VecPtrTy = cast<VectorType>(VecPtr->getType());
-  auto *PtrTy = cast<PointerType>(VecPtrTy->getElementType());
-  ElementCount NumElts = VecPtrTy->getElementCount();
-  auto *Ty = PtrTy->getElementType();
-  auto *VecTy = VectorType::get(Ty, NumElts);
-
-  auto NewCallInst = Builder.CreateMaskedGather(VecTy, VecPtr, Align(Alignment),
-                                                Mask, PassThru);
-  return NewCallInst;
-}
-
 CallInst *VPOUtils::createMaskedScatterCall(Value *VecPtr,
                                             Value *VecData,
                                             IRBuilder<> &Builder,
@@ -122,17 +121,6 @@ CallInst *VPOUtils::createMaskedScatterCall(Value *VecPtr,
                                             Value *Mask) {
   auto NewCallInst =
       Builder.CreateMaskedScatter(VecData, VecPtr, Align(Alignment), Mask);
-  return NewCallInst;
-}
-
-CallInst *VPOUtils::createMaskedLoadCall(Value *VecPtr,
-                                         IRBuilder<> &Builder,
-                                         unsigned Alignment,
-                                         Value *Mask,
-                                         Value *PassThru) {
-  auto *VecTy = VecPtr->getType()->getPointerElementType();
-  auto NewCallInst = Builder.CreateMaskedLoad(
-      VecTy, VecPtr, assumeAligned(Alignment), Mask, PassThru);
   return NewCallInst;
 }
 
@@ -169,26 +157,15 @@ bool VPOUtils::canBeRegisterized(Type *AllocaTy, const DataLayout &DL) {
   return true;
 }
 
-// Generates a memcpy call at the end of the given basic block BB.
-// The value D represents the destination while the value S represents
-// the source. The size of the memcpy is specified as Size.
-// The compiler will insert the typecast if the type of source or destination
-// does not match with the type i8.
-// One example of the output is as follows.
-//   call void @llvm.memcpy.p0i8.p0i8.i32(i8* bitcast (i32* @a to i8*), i8* %2, i32 4, i32 4, i1 false)
-CallInst *VPOUtils::genMemcpy(Value *D, Value *S, uint64_t Size,
-                              unsigned Align, BasicBlock *BB) {
-  IRBuilder<> MemcpyBuilder(BB->getTerminator());
-  return genMemcpy(D, S, Size, Align, MemcpyBuilder);
-}
-
 // Generates a memcpy call using MemcpyBuilder.
 // The value D represents the destination while the value S represents
-// the source. The size of the memcpy is specified as Size.
+// the source. The size of the memcpy is specified as Size multiplied
+// by NumElements.
 // The compiler will insert the typecast if the type of source or destination
 // does not match with the type i8.
 CallInst *VPOUtils::genMemcpy(Value *D, Value *S, uint64_t Size,
-                              unsigned Align, IRBuilder<> &MemcpyBuilder) {
+                              Value *NumElements, unsigned Align,
+                              IRBuilder<> &MemcpyBuilder) {
   Value *Dest = D;
   Value *Src = S;
 #if !ENABLE_OPAQUEPOINTER
@@ -213,10 +190,9 @@ CallInst *VPOUtils::genMemcpy(Value *D, Value *S, uint64_t Size,
   unsigned SizeTBitWidth = SizeTTy->getIntegerBitWidth();
   Value *SizeVal = MemcpyBuilder.getIntN(SizeTBitWidth, Size);
 
-  AllocaInst *AI = dyn_cast<AllocaInst>(D);
-  if (AI && AI->isArrayAllocation())
+  if (NumElements)
     SizeVal = MemcpyBuilder.CreateMul(
-        SizeVal, MemcpyBuilder.CreateZExtOrTrunc(AI->getArraySize(),
+        SizeVal, MemcpyBuilder.CreateZExtOrTrunc(NumElements,
                                                  SizeVal->getType()));
 
   return MemcpyBuilder.CreateMemCpy(Dest, MaybeAlign(Align), Src,
@@ -432,6 +408,25 @@ IntrinsicInst *VPOUtils::enclosingBeginDirective(Instruction *I,
   return nullptr;
 }
 
+/// Find BlockAddress references in NewFunction that point to OldFunction,
+/// and replace them. This must be called after all code has moved to
+/// NewFunction.
+void VPOUtils::replaceBlockAddresses(Function *OldFunction,
+                                     Function *NewFunction) {
+  SmallVector<BlockAddress *, 4> BlockAddresses;
+  // Collect all BlockAddresses that reference OldFunction.
+  for (User *U : OldFunction->users())
+    if (auto *BA = dyn_cast<BlockAddress>(U))
+      BlockAddresses.push_back(BA);
+  // If any of these BlockAddresses have a BasicBlock that points to
+  // NewFunction, replace it.
+  for (auto *BA : BlockAddresses) {
+    if (BA->getBasicBlock()->getParent() == NewFunction)
+      BA->replaceAllUsesWith(
+          BlockAddress::get(NewFunction, BA->getBasicBlock()));
+  }
+}
+
 #if INTEL_CUSTOMIZATION
 
 // Alias scope is an optimization
@@ -550,23 +545,19 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AAResults *AA,
     C.set(Row);
   };
 
-  // Concatenate is expensive and we try not to call these two functions
-  // on the same instruction twice.
-
-  // Set alias_scope MetaData for 'I' using new scope. Preserve existing
-  // scope MD.
-  auto generateScopeMD = [&](Instruction *I, Metadata *NewScope) {
-    MDNode* SM = I->getMetadata(LLVMContext::MD_alias_scope);
-    MDNode *SM1 = MDNode::concatenate(SM, cast<MDNode>(NewScope));
-    I->setMetadata(LLVMContext::MD_alias_scope, SM1);
-  };
-
-  // Set noAlias MetaData for 'I' using new scope. Preserve existing
-  // noalias MD.
-  auto generateNoAliasMD = [](Instruction *I, Metadata *NewScope) {
-    MDNode* AM = I->getMetadata(LLVMContext::MD_noalias);
-    MDNode *AM1 = MDNode::concatenate(AM, cast<MDNode>(NewScope));
-    I->setMetadata(LLVMContext::MD_noalias, AM1);
+  // Append a list of metadata nodes of "KindID" to I.
+  // Preserve any existing MD of this type. Removes duplicate nodes.
+  auto AppendMD = [&](Instruction *I, unsigned KindID,
+                      ArrayRef<Metadata *> NewMD) {
+    auto &C = I->getContext();
+    MDNode *AM = I->getMetadata(KindID);
+    if (!AM) {
+      I->setMetadata(KindID, MDNode::get(C, NewMD));
+    } else {
+      SmallSetVector<Metadata *, 4> Operands(AM->op_begin(), AM->op_end());
+      Operands.insert(NewMD.begin(), NewMD.end());
+      I->setMetadata(KindID, MDNode::get(C, Operands.getArrayRef()));
+    }
   };
 
   // It generates a unique metadata ID for every clique.
@@ -619,8 +610,7 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AAResults *AA,
       // !4 = distinct !{!4, !99, "OMPAliasScope"}
       // !8 = {!3, !4}
       //
-      MDNode *M = MDNode::get(C, CliquesI.getArrayRef());
-      generateScopeMD(Ins, M);
+      AppendMD(Ins, LLVMContext::MD_alias_scope, CliquesI.getArrayRef());
     }
 
     // For each pair of Insns: (I,J), if I and J do not alias,
@@ -650,8 +640,7 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AAResults *AA,
       ScopeSetType &NoAliasMDI = NoAliasMDs[I];
       if (!NoAliasMDI.empty()) {
         // Make a list.
-        MDNode *M = MDNode::get(C, NoAliasMDI.getArrayRef());
-        generateNoAliasMD(Insns[I], M);
+        AppendMD(Insns[I], LLVMContext::MD_noalias, NoAliasMDI.getArrayRef());
       }
     }
   };

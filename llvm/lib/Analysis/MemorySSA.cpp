@@ -1,4 +1,21 @@
 //===- MemorySSA.cpp - Memory SSA Builder ---------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -36,8 +53,8 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Use.h"
 #include "llvm/InitializePasses.h"
@@ -49,10 +66,10 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/GraphWriter.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
-#include <cstdlib>
 #include <iterator>
 #include <memory>
 #include <utility>
@@ -129,6 +146,12 @@ class MemorySSAWalkerAnnotatedWriter : public AssemblyAnnotationWriter {
 public:
   MemorySSAWalkerAnnotatedWriter(MemorySSA *M)
       : MSSA(M), Walker(M->getWalker()) {}
+
+  void emitBasicBlockStartAnnot(const BasicBlock *BB,
+                                formatted_raw_ostream &OS) override {
+    if (MemoryAccess *MA = MSSA->getMemoryAccess(BB))
+      OS << "; " << *MA << "\n";
+  }
 
   void emitInstructionAnnot(const Instruction *I,
                             formatted_raw_ostream &OS) override {
@@ -732,7 +755,7 @@ template <class AliasAnalysisType> class ClobberWalker {
   struct generic_def_path_iterator
       : public iterator_facade_base<generic_def_path_iterator<T, Walker>,
                                     std::forward_iterator_tag, T *> {
-    generic_def_path_iterator() {}
+    generic_def_path_iterator() = default;
     generic_def_path_iterator(Walker *W, ListIndex N) : W(W), N(N) {}
 
     T &operator*() const { return curNode(); }
@@ -1265,8 +1288,8 @@ void MemorySSA::markUnreachableAsLiveOnEntry(BasicBlock *BB) {
 }
 
 MemorySSA::MemorySSA(Function &Func, AliasAnalysis *AA, DominatorTree *DT)
-    : AA(nullptr), DT(DT), F(Func), LiveOnEntryDef(nullptr), Walker(nullptr),
-      SkipWalker(nullptr), NextID(0) {
+    : DT(DT), F(Func), LiveOnEntryDef(nullptr), Walker(nullptr),
+      SkipWalker(nullptr) {
   // Build MemorySSA using a batch alias analysis. This reuses the internal
   // state that AA collects during an alias()/getModRefInfo() call. This is
   // safe because there are no CFG changes while building MemorySSA and can
@@ -1396,6 +1419,9 @@ void MemorySSA::OptimizeUses::optimizeUsesInBlock(
       ++StackEpoch;
       continue;
     }
+
+    if (MU->isOptimized())
+      continue;
 
     if (isUseTriviallyOptimizableToLiveOnEntry(*AA, MU->getMemoryInst())) {
       MU->setDefiningAccess(MSSA->getLiveOnEntryDef(), true, None);
@@ -1584,10 +1610,6 @@ void MemorySSA::buildMemorySSA(BatchAAResults &BAA) {
   // filled in with all blocks.
   SmallPtrSet<BasicBlock *, 16> Visited;
   renamePass(DT->getRootNode(), LiveOnEntryDef.get(), Visited);
-
-  ClobberWalkerBase<BatchAAResults> WalkerBase(this, &BAA, DT);
-  CachingWalker<BatchAAResults> WalkerLocal(this, &WalkerBase);
-  OptimizeUses(this, &WalkerLocal, &BAA, DT).optimizeUses();
 
   // Mark the uses in unreachable blocks as live on entry, so that they go
   // somewhere.
@@ -2178,6 +2200,17 @@ bool MemorySSA::dominates(const MemoryAccess *Dominator,
   return dominates(Dominator, cast<MemoryAccess>(Dominatee.getUser()));
 }
 
+void MemorySSA::ensureOptimizedUses() {
+  if (IsOptimized)
+    return;
+
+  BatchAAResults BatchAA(*AA);
+  ClobberWalkerBase<BatchAAResults> WalkerBase(this, &BatchAA, DT);
+  CachingWalker<BatchAAResults> WalkerLocal(this, &WalkerBase);
+  OptimizeUses(this, &WalkerLocal, &BatchAA, DT).optimizeUses();
+  IsOptimized = true;
+}
+
 void MemoryAccess::print(raw_ostream &OS) const {
   switch (getValueID()) {
   case MemoryPhiVal: return static_cast<const MemoryPhi *>(this)->print(OS);
@@ -2356,6 +2389,7 @@ struct DOTGraphTraits<DOTFuncMSSAInfo *> : public DefaultDOTGraphTraits {
 
 bool MemorySSAPrinterLegacyPass::runOnFunction(Function &F) {
   auto &MSSA = getAnalysis<MemorySSAWrapperPass>().getMSSA();
+  MSSA.ensureOptimizedUses();
   if (DotCFGMSSA != "") {
     DOTFuncMSSAInfo CFGInfo(F, MSSA);
     WriteGraph(&CFGInfo, "", false, "MSSA", DotCFGMSSA);
@@ -2388,6 +2422,7 @@ bool MemorySSAAnalysis::Result::invalidate(
 PreservedAnalyses MemorySSAPrinterPass::run(Function &F,
                                             FunctionAnalysisManager &AM) {
   auto &MSSA = AM.getResult<MemorySSAAnalysis>(F).getMSSA();
+  MSSA.ensureOptimizedUses();
   if (DotCFGMSSA != "") {
     DOTFuncMSSAInfo CFGInfo(F, MSSA);
     WriteGraph(&CFGInfo, "", false, "MSSA", DotCFGMSSA);

@@ -79,6 +79,16 @@ See details in the `OpenMP specification`_.
 
 .. _`OpenMP specification`: https://www.openmp.org/spec-html/5.1/openmp.html
 
+``LIBOMPTARGET_INTEROP_USE_SINGLE_QUEUE=<Enable>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Allows user to use a single level0 queue when asynchronous dispatch is
+invoked.  
+
+.. code-block:: rst
+  <Enable> := 1
+
+**Default**: Disabled
+
 
 Plugin Common
 -------------
@@ -198,6 +208,28 @@ Enables/disables fallback libdevice linking in the plugins.
 
 **Default**: Disabled
 
+``LIBOMPTARGET_ONEAPI_THIN_THREADS_THRESHOLD=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Num> is a floating point number from [0.0, 1.0] interval.
+
+Loop kernels with known ND-range may be known to have few iterations
+and they may not exploit the offload device to the fullest extent.
+Let's assume a device has ``N`` total HW threads available,
+and the kernel requires ``M`` hardware threads with local work size
+set to ``L``.
+If ``(M < N * <Num>)``, then we will try to iteratively half ``L``
+to increase the number of HW threads used for executing the kernel.
+Effectively, we will end up with ``L`` less than the kernel's SIMD width,
+so the HW threads will not use all their SIMD lanes.
+This should allow more parallelism, because the stalls in the SIMD lanes
+will be distributed across more HW threads, and the probability
+of having a stall (or a sequence of stalls) on a critical path
+in the kernel should decrease.
+
+**Default**: 0.1
+
 Plugin LevelZero
 ----------------
 
@@ -255,10 +287,14 @@ Controls how subdevices are exposed to users.
 devices, and ``subdevice`` clause is ignored.
 
 ``SUBSUBDEVICE/subsubdevice``: Only 2nd-level subdevices are reported as OpenMP
-devices, and ``subdevice`` clause is ignored.
+devices, and ``subdevice`` clause is ignored. On Intel GPU using Level Zero
+backend, limiting the ``subsubdevice`` to a single compute slice within a tile
+also requires setting additional GPU compute runtime environment variable
+``CFESingleSliceDispatchCCSMode=1``.
 
 ``ALL/all``: All top-level devices and their subdevices are reported as OpenMP
-devices, and ``subdevice`` clause is ignored.
+devices, and ``subdevice`` clause is ignored. This is not supported on Intel GPU
+and is being deprecated.
 
 **Default**: Equivalent to ``<DeviceKind>=device``
 
@@ -389,6 +425,16 @@ region.
 
 Enables/disables using multiple compute queues for multiple host threads if the
 device supports.
+
+**Default**: Disabled
+
+``LIBOMPTARGET_LEVEL_ZERO_USE_IMMEDIATE_COMMAND_LIST=<Bool>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Bool> := 1 | T | t | 0 | F | f
+
+Enables/disables using immediate command list for kernel submission.
 
 **Default**: Disabled
 

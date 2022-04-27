@@ -3,17 +3,23 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -xmain-opt-level=3 \
 ; RUN:     -hir-vec-dir-insert -hir-vplan-vec -disable-output \
 ; RUN:     -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 \
-; RUN:     -enable-intel-advanced-opts | FileCheck %s
+; RUN:     -enable-intel-advanced-opts -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -xmain-opt-level=3 \
+; RUN:     -hir-vec-dir-insert -hir-vplan-vec -disable-output \
+; RUN:     -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 \
+; RUN:     -enable-intel-advanced-opts -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
-; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -xmain-opt-level=3 -disable-output -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -xmain-opt-level=3 -disable-output -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -xmain-opt-level=3 -disable-output -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
-; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec<LightWeight>" -xmain-opt-level=3 -disable-output -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts | FileCheck %s --check-prefix=LIGHT
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec<LightWeight>" -xmain-opt-level=3 -disable-output -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=LIGHT
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec<LightWeight>" -xmain-opt-level=3 -disable-output -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 -enable-intel-advanced-opts -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=LIGHT
 
 ; The test checks that OVLS group is detected by CM "OVLS" string in
 ; the dump) and verifies that the first Load of VLS group receive whole Cost
 ; of the group, while consequent group members receive Cost 0.
 
-; CHECK: Cost {{[0-9]*}} for i64 {{.*}} = load i64* {{.*}} *OVLS*({{.*}}) AdjCost: 18000
+; CHECK: Cost {{[0-9]*}} for i64 {{.*}} = load i64* {{.*}} *OVLS*({{.*}}) AdjCost: 18
 ; CHECK: Cost {{[0-9]*}} for i64 {{.*}} = load i64* {{.*}} *OVLS*({{.*}}) AdjCost: 0
 
 ; OVLS is not a part of lightweight pipeline.

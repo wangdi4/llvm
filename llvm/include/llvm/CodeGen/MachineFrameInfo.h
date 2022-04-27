@@ -1,4 +1,21 @@
 //===-- CodeGen/MachineFrameInfo.h - Abstract Stack Frame Rep. --*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -18,7 +35,6 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/Register.h"
 #include "llvm/Support/Alignment.h"
-#include "llvm/Support/DataTypes.h"
 #include <cassert>
 #include <vector>
 
@@ -51,14 +67,13 @@ class CalleeSavedInfo {
   /// The long-term solution is to model the liveness of callee-saved registers
   /// by implicit uses on the return instructions, however, the required
   /// changes in the ARM backend would be quite extensive.
-  bool Restored;
+  bool Restored = true;
   /// Flag indicating whether the register is spilled to stack or another
   /// register.
-  bool SpilledToReg;
+  bool SpilledToReg = false;
 
 public:
-  explicit CalleeSavedInfo(unsigned R, int FI = 0)
-  : Reg(R), FrameIdx(FI), Restored(true), SpilledToReg(false) {}
+  explicit CalleeSavedInfo(unsigned R, int FI = 0) : Reg(R), FrameIdx(FI) {}
 
   // Accessors.
   Register getReg()                        const { return Reg; }
@@ -187,14 +202,14 @@ private:
     /// If true, the object has been sign-extended.
     bool isSExt = false;
 
-    uint8_t SSPLayout;
+    uint8_t SSPLayout = SSPLK_None;
 
     StackObject(uint64_t Size, Align Alignment, int64_t SPOffset,
                 bool IsImmutable, bool IsSpillSlot, const AllocaInst *Alloca,
                 bool IsAliased, uint8_t StackID = 0)
         : SPOffset(SPOffset), Size(Size), Alignment(Alignment),
           isImmutable(IsImmutable), isSpillSlot(IsSpillSlot), StackID(StackID),
-          Alloca(Alloca), isAliased(IsAliased), SSPLayout(SSPLK_None) {}
+          Alloca(Alloca), isAliased(IsAliased) {}
   };
 
   /// The alignment of the stack.
@@ -368,6 +383,7 @@ public:
   /// This object is used for SjLj exceptions.
   int getFunctionContextIndex() const { return FunctionContextIdx; }
   void setFunctionContextIndex(int I) { FunctionContextIdx = I; }
+  bool hasFunctionContextIndex() const { return FunctionContextIdx != -1; }
 
   /// This method may be called any time after instruction
   /// selection is complete to determine if there is a call to

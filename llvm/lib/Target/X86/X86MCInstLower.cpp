@@ -1,4 +1,21 @@
 //===-- X86MCInstLower.cpp - Convert X86 MachineInstr to an MCInst --------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -1055,6 +1072,12 @@ void X86MCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
     // These are not truly commutable so hide them from the default case.
     break;
 
+  case X86::MASKMOVDQU:
+  case X86::VMASKMOVDQU:
+    if (AsmPrinter.getSubtarget().is64Bit())
+      OutMI.setFlags(X86::IP_HAS_AD_SIZE);
+    break;
+
   default: {
     // If the instruction is a commutable arithmetic instruction we might be
     // able to commute the operands to get a 2 byte VEX prefix.
@@ -1440,11 +1463,12 @@ void X86AsmPrinter::LowerASAN_CHECK_MEMACCESS(const MachineInstr &MI) {
                             AccessInfo.CompileKernel, &ShadowBase,
                             &MappingScale, &OrShadowOffset);
 
-  std::string Name = AccessInfo.IsWrite ? "store" : "load";
-  std::string Op = OrShadowOffset ? "or" : "add";
-  std::string SymName = "__asan_check_" + Name + "_" + Op + "_" +
-                        utostr(1ULL << AccessInfo.AccessSizeIndex) + "_" +
-                        TM.getMCRegisterInfo()->getName(Reg.asMCReg());
+  StringRef Name = AccessInfo.IsWrite ? "store" : "load";
+  StringRef Op = OrShadowOffset ? "or" : "add";
+  std::string SymName = ("__asan_check_" + Name + "_" + Op + "_" +
+                         Twine(1ULL << AccessInfo.AccessSizeIndex) + "_" +
+                         TM.getMCRegisterInfo()->getName(Reg.asMCReg()))
+                            .str();
   if (OrShadowOffset)
     report_fatal_error(
         "OrShadowOffset is not supported with optimized callbacks");

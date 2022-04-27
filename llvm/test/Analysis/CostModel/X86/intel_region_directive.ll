@@ -1,4 +1,4 @@
-; RUN: opt < %s  -mtriple=x86_64-unknown-unknown -mattr=+avx2 -cost-model -analyze \
+; RUN: opt < %s  -mtriple=x86_64-unknown-unknown -mattr=+avx2 -cost-model -analyze -enable-new-pm=0 \
 ; RUN:     | FileCheck %s
 
 define void @foo() local_unnamed_addr #0 {

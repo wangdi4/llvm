@@ -29,7 +29,6 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstVisitor.h"
-#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
@@ -46,7 +45,6 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
-#include "llvm/Support/WithColor.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Instrumentation/PGOInstrumentation.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -102,6 +100,7 @@ static cl::opt<unsigned>
     MemOpMaxOptSize("memop-value-prof-max-opt-size", cl::Hidden, cl::init(128),
                     cl::desc("Optimize the memop size <= this value"));
 
+#if INTEL_CUSTOMIZATION
 namespace {
 class PGOMemOPSizeOptLegacyPass : public FunctionPass {
 public:
@@ -138,6 +137,7 @@ INITIALIZE_PASS_END(PGOMemOPSizeOptLegacyPass, "pgo-memop-opt",
 FunctionPass *llvm::createPGOMemOPSizeOptLegacyPass() {
   return new PGOMemOPSizeOptLegacyPass();
 }
+#endif // INTEL_CUSTOMIZATION
 
 namespace {
 
@@ -517,6 +517,7 @@ static bool PGOMemOPSizeOptImpl(Function &F, BlockFrequencyInfo &BFI,
   return MemOPSizeOpt.isChanged();
 }
 
+#if INTEL_CUSTOMIZATION
 bool PGOMemOPSizeOptLegacyPass::runOnFunction(Function &F) {
   BlockFrequencyInfo &BFI =
       getAnalysis<BlockFrequencyInfoWrapperPass>().getBFI();
@@ -530,6 +531,7 @@ bool PGOMemOPSizeOptLegacyPass::runOnFunction(Function &F) {
 
 namespace llvm {
 char &PGOMemOPSizeOptID = PGOMemOPSizeOptLegacyPass::ID;
+#endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses PGOMemOPSizeOpt::run(Function &F,
                                        FunctionAnalysisManager &FAM) {
@@ -544,4 +546,6 @@ PreservedAnalyses PGOMemOPSizeOpt::run(Function &F,
   PA.preserve<DominatorTreeAnalysis>();
   return PA;
 }
+#if INTEL_CUSTOMIZATION
 } // namespace llvm
+#endif // INTEL_CUSTOMIZATION

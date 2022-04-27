@@ -75,7 +75,7 @@ entry:
   auto *DA = Plan->getVPlanDA();
   DA->compute(Plan.get(), nullptr, Plan->getVPLoopInfo(),
               *Plan->getDT(), *Plan->getPDT(), false /*Not in LCSSA form.*/);
-  auto *EntryBB = Plan->getEntryBlock();
+  auto *EntryBB = &Plan->getEntryBlock();
   VPBuilder Builder;
   Builder.setInsertPoint(EntryBB, EntryBB->begin());
 
@@ -113,9 +113,9 @@ entry:
 
       // VPlanCostModelInterface getCost() methods will apply heuristics that need
       // VPLoops. Cast down to VPlanCostModelBase to get cost at TTI level.
-      unsigned AllZeroCheckCost =
+      VPInstructionCost AllZeroCheckCost =
           static_cast<VPlanCostModelBase*>(CM.get())->getTTICost(AllZeroCheck);
-      EXPECT_EQ(AllZeroCheckCost, (unsigned)2000);
+      EXPECT_EQ(AllZeroCheckCost, 2);
     }
   }
 }

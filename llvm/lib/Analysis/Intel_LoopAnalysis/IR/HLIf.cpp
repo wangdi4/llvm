@@ -52,8 +52,8 @@ HLIf::HLIf(HLNodeUtils &HNU, const HLPredicate &FirstPred, RegDDRef *Ref1,
 
   initialize();
 
-  setPredicateOperandDDRef(Ref1, pred_begin(), true);
-  setPredicateOperandDDRef(Ref2, pred_begin(), false);
+  setLHSPredicateOperandDDRef(Ref1, pred_begin());
+  setRHSPredicateOperandDDRef(Ref2, pred_begin());
 }
 
 HLIf::HLIf(const HLIf &HLIfObj)
@@ -67,10 +67,10 @@ HLIf::HLIf(const HLIf &HLIfObj)
   /// Clone DDRefs
   auto II = HLIfObj.pred_begin();
   for (auto I = pred_begin(), E = pred_end(); I != E; I++, II++) {
-    Ref = HLIfObj.getPredicateOperandDDRef(II, true);
-    setPredicateOperandDDRef(Ref ? Ref->clone() : nullptr, I, true);
-    Ref = HLIfObj.getPredicateOperandDDRef(II, false);
-    setPredicateOperandDDRef(Ref ? Ref->clone() : nullptr, I, false);
+    Ref = HLIfObj.getLHSPredicateOperandDDRef(II);
+    setLHSPredicateOperandDDRef(Ref ? Ref->clone() : nullptr, I);
+    Ref = HLIfObj.getRHSPredicateOperandDDRef(II);
+    setRHSPredicateOperandDDRef(Ref ? Ref->clone() : nullptr, I);
   }
 }
 
@@ -119,14 +119,14 @@ void HLIf::printHeaderImpl(formatted_raw_ostream &OS, unsigned Depth,
       OS << " && ";
     }
 
-    Ref = Loop ? Loop->getZttPredicateOperandDDRef(I, true)
-               : getPredicateOperandDDRef(I, true);
+    Ref = Loop ? Loop->getLHSZttPredicateOperandDDRef(I)
+               : getLHSPredicateOperandDDRef(I);
     Ref ? Ref->print(OS, false) : (void)(OS << Ref);
 
     printPredicate(OS, *I);
 
-    Ref = Loop ? Loop->getZttPredicateOperandDDRef(I, false)
-               : getPredicateOperandDDRef(I, false);
+    Ref = Loop ? Loop->getRHSZttPredicateOperandDDRef(I)
+               : getRHSPredicateOperandDDRef(I);
     Ref ? Ref->print(OS, false) : (void)(OS << Ref);
 
     FirstPred = false;
@@ -289,8 +289,8 @@ void HLIf::removePredicate(const_pred_iterator CPredI) {
   auto PredI = getNonConstPredIterator(CPredI);
 
   /// Remove DDRefs associated with the predicate.
-  removePredicateOperandDDRef(CPredI, true);
-  removePredicateOperandDDRef(CPredI, false);
+  removeLHSPredicateOperandDDRef(CPredI);
+  removeRHSPredicateOperandDDRef(CPredI);
 
   /// Erase the DDRef slots.
   RegDDRefs.erase(RegDDRefs.begin() +
@@ -371,8 +371,8 @@ void HLIf::verify() const {
            "Invalid predicate value, should be one of PredicateTy");
 
     if (isPredicateTrueOrFalse(*I)) {
-      auto *DDRefLhs = getPredicateOperandDDRef(I, true);
-      auto *DDRefRhs = getPredicateOperandDDRef(I, false);
+      auto *DDRefLhs = getLHSPredicateOperandDDRef(I);
+      auto *DDRefRhs = getRHSPredicateOperandDDRef(I);
 
       (void)DDRefLhs;
       (void)DDRefRhs;
@@ -421,4 +421,18 @@ bool HLIf::isKnownPredicate(bool *IsTrue) const {
 bool HLIf::isUnknownLoopBottomTest() const {
   auto ParentLoop = dyn_cast_or_null<HLLoop>(getParent());
   return (ParentLoop && (ParentLoop->getBottomTest() == this));
+}
+
+void HLIf::invertPredAndReverse() {
+  assert(getNumPredicates() == 1 && "Can only handle single pred!");
+
+  auto Pred = pred_begin();
+  invertPredicate(Pred);
+
+  // Placeholders for the swap
+  auto ElseBegin = else_begin();
+  auto ElseEnd = else_end();
+
+  HLNodeUtils::moveAsFirstElseChildren(this, then_begin(), then_end());
+  HLNodeUtils::moveAsFirstThenChildren(this, ElseBegin, ElseEnd);
 }

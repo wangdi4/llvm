@@ -1,4 +1,19 @@
 #if INTEL_COLLAB // -*- C++ -*-
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //===------------------ WRegion.h - WRegion node ----------------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -59,6 +74,8 @@
 ///   WRNTaskyieldNode        | #pragma omp taskyield
 ///   WRNInteropNode          | #pragma omp interop
 ///   WRNScopeNode            | #pragma omp scope
+///   WRNTileNode             | #pragma omp tile
+///   WRNScanNode             | #pragma omp scan
 ///
 /// One exception is WRNTaskloopNode, which is derived from WRNTasknode.
 //===----------------------------------------------------------------------===//
@@ -357,6 +374,7 @@ private:
   /// used directly inside the outlined function created for the WRegion.
   SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
 #if INTEL_CUSTOMIZATION
+  bool IsDoConcurrent = false; // Used from Fortran DO Concurrent
   loopopt::HLNode *EntryHLNode; // for HIR only
   loopopt::HLNode *ExitHLNode;  // for HIR only
   loopopt::HLLoop *HLp;         // for HIR only
@@ -376,14 +394,15 @@ public:
 
 protected:
   void setIf(EXPR E) override { IfExpr = E; }
-  void setNumThreads(EXPR E) override{ NumThreads = E; }
-  void setDefault(WRNDefaultKind D) override{ Default = D; }
-  void setProcBind(WRNProcBindKind P) override{ ProcBind = P; }
+  void setNumThreads(EXPR E) override { NumThreads = E; }
+  void setDefault(WRNDefaultKind D) override { Default = D; }
+  void setProcBind(WRNProcBindKind P) override { ProcBind = P; }
   void setCollapse(int N) override { Collapse = N; }
   void setOrdered(int N) override { Ordered = N; }
   void setLoopOrder(WRNLoopOrderKind LO) override { LoopOrder = LO; }
 
 #if INTEL_CUSTOMIZATION
+  void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
   void setEntryHLNode(loopopt::HLNode *E) override { EntryHLNode = E; }
   void setExitHLNode(loopopt::HLNode *X) override { ExitHLNode = X; }
   void setHLLoop(loopopt::HLLoop *L) override { HLp = L; }
@@ -416,6 +435,12 @@ public:
   WRNProcBindKind getProcBind() const override { return ProcBind; }
   int getCollapse() const override { return Collapse; }
   int getOrdered() const override { return Ordered; }
+  int getOmpLoopDepth() {
+    // Depth of associated loop. Ordered >= Collapse if both exist
+    assert((Ordered <= 0 || Ordered >= Collapse) &&
+           "Ordered must be >= Collapse when both are specified.");
+    return Ordered > 0 ? Ordered : (Collapse > 0 ? Collapse : 1);
+  }
   WRNLoopOrderKind getLoopOrder() const override { return LoopOrder; }
   void addOrderedTripCount(Value *TC) override { OrderedTripCounts.push_back(TC); }
   const SmallVectorImpl<Value *> &getOrderedTripCounts() const override {
@@ -439,6 +464,7 @@ public:
   }
 
 #if INTEL_CUSTOMIZATION
+  bool getIsDoConcurrent() const override { return IsDoConcurrent; }
   loopopt::HLNode *getEntryHLNode() const override { return EntryHLNode; }
   loopopt::HLNode *getExitHLNode() const override { return ExitHLNode; }
   loopopt::HLLoop *getHLLoop() const override  { return HLp; }
@@ -601,7 +627,7 @@ private:
   Type *NumTeamsTy = nullptr;
   WRNDefaultKind Default;
 #if INTEL_CUSTOMIZATION
-  uint64_t ConfiguredThreadLimit = 0;
+  bool IsDoConcurrent = false; // Used for Fortran Do Concurrent
 #endif // INTEL_CUSTOMIZATION
 
 public:
@@ -613,6 +639,9 @@ protected:
   void setNumTeams(EXPR E) override { NumTeams = E; }
   void setNumTeamsType(Type *T) override { NumTeamsTy = T; }
   void setDefault(WRNDefaultKind D) override { Default = D; }
+#if INTEL_CUSTOMIZATION
+  void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
+#endif // INTEL_CUSTOMIZATION
 
 public:
   DEFINE_GETTER(SharedClause,       getShared,   Shared)
@@ -627,12 +656,7 @@ public:
   Type *getNumTeamsType() const override { return NumTeamsTy; }
   WRNDefaultKind getDefault() const override { return Default; }
 #if INTEL_CUSTOMIZATION
-  void setConfiguredThreadLimit(uint64_t TL) override {
-    ConfiguredThreadLimit = TL;
-  }
-  uint64_t getConfiguredThreadLimit() const override {
-    return ConfiguredThreadLimit;
-  }
+  bool getIsDoConcurrent() const override { return IsDoConcurrent; }
 #endif // INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS,
@@ -674,6 +698,10 @@ private:
   /// used directly inside the outlined function created for the WRegion.
   SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
 
+#if INTEL_CUSTOMIZATION
+  bool IsDoConcurrent = false; // Used for Fortran DO Concurrent.
+#endif // INTEL_CUSTOMIZATION
+
 public:
   WRNDistributeParLoopNode(BasicBlock *BB, LoopInfo *L);
 
@@ -685,6 +713,9 @@ protected:
   void setCollapse(int N) override { Collapse = N; }
   void setOrdered(int N) override { Ordered = N; }
   void setLoopOrder(WRNLoopOrderKind LO) override { LoopOrder = LO; }
+#if INTEL_CUSTOMIZATION
+  void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
+#endif // INTEL_CUSTOMIZATION
 
 public:
   DEFINE_GETTER(SharedClause,       getShared,       Shared)
@@ -705,6 +736,12 @@ public:
   WRNProcBindKind getProcBind() const override { return ProcBind; }
   int getCollapse() const override { return Collapse; }
   int getOrdered() const override { return Ordered; }
+  int getOmpLoopDepth() {
+    // Depth of associated loop. Ordered >= Collapse if both exist
+    assert((Ordered <= 0 || Ordered >= Collapse) &&
+           "Ordered must be >= Collapse when both are specified.");
+    return Ordered > 0 ? Ordered : (Collapse > 0 ? Collapse : 1);
+  }
   WRNLoopOrderKind getLoopOrder() const override { return LoopOrder; }
 
   void setTreatDistributeParLoopAsDistribute(bool Flag) override {
@@ -713,6 +750,10 @@ public:
   bool getTreatDistributeParLoopAsDistribute() const override {
     return TreatDistributeParLoopAsDistribute;
   }
+
+#if INTEL_CUSTOMIZATION
+  bool getIsDoConcurrent() const override { return IsDoConcurrent; }
+#endif // INTEL_CUSTOMIZATION
 
   const SmallVectorImpl<Value *> &getDirectlyUsedNonPointerValues() const override {
     return DirectlyUsedNonPointerValues;
@@ -740,13 +781,16 @@ private:
   FirstprivateClause Fpriv;
   MapClause Map;
   AllocateClause Alloc;
-  DependClause Depend;
+  DependClause Depend;            // from "QUAL.OMP.DEPEND"
+  EXPR DepArray = nullptr;        // Arr in "QUAL.OMP.DEPARRAY"(i32 N, i8* Arr)
+  EXPR DepArrayNumDeps = nullptr; // N above; ie, number of depend-items in Arr
   IsDevicePtrClause IsDevicePtr;
   EXPR IfExpr;
   EXPR Device;
   SubdeviceClause Subdevice;
+  LiveinClause Livein;
   AllocaInst *ParLoopNdInfoAlloca;    // supports kernel loop parallelization
-  bool Nowait;
+  bool Nowait = false;
   WRNDefaultmapBehavior Defaultmap[WRNDefaultmapCategorySize] =
       {WRNDefaultmapAbsent};
   int OffloadEntryIdx;
@@ -756,14 +800,23 @@ private:
   uint8_t NDRangeDistributeDim = 0;
   unsigned SPIRVSIMDWidth = 0;
   bool HasTeamsReduction = false;
+  uint8_t HasAtomicFreeReduction = 0;
+#if INTEL_CUSTOMIZATION
+  bool IsDoConcurrent = false;  // Used fro Fortran Do Concurrent
+#endif // INTEL_CUSTOMIZATION
 
 public:
   WRNTargetNode(BasicBlock *BB);
 
 protected:
+  void setDepArray(EXPR E) override { DepArray = E; }
+  void setDepArrayNumDeps(EXPR E) override { DepArrayNumDeps = E; }
   void setIf(EXPR E) override { IfExpr = E; }
   void setDevice(EXPR E) override { Device = E; }
   void setNowait(bool Flag) override { Nowait = Flag; }
+#if INTEL_CUSTOMIZATION
+  void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
+#endif // INTEL_CUSTOMIZATION
   void setDefaultmap(WRNDefaultmapCategory C, WRNDefaultmapBehavior B) override {
     Defaultmap[C] = B;
   }
@@ -791,14 +844,21 @@ protected:
   DEFINE_GETTER(DependClause,       getDepend,      Depend)
   DEFINE_GETTER(IsDevicePtrClause,  getIsDevicePtr, IsDevicePtr)
   DEFINE_GETTER(SubdeviceClause,    getSubdevice,   Subdevice)
+  DEFINE_GETTER(LiveinClause,       getLivein,      Livein)
 
   // ParLoopNdInfoAlloca is set by transformation rather than parsing, so
   // setter is public instead of protected
   void setParLoopNdInfoAlloca(AllocaInst *AI) override { ParLoopNdInfoAlloca = AI; }
   AllocaInst *getParLoopNdInfoAlloca() const override { return ParLoopNdInfoAlloca; }
+  EXPR getDepArray() const override { return DepArray; }
+  EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
   EXPR getIf() const override { return IfExpr; }
   EXPR getDevice() const override { return Device; }
   bool getNowait() const override { return Nowait; }
+#if INTEL_CUSTOMIZATION
+  bool getIsDoConcurrent() const override { return IsDoConcurrent; }
+#endif // INTEL_CUSTOMIZATION
+
   WRNDefaultmapBehavior getDefaultmap(WRNDefaultmapCategory C) const override {
     return Defaultmap[C];
   }
@@ -844,6 +904,22 @@ protected:
 
   bool getHasTeamsReduction() const override {
     return HasTeamsReduction;
+  }
+
+  void setHasLocalAtomicFreeReduction() {
+    HasAtomicFreeReduction |= VPOParoptAtomicFreeReduction::Kind_Local;
+  }
+
+  void setHasGlobalAtomicFreeReduction() {
+    HasAtomicFreeReduction |= VPOParoptAtomicFreeReduction::Kind_Global;
+  }
+
+  bool getHasLocalAtomicFreeReduction() const {
+    return HasAtomicFreeReduction & VPOParoptAtomicFreeReduction::Kind_Local;
+  }
+
+  bool getHasGlobalAtomicFreeReduction() const {
+    return HasAtomicFreeReduction & VPOParoptAtomicFreeReduction::Kind_Global;
   }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
@@ -900,16 +976,20 @@ public:
 class WRNTargetEnterDataNode : public WRegionNode {
 private:
   MapClause Map;
-  DependClause Depend;
+  DependClause Depend;            // from "QUAL.OMP.DEPEND"
+  EXPR DepArray = nullptr;        // Arr in "QUAL.OMP.DEPARRAY"(i32 N, i8* Arr)
+  EXPR DepArrayNumDeps = nullptr; // N above; ie, number of depend-items in Arr
   EXPR IfExpr;
   EXPR Device;
   SubdeviceClause Subdevice;
-  bool Nowait;
+  bool Nowait = false;
 
 public:
   WRNTargetEnterDataNode(BasicBlock *BB);
 
 protected:
+  void setDepArray(EXPR E) override { DepArray = E; }
+  void setDepArrayNumDeps(EXPR E) override { DepArrayNumDeps = E; }
   void setIf(EXPR E) override { IfExpr = E; }
   void setDevice(EXPR E) override { Device = E; }
   void setNowait(bool Flag) override { Nowait = Flag; }
@@ -919,6 +999,8 @@ public:
   DEFINE_GETTER(DependClause,       getDepend,       Depend)
   DEFINE_GETTER(SubdeviceClause,    getSubdevice,   Subdevice)
 
+  EXPR getDepArray() const override { return DepArray; }
+  EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
   EXPR getIf() const override { return IfExpr; }
   EXPR getDevice() const override { return Device; }
   bool getNowait() const override { return Nowait; }
@@ -939,16 +1021,20 @@ public:
 class WRNTargetExitDataNode : public WRegionNode {
 private:
   MapClause Map;
-  DependClause Depend;
+  DependClause Depend;            // from "QUAL.OMP.DEPEND"
+  EXPR DepArray = nullptr;        // Arr in "QUAL.OMP.DEPARRAY"(i32 N, i8* Arr)
+  EXPR DepArrayNumDeps = nullptr; // N above; ie, number of depend-items in Arr
   EXPR IfExpr;
   EXPR Device;
   SubdeviceClause Subdevice;
-  bool Nowait;
+  bool Nowait = false;
 
 public:
   WRNTargetExitDataNode(BasicBlock *BB);
 
 protected:
+  void setDepArray(EXPR E) override { DepArray = E; }
+  void setDepArrayNumDeps(EXPR E) override { DepArrayNumDeps = E; }
   void setIf(EXPR E) override { IfExpr = E; }
   void setDevice(EXPR E) override { Device = E; }
   void setNowait(bool Flag) override { Nowait = Flag; }
@@ -958,6 +1044,8 @@ public:
   DEFINE_GETTER(DependClause,       getDepend,       Depend)
   DEFINE_GETTER(SubdeviceClause,    getSubdevice,   Subdevice)
 
+  EXPR getDepArray() const override { return DepArray; }
+  EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
   EXPR getIf() const override { return IfExpr; }
   EXPR getDevice() const override { return Device; }
   bool getNowait() const override { return Nowait; }
@@ -978,16 +1066,20 @@ public:
 class WRNTargetUpdateNode : public WRegionNode {
 private:
   MapClause Map;        // used for the to/from clauses
-  DependClause Depend;
+  DependClause Depend;            // from "QUAL.OMP.DEPEND"
+  EXPR DepArray = nullptr;        // Arr in "QUAL.OMP.DEPARRAY"(i32 N, i8* Arr)
+  EXPR DepArrayNumDeps = nullptr; // N above; ie, number of depend-items in Arr
   EXPR IfExpr;
   EXPR Device;
   SubdeviceClause Subdevice;
-  bool Nowait;
+  bool Nowait = false;
 
 public:
   WRNTargetUpdateNode(BasicBlock *BB);
 
 protected:
+  void setDepArray(EXPR E) override { DepArray = E; }
+  void setDepArrayNumDeps(EXPR E) override { DepArrayNumDeps = E; }
   void setIf(EXPR E) override { IfExpr = E; }
   void setDevice(EXPR E) override { Device = E; }
   void setNowait(bool Flag) override { Nowait = Flag; }
@@ -997,6 +1089,8 @@ public:
   DEFINE_GETTER(DependClause,       getDepend,       Depend)
   DEFINE_GETTER(SubdeviceClause,    getSubdevice,   Subdevice)
 
+  EXPR getDepArray() const override { return DepArray; }
+  EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
   EXPR getIf() const override { return IfExpr; }
   EXPR getDevice() const override { return Device; }
   bool getNowait() const override { return Nowait; }
@@ -1020,7 +1114,7 @@ private:
   UseDevicePtrClause UseDevicePtr;
   EXPR Device;
   SubdeviceClause Subdevice;
-  bool Nowait;
+  bool Nowait = false;
 
 public:
   WRNTargetVariantNode(BasicBlock *BB);
@@ -1057,7 +1151,7 @@ private:
   EXPR Device;
   EXPR Nocontext;
   EXPR Novariants;
-  bool Nowait;
+  bool Nowait = false;
 
   // To be populated during Paropt codegen
   CallInst *Call;                  // The dispatch call.
@@ -1101,15 +1195,19 @@ public:
 class WRNInteropNode : public WRegionNode {
 private:
   EXPR Device;
-  DependClause Depend;
+  DependClause Depend;            // from "QUAL.OMP.DEPEND"
+  EXPR DepArray = nullptr;        // Arr in "QUAL.OMP.DEPARRAY"(i32 N, i8* Arr)
+  EXPR DepArrayNumDeps = nullptr; // N above; ie, number of depend-items in Arr
   InteropActionClause InteropAction;
-  bool Nowait;
+  bool Nowait = false;
 
 public:
   WRNInteropNode(BasicBlock *BB);
 
 protected:
   void setDevice(EXPR E) override { Device = E; }
+  void setDepArray(EXPR E) override { DepArray = E; }
+  void setDepArrayNumDeps(EXPR E) override { DepArrayNumDeps = E; }
   void setNowait(bool Flag) override { Nowait = Flag; }
 
 public:
@@ -1117,6 +1215,8 @@ public:
   DEFINE_GETTER(InteropActionClause, getInteropAction, InteropAction)
 
   EXPR getDevice() const override { return Device; }
+  EXPR getDepArray() const override { return DepArray; }
+  EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
   bool getNowait() const override { return Nowait; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
@@ -1155,7 +1255,9 @@ private:
   FirstprivateClause Fpriv;
   ReductionClause InReduction;
   AllocateClause Alloc;
-  DependClause Depend;
+  DependClause Depend;            // from "QUAL.OMP.DEPEND"
+  EXPR DepArray = nullptr;        // Arr in "QUAL.OMP.DEPARRAY"(i32 N, i8* Arr)
+  EXPR DepArrayNumDeps = nullptr; // N above; ie, number of depend-items in Arr
   EXPR Final;
   EXPR IfExpr;
   EXPR Priority;
@@ -1173,6 +1275,8 @@ public:
   WRNTaskNode(BasicBlock *BB);
 
 protected:
+  void setDepArray(EXPR E) override { DepArray = E; }
+  void setDepArrayNumDeps(EXPR E) override { DepArrayNumDeps = E; }
   void setFinal(EXPR E) override { Final = E; }
   void setIf(EXPR E) override { IfExpr = E; }
   void setPriority(EXPR E) override { Priority = E; }
@@ -1191,6 +1295,8 @@ public:
   DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
   DEFINE_GETTER(DependClause,       getDepend,   Depend)
 
+  EXPR getDepArray() const override { return DepArray; }
+  EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
   EXPR getFinal() const override { return Final; }
   EXPR getIf() const override { return IfExpr; }
   EXPR getPriority() const override { return Priority; }
@@ -1245,6 +1351,8 @@ private:
   //   FirstprivateClause Fpriv;
   //   AllocateClause Alloc;
   //   DependClause Depend;
+  //   EXPR DepArray;
+  //   EXPR DepArrayNumDeps;
   //   EXPR Final;
   //   EXPR IfExpr;
   //   EXPR Priority;
@@ -1264,6 +1372,8 @@ protected:
   void setNogroup(bool B) override { Nogroup = B; }
 
   // Defined in parent class WRNTaskNode
+  //   void setDepArray(EXPR E) override { DepArray = E; }
+  //   void setDepArrayNumDeps(EXPR E) override { DepArrayNumDeps = E; }
   //   void setFinal(EXPR E) { Final = E; }
   //   void setif(expr e) { ifexpr = e; }
   //   void setPriority(EXPR E) { Priority = E; }
@@ -1280,6 +1390,7 @@ public:
   EXPR getNumTasks() const override { return NumTasks; }
   int getSchedCode() const override { return SchedCode; }
   int getCollapse() const override { return Collapse; }
+  int getOmpLoopDepth() { return Collapse > 0 ? Collapse : 1; }
   bool getNogroup() const override { return Nogroup; }
 
   // Defined in parent class WRNTaskNode
@@ -1288,6 +1399,8 @@ public:
   //   DEFINE_GETTER(FirstprivateClause, getFpriv,    Fpriv)
   //   DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
   //   DEFINE_GETTER(DependClause,       getDepend,   Depend)
+  //   EXPR getDepArray() const override { return DepArray; }
+  //   EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
   //   EXPR getFinal() const { return Final; }
   //   EXPR getIf() const { return IfExpr; }
   //   EXPR getPriority() const { return Priority; }
@@ -1310,20 +1423,23 @@ class WRNVecLoopNode : public WRegionNode {
 private:
   PrivateClause Priv;
   LastprivateClause Lpriv;
+  LiveinClause Livein;
   ReductionClause Reduction;
   LinearClause Linear;
   AlignedClause Aligned;
   NontemporalClause Nontemporal;
   UniformClause Uniform; // The simd construct does not take a uniform clause,
-                          // so we won't get this from the front-end, but this
-                          // list can/will be populated by the vector backend
+                         // so we won't get this from the front-end, but this
+                         // list can/will be populated by the vector backend
   EXPR IfExpr;
   int Simdlen;
   int Safelen;
   int Collapse;
+
   WRNLoopOrderKind LoopOrder;
   WRNLoopInfo WRNLI;
 #if INTEL_CUSTOMIZATION
+  bool IsDoConcurrent = false; // Used for Fortran Do Concurrent
   bool IsAutoVec;
   bool HasVectorAlways;
   loopopt::HLNode *EntryHLNode; // for HIR only
@@ -1348,6 +1464,7 @@ public:
   void setLoopOrder(WRNLoopOrderKind LO)  override { LoopOrder = LO; }
 
 #if INTEL_CUSTOMIZATION
+  void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
   void setIsAutoVec(bool Flag)  override{ IsAutoVec = Flag; }
   void setHasVectorAlways(bool Flag)  override{ HasVectorAlways = Flag; }
   void setEntryHLNode(loopopt::HLNode *E)  override{ EntryHLNode = E; }
@@ -1355,22 +1472,25 @@ public:
   void setHLLoop(loopopt::HLLoop *L)  override { HLp = L; }
 #endif //INTEL_CUSTOMIZATION
 
-  DEFINE_GETTER(PrivateClause,     getPriv,    Priv)
-  DEFINE_GETTER(LastprivateClause, getLpriv,   Lpriv)
-  DEFINE_GETTER(ReductionClause,   getRed,     Reduction)
-  DEFINE_GETTER(LinearClause,      getLinear,  Linear)
-  DEFINE_GETTER(AlignedClause,     getAligned, Aligned)
+  DEFINE_GETTER(PrivateClause,     getPriv,        Priv)
+  DEFINE_GETTER(LastprivateClause, getLpriv,       Lpriv)
+  DEFINE_GETTER(LiveinClause,      getLivein,      Livein)
+  DEFINE_GETTER(ReductionClause,   getRed,         Reduction)
+  DEFINE_GETTER(LinearClause,      getLinear,      Linear)
+  DEFINE_GETTER(AlignedClause,     getAligned,     Aligned)
   DEFINE_GETTER(NontemporalClause, getNontemporal, Nontemporal)
-  DEFINE_GETTER(UniformClause,     getUniform, Uniform)
+  DEFINE_GETTER(UniformClause,     getUniform,     Uniform)
   DEFINE_GETTER(WRNLoopInfo,       getWRNLoopInfo, WRNLI)
 
   EXPR getIf() const override { return IfExpr; }
   int getSimdlen() const override{ return Simdlen; }
   int getSafelen() const override{ return Safelen; }
   int getCollapse() const override{ return Collapse; }
+  int getOmpLoopDepth() { return Collapse > 0 ? Collapse : 1; }
   WRNLoopOrderKind getLoopOrder() const override{ return LoopOrder; }
 
 #if INTEL_CUSTOMIZATION
+  bool getIsDoConcurrent() const override { return IsDoConcurrent; }
   bool getIsAutoVec() const override{ return IsAutoVec; }
   bool getHasVectorAlways() const override{ return HasVectorAlways; }
   loopopt::HLNode *getEntryHLNode() const override{ return EntryHLNode; }
@@ -1413,6 +1533,7 @@ private:
   PrivateClause Priv;
   FirstprivateClause Fpriv;
   LastprivateClause Lpriv;
+  LiveinClause Livein;
   ReductionClause Reduction;
   AllocateClause Alloc;
   LinearClause Linear;
@@ -1420,12 +1541,14 @@ private:
   int Collapse;
   int Ordered;
   WRNLoopOrderKind LoopOrder;
-  bool Nowait;
+  bool Nowait = false;
+
   WRNLoopInfo WRNLI;
   SmallVector<Value *, 2> OrderedTripCounts;
   SmallVector<Instruction *, 2> CancellationPoints;
   SmallVector<AllocaInst *, 2> CancellationPointAllocas;
 #if INTEL_CUSTOMIZATION
+  bool IsDoConcurrent = false; // Used for Fortran Do Concurrent
 #if INTEL_FEATURE_CSA
   ScheduleClause WorkerSchedule;
 #endif // INTEL_FEATURE_CSA
@@ -1439,15 +1562,19 @@ protected:
   void setOrdered(int N) override { Ordered = N; }
   void setLoopOrder(WRNLoopOrderKind LO) override{ LoopOrder = LO; }
   void setNowait(bool Flag) override { Nowait = Flag; }
+#if INTEL_CUSTOMIZATION
+  void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
+#endif // INTEL_CUSTOMIZATION
 
 public:
-  DEFINE_GETTER(PrivateClause,      getPriv,     Priv)
-  DEFINE_GETTER(FirstprivateClause, getFpriv,    Fpriv)
-  DEFINE_GETTER(LastprivateClause,  getLpriv,    Lpriv)
-  DEFINE_GETTER(ReductionClause,    getRed,      Reduction)
-  DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
-  DEFINE_GETTER(LinearClause,       getLinear,   Linear)
-  DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
+  DEFINE_GETTER(PrivateClause,      getPriv,        Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,       Fpriv)
+  DEFINE_GETTER(LastprivateClause,  getLpriv,       Lpriv)
+  DEFINE_GETTER(LiveinClause,       getLivein,      Livein)
+  DEFINE_GETTER(ReductionClause,    getRed,         Reduction)
+  DEFINE_GETTER(AllocateClause,     getAllocate,    Alloc)
+  DEFINE_GETTER(LinearClause,       getLinear,      Linear)
+  DEFINE_GETTER(ScheduleClause,     getSchedule,    Schedule)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1457,8 +1584,17 @@ public:
 
   int getCollapse() const override{ return Collapse; }
   int getOrdered() const override { return Ordered; }
+  int getOmpLoopDepth() {
+    assert((Ordered <= 0 || Ordered >= Collapse) &&
+           "Ordered must be >= Collapse when both are specified.");
+    // Depth of associated loop. Ordered >= Collapse if both exist
+    return Ordered > 0 ? Ordered : (Collapse > 0 ? Collapse : 1);
+  }
   WRNLoopOrderKind getLoopOrder() const override{ return LoopOrder; }
   bool getNowait() const override { return Nowait; }
+#if INTEL_CUSTOMIZATION
+  bool getIsDoConcurrent() const override { return IsDoConcurrent; }
+#endif // INTEL_CUSTOMIZATION
 
   void addOrderedTripCount(Value *TC) override { OrderedTripCounts.push_back(TC); }
   const SmallVectorImpl<Value *> &getOrderedTripCounts() const override {
@@ -1496,7 +1632,7 @@ private:
   ReductionClause Reduction;
   AllocateClause Alloc;
   ScheduleClause Schedule;
-  bool Nowait;
+  bool Nowait = false;
   WRNLoopInfo WRNLI;
   SmallVector<Instruction *, 2> CancellationPoints;
   SmallVector<AllocaInst *, 2> CancellationPointAllocas;
@@ -1561,7 +1697,7 @@ public:
 /// \endcode
 class WRNWorkshareNode : public WRegionNode {
 private:
-  bool Nowait;
+  bool Nowait = false;
   WRNLoopInfo WRNLI;
 
 public:
@@ -1612,6 +1748,7 @@ public:
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo,  WRNLI)
 
   int getCollapse() const override  { return Collapse; }
+  int getOmpLoopDepth() { return Collapse > 0 ? Collapse : 1; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const override ;
@@ -1710,7 +1847,7 @@ class WRNScopeNode : public WRegionNode {
 private:
   PrivateClause Priv;
   ReductionClause Reduction;
-  bool Nowait;
+  bool Nowait = false;
 
 public:
   WRNScopeNode(BasicBlock *BB);
@@ -1728,6 +1865,58 @@ public:
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNScope;
+  }
+};
+
+/// WRN for
+/// \code
+///   #pragma omp tile
+/// \endcode
+class WRNTileNode : public WRegionNode {
+private:
+  // TODO: To avoid confusion, when possible use the auxiliary Livein clause
+  // instead of Firstprivate, which is not allowed for this construct per
+  // OpenMP spec.
+  FirstprivateClause Fpriv;  // Not allowed in spec
+  LiveinClause Livein;
+  SizesClause Sizes;
+  WRNLoopInfo WRNLI;
+
+public:
+  WRNTileNode(BasicBlock *BB, LoopInfo *L);
+  DEFINE_GETTER(FirstprivateClause, getFpriv,       Fpriv)
+  DEFINE_GETTER(LiveinClause,       getLivein,      Livein)
+  DEFINE_GETTER(SizesClause,        getSizes,       Sizes)
+  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
+
+  int getOmpLoopDepth() { return Sizes.size(); }
+
+  /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNTile;
+  }
+};
+
+/// WRN for
+/// \code
+///   #pragma omp scan
+/// \endcode
+class WRNScanNode : public WRegionNode {
+private:
+  InclusiveClause Incl;
+  ExclusiveClause Excl;
+
+public:
+  WRNScanNode(BasicBlock *BB);
+  DEFINE_GETTER(InclusiveClause,    getInclusive,   Incl)
+  DEFINE_GETTER(ExclusiveClause,    getExclusive,   Excl)
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                  unsigned Verbosity = 1) const override;
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNScan;
   }
 };
 
@@ -1881,7 +2070,7 @@ private:
   FirstprivateClause Fpriv;
   AllocateClause Alloc;
   CopyprivateClause Cpriv;
-  bool Nowait;
+  bool Nowait = false;
 
 public:
   WRNSingleNode(BasicBlock *BB);
@@ -1964,15 +2153,24 @@ public:
 class WRNTaskwaitNode : public WRegionNode {
 
 private:
-  DependClause Depend;
+  DependClause Depend;            // from "QUAL.OMP.DEPEND"
+  EXPR DepArray = nullptr;        // Arr in "QUAL.OMP.DEPARRAY"(i32 N, i8* Arr)
+  EXPR DepArrayNumDeps = nullptr; // N above; ie, number of depend-items in Arr
+
+protected:
+  void setDepArray(EXPR E) override { DepArray = E; }
+  void setDepArrayNumDeps(EXPR E) override { DepArrayNumDeps = E; }
 
 public:
   WRNTaskwaitNode(BasicBlock *BB);
+  DEFINE_GETTER(DependClause, getDepend, Depend)
+  EXPR getDepArray() const override { return DepArray; }
+  EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
+
 /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNTaskwait;
   }
-  DEFINE_GETTER(DependClause, getDepend, Depend)
 };
 
 /// WRN for
@@ -2001,10 +2199,14 @@ private:
   // maps the loop construct to the underlying loop-related directive, checks
   // the clauses are needed by the underlying directive, and decides to keep or
   // drop the clauses.
-  SharedClause Shared;
+  //
+  // TODO: To avoid confusion, when possible use the auxiliary Livein clause
+  // instead of Shared, which is not allowed for this construct per OMP spec.
+  SharedClause Shared;      // Not allowed in spec
   PrivateClause Priv;
-  FirstprivateClause Fpriv;
+  FirstprivateClause Fpriv; // Not allowed in spec
   LastprivateClause Lpriv;
+  LiveinClause Livein;
   ReductionClause Reduction;
   int Collapse;
 
@@ -2012,6 +2214,9 @@ private:
   WRNLoopOrderKind LoopOrder;
   WRNLoopInfo WRNLI;
   int MappedDir;
+#if INTEL_CUSTOMIZATION
+  bool IsDoConcurrent = false; // used for Fortran Do Concurrent
+#endif // INTEL_CUSTOMIZATION
 
 public:
   WRNGenericLoopNode(BasicBlock *BB, LoopInfo *L);
@@ -2020,17 +2225,24 @@ protected:
   void setLoopBind(WRNLoopBindKind LB) override { LoopBind = LB; }
   void setLoopOrder(WRNLoopOrderKind LO) override { LoopOrder = LO; }
   void setCollapse(int N) override { Collapse = N; }
+#if INTEL_CUSTOMIZATION
+  void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
+#endif // INTEL_CUSTOMIZATION
 
 public:
-  DEFINE_GETTER(SharedClause, getShared, Shared)
-  DEFINE_GETTER(PrivateClause, getPriv, Priv)
-  DEFINE_GETTER(FirstprivateClause, getFpriv, Fpriv)
-  DEFINE_GETTER(LastprivateClause, getLpriv, Lpriv)
-  DEFINE_GETTER(ReductionClause, getRed, Reduction)
-  DEFINE_GETTER(WRNLoopInfo, getWRNLoopInfo, WRNLI)
+  DEFINE_GETTER(SharedClause,       getShared,      Shared)
+  DEFINE_GETTER(PrivateClause,      getPriv,        Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,       Fpriv)
+  DEFINE_GETTER(LastprivateClause,  getLpriv,       Lpriv)
+  DEFINE_GETTER(LiveinClause,       getLivein,      Livein)
+  DEFINE_GETTER(ReductionClause,    getRed,         Reduction)
+  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   int getCollapse() const override { return Collapse; }
-
+  int getOmpLoopDepth() { return Collapse > 0 ? Collapse : 1; }
+#if INTEL_CUSTOMIZATION
+  bool getIsDoConcurrent() const override { return IsDoConcurrent; }
+#endif // INTEL_CUSTOMIZATION
   WRNLoopBindKind getLoopBind() const override { return LoopBind; }
   WRNLoopOrderKind getLoopOrder() const override { return LoopOrder; }
 
@@ -2069,11 +2281,6 @@ extern void printExtraForOmpLoop(WRegionNode const *W,
 extern void printExtraForTarget(WRegionNode const *W,
                                 formatted_raw_ostream &OS, int Depth,
                                 unsigned Verbosity=1);
-
-/// \brief Print the fields of the Interop clause
-extern void printExtraForInterop(WRegionNode const* W,
-                          formatted_raw_ostream& OS, int Depth,
-                           unsigned Verbosity = 1);
 
 /// \brief Print the fields common to WRNs for which getIsTask()==true.
 /// Possible constructs are: WRNTask, WRNTaskloop

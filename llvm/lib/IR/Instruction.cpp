@@ -1,4 +1,21 @@
 //===-- Instruction.cpp - Implement the Instruction class -----------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -17,7 +34,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Support/CommandLine.h" // INTEL
@@ -223,7 +239,8 @@ void Instruction::dropUndefImplyingAttrsAndUnknownMetadata(
   AttributeList AL = CB->getAttributes();
   if (AL.isEmpty())
     return;
-  AttrBuilder UBImplyingAttributes = AttributeFuncs::getUBImplyingAttributes();
+  AttributeMask UBImplyingAttributes =
+      AttributeFuncs::getUBImplyingAttributes();
   for (unsigned ArgNo = 0; ArgNo < CB->arg_size(); ArgNo++)
     CB->removeParamAttrs(ArgNo, UBImplyingAttributes);
   CB->removeRetAttrs(UBImplyingAttributes);
@@ -529,6 +546,9 @@ static bool haveSameSpecialState(const Instruction *I1, const Instruction *I2,
   if (const ShuffleVectorInst *SVI = dyn_cast<ShuffleVectorInst>(I1))
     return SVI->getShuffleMask() ==
            cast<ShuffleVectorInst>(I2)->getShuffleMask();
+  if (const GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(I1))
+    return GEP->getSourceElementType() ==
+           cast<GetElementPtrInst>(I2)->getSourceElementType();
 
   return true;
 }
@@ -621,7 +641,7 @@ bool Instruction::mayReadFromMemory() const {
   case Instruction::Call:
   case Instruction::Invoke:
   case Instruction::CallBr:
-    return !cast<CallBase>(this)->doesNotReadMemory();
+    return !cast<CallBase>(this)->onlyWritesMemory();
   case Instruction::Store:
     return !cast<StoreInst>(this)->isUnordered();
   }
@@ -732,7 +752,7 @@ bool Instruction::mayHaveSideEffects() const {
 
 bool Instruction::isSafeToRemove() const {
   return (!isa<CallInst>(this) || !this->mayHaveSideEffects()) &&
-         !this->isTerminator();
+         !this->isTerminator() && !this->isEHPad();
 }
 
 bool Instruction::willReturn() const {

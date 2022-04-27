@@ -12,26 +12,18 @@
 ; <12>               @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
 ; <0>          END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -vplan-enable-new-cfg-merge-hir=false -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -vplan-enable-new-cfg-merge-hir=false -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -vplan-enable-new-cfg-merge-hir -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -vplan-enable-new-cfg-merge-hir -disable-output < %s 2>&1 | FileCheck %s
 
 
 ; CHECK:         BEGIN REGION { modified }
-; CHECK-NEXT:          %tgu = (%n)/u2;
-; CHECK-NEXT:          %and = undef;
-; CHECK-NEXT:          if (0 <u 2 * %tgu)
-; CHECK-NEXT:          {
-; CHECK-NEXT:             + DO i1 = 0, 2 * %tgu + -1, 2   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:             |   %.vec = %uni1  &  127;
+; CHECK:                 + DO i1 = 0, {{.*}}, 2   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:             |   [[VEC:%.*]] = %uni1  &  127;
 ; CHECK-NEXT:             + END LOOP
-
-; CHECK:                  %and = extractelement %.vec,  1;
-; CHECK-NEXT:          }
-
-; CHECK:               + DO i1 = 2 * %tgu, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1> <nounroll> <novectorize> <max_trip_count = 1>
-; CHECK-NEXT:          |   %and = %uni1  &  127;
-; CHECK-NEXT:          + END LOOP
-; CHECK-NEXT:    END REGION
+; CHECK:                  %and = extractelement [[VEC]],  1;
+; CHECK:         END REGION
 
 
 define i32 @foo(i32 %uni1, i64 %n) local_unnamed_addr #0 {

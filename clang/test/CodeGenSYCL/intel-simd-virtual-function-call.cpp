@@ -29,8 +29,8 @@ public:
      return (X*X);
    }
 };
-//CHECK: define linkonce_odr spir_func i32 @_ZN1B3fooEi(%class.B addrspace(4)* {{[^,]*}} %this, i32 %X) unnamed_addr #[[ATT4:[0-9]+]]
-//CHECK: define dso_local spir_func i32 @_ZN1A3fooEi(%class.A addrspace(4)* {{[^,]*}} %this, i32 %X) unnamed_addr #[[ATT5:[0-9]+]]
+//CHECK: define linkonce_odr spir_func {{[^,]*}}i32 @_ZN1B3fooEi(%class.B addrspace(4)* {{[^,]*}}%this, i32 {{[^,]*}}%X) unnamed_addr #[[ATT4:[0-9]+]]
+//CHECK: define dso_local spir_func {{[^,]*}}i32 @_ZN1A3fooEi(%class.A addrspace(4)* {{[^,]*}}%this, i32 {{[^,]*}}%X) unnamed_addr #[[ATT5:[0-9]+]]
 void test()
 {
   B bA;

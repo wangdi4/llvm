@@ -93,7 +93,8 @@ attributes #3 = { convergent nounwind readnone }
 !16 = !{i32 16}
 !17 = !{i32 5}
 
-; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-27: WARNING: Instruction with empty DebugLoc in function test
+; DEBUGIFY-COUNT-26: WARNING: Instruction with empty DebugLoc in function test
+; DEBUGIFY: WARNING: Missing line 1
+; DEBUGIFY: WARNING: Missing line 19
 ; DEBUGIFY: WARNING: Missing line 23
 ; DEBUGIFY-NOT: WARNING

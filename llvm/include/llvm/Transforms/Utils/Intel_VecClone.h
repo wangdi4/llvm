@@ -15,10 +15,10 @@
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
@@ -37,38 +37,19 @@ namespace llvm {
 
 class ModulePass;
 
-/// Represents the mapping of a vector parameter to its corresponding vector to
-/// scalar type cast instruction. This done so that the scalar loop inserted by
-/// this pass contains instructions that are in scalar form so that the loop can
-/// later be vectorized.
-struct ParmRef {
-  // Represents the parameter in one of two forms:
-  // 1) A vector alloca instruction if the parameter has not been registerized.
-  // 2) The parameter as the Value* passed in via the function call.
-  Value *VectorParm;
-
-  // Represents the vector parameter cast from a vector type to scalar type.
-  Instruction *VectorParmCast;
-
-  // For ordinary vector parameters - just the type of the parameter. For linear
-  // byref - type of the element accessed by the pointer passed. Similarly for
-  // vector byval/byref parameters - instead of storing the pointer type we'd
-  // have the actual elementtype from the byval/byref attribute here.
-  Type *OrigElemType;
-
-  ParmRef(Value *VectorParm, Instruction *VectorParmCast, Type *OrigElemType)
-      : VectorParm(VectorParm), VectorParmCast(VectorParmCast),
-        OrigElemType(OrigElemType) {}
-};
-
 class VecCloneImpl {
 
 #if INTEL_CUSTOMIZATION
   protected:
 #endif // INTEL_CUSTOMIZATION
 
-    /// Set of allocas to mark private for the SIMD loop
-    SetVector<Value*> PrivateAllocas;
+    /// Set of memory locations to mark as private for the SIMD loop
+    SetVector<Value*> PrivateMemory;
+    /// Set of memory locations to mark as uniform for the SIMD loop
+    SetVector<Value*> UniformMemory;
+    /// Set of memory locations to mark as linear for the SIMD loop
+    /// The non-key value is the stride
+    MapVector<Value*, Value*> LinearMemory;
 
     /// \brief Make a copy of the function if it is marked as SIMD.
     Function *CloneFunction(Function &F, VectorVariant &V,
@@ -81,59 +62,63 @@ class VecCloneImpl {
 
     /// \brief Take the loop entry basic block and split off a second basic
     /// block into a new return basic block.
-    BasicBlock* splitLoopIntoReturn(Function *Clone, BasicBlock *LoopBlock);
+    BasicBlock* splitLoopIntoReturn(Function *Clone, BasicBlock *LoopHeader);
 
-    /// \brief Create the backedge from the loop exit basic block to the loop
+    /// \brief Create the backedge from the loop latch basic block to the loop
     /// entry block.
     PHINode* createPhiAndBackedgeForLoop(Function *Clone,
                                          BasicBlock *EntryBlock,
-                                         BasicBlock *LoopBlock,
-                                         BasicBlock *LoopExitBlock,
+                                         BasicBlock *LoopHeader,
+                                         BasicBlock *LoopLatch,
                                          BasicBlock *ReturnBlock,
                                          int VL);
 
-    /// \brief Generate vector alloca instructions for vector parameters and
-    /// change the parameter types to vector types. Expand the return value of
+    /// \brief Generate vector alloca instructions for vector arguments and
+    /// change the arguments types to vector types. Widen the return value of
     /// the function to a vector type. This function returns the instruction
-    /// corresponding to the expanded return and the instruction corresponding
+    /// corresponding to the widened return and the instruction corresponding
     /// to the mask.
-    Instruction *expandVectorParametersAndReturn(
+    Instruction *widenVectorArgumentsAndReturn(
         Function *Clone, Function &F, VectorVariant &V, Instruction *&Mask,
-        BasicBlock *EntryBlock, BasicBlock *LoopBlock, BasicBlock *ReturnBlock,
-        std::vector<ParmRef> &ParmMap, ValueToValueMapTy &VMap);
+        BasicBlock *EntryBlock, BasicBlock *LoopHeader,
+        BasicBlock *ReturnBlock, PHINode *Phi, ValueToValueMapTy &VMap);
 
-    /// \brief Expand the function parameters to vector types. This function
+    /// Updates users of vector arguments with gep/load of lane element.
+    void updateVectorArgumentUses(Function *Clone, Function &OrigFn,
+                                  const DataLayout &DL, Argument *Arg,
+                                  BitCastInst *VecArgCast,
+                                  BasicBlock *EntryBlock,
+                                  BasicBlock *LoopHeader, PHINode *Phi);
+
+    /// \brief Widen the function arguments to vector types. This function
     /// returns the instruction corresponding to the mask. LastAlloca indicates
     /// where the alloca of the function argument should be placed in
     /// EntryBlock. We process the function arguments from left to right. The
-    /// alloca of the most left argument is places at the top of the EntryBlock.
-    Instruction *expandVectorParameters(Function *Clone, Function &OrigFn,
-                                        VectorVariant &V,
-                                        BasicBlock *EntryBlock,
-                                        std::vector<ParmRef> &ParmMap,
-                                        ValueToValueMapTy &VMap,
-                                        AllocaInst *&LastAlloca);
+    /// alloca of the most left argument is placed at the top of the EntryBlock.
+    Instruction *widenVectorArguments(Function *Clone, Function &OrigFn,
+                                      VectorVariant &V,
+                                      BasicBlock *EntryBlock,
+                                      BasicBlock *LoopHeader,
+                                      PHINode *Phi,
+                                      ValueToValueMapTy &VMap,
+                                      AllocaInst *&LastAlloca);
 
-    /// \brief Expand the function's return value to a vector type. LastAlloca
+    /// \brief Widen the function's return value to a vector type. LastAlloca
     /// indicates where the alloca of the return value should be placed in
     /// EntryBlock.
-    Instruction *expandReturn(Function *Clone, Function &F,
-                              BasicBlock *EntryBlock, BasicBlock *LoopBlock,
-                              BasicBlock *ReturnBlock,
-                              std::vector<ParmRef> &ParmMap,
-                              AllocaInst *&LastAlloca);
+    Instruction *widenReturn(Function *Clone, Function &F,
+                             BasicBlock *EntryBlock, BasicBlock *LoopHeader,
+                             BasicBlock *ReturnBlock, PHINode *Phi,
+                             AllocaInst *&LastAlloca);
 
-    /// \brief Update the old parameter references to with the new vector
-    /// references.
-    void updateScalarMemRefsWithVector(Function *Clone, Function &F,
-                                       BasicBlock *EntryBlock,
-                                       BasicBlock *ReturnBlock, PHINode *Phi,
-                                       ArrayRef<ParmRef> ParmMap);
+    /// Mark memory as uniform for SIMD directives.
+    void processUniformArgs(Function *Clone, VectorVariant &V,
+                            BasicBlock *EntryBlock, BasicBlock *LoopPreheader);
 
-    /// \brief Update the values of linear parameters by adding the stride
-    /// before the use.
-    void updateLinearReferences(Function *Clone, Function &F,
-                                VectorVariant &V, PHINode *Phi);
+    /// Update the values of linear arguments by adding the stride before the
+    /// use and mark memory and linear for SIMD directives.
+    void processLinearArgs(Function *Clone, VectorVariant &V, PHINode *Phi,
+                           BasicBlock *EntryBlock, BasicBlock *LoopPreheader);
 
     /// \brief Update the instructions in the return basic block to return a
     /// vector temp.
@@ -143,12 +128,12 @@ class VecCloneImpl {
     /// \brief Create a separate basic block to mark the begin and end of the
     /// SIMD loop formed from the vector function. Essentially, this function
     /// transfers the information from the SIMD function keywords and creates
-    /// new loop pragmas so that parameter information can be transferred to
+    /// new loop pragmas so that argument information can be transferred to
     /// the loop.
     void insertDirectiveIntrinsics(Module &M, Function *Clone, Function &F,
                                    VectorVariant &V, BasicBlock *EntryBlock,
                                    BasicBlock *LoopPreHeader,
-                                   BasicBlock *LoopExitBlock,
+                                   BasicBlock *LoopLatch,
                                    BasicBlock *ReturnBlock);
 
     /// \brief Create the basic block indicating the begin of the SIMD loop.
@@ -157,15 +142,15 @@ class VecCloneImpl {
                                 BasicBlock *LoopPreHeader);
 
     /// \brief Create the basic block indicating the end of the SIMD loop.
-    void insertEndRegion(Module &M, Function *Clone, BasicBlock *LoopExitBlock,
+    void insertEndRegion(Module &M, Function *Clone, BasicBlock *LoopLatch,
                          BasicBlock *ReturnBlock, CallInst *EntryDirCall);
 
     /// \brief Create a new vector alloca instruction for the return vector and
     /// bitcast to the appropriate element type. LastAlloca indicates where the
     /// alloca of the return value should be placed.
-    Instruction *createExpandedReturn(Function *F, BasicBlock *BB,
-                                      Type *OrigFuncReturnType,
-                                      AllocaInst *&LastAlloca);
+    Instruction *createWidenedReturn(Function *F, BasicBlock *BB,
+                                     Type *OrigFuncReturnType,
+                                     AllocaInst *&LastAlloca);
 
     /// \brief Check to see if the function is simple enough that a loop does
     /// not need to be inserted into the function.
@@ -173,19 +158,15 @@ class VecCloneImpl {
 
     /// \brief Inserts the if/else split and mask condition for masked SIMD
     /// functions.
-    void insertSplitForMaskedVariant(Function *Clone, BasicBlock *LoopBlock,
-                                     BasicBlock *LoopExitBlock,
+    void insertSplitForMaskedVariant(Function *Clone, BasicBlock *LoopHeader,
+                                     BasicBlock *LoopLatch,
                                      Instruction *Mask, PHINode *Phi);
 
     /// \brief Utility function that generates instructions that calculate the
-    /// stride for a linear parameter.
-    Value *generateStrideForParameter(Function *Clone, Argument *Arg,
-                                      Instruction *ParmUser, int Stride,
-                                      PHINode *Phi);
-
-    /// \brief Removes the original scalar alloca instructions that correspond
-    /// to a vector parameter before widening.
-    void removeScalarAllocasForVectorParams(ArrayRef<ParmRef> VectorParmMap);
+    /// stride for a linear argument.
+    Value *generateStrideForArgument(Function *Clone, Value *ArgVal,
+                                     Instruction *ParmUser, int Stride,
+                                     PHINode *Phi);
 
     /// \brief Adds metadata to the conditional branch of the simd loop latch to
     /// prevent loop unrolling.

@@ -11,7 +11,7 @@
 ;     s2 = d[i]  - s2;
 ;     s2 = e[i]  - s2;
 ; }
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -analyze -hir-safe-reduction-analysis | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -analyze -enable-new-pm=0 -hir-safe-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" 2>&1 | FileCheck %s
 
 ; CHECK: No Safe Reduction

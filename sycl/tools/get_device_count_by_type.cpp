@@ -1,3 +1,20 @@
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //==-- get_device_count_by_type.cpp - Get device count by type -------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -283,19 +300,6 @@ int main(int argc, char *argv[]) {
   // Normalize all arguments to lower case.
   std::string type{lowerString(argv[1])};
   std::string backend{lowerString(argv[2])};
-
-#if INTEL_CUSTOMIZATION
-  // TODO: rewrite this utility in SYCL so all SYCL PI plugins are queried.
-  // TODO: Remove PI_OTHER, if it does not may to Level0.
-  // TODO: Use a Level_zero low level API.
-  if (backend == "pi_level_zero" || backend == "pi_other") {
-    if (type == "gpu") {
-      std::cout << "1:level zero GPU assumed under SYCL_BE=PI_LEVEL_ZERO"
-                << std::endl;
-      return EXIT_SUCCESS;
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
 
   cl_device_type deviceType = CL_DEVICE_TYPE_DEFAULT;
   if (type == "cpu") {

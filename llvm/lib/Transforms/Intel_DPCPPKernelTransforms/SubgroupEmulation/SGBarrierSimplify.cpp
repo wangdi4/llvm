@@ -19,6 +19,8 @@
 using namespace llvm;
 using namespace DPCPPKernelCompilationUtils;
 
+extern bool DPCPPEnableSubGroupEmulation;
+
 #define DEBUG_TYPE "dpcpp-kernel-sg-emu-barrier-simplify"
 
 namespace {
@@ -65,6 +67,9 @@ ModulePass *llvm::createSGBarrierSimplifyLegacyPass() {
 }
 
 bool SGBarrierSimplifyPass::runImpl(Module &M) {
+  if (!DPCPPEnableSubGroupEmulation)
+    return false;
+
   Helper.initialize(M);
 
   FuncSet FunctionsToHandle = Helper.getAllFunctionsNeedEmulation();

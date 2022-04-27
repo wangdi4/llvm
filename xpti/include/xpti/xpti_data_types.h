@@ -105,6 +105,7 @@ enum class payload_flag_t {
 using trace_point_t = uint16_t;
 using event_type_t = uint16_t;
 using string_id_t = int32_t;
+using object_id_t = int32_t;
 
 using safe_flag_t = std::atomic<bool>;
 using safe_uint64_t = std::atomic<uint64_t>;
@@ -113,7 +114,7 @@ using safe_uint16_t = std::atomic<uint16_t>;
 using safe_int64_t = std::atomic<int64_t>;
 using safe_int32_t = std::atomic<int32_t>;
 using safe_int16_t = std::atomic<int16_t>;
-using metadata_t = std::unordered_map<string_id_t, string_id_t>;
+using metadata_t = std::unordered_map<string_id_t, object_id_t>;
 
 #define XPTI_EVENT(val) xpti::event_type_t(val)
 #define XPTI_TRACE_POINT_BEGIN(val) xpti::trace_point_t(val << 1 | 0)
@@ -122,6 +123,12 @@ using metadata_t = std::unordered_map<string_id_t, string_id_t>;
 #define XPTI_PACK08_RET16(value1, value2) ((value1 << 8) | value2)
 #define XPTI_PACK16_RET32(value1, value2) ((value1 << 16) | value2)
 #define XPTI_PACK32_RET64(value1, value2) (((uint64_t)value1 << 32) | value2)
+
+struct object_data_t {
+  size_t size;
+  const char *data;
+  uint8_t type;
+};
 
 /// @brief Payload data structure that is optional for trace point callback
 /// API
@@ -387,7 +394,7 @@ enum class trace_point_type_t : uint16_t {
   offload_alloc_destruct = XPTI_TRACE_POINT_BEGIN(22),
   /// Used to notify about releasing internal handle for offload buffer
   offload_alloc_release = XPTI_TRACE_POINT_BEGIN(23),
-  /// Used to notify about creation accessor for ofload buffer
+  /// Used to notify about creation accessor for offload buffer
   offload_alloc_accessor = XPTI_TRACE_POINT_BEGIN(24),
   /// Indicates that the trace point is user defined and only the tool defined
   /// for a stream will be able to handle it
@@ -479,6 +486,16 @@ enum class trace_activity_type_t {
   sleep_activity = 1 << 3
 };
 
+/// Provides hints to the tools on how to interpret unknown metadata values.
+enum class metadata_type_t {
+  binary = 0,
+  string = 1,
+  signed_integer = 2,
+  unsigned_integer = 3,
+  floating = 4,
+  boolean = 5
+};
+
 struct reserved_data_t {
   /// Has a reference to the associated payload field for an event
   payload_t *payload = nullptr;
@@ -552,6 +569,31 @@ struct offload_buffer_association_data_t {
   /// A pointer to platform specific handler for the offload object
   uintptr_t mem_object_handle = 0;
 };
+
+/// Describes enqueued kernel object
+struct offload_kernel_enqueue_data_t {
+  /// Global size
+  size_t global_size[3] = {0, 0, 0};
+  /// Local size
+  size_t local_size[3] = {0, 0, 0};
+  /// Offset
+  size_t offset[3] = {0, 0, 0};
+  /// Number of kernel arguments
+  size_t args_num = 0;
+};
+
+/// Describes enqueued kernel argument
+struct offload_kernel_arg_data_t {
+  /// Argument type as set in kernel_param_kind_t
+  int type = -1;
+  /// Pointer to the data
+  void *pointer = nullptr;
+  /// Size of the argument
+  int size = 0;
+  /// Index of the argument in the kernel
+  int index = 0;
+};
+
 /// Describes memory allocation
 struct mem_alloc_data_t {
   /// A platform-specific memory object handle. Some heterogeneous programming
@@ -651,6 +693,14 @@ constexpr uint16_t trace_edge_create =
     static_cast<uint16_t>(xpti::trace_point_type_t::edge_create);
 constexpr uint16_t trace_signal =
     static_cast<uint16_t>(xpti::trace_point_type_t::signal);
+constexpr uint16_t trace_function_begin =
+    static_cast<uint16_t>(xpti::trace_point_type_t::function_begin);
+constexpr uint16_t trace_function_end =
+    static_cast<uint16_t>(xpti::trace_point_type_t::function_end);
+constexpr uint16_t trace_function_with_args_begin =
+    static_cast<uint16_t>(xpti::trace_point_type_t::function_with_args_begin);
+constexpr uint16_t trace_function_with_args_end =
+    static_cast<uint16_t>(xpti::trace_point_type_t::function_with_args_end);
 constexpr uint16_t trace_offload_alloc_construct =
     static_cast<uint16_t>(xpti::trace_point_type_t::offload_alloc_construct);
 constexpr uint16_t trace_offload_alloc_associate =

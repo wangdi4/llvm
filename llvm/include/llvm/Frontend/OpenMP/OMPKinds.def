@@ -1,4 +1,21 @@
 //===--- OMPKinds.def - OpenMP directives, clauses, rt-calls -*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -186,7 +203,6 @@ __ICV_RT_GET(proc_bind, omp_get_proc_bind)
 
 #define __OMP_RTL(Name, IsVarArg, ReturnType, ...)                             \
   OMP_RTL(OMPRTL_##Name, #Name, IsVarArg, ReturnType, __VA_ARGS__)
-
 
 
 __OMP_RTL(__kmpc_barrier, false, Void, IdentPtr, Int32)
@@ -412,11 +428,18 @@ __OMP_RTL(__kmpc_doacross_wait, false, Void, IdentPtr, Int32, Int64Ptr)
 __OMP_RTL(__kmpc_doacross_fini, false, Void, IdentPtr, Int32)
 
 __OMP_RTL(__kmpc_alloc, false, VoidPtr, /* Int */ Int32, SizeTy, VoidPtr)
-#if INTEL_COLLAB
+// void *__kmpc_target_translate_fptr(void *FnPtr);
+__OMP_RTL(__kmpc_target_translate_fptr, false, VoidPtr, VoidPtr)
 __OMP_RTL(__kmpc_aligned_alloc, false, VoidPtr, /* Int */ Int32, SizeTy, SizeTy,
           VoidPtr)
-#endif // INTEL_COLLAB
 __OMP_RTL(__kmpc_free, false, Void, /* Int */ Int32, VoidPtr, VoidPtr)
+
+__OMP_RTL(__tgt_interop_init, false, Void, IdentPtr, Int32, VoidPtrPtr, Int64,
+          Int32, Int32, VoidPtr, Int32)
+__OMP_RTL(__tgt_interop_destroy, false, Void, IdentPtr, Int32, VoidPtrPtr,
+          Int32, Int32, VoidPtr, Int32)
+__OMP_RTL(__tgt_interop_use, false, Void, IdentPtr, Int32, VoidPtrPtr, Int32,
+          Int32, VoidPtr, Int32)
 
 __OMP_RTL(__kmpc_init_allocator, false, /* omp_allocator_handle_t */ VoidPtr,
           /* Int */ Int32, /* omp_memespace_handle_t */ VoidPtr,
@@ -500,6 +523,7 @@ __OMP_RTL(__last, false, Void, )
 #define ParamAttrs(...) ArrayRef<AttributeSet>({__VA_ARGS__})
 #define EnumAttr(Kind) Attribute::get(Ctx, Attribute::AttrKind::Kind)
 #define EnumAttrInt(Kind, N) Attribute::get(Ctx, Attribute::AttrKind::Kind, N)
+#define AllocSizeAttr(N, M) Attribute::getWithAllocSizeArgs(Ctx, N, M)
 #define AttributeSet(...)                                                      \
   AttributeSet::get(Ctx, ArrayRef<Attribute>({__VA_ARGS__}))
 
@@ -958,16 +982,16 @@ __OMP_RTL_ATTRS(__kmpc_doacross_wait, BarrierAttrs, AttributeSet(),
 __OMP_RTL_ATTRS(__kmpc_doacross_fini, BarrierAttrs, AttributeSet(),
                 ParamAttrs(ReadOnlyPtrAttrs))
 
-__OMP_RTL_ATTRS(__kmpc_alloc_shared, DeviceAllocAttrs, ReturnPtrAttrs,
-                ParamAttrs())
+__OMP_RTL_ATTRS(__kmpc_alloc_shared, AttributeSet(
+  EnumAttr(NoUnwind),
+  EnumAttr(NoSync), 
+  AllocSizeAttr(0, None)), ReturnPtrAttrs, ParamAttrs())
 __OMP_RTL_ATTRS(__kmpc_free_shared, DeviceAllocAttrs, AttributeSet(),
                 ParamAttrs(NoCaptureAttrs))
 
 __OMP_RTL_ATTRS(__kmpc_alloc, DefaultAttrs, ReturnPtrAttrs, ParamAttrs())
-#if INTEL_COLLAB
 __OMP_RTL_ATTRS(__kmpc_aligned_alloc, DefaultAttrs, ReturnPtrAttrs,
                 ParamAttrs())
-#endif // INTEL_COLLAB
 __OMP_RTL_ATTRS(__kmpc_free, AllocAttrs, AttributeSet(), ParamAttrs())
 
 __OMP_RTL_ATTRS(__kmpc_init_allocator, DefaultAttrs, ReturnPtrAttrs,
@@ -1014,6 +1038,7 @@ __OMP_RTL_ATTRS(__kmpc_parallel_51, AlwaysInlineAttrs, AttributeSet(),
 #undef EnumAttr
 #undef EnumAttrInt
 #undef ParamAttrs
+#undef AllocSizeAttr
 
 ///}
 
@@ -1219,6 +1244,8 @@ __OMP_TRAIT_PROPERTY(implementation, vendor, gnu)
 __OMP_TRAIT_PROPERTY(implementation, vendor, ibm)
 __OMP_TRAIT_PROPERTY(implementation, vendor, intel)
 __OMP_TRAIT_PROPERTY(implementation, vendor, llvm)
+__OMP_TRAIT_PROPERTY(implementation, vendor, nec)
+__OMP_TRAIT_PROPERTY(implementation, vendor, nvidia)
 __OMP_TRAIT_PROPERTY(implementation, vendor, pgi)
 __OMP_TRAIT_PROPERTY(implementation, vendor, ti)
 __OMP_TRAIT_PROPERTY(implementation, vendor, unknown)

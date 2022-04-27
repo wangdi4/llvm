@@ -1,7 +1,11 @@
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -target-feature +avx2 -fms-compatibility -emit-llvm -o - %s | FileCheck %s
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -target-feature +avx512bw -fms-compatibility -emit-llvm -o - %s | FileCheck %s
-// RUN: %clang_cc1 -triple x86_64-unknown-windows -target-feature +avx2 -fms-compatibility -emit-llvm -o - %s | FileCheck %s
-// RUN: %clang_cc1 -triple x86_64-unknown-windows -target-feature +avx512bw -fms-compatibility -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -target-feature +avx2 -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -target-feature +avx512bw -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-windows -target-feature +avx2 -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-windows -target-feature +avx512bw -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple i686-pc-linux -target-feature +avx2 -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple i686-pc-linux -target-feature +avx512bw -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple i686-pc-win32 -target-feature +avx2 -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple i686-pc-win32 -target-feature +avx512bw -fms-compatibility -emit-llvm -opaque-pointers -o - %s | FileCheck %s
 // Check SVML calling conventions are assigned correctly when compiling 256-bit SVML functions.
 
 typedef long long __m128i __attribute__((__vector_size__(16), __aligned__(16)));
@@ -19,8 +23,8 @@ typedef struct { int r1; int r2; } int1x2_avx;
 __attribute__((intel_ocl_bicc))
 extern __m128i __svml_urem4(__m128i x, __m128i y );
 
-// CHECK: define dso_local svml_unified_cc_256 <4 x i64> @__svml_urem8_e9(<4 x i64> %{{.*}}, <4 x i64> %{{.*}})
-// CHECK: declare{{.*}} svml_unified_cc <2 x i64> @__svml_urem4(<2 x i64>, <2 x i64>)
+// CHECK: define dso_local svml_unified_cc_256 <4 x i64> @__svml_urem8_e9(<4 x i64> noundef %{{.*}}, <4 x i64> noundef %{{.*}})
+// CHECK: declare{{.*}} svml_unified_cc <2 x i64> @__svml_urem4(<2 x i64> noundef, <2 x i64> noundef)
 __attribute__((intel_ocl_bicc))
 __m256i __svml_urem8_e9(__m256i x, __m256i y) {
   __declspec(align(32)) __m128i x1[2];
@@ -38,19 +42,19 @@ __m256i __svml_urem8_e9(__m256i x, __m256i y) {
   return dst;
 }
 
-// CHECK: define dso_local svml_unified_cc_256 <4 x i64> @__svml_i64div4_l9(<4 x i64> %{{.*}}, <4 x i64> %{{.*}})
+// CHECK: define dso_local svml_unified_cc_256 <4 x i64> @__svml_i64div4_l9(<4 x i64> noundef %{{.*}}, <4 x i64> noundef %{{.*}})
 __attribute__((intel_ocl_bicc))
 __m256i __svml_i64div4_l9(__m256i vas, __m256i vbs) {
     return vas;
 }
 
-// CHECK: define dso_local svml_unified_cc_256 <4 x double> @__svml_clog2_ha_l9(<4 x double> %{{.*}})
+// CHECK: define dso_local svml_unified_cc_256 <4 x double> @__svml_clog2_ha_l9(<4 x double> noundef %{{.*}})
 __attribute__((intel_ocl_bicc))
 __m256d __svml_clog2_ha_l9 (__m256d a) {
   return a;
 }
 
-// CHECK: define dso_local svml_unified_cc_256 %struct.__m256x2_t @__svml_sincospif8_mask(<8 x float> %{{.*}}, <8 x float> %{{.*}})
+// CHECK: define dso_local svml_unified_cc_256 %struct.__m256x2_t @__svml_sincospif8_mask(<8 x float> noundef %{{.*}}, <8 x float> noundef %{{.*}})
 __attribute__((intel_ocl_bicc))
 __m256x2 __svml_sincospif8_mask(__m256 a, __m256 mask) {
   __m256x2 ret;
@@ -59,13 +63,13 @@ __m256x2 __svml_sincospif8_mask(__m256 a, __m256 mask) {
   return ret;
 }
 
-// CHECK: define dso_local svml_unified_cc_256 double @__ocl_svml_l9_ldexp1(double %{{.*}}, i32 %{{.*}})
+// CHECK: define dso_local svml_unified_cc_256 double @__ocl_svml_l9_ldexp1(double noundef %{{.*}}, i32 noundef %{{.*}})
 __attribute__((intel_ocl_bicc))
 double __ocl_svml_l9_ldexp1 (double a, int b) {
   return a;
 }
 
-// CHECK: define dso_local svml_unified_cc_256 %struct.double4_avx @__ocl_svml_l9_sincos4(<4 x double> %{{.*}}, %struct.double4_avx* %{{.*}})
+// CHECK: define dso_local svml_unified_cc_256 %struct.double4_avx @__ocl_svml_l9_sincos4(<4 x double> %{{.*}}, ptr noundef %{{.*}})
 __attribute__((intel_ocl_bicc))
 double4_avx __ocl_svml_l9_sincos4 (double4_avx a, double4_avx* c) {
   return a;
@@ -80,19 +84,19 @@ int4x2_avx __ocl_svml_e9_udivrem4 (int4_avx a, int4_avx b) {
   return ret;
 }
 
-// CHECK: define dso_local svml_unified_cc_256 i32 @__ocl_svml_e9_idiv1(i32 %{{.*}}, i32 %{{.*}})
+// CHECK: define dso_local svml_unified_cc_256 i32 @__ocl_svml_e9_idiv1(i32 noundef %{{.*}}, i32 noundef %{{.*}})
 __attribute__((intel_ocl_bicc))
 int __ocl_svml_e9_idiv1 (int a, int b) {
   return a;
 }
 
-// CHECK: define dso_local svml_unified_cc_256 double @__ocl_svml_e9_div1(double %{{.*}}, double %{{.*}})
+// CHECK: define dso_local svml_unified_cc_256 double @__ocl_svml_e9_div1(double noundef %{{.*}}, double noundef %{{.*}})
 __attribute__((intel_ocl_bicc))
 double __ocl_svml_e9_div1 (double a, double b) {
   return a;
 }
 
-// CHECK: define dso_local svml_unified_cc_256 %struct.int1x2_avx @__ocl_svml_e9_idivrem1(i32 %{{.*}}, i32 %{{.*}})
+// CHECK: define dso_local svml_unified_cc_256 %struct.int1x2_avx @__ocl_svml_e9_idivrem1(i32 noundef %{{.*}}, i32 noundef %{{.*}})
 __attribute__((intel_ocl_bicc))
 int1x2_avx __ocl_svml_e9_idivrem1 (int a, int b) {
   int1x2_avx ret;

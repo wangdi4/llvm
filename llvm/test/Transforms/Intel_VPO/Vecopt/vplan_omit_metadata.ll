@@ -1,24 +1,28 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -vplan-force-vf=4 -print-before=hir-vplan-vec -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR-CHECK
-; RUN: opt -vplan-vec -vplan-force-vf=4 -vplan-build-vect-candidates=1 -print-before=vplan-vec -print-after=vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=LLVM-CHECK
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -vplan-force-vf=4 -print-before=hir-vplan-vec -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR-CHECK
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -vplan-force-vf=4 -print-before=hir-vplan-vec -print-after=hir-vplan-vec -hir-details -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR-CHECK
+; RUN: opt -enable-new-pm=0 -vplan-vec -vplan-force-vf=4 -vplan-build-vect-candidates=1 -print-before=vplan-vec -print-after=vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=LLVM-CHECK
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>,hir-vplan-vec,print<hir>,hir-cg' -vplan-force-vf=4 -hir-details -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=HIR-CHECK
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>,hir-vplan-vec,print<hir>,hir-cg' -vplan-force-vf=4 -hir-details -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=HIR-CHECK
+; RUN: opt -passes='vplan-vec' -vplan-force-vf=4 -vplan-build-vect-candidates=1 -print-before=vplan-vec -print-after=vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=LLVM-CHECK
 ; LIT test to check that metadata such as nonnull, dereferenceable,
 ; dereferenceable_or_null get dropped from the vector reference after
 ; vectorization.
 define void @foo(i64** nocapture %arr) {
-; HIR-CHECK:        *** IR Dump Before VPlan HIR Vectorizer (hir-vplan-vec) ***
+;                   *** IR Dump Before VPlan HIR Vectorizer (hir-vplan-vec) ***
 ; HIR-CHECK:                   {{.*}} = (%arr)[i1]
 ; HIR-CHECK:                         <RVAL-REG> {{.*}}(LINEAR i64** %arr){{.*}} !nonnull
-; HIR-CHECK:        *** IR Dump After VPlan HIR Vectorizer (hir-vplan-vec) ***
+;                   *** IR Dump After VPlan HIR Vectorizer (hir-vplan-vec) ***
 ; HIR-CHECK:                   {{.*}} = (<4 x i64*>*)(%arr)[i1]
 ; HIR-CHECK:                         <RVAL-REG> {{.*}}(<4 x i64*>*)(LINEAR i64** %arr)
 ; HIR-CHECK-NOT:   !nonnull
 ; HIR-CHECK-NOT:   !dereferenceable
 ; HIR-CHECK-SAME:  inbounds {{.*}}
 ;
-; LLVM-CHECK:        *** IR Dump Before VPlan Vectorizer (vplan-vec) ***
+;                    *** IR Dump Before VPlan Vectorizer (vplan-vec) ***
 ; LLVM-CHECK:         [[I1_04:%.*]] = phi i64 [ 0, {{.*}} ], [ [[INC:%.*]], {{.*}} ]
 ; LLVM-CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i64*, i64** [[ARR:%.*]], i64 [[I1_04]]
 ; LLVM-CHECK-NEXT:    [[TMP0:%.*]] = load i64*, i64** [[ARRAYIDX]], align 8, !nonnull !0, !dereferenceable !1, !dereferenceable_or_null !1
-; LLVM-CHECK:        *** IR Dump After VPlan Vectorizer (vplan-vec) ***
+;                    *** IR Dump After VPlan Vectorizer (vplan-vec) ***
 ; LLVM-CHECK:         [[UNI_PHI:%uni.*]] = phi i64 [ 0, {{.*}} ], [ [[TMP3:%.*]], {{.*}} ]
 ; LLVM-CHECK:         [[SCALAR_GEP:%.*]] = getelementptr inbounds i64*, i64** [[ARR:%.*]], i64 [[UNI_PHI]]
 ; LLVM-CHECK-NEXT:    [[TMP0:%.*]] = bitcast i64** [[SCALAR_GEP]] to <4 x i64*>*

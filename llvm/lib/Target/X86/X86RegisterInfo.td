@@ -1,4 +1,21 @@
 //===- X86RegisterInfo.td - Describe the X86 Register File --*- tablegen -*-==//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -745,3 +762,14 @@ let isAllocatable = 0 in
 def TILEQUAD : RegisterClass<"X86", [untyped], 0, (add TQUADS)> {let Size = 32768;}
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
 #endif // INTEL_CUSTOMIZATION
+
+//===----------------------------------------------------------------------===//
+// Register categories.
+//
+
+// The TILE and VK*PAIR registers may not be "fixed", but we don't want them
+// anyway.
+def FixedRegisters : RegisterCategory<[DEBUG_REG, CONTROL_REG, CCR, FPCCR,
+                                       DFCCR, TILE, VK1PAIR, VK2PAIR, VK4PAIR,
+                                       VK8PAIR, VK16PAIR]>;
+def GeneralPurposeRegisters : RegisterCategory<[GR64, GR32, GR16, GR8]>;

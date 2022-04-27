@@ -1,3 +1,20 @@
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Copyright (C) 2021 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 // Common default action.
 #ifndef VPLAN_OPTRPT_HANDLE_GROUP_BEGIN
 #define VPLAN_OPTRPT_HANDLE_GROUP_BEGIN(ID)
@@ -13,6 +30,10 @@
 
 #ifndef VPLAN_OPTRPT_VEC_HANDLE
 #define VPLAN_OPTRPT_VEC_HANDLE(VEC)
+#endif
+
+#ifndef VPLAN_OPTRPT_ORIGIN_VEC_HANDLE
+#define VPLAN_OPTRPT_ORIGIN_VEC_HANDLE(VEC)
 #endif
 
 #ifndef VPLAN_OPTRPT_HANDLE_GROUP_END
@@ -39,6 +60,14 @@
 #ifndef VPLAN_OPTRPT_HANDLE_MEM_GROUP_END
 #define VPLAN_OPTRPT_HANDLE_MEM_GROUP_END(ID) VPLAN_OPTRPT_HANDLE_GROUP_END(ID)
 #endif
+
+// NOTE: Order of remarks is controlled by the order in which remark vectors and remark
+// groups are added below. New remarks vectors should be added after GeneralRemarks vector.
+
+// Origin remarks
+VPLAN_OPTRPT_ORIGIN_VEC_HANDLE(OriginRemarks)
+// General purpose remarks
+VPLAN_OPTRPT_VEC_HANDLE(GeneralRemarks)
 
 VPLAN_OPTRPT_HANDLE_FUNC_GROUP_BEGIN(15475u)
 // Basically everything vectorizable through TargetLibraryInfo.
@@ -71,10 +100,14 @@ VPLAN_OPTRPT_HANDLE_MEM(15557u, MaskedVLSStores)
 // TODO: No entry for loads from uniform address (O0/kernel vectorization).
 VPLAN_OPTRPT_HANDLE_MEM_GROUP_END(15474u)
 
+// Remarks related to reduction reasons
+VPLAN_OPTRPT_VEC_HANDLE(ReductionInstRemarks)
+
 #undef VPLAN_OPTRPT_HANDLE_GROUP_BEGIN
 #undef VPLAN_OPTRPT_HANDLE
 #undef VPLAN_OPTRPT_GS
 #undef VPLAN_OPTRPT_VEC_HANDLE
+#undef VPLAN_OPTRPT_ORIGIN_VEC_HANDLE
 #undef VPLAN_OPTRPT_HANDLE_GROUP_END
 #undef VPLAN_OPTRPT_HANDLE_FUNC_GROUP_BEGIN
 #undef VPLAN_OPTRPT_HANDLE_FUNC

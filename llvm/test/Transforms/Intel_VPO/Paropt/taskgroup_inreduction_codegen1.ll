@@ -1,5 +1,7 @@
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
+; VLA reductions are not supported for TASKGROUP yet.
+; UNSUPPORTED: true
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 ;
 ; It tests whether the OMP backend outlining supports the task group
 ; as well as the inreduction clause.

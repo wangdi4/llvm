@@ -30,7 +30,7 @@ define i32 @test01() {
   ret i32 0
 }
 ; CHECK: %p0 = getelementptr %__SOADT_struct.test01dep, ptr @var01, i64 0, i32 0
-; CHECK: %alloc_idx = call ptr @llvm.ptr.annotation.p0(ptr %p0, ptr getelementptr inbounds ([33 x i8], ptr @__intel_dtrans_aostosoa_index, i32 0, i32 0), ptr getelementptr inbounds ([1 x i8], ptr @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, ptr null)
+; CHECK: %alloc_idx = call ptr @llvm.ptr.annotation.p0(ptr %p0, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK: %p1 = load i64, ptr %p0
 ; CHECK: %[[FADDR0:[0-9]+]] = getelementptr %__SOA_struct.test01, ptr @__soa_struct.test01, i64 0, i32 0
 ; CHECK: %[[LOAD0:[0-9]+]] = load ptr, ptr %[[FADDR0]]
@@ -40,9 +40,9 @@ define i32 @test01() {
 ; CHECK: %[[FADDR1:[0-9]+]] = getelementptr %__SOA_struct.test01, ptr @__soa_struct.test01, i64 0, i32 1
 ; CHECK: %[[LOAD1:[0-9]+]] = load ptr, ptr %[[FADDR1]]
 ; CHECK: %fa1 = getelementptr i64, ptr %[[LOAD1]], i64 %p1
-; CHECK: %alloc_idx1 = call ptr @llvm.ptr.annotation.p0(ptr %fa1, ptr getelementptr inbounds ([33 x i8], ptr @__intel_dtrans_aostosoa_index, i32 0, i32 0), ptr getelementptr inbounds ([1 x i8], ptr @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, ptr null)
+; CHECK: %alloc_idx1 = call ptr @llvm.ptr.annotation.p0(ptr %fa1, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK: %v1 = load i64, ptr %fa1
-; CHECK: %alloc_idx2 = call ptr @llvm.ptr.annotation.p0(ptr %fa1, ptr getelementptr inbounds ([33 x i8], ptr @__intel_dtrans_aostosoa_index, i32 0, i32 0), ptr getelementptr inbounds ([1 x i8], ptr @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, ptr null)
+; CHECK: %alloc_idx2 = call ptr @llvm.ptr.annotation.p0(ptr %fa1, ptr @__intel_dtrans_aostosoa_index, ptr @__intel_dtrans_aostosoa_filename, i32 0, ptr null)
 ; CHECK: store i64 0, ptr %fa1, align 8
 ; CHECK: %[[FADDR2:[0-9]+]] = getelementptr %__SOA_struct.test01, ptr @__soa_struct.test01, i64 0, i32 2
 ; CHECK: %[[LOAD2:[0-9]+]] = load ptr, ptr %[[FADDR2]]

@@ -1,4 +1,21 @@
 //===- llvm/LinkAllPasses.h ------------ Reference All Passes ---*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -37,17 +54,18 @@
 #include "llvm/Analysis/Intel_StdContainerAA.h"  // INTEL
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
-#include "llvm/Analysis/Intel_VectorVariant.h" // INTEL
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
-#include "llvm/SYCLLowerIR/ESIMDVerifier.h"
-#include "llvm/SYCLLowerIR/LowerESIMD.h"
+#include "llvm/IR/Intel_VectorVariant.h" // INTEL
+#include "llvm/SYCLLowerIR/ESIMD/ESIMDVerifier.h"
+#include "llvm/SYCLLowerIR/ESIMD/LowerESIMD.h"
 #include "llvm/SYCLLowerIR/LowerWGLocalMemory.h"
 #include "llvm/SYCLLowerIR/LowerWGScope.h"
+#include "llvm/SYCLLowerIR/LowerInvokeSimd.h"
 #include "llvm/SYCLLowerIR/MutatePrintfAddrspace.h"
 #include "llvm/Support/Valgrind.h"
 #include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
@@ -177,11 +195,13 @@ namespace {
       (void) llvm::createDomOnlyViewerPass();
       (void) llvm::createDomViewerPass();
       (void) llvm::createGCOVProfilerPass();
+#if INTEL_CUSTOMIZATION
       (void) llvm::createPGOInstrumentationGenLegacyPass();
       (void) llvm::createPGOInstrumentationUseLegacyPass();
       (void) llvm::createPGOInstrumentationGenCreateVarLegacyPass();
       (void) llvm::createPGOIndirectCallPromotionLegacyPass();
       (void) llvm::createPGOMemOPSizeOptLegacyPass();
+#endif // INTEL_CUSTOMIZATION
       (void) llvm::createInstrProfilingLegacyPass();
       (void) llvm::createFunctionImportPass();
       (void) llvm::createFunctionInliningPass();
@@ -203,6 +223,7 @@ namespace {
       (void) llvm::createInstSimplifyLegacyPass();
       (void) llvm::createInstructionCombiningPass();
       (void) llvm::createInternalizePass();
+      (void) llvm::createJMCInstrumenterPass();
       (void) llvm::createLCSSAPass();
       (void) llvm::createLegacyDivergenceAnalysisPass();
       (void) llvm::createLICMPass();
@@ -224,6 +245,7 @@ namespace {
       (void) llvm::createLoopRotatePass();
       (void) llvm::createLowerConstantIntrinsicsPass();
       (void) llvm::createLowerExpectIntrinsicPass();
+      (void) llvm::createLowerGlobalDtorsLegacyPass();
       (void) llvm::createLowerInvokePass();
       (void) llvm::createLowerSwitchPass();
       (void) llvm::createNaryReassociatePass();
@@ -256,6 +278,7 @@ namespace {
       (void) llvm::createStripDeadDebugInfoPass();
       (void) llvm::createStripDeadPrototypesPass();
       (void) llvm::createTailCallEliminationPass();
+      (void)llvm::createTLSVariableHoistPass();
       (void) llvm::createJumpThreadingPass();
       (void) llvm::createIVSplitLegacyPass(); // INTEL
       (void) llvm::createDFAJumpThreadingPass();
@@ -291,6 +314,7 @@ namespace {
       (void)llvm::createSPIRITTAnnotationsLegacyPass();
       (void)llvm::createSYCLLowerWGLocalMemoryLegacyPass();
       (void)llvm::createESIMDVerifierPass();
+      (void)llvm::createSYCLLowerInvokeSimdPass();
       std::string buf;
       llvm::raw_string_ostream os(buf);
       (void) llvm::createPrintModulePass(os);
@@ -385,6 +409,7 @@ namespace {
       (void) llvm::createHIRLoopRematerializePass();
       (void) llvm::createHIRLoopRerollPass();
       (void) llvm::createHIRLoopReversalPass();
+      (void) llvm::createHIRIfReversalPass();
       (void) llvm::createHIRLMMPass();
       (void) llvm::createHIRLoopCollapsePass();
       (void) llvm::createHIRPMSymbolicTripCountCompleteUnrollLegacyPass();
@@ -431,7 +456,9 @@ namespace {
       (void)llvm::createDPCPPKernelWGLoopCreatorLegacyPass();
       (void)llvm::createDPCPPKernelAnalysisLegacyPass();
       (void)llvm::createDPCPPPreprocessSPIRVFriendlyIRLegacyPass();
+      (void)llvm::createDeduceMaxWGDimLegacyPass();
       (void)llvm::createDuplicateCalledKernelsLegacyPass();
+      (void)llvm::createExternalizeGlobalVariablesLegacyPass();
       (void)llvm::createPhiCanonicalizationLegacyPass();
       (void)llvm::createRedundantPhiNodeLegacyPass();
       (void)llvm::createGroupBuiltinLegacyPass();
@@ -443,13 +470,20 @@ namespace {
       (void)llvm::createKernelBarrierLegacyPass(false, false);
       (void)llvm::createBarrierInFunctionLegacyPass();
       (void)llvm::createImplicitArgsAnalysisLegacyPass();
+      (void)llvm::createImplicitGIDLegacyPass();
+      (void)llvm::createInstToFuncCallLegacyPass();
       (void)llvm::createInternalizeNonKernelFuncLegacyPass();
       (void)llvm::createLocalBufferAnalysisLegacyPass();
       (void)llvm::createLocalBuffersLegacyPass(false);
+      (void)llvm::createLoopStridedCodeMotionLegacyPass();
+      (void)llvm::createLoopWIAnalysisLegacyPass();
       (void)llvm::createAddFastMathLegacyPass();
       (void)llvm::createAddImplicitArgsLegacyPass();
       (void)llvm::createAddNTAttrLegacyPass();
+      (void)llvm::createAddTLSGlobalsLegacyPass();
+      (void)llvm::createAutorunReplicatorLegacyPass();
       (void)llvm::createResolveMatrixFillLegacyPass();
+      (void)llvm::createResolveMatrixLayoutLegacyPass();
       (void)llvm::createResolveMatrixWISliceLegacyPass();
       (void)llvm::createResolveSubGroupWICallLegacyPass();
       (void)llvm::createResolveWICallLegacyPass(false, false);
@@ -459,6 +493,7 @@ namespace {
       (void)llvm::createSGLoopConstructLegacyPass();
       (void)llvm::createSGSizeAnalysisLegacyPass();
       (void)llvm::createSGValueWidenLegacyPass();
+      (void)llvm::createSinCosFoldLegacyPass();
       (void)llvm::createSoaAllocaAnalysisLegacyPass();
       (void)llvm::createPrepareKernelArgsLegacyPass(false);
       (void)llvm::createCleanupWrappedKernelLegacyPass();
@@ -476,6 +511,8 @@ namespace {
       (void)llvm::createIndirectCallLoweringLegacyPass();
       (void)llvm::createCreateSimdVariantPropagationLegacyPass();
       (void)llvm::createLinearIdResolverPass();
+      (void)llvm::createVectorizationDimensionAnalysisLegacyPass();
+      (void)llvm::createWGLoopBoundariesLegacyPass();
       (void)llvm::createWorkItemAnalysisLegacyPass();
 
       // Optimize math calls
@@ -501,6 +538,7 @@ namespace {
       (void) llvm::createVPOParoptOptimizeDataSharingPass();
       (void) llvm::createVPOParoptSharedPrivatizationPass();
       (void) llvm::createVPOParoptTargetInlinePass();
+      (void) llvm::createVPOParoptApplyConfigPass();
       (void) llvm::createIntelVTableFixupPass();
       (void) llvm::createAutoCPUCloneLegacyPass();
   #endif // INTEL_CUSTOMIZATION

@@ -1,6 +1,6 @@
 //==== DeleteFieldOP.cpp - Delete field with support for opaque pointers ====//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -25,6 +25,8 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Operator.h"
 
 using namespace llvm;
 using namespace dtransOP;
@@ -101,7 +103,8 @@ public:
 
   bool prepareTypes(Module &M) override;
   void populateTypes(Module &M) override;
-  GlobalVariable *createGlobalVariableReplacement(GlobalVariable *GV) override;
+  GlobalVariable *createGlobalVariableReplacement(GlobalVariable *GV,
+                                                  ValueMapper &Mapper) override;
   void initializeGlobalVariableReplacement(GlobalVariable *OrigGV,
                                            GlobalVariable *NewGV,
                                            ValueMapper &Mapper) override;
@@ -353,6 +356,11 @@ void DeleteFieldOPImpl::pruneCandidates() {
 
   pruneCandidatesForTriaging();
   pruneCandidatesByParentSafety();
+
+  // TODO: We need to extend delete fields for working with base and padded
+  // structures. The basic idea is to make sure that both structures pass
+  // the safety tests, and the fields selected for deletion can be removed
+  // in both cases.
 }
 
 void DeleteFieldOPImpl::pruneCandidatesForTriaging() {
@@ -607,7 +615,8 @@ void DeleteFieldOPImpl::populateTypes(Module &M) {
 }
 
 GlobalVariable *
-DeleteFieldOPImpl::createGlobalVariableReplacement(GlobalVariable *GV) {
+DeleteFieldOPImpl::createGlobalVariableReplacement(GlobalVariable *GV,
+                                                   ValueMapper &Mapper) {
   Type *ValueType = GV->getValueType();
 
   // Let the base class handle replacing globals that are pointers. If the
@@ -636,6 +645,14 @@ DeleteFieldOPImpl::createGlobalVariableReplacement(GlobalVariable *GV) {
   NewGV->setAlignment(MaybeAlign(GV->getAlignment()));
   NewGV->copyAttributesFrom(GV);
   NewGV->copyMetadata(GV, /*Offset=*/0);
+
+  // The front-end may put DTrans metadata on Global variables that are
+  // structure or arrays of structure types, even though those cases do not
+  // strictly require it. In that case, the metadata needs to be updated to
+  // reflect the type of the new variable based on the type mapping being done
+  // because otherwise there could be a type left in the metadata that no longer
+  // exists in the IR.
+  remapDTransTypeMetadata(NewGV, Mapper);
 
   return NewGV;
 }

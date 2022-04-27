@@ -523,6 +523,7 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   case VPInstruction::FMax:
   case VPInstruction::SMin:
   case VPInstruction::UMin:
+  case VPInstruction::UMinSeq:
   case VPInstruction::FMin:
   case VPInstruction::Subscript:
   case VPInstruction::Blend:
@@ -595,6 +596,26 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   }
 
   case VPInstruction::ConflictInsn: {
+    // Wide value is shared across all lanes.
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    // Instruction itself produces scalar value, but it is vector in nature.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    // Each lanes has its own value.
+    setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    return true;
+  }
+
+  case VPInstruction::Permute: {
+    // Each lanes has its own value.
+    setSVAKindForReturnValue(Inst, SVAKind::Vector);
+    // Each lanes has its own value.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    // Each lanes has its own value.
+    setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    return true;
+  }
+
+  case VPInstruction::CvtMaskToInt: {
     // Wide value is shared across all lanes.
     setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
     // Instruction itself produces scalar value, but it is vector in nature.
@@ -709,7 +730,7 @@ void VPlanScalVecAnalysis::compute(VPlanVector *P) {
 
   // TODO: Is it okay to clear the table before a fresh compute cycle?
   clear();
-  VPBasicBlock *CFGEntry = Plan->getEntryBlock();
+  VPBasicBlock *CFGEntry = &Plan->getEntryBlock();
   for (auto *VPBB : post_order(CFGEntry)) {
     LLVM_DEBUG(dbgs() << "[SVA] Visiting BB " << VPBB->getName() << "\n");
     for (VPInstruction &Inst : reverse(*VPBB)) {
@@ -913,6 +934,8 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::GeneralMemOptConflict:
   case VPInstruction::ConflictInsn:
   case VPInstruction::TreeConflict:
+  case VPInstruction::Permute:
+  case VPInstruction::CvtMaskToInt:
     return true;
   default:
     return false;
@@ -936,7 +959,7 @@ void VPlanScalVecAnalysisBase::print(raw_ostream &OS,
 
 void VPlanScalVecAnalysisBase::print(raw_ostream &OS) {
   OS << "\nPrinting ScalVec analysis results for " << Plan->getName() << "\n";
-  ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan->getEntryBlock());
+  ReversePostOrderTraversal<VPBasicBlock *> RPOT(&Plan->getEntryBlock());
   for (VPBasicBlock *VPBB : make_range(RPOT.begin(), RPOT.end())) {
     OS << "Basic Block: " << VPBB->getName() << "\n";
     print(OS, VPBB);

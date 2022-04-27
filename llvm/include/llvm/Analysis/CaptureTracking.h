@@ -1,4 +1,21 @@
 //===----- llvm/Analysis/CaptureTracking.h - Pointer capture ----*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -14,6 +31,7 @@
 #define LLVM_ANALYSIS_CAPTURETRACKING_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/STLFunctionalExtras.h"
 
 namespace llvm {
 
@@ -24,6 +42,7 @@ namespace llvm {
   class DominatorTree;
   class LoopInfo;
   class Function;
+  template <typename T> class SmallPtrSetImpl;
 
   /// getDefaultMaxUsesToExploreForCaptureTracking - Return default value of
   /// the maximal number of uses to explore before giving up. It is used by
@@ -44,6 +63,14 @@ namespace llvm {
   /// is zero, a default value is assumed.
   bool PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
                             bool StoreCaptures,
+                            bool IngoreNoAliasArgStCaptures = false, // INTEL
+                            unsigned MaxUsesToExplore = 0);
+
+  /// Variant of the above function which accepts a set of Values that are
+  /// ephemeral and cannot cause pointers to escape.
+  bool PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
+                            bool StoreCaptures,
+                            const SmallPtrSetImpl<const Value *> &EphValues,
                             bool IgnoreNoAliasArgStCaptures = false,   // INTEL
                             unsigned MaxUsesToExplore = 0);
 
@@ -75,10 +102,11 @@ namespace llvm {
   // nullptr is returned. Note that the caller of the function has to ensure
   // that the instruction the result value is compared against is not in a
   // cycle.
-  Instruction *FindEarliestCapture(const Value *V, Function &F,
-                                   bool ReturnCaptures, bool StoreCaptures,
-                                   const DominatorTree &DT,
-                                   unsigned MaxUsesToExplore = 0);
+  Instruction *
+  FindEarliestCapture(const Value *V, Function &F, bool ReturnCaptures,
+                      bool StoreCaptures, const DominatorTree &DT,
+                      const SmallPtrSetImpl<const Value *> &EphValues,
+                      unsigned MaxUsesToExplore = 0);
 
   /// This callback is used in conjunction with PointerMayBeCaptured. In
   /// addition to the interface here, you'll need to provide your own getters
@@ -107,6 +135,24 @@ namespace llvm {
     /// avoid conservative responses when a pointer is compared to null.
     virtual bool isDereferenceableOrNull(Value *O, const DataLayout &DL);
   };
+
+  /// Types of use capture kinds, see \p DetermineUseCaptureKind.
+  enum class UseCaptureKind {
+    NO_CAPTURE,
+    MAY_CAPTURE,
+    USER_MAY_CAPTURE, // INTEL_COLLAB
+  };
+
+  /// Determine what kind of capture behaviour \p U may exhibit.
+  ///
+  /// A use can be no-capture, a use can potentially capture, or a use can be
+  /// passthrough such that the uses of the user or \p U should be inspected.
+  /// The \p IsDereferenceableOrNull callback is used to rule out capturing for
+  /// certain comparisons.
+  UseCaptureKind
+  DetermineUseCaptureKind(const Use &U,
+                          llvm::function_ref<bool(Value *, const DataLayout &)>
+                              IsDereferenceableOrNull);
 
   /// PointerMayBeCaptured - Visit the value and the values derived from it and
   /// find values which appear to be capturing the pointer value. This feeds

@@ -48,9 +48,7 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
     if (!runImpl(M, &AM.getResult<SGSizeAnalysisPass>(M)))
       return PreservedAnalyses::all();
-    PreservedAnalyses PA;
-    PA.preserve<SGSizeAnalysisPass>();
-    return PA;
+    return PreservedAnalyses::none();
   }
 
   // Glue for old PM.

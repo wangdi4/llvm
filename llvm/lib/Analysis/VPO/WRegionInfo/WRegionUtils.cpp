@@ -1,4 +1,19 @@
 #if INTEL_COLLAB
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //===------ WRegionUtils.cpp - WRegionNode Utils class -----*- C++ -*------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -273,6 +288,12 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
     case DIR_OMP_SCOPE:
       W = new WRNScopeNode(EntryBB);
       break;
+    case DIR_OMP_TILE:
+      W = new WRNTileNode(EntryBB, LI);
+      break;
+    case DIR_OMP_SCAN:
+      W = new WRNScanNode(EntryBB);
+      break;
   }
   if (W) {
     W->setLevel(NestingLevel);
@@ -396,17 +417,27 @@ bool WRegionUtils::supportsRegDDRefs(int ClauseID) {
 // New OpenMP directives under development can be added to this routine
 // to make the WRN graph builder skip them instead of asserting.
 bool WRegionUtils::skipDirFromWrnConstruction(int DirID) {
-#if INTEL_CUSTOMIZATION
   switch (DirID) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+#else // INTEL_FEATURE_CSA
+  case DIR_OMP_SECTION:
+  case DIR_OMP_END_SECTION:
+#endif // INTEL_FEATURE_CSA
+#else // INTEL_CUSTOMIZATION
+  case DIR_OMP_SECTION:
+  case DIR_OMP_END_SECTION:
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case DIR_PRAGMA_IVDEP:
   case DIR_PRAGMA_END_IVDEP:
   case DIR_PRAGMA_BLOCK_LOOP:
   case DIR_PRAGMA_END_BLOCK_LOOP:
   case DIR_PRAGMA_DISTRIBUTE_POINT:
   case DIR_PRAGMA_END_DISTRIBUTE_POINT:
+#endif // INTEL_CUSTOMIZATION
     return true;
   }
-#endif // INTEL_CUSTOMIZATION
   // Example:
   // if (DirID == A_NEW_DIRECTIVE_UNDER_DEVELOPMENT)
   //   // remove from this routine when directive is fully implemented
@@ -1178,4 +1209,74 @@ bool WRegionUtils::isDistributeParLoopNode(const WRegionNode *W) {
   return isa<WRNDistributeParLoopNode>(W) &&
          !W->getTreatDistributeParLoopAsDistribute();
 }
+
+template <typename ItemTy>
+Item *WRegionUtils::getClauseItemForInscanIdx(const Clause<ItemTy> &C,
+                                              uint64_t Idx) {
+  auto FoundIter = llvm::find_if(
+      C.items(), [Idx](ItemTy *I) { return I->getInscanIdx() == Idx; });
+  if (FoundIter == C.end())
+    return nullptr;
+
+  return *FoundIter;
+}
+
+Item *WRegionUtils::getClauseItemForInscanIdx(const WRegionNode *W,
+                                              uint64_t Idx) {
+  if (W->canHaveReductionInscan())
+    if (auto *FoundItem = getClauseItemForInscanIdx(W->getRed(), Idx))
+      return FoundItem;
+
+  if (W->canHaveInclusive())
+    if (auto *FoundItem = getClauseItemForInscanIdx(W->getInclusive(), Idx))
+      return FoundItem;
+
+  if (W->canHaveExclusive())
+    if (auto *FoundItem = getClauseItemForInscanIdx(W->getExclusive(), Idx))
+      return FoundItem;
+
+  return nullptr;
+}
+
+InclusiveExclusiveItemBase *
+WRegionUtils::getInclusiveExclusiveItemForReductionItem(
+    const WRegionNode *W, const ReductionItem *I) {
+
+  if (!I->getIsInscan())
+    return nullptr;
+
+  auto ScanNodeIt = llvm::find_if(
+      W->getChildren(), [](WRegionNode *Cur) { return isa<WRNScanNode>(Cur); });
+
+  assert(ScanNodeIt != W->getChildren().end() &&
+         "No scan directive in a region with a reduction(inscan) item.");
+
+  Item *Res =
+      WRegionUtils::getClauseItemForInscanIdx(*ScanNodeIt, I->getInscanIdx());
+  assert(Res && "Reduction(inscan) operand has no matching clause on a child "
+                "Scan directive.");
+
+  assert((isa<InclusiveItem>(Res) || isa<ExclusiveItem>(Res)) &&
+         "Reduction(inscan) item matches an unexpected clause on the child "
+         "Scan directive.");
+
+  InclusiveExclusiveItemBase *IEItem = dyn_cast<InclusiveItem>(Res);
+  return (IEItem ? IEItem : cast<ExclusiveItem>(Res));
+}
+
+ReductionItem *WRegionUtils::getReductionItemForInclusiveExclusiveItem(
+    const WRNScanNode *W, const InclusiveExclusiveItemBase *I) {
+
+  auto *Parent = W->getParent();
+  assert(Parent->canHaveReductionInscan() &&
+         "scan directive should be perfectly nested in a region that supports "
+         "reduction(inscan).");
+
+  Item *Res =
+      WRegionUtils::getClauseItemForInscanIdx(Parent, I->getInscanIdx());
+  assert(Res && "inclusive/exclusive operand has no matching clause on the "
+                "parent construct.");
+  return cast<ReductionItem>(Res);
+}
+
 #endif // INTEL_COLLAB

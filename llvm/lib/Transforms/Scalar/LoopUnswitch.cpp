@@ -1,4 +1,21 @@
 //===- LoopUnswitch.cpp - Hoist loop-invariant conditionals in loop -------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -32,6 +49,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CodeMetrics.h"
+#include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_Andersens.h"                      // INTEL
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"     // INTEL
@@ -59,7 +77,6 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/User.h"
@@ -72,7 +89,6 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
-#include "llvm/Transforms/Scalar/LoopPassManager.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -81,7 +97,6 @@
 #include <algorithm>
 #include <cassert>
 #include <map>
-#include <set>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -947,9 +962,9 @@ bool LoopUnswitch::processCurrentLoop() {
 /// If true, we return true and set ExitBB to the block we
 /// exit through.
 ///
-static bool isTrivialLoopExitBlockHelper(Loop *L, BasicBlock *BB,
-                                         BasicBlock *&ExitBB,
-                                         std::set<BasicBlock*> &Visited) {
+static bool
+isTrivialLoopExitBlockHelper(Loop *L, BasicBlock *BB, BasicBlock *&ExitBB,
+                             SmallPtrSet<BasicBlock *, 8> &Visited) {
   if (!Visited.insert(BB).second) {
     // Already visited. Without more analysis, this could indicate an infinite
     // loop.
@@ -983,7 +998,7 @@ static bool isTrivialLoopExitBlockHelper(Loop *L, BasicBlock *BB,
 /// the specified loop, and has no side-effects in the process. If so, return
 /// the block that is exited to, otherwise return null.
 static BasicBlock *isTrivialLoopExitBlock(Loop *L, BasicBlock *BB) {
-  std::set<BasicBlock*> Visited;
+  SmallPtrSet<BasicBlock *, 8> Visited;
   Visited.insert(L->getHeader());  // Branches to header make infinite loops.
   BasicBlock *ExitBB = nullptr;
   if (isTrivialLoopExitBlockHelper(L, BB, ExitBB, Visited))
@@ -991,176 +1006,6 @@ static BasicBlock *isTrivialLoopExitBlock(Loop *L, BasicBlock *BB) {
   return nullptr;
 }
 
-#if INTEL_CUSTOMIZATION
-static bool isLoopHandledByLoopOpt(Loop *Lp, LoopInfo *LI,
-                                   TargetLibraryInfo *TLI, bool RelaxChecks) {
-
-  // Perfect loopnest is only meaningful for single exit loops.
-  if (!Lp->getExitingBlock())
-    return false;
-
-  // LoopOpt only handles loops with single latch ending in a
-  // conditional branch.
-  auto *Latch = Lp->getLoopLatch();
-  if (!Latch)
-    return false;
-
-  auto *LatchBr = dyn_cast<BranchInst>(Latch->getTerminator());
-  if (!LatchBr)
-    return false;
-
-  bool IsOuterLoop = !Lp->isInnermost();
-
-  // Outer loop may not be rotated yet so this cannot be checked.
-  if (!IsOuterLoop) {
-    if (!LatchBr->isConditional())
-      return false;
-
-    auto *CmpInst = dyn_cast<ICmpInst>(LatchBr->getCondition());
-
-    if (!CmpInst)
-      return false;
-  }
-
-  unsigned NumBlocks = 0;
-
-  for (auto I = Lp->block_begin(), BE = Lp->block_end(); I != BE; ++I) {
-    auto *BB = *I;
-
-    if (IsOuterLoop && LI->getLoopFor(BB) != Lp)
-      continue;
-
-    ++NumBlocks;
-
-    // Give up on loops with volatile/atomic accesses or inline asm as LoopOpt
-    // does not handle them.
-    //
-    // Give up if loop has a user call. LoopOpt is not likely to optimize loops
-    // with user calls, especially when it comes to textbook optimizations which
-    // require perfect loopnest. Also, in LTO mode inlining of these calls may
-    // result in LoopOpt skipping this loop.
-    for (auto Inst = BB->begin(), E = BB->end(); Inst != E; ++Inst) {
-
-      if (Inst->isAtomic())
-        return false;
-
-      if (auto *Load = dyn_cast<LoadInst>(&*Inst))
-        if (Load->isVolatile())
-          return false;
-
-      if (auto *Store = dyn_cast<StoreInst>(&*Inst))
-        if (Store->isVolatile())
-          return false;
-
-      auto *CInst = dyn_cast<CallInst>(&*Inst);
-
-      if (!CInst)
-        continue;
-
-      if (isa<IntrinsicInst>(CInst))
-        continue;
-
-      if (CInst->isInlineAsm())
-        return false;
-
-      auto *Func = CInst->getCalledFunction();
-
-      // Indirect call
-      if (!Func)
-        return false;
-
-      // Allow library and vectorizable calls.
-      LibFunc LF;
-      if (RelaxChecks ||
-          (TLI->getLibFunc(Func->getName(), LF) && TLI->has(LF)) ||
-          TLI->isFunctionVectorizable(Func->getName()))
-        continue;
-
-      return false;
-    }
-  }
-
-  // We are unlikely to perform loop transformations if loop has too many
-  // branches. The number of blocks is used as a simplistic heuristic for number
-  // of branches allowed.
-  if (NumBlocks > (RelaxChecks ? 20u : 5u))
-    return false;
-
-  return true;
-}
-
-static bool mayAffectPerfectLoopnest(LoopInfo *LI, Loop *CurLoop,
-                                     Instruction *Inst,
-                                     TargetLibraryInfo *TLI) {
-  // Let LoopOpt perform unswitching if certain criteria are satisfied.
-  // Unswitching can interfere with LoopOpt's ability to recognize ztt and
-  // form perfect loopnests.
-
-  // Only branches are currently unswitched by loopopt.
-  if (!Inst || !isa<BranchInst>(Inst))
-    return false;
-
-  auto *BB = Inst->getParent();
-  auto *Func = BB->getParent();
-  if (!Func->isPreLoopOpt())
-    return false;
-
-  // This flag is used as a heuristic to predict whether the functon may be
-  // inlined. There are a couple of problems with accurate prediction- 1)
-  // Unswitching happens very early before inlining in the pass pipeline. 2)
-  // There are some conditions which are handled by this pass but not the
-  // LoopOpt predicate opt pass. For example- CMPLRLLVM-23157.
-  //
-  // The heuristics reflect the fact that we are trying to suppress this
-  // particularly for fortran benchmarks which have loopnest heavy code.
-  bool MayBeInlined = Func->hasExternalLinkage() && Func->isFortran();
-
-  // Let unswitching happen for outermost loops.
-  if (!MayBeInlined && !CurLoop->getParentLoop())
-    return false;
-
-  // We need to get the innermost loop for the block as the same bblock
-  // may be traversed for outer loops as well.
-  Loop *CondLp = CurLoop->isInnermost() ? CurLoop : LI->getLoopFor(BB);
-
-  // Check if this loopnest looks like a perfect loopnest.
-
-  if (!CondLp->isInnermost()) {
-    // Check whether the condition being hoisted looks like inner loop's ztt.
-    auto &SubLoops = CondLp->getSubLoops();
-
-    if (SubLoops.size() != 1) {
-      return false;
-    }
-
-    auto *SubLoop = SubLoops[0];
-    auto *SubLoopPreheader = SubLoop->getLoopPreheader();
-    auto *BrInst = cast<BranchInst>(Inst);
-
-    // Check that we are are jumping to inner loop's preheader using the
-    // condition.
-    if (BrInst->getSuccessor(0) != SubLoopPreheader &&
-        BrInst->getSuccessor(1) != SubLoopPreheader)
-      return false;
-
-    if (!isLoopHandledByLoopOpt(SubLoop, LI, TLI, MayBeInlined))
-      return false;
-  }
-
-  auto *ParentLp = CondLp->getParentLoop();
-
-  if (!MayBeInlined && !ParentLp)
-    return false;
-
-  if (!isLoopHandledByLoopOpt(CondLp, LI, TLI, MayBeInlined))
-    return false;
-
-  if (ParentLp && !isLoopHandledByLoopOpt(ParentLp, LI, TLI, MayBeInlined))
-    return false;
-
-  return true;
-}
-#endif // INTEL CUSTOMIZATION
 /// We have found that we can unswitch currentLoop when LoopCond == Val to
 /// simplify the loop.  If we decide that this is profitable,
 /// unswitch the loop, reprocess the pieces, then return true.
@@ -1187,7 +1032,7 @@ bool LoopUnswitch::unswitchIfProfitable(Value *LoopCond, Constant *Val,
   }
 
 #if INTEL_CUSTOMIZATION
-  if (mayAffectPerfectLoopnest(LI, CurrentLoop, TI, TLI)) {
+  if (unswitchingMayAffectPerfectLoopnest(*LI, *CurrentLoop, TI, *TLI)) {
     LLVM_DEBUG(dbgs() << "NOT unswitching loop %"
                       << CurrentLoop->getHeader()->getName()
                       << " at non-trivial condition '" << *Val
@@ -1584,6 +1429,20 @@ void LoopUnswitch::unswitchNontrivialCondition(
   // The exit blocks may have been changed due to edge splitting, recompute.
   ExitBlocks.clear();
   L->getUniqueExitBlocks(ExitBlocks);
+
+#if INTEL_CUSTOMIZATION
+  // After splitExitEdges, exception handling edges may still remain. This is
+  // an xmain-specific modification. Loops with these exits should not be
+  // unswitched.
+  for (auto *ExitBB : ExitBlocks) {
+    if (ExitBB->getTerminator()->getNumSuccessors() > 1) {
+      LLVM_DEBUG(
+          dbgs() << "Exit block " << ExitBB->getName()
+                 << " could not be split (possible exception handler)\n");
+      return;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Add exit blocks to the loop blocks.
   llvm::append_range(LoopBlocks, ExitBlocks);

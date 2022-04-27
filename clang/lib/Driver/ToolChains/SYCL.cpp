@@ -1,4 +1,21 @@
 //===--- SYCL.cpp - SYCL Tool and ToolChain Implementations -----*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -25,6 +42,9 @@ using namespace llvm::opt;
 SYCLInstallationDetector::SYCLInstallationDetector(const Driver &D)
     : D(D), InstallationCandidates() {
   InstallationCandidates.emplace_back(D.Dir + "/..");
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+  InstallationCandidates.emplace_back(D.Dir + "/../..");
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
 }
 
 void SYCLInstallationDetector::getSYCLDeviceLibPath(
@@ -45,46 +65,6 @@ void SYCLInstallationDetector::print(llvm::raw_ostream &OS) const {
   for (const auto &IC : InstallationCandidates) {
     OS << IC << "\n";
   }
-}
-
-const char *SYCL::Linker::constructLLVMSpirvCommand(
-    Compilation &C, const JobAction &JA, const InputInfo &Output,
-    StringRef OutputFilePrefix, bool ToBc, const char *InputFileName) const {
-  // Construct llvm-spirv command.
-  // The output is a bc file or vice versa depending on the -r option usage
-  // llvm-spirv -r -o a_kernel.bc a_kernel.spv
-  // llvm-spirv -o a_kernel.spv a_kernel.bc
-  ArgStringList CmdArgs;
-  const char *OutputFileName = nullptr;
-  if (ToBc) {
-    std::string TmpName =
-        C.getDriver().GetTemporaryPath(OutputFilePrefix.str() + "-spirv", "bc");
-    OutputFileName = C.addTempFile(C.getArgs().MakeArgString(TmpName));
-    CmdArgs.push_back("-r");
-    CmdArgs.push_back("-o");
-    CmdArgs.push_back(OutputFileName);
-  } else {
-#if INTEL_CUSTOMIZATION
-    // Workaround for old GPU driver version
-    CmdArgs.push_back("-spirv-max-version=1.3");
-#else  // INTEL_CUSTOMIZATION
-    CmdArgs.push_back("-spirv-max-version=1.4");
-#endif // INTEL_CUSTOMIZATION
-    CmdArgs.push_back("-spirv-ext=+all");
-    CmdArgs.push_back("-spirv-debug-info-version=ocl-100");
-    CmdArgs.push_back("-spirv-allow-extra-diexpressions");
-    CmdArgs.push_back("-spirv-allow-unknown-intrinsics=llvm.genx.");
-    CmdArgs.push_back("-o");
-    CmdArgs.push_back(Output.getFilename());
-  }
-  CmdArgs.push_back(InputFileName);
-
-  SmallString<128> LLVMSpirvPath(C.getDriver().Dir);
-  llvm::sys::path::append(LLVMSpirvPath, "llvm-spirv");
-  const char *LLVMSpirv = C.getArgs().MakeArgString(LLVMSpirvPath);
-  C.addCommand(std::make_unique<Command>(
-      JA, *this, ResponseFileSupport::AtFileUTF8(), LLVMSpirv, CmdArgs, None));
-  return OutputFileName;
 }
 
 static void addFPGATimingDiagnostic(std::unique_ptr<Command> &Cmd,
@@ -213,8 +193,8 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
     const ArgList &Args, StringRef SubArchName, StringRef OutputFilePrefix,
     const InputInfoList &InputFiles) const {
   // Split inputs into libraries which have 'archive' type and other inputs
-  // which can be either objects or list files. Objects/list files are linked
-  // together in a usual way, but the libraries need to be linked differently.
+  // which can be either objects or list files. Object files are linked together
+  // in a usual way, but the libraries/list files need to be linked differently.
   // We need to fetch only required symbols from the libraries. With the current
   // llvm-link command line interface that can be achieved with two step
   // linking: at the first step we will link objects into an intermediate
@@ -255,14 +235,11 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
 #if INTEL_CUSTOMIZATION
     auto isOMPDeviceLib = [&C](const InputInfo &II) {
       const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
-      StringRef LibPostfix = ".o";
       bool IsMSVC = HostTC->getTriple().isWindowsMSVCEnvironment();
-      if (IsMSVC && C.getDriver().IsCLMode())
-        LibPostfix = ".obj";
       StringRef InputFilename =
           llvm::sys::path::filename(StringRef(II.getFilename()));
       if (!InputFilename.startswith("libomp-") ||
-          !InputFilename.endswith(LibPostfix) || (InputFilename.count('-') < 2))
+          (InputFilename.count('-') < 2))
         return false;
       size_t PureLibNameLen = InputFilename.find_last_of('-');
       // Skip the prefix "libomp-"
@@ -290,10 +267,14 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
     if (LinkSYCLDeviceLibs)
       Opts.push_back("-only-needed");
     for (const auto &II : InputFiles) {
-      if (II.getType() == types::TY_Tempfilelist) {
+#if INTEL_CUSTOMIZATION
+      if (isOMPDeviceLib(II)) {
+        OMPObjs.push_back(II.getFilename());
+      } else if (II.getType() == types::TY_Tempfilelist) {
+#endif // INTEL_CUSTOMIZATION
         // Pass the unbundled list with '@' to be processed.
         std::string FileName(II.getFilename());
-        Objs.push_back(C.getArgs().MakeArgString("@" + FileName));
+        Libs.push_back(C.getArgs().MakeArgString("@" + FileName));
 #if INTEL_CUSTOMIZATION
       } else if (isOMPDeviceLib(II)) {
         OMPObjs.push_back(II.getFilename());
@@ -423,23 +404,11 @@ void SYCL::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     return;
   }
 
-  // We want to use llvm-spirv linker to link spirv binaries before putting
-  // them into the fat object.
-  // Each command outputs different files.
   InputInfoList SpirvInputs;
   for (const auto &II : Inputs) {
     if (!II.isFilename())
       continue;
-    if (Args.hasFlag(options::OPT_fsycl_use_bitcode,
-                     options::OPT_fno_sycl_use_bitcode, true) ||
-        Args.hasArg(options::OPT_foffload_static_lib_EQ))
-      SpirvInputs.push_back(II);
-    else {
-      const char *LLVMSpirvOutputFile = constructLLVMSpirvCommand(
-          C, JA, Output, Prefix, true, II.getFilename());
-      SpirvInputs.push_back(InputInfo(types::TY_LLVM_BC, LLVMSpirvOutputFile,
-                                      LLVMSpirvOutputFile));
-    }
+    SpirvInputs.push_back(II);
   }
 
   constructLLVMLinkCommand(C, JA, Output, Args, SubArchName, Prefix,
@@ -1060,6 +1029,15 @@ void SYCLToolChain::AddSYCLIncludeArgs(const clang::driver::Driver &Driver,
   // Add ../include/sycl and ../include (in that order)
   SmallString<128> P(Driver.getInstalledDir());
   llvm::sys::path::append(P, "..");
+#if INTEL_CUSTOMIZATION
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+  if (!llvm::sys::fs::exists(P + "/include/sycl")) {
+    // Location of SYCL specific headers is <install>/include/sycl, which is
+    // two levels up from the clang binary (Driver installed dir).
+    llvm::sys::path::append(P, "..");
+  }
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
+#endif // INTEL_CUSTOMIZATION
   llvm::sys::path::append(P, "include");
   SmallString<128> SYCLP(P);
   llvm::sys::path::append(SYCLP, "sycl");

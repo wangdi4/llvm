@@ -1,10 +1,10 @@
-; RUN: opt <%s -vpo-paropt-prepare -pass-remarks-output=%t -S
+; RUN: opt -vpo-paropt-prepare -pass-remarks-output=%t -S %s
 ; RUN: FileCheck --input-file %t %s
 ; FIXME: This fails with new pass manager as genGlobalPrivatizationLaunderIntrin()
 ; inserts an empty basic block even when there is nothing to be laundered, which
 ; changes CFE, but it returns "Changed" as "false". This causes new PM's CFG verification
 ; to fail.
-; COM: opt <%s -passes='function(vpo-paropt-prepare)' -pass-remarks-output=%t -S
+; COM: opt %s -passes='function(vpo-paropt-prepare)' -pass-remarks-output=%t -S
 ; COM: FileCheck --input-file %t %s
 ;
 ; The test does not declare a variant version of foo().

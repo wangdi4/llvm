@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 include(GNUInstallDirs)
 
 macro(add_xpti_lib target_name)
@@ -32,12 +49,7 @@ if (MSVC)
   target_compile_options(xptid PRIVATE ${XPTI_CXX_FLAGS_DEBUG})
   target_compile_options(xpti PRIVATE ${XPTI_CXX_FLAGS_RELEASE})
 else()
-# Don't use libcxx library to build sycl library if it is not explicitly stated to do so
-  string( REPLACE "-stdlib=libc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
-
-# Don't link statically against standard C++ library
-  string( REPLACE "-static-libstdc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
-
+  intel_clear_stdlib()
 # end INTEL_CUSTOMIZATION
 endif()
 

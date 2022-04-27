@@ -1,4 +1,21 @@
 //===- TargetTransformInfoImpl.h --------------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -18,17 +35,15 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/DataLayout.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PatternMatch.h"
-#include "llvm/IR/Type.h"
 #include <utility>
 
-using namespace llvm::PatternMatch;
-
 namespace llvm {
+
+class Function;
 
 /// Base class for use as a mix-in that aids implementing
 /// a TargetTransformInfo-compatible class.
@@ -42,8 +57,7 @@ protected:
 
 public:
   // Provide value semantics. MSVC requires that we spell all of these out.
-  TargetTransformInfoImplBase(const TargetTransformInfoImplBase &Arg)
-      : DL(Arg.DL) {}
+  TargetTransformInfoImplBase(const TargetTransformInfoImplBase &Arg) = default;
   TargetTransformInfoImplBase(TargetTransformInfoImplBase &&Arg) : DL(Arg.DL) {}
 
   const DataLayout &getDataLayout() const { return DL; }
@@ -260,6 +274,10 @@ public:
     return Alignment >= DataSize && isPowerOf2_32(DataSize);
   }
 
+  bool isLegalBroadcastLoad(Type *ElementTy, unsigned NumElements) const {
+    return false;
+  }
+
   bool isLegalMaskedScatter(Type *DataType, Align Alignment) const {
     return false;
   }
@@ -301,6 +319,15 @@ public:
     return false;
   }
 #endif // INTEL_CUSTOMIZATION
+
+  bool forceScalarizeMaskedGather(VectorType *DataType, Align Alignment) const {
+    return false;
+  }
+
+  bool forceScalarizeMaskedScatter(VectorType *DataType,
+                                   Align Alignment) const {
+    return false;
+  }
 
   bool isLegalMaskedCompressStore(Type *DataType) const { return false; }
 
@@ -517,7 +544,8 @@ public:
 
   InstructionCost getShuffleCost(TTI::ShuffleKind Kind, VectorType *Ty,
                                  ArrayRef<int> Mask, int Index,
-                                 VectorType *SubTp) const {
+                                 VectorType *SubTp,
+                                 ArrayRef<Value *> Args = None) const {
     return 1;
   }
 
@@ -673,6 +701,7 @@ public:
     case Intrinsic::coro_end:
     case Intrinsic::coro_frame:
     case Intrinsic::coro_size:
+    case Intrinsic::coro_align:
     case Intrinsic::coro_suspend:
     case Intrinsic::coro_subfn_addr:
       // These intrinsics don't actually represent code after lowering.
@@ -738,6 +767,10 @@ public:
 #if INTEL_CUSTOMIZATION
   bool isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const { return false; }
 
+  bool isLibIRCAllowed() const { return false; }
+
+  unsigned getMaxScale() const { return 1; }
+
   bool adjustCallArgs(CallInst *CI) { return false; }
 
   bool isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const {
@@ -758,19 +791,26 @@ public:
   const char *getISASetForIMLFunctions() const { return "all"; }
 
   bool hasCDI() const { return false; }
+
+  bool displacementFoldable() const { return false; }
 #endif
   Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
                                   unsigned SrcAddrSpace, unsigned DestAddrSpace,
-                                  unsigned SrcAlign, unsigned DestAlign) const {
-    return Type::getInt8Ty(Context);
+                                  unsigned SrcAlign, unsigned DestAlign,
+                                  Optional<uint32_t> AtomicElementSize) const {
+    return AtomicElementSize ? Type::getIntNTy(Context, *AtomicElementSize * 8)
+                             : Type::getInt8Ty(Context);
   }
 
   void getMemcpyLoopResidualLoweringType(
       SmallVectorImpl<Type *> &OpsOut, LLVMContext &Context,
       unsigned RemainingBytes, unsigned SrcAddrSpace, unsigned DestAddrSpace,
-      unsigned SrcAlign, unsigned DestAlign) const {
-    for (unsigned i = 0; i != RemainingBytes; ++i)
-      OpsOut.push_back(Type::getInt8Ty(Context));
+      unsigned SrcAlign, unsigned DestAlign,
+      Optional<uint32_t> AtomicCpySize) const {
+    unsigned OpSizeInBytes = AtomicCpySize ? *AtomicCpySize : 1;
+    Type *OpType = Type::getIntNTy(Context, OpSizeInBytes * 8);
+    for (unsigned i = 0; i != RemainingBytes; i += OpSizeInBytes)
+      OpsOut.push_back(OpType);
   }
 
   bool areInlineCompatible(const Function *Caller,
@@ -1024,6 +1064,8 @@ public:
 
   InstructionCost getUserCost(const User *U, ArrayRef<const Value *> Operands,
                               TTI::TargetCostKind CostKind) {
+    using namespace llvm::PatternMatch;
+
     auto *TargetTTI = static_cast<T *>(this);
     // Handle non-intrinsic calls, invokes, and callbr.
     // FIXME: Unlikely to be true for anything but CodeSize.
@@ -1125,7 +1167,20 @@ public:
     }
     case Instruction::Load: {
       auto *LI = cast<LoadInst>(U);
-      return TargetTTI->getMemoryOpCost(Opcode, U->getType(), LI->getAlign(),
+      Type *LoadType = U->getType();
+      // If there is a non-register sized type, the cost estimation may expand
+      // it to be several instructions to load into multiple registers on the
+      // target.  But, if the only use of the load is a trunc instruction to a
+      // register sized type, the instruction selector can combine these
+      // instructions to be a single load.  So, in this case, we use the
+      // destination type of the trunc instruction rather than the load to
+      // accurately estimate the cost of this load instruction.
+      if (CostKind == TTI::TCK_CodeSize && LI->hasOneUse() &&
+          !LoadType->isVectorTy()) {    
+        if (const TruncInst *TI = dyn_cast<TruncInst>(*LI->user_begin()))
+          LoadType = TI->getDestTy();
+      }
+      return TargetTTI->getMemoryOpCost(Opcode, LoadType, LI->getAlign(),
                                         LI->getPointerAddressSpace(),
                                         CostKind, I);
     }

@@ -1,4 +1,21 @@
 //===- InstCombineNegator.cpp -----------------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -248,6 +265,33 @@ LLVM_NODISCARD Value *Negator::visitImpl(Value *V, unsigned Depth) {
     return nullptr;
 
   switch (I->getOpcode()) {
+  case Instruction::And: {
+    Constant *ShAmt;
+    // sub(y,and(lshr(x,C),1)) --> add(ashr(shl(x,(BW-1)-C),BW-1),y)
+    if (match(I, m_c_And(m_OneUse(m_TruncOrSelf(
+                             m_LShr(m_Value(X), m_ImmConstant(ShAmt)))),
+                         m_One()))) {
+      unsigned BW = X->getType()->getScalarSizeInBits();
+      Constant *BWMinusOne = ConstantInt::get(X->getType(), BW - 1);
+      Value *R = Builder.CreateShl(X, Builder.CreateSub(BWMinusOne, ShAmt));
+      R = Builder.CreateAShr(R, BWMinusOne);
+      return Builder.CreateTruncOrBitCast(R, I->getType());
+    }
+#if INTEL_CUSTOMIZATION
+    // -((X >> C) & 1) -> (X << (BitWidth - C - 1)) >>s (BitWidth - 1)
+    const APInt *ShInt, *Mask;
+    if (match(I->getOperand(0), m_LShr(m_Value(X), m_APInt(ShInt))) &&
+        match(I->getOperand(1), m_APInt(Mask)) &&
+        Mask->isOneValue() && ShInt->ult(BitWidth)) {
+      Value *Shl = Builder.CreateShl(X,
+                                     ConstantInt::get(I->getType(),
+                                                      BitWidth - *ShInt - 1));
+      return Builder.CreateAShr(Shl, ConstantInt::get(I->getType(),
+                                                      BitWidth - 1));
+    }
+#endif // INTEL_CUSTOMIZATION
+    break;
+  }
   case Instruction::SDiv:
     // `sdiv` is negatible if divisor is not undef/INT_MIN/1.
     // While this is normally not behind a use-check,
@@ -264,22 +308,6 @@ LLVM_NODISCARD Value *Negator::visitImpl(Value *V, unsigned Depth) {
       }
     }
     break;
-#if INTEL_CUSTOMIZATION
-  case Instruction::And: {
-    // -((X >> C) & 1) -> (X << (BitWidth - C - 1)) >>s (BitWidth - 1)
-    const APInt *Mask, *ShAmt;
-    if (match(I->getOperand(0), m_LShr(m_Value(X), m_APInt(ShAmt))) &&
-        match(I->getOperand(1), m_APInt(Mask)) &&
-        Mask->isOneValue() && ShAmt->ult(BitWidth)) {
-      Value *Shl = Builder.CreateShl(X,
-                                     ConstantInt::get(I->getType(),
-                                                      BitWidth - *ShAmt - 1));
-      return Builder.CreateAShr(Shl, ConstantInt::get(I->getType(),
-                                                      BitWidth - 1));
-    }
-    break;
-  }
-#endif // INTEL_CUSTOMIZATION
   }
 
   // Rest of the logic is recursive, so if it's time to give up then it's time.

@@ -1,4 +1,21 @@
 //===-- VPlanAllZeroBypass.cpp ----------------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -16,7 +33,6 @@
 
 #include "IntelVPlanAllZeroBypass.h"
 #include "IntelVPlanCostModel.h"
-#include "IntelVPlanTTIWrapper.h"
 #include "IntelVPlanUtils.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -30,7 +46,7 @@ using namespace llvm;
 // insert the bypass.
 static cl::opt<unsigned> RegionThreshold(
     "vplan-all-zero-bypass-region-threshold",
-    cl::init(30 * VPlanTTIWrapper::Multiplier), cl::Hidden,
+    cl::init(30), cl::Hidden,
     cl::desc("Tune bypass insertion based on cost of instructions in region"));
 
 namespace llvm {
@@ -432,7 +448,7 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
   // is possible to begin a region with a block containing multiple successors,
   // but this seems unlikely.
   SmallVector<VPBasicBlock *, 16> CandidateBlocks;
-  ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan.getEntryBlock());
+  ReversePostOrderTraversal<VPBasicBlock *> RPOT(&Plan.getEntryBlock());
   for (auto *Block : RPOT) {
     VPValue *BlockPred = Block->getPredicate();
     if (!BlockPred || !Block->getSingleSuccessor() ||
@@ -585,13 +601,13 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
     // Cost model not yet available for function vectorization pipeline. It's
     // ok because there's really no reason for it there yet anyway since this
     // pipeline is only used for testing at the moment.
-    unsigned RegionCost = EffectiveThreshold;
+    VPInstructionCost RegionCost{EffectiveThreshold};
     if (CM)
       RegionCost = CM->getBlockRangeCost(CandidateBlock, LastBB);
 
     // If the region meets minimum cost requirements, record it for later
     // insertion.
-    if (RegionCost >= EffectiveThreshold) {
+    if (RegionCost.isValid() && RegionCost >= EffectiveThreshold) {
       AllZeroBypassRegionsTy::iterator InsertPt = AllZeroBypassRegions.end();
       for (AllZeroBypassRegionsTy::iterator It = AllZeroBypassRegions.begin();
            It != AllZeroBypassRegions.end(); ++It) {

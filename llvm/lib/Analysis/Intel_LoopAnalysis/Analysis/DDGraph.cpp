@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDGraph.h"
+#include "llvm/IR/Metadata.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -33,7 +34,7 @@ DDEdge::DepType DDEdge::getEdgeType() const {
   }
 }
 
-bool DDEdge::isForwardDep() const {
+bool DDEdge::isForwardDep(bool CheckIfPath) const {
   auto SrcTopSortNum = getSrc()->getHLDDNode()->getTopSortNum();
   auto SinkTopSortNum = getSink()->getHLDDNode()->getTopSortNum();
 
@@ -46,13 +47,96 @@ bool DDEdge::isForwardDep() const {
     return !SrcIsLval;
   }
 
+  if (CheckIfPath) {
+    // a workaround for the fact that CFG representation in VPlan isn't lexical.
+    // TODO: Remove once CMPLRLLVM-3064 will be implemented
+    auto SinkNode = getSink()->getHLDDNode();
+    auto SrcNode = getSrc()->getHLDDNode();
+    auto *CommonParent =
+        HLNodeUtils::getLexicalLowestCommonAncestorParent(SrcNode, SinkNode);
+    if (auto *IfParent = dyn_cast<HLIf>(CommonParent)) {
+      if (IfParent->isThenChild(SrcNode) != IfParent->isThenChild(SinkNode))
+        return false; // assume backward
+    }
+  }
   return (SrcTopSortNum < SinkTopSortNum);
 }
 
-std::string DDEdge::getOptReportStr() const {
+static std::string getNameAndDbgLoc(DDRef *Ref) {
 
-  // TODO: finally should return a string like
-  // assumed FLOW dependence between p1[i] (9:5) and p2[*(M+i*4)] (9:5)
+  std::string NameAndDbgLoc = "";
+
+  auto getSourceName = [&](Value *Val) {
+    // First try for global, trace load if ptr
+    GlobalVariable *GV = nullptr;
+    if (isa<GlobalVariable>(Val)) {
+      GV = cast<GlobalVariable>(Val);
+    } else if (auto *Load = dyn_cast<LoadInst>(Val)) {
+      if (auto *LoadGV = dyn_cast<GlobalVariable>(Load->getPointerOperand())) {
+        GV = LoadGV;
+      }
+    }
+
+    // Get name from global debug info, or local debug metadata
+    if (GV) {
+      SmallVector<DIGlobalVariableExpression *, 1> GVEs;
+      GV->getDebugInfo(GVEs);
+      if (!GVEs.empty()) {
+        NameAndDbgLoc.append(GVEs.front()->getVariable()->getName().str() +
+                             " ");
+      }
+    } else if (Val->isUsedByMetadata()) {
+      if (auto *L = LocalAsMetadata::getIfExists(Val)) {
+        if (auto *MDV = MetadataAsValue::getIfExists(Val->getContext(), L)) {
+          for (User *U : MDV->users()) {
+            if (auto *DI = dyn_cast<DbgVariableIntrinsic>(U)) {
+              auto *DbgVar = DI->getVariable();
+              assert(DbgVar && "Variable is null!\n");
+              NameAndDbgLoc.append(DbgVar->getName().str() + " ");
+            }
+          }
+        }
+      }
+    }
+  };
+
+  if (BlobDDRef *BRef = dyn_cast<BlobDDRef>(Ref)) {
+    Value *Val = BRef->getBlobUtils().getTempBlobValue(BRef->getBlobIndex());
+    assert(Val && "Underlying BRef Value is null!\n");
+    getSourceName(Val);
+
+    // Add DebugLoc from parent RegDDRef
+    const DebugLoc &DbgLoc = BRef->getParentDDRef()->getDebugLoc();
+    if (DbgLoc.get())
+      NameAndDbgLoc.append("(" + std::to_string(DbgLoc.getLine()) + ":" +
+                           std::to_string(DbgLoc.getCol()) + ") ");
+  } else {
+    RegDDRef *RegRef = cast<RegDDRef>(Ref);
+    Value *Val = nullptr;
+    if (RegRef->hasGEPInfo()) {
+      // Note: We only output the BaseValue, as reconstructing the
+      // original ref is potentially expensive.
+      Val = RegRef->getBaseValue();
+    } else if (RegRef->isSelfBlob()) {
+      Val = RegRef->getBlobUtils().getTempBlobValue(RegRef->getSelfBlobIndex());
+    } else if (RegRef->isLval() && RegRef->isTerminalRef()) {
+      auto &BU = RegRef->getBlobUtils();
+      Val = BU.getTempBlobValue(BU.findTempBlobIndex(RegRef->getSymbase()));
+    }
+
+    assert(Val && "Underlying Value is null!\n");
+    getSourceName(Val);
+
+    // DbgLoc is embedded inside RegDDRef
+    const DebugLoc &DbgLoc = RegRef->getDebugLoc();
+    if (DbgLoc.get())
+      NameAndDbgLoc.append("(" + std::to_string(DbgLoc.getLine()) + ":" +
+                           std::to_string(DbgLoc.getCol()) + ") ");
+  }
+  return NameAndDbgLoc;
+}
+
+std::string DDEdge::getOptReportStr() const {
 
   std::string Str;
   raw_string_ostream OS(Str);
@@ -60,22 +144,11 @@ std::string DDEdge::getOptReportStr() const {
   OS << getEdgeType();
   OS << " dependence";
 
-  auto GetLineAndCol = [](DDRef *Ref) {
-    if (RegDDRef *Reg = dyn_cast<RegDDRef>(Ref)) {
-      const DebugLoc &DbgLoc = Reg->getDebugLoc();
-      if (DbgLoc.get())
-        return "(" + std::to_string(DbgLoc.getLine()) + ":" +
-               std::to_string(DbgLoc.getCol()) + ")";
-    }
-    return std::string();
-  };
+  std::string SrcInfo = getNameAndDbgLoc(Src);
+  std::string SinkInfo = getNameAndDbgLoc(Sink);
 
-  std::string SrcLoc = GetLineAndCol(Src);
-  std::string SinkLoc = GetLineAndCol(Sink);
-
-  if (!SrcLoc.empty() && !SinkLoc.empty())
-    OS << " between " << SrcLoc << " and " << SinkLoc;
-
+  if (!SrcInfo.empty() && !SinkInfo.empty())
+    OS << " between " << SrcInfo << "and " << SinkInfo;
   return OS.str();
 }
 

@@ -1,4 +1,6 @@
+; RUN: opt -passes=dpcpp-kernel-redundant-phi-node %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-redundant-phi-node %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-redundant-phi-node %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-redundant-phi-node %s -S -o - | FileCheck %s
 
 ;;*****************************************************************************
@@ -32,3 +34,6 @@ L3:
 ; CHECK: L3:
 ; CHECK-NEXT:   ret i1 false
 }
+
+; DEBUGIFY: WARNING: Missing line 5
+; DEBUGIFY-NOT: WARNING

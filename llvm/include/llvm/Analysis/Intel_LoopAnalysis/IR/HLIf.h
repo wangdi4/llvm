@@ -25,7 +25,7 @@ namespace loopopt {
 
 class HLLoop;
 
-/// \brief High level node representing a conditional branch
+/// High level node representing a conditional branch
 ///
 /// Sample HLIf-
 /// If( (Op1 Pred1 Op2) AND (Op3 Pred2 Op4) )
@@ -76,7 +76,7 @@ protected:
   HLIf(HLNodeUtils &HNU, const HLPredicate &FirstPred, RegDDRef *Ref1,
        RegDDRef *Ref2);
 
-  /// \brief Copy constructor used by cloning.
+  /// Copy constructor used by cloning.
   HLIf(const HLIf &HLIfObj);
 
   friend class HLNodeUtils;
@@ -86,31 +86,43 @@ protected:
   /// Implements getNumOperands() functionality.
   unsigned getNumOperandsInternal() const;
 
-  /// \brief Initializes some of the members to bring the object in a sane
+  /// Initializes some of the members to bring the object in a sane
   /// state.
   void initialize();
 
-  /// \brief Returns the offset of the LHS/RHS DDRef associated with this
+  /// Returns the offset of the LHS/RHS DDRef associated with this
   /// predicate.
   unsigned getPredicateOperandDDRefOffset(const_pred_iterator CPredI,
                                           bool IsLHS) const;
 
-  /// \brief Returns non-const iterator version of const_pred_iterator.
+  /// Returns non-const iterator version of const_pred_iterator.
   pred_iterator getNonConstPredIterator(const_pred_iterator CPredI);
 
-  /// \brief Clone Implementation
+  /// Clone Implementation
   /// This function populates the GotoList with Goto branching within the
   /// cloned If and LabelMap with Old and New Labels. Returns a cloned If.
   HLIf *cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
                   HLNodeMapper *NodeMapper) const override;
 
-  /// \brief Implements print*Header() functionality. Loop parameter tells
+  /// Implements print*Header() functionality. Loop parameter tells
   /// whether we are printing a ZTT or a regular HLIf.
   void printHeaderImpl(formatted_raw_ostream &OS, unsigned Depth,
                        const HLLoop *Loop, bool Detailed) const;
 
-  /// \brief Prints this HLIf as a ZTT of Loop.
+  /// Prints this HLIf as a ZTT of Loop.
   void printZttHeader(formatted_raw_ostream &OS, const HLLoop *Loop) const;
+
+  /// Returns the LHS/RHS operand of the predicate based on the IsLHS flag.
+  RegDDRef *getPredicateOperandDDRef(const_pred_iterator CPredI,
+                                     bool IsLHS) const;
+
+  /// Sets the LHS/RHS operand of the predicate based on the IsLHS flag.
+  void setPredicateOperandDDRef(RegDDRef *Ref, const_pred_iterator CPredI,
+                                bool IsLHS);
+
+  /// Removes and returns the LHS/RHS operand of the predicate based on the
+  /// IsLHS flag.
+  RegDDRef *removePredicateOperandDDRef(const_pred_iterator CPredI, bool IsLHS);
 
 public:
   /// Predicate iterator methods
@@ -122,7 +134,7 @@ public:
   }
   const_reverse_pred_iterator pred_rend() const { return Predicates.rend(); }
 
-  /// \brief Returns the number of predicates associated with this if.
+  /// Returns the number of predicates associated with this if.
   unsigned getNumPredicates() const { return Predicates.size(); }
 
   /// Children iterator methods
@@ -157,45 +169,45 @@ public:
 
   /// Children acess methods
 
-  /// \brief Returns the first then child if it exists, otherwise
+  /// Returns the first then child if it exists, otherwise
   /// returns null.
   HLNode *getFirstThenChild();
   const HLNode *getFirstThenChild() const {
     return const_cast<HLIf *>(this)->getFirstThenChild();
   }
-  /// \brief Returns the last then child if it exists, otherwise
+  /// Returns the last then child if it exists, otherwise
   /// returns null.
   HLNode *getLastThenChild();
   const HLNode *getLastThenChild() const {
     return const_cast<HLIf *>(this)->getLastThenChild();
   }
 
-  /// \brief Returns the number of then children.
+  /// Returns the number of then children.
   unsigned getNumThenChildren() const {
     return std::distance(then_begin(), then_end());
   }
-  /// \brief Returns true if it has then children.
+  /// Returns true if it has then children.
   bool hasThenChildren() const { return (then_begin() != then_end()); }
 
-  /// \brief Returns the first else child if it exists, otherwise returns null.
+  /// Returns the first else child if it exists, otherwise returns null.
   HLNode *getFirstElseChild();
   const HLNode *getFirstElseChild() const {
     return const_cast<HLIf *>(this)->getFirstElseChild();
   }
-  /// \brief Returns the last else child if it exists, otherwise returns null.
+  /// Returns the last else child if it exists, otherwise returns null.
   HLNode *getLastElseChild();
   const HLNode *getLastElseChild() const {
     return const_cast<HLIf *>(this)->getLastElseChild();
   }
 
-  /// \brief Returns the number of else children.
+  /// Returns the number of else children.
   unsigned getNumElseChildren() const {
     return std::distance(else_begin(), else_end());
   }
-  /// \brief Returns true if it has else children.
+  /// Returns true if it has else children.
   bool hasElseChildren() const { return (else_begin() != else_end()); }
 
-  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  /// Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
     return Node->getHLNodeClassID() == HLNode::HLIfVal;
   }
@@ -210,21 +222,21 @@ public:
   /// inside the cloned If.
   HLIf *clone(HLNodeMapper *NodeMapper = nullptr) const override;
 
-  /// \brief Prints HLIf header only: if (...condition...)
+  /// Prints HLIf header only: if (...condition...)
   void printHeader(formatted_raw_ostream &OS, unsigned Depth,
                    bool Detailed = false) const;
 
-  /// \brief Prints HLIf.
+  /// Prints HLIf.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
                      bool Detailed = false) const override;
 
-  /// \brief Returns the number of operands this HLIf is supposed to have.
+  /// Returns the number of operands this HLIf is supposed to have.
   unsigned getNumOperands() const override { return getNumOperandsInternal(); }
 
-  /// \brief Adds new predicate in HLIf.
+  /// Adds new predicate in HLIf.
   void addPredicate(const HLPredicate &Pred, RegDDRef *Ref1, RegDDRef *Ref2);
 
-  /// \brief Removes the associated predicate and operand DDRefs(not destroyed).
+  /// Removes the associated predicate and operand DDRefs(not destroyed).
   /// Example-
   /// Before:
   /// If((Op1 Pred1 Op2) AND (Op3 Pred2 Op4) AND (Op5 Pred3 Op6))
@@ -235,35 +247,51 @@ public:
   /// If((Op1 Pred1 Op2) AND (Op5 Pred3 Op6))
   void removePredicate(const_pred_iterator CPredI);
 
-  /// \brief Replaces existing predicate pointed to by CPredI, by NewPred.
+  /// Replaces existing predicate pointed to by CPredI, by NewPred.
   void replacePredicate(const_pred_iterator CPredI, const HLPredicate &NewPred);
 
-  /// \brief Replaces existing PredicateTy in CPredI, by NewPred.
+  /// Replaces existing PredicateTy in CPredI, by NewPred.
   void replacePredicate(const_pred_iterator CPredI, PredicateTy NewPred);
 
-  /// \brief Inverts PredicateTy in CPredI.
+  /// Inverts PredicateTy in CPredI.
   void invertPredicate(const_pred_iterator CPredI);
 
-  /// \brief Returns the LHS/RHS operand DDRef of the predicate based on the
-  /// IsLHS flag.
-  RegDDRef *getPredicateOperandDDRef(const_pred_iterator CPredI,
-                                     bool IsLHS) const;
+  /// Returns the LHS operand of the predicate.
+  RegDDRef *getLHSPredicateOperandDDRef(const_pred_iterator CPredI) const {
+    return getPredicateOperandDDRef(CPredI, true);
+  }
 
-  /// \brief Sets the LHS/RHS operand DDRef of the predicate based on the IsLHS
-  /// flag.
-  void setPredicateOperandDDRef(RegDDRef *Ref, const_pred_iterator CPredI,
-                                bool IsLHS);
+  /// Returns the RHS operand of the predicate.
+  RegDDRef *getRHSPredicateOperandDDRef(const_pred_iterator CPredI) const {
+    return getPredicateOperandDDRef(CPredI, false);
+  }
 
-  /// \brief Removes and returns the LHS/RHS operand DDRef of the predicate
-  /// based on the IsLHS flag.
-  RegDDRef *removePredicateOperandDDRef(const_pred_iterator CPredI, bool IsLHS);
+  /// Sets the LHS operand of the predicate.
+  void setLHSPredicateOperandDDRef(RegDDRef *Ref, const_pred_iterator CPredI) {
+    setPredicateOperandDDRef(Ref, CPredI, true);
+  }
 
-  /// \brief Returns true if \p Node is contained inside *then* or *else* branch
+  /// Sets the RHS operand of the predicate.
+  void setRHSPredicateOperandDDRef(RegDDRef *Ref, const_pred_iterator CPredI) {
+    setPredicateOperandDDRef(Ref, CPredI, false);
+  }
+
+  /// Removes and returns the LHS operand of the predicate.
+  RegDDRef *removeLHSPredicateOperandDDRef(const_pred_iterator CPredI) {
+    return removePredicateOperandDDRef(CPredI, true);
+  }
+
+  /// Removes and returns the RHS operand DDRef of the predicate.
+  RegDDRef *removeRHSPredicateOperandDDRef(const_pred_iterator CPredI) {
+    return removePredicateOperandDDRef(CPredI, false);
+  }
+
+  /// Returns true if \p Node is contained inside *then* or *else* branch
   /// of the HLIf.
   bool isThenChild(const HLNode *Node) const;
   bool isElseChild(const HLNode *Node) const;
 
-  /// \brief Verifies HLIf integrity.
+  /// Verifies HLIf integrity.
   virtual void verify() const override;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -285,6 +313,10 @@ public:
   void setUnswitchDisabled(bool Disabled = true) {
     UnswitchDisabled = Disabled;
   }
+
+  /// Inverts the predicate and swaps the then-path with else-path,
+  /// changing lexical order, but preserving logic.
+  void invertPredAndReverse();
 };
 
 } // End namespace loopopt

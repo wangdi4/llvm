@@ -1,4 +1,21 @@
 //===--- OpenCLOptions.cpp---------------------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -11,6 +28,19 @@
 #include "clang/Basic/TargetInfo.h"
 
 namespace clang {
+
+// First feature in a pair requires the second one to be supported.
+static const std::pair<StringRef, StringRef> DependentFeaturesList[] = {
+    {"__opencl_c_read_write_images", "__opencl_c_images"},
+    {"__opencl_c_3d_image_writes", "__opencl_c_images"},
+    {"__opencl_c_pipes", "__opencl_c_generic_address_space"},
+    {"__opencl_c_device_enqueue", "__opencl_c_generic_address_space"},
+    {"__opencl_c_device_enqueue", "__opencl_c_program_scope_global_variables"}};
+
+// Extensions and equivalent feature pairs.
+static const std::pair<StringRef, StringRef> FeatureExtensionMap[] = {
+    {"cl_khr_fp64", "__opencl_c_fp64"},
+    {"cl_khr_3d_image_writes", "__opencl_c_3d_image_writes"}};
 
 bool OpenCLOptions::isKnown(llvm::StringRef Ext) const {
   return OptMap.find(Ext) != OptMap.end();
@@ -114,42 +144,32 @@ void OpenCLOptions::disableAll() {
 
 bool OpenCLOptions::diagnoseUnsupportedFeatureDependencies(
     const TargetInfo &TI, DiagnosticsEngine &Diags) {
-  // Feature pairs. First feature in a pair requires the second one to be
-  // supported.
-  static const llvm::StringMap<llvm::StringRef> DependentFeaturesMap = {
-      {"__opencl_c_read_write_images", "__opencl_c_images"},
-      {"__opencl_c_3d_image_writes", "__opencl_c_images"},
-      {"__opencl_c_pipes", "__opencl_c_generic_address_space"}};
-
   auto OpenCLFeaturesMap = TI.getSupportedOpenCLOpts();
 
   bool IsValid = true;
-  for (auto &FeaturePair : DependentFeaturesMap)
-    if (TI.hasFeatureEnabled(OpenCLFeaturesMap, FeaturePair.getKey()) &&
-        !TI.hasFeatureEnabled(OpenCLFeaturesMap, FeaturePair.getValue())) {
+  for (auto &FeaturePair : DependentFeaturesList) {
+    auto Feature = FeaturePair.first;
+    auto Dep = FeaturePair.second;
+    if (TI.hasFeatureEnabled(OpenCLFeaturesMap, Feature) &&
+        !TI.hasFeatureEnabled(OpenCLFeaturesMap, Dep)) {
       IsValid = false;
-      Diags.Report(diag::err_opencl_feature_requires)
-          << FeaturePair.getKey() << FeaturePair.getValue();
+      Diags.Report(diag::err_opencl_feature_requires) << Feature << Dep;
     }
+  }
   return IsValid;
 }
 
 bool OpenCLOptions::diagnoseFeatureExtensionDifferences(
     const TargetInfo &TI, DiagnosticsEngine &Diags) {
-  // Extensions and equivalent feature pairs.
-  static const llvm::StringMap<llvm::StringRef> FeatureExtensionMap = {
-      {"cl_khr_fp64", "__opencl_c_fp64"},
-      {"cl_khr_3d_image_writes", "__opencl_c_3d_image_writes"}};
-
   auto OpenCLFeaturesMap = TI.getSupportedOpenCLOpts();
 
   bool IsValid = true;
   for (auto &ExtAndFeat : FeatureExtensionMap)
-    if (TI.hasFeatureEnabled(OpenCLFeaturesMap, ExtAndFeat.getKey()) !=
-        TI.hasFeatureEnabled(OpenCLFeaturesMap, ExtAndFeat.getValue())) {
+    if (TI.hasFeatureEnabled(OpenCLFeaturesMap, ExtAndFeat.first) !=
+        TI.hasFeatureEnabled(OpenCLFeaturesMap, ExtAndFeat.second)) {
       IsValid = false;
       Diags.Report(diag::err_opencl_extension_and_feature_differs)
-          << ExtAndFeat.getKey() << ExtAndFeat.getValue();
+          << ExtAndFeat.first << ExtAndFeat.second;
     }
   return IsValid;
 }

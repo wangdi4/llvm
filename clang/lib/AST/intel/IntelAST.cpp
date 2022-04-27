@@ -20,7 +20,8 @@ static void getCpuFeaturesFromBitmaskHelper(F AddFunc, uint64_t Page1,
   unsigned BitPos = 0;
 
   while (Page1 != 0) {
-    if (Page1 & 1)
+    // Skip the 'generic' case.
+    if (BitPos != 0 && Page1 & 1)
       AddFunc(llvm::X86::getCpuFeatureFromBitPosition(BitPos));
     ++BitPos;
     Page1 >>= 1;
@@ -53,7 +54,10 @@ void ASTContext::getCpuFeaturesFromBitmask(
 bool ASTContext::isValidCpuFeaturesBitmask(unsigned Page, uint64_t Mask) const {
   unsigned BitPos = 0;
   while (Mask != 0) {
-    if (Mask & 1)
+    // Check this bit position in the mask, but skip page0/bit0 which is
+    // 'generic'. We allow 'generic' as a special case, but don't generate IR
+    // for it.
+    if (!(Page == 0 && BitPos == 0) && Mask & 1)
       if (llvm::X86::getCpuFeatureFromBitPosition(BitPos + Page * 64) == "")
         return false;
     ++BitPos;

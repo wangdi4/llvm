@@ -1,6 +1,8 @@
-; RUN: opt -o %t < %s
-; RUN: llvm-lto %t -o %r -exported-symbol=main -O3 -disable-verify -print-after=hir-temp-cleanup -hir-details 2>&1 | FileCheck %s --check-prefixes="CHECK,AA"
-; RUN: llvm-lto %t -o %r -exported-symbol=main -O3 -disable-verify -print-after=hir-temp-cleanup -hir-details -enable-andersen=false 2>&1 | FileCheck %s --check-prefixes="CHECK,NOAA"
+; RUN: opt -enable-new-pm=0 -o %t < %s
+; RUN: llvm-lto --use-new-pm=0 %t -o %r -exported-symbol=main -O3 -disable-verify -print-after=hir-temp-cleanup -hir-details 2>&1 | FileCheck %s --check-prefixes="CHECK,AA"
+; RUN: llvm-lto --use-new-pm=0 %t -o %r -exported-symbol=main -O3 -disable-verify -print-after=hir-temp-cleanup -hir-details -enable-andersen=false 2>&1 | FileCheck %s --check-prefixes="CHECK,NOAA"
+; RUN: opt %s -passes='lto<O3>' -whole-program-assume -disable-verify -loopopt -print-after=hir-temp-cleanup -hir-details 2>&1 | FileCheck %s --check-prefixes="CHECK,AA"
+; RUN: opt %s -passes='lto<O3>' -whole-program-assume -disable-verify -loopopt -print-after=hir-temp-cleanup -hir-details -enable-npm-andersen=false 2>&1 | FileCheck %s --check-prefixes="CHECK,NOAA"
 
 ; This test is checking that Andersen's AA results are available for the loopopt.
 ;

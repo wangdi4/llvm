@@ -5,7 +5,12 @@
 ; RUN:     -mtriple=x86_64-unknown-unknown -mcpu=skx \
 ; RUN:     -vplan-cm-gather-scatter-threshold=50 -enable-intel-advanced-opts \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
-; RUN:     | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF8
+; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF8
+; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
+; RUN:     -mtriple=x86_64-unknown-unknown -mcpu=skx \
+; RUN:     -vplan-cm-gather-scatter-threshold=50 -enable-intel-advanced-opts \
+; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
+; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF8
 
 @arr.i32.0 = external local_unnamed_addr global [1024 x i32], align 16
 @arr.i32.1 = external local_unnamed_addr global [1024 x i32], align 16
@@ -25,43 +30,43 @@ define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF8-NEXT:  [[BB1]]: base cost: 0
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP0:%.*]] = phi  [ i32 [[VP__IND_INIT]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 1000 for i32 [[VP2:%.*]] = mul i32 3 i32 [[VP0]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 1000 for i64 [[VP3:%.*]] = sext i32 [[VP2]] to i64
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i32 [[VP2:%.*]] = mul i32 3 i32 [[VP0]]
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i64 [[VP3:%.*]] = sext i32 [[VP2]] to i64
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.0 i64 0 i64 [[VP3]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 4000 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]] *GS*
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 1000 for i32 [[VP4:%.*]] = mul i32 3 i32 [[VP0]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 1000 for i64 [[VP5:%.*]] = sext i32 [[VP4]] to i64
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 4 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]] *GS*
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i32 [[VP4:%.*]] = mul i32 3 i32 [[VP0]]
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i64 [[VP5:%.*]] = sext i32 [[VP4]] to i64
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.1 i64 1 i64 [[VP5]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 4000 for i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]] *GS*
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 1000 for i32 [[VP6:%.*]] = mul i32 3 i32 [[VP0]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 1000 for i64 [[VP7:%.*]] = sext i32 [[VP6]] to i64
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 4 for i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]] *GS*
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i32 [[VP6:%.*]] = mul i32 3 i32 [[VP0]]
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i64 [[VP7:%.*]] = sext i32 [[VP6]] to i64
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.2 i64 2147483647 i64 [[VP7]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 4000 for i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]] *GS*
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 1000 for i32 [[VP8:%.*]] = mul i32 3 i32 [[VP0]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 1000 for i64 [[VP9:%.*]] = sext i32 [[VP8]] to i64
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 4 for i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]] *GS*
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i32 [[VP8:%.*]] = mul i32 3 i32 [[VP0]]
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i64 [[VP9:%.*]] = sext i32 [[VP8]] to i64
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.3 i64 2147483648 i64 [[VP9]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 4000 for i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_3]] *GS*
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 1000 for i32 [[VP10:%.*]] = mul i32 3 i32 [[VP0]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 1000 for i64 [[VP11:%.*]] = sext i32 [[VP10]] to i64
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 4 for i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_3]] *GS*
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i32 [[VP10:%.*]] = mul i32 3 i32 [[VP0]]
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i64 [[VP11:%.*]] = sext i32 [[VP10]] to i64
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.0 i64 0 i64 [[VP11]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 8000 for store i32 [[VP_LOAD_1]] i32* [[VP_SUBSCRIPT_4]] *GS*
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 1000 for i32 [[VP12:%.*]] = mul i32 3 i32 [[VP0]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 1000 for i64 [[VP13:%.*]] = sext i32 [[VP12]] to i64
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 8 for store i32 [[VP_LOAD_1]] i32* [[VP_SUBSCRIPT_4]] *GS*
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i32 [[VP12:%.*]] = mul i32 3 i32 [[VP0]]
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i64 [[VP13:%.*]] = sext i32 [[VP12]] to i64
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.1 i64 1 i64 [[VP13]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 8000 for store i32 [[VP_LOAD_2]] i32* [[VP_SUBSCRIPT_5]] *GS*
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 1000 for i32 [[VP14:%.*]] = mul i32 3 i32 [[VP0]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 1000 for i64 [[VP15:%.*]] = sext i32 [[VP14]] to i64
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 8 for store i32 [[VP_LOAD_2]] i32* [[VP_SUBSCRIPT_5]] *GS*
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i32 [[VP14:%.*]] = mul i32 3 i32 [[VP0]]
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i64 [[VP15:%.*]] = sext i32 [[VP14]] to i64
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.2 i64 2147483647 i64 [[VP15]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 8000 for store i32 [[VP_LOAD_3]] i32* [[VP_SUBSCRIPT_6]] *GS*
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 1000 for i32 [[VP16:%.*]] = mul i32 3 i32 [[VP0]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 1000 for i64 [[VP17:%.*]] = sext i32 [[VP16]] to i64
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 8 for store i32 [[VP_LOAD_3]] i32* [[VP_SUBSCRIPT_6]] *GS*
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i32 [[VP16:%.*]] = mul i32 3 i32 [[VP0]]
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i64 [[VP17:%.*]] = sext i32 [[VP16]] to i64
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_7:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.3 i64 2147483648 i64 [[VP17]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 8000 for store i32 [[VP_LOAD]] i32* [[VP_SUBSCRIPT_7]] *GS*
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 1000 for i32 [[VP1]] = add i32 [[VP0]] i32 [[VP__IND_INIT_STEP]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 1000 for i1 [[VP18:%.*]] = icmp slt i32 [[VP1]] i32 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 8 for store i32 [[VP_LOAD]] i32* [[VP_SUBSCRIPT_7]] *GS*
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i32 [[VP1]] = add i32 [[VP0]] i32 [[VP__IND_INIT_STEP]]
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i1 [[VP18:%.*]] = icmp slt i32 [[VP1]] i32 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for br i1 [[VP18]], [[BB2]], [[BB3:BB[0-9]+]]
-; VPLAN-HIR-CM-VF8-NEXT:  [[BB2]]: base cost: 66000
-; VPLAN-HIR-CM-VF8-NEXT:  Block total cost includes GS Cost: 48000
+; VPLAN-HIR-CM-VF8-NEXT:  [[BB2]]: base cost: 66
+; VPLAN-HIR-CM-VF8-NEXT:  Block total cost includes GS Cost: 48
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP__IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
@@ -69,9 +74,9 @@ define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for br <External Block>
 ; VPLAN-HIR-CM-VF8-NEXT:  [[BB4]]: base cost: 0
-; VPLAN-HIR-CM-VF8-NEXT:  Base Cost: 66000
-; VPLAN-HIR-CM-VF8-NEXT:  Extra cost due to Gather/Scatter heuristic is 96000
-; VPLAN-HIR-CM-VF8-NEXT:  Total Cost: 162000
+; VPLAN-HIR-CM-VF8-NEXT:  Base Cost: 66
+; VPLAN-HIR-CM-VF8-NEXT:  Extra cost due to Gather/Scatter heuristic is 96
+; VPLAN-HIR-CM-VF8-NEXT:  Total Cost: 162
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

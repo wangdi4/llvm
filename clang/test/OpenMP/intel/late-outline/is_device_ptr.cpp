@@ -1,5 +1,5 @@
 //INTEL_COLLAB
-//RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-version=50 \
+//RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-version=50 \
 //RUN:  -fopenmp-late-outline \
 //RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
@@ -15,11 +15,11 @@ struct S {
 
 //CHECK-LABEL: S3foo
 void S::foo(float *&refptr) {
-  //CHECK: [[REFPTR:%refptr.*]] = alloca float**, align 8
-  //CHECK: [[LREFPTR:%[0-9]+]] = load float**, float*** [[REFPTR]]
+  //CHECK: [[REFPTR:%refptr.*]] = alloca ptr, align 8
+  //CHECK: [[LREFPTR:%[0-9]+]] = load ptr, ptr [[REFPTR]]
 
   //CHECK: "DIR.OMP.TARGET"()
-  //CHECK: QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(i32** %ptr, float** [[LREFPTR]], i32** %aaptr, [4 x i32]* %arr)
+  //CHECK: QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(ptr %ptr, ptr [[LREFPTR]], ptr %aaptr, ptr %arr)
   #pragma omp target is_device_ptr(ptr, refptr, aaptr, arr)
   ++a, ++*ptr, ++ref, ++arr[0];
   //CHECK: "DIR.OMP.END.TARGET"()
@@ -31,10 +31,10 @@ void foo() {
   int i;
   int &j = i;
   int *k = &j;
-  //CHECK-DAG: [[K:%k.*]] = alloca i32*,
+  //CHECK-DAG: [[K:%k.*]] = alloca ptr,
 
   //CHECK: "DIR.OMP.TARGET"()
-  //CHECK: QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(i32** %k)
+  //CHECK: QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(ptr %k)
   #pragma omp target map(tofrom: i) is_device_ptr(k)
   {
     i++; j++; k++;
@@ -63,10 +63,10 @@ void use_template() {
 }
 
 //CHECK: define {{.*}}ZN10SomeKernel5applyILj32EEEvv
-//CHECK: [[THIS:%this.*]] = load %struct.SomeKernel*, %struct.SomeKernel** %this.addr,
-//CHECK: [[DEVPTR:%devPtr.*]] = getelementptr inbounds %struct.SomeKernel, %struct.SomeKernel* [[THIS]], i32 0, i32 1
+//CHECK: [[THIS:%this.*]] = load ptr, ptr %this.addr,
+//CHECK: [[DEVPTR:%devPtr.*]] = getelementptr inbounds %struct.SomeKernel, ptr [[THIS]], i32 0, i32 1
 //CHECK: "DIR.OMP.TARGET"()
-//CHECK: QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(float** [[DEVPTR]])
+//CHECK: QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(ptr [[DEVPTR]])
 
 //CHECK-LABEL: main
 int main() {
@@ -77,8 +77,8 @@ int main() {
   float vla[(int)a];
 
   //CHECK: [[A:%a.*]] = alloca float,
-  //CHECK: [[PTR:%ptr.*]] = alloca float*,
-  //CHECK: [[REF:%ref.*]] = alloca float*,
+  //CHECK: [[PTR:%ptr.*]] = alloca ptr,
+  //CHECK: [[REF:%ref.*]] = alloca ptr,
   //CHECK: [[ARR:%arr.*]] = alloca [4 x float],
   //CHECK: [[VLA:%vla.*]] = alloca float, i64
 
@@ -86,7 +86,7 @@ int main() {
   s.foo(ptr);
 
   //CHECK: "DIR.OMP.TARGET"()
-  //CHECK: QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(float** %ptr, [4 x float]* %arr, float* %vla)
+  //CHECK: QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(ptr %ptr, ptr %arr, ptr %vla)
   #pragma omp target \
                is_device_ptr(ptr, arr, vla)
   ++a, ++*ptr, ++ref, ++arr[0], ++vla[0];

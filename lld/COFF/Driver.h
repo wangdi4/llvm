@@ -1,4 +1,21 @@
 //===- Driver.h -------------------------------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -23,6 +40,7 @@
 #include "llvm/Option/ArgList.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/TarWriter.h"
+#include "llvm/WindowsDriver/MSVCPaths.h"
 #include <memory>
 #include <set>
 #include <vector>
@@ -30,8 +48,7 @@
 namespace lld {
 namespace coff {
 
-class LinkerDriver;
-extern LinkerDriver *driver;
+extern std::unique_ptr<class LinkerDriver> driver;
 
 using llvm::COFF::MachineTypes;
 using llvm::COFF::WindowsSubsystem;
@@ -83,6 +100,10 @@ public:
 
   void linkerMain(llvm::ArrayRef<const char *> args);
 
+  // Adds various search paths based on the sysroot.  Must only be called once
+  // config->machine has been set.
+  void addWinSysRootLibSearchPaths();
+
   // Used by the resolver to parse .drectve section contents.
   void parseDirectives(InputFile *file);
 
@@ -107,6 +128,9 @@ private:
   StringRef doFindLibMinGW(StringRef filename);
 
   bool findUnderscoreMangle(StringRef sym);
+
+  // Determines the location of the sysroot based on `args`, environment, etc.
+  void detectWinSysRoot(const llvm::opt::InputArgList &args);
 
   // Parses LIB environment which contains a list of search paths.
   void addLibSearchPaths();
@@ -168,6 +192,14 @@ private:
   // contains /lib, else return false.
   bool processLibInResponseFile(llvm::ArrayRef<const char *> argv);
 #endif // INTEL_CUSTOMIZATION
+
+  llvm::ToolsetLayout vsLayout = llvm::ToolsetLayout::OlderVS;
+  std::string vcToolChainPath;
+  llvm::SmallString<128> diaPath;
+  bool useWinSysRootLibPath = false;
+  llvm::SmallString<128> universalCRTLibPath;
+  int sdkMajor = 0;
+  llvm::SmallString<128> windowsSdkLibPath;
 };
 
 // Functions below this line are defined in DriverUtils.cpp.

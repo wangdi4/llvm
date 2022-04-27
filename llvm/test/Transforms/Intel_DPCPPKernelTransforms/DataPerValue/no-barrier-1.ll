@@ -1,5 +1,5 @@
 ; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-data-per-value-analysis>' -S < %s | FileCheck %s
-; RUN: opt -analyze -dpcpp-kernel-data-per-value-analysis -S < %s | FileCheck %s
+; RUN: opt -analyze -enable-new-pm=0 -dpcpp-kernel-data-per-value-analysis -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the DataPerInternalFunction pass
@@ -35,12 +35,12 @@ define void @main(i32 %x) nounwind {
 ; CHECK-NOT: -
 ; CHECK-NOT: *
 
-; CHECK: Buffer Total Size:
-; CHECK: main
-; CHECK-NOT: entry
-; CHECK: entry(0) : (0)
-; CHECK-NOT: entry
-; CHECK: DONE
+; CHECK: Function Equivalence Classes:
+; CHECK-NEXT: [main]: main
+
+; CHECK-NEXT: Buffer Total Size:
+; CHECK-NEXT: leader(main) : (0)
+; CHECK-NEXT: DONE
 
 !sycl.kernels = !{!0}
 

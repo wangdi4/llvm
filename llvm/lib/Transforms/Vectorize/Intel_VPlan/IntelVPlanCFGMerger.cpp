@@ -20,6 +20,8 @@
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanExternals.h"
+#include "IntelVPlanScalarEvolution.h"
+#include "VPlanHIR/IntelVPlanScalarEvolutionHIR.h"
 
 #define DEBUG_TYPE "VPlanCFGMerger"
 
@@ -209,7 +211,7 @@ VPVectorTripCountCalculation *VPlanCFGMerger::findVectorUB(VPlan &P) const {
 }
 
 VPBasicBlock *VPlanCFGMerger::findFirstNonEmptyBB() const {
-  VPBasicBlock *BB = Plan.getEntryBlock();
+  VPBasicBlock *BB = &Plan.getEntryBlock();
   for (; BB && BB->terminator() == BB->begin(); BB = BB->getSingleSuccessor())
     ;
   assert(BB && "Non-empty VPlan expected");
@@ -718,7 +720,7 @@ void VPlanCFGMerger::createSimpleVectorRemainderChain(Loop *OrigLoop) {
 }
 
 void VPlanCFGMerger::insertPushPopVF(VPlan &P, unsigned VF, unsigned UF) {
-  VPBasicBlock *FirstBB = P.getEntryBlock();
+  VPBasicBlock *FirstBB = &P.getEntryBlock();
   VPBuilder Builder;
   Builder.setInsertPoint(FirstBB, FirstBB->begin());
   VPInstruction *PushVF =
@@ -916,13 +918,15 @@ void VPlanCFGMerger::createAdapterBB(PlanDescr &Descr,
   Descr.LastBB = NewBB;
 }
 
+template <class LoopTy>
 void VPlanCFGMerger::createMergedCFG(SingleLoopVecScenario &Scen,
-                                     std::list<CfgMergerPlanDescr> &Plans) {
+                                     std::list<CfgMergerPlanDescr> &Plans,
+                                     LoopTy *OrigLoop) {
   Plan.invalidateAnalyses({VPAnalysisID::SVA});
 
   MainVF = Scen.getMainVF();
   MainUF = Scen.getMainUF();
-  emitSkeleton(Plans);
+  emitSkeleton(Plans, OrigLoop);
   mergeVPlans(Plans);
   VPLAN_DUMP(CfgMergeDumpControl, Plan);
 }
@@ -960,19 +964,24 @@ void VPlanCFGMerger::createTCCheckAfter(PlanDescr &Descr,
   }
 
   // Generate a check for vector tc is not equal original tc and branch
-  // according to the check.
+  // according to the check. This is not needed if we are dealing with a
+  // simple main vector, remainder scalar const trip count scenario.
   // Here we can use VectorUB directly as the new block is dominated by VPlan.
   VPBuilder Builder;
   Builder.setInsertPoint(TestBB);
-  auto *RemTCCheck =
-      Builder.createCmpInst(CmpInst::ICMP_EQ, PrevUB, VectorUB, "remtc.check");
-  Plan.getVPlanDA()->markUniform(*RemTCCheck);
 
-  TestBB->setTerminator(PrevDescr.PrevMerge, PrevDescr.MergeBefore, RemTCCheck);
   updateMergeBlockIncomings(Descr, PrevDescr.MergeBefore, TestBB,
                             false /* UseLiveIn */);
-  updateMergeBlockIncomings(Descr, PrevDescr.PrevMerge, TestBB,
-                            false /* UseLiveIn */);
+  if (!IsSimpleConstTCScenario) {
+    auto *RemTCCheck = Builder.createCmpInst(CmpInst::ICMP_EQ, PrevUB, VectorUB,
+                                             "remtc.check");
+    Plan.getVPlanDA()->markUniform(*RemTCCheck);
+    TestBB->setTerminator(PrevDescr.PrevMerge, PrevDescr.MergeBefore,
+                          RemTCCheck);
+    updateMergeBlockIncomings(Descr, PrevDescr.PrevMerge, TestBB,
+                              false /* UseLiveIn */);
+  } else
+    TestBB->setTerminator(PrevDescr.MergeBefore);
 }
 
 VPCmpInst *VPlanCFGMerger::createPeelCntVFCheck(VPValue *UB, VPBuilder &Builder,
@@ -1080,6 +1089,11 @@ void VPlanCFGMerger::createTCCheckBeforeMain(PlanDescr *Peel,
     return;
   }
 
+  // We do not need the top test for simple main vector, remainder scalar
+  // scenario of constant trip count loops.
+  if (IsSimpleConstTCScenario)
+    return;
+
   VPBasicBlock *TopTest = createTopTest(
       MainDescr.Plan, MainDescr.FirstBB, MainDescr.PrevMerge,
       MainDescr.FirstBB, Peel ? Peel->Plan : nullptr, MainDescr.VF);
@@ -1107,9 +1121,10 @@ void VPlanCFGMerger::createTCCheckBeforeMain(PlanDescr *Peel,
   }
 }
 
-VPValue *VPlanCFGMerger::emitDynamicPeelCount(VPlanDynamicPeeling &DP,
-                                              VPValue *BasePtr,
-                                              VPBuilder &Builder) {
+template <class LoopTy>
+VPValue *
+VPlanCFGMerger::emitDynamicPeelCount(VPlanDynamicPeeling &DP, VPValue *BasePtr,
+                                     VPBuilder &Builder, LoopTy *OrigLoop) {
   // We compute the peel-count using the formula below.
   // Quotient = BasePtr / DP.RequiredAlignment;
   // Divisor = DP.TargetAlignment / DP.RequiredAlignment;
@@ -1126,7 +1141,7 @@ VPValue *VPlanCFGMerger::emitDynamicPeelCount(VPlanDynamicPeeling &DP,
   VPConstant *Divisor = Plan.getVPConstant(ConstantInt::get(Ty, DivisorVal));
 
   if (!BasePtr)
-    BasePtr = emitPeelBasePtr(DP, Builder);
+    BasePtr = emitPeelBasePtr(DP, Builder, OrigLoop);
 
   VPInstruction *IntBase =
       Builder.createNaryOp(Instruction::PtrToInt, Ty, {BasePtr});
@@ -1154,18 +1169,39 @@ VPValue *VPlanCFGMerger::emitDynamicPeelCount(VPlanDynamicPeeling &DP,
   return Ret;
 }
 
-VPInvSCEVWrapper *VPlanCFGMerger::emitPeelBasePtr(VPlanDynamicPeeling &Peeling,
-                                                  VPBuilder &Builder) {
-  auto Ret = Builder.create<VPInvSCEVWrapper>("peel.base.ptr",
-                                              Peeling.invariantBase());
+template <>
+VPInvSCEVWrapper *
+VPlanCFGMerger::emitPeelBasePtr<loopopt::HLLoop>(VPlanDynamicPeeling &Peeling,
+                                                 VPBuilder &Builder,
+                                                 loopopt::HLLoop *OrigLoop) {
+  (void) OrigLoop;
+  auto *BasePtr = Peeling.invariantBase();
+  auto *AddRecHIR = VPlanScalarEvolutionHIR::toVPlanAddRecHIR(BasePtr);
+  auto *Ty = AddRecHIR->Base->getDestType();
+  auto *Ret = Builder.create<VPInvSCEVWrapper>("peel.base.ptr", BasePtr, Ty,
+                                               false /* IsSCEV */);
   Plan.getVPlanDA()->markUniform(*Ret);
   return Ret;
 }
 
+template <>
+VPInvSCEVWrapper *
+VPlanCFGMerger::emitPeelBasePtr<Loop>(VPlanDynamicPeeling &Peeling,
+                                      VPBuilder &Builder, Loop *OrigLoop) {
+  (void) OrigLoop;
+  auto *BasePtr = Peeling.invariantBase();
+  auto *Ty = VPlanScalarEvolutionLLVM::toSCEV(BasePtr)->getType();
+  auto Ret = Builder.create<VPInvSCEVWrapper>("peel.base.ptr", BasePtr, Ty);
+  Plan.getVPlanDA()->markUniform(*Ret);
+  return Ret;
+}
+
+template <class LoopTy>
 void VPlanCFGMerger::createPeelPtrCheck(VPlanDynamicPeeling &Peeling,
                                         VPBasicBlock *InsertBefore,
                                         VPBasicBlock *NonZeroMerge, VPlan &P,
-                                        VPValue *&PeelBasePtr) {
+                                        VPValue *&PeelBasePtr,
+                                        LoopTy *OrigLoop) {
   // See full comment in the *.h file.
   // The following sequence is generated to check the lower bits of pointer are
   // not zero:
@@ -1182,7 +1218,7 @@ void VPlanCFGMerger::createPeelPtrCheck(VPlanDynamicPeeling &Peeling,
   VPBuilder Builder;
   Builder.setInsertPoint(TestBB);
   // Create ptrtoint and "and" with low bits mask.
-  PeelBasePtr = emitPeelBasePtr(Peeling, Builder);
+  PeelBasePtr = emitPeelBasePtr(Peeling, Builder, OrigLoop);
   Type *VTy = Type::getIntNTy(*Plan.getLLVMContext(),
                               Plan.getDataLayout()->getPointerSizeInBits());
   VPInstruction *PtrToInt =
@@ -1203,9 +1239,11 @@ void VPlanCFGMerger::createPeelPtrCheck(VPlanDynamicPeeling &Peeling,
   updateMergeBlockIncomings(Plan, NonZeroMerge, TestBB, true /* UseLiveIn */);
 }
 
+template <class LoopTy>
 void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
                                             VPBasicBlock *FinalRemainderMerge,
-                                            VPBasicBlock *RemainderMerge) {
+                                            VPBasicBlock *RemainderMerge,
+                                            LoopTy *OrigLoop) {
 
   assert(P.Type == CfgMergerPlanDescr::LoopType::LTPeel &&
          "expected peel loop");
@@ -1238,10 +1276,10 @@ void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
       // of the marge block before main loop.
       VPBasicBlock *UnalignedMerge =
           needPeelForSafety() ? FinalRemainderMerge : RemainderMerge;
-      createPeelPtrCheck(*Peeling, TestBB, UnalignedMerge, *P.Plan,
-                         PeelBasePtr);
+      createPeelPtrCheck(*Peeling, TestBB, UnalignedMerge, *P.Plan, PeelBasePtr,
+                         OrigLoop);
     }
-    PeelCount = emitDynamicPeelCount(*Peeling, PeelBasePtr, Builder);
+    PeelCount = emitDynamicPeelCount(*Peeling, PeelBasePtr, Builder, OrigLoop);
     // Then insert check for peel count is zero
     auto *Zero =
         Plan.getVPConstant(ConstantInt::getNullValue(PeelCount->getType()));
@@ -1398,7 +1436,15 @@ void VPlanCFGMerger::updateAdapterOperands(VPBasicBlock *AdapterBB,
 //                  +-----------------------+
 //                           |
 //                         Exit
-void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans) {
+//
+// The skeleton emission is optimized for the simple scenario of constant
+// trip count loops with a main vector and scalar remainder to enable
+// better downstream optimizations. The main and remainder loops are
+// emitted as straight line code without any checks for such a scenario.
+//
+template <class LoopTy>
+void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans,
+                                  LoopTy *OrigLoop) {
   using LT = CfgMergerPlanDescr::LoopType;
 
   VPBasicBlock *FinalMerge, *LastMerge;
@@ -1468,7 +1514,8 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans) {
 
         // Create peel count instruction, updating the upper bound of the
         // peel and insert the needed checks before peel.
-        insertPeelCntAndChecks(P, FinalRemainderMerge, PrevP->PrevMerge);
+        insertPeelCntAndChecks(P, FinalRemainderMerge, PrevP->PrevMerge,
+                               OrigLoop);
 
         // Create trip count checks before main loop.
         // Check whether we have a remainder, and it has an additional
@@ -1826,7 +1873,7 @@ void VPlanCFGMerger::mergeVPlanBodies(std::list<PlanDescr> &Plans) {
     if (P.Type == LT::LTMain)
       continue;
     // Move blocks from inner VPlan into main VPlan.
-    VPBasicBlock *Begin = P.Plan->getEntryBlock();
+    VPBasicBlock *Begin = &P.Plan->getEntryBlock();
     VPBasicBlock *End = &*find_if(*P.Plan, [](const VPBasicBlock &BB) {
       return BB.getNumSuccessors() == 0;
     });
@@ -1870,3 +1917,42 @@ void VPlanCFGMerger::mergeVPlans(std::list<CfgMergerPlanDescr> &Plans) {
   Plan.computeDT();
   Plan.computePDT();
 }
+
+template void
+VPlanCFGMerger::createMergedCFG<Loop>(SingleLoopVecScenario &Scen,
+                                      std::list<CfgMergerPlanDescr> &Plans,
+                                      Loop *OrigLoop);
+template void VPlanCFGMerger::createMergedCFG<loopopt::HLLoop>(
+    SingleLoopVecScenario &Scen, std::list<CfgMergerPlanDescr> &Plans,
+    loopopt::HLLoop *OrigLoop);
+
+template void VPlanCFGMerger::emitSkeleton<Loop>(std::list<PlanDescr> &Plans,
+                                                 Loop *OrigLoop);
+template void
+VPlanCFGMerger::emitSkeleton<loopopt::HLLoop>(std::list<PlanDescr> &Plans,
+                                              loopopt::HLLoop *OrigLoop);
+
+template void VPlanCFGMerger::insertPeelCntAndChecks<Loop>(
+    PlanDescr &PeelDescr, VPBasicBlock *FinalRemainderMerge,
+    VPBasicBlock *RemainderMerge, Loop *OrigLoop);
+template void VPlanCFGMerger::insertPeelCntAndChecks<loopopt::HLLoop>(
+    PlanDescr &PeelDescr, VPBasicBlock *FinalRemainderMerge,
+    VPBasicBlock *RemainderMerge, loopopt::HLLoop *OrigLoop);
+
+template void
+VPlanCFGMerger::createPeelPtrCheck<Loop>(VPlanDynamicPeeling &Peeling,
+                                         VPBasicBlock *InsertBefore,
+                                         VPBasicBlock *NonZeroMerge, VPlan &P,
+                                         VPValue *&PeelBasePtr, Loop *OrigLoop);
+template void VPlanCFGMerger::createPeelPtrCheck<loopopt::HLLoop>(
+    VPlanDynamicPeeling &Peeling, VPBasicBlock *InsertBefore,
+    VPBasicBlock *NonZeroMerge, VPlan &P, VPValue *&PeelBasePtr,
+    loopopt::HLLoop *OrigLoop);
+
+template VPValue *
+VPlanCFGMerger::emitDynamicPeelCount<Loop>(VPlanDynamicPeeling &DP,
+                                           VPValue *BasePtr, VPBuilder &Builder,
+                                           Loop *OrigLoop);
+template VPValue *VPlanCFGMerger::emitDynamicPeelCount<loopopt::HLLoop>(
+    VPlanDynamicPeeling &DP, VPValue *BasePtr, VPBuilder &Builder,
+    loopopt::HLLoop *OrigLoop);

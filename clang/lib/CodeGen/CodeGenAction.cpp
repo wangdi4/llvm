@@ -1,4 +1,21 @@
 //===--- CodeGenAction.cpp - LLVM Code Generation Frontend Action ---------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -318,9 +335,8 @@ namespace clang {
       if (!getModule())
         return;
 
-#if !INTEL_CUSTOMIZATION
       LLVMContext &Ctx = getModule()->getContext();
-
+#if !INTEL_CUSTOMIZATION
       std::unique_ptr<DiagnosticHandler> OldDiagnosticHandler =
           Ctx.getDiagnosticHandler();
       Ctx.setDiagnosticHandler(std::make_unique<ClangDiagnosticHandler>(
@@ -335,9 +351,28 @@ namespace clang {
       // happens.
       if (LangOpts.SYCLIsDevice) {
         PrettyStackTraceString CrashInfo("Pre-linking SYCL passes");
-        legacy::PassManager PreLinkingSyclPasses;
-        PreLinkingSyclPasses.add(llvm::createSYCLLowerWGScopePass());
-        PreLinkingSyclPasses.run(*getModule());
+
+        FunctionAnalysisManager FAM;
+        ModuleAnalysisManager MAM;
+        MAM.registerPass([&] { return PassInstrumentationAnalysis(); });
+        MAM.registerPass(
+            [&] { return FunctionAnalysisManagerModuleProxy(FAM); });
+        FAM.registerPass(
+            [&] { return ModuleAnalysisManagerFunctionProxy(MAM); });
+
+        ModulePassManager PreLinkingSyclPasses;
+        PreLinkingSyclPasses.addPass(
+            createModuleToFunctionPassAdaptor(SYCLLowerWGScopePass()));
+        PreLinkingSyclPasses.run(*getModule(), MAM);
+      }
+
+      if (CodeGenOpts.MisExpect) {
+        Ctx.setMisExpectWarningRequested(true);
+      }
+
+      if (CodeGenOpts.DiagnosticsMisExpectTolerance) {
+        Ctx.setDiagnosticsMisExpectTolerance(
+            CodeGenOpts.DiagnosticsMisExpectTolerance);
       }
 
       // Link each LinkModule into our module.
@@ -441,6 +476,9 @@ namespace clang {
     void OptimizationFailureHandler(
         const llvm::DiagnosticInfoOptimizationFailure &D);
     void DontCallDiagHandler(const DiagnosticInfoDontCall &D);
+    /// Specialized handler for misexpect warnings.
+    /// Note that misexpect remarks are emitted through ORE
+    void MisExpectDiagHandler(const llvm::DiagnosticInfoMisExpect &D);
   };
 
   void BackendConsumer::anchor() {}
@@ -822,6 +860,25 @@ void BackendConsumer::DontCallDiagHandler(const DiagnosticInfoDontCall &D) {
       << llvm::demangle(D.getFunctionName().str()) << D.getNote();
 }
 
+void BackendConsumer::MisExpectDiagHandler(
+    const llvm::DiagnosticInfoMisExpect &D) {
+  StringRef Filename;
+  unsigned Line, Column;
+  bool BadDebugInfo = false;
+  FullSourceLoc Loc =
+      getBestLocationFromDebugLoc(D, BadDebugInfo, Filename, Line, Column);
+
+  Diags.Report(Loc, diag::warn_profile_data_misexpect) << D.getMsg().str();
+
+  if (BadDebugInfo)
+    // If we were not able to translate the file:line:col information
+    // back to a SourceLocation, at least emit a note stating that
+    // we could not translate this location. This can happen in the
+    // case of #line directives.
+    Diags.Report(Loc, diag::note_fe_backend_invalid_loc)
+        << Filename << Line << Column;
+}
+
 /// This function is invoked when the backend needs
 /// to report something to the user.
 void BackendConsumer::DiagnosticHandlerImpl(const DiagnosticInfo &DI) {
@@ -895,6 +952,9 @@ void BackendConsumer::DiagnosticHandlerImpl(const DiagnosticInfo &DI) {
     return;
   case llvm::DK_DontCall:
     DontCallDiagHandler(cast<DiagnosticInfoDontCall>(DI));
+    return;
+  case llvm::DK_MisExpect:
+    MisExpectDiagHandler(cast<DiagnosticInfoMisExpect>(DI));
     return;
   default:
     // Plugin IDs are not bound to any value as they are set dynamically.
@@ -983,6 +1043,9 @@ CodeGenAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
 
   if (BA != Backend_EmitNothing && !OS)
     return nullptr;
+
+  if (CI.getCodeGenOpts().OpaquePointers)
+    VMContext->setOpaquePointers(true);
 
   // Load bitcode modules to link with, if we need to.
   if (LinkModules.empty())
@@ -1156,7 +1219,7 @@ void CodeGenAction::ExecuteAction() {
   auto &CodeGenOpts = CI.getCodeGenOpts();
   auto &Diagnostics = CI.getDiagnostics();
   std::unique_ptr<raw_pwrite_stream> OS =
-      GetOutputStream(CI, getCurrentFile(), BA);
+      GetOutputStream(CI, getCurrentFileOrBufferName(), BA);
   if (BA != Backend_EmitNothing && !OS)
     return;
 
@@ -1177,6 +1240,7 @@ void CodeGenAction::ExecuteAction() {
     TheModule->setTargetTriple(TargetOpts.Triple);
   }
 
+  EmbedObject(TheModule.get(), CodeGenOpts, Diagnostics);
 #if !INTEL_PRODUCT_RELEASE
   EmbedBitcode(TheModule.get(), CodeGenOpts, *MainFile);
 #endif // !INTEL_PRODUCT_RELEASE

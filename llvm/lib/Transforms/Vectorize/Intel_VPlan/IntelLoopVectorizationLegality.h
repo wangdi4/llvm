@@ -366,7 +366,7 @@ public:
   /// The list of in-memory reductions. Store instruction that updates the
   /// reduction is also tracked.
   using InMemoryReductionList =
-      MapVector<Value *, std::pair<RecurKind, StoreInst *>>;
+      MapVector<Value *, std::pair<RecurKind, Instruction *>>;
 
   /// InductionList saves induction variables and maps them to the
   /// induction descriptor.
@@ -584,9 +584,13 @@ private:
   /// Return true if the explicit reduction uses Phi nodes.
   bool doesReductionUsePhiNodes(Value *RedVarPtr, PHINode *&LoopHeaderPhiNode,
                                 Value *&StartV);
-  /// Return true if the explicit reduction variable uses private memory on
-  /// each iteration.
-  bool isReductionVarStoredInsideTheLoop(Value *RedVarPtr, StoreInst *&Store);
+
+  /// Return true if the reduction variable \p RedVarPtr is stored inside the
+  /// loop or used by a call. The found store or call instruction is captured in
+  /// \p CallOrStore. A store is preferred, so if there are both store and call,
+  /// the store is returned.
+  bool isReductionVarUpdatedInTheLoop(Value *RedVarPtr,
+                                      Instruction *&CallOrStore);
 
   /// Check whether \p I is liveout.
   bool isLiveOut(const Instruction *I) const;

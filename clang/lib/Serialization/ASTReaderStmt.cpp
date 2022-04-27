@@ -2392,26 +2392,6 @@ void ASTStmtReader::VisitOMPSectionDirective(OMPSectionDirective *D) {
 }
 
 #if INTEL_COLLAB
-void ASTStmtReader::VisitOMPTeamsGenericLoopDirective(
-    OMPTeamsGenericLoopDirective *D) {
-  VisitOMPLoopDirective(D);
-}
-
-void ASTStmtReader::VisitOMPTargetTeamsGenericLoopDirective(
-    OMPTargetTeamsGenericLoopDirective *D) {
-  VisitOMPLoopDirective(D);
-}
-
-void ASTStmtReader::VisitOMPParallelGenericLoopDirective(
-    OMPParallelGenericLoopDirective *D) {
-  VisitOMPLoopDirective(D);
-}
-
-void ASTStmtReader::VisitOMPTargetParallelGenericLoopDirective(
-    OMPTargetParallelGenericLoopDirective *D) {
-  VisitOMPLoopDirective(D);
-}
-
 void ASTStmtReader::VisitOMPTargetVariantDispatchDirective(
     OMPTargetVariantDispatchDirective *D) {
   VisitStmt(D);
@@ -2521,12 +2501,12 @@ void ASTStmtReader::VisitOMPOrderedDirective(OMPOrderedDirective *D) {
 void ASTStmtReader::VisitOMPAtomicDirective(OMPAtomicDirective *D) {
   VisitStmt(D);
   VisitOMPExecutableDirective(D);
-  D->IsXLHSInRHSPart = Record.readBool();
-  D->IsPostfixUpdate = Record.readBool();
+  D->Flags.IsXLHSInRHSPart = Record.readBool() ? 1 : 0;
+  D->Flags.IsPostfixUpdate = Record.readBool() ? 1 : 0;
 #if INTEL_COLLAB
-  D->IsCompareMin = Record.readBool();
-  D->IsCompareMax = Record.readBool();
-  D->IsConditionalCapture = Record.readBool();
+  D->Flags.IsCompareMin = Record.readBool() ? 1 : 0;
+  D->Flags.IsCompareMax = Record.readBool() ? 1 : 0;
+  D->Flags.IsConditionalCapture = Record.readBool() ? 1 : 0;
 #endif // INTEL_COLLAB
 }
 
@@ -2712,6 +2692,26 @@ void ASTStmtReader::VisitOMPMaskedDirective(OMPMaskedDirective *D) {
 }
 
 void ASTStmtReader::VisitOMPGenericLoopDirective(OMPGenericLoopDirective *D) {
+  VisitOMPLoopDirective(D);
+}
+
+void ASTStmtReader::VisitOMPTeamsGenericLoopDirective(
+    OMPTeamsGenericLoopDirective *D) {
+  VisitOMPLoopDirective(D);
+}
+
+void ASTStmtReader::VisitOMPTargetTeamsGenericLoopDirective(
+    OMPTargetTeamsGenericLoopDirective *D) {
+  VisitOMPLoopDirective(D);
+}
+
+void ASTStmtReader::VisitOMPParallelGenericLoopDirective(
+    OMPParallelGenericLoopDirective *D) {
+  VisitOMPLoopDirective(D);
+}
+
+void ASTStmtReader::VisitOMPTargetParallelGenericLoopDirective(
+    OMPTargetParallelGenericLoopDirective *D) {
   VisitOMPLoopDirective(D);
 }
 
@@ -3342,38 +3342,6 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       break;
 
 #if INTEL_COLLAB
-    case STMT_OMP_TEAMS_GENERIC_LOOP_DIRECTIVE: {
-      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields];
-      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields + 1];
-      S = OMPTeamsGenericLoopDirective::CreateEmpty(Context, NumClauses,
-                                                    CollapsedNum, Empty);
-      break;
-    }
-
-    case STMT_OMP_TARGET_TEAMS_GENERIC_LOOP_DIRECTIVE: {
-      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields];
-      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields + 1];
-      S = OMPTargetTeamsGenericLoopDirective::CreateEmpty(Context, NumClauses,
-                                                          CollapsedNum, Empty);
-      break;
-    }
-
-    case STMT_OMP_PARALLEL_GENERIC_LOOP_DIRECTIVE: {
-      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields];
-      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields + 1];
-      S = OMPParallelGenericLoopDirective::CreateEmpty(Context, NumClauses,
-                                                       CollapsedNum, Empty);
-      break;
-    }
-
-    case STMT_OMP_TARGET_PARALLEL_GENERIC_LOOP_DIRECTIVE: {
-      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields];
-      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields + 1];
-      S = OMPTargetParallelGenericLoopDirective::CreateEmpty(
-          Context, NumClauses, CollapsedNum, Empty);
-      break;
-    }
-
     case STMT_OMP_TARGET_VARIANT_DISPATCH_DIRECTIVE:
       S = OMPTargetVariantDispatchDirective::CreateEmpty(
           Context, Record[ASTStmtReader::NumStmtFields], Empty);
@@ -3719,6 +3687,38 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       unsigned NumClauses = Record[ASTStmtReader::NumStmtFields + 1];
       S = OMPGenericLoopDirective::CreateEmpty(Context, NumClauses,
                                                CollapsedNum, Empty);
+      break;
+    }
+
+    case STMT_OMP_TEAMS_GENERIC_LOOP_DIRECTIVE: {
+      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields];
+      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields + 1];
+      S = OMPTeamsGenericLoopDirective::CreateEmpty(Context, NumClauses,
+                                                    CollapsedNum, Empty);
+      break;
+    }
+
+    case STMT_OMP_TARGET_TEAMS_GENERIC_LOOP_DIRECTIVE: {
+      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields];
+      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields + 1];
+      S = OMPTargetTeamsGenericLoopDirective::CreateEmpty(Context, NumClauses,
+                                                          CollapsedNum, Empty);
+      break;
+    }
+
+    case STMT_OMP_PARALLEL_GENERIC_LOOP_DIRECTIVE: {
+      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields];
+      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields + 1];
+      S = OMPParallelGenericLoopDirective::CreateEmpty(Context, NumClauses,
+                                                       CollapsedNum, Empty);
+      break;
+    }
+
+    case STMT_OMP_TARGET_PARALLEL_GENERIC_LOOP_DIRECTIVE: {
+      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields];
+      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields + 1];
+      S = OMPTargetParallelGenericLoopDirective::CreateEmpty(
+          Context, NumClauses, CollapsedNum, Empty);
       break;
     }
 

@@ -1,5 +1,7 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-opt-predicate -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-predicate,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-opt-predicate -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-predicate,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -vplan-enable-new-cfg-merge-hir=false -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-opt-predicate -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-predicate,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -vplan-enable-new-cfg-merge-hir -disable-output < %s 2>&1 | FileCheck %s
 
 
 ; Verify that test case compiles successfully.
@@ -24,13 +26,16 @@
 ; |   }
 ; + END LOOP
 
-; CHECK: |            + DO i2 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 2> <auto-vectorized> <nounroll> <novectorize>
+; CHECK: |            + DO i2 = 0, {{.*}}, 4   <DO_LOOP>  <MAX_TC_EST = 2> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK: |            |   %.unifload = (i32*)(@b)[0][1];
-; CHECK: |            |   %.vec = 3 * %0  *  i2 + <i32 0, i32 1, i32 2, i32 3>;
-; CHECK: |            |   %.vec2 = (3 + (3 * %0)) * i1 + 3 * i2 + 3 * %0 + 3 * <i32 0, i32 1, i32 2, i32 3> + %.vec + 3  *  -1;
-; CHECK: |            |   %.vec3 = %.unifload + %.vec2  *  3;
-; CHECK: |            |   %extract.3. = extractelement %.vec3,  3;
-; CHECK: |            |   (@d)[0] = %extract.3.;
+; CHECK: |            |   [[VEC_IV:%.*]] = 3 * %0  *  i2 + <i32 0, i32 1, i32 2, i32 3>;
+; CHECK: |            |   [[SCAL_IV:%.*]] = 3 * %0  *  i2;
+; CHECK: |            |   [[VEC1:%.*]] = (3 + (3 * %0)) * i1 + 3 * i2 + 3 * %0 + 3 * <i32 0, i32 1, i32 2, i32 3> + [[VEC_IV]] + 3  *  -1;
+; CHECK: |            |   [[SCAL1:%.*]] = (3 + (3 * %0)) * i1 + 3 * i2 + 3 * %0 + [[SCAL_IV]] + 3  *  -1;
+; CHECK: |            |   [[VEC2:%.*]] = %.unifload + [[VEC1]]  *  3;
+; CHECK: |            |   [[SCAL2:%.*]] = %.unifload + [[SCAL1]]  *  3;
+; CHECK: |            |   [[EXTRACT:%.*]] = extractelement [[VEC2]],  3;
+; CHECK: |            |   (@d)[0] = [[EXTRACT]];
 ; CHECK: |            + END LOOP
 
 

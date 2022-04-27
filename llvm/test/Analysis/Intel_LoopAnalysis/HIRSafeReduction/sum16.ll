@@ -1,7 +1,7 @@
 ;    for ( i=0; i< n; i++) {
 ;        s1 = n2 * s1 +  n;
 ; 			s2 =  s2 * i +  n;
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-safe-reduction-analysis | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-safe-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction,print<hir-safe-reduction-analysis>" -disable-output 2>&1 | FileCheck %s
 ; CHECK: No Safe Reduction
 ; ModuleID = 'sum16.c'

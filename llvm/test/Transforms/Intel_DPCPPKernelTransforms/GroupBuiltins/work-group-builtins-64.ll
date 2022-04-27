@@ -112,6 +112,600 @@ declare <32 x double> @_Z19work_group_add_utilDv32_dS_(<32 x double> %src, <32 x
 declare <64 x double> @_Z19work_group_add_utilDv64_dS_(<64 x double> %src, <64 x double> %accum) #3
 
 ; Function Attrs: nounwind readnone
+declare i32 @_Z19work_group_mul_utilii(i32 %src, i32 %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z19work_group_mul_utilDv4_iS_(<4 x i32> %src, <4 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z19work_group_mul_utilDv8_iS_(<8 x i32> %src, <8 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z19work_group_mul_utilDv16_iS_(<16 x i32> %src, <16 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z19work_group_mul_utilDv32_iS_(<32 x i32> %src, <32 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z19work_group_mul_utilDv64_iS_(<64 x i32> %src, <64 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z19work_group_mul_utiljj(i32 %src, i32 %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z19work_group_mul_utilDv4_jS_(<4 x i32> %src, <4 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z19work_group_mul_utilDv8_jS_(<8 x i32> %src, <8 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z19work_group_mul_utilDv16_jS_(<16 x i32> %src, <16 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z19work_group_mul_utilDv32_jS_(<32 x i32> %src, <32 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z19work_group_mul_utilDv64_jS_(<64 x i32> %src, <64 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z19work_group_mul_utilll(i64 %src, i64 %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z19work_group_mul_utilDv4_lS_(<4 x i64> %src, <4 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z19work_group_mul_utilDv8_lS_(<8 x i64> %src, <8 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z19work_group_mul_utilDv16_lS_(<16 x i64> %src, <16 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z19work_group_mul_utilDv32_lS_(<32 x i64> %src, <32 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z19work_group_mul_utilDv64_lS_(<64 x i64> %src, <64 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z19work_group_mul_utilmm(i64 %src, i64 %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z19work_group_mul_utilDv4_mS_(<4 x i64> %src, <4 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z19work_group_mul_utilDv8_mS_(<8 x i64> %src, <8 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z19work_group_mul_utilDv16_mS_(<16 x i64> %src, <16 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z19work_group_mul_utilDv32_mS_(<32 x i64> %src, <32 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z19work_group_mul_utilDv64_mS_(<64 x i64> %src, <64 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare float @_Z19work_group_mul_utilff(float %src, float %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x float> @_Z19work_group_mul_utilDv4_fS_(<4 x float> %src, <4 x float> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x float> @_Z19work_group_mul_utilDv8_fS_(<8 x float> %src, <8 x float> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x float> @_Z19work_group_mul_utilDv16_fS_(<16 x float> %src, <16 x float> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x float> @_Z19work_group_mul_utilDv32_fS_(<32 x float> %src, <32 x float> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x float> @_Z19work_group_mul_utilDv64_fS_(<64 x float> %src, <64 x float> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare double @_Z19work_group_mul_utildd(double %src, double %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x double> @_Z19work_group_mul_utilDv4_dS_(<4 x double> %src, <4 x double> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x double> @_Z19work_group_mul_utilDv8_dS_(<8 x double> %src, <8 x double> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x double> @_Z19work_group_mul_utilDv16_dS_(<16 x double> %src, <16 x double> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x double> @_Z19work_group_mul_utilDv32_dS_(<32 x double> %src, <32 x double> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x double> @_Z19work_group_mul_utilDv64_dS_(<64 x double> %src, <64 x double> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare signext i8 @_Z27work_group_bitwise_and_utilcc(i8 signext %src, i8 signext %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i8> @_Z27work_group_bitwise_and_utilDv4_cS_(<4 x i8> %src, <4 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i8> @_Z27work_group_bitwise_and_utilDv8_cS_(<8 x i8> %src, <8 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i8> @_Z27work_group_bitwise_and_utilDv16_cS_(<16 x i8> %src, <16 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i8> @_Z27work_group_bitwise_and_utilDv32_cS_(<32 x i8> %src, <32 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i8> @_Z27work_group_bitwise_and_utilDv64_cS_(<64 x i8> %src, <64 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare zeroext i8 @_Z27work_group_bitwise_and_utilhh(i8 zeroext %src, i8 zeroext %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i8> @_Z27work_group_bitwise_and_utilDv4_hS_(<4 x i8> %src, <4 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i8> @_Z27work_group_bitwise_and_utilDv8_hS_(<8 x i8> %src, <8 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i8> @_Z27work_group_bitwise_and_utilDv16_hS_(<16 x i8> %src, <16 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i8> @_Z27work_group_bitwise_and_utilDv32_hS_(<32 x i8> %src, <32 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i8> @_Z27work_group_bitwise_and_utilDv64_hS_(<64 x i8> %src, <64 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare signext i16 @_Z27work_group_bitwise_and_utilss(i16 signext %src, i16 signext %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i16> @_Z27work_group_bitwise_and_utilDv4_sS_(<4 x i16> %src, <4 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i16> @_Z27work_group_bitwise_and_utilDv8_sS_(<8 x i16> %src, <8 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i16> @_Z27work_group_bitwise_and_utilDv16_sS_(<16 x i16> %src, <16 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i16> @_Z27work_group_bitwise_and_utilDv32_sS_(<32 x i16> %src, <32 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i16> @_Z27work_group_bitwise_and_utilDv64_sS_(<64 x i16> %src, <64 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare zeroext i16 @_Z27work_group_bitwise_and_utiltt(i16 zeroext %src, i16 zeroext %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i16> @_Z27work_group_bitwise_and_utilDv4_tS_(<4 x i16> %src, <4 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i16> @_Z27work_group_bitwise_and_utilDv8_tS_(<8 x i16> %src, <8 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i16> @_Z27work_group_bitwise_and_utilDv16_tS_(<16 x i16> %src, <16 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i16> @_Z27work_group_bitwise_and_utilDv32_tS_(<32 x i16> %src, <32 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i16> @_Z27work_group_bitwise_and_utilDv64_tS_(<64 x i16> %src, <64 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z27work_group_bitwise_and_utilii(i32 %src, i32 %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z27work_group_bitwise_and_utilDv4_iS_(<4 x i32> %src, <4 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z27work_group_bitwise_and_utilDv8_iS_(<8 x i32> %src, <8 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z27work_group_bitwise_and_utilDv16_iS_(<16 x i32> %src, <16 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z27work_group_bitwise_and_utilDv32_iS_(<32 x i32> %src, <32 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z27work_group_bitwise_and_utilDv64_iS_(<64 x i32> %src, <64 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z27work_group_bitwise_and_utiljj(i32 %src, i32 %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z27work_group_bitwise_and_utilDv4_jS_(<4 x i32> %src, <4 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z27work_group_bitwise_and_utilDv8_jS_(<8 x i32> %src, <8 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z27work_group_bitwise_and_utilDv16_jS_(<16 x i32> %src, <16 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z27work_group_bitwise_and_utilDv32_jS_(<32 x i32> %src, <32 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z27work_group_bitwise_and_utilDv64_jS_(<64 x i32> %src, <64 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z27work_group_bitwise_and_utilll(i64 %src, i64 %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z27work_group_bitwise_and_utilDv4_lS_(<4 x i64> %src, <4 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z27work_group_bitwise_and_utilDv8_lS_(<8 x i64> %src, <8 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z27work_group_bitwise_and_utilDv16_lS_(<16 x i64> %src, <16 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z27work_group_bitwise_and_utilDv32_lS_(<32 x i64> %src, <32 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z27work_group_bitwise_and_utilDv64_lS_(<64 x i64> %src, <64 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z27work_group_bitwise_and_utilmm(i64 %src, i64 %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z27work_group_bitwise_and_utilDv4_mS_(<4 x i64> %src, <4 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z27work_group_bitwise_and_utilDv8_mS_(<8 x i64> %src, <8 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z27work_group_bitwise_and_utilDv16_mS_(<16 x i64> %src, <16 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z27work_group_bitwise_and_utilDv32_mS_(<32 x i64> %src, <32 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z27work_group_bitwise_and_utilDv64_mS_(<64 x i64> %src, <64 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare signext i8 @_Z26work_group_bitwise_or_utilcc(i8 signext %src, i8 signext %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i8> @_Z26work_group_bitwise_or_utilDv4_cS_(<4 x i8> %src, <4 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i8> @_Z26work_group_bitwise_or_utilDv8_cS_(<8 x i8> %src, <8 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i8> @_Z26work_group_bitwise_or_utilDv16_cS_(<16 x i8> %src, <16 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i8> @_Z26work_group_bitwise_or_utilDv32_cS_(<32 x i8> %src, <32 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i8> @_Z26work_group_bitwise_or_utilDv64_cS_(<64 x i8> %src, <64 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare zeroext i8 @_Z26work_group_bitwise_or_utilhh(i8 zeroext %src, i8 zeroext %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i8> @_Z26work_group_bitwise_or_utilDv4_hS_(<4 x i8> %src, <4 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i8> @_Z26work_group_bitwise_or_utilDv8_hS_(<8 x i8> %src, <8 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i8> @_Z26work_group_bitwise_or_utilDv16_hS_(<16 x i8> %src, <16 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i8> @_Z26work_group_bitwise_or_utilDv32_hS_(<32 x i8> %src, <32 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i8> @_Z26work_group_bitwise_or_utilDv64_hS_(<64 x i8> %src, <64 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare signext i16 @_Z26work_group_bitwise_or_utilss(i16 signext %src, i16 signext %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i16> @_Z26work_group_bitwise_or_utilDv4_sS_(<4 x i16> %src, <4 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i16> @_Z26work_group_bitwise_or_utilDv8_sS_(<8 x i16> %src, <8 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i16> @_Z26work_group_bitwise_or_utilDv16_sS_(<16 x i16> %src, <16 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i16> @_Z26work_group_bitwise_or_utilDv32_sS_(<32 x i16> %src, <32 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i16> @_Z26work_group_bitwise_or_utilDv64_sS_(<64 x i16> %src, <64 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare zeroext i16 @_Z26work_group_bitwise_or_utiltt(i16 zeroext %src, i16 zeroext %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i16> @_Z26work_group_bitwise_or_utilDv4_tS_(<4 x i16> %src, <4 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i16> @_Z26work_group_bitwise_or_utilDv8_tS_(<8 x i16> %src, <8 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i16> @_Z26work_group_bitwise_or_utilDv16_tS_(<16 x i16> %src, <16 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i16> @_Z26work_group_bitwise_or_utilDv32_tS_(<32 x i16> %src, <32 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i16> @_Z26work_group_bitwise_or_utilDv64_tS_(<64 x i16> %src, <64 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z26work_group_bitwise_or_utilii(i32 %src, i32 %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z26work_group_bitwise_or_utilDv4_iS_(<4 x i32> %src, <4 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z26work_group_bitwise_or_utilDv8_iS_(<8 x i32> %src, <8 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z26work_group_bitwise_or_utilDv16_iS_(<16 x i32> %src, <16 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z26work_group_bitwise_or_utilDv32_iS_(<32 x i32> %src, <32 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z26work_group_bitwise_or_utilDv64_iS_(<64 x i32> %src, <64 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z26work_group_bitwise_or_utiljj(i32 %src, i32 %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z26work_group_bitwise_or_utilDv4_jS_(<4 x i32> %src, <4 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z26work_group_bitwise_or_utilDv8_jS_(<8 x i32> %src, <8 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z26work_group_bitwise_or_utilDv16_jS_(<16 x i32> %src, <16 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z26work_group_bitwise_or_utilDv32_jS_(<32 x i32> %src, <32 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z26work_group_bitwise_or_utilDv64_jS_(<64 x i32> %src, <64 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z26work_group_bitwise_or_utilll(i64 %src, i64 %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z26work_group_bitwise_or_utilDv4_lS_(<4 x i64> %src, <4 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z26work_group_bitwise_or_utilDv8_lS_(<8 x i64> %src, <8 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z26work_group_bitwise_or_utilDv16_lS_(<16 x i64> %src, <16 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z26work_group_bitwise_or_utilDv32_lS_(<32 x i64> %src, <32 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z26work_group_bitwise_or_utilDv64_lS_(<64 x i64> %src, <64 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z26work_group_bitwise_or_utilmm(i64 %src, i64 %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z26work_group_bitwise_or_utilDv4_mS_(<4 x i64> %src, <4 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z26work_group_bitwise_or_utilDv8_mS_(<8 x i64> %src, <8 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z26work_group_bitwise_or_utilDv16_mS_(<16 x i64> %src, <16 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z26work_group_bitwise_or_utilDv32_mS_(<32 x i64> %src, <32 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z26work_group_bitwise_or_utilDv64_mS_(<64 x i64> %src, <64 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare signext i8 @_Z27work_group_bitwise_xor_utilcc(i8 signext %src, i8 signext %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i8> @_Z27work_group_bitwise_xor_utilDv4_cS_(<4 x i8> %src, <4 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i8> @_Z27work_group_bitwise_xor_utilDv8_cS_(<8 x i8> %src, <8 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i8> @_Z27work_group_bitwise_xor_utilDv16_cS_(<16 x i8> %src, <16 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i8> @_Z27work_group_bitwise_xor_utilDv32_cS_(<32 x i8> %src, <32 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i8> @_Z27work_group_bitwise_xor_utilDv64_cS_(<64 x i8> %src, <64 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare zeroext i8 @_Z27work_group_bitwise_xor_utilhh(i8 zeroext %src, i8 zeroext %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i8> @_Z27work_group_bitwise_xor_utilDv4_hS_(<4 x i8> %src, <4 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i8> @_Z27work_group_bitwise_xor_utilDv8_hS_(<8 x i8> %src, <8 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i8> @_Z27work_group_bitwise_xor_utilDv16_hS_(<16 x i8> %src, <16 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i8> @_Z27work_group_bitwise_xor_utilDv32_hS_(<32 x i8> %src, <32 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i8> @_Z27work_group_bitwise_xor_utilDv64_hS_(<64 x i8> %src, <64 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare signext i16 @_Z27work_group_bitwise_xor_utilss(i16 signext %src, i16 signext %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i16> @_Z27work_group_bitwise_xor_utilDv4_sS_(<4 x i16> %src, <4 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i16> @_Z27work_group_bitwise_xor_utilDv8_sS_(<8 x i16> %src, <8 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i16> @_Z27work_group_bitwise_xor_utilDv16_sS_(<16 x i16> %src, <16 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i16> @_Z27work_group_bitwise_xor_utilDv32_sS_(<32 x i16> %src, <32 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i16> @_Z27work_group_bitwise_xor_utilDv64_sS_(<64 x i16> %src, <64 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare zeroext i16 @_Z27work_group_bitwise_xor_utiltt(i16 zeroext %src, i16 zeroext %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i16> @_Z27work_group_bitwise_xor_utilDv4_tS_(<4 x i16> %src, <4 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i16> @_Z27work_group_bitwise_xor_utilDv8_tS_(<8 x i16> %src, <8 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i16> @_Z27work_group_bitwise_xor_utilDv16_tS_(<16 x i16> %src, <16 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i16> @_Z27work_group_bitwise_xor_utilDv32_tS_(<32 x i16> %src, <32 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i16> @_Z27work_group_bitwise_xor_utilDv64_tS_(<64 x i16> %src, <64 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z27work_group_bitwise_xor_utilii(i32 %src, i32 %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z27work_group_bitwise_xor_utilDv4_iS_(<4 x i32> %src, <4 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z27work_group_bitwise_xor_utilDv8_iS_(<8 x i32> %src, <8 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z27work_group_bitwise_xor_utilDv16_iS_(<16 x i32> %src, <16 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z27work_group_bitwise_xor_utilDv32_iS_(<32 x i32> %src, <32 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z27work_group_bitwise_xor_utilDv64_iS_(<64 x i32> %src, <64 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z27work_group_bitwise_xor_utiljj(i32 %src, i32 %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z27work_group_bitwise_xor_utilDv4_jS_(<4 x i32> %src, <4 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z27work_group_bitwise_xor_utilDv8_jS_(<8 x i32> %src, <8 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z27work_group_bitwise_xor_utilDv16_jS_(<16 x i32> %src, <16 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z27work_group_bitwise_xor_utilDv32_jS_(<32 x i32> %src, <32 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z27work_group_bitwise_xor_utilDv64_jS_(<64 x i32> %src, <64 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z27work_group_bitwise_xor_utilll(i64 %src, i64 %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z27work_group_bitwise_xor_utilDv4_lS_(<4 x i64> %src, <4 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z27work_group_bitwise_xor_utilDv8_lS_(<8 x i64> %src, <8 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z27work_group_bitwise_xor_utilDv16_lS_(<16 x i64> %src, <16 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z27work_group_bitwise_xor_utilDv32_lS_(<32 x i64> %src, <32 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z27work_group_bitwise_xor_utilDv64_lS_(<64 x i64> %src, <64 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z27work_group_bitwise_xor_utilmm(i64 %src, i64 %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z27work_group_bitwise_xor_utilDv4_mS_(<4 x i64> %src, <4 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z27work_group_bitwise_xor_utilDv8_mS_(<8 x i64> %src, <8 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z27work_group_bitwise_xor_utilDv16_mS_(<16 x i64> %src, <16 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z27work_group_bitwise_xor_utilDv32_mS_(<32 x i64> %src, <32 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z27work_group_bitwise_xor_utilDv64_mS_(<64 x i64> %src, <64 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z27work_group_logical_and_utilii(i32 %src, i32 %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z27work_group_logical_and_utilDv4_iS_(<4 x i32> %src, <4 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z27work_group_logical_and_utilDv8_iS_(<8 x i32> %src, <8 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z27work_group_logical_and_utilDv16_iS_(<16 x i32> %src, <16 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z27work_group_logical_and_utilDv32_iS_(<32 x i32> %src, <32 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z27work_group_logical_and_utilDv64_iS_(<64 x i32> %src, <64 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z26work_group_logical_or_utilii(i32 %src, i32 %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z26work_group_logical_or_utilDv4_iS_(<4 x i32> %src, <4 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z26work_group_logical_or_utilDv8_iS_(<8 x i32> %src, <8 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z26work_group_logical_or_utilDv16_iS_(<16 x i32> %src, <16 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z26work_group_logical_or_utilDv32_iS_(<32 x i32> %src, <32 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z26work_group_logical_or_utilDv64_iS_(<64 x i32> %src, <64 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z27work_group_logical_xor_utilii(i32 %src, i32 %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z27work_group_logical_xor_utilDv4_iS_(<4 x i32> %src, <4 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z27work_group_logical_xor_utilDv8_iS_(<8 x i32> %src, <8 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z27work_group_logical_xor_utilDv16_iS_(<16 x i32> %src, <16 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z27work_group_logical_xor_utilDv32_iS_(<32 x i32> %src, <32 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z27work_group_logical_xor_utilDv64_iS_(<64 x i32> %src, <64 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
 declare i32 @_Z14work_group_alli(i32 %predicate) #3
 
 ; Function Attrs: nounwind readnone
@@ -1063,6 +1657,312 @@ declare <32 x double> @_Z21work_group_reduce_addDv32_dPS_(<32 x double> %src, <3
 declare <64 x double> @_Z21work_group_reduce_addDv64_dPS_(<64 x double> %src, <64 x double>* %accum) #5
 
 ; Function Attrs: nounwind readnone
+declare i32 @_Z21work_group_reduce_muli(i32 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z21work_group_reduce_mulDv4_i(<4 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z21work_group_reduce_mulDv8_i(<8 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z21work_group_reduce_mulDv16_i(<16 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z21work_group_reduce_mulDv32_i(<32 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z21work_group_reduce_mulDv64_i(<64 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z21work_group_reduce_mulj(i32 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z21work_group_reduce_mulDv4_j(<4 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z21work_group_reduce_mulDv8_j(<8 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z21work_group_reduce_mulDv16_j(<16 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z21work_group_reduce_mulDv32_j(<32 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z21work_group_reduce_mulDv64_j(<64 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z21work_group_reduce_mull(i64 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z21work_group_reduce_mulDv4_l(<4 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z21work_group_reduce_mulDv8_l(<8 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z21work_group_reduce_mulDv16_l(<16 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z21work_group_reduce_mulDv32_l(<32 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z21work_group_reduce_mulDv64_l(<64 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z21work_group_reduce_mulm(i64 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z21work_group_reduce_mulDv4_m(<4 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z21work_group_reduce_mulDv8_m(<8 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z21work_group_reduce_mulDv16_m(<16 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z21work_group_reduce_mulDv32_m(<32 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z21work_group_reduce_mulDv64_m(<64 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare float @_Z21work_group_reduce_mulf(float %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x float> @_Z21work_group_reduce_mulDv4_f(<4 x float> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x float> @_Z21work_group_reduce_mulDv8_f(<8 x float> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x float> @_Z21work_group_reduce_mulDv16_f(<16 x float> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x float> @_Z21work_group_reduce_mulDv32_f(<32 x float> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x float> @_Z21work_group_reduce_mulDv64_f(<64 x float> %src) #3
+
+; Function Attrs: nounwind readnone
+declare double @_Z21work_group_reduce_muld(double %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x double> @_Z21work_group_reduce_mulDv4_d(<4 x double> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x double> @_Z21work_group_reduce_mulDv8_d(<8 x double> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x double> @_Z21work_group_reduce_mulDv16_d(<16 x double> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x double> @_Z21work_group_reduce_mulDv32_d(<32 x double> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x double> @_Z21work_group_reduce_mulDv64_d(<64 x double> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z32__finalize_work_group_reduce_mulDv4_i(<4 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z32__finalize_work_group_reduce_mulDv8_i(<8 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z32__finalize_work_group_reduce_mulDv16_i(<16 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z32__finalize_work_group_reduce_mulDv32_i(<32 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z32__finalize_work_group_reduce_mulDv64_i(<64 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z32__finalize_work_group_reduce_mulDv4_j(<4 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z32__finalize_work_group_reduce_mulDv8_j(<8 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z32__finalize_work_group_reduce_mulDv16_j(<16 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z32__finalize_work_group_reduce_mulDv32_j(<32 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z32__finalize_work_group_reduce_mulDv64_j(<64 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z32__finalize_work_group_reduce_mulDv4_l(<4 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z32__finalize_work_group_reduce_mulDv8_l(<8 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z32__finalize_work_group_reduce_mulDv16_l(<16 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z32__finalize_work_group_reduce_mulDv32_l(<32 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z32__finalize_work_group_reduce_mulDv64_l(<64 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z32__finalize_work_group_reduce_mulDv4_m(<4 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z32__finalize_work_group_reduce_mulDv8_m(<8 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z32__finalize_work_group_reduce_mulDv16_m(<16 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z32__finalize_work_group_reduce_mulDv32_m(<32 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z32__finalize_work_group_reduce_mulDv64_m(<64 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x float> @_Z32__finalize_work_group_reduce_mulDv4_f(<4 x float> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x float> @_Z32__finalize_work_group_reduce_mulDv8_f(<8 x float> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x float> @_Z32__finalize_work_group_reduce_mulDv16_f(<16 x float> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x float> @_Z32__finalize_work_group_reduce_mulDv32_f(<32 x float> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x float> @_Z32__finalize_work_group_reduce_mulDv64_f(<64 x float> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x double> @_Z32__finalize_work_group_reduce_mulDv4_d(<4 x double> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x double> @_Z32__finalize_work_group_reduce_mulDv8_d(<8 x double> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x double> @_Z32__finalize_work_group_reduce_mulDv16_d(<16 x double> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x double> @_Z32__finalize_work_group_reduce_mulDv32_d(<32 x double> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x double> @_Z32__finalize_work_group_reduce_mulDv64_d(<64 x double> %accum) #3
+
+; Function Attrs: nounwind
+declare i32 @_Z21work_group_reduce_muliPi(i32 %src, i32* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i32> @_Z21work_group_reduce_mulDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i32> @_Z21work_group_reduce_mulDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i32> @_Z21work_group_reduce_mulDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i32> @_Z21work_group_reduce_mulDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i32> @_Z21work_group_reduce_mulDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare i32 @_Z21work_group_reduce_muljPj(i32 %src, i32* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i32> @_Z21work_group_reduce_mulDv4_jPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i32> @_Z21work_group_reduce_mulDv8_jPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i32> @_Z21work_group_reduce_mulDv16_jPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i32> @_Z21work_group_reduce_mulDv32_jPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i32> @_Z21work_group_reduce_mulDv64_jPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare i64 @_Z21work_group_reduce_mullPl(i64 %src, i64* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i64> @_Z21work_group_reduce_mulDv4_lPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i64> @_Z21work_group_reduce_mulDv8_lPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i64> @_Z21work_group_reduce_mulDv16_lPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i64> @_Z21work_group_reduce_mulDv32_lPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i64> @_Z21work_group_reduce_mulDv64_lPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare i64 @_Z21work_group_reduce_mulmPm(i64 %src, i64* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i64> @_Z21work_group_reduce_mulDv4_mPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i64> @_Z21work_group_reduce_mulDv8_mPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i64> @_Z21work_group_reduce_mulDv16_mPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i64> @_Z21work_group_reduce_mulDv32_mPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i64> @_Z21work_group_reduce_mulDv64_mPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare float @_Z21work_group_reduce_mulfPf(float %src, float* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x float> @_Z21work_group_reduce_mulDv4_fPS_(<4 x float> %src, <4 x float>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x float> @_Z21work_group_reduce_mulDv8_fPS_(<8 x float> %src, <8 x float>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x float> @_Z21work_group_reduce_mulDv16_fPS_(<16 x float> %src, <16 x float>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x float> @_Z21work_group_reduce_mulDv32_fPS_(<32 x float> %src, <32 x float>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x float> @_Z21work_group_reduce_mulDv64_fPS_(<64 x float> %src, <64 x float>* %accum) #5
+
+; Function Attrs: nounwind
+declare double @_Z21work_group_reduce_muldPd(double %src, double* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x double> @_Z21work_group_reduce_mulDv4_dPS_(<4 x double> %src, <4 x double>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x double> @_Z21work_group_reduce_mulDv8_dPS_(<8 x double> %src, <8 x double>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x double> @_Z21work_group_reduce_mulDv16_dPS_(<16 x double> %src, <16 x double>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x double> @_Z21work_group_reduce_mulDv32_dPS_(<32 x double> %src, <32 x double>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x double> @_Z21work_group_reduce_mulDv64_dPS_(<64 x double> %src, <64 x double>* %accum) #5
+
+; Function Attrs: nounwind readnone
 declare i32 @_Z21work_group_reduce_maxi(i32 %src) #3
 
 ; Function Attrs: nounwind readnone
@@ -1673,6 +2573,1383 @@ declare <32 x double> @_Z21work_group_reduce_minDv32_dPS_(<32 x double> %src, <3
 
 ; Function Attrs: nounwind
 declare <64 x double> @_Z21work_group_reduce_minDv64_dPS_(<64 x double> %src, <64 x double>* %accum) #5
+
+; Function Attrs: nounwind readnone
+declare signext i8 @_Z29work_group_reduce_bitwise_andc(i8 signext %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i8> @_Z29work_group_reduce_bitwise_andDv4_c(<4 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i8> @_Z29work_group_reduce_bitwise_andDv8_c(<8 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i8> @_Z29work_group_reduce_bitwise_andDv16_c(<16 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i8> @_Z29work_group_reduce_bitwise_andDv32_c(<32 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i8> @_Z29work_group_reduce_bitwise_andDv64_c(<64 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare zeroext i8 @_Z29work_group_reduce_bitwise_andh(i8 zeroext %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i8> @_Z29work_group_reduce_bitwise_andDv4_h(<4 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i8> @_Z29work_group_reduce_bitwise_andDv8_h(<8 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i8> @_Z29work_group_reduce_bitwise_andDv16_h(<16 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i8> @_Z29work_group_reduce_bitwise_andDv32_h(<32 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i8> @_Z29work_group_reduce_bitwise_andDv64_h(<64 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare signext i16 @_Z29work_group_reduce_bitwise_ands(i16 signext %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i16> @_Z29work_group_reduce_bitwise_andDv4_s(<4 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i16> @_Z29work_group_reduce_bitwise_andDv8_s(<8 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare signext <16 x i16> @_Z29work_group_reduce_bitwise_andDv16_s(<16 x i16> signext %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i16> @_Z29work_group_reduce_bitwise_andDv32_s(<32 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i16> @_Z29work_group_reduce_bitwise_andDv64_s(<64 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare zeroext i16 @_Z29work_group_reduce_bitwise_andt(i16 zeroext %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i16> @_Z29work_group_reduce_bitwise_andDv4_t(<4 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i16> @_Z29work_group_reduce_bitwise_andDv8_t(<8 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i16> @_Z29work_group_reduce_bitwise_andDv16_t(<16 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i16> @_Z29work_group_reduce_bitwise_andDv32_t(<32 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i16> @_Z29work_group_reduce_bitwise_andDv64_t(<64 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z29work_group_reduce_bitwise_andi(i32 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z29work_group_reduce_bitwise_andDv4_i(<4 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z29work_group_reduce_bitwise_andDv8_i(<8 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z29work_group_reduce_bitwise_andDv16_i(<16 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z29work_group_reduce_bitwise_andDv32_i(<32 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z29work_group_reduce_bitwise_andDv64_i(<64 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z29work_group_reduce_bitwise_andj(i32 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z29work_group_reduce_bitwise_andDv4_j(<4 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z29work_group_reduce_bitwise_andDv8_j(<8 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z29work_group_reduce_bitwise_andDv16_j(<16 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z29work_group_reduce_bitwise_andDv32_j(<32 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z29work_group_reduce_bitwise_andDv64_j(<64 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z29work_group_reduce_bitwise_andl(i64 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z29work_group_reduce_bitwise_andDv4_l(<4 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z29work_group_reduce_bitwise_andDv8_l(<8 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z29work_group_reduce_bitwise_andDv16_l(<16 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z29work_group_reduce_bitwise_andDv32_l(<32 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z29work_group_reduce_bitwise_andDv64_l(<64 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z29work_group_reduce_bitwise_andm(i64 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z29work_group_reduce_bitwise_andDv4_m(<4 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z29work_group_reduce_bitwise_andDv8_m(<8 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z29work_group_reduce_bitwise_andDv16_m(<16 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z29work_group_reduce_bitwise_andDv32_m(<32 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z29work_group_reduce_bitwise_andDv64_m(<64 x i64> %src) #3
+
+; Function Attrs: nounwind
+declare signext i8 @_Z29work_group_reduce_bitwise_andcPc(i8 signext %src, i8* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i8> @_Z29work_group_reduce_bitwise_andDv4_cPS_(<4 x i8> %src, <4 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i8> @_Z29work_group_reduce_bitwise_andDv8_cPS_(<8 x i8> %src, <8 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i8> @_Z29work_group_reduce_bitwise_andDv16_cPS_(<16 x i8> %src, <16 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i8> @_Z29work_group_reduce_bitwise_andDv32_cPS_(<32 x i8> %src, <32 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i8> @_Z29work_group_reduce_bitwise_andDv64_cPS_(<64 x i8> %src, <64 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare zeroext i8 @_Z29work_group_reduce_bitwise_andhPh(i8 zeroext %src, i8* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i8> @_Z29work_group_reduce_bitwise_andDv4_hPS_(<4 x i8> %src, <4 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i8> @_Z29work_group_reduce_bitwise_andDv8_hPS_(<8 x i8> %src, <8 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i8> @_Z29work_group_reduce_bitwise_andDv16_hPS_(<16 x i8> %src, <16 x i8>* %accum) #5
+ 
+; Function Attrs: nounwind
+declare <32 x i8> @_Z29work_group_reduce_bitwise_andDv32_hPS_(<32 x i8> %src, <32 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i8> @_Z29work_group_reduce_bitwise_andDv64_hPS_(<64 x i8> %src, <64 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare signext i16 @_Z29work_group_reduce_bitwise_andsPs(i16 signext %src, i16* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i16> @_Z29work_group_reduce_bitwise_andDv4_sPS_(<4 x i16> %src, <4 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i16> @_Z29work_group_reduce_bitwise_andDv8_sPS_(<8 x i16> %src, <8 x i16>* %accum) #5
+ 
+; Function Attrs: nounwind
+declare <16 x i16> @_Z29work_group_reduce_bitwise_andDv16_sPS_(<16 x i16> %src, <16 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i16> @_Z29work_group_reduce_bitwise_andDv32_sPS_(<32 x i16> %src, <32 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i16> @_Z29work_group_reduce_bitwise_andDv64_sPS_(<64 x i16> %src, <64 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare zeroext i16 @_Z29work_group_reduce_bitwise_andtPt(i16 zeroext %src, i16* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i16> @_Z29work_group_reduce_bitwise_andDv4_tPS_(<4 x i16> %src, <4 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i16> @_Z29work_group_reduce_bitwise_andDv8_tPS_(<8 x i16> %src, <8 x i16>* %accum) #5
+ 
+; Function Attrs: nounwind
+declare <16 x i16> @_Z29work_group_reduce_bitwise_andDv16_tPS_(<16 x i16> %src, <16 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i16> @_Z29work_group_reduce_bitwise_andDv32_tPS_(<32 x i16> %src, <32 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i16> @_Z29work_group_reduce_bitwise_andDv64_tPS_(<64 x i16> %src, <64 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare i32 @_Z29work_group_reduce_bitwise_andiPi(i32 %src, i32* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i32> @_Z29work_group_reduce_bitwise_andDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+ 
+; Function Attrs: nounwind
+declare <8 x i32> @_Z29work_group_reduce_bitwise_andDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i32> @_Z29work_group_reduce_bitwise_andDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i32> @_Z29work_group_reduce_bitwise_andDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i32> @_Z29work_group_reduce_bitwise_andDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare i32 @_Z29work_group_reduce_bitwise_andjPj(i32 %src, i32* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i32> @_Z29work_group_reduce_bitwise_andDv4_jPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+ 
+; Function Attrs: nounwind
+declare <8 x i32> @_Z29work_group_reduce_bitwise_andDv8_jPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i32> @_Z29work_group_reduce_bitwise_andDv16_jPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i32> @_Z29work_group_reduce_bitwise_andDv32_jPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i32> @_Z29work_group_reduce_bitwise_andDv64_jPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare i64 @_Z29work_group_reduce_bitwise_andlPl(i64 %src, i64* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i64> @_Z29work_group_reduce_bitwise_andDv4_lPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i64> @_Z29work_group_reduce_bitwise_andDv8_lPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i64> @_Z29work_group_reduce_bitwise_andDv16_lPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i64> @_Z29work_group_reduce_bitwise_andDv32_lPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i64> @_Z29work_group_reduce_bitwise_andDv64_lPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare i64 @_Z29work_group_reduce_bitwise_andmPm(i64 %src, i64* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i64> @_Z29work_group_reduce_bitwise_andDv4_mPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i64> @_Z29work_group_reduce_bitwise_andDv8_mPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i64> @_Z29work_group_reduce_bitwise_andDv16_mPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i64> @_Z29work_group_reduce_bitwise_andDv32_mPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i64> @_Z29work_group_reduce_bitwise_andDv64_mPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+
+; Function Attrs: nounwind readnone
+declare signext i8 @_Z28work_group_reduce_bitwise_orc(i8 signext %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i8> @_Z28work_group_reduce_bitwise_orDv4_c(<4 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i8> @_Z28work_group_reduce_bitwise_orDv8_c(<8 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i8> @_Z28work_group_reduce_bitwise_orDv16_c(<16 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i8> @_Z28work_group_reduce_bitwise_orDv32_c(<32 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i8> @_Z28work_group_reduce_bitwise_orDv64_c(<64 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare zeroext i8 @_Z28work_group_reduce_bitwise_orh(i8 zeroext %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i8> @_Z28work_group_reduce_bitwise_orDv4_h(<4 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i8> @_Z28work_group_reduce_bitwise_orDv8_h(<8 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i8> @_Z28work_group_reduce_bitwise_orDv16_h(<16 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i8> @_Z28work_group_reduce_bitwise_orDv32_h(<32 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i8> @_Z28work_group_reduce_bitwise_orDv64_h(<64 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare signext i16 @_Z28work_group_reduce_bitwise_ors(i16 signext %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i16> @_Z28work_group_reduce_bitwise_orDv4_s(<4 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i16> @_Z28work_group_reduce_bitwise_orDv8_s(<8 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i16> @_Z28work_group_reduce_bitwise_orDv16_s(<16 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i16> @_Z28work_group_reduce_bitwise_orDv32_s(<32 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i16> @_Z28work_group_reduce_bitwise_orDv64_s(<64 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare zeroext i16 @_Z28work_group_reduce_bitwise_ort(i16 zeroext %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i16> @_Z28work_group_reduce_bitwise_orDv4_t(<4 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i16> @_Z28work_group_reduce_bitwise_orDv8_t(<8 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i16> @_Z28work_group_reduce_bitwise_orDv16_t(<16 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i16> @_Z28work_group_reduce_bitwise_orDv32_t(<32 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i16> @_Z28work_group_reduce_bitwise_orDv64_t(<64 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z28work_group_reduce_bitwise_ori(i32 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z28work_group_reduce_bitwise_orDv4_i(<4 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z28work_group_reduce_bitwise_orDv8_i(<8 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z28work_group_reduce_bitwise_orDv16_i(<16 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z28work_group_reduce_bitwise_orDv32_i(<32 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z28work_group_reduce_bitwise_orDv64_i(<64 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z28work_group_reduce_bitwise_orj(i32 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z28work_group_reduce_bitwise_orDv4_j(<4 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z28work_group_reduce_bitwise_orDv8_j(<8 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z28work_group_reduce_bitwise_orDv16_j(<16 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z28work_group_reduce_bitwise_orDv32_j(<32 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z28work_group_reduce_bitwise_orDv64_j(<64 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z28work_group_reduce_bitwise_orl(i64 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z28work_group_reduce_bitwise_orDv4_l(<4 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z28work_group_reduce_bitwise_orDv8_l(<8 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z28work_group_reduce_bitwise_orDv16_l(<16 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z28work_group_reduce_bitwise_orDv32_l(<32 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z28work_group_reduce_bitwise_orDv64_l(<64 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z28work_group_reduce_bitwise_orm(i64 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z28work_group_reduce_bitwise_orDv4_m(<4 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z28work_group_reduce_bitwise_orDv8_m(<8 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z28work_group_reduce_bitwise_orDv16_m(<16 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z28work_group_reduce_bitwise_orDv32_m(<32 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z28work_group_reduce_bitwise_orDv64_m(<64 x i64> %src) #3
+
+; Function Attrs: nounwind
+declare signext i8 @_Z28work_group_reduce_bitwise_orcPc(i8 signext %src, i8* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i8> @_Z28work_group_reduce_bitwise_orDv4_cPS_(<4 x i8> %src, <4 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i8> @_Z28work_group_reduce_bitwise_orDv8_cPS_(<8 x i8> %src, <8 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i8> @_Z28work_group_reduce_bitwise_orDv16_cPS_(<16 x i8> %src, <16 x i8>* %accum) #5
+ 
+; Function Attrs: nounwind
+declare <32 x i8> @_Z28work_group_reduce_bitwise_orDv32_cPS_(<32 x i8> %src, <32 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i8> @_Z28work_group_reduce_bitwise_orDv64_cPS_(<64 x i8> %src, <64 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare zeroext i8 @_Z28work_group_reduce_bitwise_orhPh(i8 zeroext %src, i8* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i8> @_Z28work_group_reduce_bitwise_orDv4_hPS_(<4 x i8> %src, <4 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i8> @_Z28work_group_reduce_bitwise_orDv8_hPS_(<8 x i8> %src, <8 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i8> @_Z28work_group_reduce_bitwise_orDv16_hPS_(<16 x i8> %src, <16 x i8>* %accum) #5
+ 
+; Function Attrs: nounwind
+declare <32 x i8> @_Z28work_group_reduce_bitwise_orDv32_hPS_(<32 x i8> %src, <32 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i8> @_Z28work_group_reduce_bitwise_orDv64_hPS_(<64 x i8> %src, <64 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare signext i16 @_Z28work_group_reduce_bitwise_orsPs(i16 signext %src, i16* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i16> @_Z28work_group_reduce_bitwise_orDv4_sPS_(<4 x i16> %src, <4 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i16> @_Z28work_group_reduce_bitwise_orDv8_sPS_(<8 x i16> %src, <8 x i16>* %accum) #5
+ 
+; Function Attrs: nounwind
+declare <16 x i16> @_Z28work_group_reduce_bitwise_orDv16_sPS_(<16 x i16> %src, <16 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i16> @_Z28work_group_reduce_bitwise_orDv32_sPS_(<32 x i16> %src, <32 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i16> @_Z28work_group_reduce_bitwise_orDv64_sPS_(<64 x i16> %src, <64 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare zeroext i16 @_Z28work_group_reduce_bitwise_ortPt(i16 zeroext %src, i16* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i16> @_Z28work_group_reduce_bitwise_orDv4_tPS_(<4 x i16> %src, <4 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i16> @_Z28work_group_reduce_bitwise_orDv8_tPS_(<8 x i16> %src, <8 x i16>* %accum) #5
+ 
+; Function Attrs: nounwind
+declare <16 x i16> @_Z28work_group_reduce_bitwise_orDv16_tPS_(<16 x i16> %src, <16 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i16> @_Z28work_group_reduce_bitwise_orDv32_tPS_(<32 x i16> %src, <32 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i16> @_Z28work_group_reduce_bitwise_orDv64_tPS_(<64 x i16> %src, <64 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare i32 @_Z28work_group_reduce_bitwise_oriPi(i32 %src, i32* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i32> @_Z28work_group_reduce_bitwise_orDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+ 
+; Function Attrs: nounwind
+declare <8 x i32> @_Z28work_group_reduce_bitwise_orDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i32> @_Z28work_group_reduce_bitwise_orDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i32> @_Z28work_group_reduce_bitwise_orDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i32> @_Z28work_group_reduce_bitwise_orDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare i32 @_Z28work_group_reduce_bitwise_orjPj(i32 %src, i32* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i32> @_Z28work_group_reduce_bitwise_orDv4_jPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+ 
+; Function Attrs: nounwind
+declare <8 x i32> @_Z28work_group_reduce_bitwise_orDv8_jPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i32> @_Z28work_group_reduce_bitwise_orDv16_jPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i32> @_Z28work_group_reduce_bitwise_orDv32_jPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i32> @_Z28work_group_reduce_bitwise_orDv64_jPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare i64 @_Z28work_group_reduce_bitwise_orlPl(i64 %src, i64* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i64> @_Z28work_group_reduce_bitwise_orDv4_lPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i64> @_Z28work_group_reduce_bitwise_orDv8_lPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i64> @_Z28work_group_reduce_bitwise_orDv16_lPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i64> @_Z28work_group_reduce_bitwise_orDv32_lPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i64> @_Z28work_group_reduce_bitwise_orDv64_lPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare i64 @_Z28work_group_reduce_bitwise_ormPm(i64 %src, i64* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i64> @_Z28work_group_reduce_bitwise_orDv4_mPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i64> @_Z28work_group_reduce_bitwise_orDv8_mPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i64> @_Z28work_group_reduce_bitwise_orDv16_mPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i64> @_Z28work_group_reduce_bitwise_orDv32_mPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i64> @_Z28work_group_reduce_bitwise_orDv64_mPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+
+; Function Attrs: nounwind readnone
+declare signext i8 @_Z29work_group_reduce_bitwise_xorc(i8 signext %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i8> @_Z29work_group_reduce_bitwise_xorDv4_c(<4 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i8> @_Z29work_group_reduce_bitwise_xorDv8_c(<8 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i8> @_Z29work_group_reduce_bitwise_xorDv16_c(<16 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i8> @_Z29work_group_reduce_bitwise_xorDv32_c(<32 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i8> @_Z29work_group_reduce_bitwise_xorDv64_c(<64 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare zeroext i8 @_Z29work_group_reduce_bitwise_xorh(i8 zeroext %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i8> @_Z29work_group_reduce_bitwise_xorDv4_h(<4 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i8> @_Z29work_group_reduce_bitwise_xorDv8_h(<8 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i8> @_Z29work_group_reduce_bitwise_xorDv16_h(<16 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i8> @_Z29work_group_reduce_bitwise_xorDv32_h(<32 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i8> @_Z29work_group_reduce_bitwise_xorDv64_h(<64 x i8> %src) #3
+
+; Function Attrs: nounwind readnone
+declare signext i16 @_Z29work_group_reduce_bitwise_xors(i16 signext %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i16> @_Z29work_group_reduce_bitwise_xorDv4_s(<4 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i16> @_Z29work_group_reduce_bitwise_xorDv8_s(<8 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i16> @_Z29work_group_reduce_bitwise_xorDv16_s(<16 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i16> @_Z29work_group_reduce_bitwise_xorDv32_s(<32 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i16> @_Z29work_group_reduce_bitwise_xorDv64_s(<64 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare zeroext i16 @_Z29work_group_reduce_bitwise_xort(i16 zeroext %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i16> @_Z29work_group_reduce_bitwise_xorDv4_t(<4 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i16> @_Z29work_group_reduce_bitwise_xorDv8_t(<8 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i16> @_Z29work_group_reduce_bitwise_xorDv16_t(<16 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i16> @_Z29work_group_reduce_bitwise_xorDv32_t(<32 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i16> @_Z29work_group_reduce_bitwise_xorDv64_t(<64 x i16> %src) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z29work_group_reduce_bitwise_xori(i32 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z29work_group_reduce_bitwise_xorDv4_i(<4 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z29work_group_reduce_bitwise_xorDv8_i(<8 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z29work_group_reduce_bitwise_xorDv16_i(<16 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z29work_group_reduce_bitwise_xorDv32_i(<32 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z29work_group_reduce_bitwise_xorDv64_i(<64 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z29work_group_reduce_bitwise_xorj(i32 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z29work_group_reduce_bitwise_xorDv4_j(<4 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z29work_group_reduce_bitwise_xorDv8_j(<8 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z29work_group_reduce_bitwise_xorDv16_j(<16 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z29work_group_reduce_bitwise_xorDv32_j(<32 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z29work_group_reduce_bitwise_xorDv64_j(<64 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z29work_group_reduce_bitwise_xorl(i64 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z29work_group_reduce_bitwise_xorDv4_l(<4 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z29work_group_reduce_bitwise_xorDv8_l(<8 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z29work_group_reduce_bitwise_xorDv16_l(<16 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z29work_group_reduce_bitwise_xorDv32_l(<32 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z29work_group_reduce_bitwise_xorDv64_l(<64 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare i64 @_Z29work_group_reduce_bitwise_xorm(i64 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z29work_group_reduce_bitwise_xorDv4_m(<4 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z29work_group_reduce_bitwise_xorDv8_m(<8 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z29work_group_reduce_bitwise_xorDv16_m(<16 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z29work_group_reduce_bitwise_xorDv32_m(<32 x i64> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z29work_group_reduce_bitwise_xorDv64_m(<64 x i64> %src) #3
+
+; Function Attrs: nounwind
+declare signext i8 @_Z29work_group_reduce_bitwise_xorcPc(i8 signext %src, i8* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i8> @_Z29work_group_reduce_bitwise_xorDv4_cPS_(<4 x i8> %src, <4 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i8> @_Z29work_group_reduce_bitwise_xorDv8_cPS_(<8 x i8> %src, <8 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i8> @_Z29work_group_reduce_bitwise_xorDv16_cPS_(<16 x i8> %src, <16 x i8>* %accum) #5
+ 
+; Function Attrs: nounwind
+declare <32 x i8> @_Z29work_group_reduce_bitwise_xorDv32_cPS_(<32 x i8> %src, <32 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i8> @_Z29work_group_reduce_bitwise_xorDv64_cPS_(<64 x i8> %src, <64 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare zeroext i8 @_Z29work_group_reduce_bitwise_xorhPh(i8 zeroext %src, i8* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i8> @_Z29work_group_reduce_bitwise_xorDv4_hPS_(<4 x i8> %src, <4 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i8> @_Z29work_group_reduce_bitwise_xorDv8_hPS_(<8 x i8> %src, <8 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i8> @_Z29work_group_reduce_bitwise_xorDv16_hPS_(<16 x i8> %src, <16 x i8>* %accum) #5
+ 
+; Function Attrs: nounwind
+declare <32 x i8> @_Z29work_group_reduce_bitwise_xorDv32_hPS_(<32 x i8> %src, <32 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i8> @_Z29work_group_reduce_bitwise_xorDv64_hPS_(<64 x i8> %src, <64 x i8>* %accum) #5
+
+; Function Attrs: nounwind
+declare signext i16 @_Z29work_group_reduce_bitwise_xorsPs(i16 signext %src, i16* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i16> @_Z29work_group_reduce_bitwise_xorDv4_sPS_(<4 x i16> %src, <4 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i16> @_Z29work_group_reduce_bitwise_xorDv8_sPS_(<8 x i16> %src, <8 x i16>* %accum) #5
+ 
+; Function Attrs: nounwind
+declare <16 x i16> @_Z29work_group_reduce_bitwise_xorDv16_sPS_(<16 x i16> %src, <16 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i16> @_Z29work_group_reduce_bitwise_xorDv32_sPS_(<32 x i16> %src, <32 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i16> @_Z29work_group_reduce_bitwise_xorDv64_sPS_(<64 x i16> %src, <64 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare zeroext i16 @_Z29work_group_reduce_bitwise_xortPt(i16 zeroext %src, i16* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i16> @_Z29work_group_reduce_bitwise_xorDv4_tPS_(<4 x i16> %src, <4 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i16> @_Z29work_group_reduce_bitwise_xorDv8_tPS_(<8 x i16> %src, <8 x i16>* %accum) #5
+ 
+; Function Attrs: nounwind
+declare <16 x i16> @_Z29work_group_reduce_bitwise_xorDv16_tPS_(<16 x i16> %src, <16 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i16> @_Z29work_group_reduce_bitwise_xorDv32_tPS_(<32 x i16> %src, <32 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i16> @_Z29work_group_reduce_bitwise_xorDv64_tPS_(<64 x i16> %src, <64 x i16>* %accum) #5
+
+; Function Attrs: nounwind
+declare i32 @_Z29work_group_reduce_bitwise_xoriPi(i32 %src, i32* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i32> @_Z29work_group_reduce_bitwise_xorDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+ 
+; Function Attrs: nounwind
+declare <8 x i32> @_Z29work_group_reduce_bitwise_xorDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i32> @_Z29work_group_reduce_bitwise_xorDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i32> @_Z29work_group_reduce_bitwise_xorDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i32> @_Z29work_group_reduce_bitwise_xorDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare i32 @_Z29work_group_reduce_bitwise_xorjPj(i32 %src, i32* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i32> @_Z29work_group_reduce_bitwise_xorDv4_jPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+ 
+; Function Attrs: nounwind
+declare <8 x i32> @_Z29work_group_reduce_bitwise_xorDv8_jPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i32> @_Z29work_group_reduce_bitwise_xorDv16_jPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i32> @_Z29work_group_reduce_bitwise_xorDv32_jPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i32> @_Z29work_group_reduce_bitwise_xorDv64_jPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare i64 @_Z29work_group_reduce_bitwise_xorlPl(i64 %src, i64* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i64> @_Z29work_group_reduce_bitwise_xorDv4_lPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i64> @_Z29work_group_reduce_bitwise_xorDv8_lPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i64> @_Z29work_group_reduce_bitwise_xorDv16_lPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i64> @_Z29work_group_reduce_bitwise_xorDv32_lPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i64> @_Z29work_group_reduce_bitwise_xorDv64_lPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare i64 @_Z29work_group_reduce_bitwise_xormPm(i64 %src, i64* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i64> @_Z29work_group_reduce_bitwise_xorDv4_mPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i64> @_Z29work_group_reduce_bitwise_xorDv8_mPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i64> @_Z29work_group_reduce_bitwise_xorDv16_mPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i64> @_Z29work_group_reduce_bitwise_xorDv32_mPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i64> @_Z29work_group_reduce_bitwise_xorDv64_mPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z29work_group_reduce_logical_andi(i32 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z29work_group_reduce_logical_andDv4_i(<4 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z29work_group_reduce_logical_andDv8_i(<8 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z29work_group_reduce_logical_andDv16_i(<16 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z29work_group_reduce_logical_andDv32_i(<32 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z29work_group_reduce_logical_andDv64_i(<64 x i32> %src) #3
+
+; Function Attrs: nounwind
+declare i32 @_Z29work_group_reduce_logical_andiPi(i32 %src, i32* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i32> @_Z29work_group_reduce_logical_andDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i32> @_Z29work_group_reduce_logical_andDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i32> @_Z29work_group_reduce_logical_andDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i32> @_Z29work_group_reduce_logical_andDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i32> @_Z29work_group_reduce_logical_andDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z28work_group_reduce_logical_ori(i32 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z28work_group_reduce_logical_orDv4_i(<4 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z28work_group_reduce_logical_orDv8_i(<8 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z28work_group_reduce_logical_orDv16_i(<16 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z28work_group_reduce_logical_orDv32_i(<32 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z28work_group_reduce_logical_orDv64_i(<64 x i32> %src) #3
+
+; Function Attrs: nounwind
+declare i32 @_Z28work_group_reduce_logical_oriPi(i32 %src, i32* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i32> @_Z28work_group_reduce_logical_orDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i32> @_Z28work_group_reduce_logical_orDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i32> @_Z28work_group_reduce_logical_orDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i32> @_Z28work_group_reduce_logical_orDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i32> @_Z28work_group_reduce_logical_orDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+
+; Function Attrs: nounwind readnone
+declare i32 @_Z29work_group_reduce_logical_xori(i32 %src) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z29work_group_reduce_logical_xorDv4_i(<4 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z29work_group_reduce_logical_xorDv8_i(<8 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z29work_group_reduce_logical_xorDv16_i(<16 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z29work_group_reduce_logical_xorDv32_i(<32 x i32> %src) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z29work_group_reduce_logical_xorDv64_i(<64 x i32> %src) #3
+
+; Function Attrs: nounwind
+declare i32 @_Z29work_group_reduce_logical_xoriPi(i32 %src, i32* %accum) #5
+
+; Function Attrs: nounwind
+declare <4 x i32> @_Z29work_group_reduce_logical_xorDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <8 x i32> @_Z29work_group_reduce_logical_xorDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <16 x i32> @_Z29work_group_reduce_logical_xorDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <32 x i32> @_Z29work_group_reduce_logical_xorDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+
+; Function Attrs: nounwind
+declare <64 x i32> @_Z29work_group_reduce_logical_xorDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+
+; Function Attrs: nounwind readnone
+declare <4 x i8> @_Z40__finalize_work_group_reduce_bitwise_andDv4_c(<4 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i8> @_Z40__finalize_work_group_reduce_bitwise_andDv8_c(<8 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i8> @_Z40__finalize_work_group_reduce_bitwise_andDv16_c(<16 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i8> @_Z40__finalize_work_group_reduce_bitwise_andDv32_c(<32 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i8> @_Z40__finalize_work_group_reduce_bitwise_andDv64_c(<64 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i8> @_Z40__finalize_work_group_reduce_bitwise_andDv4_h(<4 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i8> @_Z40__finalize_work_group_reduce_bitwise_andDv8_h(<8 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i8> @_Z40__finalize_work_group_reduce_bitwise_andDv16_h(<16 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i8> @_Z40__finalize_work_group_reduce_bitwise_andDv32_h(<32 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i8> @_Z40__finalize_work_group_reduce_bitwise_andDv64_h(<64 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i16> @_Z40__finalize_work_group_reduce_bitwise_andDv4_s(<4 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i16> @_Z40__finalize_work_group_reduce_bitwise_andDv8_s(<8 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i16> @_Z40__finalize_work_group_reduce_bitwise_andDv16_s(<16 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i16> @_Z40__finalize_work_group_reduce_bitwise_andDv32_s(<32 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i16> @_Z40__finalize_work_group_reduce_bitwise_andDv64_s(<64 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i16> @_Z40__finalize_work_group_reduce_bitwise_andDv4_t(<4 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i16> @_Z40__finalize_work_group_reduce_bitwise_andDv8_t(<8 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i16> @_Z40__finalize_work_group_reduce_bitwise_andDv16_t(<16 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i16> @_Z40__finalize_work_group_reduce_bitwise_andDv32_t(<32 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i16> @_Z40__finalize_work_group_reduce_bitwise_andDv64_t(<64 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z40__finalize_work_group_reduce_bitwise_andDv4_i(<4 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z40__finalize_work_group_reduce_bitwise_andDv8_i(<8 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z40__finalize_work_group_reduce_bitwise_andDv16_i(<16 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z40__finalize_work_group_reduce_bitwise_andDv32_i(<32 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z40__finalize_work_group_reduce_bitwise_andDv64_i(<64 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z40__finalize_work_group_reduce_bitwise_andDv4_j(<4 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z40__finalize_work_group_reduce_bitwise_andDv8_j(<8 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z40__finalize_work_group_reduce_bitwise_andDv16_j(<16 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z40__finalize_work_group_reduce_bitwise_andDv32_j(<32 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z40__finalize_work_group_reduce_bitwise_andDv64_j(<64 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z40__finalize_work_group_reduce_bitwise_andDv4_l(<4 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z40__finalize_work_group_reduce_bitwise_andDv8_l(<8 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z40__finalize_work_group_reduce_bitwise_andDv16_l(<16 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z40__finalize_work_group_reduce_bitwise_andDv32_l(<32 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z40__finalize_work_group_reduce_bitwise_andDv64_l(<64 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z40__finalize_work_group_reduce_bitwise_andDv4_m(<4 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z40__finalize_work_group_reduce_bitwise_andDv8_m(<8 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z40__finalize_work_group_reduce_bitwise_andDv16_m(<16 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z40__finalize_work_group_reduce_bitwise_andDv32_m(<32 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z40__finalize_work_group_reduce_bitwise_andDv64_m(<64 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i8> @_Z39__finalize_work_group_reduce_bitwise_orDv4_c(<4 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i8> @_Z39__finalize_work_group_reduce_bitwise_orDv8_c(<8 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i8> @_Z39__finalize_work_group_reduce_bitwise_orDv16_c(<16 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i8> @_Z39__finalize_work_group_reduce_bitwise_orDv32_c(<32 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i8> @_Z39__finalize_work_group_reduce_bitwise_orDv64_c(<64 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i8> @_Z39__finalize_work_group_reduce_bitwise_orDv4_h(<4 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i8> @_Z39__finalize_work_group_reduce_bitwise_orDv8_h(<8 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i8> @_Z39__finalize_work_group_reduce_bitwise_orDv16_h(<16 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i8> @_Z39__finalize_work_group_reduce_bitwise_orDv32_h(<32 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i8> @_Z39__finalize_work_group_reduce_bitwise_orDv64_h(<64 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i16> @_Z39__finalize_work_group_reduce_bitwise_orDv4_s(<4 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i16> @_Z39__finalize_work_group_reduce_bitwise_orDv8_s(<8 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i16> @_Z39__finalize_work_group_reduce_bitwise_orDv16_s(<16 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i16> @_Z39__finalize_work_group_reduce_bitwise_orDv32_s(<32 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i16> @_Z39__finalize_work_group_reduce_bitwise_orDv64_s(<64 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i16> @_Z39__finalize_work_group_reduce_bitwise_orDv4_t(<4 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i16> @_Z39__finalize_work_group_reduce_bitwise_orDv8_t(<8 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i16> @_Z39__finalize_work_group_reduce_bitwise_orDv16_t(<16 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i16> @_Z39__finalize_work_group_reduce_bitwise_orDv32_t(<32 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i16> @_Z39__finalize_work_group_reduce_bitwise_orDv64_t(<64 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z39__finalize_work_group_reduce_bitwise_orDv4_i(<4 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z39__finalize_work_group_reduce_bitwise_orDv8_i(<8 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z39__finalize_work_group_reduce_bitwise_orDv16_i(<16 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z39__finalize_work_group_reduce_bitwise_orDv32_i(<32 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z39__finalize_work_group_reduce_bitwise_orDv64_i(<64 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z39__finalize_work_group_reduce_bitwise_orDv4_j(<4 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z39__finalize_work_group_reduce_bitwise_orDv8_j(<8 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z39__finalize_work_group_reduce_bitwise_orDv16_j(<16 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z39__finalize_work_group_reduce_bitwise_orDv32_j(<32 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z39__finalize_work_group_reduce_bitwise_orDv64_j(<64 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z39__finalize_work_group_reduce_bitwise_orDv4_l(<4 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z39__finalize_work_group_reduce_bitwise_orDv8_l(<8 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z39__finalize_work_group_reduce_bitwise_orDv16_l(<16 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z39__finalize_work_group_reduce_bitwise_orDv32_l(<32 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z39__finalize_work_group_reduce_bitwise_orDv64_l(<64 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z39__finalize_work_group_reduce_bitwise_orDv4_m(<4 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z39__finalize_work_group_reduce_bitwise_orDv8_m(<8 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z39__finalize_work_group_reduce_bitwise_orDv16_m(<16 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z39__finalize_work_group_reduce_bitwise_orDv32_m(<32 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z39__finalize_work_group_reduce_bitwise_orDv64_m(<64 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i8> @_Z40__finalize_work_group_reduce_bitwise_xorDv4_c(<4 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i8> @_Z40__finalize_work_group_reduce_bitwise_xorDv8_c(<8 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i8> @_Z40__finalize_work_group_reduce_bitwise_xorDv16_c(<16 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i8> @_Z40__finalize_work_group_reduce_bitwise_xorDv32_c(<32 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i8> @_Z40__finalize_work_group_reduce_bitwise_xorDv64_c(<64 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i8> @_Z40__finalize_work_group_reduce_bitwise_xorDv4_h(<4 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i8> @_Z40__finalize_work_group_reduce_bitwise_xorDv8_h(<8 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i8> @_Z40__finalize_work_group_reduce_bitwise_xorDv16_h(<16 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i8> @_Z40__finalize_work_group_reduce_bitwise_xorDv32_h(<32 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i8> @_Z40__finalize_work_group_reduce_bitwise_xorDv64_h(<64 x i8> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i16> @_Z40__finalize_work_group_reduce_bitwise_xorDv4_s(<4 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i16> @_Z40__finalize_work_group_reduce_bitwise_xorDv8_s(<8 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i16> @_Z40__finalize_work_group_reduce_bitwise_xorDv16_s(<16 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i16> @_Z40__finalize_work_group_reduce_bitwise_xorDv32_s(<32 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i16> @_Z40__finalize_work_group_reduce_bitwise_xorDv64_s(<64 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i16> @_Z40__finalize_work_group_reduce_bitwise_xorDv4_t(<4 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i16> @_Z40__finalize_work_group_reduce_bitwise_xorDv8_t(<8 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i16> @_Z40__finalize_work_group_reduce_bitwise_xorDv16_t(<16 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i16> @_Z40__finalize_work_group_reduce_bitwise_xorDv32_t(<32 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i16> @_Z40__finalize_work_group_reduce_bitwise_xorDv64_t(<64 x i16> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z40__finalize_work_group_reduce_bitwise_xorDv4_i(<4 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z40__finalize_work_group_reduce_bitwise_xorDv8_i(<8 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z40__finalize_work_group_reduce_bitwise_xorDv16_i(<16 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z40__finalize_work_group_reduce_bitwise_xorDv32_i(<32 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z40__finalize_work_group_reduce_bitwise_xorDv64_i(<64 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @_Z40__finalize_work_group_reduce_bitwise_xorDv4_j(<4 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i32> @_Z40__finalize_work_group_reduce_bitwise_xorDv8_j(<8 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i32> @_Z40__finalize_work_group_reduce_bitwise_xorDv16_j(<16 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i32> @_Z40__finalize_work_group_reduce_bitwise_xorDv32_j(<32 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i32> @_Z40__finalize_work_group_reduce_bitwise_xorDv64_j(<64 x i32> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z40__finalize_work_group_reduce_bitwise_xorDv4_l(<4 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z40__finalize_work_group_reduce_bitwise_xorDv8_l(<8 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z40__finalize_work_group_reduce_bitwise_xorDv16_l(<16 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z40__finalize_work_group_reduce_bitwise_xorDv32_l(<32 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z40__finalize_work_group_reduce_bitwise_xorDv64_l(<64 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <4 x i64> @_Z40__finalize_work_group_reduce_bitwise_xorDv4_m(<4 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <8 x i64> @_Z40__finalize_work_group_reduce_bitwise_xorDv8_m(<8 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <16 x i64> @_Z40__finalize_work_group_reduce_bitwise_xorDv16_m(<16 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <32 x i64> @_Z40__finalize_work_group_reduce_bitwise_xorDv32_m(<32 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare <64 x i64> @_Z40__finalize_work_group_reduce_bitwise_xorDv64_m(<64 x i64> %accum) #3
+
+; Function Attrs: nounwind readnone
+declare<4 x i32> @_Z40__finalize_work_group_reduce_logical_andDv4_i(<4 x i32> noundef %accum) #3 
+
+; Function Attrs: nounwind readnone
+declare<8 x i32> @_Z40__finalize_work_group_reduce_logical_andDv8_i(<8 x i32> noundef %accum) #3 
+
+; Function Attrs: nounwind readnone
+declare<16 x i32> @_Z40__finalize_work_group_reduce_logical_andDv16_i(<16 x i32> noundef %accum) #3 
+
+; Function Attrs: nounwind readnone
+declare<32 x i32> @_Z40__finalize_work_group_reduce_logical_andDv32_i(<32 x i32> noundef %accum) #3 
+
+; Function Attrs: nounwind readnone
+declare<64 x i32> @_Z40__finalize_work_group_reduce_logical_andDv64_i(<64 x i32> noundef %accum) #3 
+
+; Function Attrs: nounwind readnone
+declare<4 x i32> @_Z39__finalize_work_group_reduce_logical_orDv4_i(<4 x i32> noundef %accum) #3 
+
+; Function Attrs: nounwind readnone
+declare<8 x i32> @_Z39__finalize_work_group_reduce_logical_orDv8_i(<8 x i32> noundef %accum) #3 
+
+; Function Attrs: nounwind readnone
+declare<16 x i32> @_Z39__finalize_work_group_reduce_logical_orDv16_i(<16 x i32> noundef %accum) #3 
+
+; Function Attrs: nounwind readnone
+declare<32 x i32> @_Z39__finalize_work_group_reduce_logical_orDv32_i(<32 x i32> noundef %accum) #3 
+
+; Function Attrs: nounwind readnone
+declare<64 x i32> @_Z39__finalize_work_group_reduce_logical_orDv64_i(<64 x i32> noundef %accum) #3 
+
+; Function Attrs: nounwind readnone
+declare<4 x i32> @_Z40__finalize_work_group_reduce_logical_xorDv4_i(<4 x i32> noundef %accum) #3 
+
+; Function Attrs: nounwind readnone
+declare<8 x i32> @_Z40__finalize_work_group_reduce_logical_xorDv8_i(<8 x i32> noundef %accum) #3 
+
+; Function Attrs: nounwind readnone
+declare<16 x i32> @_Z40__finalize_work_group_reduce_logical_xorDv16_i(<16 x i32> noundef %accum) #3 
+
+; Function Attrs: nounwind readnone
+declare<32 x i32> @_Z40__finalize_work_group_reduce_logical_xorDv32_i(<32 x i32> noundef %accum) #3 
+
+; Function Attrs: nounwind readnone
+declare<64 x i32> @_Z40__finalize_work_group_reduce_logical_xorDv64_i(<64 x i32> noundef %accum) #3 
 
 ; Function Attrs: nounwind readnone
 declare i32 @_Z29work_group_scan_exclusive_addi(i32 %src) #3

@@ -1,5 +1,7 @@
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=PM1
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec" -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=PM2
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
 ;
 ; Test to check that safe operations such as multiply remain unmasked in VPValue
@@ -35,14 +37,13 @@
 @larr2 = global [100 x [100 x i64]] zeroinitializer, align 16
 
 define void @foo(i64* nocapture readonly %unif, i64 %n2) local_unnamed_addr #0 {
-; PM1:           IR Dump After VPlan HIR Vectorizer
-; PM2:           IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
+; CHECK:       DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK-NEXT:    %.unifload = (%unif)[0];
 ; CHECK-NEXT:    %.vec = (<4 x i64>*)(@larr)[0][i1];
 ; CHECK-NEXT:    %.vec2 = %.vec != 0;
 ; CHECK-NEXT:    %.vec3 = %.unifload  *  %n2;
-; CHECK-NEXT:    %extract.0. = extractelement %.vec3,  0;
-; CHECK-NEXT:    (<4 x i64>*)(@larr2)[0][%extract.0.][i1] = i1 + <i64 0, i64 1, i64 2, i64 3>; Mask = @{%.vec2}
+; CHECK-NEXT:    %.scal = %.unifload  *  %n2;
+; CHECK-NEXT:    (<4 x i64>*)(@larr2)[0][%.scal][i1] = i1 + <i64 0, i64 1, i64 2, i64 3>, Mask = @{%.vec2};
 ; CHECK-NEXT:  END LOOP
 ;
 omp.inner.for.body.lr.ph:

@@ -1,4 +1,21 @@
 //===- llvm/Analysis/IVDescriptors.h - IndVar Descriptors -------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,27 +30,22 @@
 #ifndef LLVM_ANALYSIS_IVDESCRIPTORS_H
 #define LLVM_ANALYSIS_IVDESCRIPTORS_H
 
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instruction.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Operator.h"
 #include "llvm/IR/ValueHandle.h"
-#include "llvm/Support/Casting.h"
 
 namespace llvm {
 
-class DemandedBits;
 class AssumptionCache;
+class DemandedBits;
+class DominatorTree;
+class Instruction;
 class Loop;
 class PredicatedScalarEvolution;
 class ScalarEvolution;
 class SCEV;
-class DominatorTree;
 
 /// These are the kinds of recurrences that we support.
 enum class RecurKind {
@@ -192,10 +204,12 @@ public:
   RecurrenceDescriptor(Value *Start, Instruction *Exit, RecurKind K,
                        FastMathFlags FMF, Instruction *ExactFP, Type *RT,
                        bool Signed, bool Ordered,
-                       SmallPtrSetImpl<Instruction *> &CI)
+                       SmallPtrSetImpl<Instruction *> &CI,
+                       unsigned MinWidthCastToRecurTy)
 #if INTEL_CUSTOMIZATION
       : RDTempl(Start, Exit, K, FMF, RT, Signed, Ordered),
-        ExactFPMathInst(ExactFP) {
+        ExactFPMathInst(ExactFP),
+        MinWidthCastToRecurrenceType(MinWidthCastToRecurTy) {
 #endif
     CastInsts.insert(CI.begin(), CI.end());
   }
@@ -329,6 +343,11 @@ public:
   /// recurrence.
   const SmallPtrSet<Instruction *, 8> &getCastInsts() const { return CastInsts; }
 
+  /// Returns the minimum width used by the recurrence in bits.
+  unsigned getMinWidthCastToRecurrenceTypeInBits() const {
+    return MinWidthCastToRecurrenceType;
+  }
+
   /// Attempts to find a chain of operations from Phi to LoopExitInst that can
   /// be treated as a set of reductions instructions for in-loop reductions.
   SmallVector<Instruction *, 4> getReductionOpChain(PHINode *Phi,
@@ -345,6 +364,8 @@ private:
   Instruction *ExactFPMathInst = nullptr;
   // Instructions used for type-promoting the recurrence.
   SmallPtrSet<Instruction *, 8> CastInsts;
+  // The minimum width used by the recurrence.
+  unsigned MinWidthCastToRecurrenceType;
 };
 
 /// A struct for saving basic information about induction variables. // INTEL

@@ -20,6 +20,18 @@
 ; RUN: opt -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=32 < %s 2>&1 | FileCheck -DVL=32 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=32 < %s 2>&1 | FileCheck -DVL=32 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
 
+; RUN: opt -vplan-enable-new-cfg-merge-hir -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=4 < %s 2>&1 | FileCheck -DVL=4 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-LT-512 %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=4 < %s 2>&1 | FileCheck -DVL=4 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-LT-512 %s
+
+; RUN: opt -vplan-enable-new-cfg-merge-hir -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=8 < %s 2>&1 | FileCheck -DVL=8 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-512 %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=8 < %s 2>&1 | FileCheck -DVL=8 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-512 %s
+
+; RUN: opt -vplan-enable-new-cfg-merge-hir -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=16 < %s 2>&1 | FileCheck -DVL=16 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=16 < %s 2>&1 | FileCheck -DVL=16 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
+
+; RUN: opt -vplan-enable-new-cfg-merge-hir -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=32 < %s 2>&1 | FileCheck -DVL=32 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=32 < %s 2>&1 | FileCheck -DVL=32 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
+
 
 ; Test VPValue based code generation
 ; RUN: opt -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=4 < %s 2>&1 | FileCheck -DVL=4 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-LT-512 %s
@@ -34,20 +46,31 @@
 ; RUN: opt -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=32 < %s 2>&1 | FileCheck -DVL=32 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=32 < %s 2>&1 | FileCheck -DVL=32 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
 
+; RUN: opt -vplan-enable-new-cfg-merge-hir -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=4 < %s 2>&1 | FileCheck -DVL=4 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-LT-512 %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=4 < %s 2>&1 | FileCheck -DVL=4 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-LT-512 %s
+
+; RUN: opt -vplan-enable-new-cfg-merge-hir -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=8 < %s 2>&1 | FileCheck -DVL=8 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-512 %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=8 < %s 2>&1 | FileCheck -DVL=8 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-512 %s
+
+; RUN: opt -vplan-enable-new-cfg-merge-hir -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=16 < %s 2>&1 | FileCheck -DVL=16 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=16 < %s 2>&1 | FileCheck -DVL=16 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
+
+; RUN: opt -vplan-enable-new-cfg-merge-hir -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=32 < %s 2>&1 | FileCheck -DVL=32 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
+; RUN: opt -vplan-enable-new-cfg-merge-hir -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vector-library=SVML -vplan-enable-all-zero-bypass-non-loops=false -S -vplan-force-vf=32 < %s 2>&1 | FileCheck -DVL=32 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
+
 
 ; Checks for generated HIR code
 ; CHECK-LABEL:         Function: test_sinf
-; CHECK:               + DO i1 = 0, 127, [[VL]]   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:          |   [[RESULT:%.*]] = undef
+; CHECK:               + DO i1 = 0, 127, [[VL]]   <DO_LOOP>
 ; CHECK-NEXT:          |   [[SRC:%.*]] = (<[[VL]] x float>*)(%b)[i1];
 ; CHECK-NEXT:          |   [[WIDECMP:%.*]] = [[SRC]] > 3.000000e+00;
 ; FLOAT-LT-512-NEXT:   |   [[MASKEXT:%.*]] = sext.<[[VL]] x i1>.<[[VL]] x i32>([[WIDECMP]]);
-; FLOAT-LT-512-NEXT:   |   [[RESULT]] = @__svml_sinf[[VL]]_mask([[SRC]],  [[MASKEXT]]); Mask = @{[[WIDECMP]]}
-; FLOAT-512-NEXT:      |   [[RESULT]] = @__svml_sinf[[VL]]_mask(undef, [[WIDECMP]], [[SRC]]); Mask = @{[[WIDECMP]]}
-; CHECK-NEXT:          |   (<[[VL]] x float>*)(%a)[i1] = [[RESULT]]; Mask = @{[[WIDECMP]]}
+; FLOAT-LT-512-NEXT:   |   [[RESULT:%.*]] = @__svml_sinf[[VL]]_mask([[SRC]],  [[MASKEXT]]);
+; FLOAT-512-NEXT:      |   [[RESULT:%.*]] = @__svml_sinf[[VL]]_mask(undef, [[WIDECMP]], [[SRC]]);
+; CHECK-NEXT:          |   (<[[VL]] x float>*)(%a)[i1] = [[RESULT]], Mask = @{[[WIDECMP]]};
 ; CHECK-NEXT:          + END LOOP
 
-; CHECK:               + DO i1 = 128, 130, 1   <DO_LOOP> <novectorize>
+; CHECK:               + DO i1 = {{.*}}, 130, 1   <DO_LOOP>
 ; CHECK-NEXT:          |   [[SRC_REM:%.*]] = (%b)[i1];
 ; CHECK-NEXT:          |   if ([[SRC_REM]] > 3.000000e+00)
 ; CHECK-NEXT:          |   {
@@ -59,17 +82,16 @@
 ; CHECK-NEXT:          + END LOOP
 
 ; CHECK-LABEL:         Function: test_sin
-; CHECK:               + DO i1 = 0, 127, [[VL]]   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:          |   [[RESULT:%.*]] = undef
+; CHECK:               + DO i1 = 0, 127, [[VL]]   <DO_LOOP>
 ; CHECK-NEXT:          |   [[SRC:%.*]] = (<[[VL]] x double>*)(%b)[i1];
 ; CHECK-NEXT:          |   [[WIDECMP:%.*]] = [[SRC]] > 3.000000e+00;
 ; DOUBLE-LT-512-NEXT:  |   [[MASKEXT:%.*]] = sext.<[[VL]] x i1>.<[[VL]] x i64>([[WIDECMP]]);
-; DOUBLE-LT-512-NEXT:  |   [[RESULT]] = @__svml_sin[[VL]]_mask([[SRC]],  [[MASKEXT]]); Mask = @{[[WIDECMP]]}
-; DOUBLE-512-NEXT:     |   [[RESULT]] = @__svml_sin[[VL]]_mask(undef, [[WIDECMP]], [[SRC]]); Mask = @{[[WIDECMP]]}
-; CHECK-NEXT:          |   (<[[VL]] x double>*)(%a)[i1] = [[RESULT]]; Mask = @{[[WIDECMP]]}
+; DOUBLE-LT-512-NEXT:  |   [[RESULT:%.*]] = @__svml_sin[[VL]]_mask([[SRC]],  [[MASKEXT]]);
+; DOUBLE-512-NEXT:     |   [[RESULT:%.*]] = @__svml_sin[[VL]]_mask(undef, [[WIDECMP]], [[SRC]]);
+; CHECK-NEXT:          |   (<[[VL]] x double>*)(%a)[i1] = [[RESULT]], Mask = @{[[WIDECMP]]};
 ; CHECK-NEXT:          + END LOOP
 
-; CHECK:               + DO i1 = 128, 130, 1   <DO_LOOP> <novectorize>
+; CHECK:               + DO i1 = {{.*}}, 130, 1   <DO_LOOP>
 ; CHECK-NEXT:          |   [[SRC_REM:%.*]] = (%b)[i1];
 ; CHECK-NEXT:          |   if ([[SRC_REM]] > 3.000000e+00)
 ; CHECK-NEXT:          |   {

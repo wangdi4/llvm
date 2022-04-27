@@ -2,7 +2,7 @@
 ;      A[B[i]] += c;
 ;}
 
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -mattr=+avx512f -enable-intel-advanced-opts -analyze -force-hir-sparse-array-reduction-analysis -hir-sparse-array-reduction-analysis | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -mattr=+avx512f -enable-intel-advanced-opts -analyze -enable-new-pm=0 -force-hir-sparse-array-reduction-analysis -hir-sparse-array-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -mattr=+avx512f -enable-intel-advanced-opts -aa-pipeline=basic-aa -passes="loop-simplify,hir-ssa-deconstruction,print<hir-sparse-array-reduction-analysis>" -force-hir-sparse-array-reduction-analysis -disable-output 2>&1 | FileCheck %s
 ; CHECK:   %1 = (@A)[0][%0]; <Sparse Array Reduction>
 ; CHECK:   %add = %1  +  %conv; <Sparse Array Reduction>

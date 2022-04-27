@@ -27,7 +27,10 @@ class DPCPPPreprocessSPIRVFriendlyIRLegacy : public ModulePass {
 public:
   static char ID;
 
-  DPCPPPreprocessSPIRVFriendlyIRLegacy() : ModulePass(ID) {}
+  DPCPPPreprocessSPIRVFriendlyIRLegacy() : ModulePass(ID) {
+    initializeDPCPPPreprocessSPIRVFriendlyIRLegacyPass(
+        *PassRegistry::getPassRegistry());
+  }
 
   StringRef getPassName() const override {
     return "DPCPPPreprocessSPIRVFriendlyIRLegacy";

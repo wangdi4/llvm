@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 ##===----------------------------------------------------------------------===##
 #
 # Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -16,8 +33,9 @@ set(LIBOMPTARGET_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/api.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/device.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/interface.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/rtl.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/interop.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/omptarget.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/rtl.cpp
 )
 if(INTEL_CUSTOMIZATION)
   list(APPEND LIBOMPTARGET_SRC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/xpti_registry.cpp)
@@ -33,8 +51,7 @@ set(LIBOMPTARGET_SRC_FILES ${LIBOMPTARGET_SRC_FILES} PARENT_SCOPE)
 include_directories(${LIBOMPTARGET_LLVM_INCLUDE_DIRS})
 
 if(INTEL_CUSTOMIZATION)
-  # Disable profiling to avoid creation of libomptarget with so version.
-  set(OPENMP_ENABLE_LIBOMPTARGET_PROFILING FALSE)
+  set(OPENMP_ENABLE_LIBOMPTARGET_PROFILING OFF)
 endif(INTEL_CUSTOMIZATION)
 
 # Build libomptarget library with libdl dependency.

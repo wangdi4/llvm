@@ -1,4 +1,4 @@
-; RUN: opt -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region -debug-only=hir-dd-test < %s 2>&1  | FileCheck %s
+; RUN: opt -analyze -enable-new-pm=0 -hir-dd-analysis -hir-dd-analysis-verify=Region -debug-only=hir-dd-test < %s 2>&1  | FileCheck %s
 ; RUN: opt -passes="print<hir-dd-analysis>"  -hir-dd-analysis-verify=Region -debug-only=hir-dd-test -disable-output < %s 2>&1  | FileCheck %s
 
 

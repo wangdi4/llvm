@@ -292,9 +292,11 @@
 ; RUN: opt -disable-output -disable-verify -verify-cfg-preserved=1 -debug-pass-manager \
 ; RUN:     -passes='default<O0>' %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O0 --check-prefix=%llvmcheckext
-; CHECK-O0: Running pass: InlineListsPass ;INTEL
-; CHECK-O0-NEXT: Running pass: AlwaysInlinerPass
-; CHECK-O0-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}>
+; CHECK-O0: Running analysis: InnerAnalysisManagerProxy<{{.*}}> ;INTEL
+; CHECK-O0-NEXT: Running analysis: PreservedCFGCheckerAnalysis on foo ;INTEL
+; CHECK-O0-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
+; CHECK-O0-NEXT: Running pass: InlineListsPass ;INTEL
+; CHECK-O0-NEXT: Running pass: AlwaysInlinerPass ;INTEL
 ; CHECK-O0-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-EXT-NEXT: Running pass: {{.*}}Bye
 ; We don't have checks for CHECK-NOEXT here, but this simplifies the test, while

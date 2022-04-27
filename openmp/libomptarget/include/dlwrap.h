@@ -1,4 +1,21 @@
 //===------- dlwrap.h - Convenience wrapper around dlopen/dlsym  -- C++ -*-===//
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2021 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -137,8 +154,8 @@ template <size_t Requested, size_t Required> constexpr void verboseAssert() {
 
 } // namespace dlwrap
 
-#define DLWRAP_INSTANTIATE(SYM_USE, SYM_DEF, ARITY)                            \
-  DLWRAP_INSTANTIATE_##ARITY(SYM_USE, SYM_DEF,                                 \
+#define DLWRAP_INSTANTIATE(SYM_DEF, SYM_USE, ARITY)                            \
+  DLWRAP_INSTANTIATE_##ARITY(SYM_DEF, SYM_USE,                                 \
                              dlwrap::trait<decltype(&SYM_USE)>)
 
 #define DLWRAP_FINALIZE_IMPL()                                                 \
@@ -176,7 +193,7 @@ template <size_t Requested, size_t Required> constexpr void verboseAssert() {
 
 #define DLWRAP_INTERNAL_IMPL(SYMBOL, ARITY)                                    \
   DLWRAP_COMMON(SYMBOL, ARITY)                                                 \
-  static DLWRAP_INSTANTIATE(SYMBOL, dlwrap_##SYMBOL, ARITY)
+  static DLWRAP_INSTANTIATE(dlwrap_##SYMBOL, SYMBOL, ARITY)
 #else // INTEL_CUSTOMIZATION
 #define DLWRAP_IMPL(SYMBOL, ARITY)                                             \
   DLWRAP_COMMON(SYMBOL, ARITY);                                                \
@@ -184,34 +201,34 @@ template <size_t Requested, size_t Required> constexpr void verboseAssert() {
 
 #define DLWRAP_INTERNAL_IMPL(SYMBOL, ARITY)                                    \
   DLWRAP_COMMON(SYMBOL, ARITY);                                                \
-  static DLWRAP_INSTANTIATE(SYMBOL, dlwrap_##SYMBOL, ARITY)
+  static DLWRAP_INSTANTIATE(dlwrap_##SYMBOL, SYMBOL, ARITY)
 #endif // INTEL_CUSTOMIZATION
 
-#define DLWRAP_INSTANTIATE_0(SYM_USE, SYM_DEF, T)                              \
+#define DLWRAP_INSTANTIATE_0(SYM_DEF, SYM_USE, T)                              \
   T::ReturnType SYM_DEF() { return dlwrap::SYM_USE##_Trait::get()(); }
-#define DLWRAP_INSTANTIATE_1(SYM_USE, SYM_DEF, T)                              \
+#define DLWRAP_INSTANTIATE_1(SYM_DEF, SYM_USE, T)                              \
   T::ReturnType SYM_DEF(typename T::template arg<0>::type x0) {                \
     return dlwrap::SYM_USE##_Trait::get()(x0);                                 \
   }
-#define DLWRAP_INSTANTIATE_2(SYM_USE, SYM_DEF, T)                              \
+#define DLWRAP_INSTANTIATE_2(SYM_DEF, SYM_USE, T)                              \
   T::ReturnType SYM_DEF(typename T::template arg<0>::type x0,                  \
                         typename T::template arg<1>::type x1) {                \
     return dlwrap::SYM_USE##_Trait::get()(x0, x1);                             \
   }
-#define DLWRAP_INSTANTIATE_3(SYM_USE, SYM_DEF, T)                              \
+#define DLWRAP_INSTANTIATE_3(SYM_DEF, SYM_USE, T)                              \
   T::ReturnType SYM_DEF(typename T::template arg<0>::type x0,                  \
                         typename T::template arg<1>::type x1,                  \
                         typename T::template arg<2>::type x2) {                \
     return dlwrap::SYM_USE##_Trait::get()(x0, x1, x2);                         \
   }
-#define DLWRAP_INSTANTIATE_4(SYM_USE, SYM_DEF, T)                              \
+#define DLWRAP_INSTANTIATE_4(SYM_DEF, SYM_USE, T)                              \
   T::ReturnType SYM_DEF(typename T::template arg<0>::type x0,                  \
                         typename T::template arg<1>::type x1,                  \
                         typename T::template arg<2>::type x2,                  \
                         typename T::template arg<3>::type x3) {                \
     return dlwrap::SYM_USE##_Trait::get()(x0, x1, x2, x3);                     \
   }
-#define DLWRAP_INSTANTIATE_5(SYM_USE, SYM_DEF, T)                              \
+#define DLWRAP_INSTANTIATE_5(SYM_DEF, SYM_USE, T)                              \
   T::ReturnType SYM_DEF(typename T::template arg<0>::type x0,                  \
                         typename T::template arg<1>::type x1,                  \
                         typename T::template arg<2>::type x2,                  \
@@ -219,7 +236,7 @@ template <size_t Requested, size_t Required> constexpr void verboseAssert() {
                         typename T::template arg<4>::type x4) {                \
     return dlwrap::SYM_USE##_Trait::get()(x0, x1, x2, x3, x4);                 \
   }
-#define DLWRAP_INSTANTIATE_6(SYM_USE, SYM_DEF, T)                              \
+#define DLWRAP_INSTANTIATE_6(SYM_DEF, SYM_USE, T)                              \
   T::ReturnType SYM_DEF(typename T::template arg<0>::type x0,                  \
                         typename T::template arg<1>::type x1,                  \
                         typename T::template arg<2>::type x2,                  \
@@ -229,7 +246,7 @@ template <size_t Requested, size_t Required> constexpr void verboseAssert() {
     return dlwrap::SYM_USE##_Trait::get()(x0, x1, x2, x3, x4, x5);             \
   }
 
-#define DLWRAP_INSTANTIATE_7(SYM_USE, SYM_DEF, T)                              \
+#define DLWRAP_INSTANTIATE_7(SYM_DEF, SYM_USE, T)                              \
   T::ReturnType SYM_DEF(typename T::template arg<0>::type x0,                  \
                         typename T::template arg<1>::type x1,                  \
                         typename T::template arg<2>::type x2,                  \
@@ -240,7 +257,7 @@ template <size_t Requested, size_t Required> constexpr void verboseAssert() {
     return dlwrap::SYM_USE##_Trait::get()(x0, x1, x2, x3, x4, x5, x6);         \
   }
 
-#define DLWRAP_INSTANTIATE_8(SYM_USE, SYM_DEF, T)                              \
+#define DLWRAP_INSTANTIATE_8(SYM_DEF, SYM_USE, T)                              \
   T::ReturnType SYM_DEF(typename T::template arg<0>::type x0,                  \
                         typename T::template arg<1>::type x1,                  \
                         typename T::template arg<2>::type x2,                  \
@@ -251,7 +268,7 @@ template <size_t Requested, size_t Required> constexpr void verboseAssert() {
                         typename T::template arg<7>::type x7) {                \
     return dlwrap::SYM_USE##_Trait::get()(x0, x1, x2, x3, x4, x5, x6, x7);     \
   }
-#define DLWRAP_INSTANTIATE_9(SYM_USE, SYM_DEF, T)                              \
+#define DLWRAP_INSTANTIATE_9(SYM_DEF, SYM_USE, T)                              \
   T::ReturnType SYM_DEF(typename T::template arg<0>::type x0,                  \
                         typename T::template arg<1>::type x1,                  \
                         typename T::template arg<2>::type x2,                  \
@@ -263,7 +280,7 @@ template <size_t Requested, size_t Required> constexpr void verboseAssert() {
                         typename T::template arg<8>::type x8) {                \
     return dlwrap::SYM_USE##_Trait::get()(x0, x1, x2, x3, x4, x5, x6, x7, x8); \
   }
-#define DLWRAP_INSTANTIATE_10(SYM_USE, SYM_DEF, T)                             \
+#define DLWRAP_INSTANTIATE_10(SYM_DEF, SYM_USE, T)                             \
   T::ReturnType SYM_DEF(typename T::template arg<0>::type x0,                  \
                         typename T::template arg<1>::type x1,                  \
                         typename T::template arg<2>::type x2,                  \
@@ -277,7 +294,7 @@ template <size_t Requested, size_t Required> constexpr void verboseAssert() {
     return dlwrap::SYM_USE##_Trait::get()(x0, x1, x2, x3, x4, x5, x6, x7, x8,  \
                                           x9);                                 \
   }
-#define DLWRAP_INSTANTIATE_11(SYM_USE, SYM_DEF, T)                             \
+#define DLWRAP_INSTANTIATE_11(SYM_DEF, SYM_USE, T)                             \
   T::ReturnType SYM_DEF(typename T::template arg<0>::type x0,                  \
                         typename T::template arg<1>::type x1,                  \
                         typename T::template arg<2>::type x2,                  \

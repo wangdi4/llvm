@@ -1,10 +1,16 @@
 ; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -debug-only=VPlanHCFGBuilder < %s 2>&1 \
-; RUN:     | FileCheck %s
+; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
+; RUN:     -debug-only=VPlanHCFGBuilder < %s 2>&1 \
+; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
 ; RUN: opt -S -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" \
 ; RUN:     -debug-only=VPlanHCFGBuilder < %s 2>&1 \
-; RUN:     | FileCheck %s
+; RUN:     -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -S -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" \
+; RUN:     -debug-only=VPlanHCFGBuilder < %s 2>&1 \
+; RUN:     -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
 ; REQUIRES: asserts
 

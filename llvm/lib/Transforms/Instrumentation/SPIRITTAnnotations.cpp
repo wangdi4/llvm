@@ -12,6 +12,7 @@
 
 #include "llvm/Transforms/Instrumentation/SPIRITTAnnotations.h"
 
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instruction.h"
@@ -21,6 +22,7 @@
 #endif // INTEL_COLLAB
 #include "llvm/IR/Type.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Pass.h"
 
 /** Following functions are used for ITT instrumentation:
  * * * * * * * * * * *

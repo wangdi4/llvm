@@ -1,4 +1,21 @@
 //===- TGLexer.h - Lexer for TableGen Files ---------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -338,7 +355,7 @@ private:
   //
   // The method returns true upon reaching the first non-whitespace symbol
   // or EOF, CurPtr is set to point to this symbol.  The method returns false,
-  // if an error occured during skipping of a C-style comment.
+  // if an error occurred during skipping of a C-style comment.
   bool prepSkipLineBegin();
 
   // Skip any whitespaces or comments after a preprocessing directive.
@@ -346,7 +363,7 @@ private:
   // or end of the file.  If there is a multiline C-style comment
   // after the preprocessing directive, the method skips
   // the comment, so the final CurPtr may point to one of the next lines.
-  // The method returns false, if an error occured during skipping
+  // The method returns false, if an error occurred during skipping
   // C- or C++-style comment, or a non-whitespace symbol appears
   // after the preprocessing directive.
   //

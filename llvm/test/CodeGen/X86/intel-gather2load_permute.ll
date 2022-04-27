@@ -123,49 +123,45 @@ define dso_local <17 x float> @Array2x_Gather17x_AllOneMask(i32* nocapture reado
 ; X86-AVX2:       # %bb.0: # %entry
 ; X86-AVX2-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX2-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX2-NEXT:    vmovdqu (%ecx), %xmm1
-; X86-AVX2-NEXT:    vmovdqu 16(%ecx), %xmm0
-; X86-AVX2-NEXT:    vmovdqu 32(%ecx), %xmm2
-; X86-AVX2-NEXT:    vmovdqu 48(%ecx), %xmm3
-; X86-AVX2-NEXT:    movl 64(%ecx), %ecx
+; X86-AVX2-NEXT:    movl 64(%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl (%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl 4(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0],mem[0],xmm1[2,3]
+; X86-AVX2-NEXT:    movl 8(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1],mem[0],xmm1[3]
+; X86-AVX2-NEXT:    movl 12(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 16(%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl 20(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0],mem[0],xmm2[2,3]
+; X86-AVX2-NEXT:    movl 24(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1],mem[0],xmm2[3]
+; X86-AVX2-NEXT:    movl 28(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 32(%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm3 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl 36(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0],mem[0],xmm3[2,3]
+; X86-AVX2-NEXT:    movl 40(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0,1],mem[0],xmm3[3]
+; X86-AVX2-NEXT:    movl 44(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 48(%ecx), %edx
 ; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm4 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vmovd %xmm1, %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm5 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vpextrd $1, %xmm1, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0],mem[0],xmm5[2,3]
-; X86-AVX2-NEXT:    vpextrd $2, %xmm1, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vpextrd $3, %xmm1, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm5[0,1,2],mem[0]
-; X86-AVX2-NEXT:    vmovd %xmm0, %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm5 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vpextrd $1, %xmm0, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0],mem[0],xmm5[2,3]
-; X86-AVX2-NEXT:    vpextrd $2, %xmm0, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vpextrd $3, %xmm0, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm0 = xmm5[0,1,2],mem[0]
-; X86-AVX2-NEXT:    vmovd %xmm2, %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm5 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vpextrd $1, %xmm2, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0],mem[0],xmm5[2,3]
-; X86-AVX2-NEXT:    vpextrd $2, %xmm2, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vpextrd $3, %xmm2, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm5[0,1,2],mem[0]
-; X86-AVX2-NEXT:    vmovd %xmm3, %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm5 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vpextrd $1, %xmm3, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0],mem[0],xmm5[2,3]
-; X86-AVX2-NEXT:    vpextrd $2, %xmm3, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vpextrd $3, %xmm3, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm5[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 52(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm4 = xmm4[0],mem[0],xmm4[2,3]
+; X86-AVX2-NEXT:    movl 56(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm4 = xmm4[0,1],mem[0],xmm4[3]
+; X86-AVX2-NEXT:    movl 60(%ecx), %ecx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm4 = xmm4[0,1,2],mem[0]
 ; X86-AVX2-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; X86-AVX2-NEXT:    vmovss %xmm4, 64(%eax)
-; X86-AVX2-NEXT:    vmovaps %xmm3, 48(%eax)
-; X86-AVX2-NEXT:    vmovaps %xmm2, 32(%eax)
-; X86-AVX2-NEXT:    vmovaps %xmm0, 16(%eax)
+; X86-AVX2-NEXT:    vmovss %xmm0, 64(%eax)
+; X86-AVX2-NEXT:    vmovaps %xmm4, 48(%eax)
+; X86-AVX2-NEXT:    vmovaps %xmm3, 32(%eax)
+; X86-AVX2-NEXT:    vmovaps %xmm2, 16(%eax)
 ; X86-AVX2-NEXT:    vmovaps %xmm1, (%eax)
 ; X86-AVX2-NEXT:    retl $4
 entry:
@@ -301,49 +297,45 @@ define dso_local <17 x float> @Array6x_Gather17x_AllOneMask(i32* nocapture reado
 ; X86-AVX2:       # %bb.0: # %entry
 ; X86-AVX2-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX2-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX2-NEXT:    vmovdqu (%ecx), %xmm1
-; X86-AVX2-NEXT:    vmovdqu 16(%ecx), %xmm0
-; X86-AVX2-NEXT:    vmovdqu 32(%ecx), %xmm2
-; X86-AVX2-NEXT:    vmovdqu 48(%ecx), %xmm3
-; X86-AVX2-NEXT:    movl 64(%ecx), %ecx
+; X86-AVX2-NEXT:    movl 64(%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl (%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl 4(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0],mem[0],xmm1[2,3]
+; X86-AVX2-NEXT:    movl 8(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1],mem[0],xmm1[3]
+; X86-AVX2-NEXT:    movl 12(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 16(%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl 20(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0],mem[0],xmm2[2,3]
+; X86-AVX2-NEXT:    movl 24(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1],mem[0],xmm2[3]
+; X86-AVX2-NEXT:    movl 28(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 32(%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm3 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl 36(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0],mem[0],xmm3[2,3]
+; X86-AVX2-NEXT:    movl 40(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0,1],mem[0],xmm3[3]
+; X86-AVX2-NEXT:    movl 44(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 48(%ecx), %edx
 ; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm4 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vmovd %xmm1, %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm5 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vpextrd $1, %xmm1, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0],mem[0],xmm5[2,3]
-; X86-AVX2-NEXT:    vpextrd $2, %xmm1, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vpextrd $3, %xmm1, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm5[0,1,2],mem[0]
-; X86-AVX2-NEXT:    vmovd %xmm0, %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm5 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vpextrd $1, %xmm0, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0],mem[0],xmm5[2,3]
-; X86-AVX2-NEXT:    vpextrd $2, %xmm0, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vpextrd $3, %xmm0, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm0 = xmm5[0,1,2],mem[0]
-; X86-AVX2-NEXT:    vmovd %xmm2, %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm5 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vpextrd $1, %xmm2, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0],mem[0],xmm5[2,3]
-; X86-AVX2-NEXT:    vpextrd $2, %xmm2, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vpextrd $3, %xmm2, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm5[0,1,2],mem[0]
-; X86-AVX2-NEXT:    vmovd %xmm3, %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm5 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vpextrd $1, %xmm3, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0],mem[0],xmm5[2,3]
-; X86-AVX2-NEXT:    vpextrd $2, %xmm3, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vpextrd $3, %xmm3, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm5[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 52(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm4 = xmm4[0],mem[0],xmm4[2,3]
+; X86-AVX2-NEXT:    movl 56(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm4 = xmm4[0,1],mem[0],xmm4[3]
+; X86-AVX2-NEXT:    movl 60(%ecx), %ecx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm4 = xmm4[0,1,2],mem[0]
 ; X86-AVX2-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; X86-AVX2-NEXT:    vmovss %xmm4, 64(%eax)
-; X86-AVX2-NEXT:    vmovaps %xmm3, 48(%eax)
-; X86-AVX2-NEXT:    vmovaps %xmm2, 32(%eax)
-; X86-AVX2-NEXT:    vmovaps %xmm0, 16(%eax)
+; X86-AVX2-NEXT:    vmovss %xmm0, 64(%eax)
+; X86-AVX2-NEXT:    vmovaps %xmm4, 48(%eax)
+; X86-AVX2-NEXT:    vmovaps %xmm3, 32(%eax)
+; X86-AVX2-NEXT:    vmovaps %xmm2, 16(%eax)
 ; X86-AVX2-NEXT:    vmovaps %xmm1, (%eax)
 ; X86-AVX2-NEXT:    retl $4
 entry:
@@ -464,49 +456,45 @@ define dso_local <17 x float> @Array8x_Gather17x_AllOneMask(i32* nocapture reado
 ; X86-AVX2:       # %bb.0: # %entry
 ; X86-AVX2-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX2-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX2-NEXT:    vmovdqu (%ecx), %xmm1
-; X86-AVX2-NEXT:    vmovdqu 16(%ecx), %xmm0
-; X86-AVX2-NEXT:    vmovdqu 32(%ecx), %xmm2
-; X86-AVX2-NEXT:    vmovdqu 48(%ecx), %xmm3
-; X86-AVX2-NEXT:    movl 64(%ecx), %ecx
+; X86-AVX2-NEXT:    movl 64(%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl (%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl 4(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0],mem[0],xmm1[2,3]
+; X86-AVX2-NEXT:    movl 8(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1],mem[0],xmm1[3]
+; X86-AVX2-NEXT:    movl 12(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 16(%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl 20(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0],mem[0],xmm2[2,3]
+; X86-AVX2-NEXT:    movl 24(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1],mem[0],xmm2[3]
+; X86-AVX2-NEXT:    movl 28(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 32(%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm3 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl 36(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0],mem[0],xmm3[2,3]
+; X86-AVX2-NEXT:    movl 40(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0,1],mem[0],xmm3[3]
+; X86-AVX2-NEXT:    movl 44(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 48(%ecx), %edx
 ; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm4 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vmovd %xmm1, %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm5 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vpextrd $1, %xmm1, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0],mem[0],xmm5[2,3]
-; X86-AVX2-NEXT:    vpextrd $2, %xmm1, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vpextrd $3, %xmm1, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm5[0,1,2],mem[0]
-; X86-AVX2-NEXT:    vmovd %xmm0, %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm5 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vpextrd $1, %xmm0, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0],mem[0],xmm5[2,3]
-; X86-AVX2-NEXT:    vpextrd $2, %xmm0, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vpextrd $3, %xmm0, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm0 = xmm5[0,1,2],mem[0]
-; X86-AVX2-NEXT:    vmovd %xmm2, %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm5 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vpextrd $1, %xmm2, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0],mem[0],xmm5[2,3]
-; X86-AVX2-NEXT:    vpextrd $2, %xmm2, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vpextrd $3, %xmm2, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm5[0,1,2],mem[0]
-; X86-AVX2-NEXT:    vmovd %xmm3, %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm5 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vpextrd $1, %xmm3, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0],mem[0],xmm5[2,3]
-; X86-AVX2-NEXT:    vpextrd $2, %xmm3, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vpextrd $3, %xmm3, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm5[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 52(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm4 = xmm4[0],mem[0],xmm4[2,3]
+; X86-AVX2-NEXT:    movl 56(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm4 = xmm4[0,1],mem[0],xmm4[3]
+; X86-AVX2-NEXT:    movl 60(%ecx), %ecx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm4 = xmm4[0,1,2],mem[0]
 ; X86-AVX2-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; X86-AVX2-NEXT:    vmovss %xmm4, 64(%eax)
-; X86-AVX2-NEXT:    vmovaps %xmm3, 48(%eax)
-; X86-AVX2-NEXT:    vmovaps %xmm2, 32(%eax)
-; X86-AVX2-NEXT:    vmovaps %xmm0, 16(%eax)
+; X86-AVX2-NEXT:    vmovss %xmm0, 64(%eax)
+; X86-AVX2-NEXT:    vmovaps %xmm4, 48(%eax)
+; X86-AVX2-NEXT:    vmovaps %xmm3, 32(%eax)
+; X86-AVX2-NEXT:    vmovaps %xmm2, 16(%eax)
 ; X86-AVX2-NEXT:    vmovaps %xmm1, (%eax)
 ; X86-AVX2-NEXT:    retl $4
 entry:
@@ -633,45 +621,41 @@ define dso_local <17 x float> @Array2x_Gather17x(i32* nocapture readonly %index_
 ; X86-AVX2:       # %bb.0: # %entry
 ; X86-AVX2-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX2-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX2-NEXT:    vmovups (%ecx), %xmm0
-; X86-AVX2-NEXT:    vmovdqu 16(%ecx), %xmm1
-; X86-AVX2-NEXT:    vmovdqu 32(%ecx), %xmm2
-; X86-AVX2-NEXT:    vmovdqu 48(%ecx), %xmm3
-; X86-AVX2-NEXT:    movl 64(%ecx), %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm4 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vmovd %xmm1, %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm5 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vpextrd $1, %xmm1, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0],mem[0],xmm5[2,3]
-; X86-AVX2-NEXT:    vpextrd $2, %xmm1, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vpextrd $3, %xmm1, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm5[0,1,2],mem[0]
-; X86-AVX2-NEXT:    vmovd %xmm2, %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm5 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vpextrd $1, %xmm2, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0],mem[0],xmm5[2,3]
-; X86-AVX2-NEXT:    vpextrd $2, %xmm2, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vpextrd $3, %xmm2, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm5[0,1,2],mem[0]
-; X86-AVX2-NEXT:    vmovd %xmm3, %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm5 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vpextrd $1, %xmm3, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0],mem[0],xmm5[2,3]
-; X86-AVX2-NEXT:    vpextrd $2, %xmm3, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vpextrd $3, %xmm3, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm5[0,1,2],mem[0]
-; X86-AVX2-NEXT:    vextractps $1, %xmm0, %ecx
-; X86-AVX2-NEXT:    vbroadcastss (%eax,%ecx,4), %xmm5
-; X86-AVX2-NEXT:    vextractps $2, %xmm0, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vextractps $3, %xmm0, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm0 = xmm5[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 64(%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl 16(%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl 20(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0],mem[0],xmm1[2,3]
+; X86-AVX2-NEXT:    movl 24(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1],mem[0],xmm1[3]
+; X86-AVX2-NEXT:    movl 28(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 32(%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl 36(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0],mem[0],xmm2[2,3]
+; X86-AVX2-NEXT:    movl 40(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1],mem[0],xmm2[3]
+; X86-AVX2-NEXT:    movl 44(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 48(%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm3 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl 52(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0],mem[0],xmm3[2,3]
+; X86-AVX2-NEXT:    movl 56(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0,1],mem[0],xmm3[3]
+; X86-AVX2-NEXT:    movl 60(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 4(%ecx), %edx
+; X86-AVX2-NEXT:    vbroadcastss (%eax,%edx,4), %xmm4
+; X86-AVX2-NEXT:    movl 8(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm4 = xmm4[0,1],mem[0],xmm4[3]
+; X86-AVX2-NEXT:    movl 12(%ecx), %ecx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm4 = xmm4[0,1,2],mem[0]
 ; X86-AVX2-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; X86-AVX2-NEXT:    vmovss %xmm4, 64(%eax)
-; X86-AVX2-NEXT:    vmovaps %xmm0, (%eax)
+; X86-AVX2-NEXT:    vmovss %xmm0, 64(%eax)
+; X86-AVX2-NEXT:    vmovaps %xmm4, (%eax)
 ; X86-AVX2-NEXT:    vmovaps %xmm3, 48(%eax)
 ; X86-AVX2-NEXT:    vmovaps %xmm2, 32(%eax)
 ; X86-AVX2-NEXT:    vmovaps %xmm1, 16(%eax)
@@ -810,45 +794,41 @@ define dso_local <17 x float> @Array6x_Gather17x(i32* nocapture readonly %index_
 ; X86-AVX2:       # %bb.0: # %entry
 ; X86-AVX2-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX2-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX2-NEXT:    vmovups (%ecx), %xmm0
-; X86-AVX2-NEXT:    vmovdqu 16(%ecx), %xmm1
-; X86-AVX2-NEXT:    vmovdqu 32(%ecx), %xmm2
-; X86-AVX2-NEXT:    vmovdqu 48(%ecx), %xmm3
-; X86-AVX2-NEXT:    movl 64(%ecx), %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm4 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vmovd %xmm1, %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm5 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vpextrd $1, %xmm1, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0],mem[0],xmm5[2,3]
-; X86-AVX2-NEXT:    vpextrd $2, %xmm1, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vpextrd $3, %xmm1, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm5[0,1,2],mem[0]
-; X86-AVX2-NEXT:    vmovd %xmm2, %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm5 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vpextrd $1, %xmm2, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0],mem[0],xmm5[2,3]
-; X86-AVX2-NEXT:    vpextrd $2, %xmm2, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vpextrd $3, %xmm2, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm5[0,1,2],mem[0]
-; X86-AVX2-NEXT:    vmovd %xmm3, %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm5 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vpextrd $1, %xmm3, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0],mem[0],xmm5[2,3]
-; X86-AVX2-NEXT:    vpextrd $2, %xmm3, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vpextrd $3, %xmm3, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm5[0,1,2],mem[0]
-; X86-AVX2-NEXT:    vextractps $1, %xmm0, %ecx
-; X86-AVX2-NEXT:    vbroadcastss (%eax,%ecx,4), %xmm5
-; X86-AVX2-NEXT:    vextractps $2, %xmm0, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vextractps $3, %xmm0, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm0 = xmm5[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 64(%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl 16(%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl 20(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0],mem[0],xmm1[2,3]
+; X86-AVX2-NEXT:    movl 24(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1],mem[0],xmm1[3]
+; X86-AVX2-NEXT:    movl 28(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 32(%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl 36(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0],mem[0],xmm2[2,3]
+; X86-AVX2-NEXT:    movl 40(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1],mem[0],xmm2[3]
+; X86-AVX2-NEXT:    movl 44(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 48(%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm3 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl 52(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0],mem[0],xmm3[2,3]
+; X86-AVX2-NEXT:    movl 56(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0,1],mem[0],xmm3[3]
+; X86-AVX2-NEXT:    movl 60(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 4(%ecx), %edx
+; X86-AVX2-NEXT:    vbroadcastss (%eax,%edx,4), %xmm4
+; X86-AVX2-NEXT:    movl 8(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm4 = xmm4[0,1],mem[0],xmm4[3]
+; X86-AVX2-NEXT:    movl 12(%ecx), %ecx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm4 = xmm4[0,1,2],mem[0]
 ; X86-AVX2-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; X86-AVX2-NEXT:    vmovss %xmm4, 64(%eax)
-; X86-AVX2-NEXT:    vmovaps %xmm0, (%eax)
+; X86-AVX2-NEXT:    vmovss %xmm0, 64(%eax)
+; X86-AVX2-NEXT:    vmovaps %xmm4, (%eax)
 ; X86-AVX2-NEXT:    vmovaps %xmm3, 48(%eax)
 ; X86-AVX2-NEXT:    vmovaps %xmm2, 32(%eax)
 ; X86-AVX2-NEXT:    vmovaps %xmm1, 16(%eax)
@@ -971,45 +951,41 @@ define dso_local <17 x float> @Array8x_Gather17x(i32* nocapture readonly %index_
 ; X86-AVX2:       # %bb.0: # %entry
 ; X86-AVX2-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX2-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-AVX2-NEXT:    vmovups (%ecx), %xmm0
-; X86-AVX2-NEXT:    vmovdqu 16(%ecx), %xmm1
-; X86-AVX2-NEXT:    vmovdqu 32(%ecx), %xmm2
-; X86-AVX2-NEXT:    vmovdqu 48(%ecx), %xmm3
-; X86-AVX2-NEXT:    movl 64(%ecx), %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm4 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vmovd %xmm1, %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm5 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vpextrd $1, %xmm1, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0],mem[0],xmm5[2,3]
-; X86-AVX2-NEXT:    vpextrd $2, %xmm1, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vpextrd $3, %xmm1, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm5[0,1,2],mem[0]
-; X86-AVX2-NEXT:    vmovd %xmm2, %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm5 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vpextrd $1, %xmm2, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0],mem[0],xmm5[2,3]
-; X86-AVX2-NEXT:    vpextrd $2, %xmm2, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vpextrd $3, %xmm2, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm5[0,1,2],mem[0]
-; X86-AVX2-NEXT:    vmovd %xmm3, %ecx
-; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm5 = mem[0],zero,zero,zero
-; X86-AVX2-NEXT:    vpextrd $1, %xmm3, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0],mem[0],xmm5[2,3]
-; X86-AVX2-NEXT:    vpextrd $2, %xmm3, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vpextrd $3, %xmm3, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm5[0,1,2],mem[0]
-; X86-AVX2-NEXT:    vextractps $1, %xmm0, %ecx
-; X86-AVX2-NEXT:    vbroadcastss (%eax,%ecx,4), %xmm5
-; X86-AVX2-NEXT:    vextractps $2, %xmm0, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],mem[0],xmm5[3]
-; X86-AVX2-NEXT:    vextractps $3, %xmm0, %ecx
-; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm0 = xmm5[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 64(%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl 16(%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl 20(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0],mem[0],xmm1[2,3]
+; X86-AVX2-NEXT:    movl 24(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1],mem[0],xmm1[3]
+; X86-AVX2-NEXT:    movl 28(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 32(%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl 36(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0],mem[0],xmm2[2,3]
+; X86-AVX2-NEXT:    movl 40(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1],mem[0],xmm2[3]
+; X86-AVX2-NEXT:    movl 44(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 48(%ecx), %edx
+; X86-AVX2-NEXT:    vmovss {{.*#+}} xmm3 = mem[0],zero,zero,zero
+; X86-AVX2-NEXT:    movl 52(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0],mem[0],xmm3[2,3]
+; X86-AVX2-NEXT:    movl 56(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0,1],mem[0],xmm3[3]
+; X86-AVX2-NEXT:    movl 60(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0,1,2],mem[0]
+; X86-AVX2-NEXT:    movl 4(%ecx), %edx
+; X86-AVX2-NEXT:    vbroadcastss (%eax,%edx,4), %xmm4
+; X86-AVX2-NEXT:    movl 8(%ecx), %edx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm4 = xmm4[0,1],mem[0],xmm4[3]
+; X86-AVX2-NEXT:    movl 12(%ecx), %ecx
+; X86-AVX2-NEXT:    vinsertps {{.*#+}} xmm4 = xmm4[0,1,2],mem[0]
 ; X86-AVX2-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; X86-AVX2-NEXT:    vmovss %xmm4, 64(%eax)
-; X86-AVX2-NEXT:    vmovaps %xmm0, (%eax)
+; X86-AVX2-NEXT:    vmovss %xmm0, 64(%eax)
+; X86-AVX2-NEXT:    vmovaps %xmm4, (%eax)
 ; X86-AVX2-NEXT:    vmovaps %xmm3, 48(%eax)
 ; X86-AVX2-NEXT:    vmovaps %xmm2, 32(%eax)
 ; X86-AVX2-NEXT:    vmovaps %xmm1, 16(%eax)

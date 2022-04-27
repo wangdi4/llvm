@@ -1,4 +1,21 @@
 //===-- X86IntrinsicsInfo.h - X86 Intrinsics ------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -401,8 +418,8 @@ static const IntrinsicData  IntrinsicsWithoutChain[] = {
   X86_INTRINSIC_DATA(avx2_packsswb, INTR_TYPE_2OP, X86ISD::PACKSS, 0),
   X86_INTRINSIC_DATA(avx2_packusdw, INTR_TYPE_2OP, X86ISD::PACKUS, 0),
   X86_INTRINSIC_DATA(avx2_packuswb, INTR_TYPE_2OP, X86ISD::PACKUS, 0),
-  X86_INTRINSIC_DATA(avx2_pavg_b,  INTR_TYPE_2OP, X86ISD::AVG, 0),
-  X86_INTRINSIC_DATA(avx2_pavg_w,  INTR_TYPE_2OP, X86ISD::AVG, 0),
+  X86_INTRINSIC_DATA(avx2_pavg_b,  INTR_TYPE_2OP, ISD::AVGCEILU, 0),
+  X86_INTRINSIC_DATA(avx2_pavg_w,  INTR_TYPE_2OP, ISD::AVGCEILU, 0),
   X86_INTRINSIC_DATA(avx2_pblendvb, BLENDV, X86ISD::BLENDV, 0),
   X86_INTRINSIC_DATA(avx2_permd, VPERM_2OP, X86ISD::VPERMV, 0),
   X86_INTRINSIC_DATA(avx2_permps, VPERM_2OP, X86ISD::VPERMV, 0),
@@ -467,7 +484,7 @@ static const IntrinsicData  IntrinsicsWithoutChain[] = {
   X86_INTRINSIC_DATA(avx2_vpcompressw_128, INTR_TYPE_2OP, X86ISD::VPCOMPRESS, 0),
   X86_INTRINSIC_DATA(avx2_vpcompressw_256, INTR_TYPE_2OP, X86ISD::VPCOMPRESS, 0),
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
   X86_INTRINSIC_DATA(avx2_vpdpbssd_128,  INTR_TYPE_3OP, X86ISD::VPDPBSSD,  0),
   X86_INTRINSIC_DATA(avx2_vpdpbssd_256,  INTR_TYPE_3OP, X86ISD::VPDPBSSD,  0),
   X86_INTRINSIC_DATA(avx2_vpdpbssds_128, INTR_TYPE_3OP, X86ISD::VPDPBSSDS, 0),
@@ -480,7 +497,7 @@ static const IntrinsicData  IntrinsicsWithoutChain[] = {
   X86_INTRINSIC_DATA(avx2_vpdpbuud_256,  INTR_TYPE_3OP, X86ISD::VPDPBUUD,  0),
   X86_INTRINSIC_DATA(avx2_vpdpbuuds_128, INTR_TYPE_3OP, X86ISD::VPDPBUUDS, 0),
   X86_INTRINSIC_DATA(avx2_vpdpbuuds_256, INTR_TYPE_3OP, X86ISD::VPDPBUUDS, 0),
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #if INTEL_FEATURE_ISA_AVX_BF16
   X86_INTRINSIC_DATA(avx2bf16_cvtne2ps2bf16_128, INTR_TYPE_2OP, X86ISD::CVTNE2PS2BF16, 0),
   X86_INTRINSIC_DATA(avx2bf16_cvtne2ps2bf16_256, INTR_TYPE_2OP, X86ISD::CVTNE2PS2BF16, 0),
@@ -956,8 +973,8 @@ static const IntrinsicData  IntrinsicsWithoutChain[] = {
   X86_INTRINSIC_DATA(avx512_packsswb_512, INTR_TYPE_2OP, X86ISD::PACKSS, 0),
   X86_INTRINSIC_DATA(avx512_packusdw_512, INTR_TYPE_2OP, X86ISD::PACKUS, 0),
   X86_INTRINSIC_DATA(avx512_packuswb_512, INTR_TYPE_2OP, X86ISD::PACKUS, 0),
-  X86_INTRINSIC_DATA(avx512_pavg_b_512, INTR_TYPE_2OP, X86ISD::AVG, 0),
-  X86_INTRINSIC_DATA(avx512_pavg_w_512, INTR_TYPE_2OP, X86ISD::AVG, 0),
+  X86_INTRINSIC_DATA(avx512_pavg_b_512, INTR_TYPE_2OP, ISD::AVGCEILU, 0),
+  X86_INTRINSIC_DATA(avx512_pavg_w_512, INTR_TYPE_2OP, ISD::AVGCEILU, 0),
   X86_INTRINSIC_DATA(avx512_permvar_df_256, VPERM_2OP, X86ISD::VPERMV, 0),
   X86_INTRINSIC_DATA(avx512_permvar_df_512, VPERM_2OP, X86ISD::VPERMV, 0),
   X86_INTRINSIC_DATA(avx512_permvar_di_256, VPERM_2OP, X86ISD::VPERMV, 0),
@@ -1081,12 +1098,12 @@ static const IntrinsicData  IntrinsicsWithoutChain[] = {
   X86_INTRINSIC_DATA(avx512_vfmaddsub_ps_512, INTR_TYPE_3OP, X86ISD::FMADDSUB,
                      X86ISD::FMADDSUB_RND),
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
   X86_INTRINSIC_DATA(avx512_vpdpbssd_512,  INTR_TYPE_3OP, X86ISD::VPDPBSSD,  0),
   X86_INTRINSIC_DATA(avx512_vpdpbssds_512, INTR_TYPE_3OP, X86ISD::VPDPBSSDS, 0),
   X86_INTRINSIC_DATA(avx512_vpdpbsud_512,  INTR_TYPE_3OP, X86ISD::VPDPBSUD,  0),
   X86_INTRINSIC_DATA(avx512_vpdpbsuds_512, INTR_TYPE_3OP, X86ISD::VPDPBSUDS, 0),
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 #endif // INTEL_CUSTOMIZATION
   X86_INTRINSIC_DATA(avx512_vpdpbusd_128,  INTR_TYPE_3OP, X86ISD::VPDPBUSD, 0),
   X86_INTRINSIC_DATA(avx512_vpdpbusd_256,  INTR_TYPE_3OP, X86ISD::VPDPBUSD, 0),
@@ -1095,10 +1112,10 @@ static const IntrinsicData  IntrinsicsWithoutChain[] = {
   X86_INTRINSIC_DATA(avx512_vpdpbusds_256, INTR_TYPE_3OP, X86ISD::VPDPBUSDS, 0),
   X86_INTRINSIC_DATA(avx512_vpdpbusds_512, INTR_TYPE_3OP, X86ISD::VPDPBUSDS, 0),
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
   X86_INTRINSIC_DATA(avx512_vpdpbuud_512,  INTR_TYPE_3OP, X86ISD::VPDPBUUD,  0),
   X86_INTRINSIC_DATA(avx512_vpdpbuuds_512, INTR_TYPE_3OP, X86ISD::VPDPBUUDS, 0),
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 #endif // INTEL_CUSTOMIZATION
   X86_INTRINSIC_DATA(avx512_vpdpwssd_128,  INTR_TYPE_3OP, X86ISD::VPDPWSSD, 0),
   X86_INTRINSIC_DATA(avx512_vpdpwssd_256,  INTR_TYPE_3OP, X86ISD::VPDPWSSD, 0),
@@ -1439,8 +1456,8 @@ static const IntrinsicData  IntrinsicsWithoutChain[] = {
   X86_INTRINSIC_DATA(sse2_packssdw_128, INTR_TYPE_2OP, X86ISD::PACKSS, 0),
   X86_INTRINSIC_DATA(sse2_packsswb_128, INTR_TYPE_2OP, X86ISD::PACKSS, 0),
   X86_INTRINSIC_DATA(sse2_packuswb_128, INTR_TYPE_2OP, X86ISD::PACKUS, 0),
-  X86_INTRINSIC_DATA(sse2_pavg_b,       INTR_TYPE_2OP, X86ISD::AVG, 0),
-  X86_INTRINSIC_DATA(sse2_pavg_w,       INTR_TYPE_2OP, X86ISD::AVG, 0),
+  X86_INTRINSIC_DATA(sse2_pavg_b,       INTR_TYPE_2OP, ISD::AVGCEILU, 0),
+  X86_INTRINSIC_DATA(sse2_pavg_w,       INTR_TYPE_2OP, ISD::AVGCEILU, 0),
   X86_INTRINSIC_DATA(sse2_pmadd_wd,     INTR_TYPE_2OP, X86ISD::VPMADDWD, 0),
   X86_INTRINSIC_DATA(sse2_pmovmskb_128, INTR_TYPE_1OP, X86ISD::MOVMSK, 0),
   X86_INTRINSIC_DATA(sse2_pmulh_w,      INTR_TYPE_2OP, ISD::MULHS, 0),

@@ -1,5 +1,7 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-runtime-dd -scoped-noalias-aa -hir-loop-reversal -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -hir-cg -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd,hir-loop-reversal,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -aa-pipeline="scoped-noalias-aa,basic-aa" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-runtime-dd -scoped-noalias-aa -hir-loop-reversal -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -hir-cg -disable-output -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd,hir-loop-reversal,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -aa-pipeline="scoped-noalias-aa,basic-aa" -disable-output -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-runtime-dd -scoped-noalias-aa -hir-loop-reversal -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -hir-cg -disable-output -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd,hir-loop-reversal,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -aa-pipeline="scoped-noalias-aa,basic-aa" -disable-output -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
 
 ; Verify that we successfully generate code for this case. An assert was
 ; triggered during codgen because we were trying to convert the pointer blob in
@@ -15,10 +17,10 @@
 
 
 ; The loop just before CG-
-; CHECK:   + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
-; CHECK:   |   %.vec = (<4 x i8>*)(%src)[-1 * i1 + -1 * ptrtoint.i8*.i32(%src) + umax((1 + ptrtoint.i8*.i32(%src)), (ptrtoint.i8*.i32(%src) + %len)) + -4];
-; CHECK:   |   %reverse = shufflevector %.vec,  undef, <i32 3, i32 2, i32 1, i32 0>;
-; CHECK:   |   (<4 x i8>*)(%dest)[i1 + ptrtoint.i8*.i32(%src) + %len + -1 * umax((1 + ptrtoint.i8*.i32(%src)), (ptrtoint.i8*.i32(%src) + %len))] = %reverse;
+; CHECK:   + DO i1 = 0, {{.*}}, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:   |   [[VEC:%.*]] = (<4 x i8>*)(%src)[-1 * i1 + -1 * ptrtoint.i8*.i32(%src) + umax((1 + ptrtoint.i8*.i32(%src)), (ptrtoint.i8*.i32(%src) + %len)) + -4];
+; CHECK:   |   [[REVERSE:%.*]] = shufflevector [[VEC]],  undef, <i32 3, i32 2, i32 1, i32 0>;
+; CHECK:   |   (<4 x i8>*)(%dest)[i1 + ptrtoint.i8*.i32(%src) + %len + -1 * umax((1 + ptrtoint.i8*.i32(%src)), (ptrtoint.i8*.i32(%src) + %len))] = [[REVERSE]];
 ; CHECK:   + END LOOP
 
 target datalayout = "e-m:x-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"

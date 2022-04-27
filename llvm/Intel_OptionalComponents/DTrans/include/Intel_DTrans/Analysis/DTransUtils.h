@@ -1,6 +1,6 @@
 //===--------------------------DTransUtils.h--------------------------------===//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -21,6 +21,8 @@
 #define INTEL_DTRANS_ANALYSIS_DTRANSUTILS_H
 
 #include "llvm/ADT/SetVector.h"
+#include "llvm/IR/GlobalAlias.h"
+#include "llvm/IR/InstrTypes.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -42,6 +44,7 @@ struct MemfuncRegion;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 extern cl::opt<bool> DTransPrintAnalyzedTypes;
 extern cl::opt<bool> DTransPrintAnalyzedCalls;
+extern cl::opt<bool> DTransPrintImmutableAnalyzedTypes;
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 extern cl::opt<bool> DTransOutOfBoundsOK;
@@ -169,6 +172,32 @@ bool isDummyFuncWithThisAndIntArgs(const CallBase *Call,
 /// pointer) and is dummy.
 bool isDummyFuncWithThisAndPtrArgs(const CallBase *Call,
                                    const TargetLibraryInfo &TLI);
+
+/// There is a possibility that a call to be analyzed is inside a BitCast, in
+/// which case we need to strip the pointer casting from the \p Call operand to
+/// identify the Function. The call may also be using an Alias to a Function,
+/// in which case we need to get the aliasee. If a function is found, return it.
+/// Otherwise, return nullptr.
+inline Function *getCalledFunction(const CallBase &Call) {
+  Value *CalledValue = Call.getCalledOperand()->stripPointerCasts();
+  if (auto *CalledF = dyn_cast<Function>(CalledValue))
+    return CalledF;
+
+  if (auto *GA = dyn_cast<GlobalAlias>(CalledValue))
+    if (!GA->isInterposable())
+      if (auto *AliasF =
+              dyn_cast<Function>(GA->getAliasee()->stripPointerCasts()))
+        return AliasF;
+
+  return nullptr;
+}
+
+/// Compare two structure names for sorted output. If the structure does
+/// not have a name, compare it by the printed representation. Treat named
+/// structures as less than literal structures.
+/// Returns 'true' if 'Ty1' < 'Ty2'
+bool compareStructName(const llvm::StructType *Ty1,
+                       const llvm::StructType *Ty2);
 
 } // namespace dtrans
 } // namespace llvm

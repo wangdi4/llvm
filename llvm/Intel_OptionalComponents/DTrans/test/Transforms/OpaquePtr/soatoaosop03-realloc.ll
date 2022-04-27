@@ -1,31 +1,31 @@
 ; RUN: opt < %s -whole-program-assume -disable-output                                                           \
-; RUN:    -passes='require<dtrans-safetyanalyzer>,function(require<soatoaosop-approx>,require<soatoaosop-array-methods>)'  \
-; RUN:    -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=0                                            \
-; RUN:    -debug-only=dtrans-soatoaosop \
+; RUN:    -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-array-methods>' \
+; RUN:    -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=0                                        \
+; RUN:    -debug-only=dtrans-soatoaosop                                                                         \
 ; RUN:  2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -disable-output                                                           \
-; RUN:    -passes='require<dtrans-safetyanalyzer>,function(require<soatoaosop-approx>,require<soatoaosop-array-methods>)'  \
-; RUN:    -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=0                                            \
-; RUN:    -debug-only=dtrans-soatoaosop-arrays                                                                    \
+; RUN:    -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-array-methods>' \
+; RUN:    -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=0                                        \
+; RUN:    -debug-only=dtrans-soatoaosop-arrays                                                                  \
 ; RUN:  2>&1 | FileCheck --check-prefix=CHECK-TRANS %s
 ; RUN: opt -S < %s -whole-program-assume                                                                        \
-; RUN:    -passes=soatoaosop-arrays-methods-transform                                                             \
-; RUN:    -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=0                                            \
+; RUN:    -passes=soatoaosop-arrays-methods-transform                                                           \
+; RUN:    -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=0                                        \
 ; RUN:  | FileCheck --check-prefix=CHECK-MOD %s
 ;
-; RUN: opt < %s -opaque-pointers -whole-program-assume -disable-output                                                           \
-; RUN:    -passes='require<dtrans-safetyanalyzer>,function(require<soatoaosop-approx>,require<soatoaosop-array-methods>)'  \
-; RUN:    -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=0                                            \
-; RUN:    -debug-only=dtrans-soatoaosop \
+; RUN: opt < %s -opaque-pointers -whole-program-assume -disable-output                                          \
+; RUN:    -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-array-methods>' \
+; RUN:    -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=0                                        \
+; RUN:    -debug-only=dtrans-soatoaosop                                                                         \
 ; RUN:  2>&1 | FileCheck %s
-; RUN: opt < %s -opaque-pointers -whole-program-assume -disable-output                                                           \
-; RUN:    -passes='require<dtrans-safetyanalyzer>,function(require<soatoaosop-approx>,require<soatoaosop-array-methods>)'  \
-; RUN:    -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=0                                            \
-; RUN:    -debug-only=dtrans-soatoaosop-arrays                                                                    \
+; RUN: opt < %s -opaque-pointers -whole-program-assume -disable-output                                          \
+; RUN:    -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-array-methods>' \
+; RUN:    -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=0                                        \
+; RUN:    -debug-only=dtrans-soatoaosop-arrays                                                                  \
 ; RUN:  2>&1 | FileCheck --check-prefix=CHECK-OP-TRANS %s
-; RUN: opt -S < %s -opaque-pointers -whole-program-assume                                                                        \
-; RUN:    -passes=soatoaosop-arrays-methods-transform                                                             \
-; RUN:    -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=0                                            \
+; RUN: opt -S < %s -opaque-pointers -whole-program-assume                                                       \
+; RUN:    -passes=soatoaosop-arrays-methods-transform                                                           \
+; RUN:    -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=0                                        \
 ; RUN:  | FileCheck --check-prefix=CHECK-OP-MOD %s
 ; REQUIRES: asserts
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -78,20 +78,15 @@ if.end:                                           ; preds = %entry
   %mul = mul nsw i32 5, %add3
   %conv = sext i32 %mul to i64
   %mul4 = mul i64 %conv, 8
-  %conv5 = trunc i64 %mul4 to i32
 ; CHECK-TRANS:     ; BasePtrInst: Allocation call
-; CHECK-TRANS-NEXT:  %call = call i8* @malloc(i32 %conv5)
+; CHECK-TRANS-NEXT:  %call = call i8* @malloc(i64 %mul4)
 ; CHECK-OP-TRANS:     ; BasePtrInst: Allocation call
-; CHECK-OP-TRANS-NEXT:  %call = call ptr @malloc(i32 %conv5)
-; CHECK-MOD:       %nsz = zext i32 %conv5 to i64
-; CHECK-MOD-NEXT:  %nsz1 = mul nuw i64 %nsz, 2
-; CHECK-MOD-NEXT:  %nsz2 = trunc i64 %nsz1 to i32
-; CHECK-MOD-NEXT:  %call = call i8* @malloc(i32 %nsz2)
-; CHECK-OP-MOD:       %nsz = zext i32 %conv5 to i64
-; CHECK-OP-MOD-NEXT:  %nsz1 = mul nuw i64 %nsz, 2
-; CHECK-OP-MOD-NEXT:  %nsz2 = trunc i64 %nsz1 to i32
-; CHECK-OP-MOD-NEXT:  %call = call ptr @malloc(i32 %nsz2)
-  %call = call i8* @malloc(i32 %conv5)
+; CHECK-OP-TRANS-NEXT:  %call = call ptr @malloc(i64 %mul4)
+; CHECK-MOD:       %nsz = mul nuw i64 %mul4, 2
+; CHECK-MOD-NEXT:  %call = call i8* @malloc(i64 %nsz)
+; CHECK-OP-MOD:    %nsz = mul nuw i64 %mul4, 2
+; CHECK-OP-MOD-NEXT:  %call = call ptr @malloc(i64 %nsz)
+  %call = call i8* @malloc(i64 %mul4)
 ; CHECK-MOD: %tmp6 = bitcast i8* %call to %__SOA_EL_struct.Arr.0*
 ; CHECK-OP-MOD: %tmp6 = bitcast ptr %call to ptr
   %tmp6 = bitcast i8* %call to i8**
@@ -143,18 +138,18 @@ for.stop:                                         ; preds = %for.body
 ; CHECK-MOD:         %arrayidx = getelementptr inbounds %__SOA_EL_struct.Arr.0, %__SOA_EL_struct.Arr.0* %array_phi, i64 %idxprom
 ; CHECK-OP-MOD:     %arrayidx = getelementptr inbounds %__SOA_EL_struct.Arr.0, ptr %array_phi, i64 %idxprom
   %arrayidx = getelementptr inbounds i8*, i8** %array_phi, i64 %idxprom
-; CHECK-MOD-NEXT:    %elem4 = getelementptr inbounds %__SOA_EL_struct.Arr.0, %__SOA_EL_struct.Arr.0* %arrayidx, i64 0, i32 1
+; CHECK-MOD-NEXT:    %elem2 = getelementptr inbounds %__SOA_EL_struct.Arr.0, %__SOA_EL_struct.Arr.0* %arrayidx, i64 0, i32 1
 ; CHECK-MOD-NEXT:    %elem = getelementptr inbounds %__SOA_EL_struct.Arr.0, %__SOA_EL_struct.Arr.0* %arrayidx, i64 0, i32 0
-; CHECK-OP-MOD-NEXT:    %elem4 = getelementptr inbounds %__SOA_EL_struct.Arr.0, ptr %arrayidx, i64 0, i32 1
+; CHECK-OP-MOD-NEXT:    %elem2 = getelementptr inbounds %__SOA_EL_struct.Arr.0, ptr %arrayidx, i64 0, i32 1
 ; CHECK-OP-MOD-NEXT:    %elem = getelementptr inbounds %__SOA_EL_struct.Arr.0, ptr %arrayidx, i64 0, i32 0
 ; CHECK-TRANS:     ; MemInst: Element load
 ; CHECK-TRANS-NEXT:  %tmp10 = load i8*, i8** %arrayidx, align 8
 ; CHECK-OP-TRANS:     ; MemInst: Element load
 ; CHECK-OP-TRANS-NEXT:  %tmp10 = load ptr, ptr %arrayidx, align 8
 ; CHECK-MOD:        %copy = load float*, float** %elem, align 8
-; CHECK-MOD-NEXT:   %tmp10 = load i8*, i8** %elem4, align 8
+; CHECK-MOD-NEXT:   %tmp10 = load i8*, i8** %elem2, align 8
 ; CHECK-OP-MOD:        %copy = load ptr, ptr %elem, align 8
-; CHECK-OP-MOD-NEXT:   %tmp10 = load ptr, ptr %elem4, align 8
+; CHECK-OP-MOD-NEXT:   %tmp10 = load ptr, ptr %elem2, align 8
   %tmp10 = load i8*, i8** %arrayidx, align 8
   %mul11 = mul nsw i32 5, %i.0
   %idxprom12 = sext i32 %mul11 to i64
@@ -165,18 +160,18 @@ for.stop:                                         ; preds = %for.body
 ; CHECK-MOD:         %arrayidx13 = getelementptr inbounds %__SOA_EL_struct.Arr.0, %__SOA_EL_struct.Arr.0* %tmp6, i64 %idxprom12
 ; CHECK-OP-MOD:         %arrayidx13 = getelementptr inbounds %__SOA_EL_struct.Arr.0, ptr %tmp6, i64 %idxprom12
   %arrayidx13 = getelementptr inbounds i8*, i8** %tmp6, i64 %idxprom12
-; CHECK-MOD-NEXT:    %elem5 = getelementptr inbounds %__SOA_EL_struct.Arr.0, %__SOA_EL_struct.Arr.0* %arrayidx13, i64 0, i32 1
-; CHECK-MOD-NEXT:    %elem3 = getelementptr inbounds %__SOA_EL_struct.Arr.0, %__SOA_EL_struct.Arr.0* %arrayidx13, i64 0, i32 0
-; CHECK-OP-MOD-NEXT:    %elem5 = getelementptr inbounds %__SOA_EL_struct.Arr.0, ptr %arrayidx13, i64 0, i32 1
-; CHECK-OP-MOD-NEXT:    %elem3 = getelementptr inbounds %__SOA_EL_struct.Arr.0, ptr %arrayidx13, i64 0, i32 0
+; CHECK-MOD-NEXT:    %elem3 = getelementptr inbounds %__SOA_EL_struct.Arr.0, %__SOA_EL_struct.Arr.0* %arrayidx13, i64 0, i32 1
+; CHECK-MOD-NEXT:    %elem1 = getelementptr inbounds %__SOA_EL_struct.Arr.0, %__SOA_EL_struct.Arr.0* %arrayidx13, i64 0, i32 0
+; CHECK-OP-MOD-NEXT:    %elem3 = getelementptr inbounds %__SOA_EL_struct.Arr.0, ptr %arrayidx13, i64 0, i32 1
+; CHECK-OP-MOD-NEXT:    %elem1 = getelementptr inbounds %__SOA_EL_struct.Arr.0, ptr %arrayidx13, i64 0, i32 0
 ; CHECK-TRANS:     ; MemInst: Element store to new mem
 ; CHECK-TRANS-NEXT:  store i8* %tmp10, i8** %arrayidx13, align 8
 ; CHECK-OP-TRANS:     ; MemInst: Element store to new mem
 ; CHECK-OP-TRANS-NEXT:  store ptr %tmp10, ptr %arrayidx13, align 8
-; CHECK-MOD-NEXT:  store float* %copy, float** %elem3, align 8
-; CHECK-MOD-NEXT:  store i8* %tmp10, i8** %elem5, align 8
-; CHECK-OP-MOD-NEXT:  store ptr %copy, ptr %elem3, align 8
-; CHECK-OP-MOD-NEXT:  store ptr %tmp10, ptr %elem5, align 8
+; CHECK-MOD-NEXT:  store float* %copy, float** %elem1, align 8
+; CHECK-MOD-NEXT:  store i8* %tmp10, i8** %elem3, align 8
+; CHECK-OP-MOD-NEXT:  store ptr %copy, ptr %elem1, align 8
+; CHECK-OP-MOD-NEXT:  store ptr %tmp10, ptr %elem3, align 8
   store i8* %tmp10, i8** %arrayidx13, align 8
   br label %for.inc
 
@@ -211,7 +206,7 @@ return:                                           ; preds = %for.end, %if.then
   ret void
 }
 
-declare !intel.dtrans.func.type !12 "intel_dtrans_func_index"="1" i8* @malloc(i32)
+declare !intel.dtrans.func.type !12 "intel_dtrans_func_index"="1" i8* @malloc(i64)
 declare !intel.dtrans.func.type !13 dso_local void @_ZdlPv(i8* "intel_dtrans_func_index"="1")
 
 !intel.dtrans.types = !{!0, !4}

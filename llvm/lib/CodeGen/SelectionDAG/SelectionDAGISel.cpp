@@ -1,4 +1,21 @@
 //===- SelectionDAGISel.cpp - Implement the SelectionDAGISel class --------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -15,22 +32,23 @@
 #include "SelectionDAGBuilder.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/None.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/AssumptionCache.h" // INTEL
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/LazyBlockFrequencyInfo.h"
 #include "llvm/Analysis/LegacyDivergenceAnalysis.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
+#include "llvm/Analysis/ScalarEvolution.h" // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/CodeGen/CodeGenCommonISel.h"
@@ -69,7 +87,6 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -82,7 +99,6 @@
 #include "llvm/IR/Value.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/MC/MCInstrDesc.h"
-#include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/BranchProbability.h"
 #include "llvm/Support/Casting.h"
@@ -319,7 +335,7 @@ SelectionDAGISel::SelectionDAGISel(TargetMachine &tm, CodeGenOpt::Level OL)
       CurDAG(new SelectionDAG(tm, OL)),
       SDB(std::make_unique<SelectionDAGBuilder>(*CurDAG, *FuncInfo, *SwiftError,
                                                 OL)),
-      AA(), GFI(), OptLevel(OL), DAGSize(0) {
+      OptLevel(OL) {
   initializeGCModuleInfoPass(*PassRegistry::getPassRegistry());
   initializeBranchProbabilityInfoWrapperPassPass(
       *PassRegistry::getPassRegistry());
@@ -335,6 +351,8 @@ SelectionDAGISel::~SelectionDAGISel() {
 void SelectionDAGISel::getAnalysisUsage(AnalysisUsage &AU) const {
   if (OptLevel != CodeGenOpt::None)
     AU.addRequired<AAResultsWrapperPass>();
+  AU.addRequired<ScalarEvolutionWrapperPass>(); // INTEL
+  AU.addRequired<AssumptionCacheTracker>(); // INTEL
   AU.addRequired<GCModuleInfo>();
   AU.addRequired<StackProtector>();
   AU.addPreserved<GCModuleInfo>();
@@ -422,8 +440,13 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
   assert((!EnableFastISelAbort || TM.Options.EnableFastISel) &&
          "-fast-isel-abort > 0 requires -fast-isel");
 
-  const Function &Fn = mf.getFunction();
+  Function &Fn = mf.getFunction(); // INTEL
   MF = &mf;
+
+  // Decide what flavour of variable location debug-info will be used, before
+  // we change the optimisation level.
+  UseInstrRefDebugInfo = mf.useDebugInstrRef();
+  CurDAG->useInstrRefDebugInfo(UseInstrRefDebugInfo);
 
   // Reset the target options before resetting the optimization
   // level below.
@@ -439,6 +462,10 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
 
   TII = MF->getSubtarget().getInstrInfo();
   TLI = MF->getSubtarget().getTargetLowering();
+  auto *TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn); // INTEL
+  auto *SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE(); // INTEL
+  auto *AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(Fn); // INTEL
+
   RegInfo = &MF->getRegInfo();
   LibInfo = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(Fn);
   GFI = Fn.hasGC() ? &getAnalysis<GCModuleInfo>().getFunctionInfo(Fn) : nullptr;
@@ -476,7 +503,7 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
   else
     AA = nullptr;
 
-  SDB->init(GFI, AA, LibInfo);
+  SDB->init(GFI, AA, LibInfo, TTI, AC, DT, SE, LI); // INTEL
 
   MF->setHasInlineAsm(false);
 
@@ -654,7 +681,8 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
 
   // For debug-info, in instruction referencing mode, we need to perform some
   // post-isel maintenence.
-  MF->finalizeDebugInstrRefs();
+  if (UseInstrRefDebugInfo)
+    MF->finalizeDebugInstrRefs();
 
   // Determine if there are any calls in this machine function.
   MachineFrameInfo &MFI = MF->getFrameInfo();
@@ -1380,6 +1408,8 @@ void SelectionDAGISel::SelectAllBasicBlocks(const Function &Fn) {
   if (TM.Options.EnableFastISel) {
     LLVM_DEBUG(dbgs() << "Enabling fast-isel\n");
     FastIS = TLI->createFastISel(*FuncInfo, LibInfo);
+    if (FastIS)
+      FastIS->useInstrRefDebugInfo(UseInstrRefDebugInfo);
   }
 
   ReversePostOrderTraversal<const Function*> RPOT(&Fn);

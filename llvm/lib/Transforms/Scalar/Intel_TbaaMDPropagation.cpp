@@ -64,19 +64,20 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar/Intel_TbaaMDPropagation.h"
+#include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h" // INTEL
+#include "llvm/IR/CFG.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Value.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
-#include "llvm/ADT/DepthFirstIterator.h"
-#include "llvm/IR/CFG.h"
 
 using namespace llvm;
 
@@ -106,6 +107,11 @@ MDNode *getGepChainTBAA(const GetElementPtrInst *GEP) {
   return mergeIntelTBAA(getGepChainTBAA(BaseGEP), GepMD);
 }
 
+// TODO: merge with InstCombineCalls, TypeBasedAliasAnalysis....
+static bool isStructPathTBAA(const MDNode *MD) {
+  return isa<MDNode>(MD->getOperand(0)) && MD->getNumOperands() >= 3;
+}
+
 // The tbaa information is retrieved from the fakeload intrinsic
 // and attached to the pointer's dereference sites.
 void TbaaMDPropagationImpl::visitIntrinsicInst(IntrinsicInst &II) {
@@ -127,17 +133,55 @@ void TbaaMDPropagationImpl::visitIntrinsicInst(IntrinsicInst &II) {
   // of inlining yet.
   if (II.hasOneUse() && isa<ReturnInst>(II.user_back()))
     return;
+
+  // Reload the TBAA in case we changed it above.
   FakeloadTBAA = dyn_cast<MDNode>(
       cast<MetadataAsValue>(II.getArgOperand(1))->getMetadata());
+
+  // Check it for validity.
+  if (FakeloadTBAA && isStructPathTBAA(FakeloadTBAA)) {
+    auto *AccessType = dyn_cast<MDNode>(FakeloadTBAA->getOperand(1));
+    if (!AccessType || !TBAAVerifier::isValidScalarTBAANodeStatic(AccessType)) {
+      // Functions that return type pointer-to-struct may have fakeloads that
+      // refer to a struct type as if it were a scalar:
+      // !0 = !{!"struct", !1, i64 0, !2, i64 4}
+      // !x = !{!0, !0, i64 0}
+      // With opaque pointers, the pointer-to-struct may be loaded as an actual
+      // scalar type.
+      // We should avoid propagating the fakeload MD in this case.
+      // In most (if not all) of these cases, the load will have TBAA MD
+      // already.
+      FakeloadTBAA = nullptr;
+    }
+  }
+
+  // Check for loads with different types, we can't use the same
+  // TBAA info on them.
+  if (FakeloadTBAA) {
+    Type *LoadType = nullptr;
+    for (auto *User : II.users()) {
+      if (auto *LI = dyn_cast<LoadInst>(User)) {
+        if (!LoadType) {
+          LoadType = LI->getType();
+        } else if (LI->getType() != LoadType) {
+          FakeloadTBAA = nullptr;
+          break;
+        }
+      }
+    }
+  }
+
+  // Propagate the fakeload info if it's valid. Also check to see if
+  // we can delete the fakeload (no return users).
   bool HasRetUser = false;
   for (auto *User : II.users()) {
     LoadInst *LI = dyn_cast<LoadInst>(User);
-    if (LI && LI->getPointerOperand() == &II) {
+    if (FakeloadTBAA && LI && LI->getPointerOperand() == &II) {
       LI->setMetadata(LLVMContext::MD_tbaa, FakeloadTBAA);
       continue;
     }
     StoreInst *SI = dyn_cast<StoreInst>(User);
-    if (SI && SI->getPointerOperand() == &II) {
+    if (FakeloadTBAA && SI && SI->getPointerOperand() == &II) {
       SI->setMetadata(LLVMContext::MD_tbaa, FakeloadTBAA);
       continue;
     }

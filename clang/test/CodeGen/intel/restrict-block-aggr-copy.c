@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -DTEST1 -O1 -triple x86_64-unknown-unknown -disable-llvm-passes -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -DTEST1 -O1 -triple x86_64-unknown-unknown -disable-llvm-passes -emit-llvm -opaque-pointers %s -o - | FileCheck %s
 
 typedef struct _A {
   int x;
@@ -9,8 +9,8 @@ void foo(A *p, A *q) {
   {
     A *restrict rp = p;
     A *restrict rq = q;
-// CHECK: %rp = alloca %struct._A*
-// CHECK: %rq = alloca %struct._A*
+// CHECK: %rp = alloca ptr 
+// CHECK: %rq = alloca ptr 
 
     *rp = *rq;
 // CHECK: call void @llvm.memcpy

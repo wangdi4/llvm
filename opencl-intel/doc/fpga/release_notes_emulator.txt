@@ -1,0 +1,420 @@
+================================================================================
+SUMMARY
+================================================================================
+The Intel(R) FPGA Emulation Platform for OpenCL(TM) software is an OpenCL(TM)
+runtime and compiler, which runs on an Intel(R) Core(TM) processor or Intel(R)
+Xeon(R) processor. It is capable of compiling and running programs written with
+Intel(R) FPGA Emulation Platform for OpenCL(TM) software extensions (e.g. with
+the FPGA channels extension).
+
+The emulator aims to provide:
+    - Rapid compilation time (in seconds)
+    - Source code portability between the emulator and the FPGA
+    - Reasonable performance (the average benchmarks runs at a 5x-10x slowdown
+      in comparison with FPGA hardware)
+
+================================================================================
+REQUIREMENTS
+================================================================================
+The supported operating systems are:
+  - Ubuntu* 16.04 (64-bit)
+  - Windows* 7, 8.1, 10 (64-bit)
+
+The supported hardware is:
+  - 5th Generation Intel(R) Core(TM) Processor (formerly Broadwell) or higher
+  - 5th Generation Intel(R) Xeon(R) Processor E3 v4 (formerly Broadwell) or
+    higher
+
+================================================================================
+INSTALLATION
+================================================================================
+The emulator should be installed as part of the Intel(R) FPGA SDK for OpenCL(TM)
+software technology package, and when the corresponding component is selected.
+
+If the installation is successful, the following OpenCL(TM) platform will be
+available:
+
+    Profile             : EMBEDDED_PROFILE
+    Version             : OpenCL 1.2 Intel(R) FPGA SDK for OpenCL(TM), Version 20.3
+    Name                : Intel(R) FPGA Emulation Platform for OpenCL(TM)
+    Vendor              : Intel(R) Corporation
+    Devices             : 1
+    Device [#1]         :
+        Type            : accelerator
+        Profile         : EMBEDDED_PROFILE
+        Version         : OpenCL 1.2
+        Name            : Intel(R) FPGA Emulation Device
+        Vendor          : Intel(R) Corporation
+        C version       : OpenCL C 1.2
+        Driver version  : 2019.8.4.0
+
+================================================================================
+DETAILS
+================================================================================
+The emulator provides a separate OpenCL(TM) platform with one OpenCL(TM) CPU
+device. It supports Intel(R) FPGA Emulation Platform for OpenCL(TM) software
+extensions, including channels, autorun kernels, etc.
+
+OpenCL(TM) programs written for the FPGA device can be compiled and executed
+using a standard OpenCL(TM) API (including clCreateProgramWithBinary(), see the
+Offline Compilation section below for additional information).
+
+
+The following sets of environment variables affect the emulator's execution:
+    * CL_CONFIG_CPU_TBB_NUM_WORKERS ([1..]): Indicates a maximum number of
+      threads that can be used by the emulator. The default value is 32, and the
+      maximum value is 256. Each thread is capable of running a single kernel.
+      If the application requires several kernels to execute simultaneously, the
+      CL_CONFIG_CPU_TBB_NUM_WORKERS must be set to the number of kernels used or
+      a higher value.
+      Note that OCL_TBB_NUM_WORKERS is deprecated in favor of
+      CL_CONFIG_CPU_TBB_NUM_WORKERS.
+
+    * CL_CONFIG_CPU_TARGET_ARCH (core-avx2, skx): This variable can be set to
+      force a SIMD instruction set used for OpenCL(TM) kernel compilation, where
+      skx corresponds to Intel(R) Advanced Vector Extensions 512 support.
+
+    * CL_CONFIG_CPU_EMULATE_DEVICES ([1..]): This variable controls a number of
+      emulator devices, which are provided by the Intel(R) FPGA Emulation
+      Platform for OpenCL(TM) software.
+
+  - The following are OpenCL(TM) related environment variables (see the Intel(R)
+    SDK for OpenCL(TM) - CPU only runtime package documentation for more
+    details):
+
+    * CL_CONFIG_USE_VECTORIZER (True, False): Enables or disables the NDRange
+      kernel vectorizer.
+
+    * CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE (e.g 256 KB): Is the amount of
+      available OpenCL(TM) local memory.
+
+    * CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE (e.g 256 KB): Is the amount of
+      available OpenCL(TM) private memory.
+
+================================================================================
+OFFLINE COMPILATION
+================================================================================
+The emulator supports the OpenCL(TM) kernels compilation into binaries (this is
+similar to .aocx files that are used for an FPGA device), which can be used in
+clCreateProgramWithBinary().
+
+Use the Intel(R) SDK for OpenCL(TM) - offline compiler (ioc64 tool) to compile
+kernel binaries for the emulator from the OpenCL(TM) C source code. This tool is
+distributed as part of the Intel(R) Code Builder for OpenCL(TM) API.
+
+  > ioc64 -bo='-cl-std=CL2.0' -device=fpga_fast_emu -input=source.cl -ir=kernel_binary.aocx
+
+The name for the output file is arbitrary, but it should have an .aocx
+extension.  The host program uses the same name for both the FPGA device and the
+emulator.
+
+The kernel binaries produced by the ioc64 tool are NOT compatible with the
+binaries compiled for FPGA devices and vice versa.
+
+================================================================================
+DEBUGGING OPENCL(TM) KERNELS ON LINUX*
+================================================================================
+The Intel(R) FPGA Emulation Platform for OpenCL(TM) software supports debugging
+of OpenCL(TM) kernels using a GNU GDB* or LLDB* debugger on Linux*. It allows
+for debugging host code and OpenCL(TM) kernels in a single debug session.
+
+To enable debugging mode, the following specific options should be passed to the
+build options string parameter in the clBuildProgram() function:
+
+-g
+    The -g flag enables source-level debug information generation.
+
+    NOTE: Passing a -g flag means that no optimizations (such as inlining,
+    unrolling, vectorization, etc.) are performed. This is the same as if a
+    -cl-opt-disable option was passed.
+
+
+-s /full/path/to/OpenCL/source/file.cl
+
+    This option specifies the full path to the OpenCL(TM) source file. If the
+    path includes spaces, the entire path should be enclosed with double or
+    single quotes.
+
+    This option is required in cases where the source of an OpenCL(TM) kernel is
+    passed to the clCreateProgramWithSource() function as a string.
+
+    Only one file can be specified with the -s option. If the file contains one
+    or more #include directives, multiple paths for files with the -s option are
+    not needed.
+
+    NOTE: When using an Intel(R) SDK for OpenCL(TM) - offline compiler,
+    specifying the -s option is not needed. The path to an OpenCL(TM) source
+    file is defined by the -input option.
+
+GDB* debugging session example:
+------------------------------
+
+1. Start debugging a program with:
+
+     gdb --args ./host_program
+
+2. Set a breakpoint in a kernel with:
+
+     (gdb) break kernel.cl:5
+     Make breakpoint pending on future shared library load? (y or [n]) y
+     Breakpoint 1 (kernel.cl:5) pending.
+
+3. Run the host program. The execution stops once the debugger hits the
+   breakpoint in the kernel:
+
+     (gdb) run
+     Thread 19 "host_program" hit Breakpoint 1, foo (c=9 '\t') kernel.cl:5
+     5         d = d + 2;
+
+4. When a kernel is compiled with a -g flag, the compiler generates three
+   variables that define the current work item. There is a variable for each
+   range in the 3D NDRange: __ocl_dbg_gid0, __ocl_dbg_gid1, and
+   __ocl_dbg_gid2. These variables can be used to set conditional breakpoints
+   that make it possible stop on a specific work item (or work items):
+
+     (gdb) break kernel.cl:3 if (__ocl_dbg_gid0 == 2)
+     Make breakpoint pending on future shared library load? (y or [n]) y
+     Breakpoint 3 (kernel.cl:3 if (__ocl_dbg_gid0 == 2)) pending.
+
+     (gdb) run
+
+     [Switching to Thread 0x7fffcffff700 (LWP 26115)]
+
+     Thread 20 "host_program" hit Breakpoint 1, main_kernel (buf_in=0x1834280 "", buf_out=0x186c880 "")
+     at kernel.cl:3
+     3           size_t workdim = get_work_dim();
+
+     (gdb) print __ocl_dbg_gid0
+     $0 = 2
+
+================================================================================
+EMULATING CHANNEL DEPTH
+================================================================================
+When you compile your OpenCL(TM) kernel for emulation, the channel depth is
+different from the channel depth generated when your kernel is compiled for
+hardware. You can change this behavior with the
+CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE environment variable.
+
+The CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE environment variable can take the
+following values:
+
+  - ignore-depth: All channels are given a channel depth chosen to provide the
+    fastest execution time for your kernel emulation. Any explicitly set channel
+    depth attribute is ignored.
+
+  - default: Channels with an explicit depth attribute have their specified
+    depth. Channels without a specified depth are given a default channel depth
+    that is chosen to provide the fastest execution time for your kernel
+    emulation.
+
+  - strict: All channel depths in the emulation are given a depth that matches
+    the depth given for the FPGA compilation. This value is used by default if
+    CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE environment variable is not set.
+
+For channels, the CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE environment variable
+should be set for a kernel compilation. For pipes, it should be set for a host
+program execution.
+
+================================================================================
+KNOWN ISSUES
+================================================================================
+1. The autorun kernels shut down only after a host program exits, not
+   after a clReleaseProgram() call.
+
+2. The max_work_group_size attribute requires three arguments to be specified
+   (one for each dimension in the NDRange) instead of only one argument.
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+Q: A CL_OUT_OF_RESOURCES error is returned from the clEnqueueNDRangeKernel.
+A: The kernel used more __private or __local memory than the emulator supports
+   by default. Try setting the CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE or the
+   CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE environment variables. See the DETAILS
+   section for more information.
+
+Q: The kernels wait infinitely on channel calls or the program hangs.
+A: By default the emulator only supports up to 32 simultaneously running
+   kernels. Use the CL_CONFIG_CPU_TBB_NUM_WORKERS environment variable to
+   increase this value.  See the DETAILS section for more information.
+
+Q: A CL_INVALID_PROGRAM_EXECUTABLE is returned from the clCreateKernel.
+A: A call to the clBuildProgram() was missed. This call is required by the
+   OpenCL(TM) specification, even if a program is created from a binary. See the
+   OpenCL(TM) Specification Version 1.2 [Reference 3] for details.
+
+================================================================================
+ISSUE REPORTING
+================================================================================
+Please report issues on Intel(R) Developer Zone's OpenCL(TM) forum:
+https://software.intel.com/en-us/forums/opencl
+
+================================================================================
+CHANGELOG
+================================================================================
+Changes from the Intel(R) FPGA SDK for OpenCL(TM) software technology 19.1
+release:
+
+  - Shared libraries on Linux* now require a newer version of
+    libstdc++ (GCC 5.x or higher). RedHat* 7.x or CentOS* 7.x are no
+    longer supported.
+
+  - ICD library was renamed from libintelocl_emu.so to libintelocl.so.
+    ICD entry located in /etc/OpenCL/vendors or in the Windows
+    registry must be updated according to the new name.
+
+  - Shared libraries on Linux* now have a version suffix. Symbolic
+    links are provided for compatibility with previous releases.
+
+  - New diagnostic for 'pragma ivdep' usage in the emulation flow.
+
+  - Enabled printf format warnings.
+
+  - The following attributes are supported:
+    - uses_global_work_offset
+
+  - General stability improvements.
+
+
+Changes from the Intel(R) FPGA SDK for OpenCL(TM) software technology 18.1
+release:
+
+  - New diagnostics for incorrect usage of channels and autorun kernels.
+
+  - cl_khr_3d_image_writes extension is no longer supported.
+
+  - scheduler_piplining_effort_pct attribute is renamed to
+    scheduler_target_fmax_mhz
+
+  - VOLCANO_CLANG_OPTIONS environment variable was removed.
+    Use -Xclang build option to pass a flag to the frontend compiler
+    invocation.
+
+  - The following #pragmas are supported:
+    - ii_at_most, ii_at_least
+    - min_ii_at_target_fmax
+    - speculated_iterations
+    - disable_loop_pipelining
+    - force_hyperopt, force_no_hyperopt
+
+  - The following attributes are supported:
+    - cluster
+    - stall_enable
+    - stall_latency_enabled, stall_latency_disabled
+
+  - General stability improvements.
+
+
+Changes from the Intel(R) FPGA SDK for OpenCL(TM) software technology 18.0
+release:
+
+  - Support for OpenMP* directives was removed.
+
+  - A new environment variable was added: CL_CONFIG_CPU_EMULATE_DEVICES.
+
+  - The default channel emulation mode was switched from 'ignore-depth' to
+    'strict'.
+
+  - An arbitrary precision integers feature is supported.
+
+  - The IO channels feature is supported.
+
+  - The autorun NDRange kernels feature is supported.
+
+  - The following attributes are supported:
+    - stall_free
+    - scheduler_pipelining_effort_pct
+    - optimize_fmax
+    - register
+    - optimize_ram_usage
+    - doublepump
+    - memory
+    - register
+    - singlepump
+    - bankwidth
+    - numbanks
+    - numreadports
+    - numwriteports
+    - numports_readonly_writeonly
+    - merge
+    - bank_bits
+    - numports_readonly_writeonly
+    - max_concurrency
+
+  - The following #pragmas are supported:
+    - ivdep, ivdep array, ivdep safelen
+    - loop_coalesce
+    - max_concurrency
+    - ii
+
+  - The __fpga_reg built-in is supported.
+
+  - The diagnostic messages related to channels have been improved.
+
+  - The clGetProfileDataDeviceIntelFPGA extension is supported.
+
+
+Changes from the Intel(R) SDK for OpenCL(TM) applications 2017 R2 release:
+
+  - There is partial support for the cl_khr_fp16 extension. The supported
+    features are:
+    - scalar half type
+    - vector halfn types
+    - vload_halfn, vstore_halfn built-ins
+    - operators: +, -, *
+
+  - GDB* is supported for kernel debugging on Linux*.
+
+  - The supported OpenCL(TM) version changed from 2.0 to 1.0.
+
+  - A list of supported extensions is now aligned with the Intel(R) FPGA SDK for
+    OpenCL(TM) software technology driver.
+
+  - Channels can now be passed to functions by value.
+
+  - The default value of the CL_DEVICE_LOCAL_MEM_SIZE device property is
+    increased from 32KB to 256KB. It can still be changed with the
+    CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE environment variable.
+
+  - The value of the CL_DEVICE_MAX_WORK_GROUP_SIZE device property is increased
+    from 8192 to 64*1024*1024.
+
+
+Changes from the Intel(R) SDK for OpenCL(TM) applications 2017 R1 release:
+
+  - Windows* OS is supported.
+
+  - There is partial support for autorun kernels. Only single work-item kernels
+    are supported (kernels which have __attribute__((max_global_work_dim(0))).
+
+  - The get_compute_id() built-in function is supported for autorun kernels.
+
+  - The cl_intel_fpga_host_pipe extension is supported.
+
+  - The OpenCL(TM) platform name and device name were changed.
+
+  - The emulator now maintains correct ordering for channel operations in a
+    loop. See 1.6.4.3.1 Work-Item Serial Execution of Channels: Channel
+    Execution in Loop with Multiple Work-Items in the Intel(R) FPGA SDK for
+    OpenCL(TM) software technology Programming Guide [Reference 1].
+
+  - Infinite loops in the kernels are supported.
+
+  - The emulator now supports up to 255 kernels executing simultaneously on any
+    hardware.
+
+  - General stability improvements.
+
+================================================================================
+REFERENCES
+================================================================================
+1. Link to Intel(R) FPGA SDK for OpenCL(TM) software technology Programming
+   Guide:
+   https://www.altera.com/products/design-software/embedded-software-developers/opencl/documentation.html
+2. Intel(R) SDK for OpenCL(TM) - CPU only runtime package documentation:
+    https://software.intel.com/en-us/iocl_tec_opg
+3. The OpenCL(TM) Specification Version 1.2
+    https://www.khronos.org/registry/OpenCL/specs/opencl-1.2.pdf
+
+OpenCL and the OpenCL logo are trademarks of Apple Inc. used by permission by
+Khronos.

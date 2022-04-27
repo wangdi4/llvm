@@ -1,12 +1,12 @@
-;RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-loop-fusion -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
-;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-loop-fusion,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
+;RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-loop-fusion -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
+;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-loop-fusion,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-opt-report=low 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
 
 ; OPTREPORT: LOOP BEGIN at t1.c (6, 3)
 ; OPTREPORT:     LOOP BEGIN at t1.c (7, 5)
 ; OPTREPORT:         remark #25045: Fused Loops: 7,11,15
 ; OPTREPORT:     LOOP END
 ; OPTREPORT:     LOOP BEGIN at t1.c (7, 5)
-; OPTREPORT:     <Peeled>
+; OPTREPORT:     <Peeled loop for fusion>
 ; OPTREPORT:     LOOP END
 ; OPTREPORT:     LOOP BEGIN at t1.c (11, 5)
 ; OPTREPORT:         remark #25046: Loop lost in Fusion

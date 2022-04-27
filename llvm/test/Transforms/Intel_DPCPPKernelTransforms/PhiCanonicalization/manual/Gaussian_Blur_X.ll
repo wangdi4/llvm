@@ -1,4 +1,6 @@
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 ; ModuleID = 'CyberLink.50.bin'
@@ -233,3 +235,9 @@ bb.nph.split.split.bb.nph.split.split.split_crit_edge: ; preds = %bb.nph.split.s
 }
 
 declare <4 x i32> @_Z12read_imageuiP10_image2d_tjDv2_i(%struct._image2d_t*, i32, <2 x i32>)
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function GaussianBlur_X --  br label %phi-split-bb1
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function GaussianBlur_X --  br label %._crit_edge
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function GaussianBlur_X --  br label %phi-split-bb5
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function GaussianBlur_X --  br label %126
+; DEBUGIFY-NOT: WARNING

@@ -1,4 +1,21 @@
 //===-- X86RegisterInfo.h - X86 Register Information Impl -------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -118,6 +135,15 @@ public:
   /// should be considered unavailable at all times, e.g. SP, RA. This is used by
   /// register scavenger to determine what registers are free.
   BitVector getReservedRegs(const MachineFunction &MF) const override;
+
+  /// isArgumentReg - Returns true if Reg can be used as an argument to a
+  /// function.
+  bool isArgumentRegister(const MachineFunction &MF,
+                          MCRegister Reg) const override;
+
+  /// Returns true if PhysReg is a fixed register.
+  bool isFixedRegister(const MachineFunction &MF,
+                       MCRegister PhysReg) const override;
 
   void adjustStackMapLiveOutMask(uint32_t *Mask) const override;
 

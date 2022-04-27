@@ -1,5 +1,5 @@
 ; RUN: opt -passes='require<dpcpp-kernel-builtin-info-analysis>,print<dpcpp-kernel-work-item-analysis>' %s -disable-output 2>&1 | FileCheck %s
-; RUN: opt -analyze -dpcpp-kernel-work-item-analysis %s -S -o - | FileCheck %s
+; RUN: opt -analyze -enable-new-pm=0 -dpcpp-kernel-work-item-analysis %s -S -o - | FileCheck %s
 
 ; IR was generated with:
 ; clang -cc1 -triple x86_64-pc-win32-elf -emit-llvm -fwrapv -O3 -x cl -I src/cl_api -I src/backend/clang_headers -I cclang/cl_headers/ -I src/backend/libraries/ocl_builtins -include opencl_.h -fblocks -D__OPENCL_C_VERSION__=200 -target-cpu core-avx2 < 2015-11-08-bug.cl

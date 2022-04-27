@@ -1,5 +1,5 @@
 ; RUN: opt -passes='print<dpcpp-kernel-soa-alloca-analysis>' %s -disable-output 2>&1 | FileCheck %s
-; RUN: opt -analyze -dpcpp-kernel-soa-alloca-analysis %s -S -o - | FileCheck %s
+; RUN: opt -analyze -enable-new-pm=0 -dpcpp-kernel-soa-alloca-analysis %s -S -o - | FileCheck %s
 
 ; Check SoaAllocaAnalysis decides optimize alloca bitcast and its supported
 ; intrinsic users.

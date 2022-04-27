@@ -1,4 +1,21 @@
 //===- Andersens.h - Andersens AA ----------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -403,15 +420,15 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
 
   /// Handle to clear this analysis on deletion of values.
   struct AndersensDeletionCallbackHandle final : CallbackVH {
-    AndersensAAResult &AAR;
+    AndersensAAResult *AAR;
 
     AndersensDeletionCallbackHandle(AndersensAAResult &AAR, Value *V)
-        : CallbackVH(V), AAR(AAR) {}
+        : CallbackVH(V), AAR(&AAR) {}
 
     void deleted() override {
       Value *Val = getValPtr();
 
-      AAR.ProcessIRValueDestructed(Val);
+      AAR->ProcessIRValueDestructed(Val);
 
       // Clear the value handle, so that the object can be destroyed.
       setValPtr(nullptr);
@@ -452,7 +469,7 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
     std::vector<llvm::Value*>& PtVec);
 
   // List of callbacks for Values being tracked by this analysis.
-  std::set<AndersensDeletionCallbackHandle> AndersensHandles;
+  std::list<AndersensDeletionCallbackHandle> AndersensHandles;
 
   explicit AndersensAAResult(const DataLayout &DL, AndersGetTLITy GetTLI,
                              WholeProgramInfo *WPInfo);

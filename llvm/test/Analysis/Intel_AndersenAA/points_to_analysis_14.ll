@@ -48,5 +48,10 @@ entry:
   %b = load i32*, i32** @_Z2p2, align 8
   %add.ptr2 = getelementptr inbounds i32, i32* %b, i64 2
   store i32 18, i32* %add.ptr2, align 4
+
+; dead loads, needed to get aa-eval to trigger
+  %ld.b = load i32, i32* %b, align 8
+  %ld.a = load i32, i32* %a, align 8
+
   ret void
 }

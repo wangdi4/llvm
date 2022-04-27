@@ -1,4 +1,21 @@
 //===- ThinLTOBitcodeWriter.cpp - Bitcode writing pass for ThinLTO --------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -22,7 +39,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Object/ModuleSymbolTable.h"
 #include "llvm/Pass.h"
-#include "llvm/Support/ScopedPrinter.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
@@ -312,7 +328,8 @@ void splitAndWriteThinLTOBitcode(
             return;
         }
         if (!F->isDeclaration() &&
-            computeFunctionBodyMemoryAccess(*F, AARGetter(*F)) == MAK_ReadNone)
+            computeFunctionBodyMemoryAccess(*F, AARGetter(*F)) ==
+                FMRB_DoesNotAccessMemory)
           EligibleVirtualFns.insert(F);
       });
     }
@@ -536,7 +553,7 @@ void writeThinLTOBitcode(raw_ostream &OS, raw_ostream *ThinLinkOS,
   // the information that is needed by thin link will be written in the
   // given OS.
   if (ThinLinkOS && Index)
-    WriteThinLinkBitcodeToFile(M, *ThinLinkOS, *Index, ModHash);
+    writeThinLinkBitcodeToFile(M, *ThinLinkOS, *Index, ModHash);
 }
 
 class WriteThinLTOBitcode : public ModulePass {

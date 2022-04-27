@@ -7,7 +7,7 @@
 ;Function: sub
 ;
 ;<0>          BEGIN REGION { }
-;<15>               + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+;<15>               + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>   <LEGAL_MAX_TC = 2147483647>
 ;<3>                |   %0 = (%B)[i1];
 ;<5>                |   (%B)[i1] = %0 + 1;
 ;<8>                |   %q.017 = (%A)[i1]  +  %q.017;
@@ -23,7 +23,7 @@
 ; CHECK:           %mv.and = %mv.test  &  %mv.test1;                         
 ; CHECK:           if (%mv.and == 0)                                         
 ; CHECK:           {                                                         
-; CHECK:              + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <MVTag: 15>
+; CHECK:              + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>   <LEGAL_MAX_TC = 2147483647>  <MVTag: 15>
 ; CHECK:              |   %0 = (%B)[i1];                                                                       
 ; CHECK:              |   (%B)[i1] = %0 + 1;                                                                   
 ; CHECK:              |   %1 = (%A)[i1];                                                                       
@@ -32,7 +32,7 @@
 ; CHECK:           }                                                                                           
 ; CHECK:           else                                                                                        
 ; CHECK:           {                                                                                           
-; CHECK:              + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <MVTag: 15> <nounroll> <novectorize>                                                                                              
+; CHECK:              + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>   <LEGAL_MAX_TC = 2147483647>  <MVTag: 15> <nounroll> <novectorize>                                                                                              
 ; CHECK:              |   %0 = (%B)[i1];                                                                           
 ; CHECK:              |   (%B)[i1] = %0 + 1;                                                                       
 ; CHECK:              |   %1 = (%A)[i1];                                                                           

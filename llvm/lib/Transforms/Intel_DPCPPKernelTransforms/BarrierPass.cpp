@@ -12,6 +12,7 @@
 #include "llvm/Analysis/CFG.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/CFG.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
@@ -32,6 +33,8 @@
 #define DEBUG_TYPE "dpcpp-kernel-barrier"
 
 using namespace llvm;
+
+extern bool EnableTLSGlobals;
 
 static cl::opt<bool> OptEnableNativeDebug("enable-native-debug",
                                           cl::init(false), cl::Hidden,
@@ -994,7 +997,7 @@ void KernelBarrier::createBarrierKeyValues(Function *Func,
   if (!UseTLSGlobals) {
     // get_local_id()
     KeyValues->LocalIdValues =
-        new AllocaInst(LocalIdAllocTy->getElementType(), AllocaAddrSpace,
+        new AllocaInst(LocalIdArrayTy, AllocaAddrSpace,
                        "pLocalIds", InsertBefore);
   }
 
@@ -1453,48 +1456,61 @@ unsigned KernelBarrier::computeNumDim(Function *F) {
   return MaxNumDims;
 }
 
-// Use DFS to calculate a function's non-barrier memory usage.
-static unsigned getPrivateSize(Function *Func, const CallGraph &CG,
-                               DataPerValue *DPV,
-                               DenseMap<Function *, uint64_t> &AddrAllocaSize,
-                               llvm::DenseMap<Function *, unsigned> &FnPrivSize,
-                               FuncSet &FnsWithSync, unsigned MaxDepth) {
-  --MaxDepth;
-
+static size_t
+getCalculatedPrivateSize(Function *Func,
+                         DenseMap<Function *, size_t> &FnPrivSize) {
   // External function or function pointer.
-  if (!Func || Func->isDeclaration() || !MaxDepth)
+  if (!Func || Func->isDeclaration())
     return 0;
-
-  if (FnPrivSize.count(Func))
-    return FnPrivSize[Func];
-
-  unsigned MaxSubPrivSize = 0;
-  const CallGraphNode *NodeCG = CG[Func];
-  for (auto &CI : *NodeCG) {
-    Function *CalledFunc = CI.second->getFunction();
-    MaxSubPrivSize = std::max(
-        MaxSubPrivSize, getPrivateSize(CalledFunc, CG, DPV, AddrAllocaSize,
-                                       FnPrivSize, FnsWithSync, MaxDepth));
+  if (!FnPrivSize.count(Func)) {
+    LLVM_DEBUG(dbgs() << "No private size calculated for function "
+                      << Func->getName() << "\n");
+    return 0;
   }
-  FnPrivSize[Func] = MaxSubPrivSize +
-                     (AddrAllocaSize.count(Func) ? AddrAllocaSize[Func] : 0) +
-                     (FnsWithSync.count(Func) ? 0 : DPV->getStrideSize(Func));
+
+  LLVM_DEBUG(dbgs() << "Get private size for function " << Func->getName()
+                    << ": " << FnPrivSize[Func] << "\n");
 
   return FnPrivSize[Func];
+}
+
+void KernelBarrier::calculateDirectPrivateSize(
+    Module &M, FuncSet &FnsWithSync,
+    DenseMap<Function *, size_t> &DirectPrivateSizeMap) {
+  for (auto &F : *const_cast<Module *>(&M)) {
+    if (F.isDeclaration())
+      continue;
+
+    DirectPrivateSizeMap[&F] =
+        (AddrAllocaSize.count(&F) ? (size_t)AddrAllocaSize[&F] : 0) +
+        (FnsWithSync.count(&F) ? 0 : (size_t)DPV->getStrideSize(&F));
+  }
+}
+
+void KernelBarrier::calculatePrivateSize(
+    Module &M, FuncSet &FnsWithSync,
+    DenseMap<Function *, size_t> &PrivateSizeMap) {
+  DenseMap<Function *, size_t> DirectPrivateSizeMap;
+  calculateDirectPrivateSize(M, FnsWithSync, DirectPrivateSizeMap);
+  // Use post order traversal to calculate function' non-barrier memory usage.
+  CallGraph CG{M};
+  DPCPPKernelCompilationUtils::calculateMemorySizeWithPostOrderTraversal(
+      CG, DirectPrivateSizeMap, PrivateSizeMap);
 }
 
 void KernelBarrier::updateStructureStride(Module &M,
                                           FuncSet &FunctionsWithSync) {
   // Collect Functions to process.
-  CallGraph CG{M};
-  llvm::DenseMap<Function *, unsigned> FuncToPrivSize;
+  DenseMap<Function *, size_t> FuncToPrivSize;
+
   auto TodoList = BarrierUtils::getAllKernelsAndVectorizedCounterparts(
       DPCPPKernelMetadataAPI::KernelList(&M).getList());
+
+  calculatePrivateSize(M, FunctionsWithSync, FuncToPrivSize);
 
   // Get the kernels using the barrier for work group loops.
   for (auto Func : TodoList) {
     auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(Func);
-    auto FMD = DPCPPKernelMetadataAPI::FunctionMetadataAPI(Func);
     // Need to check if Vectorized Width Value exists, it is not guaranteed
     // that  Vectorized is running in all scenarios.
     int VecWidth =
@@ -1503,11 +1519,8 @@ void KernelBarrier::updateStructureStride(Module &M,
     assert(VecWidth && "VecWidth should not be 0!");
     StrideSize = (StrideSize + VecWidth - 1) / VecWidth;
 
-    bool IsRecursive = FMD.RecursiveCall.hasValue() && FMD.RecursiveCall.get();
-    unsigned MaxDepth = IsRecursive ? MAX_RECURSION_DEPTH : UINT_MAX;
-    auto PrivateSize =
-        getPrivateSize(Func, CG, DPV, AddrAllocaSize, FuncToPrivSize,
-                       FunctionsWithSync, MaxDepth);
+    auto PrivateSize = getCalculatedPrivateSize(Func, FuncToPrivSize);
+
     // Need to check if NoBarrierPath Value exists, it is not guaranteed that
     // KernelAnalysisPass is running in all scenarios.
     // CSSD100016517, CSSD100018743: workaround

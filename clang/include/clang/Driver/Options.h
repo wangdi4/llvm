@@ -1,4 +1,21 @@
 //===--- Options.h - Option info & table ------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -35,11 +52,12 @@ enum ClangFlags {
   FlangOption = (1 << 14),
   FC1Option = (1 << 15),
   FlangOnlyOption = (1 << 16),
-  Ignored = (1 << 17),
+  DXCOption = (1 << 17),
+  Ignored = (1 << 18),
 #if INTEL_CUSTOMIZATION
-  DpcppUnsupported = (1 << 18),
-  DpcppHidden = (1 << 19),
-  DpcppOption = (1 << 20)
+  DpcppUnsupported = (1 << 19),
+  DpcppHidden = (1 << 20),
+  DpcppOption = (1 << 21)
 #endif // INTEL_CUSTOMIZATION
 };
 

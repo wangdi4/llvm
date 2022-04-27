@@ -1,9 +1,11 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=4 < %s 2>&1 | FileCheck %s 
-; RUN: opt -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=4 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s 
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S -vplan-force-vf=4 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s 
+; RUN: opt -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -S < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -S < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
 ; check hir
 ; CHECK:     DO i1 = 0, 99, 4   <DO_LOOP>
-; CHECK:         (<4 x i32>*)(%ip)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>; Mask = @{{{.*}}}
+; CHECK:         (<4 x i32>*)(%ip)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>, Mask = @{{{.*}}};
 ; CHECK:     END LOOP
 ; check llvm IR
 ; CHECK:     call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> {{.*}}, <4 x i32>* {{.*}}, {{.*}}, <4 x i1>

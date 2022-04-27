@@ -38,6 +38,9 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Intel_CPU_utils.h"
+#if INTEL_FEATURE_ISA_AVX256
+#include "llvm/Support/X86TargetParser.h"
+#endif // INTEL_FEATURE_ISA_AVX256
 #include "llvm/Target/TargetMachine.h"
 
 using namespace llvm;
@@ -61,7 +64,7 @@ public:
   }
 
   bool getTargetAttributes(Function &F,
-                           std::vector<StringRef> &TargetFeatures) {
+                           SmallVectorImpl<StringRef> &TargetFeatures) {
     StringRef TF = F.getFnAttribute("target-features").getValueAsString();
 
     if (TF.empty())
@@ -229,7 +232,12 @@ public:
     InlineAsm *Asm = InlineAsm::get(
         FunctionType::get(IRB.getVoidTy(), {Ptr8->getType()}, false),
         "fldcw ${0:w}", "*m,~{dirflag},~{fpsr},~{flags}", true);
-    IRB.CreateCall(Asm, Ptr8);
+    CallBase *CallInst = IRB.CreateCall(Asm, Ptr8);
+    // Add elementtype attribute for indirect constraints.
+    auto Attr = Attribute::get(
+        F.getContext(), llvm::Attribute::ElementType,
+        cast<llvm::PointerType>(Ptr8->getType())->getElementType());
+    CallInst->addParamAttr(0, Attr);
 
     // call void @llvm.lifetime.end.p0i8(i64 2, i8* %2)
     IRB.CreateLifetimeEnd(Ptr8, AllocaSize);
@@ -260,7 +268,13 @@ public:
       return false;
 
     // Collect target feature mask
-    std::vector<StringRef> TargetFeatures;
+    SmallVector<StringRef> TargetFeatures;
+#if INTEL_FEATURE_ISA_AVX256
+    // FIXME: We only check SKX features for AVX256+ for better usability.
+    if (F.getFnAttribute("target-cpu").getValueAsString() == "common-avx256")
+      X86::getFeaturesForCPU("skylake-avx512", TargetFeatures);
+    else
+#endif // INTEL_FEATURE_ISA_AVX256
     if (getTargetAttributes(F, TargetFeatures) == false)
       report_fatal_error(
           "Advanced optimizations are enabled, but no target features");

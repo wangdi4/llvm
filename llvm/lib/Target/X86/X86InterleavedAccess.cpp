@@ -1,4 +1,21 @@
 //===- X86InterleavedAccess.cpp -------------------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -180,7 +197,7 @@ class X86InterleavedAccessGroup {
   // required in getSequence. Use of this avoids creation of redundant shuffles
   // in the pass, and generates a cleaner IR.
   void decomposeInterleavedShuffle(
-      Instruction *VecInst, unsigned NumSubVectors, VectorType *SubVecTy,
+      Instruction *VecInst, unsigned NumSubVectors, FixedVectorType *SubVecTy,
       SmallVectorImpl<ShuffleVectorInst *> &DecomposedVectors) {
     assert(isa<ShuffleVectorInst>(VecInst) && "Expected Shuffle Instruction");
 
@@ -222,7 +239,7 @@ class X86InterleavedAccessGroup {
     if (isa<StoreInst>(Inst)) {
       assert(Shuffles.size() == 1 && "Unexpected Shuffle Instruction.");
       SmallVector<Instruction *, 4> DecomposedVectors;
-      VectorType *VecTy = Shuffles[0]->getType();
+      auto *VecTy = cast<FixedVectorType>(Shuffles[0]->getType());
       Type *ShuffleEltTy = VecTy->getElementType();
       unsigned NumSubVecElems = VecTy->getNumElements() / Factor;
       decomposeInterleavedShuffle(Shuffles[0], Factor,
@@ -234,7 +251,7 @@ class X86InterleavedAccessGroup {
 
     // Create OVLSMemref for each shuffle.
     for (unsigned i = 0; i < Shuffles.size(); ++i) {
-      VectorType *VecTy = cast<VectorType>(Shuffles[i]->getType());
+      auto *VecTy = cast<FixedVectorType>(Shuffles[i]->getType());
       Type *ShuffleEltTy = VecTy->getElementType();
       unsigned EltSizeInByte = DL.getTypeSizeInBits(ShuffleEltTy) / 8;
       unsigned NumElements = VecTy->getNumElements();
@@ -282,7 +299,7 @@ public:
   /// which uses dynamic algorithm to generate the optimized sequence
   /// as opposed to hard-coded transposed function provided by this pass.
   bool lowerIntoOptimizedSequenceByOptVLS() {
-    VectorType *VecTy = Shuffles[0]->getType();
+    auto *VecTy = cast<FixedVectorType>(Shuffles[0]->getType());
 
     // There is nothing to optimize further, this pattern is already optimized.
     if (VecTy->getNumElements() <= 2)
@@ -1143,7 +1160,7 @@ bool X86TargetLowering::lowerInterleavedStore(StoreInst *SI,
   // Factor = 4.
   // This is not a valid candidate for InterleavedAccessPass.
   // This should be recognized in function isReInterleaveMask().
-  if (cast<VectorType>(SVI->getType())->getNumElements() == Factor)
+  if (cast<FixedVectorType>(SVI->getType())->getNumElements() == Factor)
     return false;
 
   // Check if there are any undefs in the Masks in ShuffleVectorInstruction.

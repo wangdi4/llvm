@@ -1,3 +1,21 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
+include(GNUInstallDirs)
 include(LLVMDistributionSupport)
 
 macro(add_lld_library name)
@@ -19,7 +37,7 @@ macro(add_lld_library name)
       ${export_to_lldtargets}
       LIBRARY DESTINATION lib${LLVM_LIBDIR_SUFFIX}
       ARCHIVE DESTINATION lib${LLVM_LIBDIR_SUFFIX}
-      RUNTIME DESTINATION bin)
+      RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 
     if (${ARG_SHARED} AND NOT CMAKE_CONFIGURATION_TYPES)
       add_llvm_install_targets(install-${name}
@@ -47,6 +65,9 @@ macro(add_lld_tool name)
     install(TARGETS ${name}
       ${export_to_lldtargets}
 # INTEL_CUSTOMIZATION
+      # Upstream has changed this to use CMAKE_INSTALL_BINDIR, but in xmain we
+      # want the destination to be determined by the LLVM_TOOLS_INSTALL_DIR
+      # option.
       RUNTIME DESTINATION ${LLVM_TOOLS_INSTALL_DIR}
 # end INTEL_CUSTOMIZATION
       COMPONENT ${name})

@@ -16,14 +16,14 @@ entry:
 ; CHECK: %__ocl_dbg_gid2{{.*}} = alloca
 
 ; CHECK: entryvector_func{{.*}}:
-; CHECK: store volatile i64 %dim_0_vector_tid{{.*}}, i64* %__ocl_dbg_gid0
-; CHECK-NEXT: store volatile i64 %dim_1_vector_tid{{.*}}, i64* %__ocl_dbg_gid1
-; CHECK-NEXT: store volatile i64 %dim_2_vector_tid{{.*}}, i64* %__ocl_dbg_gid2
+; CHECK: store volatile i64 %dim_0_vector_ind_var{{.*}}, i64* %__ocl_dbg_gid0
+; CHECK-NEXT: store volatile i64 %dim_1_vector_ind_var{{.*}}, i64* %__ocl_dbg_gid1
+; CHECK-NEXT: store volatile i64 %dim_2_vector_ind_var{{.*}}, i64* %__ocl_dbg_gid2
 
 ; CHECK: masked_kernel_entry{{.*}}:
-; CHECK: store volatile i64 %dim_0_vector_tid{{.*}}, i64* %__ocl_dbg_gid0
-; CHECK-NEXT: store volatile i64 %dim_1_vector_tid{{.*}}, i64* %__ocl_dbg_gid1
-; CHECK-NEXT: store volatile i64 %dim_2_vector_tid{{.*}}, i64* %__ocl_dbg_gid2
+; CHECK: store volatile i64 %dim_0_vector_ind_var{{.*}}, i64* %__ocl_dbg_gid0
+; CHECK-NEXT: store volatile i64 %dim_1_vector_ind_var{{.*}}, i64* %__ocl_dbg_gid1
+; CHECK-NEXT: store volatile i64 %dim_2_vector_ind_var{{.*}}, i64* %__ocl_dbg_gid2
 
   %__ocl_dbg_gid0 = alloca i64, align 8
   call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0, metadata !25, metadata !DIExpression()), !dbg !28

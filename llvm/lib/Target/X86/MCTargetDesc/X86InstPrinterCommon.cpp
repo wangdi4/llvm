@@ -1,4 +1,21 @@
 //===--- X86InstPrinterCommon.cpp - X86 assembly instruction printing -----===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -18,10 +35,11 @@
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrDesc.h"
 #include "llvm/MC/MCInstrInfo.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Support/Casting.h"
-#include <cstdint>
+#include "llvm/Support/raw_ostream.h"
 #include <cassert>
+#include <cstdint>
 
 using namespace llvm;
 
@@ -349,7 +367,8 @@ void X86InstPrinterCommon::printOptionalSegReg(const MCInst *MI, unsigned OpNo,
   }
 }
 
-void X86InstPrinterCommon::printInstFlags(const MCInst *MI, raw_ostream &O) {
+void X86InstPrinterCommon::printInstFlags(const MCInst *MI, raw_ostream &O,
+                                          const MCSubtargetInfo &STI) {
   const MCInstrDesc &Desc = MII.get(MI->getOpcode());
   uint64_t TSFlags = Desc.TSFlags;
   unsigned Flags = MI->getFlags();
@@ -390,6 +409,20 @@ void X86InstPrinterCommon::printInstFlags(const MCInst *MI, raw_ostream &O) {
     O << "\t{disp8}";
   else if (Flags & X86::IP_USE_DISP32)
     O << "\t{disp32}";
+
+  // Determine where the memory operand starts, if present
+  int MemoryOperand = X86II::getMemoryOperandNo(TSFlags);
+  if (MemoryOperand != -1)
+    MemoryOperand += X86II::getOperandBias(Desc);
+
+  // Address-Size override prefix
+  if (Flags & X86::IP_HAS_AD_SIZE &&
+      !X86_MC::needsAddressSizeOverride(*MI, STI, MemoryOperand, TSFlags)) {
+    if (STI.hasFeature(X86::Is16Bit) || STI.hasFeature(X86::Is64Bit))
+      O << "\taddr32\t";
+    else if (STI.hasFeature(X86::Is32Bit))
+      O << "\taddr16\t";
+  }
 }
 
 void X86InstPrinterCommon::printVKPair(const MCInst *MI, unsigned OpNo,

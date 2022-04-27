@@ -3,7 +3,7 @@
 ; 			for (long k = 1; k < n1; k++)
 ;				A[k + n1 *j ] =	A[k + 1 + n1 *j ] + 1;
 ;
-; RUN: opt < %s -hir-ssa-deconstruction | opt  -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze  | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt  -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze -enable-new-pm=0  | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
 ; CHECK-DAG:  (%0)[%n1 * i2 + i3 + %n1 + 2] --> (%0)[%n1 * i2 + i3 + %n1 + 1] ANTI (* = >)
 ; CHECK-DAG:  (%0)[%n1 * i2 + i3 + %n1 + 1] --> (%0)[%n1 * i2 + i3 + %n1 + 2] FLOW (* = <)

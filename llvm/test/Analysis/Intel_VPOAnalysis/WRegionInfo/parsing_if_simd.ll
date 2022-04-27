@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -vpo-wrncollection -analyze -debug -S < %s 2>&1 | FileCheck %s
-; RUN: opt -passes='function(print<vpo-wrncollection>)' -debug -S < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vpo-wrncollection -analyze -debug -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(print<vpo-wrncollection>)' -debug -S %s 2>&1 | FileCheck %s
 ;
 ; Test src:
 ; void foo()

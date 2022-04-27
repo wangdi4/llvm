@@ -1,8 +1,8 @@
-// RUN: %clang_cc1 -DTEST1 -O1 -triple x86_64-unknown-unknown -disable-llvm-passes -emit-llvm %s -o - | FileCheck %s
-// RUN: %clang_cc1 -DTEST2 -O1 -triple x86_64-unknown-unknown -disable-llvm-passes -emit-llvm %s -o - | FileCheck %s
-// RUN: %clang_cc1 -DTEST3 -O1 -triple x86_64-unknown-unknown -disable-llvm-passes -emit-llvm %s -o - | FileCheck %s
-// RUN: %clang_cc1 -DTEST4 -O1 -triple x86_64-unknown-unknown -disable-llvm-passes -emit-llvm %s -o - | FileCheck %s
-// RUN: %clang_cc1 -DTEST5 -O1 -triple x86_64-unknown-unknown -disable-llvm-passes -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -DTEST1 -O1 -triple x86_64-unknown-unknown -disable-llvm-passes -emit-llvm -opaque-pointers %s -o - | FileCheck %s
+// RUN: %clang_cc1 -DTEST2 -O1 -triple x86_64-unknown-unknown -disable-llvm-passes -emit-llvm -opaque-pointers %s -o - | FileCheck %s
+// RUN: %clang_cc1 -DTEST3 -O1 -triple x86_64-unknown-unknown -disable-llvm-passes -emit-llvm -opaque-pointers %s -o - | FileCheck %s
+// RUN: %clang_cc1 -DTEST4 -O1 -triple x86_64-unknown-unknown -disable-llvm-passes -emit-llvm -opaque-pointers %s -o - | FileCheck %s
+// RUN: %clang_cc1 -DTEST5 -O1 -triple x86_64-unknown-unknown -disable-llvm-passes -emit-llvm -opaque-pointers %s -o - | FileCheck %s
 
 #ifdef TEST1
 #define TEST *rp = *rq
@@ -28,8 +28,8 @@ void foo(int *p, int *q) {
   {
     int *restrict rp = p;
     int *restrict rq = q;
-// CHECK: %rp = alloca i32*
-// CHECK: %rq = alloca i32*
+// CHECK: %rp = alloca ptr
+// CHECK: %rq = alloca ptr
 
     TEST;
 // CHECK: load {{.*}},{{.*}} !alias.scope [[scope0:!.*]], !noalias [[scope1:!.*]]

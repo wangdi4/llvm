@@ -59,7 +59,9 @@ define internal i32 @fprintf(%struct._iobuf* %0, i8* %1, ...) {
 define internal void @test01() {
 entry:
   %call1 = tail call noalias i8* @malloc(i64 1024)
+  %ld.call1 = load i8, i8* %call1
   %ar1 = bitcast i8* %call1 to i32*
+  %ld.ar1 = load i32, i32* %ar1
 
   %fp = load %struct._iobuf*, %struct._iobuf** @nabout
   %t1 = call i32 (%struct._iobuf*, i8*, ...) @fprintf(%struct._iobuf* %fp,
@@ -77,7 +79,9 @@ entry:
 define internal void @test02() {
 entry:
   %call1 = tail call noalias i8* @malloc(i64 1024)
+  %ld.call1 = load i8, i8* %call1
   %ar1 = bitcast i8* %call1 to i32*
+  %ld.ar1 = load i32, i32* %ar1
 
   %fp = load %struct._iobuf*, %struct._iobuf** @nabout
   %t1 = call i32 (%struct._iobuf*, i8*, ...) @fprintf(%struct._iobuf* %fp,
@@ -95,7 +99,9 @@ entry:
 define internal void @test03() {
 entry:
   %call1 = tail call noalias i8* @malloc(i64 1024)
+  %ld.call1 = load i8, i8* %call1
   %ar1 = bitcast i8* %call1 to i32*
+  %ld.ar1 = load i32, i32* %ar1
   %str = call i8* @gets(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str3, i64 0, i64 0))
 
   %fp = load %struct._iobuf*, %struct._iobuf** @nabout
@@ -112,8 +118,11 @@ entry:
 define internal void @test04() {
 entry:
   %call1 = tail call noalias i8* @malloc(i64 1024)
+  %ld.call1 = load i8, i8* %call1
   %ar1 = bitcast i8* %call1 to i32*
+  %ld.ar1 = load i32, i32* %ar1
   %arindex5 = getelementptr i32, i32* %ar1, i64 4
+  %ld.arindex5 = load i32, i32* %arindex5
 
   %fp = load %struct._iobuf*, %struct._iobuf** @nabout
   %t1 = call i32 (%struct._iobuf*, i8*, ...) @fprintf(%struct._iobuf* %fp,
@@ -133,8 +142,11 @@ entry:
 define internal void @test05() {
 entry:
   %call1 = tail call noalias i8* @malloc(i64 512)
+  %ld.call1 = load i8, i8* %call1
   %ar1 = bitcast i8* %call1 to i16*
+  %ld.ar1 = load i16, i16* %ar1
   %arindex5 = getelementptr i16, i16* %ar1, i64 4
+  %ld.arindex5 = load i16, i16* %arindex5
 
   %fp = load %struct._iobuf*, %struct._iobuf** @nabout
   %t1 = call i32 (%struct._iobuf*, i8*, ...) @fprintf(%struct._iobuf* %fp,
@@ -155,7 +167,9 @@ entry:
 define internal void @test06() {
 entry:
   %call1 = tail call noalias i8* @malloc(i64 1024)
+  %ld.call1 = load i8, i8* %call1
   %ar1 = bitcast i8* %call1 to i32*
+  %ld.ar1 = load i32, i32* %ar1
 
   %t1 = call i32 (i8*, ...) @printf(
     i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str6, i64 0, i64 0),
@@ -173,8 +187,11 @@ entry:
 define internal void @test07() {
 entry:
   %call1 = tail call noalias i8* @malloc(i64 1024)
+  %ld.call1 = load i8, i8* %call1
   %ar1 = bitcast i8* %call1 to i32*
+  %ld.ar1 = load i32, i32* %ar1
   %arindex5 = getelementptr i32, i32* %ar1, i64 4
+  %ld.arindex5 = load i32, i32* %arindex5
 
   %fp = load %struct._iobuf*, %struct._iobuf** @nabout
   %t1 = call i32 (i8*, ...) @printf(
@@ -195,7 +212,9 @@ entry:
 define internal void @test08() {
 entry:
   %call1 = tail call noalias i8* @malloc(i64 1024)
+  %ld.call1 = load i8, i8* %call1
   %ar1 = bitcast i8* %call1 to i32*
+  %ld.ar1 = load i32, i32* %ar1
 
   %fp = load %struct._iobuf*, %struct._iobuf** @nabout08
   %fp.1 = getelementptr %struct._iobuf, %struct._iobuf* %fp, i64 0, i32 0

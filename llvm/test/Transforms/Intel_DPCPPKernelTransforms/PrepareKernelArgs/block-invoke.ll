@@ -37,10 +37,10 @@ entry:
   %ndrange.ascast.i = addrspacecast %struct.ndrange_t.6* %tmp.i2 to %struct.ndrange_t.6 addrspace(4)*
 
 ; CHECK-LABEL: @__block_fn_block_invoke(
-; CHECK: call i32 @ocl20_enqueue_kernel_basic
+; CHECK: call i32 @__ocl20_enqueue_kernel_basic
 ; CHECK-SAME: i8 addrspace(4)* addrspacecast (i8* bitcast (void (i8*, i64*, {}*)* @__block_fn_block_invoke_kernel to i8*) to i8 addrspace(4)*)
 
-  %call2.i = call i32 @ocl20_enqueue_kernel_basic(%opencl.queue_t.5* %call1.i, i32 1, %struct.ndrange_t.6 addrspace(4)* %ndrange.ascast.i, i8 addrspace(4)* addrspacecast (i8* bitcast (void (i8 addrspace(4)*, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*, i64*, [4 x i64], i8*, {}*)* @__block_fn_block_invoke_kernel to i8*) to i8 addrspace(4)*), i8 addrspace(4)* %6, i8 addrspace(4)* %8, i8 addrspace(4)* %9, i8 addrspace(4)* %11) #5
+  %call2.i = call i32 @__ocl20_enqueue_kernel_basic(%opencl.queue_t.5* %call1.i, i32 1, %struct.ndrange_t.6 addrspace(4)* %ndrange.ascast.i, i8 addrspace(4)* addrspacecast (i8* bitcast (void (i8 addrspace(4)*, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*, i64*, [4 x i64], i8*, {}*)* @__block_fn_block_invoke_kernel to i8*) to i8 addrspace(4)*), i8 addrspace(4)* %6, i8 addrspace(4)* %8, i8 addrspace(4)* %9, i8 addrspace(4)* %11) #5
 
   ret void
 }
@@ -73,17 +73,17 @@ entry:
   %14 = addrspacecast i8* %12 to i8 addrspace(4)*
 
 ; CHECK-LABEL: @__block_fn_block_invoke_kernel(
-; CHECK: call i32 @ocl20_enqueue_kernel_basic
+; CHECK: call i32 @__ocl20_enqueue_kernel_basic
 ; CHECK-SAME: i8 addrspace(4)* addrspacecast (i8* bitcast (void (i8*, i64*, {}*)* @__block_fn_block_invoke_kernel to i8*) to i8 addrspace(4)*)
 
-  %call4.i = call i32 @ocl20_enqueue_kernel_basic(%opencl.queue_t.5* %call3.i, i32 1, %struct.ndrange_t.6 addrspace(4)* %ndrange.ascast.i, i8 addrspace(4)* addrspacecast (i8* bitcast (void (i8 addrspace(4)*, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*, i64*, [4 x i64], i8*, {}*)* @__block_fn_block_invoke_kernel to i8*) to i8 addrspace(4)*), i8 addrspace(4)* %14, i8 addrspace(4)* %8, i8 addrspace(4)* %9, i8 addrspace(4)* %11) #5
+  %call4.i = call i32 @__ocl20_enqueue_kernel_basic(%opencl.queue_t.5* %call3.i, i32 1, %struct.ndrange_t.6 addrspace(4)* %ndrange.ascast.i, i8 addrspace(4)* addrspacecast (i8* bitcast (void (i8 addrspace(4)*, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*, i64*, [4 x i64], i8*, {}*)* @__block_fn_block_invoke_kernel to i8*) to i8 addrspace(4)*), i8 addrspace(4)* %14, i8 addrspace(4)* %8, i8 addrspace(4)* %9, i8 addrspace(4)* %11) #5
 
   ret void
 }
 
 declare %opencl.queue_t.5* @ocl20_get_default_queue(i8 addrspace(4)*) local_unnamed_addr #2
 
-declare i32 @ocl20_enqueue_kernel_basic(%opencl.queue_t.5*, i32, %struct.ndrange_t.6 addrspace(4)*, i8 addrspace(4)*, i8 addrspace(4)*, i8 addrspace(4)*, i8 addrspace(4)*, i8 addrspace(4)*) local_unnamed_addr #3
+declare i32 @__ocl20_enqueue_kernel_basic(%opencl.queue_t.5*, i32, %struct.ndrange_t.6 addrspace(4)*, i8 addrspace(4)*, i8 addrspace(4)*, i8 addrspace(4)*, i8 addrspace(4)*, i8 addrspace(4)*) local_unnamed_addr #3
 
 attributes #0 = { convergent nounwind "frame-pointer"="none" "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "stackrealign" }
 attributes #1 = { nounwind }

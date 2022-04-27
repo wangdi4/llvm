@@ -12,19 +12,22 @@
 
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAllocAnalyzer.h"
+#include "Intel_DTrans/Analysis/DTransBadCastingAnalyzerOP.h"
 #include "Intel_DTrans/Analysis/DTransDebug.h"
+#include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransRelatedTypesUtils.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/DTransCommon.h"
-
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/Intel_LangRules.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
@@ -38,6 +41,13 @@
 // Print messages regarding the collection of values stored to fields of
 // structures.
 #define SAFETY_VALUES "dtrans-safetyanalyzer-values"
+
+// Debug type for verbose call graph computations.
+#define DTRANS_CG "dtrans-cg"
+
+// Print the result for structures with fields that are arrays with constant
+// entries
+#define ARRAYS_WITH_CONST_ENTRIES "dtrans-arrays-with-const-entries"
 
 using namespace llvm;
 using namespace dtransOP;
@@ -78,9 +88,7 @@ static bool isPtrToPtr(const DTransType *Ty) {
   return Ty->isPointerTy() && Ty->getPointerElementType()->isPointerTy();
 }
 
-static bool isCompilerConstantData(Value *V) {
-  return isa<ConstantData>(V);
-}
+static bool isCompilerConstantData(Value *V) { return isa<ConstantData>(V); }
 
 // Helper to print a Value object (and optionally the name of the function it
 // belongs to, if there is one). If the Value represents a GlobalValue, such as
@@ -224,10 +232,11 @@ public:
       LLVMContext &Ctx, const DataLayout &DL,
       DTransSafetyInfo::GetTLIFnType GetTLI,
       function_ref<BlockFrequencyInfo &(Function &)> &GetBFI,
-      DTransSafetyInfo &DTInfo, PtrTypeAnalyzer &PTA, DTransTypeManager &TM,
+      DTransSafetyInfo &DTInfo, PtrTypeAnalyzer &PTA,
+      DTransBadCastingAnalyzerOP &DTBCA, DTransTypeManager &TM,
       TypeMetadataReader &MDReader, DTransSafetyLogger &Log)
       : DL(DL), GetTLI(GetTLI), GetBFI(GetBFI), DTInfo(DTInfo), PTA(PTA),
-        MDReader(MDReader), TM(TM), Log(Log) {
+        DTBCA(DTBCA), MDReader(MDReader), TM(TM), Log(Log) {
     DTransI8Type = TM.getOrCreateAtomicType(llvm::Type::getInt8Ty(Ctx));
     DTransI8PtrType = TM.getOrCreatePointerType(DTransI8Type);
     LLVMPtrSizedIntType = llvm::Type::getIntNTy(Ctx, DL.getPointerSizeInBits());
@@ -260,7 +269,7 @@ public:
     // otherwise we would need to walk all the IR now looking for indirect
     // function calls to create types for all the type aliases that may be
     // passed.
-    for (auto* DPTy : TM.dtrans_types())
+    for (auto *DPTy : TM.dtrans_types())
       (void)DTInfo.getOrCreateTypeInfo(DPTy);
 
     // Analyze definitions of the StructInfo types collected.
@@ -274,6 +283,50 @@ public:
       for (auto *U : GV.users())
         if (auto *CE = dyn_cast<ConstantExpr>(U))
           analyzeConstantExpr(CE);
+    }
+  }
+
+  // Identify the call graph information that collects the outermost type that a
+  // method operates upon.
+  void collectCallGraphInfo(Module &M) {
+    for (auto &F : M) {
+      for (auto It = inst_begin(&F), E = inst_end(&F); It != E; ++It) {
+        Instruction &I = *It;
+        ValueTypeInfo *Info = PTA.getValueTypeInfo(&I);
+        if (Info && !Info->empty()) {
+          // Unhandled is ignored for CallGraph for now.
+          auto &Pointees = Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
+          for (auto *AliasTy : Pointees) {
+            if (!isTypeOfInterest(AliasTy))
+              continue;
+            DEBUG_WITH_TYPE(
+                DTRANS_CG,
+                dbgs() << "dtrans-cg: CGraph update for Instruction -- \n"
+                       << "  " << I << "\n");
+            setBaseTypeCallGraph(AliasTy, &F);
+          }
+        }
+
+        for (Value *Arg : I.operands()) {
+          if (!isa<Constant>(Arg) && !isa<Argument>(Arg))
+            continue;
+          ValueTypeInfo *Info = PTA.getValueTypeInfo(Arg);
+          if (Info && !Info->empty()) {
+            // Unhandled is ignored for CallGraph for now.
+            auto &Pointees =
+                Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
+            for (auto *AliasTy : Pointees) {
+              if (!isTypeOfInterest(AliasTy))
+                continue;
+              DEBUG_WITH_TYPE(
+                  DTRANS_CG,
+                  dbgs() << "dtrans-cg: CGraph update for Operand  -- \n"
+                         << "  " << *Arg << "\n");
+              setBaseTypeCallGraph(AliasTy, &F);
+            }
+          }
+        }
+      }
     }
   }
 
@@ -726,6 +779,27 @@ public:
   // load/store instructions to determine whether the FieldInfo object needs to
   // be marked as 'ComplexUse'
   void analyzeGEPOperator(GEPOperator *GEP) {
+
+    // Return true if the GEP is used to access the end of a structure's field
+    // to store information in the next field.
+    auto IsGepCollectingNextEntry = [this](GEPOperator *GEP) -> bool {
+      if (!GEP->hasOneUse())
+        return false;
+
+      StoreInst *SI = dyn_cast<StoreInst>(GEP->user_back());
+      if (!SI)
+        return false;
+
+      Value *Ptr = SI->getPointerOperand();
+      Value *Val = SI->getValueOperand();
+      ValueTypeInfo *PtrInfo = PTA.getValueTypeInfo(Ptr);
+
+      if (!PtrInfo)
+        return false;
+
+      return isStoringDataInNextEntry(SI, Val, Ptr, PtrInfo);
+    };
+
     Value *PtrOp = GEP->getPointerOperand();
     ValueTypeInfo *PtrInfo = PTA.getValueTypeInfo(PtrOp);
     if (!PtrInfo) {
@@ -749,9 +823,16 @@ public:
     assert(GEPInfo &&
            "Pointer type analyzer should have info about all GEP pointers");
     if (GEPInfo->getUnknownByteFlattenedGEP()) {
-      setAllAliasedTypeSafetyData(PtrInfo, dtrans::BadPtrManipulation,
-                                  "Byte flattened GEP could not be resolved",
-                                  GEP);
+      if (IsGepCollectingNextEntry(GEP))
+        setAllAliasedTypeSafetyData(PtrInfo,
+                                    dtrans::BadPtrManipulationForRelatedTypes,
+                                    "Byte flattened GEP used for accessing "
+                                    "next field", GEP);
+
+      else
+        setAllAliasedTypeSafetyData(PtrInfo, dtrans::BadPtrManipulation,
+                                    "Byte flattened GEP could not be resolved",
+                                    GEP);
       return;
     }
 
@@ -874,6 +955,22 @@ public:
         }
       }
 
+      // If the GEP is accessing a field in a structure that is an array then
+      // check if we can collect any constant information for it.
+      if (Pointees.size() == 1) {
+        auto It = Pointees.begin();
+        DTransType *ParentTy = It->first;
+        if (ParentTy->isStructTy() && It->second.isField()) {
+          dtrans::StructInfo *StructAccessed =
+              cast<dtrans::StructInfo>(DTInfo.getTypeInfo(ParentTy));
+          uint64_t FieldNumAccessed = It->second.getElementNum();
+
+          if (FieldNumAccessed < StructAccessed->getNumFields())
+            analyzeAndCollectArrayConstantEntries(GEP, StructAccessed,
+                                                  FieldNumAccessed);
+        }
+      }
+
       // A runtime dependent index of an array cannot be guaranteed to be within
       // the bounds. When LangRuleOutOfBoundsOK is not set, we are explicitly
       // asserting that the access cannot go out of bounds.
@@ -890,6 +987,88 @@ public:
                                         "Runtime dependent offset", GEP);
           }
         }
+    }
+  }
+
+  void analyzeAndCollectArrayConstantEntries(GEPOperator *GEP,
+                                             dtrans::StructInfo *STInfo,
+                                             uint64_t FieldNum) {
+    if (!GEP || !STInfo || FieldNum >= STInfo->getNumFields())
+      return;
+
+    // If the language rules for accessing out of bounds is enabled then
+    // we aren't going to collect any information. There is a chance that
+    // the constant data is written by an out of bounds access.
+    if(getLangRuleOutOfBoundsOK())
+      return;
+
+    dtrans::FieldInfo &FI = STInfo->getField(FieldNum);
+    if (!FI.canUpdateArrayWithConstantEntries())
+      return;
+
+    for (auto *U : GEP->users()) {
+      if (!FI.canUpdateArrayWithConstantEntries())
+        return;
+
+      auto *CurrGEP = dyn_cast<GetElementPtrInst>(U);
+      // NOTE: For now the direct user will be a GEP. Once we reach the
+      // actual benchmark we can expand this for other cases.
+      if (!CurrGEP) {
+        FI.disableArraysWithConstantEntries();
+        return;
+      }
+
+      // The user will be a load or a store
+      if (!CurrGEP->hasOneUser()) {
+        FI.disableArraysWithConstantEntries();
+        return;
+      }
+
+      // Collect which entry in the array we are accessing
+      //
+      // NOTE: Perhaps we may need to extend this analysis to check for byte
+      // flattened GEP, GEPs with more that 2 indices and zero element access.
+      if (CurrGEP->getNumIndices() != 2) {
+        FI.disableArraysWithConstantEntries();
+        return;
+      }
+
+      if (auto *ZeroIndex = dyn_cast<ConstantInt>(CurrGEP->getOperand(1))) {
+        if (!ZeroIndex->isZero()) {
+          FI.disableArraysWithConstantEntries();
+          return;
+        }
+      }
+
+      Constant *Index = dyn_cast<Constant>(CurrGEP->getOperand(2));
+      Constant *EntryVal = nullptr;
+
+      if (auto *SI = dyn_cast<StoreInst>(CurrGEP->user_back())) {
+        // All indices must be constant if we are storing
+        if (!CurrGEP->hasAllConstantIndices()) {
+          FI.disableArraysWithConstantEntries();
+          return;
+        }
+        // Collect what is being stored
+        EntryVal = dyn_cast<Constant>(SI->getValueOperand());
+      } else if (isa<LoadInst>(CurrGEP->user_back())) {
+        // Load instructions are safe
+        continue;
+      } else {
+        // Anything else is not allowed at the moment, disable the information
+        //
+        // TODO: We may need to deal with the case when the field is a structure
+        // that encapsulates an array. For example:
+        //
+        //   %struct.Test = type { i32, %boost.array }
+        //   %boost.array = type { [4 x i32] }
+        //
+        // This case is common when dealing with boost libraries.
+        FI.disableArraysWithConstantEntries();
+        return;
+      }
+
+      FI.addNewArrayConstantEntry(Index, EntryVal);
     }
   }
 
@@ -928,9 +1107,43 @@ public:
     if (!Info->canAliasToAggregatePointer())
       return;
 
-    if (!PTA.getDominantAggregateUsageType(*Info))
-      setAllAliasedTypeSafetyData(Info, dtrans::UnsafePtrMerge,
-                                  "Merge of conflicting pointer types", I);
+    if (!PTA.getDominantAggregateUsageType(*Info)) {
+      // Set UnsafePtrMergeRelatedTypes if the PHI node is merging pointers
+      // with related types. For example:
+      //   %class.MainClass = type { [4 x i32], i32, [4 x i8]}
+      //   %class.MainClass.base = type { [4 x i32], i32}
+      //
+      //   %class.TestClass.Inner = type { %class.MainClass.base,
+      //                                   [4 x i8] }
+      //
+      //   %class.TestClass.Outer = type { ptr, [4 x i8] }
+      //   ; %class.TestClass.Outer = type { %class.TestClass.Inner*,
+      //   ;                                 [4 x i8] }
+      //
+      //   entry:
+      //     %0 = load ptr, ptr %ptr
+      //     br label %br.loop
+      //
+      //   br.loop:
+      //     %phi = phi ptr [ %0, %entry ], [ %1, %br.loop ]
+      //     %1 = getelementptr inbounds %class.MainClass, ptr %phi, i64 0,
+      //                                                             i32 0
+      //
+      // Assume that the type of %ptr is %class.TestClass.Outer*, the loaded
+      // pointer in %0 will be %class.TestClass.Inner*. The PHI node will
+      // be selecting between %0 (%class.TestClass.Inner*) or
+      // %1 (%class.MainClass*). This will indicate that the PHI node %phi
+      // won't have a dominant aggregate type, but we can prove that
+      // all the declaration and use aliases are related types
+      // (%class.MainClass.base is related to %class.MainClass). Therefore
+      // mark the PHI node as UnsafePtrMergeRelatedTypes.
+      if (getEnclosingParentDeclType(*Info))
+        setAllAliasedTypeSafetyData(Info, dtrans::UnsafePtrMergeRelatedTypes,
+                                    "Merging pointers with related types", I);
+      else
+        setAllAliasedTypeSafetyData(Info, dtrans::UnsafePtrMerge,
+                                    "Merge of conflicting pointer types", I);
+    }
 
     // The merge is taking place on a type that was known to alias a pointer to
     // an aggregate type. If this is being done with the pointer having been
@@ -1108,6 +1321,23 @@ public:
       if (!PtrDomTy) {
         IsMismatched = true;
         BadcastReason = "Dominant type of pointer not resolved";
+      } else if (!PtrDomTy->isPointerTy()) {
+        // It's possible to reach here by using a pointer to an object as a
+        // pointer-to-pointer type. In the typed pointer IR, there would have
+        // been a bitcast that converted the pointer to a pointer-to-pointer.
+        // However, with opaque pointers a value could be loaded as a pointer
+        // from a memory location that the pointer type analyzer does not expect
+        // to hold a pointer, and then used to load another pointer. For
+        // example, %i5 below is not expected as pointer type:
+        //
+        //    %i = alloca [0 x i8]
+        //    %i2 = getelementptr inbounds [0 x i8], ptr %i, i64 0, i64 0
+        //    %i4 = getelementptr inbounds ptr, ptr %i2, i64 undef
+        //    %i5 = load ptr, ptr %i2, align 8
+        //    %i7 = load ptr, ptr %i5, align 8
+        //
+        IsMismatched = true;
+        BadcastReason = "Unknown pointer type for pointer argument";
       } else if ((PtrDomTy->getPointerElementType() != ValTy &&
                   !PtrInfo->getIsPartialPointerUse()) ||
                  (PtrInfo->canAliasMultipleAggregatePointers() &&
@@ -1161,13 +1391,23 @@ public:
           continue;
 
         setFieldMismatchedElementAccess(PtrAliasTy, ValSize, ValTy,
-                                        /*FieldNum=*/0, I);
+                                        /*FieldNum=*/0, I, false);
       }
     } else if (PtrDomTy && !isPtrToPtr(PtrDomTy)) {
       // Treat this as an element zero access if the pointer operand alias info
-      // is not for a pointer-to-pointer access.
-      if (auto *StructTy =
-              dyn_cast<DTransStructType>(PtrDomTy->getPointerElementType())) {
+      // is not for a pointer-to-pointer access. If the pointer type is an
+      // array, then a check needs to be done to see whether it is an array of
+      // structures.
+      DTransType *ElemTy = PtrDomTy->getPointerElementType();
+      if (auto *ArrayTy = dyn_cast<DTransArrayType>(ElemTy)) {
+        DTransType *BaseTy = ElemTy;
+        while (isa<DTransArrayType>(BaseTy))
+          BaseTy = BaseTy->getArrayElementType();
+        if (isa<DTransStructType>(BaseTy))
+          ElemTy = BaseTy;
+      }
+
+      if (auto *StructTy = dyn_cast<DTransStructType>(ElemTy)) {
         dtrans::TypeInfo *TI = DTInfo.getTypeInfo(StructTy);
         assert(TI && "visitModule() should create all TypeInfo objects");
         dtrans::StructInfo *SI = cast<dtrans::StructInfo>(TI);
@@ -1231,6 +1471,13 @@ public:
         PtrInfo->print(dbgs(), /*CombinedTypes=*/false, "    ");
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     };
+
+    if (ValInfo && ValInfo->canAliasToAggregatePointer() &&
+        PtrInfo->canPointTo(getDTransPtrSizedIntPtrType()) &&
+        !PtrInfo->canAliasToAggregatePointer())
+      setAllAliasedTypeSafetyData(ValInfo, dtrans::AddressTaken,
+                                  "Pointer-to-type stored as pointer-sized int",
+                                  &I);
 
     // Check that the address of a structure field is not being stored to
     // memory. This is done up front, so that we can return as soon as
@@ -1414,9 +1661,17 @@ public:
     // Treat this as a safe store. If the pointer operand alias info is not for
     // a pointer-to-pointer access, then treat it as an element-zero access and
     // update the FieldInfo for the element.
-    if (PtrDomTy && !isPtrToPtr(PtrDomTy))
-      if (auto *StructTy =
-              dyn_cast<DTransStructType>(PtrDomTy->getPointerElementType())) {
+    if (PtrDomTy && !isPtrToPtr(PtrDomTy)) {
+      DTransType *ElemTy = PtrDomTy->getPointerElementType();
+      if (auto *ArrayTy = dyn_cast<DTransArrayType>(ElemTy)) {
+        DTransType *BaseTy = ElemTy;
+        while (isa<DTransArrayType>(BaseTy))
+          BaseTy = BaseTy->getArrayElementType();
+        if (isa<DTransStructType>(BaseTy))
+          ElemTy = BaseTy;
+      }
+
+      if (auto *StructTy = dyn_cast<DTransStructType>(ElemTy)) {
         dtrans::TypeInfo *TI = DTInfo.getTypeInfo(StructTy);
         assert(TI && "visitModule() should create all TypeInfo objects");
         dtrans::StructInfo *SI = cast<dtrans::StructInfo>(TI);
@@ -1451,12 +1706,12 @@ public:
           }
         }
       }
+    }
   }
 
   // The element access analysis for load and store instructions are nearly
   // identical, so we use this helper function to perform the task for both.
-  void analyzeElementLoadOrStore(Instruction &I,
-                                 ValueTypeInfo &PtrInfo,
+  void analyzeElementLoadOrStore(Instruction &I, ValueTypeInfo &PtrInfo,
                                  ValueTypeInfo *ValInfo) {
 
     // This lambda is used to identify whether a pointer value being stored into
@@ -1677,7 +1932,20 @@ public:
           updateFieldFrequency(FI, I);
         }
       }
-      if (auto *StTy = dyn_cast<DTransStructType>(ParentTy)) {
+
+      // When the element pointee is an array, identify the type in the array in
+      // order to check whether the load/store is directly accessing element
+      // zero of a structure type stored in the array.
+      bool ForElementZeroAccess = false;
+      DTransType *BaseTy = ParentTy;
+      if (isa<DTransArrayType>(BaseTy)) {
+        ElementNum = 0;
+        ForElementZeroAccess = true;
+        while (isa<DTransArrayType>(BaseTy))
+          BaseTy = BaseTy->getArrayElementType();
+      }
+
+      if (auto *StTy = dyn_cast<DTransStructType>(BaseTy)) {
         dtrans::TypeInfo *ParentInfo = DTInfo.getTypeInfo(StTy);
         assert(ParentInfo &&
                "visitModule() should create all TypeInfo objects");
@@ -1688,12 +1956,10 @@ public:
         // accessed..
         if (IsLoad)
           collectReadInfo(*cast<LoadInst>(&I), ParentStInfo, ElementNum,
-                          IsWholeStructure,
-                          /*ForElementZeroAccess=*/false);
+                          IsWholeStructure, ForElementZeroAccess);
         else
           collectWriteInfo(*cast<StoreInst>(&I), ParentStInfo, ElementNum,
-                           ValOp, IsWholeStructure,
-                           /*ForElementZeroAccess=*/false);
+                           ValOp, IsWholeStructure, ForElementZeroAccess);
       }
 
       // Check if the types for the value loaded or value operand of the store
@@ -1705,7 +1971,7 @@ public:
       // - a pointer was used, but not with the expected type
       bool TypesCompatible = true;
       bool BadCasting = false;
-
+      bool BadCastingForRelatedTypes = false;
       DTransType *ValTy = getLoadStoreValueType(*ValOp, ValInfo, IsLoad);
       if (!ValTy) {
         // In some cases we may not have a ValTy identified for a pointer being
@@ -1715,7 +1981,14 @@ public:
         if (!IsSafeAllocatedMemoryStore(I, IndexedType) ||
             !AreAllMemoryUsersSafe(I, IndexedType)) {
           TypesCompatible = false;
-          BadCasting = true;
+
+          // Check if the type of the values stored or loaded are used with
+          // related types. In this case ValTy couldn't be collected since
+          // there is no dominant aggregate type.
+          if (areLoadStoresWithRelatedTypes(IndexedType, ValInfo, &PtrInfo))
+            BadCastingForRelatedTypes = true;
+          else
+            BadCasting = true;
         }
       }
       // If the pointer location represents a vtable, then we only need to
@@ -1741,7 +2014,14 @@ public:
       else if (!areLoadStoreTypesCompatible(IndexedType, ValInfo, ValOp,
                                             PtrInfo, PtrOp)) {
         TypesCompatible = false;
-        BadCasting = true;
+
+        // Check if the types loaded or stored aren't compatible due to
+        // related types
+        if (areLoadStoresWithRelatedTypes(IndexedType, ValInfo, &PtrInfo) ||
+            isStoringDataInNextEntry(&I, ValOp, PtrOp, &PtrInfo))
+          BadCastingForRelatedTypes = true;
+        else
+          BadCasting = true;
       }
 
       if (!IsLoad && ValInfo) {
@@ -1751,7 +2031,11 @@ public:
         //   %x = bitcast i64* %p to %struct*
         //   store %struct* %x, %struct** %y
         if (ValTy && ValTy->isPointerTy()) {
-          if (ValTy->getPointerElementType()->isAggregateType()) {
+          // check if we are using a byte flattened GEP to access the next entry
+          if (isStoringDataInNextEntry(&I, ValOp, PtrOp, &PtrInfo)) {
+            TypesCompatible = false;
+            BadCastingForRelatedTypes = true;
+          } else if (ValTy->getPointerElementType()->isAggregateType()) {
             if (hasIncompatibleAggregateDecl(ValTy->getPointerElementType(),
                                              ValInfo)) {
               TypesCompatible = false;
@@ -1772,17 +2056,46 @@ public:
       // that safety bit has different semantics regarding propagation than
       // the MismatchedElementAccess safety, which are necessary to get all
       // the necessary structures marked.
+      bool IsCandidateLoad = DTBCA.isCandidateLoad(&I);
+      bool IsAllocStore = DTBCA.isAllocStore(&I);
+      bool IsCandidate = IsCandidateLoad || IsAllocStore;
+
+      // If IsCandidate is enabled then we are going to turn off
+      // BadCastingForRelatedTypes
+      if (IsCandidate && BadCastingForRelatedTypes) {
+        BadCastingForRelatedTypes = false;
+        BadCasting = true;
+      }
+
       if (BadCasting) {
+        const llvm::dtrans::SafetyData SD =
+            IsCandidate ? dtrans::BadCastingPending : dtrans::BadCasting;
         setBaseTypeInfoSafetyData(
-            ParentTy, dtrans::BadCasting,
-            "Incompatible pointer type for field load/store", &I);
+            ParentTy, SD, "Incompatible pointer type for field load/store", &I);
         if (ValInfo)
           for (auto *ValAliasTy :
-               ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
+               ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+            if (IsCandidate)
+              DTBCA.setSawBadCasting(&I);
             setBaseTypeInfoSafetyData(
-                ValAliasTy, dtrans::BadCasting,
+                ValAliasTy, SD,
                 "Incompatible pointer type for field load/store", &I);
+          }
+      } else if (BadCastingForRelatedTypes) {
+        const llvm::dtrans::SafetyData SD = dtrans::BadCastingForRelatedTypes;
+        setBaseTypeInfoSafetyData(
+            ParentTy, SD,
+            "Pointer type for field load/store contains related types", &I);
+        if (ValInfo)
+          for (auto *ValAliasTy :
+               ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+            setBaseTypeInfoSafetyData(
+                ValAliasTy, SD,
+                "Pointer type for field load/store contains related types",
+                &I);
+          }
       }
+
 
       if (!TypesCompatible) {
         if (!IsLoad) {
@@ -1794,29 +2107,38 @@ public:
           if (IndexedType->isPointerTy() &&
               IndexedType->getPointerElementType()->isAggregateType())
             PtrToAggregateFound = true;
-
+          const llvm::dtrans::SafetyData SD =
+              IsCandidate ? dtrans::UnsafePointerStorePending
+                           : dtrans::UnsafePointerStore;
           if (ValInfo) {
             auto &AliasSet =
                 ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
             PtrToAggregateFound |= ValInfo->canAliasToDirectAggregatePointer();
             if (PtrToAggregateFound) {
-              for (auto *ValAliasTy : AliasSet)
+              for (auto *ValAliasTy : AliasSet) {
+                if (IsCandidate)
+                  DTBCA.setSawUnsafePointerStore(&I);
                 setBaseTypeInfoSafetyData(
-                    ValAliasTy, dtrans::UnsafePointerStore,
-                    "Incompatible type for field load/store", &I);
+                    ValAliasTy, SD, "Incompatible type for field load/store",
+                    &I);
+              }
             }
           }
 
-          if (PtrToAggregateFound)
-            setBaseTypeInfoSafetyData(IndexedType, dtrans::UnsafePointerStore,
-                                      "Incompatible type for field load/store",
-                                      &I);
+          if (PtrToAggregateFound) {
+            if (IsCandidate)
+              DTBCA.setSawUnsafePointerStore(&I);
+            setBaseTypeInfoSafetyData(
+                IndexedType, SD, "Incompatible type for field load/store", &I);
+          }
         }
 
         // Finally, mark the structure as having a mismatched element access.
         TypeSize ValSize = DL.getTypeSizeInBits(ValOp->getType());
+        if (IsCandidate)
+          DTBCA.setSawMismatchedElementAccess(&I);
         setFieldMismatchedElementAccess(ParentTy, ValSize, IndexedType,
-                                        ElementNum, I);
+                                        ElementNum, I, IsCandidate);
       }
     }
   }
@@ -1854,6 +2176,168 @@ public:
     return PTA.getDominantType(*Info, Kind);
   }
 
+  // Return true if the input instruction is a store instruction that moves
+  // information from one field in a structure to another field within the same
+  // structure, the fields are the same type, and it is using a byte flattened
+  // GEP to access them. For example:
+  //
+  //   %class.MainClass = type { [4 x i32], i32, [4 x i8]}
+  //   %class.MainClass.base = type { [4 x i32], i32}
+  //
+  //   %class.TestClass.Outer = type { %class.TestClass.Inner,
+  //                                   %class.TestClass.Inner_vect}
+  //   %class.TestClass.Inner = type { %class.MainClass.base, [4 x i8] }
+  //
+  //   %class.TestClass.Inner_vect = type { %class.TestClass.Inner_vect_imp,
+  //                                        %class.TestClass.Inner_vect_imp,
+  //                                        %class.TestClass.Inner_vect_imp}
+  //   %class.TestClass.Inner_vect_imp = type { ptr, ptr, ptr }
+  //
+  //   ; %class.TestClass.Inner_vect_imp = type { %class.TestClass.Inner*,
+  //                                              %class.TestClass.Inner*,
+  //                                              %class.TestClass.Inner* }
+  //
+  //   %0 = getelementptr inbounds %class.TestClass.Outer, ptr %ptr,
+  //                                                       i64 0, i32 1
+  //   %1 = getelementptr inbounds %class.TestClass.Inner_vect, ptr %0,
+  //                                                            i64 0, i32 0
+  //   %2 = getelementptr inbounds %class.TestClass.Inner_vect_imp,
+  //                               ptr %1, i64 0, i32 1
+  //   %3 = load ptr, ptr %2
+  //   %4 = mul i64 %var, 24
+  //   %5 = getelementptr i8, ptr %3, i64 %4
+  //   store ptr %5, ptr %2
+  //
+  // Assume that the language rules for out of bounds are disabled. The load in
+  // %3 is accessing the information in %class.TestClass.Inner_vect_imp field
+  // one (%class.TestClass.Inner*). The GEP in %5 is accessing the information
+  // after %class.TestClass.Inner in %3. Basically, field two in
+  // %class.TestClass.Inner_vect_imp since out of bounds is not allowed. The
+  // store instruction will move the pointer stored in field two of
+  // %class.TestClass.Inner_vect_imp into field one. This function will return
+  // true since all the fields of %class.TestClass.Inner_vect_imp are the same
+  // type. In simple words, the data is being moved within the fields of the
+  // structure. This common when dealing with std::vectors and there is a loop
+  // traversing through the entries of the vector and moving the data.
+  bool isStoringDataInNextEntry(Instruction *I, Value *ValOp, Value *PtrOp,
+                                ValueTypeInfo *PtrInfo) {
+    if (!I || !ValOp || !PtrOp || !PtrInfo)
+      return false;
+
+    // If the language rules for accessing out of bounds are enabled then we
+    // can't guarantee that the index accessed is within the bounds of the
+    // structure.
+    if (getLangRuleOutOfBoundsOK())
+      return false;
+
+    StoreInst *SI = dyn_cast<StoreInst>(I);
+    if (!SI)
+      return false;
+
+    if (ValOp != SI->getValueOperand() ||
+        PtrOp != SI->getPointerOperand())
+      return false;
+
+    auto *NextEntryGEP = dyn_cast<GetElementPtrInst>(ValOp);
+
+    // The number of indices must be 1 since we want to prove that we are
+    // accessing the next entry. Perhaps this could be relaxed in the future.
+    if (!NextEntryGEP || NextEntryGEP->getNumIndices() != 1)
+      return false;
+
+    // The GEP operand will be a multiplication by the size of the structure
+    // access. This means that we are moving the pointer to the end of the
+    // structure times an entry (jumping between entries).
+    auto *BIVal = dyn_cast<BinaryOperator>(NextEntryGEP->getOperand(1));
+    if (!BIVal || BIVal->getOpcode() != Instruction::Mul)
+      return false;
+
+    // One operand in the multiplication will be a constant and the other
+    // operand will be a variable.
+    //
+    // NOTE: If we can prove that the result of the multiplication is within
+    // the bounds of the structure that holds all the entries
+    // (%class.TestClass.Inner_vect_imp from the example) then we can get rid
+    // of the check for the language rules.
+    ConstantInt *ExpectedStructSize = nullptr;
+    if (isa<ConstantInt>(BIVal->getOperand(0)) &&
+        !isa<ConstantInt>(BIVal->getOperand(1)))
+      ExpectedStructSize = cast<ConstantInt>(BIVal->getOperand(0));
+    else if (!isa<ConstantInt>(BIVal->getOperand(0)) &&
+        isa<ConstantInt>(BIVal->getOperand(1)))
+      ExpectedStructSize = cast<ConstantInt>(BIVal->getOperand(1));
+
+    if (!ExpectedStructSize)
+      return false;
+
+    auto *LoadedStruct = dyn_cast<LoadInst>(NextEntryGEP->getOperand(0));
+    if (!LoadedStruct || LoadedStruct->getOperand(0) != PtrOp)
+      return false;
+
+    ValueTypeInfo *StructValInfo = PTA.getValueTypeInfo(LoadedStruct);
+    if (!StructValInfo || StructValInfo->empty())
+      return false;
+
+    // There must be a dominant aggregate type for the load instruction.
+    DTransType *StrDomTy = PTA.getDominantAggregateUsageType(*StructValInfo);
+    if (!StrDomTy || !StrDomTy->isPointerTy())
+      return false;
+
+    uint64_t SizeOfStruct = 0;
+    auto *STType =
+        dyn_cast<DTransStructType>(StrDomTy->getPointerElementType());
+    if (STType) {
+      Type *StructLLVMType = STType->getLLVMType();
+      SizeOfStruct = DL.getTypeAllocSize(StructLLVMType);
+    }
+
+    // The size of the structure must match the constant collected
+    // from the multiplication. This secures that the GEP is accessing
+    // the right entries.
+    if (SizeOfStruct == 0 || !ExpectedStructSize->equalsInt(SizeOfStruct))
+      return false;
+
+    // Collect the field where the data will be stored.
+    auto &ElementPointees =
+        PtrInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use);
+    if (ElementPointees.size() != 1)
+      return false;
+
+    // Collect the parent structure (%class.TestClass.Inner_vect_imp from
+    // the example)
+    auto PointeePair = ElementPointees.begin();
+    dtrans::TypeInfo *ParentTI = DTInfo.getTypeInfo(PointeePair->first);
+    assert(ParentTI && "Expected TypeInfo but it wasn't created");
+    if (!PointeePair->second.isField())
+      return false;
+
+    auto *ParentStruct = dyn_cast<DTransStructType>(ParentTI->getDTransType());
+    if (!ParentStruct)
+      return false;
+
+    // The field accessed (%2 from the example above) can't be the last one
+    // since the byte flattened GEP will be accessing the information after
+    // this field.
+    //
+    // NOTE: This check may not be necessary since we know that the language
+    // rules won't allow out of bounds access, but it is worthy to double
+    // check. Also, if we get rid of the language rules then this check will
+    // be needed.
+    uint64_t EntryAccessed = PointeePair->second.getElementNum();
+    if (EntryAccessed >= (ParentStruct->getNumFields() - 1))
+     return false;
+
+    // All the entries for ParentStruct must be the same as the expected type
+    // (%class.TestClass.Inner* from the example above).
+    for (uint64_t I = 0, E = ParentStruct->getNumFields(); I < E; I++) {
+      DTransType *ElemTy = ParentStruct->getFieldType(I);
+      if (ElemTy != StrDomTy)
+        return false;
+    }
+
+    return true;
+  }
+
   // Return 'true' if a value used as 'UsageType' is compatible with
   // 'ExpectedType'. To be compatible, one of the following conditions must be
   // met:
@@ -1868,10 +2352,22 @@ public:
     if (ExpectedType == UsageType)
       return true;
 
+    if (ExpectedType == getDTransPtrSizedIntType() && UsageType->isPointerTy())
+      return true;
+
     if (ExpectedType->isPointerTy() &&
         (UsageType == getDTransI8PtrType() ||
          UsageType == getDTransPtrSizedIntType()))
       return true;
+
+    // Consider a pointer to a type and a pointer to an array of the type as
+    // compatible. Note: Nested arrays are not treated as compatible types to a
+    // pointer for consistency with the legacy DTrans analysis.
+    if (ExpectedType->isPointerTy() && UsageType->isPointerTy())
+      if (UsageType->getPointerElementType()->isArrayTy() &&
+          ExpectedType->getPointerElementType() ==
+              UsageType->getPointerElementType()->getArrayElementType())
+        return true;
 
     // Allow an access to the element zero type, such as:
     //   %struct.A = type { %struct.B }
@@ -1937,6 +2433,19 @@ public:
         if (!PtrDomTyPtrTy->isAggregateType())
           return false;
 
+        // If the expected type is an aggregate type, then we are looking at an
+        // element pointee that was nested in another aggregate: For example:
+        //   %struct.lzma_coder_s = type { ptr, %struct.lzma_mf_s }
+        //   %struct.lzma_mf_s = type { ptr, i32 }
+        //
+        // %struct.lzma_coder_s@1 will call this routine with 'ExpectedType' set
+        // to %struct.lzma_mf_s because that is the type as index 1. Treat
+        // this as safe because another call will be done when looping over all
+        // the element pointees that will check 'ExpectedType' against the
+        // element zero type within %struct.lzma_mf_s.
+        if (ExpectedType->isAggregateType() && PtrDomTyPtrTy == ExpectedType)
+          return true;
+
         if (!PTA.isPointeeElementZeroAccess(PtrDomTyPtrTy, ExpectedType))
           return false;
 
@@ -1969,6 +2478,94 @@ public:
     return true;
   }
 
+  // Return true if collecting the parent type that enclapsulates all the
+  // related types in ValInfo is the same as ExpectedType, and the
+  // dominant aggregate type for PtrInfo is the same as ExpecedType. Else,
+  // return false. For example:
+  //
+  //   %class.MainClass = type { [4 x i32], i32, [4 x i8]}
+  //   %class.MainClass.base = type { [4 x i32], i32}
+  //
+  //   %class.TestClass = type { %class.MainClass.base, [4 x i8] }
+  //   %class.TestClass.Outer = type { ptr, i32 }
+  //   ; %class.TestClass.Outer = type { %class.TestClass*, i32 }
+  //
+  //   define dso_local void @foo(ptr %ptr) {
+  //   entry:
+  //     %0 = getelementptr inbounds %class.TestClass.Outer, ptr %ptr,
+  //                                                         i64 0, i32 0
+  //     %1 = load ptr, ptr %0
+  //     %2 = getelementptr inbounds %class.MainClass, ptr %1, i64 0, i32 0
+  //     %3 = load i32, ptr %2
+  //     ret void
+  //   }
+  //
+  // The expected type of the load instruction in %1 is %class.TestClass*, but
+  // then it is used in %2 is %class.MainClass. %class.MainClass is a related
+  // type of %class.MainClass.base. In this case there won't be a dominant
+  // aggregate for ValInfo. We know that the expected type is
+  // %class.TestClass*, and that the ValueTypeInfos ValInfo and PtrInfo look
+  // as follows:
+  //
+  // * ValInfo:
+  //     LocalPointerInfo: CompletelyAnalyzed
+  //     Declared Types:
+  //       Aliased types:
+  //         %class.TestClass*
+  //       No element pointees.
+  //     Usage Types:
+  //       Aliased types:
+  //         %class.MainClass*
+  //         %class.TestClass*
+  //       No element pointees
+  //
+  // * PtrInfo:
+  //     LocalPointerInfo: CompletelyAnalyzed
+  //     Declared Types:
+  //       Aliased types:
+  //         %class.TestClass**
+  //       Element pointees:
+  //         %class.TestClass.Outer @ 0
+  //     Usage Types:
+  //       Aliased types:
+  //         %class.TestClass**
+  //       Element pointees:
+  //         %class.TestClass.Outer @ 0
+  //
+  // The type %class.TestClass* encapsulates all the zero element and related
+  // types in ValInfo, and is the dominant aggregate type for PtrInfo too.
+  // Since it is the same type as the expected type in %1, then this function
+  // will return true.
+  bool areLoadStoresWithRelatedTypes(DTransType *ExpectedType,
+                                     ValueTypeInfo *ValInfo,
+                                     ValueTypeInfo *PtrInfo) {
+    if (!ExpectedType || !ExpectedType->isPointerTy() ||
+        !ExpectedType->getPointerElementType()->isStructTy())
+      return false;
+
+    if (!ValInfo || !PtrInfo || PtrInfo->empty() || ValInfo->empty())
+      return false;
+
+    // This process is only for the case where we don't have dominant aggregate
+    // type in the ValInfo. This means that the pointer is used as multiple
+    // types.
+    if (PTA.getDominantAggregateUsageType(*ValInfo))
+      return false;
+
+    if (getEnclosingParentDeclType(*ValInfo) != ExpectedType)
+      return false;
+
+    // NOTE: In case there is no dominant aggregate type, then we may need to
+    // use "getEnclosingParentDeclType" in order to find the higher structure
+    // and then prove that the expected type is in the chain of related types.
+    DTransType *PtrDomTy = PTA.getDominantAggregateUsageType(*PtrInfo);
+    if (!PtrDomTy || !PtrDomTy->isPointerTy())
+      return false;
+
+    DTransType *PtrDomTyPtrTy = PtrDomTy->getPointerElementType();
+    return PtrDomTyPtrTy == ExpectedType;
+  }
+
   // Return 'true' if 'DTy' is 'i32 (...)**'
   bool isVTableType(DTransType *DTy) {
     if (!DTy->isPointerTy())
@@ -1990,29 +2587,46 @@ public:
   void setFieldMismatchedElementAccess(DTransType *ParentTy,
                                        TypeSize AccessSize,
                                        DTransType *AccessTy,
-                                       unsigned int ElementNum,
-                                       Instruction &I) {
+                                       unsigned int ElementNum, Instruction &I,
+                                       bool IsPending) {
+    const llvm::dtrans::SafetyData SD =
+        IsPending ? dtrans::MismatchedElementAccessPending
+                  : dtrans::MismatchedElementAccess;
     if (getLangRuleOutOfBoundsOK()) {
       // Assuming out of bound access, set safety issue for the entire
       // ParentTy.
-      setBaseTypeInfoSafetyData(ParentTy, dtrans::MismatchedElementAccess,
+      setBaseTypeInfoSafetyData(ParentTy, SD,
                                 "Incompatible type for field load/store", &I);
     } else {
       // Set the safety issue only on the structure containing the field and the
       // field type, rather than to all fields reachable from the structure
       // because out of bounds accesses are known to not occur based on the
       // LangRuleOutOfBoundsOK definition.
-      setOnlyBaseTypeInfoSafetyData(ParentTy, dtrans::MismatchedElementAccess,
-                                    "Incompatible type for field load/store",
-                                    &I);
+      setOnlyBaseTypeInfoSafetyData(
+          ParentTy, SD, "Incompatible type for field load/store", &I);
       if (AccessTy)
-        setBaseTypeInfoSafetyData(AccessTy, dtrans::MismatchedElementAccess,
+        setBaseTypeInfoSafetyData(AccessTy, SD,
                                   "Incompatible type for field load/store", &I);
     }
 
-    auto *TI = DTInfo.getTypeInfo(ParentTy);
-    assert(TI && "visitModule() should create all TypeInfo objects");
-    if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+    // If the mismatched element access was caused by an access to an array,
+    // then if the array is composed of structures, the element zero of the
+    // structure needs to be marked as mismatched because the address of the
+    // array element is the same as the address of the structure element.
+    if (auto *ParentArTy = dyn_cast<DTransArrayType>(ParentTy)) {
+      DTransType *BaseTy = ParentArTy;
+      while (isa<DTransArrayType>(BaseTy))
+        BaseTy = BaseTy->getArrayElementType();
+      if (isa<DTransStructType>(BaseTy)) {
+        ParentTy = BaseTy;
+        ElementNum = 0;
+      }
+    }
+
+    if (auto *ParentStTy = dyn_cast<DTransStructType>(ParentTy)) {
+      auto *TI = DTInfo.getTypeInfo(ParentTy);
+      assert(TI && "visitModule() should create all TypeInfo objects");
+      auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI);
       TypeSize FieldSize = DL.getTypeSizeInBits(
           ParentStInfo->getField(ElementNum).getLLVMType());
       if (getLangRuleOutOfBoundsOK() || AccessSize > FieldSize) {
@@ -2099,8 +2713,7 @@ public:
       auto &ElementOfTypes = PointeePair.second.getElementOf();
       if ((PointeePair.second.isField() &&
            PointeePair.second.getElementNum() == 0) ||
-          (!getLangRuleOutOfBoundsOK() &&
-           PointeePair.second.isUnknownOffset()))
+          (!getLangRuleOutOfBoundsOK() && PointeePair.second.isUnknownOffset()))
         for (auto &ElementOfPair : ElementOfTypes) {
           dtrans::TypeInfo *ElementOfTI =
               DTInfo.getTypeInfo(ElementOfPair.first);
@@ -2117,9 +2730,8 @@ public:
     }
   }
 
-  void collectReadInfo(LoadInst &I, dtrans::StructInfo *StInfo,
-                       size_t FieldNum, bool IsWholeStructure,
-                       bool ForElementZeroAccess) {
+  void collectReadInfo(LoadInst &I, dtrans::StructInfo *StInfo, size_t FieldNum,
+                       bool IsWholeStructure, bool ForElementZeroAccess) {
     if (!IsWholeStructure) {
       // When a whole structure is not being read, the read may be using a
       // pointer to a structure to access the element at index 0 of a contained
@@ -2132,8 +2744,10 @@ public:
                             &Descended);
       dtrans::FieldInfo &FI = ReadStInfo->getField(ReadFieldNum);
       FI.setRead(I);
+      analyzeIndirectArrays(&FI, &I);
+      DTBCA.analyzeLoad(FI, I);
       updateFieldFrequency(FI, I);
-      DTInfo.addLoadMapping(&I, { ReadStInfo->getLLVMType(), ReadFieldNum });
+      DTInfo.addLoadMapping(&I, {ReadStInfo->getLLVMType(), ReadFieldNum});
       if (Descended || ForElementZeroAccess)
         FI.setNonGEPAccess();
       if (!dtrans::isLoadedValueUnused(&I,
@@ -2166,7 +2780,7 @@ public:
                             Value *WriteVal) {
       FI.setWritten(I);
       updateFieldFrequency(FI, I);
-      DTInfo.addStoreMapping(&I, { StInfo.getLLVMType(), FieldNum });
+      DTInfo.addStoreMapping(&I, {StInfo.getLLVMType(), FieldNum});
 
       // For simple cases where the stored value is the result of select
       // instruction that always produces a constant result, save both
@@ -2191,7 +2805,8 @@ public:
     // Set FI to bottom alloc function if 'FI' is being assigned a constant
     // value other than nullptr.
     auto CheckWriteValue = [](Constant *ConstVal, dtrans::FieldInfo &FI,
-                              size_t FieldNum, dtrans::StructInfo *ParentStInfo) {
+                              size_t FieldNum,
+                              dtrans::StructInfo *ParentStInfo) {
       if (!isa<ConstantPointerNull>(ConstVal))
         ParentStInfo->updateSingleAllocFuncToBottom(FieldNum);
     };
@@ -2226,6 +2841,8 @@ public:
                           &Descended);
     dtrans::FieldInfo &FI = WrittenStInfo->getField(WrittenFieldNum);
     SetFieldInfo(I, *WrittenStInfo, FI, WrittenFieldNum, WriteVal);
+    analyzeIndirectArrays(&FI, dyn_cast<Instruction>(I.getValueOperand()));
+    DTBCA.analyzeStore(FI, I);
     if (Descended || ForElementZeroAccess)
       FI.setNonGEPAccess();
 
@@ -2276,6 +2893,39 @@ public:
         printValue(dbgs(), Consumer);
         dbgs() << "\n";
       });
+  }
+
+  // Analyze fields which are pointers to allocated arrays. Here, 'I' is
+  // an instruction which either loads or stores the field which points
+  // to the allocated array, and 'FI' is the field info that will store
+  // the result. Because the means for storing into the allocated array
+  // fields are not exhaustively analyzed, for now, we always mark such
+  // field values as 'incomplete'.
+  void analyzeIndirectArrays(dtrans::FieldInfo *FI, Instruction *I) {
+    if (!I)
+      return;
+    for (User *U : I->users()) {
+      // TODO:  Once opaque pointers are in use, the checking of BitCast
+      // instructions can be removed. For now, this is included for
+      // compatibility with the legacy analysis.
+      auto BCI = dyn_cast<BitCastInst>(U);
+      if (BCI) {
+        analyzeIndirectArrays(FI, BCI);
+        continue;
+      }
+
+      auto GEPI = dyn_cast<GetElementPtrInst>(U);
+      if (!GEPI || GEPI->getPointerOperand() != I || GEPI->getNumIndices() != 1)
+        continue;
+      for (User *V : GEPI->users()) {
+        auto SI = dyn_cast<StoreInst>(V);
+        if (!SI)
+          continue;
+        auto CI = dyn_cast<Constant>(SI->getValueOperand());
+        if (CI)
+          FI->processNewSingleIAValue(CI);
+      }
+    }
   }
 
   void updateFieldFrequency(dtrans::FieldInfo &FI, Instruction &I) {
@@ -2381,7 +3031,7 @@ public:
       }
     };
 
-    auto HasNonDivBySizeUses = [](Value *V, uint64_t Size) {
+    auto HasNonDivBySizeUses = [this](Value *V, uint64_t Size) {
       for (auto *U : V->users()) {
         if (auto *BinOp = dyn_cast<BinaryOperator>(U)) {
           if (BinOp->getOpcode() != Instruction::SDiv &&
@@ -2390,6 +3040,12 @@ public:
           if (BinOp->getOperand(0) != V)
             return true;
           if (!dtrans::isValueMultipleOfSize(BinOp->getOperand(1), Size))
+            return true;
+          continue;
+        } else if (auto *Call = dyn_cast<CallBase>(U)) {
+          // NOTE: This can be relaxed in the future to check if the
+          // call is not an alloc function (AK_NotAlloc).
+          if (PTA.getAllocationCallKind(Call) != dtrans::AK_New)
             return true;
           continue;
         }
@@ -2405,21 +3061,15 @@ public:
       assert(Sub.getOpcode() == Instruction::Sub &&
              "AnalyzeSubtraction() called with unexpected opcode");
 
-      Value *LHS = Sub.getOperand(0);
-      Value *RHS = Sub.getOperand(1);
-      ValueTypeInfo *LHSInfo = PTA.getValueTypeInfo(LHS);
-      ValueTypeInfo *RHSInfo = PTA.getValueTypeInfo(RHS);
+      ValueTypeInfo *LHSInfo = PTA.getValueTypeInfo(&Sub, 0);
+      ValueTypeInfo *RHSInfo = PTA.getValueTypeInfo(&Sub, 1);
       // The PointerTypeAnalyzer may create a ValueTypeInfo for scalar types
       // that never get used, so we need to check if they exist and are
       // non-empty to determine whether the instruction needs to be analyzed.
       if ((!LHSInfo || LHSInfo->empty()) && (!RHSInfo || RHSInfo->empty()))
         return;
 
-      if (!LHSInfo || !RHSInfo) {
-        if (LHSInfo)
-          setAllAliasedAndPointeeTypeSafetyData(
-              LHSInfo, dtrans::BadPtrManipulation,
-              "Subtraction between pointer and non-pointer", &Sub);
+      if (!LHSInfo) {
         if (RHSInfo)
           setAllAliasedAndPointeeTypeSafetyData(
               RHSInfo, dtrans::BadPtrManipulation,
@@ -2427,6 +3077,38 @@ public:
         return;
       }
 
+      if (!RHSInfo && isa<ConstantInt>(Sub.getOperand(1)) && Sub.hasOneUse()) {
+        // Check if the RHSInfo can be found as part of a subtraction chain to
+        // support some simple cases where reassociation was done on the
+        // subtract chain when a constant integer is involved. For example:
+        //   %tmp = sub i64 %t1, 8
+        //   %offset = sub i64 %tmp, %t2
+        //
+        // TODO: This could be extended to also support:
+        //   %tmp = sub i64 %t2, 8
+        //   %offset = sub i64 %t1, %tmp
+        //
+        // Note: This should only be allowed for ptr-to-ptr types because the
+        // transformations do not support modifying a constant operand that is
+        // part of the subtraction chain. Those cases will be marked as
+        // "Bad pointer manipulation" because the subtract does not feed a
+        // divide operation.
+        DTransType *DomTy = PTA.getDominantAggregateUsageType(*LHSInfo);
+        if (DomTy && isPtrToPtr(DomTy))
+          if (auto *U = dyn_cast<BinaryOperator>(*Sub.user_begin()))
+            if (U->getOpcode() == Instruction::Sub && U->getOperand(0) == &Sub)
+              RHSInfo = PTA.getValueTypeInfo(U, 1);
+      }
+
+      if (!RHSInfo) {
+        if (LHSInfo)
+          setAllAliasedAndPointeeTypeSafetyData(
+              LHSInfo, dtrans::BadPtrManipulation,
+              "Subtraction between pointer and non-pointer", &Sub);
+        return;
+      }
+
+      // We now have LHSInfo and RHSInfo. Check for safety flags to be set.
       if (LHSInfo->pointsToSomeElement() || RHSInfo->pointsToSomeElement()) {
         setAllElementPointeeSafetyData(
             LHSInfo, dtrans::BadPtrManipulation,
@@ -2781,9 +3463,8 @@ public:
       auto *AT2 = cast<DTransArrayType>(T2);
       if (AT1->getNumElements() != AT2->getNumElements())
         return false;
-      return typesMayBeCRuleCompatibleX(AT1->getElementType(),
-                                        AT2->getElementType(),
-                                        Tstack, IgnorePointees);
+      return typesMayBeCRuleCompatibleX(
+          AT1->getElementType(), AT2->getElementType(), Tstack, IgnorePointees);
     }
 
     // Two struct Types are compatible if they have the same number of
@@ -3093,8 +3774,7 @@ public:
             } else {
               setAllAliasedTypeSafetyData(
                   ParamInfo, dtrans::UnhandledUse,
-                  "Value passed to unanalyzable broker function",
-                  &Call);
+                  "Value passed to unanalyzable broker function", &Call);
             }
           }
         }
@@ -3266,6 +3946,17 @@ public:
         if (DomTy)
           continue;
 
+        // If the pointer was declared as a base type, but an actual parameter
+        // used it as a padded type, then we are going to set
+        // BadCastingForRelatedTypes.
+        if (isLegalRelatedTypeUse(*ParamInfo)) {
+          setAllAliasedTypeSafetyData(ParamInfo,
+              dtrans::BadCastingForRelatedTypes,
+              "Formal parameter is a related type of the actual parameter, "
+              "or vice-versa", &Call, DumpCallback);
+          continue;
+        }
+
         setAllAliasedTypeSafetyData(ParamInfo, dtrans::BadCasting,
                                     "Incorrect type passed to local function",
                                     &Call, DumpCallback);
@@ -3297,7 +3988,7 @@ public:
         auto &Aliases =
             ParamInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
         for (auto *AliasTy : Aliases) {
-          if (DTInfo.getDTransUseCRuleCompat() && !HasICMatch && 
+          if (DTInfo.getDTransUseCRuleCompat() && !HasICMatch &&
               !mayHaveDistinctCompatibleCType(AliasTy))
             continue;
           setBaseTypeInfoSafetyData(AliasTy, dtrans::AddressTaken,
@@ -3392,6 +4083,609 @@ public:
     }
   }
 
+  // Return true if the binary operator is a division between the input
+  // Value and the input Size. Also, the division needs to be set as exact.
+  bool isValidDivision(BinaryOperator *BinOp, Value *V, uint64_t Size) {
+    if (!BinOp || !V)
+      return false;
+
+    if (BinOp->getOpcode() != Instruction::SDiv &&
+        BinOp->getOpcode() != Instruction::UDiv)
+      return false;
+
+    if (BinOp->getOperand(0) != V)
+      return false;
+
+    if (auto *Inst = dyn_cast<Instruction>(BinOp))
+      if (!Inst->isExact())
+        return false;
+
+    return dtrans::isValueMultipleOfSize(BinOp->getOperand(1), Size);
+  }
+
+  // Return true if the input call is a call to an alloc site and the
+  // allocation size is set by a subtraction. The result of the subtraction
+  // needs to be guarded with a check that is divisible by SizeOfStruct, as
+  // well there needs to be a check if it is equal to zero and greater than
+  // a positive integer that represents a limit. For example:
+  //
+  //   %class.MainClass.base = type { [4 x i32], i32}
+  //   %class.TestClass.Inner = type { %class.MainClass.base, [4 x i8] }
+  //   entry:
+  //     ...
+  //     %7 = sub i64 %5, %6
+  //     %8 = sdiv exact i64 %7, 24
+  //     %9 = icmp eq i64 %8, 0
+  //     br i1 %9, label %invoke.good, label %is.not.zero.br
+  //
+  //   is.not.zero.br:
+  //     %10 = icmp ugt i64 %8, 1092816592044404
+  //     br i1 %10, label %is.out.of.bounds.br, label %call.to.new.br
+  //
+  //   is.out.of.bounds.br:
+  //     br label %exit
+  //
+  //   call.to.new.br:
+  //     %11 = invoke noalias noundef nonnull ptr @_Znwm(i64 noundef %7)
+  //             to label %invoke.good unwind label %unwind.br
+  //
+  // Assume that %11 is the call to "new" that we are analyzing, and the size
+  // we are allocating is 24 bytes (size of %class.TestClass.Inner). This
+  // function will check that the input size to new (%7) is a subtraction, the
+  // result of the subtraction is divisible by 24 (%8), and the result of the
+  // division is checked if it is equal to 0 (%9) or a max integer limit (%10).
+  // This kind of memory space allocation usually happens when adding a new
+  // entry into a vector.
+  bool subForAllocIsGuarded(CallBase *Call, dtrans::AllocKind Kind,
+                            uint64_t SizeOfStruct) {
+    if (!Call || SizeOfStruct == 0)
+      return false;
+
+    const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
+    unsigned AllocSizeInd = 0;
+    unsigned AllocCountInd = 0;
+    getAllocSizeArgs(Kind, Call, AllocSizeInd, AllocCountInd, TLI);
+
+    // First collect the dominant type for the subtraction
+    BinaryOperator *Sub =
+        dyn_cast<BinaryOperator>(Call->getArgOperand(AllocSizeInd));
+
+    if (!Sub || Sub->getOpcode() != Instruction::Sub)
+      return false;
+
+    // Now we are going to check that the subtraction is properly guarded, this
+    // means that it should be a multiple of the structure size (call to div
+    // with exact), a check with 0, and a check with a positive integer for
+    // checking with max.
+    bool SubOpIsGuarded = false;
+    for (User *U : Sub->users()) {
+      if (auto *BinOp = dyn_cast<BinaryOperator>(U)) {
+        // If the user is a binary operation then it has to be division.
+        if (!SubOpIsGuarded) {
+          if (isValidDivision(BinOp, Sub, SizeOfStruct)) {
+            // Check that the division is guarded
+            bool ZeroFound = false;
+            bool PositiveFound = false;
+            for (User * DivU : BinOp->users()) {
+              // Check if it is comparing against positive numbers.
+              // These instructions can be used to ensure limits.
+              if (auto *ICmp = dyn_cast<ICmpInst>(DivU)) {
+                ConstantInt *Const = nullptr;
+                if (BinOp == ICmp->getOperand(0))
+                  Const = dyn_cast<ConstantInt>(ICmp->getOperand(1));
+                else
+                  Const = dyn_cast<ConstantInt>(ICmp->getOperand(0));
+
+                if (!Const)
+                  return false;
+
+                // Check if the compare is against 0 (Size == 0) or if size
+                // is larger than the max (Size > max or max < Size). These
+                // checks secure that the number passed to "new" is greater
+                // than 0 and smaller than a limit.
+                auto ICmpPredicate = ICmp->getPredicate();
+                if (Const->isZero())
+                  ZeroFound = ICmpPredicate == ICmpInst::ICMP_EQ;
+                else if (!Const->isNegative())
+                  PositiveFound = (Const == ICmp->getOperand(1)) ?
+                                  ICmpPredicate == ICmpInst::ICMP_UGT :
+                                  ICmpPredicate == ICmpInst::ICMP_ULT;
+                else
+                  return false;
+              }
+            }
+            SubOpIsGuarded = ZeroFound && PositiveFound;
+          } else {
+            return false;
+          }
+        } else {
+          return false;
+        }
+      } else if (auto *UserCall = dyn_cast<CallBase>(U)) {
+        // If there is a call site then it has to be the same as the input
+        // call
+        if (Call != UserCall)
+          return false;
+      } else {
+        // Else, the input Value is used for something we don't know.
+        return false;
+      }
+    }
+
+    // Return if we found that the sub operation is guarded properly.
+    return SubOpIsGuarded;
+  }
+
+  // Return the dominant aggregate type that is used to set the number of
+  // entries that will be allocated when calling "new". For example:
+  //
+  //   %class.MainClass = type { [4 x i32], i32, [4 x i8]}
+  //   %class.MainClass.base = type { [4 x i32], i32}
+  //
+  //   %class.TestClass.Outer = type { %class.TestClass.Inner,
+  //                                   %class.TestClass.Inner_vect}
+  //   %class.TestClass.Inner = type { %class.MainClass.base, [4 x i8] }
+  //
+  //   %class.TestClass.Inner_vect = type { %class.TestClass.Inner_vect_imp,
+  //                                        %class.TestClass.Inner_vect_imp,
+  //                                        %class.TestClass.Inner_vect_imp}
+  //   %class.TestClass.Inner_vect_imp = type { ptr, ptr, ptr }
+  //
+  //   ; %class.TestClass.Inner_vect_imp = type { %class.TestClass.Inner*,
+  //   ;                                          %class.TestClass.Inner*,
+  //   ;                                          %class.TestClass.Inner* }
+  //
+  //   entry:
+  //     %1 = getelementptr inbounds %class.TestClass.Outer, ptr %ptr2,
+  //                                                         i64 0, i32 1
+  //     %2 = getelementptr inbounds %class.TestClass.Inner_vect, ptr %1,
+  //                                                              i64 0, i32 1
+  //     %3 = load ptr, ptr %2
+  //     %4 = load ptr, ptr %1
+  //     %5 = ptrtoint ptr %3 to i64
+  //     %6 = ptrtoint ptr %4 to i64
+  //     %7 = sub i64 %5, %6
+  //     %8 = sdiv exact i64 %7, 24
+  //     %9 = tail call i64 @llvm.umax.i64(i64 %8, i64 1)
+  //     %10 = add nsw i64 %9, %8
+  //     %11 = icmp ult i64 %10, %8
+  //     %12 = icmp ugt i64 %10, 1092816592044404
+  //     %13 = or i1 %11, %12
+  //     %14 = select i1 %13, i64 1092816592044404, i64 %10
+  //     %15 = icmp eq i64 %14, 0
+  //     br i1 %15, label %call.to.new, label %continue.br
+  //
+  //   call.to.new:
+  //     %16 = mul nuw nsw i64 %14, 24
+  //     %17 = tail call noalias noundef nonnull ptr @_Znwm(i64 noundef %16)
+  //
+  // Assume that we are analyzing the call to new in %17. The input argument
+  // to the call is %16, a multiplication of a constant that represents the
+  // size of the structure (24 bytes) and a variable that represents the
+  // number of entries that is going to be reserved (%14). We are
+  // going to collect the dominant aggregate type that is used to identify
+  // the size of the structure and the number of entries needed
+  // (%class.TestClass.Inner). This is common when allocating new entries into
+  // an std::vector.
+  //
+  // The inputs for this function are a Value that represents the variable
+  // that is going to be analyzed (%14 from the example above) and an unsigned
+  // integer that represents the structure size (24 from the example).
+  DTransType* getPossibleDominantTypeFromVal(Value *Op, uint64_t SizeOfStruct) {
+    if (!Op || SizeOfStruct == 0)
+      return nullptr;
+
+    Value *VarVal = nullptr;
+
+    // The operand is a select instruction (%14 from the example) that chooses
+    // between a constant that represents a limit and a variable. We are going
+    // to chase this variable to prove that it is produced by a binary operation
+    // between two pointers with the same dominant aggregate type.
+    //
+    // NOTE: Perhaps in the future we can expand the analysis for other cases.
+    if (auto *Sel = dyn_cast<SelectInst>(Op)) {
+      if (isa<ConstantInt>(Sel->getTrueValue()) &&
+          !isa<ConstantInt>(Sel->getFalseValue()))
+        VarVal = Sel->getFalseValue();
+      else if (!isa<ConstantInt>(Sel->getTrueValue()) &&
+          isa<ConstantInt>(Sel->getFalseValue()))
+        VarVal = Sel->getTrueValue();
+      else
+        return nullptr;
+    }
+
+    if (!VarVal)
+      return nullptr;
+
+    // We need to find the division used for ensuring that the binary operation
+    // between the two pointers will always be a multiple of the structure size
+    // (SizeOfStruct). From the example above, we are going to find %8.
+    BinaryOperator *DivOp = nullptr;
+    if (auto *BinOp = dyn_cast<BinaryOperator>(VarVal)) {
+      // We need to check first if the operand collected from the select
+      // instruction is not a division (%10 from the example). This means that
+      // the result of the division is being expanded to reserve the space for
+      // multiple entries.
+      //
+      // The binary operation between the select instruction and the division
+      // works for addition, and perhaps for multiplication. This is because
+      // the operation is expanding the number of entries to be allocated.
+      // This may need to be revised in case there is any other operation
+      // (e.g. division is not behind the addition).
+      auto BinOpcode = BinOp->getOpcode();
+      if (BinOpcode != Instruction::Add)
+        return nullptr;
+
+      // Find the division through operand 0 or 1.
+      bool OPZeroIsDiv = false;
+      bool OPOneIsDiv = false;
+      auto *OPZeroBin = dyn_cast<BinaryOperator>(BinOp->getOperand(0));
+      auto *OPOneBin = dyn_cast<BinaryOperator>(BinOp->getOperand(1));
+
+      if (OPZeroBin)
+        OPZeroIsDiv =
+          isValidDivision(OPZeroBin, OPZeroBin->getOperand(0), SizeOfStruct);
+
+      if (OPOneBin)
+        OPOneIsDiv =
+          isValidDivision(OPOneBin, OPOneBin->getOperand(0), SizeOfStruct);
+
+      if (OPZeroIsDiv == OPOneIsDiv)
+        return nullptr;
+      else if (OPZeroIsDiv)
+        DivOp = OPZeroBin;
+      else
+        DivOp = OPOneBin;
+    }
+
+    if (!DivOp)
+      return nullptr;
+
+    // The division guards a subtraction between two pointers (%7 from the
+    // example above).
+    auto *PtrSub = dyn_cast<BinaryOperator>(DivOp->getOperand(0));
+    if (!PtrSub || PtrSub->getOpcode() != Instruction::Sub)
+      return nullptr;
+
+    // Both pointers, %6 and %5 from the example above, must have the same
+    // dominant aggregate type.
+    ValueTypeInfo *OperandZeroInfo =
+        PTA.getValueTypeInfo(PtrSub->getOperand(0));
+    ValueTypeInfo *OperandOneInfo =
+        PTA.getValueTypeInfo(PtrSub->getOperand(1));
+    if (!OperandZeroInfo || !OperandOneInfo)
+      return nullptr;
+
+    DTransType *OPZeroDomTy =
+        PTA.getDominantAggregateUsageType(*OperandZeroInfo);
+    DTransType *OPOneDomTy =
+        PTA.getDominantAggregateUsageType(*OperandOneInfo);
+
+    if (!OPZeroDomTy || !OPOneDomTy || OPZeroDomTy != OPOneDomTy ||
+        !OPZeroDomTy->isPointerTy())
+      return nullptr;
+
+    return OPZeroDomTy;
+  }
+
+  // Return true if the input call is a call to an alloc function that uses
+  // a binary operation to compute the size of the memory space that needs
+  // to be allocated. The call won't have a dominant aggregate type because
+  // the pointer to the allocated space will be used (like casted) as a
+  // related type. For example:
+  //
+  //   %class.MainClass = type { [4 x i32], i32, [4 x i8]}
+  //   %class.MainClass.base = type { [4 x i32], i32}
+  //
+  //   %class.TestClass.Outer = type { %class.TestClass.Inner,
+  //                                   %class.TestClass.Inner_vect}
+  //   %class.TestClass.Inner = type { %class.MainClass.base, [4 x i8] }
+  //
+  //   %class.TestClass.Inner_vect = type { %class.TestClass.Inner_vect_imp,
+  //                                        %class.TestClass.Inner_vect_imp,
+  //                                        %class.TestClass.Inner_vect_imp}
+  //   %class.TestClass.Inner_vect_imp = type { ptr, ptr, ptr }
+  //
+  //   ; %class.TestClass.Inner_vect_imp = type { %class.TestClass.Inner*,
+  //   ;                                          %class.TestClass.Inner*,
+  //   ;                                          %class.TestClass.Inner* }
+  //
+  //   entry:
+  //     %1 = getelementptr inbounds %class.TestClass.Outer, ptr %ptr2, i64 0,
+  //                                                                    i32 1
+  //     %2 = getelementptr inbounds %class.TestClass.Inner_vect, ptr %1,
+  //                                 i64 0, i32 1
+  //     %3 = load ptr, ptr %2
+  //     %4 = load ptr, ptr %1
+  //     %5 = ptrtoint ptr %3 to i64
+  //     %6 = ptrtoint ptr %4 to i64
+  //     %7 = sub i64 %5, %6
+  //     %8 = sdiv exact i64 %7, 24
+  //     %9 = icmp eq i64 %8, 0
+  //     br i1 %9, label %invoke.good, label %is.not.zero.br
+  //
+  //   is.not.zero.br:
+  //     %10 = icmp ugt i64 %8, 1092816592044404
+  //     br i1 %10, label %is.out.of.bounds.br, label %call.to.new.br
+  //
+  //   is.out.of.bounds.br:
+  //     br label %exit
+  //
+  //   call.to.new.br:
+  //     %11 = invoke noalias noundef nonnull ptr @_Znwm(i64 noundef %7)
+  //             to label %invoke.good unwind label %unwind.br
+  //
+  //   invoke.good:
+  //     %12 = phi ptr [ null, %entry ], [ %11, %call.to.new.br ]
+  //     store ptr %12, ptr %0
+  //     %13 = getelementptr inbounds %class.TestClass.Inner_vect, ptr %0,
+  //                                  i64 0, i32 1
+  //     store ptr %12, ptr %13
+  //     %14 = getelementptr inbounds %class.MainClass, ptr %12, i64 %8
+  //     br label %exit
+  //
+  // Assume that we are analyzing the call to new in %11. The value type info
+  // for the call will be:
+  //
+  //   [foo]   %11 = invoke noalias noundef nonnull ptr @_Znwm(i64 noundef %7)
+  //           to label %invoke.good unwind label %unwind.br
+  //     LocalPointerInfo: CompletelyAnalyzed
+  //     Declared Types:
+  //       Aliased types:
+  //         %class.MainClass*
+  //         %class.TestClass.Inner*
+  //         i8*
+  //       No element pointees.
+  //     Usage Types:
+  //       Aliased types:
+  //         %class.MainClass*
+  //         %class.TestClass.Inner*
+  //         i8*
+  //
+  // This function will check for the following:
+  //
+  //   * There won't be a dominant aggregate type because %class.MainClass is
+  //     not a zero element access of %class.TestClass.Inner and the pointer
+  //     to the new memory space is used as %class.MainClass in %14.
+  //   * The input value to the call new is a binary operation (instruction %7)
+  //     between two pointers (%5 and %6).
+  //   * The dominant aggregate types for these two pointers are the same
+  //     (%class.TestClass.Inner*).
+  //   * Prove that the result of the binary operation will be a multiple
+  //     of the interested structure (%class.TestClass.Inner). More details
+  //     about this in the comments of function subForAllocIsGuarded.
+  //   * The structure of interest is in the Declared Types and Used Types
+  //     lists, and all the types in these lists are zero element access
+  //     and/or related types.
+  //        - %class.TestClass.Inner[0] -> %class.MainClass.base
+  //        - %class.MainClass.base -related to- %class.MainClass
+  //
+  // Once all these conditions are completed, then it means that the call to
+  // new is allocating a new memory space with the size of the structure of
+  // interest (%class.TestClass.Inner), but the zero element is casted to
+  // its related type, therefore the dominant aggregate type can't be
+  // collected.
+  bool sizeOfAllocSiteIsLegalForRelatedTypes(CallBase *Call,
+                                             dtrans::AllocKind Kind) {
+
+    // Return the possible dominant type for the input VarOperand if it
+    // is available, else return nullptr.
+    auto GetDominantTypeFromOperands =
+        [this](Value *VarOp, ConstantInt *ConstOp) -> DTransType * {
+      assert(VarOp && "Trying to get the dominant type for a null value");
+      assert(ConstOp && "Trying to get the dominant type without constant");
+
+      if (ConstOp->isZero())
+        return nullptr;
+
+      uint64_t MultipleOp = ConstOp->getZExtValue();
+      ValueTypeInfo *OperandInfo = PTA.getValueTypeInfo(VarOp);
+      if (!OperandInfo)
+        return nullptr;
+
+      DTransType *OPDomTy = nullptr;
+      if (auto *DomTy = PTA.getDominantAggregateUsageType(*OperandInfo)) {
+        // If the variable has a dominant aggregate type then use it.
+        OPDomTy = DomTy;
+      } else {
+        // Else try computing the dominant aggregate type.
+        OPDomTy =
+            getPossibleDominantTypeFromVal(VarOp, MultipleOp);
+      }
+
+      return OPDomTy;
+    };
+
+    // If the input DTransType is a pointer to a structure, then return the
+    // size of the structure, else return 0.
+    auto GetStructureSize = [this](DTransType *StructPtr) -> uint64_t {
+      if (!StructPtr->isPointerTy())
+        return 0;
+
+      uint64_t SizeOfStruct = 0;
+      auto *STType =
+          dyn_cast<DTransStructType>(StructPtr->getPointerElementType());
+      if (STType) {
+        Type *StructLLVMType = STType->getLLVMType();
+        SizeOfStruct = DL.getTypeAllocSize(StructLLVMType);
+      }
+
+      return SizeOfStruct;
+    };
+
+    if (!Call)
+      return false;
+
+    const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
+    unsigned AllocSizeInd = 0;
+    unsigned AllocCountInd = 0;
+    getAllocSizeArgs(Kind, Call, AllocSizeInd, AllocCountInd, TLI);
+    Value *SizeArg = Call->getArgOperand(AllocSizeInd);
+
+    if (!SizeArg)
+      return false;
+
+    ValueTypeInfo *CallInfo = PTA.getValueTypeInfo(Call);
+    if (!CallInfo || !CallInfo->isCompletelyAnalyzed())
+      return false;
+
+    // If there is a dominant aggregate type then exit. There is another
+    // process that checks for that case. This function is for handling the
+    // case when we have related types in the list of declared and used
+    // aliases. CallInfo won't have a dominant aggregate type in this case.
+    //
+    // NOTE: This condition may be relaxed in the future in case we may need to
+    // process the same analysis for a call with dominant aggregate type.
+    auto *CallDomTy = PTA.getDominantAggregateUsageType(*CallInfo);
+    if (CallDomTy)
+      return false;
+
+    // If the input size is a constant integer, then we are going to prove that
+    // one of the aliases for declaration covers the rest of the aliases
+    // through the zero element, and the size is the same as the constant. For
+    // example, assume that the IR contains the following types and
+    // instructions:
+    //
+    //   %class.MainClass = type { [4 x i32], i32, [4 x i8]}
+    //   %class.MainClass.base = type { [4 x i32], i32}
+    //
+    //   %class.TestClass.Outer = type { %class.TestClass.Inner }
+    //   %class.TestClass.Inner = type { %class.MainClass.base, [4 x i8] }
+    //
+    //   %1 = tail call noalias noundef nonnull ptr @_Znwm(i64 24)
+    //   %2 = getelementptr inbounds %class.TestClass.Inner, ptr %1, i64 0,
+    //                                                       i32 0
+    //   %3 = getelementptr inbounds %class.MainClass, ptr %1, i64 0, i32 0
+    //
+    // The pointer to the new allocated memory space (%1) won't have a dominant
+    // aggregate type since it is used as %class.TestClass.Inner* (%2) and
+    // %class.MainClass* (%3), and %class.MainClass is not a zero element of
+    // %class.TestClass.Inner. The ValueTypeInfo for the call to new will be
+    // the following:
+    //
+    //   LocalPointerInfo: CompletelyAnalyzed
+    //   Declared Types:
+    //     Aliased types:
+    //       %class.MainClass*
+    //       %class.TestClass.Inner*
+    //       i8*
+    //     No element pointees.
+    //   Usage Types:
+    //     Aliased types:
+    //       %class.MainClass*
+    //       %class.TestClass.Inner*
+    //       i8*
+    //     No element pointees.
+    //
+    // We are going to prove that traversing the zero element of
+    // %class.TestClass.Inner we will reach to a type that is related to
+    // %class.MainClass (%class.MainClass.base), and that the input to
+    // new (24) is the same as the size of %class.TestClass.Inner.
+    if (ConstantInt *ConstArg = dyn_cast<ConstantInt>(SizeArg)) {
+      DTransType *EnclosingParentDecl = getEnclosingParentDeclType(*CallInfo);
+      if (!EnclosingParentDecl || !EnclosingParentDecl->isPointerTy())
+        return false;
+
+      uint64_t SizeOfStruct = GetStructureSize(EnclosingParentDecl);
+      if (SizeOfStruct == 0)
+        return false;
+
+      return ConstArg->equalsInt(SizeOfStruct);
+    }
+
+    // This analysis is only for binary operations.
+    BinaryOperator *BinOp = dyn_cast<BinaryOperator>(SizeArg);
+    if (!BinOp)
+      return false;
+
+    // Collect the dominant aggregate type for the binary operation.
+    DTransType *OperandsDomType = nullptr;
+    ConstantInt *ConstOperand = nullptr;
+    if (isa<ConstantInt>(BinOp->getOperand(0)) &&
+        !isa<ConstantInt>(BinOp->getOperand(1))) {
+      // Operand 0 is a constant and operand 1 is not a constant
+      ConstOperand = cast<ConstantInt>(BinOp->getOperand(0));
+      OperandsDomType =
+          GetDominantTypeFromOperands(BinOp->getOperand(1), ConstOperand);
+    } else if (!isa<ConstantInt>(BinOp->getOperand(0)) &&
+        isa<ConstantInt>(BinOp->getOperand(1))) {
+      // Operand 0 is not a constant and operand 1 is a constant
+      ConstOperand = cast<ConstantInt>(BinOp->getOperand(1));
+      OperandsDomType =
+          GetDominantTypeFromOperands(BinOp->getOperand(0), ConstOperand);
+    } else if (!isa<ConstantInt>(BinOp->getOperand(0)) &&
+        !isa<ConstantInt>(BinOp->getOperand(1))) {
+      // If both operands aren't constant then the dominant aggregate types
+      // need be the same for both operands.
+      ValueTypeInfo *OperandZeroInfo =
+          PTA.getValueTypeInfo(BinOp->getOperand(0));
+      ValueTypeInfo *OperandOneInfo =
+          PTA.getValueTypeInfo(BinOp->getOperand(1));
+
+      if (!OperandZeroInfo || !OperandOneInfo)
+        return false;
+
+      DTransType *OPZeroDomTy =
+          PTA.getDominantAggregateUsageType(*OperandZeroInfo);
+      DTransType *OPOneDomTy =
+          PTA.getDominantAggregateUsageType(*OperandOneInfo);
+
+      if (!OPZeroDomTy || !OPOneDomTy || OPZeroDomTy != OPOneDomTy ||
+          !OPZeroDomTy->isPointerTy())
+        return false;
+
+      OperandsDomType = OPZeroDomTy;
+    } else {
+      // Return false if both operands are constants. This may be relaxed in
+      // the future.
+      return false;
+    }
+
+    // Return false if we couldn't collect any dominant aggregate type from
+    // the binary operation.
+    if (!OperandsDomType || !OperandsDomType->isPointerTy())
+      return false;
+
+    // Now collect the size that is being allocated
+    uint64_t SizeOfStruct = GetStructureSize(OperandsDomType);
+    if (SizeOfStruct == 0)
+      return false;
+
+    // Check if the size is computed using a subtraction
+    if (BinOp->getOpcode() == Instruction::Sub) {
+      if (!subForAllocIsGuarded(Call, Kind, SizeOfStruct))
+        return false;
+    } else if (BinOp->getOpcode() == Instruction::Mul) {
+      // Check if the constant value used in the multiplication is the same as
+      // the structure's size
+      if (!ConstOperand || !ConstOperand->equalsInt(SizeOfStruct))
+        return false;
+    } else {
+      return false;
+    }
+
+    // If we reach here it means that we know that the size of the allocation
+    // site will be a multiple of SizeOfStruct. Now we need to check if the
+    // operands' type is in the lists of declared and used aliases of the
+    // pointer to the new allocated space. Also, the operands' type must
+    // encapsulate through the zero element all the aliases and/or aliases'
+    // related types.
+    ValueTypeInfo::PointerTypeAliasSetRef &DeclAliases =
+        CallInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl);
+    ValueTypeInfo::PointerTypeAliasSetRef &UsedAliases =
+        CallInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
+
+    if (DeclAliases.find(OperandsDomType) == DeclAliases.end() ||
+        UsedAliases.find(OperandsDomType) == UsedAliases.end())
+      return false;
+
+    if (!allAliasesAreZeroElement(OperandsDomType, DeclAliases) ||
+        !allAliasesAreZeroElement(OperandsDomType, UsedAliases))
+      return false;
+
+    return true;
+  }
+
   // For an allocation call, we want to check that the value produced does not
   // get used as multiple types. Also, collect information for use by the
   // transformations that need to rewrite allocation and free calls. This is
@@ -3442,8 +4736,21 @@ public:
 
     DTransType *DomTy = PTA.getDominantAggregateUsageType(*Info);
     if (!DomTy) {
-      setAllAliasedTypeSafetyData(Info, dtrans::BadCasting,
-                                  "Allocation of ambiguous type", Call);
+      if (sizeOfAllocSiteIsLegalForRelatedTypes(Call, Kind)) {
+        // Set as BadCastingForRelatedTypes since we don't have a dominant
+        // aggregate type due to related types, but we prove that the alloc
+        // size is correct. We can't fully ignore the bad casting here because
+        // there is a chance that two related types can be set as unrelated.
+        // If this happens, the BadCastingForRelatedTypes will be converted
+        // as BadCasting. Ignoring the bad casting could produce that the
+        // safety violation is not properly set once the relationship is
+        // broken.
+        setAllAliasedTypeSafetyData(Info, dtrans::BadCastingForRelatedTypes,
+                                    "Allocation includes related types", Call);
+      } else {
+        setAllAliasedTypeSafetyData(Info, dtrans::BadCasting,
+                                    "Allocation of ambiguous type", Call);
+      }
       return;
     }
 
@@ -3500,13 +4807,19 @@ public:
     uint64_t Res;
     dtrans::TypeInfo *TI = DTInfo.getTypeInfo(AllocType);
     bool EndsInZeroSizedArray = TI ? TI->hasZeroSizedArrayAsLastField() : false;
-    if (!dtrans::isValueConstant(AllocSizeVal, &Res) &&
-        dtrans::traceNonConstantValue(AllocSizeVal, ElementSize,
+    if (!dtrans::isValueConstant(AllocSizeVal, &Res)) {
+      if (dtrans::traceNonConstantValue(AllocSizeVal, ElementSize,
                                       EndsInZeroSizedArray)) {
-      setBaseTypeInfoSafetyData(AllocType, dtrans::ComplexAllocSize,
-                                "Allocation is not direct multiple of size",
-                                Call);
-      return true;
+        setBaseTypeInfoSafetyData(AllocType, dtrans::ComplexAllocSize,
+                                  "Allocation is not direct multiple of size",
+                                  Call);
+        return true;
+      } else if (subForAllocIsGuarded(Call, Kind, ElementSize)) {
+        // Return true if the input for the call to new is given by a
+        // subtraction whose result will be a multiple of the structure's
+        // size.
+        return true;
+      }
     }
 
     return false;
@@ -3600,6 +4913,54 @@ public:
       setAllAliasedAndPointeeTypeSafetyData(Info, dtrans::UnhandledUse,
                                             "Value passed to intrinsic", &I);
     }
+  }
+
+  // Return true if the input Value SetSize represents the size of the
+  // structure DTType. If not, then traverse through the zero element of the
+  // structure and check if the field's size is the same as SetSize. Else
+  // return false.
+  bool isSizeOfStructOrZeroElement(Value *SetSize, DTransType *DTType) {
+    if (!SetSize || !DTType)
+      return false;
+
+    if (dtrans::isValueEqualToSize(SetSize, 0))
+      return false;
+
+    DTransStructType *DTStruct = nullptr;
+    if (DTType->isPointerTy())
+      DTStruct = dyn_cast<DTransStructType>(DTType->getPointerElementType());
+    else
+      DTStruct = dyn_cast<DTransStructType>(DTType);
+
+    if (!DTStruct)
+      return false;
+
+    llvm::Type *StrLLVMTy = DTStruct->getLLVMType();
+    if (!StrLLVMTy->isSized())
+      return false;
+
+    uint64_t ElementSize = DL.getTypeAllocSize(StrLLVMTy);
+    if (ElementSize == 0)
+      return false;
+
+    if (dtrans::isValueEqualToSize(SetSize, ElementSize))
+      return true;
+
+    dtrans::MemfuncRegion RegionDesc;
+    llvm::StructType *CurrLLVMTy = cast<StructType>(StrLLVMTy);
+    while (CurrLLVMTy) {
+      if (analyzePartialStructUse(DL, CurrLLVMTy, /*FieldNum =*/ 0,
+                                  /*PrePadBytes = */ 0, SetSize,
+                                  &RegionDesc))
+        return true;
+
+      if (CurrLLVMTy->getNumElements() == 0)
+        return false;
+
+      CurrLLVMTy = dyn_cast<StructType>(CurrLLVMTy->getElementType(0));
+    }
+
+    return false;
   }
 
   // Check the destination of a call to memset for safety.
@@ -3716,6 +5077,40 @@ public:
 
     auto DestParentTy = PTA.getDominantAggregateUsageType(*DstInfo);
     if (!DestParentTy || !DestParentTy->isPointerTy()) {
+      // If we don't have a dominant aggregate type, but we know the type that
+      // encloses all the declaration and use aliases, and related types, then
+      // we are going to set BadMemFuncManipulationForRelatedTypes.
+      // For example:
+      //
+      // %struct.test.a = type { i32, i32, [4 x i8] }
+      // %struct.test.a.base = type { i32, i32 }
+      //
+      // %class.TestClass.Outer = type { %struct.test.a.base, [4 x i8] }
+      //
+      // define void @test01(ptr %ptr) {
+      // entry:
+      //   %0 = getelementptr inbounds %struct.test.a, ptr %ptr, i64 0, i32 0
+      //   %1 = load i32, ptr %0
+      //   call void @llvm.memset.p0i8.i64(ptr %ptr, i8 1, i64 8, i1 false)
+      //   ret void
+      // }
+      //
+      // Assume that the input argument of @test01 is a pointer to
+      // %class.TestClass.Outer. The GEP %0 accesses the field 0 of
+      // %class.TestClass.Outer as %struct.test.a, which is a related type
+      // of %struct.test.a.base. In this case we won't have a dominant
+      // aggregate type for %ptr, but the use is legal for related types.
+      if (auto *DestEnclosingType = getEnclosingParentDeclType(*DstInfo)) {
+        // We need to check that the size used for memset is the same as
+        // the structure's size, or the size of the zero element.
+        if(isSizeOfStructOrZeroElement(SetSize, DestEnclosingType)) {
+            setAllAliasedTypeSafetyData(DstInfo,
+                dtrans::BadMemFuncManipulationForRelatedTypes,
+                "memset used in a structure with related type", &I);
+            return;
+        }
+      }
+
       setAllAliasedTypeSafetyData(DstInfo, dtrans::AmbiguousPointerTarget,
                                   "memset could not identify dominant type",
                                   &I);
@@ -4052,16 +5447,79 @@ public:
     auto SrcParentTy = PTA.getDominantAggregateUsageType(*SrcInfo);
     if (!DestParentTy || !DestParentTy->isPointerTy() || !SrcParentTy ||
         !SrcParentTy->isPointerTy()) {
-      dtrans::SafetyData Data = dtrans::AmbiguousPointerTarget;
-      StringRef Reason = "memcpy/memmove - unidentified type for src or dest";
+      dtrans::SafetyData Data;
+      StringRef Reason;
+
+      // If there is no dominant aggregate type, then check if there is a main
+      // parent structure that encapsulates all the types through the zero
+      // element, and is the same for the source and destination types.
+      // For example:
+      //
+      // %struct.test.a = type { i32, i32, [4 x i8] }
+      // %struct.test.a.base = type { i32, i32 }
+      //
+      // %class.TestClass.Outer = type { %struct.test.a.base, [4 x i8] }
+      //
+      // define void @test01(ptr %ptr, ptr %ptr2) {
+      // entry:
+      //   %0 = getelementptr inbounds %struct.test.a, ptr %ptr, i64 0, i32 0
+      //   %1 = getelementptr inbounds %struct.test.a, ptr %ptr2, i64 0, i32 0
+      //   %2 = load i32, ptr %0
+      //   %3 = load i32, ptr %1
+      //   call void @llvm.memcpy.p0i8.p0i8.i64(ptr %ptr, ptr %ptr2, i64 8,
+      //                                        i1 false)
+      //   ret void
+      // }
+      //
+      // Assume that %ptr and %ptr2 are pointers to %class.TestClass.Outer. The
+      // GEP instructions %0 and %1 use the related type of the zero element,
+      // %struct.test.a. This will indicate that DstInfo and SrcInfo won't have
+      // a dominant aggregate type. Since we know that %class.TestClass.Outer
+      // encloses %struct.test.a.base, and it is a related type to
+      // %struct.test.a, then we are going to mark it a
+      // BadMemFuncManipulationForRelatedTypes.
+      //
+      // NOTE: Perhaps we may want to relax this in the future. The key idea
+      // is to prove that the use (VAT_Use) and declaration (VAT_Decl)
+      // information in DstInfo and SrcInfo are the same, and the size used in
+      // memcpy/memove covers all the types.
+      auto *DestEnclosingType = getEnclosingParentDeclType(*DstInfo);
+      auto *SrcEnclosingType = getEnclosingParentDeclType(*SrcInfo);
+      bool IsSizeLegal = false;
+      if (DestEnclosingType && SrcEnclosingType &&
+          DestEnclosingType->isPointerTy() &&
+          DestEnclosingType == SrcEnclosingType) {
+        // If the source and destination types are the same, then we need to
+        // check that the size passed to memcpy/memmove is the same as the
+        // size of the structure or the zero element.
+        IsSizeLegal =
+            isSizeOfStructOrZeroElement(SetSize, DestEnclosingType);
+      }
+
+      if (IsSizeLegal) {
+        Data = dtrans::BadMemFuncManipulationForRelatedTypes;
+        Reason = "memcpy/memmove - source or destination may contain "
+                 "related types";
+      } else {
+        Data = dtrans::AmbiguousPointerTarget;
+        Reason = "memcpy/memmove - unidentified type for src or dest";
+      }
       setAllAliasedTypeSafetyData(DstInfo, Data, Reason, &I);
       setAllAliasedTypeSafetyData(SrcInfo, Data, Reason, &I);
       return;
     }
 
     if (DestParentTy != SrcParentTy) {
-      dtrans::SafetyData Data = dtrans::BadMemFuncManipulation;
-      StringRef Reason = "memcpy/memmove - different types for src and dest";
+      dtrans::SafetyData Data;
+      StringRef Reason;
+      if (memFuncIsHandlingRelatedTypes(DestParentTy, SrcParentTy, SetSize)) {
+        Data = dtrans::BadMemFuncManipulationForRelatedTypes;
+        Reason = "memcpy/memmove (related types) - copying data from base to "
+                 "padded structure (or vice-versa)";
+      } else {
+        Data = dtrans::BadMemFuncManipulation;
+        Reason = "memcpy/memmove - different types for src and dest";
+      }
       setAllAliasedTypeSafetyData(DstInfo, Data, Reason, &I);
       setAllAliasedTypeSafetyData(SrcInfo, Data, Reason, &I);
       processBadMemFuncManipulation(I, DstInfo);
@@ -4308,6 +5766,109 @@ public:
     markAllFieldsWritten(I, Info);
   }
 
+  // Return true if SrcTy and DestTy are related types, and SetSize is the
+  // same size as the base structure.
+  bool memFuncIsHandlingRelatedTypes(DTransType *DestTy, DTransType *SrcTy,
+                                     Value *SetSize) {
+
+    // Return true if traversing the zero element of ParentStruct we reach
+    // the related type of StructWithRelatedType. Else return false.
+    auto RelatedTypeInZeroElement =
+      [](dtrans::StructInfo *ParentStruct,
+         dtrans::StructInfo *StructWithRelatedType) -> bool {
+
+      DTransStructType *RelatedTy = dyn_cast_or_null<DTransStructType>(
+          StructWithRelatedType->getRelatedType()->getDTransType());
+      if (!RelatedTy)
+        return false;
+
+      DTransStructType *CurrTy =
+          dyn_cast<DTransStructType>(ParentStruct->getDTransType());
+      if (!CurrTy)
+        return false;
+
+      SetVector<DTransStructType *> VisitedTypes;
+      while (CurrTy) {
+        if (!VisitedTypes.insert(CurrTy))
+          return false;
+
+        if (RelatedTy == CurrTy)
+          return true;
+
+        if (CurrTy->getNumFields() == 0)
+          return false;
+
+        if (auto *FieldZero =
+            dyn_cast<DTransStructType>(CurrTy->getFieldType(0)))
+          CurrTy = FieldZero;
+        else
+          CurrTy = nullptr;
+      }
+
+      return false;
+    };
+
+    if (!DestTy || !DestTy->isPointerTy() || !SrcTy || !SrcTy->isPointerTy())
+      return false;
+
+    DTransStructType *DestStruct =
+        dyn_cast<DTransStructType>(DestTy->getPointerElementType());
+    DTransStructType *SrcStruct =
+        dyn_cast<DTransStructType>(SrcTy->getPointerElementType());
+
+    if (!DestStruct || !SrcStruct)
+      return false;
+
+    dtrans::StructInfo *DSTStructInfo =
+        dyn_cast_or_null<dtrans::StructInfo>(DTInfo.getTypeInfo(DestStruct));
+    dtrans::StructInfo *SRCStructInfo =
+        dyn_cast_or_null<dtrans::StructInfo>(DTInfo.getTypeInfo(SrcStruct));
+
+    if (!DSTStructInfo || !SRCStructInfo)
+      return false;
+
+    // Check if traversing the zero element we can reach the related type
+    if (!DSTStructInfo->isUsedForABIPadding() &&
+        SRCStructInfo->isUsedForABIPadding()) {
+      if (RelatedTypeInZeroElement(DSTStructInfo, SRCStructInfo))
+        DSTStructInfo = SRCStructInfo->getRelatedType();
+      else
+        return false;
+    } else if (DSTStructInfo->isUsedForABIPadding() &&
+        !SRCStructInfo->isUsedForABIPadding()) {
+      if (RelatedTypeInZeroElement(SRCStructInfo, DSTStructInfo))
+        SRCStructInfo = DSTStructInfo->getRelatedType();
+      else
+        return false;
+    }
+
+    // If neither of the structures are set for ABI padding then return
+    if (!DSTStructInfo->isUsedForABIPadding() ||
+        !SRCStructInfo->isUsedForABIPadding())
+      return false;
+
+    llvm::Type *BaseStructPtr = nullptr;
+    if (DSTStructInfo->isABIPaddingBaseStructure()) {
+      DTransType *DestPointeeTy = DSTStructInfo->getDTransType();
+      BaseStructPtr = DestPointeeTy->getLLVMType();
+    } else if (SRCStructInfo->isABIPaddingBaseStructure()) {
+      DTransType *SrcPointeeTy = SRCStructInfo->getDTransType();
+      BaseStructPtr = SrcPointeeTy->getLLVMType();
+    }
+
+    if (!BaseStructPtr || !BaseStructPtr->isSized())
+      return false;
+
+    uint64_t ElementSize = DL.getTypeAllocSize(BaseStructPtr);
+
+    // NOTE: This is conservative, it checks if the amount of data that is
+    // being copied is the same size as the base structure. This condition is
+    // not necessary in order to be legal memcpy. Assume that we are copying
+    // just a field from a base structure to a padded structure. If the copy
+    // is within the bounds then it should be OK.
+    return dtrans::isValueEqualToSize(SetSize, ElementSize);
+  }
+
   // For ReturnInst, we need to perform the following checks:
   // - The address of structure is not being returned as a generic type, as this
   // would allow the caller to use the object in a way that is not tracked by
@@ -4420,9 +5981,74 @@ public:
       // Check that the type being returned matches the expected type for the
       // function
       DTransType *PtrDomTy = PTA.getDominantAggregateUsageType(*Info);
-      if (!PtrDomTy)
+
+      if (!PtrDomTy) {
+        // If we don't have a dominant aggregate type, then try checking if
+        // there is a parent type that encapsulates all the declared and used
+        // types through zero element or related types. Also, this type needs
+        // to be the same as the return type. For example:
+        //
+        //   %class.MainClass = type { [4 x i32], i32, [4 x i8]}
+        //   %class.MainClass.base = type { [4 x i32], i32}
+        //
+        //   %class.TestClass.Outer = type { %class.TestClass.Inner}
+        //   %class.TestClass.Inner = type { %class.MainClass.base, [4 x i8] }
+        //
+        //   define dso_local ptr @foo() {
+        //   entry:
+        //     %0 = tail call noalias noundef nonnull ptr @_Znwm(i64 24)
+        //     %1 = getelementptr inbounds %class.TestClass.Outer, ptr %0,
+        //                                                         i64 0, i32 0
+        //     %2 = getelementptr inbounds %class.MainClass, ptr %0, i64 0,
+        //                                                           i32 0
+        //     ret ptr %0
+        //   }
+        //
+        // Assume that the return type of function @foo is a pointer to
+        // %class.TestClass.Outer. The ValueTypeInfo for the return instruction
+        // in @foo() will be the following:
+        //
+        //   LocalPointerInfo: CompletelyAnalyzed
+        //   Declared Types:
+        //     Aliased types:
+        //       %class.MainClass*
+        //       %class.TestClass.Outer*
+        //       i8*
+        //     No element pointees.
+        //   Usage Types:
+        //     Aliased types:
+        //       %class.MainClass*
+        //       %class.TestClass.Outer*
+        //       i8*
+        //     No element pointees.
+        //
+        // The ValueTypeInfo won't have a dominant aggregate type since the
+        // structure %class.MainClass is not part of the zero elements of
+        // %class.TestClass.Outer, but it has a related type that is a
+        // zero element of %class.TestClass.Outer (%class.MainClass.base).
+        // In this case we will collect the declared type that encapsulates
+        // all the declared and usage types (%class.TestClass.Outer) and
+        // then check if it is the same as the return type.
+        //
+        // NOTE: Perhaps this could be relaxed in a future if the return type
+        // is not exactly the parent type collected, but a zero element or
+        // a related type.
+        DTransType *ParentDeclTy = getEnclosingParentDeclType(*Info);
+        if (ParentDeclTy && ParentDeclTy == ExpectedRetDTransTy) {
+          setAllAliasedAndPointeeTypeSafetyData(
+              Info, dtrans::BadCastingForRelatedTypes,
+              "Return type contains related types", &I);
+          setBaseTypeInfoSafetyData(ExpectedRetDTransTy,
+                                    dtrans::BadCastingForRelatedTypes,
+                                    "Return value type encapsulates related "
+                                    "types", &I);
+          return;
+        }
+
         setAllAliasedTypeSafetyData(Info, dtrans::BadCasting,
                                     "Return of ambiguous type", &I);
+
+      }
 
       // If a pointer to an aggregate type is being returned as a generic type
       // (i8* or pointer-sized-int), then the AddressTaken safety bit will be
@@ -4471,19 +6097,19 @@ public:
                                           "Integer type cast to pointer", &I);
   }
 
-  void visitLandingPad(LandingPadInst& I) {
+  void visitLandingPad(LandingPadInst &I) {
     // This instruction results in a type containing a pointer, but there are no
     // safety flags affected.
     return;
   }
 
-  void visitExtractValueInst(ExtractValueInst& I) {
-    // This instruction may result in a type containing a pointer, but there are no
-    // safety flags affected.
+  void visitExtractValueInst(ExtractValueInst &I) {
+    // This instruction may result in a type containing a pointer, but there are
+    // no safety flags affected.
     return;
   }
 
-  void visitResume(ResumeInst& I) {
+  void visitResume(ResumeInst &I) {
     // This instruction has an operand containing a pointer type, but there are
     // no safety flags affected.
     return;
@@ -4606,6 +6232,231 @@ private:
     return false;
   }
 
+  // Return true if all aliases in AliasesSet are zero element access of
+  // ParentTy
+  bool allAliasesAreZeroElement(DTransType *ParentTy,
+      ValueTypeInfo::PointerTypeAliasSetRef &AliasesSet) const {
+
+    // NOTE: For now we are going to check if all aliases are pointers to
+    // structures. We can expand this in the future to check if an alias is
+    // pointer then ParentTy should be a pointer, else if an alias is a
+    // structure then ParentTy is a structure.
+    if (!ParentTy || !isa<DTransPointerType>(ParentTy))
+      return false;
+
+    DTransType *CurrParentType = ParentTy->getPointerElementType();
+    if (!isa<DTransStructType>(CurrParentType))
+      return false;
+
+    // Collect the pointer element type from the aliases in the set. We are
+    // going to prove that they are zero element access of ParentTy.
+    //
+    // NOTE: This is conservative, perhaps we may be able to relax this check
+    // in the future.
+    SmallDenseMap<DTransType *, bool, 4> AliasesStructsMap;
+    for (auto *AliasTy : AliasesSet) {
+      if (AliasTy == ParentTy)
+        continue;
+
+      // Check if alias used is not a pointer to a structure.
+      DTransType* AliasedType = nullptr;
+      if (auto *PtrTy = dyn_cast<DTransPointerType>(AliasTy)) {
+        // We can skip i8* if it is in the aliased used set. The analysis
+        // process should take care if the use is unexpected (e.g. not a call
+        // to a memcpy or memmov, illegal load/store, etc.).
+        if (PtrTy == getDTransI8PtrType())
+          continue;
+        AliasedType = PtrTy->getPointerElementType();
+      } else {
+        return false;
+      }
+
+      if (!AliasedType)
+        return false;
+
+      if (AliasedType == CurrParentType)
+        continue;
+
+      // If the base and padded types are in AliasesSet, then we are going
+      // to add one of them into AliasesStructsMap.
+      if (auto *DTStruct = dyn_cast<DTransStructType>(AliasedType)) {
+        auto *TyInfo = DTInfo.getTypeInfo(DTStruct);
+        auto *StInfo = dyn_cast_or_null<dtrans::StructInfo>(TyInfo);
+        if (!StInfo)
+          return false;
+
+        auto *RelatedInfo = StInfo->getRelatedType();
+        if (RelatedInfo) {
+          auto *RelatedDTSTruct =
+              dyn_cast_or_null<DTransStructType>(RelatedInfo->getDTransType());
+          if (!RelatedDTSTruct)
+            return false;
+
+          if (AliasesStructsMap.find(RelatedDTSTruct) !=
+              AliasesStructsMap.end())
+            continue;
+        }
+      } else if (!isa<DTransArrayType>(AliasedType)) {
+        return false;
+      }
+
+      AliasesStructsMap.insert({AliasedType, false});
+    }
+
+    if (AliasesStructsMap.empty())
+      return false;
+
+    // Traversing through the zero element of the decl type should reach all
+    // the aliased and related types
+    SetVector<DTransType *> VisitedTypes;
+    while (CurrParentType) {
+      if (!VisitedTypes.insert(CurrParentType))
+        break;
+
+      if (auto *StructTy = dyn_cast<DTransStructType>(CurrParentType)) {
+        // If we find the 0 element type then continue
+        auto It = AliasesStructsMap.find(CurrParentType);
+        if (It != AliasesStructsMap.end()) {
+          It->second = true;
+        } else {
+          // Else check if getting the related type of the current
+          // structure is in the list
+          auto *TyInfo = DTInfo.getTypeInfo(CurrParentType);
+          auto *StInfo = dyn_cast_or_null<dtrans::StructInfo>(TyInfo);
+          // Note: Perhaps this should be an assertion
+          if (!StInfo)
+            return false;
+
+          auto *RelatedTypeInfo = StInfo->getRelatedType();
+          if (RelatedTypeInfo) {
+            // Now check if the related type is in the list. For example,
+            // the parent structure CurrParentType encapsulates a base
+            // structure, but the set of aliases contains the padded structure.
+            auto *RelatedDTType = RelatedTypeInfo->getDTransType();
+            auto ItRel = AliasesStructsMap.find(RelatedDTType);
+            if (ItRel != AliasesStructsMap.end())
+              ItRel->second = true;
+          }
+        }
+        if (StructTy->getNumFields() == 0)
+          break;
+
+        CurrParentType = StructTy->getFieldType(0);
+      } else if (auto *Arr = dyn_cast<DTransArrayType>(CurrParentType)) {
+        auto It = AliasesStructsMap.find(CurrParentType);
+        if (It != AliasesStructsMap.end())
+          It->second = true;
+
+        CurrParentType = Arr->getArrayElementType();
+      } else {
+        break;
+      }
+    }
+
+    // All related types where collected correctly
+    for (auto Pair : AliasesStructsMap)
+      if (!Pair.second)
+        return false;
+
+    return true;
+  }
+
+  // Traverse through the aliases for declaration and collect the type that
+  // encloses all the types through the zero element. This type also needs
+  // to enclose all the aliases for use through the zero element. If the type
+  // is not found, then return nullptr. For example, assume that &Info
+  // contains the following information:
+  //
+  //  LocalPointerInfo: CompletelyAnalyzed
+  //  Declared Types:
+  //    Aliased types:
+  //      %struct.test.b*
+  //      %struct.test.a*
+  //    No element pointees.
+  //  Usage Types:
+  //    Aliased types:
+  //      %struct.test.a*
+  //      %struct.test.b*
+  //    No element pointees.
+  //
+  // This means that we have multiple declarations for the pointer. From the
+  // example above, the zero element of structure %struct.test.b is
+  // %struct.test.a.base, and its related type is %struct.test.a. Therefore,
+  // any alias use is OK because they are just zero element access.
+  DTransType* getEnclosingParentDeclType(ValueTypeInfo &Info) const {
+    // ValueTypeInfo must be completely analyzed
+    //
+    // NOTE: conservative check, perhaps could be relaxed
+    if (!Info.isCompletelyAnalyzed())
+      return nullptr;
+
+    ValueTypeInfo::PointerTypeAliasSetRef &DeclAliases =
+        Info.getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl);
+    ValueTypeInfo::PointerTypeAliasSetRef &UsedAliases =
+        Info.getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
+
+    // First we need to find which alias declared encapsulates all other
+    // aliases declared as a 0 element in case we have multiple declarations.
+    DTransType *DeclType = nullptr;
+    if (DeclAliases.empty() || UsedAliases.empty()) {
+      return nullptr;
+    } else if (DeclAliases.size() == 1) {
+      DeclType = *(DeclAliases.begin());
+    } else {
+      DeclType = nullptr;
+      for (auto *CurrTy : DeclAliases) {
+        if (allAliasesAreZeroElement(CurrTy, DeclAliases)) {
+          // Only one type encapsulates all the types through the 0 element
+          if (!DeclType)
+            DeclType = CurrTy;
+          else
+            return nullptr;
+        }
+      }
+    }
+
+    if (!DeclType)
+      return nullptr;
+
+    // The alias declared must encapsulate all the alias used through the zero
+    // element access. From the examples above, in both cases we found that
+    // %struct.test.b* is the declare type, now we are going to prove that the
+    // used types (%struct.test.a* and %struct.test.b*) are zero element access
+    // and/or the same type.
+    if (!allAliasesAreZeroElement(DeclType, UsedAliases))
+      return nullptr;
+
+    return DeclType;
+  }
+
+  // Return true if all the alias pointers use (VAT_Use) in the input
+  // ValueTypeInfo have related types and the related type is legal to use with
+  // the alias pointer declaration (VAT_Decl). For example, assume that we have
+  // the following structure:
+  //
+  //   %struct.test.a = type {i32, [4 x i8]}
+  //   %struct.test.a.base = type {i32}
+  //   %struct.test.b = type {%struct.test.a.base, [4 x i8]}
+  //
+  // Also assume that the ValueTypeInfo is set as follows:
+  //
+  //  LocalPointerInfo: CompletelyAnalyzed
+  //  Declared Types:
+  //    Aliased types:
+  //      %struct.test.b*
+  //    No element pointees.
+  //  Usage Types:
+  //    Aliased types:
+  //      %struct.test.a*
+  //      %struct.test.b*
+  //    No element pointees.
+  //
+  // This function will return true because %struct.test.a.base is a related
+  // type of %struct.test.a, and is the 0 element of %struct.test.b.
+  bool isLegalRelatedTypeUse(ValueTypeInfo &Info) const {
+    return getEnclosingParentDeclType(Info) != nullptr;
+  }
+
   // Check whether any of the aliases that were collected for the declaration of
   // 'V' are incompatible when used as pointers to an object of type
   // 'ExpectedTy'. This is used when a object has a dominant aggregate type, but
@@ -4695,9 +6546,11 @@ private:
     case dtrans::AmbiguousPointerTarget:
     case dtrans::BadCasting:
     case dtrans::BadCastingPending:
+    case dtrans::BadCastingForRelatedTypes:
     case dtrans::BadMemFuncManipulation:
     case dtrans::SystemObject:
     case dtrans::UnsafePtrMerge:
+    case dtrans::UnsafePtrMergeRelatedTypes:
     case dtrans::UnhandledUse:
       return true;
 
@@ -4726,6 +6579,8 @@ private:
     case dtrans::BadCastingConditional:
     case dtrans::BadMemFuncSize:
     case dtrans::BadPtrManipulation:
+    case dtrans::BadMemFuncManipulationForRelatedTypes:
+    case dtrans::BadPtrManipulationForRelatedTypes:
     case dtrans::ComplexAllocSize:
     case dtrans::ContainsNestedStruct:
     case dtrans::DopeVector:
@@ -4742,6 +6597,8 @@ private:
     case dtrans::MemFuncPartialWrite:
     case dtrans::MismatchedArgUse:
     case dtrans::MismatchedElementAccess:
+    case dtrans::MismatchedElementAccessPending:
+    case dtrans::MismatchedElementAccessConditional:
     case dtrans::NestedStruct:
     case dtrans::NoFieldsInStruct:
     case dtrans::WholeStructureReference:
@@ -4781,9 +6638,12 @@ private:
     case dtrans::BadCasting:
     case dtrans::BadCastingConditional:
     case dtrans::BadCastingPending:
+    case dtrans::BadCastingForRelatedTypes:
     case dtrans::BadMemFuncManipulation:
+    case dtrans::BadMemFuncManipulationForRelatedTypes:
     case dtrans::BadMemFuncSize:
     case dtrans::BadPtrManipulation:
+    case dtrans::BadPtrManipulationForRelatedTypes:
     case dtrans::ComplexAllocSize:
     case dtrans::ContainsNestedStruct:
     case dtrans::DopeVector:
@@ -4798,12 +6658,15 @@ private:
     case dtrans::LocalPtr:
     case dtrans::MismatchedArgUse:
     case dtrans::MismatchedElementAccess:
+    case dtrans::MismatchedElementAccessPending:
+    case dtrans::MismatchedElementAccessConditional:
     case dtrans::NestedStruct:
     case dtrans::NoFieldsInStruct:
     case dtrans::SystemObject:
     case dtrans::WholeStructureReference:
     case dtrans::UnhandledUse:
     case dtrans::UnsafePtrMerge:
+    case dtrans::UnsafePtrMergeRelatedTypes:
     case dtrans::UnsafePointerStore:
     case dtrans::UnsafePointerStoreConditional:
     case dtrans::UnsafePointerStorePending:
@@ -4818,6 +6681,23 @@ private:
     }
 
     llvm_unreachable("Fully covered switch isn't fully covered?");
+  }
+
+
+  // Return true if the input SafetyData needs to be applied to the related
+  // type, else return false.
+  bool isRelatedTypeSafetyCondition(dtrans::SafetyData Data) {
+    // NOTE: Cases will be expanded as we update the analysis for related types
+    switch (Data) {
+    case dtrans::BadCastingForRelatedTypes:
+    case dtrans::BadMemFuncManipulationForRelatedTypes:
+    case dtrans::BadPtrManipulationForRelatedTypes:
+    case dtrans::UnsafePtrMergeRelatedTypes:
+      return true;
+    default:
+      break;
+    }
+    return false;
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -5014,6 +6894,20 @@ private:
     TI->setSafetyData(Data);
     Log.log(TriggerValue,
             SafetyInfoLog(BaseTy, Data, ForCascade, ForPtrCarried));
+
+    // Check and set the input safety condition for the related type if needed
+    if (isRelatedTypeSafetyCondition(Data)) {
+      dtrans::StructInfo *RelatedTypeInfo = nullptr;
+      auto *StInfo = dyn_cast_or_null<dtrans::StructInfo>(TI);
+      if (StInfo)
+        RelatedTypeInfo = StInfo->getRelatedType();
+      if (RelatedTypeInfo && !RelatedTypeInfo->testSafetyData(Data)) {
+        DTransType *RelatedTy = RelatedTypeInfo->getDTransType();
+        setBaseTypeInfoSafetyDataImpl(RelatedTy, Data, DoCascade, DoPtrCarried,
+                                      TriggerValue, ForCascade, ForPtrCarried);
+      }
+    }
+
     if (!DoCascade)
       return;
 
@@ -5272,6 +7166,134 @@ private:
     return ExternalAddressTakenFunctions.count(F);
   }
 
+  // SubGraph: A struct type is considered as enclosing type of another
+  // struct if all references of another structure are only reachable
+  // from member functions of the enclosing type. 'SubGraph' is used
+  // to represent enclosing type for struct in StructInfo.
+  //
+  // Lattice of properties of SubGraph:
+  //  {bottom = <nullptr, false>, <Type*, false>, top = <nullptr, true>}
+  // This function performs 'join' operation of the lattice.
+  // “Bottom” refers to unanalyzed case (initial value) and “top” refers
+  // to worst case (no enclosing type).
+  //
+  // updateSubGraphNode is called when any reference to "ThisTy"
+  // DTransStructType is noticed in "F".
+  //
+  void updateSubGraphNode(Function *F, DTransStructType *ThisTy) {
+    auto *TI = cast<dtrans::StructInfo>(DTInfo.getTypeInfo(ThisTy));
+    auto &CG = TI->getCallSubGraph();
+
+    // If we could not approximate CallGraph by methods of some class,
+    // no need to analyze further.
+    if (CG.isTop())
+      return;
+
+    // If reference to ThisTy is encountered in global scope or
+    // inside function, which does not look like class method,
+    // then mark CallGraph approximation as 'top' or 'failed' approximation.
+    if (!F || F->arg_size() < 1) {
+      TI->setCallGraphTop();
+      return;
+    }
+    DTransFunctionType *DFnTy = dyn_cast_or_null<DTransFunctionType>(
+        DTInfo.getTypeMetadataReader().getDTransTypeFromMD(F));
+    if (!DFnTy) {
+      TI->setCallGraphTop();
+      return;
+    }
+    // Candidate for 'this' pointer;
+    DTransType *Ty = DFnTy->getArgType(0);
+    if (!isa<DTransPointerType>(Ty)) {
+      TI->setCallGraphTop();
+      return;
+    }
+    auto *StTy = dyn_cast<DTransStructType>(Ty->getPointerElementType());
+    if (!StTy) {
+      TI->setCallGraphTop();
+      return;
+    }
+
+    // Ty >= ThisTy
+    //
+    // Check if ThisTy is reachable from Ty by recursion to
+    // structure's elements and following pointers.
+    std::function<bool(DTransType *, DTransStructType *, int)> findSubType =
+        [&findSubType](DTransType *Ty, DTransStructType *ThisTy,
+                       int Depth) -> bool {
+      Depth--;
+      if (Depth <= 0)
+        return false;
+      if (auto *STy = dyn_cast<DTransStructType>(Ty)) {
+        if (STy == ThisTy)
+          return true;
+        for (unsigned I = 0, E = STy->getNumFields(); I != E; ++I)
+          if (findSubType(STy->getFieldType(I), ThisTy, Depth))
+            return true;
+        return false;
+      } else if (auto *ATy = dyn_cast<DTransArrayType>(Ty)) {
+        if (findSubType(ATy->getArrayElementType(), ThisTy, Depth))
+          return true;
+        return false;
+      } else if (auto *PTy = dyn_cast<DTransPointerType>(Ty)) {
+        if (findSubType(PTy->getPointerElementType(), ThisTy, Depth))
+          return true;
+        return false;
+      }
+      return false;
+    };
+
+    // !(StTy >= ThisTy)
+    // If ThisTy is not reachable from 'this' argument,
+    // then mark as 'top'
+    if (!findSubType(StTy, ThisTy, 5)) {
+      TI->setCallGraphTop();
+      return;
+    }
+
+    // Compute `join`.
+    // If cannot find least common approximation to old and new approximation,
+    // then mark as 'top'.
+    if (CG.isBottom()) {
+      TI->setCallGraphEnclosingType(cast<StructType>(StTy->getLLVMType()));
+    } else if (findSubType(StTy,
+                           TM.getStructType(CG.getEnclosingType()->getName()),
+                           5)) {
+      TI->setCallGraphEnclosingType(cast<StructType>(StTy->getLLVMType()));
+    } else if (!findSubType(TM.getStructType(CG.getEnclosingType()->getName()),
+                            StTy, 5)) {
+      TI->setCallGraphTop();
+      return;
+    }
+  }
+
+  void setBaseTypeCallGraph(DTransType *Ty, Function *F) {
+    // Strip only outermost Pointer type constructors to account
+    // for load/stores/calls, etc. instructions.
+    DTransType *BaseTy = Ty;
+    while (BaseTy->isPointerTy())
+      BaseTy = BaseTy->getPointerElementType();
+
+    // This lambda encapsulates the logic for propagating CallGraph info
+    // to structure fields and array elements to account for implicit types
+    // in GEP. Pointer types should be handled indirectly through
+    // load/stores/calls, etc.
+    std::function<void(DTransType *)> Propagate =
+        [this, F, &Propagate](DTransType *Ty) -> void {
+      if (!isTypeOfInterest(Ty))
+        return;
+      if (auto *STy = dyn_cast<DTransStructType>(Ty)) {
+        updateSubGraphNode(F, STy);
+        unsigned NumFields = STy->getNumFields();
+        for (unsigned Idx = 0; Idx < NumFields; ++Idx)
+          Propagate(STy->getFieldType(Idx));
+      } else if (auto *ATy = dyn_cast<DTransArrayType>(Ty))
+        Propagate(ATy->getArrayElementType());
+    };
+
+    Propagate(BaseTy);
+  }
+
 private:
   // private data members
   const DataLayout &DL;
@@ -5279,6 +7301,7 @@ private:
   function_ref<BlockFrequencyInfo &(Function &)> &GetBFI;
   DTransSafetyInfo &DTInfo;
   PtrTypeAnalyzer &PTA;
+  DTransBadCastingAnalyzerOP &DTBCA;
   TypeMetadataReader &MDReader;
   DTransTypeManager &TM;
   DTransSafetyLogger &Log;
@@ -5287,7 +7310,7 @@ private:
   BlockFrequencyInfo *BFI;
 
   // Set of external functions that are address taken.
-  DenseSet<Function*> ExternalAddressTakenFunctions;
+  DenseSet<Function *> ExternalAddressTakenFunctions;
 
   // Indicates whether the ExternalAddressTakenFunctions has been computed yet.
   bool ExternalAddressTakenFunctionsComputed = false;
@@ -5307,7 +7330,8 @@ DTransSafetyInfo::DTransSafetyInfo(DTransSafetyInfo &&Other)
       TypeInfoMap(std::move(Other.TypeInfoMap)), CIM(std::move(Other.CIM)),
       MaxTotalFrequency(Other.MaxTotalFrequency),
       UnhandledPtrType(Other.UnhandledPtrType),
-      DTransSafetyAnalysisRan(Other.DTransSafetyAnalysisRan) {
+      DTransSafetyAnalysisRan(Other.DTransSafetyAnalysisRan),
+      RelatedTypesUtils(std::move(Other.RelatedTypesUtils)) {
   PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
   Other.PtrSubInfoMap.clear();
   LoadInfoMap.insert(Other.LoadInfoMap.begin(), Other.LoadInfoMap.end());
@@ -5316,6 +7340,9 @@ DTransSafetyInfo::DTransSafetyInfo(DTransSafetyInfo &&Other)
   Other.StoreInfoMap.clear();
   MultiElemLoadStoreInfo.insert(Other.MultiElemLoadStoreInfo.begin(),
                                 Other.MultiElemLoadStoreInfo.end());
+  FunctionsRequireBadCastValidation.insert(
+      Other.FunctionsRequireBadCastValidation.begin(),
+      Other.FunctionsRequireBadCastValidation.end());
   Other.MultiElemLoadStoreInfo.clear();
   SawFortran = Other.SawFortran;
 }
@@ -5328,6 +7355,7 @@ DTransSafetyInfo &DTransSafetyInfo::operator=(DTransSafetyInfo &&Other) {
   MDReader = std::move(Other.MDReader);
   PtrAnalyzer = std::move(Other.PtrAnalyzer);
   TypeInfoMap = std::move(Other.TypeInfoMap);
+  RelatedTypesUtils = std::move(Other.RelatedTypesUtils);
   CIM = std::move(Other.CIM);
   PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
   Other.PtrSubInfoMap.clear();
@@ -5336,7 +7364,10 @@ DTransSafetyInfo &DTransSafetyInfo::operator=(DTransSafetyInfo &&Other) {
   StoreInfoMap.insert(Other.StoreInfoMap.begin(), Other.StoreInfoMap.end());
   Other.StoreInfoMap.clear();
   MultiElemLoadStoreInfo.insert(Other.MultiElemLoadStoreInfo.begin(),
-    Other.MultiElemLoadStoreInfo.end());
+                                Other.MultiElemLoadStoreInfo.end());
+  FunctionsRequireBadCastValidation.insert(
+      Other.FunctionsRequireBadCastValidation.begin(),
+      Other.FunctionsRequireBadCastValidation.end());
   Other.MultiElemLoadStoreInfo.clear();
   MaxTotalFrequency = Other.MaxTotalFrequency;
   UnhandledPtrType = Other.UnhandledPtrType;
@@ -5345,8 +7376,22 @@ DTransSafetyInfo &DTransSafetyInfo::operator=(DTransSafetyInfo &&Other) {
   return *this;
 }
 
+bool DTransSafetyInfo::requiresBadCastValidation(SetVector<Function *> &Func,
+                                                 unsigned &ArgumentIndex,
+                                                 unsigned &StructIndex) const {
+  Func.clear();
+  Func.insert(FunctionsRequireBadCastValidation.begin(),
+              FunctionsRequireBadCastValidation.end());
+
+  ArgumentIndex = DTransBadCastingAnalyzerOP::VoidArgumentIndex;
+  StructIndex = DTransBadCastingAnalyzerOP::CandidateVoidField;
+
+  return !Func.empty();
+}
+
 void DTransSafetyInfo::analyzeModule(
     Module &M, GetTLIFnType GetTLI, WholeProgramInfo &WPInfo,
+    DTransImmutableInfo *DTImmutInfo,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
 
   // Initialize the DTransTypeManager & TypeMetadataReader classes first, so
@@ -5380,13 +7425,36 @@ void DTransSafetyInfo::analyzeModule(
     return;
   }
 
+  RelatedTypesUtils = std::make_unique<DTransRelatedTypesUtils>(*TM);
   DTransSafetyLogger Log;
+  DTransBadCastingAnalyzerOP DTBCA(Ctx, *this, *PtrAnalyzer, *TM, GetTLI, M);
   DTransSafetyInstVisitor Visitor(Ctx, DL, GetTLI, GetBFI, *this, *PtrAnalyzer,
-                                  *TM, *MDReader, Log);
+                                  DTBCA, *TM, *MDReader, Log);
   checkLanguages(M);
+  DTBCA.analyzeBeforeVisit();
   Visitor.visit(M);
+  Visitor.collectCallGraphInfo(M);
+  DTBCA.analyzeAfterVisit();
+  DTBCA.getConditionalFunctions(FunctionsRequireBadCastValidation);
+  postProcessArraysWithConstantEntries();
+  RelatedTypesUtils->postProcessRelatedTypesAnalysis(*this);
   PostProcessFieldValueInfo();
   DTransSafetyAnalysisRan = true;
+
+  // Copy type info which can be passed to downstream passes without worrying
+  // about invalidation into the immutable pass.
+  if (DTImmutInfo) {
+    for (auto *TypeInfo : type_info_entries()) {
+      if (auto *StructInfo = dyn_cast<dtrans::StructInfo>(TypeInfo))
+        for (unsigned I = 0, E = StructInfo->getNumFields(); I != E; ++I) {
+          DTImmutInfo->addStructFieldInfo(
+              cast<StructType>(StructInfo->getLLVMType()), I,
+              StructInfo->getField(I).values(),
+              StructInfo->getField(I).iavalues(),
+              StructInfo->getField(I).getArrayWithConstantEntries());
+        }
+    }
+  }
 
   // Computes TotalFrequency for each StructInfo and MaxTotalFrequency.
   uint64_t MaxTFrequency = 0;
@@ -5411,6 +7479,10 @@ void DTransSafetyInfo::analyzeModule(
       }
     }
   }
+
+  DEBUG_WITH_TYPE(ARRAYS_WITH_CONST_ENTRIES, {
+    printArraysWithConstantEntriesInformation();
+  });
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   LLVM_DEBUG({
@@ -5426,6 +7498,9 @@ void DTransSafetyInfo::analyzeModule(
 
   if (dtrans::DTransPrintAnalyzedCalls)
     printCallInfo();
+
+  if (DTImmutInfo && dtrans::DTransPrintImmutableAnalyzedTypes)
+    DTImmutInfo->print(dbgs());
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 }
 
@@ -5455,6 +7530,8 @@ void DTransSafetyInfo::reset() {
   TM.reset();
   MDReader.reset();
   PtrAnalyzer.reset();
+  RelatedTypesUtils.reset();
+  CIM.reset();
   UnhandledPtrType = false;
   DTransSafetyAnalysisRan = false;
 }
@@ -5501,11 +7578,9 @@ void DTransSafetyInfo::checkLanguages(Module &M) {
     }
 }
 
-dtrans::TypeInfo *DTransSafetyInfo::getOrCreateTypeInfo(DTransType *Ty) {
-  // If we already have this type in our map, just return it.
-  dtrans::TypeInfo *TI = getTypeInfo(Ty);
-  if (TI)
-    return TI;
+dtrans::TypeInfo *DTransSafetyInfo::createTypeInfo(DTransType *Ty) {
+  assert(Ty && "Trying to create a dtrans::TypeInfo without a DTransType");
+  assert(!getTypeInfo(Ty) && "dtrans::TypeInfo already created");
 
   // Create the DTrans TypeInfo object for this type and any sub-types.
   dtrans::TypeInfo *DTransTI;
@@ -5537,11 +7612,45 @@ dtrans::TypeInfo *DTransSafetyInfo::getOrCreateTypeInfo(DTransType *Ty) {
     // TODO: TypeInfo does not support vector types, so they will be stored
     // within NonAggregateTypeInfo objects currently.
     assert(!Ty->isAggregateType() &&
-           "DTransAnalysisInfo::getOrCreateTypeInfo unexpected aggregate type");
+           "DTransAnalysisInfo::createTypeInfo unexpected aggregate type");
     DTransTI = new dtrans::NonAggregateTypeInfo(Ty);
   }
 
   TypeInfoMap[Ty] = DTransTI;
+  return DTransTI;
+}
+
+dtrans::TypeInfo *DTransSafetyInfo::getOrCreateTypeInfo(DTransType *Ty) {
+  // If we already have this type in our map, just return it.
+  dtrans::TypeInfo *TI = getTypeInfo(Ty);
+  if (TI)
+    return TI;
+
+  // Create the dtrans::TypeInfo
+  dtrans::TypeInfo *DTransTI = createTypeInfo(Ty);
+  assert(DTransTI && "dtrans::TypeInfo not created correctly");
+  assert(DTransTI->getDTransType() == Ty &&
+         "DTransType for the created dtrans::TypeInfo is incorrect");
+
+  // Set the related type if it exists
+  if (auto *RelatedType = RelatedTypesUtils->getRelatedTypeFor(Ty)) {
+
+    // Collect or create the dtrans::TypeInfo if needed
+    dtrans::StructInfo *RelatedStructInfo =
+        dyn_cast_or_null<dtrans::StructInfo>(getTypeInfo(RelatedType));
+    if (!RelatedStructInfo)
+      RelatedStructInfo =
+          cast<dtrans::StructInfo>(createTypeInfo(RelatedType));
+
+    assert(RelatedStructInfo &&
+           "Missing dtrans::StructInfo when setting related type");
+
+    // Set the relationship between both types
+    dtrans::StructInfo *CurrStructInfo =  cast<dtrans::StructInfo>(DTransTI);
+    RelatedTypesUtils->setTypeInfoAsRelatedTypes(CurrStructInfo,
+                                                 RelatedStructInfo);
+  }
+
   return DTransTI;
 }
 
@@ -5571,15 +7680,13 @@ DTransStructType *DTransSafetyInfo::getPtrToStructTy(Value *V) {
   if (!Info)
     return nullptr;
   PtrTypeAnalyzer &PTA = getPtrTypeAnalyzer();
-  DTransType* DTransTy = PTA.getDominantAggregateUsageType(*Info);
+  DTransType *DTransTy = PTA.getDominantAggregateUsageType(*Info);
   if (!DTransTy || !DTransTy->isPointerTy())
     return nullptr;
   return dyn_cast<DTransStructType>(DTransTy->getPointerElementType());
 }
 
-bool DTransSafetyInfo::isPtrToStruct(Value *V) {
-  return getPtrToStructTy(V);
-}
+bool DTransSafetyInfo::isPtrToStruct(Value *V) { return getPtrToStructTy(V); }
 
 DTransType *DTransSafetyInfo::getFieldTy(StructType *STy, unsigned Idx) {
   if (Idx >= STy->getNumElements())
@@ -5599,14 +7706,14 @@ DTransType *DTransSafetyInfo::getFieldPETy(StructType *STy, unsigned Idx) {
 bool DTransSafetyInfo::isFunctionPtr(StructType *STy, unsigned Idx) {
   DTransType *DTFPETy = getFieldPETy(STy, Idx);
   return DTFPETy && DTFPETy->isFunctionTy();
-} 
+}
 
 StructType *DTransSafetyInfo::getPtrToStructElementType(Value *V) {
   DTransStructType *DTSTy = getPtrToStructTy(V);
   if (!DTSTy)
     return nullptr;
   return dyn_cast_or_null<StructType>(DTSTy->getLLVMType());
-} 
+}
 
 bool DTransSafetyInfo::isPtrToStructWithI8StarFieldAt(Value *V,
                                                       unsigned StructIndex) {
@@ -5633,7 +7740,7 @@ bool DTransSafetyInfo::isPtrToIntOrFloat(Value *V) {
 bool DTransSafetyInfo::hasPtrToIntOrFloatReturnType(Function *F) {
   DTransType *FnTy = MDReader->getDTransTypeFromMD(F);
   if (!FnTy)
-    return false;   
+    return false;
   DTransType *DTy = cast<DTransFunctionType>(FnTy)->getReturnType();
   if (!DTy || !DTy->isPointerTy())
     return false;
@@ -5798,7 +7905,8 @@ DTransSafetyInfo::getStructField(GEPOperator *GEP) {
     if (!StructTy)
       return std::make_pair(nullptr, 0);
 
-    return std::make_pair(cast<llvm::StructType>(StructTy->getLLVMType()), StructField.second);
+    return std::make_pair(cast<llvm::StructType>(StructTy->getLLVMType()),
+                          StructField.second);
   }
 
   auto StructTy = dyn_cast<StructType>(GEP->getSourceElementType());
@@ -5888,6 +7996,123 @@ void DTransSafetyInfo::printCallInfo() {
   }
   dbgs().flush();
 }
+
+// Print the result of the analysis for arrays with constant entries
+void DTransSafetyInfo::printArraysWithConstantEntriesInformation() {
+  dbgs() << "Final result for fields that are arrays with constant "
+            "entries:\n";
+
+  // Structure for handling the function that sorts by structure's name
+  struct SortingStructsFunction
+  {
+    typedef std::pair<llvm::dtrans::StructInfo *,
+                      std::vector<unsigned int>> StructsIterator;
+
+    bool operator()(
+      StructsIterator & Lhs, StructsIterator & Rhs) const {
+      llvm::StructType *StructTyLhs =
+          cast<llvm::StructType>(Lhs.first->getLLVMType());
+      llvm::StructType *StructTyRhs =
+          cast<llvm::StructType>(Rhs.first->getLLVMType());
+
+      // If both structures are literal, then use the printed form of
+      // StructType to do the sorting
+      if (StructTyLhs->isLiteral() && StructTyRhs->isLiteral()) {
+        std::string LhsBuffer;
+        llvm::raw_string_ostream RSOLhs(LhsBuffer);
+        RSOLhs << *StructTyLhs;
+        std::string LHSString = RSOLhs.str();
+
+        std::string RhsBuffer;
+        llvm::raw_string_ostream RSORhs(RhsBuffer);
+        RSORhs << *StructTyRhs;
+        std::string RHSString = RSORhs.str();
+
+        return LHSString < RHSString;
+      }
+
+      // If the structure in the left hand side doesn't have a name
+      // then put it first
+      if (!StructTyLhs->hasName())
+        return true;
+
+      // If the structure in the right hand side doesn't have a name
+      // then put it first
+      if (!StructTyRhs->hasName())
+        return false;
+
+      StringRef StructNameLhs = StructTyLhs->getName();
+      StringRef StructNameRhs = StructTyRhs->getName();
+
+      // Else sort both
+      return StructNameLhs.str() < StructNameRhs.str();
+    }
+  };
+
+  std::vector<std::pair<dtrans::StructInfo *, std::vector<unsigned>>>
+      StructsWithData;
+
+  // First collect all the structures where the data is available
+  for (auto *TI : type_info_entries()) {
+    auto *STInfo = dyn_cast<dtrans::StructInfo>(TI);
+    if (!STInfo)
+      continue;
+
+    std::vector<unsigned> NewVect;
+    for (unsigned I = 0, E = STInfo->getNumFields(); I < E; I++) {
+      auto &FI = STInfo->getField(I);
+      if (!FI.isFieldAnArrayWithConstEntries())
+        continue;
+
+      NewVect.push_back(I);
+    }
+    if (!NewVect.empty())
+      StructsWithData.push_back(std::make_pair(STInfo, NewVect));
+  }
+
+  if (StructsWithData.empty()) {
+    dbgs() << "  No structure found\n";
+    dbgs() << "End of arrays with constant entries analysis\n\n";
+    return;
+  }
+
+  // Sort the structures collected by name
+  std::sort(StructsWithData.begin(), StructsWithData.end(),
+            SortingStructsFunction());
+
+  for (auto Pair : StructsWithData) {
+    auto STInfo = Pair.first;
+    auto FieldsVect = Pair.second;
+
+    llvm::Type *StructTy = STInfo->getLLVMType();
+    dbgs() << "Type: " << *StructTy << "\n";
+
+    for (auto I : FieldsVect) {
+      auto &FI = STInfo->getField(I);
+
+      // We already prove that the field is an array with constant entries
+      // but the data needs to be sorted since it is stored in a map
+      llvm::ArrayType *ArrTy = cast<ArrayType>(FI.getLLVMType());
+      std::vector<Constant *> Entries(ArrTy->getNumElements());
+      for (auto Pair : FI.getArrayConstantEntries()) {
+        auto Index = cast<ConstantInt>(Pair.first);
+        unsigned IndexInt = Index->getZExtValue();
+        Entries[IndexInt] = Pair.second;
+      }
+
+      dbgs() << "  Field number: " << I << "\n";
+      for (unsigned SubI = 0, SubE = Entries.size(); SubI < SubE; SubI++) {
+        if (Entries[SubI])
+          dbgs() << "    Index: " << SubI
+                 << "      Value: " << *Entries[SubI] << "\n";
+      }
+
+    }
+    dbgs() << "\n";
+  }
+
+  dbgs() << "End of arrays with constant entries analysis\n\n";
+}
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Fields of structures that do not meet the necessary safety conditions need to
@@ -5909,16 +8134,55 @@ void DTransSafetyInfo::PostProcessFieldValueInfo() {
     // - The field is address taken, and the value of LangRuleOutOfBoundsOK
     //   indicates the address could be used to access other field members.
     // - The type is an aggregate type. We keep values for individual fields,
-    //   but not for an array or structure element as a whole.
+    //   but not for an array or structure element as a whole, with the
+    //   exception of fields that are used for padding.
     bool FSV_Unsafe = testSafetyData(TI, dtrans::DT_FieldSingleValue);
     bool FSAF_Unsafe = testSafetyData(TI, dtrans::DT_FieldSingleAllocFunction);
     for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I) {
+
+      // If we proved that the field is a clean padded field
+      if (StInfo->getField(I).isCleanPaddedField())
+        continue;
+
       bool AddressTaken = StInfo->getField(I).isAddressTaken();
       bool Aggregate = StInfo->getField(I).getLLVMType()->isAggregateType();
       if (FSV_Unsafe || (!UsingOutOfBoundsOK && AddressTaken) || Aggregate)
         StInfo->getField(I).setIncompleteValueSet();
       if (FSAF_Unsafe || (!UsingOutOfBoundsOK && AddressTaken) || Aggregate)
         StInfo->updateSingleAllocFuncToBottom(I);
+    }
+  }
+}
+
+// Traverse through the structures and check if there is any safety violation
+// that disables the information collected for arrays with constant entries.
+void DTransSafetyInfo::postProcessArraysWithConstantEntries() {
+
+  // If the languague rules are enabled then there is nothing to do
+  if(getLangRuleOutOfBoundsOK())
+    return;
+
+  // Traverse through all structure info
+  for (auto *TI : type_info_entries()) {
+    auto *STInfo = dyn_cast<dtrans::StructInfo>(TI);
+    if (!STInfo)
+      continue;
+
+    // Check if there is any safety that invalidates the structure.
+    bool DisableArraysWithConstEntries =
+        STInfo->testSafetyData(dtrans::SDArraysWithConstantEntries);
+
+    // Traverse through the fields and collect the information
+    for (unsigned I = 0, E = STInfo->getNumFields(); I < E; I++) {
+      auto &FI = STInfo->getField(I);
+      if (!FI.isFieldAnArrayWithConstEntries())
+        continue;
+
+      // NOTE: These are some general conditions to disable the data. We may
+      // need to adjust them once we analyze the actual cases.
+      if (DisableArraysWithConstEntries || FI.isRead() || FI.isWritten() ||
+          FI.isAddressTaken() || FI.hasNonGEPAccess())
+        FI.disableArraysWithConstantEntries();
     }
   }
 }
@@ -5943,9 +8207,8 @@ void DTransSafetyInfo::computeStructFrequency(dtrans::StructInfo *StInfo) {
 bool DTransSafetyInfo::invalidate(Module &M, const PreservedAnalyses &PA,
                                   ModuleAnalysisManager::Invalidator &Inv) {
   auto PAC = PA.getChecker<DTransSafetyAnalyzer>();
-  return !PAC.preservedWhenStateless();
+  return !PAC.preserved();
 }
-
 
 // Provide a definition for the static class member used to identify passes.
 AnalysisKey DTransSafetyAnalyzer::Key;
@@ -5960,9 +8223,10 @@ DTransSafetyInfo DTransSafetyAnalyzer::run(Module &M,
     return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function *>(&F)));
   };
   WholeProgramInfo &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
+  DTransImmutableInfo &DTImmutInfo = AM.getResult<DTransImmutableAnalysis>(M);
 
   DTransSafetyInfo DTResult;
-  DTResult.analyzeModule(M, GetTLI, WPInfo, GetBFI);
+  DTResult.analyzeModule(M, GetTLI, WPInfo, &DTImmutInfo, GetBFI);
   return DTResult;
 }
 
@@ -5971,6 +8235,7 @@ INITIALIZE_PASS_BEGIN(DTransSafetyAnalyzerWrapper, "dtrans-safetyanalyzer",
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(DTransImmutableAnalysisWrapper)
 INITIALIZE_PASS_END(DTransSafetyAnalyzerWrapper, "dtrans-safetyanalyzer",
                     "Data transformation safety analyzer", false, true)
 
@@ -5992,7 +8257,9 @@ bool DTransSafetyAnalyzerWrapper::runOnModule(Module &M) {
   };
 
   WholeProgramInfo &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-  Result.analyzeModule(M, GetTLI, WPInfo, GetBFI);
+  DTransImmutableInfo &DTImmutInfo =
+      getAnalysis<DTransImmutableAnalysisWrapper>().getResult();
+  Result.analyzeModule(M, GetTLI, WPInfo, &DTImmutInfo, GetBFI);
   return false;
 }
 
@@ -6006,6 +8273,7 @@ void DTransSafetyAnalyzerWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetLibraryInfoWrapperPass>();
   AU.addRequired<BlockFrequencyInfoWrapperPass>();
   AU.addRequired<WholeProgramWrapperPass>();
+  AU.addRequired<DTransImmutableAnalysisWrapper>();
 }
 
 ModulePass *llvm::createDTransSafetyAnalyzerTestWrapperPass() {

@@ -1,6 +1,6 @@
-// RUN: %clang_cc1 %s -o - -O0 -emit-llvm -cl-std=CL2.0 -gno-column-info      \
-// RUN:            -debug-info-kind=limited -triple spir-unknown-unknown      \
-// RUN:            -finclude-default-header                                   \
+// RUN: %clang_cc1 %s -o - -O0 -emit-llvm -opaque-pointers -cl-std=CL2.0 -gno-column-info      \
+// RUN:            -debug-info-kind=limited -triple spir-unknown-unknown                       \
+// RUN:            -finclude-default-header                                                    \
 // RUN:   | FileCheck %s
 //
 // Verify valid source correlation is emitted for a block literal passed to
@@ -26,9 +26,9 @@ kernel void caller(global int* a)
 }
 
 // CHECK: define{{.*}}spir_kernel {{.*}}@caller({{.*}}){{.*}}!dbg [[CALLER:![0-9]+]]{{.*}} {
-// CHECK:   load i32 addrspace(1)*, i32 addrspace(1)** %a.addr{{.*}}!dbg [[LINE20:![0-9]+]]
-// CHECK:   load i32 addrspace(1)*, i32 addrspace(1)** %a.addr{{.*}}!dbg [[LINE25:![0-9]+]]
-// CHECK:   store i32 addrspace(1)* %{{[0-9]+}}, i32 addrspace(1)** %block.captured{{.*}}!dbg [[LINE25]]
+// CHECK:   load ptr addrspace(1), ptr %a.addr{{.*}}!dbg [[LINE20:![0-9]+]]
+// CHECK:   load ptr addrspace(1), ptr %a.addr{{.*}}!dbg [[LINE25:![0-9]+]]
+// CHECK:   store ptr addrspace(1) %{{[0-9]+}}, ptr  %block.captured{{.*}}!dbg [[LINE25]]
 // CHECK:   call spir_func i32 @__enqueue_kernel_basic({{.*}}), !dbg [[LINE21:![0-9]+]]
 // CHECK: }
 

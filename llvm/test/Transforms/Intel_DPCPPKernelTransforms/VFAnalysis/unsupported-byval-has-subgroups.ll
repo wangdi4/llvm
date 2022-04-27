@@ -1,13 +1,13 @@
 ;; Have a byval function with has-sub-groups attribute. Emulate.
-; RUN: opt -dpcpp-enable-subgroup-emulation -dpcpp-kernel-vf-analysis -analyze %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-COMMON,CHECK-NO-VECTORIZATION,CHECK-EMULATION
+; RUN: opt -dpcpp-enable-subgroup-emulation -dpcpp-kernel-vf-analysis -analyze -enable-new-pm=0 %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-COMMON,CHECK-NO-VECTORIZATION,CHECK-EMULATION
 ; RUN: opt -dpcpp-enable-subgroup-emulation -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-COMMON,CHECK-NO-VECTORIZATION,CHECK-EMULATION
 
 ; If subgroup emulation is not enabled, then subgroup is broken.
-; RUN: not opt -dpcpp-enable-subgroup-emulation=false -dpcpp-kernel-vf-analysis -analyze %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-SUBGROUP-BROKEN
+; RUN: not opt -dpcpp-enable-subgroup-emulation=false -dpcpp-kernel-vf-analysis -analyze -enable-new-pm=0 %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-SUBGROUP-BROKEN
 ; RUN: not opt -dpcpp-enable-subgroup-emulation=false -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-SUBGROUP-BROKEN
 
 ; If vectorization on byval/byref function is enabled, no need to do emulation then.
-; RUN: opt -dpcpp-enable-byval-byref-function-call-vectorization -dpcpp-kernel-vf-analysis -analyze %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-COMMON,CHECK-VECTORIZATION,CHECK-NO-EMULATION
+; RUN: opt -dpcpp-enable-byval-byref-function-call-vectorization -dpcpp-kernel-vf-analysis -analyze -enable-new-pm=0 %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-COMMON,CHECK-VECTORIZATION,CHECK-NO-EMULATION
 ; RUN: opt -dpcpp-enable-byval-byref-function-call-vectorization -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-COMMON,CHECK-VECTORIZATION,CHECK-NO-EMULATION
 
 ; CHECK-COMMON-LABEL: Kernel --> VF:

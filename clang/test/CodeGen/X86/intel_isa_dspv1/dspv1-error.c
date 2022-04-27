@@ -93,3 +93,46 @@ __m128i test_mm_dsp_pcr2bfrsdimm_epi32(__m128i __A, __m128i __B, __m128i __C) {
   return _mm_dsp_pcr2bfrsdimm_epi32(__A, __B, __C, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
 }
 
+__m128i test_mm_dsp_psrrsuqw_epi16(__m128i __A) {
+  return _mm_dsp_psrrsuqw_epi16(__A, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
+}
+
+__m128i test_mm_dsp_pslrsuqw_epi16(__m128i __A) {
+  return _mm_dsp_pslrsuqw_epi16(__A, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
+}
+
+__m128i test_mm_dsp_psrarsqw_epi16(__m128i __A) {
+  return _mm_dsp_psrarsqw_epi16(__A, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
+}
+
+__m128i test_mm_dsp_pslrsqw_epi16(__m128i __A) {
+  return _mm_dsp_pslrsqw_epi16(__A, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
+}
+
+__m128i test_mm_dsp_psrrsuqd_epi32(__m128i __A) {
+  return _mm_dsp_psrrsuqd_epi32(__A, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
+}
+
+__m128i test_mm_dsp_pslrsuqd_epi32(__m128i __A) {
+  return _mm_dsp_pslrsuqd_epi32(__A, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
+}
+
+__m128i test_mm_dsp_psrarsqd_epi32(__m128i __A) {
+  return _mm_dsp_psrarsqd_epi32(__A, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
+}
+
+__m128i test_mm_dsp_pslrsqd_epi32(__m128i __A) {
+  return _mm_dsp_pslrsqd_epi32(__A, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
+}
+
+__m128i test_mm_dsp_pcaddrotsraw_epi16(__m128i __A, __m128i __B) {
+  return _mm_dsp_pcaddrotsraw_epi16(__A, __B, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
+}
+
+__m128i test_mm_dsp_pcaddrotsrad_epi32(__m128i __A, __m128i __B) {
+  return _mm_dsp_pcaddrotsrad_epi32(__A, __B, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
+}
+
+__m128i test_mm_dsp_punpckdq_epi32(__m128i __A, __m128i __B) {
+  return _mm_dsp_punpckdq_epi32(__A, __B, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
+}

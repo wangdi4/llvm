@@ -1,6 +1,6 @@
 ; Checks the finalized VF with vec_type_hint.
 
-; RUN: opt -dpcpp-kernel-vf-analysis -analyze %s -S 2>&1 | FileCheck %s
+; RUN: opt -dpcpp-kernel-vf-analysis -analyze -enable-new-pm=0 %s -S 2>&1 | FileCheck %s
 ; RUN: opt -passes="print<dpcpp-kernel-vf-analysis>" %s -S 2>&1 | FileCheck %s
 
 ; CHECK-COUNT-2: warning: kernel "{{unsupported_half|unsupported_i1}}": Kernel can't be vectorized due to unsupported vec type hint

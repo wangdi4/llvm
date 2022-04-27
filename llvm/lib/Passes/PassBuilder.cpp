@@ -1,3 +1,20 @@
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //===- Parsing and selection of pass pipelines ----------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -28,6 +45,7 @@
 #include "llvm/Analysis/CFLSteensAliasAnalysis.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/Analysis/CallPrinter.h"
 #include "llvm/Analysis/CostModel.h"
 #include "llvm/Analysis/CycleAnalysis.h"
 #include "llvm/Analysis/DDG.h"
@@ -36,6 +54,7 @@
 #include "llvm/Analysis/DemandedBits.h"
 #include "llvm/Analysis/DependenceAnalysis.h"
 #include "llvm/Analysis/DivergenceAnalysis.h"
+#include "llvm/Analysis/DomPrinter.h"
 #include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/Analysis/FunctionPropertiesAnalysis.h"
 #include "llvm/Analysis/GlobalsModRef.h"
@@ -77,14 +96,17 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
+#include "llvm/Analysis/ValueTracking.h" // INTEL
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/PrintPasses.h"
 #include "llvm/IR/SafepointIRVerifier.h"
 #include "llvm/IR/Verifier.h"
-#include "llvm/SYCLLowerIR/ESIMDVerifier.h"
-#include "llvm/SYCLLowerIR/LowerESIMD.h"
+#include "llvm/SYCLLowerIR/ESIMD/ESIMDVerifier.h"
+#include "llvm/SYCLLowerIR/ESIMD/LowerESIMD.h"
+#include "llvm/SYCLLowerIR/LowerInvokeSimd.h"
+#include "llvm/SYCLLowerIR/LowerWGLocalMemory.h"
 #include "llvm/SYCLLowerIR/LowerWGScope.h"
 #include "llvm/SYCLLowerIR/MutatePrintfAddrspace.h"
 #include "llvm/Support/CommandLine.h"
@@ -218,10 +240,9 @@
 #include "llvm/Transforms/Scalar/Intel_LowerSubscriptIntrinsic.h" // INTEL
 #include "llvm/Transforms/Scalar/Intel_StdContainerOpt.h" // INTEL
 #include "llvm/Transforms/Scalar/Intel_TbaaMDPropagation.h" // INTEL
+#include "llvm/Transforms/Scalar/Intel_TransformFPGAReg.h" // INTEL
 #include "llvm/Transforms/Scalar/InductiveRangeCheckElimination.h"
-#if !INTEL_COLLAB
 #include "llvm/Transforms/Scalar/InferAddressSpaces.h"
-#endif // ! INTEL_COLLAB
 #include "llvm/Transforms/Scalar/InstSimplifyPass.h"
 #include "llvm/Transforms/Scalar/JumpThreading.h"
 #include "llvm/Transforms/Scalar/LICM.h"
@@ -246,7 +267,7 @@
 #include "llvm/Transforms/Scalar/LoopUnrollAndJamPass.h"
 #include "llvm/Transforms/Scalar/LoopUnrollPass.h"
 #include "llvm/Transforms/Scalar/LoopVersioningLICM.h"
-#include "llvm/Transforms/Scalar/LowerAtomic.h"
+#include "llvm/Transforms/Scalar/LowerAtomicPass.h"
 #include "llvm/Transforms/Scalar/LowerConstantIntrinsics.h"
 #include "llvm/Transforms/Scalar/LowerExpectIntrinsic.h"
 #include "llvm/Transforms/Scalar/LowerGuardIntrinsic.h"
@@ -273,6 +294,7 @@
 #include "llvm/Transforms/Scalar/SpeculativeExecution.h"
 #include "llvm/Transforms/Scalar/StraightLineStrengthReduce.h"
 #include "llvm/Transforms/Scalar/StructurizeCFG.h"
+#include "llvm/Transforms/Scalar/TLSVariableHoist.h"
 #include "llvm/Transforms/Scalar/TailRecursionElimination.h"
 #include "llvm/Transforms/Scalar/WarnMissedTransforms.h"
 #include "llvm/Transforms/Utils/AddDiscriminators.h"
@@ -280,6 +302,7 @@
 #include "llvm/Transforms/Utils/BreakCriticalEdges.h"
 #include "llvm/Transforms/Utils/CanonicalizeAliases.h"
 #include "llvm/Transforms/Utils/CanonicalizeFreezeInLoops.h"
+#include "llvm/Transforms/Utils/Debugify.h"
 #include "llvm/Transforms/Utils/EntryExitInstrumenter.h"
 #include "llvm/Transforms/Utils/FixIrreducible.h"
 #include "llvm/Transforms/Utils/HelloWorld.h"
@@ -289,11 +312,13 @@
 #include "llvm/Transforms/Utils/LibCallsShrinkWrap.h"
 #include "llvm/Transforms/Utils/LoopSimplify.h"
 #include "llvm/Transforms/Utils/LoopVersioning.h"
+#include "llvm/Transforms/Utils/LowerGlobalDtors.h"
 #include "llvm/Transforms/Utils/LowerInvoke.h"
 #include "llvm/Transforms/Utils/LowerSwitch.h"
 #include "llvm/Transforms/Utils/Mem2Reg.h"
 #include "llvm/Transforms/Utils/MetaRenamer.h"
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
+#include "llvm/Transforms/Utils/PredicateInfo.h"
 #include "llvm/Transforms/Utils/RelLookupTableConverter.h"
 #include "llvm/Transforms/Utils/StripGCRelocates.h"
 #include "llvm/Transforms/Utils/StripNonLineTableDebugInfo.h"
@@ -339,6 +364,7 @@
 #include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 #include "llvm/Transforms/Vectorize/IntelVPlanFunctionVectorizer.h"
 #include "llvm/Transforms/Vectorize/IntelVPlanPragmaOmpOrderedSimdExtract.h"
+#include "llvm/Transforms/Vectorize/IntelVPlanPragmaOmpSimdIf.h"
 
 // Analysis passes
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
@@ -352,6 +378,7 @@
 
 // Transformation passes
 #include "llvm/Transforms/Intel_LoopTransforms/HIRAosToSoaPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRArrayScalarizationTestLauncherPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRArrayTransposePass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRConditionalLoadStoreMotion.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRConditionalTempSinkingPass.h"
@@ -359,7 +386,9 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRGeneralUnrollPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRGenerateMKLCallPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixIdiomRecognitionPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixSubstitution.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdiomRecognitionPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRIfReversalPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLMMPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLastValueComputationPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopBlockingPass.h"
@@ -376,6 +405,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMVForVariableStridePass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMemoryReductionSinkingPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMultiExitLoopRerollPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRNonZeroSinkingForPerfectLoopnest.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRNontemporalMarking.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptPredicatePass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptVarPredicatePass.h"
@@ -389,16 +419,12 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRRuntimeDDPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRScalarReplArrayPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSinkingForPerfectLoopnestPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRStoreResultIntoTempArray.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSumWindowReuse.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTempCleanupPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRUndoSinkingForPerfectLoopnestPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJamPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRVecDirInsertPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRRowWiseMVPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRStoreResultIntoTempArray.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRNonZeroSinkingForPerfectLoopnest.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixSubstitution.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRArrayScalarizationTestLauncherPass.h"
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/Intel_LoopTransforms/HIRCrossLoopArrayContraction.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRInterLoopBlockingPass.h"
@@ -411,6 +437,7 @@
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptOptimizeDataSharing.h"
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptSharedPrivatization.h"
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptTargetInline.h"
+#include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptApplyConfig.h"
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 // VPO
@@ -569,7 +596,7 @@ PassBuilder::PassBuilder(TargetMachine *TM, PipelineTuningOptions PTO,
 #if INTEL_CUSTOMIZATION
     // Add PrepareForLTO(false), AfterSLPVectorizer(false)
     : TM(TM), PTO(PTO), PGOOpt(PGOOpt), PIC(PIC),
-      PrepareForLTO(false), AfterSLPVectorizer(false) {
+      PrepareForLTO(false), LinkForLTO(false), AfterSLPVectorizer(false) {
 #endif // INTEL_CUSTOMIZATION
   if (TM)
     TM->registerPassBuilderCallbacks(*this);
@@ -858,6 +885,8 @@ Expected<MemorySanitizerOptions> parseMSanPassOptions(StringRef Params) {
                     ParamName)
                 .str(),
             inconvertibleErrorCode());
+    } else if (ParamName == "eager-checks") {
+      Result.EagerChecks = true;
     } else {
       return make_error<StringError>(
           formatv("invalid MemorySanitizer pass parameter '{0}' ", ParamName)
@@ -878,6 +907,8 @@ Expected<SimplifyCFGOptions> parseSimplifyCFGOptions(StringRef Params) {
     bool Enable = !ParamName.consume_front("no-");
     if (ParamName == "forward-switch-cond") {
       Result.forwardSwitchCondToPhi(Enable);
+    } else if (ParamName == "switch-range-to-icmp") {
+      Result.convertSwitchRangeToICmp(Enable);
     } else if (ParamName == "switch-to-lookup") {
       Result.convertSwitchToLookupTable(Enable);
     } else if (ParamName == "keep-loops") {
@@ -940,6 +971,24 @@ Expected<std::pair<bool, bool>> parseLoopUnswitchOptions(StringRef Params) {
       return make_error<StringError>(
           formatv("invalid LoopUnswitch pass parameter '{0}' ", ParamName)
               .str(),
+          inconvertibleErrorCode());
+    }
+  }
+  return Result;
+}
+
+Expected<LICMOptions> parseLICMOptions(StringRef Params) {
+  LICMOptions Result;
+  while (!Params.empty()) {
+    StringRef ParamName;
+    std::tie(ParamName, Params) = Params.split(';');
+
+    bool Enable = !ParamName.consume_front("no-");
+    if (ParamName == "allowspeculation") {
+      Result.AllowSpeculation = Enable;
+    } else {
+      return make_error<StringError>(
+          formatv("invalid LICM pass parameter '{0}' ", ParamName).str(),
           inconvertibleErrorCode());
     }
   }

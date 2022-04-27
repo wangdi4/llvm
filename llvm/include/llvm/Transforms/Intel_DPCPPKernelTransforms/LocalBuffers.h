@@ -16,8 +16,6 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 
-extern bool EnableTLSGlobals;
-
 namespace llvm {
 
 /// Map __local GlobalVariable to the local buffer.

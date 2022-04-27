@@ -12,21 +12,22 @@
 ; }
 ; 
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-before=hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-before=hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-before=hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,print<hir>,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
 ;
 ; HIR Test.
 
 ; Before vectorization
-; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 100> <min_trip_count = 10> <avg_trip_count = 55> <max_trip_count = 100>
+; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 100>   <LEGAL_MAX_TC = 100> <min_trip_count = 10> <avg_trip_count = 55> <max_trip_count = 100>
 
 ; After vectorization
-; CHECK: %tgu = 
-; CHECK: DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 25> <auto-vectorized> <nounroll> <novectorize> <min_trip_count = 2> <avg_trip_count = 13> <max_trip_count = 25>
+; CHECK: DO i1 = 0, {{.*}} + -1, 4   <DO_LOOP>
 ; CHECK: (<4 x i32>*)(@arr)[0][i1] = i1 + 
 ; CHECK: END LOOP
-; CHECK: DO i1 = 4 * %tgu, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK: DO i1 = {{.*}}, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK: (@arr)[0][i1] = i1
 ; CHECK: END LOOP
 ; ModuleID = 'rem3.ll'

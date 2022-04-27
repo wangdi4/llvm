@@ -11,11 +11,12 @@
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_LEGACY_PASSES_H
 
 #include "llvm/ADT/StringSet.h"
-#include "llvm/Analysis/Intel_VectorVariant.h" // for VectorVariant::ISAClass
+#include "llvm/IR/Intel_VectorVariant.h" // for VectorVariant::ISAClass
 
 namespace llvm {
 
 class FunctionPass;
+class LoopPass;
 class ModulePass;
 class Pass;
 template <typename T, unsigned N> class SmallVector;
@@ -42,7 +43,9 @@ ModulePass *createDPCPPKernelPostVecPass();
 ModulePass *createDPCPPKernelWGLoopCreatorLegacyPass();
 ModulePass *createDPCPPKernelAnalysisLegacyPass();
 ModulePass *createDPCPPPreprocessSPIRVFriendlyIRLegacyPass();
+ModulePass *createDeduceMaxWGDimLegacyPass();
 ModulePass *createDuplicateCalledKernelsLegacyPass();
+ModulePass *createExternalizeGlobalVariablesLegacyPass();
 FunctionPass *createPhiCanonicalizationLegacyPass();
 FunctionPass *createRedundantPhiNodeLegacyPass();
 ModulePass *
@@ -56,15 +59,24 @@ ModulePass *createKernelBarrierLegacyPass(bool isNativeDebug,
                                           bool useTLSGlobals);
 ModulePass *createBarrierInFunctionLegacyPass();
 ModulePass *createImplicitArgsAnalysisLegacyPass();
+ModulePass *createImplicitGIDLegacyPass(bool HandleBarrier = true);
 ModulePass *createIndirectCallLoweringLegacyPass();
+ModulePass *createInstToFuncCallLegacyPass(
+    VectorVariant::ISAClass ISA = VectorVariant::XMM);
 ModulePass *createInternalizeNonKernelFuncLegacyPass();
 ModulePass *createLinearIdResolverPass();
 ModulePass *createLocalBufferAnalysisLegacyPass();
 ModulePass *createLocalBuffersLegacyPass(bool UseTLSGlobals);
+LoopPass *createLoopStridedCodeMotionLegacyPass();
+LoopPass *createLoopWIAnalysisLegacyPass();
 FunctionPass *createAddNTAttrLegacyPass();
 ModulePass *createAddImplicitArgsLegacyPass();
 FunctionPass *createAddFastMathLegacyPass();
+ModulePass *createAddTLSGlobalsLegacyPass();
+ModulePass *createAutorunReplicatorLegacyPass();
+ModulePass *createReduceCrossBarrierValuesLegacyPass();
 ModulePass *createResolveMatrixFillLegacyPass();
+ModulePass *createResolveMatrixLayoutLegacyPass();
 ModulePass *createResolveMatrixWISliceLegacyPass();
 ModulePass *createResolveSubGroupWICallLegacyPass(
     const SmallVector<Module *, 2> &BuiltinModules = SmallVector<Module *, 2>(),
@@ -89,9 +101,12 @@ ModulePass *createSGSizeCollectorLegacyPass(VectorVariant::ISAClass);
 ModulePass *createSGSizeCollectorIndirectLegacyPass(VectorVariant::ISAClass);
 ModulePass *createSetVectorizationFactorLegacyPass(
     VectorVariant::ISAClass ISA = VectorVariant::XMM);
+FunctionPass *createSinCosFoldLegacyPass();
 ModulePass *createVFAnalysisLegacyPass();
+ModulePass *createVectorizationDimensionAnalysisLegacyPass();
 ModulePass *
 createHandleVPlanMaskLegacyPass(const StringSet<> *VPlanMaskedFuncs);
+ModulePass *createWGLoopBoundariesLegacyPass();
 FunctionPass *createWorkItemAnalysisLegacyPass(unsigned VectorizeDim = 0);
 } // namespace llvm
 

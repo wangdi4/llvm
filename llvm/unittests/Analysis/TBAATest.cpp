@@ -130,10 +130,9 @@ TEST_F(TBAATest, checkTBAACommutativity) {
   SI->setMetadata(LLVMContext::MD_tbaa, CharAccessTag);
   LI->setMetadata(LLVMContext::MD_tbaa, IntAccessTag);
 
-  Value *GlobalVal = SI->getPointerOperand();
-  Type *CharType = GlobalVal->getType()->getPointerElementType();
+  Type *CharType = SI->getValueOperand()->getType();
   (void)CharType;
-  assert((isa<GlobalValue>(GlobalVal) &&
+  assert((isa<GlobalValue>(SI->getPointerOperand()) &&
           CharType->getPrimitiveSizeInBits() == 8) &&
           "Variable should be a Global char!");
 

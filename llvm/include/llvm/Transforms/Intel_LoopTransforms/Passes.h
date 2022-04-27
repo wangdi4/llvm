@@ -103,6 +103,9 @@ FunctionPass *createHIRUnrollAndJamPass(bool PragmaOnlyUnroll = false);
 /// Reversal.
 FunctionPass *createHIRLoopReversalPass();
 
+/// Create pass that performs if reversal for inner loops.
+FunctionPass *createHIRIfReversalPass();
+
 /// createHIRLMMPass - This creates a HIR Loop pass that performs Loop
 /// Memory Motion.
 /// \p LoopNestLevelOnly indicates whether the hoisting is only allowed outside

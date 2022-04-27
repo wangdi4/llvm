@@ -1,4 +1,21 @@
 //===-- X86InstrFragmentsSIMD.td - x86 SIMD ISA ------------*- tablegen -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -310,7 +327,6 @@ def SDTX86CmpPTest : SDTypeProfile<1, 2, [SDTCisVT<0, i32>,
                                           SDTCisSameAs<2, 1>]>;
 
 def X86mulhrs  : SDNode<"X86ISD::MULHRS", SDTIntBinOp, [SDNPCommutative]>;
-def X86avg     : SDNode<"X86ISD::AVG" , SDTIntBinOp, [SDNPCommutative]>;
 def X86ptest   : SDNode<"X86ISD::PTEST", SDTX86CmpPTest>;
 def X86testp   : SDNode<"X86ISD::TESTP", SDTX86CmpPTest>;
 def X86kortest : SDNode<"X86ISD::KORTEST", SDTX86CmpPTest>;
@@ -850,14 +866,14 @@ def X86vdpphpsRnd : SDNode<"X86ISD::VDPPHPS_RND",
                                             SDTCisSameAs<1,3>,
                                             SDTCisVT<4, i32>]>>;
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 def X86vpdpbssd  : SDNode<"X86ISD::VPDPBSSD",  SDTVnni>;
 def X86vpdpbssds : SDNode<"X86ISD::VPDPBSSDS", SDTVnni>;
 def X86vpdpbsud  : SDNode<"X86ISD::VPDPBSUD",  SDTVnni>;
 def X86vpdpbsuds : SDNode<"X86ISD::VPDPBSUDS", SDTVnni>;
 def X86vpdpbuud  : SDNode<"X86ISD::VPDPBUUD",  SDTVnni>;
 def X86vpdpbuuds : SDNode<"X86ISD::VPDPBUUDS", SDTVnni>;
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
 def X86vcvt2ps2ph :       SDNode<"X86ISD::VCVT2PS2PH",

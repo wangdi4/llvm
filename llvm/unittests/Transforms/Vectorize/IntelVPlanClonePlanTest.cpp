@@ -17,8 +17,8 @@ CompareGraphsAndCreateClonedOrigVPBBsMap(VPlan *ClonedVPlan,
                                          VPlanVector::UpdateDA UDA) {
   SmallVector<std::pair<const VPBasicBlock *, const VPBasicBlock *>, 5>
       Worklist;
-  const VPBasicBlock *ClonedEntryVPBB = ClonedVPlan->getEntryBlock();
-  const VPBasicBlock *OrigEntryVPBB = OrigVPlan->getEntryBlock();
+  const VPBasicBlock *ClonedEntryVPBB = &ClonedVPlan->getEntryBlock();
+  const VPBasicBlock *OrigEntryVPBB = &OrigVPlan->getEntryBlock();
   Worklist.push_back(std::make_pair(ClonedEntryVPBB, OrigEntryVPBB));
   DenseMap<const VPBasicBlock *, const VPBasicBlock *> ClonedOrigVPBBsMap;
 

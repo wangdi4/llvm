@@ -1,4 +1,6 @@
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 ; ModuleID = 'sampleB.bc'
@@ -69,3 +71,6 @@ if.end42.loopexit14:                              ; preds = %for.cond17
 if.end42:                                         ; preds = %if.end42.loopexit14, %if.end42.loopexit, %for.cond.preheader
   ret void
 }
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function func --  br label %if.end42
+; DEBUGIFY-NOT: WARNING

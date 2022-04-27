@@ -434,6 +434,7 @@ VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
   case RecurKind::Mul:
   case RecurKind::And:
   case RecurKind::FMul:
+  case RecurKind::FMulAdd:
   case RecurKind::FAdd: {
     Constant *C = VPReduction::getConstRecurrenceIdentity(Red->getRecurrenceKind(),
                                                      Red->getRecurrenceType(),
@@ -449,7 +450,7 @@ VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
   case RecurKind::SelectICmp:
   case RecurKind::SelectFCmp:
     return Red->getRecurrenceStartValue();
-  default:
+  case RecurKind::None:
     llvm_unreachable("Unknown recurrence kind");
   }
 }
@@ -585,6 +586,57 @@ void VPLoopEntityList::finalizeImport() {
   }
 }
 
+// Similar to one in InlineFunction.cpp
+static ConstantInt *getAllocationSize(AllocaInst *AI, const DataLayout *DL) {
+  if (!AI)
+    return nullptr;
+  if (ConstantInt *AIArraySize = dyn_cast<ConstantInt>(AI->getArraySize())) {
+    Type *AllocaType = AI->getAllocatedType();
+    TypeSize AllocaTypeSize = DL->getTypeAllocSize(AllocaType);
+    uint64_t AllocaArraySize = AIArraySize->getLimitedValue();
+
+    if (AllocaArraySize != 0 && !AllocaTypeSize.isScalable() &&
+        AllocaArraySize != std::numeric_limits<uint64_t>::max() &&
+        std::numeric_limits<uint64_t>::max() / AllocaArraySize >=
+            AllocaTypeSize.getFixedSize()) {
+      return ConstantInt::get(Type::getInt64Ty(AI->getContext()),
+                              AllocaArraySize * AllocaTypeSize);
+    }
+  }
+  return nullptr;
+}
+
+static void createLifetimeMarker(VPBuilder &Builder, VPlanVector &Plan,
+                                 VPBasicBlock *InsertBB, VPValue *PrivateMem,
+                                 AllocaInst *AI,
+                                 llvm::Intrinsic::ID LMIntrinsicFn) {
+  if (!AI || !PrivateMem)
+    return;
+  if (ConstantInt *AllocaSize = getAllocationSize(AI, Plan.getDataLayout())) {
+
+    VPBuilder::InsertPointGuard Guard(Builder);
+    if (LMIntrinsicFn == Intrinsic::lifetime_end)
+      Builder.setInsertPoint(InsertBB);
+
+    VPValue *LMOp = PrivateMem;
+    Type *PrivateMemTy = PrivateMem->getType();
+    if (!PrivateMemTy->isOpaquePointerTy()) {
+      PrivateMemTy =
+          llvm::PointerType::get(Type::getIntNTy(*Plan.getLLVMContext(), 8), 0);
+      LMOp =
+          Builder.createNaryOp(Instruction::BitCast, PrivateMemTy, PrivateMem);
+    }
+
+    Function *LMFn = Intrinsic::getDeclaration(AI->getParent()->getModule(),
+                                               LMIntrinsicFn, {PrivateMemTy});
+    auto *VPLMFn = Plan.getVPConstant(cast<Constant>(LMFn));
+    auto *VPLMCall =
+        new VPCallInstruction(VPLMFn, LMFn->getFunctionType(),
+                              {Plan.getVPConstant(AllocaSize), LMOp});
+    Builder.insert(VPLMCall);
+  }
+}
+
 VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
                                                VPBuilder &Builder, VPValue *&AI,
                                                VPBasicBlock *Preheader) {
@@ -600,7 +652,8 @@ VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
 
   // Capture alignment of original alloca/global from incoming LLVM-IR.
   Align OrigAlignment(1);
-  if (auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue()))
+  auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
+  if (OrigAI)
     OrigAlignment = OrigAI->getAlign();
   if (auto *OrigGlobal =
           dyn_cast_or_null<GlobalVariable>(AI->getUnderlyingValue()))
@@ -617,6 +670,10 @@ VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
   // We do not set debug location on allocates.
   Ret->setDebugLocation({});
   linkValue(&E, Ret);
+
+  createLifetimeMarker(Builder, Plan, Preheader, Ret, OrigAI,
+                       Intrinsic::lifetime_start);
+
   return Ret;
 }
 
@@ -653,22 +710,25 @@ static void relinkLiveOuts(VPValue *From, VPValue *To, const VPLoop &Loop) {
       User->replaceUsesOfWith(From, To);
 }
 
+#if INTEL_CUSTOMIZATION
+static void updateHIROperand(VPValue *AI, VPLoadStoreInst *V) {
+  if (auto *ExtDef = dyn_cast<VPExternalDef>(AI)) {
+    unsigned ExtDefSym = ExtDef->HIR().getSymbase();
+    if (ExtDefSym != loopopt::InvalidSymbase)
+      V->HIR().setSymbase(ExtDefSym);
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 void VPLoopEntityList::processFinalValue(VPLoopEntity &E, VPValue *AI,
                                          VPBuilder &Builder, VPValue &Final,
                                          Type *Ty, VPValue *Exit) {
   if (AI) {
     VPLoadStoreInst *V = Builder.createStore(&Final, AI);
-#if INTEL_CUSTOMIZATION
-    if (auto *ExtDef = dyn_cast<VPExternalDef>(AI)) {
-      if (ExtDef->getOperandHIR()) {
-        unsigned ExtDefSym =
-            cast<VPBlob>(ExtDef->getOperandHIR())->getBlob()->getSymbase();
-        V->HIR().setSymbase(ExtDefSym);
-      }
-    }
-#endif // INTEL_CUSTOMIZATION
+    updateHIROperand(AI, V); // INTEL
     linkValue(&E, V);
   }
+
   if (Exit && !E.getIsMemOnly())
     relinkLiveOuts(Exit, &Final, Loop);
   linkValue(&E, &Final);
@@ -692,10 +752,12 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   VPValue *Identity = getReductionIdentity(Reduction);
   Type *Ty = Reduction->getRecurrenceType();
   VPValue *PrivateMem = createPrivateMemory(*Reduction, Builder, AI, Preheader);
-  if (Reduction->getIsMemOnly() && !isa<VPConstant>(Identity))
+  if (Reduction->getIsMemOnly() && !isa<VPConstant>(Identity)) {
     // min/max in-memory reductions. Need to generate a load.
-    Identity = Builder.createLoad(Ty, AI);
-
+    VPLoadStoreInst *V = Builder.createLoad(Ty, AI);
+    updateHIROperand(AI, V); // INTEL
+    Identity = V;
+  }
   // We can initialize reduction either with broadcasted identity only or
   // inserting additionally the initial value into 0th element. In the
   // second case we don't need an additional instruction when reducing.
@@ -720,7 +782,9 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
       StartValue->getType() != Ty) { // Ty is recurrence type
     assert(isa<PointerType>(StartValue->getType()) &&
            "Expected pointer type here.");
-    StartValue = Builder.createLoad(Ty, StartValue);
+    VPLoadStoreInst *V = Builder.createLoad(Ty, StartValue);
+    updateHIROperand(StartValue, V); // INTEL
+    StartValue = V;
   }
 
   VPInstruction *Init =
@@ -773,7 +837,9 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
       if (FinalStartValue->getType() != Ty) { // Ty is recurrence type
         assert(isa<PointerType>(FinalStartValue->getType()) &&
                "Expected pointer type here.");
-        FinalStartValue = Builder.createLoad(Ty, FinalStartValue);
+        VPLoadStoreInst *V  = Builder.createLoad(Ty, FinalStartValue);
+        updateHIROperand(AI, V); // INTEL
+        FinalStartValue = V;
       }
       Final = Builder.create<VPReductionFinal>(
           FinName, Reduction->getReductionOpcode(), Exit, FinalStartValue,
@@ -786,6 +852,13 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
     Final->setFastMathFlags(FMF);
 
   processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
+
+  if (PrivateMem) {
+    assert(AI && "Expected non-null original pointer");
+    auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
+    createLifetimeMarker(Builder, Plan, PostExit, PrivateMem, OrigAI,
+                         Intrinsic::lifetime_end);
+  }
 
   RedFinalMap[Reduction] = std::make_pair(Final, Exit);
   ProcessedReductions.insert(Reduction);
@@ -1047,6 +1120,13 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
     // iteration.
     Final->setLastValPreIncrement(isInductionLastValPreInc(Induction));
     processFinalValue(*Induction, AI, Builder, *Final, Ty, Exit);
+
+    if (PrivateMem) {
+      assert(AI && "Expected non-null original pointer");
+      auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
+      createLifetimeMarker(Builder, Plan, PostExit, PrivateMem, OrigAI,
+                           Intrinsic::lifetime_end);
+    }
   }
 }
 
@@ -1068,20 +1148,39 @@ static void createNonPODPrivateCtorDtorCalls(Function *F, VPValue *NonPODMemory,
 const VPInduction *
 VPLoopEntityList::getLoopInduction() const {
   // There are two ways to find main loop induction:
-  // 1) Get latch -> condbit -> operand which is induction. This relies on that
-  //    we always have canonical loops with bottom test and will give exactly
-  //    loop IV.
+  // 1) Get latch -> condbit -> follow operand chain which is involved in
+  //    induction. This relies on that we always have canonical loops with
+  //    bottom test and will give exactly loop IV.
   // 2) Get header, scan phis until the induction is found. That is more
   //    reliable but will give the first IV which is not necessary the main
   //    loop IV.
   // The method implements the first way.
 
-  const auto *LatchCond = cast<VPCmpInst>(Loop.getLoopLatch()->getCondBit());
-  const VPInduction *Ret = getInduction(LatchCond->getOperand(0));
-  if (!Ret)
-    Ret = getInduction(LatchCond->getOperand(1));
-  assert(Ret && "Expected non-null induction");
-  return Ret;
+  // Look into the def-use chain starting from latch condition via a worklist
+  // approach.
+  const auto *LatchCond = cast<VPCmpInst>(Loop.getLatchComparison());
+  SmallVector<const VPInstruction *, 4> Worklist;
+  SmallPtrSet<const VPInstruction *, 4> Visited;
+
+  // Initiate the worklist with latch condition.
+  Worklist.push_back(LatchCond);
+
+  while (!Worklist.empty()) {
+    const VPInstruction *CurrI = Worklist.pop_back_val();
+    if (const VPInduction *Ret = getInduction(CurrI))
+      return Ret;
+
+    // Avoid cyclic-phi chains.
+    if (!Visited.insert(CurrI).second)
+      continue;
+
+    for (auto *Op : CurrI->operands()) {
+      if (auto *OpInst = dyn_cast<VPInstruction>(Op))
+        Worklist.push_back(OpInst);
+    }
+  }
+
+  llvm_unreachable("Expected non-null induction for main loop IV.");
 }
 
 // See comment in the header file.
@@ -1181,6 +1280,14 @@ void VPLoopEntityList::insertConditionalLastPrivateInst(
 
     VPValue* StoreMem = Private.getIsMemOnly() ? AI : nullptr;
     processFinalValue(Private, StoreMem, Builder, *Final, Exit->getType(), Exit);
+
+    if (PrivateMem) {
+      assert(AI && "Expected non-null original pointer");
+      auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
+      createLifetimeMarker(Builder, Plan, PostExit, PrivateMem, OrigAI,
+                           Intrinsic::lifetime_end);
+    }
+
     return;
   }
 
@@ -1214,6 +1321,12 @@ void VPLoopEntityList::insertConditionalLastPrivateInst(
   VPInstruction *Final =
       Builder.create<VPPrivateFinalCondMem>(".priv.final", Exit, IdxLoad, AI);
   processFinalValue(Private, AI, Builder, *Final, Exit->getType(), Exit);
+
+  if (PrivateMem) {
+    auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
+    createLifetimeMarker(Builder, Plan, PostExit, PrivateMem, OrigAI,
+                         Intrinsic::lifetime_end);
+  }
 }
 
 // Insert VPInstructions related to VPPrivates.
@@ -1356,7 +1469,16 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
                          : VPInstruction::PrivateFinalUncond;
       auto *Final = Builder.createNaryOp(Opc, Exit->getType(), {Exit});
       Final->setName(Name + ".priv.final");
-      processFinalValue(*Private, AI, Builder, *Final, Exit->getType(), Exit);
+      VPValue* StoreMem = Private->getIsMemOnly() ? AI : nullptr;
+      processFinalValue(*Private, StoreMem, Builder, *Final, Exit->getType(),
+                        Exit);
+    }
+
+    if (PrivateMem) {
+      assert(AI && "Expected non-null original pointer");
+      auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
+      createLifetimeMarker(Builder, Plan, PostExit, PrivateMem, OrigAI,
+                           Intrinsic::lifetime_end);
     }
   }
   // Now do the replacement of Aliases. We first replace all instances of
@@ -1673,8 +1795,8 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
       // FIXME: Don't reference getElementType as it won't exist for opaque
       // pointers. Propagate it through whole VPEntities framework.
       auto *GEP =
-          Builder.createGEP(cast<PointerType>(Phi->getType())->getElementType(),
-                            cast<PointerType>(Phi->getType())->getElementType(),
+          Builder.createGEP(Phi->getType()->getPointerElementType(),
+                            Phi->getType()->getPointerElementType(),
                             Phi, Step, nullptr);
       GEP->setIsInBounds(true); // TODO: Why is that correct?
       return GEP;
@@ -1848,15 +1970,13 @@ VPPHINode *ReductionDescr::getLastNonheaderPHIUser(VPInstruction *VPInst,
 //
 // 6. Unknown recurrence type
 //    - Determined based on type of reduction's Exit/recurrence PHI/Start value.
-void ReductionDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
+void ReductionDescr::tryToCompleteByVPlan(VPlanVector *Plan,
                                           const VPLoop *Loop) {
   if (!Exit) {
     // Explicit reduction descriptors need further analysis to identify Exit
     // VPInstruction. Auto-recognized reductions don't need this.
-    bool AliasAnalysisSuccess = replaceOrigWithAlias();
-    if (!AliasAnalysisSuccess)
-      return;
-    Exit = getLoopExitVPInstr(Loop);
+    if (replaceOrigWithAlias())
+      Exit = getLoopExitVPInstr(Loop);
   }
   if (StartPhi == nullptr && Exit != nullptr) {
     if (!Loop->isLiveOut(Exit)) {
@@ -1888,12 +2008,10 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
                  Exit->dump());
     }
   }
-  if (StartPhi == nullptr) {
+  if (StartPhi == nullptr && Start) {
     // The start PHI could potentially be associated with one of the
     // LinkedVPVals of the reduction descriptor
     // TODO: Need a LIT test for this.
-    assert(Start &&
-           "Start is not available to check for PHIs via LinkedVPValues.");
     for (auto *LVPV : LinkedVPVals) {
       for (auto *User : LVPV->users()) {
         if (auto *Instr = dyn_cast<VPPHINode>(User))
@@ -1910,8 +2028,17 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
   }
   if (StartPhi == nullptr) {
     // The phi was not found. That means we have an explicit reduction.
+    if (!Start) {
+      // We are not able to identify anything. That happens when reduction
+      // is optimized out or fully registerized. In case of the full
+      // registerization it will be most probably auto-recognized. Otherwise we
+      // will bailout on unrecognized recursion.
+      Importing = false;
+      return;
+    }
     assert(isa<VPExternalDef>(Start) && "Reduction is not properly defined");
-    findMemoryUses(Start, Loop);
+    Importing = hasRealUserInLoop(Start, Loop);
+    ValidMemOnly = true;
   } else if (Start == nullptr) {
     Start = getLiveInOrConstOperand(StartPhi, *Loop);
     assert(Start && "Can't identify reduction start value");
@@ -1919,6 +2046,28 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
   if (!RT) {
     RT = Exit ? Exit->getType()
               : (StartPhi ? StartPhi->getType() : Start->getType());
+  }
+  if (Exit && Start) {
+    // Compare symbases of incoming and outgoing values.
+    auto *ExtDef = dyn_cast<VPExternalDef>(Start);
+    if (!ExtDef) // can be a constant in LLVM IR.
+      return;
+
+    auto It = llvm::find_if(Exit->users(), [](const VPUser *U) {
+                    return isa<VPExternalUse>(U);
+                  });
+    if( It == Exit->user_end()) {
+      // If there is no VPExternalUse we will create it with the same symbase
+      // later.
+      return;
+    }
+    auto ExtUse = cast<VPExternalUse>(*It);
+    if (ExtUse->HIR().getSymbase() != ExtDef->HIR().getSymbase()) {
+      // Symbases of livein and liveout values are different.
+      // In that case we can't generate a correct code thus bailout.
+      VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
+      LE->setImportingError(VPLoopEntityList::ImportError::Reduction);
+    }
   }
 }
 
@@ -2010,6 +2159,19 @@ bool ReductionDescr::replaceOrigWithAlias() {
   return true; // Successful analysis
 }
 
+static const VPValue * getPtrThroughCast(const VPValue* Op) {
+  // Look at the pointers only.
+  assert(Op->getType()->isPointerTy() && "expected pointer");
+  while (isa<VPInstruction>(Op)) {
+    auto Inst = cast<VPInstruction>(Op);
+    if (Inst->getOpcode() != Instruction::BitCast &&
+        Inst->getOpcode() != Instruction::AddrSpaceCast)
+      break;
+    Op = Inst->getOperand(0);
+  }
+  return Op;
+}
+
 VPInstruction *ReductionDescr::getLoopExitVPInstr(const VPLoop *Loop) {
   LLVM_DEBUG(dbgs() << "ReductionDescr: Start: "; Start->dump();
              dbgs() << "\n");
@@ -2021,9 +2183,27 @@ VPInstruction *ReductionDescr::getLoopExitVPInstr(const VPLoop *Loop) {
   VPInstruction *LoopExitVPI = nullptr;
 
   if (UpdateVPInsts.size() == 1) {
-    if (UpdateVPInsts[0]->getOpcode() == Instruction::Store)
+    switch (UpdateVPInsts[0]->getOpcode()) {
+    case Instruction::Store:
       // In-memory reduction, no more analysis needed
       return nullptr;
+    case Instruction::Call: {
+      // Ensure that the call uses memory and is not an assignment.
+      auto CI = cast<VPCallInstruction>(UpdateVPInsts[0]);
+      if ((!CI->getCalledFunction() ||
+           !CI->getCalledFunction()->isIntrinsic()) &&
+          llvm::find_if(CI->arg_operands(), [this](const VPValue *Op) {
+            return Op == AllocaInst || (Op->getType()->isPointerTy() &&
+                                        getPtrThroughCast(Op) == AllocaInst);
+          }) != CI->arg_operands().end()) {
+        // In-memory reduction, no more analysis needed
+        return nullptr;
+      }
+      break;
+    }
+    default:
+      break;
+    }
     LoopExitVPI = UpdateVPInsts[0];
   }
 
@@ -2134,7 +2314,7 @@ void PrivateDescr::checkParentVPLoop(const VPLoop *Loop) const {
   // AllocaInst in this function.
 }
 
-void PrivateDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
+void PrivateDescr::tryToCompleteByVPlan(VPlanVector *Plan,
                                         const VPLoop *Loop) {
   setIsMemOnly(true);
 
@@ -2228,7 +2408,12 @@ VPValue *VPEntityImportDescr::findMemoryUses(VPValue *Start,
                                              const VPLoop *Loop) {
   Importing = hasRealUserInLoop(Start, Loop);
   ValidMemOnly = true;
+
   if (Importing) {
+    // For reductions, we don't need to execute the code below. We have another,
+    // simpler, way to obtain reduction data type. The code is left for
+    // inductions to implement the TODO below and will be removed after that.
+
     // Try to find either load or store. Not having them we can't proceed
     // further. E.g., the code might be something like below. We can't guess
     // which/whether a call is an update and create a correct code.
@@ -2442,7 +2627,7 @@ void InductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
     VPInd->setNeedCloseForm(true);
 }
 
-void InductionDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
+void InductionDescr::tryToCompleteByVPlan(VPlanVector *Plan,
                                           const VPLoop *Loop) {
   if (StartPhi == nullptr) {
     VPValue *V = InductionOp ? InductionOp : Start;

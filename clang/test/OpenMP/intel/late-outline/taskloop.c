@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -emit-llvm -o - -std=c11 -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c11 -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 void foo()
@@ -158,20 +158,20 @@ void foo2(unsigned int N) {
 // CHECK:    [[I22:%i.*]] = alloca i32, align 4
 
 // CHECK: "DIR.OMP.PARALLEL.LOOP"(),
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[DOTOMP_IV]]),
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[DOTOMP_LB]]),
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[DOTOMP_UB]]),
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I]]) ]
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[DOTOMP_IV]]),
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[DOTOMP_LB]]),
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr [[DOTOMP_UB]]),
+// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[I]]) ]
 // CHECK: "DIR.OMP.END.PARALLEL.LOOP"()
  #pragma omp parallel for
  for (int i=0; i<N; i++)
    foo();
 
 // CHECK: "DIR.OMP.TASKLOOP"(),
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[DOTOMP_IV15]]),
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[DOTOMP_LB16]]),
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[DOTOMP_UB17]]),
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I22]]) ]
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[DOTOMP_IV15]]),
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[DOTOMP_LB16]]),
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr [[DOTOMP_UB17]]),
+// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[I22]]) ]
 // CHECK: "DIR.OMP.END.TASKLOOP"()
  #pragma omp taskloop
  for (int i=0; i<N; i++)

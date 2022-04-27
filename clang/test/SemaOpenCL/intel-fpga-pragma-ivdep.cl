@@ -1,7 +1,7 @@
  // RUN: %clang_cc1 %s -triple spir-unknown-unknown-intelfpga -cl-std=CL1.2 -verify -pedantic -fsyntax-only
  // RUN: %clang_cc1 %s -triple spir-unknown-unknown-intelfpga -cl-std=CL1.2 -verify -Wno-ivdep-usage -fsyntax-only -DNOWARN
  // RUN: %clang_cc1 %s -triple spir-unknown-unknown-unknown -cl-std=CL1.2 -verify -pedantic -fsyntax-only -DNOWARN
-__kernel void set_zero() {
+__kernel void set_zero(void) {
   int array[10];
 #pragma ivdep
 #ifdef NOWARN

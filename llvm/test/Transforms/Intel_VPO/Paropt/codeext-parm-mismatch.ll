@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=code-extractor -S 2>&1 | FileCheck %s
+; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -debug-only=code-extractor -S %s 2>&1 | FileCheck %s
 
 ; TEST 1
 ;

@@ -239,6 +239,9 @@ private:
     // opaque ptrs.
     SmallVector<Type *, 3> DimElementTypes;
 
+    // Indicates whether stride is an exact multiple of element size.
+    SmallVector<bool, 3> StrideIsExactMultiple;
+
     // TODO: Atomic attribute is missing. Should we even build regions with
     // atomic load/stores since optimizing multi-threaded code might be
     // dangerous? IRBuilder doesn't even seem to have members to create atomic
@@ -369,7 +372,8 @@ private:
                            ArrayRef<unsigned> TrailingOffsets = {},
                            CanonExpr *LowerBoundCE = nullptr,
                            CanonExpr *StrideCE = nullptr, Type *DimTy = nullptr,
-                           Type *DimElemTy = nullptr);
+                           Type *DimElemTy = nullptr,
+                           bool IsExactMultiple = true);
 
   /// Returns true if the GEP ref has a 'known' location (address range). An
   /// unattached or fake ref's location is unknown.
@@ -811,6 +815,12 @@ public:
   const_canon_iterator canon_begin() const { return CanonExprs.begin(); }
   canon_iterator canon_end() { return CanonExprs.end(); }
   const_canon_iterator canon_end() const { return CanonExprs.end(); }
+  iterator_range<canon_iterator> canons() {
+    return make_range(canon_begin(), canon_end());
+  }
+  iterator_range<const_canon_iterator> canons() const {
+    return make_range(canon_begin(), canon_end());
+  }
 
   reverse_canon_iterator canon_rbegin() { return CanonExprs.rbegin(); }
   const_reverse_canon_iterator canon_rbegin() const {
@@ -979,7 +989,7 @@ public:
   void addDimension(CanonExpr *IndexCE, ArrayRef<unsigned> TrailingOffsets = {},
                     CanonExpr *LowerBoundCE = nullptr,
                     CanonExpr *StrideCE = nullptr, Type *DimTy = nullptr,
-                    Type *DimElemTy = nullptr);
+                    Type *DimElemTy = nullptr, bool IsExactMultiple = true);
 
   /// Sets trailing offsets for \p DimensionNum.
   void setTrailingStructOffsets(unsigned DimensionNum,
@@ -1066,6 +1076,10 @@ public:
 
   const CanonExpr *getDimensionIndex(unsigned DimensionNum) const {
     return const_cast<RegDDRef *>(this)->getDimensionIndex(DimensionNum);
+  }
+
+  bool isStrideExactMultiple(unsigned DimensionNum) const {
+    return GepInfo->StrideIsExactMultiple[DimensionNum - 1];
   }
 
   /// Returns true if the dimension associated with \p DimensionNum represent

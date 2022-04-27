@@ -1,4 +1,21 @@
 //===- CodeViewYAMLTypes.cpp - CodeView YAMLIO types implementation -------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -616,6 +633,18 @@ template <> void LeafRecordImpl<OEMTypeRecord>::map(IO &IO) {
   IO.mapRequired("OEMType", Record.OEMTypeID);
   IO.mapRequired("TypeIndices", Record.TypeIndices);
   IO.mapRequired("Data", Record.Data);
+}
+
+template <> void LeafRecordImpl<DimArrayRecord>::map(IO &IO) {
+  IO.mapRequired("ElementType", Record.ElementType);
+  IO.mapRequired("DimInfo", Record.DimInfo);
+  IO.mapRequired("Name", Record.Name);
+}
+
+template <> void LeafRecordImpl<DimConLURecord>::map(IO &IO) {
+  IO.mapRequired("IndexType", Record.IndexType);
+  IO.mapRequired("Rank", Record.Rank);
+  IO.mapRequired("Bounds", Record.Bounds);
 }
 #endif //INTEL_CUSTOMIZATION
 

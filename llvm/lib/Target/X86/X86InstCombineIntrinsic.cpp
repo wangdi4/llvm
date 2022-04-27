@@ -1,4 +1,21 @@
 //===-- X86InstCombineIntrinsic.cpp - X86 specific InstCombine pass -------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -354,10 +371,9 @@ static Value *simplifyX86varShift(const IntrinsicInst &II,
 
   // If the shift amount is guaranteed to be in-range we can replace it with a
   // generic shift.
-  APInt UpperBits =
-      APInt::getHighBitsSet(BitWidth, BitWidth - Log2_32(BitWidth));
-  if (llvm::MaskedValueIsZero(Amt, UpperBits,
-                              II.getModule()->getDataLayout())) {
+  KnownBits KnownAmt =
+      llvm::computeKnownBits(Amt, II.getModule()->getDataLayout());
+  if (KnownAmt.getMaxValue().ult(BitWidth)) {
     return (LogicalShift ? (ShiftLeft ? Builder.CreateShl(Vec, Amt)
                                       : Builder.CreateLShr(Vec, Amt))
                          : Builder.CreateAShr(Vec, Amt));
@@ -997,19 +1013,17 @@ X86TTIImpl::instCombineIntrinsic(InstCombiner &IC, IntrinsicInst &II) const {
         return IC.replaceInstUsesWith(II, II.getArgOperand(0));
       }
 
-      if (MaskC->getValue().isShiftedMask()) {
+      unsigned MaskIdx, MaskLen;
+      if (MaskC->getValue().isShiftedMask(MaskIdx, MaskLen)) {
         // any single contingous sequence of 1s anywhere in the mask simply
         // describes a subset of the input bits shifted to the appropriate
         // position.  Replace with the straight forward IR.
-        unsigned ShiftAmount = MaskC->getValue().countTrailingZeros();
         Value *Input = II.getArgOperand(0);
         Value *Masked = IC.Builder.CreateAnd(Input, II.getArgOperand(1));
-        Value *Shifted = IC.Builder.CreateLShr(Masked,
-                                               ConstantInt::get(II.getType(),
-                                                                ShiftAmount));
+        Value *ShiftAmt = ConstantInt::get(II.getType(), MaskIdx);
+        Value *Shifted = IC.Builder.CreateLShr(Masked, ShiftAmt);
         return IC.replaceInstUsesWith(II, Shifted);
       }
-
 
       if (auto *SrcC = dyn_cast<ConstantInt>(II.getArgOperand(0))) {
         uint64_t Src = SrcC->getZExtValue();
@@ -1042,15 +1056,15 @@ X86TTIImpl::instCombineIntrinsic(InstCombiner &IC, IntrinsicInst &II) const {
       if (MaskC->isAllOnesValue()) {
         return IC.replaceInstUsesWith(II, II.getArgOperand(0));
       }
-      if (MaskC->getValue().isShiftedMask()) {
+
+      unsigned MaskIdx, MaskLen;
+      if (MaskC->getValue().isShiftedMask(MaskIdx, MaskLen)) {
         // any single contingous sequence of 1s anywhere in the mask simply
         // describes a subset of the input bits shifted to the appropriate
         // position.  Replace with the straight forward IR.
-        unsigned ShiftAmount = MaskC->getValue().countTrailingZeros();
         Value *Input = II.getArgOperand(0);
-        Value *Shifted = IC.Builder.CreateShl(Input,
-                                              ConstantInt::get(II.getType(),
-                                                               ShiftAmount));
+        Value *ShiftAmt = ConstantInt::get(II.getType(), MaskIdx);
+        Value *Shifted = IC.Builder.CreateShl(Input, ShiftAmt);
         Value *Masked = IC.Builder.CreateAnd(Shifted, II.getArgOperand(1));
         return IC.replaceInstUsesWith(II, Masked);
       }

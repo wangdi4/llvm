@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 # PI Level Zero plugin library
 
 if(MSVC)
@@ -108,63 +125,19 @@ target_include_directories(LevelZeroLoader-Headers
   INTERFACE "${LEVEL_ZERO_INCLUDE_DIR}"
 )
 
-
-include_directories("${sycl_inc_dir}")
-
-add_library(pi_level_zero SHARED
-  "${sycl_inc_dir}/CL/sycl/detail/pi.h"
-  "${CMAKE_CURRENT_SOURCE_DIR}/pi_level_zero.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/pi_level_zero.hpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/usm_allocator.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/usm_allocator.hpp"
+find_package(Threads REQUIRED)
+add_sycl_plugin(level_zero
+  SOURCES
+    "${sycl_inc_dir}/CL/sycl/detail/pi.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/pi_level_zero.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/pi_level_zero.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/usm_allocator.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/usm_allocator.hpp"
+  LIBRARIES
+    "${LEVEL_ZERO_LOADER}"
+    Threads::Threads
 )
-
-if (MSVC)
-  # by defining __SYCL_BUILD_SYCL_DLL, we can use __declspec(dllexport)
-  # which are individually tagged for all pi* symbols in pi.h
-  target_compile_definitions(pi_level_zero PRIVATE __SYCL_BUILD_SYCL_DLL)
-  # Install stripped PDB
-  add_stripped_pdb(pi_level_zero)
-else()
-  # we set the visibility of all symbols 'hidden' by default.
-  # In pi.h file, we set exported symbols with visibility==default individually
-  target_compile_options(pi_level_zero PUBLIC -fvisibility=hidden)
-
-  # This script file is used to allow exporting pi* symbols only.
-  # All other symbols are regarded as local (hidden)
-  set(linker_script "${CMAKE_CURRENT_SOURCE_DIR}/../ld-version-script.txt")
-
-  # Filter symbols based on the scope defined in the script file,
-  # and export pi* function symbols in the library.
-  target_link_libraries( pi_level_zero
-    PRIVATE "-Wl,--version-script=${linker_script}"
-  )
-endif()
 
 if (TARGET level-zero-loader)
   add_dependencies(pi_level_zero level-zero-loader)
 endif()
-
-add_dependencies(sycl-toolchain pi_level_zero)
-target_link_libraries(pi_level_zero
-  PRIVATE
-    "${LEVEL_ZERO_LOADER}"
-    OpenCL-Headers
-)
-
-if (UNIX)
-  target_link_libraries(pi_level_zero PRIVATE pthread)
-else()
-  if (INTEL_CUSTOMIZATION)
-    dpcpptarget_add_resource_file(pi_level_zero
-                                  "pi_level_zero.dll"
-                                  "Intel(R) oneAPI DPC++ Library"
-                                  "Intel(R) oneAPI DPC++ Library")
-  endif()
-endif()
-
-add_common_options(pi_level_zero)
-
-install(TARGETS pi_level_zero
-  LIBRARY DESTINATION "lib" COMPONENT pi_level_zero
-  RUNTIME DESTINATION "bin" COMPONENT pi_level_zero)

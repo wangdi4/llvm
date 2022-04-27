@@ -202,6 +202,10 @@ static cl::opt<int> MemCanonicalizationMaxLookupDepth(
     cl::desc("The maximum distance we are going to search for matching groups "
              "within BestGroups."));
 
+static cl::opt<int> MaxScoringSearchDepth(
+    "addsub-reassoc-max-scoring-depth", cl::init(4), cl::Hidden,
+    cl::desc("The maximum search depth to find the optimal scoring."));
+
 // TODO: Get rid of "unary associations" term from the pass source code.
 // The term itself doesn't even sound like having any sense and
 // it took me a while to realize what was really meant.
@@ -888,7 +892,10 @@ int64_t AddSubReassociate::getSumAbsDistances(const CanonForm &G1,
 int64_t AddSubReassociate::getBestSortedScore_rec(
     const Group &G1, const Group &G2, CanonForm G1Leaves, CanonForm G2Leaves,
     CanonForm &LastSortedG1Leaves, CanonForm &BestSortedG1Leaves,
-    int64_t &BestScore) {
+    int64_t &BestScore, int depth) {
+  if (depth > MaxScoringSearchDepth)
+    return MAX_DISTANCE;
+
   // If we reached the bottom, return the total distance.
   if (G2Leaves.empty()) {
     assert(G1Leaves.empty() && "G1Leaves and G2Leaves out of sync.");
@@ -915,9 +922,9 @@ int64_t AddSubReassociate::getBestSortedScore_rec(
     SortedG1LeavesCopy.appendLeaf(G1Leaf.getLeaf(), G1Leaf.getOpcodeData());
     CanonForm G1LeavesCopy = G1Leaves;
     G1LeavesCopy.removeLeaf(llvm::find(G1LeavesCopy, G1Leaf));
-    int64_t Score = getBestSortedScore_rec(G1, G2, G1LeavesCopy, G2Leaves,
-                                           SortedG1LeavesCopy,
-                                           BestSortedG1Leaves, BestScore);
+    int64_t Score = getBestSortedScore_rec(
+        G1, G2, G1LeavesCopy, G2Leaves, SortedG1LeavesCopy, BestSortedG1Leaves,
+        BestScore, depth + 1);
     // Keep the best scores.
     if (Score < BestScore) {
       BestScore = Score;
@@ -937,7 +944,7 @@ bool AddSubReassociate::getBestSortedLeaves(const Group &G1, const Group &G2,
   CanonForm DummyG1SortedLeaves;
 
   getBestSortedScore_rec(G1, G2, G1, G2, DummyG1SortedLeaves,
-                         BestSortedG1Leaves, BestScore);
+                         BestSortedG1Leaves, BestScore, /*depth=*/0);
   if (BestSortedG1Leaves.size() != G1.size())
     return false;
   assert(std::is_permutation(BestSortedG1Leaves.begin(),

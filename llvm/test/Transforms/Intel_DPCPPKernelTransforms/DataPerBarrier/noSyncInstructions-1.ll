@@ -1,5 +1,5 @@
 ; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-data-per-barrier-analysis>' %s | FileCheck %s
-; RUN: opt -analyze -dpcpp-kernel-data-per-barrier-analysis %s -S -o - | FileCheck %s
+; RUN: opt -analyze -enable-new-pm=0 -dpcpp-kernel-data-per-barrier-analysis %s -S -o - | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the DataPerBarrier pass
@@ -35,11 +35,6 @@ L3:
 }
 
 ; CHECK: synchronize basic blocks
-; CHECK-NOT: +
-; CHECK-NOT: -
-; CHECK-NOT: *
-
-; CHECK: basic blocks predecessors
 ; CHECK-NOT: +
 ; CHECK-NOT: -
 ; CHECK-NOT: *

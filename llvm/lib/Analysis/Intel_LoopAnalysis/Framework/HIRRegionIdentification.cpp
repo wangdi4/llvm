@@ -77,7 +77,7 @@ static cl::list<std::string> DisableRegionsFuncList(
     cl::CommaSeparated, cl::Hidden);
 
 static cl::opt<bool> DisableFusionRegions(
-    "disable-hir-create-fusion-regions", cl::init(true), cl::Hidden,
+    "disable-hir-create-fusion-regions", cl::init(false), cl::Hidden,
     cl::desc("Disable HIR to create regions for multiple loops"
              "suitable for loop fusion"));
 
@@ -85,6 +85,12 @@ static cl::opt<unsigned> LoopMaterializationBBSize(
     "hir-loop-materialization-bb-size", cl::init(50), cl::Hidden,
     cl::desc("Threshold for number of instructions allowed in the basic block "
              "which may be a loop materialization candidate"));
+
+static cl::opt<unsigned> LexicalInsertionFuncSizeThreshold(
+    "hir-region-lexical-insertion-func-size-threshold", cl::init(10000),
+    cl::Hidden,
+    cl::desc("Threshold for number of basic blocks allowed in the function "
+             "when we try lexical insertion of materialized regions"));
 
 static cl::opt<unsigned> HugeLoopSize("hir-huge-loop-size", cl::init(42),
                                       cl::Hidden,
@@ -377,6 +383,19 @@ void HIRRegionIdentification::computeLoopSpansForFusion(
         break;
       }
 
+      // TODO: large regions with small TC loops cause performance drops.
+      const auto *Lp1ConstTC = dyn_cast<SCEVConstant>(Lp1TC);
+      if (Lp1ConstTC &&
+          Lp1ConstTC->getAPInt().abs().ult(FusedRegionTCThreshold)) {
+        break;
+      }
+
+      const auto *Lp2ConstTC = dyn_cast<SCEVConstant>(Lp2TC);
+      if (Lp2ConstTC &&
+          Lp2ConstTC->getAPInt().abs().ult(FusedRegionTCThreshold)) {
+        break;
+      }
+
       const auto *Diff = dyn_cast<SCEVConstant>(SE.getMinusSCEV(Lp1TC, Lp2TC));
       if (!Diff || Diff->getAPInt().abs().ugt(MaxFusionTripCountDiff)) {
         break;
@@ -555,6 +574,14 @@ bool HIRRegionIdentification::isSupported(Type *Ty, bool IsGEPRelated,
     printOptReportRemark(
         Lp, "GEP related vector types currently not supported.");
 
+    return false;
+  }
+
+  if (Ty->isX86_AMXTy() || Ty->isX86_MMXTy()) {
+    // It is not valid to create a pointer of this type which is required for us
+    // to generate code as HIRCodeGen generates an alloca for every temp. As
+    // such CG fails for this type so we need to disallow it.
+    printOptReportRemark(Lp, "x86_amx type is not supported.");
     return false;
   }
 
@@ -760,10 +787,45 @@ void HIRRegionIdentification::CostModelAnalyzer::printStats() const {
 }
 #endif
 
+static MDString *getStringMetadata(MDNode *Node) {
+  assert(Node->getNumOperands() > 0 &&
+         "metadata should have at least one operand!");
+
+  return dyn_cast<MDString>(Node->getOperand(0));
+}
+
+static bool isIVDepMetadata(MDNode *Node) {
+  MDString *Str = getStringMetadata(Node);
+  return Str && Str->getString().startswith("llvm.loop.vectorize.ivdep");
+}
+
+static bool isIVDepLoop(const Loop &Lp) {
+  MDNode *LoopID = Lp.getLoopID();
+
+  if (!LoopID) {
+    return false;
+  }
+
+  unsigned Ops = LoopID->getNumOperands();
+
+  for (unsigned I = 0; I < Ops; ++I) {
+    MDNode *OpNode = dyn_cast<MDNode>(LoopID->getOperand(I));
+    if (OpNode == LoopID) {
+      continue;
+    }
+
+    if (isIVDepMetadata(OpNode)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 void HIRRegionIdentification::CostModelAnalyzer::analyze() {
 
-  // SIMD loops should not be throttled.
-  if (isLoopWithDirective(Lp)) {
+  // SIMD/IVDep loops should not be throttled.
+  if (isLoopWithDirective(Lp) || isIVDepLoop(Lp)) {
     IsProfitable = true;
     return;
   }
@@ -1320,13 +1382,6 @@ bool HIRRegionIdentification::shouldThrottleLoop(
   return !CMA.isProfitable();
 }
 
-static MDString *getStringMetadata(MDNode *Node) {
-  assert(Node->getNumOperands() > 0 &&
-         "metadata should have at least one operand!");
-
-  return dyn_cast<MDString>(Node->getOperand(0));
-}
-
 static bool isUnrollMetadata(MDNode *Node) {
   MDString *Str = getStringMetadata(Node);
 
@@ -1369,7 +1424,8 @@ static bool isDebugMetadata(MDNode *Node) {
 static bool isLoopCountMetadata(MDNode *Node) {
   MDString *Str = getStringMetadata(Node);
 
-  return Str && Str->getString().startswith("llvm.loop.intel.loopcount");
+  return Str && (Str->getString().startswith("llvm.loop.intel.loopcount") ||
+                 Str->getString().equals("llvm.loop.intel.max.trip_count"));
 }
 
 static bool isParallelAccessMetadata(MDNode *Node) {
@@ -1578,6 +1634,26 @@ static bool hasUnsupportedOperandBundle(const CallInst *CI) {
   return !isKnownLoopDirective(CI, true) && !isKnownLoopDirective(CI, false);
 }
 
+static bool isUnsupportedX86SSEIntrinsic(const CallInst *CI) {
+  if (!CI)
+    return false;
+
+  auto *Callee = CI->getCalledFunction();
+  if (!Callee)
+    return false;
+
+  StringRef Name = Callee->getName();
+  if (Name.empty())
+    return false;
+
+  if (!Name.startswith("llvm."))
+    return false;
+
+  Name = Name.substr(5);
+
+  return (Name.startswith("x86.sse") || Name.startswith("x86.ssse"));
+}
+
 bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
                                           const Loop *Lp) {
   auto FirstInst = BB->getFirstNonPHI();
@@ -1591,6 +1667,12 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
 
   if (isa<IndirectBrInst>(Term)) {
     printOptReportRemark(Lp, "Indirect branches currently not supported.");
+    return false;
+  }
+
+  if (isa<CallBrInst>(Term)) {
+    printOptReportRemark(Lp,
+                         "Call branch instruction currently not supported.");
     return false;
   }
 
@@ -1651,6 +1733,11 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
     if (auto CInst = dyn_cast<CallInst>(Inst)) {
       if (CInst->isInlineAsm()) {
         printOptReportRemark(Lp, "Inline assembly currently not supported.");
+        return false;
+      }
+
+      if (isUnsupportedX86SSEIntrinsic(CInst)) {
+        printOptReportRemark(Lp, "Skip loops with X86 SSE intrinsics.");
         return false;
       }
 
@@ -2208,6 +2295,8 @@ HIRRegionIdentification::getLexicalInsertionPos(const BasicBlock *BB) {
 void HIRRegionIdentification::formRegionsForLoopMaterialization(
     Function &Func) {
 
+  unsigned FunctionSize = Func.size();
+
   for (auto &BB : Func) {
     if (AllLoopBasedRegionsBBlocks.count(&BB)) {
       continue;
@@ -2234,7 +2323,11 @@ void HIRRegionIdentification::formRegionsForLoopMaterialization(
       return;
     }
 
-    auto InsertPos = getLexicalInsertionPos(&BB);
+    // Lexical insertion check is compile time intensive so we only do it for
+    // 'small' functions.
+    auto InsertPos = (FunctionSize > LexicalInsertionFuncSizeThreshold)
+                         ? IRRegions.end()
+                         : getLexicalInsertionPos(&BB);
 
     IRRegion::RegionBBlocksTy BBs, NonLoopBBs;
     BBs.push_back(&BB);

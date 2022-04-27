@@ -7,8 +7,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/MIRParser/MIRParser.h"
+#include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
+#include "llvm/CodeGen/TargetFrameLowering.h"
+#include "llvm/CodeGen/TargetInstrInfo.h"
 #include "llvm/CodeGen/TargetLowering.h"
+#include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DebugInfoMetadata.h"
@@ -175,21 +179,21 @@ public:
   }
 
   // Some routines for bouncing into LDV,
-  void buildMLocValueMap(ValueIDNum **MInLocs, ValueIDNum **MOutLocs,
+  void buildMLocValueMap(FuncValueTable &MInLocs, FuncValueTable &MOutLocs,
                          SmallVectorImpl<MLocTransferMap> &MLocTransfer) {
     LDV->buildMLocValueMap(*MF, MInLocs, MOutLocs, MLocTransfer);
   }
 
   void placeMLocPHIs(MachineFunction &MF,
                      SmallPtrSetImpl<MachineBasicBlock *> &AllBlocks,
-                     ValueIDNum **MInLocs,
+                     FuncValueTable &MInLocs,
                      SmallVectorImpl<MLocTransferMap> &MLocTransfer) {
     LDV->placeMLocPHIs(MF, AllBlocks, MInLocs, MLocTransfer);
   }
 
   Optional<ValueIDNum>
   pickVPHILoc(const MachineBasicBlock &MBB, const DebugVariable &Var,
-              const InstrRefBasedLDV::LiveIdxT &LiveOuts, ValueIDNum **MOutLocs,
+              const InstrRefBasedLDV::LiveIdxT &LiveOuts, FuncValueTable &MOutLocs,
               const SmallVectorImpl<const MachineBasicBlock *> &BlockOrders) {
     return LDV->pickVPHILoc(MBB, Var, LiveOuts, MOutLocs, BlockOrders);
   }
@@ -203,14 +207,14 @@ public:
   void buildVLocValueMap(const DILocation *DILoc,
                     const SmallSet<DebugVariable, 4> &VarsWeCareAbout,
                     SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks,
-                    InstrRefBasedLDV::LiveInsT &Output, ValueIDNum **MOutLocs,
-                    ValueIDNum **MInLocs,
+                    InstrRefBasedLDV::LiveInsT &Output, FuncValueTable &MOutLocs,
+                    FuncValueTable &MInLocs,
                     SmallVectorImpl<VLocTracker> &AllTheVLocs) {
     LDV->buildVLocValueMap(DILoc, VarsWeCareAbout, AssignBlocks, Output,
                            MOutLocs, MInLocs, AllTheVLocs);
   }
 
-  void initValueArray(ValueIDNum **Nums, unsigned Blks, unsigned Locs) {
+  void initValueArray(FuncValueTable &Nums, unsigned Blks, unsigned Locs) {
     for (unsigned int I = 0; I < Blks; ++I)
       for (unsigned int J = 0; J < Locs; ++J)
         Nums[I][J] = ValueIDNum::EmptyValue;
@@ -481,6 +485,19 @@ body:  |
                               unsigned MaxNumBlocks) {
     LDV->produceMLocTransferFunction(MF, MLocTransfer, MaxNumBlocks);
   }
+
+  std::pair<FuncValueTable, FuncValueTable>
+  allocValueTables(unsigned Blocks, unsigned Locs) {
+    FuncValueTable MOutLocs = std::make_unique<ValueTable[]>(Blocks);
+    FuncValueTable MInLocs = std::make_unique<ValueTable[]>(Blocks);
+
+    for (unsigned int I = 0; I < Blocks; ++I) {
+      MOutLocs[I] = std::make_unique<ValueIDNum[]>(Locs);
+      MInLocs[I] = std::make_unique<ValueIDNum[]>(Locs);
+    }
+
+    return std::make_pair(std::move(MOutLocs), std::move(MInLocs));
+  }
 };
 
 TEST_F(InstrRefLDVTest, MTransferDefs) {
@@ -642,7 +659,7 @@ TEST_F(InstrRefLDVTest, MTransferCopies) {
   // it's not completely clear why, but here we only care about correctly
   // identifying the slot, not that all the surrounding data is correct.
   SpillLoc L = {getRegByName("RSP"), StackOffset::getFixed(-8)};
-  SpillLocationNo SpillNo = MTracker->getOrTrackSpillLoc(L);
+  SpillLocationNo SpillNo = *MTracker->getOrTrackSpillLoc(L);
   unsigned SpillLocID = MTracker->getLocID(SpillNo, {64, 0});
   LocIdx SpillLoc = MTracker->getSpillMLoc(SpillLocID);
   ValueIDNum V = MTracker->readMLoc(SpillLoc);
@@ -766,7 +783,7 @@ TEST_F(InstrRefLDVTest, MTransferSubregSpills) {
     ValueIDNum DefNum(0, 1, RegLoc);
     // Read the corresponding subreg field from the stack.
     SpillLoc L = {getRegByName("RSP"), StackOffset::getFixed(-8)};
-    SpillLocationNo SpillNo = MTracker->getOrTrackSpillLoc(L);
+    SpillLocationNo SpillNo = *MTracker->getOrTrackSpillLoc(L);
     unsigned SpillID = MTracker->getLocID(SpillNo, SubRegIdxes[I]);
     LocIdx SpillLoc = MTracker->getSpillMLoc(SpillID);
     ValueIDNum SpillValue = MTracker->readMLoc(SpillLoc);
@@ -803,7 +820,7 @@ TEST_F(InstrRefLDVTest, MTransferSubregSpills) {
   // $rbx should contain something else; today it's a def at the spill point
   // of the 4 byte value.
   SpillLoc L = {getRegByName("RSP"), StackOffset::getFixed(-8)};
-  SpillLocationNo SpillNo = MTracker->getOrTrackSpillLoc(L);
+  SpillLocationNo SpillNo = *MTracker->getOrTrackSpillLoc(L);
   unsigned SpillID = MTracker->getLocID(SpillNo, {64, 0});
   LocIdx Spill64Loc = MTracker->getSpillMLoc(SpillID);
   ValueIDNum DefAtSpill64(0, 3, Spill64Loc);
@@ -817,7 +834,7 @@ TEST_F(InstrRefLDVTest, MTransferSubregSpills) {
     LocIdx RegLoc = MTracker->getRegMLoc(getRegByName(SubRegNames[I]));
     ValueIDNum DefNum(0, 1, RegLoc);
     // Read the corresponding subreg field from the stack.
-    SpillNo = MTracker->getOrTrackSpillLoc(L);
+    SpillNo = *MTracker->getOrTrackSpillLoc(L);
     SpillID = MTracker->getLocID(SpillNo, SubRegIdxes[I]);
     LocIdx SpillLoc = MTracker->getSpillMLoc(SpillID);
     ValueIDNum SpillValue = MTracker->readMLoc(SpillLoc);
@@ -846,7 +863,7 @@ TEST_F(InstrRefLDVTest, MTransferSubregSpills) {
 
   for (unsigned int I = 0; I < 5; ++I) {
     // Read subreg fields from the stack.
-    SpillLocationNo SpillNo = MTracker->getOrTrackSpillLoc(L);
+    SpillLocationNo SpillNo = *MTracker->getOrTrackSpillLoc(L);
     unsigned SpillID = MTracker->getLocID(SpillNo, SubRegIdxes[I]);
     LocIdx SpillLoc = MTracker->getSpillMLoc(SpillID);
     ValueIDNum SpillValue = MTracker->readMLoc(SpillLoc);
@@ -859,7 +876,7 @@ TEST_F(InstrRefLDVTest, MTransferSubregSpills) {
 
   // Read xmm0's position and ensure it has a value. Should be the live-in
   // value to the block, as IMPLICIT_DEF isn't a real def.
-  SpillNo = MTracker->getOrTrackSpillLoc(L);
+  SpillNo = *MTracker->getOrTrackSpillLoc(L);
   SpillID = MTracker->getLocID(SpillNo, {128, 0});
   LocIdx Spill128Loc = MTracker->getSpillMLoc(SpillID);
   SpillValue = MTracker->readMLoc(Spill128Loc);
@@ -898,41 +915,40 @@ TEST_F(InstrRefLDVTest, MLocSingleBlock) {
 
   // Set up live-in and live-out tables for this function: two locations (we
   // add one later) in a single block.
-  ValueIDNum InLocs[2], OutLocs[2];
-  ValueIDNum *InLocsPtr[1] = {&InLocs[0]};
-  ValueIDNum *OutLocsPtr[1] = {&OutLocs[0]};
+  FuncValueTable MOutLocs, MInLocs;
+  std::tie(MOutLocs, MInLocs) = allocValueTables(1, 2);
 
   // Transfer function: nothing.
   SmallVector<MLocTransferMap, 1> TransferFunc;
   TransferFunc.resize(1);
 
   // Try and build value maps...
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
 
   // The result should be that RSP is marked as a live-in-PHI -- this represents
   // an argument. And as there's no transfer function, the block live-out should
   // be the same.
-  EXPECT_EQ(InLocs[0], ValueIDNum(0, 0, RspLoc));
-  EXPECT_EQ(OutLocs[0], ValueIDNum(0, 0, RspLoc));
+  EXPECT_EQ(MInLocs[0][0], ValueIDNum(0, 0, RspLoc));
+  EXPECT_EQ(MOutLocs[0][0], ValueIDNum(0, 0, RspLoc));
 
   // Try again, this time initialising the in-locs to be defined by an
   // instruction. The entry block should always be re-assigned to be the
   // arguments.
-  initValueArray(InLocsPtr, 1, 2);
-  initValueArray(OutLocsPtr, 1, 2);
-  InLocs[0] = ValueIDNum(0, 1, RspLoc);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0], ValueIDNum(0, 0, RspLoc));
-  EXPECT_EQ(OutLocs[0], ValueIDNum(0, 0, RspLoc));
+  initValueArray(MInLocs, 1, 2);
+  initValueArray(MOutLocs, 1, 2);
+  MInLocs[0][0] = ValueIDNum(0, 1, RspLoc);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], ValueIDNum(0, 0, RspLoc));
+  EXPECT_EQ(MOutLocs[0][0], ValueIDNum(0, 0, RspLoc));
 
   // Now insert something into the transfer function to assign to the single
   // machine location.
   TransferFunc[0].insert({RspLoc, ValueIDNum(0, 1, RspLoc)});
-  initValueArray(InLocsPtr, 1, 2);
-  initValueArray(OutLocsPtr, 1, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0], ValueIDNum(0, 0, RspLoc));
-  EXPECT_EQ(OutLocs[0], ValueIDNum(0, 1, RspLoc));
+  initValueArray(MInLocs, 1, 2);
+  initValueArray(MOutLocs, 1, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], ValueIDNum(0, 0, RspLoc));
+  EXPECT_EQ(MOutLocs[0][0], ValueIDNum(0, 1, RspLoc));
   TransferFunc[0].clear();
 
   // Add a new register to be tracked, and insert it into the transfer function
@@ -941,13 +957,13 @@ TEST_F(InstrRefLDVTest, MLocSingleBlock) {
   LocIdx RaxLoc = MTracker->lookupOrTrackRegister(RAX);
   TransferFunc[0].insert({RspLoc, ValueIDNum(0, 1, RspLoc)});
   TransferFunc[0].insert({RaxLoc, ValueIDNum(0, 0, RspLoc)});
-  initValueArray(InLocsPtr, 1, 2);
-  initValueArray(OutLocsPtr, 1, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0], ValueIDNum(0, 0, RspLoc));
-  EXPECT_EQ(InLocs[1], ValueIDNum(0, 0, RaxLoc));
-  EXPECT_EQ(OutLocs[0], ValueIDNum(0, 1, RspLoc));
-  EXPECT_EQ(OutLocs[1], ValueIDNum(0, 0, RspLoc)); // Rax contains RspLoc.
+  initValueArray(MInLocs, 1, 2);
+  initValueArray(MOutLocs, 1, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], ValueIDNum(0, 0, RspLoc));
+  EXPECT_EQ(MInLocs[0][1], ValueIDNum(0, 0, RaxLoc));
+  EXPECT_EQ(MOutLocs[0][0], ValueIDNum(0, 1, RspLoc));
+  EXPECT_EQ(MOutLocs[0][1], ValueIDNum(0, 0, RspLoc)); // Rax contains RspLoc.
   TransferFunc[0].clear();
 }
 
@@ -965,9 +981,8 @@ TEST_F(InstrRefLDVTest, MLocDiamondBlocks) {
   Register RAX = getRegByName("RAX");
   LocIdx RaxLoc = MTracker->lookupOrTrackRegister(RAX);
 
-  ValueIDNum InLocs[4][2], OutLocs[4][2];
-  ValueIDNum *InLocsPtr[4] = {InLocs[0], InLocs[1], InLocs[2], InLocs[3]};
-  ValueIDNum *OutLocsPtr[4] = {OutLocs[0], OutLocs[1], OutLocs[2], OutLocs[3]};
+  FuncValueTable MInLocs, MOutLocs;
+  std::tie(MInLocs, MOutLocs) = allocValueTables(4, 2);
 
   // Transfer function: start with nothing.
   SmallVector<MLocTransferMap, 1> TransferFunc;
@@ -987,52 +1002,52 @@ TEST_F(InstrRefLDVTest, MLocDiamondBlocks) {
   // With no transfer function, the live-in values to the entry block should
   // propagate to all live-outs and the live-ins to the two successor blocks.
   // IN ADDITION: this checks that the exit block doesn't get a PHI put in it.
-  initValueArray(InLocsPtr, 4, 2);
-  initValueArray(OutLocsPtr, 4, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], LiveInRsp);
-  EXPECT_EQ(InLocs[2][0], LiveInRsp);
-  EXPECT_EQ(InLocs[3][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[0][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[2][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[3][0], LiveInRsp);
+  initValueArray(MInLocs, 4, 2);
+  initValueArray(MOutLocs, 4, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[2][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[3][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[2][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[3][0], LiveInRsp);
   // (Skipped writing out locations for $rax).
 
   // Check that a def of $rsp in the entry block will likewise reach all the
   // successors.
   TransferFunc[0].insert({RspLoc, RspDefInBlk0});
-  initValueArray(InLocsPtr, 4, 2);
-  initValueArray(OutLocsPtr, 4, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], RspDefInBlk0);
-  EXPECT_EQ(InLocs[2][0], RspDefInBlk0);
-  EXPECT_EQ(InLocs[3][0], RspDefInBlk0);
-  EXPECT_EQ(OutLocs[0][0], RspDefInBlk0);
-  EXPECT_EQ(OutLocs[1][0], RspDefInBlk0);
-  EXPECT_EQ(OutLocs[2][0], RspDefInBlk0);
-  EXPECT_EQ(OutLocs[3][0], RspDefInBlk0);
+  initValueArray(MInLocs, 4, 2);
+  initValueArray(MOutLocs, 4, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], RspDefInBlk0);
+  EXPECT_EQ(MInLocs[2][0], RspDefInBlk0);
+  EXPECT_EQ(MInLocs[3][0], RspDefInBlk0);
+  EXPECT_EQ(MOutLocs[0][0], RspDefInBlk0);
+  EXPECT_EQ(MOutLocs[1][0], RspDefInBlk0);
+  EXPECT_EQ(MOutLocs[2][0], RspDefInBlk0);
+  EXPECT_EQ(MOutLocs[3][0], RspDefInBlk0);
   TransferFunc[0].clear();
 
   // Def in one branch of the diamond means that we need a PHI in the ret block
   TransferFunc[0].insert({RspLoc, RspDefInBlk0});
   TransferFunc[1].insert({RspLoc, RspDefInBlk1});
-  initValueArray(InLocsPtr, 4, 2);
-  initValueArray(OutLocsPtr, 4, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
+  initValueArray(MInLocs, 4, 2);
+  initValueArray(MOutLocs, 4, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
   // This value map: like above, where RspDefInBlk0 is propagated through one
   // branch of the diamond, but is def'ed in the live-outs of the other. The
   // ret / merging block should have a PHI in its live-ins.
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], RspDefInBlk0);
-  EXPECT_EQ(InLocs[2][0], RspDefInBlk0);
-  EXPECT_EQ(InLocs[3][0], RspPHIInBlk3);
-  EXPECT_EQ(OutLocs[0][0], RspDefInBlk0);
-  EXPECT_EQ(OutLocs[1][0], RspDefInBlk1);
-  EXPECT_EQ(OutLocs[2][0], RspDefInBlk0);
-  EXPECT_EQ(OutLocs[3][0], RspPHIInBlk3);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], RspDefInBlk0);
+  EXPECT_EQ(MInLocs[2][0], RspDefInBlk0);
+  EXPECT_EQ(MInLocs[3][0], RspPHIInBlk3);
+  EXPECT_EQ(MOutLocs[0][0], RspDefInBlk0);
+  EXPECT_EQ(MOutLocs[1][0], RspDefInBlk1);
+  EXPECT_EQ(MOutLocs[2][0], RspDefInBlk0);
+  EXPECT_EQ(MOutLocs[3][0], RspPHIInBlk3);
   TransferFunc[0].clear();
   TransferFunc[1].clear();
 
@@ -1041,17 +1056,17 @@ TEST_F(InstrRefLDVTest, MLocDiamondBlocks) {
   TransferFunc[0].insert({RspLoc, RspDefInBlk0});
   TransferFunc[1].insert({RspLoc, RspDefInBlk1});
   TransferFunc[2].insert({RspLoc, RspDefInBlk2});
-  initValueArray(InLocsPtr, 4, 2);
-  initValueArray(OutLocsPtr, 4, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], RspDefInBlk0);
-  EXPECT_EQ(InLocs[2][0], RspDefInBlk0);
-  EXPECT_EQ(InLocs[3][0], RspPHIInBlk3);
-  EXPECT_EQ(OutLocs[0][0], RspDefInBlk0);
-  EXPECT_EQ(OutLocs[1][0], RspDefInBlk1);
-  EXPECT_EQ(OutLocs[2][0], RspDefInBlk2);
-  EXPECT_EQ(OutLocs[3][0], RspPHIInBlk3);
+  initValueArray(MInLocs, 4, 2);
+  initValueArray(MOutLocs, 4, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], RspDefInBlk0);
+  EXPECT_EQ(MInLocs[2][0], RspDefInBlk0);
+  EXPECT_EQ(MInLocs[3][0], RspPHIInBlk3);
+  EXPECT_EQ(MOutLocs[0][0], RspDefInBlk0);
+  EXPECT_EQ(MOutLocs[1][0], RspDefInBlk1);
+  EXPECT_EQ(MOutLocs[2][0], RspDefInBlk2);
+  EXPECT_EQ(MOutLocs[3][0], RspPHIInBlk3);
   TransferFunc[0].clear();
   TransferFunc[1].clear();
   TransferFunc[2].clear();
@@ -1065,17 +1080,17 @@ TEST_F(InstrRefLDVTest, MLocDiamondBlocks) {
   TransferFunc[0].insert({RaxLoc, LiveInRsp});
   TransferFunc[1].insert({RspLoc, RaxLiveInBlk1});
   TransferFunc[2].insert({RspLoc, RaxLiveInBlk2});
-  initValueArray(InLocsPtr, 4, 2);
-  initValueArray(OutLocsPtr, 4, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], RspDefInBlk0);
-  EXPECT_EQ(InLocs[2][0], RspDefInBlk0);
-  EXPECT_EQ(InLocs[3][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[0][0], RspDefInBlk0);
-  EXPECT_EQ(OutLocs[1][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[2][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[3][0], LiveInRsp);
+  initValueArray(MInLocs, 4, 2);
+  initValueArray(MOutLocs, 4, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], RspDefInBlk0);
+  EXPECT_EQ(MInLocs[2][0], RspDefInBlk0);
+  EXPECT_EQ(MInLocs[3][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[0][0], RspDefInBlk0);
+  EXPECT_EQ(MOutLocs[1][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[2][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[3][0], LiveInRsp);
   TransferFunc[0].clear();
   TransferFunc[1].clear();
   TransferFunc[2].clear();
@@ -1097,7 +1112,7 @@ TEST_F(InstrRefLDVTest, MLocDiamondSpills) {
 
   // Create a stack location and ensure it's tracked.
   SpillLoc SL = {getRegByName("RSP"), StackOffset::getFixed(-8)};
-  SpillLocationNo SpillNo = MTracker->getOrTrackSpillLoc(SL);
+  SpillLocationNo SpillNo = *MTracker->getOrTrackSpillLoc(SL);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XISA_COMMON
   // Some new ISAs like AMX2 etc. introduce more sub register indicators. See
@@ -1127,8 +1142,8 @@ TEST_F(InstrRefLDVTest, MLocDiamondSpills) {
   // There are other locations, for things like xmm0, which we're going to
   // ignore here.
 
-  ValueIDNum InLocs[4][10];
-  ValueIDNum *InLocsPtr[4] = {InLocs[0], InLocs[1], InLocs[2], InLocs[3]};
+  FuncValueTable MInLocs, MOutLocs;
+  std::tie(MInLocs, MOutLocs) = allocValueTables(4, 10);
 
   // Transfer function: start with nothing.
   SmallVector<MLocTransferMap, 1> TransferFunc;
@@ -1163,16 +1178,15 @@ TEST_F(InstrRefLDVTest, MLocDiamondSpills) {
   // function.
   TransferFunc[1].insert({ALStackLoc, ALDefInBlk1});
   TransferFunc[1].insert({HAXStackLoc, HAXDefInBlk1});
-  initValueArray(InLocsPtr, 4, 10);
-  placeMLocPHIs(*MF, AllBlocks, InLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[3][ALStackLoc.asU64()], ALPHI);
-  EXPECT_EQ(InLocs[3][AXStackLoc.asU64()], AXPHI);
-  EXPECT_EQ(InLocs[3][EAXStackLoc.asU64()], EAXPHI);
-  EXPECT_EQ(InLocs[3][HAXStackLoc.asU64()], HAXPHI);
-  EXPECT_EQ(InLocs[3][RAXStackLoc.asU64()], RAXPHI);
+  initValueArray(MInLocs, 4, 10);
+  placeMLocPHIs(*MF, AllBlocks, MInLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[3][ALStackLoc.asU64()], ALPHI);
+  EXPECT_EQ(MInLocs[3][AXStackLoc.asU64()], AXPHI);
+  EXPECT_EQ(MInLocs[3][EAXStackLoc.asU64()], EAXPHI);
+  EXPECT_EQ(MInLocs[3][HAXStackLoc.asU64()], HAXPHI);
+  EXPECT_EQ(MInLocs[3][RAXStackLoc.asU64()], RAXPHI);
   // AH should be left untouched,
-  EXPECT_EQ(InLocs[3][AHStackLoc.asU64()], ValueIDNum::EmptyValue);
-
+  EXPECT_EQ(MInLocs[3][AHStackLoc.asU64()], ValueIDNum::EmptyValue);
 }
 
 TEST_F(InstrRefLDVTest, MLocSimpleLoop) {
@@ -1190,9 +1204,8 @@ TEST_F(InstrRefLDVTest, MLocSimpleLoop) {
   Register RAX = getRegByName("RAX");
   LocIdx RaxLoc = MTracker->lookupOrTrackRegister(RAX);
 
-  ValueIDNum InLocs[3][2], OutLocs[3][2];
-  ValueIDNum *InLocsPtr[3] = {InLocs[0], InLocs[1], InLocs[2]};
-  ValueIDNum *OutLocsPtr[3] = {OutLocs[0], OutLocs[1], OutLocs[2]};
+  FuncValueTable MInLocs, MOutLocs;
+  std::tie(MInLocs, MOutLocs) = allocValueTables(3, 2);
 
   SmallVector<MLocTransferMap, 1> TransferFunc;
   TransferFunc.resize(3);
@@ -1208,15 +1221,15 @@ TEST_F(InstrRefLDVTest, MLocSimpleLoop) {
   ValueIDNum RaxPHIInBlk2(RetBlk, 0, RaxLoc);
 
   // Begin test with all locations being live-through.
-  initValueArray(InLocsPtr, 3, 2);
-  initValueArray(OutLocsPtr, 3, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], LiveInRsp);
-  EXPECT_EQ(InLocs[2][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[0][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[2][0], LiveInRsp);
+  initValueArray(MInLocs, 3, 2);
+  initValueArray(MOutLocs, 3, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[2][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[2][0], LiveInRsp);
 
   // Add a def of $rsp to the loop block: it should be in the live-outs, but
   // should cause a PHI to be placed in the live-ins. Test the transfer function
@@ -1225,22 +1238,22 @@ TEST_F(InstrRefLDVTest, MLocSimpleLoop) {
   TransferFunc[1].insert({RspLoc, RspDefInBlk1});
   TransferFunc[1].insert({RaxLoc, RspPHIInBlk1});
   TransferFunc[2].insert({RspLoc, RaxPHIInBlk2});
-  initValueArray(InLocsPtr, 3, 2);
-  initValueArray(OutLocsPtr, 3, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], RspPHIInBlk1);
-  EXPECT_EQ(InLocs[2][0], RspDefInBlk1);
-  EXPECT_EQ(OutLocs[0][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][0], RspDefInBlk1);
-  EXPECT_EQ(OutLocs[2][0], RspPHIInBlk1);
+  initValueArray(MInLocs, 3, 2);
+  initValueArray(MOutLocs, 3, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], RspPHIInBlk1);
+  EXPECT_EQ(MInLocs[2][0], RspDefInBlk1);
+  EXPECT_EQ(MOutLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][0], RspDefInBlk1);
+  EXPECT_EQ(MOutLocs[2][0], RspPHIInBlk1);
   // Check rax as well,
-  EXPECT_EQ(InLocs[0][1], LiveInRax);
-  EXPECT_EQ(InLocs[1][1], RaxPHIInBlk1);
-  EXPECT_EQ(InLocs[2][1], RspPHIInBlk1);
-  EXPECT_EQ(OutLocs[0][1], LiveInRax);
-  EXPECT_EQ(OutLocs[1][1], RspPHIInBlk1);
-  EXPECT_EQ(OutLocs[2][1], RspPHIInBlk1);
+  EXPECT_EQ(MInLocs[0][1], LiveInRax);
+  EXPECT_EQ(MInLocs[1][1], RaxPHIInBlk1);
+  EXPECT_EQ(MInLocs[2][1], RspPHIInBlk1);
+  EXPECT_EQ(MOutLocs[0][1], LiveInRax);
+  EXPECT_EQ(MOutLocs[1][1], RspPHIInBlk1);
+  EXPECT_EQ(MOutLocs[2][1], RspPHIInBlk1);
   TransferFunc[1].clear();
   TransferFunc[2].clear();
 
@@ -1251,22 +1264,22 @@ TEST_F(InstrRefLDVTest, MLocSimpleLoop) {
   // to $rsp.
   TransferFunc[0].insert({RaxLoc, LiveInRsp});
   TransferFunc[1].insert({RspLoc, RaxPHIInBlk1});
-  initValueArray(InLocsPtr, 3, 2);
-  initValueArray(OutLocsPtr, 3, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], LiveInRsp);
-  EXPECT_EQ(InLocs[2][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[0][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[2][0], LiveInRsp);
+  initValueArray(MInLocs, 3, 2);
+  initValueArray(MOutLocs, 3, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[2][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[2][0], LiveInRsp);
   // Check $rax's values.
-  EXPECT_EQ(InLocs[0][1], LiveInRax);
-  EXPECT_EQ(InLocs[1][1], LiveInRsp);
-  EXPECT_EQ(InLocs[2][1], LiveInRsp);
-  EXPECT_EQ(OutLocs[0][1], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][1], LiveInRsp);
-  EXPECT_EQ(OutLocs[2][1], LiveInRsp);
+  EXPECT_EQ(MInLocs[0][1], LiveInRax);
+  EXPECT_EQ(MInLocs[1][1], LiveInRsp);
+  EXPECT_EQ(MInLocs[2][1], LiveInRsp);
+  EXPECT_EQ(MOutLocs[0][1], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][1], LiveInRsp);
+  EXPECT_EQ(MOutLocs[2][1], LiveInRsp);
   TransferFunc[0].clear();
   TransferFunc[1].clear();
 }
@@ -1290,11 +1303,8 @@ TEST_F(InstrRefLDVTest, MLocNestedLoop) {
   Register RAX = getRegByName("RAX");
   LocIdx RaxLoc = MTracker->lookupOrTrackRegister(RAX);
 
-  ValueIDNum InLocs[5][2], OutLocs[5][2];
-  ValueIDNum *InLocsPtr[5] = {InLocs[0], InLocs[1], InLocs[2], InLocs[3],
-                              InLocs[4]};
-  ValueIDNum *OutLocsPtr[5] = {OutLocs[0], OutLocs[1], OutLocs[2], OutLocs[3],
-                               OutLocs[4]};
+  FuncValueTable MInLocs, MOutLocs;
+  std::tie(MInLocs, MOutLocs) = allocValueTables(5, 2);
 
   SmallVector<MLocTransferMap, 1> TransferFunc;
   TransferFunc.resize(5);
@@ -1313,56 +1323,56 @@ TEST_F(InstrRefLDVTest, MLocNestedLoop) {
 
   // Like the other tests: first ensure that if there's nothing in the transfer
   // function, then everything is live-through (check $rsp).
-  initValueArray(InLocsPtr, 5, 2);
-  initValueArray(OutLocsPtr, 5, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], LiveInRsp);
-  EXPECT_EQ(InLocs[2][0], LiveInRsp);
-  EXPECT_EQ(InLocs[3][0], LiveInRsp);
-  EXPECT_EQ(InLocs[4][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[0][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[2][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[3][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[4][0], LiveInRsp);
+  initValueArray(MInLocs, 5, 2);
+  initValueArray(MOutLocs, 5, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[2][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[3][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[4][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[2][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[3][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[4][0], LiveInRsp);
 
   // A def in the inner loop means we should get PHIs at the heads of both
   // loops. Live-outs of the last three blocks will be the def, as it dominates
   // those.
   TransferFunc[2].insert({RspLoc, RspDefInBlk2});
-  initValueArray(InLocsPtr, 5, 2);
-  initValueArray(OutLocsPtr, 5, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], RspPHIInBlk1);
-  EXPECT_EQ(InLocs[2][0], RspPHIInBlk2);
-  EXPECT_EQ(InLocs[3][0], RspDefInBlk2);
-  EXPECT_EQ(InLocs[4][0], RspDefInBlk2);
-  EXPECT_EQ(OutLocs[0][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][0], RspPHIInBlk1);
-  EXPECT_EQ(OutLocs[2][0], RspDefInBlk2);
-  EXPECT_EQ(OutLocs[3][0], RspDefInBlk2);
-  EXPECT_EQ(OutLocs[4][0], RspDefInBlk2);
+  initValueArray(MInLocs, 5, 2);
+  initValueArray(MOutLocs, 5, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], RspPHIInBlk1);
+  EXPECT_EQ(MInLocs[2][0], RspPHIInBlk2);
+  EXPECT_EQ(MInLocs[3][0], RspDefInBlk2);
+  EXPECT_EQ(MInLocs[4][0], RspDefInBlk2);
+  EXPECT_EQ(MOutLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][0], RspPHIInBlk1);
+  EXPECT_EQ(MOutLocs[2][0], RspDefInBlk2);
+  EXPECT_EQ(MOutLocs[3][0], RspDefInBlk2);
+  EXPECT_EQ(MOutLocs[4][0], RspDefInBlk2);
   TransferFunc[2].clear();
 
   // Adding a def to the outer loop header shouldn't affect this much -- the
   // live-out of block 1 changes.
   TransferFunc[1].insert({RspLoc, RspDefInBlk1});
   TransferFunc[2].insert({RspLoc, RspDefInBlk2});
-  initValueArray(InLocsPtr, 5, 2);
-  initValueArray(OutLocsPtr, 5, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], RspPHIInBlk1);
-  EXPECT_EQ(InLocs[2][0], RspPHIInBlk2);
-  EXPECT_EQ(InLocs[3][0], RspDefInBlk2);
-  EXPECT_EQ(InLocs[4][0], RspDefInBlk2);
-  EXPECT_EQ(OutLocs[0][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][0], RspDefInBlk1);
-  EXPECT_EQ(OutLocs[2][0], RspDefInBlk2);
-  EXPECT_EQ(OutLocs[3][0], RspDefInBlk2);
-  EXPECT_EQ(OutLocs[4][0], RspDefInBlk2);
+  initValueArray(MInLocs, 5, 2);
+  initValueArray(MOutLocs, 5, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], RspPHIInBlk1);
+  EXPECT_EQ(MInLocs[2][0], RspPHIInBlk2);
+  EXPECT_EQ(MInLocs[3][0], RspDefInBlk2);
+  EXPECT_EQ(MInLocs[4][0], RspDefInBlk2);
+  EXPECT_EQ(MOutLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][0], RspDefInBlk1);
+  EXPECT_EQ(MOutLocs[2][0], RspDefInBlk2);
+  EXPECT_EQ(MOutLocs[3][0], RspDefInBlk2);
+  EXPECT_EQ(MOutLocs[4][0], RspDefInBlk2);
   TransferFunc[1].clear();
   TransferFunc[2].clear();
 
@@ -1372,19 +1382,19 @@ TEST_F(InstrRefLDVTest, MLocNestedLoop) {
   TransferFunc[1].insert({RspLoc, RspDefInBlk1});
   TransferFunc[2].insert({RspLoc, RspDefInBlk2});
   TransferFunc[3].insert({RspLoc, RspDefInBlk3});
-  initValueArray(InLocsPtr, 5, 2);
-  initValueArray(OutLocsPtr, 5, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], RspPHIInBlk1);
-  EXPECT_EQ(InLocs[2][0], RspPHIInBlk2);
-  EXPECT_EQ(InLocs[3][0], RspDefInBlk2);
-  EXPECT_EQ(InLocs[4][0], RspDefInBlk3);
-  EXPECT_EQ(OutLocs[0][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][0], RspDefInBlk1);
-  EXPECT_EQ(OutLocs[2][0], RspDefInBlk2);
-  EXPECT_EQ(OutLocs[3][0], RspDefInBlk3);
-  EXPECT_EQ(OutLocs[4][0], RspDefInBlk3);
+  initValueArray(MInLocs, 5, 2);
+  initValueArray(MOutLocs, 5, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], RspPHIInBlk1);
+  EXPECT_EQ(MInLocs[2][0], RspPHIInBlk2);
+  EXPECT_EQ(MInLocs[3][0], RspDefInBlk2);
+  EXPECT_EQ(MInLocs[4][0], RspDefInBlk3);
+  EXPECT_EQ(MOutLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][0], RspDefInBlk1);
+  EXPECT_EQ(MOutLocs[2][0], RspDefInBlk2);
+  EXPECT_EQ(MOutLocs[3][0], RspDefInBlk3);
+  EXPECT_EQ(MOutLocs[4][0], RspDefInBlk3);
   TransferFunc[1].clear();
   TransferFunc[2].clear();
   TransferFunc[3].clear();
@@ -1393,19 +1403,19 @@ TEST_F(InstrRefLDVTest, MLocNestedLoop) {
   // head and tail of the outer loop. The inner loop should be live-through.
   TransferFunc[1].insert({RspLoc, RspDefInBlk1});
   TransferFunc[3].insert({RspLoc, RspDefInBlk3});
-  initValueArray(InLocsPtr, 5, 2);
-  initValueArray(OutLocsPtr, 5, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], RspPHIInBlk1);
-  EXPECT_EQ(InLocs[2][0], RspDefInBlk1);
-  EXPECT_EQ(InLocs[3][0], RspDefInBlk1);
-  EXPECT_EQ(InLocs[4][0], RspDefInBlk3);
-  EXPECT_EQ(OutLocs[0][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][0], RspDefInBlk1);
-  EXPECT_EQ(OutLocs[2][0], RspDefInBlk1);
-  EXPECT_EQ(OutLocs[3][0], RspDefInBlk3);
-  EXPECT_EQ(OutLocs[4][0], RspDefInBlk3);
+  initValueArray(MInLocs, 5, 2);
+  initValueArray(MOutLocs, 5, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], RspPHIInBlk1);
+  EXPECT_EQ(MInLocs[2][0], RspDefInBlk1);
+  EXPECT_EQ(MInLocs[3][0], RspDefInBlk1);
+  EXPECT_EQ(MInLocs[4][0], RspDefInBlk3);
+  EXPECT_EQ(MOutLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][0], RspDefInBlk1);
+  EXPECT_EQ(MOutLocs[2][0], RspDefInBlk1);
+  EXPECT_EQ(MOutLocs[3][0], RspDefInBlk3);
+  EXPECT_EQ(MOutLocs[4][0], RspDefInBlk3);
   TransferFunc[1].clear();
   TransferFunc[3].clear();
 
@@ -1415,22 +1425,22 @@ TEST_F(InstrRefLDVTest, MLocNestedLoop) {
   TransferFunc[1].insert({RaxLoc, RspDefInBlk1});
   TransferFunc[2].insert({RspLoc, RaxPHIInBlk2});
   TransferFunc[3].insert({RspLoc, RspDefInBlk3});
-  initValueArray(InLocsPtr, 5, 2);
-  initValueArray(OutLocsPtr, 5, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], RspPHIInBlk1);
-  EXPECT_EQ(InLocs[2][0], RspDefInBlk1);
-  EXPECT_EQ(InLocs[3][0], RspDefInBlk1);
-  EXPECT_EQ(InLocs[4][0], RspDefInBlk3);
-  EXPECT_EQ(OutLocs[0][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][0], RspDefInBlk1);
-  EXPECT_EQ(OutLocs[2][0], RspDefInBlk1);
-  EXPECT_EQ(OutLocs[3][0], RspDefInBlk3);
-  EXPECT_EQ(OutLocs[4][0], RspDefInBlk3);
+  initValueArray(MInLocs, 5, 2);
+  initValueArray(MOutLocs, 5, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], RspPHIInBlk1);
+  EXPECT_EQ(MInLocs[2][0], RspDefInBlk1);
+  EXPECT_EQ(MInLocs[3][0], RspDefInBlk1);
+  EXPECT_EQ(MInLocs[4][0], RspDefInBlk3);
+  EXPECT_EQ(MOutLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][0], RspDefInBlk1);
+  EXPECT_EQ(MOutLocs[2][0], RspDefInBlk1);
+  EXPECT_EQ(MOutLocs[3][0], RspDefInBlk3);
+  EXPECT_EQ(MOutLocs[4][0], RspDefInBlk3);
   // Look at raxes value in the relevant blocks,
-  EXPECT_EQ(InLocs[2][1], RspDefInBlk1);
-  EXPECT_EQ(OutLocs[1][1], RspDefInBlk1);
+  EXPECT_EQ(MInLocs[2][1], RspDefInBlk1);
+  EXPECT_EQ(MOutLocs[1][1], RspDefInBlk1);
   TransferFunc[1].clear();
   TransferFunc[2].clear();
   TransferFunc[3].clear();
@@ -1438,19 +1448,19 @@ TEST_F(InstrRefLDVTest, MLocNestedLoop) {
   // If we have a single def in the tail of the outer loop, that should produce
   // a PHI at the loop head, and be live-through the inner loop.
   TransferFunc[3].insert({RspLoc, RspDefInBlk3});
-  initValueArray(InLocsPtr, 5, 2);
-  initValueArray(OutLocsPtr, 5, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], RspPHIInBlk1);
-  EXPECT_EQ(InLocs[2][0], RspPHIInBlk1);
-  EXPECT_EQ(InLocs[3][0], RspPHIInBlk1);
-  EXPECT_EQ(InLocs[4][0], RspDefInBlk3);
-  EXPECT_EQ(OutLocs[0][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][0], RspPHIInBlk1);
-  EXPECT_EQ(OutLocs[2][0], RspPHIInBlk1);
-  EXPECT_EQ(OutLocs[3][0], RspDefInBlk3);
-  EXPECT_EQ(OutLocs[4][0], RspDefInBlk3);
+  initValueArray(MInLocs, 5, 2);
+  initValueArray(MOutLocs, 5, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], RspPHIInBlk1);
+  EXPECT_EQ(MInLocs[2][0], RspPHIInBlk1);
+  EXPECT_EQ(MInLocs[3][0], RspPHIInBlk1);
+  EXPECT_EQ(MInLocs[4][0], RspDefInBlk3);
+  EXPECT_EQ(MOutLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][0], RspPHIInBlk1);
+  EXPECT_EQ(MOutLocs[2][0], RspPHIInBlk1);
+  EXPECT_EQ(MOutLocs[3][0], RspDefInBlk3);
+  EXPECT_EQ(MOutLocs[4][0], RspDefInBlk3);
   TransferFunc[3].clear();
 
   // And if we copy from $rsp to $rax in block 2, it should resolve to the PHI
@@ -1459,20 +1469,20 @@ TEST_F(InstrRefLDVTest, MLocNestedLoop) {
   // inner loop.
   TransferFunc[2].insert({RaxLoc, RspPHIInBlk2});
   TransferFunc[3].insert({RspLoc, RspDefInBlk3});
-  initValueArray(InLocsPtr, 5, 2);
-  initValueArray(OutLocsPtr, 5, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
+  initValueArray(MInLocs, 5, 2);
+  initValueArray(MOutLocs, 5, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
   // Examining the values of rax,
-  EXPECT_EQ(InLocs[0][1], LiveInRax);
-  EXPECT_EQ(InLocs[1][1], RaxPHIInBlk1);
-  EXPECT_EQ(InLocs[2][1], RaxPHIInBlk2);
-  EXPECT_EQ(InLocs[3][1], RspPHIInBlk1);
-  EXPECT_EQ(InLocs[4][1], RspPHIInBlk1);
-  EXPECT_EQ(OutLocs[0][1], LiveInRax);
-  EXPECT_EQ(OutLocs[1][1], RaxPHIInBlk1);
-  EXPECT_EQ(OutLocs[2][1], RspPHIInBlk1);
-  EXPECT_EQ(OutLocs[3][1], RspPHIInBlk1);
-  EXPECT_EQ(OutLocs[4][1], RspPHIInBlk1);
+  EXPECT_EQ(MInLocs[0][1], LiveInRax);
+  EXPECT_EQ(MInLocs[1][1], RaxPHIInBlk1);
+  EXPECT_EQ(MInLocs[2][1], RaxPHIInBlk2);
+  EXPECT_EQ(MInLocs[3][1], RspPHIInBlk1);
+  EXPECT_EQ(MInLocs[4][1], RspPHIInBlk1);
+  EXPECT_EQ(MOutLocs[0][1], LiveInRax);
+  EXPECT_EQ(MOutLocs[1][1], RaxPHIInBlk1);
+  EXPECT_EQ(MOutLocs[2][1], RspPHIInBlk1);
+  EXPECT_EQ(MOutLocs[3][1], RspPHIInBlk1);
+  EXPECT_EQ(MOutLocs[4][1], RspPHIInBlk1);
   TransferFunc[2].clear();
   TransferFunc[3].clear();
 }
@@ -1495,11 +1505,8 @@ TEST_F(InstrRefLDVTest, MLocNoDominatingLoop) {
   Register RAX = getRegByName("RAX");
   LocIdx RaxLoc = MTracker->lookupOrTrackRegister(RAX);
 
-  ValueIDNum InLocs[5][2], OutLocs[5][2];
-  ValueIDNum *InLocsPtr[5] = {InLocs[0], InLocs[1], InLocs[2], InLocs[3],
-                              InLocs[4]};
-  ValueIDNum *OutLocsPtr[5] = {OutLocs[0], OutLocs[1], OutLocs[2], OutLocs[3],
-                               OutLocs[4]};
+  FuncValueTable MInLocs, MOutLocs;
+  std::tie(MInLocs, MOutLocs) = allocValueTables(5, 2);
 
   SmallVector<MLocTransferMap, 1> TransferFunc;
   TransferFunc.resize(5);
@@ -1517,71 +1524,71 @@ TEST_F(InstrRefLDVTest, MLocNoDominatingLoop) {
   ValueIDNum RaxPHIInBlk2(Head2Blk, 0, RaxLoc);
 
   // As ever, test that everything is live-through if there are no defs.
-  initValueArray(InLocsPtr, 5, 2);
-  initValueArray(OutLocsPtr, 5, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], LiveInRsp);
-  EXPECT_EQ(InLocs[2][0], LiveInRsp);
-  EXPECT_EQ(InLocs[3][0], LiveInRsp);
-  EXPECT_EQ(InLocs[4][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[0][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[2][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[3][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[4][0], LiveInRsp);
+  initValueArray(MInLocs, 5, 2);
+  initValueArray(MOutLocs, 5, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[2][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[3][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[4][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[2][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[3][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[4][0], LiveInRsp);
 
   // Putting a def in the 'join' block will cause us to have two distinct
   // PHIs in each loop head, then on entry to the join block.
   TransferFunc[3].insert({RspLoc, RspDefInBlk3});
-  initValueArray(InLocsPtr, 5, 2);
-  initValueArray(OutLocsPtr, 5, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], RspPHIInBlk1);
-  EXPECT_EQ(InLocs[2][0], RspPHIInBlk2);
-  EXPECT_EQ(InLocs[3][0], RspPHIInBlk3);
-  EXPECT_EQ(InLocs[4][0], RspDefInBlk3);
-  EXPECT_EQ(OutLocs[0][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][0], RspPHIInBlk1);
-  EXPECT_EQ(OutLocs[2][0], RspPHIInBlk2);
-  EXPECT_EQ(OutLocs[3][0], RspDefInBlk3);
-  EXPECT_EQ(OutLocs[4][0], RspDefInBlk3);
+  initValueArray(MInLocs, 5, 2);
+  initValueArray(MOutLocs, 5, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], RspPHIInBlk1);
+  EXPECT_EQ(MInLocs[2][0], RspPHIInBlk2);
+  EXPECT_EQ(MInLocs[3][0], RspPHIInBlk3);
+  EXPECT_EQ(MInLocs[4][0], RspDefInBlk3);
+  EXPECT_EQ(MOutLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][0], RspPHIInBlk1);
+  EXPECT_EQ(MOutLocs[2][0], RspPHIInBlk2);
+  EXPECT_EQ(MOutLocs[3][0], RspDefInBlk3);
+  EXPECT_EQ(MOutLocs[4][0], RspDefInBlk3);
   TransferFunc[3].clear();
 
   // We should get the same behaviour if we put the def in either of the
   // loop heads -- it should force the other head to be a PHI.
   TransferFunc[1].insert({RspLoc, RspDefInBlk1});
-  initValueArray(InLocsPtr, 5, 2);
-  initValueArray(OutLocsPtr, 5, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], RspPHIInBlk1);
-  EXPECT_EQ(InLocs[2][0], RspPHIInBlk2);
-  EXPECT_EQ(InLocs[3][0], RspPHIInBlk3);
-  EXPECT_EQ(InLocs[4][0], RspPHIInBlk3);
-  EXPECT_EQ(OutLocs[0][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][0], RspDefInBlk1);
-  EXPECT_EQ(OutLocs[2][0], RspPHIInBlk2);
-  EXPECT_EQ(OutLocs[3][0], RspPHIInBlk3);
-  EXPECT_EQ(OutLocs[4][0], RspPHIInBlk3);
+  initValueArray(MInLocs, 5, 2);
+  initValueArray(MOutLocs, 5, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], RspPHIInBlk1);
+  EXPECT_EQ(MInLocs[2][0], RspPHIInBlk2);
+  EXPECT_EQ(MInLocs[3][0], RspPHIInBlk3);
+  EXPECT_EQ(MInLocs[4][0], RspPHIInBlk3);
+  EXPECT_EQ(MOutLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][0], RspDefInBlk1);
+  EXPECT_EQ(MOutLocs[2][0], RspPHIInBlk2);
+  EXPECT_EQ(MOutLocs[3][0], RspPHIInBlk3);
+  EXPECT_EQ(MOutLocs[4][0], RspPHIInBlk3);
   TransferFunc[1].clear();
 
   // Check symmetry,
   TransferFunc[2].insert({RspLoc, RspDefInBlk2});
-  initValueArray(InLocsPtr, 5, 2);
-  initValueArray(OutLocsPtr, 5, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], RspPHIInBlk1);
-  EXPECT_EQ(InLocs[2][0], RspPHIInBlk2);
-  EXPECT_EQ(InLocs[3][0], RspPHIInBlk3);
-  EXPECT_EQ(InLocs[4][0], RspPHIInBlk3);
-  EXPECT_EQ(OutLocs[0][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][0], RspPHIInBlk1);
-  EXPECT_EQ(OutLocs[2][0], RspDefInBlk2);
-  EXPECT_EQ(OutLocs[3][0], RspPHIInBlk3);
-  EXPECT_EQ(OutLocs[4][0], RspPHIInBlk3);
+  initValueArray(MInLocs, 5, 2);
+  initValueArray(MOutLocs, 5, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], RspPHIInBlk1);
+  EXPECT_EQ(MInLocs[2][0], RspPHIInBlk2);
+  EXPECT_EQ(MInLocs[3][0], RspPHIInBlk3);
+  EXPECT_EQ(MInLocs[4][0], RspPHIInBlk3);
+  EXPECT_EQ(MOutLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][0], RspPHIInBlk1);
+  EXPECT_EQ(MOutLocs[2][0], RspDefInBlk2);
+  EXPECT_EQ(MOutLocs[3][0], RspPHIInBlk3);
+  EXPECT_EQ(MOutLocs[4][0], RspPHIInBlk3);
   TransferFunc[2].clear();
 
   // Test some scenarios where there _shouldn't_ be any PHIs created at heads.
@@ -1593,19 +1600,19 @@ TEST_F(InstrRefLDVTest, MLocNoDominatingLoop) {
   TransferFunc[1].insert({RspLoc, RaxPHIInBlk1});
   TransferFunc[2].insert({RspLoc, RaxPHIInBlk2});
   TransferFunc[3].insert({RspLoc, RspDefInBlk3});
-  initValueArray(InLocsPtr, 5, 2);
-  initValueArray(OutLocsPtr, 5, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], RspPHIInBlk1);
-  EXPECT_EQ(InLocs[2][0], RspPHIInBlk2);
-  EXPECT_EQ(InLocs[3][0], LiveInRsp);
-  EXPECT_EQ(InLocs[4][0], RspDefInBlk3);
-  EXPECT_EQ(OutLocs[0][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[2][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[3][0], RspDefInBlk3);
-  EXPECT_EQ(OutLocs[4][0], RspDefInBlk3);
+  initValueArray(MInLocs, 5, 2);
+  initValueArray(MOutLocs, 5, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], RspPHIInBlk1);
+  EXPECT_EQ(MInLocs[2][0], RspPHIInBlk2);
+  EXPECT_EQ(MInLocs[3][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[4][0], RspDefInBlk3);
+  EXPECT_EQ(MOutLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[2][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[3][0], RspDefInBlk3);
+  EXPECT_EQ(MOutLocs[4][0], RspDefInBlk3);
   TransferFunc[0].clear();
   TransferFunc[1].clear();
   TransferFunc[2].clear();
@@ -1617,19 +1624,19 @@ TEST_F(InstrRefLDVTest, MLocNoDominatingLoop) {
   TransferFunc[0].insert({RaxLoc, LiveInRsp});
   TransferFunc[1].insert({RspLoc, RaxPHIInBlk1});
   TransferFunc[2].insert({RspLoc, RaxPHIInBlk2});
-  initValueArray(InLocsPtr, 5, 2);
-  initValueArray(OutLocsPtr, 5, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], LiveInRsp);
-  EXPECT_EQ(InLocs[2][0], LiveInRsp);
-  EXPECT_EQ(InLocs[3][0], LiveInRsp);
-  EXPECT_EQ(InLocs[4][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[0][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[2][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[3][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[4][0], LiveInRsp);
+  initValueArray(MInLocs, 5, 2);
+  initValueArray(MOutLocs, 5, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[2][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[3][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[4][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[2][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[3][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[4][0], LiveInRsp);
   TransferFunc[0].clear();
   TransferFunc[1].clear();
   TransferFunc[2].clear();
@@ -1654,11 +1661,8 @@ TEST_F(InstrRefLDVTest, MLocBadlyNestedLoops) {
   Register RAX = getRegByName("RAX");
   LocIdx RaxLoc = MTracker->lookupOrTrackRegister(RAX);
 
-  ValueIDNum InLocs[5][2], OutLocs[5][2];
-  ValueIDNum *InLocsPtr[5] = {InLocs[0], InLocs[1], InLocs[2], InLocs[3],
-                              InLocs[4]};
-  ValueIDNum *OutLocsPtr[5] = {OutLocs[0], OutLocs[1], OutLocs[2], OutLocs[3],
-                               OutLocs[4]};
+  FuncValueTable MInLocs, MOutLocs;
+  std::tie(MInLocs, MOutLocs) = allocValueTables(5, 2);
 
   SmallVector<MLocTransferMap, 1> TransferFunc;
   TransferFunc.resize(5);
@@ -1675,55 +1679,55 @@ TEST_F(InstrRefLDVTest, MLocBadlyNestedLoops) {
   ValueIDNum RaxPHIInBlk3(Loop3Blk, 0, RaxLoc);
 
   // As ever, test that everything is live-through if there are no defs.
-  initValueArray(InLocsPtr, 5, 2);
-  initValueArray(OutLocsPtr, 5, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], LiveInRsp);
-  EXPECT_EQ(InLocs[2][0], LiveInRsp);
-  EXPECT_EQ(InLocs[3][0], LiveInRsp);
-  EXPECT_EQ(InLocs[4][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[0][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[2][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[3][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[4][0], LiveInRsp);
+  initValueArray(MInLocs, 5, 2);
+  initValueArray(MOutLocs, 5, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[2][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[3][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[4][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[2][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[3][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[4][0], LiveInRsp);
 
   // A def in loop3 should cause PHIs in every loop block: they're all
   // reachable from each other.
   TransferFunc[3].insert({RspLoc, RspDefInBlk3});
-  initValueArray(InLocsPtr, 5, 2);
-  initValueArray(OutLocsPtr, 5, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], RspPHIInBlk1);
-  EXPECT_EQ(InLocs[2][0], RspPHIInBlk2);
-  EXPECT_EQ(InLocs[3][0], RspPHIInBlk3);
-  EXPECT_EQ(InLocs[4][0], RspDefInBlk3);
-  EXPECT_EQ(OutLocs[0][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][0], RspPHIInBlk1);
-  EXPECT_EQ(OutLocs[2][0], RspPHIInBlk2);
-  EXPECT_EQ(OutLocs[3][0], RspDefInBlk3);
-  EXPECT_EQ(OutLocs[4][0], RspDefInBlk3);
+  initValueArray(MInLocs, 5, 2);
+  initValueArray(MOutLocs, 5, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], RspPHIInBlk1);
+  EXPECT_EQ(MInLocs[2][0], RspPHIInBlk2);
+  EXPECT_EQ(MInLocs[3][0], RspPHIInBlk3);
+  EXPECT_EQ(MInLocs[4][0], RspDefInBlk3);
+  EXPECT_EQ(MOutLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][0], RspPHIInBlk1);
+  EXPECT_EQ(MOutLocs[2][0], RspPHIInBlk2);
+  EXPECT_EQ(MOutLocs[3][0], RspDefInBlk3);
+  EXPECT_EQ(MOutLocs[4][0], RspDefInBlk3);
   TransferFunc[3].clear();
 
   // A def in loop1 should cause a PHI in loop1, but not the other blocks.
   // loop2 and loop3 are dominated by the def in loop1, so they should have
   // that value live-through.
   TransferFunc[1].insert({RspLoc, RspDefInBlk1});
-  initValueArray(InLocsPtr, 5, 2);
-  initValueArray(OutLocsPtr, 5, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], RspPHIInBlk1);
-  EXPECT_EQ(InLocs[2][0], RspDefInBlk1);
-  EXPECT_EQ(InLocs[3][0], RspDefInBlk1);
-  EXPECT_EQ(InLocs[4][0], RspDefInBlk1);
-  EXPECT_EQ(OutLocs[0][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][0], RspDefInBlk1);
-  EXPECT_EQ(OutLocs[2][0], RspDefInBlk1);
-  EXPECT_EQ(OutLocs[3][0], RspDefInBlk1);
-  EXPECT_EQ(OutLocs[4][0], RspDefInBlk1);
+  initValueArray(MInLocs, 5, 2);
+  initValueArray(MOutLocs, 5, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], RspPHIInBlk1);
+  EXPECT_EQ(MInLocs[2][0], RspDefInBlk1);
+  EXPECT_EQ(MInLocs[3][0], RspDefInBlk1);
+  EXPECT_EQ(MInLocs[4][0], RspDefInBlk1);
+  EXPECT_EQ(MOutLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][0], RspDefInBlk1);
+  EXPECT_EQ(MOutLocs[2][0], RspDefInBlk1);
+  EXPECT_EQ(MOutLocs[3][0], RspDefInBlk1);
+  EXPECT_EQ(MOutLocs[4][0], RspDefInBlk1);
   TransferFunc[1].clear();
 
   // As with earlier tricks: copy $rsp to $rax in the entry block, then $rax
@@ -1750,31 +1754,31 @@ TEST_F(InstrRefLDVTest, MLocBadlyNestedLoops) {
   // approach. PHIs will be left in $rsp on entry to each block.
   TransferFunc[0].insert({RaxLoc, LiveInRsp});
   TransferFunc[3].insert({RspLoc, RaxPHIInBlk3});
-  initValueArray(InLocsPtr, 5, 2);
-  initValueArray(OutLocsPtr, 5, 2);
-  buildMLocValueMap(InLocsPtr, OutLocsPtr, TransferFunc);
-  EXPECT_EQ(InLocs[0][0], LiveInRsp);
-  EXPECT_EQ(InLocs[1][0], RspPHIInBlk1);
-  EXPECT_EQ(InLocs[2][0], RspPHIInBlk2);
-  EXPECT_EQ(InLocs[3][0], RspPHIInBlk3);
-  EXPECT_EQ(InLocs[4][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[0][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][0], RspPHIInBlk1);
-  EXPECT_EQ(OutLocs[2][0], RspPHIInBlk2);
-  EXPECT_EQ(OutLocs[3][0], LiveInRsp);
-  EXPECT_EQ(OutLocs[4][0], LiveInRsp);
+  initValueArray(MInLocs, 5, 2);
+  initValueArray(MOutLocs, 5, 2);
+  buildMLocValueMap(MInLocs, MOutLocs, TransferFunc);
+  EXPECT_EQ(MInLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MInLocs[1][0], RspPHIInBlk1);
+  EXPECT_EQ(MInLocs[2][0], RspPHIInBlk2);
+  EXPECT_EQ(MInLocs[3][0], RspPHIInBlk3);
+  EXPECT_EQ(MInLocs[4][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[0][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][0], RspPHIInBlk1);
+  EXPECT_EQ(MOutLocs[2][0], RspPHIInBlk2);
+  EXPECT_EQ(MOutLocs[3][0], LiveInRsp);
+  EXPECT_EQ(MOutLocs[4][0], LiveInRsp);
   // Check $rax's value. It should have $rsps value from the entry block
   // onwards.
-  EXPECT_EQ(InLocs[0][1], LiveInRax);
-  EXPECT_EQ(InLocs[1][1], LiveInRsp);
-  EXPECT_EQ(InLocs[2][1], LiveInRsp);
-  EXPECT_EQ(InLocs[3][1], LiveInRsp);
-  EXPECT_EQ(InLocs[4][1], LiveInRsp);
-  EXPECT_EQ(OutLocs[0][1], LiveInRsp);
-  EXPECT_EQ(OutLocs[1][1], LiveInRsp);
-  EXPECT_EQ(OutLocs[2][1], LiveInRsp);
-  EXPECT_EQ(OutLocs[3][1], LiveInRsp);
-  EXPECT_EQ(OutLocs[4][1], LiveInRsp);
+  EXPECT_EQ(MInLocs[0][1], LiveInRax);
+  EXPECT_EQ(MInLocs[1][1], LiveInRsp);
+  EXPECT_EQ(MInLocs[2][1], LiveInRsp);
+  EXPECT_EQ(MInLocs[3][1], LiveInRsp);
+  EXPECT_EQ(MInLocs[4][1], LiveInRsp);
+  EXPECT_EQ(MOutLocs[0][1], LiveInRsp);
+  EXPECT_EQ(MOutLocs[1][1], LiveInRsp);
+  EXPECT_EQ(MOutLocs[2][1], LiveInRsp);
+  EXPECT_EQ(MOutLocs[3][1], LiveInRsp);
+  EXPECT_EQ(MOutLocs[4][1], LiveInRsp);
 }
 
 TEST_F(InstrRefLDVTest, pickVPHILocDiamond) {
@@ -1790,10 +1794,10 @@ TEST_F(InstrRefLDVTest, pickVPHILocDiamond) {
   Register RAX = getRegByName("RAX");
   LocIdx RaxLoc = MTracker->lookupOrTrackRegister(RAX);
 
-  ValueIDNum OutLocs[4][2];
-  ValueIDNum *OutLocsPtr[4] = {OutLocs[0], OutLocs[1], OutLocs[2], OutLocs[3]};
+  FuncValueTable MInLocs, MOutLocs;
+  std::tie(MInLocs, MOutLocs) = allocValueTables(4, 2);
 
-  initValueArray(OutLocsPtr, 4, 2);
+  initValueArray(MOutLocs, 4, 2);
 
   unsigned EntryBlk = 0, Br2Blk = 2, RetBlk = 3;
 
@@ -1817,15 +1821,15 @@ TEST_F(InstrRefLDVTest, pickVPHILocDiamond) {
     Preds.push_back(Pred);
 
   // Specify the live-outs around the joining block.
-  OutLocs[1][0] = LiveInRsp;
-  OutLocs[2][0] = LiveInRax;
+  MOutLocs[1][0] = LiveInRsp;
+  MOutLocs[2][0] = LiveInRax;
 
   Optional<ValueIDNum> Result;
 
   // Simple case: join two distinct values on entry to the block.
   VLiveOuts[1] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   VLiveOuts[2] = DbgValue(LiveInRax, EmptyProps, DbgValue::Def);
-  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, MOutLocs, Preds);
   // Should have picked a PHI in $rsp in block 3.
   EXPECT_TRUE(Result);
   if (Result) {
@@ -1836,7 +1840,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocDiamond) {
   // successfully join. The CFG merge would select the right values, but in
   // the wrong conditions.
   std::swap(VLiveOuts[1], VLiveOuts[2]);
-  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, MOutLocs, Preds);
   EXPECT_FALSE(Result);
 
   // Swap back,
@@ -1844,19 +1848,19 @@ TEST_F(InstrRefLDVTest, pickVPHILocDiamond) {
   // Setting one of these to being a constant should prohibit merging.
   VLiveOuts[1].Kind = DbgValue::Const;
   VLiveOuts[1].MO = MachineOperand::CreateImm(0);
-  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, MOutLocs, Preds);
   EXPECT_FALSE(Result);
 
   // Seeing both to being a constant -> still prohibit, it shouldn't become
   // a value in the register file anywhere.
   VLiveOuts[2] = VLiveOuts[1];
-  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, MOutLocs, Preds);
   EXPECT_FALSE(Result);
 
   // NoVals shouldn't join with anything else.
   VLiveOuts[1] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   VLiveOuts[2] = DbgValue(2, EmptyProps, DbgValue::NoVal);
-  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, MOutLocs, Preds);
   EXPECT_FALSE(Result);
 
   // We might merge in another VPHI in such a join. Present pickVPHILoc with
@@ -1866,25 +1870,25 @@ TEST_F(InstrRefLDVTest, pickVPHILocDiamond) {
   VLiveOuts[1] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   VLiveOuts[2] = DbgValue(2, EmptyProps, DbgValue::VPHI);
   EXPECT_EQ(VLiveOuts[2].ID, ValueIDNum::EmptyValue);
-  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, MOutLocs, Preds);
   EXPECT_FALSE(Result);
 
   // However, if we know the value of the incoming VPHI, we can search for its
   // location. Use a PHI machine-value for doing this, as VPHIs should always
   // have PHI values, or they should have been eliminated.
-  OutLocs[2][0] = RspPHIInBlk2;
+  MOutLocs[2][0] = RspPHIInBlk2;
   VLiveOuts[1] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   VLiveOuts[2] = DbgValue(2, EmptyProps, DbgValue::VPHI);
   VLiveOuts[2].ID = RspPHIInBlk2; // Set location where PHI happens.
-  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, MOutLocs, Preds);
   EXPECT_TRUE(Result);
   if (Result) {
     EXPECT_EQ(*Result, RspPHIInBlk3);
   }
 
   // If that value isn't available from that block, don't join.
-  OutLocs[2][0] = LiveInRsp;
-  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  MOutLocs[2][0] = LiveInRsp;
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, MOutLocs, Preds);
   EXPECT_FALSE(Result);
 
   // Check that we don't pick values when the properties disagree, for example
@@ -1894,13 +1898,13 @@ TEST_F(InstrRefLDVTest, pickVPHILocDiamond) {
   DbgValueProperties PropsWithExpr(NewExpr, false);
   VLiveOuts[1] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   VLiveOuts[2] = DbgValue(LiveInRsp, PropsWithExpr, DbgValue::Def);
-  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, MOutLocs, Preds);
   EXPECT_FALSE(Result);
 
   DbgValueProperties PropsWithIndirect(EmptyExpr, true);
   VLiveOuts[1] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   VLiveOuts[2] = DbgValue(LiveInRsp, PropsWithIndirect, DbgValue::Def);
-  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, MOutLocs, Preds);
   EXPECT_FALSE(Result);
 }
 
@@ -1919,10 +1923,10 @@ TEST_F(InstrRefLDVTest, pickVPHILocLoops) {
   Register RAX = getRegByName("RAX");
   LocIdx RaxLoc = MTracker->lookupOrTrackRegister(RAX);
 
-  ValueIDNum OutLocs[3][2];
-  ValueIDNum *OutLocsPtr[4] = {OutLocs[0], OutLocs[1], OutLocs[2]};
+  FuncValueTable MInLocs, MOutLocs;
+  std::tie(MInLocs, MOutLocs) = allocValueTables(3, 2);
 
-  initValueArray(OutLocsPtr, 3, 2);
+  initValueArray(MOutLocs, 3, 2);
 
   unsigned EntryBlk = 0, LoopBlk = 1;
 
@@ -1945,15 +1949,15 @@ TEST_F(InstrRefLDVTest, pickVPHILocLoops) {
     Preds.push_back(Pred);
 
   // Specify the live-outs around the joining block.
-  OutLocs[0][0] = LiveInRsp;
-  OutLocs[1][0] = LiveInRax;
+  MOutLocs[0][0] = LiveInRsp;
+  MOutLocs[1][0] = LiveInRax;
 
   Optional<ValueIDNum> Result;
 
   // See that we can merge as normal on a backedge.
   VLiveOuts[0] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   VLiveOuts[1] = DbgValue(LiveInRax, EmptyProps, DbgValue::Def);
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, MOutLocs, Preds);
   // Should have picked a PHI in $rsp in block 1.
   EXPECT_TRUE(Result);
   if (Result) {
@@ -1961,22 +1965,22 @@ TEST_F(InstrRefLDVTest, pickVPHILocLoops) {
   }
 
   // And that, if the desired values aren't available, we don't merge.
-  OutLocs[1][0] = LiveInRsp;
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  MOutLocs[1][0] = LiveInRsp;
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, MOutLocs, Preds);
   EXPECT_FALSE(Result);
 
   // Test the backedge behaviour: PHIs that feed back into themselves can
   // carry this variables value. Feed in LiveInRsp in both $rsp and $rax
   // from the entry block, but only put an appropriate backedge PHI in $rax.
   // Only the $rax location can form the correct PHI.
-  OutLocs[0][0] = LiveInRsp;
-  OutLocs[0][1] = LiveInRsp;
-  OutLocs[1][0] = RaxPHIInBlk1;
-  OutLocs[1][1] = RaxPHIInBlk1;
+  MOutLocs[0][0] = LiveInRsp;
+  MOutLocs[0][1] = LiveInRsp;
+  MOutLocs[1][0] = RaxPHIInBlk1;
+  MOutLocs[1][1] = RaxPHIInBlk1;
   VLiveOuts[0] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   // Crucially, a VPHI originating in this block:
   VLiveOuts[1] = DbgValue(1, EmptyProps, DbgValue::VPHI);
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, MOutLocs, Preds);
   EXPECT_TRUE(Result);
   if (Result) {
     EXPECT_EQ(*Result, RaxPHIInBlk1);
@@ -1984,16 +1988,16 @@ TEST_F(InstrRefLDVTest, pickVPHILocLoops) {
 
   // Merging should not be permitted if there's a usable PHI on the backedge,
   // but it's in the wrong place. (Overwrite $rax).
-  OutLocs[1][1] = LiveInRax;
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  MOutLocs[1][1] = LiveInRax;
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, MOutLocs, Preds);
   EXPECT_FALSE(Result);
 
   // Additionally, if the VPHI coming back on the loop backedge isn't from
   // this block (block 1), we can't merge it.
-  OutLocs[1][1] = RaxPHIInBlk1;
+  MOutLocs[1][1] = RaxPHIInBlk1;
   VLiveOuts[0] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   VLiveOuts[1] = DbgValue(0, EmptyProps, DbgValue::VPHI);
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, MOutLocs, Preds);
   EXPECT_FALSE(Result);
 }
 
@@ -2019,10 +2023,10 @@ TEST_F(InstrRefLDVTest, pickVPHILocBadlyNestedLoops) {
   Register RBX = getRegByName("RBX");
   LocIdx RbxLoc = MTracker->lookupOrTrackRegister(RBX);
 
-  ValueIDNum OutLocs[5][3];
-  ValueIDNum *OutLocsPtr[5] = {OutLocs[0], OutLocs[1], OutLocs[2], OutLocs[3], OutLocs[4]};
+  FuncValueTable MInLocs, MOutLocs;
+  std::tie(MInLocs, MOutLocs) = allocValueTables(5, 3);
 
-  initValueArray(OutLocsPtr, 5, 3);
+  initValueArray(MOutLocs, 5, 3);
 
   unsigned EntryBlk = 0, Loop1Blk = 1;
 
@@ -2051,9 +2055,9 @@ TEST_F(InstrRefLDVTest, pickVPHILocBadlyNestedLoops) {
 
   // Specify the live-outs around the joining block. Incoming edges from the
   // entry block, self, and loop2.
-  OutLocs[0][0] = LiveInRsp;
-  OutLocs[1][0] = LiveInRax;
-  OutLocs[2][0] = LiveInRbx;
+  MOutLocs[0][0] = LiveInRsp;
+  MOutLocs[1][0] = LiveInRax;
+  MOutLocs[2][0] = LiveInRbx;
 
   Optional<ValueIDNum> Result;
 
@@ -2061,7 +2065,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocBadlyNestedLoops) {
   VLiveOuts[0] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   VLiveOuts[1] = DbgValue(LiveInRax, EmptyProps, DbgValue::Def);
   VLiveOuts[2] = DbgValue(LiveInRbx, EmptyProps, DbgValue::Def);
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, MOutLocs, Preds);
   // Should have picked a PHI in $rsp in block 1.
   EXPECT_TRUE(Result);
   if (Result) {
@@ -2069,20 +2073,20 @@ TEST_F(InstrRefLDVTest, pickVPHILocBadlyNestedLoops) {
   }
 
   // Check too that permuting the live-out locations prevents merging
-  OutLocs[0][0] = LiveInRax;
-  OutLocs[1][0] = LiveInRbx;
-  OutLocs[2][0] = LiveInRsp;
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  MOutLocs[0][0] = LiveInRax;
+  MOutLocs[1][0] = LiveInRbx;
+  MOutLocs[2][0] = LiveInRsp;
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, MOutLocs, Preds);
   EXPECT_FALSE(Result);
 
-  OutLocs[0][0] = LiveInRsp;
-  OutLocs[1][0] = LiveInRax;
-  OutLocs[2][0] = LiveInRbx;
+  MOutLocs[0][0] = LiveInRsp;
+  MOutLocs[1][0] = LiveInRax;
+  MOutLocs[2][0] = LiveInRbx;
 
   // Feeding a PHI back on one backedge shouldn't merge (block 1 self backedge
   // wants LiveInRax).
-  OutLocs[1][0] = RspPHIInBlk1;
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  MOutLocs[1][0] = RspPHIInBlk1;
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, MOutLocs, Preds);
   EXPECT_FALSE(Result);
 
   // If the variables value on that edge is a VPHI feeding into itself, that's
@@ -2090,18 +2094,18 @@ TEST_F(InstrRefLDVTest, pickVPHILocBadlyNestedLoops) {
   VLiveOuts[0] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   VLiveOuts[1] = DbgValue(1, EmptyProps, DbgValue::VPHI);
   VLiveOuts[2] = DbgValue(LiveInRbx, EmptyProps, DbgValue::Def);
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, MOutLocs, Preds);
   EXPECT_TRUE(Result);
   if (Result) {
     EXPECT_EQ(*Result, RspPHIInBlk1);
   }
 
   // Likewise: the other backedge being a VPHI from block 1 should be accepted.
-  OutLocs[2][0] = RspPHIInBlk1;
+  MOutLocs[2][0] = RspPHIInBlk1;
   VLiveOuts[0] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   VLiveOuts[1] = DbgValue(1, EmptyProps, DbgValue::VPHI);
   VLiveOuts[2] = DbgValue(1, EmptyProps, DbgValue::VPHI);
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, MOutLocs, Preds);
   EXPECT_TRUE(Result);
   if (Result) {
     EXPECT_EQ(*Result, RspPHIInBlk1);
@@ -2110,32 +2114,32 @@ TEST_F(InstrRefLDVTest, pickVPHILocBadlyNestedLoops) {
   // Here's where it becomes tricky: we should not merge if there are two
   // _distinct_ backedge PHIs. We can't have a PHI that happens in both rsp
   // and rax for example. We can only pick one location as the live-in.
-  OutLocs[2][0] = RaxPHIInBlk1;
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  MOutLocs[2][0] = RaxPHIInBlk1;
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, MOutLocs, Preds);
   EXPECT_FALSE(Result);
 
   // The above test sources correct machine-PHI-value from two places. Now
   // try with one machine-PHI-value, but placed in two different locations
   // on the backedge. Again, we can't merge a location here, there's no
   // location that works on all paths.
-  OutLocs[0][0] = LiveInRsp;
-  OutLocs[1][0] = RspPHIInBlk1;
-  OutLocs[2][0] = LiveInRsp;
-  OutLocs[2][1] = RspPHIInBlk1;
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  MOutLocs[0][0] = LiveInRsp;
+  MOutLocs[1][0] = RspPHIInBlk1;
+  MOutLocs[2][0] = LiveInRsp;
+  MOutLocs[2][1] = RspPHIInBlk1;
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, MOutLocs, Preds);
   EXPECT_FALSE(Result);
 
   // Scatter various PHI values across the available locations. Only rbx (loc 2)
   // has the right value in both backedges -- that's the loc that should be
   // picked.
-  OutLocs[0][2] = LiveInRsp;
-  OutLocs[1][0] = RspPHIInBlk1;
-  OutLocs[1][1] = RaxPHIInBlk1;
-  OutLocs[1][2] = RbxPHIInBlk1;
-  OutLocs[2][0] = LiveInRsp;
-  OutLocs[2][1] = RspPHIInBlk1;
-  OutLocs[2][2] = RbxPHIInBlk1;
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  MOutLocs[0][2] = LiveInRsp;
+  MOutLocs[1][0] = RspPHIInBlk1;
+  MOutLocs[1][1] = RaxPHIInBlk1;
+  MOutLocs[1][2] = RbxPHIInBlk1;
+  MOutLocs[2][0] = LiveInRsp;
+  MOutLocs[2][1] = RspPHIInBlk1;
+  MOutLocs[2][2] = RbxPHIInBlk1;
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, MOutLocs, Preds);
   EXPECT_TRUE(Result);
   if (Result) {
     EXPECT_EQ(*Result, RbxPHIInBlk1);
@@ -2501,12 +2505,11 @@ TEST_F(InstrRefLDVTest, VLocSingleBlock) {
   ASSERT_TRUE(MTracker->getNumLocs() == 1);
   LocIdx RspLoc(0);
 
-  ValueIDNum InLocs[2], OutLocs[2];
-  ValueIDNum *InLocsPtr[1] = {&InLocs[0]};
-  ValueIDNum *OutLocsPtr[1] = {&OutLocs[0]};
+  FuncValueTable MInLocs, MOutLocs;
+  std::tie(MInLocs, MOutLocs) = allocValueTables(1, 2);
 
   ValueIDNum LiveInRsp = ValueIDNum(0, 0, RspLoc);
-  InLocs[0] = OutLocs[0] = LiveInRsp;
+  MInLocs[0][0] = MOutLocs[0][0] = LiveInRsp;
 
   DebugVariable Var(FuncVariable, None, nullptr);
   DbgValueProperties EmptyProps(EmptyExpr, false);
@@ -2529,14 +2532,14 @@ TEST_F(InstrRefLDVTest, VLocSingleBlock) {
   // Test that, with no assignments at all, no mappings are created for the
   // variable in this function.
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output.size(), 0ul);
 
   // If we put an assignment in the transfer function, that should... well,
   // do nothing, because we don't store the live-outs.
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output.size(), 0ul);
 
   // There is pretty much nothing else of interest to test with a single block.
@@ -2562,12 +2565,11 @@ TEST_F(InstrRefLDVTest, VLocDiamondBlocks) {
   ValueIDNum LiveInRax = ValueIDNum(EntryBlk, 0, RaxLoc);
   ValueIDNum RspPHIInBlk3 = ValueIDNum(RetBlk, 0, RspLoc);
 
-  ValueIDNum InLocs[4][2], OutLocs[4][2];
-  ValueIDNum *InLocsPtr[4] = {InLocs[0], InLocs[1], InLocs[2], InLocs[3]};
-  ValueIDNum *OutLocsPtr[4] = {OutLocs[0], OutLocs[1], OutLocs[2], OutLocs[3]};
+  FuncValueTable MInLocs, MOutLocs;
+  std::tie(MInLocs, MOutLocs) = allocValueTables(4, 2);
 
-  initValueArray(InLocsPtr, 4, 2);
-  initValueArray(OutLocsPtr, 4, 2);
+  initValueArray(MInLocs, 4, 2);
+  initValueArray(MOutLocs, 4, 2);
 
   DebugVariable Var(FuncVariable, None, nullptr);
   DbgValueProperties EmptyProps(EmptyExpr, false);
@@ -2592,8 +2594,8 @@ TEST_F(InstrRefLDVTest, VLocDiamondBlocks) {
 
   // Start off with LiveInRsp in every location.
   for (unsigned int I = 0; I < 4; ++I) {
-    InLocs[I][0] = InLocs[I][1] = LiveInRsp;
-    OutLocs[I][0] = OutLocs[I][1] = LiveInRsp;
+    MInLocs[I][0] = MInLocs[I][1] = LiveInRsp;
+    MOutLocs[I][0] = MOutLocs[I][1] = LiveInRsp;
   }
 
   auto ClearOutputs = [&]() {
@@ -2604,7 +2606,7 @@ TEST_F(InstrRefLDVTest, VLocDiamondBlocks) {
 
   // No assignments -> no values.
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   EXPECT_EQ(Output[1].size(), 0ul);
   EXPECT_EQ(Output[2].size(), 0ul);
@@ -2614,7 +2616,7 @@ TEST_F(InstrRefLDVTest, VLocDiamondBlocks) {
   // produce any live-ins.
   VLocs[3].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   EXPECT_EQ(Output[1].size(), 0ul);
   EXPECT_EQ(Output[2].size(), 0ul);
@@ -2626,7 +2628,7 @@ TEST_F(InstrRefLDVTest, VLocDiamondBlocks) {
   VLocs[3].Vars.clear();
   VLocs[2].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   EXPECT_EQ(Output[1].size(), 0ul);
   EXPECT_EQ(Output[2].size(), 0ul);
@@ -2636,7 +2638,7 @@ TEST_F(InstrRefLDVTest, VLocDiamondBlocks) {
 
   VLocs[1].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   EXPECT_EQ(Output[1].size(), 0ul);
   EXPECT_EQ(Output[2].size(), 0ul);
@@ -2648,7 +2650,7 @@ TEST_F(InstrRefLDVTest, VLocDiamondBlocks) {
   // values through to all other blocks, as it dominates.
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   ASSERT_EQ(Output[1].size(), 1ul);
   ASSERT_EQ(Output[2].size(), 1ul);
@@ -2668,7 +2670,7 @@ TEST_F(InstrRefLDVTest, VLocDiamondBlocks) {
   // values through to all other blocks, as it dominates.
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRax, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   ASSERT_EQ(Output[1].size(), 1ul);
   ASSERT_EQ(Output[2].size(), 1ul);
@@ -2687,7 +2689,7 @@ TEST_F(InstrRefLDVTest, VLocDiamondBlocks) {
   VLocs[1].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   VLocs[2].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   EXPECT_EQ(Output[1].size(), 0ul);
   EXPECT_EQ(Output[2].size(), 0ul);
@@ -2703,7 +2705,7 @@ TEST_F(InstrRefLDVTest, VLocDiamondBlocks) {
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   VLocs[1].Vars.insert({Var, DbgValue(EmptyProps, DbgValue::Undef)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   ASSERT_EQ(Output[1].size(), 1ul);
   ASSERT_EQ(Output[2].size(), 1ul);
@@ -2722,7 +2724,7 @@ TEST_F(InstrRefLDVTest, VLocDiamondBlocks) {
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   VLocs[1].Vars.insert({Var, DbgValue(LiveInRax, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   ASSERT_EQ(Output[1].size(), 1ul);
   ASSERT_EQ(Output[2].size(), 1ul);
@@ -2737,11 +2739,11 @@ TEST_F(InstrRefLDVTest, VLocDiamondBlocks) {
 
   // But on the other hand, if there's a location in the register file where
   // those two values can be joined, do so.
-  OutLocs[1][0] = LiveInRax;
+  MOutLocs[1][0] = LiveInRax;
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   VLocs[1].Vars.insert({Var, DbgValue(LiveInRax, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   ASSERT_EQ(Output[1].size(), 1ul);
   ASSERT_EQ(Output[2].size(), 1ul);
@@ -2780,12 +2782,11 @@ TEST_F(InstrRefLDVTest, VLocSimpleLoop) {
   ValueIDNum RspDefInBlk1 = ValueIDNum(LoopBlk, 1, RspLoc);
   ValueIDNum RaxPHIInBlk1 = ValueIDNum(LoopBlk, 0, RaxLoc);
 
-  ValueIDNum InLocs[3][2], OutLocs[3][2];
-  ValueIDNum *InLocsPtr[3] = {InLocs[0], InLocs[1], InLocs[2]};
-  ValueIDNum *OutLocsPtr[3] = {OutLocs[0], OutLocs[1], OutLocs[2]};
+  FuncValueTable MInLocs, MOutLocs;
+  std::tie(MInLocs, MOutLocs) = allocValueTables(3, 2);
 
-  initValueArray(InLocsPtr, 3, 2);
-  initValueArray(OutLocsPtr, 3, 2);
+  initValueArray(MInLocs, 3, 2);
+  initValueArray(MOutLocs, 3, 2);
 
   DebugVariable Var(FuncVariable, None, nullptr);
   DbgValueProperties EmptyProps(EmptyExpr, false);
@@ -2805,8 +2806,8 @@ TEST_F(InstrRefLDVTest, VLocSimpleLoop) {
 
   // Start off with LiveInRsp in every location.
   for (unsigned int I = 0; I < 3; ++I) {
-    InLocs[I][0] = InLocs[I][1] = LiveInRsp;
-    OutLocs[I][0] = OutLocs[I][1] = LiveInRsp;
+    MInLocs[I][0] = MInLocs[I][1] = LiveInRsp;
+    MOutLocs[I][0] = MOutLocs[I][1] = LiveInRsp;
   }
 
   auto ClearOutputs = [&]() {
@@ -2818,7 +2819,7 @@ TEST_F(InstrRefLDVTest, VLocSimpleLoop) {
   // Easy starter: a dominating assign should propagate to all blocks.
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   ASSERT_EQ(Output[1].size(), 1ul);
   ASSERT_EQ(Output[2].size(), 1ul);
@@ -2834,7 +2835,7 @@ TEST_F(InstrRefLDVTest, VLocSimpleLoop) {
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   VLocs[1].Vars.insert({Var, DbgValue(EmptyProps, DbgValue::Undef)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   EXPECT_EQ(Output[1].size(), 0ul);
   EXPECT_EQ(Output[2].size(), 0ul);
@@ -2846,7 +2847,7 @@ TEST_F(InstrRefLDVTest, VLocSimpleLoop) {
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   VLocs[1].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   ASSERT_EQ(Output[1].size(), 1ul);
   ASSERT_EQ(Output[2].size(), 1ul);
@@ -2863,7 +2864,7 @@ TEST_F(InstrRefLDVTest, VLocSimpleLoop) {
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   VLocs[1].Vars.insert({Var, DbgValue(LiveInRax, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   EXPECT_EQ(Output[1].size(), 0ul);
   ASSERT_EQ(Output[2].size(), 1ul);
@@ -2875,12 +2876,12 @@ TEST_F(InstrRefLDVTest, VLocSimpleLoop) {
 
   // Install a completely unrelated PHI value, that we should not join on. Try
   // with unrelated assign in loop block again.
-  InLocs[1][0] = RspPHIInBlk1;
-  OutLocs[1][0] = RspDefInBlk1;
+  MInLocs[1][0] = RspPHIInBlk1;
+  MOutLocs[1][0] = RspDefInBlk1;
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   VLocs[1].Vars.insert({Var, DbgValue(LiveInRax, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   EXPECT_EQ(Output[1].size(), 0ul);
   ASSERT_EQ(Output[2].size(), 1ul);
@@ -2892,12 +2893,12 @@ TEST_F(InstrRefLDVTest, VLocSimpleLoop) {
 
   // Now, if we assign RspDefInBlk1 in the loop block, we should be able to
   // find the appropriate PHI.
-  InLocs[1][0] = RspPHIInBlk1;
-  OutLocs[1][0] = RspDefInBlk1;
+  MInLocs[1][0] = RspPHIInBlk1;
+  MOutLocs[1][0] = RspDefInBlk1;
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   VLocs[1].Vars.insert({Var, DbgValue(RspDefInBlk1, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   ASSERT_EQ(Output[1].size(), 1ul);
   ASSERT_EQ(Output[2].size(), 1ul);
@@ -2911,14 +2912,14 @@ TEST_F(InstrRefLDVTest, VLocSimpleLoop) {
 
   // If the PHI happens in a different location, the live-in should happen
   // there.
-  InLocs[1][0] = LiveInRsp;
-  OutLocs[1][0] = LiveInRsp;
-  InLocs[1][1] = RaxPHIInBlk1;
-  OutLocs[1][1] = RspDefInBlk1;
+  MInLocs[1][0] = LiveInRsp;
+  MOutLocs[1][0] = LiveInRsp;
+  MInLocs[1][1] = RaxPHIInBlk1;
+  MOutLocs[1][1] = RspDefInBlk1;
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   VLocs[1].Vars.insert({Var, DbgValue(RspDefInBlk1, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   ASSERT_EQ(Output[1].size(), 1ul);
   ASSERT_EQ(Output[2].size(), 1ul);
@@ -2933,14 +2934,14 @@ TEST_F(InstrRefLDVTest, VLocSimpleLoop) {
   // The PHI happening in both places should be handled too. Exactly where
   // isn't important, but if the location picked changes, this test will let
   // you know.
-  InLocs[1][0] = RaxPHIInBlk1;
-  OutLocs[1][0] = RspDefInBlk1;
-  InLocs[1][1] = RaxPHIInBlk1;
-  OutLocs[1][1] = RspDefInBlk1;
+  MInLocs[1][0] = RaxPHIInBlk1;
+  MOutLocs[1][0] = RspDefInBlk1;
+  MInLocs[1][1] = RaxPHIInBlk1;
+  MOutLocs[1][1] = RspDefInBlk1;
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   VLocs[1].Vars.insert({Var, DbgValue(RspDefInBlk1, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   ASSERT_EQ(Output[1].size(), 1ul);
   ASSERT_EQ(Output[2].size(), 1ul);
@@ -2967,14 +2968,14 @@ TEST_F(InstrRefLDVTest, VLocSimpleLoop) {
   // joined at some location by the control flow.
   // [This test input would never occur naturally, the machine-PHI would be
   //  eliminated]
-  InLocs[1][0] = RspPHIInBlk1;
-  OutLocs[1][0] = RspPHIInBlk1;
-  InLocs[1][1] = LiveInRax;
-  OutLocs[1][1] = LiveInRax;
+  MInLocs[1][0] = RspPHIInBlk1;
+  MOutLocs[1][0] = RspPHIInBlk1;
+  MInLocs[1][1] = LiveInRax;
+  MOutLocs[1][1] = LiveInRax;
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   VLocs[1].Vars.insert({Var, DbgValue(RspPHIInBlk1, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   ASSERT_EQ(Output[1].size(), 1ul);
   ASSERT_EQ(Output[2].size(), 1ul);
@@ -2988,12 +2989,12 @@ TEST_F(InstrRefLDVTest, VLocSimpleLoop) {
 
   // Test that we can eliminate PHIs. A PHI will be placed at the loop head
   // because there's a def in in.
-  InLocs[1][0] = LiveInRsp;
-  OutLocs[1][0] = LiveInRsp;
+  MInLocs[1][0] = LiveInRsp;
+  MOutLocs[1][0] = LiveInRsp;
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   VLocs[1].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   ASSERT_EQ(Output[1].size(), 1ul);
   ASSERT_EQ(Output[2].size(), 1ul);
@@ -3034,12 +3035,11 @@ TEST_F(InstrRefLDVTest, VLocNestedLoop) {
   ValueIDNum RspPHIInBlk2 = ValueIDNum(Loop2Blk, 0, RspLoc);
   ValueIDNum RspDefInBlk2 = ValueIDNum(Loop2Blk, 1, RspLoc);
 
-  ValueIDNum InLocs[5][2], OutLocs[5][2];
-  ValueIDNum *InLocsPtr[5] = {InLocs[0], InLocs[1], InLocs[2], InLocs[3], InLocs[4]};
-  ValueIDNum *OutLocsPtr[5] = {OutLocs[0], OutLocs[1], OutLocs[2], OutLocs[3], OutLocs[4]};
+  FuncValueTable MInLocs, MOutLocs;
+  std::tie(MInLocs, MOutLocs) = allocValueTables(5, 2);
 
-  initValueArray(InLocsPtr, 5, 2);
-  initValueArray(OutLocsPtr, 5, 2);
+  initValueArray(MInLocs, 5, 2);
+  initValueArray(MOutLocs, 5, 2);
 
   DebugVariable Var(FuncVariable, None, nullptr);
   DbgValueProperties EmptyProps(EmptyExpr, false);
@@ -3061,8 +3061,8 @@ TEST_F(InstrRefLDVTest, VLocNestedLoop) {
 
   // Start off with LiveInRsp in every location.
   for (unsigned int I = 0; I < 5; ++I) {
-    InLocs[I][0] = InLocs[I][1] = LiveInRsp;
-    OutLocs[I][0] = OutLocs[I][1] = LiveInRsp;
+    MInLocs[I][0] = MInLocs[I][1] = LiveInRsp;
+    MOutLocs[I][0] = MOutLocs[I][1] = LiveInRsp;
   }
 
   auto ClearOutputs = [&]() {
@@ -3074,7 +3074,7 @@ TEST_F(InstrRefLDVTest, VLocNestedLoop) {
   // A dominating assign should propagate to all blocks.
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   ASSERT_EQ(Output[1].size(), 1ul);
   ASSERT_EQ(Output[2].size(), 1ul);
@@ -3096,7 +3096,7 @@ TEST_F(InstrRefLDVTest, VLocNestedLoop) {
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   VLocs[2].Vars.insert({Var, DbgValue(LiveInRax, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   EXPECT_EQ(Output[1].size(), 0ul);
   EXPECT_EQ(Output[2].size(), 0ul);
@@ -3114,7 +3114,7 @@ TEST_F(InstrRefLDVTest, VLocNestedLoop) {
   // in dominated blocks.
   VLocs[2].Vars.insert({Var, DbgValue(LiveInRax, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   EXPECT_EQ(Output[1].size(), 0ul);
   EXPECT_EQ(Output[2].size(), 0ul);
@@ -3132,7 +3132,7 @@ TEST_F(InstrRefLDVTest, VLocNestedLoop) {
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   VLocs[3].Vars.insert({Var, DbgValue(LiveInRax, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   EXPECT_EQ(Output[1].size(), 0ul);
   EXPECT_EQ(Output[2].size(), 0ul);
@@ -3147,7 +3147,7 @@ TEST_F(InstrRefLDVTest, VLocNestedLoop) {
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   VLocs[1].Vars.insert({Var, DbgValue(LiveInRax, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   EXPECT_EQ(Output[1].size(), 0ul);
   ASSERT_EQ(Output[2].size(), 1ul);
@@ -3169,7 +3169,7 @@ TEST_F(InstrRefLDVTest, VLocNestedLoop) {
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   VLocs[2].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   EXPECT_EQ(Output[1].size(), 1ul);
   EXPECT_EQ(Output[2].size(), 1ul);
@@ -3191,8 +3191,8 @@ TEST_F(InstrRefLDVTest, VLocNestedLoop) {
   // loop head, we could find a live-in location for the inner loop. But because
   // the outer loop has no PHI, we can't find a variable value for outer loop
   // head, so can't have a live-in value for the inner loop head.
-  InLocs[2][0] = RspPHIInBlk2;
-  OutLocs[2][0] = LiveInRax;
+  MInLocs[2][0] = RspPHIInBlk2;
+  MOutLocs[2][0] = LiveInRax;
   // NB: all other machine locations are LiveInRsp, disallowing a PHI in block
   // one. Even though RspPHIInBlk2 isn't available later in the function, we
   // should still produce a live-in value. The fact it's unavailable is a
@@ -3200,7 +3200,7 @@ TEST_F(InstrRefLDVTest, VLocNestedLoop) {
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   VLocs[2].Vars.insert({Var, DbgValue(LiveInRax, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   EXPECT_EQ(Output[1].size(), 0ul);
   EXPECT_EQ(Output[2].size(), 0ul);
@@ -3217,16 +3217,16 @@ TEST_F(InstrRefLDVTest, VLocNestedLoop) {
   // Have an assignment in inner loop that can have a PHI resolved; and add a
   // machine value PHI to the outer loop head, so that we can find a location
   // all the way through the function.
-  InLocs[1][0] = RspPHIInBlk1;
-  OutLocs[1][0] = RspPHIInBlk1;
-  InLocs[2][0] = RspPHIInBlk2;
-  OutLocs[2][0] = RspDefInBlk2;
-  InLocs[3][0] = RspDefInBlk2;
-  OutLocs[3][0] = RspDefInBlk2;
+  MInLocs[1][0] = RspPHIInBlk1;
+  MOutLocs[1][0] = RspPHIInBlk1;
+  MInLocs[2][0] = RspPHIInBlk2;
+  MOutLocs[2][0] = RspDefInBlk2;
+  MInLocs[3][0] = RspDefInBlk2;
+  MOutLocs[3][0] = RspDefInBlk2;
   VLocs[0].Vars.insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
   VLocs[2].Vars.insert({Var, DbgValue(RspDefInBlk2, EmptyProps, DbgValue::Def)});
   buildVLocValueMap(OutermostLoc, AllVars, AssignBlocks, Output,
-                    OutLocsPtr, InLocsPtr, VLocs);
+                    MOutLocs, MInLocs, VLocs);
   EXPECT_EQ(Output[0].size(), 0ul);
   ASSERT_EQ(Output[1].size(), 1ul);
   ASSERT_EQ(Output[2].size(), 1ul);

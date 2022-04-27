@@ -178,6 +178,8 @@ bool DPCPPKernelAnalysisPass::runImpl(Module &M, CallGraph &CG) {
       KIMD.KernelHasSubgroups.set(SubgroupCallingFuncs.count(Kernel));
   }
 
+  LLVM_DEBUG(print(dbgs(), this->M));
+
   return (Kernels.size() != 0);
 }
 

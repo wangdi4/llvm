@@ -22,7 +22,7 @@
 ; CHECK: |
 ; CHECK: |      + DO i2 = 0, %tgu + -1, 1   <DO_LOOP> <nounroll>
 ; CHECK: |
-; CHECK: |      + DO i2 = 8 * %tgu, %n2 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 7> <nounroll> <max_trip_count = 7>
+; CHECK: |      + DO i2 = 8 * %tgu, %n2 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 7>   <LEGAL_MAX_TC = 7> <nounroll> <max_trip_count = 7>
 
 ; Checl that there is only ony phi in the outer loop header after SROA.
 ; CHECK: loop{{.*}}:

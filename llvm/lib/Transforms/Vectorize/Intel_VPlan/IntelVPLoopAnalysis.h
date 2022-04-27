@@ -49,6 +49,7 @@ class VPBasicBlock;
 class VPBuilder;
 class VPAllocatePrivate;
 class VPReductionFinal;
+class VPLoadStoreInst;
 class VPDominatorTree;
 
 /// Base class for loop entities
@@ -476,6 +477,14 @@ class VPLoopEntityList {
   using VPEntityAliasesTy = VPPrivate::VPEntityAliasesTy;
 
 public:
+  /// Importing error indicators.
+  enum class ImportError {
+    None = 0,
+    Reduction,
+    Induction,
+    Private,
+  };
+
   /// Add reduction described by \p K, \p MK, and \p Signed,
   /// with starting instruction \p Instr, incoming value \p Incoming, exiting
   /// instruction \p Exit and alloca-instruction \p AI.
@@ -665,15 +674,14 @@ public:
     return false;
   }
 
-  /// Same as hasInMemoryEntity but restrict to reductions/inductions.
-  bool hasInMemoryReductionInduction() const {
+  /// Same as hasInMemoryEntity but restrict to inductions.
+  bool hasInMemoryInduction() const {
     for (auto &It : MemoryDescriptors) {
       auto *VPEntity = It.first;
       auto *MemoryDescr = It.second.get();
-      bool IsRedInd = isa<VPReduction>(VPEntity) || isa<VPInduction>(VPEntity);
-      // Return true if we have a reduction/induction with a memory descriptor
+      // Return true if we have a induction with a memory descriptor
       // that cannot be registerized.
-      if (IsRedInd && !MemoryDescr->canRegisterize())
+      if (isa<VPInduction>(VPEntity) && !MemoryDescr->canRegisterize())
         return true;
     }
 
@@ -695,6 +703,9 @@ public:
     return false;
   }
 
+  void setImportingError(ImportError ErrC) { ImportErr = ErrC;}
+  ImportError getImportingError() const { return ImportErr;}
+
   // Find implicit last privates in the loop and add their descriptors.
   // Implicit last private is a live out value which is assigned in the
   // loop and is not known as reduction/induction.
@@ -713,9 +724,13 @@ public:
       llvm_unreachable("Unknown loop entity");
   }
 
+  bool hasReduction() const { return !ReductionList.empty(); }
+
 private:
   VPlanVector &Plan;
   VPLoop &Loop;
+
+  ImportError ImportErr = ImportError::None;
 
   VPReductionList ReductionList;
   VPInductionList InductionList;
@@ -1032,7 +1047,7 @@ public:
   /// Return true if not all data is completed.
   bool isIncomplete() const;
   /// Attempt to fix incomplete data using VPlan and VPLoop.
-  void tryToCompleteByVPlan(const VPlanVector *Plan, const VPLoop *Loop);
+  void tryToCompleteByVPlan(VPlanVector *Plan, const VPLoop *Loop);
   /// Pass the data to VPlan
   void passToVPlan(VPlanVector *Plan, const VPLoop *Loop);
   /// Check if current reduction descriptor duplicates another that is already
@@ -1161,7 +1176,7 @@ public:
   /// Return true if not all data is completed.
   bool isIncomplete() const;
   /// Attemp to fix incomplete data using VPlan and VPLoop.
-  void tryToCompleteByVPlan(const VPlanVector *Plan, const VPLoop *Loop);
+  void tryToCompleteByVPlan(VPlanVector *Plan, const VPLoop *Loop);
   /// Pass the data to VPlan
   void passToVPlan(VPlanVector *Plan, const VPLoop *Loop);
   /// Check if current induction descriptor duplicates another that is already
@@ -1227,7 +1242,7 @@ public:
   bool isIncomplete() const { return ExitInst == nullptr; }
 
   /// Attemp to fix incomplete data using VPlan and VPLoop.
-  void tryToCompleteByVPlan(const VPlanVector *Plan, const VPLoop *Loop);
+  void tryToCompleteByVPlan(VPlanVector *Plan, const VPLoop *Loop);
 
   /// Pass the data to VPlan
   void passToVPlan(VPlanVector *Plan, const VPLoop *Loop);

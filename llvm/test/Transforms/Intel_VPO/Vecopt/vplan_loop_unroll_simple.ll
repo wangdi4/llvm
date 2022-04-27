@@ -2,7 +2,7 @@
 ; RUN: opt -S < %s -vplan-vec -loop-simplify --vplan-force-vf=4 --vplan-force-uf=3 \
 ; RUN: --vplan-print-after-unroll | FileCheck %s -check-prefixes=CHECK
 ; RUN: opt -S < %s -vplan-vec -loop-simplify --vplan-force-vf=4 --vplan-force-uf=3 \
-; RUN: -intel-ir-optreport-emitter -intel-loop-optreport=low 2>&1 | FileCheck %s -check-prefixes=OPTREPORT
+; RUN: -intel-ir-optreport-emitter -intel-opt-report=low 2>&1 | FileCheck %s -check-prefixes=OPTREPORT
 
 ; void foo(int *a, int n) {
 ;   #pragma omp simd

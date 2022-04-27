@@ -1,5 +1,7 @@
-; RUN: opt -debugify -dpcpp-kernel-enable-tls-globals -dpcpp-kernel-local-buffers -check-debugify -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-enable-tls-globals -dpcpp-kernel-local-buffers -S < %s | FileCheck %s
+; RUN: opt -dpcpp-kernel-enable-tls-globals -passes=dpcpp-kernel-local-buffers -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-kernel-enable-tls-globals -dpcpp-kernel-local-buffers -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-kernel-enable-tls-globals -passes=dpcpp-kernel-local-buffers -S %s | FileCheck %s
+; RUN: opt -dpcpp-kernel-enable-tls-globals -dpcpp-kernel-local-buffers -S %s | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 

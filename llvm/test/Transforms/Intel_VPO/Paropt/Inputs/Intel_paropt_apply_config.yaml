@@ -1,0 +1,44 @@
+--- !ParoptConfig
+Kernels:
+  - Name: __Z4test_l2
+    ThreadLimit: 11
+    NumTeams: 22
+  - Name: __Z4test_l4
+    ThreadLimit: 33
+    NumTeams: 44
+  - Name: __Z4test_l6
+    ThreadLimit: 55
+    NumTeams: 66
+  - Name: __Z4test_l8
+    ThreadLimit: 77
+    NumTeams: 88
+  - Name: __Z4test_l10
+    ThreadLimit: 99
+    NumTeams: 111
+  - Name: __Z4test_l12
+    ThreadLimit: 222
+    NumTeams: 333
+  - Name: __Z4test_l14
+    ThreadLimit: 444
+    NumTeams: 555
+  - Name: __Z4test_l16
+    ThreadLimit: 666
+    NumTeams: 777
+  - Name: __Z10test_typed_l21
+    ThreadLimit: 11
+    NumTeams: 22
+  - Name: __Z10test_typed_l23
+    NumTeams: 44
+  - Name: __Z10test_typed_l25
+    NumTeams: 66
+  - Name: __Z10test_typed_l27
+    ThreadLimit: 77
+  - Name: __Z10test_typed_l29
+    ThreadLimit: 99
+    NumTeams: 111
+  - Name: __Z10test_typed_l31
+    ThreadLimit: 222
+  - Name: __Z10test_typed_l33
+    NumTeams: 555
+  - Name: __Z10test_typed_l35
+    NumTeams: 777

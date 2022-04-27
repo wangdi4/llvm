@@ -1,4 +1,21 @@
 //===-- Globals.cpp - Implement the GlobalValue & GlobalVariable class ----===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -12,7 +29,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "LLVMContextImpl.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Constants.h"
@@ -21,7 +37,6 @@
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/Operator.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 using namespace llvm;
@@ -99,6 +114,8 @@ void GlobalValue::eraseFromParent() {
   llvm_unreachable("not a global");
 }
 
+GlobalObject::~GlobalObject() { setComdat(nullptr); }
+
 bool GlobalValue::isInterposable() const {
   if (isInterposableLinkage(getLinkage()))
     return true;
@@ -107,10 +124,15 @@ bool GlobalValue::isInterposable() const {
 }
 
 bool GlobalValue::canBenefitFromLocalAlias() const {
-  // See AsmPrinter::getSymbolPreferLocal().
+  // See AsmPrinter::getSymbolPreferLocal(). For a deduplicate comdat kind,
+  // references to a discarded local symbol from outside the group are not
+  // allowed, so avoid the local alias.
+  auto isDeduplicateComdat = [](const Comdat *C) {
+    return C && C->getSelectionKind() != Comdat::NoDeduplicate;
+  };
   return hasDefaultVisibility() &&
          GlobalObject::isExternalLinkage(getLinkage()) && !isDeclaration() &&
-         !isa<GlobalIFunc>(this) && !hasComdat();
+         !isa<GlobalIFunc>(this) && !isDeduplicateComdat(getComdat());
 }
 
 unsigned GlobalValue::getAddressSpace() const {
@@ -190,6 +212,14 @@ const Comdat *GlobalValue::getComdat() const {
   if (isa<GlobalIFunc>(this))
     return nullptr;
   return cast<GlobalObject>(this)->getComdat();
+}
+
+void GlobalObject::setComdat(Comdat *C) {
+  if (ObjComdat)
+    ObjComdat->removeUser(this);
+  ObjComdat = C;
+  if (C)
+    C->addUser(this);
 }
 
 StringRef GlobalValue::getPartition() const {

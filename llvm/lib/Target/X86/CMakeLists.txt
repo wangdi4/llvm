@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 add_llvm_component_group(X86 HAS_JIT)
 
 set(LLVM_TARGET_DEFINITIONS X86.td)
@@ -14,12 +31,13 @@ tablegen(LLVM X86GenExegesis.inc -gen-exegesis)
 tablegen(LLVM X86GenFastISel.inc -gen-fast-isel)
 tablegen(LLVM X86GenGlobalISel.inc -gen-global-isel)
 tablegen(LLVM X86GenInstrInfo.inc -gen-instr-info)
+tablegen(LLVM X86GenMnemonicTables.inc -gen-x86-mnemonic-tables -asmwriternum=1)
 tablegen(LLVM X86GenRegisterBank.inc -gen-register-bank)
 tablegen(LLVM X86GenRegisterInfo.inc -gen-register-info)
 tablegen(LLVM X86GenSubtargetInfo.inc -gen-subtarget)
 
 if (X86_GEN_FOLD_TABLES)
-  tablegen(LLVM X86GenFoldTables.inc -gen-x86-fold-tables)
+  tablegen(LLVM X86GenFoldTables.inc -gen-x86-fold-tables -asmwriternum=1)
 endif()
 
 add_public_tablegen_target(X86CommonTableGen)
@@ -127,5 +145,6 @@ add_llvm_target(X86CodeGen ${sources}
 
 add_subdirectory(AsmParser)
 add_subdirectory(Disassembler)
+add_subdirectory(MCA)
 add_subdirectory(MCTargetDesc)
 add_subdirectory(TargetInfo)

@@ -6,12 +6,12 @@
 // RUN: %clang_cc1 -ffast-math -ffp-contract=fast -ffp-exception-behavior=strict -fexperimental-strict-floating-point -emit-llvm -o - %s | FileCheck %s -check-prefix=EXCEPT
 // RUN: %clang_cc1 -ffast-math -ffp-contract=fast -ffp-exception-behavior=maytrap -fexperimental-strict-floating-point -emit-llvm -o - %s | FileCheck %s -check-prefix=MAYTRAP
 // INTEL_CUSTOMIZATION
-// RUN: %clang -c --intel -S -emit-llvm -o - %s | FileCheck %s -check-prefix=FAST
+// RUN: %clang -c --intel -fapprox-func -S -emit-llvm -o - %s | FileCheck %s -check-prefix=FAST
 // end INTEL_CUSTOMIZATION
 
 float f0, f1, f2;
 
-void foo() {
+void foo(void) {
   // CHECK-LABEL: define {{.*}}void @foo()
 
   // MAYTRAP: llvm.experimental.constrained.fadd.f32(float %{{.*}}, float %{{.*}}, metadata !"round.tonearest", metadata !"fpexcept.maytrap")

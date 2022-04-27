@@ -5,17 +5,17 @@
 ; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-cg" < %s -force-hir-cg
 
 ; Verify that CG can correctly handle opaque types. %3 is a pointer to an opaque type. Make sure &((%3)[0]) is lowered correctly to a pointer without a GEP.
-
-; CHECK: + DO i1 = 0, 1, 1   <DO_LOOP>
-; CHECK: |   %n.0.i13.out1 = %n.0.i13;
-; CHECK: |   %2 = (%call)[0].2;
-; CHECK: |   %3 = (%2)[i1];
-; CHECK: |   if (&((%3)[0]) != null)
-; CHECK: |   {
-; CHECK: |      %n.0.i13 = %n.0.i13  +  1;
-; CHECK: |      (%2)[%n.0.i13.out1] = &((%3)[0]);
-; CHECK: |   }
-; CHECK: + END LOOP
+; CHECK:    BEGIN REGION { }
+; CHECK:           + DO i1 = 0, 1, 1   <DO_LOOP>
+; CHECK:           |   %2 = (%call)[0].2;
+; CHECK:           |   %3 = (%2)[i1];
+; CHECK:           |   if (&((%3)[0]) != null)
+; CHECK:           |   {
+; CHECK:           |      (%2)[%n.0.i13] = &((%3)[0]);
+; CHECK:           |      %n.0.i13 = %n.0.i13  +  1;
+; CHECK:           |   }
+; CHECK:           + END LOOP
+; CHECK:     END REGION
 
 ; CHECK: region.0:
 

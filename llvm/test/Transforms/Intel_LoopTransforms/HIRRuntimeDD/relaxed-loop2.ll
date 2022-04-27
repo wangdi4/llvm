@@ -10,7 +10,7 @@
 ;
 ;<0>          BEGIN REGION { }
 ;<63>               + DO i1 = 0, zext.i32.i64(%height) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2000>
-;<64>               |   + DO i2 = 0, zext.i32.i64(%width) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+;<64>               |   + DO i2 = 0, zext.i32.i64(%width) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647> <LEGAL_MAX_TC = 2147483647>
 ;<13>               |   |   %2 = (@vrow)[0][i1][(1 + sext.i32.i64(%other_channels)) * i2];
 ;<15>               |   |   %sub = %2  ^  255;
 ;<16>               |   |   if (%channels > 0)
@@ -49,7 +49,7 @@
 ; CHECK:           |      %mv.and8 = %mv.test6  &  %mv.test7;
 ; CHECK:           |      if (%mv.and == 0 && %mv.and8 == 0)
 ; CHECK:           |      {
-; CHECK:           |         + DO i2 = 0, zext.i32.i64(%width) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <MVTag: 64>
+; CHECK:           |         + DO i2 = 0, zext.i32.i64(%width) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647> <MVTag: 64>
 ; CHECK:           |         |   %2 = (@vrow)[0][i1][(1 + sext.i32.i64(%other_channels)) * i2];
 ; CHECK:           |         |   %sub = %2  ^  255;
 ; CHECK:           |         |   if (%channels > 0)
@@ -64,7 +64,7 @@
 ; CHECK:           |      }
 ; CHECK:           |      else
 ; CHECK:           |      {
-; CHECK:           |         + DO i2 = 0, zext.i32.i64(%width) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <MVTag: 64> <nounroll> <novectorize>
+; CHECK:           |         + DO i2 = 0, zext.i32.i64(%width) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647> <MVTag: 64> <nounroll> <novectorize>
 ; CHECK:           |         |   %2 = (@vrow)[0][i1][(1 + sext.i32.i64(%other_channels)) * i2];
 ; CHECK:           |         |   %sub = %2  ^  255;
 ; CHECK:           |         |   if (%channels > 0)
@@ -80,6 +80,14 @@
 ; CHECK:           |   }
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
+;
+;
+; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -hir-details -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s -check-prefix=CHECK-ALIAS
+; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s -check-prefix=CHECK-ALIAS
+;
+; CHECK-ALIAS: <RVAL-REG> {{.*}} @vrow)[{{.*}}1 + sext.i32.i64(%other_channels)) * i2]{{.*}} !alias.scope [[SCOPE1:.*]] !noalias [[SCOPE2:.*]] {
+; CHECK-ALIAS: <RVAL-REG> {{.*}} @vrow)[{{.*}}i3]{{.*}} !alias.scope [[SCOPE1]] !noalias [[SCOPE2]] {
+; CHECK-ALIAS: <RVAL-REG> {{.*}} %prow)[{{.*}}sext.i32.i64(%channels) * i2 + i3]{{.*}} !alias.scope [[SCOPE2:.*]] !noalias [[SCOPE1:.*]] {
 ;
 ;Module Before HIR
 ; ModuleID = 'smallcompo2.cpp'

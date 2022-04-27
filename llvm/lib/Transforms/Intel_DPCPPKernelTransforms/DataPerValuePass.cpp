@@ -80,12 +80,13 @@ void DataPerValue::analyze(Module &M) {
     markSpecialArguments(*F);
 
   // Check that stide size is aligned with max alignment.
-  for (auto &EntryToBufferPair : EntryBufferDataMap) {
-    unsigned int MaxAlignment = EntryToBufferPair.second.MaxAlignment;
-    unsigned int CurrentOffset = EntryToBufferPair.second.CurrentOffset;
+  for (auto &P : LeaderFuncToBufferDataMap) {
+    auto &SpecialBufferData = P.second;
+    unsigned int MaxAlignment = SpecialBufferData.MaxAlignment;
+    unsigned int CurrentOffset = SpecialBufferData.CurrentOffset;
     if (MaxAlignment != 0 && (CurrentOffset % MaxAlignment) != 0)
       CurrentOffset = (CurrentOffset + MaxAlignment) & (~(MaxAlignment - 1));
-    EntryToBufferPair.second.BufferTotalSize = CurrentOffset;
+    SpecialBufferData.BufferTotalSize = CurrentOffset;
   }
 }
 
@@ -272,8 +273,7 @@ DataPerValue::SpecialValueType DataPerValue::isSpecialValue(Instruction *Inst,
 void DataPerValue::calculateOffsets(Function &F) {
 
   ValueVector &SpecialValues = SpecialValuesPerFuncMap[&F];
-  unsigned int Entry = FunctionEntryMap[&F];
-  SpecialBufferData &BufferData = EntryBufferDataMap[Entry];
+  SpecialBufferData &BufferData = getSpecialBufferData(&F);
 
   // Run over all special values in function.
   for (Value *Val : SpecialValues) {
@@ -365,63 +365,26 @@ unsigned int DataPerValue::getValueOffset(Value *Val, Type *Ty,
 }
 
 void DataPerValue::calculateConnectedGraph(Module &M) {
-  unsigned int CurrEntry = 0;
-
-  // Run on all functions in module.
   for (Function &F : M) {
     Function *Func = &F;
     if (Func->isDeclaration()) {
       // Skip non defined functions.
       continue;
     }
-    // Check if function has no synchronize instruction!
-    if (!DPB->hasSyncInstruction(Func)) {
-      // Function has no synchronize instruction: skip it!
-      // CSSD100016517: workaround
-      // Functions with no barrier still need to have an entry
-      // However, it should be a unique entry.
-      assert(FunctionEntryMap.count(Func) == 0 &&
-             "function with no barrier does not have a unique entry");
-      FunctionEntryMap[Func] = CurrEntry++;
+    FuncEquivalenceClasses.insert(Func);
+    // Function with no barrier is on its own equivalence class.
+    if (!DPB->hasSyncInstruction(Func))
       continue;
-    }
-    if (FunctionEntryMap.count(Func)) {
-      // Func already has an entry number, replace all appears of it with the
-      // current entry number.
-      fixEntryMap(FunctionEntryMap[Func], CurrEntry);
-    } else {
-      // Func has no entry number yet, give it the current entry number.
-      FunctionEntryMap[Func] = CurrEntry;
-    }
     for (auto *U : Func->users()) {
       CallInst *CI = dyn_cast<CallInst>(U);
       // Usage of Func can be a global variable!
       if (!CI)
         continue;
-
+      // Caller and callee are in the same class.
       Function *CallerFunc = CI->getCaller();
-      if (FunctionEntryMap.count(CallerFunc)) {
-        // CallerFunc already has an entry number,
-        // replace all appears of it with the current entry number.
-        fixEntryMap(FunctionEntryMap[CallerFunc], CurrEntry);
-      } else {
-        // CallerFunc has no entry number yet, give it the current entry number.
-        FunctionEntryMap[CallerFunc] = CurrEntry;
-      }
+      FuncEquivalenceClasses.unionSets(CallerFunc, Func);
     }
-    CurrEntry++;
   }
-}
-
-void DataPerValue::fixEntryMap(unsigned int From, unsigned int To) {
-  if (From == To) {
-    // No need to fix anything.
-    return;
-  }
-  // Replace all occurences of value "From" with value "To".
-  for (auto &FuncToEntryPair : FunctionEntryMap)
-    if (FuncToEntryPair.second == From)
-      FuncToEntryPair.second = To;
 }
 
 void DataPerValue::markSpecialArguments(Function &F) {
@@ -436,8 +399,7 @@ void DataPerValue::markSpecialArguments(Function &F) {
     return;
   }
 
-  unsigned int Entry = FunctionEntryMap[&F];
-  SpecialBufferData &BufferData = EntryBufferDataMap[Entry];
+  SpecialBufferData &BufferData = getSpecialBufferData(&F);
 
   SmallVector<bool, 16> ArgsFunction;
   ArgsFunction.assign(NumOfArgsWithReturnValue, false);
@@ -544,15 +506,27 @@ void DataPerValue::print(raw_ostream &OS, const Module *M) const {
        << "\n";
   }
 
-  OS << "Buffer Total Size:\n";
-  for (const auto &KV : FunctionEntryMap) {
-    // Print function name & its entry.
-    OS << "+" << KV.first->getName() << " : [" << KV.second << "]\n";
+  // Print equivalence classes.
+  OS << "Function Equivalence Classes:\n";
+  for (auto I = FuncEquivalenceClasses.begin(),
+            E = FuncEquivalenceClasses.end();
+       I != E; ++I) {
+    if (!I->isLeader())
+      continue;
+    // Print leader func.
+    OS << '[' << I->getData()->getName() << "]: ";
+    // Print members in the same class.
+    for (auto MI = FuncEquivalenceClasses.member_begin(I);
+         MI != FuncEquivalenceClasses.member_end(); ++MI)
+      OS << (*MI)->getName() << ' ';
+    OS << '\n';
   }
-  for (const auto &KV : EntryBufferDataMap) {
-    // Print entry & its structure stride.
-    OS << "entry(" << KV.first << ") : (" << KV.second.BufferTotalSize
-       << ")\n";
+
+  OS << "Buffer Total Size:\n";
+  for (const auto &KV : LeaderFuncToBufferDataMap) {
+    // Print leader func & its structure stride.
+    OS << "leader(" << KV.first->getName() << ") : ("
+       << KV.second.BufferTotalSize << ")\n";
   }
 
   OS << "DONE\n";

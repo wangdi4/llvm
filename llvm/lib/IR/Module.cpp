@@ -1,4 +1,21 @@
 //===- Module.cpp - Implement the Module class ----------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,7 +30,6 @@
 #include "llvm/IR/Module.h"
 #include "SymbolTableListTraitsImpl.h"
 #include "llvm/ADT/Optional.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
@@ -39,7 +55,6 @@
 #include "llvm/IR/TypeFinder.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/ValueSymbolTable.h"
-#include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Error.h"
@@ -73,8 +88,7 @@ template class llvm::SymbolTableListTraits<GlobalIFunc>;
 
 Module::Module(StringRef MID, LLVMContext &C)
     : Context(C), ValSymTab(std::make_unique<ValueSymbolTable>(-1)),
-      Materializer(), ModuleID(std::string(MID)),
-      SourceFileName(std::string(MID)), DL("") {
+      ModuleID(std::string(MID)), SourceFileName(std::string(MID)), DL("") {
   Context.addModule(this);
 }
 
@@ -703,12 +717,15 @@ void Module::setRtLibUseGOT() {
   addModuleFlag(ModFlagBehavior::Max, "RtLibUseGOT", 1);
 }
 
-bool Module::getUwtable() const {
-  auto *Val = cast_or_null<ConstantAsMetadata>(getModuleFlag("uwtable"));
-  return Val && (cast<ConstantInt>(Val->getValue())->getZExtValue() > 0);
+UWTableKind Module::getUwtable() const {
+  if (auto *Val = cast_or_null<ConstantAsMetadata>(getModuleFlag("uwtable")))
+    return UWTableKind(cast<ConstantInt>(Val->getValue())->getZExtValue());
+  return UWTableKind::None;
 }
 
-void Module::setUwtable() { addModuleFlag(ModFlagBehavior::Max, "uwtable", 1); }
+void Module::setUwtable(UWTableKind Kind) {
+  addModuleFlag(ModFlagBehavior::Max, "uwtable", uint32_t(Kind));
+}
 
 FramePointerKind Module::getFramePointer() const {
   auto *Val = cast_or_null<ConstantAsMetadata>(getModuleFlag("frame-pointer"));
@@ -766,7 +783,7 @@ void Module::setOverrideStackAlignment(unsigned Align) {
   addModuleFlag(ModFlagBehavior::Error, "override-stack-alignment", Align);
 }
 
-void Module::setSDKVersion(const VersionTuple &V) {
+static void addSDKVersionMD(const VersionTuple &V, Module &M, StringRef Name) {
   SmallVector<unsigned, 3> Entries;
   Entries.push_back(V.getMajor());
   if (auto Minor = V.getMinor()) {
@@ -776,8 +793,12 @@ void Module::setSDKVersion(const VersionTuple &V) {
     // Ignore the 'build' component as it can't be represented in the object
     // file.
   }
-  addModuleFlag(ModFlagBehavior::Warning, "SDK Version",
-                ConstantDataArray::get(Context, Entries));
+  M.addModuleFlag(Module::ModFlagBehavior::Warning, Name,
+                  ConstantDataArray::get(M.getContext(), Entries));
+}
+
+void Module::setSDKVersion(const VersionTuple &V) {
+  addSDKVersionMD(V, *this, "SDK Version");
 }
 
 static VersionTuple getSDKVersionMD(Metadata *MD) {
@@ -850,6 +871,15 @@ StringRef Module::getDarwinTargetVariantTriple() const {
   return "";
 }
 
+void Module::setDarwinTargetVariantTriple(StringRef T) {
+  addModuleFlag(ModFlagBehavior::Override, "darwin.target_variant.triple",
+                MDString::get(getContext(), T));
+}
+
 VersionTuple Module::getDarwinTargetVariantSDKVersion() const {
   return getSDKVersionMD(getModuleFlag("darwin.target_variant.SDK Version"));
+}
+
+void Module::setDarwinTargetVariantSDKVersion(VersionTuple Version) {
+  addSDKVersionMD(Version, *this, "darwin.target_variant.SDK Version");
 }

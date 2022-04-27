@@ -1,4 +1,21 @@
 //===-- X86Disassembler.cpp - Disassembler for x86 and x86_64 -------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -186,6 +203,25 @@ static InstrUID decode(OpcodeType type, InstructionContext insnContext,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+// Check the escape byte and return opcode by 'byte'.
+// We always assume the instruction we want to check is:
+// 66/F2/F3 0F (OpCode) or 0F (OpCode).
+static bool getByte(struct InternalInstruction *insn, uint8_t &byte,
+                    uint64_t offset) {
+  uint64_t pos = insn->readerCursor + offset - insn->startLocation;
+  if (pos >= insn->bytes.size() || pos < 1)
+    return true;
+  if (insn->bytes[pos - 1] != 0xf)
+    return true;
+  byte = insn->bytes[pos];
+  return false;
+}
+
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
+
 static bool peek(struct InternalInstruction *insn, uint8_t &byte) {
   uint64_t offset = insn->readerCursor - insn->startLocation;
   if (offset >= insn->bytes.size())
@@ -276,6 +312,24 @@ static int readPrefixes(struct InternalInstruction *insn) {
       uint8_t nextByte;
       if (peek(insn, nextByte))
         break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+      // In XuCC mode, "F2 66" and "F3 66" are two special prefixes.
+      // We need to check the opcode here since the 0x66 can be operand-size
+      // prefix, e.g:
+      // The decoding of '0xf3,0x66,0x0f,0xbd,0xd8' is 'lzcntw  %ax, %bx'.
+      if (nextByte == 0x66 && insn->isXuCCMode) {
+        uint8_t insnOpcode;
+        if (!getByte(insn, insnOpcode, 2) && insnOpcode == 0xb5) {
+          insn->xuccExtensionPrefix[0] = byte;
+          consume(insn, insn->xuccExtensionPrefix[1]);
+          insn->xuccExtensionType =
+              (byte == 0xf2) ? XuCC_PREFIX_F2 : XuCC_PREFIX_F3;
+          break;
+        }
+      }
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
       // TODO:
       //  1. There could be several 0x66
       //  2. if (nextByte == 0x66) and nextNextByte != 0x0f then
@@ -311,6 +365,39 @@ static int readPrefixes(struct InternalInstruction *insn) {
       insn->hasOpSize = true;
       if (peek(insn, nextByte))
         break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+      // In XuCC mode, "66 F2" and "66 F3" can be a pure prefixes.
+      // For now, only gtranslaterd_tioprm, gtranslatewr_tioprm and spbusmsg use
+      // these as pure prefix. We need check the opcode here too since in some
+      // cases 0x66 is the operand-size prefix, e.g: gmovlin (%rbx), %ax. Its
+      // encoding is '0x66,0xf3,0x0f,0x02,0x03'.
+      if (insn->isXuCCMode) {
+        uint8_t insnOpcode;
+        if ((nextByte == 0xf2 || nextByte == 0xf3) &&
+            !getByte(insn, insnOpcode, 2) &&
+            (insnOpcode == 0x00 || insnOpcode == 0x03)) {
+          insn->xuccExtensionPrefix[0] = byte;
+          consume(insn, insn->xuccExtensionPrefix[1]);
+          insn->xuccExtensionType = XuCC_PREFIX_66;
+          // "66“ is no longer Operand-size prefix.
+          insn->hasOpSize = false;
+          break;
+        } else if (!getByte(insn, insnOpcode, 1) && insnOpcode == 0x03) {
+          // The encoding of asidswitch_tlbflush is '66 0F 03', which is
+          // conflict with lslw instructions. In XuCC code, it will always be
+          // decoded to asidswitch_tlbflush instruction.
+          // Besides, the encoding of cmodemov is '0F 03', since its operand
+          // can never be 16-bits, it doesn't conflict with asidswitch_tlbflush.
+          insn->xuccExtensionPrefix[0] = byte;
+          insn->xuccExtensionType = XuCC_PREFIX_66;
+          // "66“ is no longer Operand-size prefix.
+          insn->hasOpSize = false;
+          break;
+        }
+      }
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
       // 0x66 can't overwrite existing mandatory prefix and should be ignored
       if (!insn->mandatoryPrefix && (nextByte == 0x0f || isREX(insn, nextByte)))
         insn->mandatoryPrefix = byte;
@@ -325,6 +412,14 @@ static int readPrefixes(struct InternalInstruction *insn) {
     }
 
     if (isPrefix)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+      if (insn->xuccExtensionType) {
+        LLVM_DEBUG(dbgs() << format("Found XuCC prefix 0x%hhx\n", byte)
+                          << format("Found prefix 0x%hhx", nextByte));
+      } else
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
       LLVM_DEBUG(dbgs() << format("Found prefix 0x%hhx", byte));
   }
 
@@ -1217,6 +1312,28 @@ static int getInstructionID(struct InternalInstruction *insn,
     } else {
       return -1;
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  } else if (insn->xuccExtensionType != XuCC_PREFIX_NONE) {
+    // Currently there are only four combinations of prefixes:
+    // '66 F3', '66 F2', 'F2 66' and 'F3 66'.
+    if (insn->xuccExtensionType == XuCC_PREFIX_66) {
+      attrMask |= ATTR_XUCCPD;
+      if (insn->xuccExtensionPrefix[1] == 0xf3)
+        attrMask |= ATTR_XS;
+      else if (insn->xuccExtensionPrefix[1] == 0xf2)
+        attrMask |= ATTR_XD;
+    } else if (insn->xuccExtensionType == XuCC_PREFIX_F2) {
+      assert(insn->xuccExtensionPrefix[1] == 0x66 && "Unexpected XuCC prefix");
+      attrMask |= ATTR_XUCCXD;
+    } else if (insn->xuccExtensionType == XuCC_PREFIX_F3) {
+      assert(insn->xuccExtensionPrefix[1] == 0x66 && "Unexpected XuCC prefix");
+      attrMask |= ATTR_XUCCXS;
+    } else {
+      llvm_unreachable("Unexpected XuCC prefix");
+    }
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   } else if (!insn->mandatoryPrefix) {
     // If we don't have mandatory prefix we should use legacy prefixes here
     if (insn->hasOpSize && (insn->mode != MODE_16BIT))
@@ -1759,6 +1876,11 @@ public:
 
 private:
   DisassemblerMode              fMode;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  bool  isXuCCMode;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // namespace
@@ -1769,13 +1891,18 @@ X86GenericDisassembler::X86GenericDisassembler(
                                          std::unique_ptr<const MCInstrInfo> MII)
   : MCDisassembler(STI, Ctx), MII(std::move(MII)) {
   const FeatureBitset &FB = STI.getFeatureBits();
-  if (FB[X86::Mode16Bit]) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  isXuCCMode = FB[X86::ModeXuCC];
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
+  if (FB[X86::Is16Bit]) {
     fMode = MODE_16BIT;
     return;
-  } else if (FB[X86::Mode32Bit]) {
+  } else if (FB[X86::Is32Bit]) {
     fMode = MODE_32BIT;
     return;
-  } else if (FB[X86::Mode64Bit]) {
+  } else if (FB[X86::Is64Bit]) {
     fMode = MODE_64BIT;
     return;
   }
@@ -1794,6 +1921,11 @@ MCDisassembler::DecodeStatus X86GenericDisassembler::getInstruction(
   Insn.startLocation = Address;
   Insn.readerCursor = Address;
   Insn.mode = fMode;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  Insn.isXuCCMode = isXuCCMode;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 
   if (Bytes.empty() || readPrefixes(&Insn) || readOpcode(&Insn) ||
       getInstructionID(&Insn, MII.get()) || Insn.instructionID == 0 ||
@@ -1846,46 +1978,6 @@ static void translateRegister(MCInst &mcInst, Reg reg) {
 
   MCPhysReg llvmRegnum = llvmRegnums[reg];
   mcInst.addOperand(MCOperand::createReg(llvmRegnum));
-}
-
-/// tryAddingSymbolicOperand - trys to add a symbolic operand in place of the
-/// immediate Value in the MCInst.
-///
-/// @param Value      - The immediate Value, has had any PC adjustment made by
-///                     the caller.
-/// @param isBranch   - If the instruction is a branch instruction
-/// @param Address    - The starting address of the instruction
-/// @param Offset     - The byte offset to this immediate in the instruction
-/// @param Width      - The byte width of this immediate in the instruction
-///
-/// If the getOpInfo() function was set when setupForSymbolicDisassembly() was
-/// called then that function is called to get any symbolic information for the
-/// immediate in the instruction using the Address, Offset and Width.  If that
-/// returns non-zero then the symbolic information it returns is used to create
-/// an MCExpr and that is added as an operand to the MCInst.  If getOpInfo()
-/// returns zero and isBranch is true then a symbol look up for immediate Value
-/// is done and if a symbol is found an MCExpr is created with that, else
-/// an MCExpr with the immediate Value is created.  This function returns true
-/// if it adds an operand to the MCInst and false otherwise.
-static bool tryAddingSymbolicOperand(int64_t Value, bool isBranch,
-                                     uint64_t Address, uint64_t Offset,
-                                     uint64_t Width, MCInst &MI,
-                                     const MCDisassembler *Dis) {
-  return Dis->tryAddingSymbolicOperand(MI, Value, Address, isBranch,
-                                       Offset, Width);
-}
-
-/// tryAddingPcLoadReferenceComment - trys to add a comment as to what is being
-/// referenced by a load instruction with the base register that is the rip.
-/// These can often be addresses in a literal pool.  The Address of the
-/// instruction and its immediate Value are used to determine the address
-/// being referenced in the literal pool entry.  The SymbolLookUp call back will
-/// return a pointer to a literal 'C' string if the referenced address is an
-/// address into a section with 'C' string literals.
-static void tryAddingPcLoadReferenceComment(uint64_t Address, uint64_t Value,
-                                            const void *Decoder) {
-  const MCDisassembler *Dis = static_cast<const MCDisassembler*>(Decoder);
-  Dis->tryAddingPcLoadReferenceComment(Value, Address);
 }
 
 static const uint8_t segmentRegnums[SEG_OVERRIDE_max] = {
@@ -2037,9 +2129,9 @@ static void translateImmediate(MCInst &mcInst, uint64_t immediate,
     break;
   }
 
-  if(!tryAddingSymbolicOperand(immediate + pcrel, isBranch, insn.startLocation,
-                               insn.immediateOffset, insn.immediateSize,
-                               mcInst, Dis))
+  if (!Dis->tryAddingSymbolicOperand(mcInst, immediate + pcrel,
+                                     insn.startLocation, isBranch,
+                                     insn.immediateOffset, insn.immediateSize))
     mcInst.addOperand(MCOperand::createImm(immediate));
 
   if (type == TYPE_MOFFS) {
@@ -2178,9 +2270,9 @@ static bool translateRMMemory(MCInst &mcInst, InternalInstruction &insn,
       if (insn.mode == MODE_64BIT){
         pcrel = insn.startLocation +
                 insn.displacementOffset + insn.displacementSize;
-        tryAddingPcLoadReferenceComment(insn.startLocation +
-                                        insn.displacementOffset,
-                                        insn.displacement + pcrel, Dis);
+        Dis->tryAddingPcLoadReferenceComment(insn.displacement + pcrel,
+                                             insn.startLocation +
+                                                 insn.displacementOffset);
         // Section 2.2.1.6
         baseReg = MCOperand::createReg(insn.addressSize == 4 ? X86::EIP :
                                                                X86::RIP);
@@ -2240,9 +2332,9 @@ static bool translateRMMemory(MCInst &mcInst, InternalInstruction &insn,
   mcInst.addOperand(baseReg);
   mcInst.addOperand(scaleAmount);
   mcInst.addOperand(indexReg);
-  if(!tryAddingSymbolicOperand(insn.displacement + pcrel, false,
-                               insn.startLocation, insn.displacementOffset,
-                               insn.displacementSize, mcInst, Dis))
+  if (!Dis->tryAddingSymbolicOperand(
+          mcInst, insn.displacement + pcrel, insn.startLocation, false,
+          insn.displacementOffset, insn.displacementSize))
     mcInst.addOperand(displacement);
   mcInst.addOperand(segmentReg);
   return false;
@@ -2440,4 +2532,10 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Disassembler() {
                                          createX86Disassembler);
   TargetRegistry::RegisterMCDisassembler(getTheX86_64Target(),
                                          createX86Disassembler);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  TargetRegistry::RegisterMCDisassembler(getTheX86_XuCCTarget(),
+                                         createX86Disassembler);
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 }

@@ -1,5 +1,9 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg -prune-eh -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
-;
+; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg -prune-eh -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; NPM note: prune-eh pass is pinned to legacy pass manager (d673beee55 =>
+; https://reviews.llvm.org/D90012).Since it verifies that the VPO won't crash
+; after running it we cannot just remove it, thus making the test pinned to LPM.
+
+
 ; Pass conditon: There is no crash in WRegion construction, due to the
 ; `region.exit` directive being deleted for being unreachable, by either
 ; simplifycfg or prune-eh pass.

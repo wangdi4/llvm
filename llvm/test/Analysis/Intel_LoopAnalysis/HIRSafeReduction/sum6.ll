@@ -7,7 +7,7 @@
 ;        }
 ;        sum = sum + tmp; }
 ;
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze   -hir-safe-reduction-analysis | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0   -hir-safe-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction,print<hir-safe-reduction-analysis>" -disable-output 2>&1 | FileCheck %s
 ; CHECK:   %sum.017 = %sum.017  +  %1; <Safe Reduction>
 ;

@@ -1,5 +1,7 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 -disable-output -vplan-cost-model-print-analysis-for-vf=4 -vplan-cost-model-use-gettype -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -mtriple=x86_64-unknown-unknown -mattr=+avx2 -disable-output -vplan-cost-model-print-analysis-for-vf=4 -vplan-cost-model-use-gettype -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 -disable-output -vplan-cost-model-print-analysis-for-vf=4 -vplan-cost-model-use-gettype -vplan-force-vf=4 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 -disable-output -vplan-cost-model-print-analysis-for-vf=4 -vplan-cost-model-use-gettype -vplan-force-vf=4 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -mtriple=x86_64-unknown-unknown -mattr=+avx2 -disable-output -vplan-cost-model-print-analysis-for-vf=4 -vplan-cost-model-use-gettype -vplan-force-vf=4 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -mtriple=x86_64-unknown-unknown -mattr=+avx2 -disable-output -vplan-cost-model-print-analysis-for-vf=4 -vplan-cost-model-use-gettype -vplan-force-vf=4 < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
 ;
 ; LIT test to check cost modeling of abs VPInstruction.
@@ -7,9 +9,9 @@
 define dso_local void @foo(i64* noalias nocapture %larr, i64* noalias nocapture %larr2) local_unnamed_addr #0 {
 ;
 ; CHECK-LABEL:  Cost Model for VPlan foo:HIR.#{{[0-9]+}} with VF = 4:
-; CHECK:        Cost 4000 for i1 [[VP4:%.*]] = icmp slt i64 [[VP2:%.*]] i64 10
-; CHECK-NEXT:   Cost 1000 for i64 [[VP5:%.*]] = select i1 [[VP4]] i64 [[VP3:%.*]] i64 222
-; CHECK-NEXT:   Cost 5000 for i64 [[VP6:%.*]] = abs i64 [[VP2]]
+; CHECK:        Cost 4 for i1 [[VP4:%.*]] = icmp slt i64 [[VP2:%.*]] i64 10
+; CHECK-NEXT:   Cost 1 for i64 [[VP5:%.*]] = select i1 [[VP4]] i64 [[VP3:%.*]] i64 222
+; CHECK-NEXT:   Cost 5 for i64 [[VP6:%.*]] = abs i64 [[VP2]]
 ;
 entry:
   br label %for.body

@@ -1,4 +1,21 @@
 //===- IntelVPlan.h - Represent A Vectorizer Plan -------------------------===//
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Copyright (C) 2021 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -45,11 +62,11 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_OptReport/Diag.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
-#include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicsX86.h"
+#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/GenericDomTreeConstruction.h"
 #include "llvm/Support/raw_ostream.h"
@@ -475,7 +492,8 @@ class VPInstruction : public VPUser,
       case Instruction::Select:
       case Instruction::Call:
       case VPInstruction::HIRCopy:
-      case VPInstruction::ReductionFinal: {
+      case VPInstruction::ReductionFinal:
+      case VPInstruction::TreeConflict: {
         // Conservatively return UnknownOperatorFlags if instruction type info
         // is not provided for opcode.
         if (!InstTy)
@@ -568,6 +586,10 @@ public:
     FMax,
     SMin,
     UMin,
+    UMinSeq, // Sequentional UMin that differs from vanilla UMin in semantics
+             // vs poison value:
+             //   UMin(0, poison) = poison
+             //   UMinSeq(0, poison) = 0
     FMin,
     InductionInit,
     InductionInitStep,
@@ -625,6 +647,8 @@ public:
     GeneralMemOptConflict,
     ConflictInsn,
     TreeConflict,
+    CvtMaskToInt,
+    Permute,
   };
 
 private:
@@ -881,6 +905,8 @@ public:
 
   HIRSpecifics HIR() { return HIRSpecifics(*this); }
   const HIRSpecifics HIR() const { return HIRSpecifics(*this); }
+
+  unsigned getNumSuccessors() const;
 };
 
 /// Instruction to set vector factor and unroll factor explicitly.
@@ -1120,6 +1146,12 @@ protected:
   // estimates.
   MDNode *LoopID = nullptr;
 };
+
+inline auto successors(const VPBasicBlock *BB) {
+  return map_range(
+      BB->getTerminator()->successors(),
+      [](const VPValue *SuccBB) { return cast<VPBasicBlock>(SuccBB); });
+}
 
 /// Concrete class for blending instruction. Was previously represented as
 /// VPPHINode with Blend = true.
@@ -3207,19 +3239,13 @@ class VPInvSCEVWrapper : public VPInstruction {
   // SCEV object.
   VPlanSCEV *Scev;
 
-public:
-  // TODO: Not sure about this. We might have to revisit this when we support
-  // HIR.
+  // Is the opaque VPlanSCEV a LLVM SCEV?
+  const bool IsSCEV;
 
-  VPInvSCEVWrapper(VPlanSCEV *S)
-      : VPInstruction(VPInstruction::InvSCEVWrapper,
-                      VPlanScalarEvolutionLLVM::toSCEV(S)->getType(), {}),
-        Scev(S) {
-    // We don't support AddREC SCEV.
-    assert(VPlanScalarEvolutionLLVM::toSCEV(Scev)->getSCEVType() !=
-               SCEVTypes::scAddRecExpr &&
-           "An add-expr SCEV is not expected here.");
-  }
+public:
+  VPInvSCEVWrapper(VPlanSCEV *S, Type *Ty, bool IsSCEV = true)
+      : VPInstruction(VPInstruction::InvSCEVWrapper, Ty, {}), Scev(S),
+        IsSCEV(IsSCEV) {}
 
   VPlanSCEV *getSCEV() const { return Scev; }
 
@@ -4021,6 +4047,8 @@ public:
     switch (Opcode) {
     case Instruction::Add:
     case Instruction::FAdd:
+    case Instruction::Sub:
+    case Instruction::FSub:
       return true;
     default:
       return false;
@@ -4099,6 +4127,108 @@ public:
 
   VPConflictInsn *cloneImpl() const override {
     return new VPConflictInsn(getType(), cast<VPInstruction>(getOperand(0)));
+  }
+};
+
+// VPInstruction that serves as a placeholder for permute intrinsics. So far,
+// these instructions are used for tree conflict lowering.
+class VPPermute final : public VPInstruction {
+// Permute BaseTy elements in PermuteVals using Control.
+public:
+  VPPermute(Type *BaseTy, VPValue *PermuteVals, VPValue *Control)
+      : VPInstruction(VPInstruction::Permute, BaseTy, {PermuteVals, Control}) {
+    assert(PermuteVals->getType()->getPrimitiveSizeInBits() ==
+           Control->getType()->getPrimitiveSizeInBits() &&
+           "Type size of PermuteVals should match that of Control");
+  }
+
+  Intrinsic::ID getPermuteIntrinsic(unsigned VF) const {
+    Type *Ty = getType();
+    if (Ty->isDoubleTy() && VF == 4)
+      return Intrinsic::x86_avx512_permvar_df_256;
+    if (Ty->isDoubleTy() && VF == 8)
+      return Intrinsic::x86_avx512_permvar_df_512;
+
+    if (Ty->isFloatTy() && VF == 4)
+      return Intrinsic::x86_avx_vpermilvar_ps;
+    if (Ty->isFloatTy() && VF == 8)
+      return Intrinsic::x86_avx2_permps;
+    if (Ty->isFloatTy() && VF == 16)
+      return Intrinsic::x86_avx512_permvar_sf_512;
+
+    if (Ty->isIntegerTy(32) && VF == 4)
+      return Intrinsic::x86_avx_vpermilvar_ps;
+    if (Ty->isIntegerTy(32) && VF == 8)
+      return Intrinsic::x86_avx2_permd;
+    if (Ty->isIntegerTy(32) && VF == 16)
+      return Intrinsic::x86_avx512_permvar_si_512;
+
+    if (Ty->isIntegerTy(64) && VF == 4)
+      return Intrinsic::x86_avx512_permvar_di_256;
+    if (Ty->isIntegerTy(64) && VF == 8)
+      return Intrinsic::x86_avx512_permvar_di_512;
+
+// TODO: support yet to come for i8/i16 intrinsics, but we've already
+//       provisioned for them here.
+    if (Ty->isIntegerTy(16) && VF == 8)
+      return Intrinsic::x86_avx512_permvar_hi_128;
+    if (Ty->isIntegerTy(16) && VF == 16)
+      return Intrinsic::x86_avx512_permvar_hi_256;
+    if (Ty->isIntegerTy(16) && VF == 32)
+      return Intrinsic::x86_avx512_permvar_hi_512;
+
+    if (Ty->isIntegerTy(8) && VF == 16)
+      return Intrinsic::x86_avx512_permvar_qi_128;
+    if (Ty->isIntegerTy(8) && VF == 32)
+      return Intrinsic::x86_avx512_permvar_qi_256;
+    if (Ty->isIntegerTy(8) && VF == 64)
+      return Intrinsic::x86_avx512_permvar_qi_512;
+
+    return Intrinsic::not_intrinsic;
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::Permute;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPPermute *cloneImpl() const override {
+    return new VPPermute(getType(), getOperand(0), getOperand(1));
+  }
+};
+
+// Represents operation to convert mask to target IntergerTy. It effectively
+// represents a bitcast + zext, for example -
+//
+// i64 %cvt = convert-mask-to-int i1 %mask
+//
+// is lowered for VF=2 as -
+//
+// %bc = bitcast <2 x i1> %vec.mask to i2
+// %cvt = zext i2 %bc to i64
+class VPConvertMaskToInt final : public VPInstruction {
+public:
+  VPConvertMaskToInt(Type *TargetTy, VPValue *Mask)
+      : VPInstruction(VPInstruction::CvtMaskToInt, TargetTy, {Mask}) {
+    assert(Mask->getType()->isIntegerTy(1 /*BitWidth*/) &&
+           "Mask operand expected to be i1 type.");
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::CvtMaskToInt;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPConvertMaskToInt *cloneImpl() const override {
+    return new VPConvertMaskToInt(getType(), getOperand(0));
   }
 };
 
@@ -4217,15 +4347,15 @@ public:
   const VPBasicBlock &back() const { return VPBasicBlocks.back(); }
   VPBasicBlock &back() { return VPBasicBlocks.back(); }
 
-  VPBasicBlock *getEntryBlock() {
+  VPBasicBlock &getEntryBlock() {
     assert(front().getNumPredecessors() == 0 &&
            "Entry block should not have predecesors.");
-    return &front();
+    return front();
   }
-  const VPBasicBlock *getEntryBlock() const {
+  const VPBasicBlock &getEntryBlock() const {
     assert(front().getNumPredecessors() == 0 &&
            "Entry block should not have predecesors.");
-    return &front();
+    return front();
   }
 
   /// Return the last VPBasicBlock in VPlan, i.e. the one with no successors.
@@ -4336,6 +4466,10 @@ public:
   /// IVLevel.
   VPExternalDef *getVPExternalDefForIV(unsigned IVLevel, Type *BaseTy) {
     return Externals.getVPExternalDefForIV(IVLevel, BaseTy);
+  }
+
+  VPExternalDef *getVPExternalDefForIfCond(const loopopt::HLIf *If) {
+    return Externals.getVPExternalDefForIfCond(If);
   }
 
   /// Create a new VPMetadataAsValue for \p MDAsValue if it doesn't exist or
@@ -4869,6 +5003,22 @@ public:
     ORBuilder(*Lp, *LI).addRemark(Verbosity, MsgID,
                                   std::forward<Args>(args)...);
   }
+
+  /// Add a origin related remark for the HIR loop \p Lp. The remark
+  /// message is identified by \p MsgID.
+  template <typename... Args>
+  void addOrigin(loopopt::HLLoop *Lp, unsigned MsgID, Args &&...args) {
+    ORBuilder(*Lp).addOrigin(MsgID, std::forward<Args>(args)...);
+  }
+
+  /// Add a origin related remark for the LLVM loop \p Lp. The remark
+  /// message is identified by \p MsgID.
+  template <typename... Args>
+  void addOrigin(Loop *Lp, unsigned MsgID, Args &&...args) {
+    // For LLVM-IR Loop, LORB needs a valid LoopInfo object
+    assert(LI && "LoopInfo for opt-report builder is null.");
+    ORBuilder(*Lp, *LI).addOrigin(MsgID, std::forward<Args>(args)...);
+  }
 };
 
 // Several inline functions to hide the #if machinery from the callers.
@@ -5038,16 +5188,16 @@ struct GraphTraits<vpo::VPlan *> : public GraphTraits<vpo::VPBasicBlock *> {
   using nodes_iterator = df_iterator<NodeRef>;
 
   static NodeRef getEntryNode(vpo::VPlan *Plan) {
-    return Plan->getEntryBlock();
+    return &Plan->getEntryBlock();
   }
 
   static inline nodes_iterator nodes_begin(vpo::VPlan *Plan) {
-    return nodes_iterator::begin(Plan->getEntryBlock());
+    return nodes_iterator::begin(&Plan->getEntryBlock());
   }
 
   static inline nodes_iterator nodes_end(vpo::VPlan *Plan) {
     // df_iterator returns an empty iterator so the node used doesn't matter.
-    return nodes_iterator::end(Plan->getEntryBlock());
+    return nodes_iterator::end(&Plan->getEntryBlock());
   }
 
   static size_t size(vpo::VPlan *Plan) { return Plan->size(); }

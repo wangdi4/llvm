@@ -508,11 +508,8 @@ bool SplitWizard::isCandidate(const Instruction *I) const {
   if (I->getOpcode() != Instruction::And)
     return false;
 
-  VectorType *VTy = dyn_cast<VectorType>(I->getType());
-  if (!VTy || !isPowerOf2_64(VTy->getNumElements()))
-    return false;
-
-  return true;
+  auto *VTy = dyn_cast<FixedVectorType>(I->getType());
+  return VTy && isPowerOf2_64(VTy->getNumElements());
 }
 
 bool SplitWizard::isSplitCandidateBeneficial(const Instruction *I) const {
@@ -643,7 +640,7 @@ bool SplitWizard::isSupportedOp(const Instruction *I) const {
     if (!is_splat(M))
       return false;
 
-    unsigned NumElmts = cast<VectorType>(Op0->getType())->getNumElements();
+    unsigned NumElmts = cast<FixedVectorType>(Op0->getType())->getNumElements();
     int64_t Index = M[0];
 
     if (Index < 0 || Index >= NumElmts)
@@ -655,7 +652,7 @@ bool SplitWizard::isSupportedOp(const Instruction *I) const {
   // InsertElementInst with constant index could be split.
   if (isa<InsertElementInst>(I)) {
     ConstantInt *Op2 = dyn_cast<ConstantInt>(I->getOperand(2));
-    unsigned NumElmts = cast<VectorType>(I->getType())->getNumElements();
+    unsigned NumElmts = cast<FixedVectorType>(I->getType())->getNumElements();
     int64_t Index = Op2->getSExtValue();
 
     if (Index < 0 || Index >= NumElmts)
@@ -765,7 +762,7 @@ void X86SplitVectorValueType::createShufVecInstToSplit(Instruction *I,
   if (InstMap.count(I))
     return;
 
-  VectorType *VTy = cast<VectorType>(I->getType());
+  auto *VTy = cast<FixedVectorType>(I->getType());
   unsigned NumElmts = VTy->getNumElements();
   SmallVector<uint32_t, 16> MaskVec(NumElmts / 2);
 
@@ -818,7 +815,7 @@ void X86SplitVectorValueType::createShufVecInstToFuse(Instruction *I,
   }
 
   Instruction *NI = nullptr;
-  VectorType *VTy = cast<VectorType>(I->getType());
+  auto *VTy = cast<FixedVectorType>(I->getType());
   unsigned NumElmts = VTy->getNumElements();
   SmallVector<uint32_t, 32> MaskVec(NumElmts);
   std::iota(MaskVec.begin(), MaskVec.end(), 0);
@@ -853,7 +850,7 @@ bool X86SplitVectorValueType::createSplitConstant(Constant *C, unsigned Depth) {
   if (ConstantMap.count(C))
     return true;
 
-  VectorType *VTy = cast<VectorType>(C->getType());
+  auto *VTy = cast<FixedVectorType>(C->getType());
   unsigned NumElmts = VTy->getNumElements();
   SmallVector<Constant *, 32> ElmtsVec;
   for (unsigned I = 0; I < NumElmts; I++)
@@ -921,7 +918,7 @@ void X86SplitVectorValueType::setOperandOfSplitInst(Instruction *I,
 
 void X86SplitVectorValueType::createSplitInsertElementInst(InsertElementInst *I,
                                                            unsigned Depth) {
-  VectorType *VTy = cast<VectorType>(I->getType());
+  auto *VTy = cast<FixedVectorType>(I->getType());
   VectorType *HVTy = VTy->getHalfElementsVectorType(VTy);
   ConstantInt *Op2 = cast<ConstantInt>(I->getOperand(2));
 
@@ -981,7 +978,7 @@ void X86SplitVectorValueType::createSplitInsertElementInst(InsertElementInst *I,
 
 void X86SplitVectorValueType::createSplitShuffleVectorInst(ShuffleVectorInst *I,
                                                            unsigned Depth) {
-  VectorType *VTy = cast<VectorType>(I->getType());
+  auto *VTy = cast<FixedVectorType>(I->getType());
   VectorType *HVTy = VTy->getHalfElementsVectorType(VTy);
   ArrayRef<int> M = I->getShuffleMask();
   assert(is_splat(M));
@@ -1596,7 +1593,8 @@ static Value *findSplitFusedShuffleVector(const ShuffleVectorInst *SV) {
   if (!cast<ShuffleVectorInst>(Op0)->isConcat())
     return nullptr;
 
-  unsigned Op0NumElmts = cast<VectorType>(Op0->getType())->getNumElements();
+  unsigned Op0NumElmts =
+      cast<FixedVectorType>(Op0->getType())->getNumElements();
   if ((M[0] != 0 && M[0] != static_cast<int>(Op0NumElmts / 2)) ||
       Op0NumElmts != 2 * M.size())
     return nullptr;
@@ -1636,7 +1634,8 @@ foldFusedShuffleVectorExtractElement(ExtractElementInst *I) {
   if (!match(I, m_ExtractElt(m_Value(VectorOp), m_ConstantInt(IndexOp))))
     return nullptr;
 
-  unsigned NumElmts = cast<VectorType>(VectorOp->getType())->getNumElements();
+  unsigned NumElmts =
+      cast<FixedVectorType>(VectorOp->getType())->getNumElements();
   int64_t Index = IndexOp->getSExtValue();
   if (Index < 0 || Index >= NumElmts)
     return nullptr;

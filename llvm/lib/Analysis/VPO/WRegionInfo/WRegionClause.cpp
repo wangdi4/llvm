@@ -1,4 +1,19 @@
 #if INTEL_COLLAB
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //===----- WRegionClause.cpp - Implements the template Clause  class ------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -136,6 +151,8 @@ template<>Clause<UniformItem>     ::Clause():ClauseID(QUAL_OMP_UNIFORM){}
 template<>Clause<MapItem>         ::Clause():ClauseID(QUAL_OMP_MAP_TO){}
 template<>Clause<IsDevicePtrItem> ::Clause():ClauseID(QUAL_OMP_IS_DEVICE_PTR){}
 template<>Clause<UseDevicePtrItem>::Clause():ClauseID(QUAL_OMP_USE_DEVICE_PTR){}
+template<>Clause<InclusiveItem>   ::Clause():ClauseID(QUAL_OMP_INCLUSIVE){}
+template<>Clause<ExclusiveItem>   ::Clause():ClauseID(QUAL_OMP_EXCLUSIVE){}
 template<>Clause<SubdeviceItem>   ::Clause():ClauseID(QUAL_OMP_SUBDEVICE){}
 template<>Clause<InteropItem>     ::Clause():ClauseID(QUAL_OMP_INIT){}
 template<>Clause<DependItem>      ::Clause():ClauseID(QUAL_OMP_DEPEND_IN){}
@@ -144,6 +161,8 @@ template<>Clause<DepSourceItem>   ::Clause():ClauseID(QUAL_OMP_DEPEND_SOURCE){}
 template<>Clause<AlignedItem>     ::Clause():ClauseID(QUAL_OMP_ALIGNED){}
 template<>Clause<NontemporalItem> ::Clause():ClauseID(QUAL_OMP_NONTEMPORAL){}
 template<>Clause<FlushItem>       ::Clause():ClauseID(QUAL_OMP_FLUSH){}
+template<>Clause<SizesItem>       ::Clause():ClauseID(QUAL_OMP_SIZES){}
+template<>Clause<LiveinItem>      ::Clause():ClauseID(QUAL_OMP_LIVEIN){}
 template<>Clause<AllocateItem>    ::Clause():ClauseID(QUAL_OMP_ALLOCATE){}
 template<>Clause<DataItem>        ::Clause():ClauseID(QUAL_OMP_DATA){}
 

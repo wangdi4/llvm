@@ -15,8 +15,10 @@
 ; NEWPM-NEXT: XmainOptLevelAnalysisInit on [module]
 ; NEWPM-NEXT: Annotation2MetadataPass on [module]
 ; NEWPM-NEXT: ForceFunctionAttrsPass on [module]
-; NEWPM-NEXT: InlineReportSetupPass on [module]
 ; NEWPM-NEXT: InferFunctionAttrsPass on [module]
+; NEWPM-NEXT: InlineReportSetupPass on [module]
+; NEWPM-NEXT: InlineListsPass on [module]
+; NEWPM-NEXT: CoroEarlyPass on [module]
 ; NEWPM-NEXT: LoopOptMarkerPass on f
 
 define void @f() "loopopt-pipeline"="full" {

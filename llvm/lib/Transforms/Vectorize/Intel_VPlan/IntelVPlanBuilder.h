@@ -1,3 +1,20 @@
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Copyright (C) 2021 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 //===- VPlanBuilder.h - A VPlan utility for constructing VPInstructions ---===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -177,6 +194,25 @@ public:
     assert(LHS->getType() == RHS->getType() &&
            "LHS and RHs do not have the same types.");
     return createInstruction(Instruction::FAdd, LHS->getType(), {LHS, RHS},
+                             Name);
+  }
+
+  VPValue *createSub(VPValue *LHS, VPValue *RHS, const Twine &Name = "") {
+     assert(LHS->getType() == RHS->getType() &&
+           "LHS and RHS do not have the same types.");
+     assert(LHS->getType()->isIntOrIntVectorTy() &&
+            "Integer arithmetic operators only work with integral types!");
+     return createInstruction(Instruction::BinaryOps::Sub, LHS->getType(),
+                              {LHS, RHS}, Name);
+  }
+
+  VPInstruction *createFSub(VPValue *LHS, VPValue *RHS,
+                            const Twine &Name = "") {
+    assert(LHS->getType() == RHS->getType() &&
+           "LHS and RHS do not have the same types.");
+    assert(LHS->getType()->isFPOrFPVectorTy() &&
+           "Floating-point arithmetic operators only work with floating-point types!");
+    return createInstruction(Instruction::FSub, LHS->getType(), {LHS, RHS},
                              Name);
   }
 
@@ -382,6 +418,37 @@ public:
       Val = createNaryOp(Opcode, Ty, {Val});
     }
     return Val;
+  }
+
+  VPValue *createFPCast(VPValue *Val, Type *Ty) {
+    if (Ty != Val->getType()) {
+      assert((Ty->isFloatTy() || Ty->isDoubleTy()) &&
+             "Expected floating point type for Ty");
+      assert((Val->getType()->isFloatTy() || Val->getType()->isDoubleTy()) &&
+             "Expected floating point type for Val");
+      unsigned Opcode = Ty->getPrimitiveSizeInBits() <
+                                Val->getType()->getPrimitiveSizeInBits()
+                            ? Instruction::FPTrunc
+                            : Instruction::FPExt;
+      Val = createNaryOp(Opcode, Ty, {Val});
+    }
+    return Val;
+  }
+
+  VPValue *createIntToFPCast(VPValue *Val, Type *Ty) {
+    assert((Ty->getScalarSizeInBits() == 32 ||
+            Ty->getScalarSizeInBits() == 64) &&
+           "Expected 32 or 64 bit type size for fp conversion");
+    VPValue *FPCast = createNaryOp(Instruction::SIToFP, Ty, {Val});
+    return FPCast;
+  }
+
+  VPValue *createFPToIntCast(VPValue *Val, Type *Ty) {
+    assert((Val->getType()->getScalarSizeInBits() == 32 ||
+            Val->getType()->getScalarSizeInBits()  == 64) &&
+           "Expected 32 or 64 bit type size for fp conversion");
+    VPValue *IntCast = createNaryOp(Instruction::FPToSI, Ty, {Val});
+    return IntCast;
   }
 
   //===--------------------------------------------------------------------===//

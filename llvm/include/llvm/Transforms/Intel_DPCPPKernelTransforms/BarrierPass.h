@@ -24,8 +24,6 @@
 
 #include <map>
 
-extern bool EnableTLSGlobals;
-
 namespace llvm {
 
 /// Barrier pass is a module pass that handles
@@ -287,6 +285,12 @@ private:
                              BasicBlockToInstructionMapVectorTy &BBUsers);
 
 private:
+  void calculateDirectPrivateSize(
+      Module &M, FuncSet &FnsWithSync,
+      DenseMap<Function *, size_t> &DirectPrivateSizeMap);
+  void calculatePrivateSize(Module &M, FuncSet &FnsWithSync,
+                            DenseMap<Function *, size_t> &PrivateSizeMap);
+
   static const unsigned MaxNumDims = 3;
 
   const DataLayout *DL;

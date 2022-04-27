@@ -8,8 +8,8 @@ target triple = "x86_64-pc-linux"
 
 define void @_ZTSZ4mainE9broadcast(i32 addrspace(1)* %_arg_, i32 addrspace(1)* %_arg_1) local_unnamed_addr #0 !kernel_has_sub_groups !1 !recommended_vector_length !2 {
 ; CHECK:  define void @_ZGVeN8uu__ZTSZ4mainE9broadcast(
-; CHECK:       simd.loop:
-; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0:%.*]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]
+; CHECK:       simd.loop.header:
+; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0:%.*]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_LATCH0:%.*]] ]
 ; CHECK-NEXT:    [[DOTSEXT0:%.*]] = sext i32 [[INDEX0]] to i64
 ; CHECK-NEXT:    [[ADD0:%.*]] = add nuw i32 [[TMP1:%.*]], [[INDEX0]]
 ; CHECK:         [[CALL2_I_I_I_I_I0:%.*]] = tail call i32 @_Z19sub_group_broadcastjj(i32 [[ADD0]], i32 0)

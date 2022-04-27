@@ -1,4 +1,21 @@
 //===- llvm/Analysis/ValueTracking.h - Walk computations --------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -22,18 +39,19 @@
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/IR/PassManager.h" // INTEL
 #include <cassert>
 #include <cstdint>
 
 namespace llvm {
 
+class Operator;
 class AddOperator;
 class AllocaInst;
 class APInt;
 class AssumptionCache;
 class DominatorTree;
 class GEPOperator;
-class IntrinsicInst;
 class LoadInst;
 class WithOverflowInst;
 struct KnownBits;
@@ -44,6 +62,7 @@ class OptimizationRemarkEmitter;
 class StringRef;
 class TargetLibraryInfo;
 class Value;
+class ScalarEvolution; // INTEL
 
 constexpr unsigned MaxAnalysisRecursionDepth = 6;
 
@@ -226,25 +245,18 @@ constexpr unsigned MaxAnalysisRecursionDepth = 6;
                               unsigned Depth = 0, AssumptionCache *AC = nullptr,
                               const Instruction *CxtI = nullptr,
                               const DominatorTree *DT = nullptr,
-                              bool UseInstrInfo = true);
+                              bool UseInstrInfo = true,      // INTEL
+                              ScalarEvolution *SE = nullptr, // INTEL
+                              LoopInfo *LI = nullptr);       // INTEL
 
-  /// Get the minimum bit size for this Value \p Op as a signed integer.
-  /// i.e.  x == sext(trunc(x to MinSignedBits) to bitwidth(x)).
-  /// Similar to the APInt::getMinSignedBits function.
-  unsigned ComputeMinSignedBits(const Value *Op, const DataLayout &DL,
-                                unsigned Depth = 0,
-                                AssumptionCache *AC = nullptr,
-                                const Instruction *CxtI = nullptr,
-                                const DominatorTree *DT = nullptr);
-
-  /// This function computes the integer multiple of Base that equals V. If
-  /// successful, it returns true and returns the multiple in Multiple. If
-  /// unsuccessful, it returns false. Also, if V can be simplified to an
-  /// integer, then the simplified V is returned in Val. Look through sext only
-  /// if LookThroughSExt=true.
-  bool ComputeMultiple(Value *V, unsigned Base, Value *&Multiple,
-                       bool LookThroughSExt = false,
-                       unsigned Depth = 0);
+  /// Get the upper bound on bit size for this Value \p Op as a signed integer.
+  /// i.e.  x == sext(trunc(x to MaxSignificantBits) to bitwidth(x)).
+  /// Similar to the APInt::getSignificantBits function.
+  unsigned ComputeMaxSignificantBits(const Value *Op, const DataLayout &DL,
+                                     unsigned Depth = 0,
+                                     AssumptionCache *AC = nullptr,
+                                     const Instruction *CxtI = nullptr,
+                                     const DominatorTree *DT = nullptr);
 
   /// Map a call instruction to an intrinsic ID.  Libcalls which have equivalent
   /// intrinsics are treated as-if they were intrinsics.
@@ -501,14 +513,14 @@ constexpr unsigned MaxAnalysisRecursionDepth = 6;
                                     const TargetLibraryInfo *TLI = nullptr);
 
   /// Returns true if the result or effects of the given instructions \p I
-  /// depend on or influence global memory.
-  /// Memory dependence arises for example if the instruction reads from
-  /// memory or may produce effects or undefined behaviour. Memory dependent
-  /// instructions generally cannot be reorderd with respect to other memory
-  /// dependent instructions or moved into non-dominated basic blocks.
-  /// Instructions which just compute a value based on the values of their
-  /// operands are not memory dependent.
-  bool mayBeMemoryDependent(const Instruction &I);
+  /// depend values not reachable through the def use graph.
+  /// * Memory dependence arises for example if the instruction reads from
+  ///   memory or may produce effects or undefined behaviour. Memory dependent
+  ///   instructions generally cannot be reorderd with respect to other memory
+  ///   dependent instructions.
+  /// * Control dependence arises for example if the instruction may fault
+  ///   if lifted above a throwing call or infinite loop.
+  bool mayHaveNonDefUseDependency(const Instruction &I);
 
   /// Return true if it is an intrinsic that cannot be speculated but also
   /// cannot trap.
@@ -582,7 +594,8 @@ constexpr unsigned MaxAnalysisRecursionDepth = 6;
 
   /// Determine the possible constant range of an integer or vector of integer
   /// value. This is intended as a cheap, non-recursive check.
-  ConstantRange computeConstantRange(const Value *V, bool UseInstrInfo = true,
+  ConstantRange computeConstantRange(const Value *V, bool ForSigned,
+                                     bool UseInstrInfo = true,
                                      AssumptionCache *AC = nullptr,
                                      const Instruction *CtxI = nullptr,
                                      const DominatorTree *DT = nullptr,
@@ -918,6 +931,18 @@ constexpr unsigned MaxAnalysisRecursionDepth = 6;
   /// this case offset would be -8.
   Optional<int64_t> isPointerOffset(const Value *Ptr1, const Value *Ptr2,
                                     const DataLayout &DL);
+#if INTEL_CUSTOMIZATION
+  /// Printer pass for the ComputeNumSignBits ValueTracking utility.
+  class NumSignBitsPrinterPass : public PassInfoMixin<NumSignBitsPrinterPass> {
+    raw_ostream &OS;
+
+  public:
+    explicit NumSignBitsPrinterPass(raw_ostream &OS) : OS(OS) {}
+
+    PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  };
+#endif // INTEL_CUSTOMIZATION
+
 } // end namespace llvm
 
 #endif // LLVM_ANALYSIS_VALUETRACKING_H

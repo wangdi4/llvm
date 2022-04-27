@@ -1727,8 +1727,8 @@ public:
   static void addCloningInducedLiveouts(HLLoop *LiveoutLoop,
                                         const HLLoop *OrigLoop = nullptr);
 
-  /// Check if a blob is defined outside the region.
-  static bool isRegionLiveIn(HLRegion *Reg, BlobUtils &BU, unsigned BlobIdx);
+  /// Check if a blob is invariant w.r.t the region.
+  static bool isRegionInvariant(HLRegion *Reg, BlobUtils &BU, unsigned BlobIdx);
 
   struct LabelNumberCompareLess {
     bool operator()(const HLLabel *L1, const HLLabel *L2) const {

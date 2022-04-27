@@ -2,9 +2,13 @@
 
 @choum.addr = internal unnamed_addr constant [3 x i8*] [i8* blockaddress(@choum, %bb10), i8* blockaddress(@choum, %bb14), i8* blockaddress(@choum, %bb18)]
 
-; CHECK: define
-; no outlined function
-; CHECK-NOT: define
+; INTEL_COLLAB
+; CHECK: @choum.addr = internal unnamed_addr constant [3 x i8*] [i8* blockaddress(@choum.bb8, %bb10), i8* blockaddress(@choum.bb8, %bb14), i8* blockaddress(@choum.bb8, %bb18)]
+; else
+;UNCOMMENT;;COM:CHECK: define
+;UNCOMMENT;;no outlined function
+;UNCOMMENT;;COM:CHECK-NOT: define
+; end INTEL_COLLAB
 
 define void @choum(i32 %arg, i32* nocapture %arg1, i32 %arg2) {
 bb:

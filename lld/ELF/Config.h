@@ -1,4 +1,21 @@
 //===- Config.h -------------------------------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -30,6 +47,7 @@ namespace elf {
 
 class InputFile;
 class InputSectionBase;
+class Symbol;
 
 enum ELFKind : uint8_t {
   ELFNoneKind,
@@ -121,6 +139,7 @@ struct Configuration {
   llvm::Optional<uint64_t> optRemarksHotnessThreshold = 0;
   llvm::StringRef optRemarksPasses;
   llvm::StringRef optRemarksFormat;
+  llvm::StringRef optStatsFilename;
   llvm::StringRef progName;
   llvm::StringRef printArchiveStats;
   llvm::StringRef printSymbolOrder;
@@ -138,6 +157,7 @@ struct Configuration {
   std::vector<VersionDefinition> versionDefinitions;
   std::vector<llvm::StringRef> auxiliaryList;
   std::vector<llvm::StringRef> filterList;
+  std::vector<llvm::StringRef> passPlugins;
   std::vector<llvm::StringRef> searchPaths;
   std::vector<llvm::StringRef> symbolOrderingFile;
   std::vector<llvm::StringRef> thinLTOModulesToCompile;
@@ -148,7 +168,7 @@ struct Configuration {
                   uint64_t>
       callGraphProfile;
   bool allowMultipleDefinition;
-  bool androidPackDynRelocs;
+  bool androidPackDynRelocs = false;
   bool armHasBlx = false;
   bool armHasMovtMovw = false;
   bool armJ1J2BranchEncoding = false;
@@ -160,7 +180,6 @@ struct Configuration {
   bool compressDebugSections;
   bool cref;
   std::vector<std::pair<llvm::GlobPattern, uint64_t>> deadRelocInNonAlloc;
-  bool defineCommon;
   bool demangle = true;
   bool dependentLibraries;
   bool disableVerify;
@@ -188,7 +207,7 @@ struct Configuration {
   bool ltoPGOWarnMismatch;
   bool ltoDebugPassManager;
   bool ltoEmitAsm;
-  bool ltoNewPassManager;
+  bool ltoNewPassManager; // INTEL
   bool ltoUniqueBasicBlockSectionNames;
   bool ltoWholeProgramVisibility;
   bool mergeArmExidx;
@@ -210,7 +229,8 @@ struct Configuration {
   bool printIcfSections;
   bool relax;
   bool relocatable;
-  bool relrPackDynRelocs;
+  bool relrGlibc = false;
+  bool relrPackDynRelocs = false;
   bool saveTemps;
   std::vector<std::pair<llvm::GlobPattern, uint32_t>> shuffleSections;
   bool singleRoRx;
@@ -315,6 +335,9 @@ struct Configuration {
   // if that's true.)
   bool isMips64EL;
 
+  // True if we need to reserve two .got entries for local-dynamic TLS model.
+  bool needsTlsLd = false;
+
   // True if we need to set the DF_STATIC_TLS flag to an output file, which
   // works as a hint to the dynamic loader that the shared object contains code
   // compiled with the initial-exec TLS model.
@@ -344,10 +367,42 @@ struct Configuration {
 
   // 4 for ELF32, 8 for ELF64.
   int wordsize;
+
+  // Mode of MTE to write to the ELF note. Should be one of NT_MEMTAG_ASYNC (for
+  // async), NT_MEMTAG_SYNC (for sync), or NT_MEMTAG_LEVEL_NONE (for none). If
+  // async or sync is enabled, write the ELF note specifying the default MTE
+  // mode.
+  int androidMemtagMode;
+  // Signal to the dynamic loader to enable heap MTE.
+  bool androidMemtagHeap;
+  // Signal to the dynamic loader that this binary expects stack MTE. Generally,
+  // this means to map the primary and thread stacks as PROT_MTE. Note: This is
+  // not supported on Android 11 & 12.
+  bool androidMemtagStack;
 };
 
 // The only instance of Configuration struct.
 extern std::unique_ptr<Configuration> config;
+
+struct DuplicateSymbol {
+  const Symbol *sym;
+  const InputFile *file;
+  InputSectionBase *section;
+  uint64_t value;
+};
+
+struct Ctx {
+  // Duplicate symbol candidates.
+  SmallVector<DuplicateSymbol, 0> duplicates;
+  // Symbols in a non-prevailing COMDAT group which should be changed to an
+  // Undefined.
+  SmallVector<std::pair<Symbol *, unsigned>, 0> nonPrevailingSyms;
+  // True if SHT_LLVM_SYMPART is used.
+  std::atomic<bool> hasSympart{false};
+};
+
+// The only instance of Ctx struct.
+extern std::unique_ptr<Ctx> ctx;
 
 // The first two elements of versionDefinitions represent VER_NDX_LOCAL and
 // VER_NDX_GLOBAL. This helper returns other elements.
@@ -355,12 +410,7 @@ static inline ArrayRef<VersionDefinition> namedVersionDefs() {
   return llvm::makeArrayRef(config->versionDefinitions).slice(2);
 }
 
-static inline void errorOrWarn(const Twine &msg) {
-  if (!config->noinhibitExec)
-    error(msg);
-  else
-    warn(msg);
-}
+void errorOrWarn(const Twine &msg);
 
 static inline void internalLinkerError(StringRef loc, const Twine &msg) {
   errorOrWarn(loc + "internal linker error: " + msg + "\n" +

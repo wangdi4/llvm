@@ -1,4 +1,21 @@
 //===- LoopLoadElimination.cpp - Loop Load Elimination Pass ---------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -61,7 +78,6 @@
 #include <algorithm>
 #include <cassert>
 #include <forward_list>
-#include <set>
 #include <tuple>
 #include <utility>
 
@@ -213,7 +229,8 @@ public:
         continue;
 
       // Only progagate the value if they are of the same type.
-      if (Store->getPointerOperandType() != Load->getPointerOperandType())
+      if (Store->getPointerOperandType() != Load->getPointerOperandType() ||
+          getLoadStoreType(Store) != getLoadStoreType(Load))
         continue;
 
       Candidates.emplace_front(Load, Store);
@@ -539,7 +556,7 @@ public:
       return false;
     }
 
-    if (LAI.getPSE().getUnionPredicate().getComplexity() >
+    if (LAI.getPSE().getPredicate().getComplexity() >
         LoadElimSCEVCheckThreshold) {
       LLVM_DEBUG(dbgs() << "Too many SCEV run-time checks needed.\n");
       return false;
@@ -550,7 +567,7 @@ public:
       return false;
     }
 
-    if (!Checks.empty() || !LAI.getPSE().getUnionPredicate().isAlwaysTrue()) {
+    if (!Checks.empty() || !LAI.getPSE().getPredicate().isAlwaysTrue()) {
       if (LAI.hasConvergentOp()) {
         LLVM_DEBUG(dbgs() << "Versioning is needed but not allowed with "
                              "convergent calls\n");

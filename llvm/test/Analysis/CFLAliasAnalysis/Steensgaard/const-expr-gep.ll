@@ -2,9 +2,9 @@
 ; resolvable by cfl-steens-aa, but require analysis of getelementptr constant exprs.
 ; Derived from BasicAA/2003-12-11-ConstExprGEP.ll
 
-; RUN: opt < %s -disable-basic-aa -cfl-steens-aa -aa-eval -print-may-aliases -disable-output 2>&1 | FileCheck %s
 ; INTEL
 ; RUN: opt < %s -convert-to-subscript -S | opt -disable-basic-aa -cfl-steens-aa -aa-eval -print-may-aliases -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -aa-pipeline=cfl-steens-aa -passes=aa-eval -print-may-aliases -disable-output 2>&1 | FileCheck %s
 
 %T = type { i32, [10 x i8] }
 
@@ -23,6 +23,9 @@ define void @test() {
   %D = getelementptr %T, %T* @G, i64 0, i32 0
   %F = getelementptr i32, i32* getelementptr (%T, %T* @G, i64 0, i32 0), i64 0
   %X = getelementptr [10 x i8], [10 x i8]* getelementptr (%T, %T* @G, i64 0, i32 1), i64 0, i64 5
+  load i32, i32* %D
+  load i32, i32* %F
+  load i8, i8* %X
 
   ret void
 }
@@ -34,6 +37,9 @@ define void @test() {
 define void @simplecheck(i32* %arg0) {
   %F = getelementptr i32, i32* getelementptr (%T, %T* @G, i64 0, i32 0), i64 0
   %H = getelementptr %T, %T* @G2, i64 0, i32 0
+  load i32, i32* %arg0
+  load i32, i32* %F
+  load i32, i32* %H
 
   ret void
 }
@@ -55,5 +61,7 @@ define void @checkNesting(i32* %arg0) {
            i32 0),
          i64 0,
          i32 0
+  load i32, i32* %arg0
+  load i32, i32* %A
   ret void
 }

@@ -1,6 +1,6 @@
 //===- Intel_InlineReportCommon.h - Inlining report utils ------*- C++ -*-===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -18,6 +18,7 @@
 
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Support/FormattedStream.h"
 
 namespace llvm {
 
@@ -107,6 +108,10 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Callsite on inline list"},
     // InlrHotProfile,
     {InlPrtCost, "Callsite has hot profile"},
+    // InlrHotCallsite,
+    {InlPrtCost, "Callsite is hot"},
+    // InlrHotCallee,
+    {InlPrtCost, "Callee is hot"},
     // InlrRecProClone
     {InlPrtCost, "Callee is recursive progression clone"},
     // InlrHasExtractedRecursiveCall
@@ -168,6 +173,10 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtCost, "Callee has cold calling convention"},
     // NinlrColdProfile,
     {InlPrtCost, "Callsite has cold profile"},
+    // NinlrColdCallsite,
+    {InlPrtCost, "Callsite is cold"},
+    // NinlrColdCallee,
+    {InlPrtCost, "Callee is cold"},
     // NinlrDeleted,
     {InlPrtSpecial, nullptr},
     // NinlrDuplicateCall,
@@ -256,8 +265,10 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Unsplit coroutine call"},
     // NinlrByvalArgsWithoutAllocaAS
     {InlPrtSimple, "Call has byval argument without alloca address space"},
-    // NinlrStackProtectMismatch
-    {InlPrtSimple, "Caller/callee stack protection mismatch"},
+    // NinlrMultiversionedCallsite
+    {InlPrtSimple, "Multiversioned callsite"},
+    // NinlrDelayInlineDecisionLTO
+    {InlPrtSimple, "Inline decision is delayed"},
     // NinlrLast
     {InlPrtNone, nullptr}};
 
@@ -266,13 +277,14 @@ static_assert(sizeof(InlineReasonText) ==
               "Missing report message");
 
 // Print indent
-void printIndentCount(unsigned indentCount);
+void printIndentCount(formatted_raw_ostream &OS, unsigned indentCount);
 // Get string value from metadata consuming 'Front' of the MDString
 StringRef getOpStr(Metadata *Node, StringRef Front);
 // Get integer value from metadata consuming 'Front' of the MDString
 void getOpVal(Metadata *Node, StringRef Front, int64_t *Val);
 // Print the inlining option values
-void printOptionValues(unsigned OptLevel = 0, unsigned SizeLevel = 0);
+void printOptionValues(formatted_raw_ostream &OS, unsigned OptLevel = 0,
+                       unsigned SizeLevel = 0);
 // Print function inline report
 void printFunctionInlineReport(Function *F, unsigned Level);
 // Print call site inline report

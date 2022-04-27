@@ -1,4 +1,21 @@
 //===- lib/MC/MCAsmStreamer.cpp - Text Assembly Output ----------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,7 +24,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/Optional.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Twine.h"
@@ -31,13 +47,13 @@
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSymbolXCOFF.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/LEB128.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/Path.h"
-#include <cctype>
 
 using namespace llvm;
 
@@ -197,6 +213,8 @@ public:
                                             MCSymbolAttr Visibility) override;
   void emitXCOFFRenameDirective(const MCSymbol *Name,
                                 StringRef Rename) override;
+
+  void emitXCOFFRefDirective(StringRef Name) override;
 
   void emitELFSize(MCSymbol *Symbol, const MCExpr *Value) override;
   void emitCommonSymbol(MCSymbol *Symbol, uint64_t Size,
@@ -506,7 +524,7 @@ void MCAsmStreamer::changeSection(MCSection *Section,
   if (MCTargetStreamer *TS = getTargetStreamer()) {
     TS->changeSection(getCurrentSectionOnly(), Section, Subsection, OS);
   } else {
-    Section->PrintSwitchToSection(*MAI, getContext().getTargetTriple(), OS,
+    Section->printSwitchToSection(*MAI, getContext().getTargetTriple(), OS,
                                   Subsection);
   }
 }
@@ -624,6 +642,8 @@ void MCAsmStreamer::emitVersionMin(MCVersionMinType Type, unsigned Major,
 
 static const char *getPlatformName(MachO::PlatformType Type) {
   switch (Type) {
+  case MachO::PLATFORM_UNKNOWN: /* silence warning*/
+    break;
   case MachO::PLATFORM_MACOS:            return "macos";
   case MachO::PLATFORM_IOS:              return "ios";
   case MachO::PLATFORM_TVOS:             return "tvos";
@@ -790,7 +810,7 @@ void MCAsmStreamer::emitSyntaxDirective() {
 }
 
 void MCAsmStreamer::BeginCOFFSymbolDef(const MCSymbol *Symbol) {
-  OS << "\t.def\t ";
+  OS << "\t.def\t";
   Symbol->print(OS, MAI);
   OS << ';';
   EmitEOL();
@@ -930,6 +950,11 @@ void MCAsmStreamer::emitXCOFFRenameDirective(const MCSymbol *Name,
     OS << C;
   }
   OS << DQ;
+  EmitEOL();
+}
+
+void MCAsmStreamer::emitXCOFFRefDirective(StringRef Name) {
+  OS << "\t.ref " << Name;
   EmitEOL();
 }
 
@@ -2253,8 +2278,10 @@ void MCAsmStreamer::AddEncodingComment(const MCInst &Inst,
     MCFixup &F = Fixups[i];
     const MCFixupKindInfo &Info =
         getAssembler().getBackend().getFixupKindInfo(F.getKind());
-    OS << "  fixup " << char('A' + i) << " - " << "offset: " << F.getOffset()
-       << ", value: " << *F.getValue() << ", kind: " << Info.Name << "\n";
+    OS << "  fixup " << char('A' + i) << " - "
+       << "offset: " << F.getOffset() << ", value: ";
+    F.getValue()->print(OS, MAI);
+    OS << ", kind: " << Info.Name << "\n";
   }
 }
 

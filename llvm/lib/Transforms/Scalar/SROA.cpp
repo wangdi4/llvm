@@ -1,4 +1,21 @@
 //===- SROA.cpp - Scalar Replacement Of Aggregates ------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -51,6 +68,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Dominators.h"
@@ -59,11 +77,9 @@
 #include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstVisitor.h"
-#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
@@ -80,7 +96,6 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -88,7 +103,6 @@
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"  // INTEL
 #include <algorithm>
 #include <cassert>
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -302,6 +316,7 @@ private:
 
   friend class AllocaSlices::SliceBuilder;
 
+
 #if defined(INTEL_CUSTOMIZATION) || \
     !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Handle to alloca instruction to simplify method interfaces.
@@ -329,7 +344,7 @@ private:
   ///
   /// Note that these are not separated by slice. This is because we expect an
   /// alloca to be completely rewritten or not rewritten at all. If rewritten,
-  /// all these instructions can simply be removed and replaced with undef as
+  /// all these instructions can simply be removed and replaced with poison as
   /// they come from outside of the allocated space.
   SmallVector<Instruction *, 8> DeadUsers;
 
@@ -339,10 +354,10 @@ private:
   /// Operands which will become dead if we rewrite the alloca.
   ///
   /// These are operands that in their particular use can be replaced with
-  /// undef when we rewrite the alloca. These show up in out-of-bounds inputs
+  /// poison when we rewrite the alloca. These show up in out-of-bounds inputs
   /// to PHI nodes and the like. They aren't entirely dead (there might be
   /// a GEP back into the bounds using it elsewhere) and nor is the PHI, but we
-  /// want to swap this particular input for undef to simplify the use lists of
+  /// want to swap this particular input for poison to simplify the use lists of
   /// the alloca.
   SmallVector<Use *, 8> DeadOperands;
 };
@@ -1032,6 +1047,13 @@ private:
     if (I.use_empty())
       return markAsDead(I);
 
+    // If this is a PHI node before a catchswitch, we cannot insert any non-PHI
+    // instructions in this BB, which may be required during rewriting. Bail out
+    // on these cases.
+    if (isa<PHINode>(I) &&
+        I.getParent()->getFirstInsertionPt() == I.getParent()->end())
+      return PI.setAborted(&I);
+
     // TODO: We could use SimplifyInstruction here to fold PHINodes and
     // SelectInsts. However, doing so requires to change the current
     // dead-operand-tracking mechanism. For instance, suppose neither loading
@@ -1047,7 +1069,7 @@ private:
         enqueueUsers(I);
       else
         // Otherwise the operand to the PHI/select is dead, and we can replace
-        // it with undef.
+        // it with poison.
         AS.DeadOperands.push_back(U);
 
       return;
@@ -1067,7 +1089,7 @@ private:
     // For PHI and select operands outside the alloca, we can't nuke the entire
     // phi or select -- the other side might still be relevant, so we special
     // case them here and use a separate structure to track the operands
-    // themselves which should be replaced with undef.
+    // themselves which should be replaced with poison.
     // FIXME: This should instead be escaped in the event we're instrumenting
     // for address sanitization.
     if (Offset.uge(AllocSize)) {
@@ -1396,7 +1418,7 @@ static void injectGEPsLoads(IRBuilderTy &IRB, Instruction *Inst, Value *Ptr,
 /// Not every line was changed, but the entire routine is under
 /// INTEL_CUSTOMIZATION, because any community changes to this routine will need
 /// to be manually merged.
-static void speculatePHINodeLoads(PHINode &PN) {
+static void speculatePHINodeLoads(IRBuilderTy &IRB, PHINode &PN) {
   LLVM_DEBUG(dbgs() << "    original: " << PN << "\n");
 
   // Get the AA tags and alignment to use from one of the loads.  It doesn't
@@ -1409,9 +1431,9 @@ static void speculatePHINodeLoads(PHINode &PN) {
 
   LoadInst *SomeLoad = cast<LoadInst>(I);
   Type *LoadTy = SomeLoad->getType();
-  IRBuilderTy PHIBuilder(&PN);
-  PHINode *NewPN = PHIBuilder.CreatePHI(LoadTy, PN.getNumIncomingValues(),
-                                        PN.getName() + ".sroa.speculated");
+  IRB.SetInsertPoint(&PN);
+  PHINode *NewPN = IRB.CreatePHI(LoadTy, PN.getNumIncomingValues(),
+                                 PN.getName() + ".sroa.speculated");
 
   // Get the AA tags and alignment to use from one of the loads. It does not
   // matter which one we get and if any differ.
@@ -1434,10 +1456,10 @@ static void speculatePHINodeLoads(PHINode &PN) {
     }
 
     Instruction *TI = Pred->getTerminator();
-    IRBuilderTy PredBuilder(TI);
+    IRB.SetInsertPoint(TI);
 
     SmallPtrSet<LoadInst *, 4> NewLoads;
-    injectGEPsLoads(PredBuilder, cast<Instruction>(PN.user_back()), InVal,
+    injectGEPsLoads(IRB, cast<Instruction>(PN.user_back()), InVal,
       LoadTy, NewLoads);
     for (auto *NewLoad : NewLoads) {
       ++NumLoadsSpeculated;
@@ -1505,10 +1527,10 @@ static bool isSafeSelectToSpeculate(SelectInst &SI) {
   return true;
 }
 
-static void speculateSelectInstLoads(SelectInst &SI) {
+static void speculateSelectInstLoads(IRBuilderTy &IRB, SelectInst &SI) {
   LLVM_DEBUG(dbgs() << "    original: " << SI << "\n");
 
-  IRBuilderTy IRB(&SI);
+  IRB.SetInsertPoint(&SI);
   Value *TV = SI.getTrueValue();
   Value *FV = SI.getFalseValue();
   // Replace the loads of the select with a select of two loads.
@@ -1574,8 +1596,10 @@ static Value *buildGEP(IRBuilderTy &IRB, Value *BasePtr,
   if (Indices.size() == 1 && cast<ConstantInt>(Indices.back())->isZero())
     return BasePtr;
 
-  return IRB.CreateInBoundsGEP(BasePtr->getType()->getPointerElementType(),
-                               BasePtr, Indices, NamePrefix + "sroa_idx");
+  // buildGEP() is only called for non-opaque pointers.
+  return IRB.CreateInBoundsGEP(
+      BasePtr->getType()->getNonOpaquePointerElementType(), BasePtr, Indices,
+      NamePrefix + "sroa_idx");
 }
 
 /// Get a natural GEP off of the BasePtr walking through Ty toward
@@ -1648,7 +1672,7 @@ static Value *getNaturalGEPWithOffset(IRBuilderTy &IRB, const DataLayout &DL,
   if (Ty == IRB.getInt8PtrTy(Ty->getAddressSpace()) && TargetTy->isIntegerTy(8))
     return nullptr;
 
-  Type *ElementTy = Ty->getElementType();
+  Type *ElementTy = Ty->getNonOpaquePointerElementType();
   if (!ElementTy->isSized())
     return nullptr; // We can't GEP through an unsized element.
 
@@ -1707,7 +1731,7 @@ static Value *getAdjustedPtr(IRBuilderTy &IRB, const DataLayout &DL, Value *Ptr,
   APInt Int8PtrOffset(Offset.getBitWidth(), 0);
 
   PointerType *TargetPtrTy = cast<PointerType>(PointerTy);
-  Type *TargetTy = TargetPtrTy->getElementType();
+  Type *TargetTy = TargetPtrTy->getNonOpaquePointerElementType();
 
   // As `addrspacecast` is , `Ptr` (the storage pointer) may have different
   // address space from the expected `PointerTy` (the pointer to be used).
@@ -2313,10 +2337,7 @@ static Value *extractVector(IRBuilderTy &IRB, Value *V, unsigned BeginIndex,
     return V;
   }
 
-  SmallVector<int, 8> Mask;
-  Mask.reserve(NumElements);
-  for (unsigned i = BeginIndex; i != EndIndex; ++i)
-    Mask.push_back(i);
+  auto Mask = llvm::to_vector<8>(llvm::seq<int>(BeginIndex, EndIndex));
   V = IRB.CreateShuffleVector(V, Mask, Name + ".extract");
   LLVM_DEBUG(dbgs() << "     shuffle: " << *V << "\n");
   return V;
@@ -2702,7 +2723,7 @@ private:
       // the computed value, and then replace the placeholder with LI, leaving
       // LI only used for this computation.
       Value *Placeholder = new LoadInst(
-          LI.getType(), UndefValue::get(LI.getType()->getPointerTo(AS)), "",
+          LI.getType(), PoisonValue::get(LI.getType()->getPointerTo(AS)), "",
           false, Align(1));
       V = insertInteger(DL, IRB, Placeholder, V, NewBeginOffset - BeginOffset,
                         "insert");
@@ -3388,8 +3409,11 @@ class AggLoadStoreRewriter : public InstVisitor<AggLoadStoreRewriter, bool> {
   /// Used to calculate offsets, and hence alignment, of subobjects.
   const DataLayout &DL;
 
+  IRBuilderTy &IRB;
+
 public:
-  AggLoadStoreRewriter(const DataLayout &DL) : DL(DL) {}
+  AggLoadStoreRewriter(const DataLayout &DL, IRBuilderTy &IRB)
+      : DL(DL), IRB(IRB) {}
 
   /// Rewrite loads and stores through a pointer and all pointers derived from
   /// it.
@@ -3420,7 +3444,7 @@ private:
   template <typename Derived> class OpSplitter {
   protected:
     /// The builder used to form new instructions.
-    IRBuilderTy IRB;
+    IRBuilderTy &IRB;
 
     /// The indices which to be used with insert- or extractvalue to select the
     /// appropriate value within the aggregate.
@@ -3447,9 +3471,11 @@ private:
     /// Initialize the splitter with an insertion point, Ptr and start with a
     /// single zero GEP index.
     OpSplitter(Instruction *InsertionPoint, Value *Ptr, Type *BaseTy,
-               Align BaseAlign, const DataLayout &DL)
-        : IRB(InsertionPoint), GEPIndices(1, IRB.getInt32(0)), Ptr(Ptr),
-          BaseTy(BaseTy), BaseAlign(BaseAlign), DL(DL) {}
+               Align BaseAlign, const DataLayout &DL, IRBuilderTy &IRB)
+        : IRB(IRB), GEPIndices(1, IRB.getInt32(0)), Ptr(Ptr), BaseTy(BaseTy),
+          BaseAlign(BaseAlign), DL(DL) {
+      IRB.SetInsertPoint(InsertionPoint);
+    }
 
   public:
     /// Generic recursive split emission routine.
@@ -3510,9 +3536,10 @@ private:
     AAMDNodes AATags;
 
     LoadOpSplitter(Instruction *InsertionPoint, Value *Ptr, Type *BaseTy,
-                   AAMDNodes AATags, Align BaseAlign, const DataLayout &DL)
-        : OpSplitter<LoadOpSplitter>(InsertionPoint, Ptr, BaseTy, BaseAlign,
-                                     DL),
+                   AAMDNodes AATags, Align BaseAlign, const DataLayout &DL,
+                   IRBuilderTy &IRB)
+        : OpSplitter<LoadOpSplitter>(InsertionPoint, Ptr, BaseTy, BaseAlign, DL,
+                                     IRB),
           AATags(AATags) {}
 
     /// Emit a leaf load of a single value. This is called at the leaves of the
@@ -3544,8 +3571,8 @@ private:
     // We have an aggregate being loaded, split it apart.
     LLVM_DEBUG(dbgs() << "    original: " << LI << "\n");
     LoadOpSplitter Splitter(&LI, *U, LI.getType(), LI.getAAMetadata(),
-                            getAdjustedAlignment(&LI, 0), DL);
-    Value *V = UndefValue::get(LI.getType());
+                            getAdjustedAlignment(&LI, 0), DL, IRB);
+    Value *V = PoisonValue::get(LI.getType());
     Splitter.emitSplitOps(LI.getType(), V, LI.getName() + ".fca");
     Visited.erase(&LI);
     LI.replaceAllUsesWith(V);
@@ -3555,9 +3582,10 @@ private:
 
   struct StoreOpSplitter : public OpSplitter<StoreOpSplitter> {
     StoreOpSplitter(Instruction *InsertionPoint, Value *Ptr, Type *BaseTy,
-                    AAMDNodes AATags, Align BaseAlign, const DataLayout &DL)
+                    AAMDNodes AATags, Align BaseAlign, const DataLayout &DL,
+                    IRBuilderTy &IRB)
         : OpSplitter<StoreOpSplitter>(InsertionPoint, Ptr, BaseTy, BaseAlign,
-                                      DL),
+                                      DL, IRB),
           AATags(AATags) {}
     AAMDNodes AATags;
     /// Emit a leaf store of a single value. This is called at the leaves of the
@@ -3595,7 +3623,7 @@ private:
     // We have an aggregate being stored, split it apart.
     LLVM_DEBUG(dbgs() << "    original: " << SI << "\n");
     StoreOpSplitter Splitter(&SI, *U, V->getType(), SI.getAAMetadata(),
-                             getAdjustedAlignment(&SI, 0), DL);
+                             getAdjustedAlignment(&SI, 0), DL, IRB);
     Splitter.emitSplitOps(V->getType(), V, V->getName() + ".fca");
     Visited.erase(&SI);
     SI.eraseFromParent();
@@ -3623,7 +3651,7 @@ private:
                       << "\n    original: " << *Sel
                       << "\n              " << GEPI);
 
-    IRBuilderTy Builder(&GEPI);
+    IRB.SetInsertPoint(&GEPI);
     SmallVector<Value *, 4> Index(GEPI.indices());
     bool IsInBounds = GEPI.isInBounds();
 
@@ -3631,21 +3659,20 @@ private:
     Value *True = Sel->getTrueValue();
     Value *NTrue =
         IsInBounds
-            ? Builder.CreateInBoundsGEP(Ty, True, Index,
-                                        True->getName() + ".sroa.gep")
-            : Builder.CreateGEP(Ty, True, Index, True->getName() + ".sroa.gep");
+            ? IRB.CreateInBoundsGEP(Ty, True, Index,
+                                    True->getName() + ".sroa.gep")
+            : IRB.CreateGEP(Ty, True, Index, True->getName() + ".sroa.gep");
 
     Value *False = Sel->getFalseValue();
 
     Value *NFalse =
         IsInBounds
-            ? Builder.CreateInBoundsGEP(Ty, False, Index,
-                                        False->getName() + ".sroa.gep")
-            : Builder.CreateGEP(Ty, False, Index,
-                                False->getName() + ".sroa.gep");
+            ? IRB.CreateInBoundsGEP(Ty, False, Index,
+                                    False->getName() + ".sroa.gep")
+            : IRB.CreateGEP(Ty, False, Index, False->getName() + ".sroa.gep");
 
-    Value *NSel = Builder.CreateSelect(Sel->getCondition(), NTrue, NFalse,
-                                       Sel->getName() + ".sroa.sel");
+    Value *NSel = IRB.CreateSelect(Sel->getCondition(), NTrue, NFalse,
+                                   Sel->getName() + ".sroa.sel");
     Visited.erase(&GEPI);
     GEPI.replaceAllUsesWith(NSel);
     GEPI.eraseFromParent();
@@ -3682,10 +3709,9 @@ private:
 
     SmallVector<Value *, 4> Index(GEPI.indices());
     bool IsInBounds = GEPI.isInBounds();
-    IRBuilderTy PHIBuilder(GEPI.getParent()->getFirstNonPHI());
-    PHINode *NewPN = PHIBuilder.CreatePHI(GEPI.getType(),
-                                          PHI->getNumIncomingValues(),
-                                          PHI->getName() + ".sroa.phi");
+    IRB.SetInsertPoint(GEPI.getParent()->getFirstNonPHI());
+    PHINode *NewPN = IRB.CreatePHI(GEPI.getType(), PHI->getNumIncomingValues(),
+                                   PHI->getName() + ".sroa.phi");
     for (unsigned I = 0, E = PHI->getNumIncomingValues(); I != E; ++I) {
       BasicBlock *B = PHI->getIncomingBlock(I);
       Value *NewVal = nullptr;
@@ -3695,11 +3721,12 @@ private:
       } else {
         Instruction *In = cast<Instruction>(PHI->getIncomingValue(I));
 
-        IRBuilderTy B(In->getParent(), std::next(In->getIterator()));
+        IRB.SetInsertPoint(In->getParent(), std::next(In->getIterator()));
         Type *Ty = GEPI.getSourceElementType();
-        NewVal = IsInBounds
-            ? B.CreateInBoundsGEP(Ty, In, Index, In->getName() + ".sroa.gep")
-            : B.CreateGEP(Ty, In, Index, In->getName() + ".sroa.gep");
+        NewVal = IsInBounds ? IRB.CreateInBoundsGEP(Ty, In, Index,
+                                                    In->getName() + ".sroa.gep")
+                            : IRB.CreateGEP(Ty, In, Index,
+                                            In->getName() + ".sroa.gep");
       }
       NewPN->addIncoming(NewVal, B);
     }
@@ -4121,16 +4148,15 @@ bool SROAPass::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
   for (LoadInst *LI : Loads) {
     SplitLoads.clear();
 
-    IntegerType *Ty = cast<IntegerType>(LI->getType());
-    assert(Ty->getBitWidth() % 8 == 0);
-    uint64_t LoadSize = Ty->getBitWidth() / 8;
-    assert(LoadSize > 0 && "Cannot have a zero-sized integer load!");
-
     auto &Offsets = SplitOffsetsMap[LI];
-    assert(LoadSize == Offsets.S->endOffset() - Offsets.S->beginOffset() &&
-           "Slice size should always match load size exactly!");
+    unsigned SliceSize = Offsets.S->endOffset() - Offsets.S->beginOffset();
+    assert(LI->getType()->getIntegerBitWidth() % 8 == 0 &&
+           "Load must have type size equal to store size");
+    assert(LI->getType()->getIntegerBitWidth() / 8 >= SliceSize &&
+           "Load must be >= slice size");
+
     uint64_t BaseOffset = Offsets.S->beginOffset();
-    assert(BaseOffset + LoadSize > BaseOffset &&
+    assert(BaseOffset + SliceSize > BaseOffset &&
            "Cannot represent alloca access size using 64-bit integers!");
 
     Instruction *BasePtr = cast<Instruction>(LI->getPointerOperand());
@@ -4141,7 +4167,7 @@ bool SROAPass::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
     uint64_t PartOffset = 0, PartSize = Offsets.Splits.front();
     int Idx = 0, Size = Offsets.Splits.size();
     for (;;) {
-      auto *PartTy = Type::getIntNTy(Ty->getContext(), PartSize * 8);
+      auto *PartTy = Type::getIntNTy(LI->getContext(), PartSize * 8);
       auto AS = LI->getPointerAddressSpace();
       auto *PartPtrTy = PartTy->getPointerTo(AS);
       LoadInst *PLoad = IRB.CreateAlignedLoad(
@@ -4174,7 +4200,7 @@ bool SROAPass::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
       // Setup the next partition.
       PartOffset = Offsets.Splits[Idx];
       ++Idx;
-      PartSize = (Idx < Size ? Offsets.Splits[Idx] : LoadSize) - PartOffset;
+      PartSize = (Idx < Size ? Offsets.Splits[Idx] : SliceSize) - PartOffset;
     }
 
     // Now that we have the split loads, do the slow walk over all uses of the
@@ -4406,6 +4432,11 @@ AllocaInst *SROAPass::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
   // won't always succeed, in which case we fall back to a legal integer type
   // or an i8 array of an appropriate size.
   Type *SliceTy = nullptr;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  bool IsSliceFromPartition = false;
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
   const DataLayout &DL = AI.getModule()->getDataLayout();
   std::pair<Type *, IntegerType *> CommonUseTy =
       findCommonType(P.begin(), P.end(), P.endOffset());
@@ -4415,9 +4446,15 @@ AllocaInst *SROAPass::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
       SliceTy = CommonUseTy.first;
   // If not, can we find an appropriate subtype in the original allocated type?
   if (!SliceTy)
+#if INTEL_CUSTOMIZATION
     if (Type *TypePartitionTy = getTypePartition(DL, AI.getAllocatedType(),
-                                                 P.beginOffset(), P.size()))
+                                                 P.beginOffset(), P.size())) {
+#if INTEL_FEATURE_SW_DTRANS
+      IsSliceFromPartition = true;
+#endif // INTEL_FEATURE_SW_DTRANS
       SliceTy = TypePartitionTy;
+    }
+#endif // INTEL_CUSTOMIZATION
   // If still not, can we use the largest bitwidth integer type used?
   if (!SliceTy && CommonUseTy.second)
     if (DL.getTypeAllocSize(CommonUseTy.second).getFixedSize() >= P.size())
@@ -4461,6 +4498,13 @@ AllocaInst *SROAPass::rewritePartition(AllocaInst &AI, AllocaSlices &AS,
         AI.getName() + ".sroa." + Twine(P.begin() - AS.begin()), &AI);
     // Copy the old AI debug location over to the new one.
     NewAI->setDebugLoc(AI.getDebugLoc());
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    if (IsSliceFromPartition)
+      DTransTypeMetadataProp.updateDTransMetadata(NewAI, AI, P.beginOffset(),
+                                                  P.size());
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
     ++NumNewAllocas;
   }
 
@@ -4722,11 +4766,11 @@ bool SROAPass::splitAlloca(AllocaInst &AI, AllocaSlices &AS) {
   return Changed;
 }
 
-/// Clobber a use with undef, deleting the used value if it becomes dead.
+/// Clobber a use with poison, deleting the used value if it becomes dead.
 void SROAPass::clobberUse(Use &U) {
   Value *OldV = U;
-  // Replace the use with an undef value.
-  U = UndefValue::get(OldV->getType());
+  // Replace the use with an poison value.
+  U = PoisonValue::get(OldV->getType());
 
   // Check for this making an instruction dead. We have to garbage collect
   // all the dead instructions to ensure the uses of any alloca end up being
@@ -4763,7 +4807,8 @@ bool SROAPass::runOnAlloca(AllocaInst &AI) {
 
   // First, split any FCA loads and stores touching this alloca to promote
   // better splitting and promotion opportunities.
-  AggLoadStoreRewriter AggRewriter(DL);
+  IRBuilderTy IRB(&AI);
+  AggLoadStoreRewriter AggRewriter(DL, IRB);
   Changed |= AggRewriter.rewrite(AI);
 
   // Build the slices using a recursive instruction-visiting builder.
@@ -4779,7 +4824,7 @@ bool SROAPass::runOnAlloca(AllocaInst &AI) {
       clobberUse(DeadOp);
 
     // Now replace the uses of this instruction.
-    DeadUser->replaceAllUsesWith(UndefValue::get(DeadUser->getType()));
+    DeadUser->replaceAllUsesWith(PoisonValue::get(DeadUser->getType()));
 
     // And mark it for deletion.
     DeadInsts.push_back(DeadUser);
@@ -4798,11 +4843,11 @@ bool SROAPass::runOnAlloca(AllocaInst &AI) {
 
   LLVM_DEBUG(dbgs() << "  Speculating PHIs\n");
   while (!SpeculatablePHIs.empty())
-    speculatePHINodeLoads(*SpeculatablePHIs.pop_back_val());
+    speculatePHINodeLoads(IRB, *SpeculatablePHIs.pop_back_val());
 
   LLVM_DEBUG(dbgs() << "  Speculating Selects\n");
   while (!SpeculatableSelects.empty())
-    speculateSelectInstLoads(*SpeculatableSelects.pop_back_val());
+    speculateSelectInstLoads(IRB, *SpeculatableSelects.pop_back_val());
 
   return Changed;
 }

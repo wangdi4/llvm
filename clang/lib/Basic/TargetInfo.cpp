@@ -1,4 +1,21 @@
 //===--- TargetInfo.cpp - Information about Target machine ----------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -25,7 +42,7 @@ using namespace clang;
 static const LangASMap DefaultAddrSpaceMap = {0};
 
 // TargetInfo Constructor.
-TargetInfo::TargetInfo(const llvm::Triple &T) : TargetOpts(), Triple(T) {
+TargetInfo::TargetInfo(const llvm::Triple &T) : Triple(T) {
   // Set defaults.  Defaults are set for a 32-bit RISC platform, like PPC or
   // SPARC.  These should be overridden by concrete targets as needed.
   BigEndian = !T.isLittleEndian();
@@ -150,6 +167,7 @@ TargetInfo::TargetInfo(const llvm::Triple &T) : TargetOpts(), Triple(T) {
   PlatformMinVersion = VersionTuple();
 
   MaxOpenCLWorkGroupSize = 1024;
+  ProgramAddrSpace = 0;
 }
 
 // Out of line virtual dtor for TargetInfo.
@@ -419,12 +437,10 @@ void TargetInfo::adjust(DiagnosticsEngine &Diags, LangOptions &Opts) {
       const auto &OpenCLFeaturesMap = getSupportedOpenCLOpts();
       Opts.OpenCLGenericAddressSpace = hasFeatureEnabled(
           OpenCLFeaturesMap, "__opencl_c_generic_address_space");
-#if INTEL_CUSTOMIZATION
+      Opts.OpenCLPipes =
+          hasFeatureEnabled(OpenCLFeaturesMap, "__opencl_c_pipes");
       Opts.Blocks =
           hasFeatureEnabled(OpenCLFeaturesMap, "__opencl_c_device_enqueue");
-#endif // INTEL_CUSTOMIZATION
-      Opts.OpenCLPipes =
-           hasFeatureEnabled(OpenCLFeaturesMap, "__opencl_c_pipes");
     }
   }
 

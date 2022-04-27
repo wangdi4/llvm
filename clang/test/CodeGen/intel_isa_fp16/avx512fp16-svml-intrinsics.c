@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-linux-gnu -target-feature +avx512fp16 -emit-llvm -o - -Wall -Werror | FileCheck %s --check-prefix=CHECK-AVX512FP16
+// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-linux-gnu -target-feature +avx512fp16 -emit-llvm -opaque-pointers -o - -Wall -Werror | FileCheck %s --check-prefix=CHECK-AVX512FP16
 
 #include <immintrin.h>
 
@@ -644,7 +644,7 @@ __m128h test_mm_sincos_ph(__m128h *A, __m128h B) {
   // CHECK-AVX512FP16-LABEL: test_mm_sincos_ph
   // CHECK-AVX512FP16: [[RESULT:%.*]] = call svml_cc { <8 x half>, <8 x half> } @__svml_sincoss8(<8 x half> %{{.*}})
   // CHECK-AVX512FP16: [[COS:%.*]] = extractvalue { <8 x half>, <8 x half> } [[RESULT]], 1
-  // CHECK-AVX512FP16: store <8 x half> [[COS]], <8 x half>* %{{.*}}
+  // CHECK-AVX512FP16: store <8 x half> [[COS]], ptr %{{.*}}
   // CHECK-AVX512FP16: [[SIN:%.*]] = extractvalue { <8 x half>, <8 x half> } [[RESULT]], 0
   // CHECK-AVX512FP16: ret <8 x half> [[SIN]]
   return _mm_sincos_ph(A, B);
@@ -654,7 +654,7 @@ __m256h test_mm256_sincos_ph(__m256h *A, __m256h B) {
   // CHECK-AVX512FP16-LABEL: test_mm256_sincos_ph
   // CHECK-AVX512FP16: [[RESULT:%.*]] = call svml_cc { <16 x half>, <16 x half> } @__svml_sincoss16(<16 x half> %{{.*}})
   // CHECK-AVX512FP16: [[COS:%.*]] = extractvalue { <16 x half>, <16 x half> } [[RESULT]], 1
-  // CHECK-AVX512FP16: store <16 x half> [[COS]], <16 x half>* %{{.*}}
+  // CHECK-AVX512FP16: store <16 x half> [[COS]], ptr %{{.*}}
   // CHECK-AVX512FP16: [[SIN:%.*]] = extractvalue { <16 x half>, <16 x half> } [[RESULT]], 0
   // CHECK-AVX512FP16: ret <16 x half> [[SIN]]
   return _mm256_sincos_ph(A, B);
@@ -664,7 +664,7 @@ __m512h test_mm512_sincos_ph(__m512h *A, __m512h B) {
   // CHECK-AVX512FP16-LABEL: test_mm512_sincos_ph
   // CHECK-AVX512FP16: [[RESULT:%.*]] = call svml_cc { <32 x half>, <32 x half> } @__svml_sincoss32(<32 x half> %{{.*}})
   // CHECK-AVX512FP16: [[COS:%.*]] = extractvalue { <32 x half>, <32 x half> } [[RESULT]], 1
-  // CHECK-AVX512FP16: store <32 x half> [[COS]], <32 x half>* %{{.*}}
+  // CHECK-AVX512FP16: store <32 x half> [[COS]], ptr %{{.*}}
   // CHECK-AVX512FP16: [[SIN:%.*]] = extractvalue { <32 x half>, <32 x half> } [[RESULT]], 0
   // CHECK-AVX512FP16: ret <32 x half> [[SIN]]
   return _mm512_sincos_ph(A, B);
@@ -677,7 +677,7 @@ __m512h test_mm512_mask_sincos_ph(__m512h* A, __m512h B, __m512h C, __mmask32 D,
   // CHECK-AVX512FP16: [[SRC:%.*]] = insertvalue { <32 x half>, <32 x half> } [[SRC_TMP]], <32 x half> %{{.*}}, 1
   // CHECK-AVX512FP16: [[RESULT:%.*]] = call svml_cc { <32 x half>, <32 x half> } @__svml_sincoss32_mask({ <32 x half>, <32 x half> } [[SRC]], <32 x i1> [[MASK]], <32 x half> %{{.*}})
   // CHECK-AVX512FP16: [[COS:%.*]] = extractvalue { <32 x half>, <32 x half> } [[RESULT]], 1
-  // CHECK-AVX512FP16: store <32 x half> [[COS]], <32 x half>* %{{.*}}
+  // CHECK-AVX512FP16: store <32 x half> [[COS]], ptr %{{.*}}
   // CHECK-AVX512FP16: [[SIN:%.*]] = extractvalue { <32 x half>, <32 x half> } [[RESULT]], 0
   // CHECK-AVX512FP16: ret <32 x half> [[SIN]]
   return _mm512_mask_sincos_ph(A, B, C, D, E);

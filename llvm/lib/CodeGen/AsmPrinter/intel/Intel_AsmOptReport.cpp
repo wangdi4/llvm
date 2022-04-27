@@ -15,8 +15,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_AsmOptReport.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/OptReport/OptReportSupport.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportSupport.h"
 #include "llvm/MC/MCSectionCOFF.h"
 #include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCSectionMachO.h"

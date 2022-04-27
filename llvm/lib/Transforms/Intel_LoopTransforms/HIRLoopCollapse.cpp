@@ -437,15 +437,17 @@ bool HIRLoopCollapse::areGEPRefsLegal(HLLoop *InnerLp) {
     unsigned CollapseLevel = (NumDims == 1)
                                  ? matchSingleDimDynShapeArray(GEPRef)
                                  : getNumMatchedDimensions(GEPRef);
-    if (CollapseLevel <= 1) {
-      return false;
-    }
+
     NumCollapsableLoops = std::min(NumCollapsableLoops, CollapseLevel);
 
     // Multi-dim array:
     if (NumDims > 1) {
       // Try: match GEPRef with dynamic-shape pattern
-      CollapseLevel = matchMultiDimDynShapeArray(GEPRef, InnerLpLevel);
+      int Level = matchMultiDimDynShapeArray(GEPRef, InnerLpLevel);
+
+      if (Level == -1)
+        return false;
+      CollapseLevel = Level;
 
       // If matchMultiDimDynShapeArray() returns 0 or 1, the dyn match failed.
       // Need to count collapsable levels on Ref as a normal ref.
@@ -964,9 +966,10 @@ unsigned HIRLoopCollapse::matchSingleDimDynShapeArray(RegDDRef *Ref) {
 // Return:
 // - a positive integer: the number of matched dimensions
 // - 0: match failure, nothing matched
+// - -1: strides not multiple of previous one, need to bail out from collapsing
 //
-unsigned HIRLoopCollapse::matchMultiDimDynShapeArray(RegDDRef *Ref,
-                                                     unsigned Level) {
+
+int HIRLoopCollapse::matchMultiDimDynShapeArray(RegDDRef *Ref, unsigned Level) {
   if (DisableDynShapeArray) {
     LLVM_DEBUG(dbgs() << "Dynamic-shape array not supported\n";);
     return 0;
@@ -992,11 +995,21 @@ unsigned HIRLoopCollapse::matchMultiDimDynShapeArray(RegDDRef *Ref,
   // [Note]
   // -stride: expect an integer constant with value equal to sizeof(src type)
   //
+  //  Normally strides are multiples of one another, except F90 pointers
+  //  e.g.
+  //  real*8, target   ::  A(5,5)
+  //  real*8, pointer  ::  P(:,:)
+  //  P  => A(1:5:2, 1:4)
+  //  P  = 1.0
+  //  For the pointer reference here, after constant prop
+  //  P becomes A(1:5:2, 1:4) with strides  16, 40
+  //  40 is not a multiple of 16. No collapsing can be done.
+
   const int64_t SrcTypeSize = Ref->getSrcTypeSizeInBytes();
   if (Ref->getDimensionConstStride(Dim) != SrcTypeSize) {
     LLVM_DEBUG(dbgs() << "Expect Dim1 stride be an integer constant with value "
                          "equal to src type size\n");
-    return 0;
+    return -1;
   }
 
   // Expect: Index is a standlone IV on Level:
@@ -1022,7 +1035,40 @@ unsigned HIRLoopCollapse::matchMultiDimDynShapeArray(RegDDRef *Ref,
   // On any non-dim1 dimension:
   // - Stride: stride_i = stride_(i+1) * TripCount(i+1)
   //
+
   const unsigned DimMax = Ref->getNumDimensions();
+
+  int64_t PrevStride = 0;
+
+  CanonExpr *Stride = Ref->getDimensionStride(1);
+  if (Stride->isConstant()) {
+    PrevStride = Stride->getConstant();
+  }
+
+  // Use a new loop to scan for constant strides to see if one is
+  // a multiple of the previous because the large loop below exits
+  // after hitting a constant stride.
+  // For symbolic strides, current logic collapses the innermost 2 levels in
+  // this example, which is correct and optimal
+  // real*8, target   ::  A(5,5,5,5)
+  // real*8, pointer  ::  P(:,:,:,:)
+  // P => A(:,:,1:5:N,:)
+  // P = 1
+  //
+
+  for (Dim = 2; Dim <= DimMax; ++Dim) {
+    CanonExpr *Stride = Ref->getDimensionStride(Dim);
+    if (Stride->isConstant()) {
+      int64_t StrideVal = Stride->getConstant();
+      if (PrevStride && (StrideVal % PrevStride) != 0) {
+        return -1;
+      }
+      PrevStride = StrideVal;
+    } else {
+      break;
+    }
+  }
+
   CurLevel = Level;
   for (Dim = 2; Dim <= DimMax; ++Dim) {
     --CurLevel;
@@ -1096,6 +1142,7 @@ unsigned HIRLoopCollapse::matchMultiDimDynShapeArray(RegDDRef *Ref,
 
   // For a potential partial match, check any un-matched dimension(s):
   const unsigned MatchedDimNum = Dim - 1;
+
   if (MatchedDimNum < 2) {
     return 0;
   }

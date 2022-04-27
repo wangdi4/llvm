@@ -1,7 +1,10 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -disable-output -vplan-force-vf=2 -vplan-cost-model-print-analysis-for-vf=2 \
-; RUN:     -mtriple=x86_64-unknown-unknown 2>&1 | FileCheck %s
+; RUN:     -mtriple=x86_64-unknown-unknown 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
+; RUN:     -disable-output -vplan-force-vf=2 -vplan-cost-model-print-analysis-for-vf=2 \
+; RUN:     -mtriple=x86_64-unknown-unknown 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
 ; Cost of serializing select instruction with non-vectorizable operand types
 ; Here cost of serializing select instruction = cost of n extracts from vec cond + cost of n selects, where n = VF
@@ -10,35 +13,35 @@
 ;CHECK-NEXT:  Cost 0 for br [[BB2:BB[0-9]+]]
 ;CHECK-NEXT: [[BB1]]: base cost: 0
 ;CHECK-NEXT: Analyzing VPBasicBlock [[BB2]]
-;CHECK-NEXT:   Cost 1000 for i64 [[VP_UB_INC:%.*]] = add i64 [[VP14:%.*]] i64 1
+;CHECK-NEXT:   Cost 1 for i64 [[VP_UB_INC:%.*]] = add i64 [[VP14:%.*]] i64 1
 ;CHECK-NEXT:   Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_UB_INC]], UF = 1
 ;CHECK-NEXT:   Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ;CHECK-NEXT:   Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ;CHECK-NEXT:   Cost 0 for br [[BB3:BB[0-9]+]]
-;CHECK-NEXT: [[BB2]]: base cost: 1000
+;CHECK-NEXT: [[BB2]]: base cost: 1
 ;CHECK-NEXT: Analyzing VPBasicBlock [[BB3]]
 ;CHECK-NEXT:   Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB2]] ],  [ i64 [[VP11:%.*]], [[BB3]] ]
 ;CHECK-NEXT:   Cost 0 for i32* [[VP1:%.*]] = subscript inbounds %"EXTENT$.btINTVL"* {{.*}}%"A.addr_a0$_fetch.8" i64 [[VP0]] (0 )
-;CHECK-NEXT:   Cost 9000 for i32 [[VP2:%.*]] = load i32* [[VP1]]
-;CHECK-NEXT:   Cost 1000 for i32 [[VP3:%.*]] = add i32 [[VP2]] i32 1
+;CHECK-NEXT:   Cost 9 for i32 [[VP2:%.*]] = load i32* [[VP1]]
+;CHECK-NEXT:   Cost 1 for i32 [[VP3:%.*]] = add i32 [[VP2]] i32 1
 ;CHECK-NEXT:   Cost Unknown for %"EXTENT$.btINTVL" = type { i32, i32 } [[VP6:%.*]] = insertvalue %"EXTENT$.btINTVL" undef i32 [[VP3]]
-;CHECK-NEXT:   Cost 1000 for i32 [[VP15:%.*]] = add i32 [[VP2]] i32 1
+;CHECK-NEXT:   Cost 1 for i32 [[VP15:%.*]] = add i32 [[VP2]] i32 1
 ;CHECK-NEXT:   Cost Unknown for %"EXTENT$.btINTVL" = type { i32, i32 } [[VP17:%.*]] = insertvalue %"EXTENT$.btINTVL" undef i32 [[VP15]]
-;CHECK-NEXT:   Cost 1000 for i32 [[VP4:%.*]] = add i32 [[VP2]] i32 2
+;CHECK-NEXT:   Cost 1 for i32 [[VP4:%.*]] = add i32 [[VP2]] i32 2
 ;CHECK-NEXT:   Cost Unknown for %"EXTENT$.btINTVL" = type { i32, i32 } [[VP7:%.*]] = insertvalue %"EXTENT$.btINTVL" undef i32 [[VP4]]
-;CHECK-NEXT:   Cost 1000 for i32 [[VP16:%.*]] = add i32 [[VP2]] i32 2
+;CHECK-NEXT:   Cost 1 for i32 [[VP16:%.*]] = add i32 [[VP2]] i32 2
 ;CHECK-NEXT:   Cost Unknown for %"EXTENT$.btINTVL" = type { i32, i32 } [[VP18:%.*]] = insertvalue %"EXTENT$.btINTVL" undef i32 [[VP16]]
-;CHECK-NEXT:   Cost 4000 for i1 [[VP5:%.*]] = icmp sgt i32 [[VP2]] i32 1
-;CHECK-NEXT:   Cost 7000 for %"EXTENT$.btINTVL" = type { i32, i32 } [[VP9:%.*]] = select i1 [[VP5]] %"EXTENT$.btINTVL" = type { i32, i32 } [[VP17]] %"EXTENT$.btINTVL" = type { i32, i32 } [[VP18]]
+;CHECK-NEXT:   Cost 4 for i1 [[VP5:%.*]] = icmp sgt i32 [[VP2]] i32 1
+;CHECK-NEXT:   Cost 6 for %"EXTENT$.btINTVL" = type { i32, i32 } [[VP9:%.*]] = select i1 [[VP5]] %"EXTENT$.btINTVL" = type { i32, i32 } [[VP17]] %"EXTENT$.btINTVL" = type { i32, i32 } [[VP18]]
 ;CHECK-NEXT:   Cost Unknown for i32 [[VP8:%.*]] = extractvalue %"EXTENT$.btINTVL" = type { i32, i32 } [[VP9]]
 ;CHECK-NEXT:   Cost Unknown for i32 [[VP19:%.*]] = extractvalue %"EXTENT$.btINTVL" = type { i32, i32 } [[VP9]]
-;CHECK-NEXT:   Cost 1000 for i32 [[VP20:%.*]] = add i32 [[VP19]] i32 [[VP8]]
+;CHECK-NEXT:   Cost 1 for i32 [[VP20:%.*]] = add i32 [[VP19]] i32 [[VP8]]
 ;CHECK-NEXT:   Cost 0 for i32* [[VP10:%.*]] = subscript inbounds i32* {{.*}}%"var$6" i64 [[VP0]]
-;CHECK-NEXT:   Cost 1063 for store i32 [[VP20]] i32* [[VP10]]
-;CHECK-NEXT:   Cost 1000 for i64 [[VP11:%.*]] = add i64 [[VP0]] i64 [[VP12:%.*]]
-;CHECK-NEXT:   Cost 11000 for i1 [[VP14:%.*]] = icmp slt i64 [[VP11]] i64 [[VP13:%.*]]
+;CHECK-NEXT:   Cost 1.0625 for store i32 [[VP20]] i32* [[VP10]]
+;CHECK-NEXT:   Cost 1 for i64 [[VP11:%.*]] = add i64 [[VP0]] i64 [[VP12:%.*]]
+;CHECK-NEXT:   Cost 8 for i1 [[VP14:%.*]] = icmp slt i64 [[VP11]] i64 [[VP13:%.*]]
 ;CHECK-NEXT:   Cost 0 for br i1 [[VP14]], [[BB3]], [[BB4:BB[0-9]+]]
-;CHECK-NEXT: BB3: base cost: 38063
+;CHECK-NEXT: BB3: base cost: 34.0625
 
 %"EXTENT$.btINTVL" = type { i32, i32 }
 %"QNCA_a0$%\22EXTENT$.btINTVL\22*$rank1$" = type { %"EXTENT$.btINTVL"*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }

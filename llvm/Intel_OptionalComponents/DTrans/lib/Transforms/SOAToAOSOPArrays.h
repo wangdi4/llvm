@@ -1,6 +1,6 @@
 //===-------------- SOAToAOSOPArrays.h - Part of SOAToAOSOPPass -----------===//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1294,6 +1294,12 @@ public:
         else if (ArrayIdioms::isExternaSideEffect(D, S)) {
           MC.HasExternalSideEffect = true;
           break;
+        } else if (auto *II = dyn_cast<IntrinsicInst>(&I)) {
+          if (II->getIntrinsicID() == Intrinsic::umax &&
+              isDependentOnIntegerFieldsOnly(D, S))
+            break;
+
+          DEBUG_WITH_TYPE(DTRANS_SOAARR, dbgs() << "; Unsupported intrinsic\n");
         }
         Handled = false;
         break;
@@ -1369,8 +1375,10 @@ public:
 
   static void copyArgAttrs(Argument *From, Argument *To) {
     auto *F = To->getParent();
-    AttrBuilder AB(F->getAttributes(), To->getArgNo());
-    AB.merge(AttrBuilder(F->getAttributes(), From->getArgNo()));
+    AttrBuilder AB(F->getContext(),
+                   F->getAttributes().getParamAttrs(To->getArgNo()));
+    AB.merge(AttrBuilder(F->getContext(),
+                         F->getAttributes().getParamAttrs(From->getArgNo())));
     if (AB.hasAttributes())
       To->addAttrs(AB);
   }
@@ -1458,14 +1466,18 @@ public:
         }
       } else if (auto *Call = dyn_cast<CallBase>(NewI)) {
         auto *Info = DTInfo.getCallInfo(NewI);
-        assert(
-            (Info && Info->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc) &&
-            "Incorrect analysis");
+        bool isDummyFunc = DTransAllocCollector::isDummyFuncWithThisAndIntArgs(
+            Call, TLI, DTInfo.getTypeMetadataReader());
+        assert((isDummyFunc || (Info && Info->getCallInfoKind() ==
+                                            dtrans::CallInfo::CIK_Alloc)) &&
+               "Incorrect analysis");
 
         assert(IsCombined && "Incorrect analysis");
         unsigned S1 = -1U;
         unsigned S2 = -1U;
-        auto AllocKind = cast<dtrans::AllocCallInfo>(Info)->getAllocKind();
+        auto AllocKind =
+            isDummyFunc ? dtrans::AK_UserMallocThis
+                        : cast<dtrans::AllocCallInfo>(Info)->getAllocKind();
         getAllocSizeArgs(AllocKind, Call, S1, S2, TLI);
         assert((S1 == -1U) != (S2 == -1U) && "Unexpected allocation routine");
         auto *OldSize =
@@ -1564,10 +1576,15 @@ public:
              "Some peephole idiom is not processed");
       if (OrigToCopy.count(NewBC) == 0) {
         Builder.SetInsertPoint(NewBC);
-        auto *CopyBC = Builder.CreateBitCast(
-            // Assumed all pointer types have same alignment.
-            NewBC->getOperand(0), NewBC->getType(), "copy");
-        OrigToCopy[NewBC] = CopyBC;
+        // SOAToAOS's transformation expects that mapping of bitcast
+        // instruction in OrigToCopy is also bitcast instruction.
+        // CreateBitCast() function may not return bitcast instruction
+        // when source and destination types are same. NewBC->clone()
+        // is used instead of CreateBitCast to create copy of NewBC.
+        // Anyway, this code will be removed once we move to opaque
+        // pointers completely.
+        // Assumed all pointer types have same alignment.
+        OrigToCopy[NewBC] = Builder.Insert(NewBC->clone());
         return;
       }
     };

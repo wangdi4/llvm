@@ -1,4 +1,21 @@
 //===- FileCheck.cpp - Check that File's Contents match what is expected --===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -1023,8 +1040,9 @@ bool Pattern::parsePattern(StringRef PatternStr, StringRef Prefix,
     // brackets. They also accept a combined form which sets a numeric variable
     // to the evaluation of an expression. Both string and numeric variable
     // names must satisfy the regular expression "[a-zA-Z_][0-9a-zA-Z_]*" to be
-    // valid, as this helps catch some common errors.
-    if (PatternStr.startswith("[[")) {
+    // valid, as this helps catch some common errors. If there are extra '['s
+    // before the "[[", treat them literally.
+    if (PatternStr.startswith("[[") && !PatternStr.startswith("[[[")) {
       StringRef UnparsedPatternStr = PatternStr.substr(2);
       // Find the closing bracket pair ending the match.  End is going to be an
       // offset relative to the beginning of the match string.
@@ -1199,12 +1217,14 @@ bool Pattern::parsePattern(StringRef PatternStr, StringRef Prefix,
           Substitutions.push_back(Substitution);
         }
       }
+
+      continue;
     }
 
     // Handle fixed string matches.
     // Find the end, which is the start of the next regex.
-    size_t FixedMatchEnd = PatternStr.find("{{");
-    FixedMatchEnd = std::min(FixedMatchEnd, PatternStr.find("[["));
+    size_t FixedMatchEnd =
+        std::min(PatternStr.find("{{", 1), PatternStr.find("[[", 1));
     RegExStr += Regex::escape(PatternStr.substr(0, FixedMatchEnd));
     PatternStr = PatternStr.substr(FixedMatchEnd);
   }
@@ -2231,7 +2251,7 @@ static Error reportMatchResult(bool ExpectedMatch, const SourceMgr &SM,
 static unsigned CountNumNewlinesBetween(StringRef Range,
                                         const char *&FirstNewLine) {
   unsigned NumNewLines = 0;
-  while (1) {
+  while (true) {
     // Scan for newline.
     Range = Range.substr(Range.find_first_of("\n\r"));
     if (Range.empty())

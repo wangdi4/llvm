@@ -105,6 +105,10 @@ public:
     return const_cast<HLInst *>(this)->getLvalDDRef();
   }
 
+  /// Returns the lval's blob index of this instruction.
+  /// Returns InvalidBlobIndex if the instruction does not have terminal lval ref.
+  unsigned getLvalBlobIndex() const;
+
   /// Sets/replaces the lval DDRef of this node.
   virtual void setLvalDDRef(RegDDRef *RDDRef) override {
     assert(hasLval() && "This instruction does not have an lval!");
@@ -198,7 +202,7 @@ public:
     return bundle_op_ddref_begin(BundleNum) + getNumBundleOperands(BundleNum);
   }
   const_ddref_iterator bundle_op_ddref_end(unsigned BundleNum) const {
-    return const_cast<HLInst *>(this)->bundle_op_ddref_begin(BundleNum);
+    return const_cast<HLInst *>(this)->bundle_op_ddref_end(BundleNum);
   }
 
   /// Returns true if this is in a loop's preheader.

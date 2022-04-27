@@ -1,4 +1,21 @@
 //===--- CGVTables.cpp - Emit LLVM Code for C++ vtables -------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -90,9 +107,11 @@ static RValue PerformReturnAdjustment(CodeGenFunction &CGF,
 
   auto ClassDecl = ResultType->getPointeeType()->getAsCXXRecordDecl();
   auto ClassAlign = CGF.CGM.getClassPointerAlignment(ClassDecl);
-  ReturnValue = CGF.CGM.getCXXABI().performReturnAdjustment(CGF,
-                                            Address(ReturnValue, ClassAlign),
-                                            Thunk.Return);
+  ReturnValue = CGF.CGM.getCXXABI().performReturnAdjustment(
+      CGF,
+      Address(ReturnValue, CGF.ConvertTypeForMem(ResultType->getPointeeType()),
+              ClassAlign),
+      Thunk.Return);
 
   if (NullCheckValue) {
     CGF.Builder.CreateBr(AdjustEnd);
@@ -198,7 +217,9 @@ CodeGenFunction::GenerateVarArgsThunk(llvm::Function *Fn,
 
   // Find the first store of "this", which will be to the alloca associated
   // with "this".
-  Address ThisPtr(&*AI, CGM.getClassPointerAlignment(MD->getParent()));
+  Address ThisPtr =
+      Address(&*AI, ConvertTypeForMem(MD->getThisType()->getPointeeType()),
+              CGM.getClassPointerAlignment(MD->getParent()));
   llvm::BasicBlock *EntryBB = &Fn->front();
   llvm::BasicBlock::iterator ThisStore =
       llvm::find_if(*EntryBB, [&](llvm::Instruction &I) {
@@ -401,9 +422,7 @@ void CodeGenFunction::EmitMustTailThunk(GlobalDecl GD,
   // to translate AST arguments into LLVM IR arguments.  For thunks, we know
   // that the caller prototype more or less matches the callee prototype with
   // the exception of 'this'.
-  SmallVector<llvm::Value *, 8> Args;
-  for (llvm::Argument &A : CurFn->args())
-    Args.push_back(&A);
+  SmallVector<llvm::Value *, 8> Args(llvm::make_pointer_range(CurFn->args()));
 
   // Set the adjusted 'this' pointer.
   const ABIArgInfo &ThisAI = CurFnInfo->arg_begin()->info;
@@ -1227,7 +1246,7 @@ bool CodeGenModule::HasLTOVisibilityPublicStd(const CXXRecordDecl *RD) {
     return false;
 
   const DeclContext *DC = RD;
-  while (1) {
+  while (true) {
     auto *D = cast<Decl>(DC);
     DC = DC->getParent();
     if (isa<TranslationUnitDecl>(DC->getRedeclContext())) {

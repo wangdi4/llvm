@@ -19,14 +19,13 @@
 ;
 ;   return sum;
 ; }
-; ModuleID = 'cg_perf_workaround.c'
-; RUN: opt -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -disable-hir-loop-reversal -hir-vplan-vec -print-after=hir-vplan-vec -disable-output -enable-blob-coeff-vec -enable-nested-blob-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM1
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -disable-hir-loop-reversal -print-after=hir-vplan-vec -disable-output -enable-blob-coeff-vec -enable-nested-blob-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM2
+; RUN: opt -enable-new-pm=0 -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -disable-hir-loop-reversal -hir-vplan-vec -print-after=hir-vplan-vec -enable-blob-coeff-vec -enable-nested-blob-vec -vplan-enable-new-cfg-merge-hir=false -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-hir-loop-reversal -enable-blob-coeff-vec -enable-nested-blob-vec -vplan-enable-new-cfg-merge-hir=false -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -disable-hir-loop-reversal -hir-vplan-vec -print-after=hir-vplan-vec -enable-blob-coeff-vec -enable-nested-blob-vec -vplan-enable-new-cfg-merge-hir -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -disable-hir-loop-reversal -enable-blob-coeff-vec -enable-nested-blob-vec -vplan-enable-new-cfg-merge-hir -disable-output < %s 2>&1 | FileCheck %s
 
 ; It used to be a lit test for performance WA bail out in HIR CG.
 ; Now it checks that the input code can be vectorized with VF=4.
-; ModuleID = 'cg_perf_workaround.c'
-source_filename = "cg_perf_workaround.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -36,46 +35,33 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline norecurse nounwind readonly uwtable
 define double @foo(i32 %n, double %d) local_unnamed_addr #0 {
-; PM1:         IR Dump After VPlan HIR Vectorizer
-; PM2:         IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
-; CHECK-NEXT:  Function: foo
+; CHECK:       Function: foo
 ; CHECK-EMPTY:
-; CHECK-NEXT:  <0>          BEGIN REGION { modified }
-; CHECK-NEXT:  <22>               [[TGU0:%.*]] = (sext.i32.i64([[N0:%.*]]))/u4
-; CHECK-NEXT:  <24>               if (0 <u 4 * [[TGU0]])
-; CHECK-NEXT:  <24>               {
-; CHECK-NEXT:  <26>                     [[RED_VAR0:%.*]] = 0.000000e+00
-; CHECK-NEXT:  <23>                  + DO i1 = 0, 4 * [[TGU0]] + -1, 4 <DO_LOOP> <MAX_TC_EST = 536870911> <auto-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:  <27>                  |   [[DOTVEC0:%.*]] = (<4 x i16>*)([[TMP0:%.*]])[-1 * i1 + -1 * <i64 0, i64 1, i64 2, i64 3>].2
-; CHECK-NEXT:  <28>                  |   [[DOTVEC10:%.*]] = uitofp.<4 x i16>.<4 x double>([[DOTVEC0]])
-; CHECK-NEXT:  <29>                  |   [[DOTVEC20:%.*]] = [[DOTVEC10]]  *  [[D0:%.*]]
-; CHECK-NEXT:  <30>                  |   [[DOTVEC30:%.*]] = [[RED_VAR0]]  +  [[DOTVEC20]]
-; CHECK-NEXT:  <31>                  |   [[DOTVEC40:%.*]] = (<4 x i16>*)([[TMP0]])[-1 * i1 + -1 * <i64 0, i64 1, i64 2, i64 3>].0
-; CHECK-NEXT:  <32>                  |   [[DOTVEC50:%.*]] = uitofp.<4 x i16>.<4 x double>([[DOTVEC40]])
-; CHECK-NEXT:  <33>                  |   [[DOTVEC60:%.*]] = [[DOTVEC50]]  *  [[D0]]
-; CHECK-NEXT:  <34>                  |   [[RED_VAR0]] = [[DOTVEC30]]  +  [[DOTVEC60]]
-; CHECK-NEXT:  <23>                  + END LOOP
-; CHECK-NEXT:  <35>                     [[SUM_0200:%.*]] = @llvm.vector.reduce.fadd.v4f64([[SUM_0200]],  [[RED_VAR0]])
-; CHECK-NEXT:  <24>               }
-; CHECK-NEXT:  <19>
-; CHECK-NEXT:  <19>               + DO i1 = 4 * [[TGU0]], sext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
-; CHECK-NEXT:  <4>                |   [[TMP2:%.*]] = ([[TMP0]])[-1 * i1].2
-; CHECK-NEXT:  <5>                |   [[CONV10:%.*]] = uitofp.i16.double([[TMP2]])
-; CHECK-NEXT:  <6>                |   [[MUL20:%.*]] = [[CONV10]]  *  [[D0]]
-; CHECK-NEXT:  <7>                |   [[ADD0:%.*]] = [[SUM_0200]]  +  [[MUL20]]
-; CHECK-NEXT:  <9>                |   [[TMP3:%.*]] = ([[TMP0]])[-1 * i1].0
-; CHECK-NEXT:  <10>               |   [[CONV70:%.*]] = uitofp.i16.double([[TMP3]])
-; CHECK-NEXT:  <11>               |   [[MUL80:%.*]] = [[CONV70]]  *  [[D0]]
-; CHECK-NEXT:  <12>               |   [[SUM_0200]] = [[ADD0]]  +  [[MUL80]]
-; CHECK-NEXT:  <19>               + END LOOP
-; CHECK-NEXT:  <0>          END REGION
+; CHECK-NEXT:  BEGIN REGION { modified }
+; CHECK:                [[RED_INIT0:%.*]] = 0.000000e+00
+; CHECK-NEXT:           [[PHI_TEMP0:%.*]] = [[RED_INIT0]]
+;
+; CHECK:                + DO i1 = 0, {{.*}}, 4   <DO_LOOP>  <MAX_TC_EST = 536870911>  <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:           |   [[DOTVEC0:%.*]] = (<4 x i16>*)([[TMP0:%.*]])[-1 * i1 + -1 * <i64 0, i64 1, i64 2, i64 3>].2
+; CHECK-NEXT:           |   [[DOTVEC10:%.*]] = uitofp.<4 x i16>.<4 x double>([[DOTVEC0]])
+; CHECK-NEXT:           |   [[DOTVEC20:%.*]] = [[DOTVEC10]]  *  [[D0:%.*]]
+; CHECK-NEXT:           |   [[DOTVEC30:%.*]] = [[PHI_TEMP0]]  +  [[DOTVEC20]]
+; CHECK-NEXT:           |   [[DOTVEC40:%.*]] = (<4 x i16>*)([[TMP0]])[-1 * i1 + -1 * <i64 0, i64 1, i64 2, i64 3>].0
+; CHECK-NEXT:           |   [[DOTVEC50:%.*]] = uitofp.<4 x i16>.<4 x double>([[DOTVEC40]])
+; CHECK-NEXT:           |   [[DOTVEC60:%.*]] = [[DOTVEC50]]  *  [[D0]]
+; CHECK-NEXT:           |   [[DOTVEC70:%.*]] = [[DOTVEC30]]  +  [[DOTVEC60]]
+; CHECK-NEXT:           |   [[PHI_TEMP0]] = [[DOTVEC70]]
+; CHECK-NEXT:           + END LOOP
+;
+; CHECK:                [[SUM_0200:%.*]] = @llvm.vector.reduce.fadd.v4f64([[SUM_0200]],  [[DOTVEC70]])
+; CHECK:       END REGION
 ;
 entry:
   %cmp18 = icmp sgt i32 %n, 0
   br i1 %cmp18, label %for.body.lr.ph, label %for.end
 
 for.body.lr.ph:                                   ; preds = %entry
-  %0 = load %struct.S1*, %struct.S1** @s1p, align 8, !tbaa !2
+  %0 = load %struct.S1*, %struct.S1** @s1p, align 8, !tbaa !0
   %wide.trip.count = sext i32 %n to i64
   br label %for.body
 
@@ -84,12 +70,12 @@ for.body:                                         ; preds = %for.body, %for.body
   %sum.020 = phi double [ 0.000000e+00, %for.body.lr.ph ], [ %add9, %for.body ]
   %1 = sub nsw i64 0, %indvars.iv
   %a3 = getelementptr inbounds %struct.S1, %struct.S1* %0, i64 %1, i32 2
-  %2 = load i16, i16* %a3, align 2, !tbaa !6
+  %2 = load i16, i16* %a3, align 2, !tbaa !4
   %conv1 = uitofp i16 %2 to double
   %mul2 = fmul fast double %conv1, %d
   %add = fadd fast double %sum.020, %mul2
   %a1 = getelementptr inbounds %struct.S1, %struct.S1* %0, i64 %1, i32 0
-  %3 = load i16, i16* %a1, align 2, !tbaa !9
+  %3 = load i16, i16* %a1, align 2, !tbaa !7
   %conv7 = uitofp i16 %3 to double
   %mul8 = fmul fast double %conv7, %d
   %add9 = fadd fast double %add, %mul8
@@ -101,23 +87,18 @@ for.end.loopexit:                                 ; preds = %for.body
   %add9.lcssa = phi double [ %add9, %for.body ]
   br label %for.end
 
-for.end:                                          ; preds = %for.body, %entry
+for.end:                                          ; preds = %for.end.loopexit, %entry
   %sum.0.lcssa = phi double [ 0.000000e+00, %entry ], [ %add9.lcssa, %for.end.loopexit ]
   ret double %sum.0.lcssa
 }
 
 attributes #0 = { noinline norecurse nounwind readonly uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="true" "use-soft-float"="false" }
 
-!llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
-
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 6.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 0b4a517eb9d8148972ed8a9ef18c3616c05891fc) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 394335808fb2249a44d0c32f2e0724d070071064)"}
-!2 = !{!3, !3, i64 0}
-!3 = !{!"unspecified pointer", !4, i64 0}
-!4 = !{!"omnipotent char", !5, i64 0}
-!5 = !{!"Simple C/C++ TBAA"}
-!6 = !{!7, !8, i64 4}
-!7 = !{!"struct@S1", !8, i64 0, !8, i64 2, !8, i64 4, !8, i64 6}
-!8 = !{!"short", !4, i64 0}
-!9 = !{!7, !8, i64 0}
+!0 = !{!1, !1, i64 0}
+!1 = !{!"unspecified pointer", !2, i64 0}
+!2 = !{!"omnipotent char", !3, i64 0}
+!3 = !{!"Simple C/C++ TBAA"}
+!4 = !{!5, !6, i64 4}
+!5 = !{!"struct@S1", !6, i64 0, !6, i64 2, !6, i64 4, !6, i64 6}
+!6 = !{!"short", !2, i64 0}
+!7 = !{!5, !6, i64 0}

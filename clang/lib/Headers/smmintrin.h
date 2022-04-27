@@ -1,5 +1,20 @@
-/*===---- smmintrin.h - SSE4 intrinsics ------------------------------------===
+/*===---- smmintrin.h - SSE4 intrinsics ------------------------------------=== */
+/* INTEL_CUSTOMIZATION */
+/*
+ * Modifications, Copyright (C) 2021 Intel Corporation
  *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
+/*
  * Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
  * See https://llvm.org/LICENSE.txt for license information.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -673,7 +688,7 @@ _mm_stream_load_si128 (__m128i const *__V)
 static __inline__  __m128i __DEFAULT_FN_ATTRS
 _mm_min_epi8 (__m128i __V1, __m128i __V2)
 {
-  return (__m128i) __builtin_ia32_pminsb128 ((__v16qi) __V1, (__v16qi) __V2);
+  return (__m128i) __builtin_elementwise_min((__v16qs) __V1, (__v16qs) __V2);
 }
 
 /// Compares the corresponding elements of two 128-bit vectors of
@@ -692,7 +707,7 @@ _mm_min_epi8 (__m128i __V1, __m128i __V2)
 static __inline__  __m128i __DEFAULT_FN_ATTRS
 _mm_max_epi8 (__m128i __V1, __m128i __V2)
 {
-  return (__m128i) __builtin_ia32_pmaxsb128 ((__v16qi) __V1, (__v16qi) __V2);
+  return (__m128i) __builtin_elementwise_max((__v16qs) __V1, (__v16qs) __V2);
 }
 
 /// Compares the corresponding elements of two 128-bit vectors of
@@ -711,7 +726,7 @@ _mm_max_epi8 (__m128i __V1, __m128i __V2)
 static __inline__  __m128i __DEFAULT_FN_ATTRS
 _mm_min_epu16 (__m128i __V1, __m128i __V2)
 {
-  return (__m128i) __builtin_ia32_pminuw128 ((__v8hi) __V1, (__v8hi) __V2);
+  return (__m128i) __builtin_elementwise_min((__v8hu) __V1, (__v8hu) __V2);
 }
 
 /// Compares the corresponding elements of two 128-bit vectors of
@@ -730,7 +745,7 @@ _mm_min_epu16 (__m128i __V1, __m128i __V2)
 static __inline__  __m128i __DEFAULT_FN_ATTRS
 _mm_max_epu16 (__m128i __V1, __m128i __V2)
 {
-  return (__m128i) __builtin_ia32_pmaxuw128 ((__v8hi) __V1, (__v8hi) __V2);
+  return (__m128i) __builtin_elementwise_max((__v8hu) __V1, (__v8hu) __V2);
 }
 
 /// Compares the corresponding elements of two 128-bit vectors of
@@ -749,7 +764,7 @@ _mm_max_epu16 (__m128i __V1, __m128i __V2)
 static __inline__  __m128i __DEFAULT_FN_ATTRS
 _mm_min_epi32 (__m128i __V1, __m128i __V2)
 {
-  return (__m128i) __builtin_ia32_pminsd128 ((__v4si) __V1, (__v4si) __V2);
+  return (__m128i) __builtin_elementwise_min((__v4si) __V1, (__v4si) __V2);
 }
 
 /// Compares the corresponding elements of two 128-bit vectors of
@@ -768,7 +783,7 @@ _mm_min_epi32 (__m128i __V1, __m128i __V2)
 static __inline__  __m128i __DEFAULT_FN_ATTRS
 _mm_max_epi32 (__m128i __V1, __m128i __V2)
 {
-  return (__m128i) __builtin_ia32_pmaxsd128 ((__v4si) __V1, (__v4si) __V2);
+  return (__m128i) __builtin_elementwise_max((__v4si) __V1, (__v4si) __V2);
 }
 
 /// Compares the corresponding elements of two 128-bit vectors of
@@ -787,7 +802,7 @@ _mm_max_epi32 (__m128i __V1, __m128i __V2)
 static __inline__  __m128i __DEFAULT_FN_ATTRS
 _mm_min_epu32 (__m128i __V1, __m128i __V2)
 {
-  return (__m128i) __builtin_ia32_pminud128((__v4si) __V1, (__v4si) __V2);
+  return (__m128i) __builtin_elementwise_min((__v4su) __V1, (__v4su) __V2);
 }
 
 /// Compares the corresponding elements of two 128-bit vectors of
@@ -806,7 +821,7 @@ _mm_min_epu32 (__m128i __V1, __m128i __V2)
 static __inline__  __m128i __DEFAULT_FN_ATTRS
 _mm_max_epu32 (__m128i __V1, __m128i __V2)
 {
-  return (__m128i) __builtin_ia32_pmaxud128((__v4si) __V1, (__v4si) __V2);
+  return (__m128i) __builtin_elementwise_max((__v4su) __V1, (__v4su) __V2);
 }
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_DSPV1 */

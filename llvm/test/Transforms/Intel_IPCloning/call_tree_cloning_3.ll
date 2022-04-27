@@ -10,7 +10,7 @@
 ; CHECK:@"a|-1"()
 
 ; This test checks is "call-tree-clone" optimization works correctly on the
-; following call graph below in presense of clone depth restriction to 2 levels:
+; following call graph below in presence of clone depth restriction to 2 levels:
 ; main(1) main(2)
 ;    |   /
 ;    x  /

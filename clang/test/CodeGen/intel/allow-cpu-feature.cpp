@@ -8,11 +8,19 @@
 #define ENQCMD (1ULL << (69 - 64))
 #define WAITPKG (1ULL << (67 - 64))
 
+__attribute__((allow_cpu_features(1))) void Generic() {}
+
 template <unsigned long long I, unsigned long long J>
 __attribute__((allow_cpu_features(I, J))) void Func() {}
 
-// CHECK: define{{.+}}barv()
+// CHECK: define{{.+}}Genericv() #[[NO_ADDED_FEATS:[0-9]+]]
+
+// This check ensures that 'Generic' and 'bar' have the same list of features,
+// so we know that the attribute with '1' above changed nothing.
+// CHECK: define{{.+}}barv() #[[NO_ADDED_FEATS]]
 void bar() {
+  // CHECK: call void {{.+}}Genericv()
+  Generic();
   Func<SGX, 0>();
   // CHECK: call void @[[SGX:.+]]()
   Func<0, WAITPKG>();

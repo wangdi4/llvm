@@ -1782,6 +1782,25 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, StringRef Func,
     IsLikelySmall = Refs.front()->getDestType()->isIntegerTy() &&
                     Refs.front()->getSrcType()->isIntegerTy();
   }
+
+  LoopNestTCTy LoopNestTC(HighestAncestor, InnermostLoop);
+  LoopNestTC.populateLoops();
+  populateTCs(LoopNestTC);
+  bool AllConstTC = false;
+  HLLoop *AdjustedHighestAncestor =
+      getHighestAncestorWithTCThreshold(LoopNestTC, AllConstTC);
+
+  if (IsLikelySmall && !AllConstTC) {
+    LLVM_DEBUG(dbgs() << "The input's TC is likely to be small\n");
+    return nullptr;
+  }
+
+  if (isTrivialAntiPattern(Refs, InnermostLoop->getNestingLevel(),
+                           AdjustedHighestAncestor->getNestingLevel())) {
+    LLVM_DEBUG(dbgs() << "Trivial anti-pattern\n");
+    return nullptr;
+  }
+
   // Avoid delinearized results when 32-bit to avoid performance drop.
   // TODO: Extend blocking algorithm to work when num_dims >= loop_depth
   // We want to avoid blocking for integer input, thus enabling
@@ -1798,24 +1817,6 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, StringRef Func,
   // If any lval Ref is a non-linear, give up here.
   if (RefKind == RefAnalysisResult::NON_LINEAR) {
     printDiag(NON_LINEAR_REFS, Func);
-    return nullptr;
-  }
-
-  LoopNestTCTy LoopNestTC(HighestAncestor, InnermostLoop);
-  LoopNestTC.populateLoops();
-  populateTCs(LoopNestTC);
-  bool AllConstTC = false;
-  HLLoop *AdjustedHighestAncestor =
-      getHighestAncestorWithTCThreshold(LoopNestTC, AllConstTC);
-
-  if (isTrivialAntiPattern(Refs, InnermostLoop->getNestingLevel(),
-                           AdjustedHighestAncestor->getNestingLevel())) {
-    LLVM_DEBUG(dbgs() << "Trivial anti-pattern\n");
-    return nullptr;
-  }
-
-  if (IsLikelySmall && !AllConstTC) {
-    LLVM_DEBUG(dbgs() << "The input's TC is likely to be small\n");
     return nullptr;
   }
 

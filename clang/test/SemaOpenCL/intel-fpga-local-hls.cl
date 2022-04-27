@@ -107,7 +107,7 @@ __attribute__((__force_pow2_depth__(0))) constant int global_const18 = 1;
 __attribute__((__force_pow2_depth__(1))) constant int global_const19 = 1;
 
 //CHECK: FunctionDecl{{.*}}foo1
-void foo1()
+void foo1(void)
 {
   //CHECK: VarDecl{{.*}}v_one
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit memory Default
@@ -723,7 +723,7 @@ __constant unsigned int ext_two[64] = { 1, 2, 3 };
 __attribute__((__private_copies__(8)))
 __constant unsigned int ext_three[64] = { 1, 2, 3 };
 
-void other2()
+void other2(void)
 {
   //expected-error@+1{{applies to functions and local non-const variables}}
   __attribute__((__max_concurrency__(8))) const int ext_six[64];
@@ -732,7 +732,7 @@ void other2()
 //expected-error@+1{{applies to functions and local non-const variables}}
 void other3(__attribute__((__max_concurrency__(8))) int pfoo) {}
 
-void other4()
+void other4(void)
 {
   //expected-error@+1{{applies to local non-const variables and non-static data members}}
   __attribute__((__private_copies__(8))) const int ext_six[64];

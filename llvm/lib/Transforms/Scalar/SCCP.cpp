@@ -1,4 +1,21 @@
 //===- SCCP.cpp - Sparse Conditional Constant Propagation -----------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -17,20 +34,16 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar/SCCP.h"
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/ConstantFolding.h"
+#include "llvm/Analysis/ConstantFolding.h" // INTEL
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/Intel_WP.h"         // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -41,14 +54,13 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Type.h"
@@ -63,7 +75,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Local.h"
-#include "llvm/Transforms/Utils/PredicateInfo.h"
+#include "llvm/Transforms/Utils/SCCPSolver.h"
 #include <cassert>
 #include <utility>
 #include <vector>
@@ -521,7 +533,7 @@ bool llvm::runIPSCCP(
       // inaccessiblemem_or_argmemonly attributes do not hold any longer. Remove
       // them from both the function and callsites.
       if (ReplacedPointerArg) {
-        AttrBuilder AttributesToRemove;
+        AttributeMask AttributesToRemove;
         AttributesToRemove.addAttribute(Attribute::ArgMemOnly);
         AttributesToRemove.addAttribute(Attribute::InaccessibleMemOrArgMemOnly);
         F.removeFnAttrs(AttributesToRemove);
@@ -571,7 +583,8 @@ bool llvm::runIPSCCP(
       MadeChanges |= removeNonFeasibleEdges(Solver, &BB, DTU);
 
     for (BasicBlock *DeadBB : BlocksToErase)
-      DTU.deleteBB(DeadBB);
+      if (!DeadBB->hasAddressTaken())
+        DTU.deleteBB(DeadBB);
 
     for (BasicBlock &BB : F) {
       for (Instruction &Inst : llvm::make_early_inc_range(BB)) {

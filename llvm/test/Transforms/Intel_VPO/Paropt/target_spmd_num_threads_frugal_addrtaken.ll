@@ -1,10 +1,10 @@
 ; REQUIRES: asserts
 
-; RUN: opt  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-simulate-get-num-threads-frugally=true -debug-only=vpo-paropt-target -S < %s 2>&1 | FileCheck %s -check-prefixes=DEFAULT,ALL
-; RUN: opt < %s  -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-simulate-get-num-threads-frugally=true -debug-only=vpo-paropt-target -S 2>&1 | FileCheck %s -check-prefixes=DEFAULT,ALL
+; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-simulate-get-num-threads-frugally=true -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=DEFAULT,ALL
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-simulate-get-num-threads-frugally=true -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=DEFAULT,ALL
 
-; RUN: opt  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-simulate-get-num-threads-frugally=false -debug-only=vpo-paropt-target -S < %s 2>&1 | FileCheck %s -check-prefixes=NOFRUGAL,ALL
-; RUN: opt < %s  -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-simulate-get-num-threads-frugally=false -debug-only=vpo-paropt-target -S 2>&1 | FileCheck %s -check-prefixes=NOFRUGAL,ALL
+; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-simulate-get-num-threads-frugally=false -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=NOFRUGAL,ALL
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-simulate-get-num-threads-frugally=false -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=NOFRUGAL,ALL
 
 ; Test src:
 
@@ -38,8 +38,8 @@
 ;   return 0;
 ; }
 
-; Check that we skip kmpc_spmd_push/pop call generation for the first two
-; regions. Since f2, which calls omp_get_num_threads, is address-taken, we
+; Check that we skip kmpc_begin/end_spmd_target call generation for the first
+; two regions. Since f2, which calls omp_get_num_threads, is address-taken, we
 ; assume that any other regions that call any function to be able to
 ; potentially call omp_get_num_threads (even f1, which doesn't call or
 ; reference f2/f3/omp_get_num_threads). The analysis may be expanded in
@@ -70,30 +70,30 @@
 ; ALL:      mayCallOmpGetNumThreads: Region #5 (target) may call omp_get_num_threads: Yes.
 
 ; ALL: call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(){{.*}}]
-; DEFAULT-NOT: call spir_func void @__kmpc_spmd_{{.*}}_num_threads
-; NOFRUGAL:    call spir_func void @__kmpc_spmd_push_num_threads(i32 1)
-; NOFRUGAL:    call spir_func void @__kmpc_spmd_pop_num_threads()
+; DEFAULT-NOT: call spir_func void @__kmpc_{{.*}}_spmd_target
+; NOFRUGAL:    call spir_func void @__kmpc_begin_spmd_target()
+; NOFRUGAL:    call spir_func void @__kmpc_end_spmd_target()
 ; ALL:         call void @llvm.directive.region.exit({{.*}}) [ "DIR.OMP.END.TARGET"() ]
 
 ; ALL: call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(){{.*}}]
-; DEFAULT-NOT: call spir_func void @__kmpc_spmd_{{.*}}_num_threads
-; NOFRUGAL:    call spir_func void @__kmpc_spmd_push_num_threads(i32 1)
-; NOFRUGAL:    call spir_func void @__kmpc_spmd_pop_num_threads()
+; DEFAULT-NOT: call spir_func void @__kmpc_{{.*}}_spmd_target
+; NOFRUGAL:    call spir_func void @__kmpc_begin_spmd_target()
+; NOFRUGAL:    call spir_func void @__kmpc_end_spmd_target()
 ; ALL:         call void @llvm.directive.region.exit({{.*}}) [ "DIR.OMP.END.TARGET"() ]
 
 ; ALL:         call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(){{.*}}]
-; ALL:         call spir_func void @__kmpc_spmd_push_num_threads(i32 1)
-; ALL:         call spir_func void @__kmpc_spmd_pop_num_threads()
+; ALL:         call spir_func void @__kmpc_begin_spmd_target()
+; ALL:         call spir_func void @__kmpc_end_spmd_target()
 ; ALL:         call void @llvm.directive.region.exit({{.*}}) [ "DIR.OMP.END.TARGET"() ]
 
 ; ALL:         call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(){{.*}}]
-; ALL:         call spir_func void @__kmpc_spmd_push_num_threads(i32 1)
-; ALL:         call spir_func void @__kmpc_spmd_pop_num_threads()
+; ALL:         call spir_func void @__kmpc_begin_spmd_target()
+; ALL:         call spir_func void @__kmpc_end_spmd_target()
 ; ALL:         call void @llvm.directive.region.exit({{.*}}) [ "DIR.OMP.END.TARGET"() ]
 
 ; ALL:         call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(){{.*}}]
-; ALL:         call spir_func void @__kmpc_spmd_push_num_threads(i32 1)
-; ALL:         call spir_func void @__kmpc_spmd_pop_num_threads()
+; ALL:         call spir_func void @__kmpc_begin_spmd_target()
+; ALL:         call spir_func void @__kmpc_end_spmd_target()
 ; ALL:         call void @llvm.directive.region.exit({{.*}}) [ "DIR.OMP.END.TARGET"() ]
 
 

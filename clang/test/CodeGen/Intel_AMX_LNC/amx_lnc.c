@@ -42,21 +42,21 @@ void test_tile_2rpntlvwz1t1(const void *A, size_t B) {
   _tile_2rpntlvwz1t1(1, A, B);
 }
 
-void test_tile_tdpbf16ps()
+void test_tile_tdpbf16ps(void)
 {
   // CHECK-LABEL: @test_tile_tdpbf16ps
   // CHECK: call void @llvm.x86.ttdpbf16ps(i8 1, i8 2, i8 3)
   _tile_tdpbf16ps(1, 2, 3);
 }
 
-void test_tile_tdpfp16ps()
+void test_tile_tdpfp16ps(void)
 {
   // CHECK-LABEL: @test_tile_tdpfp16ps
   // CHECK: call void @llvm.x86.ttdpfp16ps(i8 4, i8 5, i8 6)
   _tile_tdpfp16ps(4, 5, 6);
 }
 
-void test_tile_transposed()
+void test_tile_transposed(void)
 {
   // CHECK-LABEL: @test_tile_transposed
   // CHECK: call void @llvm.x86.ttransposed(i8 1, i8 2)
@@ -75,7 +75,7 @@ void test_tile_mov16zmm(__m512 tsrc1, __m512 tsrc2, __m512 tsrc3, __m512 tsrc4,
               tsrc9, tsrc10, tsrc11, tsrc12, tsrc13, tsrc14, tsrc15, tsrc16);
 }
 
-void test_tile_tilemovrowei() {
+void test_tile_tilemovrowei(void) {
   // CHECK-LABEL: @test_tile_tilemovrowei
   // CHECK: %0 = call <16 x float> @llvm.x86.tilemovei(i8 1, i8 2)
   _tile_tilemovrowei(1, 2);

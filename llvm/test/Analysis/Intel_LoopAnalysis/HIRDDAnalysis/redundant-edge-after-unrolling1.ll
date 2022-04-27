@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-post-vec-complete-unroll -hir-dd-analysis -analyze -hir-dd-analysis-verify=Region 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-post-vec-complete-unroll -hir-dd-analysis -analyze -enable-new-pm=0 -hir-dd-analysis-verify=Region 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-post-vec-complete-unroll,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region 2>&1 | FileCheck %s
 
 ; Verify that we do not create redundant flow edge for %0 from <4> to <22>

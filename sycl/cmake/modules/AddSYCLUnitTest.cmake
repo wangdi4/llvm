@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 # add_sycl_unittest(test_dirname SHARED|OBJECT file1.cpp, file2.cpp ...)
 #
 # Will compile the list of files together and link against SYCL.
@@ -49,6 +66,28 @@ macro(add_sycl_unittest test_dirname link_variant)
   else()
     set(TESTING_SUPPORT_LIB LLVMTestingSupport)
   endif()
+
+  if (SYCL_ENABLE_COVERAGE)
+    target_compile_options(${test_dirname} PUBLIC
+      -fprofile-instr-generate -fcoverage-mapping
+    )
+    target_link_options(${test_dirname} PUBLIC
+      -fprofile-instr-generate -fcoverage-mapping
+    )
+  endif()
+
+  add_custom_target(check-sycl-${test_dirname}
+    ${CMAKE_COMMAND} -E env
+    LLVM_PROFILE_FILE="${SYCL_COVERAGE_PATH}/${test_dirname}.profraw"
+    env SYCL_CONFIG_FILE_NAME=null.cfg
+    env SYCL_DEVICELIB_NO_FALLBACK=1
+    env SYCL_CACHE_DIR="${CMAKE_BINARY_DIR}/sycl_cache"
+    ${CMAKE_CURRENT_BINARY_DIR}/${test_dirname}
+    DEPENDS
+    ${test_dirname}
+  )
+
+  add_dependencies(check-sycl-unittests check-sycl-${test_dirname})
 
   target_link_libraries(${test_dirname}
     PRIVATE

@@ -1,5 +1,9 @@
-; RUN: opt -vplan-vec -S < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -S < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -vplan-vec -S < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -S < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -S < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
+; RUN: opt -passes='vplan-vec' -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,print<hir>,hir-vplan-vec,hir-cg' -S < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,print<hir>,hir-vplan-vec,hir-cg' -S < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 ;
 ; VPlan vectorizers are currently not setup to deal with reductions/inductions
 ; on vector types. For now, bail out for such cases. Test checks that it does
@@ -18,11 +22,11 @@ entry:
   %in = load <4 x i64>, <4 x i64>* %0, align 32
   br label %for.ph
 
-for.ph:
+for.ph:                                           ; preds = %entry
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
   br label %for.body
 
-for.body:
+for.body:                                         ; preds = %for.body, %for.ph
   %in.addr.07 = phi <4 x i64> [ %in, %for.ph ], [ %add, %for.body ]
   %l1.06 = phi i64 [ 0, %for.ph ], [ %inc, %for.body ]
   %mul = shl nsw i64 %l1.06, 2
@@ -34,9 +38,10 @@ for.body:
   %exitcond.not = icmp eq i64 %inc, 100
   br i1 %exitcond.not, label %for.end, label %for.body
 
-for.end:
+for.end:                                          ; preds = %for.body
+  %add.lcssa = phi <4 x i64> [ %add, %for.body ]
   call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
-  ret <4 x i64> %add
+  ret <4 x i64> %add.lcssa
 }
 
 declare token @llvm.directive.region.entry()

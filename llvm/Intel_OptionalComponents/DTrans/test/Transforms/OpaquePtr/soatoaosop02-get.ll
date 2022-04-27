@@ -1,18 +1,18 @@
 ; RUN: opt < %s -whole-program-assume -disable-output \
 ; RUN:      -debug-only=dtrans-soatoaosop-deps \
-; RUN:      -passes='require<dtrans-safetyanalyzer>,function(require<soatoaosop-approx>)' \
+; RUN:      -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>' \
 ; RUN:      2>&1 | FileCheck --check-prefix=CHECK-TY %s
 ; RUN: opt < %s -whole-program-assume -disable-output \
 ; RUN:      -debug-only=dtrans-soatoaosop-deps \
-; RUN:      -passes='require<dtrans-safetyanalyzer>,function(require<soatoaosop-approx>)' \
+; RUN:      -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>' \
 ; RUN:      2>&1 | FileCheck --check-prefix=CHECK-WF %s
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -disable-output \
 ; RUN:      -debug-only=dtrans-soatoaosop-deps \
-; RUN:      -passes='require<dtrans-safetyanalyzer>,function(require<soatoaosop-approx>)' \
+; RUN:      -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>' \
 ; RUN:      2>&1 | FileCheck --check-prefix=CHECK-OP %s
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -disable-output \
 ; RUN:      -debug-only=dtrans-soatoaosop-deps \
-; RUN:      -passes='require<dtrans-safetyanalyzer>,function(require<soatoaosop-approx>)' \
+; RUN:      -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>' \
 ; RUN:      2>&1 | FileCheck --check-prefix=CHECK-WF %s
 ; REQUIRES: asserts
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -1,4 +1,21 @@
 //===-- X86InstrAVX512.td - AVX512 Instruction Set ---------*- tablegen -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -5331,7 +5348,7 @@ defm VPMULHUW : avx512_binop_rm_vl_w<0xE4, "vpmulhuw", mulhu, SchedWriteVecIMul,
                                      HasBWI, 1>;
 defm VPMULHRSW : avx512_binop_rm_vl_w<0x0B, "vpmulhrsw", X86mulhrs,
                                       SchedWriteVecIMul, HasBWI, 1>, T8PD;
-defm VPAVG : avx512_binop_rm_vl_bw<0xE0, 0xE3, "vpavg", X86avg,
+defm VPAVG : avx512_binop_rm_vl_bw<0xE0, 0xE3, "vpavg", avgceilu,
                                    SchedWriteVecALU, HasBWI, 1>;
 defm VPMULDQ : avx512_binop_rm_vl_q<0x28, "vpmuldq", X86pmuldq,
                                     SchedWriteVecIMul, HasAVX512, 1>, T8PD;
@@ -14162,7 +14179,7 @@ defm VDPPHPS : avx512_vdpd_common<0x52, "vdpphps",
                            SchedWriteCvtPD2PS, // FIXME: Using SchedWriteCvtPD2PS is a workaround.
                            X86vdpphps, X86vdpphpsRnd, avx512vl_f32_info>, T8PS;
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 let Constraints = "$src1 = $dst" in
 multiclass avx512_vpdpb_rmb<bits<8> Op, string OpStr, SDNode OpNode,
                     X86FoldableSchedWrite sched, X86VectorVTInfo VTI,
@@ -14193,10 +14210,10 @@ multiclass avx512_vpdpb_rmb<bits<8> Op, string OpStr, SDNode OpNode,
 
 multiclass avx512_vpdpb_common<bits<8> Op, string OpStr, X86SchedWriteWidths sched,
                                SDNode OpNode, bit IsCommutable = 0> {
-  let Predicates = [HasAVX512DOTPRODINT8] in
+  let Predicates = [HasAVX512VNNIINT8] in
   defm Z      :   avx512_vpdpb_rmb<Op, OpStr, OpNode, sched.ZMM, v16i32_info,
                                    IsCommutable>,  EVEX_V512;
-  let Predicates = [HasAVX512DOTPRODINT8, HasVLX] in {
+  let Predicates = [HasAVX512VNNIINT8, HasVLX] in {
     defm Z256 :   avx512_vpdpb_rmb<Op, OpStr, OpNode, sched.YMM, v8i32x_info,
                                    IsCommutable>, EVEX_V256;
     defm Z128 :   avx512_vpdpb_rmb<Op, OpStr, OpNode, sched.XMM, v4i32x_info,
@@ -14215,7 +14232,7 @@ defm VPDPBSUDS : avx512_vpdpb_common<0x51, "vpdpbsuds",SchedWriteVecIMul, X86vpd
 defm VPDPBUUD  : avx512_vpdpb_common<0x50, "vpdpbuud", SchedWriteVecIMul, X86vpdpbuud, 1>, T8PS;
 
 defm VPDPBUUDS : avx512_vpdpb_common<0x51, "vpdpbuuds", SchedWriteVecIMul, X86vpdpbuuds, 1>, T8PS;
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION

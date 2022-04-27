@@ -100,6 +100,7 @@ private:
                                    uint64_t NewTripCount,
                                    const RegDDRef *NewTCRef,
                                    const bool HasRuntimeCheck,
+                                   bool NeedZeroTripCheck,
                                    const ProfInfo *Prof);
 
   /// \brief Update CE for stripmined Loops
@@ -213,6 +214,11 @@ public:
                               FieldModRefResult *FieldModRef = nullptr,
 #endif // INTEL_FEATURE_SW_DTRANS
                               bool IgnoreIVs = false);
+
+  /// Adjust trip count estimates for given loop by taking into account
+  /// the loop unroll or vectorization factor.
+  static void adjustTCEstimatesForUnrollOrVecFactor(HLLoop *NewLoop,
+                                                    unsigned UnrollOrVecFactor);
 
   /// This function creates and returns a new loop that will be used as the
   /// main loop for unrolling or vectorization(current clients). The bounds
@@ -465,14 +471,6 @@ public:
   ///
   static bool doSpecialSinkForPerfectLoopnest(HLLoop *OuterLp, HLLoop *InnerLp,
                                               HIRDDAnalysis &HDDA);
-
-  /// Create an If statement with predicate of Loop's ztt condition.
-  static HLIf *createZttIf(const HLLoop *Loop, bool IsSigned);
-
-  /// Create an HLIf with predicate of \p Loop's ztt and add it
-  /// around \p Loop. The caller should make sure if such
-  /// explicit if is needed.
-  static void addExplicitZttIf(HLLoop *Loop);
 };
 
 } // End namespace loopopt

@@ -1,4 +1,21 @@
 //===-- llvm/Target/TargetMachine.h - Target Information --------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -18,7 +35,6 @@
 #include "llvm/ADT/Triple.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Pass.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/PGOOptions.h"
@@ -30,8 +46,6 @@
 namespace llvm {
 
 class AAManager;
-template <typename IRUnitT, typename AnalysisManagerT, typename... ExtraArgTs>
-class PassManager;
 using ModulePassManager = PassManager<Module>;
 
 class Function;
@@ -264,7 +278,13 @@ public:
   void setIntelLibIRCAllowed(bool Value) {
     Options.IntelLibIRCAllowed = Value;
   }
+
+  void setIntelABICompatible(bool Value) {
+    Options.IntelABICompatible = Value;
+  }
 #endif // INTEL_CUSTOMIZATION
+
+  void setCFIFixup(bool Enable) { Options.EnableCFIFixup = Enable; }
 
   bool getAIXExtendedAltivecABI() const {
     return Options.EnableAIXExtendedAltivecABI;
@@ -343,13 +363,13 @@ public:
   /// This is used to construct the new pass manager's target IR analysis pass,
   /// set up appropriately for this target machine. Even the old pass manager
   /// uses this to answer queries about the IR.
-  TargetIRAnalysis getTargetIRAnalysis();
+  TargetIRAnalysis getTargetIRAnalysis() const;
 
   /// Return a TargetTransformInfo for a given function.
   ///
   /// The returned TargetTransformInfo is specialized to the subtarget
   /// corresponding to \p F.
-  virtual TargetTransformInfo getTargetTransformInfo(const Function &F);
+  virtual TargetTransformInfo getTargetTransformInfo(const Function &F) const;
 
   /// Allow the target to modify the pass manager, e.g. by calling
   /// PassManagerBuilder::addExtension.
@@ -423,7 +443,7 @@ public:
   ///
   /// The TTI returned uses the common code generator to answer queries about
   /// the IR.
-  TargetTransformInfo getTargetTransformInfo(const Function &F) override;
+  TargetTransformInfo getTargetTransformInfo(const Function &F) const override;
 
   /// Create a pass configuration object to be used by addPassToEmitX methods
   /// for generating a pipeline of CodeGen passes.

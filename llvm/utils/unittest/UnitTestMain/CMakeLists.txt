@@ -1,8 +1,8 @@
-add_llvm_library(gtest_main
+add_llvm_library(llvm_gtest_main
   TestMain.cpp
 
   LINK_LIBS
-  gtest
+  llvm_gtest
 
   LINK_COMPONENTS
   Support # Depends on llvm::cl
@@ -13,11 +13,11 @@ add_llvm_library(gtest_main
 
 # INTEL_CUSTOMIZATION
 if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
-    add_llvm_library(gtest_main_stdcpp
+    add_llvm_library(llvm_gtest_main_stdcpp
     TestMain.cpp
 
     LINK_LIBS
-    gtest_stdcpp
+    llvm_gtest_stdcpp
 
     LINK_COMPONENTS
     Support_stdcpp # Depends on llvm::cl
@@ -35,11 +35,11 @@ if (WIN32)
     else()
       set(_STL_LIB "/MD")
     endif()
-    add_llvm_library(gtest_main_dyn
+    add_llvm_library(llvm_gtest_main_dyn
     TestMain.cpp
 
     LINK_LIBS
-    gtest_dyn
+    llvm_gtest_dyn
 
     LINK_COMPONENTS
     Support_dyn # Depends on llvm::cl

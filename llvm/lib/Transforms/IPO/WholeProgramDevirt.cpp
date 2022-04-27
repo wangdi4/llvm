@@ -1,4 +1,21 @@
 //===- WholeProgramDevirt.cpp - Whole program virtual call optimization ---===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -57,6 +74,7 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AssumptionCache.h"
@@ -83,6 +101,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ModuleSummaryIndexYAML.h"
@@ -104,6 +123,7 @@
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/CallPromotionUtils.h"
 #include "llvm/Transforms/Utils/Evaluator.h"
 #include <algorithm>
 #include <cstddef>
@@ -120,6 +140,15 @@ using namespace llvm::llvm_intel_wp_analysis;
 using namespace wholeprogramdevirt;
 
 #define DEBUG_TYPE "wholeprogramdevirt"
+
+STATISTIC(NumDevirtTargets, "Number of whole program devirtualization targets");
+STATISTIC(NumSingleImpl, "Number of single implementation devirtualizations");
+STATISTIC(NumBranchFunnel, "Number of branch funnels");
+STATISTIC(NumUniformRetVal, "Number of uniform return value optimizations");
+STATISTIC(NumUniqueRetVal, "Number of unique return value optimizations");
+STATISTIC(NumVirtConstProp1Bit,
+          "Number of 1 bit virtual constant propagations");
+STATISTIC(NumVirtConstProp, "Number of virtual constant propagations");
 
 static cl::opt<PassSummaryAction> ClSummaryAction(
     "wholeprogramdevirt-summary-action",
@@ -177,13 +206,19 @@ static cl::list<std::string>
                       cl::desc("Prevent function(s) from being devirtualized"),
                       cl::Hidden, cl::ZeroOrMore, cl::CommaSeparated);
 
-/// Mechanism to add runtime checking of devirtualization decisions, trapping on
-/// any that are not correct. Useful for debugging undefined behavior leading to
-/// failures with WPD.
-static cl::opt<bool>
-    CheckDevirt("wholeprogramdevirt-check", cl::init(false), cl::Hidden,
-                cl::ZeroOrMore,
-                cl::desc("Add code to trap on incorrect devirtualizations"));
+/// Mechanism to add runtime checking of devirtualization decisions, optionally
+/// trapping or falling back to indirect call on any that are not correct.
+/// Trapping mode is useful for debugging undefined behavior leading to failures
+/// with WPD. Fallback mode is useful for ensuring safety when whole program
+/// visibility may be compromised.
+enum WPDCheckMode { None, Trap, Fallback };
+static cl::opt<WPDCheckMode> DevirtCheckMode(
+    "wholeprogramdevirt-check", cl::Hidden, cl::ZeroOrMore,
+    cl::desc("Type of checking for incorrect devirtualizations"),
+    cl::values(clEnumValN(WPDCheckMode::None, "none", "No checking"),
+               clEnumValN(WPDCheckMode::Trap, "trap", "Trap when incorrect"),
+               clEnumValN(WPDCheckMode::Fallback, "fallback",
+                          "Fallback to indirect when incorrect")));
 
 namespace {
 struct PatternList {
@@ -998,13 +1033,14 @@ void updateVCallVisibilityInIndex(
   if (!hasWholeProgramVisibility(WholeProgramVisibilityEnabledInLTO))
     return;
   for (auto &P : Index) {
+    // Don't upgrade the visibility for symbols exported to the dynamic
+    // linker, as we have no information on their eventual use.
+    if (DynamicExportSymbols.count(P.first))
+      continue;
     for (auto &S : P.second.SummaryList) {
       auto *GVar = dyn_cast<GlobalVarSummary>(S.get());
       if (!GVar ||
-          GVar->getVCallVisibility() != GlobalObject::VCallVisibilityPublic ||
-          // Don't upgrade the visibility for symbols exported to the dynamic
-          // linker, as we have no information on their eventual use.
-          DynamicExportSymbols.count(P.first))
+          GVar->getVCallVisibility() != GlobalObject::VCallVisibilityPublic)
         continue;
       GVar->setVCallVisibility(GlobalObject::VCallVisibilityLinkageUnit);
     }
@@ -1106,7 +1142,7 @@ bool DevirtModule::runForTesting(
     if (StringRef(ClWriteSummary).endswith(".bc")) {
       raw_fd_ostream OS(ClWriteSummary, EC, sys::fs::OF_None);
       ExitOnErr(errorCodeToError(EC));
-      WriteIndexToFile(*Summary, OS);
+      writeIndexToFile(*Summary, OS);
     } else {
       raw_fd_ostream OS(ClWriteSummary, EC, sys::fs::OF_TextWithCRLF);
       ExitOnErr(errorCodeToError(EC));
@@ -1160,7 +1196,7 @@ bool DevirtModule::runForTesting(
     if (StringRef(ClWriteSummary).endswith(".bc")) {
       raw_fd_ostream OS(ClWriteSummary, EC, sys::fs::OF_None);
       ExitOnErr(errorCodeToError(EC));
-      WriteIndexToFile(*Summary, OS);
+      writeIndexToFile(*Summary, OS);
     } else {
       raw_fd_ostream OS(ClWriteSummary, EC, sys::fs::OF_TextWithCRLF);
       ExitOnErr(errorCodeToError(EC));
@@ -1344,16 +1380,17 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
           dyn_cast<Function>(TheFn), VCallSite.CB.getCaller())) {
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+      NumSingleImpl++;
       auto &CB = VCallSite.CB;
       assert(!CB.getCalledFunction() && "devirtualizing direct call?");
       IRBuilder<> Builder(&CB);
       Value *Callee =
           Builder.CreateBitCast(TheFn, CB.getCalledOperand()->getType());
 
-      // If checking is enabled, add support to compare the virtual function
-      // pointer to the devirtualized target. In case of a mismatch, perform a
-      // debug trap.
-      if (CheckDevirt) {
+      // If trap checking is enabled, add support to compare the virtual
+      // function pointer to the devirtualized target. In case of a mismatch,
+      // perform a debug trap.
+      if (DevirtCheckMode == WPDCheckMode::Trap) {
         auto *Cond = Builder.CreateICmpNE(CB.getCalledOperand(), Callee);
         Instruction *ThenTerm =
             SplitBlockAndInsertIfThen(Cond, &CB, /*Unreachable=*/false);
@@ -1363,8 +1400,38 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
         CallTrap->setDebugLoc(CB.getDebugLoc());
       }
 
-      // Devirtualize.
-      CB.setCalledOperand(Callee);
+      // If fallback checking is enabled, add support to compare the virtual
+      // function pointer to the devirtualized target. In case of a mismatch,
+      // fall back to indirect call.
+      if (DevirtCheckMode == WPDCheckMode::Fallback) {
+        MDNode *Weights =
+            MDBuilder(M.getContext()).createBranchWeights((1U << 20) - 1, 1);
+        // Version the indirect call site. If the called value is equal to the
+        // given callee, 'NewInst' will be executed, otherwise the original call
+        // site will be executed.
+        CallBase &NewInst = versionCallSite(CB, Callee, Weights);
+        NewInst.setCalledOperand(Callee);
+        // Since the new call site is direct, we must clear metadata that
+        // is only appropriate for indirect calls. This includes !prof and
+        // !callees metadata.
+        NewInst.setMetadata(LLVMContext::MD_prof, nullptr);
+        NewInst.setMetadata(LLVMContext::MD_callees, nullptr);
+        // Additionally, we should remove them from the fallback indirect call,
+        // so that we don't attempt to perform indirect call promotion later.
+        CB.setMetadata(LLVMContext::MD_prof, nullptr);
+        CB.setMetadata(LLVMContext::MD_callees, nullptr);
+      }
+
+      // In either trapping or non-checking mode, devirtualize original call.
+      else {
+        // Devirtualize unconditionally.
+        CB.setCalledOperand(Callee);
+        // Since the call site is now direct, we must clear metadata that
+        // is only appropriate for indirect calls. This includes !prof and
+        // !callees metadata.
+        CB.setMetadata(LLVMContext::MD_prof, nullptr);
+        CB.setMetadata(LLVMContext::MD_callees, nullptr);
+      }
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -1433,7 +1500,7 @@ bool DevirtModule::trySingleImplDevirt(
       return false;
 
   // If so, update each call site to call that implementation directly.
-  if (RemarksEnabled)
+  if (RemarksEnabled || AreStatisticsEnabled())
     TargetsForSlot[0].WasDevirt = true;
 
   bool IsExported = false;
@@ -1504,7 +1571,7 @@ bool DevirtIndex::trySingleImplDevirt(MutableArrayRef<ValueInfo> TargetsForSlot,
       return false;
 
   // Collect functions devirtualized at least for one call site for stats.
-  if (PrintSummaryDevirt)
+  if (PrintSummaryDevirt || AreStatisticsEnabled())
     DevirtTargets.insert(TheFn);
 
   auto &S = TheFn.getSummaryList()[0];
@@ -1610,6 +1677,7 @@ void DevirtModule::applyICallBranchFunnel(VTableSlotInfo &SlotInfo,
           !FSAttr.getValueAsString().contains("+retpoline"))
         continue;
 
+      NumBranchFunnel++;
       if (RemarksEnabled)
         VCallSite.emitRemark("branch-funnel",
                              JT->stripPointerCasts()->getName(), OREGetter);
@@ -1756,6 +1824,7 @@ void DevirtModule::applyUniformRetValOpt(CallSiteInfo &CSInfo, StringRef FnName,
   for (auto Call : CSInfo.CallSites) {
     if (!OptimizedCalls.insert(&Call.CB).second)
       continue;
+    NumUniformRetVal++;
     Call.replaceAndErase(
         "uniform-ret-val", FnName, RemarksEnabled, OREGetter,
         ConstantInt::get(cast<IntegerType>(Call.CB.getType()), TheRetVal));
@@ -1779,7 +1848,7 @@ bool DevirtModule::tryUniformRetValOpt(
   }
 
   applyUniformRetValOpt(CSInfo, TargetsForSlot[0].Fn->getName(), TheRetVal);
-  if (RemarksEnabled)
+  if (RemarksEnabled || AreStatisticsEnabled())
     for (auto &&Target : TargetsForSlot)
       Target.WasDevirt = true;
   return true;
@@ -1872,6 +1941,7 @@ void DevirtModule::applyUniqueRetValOpt(CallSiteInfo &CSInfo, StringRef FnName,
         B.CreateICmp(IsOne ? ICmpInst::ICMP_EQ : ICmpInst::ICMP_NE, Call.VTable,
                      B.CreateBitCast(UniqueMemberAddr, Call.VTable->getType()));
     Cmp = B.CreateZExt(Cmp, Call.CB.getType());
+    NumUniqueRetVal++;
     Call.replaceAndErase("unique-ret-val", FnName, RemarksEnabled, OREGetter,
                          Cmp);
   }
@@ -1916,7 +1986,7 @@ bool DevirtModule::tryUniqueRetValOpt(
                          UniqueMemberAddr);
 
     // Update devirtualization statistics for targets.
-    if (RemarksEnabled)
+    if (RemarksEnabled || AreStatisticsEnabled())
       for (auto &&Target : TargetsForSlot)
         Target.WasDevirt = true;
 
@@ -1945,11 +2015,13 @@ void DevirtModule::applyVirtualConstProp(CallSiteInfo &CSInfo, StringRef FnName,
       Value *Bits = B.CreateLoad(Int8Ty, Addr);
       Value *BitsAndBit = B.CreateAnd(Bits, Bit);
       auto IsBitSet = B.CreateICmpNE(BitsAndBit, ConstantInt::get(Int8Ty, 0));
+      NumVirtConstProp1Bit++;
       Call.replaceAndErase("virtual-const-prop-1-bit", FnName, RemarksEnabled,
                            OREGetter, IsBitSet);
     } else {
       Value *ValAddr = B.CreateBitCast(Addr, RetType->getPointerTo());
       Value *Val = B.CreateLoad(RetType, ValAddr);
+      NumVirtConstProp++;
       Call.replaceAndErase("virtual-const-prop", FnName, RemarksEnabled,
                            OREGetter, Val);
     }
@@ -1981,7 +2053,7 @@ bool DevirtModule::tryVirtualConstProp(
   for (VirtualCallTarget &Target : TargetsForSlot) {
     if (Target.Fn->isDeclaration() ||
         computeFunctionBodyMemoryAccess(*Target.Fn, AARGetter(*Target.Fn)) !=
-            MAK_ReadNone ||
+            FMRB_DoesNotAccessMemory ||
         Target.Fn->arg_empty() || !Target.Fn->arg_begin()->use_empty() ||
         Target.Fn->getReturnType() != RetType)
       return false;
@@ -2035,7 +2107,7 @@ bool DevirtModule::tryVirtualConstProp(
       setAfterReturnValues(TargetsForSlot, AllocAfter, BitWidth, OffsetByte,
                            OffsetBit);
 
-    if (RemarksEnabled)
+    if (RemarksEnabled || AreStatisticsEnabled())
       for (auto &&Target : TargetsForSlot)
         Target.WasDevirt = true;
 
@@ -2585,7 +2657,7 @@ bool DevirtModule::run() {
       }
 
       // Collect functions devirtualized at least for one call site for stats.
-      if (RemarksEnabled)
+      if (RemarksEnabled || AreStatisticsEnabled())
         for (const auto &T : TargetsForSlot)
           if (T.WasDevirt)
             DevirtTargets[std::string(T.Fn->getName())] = T.Fn;
@@ -2617,6 +2689,8 @@ bool DevirtModule::run() {
                         << NV("FunctionName", DT.first));
     }
   }
+
+  NumDevirtTargets += DevirtTargets.size();
 
   removeRedundantTypeTests();
 
@@ -2715,4 +2789,6 @@ void DevirtIndex::run() {
   if (PrintSummaryDevirt)
     for (const auto &DT : DevirtTargets)
       errs() << "Devirtualized call to " << DT << "\n";
+
+  NumDevirtTargets += DevirtTargets.size();
 }

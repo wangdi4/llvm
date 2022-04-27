@@ -17,8 +17,8 @@
 
 ; Test also verifies that BlockSize heuristic fails.
 ;
-; RUN: opt < %s -dtrans-memmanagetrans -enable-dtrans-memmanagetrans -dtrans-memmanage-ignore-soa-heur=true -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetrans -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes=dtrans-memmanagetrans -enable-dtrans-memmanagetrans -dtrans-memmanage-ignore-soa-heur=true -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetrans -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -dtrans-memmanagetrans -dtrans-memmanage-ignore-soa-heur=true -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetrans -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=dtrans-memmanagetrans -dtrans-memmanage-ignore-soa-heur=true -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetrans -disable-output 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
 

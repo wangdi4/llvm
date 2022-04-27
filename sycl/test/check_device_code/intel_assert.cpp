@@ -1,5 +1,5 @@
-// RUN: %clangxx -fsycl-device-only -Xclang -emit-llvm %s -o - | FileCheck %s
-// RUN: %clangxx -c %fsycl-host-only -Xclang -emit-llvm %s -o - | FileCheck %s -check-prefix CHECK-HOST
+// RUN: %clangxx -fsycl-device-only -Xclang -emit-llvm -Xclang -no-enable-noundef-analysis %s -o - | FileCheck %s
+// RUN: %clangxx -c %fsycl-host-only -Xclang -emit-llvm -Xclang -no-enable-noundef-analysis %s -o - | FileCheck %s -check-prefix CHECK-HOST
 // REQUIRES: linux
 
 #include <CL/sycl.hpp>

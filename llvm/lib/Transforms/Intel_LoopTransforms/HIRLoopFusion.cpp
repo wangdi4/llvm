@@ -208,8 +208,8 @@ bool HIRLoopFusion::generatePreOrPostLoops(HLNode *AnchorNode,
     NewLoop->removeLoopMetadata("llvm.loop.intel.loopcount_minimum");
     NewLoop->removeLoopMetadata("llvm.loop.intel.loopcount_average");
 
-    // Peeled loop after fusion
-    ORBuilder(*NewLoop).addOrigin("Peeled");
+    // Peeled loop for fusion
+    ORBuilder(*NewLoop).addOrigin(25586u);
     NewLoop->setLowerDDRef(LowerDDRef);
     NewLoop->setUpperDDRef(UpperDDRef);
 

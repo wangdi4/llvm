@@ -1,6 +1,6 @@
 //===----------------- DTransCommon.cpp - Shared DTrans code --------------===//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -69,6 +69,8 @@ static cl::opt<bool> EnableDeleteFields("enable-dtrans-deletefield",
 //   <passname> -> dump before/after specific pass
 enum DumpModuleDTransValues {
   early,
+  deadmdremover,
+  normalize,
   resolvetypes,
   transpose,
   commutecond,
@@ -88,6 +90,8 @@ enum DumpModuleDTransValues {
 };
 
 static const char *DumpModuleDTransNames[] = {"Early",
+                                              "DeadMDRemover",
+                                              "Normalize",
                                               "ResolveTypes",
                                               "Transpose",
                                               "CommuteCond",
@@ -111,6 +115,9 @@ static cl::list<DumpModuleDTransValues> DumpModuleBeforeDTrans(
     cl::desc("Dumps LLVM module to dbgs() before DTRANS transformation"),
     cl::values(
         clEnumVal(early, "Dump LLVM Module before early DTRANS passes"),
+        clEnumVal(deadmdremover,
+                  "Dump LLVM Module before removing dead DTrans MD"),
+        clEnumVal(normalize, "Dump LLVM Module before normalizing for DTrans"),
         clEnumVal(resolvetypes, "Dump LLVM Module before ResolveTypes pass"),
         clEnumVal(transpose, "Dump LLVM Module before Transpose pass"),
         clEnumVal(commutecond,
@@ -144,6 +151,9 @@ static cl::list<DumpModuleDTransValues> DumpModuleAfterDTrans(
     cl::desc("Dumps LLVM module to dbgs() after DTRANS transformation"),
     cl::values(
         clEnumVal(early, "Dump LLVM Module after early DTRANS passes"),
+        clEnumVal(deadmdremover,
+                  "Dump LLVM Module after removing dead DTrans MD"),
+        clEnumVal(normalize, "Dump LLVM Module after normalizing for DTrans"),
         clEnumVal(resolvetypes, "Dump LLVM Module after ResolveTypes pass"),
         clEnumVal(transpose, "Dump LLVM Module after Transpose pass"),
         clEnumVal(commutecond,
@@ -205,11 +215,13 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializePaddedPtrPropOPWrapperPass(PR);
   initializeDTransResolveTypesWrapperPass(PR);
   initializeDTransSOAToAOSPrepareWrapperPass(PR);
+  initializeDTransSOAToAOSOPPrepareWrapperPass(PR);
   initializeDTransSOAToAOSWrapperPass(PR);
   initializeDTransSOAToAOSOPWrapperPass(PR);
   initializeDTransDeleteFieldWrapperPass(PR);
   initializeDTransDeleteFieldOPWrapperPass(PR);
   initializeDTransReorderFieldsWrapperPass(PR);
+  initializeDTransReorderFieldsOPWrapperPass(PR);
   initializeDTransAOSToSOAWrapperPass(PR);
   initializeDTransAOSToSOAOPWrapperPass(PR);
   initializeDTransEliminateROFieldAccessWrapperPass(PR);
@@ -222,9 +234,15 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransMemInitTrimDownOPWrapperPass(PR);
   initializeDTransMemManageTransWrapperPass(PR);
   initializeDTransCodeAlignWrapperPass(PR);
+  initializeDTransCodeAlignOPWrapperPass(PR);
   initializeDTransTransposeWrapperPass(PR);
   initializeDTransCommuteCondWrapperPass(PR);
   initializeDTransCommuteCondOPWrapperPass(PR);
+  initializeRemoveAllDTransTypeMetadataWrapperPass(PR);
+  initializeRemoveDeadDTransTypeMetadataWrapperPass(PR);
+  initializeDTransForceInlineWrapperPass(PR);
+  initializeDTransForceInlineOPWrapperPass(PR);
+  initializeDTransNormalizeOPWrapperPass(PR);
 
 #if !INTEL_PRODUCT_RELEASE
   initializeDTransOPOptBaseTestWrapperPass(PR);
@@ -282,9 +300,14 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
     addPass(MPM, elimrofieldaccess, dtrans::EliminateROFieldAccessPass());
     addPass(MPM, dynclone, dtrans::DynClonePass());
   } else {
+    addPass(MPM, deadmdremover, dtransOP::RemoveDeadDTransTypeMetadataPass());
+    addPass(MPM, normalize, dtransOP::DTransNormalizeOPPass());
     addPass(MPM, commutecond, dtransOP::CommuteCondOPPass());
     addPass(MPM, meminittrimdown, dtransOP::MemInitTrimDownOPPass());
+    addPass(MPM, soatoaosprepare, dtransOP::SOAToAOSOPPreparePass());
+    addPass(MPM, codealign, dtransOP::CodeAlignPass());
     addPass(MPM, deletefield, dtransOP::DeleteFieldOPPass());
+    addPass(MPM, reorderfields, dtransOP::ReorderFieldsOPPass());
     addPass(MPM, aostosoa, dtransOP::AOSToSOAOPPass());
     addPass(MPM, elimrofieldaccess, dtransOP::EliminateROFieldAccessPass());
     addPass(MPM, dynclone, dtransOP::DynClonePass());
@@ -343,9 +366,14 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
             createDTransEliminateROFieldAccessWrapperPass());
     addPass(PM, dynclone, createDTransDynCloneWrapperPass());
   } else {
+    addPass(PM, deadmdremover, createRemoveDeadDTransTypeMetadataWrapperPass());
+    addPass(PM, normalize, createDTransNormalizeOPWrapperPass());
     addPass(PM, commutecond, createDTransCommuteCondOPWrapperPass());
     addPass(PM, meminittrimdown, createDTransMemInitTrimDownOPWrapperPass());
+    addPass(PM, soatoaosprepare, createDTransSOAToAOSOPPrepareWrapperPass());
+    addPass(PM, codealign, createDTransCodeAlignOPWrapperPass());
     addPass(PM, deletefield, createDTransDeleteFieldOPWrapperPass());
+    addPass(PM, reorderfields, createDTransReorderFieldsOPWrapperPass());
     addPass(PM, aostosoa, createDTransAOSToSOAOPWrapperPass());
     addPass(PM, elimrofieldaccess,
             createDTransEliminateROFieldAccessOPWrapperPass());
@@ -402,6 +430,7 @@ void llvm::createDTransPasses() {
   (void)llvm::createDTransAOSToSOAOPWrapperPass();
   (void)llvm::createDTransAnnotatorCleanerWrapperPass();
   (void)llvm::createDTransReorderFieldsWrapperPass();
+  (void)llvm::createDTransReorderFieldsOPWrapperPass();
   (void)llvm::createDTransPaddedMallocWrapperPass();
   (void)llvm::createDTransPaddedMallocOPWrapperPass();
   (void)llvm::createDTransEliminateROFieldAccessWrapperPass();
@@ -409,6 +438,7 @@ void llvm::createDTransPasses() {
   (void)llvm::createPaddedPtrPropWrapperPass();
   (void)llvm::createPaddedPtrPropOPWrapperPass();
   (void)llvm::createDTransSOAToAOSPrepareWrapperPass();
+  (void)llvm::createDTransSOAToAOSOPPrepareWrapperPass();
   (void)llvm::createDTransSOAToAOSWrapperPass();
   (void)llvm::createDTransSOAToAOSOPWrapperPass();
   (void)llvm::createDTransAnalysisWrapperPass();
@@ -423,9 +453,13 @@ void llvm::createDTransPasses() {
   (void)llvm::createDTransMemInitTrimDownWrapperPass();
   (void)llvm::createDTransMemManageTransWrapperPass();
   (void)llvm::createDTransCodeAlignWrapperPass();
+  (void)llvm::createDTransCodeAlignOPWrapperPass();
   (void)llvm::createDTransTransposeWrapperPass();
   (void)llvm::createDTransCommuteCondWrapperPass();
   (void)llvm::createDTransCommuteCondOPWrapperPass();
+  (void)llvm::createRemoveAllDTransTypeMetadataWrapperPass();
+  (void)llvm::createRemoveDeadDTransTypeMetadataWrapperPass();
+  (void)llvm::createDTransNormalizeOPWrapperPass();
 
 #if !INTEL_PRODUCT_RELEASE
   (void)llvm::createDTransOptBaseTestWrapperPass();

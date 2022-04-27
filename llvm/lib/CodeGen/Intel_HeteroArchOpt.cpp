@@ -9,62 +9,52 @@
 //
 //===----------------------------------------------------------------------===//
 //
+// This pass implements loop level multi version optimization for alderlake.
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/CostModel.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/CodeGen/Passes.h"
-#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/InlineAsm.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicsX86.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "hetero-arch-opt"
 
-// Defines the smallest loop depth in order to
-// apply Hetero Arch Optimization.
+// Defines preferable loop height to clone. If the max height of loop candidate
+// is less than this value, this pass will try to find its ancestor loop with
+// max height equals to this value, or top level loop if its max height is less
+// than this value. Then this pass will try to clone this ancestor loop.
 static cl::opt<uint32_t>
-    HeteroArchLoopDepthThreshold("hetero-arch-loop-depth-threshold",
-                                 cl::init(2), cl::ReallyHidden);
-
-// Defines the biggest basic block number in order to
-// apply Hetero Arch Optimization.
-static cl::opt<uint32_t>
-    HeteroArchBBNumThreshold("hetero-arch-bb-num-threshold", cl::init(1),
-                             cl::ReallyHidden);
-
-// Defines the smallest percentage of gather instruction cost in order to
-// apply Hetero Arch Optimization.
-static cl::opt<uint32_t>
-    HeteroArchGatherCostThreshold("hetero-arch-gather-cost-threshold",
-                                  cl::init(47), cl::ReallyHidden);
-
-// Defines the smallest density of gather instructions in order to
-// apply Hetero Arch Optimization.
-static cl::opt<uint32_t>
-    HeteroArchGatherDensityThreshold("hetero-arch-gather-density-threshold",
-                                     cl::init(8), cl::ReallyHidden);
+    HeteroArchCloneLoopHeightThreshold("hetero-arch-clone-loop-height",
+                                       cl::init(3), cl::ReallyHidden);
 
 namespace {
 
+struct LoopCand {
+  // L is innermost loop which contains CandInsts.
+  Loop *L;
+
+  // Max height of L.
+  unsigned MaxHeight;
+
+  SmallVector<Instruction *, 8> CandInsts;
+
+  LoopCand(Loop *L, unsigned MaxHeight) : L(L), MaxHeight(MaxHeight) {}
+};
+
 class HeteroArchOpt : public FunctionPass {
 public:
-  static char ID; // Pass identification, replacement for typeid
+  static char ID;
 
   HeteroArchOpt() : FunctionPass(ID) {
     initializeHeteroArchOptPass(*PassRegistry::getPassRegistry());
@@ -73,52 +63,39 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
+    AU.addRequired<DominatorTreeWrapperPass>();
     AU.addPreserved<TargetTransformInfoWrapperPass>();
   }
 
   bool runOnFunction(Function &F) override;
 
 private:
-  // An extension of ValueToValueMapTy which is used for cloning function body
-  // (added template to cast cloned value to the original value type). Defining
-  // it here because function-level templates are not allowed.
-  struct Value2CloneMapTy : public ValueToValueMapTy {
-    template <typename T> T *getClone(const T *V) const {
-      auto It = this->find(V);
-      // assert(It != this->end() && "no clone for the given value");
-      if (It == this->end()) {
-        LLVM_DEBUG(dbgs() << "!!!no clone for the given value!!!\n");
-        return nullptr;
-      }
-      return cast<T>(It->second);
-    }
-  };
+  bool optLoop();
 
-  unsigned maxLoopDepth(Loop *L) {
-    unsigned MaxDepth = 0;
-    if (L->isInnermost())
-      return 1;
-    for (auto *SubLoop : *L) {
-      unsigned Depth = maxLoopDepth(SubLoop);
-      if (Depth > MaxDepth)
-        MaxDepth = Depth;
-    }
-    return MaxDepth + 1;
-  }
+  // Populate loop candidates which contains flollowing instructions:
+  // 1. masked_gather intrinsic that won't be scalarized for alderlake.
+  unsigned scanLoopCandidates(Loop *L, SmallVector<LoopCand> &LoopCandidates);
 
-  void processLoop(Loop *L);
-  void createMultiVersion();
-  bool optGather();
+  // Create loop multi version for LoopCandidates in the following steps:
+  // 1. Find appropriate ancestor loops of loop candidates to clone.
+  // 2. Clone loops and insert cpu detection code in preheader.
+  // 3. Optimize candidate instructions in clone loops.
+  bool createLoopMultiVersion(SmallVector<LoopCand> &LoopCandidates);
+
+  // Clone loop L if it is simplify and LCSSA form. The clone loop will be
+  // inserted after the original loop. Cpu core type detection code will be
+  // inserted into preheader to decide which loop should be run.
+  bool cloneLoop(Loop *L, ValueToValueMapTy &VMap);
+
   LoopInfo *LI = nullptr;
+  DominatorTree *DT = nullptr;
   TargetTransformInfo *TTI = nullptr;
-  SmallVector<IntrinsicInst *, 8> CandidateInsts;
   Function *CurFn = nullptr;
 };
 
 } // end anonymous namespace
 
 char HeteroArchOpt::ID = 0;
-
 char &llvm::HeteroArchOptID = HeteroArchOpt::ID;
 
 INITIALIZE_PASS(HeteroArchOpt, DEBUG_TYPE, "Hetero Arch Optimization", false,
@@ -130,8 +107,9 @@ bool HeteroArchOpt::runOnFunction(Function &F) {
   if (skipFunction(F))
     return false;
 
+  // This opt will bloat code.
   if (F.hasOptSize())
-    return false; // This opt will bloat code.
+    return false;
 
   if (!F.hasFnAttribute("target-cpu"))
     return false;
@@ -141,144 +119,187 @@ bool HeteroArchOpt::runOnFunction(Function &F) {
     return false;
 
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   CurFn = &F;
 
-  bool MadeChange = false;
-  if (optGather())
-    MadeChange |= true;
-  return MadeChange;
+  // Dominator tree and loop info is NOT up to date after this optimization.
+  bool Changed = optLoop();
+  return Changed;
 }
 
-bool HeteroArchOpt::optGather() {
+bool HeteroArchOpt::optLoop() {
+  SmallVector<LoopCand> LoopCandidates;
   for (auto *Lp : *LI)
-    processLoop(Lp);
-
-  if (!CandidateInsts.size())
-    return false;
-
-  createMultiVersion();
-  return true;
+    scanLoopCandidates(Lp, LoopCandidates);
+  return createLoopMultiVersion(LoopCandidates);
 }
 
-void HeteroArchOpt::processLoop(Loop *L) {
-  unsigned MaxLD = maxLoopDepth(L);
-  if (MaxLD < HeteroArchLoopDepthThreshold)
-    return;
-  float Factor =
-      std::min((float)4.0, (float)MaxLD / HeteroArchLoopDepthThreshold);
-  std::map<Loop *, SmallSetVector<IntrinsicInst *, 8>> LoopCandidates;
-  // Collect candidates per loop
+unsigned
+HeteroArchOpt::scanLoopCandidates(Loop *L,
+                                  SmallVector<LoopCand> &LoopCandidates) {
+  unsigned MaxHeight = 0;
+  for (Loop *SubLoop : *L)
+    MaxHeight =
+        std::max(scanLoopCandidates(SubLoop, LoopCandidates), MaxHeight);
+  MaxHeight++;
+
   for (BasicBlock *BB : L->blocks()) {
-    BasicBlock::iterator CurInstIterator = BB->begin();
-    while (CurInstIterator != BB->end()) {
-      if (CallInst *CI = dyn_cast<CallInst>(&*CurInstIterator++)) {
-        IntrinsicInst *II = dyn_cast<IntrinsicInst>(CI);
-        if (II && Intrinsic::masked_gather == II->getIntrinsicID()) {
-          if (!TTI->shouldScalarizeMaskedGather(CI)) {
-            Loop *InnermostLoop = LI->getLoopFor(BB);
-            LoopCandidates[InnermostLoop].insert(II);
-          }
-        }
-      }
-    }
-  }
-  // Identify qualified candidates based on heuristics and cost model.
-  for (auto LC : LoopCandidates) {
-    auto LoopDepth = LC.first->getLoopDepth();
-    // only interested in the innermost loop
-    if (LoopDepth < MaxLD)
-      continue;
-    auto NumBB = LC.first->getNumBlocks();
-    if (NumBB > HeteroArchBBNumThreshold)
+    // Skip BB belonging to subloops.
+    if (LI->getLoopFor(BB) != L)
       continue;
 
-    unsigned int TotalCost = 0;
-    unsigned int GatherCost = 0;
-    unsigned int TotalInst = 0;
-    unsigned int GatherInst = LC.second.size();
-    for (BasicBlock *BB : LC.first->blocks()) {
-      for (Instruction &Inst : *BB) {
-        InstructionCost Cost = TTI->getInstructionCost(
-            &Inst, TargetTransformInfo::TCK_RecipThroughput);
-        auto CostVal = Cost.getValue();
-        if (!CostVal) {
-          LLVM_DEBUG(dbgs()
-                     << "Invalid cost for instruction: " << Inst << "\n");
+    LoopCand LC(L, MaxHeight);
+    for (Instruction &I : *BB) {
+      IntrinsicInst *II = dyn_cast<IntrinsicInst>(&I);
+      if (II && II->getIntrinsicID() == Intrinsic::masked_gather &&
+          !TTI->shouldScalarizeMaskedGather(II))
+        LC.CandInsts.push_back(II);
+    }
+
+    if (LC.CandInsts.size())
+      LoopCandidates.push_back(std::move(LC));
+  }
+  return MaxHeight;
+}
+
+bool HeteroArchOpt::createLoopMultiVersion(
+    SmallVector<LoopCand> &LoopCandidates) {
+  // Group ancestor loops belonging to same top level loop.
+  MapVector<Loop *, SmallVector<Loop *>> TopLevelLoop2AncLoops;
+  DenseMap<Loop *, SmallDenseSet<LoopCand *, 2>> AncLoop2Cands;
+  for (auto &LC : LoopCandidates) {
+    // AncLoop is the ancestor of L to be cloned.
+    Loop *AncLoop = LC.L;
+    if (LC.MaxHeight < HeteroArchCloneLoopHeightThreshold) {
+      unsigned RecedeLevel =
+          std::min<unsigned>(HeteroArchCloneLoopHeightThreshold - LC.MaxHeight,
+                             LC.L->getLoopDepth() - 1);
+      while (RecedeLevel--)
+        AncLoop = AncLoop->getParentLoop();
+    }
+    Loop *TopLevelLoop = AncLoop;
+    while (Loop *ParentLoop = TopLevelLoop->getParentLoop())
+      TopLevelLoop = ParentLoop;
+    TopLevelLoop2AncLoops[TopLevelLoop].push_back(AncLoop);
+
+    // At this point, AncLoop2Cands doesn't contain all subloop candidates which
+    // is inside the corresponding ancestor loop. It'll be filled later.
+    AncLoop2Cands[AncLoop].insert(&LC);
+  }
+
+  // Sort it with lower depth comes first.
+  llvm::for_each(TopLevelLoop2AncLoops, [](auto &KV) {
+    llvm::sort(KV.second, [](Loop *A, Loop *B) {
+      return A->getLoopDepth() < B->getLoopDepth();
+    });
+  });
+
+  // Ancestors loops inside top level loops may interleave with each other. This
+  // step remove ancestor loops which are inside another ancestor loop.
+  for (auto &KV : TopLevelLoop2AncLoops) {
+    SmallVector<Loop *> &AncLoops = KV.second;
+    for (unsigned I = 0; I != AncLoops.size(); I++) {
+      unsigned J = I + 1;
+      Loop *UpperLoop = AncLoops[I];
+      for (unsigned K = J, E = AncLoops.size(); K != E; K++) {
+        Loop *LowerLoop = AncLoops[K];
+        if (UpperLoop->contains(LowerLoop)) {
+          // Populate loop candidates of lower loop to upper loop.
+          auto &LowerLoopCands = AncLoop2Cands[LowerLoop];
+          AncLoop2Cands[UpperLoop].insert(LowerLoopCands.begin(),
+                                          LowerLoopCands.end());
+          if (UpperLoop != LowerLoop)
+            AncLoop2Cands.erase(LowerLoop);
+
           continue;
         }
-        LLVM_DEBUG(dbgs() << "Estimated cost: " << *CostVal
-                          << " for instruction: " << Inst << "\n");
-        TotalCost += *CostVal;
-        if (*CostVal)
-          TotalInst++; // only consider instructions resulting in code
-        IntrinsicInst *II = dyn_cast<IntrinsicInst>(&Inst);
-        if (II && LC.second.count(II))
-          GatherCost += *CostVal;
+        AncLoops[J++] = LowerLoop;
+      }
+      AncLoops.truncate(J);
+    }
+  }
+
+  // Clone loops and optimize candidate instructions.
+  bool Changed = false;
+  ValueToValueMapTy VMap;
+  for (auto &KV : TopLevelLoop2AncLoops) {
+    for (Loop *AncLoop : KV.second) {
+      if (!cloneLoop(AncLoop, VMap))
+        continue;
+
+      Changed = true;
+      for (LoopCand *LC : AncLoop2Cands[AncLoop]) {
+        for (Instruction *I : LC->CandInsts) {
+          // Add metadata as scalarize hint for clone gather intrinsics.
+          IntrinsicInst *CloneGather = cast<IntrinsicInst>(VMap[I]);
+          assert(CloneGather->getIntrinsicID() == Intrinsic::masked_gather);
+          CloneGather->setMetadata("hetero.arch.opt.disable.gather",
+                                   MDNode::get(CloneGather->getContext(), {}));
+          assert(TTI->shouldScalarizeMaskedGather(CloneGather));
+        }
       }
     }
-
-    if (GatherCost * Factor * 100 < TotalCost * HeteroArchGatherCostThreshold &&
-        GatherInst * Factor * HeteroArchGatherDensityThreshold < TotalInst)
-      continue;
-
-    LLVM_DEBUG(dbgs() << "\nHetero Arch Opt Candidate in " << CurFn->getName()
-                      << "\nNumBB: " << NumBB << "\tLoopDepth: " << LoopDepth
-                      << "\tTotalCost: " << TotalCost << "\tGatherCost: "
-                      << GatherCost << "\tTotalInst: " << TotalInst
-                      << "\tGatherInst: " << GatherInst << "\n");
-
-    LLVM_DEBUG(for (BasicBlock *BB : LC.first->blocks()) BB->dump());
-
-    for (auto II : LC.second)
-      CandidateInsts.push_back(II);
   }
+  return Changed;
 }
 
-void HeteroArchOpt::createMultiVersion() {
-  LLVM_DEBUG(dbgs() << "Hetero Arch Opt create MultiVersion for function: "
-                    << CurFn->getName() << "\n");
-  // Create a clone of the whole function body.
-  SmallVector<BasicBlock *, 32> OrigBBs;
-  SmallVector<BasicBlock *, 32> CloneBBs;
-  Value2CloneMapTy VMap;
+bool HeteroArchOpt::cloneLoop(Loop *L, ValueToValueMapTy &VMap) {
+  if (!L->isLoopSimplifyForm() || !L->isLCSSAForm(*DT))
+    return false;
 
-  for (auto &BB : *CurFn)
-    OrigBBs.push_back(&BB);
-  for (auto *OBB : OrigBBs) {
-    auto *CBB = CloneBasicBlock(OBB, VMap, ".clone", CurFn);
-    VMap[OBB] = CBB;
-    CloneBBs.push_back(CBB);
+  // Clone all basicblocks belong to loop L and insert clone one after the
+  // original one.
+  ArrayRef<BasicBlock *> OrigBBs = L->getBlocks();
+  SmallVector<BasicBlock *, 32> CloneBBs;
+  auto InsertPoint = (*OrigBBs.rbegin())->getIterator();
+  for (auto RI = OrigBBs.rbegin(), End = OrigBBs.rend(); RI != End; RI++) {
+    BasicBlock *CloneBB = CloneBasicBlock(*RI, VMap, ".clone");
+    CurFn->getBasicBlockList().insertAfter(InsertPoint, CloneBB);
+    VMap[*RI] = CloneBB;
+    CloneBBs.push_back(CloneBB);
   }
   remapInstructionsInBlocks(CloneBBs, VMap);
 
-  // Create a new entry block with branching code which transfers control to
-  // the 'true'/'false' specialization of the function body.
-  auto *OldEntryBB = &CurFn->getEntryBlock();
-  auto *NewEntryBB =
-      BasicBlock::Create(CurFn->getContext(), "entry.new", CurFn, OldEntryBB);
-  IRBuilder<> IRB(NewEntryBB);
-
-  // Create runtime check based on hybrid information enumeration leaf.
+  // Insert cpu core type detection code in preheader.
+  BasicBlock *Preheader = L->getLoopPreheader();
+  assert(Preheader && "Preheader is expected");
+  Preheader->getTerminator()->eraseFromParent();
+  IRBuilder<> IRB(Preheader);
   CallInst *CoreType =
       IRB.CreateIntrinsic(Intrinsic::x86_intel_fast_cpuid_coretype, None, None);
   CoreType->getCalledFunction()->addFnAttr(CurFn->getFnAttribute("target-cpu"));
-
   // 20H is intel atom. 40H is intel core.
   Value *IsCore = IRB.CreateICmpEQ(CoreType, IRB.getInt8(0x40));
+  // Origin loop for core and clone loop for atom.
+  BasicBlock *OrigHeader = L->getHeader();
+  BasicBlock *CloneHeader = cast<BasicBlock>(VMap[OrigHeader]);
+  IRB.CreateCondBr(IsCore, OrigHeader, CloneHeader);
 
-  // True branch for core and False branch for atom.
-  IRB.CreateCondBr(IsCore, OldEntryBB, VMap.getClone(OldEntryBB));
+  // In LCSSA form, all outside users which use loop inside defs is phi node in
+  // exit blocks. We need to add the corresponding clone loop inside defs to
+  // those phi nodes.
+  SmallVector<BasicBlock *> ExitBlocks;
+  L->getUniqueExitBlocks(ExitBlocks);
+  for (BasicBlock *ExitBB : ExitBlocks) {
+    for (PHINode &ExitPHI : ExitBB->phis()) {
+      SmallVector<std::pair<Value *, BasicBlock *>, 4> Incomings;
+      for (unsigned I = 0, E = ExitPHI.getNumIncomingValues(); I != E; I++)
+        Incomings.push_back(std::make_pair(ExitPHI.getIncomingValue(I),
+                                           ExitPHI.getIncomingBlock(I)));
 
-  // Create meta-data for cloned candidate gather instructions (on small core).
-  for (IntrinsicInst *II : CandidateInsts) {
-    auto *Clone = VMap.getClone(II);
-    if (!Clone)
-      continue;
-    Clone->setMetadata("hetero.arch.opt.disable.gather",
-                       MDNode::get(Clone->getContext(), {}));
-    assert(TTI->shouldScalarizeMaskedGather(Clone));
+      // In loop simplify form, all exit blocks are dominated by header.
+      // Therefore incoming basicblock(IBB) must be inside the original loop.
+      // LCSSA gurantee incoming value(IValue) can't come from another clone
+      // loop. This implies if IValue is in VMap, this IValue must be def inside
+      // this loop. Otherwise it must be def outside any clone loop.
+      for (auto &VB : Incomings) {
+        Value *IValue = VB.first, *IBB = VB.second;
+        Value *CloneIValue =
+            VMap.count(IValue) ? cast<Value>(VMap[IValue]) : IValue;
+        ExitPHI.addIncoming(CloneIValue, cast<BasicBlock>(VMap[IBB]));
+      }
+    }
   }
-
-  CandidateInsts.clear();
+  return true;
 }

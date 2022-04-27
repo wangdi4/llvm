@@ -1,4 +1,21 @@
 //===- InlineFunction.cpp - Code to perform function inlining -------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -41,8 +58,8 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -56,6 +73,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/ADT/Triple.h"
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 #include "llvm/IR/IntrinsicsCSA.h"
@@ -710,12 +728,9 @@ static void HandleInlinedEHPad(InvokeInst *II, BasicBlock *FirstNewBlock,
   // edge from this block.
   SmallVector<Value *, 8> UnwindDestPHIValues;
   BasicBlock *InvokeBB = II->getParent();
-  for (Instruction &I : *UnwindDest) {
+  for (PHINode &PHI : UnwindDest->phis()) {
     // Save the value to use for this edge.
-    PHINode *PHI = dyn_cast<PHINode>(&I);
-    if (!PHI)
-      break;
-    UnwindDestPHIValues.push_back(PHI->getIncomingValueForBlock(InvokeBB));
+    UnwindDestPHIValues.push_back(PHI.getIncomingValueForBlock(InvokeBB));
   }
 
   // Add incoming-PHI values to the unwind destination block for the given basic
@@ -1001,8 +1016,9 @@ AddPtrNoAliasLoads(CallBase &CB, const Argument &Arg,
       PtrNoAliasLoads.push_back(Load);
       continue;
     }
-
-    if (isa<GEPOrSubsOperator>(User)) {
+    // CMPLRLLVM-35874: Note that a BitCastOperator is the same as a GEP
+    // when it comes to transmitting a pointer address.
+    if (isa<GEPOrSubsOperator>(User) || isa<BitCastOperator>(User)) {
       Worklist.append(User->user_begin(), User->user_end());
     }
   }
@@ -1356,10 +1372,10 @@ static bool MayContainThrowingOrExitingCall(Instruction *Begin,
 
 static AttrBuilder IdentifyValidAttributes(CallBase &CB) {
 
-  AttrBuilder AB(CB.getAttributes(), AttributeList::ReturnIndex);
-  if (AB.empty())
+  AttrBuilder AB(CB.getContext(), CB.getAttributes().getRetAttrs());
+  if (!AB.hasAttributes())
     return AB;
-  AttrBuilder Valid;
+  AttrBuilder Valid(CB.getContext());
   // Only allow these white listed attributes to be propagated back to the
   // callee. This is because other attributes may only be valid on the call
   // itself, i.e. attributes such as signext and zeroext.
@@ -1379,7 +1395,7 @@ static void AddReturnAttributes(CallBase &CB, ValueToValueMapTy &VMap) {
     return;
 
   AttrBuilder Valid = IdentifyValidAttributes(CB);
-  if (Valid.empty())
+  if (!Valid.hasAttributes())
     return;
   auto *CalledFunction = CB.getCalledFunction();
   auto &Context = CalledFunction->getContext();
@@ -2126,7 +2142,7 @@ inlineRetainOrClaimRVCalls(CallBase &CB, objcarc::ARCInstKind RVCallKind,
   Module *Mod = CB.getModule();
   assert(objcarc::isRetainOrClaimRV(RVCallKind) && "unexpected ARC function");
   bool IsRetainRV = RVCallKind == objcarc::ARCInstKind::RetainRV,
-       IsClaimRV = !IsRetainRV;
+       IsUnsafeClaimRV = !IsRetainRV;
 
   for (auto *RI : Returns) {
     Value *RetOpnd = objcarc::GetRCIdentityRoot(RI->getOperand(0));
@@ -2153,7 +2169,7 @@ inlineRetainOrClaimRVCalls(CallBase &CB, objcarc::ARCInstKind RVCallKind,
         //   and erase the autoreleaseRV call.
         // - If retainRV is attached to the call, just erase the autoreleaseRV
         //   call.
-        if (IsClaimRV) {
+        if (IsUnsafeClaimRV) {
           Builder.SetInsertPoint(II);
           Function *IFn =
               Intrinsic::getDeclaration(Mod, Intrinsic::objc_release);
@@ -2274,6 +2290,13 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
 
   BasicBlock *OrigBB = CB.getParent();
   Function *Caller = OrigBB->getParent();
+
+  // Do not inline strictfp function into non-strictfp one. It would require
+  // conversion of all FP operations in host function to constrained intrinsics.
+  if (CalledFunc->getAttributes().hasFnAttr(Attribute::StrictFP) &&
+      !Caller->getAttributes().hasFnAttr(Attribute::StrictFP)) {
+    return InlineResult::failure("incompatible strictfp attributes");
+  }
 
   // GC poses two hazards to inlining, which only occur when the callee has GC:
   //  1. If the caller has no GC, then the callee's GC must be propagated to the
@@ -2509,6 +2532,12 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
         }
 
         Instruction *NewI = CallBase::Create(ICS, OpDefs, ICS);
+#if INTEL_CUSTOMIZATION
+        if (IR && IR->isClassicIREnabled())
+          IR->updateActiveCallSiteTarget(ICS, NewI);
+        if (MDIR && MDIR->isMDIREnabled())
+          MDIR->updateActiveCallSiteTarget(ICS, NewI);
+#endif // INTEL_CUSTOMIZATION
 
         // Note: the RAUW does the appropriate fixup in VMap, so we need to do
         // this even if the call returns void.
@@ -2664,6 +2693,12 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
           Params.append(VarArgsToForward.begin(), VarArgsToForward.end());
           CallInst *NewCI = CallInst::Create(
               CI->getFunctionType(), CI->getCalledOperand(), Params, "", CI);
+#if INTEL_CUSTOMIZATION
+          if (IR && IR->isClassicIREnabled())
+            IR->updateActiveCallSiteTarget(CI, NewCI);
+          if (MDIR && MDIR->isMDIREnabled())
+            MDIR->updateActiveCallSiteTarget(CI, NewCI);
+#endif // INTEL_CUSTOMIZATION
           NewCI->setDebugLoc(CI->getDebugLoc());
           NewCI->setAttributes(Attrs);
           NewCI->setCallingConv(CI->getCallingConv());
@@ -2842,6 +2877,12 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
         OpBundles.emplace_back("funclet", CallSiteEHPad);
 
         Instruction *NewInst = CallBase::Create(I, OpBundles, I);
+#if INTEL_CUSTOMIZATION
+        if (IR && IR->isClassicIREnabled())
+          IR->updateActiveCallSiteTarget(I, NewInst);
+        if (MDIR && MDIR->isMDIREnabled())
+          MDIR->updateActiveCallSiteTarget(I, NewInst);
+#endif // INTEL_CUSTOMIZATION
         NewInst->takeName(I);
         I->replaceAllUsesWith(NewInst);
         I->eraseFromParent();

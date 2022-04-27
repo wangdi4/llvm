@@ -1,4 +1,777 @@
 # These owners will be the default owners for everything in
 # the repo. Unless a later match takes precedence
-#
-* @intel-restricted/xmain-product-gatekeeper
+
+# COMPONENT: None
+* @intel-restricted/xmain-gatekeeper @vkurkov
+
+# COMPONENT: Architecture
+# JIRA: N/A
+# Core parts of LLVM owned by the architecture group
+/llvm/lib/BinaryFormat/ @andykaylor
+/llvm/lib/Bitcode/ @andykaylor
+/llvm/lib/IR/ @andykaylor
+/llvm/lib/IRReader/ @andykaylor
+/llvm/lib/Option/ @andykaylor
+/llvm/lib/Support/ @andykaylor
+/llvm/include/llvm/ @andykaylor
+/llvm/include/llvm/ADT/ @andykaylor
+/llvm/include/llvm/Analysis/Passes.h @andykaylor
+/llvm/include/llvm/AsmParser/ @andykaylor
+/llvm/include/llvm/BinaryFormat/ @andykaylor
+/llvm/include/llvm/Bitcode/ @andykaylor
+/llvm/include/llvm/Config/ @andykaylor
+/llvm/include/llvm/IR/ @andykaylor
+/llvm/include/llvm/IRReader/ @andykaylor
+/llvm/include/llvm/Option/ @andykaylor
+/llvm/include/llvm/Support/ @andykaylor
+
+# COMPONENT: CFE
+# CFE: Team owns everything in Clang unless otherwise specified.
+/clang/ @ErichKeane @mikerice1969 @aaronballman
+
+# clang-tools-extra (includes clang-tidy)
+/clang-tools-extra/ @aaronballman
+
+# DPC++ Tools
+# /clang/tools/clang-offload-*
+# Temporarily removed @sndmitriev, @AlexeySachkov, @mlychkov
+
+# CFE/OpenMP
+/llvm/include/llvm/Frontend/OpenMP/ @mikerice1969 @jyu2-git @ddpagan
+/llvm/lib/Frontend/OpenMP/ @mikerice1969 @jyu2-git @ddpagan
+/clang/**/*OpenMP* @mikerice1969 @jyu2-git @ddpagan
+
+# COMPONENT: Driver
+# JIRA: CMPLRLLVM->LLVM Driver
+/clang/**/Driver @intel-restricted/cmplrllvm-llvm-driver
+/clang/**/driver @intel-restricted/cmplrllvm-llvm-driver
+
+# COMPONENT: DPC++ RT
+# DPC++ runtime library
+sycl/ @intel-restricted/llvm-reviewers-runtime
+
+# Documentation
+sycl/doc/extensions/ @intel-restricted/llvm-reviewers-runtime
+# CUDA plugin
+sycl/plugins/cuda/ @intel-restricted/llvm-reviewers-runtime
+
+# OpenCL deps
+opencl/ @intel-restricted/llvm-reviewers-runtime
+
+# OpenCL runtime
+opencl-intel/ @intel-restricted/cmplrllvm-ocl-cpu-rt
+
+# Device library
+libdevice/ @intel-restricted/llvm-reviewers-runtime
+
+# COMPONENT: DPC++ ESIMD
+# ESIMD device library
+sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
+# Temporarily removed @sndmitriev
+
+# COMPONENT: CG
+# JIRA: CMPLRLLVM->LLVM Code Generator
+/clang/include/clang/Basic/BuiltinsX86.def @phoebewang
+/clang/include/clang/Basic/BuiltinsX86_64.def @phoebewang
+/clang/lib/Basic/Targets/X86.h @phoebewang
+/clang/lib/Basic/Targets/X86.cpp @phoebewang
+/clang/lib/Headers/ @LuoYuanke @phoebewang @williamweixiao
+/llvm/lib/CodeGen/ @LuoYuanke @phoebewang @williamweixiao
+/llvm/lib/Target/X86/ @LuoYuanke @phoebewang @williamweixiao
+/llvm/lib/MC/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
+/llvm/utils/TableGen/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
+/llvm/utils/intel-add-code-markup.sh @KanRobert @phoebewang
+/llvm/include/llvm/CodeGen/ @LuoYuanke @phoebewang @williamweixiao
+/llvm/include/llvm/IR/IntrinsicsX86.td @phoebewang
+/llvm/include/llvm/MC/ @LuoYuanke @phoebewang @williamweixiao
+/llvm/include/llvm/TableGen/ @LuoYuanke @phoebewang @williamweixiao
+/llvm/include/llvm/Target/TargetSelectionDAG.td @phoebewang
+/llvm/test/Analysis/CostModel/X86/ @HaohaiWen
+/llvm/test/MC/X86/ @LuoYuanke @phoebewang @williamweixiao
+/llvm/test/CodeGen/Generic/ @LuoYuanke @phoebewang @williamweixiao
+/llvm/test/CodeGen/MIR/X86/ @LuoYuanke @phoebewang @williamweixiao
+/llvm/test/CodeGen/X86/ @LuoYuanke @phoebewang @williamweixiao
+/llvm/test/MC/COFF/ @phoebewang
+/llvm/test/MC/Disassembler/X86/ @KanRobert
+/llvm/test/MC/ELF/ @KanRobert
+/llvm/test/TableGen/ @LuoYuanke @phoebewang @williamweixiao
+/llvm/test/Transforms/Intel_Float128Expand/X86/ @yubingex007-a11y
+/llvm/test/Transforms/Intel_FoldLoadsToGather/ @gpei-dev
+/llvm/test/Transforms/Intel_IVSplit/ @williamweixiao
+/llvm/test/tools/llvm-mca/X86/ @HaohaiWen
+/llvm/test/tools/llvm-tli-checker/ @yubingex007-a11y
+/llvm/unittests/BinaryFormat/Intel_TraceTest.cpp @KanRobert
+/llvm/unittests/MC/Intel_MCTraceTest.cpp @KanRobert
+/llvm/lib/BinaryFormat/Intel_Trace.cpp @KanRobert
+/llvm/lib/CodeGen/AsmPrinter/Intel_TraceBackDebug.cpp @KanRobert
+/llvm/lib/MC/Intel_MCTrace.cpp @KanRobert
+
+# COMPONENT: Architecture
+# Pass pipeline creation has multiple stakeholders
+/llvm/lib/Transforms/IPO/PassManagerBuilder.cpp @andykaylor @pankaj-chawla
+/llvm/lib/Passes/ @andykaylor @pankaj-chawla
+/llvm/include/llvm/Passes/ @andykaylor @pankaj-chawla
+/llvm/test/Transforms/PhaseOrdering/ @andykaylor @pankaj-chawla
+/clang/lib/CodeGen/BackendUtil.cpp @andykaylor @pankaj-chawla @LuoYuanke @phoebewang @williamweixiao
+
+# COMPONENT: DGI
+# JIRA: CMPLRLLVM->LLVM Debug Information
+/llvm/include/llvm/IR/Debug* @bwyma @stevemerr
+/llvm/include/llvm/IR/DIBuilder* @bwyma @stevemerr
+/llvm/include/llvm/DebugInfo/CodeView/ @bwyma @stevemerr
+/llvm/include/llvm/DebugInfo/DWARF/ @bwyma @stevemerr
+/llvm/lib/IR/Debug* @bwyma @stevemerr
+/llvm/lib/CodeGen/AsmPrinter/CodeView* @bwyma @stevemerr
+/llvm/lib/CodeGen/AsmPrinter/Dbg* @bwyma @stevemerr
+/llvm/lib/CodeGen/AsmPrinter/DIE* @bwyma @stevemerr
+/llvm/lib/CodeGen/AsmPrinter/Dwarf* @bwyma @stevemerr
+/llvm/lib/CodeGen/AsmPrinter/intel/pdb* @bwyma @stevemerr
+/llvm/lib/CodeGen/AsmPrinter/intel/STI* @bwyma @stevemerr
+/llvm/lib/CodeGen/LiveDebugVariables* @bwyma @stevemerr
+/llvm/lib/DebugInfo/CodeView/ @bwyma @stevemerr
+/llvm/lib/DebugInfo/DWARF/ @bwyma @stevemerr
+/llvm/lib/ObjectYAML/CodeViewYAMLTypes.cpp @bwyma @stevemerr
+/llvm/test/DebugInfo/COFF/ @bwyma @stevemerr
+/llvm/test/DebugInfo/Generic/ @bwyma @stevemerr
+/llvm/test/DebugInfo/X86/ @bwyma @stevemerr
+/llvm/tools/llvm-pdbutil/ @bwyma @stevemerr
+/llvm/unittests/DebugInfo/ @bwyma @stevemerr
+
+# COMPONENT: IPO/PGO
+# JIRA: CMPLRLLVM->LLVM Interprocedural Optimization
+/llvm/docs/Intel/DTrans/ @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/CallGraph.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/CallGraphSCCPass.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/CFLAliasAnalysisUtils.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/CFLAndersAliasAnalysis.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/CFLSteensAliasAnalysis.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/CGSCCPassManager.h  @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/GlobalsModRef.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/IndirectCallPromotionAnalysis.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/InlineAdvisor.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/InlineCost.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/InlineModelFeatureMaps.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/InlineSizeEstimatorAnalysis.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/Intel_Andersens.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/Intel_ArrayUseAnalysis.h  @robertcox-github @pvbattin @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/Intel_DopeVectorAnalysis.h @robertcox-github @pvbattin @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/Intel_InlineCost.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/Intel_IPCloningAnalysis.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/Intel_PartialInlineAnalysis.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/Intel_WP.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/LazyCallGraph.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/ModuleSummaryAnalysis.h  @robertcox-github @pvbattin @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/TargetLibraryInfo.def  @robertcox-github @pvbattin @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/TargetLibraryInfo.h @robertcox-github @pvbattin @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Support/Intel_WP_utils.h @robertcox-github @pvbattin
+/llvm/include/llvm/Support/intel-plugin-api.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/IPO/ @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/IPO/Intel_AutoCPUClone.h @abuyukku
+# Temporarily removed @romanovvlad
+/llvm/include/llvm/Transforms/IPO.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Scalar/Intel_FunctionRecognizer.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Scalar/Intel_IndirectCallConv.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Scalar/Intel_MultiVersioning.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Utils/CallGraphUpdater.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Utils/CallPromotionUtils.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Utils/Cloning.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Utils/CodeExtractor.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Utils/CodeMoverUtils.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Utils/CtorUtils.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Utils/FunctionComparator.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Utils/FunctionImportUtils.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Utils/GlobalStatus.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/Utils/ImportedFunctionsInliningStatistics.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Utils/Intel_CloneUtils.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Utils/Intel_X86EmitMultiVersionResolver.h @abuyukku
+# Temporarily removed @romanovvlad
+/llvm/include/llvm/Transforms/Utils/LibCallsShrinkWrap.h  @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Utils/ModuleUtils.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Utils/SplitModule.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Utils/ValueMapper.h @robertcox-github @pvbattin
+/llvm/Intel_OptionalComponents/DTrans/ @robertcox-github @pvbattin
+/llvm/lib/Analysis/CallGraph.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/CallGraphSCCPass.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/CFLAndersAliasAnalysis.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/CFLGraph.h @robertcox-github @pvbattin
+/llvm/lib/Analysis/CFLSteensAliasAnalysis.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/CGSCCPassManager.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/GlobalsModRef.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/IndirectCallPromotionAnalysis.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/InlineAdvisor.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/InlineCost.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/InlineSizeEstimatorAnalysis.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/Intel_Andersens.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/Intel_ArrayUseAnalysis.cpp @robertcox-github @pvbattin @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/Intel_DopeVectorAnalysis.cpp @robertcox-github @pvbattin @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/Intel_InlineCost.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/Intel_InlineReport @robertcox-github @pvbattin
+/llvm/lib/Analysis/Intel_IPCloningAnalysis.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/Intel_PartialInlineAnalysis.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/Intel_WP.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/LazyCallGraph.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/ModuleSummaryAnalysis.cpp @robertcox-github @pvbattin @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/ReplayInlineAdvisor.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/TargetLibraryInfo.cpp @robertcox-github @pvbattin @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Linker/ @robertcox-github @pvbattin
+/llvm/lib/LTO/ @robertcox-github @pvbattin
+/llvm/lib/Transforms/IPO/ @robertcox-github @pvbattin
+/llvm/lib/Transforms/IPO/Intel_AutoCPUClone.cpp @abuyukku
+# Temporarily removed @romanovvlad
+/llvm/lib/Transforms/Scalar/Intel_FunctionRecognizer.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Scalar/Intel_IndirectCallConv.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Utils/BuildLibCalls.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Utils/CallGraphUpdater.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Utils/CallPromotionUtils.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Utils/CloneModule.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Utils/CloneFunction.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Utils/CodeExtractor.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Utils/CodeMoverUtils.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Utils/CtorUtils.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Utils/FunctionComparator.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Utils/FunctionImportUtils.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Utils/GlobalStatus.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/ImportedFunctionsInliningStatistics.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Utils/InlineFunction.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Utils/Intel_CloneUtils.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Utils/Intel_RegionSplitter.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Utils/Intel_X86EmitMultiVersionResolver.cpp @abuyukku @erichkeane
+# Temporarily removed @romanovvlad
+/llvm/lib/Transforms/Utils/LibCallsShrinkWrap.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Utils/ModuleUtils.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Utils/SplitModule.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Utils/ValueMapper.cpp @robertcox-github @pvbattin
+/lld/COFF/ @robertcox-github @pvbattin
+/lld/ELF/ @robertcox-github @pvbattin
+/lld/test/COFF/ @robertcox-github @pvbattin
+/lld/test/ELF/ @robertcox-github @pvbattin
+/llvm/test/Analysis/CallGraph/ @robertcox-github @pvbattin
+/llvm/test/Analysis/CFLAliasAnalysis/Steensgaard/ @robertcox-github @pvbattin
+/llvm/test/Analysis/GlobalsModRef/ @robertcox-github @pvbattin
+/llvm/test/Analysis/Intel_AndersenAA/ @robertcox-github @pvbattin
+/llvm/test/Analysis/Intel_ArrayUseAnalysis/ @robertcox-github @pvbattin
+/llvm/test/Analysis/Intel_WP/ @robertcox-github @pvbattin
+/llvm/test/Analysis/LazyCallGraph/ @robertcox-github @pvbattin
+/llvm/test/Linker/ @robertcox-github @pvbattin
+/llvm/test/LTO/ @robertcox-github @pvbattin
+/llvm/test/ThinLTO/ @robertcox-github @pvbattin
+/llvm/test/Transforms/ArgumentPromotion/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Attributor/ @robertcox-github @pvbattin
+/llvm/test/Transforms/DeadArgElim/ @robertcox-github @pvbattin
+/llvm/test/Transforms/FunctionAttrs/  @robertcox-github @pvbattin
+/llvm/test/Transforms/FunctionImport/ @robertcox-github @pvbattin
+/llvm/test/Transforms/GlobalOpt/ @robertcox-github @pvbattin
+/llvm/test/Transforms/InferFunctionAttrs/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Inline/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_AdvancedFastCall/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_ArgumentAlignment/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_AutoCPUClone/ @abuyukku
+# Temporarily removed @romanovvlad
+/llvm/test/Transforms/Intel_DeadArrayOpsElimination/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_DopeVectorConstProp/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_DopeVectorHoist/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_FoldWPIntrinsic/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_FunctionRecognizer/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_InlineReport/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_IPArrayTranspose/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_IPCloning/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_IPO/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_IPODeadArgElimination/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_LoopAttrs/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_MultiVersioning/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_QsortRecognition/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Internalize/ @robertcox-github @pvbattin
+/llvm/test/Transforms/PartialInlining/ @robertcox-github @pvbattin
+/llvm/test/Transforms/WholeProgramDevirt/ @robertcox-github @pvbattin
+/llvm/tools/gold/gold-plugin.cpp @robertcox-github @pvbattin
+/llvm/unittests/Analysis/TargetLibraryInfoTest.cpp @robertcox-github @pvbattin
+
+# JIRA: CMPLRLLVM->LLVM Profile Guided Optimization
+/compiler-rt/lib/profile/ @robertcox-github @pvbattin
+/compiler-rt/test/profile/ @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/BlockFrequencyInfo.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/BlockFrequencyInfoImpl.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/BranchProbabilityInfo.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/ProfileSummaryInfo.h @robertcox-github @pvbattin
+/llvm/include/llvm/ProfileData/ @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Instrumentation.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Instrumentation/InstrOrderFile.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Instrumentation/InstrProfiling.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Instrumentation/PGOInstrumentation.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/IPO/HotColdSplitting.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/IPO/SampleProfile.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/IPO/SampleProfileProbe.h @robertcox-github @pvbattin
+/llvm/lib/Analysis/BlockFrequencyInfo.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/BlockFrequencyInfoImpl.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/ProfileSummaryInfo.cpp @robertcox-github @pvbattin
+/llvm/lib/ProfileData/ @robertcox-github @pvbattin
+/llvm/lib/Transforms/Instrumentation/IndirectCallPromotion.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Instrumentation/InstrOrderFile.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Instrumentation/InstrProfiling.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Instrumentation/Instrumentation.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Instrumentation/Intel_FunctionSplitting.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Instrumentation/PGOInstrumentation.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Instrumentation/PGOMemOPSizeOpt.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Instrumentation/ValueProfileCollector.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Instrumentation/ValueProfileCollector.h @robertcox-github @pvbattin
+/llvm/lib/Transforms/Instrumentation/ValueProfilePlugins.inc @robertcox-github @pvbattin
+/llvm/test/Analysis/ProfileSummary/ @robertcox-github @pvbattin
+/llvm/test/Instrumentation/InstrOrderFile/ @robertcox-github @pvbattin
+/llvm/test/Instrumentation/InstrProfiling/ @robertcox-github @pvbattin
+/llvm/test/Instrumentation/Intel_FunctionSplitting/ @robertcox-github @pvbattin
+/llvm/test/Transforms/HotColdSplit/ @robertcox-github @pvbattin
+/llvm/test/Transforms/PGOProfile/ @robertcox-github @pvbattin
+/llvm/tools/llvm-cov/ @robertcox-github @pvbattin
+/llvm/tools/llvm-profdata/ @robertcox-github @pvbattin
+
+# COMPONENT: OpenCL CPU RT
+# JIRA: ???
+/llvm/include/llvm/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
+/llvm/lib/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
+/llvm/test/Transforms/Intel_DPCPPKernelTransforms/ @intel-restricted/cmplrllvm-ocl-cpu-rt
+
+# COMPONENT: Vectorizer
+# JIRA: CMPLRLLVM->LLVM VPO Vectorizer
+/llvm/docs/Intel/VPO/ @sguggill @skozhukh
+/llvm/include/llvm/IR/Intel_VectorVariant.h @mamasten @skozhukh
+/llvm/include/llvm/Transforms/Vectorize/ @sguggill @skozhukh
+/llvm/lib/IR/Intel_VectorVariant.cpp @mamasten @skozhukh
+/llvm/lib/Transforms/Intel_VPO/Vecopt/VPODirectiveCleanup.cpp @sguggill @skozhukh
+/llvm/lib/Transforms/Vectorize/ @sguggill @skozhukh
+/llvm/test/Transforms/Intel_VPO/Vecopt/ @sguggill @skozhukh
+/llvm/test/Transforms/Intel_VPO/Vecopt/optreport/ @karthik-senthil @speryt
+/llvm/test/Transforms/LoopVectorize/ @sguggill @skozhukh
+/llvm/unittests/Analysis/Intel_VectorVariantTest.cpp @sguggill @skozhukh
+/llvm/unittests/Transforms/Vectorize/ @sguggill @skozhukh
+
+# VPO vectorizer file based code owner overrides
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVolcanoOpenCL.h @turinevgeny @sguggill
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanAlignmentAnalysis.cpp @skozhukh @mamasten
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanAlignmentAnalysis.h @skozhukh @mamasten
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanAllZeroBypass.cpp @mamasten @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanAllZeroBypass.h @mamasten @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCallVecDecisions.cpp @karthik-senthil @mamasten
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCallVecDecisions.h @karthik-senthil @mamasten
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCFGMerger.cpp @skozhukh @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCostModel.cpp @offsake @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCostModel.h @offsake @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCostModelHeuristics.cpp @offsake @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCostModelHeuristics.h @offsake @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanDivergenceAnalysis.cpp @mamasten @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanDivergenceAnalysis.h @mamasten @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanEvaluator.cpp @skozhukh @offsake
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanEvaluator.h @skozhukh @offsake
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanFunctionVectorizer.cpp @mamasten @skozhukh @sguggill
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLCSSA.cpp @mamasten @skozhukh @sguggill
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLCSSA.h @mamasten @skozhukh @sguggill
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopCFU.cpp @mamasten @skozhukh @sguggill
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopCFU.h @mamasten @skozhukh @sguggill
+/llvm/test/Transforms/Intel_VPO/Vecopt/loop-cfu/ @mamasten @skozhukh @sguggill
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopExitCanonicalization.cpp @mamasten @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopExitCanonicalization.h @mamasten @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopUnroller.cpp @ivankelarev @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLoopUnroller.h @ivankelarev @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanMaskedModeLoop.cpp @skozhukh @sguggill
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanMaskedModeLoop.h  @skozhukh @sguggill
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanOptrpt.h @karthik-senthil @ivankelarev @speryt @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanOptrpt.cpp @karthik-senthil @ivankelarev @speryt @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanOptrpt.inc @karthik-senthil @ivankelarev @speryt @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanPragmaOmpOrderedSimdExtract.cpp @skozhukh @mamasten
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanPredicator.cpp @mamasten @offsake
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanPredicator.h @mamasten @offsake
+/llvm/test/Transforms/Intel_VPO/Vecopt/predicator/ @mamasten @offsake
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanScalVecAnalysis.cpp @karthik-senthil @mamasten
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanScalVecAnalysis.h @karthik-senthil @mamasten
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanSSADeconstruction.cpp @karthik-senthil @sguggill
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanSSADeconstruction.h @karthik-senthil @sguggill
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanSyncDependenceAnalysis.cpp @mamasten @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanSyncDependenceAnalysis.h @mamasten @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVConflictTransformation.cpp  @mamasten @sguggill
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVConflictTransformation.h @mamasten @sguggill
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVectorizeIndirectCalls.cpp @ivankelarev @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVectorizeIndirectCalls.h @ivankelarev @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVectorShape.cpp @mamasten @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVectorShape.h @mamasten @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSAnalysis.cpp @skozhukh @sguggill @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSAnalysis.h @skozhukh @sguggill @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSClient.cpp @skozhukh @sguggill @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSClient.h @skozhukh @sguggill @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSTransform.cpp @skozhukh @sguggill @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSTransform.h @skozhukh @sguggill @karthik-senthil
+/llvm/test/Transforms/Intel_VPO/Vecopt/vls/ @skozhukh @sguggill @karthik-senthil
+
+/llvm/include/llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelVecClone.h @mamasten @turinevgeny @skozhukh
+/llvm/include/llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPPrepareKernelForVecClone.h @mamasten  @turinevgeny @skozhukh
+/llvm/lib/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelVecClone.cpp @mamasten  @turinevgeny @skozhukh
+/llvm/lib/Transforms/Intel_DPCPPKernelTransforms/DPCPPPrepareKernelForVecClone.cpp @mamasten  @turinevgeny @skozhukh
+/llvm/test/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelVecClone/ @mamasten @turinevgeny @skozhukh
+
+/llvm/include/llvm/Transforms/Utils/Intel_VecClone.h @mamasten  @turinevgeny @skozhukh
+/llvm/lib/Transforms/Utils/Intel_VecClone.cpp @mamasten  @turinevgeny @skozhukh
+/llvm/test/Transforms/Intel_VecClone/ @mamasten @turinevgeny @skozhukh
+
+/llvm/include/llvm/Transforms/Scalar/Intel_AddSubReassociate.h @valerydmit @mamasten
+/llvm/lib/Transforms/Scalar/Intel_AddSubReassociate.cpp @valerydmit @mamasten
+/llvm/lib/Transforms/Vectorize/SLPVectorizer.cpp @valerydmit @mamasten
+/llvm/include/llvm/Transforms/Vectorize/SLPVectorizer.h @valerydmit @mamasten
+/llvm/test/Transforms/Intel_VPO/Vecopt/slp/ @valerydmit @mamasten
+/llvm/test/Transforms/Reassociate/Intel_addsub* @valerydmit @mamasten
+/llvm/test/Transforms/SLPVectorizer/ @valerydmit @mamasten
+
+/llvm/lib/Analysis/Intel_OptVLS.cpp @clin111 @skozhukh @sguggill @karthik-senthil
+/llvm/include/llvm/Analysis/Intel_OptVLS.h @clin111 @skozhukh @sguggill @karthik-senthil
+
+/llvm/include/llvm/IR/Intel_VPlanTemplateHelper.h @offsake @skozhukh @sguggill
+/llvm/include/llvm/IR/Intel_VPlanTemplateHelper.inc @offsake @skozhukh @sguggill
+
+# COMPONENT: LoopOpt
+# JIRA: CMPLRLLVM->LLVM Loop Optimizer
+/llvm/include/llvm/Transforms/Intel_LoopTransforms/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @linayu118211
+/llvm/include/llvm/Analysis/Intel_LoopAnalysis/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @linayu118211
+/llvm/include/llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRVecIdioms.h @skozhukh @mamasten @ivankelarev @sguggill
+/llvm/include/llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRParVecAnalysis.h @skozhukh @mamasten @ivankelarev @sguggill
+/llvm/lib/Transforms/Intel_LoopTransforms/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @linayu118211
+/llvm/lib/Analysis/Intel_LoopAnalysis/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @linayu118211
+/llvm/lib/Analysis/Intel_LoopAnalysis/Analysis/HIRParVecAnalysis.cpp @skozhukh @mamasten @ivankelarev @sguggill
+/llvm/test/Transforms/Intel_LoopCarriedCSE/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @linayu118211
+/llvm/test/Transforms/Intel_LoopTransforms/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @linayu118211
+/llvm/test/Analysis/Intel_LoopAnalysis/ @johnluenng @pankaj-chawla @Chenyang-L @yoonseoc-sc @ochupina @linayu118211
+
+# COMPONENT: PAROPT
+# JIRA: CMPLRLLVM->LLVM PAROPT
+/llvm/include/llvm/Analysis/VPO/ @intel-restricted/cmplrllvm-llvm-paropt
+/llvm/include/llvm/Transforms/VPO/ @intel-restricted/cmplrllvm-llvm-paropt
+/llvm/lib/Analysis/VPO/ @intel-restricted/cmplrllvm-llvm-paropt
+/llvm/lib/Transforms/VPO/ @intel-restricted/cmplrllvm-llvm-paropt
+/llvm/include/llvm/Analysis/Directives.h @intel-restricted/cmplrllvm-llvm-paropt @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/IR/Directives.td @intel-restricted/cmplrllvm-llvm-paropt
+/llvm/lib/Transforms/Utils/GeneralUtils.cpp @intel-restricted/cmplrllvm-llvm-paropt
+/llvm/include/llvm/Transforms/Utils/IntrinsicUtils.h @intel-restricted/cmplrllvm-llvm-paropt
+/llvm/lib/Transforms/Utils/IntrinsicUtils.cpp @intel-restricted/cmplrllvm-llvm-paropt
+/llvm/utils/TableGen/DirectivesEmitter.cpp @intel-restricted/cmplrllvm-llvm-paropt
+/llvm/test/Transforms/Intel_VPO/Paropt @intel-restricted/cmplrllvm-llvm-paropt
+/llvm/test/Analysis/Intel_VPOAnalysis/WRegionInfo @intel-restricted/cmplrllvm-llvm-paropt
+
+# JIRA: CMPLRLIBS->LLVM Offload RT
+/openmp/libomptarget/ @intel-restricted/cmplrlibs-llvm-offload-rt
+
+# COMPONENT: ScalarOpt
+# JIRA: CMPLRLLVM->LLVM Scalar Optimizer
+/llvm/lib/IR/ConstantFold.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/AliasAnalysisSummary.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Transforms/InstCombine/InstCombine.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Transforms/InstCombine/InstCombiner.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Transforms/Scalar/* @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/IVDescriptors.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/IRSimilarityIdentifier.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/LoopIterator.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/TargetTransformInfo.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/LoopAnalysisManager.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/SparsePropagation.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/CFG.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/ScalarEvolutionDivision.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/StackLifetime.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/VectorUtils.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/CFGPrinter.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/IVUsers.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/RegionIterator.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/MemorySSA.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/AssumptionCache.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/DOTGraphTraitsPass.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/LoopCacheAnalysis.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/ConstantFolding.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/IntervalIterator.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/CallPrinter.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/DomTreeUpdater.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/TypeBasedAliasAnalysis.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/DemandedBits.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/TargetTransformInfoImpl.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/ScalarEvolutionAliasAnalysis.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/Interval.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/EHPersonalities.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/DominanceFrontier.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/MemorySSAUpdater.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/PhiValues.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/MLInlineAdvisor.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/DomPrinter.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/BasicAliasAnalysis.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/ModuleDebugInfoPrinter.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/LoopAccessAnalysis.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/Trace.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/AliasAnalysisEvaluator.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/SyncDependenceAnalysis.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/IteratedDominanceFrontier.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/InstructionSimplify.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/DominanceFrontierImpl.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/ValueLatticeUtils.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/LoopPass.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/DDGPrinter.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/LoopUnrollAnalyzer.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/DependenceAnalysis.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/ScopedNoAliasAA.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/IndirectCallVisitor.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/LoopNestAnalysis.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/LoopInfo.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/ObjCARCInstKind.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/TypeMetadataUtils.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/Delinearization.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/ObjCARCAnalysisUtils.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/RegionInfoImpl.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/IntervalPartition.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/Intel_StdContainerAA.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/ObjCARCAliasAnalysis.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/InstructionPrecedenceTracking.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/ObjCARCUtil.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/FunctionPropertiesAnalysis.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/InstCount.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/ReplayInlineAdvisor.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/AliasAnalysis.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/Intel_FPValueRangeAnalysis.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/MemoryBuiltins.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/Intel_MemRefAnalysis.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/CmpInstAnalysis.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/OptimizationRemarkEmitter.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/Lint.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/LazyValueInfo.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/ScalarEvolution.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/PtrUseVisitor.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/DependenceGraphBuilder.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/MLModelRunner.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/MustExecute.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/RegionInfo.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/GuardUtils.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/AssumeBundleQueries.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/ValueTracking.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/LazyBranchProbabilityInfo.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/DDG.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/Utils/Local.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/Utils/TFUtils.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/ScalarEvolutionNormalization.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/RegionPass.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/Loads.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/HeatUtils.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/AliasSetTracker.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/SyntheticCountsUtils.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/CodeMetrics.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/LoopInfoImpl.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/CaptureTracking.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/PHITransAddr.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/MemDerefPrinter.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/ScalarEvolutionExpressions.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/ConstraintSystem.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/ValueLattice.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/StackSafetyAnalysis.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/PostDominators.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/TargetFolder.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/MemoryDependenceAnalysis.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/RegionPrinter.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/MemoryLocation.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/Intel_FPValueRange.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Transforms/AggressiveInstCombine/TruncInstCombine.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Transforms/AggressiveInstCombine/AggressiveInstCombine.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Transforms/InstCombine/InstCombineSimplifyDemanded.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Transforms/InstCombine/InstCombineAtomicRMW.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Transforms/InstCombine/InstCombineSelect.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Transforms/InstCombine/InstCombineAndOrXor.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Transforms/InstCombine/InstCombineMulDivRem.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Transforms/InstCombine/InstCombineLoadStoreAlloca.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Transforms/InstCombine/InstCombineNegator.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Transforms/InstCombine/InstCombineAddSub.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Transforms/InstCombine/InstCombineCompares.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Transforms/InstCombine/InstructionCombining.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Transforms/InstCombine/InstCombineCalls.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Transforms/InstCombine/InstCombineVectorOps.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Transforms/InstCombine/InstCombineShifts.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Transforms/InstCombine/InstCombinePHI.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Transforms/InstCombine/InstCombineCasts.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Transforms/Scalar/* @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/Loads.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/ScalarEvolution.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/MemoryLocation.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/Trace.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/AliasSetTracker.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/IntervalPartition.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/DDGPrinter.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/MustExecute.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/StackLifetime.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/PtrUseVisitor.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/LoopAnalysisManager.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/CallPrinter.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/LoopAccessAnalysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/ObjCARCInstKind.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/IVUsers.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/ValueLatticeUtils.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/PHITransAddr.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/MemDerefPrinter.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/ConstantFolding.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/InstCount.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/VFABIDemangling.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/LoopUnrollAnalyzer.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/DominanceFrontier.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/Intel_StdContainerAA.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/HeatUtils.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/LoopPass.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/TypeBasedAliasAnalysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/MemoryDependenceAnalysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/DomTreeUpdater.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/LoopNestAnalysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/MLInlineAdvisor.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/AssumptionCache.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/BranchProbabilityInfo.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/TFUtils.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/RegionInfo.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/GuardUtils.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/Directives.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/StackSafetyAnalysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/LazyBranchProbabilityInfo.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/TypeMetadataUtils.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/DDG.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/Lint.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/AliasAnalysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/AliasAnalysisSummary.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/ReleaseModeModelRunner.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/MemoryBuiltins.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/DemandedBits.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/AliasAnalysisEvaluator.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/ObjCARCAnalysisUtils.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/IVDescriptors.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/MemDepPrinter.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/ScopedNoAliasAA.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/SyncDependenceAnalysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/DomPrinter.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/Intel_MemRefAnalysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/Intel_FPValueRange.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/CmpInstAnalysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/IRSimilarityIdentifier.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/AssumeBundleQueries.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/Delinearization.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/SyntheticCountsUtils.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/TargetTransformInfo.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/CodeMetrics.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/LoopInfo.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/CFGPrinter.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/CostModel.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/ValueTracking.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/PostDominators.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/ValueLattice.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/MemorySSA.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/Analysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/DependenceGraphBuilder.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/DependenceAnalysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/ScalarEvolutionDivision.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/VectorUtils.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/MemorySSAUpdater.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/RegionPass.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/PhiValues.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/ScalarEvolutionNormalization.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/LoopCacheAnalysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/ScalarEvolutionAliasAnalysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/CaptureTracking.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/Interval.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/FunctionPropertiesAnalysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/Intel_FPValueRangeAnalysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/EHPersonalities.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/InstructionSimplify.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/ObjCARCAliasAnalysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/LazyValueInfo.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/RegionPrinter.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/CFG.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/BasicAliasAnalysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/InstructionPrecedenceTracking.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/ConstraintSystem.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+
+# Scalar Optimizer Tests
+/llvm/test/Analysis/AliasSet/ @tcreech-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Analysis/BasicAA/ @tcreech-intel @dwoodwor-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Analysis/ConstantFolding/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+# Temporarily removed @sndmitriev
+/llvm/test/Analysis/LazyValueAnalysis/  @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Analysis/LoopAccessAnalysis/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Analysis/MemoryDependenceAnalysis/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Analysis/ScalarEvolution/ @pankaj-chawla @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Analysis/StackSafetyAnalysis/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Analysis/TypeBasedAliasAnalysis/ @tcreech-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Analysis/ValueTracking/ @tcreech-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/ExecutionEngine/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/CodeExtractor/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/Coroutines/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/CorrelatedValuePropagation/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/DeadStoreElimination/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/EarlyCSE/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/GVN/ @turinevgeny @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/GVNHoist/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/GVNSink/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/IRCE/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/IndVarSimplify/ @tcreech-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/InferAddressSpaces/ @intel-restricted/cmplrllvm-llvm-paropt
+/llvm/test/Transforms/InstCombine/ @tcreech-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+# Temporarily removed @sndmitriev
+/llvm/test/Transforms/InstSimplify/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/Intel_ForcedCMOVGeneration/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/Intel_MapIntrinToIml/ @LuoYuanke @phoebewang @williamweixiao
+/llvm/test/Transforms/Intel_TbaaMDPropagation/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/Intel_TransformSinAndCosCalls/ @nawalcopty @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/JumpThreading/ @jcranmer-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/LICM/ @jcranmer-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/LoopDeletion/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/LoopIdiom/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/LoopInterchange/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/LoopLoadElim/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/LoopReroll/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/LoopRotate/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/LoopSimplify/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/LoopStrengthReduce/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/LoopUnroll/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/LoopUnswitch/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/LoopVersioning/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/LowerSwitch/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/Mem2Reg/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/NaryReassociate/ @asudarsa @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/Reassociate/ @asudarsa @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/SCCP/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/SROA/ @jcranmer-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/SimpleLoopUnswitch/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/SimplifyCFG/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Verifier/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+
+# Nontemporal store conversion pass
+/llvm/lib/Transforms/Scalar/Intel_NontemporalStore.cpp @jcranmer-intel @tcreech-intel @dwoodwor-intel
+/llvm/test/Transforms/Intel_NontemporalStore/ @jcranmer-intel @tcreech-intel @dwoodwor-intel
+
+# COMPONENT: Misc
+# Code owners for optimization reports
+/llvm/docs/Intel/OptReport.rst @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/include/llvm/Analysis/Intel_OptReport/ @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/include/llvm/Transforms/Intel_LoopTransforms/HIROptReportEmitterPass.h @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/include/llvm/Transforms/Scalar/Intel_OptReportEmitter.h @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/lib/Analysis/Intel_OptReport/ @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/lib/CodeGen/Intel_MachineOptReportEmitter.cpp @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/lib/Transforms/Intel_LoopTransforms/HIROptReportEmitter.cpp @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/lib/Transforms/Scalar/Intel_OptReportEmitter.cpp @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/test/Analysis/Intel_OptReport/ @karthik-senthil @pankaj-chawla @dwoodwor-intel
+
+# Code owners for binary opt-report
+/llvm/include/llvm/Analysis/Intel_OptReport/OptReportSupport.h @andykaylor @karthik-senthil
+/llvm/include/llvm/Analysis/Intel_OptReport/opt_report_proto.proto @andykaylor @karthik-senthil
+/llvm/lib/Analysis/Intel_OptReport/OptReportSupport.cpp @andykaylor @karthik-senthil
+/llvm/test/Analysis/Intel_OptReport/Binary @andykaylor @karthik-senthil
+/llvm/test/tools/intel-bin-opt-report @andykaylor @karthik-senthil
+/llvm/tools/intel-bin-opt-report @andykaylor @karthik-senthil
+
+# Code owners for register allocation report
+/llvm/lib/CodeGen/Intel_RAReportEmitter.cpp @LuoYuanke @phoebewang @williamweixiao @dwoodwor-intel
+/llvm/test/Analysis/Intel_OptReport/RegisterAllocation @LuoYuanke @phoebewang @williamweixiao @dwoodwor-intel
+
+# JIRA: CMPLRLLVM->Cmake
+**/CMakeLists.txt* @intel-restricted/cmplrllvm-cmake
+**/cmake/ @intel-restricted/cmplrllvm-cmake
+
+# XPTI instrumentation utilities
+xpti/ @intel-restricted/llvm-reviewers-runtime
+xptifw/ @intel-restricted/llvm-reviewers-runtime
+
+# JIRA: CMPLRLLVM->DPC++ Tools
+# sycl-post-link/
+# Temporarily removed @AlexeySachkov, @mlychkov

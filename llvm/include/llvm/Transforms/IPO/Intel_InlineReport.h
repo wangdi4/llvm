@@ -1,6 +1,6 @@
 //===- Intel_InlineReport.h - Implement inlining report ---------*- C++ -*-===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -18,6 +18,7 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/InlineCost.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/Transforms/IPO/Intel_InlineReportCommon.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -127,10 +128,11 @@ public:
     Children.push_back(IRCS);
   }
 
-  /// Print the info in the inlining instance for the inling report
+  /// Print the info in the inlining instance to 'OS' for the inlining report
   /// indenting 'indentCount' indentations, assuming an inlining report
   /// level of 'ReportLevel'.
-  void print(unsigned IndentCount, unsigned ReportLevel);
+  void print(formatted_raw_ostream &OS, unsigned IndentCount,
+             unsigned ReportLevel);
 
   /// Load the call represented by '*this' and all of its descendant
   /// calls into the map 'Lmap'.
@@ -177,9 +179,9 @@ private:
   unsigned Col;
   bool SuppressPrint; // suppress inline-report print info
 
-  void printCostAndThreshold(unsigned Level);
-  void printOuterCostAndThreshold(unsigned Level);
-  void printCalleeNameModuleLineCol(unsigned Level);
+  void printCostAndThreshold(formatted_raw_ostream &OS, unsigned Level);
+  void printOuterCostAndThreshold(formatted_raw_ostream &OS, unsigned Level);
+  void printCalleeNameModuleLineCol(formatted_raw_ostream &OS, unsigned Level);
 
   /// Search 'OldIRCSV' for 'this' and if it is found, move it to 'NewIRCSV'.
   void moveCalls(InlineReportCallSiteVector &OldIRCSV,
@@ -264,7 +266,7 @@ public:
 
   void setName(std::string FunctionName) { Name = FunctionName; }
 
-  void print(unsigned Level) const;
+  void print(formatted_raw_ostream &OS, unsigned Level) const;
 
   /// Populate 'OutFIRCSSet' with the InlineReportCallSites corresponding
   /// to the CallBases in 'OutFCBSet'
@@ -303,8 +305,9 @@ typedef std::map<CallBase *, InlineReportCallSite *>
 class InlineReport {
 public:
   explicit InlineReport(unsigned MyLevel)
-      : Level(MyLevel), ActiveInlineCallBase(nullptr),
-        ActiveCallee(nullptr), ActiveIRCS(nullptr), M(nullptr) {};
+      : Level(MyLevel), ActiveInlineCallBase(nullptr), ActiveCallee(nullptr),
+        ActiveIRCS(nullptr), M(nullptr),
+        OS(OptReportOptions::getOutputStream()){};
   virtual ~InlineReport(void);
 
   // Indicate that we have begun inlining functions in the current
@@ -433,6 +436,7 @@ public:
     for (unsigned I = 0; I < ActiveInlinedCalls.size(); ++I)
       if (ActiveInlinedCalls[I] == OldCall) {
         ActiveInlinedCalls[I] = NewCall;
+        removeCallback(OldCall);
         addCallback(NewCall);
         break;
       }
@@ -483,6 +487,13 @@ public:
   // Change the called Function of 'CB' to 'F'.
   void setCalledFunction(CallBase *CB, Function *F);
 
+  // Delete all calls inside 'F'.
+  void deleteFunctionBody(Function *F);
+
+  // Indicate that 'CB' calls a specialized version of its caller under
+  // a multiversioning test.
+  void addMultiversionedCallSite(CallBase *CB);
+
 private:
   /// The Level is specified by the option -inline-report=N.
   /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level.
@@ -521,6 +532,9 @@ private:
   /// A vector of InlineReportFunctions of Functions that have
   /// been eliminated by dead static function elimination
   InlineReportFunctionSet IRDeadFunctionSet;
+
+  /// The output stream to print the inlining report to
+  formatted_raw_ostream &OS;
 
   /// Ensure that a current version of 'F' is in the inlining report.
   void beginFunction(Function *F);
@@ -619,6 +633,10 @@ private:
   // create a callback for it.
   InlineReportCallSite *copyAndSetup(InlineReportCallSite *IRCS,
                                      ValueToValueMapTy &VMap);
+
+  // Remove it from the IRCallSiteMap, remove its callback, and remove
+  // all of its children if it represents an inlined call site.
+  void removeIRCS(InlineReportCallSite *IRCS);
 };
 
 /// Get the single, active classic inlining report.

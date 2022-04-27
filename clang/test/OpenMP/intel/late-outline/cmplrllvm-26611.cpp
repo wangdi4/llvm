@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 typedef struct {
@@ -39,12 +39,12 @@ int main() {
   D *sp = &s;
   D **spp = &sp;
 
-  // CHECK: store %struct.D** %sp, %struct.D*** %spp
-  // CHECK: [[L:%[0-9]+]] = load %struct.D**, %struct.D*** %spp
-  // CHECK: [[L1:%[0-9]+]] = load %struct.D**, %struct.D*** %spp
+  // CHECK: store ptr %sp, ptr %spp
+  // CHECK: [[L:%[0-9]+]] = load ptr, ptr %spp
+  // CHECK: [[L1:%[0-9]+]] = load ptr, ptr %spp
   // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%struct.D** [[L1]], %struct.D**
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(%struct.D** %arrayidx
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[L1]], ptr
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr %arrayidx
   // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target map(tofrom : spp[0][0]) //firstprivate(p)
   {

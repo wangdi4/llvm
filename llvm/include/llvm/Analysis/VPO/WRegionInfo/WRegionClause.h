@@ -1,4 +1,19 @@
 #if INTEL_COLLAB // -*- C++ -*-
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
 //===----------------- WRegionClause.h - Clauses ----------------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -82,6 +97,10 @@ extern DenseMap<int, StringRef> WRNLoopOrderName;
 //   LinearItem:       derived class for an item in the LINEAR       clause
 //   UniformItem:      derived class for an item in the UNIFORM      clause
 //   MapItem:          derived class for an item in the MAP          clause
+//   IsDevicePtrItem:  derived class for an item in the IS_DEVICE_PTR  clause
+//   UseDevicePtrItem: derived class for an item in the USE_DEVICE_PTR clause
+//   InclusiveItem:    derived class for an item in the INCLUSIVE    clause
+//   ExclusiveItem:    derived class for an item in the EXCLUSIVE    clause
 //
 
 
@@ -107,7 +126,9 @@ class Item
       IK_Uniform,
       IK_Map,
       IK_IsDevicePtr,
-      IK_UseDevicePtr
+      IK_UseDevicePtr,
+      IK_Inclusive,
+      IK_Exclusive,
     };
 
   private :
@@ -346,6 +367,7 @@ class Item
       case IK_Copyin:
       case IK_Copyprivate:
       case IK_Linear:
+      case IK_Shared:
       case IK_Uniform:
         return true;
       default:
@@ -388,6 +410,10 @@ class SharedItem : public Item
     SharedItem(VAR Orig) : Item(Orig, IK_Shared), IsPassedDirectly(false) {}
     void setIsPassedDirectly(bool Flag) { IsPassedDirectly = Flag; }
     bool getIsPassedDirectly() const { return IsPassedDirectly; }
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
+      Item::print(OS, PrintType);
+      printIfTyped(OS, PrintType);
+    }
     static bool classof(const Item *I) { return I->getKind() == IK_Shared; }
 };
 
@@ -695,15 +721,13 @@ private:
   // The following fields are populated during the actual transformation, and
   // not WRegionCollection, because they may need Insertion of Instructions.
   Value *Size;        ///< Size (`x: 5, yarrptr: 7`).
-  GlobalVariable *GVSize; ///< Global variable for variable sized array
-                          ///< [section] size used by fast reduction.
   Value *Offset;      ///< Starting offset (`x: 1, yarrptr: 22`).
   Type *ElementType;  ///< Type of one element (`x: i32, yarrptr: i32`).
   bool BaseIsPointer; ///< Is base a pointer (`x: false, yarrptr: true`).
 
 public:
   ArraySectionInfo()
-      : Size(nullptr), GVSize(nullptr), Offset(nullptr), ElementType(nullptr),
+      : Size(nullptr), Offset(nullptr), ElementType(nullptr),
         BaseIsPointer(false) {}
 
   void addDimension(const std::tuple<Value *, Value *, Value *> &Dim) {
@@ -723,8 +747,6 @@ public:
   void setElementType(Type *Ty) { ElementType = Ty; }
   bool getBaseIsPointer() const { return BaseIsPointer; }
   void setBaseIsPointer(bool IsPtr) { BaseIsPointer = IsPtr; }
-  GlobalVariable *getGVSize() const { return GVSize; }
-  void setGVSize(GlobalVariable *Sz) { GVSize = Sz; }
   bool isVariableLengthArraySection() const;
   bool hasVariableStartingOffset() const;
   bool isArraySectionWithVariableLengthOrOffset() const;
@@ -768,6 +790,10 @@ public:
     bool  IsInReduction; // is from an IN_REDUCTION clause (task/taskloop)
     bool  IsTask;        // is for a REDUCTION clause with a task modifier
 
+    bool IsInscan;      // is for a REDUCTION clause with a task modifier
+    uint64_t InscanIdx; // index to lookup the items's inclusive/exclusive
+                        // clause in the associated scan directive.
+
     // TODO: Combiner and Initializer are Function*'s from UDR.
     //       We should change Value* to Function* below.
     RDECL Combiner;
@@ -780,13 +806,16 @@ public:
         nullptr; // Tasks: 2nd argument in kmpc_taskred_init's
                  // reduction init callback function.
     Value *ArraySectionOffset = nullptr;
+    GlobalVariable *GVSize = nullptr; // Global variable for variable sized
+                                      // array [section] size used by fast
+                                      // reduction.
 
   public:
     ReductionItem(VAR Orig, WRNReductionKind Op = WRNReductionError)
         : Item(Orig, IK_Reduction), Ty(Op), IsUnsigned(false), IsComplex(false),
-          IsInReduction(false), IsTask(false), Combiner(nullptr),
-          Initializer(nullptr), Constructor(nullptr), Destructor(nullptr),
-          InAllocate(nullptr) {}
+          IsInReduction(false), IsTask(false), IsInscan(false), InscanIdx(0),
+          Combiner(nullptr), Initializer(nullptr), Constructor(nullptr),
+          Destructor(nullptr), InAllocate(nullptr) {}
     static WRNReductionKind getKindFromClauseId(int Id) {
       switch(Id) {
         case QUAL_OMP_REDUCTION_ADD:
@@ -879,24 +908,30 @@ public:
     void setIsComplex(bool B)         { IsComplex = B;       }
     void setIsInReduction(bool B)     { IsInReduction = B;   }
     void setIsTask(bool B)            { IsTask = B;          }
+    void setIsInscan(bool B)          { IsInscan = B;        }
+    void setInscanIdx(uint64_t I)     { InscanIdx = I;       }
     void setCombiner(RDECL Comb)      { Combiner = Comb;     }
     void setInitializer(RDECL Init)   { Initializer = Init;  }
     void setConstructor(RDECL Ctor)   { Constructor = Ctor;  }
     void setDestructor(RDECL Dtor)    { Destructor = Dtor;   }
     void setInAllocate(AllocateItem *AI) { InAllocate = AI;  }
     void setTaskRedInitOrigArg(Value *V) { TaskRedInitOrigArg = V; }
+    void setGVSize(GlobalVariable *Sz) { GVSize = Sz; }
 
     WRNReductionKind getType() const { return Ty;            }
     bool getIsUnsigned()       const { return IsUnsigned;    }
     bool getIsComplex()        const { return IsComplex;     }
     bool getIsInReduction()    const { return IsInReduction; }
     bool getIsTask()           const { return IsTask;        }
+    bool getIsInscan()         const { return IsInscan;      }
+    uint64_t getInscanIdx()    const { return InscanIdx;     }
     RDECL getCombiner()        const { return Combiner;      }
     RDECL getInitializer()     const { return Initializer;   }
     RDECL getConstructor()     const { return Constructor;   }
     RDECL getDestructor()      const { return Destructor;    }
     AllocateItem *getInAllocate() const { return InAllocate; }
     Value *getTaskRedInitOrigArg() const { return TaskRedInitOrigArg; }
+    GlobalVariable *getGVSize() const { return GVSize; }
 
     ArraySectionInfo &getArraySectionInfo() { return ArrSecInfo; }
     const ArraySectionInfo &getArraySectionInfo() const { return ArrSecInfo; }
@@ -919,6 +954,8 @@ public:
       OS << "(" << getOpName() << ": ";
       printOrig(OS, PrintType);
       printIfTyped(OS, PrintType);
+      if (getIsInscan())
+        OS << " INSCAN<" << InscanIdx << ">";
       if (getIsArraySection()) {
         OS << " ";
         ArrSecInfo.print(OS, PrintType);
@@ -1332,6 +1369,40 @@ public:
   static bool classof(const Item *I) { return I->getKind() == IK_UseDevicePtr; }
 };
 
+// Parent class for inclusive/exclusive clause items
+class InclusiveExclusiveItemBase : public Item {
+  uint64_t InscanIdx = 0;
+
+public:
+  InclusiveExclusiveItemBase(VAR Orig, ItemKind IK) : Item(Orig, IK) {}
+  void setInscanIdx(uint64_t Idx) { InscanIdx = Idx; }
+  uint64_t getInscanIdx() const { return InscanIdx; }
+  void print(formatted_raw_ostream &OS, bool PrintType = true) const override {
+    OS << "(";
+    printOrig(OS, PrintType);
+    printIfTyped(OS, PrintType);
+    OS << " INSCAN<" << getInscanIdx() << ">) ";
+  }
+};
+
+//
+//   InclusiveItem: OMP INCLUSIVE clause item
+//
+class InclusiveItem : public InclusiveExclusiveItemBase {
+public:
+  InclusiveItem(VAR Orig) : InclusiveExclusiveItemBase(Orig, IK_Inclusive) {}
+  static bool classof(const Item *I) { return I->getKind() == IK_Inclusive; }
+};
+
+//
+//   ExclusiveItem: OMP EXCLUSIVE clause item
+//
+class ExclusiveItem : public InclusiveExclusiveItemBase {
+public:
+  ExclusiveItem(VAR Orig) : InclusiveExclusiveItemBase(Orig, IK_Exclusive) {}
+  static bool classof(const Item *I) { return I->getKind() == IK_Exclusive; }
+};
+
 //
 // These item classes for list-type clauses are not derived from the
 // base "Item" class above.
@@ -1343,6 +1414,8 @@ public:
 //   DepSourceItem (for the depend(source) clause in ordered constructs)
 //   AlignedItem   (for the aligned clause in simd constructs)
 //   FlushItem     (for the flush clause)
+//   SizesItem     (for the sizes clause in tile constructs)
+//   LiveinItem    (for the auxiliary livein clause)
 //   AllocateItem  (for the allocate clause)
 //   DataItem      (for the data clause in prefetch constructs)
 //   NontemporalItem (for the nontemporal clause in simd constructs)
@@ -1577,6 +1650,44 @@ class FlushItem
     FlushItem(VAR V=nullptr) : Var(V) {}
     void setOrig(VAR V)      { Var = V; }
     VAR  getOrig()  const { return Var; }
+
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      OS << "(" ;
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ") ";
+    }
+};
+
+// For the SIZES(s1,s2,...) clause of TILE construct
+class SizesItem
+{
+  private:
+    Value *Val;
+
+  public:
+    SizesItem(Value *V) : Val(V) {}
+    void setOrig(Value *V) { Val = V; }
+    Value *getOrig() const { return Val; }
+
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      OS << "(" ;
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ") ";
+    }
+};
+
+// For the LIVEIN(v1,v2,....) clause, which is not in OpenMP, but a
+// clause artificially introduced for variables in an OpenMP region
+// that are not listed in any of its data-environment clauses.
+class LiveinItem
+{
+  private:
+    VAR  Var;
+
+  public:
+    LiveinItem(VAR V=nullptr) : Var(V) {}
+    void setOrig(VAR V) { Var = V; }
+    VAR getOrig() const { return Var; }
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
       OS << "(" ;
@@ -1886,6 +1997,8 @@ typedef Clause<UniformItem>       UniformClause;
 typedef Clause<MapItem>           MapClause;
 typedef Clause<IsDevicePtrItem>   IsDevicePtrClause;
 typedef Clause<UseDevicePtrItem>  UseDevicePtrClause;
+typedef Clause<InclusiveItem>     InclusiveClause;
+typedef Clause<ExclusiveItem>     ExclusiveClause;
 typedef Clause<SubdeviceItem>     SubdeviceClause;
 typedef Clause<InteropItem>       InteropActionClause;
 typedef Clause<DependItem>        DependClause;
@@ -1894,6 +2007,8 @@ typedef Clause<DepSourceItem>     DepSourceClause;
 typedef Clause<AlignedItem>       AlignedClause;
 typedef Clause<NontemporalItem>   NontemporalClause;
 typedef Clause<FlushItem>         FlushSet;
+typedef Clause<SizesItem>         SizesClause;
+typedef Clause<LiveinItem>        LiveinClause;
 typedef Clause<AllocateItem>      AllocateClause;
 typedef Clause<DataItem>          DataClause;
 
@@ -1909,6 +2024,8 @@ typedef std::vector<UniformItem>::iterator       UniformIter;
 typedef std::vector<MapItem>::iterator           MapIter;
 typedef std::vector<IsDevicePtrItem>::iterator   IsDevicePtrIter;
 typedef std::vector<UseDevicePtrItem>::iterator  UseDevicePtrIter;
+typedef std::vector<InclusiveItem>::iterator     InclusiveIter;
+typedef std::vector<ExclusiveItem>::iterator     ExclusiveIter;
 typedef std::vector<SubdeviceItem>::iterator     SubdeviceIter;
 typedef std::vector<InteropItem>::iterator       InteropIter;
 typedef std::vector<DependItem>::iterator        DependIter;
@@ -1917,6 +2034,7 @@ typedef std::vector<DepSourceItem>::iterator     DepSourceIter;
 typedef std::vector<AlignedItem>::iterator       AlignedIter;
 typedef std::vector<NontemporalItem>::iterator   NontemporalIter;
 typedef std::vector<FlushItem>::iterator         FlushIter;
+typedef std::vector<LiveinItem>::iterator        LiveinIter;
 typedef std::vector<AllocateItem>::iterator      AllocateIter;
 typedef std::vector<DataItem>::iterator          DataIter;
 

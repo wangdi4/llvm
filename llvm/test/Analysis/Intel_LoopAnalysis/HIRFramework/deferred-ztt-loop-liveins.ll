@@ -1,4 +1,4 @@
-; RUN: opt < %s -analyze -hir-ssa-deconstruction -hir-framework -hir-details 2>&1 | FileCheck %s
+; RUN: opt < %s -analyze -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework -hir-details 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" -hir-details 2>&1 | FileCheck %s
 
 ; Verify that %t1's symbase is marked as livein to i2 loop when (%t1 > 0) is set as the ztt.

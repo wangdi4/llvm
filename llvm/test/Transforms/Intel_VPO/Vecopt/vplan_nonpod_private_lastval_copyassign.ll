@@ -19,6 +19,8 @@
 ; CHECK-NEXT: VPlan IR for: _Z3foov:omp.inner.for.body
 ; CHECK:  BB1: # preds: BB4
 ; CHECK-NEXT:   %struct.str* [[VP_LPRIV:%.*]] = allocate-priv %struct.str*, OrigAlign = 4
+; CHECK-NEXT:   i8* [[VP_LPRIV_BCAST:%.*]] = bitcast %struct.str* [[VP_LPRIV]]
+; CHECK-NEXT:   call i64 4 i8* [[VP_LPRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:   %struct.str* [[TMP0:%.*]] = call %struct.str* [[VP_LPRIV]] %struct.str* (%struct.str*)* @_ZTS3str.omp.def_constr
 ; CHECK-NEXT:   i32 [[TMP1:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:   i32 [[TMP2:%.*]] = induction-init-step{add} i32 1
@@ -32,6 +34,8 @@
 ; CHECK-NEXT:   private-last-value-nonpod CopyAssign: _ZTS3str.omp.copy_assign %struct.str* [[VP_LPRIV]] %struct.str* [[X_LPRIV:%.*]]
 ; CHECK-NEXT:   call %struct.str* [[VP_LPRIV]] void (%struct.str*)* @_ZTS3str.omp.destr
 ; CHECK-NEXT:   i32 [[TMP6:%.*]] = induction-final{add} i32 0 i32 1
+; CHECK-NEXT:   i8* [[VP_LPRIV_BCAST:%.*]] = bitcast %struct.str* [[VP_LPRIV]]
+; CHECK-NEXT:   call i64 4 i8* [[VP_LPRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.end.p0i8 
 ; CHECK-NEXT:   br BB5
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -55,6 +59,8 @@ define dso_local i32 @_Z3foov() local_unnamed_addr {
 ; CHECK-NEXT:    [[X_LPRIV_VEC_BASE_ADDR_EXTRACT_0_:%.*]] = extractelement <2 x %struct.str*> [[X_LPRIV_VEC_BASE_ADDR]], i32 0
 ; CHECK-NEXT:    br label [[DIR_OMP_SIMD_1:%.*]]
 ; CHECK:       VPlannedBB1:
+; CHECK-NEXT:    [[X_LPRIV_VEC_BCAST:%.*]] = bitcast [2 x %struct.str]* [[X_LPRIV_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* [[X_LPRIV_VEC_BCAST]])
 ; CHECK-NEXT:    [[TMP1:%.*]] = call %struct.str* @_ZTS3str.omp.def_constr(%struct.str* [[X_LPRIV_VEC_BASE_ADDR_EXTRACT_0_]])
 ; CHECK-NEXT:    [[TMP2:%.*]] = call %struct.str* @_ZTS3str.omp.def_constr(%struct.str* [[X_LPRIV_VEC_BASE_ADDR_EXTRACT_1_]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
@@ -69,6 +75,8 @@ define dso_local i32 @_Z3foov() local_unnamed_addr {
 ; CHECK-NEXT:    call void @_ZTS3str.omp.copy_assign(%struct.str* [[X_LPRIV]], %struct.str* [[X_LPRIV_VEC_BASE_ADDR_EXTRACT_1_]])
 ; CHECK-NEXT:    call void @_ZTS3str.omp.destr(%struct.str* [[X_LPRIV_VEC_BASE_ADDR_EXTRACT_0_]])
 ; CHECK-NEXT:    call void @_ZTS3str.omp.destr(%struct.str* [[X_LPRIV_VEC_BASE_ADDR_EXTRACT_1_]])
+; CHECK-NEXT:    [[X_LPRIV_VEC_BCAST:%.*]] = bitcast [2 x %struct.str]* [[X_LPRIV_VEC]] to i8* 
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 8, i8* [[X_LPRIV_VEC_BCAST]]) 
 ; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]
 ;
 DIR.OMP.SIMD.115:

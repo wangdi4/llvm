@@ -1,8 +1,11 @@
-; RUN: opt -enable-intel-advanced-opts -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
-; RUN: opt -enable-intel-advanced-opts -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
-; RUN: opt -enable-intel-advanced-opts -disable-simplify-libcalls -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s --check-prefix="FREESTANDING"
+; RUN: opt -enable-intel-advanced-opts -disable-simplify-libcalls -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s --check-prefix="NOLIBCALL"
 ; No disable-simplify-libcalls support in new pass manager.
+; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed=false -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s --check-prefix="NOLIBCALL"
+; RUN: opt -enable-intel-advanced-opts  -intel-libirc-allowed=false -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s --check-prefix="NOLIBCALL"
+
 
 ; Check runtime dd multiversioning with library call
 
@@ -89,7 +92,7 @@
 ; CHECK: %call = @__intel_rtdd_indep(&((i8*)(%dd)[0]),  19);
 ; CHECK: if (%call == 0)
 
-; FREESTANDING-NOT: __intel_rtdd_indep
+; NOLIBCALL-NOT: __intel_rtdd_indep
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

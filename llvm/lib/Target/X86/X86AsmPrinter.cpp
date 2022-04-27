@@ -1,4 +1,21 @@
 //===-- X86AsmPrinter.cpp - Convert X86 LLVM code to AT&T assembly --------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -60,8 +77,7 @@ bool X86AsmPrinter::runOnMachineFunction(MachineFunction &MF) {
 
   SMShadowTracker.startFunction(MF);
   CodeEmitter.reset(TM.getTarget().createMCCodeEmitter(
-      *Subtarget->getInstrInfo(), *Subtarget->getRegisterInfo(),
-      MF.getContext()));
+      *Subtarget->getInstrInfo(), MF.getContext()));
 
   EmitFPOData =
       Subtarget->isTargetWin32() && MF.getMMI().getModule()->getCodeViewFlag();
@@ -366,6 +382,14 @@ void X86AsmPrinter::PrintIntelMemReference(const MachineInstr *MI,
       BaseReg.getReg() == X86::RIP)
     HasBaseReg = false;
 
+  // If we really just want to print out displacement.
+  bool HasIndexReg = IndexReg.getReg() != 0;
+  if (Modifier && (DispSpec.isGlobal() || DispSpec.isSymbol()) &&
+      !strcmp(Modifier, "disp-only")) {
+    HasBaseReg = false;
+    HasIndexReg = false;
+  }
+
   // If this has a segment register, print it.
   if (SegReg.getReg()) {
     PrintOperand(MI, OpNo + X86::AddrSegmentReg, O);
@@ -380,7 +404,7 @@ void X86AsmPrinter::PrintIntelMemReference(const MachineInstr *MI,
     NeedPlus = true;
   }
 
-  if (IndexReg.getReg()) {
+  if (HasIndexReg) {
     if (NeedPlus) O << " + ";
     if (ScaleVal != 1)
       O << ScaleVal << '*';
@@ -609,11 +633,14 @@ bool X86AsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI, unsigned OpNo,
         PrintMemReference(MI, OpNo, O, "H");
       }
       return false;
-    case 'P': // Don't print @PLT, but do print as memory.
+   // Print memory only with displacement. The Modifer 'P' is used in inline
+   // asm to present a call symbol or a global symbol which can not use base
+   // reg or index reg.
+    case 'P':
       if (MI->getInlineAsmDialect() == InlineAsm::AD_Intel) {
-        PrintIntelMemReference(MI, OpNo, O, "no-rip");
+        PrintIntelMemReference(MI, OpNo, O, "disp-only");
       } else {
-        PrintMemReference(MI, OpNo, O, "no-rip");
+        PrintMemReference(MI, OpNo, O, "disp-only");
       }
       return false;
     }
@@ -1006,4 +1033,9 @@ void X86AsmPrinter::emitNotifyTable(Module &M) {
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86AsmPrinter() {
   RegisterAsmPrinter<X86AsmPrinter> X(getTheX86_32Target());
   RegisterAsmPrinter<X86AsmPrinter> Y(getTheX86_64Target());
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  RegisterAsmPrinter<X86AsmPrinter> Z(getTheX86_XuCCTarget());
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 }

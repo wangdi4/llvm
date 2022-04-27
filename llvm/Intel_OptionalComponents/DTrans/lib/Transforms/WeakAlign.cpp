@@ -1,6 +1,6 @@
 //===---------------- WeakAlign.cpp - DTransWeakAlignPass -----------------===//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -139,6 +139,8 @@ private:
 
   // Handle to the program's "main" function found during analysis.
   Function *MainFunc = nullptr;
+
+  llvm::Type *PtrSizedIntTy = nullptr;
 };
 
 bool WeakAlignImpl::run(
@@ -148,6 +150,9 @@ bool WeakAlignImpl::run(
   MalloptFunc = getMalloptFunction(M, GetTLI);
   if (!MalloptFunc)
     return false;
+
+  PtrSizedIntTy = llvm::Type::getIntNTy(
+      M.getContext(), M.getDataLayout().getPointerSizeInBits());
 
   // Check for safety issues that prevent the transform.
   if (!analyzeModule(M, GetTLI))
@@ -177,7 +182,7 @@ FunctionCallee WeakAlignImpl::getMalloptFunction(
 
   if (!MainFunc) {
     LLVM_DEBUG(
-        dbgs() << "DTRANS Weak Align: inhibited -- mallopt() not available\n");
+        dbgs() << "DTRANS Weak Align: inhibited -- main function not found\n");
     return nullptr;
   }
 
@@ -616,12 +621,113 @@ bool WeakAlignImpl::willAssumeHold(IntrinsicInst *II) {
     return true;
   };
 
+  // Return a conditional instruction that is used for operand of the
+  // llvm.assume call, if one can be found. This may involve stepping over
+  // instructions that mutate the result of the conditional, such as starting
+  // from %21 in this case, return %20.
+  //
+  //   %20 = icmp ult i32 %19, %4
+  //   %21 = xor i1 %20, true
+  //   call void @llvm.assume(i1 %21)
+  //
+  std::function<ICmpInst *(Value *)> FindConditional =
+      [&FindConditional](Value *V) -> ICmpInst * {
+    if (auto *ICmp = dyn_cast<ICmpInst>(V))
+      return ICmp;
+    if (auto *BinOp = dyn_cast<BinaryOperator>(V)) {
+      auto OpCode = BinOp->getOpcode();
+      if (OpCode == Instruction::And || OpCode == Instruction::Or ||
+          OpCode == Instruction::Xor) {
+        Value *LeftOp = BinOp->getOperand(0);
+        Value *RightOp = BinOp->getOperand(1);
+        if (isa<Constant>(LeftOp))
+          return FindConditional(RightOp);
+        if (isa<Constant>(RightOp))
+          return FindConditional(LeftOp);
+      }
+    }
+
+    return nullptr;
+  };
+
+  // Check if the operands used for the compare instruction may be pointer
+  // types. This involves checking the operands and the instructions that
+  // defined the operands to determine whether they came from pointers.
+  // For example, starting from the 'icmp' instruction here it would be found
+  // that the operand was a pointer, and 'true' would be returned:
+  //
+  //   %pti = ptrtoint %struct.other.inner* %a to i64
+  //   %masked = and i64 %pti, 7
+  //   %aligned = icmp eq i64 %masked, 0
+  //   tail call void @llvm.assume(i1 %aligned)
+  //
+  // However, in this case, 'false' would be returned because the value was not
+  // derived from a pointer type:
+  //
+  // bb10:
+  //   %4 = load i32, i32* %3
+  //   %11 = phi i64 [ 0, %6 ], [ %34, %33 ]
+  //   %18 = trunc i64 %11 to i32
+  //   %19 = add nuw i32 %18, 1
+  //   %20 = icmp ult i32 %19, %4
+  //   %21 = xor i1 %20, true
+  //   call void @llvm.assume(i1 %21)
+  // bb33:
+  //   %34 = add nuw nsw i64 %11, 1
+  //
+  auto ConditionalMayBePointerRelated = [this](ICmpInst *V) {
+    SmallVector<Value *, 16> Worklist;
+    SmallPtrSet<Value *, 16> Visited;
+
+    Worklist.push_back(V->getOperand(0));
+    Worklist.push_back(V->getOperand(1));
+    while (!Worklist.empty()) {
+      Value *CurVal = Worklist.pop_back_val();
+      if (!Visited.insert(CurVal).second)
+        continue;
+
+      if (CurVal->getType()->isPointerTy())
+        return true;
+
+      // For now, treat a load or call instruction of pointer-sized int as a
+      // possible pointer type. This may require additional support by
+      // doing a complete DTrans analysis of the IR if some pointer-sized int
+      // cases need to be supported in the future.
+      if (isa<LoadInst>(CurVal) || isa<CallBase>(CurVal)) {
+        if (CurVal->getType() == PtrSizedIntTy)
+          return true;
+        continue;
+      }
+
+      // Add the operands of instructions that were used to produce the value to
+      // see if any of them are traced back to possible pointer types (e.g.
+      // PtrToInt conversions, or loading a pointer sized integer)
+      if (auto *I = dyn_cast<Instruction>(CurVal))
+        for (auto &U : I->operands())
+          if (!Visited.contains(U.get()))
+            Worklist.push_back(U.get());
+    }
+
+    return false;
+  };
+
   // If we cannot recognize the assume as being related to the expected form of
   // an alignment check, then conservatively return that it is not a supported
   // use.
   assert(II->getIntrinsicID() == Intrinsic::assume &&
          "Expected llvm.assume intrinsic");
   Value *Op = II->getOperand(0);
+
+  // If the @llvm.assume call is used for a conditional that does not involve
+  // any pointer types, we will treat it as safe.
+  if (ICmpInst *Cond = FindConditional(Op)) {
+    if (!ConditionalMayBePointerRelated(Cond)) {
+      LLVM_DEBUG(dbgs() << "DTRANS Weak Align: llvm.assume intrinsic allowed. "
+                           "Condition does not involve pointer"
+                        << *II << "\n");
+      return true;
+    }
+  }
 
   // If the assume is used to note that a value is not null, then it is safe.
   if (IsNonNullCheck(Op))

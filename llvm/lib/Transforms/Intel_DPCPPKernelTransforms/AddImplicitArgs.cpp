@@ -23,14 +23,6 @@ using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-add-implicit-args"
 
-// TODO This command line option indicates if the AddTLSGlobals pass is enabled
-// by "-use-tls-globals" so that DPCPPKernelTransforms passes can behave
-// accordingly. It should be removed when porting AddTLSGlobals pass.
-bool EnableTLSGlobals;
-static cl::opt<bool, true> OptEnableTLSGlobals(
-    "dpcpp-kernel-enable-tls-globals", cl::desc("Enable TLS globals"),
-    cl::location(EnableTLSGlobals), cl::init(false), cl::Hidden);
-
 namespace {
 
 /// Legacy AddImplicitArgs pass.
@@ -182,7 +174,7 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
   // Calculate pointer to the local memory buffer. Do this before F is
   // deleted.
   size_t DirectLocalSize = LBInfo->getDirectLocalsSize(F);
-  AttrBuilder B;
+  AttrBuilder B(F->getContext());
   B.addAttribute(Attribute::NoAlias);
   AttributeSet NoAlias = AttributeSet::get(F->getContext(), B);
   AttributeSet NoAttr;
@@ -272,7 +264,7 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
                                : LBInfo->getDirectLocals(Callee);
     for (auto *Local : CalleeLocalSet) {
       GlobalVariable *GV = cast<GlobalVariable>(Local);
-      size_t LocalSize = DL.getTypeAllocSize(GV->getType()->getElementType());
+      size_t LocalSize = DL.getTypeAllocSize(GV->getValueType());
       assert(0 != LocalSize && "zero array size!");
       // Get the position of Local in NewLocalMem.
       ConstantInt *LocalIndex = ConstantInt::get(
@@ -373,8 +365,7 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
       // function was changed (implicit args were added) - to avoid changing
       // types let's just cast new function type into the old one before
       // storing.
-      auto *OldAllocaTy = cast<PointerType>(SI->getPointerOperand()->getType());
-      Type *OldFPtrTy = OldAllocaTy->getElementType();
+      Type *OldFPtrTy = SI->getValueOperand()->getType();
 
       auto *Cast = CastInst::CreatePointerCast(NewF, OldFPtrTy, "", SI);
       auto *NewSI = new StoreInst(Cast, SI->getPointerOperand(), SI);

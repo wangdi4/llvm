@@ -1,4 +1,21 @@
 //===--- CommonArgs.h - Args handling for multiple toolchains ---*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -96,7 +113,8 @@ void addLTOOptions(const ToolChain &ToolChain, const llvm::opt::ArgList &Args,
 #if INTEL_CUSTOMIZATION
 void addIntelOptimizationArgs(const ToolChain &TC,
                               const llvm::opt::ArgList &Args,
-                              llvm::opt::ArgStringList &CmdArgs, bool IsLink);
+                              llvm::opt::ArgStringList &CmdArgs,
+                              const InputInfo &Input, bool IsLink);
 #endif // INTEL_CUSTOMIZATION
 
 std::tuple<llvm::Reloc::Model, unsigned, bool>
@@ -112,13 +130,21 @@ void AddAssemblerKPIC(const ToolChain &ToolChain,
                       const llvm::opt::ArgList &Args,
                       llvm::opt::ArgStringList &CmdArgs);
 
+void addOpenMPRuntimeSpecificRPath(const ToolChain &TC,
+                                   const llvm::opt::ArgList &Args,
+                                   llvm::opt::ArgStringList &CmdArgs);
 void addArchSpecificRPath(const ToolChain &TC, const llvm::opt::ArgList &Args,
                           llvm::opt::ArgStringList &CmdArgs);
+void addOpenMPRuntimeLibraryPath(const ToolChain &TC,
+                                 const llvm::opt::ArgList &Args,
+                                 llvm::opt::ArgStringList &CmdArgs);
 /// Returns true, if an OpenMP runtime has been added.
 bool addOpenMPRuntime(llvm::opt::ArgStringList &CmdArgs, const ToolChain &TC,
                       const llvm::opt::ArgList &Args,
                       bool ForceStaticHostRuntime = false,
                       bool IsOffloadingHost = false, bool GompNeedsRT = false);
+
+const char *getAsNeededOption(const ToolChain &TC, bool as_needed);
 
 llvm::opt::Arg *getLastProfileUseArg(const llvm::opt::ArgList &Args);
 llvm::opt::Arg *getLastProfileSampleUseArg(const llvm::opt::ArgList &Args);

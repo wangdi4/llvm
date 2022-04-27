@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-rowwise-mv -hir-cg -simplifycfg -intel-ir-optreport-emitter -hir-rowwise-mv-skip-dtrans -force-hir-cg -intel-loop-optreport=low -disable-output 2>&1 < %s | FileCheck --implicit-check-not multiversioned %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-rowwise-mv -hir-cg -simplifycfg -intel-ir-optreport-emitter -hir-rowwise-mv-skip-dtrans -force-hir-cg -intel-opt-report=low -disable-output 2>&1 < %s | FileCheck --implicit-check-not multiversioned %s
 
 ; This test checks that the OptReport generation in HIRRowWiseMultiversioning
 ; does not reveal information about the transform in release builds. Based on my

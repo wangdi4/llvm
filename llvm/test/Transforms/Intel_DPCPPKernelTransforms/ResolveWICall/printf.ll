@@ -21,7 +21,7 @@ define void @A(float addrspace(1)* nocapture %a, float addrspace(1)* nocapture %
 ; CHECK-NEXT: [[GEP2:%[0-9]+]] = getelementptr inbounds [12 x i8], [12 x i8]* %temp_arg_buf, i32 0, i32 8
 ; CHECK-NEXT: %arg_val = bitcast i8* [[GEP2]] to i32*
 ; CHECK-NEXT: store i32 %iNumElements, i32* %arg_val, align 1
-; CHECK-NEXT: %translated_opencl_printf_call = call i32 @opencl_printf(i8 addrspace(2)* addrspacecast (i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i32 0, i32 0) to i8 addrspace(2)*), i8* [[GEP0]]
+; CHECK-NEXT: %translated_opencl_printf_call = call i32 @__opencl_printf(i8 addrspace(2)* addrspacecast (i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i32 0, i32 0) to i8 addrspace(2)*), i8* [[GEP0]]
   %call1 = tail call i32 (i8 addrspace(2)*, ...) @printf(i8 addrspace(2)* addrspacecast (i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i32 0, i32 0) to i8 addrspace(2)*), i32 %iNumElements)
   ret void
 }

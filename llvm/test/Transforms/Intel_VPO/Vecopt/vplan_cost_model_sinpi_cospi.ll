@@ -3,12 +3,13 @@
 ; for cost-model's purpose we treat them like llvm.sin/llvm.cos intrinsics
 ; instead of unknown user calls.
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vector-library=SVML -vplan-cost-model-print-analysis-for-vf=4 -disable-output < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vector-library=SVML -vplan-cost-model-print-analysis-for-vf=4 -disable-output < %s -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vector-library=SVML -vplan-cost-model-print-analysis-for-vf=4 -disable-output < %s -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 ; RUN: opt -vplan-vec -vector-library=SVML -vplan-cost-model-print-analysis-for-vf=4 -disable-output < %s | FileCheck %s
 
 ; CHECK-LABEL:   Cost Model for VPlan foo:{{.*}} with VF = 4:
-; CHECK:         Cost 26000 for float {{%vp.*}} = call float [[ARG:%vp.*]] __svml_cospif4 [x 1]
-; CHECK-NEXT:    Cost 26000 for float {{%vp.*}} = call float [[ARG]] __svml_sinpif4 [x 1]
+; CHECK:         Cost 26 for float {{%vp.*}} = call float [[ARG:%vp.*]] __svml_cospif4 [x 1]
+; CHECK-NEXT:    Cost 26 for float {{%vp.*}} = call float [[ARG]] __svml_sinpif4 [x 1]
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

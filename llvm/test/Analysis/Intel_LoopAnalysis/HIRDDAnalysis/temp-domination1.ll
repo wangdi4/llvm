@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -analyze  -hir-dd-analysis -hir-dd-analysis-verify=Region 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -analyze -enable-new-pm=0  -hir-dd-analysis -hir-dd-analysis-verify=Region 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region 2>&1 | FileCheck %s
 
 ; Input HIR-
@@ -22,7 +22,7 @@
 
 ; CHECK-DAG: %Accumulator.0.lcssa --> %Accumulator.0.lcssa OUTPUT (=) (0)
 ; CHECK-DAG: %Accumulator.0.lcssa --> %Accumulator.0.lcssa FLOW (=) (0)
-; CHECK-DAG: %Accumulator.0.lcssa --> %Accumulator.0.lcssa FLOW (*) (?)
+; CHECK-DAG: %Accumulator.0.lcssa --> %Accumulator.0.lcssa FLOW (=) (0)
 
 
 define void @fxpAutoCorrelation(i16* %InputData, i16* %AutoCorrData, i16 %DataSize, i16 %NumberOfLags, i16 %Scale) {

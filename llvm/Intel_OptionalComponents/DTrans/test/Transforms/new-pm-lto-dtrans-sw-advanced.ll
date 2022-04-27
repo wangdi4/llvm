@@ -1,4 +1,3 @@
-; INTEL_FEATURE_SW_ADVANCED
 ; Test DTrans integration in the new pass manager.
 ;
 ; Ideally, we'd like to have this test integrated with the main test for the
@@ -8,11 +7,9 @@
 
 ; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt -disable-verify -debug-pass-manager -whole-program-assume    \
-; RUN:     -enable-dtrans-soatoaos -enable-dtrans-deletefield           \
-; RUN:     -enable-resolve-types                                        \
-; RUN:     -passes='lto<O2>,internalize'  -internalize-public-api-list main \
-; RUN:     -S  %s -enable-npm-dtrans                  \
-; RUN:     2>&1 \
+; RUN:     -passes='lto<O2>' -internalize-public-api-list main          \
+; RUN:     -S  %s -enable-npm-dtrans                                    \
+; RUN:     2>&1                                                         \
 ; RUN:     | FileCheck %s
 
 ; Basic orientation checks.
@@ -27,6 +24,7 @@
 ; CHECK-NEXT: Running analysis: TargetLibraryAnalysis on bar
 ; CHECK-NEXT: Running analysis: TargetIRAnalysis on foo
 ; CHECK-NEXT: Running analysis: TargetIRAnalysis on main
+; CHECK-NEXT: Running pass: OpenMPOptPass
 ; CHECK-NEXT: Running pass: GlobalDCEPass
 ; CHECK: Running pass: IPSCCPPass
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
@@ -36,8 +34,11 @@
 ; CHECK-NEXT: Running pass: IPCloningPass
 ; CHECK-NEXT: Running pass: ForceFunctionAttrsPass
 ; CHECK-NEXT: Running pass: InferFunctionAttrsPass
+; CHECK: Running pass: OptimizeDynamicCastsPass
 ; CHECK: Running pass: {{.*}}SimplifyCFGPass{{.*}}
 ; CHECK-NEXT: Running pass: {{.*}}SimplifyCFGPass{{.*}}
+; CHECK-NEXT: Running pass: GlobalSplitPass
+; CHECK-NEXT: Running pass: WholeProgramDevirtPass
 
 ; Verify that resolve types does not invoke DTransAnalysis
 ; CHECK-NEXT: Running pass: dtrans::ResolveTypes
@@ -67,13 +68,19 @@
 ; CHECK-NEXT: Running pass: DopeVectorConstProp
 ; CHECK: Running pass: ArgumentPromotionPass on (foo)
 ; CHECK: Running pass: ArgumentPromotionPass on (main)
-; CHECK-NEXT: Running pass: OptimizeDynamicCastsPass
 ; CHECK: Running pass: IntelArgumentAlignmentPass
 ; CHECK: Running pass: QsortRecognizerPass
 ; CHECK: Running pass: TileMVInlMarkerPass
 ; CHECK: Running pass: IPArrayTranspose
 ; CHECK: Running pass: IPPredOpt
 ; CHECK: Running pass: DeadArrayOpsElimination
+
+; Check that the DTransFieldModRefAnalysis runs before getting to loop passes.
+; CHECK: Running pass: RequireAnalysisPass<llvm::DTransFieldModRefAnalysis, llvm::Module> on [module]
+; CHECK: Running analysis: DTransFieldModRefAnalysis on [module]
+; CHECK: Running pass: IntelIPODeadArgEliminationPass on [module]
+; CHECK: Running pass: LoopSimplifyPass on foo
+; CHECK: Running pass: LCSSAPass on foo
 
 ; Make sure we get the IR back out without changes when we print the module.
 ; CHECK-LABEL: define internal fastcc void @foo(i32 %n) unnamed_addr #0 {
@@ -119,4 +126,3 @@ define i32 @main(i32 %n) {
 }
 
 attributes #0 = { noinline uwtable }
-; end INTEL_FEATURE_SW_ADVANCED

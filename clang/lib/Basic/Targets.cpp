@@ -1,4 +1,21 @@
 //===--- Targets.cpp - Implement target feature support -------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -19,6 +36,8 @@
 #include "Targets/ARM.h"
 #include "Targets/AVR.h"
 #include "Targets/BPF.h"
+#include "Targets/CSKY.h"
+#include "Targets/DirectX.h"
 #include "Targets/Hexagon.h"
 #include "Targets/Lanai.h"
 #include "Targets/Le64.h"
@@ -555,6 +574,11 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
     }
 
   case llvm::Triple::x86_64:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  case llvm::Triple::x86_64_xucc:
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
     if (Triple.isOSDarwin() || Triple.isOSBinFormatMachO())
       return new DarwinX86_64TargetInfo(Triple, Opts);
 
@@ -714,6 +738,8 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
         return nullptr;
     }
 
+  case llvm::Triple::dxil:
+    return new DirectXTargetInfo(Triple,Opts);
   case llvm::Triple::renderscript32:
     return new LinuxTargetInfo<RenderScript32TargetInfo>(Triple, Opts);
   case llvm::Triple::renderscript64:
@@ -721,6 +747,14 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
 
   case llvm::Triple::ve:
     return new LinuxTargetInfo<VETargetInfo>(Triple, Opts);
+
+  case llvm::Triple::csky:
+    switch (os) {
+    case llvm::Triple::Linux:
+      return new LinuxTargetInfo<CSKYTargetInfo>(Triple, Opts);
+    default:
+      return new CSKYTargetInfo(Triple, Opts);
+    }
   }
 }
 } // namespace targets
@@ -814,6 +848,10 @@ TargetInfo::CreateTargetInfo(DiagnosticsEngine &Diags,
   Target->setSupportedOpenCLOpts();
   Target->setCommandLineOpenCLOpts();
   Target->setMaxAtomicWidth();
+
+  if (!Opts->DarwinTargetVariantTriple.empty())
+    Target->DarwinTargetVariantTriple =
+        llvm::Triple(Opts->DarwinTargetVariantTriple);
 
   if (!Target->validateTarget(Diags))
     return nullptr;

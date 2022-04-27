@@ -1,4 +1,21 @@
 //===-- X86DisassemblerDecoderCommon.h - Disassembler decoder ---*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -73,7 +90,18 @@ enum attributeBits {
   ATTR_EVEXK  = 0x1 << 10,
   ATTR_EVEXKZ = 0x1 << 11,
   ATTR_EVEXB  = 0x1 << 12,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  // FIXME: This will greatly increase the size of llvm-mc. Is there any way
+  // we can avoid this?
+  ATTR_XUCCPD = 0x1 << 13,
+  ATTR_XUCCXS = 0x1 << 14,
+  ATTR_XUCCXD = 0x1 << 15,
+  ATTR_max    = 0x1 << 16,
+#else // INTEL_FEATURE_XUCC
   ATTR_max    = 0x1 << 13,
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 };
 
 // Combinations of the above attributes that are relevant to instruction
@@ -81,7 +109,9 @@ enum attributeBits {
 // these without affecting the ultimately decoded instruction.
 
 //           Class name           Rank  Rationale for rank assignment
-#define INSTRUCTION_CONTEXTS                                                   \
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+#define INSTRUCTION_XUCC_CONTEXTS                                              \
   ENUM_ENTRY(IC,                    0,  "says nothing about the instruction")  \
   ENUM_ENTRY(IC_64BIT,              1,  "says the instruction applies in "     \
                                         "64-bit mode but no more")             \
@@ -285,11 +315,228 @@ enum attributeBits {
   ENUM_ENTRY(IC_EVEX_L2_W_KZ,        3,  "requires EVEX_KZ, L2 and W")               \
   ENUM_ENTRY(IC_EVEX_L2_W_XS_KZ,     4,  "requires EVEX_KZ, L2, W and XS prefix")    \
   ENUM_ENTRY(IC_EVEX_L2_W_XD_KZ,     4,  "requires EVEX_KZ, L2, W and XD prefix")    \
+  ENUM_ENTRY(IC_EVEX_L2_W_OPSIZE_KZ, 4,  "requires EVEX_KZ, L2, W and OpSize") \
+  ENUM_ENTRY(IC_XUCCPD,              1,  "requires XuCCPD prefix") \
+  ENUM_ENTRY(IC_XUCCPD_XS,           1,  "requires XuCCPD and XS prefix") \
+  ENUM_ENTRY(IC_XUCCPD_XD,           1,  "requires XuCCPD and XD prefix") \
+  ENUM_ENTRY(IC_XUCCXS_PD,           1,  "requires XuCCXS and PD prefix") \
+  ENUM_ENTRY(IC_XUCCXD_PD,           1,  "requires XuCCXD and PD prefix")
+#else // INTEL_FEATURE_XUCC
+#define INSTRUCTION_CONTEXTS                                                   \
+  ENUM_ENTRY(IC,                    0,  "says nothing about the instruction")  \
+  ENUM_ENTRY(IC_64BIT,              1,  "says the instruction applies in "     \
+                                        "64-bit mode but no more")             \
+  ENUM_ENTRY(IC_OPSIZE,             3,  "requires an OPSIZE prefix, so "       \
+                                        "operands change width")               \
+  ENUM_ENTRY(IC_ADSIZE,             3,  "requires an ADSIZE prefix, so "       \
+                                        "operands change width")               \
+  ENUM_ENTRY(IC_OPSIZE_ADSIZE,      4,  "requires ADSIZE and OPSIZE prefixes") \
+  ENUM_ENTRY(IC_XD,                 2,  "may say something about the opcode "  \
+                                        "but not the operands")                \
+  ENUM_ENTRY(IC_XS,                 2,  "may say something about the opcode "  \
+                                        "but not the operands")                \
+  ENUM_ENTRY(IC_XD_OPSIZE,          3,  "requires an OPSIZE prefix, so "       \
+                                        "operands change width")               \
+  ENUM_ENTRY(IC_XS_OPSIZE,          3,  "requires an OPSIZE prefix, so "       \
+                                        "operands change width")               \
+  ENUM_ENTRY(IC_XD_ADSIZE,          3,  "requires an ADSIZE prefix, so "       \
+                                        "operands change width")               \
+  ENUM_ENTRY(IC_XS_ADSIZE,          3,  "requires an ADSIZE prefix, so "       \
+                                        "operands change width")               \
+  ENUM_ENTRY(IC_64BIT_REXW,         5,  "requires a REX.W prefix, so operands "\
+                                        "change width; overrides IC_OPSIZE")   \
+  ENUM_ENTRY(IC_64BIT_REXW_ADSIZE,  6,  "requires a REX.W prefix and 0x67 "    \
+                                        "prefix")                              \
+  ENUM_ENTRY(IC_64BIT_OPSIZE,       3,  "Just as meaningful as IC_OPSIZE")     \
+  ENUM_ENTRY(IC_64BIT_ADSIZE,       3,  "Just as meaningful as IC_ADSIZE")     \
+  ENUM_ENTRY(IC_64BIT_OPSIZE_ADSIZE, 4, "Just as meaningful as IC_OPSIZE/"     \
+                                        "IC_ADSIZE")                           \
+  ENUM_ENTRY(IC_64BIT_XD,           6,  "XD instructions are SSE; REX.W is "   \
+                                        "secondary")                           \
+  ENUM_ENTRY(IC_64BIT_XS,           6,  "Just as meaningful as IC_64BIT_XD")   \
+  ENUM_ENTRY(IC_64BIT_XD_OPSIZE,    3,  "Just as meaningful as IC_XD_OPSIZE")  \
+  ENUM_ENTRY(IC_64BIT_XS_OPSIZE,    3,  "Just as meaningful as IC_XS_OPSIZE")  \
+  ENUM_ENTRY(IC_64BIT_XD_ADSIZE,    3,  "Just as meaningful as IC_XD_ADSIZE")  \
+  ENUM_ENTRY(IC_64BIT_XS_ADSIZE,    3,  "Just as meaningful as IC_XS_ADSIZE")  \
+  ENUM_ENTRY(IC_64BIT_REXW_XS,      7,  "OPSIZE could mean a different "       \
+                                        "opcode")                              \
+  ENUM_ENTRY(IC_64BIT_REXW_XD,      7,  "Just as meaningful as "               \
+                                        "IC_64BIT_REXW_XS")                    \
+  ENUM_ENTRY(IC_64BIT_REXW_OPSIZE,  8,  "The Dynamic Duo!  Prefer over all "   \
+                                        "else because this changes most "      \
+                                        "operands' meaning")                   \
+  ENUM_ENTRY(IC_VEX,                1,  "requires a VEX prefix")               \
+  ENUM_ENTRY(IC_VEX_XS,             2,  "requires VEX and the XS prefix")      \
+  ENUM_ENTRY(IC_VEX_XD,             2,  "requires VEX and the XD prefix")      \
+  ENUM_ENTRY(IC_VEX_OPSIZE,         2,  "requires VEX and the OpSize prefix")  \
+  ENUM_ENTRY(IC_VEX_W,              3,  "requires VEX and the W prefix")       \
+  ENUM_ENTRY(IC_VEX_W_XS,           4,  "requires VEX, W, and XS prefix")      \
+  ENUM_ENTRY(IC_VEX_W_XD,           4,  "requires VEX, W, and XD prefix")      \
+  ENUM_ENTRY(IC_VEX_W_OPSIZE,       4,  "requires VEX, W, and OpSize")         \
+  ENUM_ENTRY(IC_VEX_L,              3,  "requires VEX and the L prefix")       \
+  ENUM_ENTRY(IC_VEX_L_XS,           4,  "requires VEX and the L and XS prefix")\
+  ENUM_ENTRY(IC_VEX_L_XD,           4,  "requires VEX and the L and XD prefix")\
+  ENUM_ENTRY(IC_VEX_L_OPSIZE,       4,  "requires VEX, L, and OpSize")         \
+  ENUM_ENTRY(IC_VEX_L_W,            4,  "requires VEX, L and W")               \
+  ENUM_ENTRY(IC_VEX_L_W_XS,         5,  "requires VEX, L, W and XS prefix")    \
+  ENUM_ENTRY(IC_VEX_L_W_XD,         5,  "requires VEX, L, W and XD prefix")    \
+  ENUM_ENTRY(IC_VEX_L_W_OPSIZE,     5,  "requires VEX, L, W and OpSize")       \
+  ENUM_ENTRY(IC_EVEX,               1,  "requires an EVEX prefix")             \
+  ENUM_ENTRY(IC_EVEX_XS,            2,  "requires EVEX and the XS prefix")     \
+  ENUM_ENTRY(IC_EVEX_XD,            2,  "requires EVEX and the XD prefix")     \
+  ENUM_ENTRY(IC_EVEX_OPSIZE,        2,  "requires EVEX and the OpSize prefix") \
+  ENUM_ENTRY(IC_EVEX_W,             3,  "requires EVEX and the W prefix")      \
+  ENUM_ENTRY(IC_EVEX_W_XS,          4,  "requires EVEX, W, and XS prefix")     \
+  ENUM_ENTRY(IC_EVEX_W_XD,          4,  "requires EVEX, W, and XD prefix")     \
+  ENUM_ENTRY(IC_EVEX_W_OPSIZE,      4,  "requires EVEX, W, and OpSize")        \
+  ENUM_ENTRY(IC_EVEX_L,             3,  "requires EVEX and the L prefix")       \
+  ENUM_ENTRY(IC_EVEX_L_XS,          4,  "requires EVEX and the L and XS prefix")\
+  ENUM_ENTRY(IC_EVEX_L_XD,          4,  "requires EVEX and the L and XD prefix")\
+  ENUM_ENTRY(IC_EVEX_L_OPSIZE,      4,  "requires EVEX, L, and OpSize")         \
+  ENUM_ENTRY(IC_EVEX_L_W,           3,  "requires EVEX, L and W")               \
+  ENUM_ENTRY(IC_EVEX_L_W_XS,        4,  "requires EVEX, L, W and XS prefix")    \
+  ENUM_ENTRY(IC_EVEX_L_W_XD,        4,  "requires EVEX, L, W and XD prefix")    \
+  ENUM_ENTRY(IC_EVEX_L_W_OPSIZE,    4,  "requires EVEX, L, W and OpSize")       \
+  ENUM_ENTRY(IC_EVEX_L2,            3,  "requires EVEX and the L2 prefix")       \
+  ENUM_ENTRY(IC_EVEX_L2_XS,         4,  "requires EVEX and the L2 and XS prefix")\
+  ENUM_ENTRY(IC_EVEX_L2_XD,         4,  "requires EVEX and the L2 and XD prefix")\
+  ENUM_ENTRY(IC_EVEX_L2_OPSIZE,     4,  "requires EVEX, L2, and OpSize")         \
+  ENUM_ENTRY(IC_EVEX_L2_W,          3,  "requires EVEX, L2 and W")               \
+  ENUM_ENTRY(IC_EVEX_L2_W_XS,       4,  "requires EVEX, L2, W and XS prefix")    \
+  ENUM_ENTRY(IC_EVEX_L2_W_XD,       4,  "requires EVEX, L2, W and XD prefix")    \
+  ENUM_ENTRY(IC_EVEX_L2_W_OPSIZE,   4,  "requires EVEX, L2, W and OpSize")       \
+  ENUM_ENTRY(IC_EVEX_K,             1,  "requires an EVEX_K prefix")             \
+  ENUM_ENTRY(IC_EVEX_XS_K,          2,  "requires EVEX_K and the XS prefix")     \
+  ENUM_ENTRY(IC_EVEX_XD_K,          2,  "requires EVEX_K and the XD prefix")     \
+  ENUM_ENTRY(IC_EVEX_OPSIZE_K,      2,  "requires EVEX_K and the OpSize prefix") \
+  ENUM_ENTRY(IC_EVEX_W_K,           3,  "requires EVEX_K and the W prefix")      \
+  ENUM_ENTRY(IC_EVEX_W_XS_K,        4,  "requires EVEX_K, W, and XS prefix")     \
+  ENUM_ENTRY(IC_EVEX_W_XD_K,        4,  "requires EVEX_K, W, and XD prefix")     \
+  ENUM_ENTRY(IC_EVEX_W_OPSIZE_K,    4,  "requires EVEX_K, W, and OpSize")        \
+  ENUM_ENTRY(IC_EVEX_L_K,           3,  "requires EVEX_K and the L prefix")       \
+  ENUM_ENTRY(IC_EVEX_L_XS_K,        4,  "requires EVEX_K and the L and XS prefix")\
+  ENUM_ENTRY(IC_EVEX_L_XD_K,        4,  "requires EVEX_K and the L and XD prefix")\
+  ENUM_ENTRY(IC_EVEX_L_OPSIZE_K,    4,  "requires EVEX_K, L, and OpSize")         \
+  ENUM_ENTRY(IC_EVEX_L_W_K,         3,  "requires EVEX_K, L and W")               \
+  ENUM_ENTRY(IC_EVEX_L_W_XS_K,      4,  "requires EVEX_K, L, W and XS prefix")    \
+  ENUM_ENTRY(IC_EVEX_L_W_XD_K,      4,  "requires EVEX_K, L, W and XD prefix")    \
+  ENUM_ENTRY(IC_EVEX_L_W_OPSIZE_K,  4,  "requires EVEX_K, L, W and OpSize")       \
+  ENUM_ENTRY(IC_EVEX_L2_K,          3,  "requires EVEX_K and the L2 prefix")       \
+  ENUM_ENTRY(IC_EVEX_L2_XS_K,       4,  "requires EVEX_K and the L2 and XS prefix")\
+  ENUM_ENTRY(IC_EVEX_L2_XD_K,       4,  "requires EVEX_K and the L2 and XD prefix")\
+  ENUM_ENTRY(IC_EVEX_L2_OPSIZE_K,   4,  "requires EVEX_K, L2, and OpSize")         \
+  ENUM_ENTRY(IC_EVEX_L2_W_K,        3,  "requires EVEX_K, L2 and W")               \
+  ENUM_ENTRY(IC_EVEX_L2_W_XS_K,     4,  "requires EVEX_K, L2, W and XS prefix")    \
+  ENUM_ENTRY(IC_EVEX_L2_W_XD_K,     4,  "requires EVEX_K, L2, W and XD prefix")    \
+  ENUM_ENTRY(IC_EVEX_L2_W_OPSIZE_K, 4,  "requires EVEX_K, L2, W and OpSize")     \
+  ENUM_ENTRY(IC_EVEX_B,             1,  "requires an EVEX_B prefix")             \
+  ENUM_ENTRY(IC_EVEX_XS_B,          2,  "requires EVEX_B and the XS prefix")     \
+  ENUM_ENTRY(IC_EVEX_XD_B,          2,  "requires EVEX_B and the XD prefix")     \
+  ENUM_ENTRY(IC_EVEX_OPSIZE_B,      2,  "requires EVEX_B and the OpSize prefix") \
+  ENUM_ENTRY(IC_EVEX_W_B,           3,  "requires EVEX_B and the W prefix")      \
+  ENUM_ENTRY(IC_EVEX_W_XS_B,        4,  "requires EVEX_B, W, and XS prefix")     \
+  ENUM_ENTRY(IC_EVEX_W_XD_B,        4,  "requires EVEX_B, W, and XD prefix")     \
+  ENUM_ENTRY(IC_EVEX_W_OPSIZE_B,    4,  "requires EVEX_B, W, and OpSize")        \
+  ENUM_ENTRY(IC_EVEX_L_B,           3,  "requires EVEX_B and the L prefix")       \
+  ENUM_ENTRY(IC_EVEX_L_XS_B,        4,  "requires EVEX_B and the L and XS prefix")\
+  ENUM_ENTRY(IC_EVEX_L_XD_B,        4,  "requires EVEX_B and the L and XD prefix")\
+  ENUM_ENTRY(IC_EVEX_L_OPSIZE_B,    4,  "requires EVEX_B, L, and OpSize")         \
+  ENUM_ENTRY(IC_EVEX_L_W_B,         3,  "requires EVEX_B, L and W")               \
+  ENUM_ENTRY(IC_EVEX_L_W_XS_B,      4,  "requires EVEX_B, L, W and XS prefix")    \
+  ENUM_ENTRY(IC_EVEX_L_W_XD_B,      4,  "requires EVEX_B, L, W and XD prefix")    \
+  ENUM_ENTRY(IC_EVEX_L_W_OPSIZE_B,  4,  "requires EVEX_B, L, W and OpSize")       \
+  ENUM_ENTRY(IC_EVEX_L2_B,          3,  "requires EVEX_B and the L2 prefix")       \
+  ENUM_ENTRY(IC_EVEX_L2_XS_B,       4,  "requires EVEX_B and the L2 and XS prefix")\
+  ENUM_ENTRY(IC_EVEX_L2_XD_B,       4,  "requires EVEX_B and the L2 and XD prefix")\
+  ENUM_ENTRY(IC_EVEX_L2_OPSIZE_B,   4,  "requires EVEX_B, L2, and OpSize")         \
+  ENUM_ENTRY(IC_EVEX_L2_W_B,        3,  "requires EVEX_B, L2 and W")               \
+  ENUM_ENTRY(IC_EVEX_L2_W_XS_B,     4,  "requires EVEX_B, L2, W and XS prefix")    \
+  ENUM_ENTRY(IC_EVEX_L2_W_XD_B,     4,  "requires EVEX_B, L2, W and XD prefix")    \
+  ENUM_ENTRY(IC_EVEX_L2_W_OPSIZE_B, 4,  "requires EVEX_B, L2, W and OpSize")       \
+  ENUM_ENTRY(IC_EVEX_K_B,           1,  "requires EVEX_B and EVEX_K prefix")             \
+  ENUM_ENTRY(IC_EVEX_XS_K_B,        2,  "requires EVEX_B, EVEX_K and the XS prefix")     \
+  ENUM_ENTRY(IC_EVEX_XD_K_B,        2,  "requires EVEX_B, EVEX_K and the XD prefix")     \
+  ENUM_ENTRY(IC_EVEX_OPSIZE_K_B,    2,  "requires EVEX_B, EVEX_K and the OpSize prefix") \
+  ENUM_ENTRY(IC_EVEX_W_K_B,         3,  "requires EVEX_B, EVEX_K and the W prefix")      \
+  ENUM_ENTRY(IC_EVEX_W_XS_K_B,      4,  "requires EVEX_B, EVEX_K, W, and XS prefix")     \
+  ENUM_ENTRY(IC_EVEX_W_XD_K_B,      4,  "requires EVEX_B, EVEX_K, W, and XD prefix")     \
+  ENUM_ENTRY(IC_EVEX_W_OPSIZE_K_B,  4,  "requires EVEX_B, EVEX_K, W, and OpSize")        \
+  ENUM_ENTRY(IC_EVEX_L_K_B,         3,  "requires EVEX_B, EVEX_K and the L prefix")       \
+  ENUM_ENTRY(IC_EVEX_L_XS_K_B,      4,  "requires EVEX_B, EVEX_K and the L and XS prefix")\
+  ENUM_ENTRY(IC_EVEX_L_XD_K_B,      4,  "requires EVEX_B, EVEX_K and the L and XD prefix")\
+  ENUM_ENTRY(IC_EVEX_L_OPSIZE_K_B,  4,  "requires EVEX_B, EVEX_K, L, and OpSize")         \
+  ENUM_ENTRY(IC_EVEX_L_W_K_B,       3,  "requires EVEX_B, EVEX_K, L and W")               \
+  ENUM_ENTRY(IC_EVEX_L_W_XS_K_B,    4,  "requires EVEX_B, EVEX_K, L, W and XS prefix")    \
+  ENUM_ENTRY(IC_EVEX_L_W_XD_K_B,    4,  "requires EVEX_B, EVEX_K, L, W and XD prefix")    \
+  ENUM_ENTRY(IC_EVEX_L_W_OPSIZE_K_B,4,  "requires EVEX_B, EVEX_K, L, W and OpSize")       \
+  ENUM_ENTRY(IC_EVEX_L2_K_B,        3,  "requires EVEX_B, EVEX_K and the L2 prefix")       \
+  ENUM_ENTRY(IC_EVEX_L2_XS_K_B,     4,  "requires EVEX_B, EVEX_K and the L2 and XS prefix")\
+  ENUM_ENTRY(IC_EVEX_L2_XD_K_B,     4,  "requires EVEX_B, EVEX_K and the L2 and XD prefix")\
+  ENUM_ENTRY(IC_EVEX_L2_OPSIZE_K_B, 4,  "requires EVEX_B, EVEX_K, L2, and OpSize")         \
+  ENUM_ENTRY(IC_EVEX_L2_W_K_B,      3,  "requires EVEX_B, EVEX_K, L2 and W")               \
+  ENUM_ENTRY(IC_EVEX_L2_W_XS_K_B,   4,  "requires EVEX_B, EVEX_K, L2, W and XS prefix")    \
+  ENUM_ENTRY(IC_EVEX_L2_W_XD_K_B,   4,  "requires EVEX_B, EVEX_K, L2, W and XD prefix")    \
+  ENUM_ENTRY(IC_EVEX_L2_W_OPSIZE_K_B,4,  "requires EVEX_B, EVEX_K, L2, W and OpSize")       \
+  ENUM_ENTRY(IC_EVEX_KZ_B,           1,  "requires EVEX_B and EVEX_KZ prefix")             \
+  ENUM_ENTRY(IC_EVEX_XS_KZ_B,        2,  "requires EVEX_B, EVEX_KZ and the XS prefix")     \
+  ENUM_ENTRY(IC_EVEX_XD_KZ_B,        2,  "requires EVEX_B, EVEX_KZ and the XD prefix")     \
+  ENUM_ENTRY(IC_EVEX_OPSIZE_KZ_B,    2,  "requires EVEX_B, EVEX_KZ and the OpSize prefix") \
+  ENUM_ENTRY(IC_EVEX_W_KZ_B,         3,  "requires EVEX_B, EVEX_KZ and the W prefix")      \
+  ENUM_ENTRY(IC_EVEX_W_XS_KZ_B,      4,  "requires EVEX_B, EVEX_KZ, W, and XS prefix")     \
+  ENUM_ENTRY(IC_EVEX_W_XD_KZ_B,      4,  "requires EVEX_B, EVEX_KZ, W, and XD prefix")     \
+  ENUM_ENTRY(IC_EVEX_W_OPSIZE_KZ_B,  4,  "requires EVEX_B, EVEX_KZ, W, and OpSize")        \
+  ENUM_ENTRY(IC_EVEX_L_KZ_B,           3,  "requires EVEX_B, EVEX_KZ and the L prefix")       \
+  ENUM_ENTRY(IC_EVEX_L_XS_KZ_B,        4,  "requires EVEX_B, EVEX_KZ and the L and XS prefix")\
+  ENUM_ENTRY(IC_EVEX_L_XD_KZ_B,        4,  "requires EVEX_B, EVEX_KZ and the L and XD prefix")\
+  ENUM_ENTRY(IC_EVEX_L_OPSIZE_KZ_B,    4,  "requires EVEX_B, EVEX_KZ, L, and OpSize")         \
+  ENUM_ENTRY(IC_EVEX_L_W_KZ_B,         3,  "requires EVEX_B, EVEX_KZ, L and W")               \
+  ENUM_ENTRY(IC_EVEX_L_W_XS_KZ_B,      4,  "requires EVEX_B, EVEX_KZ, L, W and XS prefix")    \
+  ENUM_ENTRY(IC_EVEX_L_W_XD_KZ_B,      4,  "requires EVEX_B, EVEX_KZ, L, W and XD prefix")    \
+  ENUM_ENTRY(IC_EVEX_L_W_OPSIZE_KZ_B,  4,  "requires EVEX_B, EVEX_KZ, L, W and OpSize")       \
+  ENUM_ENTRY(IC_EVEX_L2_KZ_B,          3,  "requires EVEX_B, EVEX_KZ and the L2 prefix")       \
+  ENUM_ENTRY(IC_EVEX_L2_XS_KZ_B,       4,  "requires EVEX_B, EVEX_KZ and the L2 and XS prefix")\
+  ENUM_ENTRY(IC_EVEX_L2_XD_KZ_B,       4,  "requires EVEX_B, EVEX_KZ and the L2 and XD prefix")\
+  ENUM_ENTRY(IC_EVEX_L2_OPSIZE_KZ_B,   4,  "requires EVEX_B, EVEX_KZ, L2, and OpSize")         \
+  ENUM_ENTRY(IC_EVEX_L2_W_KZ_B,        3,  "requires EVEX_B, EVEX_KZ, L2 and W")               \
+  ENUM_ENTRY(IC_EVEX_L2_W_XS_KZ_B,     4,  "requires EVEX_B, EVEX_KZ, L2, W and XS prefix")    \
+  ENUM_ENTRY(IC_EVEX_L2_W_XD_KZ_B,     4,  "requires EVEX_B, EVEX_KZ, L2, W and XD prefix")    \
+  ENUM_ENTRY(IC_EVEX_L2_W_OPSIZE_KZ_B, 4,  "requires EVEX_B, EVEX_KZ, L2, W and OpSize")       \
+  ENUM_ENTRY(IC_EVEX_KZ,             1,  "requires an EVEX_KZ prefix")             \
+  ENUM_ENTRY(IC_EVEX_XS_KZ,          2,  "requires EVEX_KZ and the XS prefix")     \
+  ENUM_ENTRY(IC_EVEX_XD_KZ,          2,  "requires EVEX_KZ and the XD prefix")     \
+  ENUM_ENTRY(IC_EVEX_OPSIZE_KZ,      2,  "requires EVEX_KZ and the OpSize prefix") \
+  ENUM_ENTRY(IC_EVEX_W_KZ,           3,  "requires EVEX_KZ and the W prefix")      \
+  ENUM_ENTRY(IC_EVEX_W_XS_KZ,        4,  "requires EVEX_KZ, W, and XS prefix")     \
+  ENUM_ENTRY(IC_EVEX_W_XD_KZ,        4,  "requires EVEX_KZ, W, and XD prefix")     \
+  ENUM_ENTRY(IC_EVEX_W_OPSIZE_KZ,    4,  "requires EVEX_KZ, W, and OpSize")        \
+  ENUM_ENTRY(IC_EVEX_L_KZ,           3,  "requires EVEX_KZ and the L prefix")       \
+  ENUM_ENTRY(IC_EVEX_L_XS_KZ,        4,  "requires EVEX_KZ and the L and XS prefix")\
+  ENUM_ENTRY(IC_EVEX_L_XD_KZ,        4,  "requires EVEX_KZ and the L and XD prefix")\
+  ENUM_ENTRY(IC_EVEX_L_OPSIZE_KZ,    4,  "requires EVEX_KZ, L, and OpSize")         \
+  ENUM_ENTRY(IC_EVEX_L_W_KZ,         3,  "requires EVEX_KZ, L and W")               \
+  ENUM_ENTRY(IC_EVEX_L_W_XS_KZ,      4,  "requires EVEX_KZ, L, W and XS prefix")    \
+  ENUM_ENTRY(IC_EVEX_L_W_XD_KZ,      4,  "requires EVEX_KZ, L, W and XD prefix")    \
+  ENUM_ENTRY(IC_EVEX_L_W_OPSIZE_KZ,  4,  "requires EVEX_KZ, L, W and OpSize")       \
+  ENUM_ENTRY(IC_EVEX_L2_KZ,          3,  "requires EVEX_KZ and the L2 prefix")       \
+  ENUM_ENTRY(IC_EVEX_L2_XS_KZ,       4,  "requires EVEX_KZ and the L2 and XS prefix")\
+  ENUM_ENTRY(IC_EVEX_L2_XD_KZ,       4,  "requires EVEX_KZ and the L2 and XD prefix")\
+  ENUM_ENTRY(IC_EVEX_L2_OPSIZE_KZ,   4,  "requires EVEX_KZ, L2, and OpSize")         \
+  ENUM_ENTRY(IC_EVEX_L2_W_KZ,        3,  "requires EVEX_KZ, L2 and W")               \
+  ENUM_ENTRY(IC_EVEX_L2_W_XS_KZ,     4,  "requires EVEX_KZ, L2, W and XS prefix")    \
+  ENUM_ENTRY(IC_EVEX_L2_W_XD_KZ,     4,  "requires EVEX_KZ, L2, W and XD prefix")    \
   ENUM_ENTRY(IC_EVEX_L2_W_OPSIZE_KZ, 4,  "requires EVEX_KZ, L2, W and OpSize")
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 
 #define ENUM_ENTRY(n, r, d) n,
 enum InstructionContext {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  INSTRUCTION_XUCC_CONTEXTS
+#else // INTEL_FEATURE_XUCC
   INSTRUCTION_CONTEXTS
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   IC_max
 };
 #undef ENUM_ENTRY

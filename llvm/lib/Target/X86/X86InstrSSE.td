@@ -1,4 +1,21 @@
 //===-- X86InstrSSE.td - SSE Instruction Set ---------------*- tablegen -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -3163,13 +3180,13 @@ let Predicates = [UseSSE2] in {
 // Prefetch intrinsic.
 let Predicates = [HasSSEPrefetch], SchedRW = [WriteLoad] in {
 def PREFETCHT0   : I<0x18, MRM1m, (outs), (ins i8mem:$src),
-    "prefetcht0\t$src", [(prefetch addr:$src, imm, (i32 3), (i32 1))]>, TB;
+    "prefetcht0\t$src", [(prefetch addr:$src, imm, (i32 3), imm)]>, TB; // INTEL
 def PREFETCHT1   : I<0x18, MRM2m, (outs), (ins i8mem:$src),
-    "prefetcht1\t$src", [(prefetch addr:$src, imm, (i32 2), (i32 1))]>, TB;
+    "prefetcht1\t$src", [(prefetch addr:$src, imm, (i32 2), imm)]>, TB; // INTEL
 def PREFETCHT2   : I<0x18, MRM3m, (outs), (ins i8mem:$src),
-    "prefetcht2\t$src", [(prefetch addr:$src, imm, (i32 1), (i32 1))]>, TB;
+    "prefetcht2\t$src", [(prefetch addr:$src, imm, (i32 1), imm)]>, TB; // INTEL
 def PREFETCHNTA  : I<0x18, MRM0m, (outs), (ins i8mem:$src),
-    "prefetchnta\t$src", [(prefetch addr:$src, imm, (i32 0), (i32 1))]>, TB;
+    "prefetchnta\t$src", [(prefetch addr:$src, imm, (i32 0), imm)]>, TB; // INTEL
 }
 
 // FIXME: How should flush instruction be modeled?
@@ -3471,9 +3488,9 @@ defm PMAXUB  : PDI_binop_all<0xDE, "pmaxub", umax, v16i8, v32i8,
                              SchedWriteVecALU, 1, NoVLX_Or_NoBWI>;
 defm PMAXSW  : PDI_binop_all<0xEE, "pmaxsw", smax, v8i16, v16i16,
                              SchedWriteVecALU, 1, NoVLX_Or_NoBWI>;
-defm PAVGB   : PDI_binop_all<0xE0, "pavgb", X86avg, v16i8, v32i8,
+defm PAVGB   : PDI_binop_all<0xE0, "pavgb", avgceilu, v16i8, v32i8,
                              SchedWriteVecALU, 1, NoVLX_Or_NoBWI>;
-defm PAVGW   : PDI_binop_all<0xE3, "pavgw", X86avg, v8i16, v16i16,
+defm PAVGW   : PDI_binop_all<0xE3, "pavgw", avgceilu, v8i16, v16i16,
                              SchedWriteVecALU, 1, NoVLX_Or_NoBWI>;
 defm PMULUDQ : PDI_binop_all<0xF4, "pmuludq", X86pmuludq, v2i64, v4i64,
                              SchedWriteVecIMul, 1, NoVLX>;
@@ -3997,7 +4014,10 @@ def PMOVMSKBrr : PDI<0xD7, MRMSrcReg, (outs GR32orGR64:$dst), (ins VR128:$src),
 //===---------------------------------------------------------------------===//
 
 let ExeDomain = SSEPackedInt, SchedRW = [SchedWriteVecMoveLS.XMM.MR] in {
-let Uses = [EDI], Predicates = [HasAVX,Not64BitMode] in
+// As VEX does not have separate instruction contexts for address size
+// overrides, VMASKMOVDQU and VMASKMOVDQU64 would have a decode conflict.
+// Prefer VMASKMODDQU64.
+let Uses = [EDI], Predicates = [HasAVX], isAsmParserOnly = 1 in
 def VMASKMOVDQU : VPDI<0xF7, MRMSrcReg, (outs),
            (ins VR128:$src, VR128:$mask),
            "maskmovdqu\t{$mask, $src|$src, $mask}",
@@ -4008,32 +4028,16 @@ def VMASKMOVDQU64 : VPDI<0xF7, MRMSrcReg, (outs),
            (ins VR128:$src, VR128:$mask),
            "maskmovdqu\t{$mask, $src|$src, $mask}",
            [(int_x86_sse2_maskmov_dqu VR128:$src, VR128:$mask, RDI)]>,
-           VEX, VEX_WIG, AdSize64;
-let Uses = [EDI], Predicates = [HasAVX,In64BitMode] in
-def VMASKMOVDQUX32 : VPDI<0xF7, MRMSrcReg, (outs),
-           (ins VR128:$src, VR128:$mask), "",
-           [(int_x86_sse2_maskmov_dqu VR128:$src, VR128:$mask, EDI)]>,
-           VEX, VEX_WIG, AdSize32 {
-  let AsmString = "addr32 vmaskmovdqu\t{$mask, $src|$src, $mask}";
-  let AsmVariantName = "NonParsable";
-}
+           VEX, VEX_WIG;
 
-let Uses = [EDI], Predicates = [UseSSE2,Not64BitMode] in
+let Uses = [EDI], Predicates = [UseSSE2] in
 def MASKMOVDQU : PDI<0xF7, MRMSrcReg, (outs), (ins VR128:$src, VR128:$mask),
            "maskmovdqu\t{$mask, $src|$src, $mask}",
            [(int_x86_sse2_maskmov_dqu VR128:$src, VR128:$mask, EDI)]>;
 let Uses = [RDI], Predicates = [UseSSE2,In64BitMode] in
 def MASKMOVDQU64 : PDI<0xF7, MRMSrcReg, (outs), (ins VR128:$src, VR128:$mask),
            "maskmovdqu\t{$mask, $src|$src, $mask}",
-           [(int_x86_sse2_maskmov_dqu VR128:$src, VR128:$mask, RDI)]>,
-           AdSize64;
-let Uses = [EDI], Predicates = [UseSSE2,In64BitMode] in
-def MASKMOVDQUX32 : PDI<0xF7, MRMSrcReg, (outs), (ins VR128:$src, VR128:$mask),
-           "addr32 maskmovdqu\t{$mask, $src|$src, $mask}",
-           [(int_x86_sse2_maskmov_dqu VR128:$src, VR128:$mask, EDI)]>,
-           AdSize32 {
-  let AsmVariantName = "NonParsable";
-}
+           [(int_x86_sse2_maskmov_dqu VR128:$src, VR128:$mask, RDI)]>;
 
 } // ExeDomain = SSEPackedInt
 
@@ -8081,8 +8085,8 @@ let Uses = [MXCSR], checkVEXPredicate = 1,
 }
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 
-#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
-  let Predicates = [HasAVXDOTPRODINT8, NoVLX_Or_NoAVX512DOTPRODINT8],
+#if INTEL_FEATURE_ISA_AVX_VNNI_INT8
+  let Predicates = [HasAVXVNNIINT8, NoVLX_Or_NoAVX512VNNIINT8],
   checkVEXPredicate = 1 in {
   defm VPDPBSSD   : avx_dotprod_rm<0x50,"vpdpbssd",  v4i32, VR128, loadv4i32,
                                    i128mem, X86vpdpbssd, SchedWriteVecIMul.XMM,
@@ -8121,7 +8125,7 @@ let Uses = [MXCSR], checkVEXPredicate = 1,
                                    i256mem, X86vpdpbsuds, SchedWriteVecIMul.YMM,
                                    0>, VEX_L, T8XS;
 }
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -8873,4 +8877,105 @@ defm VPDPWUSDS  : avx_vnni_int16<0xd3, "vpdpwusds", 0>, T8PD;
 defm VPDPWUUD   : avx_vnni_int16<0xd2, "vpdpwuud", 1>, T8PS;
 defm VPDPWUUDS  : avx_vnni_int16<0xd3, "vpdpwuuds", 1>, T8PS;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
+
+#if INTEL_FEATURE_ISA_CMPCCXADD
+let Predicates = [HasCMPCCXADD, In64BitMode], Constraints = "$dstsrc2 = $dst" in
+multiclass CMPCCXADD_BASE<bits<8> Opc, string OpcodeStr> {
+def mr32 : I<Opc, MRMDestMem4VOp3, (outs GR32:$dst),
+          (ins i32mem:$dstsrc1, GR32:$dstsrc2, GR32:$src3),
+          !strconcat(OpcodeStr, "\t{$src3, $dstsrc2, $dstsrc1|$dstsrc1, $dstsrc2, $src3}"),
+          []>, VEX_4V, T8PD;
+
+def mr64 : I<Opc, MRMDestMem4VOp3, (outs GR64:$dst),
+          (ins i64mem:$dstsrc1, GR64:$dstsrc2, GR64:$src3),
+          !strconcat(OpcodeStr, "\t{$src3, $dstsrc2, $dstsrc1|$dstsrc1, $dstsrc2, $src3}"),
+          []>, VEX_4V, VEX_W, T8PD;
+}
+
+defm CMPBEXADD : CMPCCXADD_BASE<0xe6, "cmpbexadd">;
+defm CMPBXADD  : CMPCCXADD_BASE<0xe2, "cmpbxadd">;
+defm CMPLEXADD : CMPCCXADD_BASE<0xee, "cmplexadd">;
+defm CMPLXADD  : CMPCCXADD_BASE<0xec, "cmplxadd">;
+defm CMPNBEXADD : CMPCCXADD_BASE<0xe7, "cmpnbexadd">;
+defm CMPNBXADD  : CMPCCXADD_BASE<0xe3, "cmpnbxadd">;
+defm CMPNLEXADD : CMPCCXADD_BASE<0xef, "cmpnlexadd">;
+defm CMPNLXADD  : CMPCCXADD_BASE<0xed, "cmpnlxadd">;
+defm CMPNOXADD : CMPCCXADD_BASE<0xe1, "cmpnoxadd">;
+defm CMPNPXADD : CMPCCXADD_BASE<0xeb, "cmpnpxadd">;
+defm CMPNSXADD : CMPCCXADD_BASE<0xe9, "cmpnsxadd">;
+defm CMPNZXADD : CMPCCXADD_BASE<0xe5, "cmpnzxadd">;
+defm CMPOXADD : CMPCCXADD_BASE<0xe0, "cmpoxadd">;
+defm CMPPXADD : CMPCCXADD_BASE<0xea, "cmppxadd">;
+defm CMPSXADD : CMPCCXADD_BASE<0xe8, "cmpsxadd">;
+defm CMPZXADD : CMPCCXADD_BASE<0xe4, "cmpzxadd">;
+
+
+let Predicates = [HasCMPCCXADD, In64BitMode] in {
+def : Pat<(i32 (int_x86_cmpccxadd32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3, (i32 0))),
+          (CMPBEXADDmr32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3)>;
+def : Pat<(i64 (int_x86_cmpccxadd64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3, (i32 0))),
+          (CMPBEXADDmr64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3)>;
+def : Pat<(i32 (int_x86_cmpccxadd32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3, (i32 1))),
+          (CMPBXADDmr32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3)>;
+def : Pat<(i64 (int_x86_cmpccxadd64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3, (i32 1))),
+          (CMPBXADDmr64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3)>;
+def : Pat<(i32 (int_x86_cmpccxadd32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3, (i32 2))),
+          (CMPLEXADDmr32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3)>;
+def : Pat<(i64 (int_x86_cmpccxadd64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3, (i32 2))),
+          (CMPLEXADDmr64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3)>;
+def : Pat<(i32 (int_x86_cmpccxadd32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3, (i32 3))),
+          (CMPLXADDmr32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3)>;
+def : Pat<(i64 (int_x86_cmpccxadd64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3, (i32 3))),
+          (CMPLXADDmr64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3)>;
+def : Pat<(i32 (int_x86_cmpccxadd32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3, (i32 4))),
+          (CMPNBEXADDmr32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3)>;
+def : Pat<(i64 (int_x86_cmpccxadd64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3, (i32 4))),
+          (CMPNBEXADDmr64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3)>;
+def : Pat<(i32 (int_x86_cmpccxadd32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3, (i32 5))),
+          (CMPNBXADDmr32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3)>;
+def : Pat<(i64 (int_x86_cmpccxadd64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3, (i32 5))),
+          (CMPNBXADDmr64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3)>;
+def : Pat<(i32 (int_x86_cmpccxadd32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3, (i32 6))),
+          (CMPNLEXADDmr32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3)>;
+def : Pat<(i64 (int_x86_cmpccxadd64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3, (i32 6))),
+          (CMPNLEXADDmr64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3)>;
+def : Pat<(i32 (int_x86_cmpccxadd32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3, (i32 7))),
+          (CMPNLXADDmr32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3)>;
+def : Pat<(i64 (int_x86_cmpccxadd64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3, (i32 7))),
+          (CMPNLXADDmr64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3)>;
+def : Pat<(i32 (int_x86_cmpccxadd32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3, (i32 8))),
+          (CMPNOXADDmr32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3)>;
+def : Pat<(i64 (int_x86_cmpccxadd64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3, (i32 8))),
+          (CMPNOXADDmr64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3)>;
+def : Pat<(i32 (int_x86_cmpccxadd32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3, (i32 9))),
+          (CMPNPXADDmr32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3)>;
+def : Pat<(i64 (int_x86_cmpccxadd64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3, (i32 9))),
+          (CMPNPXADDmr64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3)>;
+def : Pat<(i32 (int_x86_cmpccxadd32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3, (i32 10))),
+          (CMPNSXADDmr32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3)>;
+def : Pat<(i64 (int_x86_cmpccxadd64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3, (i32 10))),
+          (CMPNSXADDmr64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3)>;
+def : Pat<(i32 (int_x86_cmpccxadd32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3, (i32 11))),
+          (CMPNZXADDmr32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3)>;
+def : Pat<(i64 (int_x86_cmpccxadd64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3, (i32 11))),
+          (CMPNZXADDmr64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3)>;
+def : Pat<(i32 (int_x86_cmpccxadd32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3, (i32 12))),
+          (CMPOXADDmr32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3)>;
+def : Pat<(i64 (int_x86_cmpccxadd64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3, (i32 12))),
+          (CMPOXADDmr64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3)>;
+def : Pat<(i32 (int_x86_cmpccxadd32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3, (i32 13))),
+          (CMPPXADDmr32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3)>;
+def : Pat<(i64 (int_x86_cmpccxadd64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3, (i32 13))),
+          (CMPPXADDmr64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3)>;
+def : Pat<(i32 (int_x86_cmpccxadd32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3, (i32 14))),
+          (CMPSXADDmr32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3)>;
+def : Pat<(i64 (int_x86_cmpccxadd64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3, (i32 14))),
+          (CMPSXADDmr64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3)>;
+def : Pat<(i32 (int_x86_cmpccxadd32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3, (i32 15))),
+          (CMPZXADDmr32 addr:$dstsrc1, GR32:$dstsrc2, GR32:$src3)>;
+def : Pat<(i64 (int_x86_cmpccxadd64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3, (i32 15))),
+          (CMPZXADDmr64 addr:$dstsrc1, GR64:$dstsrc2, GR64:$src3)>;
+}
+
+#endif // INTEL_FEATURE_ISA_CMPCCXADD
 #endif // INTEL_CUSTOMIZATION

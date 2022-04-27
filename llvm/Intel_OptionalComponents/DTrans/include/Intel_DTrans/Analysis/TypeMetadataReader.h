@@ -1,6 +1,6 @@
 //===-----------TypeMetadataReader.h - Decode metadata annotations---------===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -21,6 +21,7 @@
 #define INTEL_DTRANS_ANALYSIS_TYPEMETADATAREADER_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 
@@ -60,22 +61,33 @@ class TypeMetadataReader {
   friend class TypeMetadataTester;
 
 public:
-  // Get the NameMDNode for the module that contains the list of metadata nodes
+  // Return 'true' if there is a NamedMDNode that contains the list of metadata
+  // nodes used to describe all the structure types.
+  static bool hasDTransTypesMetadata(Module &M);
+
+  // Get the NamedMDNode for the module that contains the list of metadata nodes
   // used to describe all the structure types.
   static NamedMDNode* getDTransTypesMetadata(Module &M);
+
+  // Walk the '!intel.dtrans.types', if it exists, populating 'Mapping' with the
+  // StructType to MDNode that describes the structure. A MapVector is used to
+  // help with testing to maintain an ordering of the items for checking the
+  // output in a deterministic manner. However, the order may differ than the
+  // original metadata node because opaque structure types will be placed into
+  // the vector after all the non-opaque structures.
+  //
+  // When IncludeOpaque = false, opaque structure types will not be placed in
+  // the map. Otherwise, opaque structure types will be placed in the map if
+  // there is not a non-opaque structure available for it.
+  //
+  // Returns 'false' if '!intel.dtrans.types' does not exist.
+  static bool mapStructsToMDNodes(Module &M,
+                                  MapVector<StructType *, MDNode *> &Mapping,
+                                  bool IncludeOpaque);
 
   // Get the DTrans metadata node for a specific value. This can be used by
   // the transformations to be able to update the metadata when changing types.
   static MDNode *getDTransMDNode(const Value &V);
-
-  // Set the metadata on the Value using an appropriate tag based on the Value
-  // type. If MD is nullptr, clear any existing DTrans metadata from the object.
-  static void addDTransMDNode(Value &V, MDNode *MD);
-
-  // Remove any existing DTransFuncIndex metadata on 'F'. And set the return and
-  // argument attributes for the DTrans type metadata based on the function type
-  // defined by 'FnType'
-  static void setDTransFuncMetadata(Function *F, DTransFunctionType *FnType);
 
   TypeMetadataReader(DTransTypeManager &TM) : TM(TM) {}
 

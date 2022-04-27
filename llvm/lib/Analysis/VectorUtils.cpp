@@ -1,4 +1,21 @@
 //===----------- VectorUtils.cpp - Vectorizer utility functions -----------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,7 +30,6 @@
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/Analysis/DemandedBits.h"
-#include "llvm/Analysis/Intel_VectorVariant.h" // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/ScalarEvolution.h"
@@ -23,6 +39,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Intel_VectorVariant.h" // INTEL
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Support/CommandLine.h"
@@ -672,7 +689,7 @@ void llvm::analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
     if (ArgGep) {
 
       Value *Stride = getStrideFromPointer(CallArg, SE, OrigLoop);
-      AttrBuilder AttrList;
+      AttrBuilder AttrList(CI->getContext());
 
       if (Stride) {
         // 2nd and 3rd args to sincos should always be pointers, but assert just
@@ -1040,13 +1057,23 @@ Function *llvm::getOrInsertVectorLibFunction(
     // for it if one does not already exist.
 
     // SVML sincos functions uses struct to return results.
-    if (VFnName.startswith("__svml_sincos")) {
+    bool IsSinCos = VFnName.startswith("__svml_sincos");
+    if (IsSinCos) {
       Type *ElementType = getWidenedType(OrigF->getArg(0)->getType(), VL);
       VecRetTy = StructType::get(ElementType, ElementType);
     }
     FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
     VectorF = Function::Create(FTy, OrigF->getLinkage(), VFnName, M);
-    VectorF->copyAttributesFrom(OrigF);
+
+    if (IsSinCos) {
+      LLVMContext &C = VectorF->getContext();
+      AttributeSet NoUndefAttr =
+          AttributeSet::get(C, {Attribute::get(C, Attribute::NoUndef)});
+      AttributeList Attrs = AttributeList::get(
+          C, VectorF->getAttributes().getFnAttrs(), NoUndefAttr, {NoUndefAttr});
+      VectorF->setAttributes(Attrs);
+    } else
+      VectorF->copyAttributesFrom(OrigF);
   }
   return VectorF;
 }
@@ -1058,7 +1085,7 @@ Value *llvm::joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilderBase &Builder
   while (VL >= 2) {
     for (unsigned i = 0, j = 0; i < VL; i += 2, ++j) {
       unsigned NumElts =
-          cast<VectorType>(VParts[i]->getType())->getNumElements();
+          cast<FixedVectorType>(VParts[i]->getType())->getNumElements();
       SmallVector<int, 8> ShuffleMask(NumElts * 2);
       for (unsigned MaskInd = 0; MaskInd < NumElts * 2; ++MaskInd)
         ShuffleMask[MaskInd] = MaskInd;
@@ -1074,8 +1101,7 @@ Value *llvm::joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilderBase &Builder
 Value *llvm::extendVector(Value *OrigVal, unsigned TargetLength,
                           IRBuilderBase &Builder, const Twine &Name) {
   Type *OrigTy = OrigVal->getType();
-  assert(isa<VectorType>(OrigTy) && "OriginalVal should be of a vector type");
-  unsigned VectorElts = cast<VectorType>(OrigTy)->getNumElements();
+  unsigned VectorElts = cast<FixedVectorType>(OrigTy)->getNumElements();
   assert(TargetLength >= VectorElts &&
          "TargetLength should be greater than or equal to VectorElts");
   if (VectorElts == TargetLength)
@@ -1091,7 +1117,7 @@ Value *llvm::replicateVectorElts(Value *OrigVal, unsigned OriginalVL,
   if (OriginalVL == 1)
     return OrigVal;
   auto ShuffleMask = createReplicatedMask(
-      OriginalVL, cast<VectorType>(OrigVal->getType())->getNumElements());
+      OriginalVL, cast<FixedVectorType>(OrigVal->getType())->getNumElements());
   return Builder.CreateShuffleVector(OrigVal,
                                      UndefValue::get(OrigVal->getType()),
                                      ShuffleMask, Name + OrigVal->getName());
@@ -1101,7 +1127,8 @@ Value *llvm::replicateVector(Value *OrigVal, unsigned OriginalVL,
                              IRBuilderBase &Builder, const Twine &Name) {
   if (OriginalVL == 1)
     return OrigVal;
-  unsigned NumElts = cast<VectorType>(OrigVal->getType())->getNumElements();
+  unsigned NumElts =
+      cast<FixedVectorType>(OrigVal->getType())->getNumElements();
   SmallVector<int, 8> ShuffleMask;
   for (unsigned j = 0; j < OriginalVL; j++)
     for (unsigned i = 0; i < NumElts; ++i)
@@ -1144,9 +1171,7 @@ Value *llvm::generateExtractSubVector(Value *V, unsigned Part,
     return V;
   }
 
-  assert(isa<VectorType>(V->getType()) &&
-         "Cannot generate shuffles for non-vector values.");
-  unsigned VecLen = cast<VectorType>(V->getType())->getNumElements();
+  unsigned VecLen = cast<FixedVectorType>(V->getType())->getNumElements();
   assert(VecLen % NumParts == 0 &&
          "Vector cannot be divided into unequal parts for extraction");
   assert(Part < NumParts && "Invalid subpart to be extracted from vector.");

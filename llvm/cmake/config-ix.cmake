@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 if( WIN32 AND NOT CYGWIN )
   # We consider Cygwin as another Unix
   set(PURE_WINDOWS 1)
@@ -87,14 +104,12 @@ endif()
 if( NOT PURE_WINDOWS )
   check_library_exists(pthread pthread_create "" HAVE_LIBPTHREAD)
   if (HAVE_LIBPTHREAD)
-    check_library_exists(pthread pthread_getspecific "" HAVE_PTHREAD_GETSPECIFIC)
     check_library_exists(pthread pthread_rwlock_init "" HAVE_PTHREAD_RWLOCK_INIT)
     check_library_exists(pthread pthread_mutex_lock "" HAVE_PTHREAD_MUTEX_LOCK)
   else()
     # this could be Android
     check_library_exists(c pthread_create "" PTHREAD_IN_LIBC)
     if (PTHREAD_IN_LIBC)
-      check_library_exists(c pthread_getspecific "" HAVE_PTHREAD_GETSPECIFIC)
       check_library_exists(c pthread_rwlock_init "" HAVE_PTHREAD_RWLOCK_INIT)
       check_library_exists(c pthread_mutex_lock "" HAVE_PTHREAD_MUTEX_LOCK)
     endif()
@@ -169,8 +184,7 @@ if(LLVM_ENABLE_CURL)
     # Check if curl we found is usable; for example, we may have found a 32-bit
     # library on a 64-bit system which would result in a link-time failure.
     cmake_push_check_state()
-    list(APPEND CMAKE_REQUIRED_INCLUDES ${CURL_INCLUDE_DIRS})
-    list(APPEND CMAKE_REQUIRED_LIBRARIES ${CURL_LIBRARY})
+    list(APPEND CMAKE_REQUIRED_LIBRARIES CURL::libcurl)
     check_symbol_exists(curl_easy_init curl/curl.h HAVE_CURL)
     cmake_pop_check_state()
     if(LLVM_ENABLE_CURL STREQUAL FORCE_ON AND NOT HAVE_CURL)
@@ -608,7 +622,7 @@ find_program(GOLD_EXECUTABLE NAMES ${LLVM_DEFAULT_TARGET_TRIPLE}-ld.gold ld.gold
 set(LLVM_BINUTILS_INCDIR "" CACHE PATH
     "PATH to binutils/include containing plugin-api.h for gold plugin.")
 
-if(CMAKE_GENERATOR STREQUAL "Ninja")
+if(CMAKE_GENERATOR MATCHES "Ninja")
   execute_process(COMMAND ${CMAKE_MAKE_PROGRAM} --version
     OUTPUT_VARIABLE NINJA_VERSION
     OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -616,7 +630,7 @@ if(CMAKE_GENERATOR STREQUAL "Ninja")
   message(STATUS "Ninja version: ${NINJA_VERSION}")
 endif()
 
-if(CMAKE_GENERATOR STREQUAL "Ninja" AND
+if(CMAKE_GENERATOR MATCHES "Ninja" AND
     NOT "${NINJA_VERSION}" VERSION_LESS "1.9.0" AND
     CMAKE_HOST_APPLE AND CMAKE_HOST_SYSTEM_VERSION VERSION_GREATER "15.6.0")
   set(LLVM_TOUCH_STATIC_LIBRARIES ON)
@@ -656,7 +670,6 @@ else()
       find_ocamlfind_package(ctypes VERSION 0.4 OPTIONAL)
       if( HAVE_OCAML_CTYPES )
         message(STATUS "OCaml bindings enabled.")
-        find_ocamlfind_package(oUnit VERSION 2 OPTIONAL)
         set(LLVM_BINDINGS "${LLVM_BINDINGS} ocaml")
 
         set(LLVM_OCAML_INSTALL_PATH "${OCAML_STDLIB_PATH}" CACHE STRING

@@ -1,4 +1,21 @@
 //===- LoopDeletion.cpp - Dead Loop Deletion Pass ---------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -17,12 +34,12 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/CFG.h"
-#include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
+#include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/Dominators.h"
 
 #include "llvm/IR/PatternMatch.h"
@@ -719,25 +736,19 @@ breakBackedgeIfNotTaken(Loop *L, DominatorTree &DT, ScalarEvolution &SE,
   if (!L->getLoopLatch())
     return LoopDeletionResult::Unmodified;
 
-  auto *BTC = SE.getSymbolicMaxBackedgeTakenCount(L);
-  if (BTC->isZero()) {
-    // SCEV knows this backedge isn't taken!
-    breakLoopBackedge(L, DT, SE, LI, MSSA);
-    ++NumBackedgesBroken;
-    return LoopDeletionResult::Deleted;
-  }
-
-  // If SCEV leaves open the possibility of a zero trip count, see if
-  // symbolically evaluating the first iteration lets us prove the backedge
-  // unreachable.
-  if (isa<SCEVCouldNotCompute>(BTC) || !SE.isKnownNonZero(BTC))
-    if (canProveExitOnFirstIteration(L, DT, LI)) {
-      breakLoopBackedge(L, DT, SE, LI, MSSA);
-      ++NumBackedgesBroken;
-      return LoopDeletionResult::Deleted;
+  auto *BTCMax = SE.getConstantMaxBackedgeTakenCount(L);
+  if (!BTCMax->isZero()) {
+    auto *BTC = SE.getBackedgeTakenCount(L);
+    if (!BTC->isZero()) {
+      if (!isa<SCEVCouldNotCompute>(BTC) && SE.isKnownNonZero(BTC))
+        return LoopDeletionResult::Unmodified;
+      if (!canProveExitOnFirstIteration(L, DT, LI))
+        return LoopDeletionResult::Unmodified;
     }
-
-  return LoopDeletionResult::Unmodified;
+  }
+  ++NumBackedgesBroken;
+  breakLoopBackedge(L, DT, SE, LI, MSSA);
+  return LoopDeletionResult::Deleted;
 }
 
 /// Remove a loop if it is dead.

@@ -51,6 +51,11 @@ static void validateInductionPHI(VPPHINode *Phi, VPLoop *VLp,
          "Second operand of IV next instruction should be uniform.");
 }
 
+static bool isOuterMostLoopHeaderPhi(VPPHINode *Phi, VPlanVector &Plan) {
+  auto *CurrVLoop = Plan.getVPLoopInfo()->getLoopFor(Phi->getParent());
+  return CurrVLoop && CurrVLoop == *(Plan.getVPLoopInfo()->begin());
+}
+
 void VPlanSSADeconstruction::run() {
   VPLoop *VLoop = *(Plan.getVPLoopInfo()->begin());
   // Can't handle search loops.
@@ -60,6 +65,7 @@ void VPlanSSADeconstruction::run() {
   unsigned DeconstructedPhiId = 0;
   bool ResetSVA = false;
 
+  SmallVector<VPPHINode *, 4> PhisToErase;
   for (VPBasicBlock &VPBB : Plan) {
     auto *CurrVLoop = Plan.getVPLoopInfo()->getLoopFor(&VPBB);
     for (VPPHINode &Phi : VPBB.getVPPhis()) {
@@ -72,6 +78,16 @@ void VPlanSSADeconstruction::run() {
           validateInductionPHI(&Phi, CurrVLoop, Plan);
           continue;
         }
+      }
+
+      if (Phi.getNumIncomingValues() == 1) {
+        unsigned Idx = 0;
+        LLVM_DEBUG(dbgs() << "[SSADecons] Single value Phi replacing uses with "
+                             "incoming value for: ";
+                   Phi.dump());
+        Phi.replaceAllUsesWith(Phi.getIncomingValue(Idx));
+        PhisToErase.push_back(&Phi);
+        continue;
       }
 
       LLVM_DEBUG(dbgs() << "[SSADecons] Inserting copies for: "; Phi.dump());
@@ -121,7 +137,17 @@ void VPlanSSADeconstruction::run() {
                    dbgs() << " is mapped to the origin PHI ID: " << PhiId
                           << "\n");
         // TODO: Update SVA of new instruction. Should be same as IncomingValue.
-        if (!Plan.getVPlanDA()->isDivergent(*IncomingValue))
+        // NOTE: The code below assumes that DA is not recomputed between SSA
+        // deconstruction and CG. Consider the alternate solution if that's
+        // needed in future - capture the deconstructed PHI's property in
+        // HIRCopyInst and use that in DA to determine divergence/uniformity.
+        // TODO: Temporary hack to treat all outer loop header PHIs as divergent
+        // thereby ensuring they are not scalarized. Will be removed when
+        // HIRCopy opcode lowering is fully driven by SVA in CG.
+        if (Plan.getVPlanDA()->isDivergent(Phi) ||
+            isOuterMostLoopHeaderPhi(&Phi, Plan))
+          Plan.getVPlanDA()->markDivergent(*CopyInst);
+        else
           Plan.getVPlanDA()->markUniform(*CopyInst);
 
         PhiInValUpdates[IncomingBlock] = CopyInst;
@@ -134,6 +160,9 @@ void VPlanSSADeconstruction::run() {
       ResetSVA = true;
     }
   }
+
+  for (auto *Phi : PhisToErase)
+    Phi->getParent()->eraseInstruction(Phi);
 
   // Invalidate SVA results as VPlan has been changed.
   if (ResetSVA)

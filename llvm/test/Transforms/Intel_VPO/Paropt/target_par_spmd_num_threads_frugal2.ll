@@ -1,10 +1,10 @@
 ; REQUIRES: asserts
 
-; RUN: opt  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-simulate-get-num-threads-frugally=true -debug-only=vpo-paropt-target -S < %s 2>&1 | FileCheck %s -check-prefixes=DEFAULT,ALL
-; RUN: opt < %s  -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-simulate-get-num-threads-frugally=true -debug-only=vpo-paropt-target -S 2>&1 | FileCheck %s -check-prefixes=DEFAULT,ALL
+; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-simulate-get-num-threads-frugally=true -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=DEFAULT,ALL
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-simulate-get-num-threads-frugally=true -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=DEFAULT,ALL
 
-; RUN: opt  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-simulate-get-num-threads-frugally=false -debug-only=vpo-paropt-target -S < %s 2>&1 | FileCheck %s -check-prefixes=NOFRUGAL,ALL
-; RUN: opt < %s  -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-simulate-get-num-threads-frugally=false -debug-only=vpo-paropt-target -S 2>&1 | FileCheck %s -check-prefixes=NOFRUGAL,ALL
+; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-simulate-get-num-threads-frugally=false -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=NOFRUGAL,ALL
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-simulate-get-num-threads-frugally=false -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=NOFRUGAL,ALL
 
 ; Test src:
 
@@ -27,7 +27,7 @@
 ;   return 0;
 ; }
 
-; Check that we emit spmd_push/pop calls for the target region and the first
+; Check that we emit begin/end_spmd calls for the target region and the first
 ; parallel region, but not the second.
 
 ; DEFAULT:  collectOmpNumThreadsCallerInfo: @main may call omp_get_num_threads.
@@ -43,28 +43,28 @@
 ; DEFAULT:  mayCallOmpGetNumThreads: Region #4 (parallel) may call omp_get_num_threads: No.
 ; NOFRUGAL: mayCallOmpGetNumThreads: Region #4 (parallel) may call omp_get_num_threads: Yes.
 
-; DEFAULT:  mayCallOmpGetNumThreads: The region calls @__kmpc_spmd_pop_num_threads.
-; DEFAULT:  mayCallOmpGetNumThreads: @__kmpc_spmd_pop_num_threads does not have an exact definition. It may call omp_get_num_threads.
+; DEFAULT:  mayCallOmpGetNumThreads: The region calls @__kmpc_begin_spmd_parallel.
+; DEFAULT:  mayCallOmpGetNumThreads: @__kmpc_begin_spmd_parallel does not have a definition. It may call omp_get_num_threads.
 ; ALL:      mayCallOmpGetNumThreads: Region #1 (target) may call omp_get_num_threads: Yes.
 
 ; ALL:         call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(){{.*}}]
-; ALL:         call spir_func void @__kmpc_spmd_push_num_threads(i32 1)
+; ALL:         call spir_func void @__kmpc_begin_spmd_target()
 
-; ALL:         call spir_func void @__kmpc_spmd_pop_num_threads()
+; ALL:         call spir_func void @__kmpc_begin_spmd_parallel()
 ; ALL:         call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(){{.*}}]
 
 ; ALL:         call void @llvm.directive.region.exit({{.*}}) [ "DIR.OMP.END.PARALLEL"() ]
-; ALL:         call spir_func void @__kmpc_spmd_push_num_threads(i32 1)
+; ALL:         call spir_func void @__kmpc_end_spmd_parallel()
 
-; DEFAULT-NOT: call spir_func void @__kmpc_spmd_pop_num_threads()
-; NOFRUGAL:    call spir_func void @__kmpc_spmd_pop_num_threads()
+; DEFAULT-NOT: call spir_func void @__kmpc_begin_spmd_parallel()
+; NOFRUGAL:    call spir_func void @__kmpc_begin_spmd_parallel()
 ; ALL:         call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(){{.*}}]
 
 ; ALL:         call void @llvm.directive.region.exit({{.*}}) [ "DIR.OMP.END.PARALLEL"() ]
-; DEFAULT-NOT: call spir_func void @__kmpc_spmd_push_num_threads(i32 1)
-; NOFRUGAL:    call spir_func void @__kmpc_spmd_push_num_threads(i32 1)
+; DEFAULT-NOT: call spir_func void @__kmpc_end_spmd_parallel()
+; NOFRUGAL:    call spir_func void @__kmpc_end_spmd_parallel()
 
-; ALL:         call spir_func void @__kmpc_spmd_pop_num_threads()
+; ALL:         call spir_func void @__kmpc_end_spmd_target()
 ; ALL:         call void @llvm.directive.region.exit({{.*}}) [ "DIR.OMP.END.TARGET"() ]
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"

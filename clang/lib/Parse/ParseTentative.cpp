@@ -1,4 +1,21 @@
 //===--- ParseTentative.cpp - Ambiguity Resolution Parsing ----------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -277,7 +294,7 @@ Parser::TPResult Parser::TryParseSimpleDeclaration(bool AllowForRangeDecl) {
 ///         '{' '}'
 ///
 Parser::TPResult Parser::TryParseInitDeclaratorList() {
-  while (1) {
+  while (true) {
     // declarator
     TPResult TPR = TryParseDeclarator(false/*mayBeAbstract*/);
     if (TPR != TPResult::Ambiguous)
@@ -1068,7 +1085,7 @@ Parser::TPResult Parser::TryParseDeclarator(bool mayBeAbstract,
   if (mayHaveDirectInit)
     return TPResult::Ambiguous;
 
-  while (1) {
+  while (true) {
     TPResult TPR(TPResult::Ambiguous);
 
     if (Tok.is(tok::l_paren)) {
@@ -1901,7 +1918,7 @@ Parser::TryParseParameterDeclarationClause(bool *InvalidAsDeclaration,
   //   parameter-declaration
   //   parameter-declaration-list ',' parameter-declaration
   //
-  while (1) {
+  while (true) {
     // '...'[opt]
     if (Tok.is(tok::ellipsis)) {
       ConsumeToken();

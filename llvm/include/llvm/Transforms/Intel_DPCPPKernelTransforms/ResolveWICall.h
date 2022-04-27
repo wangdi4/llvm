@@ -24,7 +24,8 @@ enum TInternalCallType : int;
 /// Resolve work item function calls.
 class ResolveWICallPass : public PassInfoMixin<ResolveWICallPass> {
 public:
-  static StringRef name() { return "ResolveWICallPass"; }
+  ResolveWICallPass(bool IsUniformWG = false, bool UseTLSGlobals = false)
+      : IsUniformWG(IsUniformWG), UseTLSGlobals(UseTLSGlobals) {}
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
@@ -63,9 +64,9 @@ private:
   /// \returns Internal Call Type for given function name.
   TInternalCallType getCallFunctionType(StringRef FuncName);
 
-  /// Create call to opencl_printf.
+  /// Create call to __opencl_printf.
   Value *updatePrintf(IRBuilder<> &Builder, CallInst *CI);
-  /// Create call to lprefetch.
+  /// Create call to __lprefetch.
   void updatePrefetch(llvm::CallInst *CI);
 
   /// Add prefetch function declaration.
@@ -100,7 +101,7 @@ private:
   /// Returns EnqueueKernel callback function type.
   /// \param FuncType callback type {basic, localmem, event, ...}.
   FunctionType *getOrCreateEnqueueKernelFuncType(unsigned FuncType);
-  /// Returns opencl_printf function type.
+  /// Returns __opencl_printf function type.
   FunctionType *getOrCreatePrintfFuncType();
 
   /// get the pointer size for the current target, in bits (32 or 64).
@@ -147,9 +148,9 @@ private:
 
   // Version of OpenCL C a processed module is compiled for.
   unsigned OclVersion;
-  // true if a module is compiled with the support of the
-  // non-uniform work-group size.
-  bool UniformLocalSize;
+  // True if a module is compiled with uniform work-group size,
+  // e.g. -cl-uniform-work-group-size.
+  bool IsUniformWG;
   // Use TLS globals instead of implicit arguments.
   bool UseTLSGlobals;
 };

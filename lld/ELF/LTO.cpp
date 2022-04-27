@@ -1,4 +1,21 @@
 //===- LTO.cpp ------------------------------------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -9,24 +26,20 @@
 #include "LTO.h"
 #include "Config.h"
 #include "InputFiles.h"
-#include "LinkerScript.h"
 #include "SymbolTable.h"
 #include "Symbols.h"
 #include "lld/Common/Args.h"
 #include "lld/Common/ErrorHandler.h"
+#include "lld/Common/Strings.h"
 #include "lld/Common/TargetOptionsCommandFlags.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Support/Intel_WP_utils.h" // INTEL
 #include "llvm/BinaryFormat/ELF.h"
-#include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
-#include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/LTO/Config.h"
 #include "llvm/LTO/LTO.h"
-#include "llvm/Object/SymbolicFile.h"
 #include "llvm/Support/Caching.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Error.h"
@@ -154,8 +167,13 @@ static lto::Config createConfig() {
   c.RemarksHotnessThreshold = config->optRemarksHotnessThreshold;
   c.RemarksFormat = std::string(config->optRemarksFormat);
 
+  // Set up output file to emit statistics.
+  c.StatsFile = std::string(config->optStatsFilename);
+
   c.SampleProfile = std::string(config->ltoSampleProfile);
-  c.UseNewPM = config->ltoNewPassManager;
+  c.UseNewPM = config->ltoNewPassManager; // INTEL
+  for (StringRef pluginFn : config->passPlugins)
+    c.PassPlugins.push_back(std::string(pluginFn));
   c.DebugPassManager = config->ltoDebugPassManager;
   c.DwoDir = std::string(config->dwoDir);
 
@@ -261,9 +279,9 @@ void BitcodeCompiler::add(BitcodeFile &f) {
                             usedStartStop.count(objSym.getSectionName());
     // Identify symbols exported dynamically, and that therefore could be
     // referenced by a shared library not visible to the linker.
-    r.ExportDynamic = sym->computeBinding() != STB_LOCAL &&
-                      (sym->isExportDynamic(sym->kind(), sym->visibility) ||
-                       sym->exportDynamic || sym->inDynamicList);
+    r.ExportDynamic =
+        sym->computeBinding() != STB_LOCAL &&
+        (config->exportDynamic || sym->exportDynamic || sym->inDynamicList);
     const auto *dr = dyn_cast<Defined>(sym);
     r.FinalDefinitionInLinkageUnit =
         (isExec || sym->visibility != STV_DEFAULT) && dr &&
@@ -285,14 +303,13 @@ void BitcodeCompiler::add(BitcodeFile &f) {
         sym->isShared() || sym->isCommon();
 #endif // INTEL_CUSTOMIZATION
     if (r.Prevailing)
-      sym->replace(Undefined{nullptr, sym->getName(), STB_GLOBAL, STV_DEFAULT,
-                             sym->type});
+      sym->replace(
+          Undefined{nullptr, StringRef(), STB_GLOBAL, STV_DEFAULT, sym->type});
 
     // We tell LTO to not apply interprocedural optimization for wrapped
     // (with --wrap) symbols because otherwise LTO would inline them while
     // their values are still not final.
-    r.LinkerRedefined = !sym->canInline;
-
+    r.LinkerRedefined = sym->scriptDefined;
   }
   checkError(ltoObj->add(std::move(f.obj), resols));
 }
@@ -311,7 +328,7 @@ static void thinLTOCreateEmptyIndexFiles() {
 
     ModuleSummaryIndex m(/*HaveGVs*/ false);
     m.setSkipModuleByDistributedBackend();
-    WriteIndexToFile(m, *os);
+    writeIndexToFile(m, *os);
     if (config->thinLTOEmitImportsFiles)
       openFile(path + ".imports");
   }

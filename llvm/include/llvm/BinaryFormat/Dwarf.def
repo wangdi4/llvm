@@ -1,4 +1,21 @@
 //===- llvm/Support/Dwarf.def - Dwarf definitions ---------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -496,7 +513,8 @@ HANDLE_DW_AT(0x2133, GNU_addr_base, 0, GNU)
 HANDLE_DW_AT(0x2134, GNU_pubnames, 0, GNU)
 HANDLE_DW_AT(0x2135, GNU_pubtypes, 0, GNU)
 HANDLE_DW_AT(0x2136, GNU_discriminator, 0, GNU)
-HANDLE_DW_AT(0x2137, GNU_entry_view, 0, GNU)
+HANDLE_DW_AT(0x2137, GNU_locviews, 0, GNU)
+HANDLE_DW_AT(0x2138, GNU_entry_view, 0, GNU)
 
 HANDLE_DW_AT(0x2201, SUN_template, 0, SUN)
 // Conflicting:

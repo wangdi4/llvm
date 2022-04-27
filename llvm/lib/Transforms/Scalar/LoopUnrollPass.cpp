@@ -1,3 +1,20 @@
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //===- LoopUnroll.cpp - Loop unroller pass --------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -26,7 +43,6 @@
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
-#include "llvm/Analysis/LazyBlockFrequencyInfo.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
@@ -789,15 +805,13 @@ shouldPragmaUnroll(Loop *L, const PragmaInfo &PInfo,
 
   // 2nd priority is unroll count set by pragma.
   if (PInfo.PragmaCount > 0) {
-    if ((UP.AllowRemainder || (TripMultiple % PInfo.PragmaCount == 0)) &&
-        UCE.getUnrolledLoopSize(UP, PInfo.PragmaCount) < PragmaUnrollThreshold)
+    if ((UP.AllowRemainder || (TripMultiple % PInfo.PragmaCount == 0)))
       return PInfo.PragmaCount;
   }
 
-  if (PInfo.PragmaFullUnroll && TripCount != 0) {
-    if (UCE.getUnrolledLoopSize(UP, TripCount) < PragmaUnrollThreshold)
-      return TripCount;
-  }
+  if (PInfo.PragmaFullUnroll && TripCount != 0)
+    return TripCount;
+
   // if didn't return until here, should continue to other priorties
   return None;
 }
@@ -1145,7 +1159,7 @@ static LoopUnrollResult tryToUnrollLoop(
   // automatic unrolling from interfering with the user requested
   // transformation.
   Loop *ParentL = L->getParentLoop();
-  if (ParentL != NULL &&
+  if (ParentL != nullptr &&
       hasUnrollAndJamTransformation(ParentL) == TM_ForcedByUser &&
       hasUnrollTransformation(L) != TM_ForcedByUser) {
     LLVM_DEBUG(dbgs() << "Not unrolling loop since parent loop has"
@@ -1290,7 +1304,7 @@ static LoopUnrollResult tryToUnrollLoop(
                                  PP.PeelCount);
 #endif  // INTEL_CUSTOMIZATION
 
-    if (peelLoop(L, PP.PeelCount, LI, &SE, &DT, &AC, PreserveLCSSA)) {
+    if (peelLoop(L, PP.PeelCount, LI, &SE, DT, &AC, PreserveLCSSA)) {
       simplifyLoopAfterUnroll(L, true, LI, &SE, &DT, &AC, &TTI);
       // If the loop was peeled, we already "used up" the profile information
       // we had, so we don't want to unroll or peel again.

@@ -1,4 +1,21 @@
 //===- LoopVectorizationLegality.cpp --------------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -17,7 +34,9 @@
 #include "llvm/Transforms/Vectorize/LoopVectorizationLegality.h"
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -581,7 +600,7 @@ void LoopVectorizationLegality::addInductionPhi(
   // on predicates that only hold within the loop, since allowing the exit
   // currently means re-using this SCEV outside the loop (see PR33706 for more
   // details).
-  if (PSE.getUnionPredicate().isAlwaysTrue()) {
+  if (PSE.getPredicate().isAlwaysTrue()) {
     AllowedExit.insert(Phi);
     AllowedExit.insert(Phi->getIncomingValueForBlock(TheLoop->getLoopLatch()));
   }
@@ -879,7 +898,7 @@ bool LoopVectorizationLegality::canVectorizeInstrs() {
         // used outside the loop only if the SCEV predicates within the loop is
         // same as outside the loop. Allowing the exit means reusing the SCEV
         // outside the loop.
-        if (PSE.getUnionPredicate().isAlwaysTrue()) {
+        if (PSE.getPredicate().isAlwaysTrue()) {
           AllowedExit.insert(&I);
           continue;
         }
@@ -949,7 +968,7 @@ bool LoopVectorizationLegality::canVectorizeMemory() {
   }
 
   Requirements->addRuntimePointerChecks(LAI->getNumRuntimePointerChecks());
-  PSE.addPredicate(LAI->getPSE().getUnionPredicate());
+  PSE.addPredicate(LAI->getPSE().getPredicate());
   return true;
 }
 
@@ -995,6 +1014,16 @@ LoopVectorizationLegality::getIntOrFpInductionDescriptor(PHINode *Phi) const {
   auto &ID = getInductionVars().find(Phi)->second;
   if (ID.getKind() == InductionDescriptor::IK_IntInduction ||
       ID.getKind() == InductionDescriptor::IK_FpInduction)
+    return &ID;
+  return nullptr;
+}
+
+const InductionDescriptor *
+LoopVectorizationLegality::getPointerInductionDescriptor(PHINode *Phi) const {
+  if (!isInductionPhi(Phi))
+    return nullptr;
+  auto &ID = getInductionVars().find(Phi)->second;
+  if (ID.getKind() == InductionDescriptor::IK_PtrInduction)
     return &ID;
   return nullptr;
 }
@@ -1296,7 +1325,7 @@ bool LoopVectorizationLegality::canVectorize(bool UseVPlanNativePath) {
   if (Hints->getForce() == LoopVectorizeHints::FK_Enabled)
     SCEVThreshold = PragmaVectorizeSCEVCheckThreshold;
 
-  if (PSE.getUnionPredicate().getComplexity() > SCEVThreshold) {
+  if (PSE.getPredicate().getComplexity() > SCEVThreshold) {
     reportVectorizationFailure("Too many SCEV checks needed",
         "Too many SCEV assumptions need to be made and checked at runtime",
         "TooManySCEVRunTimeChecks", ORE, TheLoop);

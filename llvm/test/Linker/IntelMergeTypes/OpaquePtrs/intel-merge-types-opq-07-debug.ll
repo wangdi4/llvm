@@ -6,7 +6,7 @@
 ; This test case checks that the types from the module
 ; intel-merge-types-opq-07a.ll and intel-merge-types-opq-07c.ll were merged
 ; correctly, while the type from module intel-merge-types-opq-07b.ll wasn't
-; merged since it is a different strcuture. This is the same test case as
+; merged since it is a different structure. This is the same test case as
 ; intel-merge-types-opq-07.ll, but it checks the debug information. It
 ; represents the following C/C++ source code:
 

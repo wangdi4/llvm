@@ -1,4 +1,21 @@
 //===-- X86TargetTransformInfo.h - X86 specific TTI -------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -38,12 +55,12 @@ class X86TTIImpl : public BasicTTIImplBase<X86TTIImpl> {
   const FeatureBitset InlineFeatureIgnoreList = {
       // This indicates the CPU is 64 bit capable not that we are in 64-bit
       // mode.
-      X86::Feature64Bit,
+      X86::FeatureX86_64,
 
       // These features don't have any intrinsics or ABI effect.
       X86::FeatureNOPL,
-      X86::FeatureCMPXCHG16B,
-      X86::FeatureLAHFSAHF,
+      X86::FeatureCX16,
+      X86::FeatureLAHFSAHF64,
 
       // Some older targets can be setup to fold unaligned loads.
       X86::FeatureSSEUnalignedMem,
@@ -75,6 +92,7 @@ class X86TTIImpl : public BasicTTIImplBase<X86TTIImpl> {
       X86::TuningRANGEFalseDeps,
       X86::TuningGETMANTFalseDeps,
       X86::TuningMULLQFalseDeps,
+      X86::TuningMRN,
 #endif // INTEL_CUSTOMIZATION
       X86::TuningPadShortFunctions,
       X86::TuningPOPCNTFalseDeps,
@@ -142,7 +160,8 @@ public:
       const Instruction *CxtI = nullptr);
   InstructionCost getShuffleCost(TTI::ShuffleKind Kind, VectorType *Tp,
                                  ArrayRef<int> Mask, int Index,
-                                 VectorType *SubTp);
+                                 VectorType *SubTp,
+                                 ArrayRef<Value *> Args = None);
   InstructionCost getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
                                    TTI::CastContextHint CCH,
                                    TTI::TargetCostKind CostKind,
@@ -246,6 +265,11 @@ public:
   bool isLegalMaskedStore(Type *DataType, Align Alignment);
   bool isLegalNTLoad(Type *DataType, Align Alignment);
   bool isLegalNTStore(Type *DataType, Align Alignment);
+  bool isLegalBroadcastLoad(Type *ElementTy, unsigned NumElements) const;
+  bool forceScalarizeMaskedGather(VectorType *VTy, Align Alignment);
+  bool forceScalarizeMaskedScatter(VectorType *VTy, Align Alignment) {
+    return forceScalarizeMaskedGather(VTy, Alignment);
+  }
   bool isLegalMaskedGather(Type *DataType, Align Alignment);
 #if INTEL_CUSTOMIZATION
   bool shouldScalarizeMaskedGather(CallInst *CI);
@@ -267,6 +291,8 @@ public:
   bool isLegalMaskedCompressStore(Type *DataType);
 #if INTEL_CUSTOMIZATION
   bool isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const;
+  bool isLibIRCAllowed() const;
+  unsigned getMaxScale() const;
   bool adjustCallArgs(CallInst* CI);
   bool isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const;
   bool isVPlanVLSProfitable() const;
@@ -277,6 +303,7 @@ public:
       const Module *M) const;
   const char *getISASetForIMLFunctions() const;
   bool hasCDI() const;
+  bool displacementFoldable() const;
 #endif // INTEL_CUSTOMIZATION
   bool hasDivRemOp(Type *DataType, bool IsSigned);
   bool isFCmpOrdCheaperThanFCmpZero(Type *Ty);

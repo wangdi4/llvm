@@ -48,6 +48,9 @@ int32_t __tgt_rtl_is_data_exchangable(int32_t SrcDevId, int32_t DstDevId);
 // Return an integer other than zero if the plugin can handle images which do
 // not contain target regions and global variables (but can contain other
 // functions)
+#if INTEL_COLLAB
+EXTERN
+#endif // INTEL_COLLAB
 int32_t __tgt_rtl_supports_empty_images();
 
 // Initialize the requires flags for the device.
@@ -62,6 +65,10 @@ int64_t __tgt_rtl_init_requires(int64_t RequiresFlags);
 EXTERN
 #endif  // INTEL_COLLAB
 int32_t __tgt_rtl_init_device(int32_t ID);
+
+// Deinitialize the specified device. In case of success return 0; otherwise
+// return an error code.
+int32_t __tgt_rtl_deinit_device(int32_t ID);
 
 // Pass an executable image section described by image to the specified
 // device and prepare an address table of target entities. In case of error,
@@ -231,25 +238,6 @@ int32_t __tgt_rtl_run_target_team_nd_region(int32_t ID, void *Entry,
                                             int32_t ThreadLimit,
                                             void *LoopDesc);
 
-// Asynchronous version of __tgt_rtl_run_target_region.
-EXTERN
-int32_t __tgt_rtl_run_target_region_nowait(int32_t ID, void *Entry, void **Args,
-                                           ptrdiff_t *Offsets, int32_t NumArgs,
-                                           void *AsyncData);
-
-// Asynchronous version of __tgt_rtl_run_target_team_region.
-EXTERN
-int32_t __tgt_rtl_run_target_team_region_nowait(
-    int32_t ID, void *Entry, void **Args, ptrdiff_t *Offsets, int32_t NumArgs,
-    int32_t NumTeams, int32_t ThreadLimit, uint64_t LoopTripCount,
-    void *AsyncData);
-
-// Asynchronous version of __tgt_rtl_run_target_team_nd_region.
-EXTERN
-int32_t __tgt_rtl_run_target_team_nd_region_nowait(
-    int32_t ID, void *Entry, void **Args, ptrdiff_t *Offsets, int32_t NumArgs,
-    int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc, void *AsyncData);
-
 // Creates an opaque handle to a device-dependent offload queue if CreateNew is true
 // Return existing queue if false.
 EXTERN void __tgt_rtl_get_offload_queue(int32_t ID, void *InteropObj, bool CreateNew);
@@ -269,9 +257,8 @@ EXTERN void *__tgt_rtl_get_context_handle(int32_t ID);
 // Allocate a managed memory object.
 EXTERN void *__tgt_rtl_data_alloc_managed(int32_t ID, int64_t Size);
 
-// Check if the pointer can be accessed by the device.
-// Include host, device and shared
-EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(int32_t ID, void *Ptr);
+// Check if the specified pointer and size requires mapping.
+EXTERN int32_t __tgt_rtl_requires_mapping(int32_t ID, void *Ptr, int64_t Size);
 
 // Initialize OMPT interface
 EXTERN void __tgt_rtl_init_ompt(void *OmptGlobal);
@@ -386,6 +373,10 @@ int32_t __tgt_rtl_sync_event(int32_t ID, void *Event);
 
 int32_t __tgt_rtl_destroy_event(int32_t ID, void *Event);
 // }
+
+int32_t __tgt_rtl_init_async_info(int32_t ID, __tgt_async_info **AsyncInfoPtr);
+int32_t __tgt_rtl_init_device_info(int32_t ID, __tgt_device_info *DeviceInfoPtr,
+                                   const char **ErrStr);
 
 #ifdef __cplusplus
 }

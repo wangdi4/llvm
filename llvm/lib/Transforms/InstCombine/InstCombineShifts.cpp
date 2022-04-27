@@ -1,4 +1,21 @@
 //===- InstCombineShifts.cpp ----------------------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -11,7 +28,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "InstCombineInternal.h"
-#include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/PatternMatch.h"
@@ -370,6 +386,9 @@ static Instruction *foldShiftOfShiftedLogic(BinaryOperator &I,
 }
 
 Instruction *InstCombinerImpl::commonShiftTransforms(BinaryOperator &I) {
+  if (Instruction *Phi = foldBinopWithPhiOperands(I))
+    return Phi;
+
   Value *Op0 = I.getOperand(0), *Op1 = I.getOperand(1);
   assert(Op0->getType() == Op1->getType());
 
@@ -398,13 +417,14 @@ Instruction *InstCombinerImpl::commonShiftTransforms(BinaryOperator &I) {
           reassociateShiftAmtsOfTwoSameDirectionShifts(&I, SQ)))
     return NewShift;
 
-  // (C1 shift (A add C2)) -> (C1 shift C2) shift A)
-  // iff A and C2 are both positive.
+  // C0 shift (A add C) -> (C0 shift C) shift A
+  // iff A and C2 are both positive or the add has 'nuw'.
   Value *A;
   Constant *C;
   if (match(Op0, m_Constant()) && match(Op1, m_Add(m_Value(A), m_Constant(C))))
-    if (isKnownNonNegative(A, DL, 0, &AC, &I, &DT) &&
-        isKnownNonNegative(C, DL, 0, &AC, &I, &DT))
+    if (cast<BinaryOperator>(Op1)->hasNoUnsignedWrap() ||
+        (isKnownNonNegative(A, DL, 0, &AC, &I, &DT) &&
+         isKnownNonNegative(C, DL, 0, &AC, &I, &DT)))
       return BinaryOperator::Create(
           I.getOpcode(), Builder.CreateBinOp(I.getOpcode(), Op0, C), A);
 
@@ -1033,12 +1053,13 @@ Instruction *InstCombinerImpl::visitLShr(BinaryOperator &I) {
           NewLShr->setIsExact(I.isExact());
           return NewLShr;
         }
-        // (X << C1) >>u C  --> (X >>u (C - C1)) & (-1 >> C)
-        Value *NewLShr = Builder.CreateLShr(X, ShiftDiff, "", I.isExact());
-        APInt Mask(APInt::getLowBitsSet(BitWidth, BitWidth - ShAmtC));
-        return BinaryOperator::CreateAnd(NewLShr, ConstantInt::get(Ty, Mask));
-      }
-      if (C1->ugt(ShAmtC)) {
+        if (Op0->hasOneUse()) {
+          // (X << C1) >>u C  --> (X >>u (C - C1)) & (-1 >> C)
+          Value *NewLShr = Builder.CreateLShr(X, ShiftDiff, "", I.isExact());
+          APInt Mask(APInt::getLowBitsSet(BitWidth, BitWidth - ShAmtC));
+          return BinaryOperator::CreateAnd(NewLShr, ConstantInt::get(Ty, Mask));
+        }
+      } else if (C1->ugt(ShAmtC)) {
         unsigned ShlAmtC = C1->getZExtValue();
         Constant *ShiftDiff = ConstantInt::get(Ty, ShlAmtC - ShAmtC);
         if (cast<BinaryOperator>(Op0)->hasNoUnsignedWrap()) {
@@ -1047,15 +1068,33 @@ Instruction *InstCombinerImpl::visitLShr(BinaryOperator &I) {
           NewShl->setHasNoUnsignedWrap(true);
           return NewShl;
         }
-        // (X << C1) >>u C  --> X << (C1 - C) & (-1 >> C)
-        Value *NewShl = Builder.CreateShl(X, ShiftDiff);
+        if (Op0->hasOneUse()) {
+          // (X << C1) >>u C  --> X << (C1 - C) & (-1 >> C)
+          Value *NewShl = Builder.CreateShl(X, ShiftDiff);
+          APInt Mask(APInt::getLowBitsSet(BitWidth, BitWidth - ShAmtC));
+          return BinaryOperator::CreateAnd(NewShl, ConstantInt::get(Ty, Mask));
+        }
+      } else {
+        assert(*C1 == ShAmtC);
+        // (X << C) >>u C --> X & (-1 >>u C)
         APInt Mask(APInt::getLowBitsSet(BitWidth, BitWidth - ShAmtC));
-        return BinaryOperator::CreateAnd(NewShl, ConstantInt::get(Ty, Mask));
+        return BinaryOperator::CreateAnd(X, ConstantInt::get(Ty, Mask));
       }
-      assert(*C1 == ShAmtC);
-      // (X << C) >>u C --> X & (-1 >>u C)
-      APInt Mask(APInt::getLowBitsSet(BitWidth, BitWidth - ShAmtC));
-      return BinaryOperator::CreateAnd(X, ConstantInt::get(Ty, Mask));
+    }
+
+    // ((X << C) + Y) >>u C --> (X + (Y >>u C)) & (-1 >>u C)
+    // TODO: Consolidate with the more general transform that starts from shl
+    //       (the shifts are in the opposite order).
+    Value *Y;
+    if (match(Op0,
+              m_OneUse(m_c_Add(m_OneUse(m_Shl(m_Value(X), m_Specific(Op1))),
+                               m_Value(Y))))) {
+      Value *NewLshr = Builder.CreateLShr(Y, Op1);
+      Value *NewAdd = Builder.CreateAdd(NewLshr, X);
+      unsigned Op1Val = C->getLimitedValue(BitWidth);
+      APInt Bits = APInt::getLowBitsSet(BitWidth, BitWidth - Op1Val);
+      Constant *Mask = ConstantInt::get(Ty, Bits);
+      return BinaryOperator::CreateAnd(NewAdd, Mask);
     }
 
     if (match(Op0, m_OneUse(m_ZExt(m_Value(X)))) &&
@@ -1095,7 +1134,6 @@ Instruction *InstCombinerImpl::visitLShr(BinaryOperator &I) {
       }
     }
 
-    Value *Y;
     if (ShAmtC == BitWidth - 1) {
       // lshr i32 or(X,-X), 31 --> zext (X != 0)
       if (match(Op0, m_OneUse(m_c_Or(m_Neg(m_Value(X)), m_Deferred(X)))))
@@ -1146,13 +1184,29 @@ Instruction *InstCombinerImpl::visitLShr(BinaryOperator &I) {
 
     // Look for a "splat" mul pattern - it replicates bits across each half of
     // a value, so a right shift is just a mask of the low bits:
-    // lshr i32 (mul nuw X, Pow2+1), 16 --> and X, Pow2-1
+    // lshr i[2N] (mul nuw X, (2^N)+1), N --> and iN X, (2^N)-1
     // TODO: Generalize to allow more than just half-width shifts?
     const APInt *MulC;
     if (match(Op0, m_NUWMul(m_Value(X), m_APInt(MulC))) &&
-        ShAmtC * 2 == BitWidth && (*MulC - 1).isPowerOf2() &&
+        BitWidth > 2 && ShAmtC * 2 == BitWidth && (*MulC - 1).isPowerOf2() &&
         MulC->logBase2() == ShAmtC)
       return BinaryOperator::CreateAnd(X, ConstantInt::get(Ty, *MulC - 2));
+
+    // Try to narrow a bswap:
+    // (bswap (zext X)) >> C --> zext (bswap X >> C')
+    // In the case where the shift amount equals the bitwidth difference, the
+    // shift is eliminated.
+    if (match(Op0, m_OneUse(m_Intrinsic<Intrinsic::bswap>(
+                       m_OneUse(m_ZExt(m_Value(X))))))) {
+      // TODO: If the shift amount is less than the zext, we could shift left.
+      unsigned SrcWidth = X->getType()->getScalarSizeInBits();
+      unsigned WidthDiff = BitWidth - SrcWidth;
+      if (SrcWidth % 16 == 0 && ShAmtC >= WidthDiff) {
+        Value *NarrowSwap = Builder.CreateUnaryIntrinsic(Intrinsic::bswap, X);
+        Value *NewShift = Builder.CreateLShr(NarrowSwap, ShAmtC - WidthDiff);
+        return new ZExtInst(NewShift, Ty);
+      }
+    }
 
     // If the shifted-out value is known-zero, then this is an exact shift.
     if (!I.isExact() &&
@@ -1199,7 +1253,7 @@ Instruction *InstCombinerImpl::visitLShr(BinaryOperator &I) {
           APInt Bits = APInt::getLowBitsSet(TypeBits, TypeBits - Op1Val);
           Constant *Mask = ConstantInt::get(I.getContext(), Bits);
 
-          if (VectorType *VT = dyn_cast<VectorType>(X->getType()))
+          if (auto *VT = dyn_cast<FixedVectorType>(X->getType()))
             Mask = ConstantVector::getSplat(
                 ElementCount::getFixed(VT->getNumElements()), Mask);
           return BinaryOperator::CreateAnd(X, Mask);
@@ -1223,7 +1277,7 @@ Instruction *InstCombinerImpl::visitLShr(BinaryOperator &I) {
           APInt Bits = APInt::getLowBitsSet(TypeBits, TypeBits - Op1Val);
           Constant *Mask = ConstantInt::get(I.getContext(), Bits);
 
-          if (VectorType *VT = dyn_cast<VectorType>(X->getType()))
+          if (auto *VT = dyn_cast<FixedVectorType>(X->getType()))
             Mask = ConstantVector::getSplat(
                 ElementCount::getFixed(VT->getNumElements()), Mask);
           return BinaryOperator::CreateAnd(X, Mask);

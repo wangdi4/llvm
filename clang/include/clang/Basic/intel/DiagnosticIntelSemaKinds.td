@@ -269,6 +269,9 @@ def note_intrinsic_promote : Note<"Intrinsic called here">;
 def warn_omp_simdlen_in_target_spir: Warning<
   "simdlen clause is not fully supported for this target">,
   InGroup<SimdUnsupported>;
+def warn_no_vec_for_struct_return : Warning<
+  "vectorization of a function with a struct or complex return type is not supported">,
+  InGroup<SimdUnsupported>;
 def warn_collapse_ignored_with_tile : Warning<
   "'collapse' clause ignored when using 'tile' clause">, InGroup<OpenMPClauses>;
 def note_omp_tile_expr : Note<"as specified in 'tile' clause">;

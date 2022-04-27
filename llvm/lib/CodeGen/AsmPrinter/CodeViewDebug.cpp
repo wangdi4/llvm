@@ -1,4 +1,21 @@
 //===- llvm/lib/CodeGen/AsmPrinter/CodeViewDebug.cpp ----------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -11,7 +28,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeViewDebug.h"
-#include "DwarfExpression.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/Optional.h"
@@ -29,7 +45,6 @@
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
-#include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/TargetFrameLowering.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
@@ -41,7 +56,6 @@
 #include "llvm/DebugInfo/CodeView/EnumTables.h"
 #include "llvm/DebugInfo/CodeView/Line.h"
 #include "llvm/DebugInfo/CodeView/SymbolRecord.h"
-#include "llvm/DebugInfo/CodeView/TypeDumpVisitor.h"
 #include "llvm/DebugInfo/CodeView/TypeRecord.h"
 #include "llvm/DebugInfo/CodeView/TypeTableCollection.h"
 #include "llvm/DebugInfo/CodeView/TypeVisitorCallbackPipeline.h"
@@ -58,16 +72,14 @@
 #include "llvm/MC/MCSectionCOFF.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSymbol.h"
-#include "llvm/Support/BinaryByteStream.h"
-#include "llvm/Support/BinaryStreamReader.h"
 #include "llvm/Support/BinaryStreamWriter.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/Program.h"
 #include "llvm/Support/SMLoc.h"
 #include "llvm/Support/ScopedPrinter.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
@@ -521,7 +533,7 @@ void CodeViewDebug::maybeRecordLocation(const DebugLoc &DL,
   if (!DL || DL == PrevInstLoc)
     return;
 
-  const DIScope *Scope = DL.get()->getScope();
+  const DIScope *Scope = DL->getScope();
   if (!Scope)
     return;
 
@@ -607,6 +619,8 @@ static SourceLanguage MapDWLangToCVLang(unsigned DWLang) {
     return SourceLanguage::D;
   case dwarf::DW_LANG_Swift:
     return SourceLanguage::Swift;
+  case dwarf::DW_LANG_Rust:
+    return SourceLanguage::Rust;
   default:
     // There's no CodeView representation for this language, and CV doesn't
     // have an "unknown" option for the language field, so we'll use MASM,
@@ -618,18 +632,16 @@ static SourceLanguage MapDWLangToCVLang(unsigned DWLang) {
 void CodeViewDebug::beginModule(Module *M) {
   // If module doesn't have named metadata anchors or COFF debug section
   // is not available, skip any debug info related stuff.
-  NamedMDNode *CUs = M->getNamedMetadata("llvm.dbg.cu");
-  if (!CUs || !Asm->getObjFileLowering().getCOFFDebugSymbolsSection()) {
+  if (!MMI->hasDebugInfo() ||
+      !Asm->getObjFileLowering().getCOFFDebugSymbolsSection()) {
     Asm = nullptr;
     return;
   }
-  // Tell MMI that we have and need debug info.
-  MMI->setDebugInfoAvailability(true);
 
   TheCPU = mapArchToCVCPUType(Triple(M->getTargetTriple()).getArch());
 
   // Get the current source language.
-  const MDNode *Node = *CUs->operands().begin();
+  const MDNode *Node = *M->debug_compile_units_begin();
   const auto *CU = cast<DICompileUnit>(Node);
 
   CurrentSourceLanguage = MapDWLangToCVLang(CU->getSourceLanguage());
@@ -830,6 +842,8 @@ static Version parseVersion(StringRef Name) {
     if (isdigit(C)) {
       V.Part[N] *= 10;
       V.Part[N] += C - '0';
+      V.Part[N] =
+          std::min<int>(V.Part[N], std::numeric_limits<uint16_t>::max());
     } else if (C == '.') {
       ++N;
       if (N >= 4)
@@ -850,6 +864,12 @@ void CodeViewDebug::emitCompilerInformation() {
   if (MMI->getModule()->getProfileSummary(/*IsCS*/ false) != nullptr) {
     Flags |= static_cast<uint32_t>(CompileSym3Flags::PGO);
   }
+  using ArchType = llvm::Triple::ArchType;
+  ArchType Arch = Triple(MMI->getModule()->getTargetTriple()).getArch();
+  if (Asm->TM.Options.Hotpatch || Arch == ArchType::thumb ||
+      Arch == ArchType::aarch64) {
+    Flags |= static_cast<uint32_t>(CompileSym3Flags::HotPatch);
+  }
 
   OS.AddComment("Flags and language");
   OS.emitInt32(Flags);
@@ -864,8 +884,9 @@ void CodeViewDebug::emitCompilerInformation() {
   StringRef CompilerVersion = CU->getProducer();
   Version FrontVer = parseVersion(CompilerVersion);
   OS.AddComment("Frontend version");
-  for (int N : FrontVer.Part)
+  for (int N : FrontVer.Part) {
     OS.emitInt16(N);
+  }
 
   // Some Microsoft tools, like Binscope, expect a backend version number of at
   // least 8.something, so we'll coerce the LLVM version into a form that
@@ -892,6 +913,34 @@ static TypeIndex getStringIdTypeIdx(GlobalTypeTableBuilder &TypeTable,
   return TypeTable.writeLeafType(SIR);
 }
 
+static std::string flattenCommandLine(ArrayRef<std::string> Args,
+                                      StringRef MainFilename) {
+  std::string FlatCmdLine;
+  raw_string_ostream OS(FlatCmdLine);
+  bool PrintedOneArg = false;
+  if (!StringRef(Args[0]).contains("-cc1")) {
+    llvm::sys::printArg(OS, "-cc1", /*Quote=*/true);
+    PrintedOneArg = true;
+  }
+  for (unsigned i = 0; i < Args.size(); i++) {
+    StringRef Arg = Args[i];
+    if (Arg.empty())
+      continue;
+    if (Arg == "-main-file-name" || Arg == "-o") {
+      i++; // Skip this argument and next one.
+      continue;
+    }
+    if (Arg.startswith("-object-file-name") || Arg == MainFilename)
+      continue;
+    if (PrintedOneArg)
+      OS << " ";
+    llvm::sys::printArg(OS, Arg, /*Quote=*/true);
+    PrintedOneArg = true;
+  }
+  OS.flush();
+  return FlatCmdLine;
+}
+
 void CodeViewDebug::emitBuildInfo() {
   // First, make LF_BUILDINFO. It's a sequence of strings with various bits of
   // build info. The known prefix is:
@@ -912,8 +961,16 @@ void CodeViewDebug::emitBuildInfo() {
       getStringIdTypeIdx(TypeTable, MainSourceFile->getDirectory());
   BuildInfoArgs[BuildInfoRecord::SourceFile] =
       getStringIdTypeIdx(TypeTable, MainSourceFile->getFilename());
-  // FIXME: Path to compiler and command line. PDB is intentionally blank unless
-  // we implement /Zi type servers.
+  // FIXME: PDB is intentionally blank unless we implement /Zi type servers.
+  BuildInfoArgs[BuildInfoRecord::TypeServerPDB] =
+      getStringIdTypeIdx(TypeTable, "");
+  if (Asm->TM.Options.MCOptions.Argv0 != nullptr) {
+    BuildInfoArgs[BuildInfoRecord::BuildTool] =
+        getStringIdTypeIdx(TypeTable, Asm->TM.Options.MCOptions.Argv0);
+    BuildInfoArgs[BuildInfoRecord::CommandLine] = getStringIdTypeIdx(
+        TypeTable, flattenCommandLine(Asm->TM.Options.MCOptions.CommandLineArgs,
+                                      MainSourceFile->getFilename()));
+  }
   BuildInfoRecord BIR(BuildInfoArgs);
   TypeIndex BuildInfoIndex = TypeTable.writeLeafType(BIR);
 
@@ -1221,6 +1278,45 @@ CodeViewDebug::createDefRangeMem(uint16_t CVRegister, int Offset) {
   return DR;
 }
 
+#if INTEL_CUSTOMIZATION
+static uint32_t getUplevelReferenceOffset(uint32_t& Offset, const DIExpression* Expr) {
+  bool ExprFormIsKnown = false;
+
+  if (Expr && Expr->startsWithDeref()) {
+    switch (Expr->getNumElements()) {
+    case 1:
+      ExprFormIsKnown = true;
+      Offset = 0;
+      break;
+    case 2:
+      if (Expr->getElement(1) == llvm::dwarf::DW_OP_deref) {
+        ExprFormIsKnown = true;
+        Offset = 0;
+      }
+      break;
+    case 3:
+      if (Expr->getElement(1) == llvm::dwarf::DW_OP_plus_uconst) {
+        ExprFormIsKnown = true;
+        Offset = Expr->getElement(2);
+      }
+      break;
+    case 4:
+      if (Expr->getElement(1) == llvm::dwarf::DW_OP_plus_uconst &&
+        Expr->getElement(3) == llvm::dwarf::DW_OP_deref) {
+        ExprFormIsKnown = true;
+        Offset = Expr->getElement(2);
+      }
+      break;
+    default:
+      // do nothing
+      ;
+    }
+  }
+
+  return ExprFormIsKnown;
+}
+#endif // INTEL_CUSTOMIZATION
+
 void CodeViewDebug::collectVariableInfoFromMFTable(
     DenseSet<InlinedEntity> &Processed) {
   const MachineFunction &MF = *Asm->MF;
@@ -1245,13 +1341,31 @@ void CodeViewDebug::collectVariableInfoFromMFTable(
     // FIXME: Try to handle DW_OP_deref as well.
     int64_t ExprOffset = 0;
     bool Deref = false;
+#if INTEL_CUSTOMIZATION
+    uint32_t UplevelOffset = 0;
+    bool UplevelExprIsKnown = false;
+#endif // INTEL_CUSTOMIZATION
     if (VI.Expr) {
+#if INTEL_CUSTOMIZATION
+      if (VI.Var->getFlags() & DINode::FlagUplevelReference)
+        UplevelExprIsKnown = getUplevelReferenceOffset(UplevelOffset, VI.Expr);
+
+      if (UplevelExprIsKnown) {
+        auto NumElems = VI.Expr->getNumElements();
+        if (UplevelExprIsKnown && NumElems >= 2 &&
+            VI.Expr->getElement(NumElems - 1) == llvm::dwarf::DW_OP_deref)
+          Deref = true;
+      } else {
+#endif // INTEL_CUSTOMIZATION
       // If there is one DW_OP_deref element, use offset of 0 and keep going.
       if (VI.Expr->getNumElements() == 1 &&
           VI.Expr->getElement(0) == llvm::dwarf::DW_OP_deref)
         Deref = true;
       else if (!VI.Expr->extractIfOffset(ExprOffset))
         continue;
+#if INTEL_CUSTOMIZATION
+      }
+#endif // INTEL_CUSTOMIZATION
     }
 
     // Get the frame register used and the offset.
@@ -1278,6 +1392,10 @@ void CodeViewDebug::collectVariableInfoFromMFTable(
     Var.DefRanges.emplace_back(std::move(DefRange));
     if (Deref)
       Var.UseReferenceType = true;
+#if INTEL_CUSTOMIZATION
+    if (UplevelExprIsKnown)
+      Var.UplevelOffset = UplevelOffset;
+#endif // INTEL_CUSTOMIZATION
 
     recordLocalVariable(std::move(Var), Scope);
   }
@@ -1671,6 +1789,60 @@ static uint32_t getF90DescriptorSize(Triple::ArchType Arch, uint32_t ArrayDims) 
          (FieldSize * numberOfFieldsPerDim * ArrayDims);  // size of dimension fields
 }
 
+static bool isValidDescriptorExpression(DIExpression *Exp) {
+  // DW_OP_push_object_address opcode in the location expression
+  // of the bounds implies the array uses a descriptor.
+  return Exp && Exp->getNumElements() > 0 &&
+         Exp->getElement(0) == dwarf::DW_OP_push_object_address;
+}
+
+static bool isDescribedSubrange(const DISubrange *Subrange) {
+  auto *LE = Subrange->getLowerBound().dyn_cast<DIExpression *>();
+  auto *UE = Subrange->getUpperBound().dyn_cast<DIExpression *>();
+
+  return isValidDescriptorExpression(LE) || isValidDescriptorExpression(UE);
+}
+
+static int64_t getConstantLowerBound(const DISubrange *Subrange) {
+  auto *LI = Subrange->getLowerBound().dyn_cast<ConstantInt *>();
+  // The default lowerbound of an array dimension in Fortran is 1.
+  int64_t LowerBound = (LI) ? LI->getSExtValue() : 1;
+  return LowerBound;
+}
+
+static bool isOneDimensionalWithDefaultLowerBound(const DICompositeType *Ty) {
+  DINodeArray Elements = Ty->getElements();
+  uint16_t Rank = Elements.size();
+  if (Rank != 1)
+    return false;
+
+  const DISubrange *Subrange = cast<DISubrange>(Elements[0]);
+  int64_t LowerBound = getConstantLowerBound(Subrange);
+
+  return LowerBound == 1;
+}
+
+// Construct a Host Reference OEM Record, which has the following layout:
+//   LF_OEM (2)    0x100F
+//   OEM    (2)    LF_OEM_IDENT_MSF90
+//   recOEM (2)    LF_recOEM_MSF90_HOST_REF
+//   count  (4)    1
+//   index  (4)    type index of the variable that is uplevel-referenced
+//   data   (4)    offset from the stack base of the referenced variable
+TypeIndex CodeViewDebug::lowerTypeOemMSF90HostReference(TypeIndex RefType,
+                                                        uint32_t Offset) {
+  const uint32_t TypeIndicesCount = 1;
+  const uint32_t DataCount = 1;
+  TypeIndex Indices[TypeIndicesCount] = {RefType};
+  uint32_t Data[DataCount] = {Offset};
+
+  OEMTypeRecord OEM(TypeLeafKind::LF_OEM_IDENT_MSF90,
+                    TypeLeafKind::LF_recOEM_MSF90_HOST_REF,
+                    Indices, Data);
+
+  return TypeTable.writeLeafType(OEM);
+}
+
 // Construct a Descriptor OEM Record, which has the following layout:
 //   LF_OEM (2)    0x100F
 //   OEM    (2)    LF_OEM_IDENT_MSF90
@@ -1738,6 +1910,72 @@ TypeIndex CodeViewDebug::lowerTypeOemMSF90DescribedArray(const DICompositeType *
 
   return TypeTable.writeLeafType(OEM);
 }
+
+codeview::TypeIndex CodeViewDebug::getDimInfo(const DINodeArray Subranges) {
+  // Check if we have already created an index for Subranges.
+  const MDTuple *Tuple = Subranges.get();
+  auto I = DimInfoIndices.find(Tuple);
+  if (I != DimInfoIndices.end())
+    return I->second;
+
+  // Collect bounds.
+  SmallVector<int64_t, 5> Bounds;
+  uint16_t Rank = Subranges.size();
+  for (int i = 0; i < Rank; i++) {
+    const DISubrange *Subrange = cast<DISubrange>(Subranges[i]);
+
+    // FIXME: Once we support LF_REFSYM/LF_DIMVARLU, we should
+    // check for variable lowerbound and encode it using those
+    // records. For now, we use the constant lowerbound 1 in
+    // place of the variable lowerbound.
+    int64_t LowerBound = getConstantLowerBound(Subrange);
+    Bounds.push_back(LowerBound);
+
+    if (auto *UI = Subrange->getUpperBound().dyn_cast<ConstantInt *>()) {
+      int64_t UpperBound = UI->getSExtValue();
+      Bounds.push_back(UpperBound);
+    } else if (auto *CI = Subrange->getCount().dyn_cast<ConstantInt *>()) {
+      int64_t Count = CI->getSExtValue();
+      Bounds.push_back(Count - LowerBound + 1);
+    } else if (auto *UI = Subrange->getUpperBound().dyn_cast<DIVariable *>()) {
+      // FIXME: In this case, we should use LF_REFSYM/LF_DIMVARLU to encode
+      // the bounds. Until the handling of those LF records are in place,
+      // let's make upperbound the same as lowerbound.
+      Bounds.push_back(LowerBound);
+    } else {
+      // When we reach here, the array is assumed size (e.g. A(5,*)).
+      // Emulating what ifort does in this case, we make upperbound
+      // the same as lowerbound.
+      Bounds.push_back(LowerBound);
+    }
+  }
+
+  TypeIndex IndexType = getPointerSizeInBytes() == 8
+                            // Should be
+                            //   ? TypeIndex(SimpleTypeKind::Int64Quad)
+                            // but FEE can only handle int32 bounds.
+                            ? TypeIndex(SimpleTypeKind::Int32Long)
+                            : TypeIndex(SimpleTypeKind::Int32Long);
+  DimConLURecord DCR(IndexType, Rank, Bounds);
+  TypeIndex DimInfo = TypeTable.writeLeafType(DCR);
+  auto InsertResult = DimInfoIndices.insert({Tuple, DimInfo});
+  (void)InsertResult;
+  assert(InsertResult.second && "Subranges was already assigned a type index");
+  return DimInfo;
+}
+
+TypeIndex CodeViewDebug::lowerTypeFortranExplicitArray(const DICompositeType *Ty) {
+  const DINodeArray Subranges = Ty->getElements();
+  TypeIndex DimInfo = getDimInfo(Subranges);
+
+  const DIType *ElementType = Ty->getBaseType();
+  TypeIndex ElementTypeIndex = getTypeIndex(ElementType);
+  StringRef Name = Ty->getName();
+  DimArrayRecord DAR(ElementTypeIndex, DimInfo, Name);
+  TypeIndex ResultTypeIndex = TypeTable.writeLeafType(DAR);
+
+  return ResultTypeIndex;
+}
 #endif // INTEL_CUSTOMIZATION
 
 TypeIndex CodeViewDebug::lowerTypeArray(const DICompositeType *Ty) {
@@ -1748,12 +1986,14 @@ TypeIndex CodeViewDebug::lowerTypeArray(const DICompositeType *Ty) {
        Elements.size() > 0) {
     assert(Elements[0]->getTag() == dwarf::DW_TAG_subrange_type);
     const DISubrange *Subrange = cast<DISubrange>(Elements[0]);
-    auto *LE = Subrange->getLowerBound().dyn_cast<DIExpression *>();
-    if (LE && LE->getNumElements() > 0 &&
-        LE->getElement(0) == dwarf::DW_OP_push_object_address) {
-      // DW_OP_push_object_address opcode in the location expression
-      // of the bounds implies the array uses a descriptor.
+    if (isDescribedSubrange(Subrange)) {
       return lowerTypeOemMSF90DescribedArray(Ty);
+    } else if (!isOneDimensionalWithDefaultLowerBound(Ty)) {
+      // An explicit array uses various LF_DIM* records to encode
+      // the rank and bound information. Those records are no longer
+      // recognized by recent versions of VS debugger. Therefore,
+      // we only emit them when Intel CodeView extensions are enabled.
+      return lowerTypeFortranExplicitArray(Ty);
     }
   }
 #endif // INTEL_CUSTOMIZATION
@@ -1900,6 +2140,7 @@ TypeIndex CodeViewDebug::lowerTypeBasic(const DIBasicType *Ty) {
     break;
   case dwarf::DW_ATE_UTF:
     switch (ByteSize) {
+    case 1: STK = SimpleTypeKind::Character8; break;
     case 2: STK = SimpleTypeKind::Character16; break;
     case 4: STK = SimpleTypeKind::Character32; break;
     }
@@ -2372,6 +2613,9 @@ void CodeViewDebug::clear() {
   CompleteTypeIndices.clear();
   ScopeGlobals.clear();
   CVGlobalVariableOffsets.clear();
+#if INTEL_CUSTOMIZATION
+  DimInfoIndices.clear();
+#endif // INTEL_CUSTOMIZATION
 }
 
 #if INTEL_CUSTOMIZATION
@@ -2903,6 +3147,12 @@ void CodeViewDebug::emitLocalVariable(const FunctionInfo &FI,
   TypeIndex TI = Var.UseReferenceType
                      ? getTypeIndexForReferenceTo(Var.DIVar->getType())
                      : getCompleteTypeIndex(Var.DIVar->getType());
+#if INTEL_CUSTOMIZATION
+  if (!DisableIntelCodeViewExtensions &&
+      Var.DIVar->getFlags() & DINode::FlagUplevelReference) {
+    TI = lowerTypeOemMSF90HostReference(TI, Var.UplevelOffset);
+  }
+#endif // INTEL_CUSTOMIZATION
   OS.emitInt32(TI.getIndex());
   OS.AddComment("Flags");
   OS.emitInt16(static_cast<uint16_t>(Flags));

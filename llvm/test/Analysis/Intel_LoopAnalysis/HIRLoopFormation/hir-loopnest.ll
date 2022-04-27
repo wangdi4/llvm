@@ -1,4 +1,5 @@
-; RUN: opt < %s -loop-simplify | opt -analyze -hir-framework -hir-framework-debug=loop-formation 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -loop-simplify | opt -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=loop-formation 2>&1 | FileCheck %s
+; RUN: opt %s -passes="loop-simplify,hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=loop-formation -disable-output 2>&1 | FileCheck %s
 
 ; Check that two unknown loops have been formed
 ; CHECK: UNKNOWN LOOP i1

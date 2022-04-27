@@ -1,4 +1,21 @@
 //===-- X86InstrSystem.td - System Instructions ------------*- tablegen -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -25,18 +42,18 @@ let mayLoad = 1, mayStore = 0, hasSideEffects = 1, isTrap = 1 in {
   def TRAP    : I<0x0B, RawFrm, (outs), (ins), "ud2", [(trap)]>, TB;
 
   def UD1Wm   : I<0xB9, MRMSrcMem, (outs), (ins GR16:$src1, i16mem:$src2),
-                  "ud1{w} {$src2, $src1|$src1, $src2}", []>, TB, OpSize16;
+                  "ud1{w}\t{$src2, $src1|$src1, $src2}", []>, TB, OpSize16;
   def UD1Lm   : I<0xB9, MRMSrcMem, (outs), (ins GR32:$src1, i32mem:$src2),
-                  "ud1{l} {$src2, $src1|$src1, $src2}", []>, TB, OpSize32;
+                  "ud1{l}\t{$src2, $src1|$src1, $src2}", []>, TB, OpSize32;
   def UD1Qm   : RI<0xB9, MRMSrcMem, (outs), (ins GR64:$src1, i64mem:$src2),
-                   "ud1{q} {$src2, $src1|$src1, $src2}", []>, TB;
+                   "ud1{q}\t{$src2, $src1|$src1, $src2}", []>, TB;
 
   def UD1Wr   : I<0xB9, MRMSrcReg, (outs), (ins GR16:$src1, GR16:$src2),
-                  "ud1{w} {$src2, $src1|$src1, $src2}", []>, TB, OpSize16;
+                  "ud1{w}\t{$src2, $src1|$src1, $src2}", []>, TB, OpSize16;
   def UD1Lr   : I<0xB9, MRMSrcReg, (outs), (ins GR32:$src1, GR32:$src2),
-                  "ud1{l} {$src2, $src1|$src1, $src2}", []>, TB, OpSize32;
+                  "ud1{l}\t{$src2, $src1|$src1, $src2}", []>, TB, OpSize32;
   def UD1Qr   : RI<0xB9, MRMSrcReg, (outs), (ins GR64:$src1, GR64:$src2),
-                   "ud1{q} {$src2, $src1|$src1, $src2}", []>, TB;
+                   "ud1{q}\t{$src2, $src1|$src1, $src2}", []>, TB;
 }
 
 let isTerminator = 1 in
@@ -57,6 +74,11 @@ def UBSAN_UD1 : PseudoI<(outs), (ins i32imm:$kind), [(ubsantrap (i32 timm:$kind)
 def INT : Ii8<0xcd, RawFrm, (outs), (ins u8imm:$trap), "int\t$trap",
               [(int_x86_int timm:$trap)]>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+def INT1 : I<0xf1, RawFrm, (outs), (ins), "int1", []>;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 
 def SYSCALL  : I<0x05, RawFrm, (outs), (ins), "syscall", []>, TB;
 def SYSRET   : I<0x07, RawFrm, (outs), (ins), "sysret{l}", []>, TB;

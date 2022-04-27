@@ -4,37 +4,36 @@
 # This test case checks that no GNU LTO member from the archive
 # is used since it won't resolve any symbol.
 
-# Copy the files into the temporary directory, this is to prevent multiple
-# processes accessing the same files when running the test system in parallel.
-# RUN: cp %S/Inputs/driver2.cpp driver_test_7.cpp
-# RUN: cp %S/Inputs/foo.cpp foo_test_7.cpp
-# RUN: cp %S/Inputs/bar.cpp bar_test_7.cpp
-# RUN: cp %S/Inputs/baz.cpp baz_test_7.cpp
+# RUN: rm -f %t_arch.a
 
 # Compile with clang++ and LTO
-# RUN: clang++ -c -flto driver_test_7.cpp
-# RUN: clang++ -c -flto foo_test_7.cpp
+# RUN: clang++ -c -flto %S/Inputs/driver2.cpp -o %t_driver.o
+# RUN: clang++ -c -flto %S/Inputs/foo.cpp -o %t_foo.o
 
-# Compile with G++ and LTO
-# RUN: g++ -c -flto bar_test_7.cpp
-# RUN: g++ -c -flto baz_test_7.cpp
+# Compile with g++ and LTO
+# RUN: g++ -c -flto %S/Inputs/bar.cpp -o %t_bar.o
+# RUN: g++ -c -flto %S/Inputs/baz.cpp -o  %t_baz.o
 
 # Create archive, call gcc-ar since it passes the LTO plugin to AR
-# RUN: gcc-ar rsT arch_test_7.a bar_test_7.o baz_test_7.o
+# RUN: gcc-ar rsT %t_arch.a %t_bar.o %t_baz.o
 
 # Link
-# RUN: clang++ -fuse-ld=lld driver_test_7.o foo_test_7.o arch_test_7.a -o gnu_lto_test_7 > %t_out.txt 2>&1
+# RUN: clang++ -fuse-ld=lld %t_driver.o %t_foo.o %t_arch.a -o %t_gnu_lto_test_7 > %t_out.txt 2>&1
 # RUN: cat %t_out.txt | FileCheck -check-prefix=CHECKLINK %s -allow-empty
 
-# Check that the files were linked correctly
-CHECKLINK-NOT: GNU LTO files found in the command line.
+# Check that the GNU LTO objects were partially linked
+CHECKLINK: GNU LTO files found in the command line.
+
+# The functions bar and baz shouldn't be added in the executable since they
+# aren't needed
+# RUN: llvm-readelf -s %t_gnu_lto_test_7 | FileCheck -check-prefix=CHECKELF %s
+CHECKELF: _Z3foov
+CHECKELF: main
+CHECKELF-NOT: _Z3barv
+CHECKELF-NOT: _Z3bazv
 
 # Check that the executable runs correctly
-# RUN: ./gnu_lto_test_7 | FileCheck -check-prefix=CHECKRUN7 %s
+# RUN: %t_gnu_lto_test_7 | FileCheck -check-prefix=CHECKRUN7 %s
 CHECKRUN7: FOO: 1
 CHECKRUN7-NOT: BAR: 2
 CHECKRUN7-NOT: BAZ: 3
-
-# RUN: rm driver_test_7.o foo_test_7.o bar_test_7.o baz_test_7.o
-# RUN: rm arch_test_7.a
-# RUN: rm gnu_lto_test_7

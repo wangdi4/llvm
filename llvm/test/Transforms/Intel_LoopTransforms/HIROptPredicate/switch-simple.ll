@@ -41,8 +41,8 @@
 ; CHECK:        }
 ; CHECK:  END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-opt-predicate -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter -disable-output %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
-; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low -disable-output %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -hir-ssa-deconstruction -hir-opt-predicate -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter -disable-output %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-opt-report=low -disable-output %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
 ;
 ; Incorrect line number ("at line 0" in the remark) only occurs during some
 ; lit-tests (real-world test cases would have correct line numbers).

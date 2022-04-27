@@ -26,8 +26,10 @@
 ;      |   }
 ;      + END LOOP
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-output -vplan-print-after-plain-cfg -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -disable-output -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-output -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -disable-output -vplan-print-after-plain-cfg -vplan-enable-new-cfg-merge-hir=false < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -disable-output -vplan-print-after-plain-cfg -print-after=hir-vplan-vec -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -disable-output -vplan-print-after-plain-cfg -vplan-enable-new-cfg-merge-hir < %s 2>&1 | FileCheck %s
 
 
 @s = dso_local local_unnamed_addr global i32 0, align 4
@@ -35,7 +37,7 @@
 
 define dso_local i32 @main(i32 %add) {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
-; CHECK-NEXT:  VPlan IR for: main:HIR
+; CHECK-NEXT:  VPlan IR for: main:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%0}
 ; CHECK-DAG:     [[VP1:%.*]] = {@s}
@@ -77,48 +79,48 @@ define dso_local i32 @main(i32 %add) {
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   i32 [[VP5]] -> [[VP12:%.*]] = {%0}
 ;
-; CHECK-LABEL:   BEGIN REGION { modified }
-; CHECK-NEXT:          %phi.temp = %1;
-; CHECK-NEXT:          %phi.temp1 = -1;
+; CHECK-LABEL:  BEGIN REGION { modified }
+; CHECK:             [[PHI_TEMP0:%.*]] = [[TMP1:%.*]];
+; CHECK-NEXT:        [[PHI_TEMP10:%.*]] = -1;
 
-; CHECK:               + DO i1 = 0, 67, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:          |   %.vec = (<4 x i32>*)(@q)[0][i1 + 1];
-; CHECK-NEXT:          |   %.vec3 = %.vec == 0;
-; CHECK-NEXT:          |   (<4 x i32>*)(@s)[0] = %add; Mask = @{%.vec3}
-; CHECK-NEXT:          |   %.copy4 = %add;
-; CHECK-NEXT:          |   %select = (%.vec3 == <i1 true, i1 true, i1 true, i1 true>) ? i1 + <i64 0, i64 1, i64 2, i64 3> : %phi.temp1;
-; CHECK-NEXT:          |   %select5 = (%.vec3 == <i1 true, i1 true, i1 true, i1 true>) ? %.copy4 : %phi.temp;
-; CHECK-NEXT:          |   %phi.temp = %select5;
-; CHECK-NEXT:          |   %phi.temp1 = %select;
-; CHECK-NEXT:          + END LOOP
+; CHECK:             + DO i1 = 0, 67, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<4 x i32>*)(@q)[0][i1 + 1];
+; CHECK-NEXT:        |   [[DOTVEC30:%.*]] = [[DOTVEC0]] == 0;
+; CHECK-NEXT:        |   (<4 x i32>*)(@s)[0] = [[ADD0]], Mask = @{[[DOTVEC30]]};
+; CHECK-NEXT:        |   [[DOTCOPY40:%.*]] = [[ADD0]];
+; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC30]] == <i1 true, i1 true, i1 true, i1 true>) ? i1 + <i64 0, i64 1, i64 2, i64 3> : [[PHI_TEMP10]];
+; CHECK-NEXT:        |   [[SELECT50:%.*]] = ([[DOTVEC30]] == <i1 true, i1 true, i1 true, i1 true>) ? [[DOTCOPY40]] : [[PHI_TEMP0]];
+; CHECK-NEXT:        |   [[PHI_TEMP0]] = [[SELECT50]];
+; CHECK-NEXT:        |   [[PHI_TEMP10]] = [[SELECT0]];
+; CHECK-NEXT:        + END LOOP
 
-; CHECK:               %.vec8 = %select != -1;
-; CHECK-NEXT:          %0 = bitcast.<4 x i1>.i4(%.vec8);
-; CHECK-NEXT:          %cmp = %0 == 0;
-; CHECK-NEXT:          %all.zero.check = %cmp;
-; CHECK-NEXT:          %phi.temp9 = %1;
-; CHECK-NEXT:          %unifcond = extractelement %all.zero.check,  0;
-; CHECK-NEXT:          if (%unifcond == 1)
-; CHECK-NEXT:          {
-; CHECK-NEXT:             goto BB9.50;
-; CHECK-NEXT:          }
-; CHECK-NEXT:          %priv.idx.max = @llvm.vector.reduce.smax.v4i64(%select);
-; CHECK-NEXT:          %priv.idx.cmp = %select == %priv.idx.max;
-; CHECK-NEXT:          %bsfintmask = bitcast.<4 x i1>.i4(%priv.idx.cmp);
-; CHECK-NEXT:          %bsf = @llvm.cttz.i4(%bsfintmask,  1);
-; CHECK-NEXT:          %1 = extractelement %select5,  %bsf;
-; CHECK-NEXT:          %phi.temp9 = %1;
-; CHECK-NEXT:          BB9.50:
+; CHECK:             [[DOTVEC80:%.*]] = [[SELECT0]] != -1;
+; CHECK-NEXT:        [[TMP0]] = bitcast.<4 x i1>.i4([[DOTVEC80]]);
+; CHECK-NEXT:        [[CMP0:%.*]] = [[TMP0]] == 0;
+; CHECK-NEXT:        [[ALL_ZERO_CHECK0:%.*]] = [[CMP0]];
+; CHECK-NEXT:        [[PHI_TEMP90:%.*]] = [[TMP1]];
+; CHECK-NEXT:        if ([[CMP0]] == 1)
+; CHECK-NEXT:        {
+; CHECK-NEXT:           goto [[BB7:BB.*]];
+; CHECK-NEXT:        }
+; CHECK-NEXT:        [[PRIV_IDX_MAX0:%.*]] = @llvm.vector.reduce.smax.v4i64([[SELECT0]]);
+; CHECK-NEXT:        [[PRIV_IDX_CMP0:%.*]] = [[SELECT0]] == [[PRIV_IDX_MAX0]];
+; CHECK-NEXT:        [[BSFINTMASK0:%.*]] = bitcast.<4 x i1>.i4([[PRIV_IDX_CMP0]]);
+; CHECK-NEXT:        [[BSF0:%.*]] = @llvm.cttz.i4([[BSFINTMASK0]],  1);
+; CHECK-NEXT:        [[TMP1]] = extractelement [[SELECT50]],  [[BSF0]];
+; CHECK-NEXT:        [[PHI_TEMP90]] = [[TMP1]];
+; CHECK-NEXT:        [[BB7]]:
 
-; CHECK:               + DO i1 = 68, 68, 1   <DO_LOOP> <novectorize>
-; CHECK-NEXT:          |   if ((@q)[0][i1 + 1] == 0)
-; CHECK-NEXT:          |   {
-; CHECK-NEXT:          |      (@s)[0] = %add;
-; CHECK-NEXT:          |      %1 = %add;
-; CHECK-NEXT:          |   }
-; CHECK-NEXT:          + END LOOP
-; CHECK-NEXT:    END REGION
+; CHECK:             + DO i1 = {{.*}}, 68, 1   <DO_LOOP>
+; CHECK-NEXT:        |   if ((@q)[0][i1 + 1] == 0)
+; CHECK-NEXT:        |   {
+; CHECK-NEXT:        |      (@s)[0] = [[ADD0]];
+; CHECK-NEXT:        |      [[TMP1]] = [[ADD0]];
+; CHECK-NEXT:        |   }
+; CHECK-NEXT:        + END LOOP
+; CHECK:        END REGION
 ;
+
 entry:
   br label %for.body3
 

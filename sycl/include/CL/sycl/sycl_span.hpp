@@ -1,4 +1,19 @@
 // -*- C++ -*-
+// INTEL_CUSTOMIZATION
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //===------------------------------ span ---------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -11,11 +26,6 @@
 
 #ifndef _SYCL_SPAN
 #define _SYCL_SPAN
-
-/* INTEL_CUSTOMIZATION */
-// SYCL span implementation uses C++17 features
-#if __cplusplus >= 201703L
-/* end INTEL_CUSTOMIZATION */
 
 /*
     Derived from libcxx span.
@@ -633,9 +643,6 @@ span(const _Container &)->span<const typename _Container::value_type>;
 } // namespace sycl
 } // __SYCL_INLINE_NAMESPACE(cl)
 
-/* INTEL_CUSTOMIZATION */
-#endif // __cplusplus >= 201703L
-/* end INTEL_CUSTOMIZATION */
 #endif // _SYCL_SPAN
 
 #endif // __cplusplus >= 201703L

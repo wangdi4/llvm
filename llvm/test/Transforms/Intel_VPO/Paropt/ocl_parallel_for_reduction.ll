@@ -1,5 +1,5 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -sroa -vpo-cfg-restructuring -vpo-paropt -simplifycfg -switch-to-offload -S -vpo-paropt-atomic-free-reduction=false -pass-remarks=vpo-paropt-transform -pass-remarks-missed=vpo-paropt-transform 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,loop-simplify,sroa,vpo-cfg-restructuring),vpo-paropt,function(simplifycfg)' -switch-to-offload -S -vpo-paropt-atomic-free-reduction=false -pass-remarks=vpo-paropt-transform -pass-remarks-missed=vpo-paropt-transform 2>&1 | FileCheck %s
+; RUN: opt -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -sroa -vpo-cfg-restructuring -vpo-paropt -simplifycfg -switch-to-offload -S -vpo-paropt-atomic-free-reduction=false -pass-remarks=vpo-paropt-transform -pass-remarks-missed=vpo-paropt-transform %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,loop-simplify,sroa,vpo-cfg-restructuring),vpo-paropt,function(simplifycfg)' -switch-to-offload -S -vpo-paropt-atomic-free-reduction=false -pass-remarks=vpo-paropt-transform -pass-remarks-missed=vpo-paropt-transform %s 2>&1 | FileCheck %s
 
 ; Original code:
 ; int test()

@@ -1,4 +1,21 @@
 //===- MachineScheduler.h - MachineInstr Scheduling Pass --------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -287,7 +304,7 @@ protected:
   const SUnit *NextClusterPred = nullptr;
   const SUnit *NextClusterSucc = nullptr;
 
-#ifndef NDEBUG
+#if LLVM_ENABLE_ABI_BREAKING_CHECKS
   /// The number of instructions scheduled so far. Used to cut off the
   /// scheduler at the point determined by misched-cutoff.
   unsigned NumInstrsScheduled = 0;
@@ -424,10 +441,6 @@ protected:
   /// The bottom of the unscheduled zone.
   IntervalPressure BotPressure;
   RegPressureTracker BotRPTracker;
-
-  /// True if disconnected subregister components are already renamed.
-  /// The renaming is only done on demand if lane masks are tracked.
-  bool DisconnectedComponentsRenamed = false;
 
 public:
   ScheduleDAGMILive(MachineSchedContext *C,
@@ -686,7 +699,7 @@ private:
   // For each PIdx, stores the resource group IDs of its subunits
   SmallVector<APInt, 16> ResourceGroupSubUnitMasks;
 
-#ifndef NDEBUG
+#if LLVM_ENABLE_ABI_BREAKING_CHECKS
   // Remember the greatest possible stall as an upper bound on the number of
   // times we should retry the pending queue because of a hazard.
   unsigned MaxObservedStall;

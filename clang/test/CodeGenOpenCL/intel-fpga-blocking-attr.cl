@@ -1,7 +1,7 @@
-// RUN: %clang_cc1 -x cl -O0 -cl-std=CL2.0 -triple spir -emit-llvm %s -o - | FileCheck %s -check-prefixes=CHECK,SPIR_20
-// RUN: %clang_cc1 -x cl -O0 -cl-std=CL1.2 -triple spir-unknown-unknown-intelfpga -emit-llvm %s -o - | FileCheck %s -check-prefixes=CHECK,SPIR_12
-// RUN: %clang_cc1 -x cl -O0 -cl-std=CL2.0 -triple x86_64 -emit-llvm %s -o - | FileCheck %s -check-prefixes=CHECK,X86
-// RUN: %clang_cc1 -x cl -O0 -cl-std=CL1.2 -triple x86_64-unknown-unknown-intelfpga -emit-llvm %s -o - | FileCheck %s -check-prefixes=CHECK,X86
+// RUN: %clang_cc1 -x cl -O0 -cl-std=CL2.0 -triple spir -emit-llvm -opaque-pointers %s -o - | FileCheck %s -check-prefixes=CHECK,SPIR_20
+// RUN: %clang_cc1 -x cl -O0 -cl-std=CL1.2 -triple spir-unknown-unknown-intelfpga -emit-llvm -opaque-pointers %s -o - | FileCheck %s -check-prefixes=CHECK,SPIR_12
+// RUN: %clang_cc1 -x cl -O0 -cl-std=CL2.0 -triple x86_64 -emit-llvm -opaque-pointers %s -o - | FileCheck %s -check-prefixes=CHECK,X86
+// RUN: %clang_cc1 -x cl -O0 -cl-std=CL1.2 -triple x86_64-unknown-unknown-intelfpga -emit-llvm -opaque-pointers %s -o - | FileCheck %s -check-prefixes=CHECK,X86
 
 __kernel void
 producer (write_only pipe int __attribute__((blocking)) c0) {
@@ -10,9 +10,9 @@ producer (write_only pipe int __attribute__((blocking)) c0) {
     }
 }
 // CHECK: define {{.*}} void @producer
-// SPIR_20: %{{[0-9]+}} = call spir_func i32 @__write_pipe_2_bl(%opencl.pipe_wo_t addrspace(1)* %{{.*}}, i8 addrspace(4)* {{.*}}, i32 4, i32 4)
-// SPIR_12: %{{[0-9]+}} = call spir_func i32 @__write_pipe_2_bl_AS0(%opencl.pipe_wo_t addrspace(1)* %{{.*}}, i8* {{.*}}, i32 4, i32 4)
-// X86: %{{[0-9]+}} = call i32 @__write_pipe_2_bl(%opencl.pipe_wo_t* %{{.*}}, i8* {{.*}}, i32 4, i32 4)
+// SPIR_20: %{{[0-9]+}} = call spir_func i32 @__write_pipe_2_bl(ptr addrspace(1) %{{.*}}, ptr addrspace(4) {{.*}}, i32 4, i32 4)
+// SPIR_12: %{{[0-9]+}} = call spir_func i32 @__write_pipe_2_bl_AS0(ptr addrspace(1) %{{.*}}, ptr {{.*}}, i32 4, i32 4)
+// X86: %{{[0-9]+}} = call i32 @__write_pipe_2_bl(ptr %{{.*}}, ptr {{.*}}, i32 4, i32 4)
 
 __kernel void
 consumer (__global int * restrict dst,
@@ -22,6 +22,6 @@ consumer (__global int * restrict dst,
     }
 }
 // CHECK: define {{.*}} void @consumer
-// SPIR_20: %{{[0-9]+}} = {{.*}}call spir_func i32 @__read_pipe_2_bl(%opencl.pipe_ro_t addrspace(1)* %{{.*}}, i8 addrspace(4)* %{{[0-9]+}}, i32 4, i32 4)
-// SPIR_12: %{{[0-9]+}} = {{.*}}call spir_func i32 @__read_pipe_2_bl_AS1(%opencl.pipe_ro_t addrspace(1)* %{{.*}}, i8 addrspace(1)* %{{[0-9]+}}, i32 4, i32 4)
-// X86: %{{[0-9]+}} = {{.*}}call i32 @__read_pipe_2_bl(%opencl.pipe_ro_t* %{{.*}}, i8* %{{[0-9]+}}, i32 4, i32 4)
+// SPIR_20: %{{[0-9]+}} = {{.*}}call spir_func i32 @__read_pipe_2_bl(ptr addrspace(1) %{{.*}}, ptr addrspace(4) %{{[0-9]+}}, i32 4, i32 4)
+// SPIR_12: %{{[0-9]+}} = {{.*}}call spir_func i32 @__read_pipe_2_bl_AS1(ptr addrspace(1) %{{.*}}, ptr addrspace(1) %{{.+}}, i32 4, i32 4)
+// X86: %{{[0-9]+}} = {{.*}}call i32 @__read_pipe_2_bl(ptr %{{.*}}, ptr %{{.+}}, i32 4, i32 4)

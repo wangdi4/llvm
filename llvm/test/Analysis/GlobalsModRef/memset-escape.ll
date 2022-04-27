@@ -1,6 +1,7 @@
-; RUN: opt < %s -O1 -S | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -O1 -S | FileCheck %s
+; RUN; opt < %s -passes='default<O1>' -S | FileCheck %s
 ; INTEL
-; RUN: opt < %s -convert-to-subscript -O1 -S | FileCheck --check-prefix=CHECK-BB %s
+; RUN: opt < %s -enable-new-pm=0 -convert-to-subscript -O1 -S | FileCheck --check-prefix=CHECK-BB %s
 
 target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-apple-macosx10.10.0"

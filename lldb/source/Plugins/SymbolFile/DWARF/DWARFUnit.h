@@ -11,8 +11,9 @@
 
 #include "DWARFDIE.h"
 #include "DWARFDebugInfoEntry.h"
-#include "lldb/lldb-enumerations.h"
 #include "lldb/Utility/XcodeSDK.h"
+#include "lldb/lldb-enumerations.h"
+#include "llvm/DebugInfo/DWARF/DWARFDebugRnglists.h"
 #include "llvm/Support/RWMutex.h"
 #include <atomic>
 
@@ -68,7 +69,8 @@ public:
   dw_offset_t GetTypeOffset() const { return m_type_offset; }
   uint64_t GetDWOId() const { return m_dwo_id; }
   bool IsTypeUnit() const {
-    return m_unit_type == DW_UT_type || m_unit_type == DW_UT_split_type;
+    return m_unit_type == llvm::dwarf::DW_UT_type ||
+           m_unit_type == llvm::dwarf::DW_UT_split_type;
   }
   uint32_t GetNextUnitOffset() const { return m_offset + m_length + 4; }
 
@@ -269,7 +271,7 @@ protected:
     ExtractUnitDIENoDwoIfNeeded();
     // m_first_die_mutex is not required as m_first_die is never cleared.
     if (!m_first_die)
-      return NULL;
+      return nullptr;
     return &m_first_die;
   }
 
@@ -277,7 +279,7 @@ protected:
   const DWARFDebugInfoEntry *DIEPtr() {
     ExtractDIEsIfNeeded();
     if (m_die_array.empty())
-      return NULL;
+      return nullptr;
     return &m_die_array[0];
   }
 

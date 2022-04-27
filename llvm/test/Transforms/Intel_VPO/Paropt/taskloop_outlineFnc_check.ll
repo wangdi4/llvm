@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -vpo-paropt -debug-only=vpo-paropt-transform -S < %s 2>&1 | FileCheck %s
-; RUN: opt -passes='vpo-paropt' -debug-only=vpo-paropt-transform -S < %s 2>&1 | FileCheck %s
+; RUN: opt -vpo-paropt -debug-only=vpo-paropt-transform -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes='vpo-paropt' -debug-only=vpo-paropt-transform -S %s 2>&1 | FileCheck %s
 
 ; Test Src:
 ; Compilation command:

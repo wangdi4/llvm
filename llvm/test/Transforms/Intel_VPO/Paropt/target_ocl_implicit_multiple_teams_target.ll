@@ -1,7 +1,7 @@
-; RUN: opt < %s  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-implicit-multiple-teams=true -S | FileCheck -check-prefix=TRUE %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -switch-to-offload -vpo-implicit-multiple-teams=true -S | FileCheck -check-prefix=TRUE %s
-; RUN: opt < %s  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-implicit-multiple-teams=false -S | FileCheck -check-prefix=FALSE %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -switch-to-offload -vpo-implicit-multiple-teams=false -S | FileCheck -check-prefix=FALSE %s
+; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-implicit-multiple-teams=true -S %s | FileCheck -check-prefix=TRUE %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -vpo-implicit-multiple-teams=true -S %s | FileCheck -check-prefix=TRUE %s
+; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-implicit-multiple-teams=false -S %s | FileCheck -check-prefix=FALSE %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -vpo-implicit-multiple-teams=false -S %s | FileCheck -check-prefix=FALSE %s
 
 ; Original code:
 ; void foo(int *a) {

@@ -1,4 +1,4 @@
-; RUN: opt %s -hir-ssa-deconstruction -analyze -hir-locality-analysis -hir-spatial-locality | FileCheck %s
+; RUN: opt %s -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-locality-analysis -hir-spatial-locality | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-locality-analysis>" -hir-spatial-locality -disable-output 2>&1 | FileCheck %s
 
 ; Check that the inner stride for i2 is 80 which is computed from the const stride value

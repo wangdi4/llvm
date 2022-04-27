@@ -12,6 +12,9 @@
 // INTEL RUN: %clang_cc1 -fopenmp-simd -x c++ -triple x86_64-apple-darwin10 -mllvm -enable-vec-clone=false -include-pch %t -verify %s -emit-llvm -o - -femit-all-decls | FileCheck --check-prefix SIMD-ONLY0 %s
 // SIMD-ONLY0-NOT: {{__kmpc|__tgt}}
 // expected-no-diagnostics
+
+// INTEL RUN: %clang_cc1 -verify -triple spir64_gen -fopenmp-simd -fopenmp-target-declare-simd-spir -mllvm -enable-vec-clone=false -x c++ -emit-llvm %s -o - -femit-all-decls | FileCheck --check-prefix SPIR %s
+
 #ifndef HEADER
 #define HEADER
 
@@ -164,6 +167,28 @@ double constlinear(const int i) { return 0.0; }
 // CHECK-DAG: _ZGVdN4v__Z5add_1Pf
 // CHECK-DAG: _ZGVeN8v__Z5add_1Pf
 
+// SPIR-DAG: _ZGVxN8v__Z5add_1Pf
+// SPIR-DAG: _ZGVxN16v__Z5add_1Pf
+// SPIR-NOT: _ZGVxN32v__Z5add_1Pf
+// SPIR-DAG: _ZGVxM32v__Z5add_1Pf
+
+// CHECK-NOT: _ZGVbN2vv__Z5add_1Pf
+// CHECK-NOT: _ZGVcN4vv__Z5add_1Pf
+// CHECK-NOT: _ZGVdN4vv__Z5add_1Pf
+// CHECK-NOT: _ZGVeN8vv__Z5add_1Pf
+// CHECK-NOT: _ZGVbM32vv__Z5add_1Pf
+// CHECK-NOT: _ZGVcM32vv__Z5add_1Pf
+// CHECK-NOT: _ZGVdM32vv__Z5add_1Pf
+// CHECK-NOT: _ZGVeM32vv__Z5add_1Pf
+// CHECK-NOT: _ZGVbN4l32v__Z5add_1Pf
+// CHECK-NOT: _ZGVcN8l32v__Z5add_1Pf
+// CHECK-NOT: _ZGVdN8l32v__Z5add_1Pf
+// CHECK-NOT: _ZGVeN16l32v__Z5add_1Pf
+// CHECK-NOT: _ZGVbM4l32v__Z5add_1Pf
+// CHECK-NOT: _ZGVcM8l32v__Z5add_1Pf
+// CHECK-NOT: _ZGVdM8l32v__Z5add_1Pf
+// CHECK-NOT: _ZGVeM16l32v__Z5add_1Pf
+
 // CHECK-DAG: _ZGVbM2va16va16vv__Z1hIiEvPT_S1_S1_S1_
 // CHECK-DAG: _ZGVbN2va16va16vv__Z1hIiEvPT_S1_S1_S1_
 // CHECK-DAG: _ZGVcM4va16va16vv__Z1hIiEvPT_S1_S1_S1_
@@ -182,6 +207,11 @@ double constlinear(const int i) { return 0.0; }
 // CHECK-DAG: _ZGVeM8va16va16vv__Z1hIfEvPT_S1_S1_S1_
 // CHECK-DAG: _ZGVeN8va16va16vv__Z1hIfEvPT_S1_S1_S1_
 
+// SPIR-DAG: _ZGVxN8vvvv__Z1hIiEvPT_S1_S1_S1_
+// SPIR-DAG: _ZGVxN16vvvv__Z1hIiEvPT_S1_S1_S1_
+// SPIR-DAG: _ZGVxM8vvvv__Z1hIiEvPT_S1_S1_S1_
+// SPIR-DAG: _ZGVxM16vvvv__Z1hIiEvPT_S1_S1_S1_
+
 // CHECK-DAG: _ZGVbM4uus1__ZN2VV3addEii
 // CHECK-DAG: _ZGVbN4uus1__ZN2VV3addEii
 // CHECK-DAG: _ZGVcM8uus1__ZN2VV3addEii
@@ -191,6 +221,11 @@ double constlinear(const int i) { return 0.0; }
 // CHECK-DAG: _ZGVeM16uus1__ZN2VV3addEii
 // CHECK-DAG: _ZGVeN16uus1__ZN2VV3addEii
 
+// SPIR-DAG: _ZGVxN8uus1__ZN2VV3addEii
+// SPIR-DAG: _ZGVxN16uus1__ZN2VV3addEii
+// SPIR-DAG: _ZGVxM8uus1__ZN2VV3addEii
+// SPIR-DAG: _ZGVxM16uus1__ZN2VV3addEii
+
 // CHECK-DAG: _ZGVbM4ll4a16l4a4__ZN2VV6taddpfEPfRS0_
 // CHECK-DAG: _ZGVbN4ll4a16l4a4__ZN2VV6taddpfEPfRS0_
 // CHECK-DAG: _ZGVcM8ll4a16l4a4__ZN2VV6taddpfEPfRS0_
@@ -199,6 +234,11 @@ double constlinear(const int i) { return 0.0; }
 // CHECK-DAG: _ZGVdN8ll4a16l4a4__ZN2VV6taddpfEPfRS0_
 // CHECK-DAG: _ZGVeM16ll4a16l4a4__ZN2VV6taddpfEPfRS0_
 // CHECK-DAG: _ZGVeN16ll4a16l4a4__ZN2VV6taddpfEPfRS0_
+
+// SPIR-DAG: _ZGVxN8ll4l4a4__ZN2VV6taddpfEPfRS0_
+// SPIR-DAG: _ZGVxN16ll4l4a4__ZN2VV6taddpfEPfRS0_
+// SPIR-DAG: _ZGVxM8ll4l4a4__ZN2VV6taddpfEPfRS0_
+// SPIR-DAG: _ZGVxM16ll4l4a4__ZN2VV6taddpfEPfRS0_
 
 // CHECK-DAG: _ZGVbM4vvl8__ZN2VV4taddERA_iRi
 // CHECK-DAG: _ZGVbN4vvl8__ZN2VV4taddERA_iRi
@@ -217,6 +257,11 @@ double constlinear(const int i) { return 0.0; }
 // CHECK-DAG: _ZGVeM16vva8v__ZN2VV4taddERA_iRi
 // CHECK-DAG: _ZGVeN16vva8v__ZN2VV4taddERA_iRi
 
+// SPIR-DAG: _ZGVxN8vvl8__ZN2VV4taddERA_iRi
+// SPIR-DAG: _ZGVxN16vvl8__ZN2VV4taddERA_iRi
+// SPIR-DAG: _ZGVxM8vvl8__ZN2VV4taddERA_iRi
+// SPIR-DAG: _ZGVxM16vvl8__ZN2VV4taddERA_iRi
+
 // CHECK-DAG: _ZGVbM4vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
 // CHECK-DAG: _ZGVbN4vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
 // CHECK-DAG: _ZGVcM8vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
@@ -225,6 +270,12 @@ double constlinear(const int i) { return 0.0; }
 // CHECK-DAG: _ZGVdN8vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
 // CHECK-DAG: _ZGVeM16vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
 // CHECK-DAG: _ZGVeN16vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
+
+// SimdDefaultAlign is 0 for SPIR but 128-512 for x86
+// SPIR-DAG: _ZGVxN8vva32l16__ZN3TVVILi16EfE6taddpfEPfRS1_
+// SPIR-DAG: _ZGVxN16vva32l16__ZN3TVVILi16EfE6taddpfEPfRS1_
+// SPIR-DAG: _ZGVxM8vva32l16__ZN3TVVILi16EfE6taddpfEPfRS1_
+// SPIR-DAG: _ZGVxM16vva32l16__ZN3TVVILi16EfE6taddpfEPfRS1_
 
 // CHECK-DAG: _ZGVbM4uu__ZN3TVVILi16EfE4taddEi
 // CHECK-DAG: _ZGVbN4uu__ZN3TVVILi16EfE4taddEi
@@ -243,6 +294,11 @@ double constlinear(const int i) { return 0.0; }
 // CHECK-DAG: _ZGVeM16vv__ZN3TVVILi16EfE4taddEi
 // CHECK-DAG: _ZGVeN16vv__ZN3TVVILi16EfE4taddEi
 
+// SPIR-DAG: _ZGVxN8uu__ZN3TVVILi16EfE4taddEi
+// SPIR-DAG: _ZGVxN16uu__ZN3TVVILi16EfE4taddEi
+// SPIR-DAG: _ZGVxM8uu__ZN3TVVILi16EfE4taddEi
+// SPIR-DAG: _ZGVxM16uu__ZN3TVVILi16EfE4taddEi
+
 // CHECK-DAG: _ZGVbM64va128l64__Z3fooILi64EEvRAT__iRPf
 // CHECK-DAG: _ZGVbN64va128l64__Z3fooILi64EEvRAT__iRPf
 // CHECK-DAG: _ZGVcM64va128l64__Z3fooILi64EEvRAT__iRPf
@@ -251,6 +307,11 @@ double constlinear(const int i) { return 0.0; }
 // CHECK-DAG: _ZGVdN64va128l64__Z3fooILi64EEvRAT__iRPf
 // CHECK-DAG: _ZGVeM64va128l64__Z3fooILi64EEvRAT__iRPf
 // CHECK-DAG: _ZGVeN64va128l64__Z3fooILi64EEvRAT__iRPf
+
+// SPIR-DAG: _ZGVxN64va128l64__Z3fooILi64EEvRAT__iRPf
+// SPIR-DAG: _ZGVxN64va128l64__Z3fooILi64EEvRAT__iRPf
+// SPIR-DAG: _ZGVxM64va128l64__Z3fooILi64EEvRAT__iRPf
+// SPIR-DAG: _ZGVxM64va128l64__Z3fooILi64EEvRAT__iRPf
 
 // CHECK-DAG: _ZGVbM4vv__Z3bar2VVPf
 // CHECK-DAG: _ZGVbN4vv__Z3bar2VVPf
@@ -264,6 +325,11 @@ double constlinear(const int i) { return 0.0; }
 // CHECK-DAG: _ZGVcN8vva32__Z3bar2VVPf
 // CHECK-DAG: _ZGVdN8vva32__Z3bar2VVPf
 // CHECK-DAG: _ZGVeN16vva32__Z3bar2VVPf
+
+// SPIR-DAG: _ZGVxN8vv__Z3bar2VVPf
+// SPIR-DAG: _ZGVxN16vv__Z3bar2VVPf
+// SPIR-DAG: _ZGVxM8vv__Z3bar2VVPf
+// SPIR-DAG: _ZGVxM16vv__Z3bar2VVPf
 
 // CHECK-DAG: _ZGVbM4vv__Z3baz2VVPi
 // CHECK-DAG: _ZGVbN4vv__Z3baz2VVPi
@@ -335,10 +401,16 @@ double constlinear(const int i) { return 0.0; }
 // CHECK-DAG: _ZGVdN4v__Z3food
 // CHECK-DAG: _ZGVeN8v__Z3food
 
+// SPIR-DAG: _ZGVxN8v__Z3food
+// SPIR-DAG: _ZGVxN16v__Z3food
+
 // CHECK-DAG: _ZGVbN2l__Z11constlineari
 // CHECK-DAG: _ZGVcN4l__Z11constlineari
 // CHECK-DAG: _ZGVdN4l__Z11constlineari
 // CHECK-DAG: _ZGVeN8l__Z11constlineari
+
+// SPIR-DAG: _ZGVxN8l__Z11constlineari
+// SPIR-DAG: _ZGVxN16l__Z11constlineari
 
 // CHECK-NOT: _ZGV{{.+}}__Z1fRA_i
 // end INTEL_CUSTOMIZATION

@@ -1,4 +1,15 @@
-; RUN: opt < %s -analyze -hir-scc-formation | FileCheck %s
+; RUN: opt < %s -enable-new-pm=0 -analyze -hir-scc-formation | FileCheck %s
+
+; We use the --allow-empty flag with FileCheck for the new-format opt because:
+;
+; - new-format opt output is empty for this test, (old-format opt emits just one
+;       line: Printing analysis 'HIR SCC Formation' for function...).
+; - The check consists of 'CHECK-NOT' only, and has no 'CHECK' lines.
+;
+; TODO: If the lit-test is modified, and new-format opt is no longer empty,
+;     please make sure to remove the --allow-empty flag, and this comment.
+;
+; RUN: opt %s -passes="print<hir-scc-formation>" -disable-output 2>&1 | FileCheck --allow-empty %s
 
 ; Check that no SCCs are formed for this loop. The SCC (%add31 -> %add -> %4 -> %0) should have been invalidated because %0 is used in the merge phi %4 despite %add from the same SCC being defined later in the same bblock causing live range overlap.
 

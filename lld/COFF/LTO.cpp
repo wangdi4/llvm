@@ -1,4 +1,21 @@
 //===- LTO.cpp ------------------------------------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -11,7 +28,7 @@
 #include "InputFiles.h"
 #include "Symbols.h"
 #include "lld/Common/Args.h"
-#include "lld/Common/ErrorHandler.h"
+#include "lld/Common/CommonLinkerContext.h"
 #include "lld/Common/Strings.h"
 #include "lld/Common/TargetOptionsCommandFlags.h"
 #include "llvm/ADT/STLExtras.h"
@@ -88,7 +105,7 @@ static lto::Config createConfig() {
   c.MAttrs = getMAttrs();
   c.CGOptLevel = args::getCGOptLevel(config->ltoo);
   c.AlwaysEmitRegularLTOObj = !config->ltoObjPath.empty();
-  c.UseNewPM = config->ltoNewPassManager;
+  c.UseNewPM = config->ltoNewPassManager; // INTEL
   c.DebugPassManager = config->ltoDebugPassManager;
   c.CSIRProfile = std::string(config->ltoCSProfileFile);
   c.RunCSIRInstr = config->ltoCSProfileGenerate;
@@ -250,8 +267,8 @@ BitcodeCompiler::compile(COFFLinkerContext &ctx,
     // - foo.exe.lto.1.obj
     // - ...
     StringRef ltoObjName =
-        saver.save(Twine(config->outputFile) + ".lto" +
-                   (i == 0 ? Twine("") : Twine('.') + Twine(i)) + ".obj");
+        saver().save(Twine(config->outputFile) + ".lto" +
+                     (i == 0 ? Twine("") : Twine('.') + Twine(i)) + ".obj");
 
     // Get the native object contents either from the cache or from memory.  Do
     // not use the cached MemoryBuffer directly, or the PDB will not be

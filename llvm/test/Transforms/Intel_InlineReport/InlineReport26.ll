@@ -1,18 +1,17 @@
 ; Inline report
-; RUN: opt -enable-new-pm=0 -inline -inline-report=0xe807 -disable-output < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
-; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 -disable-output < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt -enable-new-pm=0 -inline -inline-report=0xe807 -disable-output < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 -disable-output < %s -S 2>&1 | FileCheck %s
 ; Inline report via metadata
-; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -enable-new-pm=0 -inline -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-MD
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-MD
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -enable-new-pm=0 -inline -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -disable-output 2>&1 | FileCheck %s
 
 ; This test tests various inlining report features for programs that
 ; contain varags intrinsics like llvm.va_arg_pack and llvm.va_arg_pack_len.
 ; The function myopener() should be inlined and the inlining report should
-; show the call to myopenva() as nested within it. Callsites that are
-; eliminated through dead code elimination should not appear in the
-; inlining report. For example, when myopen() is inlined into main(),
-; only a single callsite for myopen2() and myopenva() should be exposed,
-; because the others are removed by dead code elimination.
+; show the call to myopenva() as nested within it.
+
+; NOTE: The new pass manager does not dead code eliminate myopener and myopen
+; as part of the inlining pass, hence the need to check for different results.
 
 ; Function Attrs: nounwind
 declare i32 @llvm.va_arg_pack() #3
@@ -284,107 +283,34 @@ attributes #4 = { nounwind uwtable }
 attributes #5 = { alwaysinline nounwind uwtable }
 attributes #6 = { noreturn }
 
-; CHECK-LABEL-OLD: DEAD STATIC FUNC: myopen
-; CHECK-LABEL-OLD: DEAD STATIC FUNC: myopener
-; CHECK-LABEL-OLD: COMPILE FUNC: myopen2
-; CHECK-OLD: EXTERN: abort
-; CHECK-OLD: EXTERN: abort
-; CHECK-OLD: EXTERN: abort
-; CHECK-OLD: EXTERN: abort
+; CHECK-LABEL: DEAD STATIC FUNC: myopen
+; CHECK-LABEL: DEAD STATIC FUNC: myopener
+; CHECK-LABEL: COMPILE FUNC: myopen2
+; CHECK: EXTERN: abort
+; CHECK: EXTERN: abort
+; CHECK: EXTERN: abort
+; CHECK: EXTERN: abort
 
-; CHECK-LABEL-OLD: COMPILE FUNC: myopenva
-; CHECK-OLD: llvm.va_start{{.*}}Callee is intrinsic
-; CHECK-OLD: llvm.va_end{{.*}}Callee is intrinsic
-; CHECK-OLD: EXTERN: abort
-; CHECK-OLD: EXTERN: abort
-; CHECK-OLD: EXTERN: abort
-; CHECK-OLD: EXTERN: abort
-; CHECK-OLD: EXTERN: abort
-; CHECK-OLD: EXTERN: abort
-; CHECK-OLD: EXTERN: abort
+; CHECK-LABEL: COMPILE FUNC: myopenva
+; CHECK: llvm.va_start{{.*}}Callee is intrinsic
+; CHECK: llvm.va_end{{.*}}Callee is intrinsic
+; CHECK: EXTERN: abort
+; CHECK: EXTERN: abort
+; CHECK: EXTERN: abort
+; CHECK: EXTERN: abort
+; CHECK: EXTERN: abort
+; CHECK: EXTERN: abort
+; CHECK: EXTERN: abort
 
-; CHECK-LABEL-OLD: COMPILE FUNC: main
-; CHECK-OLD: INLINE: myopener{{.*}}Callee is always inline
-; CHECK-OLD: myopenva{{.*}}Callee has noinline attribute
-; CHECK-OLD: INLINE: myopen{{.*}}Callee is always inline
-; CHECK-OLD: EXTERN: warn_open_too_many_arguments
-; CHECK-OLD: myopen2{{.*}}Callee has noinline attribute
-; CHECK-OLD: myopenva{{.*}}Callee has noinline attribute
-; CHECK-OLD: EXTERN: abort
+; CHECK-LABEL: COMPILE FUNC: main
+; CHECK: INLINE: myopener{{.*}}Callee is always inline
+; CHECK: DELETE: llvm.va_arg_pack
+; CHECK: myopenva{{.*}}Callee has noinline attribute
+; CHECK: INLINE: myopen{{.*}}Callee is always inline
+; CHECK: DELETE: llvm.va_arg_pack_len
+; CHECK: EXTERN: warn_open_too_many_arguments
+; CHECK: myopen2{{.*}}Callee has noinline attribute
+; CHECK: DELETE: llvm.va_arg_pack
+; CHECK: myopenva{{.*}}Callee has noinline attribute
+; CHECK: EXTERN: abort
 
-; CHECK-NEW-LABEL: COMPILE FUNC: myopen2
-; CHECK-NEW: EXTERN: abort
-; CHECK-NEW: EXTERN: abort
-; CHECK-NEW: EXTERN: abort
-; CHECK-NEW: EXTERN: abort
-
-; CHECK-NEW-LABEL: COMPILE FUNC: myopenva
-; CHECK-NEW: llvm.va_start{{.*}}Callee is intrinsic
-; CHECK-NEW: llvm.va_end{{.*}}Callee is intrinsic
-; CHECK-NEW: EXTERN: abort
-; CHECK-NEW: EXTERN: abort
-; CHECK-NEW: EXTERN: abort
-; CHECK-NEW: EXTERN: abort
-; CHECK-NEW: EXTERN: abort
-; CHECK-NEW: EXTERN: abort
-; CHECK-NEW: EXTERN: abort
-
-; CHECK-NEW-LABEL: COMPILE FUNC: myopen
-; CHECK-NEW: llvm.va_arg_pack_len{{.*}}Callee is intrinsic
-; CHECK-NEW: EXTERN: warn_open_too_many_arguments
-; CHECK-NEW: llvm.va_arg_pack_len{{.*}}Callee is intrinsic
-; CHECK-NEW: myopen2{{.*}}Callee has noinline attribute
-; CHECK-NEW: llvm.va_arg_pack{{.*}}Callee is intrinsic
-; CHECK-NEW: myopenva{{.*}}Callee has noinline attribute
-
-; CHECK-NEW-LABEL: COMPILE FUNC: myopener
-; CHECK-NEW: llvm.va_arg_pack{{.*}}Callee is intrinsic
-; CHECK-NEW: myopenva{{.*}}Callee has noinline attribute
-
-; CHECK-NEW-LABEL: COMPILE FUNC: main
-; CHECK-NEW: INLINE: myopener{{.*}}Callee is always inline
-; CHECK-NEW: myopenva{{.*}}Callee has noinline attribute
-; CHECK-NEW: INLINE: myopen{{.*}}Callee is always inline
-; CHECK-NEW: EXTERN: warn_open_too_many_arguments
-; CHECK-NEW: myopen2{{.*}}Callee has noinline attribute]]
-; CHECK-NEW: myopenva{{.*}}Callee has noinline attribute]]
-; CHECK-NEW: EXTERN: abort
-
-
-; CHECK-MD-LABEL: COMPILE FUNC: myopen
-; CHECK-MD: llvm.va_arg_pack_len{{.*}}Callee is intrinsic
-; CHECK-MD: EXTERN: warn_open_too_many_arguments
-; CHECK-MD: llvm.va_arg_pack_len{{.*}}Callee is intrinsic
-; CHECK-MD: myopen2{{.*}}Callee has noinline attribute
-; CHECK-MD: llvm.va_arg_pack{{.*}}Callee is intrinsic
-; CHECK-MD: myopenva{{.*}}Callee has noinline attribute
-
-; CHECK-MD-LABEL: COMPILE FUNC: myopener
-; CHECK-MD: llvm.va_arg_pack{{.*}}Callee is intrinsic
-; CHECK-MD: myopenva{{.*}}Callee has noinline attribute
-
-; CHECK-MD-LABEL: COMPILE FUNC: myopen2
-; CHECK-MD: EXTERN: abort
-; CHECK-MD: EXTERN: abort
-; CHECK-MD: EXTERN: abort
-; CHECK-MD: EXTERN: abort
-
-; CHECK-MD-LABEL: COMPILE FUNC: myopenva
-; CHECK-MD: llvm.va_start{{.*}}Callee is intrinsic
-; CHECK-MD: llvm.va_end{{.*}}Callee is intrinsic
-; CHECK-MD: EXTERN: abort
-; CHECK-MD: EXTERN: abort
-; CHECK-MD: EXTERN: abort
-; CHECK-MD: EXTERN: abort
-; CHECK-MD: EXTERN: abort
-; CHECK-MD: EXTERN: abort
-; CHECK-MD: EXTERN: abort
-
-; CHECK-MD-LABEL: COMPILE FUNC: main
-; CHECK-MD: INLINE: myopener{{.*}}Callee is always inline
-; CHECK-MD: myopenva{{.*}}Callee has noinline attribute
-; CHECK-MD: INLINE: myopen{{.*}}Callee is always inline
-; CHECK-MD: EXTERN: warn_open_too_many_arguments
-; CHECK-MD: myopen2{{.*}}Callee has noinline attribute]]
-; CHECK-MD: myopenva{{.*}}Callee has noinline attribute]]
-; CHECK-MD: EXTERN: abort

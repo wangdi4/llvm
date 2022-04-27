@@ -5,7 +5,6 @@
 // support.
 //
 // Both of them use gcc driver for as.
-// REQUIRES: clang-driver
 //
 // RUN: %clang -### -fno-honor-infinities -c %s 2>&1 \
 // RUN:   | FileCheck --check-prefix=CHECK-NO-INFS %s
@@ -70,6 +69,23 @@
 // CHECK-NO-NANS-NO-FAST-MATH: "-cc1"
 // CHECK-NO-NANS-NO-FAST-MATH-NOT: "-menable-no-nans"
 //
+// RUN: %clang -### -ffast-math -fno-approx-func -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=CHECK-FAST-MATH-NO-APPROX-FUNC %s
+// CHECK-FAST-MATH-NO-APPROX-FUNC:     "-cc1"
+// CHECK-FAST-MATH-NO-APPROX-FUNC:     "-menable-no-infs"
+// CHECK-FAST-MATH-NO-APPROX-FUNC:     "-menable-no-nans"
+// CHECK-FAST-MATH-NO-APPROX-FUNC:     "-fno-signed-zeros"
+// CHECK-FAST-MATH-NO-APPROX-FUNC:     "-mreassociate"
+// CHECK-FAST-MATH-NO-APPROX-FUNC:     "-freciprocal-math"
+// CHECK-FAST-MATH-NO-APPROX-FUNC:     "-ffp-contract=fast"
+// CHECK-FAST-MATH-NO-APPROX-FUNC-NOT: "-ffast-math"
+// CHECK-FAST-MATH-NO-APPROX-FUNC-NOT: "-fapprox-func"
+//
+// RUN: %clang -### -fno-approx-func -ffast-math -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=CHECK-NO-APPROX-FUNC-FAST-MATH %s
+// CHECK-NO-APPROX-FUNC-FAST-MATH: "-cc1"
+// CHECK-NO-APPROX-FUNC-FAST-MATH: "-ffast-math"
+//
 // RUN: %clang -### -fapprox-func -c %s 2>&1 \
 // RUN:   | FileCheck --check-prefix=CHECK-APPROX-FUNC %s
 // CHECK-APPROX-FUNC: "-cc1"
@@ -102,6 +118,8 @@
 // RUN:   | FileCheck --check-prefix=CHECK-NO-MATH-ERRNO %s
 // RUN: %clang -### -target x86_64-linux-android -c %s 2>&1 \
 // RUN:   | FileCheck --check-prefix=CHECK-NO-MATH-ERRNO %s
+// RUN: %clang -### -target x86_64-linux-musl -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=CHECK-NO-MATH-ERRNO %s
 // RUN: %clang -### -target amdgcn-amd-amdhsa -c %s 2>&1 \
 // RUN:   | FileCheck --check-prefix=CHECK-NO-MATH-ERRNO %s
 // RUN: %clang -### -target amdgcn-amd-amdpal -c %s 2>&1 \
@@ -130,14 +148,14 @@
 // RUN:   | FileCheck --check-prefix=CHECK-NO-MATH-ERRNO %s
 //
 // RUN: %clang -### -fno-math-errno -fassociative-math -freciprocal-math \
-// RUN:     -fno-signed-zeros -fno-trapping-math -c %s 2>&1 \
+// RUN:     -fno-signed-zeros -fno-trapping-math -fapprox-func -c %s 2>&1 \
 // RUN:   | FileCheck --check-prefix=CHECK-UNSAFE-MATH %s
 // CHECK-UNSAFE-MATH: "-cc1"
 // CHECK-UNSAFE-MATH: "-menable-unsafe-fp-math"
 // CHECK-UNSAFE-MATH: "-mreassociate"
 //
 // RUN: %clang -### -fno-fast-math -fno-math-errno -fassociative-math -freciprocal-math \
-// RUN:     -fno-signed-zeros -fno-trapping-math -c %s 2>&1 \
+// RUN:     -fno-signed-zeros -fno-trapping-math -fapprox-func -c %s 2>&1 \
 // RUN:   | FileCheck --check-prefix=CHECK-NO-FAST-MATH-UNSAFE-MATH %s
 // CHECK-NO-FAST-MATH-UNSAFE-MATH: "-cc1"
 // CHECK-NO-FAST-MATH-UNSAFE-MATH: "-menable-unsafe-fp-math"
@@ -178,7 +196,7 @@
 // RUN:     -fno-math-errno -ffp-contract=fast -fno-rounding-math -c %s 2>&1 \
 // RUN:   | FileCheck --check-prefix=CHECK-FAST-MATH %s
 // RUN: %clang -### -fno-honor-infinities -fno-honor-nans -fno-math-errno \
-// RUN:     -fassociative-math -freciprocal-math -fno-signed-zeros \
+// RUN:     -fassociative-math -freciprocal-math -fno-signed-zeros -fapprox-func \
 // RUN:     -fno-trapping-math -ffp-contract=fast -fno-rounding-math -c %s 2>&1 \
 // RUN:   | FileCheck --check-prefix=CHECK-FAST-MATH %s
 // CHECK-FAST-MATH: "-cc1"
@@ -320,3 +338,18 @@
 // CHECK-NO-FPOV-WORKAROUND-OVERRIDE: "-cc1"
 // CHECK-NO-FPOV-WORKAROUND-OVERRIDE-NOT: "strict-float-cast-overflow"
 
+// INTEL_CUSTOMIZATION
+// Intel mode sets -ffp-contract=fast by default, which should not cause the warning of -ffp-contract overriding
+// RUN: %clang -### --intel -fno-fast-math -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=CHECK-NO-FFP-CONTRACT-OVERRIDING-WARNING %s
+// RUN: %clang -### --intel -ffast-math -fno-fast-math -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=CHECK-FFP-CONTRACT-OVERRIDING-WARNING %s
+// RUN: %clang -### --intel -ffp-model=fast -fno-fast-math -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=CHECK-FFP-CONTRACT-OVERRIDING-WARNING %s
+// RUN: %clang -### --intel -Ofast -fno-fast-math -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=CHECK-FFP-CONTRACT-OVERRIDING-WARNING %s
+// RUN: %clang -### --intel -ffp-contract=fast -fno-fast-math -c %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=CHECK-FFP-CONTRACT-OVERRIDING-WARNING %s
+// CHECK-NO-FFP-CONTRACT-OVERRIDING-WARNING-NOT: warning: overriding '-ffp-contract=fast' option with '-ffp-contract=on'
+// CHECK-FFP-CONTRACT-OVERRIDING-WARNING: warning: overriding '-ffp-contract=fast' option with '-ffp-contract=on'
+// end INTEL_CUSTOMIZATION

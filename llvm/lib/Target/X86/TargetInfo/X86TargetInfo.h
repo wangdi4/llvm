@@ -15,6 +15,11 @@ class Target;
 
 Target &getTheX86_32Target();
 Target &getTheX86_64Target();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+Target &getTheX86_XuCCTarget();
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 
 }
 

@@ -1,5 +1,5 @@
-; RUN: not opt -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s 2>&1 | FileCheck %s
-; RUN: not opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S 2>&1 | FileCheck %s
+; RUN: not opt -vpo-cfg-restructuring -vpo-paropt-prepare -S %s 2>&1 | FileCheck %s
+; RUN: not opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s 2>&1 | FileCheck %s
 
 ; Test src:
 ;

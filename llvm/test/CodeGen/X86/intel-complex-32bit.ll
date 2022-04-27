@@ -39,7 +39,31 @@ define <2 x half> @intrinsic_f16(<2 x half> %z, <2 x half> %w) {
   ret <2 x half> %mul
 }
 
-; Skip intrinsic_f32--we don't support complex float on 32-bit for now.
+define <2 x float> @intrinsic_f32(<2 x float> %z, <2 x float> %w) {
+; CHECK-LABEL: intrinsic_f32:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    subl $28, %esp
+; CHECK-NEXT:    .cfi_def_cfa_offset 32
+; CHECK-NEXT:    flds {{[0-9]+}}(%esp)
+; CHECK-NEXT:    flds {{[0-9]+}}(%esp)
+; CHECK-NEXT:    flds {{[0-9]+}}(%esp)
+; CHECK-NEXT:    flds {{[0-9]+}}(%esp)
+; CHECK-NEXT:    fstps {{[0-9]+}}(%esp)
+; CHECK-NEXT:    fstps {{[0-9]+}}(%esp)
+; CHECK-NEXT:    fstps {{[0-9]+}}(%esp)
+; CHECK-NEXT:    fstps (%esp)
+; CHECK-NEXT:    calll __mulsc3@PLT
+; CHECK-NEXT:    movl %edx, {{[0-9]+}}(%esp)
+; CHECK-NEXT:    movl %eax, {{[0-9]+}}(%esp)
+; CHECK-NEXT:    flds {{[0-9]+}}(%esp)
+; CHECK-NEXT:    flds {{[0-9]+}}(%esp)
+; CHECK-NEXT:    addl $28, %esp
+; CHECK-NEXT:    .cfi_def_cfa_offset 4
+; CHECK-NEXT:    retl
+  %mul = call <2 x float> @llvm.intel.complex.fmul.v2f32(<2 x float> %z, <2 x float> %w)
+  ret <2 x float> %mul
+}
+
 
 define <2 x double> @intrinsic_f64(<2 x double> %z, <2 x double> %w) {
 ; CHECK-LABEL: intrinsic_f64:

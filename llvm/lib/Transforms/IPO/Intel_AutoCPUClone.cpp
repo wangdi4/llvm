@@ -10,8 +10,9 @@
 
 #include "llvm/Transforms/IPO/Intel_AutoCPUClone.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instructions.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/Intel_CPU_utils.h"
 #include "llvm/Support/X86TargetParser.h"
@@ -62,14 +63,14 @@ static std::string getTargetFeatures(StringRef TargetCpu) {
 
 static Twine getTargetSuffix(StringRef TargetCpu) {
   return Twine(StringSwitch<char>(TargetCpu)
-#define CPU_SPECIFIC(NAME, MANGLING, FEATURES) .Case(NAME, MANGLING)
+#define CPU_SPECIFIC(NAME, TUNE_NAME, MANGLING, FEATURES) .Case(NAME, MANGLING)
 #include "llvm/Support/X86TargetParser.def"
                    .Default(0));
 }
 
 static StringRef getLibIRCDispatchFeatures(StringRef TargetCpu) {
   StringRef Features = StringSwitch<StringRef>(TargetCpu)
-#define CPU_SPECIFIC(NAME, MANGLING, FEATURES) .Case(NAME, FEATURES)
+#define CPU_SPECIFIC(NAME, TUNE_NAME, MANGLING, FEATURES) .Case(NAME, FEATURES)
 #include "llvm/Support/X86TargetParser.def"
                             .Default("");
   return Features;
@@ -77,7 +78,7 @@ static StringRef getLibIRCDispatchFeatures(StringRef TargetCpu) {
 
 static StringRef CPUSpecificCPUDispatchNameDealias(StringRef Name) {
   return llvm::StringSwitch<StringRef>(Name)
-#define CPU_SPECIFIC_ALIAS(NEW_NAME, NAME) .Case(NEW_NAME, NAME)
+#define CPU_SPECIFIC_ALIAS(NEW_NAME, TUNE_NAME, NAME) .Case(NEW_NAME, NAME)
 #define CPU_SPECIFIC_ALIAS_ADDITIONAL(NEW_NAME, NAME) .Case(NEW_NAME, NAME)
 #include "llvm/Support/X86TargetParser.def"
       .Default(Name);
@@ -94,16 +95,12 @@ libIRCMVResolverOptionComparator(const MultiVersionResolverOption &LHS,
          (LHSBits[1] == RHSBits[1] && LHSBits[0] > RHSBits[0]);
 }
 
-PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &) {
-  // It was decided to disable this feature for 2022.1
-  return PreservedAnalyses::all();
-
+static bool cloneFunctions(Module &M,
+                           function_ref<TargetLibraryInfo &(Function &)> GetTLI) {
   // Windows is not supported so far.
   const Triple TT{M.getTargetTriple()};
   if (!TT.isOSLinux())
-    return PreservedAnalyses::all();
-
-  bool Changed = false;
+    return false;
 
   // Maps that are used to do to RAUW later.
   std::map</*OrigFunc*/ GlobalValue *,
@@ -115,6 +112,8 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &) {
   std::map</*MultiversionedFunc*/ const GlobalValue *,
            /*Target extension*/ std::string>
       MultiFunc2TargetExt;
+
+  bool Changed = false;
 
   // Multiversion functions marked for auto cpu dispatching.
   for (Function &Fn : M) {
@@ -129,12 +128,49 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &) {
     if (Fn.hasAvailableExternallyLinkage())
       continue;
 
+    // Skip weakly defined functions, as GNU ld handles them correctly starting
+    // from binutils 2.31 while support for older linkers is required.
+    // Commit which adds support for such ifuncs:
+    // https://github.com/bminor/binutils-gdb/commit/4ec0995016801cc5d5cf13baf6e10163861e6852
+    //
+    // TODO: Remove this restriction.
+    if (Fn.isWeakForLinker())
+      continue;
+
     // Skip functions that have addresses of their basic blocks taken, this can
     // happen when an address of a label is taken to do indirect goto later.
     // Skip them because Value::replaceAllUsesWith cannot handle them.
     // TODO: See if we can update such usages manually.
     if (any_of(Fn.users(), [](User *U) { return isa<BlockAddress>(U); }))
       continue;
+
+    // Skip functions that have inline assembly.
+    if (any_of(instructions(Fn),
+               [](Instruction &I) {
+                 auto *CInst = dyn_cast<CallBase>(&I);
+                 return CInst && CInst->isInlineAsm();
+               })) {
+      continue;
+    }
+
+    // Skip functions that are resolvers of other ifuncs.
+    if (any_of(M.ifuncs(),
+               [&](GlobalIFunc &GIF) {
+                 return GIF.getResolverFunction() == &Fn;
+               })) {
+      continue;
+    }
+
+    // Names of Library functions that come from the ISO C standard are reserved
+    // unconditionally. Redefining them with external linkage will rsult in
+    // undefined behavior.
+    // Skip multiversioning such redefinitions. This is to achieve consistent
+    // behavior with -ax enabled vs not.
+    LibFunc LF;
+    if (Fn.hasExternalLinkage() &&
+        GetTLI(Fn).getLibFunc(Fn.getName(), LF)) {
+      continue;
+    }
 
     MDNode *AutoCPUDispatchMD = Fn.getMetadata("llvm.auto.cpu.dispatch");
     LLVM_DEBUG(dbgs() << Fn.getName() << ": " << *AutoCPUDispatchMD << "\n");
@@ -244,16 +280,19 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &) {
 
   // No functions were multiversioned, exiting.
   if (!Changed)
-    return PreservedAnalyses::all();
+    return false;
 
   // Update uses of the original functions.
-  // At this point all functions(except resolvers) use original functions(those
-  // with .A suffix). The loop below goes over all the functions that we
-  // multiversioned earlier and replaces all uses of those functions with
-  // corresponding ifunc's. This is done for all cases except when a
-  // multiversioned function calls a function which was also multiversioned
-  // (and hence has a definition in this module), for such cases it replaces
-  // call to oriiginal function to correct multiversioned analog.
+  // At this point all functions(except resolvers) use original functions (those
+  // with .A suffix). The loop below iterates over all the functions that we
+  // multiversioned earlier and replaces all of their uses with the
+  // corresponding ifunc's. This is done for _all_ cases except:
+  // 1) when a multiversioned function calls another multiversioned function
+  //    whose definition is in the same module and,
+  // 2) when a multiversioned function initializes a function pointer to point
+  //    to another multiversioned function whose definition is in the same module.
+  // For such cases, calls and function pointer initializations are replaced with
+  // calls and uses to the correct multiversioned analogs respectively.
   for (auto &Entry : Orig2MultiFuncs) {
     GlobalValue *Fn = Entry.first;
     const GlobalValue *Resolver = std::get<0>(Entry.second);
@@ -262,27 +301,27 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &) {
 
     Fn->replaceUsesWithIf(Dispatcher, [&](Use &IFUse) {
 
-      const auto Inst = dyn_cast<Instruction>(IFUse.getUser());
-      // Resolver should operate on specific functions versions.
+      // Resolver should operate on specific function versions.
+      const auto *Inst = dyn_cast<Instruction>(IFUse.getUser());
       if (Inst && Inst->getFunction() == Resolver)
         return false;
 
       auto *CInst = dyn_cast<CallBase>(IFUse.getUser());
-      if (CInst && CInst->getCalledOperand() == Fn) {
+      if (CInst && CInst->isCallee(&IFUse)) {
         Function *Caller = CInst->getFunction();
-        // If a caller is a generic function skip it as it already calls
-        // original callee:
+        // If caller is a generic function skip it, as it already calls
+        // the correct version:
         // foo.A
         //   call bar.A
         if (Orig2MultiFuncs.count(Caller))
           return false;
 
-        // If a caller is a specialized version of a function then find a
+        // If caller is a specialized version of a function then find the
         // corresponding specialized version of the callee.
-        if (CInst->getCalledOperand() == Fn &&
-            MultiFunc2TargetExt.count(Caller)) {
+        if (MultiFunc2TargetExt.count(Caller))
           return false;
-        }
+
+        return true;
       }
 
       return true;
@@ -291,25 +330,25 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &) {
     for (auto It = Fn->use_begin(), End = Fn->use_end(); It != End;) {
       Use &IFUse = *It;
       ++It;
-      const auto Inst = dyn_cast<Instruction>(IFUse.getUser());
+
       // Resolver should operate on specific functions versions.
+      const auto *Inst = dyn_cast<Instruction>(IFUse.getUser());
       if (Inst && Inst->getFunction() == Resolver)
         continue;
 
       auto *CInst = dyn_cast<CallBase>(IFUse.getUser());
-      if (CInst && CInst->getCalledOperand() == Fn) {
+      if (CInst && CInst->isCallee(&IFUse)) {
         Function *Caller = CInst->getFunction();
-        // If a caller is a generic function skip it as it already calls
-        // original callee:
+        // If caller is a generic function skip it, as it already calls
+        // the correct version:
         // foo.A
         //   call bar.A
         if (Orig2MultiFuncs.count(Caller))
           continue;
 
-        // If a caller is a specialized version of a function then find a
+        // If caller is a specialized version of a function then find the
         // corresponding specialized version of the callee.
-        if (CInst->getCalledOperand() == Fn &&
-            MultiFunc2TargetExt.count(Caller)) {
+        if (MultiFunc2TargetExt.count(Caller)) {
           GlobalValue *Replacement = Clones[MultiFunc2TargetExt[Caller]];
           assert(Replacement && "Expected that functions are multiversioned "
                                 "for all requested targets now!");
@@ -323,7 +362,20 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &) {
   }
 
   // If we are here then we have done modifications.
-  return PreservedAnalyses::none();
+  return true;
+}
+
+PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &AM) {
+
+  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(F);
+  };
+
+  if (cloneFunctions(M, GetTLI))
+    return PreservedAnalyses::none();
+
+  return PreservedAnalyses::all();
 }
 
 namespace {
@@ -334,21 +386,31 @@ public:
     initializeAutoCPUCloneLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<TargetLibraryInfoWrapperPass>();
+  }
+
   bool runOnModule(Module &M) override {
+
+    auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
+
     if (skipModule(M))
       return false;
 
-    AutoCPUClonePass Impl;
-    ModuleAnalysisManager AM;
-    PreservedAnalyses PA = Impl.run(M, AM);
-    return !PA.areAllPreserved();
+    bool anyFunctionsCloned = cloneFunctions(M, GetTLI);
+    return anyFunctionsCloned;
   }
 };
 } // namespace
 
 char AutoCPUCloneLegacyPass::ID = 0;
-INITIALIZE_PASS(AutoCPUCloneLegacyPass, "auto-cpu-clone",
-                "Clone functions for Auto CPU Dispatch", false, false)
+INITIALIZE_PASS_BEGIN(AutoCPUCloneLegacyPass, "auto-cpu-clone",
+                      "Clone functions for Auto CPU Dispatch", false, false)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_END(AutoCPUCloneLegacyPass, "auto-cpu-clone",
+                    "Clone functions for Auto CPU Dispatch", false, false)
 
 Pass *llvm::createAutoCPUCloneLegacyPass() {
   return new AutoCPUCloneLegacyPass();

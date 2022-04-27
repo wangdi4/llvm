@@ -17,6 +17,8 @@ define void @foo(i8* %a) {
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
+; CHECK-NEXT:    [[RET_LPRIV_VEC_BCAST:%.*]] = bitcast <4 x i8>* [[RET_LPRIV_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* [[RET_LPRIV_VEC_BCAST]])
 ; CHECK-NEXT:    store <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>, <4 x i32>* [[PRIV_IDX_MEM_VEC]], align 1
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
@@ -31,8 +33,8 @@ define void @foo(i8* %a) {
 ; CHECK:       pred.load.if:
 ; CHECK-NEXT:    [[TMP4:%.*]] = load i8, i8* [[A:%.*]], align 1
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i8> poison, i8 [[TMP4]], i32 0
-; CHECK-NEXT:    br label [[TMP5]]
-; CHECK:       5:
+; CHECK-NEXT:    br label [[TMP5:%.*]]
+; CHECK:       6:
 ; CHECK-NEXT:    [[TMP6:%.*]] = phi <4 x i8> [ poison, [[VPLANNEDBB3]] ], [ [[BROADCAST_SPLATINSERT]], [[PRED_LOAD_IF]] ]
 ; CHECK-NEXT:    br label [[PRED_LOAD_CONTINUE:%.*]]
 ; CHECK:       pred.load.continue:
@@ -63,6 +65,8 @@ define void @foo(i8* %a) {
 ; CHECK-NEXT:    store i8 [[PRIV_EXTRACT]], i8* [[RET_LPRIV]], align 1
 ; CHECK-NEXT:    br label [[VPLANNEDBB7]]
 ; CHECK:       VPlannedBB7:
+; CHECK-NEXT:    [[RET_LPRIV_VEC_BCAST1:%.*]] = bitcast <4 x i8>* [[RET_LPRIV_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 4, i8* [[RET_LPRIV_VEC_BCAST1]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB11:%.*]]
 ;
 entry:

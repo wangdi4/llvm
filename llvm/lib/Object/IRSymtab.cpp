@@ -1,4 +1,21 @@
 //===- IRSymtab.cpp - implementation of IR symbol tables ------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -14,6 +31,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Triple.h"
+#include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Comdat.h"
 #include "llvm/IR/DataLayout.h"
@@ -22,14 +40,12 @@
 #include "llvm/IR/Mangler.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/MC/StringTableBuilder.h"
-#include "llvm/Object/IRObjectFile.h"
 #include "llvm/Object/ModuleSymbolTable.h"
 #include "llvm/Object/SymbolicFile.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Support/CommandLine.h" // INTEL
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/Path.h" // INTEL
 #include "llvm/Support/StringSaver.h"
@@ -42,6 +58,10 @@
 
 using namespace llvm;
 using namespace irsymtab;
+
+cl::opt<bool> DisableBitcodeVersionUpgrade(
+    "disable-bitcode-version-upgrade", cl::init(false), cl::Hidden,
+    cl::desc("Disable automatic bitcode upgrade for version mismatch"));
 
 static const char *PreservedSymbols[] = {
 #define HANDLE_LIBCALL(code, name) name,
@@ -417,20 +437,22 @@ Expected<FileContents> irsymtab::readBitcode(const BitcodeFileContents &BFC) {
     return make_error<StringError>("Bitcode file does not contain any modules",
                                    inconvertibleErrorCode());
 
-  if (BFC.StrtabForSymtab.empty() ||
-      BFC.Symtab.size() < sizeof(storage::Header))
-    return upgrade(BFC.Mods);
+  if (!DisableBitcodeVersionUpgrade) {
+    if (BFC.StrtabForSymtab.empty() ||
+        BFC.Symtab.size() < sizeof(storage::Header))
+      return upgrade(BFC.Mods);
 
-  // We cannot use the regular reader to read the version and producer, because
-  // it will expect the header to be in the current format. The only thing we
-  // can rely on is that the version and producer will be present as the first
-  // struct elements.
-  auto *Hdr = reinterpret_cast<const storage::Header *>(BFC.Symtab.data());
-  unsigned Version = Hdr->Version;
-  StringRef Producer = Hdr->Producer.get(BFC.StrtabForSymtab);
-  if (Version != storage::Header::kCurrentVersion ||
-      Producer != kExpectedProducerName)
-    return upgrade(BFC.Mods);
+    // We cannot use the regular reader to read the version and producer,
+    // because it will expect the header to be in the current format. The only
+    // thing we can rely on is that the version and producer will be present as
+    // the first struct elements.
+    auto *Hdr = reinterpret_cast<const storage::Header *>(BFC.Symtab.data());
+    unsigned Version = Hdr->Version;
+    StringRef Producer = Hdr->Producer.get(BFC.StrtabForSymtab);
+    if (Version != storage::Header::kCurrentVersion ||
+        Producer != kExpectedProducerName)
+      return upgrade(BFC.Mods);
+  }
 
   FileContents FC;
   FC.TheReader = {{BFC.Symtab.data(), BFC.Symtab.size()},

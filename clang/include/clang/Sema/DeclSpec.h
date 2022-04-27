@@ -1,4 +1,21 @@
 //===--- DeclSpec.h - Parsed declaration specifiers -------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -443,8 +460,7 @@ public:
         FS_noreturn_specified(false), Friend_specified(false),
         ConstexprSpecifier(
             static_cast<unsigned>(ConstexprSpecKind::Unspecified)),
-        FS_explicit_specifier(), Attrs(attrFactory), writtenBS(),
-        ObjCQualifiers(nullptr) {}
+        Attrs(attrFactory), writtenBS(), ObjCQualifiers(nullptr) {}
 
   // storage-class-specifier
   SCS getStorageClassSpec() const { return (SCS)StorageClassSpec; }
@@ -807,7 +823,7 @@ public:
   /// int __attribute__((may_alias)) __attribute__((aligned(16))) var;
   /// \endcode
   ///
-  void addAttributes(ParsedAttributesView &AL) {
+  void addAttributes(const ParsedAttributesView &AL) {
     Attrs.addAll(AL.begin(), AL.end());
   }
 
@@ -2566,11 +2582,11 @@ public:
   ///                                 __attribute__((common,deprecated));
   ///
   /// Also extends the range of the declarator.
-  void takeAttributes(ParsedAttributes &attrs, SourceLocation lastLoc) {
+  void takeAttributes(ParsedAttributes &attrs) {
     Attrs.takeAllFrom(attrs);
 
-    if (!lastLoc.isInvalid())
-      SetRangeEnd(lastLoc);
+    if (attrs.Range.getEnd().isValid())
+      SetRangeEnd(attrs.Range.getEnd());
   }
 
   const ParsedAttributes &getAttributes() const { return Attrs; }

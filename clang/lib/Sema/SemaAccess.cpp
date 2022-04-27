@@ -1,4 +1,21 @@
 //===---- SemaAccess.cpp - C++ Access Control -------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -1761,14 +1778,11 @@ Sema::CheckStructuredBindingMemberAccess(SourceLocation UseLoc,
   return CheckAccess(*this, UseLoc, Entity);
 }
 
-/// Checks access to an overloaded member operator, including
-/// conversion operators.
 Sema::AccessResult Sema::CheckMemberOperatorAccess(SourceLocation OpLoc,
                                                    Expr *ObjectExpr,
-                                                   Expr *ArgExpr,
+                                                   const SourceRange &Range,
                                                    DeclAccessPair Found) {
-  if (!getLangOpts().AccessControl ||
-      Found.getAccess() == AS_public)
+  if (!getLangOpts().AccessControl || Found.getAccess() == AS_public)
     return AR_accessible;
 
   const RecordType *RT = ObjectExpr->getType()->castAs<RecordType>();
@@ -1776,11 +1790,33 @@ Sema::AccessResult Sema::CheckMemberOperatorAccess(SourceLocation OpLoc,
 
   AccessTarget Entity(Context, AccessTarget::Member, NamingClass, Found,
                       ObjectExpr->getType());
-  Entity.setDiag(diag::err_access)
-    << ObjectExpr->getSourceRange()
-    << (ArgExpr ? ArgExpr->getSourceRange() : SourceRange());
+  Entity.setDiag(diag::err_access) << ObjectExpr->getSourceRange() << Range;
 
   return CheckAccess(*this, OpLoc, Entity);
+}
+
+/// Checks access to an overloaded member operator, including
+/// conversion operators.
+Sema::AccessResult Sema::CheckMemberOperatorAccess(SourceLocation OpLoc,
+                                                   Expr *ObjectExpr,
+                                                   Expr *ArgExpr,
+                                                   DeclAccessPair Found) {
+  return CheckMemberOperatorAccess(
+      OpLoc, ObjectExpr, ArgExpr ? ArgExpr->getSourceRange() : SourceRange(),
+      Found);
+}
+
+Sema::AccessResult Sema::CheckMemberOperatorAccess(SourceLocation OpLoc,
+                                                   Expr *ObjectExpr,
+                                                   ArrayRef<Expr *> ArgExprs,
+                                                   DeclAccessPair FoundDecl) {
+  SourceRange R;
+  if (!ArgExprs.empty()) {
+    R = SourceRange(ArgExprs.front()->getBeginLoc(),
+                    ArgExprs.back()->getEndLoc());
+  }
+
+  return CheckMemberOperatorAccess(OpLoc, ObjectExpr, R, FoundDecl);
 }
 
 /// Checks access to the target of a friend declaration.
@@ -1900,7 +1936,13 @@ void Sema::CheckLookupAccess(const LookupResult &R) {
         Entity.setDiag(diag::warn_access);
       else
 #endif // INTEL_CUSTOMIZATION
-      Entity.setDiag(diag::err_access);
+      // This is to avoid leaking implementation details of lambda object.
+      // We do not want to generate 'private member access' diagnostic for
+      // lambda object.
+      if ((R.getNamingClass())->isLambda())
+        Diag(R.getNameLoc(), diag::err_lambda_member_access);
+      else
+        Entity.setDiag(diag::err_access);
       CheckAccess(*this, R.getNameLoc(), Entity);
     }
   }

@@ -34,7 +34,6 @@ define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %p) !intel.dtr
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT:   Aliased types:
 ; CHECK-NEXT:     i32*{{ *$}}
-; CHECK-NEXT:     i8*{{ *$}}
 ; CHECK-NEXT:   Element pointees:
 ; CHECK-NEXT:     %struct.test01 @ 1
 
@@ -53,7 +52,6 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %p) !intel.dtr
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT:   Aliased types:
 ; CHECK-NEXT:     i32*{{ *$}}
-; CHECK-NEXT:     i8*{{ *$}}
 ; CHECK-NEXT:   Element pointees:
 ; CHECK-NEXT:     %struct.test02 @ 1
 
@@ -73,7 +71,6 @@ define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %p) !intel.dtr
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT:   Aliased types:
 ; CHECK-NEXT:     i32*{{ *$}}
-; CHECK-NEXT:     i8*{{ *$}}
 ; CHECK-NEXT:  Element pointees:
 ; CHECK-NEXT:     %struct.test03 @ 1
 
@@ -93,7 +90,6 @@ define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %p) !intel.dtr
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT:   Aliased types:
 ; CHECK-NEXT:     i32*{{ *$}}
-; CHECK-NEXT:     i8*{{ *$}}
 ; CHECK-NEXT:  Element pointees:
 ; CHECK-NEXT:    %struct.test04 @ 1
 
@@ -115,7 +111,6 @@ define void @test05(%struct.test05outer* "intel_dtrans_func_index"="1" %p) !inte
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT:   Aliased types:
 ; CHECK-NEXT:     i32*{{ *$}}
-; CHECK-NEXT:     i8*{{ *$}}
 ; CHECK-NEXT:   Element pointees:
 ; CHECK-NEXT:     %struct.test05inner @ 1
 
@@ -136,7 +131,6 @@ define void @test06(%struct.test06outer* "intel_dtrans_func_index"="1" %p) !inte
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT:   Aliased types:
 ; CHECK-NEXT:     i32*{{ *$}}
-; CHECK-NEXT:     i8*{{ *$}}
 ; CHECK-NEXT:   Element pointees:
 ; CHECK-NEXT:     %struct.test06outer @ 1
 
@@ -157,7 +151,6 @@ define void @test07(%struct.test07* "intel_dtrans_func_index"="1" %p) !intel.dtr
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT:   Aliased types:
 ; CHECK-NEXT:     i32*{{ *$}}
-; CHECK-NEXT:     i8*{{ *$}}
 ; CHECK-NEXT:  Element pointees:
 ; CHECK-NEXT:    %struct.test07 @ 1
 

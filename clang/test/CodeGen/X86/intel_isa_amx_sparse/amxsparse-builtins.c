@@ -5,37 +5,37 @@
 #include <immintrin.h>
 #include <stddef.h>
 
-void test_tile_dpsbssd() {
+void test_tile_dpsbssd(void) {
   // CHECK-LABEL: @test_tile_dpsbssd(
   // CHECK: call void @llvm.x86.tdpsbssd(i8 1, i8 3, i8 5)
   _tile_dpsbssd(1, 3, 5);
 }
 
-void test_tile_dpsbsud() {
+void test_tile_dpsbsud(void) {
   // CHECK-LABEL: @test_tile_dpsbsud(
   // CHECK: call void @llvm.x86.tdpsbsud(i8 1, i8 3, i8 5)
   _tile_dpsbsud(1, 3, 5);
 }
 
-void test_tile_dpsbusd() {
+void test_tile_dpsbusd(void) {
   // CHECK-LABEL: @test_tile_dpsbusd(
   // CHECK: call void @llvm.x86.tdpsbusd(i8 1, i8 3, i8 5)
   _tile_dpsbusd(1, 3, 5);
 }
 
-void test_tile_dpsbuud() {
+void test_tile_dpsbuud(void) {
   // CHECK-LABEL: @test_tile_dpsbuud(
   // CHECK: call void @llvm.x86.tdpsbuud(i8 1, i8 3, i8 5)
   _tile_dpsbuud(1, 3, 5);
 }
 
-void test_tile_dpsbf16ps() {
+void test_tile_dpsbf16ps(void) {
   // CHECK-LABEL: @test_tile_dpsbf16ps(
   // CHECK: call void @llvm.x86.tdpsbf16ps(i8 1, i8 3, i8 5)
   _tile_dpsbf16ps(1, 3, 5);
 }
 
-void test_tile_dpsfp16ps() {
+void test_tile_dpsfp16ps(void) {
   // CHECK-LABEL: @test_tile_dpsfp16ps(
   // CHECK: call void @llvm.x86.tdpsfp16ps(i8 1, i8 3, i8 5)
   _tile_dpsfp16ps(1, 3, 5);

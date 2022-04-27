@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 //===------- Intel_IPCloning.cpp - IP Cloning -*------===//
 //
-// Copyright (C) 2016-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -34,7 +34,8 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/IPO/Intel_InlineReport.h"     // INTEL
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Intel_CloneUtils.h"
@@ -235,6 +236,7 @@ SmallDenseMap<Value *, GetElementPtrInst *> SpecialConstGEPMap;
 static Function *IPCloneFunction(Function *F, ValueToValueMapTy &VMap) {
   Function *NewF = CloneFunction(F, VMap);
   getInlineReport()->cloneFunction(F, NewF, VMap);
+  getMDInlineReport()->cloneFunction(F, NewF, VMap);
   return NewF;
 }
 
@@ -243,6 +245,7 @@ static Function *IPCloneFunction(Function *F, ValueToValueMapTy &VMap) {
 static void setCalledFunction(CallBase *CB, Function *F) {
   CB->setCalledFunction(F);
   getInlineReport()->setCalledFunction(CB, F);
+  getMDInlineReport()->setCalledFunction(CB, F);
 }
 
 // Create a 'CallInst' using 'CI' as a model, inserting it before the
@@ -254,6 +257,7 @@ static CallInst *CallInstCreate(CallInst *CI, FunctionCallee Func,
                                 Instruction *InsertBefore) {
   auto NewCI = CallInst::Create(Func, Args, NameStr, InsertBefore);
   getInlineReport()->cloneCallBaseToCallBase(CI, NewCI);
+  getMDInlineReport()->cloneCallBaseToCallBase(CI, NewCI);
   return NewCI;
 }
 
@@ -266,6 +270,7 @@ static CallInst *CallInstCreate(CallInst *CI, FunctionCallee Func,
                                 BasicBlock *InsertAtEnd) {
   auto NewCI = CallInst::Create(Func, Args, NameStr, InsertAtEnd);
   getInlineReport()->cloneCallBaseToCallBase(CI, NewCI);
+  getMDInlineReport()->cloneCallBaseToCallBase(CI, NewCI);
   return NewCI;
 }
 
@@ -3255,7 +3260,7 @@ static void changeCPUAttributes(Module &M) {
     assert(F.getFnAttribute("target-cpu").getValueAsString() ==
                "skylake-avx512" &&
            "Expecting skylake-avx512");
-    llvm::AttrBuilder Attrs;
+    llvm::AttrBuilder Attrs(F.getContext());
     F.removeFnAttr("target-cpu");
     F.removeFnAttr("target-features");
     Attrs.addAttribute("target-cpu", "core-avx2");
@@ -4472,6 +4477,7 @@ Function *Splitter::makeNewFxnWithExtraArg(Type *ArgTy, Argument **Arg,
   CloneFunctionInto(NewF, F, VMap, CloneFunctionChangeType::LocalChangesOnly,
                     Rets);
   getInlineReport()->cloneFunction(F, NewF, VMap);
+  getMDInlineReport()->cloneFunction(F, NewF, VMap);
   Argument *ArgLast = nullptr;
   for (auto &ArgNew : NewF->args())
     ArgLast = &ArgNew;

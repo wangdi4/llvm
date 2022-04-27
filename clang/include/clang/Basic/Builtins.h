@@ -1,4 +1,21 @@
 //===--- Builtins.h - Builtin function header -------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -28,25 +45,26 @@ class IdentifierTable;
 class LangOptions;
 
 enum LanguageID {
-  GNU_LANG = 0x1,     // builtin requires GNU mode.
-  C_LANG = 0x2,       // builtin for c only.
-  CXX_LANG = 0x4,     // builtin for cplusplus only.
-  OBJC_LANG = 0x8,    // builtin for objective-c and objective-c++
-  MS_LANG = 0x10,     // builtin requires MS mode.
+  GNU_LANG = 0x1,            // builtin requires GNU mode.
+  C_LANG = 0x2,              // builtin for c only.
+  CXX_LANG = 0x4,            // builtin for cplusplus only.
+  OBJC_LANG = 0x8,           // builtin for objective-c and objective-c++
+  MS_LANG = 0x10,            // builtin requires MS mode.
+  OMP_LANG = 0x20,           // builtin requires OpenMP.
+  CUDA_LANG = 0x40,          // builtin requires CUDA.
+  COR_LANG = 0x80,           // builtin requires use of 'fcoroutine-ts' option.
+  OCL_GAS = 0x100,           // builtin requires OpenCL generic address space.
+  OCL_PIPE = 0x200,          // builtin requires OpenCL pipe.
+  OCL_DSE = 0x400,           // builtin requires OpenCL device side enqueue.
+  ALL_OCL_LANGUAGES = 0x800, // builtin for OCL languages.
 #if INTEL_CUSTOMIZATION
-  OCLC2P_LANG = 0x20, // builtin for OpenCL C 2.0 and later versions.
+  ICC_LANG = 0x1000,             // INTEL: builtin requires ICC mode.
+  INTEL_FPGA_PIPE1X = 0x2000,    // INTEL: pipe builtin for OpenCL C 1.x only.
+  ALL_OCL_PIPE = INTEL_FPGA_PIPE1X | OCL_PIPE,
 #endif // INTEL_CUSTOMIZATION
-  OCLC1X_LANG = 0x40, // builtin for OpenCL C 1.x only.
-  OMP_LANG = 0x80,    // builtin requires OpenMP.
-  CUDA_LANG = 0x100,  // builtin requires CUDA.
-  COR_LANG = 0x200,   // builtin requires use of 'fcoroutine-ts' option.
-  ICC_LANG = 0x400,   // INTEL: builtin requires ICC mode.
   ALL_LANGUAGES = C_LANG | CXX_LANG | OBJC_LANG, // builtin for all languages.
   ALL_GNU_LANGUAGES = ALL_LANGUAGES | GNU_LANG,  // builtin requires GNU mode.
-  ALL_MS_LANGUAGES = ALL_LANGUAGES | MS_LANG,    // builtin requires MS mode.
-#if INTEL_CUSTOMIZATION
-  ALL_OCLC_LANGUAGES = OCLC1X_LANG | OCLC2P_LANG // builtin for OCLC languages.
-#endif // INTEL_CUSTOMIZATION
+  ALL_MS_LANGUAGES = ALL_LANGUAGES | MS_LANG     // builtin requires MS mode.
 };
 
 namespace Builtin {
@@ -74,7 +92,7 @@ class Context {
   llvm::ArrayRef<Info> AuxTSRecords;
 
 public:
-  Context() {}
+  Context() = default;
 
   /// Perform target-specific initialization
   /// \param AuxTarget Target info to incorporate builtins from. May be nullptr.
@@ -142,6 +160,10 @@ public:
   /// Determines whether this builtin is a predefined libc/libm
   /// function, such as "malloc", where we know the signature a
   /// priori.
+  /// In C, such functions behave as if they are predeclared,
+  /// possibly with a warning on first use. In Objective-C and C++,
+  /// they do not, but they are recognized as builtins once we see
+  /// a declaration.
   bool isPredefinedLibFunction(unsigned ID) const {
     return strchr(getRecord(ID).Attributes, 'f') != nullptr;
   }
@@ -158,6 +180,23 @@ public:
   /// priori.
   bool isPredefinedRuntimeFunction(unsigned ID) const {
     return strchr(getRecord(ID).Attributes, 'i') != nullptr;
+  }
+
+  /// Determines whether this builtin is a C++ standard library function
+  /// that lives in (possibly-versioned) namespace std, possibly a template
+  /// specialization, where the signature is determined by the standard library
+  /// declaration.
+  bool isInStdNamespace(unsigned ID) const {
+    return strchr(getRecord(ID).Attributes, 'z') != nullptr;
+  }
+
+  /// Determines whether this builtin can have its address taken with no
+  /// special action required.
+  bool isDirectlyAddressable(unsigned ID) const {
+    // Most standard library functions can have their addresses taken. C++
+    // standard library functions formally cannot in C++20 onwards, and when
+    // we allow it, we need to ensure we instantiate a definition.
+    return isPredefinedLibFunction(ID) && !isInStdNamespace(ID);
   }
 
   /// Determines whether this builtin has custom typechecking.
@@ -240,21 +279,6 @@ public:
 
 private:
   const Info &getRecord(unsigned ID) const;
-
-  /// Is this builtin supported according to the given language options?
-  bool builtinIsSupported(const Builtin::Info &BuiltinInfo,
-                          const LangOptions &LangOpts);
-
-#if INTEL_CUSTOMIZATION
-  bool OclBuiltinIsSupported(const Builtin::Info &BuiltinInfo,
-                             const LangOptions &LangOpts) const;
-
-  bool requiresFeatures(const Builtin::Info &BuiltinInfo) const;
-
-  bool requiresFeatures(unsigned ID) const {
-    return requiresFeatures(getRecord(ID));
-  }
-#endif // INTEL_CUSTOMIZATION
 
   /// Helper function for isPrintfLike and isScanfLike.
   bool isLike(unsigned ID, unsigned &FormatIdx, bool &HasVAListArg,

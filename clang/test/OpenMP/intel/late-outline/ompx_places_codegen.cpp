@@ -14,13 +14,13 @@
 // NOTE:   3) Move INTEL_COLLAB markers back to the top and the bottom of
 // NOTE:      the source file.
 //
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -fopenmp-version=50 -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 //
-// RUN: %clang_cc1 -fopenmp -fopenmp-late-outline -fopenmp-version=50 \
+// RUN: %clang_cc1 -opaque-pointers -fopenmp -fopenmp-late-outline -fopenmp-version=50 \
 // RUN:   -triple x86_64-unknown-linux-gnu -emit-pch %s -o %t
 //
-// RUN: %clang_cc1 -fopenmp -fopenmp-late-outline -fopenmp-version=50 \
+// RUN: %clang_cc1 -opaque-pointers -fopenmp -fopenmp-late-outline -fopenmp-version=50 \
 // RUN:   -triple x86_64-unknown-linux-gnu -include-pch %t -emit-llvm %s -o - \
 // RUN:   | FileCheck %s
 
@@ -245,48 +245,48 @@ int template_test() { run<void,1,2,3>(); return 0;
 // CHECK-NEXT:    [[DOTOMP_LB112:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    [[DOTOMP_UB113:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    [[I117:%.*]] = alloca i32, align 4
-// CHECK-NEXT:    store i32 [[N:%.*]], i32* [[N_ADDR]], align 4
-// CHECK-NEXT:    store i32 0, i32* [[A]], align 4
-// CHECK-NEXT:    [[TMP0:%.*]] = load i32, i32* [[START]], align 4
-// CHECK-NEXT:    store i32 [[TMP0]], i32* [[DOTCAPTURE_EXPR_0]], align 4
-// CHECK-NEXT:    [[TMP1:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_0]], align 4
+// CHECK-NEXT:    store i32 [[N:%.*]], ptr [[N_ADDR]], align 4
+// CHECK-NEXT:    store i32 0, ptr [[A]], align 4
+// CHECK-NEXT:    [[TMP0:%.*]] = load i32, ptr [[START]], align 4
+// CHECK-NEXT:    store i32 [[TMP0]], ptr [[DOTCAPTURE_EXPR_0]], align 4
+// CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_0]], align 4
 // CHECK-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP1]], i32 1, i32 1) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP2]]) [ "DIR.OMP.END.TARGET"() ]
-// CHECK-NEXT:    [[TMP3:%.*]] = load i32, i32* [[START]], align 4
-// CHECK-NEXT:    store i32 [[TMP3]], i32* [[DOTCAPTURE_EXPR_1]], align 4
-// CHECK-NEXT:    [[TMP4:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_1]], align 4
+// CHECK-NEXT:    [[TMP3:%.*]] = load i32, ptr [[START]], align 4
+// CHECK-NEXT:    store i32 [[TMP3]], ptr [[DOTCAPTURE_EXPR_1]], align 4
+// CHECK-NEXT:    [[TMP4:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_1]], align 4
 // CHECK-NEXT:    [[TMP5:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP4]], i32 1, i32 1) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP5]]) [ "DIR.OMP.END.TARGET"() ]
-// CHECK-NEXT:    [[TMP6:%.*]] = load i32, i32* [[START]], align 4
-// CHECK-NEXT:    store i32 [[TMP6]], i32* [[DOTCAPTURE_EXPR_2]], align 4
-// CHECK-NEXT:    [[TMP7:%.*]] = load i32, i32* [[LENGTH]], align 4
-// CHECK-NEXT:    store i32 [[TMP7]], i32* [[DOTCAPTURE_EXPR_3]], align 4
-// CHECK-NEXT:    [[TMP8:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_2]], align 4
-// CHECK-NEXT:    [[TMP9:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_3]], align 4
+// CHECK-NEXT:    [[TMP6:%.*]] = load i32, ptr [[START]], align 4
+// CHECK-NEXT:    store i32 [[TMP6]], ptr [[DOTCAPTURE_EXPR_2]], align 4
+// CHECK-NEXT:    [[TMP7:%.*]] = load i32, ptr [[LENGTH]], align 4
+// CHECK-NEXT:    store i32 [[TMP7]], ptr [[DOTCAPTURE_EXPR_3]], align 4
+// CHECK-NEXT:    [[TMP8:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_2]], align 4
+// CHECK-NEXT:    [[TMP9:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_3]], align 4
 // CHECK-NEXT:    [[TMP10:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 2), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP8]], i32 [[TMP9]], i32 1) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP10]]) [ "DIR.OMP.END.TARGET"() ]
-// CHECK-NEXT:    [[TMP11:%.*]] = load i32, i32* [[START]], align 4
-// CHECK-NEXT:    store i32 [[TMP11]], i32* [[DOTCAPTURE_EXPR_4]], align 4
-// CHECK-NEXT:    [[TMP12:%.*]] = load i32, i32* [[LENGTH]], align 4
-// CHECK-NEXT:    store i32 [[TMP12]], i32* [[DOTCAPTURE_EXPR_5]], align 4
-// CHECK-NEXT:    [[TMP13:%.*]] = load i32, i32* [[STRIDE]], align 4
-// CHECK-NEXT:    store i32 [[TMP13]], i32* [[DOTCAPTURE_EXPR_6]], align 4
-// CHECK-NEXT:    [[TMP14:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_4]], align 4
-// CHECK-NEXT:    [[TMP15:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_5]], align 4
-// CHECK-NEXT:    [[TMP16:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_6]], align 4
+// CHECK-NEXT:    [[TMP11:%.*]] = load i32, ptr [[START]], align 4
+// CHECK-NEXT:    store i32 [[TMP11]], ptr [[DOTCAPTURE_EXPR_4]], align 4
+// CHECK-NEXT:    [[TMP12:%.*]] = load i32, ptr [[LENGTH]], align 4
+// CHECK-NEXT:    store i32 [[TMP12]], ptr [[DOTCAPTURE_EXPR_5]], align 4
+// CHECK-NEXT:    [[TMP13:%.*]] = load i32, ptr [[STRIDE]], align 4
+// CHECK-NEXT:    store i32 [[TMP13]], ptr [[DOTCAPTURE_EXPR_6]], align 4
+// CHECK-NEXT:    [[TMP14:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_4]], align 4
+// CHECK-NEXT:    [[TMP15:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_5]], align 4
+// CHECK-NEXT:    [[TMP16:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_6]], align 4
 // CHECK-NEXT:    [[TMP17:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 3), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP14]], i32 [[TMP15]], i32 [[TMP16]]) ]
 // CHECK-NEXT:    [[TMP18:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP18]]) [ "DIR.OMP.END.TEAMS"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP17]]) [ "DIR.OMP.END.TARGET"() ]
-// CHECK-NEXT:    [[TMP19:%.*]] = load i32, i32* [[START]], align 4
-// CHECK-NEXT:    store i32 [[TMP19]], i32* [[DOTCAPTURE_EXPR_7]], align 4
-// CHECK-NEXT:    [[TMP20:%.*]] = load i32, i32* [[LENGTH]], align 4
-// CHECK-NEXT:    store i32 [[TMP20]], i32* [[DOTCAPTURE_EXPR_8]], align 4
-// CHECK-NEXT:    [[TMP21:%.*]] = load i32, i32* [[STRIDE]], align 4
-// CHECK-NEXT:    store i32 [[TMP21]], i32* [[DOTCAPTURE_EXPR_9]], align 4
-// CHECK-NEXT:    [[TMP22:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_7]], align 4
-// CHECK-NEXT:    [[TMP23:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_8]], align 4
-// CHECK-NEXT:    [[TMP24:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_9]], align 4
+// CHECK-NEXT:    [[TMP19:%.*]] = load i32, ptr [[START]], align 4
+// CHECK-NEXT:    store i32 [[TMP19]], ptr [[DOTCAPTURE_EXPR_7]], align 4
+// CHECK-NEXT:    [[TMP20:%.*]] = load i32, ptr [[LENGTH]], align 4
+// CHECK-NEXT:    store i32 [[TMP20]], ptr [[DOTCAPTURE_EXPR_8]], align 4
+// CHECK-NEXT:    [[TMP21:%.*]] = load i32, ptr [[STRIDE]], align 4
+// CHECK-NEXT:    store i32 [[TMP21]], ptr [[DOTCAPTURE_EXPR_9]], align 4
+// CHECK-NEXT:    [[TMP22:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_7]], align 4
+// CHECK-NEXT:    [[TMP23:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_8]], align 4
+// CHECK-NEXT:    [[TMP24:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_9]], align 4
 // CHECK-NEXT:    [[TMP25:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 4), "QUAL.OMP.SUBDEVICE"(i32 1, i32 [[TMP22]], i32 [[TMP23]], i32 [[TMP24]]) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP25]]) [ "DIR.OMP.END.TARGET"() ]
 // CHECK-NEXT:    [[TMP26:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 5), "QUAL.OMP.SUBDEVICE"(i32 0, i32 0, i32 1, i32 1) ]
@@ -299,170 +299,170 @@ int template_test() { run<void,1,2,3>(); return 0;
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP29]]) [ "DIR.OMP.END.TARGET"() ]
 // CHECK-NEXT:    [[TMP30:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 9), "QUAL.OMP.SUBDEVICE"(i32 1, i32 5, i32 6, i32 7) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP30]]) [ "DIR.OMP.END.TARGET"() ]
-// CHECK-NEXT:    [[TMP31:%.*]] = load i32, i32* [[LENGTH]], align 4
-// CHECK-NEXT:    store i32 [[TMP31]], i32* [[DOTCAPTURE_EXPR_10]], align 4
-// CHECK-NEXT:    [[TMP32:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_10]], align 4
+// CHECK-NEXT:    [[TMP31:%.*]] = load i32, ptr [[LENGTH]], align 4
+// CHECK-NEXT:    store i32 [[TMP31]], ptr [[DOTCAPTURE_EXPR_10]], align 4
+// CHECK-NEXT:    [[TMP32:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_10]], align 4
 // CHECK-NEXT:    [[TMP33:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 10), "QUAL.OMP.SUBDEVICE"(i32 0, i32 8, i32 [[TMP32]], i32 9) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP33]]) [ "DIR.OMP.END.TARGET"() ]
-// CHECK-NEXT:    [[Y:%.*]] = getelementptr inbounds [[STRUCT_TT]], %struct.TT* [[D]], i32 0, i32 1
-// CHECK-NEXT:    [[TMP34:%.*]] = load i8, i8* [[Y]], align 8
-// CHECK-NEXT:    store i8 [[TMP34]], i8* [[DOTCAPTURE_EXPR_11]], align 1
-// CHECK-NEXT:    [[X:%.*]] = getelementptr inbounds [[STRUCT_TT]], %struct.TT* [[D]], i32 0, i32 0
-// CHECK-NEXT:    [[TMP35:%.*]] = load i64, i64* [[X]], align 8
-// CHECK-NEXT:    store i64 [[TMP35]], i64* [[DOTCAPTURE_EXPR_12]], align 8
-// CHECK-NEXT:    [[TMP36:%.*]] = load i8, i8* [[DOTCAPTURE_EXPR_11]], align 1
-// CHECK-NEXT:    [[TMP37:%.*]] = load i64, i64* [[DOTCAPTURE_EXPR_12]], align 8
+// CHECK-NEXT:    [[Y:%.*]] = getelementptr inbounds [[STRUCT_TT]], ptr [[D]], i32 0, i32 1
+// CHECK-NEXT:    [[TMP34:%.*]] = load i8, ptr [[Y]], align 8
+// CHECK-NEXT:    store i8 [[TMP34]], ptr [[DOTCAPTURE_EXPR_11]], align 1
+// CHECK-NEXT:    [[X:%.*]] = getelementptr inbounds [[STRUCT_TT]], ptr [[D]], i32 0, i32 0
+// CHECK-NEXT:    [[TMP35:%.*]] = load i64, ptr [[X]], align 8
+// CHECK-NEXT:    store i64 [[TMP35]], ptr [[DOTCAPTURE_EXPR_12]], align 8
+// CHECK-NEXT:    [[TMP36:%.*]] = load i8, ptr [[DOTCAPTURE_EXPR_11]], align 1
+// CHECK-NEXT:    [[TMP37:%.*]] = load i64, ptr [[DOTCAPTURE_EXPR_12]], align 8
 // CHECK-NEXT:    [[TMP38:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 11), "QUAL.OMP.SUBDEVICE"(i32 0, i8 [[TMP36]], i64 [[TMP37]], i32 1) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP38]]) [ "DIR.OMP.END.TARGET"() ]
-// CHECK-NEXT:    [[TMP39:%.*]] = load i32, i32* [[A]], align 4
-// CHECK-NEXT:    [[CALL:%.*]] = call i32 @_Z4funci(i32 [[TMP39]])
-// CHECK-NEXT:    store i32 [[CALL]], i32* [[DOTCAPTURE_EXPR_13]], align 4
-// CHECK-NEXT:    [[TMP40:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_13]], align 4
+// CHECK-NEXT:    [[TMP39:%.*]] = load i32, ptr [[A]], align 4
+// CHECK-NEXT:    [[CALL:%.*]] = call noundef i32 @_Z4funci(i32 noundef [[TMP39]])
+// CHECK-NEXT:    store i32 [[CALL]], ptr [[DOTCAPTURE_EXPR_13]], align 4
+// CHECK-NEXT:    [[TMP40:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_13]], align 4
 // CHECK-NEXT:    [[TMP41:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 12), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP40]], i32 2147483647, i32 1) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP41]]) [ "DIR.OMP.END.TARGET"() ]
-// CHECK-NEXT:    [[X1:%.*]] = getelementptr inbounds [[STRUCT_TT_0]], %struct.TT.0* [[D2]], i32 0, i32 0
-// CHECK-NEXT:    [[TMP42:%.*]] = load i32*, i32** [[X1]], align 8
-// CHECK-NEXT:    [[TMP43:%.*]] = load i32, i32* [[TMP42]], align 4
-// CHECK-NEXT:    store i32 [[TMP43]], i32* [[DOTCAPTURE_EXPR_14]], align 4
-// CHECK-NEXT:    [[Y2:%.*]] = getelementptr inbounds [[STRUCT_TT_0]], %struct.TT.0* [[D2]], i32 0, i32 1
-// CHECK-NEXT:    [[TMP44:%.*]] = load i32*, i32** [[Y2]], align 8
-// CHECK-NEXT:    [[TMP45:%.*]] = load i32, i32* [[TMP44]], align 4
-// CHECK-NEXT:    store i32 [[TMP45]], i32* [[DOTCAPTURE_EXPR_15]], align 4
-// CHECK-NEXT:    [[TMP46:%.*]] = load i32, i32* [[STRIDE]], align 4
-// CHECK-NEXT:    store i32 [[TMP46]], i32* [[DOTCAPTURE_EXPR_16]], align 4
-// CHECK-NEXT:    [[TMP47:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_14]], align 4
-// CHECK-NEXT:    [[TMP48:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_15]], align 4
-// CHECK-NEXT:    [[TMP49:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_16]], align 4
+// CHECK-NEXT:    [[X1:%.*]] = getelementptr inbounds [[STRUCT_TT_0]], ptr [[D2]], i32 0, i32 0
+// CHECK-NEXT:    [[TMP42:%.*]] = load ptr, ptr [[X1]], align 8
+// CHECK-NEXT:    [[TMP43:%.*]] = load i32, ptr [[TMP42]], align 4
+// CHECK-NEXT:    store i32 [[TMP43]], ptr [[DOTCAPTURE_EXPR_14]], align 4
+// CHECK-NEXT:    [[Y2:%.*]] = getelementptr inbounds [[STRUCT_TT_0]], ptr [[D2]], i32 0, i32 1
+// CHECK-NEXT:    [[TMP44:%.*]] = load ptr, ptr [[Y2]], align 8
+// CHECK-NEXT:    [[TMP45:%.*]] = load i32, ptr [[TMP44]], align 4
+// CHECK-NEXT:    store i32 [[TMP45]], ptr [[DOTCAPTURE_EXPR_15]], align 4
+// CHECK-NEXT:    [[TMP46:%.*]] = load i32, ptr [[STRIDE]], align 4
+// CHECK-NEXT:    store i32 [[TMP46]], ptr [[DOTCAPTURE_EXPR_16]], align 4
+// CHECK-NEXT:    [[TMP47:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_14]], align 4
+// CHECK-NEXT:    [[TMP48:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_15]], align 4
+// CHECK-NEXT:    [[TMP49:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_16]], align 4
 // CHECK-NEXT:    [[TMP50:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 13), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP47]], i32 [[TMP48]], i32 [[TMP49]]) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP50]]) [ "DIR.OMP.END.TARGET"() ]
-// CHECK-NEXT:    [[TMP51:%.*]] = load i32, i32* [[A]], align 4
-// CHECK-NEXT:    store i32 [[TMP51]], i32* [[DOTCAPTURE_EXPR_17]], align 4
-// CHECK-NEXT:    [[TMP52:%.*]] = load i32, i32* [[START]], align 4
+// CHECK-NEXT:    [[TMP51:%.*]] = load i32, ptr [[A]], align 4
+// CHECK-NEXT:    store i32 [[TMP51]], ptr [[DOTCAPTURE_EXPR_17]], align 4
+// CHECK-NEXT:    [[TMP52:%.*]] = load i32, ptr [[START]], align 4
 // CHECK-NEXT:    [[IDXPROM:%.*]] = sext i32 [[TMP52]] to i64
-// CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[VEC]], i64 0, i64 [[IDXPROM]]
-// CHECK-NEXT:    [[TMP53:%.*]] = load i32, i32* [[ARRAYIDX]], align 4
-// CHECK-NEXT:    store i32 [[TMP53]], i32* [[DOTCAPTURE_EXPR_18]], align 4
-// CHECK-NEXT:    [[TMP54:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_17]], align 4
-// CHECK-NEXT:    [[TMP55:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_18]], align 4
-// CHECK-NEXT:    [[X3:%.*]] = getelementptr inbounds [[STRUCT_TT]], %struct.TT* [[D]], i32 0, i32 0
-// CHECK-NEXT:    [[TMP56:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.ENTER.DATA"(), "QUAL.OMP.DEVICE"(i32 [[TMP54]]), "QUAL.OMP.SUBDEVICE"(i32 0, i32 10, i32 20, i32 [[TMP55]]), "QUAL.OMP.MAP.TOFROM"(%struct.TT* [[D]], i64* [[X3]], i64 8, i64 0, i8* null, i8* null) ]
+// CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [10 x i32], ptr [[VEC]], i64 0, i64 [[IDXPROM]]
+// CHECK-NEXT:    [[TMP53:%.*]] = load i32, ptr [[ARRAYIDX]], align 4
+// CHECK-NEXT:    store i32 [[TMP53]], ptr [[DOTCAPTURE_EXPR_18]], align 4
+// CHECK-NEXT:    [[TMP54:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_17]], align 4
+// CHECK-NEXT:    [[TMP55:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_18]], align 4
+// CHECK-NEXT:    [[X3:%.*]] = getelementptr inbounds [[STRUCT_TT]], ptr [[D]], i32 0, i32 0
+// CHECK-NEXT:    [[TMP56:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.ENTER.DATA"(), "QUAL.OMP.DEVICE"(i32 [[TMP54]]), "QUAL.OMP.SUBDEVICE"(i32 0, i32 10, i32 20, i32 [[TMP55]]), "QUAL.OMP.MAP.TOFROM"(ptr [[D]], ptr [[X3]], i64 8, i64 0, ptr null, ptr null) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP56]]) [ "DIR.OMP.END.TARGET.ENTER.DATA"() ]
-// CHECK-NEXT:    [[TMP57:%.*]] = load i32, i32* [[A]], align 4
-// CHECK-NEXT:    store i32 [[TMP57]], i32* [[DOTCAPTURE_EXPR_19]], align 4
-// CHECK-NEXT:    [[TMP58:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_19]], align 4
-// CHECK-NEXT:    [[X4:%.*]] = getelementptr inbounds [[STRUCT_TT]], %struct.TT* [[D]], i32 0, i32 0
-// CHECK-NEXT:    [[TMP59:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.EXIT.DATA"(), "QUAL.OMP.DEVICE"(i32 [[TMP58]]), "QUAL.OMP.SUBDEVICE"(i32 0, i32 30, i32 40, i32 1), "QUAL.OMP.MAP.TOFROM"(%struct.TT* [[D]], i64* [[X4]], i64 8, i64 0, i8* null, i8* null) ]
+// CHECK-NEXT:    [[TMP57:%.*]] = load i32, ptr [[A]], align 4
+// CHECK-NEXT:    store i32 [[TMP57]], ptr [[DOTCAPTURE_EXPR_19]], align 4
+// CHECK-NEXT:    [[TMP58:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_19]], align 4
+// CHECK-NEXT:    [[X4:%.*]] = getelementptr inbounds [[STRUCT_TT]], ptr [[D]], i32 0, i32 0
+// CHECK-NEXT:    [[TMP59:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.EXIT.DATA"(), "QUAL.OMP.DEVICE"(i32 [[TMP58]]), "QUAL.OMP.SUBDEVICE"(i32 0, i32 30, i32 40, i32 1), "QUAL.OMP.MAP.TOFROM"(ptr [[D]], ptr [[X4]], i64 8, i64 0, ptr null, ptr null) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP59]]) [ "DIR.OMP.END.TARGET.EXIT.DATA"() ]
-// CHECK-NEXT:    [[TMP60:%.*]] = load i32, i32* [[START]], align 4
-// CHECK-NEXT:    [[TMP61:%.*]] = load i32, i32* [[LENGTH]], align 4
-// CHECK-NEXT:    [[TMP62:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_ADDR"(i32* [[A]]), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP60]], i32 [[TMP61]], i32 1), "QUAL.OMP.MAP.TOFROM"(i32* [[A]], i32* [[A]], i64 0, i64 64, i8* null, i8* null) ]
+// CHECK-NEXT:    [[TMP60:%.*]] = load i32, ptr [[START]], align 4
+// CHECK-NEXT:    [[TMP61:%.*]] = load i32, ptr [[LENGTH]], align 4
+// CHECK-NEXT:    [[TMP62:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_ADDR"(ptr [[A]]), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP60]], i32 [[TMP61]], i32 1), "QUAL.OMP.MAP.TOFROM"(ptr [[A]], ptr [[A]], i64 0, i64 64, ptr null, ptr null) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP62]]) [ "DIR.OMP.END.TARGET.DATA"() ]
-// CHECK-NEXT:    [[TMP63:%.*]] = load i32, i32* [[N_ADDR]], align 4
-// CHECK-NEXT:    store i32 [[TMP63]], i32* [[DOTCAPTURE_EXPR_20]], align 4
-// CHECK-NEXT:    [[TMP64:%.*]] = load i32, i32* [[N_ADDR]], align 4
-// CHECK-NEXT:    store i32 [[TMP64]], i32* [[DOTCAPTURE_EXPR_21]], align 4
-// CHECK-NEXT:    [[TMP65:%.*]] = load i32, i32* @global, align 4
-// CHECK-NEXT:    store i32 [[TMP65]], i32* [[DOTCAPTURE_EXPR_22]], align 4
-// CHECK-NEXT:    [[TMP66:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_20]], align 4
-// CHECK-NEXT:    [[TMP67:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_21]], align 4
-// CHECK-NEXT:    [[TMP68:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_22]], align 4
-// CHECK-NEXT:    [[TMP69:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.UPDATE"(), "QUAL.OMP.DEVICE"(i32 [[TMP66]]), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP67]], i32 [[TMP68]], i32 1), "QUAL.OMP.MAP.FROM"(i32* [[A]], i32* [[A]], i64 4, i64 2, i8* null, i8* null) ]
+// CHECK-NEXT:    [[TMP63:%.*]] = load i32, ptr [[N_ADDR]], align 4
+// CHECK-NEXT:    store i32 [[TMP63]], ptr [[DOTCAPTURE_EXPR_20]], align 4
+// CHECK-NEXT:    [[TMP64:%.*]] = load i32, ptr [[N_ADDR]], align 4
+// CHECK-NEXT:    store i32 [[TMP64]], ptr [[DOTCAPTURE_EXPR_21]], align 4
+// CHECK-NEXT:    [[TMP65:%.*]] = load i32, ptr @global, align 4
+// CHECK-NEXT:    store i32 [[TMP65]], ptr [[DOTCAPTURE_EXPR_22]], align 4
+// CHECK-NEXT:    [[TMP66:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_20]], align 4
+// CHECK-NEXT:    [[TMP67:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_21]], align 4
+// CHECK-NEXT:    [[TMP68:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_22]], align 4
+// CHECK-NEXT:    [[TMP69:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.UPDATE"(), "QUAL.OMP.DEVICE"(i32 [[TMP66]]), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP67]], i32 [[TMP68]], i32 1), "QUAL.OMP.MAP.FROM"(ptr [[A]], ptr [[A]], i64 4, i64 2, ptr null, ptr null) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP69]]) [ "DIR.OMP.END.TARGET.UPDATE"() ]
-// CHECK-NEXT:    [[TMP70:%.*]] = load i32, i32* [[START]], align 4
-// CHECK-NEXT:    store i32 [[TMP70]], i32* [[DOTCAPTURE_EXPR_23]], align 4
-// CHECK-NEXT:    [[TMP71:%.*]] = load i32, i32* [[LENGTH]], align 4
-// CHECK-NEXT:    store i32 [[TMP71]], i32* [[DOTCAPTURE_EXPR_24]], align 4
-// CHECK-NEXT:    [[TMP72:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_23]], align 4
-// CHECK-NEXT:    [[TMP73:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_24]], align 4
-// CHECK-NEXT:    [[TMP74:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 14), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP72]], i32 [[TMP73]], i32 1), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_IV]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_UB]]), "QUAL.OMP.PRIVATE"(i32* [[I]]), "QUAL.OMP.PRIVATE"(i32* [[TMP]]) ]
-// CHECK-NEXT:    store i32 9, i32* [[DOTOMP_UB]], align 4
-// CHECK-NEXT:    [[TMP75:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i32* [[DOTOMP_IV]]), "QUAL.OMP.NORMALIZED.UB"(i32* [[DOTOMP_UB]]), "QUAL.OMP.LINEAR:IV"(i32* [[I]], i32 1) ]
-// CHECK-NEXT:    store i32 0, i32* [[DOTOMP_IV]], align 4
+// CHECK-NEXT:    [[TMP70:%.*]] = load i32, ptr [[START]], align 4
+// CHECK-NEXT:    store i32 [[TMP70]], ptr [[DOTCAPTURE_EXPR_23]], align 4
+// CHECK-NEXT:    [[TMP71:%.*]] = load i32, ptr [[LENGTH]], align 4
+// CHECK-NEXT:    store i32 [[TMP71]], ptr [[DOTCAPTURE_EXPR_24]], align 4
+// CHECK-NEXT:    [[TMP72:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_23]], align 4
+// CHECK-NEXT:    [[TMP73:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_24]], align 4
+// CHECK-NEXT:    [[TMP74:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 14), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP72]], i32 [[TMP73]], i32 1), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_IV]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_UB]]), "QUAL.OMP.PRIVATE"(ptr [[I]]), "QUAL.OMP.PRIVATE"(ptr [[TMP]]) ]
+// CHECK-NEXT:    store i32 9, ptr [[DOTOMP_UB]], align 4
+// CHECK-NEXT:    [[TMP75:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr [[DOTOMP_IV]]), "QUAL.OMP.NORMALIZED.UB"(ptr [[DOTOMP_UB]]), "QUAL.OMP.LINEAR:IV"(ptr [[I]], i32 1) ]
+// CHECK-NEXT:    store i32 0, ptr [[DOTOMP_IV]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND:%.*]]
 // CHECK:       omp.inner.for.cond:
-// CHECK-NEXT:    [[TMP76:%.*]] = load i32, i32* [[DOTOMP_IV]], align 4
-// CHECK-NEXT:    [[TMP77:%.*]] = load i32, i32* [[DOTOMP_UB]], align 4
+// CHECK-NEXT:    [[TMP76:%.*]] = load i32, ptr [[DOTOMP_IV]], align 4
+// CHECK-NEXT:    [[TMP77:%.*]] = load i32, ptr [[DOTOMP_UB]], align 4
 // CHECK-NEXT:    [[CMP:%.*]] = icmp sle i32 [[TMP76]], [[TMP77]]
 // CHECK-NEXT:    br i1 [[CMP]], label [[OMP_INNER_FOR_BODY:%.*]], label [[OMP_INNER_FOR_END:%.*]]
 // CHECK:       omp.inner.for.body:
-// CHECK-NEXT:    [[TMP78:%.*]] = load i32, i32* [[DOTOMP_IV]], align 4
+// CHECK-NEXT:    [[TMP78:%.*]] = load i32, ptr [[DOTOMP_IV]], align 4
 // CHECK-NEXT:    [[MUL:%.*]] = mul nsw i32 [[TMP78]], 1
 // CHECK-NEXT:    [[ADD:%.*]] = add nsw i32 0, [[MUL]]
-// CHECK-NEXT:    store i32 [[ADD]], i32* [[I]], align 4
+// CHECK-NEXT:    store i32 [[ADD]], ptr [[I]], align 4
 // CHECK-NEXT:    br label [[OMP_BODY_CONTINUE:%.*]]
 // CHECK:       omp.body.continue:
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_INC:%.*]]
 // CHECK:       omp.inner.for.inc:
-// CHECK-NEXT:    [[TMP79:%.*]] = load i32, i32* [[DOTOMP_IV]], align 4
+// CHECK-NEXT:    [[TMP79:%.*]] = load i32, ptr [[DOTOMP_IV]], align 4
 // CHECK-NEXT:    [[ADD5:%.*]] = add nsw i32 [[TMP79]], 1
-// CHECK-NEXT:    store i32 [[ADD5]], i32* [[DOTOMP_IV]], align 4
+// CHECK-NEXT:    store i32 [[ADD5]], ptr [[DOTOMP_IV]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND]]
 // CHECK:       omp.inner.for.end:
 // CHECK-NEXT:    br label [[OMP_LOOP_EXIT:%.*]]
 // CHECK:       omp.loop.exit:
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP75]]) [ "DIR.OMP.END.SIMD"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP74]]) [ "DIR.OMP.END.TARGET"() ]
-// CHECK-NEXT:    [[TMP80:%.*]] = load i32, i32* [[START]], align 4
-// CHECK-NEXT:    store i32 [[TMP80]], i32* [[DOTCAPTURE_EXPR_25]], align 4
-// CHECK-NEXT:    [[TMP81:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_25]], align 4
-// CHECK-NEXT:    [[TMP82:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 15), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP81]], i32 1, i32 1), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_IV7]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_LB]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_UB8]]), "QUAL.OMP.PRIVATE"(i32* [[I12]]), "QUAL.OMP.PRIVATE"(i32* [[PLACESTMP6]]) ]
-// CHECK-NEXT:    store i32 0, i32* [[DOTOMP_LB]], align 4
-// CHECK-NEXT:    store i32 9, i32* [[DOTOMP_UB8]], align 4
-// CHECK-NEXT:    [[TMP83:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.NORMALIZED.IV"(i32* [[DOTOMP_IV7]]), "QUAL.OMP.FIRSTPRIVATE"(i32* [[DOTOMP_LB]]), "QUAL.OMP.NORMALIZED.UB"(i32* [[DOTOMP_UB8]]), "QUAL.OMP.PRIVATE"(i32* [[I12]]) ]
-// CHECK-NEXT:    [[TMP84:%.*]] = load i32, i32* [[DOTOMP_LB]], align 4
-// CHECK-NEXT:    store i32 [[TMP84]], i32* [[DOTOMP_IV7]], align 4
+// CHECK-NEXT:    [[TMP80:%.*]] = load i32, ptr [[START]], align 4
+// CHECK-NEXT:    store i32 [[TMP80]], ptr [[DOTCAPTURE_EXPR_25]], align 4
+// CHECK-NEXT:    [[TMP81:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_25]], align 4
+// CHECK-NEXT:    [[TMP82:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 15), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP81]], i32 1, i32 1), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_IV7]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_LB]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_UB8]]), "QUAL.OMP.PRIVATE"(ptr [[I12]]), "QUAL.OMP.PRIVATE"(ptr [[PLACESTMP6]]) ]
+// CHECK-NEXT:    store i32 0, ptr [[DOTOMP_LB]], align 4
+// CHECK-NEXT:    store i32 9, ptr [[DOTOMP_UB8]], align 4
+// CHECK-NEXT:    [[TMP83:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.NORMALIZED.IV"(ptr [[DOTOMP_IV7]]), "QUAL.OMP.FIRSTPRIVATE"(ptr [[DOTOMP_LB]]), "QUAL.OMP.NORMALIZED.UB"(ptr [[DOTOMP_UB8]]), "QUAL.OMP.PRIVATE"(ptr [[I12]]) ]
+// CHECK-NEXT:    [[TMP84:%.*]] = load i32, ptr [[DOTOMP_LB]], align 4
+// CHECK-NEXT:    store i32 [[TMP84]], ptr [[DOTOMP_IV7]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND9:%.*]]
 // CHECK:       omp.inner.for.cond9:
-// CHECK-NEXT:    [[TMP85:%.*]] = load i32, i32* [[DOTOMP_IV7]], align 4
-// CHECK-NEXT:    [[TMP86:%.*]] = load i32, i32* [[DOTOMP_UB8]], align 4
+// CHECK-NEXT:    [[TMP85:%.*]] = load i32, ptr [[DOTOMP_IV7]], align 4
+// CHECK-NEXT:    [[TMP86:%.*]] = load i32, ptr [[DOTOMP_UB8]], align 4
 // CHECK-NEXT:    [[CMP10:%.*]] = icmp sle i32 [[TMP85]], [[TMP86]]
 // CHECK-NEXT:    br i1 [[CMP10]], label [[OMP_INNER_FOR_BODY11:%.*]], label [[OMP_INNER_FOR_END18:%.*]]
 // CHECK:       omp.inner.for.body11:
-// CHECK-NEXT:    [[TMP87:%.*]] = load i32, i32* [[DOTOMP_IV7]], align 4
+// CHECK-NEXT:    [[TMP87:%.*]] = load i32, ptr [[DOTOMP_IV7]], align 4
 // CHECK-NEXT:    [[MUL13:%.*]] = mul nsw i32 [[TMP87]], 1
 // CHECK-NEXT:    [[ADD14:%.*]] = add nsw i32 0, [[MUL13]]
-// CHECK-NEXT:    store i32 [[ADD14]], i32* [[I12]], align 4
+// CHECK-NEXT:    store i32 [[ADD14]], ptr [[I12]], align 4
 // CHECK-NEXT:    br label [[OMP_BODY_CONTINUE15:%.*]]
 // CHECK:       omp.body.continue15:
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_INC16:%.*]]
 // CHECK:       omp.inner.for.inc16:
-// CHECK-NEXT:    [[TMP88:%.*]] = load i32, i32* [[DOTOMP_IV7]], align 4
+// CHECK-NEXT:    [[TMP88:%.*]] = load i32, ptr [[DOTOMP_IV7]], align 4
 // CHECK-NEXT:    [[ADD17:%.*]] = add nsw i32 [[TMP88]], 1
-// CHECK-NEXT:    store i32 [[ADD17]], i32* [[DOTOMP_IV7]], align 4
+// CHECK-NEXT:    store i32 [[ADD17]], ptr [[DOTOMP_IV7]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND9]]
 // CHECK:       omp.inner.for.end18:
 // CHECK-NEXT:    br label [[OMP_LOOP_EXIT19:%.*]]
 // CHECK:       omp.loop.exit19:
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP83]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP82]]) [ "DIR.OMP.END.TARGET"() ]
-// CHECK-NEXT:    [[TMP89:%.*]] = load i32, i32* [[START]], align 4
-// CHECK-NEXT:    store i32 [[TMP89]], i32* [[DOTCAPTURE_EXPR_26]], align 4
-// CHECK-NEXT:    [[TMP90:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_26]], align 4
-// CHECK-NEXT:    [[TMP91:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 16), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP90]], i32 1, i32 1), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_IV21]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_LB22]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_UB23]]), "QUAL.OMP.PRIVATE"(i32* [[I27]]), "QUAL.OMP.PRIVATE"(i32* [[PLACESTMP20]]) ]
-// CHECK-NEXT:    store i32 0, i32* [[DOTOMP_LB22]], align 4
-// CHECK-NEXT:    store i32 9, i32* [[DOTOMP_UB23]], align 4
-// CHECK-NEXT:    [[TMP92:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.NORMALIZED.IV"(i32* [[DOTOMP_IV21]]), "QUAL.OMP.FIRSTPRIVATE"(i32* [[DOTOMP_LB22]]), "QUAL.OMP.NORMALIZED.UB"(i32* [[DOTOMP_UB23]]), "QUAL.OMP.PRIVATE"(i32* [[I27]]) ]
-// CHECK-NEXT:    [[TMP93:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(i32* [[I27]], i32 1) ]
-// CHECK-NEXT:    [[TMP94:%.*]] = load i32, i32* [[DOTOMP_LB22]], align 4
-// CHECK-NEXT:    store i32 [[TMP94]], i32* [[DOTOMP_IV21]], align 4
+// CHECK-NEXT:    [[TMP89:%.*]] = load i32, ptr [[START]], align 4
+// CHECK-NEXT:    store i32 [[TMP89]], ptr [[DOTCAPTURE_EXPR_26]], align 4
+// CHECK-NEXT:    [[TMP90:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_26]], align 4
+// CHECK-NEXT:    [[TMP91:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 16), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP90]], i32 1, i32 1), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_IV21]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_LB22]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_UB23]]), "QUAL.OMP.PRIVATE"(ptr [[I27]]), "QUAL.OMP.PRIVATE"(ptr [[PLACESTMP20]]) ]
+// CHECK-NEXT:    store i32 0, ptr [[DOTOMP_LB22]], align 4
+// CHECK-NEXT:    store i32 9, ptr [[DOTOMP_UB23]], align 4
+// CHECK-NEXT:    [[TMP92:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.NORMALIZED.IV"(ptr [[DOTOMP_IV21]]), "QUAL.OMP.FIRSTPRIVATE"(ptr [[DOTOMP_LB22]]), "QUAL.OMP.NORMALIZED.UB"(ptr [[DOTOMP_UB23]]), "QUAL.OMP.PRIVATE"(ptr [[I27]]) ]
+// CHECK-NEXT:    [[TMP93:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(ptr [[I27]], i32 1) ]
+// CHECK-NEXT:    [[TMP94:%.*]] = load i32, ptr [[DOTOMP_LB22]], align 4
+// CHECK-NEXT:    store i32 [[TMP94]], ptr [[DOTOMP_IV21]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND24:%.*]]
 // CHECK:       omp.inner.for.cond24:
-// CHECK-NEXT:    [[TMP95:%.*]] = load i32, i32* [[DOTOMP_IV21]], align 4
-// CHECK-NEXT:    [[TMP96:%.*]] = load i32, i32* [[DOTOMP_UB23]], align 4
+// CHECK-NEXT:    [[TMP95:%.*]] = load i32, ptr [[DOTOMP_IV21]], align 4
+// CHECK-NEXT:    [[TMP96:%.*]] = load i32, ptr [[DOTOMP_UB23]], align 4
 // CHECK-NEXT:    [[CMP25:%.*]] = icmp sle i32 [[TMP95]], [[TMP96]]
 // CHECK-NEXT:    br i1 [[CMP25]], label [[OMP_INNER_FOR_BODY26:%.*]], label [[OMP_INNER_FOR_END33:%.*]]
 // CHECK:       omp.inner.for.body26:
-// CHECK-NEXT:    [[TMP97:%.*]] = load i32, i32* [[DOTOMP_IV21]], align 4
+// CHECK-NEXT:    [[TMP97:%.*]] = load i32, ptr [[DOTOMP_IV21]], align 4
 // CHECK-NEXT:    [[MUL28:%.*]] = mul nsw i32 [[TMP97]], 1
 // CHECK-NEXT:    [[ADD29:%.*]] = add nsw i32 0, [[MUL28]]
-// CHECK-NEXT:    store i32 [[ADD29]], i32* [[I27]], align 4
+// CHECK-NEXT:    store i32 [[ADD29]], ptr [[I27]], align 4
 // CHECK-NEXT:    br label [[OMP_BODY_CONTINUE30:%.*]]
 // CHECK:       omp.body.continue30:
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_INC31:%.*]]
 // CHECK:       omp.inner.for.inc31:
-// CHECK-NEXT:    [[TMP98:%.*]] = load i32, i32* [[DOTOMP_IV21]], align 4
+// CHECK-NEXT:    [[TMP98:%.*]] = load i32, ptr [[DOTOMP_IV21]], align 4
 // CHECK-NEXT:    [[ADD32:%.*]] = add nsw i32 [[TMP98]], 1
-// CHECK-NEXT:    store i32 [[ADD32]], i32* [[DOTOMP_IV21]], align 4
+// CHECK-NEXT:    store i32 [[ADD32]], ptr [[DOTOMP_IV21]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND24]]
 // CHECK:       omp.inner.for.end33:
 // CHECK-NEXT:    br label [[OMP_LOOP_EXIT34:%.*]]
@@ -470,37 +470,37 @@ int template_test() { run<void,1,2,3>(); return 0;
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP93]]) [ "DIR.OMP.END.SIMD"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP92]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP91]]) [ "DIR.OMP.END.TARGET"() ]
-// CHECK-NEXT:    [[TMP99:%.*]] = load i32, i32* [[START]], align 4
-// CHECK-NEXT:    store i32 [[TMP99]], i32* [[DOTCAPTURE_EXPR_27]], align 4
-// CHECK-NEXT:    [[TMP100:%.*]] = load i32, i32* [[LENGTH]], align 4
-// CHECK-NEXT:    store i32 [[TMP100]], i32* [[DOTCAPTURE_EXPR_28]], align 4
-// CHECK-NEXT:    [[TMP101:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_27]], align 4
-// CHECK-NEXT:    [[TMP102:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_28]], align 4
-// CHECK-NEXT:    [[TMP103:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 17), "QUAL.OMP.SUBDEVICE"(i32 1, i32 [[TMP101]], i32 [[TMP102]], i32 1), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_IV36]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_LB37]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_UB38]]), "QUAL.OMP.PRIVATE"(i32* [[I42]]), "QUAL.OMP.PRIVATE"(i32* [[PLACESTMP35]]) ]
-// CHECK-NEXT:    [[TMP104:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_IV36]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_LB37]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_UB38]]), "QUAL.OMP.PRIVATE"(i32* [[I42]]), "QUAL.OMP.PRIVATE"(i32* [[PLACESTMP35]]) ]
-// CHECK-NEXT:    store i32 0, i32* [[DOTOMP_LB37]], align 4
-// CHECK-NEXT:    store i32 9, i32* [[DOTOMP_UB38]], align 4
-// CHECK-NEXT:    [[TMP105:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), "QUAL.OMP.NORMALIZED.IV"(i32* [[DOTOMP_IV36]]), "QUAL.OMP.FIRSTPRIVATE"(i32* [[DOTOMP_LB37]]), "QUAL.OMP.NORMALIZED.UB"(i32* [[DOTOMP_UB38]]), "QUAL.OMP.PRIVATE"(i32* [[I42]]) ]
-// CHECK-NEXT:    [[TMP106:%.*]] = load i32, i32* [[DOTOMP_LB37]], align 4
-// CHECK-NEXT:    store i32 [[TMP106]], i32* [[DOTOMP_IV36]], align 4
+// CHECK-NEXT:    [[TMP99:%.*]] = load i32, ptr [[START]], align 4
+// CHECK-NEXT:    store i32 [[TMP99]], ptr [[DOTCAPTURE_EXPR_27]], align 4
+// CHECK-NEXT:    [[TMP100:%.*]] = load i32, ptr [[LENGTH]], align 4
+// CHECK-NEXT:    store i32 [[TMP100]], ptr [[DOTCAPTURE_EXPR_28]], align 4
+// CHECK-NEXT:    [[TMP101:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_27]], align 4
+// CHECK-NEXT:    [[TMP102:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_28]], align 4
+// CHECK-NEXT:    [[TMP103:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 17), "QUAL.OMP.SUBDEVICE"(i32 1, i32 [[TMP101]], i32 [[TMP102]], i32 1), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_IV36]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_LB37]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_UB38]]), "QUAL.OMP.PRIVATE"(ptr [[I42]]), "QUAL.OMP.PRIVATE"(ptr [[PLACESTMP35]]) ]
+// CHECK-NEXT:    [[TMP104:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_IV36]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_LB37]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_UB38]]), "QUAL.OMP.PRIVATE"(ptr [[I42]]), "QUAL.OMP.PRIVATE"(ptr [[PLACESTMP35]]) ]
+// CHECK-NEXT:    store i32 0, ptr [[DOTOMP_LB37]], align 4
+// CHECK-NEXT:    store i32 9, ptr [[DOTOMP_UB38]], align 4
+// CHECK-NEXT:    [[TMP105:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), "QUAL.OMP.NORMALIZED.IV"(ptr [[DOTOMP_IV36]]), "QUAL.OMP.FIRSTPRIVATE"(ptr [[DOTOMP_LB37]]), "QUAL.OMP.NORMALIZED.UB"(ptr [[DOTOMP_UB38]]), "QUAL.OMP.PRIVATE"(ptr [[I42]]) ]
+// CHECK-NEXT:    [[TMP106:%.*]] = load i32, ptr [[DOTOMP_LB37]], align 4
+// CHECK-NEXT:    store i32 [[TMP106]], ptr [[DOTOMP_IV36]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND39:%.*]]
 // CHECK:       omp.inner.for.cond39:
-// CHECK-NEXT:    [[TMP107:%.*]] = load i32, i32* [[DOTOMP_IV36]], align 4
-// CHECK-NEXT:    [[TMP108:%.*]] = load i32, i32* [[DOTOMP_UB38]], align 4
+// CHECK-NEXT:    [[TMP107:%.*]] = load i32, ptr [[DOTOMP_IV36]], align 4
+// CHECK-NEXT:    [[TMP108:%.*]] = load i32, ptr [[DOTOMP_UB38]], align 4
 // CHECK-NEXT:    [[CMP40:%.*]] = icmp sle i32 [[TMP107]], [[TMP108]]
 // CHECK-NEXT:    br i1 [[CMP40]], label [[OMP_INNER_FOR_BODY41:%.*]], label [[OMP_INNER_FOR_END48:%.*]]
 // CHECK:       omp.inner.for.body41:
-// CHECK-NEXT:    [[TMP109:%.*]] = load i32, i32* [[DOTOMP_IV36]], align 4
+// CHECK-NEXT:    [[TMP109:%.*]] = load i32, ptr [[DOTOMP_IV36]], align 4
 // CHECK-NEXT:    [[MUL43:%.*]] = mul nsw i32 [[TMP109]], 1
 // CHECK-NEXT:    [[ADD44:%.*]] = add nsw i32 0, [[MUL43]]
-// CHECK-NEXT:    store i32 [[ADD44]], i32* [[I42]], align 4
+// CHECK-NEXT:    store i32 [[ADD44]], ptr [[I42]], align 4
 // CHECK-NEXT:    br label [[OMP_BODY_CONTINUE45:%.*]]
 // CHECK:       omp.body.continue45:
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_INC46:%.*]]
 // CHECK:       omp.inner.for.inc46:
-// CHECK-NEXT:    [[TMP110:%.*]] = load i32, i32* [[DOTOMP_IV36]], align 4
+// CHECK-NEXT:    [[TMP110:%.*]] = load i32, ptr [[DOTOMP_IV36]], align 4
 // CHECK-NEXT:    [[ADD47:%.*]] = add nsw i32 [[TMP110]], 1
-// CHECK-NEXT:    store i32 [[ADD47]], i32* [[DOTOMP_IV36]], align 4
+// CHECK-NEXT:    store i32 [[ADD47]], ptr [[DOTOMP_IV36]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND39]]
 // CHECK:       omp.inner.for.end48:
 // CHECK-NEXT:    br label [[OMP_LOOP_EXIT49:%.*]]
@@ -508,34 +508,34 @@ int template_test() { run<void,1,2,3>(); return 0;
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP105]]) [ "DIR.OMP.END.GENERICLOOP"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP104]]) [ "DIR.OMP.END.PARALLEL"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP103]]) [ "DIR.OMP.END.TARGET"() ]
-// CHECK-NEXT:    [[TMP111:%.*]] = load i32, i32* [[START]], align 4
-// CHECK-NEXT:    store i32 [[TMP111]], i32* [[DOTCAPTURE_EXPR_29]], align 4
-// CHECK-NEXT:    [[TMP112:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_29]], align 4
-// CHECK-NEXT:    [[TMP113:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 18), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP112]], i32 1, i32 1), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_IV51]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_LB52]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_UB53]]), "QUAL.OMP.PRIVATE"(i32* [[I57]]), "QUAL.OMP.PRIVATE"(i32* [[PLACESTMP50]]) ]
-// CHECK-NEXT:    [[TMP114:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_IV51]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_LB52]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_UB53]]), "QUAL.OMP.PRIVATE"(i32* [[I57]]), "QUAL.OMP.PRIVATE"(i32* [[PLACESTMP50]]) ]
-// CHECK-NEXT:    store i32 0, i32* [[DOTOMP_LB52]], align 4
-// CHECK-NEXT:    store i32 9, i32* [[DOTOMP_UB53]], align 4
-// CHECK-NEXT:    [[TMP115:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(), "QUAL.OMP.NORMALIZED.IV"(i32* [[DOTOMP_IV51]]), "QUAL.OMP.FIRSTPRIVATE"(i32* [[DOTOMP_LB52]]), "QUAL.OMP.NORMALIZED.UB"(i32* [[DOTOMP_UB53]]), "QUAL.OMP.PRIVATE"(i32* [[I57]]) ]
-// CHECK-NEXT:    [[TMP116:%.*]] = load i32, i32* [[DOTOMP_LB52]], align 4
-// CHECK-NEXT:    store i32 [[TMP116]], i32* [[DOTOMP_IV51]], align 4
+// CHECK-NEXT:    [[TMP111:%.*]] = load i32, ptr [[START]], align 4
+// CHECK-NEXT:    store i32 [[TMP111]], ptr [[DOTCAPTURE_EXPR_29]], align 4
+// CHECK-NEXT:    [[TMP112:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_29]], align 4
+// CHECK-NEXT:    [[TMP113:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 18), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP112]], i32 1, i32 1), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_IV51]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_LB52]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_UB53]]), "QUAL.OMP.PRIVATE"(ptr [[I57]]), "QUAL.OMP.PRIVATE"(ptr [[PLACESTMP50]]) ]
+// CHECK-NEXT:    [[TMP114:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_IV51]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_LB52]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_UB53]]), "QUAL.OMP.PRIVATE"(ptr [[I57]]), "QUAL.OMP.PRIVATE"(ptr [[PLACESTMP50]]) ]
+// CHECK-NEXT:    store i32 0, ptr [[DOTOMP_LB52]], align 4
+// CHECK-NEXT:    store i32 9, ptr [[DOTOMP_UB53]], align 4
+// CHECK-NEXT:    [[TMP115:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(), "QUAL.OMP.NORMALIZED.IV"(ptr [[DOTOMP_IV51]]), "QUAL.OMP.FIRSTPRIVATE"(ptr [[DOTOMP_LB52]]), "QUAL.OMP.NORMALIZED.UB"(ptr [[DOTOMP_UB53]]), "QUAL.OMP.PRIVATE"(ptr [[I57]]) ]
+// CHECK-NEXT:    [[TMP116:%.*]] = load i32, ptr [[DOTOMP_LB52]], align 4
+// CHECK-NEXT:    store i32 [[TMP116]], ptr [[DOTOMP_IV51]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND54:%.*]]
 // CHECK:       omp.inner.for.cond54:
-// CHECK-NEXT:    [[TMP117:%.*]] = load i32, i32* [[DOTOMP_IV51]], align 4
-// CHECK-NEXT:    [[TMP118:%.*]] = load i32, i32* [[DOTOMP_UB53]], align 4
+// CHECK-NEXT:    [[TMP117:%.*]] = load i32, ptr [[DOTOMP_IV51]], align 4
+// CHECK-NEXT:    [[TMP118:%.*]] = load i32, ptr [[DOTOMP_UB53]], align 4
 // CHECK-NEXT:    [[CMP55:%.*]] = icmp sle i32 [[TMP117]], [[TMP118]]
 // CHECK-NEXT:    br i1 [[CMP55]], label [[OMP_INNER_FOR_BODY56:%.*]], label [[OMP_INNER_FOR_END63:%.*]]
 // CHECK:       omp.inner.for.body56:
-// CHECK-NEXT:    [[TMP119:%.*]] = load i32, i32* [[DOTOMP_IV51]], align 4
+// CHECK-NEXT:    [[TMP119:%.*]] = load i32, ptr [[DOTOMP_IV51]], align 4
 // CHECK-NEXT:    [[MUL58:%.*]] = mul nsw i32 [[TMP119]], 1
 // CHECK-NEXT:    [[ADD59:%.*]] = add nsw i32 0, [[MUL58]]
-// CHECK-NEXT:    store i32 [[ADD59]], i32* [[I57]], align 4
+// CHECK-NEXT:    store i32 [[ADD59]], ptr [[I57]], align 4
 // CHECK-NEXT:    br label [[OMP_BODY_CONTINUE60:%.*]]
 // CHECK:       omp.body.continue60:
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_INC61:%.*]]
 // CHECK:       omp.inner.for.inc61:
-// CHECK-NEXT:    [[TMP120:%.*]] = load i32, i32* [[DOTOMP_IV51]], align 4
+// CHECK-NEXT:    [[TMP120:%.*]] = load i32, ptr [[DOTOMP_IV51]], align 4
 // CHECK-NEXT:    [[ADD62:%.*]] = add nsw i32 [[TMP120]], 1
-// CHECK-NEXT:    store i32 [[ADD62]], i32* [[DOTOMP_IV51]], align 4
+// CHECK-NEXT:    store i32 [[ADD62]], ptr [[DOTOMP_IV51]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND54]]
 // CHECK:       omp.inner.for.end63:
 // CHECK-NEXT:    br label [[OMP_LOOP_EXIT64:%.*]]
@@ -543,32 +543,32 @@ int template_test() { run<void,1,2,3>(); return 0;
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP115]]) [ "DIR.OMP.END.DISTRIBUTE"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP114]]) [ "DIR.OMP.END.TEAMS"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP113]]) [ "DIR.OMP.END.TARGET"() ]
-// CHECK-NEXT:    [[TMP121:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 19), "QUAL.OMP.SUBDEVICE"(i32 0, i32 1, i32 10, i32 1), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_IV66]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_LB67]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_UB68]]), "QUAL.OMP.PRIVATE"(i32* [[I72]]), "QUAL.OMP.PRIVATE"(i32* [[PLACESTMP65]]) ]
-// CHECK-NEXT:    [[TMP122:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_IV66]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_LB67]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_UB68]]), "QUAL.OMP.PRIVATE"(i32* [[I72]]), "QUAL.OMP.PRIVATE"(i32* [[PLACESTMP65]]) ]
-// CHECK-NEXT:    store i32 0, i32* [[DOTOMP_LB67]], align 4
-// CHECK-NEXT:    store i32 9, i32* [[DOTOMP_UB68]], align 4
-// CHECK-NEXT:    [[TMP123:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(), "QUAL.OMP.NORMALIZED.IV"(i32* [[DOTOMP_IV66]]), "QUAL.OMP.FIRSTPRIVATE"(i32* [[DOTOMP_LB67]]), "QUAL.OMP.NORMALIZED.UB"(i32* [[DOTOMP_UB68]]), "QUAL.OMP.PRIVATE"(i32* [[I72]]) ]
-// CHECK-NEXT:    [[TMP124:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(i32* [[I72]], i32 1) ]
-// CHECK-NEXT:    [[TMP125:%.*]] = load i32, i32* [[DOTOMP_LB67]], align 4
-// CHECK-NEXT:    store i32 [[TMP125]], i32* [[DOTOMP_IV66]], align 4
+// CHECK-NEXT:    [[TMP121:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 19), "QUAL.OMP.SUBDEVICE"(i32 0, i32 1, i32 10, i32 1), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_IV66]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_LB67]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_UB68]]), "QUAL.OMP.PRIVATE"(ptr [[I72]]), "QUAL.OMP.PRIVATE"(ptr [[PLACESTMP65]]) ]
+// CHECK-NEXT:    [[TMP122:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_IV66]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_LB67]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_UB68]]), "QUAL.OMP.PRIVATE"(ptr [[I72]]), "QUAL.OMP.PRIVATE"(ptr [[PLACESTMP65]]) ]
+// CHECK-NEXT:    store i32 0, ptr [[DOTOMP_LB67]], align 4
+// CHECK-NEXT:    store i32 9, ptr [[DOTOMP_UB68]], align 4
+// CHECK-NEXT:    [[TMP123:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(), "QUAL.OMP.NORMALIZED.IV"(ptr [[DOTOMP_IV66]]), "QUAL.OMP.FIRSTPRIVATE"(ptr [[DOTOMP_LB67]]), "QUAL.OMP.NORMALIZED.UB"(ptr [[DOTOMP_UB68]]), "QUAL.OMP.PRIVATE"(ptr [[I72]]) ]
+// CHECK-NEXT:    [[TMP124:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(ptr [[I72]], i32 1) ]
+// CHECK-NEXT:    [[TMP125:%.*]] = load i32, ptr [[DOTOMP_LB67]], align 4
+// CHECK-NEXT:    store i32 [[TMP125]], ptr [[DOTOMP_IV66]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND69:%.*]]
 // CHECK:       omp.inner.for.cond69:
-// CHECK-NEXT:    [[TMP126:%.*]] = load i32, i32* [[DOTOMP_IV66]], align 4
-// CHECK-NEXT:    [[TMP127:%.*]] = load i32, i32* [[DOTOMP_UB68]], align 4
+// CHECK-NEXT:    [[TMP126:%.*]] = load i32, ptr [[DOTOMP_IV66]], align 4
+// CHECK-NEXT:    [[TMP127:%.*]] = load i32, ptr [[DOTOMP_UB68]], align 4
 // CHECK-NEXT:    [[CMP70:%.*]] = icmp sle i32 [[TMP126]], [[TMP127]]
 // CHECK-NEXT:    br i1 [[CMP70]], label [[OMP_INNER_FOR_BODY71:%.*]], label [[OMP_INNER_FOR_END78:%.*]]
 // CHECK:       omp.inner.for.body71:
-// CHECK-NEXT:    [[TMP128:%.*]] = load i32, i32* [[DOTOMP_IV66]], align 4
+// CHECK-NEXT:    [[TMP128:%.*]] = load i32, ptr [[DOTOMP_IV66]], align 4
 // CHECK-NEXT:    [[MUL73:%.*]] = mul nsw i32 [[TMP128]], 1
 // CHECK-NEXT:    [[ADD74:%.*]] = add nsw i32 0, [[MUL73]]
-// CHECK-NEXT:    store i32 [[ADD74]], i32* [[I72]], align 4
+// CHECK-NEXT:    store i32 [[ADD74]], ptr [[I72]], align 4
 // CHECK-NEXT:    br label [[OMP_BODY_CONTINUE75:%.*]]
 // CHECK:       omp.body.continue75:
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_INC76:%.*]]
 // CHECK:       omp.inner.for.inc76:
-// CHECK-NEXT:    [[TMP129:%.*]] = load i32, i32* [[DOTOMP_IV66]], align 4
+// CHECK-NEXT:    [[TMP129:%.*]] = load i32, ptr [[DOTOMP_IV66]], align 4
 // CHECK-NEXT:    [[ADD77:%.*]] = add nsw i32 [[TMP129]], 1
-// CHECK-NEXT:    store i32 [[ADD77]], i32* [[DOTOMP_IV66]], align 4
+// CHECK-NEXT:    store i32 [[ADD77]], ptr [[DOTOMP_IV66]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND69]]
 // CHECK:       omp.inner.for.end78:
 // CHECK-NEXT:    br label [[OMP_LOOP_EXIT79:%.*]]
@@ -577,31 +577,31 @@ int template_test() { run<void,1,2,3>(); return 0;
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP123]]) [ "DIR.OMP.END.DISTRIBUTE"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP122]]) [ "DIR.OMP.END.TEAMS"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP121]]) [ "DIR.OMP.END.TARGET"() ]
-// CHECK-NEXT:    [[TMP130:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 20), "QUAL.OMP.SUBDEVICE"(i32 0, i32 2, i32 20, i32 100), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_IV81]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_LB82]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_UB83]]), "QUAL.OMP.PRIVATE"(i32* [[I87]]), "QUAL.OMP.PRIVATE"(i32* [[PLACESTMP80]]) ]
-// CHECK-NEXT:    [[TMP131:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_IV81]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_LB82]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_UB83]]), "QUAL.OMP.PRIVATE"(i32* [[I87]]), "QUAL.OMP.PRIVATE"(i32* [[PLACESTMP80]]) ]
-// CHECK-NEXT:    store i32 0, i32* [[DOTOMP_LB82]], align 4
-// CHECK-NEXT:    store i32 9, i32* [[DOTOMP_UB83]], align 4
-// CHECK-NEXT:    [[TMP132:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), "QUAL.OMP.NORMALIZED.IV"(i32* [[DOTOMP_IV81]]), "QUAL.OMP.FIRSTPRIVATE"(i32* [[DOTOMP_LB82]]), "QUAL.OMP.NORMALIZED.UB"(i32* [[DOTOMP_UB83]]), "QUAL.OMP.PRIVATE"(i32* [[I87]]) ]
-// CHECK-NEXT:    [[TMP133:%.*]] = load i32, i32* [[DOTOMP_LB82]], align 4
-// CHECK-NEXT:    store i32 [[TMP133]], i32* [[DOTOMP_IV81]], align 4
+// CHECK-NEXT:    [[TMP130:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 20), "QUAL.OMP.SUBDEVICE"(i32 0, i32 2, i32 20, i32 100), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_IV81]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_LB82]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_UB83]]), "QUAL.OMP.PRIVATE"(ptr [[I87]]), "QUAL.OMP.PRIVATE"(ptr [[PLACESTMP80]]) ]
+// CHECK-NEXT:    [[TMP131:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_IV81]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_LB82]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_UB83]]), "QUAL.OMP.PRIVATE"(ptr [[I87]]), "QUAL.OMP.PRIVATE"(ptr [[PLACESTMP80]]) ]
+// CHECK-NEXT:    store i32 0, ptr [[DOTOMP_LB82]], align 4
+// CHECK-NEXT:    store i32 9, ptr [[DOTOMP_UB83]], align 4
+// CHECK-NEXT:    [[TMP132:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), "QUAL.OMP.NORMALIZED.IV"(ptr [[DOTOMP_IV81]]), "QUAL.OMP.FIRSTPRIVATE"(ptr [[DOTOMP_LB82]]), "QUAL.OMP.NORMALIZED.UB"(ptr [[DOTOMP_UB83]]), "QUAL.OMP.PRIVATE"(ptr [[I87]]) ]
+// CHECK-NEXT:    [[TMP133:%.*]] = load i32, ptr [[DOTOMP_LB82]], align 4
+// CHECK-NEXT:    store i32 [[TMP133]], ptr [[DOTOMP_IV81]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND84:%.*]]
 // CHECK:       omp.inner.for.cond84:
-// CHECK-NEXT:    [[TMP134:%.*]] = load i32, i32* [[DOTOMP_IV81]], align 4
-// CHECK-NEXT:    [[TMP135:%.*]] = load i32, i32* [[DOTOMP_UB83]], align 4
+// CHECK-NEXT:    [[TMP134:%.*]] = load i32, ptr [[DOTOMP_IV81]], align 4
+// CHECK-NEXT:    [[TMP135:%.*]] = load i32, ptr [[DOTOMP_UB83]], align 4
 // CHECK-NEXT:    [[CMP85:%.*]] = icmp sle i32 [[TMP134]], [[TMP135]]
 // CHECK-NEXT:    br i1 [[CMP85]], label [[OMP_INNER_FOR_BODY86:%.*]], label [[OMP_INNER_FOR_END93:%.*]]
 // CHECK:       omp.inner.for.body86:
-// CHECK-NEXT:    [[TMP136:%.*]] = load i32, i32* [[DOTOMP_IV81]], align 4
+// CHECK-NEXT:    [[TMP136:%.*]] = load i32, ptr [[DOTOMP_IV81]], align 4
 // CHECK-NEXT:    [[MUL88:%.*]] = mul nsw i32 [[TMP136]], 1
 // CHECK-NEXT:    [[ADD89:%.*]] = add nsw i32 0, [[MUL88]]
-// CHECK-NEXT:    store i32 [[ADD89]], i32* [[I87]], align 4
+// CHECK-NEXT:    store i32 [[ADD89]], ptr [[I87]], align 4
 // CHECK-NEXT:    br label [[OMP_BODY_CONTINUE90:%.*]]
 // CHECK:       omp.body.continue90:
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_INC91:%.*]]
 // CHECK:       omp.inner.for.inc91:
-// CHECK-NEXT:    [[TMP137:%.*]] = load i32, i32* [[DOTOMP_IV81]], align 4
+// CHECK-NEXT:    [[TMP137:%.*]] = load i32, ptr [[DOTOMP_IV81]], align 4
 // CHECK-NEXT:    [[ADD92:%.*]] = add nsw i32 [[TMP137]], 1
-// CHECK-NEXT:    store i32 [[ADD92]], i32* [[DOTOMP_IV81]], align 4
+// CHECK-NEXT:    store i32 [[ADD92]], ptr [[DOTOMP_IV81]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND84]]
 // CHECK:       omp.inner.for.end93:
 // CHECK-NEXT:    br label [[OMP_LOOP_EXIT94:%.*]]
@@ -609,37 +609,37 @@ int template_test() { run<void,1,2,3>(); return 0;
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP132]]) [ "DIR.OMP.END.GENERICLOOP"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP131]]) [ "DIR.OMP.END.TEAMS"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP130]]) [ "DIR.OMP.END.TARGET"() ]
-// CHECK-NEXT:    [[TMP138:%.*]] = load i32, i32* [[START]], align 4
-// CHECK-NEXT:    store i32 [[TMP138]], i32* [[DOTCAPTURE_EXPR_30]], align 4
-// CHECK-NEXT:    [[TMP139:%.*]] = load i32, i32* [[LENGTH]], align 4
-// CHECK-NEXT:    store i32 [[TMP139]], i32* [[DOTCAPTURE_EXPR_31]], align 4
-// CHECK-NEXT:    [[TMP140:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_30]], align 4
-// CHECK-NEXT:    [[TMP141:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_31]], align 4
-// CHECK-NEXT:    [[TMP142:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 21), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP140]], i32 [[TMP141]], i32 1), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_IV96]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_LB97]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_UB98]]), "QUAL.OMP.PRIVATE"(i32* [[I102]]), "QUAL.OMP.PRIVATE"(i32* [[PLACESTMP95]]) ]
-// CHECK-NEXT:    [[TMP143:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_IV96]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_LB97]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_UB98]]), "QUAL.OMP.PRIVATE"(i32* [[I102]]), "QUAL.OMP.PRIVATE"(i32* [[PLACESTMP95]]) ]
-// CHECK-NEXT:    store i32 0, i32* [[DOTOMP_LB97]], align 4
-// CHECK-NEXT:    store i32 9, i32* [[DOTOMP_UB98]], align 4
-// CHECK-NEXT:    [[TMP144:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.NORMALIZED.IV"(i32* [[DOTOMP_IV96]]), "QUAL.OMP.FIRSTPRIVATE"(i32* [[DOTOMP_LB97]]), "QUAL.OMP.NORMALIZED.UB"(i32* [[DOTOMP_UB98]]), "QUAL.OMP.PRIVATE"(i32* [[I102]]) ]
-// CHECK-NEXT:    [[TMP145:%.*]] = load i32, i32* [[DOTOMP_LB97]], align 4
-// CHECK-NEXT:    store i32 [[TMP145]], i32* [[DOTOMP_IV96]], align 4
+// CHECK-NEXT:    [[TMP138:%.*]] = load i32, ptr [[START]], align 4
+// CHECK-NEXT:    store i32 [[TMP138]], ptr [[DOTCAPTURE_EXPR_30]], align 4
+// CHECK-NEXT:    [[TMP139:%.*]] = load i32, ptr [[LENGTH]], align 4
+// CHECK-NEXT:    store i32 [[TMP139]], ptr [[DOTCAPTURE_EXPR_31]], align 4
+// CHECK-NEXT:    [[TMP140:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_30]], align 4
+// CHECK-NEXT:    [[TMP141:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_31]], align 4
+// CHECK-NEXT:    [[TMP142:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 21), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP140]], i32 [[TMP141]], i32 1), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_IV96]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_LB97]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_UB98]]), "QUAL.OMP.PRIVATE"(ptr [[I102]]), "QUAL.OMP.PRIVATE"(ptr [[PLACESTMP95]]) ]
+// CHECK-NEXT:    [[TMP143:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_IV96]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_LB97]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_UB98]]), "QUAL.OMP.PRIVATE"(ptr [[I102]]), "QUAL.OMP.PRIVATE"(ptr [[PLACESTMP95]]) ]
+// CHECK-NEXT:    store i32 0, ptr [[DOTOMP_LB97]], align 4
+// CHECK-NEXT:    store i32 9, ptr [[DOTOMP_UB98]], align 4
+// CHECK-NEXT:    [[TMP144:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.NORMALIZED.IV"(ptr [[DOTOMP_IV96]]), "QUAL.OMP.FIRSTPRIVATE"(ptr [[DOTOMP_LB97]]), "QUAL.OMP.NORMALIZED.UB"(ptr [[DOTOMP_UB98]]), "QUAL.OMP.PRIVATE"(ptr [[I102]]) ]
+// CHECK-NEXT:    [[TMP145:%.*]] = load i32, ptr [[DOTOMP_LB97]], align 4
+// CHECK-NEXT:    store i32 [[TMP145]], ptr [[DOTOMP_IV96]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND99:%.*]]
 // CHECK:       omp.inner.for.cond99:
-// CHECK-NEXT:    [[TMP146:%.*]] = load i32, i32* [[DOTOMP_IV96]], align 4
-// CHECK-NEXT:    [[TMP147:%.*]] = load i32, i32* [[DOTOMP_UB98]], align 4
+// CHECK-NEXT:    [[TMP146:%.*]] = load i32, ptr [[DOTOMP_IV96]], align 4
+// CHECK-NEXT:    [[TMP147:%.*]] = load i32, ptr [[DOTOMP_UB98]], align 4
 // CHECK-NEXT:    [[CMP100:%.*]] = icmp sle i32 [[TMP146]], [[TMP147]]
 // CHECK-NEXT:    br i1 [[CMP100]], label [[OMP_INNER_FOR_BODY101:%.*]], label [[OMP_INNER_FOR_END108:%.*]]
 // CHECK:       omp.inner.for.body101:
-// CHECK-NEXT:    [[TMP148:%.*]] = load i32, i32* [[DOTOMP_IV96]], align 4
+// CHECK-NEXT:    [[TMP148:%.*]] = load i32, ptr [[DOTOMP_IV96]], align 4
 // CHECK-NEXT:    [[MUL103:%.*]] = mul nsw i32 [[TMP148]], 1
 // CHECK-NEXT:    [[ADD104:%.*]] = add nsw i32 0, [[MUL103]]
-// CHECK-NEXT:    store i32 [[ADD104]], i32* [[I102]], align 4
+// CHECK-NEXT:    store i32 [[ADD104]], ptr [[I102]], align 4
 // CHECK-NEXT:    br label [[OMP_BODY_CONTINUE105:%.*]]
 // CHECK:       omp.body.continue105:
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_INC106:%.*]]
 // CHECK:       omp.inner.for.inc106:
-// CHECK-NEXT:    [[TMP149:%.*]] = load i32, i32* [[DOTOMP_IV96]], align 4
+// CHECK-NEXT:    [[TMP149:%.*]] = load i32, ptr [[DOTOMP_IV96]], align 4
 // CHECK-NEXT:    [[ADD107:%.*]] = add nsw i32 [[TMP149]], 1
-// CHECK-NEXT:    store i32 [[ADD107]], i32* [[DOTOMP_IV96]], align 4
+// CHECK-NEXT:    store i32 [[ADD107]], ptr [[DOTOMP_IV96]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND99]]
 // CHECK:       omp.inner.for.end108:
 // CHECK-NEXT:    br label [[OMP_LOOP_EXIT109:%.*]]
@@ -647,38 +647,38 @@ int template_test() { run<void,1,2,3>(); return 0;
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP144]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP143]]) [ "DIR.OMP.END.TEAMS"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP142]]) [ "DIR.OMP.END.TARGET"() ]
-// CHECK-NEXT:    [[TMP150:%.*]] = load i32, i32* [[START]], align 4
-// CHECK-NEXT:    store i32 [[TMP150]], i32* [[DOTCAPTURE_EXPR_32]], align 4
-// CHECK-NEXT:    [[TMP151:%.*]] = load i32, i32* [[LENGTH]], align 4
-// CHECK-NEXT:    store i32 [[TMP151]], i32* [[DOTCAPTURE_EXPR_33]], align 4
-// CHECK-NEXT:    [[TMP152:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_32]], align 4
-// CHECK-NEXT:    [[TMP153:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_33]], align 4
-// CHECK-NEXT:    [[TMP154:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 22), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP152]], i32 [[TMP153]], i32 1), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_IV111]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_LB112]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_UB113]]), "QUAL.OMP.PRIVATE"(i32* [[I117]]), "QUAL.OMP.PRIVATE"(i32* [[PLACESTMP110]]) ]
-// CHECK-NEXT:    [[TMP155:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_IV111]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_LB112]]), "QUAL.OMP.PRIVATE"(i32* [[DOTOMP_UB113]]), "QUAL.OMP.PRIVATE"(i32* [[I117]]), "QUAL.OMP.PRIVATE"(i32* [[PLACESTMP110]]) ]
-// CHECK-NEXT:    store i32 0, i32* [[DOTOMP_LB112]], align 4
-// CHECK-NEXT:    store i32 9, i32* [[DOTOMP_UB113]], align 4
-// CHECK-NEXT:    [[TMP156:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.NORMALIZED.IV"(i32* [[DOTOMP_IV111]]), "QUAL.OMP.FIRSTPRIVATE"(i32* [[DOTOMP_LB112]]), "QUAL.OMP.NORMALIZED.UB"(i32* [[DOTOMP_UB113]]), "QUAL.OMP.PRIVATE"(i32* [[I117]]) ]
-// CHECK-NEXT:    [[TMP157:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(i32* [[I117]], i32 1) ]
-// CHECK-NEXT:    [[TMP158:%.*]] = load i32, i32* [[DOTOMP_LB112]], align 4
-// CHECK-NEXT:    store i32 [[TMP158]], i32* [[DOTOMP_IV111]], align 4
+// CHECK-NEXT:    [[TMP150:%.*]] = load i32, ptr [[START]], align 4
+// CHECK-NEXT:    store i32 [[TMP150]], ptr [[DOTCAPTURE_EXPR_32]], align 4
+// CHECK-NEXT:    [[TMP151:%.*]] = load i32, ptr [[LENGTH]], align 4
+// CHECK-NEXT:    store i32 [[TMP151]], ptr [[DOTCAPTURE_EXPR_33]], align 4
+// CHECK-NEXT:    [[TMP152:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_32]], align 4
+// CHECK-NEXT:    [[TMP153:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_33]], align 4
+// CHECK-NEXT:    [[TMP154:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 22), "QUAL.OMP.SUBDEVICE"(i32 0, i32 [[TMP152]], i32 [[TMP153]], i32 1), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_IV111]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_LB112]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_UB113]]), "QUAL.OMP.PRIVATE"(ptr [[I117]]), "QUAL.OMP.PRIVATE"(ptr [[PLACESTMP110]]) ]
+// CHECK-NEXT:    [[TMP155:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_IV111]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_LB112]]), "QUAL.OMP.PRIVATE"(ptr [[DOTOMP_UB113]]), "QUAL.OMP.PRIVATE"(ptr [[I117]]), "QUAL.OMP.PRIVATE"(ptr [[PLACESTMP110]]) ]
+// CHECK-NEXT:    store i32 0, ptr [[DOTOMP_LB112]], align 4
+// CHECK-NEXT:    store i32 9, ptr [[DOTOMP_UB113]], align 4
+// CHECK-NEXT:    [[TMP156:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.NORMALIZED.IV"(ptr [[DOTOMP_IV111]]), "QUAL.OMP.FIRSTPRIVATE"(ptr [[DOTOMP_LB112]]), "QUAL.OMP.NORMALIZED.UB"(ptr [[DOTOMP_UB113]]), "QUAL.OMP.PRIVATE"(ptr [[I117]]) ]
+// CHECK-NEXT:    [[TMP157:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(ptr [[I117]], i32 1) ]
+// CHECK-NEXT:    [[TMP158:%.*]] = load i32, ptr [[DOTOMP_LB112]], align 4
+// CHECK-NEXT:    store i32 [[TMP158]], ptr [[DOTOMP_IV111]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND114:%.*]]
 // CHECK:       omp.inner.for.cond114:
-// CHECK-NEXT:    [[TMP159:%.*]] = load i32, i32* [[DOTOMP_IV111]], align 4
-// CHECK-NEXT:    [[TMP160:%.*]] = load i32, i32* [[DOTOMP_UB113]], align 4
+// CHECK-NEXT:    [[TMP159:%.*]] = load i32, ptr [[DOTOMP_IV111]], align 4
+// CHECK-NEXT:    [[TMP160:%.*]] = load i32, ptr [[DOTOMP_UB113]], align 4
 // CHECK-NEXT:    [[CMP115:%.*]] = icmp sle i32 [[TMP159]], [[TMP160]]
 // CHECK-NEXT:    br i1 [[CMP115]], label [[OMP_INNER_FOR_BODY116:%.*]], label [[OMP_INNER_FOR_END123:%.*]]
 // CHECK:       omp.inner.for.body116:
-// CHECK-NEXT:    [[TMP161:%.*]] = load i32, i32* [[DOTOMP_IV111]], align 4
+// CHECK-NEXT:    [[TMP161:%.*]] = load i32, ptr [[DOTOMP_IV111]], align 4
 // CHECK-NEXT:    [[MUL118:%.*]] = mul nsw i32 [[TMP161]], 1
 // CHECK-NEXT:    [[ADD119:%.*]] = add nsw i32 0, [[MUL118]]
-// CHECK-NEXT:    store i32 [[ADD119]], i32* [[I117]], align 4
+// CHECK-NEXT:    store i32 [[ADD119]], ptr [[I117]], align 4
 // CHECK-NEXT:    br label [[OMP_BODY_CONTINUE120:%.*]]
 // CHECK:       omp.body.continue120:
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_INC121:%.*]]
 // CHECK:       omp.inner.for.inc121:
-// CHECK-NEXT:    [[TMP162:%.*]] = load i32, i32* [[DOTOMP_IV111]], align 4
+// CHECK-NEXT:    [[TMP162:%.*]] = load i32, ptr [[DOTOMP_IV111]], align 4
 // CHECK-NEXT:    [[ADD122:%.*]] = add nsw i32 [[TMP162]], 1
-// CHECK-NEXT:    store i32 [[ADD122]], i32* [[DOTOMP_IV111]], align 4
+// CHECK-NEXT:    store i32 [[ADD122]], ptr [[DOTOMP_IV111]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND114]]
 // CHECK:       omp.inner.for.end123:
 // CHECK-NEXT:    br label [[OMP_LOOP_EXIT124:%.*]]

@@ -1,6 +1,6 @@
 //===------- Intel_DopeVectorConstProp.cpp --------------------------------===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -421,6 +421,14 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
     return false;
   };
 
+  // Return 'true' if 'M' has at least one Fortran Function.
+  auto ModuleHasFortranFunction = [](Module &M) -> bool {
+    for (auto &F : M.functions())
+      if (F.isFortran())
+        return true;
+    return false;
+  };
+
   // Check if AVX2 is supported.
   LLVM_DEBUG(dbgs() << "DOPE VECTOR CONSTANT PROPAGATION: BEGIN\n");
   auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
@@ -429,6 +437,13 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
     LLVM_DEBUG(dbgs() << "DOPE VECTOR CONSTANT PROPAGATION: END\n");
     return false;
   }
+
+  // There must be at least one Fortran function.
+  if (!ModuleHasFortranFunction(M)) {
+    LLVM_DEBUG(dbgs() << "NO FORTRAN FUNCTION\n");
+    LLVM_DEBUG(dbgs() << "DOPE VECTOR CONSTANT PROPAGATION: END\n");
+    return false;
+  } 
 
   bool Change = false;
   const DataLayout &DL = M.getDataLayout();

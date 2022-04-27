@@ -245,8 +245,13 @@ bool ResolveSubGroupWICallPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
 
     Value *ArgVF = nullptr;
     if (Kernels.count(Caller)) {
+      assert(KernelToVecInfoMap.count(Caller) != 0 &&
+             "No map for the kernel to vectorizer information!");
       ArgVF = KernelToVecInfoMap[Caller].first;
     } else if (EarlyExitFuncToKernelMap.count(Caller)) {
+      assert(KernelToVecInfoMap.count(EarlyExitFuncToKernelMap[Caller]) != 0 &&
+             "No map for the kernel to vectorizer information!");
+
       ArgVF = KernelToVecInfoMap[EarlyExitFuncToKernelMap[Caller]].first;
     } else {
       ArgVF = &*(Caller->arg_end() - 1);
@@ -578,6 +583,9 @@ void ResolveSubGroupWICallPass::resolveGetSubGroupRowSliceId(
   assert(CI->arg_size() == 4 &&
          "A get_sub_group_rowslice_id call must have exactly 4 args.");
   auto *Matrix = CI->getArgOperand(0);
+  assert(DPCPPKernelCompilationUtils::isValidMatrixType(
+             cast<FixedVectorType>(Matrix->getType())) &&
+         "Unsupported matrix type");
   unsigned R = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
   unsigned C = cast<ConstantInt>(CI->getArgOperand(2))->getZExtValue();
   auto *Index = CI->getArgOperand(3);

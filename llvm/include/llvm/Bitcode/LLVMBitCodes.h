@@ -1,4 +1,21 @@
 //===- LLVMBitCodes.h - Enum values for the LLVM bitcode format -*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -17,7 +34,10 @@
 #ifndef LLVM_BITCODE_LLVMBITCODES_H
 #define LLVM_BITCODE_LLVMBITCODES_H
 
-#include "llvm/Bitstream/BitCodes.h"
+// This is the only file included, and it, in turn, is a leaf header.
+// This allows external tools to dump the AST of this file and analyze it for
+// changes without needing to fully or partially build LLVM itself.
+#include "llvm/Bitstream/BitCodeEnums.h"
 
 namespace llvm {
 namespace bitc {
@@ -386,10 +406,14 @@ enum ConstantsCodes {
   CST_CODE_CE_UNOP = 25,                   // CE_UNOP:      [opcode, opval]
   CST_CODE_POISON = 26,                    // POISON
   CST_CODE_DSO_LOCAL_EQUIVALENT = 27,      // DSO_LOCAL_EQUIVALENT [gvty, gv]
-  CST_CODE_INLINEASM = 28,    // INLINEASM:     [sideeffect|alignstack|
+  CST_CODE_INLINEASM_OLD3 = 28,    // INLINEASM:     [sideeffect|alignstack|
+                                   //                 asmdialect|unwind,
+                                   //                 asmstr,conststr]
+  CST_CODE_NO_CFI_VALUE = 29, // NO_CFI [ fty, f ]
+  CST_CODE_INLINEASM = 30,    // INLINEASM:     [fnty,
+                              //                 sideeffect|alignstack|
                               //                 asmdialect|unwind,
                               //                 asmstr,conststr]
-  CST_CODE_NO_CFI_VALUE = 29, // NO_CFI [ fty, f ]
 };
 
 /// CastOpcodes - These are values used in the bitcode files to encode which
@@ -583,14 +607,15 @@ enum FunctionCodes {
       52, // CATCHSWITCH: [num,args...] or [num,args...,bb]
   // 53 is unused.
   // 54 is unused.
-  FUNC_CODE_OPERAND_BUNDLE = 55, // OPERAND_BUNDLE: [tag#, value...]
-  FUNC_CODE_INST_UNOP = 56,      // UNOP:       [opcode, ty, opval]
-  FUNC_CODE_INST_CALLBR = 57,    // CALLBR:     [attr, cc, norm, transfs,
-                                 //              fnty, fnid, args...]
-  FUNC_CODE_INST_FREEZE = 58,    // FREEZE: [opty, opval]
-  FUNC_CODE_INST_ATOMICRMW = 59, // ATOMICRMW: [ptrty, ptr, valty, val,
-                                 //             operation, align, vol,
-                                 //             ordering, synchscope]
+  FUNC_CODE_OPERAND_BUNDLE = 55,  // OPERAND_BUNDLE: [tag#, value...]
+  FUNC_CODE_INST_UNOP = 56,       // UNOP:       [opcode, ty, opval]
+  FUNC_CODE_INST_CALLBR = 57,     // CALLBR:     [attr, cc, norm, transfs,
+                                  //              fnty, fnid, args...]
+  FUNC_CODE_INST_FREEZE = 58,     // FREEZE: [opty, opval]
+  FUNC_CODE_INST_ATOMICRMW = 59,  // ATOMICRMW: [ptrty, ptr, valty, val,
+                                  //             operation, align, vol,
+                                  //             ordering, synchscope]
+  FUNC_CODE_BLOCKADDR_USERS = 60, // BLOCKADDR_USERS: [value...]
 };
 
 enum UseListCodes {
@@ -678,9 +703,11 @@ enum AttributeKindCodes {
   ATTR_KIND_NO_SANITIZE_COVERAGE = 76,
   ATTR_KIND_ELEMENTTYPE = 77,
   ATTR_KIND_DISABLE_SANITIZER_INSTRUMENTATION = 78,
+  ATTR_KIND_NO_SANITIZE_BOUNDS = 79,
+  ATTR_KIND_ALLOC_ALIGN = 80,
 #if INTEL_CUSTOMIZATION
-  ATTR_KIND_ALWAYS_INLINE_RECURSIVE = 79,
-  ATTR_KIND_INLINE_HINT_RECURSIVE = 80,
+  ATTR_KIND_ALWAYS_INLINE_RECURSIVE = 81,
+  ATTR_KIND_INLINE_HINT_RECURSIVE = 82,
 #endif // INTEL_CUSTOMIZATION
 };
 

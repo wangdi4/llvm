@@ -1,4 +1,21 @@
 //===- SemaTemplateDeduction.cpp - Template Argument Deduction ------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -533,9 +550,9 @@ DeduceTemplateArguments(Sema &S,
 ///
 /// \param TemplateParams the template parameters that we are deducing
 ///
-/// \param Param the parameter type
+/// \param P the parameter type
 ///
-/// \param Arg the argument type
+/// \param A the argument type
 ///
 /// \param Info information about the template argument deduction itself
 ///
@@ -1199,11 +1216,11 @@ static CXXRecordDecl *getCanonicalRD(QualType T) {
 ///
 /// \param S the semantic analysis object within which we are deducing.
 ///
-/// \param RecordT the top level record object we are deducing against.
+/// \param RD the top level record object we are deducing against.
 ///
 /// \param TemplateParams the template parameters that we are deducing.
 ///
-/// \param SpecParam the template specialization parameter type.
+/// \param P the template specialization parameter type.
 ///
 /// \param Info information about the template argument deduction itself.
 ///
@@ -1315,9 +1332,9 @@ DeduceTemplateBases(Sema &S, const CXXRecordDecl *RD,
 ///
 /// \param TemplateParams the template parameters that we are deducing
 ///
-/// \param ParamIn the parameter type
+/// \param P the parameter type
 ///
-/// \param ArgIn the argument type
+/// \param A the argument type
 ///
 /// \param Info information about the template argument deduction itself
 ///
@@ -4455,7 +4472,7 @@ namespace {
 
   public:
     SubstituteDeducedTypeTransform(Sema &SemaRef, DependentAuto DA)
-        : TreeTransform<SubstituteDeducedTypeTransform>(SemaRef), Replacement(),
+        : TreeTransform<SubstituteDeducedTypeTransform>(SemaRef),
           ReplacementIsPack(DA.IsPack), UseTypeSugar(true) {}
 
     SubstituteDeducedTypeTransform(Sema &SemaRef, QualType Replacement,
@@ -4772,12 +4789,13 @@ Sema::DeduceAutoType(TypeLoc Type, Expr *&Init, QualType &Result,
       return DAR_FailedAlreadyDiagnosed;
   }
 
-  if (const auto *AT = Type.getType()->getAs<AutoType>()) {
+  QualType MaybeAuto = Type.getType().getNonReferenceType();
+  while (MaybeAuto->isPointerType())
+    MaybeAuto = MaybeAuto->getPointeeType();
+  if (const auto *AT = MaybeAuto->getAs<AutoType>()) {
     if (AT->isConstrained() && !IgnoreConstraints) {
-      auto ConstraintsResult =
-          CheckDeducedPlaceholderConstraints(*this, *AT,
-                                             Type.getContainedAutoTypeLoc(),
-                                             DeducedType);
+      auto ConstraintsResult = CheckDeducedPlaceholderConstraints(
+          *this, *AT, Type.getContainedAutoTypeLoc(), DeducedType);
       if (ConstraintsResult != DAR_Succeeded)
         return ConstraintsResult;
     }

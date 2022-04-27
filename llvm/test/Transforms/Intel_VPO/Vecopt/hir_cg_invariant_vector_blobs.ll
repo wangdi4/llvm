@@ -13,14 +13,15 @@
 ;         @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ;   END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=2 -hir-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=2 -hir-details -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=2 -hir-details -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=1 | FileCheck %s
 
 %class.complex = type { float, float }
 
 ; CHECK-LABEL: Function: main
 ; CHECK:        BEGIN REGION { modified }
-; CHECK:              %.replicated = shufflevector %inv.temp,  undef,  <i32 0, i32 1, i32 0, i32 1>;
 ; CHECK:              + DO i64 i1 = 0, 99, 2   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK:              |   %.replicated = shufflevector %inv.temp,  undef,  <i32 0, i32 1, i32 0, i32 1>;
 ; CHECK:              |   %.vec = <float 4.000000e+00, float 6.000000e+00, float 4.000000e+00, float 6.000000e+00>  +  %.replicated;
 ; CHECK:              |   (<4 x float>*)(%dst)[0][i1] = %.vec;
 ; CHECK:              + END LOOP
@@ -64,11 +65,12 @@ exit:
 ; CHECK:        BEGIN REGION { modified }
 ; CHECK:              + DO i64 i1 = 0, 99, 1   <DO_LOOP>
 ; CHECK:              |   %inv.temp = (%inv.addr)[0];
-; CHECK:              |   %.replicated = shufflevector %inv.temp,  undef,  <i32 0, i32 1, i32 0, i32 1>;
-; CHECK:              |   <LVAL-REG> NON-LINEAR <4 x float> %.replicated
-; CHECK:              |   <RVAL-REG> NON-LINEAR <2 x float> %inv.temp
 ; CHECK:              |
 ; CHECK:              |   + DO i64 i2 = 0, 99, 2   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK:              |   |   %.replicated = shufflevector %inv.temp,  undef,  <i32 0, i32 1, i32 0, i32 1>;
+; CHECK:              |   |   <LVAL-REG> NON-LINEAR <4 x float> %.replicated
+; CHECK:              |   |   <RVAL-REG> NON-LINEAR <2 x float> %inv.temp
+; CHECK:              |   |
 ; CHECK:              |   |   %.vec = <float 4.000000e+00, float 6.000000e+00, float 4.000000e+00, float 6.000000e+00>  +  %.replicated;
 ; CHECK:              |   |   (<4 x float>*)(%dst)[0][i2] = %.vec;
 ; CHECK:              |   + END LOOP

@@ -1,18 +1,18 @@
 ; RUN: opt < %s -whole-program-assume -disable-output \
 ; RUN:      -debug-only=dtrans-soatoaosop-deps \
-; RUN:      -passes='require<dtrans-safetyanalyzer>,function(require<soatoaosop-approx>)' \
+; RUN:      -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>' \
 ; RUN:      2>&1 | FileCheck --check-prefix=CHECK-TY %s
 ; RUN: opt < %s -whole-program-assume -disable-output \
 ; RUN:      -debug-only=dtrans-soatoaosop-deps \
-; RUN:      -passes='require<dtrans-safetyanalyzer>,function(require<soatoaosop-approx>)' \
+; RUN:      -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>' \
 ; RUN:      2>&1 | FileCheck --check-prefix=CHECK-WF %s
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -disable-output \
 ; RUN:      -debug-only=dtrans-soatoaosop-deps \
-; RUN:      -passes='require<dtrans-safetyanalyzer>,function(require<soatoaosop-approx>)' \
+; RUN:      -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>' \
 ; RUN:      2>&1 | FileCheck --check-prefix=CHECK-OP %s
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -disable-output \
 ; RUN:      -debug-only=dtrans-soatoaosop-deps \
-; RUN:      -passes='require<dtrans-safetyanalyzer>,function(require<soatoaosop-approx>)' \
+; RUN:      -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>' \
 ; RUN:      2>&1 | FileCheck --check-prefix=CHECK-WF %s
 ; REQUIRES: asserts
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -57,8 +57,7 @@ entry:
   %conv8 = sext i32 %tmp5 to i64
   %mul = mul i64 %conv8, 8
   %add = add i64 %conv, %mul
-  %conv9 = trunc i64 %add to i32
-  %call = call i8* @_ZN10MemManager8allocateEl(%struct.Mem* %tmp3, i32 %conv9)
+  %call = call i8* @_ZN10MemManager8allocateEl(%struct.Mem* %tmp3, i64 %add)
   %tmp8 = bitcast i8* %call to i8**
   %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3
 ; Store newly allocate pointer to base pointer of array.
@@ -130,13 +129,13 @@ for.end:                                          ; preds = %for.cond
   ret void
 }
 
-define dso_local noalias nonnull "intel_dtrans_func_index"="1"  i8* @_ZN10MemManager8allocateEl(%struct.Mem* "intel_dtrans_func_index"="2" nocapture readnone %this, i32 %size) align 2 !intel.dtrans.func.type !13 {
+define dso_local noalias nonnull "intel_dtrans_func_index"="1"  i8* @_ZN10MemManager8allocateEl(%struct.Mem* "intel_dtrans_func_index"="2" nocapture readnone %this, i64 %size) align 2 !intel.dtrans.func.type !13 {
 entry:
-  %call = call i8* @malloc(i32 %size)
+  %call = call i8* @malloc(i64 %size)
   ret i8* %call
 }
 
-declare !intel.dtrans.func.type !12 "intel_dtrans_func_index"="1" i8* @malloc(i32)
+declare !intel.dtrans.func.type !12 "intel_dtrans_func_index"="1" i8* @malloc(i64)
 
 
 ; XCHECK: Deps computed: 33, Queries: 53

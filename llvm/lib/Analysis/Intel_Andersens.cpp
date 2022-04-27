@@ -1,4 +1,21 @@
 //===- Intel_Andersens.cpp - Andersen's Interprocedural Alias Analysis ---===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Copyright (C) 2021-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -559,9 +576,9 @@ bool AndersensAAResult::isSimilarType(Type *FPType, Type *TargetType,
   }
 
   // Array and vector types are Sequential types
-  if (isa<VectorType>(FPType) || isa<ArrayType>(FPType)) {
+  if (isa<FixedVectorType, ArrayType>(FPType)) {
     // The target is also sequential type
-    if (isa<VectorType>(TargetType) || isa<ArrayType>(TargetType)) {
+    if (isa<FixedVectorType, ArrayType>(TargetType)) {
       // If the function pointer is array type, then the target must
       // be array type. Also, if the function pointer is vector type
       // then the target must be vector type.
@@ -570,10 +587,10 @@ bool AndersensAAResult::isSimilarType(Type *FPType, Type *TargetType,
         return false;
 
       // Handle the bit width from the vector type
-      if (VectorType *FPVector = dyn_cast<VectorType>(FPType)) {
+      if (auto *FPVector = dyn_cast<FixedVectorType>(FPType)) {
         // We can use cast because we proved that the function pointer
         // and the target are vector types
-        VectorType *TargetVector = cast<VectorType>(TargetType);
+        auto *TargetVector = cast<FixedVectorType>(TargetType);
         if (FPVector->getPrimitiveSizeInBits() !=
             TargetVector->getPrimitiveSizeInBits())
           return false;
@@ -794,7 +811,7 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M, bool BeforeInl)  {
   // Register Callback Handles here
   for (DenseMap<Value*, unsigned>::iterator Iter = ValueNodes.begin(),
        EV = ValueNodes.end(); Iter != EV; ++Iter) {
-    AndersensHandles.insert(
+    AndersensHandles.push_back(
           AndersensDeletionCallbackHandle(*this, (Iter->first)));
   }
 
@@ -857,10 +874,16 @@ AndersensAAResult::AndersensAAResult(AndersensAAResult &&Arg)
       VarargNodes(std::move(Arg.VarargNodes)),
       NonEscapeStaticVars(std::move(Arg.NonEscapeStaticVars)),
       NonPointerAssignments(std::move(Arg.NonPointerAssignments)),
-      IMR(std::move(Arg.IMR)) {
+      IMR(std::move(Arg.IMR)),
+      AndersensHandles(std::move(Arg.AndersensHandles)) {
   WholeProgramSafeDetected = Arg.WholeProgramSafeDetected;
   if (IMR)
     IMR->resetAndersenAAResult(this);
+  // Update the parent for each DeletionCallbackHandle.
+  for (auto &H : AndersensHandles) {
+    assert(H.AAR == &Arg);
+    H.AAR = this;
+  }
 }
 
 /*static*/ AndersensAAResult
@@ -1525,6 +1548,10 @@ void AndersensAAResult::IdentifyObjects(Module &M) {
     ValueNodes[&(*I)] = NumObjects++;
   }
 
+  // Add all the GlobalIFunc.
+  for (GlobalIFunc &GIF : M.ifuncs())
+    ValueNodes[&GIF] = NumObjects++;
+
   // Add nodes for all of the functions and the instructions inside of them.
   for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
     // The function itself is a memory object.
@@ -1994,6 +2021,17 @@ void AndersensAAResult::CollectConstraints(Module &M) {
     if (checkConstraintsSizeLimitExceeded(false /* AfterOpt */))
       return;
   }
+
+  // Model ifuncs here:
+  //   ifunc = ReturnNode_of_Resolver
+  for (GlobalIFunc &GIF : M.ifuncs()) {
+    Function *RF = GIF.getResolverFunction();
+    if (!RF || RF->isDeclaration())
+      CreateConstraint(Constraint::Copy, getNode(&GIF), UniversalSet);
+    else
+      CreateConstraint(Constraint::Copy, getNode(&GIF), getReturnNode(RF));
+  }
+
   // Treat Indirect calls conservatively if number of indirect calls exceeds
   // AndersIndirectCallsLimit
   bool DoIndirectCallProcess = ((AndersIndirectCallsLimit == -1) || 
@@ -3258,7 +3296,18 @@ void AndersensAAResult::RewriteConstraints() {
 /// return the original node.
 unsigned AndersensAAResult::FindEquivalentNode(unsigned NodeIndex,
                                        unsigned NodeLabel) {
-  if (!GraphNodes[NodeIndex].AddressTaken) {
+  // CMPLRLLVM-35401: Indirect calls are not modeled during constraints
+  // collection but modeled during solving constraints so that possible
+  // targets for indirect calls may be available for better modelling
+  // during solving. So, constraints don’t represent points-to relations
+  // for indirect calls. A separate node list is maintained
+  // (PossibleSourceOfPointsToInfo) to handle constraints that are related
+  // to indirect calls. This list is used by both HVN and HU algorithms
+  // that optimize constraints to treat nodes of indirect calls as unknown
+  // variables. HVN runs first and then HU. HVN shouldn't remove
+  // constraints that are related to indirect calls by collapsing with other
+  // nodes. Otherwise, HU will miss indirect call node info.
+  if (!GraphNodes[NodeIndex].AddressTaken && GraphNodes[NodeIndex].Direct) {
     if (PEClass2Node[NodeLabel] != -1) {
       // We found an existing node with the same pointer label, so unify them.
       // We specifically request that Union-By-Rank not be used so that

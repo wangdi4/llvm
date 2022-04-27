@@ -1,5 +1,5 @@
-; RUN: opt < %s  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -switch-to-offload  -S | FileCheck %s
+; RUN: opt -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -S %s | FileCheck %s
 
 ; #include <omp.h>
 ; #include <stdio.h>
@@ -45,8 +45,7 @@
 ; CHECK-DAG: [[C_PAR_CAST]] = addrspacecast %class.C* [[C_PAR]] to %class.C addrspace(4)*
 ; CHECK-DAG: [[C_PAR_X:%[^ ]+]] = getelementptr inbounds %class.C, %class.C* [[C_PAR]], i32 0, i32 0
 ; CHECK-DAG: store i32 444, i32* [[C_PAR_X]], align 4
-; CHECK-DAG: call spir_func void @_ZTS1C.omp.destr(%class.C addrspace(4)* [[C_PAR_CAST1:%[^, ]+]])
-; CHECK-DAG: [[C_PAR_CAST1]] = addrspacecast %class.C* [[C_PAR]] to %class.C addrspace(4)*
+; CHECK-DAG: call spir_func void @_ZTS1C.omp.destr(%class.C addrspace(4)* [[C_PAR_CAST]])
 
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
