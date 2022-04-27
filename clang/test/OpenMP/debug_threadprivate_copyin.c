@@ -3,11 +3,7 @@
 
 // REQUIRES: x86_64-linux
 
-<<<<<<< HEAD
-// INTEL RUN: %clang_cc1 -opaque-pointers -debug-info-kind=constructor -x c -verify -triple x86_64-pc-linux-gnu -fopenmp -emit-llvm %s -o - | FileCheck %s
-=======
 // RUN: %clang_cc1 -opaque-pointers -debug-info-kind=constructor -x c -verify -triple x86_64-pc-linux-gnu -fopenmp -emit-llvm %s -o - | FileCheck %s
->>>>>>> 4ff40855fcc0c1320f31350bc9e93d4d6ce6891f
 // expected-no-diagnostics
 
 // CHECK: define internal void @.omp_outlined._debug__(
