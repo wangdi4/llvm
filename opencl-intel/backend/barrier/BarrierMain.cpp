@@ -23,7 +23,6 @@ using namespace llvm;
 extern "C" {
   void *createRemoveDuplicationBarrierPass(bool IsNativeDebug);
 
-  Pass *createImplicitGIDPass(bool HandleBarrier);
   void *createReplaceScalarWithMaskPass();
 }
 
@@ -68,7 +67,7 @@ void addBarrierMainPasses(llvm::legacy::PassManagerBase &PM,
   // Insert ImplicitGIDPass in the middle of subgroup emulation
   // to track GIDs in emulation loops
   if (DebugType == Native)
-    PM.add((ModulePass *)createImplicitGIDPass(/*HandleBarrier*/ true));
+    PM.add(createImplicitGIDLegacyPass(/*HandleBarrier*/ true));
 
   // Resume sub-group emulation
   PM.add(createSGValueWidenLegacyPass());

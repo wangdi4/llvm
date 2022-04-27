@@ -1,3 +1,10 @@
+; RUN: opt -passes=dpcpp-kernel-implicit-gid -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-implicit-gid -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-implicit-gid -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-implicit-gid -S %s | FileCheck %s
+
+; This test checks whether implicit GIDs work with subgroup emulation.
+
 ; Compiled from: (-g -cl-opt-disable)
 ; ----------------------------------------------------
 ; int foo(x) {
@@ -8,10 +15,6 @@
 ;     int x = foo(lid);
 ; }
 ; ----------------------------------------------------
-; Check whether implicit GIDs work with subgroup emulation
-
-; RUN: %oclopt -B-ImplicitGlobalIdPass -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -B-ImplicitGlobalIdPass -S %s | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"

@@ -58,6 +58,7 @@ ModulePass *createKernelBarrierLegacyPass(bool isNativeDebug,
                                           bool useTLSGlobals);
 ModulePass *createBarrierInFunctionLegacyPass();
 ModulePass *createImplicitArgsAnalysisLegacyPass();
+ModulePass *createImplicitGIDLegacyPass(bool HandleBarrier = true);
 ModulePass *createIndirectCallLoweringLegacyPass();
 ModulePass *createInstToFuncCallLegacyPass(
     VectorVariant::ISAClass ISA = VectorVariant::XMM);

@@ -1,3 +1,8 @@
+; RUN: opt -passes=dpcpp-kernel-implicit-gid -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-implicit-gid -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-implicit-gid -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-implicit-gid -S %s | FileCheck %s
+
 ; Compiled from:
 ; ----------------------------------------------------
 ;__kernel void foo()
@@ -6,9 +11,6 @@
 ; ----------------------------------------------------
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown -debug-info-kind=limited -O2 -disable-llvm-passes -x cl
 ; ----------------------------------------------------
-; RUN: %oclopt -B-ImplicitGlobalIdPass -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -B-ImplicitGlobalIdPass -verify -S %s | FileCheck %s
-;
 
 ; This test checks that we have a gid_alloca and a corresponding llvm.dbg.declare
 ; (with correct metadata, e.g. DILocation)
