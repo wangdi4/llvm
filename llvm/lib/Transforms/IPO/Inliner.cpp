@@ -96,6 +96,7 @@ STATISTIC(NumCallsDeleted, "Number of call sites deleted, not inlined");
 STATISTIC(NumDeleted, "Number of functions deleted because all callers found");
 STATISTIC(NumMergedAllocas, "Number of allocas merged together");
 
+/// Flag to disable manual alloca merging.
 ///
 /// Merging of allocas was originally done as a stack-size saving technique
 /// prior to LLVM's code generator having support for stack coloring based on
@@ -137,20 +138,6 @@ extern cl::opt<InlinerFunctionImportStatsOpts> InlinerFunctionImportStats;
 #if INTEL_FEATURE_SW_ADVANCED
 extern cl::opt<bool> DTransInlineHeuristics;
 #endif // INTEL_FEATURE_SW_ADVANCED
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-LegacyInlinerBase::LegacyInlinerBase(char &ID)
-    : CallGraphSCCPass(ID) {
-  Report = getInlineReport();
-  MDReport = getMDInlineReport();
-}
-
-LegacyInlinerBase::LegacyInlinerBase(char &ID, bool InsertLifetime)
-    : CallGraphSCCPass(ID), InsertLifetime(InsertLifetime) {
-  Report = getInlineReport();
-  MDReport = getMDInlineReport();
-}
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<std::string> CGSCCInlineReplayFile(
@@ -204,9 +191,18 @@ static cl::opt<CallSiteFormat::Format> CGSCCInlineReplayFormat(
                    "<Line Number>:<Column Number>.<Discriminator> (default)")),
     cl::desc("How cgscc inline replay file is formatted"), cl::Hidden);
 
-static cl::opt<bool> InlineEnablePriorityOrder(
-    "inline-enable-priority-order", cl::Hidden, cl::init(false),
-    cl::desc("Enable the priority inline order for the inliner"));
+#if INTEL_CUSTOMIZATION
+LegacyInlinerBase::LegacyInlinerBase(char &ID) : CallGraphSCCPass(ID) {
+  Report = getInlineReport();
+  MDReport = getMDInlineReport();
+}
+
+LegacyInlinerBase::LegacyInlinerBase(char &ID, bool InsertLifetime)
+    : CallGraphSCCPass(ID), InsertLifetime(InsertLifetime) {
+  Report = getInlineReport();
+  MDReport = getMDInlineReport();
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// For this class, we declare that we require and preserve the call graph.
 /// If the derived class implements this method, it should
@@ -733,6 +729,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
       LocalChange = true;
     }
   } while (LocalChange);
+
   return Changed;
 }
 
@@ -956,12 +953,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   // this model, but it is uniformly spread across all the functions in the SCC
   // and eventually they all become too large to inline, rather than
   // incrementally maknig a single function grow in a super linear fashion.
-  std::unique_ptr<InlineOrder<std::pair<CallBase *, int>>> Calls;
-  if (InlineEnablePriorityOrder)
-    Calls = std::make_unique<PriorityInlineOrder<InlineSizePriority>>();
-  else
-    Calls = std::make_unique<DefaultInlineOrder<std::pair<CallBase *, int>>>();
-  assert(Calls != nullptr && "Expected an initialized InlineOrder");
+  DefaultInlineOrder<std::pair<CallBase *, int>> Calls;
 
   // Populate the initial list of calls in this SCC.
   for (auto &N : InitialC) {
@@ -987,7 +979,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 #endif // INTEL_CUSTOMIZATION
         if (Function *Callee = CB->getCalledFunction()) {
           if (!Callee->isDeclaration())
-            Calls->push({CB, -1});
+            Calls.push({CB, -1});
           else if (!isa<IntrinsicInst>(I)) {
             using namespace ore;
             setInlineRemark(*CB, "unavailable definition");
@@ -1003,7 +995,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
      } // INTEL
   }
 #if INTEL_CUSTOMIZATION
-  if (Calls->empty()) {
+  if (Calls.empty()) {
     Report->endSCC();
     return PreservedAnalyses::all();
   }
@@ -1037,15 +1029,15 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 #endif // INTEL_CUSTOMIZATION
 
   // Loop forward over all of the calls.
-  while (!Calls->empty()) {
+  while (!Calls.empty()) {
     // We expect the calls to typically be batched with sequences of calls that
     // have the same caller, so we first set up some shared infrastructure for
     // this caller. We also do any pruning we can at this layer on the caller
     // alone.
-    Function &F = *Calls->front().first->getCaller();
+    Function &F = *Calls.front().first->getCaller();
     LazyCallGraph::Node &N = *CG.lookup(F);
     if (CG.lookupSCC(N) != C) {
-      Calls->pop();
+      Calls.pop();
       continue;
     }
     LLVM_DEBUG(dbgs() << "Inlining calls in: " << F.getName() << "\n"
@@ -1060,8 +1052,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     // We bail out as soon as the caller has to change so we can update the
     // call graph and prepare the context of that new caller.
     bool DidInline = false;
-    while (!Calls->empty() && Calls->front().first->getCaller() == &F) {
-      auto P = Calls->pop();
+    while (!Calls.empty() && Calls.front().first->getCaller() == &F) {
+      auto P = Calls.pop();
       CallBase *CB = P.first;
       const int InlineHistoryID = P.second;
       Function &Caller = *CB->getCaller();  // INTEL
@@ -1212,7 +1204,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
           }
           if (NewCallee) {
             if (!NewCallee->isDeclaration()) {
-              Calls->push({ICB, NewHistoryID});
+              Calls.push({ICB, NewHistoryID});
               // Continually inlining through an SCC can result in huge compile
               // times and bloated code since we arbitrarily stop at some point
               // when the inliner decides it's not profitable to inline anymore.
@@ -1247,7 +1239,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       if (Callee.isDiscardableIfUnused() && Callee.hasZeroLiveUses() &&
           !CG.isLibFunction(Callee)) {
         if (Callee.hasLocalLinkage() || !Callee.hasComdat()) {
-          Calls->erase_if([&](const std::pair<CallBase *, int> &Call) {
+          Calls.erase_if([&](const std::pair<CallBase *, int> &Call) {
             return Call.first->getCaller() == &Callee;
           });
           MDReport->setDead(&Callee); // INTEL
