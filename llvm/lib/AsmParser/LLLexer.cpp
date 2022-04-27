@@ -589,7 +589,6 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(exact);
   KEYWORD(inbounds);
   KEYWORD(inrange);
-  KEYWORD(align);
   KEYWORD(addrspace);
   KEYWORD(section);
   KEYWORD(partition);
@@ -598,7 +597,6 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(module);
   KEYWORD(asm);
   KEYWORD(sideeffect);
-  KEYWORD(alignstack);
   KEYWORD(inteldialect);
   KEYWORD(gc);
   KEYWORD(prefix);
@@ -665,6 +663,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(c);
 
   KEYWORD(attributes);
+<<<<<<< HEAD
 
   KEYWORD(alwaysinline);
   KEYWORD(allocalign);
@@ -748,8 +747,15 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(immarg);
   KEYWORD(byref);
   KEYWORD(mustprogress);
+=======
+>>>>>>> 86c770346c26ce4c9abf5a5b7ab4b5bbfdcf9d78
   KEYWORD(sync);
   KEYWORD(async);
+
+#define GET_ATTR_NAMES
+#define ATTRIBUTE_ENUM(ENUM_NAME, DISPLAY_NAME) \
+  KEYWORD(DISPLAY_NAME);
+#include "llvm/IR/Attributes.inc"
 
   KEYWORD(type);
   KEYWORD(opaque);
@@ -823,7 +829,6 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(param);
   KEYWORD(hotness);
   KEYWORD(unknown);
-  KEYWORD(hot);
   KEYWORD(critical);
   KEYWORD(relbf);
   KEYWORD(variable);

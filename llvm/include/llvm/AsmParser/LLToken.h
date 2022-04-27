@@ -134,7 +134,6 @@ enum Kind {
   kw_exact,
   kw_inbounds,
   kw_inrange,
-  kw_align,
   kw_addrspace,
   kw_section,
   kw_partition,
@@ -143,7 +142,6 @@ enum Kind {
   kw_module,
   kw_asm,
   kw_sideeffect,
-  kw_alignstack,
   kw_inteldialect,
   kw_gc,
   kw_prefix,
@@ -208,6 +206,7 @@ enum Kind {
 
   // Attributes:
   kw_attributes,
+<<<<<<< HEAD
   kw_allocalign,
   kw_allocsize,
   kw_alwaysinline,
@@ -288,8 +287,14 @@ enum Kind {
   kw_immarg,
   kw_byref,
   kw_mustprogress,
+=======
+>>>>>>> 86c770346c26ce4c9abf5a5b7ab4b5bbfdcf9d78
   kw_sync,
   kw_async,
+#define GET_ATTR_NAMES
+#define ATTRIBUTE_ENUM(ENUM_NAME, DISPLAY_NAME) \
+  kw_##DISPLAY_NAME,
+#include "llvm/IR/Attributes.inc"
 
   kw_type,
   kw_opaque,
@@ -453,7 +458,6 @@ enum Kind {
   kw_param,
   kw_hotness,
   kw_unknown,
-  kw_hot,
   kw_critical,
   kw_relbf,
   kw_variable,
