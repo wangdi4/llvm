@@ -6349,26 +6349,6 @@ DbgRewriteSalvageableDVIs(llvm::Loop *L, ScalarEvolution &SE,
                       << '\n');
 
     for (auto &DVIRec : DVIToUpdate) {
-<<<<<<< HEAD
-      if (!DVIRec.DVI->isUndef())
-        continue;
-
-      // Some DVIs that were single location-op when cached are now multi-op,
-      // due to LSR optimisations. However, multi-op salvaging is not yet
-      // supported by SCEV salvaging. But, we can attempt a salvage by restoring
-      // the pre-LSR single-op expression.
-      if (DVIRec.DVI->hasArgList()) {
-        if (!DVIRec.DVI->getVariableLocationOp(0))
-          continue;
-        llvm::Type *Ty = DVIRec.DVI->getVariableLocationOp(0)->getType();
-        DVIRec.DVI->setRawLocation(
-            llvm::ValueAsMetadata::get(UndefValue::get(Ty)));
-        DVIRec.DVI->setExpression(DVIRec.Expr);
-      }
-
-      LLVM_DEBUG(dbgs() << "scev-salvage: value to recover SCEV: "
-                        << *DVIRec.SCEV << '\n');
-
 #if INTEL_CUSTOMIZATION
       // After phi cleanup, some recurrence SCEVs may not be valid any longer.
       // Guard the code below with a validity check.
@@ -6376,20 +6356,8 @@ DbgRewriteSalvageableDVIs(llvm::Loop *L, ScalarEvolution &SE,
       if (!ValidSCEV)
         return;
 #endif // INTEL_CUSTOMIZATION
-      // Create a simple expression if the IV and value to salvage SCEVs
-      // start values differ by only a constant value.
-      if (Optional<APInt> Offset =
-              SE.computeConstantDifference(DVIRec.SCEV, SCEVInductionVar)) {
-        if (Offset.getValue().getMinSignedBits() <= 64)
-          RewriteDVIUsingOffset(DVIRec, *LSRInductionVar,
-                                Offset.getValue().getSExtValue());
-      } else {
-        RewriteDVIUsingIterCount(DVIRec, IterCountExpr, SE);
-      }
-=======
       SalvageDVI(L, SE, LSRInductionVar, DVIRec, SCEVInductionVar,
                  IterCountExpr);
->>>>>>> c45e4c140f98159246a021f2e74892e54eb3df33
     }
   }
 }
