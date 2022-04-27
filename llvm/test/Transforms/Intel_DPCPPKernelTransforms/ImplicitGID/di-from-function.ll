@@ -1,9 +1,12 @@
-; RUN: %oclopt -B-ImplicitGlobalIdPass -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -B-ImplicitGlobalIdPass -verify -S %s | FileCheck %s
-;
+; RUN: opt -passes=dpcpp-kernel-implicit-gid -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-implicit-gid -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-implicit-gid -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-implicit-gid -S %s | FileCheck %s
+
 ; This test checks that gids for debugging are inserted when there is only
 ; DISubprogram attached to the function (DILocation or debug intrinsic may
 ; be optimized out for some cases).
+
 ; CHECK: define {{.*}} void @foo
 ; CHECK: %__ocl_dbg_gid0 = alloca i64
 ; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0{{.*}}

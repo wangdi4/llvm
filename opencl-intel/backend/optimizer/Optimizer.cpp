@@ -112,7 +112,6 @@ FunctionPass *createWeightedInstCounter(bool, const CPUDetect *);
 llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
 llvm::Pass *createOCLReqdSubGroupSizePass();
-llvm::Pass *createImplicitGIDPass(bool HandleBarrier);
 
 llvm::ModulePass *createInfiniteLoopCreatorPass();
 llvm::ModulePass *createAutorunReplicatorPass();
@@ -677,7 +676,7 @@ static void populatePassesPostFailCheck(
     if (pConfig.GetStreamingAlways())
       PM.add(createAddNTAttrLegacyPass());
     if (debugType == Native)
-      PM.add(createImplicitGIDPass(/*HandleBarrier*/ false));
+      PM.add(createImplicitGIDLegacyPass(/*HandleBarrier*/ false));
     PM.add(llvm::createDPCPPKernelWGLoopCreatorLegacyPass());
   }
   PM.add(createIndirectCallLoweringLegacyPass());

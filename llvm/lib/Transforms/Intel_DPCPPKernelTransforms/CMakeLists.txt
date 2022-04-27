@@ -22,6 +22,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DeduceMaxWGDim.cpp
   HandleVPlanMask.cpp
   ImplicitArgsAnalysis.cpp
+  ImplicitGID.cpp
   InstToFuncCall.cpp
   InternalizeNonKernelFunc.cpp
   LocalBufferAnalysis.cpp
