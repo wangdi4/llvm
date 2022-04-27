@@ -1119,11 +1119,12 @@ TEST_F(InstrRefLDVTest, MLocDiamondSpills) {
   // X86SubRegIdxRanges. We should change this value when upstream.
   ASSERT_EQ(MTracker->getNumLocs(), 55u); // Tracks all possible stack locs.
 #else // INTEL_FEATURE_XISA_COMMON
-  ASSERT_EQ(MTracker->getNumLocs(), 10u); // Tracks all possible stack locs.
+  ASSERT_EQ(MTracker->getNumLocs(), 11u); // Tracks all possible stack locs.
 #endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
   // Locations are: RSP, stack slots from 2^3 bits wide up to 2^9 for zmm regs,
   // then slots for sub_8bit_hi and sub_16bit_hi ({8, 8} and {16, 16}).
+  // Finally, one for spilt fp80 registers.
 
   // Pick out the locations on the stack that various x86 regs would be written
   // to. HAX is the upper 16 bits of EAX.
@@ -1143,7 +1144,7 @@ TEST_F(InstrRefLDVTest, MLocDiamondSpills) {
   // ignore here.
 
   FuncValueTable MInLocs, MOutLocs;
-  std::tie(MInLocs, MOutLocs) = allocValueTables(4, 10);
+  std::tie(MInLocs, MOutLocs) = allocValueTables(4, 11);
 
   // Transfer function: start with nothing.
   SmallVector<MLocTransferMap, 1> TransferFunc;
@@ -1178,7 +1179,7 @@ TEST_F(InstrRefLDVTest, MLocDiamondSpills) {
   // function.
   TransferFunc[1].insert({ALStackLoc, ALDefInBlk1});
   TransferFunc[1].insert({HAXStackLoc, HAXDefInBlk1});
-  initValueArray(MInLocs, 4, 10);
+  initValueArray(MInLocs, 4, 11);
   placeMLocPHIs(*MF, AllBlocks, MInLocs, TransferFunc);
   EXPECT_EQ(MInLocs[3][ALStackLoc.asU64()], ALPHI);
   EXPECT_EQ(MInLocs[3][AXStackLoc.asU64()], AXPHI);
