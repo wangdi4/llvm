@@ -6573,18 +6573,7 @@ DbgRewriteSalvageableDVIs(llvm::Loop *L, ScalarEvolution &SE,
                       << '\n');
 
     for (auto &DVIRec : DVIToUpdate) {
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-      // After phi cleanup, some recurrence SCEVs may not be valid any longer.
-      // Guard the code below with a validity check.
-      bool ValidSCEV = SE.isValid(DVIRec.SCEV) && SE.isValid(SCEVInductionVar); 
-      if (!ValidSCEV)
-        return;
-#endif // INTEL_CUSTOMIZATION
-      SalvageDVI(L, SE, LSRInductionVar, DVIRec, SCEVInductionVar,
-=======
       SalvageDVI(L, SE, LSRInductionVar, *DVIRec, SCEVInductionVar,
->>>>>>> 8f550368b169b0a3d4ebc3e65efec49ec1e0798a
                  IterCountExpr);
     }
   }
