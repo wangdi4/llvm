@@ -5,6 +5,7 @@ with symbol load on-demand.
 
 
 import lldb
+from lldbsuite.test.decorators import *
 from lldbsuite.test.lldbtest import *
 import lldbsuite.test.lldbutil as lldbutil
 
@@ -20,6 +21,7 @@ class TestBreakpointLanguage(TestBase):
         comp_name = comp_unit.GetFileSpec().GetFilename()
         return comp_name == test_name
 
+    @skipIfWindows
     def test_regex_breakpoint_language(self):
         """Test that the name regex breakpoint commands obey the language filter."""
 
@@ -65,6 +67,7 @@ class TestBreakpointLanguage(TestBase):
             objc_bp.GetNumLocations(), 0,
             "No ObjC symbol matches")
 
+    @skipIfWindows
     def test_by_name_breakpoint_language(self):
         """Test that the name regex breakpoint commands obey the language filter."""
 
