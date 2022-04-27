@@ -5836,7 +5836,12 @@ bool X86TTIImpl::shouldOptGatherToLoadPermute(Type *ArrayElemTy,
     return false;
 
   // Only handle fixed size integer/float array.
-  if (ArrayNum == 0 || ArrayElemTy->isAggregateType())
+  if (ArrayElemTy->isAggregateType())
+    return false;
+
+  // Arrays of size 1 are very offten used to keep arrays of variable
+  // size. Avoid handling.
+  if (ArrayNum < 2)
     return false;
 
   // Check if array size is bigger than max simd register size.
