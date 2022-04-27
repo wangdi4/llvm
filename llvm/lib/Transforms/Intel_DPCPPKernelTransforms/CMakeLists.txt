@@ -21,6 +21,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DPCPPKernelAnalysis.cpp
   DPCPPPreprocessSPIRVFriendlyIR.cpp
   DeduceMaxWGDim.cpp
+  ExternalizeGlobalVariables.cpp
   HandleVPlanMask.cpp
   ImplicitArgsAnalysis.cpp
   ImplicitGID.cpp

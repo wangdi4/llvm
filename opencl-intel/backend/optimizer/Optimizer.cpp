@@ -125,7 +125,6 @@ llvm::ModulePass *createPipeIOTransformationPass();
 llvm::ModulePass *createPipeOrderingPass();
 llvm::ModulePass *createPipeSupportPass();
 llvm::ModulePass *createOclFunctionAttrsPass();
-llvm::ModulePass *createExternalizeGlobalVariablesPass();
 llvm::ModulePass *createInternalizeGlobalVariablesPass();
 llvm::Pass *createBuiltinLibInfoPass(ArrayRef<Module *> pRtlModuleList,
                                      std::string type);
@@ -746,7 +745,7 @@ static void populatePassesPostFailCheck(
   // clSetKernelExecInfo. So we have to externalize globals for IR generated
   // from OpenMP.
   if (IsOMP)
-    PM.add(createExternalizeGlobalVariablesPass());
+    PM.add(llvm::createExternalizeGlobalVariablesLegacyPass());
 
   if (!pRtlModuleList.empty()) {
     // Inline BI function

@@ -32,6 +32,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPPreprocessSPIRVFriendlyIR.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DeduceMaxWGDim.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DuplicateCalledKernelsPass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/ExternalizeGlobalVariables.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/GroupBuiltinPass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/HandleVPlanMask.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ImplicitGID.h"

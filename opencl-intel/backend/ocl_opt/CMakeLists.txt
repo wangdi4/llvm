@@ -26,7 +26,6 @@ set(OCL_BE_PASSES
     RemoveAtExit
     DebugInfoPass
     DetectRecursion
-    ExternalizeGlobalVariables
     InfiniteLoopCreator
     InternalizeGlobalVariables
     KernelInfo

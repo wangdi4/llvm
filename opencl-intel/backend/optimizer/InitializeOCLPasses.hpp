@@ -33,7 +33,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeResolveVariableTIDCallPass(Registry);
     intel::initializeReplaceScalarWithMaskPass(Registry);
     intel::initializePreventDivCrashesPass(Registry);
-    intel::initializeExternalizeGlobalVariablesPass(Registry);
     intel::initializeInternalizeGlobalVariablesPass(Registry);
     intel::initializeOclFunctionAttrsPass(Registry);
     intel::initializeBuiltinLibInfoPass(Registry);
