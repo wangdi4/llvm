@@ -134,11 +134,11 @@ public:
                           VPInstructionCost ScalarCst,
                           const TargetLibraryInfo *TLI,
                           const TargetTransformInfo *TTI, const DataLayout *DL,
-                          VPlanVLSAnalysis *VLSA, unsigned OrigTC,
+                          VPlanVLSAnalysis *VLSA, uint64_t OrigTC,
                           unsigned PeelTC, bool PeelIsDynamic,
                           unsigned MainLoopVF, unsigned MainLoopUF)
-      : VPlanEvaluator(P, ScalarCst, TLI, TTI, DL, VLSA),
-        PeelTC(PeelTC), PeelIsDynamic(PeelIsDynamic), MainLoopVF(MainLoopVF),
+      : VPlanEvaluator(P, ScalarCst, TLI, TTI, DL, VLSA), PeelTC(PeelTC),
+        PeelIsDynamic(PeelIsDynamic), MainLoopVF(MainLoopVF),
         MainLoopUF(MainLoopUF) {
     // For dynamic peeling cases we set the trip count to the max number of
     // iterations that can be performed. Otherwise, the second expression

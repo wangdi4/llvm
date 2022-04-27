@@ -732,10 +732,14 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   // peel/remainder vectorization.
 
   // Even if TripCount is more than 2^32 we can safely assume that it's equal
-  // to 2^32, otherwise all logic below will have a problem with overflow.
+  // to 2^32, otherwise all cost modeling logic below will have a problem with
+  // overflow. But using the forced max for decision whether a remainder loop
+  // is needed is incorrect - this should be based on the actual trip count.
+  // TODO - look into handling overflow in a better way.
   VPLoop *OuterMostVPLoop = ScalarPlan->getMainLoop(true);
-  uint64_t TripCount = std::min(OuterMostVPLoop->getTripCountInfo().TripCount,
-                                (uint64_t)std::numeric_limits<unsigned>::max());
+  uint64_t OrigTripCount = OuterMostVPLoop->getTripCountInfo().TripCount;
+  uint64_t TripCount =
+      std::min(OrigTripCount, (uint64_t)std::numeric_limits<unsigned>::max());
   unsigned BestUF = getLoopUnrollFactor();
   bool IsTripCountEstimated = OuterMostVPLoop->getTripCountInfo().IsEstimated;
   unsigned ForcedVF = getForcedVF(WRLp);
@@ -924,7 +928,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     bool PeelIsDynamic = PeelingVariant ?
         isa<VPlanDynamicPeeling>(PeelingVariant) : false;
     VPlanRemainderEvaluator RemainderEvaluator(
-        *this, ScalarIterationCost, TLI, TTI, DL, VLSA, TripCount,
+        *this, ScalarIterationCost, TLI, TTI, DL, VLSA, OrigTripCount,
         PeelEvaluator.getTripCount(), PeelIsDynamic, VF, BestUF);
 
     // Calculate main loop's trip count. Currently, the unroll factor is set to
@@ -954,7 +958,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     // Calculate the total cost of remainder loop having no peeling, if there
     // is one.
     VPlanRemainderEvaluator RemainderEvaluatorWithoutPeel(
-        *this, ScalarIterationCost, TLI, TTI, DL, VLSA, TripCount,
+        *this, ScalarIterationCost, TLI, TTI, DL, VLSA, OrigTripCount,
         0 /*Peel trip count */, false /*no dynamic peeling*/, VF, BestUF);
     const decltype(TripCount) MainLoopTripCountWithoutPeel =
         TripCount / (VF * BestUF);
