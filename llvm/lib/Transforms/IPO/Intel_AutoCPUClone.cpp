@@ -257,10 +257,12 @@ static bool cloneFunctions(Module &M,
     auto *Resolver = Function::Create(ResolverTy, Fn.getLinkage(),
                                       OrigName + ".resolver", Fn.getParent());
     Resolver->setVisibility(Fn.getVisibility());
+    Resolver->setDSOLocal(Fn.isDSOLocal());
 
     GlobalIFunc *GIF = GlobalIFunc::create(
         Fn.getValueType(), 0, Fn.getLinkage(), "", Resolver, Fn.getParent());
     GIF->setVisibility(Fn.getVisibility());
+    GIF->setDSOLocal(Fn.isDSOLocal());
     GIF->setName(OrigName);
 
     if (Fn.getLinkage() != GlobalValue::LinkageTypes::InternalLinkage &&
