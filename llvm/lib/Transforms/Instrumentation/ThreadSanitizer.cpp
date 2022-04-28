@@ -173,6 +173,21 @@ private:
   FunctionCallee MemmoveFn, MemcpyFn, MemsetFn;
 };
 
+#if INTEL_CUSTOMIZATION
+struct ThreadSanitizerLegacyPass : FunctionPass {
+  ThreadSanitizerLegacyPass() : FunctionPass(ID) {
+    initializeThreadSanitizerLegacyPassPass(*PassRegistry::getPassRegistry());
+  }
+  StringRef getPassName() const override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  bool runOnFunction(Function &F) override;
+  bool doInitialization(Module &M) override;
+  static char ID; // Pass identification, replacement for typeid.
+private:
+  Optional<ThreadSanitizer> TSan;
+};
+#endif // INTEL_CUSTOMIZATION
+
 void insertModuleCtor(Module &M) {
   getOrCreateSanitizerCtorAndInitFunctions(
       M, kTsanModuleCtorName, kTsanInitName, /*InitArgTypes=*/{},
@@ -197,6 +212,40 @@ PreservedAnalyses ModuleThreadSanitizerPass::run(Module &M,
   insertModuleCtor(M);
   return PreservedAnalyses::none();
 }
+
+#if INTEL_CUSTOMIZATION
+char ThreadSanitizerLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(ThreadSanitizerLegacyPass, "tsan",
+                      "ThreadSanitizer: detects data races.", false, false)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_END(ThreadSanitizerLegacyPass, "tsan",
+                    "ThreadSanitizer: detects data races.", false, false)
+
+StringRef ThreadSanitizerLegacyPass::getPassName() const {
+  return "ThreadSanitizerLegacyPass";
+}
+
+void ThreadSanitizerLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.addRequired<TargetLibraryInfoWrapperPass>();
+}
+
+bool ThreadSanitizerLegacyPass::doInitialization(Module &M) {
+  insertModuleCtor(M);
+  TSan.emplace();
+  return true;
+}
+
+bool ThreadSanitizerLegacyPass::runOnFunction(Function &F) {
+  auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+  TSan->sanitizeFunction(F, TLI);
+  return true;
+}
+
+FunctionPass *llvm::createThreadSanitizerLegacyPassPass() {
+  return new ThreadSanitizerLegacyPass();
+}
+#endif // INTEL_CUSTOMIZATION
+
 void ThreadSanitizer::initialize(Module &M) {
   const DataLayout &DL = M.getDataLayout();
   IntptrTy = DL.getIntPtrType(M.getContext());

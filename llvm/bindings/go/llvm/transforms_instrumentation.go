@@ -19,12 +19,11 @@ package llvm
 import "C"
 import "unsafe"
 
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
 func (pm PassManager) AddThreadSanitizerPass() {
 	C.LLVMAddThreadSanitizerPass(pm.C)
 }
 
-#if INTEL_CUSTOMIZATION
 func (pm PassManager) AddMemorySanitizerLegacyPassPass() {
 	C.LLVMAddMemorySanitizerLegacyPassPass(pm.C)
 }
@@ -38,8 +37,6 @@ func (pm PassManager) AddAddressSanitizerModulePass() {
 }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> c74a706893f0667d6aae2d7704d21af97c92dc07
 func (pm PassManager) AddDataFlowSanitizerPass(abilist []string) {
 	abiliststrs := make([]*C.char, len(abilist))
 	for i, arg := range abilist {
