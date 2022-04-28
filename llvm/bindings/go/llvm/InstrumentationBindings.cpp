@@ -17,11 +17,10 @@
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Instrumentation/AddressSanitizer.h" // INTEL
 #include "llvm/Transforms/Instrumentation.h"
-#include "llvm/Transforms/Instrumentation/MemorySanitizer.h"
-#include "llvm/Transforms/Instrumentation/ThreadSanitizer.h"
 
 using namespace llvm;
 
+<<<<<<< HEAD
 void LLVMAddThreadSanitizerPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createThreadSanitizerLegacyPassPass());
 }
@@ -40,6 +39,8 @@ void LLVMAddMemorySanitizerLegacyPassPass(LLVMPassManagerRef PM) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> c74a706893f0667d6aae2d7704d21af97c92dc07
 void LLVMAddDataFlowSanitizerPass(LLVMPassManagerRef PM,
                                   int ABIListFilesNum,
                                   const char **ABIListFiles) {
