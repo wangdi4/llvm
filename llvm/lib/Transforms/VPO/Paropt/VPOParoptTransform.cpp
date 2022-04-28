@@ -7547,8 +7547,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
           // object created by "target data".
           // We also avoid an extra dereference, which is profitable.
           IRBuilder<> PredBuilder(RegPredBlock->getTerminator());
-          auto *Load = PredBuilder.CreateLoad(
-              Orig->getType()->getPointerElementType(), Orig);
+          auto *Load = PredBuilder.CreateLoad(ElementTy, Orig);
           IRBuilder<> RegBuilder(PrivInitEntryBB->getTerminator());
           RegBuilder.CreateStore(Load, FprivI->getNew());
 
