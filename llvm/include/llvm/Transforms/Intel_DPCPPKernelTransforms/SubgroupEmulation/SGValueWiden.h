@@ -61,7 +61,7 @@ private:
 
   Value *ConstZero;
 
-  void runOnFunction(Function &F, const std::set<unsigned> &Sizes);
+  void runOnFunction(Function &F, const unsigned &Sizes);
 
   /// Alloca vector / array for original "scalar" alloca instruction.
   void widenAlloca(Instruction *V, Instruction *FirstI, unsigned Size);
@@ -124,7 +124,7 @@ private:
   FuncSet FunctionsToBeWidened;
 
   /// Map from Function to Widend Function.
-  DenseMap<Function *, Function *> FuncMap;
+  DenseMap<Function *, std::set<Function *>> FuncMap;
 
   /// BB will be excluded from work-group loop.
   DenseMap<Function *, BasicBlock *> WGExcludeBBMap;

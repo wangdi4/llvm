@@ -28,6 +28,27 @@ extern bool DPCPPEnableSubGroupEmulation;
 
 #define DEBUG_TYPE "dpcpp-kernel-sg-emu-value-widen"
 
+static std::string encodeVectorVariant(Function *F, unsigned EmuSize) {
+  using namespace DPCPPKernelMetadataAPI;
+  auto Kernels = KernelList(F->getParent()).getList();
+  auto KernelRange = make_range(Kernels.begin(), Kernels.end());
+  std::string Buffer;
+  llvm::raw_string_ostream Out(Buffer);
+
+  // The vector variant name starts with: prefix (_ZGV) + ISA (b: XMM) + Mask(N:
+  // not masked)
+  Out << "_ZGVbN" << EmuSize;
+
+  // Encode. TODO: We can enable uniformity analysis to mark some parameters
+  // as uniform.
+  const char *KindStr = find(KernelRange, F) != Kernels.end() ? "u" : "v";
+  SmallVector<StringRef, 4> KindStrs(F->arg_size(), KindStr);
+  Out << join(KindStrs.begin(), KindStrs.end(), "");
+  Out << '_' << F->getName();
+  Out.flush();
+  return std::string(Out.str());
+}
+
 bool SGValueWidenPass::runImpl(Module &M, const SGSizeInfo *SSI) {
   if (!DPCPPEnableSubGroupEmulation)
     return false;
@@ -40,36 +61,26 @@ bool SGValueWidenPass::runImpl(Module &M, const SGSizeInfo *SSI) {
 
   ConstZero = Helper.getZero();
 
-  // Kernels to be emulated must be scalar kernels, no need to
-  // find all kernels.
-  using namespace DPCPPKernelMetadataAPI;
-  auto Kernels = KernelList(M).getList();
-  auto KernelRange = make_range(Kernels.begin(), Kernels.end());
-
   for (auto *Fn : FunctionsToBeWidened) {
     LLVM_DEBUG(dbgs() << "Adding vector-variants for " << Fn->getName()
                       << "\n");
     // Add vector-variants attribute.
-    unsigned EmuSize = *SSI->getEmuSizes(Fn).begin();
-    std::string Buffer;
-    llvm::raw_string_ostream Out(Buffer);
-    Out << "_ZGVbN" << EmuSize;
-
-    // Encode. TODO: We can enable uniformity analysis to mark some parameters
-    // as uniform.
-    const char *KindStr = find(KernelRange, Fn) != Kernels.end() ? "u" : "v";
-    SmallVector<StringRef, 4> KindStrs(Fn->arg_size(), KindStr);
-    Out << join(KindStrs.begin(), KindStrs.end(), "");
-    Out << '_' << Fn->getName();
-    Out.flush();
-
-    Fn->addFnAttr("vector-variants", Out.str());
+    const std::set<unsigned> Sizes = SSI->getEmuSizes(Fn);
+    SmallVector<std::string, 4> Variants;
+    for (auto I = Sizes.begin(), E = Sizes.end(); I != E; I++) {
+      Variants.push_back(encodeVectorVariant(Fn, *I));
+    }
+    Fn->addFnAttr(KernelAttribute::VectorVariants, join(Variants, ","));
+    LLVM_DEBUG(dbgs() << "  vector-variants: "
+                      << Fn->getFnAttribute(KernelAttribute::VectorVariants)
+                             .getValueAsString()
+                      << "\n");
   }
 
   // Add sub-group functions to FunctionsToBeWidened.
   for (auto &Fn : M)
     if (Fn.isDeclaration() && Fn.getName().contains("sub_group") &&
-        Fn.hasFnAttribute("vector-variants"))
+        Fn.hasFnAttribute(KernelAttribute::VectorVariants))
       FunctionsToBeWidened.insert(&Fn);
 
   FunctionWidener FWImpl;
@@ -82,61 +93,69 @@ bool SGValueWidenPass::runImpl(Module &M, const SGSizeInfo *SSI) {
   // 1) Move original instructions located in dummybarrier region (if exists).
   //    to WGExcludeBB
   // 2) Move the first dummybarrier (if exists) to the begin of SGExcludeBB;
-  //    Move the second dummybarier (if exists) to the begin of WGExcludeBB.
+  //    Move the second dummybarrier (if exists) to the begin of WGExcludeBB.
   for (auto &Pair : FuncMap) {
-    auto *EmulateFunc = Pair.second;
-    // Skip sub-group functions.
-    if (EmulateFunc->isDeclaration())
-      continue;
-    auto *SGExcludeBB = &EmulateFunc->getEntryBlock();
+    for (auto *EmulateFunc : Pair.second) {
+      // Skip sub-group functions.
+      if (EmulateFunc->isDeclaration())
+        continue;
+      auto *SGExcludeBB = &EmulateFunc->getEntryBlock();
 
-    auto *SGLoopHeader = SGExcludeBB->getSingleSuccessor();
-    assert(SGLoopHeader && "Get single successor failed");
-    auto *FirstI = &*SGLoopHeader->begin();
-    SGExcludeBBMap[EmulateFunc] = SGExcludeBB;
+      auto *SGLoopHeader = SGExcludeBB->getSingleSuccessor();
+      assert(SGLoopHeader && "Get single successor failed");
+      auto *FirstI = &*SGLoopHeader->begin();
+      SGExcludeBBMap[EmulateFunc] = SGExcludeBB;
 
-    if (Utils.isDummyBarrierCall(FirstI)) {
-      auto DummyRegion = Utils.findDummyRegion(*EmulateFunc);
-      if (!DummyRegion.empty()) {
-        BasicBlock *WGExcludeBB = SGExcludeBB;
-        std::string SGExcludeBBName = SGExcludeBB->getName().str();
-        WGExcludeBB->setName("wg.loop.exclude");
-        SGExcludeBB = SGExcludeBB->splitBasicBlock(&*SGExcludeBB->begin(),
-                                                   SGExcludeBBName);
-        SGExcludeBBMap[EmulateFunc] = SGExcludeBB;
-        WGExcludeBBMap[EmulateFunc] = WGExcludeBB;
-        Instruction *IP = WGExcludeBB->getTerminator();
-        InstVec InstsToMove;
-        for (auto &Inst : DummyRegion)
-          InstsToMove.push_back(&Inst);
-        for (auto *Inst : InstsToMove)
-          Inst->moveBefore(IP);
-        // Move the dummyBarrier to the begin of WGExcludeBB.
-        InstsToMove.back()->moveBefore(&*WGExcludeBB->begin());
+      if (Utils.isDummyBarrierCall(FirstI)) {
+        auto DummyRegion = Utils.findDummyRegion(*EmulateFunc);
+        if (!DummyRegion.empty()) {
+          BasicBlock *WGExcludeBB = SGExcludeBB;
+          std::string SGExcludeBBName = SGExcludeBB->getName().str();
+          WGExcludeBB->setName("wg.loop.exclude");
+          SGExcludeBB = SGExcludeBB->splitBasicBlock(&*SGExcludeBB->begin(),
+                                                     SGExcludeBBName);
+          SGExcludeBBMap[EmulateFunc] = SGExcludeBB;
+          WGExcludeBBMap[EmulateFunc] = WGExcludeBB;
+          Instruction *IP = WGExcludeBB->getTerminator();
+          InstVec InstsToMove;
+          for (auto &Inst : DummyRegion)
+            InstsToMove.push_back(&Inst);
+          for (auto *Inst : InstsToMove)
+            Inst->moveBefore(IP);
+          // Move the dummyBarrier to the begin of WGExcludeBB.
+          InstsToMove.back()->moveBefore(&*WGExcludeBB->begin());
+        }
+        // Move the dummyBarrier to the begin of SGExcludeBB.
+        FirstI->moveBefore(&*SGExcludeBB->begin());
       }
-      // Move the dummyBarrier to the begin of SGExcludeBB.
-      FirstI->moveBefore(&*SGExcludeBB->begin());
     }
   }
-
   collectWideCalls(M);
 
   // Re-initialize for emulated functions.
   Helper.initialize(M);
 
+  // Kernels to be emulated must be scalar kernels, no need to
+  // find all kernels.
+  using namespace DPCPPKernelMetadataAPI;
+  auto Kernels = KernelList(M).getList();
+  auto KernelRange = make_range(Kernels.begin(), Kernels.end());
   for (auto *Fn : FunctionsToBeWidened) {
-    auto *WideFn = cast<Function>(FuncMap[Fn]);
-    // Skip sub-group functions.
-    if (WideFn->isDeclaration())
-      continue;
-    runOnFunction(*WideFn, SSI->getEmuSizes(Fn));
-    auto It = find(KernelRange, Fn);
-    if (It != Kernels.end()) {
-      Kernels.erase(It);
-      Kernels.push_back(WideFn);
-      std::string FName = Fn->getName().str();
-      Fn->setName(FName + "_after_value_widen");
-      WideFn->setName(FName);
+    for (auto *WideFn : FuncMap[Fn]) {
+      // Skip sub-group functions.
+      if (WideFn->isDeclaration())
+        continue;
+      LLVM_DEBUG(dbgs() << "Widen function: " << WideFn->getName() << "\n");
+      VectorVariant Variant(WideFn->getName());
+      runOnFunction(*WideFn, Variant.getVlen());
+      auto It = find(KernelRange, Fn);
+      if (It != Kernels.end()) {
+        Kernels.erase(It);
+        Kernels.push_back(WideFn);
+        std::string FName = Fn->getName().str();
+        Fn->setName(FName + "_after_value_widen");
+        WideFn->setName(FName);
+      }
     }
   }
   KernelList(&M).set(Kernels);
@@ -177,7 +196,8 @@ bool SGValueWidenPass::runImpl(Module &M, const SGSizeInfo *SSI) {
 void SGValueWidenPass::collectWideCalls(Module &) {
   FuncSet EmulateFuncs;
   for (auto &Pair : FuncMap)
-    EmulateFuncs.insert(Pair.second);
+    for (auto EmuFunc : Pair.second)
+      EmulateFuncs.insert(EmuFunc);
 
   for (Function *F : FunctionsToBeWidened) {
     for (User *U : F->users())
@@ -220,14 +240,9 @@ bool SGValueWidenPass::isWIRelated(Value *V) {
   // return WIRelatedAnalysis->isWIRelated(V);
 }
 
-void SGValueWidenPass::runOnFunction(Function &F,
-                                     const std::set<unsigned> &Sizes) {
-  // TODO: Support mutilple SG Emulation Size.
-  assert(Sizes.size() == 1 && "Multiple SG emu size is unsupported");
-  auto Size = *Sizes.begin();
-
-  LLVM_DEBUG(dbgs() << "Begin widening: " << F.getName() << "\n");
-
+void SGValueWidenPass::runOnFunction(Function &F, const unsigned &Size) {
+  LLVM_DEBUG(dbgs() << "Begin widening: " << F.getName()
+                    << " with size: " << Size << "\n");
   InstSet SyncInsts = Helper.getSyncInstsForFunction(&F);
   assert(!SyncInsts.empty() && "Can't find sync insts!");
 
@@ -436,7 +451,6 @@ Value *SGValueWidenPass::getVectorValue(Value *V, unsigned Size,
     // Process type3 shuffle.
     if (WideValPtr == nullptr)
       return loadVectorByVecElement(VecValueMap[V], OrigValType, Size, Builder);
-
     return Builder.CreateLoad(SGHelper::getVectorType(V, Size), WideValPtr);
   }
   if (UniValueMap.count(V))
@@ -548,13 +562,71 @@ Instruction *SGValueWidenPass::getInsertPoint(Instruction *I, Value *V) {
   llvm_unreachable("Can't find incoming basicblock for value");
 }
 
+static std::pair<StringRef, unsigned> selectVariantAndEmuSize(CallInst *CI) {
+  // Get parent function's vector-variants
+  Function *ParentF = CI->getFunction();
+  LLVM_DEBUG(dbgs() << "  Parent function name: " << ParentF->getName()
+                    << "\n");
+  assert(ParentF->hasFnAttribute(KernelAttribute::VectorVariants) &&
+         "Parent function doesn't have vector-variants attribute");
+  unsigned EmuSize = 0;
+  if (VectorVariant::isVectorVariant(ParentF->getName())) {
+    VectorVariant ParentVariant(ParentF->getName());
+    EmuSize = ParentVariant.getVlen();
+  } else {
+    StringRef ParentVariantStringValue =
+        ParentF->getFnAttribute(KernelAttribute::VectorVariants)
+            .getValueAsString();
+    assert(ParentVariantStringValue.find(',') == StringRef::npos &&
+           "Unexpected multiple vector variant string here!");
+    LLVM_DEBUG(dbgs() << "  Parent function variant string: "
+                      << ParentVariantStringValue << "\n");
+    VectorVariant ParentVariant(ParentVariantStringValue);
+    EmuSize = ParentVariant.getVlen();
+  }
+
+  // Get vector-variants attribute
+  StringRef VecVariantStringValue =
+      CI->getCallSiteOrFuncAttr(KernelAttribute::VectorVariants)
+          .getValueAsString();
+  LLVM_DEBUG(dbgs() << "  Call instruction vector variant string: "
+                    << VecVariantStringValue << "\n");
+  SmallVector<StringRef, 4> VariantStrs;
+  VecVariantStringValue.split(VariantStrs, ",");
+  StringRef VariantStringValue;
+  // Select Variant and emulation size
+  for (auto VarStr : VariantStrs) {
+    VectorVariant Var(VarStr);
+    unsigned Vlen = Var.getVlen();
+    if (Vlen == EmuSize) {
+      VariantStringValue = VarStr;
+      break;
+    }
+  }
+  assert(VariantStringValue.size() != 0 &&
+         "Vector variant with same vector length is not found!");
+  LLVM_DEBUG(dbgs() << "  Select vector variant string: " << VariantStringValue
+                    << ", emulation size: " << EmuSize << "\n");
+
+  return std::make_pair(VariantStringValue, EmuSize);
+}
+
 void SGValueWidenPass::widenCalls() {
   for (auto *I : WideCalls) {
     auto *CI = cast<CallInst>(I);
     LLVM_DEBUG(dbgs() << "Widening Call: " << *CI << "\n");
-    assert(CI->hasFnAttr("vector-variants") &&
+    assert(CI->hasFnAttr(KernelAttribute::VectorVariants) &&
            "wide call doesn't have vector-variants attribute");
-    Function *WideFunc = FuncMap[CI->getCalledFunction()];
+
+    unsigned Size = 0;
+    StringRef VariantStr;
+    std::tie(VariantStr, Size) = selectVariantAndEmuSize(CI);
+    VectorVariant Variant(VariantStr);
+    Function *WideFunc =
+        CI->getModule()->getFunction(Variant.getName().getValue());
+    assert(WideFunc != nullptr && "No widen function!");
+    assert(FuncMap[CI->getCalledFunction()].count(WideFunc) &&
+           "Invalid vector variant function!");
 
     // If this function is not WG sync function, we can insert the new
     // widened call and load parameters / store return value before
@@ -565,24 +637,14 @@ void SGValueWidenPass::widenCalls() {
       Instruction *PrevInst = CI->getPrevNonDebugInstruction();
       Instruction *NextInst = CI->getNextNonDebugInstruction();
       assert(Utils.isBarrierCall(PrevInst) &&
-             "there should be a barrier before widened call");
+             "There should be a barrier before widened call");
       assert(Utils.isDummyBarrierCall(NextInst) &&
-             "there should be a dummybarrier after widened call");
+             "There should be a dummybarrier after widened call");
       ParamIP = PrevInst;
       RetValIP = NextInst->getNextNode();
     }
 
     IRBuilder<> Builder(CI);
-    // Get vector-variants attribute
-    StringRef VecVariantStringValue =
-        CI->getCallSiteOrFuncAttr("vector-variants").getValueAsString();
-    SmallVector<StringRef, 4> VariantStrs;
-    VecVariantStringValue.split(VariantStrs, ",");
-
-    // Select Variant
-    VectorVariant Variant(VariantStrs[0]);
-
-    unsigned Size = Variant.getVlen();
     std::vector<VectorKind> Params = Variant.getParameters();
 
     SmallVector<Value *, 4> NewArgs;

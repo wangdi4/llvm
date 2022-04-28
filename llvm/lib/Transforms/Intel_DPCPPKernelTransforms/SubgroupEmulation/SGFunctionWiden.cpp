@@ -21,7 +21,7 @@ using namespace llvm;
 using namespace DPCPPKernelCompilationUtils;
 
 void FunctionWidener::run(FuncSet &Functions,
-                          DenseMap<Function *, Function *> &FuncMap) {
+                          DenseMap<Function *, std::set<Function *>> &FuncMap) {
   if (Functions.empty())
     return;
 
@@ -42,40 +42,41 @@ void FunctionWidener::run(FuncSet &Functions,
     StringRef VariantsStr = Attr.getValueAsString();
     SmallVector<StringRef, 8> VecVariants;
     VariantsStr.split(VecVariants, ',');
-    // TODO: Need to support more than one variants.
-    VectorVariant Variant(VecVariants[0]);
-    std::string VariantName = Variant.getName().getValue();
-    Function *FnWiden = Fn->getParent()->getFunction(VariantName);
-    if (FnWiden != nullptr) {
-      LLVM_DEBUG(dbgs() << "Skip widening function as the widened version "
-                        << "exists: " << VariantName << "\n");
-      FuncMap[Fn] = FnWiden;
-      continue;
+    for (VectorVariant Variant : VecVariants) {
+      std::string VariantName = Variant.getName().getValue();
+      Function *FnWiden = Fn->getParent()->getFunction(VariantName);
+      if (FnWiden != nullptr) {
+        LLVM_DEBUG(dbgs() << "Skip widening function as the widened version "
+                          << "exists: " << VariantName << "\n");
+        FuncMap[Fn].insert(FnWiden);
+        continue;
+      }
+
+      if (find(KernelRange, Fn) == Kernels.end() && !Fn->isDeclaration())
+        removeByValAttr(*Fn);
+      ValueToValueMapTy VMap;
+      FnWiden = cloneFunction(*Fn, Variant, VMap);
+      LLVM_DEBUG(dbgs() << "Map " << Fn->getName() << " to widen function: "
+                        << FnWiden->getName() << "\n");
+      FuncMap[Fn].insert(FnWiden);
+      // Skip SIMD Intrisincs.
+      if (FnWiden->isDeclaration())
+        continue;
+
+      // Invalidate helper for Cloned functions.
+      Helper.initialize(M);
+
+      // Make sub-group exclude BB, we will insert sth there.
+      auto &EntryBB = FnWiden->getEntryBlock();
+      std::string BBName = EntryBB.getName().str();
+      EntryBB.setName("sg.loop.exclude");
+      EntryBB.splitBasicBlock(&*EntryBB.begin(), BBName);
+
+      expandVectorParameters(FnWiden, Variant, VMap);
+      bool IsWGSyncFunction = WGSyncFunctions.count(Fn);
+      expandReturn(FnWiden, IsWGSyncFunction);
+      LLVM_DEBUG(FnWiden->dump());
     }
-
-    if (find(KernelRange, Fn) == Kernels.end() && !Fn->isDeclaration())
-      removeByValAttr(*Fn);
-    ValueToValueMapTy VMap;
-    FnWiden = cloneFunction(*Fn, Variant, VMap);
-    FuncMap[Fn] = FnWiden;
-
-    // Skip SIMD Intrisincs.
-    if (FnWiden->isDeclaration())
-      continue;
-
-    // Invalidate helper for Cloned functions.
-    Helper.initialize(M);
-
-    // Make sub-group exclude BB, we will insert sth there.
-    auto &EntryBB = FnWiden->getEntryBlock();
-    std::string BBName = EntryBB.getName().str();
-    EntryBB.setName("sg.loop.exclude");
-    EntryBB.splitBasicBlock(&*EntryBB.begin(), BBName);
-
-    expandVectorParameters(FnWiden, Variant, VMap);
-    bool IsWGSyncFunction = WGSyncFunctions.count(Fn);
-    expandReturn(FnWiden, IsWGSyncFunction);
-    LLVM_DEBUG(FnWiden->dump());
   }
 }
 
