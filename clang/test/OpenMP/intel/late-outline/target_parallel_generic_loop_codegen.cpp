@@ -1,17 +1,17 @@
 // INTEL_COLLAB
 // RUN: %clang_cc1 -opaque-pointers -emit-pch -o %t -std=c++14 -fopenmp \
-// RUN:  -fopenmp-late-outline -fopenmp-version=50 -triple x86_64-unknown-linux-gnu %s
+// RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-version=50 -triple x86_64-unknown-linux-gnu %s
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -include-pch %t -verify -fopenmp-version=50 \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck \
 // RUN:  --check-prefixes CHECK,CHECK-NEW %s
 
 // RUN: %clang_cc1 -opaque-pointers -emit-pch -o %t -std=c++14 -fopenmp \
-// RUN:  -fno-openmp-new-depend-ir -fopenmp-late-outline -fopenmp-version=50 \
+// RUN:  -fno-openmp-new-depend-ir -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-version=50 \
 // RUN:  -triple x86_64-unknown-linux-gnu %s
 //
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -fno-openmp-new-depend-ir -include-pch %t -verify -fopenmp-version=50 \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck \
 // RUN:  --check-prefixes CHECK,CHECK-OLD %s
@@ -58,19 +58,19 @@ void foo1(int ploop) {
   //CHECK-DAG: "QUAL.OMP.DEVICE"(i32 0),
   //CHECK-DAG: "QUAL.OMP.MAP.TOFROM"(ptr [[PR]],
   //CHECK: "DIR.OMP.PARALLEL"(),
-  //CHECK-DAG: "QUAL.OMP.PRIVATE"(ptr [[CCC]])
+  //CHECK-DAG: "QUAL.OMP.PRIVATE:TYPED"(ptr [[CCC]]
   //CHECK-DAG: "QUAL.OMP.IF"
   //CHECK-DAG: "QUAL.OMP.PROC_BIND.MASTER"
   //CHECK-DAG: "QUAL.OMP.NUM_THREADS"(i32 16),
   //CHECK: "DIR.OMP.GENERICLOOP"(),
   //CHECK-DAG: "QUAL.OMP.BIND.PARALLEL"()
   //CHECK-DAG: "QUAL.OMP.ORDER.CONCURRENT"()
-  //CHECK-DAG: "QUAL.OMP.LASTPRIVATE"(ptr [[I]])
-  //CHECK-DAG: "QUAL.OMP.SHARED"(ptr @aaa)
-  //CHECK-DAG: "QUAL.OMP.SHARED"(ptr @bbb)
-  //CHECK-DAG: "QUAL.OMP.NORMALIZED.IV"(ptr [[IV]])
-  //CHECK-DAG: "QUAL.OMP.NORMALIZED.UB"(ptr [[UB]])
-  //CHECK-DAG: "QUAL.OMP.FIRSTPRIVATE"(ptr [[LB]])
+  //CHECK-DAG: "QUAL.OMP.LASTPRIVATE:TYPED"(ptr [[I]]
+  //CHECK-DAG: "QUAL.OMP.SHARED:TYPED"(ptr @aaa
+  //CHECK-DAG: "QUAL.OMP.SHARED:TYPED"(ptr @bbb
+  //CHECK-DAG: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[IV]]
+  //CHECK-DAG: "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[UB]]
+  //CHECK-DAG: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[LB]]
   //CHECK: "DIR.OMP.END.GENERICLOOP"()
   //CHECK: "DIR.OMP.END.PARALLEL"()
   //CHECK: "DIR.OMP.END.TARGET"()

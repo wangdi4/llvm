@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 // Checks that VLA size expressions are local to regions.
@@ -26,7 +26,7 @@ void vla_test(int k, int nz)
 
   //CHECK: store i64 [[L1]], ptr [[VLATMP1]], align 8
   //CHECK: region.entry{{.*}}DIR.OMP.PARALLEL
-  //CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[VLATMP1]])
+  //CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[VLATMP1]]
   #pragma omp parallel
   {
   //CHECK: [[AL1:%[0-9]+]] = load i64, ptr [[VLATMP1]], align 8
@@ -41,7 +41,7 @@ void vla_test(int k, int nz)
   //CHECK: region.exit{{.*}}DIR.OMP.END.PARALLEL
   //CHECK: store i64 [[L1]], ptr [[VLATMP2]], align 8
   //CHECK: region.entry{{.*}}DIR.OMP.PARALLEL
-  //CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[VLATMP2]])
+  //CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[VLATMP2]]
   #pragma omp parallel
   {
   //CHECK: [[BL1:%[0-9]+]] = load i64, ptr [[VLATMP2]], align 8
@@ -75,7 +75,7 @@ void vla_test_two(int m)
     //CHECK: [[VLA:%vla.*]] = alloca i32, i64
     d[i][i] = i*3;
     //CHECK: DIR.OMP.PARALLEL
-    //CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[VLA]])
+    //CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[VLA]]
     #pragma omp parallel
     {
            d[3][i] = i;
@@ -98,7 +98,7 @@ void vla_test_three(int x, int const size) {
     float a[5][size];
     //CHECK: store i64 [[V:%[0-9]+]], ptr [[VLATMP]],
     //CHECK: "DIR.OMP.PARALLEL"
-    //CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[VLATMP]])
+    //CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[VLATMP]]
     #pragma omp parallel
     //CHECK: [[L:%[0-9]+]] = load i64, ptr [[VLATMP]]
     //CHECK: [[L]]
@@ -123,7 +123,7 @@ void vla_test_four(int x, int const size) {
     float a[5][size];
     //CHECK: store i64 [[V:%[0-9]+]], ptr [[VLATMP]],
     //CHECK: "DIR.OMP.TARGET"
-    //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[VLATMP]])
+    //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[VLATMP]]
     //CHECK: "DIR.OMP.TEAMS"
     //CHECK: "DIR.OMP.DISTRIBUTE.PARLOOP"
     #pragma omp target teams distribute parallel for

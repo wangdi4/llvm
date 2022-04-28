@@ -1,15 +1,15 @@
 // INTEL_COLLAB
 // RUN: %clang_cc1 -opaque-pointers -emit-llvm -o -  -triple x86_64-pc-windows-msvc19.16.27041 \
-// RUN: -fopenmp -fintel-compatibility -fopenmp-late-outline \
+// RUN: -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN: -fopenmp-targets=spir64 -DWINDOW %s | FileCheck %s \
 // RUN: --check-prefix CHECK-WIN
 //
 // RUN: %clang_cc1 -opaque-pointers -verify -triple x86_64-unknown-linux-gnu -fopenmp \
-// RUN:  -fintel-compatibility -fopenmp-late-outline \
+// RUN:  -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN: -fopenmp-targets=spir64 -emit-llvm-bc %s -o %t-host.bc
 //
 // RUN: %clang_cc1 -opaque-pointers -verify -triple spir64 -fopenmp \
-// RUN:  -fintel-compatibility -fopenmp-late-outline \
+// RUN:  -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -fopenmp-targets=spir64 -fopenmp-is-device \
 // RUN:  -fopenmp-host-ir-file-path %t-host.bc %s -emit-llvm -o - \
 // RUN:  | FileCheck %s
@@ -29,13 +29,13 @@ void foo()
   //CHECK-WIN:[[IAT:%indirect-arg-temp[0-9]*]] = alloca [[TP]], align 8
 
   //CHECK-WIN: "DIR.OMP.TARGET"()
-  //CHECK-WIN-SAME: "QUAL.OMP.PRIVATE"(ptr [[XT]])
-  //CHECK-WIN-SAME: "QUAL.OMP.PRIVATE"(ptr [[TH]])
-  //CHECK-WIN-SAME: "QUAL.OMP.PRIVATE"(ptr [[IAT]])
+  //CHECK-WIN-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[XT]]
+  //CHECK-WIN-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[TH]]
+  //CHECK-WIN-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[IAT]]
   //CHECK-WIN: "DIR.OMP.PARALLEL"()
-  //CHECK-WIN-SAME: "QUAL.OMP.PRIVATE"(ptr [[XT]])
-  //CHECK-WIN-SAME: "QUAL.OMP.PRIVATE"(ptr [[TH]])
-  //CHECK-WIN-SAME: "QUAL.OMP.PRIVATE"(ptr [[IAT]])
+  //CHECK-WIN-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[XT]]
+  //CHECK-WIN-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[TH]]
+  //CHECK-WIN-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[IAT]]
   #pragma omp target parallel
   {
     double _Complex xTmp = 0;
@@ -61,13 +61,13 @@ void foo()
   //CHECK-SAME: addrspacecast ptr [[IAT]] to ptr [[AS]]
 
   //CHECK: "DIR.OMP.TARGET"()
-  //CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[AS]] [[XTA]])
-  //CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[AS]] [[THA]])
-  //CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[AS]] [[IATA]])
+  //CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[AS]] [[XTA]]
+  //CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[AS]] [[THA]]
+  //CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[AS]] [[IATA]]
   //CHECK: "DIR.OMP.PARALLEL"()
-  //CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[AS]] [[XTA]])
-  //CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[AS]] [[THA]])
-  //CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[AS]] [[IATA]])
+  //CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[AS]] [[XTA]]
+  //CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[AS]] [[THA]]
+  //CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[AS]] [[IATA]]
   #pragma omp target parallel
   {
     //CHECK: [[IATA]].realp =
@@ -82,8 +82,8 @@ void foo()
 void zoo(int i);
 int bar() {
   //CHECK: "DIR.OMP.TARGET"()
-  //CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr addrspace(4) %i.ascast)
-  //CHECK-NOT: "QUAL.OMP.PRIVATE"(ptr %i)
+  //CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %i.ascast
+  //CHECK-NOT: "QUAL.OMP.PRIVATE:TYPED"(ptr %i
   #pragma omp target
   {
     int i = 0;

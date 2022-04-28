@@ -1,11 +1,11 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -no-opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 //
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -no-opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu -DCOMBINED %s | FileCheck %s
 //
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -no-opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu -DCOMBINED_TARGET %s | FileCheck %s
 //
 // Verify variants of combined directives involving omp target, teams,
@@ -23,10 +23,10 @@ void test_target__teams_distribute_simd() {
 //CHECK-SAME: "QUAL.OMP.OFFLOAD.ENTRY.IDX"
 //CHECK-SAME: QUAL.OMP.MAP.TOFROM"
 //CHECK: "DIR.OMP.TEAMS"
-//CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:TYPED"
+//CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"
 //CHECK: "DIR.OMP.DISTRIBUTE"
 //CHECK: "DIR.OMP.SIMD"
-//CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:TYPED"
+//CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"
 //CHECK: "DIR.OMP.END.SIMD"
 //CHECK: "DIR.OMP.END.DISTRIBUTE"
 //CHECK: "DIR.OMP.END.TEAMS"

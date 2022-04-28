@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 void bar(int);
@@ -9,7 +9,7 @@ void test_ref_shared(int &A) {
   //CHECK: [[A:%A.addr.*]] = alloca ptr,
 
   //CHECK: region.entry{{.*}}"DIR.OMP.PARALLEL"
-  //CHECK-SAME: "QUAL.OMP.SHARED:BYREF"{{.*}}[[A]]
+  //CHECK-SAME: "QUAL.OMP.SHARED:BYREF.TYPED"{{.*}}[[A]]
   #pragma omp parallel shared(A)
   {
     bar(A);
@@ -17,7 +17,7 @@ void test_ref_shared(int &A) {
   //CHECK: region.exit{{.*}}"DIR.OMP.END.PARALLEL"
 
   //CHECK: region.entry{{.*}}"DIR.OMP.PARALLEL"
-  //CHECK-SAME: "QUAL.OMP.SHARED:BYREF"{{.*}}[[A]]
+  //CHECK-SAME: "QUAL.OMP.SHARED:BYREF.TYPED"{{.*}}[[A]]
   #pragma omp parallel
   {
     bar(A);
@@ -25,7 +25,7 @@ void test_ref_shared(int &A) {
   //CHECK: region.exit{{.*}}"DIR.OMP.END.PARALLEL"
 
   //CHECK: region.entry{{.*}}"DIR.OMP.PARALLEL"
-  //CHECK-SAME: "QUAL.OMP.SHARED:BYREF"{{.*}}[[A]]
+  //CHECK-SAME: "QUAL.OMP.SHARED:BYREF.TYPED"{{.*}}[[A]]
   #pragma omp parallel default(shared)
   {
     bar(A);

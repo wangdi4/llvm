@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 //
 // Verify use of allocate directive referencing all valid pre-defined
@@ -60,8 +60,8 @@ int main() {
 #pragma omp allocate(v9) allocator(omp_thread_mem_alloc)
 
   // CHECK: DIR.OMP.PARALLEL
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[V1_ALLOC]])
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[V2_ALLOC]])
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[V1_ALLOC]]
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[V2_ALLOC]]
   // CHECK: DIR.OMP.END.PARALLEL
 #pragma omp parallel
   { v1 = v2; }

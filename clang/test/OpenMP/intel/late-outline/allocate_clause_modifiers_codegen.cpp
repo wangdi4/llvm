@@ -12,14 +12,14 @@
 // NOTE:      add other RUN commands back into test.
 // NOTE:   3) Move INTEL_COLLAB markers back to the top and the bottom of
 // NOTE:      the source file.
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN: -triple x86_64-unknown-linux-gnu -fopenmp-version=51 %s | FileCheck %s
 
-// RUN: %clang_cc1 -opaque-pointers -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN: -triple x86_64-unknown-linux-gnu -fopenmp-version=51 \
 // RUN: -emit-pch %s -o %t
 
-// RUN: %clang_cc1 -opaque-pointers -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN: -triple x86_64-unknown-linux-gnu -fopenmp-version=51 \
 // RUN: -include-pch %t -emit-llvm %s -o - | FileCheck %s
 // expected-no-diagnostics
@@ -93,13 +93,13 @@ double template_test() {
 // CHECK-NEXT:    [[MYALLOC:%.*]] = alloca i64, align 8
 // CHECK-NEXT:    store i32 0, ptr [[RETVAL]], align 4
 // CHECK-NEXT:    store i64 2, ptr [[MYALLOC]], align 8
-// CHECK-NEXT:    [[TMP0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.ALLOCATE"(i64 1, ptr [[FOO]]), "QUAL.OMP.PRIVATE"(ptr [[FOO]]), "QUAL.OMP.SHARED"(ptr [[BAR]]), "QUAL.OMP.SHARED"(ptr [[MYALLOC]]) ]
+// CHECK-NEXT:    [[TMP0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.ALLOCATE"(i64 1, ptr [[FOO]]), "QUAL.OMP.PRIVATE:TYPED"(ptr [[FOO]], i8 0, i32 1), "QUAL.OMP.SHARED:TYPED"(ptr [[BAR]], i32 0, i32 1), "QUAL.OMP.SHARED:TYPED"(ptr [[MYALLOC]], i64 0, i32 1) ]
 // CHECK-NEXT:    [[TMP1:%.*]] = load i64, ptr [[MYALLOC]], align 8
-// CHECK-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.ALLOCATE"(i64 1, ptr [[FOO]], i64 [[TMP1]]), "QUAL.OMP.ALLOCATE"(i64 4, ptr [[BAR]], i64 [[TMP1]]), "QUAL.OMP.PRIVATE"(ptr [[FOO]]), "QUAL.OMP.PRIVATE"(ptr [[BAR]]), "QUAL.OMP.SHARED"(ptr [[MYALLOC]]) ]
+// CHECK-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.ALLOCATE"(i64 1, ptr [[FOO]], i64 [[TMP1]]), "QUAL.OMP.ALLOCATE"(i64 4, ptr [[BAR]], i64 [[TMP1]]), "QUAL.OMP.PRIVATE:TYPED"(ptr [[FOO]], i8 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[BAR]], i32 0, i32 1), "QUAL.OMP.SHARED:TYPED"(ptr [[MYALLOC]], i64 0, i32 1) ]
 // CHECK-NEXT:    [[TMP3:%.*]] = load i64, ptr [[MYALLOC]], align 8
-// CHECK-NEXT:    [[TMP4:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.ALLOCATE"(i64 2, ptr [[FOO]], i64 [[TMP3]]), "QUAL.OMP.ALLOCATE"(i64 4, ptr [[BAR]], i64 [[TMP3]]), "QUAL.OMP.PRIVATE"(ptr [[FOO]]), "QUAL.OMP.PRIVATE"(ptr [[BAR]]) ]
-// CHECK-NEXT:    [[TMP5:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.ALLOCATE"(i64 8, ptr [[FOO]], i64 7), "QUAL.OMP.ALLOCATE"(i64 8, ptr [[BAR]], i64 7), "QUAL.OMP.PRIVATE"(ptr [[FOO]]), "QUAL.OMP.PRIVATE"(ptr [[BAR]]) ]
-// CHECK-NEXT:    [[TMP6:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.ALLOCATE"(i64 16, ptr [[FOO]]), "QUAL.OMP.PRIVATE"(ptr [[FOO]]) ]
+// CHECK-NEXT:    [[TMP4:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.ALLOCATE"(i64 2, ptr [[FOO]], i64 [[TMP3]]), "QUAL.OMP.ALLOCATE"(i64 4, ptr [[BAR]], i64 [[TMP3]]), "QUAL.OMP.PRIVATE:TYPED"(ptr [[FOO]], i8 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[BAR]], i32 0, i32 1) ]
+// CHECK-NEXT:    [[TMP5:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.ALLOCATE"(i64 8, ptr [[FOO]], i64 7), "QUAL.OMP.ALLOCATE"(i64 8, ptr [[BAR]], i64 7), "QUAL.OMP.PRIVATE:TYPED"(ptr [[FOO]], i8 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[BAR]], i32 0, i32 1) ]
+// CHECK-NEXT:    [[TMP6:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.ALLOCATE"(i64 16, ptr [[FOO]]), "QUAL.OMP.PRIVATE:TYPED"(ptr [[FOO]], i8 0, i32 1) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP6]]) [ "DIR.OMP.END.PARALLEL"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP5]]) [ "DIR.OMP.END.PARALLEL"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP4]]) [ "DIR.OMP.END.PARALLEL"() ]
@@ -123,7 +123,7 @@ double template_test() {
 // CHECK-NEXT:    [[PARAM_ADDR:%.*]] = alloca double, align 8
 // CHECK-NEXT:    [[FOO:%.*]] = alloca [10 x double], align 16
 // CHECK-NEXT:    store double [[PARAM:%.*]], ptr [[PARAM_ADDR]], align 8
-// CHECK-NEXT:    [[TMP0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.ALLOCATE"(i64 8, ptr [[FOO]], i64 2), "QUAL.OMP.ALLOCATE"(i64 8, ptr [[PARAM_ADDR]], i64 2), "QUAL.OMP.PRIVATE"(ptr [[FOO]]), "QUAL.OMP.PRIVATE"(ptr [[PARAM_ADDR]]) ]
+// CHECK:    [[TMP0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.ALLOCATE"(i64 8, ptr [[FOO]], i64 2), "QUAL.OMP.ALLOCATE"(i64 8, ptr [[PARAM_ADDR]], i64 2), "QUAL.OMP.PRIVATE:TYPED"(ptr [[FOO]], double 0.000000e+00, i64 10), "QUAL.OMP.PRIVATE:TYPED"(ptr [[PARAM_ADDR]], double 0.000000e+00, i32 1) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP0]]) [ "DIR.OMP.END.PARALLEL"() ]
 // CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [10 x double], ptr [[FOO]], i64 0, i64 0
 // CHECK-NEXT:    [[TMP1:%.*]] = load double, ptr [[ARRAYIDX]], align 16

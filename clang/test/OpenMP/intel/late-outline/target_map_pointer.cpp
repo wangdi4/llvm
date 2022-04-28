@@ -1,8 +1,8 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu -fopenmp-new-depend-ir %s \
 // RUN:  | FileCheck %s
 //
@@ -22,12 +22,12 @@ void foo(A *& f)
 // CHECK: [[MAP_ADDR:%f.map.ptr.tmp]] = alloca ptr,
 // CHECK: [[MAP_ADDR2:%f.map.ptr.tmp2]] = alloca ptr,
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[MAP_ADDR]])
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[MAP_ADDR]]
 // CHECK: store {{.*}}, ptr [[MAP_ADDR]],
 // CHECK: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TEAMS
-// CHECK-SAME: "QUAL.OMP.SHARED:BYREF"(ptr [[MAP_ADDR]])
+// CHECK-SAME: "QUAL.OMP.SHARED:BYREF.TYPED"(ptr [[MAP_ADDR]]
 // CHECK: [[TV3:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.DISTRIBUTE.PARLOOP
-// CHECK-SAME: "QUAL.OMP.SHARED:BYREF"(ptr [[MAP_ADDR]])
+// CHECK-SAME: "QUAL.OMP.SHARED:BYREF.TYPED"(ptr [[MAP_ADDR]]
 // CHECK: load ptr, ptr [[MAP_ADDR]]
 // CHECK: region.exit(token [[TV3]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() ]
 // CHECK: region.exit(token [[TV2]]) [ "DIR.OMP.END.TEAMS"() ]
@@ -36,7 +36,7 @@ void foo(A *& f)
   for (int i = 0 ; i < 10 ; i ++)
     f->a = 10;
 // CHECK: [[TV5:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[MAP_ADDR2]]
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[MAP_ADDR2]]
 // CHECK: store {{.*}}, ptr [[MAP_ADDR2]],
 // CHECK: load ptr, ptr [[MAP_ADDR2]]
 // CHECK: region.exit(token [[TV5]]) [ "DIR.OMP.END.TARGET"() ]
@@ -45,7 +45,7 @@ void foo(A *& f)
     f->a = 10;
 // CHECK: [[L:%[0-9]+]] = load ptr, ptr [[F_ADDR]]
 // CHECK: [[TV4:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.PARALLEL
-// CHECK-SAME:"QUAL.OMP.SHARED:BYREF"(ptr [[F_ADDR]])
+// CHECK-SAME:"QUAL.OMP.SHARED:BYREF.TYPED"(ptr [[F_ADDR]]
 #pragma omp parallel
   for (int i = 0 ; i < 10 ; i ++)
     f->a = 10;
@@ -57,12 +57,12 @@ void foo_one(A & f)
 // CHECK: [[F_ADDR:%f.addr]] = alloca ptr,
 // CHECK: [[MAP_ADDR:%f.map.ptr.tmp]] = alloca ptr,
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[MAP_ADDR]])
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[MAP_ADDR]]
 // CHECK: store {{.*}}, ptr [[MAP_ADDR]],
 // CHECK: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TEAMS
-// CHECK-SAME: "QUAL.OMP.SHARED:BYREF"(ptr [[MAP_ADDR]])
+// CHECK-SAME: "QUAL.OMP.SHARED:BYREF.TYPED"(ptr [[MAP_ADDR]]
 // CHECK: [[TV3:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.DISTRIBUTE.PARLOOP
-// CHECK-SAME: "QUAL.OMP.SHARED:BYREF"(ptr [[MAP_ADDR]])
+// CHECK-SAME: "QUAL.OMP.SHARED:BYREF.TYPED"(ptr [[MAP_ADDR]]
 // CHECK: load ptr, ptr [[MAP_ADDR]]
 // CHECK: region.exit(token [[TV3]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() ]
 // CHECK: region.exit(token [[TV2]]) [ "DIR.OMP.END.TEAMS"() ]
@@ -77,12 +77,12 @@ void foo_two(A && f)
 // CHECK: [[F_ADDR:%f.addr]] = alloca ptr,
 // CHECK: [[MAP_ADDR:%f.map.ptr.tmp]] = alloca ptr,
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[MAP_ADDR]])
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[MAP_ADDR]]
 // CHECK: store {{.*}}, ptr [[MAP_ADDR]],
 // CHECK: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TEAMS
-// CHECK-SAME: "QUAL.OMP.SHARED:BYREF"(ptr [[MAP_ADDR]])
+// CHECK-SAME: "QUAL.OMP.SHARED:BYREF.TYPED"(ptr [[MAP_ADDR]]
 // CHECK: [[TV3:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.DISTRIBUTE.PARLOOP
-// CHECK-SAME: "QUAL.OMP.SHARED:BYREF"(ptr [[MAP_ADDR]])
+// CHECK-SAME: "QUAL.OMP.SHARED:BYREF.TYPED"(ptr [[MAP_ADDR]]
 // CHECK: load ptr, ptr [[MAP_ADDR]]
 // CHECK: region.exit(token [[TV3]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() ]
 // CHECK: region.exit(token [[TV2]]) [ "DIR.OMP.END.TEAMS"() ]
@@ -97,12 +97,12 @@ void foo_three(A * f)
 // CHECK: [[F_ADDR:%f.addr]] = alloca ptr,
 // CHECK: [[MAP_ADDR:%f.map.ptr.tmp]] = alloca ptr,
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[MAP_ADDR]])
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[MAP_ADDR]]
 // CHECK: store {{.*}}, ptr [[MAP_ADDR]],
 // CHECK: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TEAMS
-// CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[MAP_ADDR]])
+// CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[MAP_ADDR]]
 // CHECK: [[TV3:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.DISTRIBUTE.PARLOOP
-// CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[MAP_ADDR]])
+// CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[MAP_ADDR]]
 // CHECK: load ptr, ptr [[MAP_ADDR]]
 // CHECK: region.exit(token [[TV3]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() ]
 // CHECK: region.exit(token [[TV2]]) [ "DIR.OMP.END.TEAMS"() ]
@@ -119,12 +119,12 @@ void foo_four()
 // CHECK: [[B_ADDR:%b]] = alloca ptr,
 // CHECK: [[MAP_ADDR:%b.map.ptr.tmp]] = alloca ptr,
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[MAP_ADDR]])
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[MAP_ADDR]]
 // CHECK: store {{.*}}, ptr [[MAP_ADDR]],
 // CHECK: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TEAMS
-// CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[MAP_ADDR]])
+// CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[MAP_ADDR]]
 // CHECK: [[TV3:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.DISTRIBUTE.PARLOOP
-// CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[MAP_ADDR]])
+// CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[MAP_ADDR]]
 // CHECK: load ptr, ptr [[MAP_ADDR]]
 // CHECK: region.exit(token [[TV3]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() ]
 // CHECK: region.exit(token [[TV2]]) [ "DIR.OMP.END.TEAMS"() ]
@@ -143,9 +143,9 @@ void foo_five(int &y)
 // CHECK-DAG: [[SI:%size]] = alloca i32, align 4
 // CHECK-DAG: [[Y_MAP:%y.map.ptr.tmp]] = alloca ptr, align 8
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TASK
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[Y_MAP]])
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[Y_MAP]]
 // CHECK: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[Y_MAP]]
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[Y_MAP]]
 // CHECK: store {{.*}}, ptr [[Y_MAP]]
 // CHECK: load {{.*}}, ptr [[Y_MAP]]
 // CHECK: region.exit(token [[TV2]]) [ "DIR.OMP.END.TARGET"() ]
@@ -159,8 +159,8 @@ void foo_six(int &y) {
 // CHECK-NEXT: [[Y_MAP:%y.map.ptr.tmp]] = alloca ptr, align 8
 // CHECK: [[L:%[0-9]+]] = load ptr, ptr [[Y_ADDR]]
 // CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[L]]
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[Y_MAP]]
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[L]]
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[Y_MAP]]
 // CHECK:  store ptr [[L]],  ptr [[Y_MAP]]
 // CHECK: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target
@@ -172,7 +172,7 @@ void foo_seven(int *&y) {
 // CHECK: [[L:%[0-9]+]] = load ptr, ptr [[Y_ADDR]]
 // CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[L]]
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[Y_MAP]]
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[Y_MAP]]
 // CHECK:  store ptr [[L]],  ptr [[Y_MAP]]
 // CHECK: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target
@@ -186,7 +186,7 @@ void foo_eight(int *&v) {
 // CHECK: [[L:%[0-9]+]] = load ptr, ptr [[V_ADDR]]
 // CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.MAP.TO"(ptr [[L]]
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[V_MAP]]
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[V_MAP]]
 // CHECK: store ptr [[L]], ptr [[V_MAP]]
 // CHECK: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target map(to: v[0:3])
@@ -197,19 +197,19 @@ void foo_nigth() {
 // CHECK: [[HOST_MAP:%host_ptr.map.ptr.tmp]] = alloca ptr
 // CHECK: [[HOST_MAP1:%host_ptr.map.ptr.tmp1]] = alloca ptr
 // CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[HOST_MAP]]
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[HOST_MAP]]
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TEAMS
-// CHECK-SAME:  "QUAL.OMP.SHARED"(ptr [[HOST_MAP]]
+// CHECK-SAME:  "QUAL.OMP.SHARED:TYPED"(ptr [[HOST_MAP]]
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TEAMS"() ]
 // CHECK: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target teams
     host_ptr[1] = (char) 1;
 // CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[HOST_MAP1]]
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[HOST_MAP1]]
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TEAMS
-// CHECK-SAME:  "QUAL.OMP.SHARED"(ptr [[HOST_MAP1]]
+// CHECK-SAME:  "QUAL.OMP.SHARED:TYPED"(ptr [[HOST_MAP1]]
 // CHECK: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.DISTRIBUTE.PARLOOP
-// CHECK-SAME:  "QUAL.OMP.SHARED"(ptr [[HOST_MAP1]]
+// CHECK-SAME:  "QUAL.OMP.SHARED:TYPED"(ptr [[HOST_MAP1]]
 // CHECK: region.exit(token [[TV2]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() ]
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TEAMS"() ]
 // CHECK: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]

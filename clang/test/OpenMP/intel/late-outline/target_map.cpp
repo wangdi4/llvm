@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 struct S1 {
@@ -40,7 +40,7 @@ void foo(S1 *ps1)
   // CHECK-NEXT: [[N2:%[y.*]]] = getelementptr inbounds %struct.S1, ptr [[L2]], i32 0, i32 0
   // CHECK: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[L1]], ptr [[N2]], i64 4, i64 35
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[PS1_MAP]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[PS1_MAP]]
   // CHECK: store ptr [[L1]], ptr [[PS1_MAP]], align 8
   // CHECK: region.exit(token [[TV2]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target map(ps1->y)
@@ -60,7 +60,7 @@ void foo(S1 *ps1)
   // CHECK: [[TV3:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[L6]], ptr %next, i64 [[L17]], i64 32
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr %next, ptr %y3, i64 4, i64 281474976710675
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[PS1_MAP4]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[PS1_MAP4]]
   // CHECK: store ptr [[L6]], ptr [[PS1_MAP4]]
   #pragma omp target map(ps1->next->y)
   {
@@ -79,8 +79,8 @@ void foo(S1 *ps1)
   // CHECK: [[TV4:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
   // CHECK-SAME:  "QUAL.OMP.MAP.TOFROM"(ptr [[L13_1]], ptr [[N6]], i64 [[L39]], i64 32
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr [[N6]], ptr %arrayidx, i64 200, i64 281474976710675
-  // CHECK-SAME:  "QUAL.OMP.PRIVATE"(ptr %ps1.map.ptr.tmp9)
-  // CHECK: store ptr [[L13_1]], ptr %ps1.map.ptr.tmp9, align 8
+  // CHECK-SAME:  "QUAL.OMP.PRIVATE:TYPED"(ptr [[MPT9:%ps1.map.ptr.tmp[0-9]*]]
+  // CHECK: store ptr [[L13_1]], ptr [[MPT9]], align 8
   // CHECK: region.exit(token [[TV4]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target map(ps1->next->d[17:25])
   {
@@ -172,10 +172,10 @@ double foo_three(double *x) {
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[SFOO]]
   // CHECK-SAME: "QUAL.OMP.MAP.TO"(ptr [[L1]]
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr %x.map.ptr.tmp),
-  // CHECK-NEXT: store ptr [[L1]], ptr %x.map.ptr.tmp, align 8
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[MPT:%x.map.ptr.tmp[0-9]*]]
+  // CHECK-NEXT: store ptr [[L1]], ptr [[MPT]], align 8
   // CHECK: [[L:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(ptr [[SFOO]]
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr [[SFOO]]
   // CHECK: load ptr, ptr %x.map.ptr.tmp, align 8
   // CHECK: region.exit(token [[L]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
   // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
@@ -190,8 +190,8 @@ double foo_three(double *x) {
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[SFOO]]
   // CHECK-NEXT: store ptr [[L15]], ptr %x.map.ptr.tmp6, align 8
   // CHECK: [[L:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr %x.map.ptr.tmp6)
-  // CHECK: load ptr, ptr %x.map.ptr.tmp6, align 8
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[MPT6:%x.map.ptr.tmp[0-9]*]]
+  // CHECK: load ptr, ptr [[MPT6]], align 8
   // CHECK: region.exit(token [[L]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
   // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target parallel for lastprivate(s_foo) map(to: x[:100])
@@ -202,14 +202,14 @@ double foo_three(double *x) {
   // CHECK: [[L30:%[0-9]+]] = load ptr, ptr %x.addr,
   // CHECK: [[L31:%[0-9]+]] = load ptr, ptr %x.addr,
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-NOT: "QUAL.OMP.FIRSTPRIVATE"(ptr [[SPFOO]]
+  // CHECK-NOT: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[SPFOO]]
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[SPFOO]]
-  // CHECK-NOT: "QUAL.OMP.FIRSTPRIVATE"(ptr [[SPFOO]]
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr %x.map.ptr.tmp26),
-  // CHECK-NEXT: store ptr [[L30]], ptr %x.map.ptr.tmp26, align 8
+  // CHECK-NOT: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[SPFOO]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[MPT26:%x.map.ptr.tmp[0-9]*]]
+  // CHECK-NEXT: store ptr [[L30]], ptr [[MPT26]], align 8
   // CHECK: [[L:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr %x.map.ptr.tmp26)
-  // CHECK: load ptr, ptr %x.map.ptr.tmp26, align 8
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[MPT26]]
+  // CHECK: load ptr, ptr [[MPT26]], align 8
   // CHECK: region.exit(token [[L]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
   // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target parallel for linear(sp_foo) map(to: x[:100])
@@ -271,7 +271,7 @@ void foo_five(SP *p) {
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[L1]], ptr [[F1]], i64 [[L11]], i64 32
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr [[L1]], ptr [[F1]], i64 4, i64 281474976710659
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr [[L3]], ptr [[F2]], i64 4, i64 281474976710659
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[P_MAP]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[P_MAP]]
   // CHECK: store ptr [[L1]], ptr [[P_MAP]]
   // CHECK: load ptr, ptr [[P_MAP]]
   // CHECK: region.exit(token [[TV22]]) [ "DIR.OMP.END.TARGET"() ]
@@ -291,7 +291,7 @@ void foo_five(SP *p) {
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[L15]], ptr [[F12]], i64 [[L25]], i64 32
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr [[L15]], ptr [[F12]], i64 4, i64 281474976710659
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr [[L17]], ptr [[F23]], i64 4, i64 281474976710659
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[P_MAP4]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[P_MAP4]]
   // CHECK: store ptr [[L15]], ptr [[P_MAP4]]
   // CHECK: load ptr, ptr [[P_MAP4]]
   // CHECK: region.exit(token [[TV42]]) [ "DIR.OMP.END.TARGET"() ]
@@ -317,7 +317,7 @@ void foo_five(SP *p) {
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr [[L30]], ptr [[F17]], i64 4, i64 281474976710659
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(ptr [[L32]], ptr [[F28]], i64 4, i64 281474976710659
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:ALWAYS.CHAIN"(ptr [[L34]], ptr [[F3]], i64 4, i64 281474976710663
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[P_MAP9]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[P_MAP9]]
   // CHECK: store ptr [[L30]], ptr [[P_MAP9]]
   // CHECK: load ptr, ptr [[P_MAP9]]
   // CHECK: region.exit(token [[TV76]]) [ "DIR.OMP.END.TARGET"() ]

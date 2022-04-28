@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 // CHECK-LABEL: foo_close
@@ -118,15 +118,16 @@ public:
   Mapper (T* p) : ptr(p) {
     int *axx;
   // CHECK: [[PT_TMP_MAP:%pt.map.ptr.tmp]] = alloca ptr, align 8
+  // CHECK: %sec.offset_in_elements
   // CHECK: [[L1:%[0-9]+]] = load ptr, ptr %pt{{.}}
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
   // CHECK-SAME: "QUAL.OMP.MAP.TO"(ptr %axx, ptr %axx, i64 8, i64 33
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr %this1, ptr %ptr{{.*}}, i64 8, i64 547
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[L1]],
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[PT_TMP_MAP]]),
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[PT_TMP_MAP]]
   // CHECK: store ptr [[L1]]
   // CHECK: [[L:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT"(ptr [[PT_TMP_MAP]],
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT.PTR_TO_PTR.TYPED"(ptr [[PT_TMP_MAP]],
 #pragma omp target parallel for map(to:axx) reduction(+:pt[0:9])
     for (int i=0; i <20 ; i++) {
   // CHECK:load ptr, ptr %axx,
@@ -178,13 +179,17 @@ struct A {
   {
   // CHECK: [[PTR:%ptr]] = alloca ptr
   // CHECK: [[PT_TMP_MAP:%ptr.map.ptr.tmp]] = alloca ptr, align 8
-  // CHECK: [[L1:%[0-9]+]] = load ptr, ptr %ptr3
+  // CHECK: [[THIS:%this[0-9]*]] = load ptr, ptr
+  // CHECK: [[PTR2:%ptr[0-9]*]] = getelementptr inbounds %struct.A, ptr [[THIS]]
+  // CHECK: [[PTR3:%ptr[0-9]*]] = getelementptr inbounds %struct.A, ptr [[THIS]]
+  // CHECK: [[L1:%[0-9]+]] = load ptr, ptr [[PTR3]]
+  // CHECK: %sec.offset_in_elements =
   // CHECK: [[L3:%[0-9]+]] = load ptr, ptr [[L1]]
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME "QUAL.OMP.PRIVATE"(ptr %ptr.map.ptr.tmp)
+  // CHECK-SAME "QUAL.OMP.PRIVATE:TYPED"(ptr [[PT_TMP_MAP]]
   // CHECK: store ptr [[L3]], ptr [[PT_TMP_MAP]]
   // CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
-  // CHECK: "QUAL.OMP.REDUCTION.ADD:ARRSECT"(ptr [[PT_TMP_MAP]]
+  // CHECK: "QUAL.OMP.REDUCTION.ADD:ARRSECT.PTR_TO_PTR.TYPED"(ptr [[PT_TMP_MAP]]
     #pragma omp target parallel for reduction(+:ptr[:1])
     for (int i=0; i < 20 ; i++) {
       // CHECK: load ptr, ptr [[PT_TMP_MAP]]
