@@ -693,6 +693,13 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
         }
 
         /**
+         * @returns the TBB DLL PATH
+         */
+        std::string GetTBBDLLPath() const {
+          return m_pConfigFile->Read<string>("CL_CONFIG_TBB_DLL_PATH", "",
+                                             false);
+        }
+        /**
          * @returns the number of TBB workers.
          */
         unsigned GetNumTBBWorkers() const;
