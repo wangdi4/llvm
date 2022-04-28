@@ -1056,7 +1056,28 @@ int HIRLoopCollapse::matchMultiDimDynShapeArray(RegDDRef *Ref, unsigned Level) {
   // P = 1
   //
 
+  CurLevel = Level;
   for (Dim = 2; Dim <= DimMax; ++Dim) {
+    --CurLevel;
+    IndexCE = Ref->getDimensionIndex(Dim);
+    // Use same logic as the loop below, when hitting a structure reference that has no IV
+    // skip checking. The Strides will no longer be a multiple
+    // 
+    // type S1
+    //  real*8 A(10,20,30)
+    //  real*4 B 
+    // end type S1
+    // type (S1)  Structure
+    // Structure%A = 1.0 
+    // (%"sub_$STRUCTURE")[0:0:48008(%"SUB$.btS1"*:0)].0
+    //                    [0:i1:1600([30 x [20 x [10 x double]]]:30)]
+    //                    [0:i2:80([20 x [10 x double]]:20)]
+    //                    [0:i3:8([10 x double]:10)] 
+    unsigned TheLevel = 0;
+    if (!IndexCE->isStandAloneIV(false, &TheLevel) || (TheLevel != CurLevel)) {
+      break;
+    }
+  
     CanonExpr *Stride = Ref->getDimensionStride(Dim);
     if (Stride->isConstant()) {
       int64_t StrideVal = Stride->getConstant();
