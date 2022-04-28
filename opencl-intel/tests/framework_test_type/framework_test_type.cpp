@@ -491,8 +491,6 @@ TEST(FrameworkTestType, Test_clDoNotVectorizeUnreachable)
 
 TEST(FrameworkTestType, Test_cl_uniteWG_VectorizeOnDifferentDim)
 {
-    EXPECT_TRUE(clCheckVectorizingDim1AndUniteWG(false));
-    EXPECT_TRUE(clCheckVectorizingDim1AndUniteWG(true));
     EXPECT_TRUE(clCheckVectorizingDim1And2AndUniteWG(0,false));
     EXPECT_TRUE(clCheckVectorizingDim1And2AndUniteWG(1,false));
     EXPECT_TRUE(clCheckVectorizingDim1And2AndUniteWG(0,true));

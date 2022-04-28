@@ -873,12 +873,19 @@ int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThread
     m_pImplicitArgs->WorkDim = cmdParams->work_dim;
     m_pImplicitArgs->RuntimeInterface = static_cast<IDeviceCommandManager*>(this);
     // Copy global_offset, global_size, uniform local_work_size, and non-uniform local_work_size
-    for(unsigned int i = 0; i < cmdParams->work_dim; ++i)
+    unsigned i;
+    for (i = 0; i < cmdParams->work_dim; ++i)
     {
         m_pImplicitArgs->GlobalOffset[i] = cmdParams->glb_wrk_offs[i];
         m_pImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i]    = cmdParams->lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][i];
         m_pImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i] = cmdParams->lcl_wrk_size[NONUNIFORM_WG_SIZE_INDEX][i];
         m_pImplicitArgs->GlobalSize[i]   = cmdParams->glb_wrk_size[i];
+    }
+    for (; i < MAX_WORK_DIM; ++i) {
+        m_pImplicitArgs->GlobalOffset[i] = 0;
+        m_pImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i]    = 1;
+        m_pImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i] = 1;
+        m_pImplicitArgs->GlobalSize[i] = 1;
     }
 
     m_pImplicitArgs->MinWorkGroupNum = m_numThreads;
@@ -916,7 +923,6 @@ int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThread
 
     const size_t*    pWGSize = m_pImplicitArgs->WGCount;
     assert(pWGSize && "pWGSize must be non zero pointer");
-    unsigned int i;
     for (i = 0; i < cmdParams->work_dim; ++i)
     {
       region[i] = pWGSize[i];
