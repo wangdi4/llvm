@@ -178,6 +178,12 @@
 #       under the location with this version number. It should be updated
 #       when TBB library is uplifted to a new version.
 #
+# CL_CONFIG_TBB_DLL_PATH [string] -
+#       Define the TBB DLL PATH used by task executor.
+#       As a solution for Conda release channel. The tbb dll full path can be
+#       added by this field.
+#       It's only used on Windows.
+#
 
 #CL_CONFIG_LOG_FILE = C:\cl.log
 
@@ -217,3 +223,5 @@ CL_GPA_CONFIG_SHOW_COMPLETED_MARKER = True
 CL_CONFIG_TBB_VERSION = 2021.6.0
 
 CL_CONFIG_DEVICES = ${CL_CONFIG_DEVICES}
+
+CL_CONFIG_TBB_DLL_PATH =
