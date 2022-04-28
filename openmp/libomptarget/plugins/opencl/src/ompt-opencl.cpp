@@ -1,4 +1,4 @@
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 //===--- OMPT support -----------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -242,4 +242,4 @@ ompt_interface_fn_t omptLookupEntries(const char *name) {
   return (ompt_interface_fn_t)0;
 }
 
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION

@@ -724,8 +724,10 @@ EXTERN int __tgt_get_interop_property(
 EXTERN int __tgt_set_interop_property(
     void *interop_obj, int32_t property_id, void *property_value);
 
+#if INTEL_CUSTOMIZATION
 // Set code location information
 EXTERN void __tgt_push_code_location(const char *location, void *codeptr_ra);
+#endif // INTEL_CUSTOMIZATION
 
 // Return number of devices
 EXTERN int __tgt_get_num_devices(void);

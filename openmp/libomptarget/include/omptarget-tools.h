@@ -1,4 +1,4 @@
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 //===--- omptarget-tools.h -- OMPT support --------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -1869,4 +1869,4 @@ extern const char *OmptDocument;
 extern ompt_interface_fn_t omptLookupEntries(const char *);
 
 #endif // _OMPTARGET_TOOLS_H_
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION

@@ -34,7 +34,9 @@ VERS1.0 {
     __tgt_rtl_data_realloc;
     __tgt_rtl_data_aligned_alloc;
     __tgt_rtl_requires_mapping;
+# INTEL_CUSTOMIZATION
     __tgt_rtl_init_ompt;
+# end INTEL_CUSTOMIZATION
     __tgt_rtl_get_data_alloc_info;
     __tgt_rtl_push_subdevice;
     __tgt_rtl_pop_subdevice;
@@ -50,7 +52,9 @@ VERS1.0 {
     __tgt_rtl_get_interop_rc_desc;
     __tgt_rtl_get_num_sub_devices;
     __tgt_rtl_is_accessible_addr_range;
+# INTEL_CUSTOMIZATION
     __tgt_rtl_notify_indirect_access;
+# end INTEL_CUSTOMIZATION
     __tgt_rtl_is_private_arg_on_host;
     __tgt_rtl_command_batch_begin;
     __tgt_rtl_command_batch_end;

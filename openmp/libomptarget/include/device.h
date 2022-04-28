@@ -480,7 +480,9 @@ struct DeviceTy {
   void unsetSubDevice(void);
   void addLambdaPtr(void *TgtPtr);
   int32_t isAccessibleAddrRange(const void *Ptr, size_t Size);
+#if INTEL_CUSTOMIZATION
   int32_t notifyIndirectAccess(const void *Ptr, size_t Offset);
+#endif // INTEL_CUSTOMIZATION
   int32_t isPrivateArgOnHost(const void *TgtEntryPtr, uint32_t Idx);
   // BatchLevel 1 enables data batching within a target region
   // BatchLevel 2 enables full batching within a target region

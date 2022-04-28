@@ -30,9 +30,9 @@
 #include "rtl.h"
 #include "device.h"
 #include "private.h"
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 #include "omptarget-tools.h"
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
 #include <cassert>
 #include <cstdlib>
@@ -91,9 +91,9 @@ static const char *RTLNames[] = {
 
 PluginManager *PM;
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 OmptGlobalTy *OmptGlobal;
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 
 #ifdef INTEL_CUSTOMIZATION
 #ifdef _WIN32
@@ -124,11 +124,8 @@ __ATTRIBUTE__(constructor(101)) void init() { // INTEL
 
   PM = new PluginManager(UseEventsForAtomicTransfers);
 
-#if INTEL_COLLAB
-  OmptGlobal = new OmptGlobalTy();
-#endif // INTEL_COLLAB
-
 #if INTEL_CUSTOMIZATION
+  OmptGlobal = new OmptGlobalTy();
   XPTIRegistry = new XPTIRegistryTy();
 #endif // INTEL_CUSTOMIZATION
 
@@ -144,11 +141,8 @@ __ATTRIBUTE__(destructor(101)) void deinit() { // INTEL
   DP("Deinit target library!\n");
   delete PM;
 
-#if INTEL_COLLAB
-  delete OmptGlobal;
-#endif // INTEL_COLLAB
-
 #if INTEL_CUSTOMIZATION
+  delete OmptGlobal;
   delete XPTIRegistry;
 #endif // INTEL_CUSTOMIZATION
 
@@ -210,11 +204,8 @@ void RTLsTy::LoadRTLs() {
   if (PM->TargetOffloadPolicy == tgt_disabled) {
     return;
   }
-#if INTEL_COLLAB
-  OmptGlobal->init();
-#endif // INTEL_COLLAB
-
 #if INTEL_CUSTOMIZATION
+  OmptGlobal->init();
   XPTIRegistry->initializeFrameworkOnce();
 #endif // INTEL_CUSTOMIZATION
 
@@ -385,7 +376,9 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(set_device_handle);
     SET_OPTIONAL_INTERFACE_FN(get_context_handle);
     SET_OPTIONAL_INTERFACE_FN(get_data_alloc_info);
+#if INTEL_CUSTOMIZATION
     SET_OPTIONAL_INTERFACE_FN(init_ompt);
+#endif // INTEL_CUSTOMIZATION
     SET_OPTIONAL_INTERFACE_FN(requires_mapping);
     SET_OPTIONAL_INTERFACE_FN(manifest_data_for_region);
     SET_OPTIONAL_INTERFACE_FN(push_subdevice);
@@ -402,7 +395,9 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(get_interop_rc_desc);
     SET_OPTIONAL_INTERFACE_FN(get_num_sub_devices);
     SET_OPTIONAL_INTERFACE_FN(is_accessible_addr_range);
+#if INTEL_CUSTOMIZATION
     SET_OPTIONAL_INTERFACE_FN(notify_indirect_access);
+#endif // INTEL_CUSTOMIZATION
     SET_OPTIONAL_INTERFACE_FN(is_private_arg_on_host);
     SET_OPTIONAL_INTERFACE_FN(command_batch_begin);
     SET_OPTIONAL_INTERFACE_FN(command_batch_end);
@@ -415,9 +410,11 @@ void RTLsTy::LoadRTLs() {
     #undef SET_OPTIONAL_INTERFACE
     #undef SET_OPTIONAL_INTERFACE_FN
 
+#if INTEL_CUSTOMIZATION
     // Initialize RTL's OMPT data
     if (R.init_ompt)
       R.init_ompt(OmptGlobal);
+#endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
 
     *((void **)&R.register_lib) =

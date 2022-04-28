@@ -260,8 +260,10 @@ EXTERN void *__tgt_rtl_data_alloc_managed(int32_t ID, int64_t Size);
 // Check if the specified pointer and size requires mapping.
 EXTERN int32_t __tgt_rtl_requires_mapping(int32_t ID, void *Ptr, int64_t Size);
 
+#if INTEL_CUSTOMIZATION
 // Initialize OMPT interface
 EXTERN void __tgt_rtl_init_ompt(void *OmptGlobal);
+#endif // INTEL_CUSTOMIZATION
 
 // Get target memory allocation information
 EXTERN int32_t __tgt_rtl_get_data_alloc_info(
@@ -316,9 +318,11 @@ EXTERN int32_t __tgt_rtl_get_num_sub_devices(int32_t ID, int32_t Level);
 EXTERN int32_t __tgt_rtl_is_accessible_addr_range(
     int32_t ID, const void *Ptr, size_t Size);
 
+#if INTEL_CUSTOMIZATION
 // Notify indirectly accessed target pointer
 EXTERN int32_t __tgt_rtl_notify_indirect_access(
     int32_t ID, const void *Ptr, size_t Offset);
+#endif // INTEL_CUSTOMIZATION
 
 // Check if the RTL expects that the outlined function's argument
 // specified by Idx will be passed from libomptarget to the RTL
