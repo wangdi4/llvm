@@ -1117,7 +1117,7 @@ TEST_F(InstrRefLDVTest, MLocDiamondSpills) {
 #if INTEL_FEATURE_XISA_COMMON
   // Some new ISAs like AMX2 etc. introduce more sub register indicators. See
   // X86SubRegIdxRanges. We should change this value when upstream.
-  ASSERT_EQ(MTracker->getNumLocs(), 55u); // Tracks all possible stack locs.
+  ASSERT_EQ(MTracker->getNumLocs(), 56u); // Tracks all possible stack locs.
 #else // INTEL_FEATURE_XISA_COMMON
   ASSERT_EQ(MTracker->getNumLocs(), 11u); // Tracks all possible stack locs.
 #endif // INTEL_FEATURE_XISA_COMMON
