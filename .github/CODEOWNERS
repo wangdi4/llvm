@@ -25,6 +25,11 @@
 /llvm/include/llvm/Option/ @andykaylor
 /llvm/include/llvm/Support/ @andykaylor
 
+# Assign ScalarOpt as the default owner of things in Transforms/Utils; specific
+# owners for individual files can be assigned below.
+/llvm/include/llvm/Transforms/Utils/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Transforms/Utils/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+
 # COMPONENT: CFE
 # CFE: Team owns everything in Clang unless otherwise specified.
 /clang/ @ErichKeane @mikerice1969 @aaronballman
