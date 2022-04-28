@@ -1607,10 +1607,24 @@ static PrivKindPair getPrivateKind(VPInstruction *Inst, VPLoopEntityList *LE) {
 
   auto Iter = llvm::find_if(Inst->users(), IsHeaderPhi);
   if (Iter != Inst->user_end()) {
-    // If it's used in a header phi then it should be conditional. In such cases
-    // we allow the uses only in the header and outside of the loop, i.e. only
-    // two uses. Preventing, e.g., case like below (%exitI is declared as last
-    // private).
+    // If it's used in a header phi then it should be conditional.
+    // Currently we support only phi and select as liveouts for conditional
+    // last privates. The patterns like below are not supported yet.
+    //
+    // ; example: conditionally incremented pointer.
+    // i16* %ptr.phi = phi  [ i16* %4, BB2 ],  [ i16* %ptr.inc, BB3 ]
+    // i1 %cmp = icmp eq i32 %some.val i32 9
+    // i64 %sel.inc = select i1 %cmp i64 4 i64 0
+    // i16* %ptr.inc = subscript i16* %ptr.phi i64 %sel.inc; this is liveout
+    //
+    // TODO: implement support matching similar increments/updates.
+    //
+    if (!isa<VPPHINode>(Inst) && Inst->getOpcode() != Instruction::Select)
+      return None;
+
+    // For conditional last privates we allow the uses only in the header and
+    // outside of the loop, i.e. only two uses. Preventing, e.g., case like
+    // below (%exitI is declared as last private).
     //
     //    %header_phi = phi [%start_val], [%exitI]
     //    %cond = some_comparison ...
