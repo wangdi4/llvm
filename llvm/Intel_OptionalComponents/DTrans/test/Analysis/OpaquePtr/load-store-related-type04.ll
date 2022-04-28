@@ -1,24 +1,41 @@
 ; REQUIRES: asserts
 
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -disable-output -debug-only=dtrans-safetyanalyzer-verbose 2>&1 | FileCheck %s
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -disable-output -debug-only=dtrans-safetyanalyzer-verbose 2>&1 | FileCheck %s
+; RUN: opt  < %s -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -disable-output -debug-only=dtrans-safetyanalyzer-verbose 2>&1 | FileCheck %s --check-prefixes=CHECK-BC,CHECK-UPS,CHECK-MEA
+; RUN: opt  < %s -opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -disable-output -debug-only=dtrans-safetyanalyzer-verbose 2>&1 | FileCheck %s --check-prefixes=CHECK-BC,CHECK-UPS,CHECK-MEA
 
 ; This test case checks that "Bad casting (related types) -- Pointer type
-; for field load/store contains related types" was not set for the store
-; instruction in @foo. The reason is because the allocated space in %0 is
-; expected to be used as a pointer to %class.TestClass, but is it used in %2
-; as %class.SimpleClass, which is not a zero element nor a related type of
-; %class.TestClass.
+; for field load/store contains related types", "Unsafe pointer store
+; (related types) -- Type for field load/store contains related types", and
+; "Unsafe pointer store (related types) -- Type for field load/store contains
+; related types" were not set for the store instruction in @foo. The reason is
+; because the allocated space in %0 is expected to be used as a pointer to
+; %class.TestClass, but is it used in %2 as %class.SimpleClass, which is not a
+; zero element nor a related type of %class.TestClass.
 
-; CHECK-NOT: Bad casting (related types) -- Pointer type for field load/store contains related types
-; CHECK: dtrans-safety: Bad casting -- Incompatible pointer type for field load/store
-; CHECK:   [foo]   store ptr %phi, ptr %1, align 8
-; CHECK: dtrans-safety: Bad casting -- Incompatible pointer type for field load/store
-; CHECK:   [foo]   store ptr %phi, ptr %1, align 8
-; CHECK: dtrans-safety: Bad casting -- Incompatible pointer type for field load/store
-; CHECK:   [foo]   store ptr %phi, ptr %1, align 8
-; CHECK: dtrans-safety: Bad casting -- Incompatible pointer type for field load/store
-; CHECK:   [foo]   store ptr %phi, ptr %1, align 8
+; CHECK-BC-NOT: Bad casting (related types) -- Pointer type for field load/store contains related types
+; CHECK-MEA-NOT: Mismatched element access (related types) -- Type for field load/store contains related types
+; CHECK-UPS-NOT: Bad casting (related types) -- Pointer type for field load/store contains related types
+
+; CHECK-BC: dtrans-safety: Bad casting -- Incompatible pointer type for field load/store
+; CHECK-BC:   [foo]   store ptr %phi, ptr %1, align 8
+; CHECK-BC: dtrans-safety: Bad casting -- Incompatible pointer type for field load/store
+; CHECK-BC:   [foo]   store ptr %phi, ptr %1, align 8
+; CHECK-BC: dtrans-safety: Bad casting -- Incompatible pointer type for field load/store
+; CHECK-BC:   [foo]   store ptr %phi, ptr %1, align 8
+; CHECK-BC: dtrans-safety: Bad casting -- Incompatible pointer type for field load/store
+; CHECK-BC:   [foo]   store ptr %phi, ptr %1, align 8
+
+; CHECK-UPS:dtrans-safety: Unsafe pointer store -- Incompatible type for field load/store
+; CHECK-UPS:  [foo]   store ptr %phi, ptr %1, align 8
+; CHECK-UPS:dtrans-safety: Unsafe pointer store -- Incompatible type for field load/store
+; CHECK-UPS:  [foo]   store ptr %phi, ptr %1, align 8
+; CHECK-UPS:dtrans-safety: Unsafe pointer store -- Incompatible type for field load/store
+; CHECK-UPS:  [foo]   store ptr %phi, ptr %1, align 8
+; CHECK-UPS:dtrans-safety: Unsafe pointer store -- Incompatible type for field load/store
+; CHECK-UPS:  [foo]   store ptr %phi, ptr %1, align 8
+
+; CHECK-MEA: dtrans-safety: Mismatched element access -- Incompatible type for field load/store
+; CHECK-MEA:   [foo]   store ptr %phi, ptr %1, align 8
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

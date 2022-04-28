@@ -691,6 +691,22 @@ const SafetyData UnhandledUse = 0x8000'0000'0000'0000;
 static const SafetyData AnyFieldAddressTaken =
     FieldAddressTakenMemory | FieldAddressTakenCall | FieldAddressTakenReturn;
 
+// Enum that could be used to identify which variation of safety data will be
+// preferred when we have multiple forms of the same safety violation. List
+// could be expanded as we add more cases.
+//
+// NOTE: Not all safety violations will have all the forms listed in the enum.
+// For example, the only variation for BadPtrManipulation is
+// BadPtrManipulationForRelatedTypes. This means that when SafetyDataKind is
+// used, it needs to be guarded with the proper checks for each case. This
+// could be extended as a helper class as needed.
+enum SafetyDataKind {
+  Original,    // Used for identifying the original case (e.g. BadCasting)
+  Pending,     // Used for "pending" (e.g. BadCastingPending)
+  Conditional, // Used for "conditional" (e.g. BadCastingConditional)
+  RelatedTypes // Used for "related types" (e.g. BadCastingForRelatedTypes)
+};
+
 // TODO: Create a safety mask for the conditions that are common to all
 //       DTrans optimizations.
 //

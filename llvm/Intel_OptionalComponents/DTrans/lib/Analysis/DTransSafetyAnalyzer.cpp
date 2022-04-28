@@ -1391,7 +1391,7 @@ public:
           continue;
 
         setFieldMismatchedElementAccess(PtrAliasTy, ValSize, ValTy,
-                                        /*FieldNum=*/0, I, false);
+                                        /*FieldNum=*/0, I);
       }
     } else if (PtrDomTy && !isPtrToPtr(PtrDomTy)) {
       // Treat this as an element zero access if the pointer operand alias info
@@ -1971,7 +1971,7 @@ public:
       // - a pointer was used, but not with the expected type
       bool TypesCompatible = true;
       bool BadCasting = false;
-      bool BadCastingForRelatedTypes = false;
+      bool LoadStoreUseRelatedTypes = false;
       DTransType *ValTy = getLoadStoreValueType(*ValOp, ValInfo, IsLoad);
       if (!ValTy) {
         // In some cases we may not have a ValTy identified for a pointer being
@@ -1986,7 +1986,7 @@ public:
           // related types. In this case ValTy couldn't be collected since
           // there is no dominant aggregate type.
           if (areLoadStoresWithRelatedTypes(IndexedType, ValInfo, &PtrInfo))
-            BadCastingForRelatedTypes = true;
+            LoadStoreUseRelatedTypes = true;
           else
             BadCasting = true;
         }
@@ -2019,7 +2019,7 @@ public:
         // related types
         if (areLoadStoresWithRelatedTypes(IndexedType, ValInfo, &PtrInfo) ||
             isStoringDataInNextEntry(&I, ValOp, PtrOp, &PtrInfo))
-          BadCastingForRelatedTypes = true;
+          LoadStoreUseRelatedTypes = true;
         else
           BadCasting = true;
       }
@@ -2034,7 +2034,7 @@ public:
           // check if we are using a byte flattened GEP to access the next entry
           if (isStoringDataInNextEntry(&I, ValOp, PtrOp, &PtrInfo)) {
             TypesCompatible = false;
-            BadCastingForRelatedTypes = true;
+            LoadStoreUseRelatedTypes = true;
           } else if (ValTy->getPointerElementType()->isAggregateType()) {
             if (hasIncompatibleAggregateDecl(ValTy->getPointerElementType(),
                                              ValInfo)) {
@@ -2061,9 +2061,9 @@ public:
       bool IsCandidate = IsCandidateLoad || IsAllocStore;
 
       // If IsCandidate is enabled then we are going to turn off
-      // BadCastingForRelatedTypes
-      if (IsCandidate && BadCastingForRelatedTypes) {
-        BadCastingForRelatedTypes = false;
+      // LoadStoreUseRelatedTypes
+      if (IsCandidate && LoadStoreUseRelatedTypes) {
+        LoadStoreUseRelatedTypes = false;
         BadCasting = true;
       }
 
@@ -2081,7 +2081,11 @@ public:
                 ValAliasTy, SD,
                 "Incompatible pointer type for field load/store", &I);
           }
-      } else if (BadCastingForRelatedTypes) {
+
+        // If BadCasting is enabled then we aren't going to treat the
+        // instruction as a special case for related types.
+        LoadStoreUseRelatedTypes = false;
+      } else if (LoadStoreUseRelatedTypes) {
         const llvm::dtrans::SafetyData SD = dtrans::BadCastingForRelatedTypes;
         setBaseTypeInfoSafetyData(
             ParentTy, SD,
@@ -2107,9 +2111,26 @@ public:
           if (IndexedType->isPointerTy() &&
               IndexedType->getPointerElementType()->isAggregateType())
             PtrToAggregateFound = true;
-          const llvm::dtrans::SafetyData SD =
-              IsCandidate ? dtrans::UnsafePointerStorePending
-                           : dtrans::UnsafePointerStore;
+
+          // If LoadStoreUseRelatedTypes is true then the store instruction is
+          // used to move data between two pointers with related types. The
+          // comment for areLoadStoresWithRelatedTypes contains a detailed
+          // explanation about this. In this case we are going to set
+          // dtrans::UnsafePointerStoreRelatedTypes and
+          // dtrans::MismatchedElementAccessRelatedTypes.
+          llvm::dtrans::SafetyData SD;
+          StringRef Message;
+          if (IsCandidate) {
+            Message = "Incompatible type for field load/store";
+            SD = dtrans::UnsafePointerStorePending;
+          } else if (LoadStoreUseRelatedTypes) {
+            Message = "Type for field load/store contains related types";
+            SD = dtrans::UnsafePointerStoreRelatedTypes;
+          } else {
+            Message = "Incompatible type for field load/store";
+            SD = dtrans::UnsafePointerStore;
+          }
+
           if (ValInfo) {
             auto &AliasSet =
                 ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
@@ -2118,9 +2139,7 @@ public:
               for (auto *ValAliasTy : AliasSet) {
                 if (IsCandidate)
                   DTBCA.setSawUnsafePointerStore(&I);
-                setBaseTypeInfoSafetyData(
-                    ValAliasTy, SD, "Incompatible type for field load/store",
-                    &I);
+                setBaseTypeInfoSafetyData(ValAliasTy, SD, Message, &I);
               }
             }
           }
@@ -2128,17 +2147,24 @@ public:
           if (PtrToAggregateFound) {
             if (IsCandidate)
               DTBCA.setSawUnsafePointerStore(&I);
-            setBaseTypeInfoSafetyData(
-                IndexedType, SD, "Incompatible type for field load/store", &I);
+            setBaseTypeInfoSafetyData(IndexedType, SD, Message, &I);
           }
         }
 
         // Finally, mark the structure as having a mismatched element access.
         TypeSize ValSize = DL.getTypeSizeInBits(ValOp->getType());
-        if (IsCandidate)
+        dtrans::SafetyDataKind SDKind;
+        if (IsCandidate) {
           DTBCA.setSawMismatchedElementAccess(&I);
+          SDKind = dtrans::SafetyDataKind::Pending;
+        } else if (LoadStoreUseRelatedTypes) {
+          SDKind = dtrans::SafetyDataKind::RelatedTypes;
+        } else {
+          SDKind = dtrans::SafetyDataKind::Original;
+        }
+
         setFieldMismatchedElementAccess(ParentTy, ValSize, IndexedType,
-                                        ElementNum, I, IsCandidate);
+                                        ElementNum, I, SDKind);
       }
     }
   }
@@ -2585,28 +2611,42 @@ public:
   }
 
   void setFieldMismatchedElementAccess(DTransType *ParentTy,
-                                       TypeSize AccessSize,
-                                       DTransType *AccessTy,
-                                       unsigned int ElementNum, Instruction &I,
-                                       bool IsPending) {
-    const llvm::dtrans::SafetyData SD =
-        IsPending ? dtrans::MismatchedElementAccessPending
-                  : dtrans::MismatchedElementAccess;
+      TypeSize AccessSize, DTransType *AccessTy, unsigned int ElementNum,
+      Instruction &I,
+      dtrans::SafetyDataKind SDKind = dtrans::SafetyDataKind::Original) {
+
+    llvm::dtrans::SafetyData SD;
+    StringRef Message;
+    switch (SDKind) {
+    case dtrans::SafetyDataKind::RelatedTypes:
+      Message = "Type for field load/store contains related types";
+      SD = dtrans::MismatchedElementAccessRelatedTypes;
+      break;
+    case dtrans::SafetyDataKind::Pending:
+      Message = "Incompatible type for field load/store";
+      SD = dtrans::MismatchedElementAccessPending;
+      break;
+    case dtrans::SafetyDataKind::Original:
+      Message = "Incompatible type for field load/store";
+      SD = dtrans::MismatchedElementAccess;
+      break;
+    case dtrans::SafetyDataKind::Conditional:
+      llvm_unreachable(
+          "Conditional variation for mismatched element access not available");
+    }
+
     if (getLangRuleOutOfBoundsOK()) {
       // Assuming out of bound access, set safety issue for the entire
       // ParentTy.
-      setBaseTypeInfoSafetyData(ParentTy, SD,
-                                "Incompatible type for field load/store", &I);
+      setBaseTypeInfoSafetyData(ParentTy, SD, Message, &I);
     } else {
       // Set the safety issue only on the structure containing the field and the
       // field type, rather than to all fields reachable from the structure
       // because out of bounds accesses are known to not occur based on the
       // LangRuleOutOfBoundsOK definition.
-      setOnlyBaseTypeInfoSafetyData(
-          ParentTy, SD, "Incompatible type for field load/store", &I);
+      setOnlyBaseTypeInfoSafetyData(ParentTy, SD, Message, &I);
       if (AccessTy)
-        setBaseTypeInfoSafetyData(AccessTy, SD,
-                                  "Incompatible type for field load/store", &I);
+        setBaseTypeInfoSafetyData(AccessTy, SD, Message, &I);
     }
 
     // If the mismatched element access was caused by an access to an array,
@@ -6599,10 +6639,12 @@ private:
     case dtrans::MismatchedElementAccess:
     case dtrans::MismatchedElementAccessPending:
     case dtrans::MismatchedElementAccessConditional:
+    case dtrans::MismatchedElementAccessRelatedTypes:
     case dtrans::NestedStruct:
     case dtrans::NoFieldsInStruct:
     case dtrans::WholeStructureReference:
     case dtrans::UnsafePointerStorePending:
+    case dtrans::UnsafePointerStoreRelatedTypes:
     case dtrans::VolatileData:
       // These cases do not need to be pointer carried
       return false;
@@ -6660,6 +6702,7 @@ private:
     case dtrans::MismatchedElementAccess:
     case dtrans::MismatchedElementAccessPending:
     case dtrans::MismatchedElementAccessConditional:
+    case dtrans::MismatchedElementAccessRelatedTypes:
     case dtrans::NestedStruct:
     case dtrans::NoFieldsInStruct:
     case dtrans::SystemObject:
@@ -6670,6 +6713,7 @@ private:
     case dtrans::UnsafePointerStore:
     case dtrans::UnsafePointerStoreConditional:
     case dtrans::UnsafePointerStorePending:
+    case dtrans::UnsafePointerStoreRelatedTypes:
     case dtrans::VolatileData:
       return true;
 
@@ -6692,7 +6736,9 @@ private:
     case dtrans::BadCastingForRelatedTypes:
     case dtrans::BadMemFuncManipulationForRelatedTypes:
     case dtrans::BadPtrManipulationForRelatedTypes:
+    case dtrans::MismatchedElementAccessRelatedTypes:
     case dtrans::UnsafePtrMergeRelatedTypes:
+    case dtrans::UnsafePointerStoreRelatedTypes:
       return true;
     default:
       break;
