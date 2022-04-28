@@ -3237,10 +3237,10 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
           BranchProbability BIBBProb =
               DomBI->getSuccessor(0) == BB ? BITrueProb : BIFalseProb;
           if (BIBBProb >= Likely)
-            return false;
+            continue;
         } else {
           if (BITrueProb >= Likely || BIFalseProb >= Likely)
-            return false;
+            continue;
         }
       }
     }
