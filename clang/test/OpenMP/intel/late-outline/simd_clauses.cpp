@@ -1,7 +1,7 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:   -triple x86_64-unknown-linux-gnu %s | FileCheck %s
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:   -fopenmp-version=50 -DOMP50 -triple x86_64-unknown-linux-gnu %s \
 // RUN: | FileCheck %s --check-prefixes=CHECK,CHECK50
 
@@ -35,12 +35,12 @@ void foo()
   // CHECK-SAME: "QUAL.OMP.ALIGNED:PTR_TO_PTR"(ptr [[Z_ADDR]], i32 8)
   // CHECK-SAME: "QUAL.OMP.ALIGNED:PTR_TO_PTR"(ptr [[X_ADDR]], i32 4)
   // CHECK-SAME: "QUAL.OMP.ALIGNED:PTR_TO_PTR"(ptr [[Q_ADDR]], i32 0)
-  // CHECK-SAME: "QUAL.OMP.LASTPRIVATE"(ptr [[SIMPLE_ADDR]])
-  // CHECK-SAME: "QUAL.OMP.LASTPRIVATE:NONPOD"(ptr @obj,
+  // CHECK-SAME: "QUAL.OMP.LASTPRIVATE:TYPED"(ptr [[SIMPLE_ADDR]]
+  // CHECK-SAME: "QUAL.OMP.LASTPRIVATE:NONPOD.TYPED"(ptr @obj,
   // CHECK-SAME: ptr @_ZTS1A.omp.def_constr,
   // CHECK-SAME: ptr @_ZTS1A.omp.copy_assign,
   // CHECK-SAME: ptr @_ZTS1A.omp.destr)
-  // CHECK-SAME: QUAL.OMP.LASTPRIVATE:NONPOD"(ptr @objarr,
+  // CHECK-SAME: QUAL.OMP.LASTPRIVATE:NONPOD.TYPED"(ptr @objarr,
   // CHECK-SAME: ptr @_ZTS1A.omp.def_constr, ptr @_ZTS1A.omp.copy_assign,
   // CHECK-SAME: ptr @_ZTS1A.omp.destr)
   // CHECK: region.exit{{.*}}"DIR.OMP.END.SIMD"()

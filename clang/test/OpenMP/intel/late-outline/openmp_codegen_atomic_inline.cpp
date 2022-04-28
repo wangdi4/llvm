@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:   -triple x86_64-unknown-linux-gnu %s \
 // RUN:   | FileCheck %s --check-prefix=CHECK
 
@@ -18,11 +18,11 @@ void foo() {
   //CHECK: [[T3:%atomic-temp.*]] = alloca x86_fp80, align 16
 
   //CHECK: [[T:%[0-9].*]] = {{.*}}"DIR.OMP.PARALLEL"
-  //CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[N1]])
-  //CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[N2]])
-  //CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[T1]])
-  //CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[T2]])
-  //CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[T3]])
+  //CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[N1]]
+  //CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[N2]]
+  //CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[T1]]
+  //CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[T2]]
+  //CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[T3]]
 
   #pragma omp parallel
   {

@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 void bar(int);
@@ -54,7 +54,7 @@ float a[100];
 void foo2() {
  int j;
   //CHECK: [[TVAL2:%[0-9]+]] = call token{{.*}}DIR.OMP.PARALLEL.LOOP
-  //CHECK-SAME: LASTPRIVATE{{.*}}(ptr @a)
+  //CHECK-SAME: LASTPRIVATE:TYPED{{.*}}(ptr @a
   //CHECK: region.exit(token [[TVAL2]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
  #pragma omp parallel for schedule(static, 1) lastprivate(a)
  for (j = 0; j < 4; j++) { a[j] = a[j]+1; }
@@ -70,8 +70,8 @@ void foo3() {
   //CHECK: [[L:%l.*]] = alloca i32,
 
   //CHECK: DIR.OMP.PARALLEL.LOOP
-  //CHECK: "QUAL.OMP.LASTPRIVATE"(ptr [[I]])
-  //CHECK: "QUAL.OMP.LASTPRIVATE"(ptr [[J]])
+  //CHECK: "QUAL.OMP.LASTPRIVATE:TYPED"(ptr [[I]]
+  //CHECK: "QUAL.OMP.LASTPRIVATE:TYPED"(ptr [[J]]
   #pragma omp parallel for simd collapse(2)
   for (i = 0; i < 77; ++i)
     for (j = 0; j < 99; ++j) bar(i+j);
@@ -81,8 +81,8 @@ void foo3() {
   //CHECK: DIR.OMP.END.PARALLEL.LOOP
 
   //CHECK: DIR.OMP.PARALLEL.LOOP
-  //CHECK: "QUAL.OMP.PRIVATE"(ptr [[K]])
-  //CHECK: "QUAL.OMP.PRIVATE"(ptr [[L]])
+  //CHECK: "QUAL.OMP.PRIVATE:TYPED"(ptr [[K]]
+  //CHECK: "QUAL.OMP.PRIVATE:TYPED"(ptr [[L]]
   #pragma omp parallel for simd collapse(2)
   for (int k = 0; k < 33; ++k)
     for (int l = 0; l < 55; ++l) bar(k+l);

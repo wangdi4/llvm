@@ -1,11 +1,11 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -verify -triple x86_64-unknown-linux-gnu -fopenmp \
-// RUN:  -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -no-opaque-pointers -verify -triple x86_64-unknown-linux-gnu -fopenmp \
+// RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN: -mconstructor-aliases \
 // RUN: -fopenmp-targets=x86_64-pc-linux-gnu -emit-llvm-bc %s -o %t-host.bc
 //
-// RUN: %clang_cc1 -opaque-pointers -verify -triple x86_64-pc-linux-gnu -fopenmp \
-// RUN:  -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN: %clang_cc1 -no-opaque-pointers -verify -triple x86_64-pc-linux-gnu -fopenmp \
+// RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -mconstructor-aliases \
 // RUN:  -fopenmp-targets=x86_64-pc-linux-gnu -fopenmp-is-device \
 // RUN:  -fopenmp-host-ir-file-path %t-host.bc %s -emit-llvm -o - \
@@ -25,21 +25,21 @@ void fn1() {
   // Outside target region, these should not generate routines in the
   // device compile.
   //CHECK: "DIR.OMP.PARALLEL"()
-  //CHECK-SAME:"QUAL.OMP.PRIVATE:NONPOD.TYPED"
+  //CHECK-SAME:"QUAL.OMP.PRIVATE:NONPOD"
   //CHECK-SAME: null{{.*}}null
   //CHECK: "DIR.OMP.END.PARALLEL"()
   #pragma omp parallel private(e)
   for(int d=0; d<100; d++);
 
   //CHECK: "DIR.OMP.TARGET"()
-  //CHECK-SAME:"QUAL.OMP.PRIVATE:NONPOD.TYPED"
+  //CHECK-SAME:"QUAL.OMP.PRIVATE:NONPOD"
   //CHECK-SAME: _ZTS1A.omp.def_constr{{.*}}_ZTS1A.omp.destr
   //CHECK: "DIR.OMP.END.TARGET"()
   #pragma omp target private(e)
   for(int d=0; d<100; d++);
 
   //CHECK: "DIR.OMP.TARGET"()
-  //CHECK-SAME:"QUAL.OMP.FIRSTPRIVATE:NONPOD.TYPED"
+  //CHECK-SAME:"QUAL.OMP.FIRSTPRIVATE:NONPOD"
   //CHECK-SAME: _ZTS1A.omp.copy_constr{{.*}}_ZTS1A.omp.destr
   //CHECK: "DIR.OMP.END.TARGET"()
   #pragma omp target firstprivate(e)

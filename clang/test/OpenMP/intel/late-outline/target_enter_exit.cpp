@@ -1,9 +1,9 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | \
 // RUN:  FileCheck --check-prefixes CHECK,CHECK-NEW %s
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu %s -fno-openmp-new-depend-ir | \
 // RUN:  FileCheck --check-prefixes CHECK,CHECK-OLD %s
 
@@ -29,7 +29,7 @@ void foo2() {
   // CHECK: [[B:%.+]] = alloca i32,
   // CHECK: "DIR.OMP.TASK"()
   // CHECK-SAME: "QUAL.OMP.TARGET.TASK"()
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[B]])
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[B]]
   // CHECK: DIR.OMP.TARGET.ENTER.DATA
   // CHECK-SAME: "QUAL.OMP.NOWAIT"()
   // CHECK: DIR.OMP.END.TARGET.ENTER.DATA
@@ -114,7 +114,7 @@ void foo7() {
   // CHECK-OLD-SAME:"QUAL.OMP.DEPEND.IN"(ptr [[X7]])
   // CHECK-OLD-SAME:"QUAL.OMP.DEPEND.OUT"(ptr [[Y7]])
   // CHECK-NEW-SAME: "QUAL.OMP.DEPARRAY"(i32 2, ptr [[DARR]])
-  // CHECK-SAME:"QUAL.OMP.SHARED"(ptr [[B7]])
+  // CHECK-SAME:"QUAL.OMP.SHARED:TYPED"(ptr [[B7]]
   // CHECK-SAME "QUAL.OMP.TARGET.TASK"
   // CHECK: DIR.OMP.TARGET.EXIT.DATA
   // CHECK-SAME: "QUAL.OMP.MAP.FROM"(ptr [[B7]], ptr [[B7]], i64 8, i64 2
@@ -134,7 +134,7 @@ void foo8() {
   // CHECK-OLD-SAME: "QUAL.OMP.DEPEND.IN"(ptr [[X8]])
   // CHECK-OLD-SAME: "QUAL.OMP.DEPEND.OUT"(ptr [[Y8]])
   // CHECK-NEW-SAME: "QUAL.OMP.DEPARRAY"(i32 2, ptr [[DARR]])
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[B8]])
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[B8]]
   // CHECK: DIR.OMP.TARGET.EXIT.DATA
   // CHECK-SAME: "QUAL.OMP.NOWAIT"()
   // CHECK-SAME: "QUAL.OMP.MAP.FROM"(ptr [[B8]], ptr [[B8]], i64 8, i64 2

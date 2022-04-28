@@ -2,37 +2,37 @@
 //
 // RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c++14 -disable-llvm-passes \
 // RUN:  -fexceptions -fcxx-exceptions \
-// RUN:  -fopenmp -fintel-compatibility -fopenmp-late-outline \
+// RUN:  -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu \
 // RUN:  | FileCheck %s --check-prefixes=BOTH,NOOPT
 
 // Same as above adding -O2
 // RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - %s -std=c++14 -disable-llvm-passes -O2 \
 // RUN:  -fexceptions -fcxx-exceptions \
-// RUN:  -fopenmp -fintel-compatibility -fopenmp-late-outline \
+// RUN:  -fopenmp -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu \
 // RUN:  | FileCheck %s -check-prefixes=BOTH,OPT
 
 // RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu -fopenmp \
 // RUN: -fexceptions -fcxx-exceptions \
-// RUN: -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu \
+// RUN: -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-targets=x86_64-pc-linux-gnu \
 // RUN: -DTARGET_TEST -emit-llvm %s -o - \
 // RUN:  | FileCheck %s --check-prefix TTEST
 //
 // RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu -fopenmp \
 // RUN: -fexceptions -fcxx-exceptions \
-// RUN: -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu \
+// RUN: -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-targets=x86_64-pc-linux-gnu \
 // RUN: -DTARGET_TEST -emit-llvm-bc %s -o %t-targ-host.bc
 
 // RUN: %clang_cc1 -opaque-pointers -triple x86_64-pc-linux-gnu -fopenmp \
 // RUN: -fexceptions -fcxx-exceptions \
-// RUN: -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu \
+// RUN: -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-targets=x86_64-pc-linux-gnu \
 // RUN: -fopenmp-is-device -fopenmp-host-ir-file-path %t-targ-host.bc \
 // RUN: -DTARGET_TEST -emit-llvm %s -o - \
 // RUN:  | FileCheck %s --check-prefix TTEST
 
 // RUN: %clang_cc1 -opaque-pointers -triple x86_64-pc-windows-msvc19.29.30133 -fopenmp \
-// RUN: -fexceptions -fcxx-exceptions -fopenmp-late-outline -DWTEST \
+// RUN: -fexceptions -fcxx-exceptions -fopenmp-late-outline -fopenmp-typed-clauses -DWTEST \
 // RUN: -emit-llvm %s -o - \
 // RUN:  | FileCheck %s --check-prefix WTEST
 
@@ -143,7 +143,7 @@ void test_try_param ()
   //BOTH: [[TRYPARAM:%try_param.*]] = alloca i32
 
   //BOTH: DIR.OMP.PARALLEL
-  //BOTH-SAME: "QUAL.OMP.PRIVATE"(ptr [[TRYPARAM]])
+  //BOTH-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[TRYPARAM]]
   //BOTH: DIR.OMP.END.PARALLEL
   #pragma omp parallel
   {
@@ -173,8 +173,8 @@ void target_throw() {
   //TTEST: [[EHSEL2:%ehselector.slot.*]] = alloca i32
 
   //TTEST: DIR.OMP.TARGET
-  //TTEST-SAME: "QUAL.OMP.PRIVATE"(ptr [[EXNSLOT]])
-  //TTEST-SAME: "QUAL.OMP.PRIVATE"(ptr [[EHSEL]])
+  //TTEST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[EXNSLOT]]
+  //TTEST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[EHSEL]]
   #pragma omp target parallel for
   for (int i = 0; i < 100; i++) {
     try {
@@ -184,8 +184,8 @@ void target_throw() {
     catch (...) { }
   }
   //TTEST: DIR.OMP.TARGET
-  //TTEST-SAME: "QUAL.OMP.PRIVATE"(ptr [[EXNSLOT2]])
-  //TTEST-SAME: "QUAL.OMP.PRIVATE"(ptr [[EHSEL2]])
+  //TTEST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[EXNSLOT2]]
+  //TTEST-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[EHSEL2]]
   #pragma omp target parallel for
   for (int i = 0; i < 100; i++) {
     try {

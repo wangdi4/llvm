@@ -1,7 +1,7 @@
 // INTEL_COLLAB
 // Verify copy constructor with cleanups compiles with late outlining.
 //
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 struct St {
@@ -22,10 +22,9 @@ int tmain() {
   S test;
 // CHECK: "DIR.OMP.PARALLEL"
 // CHECK: "DIR.OMP.LOOP"()
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:NONPOD"(ptr %test, ptr
-// CHECK-SAME: @_{{.*}}omp.copy_constr,
-// CHECK-SAME: ptr
-// CHECK-SAME: @_{{.*}}omp.destr)
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:NONPOD.TYPED"(ptr %test,
+// CHECK-SAME: ptr @_{{.*}}omp.copy_constr,
+// CHECK-SAME: ptr @_{{.*}}omp.destr)
 // CHECK: "DIR.OMP.END.LOOP"
 // CHECK: "DIR.OMP.END.PARALLEL"
 #pragma omp parallel

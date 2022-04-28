@@ -1,7 +1,7 @@
 // INTEL_COLLAB
 // REQUIRES: clang-target-64-bits
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm-bc -main-file-name %s -fintel-compatibility -fopenmp  -fopenmp-targets=spir64 -disable-llvm-passes -fopenmp-late-outline  -o %t.bc %s
-// RUN: %clang_cc1 -opaque-pointers -main-file-name %s -fintel-compatibility -fopenmp -fopenmp-targets=spir64 -fopenmp-is-device -fopenmp-host-ir-file-path %t.bc -O0 -fopenmp-late-outline -fopenmp-threadprivate-legacy -emit-llvm-bc -x c %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm-bc -main-file-name %s -fintel-compatibility -fopenmp  -fopenmp-targets=spir64 -disable-llvm-passes -fopenmp-late-outline -fopenmp-typed-clauses  -o %t.bc %s
+// RUN: %clang_cc1 -opaque-pointers -main-file-name %s -fintel-compatibility -fopenmp -fopenmp-targets=spir64 -fopenmp-is-device -fopenmp-host-ir-file-path %t.bc -O0 -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-threadprivate-legacy -emit-llvm-bc -x c %s -emit-llvm -o - | FileCheck %s
 // expected-no-diagnostics
 
 // CHECK: [[VAR_X:@x]] = internal target_declare global i32 0,
@@ -21,7 +21,7 @@ void foo() {
 // CHECK-SAME: "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 [[ENTRYIDX:[0-9]+]])
 // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[VAR_X]], ptr [[VAR_X]], i64 4, i64 35
 // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[VAR_Y]], ptr [[VAR_Y]], i64 4, i64 35
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[VAR_Z]]) ]
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[VAR_Z]]
 #pragma omp target map(x, y)
   {
     x = 5;

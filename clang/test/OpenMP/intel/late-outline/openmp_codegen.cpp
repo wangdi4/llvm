@@ -1,8 +1,8 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:   -triple x86_64-unknown-linux-gnu -emit-pch -o %t %s
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:   -triple x86_64-unknown-linux-gnu -include-pch %t %s     \
 // RUN:   | FileCheck %s
 
@@ -75,36 +75,36 @@ int main(int argc, char **argv) {
   int zarr[20];
 
 // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
-// CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[ARGV_ADDR]])
-// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"(ptr [[S1_ADDR]],
+// CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[ARGV_ADDR]]
+// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr [[S1_ADDR]],
 // CHECK-SAME: ptr @_ZTS2S1.omp.def_constr,
 // CHECK-SAME: ptr @_ZTS2S1.omp.destr
 
-// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"(ptr [[S2_ADDR]],
+// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr [[S2_ADDR]],
 // CHECK-SAME: ptr @_ZTS2S2.omp.def_constr,
 // CHECK-SAME: ptr @_ZTS2S2.omp.destr
 
-// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"(ptr [[ARR1_ADDR]],
+// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr [[ARR1_ADDR]],
 // CHECK-SAME: ptr @_ZTS2S1.omp.def_constr,
 // CHECK-SAME: ptr @_ZTS2S1.omp.destr
 
-// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"(ptr [[ARR2_ADDR]],
+// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr [[ARR2_ADDR]],
 // CHECK-SAME: ptr @_ZTS2S2.omp.def_constr,
 // CHECK-SAME: ptr @_ZTS2S2.omp.destr
 
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[ARR3_ADDR]])
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[ARR3_ADDR]]
 
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:NONPOD"(ptr [[S3_ADDR]],
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:NONPOD.TYPED"(ptr [[S3_ADDR]],
 // CHECK-SAME: ptr @_ZTS2S3.omp.copy_constr,
 // CHECK-SAME: ptr @_ZTS2S3.omp.destr)
 
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:NONPOD"(
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:NONPOD.TYPED"(
 // CHECK-SAME: ptr [[S3ARR_ADDR]],
 // CHECK-SAME: ptr @_ZTS2S3.omp.copy_constr,
 // CHECK-SAME: ptr @_ZTS2S3.omp.destr)
 
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[Z_ADDR]]
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[ZARR_ADDR]])
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[Z_ADDR]]
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[ZARR_ADDR]]
 #pragma omp parallel shared(argv) private(s1, s2, arr1, arr2, arr3) \
                                   firstprivate(s3) firstprivate(s3arr) \
                                   firstprivate(z,zarr)
@@ -113,27 +113,27 @@ int main(int argc, char **argv) {
 // CHECK: region.exit{{.*}}"DIR.OMP.END.PARALLEL"()
 
 // CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
-// CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[ARGV_ADDR]])
+// CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[ARGV_ADDR]]
 
-// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"(ptr [[S1_ADDR]],
+// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr [[S1_ADDR]],
 // CHECK-SAME: ptr @_ZTS2S1.omp.def_constr,
 // CHECK-SAME: ptr @_ZTS2S1.omp.destr
 
-// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"(ptr [[S2_ADDR]],
+// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr [[S2_ADDR]],
 // CHECK-SAME: ptr @_ZTS2S2.omp.def_constr,
 // CHECK-SAME: ptr @_ZTS2S2.omp.destr
 
-// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"(ptr [[ARR1_ADDR]],
+// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr [[ARR1_ADDR]],
 // CHECK-SAME: ptr @_ZTS2S1.omp.def_constr,
 // CHECK-SAME: ptr @_ZTS2S1.omp.destr
 
-// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"(ptr [[ARR2_ADDR]],
+// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr [[ARR2_ADDR]],
 // CHECK-SAME: ptr @_ZTS2S2.omp.def_constr,
 // CHECK-SAME: ptr @_ZTS2S2.omp.destr)
 
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[ARR3_ADDR]])
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[ARR3_ADDR]]
 
-// CHECK-SAME: "QUAL.OMP.LINEAR"(ptr [[ARGC_ADDR]]
+// CHECK-SAME: "QUAL.OMP.LINEAR:TYPED"(ptr [[ARGC_ADDR]]
 #pragma omp parallel for shared(argv) private(s1, s2, arr1, arr2, arr3) linear(val(argc) : argc)
   for (int i = 0; i < argc; ++i)
     // CHECK: call void @_Z3foov()
@@ -142,27 +142,27 @@ int main(int argc, char **argv) {
 
 // CHECK: [[ARGCREF:%.+]] = load ptr, ptr [[ARGCREF_ADDR]],
 // CHECK: region.entry() [ "DIR.OMP.SIMD"()
-// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"(ptr [[S1_ADDR]],
+// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr [[S1_ADDR]],
 // CHECK-SAME: ptr @_ZTS2S1.omp.def_constr,
 // CHECK-SAME: ptr @_ZTS2S1.omp.destr
 
-// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"(ptr [[S2_ADDR]],
+// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr [[S2_ADDR]],
 // CHECK-SAME: ptr @_ZTS2S2.omp.def_constr,
 // CHECK-SAME: ptr @_ZTS2S2.omp.destr
 
-// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"(ptr [[ARR1_ADDR]],
+// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr [[ARR1_ADDR]],
 // CHECK-SAME: ptr @_ZTS2S1.omp.def_constr,
 // CHECK-SAME: ptr @_ZTS2S1.omp.destr
 
-// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"(ptr [[ARR2_ADDR]],
+// CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr [[ARR2_ADDR]],
 // CHECK_SAME: ptr @_ZTS2S2.omp.def_constr,
 // CHECK-SAME: ptr @_ZTS2S2.omp.destr)
 
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[ARR3_ADDR]])
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[ARR3_ADDR]]
 
-// CHECK-SAME: "QUAL.OMP.LINEAR:BYREF"(ptr [[ARGCREF_ADDR]], i32 1)
+// CHECK-SAME: "QUAL.OMP.LINEAR:BYREF.TYPED"(ptr [[ARGCREF_ADDR]], i32 0, i32 1, i32 1)
 
-// CHECK-SAME: "QUAL.OMP.LINEAR"(ptr [[ARGV_ADDR]], i32 1)
+// CHECK-SAME: "QUAL.OMP.LINEAR:PTR_TO_PTR.TYPED"(ptr [[ARGV_ADDR]], ptr null, i32 1, i32 1)
 #pragma omp simd private(s1, s2, arr1, arr2, arr3) linear(uval(argcref)) linear(argv)
   for (int i = 0; i < argc; ++i)
     // CHECK: call void @_Z3foov()
@@ -171,16 +171,16 @@ int main(int argc, char **argv) {
 
   long int n1, n2, n3, n4, n5, n6, n7, n8, n9, n10;
 // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
-// CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(ptr [[N1_ADDR]])
-// CHECK-SAME: "QUAL.OMP.REDUCTION.SUB"(ptr [[N2_ADDR]])
-// CHECK-SAME: "QUAL.OMP.REDUCTION.MAX"(ptr [[N3_ADDR]])
-// CHECK-SAME: "QUAL.OMP.REDUCTION.MIN"(ptr [[N4_ADDR]])
-// CHECK-SAME: "QUAL.OMP.REDUCTION.BAND"(ptr [[N5_ADDR]])
-// CHECK-SAME: "QUAL.OMP.REDUCTION.BOR"(ptr [[N6_ADDR]])
-// CHECK-SAME: "QUAL.OMP.REDUCTION.AND"(ptr [[N7_ADDR]])
-// CHECK-SAME: "QUAL.OMP.REDUCTION.OR"(ptr [[N8_ADDR]])
-// CHECK-SAME: "QUAL.OMP.REDUCTION.BXOR"(ptr [[N9_ADDR]])
-// CHECK-SAME: "QUAL.OMP.REDUCTION.MUL"(ptr [[N10_ADDR]])
+// CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr [[N1_ADDR]]
+// CHECK-SAME: "QUAL.OMP.REDUCTION.SUB:TYPED"(ptr [[N2_ADDR]]
+// CHECK-SAME: "QUAL.OMP.REDUCTION.MAX:TYPED"(ptr [[N3_ADDR]]
+// CHECK-SAME: "QUAL.OMP.REDUCTION.MIN:TYPED"(ptr [[N4_ADDR]]
+// CHECK-SAME: "QUAL.OMP.REDUCTION.BAND:TYPED"(ptr [[N5_ADDR]]
+// CHECK-SAME: "QUAL.OMP.REDUCTION.BOR:TYPED"(ptr [[N6_ADDR]]
+// CHECK-SAME: "QUAL.OMP.REDUCTION.AND:TYPED"(ptr [[N7_ADDR]]
+// CHECK-SAME: "QUAL.OMP.REDUCTION.OR:TYPED"(ptr [[N8_ADDR]]
+// CHECK-SAME: "QUAL.OMP.REDUCTION.BXOR:TYPED"(ptr [[N9_ADDR]]
+// CHECK-SAME: "QUAL.OMP.REDUCTION.MUL:TYPED"(ptr [[N10_ADDR]]
 #pragma omp parallel reduction(+:n1) reduction(-:n2) reduction(max:n3) reduction (min:n4) reduction(&:n5) reduction (|:n6) reduction(&&:n7) reduction(||:n8) reduction(^:n9) reduction(*:n10)
   // CHECK: call void @_Z3foov()
   foo();
@@ -375,10 +375,10 @@ int main(int argc, char **argv) {
 // CHECK: [[DIST_TV:%[0-9]+]] = call token{{.*}}region.entry()
 // CHECK-SAME: [ "DIR.OMP.DISTRIBUTE"()
 // CHECK-SAME: "QUAL.OMP.DIST_SCHEDULE.STATIC"(i32 8)
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr %.omp.iv
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr %.omp.lb
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr %.omp.ub
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr %i
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %.omp.iv
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %.omp.ub
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr %i
   #pragma omp target
   #pragma omp teams num_teams(16) thread_limit(4)
   {
