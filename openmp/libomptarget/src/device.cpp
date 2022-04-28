@@ -10,10 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if INTEL_COLLAB
-#include "omptarget-tools.h"
-#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
+#include "omptarget-tools.h"
 #include "xpti_registry.h"
 #endif // INTEL_CUSTOMIZATION
 #include "device.h"
@@ -576,21 +574,17 @@ __tgt_target_table *DeviceTy::load_binary(void *Img) {
 }
 
 void *DeviceTy::allocData(int64_t Size, void *HstPtr, int32_t Kind) {
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetDataAllocBegin(RTLDeviceID, Size));
-#if INTEL_CUSTOMIZATION
   auto CorrID = XPTIRegistry->traceMemAllocBegin(Size, 0 /* GuardZone */);
-#endif // INTEL_CUSTOMIZATION
   void *Ret = RTL->data_alloc(RTLDeviceID, Size, HstPtr, Kind);
-#if INTEL_CUSTOMIZATION
   XPTIRegistry->traceMemAllocEnd((uintptr_t)Ret, Size, 0 /* GuardZone */,
                                  CorrID);
-#endif // INTEL_CUSTOMIZATION
   OMPT_TRACE(targetDataAllocEnd(RTLDeviceID, Size, Ret));
   return Ret;
-#else // INTEL_COLLAB
+#else // INTEL_CUSTOMIZATION
   return RTL->data_alloc(RTLDeviceID, Size, HstPtr, Kind);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 }
 
 int32_t DeviceTy::deleteData(void *TgtPtrBegin) {
@@ -620,7 +614,7 @@ int32_t DeviceTy::submitData(void *TgtPtrBegin, void *HstPtrBegin, int64_t Size,
                                 : "unknown");
   }
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   OMPT_TRACE(
       targetDataSubmitBegin(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size));
   int32_t ret;
@@ -631,13 +625,13 @@ int32_t DeviceTy::submitData(void *TgtPtrBegin, void *HstPtrBegin, int64_t Size,
                                  AsyncInfo);
   OMPT_TRACE(targetDataSubmitEnd(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size));
   return ret;
-#else // INTEL_COLLAB
+#else // INTEL_CUSTOMIZATION
   if (!AsyncInfo || !RTL->data_submit_async || !RTL->synchronize)
     return RTL->data_submit(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size);
   else
     return RTL->data_submit_async(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size,
                                   AsyncInfo);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 }
 
 // Retrieve data from device
@@ -655,7 +649,7 @@ int32_t DeviceTy::retrieveData(void *HstPtrBegin, void *TgtPtrBegin,
                                 : "unknown");
   }
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   OMPT_TRACE(
       targetDataRetrieveBegin(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size));
   int32_t ret;
@@ -667,13 +661,13 @@ int32_t DeviceTy::retrieveData(void *HstPtrBegin, void *TgtPtrBegin,
   OMPT_TRACE(
       targetDataRetrieveEnd(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size));
   return ret;
-#else // INTEL_COLLAB
+#else // INTEL_CUSTOMIZATION
   if (!RTL->data_retrieve_async || !RTL->synchronize)
     return RTL->data_retrieve(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size);
   else
     return RTL->data_retrieve_async(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size,
                                     AsyncInfo);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 }
 
 // Copy data from current device to destination device directly
@@ -692,7 +686,7 @@ int32_t DeviceTy::dataExchange(void *SrcPtr, DeviceTy &DstDev, void *DstPtr,
 int32_t DeviceTy::runRegion(void *TgtEntryPtr, void **TgtVarsPtr,
                             ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                             AsyncInfoTy &AsyncInfo) {
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetSubmitBegin(RTLDeviceID, 1));
   int32_t ret;
   if (!RTL->run_region || !RTL->synchronize)
@@ -703,14 +697,14 @@ int32_t DeviceTy::runRegion(void *TgtEntryPtr, void **TgtVarsPtr,
                                 TgtOffsets, TgtVarsSize, AsyncInfo);
   OMPT_TRACE(targetSubmitEnd(RTLDeviceID, 1));
   return ret;
-#else // INTEL_COLLAB
+#else // INTEL_CUSTOMIZATION
   if (!RTL->run_region || !RTL->synchronize)
     return RTL->run_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
                            TgtVarsSize);
   else
     return RTL->run_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
                                  TgtOffsets, TgtVarsSize, AsyncInfo);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 }
 
 // Run region on device
@@ -727,7 +721,7 @@ int32_t DeviceTy::runTeamRegion(void *TgtEntryPtr, void **TgtVarsPtr,
                                 int32_t NumTeams, int32_t ThreadLimit,
                                 uint64_t LoopTripCount,
                                 AsyncInfoTy &AsyncInfo) {
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetSubmitBegin(RTLDeviceID, NumTeams));
   int32_t ret;
   if (!RTL->run_team_region_async || !RTL->synchronize)
@@ -740,7 +734,7 @@ int32_t DeviceTy::runTeamRegion(void *TgtEntryPtr, void **TgtVarsPtr,
                                       ThreadLimit, LoopTripCount, AsyncInfo);
   OMPT_TRACE(targetSubmitEnd(RTLDeviceID, NumTeams));
   return ret;
-#else // INTEL_COLLAB
+#else // INTEL_CUSTOMIZATION
   if (!RTL->run_team_region_async || !RTL->synchronize)
     return RTL->run_team_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
                                 TgtOffsets, TgtVarsSize, NumTeams, ThreadLimit,
@@ -749,7 +743,7 @@ int32_t DeviceTy::runTeamRegion(void *TgtEntryPtr, void **TgtVarsPtr,
     return RTL->run_team_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
                                       TgtOffsets, TgtVarsSize, NumTeams,
                                       ThreadLimit, LoopTripCount, AsyncInfo);
-#endif // INTEL_COLLAB
+#endif // INTEL_CUSTOMIZATION
 }
 
 #if INTEL_COLLAB
@@ -853,8 +847,8 @@ char *DeviceTy::get_device_name(char *Buffer, size_t BufferMaxSize) {
 
 void *DeviceTy::data_alloc_base(int64_t Size, void *HstPtrBegin,
                                 void *HstPtrBase) {
-  OMPT_TRACE(targetDataAllocBegin(RTLDeviceID, Size));
 #if INTEL_CUSTOMIZATION
+  OMPT_TRACE(targetDataAllocBegin(RTLDeviceID, Size));
   auto CorrID = XPTIRegistry->traceMemAllocBegin(Size, 0 /* GuardZone */);
 #endif // INTEL_CUSTOMIZATION
   void *ret =
@@ -865,8 +859,8 @@ void *DeviceTy::data_alloc_base(int64_t Size, void *HstPtrBegin,
 #if INTEL_CUSTOMIZATION
   XPTIRegistry->traceMemAllocEnd((uintptr_t)ret, Size, 0 /* GuardZone */,
                                  CorrID);
-#endif // INTEL_CUSTOMIZATION
   OMPT_TRACE(targetDataAllocEnd(RTLDeviceID, Size, ret));
+#endif // INTEL_CUSTOMIZATION
   return ret;
 }
 
@@ -874,13 +868,17 @@ int32_t DeviceTy::run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
                                      ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                      int32_t NumTeams, int32_t ThreadLimit,
                                      void *TgtNDLoopDesc) {
+#if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetSubmitBegin(RTLDeviceID, NumTeams));
+#endif // INTEL_CUSTOMIZATION
   int32_t ret = RTL->run_team_nd_region
       ? RTL->run_team_nd_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
                                 TgtOffsets, TgtVarsSize, NumTeams, ThreadLimit,
                                 TgtNDLoopDesc)
       : OFFLOAD_FAIL;
+#if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetSubmitEnd(RTLDeviceID, NumTeams));
+#endif // INTEL_CUSTOMIZATION
   return ret;
 }
 
@@ -1083,12 +1081,14 @@ int32_t DeviceTy::isAccessibleAddrRange(const void *Ptr, size_t Size) {
     return 0;
 }
 
+#if INTEL_CUSTOMIZATION
 int32_t DeviceTy::notifyIndirectAccess(const void *Ptr, size_t Offset) {
   if (RTL->notify_indirect_access)
     return RTL->notify_indirect_access(RTLDeviceID, Ptr, Offset);
   else
     return OFFLOAD_SUCCESS;
 }
+#endif // INTEL_CUSTOMIZATION
 
 int32_t DeviceTy::isPrivateArgOnHost(const void *TgtEntryPtr, uint32_t Idx) {
   if (RTL->is_private_arg_on_host)

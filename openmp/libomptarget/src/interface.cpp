@@ -11,9 +11,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 #include "omptarget-tools.h"
-#endif // INTEL_COLLAB
+#include "xpti_registry.h"
+#endif // INTEL_CUSTOMIZATION
 
 #include "device.h"
 #include "omptarget.h"
@@ -27,9 +28,6 @@
 #if INTEL_COLLAB
 #include <string.h>
 #endif  // INTEL_COLLAB
-#if INTEL_CUSTOMIZATION
-#include "xpti_registry.h"
-#endif // INTEL_CUSTOMIZATION
 
 extern bool isOffloadDisabled();
 
@@ -154,8 +152,10 @@ EXTERN void __tgt_target_data_begin_mapper(ident_t *loc, int64_t device_id,
 
 #if INTEL_COLLAB
   Device.pushSubDevice(encodedId, device_id);
-  OMPT_TRACE(targetDataEnterBegin(device_id));
 #endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+  OMPT_TRACE(targetDataEnterBegin(device_id));
+#endif // INTEL_CUSTOMIZATION
 
   AsyncInfoTy AsyncInfo(Device);
   int rc = targetDataBegin(loc, Device, arg_num, args_base, args, arg_sizes,
@@ -163,8 +163,10 @@ EXTERN void __tgt_target_data_begin_mapper(ident_t *loc, int64_t device_id,
   if (rc == OFFLOAD_SUCCESS)
     rc = AsyncInfo.synchronize();
   handleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetDataEnterEnd(device_id));
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   if (encodedId != device_id)
     PM->Devices[device_id]->popSubDevice();
 #endif // INTEL_COLLAB
@@ -239,8 +241,10 @@ EXTERN void __tgt_target_data_end_mapper(ident_t *loc, int64_t device_id,
 
 #if INTEL_COLLAB
   Device.pushSubDevice(encodedId, device_id);
-  OMPT_TRACE(targetDataExitBegin(device_id));
 #endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+  OMPT_TRACE(targetDataExitBegin(device_id));
+#endif // INTEL_CUSTOMIZATION
 
   AsyncInfoTy AsyncInfo(Device);
   int rc = targetDataEnd(loc, Device, arg_num, args_base, args, arg_sizes,
@@ -248,8 +252,10 @@ EXTERN void __tgt_target_data_end_mapper(ident_t *loc, int64_t device_id,
   if (rc == OFFLOAD_SUCCESS)
     rc = AsyncInfo.synchronize();
   handleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetDataExitEnd(device_id));
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   if (encodedId != device_id)
     PM->Devices[device_id]->popSubDevice();
 #endif // INTEL_COLLAB
@@ -311,15 +317,19 @@ EXTERN void __tgt_target_data_update_mapper(ident_t *loc, int64_t device_id,
   AsyncInfoTy AsyncInfo(Device);
 #if INTEL_COLLAB
   Device.pushSubDevice(encodedId, device_id);
-  OMPT_TRACE(targetDataUpdateBegin(device_id));
 #endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+  OMPT_TRACE(targetDataUpdateBegin(device_id));
+#endif // INTEL_CUSTOMIZATION
   int rc = targetDataUpdate(loc, Device, arg_num, args_base, args, arg_sizes,
                             arg_types, arg_names, arg_mappers, AsyncInfo);
   if (rc == OFFLOAD_SUCCESS)
     rc = AsyncInfo.synchronize();
   handleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetDataUpdateEnd(device_id));
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   if (encodedId != device_id)
     PM->Devices[device_id]->popSubDevice();
 #endif // INTEL_COLLAB
@@ -389,8 +399,10 @@ EXTERN int __tgt_target_mapper(ident_t *loc, int64_t device_id, void *host_ptr,
 #if INTEL_COLLAB
   // Push device encoding
   PM->Devices[device_id]->pushSubDevice(encodedId, device_id);
-  OMPT_TRACE(targetBegin(device_id));
 #endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+  OMPT_TRACE(targetBegin(device_id));
+#endif // INTEL_CUSTOMIZATION
   DeviceTy &Device = *PM->Devices[device_id];
   AsyncInfoTy AsyncInfo(Device);
   int rc = target(loc, Device, host_ptr, arg_num, args_base, args, arg_sizes,
@@ -399,8 +411,10 @@ EXTERN int __tgt_target_mapper(ident_t *loc, int64_t device_id, void *host_ptr,
   if (rc == OFFLOAD_SUCCESS)
     rc = AsyncInfo.synchronize();
   handleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetEnd(device_id));
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   if (encodedId != device_id)
     PM->Devices[device_id]->popSubDevice();
 #endif // INTEL_COLLAB
@@ -479,8 +493,10 @@ EXTERN int __tgt_target_teams_mapper(ident_t *loc, int64_t device_id,
 #if INTEL_COLLAB
   // Push device encoding
   PM->Devices[device_id]->pushSubDevice(encodedId, device_id);
-  OMPT_TRACE(targetBegin(device_id));
 #endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+  OMPT_TRACE(targetBegin(device_id));
+#endif // INTEL_CUSTOMIZATION
   DeviceTy &Device = *PM->Devices[device_id];
   AsyncInfoTy AsyncInfo(Device);
   int rc = target(loc, Device, host_ptr, arg_num, args_base, args, arg_sizes,
@@ -490,8 +506,10 @@ EXTERN int __tgt_target_teams_mapper(ident_t *loc, int64_t device_id,
     rc = AsyncInfo.synchronize();
 
   handleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
-#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
   OMPT_TRACE(targetEnd(device_id));
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   if (encodedId != device_id)
     PM->Devices[device_id]->popSubDevice();
 #endif // INTEL_COLLAB
@@ -870,14 +888,14 @@ EXTERN int __tgt_get_target_memory_info(
   return Device.get_data_alloc_info(num_ptrs, tgt_ptrs, ptr_info);
 }
 
+#if INTEL_CUSTOMIZATION
 EXTERN void __tgt_push_code_location(const char *location, void *codeptr_ra) {
   OmptGlobal->getTrace().pushCodeLocation(location, codeptr_ra);
-#if INTEL_CUSTOMIZATION
   // Temporary workaround since code location directly passed with __tgt*
   // entries is incorrect.
   XPTIRegistry->pushCodeLocation(location);
-#endif // INTEL_CUSTOMIZATION
 }
+#endif // INTEL_CUSTOMIZATION
 
 EXTERN int __tgt_get_num_devices(void) {
   return omp_get_num_devices();

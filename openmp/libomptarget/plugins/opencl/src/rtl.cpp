@@ -60,7 +60,9 @@
 
 #include "elf_light.h"
 #include "omptargetplugin.h"
+#if INTEL_CUSTOMIZATION
 #include "omptarget-tools.h"
+#endif // INTEL_CUSTOMIZATION
 #include "rtl-trace.h"
 
 #include "llvm/Support/Endian.h"
@@ -71,16 +73,7 @@
 #define CL_MEM_ALLOW_UNRESTRICTED_SIZE_INTEL                           (1 << 23)
 #endif // INTEL_CUSTOMIZATION
 
-// FIXME: remove this when build starts using the latest upstream OpenCL header.
-#ifndef CL_DEVICE_IP_VERSION_INTEL
-#define CL_DEVICE_IP_VERSION_INTEL                          0x4250
-#define CL_DEVICE_ID_INTEL                                  0x4251
-#define CL_DEVICE_NUM_SLICES_INTEL                          0x4252
-#define CL_DEVICE_NUM_SUB_SLICES_PER_SLICE_INTEL            0x4253
-#define CL_DEVICE_NUM_EUS_PER_SUB_SLICE_INTEL               0x4254
-#define CL_DEVICE_NUM_THREADS_PER_EU_INTEL                  0x4255
-#endif
-
+#if INTEL_CUSTOMIZATION
 #ifdef _WIN32
 // TODO: enable again if XDEPS-3027 is resolved
 #define OCL_KERNEL_BEGIN(ID)
@@ -105,6 +98,7 @@
     }                                                                          \
   } while (0)
 #endif // _WIN32
+#endif // INTEL_CUSTOMIZATION
 
 /// Additional TARGET_ALLOC* definition for the plugin
 constexpr int32_t TARGET_ALLOC_SVM = INT32_MAX;
@@ -231,9 +225,6 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
 #ifdef __cplusplus
 }
 #endif  // __cplusplus
-
-#define MIN(x, y) (((x) < (y)) ? (x) : (y))
-#define OFFLOADSECTIONNAME "omp_offloading_entries"
 
 class KernelInfoTy {
   uint32_t Version = 0;
@@ -521,6 +512,7 @@ enum DataTransferMethodTy {
   DATA_TRANSFER_METHOD_LAST,
 };
 
+#if INTEL_CUSTOMIZATION
 /// Program data to be initialized.
 /// TODO: include other runtime parameters if necessary.
 struct ProgramDataTy {
@@ -533,6 +525,7 @@ struct ProgramDataTy {
   uintptr_t DynamicMemoryUB = 0;
   int DeviceType = 0;
 };
+#endif // INTEL_CUSTOMIZATION
 
 /// OpenCL program that can contain multiple OCL programs
 class OpenCLProgramTy {
@@ -577,11 +570,13 @@ class OpenCLProgramTy {
   /// Kernel info added by compiler
   std::unordered_map<cl_kernel, KernelInfoTy> KernelInfo;
 
+#if INTEL_CUSTOMIZATION
   /// Program data copied to device
   ProgramDataTy PGMData;
 
   /// Cached address of the program data on device
   void *PGMDataPtr = nullptr;
+#endif // INTEL_CUSTOMIZATION
 
   /// Final OpenCL program
   cl_program FinalProgram = nullptr;
@@ -643,20 +638,22 @@ public:
   /// Build kernels from all modules.
   int32_t buildKernels();
 
+#if INTEL_CUSTOMIZATION
   /// Initialize program data on device.
   int32_t initProgramData();
 
   /// Reset program data on device.
   int32_t resetProgramData();
 
+  /// Return the cached program data
+  const ProgramDataTy &getPGMData() { return PGMData; }
+#endif // INTEL_CUSTOMIZATION
+
   /// Return the pointer to the offload table.
   __tgt_target_table *getTablePtr() { return &Table; }
 
   /// Returns the auxiliary kernel information for the specified kernel.
   const KernelInfoTy *getKernelInfo(cl_kernel Kernel) const;
-
-  /// Return the cached program data
-  const ProgramDataTy &getPGMData() { return PGMData; }
 };
 
 /// RTL flags
@@ -916,8 +913,10 @@ struct RTLOptionTy {
   /// Limit for the number of WGs.
   uint32_t NumTeams = 0;
 
+#if INTEL_CUSTOMIZATION
   /// Dynamic kernel memory size
   size_t KernelDynamicMemorySize = 0; // Turned off by default
+#endif // INTEL_CUSTOMIZATION
 
   // This is a factor applied to the number of WGs computed
   // for the execution, based on the HW characteristics.
@@ -1139,6 +1138,7 @@ struct RTLOptionTy {
         Flags.UseSingleContext = 1;
     }
 
+#if INTEL_CUSTOMIZATION
     // Read LIBOMPTARGET_DYNAMIC_MEMORY_SIZE=<SizeInMB>
     if ((Env = readEnvVar("LIBOMPTARGET_DYNAMIC_MEMORY_SIZE"))) {
       size_t Value = std::stoi(Env);
@@ -1150,6 +1150,7 @@ struct RTLOptionTy {
       }
       KernelDynamicMemorySize = Value << 20;
     }
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_INTERNAL_BUILD
     // Force work group sizes -- for internal experiments
@@ -1634,10 +1635,12 @@ static void closeRTL() {
         profile.second.printData(i, profile.first, DeviceInfo->Names[i].data(),
                                  DeviceInfo->Option.ProfileResolution);
     }
+#if INTEL_CUSTOMIZATION
     if (OMPT_ENABLED) {
       OMPT_CALLBACK(ompt_callback_device_unload, i, 0 /* module ID */);
       OMPT_CALLBACK(ompt_callback_device_finalize, i);
     }
+#endif // INTEL_CUSTOMIZATION
 
     CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->Queues[i]);
 
@@ -1685,6 +1688,7 @@ static std::string getDeviceRTLPath(const char *BaseName) {
   return RTLPath;
 }
 
+#if INTEL_CUSTOMIZATION
 int32_t RTLDeviceInfoTy::resetProgramData(int32_t DeviceId) {
   for (auto &PGM : Programs[DeviceId])
     if (PGM.resetProgramData() != OFFLOAD_SUCCESS)
@@ -1692,6 +1696,7 @@ int32_t RTLDeviceInfoTy::resetProgramData(int32_t DeviceId) {
 
   return OFFLOAD_SUCCESS;
 }
+#endif // INTEL_CUSTOMIZATION
 
 void *RTLDeviceInfoTy::allocDataClMem(int32_t DeviceId, size_t Size) {
   cl_mem ret = nullptr;
@@ -2172,10 +2177,12 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
 
   DeviceInfo->DeviceArchs[device_id] = DeviceInfo->getDeviceArch(device_id);
 
+#if INTEL_CUSTOMIZATION
   OMPT_CALLBACK(ompt_callback_device_initialize, device_id,
                 DeviceInfo->Names[device_id].data(),
                 DeviceInfo->Devices[device_id],
                 omptLookupEntries, OmptDocument);
+#endif // INTEL_CUSTOMIZATION
 
   DeviceInfo->Initialized[device_id] = true;
 
@@ -2380,6 +2387,7 @@ EXTERN __tgt_target_table *__tgt_rtl_load_binary(
 
   auto *Table = Program.getTablePtr();
 
+#if INTEL_CUSTOMIZATION
   OMPT_CALLBACK(ompt_callback_device_load, DeviceId,
               "" /* filename */,
               -1 /* offset_in_file */,
@@ -2388,6 +2396,7 @@ EXTERN __tgt_target_table *__tgt_rtl_load_binary(
               Table->EntriesBegin /* host_addr */,
               nullptr /* device_addr */,
               0 /* module_id */);
+#endif // INTEL_CUSTOMIZATION
 
   return Table;
 }
@@ -3348,10 +3357,8 @@ static void decideKernelGroupArguments(
         // For kernels with cross-WG reductions use LWS equal
         // to kernelWidth. This is just a performance heuristic.
         if (KInfo && KInfo->getHasTeamsReduction() &&
-#if INTEL_CUSTOMIZATION
             // Only do this for discrete devices.
             DeviceInfo->isDiscreteDevice(DeviceId) &&
-#endif // INTEL_CUSTOMIZATION
             DeviceInfo->Option.ReductionSubscriptionRate &&
             // Do not use this heuristic for kernels that use
             // atomic-free reductions. We want to maximize
@@ -3618,6 +3625,7 @@ static inline int32_t runTargetTeamNDRegion(
                        sizeof(cl_bool), &KernelSupportsUSM);
   }
 
+#if INTEL_CUSTOMIZATION
   if (OMPT_ENABLED) {
     // Push current work size
     size_t FinalNumTeams =
@@ -3627,9 +3635,12 @@ static inline int32_t runTargetTeamNDRegion(
     FinalNumTeams /= FinalThreadLimit;
     OmptGlobal->getTrace().pushWorkSize(FinalNumTeams, FinalThreadLimit);
   }
+#endif // INTEL_CUSTOMIZATION
 
   cl_event Event;
+#if INTEL_CUSTOMIZATION
   OCL_KERNEL_BEGIN(DeviceId);
+#endif // INTEL_CUSTOMIZATION
   CALL_CL_RET_FAIL(clEnqueueNDRangeKernel, DeviceInfo->Queues[DeviceId],
                    Kernel, 3, nullptr, GlobalWorkSize,
                    LocalWorkSize, 0, nullptr, &Event);
@@ -3639,7 +3650,9 @@ static inline int32_t runTargetTeamNDRegion(
   DP("Started executing kernel.\n");
 
   CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
+#if INTEL_CUSTOMIZATION
   OCL_KERNEL_END(DeviceId);
+#endif // INTEL_CUSTOMIZATION
   if (DeviceInfo->Option.Flags.EnableProfile) {
     std::vector<char> Buf;
     size_t BufSize;
@@ -4549,6 +4562,7 @@ int32_t OpenCLProgramTy::buildKernels() {
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_CUSTOMIZATION
 int32_t OpenCLProgramTy::initProgramData() {
   // Look up program data location on device
   PGMDataPtr = getVarDeviceAddr("__omp_spirv_program_data", sizeof(PGMData));
@@ -4609,6 +4623,7 @@ int32_t OpenCLProgramTy::resetProgramData() {
                        &PGMData, sizeof(PGMData), 0, nullptr, nullptr);
   return OFFLOAD_SUCCESS;
 }
+#endif // INTEL_CUSTOMIZATION
 
 bool OpenCLProgramTy::readKernelInfo(const __tgt_offload_entry &KernelEntry) {
   const cl_kernel *KernelPtr =
