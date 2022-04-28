@@ -173,6 +173,7 @@ private:
   FunctionCallee MemmoveFn, MemcpyFn, MemsetFn;
 };
 
+#if INTEL_CUSTOMIZATION
 struct ThreadSanitizerLegacyPass : FunctionPass {
   ThreadSanitizerLegacyPass() : FunctionPass(ID) {
     initializeThreadSanitizerLegacyPassPass(*PassRegistry::getPassRegistry());
@@ -185,6 +186,7 @@ struct ThreadSanitizerLegacyPass : FunctionPass {
 private:
   Optional<ThreadSanitizer> TSan;
 };
+#endif // INTEL_CUSTOMIZATION
 
 void insertModuleCtor(Module &M) {
   getOrCreateSanitizerCtorAndInitFunctions(
@@ -211,6 +213,7 @@ PreservedAnalyses ModuleThreadSanitizerPass::run(Module &M,
   return PreservedAnalyses::none();
 }
 
+#if INTEL_CUSTOMIZATION
 char ThreadSanitizerLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(ThreadSanitizerLegacyPass, "tsan",
                       "ThreadSanitizer: detects data races.", false, false)
@@ -241,6 +244,7 @@ bool ThreadSanitizerLegacyPass::runOnFunction(Function &F) {
 FunctionPass *llvm::createThreadSanitizerLegacyPassPass() {
   return new ThreadSanitizerLegacyPass();
 }
+#endif // INTEL_CUSTOMIZATION
 
 void ThreadSanitizer::initialize(Module &M) {
   const DataLayout &DL = M.getDataLayout();

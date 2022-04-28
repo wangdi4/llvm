@@ -17,16 +17,16 @@
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Instrumentation/AddressSanitizer.h" // INTEL
 #include "llvm/Transforms/Instrumentation.h"
-#include "llvm/Transforms/Instrumentation/MemorySanitizer.h"
-#include "llvm/Transforms/Instrumentation/ThreadSanitizer.h"
+#include "llvm/Transforms/Instrumentation/MemorySanitizer.h" // INTEL
+#include "llvm/Transforms/Instrumentation/ThreadSanitizer.h" // INTEL
 
 using namespace llvm;
 
+#if INTEL_CUSTOMIZATION
 void LLVMAddThreadSanitizerPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createThreadSanitizerLegacyPassPass());
 }
 
-#if INTEL_CUSTOMIZATION
 void LLVMAddAddressSanitizerFunctionPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createAddressSanitizerFunctionPass());
 }

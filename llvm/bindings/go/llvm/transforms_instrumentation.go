@@ -19,11 +19,11 @@ package llvm
 import "C"
 import "unsafe"
 
+#if INTEL_CUSTOMIZATION
 func (pm PassManager) AddThreadSanitizerPass() {
 	C.LLVMAddThreadSanitizerPass(pm.C)
 }
 
-#if INTEL_CUSTOMIZATION
 func (pm PassManager) AddMemorySanitizerLegacyPassPass() {
 	C.LLVMAddMemorySanitizerLegacyPassPass(pm.C)
 }
