@@ -15,14 +15,11 @@
 ; CHECK-NEXT:               |   <LVAL-REG> NON-LINEAR <4 x i64> %NBConv {sb:23}
 ; CHECK-NEXT:               |   <RVAL-REG> NON-LINEAR <4 x i32> %0 {sb:6}
 
-; Fixme: The uses of NBConv below are marked incorrectly as linear. They should
-; be marked non-linear at i1 loop level as seen above.
-
 ; CHECK:                    |   %.vec = ptrtoint.<4 x i64*>.<4 x i64>(&((<4 x i64*>)(%1)[%NBConv]));
 ; CHECK-NEXT:               |   <LVAL-REG> NON-LINEAR <4 x i64> %.vec {sb:24}
-; CHECK-NEXT:               |   <RVAL-REG> &((<4 x i64*>)(NON-LINEAR <4 x i64*> %1)[LINEAR <4 x i64> %NBConv{def@1}]) inbounds  {sb:22}
+; CHECK-NEXT:               |   <RVAL-REG> &((<4 x i64*>)(NON-LINEAR <4 x i64*> %1)[NON-LINEAR <4 x i64> %NBConv]) inbounds  {sb:22}
 ; CHECK-NEXT:               |      <BLOB> NON-LINEAR i64* %1 {sb:10}
-; CHECK-NEXT:               |      <BLOB> LINEAR <4 x i64> %NBConv{def@1} {sb:23}
+; CHECK-NEXT:               |      <BLOB> NON-LINEAR <4 x i64> %NBConv {sb:23}
 ;
 define  void @baz(i64**  %lpp, i32* %off) {
 entry:

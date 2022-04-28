@@ -1917,8 +1917,9 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
   }
 
   // The blobs in the scalar ref have been replaced by widened refs, call
-  // the utility to update the widened Ref consistent.
-  WideRef->makeConsistent(AuxRefs, NestingLevel);
+  // the utility to update the widened Ref consistent at the nesting level
+  // of insertion point.
+  WideRef->makeConsistent(AuxRefs, getNestingLevelFromInsertPoint());
   return WideRef;
 }
 
