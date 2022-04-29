@@ -487,6 +487,7 @@ namespace {
       (void)llvm::createResolveMatrixLayoutLegacyPass();
       (void)llvm::createResolveMatrixWISliceLegacyPass();
       (void)llvm::createResolveSubGroupWICallLegacyPass();
+      (void)llvm::createResolveVarTIDCallLegacyPass();
       (void)llvm::createResolveWICallLegacyPass(false, false);
       (void)llvm::createSGBarrierPropagateLegacyPass();
       (void)llvm::createSGBarrierSimplifyLegacyPass();

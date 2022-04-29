@@ -49,6 +49,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   ResolveMatrixLayout.cpp
   ResolveMatrixWISlice.cpp
   ResolveSubGroupWICall.cpp
+  ResolveVarTIDCall.cpp
   ResolveWICall.cpp
   SoaAllocaAnalysis.cpp
   SplitBBonBarrierPass.cpp

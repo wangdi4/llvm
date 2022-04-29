@@ -51,6 +51,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveMatrixLayout.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveMatrixWISlice.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveSubGroupWICall.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveVarTIDCall.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveWICall.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SetVectorizationFactor.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SinCosFold.h"

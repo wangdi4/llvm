@@ -147,8 +147,8 @@ using ValueVec = SmallVector<Value *, 4>;
 bool isImplicitGID(AllocaInst *AI);
 
 /// Append the dimension string to S.
-std::string AppendWithDimension(StringRef S, int Dimension);
-std::string AppendWithDimension(StringRef S, const Value *Dimension);
+std::string AppendWithDimension(const Twine &S, int Dimension);
+std::string AppendWithDimension(const Twine &S, const Value *Dimension);
 
 /// Return true if string is __enqueue_kernel_*.
 bool isEnqueueKernel(StringRef S);

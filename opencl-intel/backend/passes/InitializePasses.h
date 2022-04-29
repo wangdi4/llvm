@@ -39,7 +39,6 @@ void initializeCLBuiltinLICMPass(llvm::PassRegistry&);
 void initializeCLStreamSamplerPass(llvm::PassRegistry&);
 void initializeRemoveDuplicationBarrierPass(llvm::PassRegistry&);
 
-void initializeResolveVariableTIDCallPass(llvm::PassRegistry &);
 void initializeReplaceScalarWithMaskPass(llvm::PassRegistry&);
 void initializePreventDivCrashesPass(llvm::PassRegistry&);
 void initializeInternalizeGlobalVariablesPass(llvm::PassRegistry&);

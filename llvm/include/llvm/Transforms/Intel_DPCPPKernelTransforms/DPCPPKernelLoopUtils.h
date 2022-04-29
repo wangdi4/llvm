@@ -67,10 +67,14 @@ CallInst *getWICall(Module *M, StringRef FuncName, Type *RetTy, Value *Dim,
                     BasicBlock *BB, const Twine &CallName = "");
 CallInst *getWICall(Module *M, StringRef FuncName, Type *RetTy, Value *Dim,
                     Instruction *IP, const Twine &CallName = "");
+CallInst *getWICall(Module *M, StringRef FuncName, Type *RetTy, Value *Dim,
+                    IRBuilder<> &Builder, const Twine &CallName = "");
 CallInst *getWICall(Module *M, StringRef FuncName, Type *RetTy, unsigned Dim,
                     BasicBlock *BB, const Twine &CallName = "");
 CallInst *getWICall(Module *M, StringRef FuncName, Type *RetTy, unsigned Dim,
                     Instruction *IP, const Twine &CallName = "");
+CallInst *getWICall(Module *M, StringRef FuncName, Type *RetTy, unsigned Dim,
+                    IRBuilder<> &Builder, const Twine &CallName = "");
 
 /// Fills call vector with all calls to function named func name in
 ///       funcToSearch
