@@ -82,6 +82,7 @@ ModulePass *createResolveMatrixWISliceLegacyPass();
 ModulePass *createResolveSubGroupWICallLegacyPass(
     const SmallVector<Module *, 2> &BuiltinModules = SmallVector<Module *, 2>(),
     bool ResolveSGBarrier = true);
+ModulePass *createResolveVarTIDCallLegacyPass();
 ModulePass *createResolveWICallLegacyPass(bool IsUniformWGSize,
                                           bool UseTLSGlobals);
 ModulePass *createSGBarrierPropagateLegacyPass();

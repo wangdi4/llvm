@@ -238,7 +238,6 @@ set( BACKEND_PASSES
     SmartGVN
     StripIntelIP
     OCLAliasAnalysis
-    ResolveVariableTIDCall
 )
 
 set(UTILS_LIBS

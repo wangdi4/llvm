@@ -145,7 +145,6 @@ llvm::ModulePass *createDetectRecursionPass();
 llvm::ImmutablePass *createOCLAliasAnalysisPass();
 llvm::ModulePass *createChannelsUsageAnalysisPass();
 llvm::ModulePass *createRemoveAtExitPass();
-llvm::Pass *createResolveVariableTIDCallPass();
 llvm::ModulePass *createVectorKernelDiscardPass(const intel::OptimizerConfig *);
 llvm::ModulePass *createSetPreferVectorWidthPass(const CPUDetect *CPUID);
 }
@@ -452,7 +451,7 @@ static void populatePassesPostFailCheck(
     // non-inlined functions left - then we don't have to inline new ones.
   }
 
-  PM.add(createResolveVariableTIDCallPass());
+  PM.add(llvm::createResolveVarTIDCallLegacyPass());
 
   if (IsSYCL)
     PM.add(createTaskSeqAsyncHandlingLegacyPass());
