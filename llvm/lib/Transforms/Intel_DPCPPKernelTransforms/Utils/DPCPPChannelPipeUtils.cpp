@@ -30,12 +30,6 @@
 
 #define DEBUG_TYPE "dpcpp-kernel-channel-pipe-utils"
 
-#if (defined(_WIN32) && defined(_MSC_VER))
-#define ALIGNED(decl, alignment) __declspec(align(alignment)) decl
-#else
-#define ALIGNED(decl, alignment) decl __attribute__((aligned(alignment)))
-#endif
-
 constexpr static int ChannelSizeLimit = 256 * 1024;
 constexpr static int ChannelArraySizeLimit = 256 * 1024 * 1024;
 
@@ -65,18 +59,18 @@ struct __pipe_internal_buf {
 struct __pipe_t {
   int packet_size;
   int max_packets;
-  ALIGNED(volatile std::atomic_int head,
-          64); // The original type is 'volatile atomic_int' in OpenCL C,
-               // but we don't have native 'atomic_int' type in C++, so
-               // replace it with 'volatile std::atomic_int'.
-               // This hacking won't change the total size of struct __pipe_t.
-  ALIGNED(volatile std::atomic_int tail,
-          64); // The original type is 'volatile atomic_int' in OpenCL C,
-               // but we don't have native 'atomic_int' type in C++, so
-               // replace it with 'volatile std::atomic_int'.
-               // This hacking won't change the total size of struct __pipe_t.
-  ALIGNED(struct __pipe_internal_buf read_buf, 64);
-  ALIGNED(struct __pipe_internal_buf write_buf, 64);
+  alignas(64) volatile std::atomic_int
+      head; // The original type is 'volatile atomic_int' in OpenCL C,
+            // but we don't have native 'atomic_int' type in C++, so
+            // replace it with 'volatile std::atomic_int'.
+            // This hacking won't change the total size of struct __pipe_t.
+  alignas(64) volatile std::atomic_int
+      tail; // The original type is 'volatile atomic_int' in OpenCL C,
+            // but we don't have native 'atomic_int' type in C++, so
+            // replace it with 'volatile std::atomic_int'.
+            // This hacking won't change the total size of struct __pipe_t.
+  alignas(64) struct __pipe_internal_buf read_buf;
+  alignas(64) struct __pipe_internal_buf write_buf;
   FILE *io;
 };
 
