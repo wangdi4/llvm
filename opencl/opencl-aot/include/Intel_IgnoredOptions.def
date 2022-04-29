@@ -63,3 +63,4 @@ OPTION_VALUE(OptXsReuseExe, "reuse-exe", std::string);
 OPTION_VALUE(OptXsRingRootArbBalancedRw, "ring-root-arb-balanced-rw", bool);
 OPTION_ENUM(OptXsRounding, "rounding", 2, "ieee", "faithful");
 OPTION_VALUE(OptXsSeed, "seed", int);
+OPTION_VALUE(OptXsTarget, "target", std::string);
