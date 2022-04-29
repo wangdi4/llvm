@@ -596,12 +596,9 @@ public:
                      MachineBasicBlock::iterator &It, MachineFunction &MF,
                      outliner::Candidate &C) const override;
 
-<<<<<<< HEAD
   bool isVecSpillInst(const MachineInstr &MI) const; // INTEL
-=======
   bool verifyInstruction(const MachineInstr &MI,
                          StringRef &ErrInfo) const override;
->>>>>>> 6a6b0e4a63106c44162c9be8f2ec6fb9e7b5a0d8
 #define GET_INSTRINFO_HELPER_DECLS
 #include "X86GenInstrInfo.inc"
 
