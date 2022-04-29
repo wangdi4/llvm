@@ -604,8 +604,8 @@ static bool allCallersPassValidPointerForArgument(Argument *Arg,
 /// parts it can be promoted into.
 static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
                          unsigned MaxElements, bool IsRecursive,
-                         bool isCallback,           // INTEL
-                         bool RemoveHomedArguments, // INTEL
+                         bool IsSelfRecursive,                       // INTEL
+                         bool isCallback, bool RemoveHomedArguments, // INTEL
                          SmallVectorImpl<OffsetAndArgPart> &ArgPartsVec) {
 #if INTEL_CUSTOMIZATION
   //
@@ -696,8 +696,10 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
 
 #if INTEL_CUSTOMIZATION
     // If this is a recursive function and one of the types is a pointer,
-    // then promoting it might lead to recursive promotion.
-    if (!AllowSingleLevelRecursive && IsRecursive && Ty->isPointerTy())
+    // then promoting it might lead to recursive promotion. For now, allow
+    // argument promotion only for self-recursive functions.
+    if ((!AllowSingleLevelRecursive || !IsSelfRecursive) &&
+          (IsRecursive && Ty->isPointerTy()))
       return false;
 
     if (isCallback)
@@ -1027,6 +1029,7 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
   // transform functions that have indirect callers.  Also see if the function
   // is self-recursive.
   bool isCallback = false; // INTEL
+  bool IsSelfRecursive = false; // INTEL
   for (Use &U : F->uses()) {
 #if INTEL_CUSTOMIZATION
     CallBase *CB = dyn_cast<CallBase>(U.getUser());
@@ -1043,8 +1046,10 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
       if (CS.getInstruction()->isMustTailCall())
         return nullptr;
 
-      if (CS.getInstruction()->getParent()->getParent() == F)
+      if (CS.getInstruction()->getFunction() == F) {
         IsRecursive = true;
+        IsSelfRecursive = true;
+      }
     }
 
     if (CS.isCallbackCall())
@@ -1166,8 +1171,11 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
 
     // Otherwise, see if we can promote the pointer to its value.
     SmallVector<OffsetAndArgPart, 4> ArgParts;
-    if (findArgParts(PtrArg, DL, AAR, MaxElements, IsRecursive, // INTEL
-                     isCallback, RemoveHomedArguments, ArgParts)) { // INTEL
+#if INTEL_CUSTOMIZATION
+    if (findArgParts(PtrArg, DL, AAR, MaxElements, IsRecursive,
+                     IsSelfRecursive, isCallback, RemoveHomedArguments,
+                     ArgParts)) {
+#endif // INTEL_CUSTOMIZATION
       SmallVector<Type *, 4> Types;
       for (const auto &Pair : ArgParts)
         Types.push_back(Pair.second.Ty);
