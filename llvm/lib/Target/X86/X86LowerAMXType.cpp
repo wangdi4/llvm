@@ -1104,11 +1104,12 @@ static void combineLoadCast(IntrinsicInst *Cast, LoadInst *LD) {
   Use &U = *(Cast->use_begin());
   unsigned OpNo = U.getOperandNo();
   auto *II = cast<IntrinsicInst>(U.getUser());
+  ShapeCalculator *SC; // INTEL
   // TODO: If it is cast intrinsic or phi node, we can propagate the
   // shape information through def-use chain.
   if (!isAMXIntrinsic(II))
     return;
-  std::tie(Row, Col) = getShape(II, OpNo);
+  std::tie(Row, Col) = SC->getShape(II, OpNo); // INTEL
   IRBuilder<> Builder(LD);
   // Use the maximun column as stride.
   Value *Stride = Builder.getInt64(64);
