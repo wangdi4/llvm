@@ -99,7 +99,7 @@ bool wouldInstructionBeTriviallyDead(Instruction *I,
                                      const TargetLibraryInfo *TLI = nullptr);
 
 /// Return true if the result produced by the instruction has no side effects on
-/// any paths other than where it is used. This is less conservative than 
+/// any paths other than where it is used. This is less conservative than
 /// wouldInstructionBeTriviallyDead which is based on the assumption
 /// that the use count will be 0. An example usage of this API is for
 /// identifying instructions that can be sunk down to use(s).
@@ -362,7 +362,7 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
     // otherwise.
     unsigned IndexLevel = 1;
     Type *BaseElTy = BasePtrElemTy;
-    while (BaseElTy != ElTy) {
+    while (BaseElTy != ElTy && BaseElTy->isArrayTy()) {
       ++IndexLevel;
       BaseElTy = BaseElTy->getArrayElementType();
     }
