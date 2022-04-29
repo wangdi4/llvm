@@ -410,37 +410,26 @@ private:
     const SIZE_TYPE m_defaultListSize;
 };
 
-cl_int CL_API_CALL clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint * num_platforms)
-{
-    string strEnv;
-    // If user configures device type by env variable "CL_CONFIG_DEVICES",
-    // the runtime only enable the correspondig device type.
-    // Otherwise it will enable all supported devices.
-    // This function is entry point after ICD loader loads the runtime so we check it here.
-    if (Intel::OpenCL::Utils::getEnvVar(strEnv, "CL_CONFIG_DEVICES")) {
-      // Read the value from cl.cfg. If it does not match env value, return
-      // CL_INVALID_VALUE value.
-      Intel::OpenCL::Utils::ConfigFile config(GetConfigFilePath());
-      if (config.Read<std::string>("CL_CONFIG_DEVICES", "", false)
-              .compare(strEnv) != 0) {
-        return CL_INVALID_VALUE;
-      }
-    }
-
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        ApiLogger apiLogger("clGetPlatformIDs");
-        apiLogger << "cl_uint num_entries" << num_entries << "cl_platform_id * platforms" << platforms << "cl_uint * num_platforms" << num_platforms;
-        OutputListPrinter<cl_platform_id, cl_uint> listPrinter("platforms", platforms, num_platforms, num_entries);
-        OutputParamsValueProvider provider(apiLogger, &listPrinter);
-        CALL_TRACED_API_LOGGER(PLATFORM_MODULE,  cl_int, GetPlatformIDs(num_entries, platforms, num_platforms),
-            clGetPlatformIDs, &num_entries, &platforms, &num_platforms);
-    }
-    else
-    {
-        CALL_TRACED_API(PLATFORM_MODULE,  cl_int, GetPlatformIDs(num_entries, platforms, num_platforms),
-            clGetPlatformIDs, &num_entries, &platforms, &num_platforms);
-    }
+cl_int CL_API_CALL clGetPlatformIDs(cl_uint num_entries,
+                                    cl_platform_id *platforms,
+                                    cl_uint *num_platforms) {
+  if (g_pUserLogger->IsApiLoggingEnabled()) {
+    ApiLogger apiLogger("clGetPlatformIDs");
+    apiLogger << "cl_uint num_entries" << num_entries
+              << "cl_platform_id * platforms" << platforms
+              << "cl_uint * num_platforms" << num_platforms;
+    OutputListPrinter<cl_platform_id, cl_uint> listPrinter(
+        "platforms", platforms, num_platforms, num_entries);
+    OutputParamsValueProvider provider(apiLogger, &listPrinter);
+    CALL_TRACED_API_LOGGER(
+        PLATFORM_MODULE, cl_int,
+        GetPlatformIDs(num_entries, platforms, num_platforms), clGetPlatformIDs,
+        &num_entries, &platforms, &num_platforms);
+  } else {
+    CALL_TRACED_API(PLATFORM_MODULE, cl_int,
+                    GetPlatformIDs(num_entries, platforms, num_platforms),
+                    clGetPlatformIDs, &num_entries, &platforms, &num_platforms);
+  }
 }
 SET_ALIAS(clGetPlatformIDs);
 REGISTER_EXTENSION_FUNCTION(clIcdGetPlatformIDsKHR, clGetPlatformIDs);

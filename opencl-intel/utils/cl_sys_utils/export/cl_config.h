@@ -568,22 +568,28 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
         int  RTLoopUnrollFactor() const { return m_pConfigFile->Read<int>("CL_CONFIG_CPU_RT_LOOP_UNROLL_FACTOR", 1); }
 
         /**
-         * @returns using device mode set from/in environment/config file
+         * @returns using name of device mode set from/in config
+         * file
          */
-        DeviceMode GetDeviceMode() const
-        {
-            std::string strDeviceMode =
-              m_pConfigFile->Read<string>("CL_CONFIG_DEVICES", "cpu");
+        std::string GetDeviceModeName() const {
+          return m_pConfigFile->Read<string>("CL_CONFIG_DEVICES", "", false);
+        }
 
-            if ("fpga-emu" == strDeviceMode)
-            {
-                return FPGA_EMU_DEVICE;
-            }
-            if ("eyeq-emu" == strDeviceMode)
-            {
-                return EYEQ_EMU_DEVICE;
-            }
-            return CPU_DEVICE;
+        /**
+         * @returns using device mode set from/in config file
+         */
+        DeviceMode GetDeviceMode() const {
+          std::string strDeviceMode = GetDeviceModeName();
+          if ("fpga-emu" == strDeviceMode) {
+            return FPGA_EMU_DEVICE;
+          }
+          if ("eyeq-emu" == strDeviceMode) {
+            return EYEQ_EMU_DEVICE;
+          }
+          // TODO: strDeviceMode may be empty. But currently we do not define
+          // invalid device. We return CPU device by default. It's better to fix
+          // it.
+          return CPU_DEVICE;
         }
 
         cl_ulong GetStackDefaultSize() const
