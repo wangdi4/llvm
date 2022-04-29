@@ -57,6 +57,7 @@ class CallInst;
 class ExtractValueInst;
 class Function;
 class FunctionPass;
+class GetElementPtrInst;
 class ImplicitControlFlowTracking;
 class LoadInst;
 class LoopInfo;
@@ -194,6 +195,7 @@ public:
     Expression createCmpExpr(unsigned Opcode, CmpInst::Predicate Predicate,
                              Value *LHS, Value *RHS);
     Expression createExtractvalueExpr(ExtractValueInst *EI);
+    Expression createGEPExpr(GetElementPtrInst *GEP);
     uint32_t lookupOrAddCall(CallInst *C);
     uint32_t phiTranslateImpl(const BasicBlock *BB, const BasicBlock *PhiBlock,
                               uint32_t Num, GVNPass &Gvn);
