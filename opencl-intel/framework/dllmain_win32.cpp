@@ -44,7 +44,8 @@ BOOL LoadTaskExecutor()
 	Intel::OpenCL::Utils::GetModuleDirectory(&tePath[0], MAX_PATH);
         tePath.resize(tePath.find_first_of('\0'));
 
-        if (config.Read<std::string>("CL_CONFIG_DEVICES", "cpu") == "fpga-emu") {
+        if (config.Read<std::string>("CL_CONFIG_DEVICES", "cpu", false) ==
+            "fpga-emu") {
           teName += OUTPUT_EMU_SUFF;
         }
         teName += ".dll";

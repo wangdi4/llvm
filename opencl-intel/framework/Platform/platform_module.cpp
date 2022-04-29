@@ -137,14 +137,41 @@ cl_err_code    PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OC
 
     m_pOclEntryPoints = pOclEntryPoints;
 
+    // initialize GPA data^M
+    m_pGPAData = pGPAData;
+
+    // We suppose there is a config file which contains CL_CONFIG_DEVICES info.
+    // Otherwise we will log the error info and do not show this platform.
+    string strDeviceNameInCFG = pConfig->GetDeviceModeName();
+    if (strDeviceNameInCFG.empty()) {
+      assert(!m_clPlatformId.object &&
+             "PlatformID before initialization should be NULL");
+      LOG_ERROR(TEXT("Failed to load config file %s"),
+                GetConfigFilePath().c_str());
+      return CL_ERR_DEVICE_INIT_FAIL;
+    }
+
+    // If user configures device type by env variable "CL_CONFIG_DEVICES",
+    // the runtime only enable the correspondig device type.
+    // Otherwise it will enable all supported devices.
+    // This function is entry point after ICD loader loads the runtime so we
+    // check it here.
+    string strEnvDevice;
+    if (Intel::OpenCL::Utils::getEnvVar(strEnvDevice, "CL_CONFIG_DEVICES")) {
+      // Read the value from cl.cfg. If it does not match env value, return
+      // CL_INVALID_VALUE value.
+      if (strDeviceNameInCFG.compare(strEnvDevice) != 0) {
+        assert(!m_clPlatformId.object &&
+               "PlatformID before initialization should be NULL");
+        return CL_ERR_DEVICE_INIT_FAIL;
+      }
+    }
+
     m_clPlatformId.object = &m_clPlatformId;
     memcpy(&m_clPlatformId, m_pOclEntryPoints, sizeof(ocl_entry_points));
 
     // initialize devices
     m_pDefaultDevice = nullptr;
-
-    // initialize GPA data
-    m_pGPAData = pGPAData;
 
     // initialize device mode
     m_deviceMode = pConfig->GetDeviceMode();
@@ -248,13 +275,21 @@ cl_err_code PlatformModule::GetPlatformIDs(cl_uint uiNumEntries,
 
     if ( (uiNumEntries > 0) && (nullptr != pclPlatforms) )
     {
+      if (m_clPlatformId.object) {
         *pclPlatforms = &m_clPlatformId;
+        ;
+      } else {
+        *pclPlatforms = nullptr;
+      }
     }
-
 
     if (nullptr != puiNumPlatforms)
     {
+      if (m_clPlatformId.object) {
         *puiNumPlatforms = 1;
+      } else {
+        *puiNumPlatforms = 0;
+      }
     }
     return CL_SUCCESS;
 }
