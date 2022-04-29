@@ -81,7 +81,11 @@
 #include "llvm/Transforms/Coroutines.h"                  // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
+<<<<<<< HEAD
 #include "llvm/Transforms/IPO/Intel_AutoCPUClone.h"      // INTEL
+=======
+#include "llvm/Transforms/IPO/DeadArgumentElimination.h"
+>>>>>>> c1b6835e7c12aa67950d9879c2fbeb0b626d9f95
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"      // INTEL
 #include "llvm/Transforms/IPO/ThinLTOBitcodeWriter.h"
@@ -1563,6 +1567,8 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
   }
   if (LangOpts.SYCLIsDevice) {
     MPM.addPass(SYCLMutatePrintfAddrspacePass());
+    if (!CodeGenOpts.DisableLLVMPasses && LangOpts.EnableDAEInSpirKernels)
+      MPM.addPass(DeadArgumentEliminationSYCLPass());
   }
 
   // Add SPIRITTAnnotations pass to the pass manager if
