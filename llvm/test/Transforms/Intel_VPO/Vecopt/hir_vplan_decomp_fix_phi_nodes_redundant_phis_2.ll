@@ -34,9 +34,8 @@
 ; in node <24>. However it should be only one value which is defined in i2 loop's header.
 ; A redundant PHI that blends its own value is emitted and it can be removed and replaced.
 
-; XFAIL: *
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-framework,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-ouput < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-print-after-plain-cfg -disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -88,36 +87,31 @@ define dso_local void @foo(i1 %cond1) local_unnamed_addr #1 {
 ; CHECK-NEXT:       br [[BB12:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB12]]: # preds: [[BB11]], [[BB12]]
-; FIXME: This is the redundant PHI that blends itself as incoming value from BB12. This PHI was
-; incorrectly placed by decomposer based on DDG.
-; CHECK-NEXT:       double [[VP11:%.*]] = phi  [ double [[VP5]], [[BB11]] ],  [ double [[VP11]], [[BB12]] ]
-; CHECK-NEXT:       i64 [[VP12:%.*]] = phi  [ i64 0, [[BB11]] ],  [ i64 [[VP13:%.*]], [[BB12]] ]
-; CHECK-NEXT:       double [[VP14:%.*]] = fmul double 4.000000e+00 double [[VP11]]
-; CHECK-NEXT:       i64 [[VP13]] = add i64 [[VP12]] i64 1
-; CHECK-NEXT:       i1 [[VP15:%.*]] = icmp slt i64 [[VP13]] i64 50
-; CHECK-NEXT:       br i1 [[VP15]], [[BB12]], [[BB13:BB[0-9]+]]
+; CHECK-NEXT:       i64 [[VP11:%.*]] = phi  [ i64 0, [[BB11]] ],  [ i64 [[VP12:%.*]], [[BB12]] ]
+; CHECK-NEXT:       double [[VP13:%.*]] = fmul double 4.000000e+00 double [[VP5]]
+; CHECK-NEXT:       i64 [[VP12]] = add i64 [[VP11]] i64 1
+; CHECK-NEXT:       i1 [[VP14:%.*]] = icmp slt i64 [[VP12]] i64 50
+; CHECK-NEXT:       br i1 [[VP14]], [[BB12]], [[BB13:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB13]]: # preds: [[BB12]]
 ; CHECK-NEXT:       br [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]: # preds: [[BB13]], [[BB8]]
 ; CHECK-NEXT:     i64 [[VP10]] = add i64 [[VP9]] i64 1
-; CHECK-NEXT:     i1 [[VP16:%.*]] = icmp slt i64 [[VP10]] i64 100
-; CHECK-NEXT:     br i1 [[VP16]], [[BB8]], [[BB6]]
+; CHECK-NEXT:     i1 [[VP15:%.*]] = icmp slt i64 [[VP10]] i64 100
+; CHECK-NEXT:     br i1 [[VP15]], [[BB8]], [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB9]]
-; FIXME: SSA is broken here, VP11 is not defined along the edge BB8 to BB9. VP5 should be used here
-; instead.
-; CHECK-NEXT:     double [[VP17:%.*]] = fmul double 5.000000e+00 double [[VP11]]
+; CHECK-NEXT:     double [[VP16:%.*]] = fmul double 5.000000e+00 double [[VP5]]
 ; CHECK-NEXT:     double [[VP6]] = hir-copy double 2.000000e+00 , OriginPhiId: -1
 ; CHECK-NEXT:     i64 [[VP8]] = add i64 [[VP7]] i64 1
-; CHECK-NEXT:     i1 [[VP18:%.*]] = icmp slt i64 [[VP8]] i64 200
-; CHECK-NEXT:     br i1 [[VP18]], [[BB5]], [[BB3]]
+; CHECK-NEXT:     i1 [[VP17:%.*]] = icmp slt i64 [[VP8]] i64 200
+; CHECK-NEXT:     br i1 [[VP17]], [[BB5]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB6]]
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:     i1 [[VP19:%.*]] = icmp slt i64 [[VP3]] i64 300
-; CHECK-NEXT:     br i1 [[VP19]], [[BB2]], [[BB14:BB[0-9]+]]
+; CHECK-NEXT:     i1 [[VP18:%.*]] = icmp slt i64 [[VP3]] i64 300
+; CHECK-NEXT:     br i1 [[VP18]], [[BB2]], [[BB14:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB14]]: # preds: [[BB3]]
 ; CHECK-NEXT:     br [[BB15:BB[0-9]+]]
