@@ -828,7 +828,11 @@ public:
                                     dtrans::BadPtrManipulationForRelatedTypes,
                                     "Byte flattened GEP used for accessing "
                                     "next field", GEP);
-
+      else if(isByteFlattenedGEPForRelatedTypes(GEP, PtrInfo))
+        setAllAliasedTypeSafetyData(PtrInfo,
+                                    dtrans::BadPtrManipulationForRelatedTypes,
+                                    "Byte flattened GEP used for accessing "
+                                    "fields in related types", GEP);
       else
         setAllAliasedTypeSafetyData(PtrInfo, dtrans::BadPtrManipulation,
                                     "Byte flattened GEP could not be resolved",
@@ -988,6 +992,120 @@ public:
           }
         }
     }
+  }
+
+  // Return true if the offset of the input byte flattened GEP covers the
+  // right fields' number of the pointer operand. For example:
+  //
+  //   %class.MainClass = type { [4 x i32], i32, [4 x i8]}
+  //   %class.MainClass.base = type { [4 x i32], i32}
+  //
+  //   %class.TestClass.Outer = type { %class.TestClass.Inner,
+  //                                   %class.TestClass.Inner_vect}
+  //   %class.TestClass.Inner = type { %class.MainClass.base, [4 x i8] }
+  //
+  //   %class.TestClass.Inner_vect = type { %class.TestClass.Inner_vect_imp,
+  //                                        %class.TestClass.Inner_vect_imp,
+  //                                        %class.TestClass.Inner_vect_imp }
+  //   %class.TestClass.Inner_vect_imp = type { ptr, ptr, ptr }
+  //   ; %class.TestClass.Inner_vect_imp = type { %class.TestClass.Inner*,
+  //   ;                                          %class.TestClass.Inner*,
+  //   ;                                          %class.TestClass.Inner* }
+  //
+  //   %0 = alloca %class.TestClass.Outer
+  //   %1 = getelementptr inbounds %class.MainClass, ptr %0, i64 0, i32 0
+  //   %2 = getelementptr inbounds [4 x i32], ptr %1, i64 0, i32 0
+  //   %3 = load i32, ptr %2
+  //
+  //   %4 = getelementptr i8, ptr %0, i64 32
+  //   %5 = load ptr, ptr %4
+  //
+  // The pointer operand of the GEP instruction %4 (%0) won't have a dominant
+  // aggregate type since the pointer is used as a related type (%1). This
+  // function will return true since the size of field 0 in
+  // %class.TestClass.Outer is 24 bytes, and the last 8 bytes points to field
+  // 1 in %class.TestClass.Inner_vect_imp.
+  bool isByteFlattenedGEPForRelatedTypes(GEPOperator *GEP,
+                                         ValueTypeInfo *PtrInfo) {
+    if (!GEP || !PtrInfo)
+      return false;
+
+    // Should be byte flattened GEP
+    if (GEP->getNumIndices() != 1)
+      return false;
+
+    // This function is intended for related types, therefore the value type
+    // info shouldn't have dominant aggregate type. This is conservative since
+    // the basic idea of the function should work also when we have dominant
+    // aggregate type.
+    if (PTA.getDominantAggregateUsageType(*PtrInfo))
+      return false;
+
+    // The offset can't be negative or zero. This is conservative, perhaps
+    // could be relaxed in the future since zero means the beginning of
+    // the structure.
+    auto *OffsetOP = dyn_cast<ConstantInt>(GEP->getOperand(1));
+    if (!OffsetOP || OffsetOP->isZero() || OffsetOP->isNegative())
+      return false;
+
+    // Find the type that encloses the base and padded structures.
+    auto *PtrEncloseType = getEnclosingParentDeclType(*PtrInfo);
+    if (!PtrEncloseType || !PtrEncloseType->isPointerTy())
+      return false;
+
+    DTransStructType *DTStruct =
+        dyn_cast<DTransStructType>(PtrEncloseType->getPointerElementType());
+    if (!DTStruct)
+      return false;
+
+    llvm::Type *LLVMTy = DTStruct->getLLVMType();
+    if (!LLVMTy->isSized())
+      return false;
+
+    // Offset should be smaller than the structure's size, else it is
+    // accessing out of bounds.
+    uint64_t StructSize = DL.getTypeAllocSize(LLVMTy);
+    uint64_t Offset = OffsetOP->getZExtValue();
+    if (StructSize == 0 || StructSize <= Offset)
+      return false;
+
+    // Traverse through the structures, collect the elements that use the
+    // offset and check if the access was done correctly. In other words,
+    // the offset must cover the entire fields.
+    llvm::StructType *CurrStrLLVMTy = cast<StructType>(LLVMTy);
+    int64_t TempOffset = (int64_t)Offset;
+    while (CurrStrLLVMTy) {
+      if (CurrStrLLVMTy->getNumElements() == 0)
+        return false;
+
+      const StructLayout *SL = DL.getStructLayout(CurrStrLLVMTy);
+      uint64_t Elem = SL->getElementContainingOffset(Offset);
+      uint64_t BytesBeforeElem = SL->getElementOffset(Elem);
+
+      // Subtract the bytes before the element that the offset is accessing
+      // and collect the inner structure.
+      TempOffset -= (int64_t)BytesBeforeElem;
+      Offset -= BytesBeforeElem;
+
+      // If the offset reaches 0 then it means that the field is accessed
+      // correctly since we subtracted the bytes before the current element.
+      if (TempOffset == 0)
+        return true;
+
+      CurrStrLLVMTy =
+        dyn_cast<StructType>(CurrStrLLVMTy->getTypeAtIndex(Elem));
+    }
+
+    // If we reach here then it means that the GEP is not accessing the right
+    // number of bytes to cover all fields. Using the example above, assume
+    // the following GEP:
+    //
+    //   %4 = getelementptr i8, ptr %0, i64 34
+    //
+    // The value of TempOffset will be 2 at this point because 32 bytes are
+    // needed to access field 1 in %class.TestClass.Inner_vect_imp, and 40
+    // bytes to access field 2 in %class.TestClass.Inner_vect_imp.
+    return false;
   }
 
   void analyzeAndCollectArrayConstantEntries(GEPOperator *GEP,

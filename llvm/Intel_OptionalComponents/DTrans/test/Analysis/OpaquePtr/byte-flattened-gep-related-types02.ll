@@ -1,0 +1,76 @@
+; REQUIRES: asserts
+
+; RUN: opt  < %s -opaque-pointers -whole-program-assume -dtrans-outofboundsok=false -dtrans-safetyanalyzer -disable-output -debug-only=dtrans-safetyanalyzer-verbose -dtrans-print-types 2>&1 | FileCheck %s
+; RUN: opt  < %s -opaque-pointers -whole-program-assume -dtrans-outofboundsok=false -passes='require<dtrans-safetyanalyzer>' -disable-output -debug-only=dtrans-safetyanalyzer-verbose -dtrans-print-types 2>&1 | FileCheck %s
+
+; This test case checks that the byte flattened GEP %4 is marked as "Bad
+; pointer manipulation (related types) -- Byte flattened GEP used for accessing
+; fields in related types" since the offset 32 represents the access to field
+; 1 in %class.TestClass.Inner_vect_imp for the pointer %0, whose type is
+; %class.TestClass.Outer.
+
+; CHECK: dtrans-safety: Bad pointer manipulation (related types) -- Byte flattened GEP used for accessing fields in related types
+; CHECK-NEXT:   [foo]   %4 = getelementptr i8, ptr %0, i64 32
+
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+%class.MainClass = type { [4 x i32], i32, [4 x i8]}
+%class.MainClass.base = type { [4 x i32], i32}
+
+%class.TestClass.Outer = type { %class.TestClass.Inner, %class.TestClass.Inner_vect}
+%class.TestClass.Inner = type { %class.MainClass.base, [4 x i8] }
+
+%class.TestClass.Inner_vect = type { %class.TestClass.Inner_vect_imp, %class.TestClass.Inner_vect_imp, %class.TestClass.Inner_vect_imp}
+%class.TestClass.Inner_vect_imp = type { ptr, ptr, ptr }
+
+define dso_local void @foo() {
+entry:
+  %0 = alloca %class.TestClass.Outer
+  %1 = getelementptr inbounds %class.MainClass, ptr %0, i64 0, i32 0
+  %2 = getelementptr inbounds [4 x i32], ptr %1, i64 0, i32 0
+  %3 = load i32, ptr %2
+
+  %4 = getelementptr i8, ptr %0, i64 32
+  %5 = load ptr, ptr %4
+  call void @bar(ptr %5)
+
+  ret void
+}
+
+define dso_local void @bar(ptr noundef "intel_dtrans_func_index"="1" %ptr) !intel.dtrans.func.type !19 {
+entry:
+  %0 = getelementptr inbounds %class.MainClass, ptr %ptr, i64 0, i32 0
+  %1 = getelementptr inbounds [4 x i32], ptr %0, i64 0, i32 0
+  %2 = load i32, ptr %1
+  ret void
+}
+
+!intel.dtrans.types = !{!5, !6, !8, !11, !13, !15}
+
+!0 = !{i32 0, i32 0} ; i32
+!1 = !{i8 0, i32 0}  ; i8
+!2 = !{i8 0, i32 1}  ; i8*
+!3 = !{!"A", i32 4, !0} ; [4 x i32]
+!4 = !{!"A", i32 4, !1} ; [4 x i8]
+
+!5 = !{!"S", %class.MainClass.base zeroinitializer, i32 2, !3, !0} ; %class.MainClass.base = type { [4 x i32], i32}
+!6 = !{!"S", %class.MainClass zeroinitializer, i32 3, !3, !0, !4} ; %class.MainClass = type { [4 x i32], i32, [4 x i8]}
+!7 = !{%class.MainClass.base zeroinitializer, i32 0} ; %class.MainClass.base
+
+!8 = !{!"S", %class.TestClass.Inner zeroinitializer, i32 2, !7, !4} ; %class.TestClass.Inner = type { %class.MainClass.base, [4 x i8] }
+!9 = !{%class.TestClass.Inner zeroinitializer, i32 0} ; %class.TestClass.Inner
+!10 = !{%class.TestClass.Inner zeroinitializer, i32 1} ; %class.TestClass.Inner*
+
+!11 = !{!"S", %class.TestClass.Inner_vect_imp zeroinitializer, i32 3, !10, !10, !10} ; %class.TestClass.Inner_vect_imp = type { %class.TestClass.Inner*, %class.TestClass.Inner*, %class.TestClass.Inner* }
+!12 = !{%class.TestClass.Inner_vect_imp zeroinitializer, i32 0} ; %class.TestClass.Inner_vect_imp
+
+!13 = !{!"S", %class.TestClass.Inner_vect zeroinitializer, i32 3, !12, !12, !12} ; %class.TestClass.Inner_vect = type { %class.TestClass.Inner_vect_imp, %class.TestClass.Inner_vect_imp, %class.TestClass.Inner_vect_imp}
+!14 = !{%class.TestClass.Inner_vect zeroinitializer, i32 0} ; %class.TestClass.Inner_vect
+
+!15 = !{!"S", %class.TestClass.Outer zeroinitializer, i32 2, !9, !14} ; type { %class.TestClass.Inner, %class.TestClass.Inner_vect}
+!16 = !{%class.TestClass.Outer zeroinitializer, i32 1} ; %class.TestClass.Outer*
+
+!17 = distinct !{!16}
+!18 = distinct !{!2}
+!19 = distinct !{!10}
