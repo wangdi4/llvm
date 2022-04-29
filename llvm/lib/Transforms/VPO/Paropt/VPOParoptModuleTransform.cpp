@@ -51,6 +51,7 @@
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Transforms/Utils/Intel_InferAddressSpacesUtils.h"
+#include "llvm/Pass.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -485,8 +486,25 @@ bool VPOParoptModuleTransform::doParoptTransforms(
       }
       continue;
     }
-    LLVM_DEBUG(dbgs() << "\n=== VPOParoptPass func: " << F->getName()
-                      << " {\n");
+#if INTEL_CUSTOMIZATION
+    // The LoopOpt function passes in the pipeline are dynamically skipped at
+    // -lto -c or if loopopt is not enabled (e.g. -loopopt=1 not sent to clang).
+    // The same has to be done for Paropt passes added by addVPOPasses() called
+    // from addLoopOptAndAssociatedVPOPasses(). However, the current mechanism
+    // in the Legacy Pass Manager doesn't skip module passes, so we need to
+    // do it per function here. If the function has a "loopopt-pipeline"
+    // attribute whose value matches that of the Limiter then the function
+    // is skipped.
+    if (!doesLoopOptPipelineAllowToRun(Limiter, *F)) {
+      LLVM_DEBUG(dbgs() << "\n=== VPOParoptPass skip func: " << F->getName();
+                 if (F->hasFnAttribute("loopopt-pipeline")) dbgs()
+                 << " ; loopopt-pipeline= "
+                 << F->getFnAttribute("loopopt-pipeline").getValueAsString();
+                 dbgs() << "\n";);
+      continue;
+    }
+#endif  // INTEL_CUSTOMIZATION
+    LLVM_DEBUG(dbgs() << "\n=== VPOParoptPass func: " << F->getName() << "\n");
     FnList.push_back(&*F);
   }
 
