@@ -6301,6 +6301,18 @@ static bool SalvageDVI(llvm::Loop *L, ScalarEvolution &SE,
 
   SCEVDbgValueBuilder SalvageExpr;
 
+#if INTEL_CUSTOMIZATION
+  if (!SE.isValid(DVIRec.SCEV)) {
+    // Even if the SCEV is invalid (deleted from dead phi, etc.)
+    // we can still execute some of the code lines below. The
+    // induction var is checked by the caller.
+    SalvageExpr.createIterCountExpr(DVIRec.SCEV, IterCountExpr, SE);
+    UpdateDbgValueInst(DVIRec, SalvageExpr.Values, SalvageExpr.Expr);
+    LLVM_DEBUG(dbgs() << "scev-salvage: Updated DVI: " << *DVIRec.DVI << "\n");
+    return true;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Create an offset-based salvage expression if possible, as it requires
   // less DWARF ops than an iteration count-based expression.
   if (Optional<APInt> Offset =
@@ -6329,6 +6341,11 @@ DbgRewriteSalvageableDVIs(llvm::Loop *L, ScalarEvolution &SE,
   const llvm::SCEV *SCEVInductionVar = SE.getSCEV(LSRInductionVar);
   assert(SCEVInductionVar &&
          "Anticipated a SCEV for the post-LSR induction variable");
+
+#if INTEL_CUSTOMIZATION
+  if (!SE.isValid(SCEVInductionVar))
+    return;
+#endif // INTEL_CUSTOMIZATION
 
   if (const SCEVAddRecExpr *IVAddRec =
           dyn_cast<SCEVAddRecExpr>(SCEVInductionVar)) {
