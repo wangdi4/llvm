@@ -383,11 +383,7 @@ bool JumpThreading::runOnFunction(Function &F) {
   }
 
   bool Changed = Impl.runImpl(F, TLI, TTI, LVI, AA, &DTU, F.hasProfileData(),
-<<<<<<< HEAD
-                              std::move(BFI), std::move(BPI), PDT); // INTEL
-=======
-                              BFI.get(), BPI.get());
->>>>>>> 35f38583d2f2484794f579bed69566b40e732206
+                              BFI.get(), BPI.get(), PDT); // INTEL
   if (PrintLVIAfterJumpThreading) {
     dbgs() << "LVI for function '" << F.getName() << "':\n";
     LVI->printLVI(F, DTU.getDomTree(), dbgs());
@@ -415,13 +411,8 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
     BPI = &AM.getResult<BranchProbabilityAnalysis>(F);
   }
 
-<<<<<<< HEAD
-  bool Changed = runImpl(F, &TLI, &TTI, &LVI, &AA, &DTU, F.hasProfileData(),
-                         std::move(BFI), std::move(BPI), &PDT); // INTEL
-=======
   bool Changed =
-      runImpl(F, &TLI, &TTI, &LVI, &AA, &DTU, F.hasProfileData(), BFI, BPI);
->>>>>>> 35f38583d2f2484794f579bed69566b40e732206
+      runImpl(F, &TLI, &TTI, &LVI, &AA, &DTU, F.hasProfileData(), BFI, BPI, &PDT); // INTEL
 
   if (PrintLVIAfterJumpThreading) {
     dbgs() << "LVI for function '" << F.getName() << "':\n";
@@ -440,32 +431,20 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
 bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
                                 TargetTransformInfo *TTI_, LazyValueInfo *LVI_,
                                 AliasAnalysis *AA_, DomTreeUpdater *DTU_,
-<<<<<<< HEAD
-                                bool HasProfileData_,
-                                std::unique_ptr<BlockFrequencyInfo> BFI_,
 #if INTEL_CUSTOMIZATION
-                                std::unique_ptr<BranchProbabilityInfo> BPI_,
-                                PostDominatorTree *PDT_) {
-#endif // INTEL_CUSTOMIZATION
-=======
                                 bool HasProfileData_, BlockFrequencyInfo *BFI_,
-                                BranchProbabilityInfo *BPI_) {
->>>>>>> 35f38583d2f2484794f579bed69566b40e732206
+                                BranchProbabilityInfo *BPI_, PostDominatorTree *PDT_) {
+#endif // INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "Jump threading on function '" << F.getName() << "'\n");
   TLI = TLI_;
   TTI = TTI_;
   LVI = LVI_;
   AA = AA_;
   DTU = DTU_;
-<<<<<<< HEAD
-  BFI.reset();
-  BPI.reset();
-  PDT = PDT_;               // INTEL
-  BlockThreadCount.clear(); // INTEL
-=======
   BFI = BFI_;
   BPI = BPI_;
->>>>>>> 35f38583d2f2484794f579bed69566b40e732206
+  PDT = PDT_;// INTEL
+  BlockThreadCount.clear(); // INTEL
   // When profile data is available, we need to update edge weights after
   // successful jump threading, which requires both BPI and BFI being available.
   HasProfileData = HasProfileData_;
