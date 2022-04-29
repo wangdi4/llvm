@@ -1,5 +1,13 @@
-; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -sycl-pipes-hack -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -sycl-pipes-hack -verify -S %s -o - | FileCheck %s
+; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
+; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -enable-new-pm=0 -dpcpp-kernel-rewrite-pipes -disable-output -S %s 2>&1 | FileCheck %s
+; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-rewrite-pipes -disable-output -S %s 2>&1 | FileCheck %s
+
+; CHECK: warning: Large channel may lead to memory allocation failure:
+; CHECK-NEXT: Channel name: _ZN2cl4sycl4pipeI8s2m_pipeiLi20EE9m_StorageE
+; CHECK-NEXT: Packet size: 256
+; 262720 == sizeof(struct __pipe_t) + packet_size * (depth + 1) == 320 + 256 * 1025
+; CHECK-NEXT: Total channel size: 262720
+
 ; Compiled from:
 ; --------------
 ; #include <CL/sycl.hpp>
@@ -125,20 +133,18 @@
 ; }
 ; --------------
 
-; ModuleID = 'main'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
 %struct._ZTS19ConstantPipeStorage.ConstantPipeStorage = type { i32, i32, i32 }
 %opencl.pipe_ro_t.6 = type opaque
 
-@_ZN2cl4sycl4pipeI8s2m_pipeiLi20EE9m_StorageE = available_externally addrspace(1) constant %struct._ZTS19ConstantPipeStorage.ConstantPipeStorage { i32 4, i32 4, i32 20 }, align 4
+@_ZN2cl4sycl4pipeI8s2m_pipeiLi20EE9m_StorageE = available_externally addrspace(1) constant %struct._ZTS19ConstantPipeStorage.ConstantPipeStorage { i32 256, i32 256, i32 1024 }, align 4
 
 ; Function Attrs: nounwind
 define internal i32 @_ZN2cl4sycl4pipeI8s2m_pipeiLi20EE4readEv() #0 {
 entry:
   %TempData = alloca i32, align 4
-  ;; CHECK: %call = call %opencl.pipe_ro_t.6 addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_read{{.*}}({{.*}}addrspacecast{{.*}}bitcast (%opencl.pipe_rw_t addrspace(1)* addrspace(1)* @_ZN2cl4sycl4pipeI8s2m_pipeiLi20EE9m_StorageE.syclpipe to %struct._ZTS19ConstantPipeStorage.ConstantPipeStorage addrspace(1)*)
   %call = call %opencl.pipe_ro_t.6 addrspace(1)* @_Z38__spirv_CreatePipeFromPipeStorage_readPU3AS445_ZTS19ConstantPipeStorage.ConstantPipeStorage(%struct._ZTS19ConstantPipeStorage.ConstantPipeStorage addrspace(4)* addrspacecast (%struct._ZTS19ConstantPipeStorage.ConstantPipeStorage addrspace(1)* @_ZN2cl4sycl4pipeI8s2m_pipeiLi20EE9m_StorageE to %struct._ZTS19ConstantPipeStorage.ConstantPipeStorage addrspace(4)*)) #0
   %0 = bitcast i32* %TempData to i8*
   %1 = bitcast i32* %TempData to i8*
@@ -179,6 +185,3 @@ attributes #1 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="f
 !5 = !{i32 1, i32 0}
 !6 = !{}
 !7 = !{i16 6, i16 14}
-
-; All instuctions are added to call global constructor of pipe. Now DebugLoc for them.
-; DEBUGIFY: PASS

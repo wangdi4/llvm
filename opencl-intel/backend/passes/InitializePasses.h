@@ -66,7 +66,6 @@ void initializeStripIntelIPPass(llvm::PassRegistry&);
 void initializeOCLReqdSubGroupSizePass(llvm::PassRegistry&);
 void initializeChannelsUsageAnalysisPass(llvm::PassRegistry&);
 void initializeKernelSubGroupInfoPass(llvm::PassRegistry&);
-void initializeSYCLPipesHackPass(llvm::PassRegistry&);
 void initializePatchCallbackArgsPass(llvm::PassRegistry &);
 void initializeWeightedInstCounterPass(llvm::PassRegistry &);
 void initializeScalarizeFunctionPass(llvm::PassRegistry &);

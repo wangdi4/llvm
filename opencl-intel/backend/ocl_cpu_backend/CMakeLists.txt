@@ -238,7 +238,6 @@ set( BACKEND_PASSES
     SmartGVN
     StripIntelIP
     OCLAliasAnalysis
-    SYCLPipesHack
     ResolveVariableTIDCall
 )
 

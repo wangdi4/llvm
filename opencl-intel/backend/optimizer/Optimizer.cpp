@@ -144,7 +144,6 @@ llvm::Pass *createSmartGVNPass(bool);
 llvm::ModulePass *createDetectRecursionPass();
 llvm::ImmutablePass *createOCLAliasAnalysisPass();
 llvm::ModulePass *createChannelsUsageAnalysisPass();
-llvm::ModulePass *createSYCLPipesHackPass();
 llvm::ModulePass *createRemoveAtExitPass();
 llvm::Pass *createResolveVariableTIDCallPass();
 llvm::ModulePass *createVectorKernelDiscardPass(const intel::OptimizerConfig *);
@@ -345,10 +344,9 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   }
 
   if (isFpgaEmulator) {
-      // ChannelPipeTransformation and SYCLPipesHack passes populate
-      // channel/pipes error log.
+      // ChannelPipeTransformation pass populate channel/pipes error log.
       Intel::OpenCL::DeviceBackend::ChannelPipesErrorLog.clear();
-      PM.add(createSYCLPipesHackPass());
+      PM.add(createDPCPPRewritePipesLegacyPass());
       PM.add(createChannelPipeTransformationPass());
       PM.add(createPipeIOTransformationPass());
       PM.add(createPipeOrderingPass());

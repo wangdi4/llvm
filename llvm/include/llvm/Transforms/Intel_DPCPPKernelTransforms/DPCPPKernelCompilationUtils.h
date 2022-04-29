@@ -664,6 +664,10 @@ void calculateMemorySizeWithPostOrderTraversal(
     CallGraph &CG, DenseMap<Function *, size_t> &FnDirectSize,
     DenseMap<Function *, size_t> &FnSize);
 
+/// Get total number of elements of nested array type.
+/// e.g. [2 x [3 x i32]] --> 6
+uint64_t getNumElementsOfNestedArray(const ArrayType *ArrTy);
+
 } // namespace DPCPPKernelCompilationUtils
 } // namespace llvm
 
