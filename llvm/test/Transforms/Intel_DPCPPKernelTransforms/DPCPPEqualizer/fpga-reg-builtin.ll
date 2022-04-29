@@ -37,7 +37,7 @@
 ;
 ; Compiled by the following command: clang -cc1 -triple spir-unknown-unknown-intelfpga %s -emit-llvm -o -
 
-; RUN: llvm-as %p/fpga-pipes.rtl -o %t.rtl.bc
+; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-remove-fpga-reg -passes=dpcpp-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-remove-fpga-reg -dpcpp-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-remove-fpga-reg -passes=dpcpp-kernel-equalizer -S %s | FileCheck %s

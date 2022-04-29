@@ -43,6 +43,7 @@ ModulePass *createDPCPPKernelPostVecPass();
 ModulePass *createDPCPPKernelWGLoopCreatorLegacyPass();
 ModulePass *createDPCPPKernelAnalysisLegacyPass();
 ModulePass *createDPCPPPreprocessSPIRVFriendlyIRLegacyPass();
+ModulePass *createDPCPPRewritePipesLegacyPass();
 ModulePass *createDeduceMaxWGDimLegacyPass();
 ModulePass *createDuplicateCalledKernelsLegacyPass();
 ModulePass *createExternalizeGlobalVariablesLegacyPass();

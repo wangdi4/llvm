@@ -53,7 +53,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeOCLReqdSubGroupSizePass(Registry);
     intel::initializeChannelsUsageAnalysisPass(Registry);
     intel::initializeKernelSubGroupInfoPass(Registry);
-    intel::initializeSYCLPipesHackPass(Registry);
     intel::initializePatchCallbackArgsPass(Registry);
     intel::initializeWeightedInstCounterPass(Registry);
     intel::initializeScalarizeFunctionPass(Registry);

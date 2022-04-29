@@ -20,6 +20,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DPCPPKernelWGLoopCreator.cpp
   DPCPPKernelAnalysis.cpp
   DPCPPPreprocessSPIRVFriendlyIR.cpp
+  DPCPPRewritePipes.cpp
   DeduceMaxWGDim.cpp
   ExternalizeGlobalVariables.cpp
   HandleVPlanMask.cpp
@@ -78,6 +79,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   WorkItemAnalysis.cpp
 
   Utils/CPUDetect.cpp
+  Utils/DPCPPChannelPipeUtils.cpp
   Utils/DPCPPStatistic.cpp
   Utils/FunctionDescriptor.cpp
   Utils/ImplicitArgsUtils.cpp

@@ -2373,5 +2373,14 @@ void calculateMemorySizeWithPostOrderTraversal(
   }
 }
 
+uint64_t getNumElementsOfNestedArray(const ArrayType *ArrTy) {
+  uint64_t NumElements = ArrTy->getNumElements();
+  while (auto *InnerArrayTy = dyn_cast<ArrayType>(ArrTy->getElementType())) {
+    NumElements *= InnerArrayTy->getNumElements();
+    ArrTy = InnerArrayTy;
+  }
+  return NumElements;
+}
+
 } // end namespace DPCPPKernelCompilationUtils
 } // end namespace llvm
