@@ -902,13 +902,13 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   // TODO: once defaults have been established, use Args.hasFlag() for
   //  the opposite and then override the default setting.
   if (Arg *A = Args.getLastArg(
-          options::OPT_fvectorize_masked_mode,
-          options::OPT_fno_vectorize_masked_mode)) {
+          options::OPT_fvec_with_mask,
+          options::OPT_fno_vec_with_mask)) {
     if (A->getOption().matches(
-            options::OPT_fvectorize_masked_mode))
+            options::OPT_fvec_with_mask))
       addllvmOption("-vplan-enable-masked-variant=true");
     if (A->getOption().matches(
-            options::OPT_fno_vectorize_masked_mode))
+            options::OPT_fno_vec_with_mask))
       addllvmOption("-vplan-enable-masked-variant=false");
   }
   if (Arg *A = Args.getLastArg(
@@ -922,25 +922,25 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
       addllvmOption("-vplan-enable-peeling=false");
   }
   if (Arg *A = Args.getLastArg(
-          options::OPT_fvectorize_peel_loops,
-          options::OPT_fno_vectorize_peel_loops)) {
+          options::OPT_fvec_peel_loops,
+          options::OPT_fno_vec_peel_loops)) {
     if (A->getOption().matches(
-            options::OPT_fvectorize_peel_loops))
+            options::OPT_fvec_peel_loops))
       addllvmOption("-vplan-enable-vectorized-peel=true");
     if (A->getOption().matches(
-            options::OPT_fno_vectorize_peel_loops))
+            options::OPT_fno_vec_peel_loops))
       addllvmOption("-vplan-enable-vectorized-peel=false");
   }
   if (Arg *A = Args.getLastArg(
-          options::OPT_fvectorize_remainder_loops,
-          options::OPT_fno_vectorize_remainder_loops)) {
+          options::OPT_fvec_remainder_loops,
+          options::OPT_fno_vec_remainder_loops)) {
     if (A->getOption().matches(
-            options::OPT_fvectorize_remainder_loops)) {
+            options::OPT_fvec_remainder_loops)) {
       addllvmOption("-vplan-enable-masked-vectorized-remainder=true");
       addllvmOption("-vplan-enable-non-masked-vectorized-remainder=true");
     }
     if (A->getOption().matches(
-            options::OPT_fno_vectorize_remainder_loops)) {
+            options::OPT_fno_vec_remainder_loops)) {
       addllvmOption("-vplan-enable-masked-vectorized-remainder=false");
       addllvmOption("-vplan-enable-non-masked-vectorized-remainder=false");
     }
