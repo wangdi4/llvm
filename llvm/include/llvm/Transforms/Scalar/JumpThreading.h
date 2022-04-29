@@ -132,9 +132,14 @@ class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
   LazyValueInfo *LVI;
   AAResults *AA;
   DomTreeUpdater *DTU;
+<<<<<<< HEAD
   PostDominatorTree *PDT; // INTEL
   std::unique_ptr<BlockFrequencyInfo> BFI;
   std::unique_ptr<BranchProbabilityInfo> BPI;
+=======
+  BlockFrequencyInfo *BFI;
+  BranchProbabilityInfo *BPI;
+>>>>>>> 35f38583d2f2484794f579bed69566b40e732206
   bool HasProfileData = false;
   bool HasGuards = false;
 #ifndef LLVM_ENABLE_ABI_BREAKING_CHECKS
@@ -177,16 +182,16 @@ public:
   // Glue for old PM.
   bool runImpl(Function &F, TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
                LazyValueInfo *LVI, AAResults *AA, DomTreeUpdater *DTU,
+<<<<<<< HEAD
                bool HasProfileData, std::unique_ptr<BlockFrequencyInfo> BFI_,
                std::unique_ptr<BranchProbabilityInfo> BPI_,  // INTEL
                PostDominatorTree *PDT_);                     // INTEL
+=======
+               bool HasProfileData, BlockFrequencyInfo *BFI,
+               BranchProbabilityInfo *BPI);
+>>>>>>> 35f38583d2f2484794f579bed69566b40e732206
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
-
-  void releaseMemory() {
-    BFI.reset();
-    BPI.reset();
-  }
 
   void findLoopHeaders(Function &F);
   bool processBlock(BasicBlock *BB);

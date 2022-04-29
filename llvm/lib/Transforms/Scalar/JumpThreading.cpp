@@ -198,8 +198,6 @@ namespace {
       AU.addRequired<TargetTransformInfoWrapperPass>();
       AU.addRequired<PostDominatorTreeWrapperPass>();                   // INTEL
     }
-
-    void releaseMemory() override { Impl.releaseMemory(); }
   };
 
 } // end anonymous namespace
@@ -385,7 +383,11 @@ bool JumpThreading::runOnFunction(Function &F) {
   }
 
   bool Changed = Impl.runImpl(F, TLI, TTI, LVI, AA, &DTU, F.hasProfileData(),
+<<<<<<< HEAD
                               std::move(BFI), std::move(BPI), PDT); // INTEL
+=======
+                              BFI.get(), BPI.get());
+>>>>>>> 35f38583d2f2484794f579bed69566b40e732206
   if (PrintLVIAfterJumpThreading) {
     dbgs() << "LVI for function '" << F.getName() << "':\n";
     LVI->printLVI(F, DTU.getDomTree(), dbgs());
@@ -406,16 +408,20 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
   auto &PDT = AM.getResult<PostDominatorTreeAnalysis>(F); // INTEL
   DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
 
-  std::unique_ptr<BlockFrequencyInfo> BFI;
-  std::unique_ptr<BranchProbabilityInfo> BPI;
+  BlockFrequencyInfo *BFI = nullptr;
+  BranchProbabilityInfo *BPI = nullptr;
   if (F.hasProfileData()) {
-    LoopInfo LI{DominatorTree(F)};
-    BPI.reset(new BranchProbabilityInfo(F, LI, &TLI));
-    BFI.reset(new BlockFrequencyInfo(F, *BPI, LI));
+    BFI = &AM.getResult<BlockFrequencyAnalysis>(F);
+    BPI = &AM.getResult<BranchProbabilityAnalysis>(F);
   }
 
+<<<<<<< HEAD
   bool Changed = runImpl(F, &TLI, &TTI, &LVI, &AA, &DTU, F.hasProfileData(),
                          std::move(BFI), std::move(BPI), &PDT); // INTEL
+=======
+  bool Changed =
+      runImpl(F, &TLI, &TTI, &LVI, &AA, &DTU, F.hasProfileData(), BFI, BPI);
+>>>>>>> 35f38583d2f2484794f579bed69566b40e732206
 
   if (PrintLVIAfterJumpThreading) {
     dbgs() << "LVI for function '" << F.getName() << "':\n";
@@ -434,22 +440,32 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
 bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
                                 TargetTransformInfo *TTI_, LazyValueInfo *LVI_,
                                 AliasAnalysis *AA_, DomTreeUpdater *DTU_,
+<<<<<<< HEAD
                                 bool HasProfileData_,
                                 std::unique_ptr<BlockFrequencyInfo> BFI_,
 #if INTEL_CUSTOMIZATION
                                 std::unique_ptr<BranchProbabilityInfo> BPI_,
                                 PostDominatorTree *PDT_) {
 #endif // INTEL_CUSTOMIZATION
+=======
+                                bool HasProfileData_, BlockFrequencyInfo *BFI_,
+                                BranchProbabilityInfo *BPI_) {
+>>>>>>> 35f38583d2f2484794f579bed69566b40e732206
   LLVM_DEBUG(dbgs() << "Jump threading on function '" << F.getName() << "'\n");
   TLI = TLI_;
   TTI = TTI_;
   LVI = LVI_;
   AA = AA_;
   DTU = DTU_;
+<<<<<<< HEAD
   BFI.reset();
   BPI.reset();
   PDT = PDT_;               // INTEL
   BlockThreadCount.clear(); // INTEL
+=======
+  BFI = BFI_;
+  BPI = BPI_;
+>>>>>>> 35f38583d2f2484794f579bed69566b40e732206
   // When profile data is available, we need to update edge weights after
   // successful jump threading, which requires both BPI and BFI being available.
   HasProfileData = HasProfileData_;
@@ -457,8 +473,11 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
       Intrinsic::getName(Intrinsic::experimental_guard));
   HasGuards = GuardDecl && !GuardDecl->use_empty();
   if (HasProfileData) {
-    BPI = std::move(BPI_);
-    BFI = std::move(BFI_);
+    assert(BFI && "BFI not provided?");
+    assert(BPI && "BPI not provided?");
+  } else {
+    assert(!BFI && "BFI should not be provided?");
+    assert(!BPI && "BPI should not be provided?");
   }
 
   // Reduce the number of instructions duplicated when optimizing strictly for
