@@ -19,7 +19,7 @@ define internal void @wibble.72(i8* %arg8) #0 {
 ; CHECK-NEXT:    ret void
 ; CHECK:       bb10:
 ; CHECK-NEXT:    [[LSR_IV:%.*]] = phi i32 [ 0, [[BB10_PREHEADER]] ], [ [[LSR_IV_NEXT:%.*]], [[BB10]] ]
-; CHECK-NEXT:    call void @llvm.dbg.value(metadata i32 [[LSR_IV]], metadata [[META1:![0-9]+]], metadata !DIExpression(DW_OP_consts, 18446744073709551615, DW_OP_div, DW_OP_stack_value)), !dbg [[DBG9:![0-9]+]]
+; CHECK-NEXT:    call void @llvm.dbg.value(metadata i8 undef, metadata [[META1:![0-9]+]], metadata !DIExpression()), !dbg [[DBG9:![0-9]+]]
 ; CHECK-NEXT:    [[T16:%.*]] = icmp eq i32 [[LSR_IV]], 0
 ; CHECK-NEXT:    [[LSR_IV_NEXT]] = add i32 [[LSR_IV]], -1
 ; CHECK-NEXT:    br label [[BB10]]

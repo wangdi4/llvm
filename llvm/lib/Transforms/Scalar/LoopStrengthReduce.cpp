@@ -6554,11 +6554,6 @@ DbgRewriteSalvageableDVIs(llvm::Loop *L, ScalarEvolution &SE,
   assert(SCEVInductionVar &&
          "Anticipated a SCEV for the post-LSR induction variable");
 
-#if INTEL_CUSTOMIZATION
-  if (!SE.isValid(SCEVInductionVar))
-    return;
-#endif // INTEL_CUSTOMIZATION
-
   if (const SCEVAddRecExpr *IVAddRec =
           dyn_cast<SCEVAddRecExpr>(SCEVInductionVar)) {
     if (!IVAddRec->isAffine())

@@ -12,7 +12,7 @@ define void @nopreheader(i8* %end) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[WHILE_COND179:%.*]], !dbg [[DBG15:![0-9]+]]
 ; CHECK:       while.cond179:
-; CHECK-NEXT:    call void @llvm.dbg.value(metadata i8* undef, metadata [[META9:![0-9]+]], metadata !DIExpression()), !dbg [[DBG16:![0-9]+]]
+; CHECK-NEXT:    call void @llvm.dbg.value(metadata i8 undef, metadata [[META9:![0-9]+]], metadata !DIExpression()), !dbg [[DBG16:![0-9]+]]
 ; CHECK-NEXT:    indirectbr i8* undef, [label [[LAND_RHS184:%.*]], label %while.end453], !dbg [[DBG17:![0-9]+]]
 ; CHECK:       land.rhs184:
 ; CHECK-NEXT:    indirectbr i8* undef, [label [[WHILE_END453:%.*]], label %while.cond197], !dbg [[DBG18:![0-9]+]]
