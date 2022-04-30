@@ -6500,29 +6500,6 @@ static bool SalvageDVI(llvm::Loop *L, ScalarEvolution &SE,
       return false;
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  if (!SE.isValid(DVIRec.SCEV)) {
-    // Even if the SCEV is invalid (deleted from dead phi, etc.)
-    // we can still execute some of the code lines below. The
-    // induction var is checked by the caller.
-    SalvageExpr.createIterCountExpr(DVIRec.SCEV, IterCountExpr, SE);
-    UpdateDbgValueInst(DVIRec, SalvageExpr.Values, SalvageExpr.Expr);
-    LLVM_DEBUG(dbgs() << "scev-salvage: Updated DVI: " << *DVIRec.DVI << "\n");
-    return true;
-  }
-#endif // INTEL_CUSTOMIZATION
-
-  // Create an offset-based salvage expression if possible, as it requires
-  // less DWARF ops than an iteration count-based expression.
-  if (Optional<APInt> Offset =
-          SE.computeConstantDifference(DVIRec.SCEV, SCEVInductionVar)) {
-    if (Offset.getValue().getMinSignedBits() <= 64)
-      SalvageExpr.createOffsetExpr(Offset.getValue().getSExtValue(),
-                                   LSRInductionVar);
-  } else
-    SalvageExpr.createIterCountExpr(DVIRec.SCEV, IterCountExpr, SE);
-=======
   // Merge the DbgValueBuilder generated expressions and the original
   // DIExpression, place the result into an new vector.
   SmallVector<uint64_t, 3> NewExpr;
@@ -6541,7 +6518,6 @@ static bool SalvageDVI(llvm::Loop *L, ScalarEvolution &SE,
       Op.appendToVector(NewExpr);
       continue;
     }
->>>>>>> 3f2b76ec90b5f108272a3072a1345ba55d8ec75b
 
     uint64_t LocationArgIndex = Op.getArg(0);
     SCEVDbgValueBuilder *DbgBuilder =
