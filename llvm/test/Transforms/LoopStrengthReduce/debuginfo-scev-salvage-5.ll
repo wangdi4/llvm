@@ -1,4 +1,5 @@
 ; RUN: opt -S -loop-reduce %s | FileCheck %s
+; REQUIRES: x86-registered-target
 
 ;; Ensure that SCEV-based salvaging in Loop Strength Reduction can salvage
 ;; variadic dbg.value intrinsics. Generated from the following C++:
