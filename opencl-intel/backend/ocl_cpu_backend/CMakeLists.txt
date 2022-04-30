@@ -227,7 +227,6 @@ set( BACKEND_PASSES
     InternalizeGlobalVariables
     PreventDivCrashes
     PrintIRPass
-    ProfilingInfoPass
     RelaxedPass
     SetPreferVectorWidth
     UndefExternalFuncs

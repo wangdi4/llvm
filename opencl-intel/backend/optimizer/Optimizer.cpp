@@ -138,7 +138,6 @@ llvm::ModulePass *createRemovePrefetchPass();
 llvm::ModulePass *createPrintIRPass(int option, int optionLocation,
                                     std::string dumpDir);
 llvm::ModulePass *createDebugInfoPass();
-llvm::ModulePass *createProfilingInfoPass();
 llvm::Pass *createSmartGVNPass(bool);
 
 llvm::ModulePass *createDetectRecursionPass();
@@ -525,7 +524,7 @@ static void populatePassesPostFailCheck(
 
     // In profiling mode remove llvm.dbg.value calls before vectorizer.
     if (isProfiling) {
-      PM.add(createProfilingInfoPass());
+      PM.add(createProfilingInfoLegacyPass());
     }
 
     if (!isEyeQEmulator) {
@@ -657,7 +656,7 @@ static void populatePassesPostFailCheck(
   // The debugType enum and isProfiling flag are mutually exclusive, with
   // precedence given to debugType.
   if (isProfiling) {
-    PM.add(createProfilingInfoPass());
+    PM.add(createProfilingInfoLegacyPass());
   }
 
   // Get Some info about the kernel should be called before BarrierPass and

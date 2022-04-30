@@ -121,6 +121,7 @@ MODULE_PASS("dpcpp-kernel-resolve-sub-group-wi-call", ResolveSubGroupWICallPass(
 MODULE_PASS("dpcpp-kernel-resolve-var-tid-call", ResolveVarTIDCallPass())
 MODULE_PASS("dpcpp-kernel-resolve-wi-call", ResolveWICallPass())
 MODULE_PASS("dpcpp-kernel-prepare-args", PrepareKernelArgsPass())
+MODULE_PASS("dpcpp-kernel-profiling-info", ProfilingInfoPass())
 MODULE_PASS("dpcpp-kernel-cleanup-wrapped", CleanupWrappedKernelPass())
 MODULE_PASS("dpcpp-kernel-coerce-types", CoerceTypesPass())
 MODULE_PASS("dpcpp-kernel-duplicate-called-kernels", DuplicateCalledKernelsPass())
