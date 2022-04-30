@@ -134,7 +134,7 @@ using OffsetAndArgPart = std::pair<int64_t, ArgPart>;
 
 static Value *createByteGEP(IRBuilderBase &IRB, const DataLayout &DL,
                             Value *Ptr, Type *ResElemTy, int64_t Offset) {
-  // For non-opaque pointers, try create a "nice" GEP if possible, otherwise
+  // For non-opaque pointers, try to create a "nice" GEP if possible, otherwise
   // fall back to an i8 GEP to a specific offset.
   unsigned AddrSpace = Ptr->getType()->getPointerAddressSpace();
   APInt OrigOffset(DL.getIndexTypeSizeInBits(Ptr->getType()), Offset);
@@ -254,7 +254,7 @@ static Function *doPromotion(
 
   // The new function will have the !dbg metadata copied from the original
   // function. The original function may not be deleted, and dbg metadata need
-  // to be unique so we need to drop it.
+  // to be unique, so we need to drop it.
   F->setSubprogram(nullptr);
 
   LLVM_DEBUG(dbgs() << "ARG PROMOTION:  Promoting to:" << *NF << "\n"
@@ -307,6 +307,10 @@ static Function *doPromotion(
 
     // Loop over the operands, inserting GEP and loads in the caller as
     // appropriate.
+<<<<<<< HEAD
+=======
+    auto *AI = CB.arg_begin();
+>>>>>>> 744a8378387e484982d61cf27a4d9598153da8a3
     ArgNo = 0;
 #if INTEL_CUSTOMIZATION
     for (auto AI = CB.arg_begin(), E = CB.arg_end(); AI != E; ++AI, ++ArgNo) {
@@ -349,15 +353,15 @@ static Function *doPromotion(
             ConstantInt::get(Type::getInt32Ty(F->getContext()), 0), nullptr};
         const StructLayout *SL = DL.getStructLayout(STy);
         Align StructAlign = *I->getParamAlign();
-        for (unsigned i = 0, e = STy->getNumElements(); i != e; ++i) {
-          Idxs[1] = ConstantInt::get(Type::getInt32Ty(F->getContext()), i);
+        for (unsigned J = 0, Elems = STy->getNumElements(); J != Elems; ++J) {
+          Idxs[1] = ConstantInt::get(Type::getInt32Ty(F->getContext()), J);
           auto *Idx =
-              IRB.CreateGEP(STy, *AI, Idxs, (*AI)->getName() + "." + Twine(i));
+              IRB.CreateGEP(STy, *AI, Idxs, (*AI)->getName() + "." + Twine(J));
           // TODO: Tell AA about the new values?
           Align Alignment =
-              commonAlignment(StructAlign, SL->getElementOffset(i));
+              commonAlignment(StructAlign, SL->getElementOffset(J));
           Args.push_back(IRB.CreateAlignedLoad(
-              STy->getElementType(i), Idx, Alignment, Idx->getName() + ".val"));
+              STy->getElementType(J), Idx, Alignment, Idx->getName() + ".val"));
           ArgAttrVec.push_back(AttributeSet());
         }
       } else if (!I->use_empty()) {
@@ -504,13 +508,13 @@ static Function *doPromotion(
                         nullptr};
       const StructLayout *SL = DL.getStructLayout(STy);
 
-      for (unsigned i = 0, e = STy->getNumElements(); i != e; ++i) {
-        Idxs[1] = ConstantInt::get(Type::getInt32Ty(F->getContext()), i);
+      for (unsigned J = 0, Elems = STy->getNumElements(); J != Elems; ++J) {
+        Idxs[1] = ConstantInt::get(Type::getInt32Ty(F->getContext()), J);
         Value *Idx = GetElementPtrInst::Create(
-            AgTy, TheAlloca, Idxs, TheAlloca->getName() + "." + Twine(i),
+            AgTy, TheAlloca, Idxs, TheAlloca->getName() + "." + Twine(J),
             InsertPt);
-        I2->setName(Arg.getName() + "." + Twine(i));
-        Align Alignment = commonAlignment(StructAlign, SL->getElementOffset(i));
+        I2->setName(Arg.getName() + "." + Twine(J));
+        Align Alignment = commonAlignment(StructAlign, SL->getElementOffset(J));
         new StoreInst(&*I2++, Idx, false, Alignment, InsertPt);
       }
 
@@ -737,7 +741,7 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
       return false;
     }
 
-    // If this load is not guaranteed to execute and we haven't seen a load at
+    // If this load is not guaranteed to execute, and we haven't seen a load at
     // this offset before (or it had lower alignment), then we need to remember
     // that requirement.
     // Note that skipping loads of previously seen offsets is only correct
@@ -855,6 +859,7 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
     Offset = Pair.first + DL.getTypeStoreSize(Pair.second.Ty);
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Since the argument is only used by load instructions (i.e not escaped)
   // and the argument is marked with NoAlias, we don't need to prove that
@@ -865,6 +870,9 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
 #endif // INTEL_CUSTOMIZATION
 
   // Okay, now we know that the argument is only used by load instructions and
+=======
+  // Okay, now we know that the argument is only used by load instructions, and
+>>>>>>> 744a8378387e484982d61cf27a4d9598153da8a3
   // it is safe to unconditionally perform all of them. Use alias analysis to
   // check to see if the pointer is guaranteed to not be modified from entry of
   // the function to each of the load instructions.
@@ -898,37 +906,37 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
   return true;
 }
 
-bool ArgumentPromotionPass::isDenselyPacked(Type *type, const DataLayout &DL) {
+bool ArgumentPromotionPass::isDenselyPacked(Type *Ty, const DataLayout &DL) {
   // There is no size information, so be conservative.
-  if (!type->isSized())
+  if (!Ty->isSized())
     return false;
 
   // If the alloc size is not equal to the storage size, then there are padding
   // bytes. For x86_fp80 on x86-64, size: 80 alloc size: 128.
-  if (DL.getTypeSizeInBits(type) != DL.getTypeAllocSizeInBits(type))
+  if (DL.getTypeSizeInBits(Ty) != DL.getTypeAllocSizeInBits(Ty))
     return false;
 
   // FIXME: This isn't the right way to check for padding in vectors with
   // non-byte-size elements.
-  if (VectorType *seqTy = dyn_cast<VectorType>(type))
-    return isDenselyPacked(seqTy->getElementType(), DL);
+  if (VectorType *SeqTy = dyn_cast<VectorType>(Ty))
+    return isDenselyPacked(SeqTy->getElementType(), DL);
 
   // For array types, check for padding within members.
-  if (ArrayType *seqTy = dyn_cast<ArrayType>(type))
-    return isDenselyPacked(seqTy->getElementType(), DL);
+  if (ArrayType *SeqTy = dyn_cast<ArrayType>(Ty))
+    return isDenselyPacked(SeqTy->getElementType(), DL);
 
-  if (!isa<StructType>(type))
+  if (!isa<StructType>(Ty))
     return true;
 
   // Check for padding within and between elements of a struct.
-  StructType *StructTy = cast<StructType>(type);
+  StructType *StructTy = cast<StructType>(Ty);
   const StructLayout *Layout = DL.getStructLayout(StructTy);
   uint64_t StartPos = 0;
-  for (unsigned i = 0, E = StructTy->getNumElements(); i < E; ++i) {
-    Type *ElTy = StructTy->getElementType(i);
+  for (unsigned I = 0, E = StructTy->getNumElements(); I < E; ++I) {
+    Type *ElTy = StructTy->getElementType(I);
     if (!isDenselyPacked(ElTy, DL))
       return false;
-    if (StartPos != Layout->getElementOffsetInBits(i))
+    if (StartPos != Layout->getElementOffsetInBits(I))
       return false;
     StartPos += DL.getTypeAllocSizeInBits(ElTy);
   }
@@ -937,19 +945,19 @@ bool ArgumentPromotionPass::isDenselyPacked(Type *type, const DataLayout &DL) {
 }
 
 /// Checks if the padding bytes of an argument could be accessed.
-static bool canPaddingBeAccessed(Argument *arg) {
-  assert(arg->hasByValAttr());
+static bool canPaddingBeAccessed(Argument *Arg) {
+  assert(Arg->hasByValAttr());
 
   // Track all the pointers to the argument to make sure they are not captured.
   SmallPtrSet<Value *, 16> PtrValues;
-  PtrValues.insert(arg);
+  PtrValues.insert(Arg);
 
   // Track all of the stores.
   SmallVector<StoreInst *, 16> Stores;
 
   // Scan through the uses recursively to make sure the pointer is always used
   // sanely.
-  SmallVector<Value *, 16> WorkList(arg->users());
+  SmallVector<Value *, 16> WorkList(Arg->users());
   while (!WorkList.empty()) {
     Value *V = WorkList.pop_back_val();
     if (isa<GetElementPtrInst>(V) || isa<PHINode>(V)) {
@@ -1044,6 +1052,7 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
 	(CB->getFunctionType() != F->getFunctionType()))
       return nullptr;
 
+<<<<<<< HEAD
     if (CS.isDirectCall()) {
       // Can't change signature of musttail callee
       if (CS.getInstruction()->isMustTailCall())
@@ -1058,6 +1067,10 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
     if (CS.isCallbackCall())
       isCallback = true;
 #endif // INTEL_CUSTOMIZATION
+=======
+    if (CB->getFunction() == F)
+      IsRecursive = true;
+>>>>>>> 744a8378387e484982d61cf27a4d9598153da8a3
   }
 
   // Can't change signature of musttail caller
@@ -1123,6 +1136,7 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
     // Only handle arguments with specified alignment; if it's unspecified, the
     // actual alignment of the argument is target-specific.
     Type *ByValTy = PtrArg->getParamByValType();
+<<<<<<< HEAD
     bool isSafeToPromote =
         ByValTy && PtrArg->getParamAlign() && !isCallback && // INTEL
         (ArgumentPromotionPass::isDenselyPacked(ByValTy, DL) ||
@@ -1145,9 +1159,16 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
     }
 #endif // INTEL_COLLAB
     if (isSafeToPromote) {
+=======
+    bool IsSafeToPromote =
+        ByValTy && PtrArg->getParamAlign() &&
+        (ArgumentPromotionPass::isDenselyPacked(ByValTy, DL) ||
+         !canPaddingBeAccessed(PtrArg));
+    if (IsSafeToPromote) {
+>>>>>>> 744a8378387e484982d61cf27a4d9598153da8a3
       if (StructType *STy = dyn_cast<StructType>(ByValTy)) {
         if (MaxElements > 0 && STy->getNumElements() > MaxElements) {
-          LLVM_DEBUG(dbgs() << "argpromotion disable promoting argument '"
+          LLVM_DEBUG(dbgs() << "ArgPromotion disables promoting argument '"
                             << PtrArg->getName()
                             << "' because it would require adding more"
                             << " than " << MaxElements
@@ -1437,7 +1458,7 @@ bool ArgPromotion::runOnSCC(CallGraphSCC &SCC) {
         else
           OldF->setLinkage(Function::ExternalLinkage);
 
-        // And updat ethe SCC we're iterating as well.
+        // And update the SCC we're iterating as well.
         SCC.ReplaceNode(OldNode, NewNode);
       }
     }
