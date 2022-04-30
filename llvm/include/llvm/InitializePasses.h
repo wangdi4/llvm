@@ -764,6 +764,7 @@ void initializeLoopStridedCodeMotionLegacyPass(PassRegistry &);
 void initializeLoopWIAnalysisLegacyPass(PassRegistry &);
 void initializePhiCanonicalizationLegacyPass(PassRegistry &);
 void initializePrepareKernelArgsLegacyPass(PassRegistry &);
+void initializeProfilingInfoLegacyPass(PassRegistry &);
 void initializeReduceCrossBarrierValuesLegacyPass(PassRegistry &);
 void initializeRedundantPhiNodeLegacyPass(PassRegistry &);
 void initializeResolveMatrixFillLegacyPass(PassRegistry &);

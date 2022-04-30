@@ -498,6 +498,7 @@ namespace {
       (void)llvm::createSinCosFoldLegacyPass();
       (void)llvm::createSoaAllocaAnalysisLegacyPass();
       (void)llvm::createPrepareKernelArgsLegacyPass(false);
+      (void)llvm::createProfilingInfoLegacyPass();
       (void)llvm::createCleanupWrappedKernelLegacyPass();
       (void)llvm::createCoerceTypesLegacyPass();
       (void)llvm::createVFAnalysisLegacyPass();

@@ -620,11 +620,14 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
     if (!AI)
       return nullptr;
     LoadInst *ULI = nullptr;
+    Type *ATy = AI->getAllocatedType();
     for (User *UU : AI->users()) {
       if (UU == SI)
         continue;
       auto LI = dyn_cast<LoadInst>(UU);
-      if (!LI || ULI)
+      // CMPLRLLVM-37317: Need to check type compatibility because in the
+      // case of opaque pointers, a bitcast may have been folded away.
+      if (!LI || ULI || LI->getType() != ATy)
         return nullptr;
       ULI = LI;
     }

@@ -94,6 +94,7 @@ ModulePass *createSGLoopConstructLegacyPass();
 ModulePass *createSGSizeAnalysisLegacyPass();
 ModulePass *createSGValueWidenLegacyPass();
 ModulePass *createPrepareKernelArgsLegacyPass(bool UseTLSGlobals);
+ModulePass *createProfilingInfoLegacyPass();
 ModulePass *createCleanupWrappedKernelLegacyPass();
 ModulePass *createCoerceTypesLegacyPass();
 ModulePass *createUpdateCallAttrsLegacyPass();

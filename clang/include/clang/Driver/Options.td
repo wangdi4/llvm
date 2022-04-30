@@ -5583,23 +5583,17 @@ def qopt_dynamic_align : Flag<["-"], "qopt-dynamic-align">,
   HelpText<"Enable peeling to optimize alignment for vectorization.">;
 def qno_opt_dynamic_align : Flag<["-"], "qno-opt-dynamic-align">,
   HelpText<"Disable peeling to optimize alignment for vectorization.">;
-def fvectorize_masked_mode : Flag<["-"], "fvectorize-masked-mode">,
-  Flags<[HelpHidden]>, // TODO: remove HelpHidden once approved
-  HelpText<"Enable masked mode execution for vectorized loops.">;
-def fno_vectorize_masked_mode : Flag<["-"], "fno-vectorize-masked-mode">,
-  Flags<[HelpHidden]>, // TODO: remove HelpHidden once approved
-  HelpText<"Disable masked mode execution for vectorized loops.">;
-def fvectorize_peel_loops : Flag<["-"], "fvectorize-peel-loops">,
-  Flags<[HelpHidden]>, // TODO: remove HelpHidden once approved
+def fvec_with_mask : Flag<["-"], "fvec-with-mask">,
+  HelpText<"Enable vectorization for short trip-count loops with masking.">;
+def fno_vec_with_mask : Flag<["-"], "fno-vec-with-mask">,
+  HelpText<"Disable vectorization for short trip-count loops with masking.">;
+def fvec_peel_loops : Flag<["-"], "fvec-peel-loops">,
   HelpText<"Enable peel loop vectorization.">;
-def fno_vectorize_peel_loops : Flag<["-"], "fno-vectorize-peel-loops">,
-  Flags<[HelpHidden]>, // TODO: remove HelpHidden once approved
+def fno_vec_peel_loops : Flag<["-"], "fno-vec-peel-loops">,
   HelpText<"Disable peel loop vectorization.">;
-def fvectorize_remainder_loops : Flag<["-"], "fvectorize-remainder-loops">,
-  Flags<[HelpHidden]>, // TODO: remove HelpHidden once approved
+def fvec_remainder_loops : Flag<["-"], "fvec-remainder-loops">,
   HelpText<"Enable remainder loop vectorization.">;
-def fno_vectorize_remainder_loops : Flag<["-"], "fno-vectorize-remainder-loops">,
-  Flags<[HelpHidden]>, // TODO: remove HelpHidden once approved
+def fno_vec_remainder_loops : Flag<["-"], "fno-vec-remainder-loops">,
   HelpText<"Disable remainder loop vectorization.">;
 def qopt_report_EQ : Joined<["-"], "qopt-report=">, Values<"min,med,max">,
   Group<intel_opt_report_Group>,
@@ -8162,23 +8156,23 @@ def _SLASH_Qopt_dynamic_align : CLFlag<"Qopt-dynamic-align">,
 def _SLASH_Qopt_dynamic_align_ : CLFlag<"Qopt-dynamic-align-">,
   Alias<qno_opt_dynamic_align>,
   HelpText<"Disable peeling to optimize alignment for vectorization.">;
-def _SLASH_Qvectorize_masked_mode : CLFlag<"Qvectorize-masked-mode">,
-  Alias<fvectorize_masked_mode>,
-  HelpText<"Enable masked mode execution for vectorized loops.">;
-def _SLASH_Qvectorize_peel_loops : CLFlag<"Qvectorize-peel-loops">,
-  Alias<fvectorize_peel_loops>,
+def _SLASH_Qvec_with_mask : CLFlag<"Qvec-with-mask">,
+  Alias<fvec_with_mask>,
+  HelpText<"Enable vectorization for short trip-count loops with masking.">;
+def _SLASH_Qvec_peel_loops : CLFlag<"Qvec-peel-loops">,
+  Alias<fvec_peel_loops>,
   HelpText<"Enable peel loop vectorization.">;
-def _SLASH_Qvectorize_remainder_loops : CLFlag<"Qvectorize-remainder-loops">,
-  Alias<fvectorize_remainder_loops>,
+def _SLASH_Qvec_remainder_loops : CLFlag<"Qvec-remainder-loops">,
+  Alias<fvec_remainder_loops>,
   HelpText<"Enable remainder loop vectorization.">;
-def _SLASH_Qvectorize_masked_mode_ : CLFlag<"Qvectorize-masked-mode-">,
-  Alias<fno_vectorize_masked_mode>,
-  HelpText<"Disable masked mode execution for vectorized loops.">;
-def _SLASH_Qvectorize_peel_loops_ : CLFlag<"Qvectorize-peel-loops-">,
-  Alias<fno_vectorize_peel_loops>,
+def _SLASH_Qvec_with_mask_ : CLFlag<"Qvec-with-mask-">,
+  Alias<fno_vec_with_mask>,
+  HelpText<"Disable vectorization for short trip-count loops with masking.">;
+def _SLASH_Qvec_peel_loops_ : CLFlag<"Qvec-peel-loops-">,
+  Alias<fno_vec_peel_loops>,
   HelpText<"Disable peel loop vectorization.">;
-def _SLASH_Qvectorize_remainder_loops_ : CLFlag<"Qvectorize-remainder-loops-">,
-  Alias<fno_vectorize_remainder_loops>,
+def _SLASH_Qvec_remainder_loops_ : CLFlag<"Qvec-remainder-loops-">,
+  Alias<fno_vec_remainder_loops>,
   HelpText<"Disable remainder loop vectorization.">;
 def _SLASH_Qopt_report_EQ : CLJoined<"Qopt-report=">, Alias<qopt_report_EQ>;
 def : CLJoined<"Qopt-report">, Alias<qopt_report_EQ>;

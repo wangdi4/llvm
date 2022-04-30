@@ -35,6 +35,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   LoopWIAnalysis.cpp
   DuplicateCalledKernelsPass.cpp
   PhiCanonicalization.cpp
+  ProfilingInfo.cpp
   RedundantPhiNodePass.cpp
   GroupBuiltinPass.cpp
   SplitBBonBarrierPass.cpp
