@@ -1,23 +1,14 @@
 // FIXME: Remove -opaque-pointers when opaque pointers are enabled by
-<<<<<<< HEAD
 // default and remove the above comment as well.  // INTEL
-=======
-// default and remove the above comment as well.
->>>>>>> 19fc25c763ca42280a0b8167eb053e0877c0adca
 
 // UNSUPPORTED: -zos, -aix
 // RUN: rm -rf %t
 // RUN: split-file %s %t
-<<<<<<< HEAD
 // INTEL RUN: %clang_cc1 -emit-llvm -o %t/test-compatible-extensions.ll -fobjc-runtime=macosx-10.9 -F%t/Frameworks %t/test-compatible-extensions.m \
-=======
-// RUN: %clang_cc1 -emit-llvm -o %t/test-compatible-extensions.ll -fobjc-runtime=macosx-10.9 -F%t/Frameworks %t/test-compatible-extensions.m \
->>>>>>> 19fc25c763ca42280a0b8167eb053e0877c0adca
 // RUN:            -fmodules -fimplicit-module-maps -fmodules-cache-path=%t/modules.cache -fmodule-name=InterfaceAndExtension -opaque-pointers
 // RUN: FileCheck --input-file=%t/test-compatible-extensions.ll %t/test-compatible-extensions.m
 
 // RUN: %clang_cc1 -emit-llvm -o %t/test-access-extension-ivar.ll -fobjc-runtime=macosx-10.9 -F%t/Frameworks %t/test-access-extension-ivar.m \
-<<<<<<< HEAD
 // INTEL RUN:            -fmodules -fimplicit-module-maps -fmodules-cache-path=%t/modules.cache -opaque-pointers
 // RUN: FileCheck --input-file=%t/test-access-extension-ivar.ll %t/test-access-extension-ivar.m
 
@@ -27,17 +18,6 @@
 // RUN: %clang_cc1 -emit-llvm -o %t/test-synthesized-ivar-extension.ll -fobjc-runtime=macosx-10.9 -F%t/Frameworks %t/test-synthesized-ivar.m \
 // RUN:            -fmodules -fimplicit-module-maps -fmodules-cache-path=%t/modules.cache \
 // INTEL RUN:            -DIMPORT_EXTENSION=1 -opaque-pointers
-=======
-// RUN:            -fmodules -fimplicit-module-maps -fmodules-cache-path=%t/modules.cache -opaque-pointers
-// RUN: FileCheck --input-file=%t/test-access-extension-ivar.ll %t/test-access-extension-ivar.m
-
-// RUN: %clang_cc1 -emit-llvm -o %t/test-synthesized-ivar.ll -fobjc-runtime=macosx-10.9 -F%t/Frameworks %t/test-synthesized-ivar.m \
-// RUN:            -fmodules -fimplicit-module-maps -fmodules-cache-path=%t/modules.cache -opaque-pointers
-// RUN: FileCheck --input-file=%t/test-synthesized-ivar.ll %t/test-synthesized-ivar.m
-// RUN: %clang_cc1 -emit-llvm -o %t/test-synthesized-ivar-extension.ll -fobjc-runtime=macosx-10.9 -F%t/Frameworks %t/test-synthesized-ivar.m \
-// RUN:            -fmodules -fimplicit-module-maps -fmodules-cache-path=%t/modules.cache \
-// RUN:            -DIMPORT_EXTENSION=1 -opaque-pointers
->>>>>>> 19fc25c763ca42280a0b8167eb053e0877c0adca
 // RUN: FileCheck --input-file=%t/test-synthesized-ivar-extension.ll %t/test-synthesized-ivar.m
 
 // Test various scenarios where we can end up with the same-name ivars coming from multiple modules.
