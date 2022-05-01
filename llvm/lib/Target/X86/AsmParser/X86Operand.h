@@ -90,16 +90,10 @@ struct X86Operand final : public MCParsedAsmOperand {
     /// matches, prefer the one with this size.
     unsigned FrontendSize;
 
-<<<<<<< HEAD
-    /// This used for inline asm which may specify base reg and index reg for
-    /// MemOp. e.g. ARR[eax + ecx*4], so no extra reg can be used for MemOp.
-    bool UseUpRegs;
-=======
     /// If false, then this operand must be a memory operand for an indirect
     /// branch instruction. Otherwise, this operand may belong to either a
     /// direct or indirect branch instruction.
     bool MaybeDirectBranchDest;
->>>>>>> 3333c28fc0dc0485e0e08b9d7039e0a501884b7a
   };
 
   union {
@@ -417,9 +411,7 @@ struct X86Operand final : public MCParsedAsmOperand {
     return isAbsMem() && Mem.ModeSize == 16;
   }
 
-  bool isMemUseUpRegs() const override {
-    return Mem.UseUpRegs;
-  }
+  bool isMemUseUpRegs() const override { return UseUpRegs; }
 
   bool isSrcIdx() const {
     return !getMemIndexReg() && getMemScale() == 1 &&
@@ -845,12 +837,8 @@ struct X86Operand final : public MCParsedAsmOperand {
     Res->Mem.Size     = Size;
     Res->Mem.ModeSize = ModeSize;
     Res->Mem.FrontendSize = FrontendSize;
-<<<<<<< HEAD
-    Res->Mem.UseUpRegs = UseUpRegs;
-=======
     Res->Mem.MaybeDirectBranchDest = MaybeDirectBranchDest;
     Res->UseUpRegs = UseUpRegs;
->>>>>>> 3333c28fc0dc0485e0e08b9d7039e0a501884b7a
     Res->SymName      = SymName;
     Res->OpDecl       = OpDecl;
     Res->AddressOf    = false;
@@ -884,12 +872,8 @@ struct X86Operand final : public MCParsedAsmOperand {
     Res->Mem.Size     = Size;
     Res->Mem.ModeSize = ModeSize;
     Res->Mem.FrontendSize = FrontendSize;
-<<<<<<< HEAD
-    Res->Mem.UseUpRegs = UseUpRegs;
-=======
     Res->Mem.MaybeDirectBranchDest = MaybeDirectBranchDest;
     Res->UseUpRegs = UseUpRegs;
->>>>>>> 3333c28fc0dc0485e0e08b9d7039e0a501884b7a
     Res->SymName      = SymName;
     Res->OpDecl       = OpDecl;
     Res->AddressOf    = false;
