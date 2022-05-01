@@ -2592,7 +2592,6 @@ void tools::addOpenMPDeviceRTL(const Driver &D,
           << LibOmpTargetName << ArchPrefix;
   }
 }
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 void tools::addX86UnalignedVectorMoveArgs(const ToolChain &TC,
@@ -2610,7 +2609,7 @@ void tools::addX86UnalignedVectorMoveArgs(const ToolChain &TC,
     addArg("-x86-enable-unaligned-vector-move=false");
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 void tools::addHIPRuntimeLibArgs(const ToolChain &TC,
                                  const llvm::opt::ArgList &Args,
                                  llvm::opt::ArgStringList &CmdArgs) {
@@ -2625,4 +2624,3 @@ void tools::addHIPRuntimeLibArgs(const ToolChain &TC,
     }
   }
 }
->>>>>>> 8fd97e5809cf88d3549a66a599629135bc9498a2
