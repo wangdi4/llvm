@@ -44,13 +44,10 @@
 #include "clang/AST/IntelFunctionProtoTypeFinder.h"
 #endif  // INTEL_CUSTOMIZATION
 #include "clang/AST/OSLog.h"
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #include "clang/AST/StmtVisitor.h"
 #endif  // INTEL_CUSTOMIZATION
-=======
 #include "clang/AST/FormatString.h"
->>>>>>> eaca933c59fd61b3df4697b5fae0eeec67acfaeb
 #include "clang/Basic/TargetBuiltins.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
