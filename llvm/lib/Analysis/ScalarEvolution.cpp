@@ -6535,22 +6535,6 @@ const SCEV *ScalarEvolution::createNodeForSelectOrPHIInstWithICmpInstCond(
   return getUnknown(I);
 }
 
-<<<<<<< HEAD
-const SCEV *ScalarEvolution::createNodeForSelectOrPHIViaUMinSeq(
-    Value *V, Value *Cond, Value *TrueVal, Value *FalseVal) {
-#if INTEL_CUSTOMIZATION
-  // HIR uses SCEV to analyze LLVM IR, but cannot handle umin_seq.
-  // Wait until after HIR. "unknown" will enable HIR's IR analysis.
-  if (F.isPreLoopOpt())
-    return getUnknown(V);
-#endif // INTEL_CUSTOMIZATION
-
-  // For now, only deal with i1-typed `select`s.
-  if (!V->getType()->isIntegerTy(1) || !Cond->getType()->isIntegerTy(1) ||
-      !TrueVal->getType()->isIntegerTy(1) ||
-      !FalseVal->getType()->isIntegerTy(1))
-    return getUnknown(V);
-=======
 static Optional<const SCEV *>
 createNodeForSelectViaUMinSeq(ScalarEvolution *SE, const SCEV *CondExpr,
                               const SCEV *TrueExpr, const SCEV *FalseExpr) {
@@ -6558,7 +6542,6 @@ createNodeForSelectViaUMinSeq(ScalarEvolution *SE, const SCEV *CondExpr,
          TrueExpr->getType() == FalseExpr->getType() &&
          TrueExpr->getType()->isIntegerTy(1) &&
          "Unexpected operands of a select.");
->>>>>>> 981ed72a17e4302dfd77ac54d742c08dfb6b35bb
 
   // i1 cond ? i1 x : i1 C  -->  C + (i1  cond ? (i1 x - i1 C) : i1 0)
   //                        -->  C + (umin_seq  cond, x - C)
@@ -6602,6 +6585,12 @@ const SCEV *ScalarEvolution::createNodeForSelectOrPHIViaUMinSeq(
   assert(TrueVal->getType() == FalseVal->getType() &&
          V->getType() == TrueVal->getType() &&
          "Types of select hands and of the result must match.");
+#if INTEL_CUSTOMIZATION
+  // HIR uses SCEV to analyze LLVM IR, but cannot handle umin_seq.
+  // Wait until after HIR. "unknown" will enable HIR's IR analysis.
+  if (F.isPreLoopOpt())
+    return getUnknown(V);
+#endif // INTEL_CUSTOMIZATION
 
   // For now, only deal with i1-typed `select`s.
   if (!V->getType()->isIntegerTy(1))
