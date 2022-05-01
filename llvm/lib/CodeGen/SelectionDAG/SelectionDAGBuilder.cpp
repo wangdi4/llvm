@@ -4419,7 +4419,8 @@ void SelectionDAGBuilder::visitMaskedStore(const CallInst &I,
 // In all other cases the function returns 'false'.
 static bool getUniformBase(const Value *Ptr, SDValue &Base, SDValue &Index,
                            ISD::MemIndexType &IndexType, SDValue &Scale,
-                           SelectionDAGBuilder *SDB, const BasicBlock *CurBB) {
+                           SelectionDAGBuilder *SDB, const BasicBlock *CurBB,
+                           uint64_t ElemSize) {
   SelectionDAG& DAG = SDB->DAG;
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
   const DataLayout &DL = DAG.getDataLayout();
@@ -4460,9 +4461,11 @@ static bool getUniformBase(const Value *Ptr, SDValue &Base, SDValue &Index,
   Index = SDB->getValue(IndexVal);
   IndexType = ISD::SIGNED_SCALED;
 
-  // MGATHER/MSCATTER only support scaling by a power-of-two.
+  // MGATHER/MSCATTER are only required to support scaling by one or by the
+  // element size. Other scales may be produced using target-specific DAG
+  // combines.
   uint64_t ScaleVal = DL.getTypeAllocSize(GEP->getResultElementType());
-  if (!isPowerOf2_64(ScaleVal))
+  if (ScaleVal != ElemSize && ScaleVal != 1)
     return false;
 
   Scale =
@@ -4679,8 +4682,8 @@ void SelectionDAGBuilder::visitMaskedScatter(const CallInst &I) {
       getUniformBaseExt(Ptr, Base, Index, IndexType, Scale, this, I.getParent(),
                         I.getArgOperand(0), TTI, AC, DT, SCEV, LPI);
   if (!UniformBase)
-    UniformBase =
-        getUniformBase(Ptr, Base, Index, IndexType, Scale, this, I.getParent());
+    UniformBase = getUniformBase(Ptr, Base, Index, IndexType, Scale, this,
+                                 I.getParent(), VT.getScalarStoreSize());
 #endif // INTEL_CUSTOMIZATION
   unsigned AS = Ptr->getType()->getScalarType()->getPointerAddressSpace();
   MachineMemOperand *MMO = DAG.getMachineFunction().getMachineMemOperand(
@@ -4792,8 +4795,8 @@ void SelectionDAGBuilder::visitMaskedGather(const CallInst &I) {
       getUniformBaseExt(Ptr, Base, Index, IndexType, Scale, this, I.getParent(),
                         I.getArgOperand(3), TTI, AC, DT, SCEV, LPI);
   if (!UniformBase)
-    UniformBase =
-        getUniformBase(Ptr, Base, Index, IndexType, Scale, this, I.getParent());
+    UniformBase = getUniformBase(Ptr, Base, Index, IndexType, Scale, this,
+                                 I.getParent(), VT.getScalarStoreSize());
 #endif // INTEL_CUSTOMIZATION
   unsigned AS = Ptr->getType()->getScalarType()->getPointerAddressSpace();
   MachineMemOperand *MMO = DAG.getMachineFunction().getMachineMemOperand(
@@ -7738,7 +7741,8 @@ void SelectionDAGBuilder::visitVPLoadGather(const VPIntrinsic &VPIntrin, EVT VT,
     SDValue Base, Index, Scale;
     ISD::MemIndexType IndexType;
     bool UniformBase = getUniformBase(PtrOperand, Base, Index, IndexType, Scale,
-                                      this, VPIntrin.getParent());
+                                      this, VPIntrin.getParent(),
+                                      VT.getScalarStoreSize());
     if (!UniformBase) {
       Base = DAG.getConstant(0, DL, TLI.getPointerTy(DAG.getDataLayout()));
       Index = getValue(PtrOperand);
@@ -7794,7 +7798,8 @@ void SelectionDAGBuilder::visitVPStoreScatter(const VPIntrinsic &VPIntrin,
     SDValue Base, Index, Scale;
     ISD::MemIndexType IndexType;
     bool UniformBase = getUniformBase(PtrOperand, Base, Index, IndexType, Scale,
-                                      this, VPIntrin.getParent());
+                                      this, VPIntrin.getParent(),
+                                      VT.getScalarStoreSize());
     if (!UniformBase) {
       Base = DAG.getConstant(0, DL, TLI.getPointerTy(DAG.getDataLayout()));
       Index = getValue(PtrOperand);
