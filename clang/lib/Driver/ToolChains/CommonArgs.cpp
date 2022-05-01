@@ -528,8 +528,7 @@ llvm::StringRef tools::getLTOParallelism(const ArgList &Args, const Driver &D) {
   return LtoJobsArg->getValue();
 }
 
-<<<<<<< HEAD
-// CloudABI uses -ffunction-sections and -fdata-sections by default.
+// CloudABI and PS4/PS5 use -ffunction-sections and -fdata-sections by default.
 #if INTEL_CUSTOMIZATION
 bool tools::isUseSeparateSections(const Driver &D,
                                   const llvm::Triple &Triple) {
@@ -537,12 +536,7 @@ bool tools::isUseSeparateSections(const Driver &D,
   if (D.IsIntelMode())
     return false;
 #endif // INTEL_CUSTOMIZATION
-  return Triple.getOS() == llvm::Triple::CloudABI;
-=======
-// CloudABI and PS4/PS5 use -ffunction-sections and -fdata-sections by default.
-bool tools::isUseSeparateSections(const llvm::Triple &Triple) {
   return Triple.getOS() == llvm::Triple::CloudABI || Triple.isPS();
->>>>>>> db013b28c3d4a92cc007c878eb4d6585ba86dd1a
 }
 
 void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
