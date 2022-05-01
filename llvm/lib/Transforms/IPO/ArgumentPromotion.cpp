@@ -123,6 +123,8 @@ static cl::opt<bool>
     cl::init(true), cl::ReallyHidden);
 #endif // INTEL_CUSTOMIZATION
 
+namespace {
+
 struct ArgPart {
   Type *Ty;
   Align Alignment;
@@ -130,7 +132,10 @@ struct ArgPart {
   /// metadata transfer.
   LoadInst *MustExecLoad;
 };
+
 using OffsetAndArgPart = std::pair<int64_t, ArgPart>;
+
+} // end anonymous namespace
 
 static Value *createByteGEP(IRBuilderBase &IRB, const DataLayout &DL,
                             Value *Ptr, Type *ResElemTy, int64_t Offset) {
