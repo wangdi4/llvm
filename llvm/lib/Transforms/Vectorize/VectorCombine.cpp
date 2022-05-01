@@ -122,11 +122,8 @@ private:
   bool foldSingleElementStore(Instruction &I);
   bool scalarizeLoadExtract(Instruction &I);
   bool foldShuffleOfBinops(Instruction &I);
-<<<<<<< HEAD
   bool foldVLSInsert(Instruction &I); // INTEL
-=======
   bool foldShuffleFromReductions(Instruction &I);
->>>>>>> ded8187e353f7c6c5bb70239c07110eccc38a579
 
   void replaceValue(Value &Old, Value &New) {
     Old.replaceAllUsesWith(&New);
