@@ -51,7 +51,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
 
   /// Checks if a type could have padding bytes.
-  static bool isDenselyPacked(Type *type, const DataLayout &DL);
+  static bool isDenselyPacked(Type *Ty, const DataLayout &DL);
 
   PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,
                         LazyCallGraph &CG, CGSCCUpdateResult &UR);
