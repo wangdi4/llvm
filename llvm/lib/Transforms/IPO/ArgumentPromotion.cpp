@@ -307,13 +307,9 @@ static Function *doPromotion(
 
     // Loop over the operands, inserting GEP and loads in the caller as
     // appropriate.
-<<<<<<< HEAD
-=======
-    auto *AI = CB.arg_begin();
->>>>>>> 744a8378387e484982d61cf27a4d9598153da8a3
-    ArgNo = 0;
 #if INTEL_CUSTOMIZATION
-    for (auto AI = CB.arg_begin(), E = CB.arg_end(); AI != E; ++AI, ++ArgNo) {
+    ArgNo = 0;
+    for (auto *AI = CB.arg_begin(), *E = CB.arg_end(); AI != E; ++AI, ++ArgNo) {
       if (ACS.isCallbackCall() &&
           static_cast<unsigned>(ACS.getCallArgOperandNoForCallee()) == ArgNo) {
         // Use new function for the the callback call's callee operand.
@@ -859,7 +855,6 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
     Offset = Pair.first + DL.getTypeStoreSize(Pair.second.Ty);
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Since the argument is only used by load instructions (i.e not escaped)
   // and the argument is marked with NoAlias, we don't need to prove that
@@ -869,10 +864,7 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
     return true;
 #endif // INTEL_CUSTOMIZATION
 
-  // Okay, now we know that the argument is only used by load instructions and
-=======
   // Okay, now we know that the argument is only used by load instructions, and
->>>>>>> 744a8378387e484982d61cf27a4d9598153da8a3
   // it is safe to unconditionally perform all of them. Use alias analysis to
   // check to see if the pointer is guaranteed to not be modified from entry of
   // the function to each of the load instructions.
@@ -1052,7 +1044,6 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
 	(CB->getFunctionType() != F->getFunctionType()))
       return nullptr;
 
-<<<<<<< HEAD
     if (CS.isDirectCall()) {
       // Can't change signature of musttail callee
       if (CS.getInstruction()->isMustTailCall())
@@ -1067,10 +1058,6 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
     if (CS.isCallbackCall())
       isCallback = true;
 #endif // INTEL_CUSTOMIZATION
-=======
-    if (CB->getFunction() == F)
-      IsRecursive = true;
->>>>>>> 744a8378387e484982d61cf27a4d9598153da8a3
   }
 
   // Can't change signature of musttail caller
@@ -1136,8 +1123,7 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
     // Only handle arguments with specified alignment; if it's unspecified, the
     // actual alignment of the argument is target-specific.
     Type *ByValTy = PtrArg->getParamByValType();
-<<<<<<< HEAD
-    bool isSafeToPromote =
+    bool IsSafeToPromote =
         ByValTy && PtrArg->getParamAlign() && !isCallback && // INTEL
         (ArgumentPromotionPass::isDenselyPacked(ByValTy, DL) ||
          !canPaddingBeAccessed(PtrArg));
@@ -1155,17 +1141,10 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
       //   %new.x = alloca %struct.ty
       //
       // Since the new value's type is '%struct.ty*' the RAUW will fail.
-      isSafeToPromote = false;
+      IsSafeToPromote = false;
     }
 #endif // INTEL_COLLAB
-    if (isSafeToPromote) {
-=======
-    bool IsSafeToPromote =
-        ByValTy && PtrArg->getParamAlign() &&
-        (ArgumentPromotionPass::isDenselyPacked(ByValTy, DL) ||
-         !canPaddingBeAccessed(PtrArg));
     if (IsSafeToPromote) {
->>>>>>> 744a8378387e484982d61cf27a4d9598153da8a3
       if (StructType *STy = dyn_cast<StructType>(ByValTy)) {
         if (MaxElements > 0 && STy->getNumElements() > MaxElements) {
           LLVM_DEBUG(dbgs() << "ArgPromotion disables promoting argument '"
