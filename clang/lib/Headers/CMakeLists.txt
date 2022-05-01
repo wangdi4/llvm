@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 #
 # INTEL CONFIDENTIAL
@@ -405,12 +404,6 @@ intel_add_file(INTEL_HEADERS
 # end INTEL_FEATURE_XUCC
 # end INTEL_CUSTOMIZATION
 
-set(files
-  adxintrin.h
-  altivec.h
-  ammintrin.h
-  amxintrin.h
-=======
 # core_files list contains the headers shared by all platforms.
 # Please consider adding new platform specific headers
 # to platform specific lists below.
@@ -436,7 +429,6 @@ set(core_files
 
 set(arm_common_files
   # Headers shared by Arm and AArch64
->>>>>>> a70cf56d20b956fc008d24420e14226127ba9f4a
   arm_acle.h
   )
 
@@ -841,7 +833,6 @@ add_header_target("utility-resource-headers" ${utility_files})
 
 set(header_install_dir lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION}/include)
 
-<<<<<<< HEAD
 if(INTEL_CUSTOMIZATION)
   # Avoid deploying header files for unsupported targets.
   list(REMOVE_ITEM files
@@ -877,10 +868,8 @@ if(INTEL_CUSTOMIZATION)
   set(generated_files)
 endif(INTEL_CUSTOMIZATION)
 
-=======
 #############################################################
 # Install rules for the catch-all clang-resource-headers target
->>>>>>> a70cf56d20b956fc008d24420e14226127ba9f4a
 install(
   FILES ${files} ${generated_files}
   DESTINATION ${header_install_dir}
