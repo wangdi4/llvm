@@ -43,16 +43,12 @@ class ArgumentPromotionPass : public PassInfoMixin<ArgumentPromotionPass> {
   unsigned MaxElements;
 
 public:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   ArgumentPromotionPass(bool RemoveHomedArguments = false,
-                        unsigned MaxElements = 3u) :
+                        unsigned MaxElements = 2u) :
                         RemoveHomedArguments(RemoveHomedArguments),
                         MaxElements(MaxElements) {}
 #endif // INTEL_CUSTOMIZATION
-=======
-  ArgumentPromotionPass(unsigned MaxElements = 2u) : MaxElements(MaxElements) {}
->>>>>>> 6b825e50f7f41f40cb473587bfe65bcb0069da47
 
   /// Checks if a type could have padding bytes.
   static bool isDenselyPacked(Type *Ty, const DataLayout &DL);
