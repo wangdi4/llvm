@@ -7203,6 +7203,7 @@ computeExtractCost(ArrayRef<Value *> VL, FixedVectorType *VecTy,
   // Process extracts in blocks of EltsPerVector to check if the source vector
   // operand can be re-used directly. If not, add the cost of creating a shuffle
   // to extract the values into a vector register.
+  SmallVector<int> RegMask(EltsPerVector, UndefMaskElem);
   for (auto *V : VL) {
     ++Idx;
 
@@ -7212,6 +7213,7 @@ computeExtractCost(ArrayRef<Value *> VL, FixedVectorType *VecTy,
 
     // Reached the start of a new vector registers.
     if (Idx % EltsPerVector == 0) {
+      RegMask.assign(EltsPerVector, UndefMaskElem);
       AllConsecutive = true;
       continue;
     }
@@ -7223,6 +7225,7 @@ computeExtractCost(ArrayRef<Value *> VL, FixedVectorType *VecTy,
       unsigned PrevIdx = *getExtractIndex(cast<Instruction>(VL[Idx - 1]));
       AllConsecutive &= PrevIdx + 1 == CurrentIdx &&
                         CurrentIdx % EltsPerVector == Idx % EltsPerVector;
+      RegMask[Idx % EltsPerVector] = CurrentIdx % EltsPerVector;
     }
 
     if (AllConsecutive)
@@ -7237,7 +7240,7 @@ computeExtractCost(ArrayRef<Value *> VL, FixedVectorType *VecTy,
     // cost to extract the a vector with EltsPerVector elements.
     Cost += TTI.getShuffleCost(
         TargetTransformInfo::SK_PermuteSingleSrc,
-        FixedVectorType::get(VecTy->getElementType(), EltsPerVector));
+        FixedVectorType::get(VecTy->getElementType(), EltsPerVector), RegMask);
   }
   return Cost;
 }
@@ -8055,16 +8058,21 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
                                          TTI::CastContextHint::None, CostKind);
       }
 
-      SmallVector<int> Mask;
-      buildShuffleEntryMask(
-          E->Scalars, E->ReorderIndices, E->ReuseShuffleIndices,
-          [E](Instruction *I) {
-            assert(E->isOpcodeOrAlt(I) && "Unexpected main/alternate opcode");
-            return isAlternateInstruction(I, E->getMainOp(), E->getAltOp());
-          },
-          Mask);
-      CommonCost =
-          TTI->getShuffleCost(TargetTransformInfo::SK_Select, FinalVecTy, Mask);
+      if (E->ReuseShuffleIndices.empty()) {
+        CommonCost =
+            TTI->getShuffleCost(TargetTransformInfo::SK_Select, FinalVecTy);
+      } else {
+        SmallVector<int> Mask;
+        buildShuffleEntryMask(
+            E->Scalars, E->ReorderIndices, E->ReuseShuffleIndices,
+            [E](Instruction *I) {
+              assert(E->isOpcodeOrAlt(I) && "Unexpected main/alternate opcode");
+              return I->getOpcode() == E->getAltOpcode();
+            },
+            Mask);
+        CommonCost = TTI->getShuffleCost(TargetTransformInfo::SK_PermuteTwoSrc,
+                                         FinalVecTy, Mask);
+      }
       LLVM_DEBUG(dumpTreeCosts(E, CommonCost, VecCost, ScalarCost));
       return CommonCost + VecCost - ScalarCost;
     }
@@ -8459,7 +8467,8 @@ InstructionCost BoUpSLP::getTreeCost(ArrayRef<Value *> VectorizedVals,
   Cost += SpillCost + ExtractCost;
   if (FirstUsers.size() == 1) {
     int Limit = ShuffleMask.front().size() * 2;
-    if (all_of(ShuffleMask.front(), [Limit](int Idx) { return Idx < Limit; }) &&
+    if (!all_of(ShuffleMask.front(),
+                [Limit](int Idx) { return Idx < Limit; }) ||
         !ShuffleVectorInst::isIdentityMask(ShuffleMask.front())) {
       InstructionCost C = TTI->getShuffleCost(
           TTI::SK_PermuteSingleSrc,
@@ -8508,6 +8517,8 @@ InstructionCost BoUpSLP::getTreeCost(ArrayRef<Value *> VectorizedVals,
                       << "SLP: Current total cost = " << Cost << "\n");
     Cost -= InsertCost;
     for (int I = 2, E = FirstUsers.size(); I < E; ++I) {
+      if (ShuffleMask[I].empty())
+        continue;
       // Other elements - permutation of 2 vectors (the initial one and the
       // next Ith incoming vector).
       unsigned VF = ShuffleMask[I].size();
