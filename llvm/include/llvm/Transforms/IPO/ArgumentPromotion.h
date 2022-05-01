@@ -45,7 +45,7 @@ class ArgumentPromotionPass : public PassInfoMixin<ArgumentPromotionPass> {
 public:
 #if INTEL_CUSTOMIZATION
   ArgumentPromotionPass(bool RemoveHomedArguments = false,
-                        unsigned MaxElements = 3u) :
+                        unsigned MaxElements = 2u) :
                         RemoveHomedArguments(RemoveHomedArguments),
                         MaxElements(MaxElements) {}
 #endif // INTEL_CUSTOMIZATION

@@ -719,11 +719,7 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
 
     // We limit promotion to only promoting up to a fixed number of elements of
     // the aggregate.
-#if INTEL_CUSTOMIZATION
-    // CMPLRLLVM-36992: Ensure that the same number of elements can be promoted
-    // as were promoted before the latest major community change.
     if (MaxElements > 0 && ArgParts.size() > MaxElements) {
-#endif // INTEL_CUSTOMIZATION
       LLVM_DEBUG(dbgs() << "ArgPromotion of " << *Arg << " failed: "
                         << "more than " << MaxElements << " parts\n");
       return false;
