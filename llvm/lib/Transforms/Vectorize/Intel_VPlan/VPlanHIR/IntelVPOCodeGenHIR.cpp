@@ -1420,6 +1420,15 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
       MainLoop->markDoNotUnroll();
   }
 
+  // Lower remarks collected in VPLoops to outgoing vector/scalar HLLoops. This
+  // is done only for merged CFG-based CG today. This should be done before
+  // complete unroll optimization below since that would lead to loss of vector
+  // loop.
+  if (isMergedCFG()) {
+    emitRemarksForScalarLoops();
+    lowerRemarksForVectorLoops();
+  }
+
   // If a remainder loop is not needed get rid of the OrigLoop at this point.
   // Replace calls in remainderloop for FP consistency
   if (NeedRemainderLoop) {
@@ -1449,13 +1458,6 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
         HIRTransformUtils::completeUnroll(MainLoop);
     }
     HLNodeUtils::remove(OrigLoop);
-  }
-
-  // Lower remarks collected in VPLoops to outgoing vector/scalar HLLoops. This
-  // is done only for merged CFG-based CG today.
-  if (isMergedCFG()) {
-    emitRemarksForScalarLoops();
-    lowerRemarksForVectorLoops();
   }
 }
 
