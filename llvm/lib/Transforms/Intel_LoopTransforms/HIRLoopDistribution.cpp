@@ -1366,6 +1366,34 @@ bool containsSparseArrayReductions(PiBlock *SrcBlk,
   return false;
 }
 
+// Check if current PiBlock has instructions which are not identified as
+// reductions but may prevent vectorization for this loop at \p LoopLevel.
+// Return true for PiBlocks we want to create a new loop for, false otherwise.
+bool preventsVectorization(PiBlock *Blk, DDGraph DDG, unsigned LoopLevel) {
+  // Ignore large blocks as they are expensive to analyze and unlikely
+  // to benefit distribution
+  if (Blk->size() > 5) {
+    return false;
+  }
+
+  for (auto NodeI = Blk->nodes_begin(), E = Blk->nodes_end(); NodeI != E;
+       ++NodeI) {
+    HLInst *HInst = dyn_cast<HLInst>(*NodeI);
+
+    // Looking for inst which vectorizer cannot handle like this:
+    // %ref = (cond) ? 0 : %ref  --- where %ref is a bad edge
+    if (HInst && isa<SelectInst>(HInst->getLLVMInstruction())) {
+      RegDDRef *LvalRef = HInst->getLvalDDRef();
+      for (auto *Edge : DDG.outgoing(LvalRef)) {
+        if (Edge->preventsVectorization(LoopLevel)) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 void HIRLoopDistribution::breakPiBlockRecurrences(
     const HLLoop *Lp, std::unique_ptr<PiGraph> const &PGraph,
     SmallVectorImpl<PiBlockList> &DistPoints) const {
@@ -1389,7 +1417,10 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
 
   SRA.computeSafeReductionChains(Lp);
   bool HasSparseArrayReductions = SARA.getNumSparseArrayReductionChains(Lp) > 0;
-  PiBlockList SparseReductionBlocks;
+  PiBlockList DistributedBlocks;
+
+  // Note: DDG was just computed in SARA
+  DDGraph DDG = DDA.getGraph(Lp);
 
   auto CommitCurrentBlockList = [&]() {
     DistPoints.push_back(CurLoopPiBlkList);
@@ -1407,6 +1438,7 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
 
     PiBlock *SrcBlk = *N;
 
+    bool NoOutgoingDeps = llvm::empty(PGraph->outgoing(SrcBlk));
     // If this current block has sparse array reduction instructions,
     // we need to break the recurrence before this block so that sparse array
     // reductions can be distributed into another separate loop.
@@ -1415,9 +1447,15 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
 
       // If there is no outgoing dependencies from sparse array reduction block,
       // we can combine such blocks at the end.
-      bool NoOutgoingDeps = llvm::empty(PGraph->outgoing(SrcBlk));
       if (NoOutgoingDeps) {
-        SparseReductionBlocks.push_back(SrcBlk);
+        DistributedBlocks.push_back(SrcBlk);
+        continue;
+      }
+    }
+
+    if (preventsVectorization(SrcBlk, DDG, Lp->getNestingLevel())) {
+      if (NoOutgoingDeps) {
+        DistributedBlocks.push_back(SrcBlk);
         continue;
       }
     }
@@ -1487,8 +1525,8 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
     DistPoints.push_back(CurLoopPiBlkList);
   }
 
-  if (!SparseReductionBlocks.empty()) {
-    DistPoints.push_back(SparseReductionBlocks);
+  if (!DistributedBlocks.empty()) {
+    DistPoints.push_back(DistributedBlocks);
   }
 }
 
