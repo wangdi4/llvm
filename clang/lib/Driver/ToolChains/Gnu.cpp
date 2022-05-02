@@ -992,6 +992,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   } else
     AddLinkerInputs(ToolChain, Inputs, Args, CmdArgs, JA);
 
+  addHIPRuntimeLibArgs(ToolChain, Args, CmdArgs);
+
 #if INTEL_CUSTOMIZATION
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) ||
       !D.IsIntelMode())
@@ -1019,10 +1021,6 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasArg(options::OPT_fortlib))
     addIntelLib("-lifcoremt", ToolChain, CmdArgs, Args);
 #endif // INTEL_CUSTOMIZATION
-  addHIPRuntimeLibArgs(ToolChain, Args, CmdArgs);
-
-  // The profile runtime also needs access to system libraries.
-  getToolChain().addProfileRTLibs(Args, CmdArgs);
 
   if (D.CCCIsCXX() &&
       !Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs,
