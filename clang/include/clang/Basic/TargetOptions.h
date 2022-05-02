@@ -131,12 +131,17 @@ public:
   /// compilation.
   llvm::VersionTuple DarwinTargetVariantSDKVersion;
 
+<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
   /// If given, list of names of the target CPUs to multiversion code for
   std::vector<std::string> AutoMultiVersionTargets;
 #endif //INTEL_CUSTOMIZATION
+=======
+  /// The validator version for dxil.
+  std::string DxilValidatorVersion;
+>>>>>>> 45c8527b8f5659fd6217b9be45abee71d2a19a4b
 };
 
-}  // end namespace clang
+} // end namespace clang
 
 #endif
