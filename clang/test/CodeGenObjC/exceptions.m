@@ -25,11 +25,8 @@ void f1(void) {
     // CHECK-NEXT: icmp
     // CHECK-NEXT: br i1
     @try {
-<<<<<<< HEAD
     // INTEL  this CHECK line moved down verbatim
     // CHECK:      call void asm sideeffect "", "=*m"   ;INTEL
-=======
->>>>>>> 4e545bdb355a470d601e9bb7f7b2693c99e61a3e
     // CHECK:      call void asm sideeffect "", "*m"
     // CHECK-NEXT: call void @foo()
       foo();
