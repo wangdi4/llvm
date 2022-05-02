@@ -3,11 +3,15 @@
 ; Function `sum` is annotated with inline cost -1 and function `sum1` is
 ; annotated with inline cost 0, by function attribute `function-inline-cost`.
 ;
-; `if.then` basic block is hot so the callsite threshold is set to 0.
+; INTEL_CUSTOMIZATION
+; (Note in xmain, the minimum threshold is reported as 1, for consistency with
+; the profitability test in finalizeAnalysis() in lib/Analysis/InlineCost.cpp
+; which compares the cost to std::max(1, Threshold).)
+; `if.then` basic block is hot so the callsite threshold is set to 1.
+; end INTEL_CUSTOMIZATION
 ; `while.body.split` basic block is cold so threshold is calculated using
 ; the rest of default heuristics, which should be sufficient to inline a
 ; function with 0 cost.
-
 ; RUN: opt < %s -pass-remarks=inline -pass-remarks-missed=inline -passes='thinlto-pre-link<O2>' -pgo-kind=pgo-sample-use-pipeline -sample-profile-file=%S/Inputs/new-pm-thinlto-prelink-samplepgo-inline-threshold.prof -S | FileCheck %s
 
 ; RUN: opt < %s -pass-remarks=inline -pass-remarks-missed=inline -passes='thinlto-pre-link<O2>' -pgo-kind=pgo-sample-use-pipeline -sample-profile-file=%S/Inputs/new-pm-thinlto-prelink-samplepgo-inline-threshold.prof -S 2>&1 | FileCheck %s -check-prefix=REMARK
@@ -32,8 +36,13 @@
 ;
 
 ; REMARK: test.cc:14:9: '_Z4sum1ii' inlined into 'main' with (cost=0, threshold=45) at callsite main:4:9;
-; REMARK: test.cc:13:23: '_Z3sumii' inlined into 'main' with (cost=-1, threshold=0) at callsite main:3:23.2;
-; REMARK: test.cc:14:9: '_Z4sum1ii' not inlined into 'main' because too costly to inline (cost=0, threshold=0)
+; INTEL_CUSTOMIZATION
+; Threshold of 1 rather than 0 is used in xmain. See the comment above.
+; REMARK: test.cc:13:23: '_Z3sumii' inlined into 'main' with (cost=-1, threshold=1) at callsite main:3:23.2;
+; Additional recognition of hot callsites in xmain causes _Z4sum1ii to get
+; inlined in xmain, but not in llorg.
+; REMARK: test.cc:14:9: '_Z4sum1ii' inlined into 'main' with (cost=0, threshold=1) at callsite main:4:9.1;
+; end INTEL_CUSTOMIZATION
 
 ; ModuleID = 'test.cc'
 source_filename = "test.cc"
@@ -71,7 +80,10 @@ while.body.split:                                 ; preds = %while.body
 
 if.then:                                          ; preds = %while.body
 ; CHECK-NOT: call i32 @_Z3sumii
-; CHECK: call i32 @_Z4sum1ii
+; INTEL_CUSTOMIZATION
+; _Z4sum1ii is inlined in xmain, but not llorg, see above comment.
+; CHECK-NOT: call i32 @_Z4sum1ii
+; end INTEL_CUSTOMIZATION
   %call = call i32 @_Z3sumii(i32 %inc14, i32 %s.013), !dbg !20
   %call212 = call i32 @_Z4sum1ii(i32 %inc14, i32 %call), !dbg !19
   br label %if.end, !dbg !21
