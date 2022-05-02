@@ -638,7 +638,7 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
   case Instruction::Xor:
     return getArithmeticInstructionCost(
       Opcode, VPInst->getOperand(0), VPInst->getOperand(1),
-      VPInst->getCMType(), VF);
+      VPInst->getType(), VF);
   case VPInstruction::Not: // Treat same as Xor.
     return getArithmeticInstructionCost(
       Instruction::Xor, VPInst->getOperand(0), nullptr,

@@ -4,7 +4,7 @@
 ; RUN: opt -enable-new-pm=0 -vplan-vec -disable-output -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="vplan-vec" -disable-output -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s
 
-; CHECK: Scalar Cost = 1073741823 x
+; CHECK: Scalar Cost = 303 x
 ;
 define void @foo(i32* %lp, i32 %N) {
 entry:

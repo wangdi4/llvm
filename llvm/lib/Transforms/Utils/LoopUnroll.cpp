@@ -275,27 +275,17 @@ static void restoreOptReport(Instruction *OrigLatch, Instruction *ClonedLatch) {
   assert(OrigLatch);
   assert(ClonedLatch);
 
-  // Locate the loop metadata for the original and cloned latches.
-  const MDNode *const LoopIDOrig = OrigLatch->getMetadata(LLVMContext::MD_loop);
-  if (!LoopIDOrig)
-    return;
-  const MDNode *const LoopIDCloned =
-      ClonedLatch->getMetadata(LLVMContext::MD_loop);
-  if (!LoopIDCloned)
+  // Locate the opt-report for the original latch.
+  MDNode *const LoopIDOrig = OrigLatch->getMetadata(LLVMContext::MD_loop);
+  const OptReport Report = OptReport::findOptReportInLoopID(LoopIDOrig);
+  if (!Report)
     return;
 
-  // Find the opt report metadata in the original latch.
-  const auto OptReportMD =
-      find_if(LoopIDOrig->operands(), OptReport::isOptReportMetadata);
-  if (OptReportMD == LoopIDOrig->op_end())
-    return;
-
-  // Construct a new loop metadata node by appending the opt report metadata
-  // from the original latch to the loop metadata of the new latch.
-  SmallVector<Metadata *, 4> Ops(LoopIDCloned->operands());
-  Ops.push_back(*OptReportMD);
-  MDTuple *NewLoopID = MDTuple::get(ClonedLatch->getContext(), Ops);
-  NewLoopID->replaceOperandWith(0, NewLoopID);
+  // Append the report to the cloned loop metadata. If the cloned loop metadata
+  // was deleted, addOptReportToLoopID will recreate it.
+  MDNode *const LoopIDCloned = ClonedLatch->getMetadata(LLVMContext::MD_loop);
+  MDNode *const NewLoopID = OptReport::addOptReportToLoopID(
+      LoopIDCloned, Report, ClonedLatch->getContext());
 
   // Replace the metadata of the cloned latch.
   ClonedLatch->setMetadata(LLVMContext::MD_loop, NewLoopID);
