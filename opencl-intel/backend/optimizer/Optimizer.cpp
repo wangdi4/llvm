@@ -230,7 +230,6 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   PM->add(llvm::createReassociatePass());         // Reassociate expressions
   PM->add(llvm::createLoopRotatePass());          // Rotate Loop
   PM->add(llvm::createLICMPass());                // Hoist loop invariants
-  PM->add(llvm::createLoopUnswitchPass(OptLevel < 3));
   PM->add(llvm::createInstructionCombiningPass());
   PM->add(llvm::createInstSimplifyLegacyPass());
   PM->add(llvm::createIndVarSimplifyPass()); // Canonicalize indvars
