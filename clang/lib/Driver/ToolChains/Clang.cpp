@@ -3177,6 +3177,7 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
 
     case options::OPT_fdenormal_fp_math_EQ:
       DenormalFPMath = llvm::parseDenormalFPAttribute(A->getValue());
+      DenormalFP32Math = DenormalFPMath;
       if (!DenormalFPMath.isValid()) {
         D.Diag(diag::err_drv_invalid_value)
             << A->getAsString(Args) << A->getValue();
@@ -7490,6 +7491,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   if (IsCuda || IsHIP) {
+    if (!Args.hasFlag(options::OPT_fgpu_rdc, options::OPT_fno_gpu_rdc, false) &&
+        Args.hasArg(options::OPT_offload_new_driver))
+      D.Diag(diag::err_drv_no_rdc_new_driver);
     if (Args.hasFlag(options::OPT_fgpu_rdc, options::OPT_fno_gpu_rdc, false))
       CmdArgs.push_back("-fgpu-rdc");
     if (Args.hasFlag(options::OPT_fgpu_defer_diag,
@@ -10755,14 +10759,17 @@ void LinkerWrapper::ConstructJob(Compilation &C, const JobAction &JA,
   ArgStringList CmdArgs;
 
   // Pass the CUDA path to the linker wrapper tool.
-  for (auto &I : llvm::make_range(OpenMPTCRange.first, OpenMPTCRange.second)) {
-    const ToolChain *TC = I.second;
-    if (TC->getTriple().isNVPTX()) {
-      CudaInstallationDetector CudaInstallation(D, TheTriple, Args);
-      if (CudaInstallation.isValid())
-        CmdArgs.push_back(Args.MakeArgString(
-            "--cuda-path=" + CudaInstallation.getInstallPath()));
-      break;
+  for (Action::OffloadKind Kind : {Action::OFK_Cuda, Action::OFK_OpenMP}) {
+    auto TCRange = C.getOffloadToolChains(Kind);
+    for (auto &I : llvm::make_range(TCRange.first, TCRange.second)) {
+      const ToolChain *TC = I.second;
+      if (TC->getTriple().isNVPTX()) {
+        CudaInstallationDetector CudaInstallation(D, TheTriple, Args);
+        if (CudaInstallation.isValid())
+          CmdArgs.push_back(Args.MakeArgString(
+              "--cuda-path=" + CudaInstallation.getInstallPath()));
+        break;
+      }
     }
   }
 
