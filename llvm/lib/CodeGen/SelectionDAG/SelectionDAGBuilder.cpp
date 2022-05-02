@@ -4678,6 +4678,7 @@ void SelectionDAGBuilder::visitMaskedScatter(const CallInst &I) {
   SDValue Index;
   ISD::MemIndexType IndexType;
   SDValue Scale;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool UniformBase =
       getUniformBaseExt(Ptr, Base, Index, IndexType, Scale, this, I.getParent(),
@@ -4686,6 +4687,11 @@ void SelectionDAGBuilder::visitMaskedScatter(const CallInst &I) {
     UniformBase = getUniformBase(Ptr, Base, Index, IndexType, Scale, this,
                                  I.getParent(), VT.getScalarStoreSize());
 #endif // INTEL_CUSTOMIZATION
+=======
+  bool UniformBase = getUniformBase(Ptr, Base, Index, IndexType, Scale, this,
+                                    I.getParent(), VT.getScalarStoreSize());
+
+>>>>>>> 027c728f29889ea6502030ec3623774d830c2ac3
   unsigned AS = Ptr->getType()->getScalarType()->getPointerAddressSpace();
   MachineMemOperand *MMO = DAG.getMachineFunction().getMachineMemOperand(
       MachinePointerInfo(AS), MachineMemOperand::MOStore,
@@ -4791,6 +4797,7 @@ void SelectionDAGBuilder::visitMaskedGather(const CallInst &I) {
   SDValue Index;
   ISD::MemIndexType IndexType;
   SDValue Scale;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool UniformBase =
       getUniformBaseExt(Ptr, Base, Index, IndexType, Scale, this, I.getParent(),
@@ -4799,6 +4806,10 @@ void SelectionDAGBuilder::visitMaskedGather(const CallInst &I) {
     UniformBase = getUniformBase(Ptr, Base, Index, IndexType, Scale, this,
                                  I.getParent(), VT.getScalarStoreSize());
 #endif // INTEL_CUSTOMIZATION
+=======
+  bool UniformBase = getUniformBase(Ptr, Base, Index, IndexType, Scale, this,
+                                    I.getParent(), VT.getScalarStoreSize());
+>>>>>>> 027c728f29889ea6502030ec3623774d830c2ac3
   unsigned AS = Ptr->getType()->getScalarType()->getPointerAddressSpace();
   MachineMemOperand *MMO = DAG.getMachineFunction().getMachineMemOperand(
       MachinePointerInfo(AS), MachineMemOperand::MOLoad,
