@@ -1,5 +1,9 @@
 ; RUN: opt -passes=argpromotion -S %s | FileCheck %s
-
+; INTEL_CUSTOMIZATION
+; NOTE: INTEL_CUSTOMIZATIONs due to our desire to retain a value of 
+; MaxElements=3 after Nikita Popov's rewrite of argument promotion (offset
+; based argument promotion) on 20220128. 
+; end INTEL_CUSTOMIZATION
 define internal i32 @callee2(i32* noundef %0) {
 ; CHECK-LABEL: define {{[^@]+}}@callee2
 ; CHECK-SAME: (i32 [[P_0:%.*]], i32 [[P_1:%.*]]) {
@@ -49,7 +53,12 @@ define internal i32 @callee3(i32* noundef %0) {
 ; CHECK-NEXT:    [[SUM_0:%.*]] = add nsw i32 [[VAL_0]], [[VAL_1]]
 ; CHECK-NEXT:    [[PL_2:%.*]] = getelementptr inbounds i32, i32* [[P_0]], i64 2
 ; CHECK-NEXT:    [[VAL_2:%.*]] = load i32, i32* [[PL_2]], align 4
-; CHECK-NEXT:    [[RES:%.*]] = add nsw i32 [[SUM_0]], [[VAL_2]]
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[SUM_1:%.*]] = add nsw i32 [[SUM_0]], [[VAL_2]]
+; CHECK-NEXT:    [[PL_3:%.*]] = getelementptr inbounds i32, i32* [[P_0]], i64 3
+; CHECK-NEXT:    [[VAL_3:%.*]] = load i32, i32* [[PL_3]], align 4
+; CHECK-NEXT:    [[RES:%.*]] = add nsw i32 [[SUM_1]], [[VAL_3]]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret i32 [[RES]]
 ;
   %2 = getelementptr inbounds i32, i32* %0, i64 0
@@ -60,7 +69,12 @@ define internal i32 @callee3(i32* noundef %0) {
   %7 = getelementptr inbounds i32, i32* %0, i64 2
   %8 = load i32, i32* %7, align 4
   %9 = add nsw i32 %6, %8
-  ret i32 %9
+; INTEL_CUSTOMIZATION
+  %10 = getelementptr inbounds i32, i32* %0, i64 3
+  %11 = load i32, i32* %10, align 4
+  %12 = add nsw i32 %9, %11
+  ret i32 %12
+; end INTEL_CUSTOMIZATION
 }
 
 define i32 @caller3(i32 %0, i32 %1, i32 %2) {
