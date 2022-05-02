@@ -79,3 +79,8 @@ void test1(id obj, bool *failed) {
 // CHECK-NEXT:    cleanup
 // CHECK-NEXT: call void @objc_exception_try_exit([[BUF_T]]* nonnull [[BUF]])
 // CHECK-NEXT: resume
+
+//   Catch handler.  Reload of 'failed' address is unnecessary.
+// CHECK:      [[T0:%.*]] = load i8*, i8**
+// CHECK-NEXT: store i8 1, i8* [[T0]],
+// CHECK-NEXT: br label
