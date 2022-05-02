@@ -431,11 +431,6 @@ static cl::opt<bool>
                               cl::Hidden,
                               cl::desc("Disable shrink-wrap library calls"));
 
-static cl::opt<bool> EnableSimpleLoopUnswitch(
-    "enable-simple-loop-unswitch", cl::init(false), cl::Hidden,
-    cl::desc("Enable the simple loop unswitch pass. Also enables independent "
-             "cleanup passes integrated into the loop pass manager pipeline."));
-
 cl::opt<bool>
     EnableGVNSink("enable-gvn-sink", cl::init(false), cl::ZeroOrMore,
                   cl::desc("Enable the GVN sinking pass (default = off)"));
@@ -858,21 +853,21 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 
   // Do not run loop pass pipeline in "SYCL Optimization Mode". Loop
   // optimizations rely on TTI, which is not accurate for SPIR target.
-  if (!SYCLOptimizationMode) {
-    // Begin the loop pass pipeline.
-    if (EnableSimpleLoopUnswitch) {
-      // The simple loop unswitch pass relies on separate cleanup passes.
-      // Schedule them first so when we re-process a loop they run before other
-      // loop passes.
-      MPM.add(createLoopInstSimplifyPass());
-      MPM.add(createLoopSimplifyCFGPass());
-    }
+  if (!SYCLOptimizationMode) { // broken formatting to simplify pulldown
+
+    // The simple loop unswitch pass relies on separate cleanup passes. Schedule
+    // them first so when we re-process a loop they run before other loop
+    // passes.
+    MPM.add(createLoopInstSimplifyPass());
+    MPM.add(createLoopSimplifyCFGPass());
+
     // Try to remove as much code from the loop header as possible,
     // to reduce amount of IR that will have to be duplicated. However,
     // do not perform speculative hoisting the first time as LICM
     // will destroy metadata that may not need to be destroyed if run
     // after loop rotation.
     // TODO: Investigate promotion cap for O1.
+
 #if INTEL_CUSTOMIZATION
     // 27770/28531: This extra pass causes high spill rates in some
     // benchmarks.
@@ -885,11 +880,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     // TODO: Investigate promotion cap for O1.
     MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
                            /*AllowSpeculation=*/true));
-    if (EnableSimpleLoopUnswitch)
-      MPM.add(createSimpleLoopUnswitchLegacyPass());
-    else
-      MPM.add(
-          createLoopUnswitchPass(SizeLevel || OptLevel < 3, DivergentTarget));
+    MPM.add(createSimpleLoopUnswitchLegacyPass(OptLevel == 3));
     // FIXME: We break the loop pass pipeline here in order to do full
     // simplifycfg. Eventually loop-simplifycfg should be enhanced to replace
     // the need for this.
@@ -920,7 +911,8 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 #endif // INTEL_CUSTOMIZATION
     addExtensionsToPM(EP_LoopOptimizerEnd, MPM);
     // This ends the loop pass pipelines.
-  }
+
+} // broken formatting on this line to simplify pulldown
 
   // Break up allocas that may now be splittable after loop unrolling.
   MPM.add(createSROAPass());
@@ -1106,7 +1098,7 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
     addInstructionCombiningPass(PM, !DTransEnabled); // INTEL
     PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
                           /*AllowSpeculation=*/true));
-    PM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3, DivergentTarget));
+    PM.add(createSimpleLoopUnswitchLegacyPass());
     PM.add(createCFGSimplificationPass(
         SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
     addInstructionCombiningPass(PM, !DTransEnabled); // INTEL
