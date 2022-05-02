@@ -8359,7 +8359,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 
-<<<<<<< HEAD
   if (IsOpenMPDevice && Triple.isSPIR()) {
     // We should try to gradually update the effect of spirv-opt
     // to match the effect of sycl-opt, but this requires
@@ -8371,18 +8370,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 #endif // INTEL_COLLAB
 
-  // Host-side OpenMP offloading recieves the device object files and embeds it
-  // in a named section including the associated target triple and architecture.
-  if (IsOpenMPHost && !OpenMPHostInputs.empty()) {
-    auto InputFile = OpenMPHostInputs.begin();
-    auto OpenMPTCs = C.getOffloadToolChains<Action::OFK_OpenMP>();
-    for (auto TI = OpenMPTCs.first, TE = OpenMPTCs.second; TI != TE;
-         ++TI, ++InputFile) {
-      const ToolChain *TC = TI->second;
-      const ArgList &TCArgs = C.getArgsForToolChain(TC, "", Action::OFK_OpenMP);
-      StringRef File =
-          C.getArgs().MakeArgString(TC->getInputFilename(*InputFile));
-=======
   // Host-side offloading recieves the device object files and embeds it in a
   // named section including the associated target triple and architecture.
   for (const InputInfo Input : HostOffloadingInputs) {
@@ -8395,7 +8382,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     StringRef Arch = (OffloadAction->getOffloadingArch())
                          ? OffloadAction->getOffloadingArch()
                          : TCArgs.getLastArgValue(options::OPT_march_EQ);
->>>>>>> f7288cf5a1e935f73e7896727eb925ff57e10660
 
     CmdArgs.push_back(Args.MakeArgString(
         "-fembed-offload-object=" + File + "," +
