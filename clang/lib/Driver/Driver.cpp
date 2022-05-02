@@ -6830,10 +6830,12 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   // Builder to be used to build offloading actions.
   OffloadingActionBuilder OffloadBuilder(C, Args, Inputs);
 
+  // TODO: Do not use the new offloading driver at this time. Offloading
+  // support for spir64 targets is not in place with this new path.
   bool UseNewOffloadingDriver =
       (C.isOffloadingHostKind(Action::OFK_OpenMP) &&
        Args.hasFlag(options::OPT_fopenmp_new_driver,
-                    options::OPT_no_offload_new_driver, true)) ||
+                    options::OPT_no_offload_new_driver, false)) || // INTEL
       Args.hasFlag(options::OPT_offload_new_driver,
                    options::OPT_no_offload_new_driver, false);
 
@@ -6844,16 +6846,6 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   ActionList MergerInputs;
   llvm::SmallVector<phases::ID, phases::MaxNumberOfPhases> PL;
 
-<<<<<<< HEAD
-  // TODO: Do not use the new offloading driver at this time.  Offloading
-  // support for spir64 targets is not in place with this new path.
-  bool UseNewOffloadingDriver =
-      C.isOffloadingHostKind(Action::OFK_OpenMP) &&
-      Args.hasFlag(options::OPT_fopenmp_new_driver,
-                   options::OPT_fno_openmp_new_driver, false); // INTEL
-
-=======
->>>>>>> 612566a7543e75225ccbcea9a659e82fa0145905
   for (auto &I : Inputs) {
     types::ID InputType = I.first;
     const Arg *InputArg = I.second;
