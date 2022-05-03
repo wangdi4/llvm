@@ -75,7 +75,7 @@ void vla_test_two(int m)
     //CHECK: [[VLA:%vla.*]] = alloca i32, i64
     d[i][i] = i*3;
     //CHECK: DIR.OMP.PARALLEL
-    //CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[VLA]]
+    //CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[VLA]], i32 0,
     #pragma omp parallel
     {
            d[3][i] = i;
