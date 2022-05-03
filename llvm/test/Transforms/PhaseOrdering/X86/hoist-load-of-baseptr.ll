@@ -3,8 +3,8 @@
 ; This test autovectorizes under O2 and O3, causing so many differences with
 ; the output, that it cannot be merged with the llorg non-vector version.
 ; Just run with O1, as it still tests the intended hoisting.
-; RUN: opt -passes='default<O1>' -S < %s | FileCheck --check-prefixes=O1 %s
-; RUN-DISABLED: opt -passes='default<O2>' -S < %s | FileCheck --check-prefixes=O2 %s
+; RUN: opt -passes="default<O1>" -S < %s | FileCheck --check-prefixes=O1 %s
+; RUN-DISABLED: opt -passes="default<O2>" -S < %s | FileCheck --check-prefixes=O2 %s
 ; RUN-DISABLED: opt -passes="default<O3>" -S < %s | FileCheck --check-prefixes=O3 %s
 ; end INTEL_CUSTOMIZATION
 
