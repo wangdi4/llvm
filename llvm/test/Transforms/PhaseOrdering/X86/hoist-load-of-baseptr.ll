@@ -4,14 +4,9 @@
 ; the output, that it cannot be merged with the llorg non-vector version.
 ; Just run with O1, as it still tests the intended hoisting.
 ; RUN: opt -passes='default<O1>' -S < %s | FileCheck --check-prefixes=O1 %s
-<<<<<<< HEAD
 ; RUN-DISABLED: opt -passes='default<O2>' -S < %s | FileCheck --check-prefixes=O2 %s
-; RUN-DISABLED: opt -passes='default<O3>' -S < %s | FileCheck --check-prefixes=O3 %s
+; RUN-DISABLED: opt -passes="default<O3>" -S < %s | FileCheck --check-prefixes=O3 %s
 ; end INTEL_CUSTOMIZATION
-=======
-; RUN: opt -passes='default<O2>' -S < %s | FileCheck --check-prefixes=O2 %s
-; RUN: opt -passes="default<O3>" -S < %s | FileCheck --check-prefixes=O3 %s
->>>>>>> c6994ec12eb9471767b3cbe76cbb4422744ab1d1
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
