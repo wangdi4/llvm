@@ -18,7 +18,8 @@
 
 ; CHECK-LABEL: Report from: HIR Loop optimizations framework for : full_unroll_vec_report
 ; CHECK:       LOOP BEGIN
-; FIXME: Remarks about vectorization of the loop are missing here. Check generated code above.
+; CHECK-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; CHECK-NEXT:      remark #15305: vectorization support: vector length 2
 ; CHECK-NEXT:      remark #25436: Loop completely unrolled by 1
 ; CHECK-NEXT:  LOOP END
 
