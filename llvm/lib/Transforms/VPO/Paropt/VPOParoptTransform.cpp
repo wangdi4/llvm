@@ -12389,22 +12389,44 @@ bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W) {
   }
   SmallVector<std::pair<StringRef, ArrayRef<Value *>>, 8> OpBundlesToAdd;
   OpBundlesToAdd.emplace_back(MappedEntryDirStr, ArrayRef<Value *>{});
+
+  // Drop the BIND clause and replace these clauses with the LIVEIN clause:
+  //  * SHARED clause if the mapped directive is DIR_OMP_LOOP or DIR_OMP_SIMD
+  //  * FIRSTPRIVATE clause if the mapped directive is DIR_OMP_SIMD
+  // Note that LIVEIN is never TYPED, so if the clause to be converted is
+  // TYPED, just use its first argument for the LIVEIN clause.
+  bool ReplaceShared = (MappedDir == DIR_OMP_LOOP || MappedDir == DIR_OMP_SIMD);
+  bool ReplaceFirstPrivate = (MappedDir == DIR_OMP_SIMD);
   for (unsigned i = 1; i < OpBundles.size(); i++) {
-    // The clauses should be dropped during mapping, since it's only used for
-    // loop construct but it's not supported by the mapped directive.
-    // 1. BIND clause;
-    // 2. SHARED clause if the mapped directive is DIR_OMP_LOOP or DIR_OMP_SIMD;
-    // 3. FIRSTPRIVATE clause if the mapped directive is DIR_OMP_SIMD.
     StringRef Tag = OpBundles[i].getTag();
-    int ClauseID = VPOAnalysisUtils::getClauseID(Tag);
-    if (VPOAnalysisUtils::isBindClause(ClauseID) ||
-        ((QUAL_OMP_SHARED == ClauseID) &&
-         (MappedDir == DIR_OMP_LOOP || MappedDir == DIR_OMP_SIMD)) ||
-        ((QUAL_OMP_FIRSTPRIVATE == ClauseID) && (MappedDir == DIR_OMP_SIMD)))
+    ClauseSpecifier ClauseInfo(Tag);
+    int ClauseID = ClauseInfo.getId();
+
+    if (VPOAnalysisUtils::isBindClause(ClauseID))
       continue;
+
+    if (((QUAL_OMP_SHARED == ClauseID) && ReplaceShared) ||
+        ((QUAL_OMP_FIRSTPRIVATE == ClauseID) && ReplaceFirstPrivate)) {
+      Tag = VPOAnalysisUtils::getClauseString(QUAL_OMP_LIVEIN);
+      if (ClauseInfo.getIsTyped() ||
+#if INTEL_CUSTOMIZATION
+          ClauseInfo.getIsF90NonPod() ||
+#endif  // INTEL_CUSTOMIZATION
+          ClauseInfo.getIsNonPod()) {
+        // For TYPED and NONPOD cases, only the first argument is the var.
+        // Don't include the other clause args in the LIVEIN.
+        OpBundlesToAdd.emplace_back(Tag, *OpBundles[i].input_begin());
+        continue;
+      }
+      // Else:
+      // For other cases, multiple vars may be listed in the same clause,
+      // so we need to include all the arguments from the original clause.
+      // This is done by the emplace_back below with Tag=LIVEIN.
+    }
 
     OpBundlesToAdd.emplace_back(Tag, OpBundles[i].inputs());
   }
+
   EntryCI = VPOUtils::addOperandBundlesInCall(EntryCI, OpBundlesToAdd);
   W->setEntryDirective(EntryCI);
 
