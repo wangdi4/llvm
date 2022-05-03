@@ -265,10 +265,17 @@ static Function *doPromotion(
   LLVM_DEBUG(dbgs() << "ARG PROMOTION:  Promoting to:" << *NF << "\n"
                     << "From: " << *F);
 
+  uint64_t LargestVectorWidth = 0;
+  for (auto *I : Params)
+    if (auto *VT = dyn_cast<llvm::VectorType>(I))
+      LargestVectorWidth = std::max(
+          LargestVectorWidth, VT->getPrimitiveSizeInBits().getKnownMinSize());
+
   // Recompute the parameter attributes list based on the new arguments for
   // the function.
   NF->setAttributes(AttributeList::get(F->getContext(), PAL.getFnAttrs(),
                                        PAL.getRetAttrs(), ArgAttrVec));
+  AttributeFuncs::updateMinLegalVectorWidthAttr(*NF, LargestVectorWidth);
   ArgAttrVec.clear();
 
   F->getParent()->getFunctionList().insert(F->getIterator(), NF);
@@ -421,6 +428,9 @@ static Function *doPromotion(
 #endif // INTEL_CUSTOMIZATION
     Args.clear();
     ArgAttrVec.clear();
+
+    AttributeFuncs::updateMinLegalVectorWidthAttr(*CB.getCaller(),
+                                                  LargestVectorWidth);
 
     // Update the callgraph to know that the callsite has been transformed.
     if (ReplaceCallSite)
