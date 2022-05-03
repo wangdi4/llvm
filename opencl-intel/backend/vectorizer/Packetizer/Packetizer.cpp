@@ -1817,7 +1817,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
     // If the vector intrinsic has a scalar operand, and the operand isn't
     // uniform, then serialize it.
     for (auto Arg : enumerate(CI->args())) {
-      if (hasVectorIntrinsicScalarOpd(ID, Arg.index()) &&
+      if (isVectorIntrinsicWithScalarOpAtArg(ID, Arg.index()) &&
           WIInfo->whichDepend(Arg.value()) != WorkItemInfo::UNIFORM) {
         V_STAT(m_noVectorFuncCtr++;
         Scalarize_Function_Call++;)

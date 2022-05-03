@@ -2777,7 +2777,7 @@ void VPOCodeGenHIR::widenCallArgs(const VPCallInstruction *VPCall,
 
   for (unsigned I = 0; I < VPCall->getNumArgOperands() - ArgIgnored; I++) {
     RegDDRef *WideArg = nullptr;
-    if (!hasVectorIntrinsicScalarOpd(VectorIntrinID, I)) {
+    if (!isVectorIntrinsicWithScalarOpAtArg(VectorIntrinID, I)) {
       WideArg = widenRef(VPCall->getOperand(I), VF);
       WideArg = extractSubVector(WideArg, PumpPart, PumpFactor);
       assert(WideArg && "Vectorized call arg cannot be nullptr.");
