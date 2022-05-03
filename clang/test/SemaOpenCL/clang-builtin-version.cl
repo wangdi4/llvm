@@ -40,18 +40,12 @@ void pipe_builtins(void) {
   boo(); // expected-error{{use of undeclared identifier 'boo'}}
          // expected-error@-1{{expected ';' in 'for' statement specifier}}
 
-<<<<<<< HEAD
 // if INTEL_CUSTOMIZATION
 #ifndef NO_CHECK
   read_pipe(tmp, tmp);  // expected-error{{implicit declaration of function 'read_pipe' is invalid in OpenCL}}
   write_pipe(tmp, tmp); // expected-error{{implicit declaration of function 'write_pipe' is invalid in OpenCL}}
 #endif // NO_CHECK
 // endif INTEL_CUSTOMIZATION
-=======
-  read_pipe(tmp, tmp);  // expected-error{{use of undeclared identifier 'read_pipe'}}
-                        // expected-error@-1{{expected ')'}}
-  write_pipe(tmp, tmp); // expected-error{{use of undeclared identifier 'write_pipe'}}
->>>>>>> a9d68a5524dea113cace5983697786599cbdce9a
 
   reserve_read_pipe(tmp, tmp);  // expected-error{{use of undeclared identifier 'reserve_read_pipe'}}
   reserve_write_pipe(tmp, tmp); // expected-error{{use of undeclared identifier 'reserve_write_pipe'}}
