@@ -431,6 +431,15 @@ static cl::opt<bool>
                               cl::Hidden,
                               cl::desc("Disable shrink-wrap library calls"));
 
+#if INTEL_CUSTOMIZATION
+// The "legacy" loop unswitcher currently has better performance on
+// polyhedron.
+static cl::opt<bool> EnableSimpleLoopUnswitch(
+    "enable-simple-loop-unswitch", cl::init(false), cl::Hidden,
+    cl::desc("Enable the simple loop unswitch pass. Also enables independent "
+             "cleanup passes integrated into the loop pass manager pipeline."));
+#endif // INTEL_CUSTOMIZATION
+
 cl::opt<bool>
     EnableGVNSink("enable-gvn-sink", cl::init(false), cl::ZeroOrMore,
                   cl::desc("Enable the GVN sinking pass (default = off)"));
@@ -855,11 +864,15 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   // optimizations rely on TTI, which is not accurate for SPIR target.
   if (!SYCLOptimizationMode) { // broken formatting to simplify pulldown
 
-    // The simple loop unswitch pass relies on separate cleanup passes. Schedule
-    // them first so when we re-process a loop they run before other loop
-    // passes.
-    MPM.add(createLoopInstSimplifyPass());
-    MPM.add(createLoopSimplifyCFGPass());
+#if INTEL_CUSTOMIZATION
+    if (EnableSimpleLoopUnswitch) {
+      // The simple loop unswitch pass relies on separate cleanup passes.
+      // Schedule  them first so when we re-process a loop they run before
+      // other loop passes.
+      MPM.add(createLoopInstSimplifyPass());
+      MPM.add(createLoopSimplifyCFGPass());
+    }
+#endif // INTEL_CUSTOMIZATION
 
     // Try to remove as much code from the loop header as possible,
     // to reduce amount of IR that will have to be duplicated. However,
@@ -880,7 +893,13 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     // TODO: Investigate promotion cap for O1.
     MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
                            /*AllowSpeculation=*/true));
-    MPM.add(createSimpleLoopUnswitchLegacyPass(OptLevel == 3));
+#if INTEL_CUSTOMIZATION
+  if (EnableSimpleLoopUnswitch)
+    MPM.add(createSimpleLoopUnswitchLegacyPass());
+  else
+    MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3, DivergentTarget));
+#endif // INTEL_CUSTOMIZATION
+
     // FIXME: We break the loop pass pipeline here in order to do full
     // simplifycfg. Eventually loop-simplifycfg should be enhanced to replace
     // the need for this.

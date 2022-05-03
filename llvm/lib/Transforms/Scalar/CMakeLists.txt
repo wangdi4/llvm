@@ -88,6 +88,9 @@ add_llvm_component_library(LLVMScalarOpts
   LoopStrengthReduce.cpp
   LoopUnrollPass.cpp
   LoopUnrollAndJamPass.cpp
+# INTEL_CUSTOMIZATION
+  Intel_LegacyLoopUnswitch.cpp
+# end INTEL_CUSTOMIZATION
   LoopVersioningLICM.cpp
   LowerAtomicPass.cpp
   LowerConstantIntrinsics.cpp

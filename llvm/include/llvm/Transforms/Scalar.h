@@ -192,6 +192,14 @@ FunctionPass *createLoopFlattenPass();
 //
 Pass *createLoopStrengthReducePass();
 
+#if INTEL_CUSTOMIZATION
+//===----------------------------------------------------------------------===//
+//
+// LoopUnswitch - This pass is a simple loop unswitching pass.
+//
+Pass *createLoopUnswitchPass(bool OptimizeForSize = false,
+                             bool hasBranchDivergence = false);
+#endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 //
 // LoopInstSimplify - This pass simplifies instructions in a loop's body.
