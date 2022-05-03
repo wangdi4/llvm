@@ -2663,8 +2663,6 @@ std::pair<RValue, RValue> AtomicInfo::EmitAtomicCompareAndSwap(
   CGF.EmitBlock(ContBB);
   llvm::PHINode *PHI = CGF.Builder.CreatePHI(OldVal->getType(),
                                              /*NumReservedValues=*/2);
-  CGF.Builder.CreateStore(GetRValueFromAtomicTemp(PHI), RetValue);
-
   PHI->addIncoming(OldVal, CurBB);
   Address NewAtomicAddr = CreateTempAlloca();
   Address NewAtomicIntAddr = emitCastToAtomicIntPointer(NewAtomicAddr);
@@ -2702,6 +2700,7 @@ std::pair<RValue, RValue> AtomicInfo::EmitAtomicCompareAndSwap(
 
   CGF.EmitBlock(CmpBB);
   LComp = GetRValueFromAtomicTemp(Res.first);
+  CGF.Builder.CreateStore(LComp, RetValue);
   llvm::Value *Cond2 = GenerateCompare(LComp, Expected, Op);
   CGF.Builder.CreateStore(CGF.EmitToMemory(Cond2, CGF.getContext().BoolTy),
                           CompareValue);
