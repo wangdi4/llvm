@@ -15,11 +15,11 @@ target triple = "x86_64-unknown-linux-gnu"
 ; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=8 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -print-after=hir-vplan-vec -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s --check-prefix=CHECK-VF8
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local void @foo(i64* noalias nocapture noundef %A, i8* nocapture noundef readonly %B, i64* noalias nocapture noundef readonly %C, i32 noundef %N) local_unnamed_addr #0 {
+define dso_local void @foo(i64* noalias nocapture noundef %A, i8* nocapture noundef readonly %B, i64* noalias nocapture noundef readonly %C) local_unnamed_addr #0 {
 ;
-; long A[N], C[N];
-; char B[N]; // conflict idx
-; for (int i=0; i<N; ++i) {
+; long A[8], C[8];
+; char B[8]; // conflict idx
+; for (int i=0; i<8; ++i) {
 ;   int index = B[i];
 ;   A[index] = A[index] + C[i];
 ; }
@@ -27,121 +27,115 @@ define dso_local void @foo(i64* noalias nocapture noundef %A, i8* nocapture noun
 ; CHECK-VF4-LABEL:  Function: foo
 ; CHECK-VF4-EMPTY:
 ; CHECK-VF4-NEXT:  BEGIN REGION { modified }
-; CHECK-VF4:                + DO i1 = 0, {{.*}}, 4   <DO_LOOP>  <MAX_TC_EST = 536870911>  <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
-; CHECK-VF4-NEXT:           |   [[DOTVEC0:%.*]] = (<4 x i8>*)([[B0:%.*]])[i1]
-; CHECK-VF4-NEXT:           |   [[DOTVEC10:%.*]] = (<4 x i64>*)([[A0:%.*]])[[[DOTVEC0]]]
-; CHECK-VF4-NEXT:           |   [[DOTVEC20:%.*]] = (<4 x i64>*)([[C0:%.*]])[i1]
-; CHECK-VF4-NEXT:           |   [[CONFLICTS0:%.*]] = @llvm.x86.avx512.conflict.q.256([[DOTVEC0]])
-; CHECK-VF4-NEXT:           |   [[LLVM_CTLZ_V4I640:%.*]] = @llvm.ctlz.v4i64([[CONFLICTS0]],  0)
-; CHECK-VF4-NEXT:           |   [[DOTVEC30:%.*]] = 63  -  [[LLVM_CTLZ_V4I640]]
-; CHECK-VF4-NEXT:           |   [[DOTVEC40:%.*]] = [[DOTVEC30]] != -1
-; CHECK-VF4-NEXT:           |   [[TMP0:%.*]] = bitcast.<4 x i1>.i4([[DOTVEC40]])
-; CHECK-VF4-NEXT:           |   [[CMP0:%.*]] = [[TMP0]] == 0
-; CHECK-VF4-NEXT:           |   [[ALL_ZERO_CHECK0:%.*]] = [[CMP0]]
-; CHECK-VF4-NEXT:           |   [[PHI_TEMP0:%.*]] = [[DOTVEC20]]
-; CHECK-VF4-NEXT:           |   if ([[CMP0]] == 1)
-; CHECK-VF4-NEXT:           |   {
-; CHECK-VF4-NEXT:           |      goto [[BB0:BB.*]];
-; CHECK-VF4-NEXT:           |   }
-; CHECK-VF4-NEXT:           |   [[PHI_TEMP50:%.*]] = [[DOTVEC30]]
-; CHECK-VF4-NEXT:           |   [[PHI_TEMP70:%.*]] = [[DOTVEC20]]
-; CHECK-VF4-NEXT:           |   [[PHI_TEMP90:%.*]] = [[DOTVEC40]]
-; CHECK-VF4-NEXT:           |
-; CHECK-VF4-NEXT:           |   + UNKNOWN LOOP i2 <novectorize>
-; CHECK-VF4-NEXT:           |   |   <i2 = 0>
-; CHECK-VF4-NEXT:           |   |   [[BB1:BB.*]]:
-; CHECK-VF4-NEXT:           |   |   [[PERMUTE0:%.*]] = @llvm.x86.avx512.permvar.di.256([[PHI_TEMP70]],  [[PHI_TEMP50]])
-; CHECK-VF4-NEXT:           |   |   [[DOTVEC110:%.*]] = [[PHI_TEMP90]] == -1
-; CHECK-VF4-NEXT:           |   |   [[DOTVEC120:%.*]] = ([[PHI_TEMP90]] == -1) ? [[PERMUTE0]] : 0
-; CHECK-VF4-NEXT:           |   |   [[DOTVEC130:%.*]] = ([[PHI_TEMP90]] == -1) ? [[PHI_TEMP70]] + [[DOTVEC120]] : [[PHI_TEMP70]]
-; CHECK-VF4-NEXT:           |   |   [[PERMUTE140:%.*]] = @llvm.x86.avx512.permvar.di.256([[PHI_TEMP50]],  [[PHI_TEMP50]])
-; CHECK-VF4-NEXT:           |   |   [[DOTVEC150:%.*]] = ([[PHI_TEMP90]] == -1) ? [[PERMUTE140]] : [[PHI_TEMP50]]
-; CHECK-VF4-NEXT:           |   |   [[DOTVEC160:%.*]] = [[DOTVEC150]] != -1
-; CHECK-VF4-NEXT:           |   |   [[TMP1:%.*]] = bitcast.<4 x i1>.i4([[DOTVEC160]])
-; CHECK-VF4-NEXT:           |   |   [[CMP170:%.*]] = [[TMP1]] == 0
-; CHECK-VF4-NEXT:           |   |   [[ALL_ZERO_CHECK180:%.*]] = [[CMP170]]
-; CHECK-VF4-NEXT:           |   |   [[DOTVEC190:%.*]] = [[ALL_ZERO_CHECK180]]  ^  -1
-; CHECK-VF4-NEXT:           |   |   [[PHI_TEMP50]] = [[DOTVEC150]]
-; CHECK-VF4-NEXT:           |   |   [[PHI_TEMP70]] = [[DOTVEC130]]
-; CHECK-VF4-NEXT:           |   |   [[PHI_TEMP90]] = [[DOTVEC160]]
-; CHECK-VF4-NEXT:           |   |   [[PHI_TEMP0]] = [[DOTVEC130]]
-; CHECK-VF4-NEXT:           |   |   [[UNIFCOND240:%.*]] = extractelement [[DOTVEC190]],  0
-; CHECK-VF4-NEXT:           |   |   if ([[UNIFCOND240]] == 1)
-; CHECK-VF4-NEXT:           |   |   {
-; CHECK-VF4-NEXT:           |   |      <i2 = i2 + 1>
-; CHECK-VF4-NEXT:           |   |      goto [[BB1]];
-; CHECK-VF4-NEXT:           |   |   }
-; CHECK-VF4-NEXT:           |   + END LOOP
-; CHECK-VF4-NEXT:           |
-; CHECK-VF4-NEXT:           |   [[BB0]]:
-; CHECK-VF4-NEXT:           |   (<4 x i64>*)([[A0]])[[[DOTVEC0]]] = [[DOTVEC10]] + [[PHI_TEMP0]]
-; CHECK-VF4-NEXT:           + END LOOP
+; CHECK-VF4-NEXT:        + DO i1 = 0, 7, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK-VF4-NEXT:        |   [[DOTVEC0:%.*]] = (<4 x i8>*)([[B0:%.*]])[i1]
+; CHECK-VF4-NEXT:        |   [[DOTVEC10:%.*]] = (<4 x i64>*)([[A0:%.*]])[[[DOTVEC0]]]
+; CHECK-VF4-NEXT:        |   [[DOTVEC20:%.*]] = (<4 x i64>*)([[C0:%.*]])[i1]
+; CHECK-VF4-NEXT:        |   [[CONFLICTS0:%.*]] = @llvm.x86.avx512.conflict.q.256([[DOTVEC0]])
+; CHECK-VF4-NEXT:        |   [[LLVM_CTLZ_V4I640:%.*]] = @llvm.ctlz.v4i64([[CONFLICTS0]],  0)
+; CHECK-VF4-NEXT:        |   [[DOTVEC30:%.*]] = 63  -  [[LLVM_CTLZ_V4I640]]
+; CHECK-VF4-NEXT:        |   [[DOTVEC40:%.*]] = [[DOTVEC30]] != -1
+; CHECK-VF4-NEXT:        |   [[TMP0:%.*]] = bitcast.<4 x i1>.i4([[DOTVEC40]])
+; CHECK-VF4-NEXT:        |   [[CMP0:%.*]] = [[TMP0]] == 0
+; CHECK-VF4-NEXT:        |   [[ALL_ZERO_CHECK0:%.*]] = [[CMP0]]
+; CHECK-VF4-NEXT:        |   [[PHI_TEMP0:%.*]] = [[DOTVEC20]]
+; CHECK-VF4-NEXT:        |   if ([[CMP0]] != 1)
+; CHECK-VF4-NEXT:        |   {
+; CHECK-VF4-NEXT:        |      [[PHI_TEMP50:%.*]] = [[DOTVEC30]]
+; CHECK-VF4-NEXT:        |      [[PHI_TEMP70:%.*]] = [[DOTVEC20]]
+; CHECK-VF4-NEXT:        |      [[PHI_TEMP90:%.*]] = [[DOTVEC40]]
+; CHECK-VF4-NEXT:        |
+; CHECK-VF4-NEXT:        |      + UNKNOWN LOOP i2 <novectorize>
+; CHECK-VF4-NEXT:        |      |   <i2 = 0>
+; CHECK-VF4-NEXT:        |      |   [[BB0:BB[0-9]+]].43:
+; CHECK-VF4-NEXT:        |      |   [[PERMUTE0:%.*]] = @llvm.x86.avx512.permvar.di.256([[PHI_TEMP70]],  [[PHI_TEMP50]])
+; CHECK-VF4-NEXT:        |      |   [[DOTVEC110:%.*]] = [[PHI_TEMP90]] == -1
+; CHECK-VF4-NEXT:        |      |   [[DOTVEC120:%.*]] = ([[PHI_TEMP90]] == -1) ? [[PERMUTE0]] : 0
+; CHECK-VF4-NEXT:        |      |   [[DOTVEC130:%.*]] = ([[PHI_TEMP90]] == -1) ? [[PHI_TEMP70]] + [[DOTVEC120]] : [[PHI_TEMP70]]
+; CHECK-VF4-NEXT:        |      |   [[PERMUTE140:%.*]] = @llvm.x86.avx512.permvar.di.256([[PHI_TEMP50]],  [[PHI_TEMP50]])
+; CHECK-VF4-NEXT:        |      |   [[DOTVEC150:%.*]] = ([[PHI_TEMP90]] == -1) ? [[PERMUTE140]] : [[PHI_TEMP50]]
+; CHECK-VF4-NEXT:        |      |   [[DOTVEC160:%.*]] = [[DOTVEC150]] != -1
+; CHECK-VF4-NEXT:        |      |   [[TMP1:%.*]] = bitcast.<4 x i1>.i4([[DOTVEC160]])
+; CHECK-VF4-NEXT:        |      |   [[CMP170:%.*]] = [[TMP1]] == 0
+; CHECK-VF4-NEXT:        |      |   [[ALL_ZERO_CHECK180:%.*]] = [[CMP170]]
+; CHECK-VF4-NEXT:        |      |   [[DOTVEC190:%.*]] = [[ALL_ZERO_CHECK180]]  ^  -1
+; CHECK-VF4-NEXT:        |      |   [[PHI_TEMP50]] = [[DOTVEC150]]
+; CHECK-VF4-NEXT:        |      |   [[PHI_TEMP70]] = [[DOTVEC130]]
+; CHECK-VF4-NEXT:        |      |   [[PHI_TEMP90]] = [[DOTVEC160]]
+; CHECK-VF4-NEXT:        |      |   [[PHI_TEMP0]] = [[DOTVEC130]]
+; CHECK-VF4-NEXT:        |      |   [[EXTRACT_0_0:%.*]] = extractelement [[DOTVEC190]],  0
+; CHECK-VF4-NEXT:        |      |   if ([[EXTRACT_0_0]] == 1)
+; CHECK-VF4-NEXT:        |      |   {
+; CHECK-VF4-NEXT:        |      |      <i2 = i2 + 1>
+; CHECK-VF4-NEXT:        |      |      goto [[BB0]].43
+; CHECK-VF4-NEXT:        |      |   }
+; CHECK-VF4-NEXT:        |      + END LOOP
+; CHECK-VF4-NEXT:        |   }
+; CHECK-VF4-NEXT:        |   (<4 x i64>*)([[A0]])[[[DOTVEC0]]] = [[DOTVEC10]] + [[PHI_TEMP0]]
+; CHECK-VF4-NEXT:        + END LOOP
+; CHECK-VF4-NEXT:  END REGION
 ;
 ; CHECK-VF8-LABEL:  Function: foo
 ; CHECK-VF8-EMPTY:
 ; CHECK-VF8-NEXT:  BEGIN REGION { modified }
-; CHECK-VF8:                + DO i1 = 0, {{.*}}, 8   <DO_LOOP>  <MAX_TC_EST = 268435455>  <LEGAL_MAX_TC = 268435455> <auto-vectorized> <nounroll> <novectorize>
-; CHECK-VF8-NEXT:           |   [[DOTVEC0:%.*]] = (<8 x i8>*)([[B0:%.*]])[i1]
-; CHECK-VF8-NEXT:           |   [[DOTVEC10:%.*]] = (<8 x i64>*)([[A0:%.*]])[[[DOTVEC0]]]
-; CHECK-VF8-NEXT:           |   [[DOTVEC20:%.*]] = (<8 x i64>*)([[C0:%.*]])[i1]
-; CHECK-VF8-NEXT:           |   [[CONFLICTS0:%.*]] = @llvm.x86.avx512.conflict.q.512([[DOTVEC0]])
-; CHECK-VF8-NEXT:           |   [[LLVM_CTLZ_V8I640:%.*]] = @llvm.ctlz.v8i64([[CONFLICTS0]],  0)
-; CHECK-VF8-NEXT:           |   [[DOTVEC30:%.*]] = 63  -  [[LLVM_CTLZ_V8I640]]
-; CHECK-VF8-NEXT:           |   [[DOTVEC40:%.*]] = [[DOTVEC30]] != -1
-; CHECK-VF8-NEXT:           |   [[TMP0:%.*]] = bitcast.<8 x i1>.i8([[DOTVEC40]])
-; CHECK-VF8-NEXT:           |   [[CMP0:%.*]] = [[TMP0]] == 0
-; CHECK-VF8-NEXT:           |   [[ALL_ZERO_CHECK0:%.*]] = [[CMP0]]
-; CHECK-VF8-NEXT:           |   [[PHI_TEMP0:%.*]] = [[DOTVEC20]]
-; CHECK-VF8-NEXT:           |   if ([[CMP0]] == 1)
-; CHECK-VF8-NEXT:           |   {
-; CHECK-VF8-NEXT:           |      goto [[BB0:BB.*]];
-; CHECK-VF8-NEXT:           |   }
-; CHECK-VF8-NEXT:           |   [[PHI_TEMP50:%.*]] = [[DOTVEC30]]
-; CHECK-VF8-NEXT:           |   [[PHI_TEMP70:%.*]] = [[DOTVEC20]]
-; CHECK-VF8-NEXT:           |   [[PHI_TEMP90:%.*]] = [[DOTVEC40]]
-; CHECK-VF8-NEXT:           |
-; CHECK-VF8-NEXT:           |   + UNKNOWN LOOP i2 <novectorize>
-; CHECK-VF8-NEXT:           |   |   <i2 = 0>
-; CHECK-VF8-NEXT:           |   |   [[BB1:BB.*]]:
-; CHECK-VF8-NEXT:           |   |   [[PERMUTE0:%.*]] = @llvm.x86.avx512.permvar.di.512([[PHI_TEMP70]],  [[PHI_TEMP50]])
-; CHECK-VF8-NEXT:           |   |   [[DOTVEC110:%.*]] = [[PHI_TEMP90]] == -1
-; CHECK-VF8-NEXT:           |   |   [[DOTVEC120:%.*]] = ([[PHI_TEMP90]] == -1) ? [[PERMUTE0]] : 0
-; CHECK-VF8-NEXT:           |   |   [[DOTVEC130:%.*]] = ([[PHI_TEMP90]] == -1) ? [[PHI_TEMP70]] + [[DOTVEC120]] : [[PHI_TEMP70]]
-; CHECK-VF8-NEXT:           |   |   [[PERMUTE140:%.*]] = @llvm.x86.avx512.permvar.di.512([[PHI_TEMP50]],  [[PHI_TEMP50]])
-; CHECK-VF8-NEXT:           |   |   [[DOTVEC150:%.*]] = ([[PHI_TEMP90]] == -1) ? [[PERMUTE140]] : [[PHI_TEMP50]]
-; CHECK-VF8-NEXT:           |   |   [[DOTVEC160:%.*]] = [[DOTVEC150]] != -1
-; CHECK-VF8-NEXT:           |   |   [[TMP1:%.*]] = bitcast.<8 x i1>.i8([[DOTVEC160]])
-; CHECK-VF8-NEXT:           |   |   [[CMP170:%.*]] = [[TMP1]] == 0
-; CHECK-VF8-NEXT:           |   |   [[ALL_ZERO_CHECK180:%.*]] = [[CMP170]]
-; CHECK-VF8-NEXT:           |   |   [[DOTVEC190:%.*]] = [[ALL_ZERO_CHECK180]]  ^  -1
-; CHECK-VF8-NEXT:           |   |   [[PHI_TEMP50]] = [[DOTVEC150]]
-; CHECK-VF8-NEXT:           |   |   [[PHI_TEMP70]] = [[DOTVEC130]]
-; CHECK-VF8-NEXT:           |   |   [[PHI_TEMP90]] = [[DOTVEC160]]
-; CHECK-VF8-NEXT:           |   |   [[PHI_TEMP0]] = [[DOTVEC130]]
-; CHECK-VF8-NEXT:           |   |   [[UNIFCOND240:%.*]] = extractelement [[DOTVEC190]],  0
-; CHECK-VF8-NEXT:           |   |   if ([[UNIFCOND240]] == 1)
-; CHECK-VF8-NEXT:           |   |   {
-; CHECK-VF8-NEXT:           |   |      <i2 = i2 + 1>
-; CHECK-VF8-NEXT:           |   |      goto [[BB1]];
-; CHECK-VF8-NEXT:           |   |   }
-; CHECK-VF8-NEXT:           |   + END LOOP
-; CHECK-VF8-NEXT:           |
-; CHECK-VF8-NEXT:           |   [[BB0]]:
-; CHECK-VF8-NEXT:           |   (<8 x i64>*)([[A0]])[[[DOTVEC0]]] = [[DOTVEC10]] + [[PHI_TEMP0]]
-; CHECK-VF8-NEXT:           + END LOOP
+; CHECK-VF8-NEXT:        + DO i1 = 0, 7, 8   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK-VF8-NEXT:        |   [[DOTVEC0:%.*]] = (<8 x i8>*)([[B0:%.*]])[i1]
+; CHECK-VF8-NEXT:        |   [[DOTVEC10:%.*]] = (<8 x i64>*)([[A0:%.*]])[[[DOTVEC0]]]
+; CHECK-VF8-NEXT:        |   [[DOTVEC20:%.*]] = (<8 x i64>*)([[C0:%.*]])[i1]
+; CHECK-VF8-NEXT:        |   [[CONFLICTS0:%.*]] = @llvm.x86.avx512.conflict.q.512([[DOTVEC0]])
+; CHECK-VF8-NEXT:        |   [[LLVM_CTLZ_V8I640:%.*]] = @llvm.ctlz.v8i64([[CONFLICTS0]],  0)
+; CHECK-VF8-NEXT:        |   [[DOTVEC30:%.*]] = 63  -  [[LLVM_CTLZ_V8I640]]
+; CHECK-VF8-NEXT:        |   [[DOTVEC40:%.*]] = [[DOTVEC30]] != -1
+; CHECK-VF8-NEXT:        |   [[TMP0:%.*]] = bitcast.<8 x i1>.i8([[DOTVEC40]])
+; CHECK-VF8-NEXT:        |   [[CMP0:%.*]] = [[TMP0]] == 0
+; CHECK-VF8-NEXT:        |   [[ALL_ZERO_CHECK0:%.*]] = [[CMP0]]
+; CHECK-VF8-NEXT:        |   [[PHI_TEMP0:%.*]] = [[DOTVEC20]]
+; CHECK-VF8-NEXT:        |   if ([[CMP0]] != 1)
+; CHECK-VF8-NEXT:        |   {
+; CHECK-VF8-NEXT:        |      [[PHI_TEMP50:%.*]] = [[DOTVEC30]]
+; CHECK-VF8-NEXT:        |      [[PHI_TEMP70:%.*]] = [[DOTVEC20]]
+; CHECK-VF8-NEXT:        |      [[PHI_TEMP90:%.*]] = [[DOTVEC40]]
+; CHECK-VF8-NEXT:        |
+; CHECK-VF8-NEXT:        |      + UNKNOWN LOOP i2 <novectorize>
+; CHECK-VF8-NEXT:        |      |   <i2 = 0>
+; CHECK-VF8-NEXT:        |      |   [[BB0:BB[0-9]+]].43:
+; CHECK-VF8-NEXT:        |      |   [[PERMUTE0:%.*]] = @llvm.x86.avx512.permvar.di.512([[PHI_TEMP70]],  [[PHI_TEMP50]])
+; CHECK-VF8-NEXT:        |      |   [[DOTVEC110:%.*]] = [[PHI_TEMP90]] == -1
+; CHECK-VF8-NEXT:        |      |   [[DOTVEC120:%.*]] = ([[PHI_TEMP90]] == -1) ? [[PERMUTE0]] : 0
+; CHECK-VF8-NEXT:        |      |   [[DOTVEC130:%.*]] = ([[PHI_TEMP90]] == -1) ? [[PHI_TEMP70]] + [[DOTVEC120]] : [[PHI_TEMP70]]
+; CHECK-VF8-NEXT:        |      |   [[PERMUTE140:%.*]] = @llvm.x86.avx512.permvar.di.512([[PHI_TEMP50]],  [[PHI_TEMP50]])
+; CHECK-VF8-NEXT:        |      |   [[DOTVEC150:%.*]] = ([[PHI_TEMP90]] == -1) ? [[PERMUTE140]] : [[PHI_TEMP50]]
+; CHECK-VF8-NEXT:        |      |   [[DOTVEC160:%.*]] = [[DOTVEC150]] != -1
+; CHECK-VF8-NEXT:        |      |   [[TMP1:%.*]] = bitcast.<8 x i1>.i8([[DOTVEC160]])
+; CHECK-VF8-NEXT:        |      |   [[CMP170:%.*]] = [[TMP1]] == 0
+; CHECK-VF8-NEXT:        |      |   [[ALL_ZERO_CHECK180:%.*]] = [[CMP170]]
+; CHECK-VF8-NEXT:        |      |   [[DOTVEC190:%.*]] = [[ALL_ZERO_CHECK180]]  ^  -1
+; CHECK-VF8-NEXT:        |      |   [[PHI_TEMP50]] = [[DOTVEC150]]
+; CHECK-VF8-NEXT:        |      |   [[PHI_TEMP70]] = [[DOTVEC130]]
+; CHECK-VF8-NEXT:        |      |   [[PHI_TEMP90]] = [[DOTVEC160]]
+; CHECK-VF8-NEXT:        |      |   [[PHI_TEMP0]] = [[DOTVEC130]]
+; CHECK-VF8-NEXT:        |      |   [[EXTRACT_0_0:%.*]] = extractelement [[DOTVEC190]],  0
+; CHECK-VF8-NEXT:        |      |   if ([[EXTRACT_0_0]] == 1)
+; CHECK-VF8-NEXT:        |      |   {
+; CHECK-VF8-NEXT:        |      |      <i2 = i2 + 1>
+; CHECK-VF8-NEXT:        |      |      goto [[BB0]].43
+; CHECK-VF8-NEXT:        |      |   }
+; CHECK-VF8-NEXT:        |      + END LOOP
+; CHECK-VF8-NEXT:        |   }
+; CHECK-VF8-NEXT:        |   (<8 x i64>*)([[A0]])[[[DOTVEC0]]] = [[DOTVEC10]] + [[PHI_TEMP0]]
+; CHECK-VF8-NEXT:        + END LOOP
+; CHECK-VF8-NEXT:  END REGION
 ;
 entry:
-  %cmp14 = icmp sgt i32 %N, 0
-  br i1 %cmp14, label %for.body.preheader, label %for.cond.cleanup
+  br label %for.body.preheader
 
 for.body.preheader:                               ; preds = %entry
-  %wide.trip.count16 = zext i32 %N to i64
   br label %for.body
 
 for.cond.cleanup.loopexit:                        ; preds = %for.body
   br label %for.cond.cleanup
 
-for.cond.cleanup:                                 ; preds = %for.cond.cleanup.loopexit, %entry
+for.cond.cleanup:                                 ; preds = %for.cond.cleanup.loopexit
   ret void
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
@@ -156,7 +150,7 @@ for.body:                                         ; preds = %for.body.preheader,
   %add = add i64 %2, %1
   store i64 %add, i64* %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count16
+  %exitcond.not = icmp eq i64 %indvars.iv.next, 8
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body
 }
 

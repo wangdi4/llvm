@@ -216,10 +216,33 @@ static bool lowerHistogram(VPTreeConflict *TreeConflict, Function &Fn) {
   return true;
 }
 
-VPTreeConflict *
-tryReplaceWithTreeConflict(VPGeneralMemOptConflict *VPConflict) {
+VPValue* getReductionUpdateOp(VPGeneralMemOptConflict *VPConflict,
+                              VPInstruction *InsnInVConflictRegion) {
   VPRegion *ConflictRegion = VPConflict->getRegion();
+  VPValue *RednUpdateOp = nullptr;
+  if (VPConflict->getNumOperands() == 3) {
+    // If there is no live-in value, then we have a constant or external def
+    // updating value.
+    VPValue *Op0 = InsnInVConflictRegion->getOperand(0);
+    VPValue *Op1 = InsnInVConflictRegion->getOperand(1);
+    RednUpdateOp = Op0 == *ConflictRegion->getLiveIns().begin() ? Op1 : Op0;
+    assert(isa<VPConstant>(RednUpdateOp) ||
+           isa<VPExternalDef>(RednUpdateOp) &&
+               "Constant or external definition is expected.");
+  } else {
+    assert(VPConflict->getNumOperands() == 4 &&
+           "Unexpected number of operands for tree-conflict.");
+    // If the conflict instruction has a live-in value, then it is the operand
+    // updating the reduction.
+    RednUpdateOp = *VPConflict->getLiveIns().begin();
+  }
 
+  return RednUpdateOp;
+}
+
+VPInstruction* isSupportedVConflictRegion(
+    VPGeneralMemOptConflict *VPConflict) {
+  VPRegion *ConflictRegion = VPConflict->getRegion();
   // Tree-conflict idiom is expected to have only one BB in conflict region.
   if (ConflictRegion->getSize() != 1)
     return nullptr;
@@ -229,8 +252,8 @@ tryReplaceWithTreeConflict(VPGeneralMemOptConflict *VPConflict) {
   // region.
   if (VPBB->size() != 1)
     return nullptr;
-  VPInstruction *InsnInVConflictRegion = &*VPBB->begin();
 
+  VPInstruction *InsnInVConflictRegion = &*VPBB->begin();
   // Check if the opcode of the single instruction in VConflict region is a
   // reduction operation. This is a requirement for both tree-conflict and
   // histogram.
@@ -267,24 +290,17 @@ tryReplaceWithTreeConflict(VPGeneralMemOptConflict *VPConflict) {
     return nullptr;
   }
 
+  return InsnInVConflictRegion;
+}
+
+VPTreeConflict *
+tryReplaceWithTreeConflict(VPGeneralMemOptConflict *VPConflict) {
+  VPInstruction *InsnInVConflictRegion = isSupportedVConflictRegion(VPConflict);
+  assert(InsnInVConflictRegion &&
+         "Unexpected vconflict region should have been validated in planner");
   unsigned RednOpcode = InsnInVConflictRegion->getOpcode();
-  VPValue *RednUpdateOp = nullptr;
-  if (VPConflict->getNumOperands() == 3) {
-    // If there is no live-in value, then we have a constant or external def
-    // updating value.
-    VPValue *Op0 = InsnInVConflictRegion->getOperand(0);
-    VPValue *Op1 = InsnInVConflictRegion->getOperand(1);
-    RednUpdateOp = Op0 == *ConflictRegion->getLiveIns().begin() ? Op1 : Op0;
-    assert(isa<VPConstant>(RednUpdateOp) ||
-           isa<VPExternalDef>(RednUpdateOp) &&
-               "Constant or external definition is expected.");
-  } else {
-    assert(VPConflict->getNumOperands() == 4 &&
-           "Unexpected number of operands for tree-conflict.");
-    // If the conflict instruction has a live-in value, then it is the operand
-    // updating the reduction.
-    RednUpdateOp = *VPConflict->getLiveIns().begin();
-  }
+  VPValue *RednUpdateOp =
+      getReductionUpdateOp(VPConflict, InsnInVConflictRegion);
 
   // Create VPTreeConflict instruction.
   VPlan *Plan = VPConflict->getParent()->getParent();
@@ -352,51 +368,6 @@ static VPValue* convertValueType(VPValue *Val, Type *ToTy, VPBuilder &VPBldr) {
   if (ValType->isFloatingPointTy() && ToTy->isIntegerTy())
     return VPBldr.createFPToIntCast(Val, ToTy);
   llvm_unreachable("Unsupported conversion operation");
-}
-
-// To lower TreeConflict to double permute tree reduction, the types of the
-// control and result operands must have the same sizes because that's how the
-// permute intrinsics are defined. Note: the type of the control operand is
-// based on the type of the conflict idx. This function returns the size in bits
-// that should be used for each operand of the permutes within the conflict
-// loop. Decomposition of subscript instructions results in two possible type
-// sizes for the conflict idx, the original type size and i64 since the
-// decomposition currently promotes conflict idx to i64 for use in subscript
-// instructions. Thus, we may have something like the following as input to
-// this function.
-//
-// Original conflict idx type: i32
-// Promoted conflict idx type: i64
-// Reduction update op type (result type) : i32
-//
-// This function would return 32 for both the conflict idx and reduction
-// update op type sizes. The corresponding conflict loop phis and instructions
-// would then be based on this.
-Optional<unsigned> getPermuteTypeSize(const VPTreeConflict *TreeConflict,
-                                      unsigned VF) {
-  auto *RednUpdateOpTy = TreeConflict->getRednUpdateOp()->getType();
-  unsigned PermuteSize = RednUpdateOpTy->getScalarSizeInBits();
-
-  // We don't yet support type sizes less than 32-bits. However, we do support
-  // cases where we know at least one of the conflict idx or reduction op types
-  // are at least 32-bit because the size returned will be 32. E.g., if conflict
-  // idx is i16, but reduction op is i32, then we'll promote the conflict idx
-  // for use in the permute intrinsics.
-  if (PermuteSize < 32)
-    return None;
-
-  // The following cases are where we don't have a direct intrinsic mapping for
-  // the size and VF. We'll need support for partial vectors and pumping.
-  if (VF < 4)
-    return None;
-
-  if (PermuteSize == 64 && VF > 8)
-    return None;
-
-  if (PermuteSize == 32 && VF > 16)
-    return None;
-
-  return PermuteSize;
 }
 
 VPValue* createPermuteIntrinsic(StringRef Name, Type *Ty, VPValue *PermuteVals,
@@ -482,13 +453,12 @@ bool lowerTreeConflictsToDoublePermuteTreeReduction(VPlanVector *Plan,
     // Begin inserting pre-conflict loop instructions.
     VPBldr.setInsertPoint(TreeConflictParent->getTerminator());
 
-    Optional<unsigned> PermuteSize = getPermuteTypeSize(TreeConflict, VF);
-    assert(PermuteSize != None && "Expected valid permute intrinsic size");
-    auto *ConflictIdx = TreeConflict->getConflictIndex();
-    auto *ConflictIdxTy = ConflictIdx->getType();
-    Type *PermuteTy = IntegerType::get(*C, *PermuteSize);
     VPValue *RednUpdateOp = TreeConflict->getRednUpdateOp();
     Type *RednUpdateOpTy = RednUpdateOp->getType();
+    unsigned PermuteSize = RednUpdateOpTy->getScalarSizeInBits();
+    auto *ConflictIdx = TreeConflict->getConflictIndex();
+    auto *ConflictIdxTy = ConflictIdx->getType();
+    Type *PermuteTy = IntegerType::get(*C, PermuteSize);
 
     auto *VConf = VPBldr.create<VPConflictInsn>(
         "vpconflict.intrinsic", ConflictIdxTy,
