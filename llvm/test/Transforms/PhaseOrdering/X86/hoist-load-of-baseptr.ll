@@ -5,7 +5,7 @@
 ; Just run with O1, as it still tests the intended hoisting.
 ; RUN: opt -passes='default<O1>' -S < %s | FileCheck --check-prefixes=O1 %s
 ; RUN-DISABLED: opt -passes='default<O2>' -S < %s | FileCheck --check-prefixes=O2 %s
-; RUN-DISABLED: opt -passes='default<O3>' -S < %s | FileCheck --check-prefixes=O3 %s
+; RUN-DISABLED: opt -passes="default<O3>" -S < %s | FileCheck --check-prefixes=O3 %s
 ; end INTEL_CUSTOMIZATION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
