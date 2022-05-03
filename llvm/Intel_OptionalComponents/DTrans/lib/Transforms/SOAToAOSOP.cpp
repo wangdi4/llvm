@@ -56,11 +56,11 @@ static cl::opt<bool> DTransSOAToAOSOPSizeHeuristic(
 class SOAToAOSOPTransformImpl : public DTransOPOptBase {
 public:
   SOAToAOSOPTransformImpl(
-      LLVMContext &Context, DTransSafetyInfo &DTInfo, bool UsingOpaquePointers,
+      LLVMContext &Context, DTransSafetyInfo &DTInfo,
       StringRef DepTypePrefix, const DataLayout &DL,
       std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
       std::function<DominatorTree &(Function &)> GetDT)
-      : DTransOPOptBase(Context, &DTInfo, UsingOpaquePointers, DepTypePrefix),
+      : DTransOPOptBase(Context, &DTInfo, DepTypePrefix),
         DL(DL), GetTLI(GetTLI), GetDT(GetDT) {}
 
   ~SOAToAOSOPTransformImpl() {
@@ -979,9 +979,8 @@ bool SOAToAOSOPPass::runImpl(
   }
 
   // Perform the actual transformation.
-  SOAToAOSOPTransformImpl Transformer(
-      M.getContext(), DTInfo, DTInfo.getPtrTypeAnalyzer().sawOpaquePointer(),
-      "__SOADT_", M.getDataLayout(), GetTLI, GetDT);
+  SOAToAOSOPTransformImpl Transformer(M.getContext(), DTInfo, "__SOADT_",
+                                      M.getDataLayout(), GetTLI, GetDT);
   return Transformer.run(M);
 }
 

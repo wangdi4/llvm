@@ -133,10 +133,8 @@ public:
       const ArraySummaryForIdiom &S,
       const SOAToAOSOPArrayMethodsCheckDebugResult &InstsToTransform,
       StringRef DepTypePrefix)
-      : DTransOPOptBase(Context, &DTInfo,
-                        DTInfo.getPtrTypeAnalyzer().sawOpaquePointer(),
-                        DepTypePrefix),
-        S(S), InstsToTransform(InstsToTransform), DL(DL), GetTLI(GetTLI) {}
+      : DTransOPOptBase(Context, &DTInfo, DepTypePrefix), S(S),
+        InstsToTransform(InstsToTransform), DL(DL), GetTLI(GetTLI) {}
 
   bool prepareTypes(Module &M) override {
     LLVMContext &Context = M.getContext();
