@@ -48,6 +48,7 @@ void pipe_builtins(void) {
 // endif INTEL_CUSTOMIZATION
 
   reserve_read_pipe(tmp, tmp);  // expected-error{{use of undeclared identifier 'reserve_read_pipe'}}
+                                // expected-error@-1{{expected ')'}}
   reserve_write_pipe(tmp, tmp); // expected-error{{use of undeclared identifier 'reserve_write_pipe'}}
 
   work_group_reserve_read_pipe(tmp, tmp);  // expected-error{{use of undeclared identifier 'work_group_reserve_read_pipe'}}
