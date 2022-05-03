@@ -333,11 +333,6 @@ public:
     return DTransPtrSizedIntPtrType;
   }
 
-  void setSawOpaquePointer() { SawOpaquePointer = true; }
-  bool getSawOpaquePointer() const { return SawOpaquePointer; }
-  void setSawNonOpaquePointer() { SawNonOpaquePointer = true; }
-  bool getSawNonOpaquePointer() const { return SawNonOpaquePointer; }
-
   // If the type is used for a single aggregate type, return the type, provided
   // that any other pointer types are generic equivalents for the type, such as
   // i8* or a pointer-sized integer pointer, or they are equivalent types that
@@ -494,12 +489,6 @@ private:
   // address spaces, so we need to detect this and disable DTrans in those
   // cases.
   bool UnsupportedAddressSpaceSeen = false;
-
-  // 'true' if an Opaque pointer was seen during the analysis.
-  bool SawOpaquePointer = false;
-
-  // 'true' if a Non-opaque pointer was seen during the analysis.
-  bool SawNonOpaquePointer = false;
 
   // Map of instructions that were identified as using element-zero of a
   // contained type to information about element-zero type.
@@ -1295,11 +1284,6 @@ private:
         });
         PTA.setUnsupportedAddressSpaceSeen();
       }
-
-      if (PtrTy->isOpaquePointerTy())
-        PTA.setSawOpaquePointer();
-      else
-        PTA.setSawNonOpaquePointer();
     }
 
 
@@ -4672,13 +4656,6 @@ dtrans::FreeKind PtrTypeAnalyzer::getFreeCallKind(CallBase *Call) const {
 
 bool PtrTypeAnalyzer::getUnsupportedAddressSpaceSeen() const {
   return Impl->getUnsupportedAddressSpaceSeen();
-}
-
-bool PtrTypeAnalyzer::sawOpaquePointer() const {
-  return Impl->getSawOpaquePointer();
-}
-bool PtrTypeAnalyzer::sawNonOpaquePointer() const {
-  return Impl->getSawNonOpaquePointer();
 }
 
 PtrTypeAnalyzer::ElementZeroInfo

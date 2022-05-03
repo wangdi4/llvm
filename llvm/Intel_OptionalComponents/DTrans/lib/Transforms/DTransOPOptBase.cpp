@@ -399,9 +399,10 @@ void DTransOPTypeRemapper::dump() const {
 //===----------------------------------------------------------------------===//
 
 DTransOPOptBase::DTransOPOptBase(LLVMContext &Ctx, DTransSafetyInfo *DTInfo,
-                                 bool UsingOpaquePtrs, StringRef DepTypePrefix)
+                                 StringRef DepTypePrefix)
     : DTInfo(DTInfo), TM(DTInfo->getTypeManager()),
-      DepTypePrefix(DepTypePrefix), UsingOpaquePtrs(UsingOpaquePtrs),
+      DepTypePrefix(DepTypePrefix),
+      UsingOpaquePtrs(!Ctx.supportsTypedPointers()),
       TypeRemapper(TM, UsingOpaquePtrs) {}
 
 bool DTransOPOptBase::run(Module &M) {

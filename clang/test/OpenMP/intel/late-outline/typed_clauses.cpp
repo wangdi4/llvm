@@ -421,12 +421,13 @@ void foo_shared_clauses(int n)
     {}
   }
 
-  // Don't produce a typed clause for implicit vlas, at least for now.
+  // Implicit VLA.
   {
     int implicit_shared_vla[n];
     //CHECK: [[IVLA:%vla.*]] = alloca i32,
+    //CHECK: store i64 [[SZ:%[0-9]+]], ptr %omp.vla.tmp{{[[0-9]*}}
     //CHECK: "DIR.OMP.PARALLEL"()
-    //CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[IVLA]]
+    //CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[IVLA]], i32 0, i64 [[SZ]]
     #pragma omp parallel
     {
       implicit_shared_vla[4] = 1;

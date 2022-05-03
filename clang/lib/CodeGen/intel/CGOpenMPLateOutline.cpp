@@ -824,8 +824,9 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
   default:
     llvm_unreachable("Clause not allowed");
   }
+  if (UseTypedClauses)
+    CSB.setTyped();
   bool IsRef = false;
-  bool IsSharedVLA = false;
   if (K == ICK_shared ||
       (CurrentDirectiveKind == OMPD_task && K == ICK_specified_firstprivate)) {
     const VarDecl *VD = getExplicitVarDecl(E);
@@ -833,17 +834,11 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
     IsRef = VD->getType()->isReferenceType();
     if (IsRef)
       CSB.setByRef();
-    IsSharedVLA = K == ICK_shared && VD->getType()->isVariablyModifiedType();
   }
-  if (UseTypedClauses && !IsSharedVLA)
-    CSB.setTyped();
   addArg(CSB.getString());
   bool NeedsTypedElements =
       K == ICK_normalized_iv || K == ICK_normalized_ub ? false : true;
-  if (IsSharedVLA)
-    addArg(E, IsRef);
-  else
-    addTypedArg(E, IsRef, NeedsTypedElements);
+  addTypedArg(E, IsRef, NeedsTypedElements);
 }
 
 void OpenMPLateOutliner::emitImplicit(const VarDecl *VD, ImplicitClauseKind K) {
@@ -2872,6 +2867,9 @@ OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
 }
 
 OpenMPLateOutliner::~OpenMPLateOutliner() {
+  // Clauses need values from outside the region, so restore here before
+  // emitting clauses.
+  CGF.VLASizeMapHandler->RestoreVLASizeMap();
   addImplicitClauses();
 
   // Insert the start directives.

@@ -534,12 +534,6 @@ public:
   // address space for DTrans.
   bool getUnsupportedAddressSpaceSeen() const;
 
-  // Return 'true' if opaque pointer types were seen.
-  bool sawOpaquePointer() const;
-
-  // Return 'true' if non-opaque pointer types were seen.
-  bool sawNonOpaquePointer() const;
-
   // If the Instruction has element-zero access information, return it.
   // Otherwise, an empty ElementZeroInfo structure is returned.
   ElementZeroInfo getElementZeroPointer(Instruction *I) const;

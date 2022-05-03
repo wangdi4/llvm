@@ -794,7 +794,8 @@ void SOAToAOSPrepCandidateInfo::replicateMemberFunctions() {
 
   ValueToValueMapTy VMap;
   DTransOPTypeRemapper TypeRemapper(
-      DTInfo.getTypeManager(), DTInfo.getPtrTypeAnalyzer().sawOpaquePointer());
+      DTInfo.getTypeManager(),
+      !DerivedTy->getContext().supportsTypedPointers());
 
   assert(ReplicatedDTy && ReplicatedBTy && "Unexpected cloned types");
 
@@ -2533,11 +2534,10 @@ void SOAToAOSPrepCandidateInfo::reverseArgPromote() {
 class SOAToAOSPrepareTransImpl : public DTransOPOptBase {
 public:
   SOAToAOSPrepareTransImpl(DTransSafetyInfo &DTInfo, LLVMContext &Context,
-                           bool UsingOpaquePointers, SOAGetTLITy GetTLI,
-                           StringRef DepTypePrefix,
+                           SOAGetTLITy GetTLI, StringRef DepTypePrefix,
                            SOAToAOSPrepCandidateInfo *CandI)
-      : DTransOPOptBase(Context, &DTInfo, UsingOpaquePointers, DepTypePrefix),
-        GetTLI(GetTLI), CandI(CandI) {}
+      : DTransOPOptBase(Context, &DTInfo, DepTypePrefix), GetTLI(GetTLI),
+        CandI(CandI) {}
   ~SOAToAOSPrepareTransImpl() {}
 
 private:
@@ -2701,9 +2701,8 @@ bool SOAToAOSPrepareImpl::run(void) {
   // 2nd transform.
   DEBUG_WITH_TYPE(DTRANS_SOATOAOSOPPREPARE,
                   { dbgs() << "  Transformations 2: \n"; });
-  SOAToAOSPrepareTransImpl Transformer(
-      DTInfo, M.getContext(), DTInfo.getPtrTypeAnalyzer().sawOpaquePointer(),
-      GetTLI, "_DPRE_", Candidate);
+  SOAToAOSPrepareTransImpl Transformer(DTInfo, M.getContext(), GetTLI, "_DPRE_",
+                                       Candidate);
   if (!Transformer.run(M)) {
     DEBUG_WITH_TYPE(DTRANS_SOATOAOSOPPREPARE,
                     { dbgs() << "  Failed Transformations 2: \n"; });

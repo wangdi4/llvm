@@ -71,7 +71,6 @@
 // CHK-C-NEXT:    br i1 [[CMP]], label [[ATOMIC_CONT:%.*]], label [[ATOMIC_EXIT:%.*]]
 // CHK-C:       atomic_cont:
 // CHK-C-NEXT:    [[TMP1:%.*]] = phi i32 [ [[ATOMIC_LOAD]], [[ENTRY:%.*]] ], [ [[TMP4:%.*]], [[ATOMIC_CMP:%.*]] ]
-// CHK-C-NEXT:    store i32 [[TMP1]], i32* [[TMP]], align 4
 // CHK-C-NEXT:    store i32 [[TMP0]], i32* [[ATOMIC_TEMP]], align 4
 // CHK-C-NEXT:    [[TMP2:%.*]] = load i32, i32* [[ATOMIC_TEMP]], align 4
 // CHK-C-NEXT:    [[TMP3:%.*]] = cmpxchg i32* [[X]], i32 [[TMP1]], i32 [[TMP2]] monotonic monotonic, align 4
@@ -79,6 +78,7 @@
 // CHK-C-NEXT:    [[TMP5:%.*]] = extractvalue { i32, i1 } [[TMP3]], 1
 // CHK-C-NEXT:    br i1 [[TMP5]], label [[ATOMIC_EXIT]], label [[ATOMIC_CMP]]
 // CHK-C:       atomic_cmp:
+// CHK-C-NEXT:    store i32 [[TMP4]], i32* [[TMP]], align 4
 // CHK-C-NEXT:    [[CMP2:%.*]] = icmp sgt i32 [[TMP4]], [[TMP0]]
 // CHK-C-NEXT:    [[FROMBOOL3:%.*]] = zext i1 [[CMP2]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL3]], i8* [[ATMP1]], align 1
@@ -95,7 +95,6 @@
 // CHK-C-NEXT:    br i1 [[CMP6]], label [[ATOMIC_CONT9:%.*]], label [[ATOMIC_EXIT14:%.*]]
 // CHK-C:       atomic_cont9:
 // CHK-C-NEXT:    [[TMP9:%.*]] = phi i32 [ [[ATOMIC_LOAD4]], [[ATOMIC_EXIT]] ], [ [[TMP12:%.*]], [[ATOMIC_CMP11:%.*]] ]
-// CHK-C-NEXT:    store i32 [[TMP9]], i32* [[ATMP5]], align 4
 // CHK-C-NEXT:    store i32 [[TMP8]], i32* [[ATOMIC_TEMP10]], align 4
 // CHK-C-NEXT:    [[TMP10:%.*]] = load i32, i32* [[ATOMIC_TEMP10]], align 4
 // CHK-C-NEXT:    [[TMP11:%.*]] = cmpxchg i32* [[X]], i32 [[TMP9]], i32 [[TMP10]] monotonic monotonic, align 4
@@ -103,6 +102,7 @@
 // CHK-C-NEXT:    [[TMP13:%.*]] = extractvalue { i32, i1 } [[TMP11]], 1
 // CHK-C-NEXT:    br i1 [[TMP13]], label [[ATOMIC_EXIT14]], label [[ATOMIC_CMP11]]
 // CHK-C:       atomic_cmp11:
+// CHK-C-NEXT:    store i32 [[TMP12]], i32* [[ATMP5]], align 4
 // CHK-C-NEXT:    [[CMP12:%.*]] = icmp slt i32 [[TMP12]], [[TMP8]]
 // CHK-C-NEXT:    [[FROMBOOL13:%.*]] = zext i1 [[CMP12]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL13]], i8* [[ATMP7]], align 1
@@ -119,7 +119,6 @@
 // CHK-C-NEXT:    br i1 [[CMP17]], label [[ATOMIC_CONT20:%.*]], label [[ATOMIC_EXIT25:%.*]]
 // CHK-C:       atomic_cont20:
 // CHK-C-NEXT:    [[TMP17:%.*]] = phi i32 [ [[ATOMIC_LOAD15]], [[ATOMIC_EXIT14]] ], [ [[TMP20:%.*]], [[ATOMIC_CMP22:%.*]] ]
-// CHK-C-NEXT:    store i32 [[TMP17]], i32* [[ATMP16]], align 4
 // CHK-C-NEXT:    store i32 [[TMP16]], i32* [[ATOMIC_TEMP21]], align 4
 // CHK-C-NEXT:    [[TMP18:%.*]] = load i32, i32* [[ATOMIC_TEMP21]], align 4
 // CHK-C-NEXT:    [[TMP19:%.*]] = cmpxchg i32* [[X]], i32 [[TMP17]], i32 [[TMP18]] monotonic monotonic, align 4
@@ -127,6 +126,7 @@
 // CHK-C-NEXT:    [[TMP21:%.*]] = extractvalue { i32, i1 } [[TMP19]], 1
 // CHK-C-NEXT:    br i1 [[TMP21]], label [[ATOMIC_EXIT25]], label [[ATOMIC_CMP22]]
 // CHK-C:       atomic_cmp22:
+// CHK-C-NEXT:    store i32 [[TMP20]], i32* [[ATMP16]], align 4
 // CHK-C-NEXT:    [[CMP23:%.*]] = icmp slt i32 [[TMP20]], [[TMP16]]
 // CHK-C-NEXT:    [[FROMBOOL24:%.*]] = zext i1 [[CMP23]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL24]], i8* [[ATMP18]], align 1
@@ -143,7 +143,6 @@
 // CHK-C-NEXT:    br i1 [[CMP28]], label [[ATOMIC_CONT31:%.*]], label [[ATOMIC_EXIT36:%.*]]
 // CHK-C:       atomic_cont31:
 // CHK-C-NEXT:    [[TMP25:%.*]] = phi i32 [ [[ATOMIC_LOAD26]], [[ATOMIC_EXIT25]] ], [ [[TMP28:%.*]], [[ATOMIC_CMP33:%.*]] ]
-// CHK-C-NEXT:    store i32 [[TMP25]], i32* [[ATMP27]], align 4
 // CHK-C-NEXT:    store i32 [[TMP24]], i32* [[ATOMIC_TEMP32]], align 4
 // CHK-C-NEXT:    [[TMP26:%.*]] = load i32, i32* [[ATOMIC_TEMP32]], align 4
 // CHK-C-NEXT:    [[TMP27:%.*]] = cmpxchg i32* [[X]], i32 [[TMP25]], i32 [[TMP26]] monotonic monotonic, align 4
@@ -151,6 +150,7 @@
 // CHK-C-NEXT:    [[TMP29:%.*]] = extractvalue { i32, i1 } [[TMP27]], 1
 // CHK-C-NEXT:    br i1 [[TMP29]], label [[ATOMIC_EXIT36]], label [[ATOMIC_CMP33]]
 // CHK-C:       atomic_cmp33:
+// CHK-C-NEXT:    store i32 [[TMP28]], i32* [[ATMP27]], align 4
 // CHK-C-NEXT:    [[CMP34:%.*]] = icmp sgt i32 [[TMP28]], [[TMP24]]
 // CHK-C-NEXT:    [[FROMBOOL35:%.*]] = zext i1 [[CMP34]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL35]], i8* [[ATMP29]], align 1
@@ -168,7 +168,6 @@
 // CHK-C-NEXT:    br i1 [[CMP39]], label [[ATOMIC_CONT42:%.*]], label [[ATOMIC_EXIT47:%.*]]
 // CHK-C:       atomic_cont42:
 // CHK-C-NEXT:    [[TMP34:%.*]] = phi i32 [ [[ATOMIC_LOAD37]], [[ATOMIC_EXIT36]] ], [ [[TMP37:%.*]], [[ATOMIC_CMP44:%.*]] ]
-// CHK-C-NEXT:    store i32 [[TMP34]], i32* [[ATMP38]], align 4
 // CHK-C-NEXT:    store i32 [[TMP32]], i32* [[ATOMIC_TEMP43]], align 4
 // CHK-C-NEXT:    [[TMP35:%.*]] = load i32, i32* [[ATOMIC_TEMP43]], align 4
 // CHK-C-NEXT:    [[TMP36:%.*]] = cmpxchg i32* [[X]], i32 [[TMP34]], i32 [[TMP35]] monotonic monotonic, align 4
@@ -176,6 +175,7 @@
 // CHK-C-NEXT:    [[TMP38:%.*]] = extractvalue { i32, i1 } [[TMP36]], 1
 // CHK-C-NEXT:    br i1 [[TMP38]], label [[ATOMIC_EXIT47]], label [[ATOMIC_CMP44]]
 // CHK-C:       atomic_cmp44:
+// CHK-C-NEXT:    store i32 [[TMP37]], i32* [[ATMP38]], align 4
 // CHK-C-NEXT:    [[CMP45:%.*]] = icmp eq i32 [[TMP37]], [[TMP33]]
 // CHK-C-NEXT:    [[FROMBOOL46:%.*]] = zext i1 [[CMP45]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL46]], i8* [[ATMP40]], align 1
@@ -192,7 +192,6 @@
 // CHK-C-NEXT:    br i1 [[CMP50]], label [[ATOMIC_CONT53:%.*]], label [[ATOMIC_EXIT58:%.*]]
 // CHK-C:       atomic_cont53:
 // CHK-C-NEXT:    [[TMP42:%.*]] = phi i32 [ [[ATOMIC_LOAD48]], [[ATOMIC_EXIT47]] ], [ [[TMP45:%.*]], [[ATOMIC_CMP55:%.*]] ]
-// CHK-C-NEXT:    store i32 [[TMP42]], i32* [[ATMP49]], align 4
 // CHK-C-NEXT:    store i32 [[TMP41]], i32* [[ATOMIC_TEMP54]], align 4
 // CHK-C-NEXT:    [[TMP43:%.*]] = load i32, i32* [[ATOMIC_TEMP54]], align 4
 // CHK-C-NEXT:    [[TMP44:%.*]] = cmpxchg i32* [[X]], i32 [[TMP42]], i32 [[TMP43]] monotonic monotonic, align 4
@@ -200,6 +199,7 @@
 // CHK-C-NEXT:    [[TMP46:%.*]] = extractvalue { i32, i1 } [[TMP44]], 1
 // CHK-C-NEXT:    br i1 [[TMP46]], label [[ATOMIC_EXIT58]], label [[ATOMIC_CMP55]]
 // CHK-C:       atomic_cmp55:
+// CHK-C-NEXT:    store i32 [[TMP45]], i32* [[ATMP49]], align 4
 // CHK-C-NEXT:    [[CMP56:%.*]] = icmp sgt i32 [[TMP45]], [[TMP41]]
 // CHK-C-NEXT:    [[FROMBOOL57:%.*]] = zext i1 [[CMP56]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL57]], i8* [[ATMP51]], align 1
@@ -216,7 +216,6 @@
 // CHK-C-NEXT:    br i1 [[CMP61]], label [[ATOMIC_CONT64:%.*]], label [[ATOMIC_EXIT69:%.*]]
 // CHK-C:       atomic_cont64:
 // CHK-C-NEXT:    [[TMP50:%.*]] = phi i32 [ [[ATOMIC_LOAD59]], [[ATOMIC_EXIT58]] ], [ [[TMP53:%.*]], [[ATOMIC_CMP66:%.*]] ]
-// CHK-C-NEXT:    store i32 [[TMP50]], i32* [[ATMP60]], align 4
 // CHK-C-NEXT:    store i32 [[TMP49]], i32* [[ATOMIC_TEMP65]], align 4
 // CHK-C-NEXT:    [[TMP51:%.*]] = load i32, i32* [[ATOMIC_TEMP65]], align 4
 // CHK-C-NEXT:    [[TMP52:%.*]] = cmpxchg i32* [[X]], i32 [[TMP50]], i32 [[TMP51]] monotonic monotonic, align 4
@@ -224,6 +223,7 @@
 // CHK-C-NEXT:    [[TMP54:%.*]] = extractvalue { i32, i1 } [[TMP52]], 1
 // CHK-C-NEXT:    br i1 [[TMP54]], label [[ATOMIC_EXIT69]], label [[ATOMIC_CMP66]]
 // CHK-C:       atomic_cmp66:
+// CHK-C-NEXT:    store i32 [[TMP53]], i32* [[ATMP60]], align 4
 // CHK-C-NEXT:    [[CMP67:%.*]] = icmp slt i32 [[TMP53]], [[TMP49]]
 // CHK-C-NEXT:    [[FROMBOOL68:%.*]] = zext i1 [[CMP67]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL68]], i8* [[ATMP62]], align 1
@@ -240,7 +240,6 @@
 // CHK-C-NEXT:    br i1 [[CMP72]], label [[ATOMIC_CONT75:%.*]], label [[ATOMIC_EXIT80:%.*]]
 // CHK-C:       atomic_cont75:
 // CHK-C-NEXT:    [[TMP58:%.*]] = phi i32 [ [[ATOMIC_LOAD70]], [[ATOMIC_EXIT69]] ], [ [[TMP61:%.*]], [[ATOMIC_CMP77:%.*]] ]
-// CHK-C-NEXT:    store i32 [[TMP58]], i32* [[ATMP71]], align 4
 // CHK-C-NEXT:    store i32 [[TMP57]], i32* [[ATOMIC_TEMP76]], align 4
 // CHK-C-NEXT:    [[TMP59:%.*]] = load i32, i32* [[ATOMIC_TEMP76]], align 4
 // CHK-C-NEXT:    [[TMP60:%.*]] = cmpxchg i32* [[X]], i32 [[TMP58]], i32 [[TMP59]] monotonic monotonic, align 4
@@ -248,6 +247,7 @@
 // CHK-C-NEXT:    [[TMP62:%.*]] = extractvalue { i32, i1 } [[TMP60]], 1
 // CHK-C-NEXT:    br i1 [[TMP62]], label [[ATOMIC_EXIT80]], label [[ATOMIC_CMP77]]
 // CHK-C:       atomic_cmp77:
+// CHK-C-NEXT:    store i32 [[TMP61]], i32* [[ATMP71]], align 4
 // CHK-C-NEXT:    [[CMP78:%.*]] = icmp slt i32 [[TMP61]], [[TMP57]]
 // CHK-C-NEXT:    [[FROMBOOL79:%.*]] = zext i1 [[CMP78]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL79]], i8* [[ATMP73]], align 1
@@ -264,7 +264,6 @@
 // CHK-C-NEXT:    br i1 [[CMP83]], label [[ATOMIC_CONT86:%.*]], label [[ATOMIC_EXIT91:%.*]]
 // CHK-C:       atomic_cont86:
 // CHK-C-NEXT:    [[TMP66:%.*]] = phi i32 [ [[ATOMIC_LOAD81]], [[ATOMIC_EXIT80]] ], [ [[TMP69:%.*]], [[ATOMIC_CMP88:%.*]] ]
-// CHK-C-NEXT:    store i32 [[TMP66]], i32* [[ATMP82]], align 4
 // CHK-C-NEXT:    store i32 [[TMP65]], i32* [[ATOMIC_TEMP87]], align 4
 // CHK-C-NEXT:    [[TMP67:%.*]] = load i32, i32* [[ATOMIC_TEMP87]], align 4
 // CHK-C-NEXT:    [[TMP68:%.*]] = cmpxchg i32* [[X]], i32 [[TMP66]], i32 [[TMP67]] monotonic monotonic, align 4
@@ -272,6 +271,7 @@
 // CHK-C-NEXT:    [[TMP70:%.*]] = extractvalue { i32, i1 } [[TMP68]], 1
 // CHK-C-NEXT:    br i1 [[TMP70]], label [[ATOMIC_EXIT91]], label [[ATOMIC_CMP88]]
 // CHK-C:       atomic_cmp88:
+// CHK-C-NEXT:    store i32 [[TMP69]], i32* [[ATMP82]], align 4
 // CHK-C-NEXT:    [[CMP89:%.*]] = icmp sgt i32 [[TMP69]], [[TMP65]]
 // CHK-C-NEXT:    [[FROMBOOL90:%.*]] = zext i1 [[CMP89]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL90]], i8* [[ATMP84]], align 1
@@ -289,7 +289,6 @@
 // CHK-C-NEXT:    br i1 [[CMP94]], label [[ATOMIC_CONT97:%.*]], label [[ATOMIC_EXIT102:%.*]]
 // CHK-C:       atomic_cont97:
 // CHK-C-NEXT:    [[TMP75:%.*]] = phi i32 [ [[ATOMIC_LOAD92]], [[ATOMIC_EXIT91]] ], [ [[TMP78:%.*]], [[ATOMIC_CMP99:%.*]] ]
-// CHK-C-NEXT:    store i32 [[TMP75]], i32* [[ATMP93]], align 4
 // CHK-C-NEXT:    store i32 [[TMP73]], i32* [[ATOMIC_TEMP98]], align 4
 // CHK-C-NEXT:    [[TMP76:%.*]] = load i32, i32* [[ATOMIC_TEMP98]], align 4
 // CHK-C-NEXT:    [[TMP77:%.*]] = cmpxchg i32* [[X]], i32 [[TMP75]], i32 [[TMP76]] monotonic monotonic, align 4
@@ -297,6 +296,7 @@
 // CHK-C-NEXT:    [[TMP79:%.*]] = extractvalue { i32, i1 } [[TMP77]], 1
 // CHK-C-NEXT:    br i1 [[TMP79]], label [[ATOMIC_EXIT102]], label [[ATOMIC_CMP99]]
 // CHK-C:       atomic_cmp99:
+// CHK-C-NEXT:    store i32 [[TMP78]], i32* [[ATMP93]], align 4
 // CHK-C-NEXT:    [[CMP100:%.*]] = icmp eq i32 [[TMP78]], [[TMP74]]
 // CHK-C-NEXT:    [[FROMBOOL101:%.*]] = zext i1 [[CMP100]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL101]], i8* [[ATMP95]], align 1
@@ -351,7 +351,6 @@
 // CHK-CXX-NEXT:    br i1 [[CMP]], label [[ATOMIC_CONT:%.*]], label [[ATOMIC_EXIT:%.*]]
 // CHK-CXX:       atomic_cont:
 // CHK-CXX-NEXT:    [[TMP1:%.*]] = phi i32 [ [[ATOMIC_LOAD]], [[ENTRY:%.*]] ], [ [[TMP4:%.*]], [[ATOMIC_CMP:%.*]] ]
-// CHK-CXX-NEXT:    store i32 [[TMP1]], i32* [[TMP]], align 4
 // CHK-CXX-NEXT:    store i32 [[TMP0]], i32* [[ATOMIC_TEMP]], align 4
 // CHK-CXX-NEXT:    [[TMP2:%.*]] = load i32, i32* [[ATOMIC_TEMP]], align 4
 // CHK-CXX-NEXT:    [[TMP3:%.*]] = cmpxchg i32* [[X]], i32 [[TMP1]], i32 [[TMP2]] monotonic monotonic, align 4
@@ -359,6 +358,7 @@
 // CHK-CXX-NEXT:    [[TMP5:%.*]] = extractvalue { i32, i1 } [[TMP3]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP5]], label [[ATOMIC_EXIT]], label [[ATOMIC_CMP]]
 // CHK-CXX:       atomic_cmp:
+// CHK-CXX-NEXT:    store i32 [[TMP4]], i32* [[TMP]], align 4
 // CHK-CXX-NEXT:    [[CMP2:%.*]] = icmp sgt i32 [[TMP4]], [[TMP0]]
 // CHK-CXX-NEXT:    [[FROMBOOL3:%.*]] = zext i1 [[CMP2]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL3]], i8* [[ATMP1]], align 1
@@ -375,7 +375,6 @@
 // CHK-CXX-NEXT:    br i1 [[CMP6]], label [[ATOMIC_CONT9:%.*]], label [[ATOMIC_EXIT14:%.*]]
 // CHK-CXX:       atomic_cont9:
 // CHK-CXX-NEXT:    [[TMP9:%.*]] = phi i32 [ [[ATOMIC_LOAD4]], [[ATOMIC_EXIT]] ], [ [[TMP12:%.*]], [[ATOMIC_CMP11:%.*]] ]
-// CHK-CXX-NEXT:    store i32 [[TMP9]], i32* [[ATMP5]], align 4
 // CHK-CXX-NEXT:    store i32 [[TMP8]], i32* [[ATOMIC_TEMP10]], align 4
 // CHK-CXX-NEXT:    [[TMP10:%.*]] = load i32, i32* [[ATOMIC_TEMP10]], align 4
 // CHK-CXX-NEXT:    [[TMP11:%.*]] = cmpxchg i32* [[X]], i32 [[TMP9]], i32 [[TMP10]] monotonic monotonic, align 4
@@ -383,6 +382,7 @@
 // CHK-CXX-NEXT:    [[TMP13:%.*]] = extractvalue { i32, i1 } [[TMP11]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP13]], label [[ATOMIC_EXIT14]], label [[ATOMIC_CMP11]]
 // CHK-CXX:       atomic_cmp11:
+// CHK-CXX-NEXT:    store i32 [[TMP12]], i32* [[ATMP5]], align 4
 // CHK-CXX-NEXT:    [[CMP12:%.*]] = icmp slt i32 [[TMP12]], [[TMP8]]
 // CHK-CXX-NEXT:    [[FROMBOOL13:%.*]] = zext i1 [[CMP12]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL13]], i8* [[ATMP7]], align 1
@@ -399,7 +399,6 @@
 // CHK-CXX-NEXT:    br i1 [[CMP17]], label [[ATOMIC_CONT20:%.*]], label [[ATOMIC_EXIT25:%.*]]
 // CHK-CXX:       atomic_cont20:
 // CHK-CXX-NEXT:    [[TMP17:%.*]] = phi i32 [ [[ATOMIC_LOAD15]], [[ATOMIC_EXIT14]] ], [ [[TMP20:%.*]], [[ATOMIC_CMP22:%.*]] ]
-// CHK-CXX-NEXT:    store i32 [[TMP17]], i32* [[ATMP16]], align 4
 // CHK-CXX-NEXT:    store i32 [[TMP16]], i32* [[ATOMIC_TEMP21]], align 4
 // CHK-CXX-NEXT:    [[TMP18:%.*]] = load i32, i32* [[ATOMIC_TEMP21]], align 4
 // CHK-CXX-NEXT:    [[TMP19:%.*]] = cmpxchg i32* [[X]], i32 [[TMP17]], i32 [[TMP18]] monotonic monotonic, align 4
@@ -407,6 +406,7 @@
 // CHK-CXX-NEXT:    [[TMP21:%.*]] = extractvalue { i32, i1 } [[TMP19]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP21]], label [[ATOMIC_EXIT25]], label [[ATOMIC_CMP22]]
 // CHK-CXX:       atomic_cmp22:
+// CHK-CXX-NEXT:    store i32 [[TMP20]], i32* [[ATMP16]], align 4
 // CHK-CXX-NEXT:    [[CMP23:%.*]] = icmp slt i32 [[TMP20]], [[TMP16]]
 // CHK-CXX-NEXT:    [[FROMBOOL24:%.*]] = zext i1 [[CMP23]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL24]], i8* [[ATMP18]], align 1
@@ -423,7 +423,6 @@
 // CHK-CXX-NEXT:    br i1 [[CMP28]], label [[ATOMIC_CONT31:%.*]], label [[ATOMIC_EXIT36:%.*]]
 // CHK-CXX:       atomic_cont31:
 // CHK-CXX-NEXT:    [[TMP25:%.*]] = phi i32 [ [[ATOMIC_LOAD26]], [[ATOMIC_EXIT25]] ], [ [[TMP28:%.*]], [[ATOMIC_CMP33:%.*]] ]
-// CHK-CXX-NEXT:    store i32 [[TMP25]], i32* [[ATMP27]], align 4
 // CHK-CXX-NEXT:    store i32 [[TMP24]], i32* [[ATOMIC_TEMP32]], align 4
 // CHK-CXX-NEXT:    [[TMP26:%.*]] = load i32, i32* [[ATOMIC_TEMP32]], align 4
 // CHK-CXX-NEXT:    [[TMP27:%.*]] = cmpxchg i32* [[X]], i32 [[TMP25]], i32 [[TMP26]] monotonic monotonic, align 4
@@ -431,6 +430,7 @@
 // CHK-CXX-NEXT:    [[TMP29:%.*]] = extractvalue { i32, i1 } [[TMP27]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP29]], label [[ATOMIC_EXIT36]], label [[ATOMIC_CMP33]]
 // CHK-CXX:       atomic_cmp33:
+// CHK-CXX-NEXT:    store i32 [[TMP28]], i32* [[ATMP27]], align 4
 // CHK-CXX-NEXT:    [[CMP34:%.*]] = icmp sgt i32 [[TMP28]], [[TMP24]]
 // CHK-CXX-NEXT:    [[FROMBOOL35:%.*]] = zext i1 [[CMP34]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL35]], i8* [[ATMP29]], align 1
@@ -448,7 +448,6 @@
 // CHK-CXX-NEXT:    br i1 [[CMP39]], label [[ATOMIC_CONT42:%.*]], label [[ATOMIC_EXIT47:%.*]]
 // CHK-CXX:       atomic_cont42:
 // CHK-CXX-NEXT:    [[TMP34:%.*]] = phi i32 [ [[ATOMIC_LOAD37]], [[ATOMIC_EXIT36]] ], [ [[TMP37:%.*]], [[ATOMIC_CMP44:%.*]] ]
-// CHK-CXX-NEXT:    store i32 [[TMP34]], i32* [[ATMP38]], align 4
 // CHK-CXX-NEXT:    store i32 [[TMP32]], i32* [[ATOMIC_TEMP43]], align 4
 // CHK-CXX-NEXT:    [[TMP35:%.*]] = load i32, i32* [[ATOMIC_TEMP43]], align 4
 // CHK-CXX-NEXT:    [[TMP36:%.*]] = cmpxchg i32* [[X]], i32 [[TMP34]], i32 [[TMP35]] monotonic monotonic, align 4
@@ -456,6 +455,7 @@
 // CHK-CXX-NEXT:    [[TMP38:%.*]] = extractvalue { i32, i1 } [[TMP36]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP38]], label [[ATOMIC_EXIT47]], label [[ATOMIC_CMP44]]
 // CHK-CXX:       atomic_cmp44:
+// CHK-CXX-NEXT:    store i32 [[TMP37]], i32* [[ATMP38]], align 4
 // CHK-CXX-NEXT:    [[CMP45:%.*]] = icmp eq i32 [[TMP37]], [[TMP33]]
 // CHK-CXX-NEXT:    [[FROMBOOL46:%.*]] = zext i1 [[CMP45]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL46]], i8* [[ATMP40]], align 1
@@ -472,7 +472,6 @@
 // CHK-CXX-NEXT:    br i1 [[CMP50]], label [[ATOMIC_CONT53:%.*]], label [[ATOMIC_EXIT58:%.*]]
 // CHK-CXX:       atomic_cont53:
 // CHK-CXX-NEXT:    [[TMP42:%.*]] = phi i32 [ [[ATOMIC_LOAD48]], [[ATOMIC_EXIT47]] ], [ [[TMP45:%.*]], [[ATOMIC_CMP55:%.*]] ]
-// CHK-CXX-NEXT:    store i32 [[TMP42]], i32* [[ATMP49]], align 4
 // CHK-CXX-NEXT:    store i32 [[TMP41]], i32* [[ATOMIC_TEMP54]], align 4
 // CHK-CXX-NEXT:    [[TMP43:%.*]] = load i32, i32* [[ATOMIC_TEMP54]], align 4
 // CHK-CXX-NEXT:    [[TMP44:%.*]] = cmpxchg i32* [[X]], i32 [[TMP42]], i32 [[TMP43]] monotonic monotonic, align 4
@@ -480,6 +479,7 @@
 // CHK-CXX-NEXT:    [[TMP46:%.*]] = extractvalue { i32, i1 } [[TMP44]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP46]], label [[ATOMIC_EXIT58]], label [[ATOMIC_CMP55]]
 // CHK-CXX:       atomic_cmp55:
+// CHK-CXX-NEXT:    store i32 [[TMP45]], i32* [[ATMP49]], align 4
 // CHK-CXX-NEXT:    [[CMP56:%.*]] = icmp sgt i32 [[TMP45]], [[TMP41]]
 // CHK-CXX-NEXT:    [[FROMBOOL57:%.*]] = zext i1 [[CMP56]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL57]], i8* [[ATMP51]], align 1
@@ -496,7 +496,6 @@
 // CHK-CXX-NEXT:    br i1 [[CMP61]], label [[ATOMIC_CONT64:%.*]], label [[ATOMIC_EXIT69:%.*]]
 // CHK-CXX:       atomic_cont64:
 // CHK-CXX-NEXT:    [[TMP50:%.*]] = phi i32 [ [[ATOMIC_LOAD59]], [[ATOMIC_EXIT58]] ], [ [[TMP53:%.*]], [[ATOMIC_CMP66:%.*]] ]
-// CHK-CXX-NEXT:    store i32 [[TMP50]], i32* [[ATMP60]], align 4
 // CHK-CXX-NEXT:    store i32 [[TMP49]], i32* [[ATOMIC_TEMP65]], align 4
 // CHK-CXX-NEXT:    [[TMP51:%.*]] = load i32, i32* [[ATOMIC_TEMP65]], align 4
 // CHK-CXX-NEXT:    [[TMP52:%.*]] = cmpxchg i32* [[X]], i32 [[TMP50]], i32 [[TMP51]] monotonic monotonic, align 4
@@ -504,6 +503,7 @@
 // CHK-CXX-NEXT:    [[TMP54:%.*]] = extractvalue { i32, i1 } [[TMP52]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP54]], label [[ATOMIC_EXIT69]], label [[ATOMIC_CMP66]]
 // CHK-CXX:       atomic_cmp66:
+// CHK-CXX-NEXT:    store i32 [[TMP53]], i32* [[ATMP60]], align 4
 // CHK-CXX-NEXT:    [[CMP67:%.*]] = icmp slt i32 [[TMP53]], [[TMP49]]
 // CHK-CXX-NEXT:    [[FROMBOOL68:%.*]] = zext i1 [[CMP67]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL68]], i8* [[ATMP62]], align 1
@@ -520,7 +520,6 @@
 // CHK-CXX-NEXT:    br i1 [[CMP72]], label [[ATOMIC_CONT75:%.*]], label [[ATOMIC_EXIT80:%.*]]
 // CHK-CXX:       atomic_cont75:
 // CHK-CXX-NEXT:    [[TMP58:%.*]] = phi i32 [ [[ATOMIC_LOAD70]], [[ATOMIC_EXIT69]] ], [ [[TMP61:%.*]], [[ATOMIC_CMP77:%.*]] ]
-// CHK-CXX-NEXT:    store i32 [[TMP58]], i32* [[ATMP71]], align 4
 // CHK-CXX-NEXT:    store i32 [[TMP57]], i32* [[ATOMIC_TEMP76]], align 4
 // CHK-CXX-NEXT:    [[TMP59:%.*]] = load i32, i32* [[ATOMIC_TEMP76]], align 4
 // CHK-CXX-NEXT:    [[TMP60:%.*]] = cmpxchg i32* [[X]], i32 [[TMP58]], i32 [[TMP59]] monotonic monotonic, align 4
@@ -528,6 +527,7 @@
 // CHK-CXX-NEXT:    [[TMP62:%.*]] = extractvalue { i32, i1 } [[TMP60]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP62]], label [[ATOMIC_EXIT80]], label [[ATOMIC_CMP77]]
 // CHK-CXX:       atomic_cmp77:
+// CHK-CXX-NEXT:    store i32 [[TMP61]], i32* [[ATMP71]], align 4
 // CHK-CXX-NEXT:    [[CMP78:%.*]] = icmp slt i32 [[TMP61]], [[TMP57]]
 // CHK-CXX-NEXT:    [[FROMBOOL79:%.*]] = zext i1 [[CMP78]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL79]], i8* [[ATMP73]], align 1
@@ -544,7 +544,6 @@
 // CHK-CXX-NEXT:    br i1 [[CMP83]], label [[ATOMIC_CONT86:%.*]], label [[ATOMIC_EXIT91:%.*]]
 // CHK-CXX:       atomic_cont86:
 // CHK-CXX-NEXT:    [[TMP66:%.*]] = phi i32 [ [[ATOMIC_LOAD81]], [[ATOMIC_EXIT80]] ], [ [[TMP69:%.*]], [[ATOMIC_CMP88:%.*]] ]
-// CHK-CXX-NEXT:    store i32 [[TMP66]], i32* [[ATMP82]], align 4
 // CHK-CXX-NEXT:    store i32 [[TMP65]], i32* [[ATOMIC_TEMP87]], align 4
 // CHK-CXX-NEXT:    [[TMP67:%.*]] = load i32, i32* [[ATOMIC_TEMP87]], align 4
 // CHK-CXX-NEXT:    [[TMP68:%.*]] = cmpxchg i32* [[X]], i32 [[TMP66]], i32 [[TMP67]] monotonic monotonic, align 4
@@ -552,6 +551,7 @@
 // CHK-CXX-NEXT:    [[TMP70:%.*]] = extractvalue { i32, i1 } [[TMP68]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP70]], label [[ATOMIC_EXIT91]], label [[ATOMIC_CMP88]]
 // CHK-CXX:       atomic_cmp88:
+// CHK-CXX-NEXT:    store i32 [[TMP69]], i32* [[ATMP82]], align 4
 // CHK-CXX-NEXT:    [[CMP89:%.*]] = icmp sgt i32 [[TMP69]], [[TMP65]]
 // CHK-CXX-NEXT:    [[FROMBOOL90:%.*]] = zext i1 [[CMP89]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL90]], i8* [[ATMP84]], align 1
@@ -569,7 +569,6 @@
 // CHK-CXX-NEXT:    br i1 [[CMP94]], label [[ATOMIC_CONT97:%.*]], label [[ATOMIC_EXIT102:%.*]]
 // CHK-CXX:       atomic_cont97:
 // CHK-CXX-NEXT:    [[TMP75:%.*]] = phi i32 [ [[ATOMIC_LOAD92]], [[ATOMIC_EXIT91]] ], [ [[TMP78:%.*]], [[ATOMIC_CMP99:%.*]] ]
-// CHK-CXX-NEXT:    store i32 [[TMP75]], i32* [[ATMP93]], align 4
 // CHK-CXX-NEXT:    store i32 [[TMP73]], i32* [[ATOMIC_TEMP98]], align 4
 // CHK-CXX-NEXT:    [[TMP76:%.*]] = load i32, i32* [[ATOMIC_TEMP98]], align 4
 // CHK-CXX-NEXT:    [[TMP77:%.*]] = cmpxchg i32* [[X]], i32 [[TMP75]], i32 [[TMP76]] monotonic monotonic, align 4
@@ -577,6 +576,7 @@
 // CHK-CXX-NEXT:    [[TMP79:%.*]] = extractvalue { i32, i1 } [[TMP77]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP79]], label [[ATOMIC_EXIT102]], label [[ATOMIC_CMP99]]
 // CHK-CXX:       atomic_cmp99:
+// CHK-CXX-NEXT:    store i32 [[TMP78]], i32* [[ATMP93]], align 4
 // CHK-CXX-NEXT:    [[CMP100:%.*]] = icmp eq i32 [[TMP78]], [[TMP74]]
 // CHK-CXX-NEXT:    [[FROMBOOL101:%.*]] = zext i1 [[CMP100]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL101]], i8* [[ATMP95]], align 1
@@ -676,7 +676,6 @@ void test_int() {
 // CHK-C-NEXT:    br i1 [[CMP]], label [[ATOMIC_CONT:%.*]], label [[ATOMIC_EXIT:%.*]]
 // CHK-C:       atomic_cont:
 // CHK-C-NEXT:    [[TMP1:%.*]] = phi i16 [ [[ATOMIC_LOAD]], [[ENTRY:%.*]] ], [ [[TMP4:%.*]], [[ATOMIC_CMP:%.*]] ]
-// CHK-C-NEXT:    store i16 [[TMP1]], i16* [[TMP]], align 2
 // CHK-C-NEXT:    store i16 [[TMP0]], i16* [[ATOMIC_TEMP]], align 2
 // CHK-C-NEXT:    [[TMP2:%.*]] = load i16, i16* [[ATOMIC_TEMP]], align 2
 // CHK-C-NEXT:    [[TMP3:%.*]] = cmpxchg i16* [[X]], i16 [[TMP1]], i16 [[TMP2]] monotonic monotonic, align 2
@@ -684,6 +683,7 @@ void test_int() {
 // CHK-C-NEXT:    [[TMP5:%.*]] = extractvalue { i16, i1 } [[TMP3]], 1
 // CHK-C-NEXT:    br i1 [[TMP5]], label [[ATOMIC_EXIT]], label [[ATOMIC_CMP]]
 // CHK-C:       atomic_cmp:
+// CHK-C-NEXT:    store i16 [[TMP4]], i16* [[TMP]], align 2
 // CHK-C-NEXT:    [[CMP2:%.*]] = icmp ugt i16 [[TMP4]], [[TMP0]]
 // CHK-C-NEXT:    [[FROMBOOL3:%.*]] = zext i1 [[CMP2]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL3]], i8* [[ATMP1]], align 1
@@ -700,7 +700,6 @@ void test_int() {
 // CHK-C-NEXT:    br i1 [[CMP6]], label [[ATOMIC_CONT9:%.*]], label [[ATOMIC_EXIT14:%.*]]
 // CHK-C:       atomic_cont9:
 // CHK-C-NEXT:    [[TMP9:%.*]] = phi i16 [ [[ATOMIC_LOAD4]], [[ATOMIC_EXIT]] ], [ [[TMP12:%.*]], [[ATOMIC_CMP11:%.*]] ]
-// CHK-C-NEXT:    store i16 [[TMP9]], i16* [[ATMP5]], align 2
 // CHK-C-NEXT:    store i16 [[TMP8]], i16* [[ATOMIC_TEMP10]], align 2
 // CHK-C-NEXT:    [[TMP10:%.*]] = load i16, i16* [[ATOMIC_TEMP10]], align 2
 // CHK-C-NEXT:    [[TMP11:%.*]] = cmpxchg i16* [[X]], i16 [[TMP9]], i16 [[TMP10]] monotonic monotonic, align 2
@@ -708,6 +707,7 @@ void test_int() {
 // CHK-C-NEXT:    [[TMP13:%.*]] = extractvalue { i16, i1 } [[TMP11]], 1
 // CHK-C-NEXT:    br i1 [[TMP13]], label [[ATOMIC_EXIT14]], label [[ATOMIC_CMP11]]
 // CHK-C:       atomic_cmp11:
+// CHK-C-NEXT:    store i16 [[TMP12]], i16* [[ATMP5]], align 2
 // CHK-C-NEXT:    [[CMP12:%.*]] = icmp ult i16 [[TMP12]], [[TMP8]]
 // CHK-C-NEXT:    [[FROMBOOL13:%.*]] = zext i1 [[CMP12]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL13]], i8* [[ATMP7]], align 1
@@ -724,7 +724,6 @@ void test_int() {
 // CHK-C-NEXT:    br i1 [[CMP17]], label [[ATOMIC_CONT20:%.*]], label [[ATOMIC_EXIT25:%.*]]
 // CHK-C:       atomic_cont20:
 // CHK-C-NEXT:    [[TMP17:%.*]] = phi i16 [ [[ATOMIC_LOAD15]], [[ATOMIC_EXIT14]] ], [ [[TMP20:%.*]], [[ATOMIC_CMP22:%.*]] ]
-// CHK-C-NEXT:    store i16 [[TMP17]], i16* [[ATMP16]], align 2
 // CHK-C-NEXT:    store i16 [[TMP16]], i16* [[ATOMIC_TEMP21]], align 2
 // CHK-C-NEXT:    [[TMP18:%.*]] = load i16, i16* [[ATOMIC_TEMP21]], align 2
 // CHK-C-NEXT:    [[TMP19:%.*]] = cmpxchg i16* [[X]], i16 [[TMP17]], i16 [[TMP18]] monotonic monotonic, align 2
@@ -732,6 +731,7 @@ void test_int() {
 // CHK-C-NEXT:    [[TMP21:%.*]] = extractvalue { i16, i1 } [[TMP19]], 1
 // CHK-C-NEXT:    br i1 [[TMP21]], label [[ATOMIC_EXIT25]], label [[ATOMIC_CMP22]]
 // CHK-C:       atomic_cmp22:
+// CHK-C-NEXT:    store i16 [[TMP20]], i16* [[ATMP16]], align 2
 // CHK-C-NEXT:    [[CMP23:%.*]] = icmp ult i16 [[TMP20]], [[TMP16]]
 // CHK-C-NEXT:    [[FROMBOOL24:%.*]] = zext i1 [[CMP23]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL24]], i8* [[ATMP18]], align 1
@@ -748,7 +748,6 @@ void test_int() {
 // CHK-C-NEXT:    br i1 [[CMP28]], label [[ATOMIC_CONT31:%.*]], label [[ATOMIC_EXIT36:%.*]]
 // CHK-C:       atomic_cont31:
 // CHK-C-NEXT:    [[TMP25:%.*]] = phi i16 [ [[ATOMIC_LOAD26]], [[ATOMIC_EXIT25]] ], [ [[TMP28:%.*]], [[ATOMIC_CMP33:%.*]] ]
-// CHK-C-NEXT:    store i16 [[TMP25]], i16* [[ATMP27]], align 2
 // CHK-C-NEXT:    store i16 [[TMP24]], i16* [[ATOMIC_TEMP32]], align 2
 // CHK-C-NEXT:    [[TMP26:%.*]] = load i16, i16* [[ATOMIC_TEMP32]], align 2
 // CHK-C-NEXT:    [[TMP27:%.*]] = cmpxchg i16* [[X]], i16 [[TMP25]], i16 [[TMP26]] monotonic monotonic, align 2
@@ -756,6 +755,7 @@ void test_int() {
 // CHK-C-NEXT:    [[TMP29:%.*]] = extractvalue { i16, i1 } [[TMP27]], 1
 // CHK-C-NEXT:    br i1 [[TMP29]], label [[ATOMIC_EXIT36]], label [[ATOMIC_CMP33]]
 // CHK-C:       atomic_cmp33:
+// CHK-C-NEXT:    store i16 [[TMP28]], i16* [[ATMP27]], align 2
 // CHK-C-NEXT:    [[CMP34:%.*]] = icmp ugt i16 [[TMP28]], [[TMP24]]
 // CHK-C-NEXT:    [[FROMBOOL35:%.*]] = zext i1 [[CMP34]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL35]], i8* [[ATMP29]], align 1
@@ -773,7 +773,6 @@ void test_int() {
 // CHK-C-NEXT:    br i1 [[CMP39]], label [[ATOMIC_CONT42:%.*]], label [[ATOMIC_EXIT47:%.*]]
 // CHK-C:       atomic_cont42:
 // CHK-C-NEXT:    [[TMP34:%.*]] = phi i16 [ [[ATOMIC_LOAD37]], [[ATOMIC_EXIT36]] ], [ [[TMP37:%.*]], [[ATOMIC_CMP44:%.*]] ]
-// CHK-C-NEXT:    store i16 [[TMP34]], i16* [[ATMP38]], align 2
 // CHK-C-NEXT:    store i16 [[TMP32]], i16* [[ATOMIC_TEMP43]], align 2
 // CHK-C-NEXT:    [[TMP35:%.*]] = load i16, i16* [[ATOMIC_TEMP43]], align 2
 // CHK-C-NEXT:    [[TMP36:%.*]] = cmpxchg i16* [[X]], i16 [[TMP34]], i16 [[TMP35]] monotonic monotonic, align 2
@@ -781,6 +780,7 @@ void test_int() {
 // CHK-C-NEXT:    [[TMP38:%.*]] = extractvalue { i16, i1 } [[TMP36]], 1
 // CHK-C-NEXT:    br i1 [[TMP38]], label [[ATOMIC_EXIT47]], label [[ATOMIC_CMP44]]
 // CHK-C:       atomic_cmp44:
+// CHK-C-NEXT:    store i16 [[TMP37]], i16* [[ATMP38]], align 2
 // CHK-C-NEXT:    [[CMP45:%.*]] = icmp eq i16 [[TMP37]], [[TMP33]]
 // CHK-C-NEXT:    [[FROMBOOL46:%.*]] = zext i1 [[CMP45]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL46]], i8* [[ATMP40]], align 1
@@ -797,7 +797,6 @@ void test_int() {
 // CHK-C-NEXT:    br i1 [[CMP50]], label [[ATOMIC_CONT53:%.*]], label [[ATOMIC_EXIT58:%.*]]
 // CHK-C:       atomic_cont53:
 // CHK-C-NEXT:    [[TMP42:%.*]] = phi i16 [ [[ATOMIC_LOAD48]], [[ATOMIC_EXIT47]] ], [ [[TMP45:%.*]], [[ATOMIC_CMP55:%.*]] ]
-// CHK-C-NEXT:    store i16 [[TMP42]], i16* [[ATMP49]], align 2
 // CHK-C-NEXT:    store i16 [[TMP41]], i16* [[ATOMIC_TEMP54]], align 2
 // CHK-C-NEXT:    [[TMP43:%.*]] = load i16, i16* [[ATOMIC_TEMP54]], align 2
 // CHK-C-NEXT:    [[TMP44:%.*]] = cmpxchg i16* [[X]], i16 [[TMP42]], i16 [[TMP43]] monotonic monotonic, align 2
@@ -805,6 +804,7 @@ void test_int() {
 // CHK-C-NEXT:    [[TMP46:%.*]] = extractvalue { i16, i1 } [[TMP44]], 1
 // CHK-C-NEXT:    br i1 [[TMP46]], label [[ATOMIC_EXIT58]], label [[ATOMIC_CMP55]]
 // CHK-C:       atomic_cmp55:
+// CHK-C-NEXT:    store i16 [[TMP45]], i16* [[ATMP49]], align 2
 // CHK-C-NEXT:    [[CMP56:%.*]] = icmp ugt i16 [[TMP45]], [[TMP41]]
 // CHK-C-NEXT:    [[FROMBOOL57:%.*]] = zext i1 [[CMP56]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL57]], i8* [[ATMP51]], align 1
@@ -821,7 +821,6 @@ void test_int() {
 // CHK-C-NEXT:    br i1 [[CMP61]], label [[ATOMIC_CONT64:%.*]], label [[ATOMIC_EXIT69:%.*]]
 // CHK-C:       atomic_cont64:
 // CHK-C-NEXT:    [[TMP50:%.*]] = phi i16 [ [[ATOMIC_LOAD59]], [[ATOMIC_EXIT58]] ], [ [[TMP53:%.*]], [[ATOMIC_CMP66:%.*]] ]
-// CHK-C-NEXT:    store i16 [[TMP50]], i16* [[ATMP60]], align 2
 // CHK-C-NEXT:    store i16 [[TMP49]], i16* [[ATOMIC_TEMP65]], align 2
 // CHK-C-NEXT:    [[TMP51:%.*]] = load i16, i16* [[ATOMIC_TEMP65]], align 2
 // CHK-C-NEXT:    [[TMP52:%.*]] = cmpxchg i16* [[X]], i16 [[TMP50]], i16 [[TMP51]] monotonic monotonic, align 2
@@ -829,6 +828,7 @@ void test_int() {
 // CHK-C-NEXT:    [[TMP54:%.*]] = extractvalue { i16, i1 } [[TMP52]], 1
 // CHK-C-NEXT:    br i1 [[TMP54]], label [[ATOMIC_EXIT69]], label [[ATOMIC_CMP66]]
 // CHK-C:       atomic_cmp66:
+// CHK-C-NEXT:    store i16 [[TMP53]], i16* [[ATMP60]], align 2
 // CHK-C-NEXT:    [[CMP67:%.*]] = icmp ult i16 [[TMP53]], [[TMP49]]
 // CHK-C-NEXT:    [[FROMBOOL68:%.*]] = zext i1 [[CMP67]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL68]], i8* [[ATMP62]], align 1
@@ -845,7 +845,6 @@ void test_int() {
 // CHK-C-NEXT:    br i1 [[CMP72]], label [[ATOMIC_CONT75:%.*]], label [[ATOMIC_EXIT80:%.*]]
 // CHK-C:       atomic_cont75:
 // CHK-C-NEXT:    [[TMP58:%.*]] = phi i16 [ [[ATOMIC_LOAD70]], [[ATOMIC_EXIT69]] ], [ [[TMP61:%.*]], [[ATOMIC_CMP77:%.*]] ]
-// CHK-C-NEXT:    store i16 [[TMP58]], i16* [[ATMP71]], align 2
 // CHK-C-NEXT:    store i16 [[TMP57]], i16* [[ATOMIC_TEMP76]], align 2
 // CHK-C-NEXT:    [[TMP59:%.*]] = load i16, i16* [[ATOMIC_TEMP76]], align 2
 // CHK-C-NEXT:    [[TMP60:%.*]] = cmpxchg i16* [[X]], i16 [[TMP58]], i16 [[TMP59]] monotonic monotonic, align 2
@@ -853,6 +852,7 @@ void test_int() {
 // CHK-C-NEXT:    [[TMP62:%.*]] = extractvalue { i16, i1 } [[TMP60]], 1
 // CHK-C-NEXT:    br i1 [[TMP62]], label [[ATOMIC_EXIT80]], label [[ATOMIC_CMP77]]
 // CHK-C:       atomic_cmp77:
+// CHK-C-NEXT:    store i16 [[TMP61]], i16* [[ATMP71]], align 2
 // CHK-C-NEXT:    [[CMP78:%.*]] = icmp ult i16 [[TMP61]], [[TMP57]]
 // CHK-C-NEXT:    [[FROMBOOL79:%.*]] = zext i1 [[CMP78]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL79]], i8* [[ATMP73]], align 1
@@ -869,7 +869,6 @@ void test_int() {
 // CHK-C-NEXT:    br i1 [[CMP83]], label [[ATOMIC_CONT86:%.*]], label [[ATOMIC_EXIT91:%.*]]
 // CHK-C:       atomic_cont86:
 // CHK-C-NEXT:    [[TMP66:%.*]] = phi i16 [ [[ATOMIC_LOAD81]], [[ATOMIC_EXIT80]] ], [ [[TMP69:%.*]], [[ATOMIC_CMP88:%.*]] ]
-// CHK-C-NEXT:    store i16 [[TMP66]], i16* [[ATMP82]], align 2
 // CHK-C-NEXT:    store i16 [[TMP65]], i16* [[ATOMIC_TEMP87]], align 2
 // CHK-C-NEXT:    [[TMP67:%.*]] = load i16, i16* [[ATOMIC_TEMP87]], align 2
 // CHK-C-NEXT:    [[TMP68:%.*]] = cmpxchg i16* [[X]], i16 [[TMP66]], i16 [[TMP67]] monotonic monotonic, align 2
@@ -877,6 +876,7 @@ void test_int() {
 // CHK-C-NEXT:    [[TMP70:%.*]] = extractvalue { i16, i1 } [[TMP68]], 1
 // CHK-C-NEXT:    br i1 [[TMP70]], label [[ATOMIC_EXIT91]], label [[ATOMIC_CMP88]]
 // CHK-C:       atomic_cmp88:
+// CHK-C-NEXT:    store i16 [[TMP69]], i16* [[ATMP82]], align 2
 // CHK-C-NEXT:    [[CMP89:%.*]] = icmp ugt i16 [[TMP69]], [[TMP65]]
 // CHK-C-NEXT:    [[FROMBOOL90:%.*]] = zext i1 [[CMP89]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL90]], i8* [[ATMP84]], align 1
@@ -894,7 +894,6 @@ void test_int() {
 // CHK-C-NEXT:    br i1 [[CMP94]], label [[ATOMIC_CONT97:%.*]], label [[ATOMIC_EXIT102:%.*]]
 // CHK-C:       atomic_cont97:
 // CHK-C-NEXT:    [[TMP75:%.*]] = phi i16 [ [[ATOMIC_LOAD92]], [[ATOMIC_EXIT91]] ], [ [[TMP78:%.*]], [[ATOMIC_CMP99:%.*]] ]
-// CHK-C-NEXT:    store i16 [[TMP75]], i16* [[ATMP93]], align 2
 // CHK-C-NEXT:    store i16 [[TMP73]], i16* [[ATOMIC_TEMP98]], align 2
 // CHK-C-NEXT:    [[TMP76:%.*]] = load i16, i16* [[ATOMIC_TEMP98]], align 2
 // CHK-C-NEXT:    [[TMP77:%.*]] = cmpxchg i16* [[X]], i16 [[TMP75]], i16 [[TMP76]] monotonic monotonic, align 2
@@ -902,6 +901,7 @@ void test_int() {
 // CHK-C-NEXT:    [[TMP79:%.*]] = extractvalue { i16, i1 } [[TMP77]], 1
 // CHK-C-NEXT:    br i1 [[TMP79]], label [[ATOMIC_EXIT102]], label [[ATOMIC_CMP99]]
 // CHK-C:       atomic_cmp99:
+// CHK-C-NEXT:    store i16 [[TMP78]], i16* [[ATMP93]], align 2
 // CHK-C-NEXT:    [[CMP100:%.*]] = icmp eq i16 [[TMP78]], [[TMP74]]
 // CHK-C-NEXT:    [[FROMBOOL101:%.*]] = zext i1 [[CMP100]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL101]], i8* [[ATMP95]], align 1
@@ -956,7 +956,6 @@ void test_int() {
 // CHK-CXX-NEXT:    br i1 [[CMP]], label [[ATOMIC_CONT:%.*]], label [[ATOMIC_EXIT:%.*]]
 // CHK-CXX:       atomic_cont:
 // CHK-CXX-NEXT:    [[TMP1:%.*]] = phi i16 [ [[ATOMIC_LOAD]], [[ENTRY:%.*]] ], [ [[TMP4:%.*]], [[ATOMIC_CMP:%.*]] ]
-// CHK-CXX-NEXT:    store i16 [[TMP1]], i16* [[TMP]], align 2
 // CHK-CXX-NEXT:    store i16 [[TMP0]], i16* [[ATOMIC_TEMP]], align 2
 // CHK-CXX-NEXT:    [[TMP2:%.*]] = load i16, i16* [[ATOMIC_TEMP]], align 2
 // CHK-CXX-NEXT:    [[TMP3:%.*]] = cmpxchg i16* [[X]], i16 [[TMP1]], i16 [[TMP2]] monotonic monotonic, align 2
@@ -964,6 +963,7 @@ void test_int() {
 // CHK-CXX-NEXT:    [[TMP5:%.*]] = extractvalue { i16, i1 } [[TMP3]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP5]], label [[ATOMIC_EXIT]], label [[ATOMIC_CMP]]
 // CHK-CXX:       atomic_cmp:
+// CHK-CXX-NEXT:    store i16 [[TMP4]], i16* [[TMP]], align 2
 // CHK-CXX-NEXT:    [[CMP2:%.*]] = icmp ugt i16 [[TMP4]], [[TMP0]]
 // CHK-CXX-NEXT:    [[FROMBOOL3:%.*]] = zext i1 [[CMP2]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL3]], i8* [[ATMP1]], align 1
@@ -980,7 +980,6 @@ void test_int() {
 // CHK-CXX-NEXT:    br i1 [[CMP6]], label [[ATOMIC_CONT9:%.*]], label [[ATOMIC_EXIT14:%.*]]
 // CHK-CXX:       atomic_cont9:
 // CHK-CXX-NEXT:    [[TMP9:%.*]] = phi i16 [ [[ATOMIC_LOAD4]], [[ATOMIC_EXIT]] ], [ [[TMP12:%.*]], [[ATOMIC_CMP11:%.*]] ]
-// CHK-CXX-NEXT:    store i16 [[TMP9]], i16* [[ATMP5]], align 2
 // CHK-CXX-NEXT:    store i16 [[TMP8]], i16* [[ATOMIC_TEMP10]], align 2
 // CHK-CXX-NEXT:    [[TMP10:%.*]] = load i16, i16* [[ATOMIC_TEMP10]], align 2
 // CHK-CXX-NEXT:    [[TMP11:%.*]] = cmpxchg i16* [[X]], i16 [[TMP9]], i16 [[TMP10]] monotonic monotonic, align 2
@@ -988,6 +987,7 @@ void test_int() {
 // CHK-CXX-NEXT:    [[TMP13:%.*]] = extractvalue { i16, i1 } [[TMP11]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP13]], label [[ATOMIC_EXIT14]], label [[ATOMIC_CMP11]]
 // CHK-CXX:       atomic_cmp11:
+// CHK-CXX-NEXT:    store i16 [[TMP12]], i16* [[ATMP5]], align 2
 // CHK-CXX-NEXT:    [[CMP12:%.*]] = icmp ult i16 [[TMP12]], [[TMP8]]
 // CHK-CXX-NEXT:    [[FROMBOOL13:%.*]] = zext i1 [[CMP12]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL13]], i8* [[ATMP7]], align 1
@@ -1004,7 +1004,6 @@ void test_int() {
 // CHK-CXX-NEXT:    br i1 [[CMP17]], label [[ATOMIC_CONT20:%.*]], label [[ATOMIC_EXIT25:%.*]]
 // CHK-CXX:       atomic_cont20:
 // CHK-CXX-NEXT:    [[TMP17:%.*]] = phi i16 [ [[ATOMIC_LOAD15]], [[ATOMIC_EXIT14]] ], [ [[TMP20:%.*]], [[ATOMIC_CMP22:%.*]] ]
-// CHK-CXX-NEXT:    store i16 [[TMP17]], i16* [[ATMP16]], align 2
 // CHK-CXX-NEXT:    store i16 [[TMP16]], i16* [[ATOMIC_TEMP21]], align 2
 // CHK-CXX-NEXT:    [[TMP18:%.*]] = load i16, i16* [[ATOMIC_TEMP21]], align 2
 // CHK-CXX-NEXT:    [[TMP19:%.*]] = cmpxchg i16* [[X]], i16 [[TMP17]], i16 [[TMP18]] monotonic monotonic, align 2
@@ -1012,6 +1011,7 @@ void test_int() {
 // CHK-CXX-NEXT:    [[TMP21:%.*]] = extractvalue { i16, i1 } [[TMP19]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP21]], label [[ATOMIC_EXIT25]], label [[ATOMIC_CMP22]]
 // CHK-CXX:       atomic_cmp22:
+// CHK-CXX-NEXT:    store i16 [[TMP20]], i16* [[ATMP16]], align 2
 // CHK-CXX-NEXT:    [[CMP23:%.*]] = icmp ult i16 [[TMP20]], [[TMP16]]
 // CHK-CXX-NEXT:    [[FROMBOOL24:%.*]] = zext i1 [[CMP23]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL24]], i8* [[ATMP18]], align 1
@@ -1028,7 +1028,6 @@ void test_int() {
 // CHK-CXX-NEXT:    br i1 [[CMP28]], label [[ATOMIC_CONT31:%.*]], label [[ATOMIC_EXIT36:%.*]]
 // CHK-CXX:       atomic_cont31:
 // CHK-CXX-NEXT:    [[TMP25:%.*]] = phi i16 [ [[ATOMIC_LOAD26]], [[ATOMIC_EXIT25]] ], [ [[TMP28:%.*]], [[ATOMIC_CMP33:%.*]] ]
-// CHK-CXX-NEXT:    store i16 [[TMP25]], i16* [[ATMP27]], align 2
 // CHK-CXX-NEXT:    store i16 [[TMP24]], i16* [[ATOMIC_TEMP32]], align 2
 // CHK-CXX-NEXT:    [[TMP26:%.*]] = load i16, i16* [[ATOMIC_TEMP32]], align 2
 // CHK-CXX-NEXT:    [[TMP27:%.*]] = cmpxchg i16* [[X]], i16 [[TMP25]], i16 [[TMP26]] monotonic monotonic, align 2
@@ -1036,6 +1035,7 @@ void test_int() {
 // CHK-CXX-NEXT:    [[TMP29:%.*]] = extractvalue { i16, i1 } [[TMP27]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP29]], label [[ATOMIC_EXIT36]], label [[ATOMIC_CMP33]]
 // CHK-CXX:       atomic_cmp33:
+// CHK-CXX-NEXT:    store i16 [[TMP28]], i16* [[ATMP27]], align 2
 // CHK-CXX-NEXT:    [[CMP34:%.*]] = icmp ugt i16 [[TMP28]], [[TMP24]]
 // CHK-CXX-NEXT:    [[FROMBOOL35:%.*]] = zext i1 [[CMP34]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL35]], i8* [[ATMP29]], align 1
@@ -1053,7 +1053,6 @@ void test_int() {
 // CHK-CXX-NEXT:    br i1 [[CMP39]], label [[ATOMIC_CONT42:%.*]], label [[ATOMIC_EXIT47:%.*]]
 // CHK-CXX:       atomic_cont42:
 // CHK-CXX-NEXT:    [[TMP34:%.*]] = phi i16 [ [[ATOMIC_LOAD37]], [[ATOMIC_EXIT36]] ], [ [[TMP37:%.*]], [[ATOMIC_CMP44:%.*]] ]
-// CHK-CXX-NEXT:    store i16 [[TMP34]], i16* [[ATMP38]], align 2
 // CHK-CXX-NEXT:    store i16 [[TMP32]], i16* [[ATOMIC_TEMP43]], align 2
 // CHK-CXX-NEXT:    [[TMP35:%.*]] = load i16, i16* [[ATOMIC_TEMP43]], align 2
 // CHK-CXX-NEXT:    [[TMP36:%.*]] = cmpxchg i16* [[X]], i16 [[TMP34]], i16 [[TMP35]] monotonic monotonic, align 2
@@ -1061,6 +1060,7 @@ void test_int() {
 // CHK-CXX-NEXT:    [[TMP38:%.*]] = extractvalue { i16, i1 } [[TMP36]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP38]], label [[ATOMIC_EXIT47]], label [[ATOMIC_CMP44]]
 // CHK-CXX:       atomic_cmp44:
+// CHK-CXX-NEXT:    store i16 [[TMP37]], i16* [[ATMP38]], align 2
 // CHK-CXX-NEXT:    [[CMP45:%.*]] = icmp eq i16 [[TMP37]], [[TMP33]]
 // CHK-CXX-NEXT:    [[FROMBOOL46:%.*]] = zext i1 [[CMP45]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL46]], i8* [[ATMP40]], align 1
@@ -1077,7 +1077,6 @@ void test_int() {
 // CHK-CXX-NEXT:    br i1 [[CMP50]], label [[ATOMIC_CONT53:%.*]], label [[ATOMIC_EXIT58:%.*]]
 // CHK-CXX:       atomic_cont53:
 // CHK-CXX-NEXT:    [[TMP42:%.*]] = phi i16 [ [[ATOMIC_LOAD48]], [[ATOMIC_EXIT47]] ], [ [[TMP45:%.*]], [[ATOMIC_CMP55:%.*]] ]
-// CHK-CXX-NEXT:    store i16 [[TMP42]], i16* [[ATMP49]], align 2
 // CHK-CXX-NEXT:    store i16 [[TMP41]], i16* [[ATOMIC_TEMP54]], align 2
 // CHK-CXX-NEXT:    [[TMP43:%.*]] = load i16, i16* [[ATOMIC_TEMP54]], align 2
 // CHK-CXX-NEXT:    [[TMP44:%.*]] = cmpxchg i16* [[X]], i16 [[TMP42]], i16 [[TMP43]] monotonic monotonic, align 2
@@ -1085,6 +1084,7 @@ void test_int() {
 // CHK-CXX-NEXT:    [[TMP46:%.*]] = extractvalue { i16, i1 } [[TMP44]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP46]], label [[ATOMIC_EXIT58]], label [[ATOMIC_CMP55]]
 // CHK-CXX:       atomic_cmp55:
+// CHK-CXX-NEXT:    store i16 [[TMP45]], i16* [[ATMP49]], align 2
 // CHK-CXX-NEXT:    [[CMP56:%.*]] = icmp ugt i16 [[TMP45]], [[TMP41]]
 // CHK-CXX-NEXT:    [[FROMBOOL57:%.*]] = zext i1 [[CMP56]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL57]], i8* [[ATMP51]], align 1
@@ -1101,7 +1101,6 @@ void test_int() {
 // CHK-CXX-NEXT:    br i1 [[CMP61]], label [[ATOMIC_CONT64:%.*]], label [[ATOMIC_EXIT69:%.*]]
 // CHK-CXX:       atomic_cont64:
 // CHK-CXX-NEXT:    [[TMP50:%.*]] = phi i16 [ [[ATOMIC_LOAD59]], [[ATOMIC_EXIT58]] ], [ [[TMP53:%.*]], [[ATOMIC_CMP66:%.*]] ]
-// CHK-CXX-NEXT:    store i16 [[TMP50]], i16* [[ATMP60]], align 2
 // CHK-CXX-NEXT:    store i16 [[TMP49]], i16* [[ATOMIC_TEMP65]], align 2
 // CHK-CXX-NEXT:    [[TMP51:%.*]] = load i16, i16* [[ATOMIC_TEMP65]], align 2
 // CHK-CXX-NEXT:    [[TMP52:%.*]] = cmpxchg i16* [[X]], i16 [[TMP50]], i16 [[TMP51]] monotonic monotonic, align 2
@@ -1109,6 +1108,7 @@ void test_int() {
 // CHK-CXX-NEXT:    [[TMP54:%.*]] = extractvalue { i16, i1 } [[TMP52]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP54]], label [[ATOMIC_EXIT69]], label [[ATOMIC_CMP66]]
 // CHK-CXX:       atomic_cmp66:
+// CHK-CXX-NEXT:    store i16 [[TMP53]], i16* [[ATMP60]], align 2
 // CHK-CXX-NEXT:    [[CMP67:%.*]] = icmp ult i16 [[TMP53]], [[TMP49]]
 // CHK-CXX-NEXT:    [[FROMBOOL68:%.*]] = zext i1 [[CMP67]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL68]], i8* [[ATMP62]], align 1
@@ -1125,7 +1125,6 @@ void test_int() {
 // CHK-CXX-NEXT:    br i1 [[CMP72]], label [[ATOMIC_CONT75:%.*]], label [[ATOMIC_EXIT80:%.*]]
 // CHK-CXX:       atomic_cont75:
 // CHK-CXX-NEXT:    [[TMP58:%.*]] = phi i16 [ [[ATOMIC_LOAD70]], [[ATOMIC_EXIT69]] ], [ [[TMP61:%.*]], [[ATOMIC_CMP77:%.*]] ]
-// CHK-CXX-NEXT:    store i16 [[TMP58]], i16* [[ATMP71]], align 2
 // CHK-CXX-NEXT:    store i16 [[TMP57]], i16* [[ATOMIC_TEMP76]], align 2
 // CHK-CXX-NEXT:    [[TMP59:%.*]] = load i16, i16* [[ATOMIC_TEMP76]], align 2
 // CHK-CXX-NEXT:    [[TMP60:%.*]] = cmpxchg i16* [[X]], i16 [[TMP58]], i16 [[TMP59]] monotonic monotonic, align 2
@@ -1133,6 +1132,7 @@ void test_int() {
 // CHK-CXX-NEXT:    [[TMP62:%.*]] = extractvalue { i16, i1 } [[TMP60]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP62]], label [[ATOMIC_EXIT80]], label [[ATOMIC_CMP77]]
 // CHK-CXX:       atomic_cmp77:
+// CHK-CXX-NEXT:    store i16 [[TMP61]], i16* [[ATMP71]], align 2
 // CHK-CXX-NEXT:    [[CMP78:%.*]] = icmp ult i16 [[TMP61]], [[TMP57]]
 // CHK-CXX-NEXT:    [[FROMBOOL79:%.*]] = zext i1 [[CMP78]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL79]], i8* [[ATMP73]], align 1
@@ -1149,7 +1149,6 @@ void test_int() {
 // CHK-CXX-NEXT:    br i1 [[CMP83]], label [[ATOMIC_CONT86:%.*]], label [[ATOMIC_EXIT91:%.*]]
 // CHK-CXX:       atomic_cont86:
 // CHK-CXX-NEXT:    [[TMP66:%.*]] = phi i16 [ [[ATOMIC_LOAD81]], [[ATOMIC_EXIT80]] ], [ [[TMP69:%.*]], [[ATOMIC_CMP88:%.*]] ]
-// CHK-CXX-NEXT:    store i16 [[TMP66]], i16* [[ATMP82]], align 2
 // CHK-CXX-NEXT:    store i16 [[TMP65]], i16* [[ATOMIC_TEMP87]], align 2
 // CHK-CXX-NEXT:    [[TMP67:%.*]] = load i16, i16* [[ATOMIC_TEMP87]], align 2
 // CHK-CXX-NEXT:    [[TMP68:%.*]] = cmpxchg i16* [[X]], i16 [[TMP66]], i16 [[TMP67]] monotonic monotonic, align 2
@@ -1157,6 +1156,7 @@ void test_int() {
 // CHK-CXX-NEXT:    [[TMP70:%.*]] = extractvalue { i16, i1 } [[TMP68]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP70]], label [[ATOMIC_EXIT91]], label [[ATOMIC_CMP88]]
 // CHK-CXX:       atomic_cmp88:
+// CHK-CXX-NEXT:    store i16 [[TMP69]], i16* [[ATMP82]], align 2
 // CHK-CXX-NEXT:    [[CMP89:%.*]] = icmp ugt i16 [[TMP69]], [[TMP65]]
 // CHK-CXX-NEXT:    [[FROMBOOL90:%.*]] = zext i1 [[CMP89]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL90]], i8* [[ATMP84]], align 1
@@ -1174,7 +1174,6 @@ void test_int() {
 // CHK-CXX-NEXT:    br i1 [[CMP94]], label [[ATOMIC_CONT97:%.*]], label [[ATOMIC_EXIT102:%.*]]
 // CHK-CXX:       atomic_cont97:
 // CHK-CXX-NEXT:    [[TMP75:%.*]] = phi i16 [ [[ATOMIC_LOAD92]], [[ATOMIC_EXIT91]] ], [ [[TMP78:%.*]], [[ATOMIC_CMP99:%.*]] ]
-// CHK-CXX-NEXT:    store i16 [[TMP75]], i16* [[ATMP93]], align 2
 // CHK-CXX-NEXT:    store i16 [[TMP73]], i16* [[ATOMIC_TEMP98]], align 2
 // CHK-CXX-NEXT:    [[TMP76:%.*]] = load i16, i16* [[ATOMIC_TEMP98]], align 2
 // CHK-CXX-NEXT:    [[TMP77:%.*]] = cmpxchg i16* [[X]], i16 [[TMP75]], i16 [[TMP76]] monotonic monotonic, align 2
@@ -1182,6 +1181,7 @@ void test_int() {
 // CHK-CXX-NEXT:    [[TMP79:%.*]] = extractvalue { i16, i1 } [[TMP77]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP79]], label [[ATOMIC_EXIT102]], label [[ATOMIC_CMP99]]
 // CHK-CXX:       atomic_cmp99:
+// CHK-CXX-NEXT:    store i16 [[TMP78]], i16* [[ATMP93]], align 2
 // CHK-CXX-NEXT:    [[CMP100:%.*]] = icmp eq i16 [[TMP78]], [[TMP74]]
 // CHK-CXX-NEXT:    [[FROMBOOL101:%.*]] = zext i1 [[CMP100]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL101]], i8* [[ATMP95]], align 1
@@ -1272,316 +1272,306 @@ void test_unsigned_short() {
 // CHK-C-NEXT:    store i8 [[FROMBOOL]], i8* [[ATMP1]], align 1
 // CHK-C-NEXT:    br i1 [[CMP]], label [[ATOMIC_CONT:%.*]], label [[ATOMIC_EXIT:%.*]]
 // CHK-C:       atomic_cont:
-// CHK-C-NEXT:    [[TMP3:%.*]] = phi i64 [ [[ATOMIC_LOAD]], [[ENTRY:%.*]] ], [ [[TMP10:%.*]], [[ATOMIC_CMP:%.*]] ]
-// CHK-C-NEXT:    [[TMP4:%.*]] = bitcast i64 [[TMP3]] to double
-// CHK-C-NEXT:    store double [[TMP4]], double* [[TMP]], align 8
-// CHK-C-NEXT:    [[TMP5:%.*]] = bitcast double* [[ATOMIC_TEMP]] to i64*
-// CHK-C-NEXT:    [[TMP6:%.*]] = bitcast double [[TMP0]] to i64
-// CHK-C-NEXT:    store i64 [[TMP6]], i64* [[TMP5]], align 8
-// CHK-C-NEXT:    [[TMP7:%.*]] = load i64, i64* [[TMP5]], align 8
-// CHK-C-NEXT:    [[TMP8:%.*]] = bitcast double* [[X]] to i64*
-// CHK-C-NEXT:    [[TMP9:%.*]] = cmpxchg i64* [[TMP8]], i64 [[TMP3]], i64 [[TMP7]] monotonic monotonic, align 8
-// CHK-C-NEXT:    [[TMP10]] = extractvalue { i64, i1 } [[TMP9]], 0
-// CHK-C-NEXT:    [[TMP11:%.*]] = extractvalue { i64, i1 } [[TMP9]], 1
-// CHK-C-NEXT:    br i1 [[TMP11]], label [[ATOMIC_EXIT]], label [[ATOMIC_CMP]]
+// CHK-C-NEXT:    [[TMP3:%.*]] = phi i64 [ [[ATOMIC_LOAD]], [[ENTRY:%.*]] ], [ [[TMP9:%.*]], [[ATOMIC_CMP:%.*]] ]
+// CHK-C-NEXT:    [[TMP4:%.*]] = bitcast double* [[ATOMIC_TEMP]] to i64*
+// CHK-C-NEXT:    [[TMP5:%.*]] = bitcast double [[TMP0]] to i64
+// CHK-C-NEXT:    store i64 [[TMP5]], i64* [[TMP4]], align 8
+// CHK-C-NEXT:    [[TMP6:%.*]] = load i64, i64* [[TMP4]], align 8
+// CHK-C-NEXT:    [[TMP7:%.*]] = bitcast double* [[X]] to i64*
+// CHK-C-NEXT:    [[TMP8:%.*]] = cmpxchg i64* [[TMP7]], i64 [[TMP3]], i64 [[TMP6]] monotonic monotonic, align 8
+// CHK-C-NEXT:    [[TMP9]] = extractvalue { i64, i1 } [[TMP8]], 0
+// CHK-C-NEXT:    [[TMP10:%.*]] = extractvalue { i64, i1 } [[TMP8]], 1
+// CHK-C-NEXT:    br i1 [[TMP10]], label [[ATOMIC_EXIT]], label [[ATOMIC_CMP]]
 // CHK-C:       atomic_cmp:
-// CHK-C-NEXT:    [[TMP12:%.*]] = bitcast i64 [[TMP10]] to double
-// CHK-C-NEXT:    [[CMP2:%.*]] = fcmp ogt double [[TMP12]], [[TMP0]]
+// CHK-C-NEXT:    [[TMP11:%.*]] = bitcast i64 [[TMP9]] to double
+// CHK-C-NEXT:    store double [[TMP11]], double* [[TMP]], align 8
+// CHK-C-NEXT:    [[CMP2:%.*]] = fcmp ogt double [[TMP11]], [[TMP0]]
 // CHK-C-NEXT:    [[FROMBOOL3:%.*]] = zext i1 [[CMP2]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL3]], i8* [[ATMP1]], align 1
 // CHK-C-NEXT:    br i1 [[CMP2]], label [[ATOMIC_CONT]], label [[ATOMIC_EXIT]]
 // CHK-C:       atomic_exit:
-// CHK-C-NEXT:    [[TMP13:%.*]] = load double, double* [[TMP]], align 8
-// CHK-C-NEXT:    [[TMP14:%.*]] = load i8, i8* [[ATMP1]], align 1
-// CHK-C-NEXT:    [[TMP15:%.*]] = load double, double* [[EXPR]], align 8
-// CHK-C-NEXT:    [[TMP16:%.*]] = bitcast double* [[X]] to i64*
-// CHK-C-NEXT:    [[ATOMIC_LOAD4:%.*]] = load atomic i64, i64* [[TMP16]] monotonic, align 8
-// CHK-C-NEXT:    [[TMP17:%.*]] = bitcast i64 [[ATOMIC_LOAD4]] to double
-// CHK-C-NEXT:    store double [[TMP17]], double* [[ATMP5]], align 8
-// CHK-C-NEXT:    [[CMP6:%.*]] = fcmp olt double [[TMP17]], [[TMP15]]
+// CHK-C-NEXT:    [[TMP12:%.*]] = load double, double* [[TMP]], align 8
+// CHK-C-NEXT:    [[TMP13:%.*]] = load i8, i8* [[ATMP1]], align 1
+// CHK-C-NEXT:    [[TMP14:%.*]] = load double, double* [[EXPR]], align 8
+// CHK-C-NEXT:    [[TMP15:%.*]] = bitcast double* [[X]] to i64*
+// CHK-C-NEXT:    [[ATOMIC_LOAD4:%.*]] = load atomic i64, i64* [[TMP15]] monotonic, align 8
+// CHK-C-NEXT:    [[TMP16:%.*]] = bitcast i64 [[ATOMIC_LOAD4]] to double
+// CHK-C-NEXT:    store double [[TMP16]], double* [[ATMP5]], align 8
+// CHK-C-NEXT:    [[CMP6:%.*]] = fcmp olt double [[TMP16]], [[TMP14]]
 // CHK-C-NEXT:    [[FROMBOOL8:%.*]] = zext i1 [[CMP6]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL8]], i8* [[ATMP7]], align 1
 // CHK-C-NEXT:    br i1 [[CMP6]], label [[ATOMIC_CONT9:%.*]], label [[ATOMIC_EXIT14:%.*]]
 // CHK-C:       atomic_cont9:
-// CHK-C-NEXT:    [[TMP18:%.*]] = phi i64 [ [[ATOMIC_LOAD4]], [[ATOMIC_EXIT]] ], [ [[TMP25:%.*]], [[ATOMIC_CMP11:%.*]] ]
-// CHK-C-NEXT:    [[TMP19:%.*]] = bitcast i64 [[TMP18]] to double
-// CHK-C-NEXT:    store double [[TMP19]], double* [[ATMP5]], align 8
-// CHK-C-NEXT:    [[TMP20:%.*]] = bitcast double* [[ATOMIC_TEMP10]] to i64*
-// CHK-C-NEXT:    [[TMP21:%.*]] = bitcast double [[TMP15]] to i64
-// CHK-C-NEXT:    store i64 [[TMP21]], i64* [[TMP20]], align 8
-// CHK-C-NEXT:    [[TMP22:%.*]] = load i64, i64* [[TMP20]], align 8
-// CHK-C-NEXT:    [[TMP23:%.*]] = bitcast double* [[X]] to i64*
-// CHK-C-NEXT:    [[TMP24:%.*]] = cmpxchg i64* [[TMP23]], i64 [[TMP18]], i64 [[TMP22]] monotonic monotonic, align 8
-// CHK-C-NEXT:    [[TMP25]] = extractvalue { i64, i1 } [[TMP24]], 0
-// CHK-C-NEXT:    [[TMP26:%.*]] = extractvalue { i64, i1 } [[TMP24]], 1
-// CHK-C-NEXT:    br i1 [[TMP26]], label [[ATOMIC_EXIT14]], label [[ATOMIC_CMP11]]
+// CHK-C-NEXT:    [[TMP17:%.*]] = phi i64 [ [[ATOMIC_LOAD4]], [[ATOMIC_EXIT]] ], [ [[TMP23:%.*]], [[ATOMIC_CMP11:%.*]] ]
+// CHK-C-NEXT:    [[TMP18:%.*]] = bitcast double* [[ATOMIC_TEMP10]] to i64*
+// CHK-C-NEXT:    [[TMP19:%.*]] = bitcast double [[TMP14]] to i64
+// CHK-C-NEXT:    store i64 [[TMP19]], i64* [[TMP18]], align 8
+// CHK-C-NEXT:    [[TMP20:%.*]] = load i64, i64* [[TMP18]], align 8
+// CHK-C-NEXT:    [[TMP21:%.*]] = bitcast double* [[X]] to i64*
+// CHK-C-NEXT:    [[TMP22:%.*]] = cmpxchg i64* [[TMP21]], i64 [[TMP17]], i64 [[TMP20]] monotonic monotonic, align 8
+// CHK-C-NEXT:    [[TMP23]] = extractvalue { i64, i1 } [[TMP22]], 0
+// CHK-C-NEXT:    [[TMP24:%.*]] = extractvalue { i64, i1 } [[TMP22]], 1
+// CHK-C-NEXT:    br i1 [[TMP24]], label [[ATOMIC_EXIT14]], label [[ATOMIC_CMP11]]
 // CHK-C:       atomic_cmp11:
-// CHK-C-NEXT:    [[TMP27:%.*]] = bitcast i64 [[TMP25]] to double
-// CHK-C-NEXT:    [[CMP12:%.*]] = fcmp olt double [[TMP27]], [[TMP15]]
+// CHK-C-NEXT:    [[TMP25:%.*]] = bitcast i64 [[TMP23]] to double
+// CHK-C-NEXT:    store double [[TMP25]], double* [[ATMP5]], align 8
+// CHK-C-NEXT:    [[CMP12:%.*]] = fcmp olt double [[TMP25]], [[TMP14]]
 // CHK-C-NEXT:    [[FROMBOOL13:%.*]] = zext i1 [[CMP12]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL13]], i8* [[ATMP7]], align 1
 // CHK-C-NEXT:    br i1 [[CMP12]], label [[ATOMIC_CONT9]], label [[ATOMIC_EXIT14]]
 // CHK-C:       atomic_exit14:
-// CHK-C-NEXT:    [[TMP28:%.*]] = load double, double* [[ATMP5]], align 8
-// CHK-C-NEXT:    [[TMP29:%.*]] = load i8, i8* [[ATMP7]], align 1
-// CHK-C-NEXT:    [[TMP30:%.*]] = load double, double* [[EXPR]], align 8
-// CHK-C-NEXT:    [[TMP31:%.*]] = bitcast double* [[X]] to i64*
-// CHK-C-NEXT:    [[ATOMIC_LOAD15:%.*]] = load atomic i64, i64* [[TMP31]] monotonic, align 8
-// CHK-C-NEXT:    [[TMP32:%.*]] = bitcast i64 [[ATOMIC_LOAD15]] to double
-// CHK-C-NEXT:    store double [[TMP32]], double* [[ATMP16]], align 8
-// CHK-C-NEXT:    [[CMP17:%.*]] = fcmp olt double [[TMP32]], [[TMP30]]
+// CHK-C-NEXT:    [[TMP26:%.*]] = load double, double* [[ATMP5]], align 8
+// CHK-C-NEXT:    [[TMP27:%.*]] = load i8, i8* [[ATMP7]], align 1
+// CHK-C-NEXT:    [[TMP28:%.*]] = load double, double* [[EXPR]], align 8
+// CHK-C-NEXT:    [[TMP29:%.*]] = bitcast double* [[X]] to i64*
+// CHK-C-NEXT:    [[ATOMIC_LOAD15:%.*]] = load atomic i64, i64* [[TMP29]] monotonic, align 8
+// CHK-C-NEXT:    [[TMP30:%.*]] = bitcast i64 [[ATOMIC_LOAD15]] to double
+// CHK-C-NEXT:    store double [[TMP30]], double* [[ATMP16]], align 8
+// CHK-C-NEXT:    [[CMP17:%.*]] = fcmp olt double [[TMP30]], [[TMP28]]
 // CHK-C-NEXT:    [[FROMBOOL19:%.*]] = zext i1 [[CMP17]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL19]], i8* [[ATMP18]], align 1
 // CHK-C-NEXT:    br i1 [[CMP17]], label [[ATOMIC_CONT20:%.*]], label [[ATOMIC_EXIT25:%.*]]
 // CHK-C:       atomic_cont20:
-// CHK-C-NEXT:    [[TMP33:%.*]] = phi i64 [ [[ATOMIC_LOAD15]], [[ATOMIC_EXIT14]] ], [ [[TMP40:%.*]], [[ATOMIC_CMP22:%.*]] ]
-// CHK-C-NEXT:    [[TMP34:%.*]] = bitcast i64 [[TMP33]] to double
-// CHK-C-NEXT:    store double [[TMP34]], double* [[ATMP16]], align 8
-// CHK-C-NEXT:    [[TMP35:%.*]] = bitcast double* [[ATOMIC_TEMP21]] to i64*
-// CHK-C-NEXT:    [[TMP36:%.*]] = bitcast double [[TMP30]] to i64
-// CHK-C-NEXT:    store i64 [[TMP36]], i64* [[TMP35]], align 8
-// CHK-C-NEXT:    [[TMP37:%.*]] = load i64, i64* [[TMP35]], align 8
-// CHK-C-NEXT:    [[TMP38:%.*]] = bitcast double* [[X]] to i64*
-// CHK-C-NEXT:    [[TMP39:%.*]] = cmpxchg i64* [[TMP38]], i64 [[TMP33]], i64 [[TMP37]] monotonic monotonic, align 8
-// CHK-C-NEXT:    [[TMP40]] = extractvalue { i64, i1 } [[TMP39]], 0
-// CHK-C-NEXT:    [[TMP41:%.*]] = extractvalue { i64, i1 } [[TMP39]], 1
-// CHK-C-NEXT:    br i1 [[TMP41]], label [[ATOMIC_EXIT25]], label [[ATOMIC_CMP22]]
+// CHK-C-NEXT:    [[TMP31:%.*]] = phi i64 [ [[ATOMIC_LOAD15]], [[ATOMIC_EXIT14]] ], [ [[TMP37:%.*]], [[ATOMIC_CMP22:%.*]] ]
+// CHK-C-NEXT:    [[TMP32:%.*]] = bitcast double* [[ATOMIC_TEMP21]] to i64*
+// CHK-C-NEXT:    [[TMP33:%.*]] = bitcast double [[TMP28]] to i64
+// CHK-C-NEXT:    store i64 [[TMP33]], i64* [[TMP32]], align 8
+// CHK-C-NEXT:    [[TMP34:%.*]] = load i64, i64* [[TMP32]], align 8
+// CHK-C-NEXT:    [[TMP35:%.*]] = bitcast double* [[X]] to i64*
+// CHK-C-NEXT:    [[TMP36:%.*]] = cmpxchg i64* [[TMP35]], i64 [[TMP31]], i64 [[TMP34]] monotonic monotonic, align 8
+// CHK-C-NEXT:    [[TMP37]] = extractvalue { i64, i1 } [[TMP36]], 0
+// CHK-C-NEXT:    [[TMP38:%.*]] = extractvalue { i64, i1 } [[TMP36]], 1
+// CHK-C-NEXT:    br i1 [[TMP38]], label [[ATOMIC_EXIT25]], label [[ATOMIC_CMP22]]
 // CHK-C:       atomic_cmp22:
-// CHK-C-NEXT:    [[TMP42:%.*]] = bitcast i64 [[TMP40]] to double
-// CHK-C-NEXT:    [[CMP23:%.*]] = fcmp olt double [[TMP42]], [[TMP30]]
+// CHK-C-NEXT:    [[TMP39:%.*]] = bitcast i64 [[TMP37]] to double
+// CHK-C-NEXT:    store double [[TMP39]], double* [[ATMP16]], align 8
+// CHK-C-NEXT:    [[CMP23:%.*]] = fcmp olt double [[TMP39]], [[TMP28]]
 // CHK-C-NEXT:    [[FROMBOOL24:%.*]] = zext i1 [[CMP23]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL24]], i8* [[ATMP18]], align 1
 // CHK-C-NEXT:    br i1 [[CMP23]], label [[ATOMIC_CONT20]], label [[ATOMIC_EXIT25]]
 // CHK-C:       atomic_exit25:
-// CHK-C-NEXT:    [[TMP43:%.*]] = load double, double* [[ATMP16]], align 8
-// CHK-C-NEXT:    [[TMP44:%.*]] = load i8, i8* [[ATMP18]], align 1
-// CHK-C-NEXT:    [[TMP45:%.*]] = load double, double* [[EXPR]], align 8
-// CHK-C-NEXT:    [[TMP46:%.*]] = bitcast double* [[X]] to i64*
-// CHK-C-NEXT:    [[ATOMIC_LOAD26:%.*]] = load atomic i64, i64* [[TMP46]] monotonic, align 8
-// CHK-C-NEXT:    [[TMP47:%.*]] = bitcast i64 [[ATOMIC_LOAD26]] to double
-// CHK-C-NEXT:    store double [[TMP47]], double* [[ATMP27]], align 8
-// CHK-C-NEXT:    [[CMP28:%.*]] = fcmp ogt double [[TMP47]], [[TMP45]]
+// CHK-C-NEXT:    [[TMP40:%.*]] = load double, double* [[ATMP16]], align 8
+// CHK-C-NEXT:    [[TMP41:%.*]] = load i8, i8* [[ATMP18]], align 1
+// CHK-C-NEXT:    [[TMP42:%.*]] = load double, double* [[EXPR]], align 8
+// CHK-C-NEXT:    [[TMP43:%.*]] = bitcast double* [[X]] to i64*
+// CHK-C-NEXT:    [[ATOMIC_LOAD26:%.*]] = load atomic i64, i64* [[TMP43]] monotonic, align 8
+// CHK-C-NEXT:    [[TMP44:%.*]] = bitcast i64 [[ATOMIC_LOAD26]] to double
+// CHK-C-NEXT:    store double [[TMP44]], double* [[ATMP27]], align 8
+// CHK-C-NEXT:    [[CMP28:%.*]] = fcmp ogt double [[TMP44]], [[TMP42]]
 // CHK-C-NEXT:    [[FROMBOOL30:%.*]] = zext i1 [[CMP28]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL30]], i8* [[ATMP29]], align 1
 // CHK-C-NEXT:    br i1 [[CMP28]], label [[ATOMIC_CONT31:%.*]], label [[ATOMIC_EXIT36:%.*]]
 // CHK-C:       atomic_cont31:
-// CHK-C-NEXT:    [[TMP48:%.*]] = phi i64 [ [[ATOMIC_LOAD26]], [[ATOMIC_EXIT25]] ], [ [[TMP55:%.*]], [[ATOMIC_CMP33:%.*]] ]
-// CHK-C-NEXT:    [[TMP49:%.*]] = bitcast i64 [[TMP48]] to double
-// CHK-C-NEXT:    store double [[TMP49]], double* [[ATMP27]], align 8
-// CHK-C-NEXT:    [[TMP50:%.*]] = bitcast double* [[ATOMIC_TEMP32]] to i64*
-// CHK-C-NEXT:    [[TMP51:%.*]] = bitcast double [[TMP45]] to i64
-// CHK-C-NEXT:    store i64 [[TMP51]], i64* [[TMP50]], align 8
-// CHK-C-NEXT:    [[TMP52:%.*]] = load i64, i64* [[TMP50]], align 8
-// CHK-C-NEXT:    [[TMP53:%.*]] = bitcast double* [[X]] to i64*
-// CHK-C-NEXT:    [[TMP54:%.*]] = cmpxchg i64* [[TMP53]], i64 [[TMP48]], i64 [[TMP52]] monotonic monotonic, align 8
-// CHK-C-NEXT:    [[TMP55]] = extractvalue { i64, i1 } [[TMP54]], 0
-// CHK-C-NEXT:    [[TMP56:%.*]] = extractvalue { i64, i1 } [[TMP54]], 1
-// CHK-C-NEXT:    br i1 [[TMP56]], label [[ATOMIC_EXIT36]], label [[ATOMIC_CMP33]]
+// CHK-C-NEXT:    [[TMP45:%.*]] = phi i64 [ [[ATOMIC_LOAD26]], [[ATOMIC_EXIT25]] ], [ [[TMP51:%.*]], [[ATOMIC_CMP33:%.*]] ]
+// CHK-C-NEXT:    [[TMP46:%.*]] = bitcast double* [[ATOMIC_TEMP32]] to i64*
+// CHK-C-NEXT:    [[TMP47:%.*]] = bitcast double [[TMP42]] to i64
+// CHK-C-NEXT:    store i64 [[TMP47]], i64* [[TMP46]], align 8
+// CHK-C-NEXT:    [[TMP48:%.*]] = load i64, i64* [[TMP46]], align 8
+// CHK-C-NEXT:    [[TMP49:%.*]] = bitcast double* [[X]] to i64*
+// CHK-C-NEXT:    [[TMP50:%.*]] = cmpxchg i64* [[TMP49]], i64 [[TMP45]], i64 [[TMP48]] monotonic monotonic, align 8
+// CHK-C-NEXT:    [[TMP51]] = extractvalue { i64, i1 } [[TMP50]], 0
+// CHK-C-NEXT:    [[TMP52:%.*]] = extractvalue { i64, i1 } [[TMP50]], 1
+// CHK-C-NEXT:    br i1 [[TMP52]], label [[ATOMIC_EXIT36]], label [[ATOMIC_CMP33]]
 // CHK-C:       atomic_cmp33:
-// CHK-C-NEXT:    [[TMP57:%.*]] = bitcast i64 [[TMP55]] to double
-// CHK-C-NEXT:    [[CMP34:%.*]] = fcmp ogt double [[TMP57]], [[TMP45]]
+// CHK-C-NEXT:    [[TMP53:%.*]] = bitcast i64 [[TMP51]] to double
+// CHK-C-NEXT:    store double [[TMP53]], double* [[ATMP27]], align 8
+// CHK-C-NEXT:    [[CMP34:%.*]] = fcmp ogt double [[TMP53]], [[TMP42]]
 // CHK-C-NEXT:    [[FROMBOOL35:%.*]] = zext i1 [[CMP34]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL35]], i8* [[ATMP29]], align 1
 // CHK-C-NEXT:    br i1 [[CMP34]], label [[ATOMIC_CONT31]], label [[ATOMIC_EXIT36]]
 // CHK-C:       atomic_exit36:
-// CHK-C-NEXT:    [[TMP58:%.*]] = load double, double* [[ATMP27]], align 8
-// CHK-C-NEXT:    [[TMP59:%.*]] = load i8, i8* [[ATMP29]], align 1
-// CHK-C-NEXT:    [[TMP60:%.*]] = load double, double* [[D]], align 8
-// CHK-C-NEXT:    [[TMP61:%.*]] = load double, double* [[E]], align 8
-// CHK-C-NEXT:    [[TMP62:%.*]] = bitcast double* [[X]] to i64*
-// CHK-C-NEXT:    [[ATOMIC_LOAD37:%.*]] = load atomic i64, i64* [[TMP62]] monotonic, align 8
-// CHK-C-NEXT:    [[TMP63:%.*]] = bitcast i64 [[ATOMIC_LOAD37]] to double
-// CHK-C-NEXT:    store double [[TMP63]], double* [[ATMP38]], align 8
-// CHK-C-NEXT:    [[TMP64:%.*]] = bitcast double [[TMP63]] to i64
-// CHK-C-NEXT:    [[TMP65:%.*]] = bitcast double [[TMP61]] to i64
-// CHK-C-NEXT:    [[CMP39:%.*]] = icmp eq i64 [[TMP64]], [[TMP65]]
+// CHK-C-NEXT:    [[TMP54:%.*]] = load double, double* [[ATMP27]], align 8
+// CHK-C-NEXT:    [[TMP55:%.*]] = load i8, i8* [[ATMP29]], align 1
+// CHK-C-NEXT:    [[TMP56:%.*]] = load double, double* [[D]], align 8
+// CHK-C-NEXT:    [[TMP57:%.*]] = load double, double* [[E]], align 8
+// CHK-C-NEXT:    [[TMP58:%.*]] = bitcast double* [[X]] to i64*
+// CHK-C-NEXT:    [[ATOMIC_LOAD37:%.*]] = load atomic i64, i64* [[TMP58]] monotonic, align 8
+// CHK-C-NEXT:    [[TMP59:%.*]] = bitcast i64 [[ATOMIC_LOAD37]] to double
+// CHK-C-NEXT:    store double [[TMP59]], double* [[ATMP38]], align 8
+// CHK-C-NEXT:    [[TMP60:%.*]] = bitcast double [[TMP59]] to i64
+// CHK-C-NEXT:    [[TMP61:%.*]] = bitcast double [[TMP57]] to i64
+// CHK-C-NEXT:    [[CMP39:%.*]] = icmp eq i64 [[TMP60]], [[TMP61]]
 // CHK-C-NEXT:    [[FROMBOOL41:%.*]] = zext i1 [[CMP39]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL41]], i8* [[ATMP40]], align 1
 // CHK-C-NEXT:    br i1 [[CMP39]], label [[ATOMIC_CONT42:%.*]], label [[ATOMIC_EXIT47:%.*]]
 // CHK-C:       atomic_cont42:
-// CHK-C-NEXT:    [[TMP66:%.*]] = phi i64 [ [[ATOMIC_LOAD37]], [[ATOMIC_EXIT36]] ], [ [[TMP73:%.*]], [[ATOMIC_CMP44:%.*]] ]
-// CHK-C-NEXT:    [[TMP67:%.*]] = bitcast i64 [[TMP66]] to double
-// CHK-C-NEXT:    store double [[TMP67]], double* [[ATMP38]], align 8
-// CHK-C-NEXT:    [[TMP68:%.*]] = bitcast double* [[ATOMIC_TEMP43]] to i64*
-// CHK-C-NEXT:    [[TMP69:%.*]] = bitcast double [[TMP60]] to i64
-// CHK-C-NEXT:    store i64 [[TMP69]], i64* [[TMP68]], align 8
-// CHK-C-NEXT:    [[TMP70:%.*]] = load i64, i64* [[TMP68]], align 8
-// CHK-C-NEXT:    [[TMP71:%.*]] = bitcast double* [[X]] to i64*
-// CHK-C-NEXT:    [[TMP72:%.*]] = cmpxchg i64* [[TMP71]], i64 [[TMP66]], i64 [[TMP70]] monotonic monotonic, align 8
-// CHK-C-NEXT:    [[TMP73]] = extractvalue { i64, i1 } [[TMP72]], 0
-// CHK-C-NEXT:    [[TMP74:%.*]] = extractvalue { i64, i1 } [[TMP72]], 1
-// CHK-C-NEXT:    br i1 [[TMP74]], label [[ATOMIC_EXIT47]], label [[ATOMIC_CMP44]]
+// CHK-C-NEXT:    [[TMP62:%.*]] = phi i64 [ [[ATOMIC_LOAD37]], [[ATOMIC_EXIT36]] ], [ [[TMP68:%.*]], [[ATOMIC_CMP44:%.*]] ]
+// CHK-C-NEXT:    [[TMP63:%.*]] = bitcast double* [[ATOMIC_TEMP43]] to i64*
+// CHK-C-NEXT:    [[TMP64:%.*]] = bitcast double [[TMP56]] to i64
+// CHK-C-NEXT:    store i64 [[TMP64]], i64* [[TMP63]], align 8
+// CHK-C-NEXT:    [[TMP65:%.*]] = load i64, i64* [[TMP63]], align 8
+// CHK-C-NEXT:    [[TMP66:%.*]] = bitcast double* [[X]] to i64*
+// CHK-C-NEXT:    [[TMP67:%.*]] = cmpxchg i64* [[TMP66]], i64 [[TMP62]], i64 [[TMP65]] monotonic monotonic, align 8
+// CHK-C-NEXT:    [[TMP68]] = extractvalue { i64, i1 } [[TMP67]], 0
+// CHK-C-NEXT:    [[TMP69:%.*]] = extractvalue { i64, i1 } [[TMP67]], 1
+// CHK-C-NEXT:    br i1 [[TMP69]], label [[ATOMIC_EXIT47]], label [[ATOMIC_CMP44]]
 // CHK-C:       atomic_cmp44:
-// CHK-C-NEXT:    [[TMP75:%.*]] = bitcast i64 [[TMP73]] to double
-// CHK-C-NEXT:    [[TMP76:%.*]] = bitcast double [[TMP75]] to i64
-// CHK-C-NEXT:    [[TMP77:%.*]] = bitcast double [[TMP61]] to i64
-// CHK-C-NEXT:    [[CMP45:%.*]] = icmp eq i64 [[TMP76]], [[TMP77]]
+// CHK-C-NEXT:    [[TMP70:%.*]] = bitcast i64 [[TMP68]] to double
+// CHK-C-NEXT:    store double [[TMP70]], double* [[ATMP38]], align 8
+// CHK-C-NEXT:    [[TMP71:%.*]] = bitcast double [[TMP70]] to i64
+// CHK-C-NEXT:    [[TMP72:%.*]] = bitcast double [[TMP57]] to i64
+// CHK-C-NEXT:    [[CMP45:%.*]] = icmp eq i64 [[TMP71]], [[TMP72]]
 // CHK-C-NEXT:    [[FROMBOOL46:%.*]] = zext i1 [[CMP45]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL46]], i8* [[ATMP40]], align 1
 // CHK-C-NEXT:    br i1 [[CMP45]], label [[ATOMIC_CONT42]], label [[ATOMIC_EXIT47]]
 // CHK-C:       atomic_exit47:
-// CHK-C-NEXT:    [[TMP78:%.*]] = load double, double* [[ATMP38]], align 8
-// CHK-C-NEXT:    [[TMP79:%.*]] = load i8, i8* [[ATMP40]], align 1
-// CHK-C-NEXT:    [[TMP80:%.*]] = load double, double* [[EXPR]], align 8
-// CHK-C-NEXT:    [[TMP81:%.*]] = bitcast double* [[X]] to i64*
-// CHK-C-NEXT:    [[ATOMIC_LOAD48:%.*]] = load atomic i64, i64* [[TMP81]] monotonic, align 8
-// CHK-C-NEXT:    [[TMP82:%.*]] = bitcast i64 [[ATOMIC_LOAD48]] to double
-// CHK-C-NEXT:    store double [[TMP82]], double* [[ATMP49]], align 8
-// CHK-C-NEXT:    [[CMP50:%.*]] = fcmp ogt double [[TMP82]], [[TMP80]]
+// CHK-C-NEXT:    [[TMP73:%.*]] = load double, double* [[ATMP38]], align 8
+// CHK-C-NEXT:    [[TMP74:%.*]] = load i8, i8* [[ATMP40]], align 1
+// CHK-C-NEXT:    [[TMP75:%.*]] = load double, double* [[EXPR]], align 8
+// CHK-C-NEXT:    [[TMP76:%.*]] = bitcast double* [[X]] to i64*
+// CHK-C-NEXT:    [[ATOMIC_LOAD48:%.*]] = load atomic i64, i64* [[TMP76]] monotonic, align 8
+// CHK-C-NEXT:    [[TMP77:%.*]] = bitcast i64 [[ATOMIC_LOAD48]] to double
+// CHK-C-NEXT:    store double [[TMP77]], double* [[ATMP49]], align 8
+// CHK-C-NEXT:    [[CMP50:%.*]] = fcmp ogt double [[TMP77]], [[TMP75]]
 // CHK-C-NEXT:    [[FROMBOOL52:%.*]] = zext i1 [[CMP50]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL52]], i8* [[ATMP51]], align 1
 // CHK-C-NEXT:    br i1 [[CMP50]], label [[ATOMIC_CONT53:%.*]], label [[ATOMIC_EXIT58:%.*]]
 // CHK-C:       atomic_cont53:
-// CHK-C-NEXT:    [[TMP83:%.*]] = phi i64 [ [[ATOMIC_LOAD48]], [[ATOMIC_EXIT47]] ], [ [[TMP90:%.*]], [[ATOMIC_CMP55:%.*]] ]
-// CHK-C-NEXT:    [[TMP84:%.*]] = bitcast i64 [[TMP83]] to double
-// CHK-C-NEXT:    store double [[TMP84]], double* [[ATMP49]], align 8
-// CHK-C-NEXT:    [[TMP85:%.*]] = bitcast double* [[ATOMIC_TEMP54]] to i64*
-// CHK-C-NEXT:    [[TMP86:%.*]] = bitcast double [[TMP80]] to i64
-// CHK-C-NEXT:    store i64 [[TMP86]], i64* [[TMP85]], align 8
-// CHK-C-NEXT:    [[TMP87:%.*]] = load i64, i64* [[TMP85]], align 8
-// CHK-C-NEXT:    [[TMP88:%.*]] = bitcast double* [[X]] to i64*
-// CHK-C-NEXT:    [[TMP89:%.*]] = cmpxchg i64* [[TMP88]], i64 [[TMP83]], i64 [[TMP87]] monotonic monotonic, align 8
-// CHK-C-NEXT:    [[TMP90]] = extractvalue { i64, i1 } [[TMP89]], 0
-// CHK-C-NEXT:    [[TMP91:%.*]] = extractvalue { i64, i1 } [[TMP89]], 1
-// CHK-C-NEXT:    br i1 [[TMP91]], label [[ATOMIC_EXIT58]], label [[ATOMIC_CMP55]]
+// CHK-C-NEXT:    [[TMP78:%.*]] = phi i64 [ [[ATOMIC_LOAD48]], [[ATOMIC_EXIT47]] ], [ [[TMP84:%.*]], [[ATOMIC_CMP55:%.*]] ]
+// CHK-C-NEXT:    [[TMP79:%.*]] = bitcast double* [[ATOMIC_TEMP54]] to i64*
+// CHK-C-NEXT:    [[TMP80:%.*]] = bitcast double [[TMP75]] to i64
+// CHK-C-NEXT:    store i64 [[TMP80]], i64* [[TMP79]], align 8
+// CHK-C-NEXT:    [[TMP81:%.*]] = load i64, i64* [[TMP79]], align 8
+// CHK-C-NEXT:    [[TMP82:%.*]] = bitcast double* [[X]] to i64*
+// CHK-C-NEXT:    [[TMP83:%.*]] = cmpxchg i64* [[TMP82]], i64 [[TMP78]], i64 [[TMP81]] monotonic monotonic, align 8
+// CHK-C-NEXT:    [[TMP84]] = extractvalue { i64, i1 } [[TMP83]], 0
+// CHK-C-NEXT:    [[TMP85:%.*]] = extractvalue { i64, i1 } [[TMP83]], 1
+// CHK-C-NEXT:    br i1 [[TMP85]], label [[ATOMIC_EXIT58]], label [[ATOMIC_CMP55]]
 // CHK-C:       atomic_cmp55:
-// CHK-C-NEXT:    [[TMP92:%.*]] = bitcast i64 [[TMP90]] to double
-// CHK-C-NEXT:    [[CMP56:%.*]] = fcmp ogt double [[TMP92]], [[TMP80]]
+// CHK-C-NEXT:    [[TMP86:%.*]] = bitcast i64 [[TMP84]] to double
+// CHK-C-NEXT:    store double [[TMP86]], double* [[ATMP49]], align 8
+// CHK-C-NEXT:    [[CMP56:%.*]] = fcmp ogt double [[TMP86]], [[TMP75]]
 // CHK-C-NEXT:    [[FROMBOOL57:%.*]] = zext i1 [[CMP56]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL57]], i8* [[ATMP51]], align 1
 // CHK-C-NEXT:    br i1 [[CMP56]], label [[ATOMIC_CONT53]], label [[ATOMIC_EXIT58]]
 // CHK-C:       atomic_exit58:
-// CHK-C-NEXT:    [[TMP93:%.*]] = load double, double* [[ATMP49]], align 8
-// CHK-C-NEXT:    [[TMP94:%.*]] = load i8, i8* [[ATMP51]], align 1
-// CHK-C-NEXT:    [[TMP95:%.*]] = load double, double* [[EXPR]], align 8
-// CHK-C-NEXT:    [[TMP96:%.*]] = bitcast double* [[X]] to i64*
-// CHK-C-NEXT:    [[ATOMIC_LOAD59:%.*]] = load atomic i64, i64* [[TMP96]] monotonic, align 8
-// CHK-C-NEXT:    [[TMP97:%.*]] = bitcast i64 [[ATOMIC_LOAD59]] to double
-// CHK-C-NEXT:    store double [[TMP97]], double* [[ATMP60]], align 8
-// CHK-C-NEXT:    [[CMP61:%.*]] = fcmp olt double [[TMP97]], [[TMP95]]
+// CHK-C-NEXT:    [[TMP87:%.*]] = load double, double* [[ATMP49]], align 8
+// CHK-C-NEXT:    [[TMP88:%.*]] = load i8, i8* [[ATMP51]], align 1
+// CHK-C-NEXT:    [[TMP89:%.*]] = load double, double* [[EXPR]], align 8
+// CHK-C-NEXT:    [[TMP90:%.*]] = bitcast double* [[X]] to i64*
+// CHK-C-NEXT:    [[ATOMIC_LOAD59:%.*]] = load atomic i64, i64* [[TMP90]] monotonic, align 8
+// CHK-C-NEXT:    [[TMP91:%.*]] = bitcast i64 [[ATOMIC_LOAD59]] to double
+// CHK-C-NEXT:    store double [[TMP91]], double* [[ATMP60]], align 8
+// CHK-C-NEXT:    [[CMP61:%.*]] = fcmp olt double [[TMP91]], [[TMP89]]
 // CHK-C-NEXT:    [[FROMBOOL63:%.*]] = zext i1 [[CMP61]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL63]], i8* [[ATMP62]], align 1
 // CHK-C-NEXT:    br i1 [[CMP61]], label [[ATOMIC_CONT64:%.*]], label [[ATOMIC_EXIT69:%.*]]
 // CHK-C:       atomic_cont64:
-// CHK-C-NEXT:    [[TMP98:%.*]] = phi i64 [ [[ATOMIC_LOAD59]], [[ATOMIC_EXIT58]] ], [ [[TMP105:%.*]], [[ATOMIC_CMP66:%.*]] ]
-// CHK-C-NEXT:    [[TMP99:%.*]] = bitcast i64 [[TMP98]] to double
-// CHK-C-NEXT:    store double [[TMP99]], double* [[ATMP60]], align 8
-// CHK-C-NEXT:    [[TMP100:%.*]] = bitcast double* [[ATOMIC_TEMP65]] to i64*
-// CHK-C-NEXT:    [[TMP101:%.*]] = bitcast double [[TMP95]] to i64
-// CHK-C-NEXT:    store i64 [[TMP101]], i64* [[TMP100]], align 8
-// CHK-C-NEXT:    [[TMP102:%.*]] = load i64, i64* [[TMP100]], align 8
-// CHK-C-NEXT:    [[TMP103:%.*]] = bitcast double* [[X]] to i64*
-// CHK-C-NEXT:    [[TMP104:%.*]] = cmpxchg i64* [[TMP103]], i64 [[TMP98]], i64 [[TMP102]] monotonic monotonic, align 8
-// CHK-C-NEXT:    [[TMP105]] = extractvalue { i64, i1 } [[TMP104]], 0
-// CHK-C-NEXT:    [[TMP106:%.*]] = extractvalue { i64, i1 } [[TMP104]], 1
-// CHK-C-NEXT:    br i1 [[TMP106]], label [[ATOMIC_EXIT69]], label [[ATOMIC_CMP66]]
+// CHK-C-NEXT:    [[TMP92:%.*]] = phi i64 [ [[ATOMIC_LOAD59]], [[ATOMIC_EXIT58]] ], [ [[TMP98:%.*]], [[ATOMIC_CMP66:%.*]] ]
+// CHK-C-NEXT:    [[TMP93:%.*]] = bitcast double* [[ATOMIC_TEMP65]] to i64*
+// CHK-C-NEXT:    [[TMP94:%.*]] = bitcast double [[TMP89]] to i64
+// CHK-C-NEXT:    store i64 [[TMP94]], i64* [[TMP93]], align 8
+// CHK-C-NEXT:    [[TMP95:%.*]] = load i64, i64* [[TMP93]], align 8
+// CHK-C-NEXT:    [[TMP96:%.*]] = bitcast double* [[X]] to i64*
+// CHK-C-NEXT:    [[TMP97:%.*]] = cmpxchg i64* [[TMP96]], i64 [[TMP92]], i64 [[TMP95]] monotonic monotonic, align 8
+// CHK-C-NEXT:    [[TMP98]] = extractvalue { i64, i1 } [[TMP97]], 0
+// CHK-C-NEXT:    [[TMP99:%.*]] = extractvalue { i64, i1 } [[TMP97]], 1
+// CHK-C-NEXT:    br i1 [[TMP99]], label [[ATOMIC_EXIT69]], label [[ATOMIC_CMP66]]
 // CHK-C:       atomic_cmp66:
-// CHK-C-NEXT:    [[TMP107:%.*]] = bitcast i64 [[TMP105]] to double
-// CHK-C-NEXT:    [[CMP67:%.*]] = fcmp olt double [[TMP107]], [[TMP95]]
+// CHK-C-NEXT:    [[TMP100:%.*]] = bitcast i64 [[TMP98]] to double
+// CHK-C-NEXT:    store double [[TMP100]], double* [[ATMP60]], align 8
+// CHK-C-NEXT:    [[CMP67:%.*]] = fcmp olt double [[TMP100]], [[TMP89]]
 // CHK-C-NEXT:    [[FROMBOOL68:%.*]] = zext i1 [[CMP67]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL68]], i8* [[ATMP62]], align 1
 // CHK-C-NEXT:    br i1 [[CMP67]], label [[ATOMIC_CONT64]], label [[ATOMIC_EXIT69]]
 // CHK-C:       atomic_exit69:
-// CHK-C-NEXT:    [[TMP108:%.*]] = load double, double* [[ATMP60]], align 8
-// CHK-C-NEXT:    [[TMP109:%.*]] = load i8, i8* [[ATMP62]], align 1
-// CHK-C-NEXT:    [[TMP110:%.*]] = load double, double* [[EXPR]], align 8
-// CHK-C-NEXT:    [[TMP111:%.*]] = bitcast double* [[X]] to i64*
-// CHK-C-NEXT:    [[ATOMIC_LOAD70:%.*]] = load atomic i64, i64* [[TMP111]] monotonic, align 8
-// CHK-C-NEXT:    [[TMP112:%.*]] = bitcast i64 [[ATOMIC_LOAD70]] to double
-// CHK-C-NEXT:    store double [[TMP112]], double* [[ATMP71]], align 8
-// CHK-C-NEXT:    [[CMP72:%.*]] = fcmp olt double [[TMP112]], [[TMP110]]
+// CHK-C-NEXT:    [[TMP101:%.*]] = load double, double* [[ATMP60]], align 8
+// CHK-C-NEXT:    [[TMP102:%.*]] = load i8, i8* [[ATMP62]], align 1
+// CHK-C-NEXT:    [[TMP103:%.*]] = load double, double* [[EXPR]], align 8
+// CHK-C-NEXT:    [[TMP104:%.*]] = bitcast double* [[X]] to i64*
+// CHK-C-NEXT:    [[ATOMIC_LOAD70:%.*]] = load atomic i64, i64* [[TMP104]] monotonic, align 8
+// CHK-C-NEXT:    [[TMP105:%.*]] = bitcast i64 [[ATOMIC_LOAD70]] to double
+// CHK-C-NEXT:    store double [[TMP105]], double* [[ATMP71]], align 8
+// CHK-C-NEXT:    [[CMP72:%.*]] = fcmp olt double [[TMP105]], [[TMP103]]
 // CHK-C-NEXT:    [[FROMBOOL74:%.*]] = zext i1 [[CMP72]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL74]], i8* [[ATMP73]], align 1
 // CHK-C-NEXT:    br i1 [[CMP72]], label [[ATOMIC_CONT75:%.*]], label [[ATOMIC_EXIT80:%.*]]
 // CHK-C:       atomic_cont75:
-// CHK-C-NEXT:    [[TMP113:%.*]] = phi i64 [ [[ATOMIC_LOAD70]], [[ATOMIC_EXIT69]] ], [ [[TMP120:%.*]], [[ATOMIC_CMP77:%.*]] ]
-// CHK-C-NEXT:    [[TMP114:%.*]] = bitcast i64 [[TMP113]] to double
-// CHK-C-NEXT:    store double [[TMP114]], double* [[ATMP71]], align 8
-// CHK-C-NEXT:    [[TMP115:%.*]] = bitcast double* [[ATOMIC_TEMP76]] to i64*
-// CHK-C-NEXT:    [[TMP116:%.*]] = bitcast double [[TMP110]] to i64
-// CHK-C-NEXT:    store i64 [[TMP116]], i64* [[TMP115]], align 8
-// CHK-C-NEXT:    [[TMP117:%.*]] = load i64, i64* [[TMP115]], align 8
-// CHK-C-NEXT:    [[TMP118:%.*]] = bitcast double* [[X]] to i64*
-// CHK-C-NEXT:    [[TMP119:%.*]] = cmpxchg i64* [[TMP118]], i64 [[TMP113]], i64 [[TMP117]] monotonic monotonic, align 8
-// CHK-C-NEXT:    [[TMP120]] = extractvalue { i64, i1 } [[TMP119]], 0
-// CHK-C-NEXT:    [[TMP121:%.*]] = extractvalue { i64, i1 } [[TMP119]], 1
-// CHK-C-NEXT:    br i1 [[TMP121]], label [[ATOMIC_EXIT80]], label [[ATOMIC_CMP77]]
+// CHK-C-NEXT:    [[TMP106:%.*]] = phi i64 [ [[ATOMIC_LOAD70]], [[ATOMIC_EXIT69]] ], [ [[TMP112:%.*]], [[ATOMIC_CMP77:%.*]] ]
+// CHK-C-NEXT:    [[TMP107:%.*]] = bitcast double* [[ATOMIC_TEMP76]] to i64*
+// CHK-C-NEXT:    [[TMP108:%.*]] = bitcast double [[TMP103]] to i64
+// CHK-C-NEXT:    store i64 [[TMP108]], i64* [[TMP107]], align 8
+// CHK-C-NEXT:    [[TMP109:%.*]] = load i64, i64* [[TMP107]], align 8
+// CHK-C-NEXT:    [[TMP110:%.*]] = bitcast double* [[X]] to i64*
+// CHK-C-NEXT:    [[TMP111:%.*]] = cmpxchg i64* [[TMP110]], i64 [[TMP106]], i64 [[TMP109]] monotonic monotonic, align 8
+// CHK-C-NEXT:    [[TMP112]] = extractvalue { i64, i1 } [[TMP111]], 0
+// CHK-C-NEXT:    [[TMP113:%.*]] = extractvalue { i64, i1 } [[TMP111]], 1
+// CHK-C-NEXT:    br i1 [[TMP113]], label [[ATOMIC_EXIT80]], label [[ATOMIC_CMP77]]
 // CHK-C:       atomic_cmp77:
-// CHK-C-NEXT:    [[TMP122:%.*]] = bitcast i64 [[TMP120]] to double
-// CHK-C-NEXT:    [[CMP78:%.*]] = fcmp olt double [[TMP122]], [[TMP110]]
+// CHK-C-NEXT:    [[TMP114:%.*]] = bitcast i64 [[TMP112]] to double
+// CHK-C-NEXT:    store double [[TMP114]], double* [[ATMP71]], align 8
+// CHK-C-NEXT:    [[CMP78:%.*]] = fcmp olt double [[TMP114]], [[TMP103]]
 // CHK-C-NEXT:    [[FROMBOOL79:%.*]] = zext i1 [[CMP78]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL79]], i8* [[ATMP73]], align 1
 // CHK-C-NEXT:    br i1 [[CMP78]], label [[ATOMIC_CONT75]], label [[ATOMIC_EXIT80]]
 // CHK-C:       atomic_exit80:
-// CHK-C-NEXT:    [[TMP123:%.*]] = load double, double* [[ATMP71]], align 8
-// CHK-C-NEXT:    [[TMP124:%.*]] = load i8, i8* [[ATMP73]], align 1
-// CHK-C-NEXT:    [[TMP125:%.*]] = load double, double* [[EXPR]], align 8
-// CHK-C-NEXT:    [[TMP126:%.*]] = bitcast double* [[X]] to i64*
-// CHK-C-NEXT:    [[ATOMIC_LOAD81:%.*]] = load atomic i64, i64* [[TMP126]] monotonic, align 8
-// CHK-C-NEXT:    [[TMP127:%.*]] = bitcast i64 [[ATOMIC_LOAD81]] to double
-// CHK-C-NEXT:    store double [[TMP127]], double* [[ATMP82]], align 8
-// CHK-C-NEXT:    [[CMP83:%.*]] = fcmp ogt double [[TMP127]], [[TMP125]]
+// CHK-C-NEXT:    [[TMP115:%.*]] = load double, double* [[ATMP71]], align 8
+// CHK-C-NEXT:    [[TMP116:%.*]] = load i8, i8* [[ATMP73]], align 1
+// CHK-C-NEXT:    [[TMP117:%.*]] = load double, double* [[EXPR]], align 8
+// CHK-C-NEXT:    [[TMP118:%.*]] = bitcast double* [[X]] to i64*
+// CHK-C-NEXT:    [[ATOMIC_LOAD81:%.*]] = load atomic i64, i64* [[TMP118]] monotonic, align 8
+// CHK-C-NEXT:    [[TMP119:%.*]] = bitcast i64 [[ATOMIC_LOAD81]] to double
+// CHK-C-NEXT:    store double [[TMP119]], double* [[ATMP82]], align 8
+// CHK-C-NEXT:    [[CMP83:%.*]] = fcmp ogt double [[TMP119]], [[TMP117]]
 // CHK-C-NEXT:    [[FROMBOOL85:%.*]] = zext i1 [[CMP83]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL85]], i8* [[ATMP84]], align 1
 // CHK-C-NEXT:    br i1 [[CMP83]], label [[ATOMIC_CONT86:%.*]], label [[ATOMIC_EXIT91:%.*]]
 // CHK-C:       atomic_cont86:
-// CHK-C-NEXT:    [[TMP128:%.*]] = phi i64 [ [[ATOMIC_LOAD81]], [[ATOMIC_EXIT80]] ], [ [[TMP135:%.*]], [[ATOMIC_CMP88:%.*]] ]
-// CHK-C-NEXT:    [[TMP129:%.*]] = bitcast i64 [[TMP128]] to double
-// CHK-C-NEXT:    store double [[TMP129]], double* [[ATMP82]], align 8
-// CHK-C-NEXT:    [[TMP130:%.*]] = bitcast double* [[ATOMIC_TEMP87]] to i64*
-// CHK-C-NEXT:    [[TMP131:%.*]] = bitcast double [[TMP125]] to i64
-// CHK-C-NEXT:    store i64 [[TMP131]], i64* [[TMP130]], align 8
-// CHK-C-NEXT:    [[TMP132:%.*]] = load i64, i64* [[TMP130]], align 8
-// CHK-C-NEXT:    [[TMP133:%.*]] = bitcast double* [[X]] to i64*
-// CHK-C-NEXT:    [[TMP134:%.*]] = cmpxchg i64* [[TMP133]], i64 [[TMP128]], i64 [[TMP132]] monotonic monotonic, align 8
-// CHK-C-NEXT:    [[TMP135]] = extractvalue { i64, i1 } [[TMP134]], 0
-// CHK-C-NEXT:    [[TMP136:%.*]] = extractvalue { i64, i1 } [[TMP134]], 1
-// CHK-C-NEXT:    br i1 [[TMP136]], label [[ATOMIC_EXIT91]], label [[ATOMIC_CMP88]]
+// CHK-C-NEXT:    [[TMP120:%.*]] = phi i64 [ [[ATOMIC_LOAD81]], [[ATOMIC_EXIT80]] ], [ [[TMP126:%.*]], [[ATOMIC_CMP88:%.*]] ]
+// CHK-C-NEXT:    [[TMP121:%.*]] = bitcast double* [[ATOMIC_TEMP87]] to i64*
+// CHK-C-NEXT:    [[TMP122:%.*]] = bitcast double [[TMP117]] to i64
+// CHK-C-NEXT:    store i64 [[TMP122]], i64* [[TMP121]], align 8
+// CHK-C-NEXT:    [[TMP123:%.*]] = load i64, i64* [[TMP121]], align 8
+// CHK-C-NEXT:    [[TMP124:%.*]] = bitcast double* [[X]] to i64*
+// CHK-C-NEXT:    [[TMP125:%.*]] = cmpxchg i64* [[TMP124]], i64 [[TMP120]], i64 [[TMP123]] monotonic monotonic, align 8
+// CHK-C-NEXT:    [[TMP126]] = extractvalue { i64, i1 } [[TMP125]], 0
+// CHK-C-NEXT:    [[TMP127:%.*]] = extractvalue { i64, i1 } [[TMP125]], 1
+// CHK-C-NEXT:    br i1 [[TMP127]], label [[ATOMIC_EXIT91]], label [[ATOMIC_CMP88]]
 // CHK-C:       atomic_cmp88:
-// CHK-C-NEXT:    [[TMP137:%.*]] = bitcast i64 [[TMP135]] to double
-// CHK-C-NEXT:    [[CMP89:%.*]] = fcmp ogt double [[TMP137]], [[TMP125]]
+// CHK-C-NEXT:    [[TMP128:%.*]] = bitcast i64 [[TMP126]] to double
+// CHK-C-NEXT:    store double [[TMP128]], double* [[ATMP82]], align 8
+// CHK-C-NEXT:    [[CMP89:%.*]] = fcmp ogt double [[TMP128]], [[TMP117]]
 // CHK-C-NEXT:    [[FROMBOOL90:%.*]] = zext i1 [[CMP89]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL90]], i8* [[ATMP84]], align 1
 // CHK-C-NEXT:    br i1 [[CMP89]], label [[ATOMIC_CONT86]], label [[ATOMIC_EXIT91]]
 // CHK-C:       atomic_exit91:
-// CHK-C-NEXT:    [[TMP138:%.*]] = load double, double* [[ATMP82]], align 8
-// CHK-C-NEXT:    [[TMP139:%.*]] = load i8, i8* [[ATMP84]], align 1
-// CHK-C-NEXT:    [[TMP140:%.*]] = load double, double* [[D]], align 8
-// CHK-C-NEXT:    [[TMP141:%.*]] = load double, double* [[E]], align 8
-// CHK-C-NEXT:    [[TMP142:%.*]] = bitcast double* [[X]] to i64*
-// CHK-C-NEXT:    [[ATOMIC_LOAD92:%.*]] = load atomic i64, i64* [[TMP142]] monotonic, align 8
-// CHK-C-NEXT:    [[TMP143:%.*]] = bitcast i64 [[ATOMIC_LOAD92]] to double
-// CHK-C-NEXT:    store double [[TMP143]], double* [[ATMP93]], align 8
-// CHK-C-NEXT:    [[TMP144:%.*]] = bitcast double [[TMP143]] to i64
-// CHK-C-NEXT:    [[TMP145:%.*]] = bitcast double [[TMP141]] to i64
-// CHK-C-NEXT:    [[CMP94:%.*]] = icmp eq i64 [[TMP144]], [[TMP145]]
+// CHK-C-NEXT:    [[TMP129:%.*]] = load double, double* [[ATMP82]], align 8
+// CHK-C-NEXT:    [[TMP130:%.*]] = load i8, i8* [[ATMP84]], align 1
+// CHK-C-NEXT:    [[TMP131:%.*]] = load double, double* [[D]], align 8
+// CHK-C-NEXT:    [[TMP132:%.*]] = load double, double* [[E]], align 8
+// CHK-C-NEXT:    [[TMP133:%.*]] = bitcast double* [[X]] to i64*
+// CHK-C-NEXT:    [[ATOMIC_LOAD92:%.*]] = load atomic i64, i64* [[TMP133]] monotonic, align 8
+// CHK-C-NEXT:    [[TMP134:%.*]] = bitcast i64 [[ATOMIC_LOAD92]] to double
+// CHK-C-NEXT:    store double [[TMP134]], double* [[ATMP93]], align 8
+// CHK-C-NEXT:    [[TMP135:%.*]] = bitcast double [[TMP134]] to i64
+// CHK-C-NEXT:    [[TMP136:%.*]] = bitcast double [[TMP132]] to i64
+// CHK-C-NEXT:    [[CMP94:%.*]] = icmp eq i64 [[TMP135]], [[TMP136]]
 // CHK-C-NEXT:    [[FROMBOOL96:%.*]] = zext i1 [[CMP94]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL96]], i8* [[ATMP95]], align 1
 // CHK-C-NEXT:    br i1 [[CMP94]], label [[ATOMIC_CONT97:%.*]], label [[ATOMIC_EXIT102:%.*]]
 // CHK-C:       atomic_cont97:
-// CHK-C-NEXT:    [[TMP146:%.*]] = phi i64 [ [[ATOMIC_LOAD92]], [[ATOMIC_EXIT91]] ], [ [[TMP153:%.*]], [[ATOMIC_CMP99:%.*]] ]
-// CHK-C-NEXT:    [[TMP147:%.*]] = bitcast i64 [[TMP146]] to double
-// CHK-C-NEXT:    store double [[TMP147]], double* [[ATMP93]], align 8
-// CHK-C-NEXT:    [[TMP148:%.*]] = bitcast double* [[ATOMIC_TEMP98]] to i64*
-// CHK-C-NEXT:    [[TMP149:%.*]] = bitcast double [[TMP140]] to i64
-// CHK-C-NEXT:    store i64 [[TMP149]], i64* [[TMP148]], align 8
-// CHK-C-NEXT:    [[TMP150:%.*]] = load i64, i64* [[TMP148]], align 8
-// CHK-C-NEXT:    [[TMP151:%.*]] = bitcast double* [[X]] to i64*
-// CHK-C-NEXT:    [[TMP152:%.*]] = cmpxchg i64* [[TMP151]], i64 [[TMP146]], i64 [[TMP150]] monotonic monotonic, align 8
-// CHK-C-NEXT:    [[TMP153]] = extractvalue { i64, i1 } [[TMP152]], 0
-// CHK-C-NEXT:    [[TMP154:%.*]] = extractvalue { i64, i1 } [[TMP152]], 1
-// CHK-C-NEXT:    br i1 [[TMP154]], label [[ATOMIC_EXIT102]], label [[ATOMIC_CMP99]]
+// CHK-C-NEXT:    [[TMP137:%.*]] = phi i64 [ [[ATOMIC_LOAD92]], [[ATOMIC_EXIT91]] ], [ [[TMP143:%.*]], [[ATOMIC_CMP99:%.*]] ]
+// CHK-C-NEXT:    [[TMP138:%.*]] = bitcast double* [[ATOMIC_TEMP98]] to i64*
+// CHK-C-NEXT:    [[TMP139:%.*]] = bitcast double [[TMP131]] to i64
+// CHK-C-NEXT:    store i64 [[TMP139]], i64* [[TMP138]], align 8
+// CHK-C-NEXT:    [[TMP140:%.*]] = load i64, i64* [[TMP138]], align 8
+// CHK-C-NEXT:    [[TMP141:%.*]] = bitcast double* [[X]] to i64*
+// CHK-C-NEXT:    [[TMP142:%.*]] = cmpxchg i64* [[TMP141]], i64 [[TMP137]], i64 [[TMP140]] monotonic monotonic, align 8
+// CHK-C-NEXT:    [[TMP143]] = extractvalue { i64, i1 } [[TMP142]], 0
+// CHK-C-NEXT:    [[TMP144:%.*]] = extractvalue { i64, i1 } [[TMP142]], 1
+// CHK-C-NEXT:    br i1 [[TMP144]], label [[ATOMIC_EXIT102]], label [[ATOMIC_CMP99]]
 // CHK-C:       atomic_cmp99:
-// CHK-C-NEXT:    [[TMP155:%.*]] = bitcast i64 [[TMP153]] to double
-// CHK-C-NEXT:    [[TMP156:%.*]] = bitcast double [[TMP155]] to i64
-// CHK-C-NEXT:    [[TMP157:%.*]] = bitcast double [[TMP141]] to i64
-// CHK-C-NEXT:    [[CMP100:%.*]] = icmp eq i64 [[TMP156]], [[TMP157]]
+// CHK-C-NEXT:    [[TMP145:%.*]] = bitcast i64 [[TMP143]] to double
+// CHK-C-NEXT:    store double [[TMP145]], double* [[ATMP93]], align 8
+// CHK-C-NEXT:    [[TMP146:%.*]] = bitcast double [[TMP145]] to i64
+// CHK-C-NEXT:    [[TMP147:%.*]] = bitcast double [[TMP132]] to i64
+// CHK-C-NEXT:    [[CMP100:%.*]] = icmp eq i64 [[TMP146]], [[TMP147]]
 // CHK-C-NEXT:    [[FROMBOOL101:%.*]] = zext i1 [[CMP100]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL101]], i8* [[ATMP95]], align 1
 // CHK-C-NEXT:    br i1 [[CMP100]], label [[ATOMIC_CONT97]], label [[ATOMIC_EXIT102]]
 // CHK-C:       atomic_exit102:
-// CHK-C-NEXT:    [[TMP158:%.*]] = load double, double* [[ATMP93]], align 8
-// CHK-C-NEXT:    [[TMP159:%.*]] = load i8, i8* [[ATMP95]], align 1
+// CHK-C-NEXT:    [[TMP148:%.*]] = load double, double* [[ATMP93]], align 8
+// CHK-C-NEXT:    [[TMP149:%.*]] = load i8, i8* [[ATMP95]], align 1
 // CHK-C-NEXT:    ret void
 //
 // CHK-CXX-LABEL: @_Z11test_doublev(
@@ -1630,316 +1620,306 @@ void test_unsigned_short() {
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL]], i8* [[ATMP1]], align 1
 // CHK-CXX-NEXT:    br i1 [[CMP]], label [[ATOMIC_CONT:%.*]], label [[ATOMIC_EXIT:%.*]]
 // CHK-CXX:       atomic_cont:
-// CHK-CXX-NEXT:    [[TMP3:%.*]] = phi i64 [ [[ATOMIC_LOAD]], [[ENTRY:%.*]] ], [ [[TMP10:%.*]], [[ATOMIC_CMP:%.*]] ]
-// CHK-CXX-NEXT:    [[TMP4:%.*]] = bitcast i64 [[TMP3]] to double
-// CHK-CXX-NEXT:    store double [[TMP4]], double* [[TMP]], align 8
-// CHK-CXX-NEXT:    [[TMP5:%.*]] = bitcast double* [[ATOMIC_TEMP]] to i64*
-// CHK-CXX-NEXT:    [[TMP6:%.*]] = bitcast double [[TMP0]] to i64
-// CHK-CXX-NEXT:    store i64 [[TMP6]], i64* [[TMP5]], align 8
-// CHK-CXX-NEXT:    [[TMP7:%.*]] = load i64, i64* [[TMP5]], align 8
-// CHK-CXX-NEXT:    [[TMP8:%.*]] = bitcast double* [[X]] to i64*
-// CHK-CXX-NEXT:    [[TMP9:%.*]] = cmpxchg i64* [[TMP8]], i64 [[TMP3]], i64 [[TMP7]] monotonic monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP10]] = extractvalue { i64, i1 } [[TMP9]], 0
-// CHK-CXX-NEXT:    [[TMP11:%.*]] = extractvalue { i64, i1 } [[TMP9]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP11]], label [[ATOMIC_EXIT]], label [[ATOMIC_CMP]]
+// CHK-CXX-NEXT:    [[TMP3:%.*]] = phi i64 [ [[ATOMIC_LOAD]], [[ENTRY:%.*]] ], [ [[TMP9:%.*]], [[ATOMIC_CMP:%.*]] ]
+// CHK-CXX-NEXT:    [[TMP4:%.*]] = bitcast double* [[ATOMIC_TEMP]] to i64*
+// CHK-CXX-NEXT:    [[TMP5:%.*]] = bitcast double [[TMP0]] to i64
+// CHK-CXX-NEXT:    store i64 [[TMP5]], i64* [[TMP4]], align 8
+// CHK-CXX-NEXT:    [[TMP6:%.*]] = load i64, i64* [[TMP4]], align 8
+// CHK-CXX-NEXT:    [[TMP7:%.*]] = bitcast double* [[X]] to i64*
+// CHK-CXX-NEXT:    [[TMP8:%.*]] = cmpxchg i64* [[TMP7]], i64 [[TMP3]], i64 [[TMP6]] monotonic monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP9]] = extractvalue { i64, i1 } [[TMP8]], 0
+// CHK-CXX-NEXT:    [[TMP10:%.*]] = extractvalue { i64, i1 } [[TMP8]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP10]], label [[ATOMIC_EXIT]], label [[ATOMIC_CMP]]
 // CHK-CXX:       atomic_cmp:
-// CHK-CXX-NEXT:    [[TMP12:%.*]] = bitcast i64 [[TMP10]] to double
-// CHK-CXX-NEXT:    [[CMP2:%.*]] = fcmp ogt double [[TMP12]], [[TMP0]]
+// CHK-CXX-NEXT:    [[TMP11:%.*]] = bitcast i64 [[TMP9]] to double
+// CHK-CXX-NEXT:    store double [[TMP11]], double* [[TMP]], align 8
+// CHK-CXX-NEXT:    [[CMP2:%.*]] = fcmp ogt double [[TMP11]], [[TMP0]]
 // CHK-CXX-NEXT:    [[FROMBOOL3:%.*]] = zext i1 [[CMP2]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL3]], i8* [[ATMP1]], align 1
 // CHK-CXX-NEXT:    br i1 [[CMP2]], label [[ATOMIC_CONT]], label [[ATOMIC_EXIT]]
 // CHK-CXX:       atomic_exit:
-// CHK-CXX-NEXT:    [[TMP13:%.*]] = load double, double* [[TMP]], align 8
-// CHK-CXX-NEXT:    [[TMP14:%.*]] = load i8, i8* [[ATMP1]], align 1
-// CHK-CXX-NEXT:    [[TMP15:%.*]] = load double, double* [[EXPR]], align 8
-// CHK-CXX-NEXT:    [[TMP16:%.*]] = bitcast double* [[X]] to i64*
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD4:%.*]] = load atomic i64, i64* [[TMP16]] monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP17:%.*]] = bitcast i64 [[ATOMIC_LOAD4]] to double
-// CHK-CXX-NEXT:    store double [[TMP17]], double* [[ATMP5]], align 8
-// CHK-CXX-NEXT:    [[CMP6:%.*]] = fcmp olt double [[TMP17]], [[TMP15]]
+// CHK-CXX-NEXT:    [[TMP12:%.*]] = load double, double* [[TMP]], align 8
+// CHK-CXX-NEXT:    [[TMP13:%.*]] = load i8, i8* [[ATMP1]], align 1
+// CHK-CXX-NEXT:    [[TMP14:%.*]] = load double, double* [[EXPR]], align 8
+// CHK-CXX-NEXT:    [[TMP15:%.*]] = bitcast double* [[X]] to i64*
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD4:%.*]] = load atomic i64, i64* [[TMP15]] monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP16:%.*]] = bitcast i64 [[ATOMIC_LOAD4]] to double
+// CHK-CXX-NEXT:    store double [[TMP16]], double* [[ATMP5]], align 8
+// CHK-CXX-NEXT:    [[CMP6:%.*]] = fcmp olt double [[TMP16]], [[TMP14]]
 // CHK-CXX-NEXT:    [[FROMBOOL8:%.*]] = zext i1 [[CMP6]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL8]], i8* [[ATMP7]], align 1
 // CHK-CXX-NEXT:    br i1 [[CMP6]], label [[ATOMIC_CONT9:%.*]], label [[ATOMIC_EXIT14:%.*]]
 // CHK-CXX:       atomic_cont9:
-// CHK-CXX-NEXT:    [[TMP18:%.*]] = phi i64 [ [[ATOMIC_LOAD4]], [[ATOMIC_EXIT]] ], [ [[TMP25:%.*]], [[ATOMIC_CMP11:%.*]] ]
-// CHK-CXX-NEXT:    [[TMP19:%.*]] = bitcast i64 [[TMP18]] to double
-// CHK-CXX-NEXT:    store double [[TMP19]], double* [[ATMP5]], align 8
-// CHK-CXX-NEXT:    [[TMP20:%.*]] = bitcast double* [[ATOMIC_TEMP10]] to i64*
-// CHK-CXX-NEXT:    [[TMP21:%.*]] = bitcast double [[TMP15]] to i64
-// CHK-CXX-NEXT:    store i64 [[TMP21]], i64* [[TMP20]], align 8
-// CHK-CXX-NEXT:    [[TMP22:%.*]] = load i64, i64* [[TMP20]], align 8
-// CHK-CXX-NEXT:    [[TMP23:%.*]] = bitcast double* [[X]] to i64*
-// CHK-CXX-NEXT:    [[TMP24:%.*]] = cmpxchg i64* [[TMP23]], i64 [[TMP18]], i64 [[TMP22]] monotonic monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP25]] = extractvalue { i64, i1 } [[TMP24]], 0
-// CHK-CXX-NEXT:    [[TMP26:%.*]] = extractvalue { i64, i1 } [[TMP24]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP26]], label [[ATOMIC_EXIT14]], label [[ATOMIC_CMP11]]
+// CHK-CXX-NEXT:    [[TMP17:%.*]] = phi i64 [ [[ATOMIC_LOAD4]], [[ATOMIC_EXIT]] ], [ [[TMP23:%.*]], [[ATOMIC_CMP11:%.*]] ]
+// CHK-CXX-NEXT:    [[TMP18:%.*]] = bitcast double* [[ATOMIC_TEMP10]] to i64*
+// CHK-CXX-NEXT:    [[TMP19:%.*]] = bitcast double [[TMP14]] to i64
+// CHK-CXX-NEXT:    store i64 [[TMP19]], i64* [[TMP18]], align 8
+// CHK-CXX-NEXT:    [[TMP20:%.*]] = load i64, i64* [[TMP18]], align 8
+// CHK-CXX-NEXT:    [[TMP21:%.*]] = bitcast double* [[X]] to i64*
+// CHK-CXX-NEXT:    [[TMP22:%.*]] = cmpxchg i64* [[TMP21]], i64 [[TMP17]], i64 [[TMP20]] monotonic monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP23]] = extractvalue { i64, i1 } [[TMP22]], 0
+// CHK-CXX-NEXT:    [[TMP24:%.*]] = extractvalue { i64, i1 } [[TMP22]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP24]], label [[ATOMIC_EXIT14]], label [[ATOMIC_CMP11]]
 // CHK-CXX:       atomic_cmp11:
-// CHK-CXX-NEXT:    [[TMP27:%.*]] = bitcast i64 [[TMP25]] to double
-// CHK-CXX-NEXT:    [[CMP12:%.*]] = fcmp olt double [[TMP27]], [[TMP15]]
+// CHK-CXX-NEXT:    [[TMP25:%.*]] = bitcast i64 [[TMP23]] to double
+// CHK-CXX-NEXT:    store double [[TMP25]], double* [[ATMP5]], align 8
+// CHK-CXX-NEXT:    [[CMP12:%.*]] = fcmp olt double [[TMP25]], [[TMP14]]
 // CHK-CXX-NEXT:    [[FROMBOOL13:%.*]] = zext i1 [[CMP12]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL13]], i8* [[ATMP7]], align 1
 // CHK-CXX-NEXT:    br i1 [[CMP12]], label [[ATOMIC_CONT9]], label [[ATOMIC_EXIT14]]
 // CHK-CXX:       atomic_exit14:
-// CHK-CXX-NEXT:    [[TMP28:%.*]] = load double, double* [[ATMP5]], align 8
-// CHK-CXX-NEXT:    [[TMP29:%.*]] = load i8, i8* [[ATMP7]], align 1
-// CHK-CXX-NEXT:    [[TMP30:%.*]] = load double, double* [[EXPR]], align 8
-// CHK-CXX-NEXT:    [[TMP31:%.*]] = bitcast double* [[X]] to i64*
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD15:%.*]] = load atomic i64, i64* [[TMP31]] monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP32:%.*]] = bitcast i64 [[ATOMIC_LOAD15]] to double
-// CHK-CXX-NEXT:    store double [[TMP32]], double* [[ATMP16]], align 8
-// CHK-CXX-NEXT:    [[CMP17:%.*]] = fcmp olt double [[TMP32]], [[TMP30]]
+// CHK-CXX-NEXT:    [[TMP26:%.*]] = load double, double* [[ATMP5]], align 8
+// CHK-CXX-NEXT:    [[TMP27:%.*]] = load i8, i8* [[ATMP7]], align 1
+// CHK-CXX-NEXT:    [[TMP28:%.*]] = load double, double* [[EXPR]], align 8
+// CHK-CXX-NEXT:    [[TMP29:%.*]] = bitcast double* [[X]] to i64*
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD15:%.*]] = load atomic i64, i64* [[TMP29]] monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP30:%.*]] = bitcast i64 [[ATOMIC_LOAD15]] to double
+// CHK-CXX-NEXT:    store double [[TMP30]], double* [[ATMP16]], align 8
+// CHK-CXX-NEXT:    [[CMP17:%.*]] = fcmp olt double [[TMP30]], [[TMP28]]
 // CHK-CXX-NEXT:    [[FROMBOOL19:%.*]] = zext i1 [[CMP17]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL19]], i8* [[ATMP18]], align 1
 // CHK-CXX-NEXT:    br i1 [[CMP17]], label [[ATOMIC_CONT20:%.*]], label [[ATOMIC_EXIT25:%.*]]
 // CHK-CXX:       atomic_cont20:
-// CHK-CXX-NEXT:    [[TMP33:%.*]] = phi i64 [ [[ATOMIC_LOAD15]], [[ATOMIC_EXIT14]] ], [ [[TMP40:%.*]], [[ATOMIC_CMP22:%.*]] ]
-// CHK-CXX-NEXT:    [[TMP34:%.*]] = bitcast i64 [[TMP33]] to double
-// CHK-CXX-NEXT:    store double [[TMP34]], double* [[ATMP16]], align 8
-// CHK-CXX-NEXT:    [[TMP35:%.*]] = bitcast double* [[ATOMIC_TEMP21]] to i64*
-// CHK-CXX-NEXT:    [[TMP36:%.*]] = bitcast double [[TMP30]] to i64
-// CHK-CXX-NEXT:    store i64 [[TMP36]], i64* [[TMP35]], align 8
-// CHK-CXX-NEXT:    [[TMP37:%.*]] = load i64, i64* [[TMP35]], align 8
-// CHK-CXX-NEXT:    [[TMP38:%.*]] = bitcast double* [[X]] to i64*
-// CHK-CXX-NEXT:    [[TMP39:%.*]] = cmpxchg i64* [[TMP38]], i64 [[TMP33]], i64 [[TMP37]] monotonic monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP40]] = extractvalue { i64, i1 } [[TMP39]], 0
-// CHK-CXX-NEXT:    [[TMP41:%.*]] = extractvalue { i64, i1 } [[TMP39]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP41]], label [[ATOMIC_EXIT25]], label [[ATOMIC_CMP22]]
+// CHK-CXX-NEXT:    [[TMP31:%.*]] = phi i64 [ [[ATOMIC_LOAD15]], [[ATOMIC_EXIT14]] ], [ [[TMP37:%.*]], [[ATOMIC_CMP22:%.*]] ]
+// CHK-CXX-NEXT:    [[TMP32:%.*]] = bitcast double* [[ATOMIC_TEMP21]] to i64*
+// CHK-CXX-NEXT:    [[TMP33:%.*]] = bitcast double [[TMP28]] to i64
+// CHK-CXX-NEXT:    store i64 [[TMP33]], i64* [[TMP32]], align 8
+// CHK-CXX-NEXT:    [[TMP34:%.*]] = load i64, i64* [[TMP32]], align 8
+// CHK-CXX-NEXT:    [[TMP35:%.*]] = bitcast double* [[X]] to i64*
+// CHK-CXX-NEXT:    [[TMP36:%.*]] = cmpxchg i64* [[TMP35]], i64 [[TMP31]], i64 [[TMP34]] monotonic monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP37]] = extractvalue { i64, i1 } [[TMP36]], 0
+// CHK-CXX-NEXT:    [[TMP38:%.*]] = extractvalue { i64, i1 } [[TMP36]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP38]], label [[ATOMIC_EXIT25]], label [[ATOMIC_CMP22]]
 // CHK-CXX:       atomic_cmp22:
-// CHK-CXX-NEXT:    [[TMP42:%.*]] = bitcast i64 [[TMP40]] to double
-// CHK-CXX-NEXT:    [[CMP23:%.*]] = fcmp olt double [[TMP42]], [[TMP30]]
+// CHK-CXX-NEXT:    [[TMP39:%.*]] = bitcast i64 [[TMP37]] to double
+// CHK-CXX-NEXT:    store double [[TMP39]], double* [[ATMP16]], align 8
+// CHK-CXX-NEXT:    [[CMP23:%.*]] = fcmp olt double [[TMP39]], [[TMP28]]
 // CHK-CXX-NEXT:    [[FROMBOOL24:%.*]] = zext i1 [[CMP23]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL24]], i8* [[ATMP18]], align 1
 // CHK-CXX-NEXT:    br i1 [[CMP23]], label [[ATOMIC_CONT20]], label [[ATOMIC_EXIT25]]
 // CHK-CXX:       atomic_exit25:
-// CHK-CXX-NEXT:    [[TMP43:%.*]] = load double, double* [[ATMP16]], align 8
-// CHK-CXX-NEXT:    [[TMP44:%.*]] = load i8, i8* [[ATMP18]], align 1
-// CHK-CXX-NEXT:    [[TMP45:%.*]] = load double, double* [[EXPR]], align 8
-// CHK-CXX-NEXT:    [[TMP46:%.*]] = bitcast double* [[X]] to i64*
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD26:%.*]] = load atomic i64, i64* [[TMP46]] monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP47:%.*]] = bitcast i64 [[ATOMIC_LOAD26]] to double
-// CHK-CXX-NEXT:    store double [[TMP47]], double* [[ATMP27]], align 8
-// CHK-CXX-NEXT:    [[CMP28:%.*]] = fcmp ogt double [[TMP47]], [[TMP45]]
+// CHK-CXX-NEXT:    [[TMP40:%.*]] = load double, double* [[ATMP16]], align 8
+// CHK-CXX-NEXT:    [[TMP41:%.*]] = load i8, i8* [[ATMP18]], align 1
+// CHK-CXX-NEXT:    [[TMP42:%.*]] = load double, double* [[EXPR]], align 8
+// CHK-CXX-NEXT:    [[TMP43:%.*]] = bitcast double* [[X]] to i64*
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD26:%.*]] = load atomic i64, i64* [[TMP43]] monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP44:%.*]] = bitcast i64 [[ATOMIC_LOAD26]] to double
+// CHK-CXX-NEXT:    store double [[TMP44]], double* [[ATMP27]], align 8
+// CHK-CXX-NEXT:    [[CMP28:%.*]] = fcmp ogt double [[TMP44]], [[TMP42]]
 // CHK-CXX-NEXT:    [[FROMBOOL30:%.*]] = zext i1 [[CMP28]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL30]], i8* [[ATMP29]], align 1
 // CHK-CXX-NEXT:    br i1 [[CMP28]], label [[ATOMIC_CONT31:%.*]], label [[ATOMIC_EXIT36:%.*]]
 // CHK-CXX:       atomic_cont31:
-// CHK-CXX-NEXT:    [[TMP48:%.*]] = phi i64 [ [[ATOMIC_LOAD26]], [[ATOMIC_EXIT25]] ], [ [[TMP55:%.*]], [[ATOMIC_CMP33:%.*]] ]
-// CHK-CXX-NEXT:    [[TMP49:%.*]] = bitcast i64 [[TMP48]] to double
-// CHK-CXX-NEXT:    store double [[TMP49]], double* [[ATMP27]], align 8
-// CHK-CXX-NEXT:    [[TMP50:%.*]] = bitcast double* [[ATOMIC_TEMP32]] to i64*
-// CHK-CXX-NEXT:    [[TMP51:%.*]] = bitcast double [[TMP45]] to i64
-// CHK-CXX-NEXT:    store i64 [[TMP51]], i64* [[TMP50]], align 8
-// CHK-CXX-NEXT:    [[TMP52:%.*]] = load i64, i64* [[TMP50]], align 8
-// CHK-CXX-NEXT:    [[TMP53:%.*]] = bitcast double* [[X]] to i64*
-// CHK-CXX-NEXT:    [[TMP54:%.*]] = cmpxchg i64* [[TMP53]], i64 [[TMP48]], i64 [[TMP52]] monotonic monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP55]] = extractvalue { i64, i1 } [[TMP54]], 0
-// CHK-CXX-NEXT:    [[TMP56:%.*]] = extractvalue { i64, i1 } [[TMP54]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP56]], label [[ATOMIC_EXIT36]], label [[ATOMIC_CMP33]]
+// CHK-CXX-NEXT:    [[TMP45:%.*]] = phi i64 [ [[ATOMIC_LOAD26]], [[ATOMIC_EXIT25]] ], [ [[TMP51:%.*]], [[ATOMIC_CMP33:%.*]] ]
+// CHK-CXX-NEXT:    [[TMP46:%.*]] = bitcast double* [[ATOMIC_TEMP32]] to i64*
+// CHK-CXX-NEXT:    [[TMP47:%.*]] = bitcast double [[TMP42]] to i64
+// CHK-CXX-NEXT:    store i64 [[TMP47]], i64* [[TMP46]], align 8
+// CHK-CXX-NEXT:    [[TMP48:%.*]] = load i64, i64* [[TMP46]], align 8
+// CHK-CXX-NEXT:    [[TMP49:%.*]] = bitcast double* [[X]] to i64*
+// CHK-CXX-NEXT:    [[TMP50:%.*]] = cmpxchg i64* [[TMP49]], i64 [[TMP45]], i64 [[TMP48]] monotonic monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP51]] = extractvalue { i64, i1 } [[TMP50]], 0
+// CHK-CXX-NEXT:    [[TMP52:%.*]] = extractvalue { i64, i1 } [[TMP50]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP52]], label [[ATOMIC_EXIT36]], label [[ATOMIC_CMP33]]
 // CHK-CXX:       atomic_cmp33:
-// CHK-CXX-NEXT:    [[TMP57:%.*]] = bitcast i64 [[TMP55]] to double
-// CHK-CXX-NEXT:    [[CMP34:%.*]] = fcmp ogt double [[TMP57]], [[TMP45]]
+// CHK-CXX-NEXT:    [[TMP53:%.*]] = bitcast i64 [[TMP51]] to double
+// CHK-CXX-NEXT:    store double [[TMP53]], double* [[ATMP27]], align 8
+// CHK-CXX-NEXT:    [[CMP34:%.*]] = fcmp ogt double [[TMP53]], [[TMP42]]
 // CHK-CXX-NEXT:    [[FROMBOOL35:%.*]] = zext i1 [[CMP34]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL35]], i8* [[ATMP29]], align 1
 // CHK-CXX-NEXT:    br i1 [[CMP34]], label [[ATOMIC_CONT31]], label [[ATOMIC_EXIT36]]
 // CHK-CXX:       atomic_exit36:
-// CHK-CXX-NEXT:    [[TMP58:%.*]] = load double, double* [[ATMP27]], align 8
-// CHK-CXX-NEXT:    [[TMP59:%.*]] = load i8, i8* [[ATMP29]], align 1
-// CHK-CXX-NEXT:    [[TMP60:%.*]] = load double, double* [[D]], align 8
-// CHK-CXX-NEXT:    [[TMP61:%.*]] = load double, double* [[E]], align 8
-// CHK-CXX-NEXT:    [[TMP62:%.*]] = bitcast double* [[X]] to i64*
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD37:%.*]] = load atomic i64, i64* [[TMP62]] monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP63:%.*]] = bitcast i64 [[ATOMIC_LOAD37]] to double
-// CHK-CXX-NEXT:    store double [[TMP63]], double* [[ATMP38]], align 8
-// CHK-CXX-NEXT:    [[TMP64:%.*]] = bitcast double [[TMP63]] to i64
-// CHK-CXX-NEXT:    [[TMP65:%.*]] = bitcast double [[TMP61]] to i64
-// CHK-CXX-NEXT:    [[CMP39:%.*]] = icmp eq i64 [[TMP64]], [[TMP65]]
+// CHK-CXX-NEXT:    [[TMP54:%.*]] = load double, double* [[ATMP27]], align 8
+// CHK-CXX-NEXT:    [[TMP55:%.*]] = load i8, i8* [[ATMP29]], align 1
+// CHK-CXX-NEXT:    [[TMP56:%.*]] = load double, double* [[D]], align 8
+// CHK-CXX-NEXT:    [[TMP57:%.*]] = load double, double* [[E]], align 8
+// CHK-CXX-NEXT:    [[TMP58:%.*]] = bitcast double* [[X]] to i64*
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD37:%.*]] = load atomic i64, i64* [[TMP58]] monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP59:%.*]] = bitcast i64 [[ATOMIC_LOAD37]] to double
+// CHK-CXX-NEXT:    store double [[TMP59]], double* [[ATMP38]], align 8
+// CHK-CXX-NEXT:    [[TMP60:%.*]] = bitcast double [[TMP59]] to i64
+// CHK-CXX-NEXT:    [[TMP61:%.*]] = bitcast double [[TMP57]] to i64
+// CHK-CXX-NEXT:    [[CMP39:%.*]] = icmp eq i64 [[TMP60]], [[TMP61]]
 // CHK-CXX-NEXT:    [[FROMBOOL41:%.*]] = zext i1 [[CMP39]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL41]], i8* [[ATMP40]], align 1
 // CHK-CXX-NEXT:    br i1 [[CMP39]], label [[ATOMIC_CONT42:%.*]], label [[ATOMIC_EXIT47:%.*]]
 // CHK-CXX:       atomic_cont42:
-// CHK-CXX-NEXT:    [[TMP66:%.*]] = phi i64 [ [[ATOMIC_LOAD37]], [[ATOMIC_EXIT36]] ], [ [[TMP73:%.*]], [[ATOMIC_CMP44:%.*]] ]
-// CHK-CXX-NEXT:    [[TMP67:%.*]] = bitcast i64 [[TMP66]] to double
-// CHK-CXX-NEXT:    store double [[TMP67]], double* [[ATMP38]], align 8
-// CHK-CXX-NEXT:    [[TMP68:%.*]] = bitcast double* [[ATOMIC_TEMP43]] to i64*
-// CHK-CXX-NEXT:    [[TMP69:%.*]] = bitcast double [[TMP60]] to i64
-// CHK-CXX-NEXT:    store i64 [[TMP69]], i64* [[TMP68]], align 8
-// CHK-CXX-NEXT:    [[TMP70:%.*]] = load i64, i64* [[TMP68]], align 8
-// CHK-CXX-NEXT:    [[TMP71:%.*]] = bitcast double* [[X]] to i64*
-// CHK-CXX-NEXT:    [[TMP72:%.*]] = cmpxchg i64* [[TMP71]], i64 [[TMP66]], i64 [[TMP70]] monotonic monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP73]] = extractvalue { i64, i1 } [[TMP72]], 0
-// CHK-CXX-NEXT:    [[TMP74:%.*]] = extractvalue { i64, i1 } [[TMP72]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP74]], label [[ATOMIC_EXIT47]], label [[ATOMIC_CMP44]]
+// CHK-CXX-NEXT:    [[TMP62:%.*]] = phi i64 [ [[ATOMIC_LOAD37]], [[ATOMIC_EXIT36]] ], [ [[TMP68:%.*]], [[ATOMIC_CMP44:%.*]] ]
+// CHK-CXX-NEXT:    [[TMP63:%.*]] = bitcast double* [[ATOMIC_TEMP43]] to i64*
+// CHK-CXX-NEXT:    [[TMP64:%.*]] = bitcast double [[TMP56]] to i64
+// CHK-CXX-NEXT:    store i64 [[TMP64]], i64* [[TMP63]], align 8
+// CHK-CXX-NEXT:    [[TMP65:%.*]] = load i64, i64* [[TMP63]], align 8
+// CHK-CXX-NEXT:    [[TMP66:%.*]] = bitcast double* [[X]] to i64*
+// CHK-CXX-NEXT:    [[TMP67:%.*]] = cmpxchg i64* [[TMP66]], i64 [[TMP62]], i64 [[TMP65]] monotonic monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP68]] = extractvalue { i64, i1 } [[TMP67]], 0
+// CHK-CXX-NEXT:    [[TMP69:%.*]] = extractvalue { i64, i1 } [[TMP67]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP69]], label [[ATOMIC_EXIT47]], label [[ATOMIC_CMP44]]
 // CHK-CXX:       atomic_cmp44:
-// CHK-CXX-NEXT:    [[TMP75:%.*]] = bitcast i64 [[TMP73]] to double
-// CHK-CXX-NEXT:    [[TMP76:%.*]] = bitcast double [[TMP75]] to i64
-// CHK-CXX-NEXT:    [[TMP77:%.*]] = bitcast double [[TMP61]] to i64
-// CHK-CXX-NEXT:    [[CMP45:%.*]] = icmp eq i64 [[TMP76]], [[TMP77]]
+// CHK-CXX-NEXT:    [[TMP70:%.*]] = bitcast i64 [[TMP68]] to double
+// CHK-CXX-NEXT:    store double [[TMP70]], double* [[ATMP38]], align 8
+// CHK-CXX-NEXT:    [[TMP71:%.*]] = bitcast double [[TMP70]] to i64
+// CHK-CXX-NEXT:    [[TMP72:%.*]] = bitcast double [[TMP57]] to i64
+// CHK-CXX-NEXT:    [[CMP45:%.*]] = icmp eq i64 [[TMP71]], [[TMP72]]
 // CHK-CXX-NEXT:    [[FROMBOOL46:%.*]] = zext i1 [[CMP45]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL46]], i8* [[ATMP40]], align 1
 // CHK-CXX-NEXT:    br i1 [[CMP45]], label [[ATOMIC_CONT42]], label [[ATOMIC_EXIT47]]
 // CHK-CXX:       atomic_exit47:
-// CHK-CXX-NEXT:    [[TMP78:%.*]] = load double, double* [[ATMP38]], align 8
-// CHK-CXX-NEXT:    [[TMP79:%.*]] = load i8, i8* [[ATMP40]], align 1
-// CHK-CXX-NEXT:    [[TMP80:%.*]] = load double, double* [[EXPR]], align 8
-// CHK-CXX-NEXT:    [[TMP81:%.*]] = bitcast double* [[X]] to i64*
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD48:%.*]] = load atomic i64, i64* [[TMP81]] monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP82:%.*]] = bitcast i64 [[ATOMIC_LOAD48]] to double
-// CHK-CXX-NEXT:    store double [[TMP82]], double* [[ATMP49]], align 8
-// CHK-CXX-NEXT:    [[CMP50:%.*]] = fcmp ogt double [[TMP82]], [[TMP80]]
+// CHK-CXX-NEXT:    [[TMP73:%.*]] = load double, double* [[ATMP38]], align 8
+// CHK-CXX-NEXT:    [[TMP74:%.*]] = load i8, i8* [[ATMP40]], align 1
+// CHK-CXX-NEXT:    [[TMP75:%.*]] = load double, double* [[EXPR]], align 8
+// CHK-CXX-NEXT:    [[TMP76:%.*]] = bitcast double* [[X]] to i64*
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD48:%.*]] = load atomic i64, i64* [[TMP76]] monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP77:%.*]] = bitcast i64 [[ATOMIC_LOAD48]] to double
+// CHK-CXX-NEXT:    store double [[TMP77]], double* [[ATMP49]], align 8
+// CHK-CXX-NEXT:    [[CMP50:%.*]] = fcmp ogt double [[TMP77]], [[TMP75]]
 // CHK-CXX-NEXT:    [[FROMBOOL52:%.*]] = zext i1 [[CMP50]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL52]], i8* [[ATMP51]], align 1
 // CHK-CXX-NEXT:    br i1 [[CMP50]], label [[ATOMIC_CONT53:%.*]], label [[ATOMIC_EXIT58:%.*]]
 // CHK-CXX:       atomic_cont53:
-// CHK-CXX-NEXT:    [[TMP83:%.*]] = phi i64 [ [[ATOMIC_LOAD48]], [[ATOMIC_EXIT47]] ], [ [[TMP90:%.*]], [[ATOMIC_CMP55:%.*]] ]
-// CHK-CXX-NEXT:    [[TMP84:%.*]] = bitcast i64 [[TMP83]] to double
-// CHK-CXX-NEXT:    store double [[TMP84]], double* [[ATMP49]], align 8
-// CHK-CXX-NEXT:    [[TMP85:%.*]] = bitcast double* [[ATOMIC_TEMP54]] to i64*
-// CHK-CXX-NEXT:    [[TMP86:%.*]] = bitcast double [[TMP80]] to i64
-// CHK-CXX-NEXT:    store i64 [[TMP86]], i64* [[TMP85]], align 8
-// CHK-CXX-NEXT:    [[TMP87:%.*]] = load i64, i64* [[TMP85]], align 8
-// CHK-CXX-NEXT:    [[TMP88:%.*]] = bitcast double* [[X]] to i64*
-// CHK-CXX-NEXT:    [[TMP89:%.*]] = cmpxchg i64* [[TMP88]], i64 [[TMP83]], i64 [[TMP87]] monotonic monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP90]] = extractvalue { i64, i1 } [[TMP89]], 0
-// CHK-CXX-NEXT:    [[TMP91:%.*]] = extractvalue { i64, i1 } [[TMP89]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP91]], label [[ATOMIC_EXIT58]], label [[ATOMIC_CMP55]]
+// CHK-CXX-NEXT:    [[TMP78:%.*]] = phi i64 [ [[ATOMIC_LOAD48]], [[ATOMIC_EXIT47]] ], [ [[TMP84:%.*]], [[ATOMIC_CMP55:%.*]] ]
+// CHK-CXX-NEXT:    [[TMP79:%.*]] = bitcast double* [[ATOMIC_TEMP54]] to i64*
+// CHK-CXX-NEXT:    [[TMP80:%.*]] = bitcast double [[TMP75]] to i64
+// CHK-CXX-NEXT:    store i64 [[TMP80]], i64* [[TMP79]], align 8
+// CHK-CXX-NEXT:    [[TMP81:%.*]] = load i64, i64* [[TMP79]], align 8
+// CHK-CXX-NEXT:    [[TMP82:%.*]] = bitcast double* [[X]] to i64*
+// CHK-CXX-NEXT:    [[TMP83:%.*]] = cmpxchg i64* [[TMP82]], i64 [[TMP78]], i64 [[TMP81]] monotonic monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP84]] = extractvalue { i64, i1 } [[TMP83]], 0
+// CHK-CXX-NEXT:    [[TMP85:%.*]] = extractvalue { i64, i1 } [[TMP83]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP85]], label [[ATOMIC_EXIT58]], label [[ATOMIC_CMP55]]
 // CHK-CXX:       atomic_cmp55:
-// CHK-CXX-NEXT:    [[TMP92:%.*]] = bitcast i64 [[TMP90]] to double
-// CHK-CXX-NEXT:    [[CMP56:%.*]] = fcmp ogt double [[TMP92]], [[TMP80]]
+// CHK-CXX-NEXT:    [[TMP86:%.*]] = bitcast i64 [[TMP84]] to double
+// CHK-CXX-NEXT:    store double [[TMP86]], double* [[ATMP49]], align 8
+// CHK-CXX-NEXT:    [[CMP56:%.*]] = fcmp ogt double [[TMP86]], [[TMP75]]
 // CHK-CXX-NEXT:    [[FROMBOOL57:%.*]] = zext i1 [[CMP56]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL57]], i8* [[ATMP51]], align 1
 // CHK-CXX-NEXT:    br i1 [[CMP56]], label [[ATOMIC_CONT53]], label [[ATOMIC_EXIT58]]
 // CHK-CXX:       atomic_exit58:
-// CHK-CXX-NEXT:    [[TMP93:%.*]] = load double, double* [[ATMP49]], align 8
-// CHK-CXX-NEXT:    [[TMP94:%.*]] = load i8, i8* [[ATMP51]], align 1
-// CHK-CXX-NEXT:    [[TMP95:%.*]] = load double, double* [[EXPR]], align 8
-// CHK-CXX-NEXT:    [[TMP96:%.*]] = bitcast double* [[X]] to i64*
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD59:%.*]] = load atomic i64, i64* [[TMP96]] monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP97:%.*]] = bitcast i64 [[ATOMIC_LOAD59]] to double
-// CHK-CXX-NEXT:    store double [[TMP97]], double* [[ATMP60]], align 8
-// CHK-CXX-NEXT:    [[CMP61:%.*]] = fcmp olt double [[TMP97]], [[TMP95]]
+// CHK-CXX-NEXT:    [[TMP87:%.*]] = load double, double* [[ATMP49]], align 8
+// CHK-CXX-NEXT:    [[TMP88:%.*]] = load i8, i8* [[ATMP51]], align 1
+// CHK-CXX-NEXT:    [[TMP89:%.*]] = load double, double* [[EXPR]], align 8
+// CHK-CXX-NEXT:    [[TMP90:%.*]] = bitcast double* [[X]] to i64*
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD59:%.*]] = load atomic i64, i64* [[TMP90]] monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP91:%.*]] = bitcast i64 [[ATOMIC_LOAD59]] to double
+// CHK-CXX-NEXT:    store double [[TMP91]], double* [[ATMP60]], align 8
+// CHK-CXX-NEXT:    [[CMP61:%.*]] = fcmp olt double [[TMP91]], [[TMP89]]
 // CHK-CXX-NEXT:    [[FROMBOOL63:%.*]] = zext i1 [[CMP61]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL63]], i8* [[ATMP62]], align 1
 // CHK-CXX-NEXT:    br i1 [[CMP61]], label [[ATOMIC_CONT64:%.*]], label [[ATOMIC_EXIT69:%.*]]
 // CHK-CXX:       atomic_cont64:
-// CHK-CXX-NEXT:    [[TMP98:%.*]] = phi i64 [ [[ATOMIC_LOAD59]], [[ATOMIC_EXIT58]] ], [ [[TMP105:%.*]], [[ATOMIC_CMP66:%.*]] ]
-// CHK-CXX-NEXT:    [[TMP99:%.*]] = bitcast i64 [[TMP98]] to double
-// CHK-CXX-NEXT:    store double [[TMP99]], double* [[ATMP60]], align 8
-// CHK-CXX-NEXT:    [[TMP100:%.*]] = bitcast double* [[ATOMIC_TEMP65]] to i64*
-// CHK-CXX-NEXT:    [[TMP101:%.*]] = bitcast double [[TMP95]] to i64
-// CHK-CXX-NEXT:    store i64 [[TMP101]], i64* [[TMP100]], align 8
-// CHK-CXX-NEXT:    [[TMP102:%.*]] = load i64, i64* [[TMP100]], align 8
-// CHK-CXX-NEXT:    [[TMP103:%.*]] = bitcast double* [[X]] to i64*
-// CHK-CXX-NEXT:    [[TMP104:%.*]] = cmpxchg i64* [[TMP103]], i64 [[TMP98]], i64 [[TMP102]] monotonic monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP105]] = extractvalue { i64, i1 } [[TMP104]], 0
-// CHK-CXX-NEXT:    [[TMP106:%.*]] = extractvalue { i64, i1 } [[TMP104]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP106]], label [[ATOMIC_EXIT69]], label [[ATOMIC_CMP66]]
+// CHK-CXX-NEXT:    [[TMP92:%.*]] = phi i64 [ [[ATOMIC_LOAD59]], [[ATOMIC_EXIT58]] ], [ [[TMP98:%.*]], [[ATOMIC_CMP66:%.*]] ]
+// CHK-CXX-NEXT:    [[TMP93:%.*]] = bitcast double* [[ATOMIC_TEMP65]] to i64*
+// CHK-CXX-NEXT:    [[TMP94:%.*]] = bitcast double [[TMP89]] to i64
+// CHK-CXX-NEXT:    store i64 [[TMP94]], i64* [[TMP93]], align 8
+// CHK-CXX-NEXT:    [[TMP95:%.*]] = load i64, i64* [[TMP93]], align 8
+// CHK-CXX-NEXT:    [[TMP96:%.*]] = bitcast double* [[X]] to i64*
+// CHK-CXX-NEXT:    [[TMP97:%.*]] = cmpxchg i64* [[TMP96]], i64 [[TMP92]], i64 [[TMP95]] monotonic monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP98]] = extractvalue { i64, i1 } [[TMP97]], 0
+// CHK-CXX-NEXT:    [[TMP99:%.*]] = extractvalue { i64, i1 } [[TMP97]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP99]], label [[ATOMIC_EXIT69]], label [[ATOMIC_CMP66]]
 // CHK-CXX:       atomic_cmp66:
-// CHK-CXX-NEXT:    [[TMP107:%.*]] = bitcast i64 [[TMP105]] to double
-// CHK-CXX-NEXT:    [[CMP67:%.*]] = fcmp olt double [[TMP107]], [[TMP95]]
+// CHK-CXX-NEXT:    [[TMP100:%.*]] = bitcast i64 [[TMP98]] to double
+// CHK-CXX-NEXT:    store double [[TMP100]], double* [[ATMP60]], align 8
+// CHK-CXX-NEXT:    [[CMP67:%.*]] = fcmp olt double [[TMP100]], [[TMP89]]
 // CHK-CXX-NEXT:    [[FROMBOOL68:%.*]] = zext i1 [[CMP67]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL68]], i8* [[ATMP62]], align 1
 // CHK-CXX-NEXT:    br i1 [[CMP67]], label [[ATOMIC_CONT64]], label [[ATOMIC_EXIT69]]
 // CHK-CXX:       atomic_exit69:
-// CHK-CXX-NEXT:    [[TMP108:%.*]] = load double, double* [[ATMP60]], align 8
-// CHK-CXX-NEXT:    [[TMP109:%.*]] = load i8, i8* [[ATMP62]], align 1
-// CHK-CXX-NEXT:    [[TMP110:%.*]] = load double, double* [[EXPR]], align 8
-// CHK-CXX-NEXT:    [[TMP111:%.*]] = bitcast double* [[X]] to i64*
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD70:%.*]] = load atomic i64, i64* [[TMP111]] monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP112:%.*]] = bitcast i64 [[ATOMIC_LOAD70]] to double
-// CHK-CXX-NEXT:    store double [[TMP112]], double* [[ATMP71]], align 8
-// CHK-CXX-NEXT:    [[CMP72:%.*]] = fcmp olt double [[TMP112]], [[TMP110]]
+// CHK-CXX-NEXT:    [[TMP101:%.*]] = load double, double* [[ATMP60]], align 8
+// CHK-CXX-NEXT:    [[TMP102:%.*]] = load i8, i8* [[ATMP62]], align 1
+// CHK-CXX-NEXT:    [[TMP103:%.*]] = load double, double* [[EXPR]], align 8
+// CHK-CXX-NEXT:    [[TMP104:%.*]] = bitcast double* [[X]] to i64*
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD70:%.*]] = load atomic i64, i64* [[TMP104]] monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP105:%.*]] = bitcast i64 [[ATOMIC_LOAD70]] to double
+// CHK-CXX-NEXT:    store double [[TMP105]], double* [[ATMP71]], align 8
+// CHK-CXX-NEXT:    [[CMP72:%.*]] = fcmp olt double [[TMP105]], [[TMP103]]
 // CHK-CXX-NEXT:    [[FROMBOOL74:%.*]] = zext i1 [[CMP72]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL74]], i8* [[ATMP73]], align 1
 // CHK-CXX-NEXT:    br i1 [[CMP72]], label [[ATOMIC_CONT75:%.*]], label [[ATOMIC_EXIT80:%.*]]
 // CHK-CXX:       atomic_cont75:
-// CHK-CXX-NEXT:    [[TMP113:%.*]] = phi i64 [ [[ATOMIC_LOAD70]], [[ATOMIC_EXIT69]] ], [ [[TMP120:%.*]], [[ATOMIC_CMP77:%.*]] ]
-// CHK-CXX-NEXT:    [[TMP114:%.*]] = bitcast i64 [[TMP113]] to double
-// CHK-CXX-NEXT:    store double [[TMP114]], double* [[ATMP71]], align 8
-// CHK-CXX-NEXT:    [[TMP115:%.*]] = bitcast double* [[ATOMIC_TEMP76]] to i64*
-// CHK-CXX-NEXT:    [[TMP116:%.*]] = bitcast double [[TMP110]] to i64
-// CHK-CXX-NEXT:    store i64 [[TMP116]], i64* [[TMP115]], align 8
-// CHK-CXX-NEXT:    [[TMP117:%.*]] = load i64, i64* [[TMP115]], align 8
-// CHK-CXX-NEXT:    [[TMP118:%.*]] = bitcast double* [[X]] to i64*
-// CHK-CXX-NEXT:    [[TMP119:%.*]] = cmpxchg i64* [[TMP118]], i64 [[TMP113]], i64 [[TMP117]] monotonic monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP120]] = extractvalue { i64, i1 } [[TMP119]], 0
-// CHK-CXX-NEXT:    [[TMP121:%.*]] = extractvalue { i64, i1 } [[TMP119]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP121]], label [[ATOMIC_EXIT80]], label [[ATOMIC_CMP77]]
+// CHK-CXX-NEXT:    [[TMP106:%.*]] = phi i64 [ [[ATOMIC_LOAD70]], [[ATOMIC_EXIT69]] ], [ [[TMP112:%.*]], [[ATOMIC_CMP77:%.*]] ]
+// CHK-CXX-NEXT:    [[TMP107:%.*]] = bitcast double* [[ATOMIC_TEMP76]] to i64*
+// CHK-CXX-NEXT:    [[TMP108:%.*]] = bitcast double [[TMP103]] to i64
+// CHK-CXX-NEXT:    store i64 [[TMP108]], i64* [[TMP107]], align 8
+// CHK-CXX-NEXT:    [[TMP109:%.*]] = load i64, i64* [[TMP107]], align 8
+// CHK-CXX-NEXT:    [[TMP110:%.*]] = bitcast double* [[X]] to i64*
+// CHK-CXX-NEXT:    [[TMP111:%.*]] = cmpxchg i64* [[TMP110]], i64 [[TMP106]], i64 [[TMP109]] monotonic monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP112]] = extractvalue { i64, i1 } [[TMP111]], 0
+// CHK-CXX-NEXT:    [[TMP113:%.*]] = extractvalue { i64, i1 } [[TMP111]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP113]], label [[ATOMIC_EXIT80]], label [[ATOMIC_CMP77]]
 // CHK-CXX:       atomic_cmp77:
-// CHK-CXX-NEXT:    [[TMP122:%.*]] = bitcast i64 [[TMP120]] to double
-// CHK-CXX-NEXT:    [[CMP78:%.*]] = fcmp olt double [[TMP122]], [[TMP110]]
+// CHK-CXX-NEXT:    [[TMP114:%.*]] = bitcast i64 [[TMP112]] to double
+// CHK-CXX-NEXT:    store double [[TMP114]], double* [[ATMP71]], align 8
+// CHK-CXX-NEXT:    [[CMP78:%.*]] = fcmp olt double [[TMP114]], [[TMP103]]
 // CHK-CXX-NEXT:    [[FROMBOOL79:%.*]] = zext i1 [[CMP78]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL79]], i8* [[ATMP73]], align 1
 // CHK-CXX-NEXT:    br i1 [[CMP78]], label [[ATOMIC_CONT75]], label [[ATOMIC_EXIT80]]
 // CHK-CXX:       atomic_exit80:
-// CHK-CXX-NEXT:    [[TMP123:%.*]] = load double, double* [[ATMP71]], align 8
-// CHK-CXX-NEXT:    [[TMP124:%.*]] = load i8, i8* [[ATMP73]], align 1
-// CHK-CXX-NEXT:    [[TMP125:%.*]] = load double, double* [[EXPR]], align 8
-// CHK-CXX-NEXT:    [[TMP126:%.*]] = bitcast double* [[X]] to i64*
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD81:%.*]] = load atomic i64, i64* [[TMP126]] monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP127:%.*]] = bitcast i64 [[ATOMIC_LOAD81]] to double
-// CHK-CXX-NEXT:    store double [[TMP127]], double* [[ATMP82]], align 8
-// CHK-CXX-NEXT:    [[CMP83:%.*]] = fcmp ogt double [[TMP127]], [[TMP125]]
+// CHK-CXX-NEXT:    [[TMP115:%.*]] = load double, double* [[ATMP71]], align 8
+// CHK-CXX-NEXT:    [[TMP116:%.*]] = load i8, i8* [[ATMP73]], align 1
+// CHK-CXX-NEXT:    [[TMP117:%.*]] = load double, double* [[EXPR]], align 8
+// CHK-CXX-NEXT:    [[TMP118:%.*]] = bitcast double* [[X]] to i64*
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD81:%.*]] = load atomic i64, i64* [[TMP118]] monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP119:%.*]] = bitcast i64 [[ATOMIC_LOAD81]] to double
+// CHK-CXX-NEXT:    store double [[TMP119]], double* [[ATMP82]], align 8
+// CHK-CXX-NEXT:    [[CMP83:%.*]] = fcmp ogt double [[TMP119]], [[TMP117]]
 // CHK-CXX-NEXT:    [[FROMBOOL85:%.*]] = zext i1 [[CMP83]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL85]], i8* [[ATMP84]], align 1
 // CHK-CXX-NEXT:    br i1 [[CMP83]], label [[ATOMIC_CONT86:%.*]], label [[ATOMIC_EXIT91:%.*]]
 // CHK-CXX:       atomic_cont86:
-// CHK-CXX-NEXT:    [[TMP128:%.*]] = phi i64 [ [[ATOMIC_LOAD81]], [[ATOMIC_EXIT80]] ], [ [[TMP135:%.*]], [[ATOMIC_CMP88:%.*]] ]
-// CHK-CXX-NEXT:    [[TMP129:%.*]] = bitcast i64 [[TMP128]] to double
-// CHK-CXX-NEXT:    store double [[TMP129]], double* [[ATMP82]], align 8
-// CHK-CXX-NEXT:    [[TMP130:%.*]] = bitcast double* [[ATOMIC_TEMP87]] to i64*
-// CHK-CXX-NEXT:    [[TMP131:%.*]] = bitcast double [[TMP125]] to i64
-// CHK-CXX-NEXT:    store i64 [[TMP131]], i64* [[TMP130]], align 8
-// CHK-CXX-NEXT:    [[TMP132:%.*]] = load i64, i64* [[TMP130]], align 8
-// CHK-CXX-NEXT:    [[TMP133:%.*]] = bitcast double* [[X]] to i64*
-// CHK-CXX-NEXT:    [[TMP134:%.*]] = cmpxchg i64* [[TMP133]], i64 [[TMP128]], i64 [[TMP132]] monotonic monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP135]] = extractvalue { i64, i1 } [[TMP134]], 0
-// CHK-CXX-NEXT:    [[TMP136:%.*]] = extractvalue { i64, i1 } [[TMP134]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP136]], label [[ATOMIC_EXIT91]], label [[ATOMIC_CMP88]]
+// CHK-CXX-NEXT:    [[TMP120:%.*]] = phi i64 [ [[ATOMIC_LOAD81]], [[ATOMIC_EXIT80]] ], [ [[TMP126:%.*]], [[ATOMIC_CMP88:%.*]] ]
+// CHK-CXX-NEXT:    [[TMP121:%.*]] = bitcast double* [[ATOMIC_TEMP87]] to i64*
+// CHK-CXX-NEXT:    [[TMP122:%.*]] = bitcast double [[TMP117]] to i64
+// CHK-CXX-NEXT:    store i64 [[TMP122]], i64* [[TMP121]], align 8
+// CHK-CXX-NEXT:    [[TMP123:%.*]] = load i64, i64* [[TMP121]], align 8
+// CHK-CXX-NEXT:    [[TMP124:%.*]] = bitcast double* [[X]] to i64*
+// CHK-CXX-NEXT:    [[TMP125:%.*]] = cmpxchg i64* [[TMP124]], i64 [[TMP120]], i64 [[TMP123]] monotonic monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP126]] = extractvalue { i64, i1 } [[TMP125]], 0
+// CHK-CXX-NEXT:    [[TMP127:%.*]] = extractvalue { i64, i1 } [[TMP125]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP127]], label [[ATOMIC_EXIT91]], label [[ATOMIC_CMP88]]
 // CHK-CXX:       atomic_cmp88:
-// CHK-CXX-NEXT:    [[TMP137:%.*]] = bitcast i64 [[TMP135]] to double
-// CHK-CXX-NEXT:    [[CMP89:%.*]] = fcmp ogt double [[TMP137]], [[TMP125]]
+// CHK-CXX-NEXT:    [[TMP128:%.*]] = bitcast i64 [[TMP126]] to double
+// CHK-CXX-NEXT:    store double [[TMP128]], double* [[ATMP82]], align 8
+// CHK-CXX-NEXT:    [[CMP89:%.*]] = fcmp ogt double [[TMP128]], [[TMP117]]
 // CHK-CXX-NEXT:    [[FROMBOOL90:%.*]] = zext i1 [[CMP89]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL90]], i8* [[ATMP84]], align 1
 // CHK-CXX-NEXT:    br i1 [[CMP89]], label [[ATOMIC_CONT86]], label [[ATOMIC_EXIT91]]
 // CHK-CXX:       atomic_exit91:
-// CHK-CXX-NEXT:    [[TMP138:%.*]] = load double, double* [[ATMP82]], align 8
-// CHK-CXX-NEXT:    [[TMP139:%.*]] = load i8, i8* [[ATMP84]], align 1
-// CHK-CXX-NEXT:    [[TMP140:%.*]] = load double, double* [[D]], align 8
-// CHK-CXX-NEXT:    [[TMP141:%.*]] = load double, double* [[E]], align 8
-// CHK-CXX-NEXT:    [[TMP142:%.*]] = bitcast double* [[X]] to i64*
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD92:%.*]] = load atomic i64, i64* [[TMP142]] monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP143:%.*]] = bitcast i64 [[ATOMIC_LOAD92]] to double
-// CHK-CXX-NEXT:    store double [[TMP143]], double* [[ATMP93]], align 8
-// CHK-CXX-NEXT:    [[TMP144:%.*]] = bitcast double [[TMP143]] to i64
-// CHK-CXX-NEXT:    [[TMP145:%.*]] = bitcast double [[TMP141]] to i64
-// CHK-CXX-NEXT:    [[CMP94:%.*]] = icmp eq i64 [[TMP144]], [[TMP145]]
+// CHK-CXX-NEXT:    [[TMP129:%.*]] = load double, double* [[ATMP82]], align 8
+// CHK-CXX-NEXT:    [[TMP130:%.*]] = load i8, i8* [[ATMP84]], align 1
+// CHK-CXX-NEXT:    [[TMP131:%.*]] = load double, double* [[D]], align 8
+// CHK-CXX-NEXT:    [[TMP132:%.*]] = load double, double* [[E]], align 8
+// CHK-CXX-NEXT:    [[TMP133:%.*]] = bitcast double* [[X]] to i64*
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD92:%.*]] = load atomic i64, i64* [[TMP133]] monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP134:%.*]] = bitcast i64 [[ATOMIC_LOAD92]] to double
+// CHK-CXX-NEXT:    store double [[TMP134]], double* [[ATMP93]], align 8
+// CHK-CXX-NEXT:    [[TMP135:%.*]] = bitcast double [[TMP134]] to i64
+// CHK-CXX-NEXT:    [[TMP136:%.*]] = bitcast double [[TMP132]] to i64
+// CHK-CXX-NEXT:    [[CMP94:%.*]] = icmp eq i64 [[TMP135]], [[TMP136]]
 // CHK-CXX-NEXT:    [[FROMBOOL96:%.*]] = zext i1 [[CMP94]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL96]], i8* [[ATMP95]], align 1
 // CHK-CXX-NEXT:    br i1 [[CMP94]], label [[ATOMIC_CONT97:%.*]], label [[ATOMIC_EXIT102:%.*]]
 // CHK-CXX:       atomic_cont97:
-// CHK-CXX-NEXT:    [[TMP146:%.*]] = phi i64 [ [[ATOMIC_LOAD92]], [[ATOMIC_EXIT91]] ], [ [[TMP153:%.*]], [[ATOMIC_CMP99:%.*]] ]
-// CHK-CXX-NEXT:    [[TMP147:%.*]] = bitcast i64 [[TMP146]] to double
-// CHK-CXX-NEXT:    store double [[TMP147]], double* [[ATMP93]], align 8
-// CHK-CXX-NEXT:    [[TMP148:%.*]] = bitcast double* [[ATOMIC_TEMP98]] to i64*
-// CHK-CXX-NEXT:    [[TMP149:%.*]] = bitcast double [[TMP140]] to i64
-// CHK-CXX-NEXT:    store i64 [[TMP149]], i64* [[TMP148]], align 8
-// CHK-CXX-NEXT:    [[TMP150:%.*]] = load i64, i64* [[TMP148]], align 8
-// CHK-CXX-NEXT:    [[TMP151:%.*]] = bitcast double* [[X]] to i64*
-// CHK-CXX-NEXT:    [[TMP152:%.*]] = cmpxchg i64* [[TMP151]], i64 [[TMP146]], i64 [[TMP150]] monotonic monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP153]] = extractvalue { i64, i1 } [[TMP152]], 0
-// CHK-CXX-NEXT:    [[TMP154:%.*]] = extractvalue { i64, i1 } [[TMP152]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP154]], label [[ATOMIC_EXIT102]], label [[ATOMIC_CMP99]]
+// CHK-CXX-NEXT:    [[TMP137:%.*]] = phi i64 [ [[ATOMIC_LOAD92]], [[ATOMIC_EXIT91]] ], [ [[TMP143:%.*]], [[ATOMIC_CMP99:%.*]] ]
+// CHK-CXX-NEXT:    [[TMP138:%.*]] = bitcast double* [[ATOMIC_TEMP98]] to i64*
+// CHK-CXX-NEXT:    [[TMP139:%.*]] = bitcast double [[TMP131]] to i64
+// CHK-CXX-NEXT:    store i64 [[TMP139]], i64* [[TMP138]], align 8
+// CHK-CXX-NEXT:    [[TMP140:%.*]] = load i64, i64* [[TMP138]], align 8
+// CHK-CXX-NEXT:    [[TMP141:%.*]] = bitcast double* [[X]] to i64*
+// CHK-CXX-NEXT:    [[TMP142:%.*]] = cmpxchg i64* [[TMP141]], i64 [[TMP137]], i64 [[TMP140]] monotonic monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP143]] = extractvalue { i64, i1 } [[TMP142]], 0
+// CHK-CXX-NEXT:    [[TMP144:%.*]] = extractvalue { i64, i1 } [[TMP142]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP144]], label [[ATOMIC_EXIT102]], label [[ATOMIC_CMP99]]
 // CHK-CXX:       atomic_cmp99:
-// CHK-CXX-NEXT:    [[TMP155:%.*]] = bitcast i64 [[TMP153]] to double
-// CHK-CXX-NEXT:    [[TMP156:%.*]] = bitcast double [[TMP155]] to i64
-// CHK-CXX-NEXT:    [[TMP157:%.*]] = bitcast double [[TMP141]] to i64
-// CHK-CXX-NEXT:    [[CMP100:%.*]] = icmp eq i64 [[TMP156]], [[TMP157]]
+// CHK-CXX-NEXT:    [[TMP145:%.*]] = bitcast i64 [[TMP143]] to double
+// CHK-CXX-NEXT:    store double [[TMP145]], double* [[ATMP93]], align 8
+// CHK-CXX-NEXT:    [[TMP146:%.*]] = bitcast double [[TMP145]] to i64
+// CHK-CXX-NEXT:    [[TMP147:%.*]] = bitcast double [[TMP132]] to i64
+// CHK-CXX-NEXT:    [[CMP100:%.*]] = icmp eq i64 [[TMP146]], [[TMP147]]
 // CHK-CXX-NEXT:    [[FROMBOOL101:%.*]] = zext i1 [[CMP100]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL101]], i8* [[ATMP95]], align 1
 // CHK-CXX-NEXT:    br i1 [[CMP100]], label [[ATOMIC_CONT97]], label [[ATOMIC_EXIT102]]
 // CHK-CXX:       atomic_exit102:
-// CHK-CXX-NEXT:    [[TMP158:%.*]] = load double, double* [[ATMP93]], align 8
-// CHK-CXX-NEXT:    [[TMP159:%.*]] = load i8, i8* [[ATMP95]], align 1
+// CHK-CXX-NEXT:    [[TMP148:%.*]] = load double, double* [[ATMP93]], align 8
+// CHK-CXX-NEXT:    [[TMP149:%.*]] = load i8, i8* [[ATMP95]], align 1
 // CHK-CXX-NEXT:    ret void
 //
 void test_double() {
@@ -2003,7 +1983,6 @@ void test_double() {
 // CHK-C-NEXT:    br i1 [[CMP]], label [[ATOMIC_CONT:%.*]], label [[ATOMIC_EXIT:%.*]]
 // CHK-C:       atomic_cont:
 // CHK-C-NEXT:    [[TMP2:%.*]] = phi i8 [ [[ATOMIC_LOAD]], [[ENTRY:%.*]] ], [ [[TMP5:%.*]], [[ATOMIC_CMP:%.*]] ]
-// CHK-C-NEXT:    store i8 [[TMP2]], i8* [[TMP]], align 1
 // CHK-C-NEXT:    [[FROMBOOL2:%.*]] = zext i1 [[TOBOOL]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL2]], i8* [[ATOMIC_TEMP]], align 1
 // CHK-C-NEXT:    [[TMP3:%.*]] = load i8, i8* [[ATOMIC_TEMP]], align 1
@@ -2012,6 +1991,7 @@ void test_double() {
 // CHK-C-NEXT:    [[TMP6:%.*]] = extractvalue { i8, i1 } [[TMP4]], 1
 // CHK-C-NEXT:    br i1 [[TMP6]], label [[ATOMIC_EXIT]], label [[ATOMIC_CMP]]
 // CHK-C:       atomic_cmp:
+// CHK-C-NEXT:    store i8 [[TMP5]], i8* [[TMP]], align 1
 // CHK-C-NEXT:    [[TMP7:%.*]] = trunc i8 [[TMP5]] to i1
 // CHK-C-NEXT:    [[CMP3:%.*]] = icmp ugt i1 [[TMP7]], [[TOBOOL]]
 // CHK-C-NEXT:    [[FROMBOOL4:%.*]] = zext i1 [[CMP3]] to i8
@@ -2033,7 +2013,6 @@ void test_double() {
 // CHK-C-NEXT:    br i1 [[CMP9]], label [[ATOMIC_CONT12:%.*]], label [[ATOMIC_EXIT18:%.*]]
 // CHK-C:       atomic_cont12:
 // CHK-C-NEXT:    [[TMP13:%.*]] = phi i8 [ [[ATOMIC_LOAD7]], [[ATOMIC_EXIT]] ], [ [[TMP16:%.*]], [[ATOMIC_CMP15:%.*]] ]
-// CHK-C-NEXT:    store i8 [[TMP13]], i8* [[ATMP8]], align 1
 // CHK-C-NEXT:    [[FROMBOOL14:%.*]] = zext i1 [[TOBOOL5]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL14]], i8* [[ATOMIC_TEMP13]], align 1
 // CHK-C-NEXT:    [[TMP14:%.*]] = load i8, i8* [[ATOMIC_TEMP13]], align 1
@@ -2042,6 +2021,7 @@ void test_double() {
 // CHK-C-NEXT:    [[TMP17:%.*]] = extractvalue { i8, i1 } [[TMP15]], 1
 // CHK-C-NEXT:    br i1 [[TMP17]], label [[ATOMIC_EXIT18]], label [[ATOMIC_CMP15]]
 // CHK-C:       atomic_cmp15:
+// CHK-C-NEXT:    store i8 [[TMP16]], i8* [[ATMP8]], align 1
 // CHK-C-NEXT:    [[TMP18:%.*]] = trunc i8 [[TMP16]] to i1
 // CHK-C-NEXT:    [[CMP16:%.*]] = icmp eq i1 [[TMP18]], [[TOBOOL6]]
 // CHK-C-NEXT:    [[FROMBOOL17:%.*]] = zext i1 [[CMP16]] to i8
@@ -2061,7 +2041,6 @@ void test_double() {
 // CHK-C-NEXT:    br i1 [[CMP22]], label [[ATOMIC_CONT25:%.*]], label [[ATOMIC_EXIT31:%.*]]
 // CHK-C:       atomic_cont25:
 // CHK-C-NEXT:    [[TMP23:%.*]] = phi i8 [ [[ATOMIC_LOAD20]], [[ATOMIC_EXIT18]] ], [ [[TMP26:%.*]], [[ATOMIC_CMP28:%.*]] ]
-// CHK-C-NEXT:    store i8 [[TMP23]], i8* [[ATMP21]], align 1
 // CHK-C-NEXT:    [[FROMBOOL27:%.*]] = zext i1 [[TOBOOL19]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL27]], i8* [[ATOMIC_TEMP26]], align 1
 // CHK-C-NEXT:    [[TMP24:%.*]] = load i8, i8* [[ATOMIC_TEMP26]], align 1
@@ -2070,6 +2049,7 @@ void test_double() {
 // CHK-C-NEXT:    [[TMP27:%.*]] = extractvalue { i8, i1 } [[TMP25]], 1
 // CHK-C-NEXT:    br i1 [[TMP27]], label [[ATOMIC_EXIT31]], label [[ATOMIC_CMP28]]
 // CHK-C:       atomic_cmp28:
+// CHK-C-NEXT:    store i8 [[TMP26]], i8* [[ATMP21]], align 1
 // CHK-C-NEXT:    [[TMP28:%.*]] = trunc i8 [[TMP26]] to i1
 // CHK-C-NEXT:    [[CMP29:%.*]] = icmp ult i1 [[TMP28]], [[TOBOOL19]]
 // CHK-C-NEXT:    [[FROMBOOL30:%.*]] = zext i1 [[CMP29]] to i8
@@ -2106,7 +2086,6 @@ void test_double() {
 // CHK-CXX-NEXT:    br i1 [[CMP]], label [[ATOMIC_CONT:%.*]], label [[ATOMIC_EXIT:%.*]]
 // CHK-CXX:       atomic_cont:
 // CHK-CXX-NEXT:    [[TMP2:%.*]] = phi i8 [ [[ATOMIC_LOAD]], [[ENTRY:%.*]] ], [ [[TMP5:%.*]], [[ATOMIC_CMP:%.*]] ]
-// CHK-CXX-NEXT:    store i8 [[TMP2]], i8* [[TMP]], align 1
 // CHK-CXX-NEXT:    [[FROMBOOL2:%.*]] = zext i1 [[TOBOOL]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL2]], i8* [[ATOMIC_TEMP]], align 1
 // CHK-CXX-NEXT:    [[TMP3:%.*]] = load i8, i8* [[ATOMIC_TEMP]], align 1
@@ -2115,6 +2094,7 @@ void test_double() {
 // CHK-CXX-NEXT:    [[TMP6:%.*]] = extractvalue { i8, i1 } [[TMP4]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP6]], label [[ATOMIC_EXIT]], label [[ATOMIC_CMP]]
 // CHK-CXX:       atomic_cmp:
+// CHK-CXX-NEXT:    store i8 [[TMP5]], i8* [[TMP]], align 1
 // CHK-CXX-NEXT:    [[TMP7:%.*]] = trunc i8 [[TMP5]] to i1
 // CHK-CXX-NEXT:    [[CMP3:%.*]] = icmp ugt i1 [[TMP7]], [[TOBOOL]]
 // CHK-CXX-NEXT:    [[FROMBOOL4:%.*]] = zext i1 [[CMP3]] to i8
@@ -2136,7 +2116,6 @@ void test_double() {
 // CHK-CXX-NEXT:    br i1 [[CMP9]], label [[ATOMIC_CONT12:%.*]], label [[ATOMIC_EXIT18:%.*]]
 // CHK-CXX:       atomic_cont12:
 // CHK-CXX-NEXT:    [[TMP13:%.*]] = phi i8 [ [[ATOMIC_LOAD7]], [[ATOMIC_EXIT]] ], [ [[TMP16:%.*]], [[ATOMIC_CMP15:%.*]] ]
-// CHK-CXX-NEXT:    store i8 [[TMP13]], i8* [[ATMP8]], align 1
 // CHK-CXX-NEXT:    [[FROMBOOL14:%.*]] = zext i1 [[TOBOOL5]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL14]], i8* [[ATOMIC_TEMP13]], align 1
 // CHK-CXX-NEXT:    [[TMP14:%.*]] = load i8, i8* [[ATOMIC_TEMP13]], align 1
@@ -2145,6 +2124,7 @@ void test_double() {
 // CHK-CXX-NEXT:    [[TMP17:%.*]] = extractvalue { i8, i1 } [[TMP15]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP17]], label [[ATOMIC_EXIT18]], label [[ATOMIC_CMP15]]
 // CHK-CXX:       atomic_cmp15:
+// CHK-CXX-NEXT:    store i8 [[TMP16]], i8* [[ATMP8]], align 1
 // CHK-CXX-NEXT:    [[TMP18:%.*]] = trunc i8 [[TMP16]] to i1
 // CHK-CXX-NEXT:    [[CMP16:%.*]] = icmp eq i1 [[TMP18]], [[TOBOOL6]]
 // CHK-CXX-NEXT:    [[FROMBOOL17:%.*]] = zext i1 [[CMP16]] to i8
@@ -2164,7 +2144,6 @@ void test_double() {
 // CHK-CXX-NEXT:    br i1 [[CMP22]], label [[ATOMIC_CONT25:%.*]], label [[ATOMIC_EXIT31:%.*]]
 // CHK-CXX:       atomic_cont25:
 // CHK-CXX-NEXT:    [[TMP23:%.*]] = phi i8 [ [[ATOMIC_LOAD20]], [[ATOMIC_EXIT18]] ], [ [[TMP26:%.*]], [[ATOMIC_CMP28:%.*]] ]
-// CHK-CXX-NEXT:    store i8 [[TMP23]], i8* [[ATMP21]], align 1
 // CHK-CXX-NEXT:    [[FROMBOOL27:%.*]] = zext i1 [[TOBOOL19]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL27]], i8* [[ATOMIC_TEMP26]], align 1
 // CHK-CXX-NEXT:    [[TMP24:%.*]] = load i8, i8* [[ATOMIC_TEMP26]], align 1
@@ -2173,6 +2152,7 @@ void test_double() {
 // CHK-CXX-NEXT:    [[TMP27:%.*]] = extractvalue { i8, i1 } [[TMP25]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP27]], label [[ATOMIC_EXIT31]], label [[ATOMIC_CMP28]]
 // CHK-CXX:       atomic_cmp28:
+// CHK-CXX-NEXT:    store i8 [[TMP26]], i8* [[ATMP21]], align 1
 // CHK-CXX-NEXT:    [[TMP28:%.*]] = trunc i8 [[TMP26]] to i1
 // CHK-CXX-NEXT:    [[CMP29:%.*]] = icmp ult i1 [[TMP28]], [[TOBOOL19]]
 // CHK-CXX-NEXT:    [[FROMBOOL30:%.*]] = zext i1 [[CMP29]] to i8
@@ -2224,7 +2204,6 @@ void test_bool() {
 // CHK-C-NEXT:    br i1 [[CMP]], label [[ATOMIC_CONT:%.*]], label [[ATOMIC_EXIT:%.*]]
 // CHK-C:       atomic_cont:
 // CHK-C-NEXT:    [[TMP1:%.*]] = phi i64 [ [[ATOMIC_LOAD]], [[ENTRY:%.*]] ], [ [[TMP4:%.*]], [[ATOMIC_CMP:%.*]] ]
-// CHK-C-NEXT:    store i64 [[TMP1]], i64* [[TMP]], align 8
 // CHK-C-NEXT:    store i64 [[TMP0]], i64* [[ATOMIC_TEMP]], align 8
 // CHK-C-NEXT:    [[TMP2:%.*]] = load i64, i64* [[ATOMIC_TEMP]], align 8
 // CHK-C-NEXT:    [[TMP3:%.*]] = cmpxchg i64* [[X]], i64 [[TMP1]], i64 [[TMP2]] monotonic monotonic, align 8
@@ -2232,6 +2211,7 @@ void test_bool() {
 // CHK-C-NEXT:    [[TMP5:%.*]] = extractvalue { i64, i1 } [[TMP3]], 1
 // CHK-C-NEXT:    br i1 [[TMP5]], label [[ATOMIC_EXIT]], label [[ATOMIC_CMP]]
 // CHK-C:       atomic_cmp:
+// CHK-C-NEXT:    store i64 [[TMP4]], i64* [[TMP]], align 8
 // CHK-C-NEXT:    [[CMP2:%.*]] = icmp sgt i64 [[TMP4]], [[TMP0]]
 // CHK-C-NEXT:    [[FROMBOOL3:%.*]] = zext i1 [[CMP2]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL3]], i8* [[ATMP1]], align 1
@@ -2249,7 +2229,6 @@ void test_bool() {
 // CHK-C-NEXT:    br i1 [[CMP6]], label [[ATOMIC_CONT9:%.*]], label [[ATOMIC_EXIT14:%.*]]
 // CHK-C:       atomic_cont9:
 // CHK-C-NEXT:    [[TMP10:%.*]] = phi i64 [ [[ATOMIC_LOAD4]], [[ATOMIC_EXIT]] ], [ [[TMP13:%.*]], [[ATOMIC_CMP11:%.*]] ]
-// CHK-C-NEXT:    store i64 [[TMP10]], i64* [[ATMP5]], align 8
 // CHK-C-NEXT:    store i64 [[TMP8]], i64* [[ATOMIC_TEMP10]], align 8
 // CHK-C-NEXT:    [[TMP11:%.*]] = load i64, i64* [[ATOMIC_TEMP10]], align 8
 // CHK-C-NEXT:    [[TMP12:%.*]] = cmpxchg i64* [[X]], i64 [[TMP10]], i64 [[TMP11]] monotonic monotonic, align 8
@@ -2257,6 +2236,7 @@ void test_bool() {
 // CHK-C-NEXT:    [[TMP14:%.*]] = extractvalue { i64, i1 } [[TMP12]], 1
 // CHK-C-NEXT:    br i1 [[TMP14]], label [[ATOMIC_EXIT14]], label [[ATOMIC_CMP11]]
 // CHK-C:       atomic_cmp11:
+// CHK-C-NEXT:    store i64 [[TMP13]], i64* [[ATMP5]], align 8
 // CHK-C-NEXT:    [[CMP12:%.*]] = icmp eq i64 [[TMP13]], [[TMP9]]
 // CHK-C-NEXT:    [[FROMBOOL13:%.*]] = zext i1 [[CMP12]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL13]], i8* [[ATMP7]], align 1
@@ -2273,7 +2253,6 @@ void test_bool() {
 // CHK-C-NEXT:    br i1 [[CMP17]], label [[ATOMIC_CONT20:%.*]], label [[ATOMIC_EXIT25:%.*]]
 // CHK-C:       atomic_cont20:
 // CHK-C-NEXT:    [[TMP18:%.*]] = phi i64 [ [[ATOMIC_LOAD15]], [[ATOMIC_EXIT14]] ], [ [[TMP21:%.*]], [[ATOMIC_CMP22:%.*]] ]
-// CHK-C-NEXT:    store i64 [[TMP18]], i64* [[ATMP16]], align 8
 // CHK-C-NEXT:    store i64 [[TMP17]], i64* [[ATOMIC_TEMP21]], align 8
 // CHK-C-NEXT:    [[TMP19:%.*]] = load i64, i64* [[ATOMIC_TEMP21]], align 8
 // CHK-C-NEXT:    [[TMP20:%.*]] = cmpxchg i64* [[X]], i64 [[TMP18]], i64 [[TMP19]] monotonic monotonic, align 8
@@ -2281,6 +2260,7 @@ void test_bool() {
 // CHK-C-NEXT:    [[TMP22:%.*]] = extractvalue { i64, i1 } [[TMP20]], 1
 // CHK-C-NEXT:    br i1 [[TMP22]], label [[ATOMIC_EXIT25]], label [[ATOMIC_CMP22]]
 // CHK-C:       atomic_cmp22:
+// CHK-C-NEXT:    store i64 [[TMP21]], i64* [[ATMP16]], align 8
 // CHK-C-NEXT:    [[CMP23:%.*]] = icmp slt i64 [[TMP21]], [[TMP17]]
 // CHK-C-NEXT:    [[FROMBOOL24:%.*]] = zext i1 [[CMP23]] to i8
 // CHK-C-NEXT:    store i8 [[FROMBOOL24]], i8* [[ATMP18]], align 1
@@ -2314,7 +2294,6 @@ void test_bool() {
 // CHK-CXX-NEXT:    br i1 [[CMP]], label [[ATOMIC_CONT:%.*]], label [[ATOMIC_EXIT:%.*]]
 // CHK-CXX:       atomic_cont:
 // CHK-CXX-NEXT:    [[TMP1:%.*]] = phi i64 [ [[ATOMIC_LOAD]], [[ENTRY:%.*]] ], [ [[TMP4:%.*]], [[ATOMIC_CMP:%.*]] ]
-// CHK-CXX-NEXT:    store i64 [[TMP1]], i64* [[TMP]], align 8
 // CHK-CXX-NEXT:    store i64 [[TMP0]], i64* [[ATOMIC_TEMP]], align 8
 // CHK-CXX-NEXT:    [[TMP2:%.*]] = load i64, i64* [[ATOMIC_TEMP]], align 8
 // CHK-CXX-NEXT:    [[TMP3:%.*]] = cmpxchg i64* [[X]], i64 [[TMP1]], i64 [[TMP2]] monotonic monotonic, align 8
@@ -2322,6 +2301,7 @@ void test_bool() {
 // CHK-CXX-NEXT:    [[TMP5:%.*]] = extractvalue { i64, i1 } [[TMP3]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP5]], label [[ATOMIC_EXIT]], label [[ATOMIC_CMP]]
 // CHK-CXX:       atomic_cmp:
+// CHK-CXX-NEXT:    store i64 [[TMP4]], i64* [[TMP]], align 8
 // CHK-CXX-NEXT:    [[CMP2:%.*]] = icmp sgt i64 [[TMP4]], [[TMP0]]
 // CHK-CXX-NEXT:    [[FROMBOOL3:%.*]] = zext i1 [[CMP2]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL3]], i8* [[ATMP1]], align 1
@@ -2339,7 +2319,6 @@ void test_bool() {
 // CHK-CXX-NEXT:    br i1 [[CMP6]], label [[ATOMIC_CONT9:%.*]], label [[ATOMIC_EXIT14:%.*]]
 // CHK-CXX:       atomic_cont9:
 // CHK-CXX-NEXT:    [[TMP10:%.*]] = phi i64 [ [[ATOMIC_LOAD4]], [[ATOMIC_EXIT]] ], [ [[TMP13:%.*]], [[ATOMIC_CMP11:%.*]] ]
-// CHK-CXX-NEXT:    store i64 [[TMP10]], i64* [[ATMP5]], align 8
 // CHK-CXX-NEXT:    store i64 [[TMP8]], i64* [[ATOMIC_TEMP10]], align 8
 // CHK-CXX-NEXT:    [[TMP11:%.*]] = load i64, i64* [[ATOMIC_TEMP10]], align 8
 // CHK-CXX-NEXT:    [[TMP12:%.*]] = cmpxchg i64* [[X]], i64 [[TMP10]], i64 [[TMP11]] monotonic monotonic, align 8
@@ -2347,6 +2326,7 @@ void test_bool() {
 // CHK-CXX-NEXT:    [[TMP14:%.*]] = extractvalue { i64, i1 } [[TMP12]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP14]], label [[ATOMIC_EXIT14]], label [[ATOMIC_CMP11]]
 // CHK-CXX:       atomic_cmp11:
+// CHK-CXX-NEXT:    store i64 [[TMP13]], i64* [[ATMP5]], align 8
 // CHK-CXX-NEXT:    [[CMP12:%.*]] = icmp eq i64 [[TMP13]], [[TMP9]]
 // CHK-CXX-NEXT:    [[FROMBOOL13:%.*]] = zext i1 [[CMP12]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL13]], i8* [[ATMP7]], align 1
@@ -2363,7 +2343,6 @@ void test_bool() {
 // CHK-CXX-NEXT:    br i1 [[CMP17]], label [[ATOMIC_CONT20:%.*]], label [[ATOMIC_EXIT25:%.*]]
 // CHK-CXX:       atomic_cont20:
 // CHK-CXX-NEXT:    [[TMP18:%.*]] = phi i64 [ [[ATOMIC_LOAD15]], [[ATOMIC_EXIT14]] ], [ [[TMP21:%.*]], [[ATOMIC_CMP22:%.*]] ]
-// CHK-CXX-NEXT:    store i64 [[TMP18]], i64* [[ATMP16]], align 8
 // CHK-CXX-NEXT:    store i64 [[TMP17]], i64* [[ATOMIC_TEMP21]], align 8
 // CHK-CXX-NEXT:    [[TMP19:%.*]] = load i64, i64* [[ATOMIC_TEMP21]], align 8
 // CHK-CXX-NEXT:    [[TMP20:%.*]] = cmpxchg i64* [[X]], i64 [[TMP18]], i64 [[TMP19]] monotonic monotonic, align 8
@@ -2371,6 +2350,7 @@ void test_bool() {
 // CHK-CXX-NEXT:    [[TMP22:%.*]] = extractvalue { i64, i1 } [[TMP20]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP22]], label [[ATOMIC_EXIT25]], label [[ATOMIC_CMP22]]
 // CHK-CXX:       atomic_cmp22:
+// CHK-CXX-NEXT:    store i64 [[TMP21]], i64* [[ATMP16]], align 8
 // CHK-CXX-NEXT:    [[CMP23:%.*]] = icmp slt i64 [[TMP21]], [[TMP17]]
 // CHK-CXX-NEXT:    [[FROMBOOL24:%.*]] = zext i1 [[CMP23]] to i8
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL24]], i8* [[ATMP18]], align 1
@@ -2483,128 +2463,107 @@ struct BitFields4_packed {
 // CHK-C-NEXT:    [[ATOMIC_TEMP:%.*]] = alloca i32, align 4
 // CHK-C-NEXT:    [[ATMP1:%.*]] = alloca i8, align 1
 // CHK-C-NEXT:    [[ATOMIC_TEMP2:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP6:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP8:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATMP15:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP16:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATMP21:%.*]] = alloca i8, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP24:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP28:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP34:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATMP42:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP4:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATMP11:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP12:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATMP17:%.*]] = alloca i8, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP20:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP26:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATMP34:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP35:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATMP40:%.*]] = alloca i8, align 1
 // CHK-C-NEXT:    [[ATOMIC_TEMP43:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATMP48:%.*]] = alloca i8, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP51:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP55:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP61:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATMP69:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP70:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATMP74:%.*]] = alloca i8, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP77:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP49:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATMP57:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP58:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATMP62:%.*]] = alloca i8, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP65:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP72:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATMP79:%.*]] = alloca i32, align 4
 // CHK-C-NEXT:    [[ATOMIC_TEMP80:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATMP84:%.*]] = alloca i8, align 1
 // CHK-C-NEXT:    [[ATOMIC_TEMP87:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATMP94:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP95:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATMP99:%.*]] = alloca i8, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP94:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATMP101:%.*]] = alloca i32, align 4
 // CHK-C-NEXT:    [[ATOMIC_TEMP102:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP105:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP112:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATMP119:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP120:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATMP124:%.*]] = alloca i8, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP127:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP130:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP137:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATMP144:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP145:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATMP149:%.*]] = alloca i8, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP152:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP156:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP163:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATMP171:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP172:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATMP177:%.*]] = alloca i8, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP180:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP184:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP191:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATMP199:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP200:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATMP205:%.*]] = alloca i8, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP208:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP212:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP219:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATMP227:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP228:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATMP233:%.*]] = alloca i8, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP236:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP240:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP247:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATMP255:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP256:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATMP261:%.*]] = alloca i8, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP264:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP268:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP275:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATMP283:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP284:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATMP289:%.*]] = alloca i8, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP292:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP296:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP303:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATMP311:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP312:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATMP318:%.*]] = alloca i8, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP321:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATOMIC_TEMP326:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATOMIC_TEMP333:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATMP342:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP343:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATMP349:%.*]] = alloca i8, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP352:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATOMIC_TEMP357:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATOMIC_TEMP364:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATMP373:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP374:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATMP380:%.*]] = alloca i8, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP383:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATOMIC_TEMP388:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATOMIC_TEMP395:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATMP404:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATOMIC_TEMP405:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATMP410:%.*]] = alloca i8, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP413:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATOMIC_TEMP417:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATOMIC_TEMP424:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATMP434:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATOMIC_TEMP435:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATMP440:%.*]] = alloca i8, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP443:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATOMIC_TEMP447:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATOMIC_TEMP454:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATMP463:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATOMIC_TEMP464:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATMP469:%.*]] = alloca i8, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP472:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATOMIC_TEMP476:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATOMIC_TEMP483:%.*]] = alloca i64, align 8
-// CHK-C-NEXT:    [[ATMP491:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP492:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATMP498:%.*]] = alloca i8, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP501:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP506:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP512:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATMP521:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP522:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATMP528:%.*]] = alloca i8, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP531:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP536:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP542:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATMP551:%.*]] = alloca i32, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP552:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATMP558:%.*]] = alloca i8, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP561:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP566:%.*]] = alloca i32, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP572:%.*]] = alloca i32, align 1
+// CHK-C-NEXT:    [[ATMP106:%.*]] = alloca i8, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP109:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP116:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATMP123:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP124:%.*]] = alloca i32, align 1
+// CHK-C-NEXT:    [[ATMP128:%.*]] = alloca i8, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP131:%.*]] = alloca i32, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP138:%.*]] = alloca i32, align 1
+// CHK-C-NEXT:    [[ATMP146:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP147:%.*]] = alloca i32, align 1
+// CHK-C-NEXT:    [[ATMP152:%.*]] = alloca i8, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP155:%.*]] = alloca i32, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP162:%.*]] = alloca i32, align 1
+// CHK-C-NEXT:    [[ATMP170:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP171:%.*]] = alloca i32, align 1
+// CHK-C-NEXT:    [[ATMP176:%.*]] = alloca i8, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP179:%.*]] = alloca i32, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP186:%.*]] = alloca i32, align 1
+// CHK-C-NEXT:    [[ATMP194:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP195:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATMP200:%.*]] = alloca i8, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP203:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP210:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATMP218:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP219:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATMP224:%.*]] = alloca i8, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP227:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP234:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATMP242:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP243:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATMP248:%.*]] = alloca i8, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP251:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP258:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATMP266:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP267:%.*]] = alloca i64, align 8
+// CHK-C-NEXT:    [[ATMP273:%.*]] = alloca i8, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP276:%.*]] = alloca i64, align 8
+// CHK-C-NEXT:    [[ATOMIC_TEMP283:%.*]] = alloca i64, align 8
+// CHK-C-NEXT:    [[ATMP292:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP293:%.*]] = alloca i64, align 8
+// CHK-C-NEXT:    [[ATMP299:%.*]] = alloca i8, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP302:%.*]] = alloca i64, align 8
+// CHK-C-NEXT:    [[ATOMIC_TEMP309:%.*]] = alloca i64, align 8
+// CHK-C-NEXT:    [[ATMP318:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP319:%.*]] = alloca i64, align 8
+// CHK-C-NEXT:    [[ATMP325:%.*]] = alloca i8, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP328:%.*]] = alloca i64, align 8
+// CHK-C-NEXT:    [[ATOMIC_TEMP335:%.*]] = alloca i64, align 8
+// CHK-C-NEXT:    [[ATMP344:%.*]] = alloca i64, align 8
+// CHK-C-NEXT:    [[ATOMIC_TEMP345:%.*]] = alloca i64, align 8
+// CHK-C-NEXT:    [[ATMP350:%.*]] = alloca i8, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP353:%.*]] = alloca i64, align 8
+// CHK-C-NEXT:    [[ATOMIC_TEMP360:%.*]] = alloca i64, align 8
+// CHK-C-NEXT:    [[ATMP370:%.*]] = alloca i64, align 8
+// CHK-C-NEXT:    [[ATOMIC_TEMP371:%.*]] = alloca i64, align 8
+// CHK-C-NEXT:    [[ATMP376:%.*]] = alloca i8, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP379:%.*]] = alloca i64, align 8
+// CHK-C-NEXT:    [[ATOMIC_TEMP386:%.*]] = alloca i64, align 8
+// CHK-C-NEXT:    [[ATMP395:%.*]] = alloca i64, align 8
+// CHK-C-NEXT:    [[ATOMIC_TEMP396:%.*]] = alloca i64, align 8
+// CHK-C-NEXT:    [[ATMP401:%.*]] = alloca i8, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP404:%.*]] = alloca i64, align 8
+// CHK-C-NEXT:    [[ATOMIC_TEMP411:%.*]] = alloca i64, align 8
+// CHK-C-NEXT:    [[ATMP419:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP420:%.*]] = alloca i32, align 1
+// CHK-C-NEXT:    [[ATMP426:%.*]] = alloca i8, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP429:%.*]] = alloca i32, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP435:%.*]] = alloca i32, align 1
+// CHK-C-NEXT:    [[ATMP444:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP445:%.*]] = alloca i32, align 1
+// CHK-C-NEXT:    [[ATMP451:%.*]] = alloca i8, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP454:%.*]] = alloca i32, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP460:%.*]] = alloca i32, align 1
+// CHK-C-NEXT:    [[ATMP469:%.*]] = alloca i32, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP470:%.*]] = alloca i32, align 1
+// CHK-C-NEXT:    [[ATMP476:%.*]] = alloca i8, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP479:%.*]] = alloca i32, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP485:%.*]] = alloca i32, align 1
 // CHK-C-NEXT:    [[TMP0:%.*]] = load i32, i32* [[EXPR]], align 4
 // CHK-C-NEXT:    [[ATOMIC_LOAD:%.*]] = load atomic i32, i32* bitcast (i8* getelementptr (i8, i8* bitcast (%struct.BitFields* @bfx to i8*), i64 4) to i32*) monotonic, align 4
 // CHK-C-NEXT:    store i32 [[ATOMIC_LOAD]], i32* [[ATOMIC_TEMP]], align 4
@@ -2620,920 +2579,827 @@ struct BitFields4_packed {
 // CHK-C-NEXT:    [[TMP1:%.*]] = phi i32 [ [[ATOMIC_LOAD]], [[ENTRY:%.*]] ], [ [[TMP4:%.*]], [[ATOMIC_CMP:%.*]] ]
 // CHK-C-NEXT:    store i32 [[TMP1]], i32* [[ATOMIC_TEMP2]], align 4
 // CHK-C-NEXT:    [[BF_LOAD3:%.*]] = load i32, i32* [[ATOMIC_TEMP2]], align 4
-// CHK-C-NEXT:    [[BF_SHL4:%.*]] = shl i32 [[BF_LOAD3]], 1
-// CHK-C-NEXT:    [[BF_ASHR5:%.*]] = ashr i32 [[BF_SHL4]], 1
-// CHK-C-NEXT:    store i32 [[BF_ASHR5]], i32* [[TMP]], align 4
-// CHK-C-NEXT:    store i32 [[TMP1]], i32* [[ATOMIC_TEMP6]], align 4
-// CHK-C-NEXT:    [[BF_LOAD7:%.*]] = load i32, i32* [[ATOMIC_TEMP6]], align 4
 // CHK-C-NEXT:    [[BF_VALUE:%.*]] = and i32 [[TMP0]], 2147483647
-// CHK-C-NEXT:    [[BF_CLEAR:%.*]] = and i32 [[BF_LOAD7]], -2147483648
+// CHK-C-NEXT:    [[BF_CLEAR:%.*]] = and i32 [[BF_LOAD3]], -2147483648
 // CHK-C-NEXT:    [[BF_SET:%.*]] = or i32 [[BF_CLEAR]], [[BF_VALUE]]
-// CHK-C-NEXT:    store i32 [[BF_SET]], i32* [[ATOMIC_TEMP6]], align 4
-// CHK-C-NEXT:    [[TMP2:%.*]] = load i32, i32* [[ATOMIC_TEMP6]], align 4
+// CHK-C-NEXT:    store i32 [[BF_SET]], i32* [[ATOMIC_TEMP2]], align 4
+// CHK-C-NEXT:    [[TMP2:%.*]] = load i32, i32* [[ATOMIC_TEMP2]], align 4
 // CHK-C-NEXT:    [[TMP3:%.*]] = cmpxchg i32* bitcast (i8* getelementptr (i8, i8* bitcast (%struct.BitFields* @bfx to i8*), i64 4) to i32*), i32 [[TMP1]], i32 [[TMP2]] monotonic monotonic, align 4
 // CHK-C-NEXT:    [[TMP4]] = extractvalue { i32, i1 } [[TMP3]], 0
 // CHK-C-NEXT:    [[TMP5:%.*]] = extractvalue { i32, i1 } [[TMP3]], 1
 // CHK-C-NEXT:    br i1 [[TMP5]], label [[ATOMIC_EXIT]], label [[ATOMIC_CMP]]
 // CHK-C:       atomic_cmp:
-// CHK-C-NEXT:    store i32 [[TMP4]], i32* [[ATOMIC_TEMP8]], align 4
-// CHK-C-NEXT:    [[BF_LOAD9:%.*]] = load i32, i32* [[ATOMIC_TEMP8]], align 4
-// CHK-C-NEXT:    [[BF_SHL10:%.*]] = shl i32 [[BF_LOAD9]], 1
-// CHK-C-NEXT:    [[BF_ASHR11:%.*]] = ashr i32 [[BF_SHL10]], 1
-// CHK-C-NEXT:    [[CMP12:%.*]] = icmp sgt i32 [[BF_ASHR11]], [[TMP0]]
-// CHK-C-NEXT:    [[FROMBOOL13:%.*]] = zext i1 [[CMP12]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL13]], i8* [[ATMP1]], align 1
-// CHK-C-NEXT:    br i1 [[CMP12]], label [[ATOMIC_CONT]], label [[ATOMIC_EXIT]]
+// CHK-C-NEXT:    store i32 [[TMP4]], i32* [[ATOMIC_TEMP4]], align 4
+// CHK-C-NEXT:    [[BF_LOAD5:%.*]] = load i32, i32* [[ATOMIC_TEMP4]], align 4
+// CHK-C-NEXT:    [[BF_SHL6:%.*]] = shl i32 [[BF_LOAD5]], 1
+// CHK-C-NEXT:    [[BF_ASHR7:%.*]] = ashr i32 [[BF_SHL6]], 1
+// CHK-C-NEXT:    store i32 [[BF_ASHR7]], i32* [[TMP]], align 4
+// CHK-C-NEXT:    [[CMP8:%.*]] = icmp sgt i32 [[BF_ASHR7]], [[TMP0]]
+// CHK-C-NEXT:    [[FROMBOOL9:%.*]] = zext i1 [[CMP8]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL9]], i8* [[ATMP1]], align 1
+// CHK-C-NEXT:    br i1 [[CMP8]], label [[ATOMIC_CONT]], label [[ATOMIC_EXIT]]
 // CHK-C:       atomic_exit:
 // CHK-C-NEXT:    [[TMP6:%.*]] = load i32, i32* [[TMP]], align 4
 // CHK-C-NEXT:    [[TMP7:%.*]] = load i8, i8* [[ATMP1]], align 1
 // CHK-C-NEXT:    [[TMP8:%.*]] = load i32, i32* [[D]], align 4
 // CHK-C-NEXT:    [[TMP9:%.*]] = load i32, i32* [[E]], align 4
-// CHK-C-NEXT:    [[ATOMIC_LOAD14:%.*]] = load atomic i32, i32* bitcast (i8* getelementptr (i8, i8* bitcast (%struct.BitFields* @bfx to i8*), i64 4) to i32*) monotonic, align 4
-// CHK-C-NEXT:    store i32 [[ATOMIC_LOAD14]], i32* [[ATOMIC_TEMP16]], align 4
-// CHK-C-NEXT:    [[BF_LOAD17:%.*]] = load i32, i32* [[ATOMIC_TEMP16]], align 4
-// CHK-C-NEXT:    [[BF_SHL18:%.*]] = shl i32 [[BF_LOAD17]], 1
-// CHK-C-NEXT:    [[BF_ASHR19:%.*]] = ashr i32 [[BF_SHL18]], 1
-// CHK-C-NEXT:    store i32 [[BF_ASHR19]], i32* [[ATMP15]], align 4
-// CHK-C-NEXT:    [[CMP20:%.*]] = icmp eq i32 [[BF_ASHR19]], [[TMP9]]
-// CHK-C-NEXT:    [[FROMBOOL22:%.*]] = zext i1 [[CMP20]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL22]], i8* [[ATMP21]], align 1
-// CHK-C-NEXT:    br i1 [[CMP20]], label [[ATOMIC_CONT23:%.*]], label [[ATOMIC_EXIT40:%.*]]
-// CHK-C:       atomic_cont23:
-// CHK-C-NEXT:    [[TMP10:%.*]] = phi i32 [ [[ATOMIC_LOAD14]], [[ATOMIC_EXIT]] ], [ [[TMP13:%.*]], [[ATOMIC_CMP33:%.*]] ]
-// CHK-C-NEXT:    store i32 [[TMP10]], i32* [[ATOMIC_TEMP24]], align 4
-// CHK-C-NEXT:    [[BF_LOAD25:%.*]] = load i32, i32* [[ATOMIC_TEMP24]], align 4
-// CHK-C-NEXT:    [[BF_SHL26:%.*]] = shl i32 [[BF_LOAD25]], 1
-// CHK-C-NEXT:    [[BF_ASHR27:%.*]] = ashr i32 [[BF_SHL26]], 1
-// CHK-C-NEXT:    store i32 [[BF_ASHR27]], i32* [[ATMP15]], align 4
-// CHK-C-NEXT:    store i32 [[TMP10]], i32* [[ATOMIC_TEMP28]], align 4
-// CHK-C-NEXT:    [[BF_LOAD29:%.*]] = load i32, i32* [[ATOMIC_TEMP28]], align 4
-// CHK-C-NEXT:    [[BF_VALUE30:%.*]] = and i32 [[TMP8]], 2147483647
-// CHK-C-NEXT:    [[BF_CLEAR31:%.*]] = and i32 [[BF_LOAD29]], -2147483648
-// CHK-C-NEXT:    [[BF_SET32:%.*]] = or i32 [[BF_CLEAR31]], [[BF_VALUE30]]
-// CHK-C-NEXT:    store i32 [[BF_SET32]], i32* [[ATOMIC_TEMP28]], align 4
-// CHK-C-NEXT:    [[TMP11:%.*]] = load i32, i32* [[ATOMIC_TEMP28]], align 4
+// CHK-C-NEXT:    [[ATOMIC_LOAD10:%.*]] = load atomic i32, i32* bitcast (i8* getelementptr (i8, i8* bitcast (%struct.BitFields* @bfx to i8*), i64 4) to i32*) monotonic, align 4
+// CHK-C-NEXT:    store i32 [[ATOMIC_LOAD10]], i32* [[ATOMIC_TEMP12]], align 4
+// CHK-C-NEXT:    [[BF_LOAD13:%.*]] = load i32, i32* [[ATOMIC_TEMP12]], align 4
+// CHK-C-NEXT:    [[BF_SHL14:%.*]] = shl i32 [[BF_LOAD13]], 1
+// CHK-C-NEXT:    [[BF_ASHR15:%.*]] = ashr i32 [[BF_SHL14]], 1
+// CHK-C-NEXT:    store i32 [[BF_ASHR15]], i32* [[ATMP11]], align 4
+// CHK-C-NEXT:    [[CMP16:%.*]] = icmp eq i32 [[BF_ASHR15]], [[TMP9]]
+// CHK-C-NEXT:    [[FROMBOOL18:%.*]] = zext i1 [[CMP16]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL18]], i8* [[ATMP17]], align 1
+// CHK-C-NEXT:    br i1 [[CMP16]], label [[ATOMIC_CONT19:%.*]], label [[ATOMIC_EXIT32:%.*]]
+// CHK-C:       atomic_cont19:
+// CHK-C-NEXT:    [[TMP10:%.*]] = phi i32 [ [[ATOMIC_LOAD10]], [[ATOMIC_EXIT]] ], [ [[TMP13:%.*]], [[ATOMIC_CMP25:%.*]] ]
+// CHK-C-NEXT:    store i32 [[TMP10]], i32* [[ATOMIC_TEMP20]], align 4
+// CHK-C-NEXT:    [[BF_LOAD21:%.*]] = load i32, i32* [[ATOMIC_TEMP20]], align 4
+// CHK-C-NEXT:    [[BF_VALUE22:%.*]] = and i32 [[TMP8]], 2147483647
+// CHK-C-NEXT:    [[BF_CLEAR23:%.*]] = and i32 [[BF_LOAD21]], -2147483648
+// CHK-C-NEXT:    [[BF_SET24:%.*]] = or i32 [[BF_CLEAR23]], [[BF_VALUE22]]
+// CHK-C-NEXT:    store i32 [[BF_SET24]], i32* [[ATOMIC_TEMP20]], align 4
+// CHK-C-NEXT:    [[TMP11:%.*]] = load i32, i32* [[ATOMIC_TEMP20]], align 4
 // CHK-C-NEXT:    [[TMP12:%.*]] = cmpxchg i32* bitcast (i8* getelementptr (i8, i8* bitcast (%struct.BitFields* @bfx to i8*), i64 4) to i32*), i32 [[TMP10]], i32 [[TMP11]] monotonic monotonic, align 4
 // CHK-C-NEXT:    [[TMP13]] = extractvalue { i32, i1 } [[TMP12]], 0
 // CHK-C-NEXT:    [[TMP14:%.*]] = extractvalue { i32, i1 } [[TMP12]], 1
-// CHK-C-NEXT:    br i1 [[TMP14]], label [[ATOMIC_EXIT40]], label [[ATOMIC_CMP33]]
-// CHK-C:       atomic_cmp33:
-// CHK-C-NEXT:    store i32 [[TMP13]], i32* [[ATOMIC_TEMP34]], align 4
-// CHK-C-NEXT:    [[BF_LOAD35:%.*]] = load i32, i32* [[ATOMIC_TEMP34]], align 4
-// CHK-C-NEXT:    [[BF_SHL36:%.*]] = shl i32 [[BF_LOAD35]], 1
-// CHK-C-NEXT:    [[BF_ASHR37:%.*]] = ashr i32 [[BF_SHL36]], 1
-// CHK-C-NEXT:    [[CMP38:%.*]] = icmp eq i32 [[BF_ASHR37]], [[TMP9]]
-// CHK-C-NEXT:    [[FROMBOOL39:%.*]] = zext i1 [[CMP38]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL39]], i8* [[ATMP21]], align 1
-// CHK-C-NEXT:    br i1 [[CMP38]], label [[ATOMIC_CONT23]], label [[ATOMIC_EXIT40]]
-// CHK-C:       atomic_exit40:
-// CHK-C-NEXT:    [[TMP15:%.*]] = load i32, i32* [[ATMP15]], align 4
-// CHK-C-NEXT:    [[TMP16:%.*]] = load i8, i8* [[ATMP21]], align 1
+// CHK-C-NEXT:    br i1 [[TMP14]], label [[ATOMIC_EXIT32]], label [[ATOMIC_CMP25]]
+// CHK-C:       atomic_cmp25:
+// CHK-C-NEXT:    store i32 [[TMP13]], i32* [[ATOMIC_TEMP26]], align 4
+// CHK-C-NEXT:    [[BF_LOAD27:%.*]] = load i32, i32* [[ATOMIC_TEMP26]], align 4
+// CHK-C-NEXT:    [[BF_SHL28:%.*]] = shl i32 [[BF_LOAD27]], 1
+// CHK-C-NEXT:    [[BF_ASHR29:%.*]] = ashr i32 [[BF_SHL28]], 1
+// CHK-C-NEXT:    store i32 [[BF_ASHR29]], i32* [[ATMP11]], align 4
+// CHK-C-NEXT:    [[CMP30:%.*]] = icmp eq i32 [[BF_ASHR29]], [[TMP9]]
+// CHK-C-NEXT:    [[FROMBOOL31:%.*]] = zext i1 [[CMP30]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL31]], i8* [[ATMP17]], align 1
+// CHK-C-NEXT:    br i1 [[CMP30]], label [[ATOMIC_CONT19]], label [[ATOMIC_EXIT32]]
+// CHK-C:       atomic_exit32:
+// CHK-C-NEXT:    [[TMP15:%.*]] = load i32, i32* [[ATMP11]], align 4
+// CHK-C-NEXT:    [[TMP16:%.*]] = load i8, i8* [[ATMP17]], align 1
 // CHK-C-NEXT:    [[TMP17:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-C-NEXT:    [[ATOMIC_LOAD41:%.*]] = load atomic i32, i32* bitcast (i8* getelementptr (i8, i8* bitcast (%struct.BitFields* @bfx to i8*), i64 4) to i32*) monotonic, align 4
-// CHK-C-NEXT:    store i32 [[ATOMIC_LOAD41]], i32* [[ATOMIC_TEMP43]], align 4
+// CHK-C-NEXT:    [[ATOMIC_LOAD33:%.*]] = load atomic i32, i32* bitcast (i8* getelementptr (i8, i8* bitcast (%struct.BitFields* @bfx to i8*), i64 4) to i32*) monotonic, align 4
+// CHK-C-NEXT:    store i32 [[ATOMIC_LOAD33]], i32* [[ATOMIC_TEMP35]], align 4
+// CHK-C-NEXT:    [[BF_LOAD36:%.*]] = load i32, i32* [[ATOMIC_TEMP35]], align 4
+// CHK-C-NEXT:    [[BF_SHL37:%.*]] = shl i32 [[BF_LOAD36]], 1
+// CHK-C-NEXT:    [[BF_ASHR38:%.*]] = ashr i32 [[BF_SHL37]], 1
+// CHK-C-NEXT:    store i32 [[BF_ASHR38]], i32* [[ATMP34]], align 4
+// CHK-C-NEXT:    [[CMP39:%.*]] = icmp slt i32 [[BF_ASHR38]], [[TMP17]]
+// CHK-C-NEXT:    [[FROMBOOL41:%.*]] = zext i1 [[CMP39]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL41]], i8* [[ATMP40]], align 1
+// CHK-C-NEXT:    br i1 [[CMP39]], label [[ATOMIC_CONT42:%.*]], label [[ATOMIC_EXIT55:%.*]]
+// CHK-C:       atomic_cont42:
+// CHK-C-NEXT:    [[TMP18:%.*]] = phi i32 [ [[ATOMIC_LOAD33]], [[ATOMIC_EXIT32]] ], [ [[TMP21:%.*]], [[ATOMIC_CMP48:%.*]] ]
+// CHK-C-NEXT:    store i32 [[TMP18]], i32* [[ATOMIC_TEMP43]], align 4
 // CHK-C-NEXT:    [[BF_LOAD44:%.*]] = load i32, i32* [[ATOMIC_TEMP43]], align 4
-// CHK-C-NEXT:    [[BF_SHL45:%.*]] = shl i32 [[BF_LOAD44]], 1
-// CHK-C-NEXT:    [[BF_ASHR46:%.*]] = ashr i32 [[BF_SHL45]], 1
-// CHK-C-NEXT:    store i32 [[BF_ASHR46]], i32* [[ATMP42]], align 4
-// CHK-C-NEXT:    [[CMP47:%.*]] = icmp slt i32 [[BF_ASHR46]], [[TMP17]]
-// CHK-C-NEXT:    [[FROMBOOL49:%.*]] = zext i1 [[CMP47]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL49]], i8* [[ATMP48]], align 1
-// CHK-C-NEXT:    br i1 [[CMP47]], label [[ATOMIC_CONT50:%.*]], label [[ATOMIC_EXIT67:%.*]]
-// CHK-C:       atomic_cont50:
-// CHK-C-NEXT:    [[TMP18:%.*]] = phi i32 [ [[ATOMIC_LOAD41]], [[ATOMIC_EXIT40]] ], [ [[TMP21:%.*]], [[ATOMIC_CMP60:%.*]] ]
-// CHK-C-NEXT:    store i32 [[TMP18]], i32* [[ATOMIC_TEMP51]], align 4
-// CHK-C-NEXT:    [[BF_LOAD52:%.*]] = load i32, i32* [[ATOMIC_TEMP51]], align 4
-// CHK-C-NEXT:    [[BF_SHL53:%.*]] = shl i32 [[BF_LOAD52]], 1
-// CHK-C-NEXT:    [[BF_ASHR54:%.*]] = ashr i32 [[BF_SHL53]], 1
-// CHK-C-NEXT:    store i32 [[BF_ASHR54]], i32* [[ATMP42]], align 4
-// CHK-C-NEXT:    store i32 [[TMP18]], i32* [[ATOMIC_TEMP55]], align 4
-// CHK-C-NEXT:    [[BF_LOAD56:%.*]] = load i32, i32* [[ATOMIC_TEMP55]], align 4
-// CHK-C-NEXT:    [[BF_VALUE57:%.*]] = and i32 [[TMP17]], 2147483647
-// CHK-C-NEXT:    [[BF_CLEAR58:%.*]] = and i32 [[BF_LOAD56]], -2147483648
-// CHK-C-NEXT:    [[BF_SET59:%.*]] = or i32 [[BF_CLEAR58]], [[BF_VALUE57]]
-// CHK-C-NEXT:    store i32 [[BF_SET59]], i32* [[ATOMIC_TEMP55]], align 4
-// CHK-C-NEXT:    [[TMP19:%.*]] = load i32, i32* [[ATOMIC_TEMP55]], align 4
+// CHK-C-NEXT:    [[BF_VALUE45:%.*]] = and i32 [[TMP17]], 2147483647
+// CHK-C-NEXT:    [[BF_CLEAR46:%.*]] = and i32 [[BF_LOAD44]], -2147483648
+// CHK-C-NEXT:    [[BF_SET47:%.*]] = or i32 [[BF_CLEAR46]], [[BF_VALUE45]]
+// CHK-C-NEXT:    store i32 [[BF_SET47]], i32* [[ATOMIC_TEMP43]], align 4
+// CHK-C-NEXT:    [[TMP19:%.*]] = load i32, i32* [[ATOMIC_TEMP43]], align 4
 // CHK-C-NEXT:    [[TMP20:%.*]] = cmpxchg i32* bitcast (i8* getelementptr (i8, i8* bitcast (%struct.BitFields* @bfx to i8*), i64 4) to i32*), i32 [[TMP18]], i32 [[TMP19]] monotonic monotonic, align 4
 // CHK-C-NEXT:    [[TMP21]] = extractvalue { i32, i1 } [[TMP20]], 0
 // CHK-C-NEXT:    [[TMP22:%.*]] = extractvalue { i32, i1 } [[TMP20]], 1
-// CHK-C-NEXT:    br i1 [[TMP22]], label [[ATOMIC_EXIT67]], label [[ATOMIC_CMP60]]
-// CHK-C:       atomic_cmp60:
-// CHK-C-NEXT:    store i32 [[TMP21]], i32* [[ATOMIC_TEMP61]], align 4
-// CHK-C-NEXT:    [[BF_LOAD62:%.*]] = load i32, i32* [[ATOMIC_TEMP61]], align 4
-// CHK-C-NEXT:    [[BF_SHL63:%.*]] = shl i32 [[BF_LOAD62]], 1
-// CHK-C-NEXT:    [[BF_ASHR64:%.*]] = ashr i32 [[BF_SHL63]], 1
-// CHK-C-NEXT:    [[CMP65:%.*]] = icmp slt i32 [[BF_ASHR64]], [[TMP17]]
-// CHK-C-NEXT:    [[FROMBOOL66:%.*]] = zext i1 [[CMP65]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL66]], i8* [[ATMP48]], align 1
-// CHK-C-NEXT:    br i1 [[CMP65]], label [[ATOMIC_CONT50]], label [[ATOMIC_EXIT67]]
-// CHK-C:       atomic_exit67:
-// CHK-C-NEXT:    [[TMP23:%.*]] = load i32, i32* [[ATMP42]], align 4
-// CHK-C-NEXT:    [[TMP24:%.*]] = load i8, i8* [[ATMP48]], align 1
+// CHK-C-NEXT:    br i1 [[TMP22]], label [[ATOMIC_EXIT55]], label [[ATOMIC_CMP48]]
+// CHK-C:       atomic_cmp48:
+// CHK-C-NEXT:    store i32 [[TMP21]], i32* [[ATOMIC_TEMP49]], align 4
+// CHK-C-NEXT:    [[BF_LOAD50:%.*]] = load i32, i32* [[ATOMIC_TEMP49]], align 4
+// CHK-C-NEXT:    [[BF_SHL51:%.*]] = shl i32 [[BF_LOAD50]], 1
+// CHK-C-NEXT:    [[BF_ASHR52:%.*]] = ashr i32 [[BF_SHL51]], 1
+// CHK-C-NEXT:    store i32 [[BF_ASHR52]], i32* [[ATMP34]], align 4
+// CHK-C-NEXT:    [[CMP53:%.*]] = icmp slt i32 [[BF_ASHR52]], [[TMP17]]
+// CHK-C-NEXT:    [[FROMBOOL54:%.*]] = zext i1 [[CMP53]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL54]], i8* [[ATMP40]], align 1
+// CHK-C-NEXT:    br i1 [[CMP53]], label [[ATOMIC_CONT42]], label [[ATOMIC_EXIT55]]
+// CHK-C:       atomic_exit55:
+// CHK-C-NEXT:    [[TMP23:%.*]] = load i32, i32* [[ATMP34]], align 4
+// CHK-C-NEXT:    [[TMP24:%.*]] = load i8, i8* [[ATMP40]], align 1
 // CHK-C-NEXT:    [[TMP25:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-C-NEXT:    [[ATOMIC_LOAD68:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS2:%.*]], %struct.BitFields2* @bfx2, i32 0, i32 0) monotonic, align 4
-// CHK-C-NEXT:    store i32 [[ATOMIC_LOAD68]], i32* [[ATOMIC_TEMP70]], align 4
-// CHK-C-NEXT:    [[BF_LOAD71:%.*]] = load i32, i32* [[ATOMIC_TEMP70]], align 4
-// CHK-C-NEXT:    [[BF_ASHR72:%.*]] = ashr i32 [[BF_LOAD71]], 31
-// CHK-C-NEXT:    store i32 [[BF_ASHR72]], i32* [[ATMP69]], align 4
-// CHK-C-NEXT:    [[CMP73:%.*]] = icmp sgt i32 [[BF_ASHR72]], [[TMP25]]
-// CHK-C-NEXT:    [[FROMBOOL75:%.*]] = zext i1 [[CMP73]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL75]], i8* [[ATMP74]], align 1
-// CHK-C-NEXT:    br i1 [[CMP73]], label [[ATOMIC_CONT76:%.*]], label [[ATOMIC_EXIT92:%.*]]
-// CHK-C:       atomic_cont76:
-// CHK-C-NEXT:    [[TMP26:%.*]] = phi i32 [ [[ATOMIC_LOAD68]], [[ATOMIC_EXIT67]] ], [ [[TMP29:%.*]], [[ATOMIC_CMP86:%.*]] ]
-// CHK-C-NEXT:    store i32 [[TMP26]], i32* [[ATOMIC_TEMP77]], align 4
-// CHK-C-NEXT:    [[BF_LOAD78:%.*]] = load i32, i32* [[ATOMIC_TEMP77]], align 4
-// CHK-C-NEXT:    [[BF_ASHR79:%.*]] = ashr i32 [[BF_LOAD78]], 31
-// CHK-C-NEXT:    store i32 [[BF_ASHR79]], i32* [[ATMP69]], align 4
-// CHK-C-NEXT:    store i32 [[TMP26]], i32* [[ATOMIC_TEMP80]], align 4
-// CHK-C-NEXT:    [[BF_LOAD81:%.*]] = load i32, i32* [[ATOMIC_TEMP80]], align 4
-// CHK-C-NEXT:    [[BF_VALUE82:%.*]] = and i32 [[TMP25]], 1
-// CHK-C-NEXT:    [[BF_SHL83:%.*]] = shl i32 [[BF_VALUE82]], 31
-// CHK-C-NEXT:    [[BF_CLEAR84:%.*]] = and i32 [[BF_LOAD81]], 2147483647
-// CHK-C-NEXT:    [[BF_SET85:%.*]] = or i32 [[BF_CLEAR84]], [[BF_SHL83]]
-// CHK-C-NEXT:    store i32 [[BF_SET85]], i32* [[ATOMIC_TEMP80]], align 4
-// CHK-C-NEXT:    [[TMP27:%.*]] = load i32, i32* [[ATOMIC_TEMP80]], align 4
+// CHK-C-NEXT:    [[ATOMIC_LOAD56:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS2:%.*]], %struct.BitFields2* @bfx2, i32 0, i32 0) monotonic, align 4
+// CHK-C-NEXT:    store i32 [[ATOMIC_LOAD56]], i32* [[ATOMIC_TEMP58]], align 4
+// CHK-C-NEXT:    [[BF_LOAD59:%.*]] = load i32, i32* [[ATOMIC_TEMP58]], align 4
+// CHK-C-NEXT:    [[BF_ASHR60:%.*]] = ashr i32 [[BF_LOAD59]], 31
+// CHK-C-NEXT:    store i32 [[BF_ASHR60]], i32* [[ATMP57]], align 4
+// CHK-C-NEXT:    [[CMP61:%.*]] = icmp sgt i32 [[BF_ASHR60]], [[TMP25]]
+// CHK-C-NEXT:    [[FROMBOOL63:%.*]] = zext i1 [[CMP61]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL63]], i8* [[ATMP62]], align 1
+// CHK-C-NEXT:    br i1 [[CMP61]], label [[ATOMIC_CONT64:%.*]], label [[ATOMIC_EXIT77:%.*]]
+// CHK-C:       atomic_cont64:
+// CHK-C-NEXT:    [[TMP26:%.*]] = phi i32 [ [[ATOMIC_LOAD56]], [[ATOMIC_EXIT55]] ], [ [[TMP29:%.*]], [[ATOMIC_CMP71:%.*]] ]
+// CHK-C-NEXT:    store i32 [[TMP26]], i32* [[ATOMIC_TEMP65]], align 4
+// CHK-C-NEXT:    [[BF_LOAD66:%.*]] = load i32, i32* [[ATOMIC_TEMP65]], align 4
+// CHK-C-NEXT:    [[BF_VALUE67:%.*]] = and i32 [[TMP25]], 1
+// CHK-C-NEXT:    [[BF_SHL68:%.*]] = shl i32 [[BF_VALUE67]], 31
+// CHK-C-NEXT:    [[BF_CLEAR69:%.*]] = and i32 [[BF_LOAD66]], 2147483647
+// CHK-C-NEXT:    [[BF_SET70:%.*]] = or i32 [[BF_CLEAR69]], [[BF_SHL68]]
+// CHK-C-NEXT:    store i32 [[BF_SET70]], i32* [[ATOMIC_TEMP65]], align 4
+// CHK-C-NEXT:    [[TMP27:%.*]] = load i32, i32* [[ATOMIC_TEMP65]], align 4
 // CHK-C-NEXT:    [[TMP28:%.*]] = cmpxchg i32* getelementptr inbounds ([[STRUCT_BITFIELDS2]], %struct.BitFields2* @bfx2, i32 0, i32 0), i32 [[TMP26]], i32 [[TMP27]] monotonic monotonic, align 4
 // CHK-C-NEXT:    [[TMP29]] = extractvalue { i32, i1 } [[TMP28]], 0
 // CHK-C-NEXT:    [[TMP30:%.*]] = extractvalue { i32, i1 } [[TMP28]], 1
-// CHK-C-NEXT:    br i1 [[TMP30]], label [[ATOMIC_EXIT92]], label [[ATOMIC_CMP86]]
-// CHK-C:       atomic_cmp86:
-// CHK-C-NEXT:    store i32 [[TMP29]], i32* [[ATOMIC_TEMP87]], align 4
-// CHK-C-NEXT:    [[BF_LOAD88:%.*]] = load i32, i32* [[ATOMIC_TEMP87]], align 4
-// CHK-C-NEXT:    [[BF_ASHR89:%.*]] = ashr i32 [[BF_LOAD88]], 31
-// CHK-C-NEXT:    [[CMP90:%.*]] = icmp sgt i32 [[BF_ASHR89]], [[TMP25]]
-// CHK-C-NEXT:    [[FROMBOOL91:%.*]] = zext i1 [[CMP90]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL91]], i8* [[ATMP74]], align 1
-// CHK-C-NEXT:    br i1 [[CMP90]], label [[ATOMIC_CONT76]], label [[ATOMIC_EXIT92]]
-// CHK-C:       atomic_exit92:
-// CHK-C-NEXT:    [[TMP31:%.*]] = load i32, i32* [[ATMP69]], align 4
-// CHK-C-NEXT:    [[TMP32:%.*]] = load i8, i8* [[ATMP74]], align 1
+// CHK-C-NEXT:    br i1 [[TMP30]], label [[ATOMIC_EXIT77]], label [[ATOMIC_CMP71]]
+// CHK-C:       atomic_cmp71:
+// CHK-C-NEXT:    store i32 [[TMP29]], i32* [[ATOMIC_TEMP72]], align 4
+// CHK-C-NEXT:    [[BF_LOAD73:%.*]] = load i32, i32* [[ATOMIC_TEMP72]], align 4
+// CHK-C-NEXT:    [[BF_ASHR74:%.*]] = ashr i32 [[BF_LOAD73]], 31
+// CHK-C-NEXT:    store i32 [[BF_ASHR74]], i32* [[ATMP57]], align 4
+// CHK-C-NEXT:    [[CMP75:%.*]] = icmp sgt i32 [[BF_ASHR74]], [[TMP25]]
+// CHK-C-NEXT:    [[FROMBOOL76:%.*]] = zext i1 [[CMP75]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL76]], i8* [[ATMP62]], align 1
+// CHK-C-NEXT:    br i1 [[CMP75]], label [[ATOMIC_CONT64]], label [[ATOMIC_EXIT77]]
+// CHK-C:       atomic_exit77:
+// CHK-C-NEXT:    [[TMP31:%.*]] = load i32, i32* [[ATMP57]], align 4
+// CHK-C-NEXT:    [[TMP32:%.*]] = load i8, i8* [[ATMP62]], align 1
 // CHK-C-NEXT:    [[TMP33:%.*]] = load i32, i32* [[D]], align 4
 // CHK-C-NEXT:    [[TMP34:%.*]] = load i32, i32* [[E]], align 4
-// CHK-C-NEXT:    [[ATOMIC_LOAD93:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS2]], %struct.BitFields2* @bfx2, i32 0, i32 0) monotonic, align 4
-// CHK-C-NEXT:    store i32 [[ATOMIC_LOAD93]], i32* [[ATOMIC_TEMP95]], align 4
-// CHK-C-NEXT:    [[BF_LOAD96:%.*]] = load i32, i32* [[ATOMIC_TEMP95]], align 4
-// CHK-C-NEXT:    [[BF_ASHR97:%.*]] = ashr i32 [[BF_LOAD96]], 31
-// CHK-C-NEXT:    store i32 [[BF_ASHR97]], i32* [[ATMP94]], align 4
-// CHK-C-NEXT:    [[CMP98:%.*]] = icmp eq i32 [[BF_ASHR97]], [[TMP34]]
-// CHK-C-NEXT:    [[FROMBOOL100:%.*]] = zext i1 [[CMP98]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL100]], i8* [[ATMP99]], align 1
-// CHK-C-NEXT:    br i1 [[CMP98]], label [[ATOMIC_CONT101:%.*]], label [[ATOMIC_EXIT117:%.*]]
-// CHK-C:       atomic_cont101:
-// CHK-C-NEXT:    [[TMP35:%.*]] = phi i32 [ [[ATOMIC_LOAD93]], [[ATOMIC_EXIT92]] ], [ [[TMP38:%.*]], [[ATOMIC_CMP111:%.*]] ]
-// CHK-C-NEXT:    store i32 [[TMP35]], i32* [[ATOMIC_TEMP102]], align 4
-// CHK-C-NEXT:    [[BF_LOAD103:%.*]] = load i32, i32* [[ATOMIC_TEMP102]], align 4
-// CHK-C-NEXT:    [[BF_ASHR104:%.*]] = ashr i32 [[BF_LOAD103]], 31
-// CHK-C-NEXT:    store i32 [[BF_ASHR104]], i32* [[ATMP94]], align 4
-// CHK-C-NEXT:    store i32 [[TMP35]], i32* [[ATOMIC_TEMP105]], align 4
-// CHK-C-NEXT:    [[BF_LOAD106:%.*]] = load i32, i32* [[ATOMIC_TEMP105]], align 4
-// CHK-C-NEXT:    [[BF_VALUE107:%.*]] = and i32 [[TMP33]], 1
-// CHK-C-NEXT:    [[BF_SHL108:%.*]] = shl i32 [[BF_VALUE107]], 31
-// CHK-C-NEXT:    [[BF_CLEAR109:%.*]] = and i32 [[BF_LOAD106]], 2147483647
-// CHK-C-NEXT:    [[BF_SET110:%.*]] = or i32 [[BF_CLEAR109]], [[BF_SHL108]]
-// CHK-C-NEXT:    store i32 [[BF_SET110]], i32* [[ATOMIC_TEMP105]], align 4
-// CHK-C-NEXT:    [[TMP36:%.*]] = load i32, i32* [[ATOMIC_TEMP105]], align 4
+// CHK-C-NEXT:    [[ATOMIC_LOAD78:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS2]], %struct.BitFields2* @bfx2, i32 0, i32 0) monotonic, align 4
+// CHK-C-NEXT:    store i32 [[ATOMIC_LOAD78]], i32* [[ATOMIC_TEMP80]], align 4
+// CHK-C-NEXT:    [[BF_LOAD81:%.*]] = load i32, i32* [[ATOMIC_TEMP80]], align 4
+// CHK-C-NEXT:    [[BF_ASHR82:%.*]] = ashr i32 [[BF_LOAD81]], 31
+// CHK-C-NEXT:    store i32 [[BF_ASHR82]], i32* [[ATMP79]], align 4
+// CHK-C-NEXT:    [[CMP83:%.*]] = icmp eq i32 [[BF_ASHR82]], [[TMP34]]
+// CHK-C-NEXT:    [[FROMBOOL85:%.*]] = zext i1 [[CMP83]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL85]], i8* [[ATMP84]], align 1
+// CHK-C-NEXT:    br i1 [[CMP83]], label [[ATOMIC_CONT86:%.*]], label [[ATOMIC_EXIT99:%.*]]
+// CHK-C:       atomic_cont86:
+// CHK-C-NEXT:    [[TMP35:%.*]] = phi i32 [ [[ATOMIC_LOAD78]], [[ATOMIC_EXIT77]] ], [ [[TMP38:%.*]], [[ATOMIC_CMP93:%.*]] ]
+// CHK-C-NEXT:    store i32 [[TMP35]], i32* [[ATOMIC_TEMP87]], align 4
+// CHK-C-NEXT:    [[BF_LOAD88:%.*]] = load i32, i32* [[ATOMIC_TEMP87]], align 4
+// CHK-C-NEXT:    [[BF_VALUE89:%.*]] = and i32 [[TMP33]], 1
+// CHK-C-NEXT:    [[BF_SHL90:%.*]] = shl i32 [[BF_VALUE89]], 31
+// CHK-C-NEXT:    [[BF_CLEAR91:%.*]] = and i32 [[BF_LOAD88]], 2147483647
+// CHK-C-NEXT:    [[BF_SET92:%.*]] = or i32 [[BF_CLEAR91]], [[BF_SHL90]]
+// CHK-C-NEXT:    store i32 [[BF_SET92]], i32* [[ATOMIC_TEMP87]], align 4
+// CHK-C-NEXT:    [[TMP36:%.*]] = load i32, i32* [[ATOMIC_TEMP87]], align 4
 // CHK-C-NEXT:    [[TMP37:%.*]] = cmpxchg i32* getelementptr inbounds ([[STRUCT_BITFIELDS2]], %struct.BitFields2* @bfx2, i32 0, i32 0), i32 [[TMP35]], i32 [[TMP36]] monotonic monotonic, align 4
 // CHK-C-NEXT:    [[TMP38]] = extractvalue { i32, i1 } [[TMP37]], 0
 // CHK-C-NEXT:    [[TMP39:%.*]] = extractvalue { i32, i1 } [[TMP37]], 1
-// CHK-C-NEXT:    br i1 [[TMP39]], label [[ATOMIC_EXIT117]], label [[ATOMIC_CMP111]]
-// CHK-C:       atomic_cmp111:
-// CHK-C-NEXT:    store i32 [[TMP38]], i32* [[ATOMIC_TEMP112]], align 4
-// CHK-C-NEXT:    [[BF_LOAD113:%.*]] = load i32, i32* [[ATOMIC_TEMP112]], align 4
-// CHK-C-NEXT:    [[BF_ASHR114:%.*]] = ashr i32 [[BF_LOAD113]], 31
-// CHK-C-NEXT:    [[CMP115:%.*]] = icmp eq i32 [[BF_ASHR114]], [[TMP34]]
-// CHK-C-NEXT:    [[FROMBOOL116:%.*]] = zext i1 [[CMP115]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL116]], i8* [[ATMP99]], align 1
-// CHK-C-NEXT:    br i1 [[CMP115]], label [[ATOMIC_CONT101]], label [[ATOMIC_EXIT117]]
-// CHK-C:       atomic_exit117:
-// CHK-C-NEXT:    [[TMP40:%.*]] = load i32, i32* [[ATMP94]], align 4
-// CHK-C-NEXT:    [[TMP41:%.*]] = load i8, i8* [[ATMP99]], align 1
+// CHK-C-NEXT:    br i1 [[TMP39]], label [[ATOMIC_EXIT99]], label [[ATOMIC_CMP93]]
+// CHK-C:       atomic_cmp93:
+// CHK-C-NEXT:    store i32 [[TMP38]], i32* [[ATOMIC_TEMP94]], align 4
+// CHK-C-NEXT:    [[BF_LOAD95:%.*]] = load i32, i32* [[ATOMIC_TEMP94]], align 4
+// CHK-C-NEXT:    [[BF_ASHR96:%.*]] = ashr i32 [[BF_LOAD95]], 31
+// CHK-C-NEXT:    store i32 [[BF_ASHR96]], i32* [[ATMP79]], align 4
+// CHK-C-NEXT:    [[CMP97:%.*]] = icmp eq i32 [[BF_ASHR96]], [[TMP34]]
+// CHK-C-NEXT:    [[FROMBOOL98:%.*]] = zext i1 [[CMP97]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL98]], i8* [[ATMP84]], align 1
+// CHK-C-NEXT:    br i1 [[CMP97]], label [[ATOMIC_CONT86]], label [[ATOMIC_EXIT99]]
+// CHK-C:       atomic_exit99:
+// CHK-C-NEXT:    [[TMP40:%.*]] = load i32, i32* [[ATMP79]], align 4
+// CHK-C-NEXT:    [[TMP41:%.*]] = load i8, i8* [[ATMP84]], align 1
 // CHK-C-NEXT:    [[TMP42:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-C-NEXT:    [[ATOMIC_LOAD118:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS2]], %struct.BitFields2* @bfx2, i32 0, i32 0) monotonic, align 4
-// CHK-C-NEXT:    store i32 [[ATOMIC_LOAD118]], i32* [[ATOMIC_TEMP120]], align 4
-// CHK-C-NEXT:    [[BF_LOAD121:%.*]] = load i32, i32* [[ATOMIC_TEMP120]], align 4
-// CHK-C-NEXT:    [[BF_ASHR122:%.*]] = ashr i32 [[BF_LOAD121]], 31
-// CHK-C-NEXT:    store i32 [[BF_ASHR122]], i32* [[ATMP119]], align 4
-// CHK-C-NEXT:    [[CMP123:%.*]] = icmp slt i32 [[BF_ASHR122]], [[TMP42]]
-// CHK-C-NEXT:    [[FROMBOOL125:%.*]] = zext i1 [[CMP123]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL125]], i8* [[ATMP124]], align 1
-// CHK-C-NEXT:    br i1 [[CMP123]], label [[ATOMIC_CONT126:%.*]], label [[ATOMIC_EXIT142:%.*]]
-// CHK-C:       atomic_cont126:
-// CHK-C-NEXT:    [[TMP43:%.*]] = phi i32 [ [[ATOMIC_LOAD118]], [[ATOMIC_EXIT117]] ], [ [[TMP46:%.*]], [[ATOMIC_CMP136:%.*]] ]
-// CHK-C-NEXT:    store i32 [[TMP43]], i32* [[ATOMIC_TEMP127]], align 4
-// CHK-C-NEXT:    [[BF_LOAD128:%.*]] = load i32, i32* [[ATOMIC_TEMP127]], align 4
-// CHK-C-NEXT:    [[BF_ASHR129:%.*]] = ashr i32 [[BF_LOAD128]], 31
-// CHK-C-NEXT:    store i32 [[BF_ASHR129]], i32* [[ATMP119]], align 4
-// CHK-C-NEXT:    store i32 [[TMP43]], i32* [[ATOMIC_TEMP130]], align 4
-// CHK-C-NEXT:    [[BF_LOAD131:%.*]] = load i32, i32* [[ATOMIC_TEMP130]], align 4
-// CHK-C-NEXT:    [[BF_VALUE132:%.*]] = and i32 [[TMP42]], 1
-// CHK-C-NEXT:    [[BF_SHL133:%.*]] = shl i32 [[BF_VALUE132]], 31
-// CHK-C-NEXT:    [[BF_CLEAR134:%.*]] = and i32 [[BF_LOAD131]], 2147483647
-// CHK-C-NEXT:    [[BF_SET135:%.*]] = or i32 [[BF_CLEAR134]], [[BF_SHL133]]
-// CHK-C-NEXT:    store i32 [[BF_SET135]], i32* [[ATOMIC_TEMP130]], align 4
-// CHK-C-NEXT:    [[TMP44:%.*]] = load i32, i32* [[ATOMIC_TEMP130]], align 4
+// CHK-C-NEXT:    [[ATOMIC_LOAD100:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS2]], %struct.BitFields2* @bfx2, i32 0, i32 0) monotonic, align 4
+// CHK-C-NEXT:    store i32 [[ATOMIC_LOAD100]], i32* [[ATOMIC_TEMP102]], align 4
+// CHK-C-NEXT:    [[BF_LOAD103:%.*]] = load i32, i32* [[ATOMIC_TEMP102]], align 4
+// CHK-C-NEXT:    [[BF_ASHR104:%.*]] = ashr i32 [[BF_LOAD103]], 31
+// CHK-C-NEXT:    store i32 [[BF_ASHR104]], i32* [[ATMP101]], align 4
+// CHK-C-NEXT:    [[CMP105:%.*]] = icmp slt i32 [[BF_ASHR104]], [[TMP42]]
+// CHK-C-NEXT:    [[FROMBOOL107:%.*]] = zext i1 [[CMP105]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL107]], i8* [[ATMP106]], align 1
+// CHK-C-NEXT:    br i1 [[CMP105]], label [[ATOMIC_CONT108:%.*]], label [[ATOMIC_EXIT121:%.*]]
+// CHK-C:       atomic_cont108:
+// CHK-C-NEXT:    [[TMP43:%.*]] = phi i32 [ [[ATOMIC_LOAD100]], [[ATOMIC_EXIT99]] ], [ [[TMP46:%.*]], [[ATOMIC_CMP115:%.*]] ]
+// CHK-C-NEXT:    store i32 [[TMP43]], i32* [[ATOMIC_TEMP109]], align 4
+// CHK-C-NEXT:    [[BF_LOAD110:%.*]] = load i32, i32* [[ATOMIC_TEMP109]], align 4
+// CHK-C-NEXT:    [[BF_VALUE111:%.*]] = and i32 [[TMP42]], 1
+// CHK-C-NEXT:    [[BF_SHL112:%.*]] = shl i32 [[BF_VALUE111]], 31
+// CHK-C-NEXT:    [[BF_CLEAR113:%.*]] = and i32 [[BF_LOAD110]], 2147483647
+// CHK-C-NEXT:    [[BF_SET114:%.*]] = or i32 [[BF_CLEAR113]], [[BF_SHL112]]
+// CHK-C-NEXT:    store i32 [[BF_SET114]], i32* [[ATOMIC_TEMP109]], align 4
+// CHK-C-NEXT:    [[TMP44:%.*]] = load i32, i32* [[ATOMIC_TEMP109]], align 4
 // CHK-C-NEXT:    [[TMP45:%.*]] = cmpxchg i32* getelementptr inbounds ([[STRUCT_BITFIELDS2]], %struct.BitFields2* @bfx2, i32 0, i32 0), i32 [[TMP43]], i32 [[TMP44]] monotonic monotonic, align 4
 // CHK-C-NEXT:    [[TMP46]] = extractvalue { i32, i1 } [[TMP45]], 0
 // CHK-C-NEXT:    [[TMP47:%.*]] = extractvalue { i32, i1 } [[TMP45]], 1
-// CHK-C-NEXT:    br i1 [[TMP47]], label [[ATOMIC_EXIT142]], label [[ATOMIC_CMP136]]
-// CHK-C:       atomic_cmp136:
-// CHK-C-NEXT:    store i32 [[TMP46]], i32* [[ATOMIC_TEMP137]], align 4
-// CHK-C-NEXT:    [[BF_LOAD138:%.*]] = load i32, i32* [[ATOMIC_TEMP137]], align 4
-// CHK-C-NEXT:    [[BF_ASHR139:%.*]] = ashr i32 [[BF_LOAD138]], 31
-// CHK-C-NEXT:    [[CMP140:%.*]] = icmp slt i32 [[BF_ASHR139]], [[TMP42]]
-// CHK-C-NEXT:    [[FROMBOOL141:%.*]] = zext i1 [[CMP140]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL141]], i8* [[ATMP124]], align 1
-// CHK-C-NEXT:    br i1 [[CMP140]], label [[ATOMIC_CONT126]], label [[ATOMIC_EXIT142]]
-// CHK-C:       atomic_exit142:
-// CHK-C-NEXT:    [[TMP48:%.*]] = load i32, i32* [[ATMP119]], align 4
-// CHK-C-NEXT:    [[TMP49:%.*]] = load i8, i8* [[ATMP124]], align 1
+// CHK-C-NEXT:    br i1 [[TMP47]], label [[ATOMIC_EXIT121]], label [[ATOMIC_CMP115]]
+// CHK-C:       atomic_cmp115:
+// CHK-C-NEXT:    store i32 [[TMP46]], i32* [[ATOMIC_TEMP116]], align 4
+// CHK-C-NEXT:    [[BF_LOAD117:%.*]] = load i32, i32* [[ATOMIC_TEMP116]], align 4
+// CHK-C-NEXT:    [[BF_ASHR118:%.*]] = ashr i32 [[BF_LOAD117]], 31
+// CHK-C-NEXT:    store i32 [[BF_ASHR118]], i32* [[ATMP101]], align 4
+// CHK-C-NEXT:    [[CMP119:%.*]] = icmp slt i32 [[BF_ASHR118]], [[TMP42]]
+// CHK-C-NEXT:    [[FROMBOOL120:%.*]] = zext i1 [[CMP119]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL120]], i8* [[ATMP106]], align 1
+// CHK-C-NEXT:    br i1 [[CMP119]], label [[ATOMIC_CONT108]], label [[ATOMIC_EXIT121]]
+// CHK-C:       atomic_exit121:
+// CHK-C-NEXT:    [[TMP48:%.*]] = load i32, i32* [[ATMP101]], align 4
+// CHK-C-NEXT:    [[TMP49:%.*]] = load i8, i8* [[ATMP106]], align 1
 // CHK-C-NEXT:    [[TMP50:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-C-NEXT:    [[ATOMIC_LOAD143:%.*]] = load atomic i8, i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3) monotonic, align 1
-// CHK-C-NEXT:    [[TMP51:%.*]] = bitcast i32* [[ATOMIC_TEMP145]] to i8*
-// CHK-C-NEXT:    store i8 [[ATOMIC_LOAD143]], i8* [[TMP51]], align 1
-// CHK-C-NEXT:    [[BF_LOAD146:%.*]] = load i8, i8* [[TMP51]], align 1
-// CHK-C-NEXT:    [[BF_ASHR147:%.*]] = ashr i8 [[BF_LOAD146]], 7
-// CHK-C-NEXT:    [[BF_CAST:%.*]] = sext i8 [[BF_ASHR147]] to i32
-// CHK-C-NEXT:    store i32 [[BF_CAST]], i32* [[ATMP144]], align 4
-// CHK-C-NEXT:    [[CMP148:%.*]] = icmp sgt i32 [[BF_CAST]], [[TMP50]]
-// CHK-C-NEXT:    [[FROMBOOL150:%.*]] = zext i1 [[CMP148]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL150]], i8* [[ATMP149]], align 1
-// CHK-C-NEXT:    br i1 [[CMP148]], label [[ATOMIC_CONT151:%.*]], label [[ATOMIC_EXIT169:%.*]]
-// CHK-C:       atomic_cont151:
-// CHK-C-NEXT:    [[TMP52:%.*]] = phi i8 [ [[ATOMIC_LOAD143]], [[ATOMIC_EXIT142]] ], [ [[TMP58:%.*]], [[ATOMIC_CMP162:%.*]] ]
-// CHK-C-NEXT:    [[TMP53:%.*]] = bitcast i32* [[ATOMIC_TEMP152]] to i8*
+// CHK-C-NEXT:    [[ATOMIC_LOAD122:%.*]] = load atomic i8, i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3) monotonic, align 1
+// CHK-C-NEXT:    [[TMP51:%.*]] = bitcast i32* [[ATOMIC_TEMP124]] to i8*
+// CHK-C-NEXT:    store i8 [[ATOMIC_LOAD122]], i8* [[TMP51]], align 1
+// CHK-C-NEXT:    [[BF_LOAD125:%.*]] = load i8, i8* [[TMP51]], align 1
+// CHK-C-NEXT:    [[BF_ASHR126:%.*]] = ashr i8 [[BF_LOAD125]], 7
+// CHK-C-NEXT:    [[BF_CAST:%.*]] = sext i8 [[BF_ASHR126]] to i32
+// CHK-C-NEXT:    store i32 [[BF_CAST]], i32* [[ATMP123]], align 4
+// CHK-C-NEXT:    [[CMP127:%.*]] = icmp sgt i32 [[BF_CAST]], [[TMP50]]
+// CHK-C-NEXT:    [[FROMBOOL129:%.*]] = zext i1 [[CMP127]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL129]], i8* [[ATMP128]], align 1
+// CHK-C-NEXT:    br i1 [[CMP127]], label [[ATOMIC_CONT130:%.*]], label [[ATOMIC_EXIT144:%.*]]
+// CHK-C:       atomic_cont130:
+// CHK-C-NEXT:    [[TMP52:%.*]] = phi i8 [ [[ATOMIC_LOAD122]], [[ATOMIC_EXIT121]] ], [ [[TMP57:%.*]], [[ATOMIC_CMP137:%.*]] ]
+// CHK-C-NEXT:    [[TMP53:%.*]] = bitcast i32* [[ATOMIC_TEMP131]] to i8*
 // CHK-C-NEXT:    store i8 [[TMP52]], i8* [[TMP53]], align 1
-// CHK-C-NEXT:    [[BF_LOAD153:%.*]] = load i8, i8* [[TMP53]], align 1
-// CHK-C-NEXT:    [[BF_ASHR154:%.*]] = ashr i8 [[BF_LOAD153]], 7
-// CHK-C-NEXT:    [[BF_CAST155:%.*]] = sext i8 [[BF_ASHR154]] to i32
-// CHK-C-NEXT:    store i32 [[BF_CAST155]], i32* [[ATMP144]], align 4
-// CHK-C-NEXT:    [[TMP54:%.*]] = bitcast i32* [[ATOMIC_TEMP156]] to i8*
-// CHK-C-NEXT:    store i8 [[TMP52]], i8* [[TMP54]], align 1
-// CHK-C-NEXT:    [[TMP55:%.*]] = trunc i32 [[TMP50]] to i8
-// CHK-C-NEXT:    [[BF_LOAD157:%.*]] = load i8, i8* [[TMP54]], align 1
-// CHK-C-NEXT:    [[BF_VALUE158:%.*]] = and i8 [[TMP55]], 1
-// CHK-C-NEXT:    [[BF_SHL159:%.*]] = shl i8 [[BF_VALUE158]], 7
-// CHK-C-NEXT:    [[BF_CLEAR160:%.*]] = and i8 [[BF_LOAD157]], 127
-// CHK-C-NEXT:    [[BF_SET161:%.*]] = or i8 [[BF_CLEAR160]], [[BF_SHL159]]
-// CHK-C-NEXT:    store i8 [[BF_SET161]], i8* [[TMP54]], align 1
-// CHK-C-NEXT:    [[TMP56:%.*]] = load i8, i8* [[TMP54]], align 1
-// CHK-C-NEXT:    [[TMP57:%.*]] = cmpxchg i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3), i8 [[TMP52]], i8 [[TMP56]] monotonic monotonic, align 1
-// CHK-C-NEXT:    [[TMP58]] = extractvalue { i8, i1 } [[TMP57]], 0
-// CHK-C-NEXT:    [[TMP59:%.*]] = extractvalue { i8, i1 } [[TMP57]], 1
-// CHK-C-NEXT:    br i1 [[TMP59]], label [[ATOMIC_EXIT169]], label [[ATOMIC_CMP162]]
-// CHK-C:       atomic_cmp162:
-// CHK-C-NEXT:    [[TMP60:%.*]] = bitcast i32* [[ATOMIC_TEMP163]] to i8*
-// CHK-C-NEXT:    store i8 [[TMP58]], i8* [[TMP60]], align 1
-// CHK-C-NEXT:    [[BF_LOAD164:%.*]] = load i8, i8* [[TMP60]], align 1
-// CHK-C-NEXT:    [[BF_ASHR165:%.*]] = ashr i8 [[BF_LOAD164]], 7
-// CHK-C-NEXT:    [[BF_CAST166:%.*]] = sext i8 [[BF_ASHR165]] to i32
-// CHK-C-NEXT:    [[CMP167:%.*]] = icmp sgt i32 [[BF_CAST166]], [[TMP50]]
-// CHK-C-NEXT:    [[FROMBOOL168:%.*]] = zext i1 [[CMP167]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL168]], i8* [[ATMP149]], align 1
-// CHK-C-NEXT:    br i1 [[CMP167]], label [[ATOMIC_CONT151]], label [[ATOMIC_EXIT169]]
-// CHK-C:       atomic_exit169:
-// CHK-C-NEXT:    [[TMP61:%.*]] = load i32, i32* [[ATMP144]], align 4
-// CHK-C-NEXT:    [[TMP62:%.*]] = load i8, i8* [[ATMP149]], align 1
-// CHK-C-NEXT:    [[TMP63:%.*]] = load i32, i32* [[D]], align 4
-// CHK-C-NEXT:    [[TMP64:%.*]] = load i32, i32* [[E]], align 4
-// CHK-C-NEXT:    [[ATOMIC_LOAD170:%.*]] = load atomic i8, i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3) monotonic, align 1
-// CHK-C-NEXT:    [[TMP65:%.*]] = bitcast i32* [[ATOMIC_TEMP172]] to i8*
-// CHK-C-NEXT:    store i8 [[ATOMIC_LOAD170]], i8* [[TMP65]], align 1
-// CHK-C-NEXT:    [[BF_LOAD173:%.*]] = load i8, i8* [[TMP65]], align 1
-// CHK-C-NEXT:    [[BF_ASHR174:%.*]] = ashr i8 [[BF_LOAD173]], 7
-// CHK-C-NEXT:    [[BF_CAST175:%.*]] = sext i8 [[BF_ASHR174]] to i32
-// CHK-C-NEXT:    store i32 [[BF_CAST175]], i32* [[ATMP171]], align 4
-// CHK-C-NEXT:    [[CMP176:%.*]] = icmp eq i32 [[BF_CAST175]], [[TMP64]]
-// CHK-C-NEXT:    [[FROMBOOL178:%.*]] = zext i1 [[CMP176]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL178]], i8* [[ATMP177]], align 1
-// CHK-C-NEXT:    br i1 [[CMP176]], label [[ATOMIC_CONT179:%.*]], label [[ATOMIC_EXIT197:%.*]]
-// CHK-C:       atomic_cont179:
-// CHK-C-NEXT:    [[TMP66:%.*]] = phi i8 [ [[ATOMIC_LOAD170]], [[ATOMIC_EXIT169]] ], [ [[TMP72:%.*]], [[ATOMIC_CMP190:%.*]] ]
-// CHK-C-NEXT:    [[TMP67:%.*]] = bitcast i32* [[ATOMIC_TEMP180]] to i8*
-// CHK-C-NEXT:    store i8 [[TMP66]], i8* [[TMP67]], align 1
-// CHK-C-NEXT:    [[BF_LOAD181:%.*]] = load i8, i8* [[TMP67]], align 1
-// CHK-C-NEXT:    [[BF_ASHR182:%.*]] = ashr i8 [[BF_LOAD181]], 7
-// CHK-C-NEXT:    [[BF_CAST183:%.*]] = sext i8 [[BF_ASHR182]] to i32
-// CHK-C-NEXT:    store i32 [[BF_CAST183]], i32* [[ATMP171]], align 4
-// CHK-C-NEXT:    [[TMP68:%.*]] = bitcast i32* [[ATOMIC_TEMP184]] to i8*
-// CHK-C-NEXT:    store i8 [[TMP66]], i8* [[TMP68]], align 1
-// CHK-C-NEXT:    [[TMP69:%.*]] = trunc i32 [[TMP63]] to i8
-// CHK-C-NEXT:    [[BF_LOAD185:%.*]] = load i8, i8* [[TMP68]], align 1
-// CHK-C-NEXT:    [[BF_VALUE186:%.*]] = and i8 [[TMP69]], 1
-// CHK-C-NEXT:    [[BF_SHL187:%.*]] = shl i8 [[BF_VALUE186]], 7
-// CHK-C-NEXT:    [[BF_CLEAR188:%.*]] = and i8 [[BF_LOAD185]], 127
-// CHK-C-NEXT:    [[BF_SET189:%.*]] = or i8 [[BF_CLEAR188]], [[BF_SHL187]]
-// CHK-C-NEXT:    store i8 [[BF_SET189]], i8* [[TMP68]], align 1
-// CHK-C-NEXT:    [[TMP70:%.*]] = load i8, i8* [[TMP68]], align 1
-// CHK-C-NEXT:    [[TMP71:%.*]] = cmpxchg i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3), i8 [[TMP66]], i8 [[TMP70]] monotonic monotonic, align 1
-// CHK-C-NEXT:    [[TMP72]] = extractvalue { i8, i1 } [[TMP71]], 0
-// CHK-C-NEXT:    [[TMP73:%.*]] = extractvalue { i8, i1 } [[TMP71]], 1
-// CHK-C-NEXT:    br i1 [[TMP73]], label [[ATOMIC_EXIT197]], label [[ATOMIC_CMP190]]
-// CHK-C:       atomic_cmp190:
-// CHK-C-NEXT:    [[TMP74:%.*]] = bitcast i32* [[ATOMIC_TEMP191]] to i8*
-// CHK-C-NEXT:    store i8 [[TMP72]], i8* [[TMP74]], align 1
-// CHK-C-NEXT:    [[BF_LOAD192:%.*]] = load i8, i8* [[TMP74]], align 1
-// CHK-C-NEXT:    [[BF_ASHR193:%.*]] = ashr i8 [[BF_LOAD192]], 7
-// CHK-C-NEXT:    [[BF_CAST194:%.*]] = sext i8 [[BF_ASHR193]] to i32
-// CHK-C-NEXT:    [[CMP195:%.*]] = icmp eq i32 [[BF_CAST194]], [[TMP64]]
-// CHK-C-NEXT:    [[FROMBOOL196:%.*]] = zext i1 [[CMP195]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL196]], i8* [[ATMP177]], align 1
-// CHK-C-NEXT:    br i1 [[CMP195]], label [[ATOMIC_CONT179]], label [[ATOMIC_EXIT197]]
-// CHK-C:       atomic_exit197:
-// CHK-C-NEXT:    [[TMP75:%.*]] = load i32, i32* [[ATMP171]], align 4
-// CHK-C-NEXT:    [[TMP76:%.*]] = load i8, i8* [[ATMP177]], align 1
-// CHK-C-NEXT:    [[TMP77:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-C-NEXT:    [[ATOMIC_LOAD198:%.*]] = load atomic i8, i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3) monotonic, align 1
-// CHK-C-NEXT:    [[TMP78:%.*]] = bitcast i32* [[ATOMIC_TEMP200]] to i8*
-// CHK-C-NEXT:    store i8 [[ATOMIC_LOAD198]], i8* [[TMP78]], align 1
-// CHK-C-NEXT:    [[BF_LOAD201:%.*]] = load i8, i8* [[TMP78]], align 1
-// CHK-C-NEXT:    [[BF_ASHR202:%.*]] = ashr i8 [[BF_LOAD201]], 7
-// CHK-C-NEXT:    [[BF_CAST203:%.*]] = sext i8 [[BF_ASHR202]] to i32
-// CHK-C-NEXT:    store i32 [[BF_CAST203]], i32* [[ATMP199]], align 4
-// CHK-C-NEXT:    [[CMP204:%.*]] = icmp slt i32 [[BF_CAST203]], [[TMP77]]
-// CHK-C-NEXT:    [[FROMBOOL206:%.*]] = zext i1 [[CMP204]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL206]], i8* [[ATMP205]], align 1
-// CHK-C-NEXT:    br i1 [[CMP204]], label [[ATOMIC_CONT207:%.*]], label [[ATOMIC_EXIT225:%.*]]
-// CHK-C:       atomic_cont207:
-// CHK-C-NEXT:    [[TMP79:%.*]] = phi i8 [ [[ATOMIC_LOAD198]], [[ATOMIC_EXIT197]] ], [ [[TMP85:%.*]], [[ATOMIC_CMP218:%.*]] ]
-// CHK-C-NEXT:    [[TMP80:%.*]] = bitcast i32* [[ATOMIC_TEMP208]] to i8*
-// CHK-C-NEXT:    store i8 [[TMP79]], i8* [[TMP80]], align 1
-// CHK-C-NEXT:    [[BF_LOAD209:%.*]] = load i8, i8* [[TMP80]], align 1
-// CHK-C-NEXT:    [[BF_ASHR210:%.*]] = ashr i8 [[BF_LOAD209]], 7
-// CHK-C-NEXT:    [[BF_CAST211:%.*]] = sext i8 [[BF_ASHR210]] to i32
-// CHK-C-NEXT:    store i32 [[BF_CAST211]], i32* [[ATMP199]], align 4
-// CHK-C-NEXT:    [[TMP81:%.*]] = bitcast i32* [[ATOMIC_TEMP212]] to i8*
-// CHK-C-NEXT:    store i8 [[TMP79]], i8* [[TMP81]], align 1
-// CHK-C-NEXT:    [[TMP82:%.*]] = trunc i32 [[TMP77]] to i8
-// CHK-C-NEXT:    [[BF_LOAD213:%.*]] = load i8, i8* [[TMP81]], align 1
-// CHK-C-NEXT:    [[BF_VALUE214:%.*]] = and i8 [[TMP82]], 1
-// CHK-C-NEXT:    [[BF_SHL215:%.*]] = shl i8 [[BF_VALUE214]], 7
-// CHK-C-NEXT:    [[BF_CLEAR216:%.*]] = and i8 [[BF_LOAD213]], 127
-// CHK-C-NEXT:    [[BF_SET217:%.*]] = or i8 [[BF_CLEAR216]], [[BF_SHL215]]
-// CHK-C-NEXT:    store i8 [[BF_SET217]], i8* [[TMP81]], align 1
-// CHK-C-NEXT:    [[TMP83:%.*]] = load i8, i8* [[TMP81]], align 1
-// CHK-C-NEXT:    [[TMP84:%.*]] = cmpxchg i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3), i8 [[TMP79]], i8 [[TMP83]] monotonic monotonic, align 1
-// CHK-C-NEXT:    [[TMP85]] = extractvalue { i8, i1 } [[TMP84]], 0
-// CHK-C-NEXT:    [[TMP86:%.*]] = extractvalue { i8, i1 } [[TMP84]], 1
-// CHK-C-NEXT:    br i1 [[TMP86]], label [[ATOMIC_EXIT225]], label [[ATOMIC_CMP218]]
-// CHK-C:       atomic_cmp218:
-// CHK-C-NEXT:    [[TMP87:%.*]] = bitcast i32* [[ATOMIC_TEMP219]] to i8*
-// CHK-C-NEXT:    store i8 [[TMP85]], i8* [[TMP87]], align 1
-// CHK-C-NEXT:    [[BF_LOAD220:%.*]] = load i8, i8* [[TMP87]], align 1
-// CHK-C-NEXT:    [[BF_ASHR221:%.*]] = ashr i8 [[BF_LOAD220]], 7
-// CHK-C-NEXT:    [[BF_CAST222:%.*]] = sext i8 [[BF_ASHR221]] to i32
-// CHK-C-NEXT:    [[CMP223:%.*]] = icmp slt i32 [[BF_CAST222]], [[TMP77]]
-// CHK-C-NEXT:    [[FROMBOOL224:%.*]] = zext i1 [[CMP223]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL224]], i8* [[ATMP205]], align 1
-// CHK-C-NEXT:    br i1 [[CMP223]], label [[ATOMIC_CONT207]], label [[ATOMIC_EXIT225]]
-// CHK-C:       atomic_exit225:
-// CHK-C-NEXT:    [[TMP88:%.*]] = load i32, i32* [[ATMP199]], align 4
-// CHK-C-NEXT:    [[TMP89:%.*]] = load i8, i8* [[ATMP205]], align 1
-// CHK-C-NEXT:    [[TMP90:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-C-NEXT:    [[ATOMIC_LOAD226:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS3:%.*]], %struct.BitFields3* @bfx3, i32 0, i32 0) monotonic, align 4
-// CHK-C-NEXT:    store i32 [[ATOMIC_LOAD226]], i32* [[ATOMIC_TEMP228]], align 4
-// CHK-C-NEXT:    [[BF_LOAD229:%.*]] = load i32, i32* [[ATOMIC_TEMP228]], align 4
-// CHK-C-NEXT:    [[BF_SHL230:%.*]] = shl i32 [[BF_LOAD229]], 7
-// CHK-C-NEXT:    [[BF_ASHR231:%.*]] = ashr i32 [[BF_SHL230]], 18
-// CHK-C-NEXT:    store i32 [[BF_ASHR231]], i32* [[ATMP227]], align 4
-// CHK-C-NEXT:    [[CMP232:%.*]] = icmp sgt i32 [[BF_ASHR231]], [[TMP90]]
-// CHK-C-NEXT:    [[FROMBOOL234:%.*]] = zext i1 [[CMP232]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL234]], i8* [[ATMP233]], align 1
-// CHK-C-NEXT:    br i1 [[CMP232]], label [[ATOMIC_CONT235:%.*]], label [[ATOMIC_EXIT253:%.*]]
-// CHK-C:       atomic_cont235:
-// CHK-C-NEXT:    [[TMP91:%.*]] = phi i32 [ [[ATOMIC_LOAD226]], [[ATOMIC_EXIT225]] ], [ [[TMP94:%.*]], [[ATOMIC_CMP246:%.*]] ]
-// CHK-C-NEXT:    store i32 [[TMP91]], i32* [[ATOMIC_TEMP236]], align 4
-// CHK-C-NEXT:    [[BF_LOAD237:%.*]] = load i32, i32* [[ATOMIC_TEMP236]], align 4
-// CHK-C-NEXT:    [[BF_SHL238:%.*]] = shl i32 [[BF_LOAD237]], 7
-// CHK-C-NEXT:    [[BF_ASHR239:%.*]] = ashr i32 [[BF_SHL238]], 18
-// CHK-C-NEXT:    store i32 [[BF_ASHR239]], i32* [[ATMP227]], align 4
-// CHK-C-NEXT:    store i32 [[TMP91]], i32* [[ATOMIC_TEMP240]], align 4
-// CHK-C-NEXT:    [[BF_LOAD241:%.*]] = load i32, i32* [[ATOMIC_TEMP240]], align 4
-// CHK-C-NEXT:    [[BF_VALUE242:%.*]] = and i32 [[TMP90]], 16383
-// CHK-C-NEXT:    [[BF_SHL243:%.*]] = shl i32 [[BF_VALUE242]], 11
-// CHK-C-NEXT:    [[BF_CLEAR244:%.*]] = and i32 [[BF_LOAD241]], -33552385
-// CHK-C-NEXT:    [[BF_SET245:%.*]] = or i32 [[BF_CLEAR244]], [[BF_SHL243]]
-// CHK-C-NEXT:    store i32 [[BF_SET245]], i32* [[ATOMIC_TEMP240]], align 4
-// CHK-C-NEXT:    [[TMP92:%.*]] = load i32, i32* [[ATOMIC_TEMP240]], align 4
-// CHK-C-NEXT:    [[TMP93:%.*]] = cmpxchg i32* getelementptr inbounds ([[STRUCT_BITFIELDS3]], %struct.BitFields3* @bfx3, i32 0, i32 0), i32 [[TMP91]], i32 [[TMP92]] monotonic monotonic, align 4
-// CHK-C-NEXT:    [[TMP94]] = extractvalue { i32, i1 } [[TMP93]], 0
-// CHK-C-NEXT:    [[TMP95:%.*]] = extractvalue { i32, i1 } [[TMP93]], 1
-// CHK-C-NEXT:    br i1 [[TMP95]], label [[ATOMIC_EXIT253]], label [[ATOMIC_CMP246]]
-// CHK-C:       atomic_cmp246:
-// CHK-C-NEXT:    store i32 [[TMP94]], i32* [[ATOMIC_TEMP247]], align 4
-// CHK-C-NEXT:    [[BF_LOAD248:%.*]] = load i32, i32* [[ATOMIC_TEMP247]], align 4
-// CHK-C-NEXT:    [[BF_SHL249:%.*]] = shl i32 [[BF_LOAD248]], 7
-// CHK-C-NEXT:    [[BF_ASHR250:%.*]] = ashr i32 [[BF_SHL249]], 18
-// CHK-C-NEXT:    [[CMP251:%.*]] = icmp sgt i32 [[BF_ASHR250]], [[TMP90]]
-// CHK-C-NEXT:    [[FROMBOOL252:%.*]] = zext i1 [[CMP251]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL252]], i8* [[ATMP233]], align 1
-// CHK-C-NEXT:    br i1 [[CMP251]], label [[ATOMIC_CONT235]], label [[ATOMIC_EXIT253]]
-// CHK-C:       atomic_exit253:
-// CHK-C-NEXT:    [[TMP96:%.*]] = load i32, i32* [[ATMP227]], align 4
-// CHK-C-NEXT:    [[TMP97:%.*]] = load i8, i8* [[ATMP233]], align 1
-// CHK-C-NEXT:    [[TMP98:%.*]] = load i32, i32* [[D]], align 4
-// CHK-C-NEXT:    [[TMP99:%.*]] = load i32, i32* [[E]], align 4
-// CHK-C-NEXT:    [[ATOMIC_LOAD254:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS3]], %struct.BitFields3* @bfx3, i32 0, i32 0) monotonic, align 4
-// CHK-C-NEXT:    store i32 [[ATOMIC_LOAD254]], i32* [[ATOMIC_TEMP256]], align 4
-// CHK-C-NEXT:    [[BF_LOAD257:%.*]] = load i32, i32* [[ATOMIC_TEMP256]], align 4
-// CHK-C-NEXT:    [[BF_SHL258:%.*]] = shl i32 [[BF_LOAD257]], 7
-// CHK-C-NEXT:    [[BF_ASHR259:%.*]] = ashr i32 [[BF_SHL258]], 18
-// CHK-C-NEXT:    store i32 [[BF_ASHR259]], i32* [[ATMP255]], align 4
-// CHK-C-NEXT:    [[CMP260:%.*]] = icmp eq i32 [[BF_ASHR259]], [[TMP99]]
-// CHK-C-NEXT:    [[FROMBOOL262:%.*]] = zext i1 [[CMP260]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL262]], i8* [[ATMP261]], align 1
-// CHK-C-NEXT:    br i1 [[CMP260]], label [[ATOMIC_CONT263:%.*]], label [[ATOMIC_EXIT281:%.*]]
-// CHK-C:       atomic_cont263:
-// CHK-C-NEXT:    [[TMP100:%.*]] = phi i32 [ [[ATOMIC_LOAD254]], [[ATOMIC_EXIT253]] ], [ [[TMP103:%.*]], [[ATOMIC_CMP274:%.*]] ]
-// CHK-C-NEXT:    store i32 [[TMP100]], i32* [[ATOMIC_TEMP264]], align 4
-// CHK-C-NEXT:    [[BF_LOAD265:%.*]] = load i32, i32* [[ATOMIC_TEMP264]], align 4
-// CHK-C-NEXT:    [[BF_SHL266:%.*]] = shl i32 [[BF_LOAD265]], 7
-// CHK-C-NEXT:    [[BF_ASHR267:%.*]] = ashr i32 [[BF_SHL266]], 18
-// CHK-C-NEXT:    store i32 [[BF_ASHR267]], i32* [[ATMP255]], align 4
-// CHK-C-NEXT:    store i32 [[TMP100]], i32* [[ATOMIC_TEMP268]], align 4
-// CHK-C-NEXT:    [[BF_LOAD269:%.*]] = load i32, i32* [[ATOMIC_TEMP268]], align 4
-// CHK-C-NEXT:    [[BF_VALUE270:%.*]] = and i32 [[TMP98]], 16383
-// CHK-C-NEXT:    [[BF_SHL271:%.*]] = shl i32 [[BF_VALUE270]], 11
-// CHK-C-NEXT:    [[BF_CLEAR272:%.*]] = and i32 [[BF_LOAD269]], -33552385
-// CHK-C-NEXT:    [[BF_SET273:%.*]] = or i32 [[BF_CLEAR272]], [[BF_SHL271]]
-// CHK-C-NEXT:    store i32 [[BF_SET273]], i32* [[ATOMIC_TEMP268]], align 4
-// CHK-C-NEXT:    [[TMP101:%.*]] = load i32, i32* [[ATOMIC_TEMP268]], align 4
-// CHK-C-NEXT:    [[TMP102:%.*]] = cmpxchg i32* getelementptr inbounds ([[STRUCT_BITFIELDS3]], %struct.BitFields3* @bfx3, i32 0, i32 0), i32 [[TMP100]], i32 [[TMP101]] monotonic monotonic, align 4
-// CHK-C-NEXT:    [[TMP103]] = extractvalue { i32, i1 } [[TMP102]], 0
-// CHK-C-NEXT:    [[TMP104:%.*]] = extractvalue { i32, i1 } [[TMP102]], 1
-// CHK-C-NEXT:    br i1 [[TMP104]], label [[ATOMIC_EXIT281]], label [[ATOMIC_CMP274]]
-// CHK-C:       atomic_cmp274:
-// CHK-C-NEXT:    store i32 [[TMP103]], i32* [[ATOMIC_TEMP275]], align 4
-// CHK-C-NEXT:    [[BF_LOAD276:%.*]] = load i32, i32* [[ATOMIC_TEMP275]], align 4
-// CHK-C-NEXT:    [[BF_SHL277:%.*]] = shl i32 [[BF_LOAD276]], 7
-// CHK-C-NEXT:    [[BF_ASHR278:%.*]] = ashr i32 [[BF_SHL277]], 18
-// CHK-C-NEXT:    [[CMP279:%.*]] = icmp eq i32 [[BF_ASHR278]], [[TMP99]]
-// CHK-C-NEXT:    [[FROMBOOL280:%.*]] = zext i1 [[CMP279]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL280]], i8* [[ATMP261]], align 1
-// CHK-C-NEXT:    br i1 [[CMP279]], label [[ATOMIC_CONT263]], label [[ATOMIC_EXIT281]]
-// CHK-C:       atomic_exit281:
-// CHK-C-NEXT:    [[TMP105:%.*]] = load i32, i32* [[ATMP255]], align 4
-// CHK-C-NEXT:    [[TMP106:%.*]] = load i8, i8* [[ATMP261]], align 1
-// CHK-C-NEXT:    [[TMP107:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-C-NEXT:    [[ATOMIC_LOAD282:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS3]], %struct.BitFields3* @bfx3, i32 0, i32 0) monotonic, align 4
-// CHK-C-NEXT:    store i32 [[ATOMIC_LOAD282]], i32* [[ATOMIC_TEMP284]], align 4
-// CHK-C-NEXT:    [[BF_LOAD285:%.*]] = load i32, i32* [[ATOMIC_TEMP284]], align 4
-// CHK-C-NEXT:    [[BF_SHL286:%.*]] = shl i32 [[BF_LOAD285]], 7
-// CHK-C-NEXT:    [[BF_ASHR287:%.*]] = ashr i32 [[BF_SHL286]], 18
-// CHK-C-NEXT:    store i32 [[BF_ASHR287]], i32* [[ATMP283]], align 4
-// CHK-C-NEXT:    [[CMP288:%.*]] = icmp slt i32 [[BF_ASHR287]], [[TMP107]]
-// CHK-C-NEXT:    [[FROMBOOL290:%.*]] = zext i1 [[CMP288]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL290]], i8* [[ATMP289]], align 1
-// CHK-C-NEXT:    br i1 [[CMP288]], label [[ATOMIC_CONT291:%.*]], label [[ATOMIC_EXIT309:%.*]]
-// CHK-C:       atomic_cont291:
-// CHK-C-NEXT:    [[TMP108:%.*]] = phi i32 [ [[ATOMIC_LOAD282]], [[ATOMIC_EXIT281]] ], [ [[TMP111:%.*]], [[ATOMIC_CMP302:%.*]] ]
-// CHK-C-NEXT:    store i32 [[TMP108]], i32* [[ATOMIC_TEMP292]], align 4
-// CHK-C-NEXT:    [[BF_LOAD293:%.*]] = load i32, i32* [[ATOMIC_TEMP292]], align 4
-// CHK-C-NEXT:    [[BF_SHL294:%.*]] = shl i32 [[BF_LOAD293]], 7
-// CHK-C-NEXT:    [[BF_ASHR295:%.*]] = ashr i32 [[BF_SHL294]], 18
-// CHK-C-NEXT:    store i32 [[BF_ASHR295]], i32* [[ATMP283]], align 4
-// CHK-C-NEXT:    store i32 [[TMP108]], i32* [[ATOMIC_TEMP296]], align 4
-// CHK-C-NEXT:    [[BF_LOAD297:%.*]] = load i32, i32* [[ATOMIC_TEMP296]], align 4
-// CHK-C-NEXT:    [[BF_VALUE298:%.*]] = and i32 [[TMP107]], 16383
-// CHK-C-NEXT:    [[BF_SHL299:%.*]] = shl i32 [[BF_VALUE298]], 11
-// CHK-C-NEXT:    [[BF_CLEAR300:%.*]] = and i32 [[BF_LOAD297]], -33552385
-// CHK-C-NEXT:    [[BF_SET301:%.*]] = or i32 [[BF_CLEAR300]], [[BF_SHL299]]
-// CHK-C-NEXT:    store i32 [[BF_SET301]], i32* [[ATOMIC_TEMP296]], align 4
-// CHK-C-NEXT:    [[TMP109:%.*]] = load i32, i32* [[ATOMIC_TEMP296]], align 4
-// CHK-C-NEXT:    [[TMP110:%.*]] = cmpxchg i32* getelementptr inbounds ([[STRUCT_BITFIELDS3]], %struct.BitFields3* @bfx3, i32 0, i32 0), i32 [[TMP108]], i32 [[TMP109]] monotonic monotonic, align 4
-// CHK-C-NEXT:    [[TMP111]] = extractvalue { i32, i1 } [[TMP110]], 0
-// CHK-C-NEXT:    [[TMP112:%.*]] = extractvalue { i32, i1 } [[TMP110]], 1
-// CHK-C-NEXT:    br i1 [[TMP112]], label [[ATOMIC_EXIT309]], label [[ATOMIC_CMP302]]
-// CHK-C:       atomic_cmp302:
-// CHK-C-NEXT:    store i32 [[TMP111]], i32* [[ATOMIC_TEMP303]], align 4
-// CHK-C-NEXT:    [[BF_LOAD304:%.*]] = load i32, i32* [[ATOMIC_TEMP303]], align 4
-// CHK-C-NEXT:    [[BF_SHL305:%.*]] = shl i32 [[BF_LOAD304]], 7
-// CHK-C-NEXT:    [[BF_ASHR306:%.*]] = ashr i32 [[BF_SHL305]], 18
-// CHK-C-NEXT:    [[CMP307:%.*]] = icmp slt i32 [[BF_ASHR306]], [[TMP107]]
-// CHK-C-NEXT:    [[FROMBOOL308:%.*]] = zext i1 [[CMP307]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL308]], i8* [[ATMP289]], align 1
-// CHK-C-NEXT:    br i1 [[CMP307]], label [[ATOMIC_CONT291]], label [[ATOMIC_EXIT309]]
-// CHK-C:       atomic_exit309:
-// CHK-C-NEXT:    [[TMP113:%.*]] = load i32, i32* [[ATMP283]], align 4
-// CHK-C-NEXT:    [[TMP114:%.*]] = load i8, i8* [[ATMP289]], align 1
-// CHK-C-NEXT:    [[TMP115:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-C-NEXT:    [[ATOMIC_LOAD310:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
-// CHK-C-NEXT:    store i64 [[ATOMIC_LOAD310]], i64* [[ATOMIC_TEMP312]], align 8
-// CHK-C-NEXT:    [[BF_LOAD313:%.*]] = load i64, i64* [[ATOMIC_TEMP312]], align 8
-// CHK-C-NEXT:    [[BF_SHL314:%.*]] = shl i64 [[BF_LOAD313]], 47
-// CHK-C-NEXT:    [[BF_ASHR315:%.*]] = ashr i64 [[BF_SHL314]], 63
-// CHK-C-NEXT:    [[BF_CAST316:%.*]] = trunc i64 [[BF_ASHR315]] to i32
-// CHK-C-NEXT:    store i32 [[BF_CAST316]], i32* [[ATMP311]], align 4
-// CHK-C-NEXT:    [[CMP317:%.*]] = icmp sgt i32 [[BF_CAST316]], [[TMP115]]
-// CHK-C-NEXT:    [[FROMBOOL319:%.*]] = zext i1 [[CMP317]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL319]], i8* [[ATMP318]], align 1
-// CHK-C-NEXT:    br i1 [[CMP317]], label [[ATOMIC_CONT320:%.*]], label [[ATOMIC_EXIT340:%.*]]
-// CHK-C:       atomic_cont320:
-// CHK-C-NEXT:    [[TMP116:%.*]] = phi i64 [ [[ATOMIC_LOAD310]], [[ATOMIC_EXIT309]] ], [ [[TMP120:%.*]], [[ATOMIC_CMP332:%.*]] ]
-// CHK-C-NEXT:    store i64 [[TMP116]], i64* [[ATOMIC_TEMP321]], align 8
-// CHK-C-NEXT:    [[BF_LOAD322:%.*]] = load i64, i64* [[ATOMIC_TEMP321]], align 8
-// CHK-C-NEXT:    [[BF_SHL323:%.*]] = shl i64 [[BF_LOAD322]], 47
-// CHK-C-NEXT:    [[BF_ASHR324:%.*]] = ashr i64 [[BF_SHL323]], 63
-// CHK-C-NEXT:    [[BF_CAST325:%.*]] = trunc i64 [[BF_ASHR324]] to i32
-// CHK-C-NEXT:    store i32 [[BF_CAST325]], i32* [[ATMP311]], align 4
-// CHK-C-NEXT:    store i64 [[TMP116]], i64* [[ATOMIC_TEMP326]], align 8
-// CHK-C-NEXT:    [[TMP117:%.*]] = zext i32 [[TMP115]] to i64
-// CHK-C-NEXT:    [[BF_LOAD327:%.*]] = load i64, i64* [[ATOMIC_TEMP326]], align 8
-// CHK-C-NEXT:    [[BF_VALUE328:%.*]] = and i64 [[TMP117]], 1
-// CHK-C-NEXT:    [[BF_SHL329:%.*]] = shl i64 [[BF_VALUE328]], 16
-// CHK-C-NEXT:    [[BF_CLEAR330:%.*]] = and i64 [[BF_LOAD327]], -65537
-// CHK-C-NEXT:    [[BF_SET331:%.*]] = or i64 [[BF_CLEAR330]], [[BF_SHL329]]
-// CHK-C-NEXT:    store i64 [[BF_SET331]], i64* [[ATOMIC_TEMP326]], align 8
-// CHK-C-NEXT:    [[TMP118:%.*]] = load i64, i64* [[ATOMIC_TEMP326]], align 8
-// CHK-C-NEXT:    [[TMP119:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP116]], i64 [[TMP118]] monotonic monotonic, align 8
-// CHK-C-NEXT:    [[TMP120]] = extractvalue { i64, i1 } [[TMP119]], 0
-// CHK-C-NEXT:    [[TMP121:%.*]] = extractvalue { i64, i1 } [[TMP119]], 1
-// CHK-C-NEXT:    br i1 [[TMP121]], label [[ATOMIC_EXIT340]], label [[ATOMIC_CMP332]]
-// CHK-C:       atomic_cmp332:
-// CHK-C-NEXT:    store i64 [[TMP120]], i64* [[ATOMIC_TEMP333]], align 8
-// CHK-C-NEXT:    [[BF_LOAD334:%.*]] = load i64, i64* [[ATOMIC_TEMP333]], align 8
-// CHK-C-NEXT:    [[BF_SHL335:%.*]] = shl i64 [[BF_LOAD334]], 47
-// CHK-C-NEXT:    [[BF_ASHR336:%.*]] = ashr i64 [[BF_SHL335]], 63
-// CHK-C-NEXT:    [[BF_CAST337:%.*]] = trunc i64 [[BF_ASHR336]] to i32
-// CHK-C-NEXT:    [[CMP338:%.*]] = icmp sgt i32 [[BF_CAST337]], [[TMP115]]
-// CHK-C-NEXT:    [[FROMBOOL339:%.*]] = zext i1 [[CMP338]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL339]], i8* [[ATMP318]], align 1
-// CHK-C-NEXT:    br i1 [[CMP338]], label [[ATOMIC_CONT320]], label [[ATOMIC_EXIT340]]
-// CHK-C:       atomic_exit340:
-// CHK-C-NEXT:    [[TMP122:%.*]] = load i32, i32* [[ATMP311]], align 4
-// CHK-C-NEXT:    [[TMP123:%.*]] = load i8, i8* [[ATMP318]], align 1
-// CHK-C-NEXT:    [[TMP124:%.*]] = load i32, i32* [[D]], align 4
-// CHK-C-NEXT:    [[TMP125:%.*]] = load i32, i32* [[E]], align 4
-// CHK-C-NEXT:    [[ATOMIC_LOAD341:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
-// CHK-C-NEXT:    store i64 [[ATOMIC_LOAD341]], i64* [[ATOMIC_TEMP343]], align 8
-// CHK-C-NEXT:    [[BF_LOAD344:%.*]] = load i64, i64* [[ATOMIC_TEMP343]], align 8
-// CHK-C-NEXT:    [[BF_SHL345:%.*]] = shl i64 [[BF_LOAD344]], 47
-// CHK-C-NEXT:    [[BF_ASHR346:%.*]] = ashr i64 [[BF_SHL345]], 63
-// CHK-C-NEXT:    [[BF_CAST347:%.*]] = trunc i64 [[BF_ASHR346]] to i32
-// CHK-C-NEXT:    store i32 [[BF_CAST347]], i32* [[ATMP342]], align 4
-// CHK-C-NEXT:    [[CMP348:%.*]] = icmp eq i32 [[BF_CAST347]], [[TMP125]]
-// CHK-C-NEXT:    [[FROMBOOL350:%.*]] = zext i1 [[CMP348]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL350]], i8* [[ATMP349]], align 1
-// CHK-C-NEXT:    br i1 [[CMP348]], label [[ATOMIC_CONT351:%.*]], label [[ATOMIC_EXIT371:%.*]]
-// CHK-C:       atomic_cont351:
-// CHK-C-NEXT:    [[TMP126:%.*]] = phi i64 [ [[ATOMIC_LOAD341]], [[ATOMIC_EXIT340]] ], [ [[TMP130:%.*]], [[ATOMIC_CMP363:%.*]] ]
-// CHK-C-NEXT:    store i64 [[TMP126]], i64* [[ATOMIC_TEMP352]], align 8
-// CHK-C-NEXT:    [[BF_LOAD353:%.*]] = load i64, i64* [[ATOMIC_TEMP352]], align 8
-// CHK-C-NEXT:    [[BF_SHL354:%.*]] = shl i64 [[BF_LOAD353]], 47
-// CHK-C-NEXT:    [[BF_ASHR355:%.*]] = ashr i64 [[BF_SHL354]], 63
-// CHK-C-NEXT:    [[BF_CAST356:%.*]] = trunc i64 [[BF_ASHR355]] to i32
-// CHK-C-NEXT:    store i32 [[BF_CAST356]], i32* [[ATMP342]], align 4
-// CHK-C-NEXT:    store i64 [[TMP126]], i64* [[ATOMIC_TEMP357]], align 8
-// CHK-C-NEXT:    [[TMP127:%.*]] = zext i32 [[TMP124]] to i64
-// CHK-C-NEXT:    [[BF_LOAD358:%.*]] = load i64, i64* [[ATOMIC_TEMP357]], align 8
-// CHK-C-NEXT:    [[BF_VALUE359:%.*]] = and i64 [[TMP127]], 1
-// CHK-C-NEXT:    [[BF_SHL360:%.*]] = shl i64 [[BF_VALUE359]], 16
-// CHK-C-NEXT:    [[BF_CLEAR361:%.*]] = and i64 [[BF_LOAD358]], -65537
-// CHK-C-NEXT:    [[BF_SET362:%.*]] = or i64 [[BF_CLEAR361]], [[BF_SHL360]]
-// CHK-C-NEXT:    store i64 [[BF_SET362]], i64* [[ATOMIC_TEMP357]], align 8
-// CHK-C-NEXT:    [[TMP128:%.*]] = load i64, i64* [[ATOMIC_TEMP357]], align 8
-// CHK-C-NEXT:    [[TMP129:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP126]], i64 [[TMP128]] monotonic monotonic, align 8
-// CHK-C-NEXT:    [[TMP130]] = extractvalue { i64, i1 } [[TMP129]], 0
-// CHK-C-NEXT:    [[TMP131:%.*]] = extractvalue { i64, i1 } [[TMP129]], 1
-// CHK-C-NEXT:    br i1 [[TMP131]], label [[ATOMIC_EXIT371]], label [[ATOMIC_CMP363]]
-// CHK-C:       atomic_cmp363:
-// CHK-C-NEXT:    store i64 [[TMP130]], i64* [[ATOMIC_TEMP364]], align 8
-// CHK-C-NEXT:    [[BF_LOAD365:%.*]] = load i64, i64* [[ATOMIC_TEMP364]], align 8
-// CHK-C-NEXT:    [[BF_SHL366:%.*]] = shl i64 [[BF_LOAD365]], 47
-// CHK-C-NEXT:    [[BF_ASHR367:%.*]] = ashr i64 [[BF_SHL366]], 63
-// CHK-C-NEXT:    [[BF_CAST368:%.*]] = trunc i64 [[BF_ASHR367]] to i32
-// CHK-C-NEXT:    [[CMP369:%.*]] = icmp eq i32 [[BF_CAST368]], [[TMP125]]
-// CHK-C-NEXT:    [[FROMBOOL370:%.*]] = zext i1 [[CMP369]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL370]], i8* [[ATMP349]], align 1
-// CHK-C-NEXT:    br i1 [[CMP369]], label [[ATOMIC_CONT351]], label [[ATOMIC_EXIT371]]
-// CHK-C:       atomic_exit371:
-// CHK-C-NEXT:    [[TMP132:%.*]] = load i32, i32* [[ATMP342]], align 4
-// CHK-C-NEXT:    [[TMP133:%.*]] = load i8, i8* [[ATMP349]], align 1
-// CHK-C-NEXT:    [[TMP134:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-C-NEXT:    [[ATOMIC_LOAD372:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
-// CHK-C-NEXT:    store i64 [[ATOMIC_LOAD372]], i64* [[ATOMIC_TEMP374]], align 8
-// CHK-C-NEXT:    [[BF_LOAD375:%.*]] = load i64, i64* [[ATOMIC_TEMP374]], align 8
-// CHK-C-NEXT:    [[BF_SHL376:%.*]] = shl i64 [[BF_LOAD375]], 47
-// CHK-C-NEXT:    [[BF_ASHR377:%.*]] = ashr i64 [[BF_SHL376]], 63
-// CHK-C-NEXT:    [[BF_CAST378:%.*]] = trunc i64 [[BF_ASHR377]] to i32
-// CHK-C-NEXT:    store i32 [[BF_CAST378]], i32* [[ATMP373]], align 4
-// CHK-C-NEXT:    [[CMP379:%.*]] = icmp slt i32 [[BF_CAST378]], [[TMP134]]
-// CHK-C-NEXT:    [[FROMBOOL381:%.*]] = zext i1 [[CMP379]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL381]], i8* [[ATMP380]], align 1
-// CHK-C-NEXT:    br i1 [[CMP379]], label [[ATOMIC_CONT382:%.*]], label [[ATOMIC_EXIT402:%.*]]
-// CHK-C:       atomic_cont382:
-// CHK-C-NEXT:    [[TMP135:%.*]] = phi i64 [ [[ATOMIC_LOAD372]], [[ATOMIC_EXIT371]] ], [ [[TMP139:%.*]], [[ATOMIC_CMP394:%.*]] ]
-// CHK-C-NEXT:    store i64 [[TMP135]], i64* [[ATOMIC_TEMP383]], align 8
-// CHK-C-NEXT:    [[BF_LOAD384:%.*]] = load i64, i64* [[ATOMIC_TEMP383]], align 8
-// CHK-C-NEXT:    [[BF_SHL385:%.*]] = shl i64 [[BF_LOAD384]], 47
-// CHK-C-NEXT:    [[BF_ASHR386:%.*]] = ashr i64 [[BF_SHL385]], 63
-// CHK-C-NEXT:    [[BF_CAST387:%.*]] = trunc i64 [[BF_ASHR386]] to i32
-// CHK-C-NEXT:    store i32 [[BF_CAST387]], i32* [[ATMP373]], align 4
-// CHK-C-NEXT:    store i64 [[TMP135]], i64* [[ATOMIC_TEMP388]], align 8
-// CHK-C-NEXT:    [[TMP136:%.*]] = zext i32 [[TMP134]] to i64
-// CHK-C-NEXT:    [[BF_LOAD389:%.*]] = load i64, i64* [[ATOMIC_TEMP388]], align 8
-// CHK-C-NEXT:    [[BF_VALUE390:%.*]] = and i64 [[TMP136]], 1
-// CHK-C-NEXT:    [[BF_SHL391:%.*]] = shl i64 [[BF_VALUE390]], 16
-// CHK-C-NEXT:    [[BF_CLEAR392:%.*]] = and i64 [[BF_LOAD389]], -65537
-// CHK-C-NEXT:    [[BF_SET393:%.*]] = or i64 [[BF_CLEAR392]], [[BF_SHL391]]
-// CHK-C-NEXT:    store i64 [[BF_SET393]], i64* [[ATOMIC_TEMP388]], align 8
-// CHK-C-NEXT:    [[TMP137:%.*]] = load i64, i64* [[ATOMIC_TEMP388]], align 8
-// CHK-C-NEXT:    [[TMP138:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP135]], i64 [[TMP137]] monotonic monotonic, align 8
-// CHK-C-NEXT:    [[TMP139]] = extractvalue { i64, i1 } [[TMP138]], 0
-// CHK-C-NEXT:    [[TMP140:%.*]] = extractvalue { i64, i1 } [[TMP138]], 1
-// CHK-C-NEXT:    br i1 [[TMP140]], label [[ATOMIC_EXIT402]], label [[ATOMIC_CMP394]]
-// CHK-C:       atomic_cmp394:
-// CHK-C-NEXT:    store i64 [[TMP139]], i64* [[ATOMIC_TEMP395]], align 8
-// CHK-C-NEXT:    [[BF_LOAD396:%.*]] = load i64, i64* [[ATOMIC_TEMP395]], align 8
-// CHK-C-NEXT:    [[BF_SHL397:%.*]] = shl i64 [[BF_LOAD396]], 47
-// CHK-C-NEXT:    [[BF_ASHR398:%.*]] = ashr i64 [[BF_SHL397]], 63
-// CHK-C-NEXT:    [[BF_CAST399:%.*]] = trunc i64 [[BF_ASHR398]] to i32
-// CHK-C-NEXT:    [[CMP400:%.*]] = icmp slt i32 [[BF_CAST399]], [[TMP134]]
-// CHK-C-NEXT:    [[FROMBOOL401:%.*]] = zext i1 [[CMP400]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL401]], i8* [[ATMP380]], align 1
-// CHK-C-NEXT:    br i1 [[CMP400]], label [[ATOMIC_CONT382]], label [[ATOMIC_EXIT402]]
-// CHK-C:       atomic_exit402:
-// CHK-C-NEXT:    [[TMP141:%.*]] = load i32, i32* [[ATMP373]], align 4
-// CHK-C-NEXT:    [[TMP142:%.*]] = load i8, i8* [[ATMP380]], align 1
-// CHK-C-NEXT:    [[TMP143:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-C-NEXT:    [[CONV:%.*]] = sext i32 [[TMP143]] to i64
-// CHK-C-NEXT:    [[ATOMIC_LOAD403:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
-// CHK-C-NEXT:    store i64 [[ATOMIC_LOAD403]], i64* [[ATOMIC_TEMP405]], align 8
-// CHK-C-NEXT:    [[BF_LOAD406:%.*]] = load i64, i64* [[ATOMIC_TEMP405]], align 8
-// CHK-C-NEXT:    [[BF_SHL407:%.*]] = shl i64 [[BF_LOAD406]], 40
-// CHK-C-NEXT:    [[BF_ASHR408:%.*]] = ashr i64 [[BF_SHL407]], 57
-// CHK-C-NEXT:    store i64 [[BF_ASHR408]], i64* [[ATMP404]], align 8
-// CHK-C-NEXT:    [[CMP409:%.*]] = icmp sgt i64 [[BF_ASHR408]], [[CONV]]
-// CHK-C-NEXT:    [[FROMBOOL411:%.*]] = zext i1 [[CMP409]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL411]], i8* [[ATMP410]], align 1
-// CHK-C-NEXT:    br i1 [[CMP409]], label [[ATOMIC_CONT412:%.*]], label [[ATOMIC_EXIT430:%.*]]
-// CHK-C:       atomic_cont412:
-// CHK-C-NEXT:    [[TMP144:%.*]] = phi i64 [ [[ATOMIC_LOAD403]], [[ATOMIC_EXIT402]] ], [ [[TMP147:%.*]], [[ATOMIC_CMP423:%.*]] ]
-// CHK-C-NEXT:    store i64 [[TMP144]], i64* [[ATOMIC_TEMP413]], align 8
-// CHK-C-NEXT:    [[BF_LOAD414:%.*]] = load i64, i64* [[ATOMIC_TEMP413]], align 8
-// CHK-C-NEXT:    [[BF_SHL415:%.*]] = shl i64 [[BF_LOAD414]], 40
-// CHK-C-NEXT:    [[BF_ASHR416:%.*]] = ashr i64 [[BF_SHL415]], 57
-// CHK-C-NEXT:    store i64 [[BF_ASHR416]], i64* [[ATMP404]], align 8
-// CHK-C-NEXT:    store i64 [[TMP144]], i64* [[ATOMIC_TEMP417]], align 8
-// CHK-C-NEXT:    [[BF_LOAD418:%.*]] = load i64, i64* [[ATOMIC_TEMP417]], align 8
-// CHK-C-NEXT:    [[BF_VALUE419:%.*]] = and i64 [[CONV]], 127
-// CHK-C-NEXT:    [[BF_SHL420:%.*]] = shl i64 [[BF_VALUE419]], 17
-// CHK-C-NEXT:    [[BF_CLEAR421:%.*]] = and i64 [[BF_LOAD418]], -16646145
-// CHK-C-NEXT:    [[BF_SET422:%.*]] = or i64 [[BF_CLEAR421]], [[BF_SHL420]]
-// CHK-C-NEXT:    store i64 [[BF_SET422]], i64* [[ATOMIC_TEMP417]], align 8
-// CHK-C-NEXT:    [[TMP145:%.*]] = load i64, i64* [[ATOMIC_TEMP417]], align 8
-// CHK-C-NEXT:    [[TMP146:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP144]], i64 [[TMP145]] monotonic monotonic, align 8
-// CHK-C-NEXT:    [[TMP147]] = extractvalue { i64, i1 } [[TMP146]], 0
-// CHK-C-NEXT:    [[TMP148:%.*]] = extractvalue { i64, i1 } [[TMP146]], 1
-// CHK-C-NEXT:    br i1 [[TMP148]], label [[ATOMIC_EXIT430]], label [[ATOMIC_CMP423]]
-// CHK-C:       atomic_cmp423:
-// CHK-C-NEXT:    store i64 [[TMP147]], i64* [[ATOMIC_TEMP424]], align 8
-// CHK-C-NEXT:    [[BF_LOAD425:%.*]] = load i64, i64* [[ATOMIC_TEMP424]], align 8
-// CHK-C-NEXT:    [[BF_SHL426:%.*]] = shl i64 [[BF_LOAD425]], 40
-// CHK-C-NEXT:    [[BF_ASHR427:%.*]] = ashr i64 [[BF_SHL426]], 57
-// CHK-C-NEXT:    [[CMP428:%.*]] = icmp sgt i64 [[BF_ASHR427]], [[CONV]]
-// CHK-C-NEXT:    [[FROMBOOL429:%.*]] = zext i1 [[CMP428]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL429]], i8* [[ATMP410]], align 1
-// CHK-C-NEXT:    br i1 [[CMP428]], label [[ATOMIC_CONT412]], label [[ATOMIC_EXIT430]]
-// CHK-C:       atomic_exit430:
-// CHK-C-NEXT:    [[TMP149:%.*]] = load i64, i64* [[ATMP404]], align 8
-// CHK-C-NEXT:    [[TMP150:%.*]] = load i8, i8* [[ATMP410]], align 1
-// CHK-C-NEXT:    [[TMP151:%.*]] = load i32, i32* [[D]], align 4
-// CHK-C-NEXT:    [[CONV431:%.*]] = sext i32 [[TMP151]] to i64
-// CHK-C-NEXT:    [[TMP152:%.*]] = load i32, i32* [[E]], align 4
-// CHK-C-NEXT:    [[CONV432:%.*]] = sext i32 [[TMP152]] to i64
-// CHK-C-NEXT:    [[ATOMIC_LOAD433:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
-// CHK-C-NEXT:    store i64 [[ATOMIC_LOAD433]], i64* [[ATOMIC_TEMP435]], align 8
-// CHK-C-NEXT:    [[BF_LOAD436:%.*]] = load i64, i64* [[ATOMIC_TEMP435]], align 8
-// CHK-C-NEXT:    [[BF_SHL437:%.*]] = shl i64 [[BF_LOAD436]], 40
-// CHK-C-NEXT:    [[BF_ASHR438:%.*]] = ashr i64 [[BF_SHL437]], 57
-// CHK-C-NEXT:    store i64 [[BF_ASHR438]], i64* [[ATMP434]], align 8
-// CHK-C-NEXT:    [[CMP439:%.*]] = icmp eq i64 [[BF_ASHR438]], [[CONV432]]
-// CHK-C-NEXT:    [[FROMBOOL441:%.*]] = zext i1 [[CMP439]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL441]], i8* [[ATMP440]], align 1
-// CHK-C-NEXT:    br i1 [[CMP439]], label [[ATOMIC_CONT442:%.*]], label [[ATOMIC_EXIT460:%.*]]
-// CHK-C:       atomic_cont442:
-// CHK-C-NEXT:    [[TMP153:%.*]] = phi i64 [ [[ATOMIC_LOAD433]], [[ATOMIC_EXIT430]] ], [ [[TMP156:%.*]], [[ATOMIC_CMP453:%.*]] ]
-// CHK-C-NEXT:    store i64 [[TMP153]], i64* [[ATOMIC_TEMP443]], align 8
-// CHK-C-NEXT:    [[BF_LOAD444:%.*]] = load i64, i64* [[ATOMIC_TEMP443]], align 8
-// CHK-C-NEXT:    [[BF_SHL445:%.*]] = shl i64 [[BF_LOAD444]], 40
-// CHK-C-NEXT:    [[BF_ASHR446:%.*]] = ashr i64 [[BF_SHL445]], 57
-// CHK-C-NEXT:    store i64 [[BF_ASHR446]], i64* [[ATMP434]], align 8
-// CHK-C-NEXT:    store i64 [[TMP153]], i64* [[ATOMIC_TEMP447]], align 8
-// CHK-C-NEXT:    [[BF_LOAD448:%.*]] = load i64, i64* [[ATOMIC_TEMP447]], align 8
-// CHK-C-NEXT:    [[BF_VALUE449:%.*]] = and i64 [[CONV431]], 127
-// CHK-C-NEXT:    [[BF_SHL450:%.*]] = shl i64 [[BF_VALUE449]], 17
-// CHK-C-NEXT:    [[BF_CLEAR451:%.*]] = and i64 [[BF_LOAD448]], -16646145
-// CHK-C-NEXT:    [[BF_SET452:%.*]] = or i64 [[BF_CLEAR451]], [[BF_SHL450]]
-// CHK-C-NEXT:    store i64 [[BF_SET452]], i64* [[ATOMIC_TEMP447]], align 8
-// CHK-C-NEXT:    [[TMP154:%.*]] = load i64, i64* [[ATOMIC_TEMP447]], align 8
-// CHK-C-NEXT:    [[TMP155:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP153]], i64 [[TMP154]] monotonic monotonic, align 8
-// CHK-C-NEXT:    [[TMP156]] = extractvalue { i64, i1 } [[TMP155]], 0
-// CHK-C-NEXT:    [[TMP157:%.*]] = extractvalue { i64, i1 } [[TMP155]], 1
-// CHK-C-NEXT:    br i1 [[TMP157]], label [[ATOMIC_EXIT460]], label [[ATOMIC_CMP453]]
-// CHK-C:       atomic_cmp453:
-// CHK-C-NEXT:    store i64 [[TMP156]], i64* [[ATOMIC_TEMP454]], align 8
-// CHK-C-NEXT:    [[BF_LOAD455:%.*]] = load i64, i64* [[ATOMIC_TEMP454]], align 8
-// CHK-C-NEXT:    [[BF_SHL456:%.*]] = shl i64 [[BF_LOAD455]], 40
-// CHK-C-NEXT:    [[BF_ASHR457:%.*]] = ashr i64 [[BF_SHL456]], 57
-// CHK-C-NEXT:    [[CMP458:%.*]] = icmp eq i64 [[BF_ASHR457]], [[CONV432]]
-// CHK-C-NEXT:    [[FROMBOOL459:%.*]] = zext i1 [[CMP458]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL459]], i8* [[ATMP440]], align 1
-// CHK-C-NEXT:    br i1 [[CMP458]], label [[ATOMIC_CONT442]], label [[ATOMIC_EXIT460]]
-// CHK-C:       atomic_exit460:
-// CHK-C-NEXT:    [[TMP158:%.*]] = load i64, i64* [[ATMP434]], align 8
-// CHK-C-NEXT:    [[TMP159:%.*]] = load i8, i8* [[ATMP440]], align 1
-// CHK-C-NEXT:    [[TMP160:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-C-NEXT:    [[CONV461:%.*]] = sext i32 [[TMP160]] to i64
-// CHK-C-NEXT:    [[ATOMIC_LOAD462:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
-// CHK-C-NEXT:    store i64 [[ATOMIC_LOAD462]], i64* [[ATOMIC_TEMP464]], align 8
-// CHK-C-NEXT:    [[BF_LOAD465:%.*]] = load i64, i64* [[ATOMIC_TEMP464]], align 8
-// CHK-C-NEXT:    [[BF_SHL466:%.*]] = shl i64 [[BF_LOAD465]], 40
-// CHK-C-NEXT:    [[BF_ASHR467:%.*]] = ashr i64 [[BF_SHL466]], 57
-// CHK-C-NEXT:    store i64 [[BF_ASHR467]], i64* [[ATMP463]], align 8
-// CHK-C-NEXT:    [[CMP468:%.*]] = icmp slt i64 [[BF_ASHR467]], [[CONV461]]
-// CHK-C-NEXT:    [[FROMBOOL470:%.*]] = zext i1 [[CMP468]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL470]], i8* [[ATMP469]], align 1
-// CHK-C-NEXT:    br i1 [[CMP468]], label [[ATOMIC_CONT471:%.*]], label [[ATOMIC_EXIT489:%.*]]
-// CHK-C:       atomic_cont471:
-// CHK-C-NEXT:    [[TMP161:%.*]] = phi i64 [ [[ATOMIC_LOAD462]], [[ATOMIC_EXIT460]] ], [ [[TMP164:%.*]], [[ATOMIC_CMP482:%.*]] ]
-// CHK-C-NEXT:    store i64 [[TMP161]], i64* [[ATOMIC_TEMP472]], align 8
-// CHK-C-NEXT:    [[BF_LOAD473:%.*]] = load i64, i64* [[ATOMIC_TEMP472]], align 8
-// CHK-C-NEXT:    [[BF_SHL474:%.*]] = shl i64 [[BF_LOAD473]], 40
-// CHK-C-NEXT:    [[BF_ASHR475:%.*]] = ashr i64 [[BF_SHL474]], 57
-// CHK-C-NEXT:    store i64 [[BF_ASHR475]], i64* [[ATMP463]], align 8
-// CHK-C-NEXT:    store i64 [[TMP161]], i64* [[ATOMIC_TEMP476]], align 8
-// CHK-C-NEXT:    [[BF_LOAD477:%.*]] = load i64, i64* [[ATOMIC_TEMP476]], align 8
-// CHK-C-NEXT:    [[BF_VALUE478:%.*]] = and i64 [[CONV461]], 127
-// CHK-C-NEXT:    [[BF_SHL479:%.*]] = shl i64 [[BF_VALUE478]], 17
-// CHK-C-NEXT:    [[BF_CLEAR480:%.*]] = and i64 [[BF_LOAD477]], -16646145
-// CHK-C-NEXT:    [[BF_SET481:%.*]] = or i64 [[BF_CLEAR480]], [[BF_SHL479]]
-// CHK-C-NEXT:    store i64 [[BF_SET481]], i64* [[ATOMIC_TEMP476]], align 8
-// CHK-C-NEXT:    [[TMP162:%.*]] = load i64, i64* [[ATOMIC_TEMP476]], align 8
-// CHK-C-NEXT:    [[TMP163:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP161]], i64 [[TMP162]] monotonic monotonic, align 8
-// CHK-C-NEXT:    [[TMP164]] = extractvalue { i64, i1 } [[TMP163]], 0
-// CHK-C-NEXT:    [[TMP165:%.*]] = extractvalue { i64, i1 } [[TMP163]], 1
-// CHK-C-NEXT:    br i1 [[TMP165]], label [[ATOMIC_EXIT489]], label [[ATOMIC_CMP482]]
-// CHK-C:       atomic_cmp482:
-// CHK-C-NEXT:    store i64 [[TMP164]], i64* [[ATOMIC_TEMP483]], align 8
-// CHK-C-NEXT:    [[BF_LOAD484:%.*]] = load i64, i64* [[ATOMIC_TEMP483]], align 8
-// CHK-C-NEXT:    [[BF_SHL485:%.*]] = shl i64 [[BF_LOAD484]], 40
-// CHK-C-NEXT:    [[BF_ASHR486:%.*]] = ashr i64 [[BF_SHL485]], 57
-// CHK-C-NEXT:    [[CMP487:%.*]] = icmp slt i64 [[BF_ASHR486]], [[CONV461]]
-// CHK-C-NEXT:    [[FROMBOOL488:%.*]] = zext i1 [[CMP487]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL488]], i8* [[ATMP469]], align 1
-// CHK-C-NEXT:    br i1 [[CMP487]], label [[ATOMIC_CONT471]], label [[ATOMIC_EXIT489]]
-// CHK-C:       atomic_exit489:
-// CHK-C-NEXT:    [[TMP166:%.*]] = load i64, i64* [[ATMP463]], align 8
-// CHK-C-NEXT:    [[TMP167:%.*]] = load i8, i8* [[ATMP469]], align 1
-// CHK-C-NEXT:    [[TMP168:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-C-NEXT:    [[ATOMIC_LOAD490:%.*]] = load atomic i8, i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED:%.*]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2) monotonic, align 1
-// CHK-C-NEXT:    [[TMP169:%.*]] = bitcast i32* [[ATOMIC_TEMP492]] to i8*
-// CHK-C-NEXT:    store i8 [[ATOMIC_LOAD490]], i8* [[TMP169]], align 1
-// CHK-C-NEXT:    [[BF_LOAD493:%.*]] = load i8, i8* [[TMP169]], align 1
-// CHK-C-NEXT:    [[BF_SHL494:%.*]] = shl i8 [[BF_LOAD493]], 7
-// CHK-C-NEXT:    [[BF_ASHR495:%.*]] = ashr i8 [[BF_SHL494]], 7
-// CHK-C-NEXT:    [[BF_CAST496:%.*]] = sext i8 [[BF_ASHR495]] to i32
-// CHK-C-NEXT:    store i32 [[BF_CAST496]], i32* [[ATMP491]], align 4
-// CHK-C-NEXT:    [[CMP497:%.*]] = icmp sgt i32 [[BF_CAST496]], [[TMP168]]
-// CHK-C-NEXT:    [[FROMBOOL499:%.*]] = zext i1 [[CMP497]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL499]], i8* [[ATMP498]], align 1
-// CHK-C-NEXT:    br i1 [[CMP497]], label [[ATOMIC_CONT500:%.*]], label [[ATOMIC_EXIT519:%.*]]
-// CHK-C:       atomic_cont500:
-// CHK-C-NEXT:    [[TMP170:%.*]] = phi i8 [ [[ATOMIC_LOAD490]], [[ATOMIC_EXIT489]] ], [ [[TMP176:%.*]], [[ATOMIC_CMP511:%.*]] ]
-// CHK-C-NEXT:    [[TMP171:%.*]] = bitcast i32* [[ATOMIC_TEMP501]] to i8*
-// CHK-C-NEXT:    store i8 [[TMP170]], i8* [[TMP171]], align 1
-// CHK-C-NEXT:    [[BF_LOAD502:%.*]] = load i8, i8* [[TMP171]], align 1
-// CHK-C-NEXT:    [[BF_SHL503:%.*]] = shl i8 [[BF_LOAD502]], 7
-// CHK-C-NEXT:    [[BF_ASHR504:%.*]] = ashr i8 [[BF_SHL503]], 7
-// CHK-C-NEXT:    [[BF_CAST505:%.*]] = sext i8 [[BF_ASHR504]] to i32
-// CHK-C-NEXT:    store i32 [[BF_CAST505]], i32* [[ATMP491]], align 4
-// CHK-C-NEXT:    [[TMP172:%.*]] = bitcast i32* [[ATOMIC_TEMP506]] to i8*
-// CHK-C-NEXT:    store i8 [[TMP170]], i8* [[TMP172]], align 1
-// CHK-C-NEXT:    [[TMP173:%.*]] = trunc i32 [[TMP168]] to i8
-// CHK-C-NEXT:    [[BF_LOAD507:%.*]] = load i8, i8* [[TMP172]], align 1
-// CHK-C-NEXT:    [[BF_VALUE508:%.*]] = and i8 [[TMP173]], 1
-// CHK-C-NEXT:    [[BF_CLEAR509:%.*]] = and i8 [[BF_LOAD507]], -2
-// CHK-C-NEXT:    [[BF_SET510:%.*]] = or i8 [[BF_CLEAR509]], [[BF_VALUE508]]
-// CHK-C-NEXT:    store i8 [[BF_SET510]], i8* [[TMP172]], align 1
-// CHK-C-NEXT:    [[TMP174:%.*]] = load i8, i8* [[TMP172]], align 1
-// CHK-C-NEXT:    [[TMP175:%.*]] = cmpxchg i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2), i8 [[TMP170]], i8 [[TMP174]] monotonic monotonic, align 1
-// CHK-C-NEXT:    [[TMP176]] = extractvalue { i8, i1 } [[TMP175]], 0
-// CHK-C-NEXT:    [[TMP177:%.*]] = extractvalue { i8, i1 } [[TMP175]], 1
-// CHK-C-NEXT:    br i1 [[TMP177]], label [[ATOMIC_EXIT519]], label [[ATOMIC_CMP511]]
-// CHK-C:       atomic_cmp511:
-// CHK-C-NEXT:    [[TMP178:%.*]] = bitcast i32* [[ATOMIC_TEMP512]] to i8*
-// CHK-C-NEXT:    store i8 [[TMP176]], i8* [[TMP178]], align 1
-// CHK-C-NEXT:    [[BF_LOAD513:%.*]] = load i8, i8* [[TMP178]], align 1
-// CHK-C-NEXT:    [[BF_SHL514:%.*]] = shl i8 [[BF_LOAD513]], 7
-// CHK-C-NEXT:    [[BF_ASHR515:%.*]] = ashr i8 [[BF_SHL514]], 7
-// CHK-C-NEXT:    [[BF_CAST516:%.*]] = sext i8 [[BF_ASHR515]] to i32
-// CHK-C-NEXT:    [[CMP517:%.*]] = icmp sgt i32 [[BF_CAST516]], [[TMP168]]
-// CHK-C-NEXT:    [[FROMBOOL518:%.*]] = zext i1 [[CMP517]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL518]], i8* [[ATMP498]], align 1
-// CHK-C-NEXT:    br i1 [[CMP517]], label [[ATOMIC_CONT500]], label [[ATOMIC_EXIT519]]
-// CHK-C:       atomic_exit519:
-// CHK-C-NEXT:    [[TMP179:%.*]] = load i32, i32* [[ATMP491]], align 4
-// CHK-C-NEXT:    [[TMP180:%.*]] = load i8, i8* [[ATMP498]], align 1
-// CHK-C-NEXT:    [[TMP181:%.*]] = load i32, i32* [[D]], align 4
-// CHK-C-NEXT:    [[TMP182:%.*]] = load i32, i32* [[E]], align 4
-// CHK-C-NEXT:    [[ATOMIC_LOAD520:%.*]] = load atomic i8, i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2) monotonic, align 1
-// CHK-C-NEXT:    [[TMP183:%.*]] = bitcast i32* [[ATOMIC_TEMP522]] to i8*
-// CHK-C-NEXT:    store i8 [[ATOMIC_LOAD520]], i8* [[TMP183]], align 1
-// CHK-C-NEXT:    [[BF_LOAD523:%.*]] = load i8, i8* [[TMP183]], align 1
-// CHK-C-NEXT:    [[BF_SHL524:%.*]] = shl i8 [[BF_LOAD523]], 7
-// CHK-C-NEXT:    [[BF_ASHR525:%.*]] = ashr i8 [[BF_SHL524]], 7
-// CHK-C-NEXT:    [[BF_CAST526:%.*]] = sext i8 [[BF_ASHR525]] to i32
-// CHK-C-NEXT:    store i32 [[BF_CAST526]], i32* [[ATMP521]], align 4
-// CHK-C-NEXT:    [[CMP527:%.*]] = icmp eq i32 [[BF_CAST526]], [[TMP182]]
-// CHK-C-NEXT:    [[FROMBOOL529:%.*]] = zext i1 [[CMP527]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL529]], i8* [[ATMP528]], align 1
-// CHK-C-NEXT:    br i1 [[CMP527]], label [[ATOMIC_CONT530:%.*]], label [[ATOMIC_EXIT549:%.*]]
-// CHK-C:       atomic_cont530:
-// CHK-C-NEXT:    [[TMP184:%.*]] = phi i8 [ [[ATOMIC_LOAD520]], [[ATOMIC_EXIT519]] ], [ [[TMP190:%.*]], [[ATOMIC_CMP541:%.*]] ]
-// CHK-C-NEXT:    [[TMP185:%.*]] = bitcast i32* [[ATOMIC_TEMP531]] to i8*
-// CHK-C-NEXT:    store i8 [[TMP184]], i8* [[TMP185]], align 1
-// CHK-C-NEXT:    [[BF_LOAD532:%.*]] = load i8, i8* [[TMP185]], align 1
-// CHK-C-NEXT:    [[BF_SHL533:%.*]] = shl i8 [[BF_LOAD532]], 7
-// CHK-C-NEXT:    [[BF_ASHR534:%.*]] = ashr i8 [[BF_SHL533]], 7
-// CHK-C-NEXT:    [[BF_CAST535:%.*]] = sext i8 [[BF_ASHR534]] to i32
-// CHK-C-NEXT:    store i32 [[BF_CAST535]], i32* [[ATMP521]], align 4
-// CHK-C-NEXT:    [[TMP186:%.*]] = bitcast i32* [[ATOMIC_TEMP536]] to i8*
-// CHK-C-NEXT:    store i8 [[TMP184]], i8* [[TMP186]], align 1
-// CHK-C-NEXT:    [[TMP187:%.*]] = trunc i32 [[TMP181]] to i8
-// CHK-C-NEXT:    [[BF_LOAD537:%.*]] = load i8, i8* [[TMP186]], align 1
-// CHK-C-NEXT:    [[BF_VALUE538:%.*]] = and i8 [[TMP187]], 1
-// CHK-C-NEXT:    [[BF_CLEAR539:%.*]] = and i8 [[BF_LOAD537]], -2
-// CHK-C-NEXT:    [[BF_SET540:%.*]] = or i8 [[BF_CLEAR539]], [[BF_VALUE538]]
-// CHK-C-NEXT:    store i8 [[BF_SET540]], i8* [[TMP186]], align 1
-// CHK-C-NEXT:    [[TMP188:%.*]] = load i8, i8* [[TMP186]], align 1
-// CHK-C-NEXT:    [[TMP189:%.*]] = cmpxchg i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2), i8 [[TMP184]], i8 [[TMP188]] monotonic monotonic, align 1
-// CHK-C-NEXT:    [[TMP190]] = extractvalue { i8, i1 } [[TMP189]], 0
-// CHK-C-NEXT:    [[TMP191:%.*]] = extractvalue { i8, i1 } [[TMP189]], 1
-// CHK-C-NEXT:    br i1 [[TMP191]], label [[ATOMIC_EXIT549]], label [[ATOMIC_CMP541]]
-// CHK-C:       atomic_cmp541:
-// CHK-C-NEXT:    [[TMP192:%.*]] = bitcast i32* [[ATOMIC_TEMP542]] to i8*
-// CHK-C-NEXT:    store i8 [[TMP190]], i8* [[TMP192]], align 1
-// CHK-C-NEXT:    [[BF_LOAD543:%.*]] = load i8, i8* [[TMP192]], align 1
-// CHK-C-NEXT:    [[BF_SHL544:%.*]] = shl i8 [[BF_LOAD543]], 7
-// CHK-C-NEXT:    [[BF_ASHR545:%.*]] = ashr i8 [[BF_SHL544]], 7
-// CHK-C-NEXT:    [[BF_CAST546:%.*]] = sext i8 [[BF_ASHR545]] to i32
-// CHK-C-NEXT:    [[CMP547:%.*]] = icmp eq i32 [[BF_CAST546]], [[TMP182]]
-// CHK-C-NEXT:    [[FROMBOOL548:%.*]] = zext i1 [[CMP547]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL548]], i8* [[ATMP528]], align 1
-// CHK-C-NEXT:    br i1 [[CMP547]], label [[ATOMIC_CONT530]], label [[ATOMIC_EXIT549]]
-// CHK-C:       atomic_exit549:
-// CHK-C-NEXT:    [[TMP193:%.*]] = load i32, i32* [[ATMP521]], align 4
-// CHK-C-NEXT:    [[TMP194:%.*]] = load i8, i8* [[ATMP528]], align 1
-// CHK-C-NEXT:    [[TMP195:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-C-NEXT:    [[ATOMIC_LOAD550:%.*]] = load atomic i8, i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2) monotonic, align 1
-// CHK-C-NEXT:    [[TMP196:%.*]] = bitcast i32* [[ATOMIC_TEMP552]] to i8*
-// CHK-C-NEXT:    store i8 [[ATOMIC_LOAD550]], i8* [[TMP196]], align 1
-// CHK-C-NEXT:    [[BF_LOAD553:%.*]] = load i8, i8* [[TMP196]], align 1
-// CHK-C-NEXT:    [[BF_SHL554:%.*]] = shl i8 [[BF_LOAD553]], 7
-// CHK-C-NEXT:    [[BF_ASHR555:%.*]] = ashr i8 [[BF_SHL554]], 7
-// CHK-C-NEXT:    [[BF_CAST556:%.*]] = sext i8 [[BF_ASHR555]] to i32
-// CHK-C-NEXT:    store i32 [[BF_CAST556]], i32* [[ATMP551]], align 4
-// CHK-C-NEXT:    [[CMP557:%.*]] = icmp slt i32 [[BF_CAST556]], [[TMP195]]
-// CHK-C-NEXT:    [[FROMBOOL559:%.*]] = zext i1 [[CMP557]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL559]], i8* [[ATMP558]], align 1
-// CHK-C-NEXT:    br i1 [[CMP557]], label [[ATOMIC_CONT560:%.*]], label [[ATOMIC_EXIT579:%.*]]
-// CHK-C:       atomic_cont560:
-// CHK-C-NEXT:    [[TMP197:%.*]] = phi i8 [ [[ATOMIC_LOAD550]], [[ATOMIC_EXIT549]] ], [ [[TMP203:%.*]], [[ATOMIC_CMP571:%.*]] ]
-// CHK-C-NEXT:    [[TMP198:%.*]] = bitcast i32* [[ATOMIC_TEMP561]] to i8*
-// CHK-C-NEXT:    store i8 [[TMP197]], i8* [[TMP198]], align 1
-// CHK-C-NEXT:    [[BF_LOAD562:%.*]] = load i8, i8* [[TMP198]], align 1
-// CHK-C-NEXT:    [[BF_SHL563:%.*]] = shl i8 [[BF_LOAD562]], 7
-// CHK-C-NEXT:    [[BF_ASHR564:%.*]] = ashr i8 [[BF_SHL563]], 7
-// CHK-C-NEXT:    [[BF_CAST565:%.*]] = sext i8 [[BF_ASHR564]] to i32
-// CHK-C-NEXT:    store i32 [[BF_CAST565]], i32* [[ATMP551]], align 4
-// CHK-C-NEXT:    [[TMP199:%.*]] = bitcast i32* [[ATOMIC_TEMP566]] to i8*
+// CHK-C-NEXT:    [[TMP54:%.*]] = trunc i32 [[TMP50]] to i8
+// CHK-C-NEXT:    [[BF_LOAD132:%.*]] = load i8, i8* [[TMP53]], align 1
+// CHK-C-NEXT:    [[BF_VALUE133:%.*]] = and i8 [[TMP54]], 1
+// CHK-C-NEXT:    [[BF_SHL134:%.*]] = shl i8 [[BF_VALUE133]], 7
+// CHK-C-NEXT:    [[BF_CLEAR135:%.*]] = and i8 [[BF_LOAD132]], 127
+// CHK-C-NEXT:    [[BF_SET136:%.*]] = or i8 [[BF_CLEAR135]], [[BF_SHL134]]
+// CHK-C-NEXT:    store i8 [[BF_SET136]], i8* [[TMP53]], align 1
+// CHK-C-NEXT:    [[TMP55:%.*]] = load i8, i8* [[TMP53]], align 1
+// CHK-C-NEXT:    [[TMP56:%.*]] = cmpxchg i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3), i8 [[TMP52]], i8 [[TMP55]] monotonic monotonic, align 1
+// CHK-C-NEXT:    [[TMP57]] = extractvalue { i8, i1 } [[TMP56]], 0
+// CHK-C-NEXT:    [[TMP58:%.*]] = extractvalue { i8, i1 } [[TMP56]], 1
+// CHK-C-NEXT:    br i1 [[TMP58]], label [[ATOMIC_EXIT144]], label [[ATOMIC_CMP137]]
+// CHK-C:       atomic_cmp137:
+// CHK-C-NEXT:    [[TMP59:%.*]] = bitcast i32* [[ATOMIC_TEMP138]] to i8*
+// CHK-C-NEXT:    store i8 [[TMP57]], i8* [[TMP59]], align 1
+// CHK-C-NEXT:    [[BF_LOAD139:%.*]] = load i8, i8* [[TMP59]], align 1
+// CHK-C-NEXT:    [[BF_ASHR140:%.*]] = ashr i8 [[BF_LOAD139]], 7
+// CHK-C-NEXT:    [[BF_CAST141:%.*]] = sext i8 [[BF_ASHR140]] to i32
+// CHK-C-NEXT:    store i32 [[BF_CAST141]], i32* [[ATMP123]], align 4
+// CHK-C-NEXT:    [[CMP142:%.*]] = icmp sgt i32 [[BF_CAST141]], [[TMP50]]
+// CHK-C-NEXT:    [[FROMBOOL143:%.*]] = zext i1 [[CMP142]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL143]], i8* [[ATMP128]], align 1
+// CHK-C-NEXT:    br i1 [[CMP142]], label [[ATOMIC_CONT130]], label [[ATOMIC_EXIT144]]
+// CHK-C:       atomic_exit144:
+// CHK-C-NEXT:    [[TMP60:%.*]] = load i32, i32* [[ATMP123]], align 4
+// CHK-C-NEXT:    [[TMP61:%.*]] = load i8, i8* [[ATMP128]], align 1
+// CHK-C-NEXT:    [[TMP62:%.*]] = load i32, i32* [[D]], align 4
+// CHK-C-NEXT:    [[TMP63:%.*]] = load i32, i32* [[E]], align 4
+// CHK-C-NEXT:    [[ATOMIC_LOAD145:%.*]] = load atomic i8, i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3) monotonic, align 1
+// CHK-C-NEXT:    [[TMP64:%.*]] = bitcast i32* [[ATOMIC_TEMP147]] to i8*
+// CHK-C-NEXT:    store i8 [[ATOMIC_LOAD145]], i8* [[TMP64]], align 1
+// CHK-C-NEXT:    [[BF_LOAD148:%.*]] = load i8, i8* [[TMP64]], align 1
+// CHK-C-NEXT:    [[BF_ASHR149:%.*]] = ashr i8 [[BF_LOAD148]], 7
+// CHK-C-NEXT:    [[BF_CAST150:%.*]] = sext i8 [[BF_ASHR149]] to i32
+// CHK-C-NEXT:    store i32 [[BF_CAST150]], i32* [[ATMP146]], align 4
+// CHK-C-NEXT:    [[CMP151:%.*]] = icmp eq i32 [[BF_CAST150]], [[TMP63]]
+// CHK-C-NEXT:    [[FROMBOOL153:%.*]] = zext i1 [[CMP151]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL153]], i8* [[ATMP152]], align 1
+// CHK-C-NEXT:    br i1 [[CMP151]], label [[ATOMIC_CONT154:%.*]], label [[ATOMIC_EXIT168:%.*]]
+// CHK-C:       atomic_cont154:
+// CHK-C-NEXT:    [[TMP65:%.*]] = phi i8 [ [[ATOMIC_LOAD145]], [[ATOMIC_EXIT144]] ], [ [[TMP70:%.*]], [[ATOMIC_CMP161:%.*]] ]
+// CHK-C-NEXT:    [[TMP66:%.*]] = bitcast i32* [[ATOMIC_TEMP155]] to i8*
+// CHK-C-NEXT:    store i8 [[TMP65]], i8* [[TMP66]], align 1
+// CHK-C-NEXT:    [[TMP67:%.*]] = trunc i32 [[TMP62]] to i8
+// CHK-C-NEXT:    [[BF_LOAD156:%.*]] = load i8, i8* [[TMP66]], align 1
+// CHK-C-NEXT:    [[BF_VALUE157:%.*]] = and i8 [[TMP67]], 1
+// CHK-C-NEXT:    [[BF_SHL158:%.*]] = shl i8 [[BF_VALUE157]], 7
+// CHK-C-NEXT:    [[BF_CLEAR159:%.*]] = and i8 [[BF_LOAD156]], 127
+// CHK-C-NEXT:    [[BF_SET160:%.*]] = or i8 [[BF_CLEAR159]], [[BF_SHL158]]
+// CHK-C-NEXT:    store i8 [[BF_SET160]], i8* [[TMP66]], align 1
+// CHK-C-NEXT:    [[TMP68:%.*]] = load i8, i8* [[TMP66]], align 1
+// CHK-C-NEXT:    [[TMP69:%.*]] = cmpxchg i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3), i8 [[TMP65]], i8 [[TMP68]] monotonic monotonic, align 1
+// CHK-C-NEXT:    [[TMP70]] = extractvalue { i8, i1 } [[TMP69]], 0
+// CHK-C-NEXT:    [[TMP71:%.*]] = extractvalue { i8, i1 } [[TMP69]], 1
+// CHK-C-NEXT:    br i1 [[TMP71]], label [[ATOMIC_EXIT168]], label [[ATOMIC_CMP161]]
+// CHK-C:       atomic_cmp161:
+// CHK-C-NEXT:    [[TMP72:%.*]] = bitcast i32* [[ATOMIC_TEMP162]] to i8*
+// CHK-C-NEXT:    store i8 [[TMP70]], i8* [[TMP72]], align 1
+// CHK-C-NEXT:    [[BF_LOAD163:%.*]] = load i8, i8* [[TMP72]], align 1
+// CHK-C-NEXT:    [[BF_ASHR164:%.*]] = ashr i8 [[BF_LOAD163]], 7
+// CHK-C-NEXT:    [[BF_CAST165:%.*]] = sext i8 [[BF_ASHR164]] to i32
+// CHK-C-NEXT:    store i32 [[BF_CAST165]], i32* [[ATMP146]], align 4
+// CHK-C-NEXT:    [[CMP166:%.*]] = icmp eq i32 [[BF_CAST165]], [[TMP63]]
+// CHK-C-NEXT:    [[FROMBOOL167:%.*]] = zext i1 [[CMP166]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL167]], i8* [[ATMP152]], align 1
+// CHK-C-NEXT:    br i1 [[CMP166]], label [[ATOMIC_CONT154]], label [[ATOMIC_EXIT168]]
+// CHK-C:       atomic_exit168:
+// CHK-C-NEXT:    [[TMP73:%.*]] = load i32, i32* [[ATMP146]], align 4
+// CHK-C-NEXT:    [[TMP74:%.*]] = load i8, i8* [[ATMP152]], align 1
+// CHK-C-NEXT:    [[TMP75:%.*]] = load i32, i32* [[EXPR]], align 4
+// CHK-C-NEXT:    [[ATOMIC_LOAD169:%.*]] = load atomic i8, i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3) monotonic, align 1
+// CHK-C-NEXT:    [[TMP76:%.*]] = bitcast i32* [[ATOMIC_TEMP171]] to i8*
+// CHK-C-NEXT:    store i8 [[ATOMIC_LOAD169]], i8* [[TMP76]], align 1
+// CHK-C-NEXT:    [[BF_LOAD172:%.*]] = load i8, i8* [[TMP76]], align 1
+// CHK-C-NEXT:    [[BF_ASHR173:%.*]] = ashr i8 [[BF_LOAD172]], 7
+// CHK-C-NEXT:    [[BF_CAST174:%.*]] = sext i8 [[BF_ASHR173]] to i32
+// CHK-C-NEXT:    store i32 [[BF_CAST174]], i32* [[ATMP170]], align 4
+// CHK-C-NEXT:    [[CMP175:%.*]] = icmp slt i32 [[BF_CAST174]], [[TMP75]]
+// CHK-C-NEXT:    [[FROMBOOL177:%.*]] = zext i1 [[CMP175]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL177]], i8* [[ATMP176]], align 1
+// CHK-C-NEXT:    br i1 [[CMP175]], label [[ATOMIC_CONT178:%.*]], label [[ATOMIC_EXIT192:%.*]]
+// CHK-C:       atomic_cont178:
+// CHK-C-NEXT:    [[TMP77:%.*]] = phi i8 [ [[ATOMIC_LOAD169]], [[ATOMIC_EXIT168]] ], [ [[TMP82:%.*]], [[ATOMIC_CMP185:%.*]] ]
+// CHK-C-NEXT:    [[TMP78:%.*]] = bitcast i32* [[ATOMIC_TEMP179]] to i8*
+// CHK-C-NEXT:    store i8 [[TMP77]], i8* [[TMP78]], align 1
+// CHK-C-NEXT:    [[TMP79:%.*]] = trunc i32 [[TMP75]] to i8
+// CHK-C-NEXT:    [[BF_LOAD180:%.*]] = load i8, i8* [[TMP78]], align 1
+// CHK-C-NEXT:    [[BF_VALUE181:%.*]] = and i8 [[TMP79]], 1
+// CHK-C-NEXT:    [[BF_SHL182:%.*]] = shl i8 [[BF_VALUE181]], 7
+// CHK-C-NEXT:    [[BF_CLEAR183:%.*]] = and i8 [[BF_LOAD180]], 127
+// CHK-C-NEXT:    [[BF_SET184:%.*]] = or i8 [[BF_CLEAR183]], [[BF_SHL182]]
+// CHK-C-NEXT:    store i8 [[BF_SET184]], i8* [[TMP78]], align 1
+// CHK-C-NEXT:    [[TMP80:%.*]] = load i8, i8* [[TMP78]], align 1
+// CHK-C-NEXT:    [[TMP81:%.*]] = cmpxchg i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3), i8 [[TMP77]], i8 [[TMP80]] monotonic monotonic, align 1
+// CHK-C-NEXT:    [[TMP82]] = extractvalue { i8, i1 } [[TMP81]], 0
+// CHK-C-NEXT:    [[TMP83:%.*]] = extractvalue { i8, i1 } [[TMP81]], 1
+// CHK-C-NEXT:    br i1 [[TMP83]], label [[ATOMIC_EXIT192]], label [[ATOMIC_CMP185]]
+// CHK-C:       atomic_cmp185:
+// CHK-C-NEXT:    [[TMP84:%.*]] = bitcast i32* [[ATOMIC_TEMP186]] to i8*
+// CHK-C-NEXT:    store i8 [[TMP82]], i8* [[TMP84]], align 1
+// CHK-C-NEXT:    [[BF_LOAD187:%.*]] = load i8, i8* [[TMP84]], align 1
+// CHK-C-NEXT:    [[BF_ASHR188:%.*]] = ashr i8 [[BF_LOAD187]], 7
+// CHK-C-NEXT:    [[BF_CAST189:%.*]] = sext i8 [[BF_ASHR188]] to i32
+// CHK-C-NEXT:    store i32 [[BF_CAST189]], i32* [[ATMP170]], align 4
+// CHK-C-NEXT:    [[CMP190:%.*]] = icmp slt i32 [[BF_CAST189]], [[TMP75]]
+// CHK-C-NEXT:    [[FROMBOOL191:%.*]] = zext i1 [[CMP190]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL191]], i8* [[ATMP176]], align 1
+// CHK-C-NEXT:    br i1 [[CMP190]], label [[ATOMIC_CONT178]], label [[ATOMIC_EXIT192]]
+// CHK-C:       atomic_exit192:
+// CHK-C-NEXT:    [[TMP85:%.*]] = load i32, i32* [[ATMP170]], align 4
+// CHK-C-NEXT:    [[TMP86:%.*]] = load i8, i8* [[ATMP176]], align 1
+// CHK-C-NEXT:    [[TMP87:%.*]] = load i32, i32* [[EXPR]], align 4
+// CHK-C-NEXT:    [[ATOMIC_LOAD193:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS3:%.*]], %struct.BitFields3* @bfx3, i32 0, i32 0) monotonic, align 4
+// CHK-C-NEXT:    store i32 [[ATOMIC_LOAD193]], i32* [[ATOMIC_TEMP195]], align 4
+// CHK-C-NEXT:    [[BF_LOAD196:%.*]] = load i32, i32* [[ATOMIC_TEMP195]], align 4
+// CHK-C-NEXT:    [[BF_SHL197:%.*]] = shl i32 [[BF_LOAD196]], 7
+// CHK-C-NEXT:    [[BF_ASHR198:%.*]] = ashr i32 [[BF_SHL197]], 18
+// CHK-C-NEXT:    store i32 [[BF_ASHR198]], i32* [[ATMP194]], align 4
+// CHK-C-NEXT:    [[CMP199:%.*]] = icmp sgt i32 [[BF_ASHR198]], [[TMP87]]
+// CHK-C-NEXT:    [[FROMBOOL201:%.*]] = zext i1 [[CMP199]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL201]], i8* [[ATMP200]], align 1
+// CHK-C-NEXT:    br i1 [[CMP199]], label [[ATOMIC_CONT202:%.*]], label [[ATOMIC_EXIT216:%.*]]
+// CHK-C:       atomic_cont202:
+// CHK-C-NEXT:    [[TMP88:%.*]] = phi i32 [ [[ATOMIC_LOAD193]], [[ATOMIC_EXIT192]] ], [ [[TMP91:%.*]], [[ATOMIC_CMP209:%.*]] ]
+// CHK-C-NEXT:    store i32 [[TMP88]], i32* [[ATOMIC_TEMP203]], align 4
+// CHK-C-NEXT:    [[BF_LOAD204:%.*]] = load i32, i32* [[ATOMIC_TEMP203]], align 4
+// CHK-C-NEXT:    [[BF_VALUE205:%.*]] = and i32 [[TMP87]], 16383
+// CHK-C-NEXT:    [[BF_SHL206:%.*]] = shl i32 [[BF_VALUE205]], 11
+// CHK-C-NEXT:    [[BF_CLEAR207:%.*]] = and i32 [[BF_LOAD204]], -33552385
+// CHK-C-NEXT:    [[BF_SET208:%.*]] = or i32 [[BF_CLEAR207]], [[BF_SHL206]]
+// CHK-C-NEXT:    store i32 [[BF_SET208]], i32* [[ATOMIC_TEMP203]], align 4
+// CHK-C-NEXT:    [[TMP89:%.*]] = load i32, i32* [[ATOMIC_TEMP203]], align 4
+// CHK-C-NEXT:    [[TMP90:%.*]] = cmpxchg i32* getelementptr inbounds ([[STRUCT_BITFIELDS3]], %struct.BitFields3* @bfx3, i32 0, i32 0), i32 [[TMP88]], i32 [[TMP89]] monotonic monotonic, align 4
+// CHK-C-NEXT:    [[TMP91]] = extractvalue { i32, i1 } [[TMP90]], 0
+// CHK-C-NEXT:    [[TMP92:%.*]] = extractvalue { i32, i1 } [[TMP90]], 1
+// CHK-C-NEXT:    br i1 [[TMP92]], label [[ATOMIC_EXIT216]], label [[ATOMIC_CMP209]]
+// CHK-C:       atomic_cmp209:
+// CHK-C-NEXT:    store i32 [[TMP91]], i32* [[ATOMIC_TEMP210]], align 4
+// CHK-C-NEXT:    [[BF_LOAD211:%.*]] = load i32, i32* [[ATOMIC_TEMP210]], align 4
+// CHK-C-NEXT:    [[BF_SHL212:%.*]] = shl i32 [[BF_LOAD211]], 7
+// CHK-C-NEXT:    [[BF_ASHR213:%.*]] = ashr i32 [[BF_SHL212]], 18
+// CHK-C-NEXT:    store i32 [[BF_ASHR213]], i32* [[ATMP194]], align 4
+// CHK-C-NEXT:    [[CMP214:%.*]] = icmp sgt i32 [[BF_ASHR213]], [[TMP87]]
+// CHK-C-NEXT:    [[FROMBOOL215:%.*]] = zext i1 [[CMP214]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL215]], i8* [[ATMP200]], align 1
+// CHK-C-NEXT:    br i1 [[CMP214]], label [[ATOMIC_CONT202]], label [[ATOMIC_EXIT216]]
+// CHK-C:       atomic_exit216:
+// CHK-C-NEXT:    [[TMP93:%.*]] = load i32, i32* [[ATMP194]], align 4
+// CHK-C-NEXT:    [[TMP94:%.*]] = load i8, i8* [[ATMP200]], align 1
+// CHK-C-NEXT:    [[TMP95:%.*]] = load i32, i32* [[D]], align 4
+// CHK-C-NEXT:    [[TMP96:%.*]] = load i32, i32* [[E]], align 4
+// CHK-C-NEXT:    [[ATOMIC_LOAD217:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS3]], %struct.BitFields3* @bfx3, i32 0, i32 0) monotonic, align 4
+// CHK-C-NEXT:    store i32 [[ATOMIC_LOAD217]], i32* [[ATOMIC_TEMP219]], align 4
+// CHK-C-NEXT:    [[BF_LOAD220:%.*]] = load i32, i32* [[ATOMIC_TEMP219]], align 4
+// CHK-C-NEXT:    [[BF_SHL221:%.*]] = shl i32 [[BF_LOAD220]], 7
+// CHK-C-NEXT:    [[BF_ASHR222:%.*]] = ashr i32 [[BF_SHL221]], 18
+// CHK-C-NEXT:    store i32 [[BF_ASHR222]], i32* [[ATMP218]], align 4
+// CHK-C-NEXT:    [[CMP223:%.*]] = icmp eq i32 [[BF_ASHR222]], [[TMP96]]
+// CHK-C-NEXT:    [[FROMBOOL225:%.*]] = zext i1 [[CMP223]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL225]], i8* [[ATMP224]], align 1
+// CHK-C-NEXT:    br i1 [[CMP223]], label [[ATOMIC_CONT226:%.*]], label [[ATOMIC_EXIT240:%.*]]
+// CHK-C:       atomic_cont226:
+// CHK-C-NEXT:    [[TMP97:%.*]] = phi i32 [ [[ATOMIC_LOAD217]], [[ATOMIC_EXIT216]] ], [ [[TMP100:%.*]], [[ATOMIC_CMP233:%.*]] ]
+// CHK-C-NEXT:    store i32 [[TMP97]], i32* [[ATOMIC_TEMP227]], align 4
+// CHK-C-NEXT:    [[BF_LOAD228:%.*]] = load i32, i32* [[ATOMIC_TEMP227]], align 4
+// CHK-C-NEXT:    [[BF_VALUE229:%.*]] = and i32 [[TMP95]], 16383
+// CHK-C-NEXT:    [[BF_SHL230:%.*]] = shl i32 [[BF_VALUE229]], 11
+// CHK-C-NEXT:    [[BF_CLEAR231:%.*]] = and i32 [[BF_LOAD228]], -33552385
+// CHK-C-NEXT:    [[BF_SET232:%.*]] = or i32 [[BF_CLEAR231]], [[BF_SHL230]]
+// CHK-C-NEXT:    store i32 [[BF_SET232]], i32* [[ATOMIC_TEMP227]], align 4
+// CHK-C-NEXT:    [[TMP98:%.*]] = load i32, i32* [[ATOMIC_TEMP227]], align 4
+// CHK-C-NEXT:    [[TMP99:%.*]] = cmpxchg i32* getelementptr inbounds ([[STRUCT_BITFIELDS3]], %struct.BitFields3* @bfx3, i32 0, i32 0), i32 [[TMP97]], i32 [[TMP98]] monotonic monotonic, align 4
+// CHK-C-NEXT:    [[TMP100]] = extractvalue { i32, i1 } [[TMP99]], 0
+// CHK-C-NEXT:    [[TMP101:%.*]] = extractvalue { i32, i1 } [[TMP99]], 1
+// CHK-C-NEXT:    br i1 [[TMP101]], label [[ATOMIC_EXIT240]], label [[ATOMIC_CMP233]]
+// CHK-C:       atomic_cmp233:
+// CHK-C-NEXT:    store i32 [[TMP100]], i32* [[ATOMIC_TEMP234]], align 4
+// CHK-C-NEXT:    [[BF_LOAD235:%.*]] = load i32, i32* [[ATOMIC_TEMP234]], align 4
+// CHK-C-NEXT:    [[BF_SHL236:%.*]] = shl i32 [[BF_LOAD235]], 7
+// CHK-C-NEXT:    [[BF_ASHR237:%.*]] = ashr i32 [[BF_SHL236]], 18
+// CHK-C-NEXT:    store i32 [[BF_ASHR237]], i32* [[ATMP218]], align 4
+// CHK-C-NEXT:    [[CMP238:%.*]] = icmp eq i32 [[BF_ASHR237]], [[TMP96]]
+// CHK-C-NEXT:    [[FROMBOOL239:%.*]] = zext i1 [[CMP238]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL239]], i8* [[ATMP224]], align 1
+// CHK-C-NEXT:    br i1 [[CMP238]], label [[ATOMIC_CONT226]], label [[ATOMIC_EXIT240]]
+// CHK-C:       atomic_exit240:
+// CHK-C-NEXT:    [[TMP102:%.*]] = load i32, i32* [[ATMP218]], align 4
+// CHK-C-NEXT:    [[TMP103:%.*]] = load i8, i8* [[ATMP224]], align 1
+// CHK-C-NEXT:    [[TMP104:%.*]] = load i32, i32* [[EXPR]], align 4
+// CHK-C-NEXT:    [[ATOMIC_LOAD241:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS3]], %struct.BitFields3* @bfx3, i32 0, i32 0) monotonic, align 4
+// CHK-C-NEXT:    store i32 [[ATOMIC_LOAD241]], i32* [[ATOMIC_TEMP243]], align 4
+// CHK-C-NEXT:    [[BF_LOAD244:%.*]] = load i32, i32* [[ATOMIC_TEMP243]], align 4
+// CHK-C-NEXT:    [[BF_SHL245:%.*]] = shl i32 [[BF_LOAD244]], 7
+// CHK-C-NEXT:    [[BF_ASHR246:%.*]] = ashr i32 [[BF_SHL245]], 18
+// CHK-C-NEXT:    store i32 [[BF_ASHR246]], i32* [[ATMP242]], align 4
+// CHK-C-NEXT:    [[CMP247:%.*]] = icmp slt i32 [[BF_ASHR246]], [[TMP104]]
+// CHK-C-NEXT:    [[FROMBOOL249:%.*]] = zext i1 [[CMP247]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL249]], i8* [[ATMP248]], align 1
+// CHK-C-NEXT:    br i1 [[CMP247]], label [[ATOMIC_CONT250:%.*]], label [[ATOMIC_EXIT264:%.*]]
+// CHK-C:       atomic_cont250:
+// CHK-C-NEXT:    [[TMP105:%.*]] = phi i32 [ [[ATOMIC_LOAD241]], [[ATOMIC_EXIT240]] ], [ [[TMP108:%.*]], [[ATOMIC_CMP257:%.*]] ]
+// CHK-C-NEXT:    store i32 [[TMP105]], i32* [[ATOMIC_TEMP251]], align 4
+// CHK-C-NEXT:    [[BF_LOAD252:%.*]] = load i32, i32* [[ATOMIC_TEMP251]], align 4
+// CHK-C-NEXT:    [[BF_VALUE253:%.*]] = and i32 [[TMP104]], 16383
+// CHK-C-NEXT:    [[BF_SHL254:%.*]] = shl i32 [[BF_VALUE253]], 11
+// CHK-C-NEXT:    [[BF_CLEAR255:%.*]] = and i32 [[BF_LOAD252]], -33552385
+// CHK-C-NEXT:    [[BF_SET256:%.*]] = or i32 [[BF_CLEAR255]], [[BF_SHL254]]
+// CHK-C-NEXT:    store i32 [[BF_SET256]], i32* [[ATOMIC_TEMP251]], align 4
+// CHK-C-NEXT:    [[TMP106:%.*]] = load i32, i32* [[ATOMIC_TEMP251]], align 4
+// CHK-C-NEXT:    [[TMP107:%.*]] = cmpxchg i32* getelementptr inbounds ([[STRUCT_BITFIELDS3]], %struct.BitFields3* @bfx3, i32 0, i32 0), i32 [[TMP105]], i32 [[TMP106]] monotonic monotonic, align 4
+// CHK-C-NEXT:    [[TMP108]] = extractvalue { i32, i1 } [[TMP107]], 0
+// CHK-C-NEXT:    [[TMP109:%.*]] = extractvalue { i32, i1 } [[TMP107]], 1
+// CHK-C-NEXT:    br i1 [[TMP109]], label [[ATOMIC_EXIT264]], label [[ATOMIC_CMP257]]
+// CHK-C:       atomic_cmp257:
+// CHK-C-NEXT:    store i32 [[TMP108]], i32* [[ATOMIC_TEMP258]], align 4
+// CHK-C-NEXT:    [[BF_LOAD259:%.*]] = load i32, i32* [[ATOMIC_TEMP258]], align 4
+// CHK-C-NEXT:    [[BF_SHL260:%.*]] = shl i32 [[BF_LOAD259]], 7
+// CHK-C-NEXT:    [[BF_ASHR261:%.*]] = ashr i32 [[BF_SHL260]], 18
+// CHK-C-NEXT:    store i32 [[BF_ASHR261]], i32* [[ATMP242]], align 4
+// CHK-C-NEXT:    [[CMP262:%.*]] = icmp slt i32 [[BF_ASHR261]], [[TMP104]]
+// CHK-C-NEXT:    [[FROMBOOL263:%.*]] = zext i1 [[CMP262]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL263]], i8* [[ATMP248]], align 1
+// CHK-C-NEXT:    br i1 [[CMP262]], label [[ATOMIC_CONT250]], label [[ATOMIC_EXIT264]]
+// CHK-C:       atomic_exit264:
+// CHK-C-NEXT:    [[TMP110:%.*]] = load i32, i32* [[ATMP242]], align 4
+// CHK-C-NEXT:    [[TMP111:%.*]] = load i8, i8* [[ATMP248]], align 1
+// CHK-C-NEXT:    [[TMP112:%.*]] = load i32, i32* [[EXPR]], align 4
+// CHK-C-NEXT:    [[ATOMIC_LOAD265:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
+// CHK-C-NEXT:    store i64 [[ATOMIC_LOAD265]], i64* [[ATOMIC_TEMP267]], align 8
+// CHK-C-NEXT:    [[BF_LOAD268:%.*]] = load i64, i64* [[ATOMIC_TEMP267]], align 8
+// CHK-C-NEXT:    [[BF_SHL269:%.*]] = shl i64 [[BF_LOAD268]], 47
+// CHK-C-NEXT:    [[BF_ASHR270:%.*]] = ashr i64 [[BF_SHL269]], 63
+// CHK-C-NEXT:    [[BF_CAST271:%.*]] = trunc i64 [[BF_ASHR270]] to i32
+// CHK-C-NEXT:    store i32 [[BF_CAST271]], i32* [[ATMP266]], align 4
+// CHK-C-NEXT:    [[CMP272:%.*]] = icmp sgt i32 [[BF_CAST271]], [[TMP112]]
+// CHK-C-NEXT:    [[FROMBOOL274:%.*]] = zext i1 [[CMP272]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL274]], i8* [[ATMP273]], align 1
+// CHK-C-NEXT:    br i1 [[CMP272]], label [[ATOMIC_CONT275:%.*]], label [[ATOMIC_EXIT290:%.*]]
+// CHK-C:       atomic_cont275:
+// CHK-C-NEXT:    [[TMP113:%.*]] = phi i64 [ [[ATOMIC_LOAD265]], [[ATOMIC_EXIT264]] ], [ [[TMP117:%.*]], [[ATOMIC_CMP282:%.*]] ]
+// CHK-C-NEXT:    store i64 [[TMP113]], i64* [[ATOMIC_TEMP276]], align 8
+// CHK-C-NEXT:    [[TMP114:%.*]] = zext i32 [[TMP112]] to i64
+// CHK-C-NEXT:    [[BF_LOAD277:%.*]] = load i64, i64* [[ATOMIC_TEMP276]], align 8
+// CHK-C-NEXT:    [[BF_VALUE278:%.*]] = and i64 [[TMP114]], 1
+// CHK-C-NEXT:    [[BF_SHL279:%.*]] = shl i64 [[BF_VALUE278]], 16
+// CHK-C-NEXT:    [[BF_CLEAR280:%.*]] = and i64 [[BF_LOAD277]], -65537
+// CHK-C-NEXT:    [[BF_SET281:%.*]] = or i64 [[BF_CLEAR280]], [[BF_SHL279]]
+// CHK-C-NEXT:    store i64 [[BF_SET281]], i64* [[ATOMIC_TEMP276]], align 8
+// CHK-C-NEXT:    [[TMP115:%.*]] = load i64, i64* [[ATOMIC_TEMP276]], align 8
+// CHK-C-NEXT:    [[TMP116:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP113]], i64 [[TMP115]] monotonic monotonic, align 8
+// CHK-C-NEXT:    [[TMP117]] = extractvalue { i64, i1 } [[TMP116]], 0
+// CHK-C-NEXT:    [[TMP118:%.*]] = extractvalue { i64, i1 } [[TMP116]], 1
+// CHK-C-NEXT:    br i1 [[TMP118]], label [[ATOMIC_EXIT290]], label [[ATOMIC_CMP282]]
+// CHK-C:       atomic_cmp282:
+// CHK-C-NEXT:    store i64 [[TMP117]], i64* [[ATOMIC_TEMP283]], align 8
+// CHK-C-NEXT:    [[BF_LOAD284:%.*]] = load i64, i64* [[ATOMIC_TEMP283]], align 8
+// CHK-C-NEXT:    [[BF_SHL285:%.*]] = shl i64 [[BF_LOAD284]], 47
+// CHK-C-NEXT:    [[BF_ASHR286:%.*]] = ashr i64 [[BF_SHL285]], 63
+// CHK-C-NEXT:    [[BF_CAST287:%.*]] = trunc i64 [[BF_ASHR286]] to i32
+// CHK-C-NEXT:    store i32 [[BF_CAST287]], i32* [[ATMP266]], align 4
+// CHK-C-NEXT:    [[CMP288:%.*]] = icmp sgt i32 [[BF_CAST287]], [[TMP112]]
+// CHK-C-NEXT:    [[FROMBOOL289:%.*]] = zext i1 [[CMP288]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL289]], i8* [[ATMP273]], align 1
+// CHK-C-NEXT:    br i1 [[CMP288]], label [[ATOMIC_CONT275]], label [[ATOMIC_EXIT290]]
+// CHK-C:       atomic_exit290:
+// CHK-C-NEXT:    [[TMP119:%.*]] = load i32, i32* [[ATMP266]], align 4
+// CHK-C-NEXT:    [[TMP120:%.*]] = load i8, i8* [[ATMP273]], align 1
+// CHK-C-NEXT:    [[TMP121:%.*]] = load i32, i32* [[D]], align 4
+// CHK-C-NEXT:    [[TMP122:%.*]] = load i32, i32* [[E]], align 4
+// CHK-C-NEXT:    [[ATOMIC_LOAD291:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
+// CHK-C-NEXT:    store i64 [[ATOMIC_LOAD291]], i64* [[ATOMIC_TEMP293]], align 8
+// CHK-C-NEXT:    [[BF_LOAD294:%.*]] = load i64, i64* [[ATOMIC_TEMP293]], align 8
+// CHK-C-NEXT:    [[BF_SHL295:%.*]] = shl i64 [[BF_LOAD294]], 47
+// CHK-C-NEXT:    [[BF_ASHR296:%.*]] = ashr i64 [[BF_SHL295]], 63
+// CHK-C-NEXT:    [[BF_CAST297:%.*]] = trunc i64 [[BF_ASHR296]] to i32
+// CHK-C-NEXT:    store i32 [[BF_CAST297]], i32* [[ATMP292]], align 4
+// CHK-C-NEXT:    [[CMP298:%.*]] = icmp eq i32 [[BF_CAST297]], [[TMP122]]
+// CHK-C-NEXT:    [[FROMBOOL300:%.*]] = zext i1 [[CMP298]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL300]], i8* [[ATMP299]], align 1
+// CHK-C-NEXT:    br i1 [[CMP298]], label [[ATOMIC_CONT301:%.*]], label [[ATOMIC_EXIT316:%.*]]
+// CHK-C:       atomic_cont301:
+// CHK-C-NEXT:    [[TMP123:%.*]] = phi i64 [ [[ATOMIC_LOAD291]], [[ATOMIC_EXIT290]] ], [ [[TMP127:%.*]], [[ATOMIC_CMP308:%.*]] ]
+// CHK-C-NEXT:    store i64 [[TMP123]], i64* [[ATOMIC_TEMP302]], align 8
+// CHK-C-NEXT:    [[TMP124:%.*]] = zext i32 [[TMP121]] to i64
+// CHK-C-NEXT:    [[BF_LOAD303:%.*]] = load i64, i64* [[ATOMIC_TEMP302]], align 8
+// CHK-C-NEXT:    [[BF_VALUE304:%.*]] = and i64 [[TMP124]], 1
+// CHK-C-NEXT:    [[BF_SHL305:%.*]] = shl i64 [[BF_VALUE304]], 16
+// CHK-C-NEXT:    [[BF_CLEAR306:%.*]] = and i64 [[BF_LOAD303]], -65537
+// CHK-C-NEXT:    [[BF_SET307:%.*]] = or i64 [[BF_CLEAR306]], [[BF_SHL305]]
+// CHK-C-NEXT:    store i64 [[BF_SET307]], i64* [[ATOMIC_TEMP302]], align 8
+// CHK-C-NEXT:    [[TMP125:%.*]] = load i64, i64* [[ATOMIC_TEMP302]], align 8
+// CHK-C-NEXT:    [[TMP126:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP123]], i64 [[TMP125]] monotonic monotonic, align 8
+// CHK-C-NEXT:    [[TMP127]] = extractvalue { i64, i1 } [[TMP126]], 0
+// CHK-C-NEXT:    [[TMP128:%.*]] = extractvalue { i64, i1 } [[TMP126]], 1
+// CHK-C-NEXT:    br i1 [[TMP128]], label [[ATOMIC_EXIT316]], label [[ATOMIC_CMP308]]
+// CHK-C:       atomic_cmp308:
+// CHK-C-NEXT:    store i64 [[TMP127]], i64* [[ATOMIC_TEMP309]], align 8
+// CHK-C-NEXT:    [[BF_LOAD310:%.*]] = load i64, i64* [[ATOMIC_TEMP309]], align 8
+// CHK-C-NEXT:    [[BF_SHL311:%.*]] = shl i64 [[BF_LOAD310]], 47
+// CHK-C-NEXT:    [[BF_ASHR312:%.*]] = ashr i64 [[BF_SHL311]], 63
+// CHK-C-NEXT:    [[BF_CAST313:%.*]] = trunc i64 [[BF_ASHR312]] to i32
+// CHK-C-NEXT:    store i32 [[BF_CAST313]], i32* [[ATMP292]], align 4
+// CHK-C-NEXT:    [[CMP314:%.*]] = icmp eq i32 [[BF_CAST313]], [[TMP122]]
+// CHK-C-NEXT:    [[FROMBOOL315:%.*]] = zext i1 [[CMP314]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL315]], i8* [[ATMP299]], align 1
+// CHK-C-NEXT:    br i1 [[CMP314]], label [[ATOMIC_CONT301]], label [[ATOMIC_EXIT316]]
+// CHK-C:       atomic_exit316:
+// CHK-C-NEXT:    [[TMP129:%.*]] = load i32, i32* [[ATMP292]], align 4
+// CHK-C-NEXT:    [[TMP130:%.*]] = load i8, i8* [[ATMP299]], align 1
+// CHK-C-NEXT:    [[TMP131:%.*]] = load i32, i32* [[EXPR]], align 4
+// CHK-C-NEXT:    [[ATOMIC_LOAD317:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
+// CHK-C-NEXT:    store i64 [[ATOMIC_LOAD317]], i64* [[ATOMIC_TEMP319]], align 8
+// CHK-C-NEXT:    [[BF_LOAD320:%.*]] = load i64, i64* [[ATOMIC_TEMP319]], align 8
+// CHK-C-NEXT:    [[BF_SHL321:%.*]] = shl i64 [[BF_LOAD320]], 47
+// CHK-C-NEXT:    [[BF_ASHR322:%.*]] = ashr i64 [[BF_SHL321]], 63
+// CHK-C-NEXT:    [[BF_CAST323:%.*]] = trunc i64 [[BF_ASHR322]] to i32
+// CHK-C-NEXT:    store i32 [[BF_CAST323]], i32* [[ATMP318]], align 4
+// CHK-C-NEXT:    [[CMP324:%.*]] = icmp slt i32 [[BF_CAST323]], [[TMP131]]
+// CHK-C-NEXT:    [[FROMBOOL326:%.*]] = zext i1 [[CMP324]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL326]], i8* [[ATMP325]], align 1
+// CHK-C-NEXT:    br i1 [[CMP324]], label [[ATOMIC_CONT327:%.*]], label [[ATOMIC_EXIT342:%.*]]
+// CHK-C:       atomic_cont327:
+// CHK-C-NEXT:    [[TMP132:%.*]] = phi i64 [ [[ATOMIC_LOAD317]], [[ATOMIC_EXIT316]] ], [ [[TMP136:%.*]], [[ATOMIC_CMP334:%.*]] ]
+// CHK-C-NEXT:    store i64 [[TMP132]], i64* [[ATOMIC_TEMP328]], align 8
+// CHK-C-NEXT:    [[TMP133:%.*]] = zext i32 [[TMP131]] to i64
+// CHK-C-NEXT:    [[BF_LOAD329:%.*]] = load i64, i64* [[ATOMIC_TEMP328]], align 8
+// CHK-C-NEXT:    [[BF_VALUE330:%.*]] = and i64 [[TMP133]], 1
+// CHK-C-NEXT:    [[BF_SHL331:%.*]] = shl i64 [[BF_VALUE330]], 16
+// CHK-C-NEXT:    [[BF_CLEAR332:%.*]] = and i64 [[BF_LOAD329]], -65537
+// CHK-C-NEXT:    [[BF_SET333:%.*]] = or i64 [[BF_CLEAR332]], [[BF_SHL331]]
+// CHK-C-NEXT:    store i64 [[BF_SET333]], i64* [[ATOMIC_TEMP328]], align 8
+// CHK-C-NEXT:    [[TMP134:%.*]] = load i64, i64* [[ATOMIC_TEMP328]], align 8
+// CHK-C-NEXT:    [[TMP135:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP132]], i64 [[TMP134]] monotonic monotonic, align 8
+// CHK-C-NEXT:    [[TMP136]] = extractvalue { i64, i1 } [[TMP135]], 0
+// CHK-C-NEXT:    [[TMP137:%.*]] = extractvalue { i64, i1 } [[TMP135]], 1
+// CHK-C-NEXT:    br i1 [[TMP137]], label [[ATOMIC_EXIT342]], label [[ATOMIC_CMP334]]
+// CHK-C:       atomic_cmp334:
+// CHK-C-NEXT:    store i64 [[TMP136]], i64* [[ATOMIC_TEMP335]], align 8
+// CHK-C-NEXT:    [[BF_LOAD336:%.*]] = load i64, i64* [[ATOMIC_TEMP335]], align 8
+// CHK-C-NEXT:    [[BF_SHL337:%.*]] = shl i64 [[BF_LOAD336]], 47
+// CHK-C-NEXT:    [[BF_ASHR338:%.*]] = ashr i64 [[BF_SHL337]], 63
+// CHK-C-NEXT:    [[BF_CAST339:%.*]] = trunc i64 [[BF_ASHR338]] to i32
+// CHK-C-NEXT:    store i32 [[BF_CAST339]], i32* [[ATMP318]], align 4
+// CHK-C-NEXT:    [[CMP340:%.*]] = icmp slt i32 [[BF_CAST339]], [[TMP131]]
+// CHK-C-NEXT:    [[FROMBOOL341:%.*]] = zext i1 [[CMP340]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL341]], i8* [[ATMP325]], align 1
+// CHK-C-NEXT:    br i1 [[CMP340]], label [[ATOMIC_CONT327]], label [[ATOMIC_EXIT342]]
+// CHK-C:       atomic_exit342:
+// CHK-C-NEXT:    [[TMP138:%.*]] = load i32, i32* [[ATMP318]], align 4
+// CHK-C-NEXT:    [[TMP139:%.*]] = load i8, i8* [[ATMP325]], align 1
+// CHK-C-NEXT:    [[TMP140:%.*]] = load i32, i32* [[EXPR]], align 4
+// CHK-C-NEXT:    [[CONV:%.*]] = sext i32 [[TMP140]] to i64
+// CHK-C-NEXT:    [[ATOMIC_LOAD343:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
+// CHK-C-NEXT:    store i64 [[ATOMIC_LOAD343]], i64* [[ATOMIC_TEMP345]], align 8
+// CHK-C-NEXT:    [[BF_LOAD346:%.*]] = load i64, i64* [[ATOMIC_TEMP345]], align 8
+// CHK-C-NEXT:    [[BF_SHL347:%.*]] = shl i64 [[BF_LOAD346]], 40
+// CHK-C-NEXT:    [[BF_ASHR348:%.*]] = ashr i64 [[BF_SHL347]], 57
+// CHK-C-NEXT:    store i64 [[BF_ASHR348]], i64* [[ATMP344]], align 8
+// CHK-C-NEXT:    [[CMP349:%.*]] = icmp sgt i64 [[BF_ASHR348]], [[CONV]]
+// CHK-C-NEXT:    [[FROMBOOL351:%.*]] = zext i1 [[CMP349]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL351]], i8* [[ATMP350]], align 1
+// CHK-C-NEXT:    br i1 [[CMP349]], label [[ATOMIC_CONT352:%.*]], label [[ATOMIC_EXIT366:%.*]]
+// CHK-C:       atomic_cont352:
+// CHK-C-NEXT:    [[TMP141:%.*]] = phi i64 [ [[ATOMIC_LOAD343]], [[ATOMIC_EXIT342]] ], [ [[TMP144:%.*]], [[ATOMIC_CMP359:%.*]] ]
+// CHK-C-NEXT:    store i64 [[TMP141]], i64* [[ATOMIC_TEMP353]], align 8
+// CHK-C-NEXT:    [[BF_LOAD354:%.*]] = load i64, i64* [[ATOMIC_TEMP353]], align 8
+// CHK-C-NEXT:    [[BF_VALUE355:%.*]] = and i64 [[CONV]], 127
+// CHK-C-NEXT:    [[BF_SHL356:%.*]] = shl i64 [[BF_VALUE355]], 17
+// CHK-C-NEXT:    [[BF_CLEAR357:%.*]] = and i64 [[BF_LOAD354]], -16646145
+// CHK-C-NEXT:    [[BF_SET358:%.*]] = or i64 [[BF_CLEAR357]], [[BF_SHL356]]
+// CHK-C-NEXT:    store i64 [[BF_SET358]], i64* [[ATOMIC_TEMP353]], align 8
+// CHK-C-NEXT:    [[TMP142:%.*]] = load i64, i64* [[ATOMIC_TEMP353]], align 8
+// CHK-C-NEXT:    [[TMP143:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP141]], i64 [[TMP142]] monotonic monotonic, align 8
+// CHK-C-NEXT:    [[TMP144]] = extractvalue { i64, i1 } [[TMP143]], 0
+// CHK-C-NEXT:    [[TMP145:%.*]] = extractvalue { i64, i1 } [[TMP143]], 1
+// CHK-C-NEXT:    br i1 [[TMP145]], label [[ATOMIC_EXIT366]], label [[ATOMIC_CMP359]]
+// CHK-C:       atomic_cmp359:
+// CHK-C-NEXT:    store i64 [[TMP144]], i64* [[ATOMIC_TEMP360]], align 8
+// CHK-C-NEXT:    [[BF_LOAD361:%.*]] = load i64, i64* [[ATOMIC_TEMP360]], align 8
+// CHK-C-NEXT:    [[BF_SHL362:%.*]] = shl i64 [[BF_LOAD361]], 40
+// CHK-C-NEXT:    [[BF_ASHR363:%.*]] = ashr i64 [[BF_SHL362]], 57
+// CHK-C-NEXT:    store i64 [[BF_ASHR363]], i64* [[ATMP344]], align 8
+// CHK-C-NEXT:    [[CMP364:%.*]] = icmp sgt i64 [[BF_ASHR363]], [[CONV]]
+// CHK-C-NEXT:    [[FROMBOOL365:%.*]] = zext i1 [[CMP364]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL365]], i8* [[ATMP350]], align 1
+// CHK-C-NEXT:    br i1 [[CMP364]], label [[ATOMIC_CONT352]], label [[ATOMIC_EXIT366]]
+// CHK-C:       atomic_exit366:
+// CHK-C-NEXT:    [[TMP146:%.*]] = load i64, i64* [[ATMP344]], align 8
+// CHK-C-NEXT:    [[TMP147:%.*]] = load i8, i8* [[ATMP350]], align 1
+// CHK-C-NEXT:    [[TMP148:%.*]] = load i32, i32* [[D]], align 4
+// CHK-C-NEXT:    [[CONV367:%.*]] = sext i32 [[TMP148]] to i64
+// CHK-C-NEXT:    [[TMP149:%.*]] = load i32, i32* [[E]], align 4
+// CHK-C-NEXT:    [[CONV368:%.*]] = sext i32 [[TMP149]] to i64
+// CHK-C-NEXT:    [[ATOMIC_LOAD369:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
+// CHK-C-NEXT:    store i64 [[ATOMIC_LOAD369]], i64* [[ATOMIC_TEMP371]], align 8
+// CHK-C-NEXT:    [[BF_LOAD372:%.*]] = load i64, i64* [[ATOMIC_TEMP371]], align 8
+// CHK-C-NEXT:    [[BF_SHL373:%.*]] = shl i64 [[BF_LOAD372]], 40
+// CHK-C-NEXT:    [[BF_ASHR374:%.*]] = ashr i64 [[BF_SHL373]], 57
+// CHK-C-NEXT:    store i64 [[BF_ASHR374]], i64* [[ATMP370]], align 8
+// CHK-C-NEXT:    [[CMP375:%.*]] = icmp eq i64 [[BF_ASHR374]], [[CONV368]]
+// CHK-C-NEXT:    [[FROMBOOL377:%.*]] = zext i1 [[CMP375]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL377]], i8* [[ATMP376]], align 1
+// CHK-C-NEXT:    br i1 [[CMP375]], label [[ATOMIC_CONT378:%.*]], label [[ATOMIC_EXIT392:%.*]]
+// CHK-C:       atomic_cont378:
+// CHK-C-NEXT:    [[TMP150:%.*]] = phi i64 [ [[ATOMIC_LOAD369]], [[ATOMIC_EXIT366]] ], [ [[TMP153:%.*]], [[ATOMIC_CMP385:%.*]] ]
+// CHK-C-NEXT:    store i64 [[TMP150]], i64* [[ATOMIC_TEMP379]], align 8
+// CHK-C-NEXT:    [[BF_LOAD380:%.*]] = load i64, i64* [[ATOMIC_TEMP379]], align 8
+// CHK-C-NEXT:    [[BF_VALUE381:%.*]] = and i64 [[CONV367]], 127
+// CHK-C-NEXT:    [[BF_SHL382:%.*]] = shl i64 [[BF_VALUE381]], 17
+// CHK-C-NEXT:    [[BF_CLEAR383:%.*]] = and i64 [[BF_LOAD380]], -16646145
+// CHK-C-NEXT:    [[BF_SET384:%.*]] = or i64 [[BF_CLEAR383]], [[BF_SHL382]]
+// CHK-C-NEXT:    store i64 [[BF_SET384]], i64* [[ATOMIC_TEMP379]], align 8
+// CHK-C-NEXT:    [[TMP151:%.*]] = load i64, i64* [[ATOMIC_TEMP379]], align 8
+// CHK-C-NEXT:    [[TMP152:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP150]], i64 [[TMP151]] monotonic monotonic, align 8
+// CHK-C-NEXT:    [[TMP153]] = extractvalue { i64, i1 } [[TMP152]], 0
+// CHK-C-NEXT:    [[TMP154:%.*]] = extractvalue { i64, i1 } [[TMP152]], 1
+// CHK-C-NEXT:    br i1 [[TMP154]], label [[ATOMIC_EXIT392]], label [[ATOMIC_CMP385]]
+// CHK-C:       atomic_cmp385:
+// CHK-C-NEXT:    store i64 [[TMP153]], i64* [[ATOMIC_TEMP386]], align 8
+// CHK-C-NEXT:    [[BF_LOAD387:%.*]] = load i64, i64* [[ATOMIC_TEMP386]], align 8
+// CHK-C-NEXT:    [[BF_SHL388:%.*]] = shl i64 [[BF_LOAD387]], 40
+// CHK-C-NEXT:    [[BF_ASHR389:%.*]] = ashr i64 [[BF_SHL388]], 57
+// CHK-C-NEXT:    store i64 [[BF_ASHR389]], i64* [[ATMP370]], align 8
+// CHK-C-NEXT:    [[CMP390:%.*]] = icmp eq i64 [[BF_ASHR389]], [[CONV368]]
+// CHK-C-NEXT:    [[FROMBOOL391:%.*]] = zext i1 [[CMP390]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL391]], i8* [[ATMP376]], align 1
+// CHK-C-NEXT:    br i1 [[CMP390]], label [[ATOMIC_CONT378]], label [[ATOMIC_EXIT392]]
+// CHK-C:       atomic_exit392:
+// CHK-C-NEXT:    [[TMP155:%.*]] = load i64, i64* [[ATMP370]], align 8
+// CHK-C-NEXT:    [[TMP156:%.*]] = load i8, i8* [[ATMP376]], align 1
+// CHK-C-NEXT:    [[TMP157:%.*]] = load i32, i32* [[EXPR]], align 4
+// CHK-C-NEXT:    [[CONV393:%.*]] = sext i32 [[TMP157]] to i64
+// CHK-C-NEXT:    [[ATOMIC_LOAD394:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
+// CHK-C-NEXT:    store i64 [[ATOMIC_LOAD394]], i64* [[ATOMIC_TEMP396]], align 8
+// CHK-C-NEXT:    [[BF_LOAD397:%.*]] = load i64, i64* [[ATOMIC_TEMP396]], align 8
+// CHK-C-NEXT:    [[BF_SHL398:%.*]] = shl i64 [[BF_LOAD397]], 40
+// CHK-C-NEXT:    [[BF_ASHR399:%.*]] = ashr i64 [[BF_SHL398]], 57
+// CHK-C-NEXT:    store i64 [[BF_ASHR399]], i64* [[ATMP395]], align 8
+// CHK-C-NEXT:    [[CMP400:%.*]] = icmp slt i64 [[BF_ASHR399]], [[CONV393]]
+// CHK-C-NEXT:    [[FROMBOOL402:%.*]] = zext i1 [[CMP400]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL402]], i8* [[ATMP401]], align 1
+// CHK-C-NEXT:    br i1 [[CMP400]], label [[ATOMIC_CONT403:%.*]], label [[ATOMIC_EXIT417:%.*]]
+// CHK-C:       atomic_cont403:
+// CHK-C-NEXT:    [[TMP158:%.*]] = phi i64 [ [[ATOMIC_LOAD394]], [[ATOMIC_EXIT392]] ], [ [[TMP161:%.*]], [[ATOMIC_CMP410:%.*]] ]
+// CHK-C-NEXT:    store i64 [[TMP158]], i64* [[ATOMIC_TEMP404]], align 8
+// CHK-C-NEXT:    [[BF_LOAD405:%.*]] = load i64, i64* [[ATOMIC_TEMP404]], align 8
+// CHK-C-NEXT:    [[BF_VALUE406:%.*]] = and i64 [[CONV393]], 127
+// CHK-C-NEXT:    [[BF_SHL407:%.*]] = shl i64 [[BF_VALUE406]], 17
+// CHK-C-NEXT:    [[BF_CLEAR408:%.*]] = and i64 [[BF_LOAD405]], -16646145
+// CHK-C-NEXT:    [[BF_SET409:%.*]] = or i64 [[BF_CLEAR408]], [[BF_SHL407]]
+// CHK-C-NEXT:    store i64 [[BF_SET409]], i64* [[ATOMIC_TEMP404]], align 8
+// CHK-C-NEXT:    [[TMP159:%.*]] = load i64, i64* [[ATOMIC_TEMP404]], align 8
+// CHK-C-NEXT:    [[TMP160:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP158]], i64 [[TMP159]] monotonic monotonic, align 8
+// CHK-C-NEXT:    [[TMP161]] = extractvalue { i64, i1 } [[TMP160]], 0
+// CHK-C-NEXT:    [[TMP162:%.*]] = extractvalue { i64, i1 } [[TMP160]], 1
+// CHK-C-NEXT:    br i1 [[TMP162]], label [[ATOMIC_EXIT417]], label [[ATOMIC_CMP410]]
+// CHK-C:       atomic_cmp410:
+// CHK-C-NEXT:    store i64 [[TMP161]], i64* [[ATOMIC_TEMP411]], align 8
+// CHK-C-NEXT:    [[BF_LOAD412:%.*]] = load i64, i64* [[ATOMIC_TEMP411]], align 8
+// CHK-C-NEXT:    [[BF_SHL413:%.*]] = shl i64 [[BF_LOAD412]], 40
+// CHK-C-NEXT:    [[BF_ASHR414:%.*]] = ashr i64 [[BF_SHL413]], 57
+// CHK-C-NEXT:    store i64 [[BF_ASHR414]], i64* [[ATMP395]], align 8
+// CHK-C-NEXT:    [[CMP415:%.*]] = icmp slt i64 [[BF_ASHR414]], [[CONV393]]
+// CHK-C-NEXT:    [[FROMBOOL416:%.*]] = zext i1 [[CMP415]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL416]], i8* [[ATMP401]], align 1
+// CHK-C-NEXT:    br i1 [[CMP415]], label [[ATOMIC_CONT403]], label [[ATOMIC_EXIT417]]
+// CHK-C:       atomic_exit417:
+// CHK-C-NEXT:    [[TMP163:%.*]] = load i64, i64* [[ATMP395]], align 8
+// CHK-C-NEXT:    [[TMP164:%.*]] = load i8, i8* [[ATMP401]], align 1
+// CHK-C-NEXT:    [[TMP165:%.*]] = load i32, i32* [[EXPR]], align 4
+// CHK-C-NEXT:    [[ATOMIC_LOAD418:%.*]] = load atomic i8, i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED:%.*]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2) monotonic, align 1
+// CHK-C-NEXT:    [[TMP166:%.*]] = bitcast i32* [[ATOMIC_TEMP420]] to i8*
+// CHK-C-NEXT:    store i8 [[ATOMIC_LOAD418]], i8* [[TMP166]], align 1
+// CHK-C-NEXT:    [[BF_LOAD421:%.*]] = load i8, i8* [[TMP166]], align 1
+// CHK-C-NEXT:    [[BF_SHL422:%.*]] = shl i8 [[BF_LOAD421]], 7
+// CHK-C-NEXT:    [[BF_ASHR423:%.*]] = ashr i8 [[BF_SHL422]], 7
+// CHK-C-NEXT:    [[BF_CAST424:%.*]] = sext i8 [[BF_ASHR423]] to i32
+// CHK-C-NEXT:    store i32 [[BF_CAST424]], i32* [[ATMP419]], align 4
+// CHK-C-NEXT:    [[CMP425:%.*]] = icmp sgt i32 [[BF_CAST424]], [[TMP165]]
+// CHK-C-NEXT:    [[FROMBOOL427:%.*]] = zext i1 [[CMP425]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL427]], i8* [[ATMP426]], align 1
+// CHK-C-NEXT:    br i1 [[CMP425]], label [[ATOMIC_CONT428:%.*]], label [[ATOMIC_EXIT442:%.*]]
+// CHK-C:       atomic_cont428:
+// CHK-C-NEXT:    [[TMP167:%.*]] = phi i8 [ [[ATOMIC_LOAD418]], [[ATOMIC_EXIT417]] ], [ [[TMP172:%.*]], [[ATOMIC_CMP434:%.*]] ]
+// CHK-C-NEXT:    [[TMP168:%.*]] = bitcast i32* [[ATOMIC_TEMP429]] to i8*
+// CHK-C-NEXT:    store i8 [[TMP167]], i8* [[TMP168]], align 1
+// CHK-C-NEXT:    [[TMP169:%.*]] = trunc i32 [[TMP165]] to i8
+// CHK-C-NEXT:    [[BF_LOAD430:%.*]] = load i8, i8* [[TMP168]], align 1
+// CHK-C-NEXT:    [[BF_VALUE431:%.*]] = and i8 [[TMP169]], 1
+// CHK-C-NEXT:    [[BF_CLEAR432:%.*]] = and i8 [[BF_LOAD430]], -2
+// CHK-C-NEXT:    [[BF_SET433:%.*]] = or i8 [[BF_CLEAR432]], [[BF_VALUE431]]
+// CHK-C-NEXT:    store i8 [[BF_SET433]], i8* [[TMP168]], align 1
+// CHK-C-NEXT:    [[TMP170:%.*]] = load i8, i8* [[TMP168]], align 1
+// CHK-C-NEXT:    [[TMP171:%.*]] = cmpxchg i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2), i8 [[TMP167]], i8 [[TMP170]] monotonic monotonic, align 1
+// CHK-C-NEXT:    [[TMP172]] = extractvalue { i8, i1 } [[TMP171]], 0
+// CHK-C-NEXT:    [[TMP173:%.*]] = extractvalue { i8, i1 } [[TMP171]], 1
+// CHK-C-NEXT:    br i1 [[TMP173]], label [[ATOMIC_EXIT442]], label [[ATOMIC_CMP434]]
+// CHK-C:       atomic_cmp434:
+// CHK-C-NEXT:    [[TMP174:%.*]] = bitcast i32* [[ATOMIC_TEMP435]] to i8*
+// CHK-C-NEXT:    store i8 [[TMP172]], i8* [[TMP174]], align 1
+// CHK-C-NEXT:    [[BF_LOAD436:%.*]] = load i8, i8* [[TMP174]], align 1
+// CHK-C-NEXT:    [[BF_SHL437:%.*]] = shl i8 [[BF_LOAD436]], 7
+// CHK-C-NEXT:    [[BF_ASHR438:%.*]] = ashr i8 [[BF_SHL437]], 7
+// CHK-C-NEXT:    [[BF_CAST439:%.*]] = sext i8 [[BF_ASHR438]] to i32
+// CHK-C-NEXT:    store i32 [[BF_CAST439]], i32* [[ATMP419]], align 4
+// CHK-C-NEXT:    [[CMP440:%.*]] = icmp sgt i32 [[BF_CAST439]], [[TMP165]]
+// CHK-C-NEXT:    [[FROMBOOL441:%.*]] = zext i1 [[CMP440]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL441]], i8* [[ATMP426]], align 1
+// CHK-C-NEXT:    br i1 [[CMP440]], label [[ATOMIC_CONT428]], label [[ATOMIC_EXIT442]]
+// CHK-C:       atomic_exit442:
+// CHK-C-NEXT:    [[TMP175:%.*]] = load i32, i32* [[ATMP419]], align 4
+// CHK-C-NEXT:    [[TMP176:%.*]] = load i8, i8* [[ATMP426]], align 1
+// CHK-C-NEXT:    [[TMP177:%.*]] = load i32, i32* [[D]], align 4
+// CHK-C-NEXT:    [[TMP178:%.*]] = load i32, i32* [[E]], align 4
+// CHK-C-NEXT:    [[ATOMIC_LOAD443:%.*]] = load atomic i8, i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2) monotonic, align 1
+// CHK-C-NEXT:    [[TMP179:%.*]] = bitcast i32* [[ATOMIC_TEMP445]] to i8*
+// CHK-C-NEXT:    store i8 [[ATOMIC_LOAD443]], i8* [[TMP179]], align 1
+// CHK-C-NEXT:    [[BF_LOAD446:%.*]] = load i8, i8* [[TMP179]], align 1
+// CHK-C-NEXT:    [[BF_SHL447:%.*]] = shl i8 [[BF_LOAD446]], 7
+// CHK-C-NEXT:    [[BF_ASHR448:%.*]] = ashr i8 [[BF_SHL447]], 7
+// CHK-C-NEXT:    [[BF_CAST449:%.*]] = sext i8 [[BF_ASHR448]] to i32
+// CHK-C-NEXT:    store i32 [[BF_CAST449]], i32* [[ATMP444]], align 4
+// CHK-C-NEXT:    [[CMP450:%.*]] = icmp eq i32 [[BF_CAST449]], [[TMP178]]
+// CHK-C-NEXT:    [[FROMBOOL452:%.*]] = zext i1 [[CMP450]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL452]], i8* [[ATMP451]], align 1
+// CHK-C-NEXT:    br i1 [[CMP450]], label [[ATOMIC_CONT453:%.*]], label [[ATOMIC_EXIT467:%.*]]
+// CHK-C:       atomic_cont453:
+// CHK-C-NEXT:    [[TMP180:%.*]] = phi i8 [ [[ATOMIC_LOAD443]], [[ATOMIC_EXIT442]] ], [ [[TMP185:%.*]], [[ATOMIC_CMP459:%.*]] ]
+// CHK-C-NEXT:    [[TMP181:%.*]] = bitcast i32* [[ATOMIC_TEMP454]] to i8*
+// CHK-C-NEXT:    store i8 [[TMP180]], i8* [[TMP181]], align 1
+// CHK-C-NEXT:    [[TMP182:%.*]] = trunc i32 [[TMP177]] to i8
+// CHK-C-NEXT:    [[BF_LOAD455:%.*]] = load i8, i8* [[TMP181]], align 1
+// CHK-C-NEXT:    [[BF_VALUE456:%.*]] = and i8 [[TMP182]], 1
+// CHK-C-NEXT:    [[BF_CLEAR457:%.*]] = and i8 [[BF_LOAD455]], -2
+// CHK-C-NEXT:    [[BF_SET458:%.*]] = or i8 [[BF_CLEAR457]], [[BF_VALUE456]]
+// CHK-C-NEXT:    store i8 [[BF_SET458]], i8* [[TMP181]], align 1
+// CHK-C-NEXT:    [[TMP183:%.*]] = load i8, i8* [[TMP181]], align 1
+// CHK-C-NEXT:    [[TMP184:%.*]] = cmpxchg i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2), i8 [[TMP180]], i8 [[TMP183]] monotonic monotonic, align 1
+// CHK-C-NEXT:    [[TMP185]] = extractvalue { i8, i1 } [[TMP184]], 0
+// CHK-C-NEXT:    [[TMP186:%.*]] = extractvalue { i8, i1 } [[TMP184]], 1
+// CHK-C-NEXT:    br i1 [[TMP186]], label [[ATOMIC_EXIT467]], label [[ATOMIC_CMP459]]
+// CHK-C:       atomic_cmp459:
+// CHK-C-NEXT:    [[TMP187:%.*]] = bitcast i32* [[ATOMIC_TEMP460]] to i8*
+// CHK-C-NEXT:    store i8 [[TMP185]], i8* [[TMP187]], align 1
+// CHK-C-NEXT:    [[BF_LOAD461:%.*]] = load i8, i8* [[TMP187]], align 1
+// CHK-C-NEXT:    [[BF_SHL462:%.*]] = shl i8 [[BF_LOAD461]], 7
+// CHK-C-NEXT:    [[BF_ASHR463:%.*]] = ashr i8 [[BF_SHL462]], 7
+// CHK-C-NEXT:    [[BF_CAST464:%.*]] = sext i8 [[BF_ASHR463]] to i32
+// CHK-C-NEXT:    store i32 [[BF_CAST464]], i32* [[ATMP444]], align 4
+// CHK-C-NEXT:    [[CMP465:%.*]] = icmp eq i32 [[BF_CAST464]], [[TMP178]]
+// CHK-C-NEXT:    [[FROMBOOL466:%.*]] = zext i1 [[CMP465]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL466]], i8* [[ATMP451]], align 1
+// CHK-C-NEXT:    br i1 [[CMP465]], label [[ATOMIC_CONT453]], label [[ATOMIC_EXIT467]]
+// CHK-C:       atomic_exit467:
+// CHK-C-NEXT:    [[TMP188:%.*]] = load i32, i32* [[ATMP444]], align 4
+// CHK-C-NEXT:    [[TMP189:%.*]] = load i8, i8* [[ATMP451]], align 1
+// CHK-C-NEXT:    [[TMP190:%.*]] = load i32, i32* [[EXPR]], align 4
+// CHK-C-NEXT:    [[ATOMIC_LOAD468:%.*]] = load atomic i8, i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2) monotonic, align 1
+// CHK-C-NEXT:    [[TMP191:%.*]] = bitcast i32* [[ATOMIC_TEMP470]] to i8*
+// CHK-C-NEXT:    store i8 [[ATOMIC_LOAD468]], i8* [[TMP191]], align 1
+// CHK-C-NEXT:    [[BF_LOAD471:%.*]] = load i8, i8* [[TMP191]], align 1
+// CHK-C-NEXT:    [[BF_SHL472:%.*]] = shl i8 [[BF_LOAD471]], 7
+// CHK-C-NEXT:    [[BF_ASHR473:%.*]] = ashr i8 [[BF_SHL472]], 7
+// CHK-C-NEXT:    [[BF_CAST474:%.*]] = sext i8 [[BF_ASHR473]] to i32
+// CHK-C-NEXT:    store i32 [[BF_CAST474]], i32* [[ATMP469]], align 4
+// CHK-C-NEXT:    [[CMP475:%.*]] = icmp slt i32 [[BF_CAST474]], [[TMP190]]
+// CHK-C-NEXT:    [[FROMBOOL477:%.*]] = zext i1 [[CMP475]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL477]], i8* [[ATMP476]], align 1
+// CHK-C-NEXT:    br i1 [[CMP475]], label [[ATOMIC_CONT478:%.*]], label [[ATOMIC_EXIT492:%.*]]
+// CHK-C:       atomic_cont478:
+// CHK-C-NEXT:    [[TMP192:%.*]] = phi i8 [ [[ATOMIC_LOAD468]], [[ATOMIC_EXIT467]] ], [ [[TMP197:%.*]], [[ATOMIC_CMP484:%.*]] ]
+// CHK-C-NEXT:    [[TMP193:%.*]] = bitcast i32* [[ATOMIC_TEMP479]] to i8*
+// CHK-C-NEXT:    store i8 [[TMP192]], i8* [[TMP193]], align 1
+// CHK-C-NEXT:    [[TMP194:%.*]] = trunc i32 [[TMP190]] to i8
+// CHK-C-NEXT:    [[BF_LOAD480:%.*]] = load i8, i8* [[TMP193]], align 1
+// CHK-C-NEXT:    [[BF_VALUE481:%.*]] = and i8 [[TMP194]], 1
+// CHK-C-NEXT:    [[BF_CLEAR482:%.*]] = and i8 [[BF_LOAD480]], -2
+// CHK-C-NEXT:    [[BF_SET483:%.*]] = or i8 [[BF_CLEAR482]], [[BF_VALUE481]]
+// CHK-C-NEXT:    store i8 [[BF_SET483]], i8* [[TMP193]], align 1
+// CHK-C-NEXT:    [[TMP195:%.*]] = load i8, i8* [[TMP193]], align 1
+// CHK-C-NEXT:    [[TMP196:%.*]] = cmpxchg i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2), i8 [[TMP192]], i8 [[TMP195]] monotonic monotonic, align 1
+// CHK-C-NEXT:    [[TMP197]] = extractvalue { i8, i1 } [[TMP196]], 0
+// CHK-C-NEXT:    [[TMP198:%.*]] = extractvalue { i8, i1 } [[TMP196]], 1
+// CHK-C-NEXT:    br i1 [[TMP198]], label [[ATOMIC_EXIT492]], label [[ATOMIC_CMP484]]
+// CHK-C:       atomic_cmp484:
+// CHK-C-NEXT:    [[TMP199:%.*]] = bitcast i32* [[ATOMIC_TEMP485]] to i8*
 // CHK-C-NEXT:    store i8 [[TMP197]], i8* [[TMP199]], align 1
-// CHK-C-NEXT:    [[TMP200:%.*]] = trunc i32 [[TMP195]] to i8
-// CHK-C-NEXT:    [[BF_LOAD567:%.*]] = load i8, i8* [[TMP199]], align 1
-// CHK-C-NEXT:    [[BF_VALUE568:%.*]] = and i8 [[TMP200]], 1
-// CHK-C-NEXT:    [[BF_CLEAR569:%.*]] = and i8 [[BF_LOAD567]], -2
-// CHK-C-NEXT:    [[BF_SET570:%.*]] = or i8 [[BF_CLEAR569]], [[BF_VALUE568]]
-// CHK-C-NEXT:    store i8 [[BF_SET570]], i8* [[TMP199]], align 1
-// CHK-C-NEXT:    [[TMP201:%.*]] = load i8, i8* [[TMP199]], align 1
-// CHK-C-NEXT:    [[TMP202:%.*]] = cmpxchg i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2), i8 [[TMP197]], i8 [[TMP201]] monotonic monotonic, align 1
-// CHK-C-NEXT:    [[TMP203]] = extractvalue { i8, i1 } [[TMP202]], 0
-// CHK-C-NEXT:    [[TMP204:%.*]] = extractvalue { i8, i1 } [[TMP202]], 1
-// CHK-C-NEXT:    br i1 [[TMP204]], label [[ATOMIC_EXIT579]], label [[ATOMIC_CMP571]]
-// CHK-C:       atomic_cmp571:
-// CHK-C-NEXT:    [[TMP205:%.*]] = bitcast i32* [[ATOMIC_TEMP572]] to i8*
-// CHK-C-NEXT:    store i8 [[TMP203]], i8* [[TMP205]], align 1
-// CHK-C-NEXT:    [[BF_LOAD573:%.*]] = load i8, i8* [[TMP205]], align 1
-// CHK-C-NEXT:    [[BF_SHL574:%.*]] = shl i8 [[BF_LOAD573]], 7
-// CHK-C-NEXT:    [[BF_ASHR575:%.*]] = ashr i8 [[BF_SHL574]], 7
-// CHK-C-NEXT:    [[BF_CAST576:%.*]] = sext i8 [[BF_ASHR575]] to i32
-// CHK-C-NEXT:    [[CMP577:%.*]] = icmp slt i32 [[BF_CAST576]], [[TMP195]]
-// CHK-C-NEXT:    [[FROMBOOL578:%.*]] = zext i1 [[CMP577]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL578]], i8* [[ATMP558]], align 1
-// CHK-C-NEXT:    br i1 [[CMP577]], label [[ATOMIC_CONT560]], label [[ATOMIC_EXIT579]]
-// CHK-C:       atomic_exit579:
-// CHK-C-NEXT:    [[TMP206:%.*]] = load i32, i32* [[ATMP551]], align 4
-// CHK-C-NEXT:    [[TMP207:%.*]] = load i8, i8* [[ATMP558]], align 1
+// CHK-C-NEXT:    [[BF_LOAD486:%.*]] = load i8, i8* [[TMP199]], align 1
+// CHK-C-NEXT:    [[BF_SHL487:%.*]] = shl i8 [[BF_LOAD486]], 7
+// CHK-C-NEXT:    [[BF_ASHR488:%.*]] = ashr i8 [[BF_SHL487]], 7
+// CHK-C-NEXT:    [[BF_CAST489:%.*]] = sext i8 [[BF_ASHR488]] to i32
+// CHK-C-NEXT:    store i32 [[BF_CAST489]], i32* [[ATMP469]], align 4
+// CHK-C-NEXT:    [[CMP490:%.*]] = icmp slt i32 [[BF_CAST489]], [[TMP190]]
+// CHK-C-NEXT:    [[FROMBOOL491:%.*]] = zext i1 [[CMP490]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL491]], i8* [[ATMP476]], align 1
+// CHK-C-NEXT:    br i1 [[CMP490]], label [[ATOMIC_CONT478]], label [[ATOMIC_EXIT492]]
+// CHK-C:       atomic_exit492:
+// CHK-C-NEXT:    [[TMP200:%.*]] = load i32, i32* [[ATMP469]], align 4
+// CHK-C-NEXT:    [[TMP201:%.*]] = load i8, i8* [[ATMP476]], align 1
 // CHK-C-NEXT:    ret void
 //
 // CHK-CXX-LABEL: @_Z13test_bitfieldv(
@@ -3545,128 +3411,107 @@ struct BitFields4_packed {
 // CHK-CXX-NEXT:    [[ATOMIC_TEMP:%.*]] = alloca i32, align 4
 // CHK-CXX-NEXT:    [[ATMP1:%.*]] = alloca i8, align 1
 // CHK-CXX-NEXT:    [[ATOMIC_TEMP2:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP6:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP8:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATMP15:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP16:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATMP21:%.*]] = alloca i8, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP24:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP28:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP34:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATMP42:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP4:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATMP11:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP12:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATMP17:%.*]] = alloca i8, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP20:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP26:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATMP34:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP35:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATMP40:%.*]] = alloca i8, align 1
 // CHK-CXX-NEXT:    [[ATOMIC_TEMP43:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATMP48:%.*]] = alloca i8, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP51:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP55:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP61:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATMP69:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP70:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATMP74:%.*]] = alloca i8, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP77:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP49:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATMP57:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP58:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATMP62:%.*]] = alloca i8, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP65:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP72:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATMP79:%.*]] = alloca i32, align 4
 // CHK-CXX-NEXT:    [[ATOMIC_TEMP80:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATMP84:%.*]] = alloca i8, align 1
 // CHK-CXX-NEXT:    [[ATOMIC_TEMP87:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATMP94:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP95:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATMP99:%.*]] = alloca i8, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP94:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATMP101:%.*]] = alloca i32, align 4
 // CHK-CXX-NEXT:    [[ATOMIC_TEMP102:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP105:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP112:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATMP119:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP120:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATMP124:%.*]] = alloca i8, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP127:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP130:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP137:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATMP144:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP145:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATMP149:%.*]] = alloca i8, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP152:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP156:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP163:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATMP171:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP172:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATMP177:%.*]] = alloca i8, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP180:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP184:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP191:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATMP199:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP200:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATMP205:%.*]] = alloca i8, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP208:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP212:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP219:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATMP227:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP228:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATMP233:%.*]] = alloca i8, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP236:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP240:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP247:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATMP255:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP256:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATMP261:%.*]] = alloca i8, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP264:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP268:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP275:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATMP283:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP284:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATMP289:%.*]] = alloca i8, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP292:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP296:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP303:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATMP311:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP312:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATMP318:%.*]] = alloca i8, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP321:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP326:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP333:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATMP342:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP343:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATMP349:%.*]] = alloca i8, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP352:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP357:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP364:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATMP373:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP374:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATMP380:%.*]] = alloca i8, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP383:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP388:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP395:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATMP404:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP405:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATMP410:%.*]] = alloca i8, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP413:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP417:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP424:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATMP434:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP435:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATMP440:%.*]] = alloca i8, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP443:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP447:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP454:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATMP463:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP464:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATMP469:%.*]] = alloca i8, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP472:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP476:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP483:%.*]] = alloca i64, align 8
-// CHK-CXX-NEXT:    [[ATMP491:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP492:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATMP498:%.*]] = alloca i8, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP501:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP506:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP512:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATMP521:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP522:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATMP528:%.*]] = alloca i8, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP531:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP536:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP542:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATMP551:%.*]] = alloca i32, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP552:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATMP558:%.*]] = alloca i8, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP561:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP566:%.*]] = alloca i32, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP572:%.*]] = alloca i32, align 1
+// CHK-CXX-NEXT:    [[ATMP106:%.*]] = alloca i8, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP109:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP116:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATMP123:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP124:%.*]] = alloca i32, align 1
+// CHK-CXX-NEXT:    [[ATMP128:%.*]] = alloca i8, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP131:%.*]] = alloca i32, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP138:%.*]] = alloca i32, align 1
+// CHK-CXX-NEXT:    [[ATMP146:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP147:%.*]] = alloca i32, align 1
+// CHK-CXX-NEXT:    [[ATMP152:%.*]] = alloca i8, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP155:%.*]] = alloca i32, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP162:%.*]] = alloca i32, align 1
+// CHK-CXX-NEXT:    [[ATMP170:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP171:%.*]] = alloca i32, align 1
+// CHK-CXX-NEXT:    [[ATMP176:%.*]] = alloca i8, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP179:%.*]] = alloca i32, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP186:%.*]] = alloca i32, align 1
+// CHK-CXX-NEXT:    [[ATMP194:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP195:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATMP200:%.*]] = alloca i8, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP203:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP210:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATMP218:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP219:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATMP224:%.*]] = alloca i8, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP227:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP234:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATMP242:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP243:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATMP248:%.*]] = alloca i8, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP251:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP258:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATMP266:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP267:%.*]] = alloca i64, align 8
+// CHK-CXX-NEXT:    [[ATMP273:%.*]] = alloca i8, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP276:%.*]] = alloca i64, align 8
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP283:%.*]] = alloca i64, align 8
+// CHK-CXX-NEXT:    [[ATMP292:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP293:%.*]] = alloca i64, align 8
+// CHK-CXX-NEXT:    [[ATMP299:%.*]] = alloca i8, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP302:%.*]] = alloca i64, align 8
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP309:%.*]] = alloca i64, align 8
+// CHK-CXX-NEXT:    [[ATMP318:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP319:%.*]] = alloca i64, align 8
+// CHK-CXX-NEXT:    [[ATMP325:%.*]] = alloca i8, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP328:%.*]] = alloca i64, align 8
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP335:%.*]] = alloca i64, align 8
+// CHK-CXX-NEXT:    [[ATMP344:%.*]] = alloca i64, align 8
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP345:%.*]] = alloca i64, align 8
+// CHK-CXX-NEXT:    [[ATMP350:%.*]] = alloca i8, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP353:%.*]] = alloca i64, align 8
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP360:%.*]] = alloca i64, align 8
+// CHK-CXX-NEXT:    [[ATMP370:%.*]] = alloca i64, align 8
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP371:%.*]] = alloca i64, align 8
+// CHK-CXX-NEXT:    [[ATMP376:%.*]] = alloca i8, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP379:%.*]] = alloca i64, align 8
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP386:%.*]] = alloca i64, align 8
+// CHK-CXX-NEXT:    [[ATMP395:%.*]] = alloca i64, align 8
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP396:%.*]] = alloca i64, align 8
+// CHK-CXX-NEXT:    [[ATMP401:%.*]] = alloca i8, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP404:%.*]] = alloca i64, align 8
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP411:%.*]] = alloca i64, align 8
+// CHK-CXX-NEXT:    [[ATMP419:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP420:%.*]] = alloca i32, align 1
+// CHK-CXX-NEXT:    [[ATMP426:%.*]] = alloca i8, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP429:%.*]] = alloca i32, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP435:%.*]] = alloca i32, align 1
+// CHK-CXX-NEXT:    [[ATMP444:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP445:%.*]] = alloca i32, align 1
+// CHK-CXX-NEXT:    [[ATMP451:%.*]] = alloca i8, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP454:%.*]] = alloca i32, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP460:%.*]] = alloca i32, align 1
+// CHK-CXX-NEXT:    [[ATMP469:%.*]] = alloca i32, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP470:%.*]] = alloca i32, align 1
+// CHK-CXX-NEXT:    [[ATMP476:%.*]] = alloca i8, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP479:%.*]] = alloca i32, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP485:%.*]] = alloca i32, align 1
 // CHK-CXX-NEXT:    [[TMP0:%.*]] = load i32, i32* [[EXPR]], align 4
 // CHK-CXX-NEXT:    [[ATOMIC_LOAD:%.*]] = load atomic i32, i32* bitcast (i8* getelementptr (i8, i8* bitcast (%struct.BitFields* @bfx to i8*), i64 4) to i32*) monotonic, align 4
 // CHK-CXX-NEXT:    store i32 [[ATOMIC_LOAD]], i32* [[ATOMIC_TEMP]], align 4
@@ -3682,920 +3527,827 @@ struct BitFields4_packed {
 // CHK-CXX-NEXT:    [[TMP1:%.*]] = phi i32 [ [[ATOMIC_LOAD]], [[ENTRY:%.*]] ], [ [[TMP4:%.*]], [[ATOMIC_CMP:%.*]] ]
 // CHK-CXX-NEXT:    store i32 [[TMP1]], i32* [[ATOMIC_TEMP2]], align 4
 // CHK-CXX-NEXT:    [[BF_LOAD3:%.*]] = load i32, i32* [[ATOMIC_TEMP2]], align 4
-// CHK-CXX-NEXT:    [[BF_SHL4:%.*]] = shl i32 [[BF_LOAD3]], 1
-// CHK-CXX-NEXT:    [[BF_ASHR5:%.*]] = ashr i32 [[BF_SHL4]], 1
-// CHK-CXX-NEXT:    store i32 [[BF_ASHR5]], i32* [[TMP]], align 4
-// CHK-CXX-NEXT:    store i32 [[TMP1]], i32* [[ATOMIC_TEMP6]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD7:%.*]] = load i32, i32* [[ATOMIC_TEMP6]], align 4
 // CHK-CXX-NEXT:    [[BF_VALUE:%.*]] = and i32 [[TMP0]], 2147483647
-// CHK-CXX-NEXT:    [[BF_CLEAR:%.*]] = and i32 [[BF_LOAD7]], -2147483648
+// CHK-CXX-NEXT:    [[BF_CLEAR:%.*]] = and i32 [[BF_LOAD3]], -2147483648
 // CHK-CXX-NEXT:    [[BF_SET:%.*]] = or i32 [[BF_CLEAR]], [[BF_VALUE]]
-// CHK-CXX-NEXT:    store i32 [[BF_SET]], i32* [[ATOMIC_TEMP6]], align 4
-// CHK-CXX-NEXT:    [[TMP2:%.*]] = load i32, i32* [[ATOMIC_TEMP6]], align 4
+// CHK-CXX-NEXT:    store i32 [[BF_SET]], i32* [[ATOMIC_TEMP2]], align 4
+// CHK-CXX-NEXT:    [[TMP2:%.*]] = load i32, i32* [[ATOMIC_TEMP2]], align 4
 // CHK-CXX-NEXT:    [[TMP3:%.*]] = cmpxchg i32* bitcast (i8* getelementptr (i8, i8* bitcast (%struct.BitFields* @bfx to i8*), i64 4) to i32*), i32 [[TMP1]], i32 [[TMP2]] monotonic monotonic, align 4
 // CHK-CXX-NEXT:    [[TMP4]] = extractvalue { i32, i1 } [[TMP3]], 0
 // CHK-CXX-NEXT:    [[TMP5:%.*]] = extractvalue { i32, i1 } [[TMP3]], 1
 // CHK-CXX-NEXT:    br i1 [[TMP5]], label [[ATOMIC_EXIT]], label [[ATOMIC_CMP]]
 // CHK-CXX:       atomic_cmp:
-// CHK-CXX-NEXT:    store i32 [[TMP4]], i32* [[ATOMIC_TEMP8]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD9:%.*]] = load i32, i32* [[ATOMIC_TEMP8]], align 4
-// CHK-CXX-NEXT:    [[BF_SHL10:%.*]] = shl i32 [[BF_LOAD9]], 1
-// CHK-CXX-NEXT:    [[BF_ASHR11:%.*]] = ashr i32 [[BF_SHL10]], 1
-// CHK-CXX-NEXT:    [[CMP12:%.*]] = icmp sgt i32 [[BF_ASHR11]], [[TMP0]]
-// CHK-CXX-NEXT:    [[FROMBOOL13:%.*]] = zext i1 [[CMP12]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL13]], i8* [[ATMP1]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP12]], label [[ATOMIC_CONT]], label [[ATOMIC_EXIT]]
+// CHK-CXX-NEXT:    store i32 [[TMP4]], i32* [[ATOMIC_TEMP4]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD5:%.*]] = load i32, i32* [[ATOMIC_TEMP4]], align 4
+// CHK-CXX-NEXT:    [[BF_SHL6:%.*]] = shl i32 [[BF_LOAD5]], 1
+// CHK-CXX-NEXT:    [[BF_ASHR7:%.*]] = ashr i32 [[BF_SHL6]], 1
+// CHK-CXX-NEXT:    store i32 [[BF_ASHR7]], i32* [[TMP]], align 4
+// CHK-CXX-NEXT:    [[CMP8:%.*]] = icmp sgt i32 [[BF_ASHR7]], [[TMP0]]
+// CHK-CXX-NEXT:    [[FROMBOOL9:%.*]] = zext i1 [[CMP8]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL9]], i8* [[ATMP1]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP8]], label [[ATOMIC_CONT]], label [[ATOMIC_EXIT]]
 // CHK-CXX:       atomic_exit:
 // CHK-CXX-NEXT:    [[TMP6:%.*]] = load i32, i32* [[TMP]], align 4
 // CHK-CXX-NEXT:    [[TMP7:%.*]] = load i8, i8* [[ATMP1]], align 1
 // CHK-CXX-NEXT:    [[TMP8:%.*]] = load i32, i32* [[D]], align 4
 // CHK-CXX-NEXT:    [[TMP9:%.*]] = load i32, i32* [[E]], align 4
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD14:%.*]] = load atomic i32, i32* bitcast (i8* getelementptr (i8, i8* bitcast (%struct.BitFields* @bfx to i8*), i64 4) to i32*) monotonic, align 4
-// CHK-CXX-NEXT:    store i32 [[ATOMIC_LOAD14]], i32* [[ATOMIC_TEMP16]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD17:%.*]] = load i32, i32* [[ATOMIC_TEMP16]], align 4
-// CHK-CXX-NEXT:    [[BF_SHL18:%.*]] = shl i32 [[BF_LOAD17]], 1
-// CHK-CXX-NEXT:    [[BF_ASHR19:%.*]] = ashr i32 [[BF_SHL18]], 1
-// CHK-CXX-NEXT:    store i32 [[BF_ASHR19]], i32* [[ATMP15]], align 4
-// CHK-CXX-NEXT:    [[CMP20:%.*]] = icmp eq i32 [[BF_ASHR19]], [[TMP9]]
-// CHK-CXX-NEXT:    [[FROMBOOL22:%.*]] = zext i1 [[CMP20]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL22]], i8* [[ATMP21]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP20]], label [[ATOMIC_CONT23:%.*]], label [[ATOMIC_EXIT40:%.*]]
-// CHK-CXX:       atomic_cont23:
-// CHK-CXX-NEXT:    [[TMP10:%.*]] = phi i32 [ [[ATOMIC_LOAD14]], [[ATOMIC_EXIT]] ], [ [[TMP13:%.*]], [[ATOMIC_CMP33:%.*]] ]
-// CHK-CXX-NEXT:    store i32 [[TMP10]], i32* [[ATOMIC_TEMP24]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD25:%.*]] = load i32, i32* [[ATOMIC_TEMP24]], align 4
-// CHK-CXX-NEXT:    [[BF_SHL26:%.*]] = shl i32 [[BF_LOAD25]], 1
-// CHK-CXX-NEXT:    [[BF_ASHR27:%.*]] = ashr i32 [[BF_SHL26]], 1
-// CHK-CXX-NEXT:    store i32 [[BF_ASHR27]], i32* [[ATMP15]], align 4
-// CHK-CXX-NEXT:    store i32 [[TMP10]], i32* [[ATOMIC_TEMP28]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD29:%.*]] = load i32, i32* [[ATOMIC_TEMP28]], align 4
-// CHK-CXX-NEXT:    [[BF_VALUE30:%.*]] = and i32 [[TMP8]], 2147483647
-// CHK-CXX-NEXT:    [[BF_CLEAR31:%.*]] = and i32 [[BF_LOAD29]], -2147483648
-// CHK-CXX-NEXT:    [[BF_SET32:%.*]] = or i32 [[BF_CLEAR31]], [[BF_VALUE30]]
-// CHK-CXX-NEXT:    store i32 [[BF_SET32]], i32* [[ATOMIC_TEMP28]], align 4
-// CHK-CXX-NEXT:    [[TMP11:%.*]] = load i32, i32* [[ATOMIC_TEMP28]], align 4
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD10:%.*]] = load atomic i32, i32* bitcast (i8* getelementptr (i8, i8* bitcast (%struct.BitFields* @bfx to i8*), i64 4) to i32*) monotonic, align 4
+// CHK-CXX-NEXT:    store i32 [[ATOMIC_LOAD10]], i32* [[ATOMIC_TEMP12]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD13:%.*]] = load i32, i32* [[ATOMIC_TEMP12]], align 4
+// CHK-CXX-NEXT:    [[BF_SHL14:%.*]] = shl i32 [[BF_LOAD13]], 1
+// CHK-CXX-NEXT:    [[BF_ASHR15:%.*]] = ashr i32 [[BF_SHL14]], 1
+// CHK-CXX-NEXT:    store i32 [[BF_ASHR15]], i32* [[ATMP11]], align 4
+// CHK-CXX-NEXT:    [[CMP16:%.*]] = icmp eq i32 [[BF_ASHR15]], [[TMP9]]
+// CHK-CXX-NEXT:    [[FROMBOOL18:%.*]] = zext i1 [[CMP16]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL18]], i8* [[ATMP17]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP16]], label [[ATOMIC_CONT19:%.*]], label [[ATOMIC_EXIT32:%.*]]
+// CHK-CXX:       atomic_cont19:
+// CHK-CXX-NEXT:    [[TMP10:%.*]] = phi i32 [ [[ATOMIC_LOAD10]], [[ATOMIC_EXIT]] ], [ [[TMP13:%.*]], [[ATOMIC_CMP25:%.*]] ]
+// CHK-CXX-NEXT:    store i32 [[TMP10]], i32* [[ATOMIC_TEMP20]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD21:%.*]] = load i32, i32* [[ATOMIC_TEMP20]], align 4
+// CHK-CXX-NEXT:    [[BF_VALUE22:%.*]] = and i32 [[TMP8]], 2147483647
+// CHK-CXX-NEXT:    [[BF_CLEAR23:%.*]] = and i32 [[BF_LOAD21]], -2147483648
+// CHK-CXX-NEXT:    [[BF_SET24:%.*]] = or i32 [[BF_CLEAR23]], [[BF_VALUE22]]
+// CHK-CXX-NEXT:    store i32 [[BF_SET24]], i32* [[ATOMIC_TEMP20]], align 4
+// CHK-CXX-NEXT:    [[TMP11:%.*]] = load i32, i32* [[ATOMIC_TEMP20]], align 4
 // CHK-CXX-NEXT:    [[TMP12:%.*]] = cmpxchg i32* bitcast (i8* getelementptr (i8, i8* bitcast (%struct.BitFields* @bfx to i8*), i64 4) to i32*), i32 [[TMP10]], i32 [[TMP11]] monotonic monotonic, align 4
 // CHK-CXX-NEXT:    [[TMP13]] = extractvalue { i32, i1 } [[TMP12]], 0
 // CHK-CXX-NEXT:    [[TMP14:%.*]] = extractvalue { i32, i1 } [[TMP12]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP14]], label [[ATOMIC_EXIT40]], label [[ATOMIC_CMP33]]
-// CHK-CXX:       atomic_cmp33:
-// CHK-CXX-NEXT:    store i32 [[TMP13]], i32* [[ATOMIC_TEMP34]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD35:%.*]] = load i32, i32* [[ATOMIC_TEMP34]], align 4
-// CHK-CXX-NEXT:    [[BF_SHL36:%.*]] = shl i32 [[BF_LOAD35]], 1
-// CHK-CXX-NEXT:    [[BF_ASHR37:%.*]] = ashr i32 [[BF_SHL36]], 1
-// CHK-CXX-NEXT:    [[CMP38:%.*]] = icmp eq i32 [[BF_ASHR37]], [[TMP9]]
-// CHK-CXX-NEXT:    [[FROMBOOL39:%.*]] = zext i1 [[CMP38]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL39]], i8* [[ATMP21]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP38]], label [[ATOMIC_CONT23]], label [[ATOMIC_EXIT40]]
-// CHK-CXX:       atomic_exit40:
-// CHK-CXX-NEXT:    [[TMP15:%.*]] = load i32, i32* [[ATMP15]], align 4
-// CHK-CXX-NEXT:    [[TMP16:%.*]] = load i8, i8* [[ATMP21]], align 1
+// CHK-CXX-NEXT:    br i1 [[TMP14]], label [[ATOMIC_EXIT32]], label [[ATOMIC_CMP25]]
+// CHK-CXX:       atomic_cmp25:
+// CHK-CXX-NEXT:    store i32 [[TMP13]], i32* [[ATOMIC_TEMP26]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD27:%.*]] = load i32, i32* [[ATOMIC_TEMP26]], align 4
+// CHK-CXX-NEXT:    [[BF_SHL28:%.*]] = shl i32 [[BF_LOAD27]], 1
+// CHK-CXX-NEXT:    [[BF_ASHR29:%.*]] = ashr i32 [[BF_SHL28]], 1
+// CHK-CXX-NEXT:    store i32 [[BF_ASHR29]], i32* [[ATMP11]], align 4
+// CHK-CXX-NEXT:    [[CMP30:%.*]] = icmp eq i32 [[BF_ASHR29]], [[TMP9]]
+// CHK-CXX-NEXT:    [[FROMBOOL31:%.*]] = zext i1 [[CMP30]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL31]], i8* [[ATMP17]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP30]], label [[ATOMIC_CONT19]], label [[ATOMIC_EXIT32]]
+// CHK-CXX:       atomic_exit32:
+// CHK-CXX-NEXT:    [[TMP15:%.*]] = load i32, i32* [[ATMP11]], align 4
+// CHK-CXX-NEXT:    [[TMP16:%.*]] = load i8, i8* [[ATMP17]], align 1
 // CHK-CXX-NEXT:    [[TMP17:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD41:%.*]] = load atomic i32, i32* bitcast (i8* getelementptr (i8, i8* bitcast (%struct.BitFields* @bfx to i8*), i64 4) to i32*) monotonic, align 4
-// CHK-CXX-NEXT:    store i32 [[ATOMIC_LOAD41]], i32* [[ATOMIC_TEMP43]], align 4
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD33:%.*]] = load atomic i32, i32* bitcast (i8* getelementptr (i8, i8* bitcast (%struct.BitFields* @bfx to i8*), i64 4) to i32*) monotonic, align 4
+// CHK-CXX-NEXT:    store i32 [[ATOMIC_LOAD33]], i32* [[ATOMIC_TEMP35]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD36:%.*]] = load i32, i32* [[ATOMIC_TEMP35]], align 4
+// CHK-CXX-NEXT:    [[BF_SHL37:%.*]] = shl i32 [[BF_LOAD36]], 1
+// CHK-CXX-NEXT:    [[BF_ASHR38:%.*]] = ashr i32 [[BF_SHL37]], 1
+// CHK-CXX-NEXT:    store i32 [[BF_ASHR38]], i32* [[ATMP34]], align 4
+// CHK-CXX-NEXT:    [[CMP39:%.*]] = icmp slt i32 [[BF_ASHR38]], [[TMP17]]
+// CHK-CXX-NEXT:    [[FROMBOOL41:%.*]] = zext i1 [[CMP39]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL41]], i8* [[ATMP40]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP39]], label [[ATOMIC_CONT42:%.*]], label [[ATOMIC_EXIT55:%.*]]
+// CHK-CXX:       atomic_cont42:
+// CHK-CXX-NEXT:    [[TMP18:%.*]] = phi i32 [ [[ATOMIC_LOAD33]], [[ATOMIC_EXIT32]] ], [ [[TMP21:%.*]], [[ATOMIC_CMP48:%.*]] ]
+// CHK-CXX-NEXT:    store i32 [[TMP18]], i32* [[ATOMIC_TEMP43]], align 4
 // CHK-CXX-NEXT:    [[BF_LOAD44:%.*]] = load i32, i32* [[ATOMIC_TEMP43]], align 4
-// CHK-CXX-NEXT:    [[BF_SHL45:%.*]] = shl i32 [[BF_LOAD44]], 1
-// CHK-CXX-NEXT:    [[BF_ASHR46:%.*]] = ashr i32 [[BF_SHL45]], 1
-// CHK-CXX-NEXT:    store i32 [[BF_ASHR46]], i32* [[ATMP42]], align 4
-// CHK-CXX-NEXT:    [[CMP47:%.*]] = icmp slt i32 [[BF_ASHR46]], [[TMP17]]
-// CHK-CXX-NEXT:    [[FROMBOOL49:%.*]] = zext i1 [[CMP47]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL49]], i8* [[ATMP48]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP47]], label [[ATOMIC_CONT50:%.*]], label [[ATOMIC_EXIT67:%.*]]
-// CHK-CXX:       atomic_cont50:
-// CHK-CXX-NEXT:    [[TMP18:%.*]] = phi i32 [ [[ATOMIC_LOAD41]], [[ATOMIC_EXIT40]] ], [ [[TMP21:%.*]], [[ATOMIC_CMP60:%.*]] ]
-// CHK-CXX-NEXT:    store i32 [[TMP18]], i32* [[ATOMIC_TEMP51]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD52:%.*]] = load i32, i32* [[ATOMIC_TEMP51]], align 4
-// CHK-CXX-NEXT:    [[BF_SHL53:%.*]] = shl i32 [[BF_LOAD52]], 1
-// CHK-CXX-NEXT:    [[BF_ASHR54:%.*]] = ashr i32 [[BF_SHL53]], 1
-// CHK-CXX-NEXT:    store i32 [[BF_ASHR54]], i32* [[ATMP42]], align 4
-// CHK-CXX-NEXT:    store i32 [[TMP18]], i32* [[ATOMIC_TEMP55]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD56:%.*]] = load i32, i32* [[ATOMIC_TEMP55]], align 4
-// CHK-CXX-NEXT:    [[BF_VALUE57:%.*]] = and i32 [[TMP17]], 2147483647
-// CHK-CXX-NEXT:    [[BF_CLEAR58:%.*]] = and i32 [[BF_LOAD56]], -2147483648
-// CHK-CXX-NEXT:    [[BF_SET59:%.*]] = or i32 [[BF_CLEAR58]], [[BF_VALUE57]]
-// CHK-CXX-NEXT:    store i32 [[BF_SET59]], i32* [[ATOMIC_TEMP55]], align 4
-// CHK-CXX-NEXT:    [[TMP19:%.*]] = load i32, i32* [[ATOMIC_TEMP55]], align 4
+// CHK-CXX-NEXT:    [[BF_VALUE45:%.*]] = and i32 [[TMP17]], 2147483647
+// CHK-CXX-NEXT:    [[BF_CLEAR46:%.*]] = and i32 [[BF_LOAD44]], -2147483648
+// CHK-CXX-NEXT:    [[BF_SET47:%.*]] = or i32 [[BF_CLEAR46]], [[BF_VALUE45]]
+// CHK-CXX-NEXT:    store i32 [[BF_SET47]], i32* [[ATOMIC_TEMP43]], align 4
+// CHK-CXX-NEXT:    [[TMP19:%.*]] = load i32, i32* [[ATOMIC_TEMP43]], align 4
 // CHK-CXX-NEXT:    [[TMP20:%.*]] = cmpxchg i32* bitcast (i8* getelementptr (i8, i8* bitcast (%struct.BitFields* @bfx to i8*), i64 4) to i32*), i32 [[TMP18]], i32 [[TMP19]] monotonic monotonic, align 4
 // CHK-CXX-NEXT:    [[TMP21]] = extractvalue { i32, i1 } [[TMP20]], 0
 // CHK-CXX-NEXT:    [[TMP22:%.*]] = extractvalue { i32, i1 } [[TMP20]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP22]], label [[ATOMIC_EXIT67]], label [[ATOMIC_CMP60]]
-// CHK-CXX:       atomic_cmp60:
-// CHK-CXX-NEXT:    store i32 [[TMP21]], i32* [[ATOMIC_TEMP61]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD62:%.*]] = load i32, i32* [[ATOMIC_TEMP61]], align 4
-// CHK-CXX-NEXT:    [[BF_SHL63:%.*]] = shl i32 [[BF_LOAD62]], 1
-// CHK-CXX-NEXT:    [[BF_ASHR64:%.*]] = ashr i32 [[BF_SHL63]], 1
-// CHK-CXX-NEXT:    [[CMP65:%.*]] = icmp slt i32 [[BF_ASHR64]], [[TMP17]]
-// CHK-CXX-NEXT:    [[FROMBOOL66:%.*]] = zext i1 [[CMP65]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL66]], i8* [[ATMP48]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP65]], label [[ATOMIC_CONT50]], label [[ATOMIC_EXIT67]]
-// CHK-CXX:       atomic_exit67:
-// CHK-CXX-NEXT:    [[TMP23:%.*]] = load i32, i32* [[ATMP42]], align 4
-// CHK-CXX-NEXT:    [[TMP24:%.*]] = load i8, i8* [[ATMP48]], align 1
+// CHK-CXX-NEXT:    br i1 [[TMP22]], label [[ATOMIC_EXIT55]], label [[ATOMIC_CMP48]]
+// CHK-CXX:       atomic_cmp48:
+// CHK-CXX-NEXT:    store i32 [[TMP21]], i32* [[ATOMIC_TEMP49]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD50:%.*]] = load i32, i32* [[ATOMIC_TEMP49]], align 4
+// CHK-CXX-NEXT:    [[BF_SHL51:%.*]] = shl i32 [[BF_LOAD50]], 1
+// CHK-CXX-NEXT:    [[BF_ASHR52:%.*]] = ashr i32 [[BF_SHL51]], 1
+// CHK-CXX-NEXT:    store i32 [[BF_ASHR52]], i32* [[ATMP34]], align 4
+// CHK-CXX-NEXT:    [[CMP53:%.*]] = icmp slt i32 [[BF_ASHR52]], [[TMP17]]
+// CHK-CXX-NEXT:    [[FROMBOOL54:%.*]] = zext i1 [[CMP53]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL54]], i8* [[ATMP40]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP53]], label [[ATOMIC_CONT42]], label [[ATOMIC_EXIT55]]
+// CHK-CXX:       atomic_exit55:
+// CHK-CXX-NEXT:    [[TMP23:%.*]] = load i32, i32* [[ATMP34]], align 4
+// CHK-CXX-NEXT:    [[TMP24:%.*]] = load i8, i8* [[ATMP40]], align 1
 // CHK-CXX-NEXT:    [[TMP25:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD68:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS2:%.*]], %struct.BitFields2* @bfx2, i32 0, i32 0) monotonic, align 4
-// CHK-CXX-NEXT:    store i32 [[ATOMIC_LOAD68]], i32* [[ATOMIC_TEMP70]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD71:%.*]] = load i32, i32* [[ATOMIC_TEMP70]], align 4
-// CHK-CXX-NEXT:    [[BF_ASHR72:%.*]] = ashr i32 [[BF_LOAD71]], 31
-// CHK-CXX-NEXT:    store i32 [[BF_ASHR72]], i32* [[ATMP69]], align 4
-// CHK-CXX-NEXT:    [[CMP73:%.*]] = icmp sgt i32 [[BF_ASHR72]], [[TMP25]]
-// CHK-CXX-NEXT:    [[FROMBOOL75:%.*]] = zext i1 [[CMP73]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL75]], i8* [[ATMP74]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP73]], label [[ATOMIC_CONT76:%.*]], label [[ATOMIC_EXIT92:%.*]]
-// CHK-CXX:       atomic_cont76:
-// CHK-CXX-NEXT:    [[TMP26:%.*]] = phi i32 [ [[ATOMIC_LOAD68]], [[ATOMIC_EXIT67]] ], [ [[TMP29:%.*]], [[ATOMIC_CMP86:%.*]] ]
-// CHK-CXX-NEXT:    store i32 [[TMP26]], i32* [[ATOMIC_TEMP77]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD78:%.*]] = load i32, i32* [[ATOMIC_TEMP77]], align 4
-// CHK-CXX-NEXT:    [[BF_ASHR79:%.*]] = ashr i32 [[BF_LOAD78]], 31
-// CHK-CXX-NEXT:    store i32 [[BF_ASHR79]], i32* [[ATMP69]], align 4
-// CHK-CXX-NEXT:    store i32 [[TMP26]], i32* [[ATOMIC_TEMP80]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD81:%.*]] = load i32, i32* [[ATOMIC_TEMP80]], align 4
-// CHK-CXX-NEXT:    [[BF_VALUE82:%.*]] = and i32 [[TMP25]], 1
-// CHK-CXX-NEXT:    [[BF_SHL83:%.*]] = shl i32 [[BF_VALUE82]], 31
-// CHK-CXX-NEXT:    [[BF_CLEAR84:%.*]] = and i32 [[BF_LOAD81]], 2147483647
-// CHK-CXX-NEXT:    [[BF_SET85:%.*]] = or i32 [[BF_CLEAR84]], [[BF_SHL83]]
-// CHK-CXX-NEXT:    store i32 [[BF_SET85]], i32* [[ATOMIC_TEMP80]], align 4
-// CHK-CXX-NEXT:    [[TMP27:%.*]] = load i32, i32* [[ATOMIC_TEMP80]], align 4
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD56:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS2:%.*]], %struct.BitFields2* @bfx2, i32 0, i32 0) monotonic, align 4
+// CHK-CXX-NEXT:    store i32 [[ATOMIC_LOAD56]], i32* [[ATOMIC_TEMP58]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD59:%.*]] = load i32, i32* [[ATOMIC_TEMP58]], align 4
+// CHK-CXX-NEXT:    [[BF_ASHR60:%.*]] = ashr i32 [[BF_LOAD59]], 31
+// CHK-CXX-NEXT:    store i32 [[BF_ASHR60]], i32* [[ATMP57]], align 4
+// CHK-CXX-NEXT:    [[CMP61:%.*]] = icmp sgt i32 [[BF_ASHR60]], [[TMP25]]
+// CHK-CXX-NEXT:    [[FROMBOOL63:%.*]] = zext i1 [[CMP61]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL63]], i8* [[ATMP62]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP61]], label [[ATOMIC_CONT64:%.*]], label [[ATOMIC_EXIT77:%.*]]
+// CHK-CXX:       atomic_cont64:
+// CHK-CXX-NEXT:    [[TMP26:%.*]] = phi i32 [ [[ATOMIC_LOAD56]], [[ATOMIC_EXIT55]] ], [ [[TMP29:%.*]], [[ATOMIC_CMP71:%.*]] ]
+// CHK-CXX-NEXT:    store i32 [[TMP26]], i32* [[ATOMIC_TEMP65]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD66:%.*]] = load i32, i32* [[ATOMIC_TEMP65]], align 4
+// CHK-CXX-NEXT:    [[BF_VALUE67:%.*]] = and i32 [[TMP25]], 1
+// CHK-CXX-NEXT:    [[BF_SHL68:%.*]] = shl i32 [[BF_VALUE67]], 31
+// CHK-CXX-NEXT:    [[BF_CLEAR69:%.*]] = and i32 [[BF_LOAD66]], 2147483647
+// CHK-CXX-NEXT:    [[BF_SET70:%.*]] = or i32 [[BF_CLEAR69]], [[BF_SHL68]]
+// CHK-CXX-NEXT:    store i32 [[BF_SET70]], i32* [[ATOMIC_TEMP65]], align 4
+// CHK-CXX-NEXT:    [[TMP27:%.*]] = load i32, i32* [[ATOMIC_TEMP65]], align 4
 // CHK-CXX-NEXT:    [[TMP28:%.*]] = cmpxchg i32* getelementptr inbounds ([[STRUCT_BITFIELDS2]], %struct.BitFields2* @bfx2, i32 0, i32 0), i32 [[TMP26]], i32 [[TMP27]] monotonic monotonic, align 4
 // CHK-CXX-NEXT:    [[TMP29]] = extractvalue { i32, i1 } [[TMP28]], 0
 // CHK-CXX-NEXT:    [[TMP30:%.*]] = extractvalue { i32, i1 } [[TMP28]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP30]], label [[ATOMIC_EXIT92]], label [[ATOMIC_CMP86]]
-// CHK-CXX:       atomic_cmp86:
-// CHK-CXX-NEXT:    store i32 [[TMP29]], i32* [[ATOMIC_TEMP87]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD88:%.*]] = load i32, i32* [[ATOMIC_TEMP87]], align 4
-// CHK-CXX-NEXT:    [[BF_ASHR89:%.*]] = ashr i32 [[BF_LOAD88]], 31
-// CHK-CXX-NEXT:    [[CMP90:%.*]] = icmp sgt i32 [[BF_ASHR89]], [[TMP25]]
-// CHK-CXX-NEXT:    [[FROMBOOL91:%.*]] = zext i1 [[CMP90]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL91]], i8* [[ATMP74]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP90]], label [[ATOMIC_CONT76]], label [[ATOMIC_EXIT92]]
-// CHK-CXX:       atomic_exit92:
-// CHK-CXX-NEXT:    [[TMP31:%.*]] = load i32, i32* [[ATMP69]], align 4
-// CHK-CXX-NEXT:    [[TMP32:%.*]] = load i8, i8* [[ATMP74]], align 1
+// CHK-CXX-NEXT:    br i1 [[TMP30]], label [[ATOMIC_EXIT77]], label [[ATOMIC_CMP71]]
+// CHK-CXX:       atomic_cmp71:
+// CHK-CXX-NEXT:    store i32 [[TMP29]], i32* [[ATOMIC_TEMP72]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD73:%.*]] = load i32, i32* [[ATOMIC_TEMP72]], align 4
+// CHK-CXX-NEXT:    [[BF_ASHR74:%.*]] = ashr i32 [[BF_LOAD73]], 31
+// CHK-CXX-NEXT:    store i32 [[BF_ASHR74]], i32* [[ATMP57]], align 4
+// CHK-CXX-NEXT:    [[CMP75:%.*]] = icmp sgt i32 [[BF_ASHR74]], [[TMP25]]
+// CHK-CXX-NEXT:    [[FROMBOOL76:%.*]] = zext i1 [[CMP75]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL76]], i8* [[ATMP62]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP75]], label [[ATOMIC_CONT64]], label [[ATOMIC_EXIT77]]
+// CHK-CXX:       atomic_exit77:
+// CHK-CXX-NEXT:    [[TMP31:%.*]] = load i32, i32* [[ATMP57]], align 4
+// CHK-CXX-NEXT:    [[TMP32:%.*]] = load i8, i8* [[ATMP62]], align 1
 // CHK-CXX-NEXT:    [[TMP33:%.*]] = load i32, i32* [[D]], align 4
 // CHK-CXX-NEXT:    [[TMP34:%.*]] = load i32, i32* [[E]], align 4
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD93:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS2]], %struct.BitFields2* @bfx2, i32 0, i32 0) monotonic, align 4
-// CHK-CXX-NEXT:    store i32 [[ATOMIC_LOAD93]], i32* [[ATOMIC_TEMP95]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD96:%.*]] = load i32, i32* [[ATOMIC_TEMP95]], align 4
-// CHK-CXX-NEXT:    [[BF_ASHR97:%.*]] = ashr i32 [[BF_LOAD96]], 31
-// CHK-CXX-NEXT:    store i32 [[BF_ASHR97]], i32* [[ATMP94]], align 4
-// CHK-CXX-NEXT:    [[CMP98:%.*]] = icmp eq i32 [[BF_ASHR97]], [[TMP34]]
-// CHK-CXX-NEXT:    [[FROMBOOL100:%.*]] = zext i1 [[CMP98]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL100]], i8* [[ATMP99]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP98]], label [[ATOMIC_CONT101:%.*]], label [[ATOMIC_EXIT117:%.*]]
-// CHK-CXX:       atomic_cont101:
-// CHK-CXX-NEXT:    [[TMP35:%.*]] = phi i32 [ [[ATOMIC_LOAD93]], [[ATOMIC_EXIT92]] ], [ [[TMP38:%.*]], [[ATOMIC_CMP111:%.*]] ]
-// CHK-CXX-NEXT:    store i32 [[TMP35]], i32* [[ATOMIC_TEMP102]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD103:%.*]] = load i32, i32* [[ATOMIC_TEMP102]], align 4
-// CHK-CXX-NEXT:    [[BF_ASHR104:%.*]] = ashr i32 [[BF_LOAD103]], 31
-// CHK-CXX-NEXT:    store i32 [[BF_ASHR104]], i32* [[ATMP94]], align 4
-// CHK-CXX-NEXT:    store i32 [[TMP35]], i32* [[ATOMIC_TEMP105]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD106:%.*]] = load i32, i32* [[ATOMIC_TEMP105]], align 4
-// CHK-CXX-NEXT:    [[BF_VALUE107:%.*]] = and i32 [[TMP33]], 1
-// CHK-CXX-NEXT:    [[BF_SHL108:%.*]] = shl i32 [[BF_VALUE107]], 31
-// CHK-CXX-NEXT:    [[BF_CLEAR109:%.*]] = and i32 [[BF_LOAD106]], 2147483647
-// CHK-CXX-NEXT:    [[BF_SET110:%.*]] = or i32 [[BF_CLEAR109]], [[BF_SHL108]]
-// CHK-CXX-NEXT:    store i32 [[BF_SET110]], i32* [[ATOMIC_TEMP105]], align 4
-// CHK-CXX-NEXT:    [[TMP36:%.*]] = load i32, i32* [[ATOMIC_TEMP105]], align 4
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD78:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS2]], %struct.BitFields2* @bfx2, i32 0, i32 0) monotonic, align 4
+// CHK-CXX-NEXT:    store i32 [[ATOMIC_LOAD78]], i32* [[ATOMIC_TEMP80]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD81:%.*]] = load i32, i32* [[ATOMIC_TEMP80]], align 4
+// CHK-CXX-NEXT:    [[BF_ASHR82:%.*]] = ashr i32 [[BF_LOAD81]], 31
+// CHK-CXX-NEXT:    store i32 [[BF_ASHR82]], i32* [[ATMP79]], align 4
+// CHK-CXX-NEXT:    [[CMP83:%.*]] = icmp eq i32 [[BF_ASHR82]], [[TMP34]]
+// CHK-CXX-NEXT:    [[FROMBOOL85:%.*]] = zext i1 [[CMP83]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL85]], i8* [[ATMP84]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP83]], label [[ATOMIC_CONT86:%.*]], label [[ATOMIC_EXIT99:%.*]]
+// CHK-CXX:       atomic_cont86:
+// CHK-CXX-NEXT:    [[TMP35:%.*]] = phi i32 [ [[ATOMIC_LOAD78]], [[ATOMIC_EXIT77]] ], [ [[TMP38:%.*]], [[ATOMIC_CMP93:%.*]] ]
+// CHK-CXX-NEXT:    store i32 [[TMP35]], i32* [[ATOMIC_TEMP87]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD88:%.*]] = load i32, i32* [[ATOMIC_TEMP87]], align 4
+// CHK-CXX-NEXT:    [[BF_VALUE89:%.*]] = and i32 [[TMP33]], 1
+// CHK-CXX-NEXT:    [[BF_SHL90:%.*]] = shl i32 [[BF_VALUE89]], 31
+// CHK-CXX-NEXT:    [[BF_CLEAR91:%.*]] = and i32 [[BF_LOAD88]], 2147483647
+// CHK-CXX-NEXT:    [[BF_SET92:%.*]] = or i32 [[BF_CLEAR91]], [[BF_SHL90]]
+// CHK-CXX-NEXT:    store i32 [[BF_SET92]], i32* [[ATOMIC_TEMP87]], align 4
+// CHK-CXX-NEXT:    [[TMP36:%.*]] = load i32, i32* [[ATOMIC_TEMP87]], align 4
 // CHK-CXX-NEXT:    [[TMP37:%.*]] = cmpxchg i32* getelementptr inbounds ([[STRUCT_BITFIELDS2]], %struct.BitFields2* @bfx2, i32 0, i32 0), i32 [[TMP35]], i32 [[TMP36]] monotonic monotonic, align 4
 // CHK-CXX-NEXT:    [[TMP38]] = extractvalue { i32, i1 } [[TMP37]], 0
 // CHK-CXX-NEXT:    [[TMP39:%.*]] = extractvalue { i32, i1 } [[TMP37]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP39]], label [[ATOMIC_EXIT117]], label [[ATOMIC_CMP111]]
-// CHK-CXX:       atomic_cmp111:
-// CHK-CXX-NEXT:    store i32 [[TMP38]], i32* [[ATOMIC_TEMP112]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD113:%.*]] = load i32, i32* [[ATOMIC_TEMP112]], align 4
-// CHK-CXX-NEXT:    [[BF_ASHR114:%.*]] = ashr i32 [[BF_LOAD113]], 31
-// CHK-CXX-NEXT:    [[CMP115:%.*]] = icmp eq i32 [[BF_ASHR114]], [[TMP34]]
-// CHK-CXX-NEXT:    [[FROMBOOL116:%.*]] = zext i1 [[CMP115]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL116]], i8* [[ATMP99]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP115]], label [[ATOMIC_CONT101]], label [[ATOMIC_EXIT117]]
-// CHK-CXX:       atomic_exit117:
-// CHK-CXX-NEXT:    [[TMP40:%.*]] = load i32, i32* [[ATMP94]], align 4
-// CHK-CXX-NEXT:    [[TMP41:%.*]] = load i8, i8* [[ATMP99]], align 1
+// CHK-CXX-NEXT:    br i1 [[TMP39]], label [[ATOMIC_EXIT99]], label [[ATOMIC_CMP93]]
+// CHK-CXX:       atomic_cmp93:
+// CHK-CXX-NEXT:    store i32 [[TMP38]], i32* [[ATOMIC_TEMP94]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD95:%.*]] = load i32, i32* [[ATOMIC_TEMP94]], align 4
+// CHK-CXX-NEXT:    [[BF_ASHR96:%.*]] = ashr i32 [[BF_LOAD95]], 31
+// CHK-CXX-NEXT:    store i32 [[BF_ASHR96]], i32* [[ATMP79]], align 4
+// CHK-CXX-NEXT:    [[CMP97:%.*]] = icmp eq i32 [[BF_ASHR96]], [[TMP34]]
+// CHK-CXX-NEXT:    [[FROMBOOL98:%.*]] = zext i1 [[CMP97]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL98]], i8* [[ATMP84]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP97]], label [[ATOMIC_CONT86]], label [[ATOMIC_EXIT99]]
+// CHK-CXX:       atomic_exit99:
+// CHK-CXX-NEXT:    [[TMP40:%.*]] = load i32, i32* [[ATMP79]], align 4
+// CHK-CXX-NEXT:    [[TMP41:%.*]] = load i8, i8* [[ATMP84]], align 1
 // CHK-CXX-NEXT:    [[TMP42:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD118:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS2]], %struct.BitFields2* @bfx2, i32 0, i32 0) monotonic, align 4
-// CHK-CXX-NEXT:    store i32 [[ATOMIC_LOAD118]], i32* [[ATOMIC_TEMP120]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD121:%.*]] = load i32, i32* [[ATOMIC_TEMP120]], align 4
-// CHK-CXX-NEXT:    [[BF_ASHR122:%.*]] = ashr i32 [[BF_LOAD121]], 31
-// CHK-CXX-NEXT:    store i32 [[BF_ASHR122]], i32* [[ATMP119]], align 4
-// CHK-CXX-NEXT:    [[CMP123:%.*]] = icmp slt i32 [[BF_ASHR122]], [[TMP42]]
-// CHK-CXX-NEXT:    [[FROMBOOL125:%.*]] = zext i1 [[CMP123]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL125]], i8* [[ATMP124]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP123]], label [[ATOMIC_CONT126:%.*]], label [[ATOMIC_EXIT142:%.*]]
-// CHK-CXX:       atomic_cont126:
-// CHK-CXX-NEXT:    [[TMP43:%.*]] = phi i32 [ [[ATOMIC_LOAD118]], [[ATOMIC_EXIT117]] ], [ [[TMP46:%.*]], [[ATOMIC_CMP136:%.*]] ]
-// CHK-CXX-NEXT:    store i32 [[TMP43]], i32* [[ATOMIC_TEMP127]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD128:%.*]] = load i32, i32* [[ATOMIC_TEMP127]], align 4
-// CHK-CXX-NEXT:    [[BF_ASHR129:%.*]] = ashr i32 [[BF_LOAD128]], 31
-// CHK-CXX-NEXT:    store i32 [[BF_ASHR129]], i32* [[ATMP119]], align 4
-// CHK-CXX-NEXT:    store i32 [[TMP43]], i32* [[ATOMIC_TEMP130]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD131:%.*]] = load i32, i32* [[ATOMIC_TEMP130]], align 4
-// CHK-CXX-NEXT:    [[BF_VALUE132:%.*]] = and i32 [[TMP42]], 1
-// CHK-CXX-NEXT:    [[BF_SHL133:%.*]] = shl i32 [[BF_VALUE132]], 31
-// CHK-CXX-NEXT:    [[BF_CLEAR134:%.*]] = and i32 [[BF_LOAD131]], 2147483647
-// CHK-CXX-NEXT:    [[BF_SET135:%.*]] = or i32 [[BF_CLEAR134]], [[BF_SHL133]]
-// CHK-CXX-NEXT:    store i32 [[BF_SET135]], i32* [[ATOMIC_TEMP130]], align 4
-// CHK-CXX-NEXT:    [[TMP44:%.*]] = load i32, i32* [[ATOMIC_TEMP130]], align 4
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD100:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS2]], %struct.BitFields2* @bfx2, i32 0, i32 0) monotonic, align 4
+// CHK-CXX-NEXT:    store i32 [[ATOMIC_LOAD100]], i32* [[ATOMIC_TEMP102]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD103:%.*]] = load i32, i32* [[ATOMIC_TEMP102]], align 4
+// CHK-CXX-NEXT:    [[BF_ASHR104:%.*]] = ashr i32 [[BF_LOAD103]], 31
+// CHK-CXX-NEXT:    store i32 [[BF_ASHR104]], i32* [[ATMP101]], align 4
+// CHK-CXX-NEXT:    [[CMP105:%.*]] = icmp slt i32 [[BF_ASHR104]], [[TMP42]]
+// CHK-CXX-NEXT:    [[FROMBOOL107:%.*]] = zext i1 [[CMP105]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL107]], i8* [[ATMP106]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP105]], label [[ATOMIC_CONT108:%.*]], label [[ATOMIC_EXIT121:%.*]]
+// CHK-CXX:       atomic_cont108:
+// CHK-CXX-NEXT:    [[TMP43:%.*]] = phi i32 [ [[ATOMIC_LOAD100]], [[ATOMIC_EXIT99]] ], [ [[TMP46:%.*]], [[ATOMIC_CMP115:%.*]] ]
+// CHK-CXX-NEXT:    store i32 [[TMP43]], i32* [[ATOMIC_TEMP109]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD110:%.*]] = load i32, i32* [[ATOMIC_TEMP109]], align 4
+// CHK-CXX-NEXT:    [[BF_VALUE111:%.*]] = and i32 [[TMP42]], 1
+// CHK-CXX-NEXT:    [[BF_SHL112:%.*]] = shl i32 [[BF_VALUE111]], 31
+// CHK-CXX-NEXT:    [[BF_CLEAR113:%.*]] = and i32 [[BF_LOAD110]], 2147483647
+// CHK-CXX-NEXT:    [[BF_SET114:%.*]] = or i32 [[BF_CLEAR113]], [[BF_SHL112]]
+// CHK-CXX-NEXT:    store i32 [[BF_SET114]], i32* [[ATOMIC_TEMP109]], align 4
+// CHK-CXX-NEXT:    [[TMP44:%.*]] = load i32, i32* [[ATOMIC_TEMP109]], align 4
 // CHK-CXX-NEXT:    [[TMP45:%.*]] = cmpxchg i32* getelementptr inbounds ([[STRUCT_BITFIELDS2]], %struct.BitFields2* @bfx2, i32 0, i32 0), i32 [[TMP43]], i32 [[TMP44]] monotonic monotonic, align 4
 // CHK-CXX-NEXT:    [[TMP46]] = extractvalue { i32, i1 } [[TMP45]], 0
 // CHK-CXX-NEXT:    [[TMP47:%.*]] = extractvalue { i32, i1 } [[TMP45]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP47]], label [[ATOMIC_EXIT142]], label [[ATOMIC_CMP136]]
-// CHK-CXX:       atomic_cmp136:
-// CHK-CXX-NEXT:    store i32 [[TMP46]], i32* [[ATOMIC_TEMP137]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD138:%.*]] = load i32, i32* [[ATOMIC_TEMP137]], align 4
-// CHK-CXX-NEXT:    [[BF_ASHR139:%.*]] = ashr i32 [[BF_LOAD138]], 31
-// CHK-CXX-NEXT:    [[CMP140:%.*]] = icmp slt i32 [[BF_ASHR139]], [[TMP42]]
-// CHK-CXX-NEXT:    [[FROMBOOL141:%.*]] = zext i1 [[CMP140]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL141]], i8* [[ATMP124]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP140]], label [[ATOMIC_CONT126]], label [[ATOMIC_EXIT142]]
-// CHK-CXX:       atomic_exit142:
-// CHK-CXX-NEXT:    [[TMP48:%.*]] = load i32, i32* [[ATMP119]], align 4
-// CHK-CXX-NEXT:    [[TMP49:%.*]] = load i8, i8* [[ATMP124]], align 1
+// CHK-CXX-NEXT:    br i1 [[TMP47]], label [[ATOMIC_EXIT121]], label [[ATOMIC_CMP115]]
+// CHK-CXX:       atomic_cmp115:
+// CHK-CXX-NEXT:    store i32 [[TMP46]], i32* [[ATOMIC_TEMP116]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD117:%.*]] = load i32, i32* [[ATOMIC_TEMP116]], align 4
+// CHK-CXX-NEXT:    [[BF_ASHR118:%.*]] = ashr i32 [[BF_LOAD117]], 31
+// CHK-CXX-NEXT:    store i32 [[BF_ASHR118]], i32* [[ATMP101]], align 4
+// CHK-CXX-NEXT:    [[CMP119:%.*]] = icmp slt i32 [[BF_ASHR118]], [[TMP42]]
+// CHK-CXX-NEXT:    [[FROMBOOL120:%.*]] = zext i1 [[CMP119]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL120]], i8* [[ATMP106]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP119]], label [[ATOMIC_CONT108]], label [[ATOMIC_EXIT121]]
+// CHK-CXX:       atomic_exit121:
+// CHK-CXX-NEXT:    [[TMP48:%.*]] = load i32, i32* [[ATMP101]], align 4
+// CHK-CXX-NEXT:    [[TMP49:%.*]] = load i8, i8* [[ATMP106]], align 1
 // CHK-CXX-NEXT:    [[TMP50:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD143:%.*]] = load atomic i8, i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3) monotonic, align 1
-// CHK-CXX-NEXT:    [[TMP51:%.*]] = bitcast i32* [[ATOMIC_TEMP145]] to i8*
-// CHK-CXX-NEXT:    store i8 [[ATOMIC_LOAD143]], i8* [[TMP51]], align 1
-// CHK-CXX-NEXT:    [[BF_LOAD146:%.*]] = load i8, i8* [[TMP51]], align 1
-// CHK-CXX-NEXT:    [[BF_ASHR147:%.*]] = ashr i8 [[BF_LOAD146]], 7
-// CHK-CXX-NEXT:    [[BF_CAST:%.*]] = sext i8 [[BF_ASHR147]] to i32
-// CHK-CXX-NEXT:    store i32 [[BF_CAST]], i32* [[ATMP144]], align 4
-// CHK-CXX-NEXT:    [[CMP148:%.*]] = icmp sgt i32 [[BF_CAST]], [[TMP50]]
-// CHK-CXX-NEXT:    [[FROMBOOL150:%.*]] = zext i1 [[CMP148]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL150]], i8* [[ATMP149]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP148]], label [[ATOMIC_CONT151:%.*]], label [[ATOMIC_EXIT169:%.*]]
-// CHK-CXX:       atomic_cont151:
-// CHK-CXX-NEXT:    [[TMP52:%.*]] = phi i8 [ [[ATOMIC_LOAD143]], [[ATOMIC_EXIT142]] ], [ [[TMP58:%.*]], [[ATOMIC_CMP162:%.*]] ]
-// CHK-CXX-NEXT:    [[TMP53:%.*]] = bitcast i32* [[ATOMIC_TEMP152]] to i8*
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD122:%.*]] = load atomic i8, i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3) monotonic, align 1
+// CHK-CXX-NEXT:    [[TMP51:%.*]] = bitcast i32* [[ATOMIC_TEMP124]] to i8*
+// CHK-CXX-NEXT:    store i8 [[ATOMIC_LOAD122]], i8* [[TMP51]], align 1
+// CHK-CXX-NEXT:    [[BF_LOAD125:%.*]] = load i8, i8* [[TMP51]], align 1
+// CHK-CXX-NEXT:    [[BF_ASHR126:%.*]] = ashr i8 [[BF_LOAD125]], 7
+// CHK-CXX-NEXT:    [[BF_CAST:%.*]] = sext i8 [[BF_ASHR126]] to i32
+// CHK-CXX-NEXT:    store i32 [[BF_CAST]], i32* [[ATMP123]], align 4
+// CHK-CXX-NEXT:    [[CMP127:%.*]] = icmp sgt i32 [[BF_CAST]], [[TMP50]]
+// CHK-CXX-NEXT:    [[FROMBOOL129:%.*]] = zext i1 [[CMP127]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL129]], i8* [[ATMP128]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP127]], label [[ATOMIC_CONT130:%.*]], label [[ATOMIC_EXIT144:%.*]]
+// CHK-CXX:       atomic_cont130:
+// CHK-CXX-NEXT:    [[TMP52:%.*]] = phi i8 [ [[ATOMIC_LOAD122]], [[ATOMIC_EXIT121]] ], [ [[TMP57:%.*]], [[ATOMIC_CMP137:%.*]] ]
+// CHK-CXX-NEXT:    [[TMP53:%.*]] = bitcast i32* [[ATOMIC_TEMP131]] to i8*
 // CHK-CXX-NEXT:    store i8 [[TMP52]], i8* [[TMP53]], align 1
-// CHK-CXX-NEXT:    [[BF_LOAD153:%.*]] = load i8, i8* [[TMP53]], align 1
-// CHK-CXX-NEXT:    [[BF_ASHR154:%.*]] = ashr i8 [[BF_LOAD153]], 7
-// CHK-CXX-NEXT:    [[BF_CAST155:%.*]] = sext i8 [[BF_ASHR154]] to i32
-// CHK-CXX-NEXT:    store i32 [[BF_CAST155]], i32* [[ATMP144]], align 4
-// CHK-CXX-NEXT:    [[TMP54:%.*]] = bitcast i32* [[ATOMIC_TEMP156]] to i8*
-// CHK-CXX-NEXT:    store i8 [[TMP52]], i8* [[TMP54]], align 1
-// CHK-CXX-NEXT:    [[TMP55:%.*]] = trunc i32 [[TMP50]] to i8
-// CHK-CXX-NEXT:    [[BF_LOAD157:%.*]] = load i8, i8* [[TMP54]], align 1
-// CHK-CXX-NEXT:    [[BF_VALUE158:%.*]] = and i8 [[TMP55]], 1
-// CHK-CXX-NEXT:    [[BF_SHL159:%.*]] = shl i8 [[BF_VALUE158]], 7
-// CHK-CXX-NEXT:    [[BF_CLEAR160:%.*]] = and i8 [[BF_LOAD157]], 127
-// CHK-CXX-NEXT:    [[BF_SET161:%.*]] = or i8 [[BF_CLEAR160]], [[BF_SHL159]]
-// CHK-CXX-NEXT:    store i8 [[BF_SET161]], i8* [[TMP54]], align 1
-// CHK-CXX-NEXT:    [[TMP56:%.*]] = load i8, i8* [[TMP54]], align 1
-// CHK-CXX-NEXT:    [[TMP57:%.*]] = cmpxchg i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3), i8 [[TMP52]], i8 [[TMP56]] monotonic monotonic, align 1
-// CHK-CXX-NEXT:    [[TMP58]] = extractvalue { i8, i1 } [[TMP57]], 0
-// CHK-CXX-NEXT:    [[TMP59:%.*]] = extractvalue { i8, i1 } [[TMP57]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP59]], label [[ATOMIC_EXIT169]], label [[ATOMIC_CMP162]]
-// CHK-CXX:       atomic_cmp162:
-// CHK-CXX-NEXT:    [[TMP60:%.*]] = bitcast i32* [[ATOMIC_TEMP163]] to i8*
-// CHK-CXX-NEXT:    store i8 [[TMP58]], i8* [[TMP60]], align 1
-// CHK-CXX-NEXT:    [[BF_LOAD164:%.*]] = load i8, i8* [[TMP60]], align 1
-// CHK-CXX-NEXT:    [[BF_ASHR165:%.*]] = ashr i8 [[BF_LOAD164]], 7
-// CHK-CXX-NEXT:    [[BF_CAST166:%.*]] = sext i8 [[BF_ASHR165]] to i32
-// CHK-CXX-NEXT:    [[CMP167:%.*]] = icmp sgt i32 [[BF_CAST166]], [[TMP50]]
-// CHK-CXX-NEXT:    [[FROMBOOL168:%.*]] = zext i1 [[CMP167]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL168]], i8* [[ATMP149]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP167]], label [[ATOMIC_CONT151]], label [[ATOMIC_EXIT169]]
-// CHK-CXX:       atomic_exit169:
-// CHK-CXX-NEXT:    [[TMP61:%.*]] = load i32, i32* [[ATMP144]], align 4
-// CHK-CXX-NEXT:    [[TMP62:%.*]] = load i8, i8* [[ATMP149]], align 1
-// CHK-CXX-NEXT:    [[TMP63:%.*]] = load i32, i32* [[D]], align 4
-// CHK-CXX-NEXT:    [[TMP64:%.*]] = load i32, i32* [[E]], align 4
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD170:%.*]] = load atomic i8, i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3) monotonic, align 1
-// CHK-CXX-NEXT:    [[TMP65:%.*]] = bitcast i32* [[ATOMIC_TEMP172]] to i8*
-// CHK-CXX-NEXT:    store i8 [[ATOMIC_LOAD170]], i8* [[TMP65]], align 1
-// CHK-CXX-NEXT:    [[BF_LOAD173:%.*]] = load i8, i8* [[TMP65]], align 1
-// CHK-CXX-NEXT:    [[BF_ASHR174:%.*]] = ashr i8 [[BF_LOAD173]], 7
-// CHK-CXX-NEXT:    [[BF_CAST175:%.*]] = sext i8 [[BF_ASHR174]] to i32
-// CHK-CXX-NEXT:    store i32 [[BF_CAST175]], i32* [[ATMP171]], align 4
-// CHK-CXX-NEXT:    [[CMP176:%.*]] = icmp eq i32 [[BF_CAST175]], [[TMP64]]
-// CHK-CXX-NEXT:    [[FROMBOOL178:%.*]] = zext i1 [[CMP176]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL178]], i8* [[ATMP177]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP176]], label [[ATOMIC_CONT179:%.*]], label [[ATOMIC_EXIT197:%.*]]
-// CHK-CXX:       atomic_cont179:
-// CHK-CXX-NEXT:    [[TMP66:%.*]] = phi i8 [ [[ATOMIC_LOAD170]], [[ATOMIC_EXIT169]] ], [ [[TMP72:%.*]], [[ATOMIC_CMP190:%.*]] ]
-// CHK-CXX-NEXT:    [[TMP67:%.*]] = bitcast i32* [[ATOMIC_TEMP180]] to i8*
-// CHK-CXX-NEXT:    store i8 [[TMP66]], i8* [[TMP67]], align 1
-// CHK-CXX-NEXT:    [[BF_LOAD181:%.*]] = load i8, i8* [[TMP67]], align 1
-// CHK-CXX-NEXT:    [[BF_ASHR182:%.*]] = ashr i8 [[BF_LOAD181]], 7
-// CHK-CXX-NEXT:    [[BF_CAST183:%.*]] = sext i8 [[BF_ASHR182]] to i32
-// CHK-CXX-NEXT:    store i32 [[BF_CAST183]], i32* [[ATMP171]], align 4
-// CHK-CXX-NEXT:    [[TMP68:%.*]] = bitcast i32* [[ATOMIC_TEMP184]] to i8*
-// CHK-CXX-NEXT:    store i8 [[TMP66]], i8* [[TMP68]], align 1
-// CHK-CXX-NEXT:    [[TMP69:%.*]] = trunc i32 [[TMP63]] to i8
-// CHK-CXX-NEXT:    [[BF_LOAD185:%.*]] = load i8, i8* [[TMP68]], align 1
-// CHK-CXX-NEXT:    [[BF_VALUE186:%.*]] = and i8 [[TMP69]], 1
-// CHK-CXX-NEXT:    [[BF_SHL187:%.*]] = shl i8 [[BF_VALUE186]], 7
-// CHK-CXX-NEXT:    [[BF_CLEAR188:%.*]] = and i8 [[BF_LOAD185]], 127
-// CHK-CXX-NEXT:    [[BF_SET189:%.*]] = or i8 [[BF_CLEAR188]], [[BF_SHL187]]
-// CHK-CXX-NEXT:    store i8 [[BF_SET189]], i8* [[TMP68]], align 1
-// CHK-CXX-NEXT:    [[TMP70:%.*]] = load i8, i8* [[TMP68]], align 1
-// CHK-CXX-NEXT:    [[TMP71:%.*]] = cmpxchg i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3), i8 [[TMP66]], i8 [[TMP70]] monotonic monotonic, align 1
-// CHK-CXX-NEXT:    [[TMP72]] = extractvalue { i8, i1 } [[TMP71]], 0
-// CHK-CXX-NEXT:    [[TMP73:%.*]] = extractvalue { i8, i1 } [[TMP71]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP73]], label [[ATOMIC_EXIT197]], label [[ATOMIC_CMP190]]
-// CHK-CXX:       atomic_cmp190:
-// CHK-CXX-NEXT:    [[TMP74:%.*]] = bitcast i32* [[ATOMIC_TEMP191]] to i8*
-// CHK-CXX-NEXT:    store i8 [[TMP72]], i8* [[TMP74]], align 1
-// CHK-CXX-NEXT:    [[BF_LOAD192:%.*]] = load i8, i8* [[TMP74]], align 1
-// CHK-CXX-NEXT:    [[BF_ASHR193:%.*]] = ashr i8 [[BF_LOAD192]], 7
-// CHK-CXX-NEXT:    [[BF_CAST194:%.*]] = sext i8 [[BF_ASHR193]] to i32
-// CHK-CXX-NEXT:    [[CMP195:%.*]] = icmp eq i32 [[BF_CAST194]], [[TMP64]]
-// CHK-CXX-NEXT:    [[FROMBOOL196:%.*]] = zext i1 [[CMP195]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL196]], i8* [[ATMP177]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP195]], label [[ATOMIC_CONT179]], label [[ATOMIC_EXIT197]]
-// CHK-CXX:       atomic_exit197:
-// CHK-CXX-NEXT:    [[TMP75:%.*]] = load i32, i32* [[ATMP171]], align 4
-// CHK-CXX-NEXT:    [[TMP76:%.*]] = load i8, i8* [[ATMP177]], align 1
-// CHK-CXX-NEXT:    [[TMP77:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD198:%.*]] = load atomic i8, i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3) monotonic, align 1
-// CHK-CXX-NEXT:    [[TMP78:%.*]] = bitcast i32* [[ATOMIC_TEMP200]] to i8*
-// CHK-CXX-NEXT:    store i8 [[ATOMIC_LOAD198]], i8* [[TMP78]], align 1
-// CHK-CXX-NEXT:    [[BF_LOAD201:%.*]] = load i8, i8* [[TMP78]], align 1
-// CHK-CXX-NEXT:    [[BF_ASHR202:%.*]] = ashr i8 [[BF_LOAD201]], 7
-// CHK-CXX-NEXT:    [[BF_CAST203:%.*]] = sext i8 [[BF_ASHR202]] to i32
-// CHK-CXX-NEXT:    store i32 [[BF_CAST203]], i32* [[ATMP199]], align 4
-// CHK-CXX-NEXT:    [[CMP204:%.*]] = icmp slt i32 [[BF_CAST203]], [[TMP77]]
-// CHK-CXX-NEXT:    [[FROMBOOL206:%.*]] = zext i1 [[CMP204]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL206]], i8* [[ATMP205]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP204]], label [[ATOMIC_CONT207:%.*]], label [[ATOMIC_EXIT225:%.*]]
-// CHK-CXX:       atomic_cont207:
-// CHK-CXX-NEXT:    [[TMP79:%.*]] = phi i8 [ [[ATOMIC_LOAD198]], [[ATOMIC_EXIT197]] ], [ [[TMP85:%.*]], [[ATOMIC_CMP218:%.*]] ]
-// CHK-CXX-NEXT:    [[TMP80:%.*]] = bitcast i32* [[ATOMIC_TEMP208]] to i8*
-// CHK-CXX-NEXT:    store i8 [[TMP79]], i8* [[TMP80]], align 1
-// CHK-CXX-NEXT:    [[BF_LOAD209:%.*]] = load i8, i8* [[TMP80]], align 1
-// CHK-CXX-NEXT:    [[BF_ASHR210:%.*]] = ashr i8 [[BF_LOAD209]], 7
-// CHK-CXX-NEXT:    [[BF_CAST211:%.*]] = sext i8 [[BF_ASHR210]] to i32
-// CHK-CXX-NEXT:    store i32 [[BF_CAST211]], i32* [[ATMP199]], align 4
-// CHK-CXX-NEXT:    [[TMP81:%.*]] = bitcast i32* [[ATOMIC_TEMP212]] to i8*
-// CHK-CXX-NEXT:    store i8 [[TMP79]], i8* [[TMP81]], align 1
-// CHK-CXX-NEXT:    [[TMP82:%.*]] = trunc i32 [[TMP77]] to i8
-// CHK-CXX-NEXT:    [[BF_LOAD213:%.*]] = load i8, i8* [[TMP81]], align 1
-// CHK-CXX-NEXT:    [[BF_VALUE214:%.*]] = and i8 [[TMP82]], 1
-// CHK-CXX-NEXT:    [[BF_SHL215:%.*]] = shl i8 [[BF_VALUE214]], 7
-// CHK-CXX-NEXT:    [[BF_CLEAR216:%.*]] = and i8 [[BF_LOAD213]], 127
-// CHK-CXX-NEXT:    [[BF_SET217:%.*]] = or i8 [[BF_CLEAR216]], [[BF_SHL215]]
-// CHK-CXX-NEXT:    store i8 [[BF_SET217]], i8* [[TMP81]], align 1
-// CHK-CXX-NEXT:    [[TMP83:%.*]] = load i8, i8* [[TMP81]], align 1
-// CHK-CXX-NEXT:    [[TMP84:%.*]] = cmpxchg i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3), i8 [[TMP79]], i8 [[TMP83]] monotonic monotonic, align 1
-// CHK-CXX-NEXT:    [[TMP85]] = extractvalue { i8, i1 } [[TMP84]], 0
-// CHK-CXX-NEXT:    [[TMP86:%.*]] = extractvalue { i8, i1 } [[TMP84]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP86]], label [[ATOMIC_EXIT225]], label [[ATOMIC_CMP218]]
-// CHK-CXX:       atomic_cmp218:
-// CHK-CXX-NEXT:    [[TMP87:%.*]] = bitcast i32* [[ATOMIC_TEMP219]] to i8*
-// CHK-CXX-NEXT:    store i8 [[TMP85]], i8* [[TMP87]], align 1
-// CHK-CXX-NEXT:    [[BF_LOAD220:%.*]] = load i8, i8* [[TMP87]], align 1
-// CHK-CXX-NEXT:    [[BF_ASHR221:%.*]] = ashr i8 [[BF_LOAD220]], 7
-// CHK-CXX-NEXT:    [[BF_CAST222:%.*]] = sext i8 [[BF_ASHR221]] to i32
-// CHK-CXX-NEXT:    [[CMP223:%.*]] = icmp slt i32 [[BF_CAST222]], [[TMP77]]
-// CHK-CXX-NEXT:    [[FROMBOOL224:%.*]] = zext i1 [[CMP223]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL224]], i8* [[ATMP205]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP223]], label [[ATOMIC_CONT207]], label [[ATOMIC_EXIT225]]
-// CHK-CXX:       atomic_exit225:
-// CHK-CXX-NEXT:    [[TMP88:%.*]] = load i32, i32* [[ATMP199]], align 4
-// CHK-CXX-NEXT:    [[TMP89:%.*]] = load i8, i8* [[ATMP205]], align 1
-// CHK-CXX-NEXT:    [[TMP90:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD226:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS3:%.*]], %struct.BitFields3* @bfx3, i32 0, i32 0) monotonic, align 4
-// CHK-CXX-NEXT:    store i32 [[ATOMIC_LOAD226]], i32* [[ATOMIC_TEMP228]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD229:%.*]] = load i32, i32* [[ATOMIC_TEMP228]], align 4
-// CHK-CXX-NEXT:    [[BF_SHL230:%.*]] = shl i32 [[BF_LOAD229]], 7
-// CHK-CXX-NEXT:    [[BF_ASHR231:%.*]] = ashr i32 [[BF_SHL230]], 18
-// CHK-CXX-NEXT:    store i32 [[BF_ASHR231]], i32* [[ATMP227]], align 4
-// CHK-CXX-NEXT:    [[CMP232:%.*]] = icmp sgt i32 [[BF_ASHR231]], [[TMP90]]
-// CHK-CXX-NEXT:    [[FROMBOOL234:%.*]] = zext i1 [[CMP232]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL234]], i8* [[ATMP233]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP232]], label [[ATOMIC_CONT235:%.*]], label [[ATOMIC_EXIT253:%.*]]
-// CHK-CXX:       atomic_cont235:
-// CHK-CXX-NEXT:    [[TMP91:%.*]] = phi i32 [ [[ATOMIC_LOAD226]], [[ATOMIC_EXIT225]] ], [ [[TMP94:%.*]], [[ATOMIC_CMP246:%.*]] ]
-// CHK-CXX-NEXT:    store i32 [[TMP91]], i32* [[ATOMIC_TEMP236]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD237:%.*]] = load i32, i32* [[ATOMIC_TEMP236]], align 4
-// CHK-CXX-NEXT:    [[BF_SHL238:%.*]] = shl i32 [[BF_LOAD237]], 7
-// CHK-CXX-NEXT:    [[BF_ASHR239:%.*]] = ashr i32 [[BF_SHL238]], 18
-// CHK-CXX-NEXT:    store i32 [[BF_ASHR239]], i32* [[ATMP227]], align 4
-// CHK-CXX-NEXT:    store i32 [[TMP91]], i32* [[ATOMIC_TEMP240]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD241:%.*]] = load i32, i32* [[ATOMIC_TEMP240]], align 4
-// CHK-CXX-NEXT:    [[BF_VALUE242:%.*]] = and i32 [[TMP90]], 16383
-// CHK-CXX-NEXT:    [[BF_SHL243:%.*]] = shl i32 [[BF_VALUE242]], 11
-// CHK-CXX-NEXT:    [[BF_CLEAR244:%.*]] = and i32 [[BF_LOAD241]], -33552385
-// CHK-CXX-NEXT:    [[BF_SET245:%.*]] = or i32 [[BF_CLEAR244]], [[BF_SHL243]]
-// CHK-CXX-NEXT:    store i32 [[BF_SET245]], i32* [[ATOMIC_TEMP240]], align 4
-// CHK-CXX-NEXT:    [[TMP92:%.*]] = load i32, i32* [[ATOMIC_TEMP240]], align 4
-// CHK-CXX-NEXT:    [[TMP93:%.*]] = cmpxchg i32* getelementptr inbounds ([[STRUCT_BITFIELDS3]], %struct.BitFields3* @bfx3, i32 0, i32 0), i32 [[TMP91]], i32 [[TMP92]] monotonic monotonic, align 4
-// CHK-CXX-NEXT:    [[TMP94]] = extractvalue { i32, i1 } [[TMP93]], 0
-// CHK-CXX-NEXT:    [[TMP95:%.*]] = extractvalue { i32, i1 } [[TMP93]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP95]], label [[ATOMIC_EXIT253]], label [[ATOMIC_CMP246]]
-// CHK-CXX:       atomic_cmp246:
-// CHK-CXX-NEXT:    store i32 [[TMP94]], i32* [[ATOMIC_TEMP247]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD248:%.*]] = load i32, i32* [[ATOMIC_TEMP247]], align 4
-// CHK-CXX-NEXT:    [[BF_SHL249:%.*]] = shl i32 [[BF_LOAD248]], 7
-// CHK-CXX-NEXT:    [[BF_ASHR250:%.*]] = ashr i32 [[BF_SHL249]], 18
-// CHK-CXX-NEXT:    [[CMP251:%.*]] = icmp sgt i32 [[BF_ASHR250]], [[TMP90]]
-// CHK-CXX-NEXT:    [[FROMBOOL252:%.*]] = zext i1 [[CMP251]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL252]], i8* [[ATMP233]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP251]], label [[ATOMIC_CONT235]], label [[ATOMIC_EXIT253]]
-// CHK-CXX:       atomic_exit253:
-// CHK-CXX-NEXT:    [[TMP96:%.*]] = load i32, i32* [[ATMP227]], align 4
-// CHK-CXX-NEXT:    [[TMP97:%.*]] = load i8, i8* [[ATMP233]], align 1
-// CHK-CXX-NEXT:    [[TMP98:%.*]] = load i32, i32* [[D]], align 4
-// CHK-CXX-NEXT:    [[TMP99:%.*]] = load i32, i32* [[E]], align 4
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD254:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS3]], %struct.BitFields3* @bfx3, i32 0, i32 0) monotonic, align 4
-// CHK-CXX-NEXT:    store i32 [[ATOMIC_LOAD254]], i32* [[ATOMIC_TEMP256]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD257:%.*]] = load i32, i32* [[ATOMIC_TEMP256]], align 4
-// CHK-CXX-NEXT:    [[BF_SHL258:%.*]] = shl i32 [[BF_LOAD257]], 7
-// CHK-CXX-NEXT:    [[BF_ASHR259:%.*]] = ashr i32 [[BF_SHL258]], 18
-// CHK-CXX-NEXT:    store i32 [[BF_ASHR259]], i32* [[ATMP255]], align 4
-// CHK-CXX-NEXT:    [[CMP260:%.*]] = icmp eq i32 [[BF_ASHR259]], [[TMP99]]
-// CHK-CXX-NEXT:    [[FROMBOOL262:%.*]] = zext i1 [[CMP260]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL262]], i8* [[ATMP261]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP260]], label [[ATOMIC_CONT263:%.*]], label [[ATOMIC_EXIT281:%.*]]
-// CHK-CXX:       atomic_cont263:
-// CHK-CXX-NEXT:    [[TMP100:%.*]] = phi i32 [ [[ATOMIC_LOAD254]], [[ATOMIC_EXIT253]] ], [ [[TMP103:%.*]], [[ATOMIC_CMP274:%.*]] ]
-// CHK-CXX-NEXT:    store i32 [[TMP100]], i32* [[ATOMIC_TEMP264]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD265:%.*]] = load i32, i32* [[ATOMIC_TEMP264]], align 4
-// CHK-CXX-NEXT:    [[BF_SHL266:%.*]] = shl i32 [[BF_LOAD265]], 7
-// CHK-CXX-NEXT:    [[BF_ASHR267:%.*]] = ashr i32 [[BF_SHL266]], 18
-// CHK-CXX-NEXT:    store i32 [[BF_ASHR267]], i32* [[ATMP255]], align 4
-// CHK-CXX-NEXT:    store i32 [[TMP100]], i32* [[ATOMIC_TEMP268]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD269:%.*]] = load i32, i32* [[ATOMIC_TEMP268]], align 4
-// CHK-CXX-NEXT:    [[BF_VALUE270:%.*]] = and i32 [[TMP98]], 16383
-// CHK-CXX-NEXT:    [[BF_SHL271:%.*]] = shl i32 [[BF_VALUE270]], 11
-// CHK-CXX-NEXT:    [[BF_CLEAR272:%.*]] = and i32 [[BF_LOAD269]], -33552385
-// CHK-CXX-NEXT:    [[BF_SET273:%.*]] = or i32 [[BF_CLEAR272]], [[BF_SHL271]]
-// CHK-CXX-NEXT:    store i32 [[BF_SET273]], i32* [[ATOMIC_TEMP268]], align 4
-// CHK-CXX-NEXT:    [[TMP101:%.*]] = load i32, i32* [[ATOMIC_TEMP268]], align 4
-// CHK-CXX-NEXT:    [[TMP102:%.*]] = cmpxchg i32* getelementptr inbounds ([[STRUCT_BITFIELDS3]], %struct.BitFields3* @bfx3, i32 0, i32 0), i32 [[TMP100]], i32 [[TMP101]] monotonic monotonic, align 4
-// CHK-CXX-NEXT:    [[TMP103]] = extractvalue { i32, i1 } [[TMP102]], 0
-// CHK-CXX-NEXT:    [[TMP104:%.*]] = extractvalue { i32, i1 } [[TMP102]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP104]], label [[ATOMIC_EXIT281]], label [[ATOMIC_CMP274]]
-// CHK-CXX:       atomic_cmp274:
-// CHK-CXX-NEXT:    store i32 [[TMP103]], i32* [[ATOMIC_TEMP275]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD276:%.*]] = load i32, i32* [[ATOMIC_TEMP275]], align 4
-// CHK-CXX-NEXT:    [[BF_SHL277:%.*]] = shl i32 [[BF_LOAD276]], 7
-// CHK-CXX-NEXT:    [[BF_ASHR278:%.*]] = ashr i32 [[BF_SHL277]], 18
-// CHK-CXX-NEXT:    [[CMP279:%.*]] = icmp eq i32 [[BF_ASHR278]], [[TMP99]]
-// CHK-CXX-NEXT:    [[FROMBOOL280:%.*]] = zext i1 [[CMP279]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL280]], i8* [[ATMP261]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP279]], label [[ATOMIC_CONT263]], label [[ATOMIC_EXIT281]]
-// CHK-CXX:       atomic_exit281:
-// CHK-CXX-NEXT:    [[TMP105:%.*]] = load i32, i32* [[ATMP255]], align 4
-// CHK-CXX-NEXT:    [[TMP106:%.*]] = load i8, i8* [[ATMP261]], align 1
-// CHK-CXX-NEXT:    [[TMP107:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD282:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS3]], %struct.BitFields3* @bfx3, i32 0, i32 0) monotonic, align 4
-// CHK-CXX-NEXT:    store i32 [[ATOMIC_LOAD282]], i32* [[ATOMIC_TEMP284]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD285:%.*]] = load i32, i32* [[ATOMIC_TEMP284]], align 4
-// CHK-CXX-NEXT:    [[BF_SHL286:%.*]] = shl i32 [[BF_LOAD285]], 7
-// CHK-CXX-NEXT:    [[BF_ASHR287:%.*]] = ashr i32 [[BF_SHL286]], 18
-// CHK-CXX-NEXT:    store i32 [[BF_ASHR287]], i32* [[ATMP283]], align 4
-// CHK-CXX-NEXT:    [[CMP288:%.*]] = icmp slt i32 [[BF_ASHR287]], [[TMP107]]
-// CHK-CXX-NEXT:    [[FROMBOOL290:%.*]] = zext i1 [[CMP288]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL290]], i8* [[ATMP289]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP288]], label [[ATOMIC_CONT291:%.*]], label [[ATOMIC_EXIT309:%.*]]
-// CHK-CXX:       atomic_cont291:
-// CHK-CXX-NEXT:    [[TMP108:%.*]] = phi i32 [ [[ATOMIC_LOAD282]], [[ATOMIC_EXIT281]] ], [ [[TMP111:%.*]], [[ATOMIC_CMP302:%.*]] ]
-// CHK-CXX-NEXT:    store i32 [[TMP108]], i32* [[ATOMIC_TEMP292]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD293:%.*]] = load i32, i32* [[ATOMIC_TEMP292]], align 4
-// CHK-CXX-NEXT:    [[BF_SHL294:%.*]] = shl i32 [[BF_LOAD293]], 7
-// CHK-CXX-NEXT:    [[BF_ASHR295:%.*]] = ashr i32 [[BF_SHL294]], 18
-// CHK-CXX-NEXT:    store i32 [[BF_ASHR295]], i32* [[ATMP283]], align 4
-// CHK-CXX-NEXT:    store i32 [[TMP108]], i32* [[ATOMIC_TEMP296]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD297:%.*]] = load i32, i32* [[ATOMIC_TEMP296]], align 4
-// CHK-CXX-NEXT:    [[BF_VALUE298:%.*]] = and i32 [[TMP107]], 16383
-// CHK-CXX-NEXT:    [[BF_SHL299:%.*]] = shl i32 [[BF_VALUE298]], 11
-// CHK-CXX-NEXT:    [[BF_CLEAR300:%.*]] = and i32 [[BF_LOAD297]], -33552385
-// CHK-CXX-NEXT:    [[BF_SET301:%.*]] = or i32 [[BF_CLEAR300]], [[BF_SHL299]]
-// CHK-CXX-NEXT:    store i32 [[BF_SET301]], i32* [[ATOMIC_TEMP296]], align 4
-// CHK-CXX-NEXT:    [[TMP109:%.*]] = load i32, i32* [[ATOMIC_TEMP296]], align 4
-// CHK-CXX-NEXT:    [[TMP110:%.*]] = cmpxchg i32* getelementptr inbounds ([[STRUCT_BITFIELDS3]], %struct.BitFields3* @bfx3, i32 0, i32 0), i32 [[TMP108]], i32 [[TMP109]] monotonic monotonic, align 4
-// CHK-CXX-NEXT:    [[TMP111]] = extractvalue { i32, i1 } [[TMP110]], 0
-// CHK-CXX-NEXT:    [[TMP112:%.*]] = extractvalue { i32, i1 } [[TMP110]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP112]], label [[ATOMIC_EXIT309]], label [[ATOMIC_CMP302]]
-// CHK-CXX:       atomic_cmp302:
-// CHK-CXX-NEXT:    store i32 [[TMP111]], i32* [[ATOMIC_TEMP303]], align 4
-// CHK-CXX-NEXT:    [[BF_LOAD304:%.*]] = load i32, i32* [[ATOMIC_TEMP303]], align 4
-// CHK-CXX-NEXT:    [[BF_SHL305:%.*]] = shl i32 [[BF_LOAD304]], 7
-// CHK-CXX-NEXT:    [[BF_ASHR306:%.*]] = ashr i32 [[BF_SHL305]], 18
-// CHK-CXX-NEXT:    [[CMP307:%.*]] = icmp slt i32 [[BF_ASHR306]], [[TMP107]]
-// CHK-CXX-NEXT:    [[FROMBOOL308:%.*]] = zext i1 [[CMP307]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL308]], i8* [[ATMP289]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP307]], label [[ATOMIC_CONT291]], label [[ATOMIC_EXIT309]]
-// CHK-CXX:       atomic_exit309:
-// CHK-CXX-NEXT:    [[TMP113:%.*]] = load i32, i32* [[ATMP283]], align 4
-// CHK-CXX-NEXT:    [[TMP114:%.*]] = load i8, i8* [[ATMP289]], align 1
-// CHK-CXX-NEXT:    [[TMP115:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD310:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
-// CHK-CXX-NEXT:    store i64 [[ATOMIC_LOAD310]], i64* [[ATOMIC_TEMP312]], align 8
-// CHK-CXX-NEXT:    [[BF_LOAD313:%.*]] = load i64, i64* [[ATOMIC_TEMP312]], align 8
-// CHK-CXX-NEXT:    [[BF_SHL314:%.*]] = shl i64 [[BF_LOAD313]], 47
-// CHK-CXX-NEXT:    [[BF_ASHR315:%.*]] = ashr i64 [[BF_SHL314]], 63
-// CHK-CXX-NEXT:    [[BF_CAST316:%.*]] = trunc i64 [[BF_ASHR315]] to i32
-// CHK-CXX-NEXT:    store i32 [[BF_CAST316]], i32* [[ATMP311]], align 4
-// CHK-CXX-NEXT:    [[CMP317:%.*]] = icmp sgt i32 [[BF_CAST316]], [[TMP115]]
-// CHK-CXX-NEXT:    [[FROMBOOL319:%.*]] = zext i1 [[CMP317]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL319]], i8* [[ATMP318]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP317]], label [[ATOMIC_CONT320:%.*]], label [[ATOMIC_EXIT340:%.*]]
-// CHK-CXX:       atomic_cont320:
-// CHK-CXX-NEXT:    [[TMP116:%.*]] = phi i64 [ [[ATOMIC_LOAD310]], [[ATOMIC_EXIT309]] ], [ [[TMP120:%.*]], [[ATOMIC_CMP332:%.*]] ]
-// CHK-CXX-NEXT:    store i64 [[TMP116]], i64* [[ATOMIC_TEMP321]], align 8
-// CHK-CXX-NEXT:    [[BF_LOAD322:%.*]] = load i64, i64* [[ATOMIC_TEMP321]], align 8
-// CHK-CXX-NEXT:    [[BF_SHL323:%.*]] = shl i64 [[BF_LOAD322]], 47
-// CHK-CXX-NEXT:    [[BF_ASHR324:%.*]] = ashr i64 [[BF_SHL323]], 63
-// CHK-CXX-NEXT:    [[BF_CAST325:%.*]] = trunc i64 [[BF_ASHR324]] to i32
-// CHK-CXX-NEXT:    store i32 [[BF_CAST325]], i32* [[ATMP311]], align 4
-// CHK-CXX-NEXT:    store i64 [[TMP116]], i64* [[ATOMIC_TEMP326]], align 8
-// CHK-CXX-NEXT:    [[TMP117:%.*]] = zext i32 [[TMP115]] to i64
-// CHK-CXX-NEXT:    [[BF_LOAD327:%.*]] = load i64, i64* [[ATOMIC_TEMP326]], align 8
-// CHK-CXX-NEXT:    [[BF_VALUE328:%.*]] = and i64 [[TMP117]], 1
-// CHK-CXX-NEXT:    [[BF_SHL329:%.*]] = shl i64 [[BF_VALUE328]], 16
-// CHK-CXX-NEXT:    [[BF_CLEAR330:%.*]] = and i64 [[BF_LOAD327]], -65537
-// CHK-CXX-NEXT:    [[BF_SET331:%.*]] = or i64 [[BF_CLEAR330]], [[BF_SHL329]]
-// CHK-CXX-NEXT:    store i64 [[BF_SET331]], i64* [[ATOMIC_TEMP326]], align 8
-// CHK-CXX-NEXT:    [[TMP118:%.*]] = load i64, i64* [[ATOMIC_TEMP326]], align 8
-// CHK-CXX-NEXT:    [[TMP119:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP116]], i64 [[TMP118]] monotonic monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP120]] = extractvalue { i64, i1 } [[TMP119]], 0
-// CHK-CXX-NEXT:    [[TMP121:%.*]] = extractvalue { i64, i1 } [[TMP119]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP121]], label [[ATOMIC_EXIT340]], label [[ATOMIC_CMP332]]
-// CHK-CXX:       atomic_cmp332:
-// CHK-CXX-NEXT:    store i64 [[TMP120]], i64* [[ATOMIC_TEMP333]], align 8
-// CHK-CXX-NEXT:    [[BF_LOAD334:%.*]] = load i64, i64* [[ATOMIC_TEMP333]], align 8
-// CHK-CXX-NEXT:    [[BF_SHL335:%.*]] = shl i64 [[BF_LOAD334]], 47
-// CHK-CXX-NEXT:    [[BF_ASHR336:%.*]] = ashr i64 [[BF_SHL335]], 63
-// CHK-CXX-NEXT:    [[BF_CAST337:%.*]] = trunc i64 [[BF_ASHR336]] to i32
-// CHK-CXX-NEXT:    [[CMP338:%.*]] = icmp sgt i32 [[BF_CAST337]], [[TMP115]]
-// CHK-CXX-NEXT:    [[FROMBOOL339:%.*]] = zext i1 [[CMP338]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL339]], i8* [[ATMP318]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP338]], label [[ATOMIC_CONT320]], label [[ATOMIC_EXIT340]]
-// CHK-CXX:       atomic_exit340:
-// CHK-CXX-NEXT:    [[TMP122:%.*]] = load i32, i32* [[ATMP311]], align 4
-// CHK-CXX-NEXT:    [[TMP123:%.*]] = load i8, i8* [[ATMP318]], align 1
-// CHK-CXX-NEXT:    [[TMP124:%.*]] = load i32, i32* [[D]], align 4
-// CHK-CXX-NEXT:    [[TMP125:%.*]] = load i32, i32* [[E]], align 4
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD341:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
-// CHK-CXX-NEXT:    store i64 [[ATOMIC_LOAD341]], i64* [[ATOMIC_TEMP343]], align 8
-// CHK-CXX-NEXT:    [[BF_LOAD344:%.*]] = load i64, i64* [[ATOMIC_TEMP343]], align 8
-// CHK-CXX-NEXT:    [[BF_SHL345:%.*]] = shl i64 [[BF_LOAD344]], 47
-// CHK-CXX-NEXT:    [[BF_ASHR346:%.*]] = ashr i64 [[BF_SHL345]], 63
-// CHK-CXX-NEXT:    [[BF_CAST347:%.*]] = trunc i64 [[BF_ASHR346]] to i32
-// CHK-CXX-NEXT:    store i32 [[BF_CAST347]], i32* [[ATMP342]], align 4
-// CHK-CXX-NEXT:    [[CMP348:%.*]] = icmp eq i32 [[BF_CAST347]], [[TMP125]]
-// CHK-CXX-NEXT:    [[FROMBOOL350:%.*]] = zext i1 [[CMP348]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL350]], i8* [[ATMP349]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP348]], label [[ATOMIC_CONT351:%.*]], label [[ATOMIC_EXIT371:%.*]]
-// CHK-CXX:       atomic_cont351:
-// CHK-CXX-NEXT:    [[TMP126:%.*]] = phi i64 [ [[ATOMIC_LOAD341]], [[ATOMIC_EXIT340]] ], [ [[TMP130:%.*]], [[ATOMIC_CMP363:%.*]] ]
-// CHK-CXX-NEXT:    store i64 [[TMP126]], i64* [[ATOMIC_TEMP352]], align 8
-// CHK-CXX-NEXT:    [[BF_LOAD353:%.*]] = load i64, i64* [[ATOMIC_TEMP352]], align 8
-// CHK-CXX-NEXT:    [[BF_SHL354:%.*]] = shl i64 [[BF_LOAD353]], 47
-// CHK-CXX-NEXT:    [[BF_ASHR355:%.*]] = ashr i64 [[BF_SHL354]], 63
-// CHK-CXX-NEXT:    [[BF_CAST356:%.*]] = trunc i64 [[BF_ASHR355]] to i32
-// CHK-CXX-NEXT:    store i32 [[BF_CAST356]], i32* [[ATMP342]], align 4
-// CHK-CXX-NEXT:    store i64 [[TMP126]], i64* [[ATOMIC_TEMP357]], align 8
-// CHK-CXX-NEXT:    [[TMP127:%.*]] = zext i32 [[TMP124]] to i64
-// CHK-CXX-NEXT:    [[BF_LOAD358:%.*]] = load i64, i64* [[ATOMIC_TEMP357]], align 8
-// CHK-CXX-NEXT:    [[BF_VALUE359:%.*]] = and i64 [[TMP127]], 1
-// CHK-CXX-NEXT:    [[BF_SHL360:%.*]] = shl i64 [[BF_VALUE359]], 16
-// CHK-CXX-NEXT:    [[BF_CLEAR361:%.*]] = and i64 [[BF_LOAD358]], -65537
-// CHK-CXX-NEXT:    [[BF_SET362:%.*]] = or i64 [[BF_CLEAR361]], [[BF_SHL360]]
-// CHK-CXX-NEXT:    store i64 [[BF_SET362]], i64* [[ATOMIC_TEMP357]], align 8
-// CHK-CXX-NEXT:    [[TMP128:%.*]] = load i64, i64* [[ATOMIC_TEMP357]], align 8
-// CHK-CXX-NEXT:    [[TMP129:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP126]], i64 [[TMP128]] monotonic monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP130]] = extractvalue { i64, i1 } [[TMP129]], 0
-// CHK-CXX-NEXT:    [[TMP131:%.*]] = extractvalue { i64, i1 } [[TMP129]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP131]], label [[ATOMIC_EXIT371]], label [[ATOMIC_CMP363]]
-// CHK-CXX:       atomic_cmp363:
-// CHK-CXX-NEXT:    store i64 [[TMP130]], i64* [[ATOMIC_TEMP364]], align 8
-// CHK-CXX-NEXT:    [[BF_LOAD365:%.*]] = load i64, i64* [[ATOMIC_TEMP364]], align 8
-// CHK-CXX-NEXT:    [[BF_SHL366:%.*]] = shl i64 [[BF_LOAD365]], 47
-// CHK-CXX-NEXT:    [[BF_ASHR367:%.*]] = ashr i64 [[BF_SHL366]], 63
-// CHK-CXX-NEXT:    [[BF_CAST368:%.*]] = trunc i64 [[BF_ASHR367]] to i32
-// CHK-CXX-NEXT:    [[CMP369:%.*]] = icmp eq i32 [[BF_CAST368]], [[TMP125]]
-// CHK-CXX-NEXT:    [[FROMBOOL370:%.*]] = zext i1 [[CMP369]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL370]], i8* [[ATMP349]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP369]], label [[ATOMIC_CONT351]], label [[ATOMIC_EXIT371]]
-// CHK-CXX:       atomic_exit371:
-// CHK-CXX-NEXT:    [[TMP132:%.*]] = load i32, i32* [[ATMP342]], align 4
-// CHK-CXX-NEXT:    [[TMP133:%.*]] = load i8, i8* [[ATMP349]], align 1
-// CHK-CXX-NEXT:    [[TMP134:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD372:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
-// CHK-CXX-NEXT:    store i64 [[ATOMIC_LOAD372]], i64* [[ATOMIC_TEMP374]], align 8
-// CHK-CXX-NEXT:    [[BF_LOAD375:%.*]] = load i64, i64* [[ATOMIC_TEMP374]], align 8
-// CHK-CXX-NEXT:    [[BF_SHL376:%.*]] = shl i64 [[BF_LOAD375]], 47
-// CHK-CXX-NEXT:    [[BF_ASHR377:%.*]] = ashr i64 [[BF_SHL376]], 63
-// CHK-CXX-NEXT:    [[BF_CAST378:%.*]] = trunc i64 [[BF_ASHR377]] to i32
-// CHK-CXX-NEXT:    store i32 [[BF_CAST378]], i32* [[ATMP373]], align 4
-// CHK-CXX-NEXT:    [[CMP379:%.*]] = icmp slt i32 [[BF_CAST378]], [[TMP134]]
-// CHK-CXX-NEXT:    [[FROMBOOL381:%.*]] = zext i1 [[CMP379]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL381]], i8* [[ATMP380]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP379]], label [[ATOMIC_CONT382:%.*]], label [[ATOMIC_EXIT402:%.*]]
-// CHK-CXX:       atomic_cont382:
-// CHK-CXX-NEXT:    [[TMP135:%.*]] = phi i64 [ [[ATOMIC_LOAD372]], [[ATOMIC_EXIT371]] ], [ [[TMP139:%.*]], [[ATOMIC_CMP394:%.*]] ]
-// CHK-CXX-NEXT:    store i64 [[TMP135]], i64* [[ATOMIC_TEMP383]], align 8
-// CHK-CXX-NEXT:    [[BF_LOAD384:%.*]] = load i64, i64* [[ATOMIC_TEMP383]], align 8
-// CHK-CXX-NEXT:    [[BF_SHL385:%.*]] = shl i64 [[BF_LOAD384]], 47
-// CHK-CXX-NEXT:    [[BF_ASHR386:%.*]] = ashr i64 [[BF_SHL385]], 63
-// CHK-CXX-NEXT:    [[BF_CAST387:%.*]] = trunc i64 [[BF_ASHR386]] to i32
-// CHK-CXX-NEXT:    store i32 [[BF_CAST387]], i32* [[ATMP373]], align 4
-// CHK-CXX-NEXT:    store i64 [[TMP135]], i64* [[ATOMIC_TEMP388]], align 8
-// CHK-CXX-NEXT:    [[TMP136:%.*]] = zext i32 [[TMP134]] to i64
-// CHK-CXX-NEXT:    [[BF_LOAD389:%.*]] = load i64, i64* [[ATOMIC_TEMP388]], align 8
-// CHK-CXX-NEXT:    [[BF_VALUE390:%.*]] = and i64 [[TMP136]], 1
-// CHK-CXX-NEXT:    [[BF_SHL391:%.*]] = shl i64 [[BF_VALUE390]], 16
-// CHK-CXX-NEXT:    [[BF_CLEAR392:%.*]] = and i64 [[BF_LOAD389]], -65537
-// CHK-CXX-NEXT:    [[BF_SET393:%.*]] = or i64 [[BF_CLEAR392]], [[BF_SHL391]]
-// CHK-CXX-NEXT:    store i64 [[BF_SET393]], i64* [[ATOMIC_TEMP388]], align 8
-// CHK-CXX-NEXT:    [[TMP137:%.*]] = load i64, i64* [[ATOMIC_TEMP388]], align 8
-// CHK-CXX-NEXT:    [[TMP138:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP135]], i64 [[TMP137]] monotonic monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP139]] = extractvalue { i64, i1 } [[TMP138]], 0
-// CHK-CXX-NEXT:    [[TMP140:%.*]] = extractvalue { i64, i1 } [[TMP138]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP140]], label [[ATOMIC_EXIT402]], label [[ATOMIC_CMP394]]
-// CHK-CXX:       atomic_cmp394:
-// CHK-CXX-NEXT:    store i64 [[TMP139]], i64* [[ATOMIC_TEMP395]], align 8
-// CHK-CXX-NEXT:    [[BF_LOAD396:%.*]] = load i64, i64* [[ATOMIC_TEMP395]], align 8
-// CHK-CXX-NEXT:    [[BF_SHL397:%.*]] = shl i64 [[BF_LOAD396]], 47
-// CHK-CXX-NEXT:    [[BF_ASHR398:%.*]] = ashr i64 [[BF_SHL397]], 63
-// CHK-CXX-NEXT:    [[BF_CAST399:%.*]] = trunc i64 [[BF_ASHR398]] to i32
-// CHK-CXX-NEXT:    [[CMP400:%.*]] = icmp slt i32 [[BF_CAST399]], [[TMP134]]
-// CHK-CXX-NEXT:    [[FROMBOOL401:%.*]] = zext i1 [[CMP400]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL401]], i8* [[ATMP380]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP400]], label [[ATOMIC_CONT382]], label [[ATOMIC_EXIT402]]
-// CHK-CXX:       atomic_exit402:
-// CHK-CXX-NEXT:    [[TMP141:%.*]] = load i32, i32* [[ATMP373]], align 4
-// CHK-CXX-NEXT:    [[TMP142:%.*]] = load i8, i8* [[ATMP380]], align 1
-// CHK-CXX-NEXT:    [[TMP143:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-CXX-NEXT:    [[CONV:%.*]] = sext i32 [[TMP143]] to i64
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD403:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
-// CHK-CXX-NEXT:    store i64 [[ATOMIC_LOAD403]], i64* [[ATOMIC_TEMP405]], align 8
-// CHK-CXX-NEXT:    [[BF_LOAD406:%.*]] = load i64, i64* [[ATOMIC_TEMP405]], align 8
-// CHK-CXX-NEXT:    [[BF_SHL407:%.*]] = shl i64 [[BF_LOAD406]], 40
-// CHK-CXX-NEXT:    [[BF_ASHR408:%.*]] = ashr i64 [[BF_SHL407]], 57
-// CHK-CXX-NEXT:    store i64 [[BF_ASHR408]], i64* [[ATMP404]], align 8
-// CHK-CXX-NEXT:    [[CMP409:%.*]] = icmp sgt i64 [[BF_ASHR408]], [[CONV]]
-// CHK-CXX-NEXT:    [[FROMBOOL411:%.*]] = zext i1 [[CMP409]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL411]], i8* [[ATMP410]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP409]], label [[ATOMIC_CONT412:%.*]], label [[ATOMIC_EXIT430:%.*]]
-// CHK-CXX:       atomic_cont412:
-// CHK-CXX-NEXT:    [[TMP144:%.*]] = phi i64 [ [[ATOMIC_LOAD403]], [[ATOMIC_EXIT402]] ], [ [[TMP147:%.*]], [[ATOMIC_CMP423:%.*]] ]
-// CHK-CXX-NEXT:    store i64 [[TMP144]], i64* [[ATOMIC_TEMP413]], align 8
-// CHK-CXX-NEXT:    [[BF_LOAD414:%.*]] = load i64, i64* [[ATOMIC_TEMP413]], align 8
-// CHK-CXX-NEXT:    [[BF_SHL415:%.*]] = shl i64 [[BF_LOAD414]], 40
-// CHK-CXX-NEXT:    [[BF_ASHR416:%.*]] = ashr i64 [[BF_SHL415]], 57
-// CHK-CXX-NEXT:    store i64 [[BF_ASHR416]], i64* [[ATMP404]], align 8
-// CHK-CXX-NEXT:    store i64 [[TMP144]], i64* [[ATOMIC_TEMP417]], align 8
-// CHK-CXX-NEXT:    [[BF_LOAD418:%.*]] = load i64, i64* [[ATOMIC_TEMP417]], align 8
-// CHK-CXX-NEXT:    [[BF_VALUE419:%.*]] = and i64 [[CONV]], 127
-// CHK-CXX-NEXT:    [[BF_SHL420:%.*]] = shl i64 [[BF_VALUE419]], 17
-// CHK-CXX-NEXT:    [[BF_CLEAR421:%.*]] = and i64 [[BF_LOAD418]], -16646145
-// CHK-CXX-NEXT:    [[BF_SET422:%.*]] = or i64 [[BF_CLEAR421]], [[BF_SHL420]]
-// CHK-CXX-NEXT:    store i64 [[BF_SET422]], i64* [[ATOMIC_TEMP417]], align 8
-// CHK-CXX-NEXT:    [[TMP145:%.*]] = load i64, i64* [[ATOMIC_TEMP417]], align 8
-// CHK-CXX-NEXT:    [[TMP146:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP144]], i64 [[TMP145]] monotonic monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP147]] = extractvalue { i64, i1 } [[TMP146]], 0
-// CHK-CXX-NEXT:    [[TMP148:%.*]] = extractvalue { i64, i1 } [[TMP146]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP148]], label [[ATOMIC_EXIT430]], label [[ATOMIC_CMP423]]
-// CHK-CXX:       atomic_cmp423:
-// CHK-CXX-NEXT:    store i64 [[TMP147]], i64* [[ATOMIC_TEMP424]], align 8
-// CHK-CXX-NEXT:    [[BF_LOAD425:%.*]] = load i64, i64* [[ATOMIC_TEMP424]], align 8
-// CHK-CXX-NEXT:    [[BF_SHL426:%.*]] = shl i64 [[BF_LOAD425]], 40
-// CHK-CXX-NEXT:    [[BF_ASHR427:%.*]] = ashr i64 [[BF_SHL426]], 57
-// CHK-CXX-NEXT:    [[CMP428:%.*]] = icmp sgt i64 [[BF_ASHR427]], [[CONV]]
-// CHK-CXX-NEXT:    [[FROMBOOL429:%.*]] = zext i1 [[CMP428]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL429]], i8* [[ATMP410]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP428]], label [[ATOMIC_CONT412]], label [[ATOMIC_EXIT430]]
-// CHK-CXX:       atomic_exit430:
-// CHK-CXX-NEXT:    [[TMP149:%.*]] = load i64, i64* [[ATMP404]], align 8
-// CHK-CXX-NEXT:    [[TMP150:%.*]] = load i8, i8* [[ATMP410]], align 1
-// CHK-CXX-NEXT:    [[TMP151:%.*]] = load i32, i32* [[D]], align 4
-// CHK-CXX-NEXT:    [[CONV431:%.*]] = sext i32 [[TMP151]] to i64
-// CHK-CXX-NEXT:    [[TMP152:%.*]] = load i32, i32* [[E]], align 4
-// CHK-CXX-NEXT:    [[CONV432:%.*]] = sext i32 [[TMP152]] to i64
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD433:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
-// CHK-CXX-NEXT:    store i64 [[ATOMIC_LOAD433]], i64* [[ATOMIC_TEMP435]], align 8
-// CHK-CXX-NEXT:    [[BF_LOAD436:%.*]] = load i64, i64* [[ATOMIC_TEMP435]], align 8
-// CHK-CXX-NEXT:    [[BF_SHL437:%.*]] = shl i64 [[BF_LOAD436]], 40
-// CHK-CXX-NEXT:    [[BF_ASHR438:%.*]] = ashr i64 [[BF_SHL437]], 57
-// CHK-CXX-NEXT:    store i64 [[BF_ASHR438]], i64* [[ATMP434]], align 8
-// CHK-CXX-NEXT:    [[CMP439:%.*]] = icmp eq i64 [[BF_ASHR438]], [[CONV432]]
-// CHK-CXX-NEXT:    [[FROMBOOL441:%.*]] = zext i1 [[CMP439]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL441]], i8* [[ATMP440]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP439]], label [[ATOMIC_CONT442:%.*]], label [[ATOMIC_EXIT460:%.*]]
-// CHK-CXX:       atomic_cont442:
-// CHK-CXX-NEXT:    [[TMP153:%.*]] = phi i64 [ [[ATOMIC_LOAD433]], [[ATOMIC_EXIT430]] ], [ [[TMP156:%.*]], [[ATOMIC_CMP453:%.*]] ]
-// CHK-CXX-NEXT:    store i64 [[TMP153]], i64* [[ATOMIC_TEMP443]], align 8
-// CHK-CXX-NEXT:    [[BF_LOAD444:%.*]] = load i64, i64* [[ATOMIC_TEMP443]], align 8
-// CHK-CXX-NEXT:    [[BF_SHL445:%.*]] = shl i64 [[BF_LOAD444]], 40
-// CHK-CXX-NEXT:    [[BF_ASHR446:%.*]] = ashr i64 [[BF_SHL445]], 57
-// CHK-CXX-NEXT:    store i64 [[BF_ASHR446]], i64* [[ATMP434]], align 8
-// CHK-CXX-NEXT:    store i64 [[TMP153]], i64* [[ATOMIC_TEMP447]], align 8
-// CHK-CXX-NEXT:    [[BF_LOAD448:%.*]] = load i64, i64* [[ATOMIC_TEMP447]], align 8
-// CHK-CXX-NEXT:    [[BF_VALUE449:%.*]] = and i64 [[CONV431]], 127
-// CHK-CXX-NEXT:    [[BF_SHL450:%.*]] = shl i64 [[BF_VALUE449]], 17
-// CHK-CXX-NEXT:    [[BF_CLEAR451:%.*]] = and i64 [[BF_LOAD448]], -16646145
-// CHK-CXX-NEXT:    [[BF_SET452:%.*]] = or i64 [[BF_CLEAR451]], [[BF_SHL450]]
-// CHK-CXX-NEXT:    store i64 [[BF_SET452]], i64* [[ATOMIC_TEMP447]], align 8
-// CHK-CXX-NEXT:    [[TMP154:%.*]] = load i64, i64* [[ATOMIC_TEMP447]], align 8
-// CHK-CXX-NEXT:    [[TMP155:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP153]], i64 [[TMP154]] monotonic monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP156]] = extractvalue { i64, i1 } [[TMP155]], 0
-// CHK-CXX-NEXT:    [[TMP157:%.*]] = extractvalue { i64, i1 } [[TMP155]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP157]], label [[ATOMIC_EXIT460]], label [[ATOMIC_CMP453]]
-// CHK-CXX:       atomic_cmp453:
-// CHK-CXX-NEXT:    store i64 [[TMP156]], i64* [[ATOMIC_TEMP454]], align 8
-// CHK-CXX-NEXT:    [[BF_LOAD455:%.*]] = load i64, i64* [[ATOMIC_TEMP454]], align 8
-// CHK-CXX-NEXT:    [[BF_SHL456:%.*]] = shl i64 [[BF_LOAD455]], 40
-// CHK-CXX-NEXT:    [[BF_ASHR457:%.*]] = ashr i64 [[BF_SHL456]], 57
-// CHK-CXX-NEXT:    [[CMP458:%.*]] = icmp eq i64 [[BF_ASHR457]], [[CONV432]]
-// CHK-CXX-NEXT:    [[FROMBOOL459:%.*]] = zext i1 [[CMP458]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL459]], i8* [[ATMP440]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP458]], label [[ATOMIC_CONT442]], label [[ATOMIC_EXIT460]]
-// CHK-CXX:       atomic_exit460:
-// CHK-CXX-NEXT:    [[TMP158:%.*]] = load i64, i64* [[ATMP434]], align 8
-// CHK-CXX-NEXT:    [[TMP159:%.*]] = load i8, i8* [[ATMP440]], align 1
-// CHK-CXX-NEXT:    [[TMP160:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-CXX-NEXT:    [[CONV461:%.*]] = sext i32 [[TMP160]] to i64
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD462:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
-// CHK-CXX-NEXT:    store i64 [[ATOMIC_LOAD462]], i64* [[ATOMIC_TEMP464]], align 8
-// CHK-CXX-NEXT:    [[BF_LOAD465:%.*]] = load i64, i64* [[ATOMIC_TEMP464]], align 8
-// CHK-CXX-NEXT:    [[BF_SHL466:%.*]] = shl i64 [[BF_LOAD465]], 40
-// CHK-CXX-NEXT:    [[BF_ASHR467:%.*]] = ashr i64 [[BF_SHL466]], 57
-// CHK-CXX-NEXT:    store i64 [[BF_ASHR467]], i64* [[ATMP463]], align 8
-// CHK-CXX-NEXT:    [[CMP468:%.*]] = icmp slt i64 [[BF_ASHR467]], [[CONV461]]
-// CHK-CXX-NEXT:    [[FROMBOOL470:%.*]] = zext i1 [[CMP468]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL470]], i8* [[ATMP469]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP468]], label [[ATOMIC_CONT471:%.*]], label [[ATOMIC_EXIT489:%.*]]
-// CHK-CXX:       atomic_cont471:
-// CHK-CXX-NEXT:    [[TMP161:%.*]] = phi i64 [ [[ATOMIC_LOAD462]], [[ATOMIC_EXIT460]] ], [ [[TMP164:%.*]], [[ATOMIC_CMP482:%.*]] ]
-// CHK-CXX-NEXT:    store i64 [[TMP161]], i64* [[ATOMIC_TEMP472]], align 8
-// CHK-CXX-NEXT:    [[BF_LOAD473:%.*]] = load i64, i64* [[ATOMIC_TEMP472]], align 8
-// CHK-CXX-NEXT:    [[BF_SHL474:%.*]] = shl i64 [[BF_LOAD473]], 40
-// CHK-CXX-NEXT:    [[BF_ASHR475:%.*]] = ashr i64 [[BF_SHL474]], 57
-// CHK-CXX-NEXT:    store i64 [[BF_ASHR475]], i64* [[ATMP463]], align 8
-// CHK-CXX-NEXT:    store i64 [[TMP161]], i64* [[ATOMIC_TEMP476]], align 8
-// CHK-CXX-NEXT:    [[BF_LOAD477:%.*]] = load i64, i64* [[ATOMIC_TEMP476]], align 8
-// CHK-CXX-NEXT:    [[BF_VALUE478:%.*]] = and i64 [[CONV461]], 127
-// CHK-CXX-NEXT:    [[BF_SHL479:%.*]] = shl i64 [[BF_VALUE478]], 17
-// CHK-CXX-NEXT:    [[BF_CLEAR480:%.*]] = and i64 [[BF_LOAD477]], -16646145
-// CHK-CXX-NEXT:    [[BF_SET481:%.*]] = or i64 [[BF_CLEAR480]], [[BF_SHL479]]
-// CHK-CXX-NEXT:    store i64 [[BF_SET481]], i64* [[ATOMIC_TEMP476]], align 8
-// CHK-CXX-NEXT:    [[TMP162:%.*]] = load i64, i64* [[ATOMIC_TEMP476]], align 8
-// CHK-CXX-NEXT:    [[TMP163:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP161]], i64 [[TMP162]] monotonic monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP164]] = extractvalue { i64, i1 } [[TMP163]], 0
-// CHK-CXX-NEXT:    [[TMP165:%.*]] = extractvalue { i64, i1 } [[TMP163]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP165]], label [[ATOMIC_EXIT489]], label [[ATOMIC_CMP482]]
-// CHK-CXX:       atomic_cmp482:
-// CHK-CXX-NEXT:    store i64 [[TMP164]], i64* [[ATOMIC_TEMP483]], align 8
-// CHK-CXX-NEXT:    [[BF_LOAD484:%.*]] = load i64, i64* [[ATOMIC_TEMP483]], align 8
-// CHK-CXX-NEXT:    [[BF_SHL485:%.*]] = shl i64 [[BF_LOAD484]], 40
-// CHK-CXX-NEXT:    [[BF_ASHR486:%.*]] = ashr i64 [[BF_SHL485]], 57
-// CHK-CXX-NEXT:    [[CMP487:%.*]] = icmp slt i64 [[BF_ASHR486]], [[CONV461]]
-// CHK-CXX-NEXT:    [[FROMBOOL488:%.*]] = zext i1 [[CMP487]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL488]], i8* [[ATMP469]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP487]], label [[ATOMIC_CONT471]], label [[ATOMIC_EXIT489]]
-// CHK-CXX:       atomic_exit489:
-// CHK-CXX-NEXT:    [[TMP166:%.*]] = load i64, i64* [[ATMP463]], align 8
-// CHK-CXX-NEXT:    [[TMP167:%.*]] = load i8, i8* [[ATMP469]], align 1
-// CHK-CXX-NEXT:    [[TMP168:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD490:%.*]] = load atomic i8, i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED:%.*]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2) monotonic, align 1
-// CHK-CXX-NEXT:    [[TMP169:%.*]] = bitcast i32* [[ATOMIC_TEMP492]] to i8*
-// CHK-CXX-NEXT:    store i8 [[ATOMIC_LOAD490]], i8* [[TMP169]], align 1
-// CHK-CXX-NEXT:    [[BF_LOAD493:%.*]] = load i8, i8* [[TMP169]], align 1
-// CHK-CXX-NEXT:    [[BF_SHL494:%.*]] = shl i8 [[BF_LOAD493]], 7
-// CHK-CXX-NEXT:    [[BF_ASHR495:%.*]] = ashr i8 [[BF_SHL494]], 7
-// CHK-CXX-NEXT:    [[BF_CAST496:%.*]] = sext i8 [[BF_ASHR495]] to i32
-// CHK-CXX-NEXT:    store i32 [[BF_CAST496]], i32* [[ATMP491]], align 4
-// CHK-CXX-NEXT:    [[CMP497:%.*]] = icmp sgt i32 [[BF_CAST496]], [[TMP168]]
-// CHK-CXX-NEXT:    [[FROMBOOL499:%.*]] = zext i1 [[CMP497]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL499]], i8* [[ATMP498]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP497]], label [[ATOMIC_CONT500:%.*]], label [[ATOMIC_EXIT519:%.*]]
-// CHK-CXX:       atomic_cont500:
-// CHK-CXX-NEXT:    [[TMP170:%.*]] = phi i8 [ [[ATOMIC_LOAD490]], [[ATOMIC_EXIT489]] ], [ [[TMP176:%.*]], [[ATOMIC_CMP511:%.*]] ]
-// CHK-CXX-NEXT:    [[TMP171:%.*]] = bitcast i32* [[ATOMIC_TEMP501]] to i8*
-// CHK-CXX-NEXT:    store i8 [[TMP170]], i8* [[TMP171]], align 1
-// CHK-CXX-NEXT:    [[BF_LOAD502:%.*]] = load i8, i8* [[TMP171]], align 1
-// CHK-CXX-NEXT:    [[BF_SHL503:%.*]] = shl i8 [[BF_LOAD502]], 7
-// CHK-CXX-NEXT:    [[BF_ASHR504:%.*]] = ashr i8 [[BF_SHL503]], 7
-// CHK-CXX-NEXT:    [[BF_CAST505:%.*]] = sext i8 [[BF_ASHR504]] to i32
-// CHK-CXX-NEXT:    store i32 [[BF_CAST505]], i32* [[ATMP491]], align 4
-// CHK-CXX-NEXT:    [[TMP172:%.*]] = bitcast i32* [[ATOMIC_TEMP506]] to i8*
-// CHK-CXX-NEXT:    store i8 [[TMP170]], i8* [[TMP172]], align 1
-// CHK-CXX-NEXT:    [[TMP173:%.*]] = trunc i32 [[TMP168]] to i8
-// CHK-CXX-NEXT:    [[BF_LOAD507:%.*]] = load i8, i8* [[TMP172]], align 1
-// CHK-CXX-NEXT:    [[BF_VALUE508:%.*]] = and i8 [[TMP173]], 1
-// CHK-CXX-NEXT:    [[BF_CLEAR509:%.*]] = and i8 [[BF_LOAD507]], -2
-// CHK-CXX-NEXT:    [[BF_SET510:%.*]] = or i8 [[BF_CLEAR509]], [[BF_VALUE508]]
-// CHK-CXX-NEXT:    store i8 [[BF_SET510]], i8* [[TMP172]], align 1
-// CHK-CXX-NEXT:    [[TMP174:%.*]] = load i8, i8* [[TMP172]], align 1
-// CHK-CXX-NEXT:    [[TMP175:%.*]] = cmpxchg i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2), i8 [[TMP170]], i8 [[TMP174]] monotonic monotonic, align 1
-// CHK-CXX-NEXT:    [[TMP176]] = extractvalue { i8, i1 } [[TMP175]], 0
-// CHK-CXX-NEXT:    [[TMP177:%.*]] = extractvalue { i8, i1 } [[TMP175]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP177]], label [[ATOMIC_EXIT519]], label [[ATOMIC_CMP511]]
-// CHK-CXX:       atomic_cmp511:
-// CHK-CXX-NEXT:    [[TMP178:%.*]] = bitcast i32* [[ATOMIC_TEMP512]] to i8*
-// CHK-CXX-NEXT:    store i8 [[TMP176]], i8* [[TMP178]], align 1
-// CHK-CXX-NEXT:    [[BF_LOAD513:%.*]] = load i8, i8* [[TMP178]], align 1
-// CHK-CXX-NEXT:    [[BF_SHL514:%.*]] = shl i8 [[BF_LOAD513]], 7
-// CHK-CXX-NEXT:    [[BF_ASHR515:%.*]] = ashr i8 [[BF_SHL514]], 7
-// CHK-CXX-NEXT:    [[BF_CAST516:%.*]] = sext i8 [[BF_ASHR515]] to i32
-// CHK-CXX-NEXT:    [[CMP517:%.*]] = icmp sgt i32 [[BF_CAST516]], [[TMP168]]
-// CHK-CXX-NEXT:    [[FROMBOOL518:%.*]] = zext i1 [[CMP517]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL518]], i8* [[ATMP498]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP517]], label [[ATOMIC_CONT500]], label [[ATOMIC_EXIT519]]
-// CHK-CXX:       atomic_exit519:
-// CHK-CXX-NEXT:    [[TMP179:%.*]] = load i32, i32* [[ATMP491]], align 4
-// CHK-CXX-NEXT:    [[TMP180:%.*]] = load i8, i8* [[ATMP498]], align 1
-// CHK-CXX-NEXT:    [[TMP181:%.*]] = load i32, i32* [[D]], align 4
-// CHK-CXX-NEXT:    [[TMP182:%.*]] = load i32, i32* [[E]], align 4
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD520:%.*]] = load atomic i8, i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2) monotonic, align 1
-// CHK-CXX-NEXT:    [[TMP183:%.*]] = bitcast i32* [[ATOMIC_TEMP522]] to i8*
-// CHK-CXX-NEXT:    store i8 [[ATOMIC_LOAD520]], i8* [[TMP183]], align 1
-// CHK-CXX-NEXT:    [[BF_LOAD523:%.*]] = load i8, i8* [[TMP183]], align 1
-// CHK-CXX-NEXT:    [[BF_SHL524:%.*]] = shl i8 [[BF_LOAD523]], 7
-// CHK-CXX-NEXT:    [[BF_ASHR525:%.*]] = ashr i8 [[BF_SHL524]], 7
-// CHK-CXX-NEXT:    [[BF_CAST526:%.*]] = sext i8 [[BF_ASHR525]] to i32
-// CHK-CXX-NEXT:    store i32 [[BF_CAST526]], i32* [[ATMP521]], align 4
-// CHK-CXX-NEXT:    [[CMP527:%.*]] = icmp eq i32 [[BF_CAST526]], [[TMP182]]
-// CHK-CXX-NEXT:    [[FROMBOOL529:%.*]] = zext i1 [[CMP527]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL529]], i8* [[ATMP528]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP527]], label [[ATOMIC_CONT530:%.*]], label [[ATOMIC_EXIT549:%.*]]
-// CHK-CXX:       atomic_cont530:
-// CHK-CXX-NEXT:    [[TMP184:%.*]] = phi i8 [ [[ATOMIC_LOAD520]], [[ATOMIC_EXIT519]] ], [ [[TMP190:%.*]], [[ATOMIC_CMP541:%.*]] ]
-// CHK-CXX-NEXT:    [[TMP185:%.*]] = bitcast i32* [[ATOMIC_TEMP531]] to i8*
-// CHK-CXX-NEXT:    store i8 [[TMP184]], i8* [[TMP185]], align 1
-// CHK-CXX-NEXT:    [[BF_LOAD532:%.*]] = load i8, i8* [[TMP185]], align 1
-// CHK-CXX-NEXT:    [[BF_SHL533:%.*]] = shl i8 [[BF_LOAD532]], 7
-// CHK-CXX-NEXT:    [[BF_ASHR534:%.*]] = ashr i8 [[BF_SHL533]], 7
-// CHK-CXX-NEXT:    [[BF_CAST535:%.*]] = sext i8 [[BF_ASHR534]] to i32
-// CHK-CXX-NEXT:    store i32 [[BF_CAST535]], i32* [[ATMP521]], align 4
-// CHK-CXX-NEXT:    [[TMP186:%.*]] = bitcast i32* [[ATOMIC_TEMP536]] to i8*
-// CHK-CXX-NEXT:    store i8 [[TMP184]], i8* [[TMP186]], align 1
-// CHK-CXX-NEXT:    [[TMP187:%.*]] = trunc i32 [[TMP181]] to i8
-// CHK-CXX-NEXT:    [[BF_LOAD537:%.*]] = load i8, i8* [[TMP186]], align 1
-// CHK-CXX-NEXT:    [[BF_VALUE538:%.*]] = and i8 [[TMP187]], 1
-// CHK-CXX-NEXT:    [[BF_CLEAR539:%.*]] = and i8 [[BF_LOAD537]], -2
-// CHK-CXX-NEXT:    [[BF_SET540:%.*]] = or i8 [[BF_CLEAR539]], [[BF_VALUE538]]
-// CHK-CXX-NEXT:    store i8 [[BF_SET540]], i8* [[TMP186]], align 1
-// CHK-CXX-NEXT:    [[TMP188:%.*]] = load i8, i8* [[TMP186]], align 1
-// CHK-CXX-NEXT:    [[TMP189:%.*]] = cmpxchg i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2), i8 [[TMP184]], i8 [[TMP188]] monotonic monotonic, align 1
-// CHK-CXX-NEXT:    [[TMP190]] = extractvalue { i8, i1 } [[TMP189]], 0
-// CHK-CXX-NEXT:    [[TMP191:%.*]] = extractvalue { i8, i1 } [[TMP189]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP191]], label [[ATOMIC_EXIT549]], label [[ATOMIC_CMP541]]
-// CHK-CXX:       atomic_cmp541:
-// CHK-CXX-NEXT:    [[TMP192:%.*]] = bitcast i32* [[ATOMIC_TEMP542]] to i8*
-// CHK-CXX-NEXT:    store i8 [[TMP190]], i8* [[TMP192]], align 1
-// CHK-CXX-NEXT:    [[BF_LOAD543:%.*]] = load i8, i8* [[TMP192]], align 1
-// CHK-CXX-NEXT:    [[BF_SHL544:%.*]] = shl i8 [[BF_LOAD543]], 7
-// CHK-CXX-NEXT:    [[BF_ASHR545:%.*]] = ashr i8 [[BF_SHL544]], 7
-// CHK-CXX-NEXT:    [[BF_CAST546:%.*]] = sext i8 [[BF_ASHR545]] to i32
-// CHK-CXX-NEXT:    [[CMP547:%.*]] = icmp eq i32 [[BF_CAST546]], [[TMP182]]
-// CHK-CXX-NEXT:    [[FROMBOOL548:%.*]] = zext i1 [[CMP547]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL548]], i8* [[ATMP528]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP547]], label [[ATOMIC_CONT530]], label [[ATOMIC_EXIT549]]
-// CHK-CXX:       atomic_exit549:
-// CHK-CXX-NEXT:    [[TMP193:%.*]] = load i32, i32* [[ATMP521]], align 4
-// CHK-CXX-NEXT:    [[TMP194:%.*]] = load i8, i8* [[ATMP528]], align 1
-// CHK-CXX-NEXT:    [[TMP195:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD550:%.*]] = load atomic i8, i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2) monotonic, align 1
-// CHK-CXX-NEXT:    [[TMP196:%.*]] = bitcast i32* [[ATOMIC_TEMP552]] to i8*
-// CHK-CXX-NEXT:    store i8 [[ATOMIC_LOAD550]], i8* [[TMP196]], align 1
-// CHK-CXX-NEXT:    [[BF_LOAD553:%.*]] = load i8, i8* [[TMP196]], align 1
-// CHK-CXX-NEXT:    [[BF_SHL554:%.*]] = shl i8 [[BF_LOAD553]], 7
-// CHK-CXX-NEXT:    [[BF_ASHR555:%.*]] = ashr i8 [[BF_SHL554]], 7
-// CHK-CXX-NEXT:    [[BF_CAST556:%.*]] = sext i8 [[BF_ASHR555]] to i32
-// CHK-CXX-NEXT:    store i32 [[BF_CAST556]], i32* [[ATMP551]], align 4
-// CHK-CXX-NEXT:    [[CMP557:%.*]] = icmp slt i32 [[BF_CAST556]], [[TMP195]]
-// CHK-CXX-NEXT:    [[FROMBOOL559:%.*]] = zext i1 [[CMP557]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL559]], i8* [[ATMP558]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP557]], label [[ATOMIC_CONT560:%.*]], label [[ATOMIC_EXIT579:%.*]]
-// CHK-CXX:       atomic_cont560:
-// CHK-CXX-NEXT:    [[TMP197:%.*]] = phi i8 [ [[ATOMIC_LOAD550]], [[ATOMIC_EXIT549]] ], [ [[TMP203:%.*]], [[ATOMIC_CMP571:%.*]] ]
-// CHK-CXX-NEXT:    [[TMP198:%.*]] = bitcast i32* [[ATOMIC_TEMP561]] to i8*
-// CHK-CXX-NEXT:    store i8 [[TMP197]], i8* [[TMP198]], align 1
-// CHK-CXX-NEXT:    [[BF_LOAD562:%.*]] = load i8, i8* [[TMP198]], align 1
-// CHK-CXX-NEXT:    [[BF_SHL563:%.*]] = shl i8 [[BF_LOAD562]], 7
-// CHK-CXX-NEXT:    [[BF_ASHR564:%.*]] = ashr i8 [[BF_SHL563]], 7
-// CHK-CXX-NEXT:    [[BF_CAST565:%.*]] = sext i8 [[BF_ASHR564]] to i32
-// CHK-CXX-NEXT:    store i32 [[BF_CAST565]], i32* [[ATMP551]], align 4
-// CHK-CXX-NEXT:    [[TMP199:%.*]] = bitcast i32* [[ATOMIC_TEMP566]] to i8*
+// CHK-CXX-NEXT:    [[TMP54:%.*]] = trunc i32 [[TMP50]] to i8
+// CHK-CXX-NEXT:    [[BF_LOAD132:%.*]] = load i8, i8* [[TMP53]], align 1
+// CHK-CXX-NEXT:    [[BF_VALUE133:%.*]] = and i8 [[TMP54]], 1
+// CHK-CXX-NEXT:    [[BF_SHL134:%.*]] = shl i8 [[BF_VALUE133]], 7
+// CHK-CXX-NEXT:    [[BF_CLEAR135:%.*]] = and i8 [[BF_LOAD132]], 127
+// CHK-CXX-NEXT:    [[BF_SET136:%.*]] = or i8 [[BF_CLEAR135]], [[BF_SHL134]]
+// CHK-CXX-NEXT:    store i8 [[BF_SET136]], i8* [[TMP53]], align 1
+// CHK-CXX-NEXT:    [[TMP55:%.*]] = load i8, i8* [[TMP53]], align 1
+// CHK-CXX-NEXT:    [[TMP56:%.*]] = cmpxchg i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3), i8 [[TMP52]], i8 [[TMP55]] monotonic monotonic, align 1
+// CHK-CXX-NEXT:    [[TMP57]] = extractvalue { i8, i1 } [[TMP56]], 0
+// CHK-CXX-NEXT:    [[TMP58:%.*]] = extractvalue { i8, i1 } [[TMP56]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP58]], label [[ATOMIC_EXIT144]], label [[ATOMIC_CMP137]]
+// CHK-CXX:       atomic_cmp137:
+// CHK-CXX-NEXT:    [[TMP59:%.*]] = bitcast i32* [[ATOMIC_TEMP138]] to i8*
+// CHK-CXX-NEXT:    store i8 [[TMP57]], i8* [[TMP59]], align 1
+// CHK-CXX-NEXT:    [[BF_LOAD139:%.*]] = load i8, i8* [[TMP59]], align 1
+// CHK-CXX-NEXT:    [[BF_ASHR140:%.*]] = ashr i8 [[BF_LOAD139]], 7
+// CHK-CXX-NEXT:    [[BF_CAST141:%.*]] = sext i8 [[BF_ASHR140]] to i32
+// CHK-CXX-NEXT:    store i32 [[BF_CAST141]], i32* [[ATMP123]], align 4
+// CHK-CXX-NEXT:    [[CMP142:%.*]] = icmp sgt i32 [[BF_CAST141]], [[TMP50]]
+// CHK-CXX-NEXT:    [[FROMBOOL143:%.*]] = zext i1 [[CMP142]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL143]], i8* [[ATMP128]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP142]], label [[ATOMIC_CONT130]], label [[ATOMIC_EXIT144]]
+// CHK-CXX:       atomic_exit144:
+// CHK-CXX-NEXT:    [[TMP60:%.*]] = load i32, i32* [[ATMP123]], align 4
+// CHK-CXX-NEXT:    [[TMP61:%.*]] = load i8, i8* [[ATMP128]], align 1
+// CHK-CXX-NEXT:    [[TMP62:%.*]] = load i32, i32* [[D]], align 4
+// CHK-CXX-NEXT:    [[TMP63:%.*]] = load i32, i32* [[E]], align 4
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD145:%.*]] = load atomic i8, i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3) monotonic, align 1
+// CHK-CXX-NEXT:    [[TMP64:%.*]] = bitcast i32* [[ATOMIC_TEMP147]] to i8*
+// CHK-CXX-NEXT:    store i8 [[ATOMIC_LOAD145]], i8* [[TMP64]], align 1
+// CHK-CXX-NEXT:    [[BF_LOAD148:%.*]] = load i8, i8* [[TMP64]], align 1
+// CHK-CXX-NEXT:    [[BF_ASHR149:%.*]] = ashr i8 [[BF_LOAD148]], 7
+// CHK-CXX-NEXT:    [[BF_CAST150:%.*]] = sext i8 [[BF_ASHR149]] to i32
+// CHK-CXX-NEXT:    store i32 [[BF_CAST150]], i32* [[ATMP146]], align 4
+// CHK-CXX-NEXT:    [[CMP151:%.*]] = icmp eq i32 [[BF_CAST150]], [[TMP63]]
+// CHK-CXX-NEXT:    [[FROMBOOL153:%.*]] = zext i1 [[CMP151]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL153]], i8* [[ATMP152]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP151]], label [[ATOMIC_CONT154:%.*]], label [[ATOMIC_EXIT168:%.*]]
+// CHK-CXX:       atomic_cont154:
+// CHK-CXX-NEXT:    [[TMP65:%.*]] = phi i8 [ [[ATOMIC_LOAD145]], [[ATOMIC_EXIT144]] ], [ [[TMP70:%.*]], [[ATOMIC_CMP161:%.*]] ]
+// CHK-CXX-NEXT:    [[TMP66:%.*]] = bitcast i32* [[ATOMIC_TEMP155]] to i8*
+// CHK-CXX-NEXT:    store i8 [[TMP65]], i8* [[TMP66]], align 1
+// CHK-CXX-NEXT:    [[TMP67:%.*]] = trunc i32 [[TMP62]] to i8
+// CHK-CXX-NEXT:    [[BF_LOAD156:%.*]] = load i8, i8* [[TMP66]], align 1
+// CHK-CXX-NEXT:    [[BF_VALUE157:%.*]] = and i8 [[TMP67]], 1
+// CHK-CXX-NEXT:    [[BF_SHL158:%.*]] = shl i8 [[BF_VALUE157]], 7
+// CHK-CXX-NEXT:    [[BF_CLEAR159:%.*]] = and i8 [[BF_LOAD156]], 127
+// CHK-CXX-NEXT:    [[BF_SET160:%.*]] = or i8 [[BF_CLEAR159]], [[BF_SHL158]]
+// CHK-CXX-NEXT:    store i8 [[BF_SET160]], i8* [[TMP66]], align 1
+// CHK-CXX-NEXT:    [[TMP68:%.*]] = load i8, i8* [[TMP66]], align 1
+// CHK-CXX-NEXT:    [[TMP69:%.*]] = cmpxchg i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3), i8 [[TMP65]], i8 [[TMP68]] monotonic monotonic, align 1
+// CHK-CXX-NEXT:    [[TMP70]] = extractvalue { i8, i1 } [[TMP69]], 0
+// CHK-CXX-NEXT:    [[TMP71:%.*]] = extractvalue { i8, i1 } [[TMP69]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP71]], label [[ATOMIC_EXIT168]], label [[ATOMIC_CMP161]]
+// CHK-CXX:       atomic_cmp161:
+// CHK-CXX-NEXT:    [[TMP72:%.*]] = bitcast i32* [[ATOMIC_TEMP162]] to i8*
+// CHK-CXX-NEXT:    store i8 [[TMP70]], i8* [[TMP72]], align 1
+// CHK-CXX-NEXT:    [[BF_LOAD163:%.*]] = load i8, i8* [[TMP72]], align 1
+// CHK-CXX-NEXT:    [[BF_ASHR164:%.*]] = ashr i8 [[BF_LOAD163]], 7
+// CHK-CXX-NEXT:    [[BF_CAST165:%.*]] = sext i8 [[BF_ASHR164]] to i32
+// CHK-CXX-NEXT:    store i32 [[BF_CAST165]], i32* [[ATMP146]], align 4
+// CHK-CXX-NEXT:    [[CMP166:%.*]] = icmp eq i32 [[BF_CAST165]], [[TMP63]]
+// CHK-CXX-NEXT:    [[FROMBOOL167:%.*]] = zext i1 [[CMP166]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL167]], i8* [[ATMP152]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP166]], label [[ATOMIC_CONT154]], label [[ATOMIC_EXIT168]]
+// CHK-CXX:       atomic_exit168:
+// CHK-CXX-NEXT:    [[TMP73:%.*]] = load i32, i32* [[ATMP146]], align 4
+// CHK-CXX-NEXT:    [[TMP74:%.*]] = load i8, i8* [[ATMP152]], align 1
+// CHK-CXX-NEXT:    [[TMP75:%.*]] = load i32, i32* [[EXPR]], align 4
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD169:%.*]] = load atomic i8, i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3) monotonic, align 1
+// CHK-CXX-NEXT:    [[TMP76:%.*]] = bitcast i32* [[ATOMIC_TEMP171]] to i8*
+// CHK-CXX-NEXT:    store i8 [[ATOMIC_LOAD169]], i8* [[TMP76]], align 1
+// CHK-CXX-NEXT:    [[BF_LOAD172:%.*]] = load i8, i8* [[TMP76]], align 1
+// CHK-CXX-NEXT:    [[BF_ASHR173:%.*]] = ashr i8 [[BF_LOAD172]], 7
+// CHK-CXX-NEXT:    [[BF_CAST174:%.*]] = sext i8 [[BF_ASHR173]] to i32
+// CHK-CXX-NEXT:    store i32 [[BF_CAST174]], i32* [[ATMP170]], align 4
+// CHK-CXX-NEXT:    [[CMP175:%.*]] = icmp slt i32 [[BF_CAST174]], [[TMP75]]
+// CHK-CXX-NEXT:    [[FROMBOOL177:%.*]] = zext i1 [[CMP175]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL177]], i8* [[ATMP176]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP175]], label [[ATOMIC_CONT178:%.*]], label [[ATOMIC_EXIT192:%.*]]
+// CHK-CXX:       atomic_cont178:
+// CHK-CXX-NEXT:    [[TMP77:%.*]] = phi i8 [ [[ATOMIC_LOAD169]], [[ATOMIC_EXIT168]] ], [ [[TMP82:%.*]], [[ATOMIC_CMP185:%.*]] ]
+// CHK-CXX-NEXT:    [[TMP78:%.*]] = bitcast i32* [[ATOMIC_TEMP179]] to i8*
+// CHK-CXX-NEXT:    store i8 [[TMP77]], i8* [[TMP78]], align 1
+// CHK-CXX-NEXT:    [[TMP79:%.*]] = trunc i32 [[TMP75]] to i8
+// CHK-CXX-NEXT:    [[BF_LOAD180:%.*]] = load i8, i8* [[TMP78]], align 1
+// CHK-CXX-NEXT:    [[BF_VALUE181:%.*]] = and i8 [[TMP79]], 1
+// CHK-CXX-NEXT:    [[BF_SHL182:%.*]] = shl i8 [[BF_VALUE181]], 7
+// CHK-CXX-NEXT:    [[BF_CLEAR183:%.*]] = and i8 [[BF_LOAD180]], 127
+// CHK-CXX-NEXT:    [[BF_SET184:%.*]] = or i8 [[BF_CLEAR183]], [[BF_SHL182]]
+// CHK-CXX-NEXT:    store i8 [[BF_SET184]], i8* [[TMP78]], align 1
+// CHK-CXX-NEXT:    [[TMP80:%.*]] = load i8, i8* [[TMP78]], align 1
+// CHK-CXX-NEXT:    [[TMP81:%.*]] = cmpxchg i8* getelementptr (i8, i8* bitcast (%struct.BitFields2_packed* @bfx2_packed to i8*), i64 3), i8 [[TMP77]], i8 [[TMP80]] monotonic monotonic, align 1
+// CHK-CXX-NEXT:    [[TMP82]] = extractvalue { i8, i1 } [[TMP81]], 0
+// CHK-CXX-NEXT:    [[TMP83:%.*]] = extractvalue { i8, i1 } [[TMP81]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP83]], label [[ATOMIC_EXIT192]], label [[ATOMIC_CMP185]]
+// CHK-CXX:       atomic_cmp185:
+// CHK-CXX-NEXT:    [[TMP84:%.*]] = bitcast i32* [[ATOMIC_TEMP186]] to i8*
+// CHK-CXX-NEXT:    store i8 [[TMP82]], i8* [[TMP84]], align 1
+// CHK-CXX-NEXT:    [[BF_LOAD187:%.*]] = load i8, i8* [[TMP84]], align 1
+// CHK-CXX-NEXT:    [[BF_ASHR188:%.*]] = ashr i8 [[BF_LOAD187]], 7
+// CHK-CXX-NEXT:    [[BF_CAST189:%.*]] = sext i8 [[BF_ASHR188]] to i32
+// CHK-CXX-NEXT:    store i32 [[BF_CAST189]], i32* [[ATMP170]], align 4
+// CHK-CXX-NEXT:    [[CMP190:%.*]] = icmp slt i32 [[BF_CAST189]], [[TMP75]]
+// CHK-CXX-NEXT:    [[FROMBOOL191:%.*]] = zext i1 [[CMP190]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL191]], i8* [[ATMP176]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP190]], label [[ATOMIC_CONT178]], label [[ATOMIC_EXIT192]]
+// CHK-CXX:       atomic_exit192:
+// CHK-CXX-NEXT:    [[TMP85:%.*]] = load i32, i32* [[ATMP170]], align 4
+// CHK-CXX-NEXT:    [[TMP86:%.*]] = load i8, i8* [[ATMP176]], align 1
+// CHK-CXX-NEXT:    [[TMP87:%.*]] = load i32, i32* [[EXPR]], align 4
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD193:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS3:%.*]], %struct.BitFields3* @bfx3, i32 0, i32 0) monotonic, align 4
+// CHK-CXX-NEXT:    store i32 [[ATOMIC_LOAD193]], i32* [[ATOMIC_TEMP195]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD196:%.*]] = load i32, i32* [[ATOMIC_TEMP195]], align 4
+// CHK-CXX-NEXT:    [[BF_SHL197:%.*]] = shl i32 [[BF_LOAD196]], 7
+// CHK-CXX-NEXT:    [[BF_ASHR198:%.*]] = ashr i32 [[BF_SHL197]], 18
+// CHK-CXX-NEXT:    store i32 [[BF_ASHR198]], i32* [[ATMP194]], align 4
+// CHK-CXX-NEXT:    [[CMP199:%.*]] = icmp sgt i32 [[BF_ASHR198]], [[TMP87]]
+// CHK-CXX-NEXT:    [[FROMBOOL201:%.*]] = zext i1 [[CMP199]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL201]], i8* [[ATMP200]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP199]], label [[ATOMIC_CONT202:%.*]], label [[ATOMIC_EXIT216:%.*]]
+// CHK-CXX:       atomic_cont202:
+// CHK-CXX-NEXT:    [[TMP88:%.*]] = phi i32 [ [[ATOMIC_LOAD193]], [[ATOMIC_EXIT192]] ], [ [[TMP91:%.*]], [[ATOMIC_CMP209:%.*]] ]
+// CHK-CXX-NEXT:    store i32 [[TMP88]], i32* [[ATOMIC_TEMP203]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD204:%.*]] = load i32, i32* [[ATOMIC_TEMP203]], align 4
+// CHK-CXX-NEXT:    [[BF_VALUE205:%.*]] = and i32 [[TMP87]], 16383
+// CHK-CXX-NEXT:    [[BF_SHL206:%.*]] = shl i32 [[BF_VALUE205]], 11
+// CHK-CXX-NEXT:    [[BF_CLEAR207:%.*]] = and i32 [[BF_LOAD204]], -33552385
+// CHK-CXX-NEXT:    [[BF_SET208:%.*]] = or i32 [[BF_CLEAR207]], [[BF_SHL206]]
+// CHK-CXX-NEXT:    store i32 [[BF_SET208]], i32* [[ATOMIC_TEMP203]], align 4
+// CHK-CXX-NEXT:    [[TMP89:%.*]] = load i32, i32* [[ATOMIC_TEMP203]], align 4
+// CHK-CXX-NEXT:    [[TMP90:%.*]] = cmpxchg i32* getelementptr inbounds ([[STRUCT_BITFIELDS3]], %struct.BitFields3* @bfx3, i32 0, i32 0), i32 [[TMP88]], i32 [[TMP89]] monotonic monotonic, align 4
+// CHK-CXX-NEXT:    [[TMP91]] = extractvalue { i32, i1 } [[TMP90]], 0
+// CHK-CXX-NEXT:    [[TMP92:%.*]] = extractvalue { i32, i1 } [[TMP90]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP92]], label [[ATOMIC_EXIT216]], label [[ATOMIC_CMP209]]
+// CHK-CXX:       atomic_cmp209:
+// CHK-CXX-NEXT:    store i32 [[TMP91]], i32* [[ATOMIC_TEMP210]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD211:%.*]] = load i32, i32* [[ATOMIC_TEMP210]], align 4
+// CHK-CXX-NEXT:    [[BF_SHL212:%.*]] = shl i32 [[BF_LOAD211]], 7
+// CHK-CXX-NEXT:    [[BF_ASHR213:%.*]] = ashr i32 [[BF_SHL212]], 18
+// CHK-CXX-NEXT:    store i32 [[BF_ASHR213]], i32* [[ATMP194]], align 4
+// CHK-CXX-NEXT:    [[CMP214:%.*]] = icmp sgt i32 [[BF_ASHR213]], [[TMP87]]
+// CHK-CXX-NEXT:    [[FROMBOOL215:%.*]] = zext i1 [[CMP214]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL215]], i8* [[ATMP200]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP214]], label [[ATOMIC_CONT202]], label [[ATOMIC_EXIT216]]
+// CHK-CXX:       atomic_exit216:
+// CHK-CXX-NEXT:    [[TMP93:%.*]] = load i32, i32* [[ATMP194]], align 4
+// CHK-CXX-NEXT:    [[TMP94:%.*]] = load i8, i8* [[ATMP200]], align 1
+// CHK-CXX-NEXT:    [[TMP95:%.*]] = load i32, i32* [[D]], align 4
+// CHK-CXX-NEXT:    [[TMP96:%.*]] = load i32, i32* [[E]], align 4
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD217:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS3]], %struct.BitFields3* @bfx3, i32 0, i32 0) monotonic, align 4
+// CHK-CXX-NEXT:    store i32 [[ATOMIC_LOAD217]], i32* [[ATOMIC_TEMP219]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD220:%.*]] = load i32, i32* [[ATOMIC_TEMP219]], align 4
+// CHK-CXX-NEXT:    [[BF_SHL221:%.*]] = shl i32 [[BF_LOAD220]], 7
+// CHK-CXX-NEXT:    [[BF_ASHR222:%.*]] = ashr i32 [[BF_SHL221]], 18
+// CHK-CXX-NEXT:    store i32 [[BF_ASHR222]], i32* [[ATMP218]], align 4
+// CHK-CXX-NEXT:    [[CMP223:%.*]] = icmp eq i32 [[BF_ASHR222]], [[TMP96]]
+// CHK-CXX-NEXT:    [[FROMBOOL225:%.*]] = zext i1 [[CMP223]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL225]], i8* [[ATMP224]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP223]], label [[ATOMIC_CONT226:%.*]], label [[ATOMIC_EXIT240:%.*]]
+// CHK-CXX:       atomic_cont226:
+// CHK-CXX-NEXT:    [[TMP97:%.*]] = phi i32 [ [[ATOMIC_LOAD217]], [[ATOMIC_EXIT216]] ], [ [[TMP100:%.*]], [[ATOMIC_CMP233:%.*]] ]
+// CHK-CXX-NEXT:    store i32 [[TMP97]], i32* [[ATOMIC_TEMP227]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD228:%.*]] = load i32, i32* [[ATOMIC_TEMP227]], align 4
+// CHK-CXX-NEXT:    [[BF_VALUE229:%.*]] = and i32 [[TMP95]], 16383
+// CHK-CXX-NEXT:    [[BF_SHL230:%.*]] = shl i32 [[BF_VALUE229]], 11
+// CHK-CXX-NEXT:    [[BF_CLEAR231:%.*]] = and i32 [[BF_LOAD228]], -33552385
+// CHK-CXX-NEXT:    [[BF_SET232:%.*]] = or i32 [[BF_CLEAR231]], [[BF_SHL230]]
+// CHK-CXX-NEXT:    store i32 [[BF_SET232]], i32* [[ATOMIC_TEMP227]], align 4
+// CHK-CXX-NEXT:    [[TMP98:%.*]] = load i32, i32* [[ATOMIC_TEMP227]], align 4
+// CHK-CXX-NEXT:    [[TMP99:%.*]] = cmpxchg i32* getelementptr inbounds ([[STRUCT_BITFIELDS3]], %struct.BitFields3* @bfx3, i32 0, i32 0), i32 [[TMP97]], i32 [[TMP98]] monotonic monotonic, align 4
+// CHK-CXX-NEXT:    [[TMP100]] = extractvalue { i32, i1 } [[TMP99]], 0
+// CHK-CXX-NEXT:    [[TMP101:%.*]] = extractvalue { i32, i1 } [[TMP99]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP101]], label [[ATOMIC_EXIT240]], label [[ATOMIC_CMP233]]
+// CHK-CXX:       atomic_cmp233:
+// CHK-CXX-NEXT:    store i32 [[TMP100]], i32* [[ATOMIC_TEMP234]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD235:%.*]] = load i32, i32* [[ATOMIC_TEMP234]], align 4
+// CHK-CXX-NEXT:    [[BF_SHL236:%.*]] = shl i32 [[BF_LOAD235]], 7
+// CHK-CXX-NEXT:    [[BF_ASHR237:%.*]] = ashr i32 [[BF_SHL236]], 18
+// CHK-CXX-NEXT:    store i32 [[BF_ASHR237]], i32* [[ATMP218]], align 4
+// CHK-CXX-NEXT:    [[CMP238:%.*]] = icmp eq i32 [[BF_ASHR237]], [[TMP96]]
+// CHK-CXX-NEXT:    [[FROMBOOL239:%.*]] = zext i1 [[CMP238]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL239]], i8* [[ATMP224]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP238]], label [[ATOMIC_CONT226]], label [[ATOMIC_EXIT240]]
+// CHK-CXX:       atomic_exit240:
+// CHK-CXX-NEXT:    [[TMP102:%.*]] = load i32, i32* [[ATMP218]], align 4
+// CHK-CXX-NEXT:    [[TMP103:%.*]] = load i8, i8* [[ATMP224]], align 1
+// CHK-CXX-NEXT:    [[TMP104:%.*]] = load i32, i32* [[EXPR]], align 4
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD241:%.*]] = load atomic i32, i32* getelementptr inbounds ([[STRUCT_BITFIELDS3]], %struct.BitFields3* @bfx3, i32 0, i32 0) monotonic, align 4
+// CHK-CXX-NEXT:    store i32 [[ATOMIC_LOAD241]], i32* [[ATOMIC_TEMP243]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD244:%.*]] = load i32, i32* [[ATOMIC_TEMP243]], align 4
+// CHK-CXX-NEXT:    [[BF_SHL245:%.*]] = shl i32 [[BF_LOAD244]], 7
+// CHK-CXX-NEXT:    [[BF_ASHR246:%.*]] = ashr i32 [[BF_SHL245]], 18
+// CHK-CXX-NEXT:    store i32 [[BF_ASHR246]], i32* [[ATMP242]], align 4
+// CHK-CXX-NEXT:    [[CMP247:%.*]] = icmp slt i32 [[BF_ASHR246]], [[TMP104]]
+// CHK-CXX-NEXT:    [[FROMBOOL249:%.*]] = zext i1 [[CMP247]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL249]], i8* [[ATMP248]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP247]], label [[ATOMIC_CONT250:%.*]], label [[ATOMIC_EXIT264:%.*]]
+// CHK-CXX:       atomic_cont250:
+// CHK-CXX-NEXT:    [[TMP105:%.*]] = phi i32 [ [[ATOMIC_LOAD241]], [[ATOMIC_EXIT240]] ], [ [[TMP108:%.*]], [[ATOMIC_CMP257:%.*]] ]
+// CHK-CXX-NEXT:    store i32 [[TMP105]], i32* [[ATOMIC_TEMP251]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD252:%.*]] = load i32, i32* [[ATOMIC_TEMP251]], align 4
+// CHK-CXX-NEXT:    [[BF_VALUE253:%.*]] = and i32 [[TMP104]], 16383
+// CHK-CXX-NEXT:    [[BF_SHL254:%.*]] = shl i32 [[BF_VALUE253]], 11
+// CHK-CXX-NEXT:    [[BF_CLEAR255:%.*]] = and i32 [[BF_LOAD252]], -33552385
+// CHK-CXX-NEXT:    [[BF_SET256:%.*]] = or i32 [[BF_CLEAR255]], [[BF_SHL254]]
+// CHK-CXX-NEXT:    store i32 [[BF_SET256]], i32* [[ATOMIC_TEMP251]], align 4
+// CHK-CXX-NEXT:    [[TMP106:%.*]] = load i32, i32* [[ATOMIC_TEMP251]], align 4
+// CHK-CXX-NEXT:    [[TMP107:%.*]] = cmpxchg i32* getelementptr inbounds ([[STRUCT_BITFIELDS3]], %struct.BitFields3* @bfx3, i32 0, i32 0), i32 [[TMP105]], i32 [[TMP106]] monotonic monotonic, align 4
+// CHK-CXX-NEXT:    [[TMP108]] = extractvalue { i32, i1 } [[TMP107]], 0
+// CHK-CXX-NEXT:    [[TMP109:%.*]] = extractvalue { i32, i1 } [[TMP107]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP109]], label [[ATOMIC_EXIT264]], label [[ATOMIC_CMP257]]
+// CHK-CXX:       atomic_cmp257:
+// CHK-CXX-NEXT:    store i32 [[TMP108]], i32* [[ATOMIC_TEMP258]], align 4
+// CHK-CXX-NEXT:    [[BF_LOAD259:%.*]] = load i32, i32* [[ATOMIC_TEMP258]], align 4
+// CHK-CXX-NEXT:    [[BF_SHL260:%.*]] = shl i32 [[BF_LOAD259]], 7
+// CHK-CXX-NEXT:    [[BF_ASHR261:%.*]] = ashr i32 [[BF_SHL260]], 18
+// CHK-CXX-NEXT:    store i32 [[BF_ASHR261]], i32* [[ATMP242]], align 4
+// CHK-CXX-NEXT:    [[CMP262:%.*]] = icmp slt i32 [[BF_ASHR261]], [[TMP104]]
+// CHK-CXX-NEXT:    [[FROMBOOL263:%.*]] = zext i1 [[CMP262]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL263]], i8* [[ATMP248]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP262]], label [[ATOMIC_CONT250]], label [[ATOMIC_EXIT264]]
+// CHK-CXX:       atomic_exit264:
+// CHK-CXX-NEXT:    [[TMP110:%.*]] = load i32, i32* [[ATMP242]], align 4
+// CHK-CXX-NEXT:    [[TMP111:%.*]] = load i8, i8* [[ATMP248]], align 1
+// CHK-CXX-NEXT:    [[TMP112:%.*]] = load i32, i32* [[EXPR]], align 4
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD265:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
+// CHK-CXX-NEXT:    store i64 [[ATOMIC_LOAD265]], i64* [[ATOMIC_TEMP267]], align 8
+// CHK-CXX-NEXT:    [[BF_LOAD268:%.*]] = load i64, i64* [[ATOMIC_TEMP267]], align 8
+// CHK-CXX-NEXT:    [[BF_SHL269:%.*]] = shl i64 [[BF_LOAD268]], 47
+// CHK-CXX-NEXT:    [[BF_ASHR270:%.*]] = ashr i64 [[BF_SHL269]], 63
+// CHK-CXX-NEXT:    [[BF_CAST271:%.*]] = trunc i64 [[BF_ASHR270]] to i32
+// CHK-CXX-NEXT:    store i32 [[BF_CAST271]], i32* [[ATMP266]], align 4
+// CHK-CXX-NEXT:    [[CMP272:%.*]] = icmp sgt i32 [[BF_CAST271]], [[TMP112]]
+// CHK-CXX-NEXT:    [[FROMBOOL274:%.*]] = zext i1 [[CMP272]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL274]], i8* [[ATMP273]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP272]], label [[ATOMIC_CONT275:%.*]], label [[ATOMIC_EXIT290:%.*]]
+// CHK-CXX:       atomic_cont275:
+// CHK-CXX-NEXT:    [[TMP113:%.*]] = phi i64 [ [[ATOMIC_LOAD265]], [[ATOMIC_EXIT264]] ], [ [[TMP117:%.*]], [[ATOMIC_CMP282:%.*]] ]
+// CHK-CXX-NEXT:    store i64 [[TMP113]], i64* [[ATOMIC_TEMP276]], align 8
+// CHK-CXX-NEXT:    [[TMP114:%.*]] = zext i32 [[TMP112]] to i64
+// CHK-CXX-NEXT:    [[BF_LOAD277:%.*]] = load i64, i64* [[ATOMIC_TEMP276]], align 8
+// CHK-CXX-NEXT:    [[BF_VALUE278:%.*]] = and i64 [[TMP114]], 1
+// CHK-CXX-NEXT:    [[BF_SHL279:%.*]] = shl i64 [[BF_VALUE278]], 16
+// CHK-CXX-NEXT:    [[BF_CLEAR280:%.*]] = and i64 [[BF_LOAD277]], -65537
+// CHK-CXX-NEXT:    [[BF_SET281:%.*]] = or i64 [[BF_CLEAR280]], [[BF_SHL279]]
+// CHK-CXX-NEXT:    store i64 [[BF_SET281]], i64* [[ATOMIC_TEMP276]], align 8
+// CHK-CXX-NEXT:    [[TMP115:%.*]] = load i64, i64* [[ATOMIC_TEMP276]], align 8
+// CHK-CXX-NEXT:    [[TMP116:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP113]], i64 [[TMP115]] monotonic monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP117]] = extractvalue { i64, i1 } [[TMP116]], 0
+// CHK-CXX-NEXT:    [[TMP118:%.*]] = extractvalue { i64, i1 } [[TMP116]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP118]], label [[ATOMIC_EXIT290]], label [[ATOMIC_CMP282]]
+// CHK-CXX:       atomic_cmp282:
+// CHK-CXX-NEXT:    store i64 [[TMP117]], i64* [[ATOMIC_TEMP283]], align 8
+// CHK-CXX-NEXT:    [[BF_LOAD284:%.*]] = load i64, i64* [[ATOMIC_TEMP283]], align 8
+// CHK-CXX-NEXT:    [[BF_SHL285:%.*]] = shl i64 [[BF_LOAD284]], 47
+// CHK-CXX-NEXT:    [[BF_ASHR286:%.*]] = ashr i64 [[BF_SHL285]], 63
+// CHK-CXX-NEXT:    [[BF_CAST287:%.*]] = trunc i64 [[BF_ASHR286]] to i32
+// CHK-CXX-NEXT:    store i32 [[BF_CAST287]], i32* [[ATMP266]], align 4
+// CHK-CXX-NEXT:    [[CMP288:%.*]] = icmp sgt i32 [[BF_CAST287]], [[TMP112]]
+// CHK-CXX-NEXT:    [[FROMBOOL289:%.*]] = zext i1 [[CMP288]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL289]], i8* [[ATMP273]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP288]], label [[ATOMIC_CONT275]], label [[ATOMIC_EXIT290]]
+// CHK-CXX:       atomic_exit290:
+// CHK-CXX-NEXT:    [[TMP119:%.*]] = load i32, i32* [[ATMP266]], align 4
+// CHK-CXX-NEXT:    [[TMP120:%.*]] = load i8, i8* [[ATMP273]], align 1
+// CHK-CXX-NEXT:    [[TMP121:%.*]] = load i32, i32* [[D]], align 4
+// CHK-CXX-NEXT:    [[TMP122:%.*]] = load i32, i32* [[E]], align 4
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD291:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
+// CHK-CXX-NEXT:    store i64 [[ATOMIC_LOAD291]], i64* [[ATOMIC_TEMP293]], align 8
+// CHK-CXX-NEXT:    [[BF_LOAD294:%.*]] = load i64, i64* [[ATOMIC_TEMP293]], align 8
+// CHK-CXX-NEXT:    [[BF_SHL295:%.*]] = shl i64 [[BF_LOAD294]], 47
+// CHK-CXX-NEXT:    [[BF_ASHR296:%.*]] = ashr i64 [[BF_SHL295]], 63
+// CHK-CXX-NEXT:    [[BF_CAST297:%.*]] = trunc i64 [[BF_ASHR296]] to i32
+// CHK-CXX-NEXT:    store i32 [[BF_CAST297]], i32* [[ATMP292]], align 4
+// CHK-CXX-NEXT:    [[CMP298:%.*]] = icmp eq i32 [[BF_CAST297]], [[TMP122]]
+// CHK-CXX-NEXT:    [[FROMBOOL300:%.*]] = zext i1 [[CMP298]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL300]], i8* [[ATMP299]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP298]], label [[ATOMIC_CONT301:%.*]], label [[ATOMIC_EXIT316:%.*]]
+// CHK-CXX:       atomic_cont301:
+// CHK-CXX-NEXT:    [[TMP123:%.*]] = phi i64 [ [[ATOMIC_LOAD291]], [[ATOMIC_EXIT290]] ], [ [[TMP127:%.*]], [[ATOMIC_CMP308:%.*]] ]
+// CHK-CXX-NEXT:    store i64 [[TMP123]], i64* [[ATOMIC_TEMP302]], align 8
+// CHK-CXX-NEXT:    [[TMP124:%.*]] = zext i32 [[TMP121]] to i64
+// CHK-CXX-NEXT:    [[BF_LOAD303:%.*]] = load i64, i64* [[ATOMIC_TEMP302]], align 8
+// CHK-CXX-NEXT:    [[BF_VALUE304:%.*]] = and i64 [[TMP124]], 1
+// CHK-CXX-NEXT:    [[BF_SHL305:%.*]] = shl i64 [[BF_VALUE304]], 16
+// CHK-CXX-NEXT:    [[BF_CLEAR306:%.*]] = and i64 [[BF_LOAD303]], -65537
+// CHK-CXX-NEXT:    [[BF_SET307:%.*]] = or i64 [[BF_CLEAR306]], [[BF_SHL305]]
+// CHK-CXX-NEXT:    store i64 [[BF_SET307]], i64* [[ATOMIC_TEMP302]], align 8
+// CHK-CXX-NEXT:    [[TMP125:%.*]] = load i64, i64* [[ATOMIC_TEMP302]], align 8
+// CHK-CXX-NEXT:    [[TMP126:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP123]], i64 [[TMP125]] monotonic monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP127]] = extractvalue { i64, i1 } [[TMP126]], 0
+// CHK-CXX-NEXT:    [[TMP128:%.*]] = extractvalue { i64, i1 } [[TMP126]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP128]], label [[ATOMIC_EXIT316]], label [[ATOMIC_CMP308]]
+// CHK-CXX:       atomic_cmp308:
+// CHK-CXX-NEXT:    store i64 [[TMP127]], i64* [[ATOMIC_TEMP309]], align 8
+// CHK-CXX-NEXT:    [[BF_LOAD310:%.*]] = load i64, i64* [[ATOMIC_TEMP309]], align 8
+// CHK-CXX-NEXT:    [[BF_SHL311:%.*]] = shl i64 [[BF_LOAD310]], 47
+// CHK-CXX-NEXT:    [[BF_ASHR312:%.*]] = ashr i64 [[BF_SHL311]], 63
+// CHK-CXX-NEXT:    [[BF_CAST313:%.*]] = trunc i64 [[BF_ASHR312]] to i32
+// CHK-CXX-NEXT:    store i32 [[BF_CAST313]], i32* [[ATMP292]], align 4
+// CHK-CXX-NEXT:    [[CMP314:%.*]] = icmp eq i32 [[BF_CAST313]], [[TMP122]]
+// CHK-CXX-NEXT:    [[FROMBOOL315:%.*]] = zext i1 [[CMP314]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL315]], i8* [[ATMP299]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP314]], label [[ATOMIC_CONT301]], label [[ATOMIC_EXIT316]]
+// CHK-CXX:       atomic_exit316:
+// CHK-CXX-NEXT:    [[TMP129:%.*]] = load i32, i32* [[ATMP292]], align 4
+// CHK-CXX-NEXT:    [[TMP130:%.*]] = load i8, i8* [[ATMP299]], align 1
+// CHK-CXX-NEXT:    [[TMP131:%.*]] = load i32, i32* [[EXPR]], align 4
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD317:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
+// CHK-CXX-NEXT:    store i64 [[ATOMIC_LOAD317]], i64* [[ATOMIC_TEMP319]], align 8
+// CHK-CXX-NEXT:    [[BF_LOAD320:%.*]] = load i64, i64* [[ATOMIC_TEMP319]], align 8
+// CHK-CXX-NEXT:    [[BF_SHL321:%.*]] = shl i64 [[BF_LOAD320]], 47
+// CHK-CXX-NEXT:    [[BF_ASHR322:%.*]] = ashr i64 [[BF_SHL321]], 63
+// CHK-CXX-NEXT:    [[BF_CAST323:%.*]] = trunc i64 [[BF_ASHR322]] to i32
+// CHK-CXX-NEXT:    store i32 [[BF_CAST323]], i32* [[ATMP318]], align 4
+// CHK-CXX-NEXT:    [[CMP324:%.*]] = icmp slt i32 [[BF_CAST323]], [[TMP131]]
+// CHK-CXX-NEXT:    [[FROMBOOL326:%.*]] = zext i1 [[CMP324]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL326]], i8* [[ATMP325]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP324]], label [[ATOMIC_CONT327:%.*]], label [[ATOMIC_EXIT342:%.*]]
+// CHK-CXX:       atomic_cont327:
+// CHK-CXX-NEXT:    [[TMP132:%.*]] = phi i64 [ [[ATOMIC_LOAD317]], [[ATOMIC_EXIT316]] ], [ [[TMP136:%.*]], [[ATOMIC_CMP334:%.*]] ]
+// CHK-CXX-NEXT:    store i64 [[TMP132]], i64* [[ATOMIC_TEMP328]], align 8
+// CHK-CXX-NEXT:    [[TMP133:%.*]] = zext i32 [[TMP131]] to i64
+// CHK-CXX-NEXT:    [[BF_LOAD329:%.*]] = load i64, i64* [[ATOMIC_TEMP328]], align 8
+// CHK-CXX-NEXT:    [[BF_VALUE330:%.*]] = and i64 [[TMP133]], 1
+// CHK-CXX-NEXT:    [[BF_SHL331:%.*]] = shl i64 [[BF_VALUE330]], 16
+// CHK-CXX-NEXT:    [[BF_CLEAR332:%.*]] = and i64 [[BF_LOAD329]], -65537
+// CHK-CXX-NEXT:    [[BF_SET333:%.*]] = or i64 [[BF_CLEAR332]], [[BF_SHL331]]
+// CHK-CXX-NEXT:    store i64 [[BF_SET333]], i64* [[ATOMIC_TEMP328]], align 8
+// CHK-CXX-NEXT:    [[TMP134:%.*]] = load i64, i64* [[ATOMIC_TEMP328]], align 8
+// CHK-CXX-NEXT:    [[TMP135:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP132]], i64 [[TMP134]] monotonic monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP136]] = extractvalue { i64, i1 } [[TMP135]], 0
+// CHK-CXX-NEXT:    [[TMP137:%.*]] = extractvalue { i64, i1 } [[TMP135]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP137]], label [[ATOMIC_EXIT342]], label [[ATOMIC_CMP334]]
+// CHK-CXX:       atomic_cmp334:
+// CHK-CXX-NEXT:    store i64 [[TMP136]], i64* [[ATOMIC_TEMP335]], align 8
+// CHK-CXX-NEXT:    [[BF_LOAD336:%.*]] = load i64, i64* [[ATOMIC_TEMP335]], align 8
+// CHK-CXX-NEXT:    [[BF_SHL337:%.*]] = shl i64 [[BF_LOAD336]], 47
+// CHK-CXX-NEXT:    [[BF_ASHR338:%.*]] = ashr i64 [[BF_SHL337]], 63
+// CHK-CXX-NEXT:    [[BF_CAST339:%.*]] = trunc i64 [[BF_ASHR338]] to i32
+// CHK-CXX-NEXT:    store i32 [[BF_CAST339]], i32* [[ATMP318]], align 4
+// CHK-CXX-NEXT:    [[CMP340:%.*]] = icmp slt i32 [[BF_CAST339]], [[TMP131]]
+// CHK-CXX-NEXT:    [[FROMBOOL341:%.*]] = zext i1 [[CMP340]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL341]], i8* [[ATMP325]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP340]], label [[ATOMIC_CONT327]], label [[ATOMIC_EXIT342]]
+// CHK-CXX:       atomic_exit342:
+// CHK-CXX-NEXT:    [[TMP138:%.*]] = load i32, i32* [[ATMP318]], align 4
+// CHK-CXX-NEXT:    [[TMP139:%.*]] = load i8, i8* [[ATMP325]], align 1
+// CHK-CXX-NEXT:    [[TMP140:%.*]] = load i32, i32* [[EXPR]], align 4
+// CHK-CXX-NEXT:    [[CONV:%.*]] = sext i32 [[TMP140]] to i64
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD343:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
+// CHK-CXX-NEXT:    store i64 [[ATOMIC_LOAD343]], i64* [[ATOMIC_TEMP345]], align 8
+// CHK-CXX-NEXT:    [[BF_LOAD346:%.*]] = load i64, i64* [[ATOMIC_TEMP345]], align 8
+// CHK-CXX-NEXT:    [[BF_SHL347:%.*]] = shl i64 [[BF_LOAD346]], 40
+// CHK-CXX-NEXT:    [[BF_ASHR348:%.*]] = ashr i64 [[BF_SHL347]], 57
+// CHK-CXX-NEXT:    store i64 [[BF_ASHR348]], i64* [[ATMP344]], align 8
+// CHK-CXX-NEXT:    [[CMP349:%.*]] = icmp sgt i64 [[BF_ASHR348]], [[CONV]]
+// CHK-CXX-NEXT:    [[FROMBOOL351:%.*]] = zext i1 [[CMP349]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL351]], i8* [[ATMP350]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP349]], label [[ATOMIC_CONT352:%.*]], label [[ATOMIC_EXIT366:%.*]]
+// CHK-CXX:       atomic_cont352:
+// CHK-CXX-NEXT:    [[TMP141:%.*]] = phi i64 [ [[ATOMIC_LOAD343]], [[ATOMIC_EXIT342]] ], [ [[TMP144:%.*]], [[ATOMIC_CMP359:%.*]] ]
+// CHK-CXX-NEXT:    store i64 [[TMP141]], i64* [[ATOMIC_TEMP353]], align 8
+// CHK-CXX-NEXT:    [[BF_LOAD354:%.*]] = load i64, i64* [[ATOMIC_TEMP353]], align 8
+// CHK-CXX-NEXT:    [[BF_VALUE355:%.*]] = and i64 [[CONV]], 127
+// CHK-CXX-NEXT:    [[BF_SHL356:%.*]] = shl i64 [[BF_VALUE355]], 17
+// CHK-CXX-NEXT:    [[BF_CLEAR357:%.*]] = and i64 [[BF_LOAD354]], -16646145
+// CHK-CXX-NEXT:    [[BF_SET358:%.*]] = or i64 [[BF_CLEAR357]], [[BF_SHL356]]
+// CHK-CXX-NEXT:    store i64 [[BF_SET358]], i64* [[ATOMIC_TEMP353]], align 8
+// CHK-CXX-NEXT:    [[TMP142:%.*]] = load i64, i64* [[ATOMIC_TEMP353]], align 8
+// CHK-CXX-NEXT:    [[TMP143:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP141]], i64 [[TMP142]] monotonic monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP144]] = extractvalue { i64, i1 } [[TMP143]], 0
+// CHK-CXX-NEXT:    [[TMP145:%.*]] = extractvalue { i64, i1 } [[TMP143]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP145]], label [[ATOMIC_EXIT366]], label [[ATOMIC_CMP359]]
+// CHK-CXX:       atomic_cmp359:
+// CHK-CXX-NEXT:    store i64 [[TMP144]], i64* [[ATOMIC_TEMP360]], align 8
+// CHK-CXX-NEXT:    [[BF_LOAD361:%.*]] = load i64, i64* [[ATOMIC_TEMP360]], align 8
+// CHK-CXX-NEXT:    [[BF_SHL362:%.*]] = shl i64 [[BF_LOAD361]], 40
+// CHK-CXX-NEXT:    [[BF_ASHR363:%.*]] = ashr i64 [[BF_SHL362]], 57
+// CHK-CXX-NEXT:    store i64 [[BF_ASHR363]], i64* [[ATMP344]], align 8
+// CHK-CXX-NEXT:    [[CMP364:%.*]] = icmp sgt i64 [[BF_ASHR363]], [[CONV]]
+// CHK-CXX-NEXT:    [[FROMBOOL365:%.*]] = zext i1 [[CMP364]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL365]], i8* [[ATMP350]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP364]], label [[ATOMIC_CONT352]], label [[ATOMIC_EXIT366]]
+// CHK-CXX:       atomic_exit366:
+// CHK-CXX-NEXT:    [[TMP146:%.*]] = load i64, i64* [[ATMP344]], align 8
+// CHK-CXX-NEXT:    [[TMP147:%.*]] = load i8, i8* [[ATMP350]], align 1
+// CHK-CXX-NEXT:    [[TMP148:%.*]] = load i32, i32* [[D]], align 4
+// CHK-CXX-NEXT:    [[CONV367:%.*]] = sext i32 [[TMP148]] to i64
+// CHK-CXX-NEXT:    [[TMP149:%.*]] = load i32, i32* [[E]], align 4
+// CHK-CXX-NEXT:    [[CONV368:%.*]] = sext i32 [[TMP149]] to i64
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD369:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
+// CHK-CXX-NEXT:    store i64 [[ATOMIC_LOAD369]], i64* [[ATOMIC_TEMP371]], align 8
+// CHK-CXX-NEXT:    [[BF_LOAD372:%.*]] = load i64, i64* [[ATOMIC_TEMP371]], align 8
+// CHK-CXX-NEXT:    [[BF_SHL373:%.*]] = shl i64 [[BF_LOAD372]], 40
+// CHK-CXX-NEXT:    [[BF_ASHR374:%.*]] = ashr i64 [[BF_SHL373]], 57
+// CHK-CXX-NEXT:    store i64 [[BF_ASHR374]], i64* [[ATMP370]], align 8
+// CHK-CXX-NEXT:    [[CMP375:%.*]] = icmp eq i64 [[BF_ASHR374]], [[CONV368]]
+// CHK-CXX-NEXT:    [[FROMBOOL377:%.*]] = zext i1 [[CMP375]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL377]], i8* [[ATMP376]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP375]], label [[ATOMIC_CONT378:%.*]], label [[ATOMIC_EXIT392:%.*]]
+// CHK-CXX:       atomic_cont378:
+// CHK-CXX-NEXT:    [[TMP150:%.*]] = phi i64 [ [[ATOMIC_LOAD369]], [[ATOMIC_EXIT366]] ], [ [[TMP153:%.*]], [[ATOMIC_CMP385:%.*]] ]
+// CHK-CXX-NEXT:    store i64 [[TMP150]], i64* [[ATOMIC_TEMP379]], align 8
+// CHK-CXX-NEXT:    [[BF_LOAD380:%.*]] = load i64, i64* [[ATOMIC_TEMP379]], align 8
+// CHK-CXX-NEXT:    [[BF_VALUE381:%.*]] = and i64 [[CONV367]], 127
+// CHK-CXX-NEXT:    [[BF_SHL382:%.*]] = shl i64 [[BF_VALUE381]], 17
+// CHK-CXX-NEXT:    [[BF_CLEAR383:%.*]] = and i64 [[BF_LOAD380]], -16646145
+// CHK-CXX-NEXT:    [[BF_SET384:%.*]] = or i64 [[BF_CLEAR383]], [[BF_SHL382]]
+// CHK-CXX-NEXT:    store i64 [[BF_SET384]], i64* [[ATOMIC_TEMP379]], align 8
+// CHK-CXX-NEXT:    [[TMP151:%.*]] = load i64, i64* [[ATOMIC_TEMP379]], align 8
+// CHK-CXX-NEXT:    [[TMP152:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP150]], i64 [[TMP151]] monotonic monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP153]] = extractvalue { i64, i1 } [[TMP152]], 0
+// CHK-CXX-NEXT:    [[TMP154:%.*]] = extractvalue { i64, i1 } [[TMP152]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP154]], label [[ATOMIC_EXIT392]], label [[ATOMIC_CMP385]]
+// CHK-CXX:       atomic_cmp385:
+// CHK-CXX-NEXT:    store i64 [[TMP153]], i64* [[ATOMIC_TEMP386]], align 8
+// CHK-CXX-NEXT:    [[BF_LOAD387:%.*]] = load i64, i64* [[ATOMIC_TEMP386]], align 8
+// CHK-CXX-NEXT:    [[BF_SHL388:%.*]] = shl i64 [[BF_LOAD387]], 40
+// CHK-CXX-NEXT:    [[BF_ASHR389:%.*]] = ashr i64 [[BF_SHL388]], 57
+// CHK-CXX-NEXT:    store i64 [[BF_ASHR389]], i64* [[ATMP370]], align 8
+// CHK-CXX-NEXT:    [[CMP390:%.*]] = icmp eq i64 [[BF_ASHR389]], [[CONV368]]
+// CHK-CXX-NEXT:    [[FROMBOOL391:%.*]] = zext i1 [[CMP390]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL391]], i8* [[ATMP376]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP390]], label [[ATOMIC_CONT378]], label [[ATOMIC_EXIT392]]
+// CHK-CXX:       atomic_exit392:
+// CHK-CXX-NEXT:    [[TMP155:%.*]] = load i64, i64* [[ATMP370]], align 8
+// CHK-CXX-NEXT:    [[TMP156:%.*]] = load i8, i8* [[ATMP376]], align 1
+// CHK-CXX-NEXT:    [[TMP157:%.*]] = load i32, i32* [[EXPR]], align 4
+// CHK-CXX-NEXT:    [[CONV393:%.*]] = sext i32 [[TMP157]] to i64
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD394:%.*]] = load atomic i64, i64* bitcast (%struct.BitFields4* @bfx4 to i64*) monotonic, align 8
+// CHK-CXX-NEXT:    store i64 [[ATOMIC_LOAD394]], i64* [[ATOMIC_TEMP396]], align 8
+// CHK-CXX-NEXT:    [[BF_LOAD397:%.*]] = load i64, i64* [[ATOMIC_TEMP396]], align 8
+// CHK-CXX-NEXT:    [[BF_SHL398:%.*]] = shl i64 [[BF_LOAD397]], 40
+// CHK-CXX-NEXT:    [[BF_ASHR399:%.*]] = ashr i64 [[BF_SHL398]], 57
+// CHK-CXX-NEXT:    store i64 [[BF_ASHR399]], i64* [[ATMP395]], align 8
+// CHK-CXX-NEXT:    [[CMP400:%.*]] = icmp slt i64 [[BF_ASHR399]], [[CONV393]]
+// CHK-CXX-NEXT:    [[FROMBOOL402:%.*]] = zext i1 [[CMP400]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL402]], i8* [[ATMP401]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP400]], label [[ATOMIC_CONT403:%.*]], label [[ATOMIC_EXIT417:%.*]]
+// CHK-CXX:       atomic_cont403:
+// CHK-CXX-NEXT:    [[TMP158:%.*]] = phi i64 [ [[ATOMIC_LOAD394]], [[ATOMIC_EXIT392]] ], [ [[TMP161:%.*]], [[ATOMIC_CMP410:%.*]] ]
+// CHK-CXX-NEXT:    store i64 [[TMP158]], i64* [[ATOMIC_TEMP404]], align 8
+// CHK-CXX-NEXT:    [[BF_LOAD405:%.*]] = load i64, i64* [[ATOMIC_TEMP404]], align 8
+// CHK-CXX-NEXT:    [[BF_VALUE406:%.*]] = and i64 [[CONV393]], 127
+// CHK-CXX-NEXT:    [[BF_SHL407:%.*]] = shl i64 [[BF_VALUE406]], 17
+// CHK-CXX-NEXT:    [[BF_CLEAR408:%.*]] = and i64 [[BF_LOAD405]], -16646145
+// CHK-CXX-NEXT:    [[BF_SET409:%.*]] = or i64 [[BF_CLEAR408]], [[BF_SHL407]]
+// CHK-CXX-NEXT:    store i64 [[BF_SET409]], i64* [[ATOMIC_TEMP404]], align 8
+// CHK-CXX-NEXT:    [[TMP159:%.*]] = load i64, i64* [[ATOMIC_TEMP404]], align 8
+// CHK-CXX-NEXT:    [[TMP160:%.*]] = cmpxchg i64* bitcast (%struct.BitFields4* @bfx4 to i64*), i64 [[TMP158]], i64 [[TMP159]] monotonic monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP161]] = extractvalue { i64, i1 } [[TMP160]], 0
+// CHK-CXX-NEXT:    [[TMP162:%.*]] = extractvalue { i64, i1 } [[TMP160]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP162]], label [[ATOMIC_EXIT417]], label [[ATOMIC_CMP410]]
+// CHK-CXX:       atomic_cmp410:
+// CHK-CXX-NEXT:    store i64 [[TMP161]], i64* [[ATOMIC_TEMP411]], align 8
+// CHK-CXX-NEXT:    [[BF_LOAD412:%.*]] = load i64, i64* [[ATOMIC_TEMP411]], align 8
+// CHK-CXX-NEXT:    [[BF_SHL413:%.*]] = shl i64 [[BF_LOAD412]], 40
+// CHK-CXX-NEXT:    [[BF_ASHR414:%.*]] = ashr i64 [[BF_SHL413]], 57
+// CHK-CXX-NEXT:    store i64 [[BF_ASHR414]], i64* [[ATMP395]], align 8
+// CHK-CXX-NEXT:    [[CMP415:%.*]] = icmp slt i64 [[BF_ASHR414]], [[CONV393]]
+// CHK-CXX-NEXT:    [[FROMBOOL416:%.*]] = zext i1 [[CMP415]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL416]], i8* [[ATMP401]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP415]], label [[ATOMIC_CONT403]], label [[ATOMIC_EXIT417]]
+// CHK-CXX:       atomic_exit417:
+// CHK-CXX-NEXT:    [[TMP163:%.*]] = load i64, i64* [[ATMP395]], align 8
+// CHK-CXX-NEXT:    [[TMP164:%.*]] = load i8, i8* [[ATMP401]], align 1
+// CHK-CXX-NEXT:    [[TMP165:%.*]] = load i32, i32* [[EXPR]], align 4
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD418:%.*]] = load atomic i8, i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED:%.*]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2) monotonic, align 1
+// CHK-CXX-NEXT:    [[TMP166:%.*]] = bitcast i32* [[ATOMIC_TEMP420]] to i8*
+// CHK-CXX-NEXT:    store i8 [[ATOMIC_LOAD418]], i8* [[TMP166]], align 1
+// CHK-CXX-NEXT:    [[BF_LOAD421:%.*]] = load i8, i8* [[TMP166]], align 1
+// CHK-CXX-NEXT:    [[BF_SHL422:%.*]] = shl i8 [[BF_LOAD421]], 7
+// CHK-CXX-NEXT:    [[BF_ASHR423:%.*]] = ashr i8 [[BF_SHL422]], 7
+// CHK-CXX-NEXT:    [[BF_CAST424:%.*]] = sext i8 [[BF_ASHR423]] to i32
+// CHK-CXX-NEXT:    store i32 [[BF_CAST424]], i32* [[ATMP419]], align 4
+// CHK-CXX-NEXT:    [[CMP425:%.*]] = icmp sgt i32 [[BF_CAST424]], [[TMP165]]
+// CHK-CXX-NEXT:    [[FROMBOOL427:%.*]] = zext i1 [[CMP425]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL427]], i8* [[ATMP426]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP425]], label [[ATOMIC_CONT428:%.*]], label [[ATOMIC_EXIT442:%.*]]
+// CHK-CXX:       atomic_cont428:
+// CHK-CXX-NEXT:    [[TMP167:%.*]] = phi i8 [ [[ATOMIC_LOAD418]], [[ATOMIC_EXIT417]] ], [ [[TMP172:%.*]], [[ATOMIC_CMP434:%.*]] ]
+// CHK-CXX-NEXT:    [[TMP168:%.*]] = bitcast i32* [[ATOMIC_TEMP429]] to i8*
+// CHK-CXX-NEXT:    store i8 [[TMP167]], i8* [[TMP168]], align 1
+// CHK-CXX-NEXT:    [[TMP169:%.*]] = trunc i32 [[TMP165]] to i8
+// CHK-CXX-NEXT:    [[BF_LOAD430:%.*]] = load i8, i8* [[TMP168]], align 1
+// CHK-CXX-NEXT:    [[BF_VALUE431:%.*]] = and i8 [[TMP169]], 1
+// CHK-CXX-NEXT:    [[BF_CLEAR432:%.*]] = and i8 [[BF_LOAD430]], -2
+// CHK-CXX-NEXT:    [[BF_SET433:%.*]] = or i8 [[BF_CLEAR432]], [[BF_VALUE431]]
+// CHK-CXX-NEXT:    store i8 [[BF_SET433]], i8* [[TMP168]], align 1
+// CHK-CXX-NEXT:    [[TMP170:%.*]] = load i8, i8* [[TMP168]], align 1
+// CHK-CXX-NEXT:    [[TMP171:%.*]] = cmpxchg i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2), i8 [[TMP167]], i8 [[TMP170]] monotonic monotonic, align 1
+// CHK-CXX-NEXT:    [[TMP172]] = extractvalue { i8, i1 } [[TMP171]], 0
+// CHK-CXX-NEXT:    [[TMP173:%.*]] = extractvalue { i8, i1 } [[TMP171]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP173]], label [[ATOMIC_EXIT442]], label [[ATOMIC_CMP434]]
+// CHK-CXX:       atomic_cmp434:
+// CHK-CXX-NEXT:    [[TMP174:%.*]] = bitcast i32* [[ATOMIC_TEMP435]] to i8*
+// CHK-CXX-NEXT:    store i8 [[TMP172]], i8* [[TMP174]], align 1
+// CHK-CXX-NEXT:    [[BF_LOAD436:%.*]] = load i8, i8* [[TMP174]], align 1
+// CHK-CXX-NEXT:    [[BF_SHL437:%.*]] = shl i8 [[BF_LOAD436]], 7
+// CHK-CXX-NEXT:    [[BF_ASHR438:%.*]] = ashr i8 [[BF_SHL437]], 7
+// CHK-CXX-NEXT:    [[BF_CAST439:%.*]] = sext i8 [[BF_ASHR438]] to i32
+// CHK-CXX-NEXT:    store i32 [[BF_CAST439]], i32* [[ATMP419]], align 4
+// CHK-CXX-NEXT:    [[CMP440:%.*]] = icmp sgt i32 [[BF_CAST439]], [[TMP165]]
+// CHK-CXX-NEXT:    [[FROMBOOL441:%.*]] = zext i1 [[CMP440]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL441]], i8* [[ATMP426]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP440]], label [[ATOMIC_CONT428]], label [[ATOMIC_EXIT442]]
+// CHK-CXX:       atomic_exit442:
+// CHK-CXX-NEXT:    [[TMP175:%.*]] = load i32, i32* [[ATMP419]], align 4
+// CHK-CXX-NEXT:    [[TMP176:%.*]] = load i8, i8* [[ATMP426]], align 1
+// CHK-CXX-NEXT:    [[TMP177:%.*]] = load i32, i32* [[D]], align 4
+// CHK-CXX-NEXT:    [[TMP178:%.*]] = load i32, i32* [[E]], align 4
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD443:%.*]] = load atomic i8, i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2) monotonic, align 1
+// CHK-CXX-NEXT:    [[TMP179:%.*]] = bitcast i32* [[ATOMIC_TEMP445]] to i8*
+// CHK-CXX-NEXT:    store i8 [[ATOMIC_LOAD443]], i8* [[TMP179]], align 1
+// CHK-CXX-NEXT:    [[BF_LOAD446:%.*]] = load i8, i8* [[TMP179]], align 1
+// CHK-CXX-NEXT:    [[BF_SHL447:%.*]] = shl i8 [[BF_LOAD446]], 7
+// CHK-CXX-NEXT:    [[BF_ASHR448:%.*]] = ashr i8 [[BF_SHL447]], 7
+// CHK-CXX-NEXT:    [[BF_CAST449:%.*]] = sext i8 [[BF_ASHR448]] to i32
+// CHK-CXX-NEXT:    store i32 [[BF_CAST449]], i32* [[ATMP444]], align 4
+// CHK-CXX-NEXT:    [[CMP450:%.*]] = icmp eq i32 [[BF_CAST449]], [[TMP178]]
+// CHK-CXX-NEXT:    [[FROMBOOL452:%.*]] = zext i1 [[CMP450]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL452]], i8* [[ATMP451]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP450]], label [[ATOMIC_CONT453:%.*]], label [[ATOMIC_EXIT467:%.*]]
+// CHK-CXX:       atomic_cont453:
+// CHK-CXX-NEXT:    [[TMP180:%.*]] = phi i8 [ [[ATOMIC_LOAD443]], [[ATOMIC_EXIT442]] ], [ [[TMP185:%.*]], [[ATOMIC_CMP459:%.*]] ]
+// CHK-CXX-NEXT:    [[TMP181:%.*]] = bitcast i32* [[ATOMIC_TEMP454]] to i8*
+// CHK-CXX-NEXT:    store i8 [[TMP180]], i8* [[TMP181]], align 1
+// CHK-CXX-NEXT:    [[TMP182:%.*]] = trunc i32 [[TMP177]] to i8
+// CHK-CXX-NEXT:    [[BF_LOAD455:%.*]] = load i8, i8* [[TMP181]], align 1
+// CHK-CXX-NEXT:    [[BF_VALUE456:%.*]] = and i8 [[TMP182]], 1
+// CHK-CXX-NEXT:    [[BF_CLEAR457:%.*]] = and i8 [[BF_LOAD455]], -2
+// CHK-CXX-NEXT:    [[BF_SET458:%.*]] = or i8 [[BF_CLEAR457]], [[BF_VALUE456]]
+// CHK-CXX-NEXT:    store i8 [[BF_SET458]], i8* [[TMP181]], align 1
+// CHK-CXX-NEXT:    [[TMP183:%.*]] = load i8, i8* [[TMP181]], align 1
+// CHK-CXX-NEXT:    [[TMP184:%.*]] = cmpxchg i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2), i8 [[TMP180]], i8 [[TMP183]] monotonic monotonic, align 1
+// CHK-CXX-NEXT:    [[TMP185]] = extractvalue { i8, i1 } [[TMP184]], 0
+// CHK-CXX-NEXT:    [[TMP186:%.*]] = extractvalue { i8, i1 } [[TMP184]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP186]], label [[ATOMIC_EXIT467]], label [[ATOMIC_CMP459]]
+// CHK-CXX:       atomic_cmp459:
+// CHK-CXX-NEXT:    [[TMP187:%.*]] = bitcast i32* [[ATOMIC_TEMP460]] to i8*
+// CHK-CXX-NEXT:    store i8 [[TMP185]], i8* [[TMP187]], align 1
+// CHK-CXX-NEXT:    [[BF_LOAD461:%.*]] = load i8, i8* [[TMP187]], align 1
+// CHK-CXX-NEXT:    [[BF_SHL462:%.*]] = shl i8 [[BF_LOAD461]], 7
+// CHK-CXX-NEXT:    [[BF_ASHR463:%.*]] = ashr i8 [[BF_SHL462]], 7
+// CHK-CXX-NEXT:    [[BF_CAST464:%.*]] = sext i8 [[BF_ASHR463]] to i32
+// CHK-CXX-NEXT:    store i32 [[BF_CAST464]], i32* [[ATMP444]], align 4
+// CHK-CXX-NEXT:    [[CMP465:%.*]] = icmp eq i32 [[BF_CAST464]], [[TMP178]]
+// CHK-CXX-NEXT:    [[FROMBOOL466:%.*]] = zext i1 [[CMP465]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL466]], i8* [[ATMP451]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP465]], label [[ATOMIC_CONT453]], label [[ATOMIC_EXIT467]]
+// CHK-CXX:       atomic_exit467:
+// CHK-CXX-NEXT:    [[TMP188:%.*]] = load i32, i32* [[ATMP444]], align 4
+// CHK-CXX-NEXT:    [[TMP189:%.*]] = load i8, i8* [[ATMP451]], align 1
+// CHK-CXX-NEXT:    [[TMP190:%.*]] = load i32, i32* [[EXPR]], align 4
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD468:%.*]] = load atomic i8, i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2) monotonic, align 1
+// CHK-CXX-NEXT:    [[TMP191:%.*]] = bitcast i32* [[ATOMIC_TEMP470]] to i8*
+// CHK-CXX-NEXT:    store i8 [[ATOMIC_LOAD468]], i8* [[TMP191]], align 1
+// CHK-CXX-NEXT:    [[BF_LOAD471:%.*]] = load i8, i8* [[TMP191]], align 1
+// CHK-CXX-NEXT:    [[BF_SHL472:%.*]] = shl i8 [[BF_LOAD471]], 7
+// CHK-CXX-NEXT:    [[BF_ASHR473:%.*]] = ashr i8 [[BF_SHL472]], 7
+// CHK-CXX-NEXT:    [[BF_CAST474:%.*]] = sext i8 [[BF_ASHR473]] to i32
+// CHK-CXX-NEXT:    store i32 [[BF_CAST474]], i32* [[ATMP469]], align 4
+// CHK-CXX-NEXT:    [[CMP475:%.*]] = icmp slt i32 [[BF_CAST474]], [[TMP190]]
+// CHK-CXX-NEXT:    [[FROMBOOL477:%.*]] = zext i1 [[CMP475]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL477]], i8* [[ATMP476]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP475]], label [[ATOMIC_CONT478:%.*]], label [[ATOMIC_EXIT492:%.*]]
+// CHK-CXX:       atomic_cont478:
+// CHK-CXX-NEXT:    [[TMP192:%.*]] = phi i8 [ [[ATOMIC_LOAD468]], [[ATOMIC_EXIT467]] ], [ [[TMP197:%.*]], [[ATOMIC_CMP484:%.*]] ]
+// CHK-CXX-NEXT:    [[TMP193:%.*]] = bitcast i32* [[ATOMIC_TEMP479]] to i8*
+// CHK-CXX-NEXT:    store i8 [[TMP192]], i8* [[TMP193]], align 1
+// CHK-CXX-NEXT:    [[TMP194:%.*]] = trunc i32 [[TMP190]] to i8
+// CHK-CXX-NEXT:    [[BF_LOAD480:%.*]] = load i8, i8* [[TMP193]], align 1
+// CHK-CXX-NEXT:    [[BF_VALUE481:%.*]] = and i8 [[TMP194]], 1
+// CHK-CXX-NEXT:    [[BF_CLEAR482:%.*]] = and i8 [[BF_LOAD480]], -2
+// CHK-CXX-NEXT:    [[BF_SET483:%.*]] = or i8 [[BF_CLEAR482]], [[BF_VALUE481]]
+// CHK-CXX-NEXT:    store i8 [[BF_SET483]], i8* [[TMP193]], align 1
+// CHK-CXX-NEXT:    [[TMP195:%.*]] = load i8, i8* [[TMP193]], align 1
+// CHK-CXX-NEXT:    [[TMP196:%.*]] = cmpxchg i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2), i8 [[TMP192]], i8 [[TMP195]] monotonic monotonic, align 1
+// CHK-CXX-NEXT:    [[TMP197]] = extractvalue { i8, i1 } [[TMP196]], 0
+// CHK-CXX-NEXT:    [[TMP198:%.*]] = extractvalue { i8, i1 } [[TMP196]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP198]], label [[ATOMIC_EXIT492]], label [[ATOMIC_CMP484]]
+// CHK-CXX:       atomic_cmp484:
+// CHK-CXX-NEXT:    [[TMP199:%.*]] = bitcast i32* [[ATOMIC_TEMP485]] to i8*
 // CHK-CXX-NEXT:    store i8 [[TMP197]], i8* [[TMP199]], align 1
-// CHK-CXX-NEXT:    [[TMP200:%.*]] = trunc i32 [[TMP195]] to i8
-// CHK-CXX-NEXT:    [[BF_LOAD567:%.*]] = load i8, i8* [[TMP199]], align 1
-// CHK-CXX-NEXT:    [[BF_VALUE568:%.*]] = and i8 [[TMP200]], 1
-// CHK-CXX-NEXT:    [[BF_CLEAR569:%.*]] = and i8 [[BF_LOAD567]], -2
-// CHK-CXX-NEXT:    [[BF_SET570:%.*]] = or i8 [[BF_CLEAR569]], [[BF_VALUE568]]
-// CHK-CXX-NEXT:    store i8 [[BF_SET570]], i8* [[TMP199]], align 1
-// CHK-CXX-NEXT:    [[TMP201:%.*]] = load i8, i8* [[TMP199]], align 1
-// CHK-CXX-NEXT:    [[TMP202:%.*]] = cmpxchg i8* getelementptr inbounds ([[STRUCT_BITFIELDS4_PACKED]], %struct.BitFields4_packed* @bfx4_packed, i32 0, i32 0, i64 2), i8 [[TMP197]], i8 [[TMP201]] monotonic monotonic, align 1
-// CHK-CXX-NEXT:    [[TMP203]] = extractvalue { i8, i1 } [[TMP202]], 0
-// CHK-CXX-NEXT:    [[TMP204:%.*]] = extractvalue { i8, i1 } [[TMP202]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP204]], label [[ATOMIC_EXIT579]], label [[ATOMIC_CMP571]]
-// CHK-CXX:       atomic_cmp571:
-// CHK-CXX-NEXT:    [[TMP205:%.*]] = bitcast i32* [[ATOMIC_TEMP572]] to i8*
-// CHK-CXX-NEXT:    store i8 [[TMP203]], i8* [[TMP205]], align 1
-// CHK-CXX-NEXT:    [[BF_LOAD573:%.*]] = load i8, i8* [[TMP205]], align 1
-// CHK-CXX-NEXT:    [[BF_SHL574:%.*]] = shl i8 [[BF_LOAD573]], 7
-// CHK-CXX-NEXT:    [[BF_ASHR575:%.*]] = ashr i8 [[BF_SHL574]], 7
-// CHK-CXX-NEXT:    [[BF_CAST576:%.*]] = sext i8 [[BF_ASHR575]] to i32
-// CHK-CXX-NEXT:    [[CMP577:%.*]] = icmp slt i32 [[BF_CAST576]], [[TMP195]]
-// CHK-CXX-NEXT:    [[FROMBOOL578:%.*]] = zext i1 [[CMP577]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL578]], i8* [[ATMP558]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP577]], label [[ATOMIC_CONT560]], label [[ATOMIC_EXIT579]]
-// CHK-CXX:       atomic_exit579:
-// CHK-CXX-NEXT:    [[TMP206:%.*]] = load i32, i32* [[ATMP551]], align 4
-// CHK-CXX-NEXT:    [[TMP207:%.*]] = load i8, i8* [[ATMP558]], align 1
+// CHK-CXX-NEXT:    [[BF_LOAD486:%.*]] = load i8, i8* [[TMP199]], align 1
+// CHK-CXX-NEXT:    [[BF_SHL487:%.*]] = shl i8 [[BF_LOAD486]], 7
+// CHK-CXX-NEXT:    [[BF_ASHR488:%.*]] = ashr i8 [[BF_SHL487]], 7
+// CHK-CXX-NEXT:    [[BF_CAST489:%.*]] = sext i8 [[BF_ASHR488]] to i32
+// CHK-CXX-NEXT:    store i32 [[BF_CAST489]], i32* [[ATMP469]], align 4
+// CHK-CXX-NEXT:    [[CMP490:%.*]] = icmp slt i32 [[BF_CAST489]], [[TMP190]]
+// CHK-CXX-NEXT:    [[FROMBOOL491:%.*]] = zext i1 [[CMP490]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL491]], i8* [[ATMP476]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP490]], label [[ATOMIC_CONT478]], label [[ATOMIC_EXIT492]]
+// CHK-CXX:       atomic_exit492:
+// CHK-CXX-NEXT:    [[TMP200:%.*]] = load i32, i32* [[ATMP469]], align 4
+// CHK-CXX-NEXT:    [[TMP201:%.*]] = load i8, i8* [[ATMP476]], align 1
 // CHK-CXX-NEXT:    ret void
 //
 void test_bitfield()
@@ -4698,24 +4450,21 @@ void test_bitfield()
 // CHK-C-NEXT:    [[ATOMIC_TEMP:%.*]] = alloca <2 x float>, align 8
 // CHK-C-NEXT:    [[ATMP1:%.*]] = alloca i8, align 1
 // CHK-C-NEXT:    [[ATOMIC_TEMP2:%.*]] = alloca <2 x float>, align 8
-// CHK-C-NEXT:    [[ATOMIC_TEMP4:%.*]] = alloca <2 x float>, align 8
-// CHK-C-NEXT:    [[ATOMIC_TEMP5:%.*]] = alloca <2 x float>, align 8
-// CHK-C-NEXT:    [[ATMP12:%.*]] = alloca float, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP3:%.*]] = alloca <2 x float>, align 8
+// CHK-C-NEXT:    [[ATMP10:%.*]] = alloca float, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP11:%.*]] = alloca <2 x float>, align 8
 // CHK-C-NEXT:    [[ATOMIC_TEMP13:%.*]] = alloca <2 x float>, align 8
 // CHK-C-NEXT:    [[ATOMIC_TEMP15:%.*]] = alloca <2 x float>, align 8
-// CHK-C-NEXT:    [[ATOMIC_TEMP17:%.*]] = alloca <2 x float>, align 8
-// CHK-C-NEXT:    [[ATMP20:%.*]] = alloca i8, align 1
+// CHK-C-NEXT:    [[ATMP18:%.*]] = alloca i8, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP21:%.*]] = alloca <2 x float>, align 8
 // CHK-C-NEXT:    [[ATOMIC_TEMP23:%.*]] = alloca <2 x float>, align 8
 // CHK-C-NEXT:    [[ATOMIC_TEMP25:%.*]] = alloca <2 x float>, align 8
 // CHK-C-NEXT:    [[ATOMIC_TEMP27:%.*]] = alloca <2 x float>, align 8
-// CHK-C-NEXT:    [[ATOMIC_TEMP29:%.*]] = alloca <2 x float>, align 8
-// CHK-C-NEXT:    [[ATOMIC_TEMP31:%.*]] = alloca <2 x float>, align 8
-// CHK-C-NEXT:    [[ATMP38:%.*]] = alloca float, align 4
-// CHK-C-NEXT:    [[ATOMIC_TEMP39:%.*]] = alloca <2 x float>, align 8
-// CHK-C-NEXT:    [[ATMP42:%.*]] = alloca i8, align 1
-// CHK-C-NEXT:    [[ATOMIC_TEMP45:%.*]] = alloca <2 x float>, align 8
-// CHK-C-NEXT:    [[ATOMIC_TEMP47:%.*]] = alloca <2 x float>, align 8
-// CHK-C-NEXT:    [[ATOMIC_TEMP49:%.*]] = alloca <2 x float>, align 8
+// CHK-C-NEXT:    [[ATMP34:%.*]] = alloca float, align 4
+// CHK-C-NEXT:    [[ATOMIC_TEMP35:%.*]] = alloca <2 x float>, align 8
+// CHK-C-NEXT:    [[ATMP38:%.*]] = alloca i8, align 1
+// CHK-C-NEXT:    [[ATOMIC_TEMP41:%.*]] = alloca <2 x float>, align 8
+// CHK-C-NEXT:    [[ATOMIC_TEMP43:%.*]] = alloca <2 x float>, align 8
 // CHK-C-NEXT:    [[TMP0:%.*]] = load i32, i32* [[EXPR]], align 4
 // CHK-C-NEXT:    [[CONV:%.*]] = sitofp i32 [[TMP0]] to float
 // CHK-C-NEXT:    [[TMP1:%.*]] = bitcast <2 x float>* [[FLOAT2X]] to i64*
@@ -4730,139 +4479,127 @@ void test_bitfield()
 // CHK-C-NEXT:    store i8 [[FROMBOOL]], i8* [[ATMP1]], align 1
 // CHK-C-NEXT:    br i1 [[CMP]], label [[ATOMIC_CONT:%.*]], label [[ATOMIC_EXIT:%.*]]
 // CHK-C:       atomic_cont:
-// CHK-C-NEXT:    [[TMP4:%.*]] = phi i64 [ [[ATOMIC_LOAD]], [[ENTRY:%.*]] ], [ [[TMP13:%.*]], [[ATOMIC_CMP:%.*]] ]
-// CHK-C-NEXT:    [[STORETMP3:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP2]] to i64*
-// CHK-C-NEXT:    store i64 [[TMP4]], i64* [[STORETMP3]], align 8
-// CHK-C-NEXT:    [[TMP5:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP2]], align 8
-// CHK-C-NEXT:    [[TMP6:%.*]] = extractelement <2 x float> [[TMP5]], i64 0
-// CHK-C-NEXT:    store float [[TMP6]], float* [[TMP]], align 4
-// CHK-C-NEXT:    [[TMP7:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP4]] to i64*
-// CHK-C-NEXT:    store i64 [[TMP4]], i64* [[TMP7]], align 8
-// CHK-C-NEXT:    [[TMP8:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP4]], align 8
-// CHK-C-NEXT:    [[TMP9:%.*]] = insertelement <2 x float> [[TMP8]], float [[CONV]], i64 0
-// CHK-C-NEXT:    store <2 x float> [[TMP9]], <2 x float>* [[ATOMIC_TEMP4]], align 8
-// CHK-C-NEXT:    [[TMP10:%.*]] = load i64, i64* [[TMP7]], align 8
-// CHK-C-NEXT:    [[TMP11:%.*]] = bitcast <2 x float>* [[FLOAT2X]] to i64*
-// CHK-C-NEXT:    [[TMP12:%.*]] = cmpxchg i64* [[TMP11]], i64 [[TMP4]], i64 [[TMP10]] monotonic monotonic, align 8
-// CHK-C-NEXT:    [[TMP13]] = extractvalue { i64, i1 } [[TMP12]], 0
-// CHK-C-NEXT:    [[TMP14:%.*]] = extractvalue { i64, i1 } [[TMP12]], 1
-// CHK-C-NEXT:    br i1 [[TMP14]], label [[ATOMIC_EXIT]], label [[ATOMIC_CMP]]
+// CHK-C-NEXT:    [[TMP4:%.*]] = phi i64 [ [[ATOMIC_LOAD]], [[ENTRY:%.*]] ], [ [[TMP11:%.*]], [[ATOMIC_CMP:%.*]] ]
+// CHK-C-NEXT:    [[TMP5:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP2]] to i64*
+// CHK-C-NEXT:    store i64 [[TMP4]], i64* [[TMP5]], align 8
+// CHK-C-NEXT:    [[TMP6:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP2]], align 8
+// CHK-C-NEXT:    [[TMP7:%.*]] = insertelement <2 x float> [[TMP6]], float [[CONV]], i64 0
+// CHK-C-NEXT:    store <2 x float> [[TMP7]], <2 x float>* [[ATOMIC_TEMP2]], align 8
+// CHK-C-NEXT:    [[TMP8:%.*]] = load i64, i64* [[TMP5]], align 8
+// CHK-C-NEXT:    [[TMP9:%.*]] = bitcast <2 x float>* [[FLOAT2X]] to i64*
+// CHK-C-NEXT:    [[TMP10:%.*]] = cmpxchg i64* [[TMP9]], i64 [[TMP4]], i64 [[TMP8]] monotonic monotonic, align 8
+// CHK-C-NEXT:    [[TMP11]] = extractvalue { i64, i1 } [[TMP10]], 0
+// CHK-C-NEXT:    [[TMP12:%.*]] = extractvalue { i64, i1 } [[TMP10]], 1
+// CHK-C-NEXT:    br i1 [[TMP12]], label [[ATOMIC_EXIT]], label [[ATOMIC_CMP]]
 // CHK-C:       atomic_cmp:
-// CHK-C-NEXT:    [[STORETMP6:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP5]] to i64*
-// CHK-C-NEXT:    store i64 [[TMP13]], i64* [[STORETMP6]], align 8
-// CHK-C-NEXT:    [[TMP15:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP5]], align 8
-// CHK-C-NEXT:    [[TMP16:%.*]] = extractelement <2 x float> [[TMP15]], i64 0
-// CHK-C-NEXT:    [[CMP7:%.*]] = fcmp ogt float [[TMP16]], [[CONV]]
-// CHK-C-NEXT:    [[FROMBOOL8:%.*]] = zext i1 [[CMP7]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL8]], i8* [[ATMP1]], align 1
-// CHK-C-NEXT:    br i1 [[CMP7]], label [[ATOMIC_CONT]], label [[ATOMIC_EXIT]]
+// CHK-C-NEXT:    [[STORETMP4:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP3]] to i64*
+// CHK-C-NEXT:    store i64 [[TMP11]], i64* [[STORETMP4]], align 8
+// CHK-C-NEXT:    [[TMP13:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP3]], align 8
+// CHK-C-NEXT:    [[TMP14:%.*]] = extractelement <2 x float> [[TMP13]], i64 0
+// CHK-C-NEXT:    store float [[TMP14]], float* [[TMP]], align 4
+// CHK-C-NEXT:    [[CMP5:%.*]] = fcmp ogt float [[TMP14]], [[CONV]]
+// CHK-C-NEXT:    [[FROMBOOL6:%.*]] = zext i1 [[CMP5]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL6]], i8* [[ATMP1]], align 1
+// CHK-C-NEXT:    br i1 [[CMP5]], label [[ATOMIC_CONT]], label [[ATOMIC_EXIT]]
 // CHK-C:       atomic_exit:
-// CHK-C-NEXT:    [[TMP17:%.*]] = load float, float* [[TMP]], align 4
-// CHK-C-NEXT:    [[TMP18:%.*]] = load i8, i8* [[ATMP1]], align 1
-// CHK-C-NEXT:    [[TMP19:%.*]] = load i32, i32* [[D]], align 4
-// CHK-C-NEXT:    [[CONV9:%.*]] = sitofp i32 [[TMP19]] to float
-// CHK-C-NEXT:    [[TMP20:%.*]] = load i32, i32* [[E]], align 4
-// CHK-C-NEXT:    [[CONV10:%.*]] = sitofp i32 [[TMP20]] to float
-// CHK-C-NEXT:    [[TMP21:%.*]] = bitcast <2 x float>* [[FLOAT2X]] to i64*
-// CHK-C-NEXT:    [[ATOMIC_LOAD11:%.*]] = load atomic i64, i64* [[TMP21]] monotonic, align 8
-// CHK-C-NEXT:    [[STORETMP14:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP13]] to i64*
-// CHK-C-NEXT:    store i64 [[ATOMIC_LOAD11]], i64* [[STORETMP14]], align 8
-// CHK-C-NEXT:    [[TMP22:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP13]], align 8
-// CHK-C-NEXT:    [[TMP23:%.*]] = extractelement <2 x float> [[TMP22]], i64 0
-// CHK-C-NEXT:    store float [[TMP23]], float* [[ATMP12]], align 4
+// CHK-C-NEXT:    [[TMP15:%.*]] = load float, float* [[TMP]], align 4
+// CHK-C-NEXT:    [[TMP16:%.*]] = load i8, i8* [[ATMP1]], align 1
+// CHK-C-NEXT:    [[TMP17:%.*]] = load i32, i32* [[D]], align 4
+// CHK-C-NEXT:    [[CONV7:%.*]] = sitofp i32 [[TMP17]] to float
+// CHK-C-NEXT:    [[TMP18:%.*]] = load i32, i32* [[E]], align 4
+// CHK-C-NEXT:    [[CONV8:%.*]] = sitofp i32 [[TMP18]] to float
+// CHK-C-NEXT:    [[TMP19:%.*]] = bitcast <2 x float>* [[FLOAT2X]] to i64*
+// CHK-C-NEXT:    [[ATOMIC_LOAD9:%.*]] = load atomic i64, i64* [[TMP19]] monotonic, align 8
+// CHK-C-NEXT:    [[STORETMP12:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP11]] to i64*
+// CHK-C-NEXT:    store i64 [[ATOMIC_LOAD9]], i64* [[STORETMP12]], align 8
+// CHK-C-NEXT:    [[TMP20:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP11]], align 8
+// CHK-C-NEXT:    [[TMP21:%.*]] = extractelement <2 x float> [[TMP20]], i64 0
+// CHK-C-NEXT:    store float [[TMP21]], float* [[ATMP10]], align 4
+// CHK-C-NEXT:    [[STORETMP14:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP13]] to float*
+// CHK-C-NEXT:    store float [[TMP21]], float* [[STORETMP14]], align 8
+// CHK-C-NEXT:    [[TMP22:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP13]] to i64*
+// CHK-C-NEXT:    [[TMP23:%.*]] = load i64, i64* [[TMP22]], align 8
 // CHK-C-NEXT:    [[STORETMP16:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP15]] to float*
-// CHK-C-NEXT:    store float [[TMP23]], float* [[STORETMP16]], align 8
+// CHK-C-NEXT:    store float [[CONV8]], float* [[STORETMP16]], align 8
 // CHK-C-NEXT:    [[TMP24:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP15]] to i64*
 // CHK-C-NEXT:    [[TMP25:%.*]] = load i64, i64* [[TMP24]], align 8
-// CHK-C-NEXT:    [[STORETMP18:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP17]] to float*
-// CHK-C-NEXT:    store float [[CONV10]], float* [[STORETMP18]], align 8
-// CHK-C-NEXT:    [[TMP26:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP17]] to i64*
-// CHK-C-NEXT:    [[TMP27:%.*]] = load i64, i64* [[TMP26]], align 8
-// CHK-C-NEXT:    [[CMP19:%.*]] = icmp eq i64 [[TMP25]], [[TMP27]]
-// CHK-C-NEXT:    [[FROMBOOL21:%.*]] = zext i1 [[CMP19]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL21]], i8* [[ATMP20]], align 1
-// CHK-C-NEXT:    br i1 [[CMP19]], label [[ATOMIC_CONT22:%.*]], label [[ATOMIC_EXIT35:%.*]]
-// CHK-C:       atomic_cont22:
-// CHK-C-NEXT:    [[TMP28:%.*]] = phi i64 [ [[ATOMIC_LOAD11]], [[ATOMIC_EXIT]] ], [ [[TMP37:%.*]], [[ATOMIC_CMP26:%.*]] ]
+// CHK-C-NEXT:    [[CMP17:%.*]] = icmp eq i64 [[TMP23]], [[TMP25]]
+// CHK-C-NEXT:    [[FROMBOOL19:%.*]] = zext i1 [[CMP17]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL19]], i8* [[ATMP18]], align 1
+// CHK-C-NEXT:    br i1 [[CMP17]], label [[ATOMIC_CONT20:%.*]], label [[ATOMIC_EXIT31:%.*]]
+// CHK-C:       atomic_cont20:
+// CHK-C-NEXT:    [[TMP26:%.*]] = phi i64 [ [[ATOMIC_LOAD9]], [[ATOMIC_EXIT]] ], [ [[TMP33:%.*]], [[ATOMIC_CMP22:%.*]] ]
+// CHK-C-NEXT:    [[TMP27:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP21]] to i64*
+// CHK-C-NEXT:    store i64 [[TMP26]], i64* [[TMP27]], align 8
+// CHK-C-NEXT:    [[TMP28:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP21]], align 8
+// CHK-C-NEXT:    [[TMP29:%.*]] = insertelement <2 x float> [[TMP28]], float [[CONV7]], i64 0
+// CHK-C-NEXT:    store <2 x float> [[TMP29]], <2 x float>* [[ATOMIC_TEMP21]], align 8
+// CHK-C-NEXT:    [[TMP30:%.*]] = load i64, i64* [[TMP27]], align 8
+// CHK-C-NEXT:    [[TMP31:%.*]] = bitcast <2 x float>* [[FLOAT2X]] to i64*
+// CHK-C-NEXT:    [[TMP32:%.*]] = cmpxchg i64* [[TMP31]], i64 [[TMP26]], i64 [[TMP30]] monotonic monotonic, align 8
+// CHK-C-NEXT:    [[TMP33]] = extractvalue { i64, i1 } [[TMP32]], 0
+// CHK-C-NEXT:    [[TMP34:%.*]] = extractvalue { i64, i1 } [[TMP32]], 1
+// CHK-C-NEXT:    br i1 [[TMP34]], label [[ATOMIC_EXIT31]], label [[ATOMIC_CMP22]]
+// CHK-C:       atomic_cmp22:
 // CHK-C-NEXT:    [[STORETMP24:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP23]] to i64*
-// CHK-C-NEXT:    store i64 [[TMP28]], i64* [[STORETMP24]], align 8
-// CHK-C-NEXT:    [[TMP29:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP23]], align 8
-// CHK-C-NEXT:    [[TMP30:%.*]] = extractelement <2 x float> [[TMP29]], i64 0
-// CHK-C-NEXT:    store float [[TMP30]], float* [[ATMP12]], align 4
-// CHK-C-NEXT:    [[TMP31:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP25]] to i64*
-// CHK-C-NEXT:    store i64 [[TMP28]], i64* [[TMP31]], align 8
-// CHK-C-NEXT:    [[TMP32:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP25]], align 8
-// CHK-C-NEXT:    [[TMP33:%.*]] = insertelement <2 x float> [[TMP32]], float [[CONV9]], i64 0
-// CHK-C-NEXT:    store <2 x float> [[TMP33]], <2 x float>* [[ATOMIC_TEMP25]], align 8
-// CHK-C-NEXT:    [[TMP34:%.*]] = load i64, i64* [[TMP31]], align 8
-// CHK-C-NEXT:    [[TMP35:%.*]] = bitcast <2 x float>* [[FLOAT2X]] to i64*
-// CHK-C-NEXT:    [[TMP36:%.*]] = cmpxchg i64* [[TMP35]], i64 [[TMP28]], i64 [[TMP34]] monotonic monotonic, align 8
-// CHK-C-NEXT:    [[TMP37]] = extractvalue { i64, i1 } [[TMP36]], 0
-// CHK-C-NEXT:    [[TMP38:%.*]] = extractvalue { i64, i1 } [[TMP36]], 1
-// CHK-C-NEXT:    br i1 [[TMP38]], label [[ATOMIC_EXIT35]], label [[ATOMIC_CMP26]]
-// CHK-C:       atomic_cmp26:
-// CHK-C-NEXT:    [[STORETMP28:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP27]] to i64*
-// CHK-C-NEXT:    store i64 [[TMP37]], i64* [[STORETMP28]], align 8
-// CHK-C-NEXT:    [[TMP39:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP27]], align 8
-// CHK-C-NEXT:    [[TMP40:%.*]] = extractelement <2 x float> [[TMP39]], i64 0
-// CHK-C-NEXT:    [[STORETMP30:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP29]] to float*
-// CHK-C-NEXT:    store float [[TMP40]], float* [[STORETMP30]], align 8
-// CHK-C-NEXT:    [[TMP41:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP29]] to i64*
-// CHK-C-NEXT:    [[TMP42:%.*]] = load i64, i64* [[TMP41]], align 8
-// CHK-C-NEXT:    [[STORETMP32:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP31]] to float*
-// CHK-C-NEXT:    store float [[CONV10]], float* [[STORETMP32]], align 8
-// CHK-C-NEXT:    [[TMP43:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP31]] to i64*
-// CHK-C-NEXT:    [[TMP44:%.*]] = load i64, i64* [[TMP43]], align 8
-// CHK-C-NEXT:    [[CMP33:%.*]] = icmp eq i64 [[TMP42]], [[TMP44]]
-// CHK-C-NEXT:    [[FROMBOOL34:%.*]] = zext i1 [[CMP33]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL34]], i8* [[ATMP20]], align 1
-// CHK-C-NEXT:    br i1 [[CMP33]], label [[ATOMIC_CONT22]], label [[ATOMIC_EXIT35]]
-// CHK-C:       atomic_exit35:
-// CHK-C-NEXT:    [[TMP45:%.*]] = load float, float* [[ATMP12]], align 4
-// CHK-C-NEXT:    [[TMP46:%.*]] = load i8, i8* [[ATMP20]], align 1
-// CHK-C-NEXT:    [[TMP47:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-C-NEXT:    [[CONV36:%.*]] = sitofp i32 [[TMP47]] to float
-// CHK-C-NEXT:    [[TMP48:%.*]] = bitcast <2 x float>* [[FLOAT2X]] to i64*
-// CHK-C-NEXT:    [[ATOMIC_LOAD37:%.*]] = load atomic i64, i64* [[TMP48]] monotonic, align 8
-// CHK-C-NEXT:    [[STORETMP40:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP39]] to i64*
-// CHK-C-NEXT:    store i64 [[ATOMIC_LOAD37]], i64* [[STORETMP40]], align 8
-// CHK-C-NEXT:    [[TMP49:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP39]], align 8
-// CHK-C-NEXT:    [[TMP50:%.*]] = extractelement <2 x float> [[TMP49]], i64 0
-// CHK-C-NEXT:    store float [[TMP50]], float* [[ATMP38]], align 4
-// CHK-C-NEXT:    [[CMP41:%.*]] = fcmp olt float [[TMP50]], [[CONV36]]
-// CHK-C-NEXT:    [[FROMBOOL43:%.*]] = zext i1 [[CMP41]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL43]], i8* [[ATMP42]], align 1
-// CHK-C-NEXT:    br i1 [[CMP41]], label [[ATOMIC_CONT44:%.*]], label [[ATOMIC_EXIT53:%.*]]
-// CHK-C:       atomic_cont44:
-// CHK-C-NEXT:    [[TMP51:%.*]] = phi i64 [ [[ATOMIC_LOAD37]], [[ATOMIC_EXIT35]] ], [ [[TMP60:%.*]], [[ATOMIC_CMP48:%.*]] ]
-// CHK-C-NEXT:    [[STORETMP46:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP45]] to i64*
-// CHK-C-NEXT:    store i64 [[TMP51]], i64* [[STORETMP46]], align 8
-// CHK-C-NEXT:    [[TMP52:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP45]], align 8
-// CHK-C-NEXT:    [[TMP53:%.*]] = extractelement <2 x float> [[TMP52]], i64 0
-// CHK-C-NEXT:    store float [[TMP53]], float* [[ATMP38]], align 4
-// CHK-C-NEXT:    [[TMP54:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP47]] to i64*
-// CHK-C-NEXT:    store i64 [[TMP51]], i64* [[TMP54]], align 8
-// CHK-C-NEXT:    [[TMP55:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP47]], align 8
-// CHK-C-NEXT:    [[TMP56:%.*]] = insertelement <2 x float> [[TMP55]], float [[CONV36]], i64 0
-// CHK-C-NEXT:    store <2 x float> [[TMP56]], <2 x float>* [[ATOMIC_TEMP47]], align 8
-// CHK-C-NEXT:    [[TMP57:%.*]] = load i64, i64* [[TMP54]], align 8
-// CHK-C-NEXT:    [[TMP58:%.*]] = bitcast <2 x float>* [[FLOAT2X]] to i64*
-// CHK-C-NEXT:    [[TMP59:%.*]] = cmpxchg i64* [[TMP58]], i64 [[TMP51]], i64 [[TMP57]] monotonic monotonic, align 8
-// CHK-C-NEXT:    [[TMP60]] = extractvalue { i64, i1 } [[TMP59]], 0
-// CHK-C-NEXT:    [[TMP61:%.*]] = extractvalue { i64, i1 } [[TMP59]], 1
-// CHK-C-NEXT:    br i1 [[TMP61]], label [[ATOMIC_EXIT53]], label [[ATOMIC_CMP48]]
-// CHK-C:       atomic_cmp48:
-// CHK-C-NEXT:    [[STORETMP50:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP49]] to i64*
-// CHK-C-NEXT:    store i64 [[TMP60]], i64* [[STORETMP50]], align 8
-// CHK-C-NEXT:    [[TMP62:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP49]], align 8
-// CHK-C-NEXT:    [[TMP63:%.*]] = extractelement <2 x float> [[TMP62]], i64 0
-// CHK-C-NEXT:    [[CMP51:%.*]] = fcmp olt float [[TMP63]], [[CONV36]]
-// CHK-C-NEXT:    [[FROMBOOL52:%.*]] = zext i1 [[CMP51]] to i8
-// CHK-C-NEXT:    store i8 [[FROMBOOL52]], i8* [[ATMP42]], align 1
-// CHK-C-NEXT:    br i1 [[CMP51]], label [[ATOMIC_CONT44]], label [[ATOMIC_EXIT53]]
-// CHK-C:       atomic_exit53:
-// CHK-C-NEXT:    [[TMP64:%.*]] = load float, float* [[ATMP38]], align 4
-// CHK-C-NEXT:    [[TMP65:%.*]] = load i8, i8* [[ATMP42]], align 1
+// CHK-C-NEXT:    store i64 [[TMP33]], i64* [[STORETMP24]], align 8
+// CHK-C-NEXT:    [[TMP35:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP23]], align 8
+// CHK-C-NEXT:    [[TMP36:%.*]] = extractelement <2 x float> [[TMP35]], i64 0
+// CHK-C-NEXT:    store float [[TMP36]], float* [[ATMP10]], align 4
+// CHK-C-NEXT:    [[STORETMP26:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP25]] to float*
+// CHK-C-NEXT:    store float [[TMP36]], float* [[STORETMP26]], align 8
+// CHK-C-NEXT:    [[TMP37:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP25]] to i64*
+// CHK-C-NEXT:    [[TMP38:%.*]] = load i64, i64* [[TMP37]], align 8
+// CHK-C-NEXT:    [[STORETMP28:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP27]] to float*
+// CHK-C-NEXT:    store float [[CONV8]], float* [[STORETMP28]], align 8
+// CHK-C-NEXT:    [[TMP39:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP27]] to i64*
+// CHK-C-NEXT:    [[TMP40:%.*]] = load i64, i64* [[TMP39]], align 8
+// CHK-C-NEXT:    [[CMP29:%.*]] = icmp eq i64 [[TMP38]], [[TMP40]]
+// CHK-C-NEXT:    [[FROMBOOL30:%.*]] = zext i1 [[CMP29]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL30]], i8* [[ATMP18]], align 1
+// CHK-C-NEXT:    br i1 [[CMP29]], label [[ATOMIC_CONT20]], label [[ATOMIC_EXIT31]]
+// CHK-C:       atomic_exit31:
+// CHK-C-NEXT:    [[TMP41:%.*]] = load float, float* [[ATMP10]], align 4
+// CHK-C-NEXT:    [[TMP42:%.*]] = load i8, i8* [[ATMP18]], align 1
+// CHK-C-NEXT:    [[TMP43:%.*]] = load i32, i32* [[EXPR]], align 4
+// CHK-C-NEXT:    [[CONV32:%.*]] = sitofp i32 [[TMP43]] to float
+// CHK-C-NEXT:    [[TMP44:%.*]] = bitcast <2 x float>* [[FLOAT2X]] to i64*
+// CHK-C-NEXT:    [[ATOMIC_LOAD33:%.*]] = load atomic i64, i64* [[TMP44]] monotonic, align 8
+// CHK-C-NEXT:    [[STORETMP36:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP35]] to i64*
+// CHK-C-NEXT:    store i64 [[ATOMIC_LOAD33]], i64* [[STORETMP36]], align 8
+// CHK-C-NEXT:    [[TMP45:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP35]], align 8
+// CHK-C-NEXT:    [[TMP46:%.*]] = extractelement <2 x float> [[TMP45]], i64 0
+// CHK-C-NEXT:    store float [[TMP46]], float* [[ATMP34]], align 4
+// CHK-C-NEXT:    [[CMP37:%.*]] = fcmp olt float [[TMP46]], [[CONV32]]
+// CHK-C-NEXT:    [[FROMBOOL39:%.*]] = zext i1 [[CMP37]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL39]], i8* [[ATMP38]], align 1
+// CHK-C-NEXT:    br i1 [[CMP37]], label [[ATOMIC_CONT40:%.*]], label [[ATOMIC_EXIT47:%.*]]
+// CHK-C:       atomic_cont40:
+// CHK-C-NEXT:    [[TMP47:%.*]] = phi i64 [ [[ATOMIC_LOAD33]], [[ATOMIC_EXIT31]] ], [ [[TMP54:%.*]], [[ATOMIC_CMP42:%.*]] ]
+// CHK-C-NEXT:    [[TMP48:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP41]] to i64*
+// CHK-C-NEXT:    store i64 [[TMP47]], i64* [[TMP48]], align 8
+// CHK-C-NEXT:    [[TMP49:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP41]], align 8
+// CHK-C-NEXT:    [[TMP50:%.*]] = insertelement <2 x float> [[TMP49]], float [[CONV32]], i64 0
+// CHK-C-NEXT:    store <2 x float> [[TMP50]], <2 x float>* [[ATOMIC_TEMP41]], align 8
+// CHK-C-NEXT:    [[TMP51:%.*]] = load i64, i64* [[TMP48]], align 8
+// CHK-C-NEXT:    [[TMP52:%.*]] = bitcast <2 x float>* [[FLOAT2X]] to i64*
+// CHK-C-NEXT:    [[TMP53:%.*]] = cmpxchg i64* [[TMP52]], i64 [[TMP47]], i64 [[TMP51]] monotonic monotonic, align 8
+// CHK-C-NEXT:    [[TMP54]] = extractvalue { i64, i1 } [[TMP53]], 0
+// CHK-C-NEXT:    [[TMP55:%.*]] = extractvalue { i64, i1 } [[TMP53]], 1
+// CHK-C-NEXT:    br i1 [[TMP55]], label [[ATOMIC_EXIT47]], label [[ATOMIC_CMP42]]
+// CHK-C:       atomic_cmp42:
+// CHK-C-NEXT:    [[STORETMP44:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP43]] to i64*
+// CHK-C-NEXT:    store i64 [[TMP54]], i64* [[STORETMP44]], align 8
+// CHK-C-NEXT:    [[TMP56:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP43]], align 8
+// CHK-C-NEXT:    [[TMP57:%.*]] = extractelement <2 x float> [[TMP56]], i64 0
+// CHK-C-NEXT:    store float [[TMP57]], float* [[ATMP34]], align 4
+// CHK-C-NEXT:    [[CMP45:%.*]] = fcmp olt float [[TMP57]], [[CONV32]]
+// CHK-C-NEXT:    [[FROMBOOL46:%.*]] = zext i1 [[CMP45]] to i8
+// CHK-C-NEXT:    store i8 [[FROMBOOL46]], i8* [[ATMP38]], align 1
+// CHK-C-NEXT:    br i1 [[CMP45]], label [[ATOMIC_CONT40]], label [[ATOMIC_EXIT47]]
+// CHK-C:       atomic_exit47:
+// CHK-C-NEXT:    [[TMP58:%.*]] = load float, float* [[ATMP34]], align 4
+// CHK-C-NEXT:    [[TMP59:%.*]] = load i8, i8* [[ATMP38]], align 1
 // CHK-C-NEXT:    ret void
 //
 // CHK-CXX-LABEL: @_Z15test_ext_vectorv(
@@ -4875,24 +4612,21 @@ void test_bitfield()
 // CHK-CXX-NEXT:    [[ATOMIC_TEMP:%.*]] = alloca <2 x float>, align 8
 // CHK-CXX-NEXT:    [[ATMP1:%.*]] = alloca i8, align 1
 // CHK-CXX-NEXT:    [[ATOMIC_TEMP2:%.*]] = alloca <2 x float>, align 8
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP4:%.*]] = alloca <2 x float>, align 8
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP5:%.*]] = alloca <2 x float>, align 8
-// CHK-CXX-NEXT:    [[ATMP12:%.*]] = alloca float, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP3:%.*]] = alloca <2 x float>, align 8
+// CHK-CXX-NEXT:    [[ATMP10:%.*]] = alloca float, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP11:%.*]] = alloca <2 x float>, align 8
 // CHK-CXX-NEXT:    [[ATOMIC_TEMP13:%.*]] = alloca <2 x float>, align 8
 // CHK-CXX-NEXT:    [[ATOMIC_TEMP15:%.*]] = alloca <2 x float>, align 8
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP17:%.*]] = alloca <2 x float>, align 8
-// CHK-CXX-NEXT:    [[ATMP20:%.*]] = alloca i8, align 1
+// CHK-CXX-NEXT:    [[ATMP18:%.*]] = alloca i8, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP21:%.*]] = alloca <2 x float>, align 8
 // CHK-CXX-NEXT:    [[ATOMIC_TEMP23:%.*]] = alloca <2 x float>, align 8
 // CHK-CXX-NEXT:    [[ATOMIC_TEMP25:%.*]] = alloca <2 x float>, align 8
 // CHK-CXX-NEXT:    [[ATOMIC_TEMP27:%.*]] = alloca <2 x float>, align 8
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP29:%.*]] = alloca <2 x float>, align 8
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP31:%.*]] = alloca <2 x float>, align 8
-// CHK-CXX-NEXT:    [[ATMP38:%.*]] = alloca float, align 4
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP39:%.*]] = alloca <2 x float>, align 8
-// CHK-CXX-NEXT:    [[ATMP42:%.*]] = alloca i8, align 1
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP45:%.*]] = alloca <2 x float>, align 8
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP47:%.*]] = alloca <2 x float>, align 8
-// CHK-CXX-NEXT:    [[ATOMIC_TEMP49:%.*]] = alloca <2 x float>, align 8
+// CHK-CXX-NEXT:    [[ATMP34:%.*]] = alloca float, align 4
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP35:%.*]] = alloca <2 x float>, align 8
+// CHK-CXX-NEXT:    [[ATMP38:%.*]] = alloca i8, align 1
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP41:%.*]] = alloca <2 x float>, align 8
+// CHK-CXX-NEXT:    [[ATOMIC_TEMP43:%.*]] = alloca <2 x float>, align 8
 // CHK-CXX-NEXT:    [[TMP0:%.*]] = load i32, i32* [[EXPR]], align 4
 // CHK-CXX-NEXT:    [[CONV:%.*]] = sitofp i32 [[TMP0]] to float
 // CHK-CXX-NEXT:    [[TMP1:%.*]] = bitcast <2 x float>* [[FLOAT2X]] to i64*
@@ -4907,139 +4641,127 @@ void test_bitfield()
 // CHK-CXX-NEXT:    store i8 [[FROMBOOL]], i8* [[ATMP1]], align 1
 // CHK-CXX-NEXT:    br i1 [[CMP]], label [[ATOMIC_CONT:%.*]], label [[ATOMIC_EXIT:%.*]]
 // CHK-CXX:       atomic_cont:
-// CHK-CXX-NEXT:    [[TMP4:%.*]] = phi i64 [ [[ATOMIC_LOAD]], [[ENTRY:%.*]] ], [ [[TMP13:%.*]], [[ATOMIC_CMP:%.*]] ]
-// CHK-CXX-NEXT:    [[STORETMP3:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP2]] to i64*
-// CHK-CXX-NEXT:    store i64 [[TMP4]], i64* [[STORETMP3]], align 8
-// CHK-CXX-NEXT:    [[TMP5:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP2]], align 8
-// CHK-CXX-NEXT:    [[TMP6:%.*]] = extractelement <2 x float> [[TMP5]], i64 0
-// CHK-CXX-NEXT:    store float [[TMP6]], float* [[TMP]], align 4
-// CHK-CXX-NEXT:    [[TMP7:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP4]] to i64*
-// CHK-CXX-NEXT:    store i64 [[TMP4]], i64* [[TMP7]], align 8
-// CHK-CXX-NEXT:    [[TMP8:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP4]], align 8
-// CHK-CXX-NEXT:    [[TMP9:%.*]] = insertelement <2 x float> [[TMP8]], float [[CONV]], i64 0
-// CHK-CXX-NEXT:    store <2 x float> [[TMP9]], <2 x float>* [[ATOMIC_TEMP4]], align 8
-// CHK-CXX-NEXT:    [[TMP10:%.*]] = load i64, i64* [[TMP7]], align 8
-// CHK-CXX-NEXT:    [[TMP11:%.*]] = bitcast <2 x float>* [[FLOAT2X]] to i64*
-// CHK-CXX-NEXT:    [[TMP12:%.*]] = cmpxchg i64* [[TMP11]], i64 [[TMP4]], i64 [[TMP10]] monotonic monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP13]] = extractvalue { i64, i1 } [[TMP12]], 0
-// CHK-CXX-NEXT:    [[TMP14:%.*]] = extractvalue { i64, i1 } [[TMP12]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP14]], label [[ATOMIC_EXIT]], label [[ATOMIC_CMP]]
+// CHK-CXX-NEXT:    [[TMP4:%.*]] = phi i64 [ [[ATOMIC_LOAD]], [[ENTRY:%.*]] ], [ [[TMP11:%.*]], [[ATOMIC_CMP:%.*]] ]
+// CHK-CXX-NEXT:    [[TMP5:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP2]] to i64*
+// CHK-CXX-NEXT:    store i64 [[TMP4]], i64* [[TMP5]], align 8
+// CHK-CXX-NEXT:    [[TMP6:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP2]], align 8
+// CHK-CXX-NEXT:    [[TMP7:%.*]] = insertelement <2 x float> [[TMP6]], float [[CONV]], i64 0
+// CHK-CXX-NEXT:    store <2 x float> [[TMP7]], <2 x float>* [[ATOMIC_TEMP2]], align 8
+// CHK-CXX-NEXT:    [[TMP8:%.*]] = load i64, i64* [[TMP5]], align 8
+// CHK-CXX-NEXT:    [[TMP9:%.*]] = bitcast <2 x float>* [[FLOAT2X]] to i64*
+// CHK-CXX-NEXT:    [[TMP10:%.*]] = cmpxchg i64* [[TMP9]], i64 [[TMP4]], i64 [[TMP8]] monotonic monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP11]] = extractvalue { i64, i1 } [[TMP10]], 0
+// CHK-CXX-NEXT:    [[TMP12:%.*]] = extractvalue { i64, i1 } [[TMP10]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP12]], label [[ATOMIC_EXIT]], label [[ATOMIC_CMP]]
 // CHK-CXX:       atomic_cmp:
-// CHK-CXX-NEXT:    [[STORETMP6:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP5]] to i64*
-// CHK-CXX-NEXT:    store i64 [[TMP13]], i64* [[STORETMP6]], align 8
-// CHK-CXX-NEXT:    [[TMP15:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP5]], align 8
-// CHK-CXX-NEXT:    [[TMP16:%.*]] = extractelement <2 x float> [[TMP15]], i64 0
-// CHK-CXX-NEXT:    [[CMP7:%.*]] = fcmp ogt float [[TMP16]], [[CONV]]
-// CHK-CXX-NEXT:    [[FROMBOOL8:%.*]] = zext i1 [[CMP7]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL8]], i8* [[ATMP1]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP7]], label [[ATOMIC_CONT]], label [[ATOMIC_EXIT]]
+// CHK-CXX-NEXT:    [[STORETMP4:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP3]] to i64*
+// CHK-CXX-NEXT:    store i64 [[TMP11]], i64* [[STORETMP4]], align 8
+// CHK-CXX-NEXT:    [[TMP13:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP3]], align 8
+// CHK-CXX-NEXT:    [[TMP14:%.*]] = extractelement <2 x float> [[TMP13]], i64 0
+// CHK-CXX-NEXT:    store float [[TMP14]], float* [[TMP]], align 4
+// CHK-CXX-NEXT:    [[CMP5:%.*]] = fcmp ogt float [[TMP14]], [[CONV]]
+// CHK-CXX-NEXT:    [[FROMBOOL6:%.*]] = zext i1 [[CMP5]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL6]], i8* [[ATMP1]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP5]], label [[ATOMIC_CONT]], label [[ATOMIC_EXIT]]
 // CHK-CXX:       atomic_exit:
-// CHK-CXX-NEXT:    [[TMP17:%.*]] = load float, float* [[TMP]], align 4
-// CHK-CXX-NEXT:    [[TMP18:%.*]] = load i8, i8* [[ATMP1]], align 1
-// CHK-CXX-NEXT:    [[TMP19:%.*]] = load i32, i32* [[D]], align 4
-// CHK-CXX-NEXT:    [[CONV9:%.*]] = sitofp i32 [[TMP19]] to float
-// CHK-CXX-NEXT:    [[TMP20:%.*]] = load i32, i32* [[E]], align 4
-// CHK-CXX-NEXT:    [[CONV10:%.*]] = sitofp i32 [[TMP20]] to float
-// CHK-CXX-NEXT:    [[TMP21:%.*]] = bitcast <2 x float>* [[FLOAT2X]] to i64*
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD11:%.*]] = load atomic i64, i64* [[TMP21]] monotonic, align 8
-// CHK-CXX-NEXT:    [[STORETMP14:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP13]] to i64*
-// CHK-CXX-NEXT:    store i64 [[ATOMIC_LOAD11]], i64* [[STORETMP14]], align 8
-// CHK-CXX-NEXT:    [[TMP22:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP13]], align 8
-// CHK-CXX-NEXT:    [[TMP23:%.*]] = extractelement <2 x float> [[TMP22]], i64 0
-// CHK-CXX-NEXT:    store float [[TMP23]], float* [[ATMP12]], align 4
+// CHK-CXX-NEXT:    [[TMP15:%.*]] = load float, float* [[TMP]], align 4
+// CHK-CXX-NEXT:    [[TMP16:%.*]] = load i8, i8* [[ATMP1]], align 1
+// CHK-CXX-NEXT:    [[TMP17:%.*]] = load i32, i32* [[D]], align 4
+// CHK-CXX-NEXT:    [[CONV7:%.*]] = sitofp i32 [[TMP17]] to float
+// CHK-CXX-NEXT:    [[TMP18:%.*]] = load i32, i32* [[E]], align 4
+// CHK-CXX-NEXT:    [[CONV8:%.*]] = sitofp i32 [[TMP18]] to float
+// CHK-CXX-NEXT:    [[TMP19:%.*]] = bitcast <2 x float>* [[FLOAT2X]] to i64*
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD9:%.*]] = load atomic i64, i64* [[TMP19]] monotonic, align 8
+// CHK-CXX-NEXT:    [[STORETMP12:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP11]] to i64*
+// CHK-CXX-NEXT:    store i64 [[ATOMIC_LOAD9]], i64* [[STORETMP12]], align 8
+// CHK-CXX-NEXT:    [[TMP20:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP11]], align 8
+// CHK-CXX-NEXT:    [[TMP21:%.*]] = extractelement <2 x float> [[TMP20]], i64 0
+// CHK-CXX-NEXT:    store float [[TMP21]], float* [[ATMP10]], align 4
+// CHK-CXX-NEXT:    [[STORETMP14:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP13]] to float*
+// CHK-CXX-NEXT:    store float [[TMP21]], float* [[STORETMP14]], align 8
+// CHK-CXX-NEXT:    [[TMP22:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP13]] to i64*
+// CHK-CXX-NEXT:    [[TMP23:%.*]] = load i64, i64* [[TMP22]], align 8
 // CHK-CXX-NEXT:    [[STORETMP16:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP15]] to float*
-// CHK-CXX-NEXT:    store float [[TMP23]], float* [[STORETMP16]], align 8
+// CHK-CXX-NEXT:    store float [[CONV8]], float* [[STORETMP16]], align 8
 // CHK-CXX-NEXT:    [[TMP24:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP15]] to i64*
 // CHK-CXX-NEXT:    [[TMP25:%.*]] = load i64, i64* [[TMP24]], align 8
-// CHK-CXX-NEXT:    [[STORETMP18:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP17]] to float*
-// CHK-CXX-NEXT:    store float [[CONV10]], float* [[STORETMP18]], align 8
-// CHK-CXX-NEXT:    [[TMP26:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP17]] to i64*
-// CHK-CXX-NEXT:    [[TMP27:%.*]] = load i64, i64* [[TMP26]], align 8
-// CHK-CXX-NEXT:    [[CMP19:%.*]] = icmp eq i64 [[TMP25]], [[TMP27]]
-// CHK-CXX-NEXT:    [[FROMBOOL21:%.*]] = zext i1 [[CMP19]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL21]], i8* [[ATMP20]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP19]], label [[ATOMIC_CONT22:%.*]], label [[ATOMIC_EXIT35:%.*]]
-// CHK-CXX:       atomic_cont22:
-// CHK-CXX-NEXT:    [[TMP28:%.*]] = phi i64 [ [[ATOMIC_LOAD11]], [[ATOMIC_EXIT]] ], [ [[TMP37:%.*]], [[ATOMIC_CMP26:%.*]] ]
+// CHK-CXX-NEXT:    [[CMP17:%.*]] = icmp eq i64 [[TMP23]], [[TMP25]]
+// CHK-CXX-NEXT:    [[FROMBOOL19:%.*]] = zext i1 [[CMP17]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL19]], i8* [[ATMP18]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP17]], label [[ATOMIC_CONT20:%.*]], label [[ATOMIC_EXIT31:%.*]]
+// CHK-CXX:       atomic_cont20:
+// CHK-CXX-NEXT:    [[TMP26:%.*]] = phi i64 [ [[ATOMIC_LOAD9]], [[ATOMIC_EXIT]] ], [ [[TMP33:%.*]], [[ATOMIC_CMP22:%.*]] ]
+// CHK-CXX-NEXT:    [[TMP27:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP21]] to i64*
+// CHK-CXX-NEXT:    store i64 [[TMP26]], i64* [[TMP27]], align 8
+// CHK-CXX-NEXT:    [[TMP28:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP21]], align 8
+// CHK-CXX-NEXT:    [[TMP29:%.*]] = insertelement <2 x float> [[TMP28]], float [[CONV7]], i64 0
+// CHK-CXX-NEXT:    store <2 x float> [[TMP29]], <2 x float>* [[ATOMIC_TEMP21]], align 8
+// CHK-CXX-NEXT:    [[TMP30:%.*]] = load i64, i64* [[TMP27]], align 8
+// CHK-CXX-NEXT:    [[TMP31:%.*]] = bitcast <2 x float>* [[FLOAT2X]] to i64*
+// CHK-CXX-NEXT:    [[TMP32:%.*]] = cmpxchg i64* [[TMP31]], i64 [[TMP26]], i64 [[TMP30]] monotonic monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP33]] = extractvalue { i64, i1 } [[TMP32]], 0
+// CHK-CXX-NEXT:    [[TMP34:%.*]] = extractvalue { i64, i1 } [[TMP32]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP34]], label [[ATOMIC_EXIT31]], label [[ATOMIC_CMP22]]
+// CHK-CXX:       atomic_cmp22:
 // CHK-CXX-NEXT:    [[STORETMP24:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP23]] to i64*
-// CHK-CXX-NEXT:    store i64 [[TMP28]], i64* [[STORETMP24]], align 8
-// CHK-CXX-NEXT:    [[TMP29:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP23]], align 8
-// CHK-CXX-NEXT:    [[TMP30:%.*]] = extractelement <2 x float> [[TMP29]], i64 0
-// CHK-CXX-NEXT:    store float [[TMP30]], float* [[ATMP12]], align 4
-// CHK-CXX-NEXT:    [[TMP31:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP25]] to i64*
-// CHK-CXX-NEXT:    store i64 [[TMP28]], i64* [[TMP31]], align 8
-// CHK-CXX-NEXT:    [[TMP32:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP25]], align 8
-// CHK-CXX-NEXT:    [[TMP33:%.*]] = insertelement <2 x float> [[TMP32]], float [[CONV9]], i64 0
-// CHK-CXX-NEXT:    store <2 x float> [[TMP33]], <2 x float>* [[ATOMIC_TEMP25]], align 8
-// CHK-CXX-NEXT:    [[TMP34:%.*]] = load i64, i64* [[TMP31]], align 8
-// CHK-CXX-NEXT:    [[TMP35:%.*]] = bitcast <2 x float>* [[FLOAT2X]] to i64*
-// CHK-CXX-NEXT:    [[TMP36:%.*]] = cmpxchg i64* [[TMP35]], i64 [[TMP28]], i64 [[TMP34]] monotonic monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP37]] = extractvalue { i64, i1 } [[TMP36]], 0
-// CHK-CXX-NEXT:    [[TMP38:%.*]] = extractvalue { i64, i1 } [[TMP36]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP38]], label [[ATOMIC_EXIT35]], label [[ATOMIC_CMP26]]
-// CHK-CXX:       atomic_cmp26:
-// CHK-CXX-NEXT:    [[STORETMP28:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP27]] to i64*
-// CHK-CXX-NEXT:    store i64 [[TMP37]], i64* [[STORETMP28]], align 8
-// CHK-CXX-NEXT:    [[TMP39:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP27]], align 8
-// CHK-CXX-NEXT:    [[TMP40:%.*]] = extractelement <2 x float> [[TMP39]], i64 0
-// CHK-CXX-NEXT:    [[STORETMP30:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP29]] to float*
-// CHK-CXX-NEXT:    store float [[TMP40]], float* [[STORETMP30]], align 8
-// CHK-CXX-NEXT:    [[TMP41:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP29]] to i64*
-// CHK-CXX-NEXT:    [[TMP42:%.*]] = load i64, i64* [[TMP41]], align 8
-// CHK-CXX-NEXT:    [[STORETMP32:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP31]] to float*
-// CHK-CXX-NEXT:    store float [[CONV10]], float* [[STORETMP32]], align 8
-// CHK-CXX-NEXT:    [[TMP43:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP31]] to i64*
-// CHK-CXX-NEXT:    [[TMP44:%.*]] = load i64, i64* [[TMP43]], align 8
-// CHK-CXX-NEXT:    [[CMP33:%.*]] = icmp eq i64 [[TMP42]], [[TMP44]]
-// CHK-CXX-NEXT:    [[FROMBOOL34:%.*]] = zext i1 [[CMP33]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL34]], i8* [[ATMP20]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP33]], label [[ATOMIC_CONT22]], label [[ATOMIC_EXIT35]]
-// CHK-CXX:       atomic_exit35:
-// CHK-CXX-NEXT:    [[TMP45:%.*]] = load float, float* [[ATMP12]], align 4
-// CHK-CXX-NEXT:    [[TMP46:%.*]] = load i8, i8* [[ATMP20]], align 1
-// CHK-CXX-NEXT:    [[TMP47:%.*]] = load i32, i32* [[EXPR]], align 4
-// CHK-CXX-NEXT:    [[CONV36:%.*]] = sitofp i32 [[TMP47]] to float
-// CHK-CXX-NEXT:    [[TMP48:%.*]] = bitcast <2 x float>* [[FLOAT2X]] to i64*
-// CHK-CXX-NEXT:    [[ATOMIC_LOAD37:%.*]] = load atomic i64, i64* [[TMP48]] monotonic, align 8
-// CHK-CXX-NEXT:    [[STORETMP40:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP39]] to i64*
-// CHK-CXX-NEXT:    store i64 [[ATOMIC_LOAD37]], i64* [[STORETMP40]], align 8
-// CHK-CXX-NEXT:    [[TMP49:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP39]], align 8
-// CHK-CXX-NEXT:    [[TMP50:%.*]] = extractelement <2 x float> [[TMP49]], i64 0
-// CHK-CXX-NEXT:    store float [[TMP50]], float* [[ATMP38]], align 4
-// CHK-CXX-NEXT:    [[CMP41:%.*]] = fcmp olt float [[TMP50]], [[CONV36]]
-// CHK-CXX-NEXT:    [[FROMBOOL43:%.*]] = zext i1 [[CMP41]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL43]], i8* [[ATMP42]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP41]], label [[ATOMIC_CONT44:%.*]], label [[ATOMIC_EXIT53:%.*]]
-// CHK-CXX:       atomic_cont44:
-// CHK-CXX-NEXT:    [[TMP51:%.*]] = phi i64 [ [[ATOMIC_LOAD37]], [[ATOMIC_EXIT35]] ], [ [[TMP60:%.*]], [[ATOMIC_CMP48:%.*]] ]
-// CHK-CXX-NEXT:    [[STORETMP46:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP45]] to i64*
-// CHK-CXX-NEXT:    store i64 [[TMP51]], i64* [[STORETMP46]], align 8
-// CHK-CXX-NEXT:    [[TMP52:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP45]], align 8
-// CHK-CXX-NEXT:    [[TMP53:%.*]] = extractelement <2 x float> [[TMP52]], i64 0
-// CHK-CXX-NEXT:    store float [[TMP53]], float* [[ATMP38]], align 4
-// CHK-CXX-NEXT:    [[TMP54:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP47]] to i64*
-// CHK-CXX-NEXT:    store i64 [[TMP51]], i64* [[TMP54]], align 8
-// CHK-CXX-NEXT:    [[TMP55:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP47]], align 8
-// CHK-CXX-NEXT:    [[TMP56:%.*]] = insertelement <2 x float> [[TMP55]], float [[CONV36]], i64 0
-// CHK-CXX-NEXT:    store <2 x float> [[TMP56]], <2 x float>* [[ATOMIC_TEMP47]], align 8
-// CHK-CXX-NEXT:    [[TMP57:%.*]] = load i64, i64* [[TMP54]], align 8
-// CHK-CXX-NEXT:    [[TMP58:%.*]] = bitcast <2 x float>* [[FLOAT2X]] to i64*
-// CHK-CXX-NEXT:    [[TMP59:%.*]] = cmpxchg i64* [[TMP58]], i64 [[TMP51]], i64 [[TMP57]] monotonic monotonic, align 8
-// CHK-CXX-NEXT:    [[TMP60]] = extractvalue { i64, i1 } [[TMP59]], 0
-// CHK-CXX-NEXT:    [[TMP61:%.*]] = extractvalue { i64, i1 } [[TMP59]], 1
-// CHK-CXX-NEXT:    br i1 [[TMP61]], label [[ATOMIC_EXIT53]], label [[ATOMIC_CMP48]]
-// CHK-CXX:       atomic_cmp48:
-// CHK-CXX-NEXT:    [[STORETMP50:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP49]] to i64*
-// CHK-CXX-NEXT:    store i64 [[TMP60]], i64* [[STORETMP50]], align 8
-// CHK-CXX-NEXT:    [[TMP62:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP49]], align 8
-// CHK-CXX-NEXT:    [[TMP63:%.*]] = extractelement <2 x float> [[TMP62]], i64 0
-// CHK-CXX-NEXT:    [[CMP51:%.*]] = fcmp olt float [[TMP63]], [[CONV36]]
-// CHK-CXX-NEXT:    [[FROMBOOL52:%.*]] = zext i1 [[CMP51]] to i8
-// CHK-CXX-NEXT:    store i8 [[FROMBOOL52]], i8* [[ATMP42]], align 1
-// CHK-CXX-NEXT:    br i1 [[CMP51]], label [[ATOMIC_CONT44]], label [[ATOMIC_EXIT53]]
-// CHK-CXX:       atomic_exit53:
-// CHK-CXX-NEXT:    [[TMP64:%.*]] = load float, float* [[ATMP38]], align 4
-// CHK-CXX-NEXT:    [[TMP65:%.*]] = load i8, i8* [[ATMP42]], align 1
+// CHK-CXX-NEXT:    store i64 [[TMP33]], i64* [[STORETMP24]], align 8
+// CHK-CXX-NEXT:    [[TMP35:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP23]], align 8
+// CHK-CXX-NEXT:    [[TMP36:%.*]] = extractelement <2 x float> [[TMP35]], i64 0
+// CHK-CXX-NEXT:    store float [[TMP36]], float* [[ATMP10]], align 4
+// CHK-CXX-NEXT:    [[STORETMP26:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP25]] to float*
+// CHK-CXX-NEXT:    store float [[TMP36]], float* [[STORETMP26]], align 8
+// CHK-CXX-NEXT:    [[TMP37:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP25]] to i64*
+// CHK-CXX-NEXT:    [[TMP38:%.*]] = load i64, i64* [[TMP37]], align 8
+// CHK-CXX-NEXT:    [[STORETMP28:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP27]] to float*
+// CHK-CXX-NEXT:    store float [[CONV8]], float* [[STORETMP28]], align 8
+// CHK-CXX-NEXT:    [[TMP39:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP27]] to i64*
+// CHK-CXX-NEXT:    [[TMP40:%.*]] = load i64, i64* [[TMP39]], align 8
+// CHK-CXX-NEXT:    [[CMP29:%.*]] = icmp eq i64 [[TMP38]], [[TMP40]]
+// CHK-CXX-NEXT:    [[FROMBOOL30:%.*]] = zext i1 [[CMP29]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL30]], i8* [[ATMP18]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP29]], label [[ATOMIC_CONT20]], label [[ATOMIC_EXIT31]]
+// CHK-CXX:       atomic_exit31:
+// CHK-CXX-NEXT:    [[TMP41:%.*]] = load float, float* [[ATMP10]], align 4
+// CHK-CXX-NEXT:    [[TMP42:%.*]] = load i8, i8* [[ATMP18]], align 1
+// CHK-CXX-NEXT:    [[TMP43:%.*]] = load i32, i32* [[EXPR]], align 4
+// CHK-CXX-NEXT:    [[CONV32:%.*]] = sitofp i32 [[TMP43]] to float
+// CHK-CXX-NEXT:    [[TMP44:%.*]] = bitcast <2 x float>* [[FLOAT2X]] to i64*
+// CHK-CXX-NEXT:    [[ATOMIC_LOAD33:%.*]] = load atomic i64, i64* [[TMP44]] monotonic, align 8
+// CHK-CXX-NEXT:    [[STORETMP36:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP35]] to i64*
+// CHK-CXX-NEXT:    store i64 [[ATOMIC_LOAD33]], i64* [[STORETMP36]], align 8
+// CHK-CXX-NEXT:    [[TMP45:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP35]], align 8
+// CHK-CXX-NEXT:    [[TMP46:%.*]] = extractelement <2 x float> [[TMP45]], i64 0
+// CHK-CXX-NEXT:    store float [[TMP46]], float* [[ATMP34]], align 4
+// CHK-CXX-NEXT:    [[CMP37:%.*]] = fcmp olt float [[TMP46]], [[CONV32]]
+// CHK-CXX-NEXT:    [[FROMBOOL39:%.*]] = zext i1 [[CMP37]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL39]], i8* [[ATMP38]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP37]], label [[ATOMIC_CONT40:%.*]], label [[ATOMIC_EXIT47:%.*]]
+// CHK-CXX:       atomic_cont40:
+// CHK-CXX-NEXT:    [[TMP47:%.*]] = phi i64 [ [[ATOMIC_LOAD33]], [[ATOMIC_EXIT31]] ], [ [[TMP54:%.*]], [[ATOMIC_CMP42:%.*]] ]
+// CHK-CXX-NEXT:    [[TMP48:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP41]] to i64*
+// CHK-CXX-NEXT:    store i64 [[TMP47]], i64* [[TMP48]], align 8
+// CHK-CXX-NEXT:    [[TMP49:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP41]], align 8
+// CHK-CXX-NEXT:    [[TMP50:%.*]] = insertelement <2 x float> [[TMP49]], float [[CONV32]], i64 0
+// CHK-CXX-NEXT:    store <2 x float> [[TMP50]], <2 x float>* [[ATOMIC_TEMP41]], align 8
+// CHK-CXX-NEXT:    [[TMP51:%.*]] = load i64, i64* [[TMP48]], align 8
+// CHK-CXX-NEXT:    [[TMP52:%.*]] = bitcast <2 x float>* [[FLOAT2X]] to i64*
+// CHK-CXX-NEXT:    [[TMP53:%.*]] = cmpxchg i64* [[TMP52]], i64 [[TMP47]], i64 [[TMP51]] monotonic monotonic, align 8
+// CHK-CXX-NEXT:    [[TMP54]] = extractvalue { i64, i1 } [[TMP53]], 0
+// CHK-CXX-NEXT:    [[TMP55:%.*]] = extractvalue { i64, i1 } [[TMP53]], 1
+// CHK-CXX-NEXT:    br i1 [[TMP55]], label [[ATOMIC_EXIT47]], label [[ATOMIC_CMP42]]
+// CHK-CXX:       atomic_cmp42:
+// CHK-CXX-NEXT:    [[STORETMP44:%.*]] = bitcast <2 x float>* [[ATOMIC_TEMP43]] to i64*
+// CHK-CXX-NEXT:    store i64 [[TMP54]], i64* [[STORETMP44]], align 8
+// CHK-CXX-NEXT:    [[TMP56:%.*]] = load <2 x float>, <2 x float>* [[ATOMIC_TEMP43]], align 8
+// CHK-CXX-NEXT:    [[TMP57:%.*]] = extractelement <2 x float> [[TMP56]], i64 0
+// CHK-CXX-NEXT:    store float [[TMP57]], float* [[ATMP34]], align 4
+// CHK-CXX-NEXT:    [[CMP45:%.*]] = fcmp olt float [[TMP57]], [[CONV32]]
+// CHK-CXX-NEXT:    [[FROMBOOL46:%.*]] = zext i1 [[CMP45]] to i8
+// CHK-CXX-NEXT:    store i8 [[FROMBOOL46]], i8* [[ATMP38]], align 1
+// CHK-CXX-NEXT:    br i1 [[CMP45]], label [[ATOMIC_CONT40]], label [[ATOMIC_EXIT47]]
+// CHK-CXX:       atomic_exit47:
+// CHK-CXX-NEXT:    [[TMP58:%.*]] = load float, float* [[ATMP34]], align 4
+// CHK-CXX-NEXT:    [[TMP59:%.*]] = load i8, i8* [[ATMP38]], align 1
 // CHK-CXX-NEXT:    ret void
 //
 void test_ext_vector() {

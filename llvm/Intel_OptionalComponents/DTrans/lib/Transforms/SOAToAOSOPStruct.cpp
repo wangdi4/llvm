@@ -262,9 +262,7 @@ public:
       const SmallVectorImpl<unsigned> &Offsets,
       const SOAToAOSOPStructMethodsCheckDebugResult &InstsToTransform,
       StringRef DepTypePrefix)
-      : DTransOPOptBase(Context, &DTInfo,
-                        DTInfo.getPtrTypeAnalyzer().sawOpaquePointer(),
-                        DepTypePrefix),
+      : DTransOPOptBase(Context, &DTInfo, DepTypePrefix),
         InstsToTransform(InstsToTransform), S(S), Arrays(Arrays),
         Offsets(Offsets) {}
 
