@@ -16,7 +16,7 @@ define i1 @test1(i32 %c) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = insertelement <4 x i32> poison, i32 [[C:%.*]], i64 0
 ; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP0]], <4 x i32> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <4 x i32> [[SHUFFLE]], <i32 115, i32 109, i32 104, i32 100>
+; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <4 x i32> [[SHUFFLE]], <i32 109, i32 115, i32 104, i32 100>
 ; CHECK-NEXT:    [[_12:%.*]] = icmp eq i32 [[C]], 119
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast <4 x i1> [[TMP1]] to i4
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp ne i4 [[TMP2]], 0
