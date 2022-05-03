@@ -7480,7 +7480,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // Forward -cl options to -cc1
   RenderOpenCLOptions(Args, CmdArgs, InputType);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Enable instrumentation for OpenMP SPIR-V offload by default.
   // Eventually, we will enable it by default for SYCL too, so this
@@ -7491,12 +7490,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-fsycl-instrument-device-code");
   }
 #endif // INTEL_CUSTOMIZATION
-=======
   // Forward hlsl options to -cc1
   if (C.getDriver().IsDXCMode())
     RenderHLSLOptions(Args, CmdArgs, InputType);
 
->>>>>>> 45c8527b8f5659fd6217b9be45abee71d2a19a4b
   if (IsHIP) {
     if (Args.hasFlag(options::OPT_fhip_new_launch_api,
                      options::OPT_fno_hip_new_launch_api, true))
