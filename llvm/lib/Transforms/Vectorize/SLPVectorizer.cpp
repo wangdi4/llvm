@@ -5963,10 +5963,6 @@ static bool needToScheduleSingleInstruction(ArrayRef<Value *> VL) {
 }
 #endif
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
-=======
 /// Generates key/subkey pair for the given value to provide effective sorting
 /// of the values and better detection of the vectorizable values sequences. The
 /// keys/subkeys can be used for better sorting of the values themselves (keys)
@@ -6044,8 +6040,8 @@ static std::pair<size_t, size_t> generateKeySubkey(
   return std::make_pair(Key, SubKey);
 }
 
-void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
->>>>>>> 7ea03f0b4e4ec5d91d48ba2976f5adc299089ffd
+#if INTEL_CUSTOMIZATION
+void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
                             const EdgeInfo &UserTreeIdx) {
   // Since we are updating VL, we need a non-readonly VL, so create a copy.
   // TODO: Any better way of doing this?
@@ -12708,7 +12704,9 @@ public:
           if (auto *FPMO = dyn_cast<FPMathOperator>(U))
             RdxFMF &= FPMO->getFastMathFlags();
         // Estimate cost.
-        InstructionCost TreeCost = V.getTreeCost(VL);
+#if INTEL_CUSTOMIZATION
+        InstructionCost TreeCost = V.getTreeCost(VL, /*ForReduction=*/true);
+#endif // INTEL_CUSTOMIZATION
         InstructionCost ReductionCost =
             getReductionCost(TTI, VL[0], ReduxWidth, RdxFMF);
         InstructionCost Cost = TreeCost + ReductionCost;
@@ -12726,29 +12724,16 @@ public:
                    << " and threshold "
                    << ore::NV("Threshold", -SLPCostThreshold);
           });
+#if INTEL_CUSTOMIZATION
+          V.undoMultiNodeReordering();
+#endif // INTEL_CUSTOMIZATION
           if (!AdjustReducedVals())
             V.analyzedReductionVals(VL);
           continue;
         }
 
-<<<<<<< HEAD
-      // Estimate cost.
-#if INTEL_CUSTOMIZATION
-      InstructionCost TreeCost = V.getTreeCost(
-          makeArrayRef(&ReducedVals[i], ReduxWidth), /*ForReduction=*/true);
-#endif // INTEL_CUSTOMIZATION
-      InstructionCost ReductionCost =
-          getReductionCost(TTI, ReducedVals[i], ReduxWidth, RdxFMF);
-      InstructionCost Cost = TreeCost + ReductionCost;
-      if (!Cost.isValid()) {
-        LLVM_DEBUG(dbgs() << "Encountered invalid baseline cost.\n");
-        return nullptr;
-      }
-      if (Cost >= -SLPCostThreshold) {
-=======
         LLVM_DEBUG(dbgs() << "SLP: Vectorizing horizontal reduction at cost:"
                           << Cost << ". (HorRdx)\n");
->>>>>>> 7ea03f0b4e4ec5d91d48ba2976f5adc299089ffd
         V.getORE()->emit([&]() {
           return OptimizationRemark(
                      SV_NAME, "VectorizedHorizontalReduction",
@@ -12757,34 +12742,15 @@ public:
                  << ore::NV("Cost", Cost) << " and with tree size "
                  << ore::NV("TreeSize", V.getTreeSize());
         });
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-        V.undoMultiNodeReordering();
-#endif // INTEL_CUSTOMIZATION
-        break;
-      }
-
-#if INTEL_CUSTOMIZATION
-      V.cleanupMultiNodeReordering();
-#endif // INTEL_CUSTOMIZATION
-
-      LLVM_DEBUG(dbgs() << "SLP: Vectorizing horizontal reduction at cost:"
-                        << Cost << ". (HorRdx)\n");
-      V.getORE()->emit([&]() {
-        return OptimizationRemark(SV_NAME, "VectorizedHorizontalReduction",
-                                  cast<Instruction>(VL[0]))
-               << "Vectorized horizontal reduction with cost "
-               << ore::NV("Cost", Cost) << " and with tree size "
-               << ore::NV("TreeSize", V.getTreeSize());
-      });
-=======
 
         Builder.setFastMathFlags(RdxFMF);
->>>>>>> 7ea03f0b4e4ec5d91d48ba2976f5adc299089ffd
 
         // Vectorize a tree.
         Value *VectorizedRoot = V.vectorizeTree(LocalExternallyUsedValues);
 
+#if INTEL_CUSTOMIZATION
+        V.cleanupMultiNodeReordering();
+#endif // INTEL_CUSTOMIZATION
         // Emit a reduction. If the root is a select (min/max idiom), the insert
         // point is the compare condition of that select.
         Instruction *RdxRootInst = cast<Instruction>(ReductionRoot);
@@ -12908,7 +12874,7 @@ public:
   unsigned numReductionValues() const { return ReducedVals.size(); }
 
 #if INTEL_CUSTOMIZATION
-  ArrayRef<Value*> getReducedVals() const {
+  ArrayRef<SmallVector<Value *>> getReducedVals() const {
     return makeArrayRef(ReducedVals);
   }
 #endif // INTEL_CUSTOMIZATION
@@ -13234,19 +13200,14 @@ static bool tryToVectorizeHorReductionOrInstOperands(
   SmallPtrSet<Value *, 8> VisitedInstrs;
   SmallVector<WeakTrackingVH> PostponedInsts;
   bool Res = false;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  auto &&TryToReduce = [TTI, &P,
-                        &R](Instruction *Inst, Value *&B0, Value *&B1,
-                            SmallVectorImpl<Value *> &ReducedVals) -> Value * {
+  auto &&TryToReduce =
+      [TTI, &SE, &DL, &P, &R,
+       &TLI](Instruction *Inst, Value *&B0, Value *&B1,
+             SmallVector<SmallVector<Value *>> &ReducedVals) -> Value * {
 #endif // INTEL_CUSTOMIZATION
-=======
-  auto &&TryToReduce = [TTI, &SE, &DL, &P, &R, &TLI](Instruction *Inst,
-                                                     Value *&B0,
-                                                     Value *&B1) -> Value * {
     if (R.isAnalizedReductionRoot(Inst))
       return nullptr;
->>>>>>> 7ea03f0b4e4ec5d91d48ba2976f5adc299089ffd
     bool IsBinop = matchRdxBop(Inst, B0, B1);
     bool IsSelect = match(Inst, m_Select(m_Value(), m_Value(), m_Value()));
     if (IsBinop || IsSelect) {
@@ -13254,8 +13215,8 @@ static bool tryToVectorizeHorReductionOrInstOperands(
       if (HorRdx.matchAssociativeReduction(P, Inst, SE, DL, TLI))
         return HorRdx.tryToReduce(R, TTI);
 #if INTEL_CUSTOMIZATION
-      ReducedVals.assign(HorRdx.getReducedVals().begin(),
-                         HorRdx.getReducedVals().end());
+      ArrayRef<SmallVector<Value *>> Values = HorRdx.getReducedVals();
+      ReducedVals.assign(Values.begin(), Values.end());
 #endif // INTEL_CUSTOMIZATION
     }
     return nullptr;
@@ -13270,21 +13231,23 @@ static bool tryToVectorizeHorReductionOrInstOperands(
     // iteration while stack was populated before that happened.
     if (R.isDeleted(Inst))
       continue;
-    Value *RedV;                      // INTEL
-    SmallVector<Value *> ReducedVals; // INTEL
-    Value *B0 = nullptr, *B1 = nullptr;
-    if (RedV = TryToReduce(Inst, B0, B1, ReducedVals)) { // INTEL
-      Res = true;
 #if INTEL_CUSTOMIZATION
+    Value *RedV;
+    SmallVector<SmallVector<Value *>> ReducedVals;
+    Value *B0 = nullptr, *B1 = nullptr;
+    if (RedV = TryToReduce(Inst, B0, B1, ReducedVals)) {
+      Res = true;
     } else {
       RedV = nullptr;
       // If reduced values are comparisons then we want to direct
       // vectorizer first to make attempt to vectorize pair which
       // are operands of a same cmp instruction.
-      for (Value *V : ReducedVals)
-        if (isa<CmpInst>(V) && VisitedInstrs.insert(V).second &&
-            Vectorize(cast<Instruction>(V), R))
-          Res = true;
+      for (ArrayRef<Value *> Candidates : ReducedVals) {
+        for (Value *V : Candidates)
+          if (isa<CmpInst>(V) && VisitedInstrs.insert(V).second &&
+              Vectorize(cast<Instruction>(V), R))
+            Res = true;
+      }
     }
     if (Res) {
 #endif // INTEL_CUSTOMIZATION
