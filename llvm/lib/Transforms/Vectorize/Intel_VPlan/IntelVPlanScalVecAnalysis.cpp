@@ -299,7 +299,7 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
       Intrinsic::ID ID = VPCall->getVectorIntrinsic();
       for (unsigned ArgIdx = 0; ArgIdx < VPCall->getNumArgOperands();
            ++ArgIdx) {
-        if (hasVectorIntrinsicScalarOpd(ID, ArgIdx))
+        if (isVectorIntrinsicWithScalarOpAtArg(ID, ArgIdx))
           setSVAKindForOperand(VPCall, ArgIdx, SVAKind::FirstScalar);
         else
           setSVAKindForOperand(VPCall, ArgIdx, SVAKind::Vector);
