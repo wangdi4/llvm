@@ -21,6 +21,11 @@ template <std::size_t X> MemoryBufferRef getMemoryBuffer(uint8_t Data[X]) {
   return MemoryBufferRef(Obj, "");
 }
 
+TEST(DXCFile, IdentifyMagic) {
+  StringRef Buffer("DXBC");
+  EXPECT_EQ(identify_magic(Buffer), file_magic::dxcontainer_object);
+}
+
 TEST(DXCFile, ParseHeaderErrors) {
   uint8_t Buffer[] = {0x44, 0x58, 0x42, 0x43};
   EXPECT_THAT_EXPECTED(
@@ -36,7 +41,7 @@ TEST(DXCFile, ParseHeader) {
   DXContainer C =
       llvm::cantFail(DXContainer::create(getMemoryBuffer<32>(Buffer)));
   EXPECT_TRUE(memcmp(C.getHeader().Magic, "DXBC", 4) == 0);
-  EXPECT_TRUE(memcmp(C.getHeader().Hash.Digest,
+  EXPECT_TRUE(memcmp(C.getHeader().FileHash.Digest,
                      "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16) == 0);
   EXPECT_EQ(C.getHeader().Version.Major, 1u);
   EXPECT_EQ(C.getHeader().Version.Minor, 0u);
