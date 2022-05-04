@@ -451,6 +451,15 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
   // live-in to VPGeneralMemOptConflict.
   for (auto &VPInst : vpinstructions(Plan.get()))
     if (auto *VPConflict = dyn_cast<VPGeneralMemOptConflict>(&VPInst)) {
+      // Filter out all VFs if tree conflict region does not meet certain
+      // criteria.
+      VPInstruction *InsnInVConflictRegion =
+          isSupportedVConflictRegion(VPConflict);
+      if (!InsnInVConflictRegion) {
+        VFs.clear();
+        break;
+      }
+
       unsigned VConflictIndexSizeInBits = VPConflict->getConflictIndex()
                                               ->getType()
                                               ->getPrimitiveSizeInBits()
@@ -465,6 +474,30 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
                                          VConflictIndexSizeInBits == 32);
                                }),
                 VFs.end());
+
+      // Filter out any VPlans where permute intrinsics for TreeConflict
+      // aren't available or are not currently supported.
+      VPValue *RednUpdateOp =
+          getReductionUpdateOp(VPConflict, InsnInVConflictRegion);
+      assert(RednUpdateOp && "Could not find reduction update op");
+      if (!Plan->getVPlanDA()->isUniform(*RednUpdateOp)) {
+        unsigned PermuteSize =
+            RednUpdateOp->getType()->getPrimitiveSizeInBits();
+        MaxVF = MaxVecRegSize / PermuteSize;
+        // Case (PermuteSize < 32): We don't yet support type sizes less than
+        // 32-bits.
+        if (PermuteSize < 32) {
+          VFs.clear();
+          break;
+        }
+        //
+        // Case (VF < 4): No direct intrinsic mapping and pumping is required.
+        VFs.erase(std::remove_if(VFs.begin(), VFs.end(),
+                                 [MaxVF](unsigned VF) {
+                                   return VF > MaxVF || VF < 4;
+                                 }),
+                  VFs.end());
+      }
     }
 
   // When we force VF to have a special value, VFs vector has only one value.
@@ -1583,18 +1616,6 @@ bool LoopVectorizationPlanner::canLowerVPlan(const VPlanVector &Plan,
           !isSOACodegenSupported() &&
           AllocaPriv->getAllocatedType()->isArrayTy())
         return false;
-
-    // Determine if there are permute intrinsics available for a given type
-    // size and VF combination. If the intrinsic is not available then tree
-    // conflict lowering to double permute tree reduction will not happen.
-    if (auto *TreeConflict = dyn_cast<VPTreeConflict>(&VPI)) {
-      Optional<unsigned> PermuteSize = getPermuteTypeSize(TreeConflict, VF);
-      if (PermuteSize == None) {
-        LLVM_DEBUG(dbgs() << "Permute intrinsic not available for tree "
-                          << "conflict lowering\n");
-        return false;
-      }
-    }
   }
 
   // All checks passed.

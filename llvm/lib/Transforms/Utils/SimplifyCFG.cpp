@@ -4178,8 +4178,8 @@ static bool foldReductionBlockWithVectorization(BranchInst *BI) {
 //
 // if (t2x < 0.0f || t2y < 0.0f || t2z < 0.0f) return 0;
 // if (t1x > isec->dist || t1y > isec->dist || t1z > isec->dist) return 0;
-// if (t2y < fmaxf(t1x,t1z) || t2x < fmaxf(t1y,t1x) || t2z < fmaxf(t1x,t1y))
-//    return 0;
+// if (t1x > t2y || t2x < t1y  || t1x > t2z || t2x < t1z ||
+//     t1y > t2z || t2y < t1z) return 0;
 //
 // The || clauses look like a "ladder" of these blocks:
 //
@@ -4202,16 +4202,14 @@ static bool foldReductionBlockWithVectorization(BranchInst *BI) {
 //   double-indirect compares
 //   all other compares
 //
-// Then we run a pattern on the last 6 compares:
-// x < y || x < z
-//  =>
-// x < llvm.maxnum(y,z)
-//
 // The purpose of this transformation is to move the most common clauses
 // to the top and allow early exits, and improve branch prediction.
 //
 // Code is scanned starting at "BI" parameter, for a ladder of 12 blocks.
 // Returns true if the above transformation was performed.
+//
+// Currently, we only call this code for -O2 non-AVX targets. We call
+// foldReductionBlockWithVectorization for AVX and above.
 static bool foldFcmpLadder(BranchInst *BI) {
   bool didSomething = false;
   // Function BranchInstInLadder:
@@ -4300,23 +4298,6 @@ static bool foldFcmpLadder(BranchInst *BI) {
     }
 
     return true;
-  };
-
-  // Function sameValueOrLoadAddr:
-  //
-  // True if the 2 values are pointer-equal, or they are loads of the same
-  // address.
-  // Ladder blocks have no side effects, so loads with the same address are
-  // equal.
-  auto sameValueOrLoadAddr = [](Value *V1, Value *V2) {
-    if (!V1 || !V2)
-      return false;
-    auto *LV1 = dyn_cast<LoadInst>(V1);
-    auto *LV2 = dyn_cast<LoadInst>(V2);
-    if (LV1 && LV2)
-      return LV1->getPointerOperand() == LV2->getPointerOperand();
-    else
-      return V1 == V2;
   };
 
   struct LadderCompare {
@@ -4457,19 +4438,6 @@ static bool foldFcmpLadder(BranchInst *BI) {
     return true;
   };
 
-  // Function FcmpBrToFalseBr:
-  //
-  // Convert fcmp, br into unconditional br to the false branch (next ladder
-  // block). Used when a ladder block is folded to dead code.
-  auto FcmpBrToFalseBr = [](FCmpInst *FCmpI) {
-    assert(FCmpI->hasOneUse());
-    BranchInst *Br = dyn_cast<BranchInst>(*(FCmpI->user_begin()));
-    assert(Br && Br->getNumSuccessors() == 2);
-    BranchInst::Create(Br->getSuccessor(1), Br);
-    Br->eraseFromParent();
-    FCmpI->eraseFromParent();
-  };
-
   // PART 1:
   // Collect consecutive ladder blocks into this "Compares" vector:
   // lesser value, greater value, compare instruction
@@ -4580,78 +4548,10 @@ static bool foldFcmpLadder(BranchInst *BI) {
                         << "\n");
     }
   }
-  // The rest of the blocks stay in the same order.
-
-  // PART 3:
-  // Recognize llvm.maxnum:
-  // x < y || x < z  =>  x < llvm.maxnum(y,z)
-  //
-  // x86 CG can recognize max from fcmp/select. We make this transform
-  // here in SimplifyCFG, because it prevents reordering of the compares, and
-  // preserves the specific branch ordering we need.
-
-  // Only apply max to the last 6 blocks. More max will reduce performance.
-  const int StartPeep = 6;
-
-  for (unsigned int i = StartPeep; i < Compares.size(); ++i) {
-    // For each "smaller" value in the Compares, find a compare with the
-    // same "smaller" value.
-    Value *Smaller = Compares[i].Smaller;
-    Value *Larger = Compares[i].Larger;
-    FCmpInst *FCmpI = Compares[i].FCmpI;
-    if (!Smaller)
-      continue;
-    if (!isa<Instruction>(Smaller))
-      continue;
-
-    LLVM_DEBUG(dbgs() << "Finding match for compare at pos " << i << ":\n"
-                      << *FCmpI << "\n");
-
-    auto MatchingCompIt = std::find_if(
-        Compares.begin() + StartPeep, Compares.end(), [&](LadderCompare &Cand) {
-          return Cand.Smaller != Smaller &&
-                 sameValueOrLoadAddr(Cand.Smaller, Smaller);
-        });
-    if (MatchingCompIt == Compares.end())
-      continue;
-    unsigned MatchingIdx = std::distance(Compares.begin(), MatchingCompIt);
-
-    LLVM_DEBUG(dbgs() << "Matched compare at pos " << MatchingIdx << ":\n"
-                      << *((*MatchingCompIt).FCmpI) << "\n");
-
-    // "i" and "MatchingIdx" are the indices of the 2 matching compares.
-    // The llvm.maxnum must replace the deepest instruction, so that all
-    // operands are available. This instruction has the highest index, as the
-    // ladder blocks are in DFO.
-    unsigned HighestIdx = std::max(i, MatchingIdx);
-    Instruction *InsertPt = Compares[HighestIdx].FCmpI;
-    LLVM_DEBUG(dbgs() << "Generating max in block " << HighestIdx << ":\n");
-
-    // Generate %fmaxf = llvm.maxnum(Larger, OtherG)
-    IRBuilder<> Builder(InsertPt);
-    Value *OtherLrg = Compares[MatchingIdx].Larger;
-    Function *F = Intrinsic::getDeclaration(
-        FCmpI->getModule(), Intrinsic::maxnum, Smaller->getType());
-    auto *CallI = Builder.CreateCall(F, {Larger, OtherLrg}, "fmaxf");
-    // Generate "Smaller < %fmaxf"
-    FCmpInst *NewCmpI =
-        cast<FCmpInst>(Builder.CreateFCmpOLT(Smaller, CallI, "fmaxfcmp"));
-    NewCmpI->setFast(true);
-    InsertPt->replaceAllUsesWith(NewCmpI);
-    InsertPt->eraseFromParent();
-    LLVM_DEBUG(dbgs() << *CallI << "\n" << *NewCmpI << "\n");
-
-    // Remove the peepholed values from the Compares array, so we don't
-    // match them again.
-    Compares[i].Smaller = nullptr;
-    Compares[MatchingIdx].Smaller = nullptr;
-
-    // The block without the fmax is now useless. Change its br to unconditional
-    // false. InstCombine will later delete the dead instructions.
-    auto *DeadFcmp = Compares[std::min(i, MatchingIdx)].FCmpI;
-    LLVM_DEBUG(dbgs() << "Compare is dead: " << *DeadFcmp << "\n");
-    FcmpBrToFalseBr(DeadFcmp);
-  }
+  // The rest of the blocks stay in the same order. We used to run a fmax
+  // recognition peephole here, but this is affecting SLP vectorization in
+  // an unintended way (CMPLRLLVM-33811). For strong vector targets we don't
+  // use this code anyway.
   return didSomething;
 }
 #endif // INTEL_CUSTOMIZATION

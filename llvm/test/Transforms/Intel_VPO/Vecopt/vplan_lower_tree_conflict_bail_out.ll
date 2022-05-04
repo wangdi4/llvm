@@ -3,15 +3,15 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; REQUIRES: asserts
-; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -debug-only=vplan-vec -debug-only=LoopVectorizationPlanner < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
-; RUN: opt -S -mattr=+avx512vl,+avx512cd -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -disable-output -debug-only=vplan-vec -debug-only=LoopVectorizationPlanner < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -disable-vplan-codegen -debug-only=vplan-vec -debug-only=LoopVectorizationPlanner < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -disable-output -disable-vplan-codegen -debug-only=vplan-vec -debug-only=LoopVectorizationPlanner < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s
 
-; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -debug-only=vplan-vec -debug-only=LoopVectorizationPlanner < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s
-; RUN: opt -S -mattr=+avx512vl,+avx512cd -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -disable-output -debug-only=vplan-vec -debug-only=LoopVectorizationPlanner < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s
+; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -disable-vplan-codegen -debug-only=vplan-vec -debug-only=LoopVectorizationPlanner < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -disable-output -disable-vplan-codegen -debug-only=vplan-vec -debug-only=LoopVectorizationPlanner < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s
 
 ; Tree conflict should not be lowered to double permute tree reduction for all test cases
 
-; CHECK: VConflict idiom is not supported
+; CHECK: There is no VF found that all VConflict idioms in loop can be optimized for.
 ; not supported due to non-commutativity of operands
 
 ; for (int i=0; i<N; ++i) {
@@ -51,7 +51,7 @@ for.body:                                         ; preds = %for.body.preheader,
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body
 }
 
-; CHECK: VConflict idiom is not supported
+; CHECK: There is no VF found that all VConflict idioms in loop can be optimized for.
 ; not supported because fast flag is not present
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
@@ -93,7 +93,7 @@ for.body:                                         ; preds = %for.body.preheader,
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body
 }
 
-; CHECK: Permute intrinsic not available for tree conflict lowering
+; CHECK: There is no VF found that all VConflict idioms in loop can be optimized for.
 ; short types not supported yet
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
@@ -135,7 +135,7 @@ for.body:                                         ; preds = %for.body.preheader,
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body
 }
 
-; CHECK: Permute intrinsic not available for tree conflict lowering
+; CHECK: There is no VF found that all VConflict idioms in loop can be optimized for.
 ; char types not supported yet
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable

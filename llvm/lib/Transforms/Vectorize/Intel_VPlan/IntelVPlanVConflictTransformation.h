@@ -33,15 +33,17 @@ bool processVConflictIdiom(VPlan &, Function &Fn);
 // VPlan representation.
 bool processVConflictIdiom(VPGeneralMemOptConflict *, Function &Fn);
 
+// Returns the single instruction within the conflict region if supported
+// criteria are met. Otherwise, it returns nullptr.
+VPInstruction* isSupportedVConflictRegion(VPGeneralMemOptConflict *VPConflict);
+
+// Returns the reduction update operand of VPGeneralMemOptConflict instruction
+VPValue* getReductionUpdateOp(VPGeneralMemOptConflict *VPConflict,
+                              VPInstruction *InsnInVConflictRegion);
+
 // Check if given VPConflict instruction is a generic tree-conflict idiom. If
 // yes, generate a new VPTreeConflict and RUAW of VPConflict.
 VPTreeConflict *tryReplaceWithTreeConflict(VPGeneralMemOptConflict *);
-
-// Return the type size for the permute intrinsics used when lowering tree
-// conflict to double permute tree reduction. If permute intrinsics aren't
-// available for type/VF combination, then return None;
-Optional<unsigned> getPermuteTypeSize(const VPTreeConflict *TreeConflict,
-                                      unsigned VF);
 
 // Generate the permute intrinsic and do any necessary bitcasting if there is
 // not a direct VF/type to intrinsic mapping.
