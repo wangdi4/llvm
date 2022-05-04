@@ -16,6 +16,8 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/InitializePasses.h" // INTEL
+#include "llvm/Pass.h" //INTEL
 
 using namespace llvm;
 

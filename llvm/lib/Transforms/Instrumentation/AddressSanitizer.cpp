@@ -61,6 +61,8 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Use.h"
 #include "llvm/IR/Value.h"
+#include "llvm/InitializePasses.h" // INTEL
+#include "llvm/Pass.h"
 #include "llvm/MC/MCSectionMachO.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"

@@ -15,6 +15,11 @@
 #include "CoroInternal.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm-c/Transforms/Coroutines.h" // INTEL
+#include "llvm/Analysis/CallGraphSCCPass.h" // INTEL
+#include "llvm/IR/LegacyPassManager.h" // INTEL
+#include "llvm/InitializePasses.h" // INTEL
+#include "llvm/Transforms/IPO.h" // INTEL
+#include "llvm/Transforms/IPO/PassManagerBuilder.h" // INTEL
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/Attributes.h"
