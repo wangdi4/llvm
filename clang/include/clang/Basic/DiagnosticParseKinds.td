@@ -1400,6 +1400,8 @@ def err_omp_more_one_modifier : Error<
 def err_omp_unknown_ompx_places_domain_modifier : Error<
   "unknown domain modifier in 'ompx_places' clause; must be one of "
   "'numa_domain' or 'subnuma_domain'">;
+def err_omp_declare_target_to_device_type
+    : Error<"unexpected device_type clause with extended-list">;
 // end INTEL_COLLAB
 def err_omp_map_type_missing : Error<
   "missing map type">;

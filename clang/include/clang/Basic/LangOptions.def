@@ -138,6 +138,10 @@ LANGOPT(KeepImportTemps        , 1, 0,
 LANGOPT(ShowImportProcessing   , 1, 0,
         "Show lines added to generated #import files")
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+LANGOPT(OpenMPDeclareTargetDeviceTypeDisableError,  1, 1,
+        "Disable Error when device_type is used with extended-list")
+#endif  // INTEL_COLLAB
 LANGOPT(MSVCCompat        , 1, 0, "Microsoft Visual C++ full compatibility mode")
 LANGOPT(MicrosoftExt      , 1, 0, "Microsoft C++ extensions")
 LANGOPT(AsmBlocks         , 1, 0, "Microsoft inline asm blocks")
