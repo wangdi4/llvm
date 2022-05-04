@@ -5947,14 +5947,10 @@ static std::pair<bool, RValue> emitOMPAtomicRMW(CodeGenFunction &CGF, LValue X,
       (!isa<llvm::ConstantInt>(Update.getScalarVal()) &&
        (Update.getScalarVal()->getType() !=
         X.getAddress(CGF).getElementType())) ||
-<<<<<<< HEAD
-      !X.getAddress(CGF).getElementType()->isIntegerTy() ||
 #if INTEL_COLLAB
       !CGF.hasBuiltinAtomic(Context.getTypeSize(X.getType()),
                             Context.toBits(X.getAlignment())))
 #else // INTEL_COLLAB
-=======
->>>>>>> 9c1085c7e20bdd7c4a487f50313ebeeb2b6683b8
       !Context.getTargetInfo().hasBuiltinAtomic(
           Context.getTypeSize(X.getType()), Context.toBits(X.getAlignment())))
 #endif // INTEL_COLLAB
