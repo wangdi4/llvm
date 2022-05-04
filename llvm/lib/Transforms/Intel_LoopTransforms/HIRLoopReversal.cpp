@@ -335,7 +335,11 @@ void HIRLoopReversal::AnalyzeDDInfo::visit(const HLDDNode *DDNode) {
 
   // Support for HLInst*
   if (const HLInst *Inst = dyn_cast<HLInst>(DDNode)) {
-    if (!(IsSafeReduction = HLR.HSRA.isSafeReduction(Inst))) {
+
+    auto *SRI = HLR.HSRA.getSafeRedInfo(Inst);
+    IsSafeReduction = (SRI && !SRI->HasUnsafeAlgebra);
+
+    if (!IsSafeReduction) {
       // For any non-Safe-Reduction HLInst:
       // do LiveOut Temp test only if Lval exists
       const RegDDRef *LRef = Inst->getLvalDDRef();
