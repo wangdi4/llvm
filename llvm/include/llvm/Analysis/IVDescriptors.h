@@ -207,15 +207,9 @@ public:
                        Type *RT, bool Signed, bool Ordered,
                        SmallPtrSetImpl<Instruction *> &CI,
                        unsigned MinWidthCastToRecurTy)
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       : RDTempl(Start, Exit, K, FMF, RT, Signed, Ordered),
-        ExactFPMathInst(ExactFP),
-=======
-      : IntermediateStore(Store), StartValue(Start), LoopExitInstr(Exit),
-        Kind(K), FMF(FMF), ExactFPMathInst(ExactFP), RecurrenceType(RT),
-        IsSigned(Signed), IsOrdered(Ordered),
->>>>>>> 4e5e042d9a4a842c6744d91ef1359403dee2edbb
+        IntermediateStore(Store), ExactFPMathInst(ExactFP),
         MinWidthCastToRecurrenceType(MinWidthCastToRecurTy) {
 #endif
     CastInsts.insert(CI.begin(), CI.end());
