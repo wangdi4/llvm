@@ -1225,9 +1225,12 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_msvc_std_basic_string_append_size_value:
   case LibFunc_msvc_std_basic_string_assign_const_ptr:
   case LibFunc_msvc_std_basic_string_assign_const_ptr_size:
+  case LibFunc_msvc_std_basic_string_ctor:
+  case LibFunc_msvc_std_basic_string_ptr64_ctor:
   case LibFunc_msvc_std_basic_string_dtor:
   case LibFunc_msvc_std_basic_string_insert:
   case LibFunc_msvc_std_basic_string_operator_equal_const_ptr:
+  case LibFunc_msvc_std_basic_string_operator_equal_ptr64:
   case LibFunc_msvc_std_basic_string_operator_plus_equal_char:
   case LibFunc_msvc_std_basic_string_push_back:
   case LibFunc_msvc_std_basic_string_resize:
@@ -1279,6 +1282,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_msvc_std_ios_base_failure_const_ptr_ctor:
   case LibFunc_msvc_std_ios_base_failure_scalar_deleting_dtor:
   case LibFunc_msvc_std_ios_base_scalar_deleting_dtor:
+  case LibFunc_msvc_std_istreambuf_iterator_operator_plus_plus:
   case LibFunc_msvc_std_locale_facet_decref:
   case LibFunc_msvc_std_locale_facet_incref:
   case LibFunc_msvc_std_locale_under_Init:
@@ -1302,8 +1306,10 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_msvc_std_num_get_under_Getffld:
   case LibFunc_msvc_std_num_get_under_Getifld:
   case LibFunc_msvc_std_num_get_use_facet:
+  case LibFunc_msvc_std_numpunct_Tidy:
   case LibFunc_msvc_std_runtime_error_ctor:
   case LibFunc_msvc_std_runtime_error_char_ctor:
+  case LibFunc_msvc_std_runtime_error_ptr64_ctor:
   case LibFunc_msvc_std_runtime_error_scalar_deleting_dtor:
   case LibFunc_msvc_std_Syserror_map:
   case LibFunc_msvc_std_under_system_error_const_ptr_ctor:
