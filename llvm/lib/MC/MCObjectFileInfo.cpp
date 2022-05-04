@@ -199,10 +199,15 @@ void MCObjectFileInfo::initMachOMCObjectFileInfo(const Triple &T) {
                            MachO::S_THREAD_LOCAL_VARIABLE_POINTERS,
                            SectionKind::getMetadata());
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   OptReportSection = Ctx->getMachOSection("__DATA", "__debug_opt_rpt", 0,
                                           SectionKind::getReadOnlyWithRel());
 #endif  // INTEL_CUSTOMIZATION
+=======
+  AddrSigSection = Ctx->getMachOSection("__DATA", "__llvm_addrsig", 0,
+                                        SectionKind::getData());
+>>>>>>> afaa56df7a93f21cd1e49f7daa6a8970335744da
 
   // Exception Handling.
   LSDASection = Ctx->getMachOSection("__TEXT", "__gcc_except_tab", 0,
