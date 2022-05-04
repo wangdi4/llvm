@@ -70,11 +70,11 @@ for.body:                                         ; preds = %for.body, %entry
   %3 = sub nsw i64 %1, %indvars.iv
   %arrayidx = getelementptr inbounds float, float* %A, i64 %3
   %4 = load float, float* %arrayidx, align 4, !tbaa !1
-  %add = fadd float %s2.019, %4
+  %add = fadd reassoc float %s2.019, %4
   %5 = sub nsw i64 %0, %indvars.iv
   %arrayidx3 = getelementptr inbounds float, float* %A, i64 %5
   %6 = load float, float* %arrayidx3, align 4, !tbaa !1
-  %add4 = fadd float %add, %6
+  %add4 = fadd reassoc float %add, %6
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 11
   br i1 %exitcond, label %for.cond.cleanup, label %for.body
