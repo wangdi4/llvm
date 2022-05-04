@@ -296,14 +296,11 @@ declare void @bzero(i8*, i64)
 ; CHECK: declare noalias noundef i8* @calloc(i64 noundef, i64 noundef) [[NOFREE_NOUNWIND_WILLRETURN:#[0-9]+]] ;INTEL
 declare i8* @calloc(i64, i64)
 
-<<<<<<< HEAD
 ; CHECK: declare double @cbrt(double) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
-=======
 ; CHECK-AIX: declare noalias noundef i8* @vec_calloc(i64 noundef, i64 noundef) [[INACCESSIBLEMEMONLY_NOFREE_NOUNWIND_WILLRETURN_ALLOCSIZE01_FAMILY_VEC_MALLOC:#[0-9]+]]
 declare i8* @vec_calloc(i64, i64)
 
 ; CHECK: declare double @cbrt(double) [[NOFREE_NOUNWIND_WILLRETURN_WRITEONLY]]
->>>>>>> 1deea714b3b4023b2d50f73503ee2782c3b59fe7
 declare double @cbrt(double)
 
 ; CHECK: declare float @cbrtf(float) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
