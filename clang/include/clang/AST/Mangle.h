@@ -71,6 +71,9 @@ private:
   ASTContext &Context;
   DiagnosticsEngine &Diags;
   const ManglerKind Kind;
+  /// For aux target. If true, uses mangling number for aux target from
+  /// ASTContext.
+  bool IsAux = false;
 
   llvm::DenseMap<const BlockDecl*, unsigned> GlobalBlockIds;
   llvm::DenseMap<const BlockDecl*, unsigned> LocalBlockIds;
@@ -79,10 +82,11 @@ private:
 public:
   ManglerKind getKind() const { return Kind; }
 
-  explicit MangleContext(ASTContext &Context,
-                         DiagnosticsEngine &Diags,
-                         ManglerKind Kind)
-      : Context(Context), Diags(Diags), Kind(Kind) {}
+  bool isAux() const { return IsAux; }
+
+  explicit MangleContext(ASTContext &Context, DiagnosticsEngine &Diags,
+                         ManglerKind Kind, bool IsAux = false)
+      : Context(Context), Diags(Diags), Kind(Kind), IsAux(IsAux) {}
 
   virtual ~MangleContext() { }
 
@@ -194,8 +198,9 @@ class ItaniumMangleContext : public MangleContext {
 public:
   using DiscriminatorOverrideTy =
       llvm::Optional<unsigned> (*)(ASTContext &, const NamedDecl *);
-  explicit ItaniumMangleContext(ASTContext &C, DiagnosticsEngine &D)
-      : MangleContext(C, D, MK_Itanium) {}
+  explicit ItaniumMangleContext(ASTContext &C, DiagnosticsEngine &D,
+                                bool IsAux = false)
+      : MangleContext(C, D, MK_Itanium, IsAux) {}
 
   virtual void mangleCXXVTable(const CXXRecordDecl *RD, raw_ostream &) = 0;
   virtual void mangleCXXVTT(const CXXRecordDecl *RD, raw_ostream &) = 0;
@@ -223,17 +228,19 @@ public:
     return C->getKind() == MK_Itanium;
   }
 
-  static ItaniumMangleContext *create(ASTContext &Context,
-                                      DiagnosticsEngine &Diags);
+  static ItaniumMangleContext *
+  create(ASTContext &Context, DiagnosticsEngine &Diags, bool IsAux = false);
   static ItaniumMangleContext *create(ASTContext &Context,
                                       DiagnosticsEngine &Diags,
-                                      DiscriminatorOverrideTy Discriminator);
+                                      DiscriminatorOverrideTy Discriminator,
+                                      bool IsAux = false);
 };
 
 class MicrosoftMangleContext : public MangleContext {
 public:
-  explicit MicrosoftMangleContext(ASTContext &C, DiagnosticsEngine &D)
-      : MangleContext(C, D, MK_Microsoft) {}
+  explicit MicrosoftMangleContext(ASTContext &C, DiagnosticsEngine &D,
+                                  bool IsAux = false)
+      : MangleContext(C, D, MK_Microsoft, IsAux) {}
 
   /// Mangle vftable symbols.  Only a subset of the bases along the path
   /// to the vftable are included in the name.  It's up to the caller to pick
@@ -292,8 +299,8 @@ public:
     return C->getKind() == MK_Microsoft;
   }
 
-  static MicrosoftMangleContext *create(ASTContext &Context,
-                                        DiagnosticsEngine &Diags);
+  static MicrosoftMangleContext *
+  create(ASTContext &Context, DiagnosticsEngine &Diags, bool IsAux = false);
 };
 
 class ASTNameGenerator {
