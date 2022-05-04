@@ -153,6 +153,12 @@ TLI_DEFINE_STRING_INTERNAL("??$use_facet@V?$num_put@DV?$ostreambuf_iterator@DU?$
 /// class std::numpunct<char> const & __ptr64 __cdecl std::use_facet<class std::numpunct<char> >(class std::locale const & __ptr64)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_numpunct_use_facet)
 TLI_DEFINE_STRING_INTERNAL("??$use_facet@V?$numpunct@D@std@@@std@@YAAEBV?$numpunct@D@0@AEBVlocale@0@@Z")
+/// public: __cdecl std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> >::basic_string<char,struct std::char_traits<char>,class std::allocator<char> >(class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const & __ptr64) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_string_ctor)
+TLI_DEFINE_STRING_INTERNAL("??0?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QEAA@AEBV01@@Z")
+/// public: __cdecl std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> >::basic_string<char,struct std::char_traits<char>,class std::allocator<char> >(char const * __ptr64 const) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_string_ptr64_ctor)
+TLI_DEFINE_STRING_INTERNAL("??0?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QEAA@QEBD@Z")
 /// public: __cdecl std::_Locinfo::_Locinfo(char const * __ptr64) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_locinfo_ctor)
 TLI_DEFINE_STRING_INTERNAL("??0_Locinfo@std@@QEAA@PEBD@Z")
@@ -177,6 +183,9 @@ TLI_DEFINE_STRING_INTERNAL("??0failure@ios_base@std@@QEAA@PEBDAEBVerror_code@2@@
 /// runtime_error( const runtime_error& other )
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_runtime_error_ctor)
 TLI_DEFINE_STRING_INTERNAL("??0runtime_error@std@@QEAA@AEBV01@@Z")
+/// public: __cdecl std::runtime_error::runtime_error(class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > const & __ptr64) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_runtime_error_ptr64_ctor)
+TLI_DEFINE_STRING_INTERNAL("??0runtime_error@std@@QEAA@AEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@1@@Z")
 /// explicit runtime_error(const char *message)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_runtime_error_char_ctor)
 TLI_DEFINE_STRING_INTERNAL("??0runtime_error@std@@QEAA@PEBD@Z")
@@ -249,9 +258,15 @@ TLI_DEFINE_ENUM_INTERNAL(msvc_delete_ptr64_longlong)
 TLI_DEFINE_STRING_INTERNAL("??3@YAXPEAX_K@Z")
 
 #if INTEL_CUSTOMIZATION
+/// public: class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > & __ptr64 __cdecl std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> >::operator=(class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > && __ptr64) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_string_operator_equal_ptr64)
+TLI_DEFINE_STRING_INTERNAL("??4?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QEAAAEAV01@$$QEAV01@@Z")
 /// basic_string<CharType, Traits, Allocator>& operator=(const value_type* ptr)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_string_operator_equal_const_ptr)
 TLI_DEFINE_STRING_INTERNAL("??4?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QEAAAEAV01@QEBD@Z")
+/// public: class std::istreambuf_iterator<char,struct std::char_traits<char> > & __ptr64 __cdecl std::istreambuf_iterator<char,struct std::char_traits<char> >::operator++(void) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_istreambuf_iterator_operator_plus_plus)
+TLI_DEFINE_STRING_INTERNAL("??E?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@QEAAAEAV01@XZ")
 /// basic_string<CharType, Traits, Allocator>& operator+=(value_type char_value)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_string_operator_plus_equal_char)
 TLI_DEFINE_STRING_INTERNAL("??Y?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QEAAAEAV01@D@Z")
@@ -406,6 +421,9 @@ TLI_DEFINE_STRING_INTERNAL("?_Lock@?$basic_streambuf@DU?$char_traits@D@std@@@std
 /// char const * __ptr64 __cdecl std::_Syserror_map(int)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_Syserror_map)
 TLI_DEFINE_STRING_INTERNAL("?_Syserror_map@std@@YAPEBDH@Z")
+/// void __cdecl std::numpunct<char>::_Tidy(void) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_numpunct_Tidy)
+TLI_DEFINE_STRING_INTERNAL("?_Tidy@?$numpunct@D@std@@AEAAXXZ")
 /// public: virtual void __cdecl std::basic_filebuf<char,struct std::char_traits<char> >::_Unlock(void) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_filebuf_under_Unlock)
 TLI_DEFINE_STRING_INTERNAL("?_Unlock@?$basic_filebuf@DU?$char_traits@D@std@@@std@@UEAAXXZ")
