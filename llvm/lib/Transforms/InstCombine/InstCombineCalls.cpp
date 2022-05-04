@@ -1613,8 +1613,16 @@ foldShuffledIntrinsicOperands(IntrinsicInst *II,
   // TODO: This should be extended to handle other intrinsics like fshl, ctpop,
   //       etc. Use llvm::isTriviallyVectorizable() and related to determine
   //       which intrinsics are safe to shuffle?
-  if (!match(II, m_MaxOrMin(m_Value(), m_Value())))
+  switch (II->getIntrinsicID()) {
+  case Intrinsic::smax:
+  case Intrinsic::smin:
+  case Intrinsic::umax:
+  case Intrinsic::umin:
+  case Intrinsic::fma:
+    break;
+  default:
     return nullptr;
+  }
 
   Value *X;
   ArrayRef<int> Mask;
@@ -1637,8 +1645,9 @@ foldShuffledIntrinsicOperands(IntrinsicInst *II,
   }
 
   // intrinsic (shuf X, M), (shuf Y, M), ... --> shuf (intrinsic X, Y, ...), M
+  Instruction *FPI = isa<FPMathOperator>(II) ? II : nullptr;
   Value *NewIntrinsic =
-      Builder.CreateIntrinsic(II->getIntrinsicID(), X->getType(), NewArgs);
+      Builder.CreateIntrinsic(II->getIntrinsicID(), X->getType(), NewArgs, FPI);
   return new ShuffleVectorInst(NewIntrinsic, Mask);
 }
 
