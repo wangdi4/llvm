@@ -7446,6 +7446,13 @@ def fenable_variant_virtual_calls
 def fno_enable_variant_virtual_calls
     : Flag<["-"], "fno-enable-variant-virtual-calls">;
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+def fopenmp_declare_target_device_type_error_enable
+    : Flag<["-"], "fopenmp-declare-target-device-type-error-enable">,
+      Flags<[CC1Option]>,
+      MarshallingInfoFlag<
+          LangOpts<"OpenMPDeclareTargetDeviceTypeDisableError">>;
+#endif  // INTEL_COLLAB
 def fenable_sycl_dae : Flag<["-"], "fenable-sycl-dae">,
   HelpText<"Enable Dead Argument Elimination in SPIR kernels">,
   MarshallingInfoFlag<LangOpts<"EnableDAEInSpirKernels">>;

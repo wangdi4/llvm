@@ -1925,6 +1925,10 @@ void Parser::ParseOMPDeclareTargetClauses(
   SourceLocation DeviceTypeLoc;
   bool RequiresToOrLinkOrIndirectClause = false;
   bool HasToOrLinkOrIndirectClause = false;
+#if INTEL_COLLAB
+  bool HasToClause = false;
+  bool HasDeviceTypeClause = false;
+#endif // INTEL_COLLAB
   while (Tok.isNot(tok::annot_pragma_openmp_end)) {
     OMPDeclareTargetDeclAttr::MapTypeTy MT = OMPDeclareTargetDeclAttr::MT_To;
     bool HasIdentifier = Tok.is(tok::identifier);
@@ -1939,6 +1943,12 @@ void Parser::ParseOMPDeclareTargetClauses(
 
       bool IsIndirectClause = getLangOpts().OpenMP >= 51 &&
                               getOpenMPClauseKind(ClauseName) == OMPC_indirect;
+#if INTEL_COLLAB
+      if (!HasToClause)
+        HasToClause = getOpenMPClauseKind(ClauseName) == OMPC_to;
+      if (!HasDeviceTypeClause)
+        HasDeviceTypeClause = IsDeviceTypeClause;
+#endif // INTEL_COLLAB
       if (DTCI.Indirect.hasValue() && IsIndirectClause) {
         Diag(Tok, diag::err_omp_more_one_clause)
             << getOpenMPDirectiveName(OMPD_declare_target)
@@ -1992,6 +2002,9 @@ void Parser::ParseOMPDeclareTargetClauses(
             break;
           case OMPC_DEVICE_TYPE_nohost:
             DTCI.DT = OMPDeclareTargetDeclAttr::DT_NoHost;
+#if INTEL_COLLAB
+            RequiresToOrLinkOrIndirectClause = false;
+#endif // INTEL_COLLAB
             break;
           case OMPC_DEVICE_TYPE_unknown:
             llvm_unreachable("Unexpected device_type");
@@ -2039,6 +2052,16 @@ void Parser::ParseOMPDeclareTargetClauses(
 
   if (DTCI.Indirect.hasValue() && DTCI.DT != OMPDeclareTargetDeclAttr::DT_Any)
     Diag(DeviceTypeLoc, diag::err_omp_declare_target_indirect_device_type);
+
+#if INTEL_COLLAB
+  if (getLangOpts().OpenMPLateOutline &&
+      getLangOpts().OpenMPDeclareTargetDeviceTypeDisableError &&
+      HasToClause && HasDeviceTypeClause &&
+      (DTCI.DT == OMPDeclareTargetDeclAttr::DT_NoHost ||
+       DTCI.DT == OMPDeclareTargetDeclAttr::DT_Host ||
+       DTCI.DT == OMPDeclareTargetDeclAttr::DT_Any))
+    Diag(DeviceTypeLoc, diag::err_omp_declare_target_to_device_type);
+#endif  // INTEL_COLLAB
 
   // For declare target require at least 'to' or 'link' to be present.
   if (DTCI.Kind == OMPD_declare_target && RequiresToOrLinkOrIndirectClause &&
@@ -2475,9 +2498,17 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
     Sema::DeclareTargetContextInfo DTCI(DKind, DTLoc);
     if (HasClauses)
       ParseOMPDeclareTargetClauses(DTCI);
+#if INTEL_COLLAB
+    bool HasImplicitMappings =
+        DKind == OMPD_begin_declare_target || !HasClauses ||
+        (DTCI.ExplicitlyMapped.empty() &&
+         (DTCI.DT == clang::OMPDeclareTargetDeclAttr::DT_NoHost ||
+          DTCI.Indirect.hasValue()));
+#else  // INTEL_COLLAB
     bool HasImplicitMappings =
         DKind == OMPD_begin_declare_target || !HasClauses ||
         (DTCI.ExplicitlyMapped.empty() && DTCI.Indirect.hasValue());
+#endif // INTEL_COLLAB
 
     // Skip the last annot_pragma_openmp_end.
     ConsumeAnyToken();
