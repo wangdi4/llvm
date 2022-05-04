@@ -4043,7 +4043,6 @@ void MicrosoftMangleContextImpl::mangleStringLiteral(const StringLiteral *SL,
   Mangler.getStream() << '@';
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
 void MicrosoftMangleContextImpl::mangleLambdaName(const RecordDecl *RD,
@@ -4053,13 +4052,8 @@ void MicrosoftMangleContextImpl::mangleLambdaName(const RecordDecl *RD,
 }
 #endif // INTEL_CUSTOMIZATION
 
-MicrosoftMangleContext *
-MicrosoftMangleContext::create(ASTContext &Context, DiagnosticsEngine &Diags) {
-  return new MicrosoftMangleContextImpl(Context, Diags);
-=======
 MicrosoftMangleContext *MicrosoftMangleContext::create(ASTContext &Context,
                                                        DiagnosticsEngine &Diags,
                                                        bool IsAux) {
   return new MicrosoftMangleContextImpl(Context, Diags, IsAux);
->>>>>>> 62501bc45a2fb4980725baccf48576cf9b45cd4d
 }
