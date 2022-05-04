@@ -23848,6 +23848,25 @@ void Sema::ActOnOpenMPDeclareTargetName(NamedDecl *ND, SourceLocation Loc,
     return;
   }
 
+#if INTEL_COLLAB
+  if (getLangOpts().OpenMPLateOutline && ActiveAttr.hasValue() &&
+      ActiveAttr.getValue()->getDevType() != DTCI.DT &&
+      DTCI.DT == clang::OMPDeclareTargetDeclAttr::DT_Any &&
+      ActiveAttr.getValue()->getDevType() ==
+          clang::OMPDeclareTargetDeclAttr::DT_NoHost &&
+      ActiveAttr.getValue()->getMapType() == MT &&
+      MT == OMPDeclareTargetDeclAttr::MT_To) {
+    // device_type clause is not allowed with extended-list
+    // however, by default device type is set to DT_Any.  So setting device
+    // type to nohost.  For example:
+    // #pragma omp begin declare target device_type(nohost)
+    // static const char *Str = "test";
+    // #pragma omp end declare target
+    // #pragma omp declare target to(Str)
+    DTCI.DT = clang::OMPDeclareTargetDeclAttr::DT_NoHost;
+  }
+#endif // INTEL_COLLAB
+
   if (ActiveAttr.hasValue() && ActiveAttr.getValue()->getLevel() == Level)
     return;
 
