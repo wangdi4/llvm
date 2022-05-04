@@ -4294,16 +4294,19 @@ void VPOParoptTransform::genCopyByAddr(Item *I, Value *To, Value *From,
   Type *ObjType = AI ? AI->getAllocatedType() : AllocaTy;
   if (Cctor) {
     genPrivatizationInitOrFini(I, Cctor, FK_CopyCtor, To, From, InsertPt, DT);
-  } else if (!VPOUtils::canBeRegisterized(ObjType, DL) ||
-             (AI && AI->isArrayAllocation())) {
+  } else if (AI && AI->isArrayAllocation()) {
     unsigned Alignment = DL.getABITypeAlignment(ObjType);
-    uint64_t Size = DL.getTypeAllocSize(AllocaTy);
-    NumElements =
-        (AI && AI->isArrayAllocation()) ? AI->getArraySize() : nullptr;
+    uint64_t Size = DL.getTypeAllocSize(ObjType);
+    NumElements = AI->getArraySize();
     VPOUtils::genMemcpy(To, From, Size, NumElements, Alignment, Builder);
   } else if (NumElements) {
     unsigned Alignment = DL.getABITypeAlignment(AllocaTy);
     uint64_t Size = DL.getTypeAllocSize(AllocaTy);
+    VPOUtils::genMemcpy(To, From, Size, NumElements, Alignment, Builder);
+  } else if (!VPOUtils::canBeRegisterized(ObjType, DL)) {
+    unsigned Alignment = DL.getABITypeAlignment(ObjType);
+    uint64_t Size = DL.getTypeAllocSize(ObjType);
+    NumElements = nullptr;
     VPOUtils::genMemcpy(To, From, Size, NumElements, Alignment, Builder);
   } else {
     Builder.CreateStore(Builder.CreateLoad(AllocaTy, From), To);
