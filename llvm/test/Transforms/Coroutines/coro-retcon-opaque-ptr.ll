@@ -40,6 +40,7 @@ cleanup:                                          ; preds = %loop
 define i32 @main() {
 ; CHECK-LABEL: @main(
 ; CHECK-NEXT:  entry:
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[TMP0:%.*]] = alloca [8 x i8], align 4
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[N_VAL_SPILL_ADDR_I:%.*]] = getelementptr inbounds [[F_FRAME:%.*]], ptr [[TMP0]], i64 0, i32 0
@@ -59,6 +60,11 @@ define i32 @main() {
 ; CHECK-NEXT:    [[INC_I2:%.*]] = add i32 [[N_VAL_RELOAD_I1]], 1
 ; CHECK-NEXT:    call void @print(i32 [[INC_I2]]), !noalias !3
 ; END INTEL_CUSTOMIZATION
+=======
+; CHECK-NEXT:    call void @print(i32 4)
+; CHECK-NEXT:    call void @print(i32 5), !noalias !0
+; CHECK-NEXT:    call void @print(i32 6), !noalias !3
+>>>>>>> 7d40f562e79b799a57799514693d0a73aab5d7f6
 ; CHECK-NEXT:    ret i32 0
 ;
 entry:

@@ -199,6 +199,7 @@
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: CoroSplitPass
 ; CHECK-O-NEXT: Invalidating analysis: InlineAdvisorAnalysis
+; CHECK-O-NEXT: Running pass: CoroCleanupPass
 ; CHECK-PRELINK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: GlobalDCEPass
@@ -304,7 +305,6 @@
 ; CHECK-POSTLINK-O-NEXT: Running pass: InstSimplifyPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: DivRemPairsPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: SimplifyCFGPass
-; CHECK-O-NEXT: Running pass: CoroCleanupPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: CGProfilePass
 ; CHECK-POSTLINK-O-NEXT: Running pass: GlobalDCEPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: ConstantMergePass

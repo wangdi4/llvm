@@ -1599,6 +1599,8 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
     MPM.addPass(IPSCCPPass());
 #endif // INTEL_CUSTOMIZATION
 
+  MPM.addPass(createModuleToFunctionPassAdaptor(CoroCleanupPass()));
+
   if (EnableMemProfiler && Phase != ThinOrFullLTOPhase::ThinLTOPreLink) {
     MPM.addPass(createModuleToFunctionPassAdaptor(MemProfilerPass()));
     MPM.addPass(ModuleMemProfilerPass());
@@ -2384,8 +2386,6 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   OptimizePM.addPass(
       SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
 
-  OptimizePM.addPass(CoroCleanupPass());
-
   // Add the core optimizing pipeline.
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(OptimizePM),
                                                 PTO.EagerlyInvalidateAnalyses));
@@ -2521,11 +2521,6 @@ PassBuilder::buildThinLTOPreLinkDefaultPipeline(OptimizationLevel Level) {
 
   // Reduce the size of the IR as much as possible.
   MPM.addPass(GlobalOptPass());
-
-  // Module simplification splits coroutines, but does not fully clean up
-  // coroutine intrinsics. To ensure ThinLTO optimization passes don't trip up
-  // on these, we schedule the cleanup here.
-  MPM.addPass(createModuleToFunctionPassAdaptor(CoroCleanupPass()));
 
   if (PGOOpt && PGOOpt->PseudoProbeForProfiling &&
       PGOOpt->Action == PGOOptions::SampleUse)
