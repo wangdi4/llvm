@@ -648,17 +648,10 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
       Opcode, VPInst->getOperand(0), nullptr, VPInst->getType(), VF);
   case Instruction::ICmp:
   case Instruction::FCmp: {
+    Type *Ty = VPInst->getOperand(0)->getType();
+
     // FIXME: Assuming all the compares are widened, which is obviously wrong
     // for trip count checks.
-    Type *Ty = VPInst->getOperand(0)->getCMType();
-
-    // FIXME: In the future VPValue will always have Type (VPType), but for now
-    // it might be missing so handle such cases.
-    if (!Ty)
-      Ty = VPInst->getOperand(1)->getCMType();
-    if (!Ty)
-      return VPInstructionCost::getUnknown();
-
     Type *VectorTy = getWidenedType(Ty, VF);
     return TTI.getCmpSelInstrCost(
       Opcode, VectorTy, nullptr /* CondTy */,
