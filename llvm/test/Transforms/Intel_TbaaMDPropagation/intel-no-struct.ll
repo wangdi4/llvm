@@ -3,6 +3,9 @@
 
 ; Various cases where the fakeload has non-conforming TBAA data and should not
 ; be propagated to the load.
+; "non-conforming" means that the access type is not a scalar. intel-tbaa MD
+; tracks pointee types, which can be structs or arrays. LLVM tbaa MD tracks
+; loads and stores with scalar result types.
 
 define void @nonscalar(ptr %p) {
 ; CHECK-LABEL: @nonscalar(
@@ -43,10 +46,22 @@ define void @typemismatch(ptr %p) {
   ret void
 }
 
+; GEP and fakeload, both with 2 different non-scalar access types.
+define void @badgep(ptr %arg) {
+; CHECK-LABEL: @badgep(
+; CHECK-NEXT:    [[TMP:%.*]] = getelementptr inbounds i32, ptr [[ARG:%.*]], i64 1, !intel-tbaa [[TBAA6:![0-9]+]]
+; CHECK-NEXT:    ret void
+;
+  %tmp = getelementptr inbounds i32, ptr %arg, i64 1, !intel-tbaa !12
+  %tmp2 = call ptr @llvm.intel.fakeload.p0(ptr %tmp, metadata !0)
+;  %ld = load i32, ptr %tmp2, align 8, !tbaa !11
+  ret void
+}
+
 define void @scalar(ptr %p) {
 ; Propagation is OK.
 ; CHECK-LABEL: @scalar(
-; CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr [[P:%.*]], align 8, !tbaa [[TBAA6:![0-9]+]]
+; CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr [[P:%.*]], align 8, !tbaa [[TBAA8:![0-9]+]]
 ; CHECK-NEXT:    ret void
 ;
   %1 = call ptr @llvm.intel.fakeload.p0(ptr %p, metadata !11)
@@ -63,14 +78,16 @@ attributes #2 = { inaccessiblememonly nofree nosync nounwind willreturn }
 attributes #3 = { argmemonly nofree nosync nounwind willreturn }
 attributes #4 = { nounwind readnone speculatable }
 
+; update_test_checks will remove these lines, need to re-copy them after.
 ; CHECK-NOT: arrayofstruct
 ; CHECK-NOT: strofaos
-; CHECK-DAG: [[TBAA_PTR:![0-9]+]]{{.*}}pointer
-; CHECK-DAG: [[TBAA_INT:![0-9]+]]{{.*}}int
-; CHECK-DAG: [[TBAA_STRUCT:![0-9]+]]{{.*}}okstruct
-; CHECK-DAG: [[TBAA0]] = !{[[TBAA_INT]], [[TBAA_INT]]
-; CHECK-DAG: [[TBAA4]] = !{[[TBAA_PTR]], [[TBAA_PTR]]
-; CHECK-DAG: [[TBAA6]] = !{[[TBAA_STRUCT]], [[TBAA_INT]]
+
+; CHECK-DAG: [[TBAA0]] = !{[[TBAA_INT:![0-9]+]], [[TBAA_INT]]
+; CHECK-DAG: [[TBAA_INT]]{{.*}}int
+; CHECK-DAG: [[TBAA4]] = !{[[TBAA_PTR:![0-9]+]], [[TBAA_PTR]]
+; CHECK-DAG: [[TBAA_PTR]]{{.*}}pointer
+; CHECK-DAG: [[TBAA6]] = !{[[TBAA_STRUCT_S1:!7]], [[TBAA_STRUCT_S1]]
+; CHECK-DAG: [[TBAA_STRUCT_S1]]{{.*}}s1
 
 !0 = !{!1, !1, i64 0}
 !1 = !{!"okstruct", !2, i64 0, !2, i64 4}
@@ -84,3 +101,5 @@ attributes #4 = { nounwind readnone speculatable }
 !9 = !{!"strofaos", !8, i64 0}
 !10 = !{!9, !8, i64 0}
 !11 = !{!1, !2, i64 0}
+!12 = !{!13, !13, i64 0}
+!13 = !{!"s1", !2, i64 4, !2, i64 8, !2, i64 12}
