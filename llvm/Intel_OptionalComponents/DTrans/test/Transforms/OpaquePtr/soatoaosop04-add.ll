@@ -42,10 +42,10 @@ target triple = "x86_64-unknown-linux-gnu"
 ;  }
 ; CHECK: ; Classification: Append element method
 ; CHECK: ; Dump instructions needing update. Total = 4
-; CHECK-MOD: define void @"ValueVectorOf<IC_Field*>::addElement(IC_Field* const&).{{[0-9]+}}"(%__SOA_class.ValueVectorOf* "intel_dtrans_func_index"="1" %this, %class.IC_Field** "intel_dtrans_func_index"="2" %toAdd, float** "intel_dtrans_func_index"="3" %0) !intel.dtrans.func.type
+; CHECK-MOD: define internal void @"ValueVectorOf<IC_Field*>::addElement(IC_Field* const&).{{[0-9]+}}"(%__SOA_class.ValueVectorOf* "intel_dtrans_func_index"="1" %this, %class.IC_Field** "intel_dtrans_func_index"="2" %toAdd, float** "intel_dtrans_func_index"="3" %0) !intel.dtrans.func.type
 ; CHECK-OP: ; Classification: Append element method
 ; CHECK-OP: ; Dump instructions needing update. Total = 4
-; CHECK-OP-MOD: define void @"ValueVectorOf<IC_Field*>::addElement(IC_Field* const&).{{[0-9]+}}"(ptr "intel_dtrans_func_index"="1" %this, ptr "intel_dtrans_func_index"="2" %toAdd, ptr "intel_dtrans_func_index"="3" %0) !intel.dtrans.func.type
+; CHECK-OP-MOD: define internal void @"ValueVectorOf<IC_Field*>::addElement(IC_Field* const&).{{[0-9]+}}"(ptr "intel_dtrans_func_index"="1" %this, ptr "intel_dtrans_func_index"="2" %toAdd, ptr "intel_dtrans_func_index"="3" %0) !intel.dtrans.func.type
 define void @"ValueVectorOf<IC_Field*>::addElement(IC_Field* const&)"(%"class.ValueVectorOf"* "intel_dtrans_func_index"="1" %this, %"class.IC_Field"** "intel_dtrans_func_index"="2" %toAdd) !intel.dtrans.func.type !9 {
 entry:
   tail call void @"ValueVectorOf<IC_Field*>::ensureExtraCapacity(unsigned int)"(%"class.ValueVectorOf"* %this, i32 1)

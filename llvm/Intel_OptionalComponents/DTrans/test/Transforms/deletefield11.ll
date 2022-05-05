@@ -58,7 +58,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; CHECK: %val = call i32 @doSomething.1(%__DFT_struct.test* %p_test)
 
 
-; CHECK: define i32 @doSomething.1(%__DFT_struct.test* %p_test)
+; CHECK: define internal i32 @doSomething.1(%__DFT_struct.test* %p_test)
 ; CHECK: %p_test_A = getelementptr %__DFT_struct.test,
 ; CHECK-SAME:                      %__DFT_struct.test* %p_test, i64 0, i32 0
 ; CHECK-NOT: %p_test_B = getelementptr

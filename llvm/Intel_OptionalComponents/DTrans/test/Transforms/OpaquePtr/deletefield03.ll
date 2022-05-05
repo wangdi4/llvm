@@ -90,7 +90,7 @@ define i1 @doSomething(%struct.test* "intel_dtrans_func_index"="1" %p_test, %str
   ret i1 %cmp
 }
 
-; CHECK-NONOPAQUE: define i1 @doSomething.1(
+; CHECK-NONOPAQUE: define internal i1 @doSomething.1(
 ; CHECK-NONOPAQUE-SAME:                    %__DFT_struct.test*
 ; CHECK-NONOPAQUE-SAME:                    %__DFT_struct.other*
 ; CHECK-NONOPAQUE: %p_test_A = getelementptr %__DFT_struct.test, %__DFT_struct.test* %p_test, i64 0, i32 0

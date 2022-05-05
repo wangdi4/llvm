@@ -62,8 +62,9 @@ define void @use_outer(%struct.outer.0* %o) {
 
 
 ; These functions will be cloned and appear at the end.
+; Check that they were converted to internal linkage.
 
-; CHECK-LABEL: define{{.+}}void @f1.1(%__DTRT_struct.outer.0* %o)
+; CHECK-LABEL: define internal void @f1.1(%__DTRT_struct.outer.0* %o)
 ; CHECK: call void @use_outer.2(%__DTRT_struct.outer.0* %o)
 
-; CHECK-LABEL: define{{.+}}void @use_outer.2(%__DTRT_struct.outer.0* %o)
+; CHECK-LABEL: define internal void @use_outer.2(%__DTRT_struct.outer.0* %o)

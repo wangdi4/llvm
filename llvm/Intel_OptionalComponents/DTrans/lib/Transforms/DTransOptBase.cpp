@@ -1,6 +1,6 @@
 //===-- DTransOptBase.cpp - Common base classes for DTrans Transforms---==//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -612,6 +612,12 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
       CloneFunctionInto(CloneFunc, &F, VMap,
                         CloneFunctionChangeType::LocalChangesOnly, Returns,"",
                         &CodeInfo, TypeRemapper, Materializer);
+      // CMPLRLLVM-37268: Defined cloned functions will always have internal
+      // linkage. Above all, they may not be left as AvailableExternally,
+      // as they could be changed from 'define' to 'declare' by the
+      // eliminateAvailableExternally() optimization.
+      if (!CloneFunc->isDeclaration())
+        CloneFunc->setLinkage(Function::InternalLinkage);
       updateCallInfoForFunction(&F, /* IsCloned=*/true);
 
       // CloneFunctionInto() copies all the parameter attributes of the original

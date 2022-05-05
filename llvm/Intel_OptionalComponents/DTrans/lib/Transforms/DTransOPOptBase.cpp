@@ -1081,6 +1081,12 @@ void DTransOPOptBase::transformIR(Module &M, ValueMapper &Mapper) {
       CloneFunctionInto(CloneFunc, &F, VMap,
                         CloneFunctionChangeType::GlobalChanges, Returns, "",
                         &CodeInfo, &TypeRemapper, getMaterializer());
+      // CMPLRLLVM-37268: Defined cloned functions will always have internal
+      // linkage. Above all, they may not be left as AvailableExternally,
+      // as they could be changed from 'define' to 'declare' by the
+      // eliminateAvailableExternally() optimization.
+      if (!CloneFunc->isDeclaration())
+        CloneFunc->setLinkage(Function::InternalLinkage);
       UpdateCallInfoForFunction(&F, /* IsCloned=*/true);
 
       // CloneFunctionInto() copies all the parameter attributes of the original

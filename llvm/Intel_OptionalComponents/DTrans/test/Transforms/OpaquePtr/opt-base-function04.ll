@@ -28,7 +28,7 @@ define void @test01callee(%struct.test01b* "intel_dtrans_func_index"="1" %in) !i
 ; CHECK: call void @test01callee.{{[0-9]+}}(%__DDT_struct.test01b* %p)
 
 ; CHECK-NOT: define void @test01callee(%struct.test01b*
-; CHECK: define void @test01callee.1(%__DDT_struct.test01b*
+; CHECK: define internal void @test01callee.1(%__DDT_struct.test01b*
 
 !intel.dtrans.types = !{!5, !6}
 
