@@ -23,7 +23,7 @@ define i32 @test01(%struct.test01* "intel_dtrans_func_index"="1" %s1, %struct.te
   %r = add i32 %r1, %r2
   ret i32 %r
 }
-; CHECK-LABEL: define i32 @test01
+; CHECK-LABEL: define internal i32 @test01
 ; CHECK: call void @llvm.memcpy
 ; CHECK-SAME: i64 8
 ; CHECK: getelementptr %__DFT_struct.test01, {{.*}} %s1, i64 0, i32 0
@@ -38,7 +38,7 @@ define i32 @test02(%struct.test01t* "intel_dtrans_func_index"="1" %s1, %struct.t
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 8, i1 false)
   ret i32 0
 }
-; CHECK-LABEL: define i32 @test02
+; CHECK-LABEL: define internal i32 @test02
 ; CHECK: getelementptr %__DFT_struct.test01, {{.*}} %s2, i64 0, i32 1
 ; CHECK: call void @llvm.memcpy
 ; CHECK-SAME: i64 4
@@ -52,7 +52,7 @@ define i32 @test03(%struct.test01t* "intel_dtrans_func_index"="1" %s1, %struct.t
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 8, i1 false)
   ret i32 0
 }
-; CHECK-LABEL: define i32 @test03
+; CHECK-LABEL: define internal i32 @test03
 ; CHECK: getelementptr %__DFT_struct.test01, {{.*}} %s2, i64 0, i32 1
 ; CHECK: call void @llvm.memcpy
 ; CHECK-SAME: i64 4

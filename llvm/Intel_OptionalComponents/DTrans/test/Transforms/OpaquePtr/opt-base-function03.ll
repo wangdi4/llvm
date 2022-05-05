@@ -30,11 +30,11 @@ define void @test01callee(%struct.test01a* "intel_dtrans_func_index"="1" %in) !i
 ; CHECK-NONOPAQUE: %a = call %__DTT_struct.test01a* @test01getter.1()
 ; CHECK-NONOPAQUE: call void @test01callee.2(%__DTT_struct.test01a* %a)
 
-; CHECK-NONOPAQUE: define "intel_dtrans_func_index"="1" %__DTT_struct.test01a* @test01getter.1() !intel.dtrans.func.type ![[GETTER_MD:[0-9]+]] {
+; CHECK-NONOPAQUE: define internal "intel_dtrans_func_index"="1" %__DTT_struct.test01a* @test01getter.1() !intel.dtrans.func.type ![[GETTER_MD:[0-9]+]] {
 ; CHECK-NONOPAQUE-LABEL: %local = alloca %__DTT_struct.test01a, align 8
 ; CHECK-NONOPAQUE-LABEL: ret %__DTT_struct.test01a* %local
 
-; CHECK-NONOPAQUE: define void @test01callee.2(%__DTT_struct.test01a* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type ![[CALLEE_MD:[0-9]+]]
+; CHECK-NONOPAQUE: define internal void @test01callee.2(%__DTT_struct.test01a* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type ![[CALLEE_MD:[0-9]+]]
 
 
 ; The following checks can replace the above checks when opaque pointers are used.

@@ -57,7 +57,7 @@ define i16 @doSomething(i64 %idx, %struct.test* "intel_dtrans_func_index"="1" al
 ; Delete field should reset the alignment of structure elements back to the
 ; default alignment for the type.
 
-; CHECK-LABEL: define i16 @doSomething
+; CHECK-LABEL: define internal i16 @doSomething
 ; CHECK:  store i16 1, i16* %p_test_A, align 2
 ; CHECK:  %valA = load i16, i16* %p_test_A, align 2
 ; CHECK:  store i16 2, i16* %p_test_C, align 2

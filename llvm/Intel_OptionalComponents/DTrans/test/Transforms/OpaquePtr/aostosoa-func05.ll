@@ -41,7 +41,7 @@ define void @test02(%struct.test01* "intel_dtrans_func_index"="1" nonnull nocapt
   ret void
 }
 ; The function should be cloned because the parameter type is changing.
-; CHECK-LABEL: define void @test02.1(i64 %in)
+; CHECK-LABEL: define internal void @test02.1(i64 %in)
 ; CHECK-NONOPAQUE: %p1 = getelementptr %__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @var01, i64 0, i32 1
 ; CHECK-NONOPAQUE: call i64* @llvm.ptr.annotation.p0i64(i64* %p1, i8* getelementptr inbounds ([33 x i8], [33 x i8]* @__intel_dtrans_aostosoa_index, i32 0, i32 0), i8* getelementptr inbounds ([1 x i8], [1 x i8]* @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, i8* null)
 ; CHECK-NONOPAQUE: store i64 %in, i64* %p1, align 8

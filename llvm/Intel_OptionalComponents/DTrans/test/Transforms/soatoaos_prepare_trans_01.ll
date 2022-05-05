@@ -183,7 +183,7 @@
 
 ; Checking for cloned routines starts here.
 
-; CHECK: define void @_ZN1FC2Ev{{.*}}(%_DPRE_class.F* %this)
+; CHECK: define internal void @_ZN1FC2Ev{{.*}}(%_DPRE_class.F* %this)
 
 ; Check allocation size is updated
 ; CHECK:  %call5 = tail call i8* @_Znwm(i64 32)
@@ -216,18 +216,18 @@
 
 ; Make sure GEPs are fixed correctly in cloned routines.
 ; Make sure unused flag argument is moved to the end of arg list.
-; CHECK: define void @_ZN7BaseArrIPsEC2EjbP3Mem{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr* nocapture %this, i32 %c, %struct.Mem* %mem, i1 %0)
+; CHECK: define internal void @_ZN7BaseArrIPsEC2EjbP3Mem{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr* nocapture %this, i32 %c, %struct.Mem* %mem, i1 %0)
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT: %flag = getelementptr inbounds %_DPRE__REP_struct.RefArr, %_DPRE__REP_struct.RefArr* %this, i64 0, i32 0
 ; Make sure zero is saved to the %flag field.
 ; CHECK-NEXT: store i8 0, i8* %flag
 
 ; Make sure GEPs are fixed correctly in cloned routines.
-; CHECK: define i16** @_ZN7BaseArrIPsE3getEj{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr*
+; CHECK: define internal i16** @_ZN7BaseArrIPsE3getEj{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr*
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT: %size = getelementptr inbounds %_DPRE__REP_struct.RefArr, %_DPRE__REP_struct.RefArr* %this, i64 0, i32 2
 
-; CHECK: define void @_ZN7BaseArrIPsE3setEjPS0_{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr
+; CHECK: define internal void @_ZN7BaseArrIPsE3setEjPS0_{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr
 ; Make sure value of flag is replaced by constant 1.
 ; CHECK: %tobool = icmp eq i8 1, 0
 ; CHECK-NOT:  %flag = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %this, i64 0, i32 1
@@ -238,12 +238,12 @@
 
 ; Checking that original calls in cloned member functions are replaced
 ; with cloned calls.
-; CHECK: define void @_ZN7BaseArrIPsE3addEPS0_{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr
+; CHECK: define internal void @_ZN7BaseArrIPsE3addEPS0_{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT: tail call void @_ZN7BaseArrIPsE6resizeEi{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr* %this, i32 1)
 
 ; Make sure all member functions are cloned
-; CHECK: define void @_ZN7BaseArrIPsE6resizeEi{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr*
+; CHECK: define internal void @_ZN7BaseArrIPsE6resizeEi{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr*
 ; Make sure peephole optimization is done by converting
 ; from "shl + add" to "add + shl".
 ; CHECK:   [[ADD1:%[0-9]*]] = add nuw nsw i64 %8, 1
@@ -251,9 +251,9 @@
 ; CHECK:  call void @llvm.memset.p0i8.i64(i8* nonnull align 8 dereferenceable(1) %scevgep, i8 0, i64 [[SHL1]], i1 false)
 
 ; Make sure all member functions are cloned
-; CHECK: define i32 @_ZN7BaseArrIPsE7getSizeEv{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr*
+; CHECK: define internal i32 @_ZN7BaseArrIPsE7getSizeEv{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr*
 
-; CHECK: define i32 @_ZN7BaseArrIPsE11getCapacityEv{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr*
+; CHECK: define internal i32 @_ZN7BaseArrIPsE11getCapacityEv{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr*
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT: %capacity = getelementptr inbounds %_DPRE__REP_struct.RefArr, %_DPRE__REP_struct.RefArr* %this, i64 0, i32 1
 
@@ -265,7 +265,7 @@
 ; CHECK-NOT: define void @_ZN6RefArrIPsED0Ev{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr*
 
 ; Make sure use of flag is replaced by constant 1.
-; CHECK: define void @_ZN6RefArrIPsED2Ev{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr*
+; CHECK: define internal void @_ZN6RefArrIPsED2Ev{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr*
 ; CHECK:  %tobool = icmp eq i8 1, 0
 ; CHECK-NOT:  %flag = getelementptr inbounds %struct.BaseArr, %struct.BaseArr* %1, i64 0, i32 1
 ; CHECK-NOT:  %2 = load i8, i8* %flag

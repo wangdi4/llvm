@@ -48,7 +48,7 @@ define i32 @doSomething(i64 %idx, %struct.test* align 16 %p_test) {
 
 ; For packed structures, delete field should set the default aligmnent.
 
-; CHECK-LABEL: define i32 @doSomething
+; CHECK-LABEL: define internal i32 @doSomething
 ; CHECK:  store i32 1, i32* %p_test_A, align 1
 ; CHECK:  %valA = load i32, i32* %p_test_A, align 1
 ; CHECK:  store i32 2, i32* %p_test_D, align 1

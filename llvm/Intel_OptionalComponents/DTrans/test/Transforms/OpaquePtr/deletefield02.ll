@@ -83,9 +83,9 @@ define void @connect(%struct.test* "intel_dtrans_func_index"="1" %p_test, %struc
 ; when opaque pointres are not in use. When opaque pointers are used
 ; there is no change to signatures, so they are not checked.
 
-; CHECK-NONOPAQUE: define i32 @doSomething.{{[0-9]+}}
+; CHECK-NONOPAQUE: define internal i32 @doSomething.{{[0-9]+}}
 ; CHECK-NONOPAQUE-SAME: %__DFT_struct.test*
-; CHECK-NONOPAQUE: define void @connect.{{[0-9]+}}
+; CHECK-NONOPAQUE: define internal void @connect.{{[0-9]+}}
 ; CHECK-NONOPAQUE-SAME: %__DFT_struct.test*
 ; CHECK-NONOPAQUE-SAME: %__DFDT_struct.other*
 

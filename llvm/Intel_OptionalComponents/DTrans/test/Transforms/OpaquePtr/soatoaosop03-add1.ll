@@ -56,8 +56,8 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 ; CHECK-TRANS: ; Dump instructions needing update. Total = 3
 ; CHECK-OP-TRANS: ; Dump instructions needing update. Total = 3
-; CHECK-MOD: define void @_ZN3ArrIPiE3addERKS0_{{.*}}(%__SOA_struct.Arr* "intel_dtrans_func_index"="1" %this, i32* "intel_dtrans_func_index"="2" %e, float* "intel_dtrans_func_index"="3" %0) !intel.dtrans.func.type {{!*}}
-; CHECK-OP-MOD: define void @_ZN3ArrIPiE3addERKS0_{{.*}}(ptr "intel_dtrans_func_index"="1" %this, ptr "intel_dtrans_func_index"="2" %e, ptr "intel_dtrans_func_index"="3" %0) !intel.dtrans.func.type {{!*}}
+; CHECK-MOD: define internal void @_ZN3ArrIPiE3addERKS0_{{.*}}(%__SOA_struct.Arr* "intel_dtrans_func_index"="1" %this, i32* "intel_dtrans_func_index"="2" %e, float* "intel_dtrans_func_index"="3" %0) !intel.dtrans.func.type {{!*}}
+; CHECK-OP-MOD: define internal void @_ZN3ArrIPiE3addERKS0_{{.*}}(ptr "intel_dtrans_func_index"="1" %this, ptr "intel_dtrans_func_index"="2" %e, ptr "intel_dtrans_func_index"="3" %0) !intel.dtrans.func.type {{!*}}
 define void @_ZN3ArrIPiE3addERKS0_(%struct.Arr* "intel_dtrans_func_index"="1" %this, i32* "intel_dtrans_func_index"="2" %e) !intel.dtrans.func.type !9 {
 entry:
   call void @_ZN3ArrIPiE7reallocEi(%struct.Arr* %this, i32 1)
