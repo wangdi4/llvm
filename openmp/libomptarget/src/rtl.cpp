@@ -386,6 +386,7 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(add_build_options);
     SET_OPTIONAL_INTERFACE_FN(is_supported_device);
     SET_OPTIONAL_INTERFACE_FN(deinit);
+#if INTEL_CUSTOMIZATION
     SET_OPTIONAL_INTERFACE_FN(create_interop);
     SET_OPTIONAL_INTERFACE_FN(release_interop);
     SET_OPTIONAL_INTERFACE_FN(use_interop);
@@ -393,6 +394,7 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(get_interop_property_value);
     SET_OPTIONAL_INTERFACE_FN(get_interop_property_info);
     SET_OPTIONAL_INTERFACE_FN(get_interop_rc_desc);
+#endif // INTEL_CUSTOMIZATION
     SET_OPTIONAL_INTERFACE_FN(get_num_sub_devices);
     SET_OPTIONAL_INTERFACE_FN(is_accessible_addr_range);
 #if INTEL_CUSTOMIZATION

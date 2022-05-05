@@ -122,6 +122,7 @@ enum TargetAllocTy : int32_t {
 };
 
 #if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
 ///
 /// OpenMP 5.1 interop support types
 ///
@@ -184,6 +185,7 @@ struct __tgt_interop {
   void *TargetSync;
   void *RTLProperty; // implementation-defined interop property
 };
+#endif // INTEL_CUSTOMIZATION
 
 
 ///

@@ -807,6 +807,7 @@ EXTERN int __tgt_get_interop_property(
   return OFFLOAD_SUCCESS;
 }
 
+#if INTEL_CUSTOMIZATION
 EXTERN omp_interop_t __tgt_create_interop(
     int64_t device_num, int32_t interop_type, int32_t num_prefers,
     intptr_t *prefer_ids) {
@@ -871,6 +872,7 @@ EXTERN int __tgt_use_interop(omp_interop_t interop) {
 
   return PM->Devices[DeviceNum]->useInterop(TgtInterop);
 }
+#endif // INTEL_CUSTOMIZATION
 
 EXTERN int __tgt_get_target_memory_info(
     void *interop_obj, int32_t num_ptrs, void *tgt_ptrs, void *ptr_info) {
