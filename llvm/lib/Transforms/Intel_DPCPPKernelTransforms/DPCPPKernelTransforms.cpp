@@ -29,6 +29,7 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeCreateSimdVariantPropagationLegacyPass(Registry);
   initializeDataPerBarrierWrapperPass(Registry);
   initializeDataPerValueWrapperPass(Registry);
+  initializeDeduceMaxWGDimLegacyPass(Registry);
   initializeDPCPPEqualizerLegacyPass(Registry);
   initializeDPCPPKernelAnalysisLegacyPass(Registry);
   initializeDPCPPKernelPostVecPass(Registry);
@@ -36,7 +37,6 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeDPCPPKernelWGLoopCreatorLegacyPass(Registry);
   initializeDPCPPPreprocessSPIRVFriendlyIRLegacyPass(Registry);
   initializeDPCPPRewritePipesLegacyPass(Registry);
-  initializeDeduceMaxWGDimLegacyPass(Registry);
   initializeDuplicateCalledKernelsLegacyPass(Registry);
   initializeExternalizeGlobalVariablesLegacyPass(Registry);
   initializeGroupBuiltinLegacyPass(Registry);
@@ -57,10 +57,10 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeProfilingInfoLegacyPass(Registry);
   initializeReduceCrossBarrierValuesLegacyPass(Registry);
   initializeRedundantPhiNodeLegacyPass(Registry);
-  initializeResolveMatrixWISliceLegacyPass(Registry);
-  initializeResolveSubGroupWICallLegacyPass(Registry);
   initializeResolveMatrixFillLegacyPass(Registry);
   initializeResolveMatrixLayoutLegacyPass(Registry);
+  initializeResolveMatrixWISliceLegacyPass(Registry);
+  initializeResolveSubGroupWICallLegacyPass(Registry);
   initializeResolveVarTIDCallLegacyPass(Registry);
   initializeResolveWICallLegacyPass(Registry);
   initializeSetVectorizationFactorLegacyPass(Registry);
@@ -69,20 +69,20 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeSGBuiltinLegacyPass(Registry);
   initializeSGLoopConstructLegacyPass(Registry);
   initializeSGSizeAnalysisLegacyPass(Registry);
-  initializeSGSizeCollectorLegacyPass(Registry);
   initializeSGSizeCollectorIndirectLegacyPass(Registry);
+  initializeSGSizeCollectorLegacyPass(Registry);
   initializeSGValueWidenLegacyPass(Registry);
   initializeSinCosFoldLegacyPass(Registry);
-  initializeTaskSeqAsyncHandlingLegacyPass(Registry);
   initializeSoaAllocaAnalysisLegacyPass(Registry);
   initializeSplitBBonBarrierLegacyPass(Registry);
+  initializeTaskSeqAsyncHandlingLegacyPass(Registry);
   initializeUpdateCallAttrsLegacyPass(Registry);
+  initializeVectorizationDimensionAnalysisLegacyPass(Registry);
   initializeVectorVariantFillInLegacyPass(Registry);
   initializeVectorVariantLoweringLegacyPass(Registry);
   initializeVFAnalysisLegacyPass(Registry);
-  initializeVectorizationDimensionAnalysisLegacyPass(Registry);
   initializeWGLoopBoundariesLegacyPass(Registry);
-  initializeWorkItemAnalysisLegacyPass(Registry);
   initializeWIRelatedValueWrapperPass(Registry);
+  initializeWorkItemAnalysisLegacyPass(Registry);
 }
 
