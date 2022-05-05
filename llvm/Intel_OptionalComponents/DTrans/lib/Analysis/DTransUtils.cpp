@@ -905,9 +905,24 @@ void dtrans::FieldInfo::addNewArrayConstantEntry(Constant *Index,
 
   // If canAddConstantEntriesForArray is true then it means that the current
   // field is an array of integers
-  llvm::ArrayType *CurrArr = cast<llvm::ArrayType>(getLLVMType());
+  llvm::ArrayType *CurrArr = dyn_cast<llvm::ArrayType>(getLLVMType());
+  if (!CurrArr) {
+    llvm::StructType *SpecialArr = dyn_cast<llvm::StructType>(getLLVMType());
+    if (!SpecialArr || SpecialArr->getNumElements() != 1) {
+      disableArraysWithConstantEntries();
+      return;
+    }
+
+    CurrArr = dyn_cast<llvm::ArrayType>(SpecialArr->getElementType(0));
+    if (!CurrArr) {
+      disableArraysWithConstantEntries();
+      return;
+    }
+  }
+
   auto *ConstIntIndex = dyn_cast<ConstantInt>(Index);
   auto *ConstIntVal = dyn_cast_or_null<ConstantInt>(ConstVal);
+  Constant *ConstValMap = nullptr;
   if (!ConstIntIndex) {
     disableArraysWithConstantEntries();
     return;
@@ -933,6 +948,7 @@ void dtrans::FieldInfo::addNewArrayConstantEntry(Constant *Index,
       disableArraysWithConstantEntries();
       return;
     }
+    ConstValMap = ConstIntVal;
   }
 
   // If the entry is not in the map then add it. Else, set it to nullptr if
@@ -941,8 +957,8 @@ void dtrans::FieldInfo::addNewArrayConstantEntry(Constant *Index,
   // index.
   auto It = ArrayWithConstEntriesMap.find(Index);
   if (It == ArrayWithConstEntriesMap.end())
-    ArrayWithConstEntriesMap.insert({Index, ConstVal});
-  else if (It->second != ConstVal)
+    ArrayWithConstEntriesMap.insert({Index, ConstValMap});
+  else if (It->second != ConstValMap)
     It->second = nullptr;
 }
 
