@@ -1111,6 +1111,45 @@ public:
   void analyzeAndCollectArrayConstantEntries(GEPOperator *GEP,
                                              dtrans::StructInfo *STInfo,
                                              uint64_t FieldNum) {
+
+    // If the input GEP represents an access to a structure's field, and
+    // this field is a special array (structure with one field that is an
+    // array), then return the GEP's user. This user will be another GEP
+    // that will be used to load and store data.
+    auto GetArrayAccessGEP = [GEP, STInfo]() -> GEPOperator * {
+      if (!GEP->hasOneUser())
+        return GEP;
+
+      if (GEP->getNumIndices() != 2 || !GEP->hasAllConstantIndices())
+        return GEP;
+
+      auto *TempGEP = dyn_cast<GEPOperator>(GEP->user_back());
+      if (!TempGEP || !TempGEP->hasAllZeroIndices())
+        return GEP;
+
+      auto *ZeroIndex = dyn_cast<ConstantInt>(GEP->getOperand(1));
+      if (!ZeroIndex || !ZeroIndex->isZero())
+        return GEP;
+
+      auto *FieldIndex = cast<ConstantInt>(GEP->getOperand(2));
+      auto *DTStrTy =
+          dyn_cast_or_null<DTransStructType>(STInfo->getDTransType());
+      if (!DTStrTy || DTStrTy->getNumFields() == 0)
+        return GEP;
+
+      uint64_t FieldIdxInt = FieldIndex->getZExtValue();
+      if (FieldIdxInt >= DTStrTy->getNumFields())
+        return GEP;
+
+      auto *SpecialArr =
+          dyn_cast<DTransStructType>(DTStrTy->getFieldType(FieldIdxInt));
+      if (!SpecialArr || SpecialArr->getNumFields() != 1 ||
+         !isa<DTransArrayType>(SpecialArr->getFieldType(0)))
+        return GEP;
+
+      return TempGEP;
+    };
+
     if (!GEP || !STInfo || FieldNum >= STInfo->getNumFields())
       return;
 
@@ -1124,7 +1163,8 @@ public:
     if (!FI.canUpdateArrayWithConstantEntries())
       return;
 
-    for (auto *U : GEP->users()) {
+    auto *ArrayGEP = GetArrayAccessGEP();
+    for (auto *U : ArrayGEP->users()) {
       if (!FI.canUpdateArrayWithConstantEntries())
         return;
 
@@ -1132,12 +1172,6 @@ public:
       // NOTE: For now the direct user will be a GEP. Once we reach the
       // actual benchmark we can expand this for other cases.
       if (!CurrGEP) {
-        FI.disableArraysWithConstantEntries();
-        return;
-      }
-
-      // The user will be a load or a store
-      if (!CurrGEP->hasOneUser()) {
         FI.disableArraysWithConstantEntries();
         return;
       }
@@ -1173,15 +1207,6 @@ public:
         // Load instructions are safe
         continue;
       } else {
-        // Anything else is not allowed at the moment, disable the information
-        //
-        // TODO: We may need to deal with the case when the field is a structure
-        // that encapsulates an array. For example:
-        //
-        //   %struct.Test = type { i32, %boost.array }
-        //   %boost.array = type { [4 x i32] }
-        //
-        // This case is common when dealing with boost libraries.
         FI.disableArraysWithConstantEntries();
         return;
       }
@@ -8253,10 +8278,18 @@ void DTransSafetyInfo::printArraysWithConstantEntriesInformation() {
 
     for (auto I : FieldsVect) {
       auto &FI = STInfo->getField(I);
+      // We already proved that the field is an array, or a structure with
+      // one field that is an array with constant entries. The data needs
+      // to be sorted since it is stored in a map.
+      llvm::ArrayType *ArrTy = nullptr;
+      if (auto *SpecialArr = dyn_cast<StructType>(FI.getLLVMType())) {
+        assert(SpecialArr->getNumElements() == 1 &&
+            "Incorrect structure considered as special array type");
+        ArrTy = cast<ArrayType>(SpecialArr->getElementType(0));
+      } else {
+        ArrTy = cast<ArrayType>(FI.getLLVMType());
+      }
 
-      // We already prove that the field is an array with constant entries
-      // but the data needs to be sorted since it is stored in a map
-      llvm::ArrayType *ArrTy = cast<ArrayType>(FI.getLLVMType());
       std::vector<Constant *> Entries(ArrTy->getNumElements());
       for (auto Pair : FI.getArrayConstantEntries()) {
         auto Index = cast<ConstantInt>(Pair.first);
@@ -8334,7 +8367,7 @@ void DTransSafetyInfo::postProcessArraysWithConstantEntries() {
 
     // Check if there is any safety that invalidates the structure.
     bool DisableArraysWithConstEntries =
-        STInfo->testSafetyData(dtrans::SDArraysWithConstantEntries);
+        STInfo->testSafetyData(dtrans::SDArraysWithConstantEntriesOpq);
 
     // Traverse through the fields and collect the information
     for (unsigned I = 0, E = STInfo->getNumFields(); I < E; I++) {
@@ -8342,10 +8375,9 @@ void DTransSafetyInfo::postProcessArraysWithConstantEntries() {
       if (!FI.isFieldAnArrayWithConstEntries())
         continue;
 
-      // NOTE: These are some general conditions to disable the data. We may
-      // need to adjust them once we analyze the actual cases.
-      if (DisableArraysWithConstEntries || FI.isRead() || FI.isWritten() ||
-          FI.isAddressTaken() || FI.hasNonGEPAccess())
+      if (DisableArraysWithConstEntries || FI.isRead() ||
+          FI.isAddressTaken() || FI.hasNonGEPAccess() ||
+          (FI.isWritten() && !FI.isRWTop()))
         FI.disableArraysWithConstantEntries();
     }
   }
