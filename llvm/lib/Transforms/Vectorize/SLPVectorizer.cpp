@@ -8465,12 +8465,6 @@ static bool areTwoInsertFromSameBuildVector(InsertElementInst *VU,
   return false;
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-InstructionCost BoUpSLP::getTreeCost(ArrayRef<Value *> VectorizedVals,
-                                     bool ForReduction) {
-#endif // INTEL_CUSTOMIZATION
-=======
 /// Checks if the \p IE1 instructions is followed by \p IE2 instruction in the
 /// buildvector sequence.
 static bool isFirstInsertElement(const InsertElementInst *IE1,
@@ -8587,8 +8581,10 @@ static T *performExtractsShuffleAction(
   return Prev;
 }
 
-InstructionCost BoUpSLP::getTreeCost(ArrayRef<Value *> VectorizedVals) {
->>>>>>> 99f31acfce338417fea3c14983d6f8fedc8ed043
+#if INTEL_CUSTOMIZATION
+InstructionCost BoUpSLP::getTreeCost(ArrayRef<Value *> VectorizedVals,
+                                     bool ForReduction) {
+#endif // INTEL_CUSTOMIZATION
   InstructionCost Cost = 0;
   LLVM_DEBUG(dbgs() << "SLP: Calculating cost for tree of size "
                     << VectorizableTree.size() << ".\n");
