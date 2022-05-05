@@ -139,10 +139,6 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   /// True if "target-cpu" is "common-avx256".
   bool IsAVX256 = false;
 #endif // INTEL_FEATURE_ISA_AVX256
-#if INTEL_FEATURE_XUCC
-  /// True if compiling for XuCC, false for 16-bit, 32-bit or 64-bit.
-  bool InXuCCMode = false;
-#endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
 
   X86SelectionDAGInfo TSInfo;
@@ -214,14 +210,6 @@ public:
 #define GET_SUBTARGETINFO_MACRO(ATTRIBUTE, DEFAULT, GETTER)                    \
   bool GETTER() const { return ATTRIBUTE; }
 #include "X86GenSubtargetInfo.inc"
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_XUCC
-  bool isXuCC() const {
-    return InXuCCMode;
-  }
-#endif // INTEL_FEATURE_XUCC
-#endif // INTEL_CUSTOMIZATION
 
   /// Is this x86_64 with the ILP32 programming model (x32 ABI)?
   bool isTarget64BitILP32() const {

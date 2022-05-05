@@ -66,7 +66,13 @@ std::string X86_MC::ParseX86Triple(const Triple &TT) {
 }
 
 unsigned X86_MC::getDwarfRegFlavour(const Triple &TT, bool isEH) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  if (TT.getArch() == Triple::x86_64 || TT.getArch() == Triple::x86_64_xucc)
+#else // INTEL_FEATURE_XUCC
   if (TT.getArch() == Triple::x86_64)
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
     return DWARFFlavour::X86_64;
 
   if (TT.isOSDarwin())
@@ -414,7 +420,14 @@ static MCInstrInfo *createX86MCInstrInfo() {
 }
 
 static MCRegisterInfo *createX86MCRegisterInfo(const Triple &TT) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  unsigned RA = (TT.getArch() == Triple::x86_64 ||
+                 TT.getArch() == Triple::x86_64_xucc)
+#else // INTEL_FEATURE_XUCC
   unsigned RA = (TT.getArch() == Triple::x86_64)
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
                     ? X86::RIP  // Should have dwarf #16.
                     : X86::EIP; // Should have dwarf #8.
 
