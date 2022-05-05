@@ -266,8 +266,9 @@
 ; CHECK-DEFAULT-NEXT:  Running analysis: TargetIRAnalysis
 ; CHECK-DEFAULT-NEXT:  Running analysis: DominatorTreeAnalysis
 ; CHECK-DEFAULT-NEXT:  Running analysis: AssumptionAnalysis
-; CHECK-DEFAULT-NEXT:  Running pass: LoopSimplifyPass
+; CHECK-DEFAULT-NEXT:  Running pass: VPlanPragmaOmpSimdIfPass
 ; CHECK-DEFAULT-NEXT:  Running analysis: LoopAnalysis
+; CHECK-DEFAULT-NEXT:  Running pass: LoopSimplifyPass
 ; CHECK-DEFAULT-NEXT:  Running pass: LowerSwitchPass
 ; CHECK-DEFAULT-NEXT:  Running analysis: LazyValueAnalysis
 ; CHECK-DEFAULT-NEXT:  Running pass: LCSSAPass

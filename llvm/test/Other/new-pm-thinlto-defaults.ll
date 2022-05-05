@@ -230,8 +230,9 @@
 ; CHECK-POSTLINK-O-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: AssumptionAnalysis
-; CHECK-POSTLINK-O-NEXT: Running pass: LoopSimplifyPass
+; CHECK-POSTLINK-O-NEXT: Running pass: VPlanPragmaOmpSimdIfPass on foo
 ; CHECK-POSTLINK-O-NEXT: Running analysis: LoopAnalysis
+; CHECK-POSTLINK-O-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LowerSwitchPass
 ; CHECK-POSTLINK-O-NEXT: Running analysis: LazyValueAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running pass: LCSSAPass
