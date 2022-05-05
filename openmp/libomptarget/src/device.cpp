@@ -982,6 +982,7 @@ int32_t DeviceTy::isSupportedDevice(void *DeviceType) {
     return false;
 }
 
+#if INTEL_CUSTOMIZATION
 __tgt_interop *DeviceTy::createInterop(int32_t InteropContext,
                                        int32_t NumPrefers,
                                        intptr_t *PreferIDs) {
@@ -1037,6 +1038,7 @@ const char *DeviceTy::getInteropRcDesc(int32_t RetCode) {
   else
     return NULL;
 }
+#endif // INTEL_CUSTOMIZATION
 
 int32_t DeviceTy::setSubDevice(int32_t Level) {
   if (RTL->get_num_sub_devices) {

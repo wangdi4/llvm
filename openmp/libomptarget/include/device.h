@@ -466,6 +466,7 @@ struct DeviceTy {
   int32_t popSubDevice(void);
   int32_t getNumSubDevices(int32_t Level);
   int32_t isSupportedDevice(void *DeviceType);
+#if INTEL_CUSTOMIZATION
   __tgt_interop *createInterop(int32_t InteropContext, int32_t NumPrefers,
                                intptr_t *PreferIDs);
   int32_t releaseInterop(__tgt_interop *Interop);
@@ -476,6 +477,7 @@ struct DeviceTy {
                                   size_t Size, void *Value);
   const char *getInteropPropertyInfo(int32_t Property, int32_t InfoType);
   const char *getInteropRcDesc(int32_t RetCode);
+#endif // INTEL_CUSTOMIZATION
   int32_t setSubDevice(int32_t Level);
   void unsetSubDevice(void);
   void addLambdaPtr(void *TgtPtr);

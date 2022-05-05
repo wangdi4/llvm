@@ -403,6 +403,7 @@ EXTERN int omp_target_is_accessible(const void *ptr, size_t size,
   return Ret;
 }
 
+#if INTEL_CUSTOMIZATION
 static int32_t checkInteropCall(const omp_interop_t interop,
                                 const char *FnName) {
   if (!interop) {
@@ -582,6 +583,7 @@ EXTERN const char *omp_get_interop_rc_desc(const omp_interop_t interop,
 
   return Device.getInteropRcDesc(ret_code);
 }
+#endif // INTEL_CUSTOMIZATION
 
 EXTERN void *omp_target_alloc_device(size_t size, int device_num) {
   return targetAllocExplicit(size, device_num, TARGET_ALLOC_DEVICE, __func__);
