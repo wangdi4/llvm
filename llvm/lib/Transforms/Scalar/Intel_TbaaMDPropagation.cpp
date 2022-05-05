@@ -100,6 +100,7 @@ MDNode *getGepChainTBAA(const GetElementPtrInst *GEP) {
   MDNode *GepMD = GEP->getMetadata(LLVMContext::MD_intel_tbaa);
   if (!GepMD)
     return nullptr;
+
   const auto *BaseGEP = dyn_cast<GetElementPtrInst>(GEP->getPointerOperand());
   if (!BaseGEP)
     return GepMD;
@@ -123,10 +124,19 @@ void TbaaMDPropagationImpl::visitIntrinsicInst(IntrinsicInst &II) {
 
   if (const auto *GEP = dyn_cast<GetElementPtrInst>(II.getArgOperand(0))) {
     // Try to refine TBAA info of the GEP chain feeding our fakeload.
-    MDNode *MergedTBAA =
-        getMostSpecificTBAA(getGepChainTBAA(GEP), FakeloadTBAA);
-    if (MergedTBAA != FakeloadTBAA)
-      II.setArgOperand(1, MetadataAsValue::get(GEP->getContext(), MergedTBAA));
+    auto *GEPChainTBAA = getGepChainTBAA(GEP);
+    if (GEPChainTBAA) {
+      // intel-tbaa may have access types that are not scalars (pointers to
+      // arrays or structs). If it's not valid, use the fakeload's TBAA.
+      // The fakeload TBAA is checked below.
+      auto *AccessType = dyn_cast<MDNode>(GEPChainTBAA->getOperand(1));
+      if (AccessType && TBAAVerifier::isValidScalarTBAANodeStatic(AccessType)) {
+        auto *MergedTBAA = getMostSpecificTBAA(GEPChainTBAA, FakeloadTBAA);
+        if (MergedTBAA != FakeloadTBAA)
+          II.setArgOperand(1,
+                           MetadataAsValue::get(GEP->getContext(), MergedTBAA));
+      }
+    }
   }
 
   // If the only user is a return instruction, we aren't at the right level
