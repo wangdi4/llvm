@@ -31,7 +31,7 @@
 #define RTL_TRACE_H
 
 #include <CL/cl.h>
-#include <CL/cl_ext_intel.h>
+#include <CL/cl_ext.h>
 #include <inttypes.h>
 #include <string>
 #include "omptarget.h"
@@ -75,6 +75,12 @@ extern int DebugLevel;
 #define DPI(...)
 #endif // !INTEL_INTERNAL_BUILD
 
+typedef void (CL_API_CALL *clGitsIndirectAllocationOffsets_fn)(
+    void *pAlloc,
+    uint32_t numOffsets,
+    size_t *pOffsets);
+#endif // INTEL_CUSTOMIZATION
+
 typedef cl_int (CL_API_CALL *clGetDeviceGlobalVariablePointerINTEL_fn)(
     cl_device_id,
     cl_program,
@@ -88,17 +94,10 @@ typedef cl_int (CL_API_CALL *clGetKernelSuggestedLocalWorkSizeINTEL_fn)(
     const size_t *,
     const size_t *,
     size_t *);
-typedef void (CL_API_CALL *clGitsIndirectAllocationOffsets_fn)(
-    void *pAlloc,
-    uint32_t numOffsets,
-    size_t *pOffsets);
-#endif // INTEL_CUSTOMIZATION
-
 typedef cl_int (CL_API_CALL *clSetProgramSpecializationConstant_fn)(
     cl_program, cl_uint, size_t, const void *);
 
-#if INTEL_CUSTOMIZATION
-#define FOR_EACH_EXTENSION_FN(M)                                               \
+#define FOR_EACH_COMMON_EXTENSION_FN(M)                                        \
   M(clGetMemAllocInfoINTEL)                                                    \
   M(clHostMemAllocINTEL)                                                       \
   M(clDeviceMemAllocINTEL)                                                     \
@@ -108,18 +107,14 @@ typedef cl_int (CL_API_CALL *clSetProgramSpecializationConstant_fn)(
   M(clEnqueueMemcpyINTEL)                                                      \
   M(clSetProgramSpecializationConstant)                                        \
   M(clGetDeviceGlobalVariablePointerINTEL)                                     \
-  M(clGetKernelSuggestedLocalWorkSizeINTEL)                                    \
+  M(clGetKernelSuggestedLocalWorkSizeINTEL)
+
+#if INTEL_CUSTOMIZATION
+#define FOR_EACH_EXTENSION_FN(M)                                               \
+  FOR_EACH_COMMON_EXTENSION_FN(M)                                              \
   M(clGitsIndirectAllocationOffsets)
 #else // INTEL_CUSTOMIZATION
-#define FOR_EACH_EXTENSION_FN(M)                                               \
-  M(clGetMemAllocInfoINTEL)                                                    \
-  M(clHostMemAllocINTEL)                                                       \
-  M(clDeviceMemAllocINTEL)                                                     \
-  M(clSharedMemAllocINTEL)                                                     \
-  M(clMemFreeINTEL)                                                            \
-  M(clSetKernelArgMemPointerINTEL)                                             \
-  M(clEnqueueMemcpyINTEL)                                                      \
-  M(clSetProgramSpecializationConstant)
+#define FOR_EACH_EXTENSION_FN(M) FOR_EACH_COMMON_EXTENSION_FN(M)
 #endif // INTEL_CUSTOMIZATION
 
 enum ExtensionIdTy {
@@ -226,9 +221,6 @@ cl_int TRACE_FN(clCompileProgram)(
     const char **header_include_names,
     void (CL_CALLBACK *pfn_notify)(cl_program, void *),
     void *user_data) {
-  auto rc = clCompileProgram(program, num_devices, device_list, options,
-      num_input_headers, input_headers, header_include_names, pfn_notify,
-      user_data);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(program);
   TRACE_FN_ARG_UINT(num_devices);
@@ -240,7 +232,9 @@ cl_int TRACE_FN(clCompileProgram)(
   TRACE_FN_ARG_PTR(pfn_notify);
   TRACE_FN_ARG_PTR(user_data);
   TRACE_FN_ARG_END();
-  return rc;
+  return clCompileProgram(program, num_devices, device_list, options,
+                          num_input_headers, input_headers,
+                          header_include_names, pfn_notify, user_data);
 }
 
 cl_int TRACE_FN(clBuildProgram)(
@@ -250,8 +244,6 @@ cl_int TRACE_FN(clBuildProgram)(
     const char *options,
     void (CL_CALLBACK *pfn_notify)(cl_program, void *),
     void *user_data) {
-  auto rc = clBuildProgram(program, num_devices, device_list, options,
-                           pfn_notify, user_data);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(program);
   TRACE_FN_ARG_UINT(num_devices);
@@ -260,7 +252,8 @@ cl_int TRACE_FN(clBuildProgram)(
   TRACE_FN_ARG_PTR(pfn_notify);
   TRACE_FN_ARG_PTR(user_data);
   TRACE_FN_ARG_END();
-  return rc;
+  return clBuildProgram(program, num_devices, device_list, options, pfn_notify,
+                        user_data);
 }
 
 cl_mem TRACE_FN(clCreateBuffer)(
@@ -269,7 +262,6 @@ cl_mem TRACE_FN(clCreateBuffer)(
     size_t size,
     void *host_ptr,
     cl_int *errcode_ret) {
-  auto ret = clCreateBuffer(context, flags, size, host_ptr, errcode_ret);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(context);
   TRACE_FN_ARG_ULONG(flags);
@@ -277,7 +269,7 @@ cl_mem TRACE_FN(clCreateBuffer)(
   TRACE_FN_ARG_PTR(host_ptr);
   TRACE_FN_ARG_PTR(errcode_ret);
   TRACE_FN_ARG_END();
-  return ret;
+  return clCreateBuffer(context, flags, size, host_ptr, errcode_ret);
 }
 
 cl_command_queue TRACE_FN(clCreateCommandQueueWithProperties)(
@@ -285,15 +277,14 @@ cl_command_queue TRACE_FN(clCreateCommandQueueWithProperties)(
     cl_device_id device,
     const cl_queue_properties *properties,
     cl_int *errcode_ret) {
-  auto ret = clCreateCommandQueueWithProperties(context, device, properties,
-                                                errcode_ret);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(context);
   TRACE_FN_ARG_PTR(device);
   TRACE_FN_ARG_PTR(properties);
   TRACE_FN_ARG_PTR(errcode_ret);
   TRACE_FN_ARG_END();
-  return ret;
+  return clCreateCommandQueueWithProperties(context, device, properties,
+                                            errcode_ret);
 }
 
 cl_context TRACE_FN(clCreateContext)(
@@ -303,8 +294,6 @@ cl_context TRACE_FN(clCreateContext)(
     void (CL_CALLBACK *pfn_notify)(const char *, const void *, size_t, void *),
     void *user_data,
     cl_int *errcode_ret) {
-  auto ret = clCreateContext(properties, num_devices, devices, pfn_notify,
-                             user_data, errcode_ret);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(properties);
   TRACE_FN_ARG_UINT(num_devices);
@@ -313,20 +302,20 @@ cl_context TRACE_FN(clCreateContext)(
   TRACE_FN_ARG_PTR(user_data);
   TRACE_FN_ARG_PTR(errcode_ret);
   TRACE_FN_ARG_END();
-  return ret;
+  return clCreateContext(properties, num_devices, devices, pfn_notify,
+                         user_data, errcode_ret);
 }
 
 cl_kernel TRACE_FN(clCreateKernel)(
     cl_program program,
     const char *kernel_name,
     cl_int *errcode_ret) {
-  auto ret = clCreateKernel(program, kernel_name, errcode_ret);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(program);
   TRACE_FN_ARG_PTR(kernel_name);
   TRACE_FN_ARG_PTR(errcode_ret);
   TRACE_FN_ARG_END();
-  return ret;
+  return clCreateKernel(program, kernel_name, errcode_ret);
 }
 
 cl_program TRACE_FN(clCreateProgramWithIL)(
@@ -334,14 +323,13 @@ cl_program TRACE_FN(clCreateProgramWithIL)(
     const void *il,
     size_t length,
     cl_int *errcode_ret) {
-  auto ret = clCreateProgramWithIL(context, il, length, errcode_ret);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(context);
   TRACE_FN_ARG_PTR(il);
   TRACE_FN_ARG_SIZE(length);
   TRACE_FN_ARG_PTR(errcode_ret);
   TRACE_FN_ARG_END();
-  return ret;
+  return clCreateProgramWithIL(context, il, length, errcode_ret);
 }
 
 cl_int TRACE_FN(clEnqueueBarrierWithWaitList)(
@@ -349,15 +337,14 @@ cl_int TRACE_FN(clEnqueueBarrierWithWaitList)(
     cl_uint num_events_in_wait_list,
     const cl_event *event_wait_list,
     cl_event *event) {
-  auto rc = clEnqueueBarrierWithWaitList(command_queue, num_events_in_wait_list,
-                                         event_wait_list, event);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(command_queue);
   TRACE_FN_ARG_UINT(num_events_in_wait_list);
   TRACE_FN_ARG_PTR(event_wait_list);
   TRACE_FN_ARG_PTR(event);
   TRACE_FN_ARG_END();
-  return rc;
+  return clEnqueueBarrierWithWaitList(command_queue, num_events_in_wait_list,
+                                      event_wait_list, event);
 }
 
 cl_int TRACE_FN(clEnqueueNDRangeKernel)(
@@ -370,9 +357,6 @@ cl_int TRACE_FN(clEnqueueNDRangeKernel)(
     cl_uint num_events_in_wait_list,
     const cl_event *event_wait_list,
     cl_event *event) {
-  auto rc = clEnqueueNDRangeKernel(command_queue, kernel, work_dim,
-      global_work_offset, global_work_size, local_work_size,
-      num_events_in_wait_list, event_wait_list, event);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(command_queue);
   TRACE_FN_ARG_PTR(kernel);
@@ -384,7 +368,10 @@ cl_int TRACE_FN(clEnqueueNDRangeKernel)(
   TRACE_FN_ARG_PTR(event_wait_list);
   TRACE_FN_ARG_PTR(event);
   TRACE_FN_ARG_END();
-  return rc;
+  return clEnqueueNDRangeKernel(command_queue, kernel, work_dim,
+                                global_work_offset, global_work_size,
+                                local_work_size, num_events_in_wait_list,
+                                event_wait_list, event);
 }
 
 cl_int TRACE_FN(clEnqueueReadBuffer)(
@@ -397,8 +384,6 @@ cl_int TRACE_FN(clEnqueueReadBuffer)(
     cl_uint num_events_in_wait_list,
     const cl_event *event_wait_list,
     cl_event *event) {
-  auto rc = clEnqueueReadBuffer(command_queue, buffer, blocking_read, offset,
-      size, ptr, num_events_in_wait_list, event_wait_list, event);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(command_queue);
   TRACE_FN_ARG_PTR(buffer);
@@ -410,7 +395,9 @@ cl_int TRACE_FN(clEnqueueReadBuffer)(
   TRACE_FN_ARG_PTR(event_wait_list);
   TRACE_FN_ARG_PTR(event);
   TRACE_FN_ARG_END();
-  return rc;
+  return clEnqueueReadBuffer(command_queue, buffer, blocking_read, offset, size,
+                             ptr, num_events_in_wait_list, event_wait_list,
+                             event);
 }
 
 cl_int TRACE_FN(clEnqueueSVMMap)(
@@ -422,8 +409,6 @@ cl_int TRACE_FN(clEnqueueSVMMap)(
     cl_uint num_events_in_wait_list,
     const cl_event *event_wait_list,
     cl_event *event) {
-  auto rc = clEnqueueSVMMap(command_queue, blocking_map, flags, svm_ptr, size,
-                            num_events_in_wait_list, event_wait_list, event);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(command_queue);
   TRACE_FN_ARG_UINT(blocking_map);
@@ -434,7 +419,8 @@ cl_int TRACE_FN(clEnqueueSVMMap)(
   TRACE_FN_ARG_PTR(event_wait_list);
   TRACE_FN_ARG_PTR(event);
   TRACE_FN_ARG_END();
-  return rc;
+  return clEnqueueSVMMap(command_queue, blocking_map, flags, svm_ptr, size,
+                         num_events_in_wait_list, event_wait_list, event);
 }
 
 cl_int TRACE_FN(clEnqueueSVMMemcpy)(
@@ -446,8 +432,6 @@ cl_int TRACE_FN(clEnqueueSVMMemcpy)(
     cl_uint num_events_in_wait_list,
     const cl_event *event_wait_list,
     cl_event *event) {
-  auto rc = clEnqueueSVMMemcpy(command_queue, blocking_copy, dst_ptr, src_ptr,
-      size, num_events_in_wait_list, event_wait_list, event);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(command_queue);
   TRACE_FN_ARG_UINT(blocking_copy);
@@ -458,7 +442,9 @@ cl_int TRACE_FN(clEnqueueSVMMemcpy)(
   TRACE_FN_ARG_PTR(event_wait_list);
   TRACE_FN_ARG_PTR(event);
   TRACE_FN_ARG_END();
-  return rc;
+  return clEnqueueSVMMemcpy(command_queue, blocking_copy, dst_ptr, src_ptr,
+                            size, num_events_in_wait_list, event_wait_list,
+                            event);
 }
 
 cl_int TRACE_FN(clEnqueueMemcpyINTEL)(
@@ -471,8 +457,6 @@ cl_int TRACE_FN(clEnqueueMemcpyINTEL)(
     cl_uint num_events_in_wait_list,
     const cl_event *event_wait_list,
     cl_event *event) {
-  auto rc = (*funcptr)(command_queue, blocking, dst_ptr, src_ptr, size,
-                       num_events_in_wait_list, event_wait_list, event);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(command_queue);
   TRACE_FN_ARG_UINT(blocking);
@@ -483,7 +467,8 @@ cl_int TRACE_FN(clEnqueueMemcpyINTEL)(
   TRACE_FN_ARG_PTR(event_wait_list);
   TRACE_FN_ARG_PTR(event);
   TRACE_FN_ARG_END();
-  return rc;
+  return funcptr(command_queue, blocking, dst_ptr, src_ptr, size,
+                 num_events_in_wait_list, event_wait_list, event);
 }
 
 cl_int TRACE_FN(clEnqueueSVMUnmap)(
@@ -492,8 +477,6 @@ cl_int TRACE_FN(clEnqueueSVMUnmap)(
     cl_uint num_events_in_wait_list,
     const cl_event *event_wait_list,
     cl_event *event) {
-  auto rc = clEnqueueSVMUnmap(command_queue, svm_ptr, num_events_in_wait_list,
-                              event_wait_list, event);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(command_queue);
   TRACE_FN_ARG_PTR(svm_ptr);
@@ -501,7 +484,8 @@ cl_int TRACE_FN(clEnqueueSVMUnmap)(
   TRACE_FN_ARG_PTR(event_wait_list);
   TRACE_FN_ARG_PTR(event);
   TRACE_FN_ARG_END();
-  return rc;
+  return clEnqueueSVMUnmap(command_queue, svm_ptr, num_events_in_wait_list,
+                           event_wait_list, event);
 }
 
 cl_int TRACE_FN(clEnqueueWriteBuffer)(
@@ -514,8 +498,6 @@ cl_int TRACE_FN(clEnqueueWriteBuffer)(
     cl_uint num_events_in_wait_list,
     const cl_event *event_wait_list,
     cl_event *event) {
-  auto rc = clEnqueueWriteBuffer(command_queue, buffer, blocking_write, offset,
-      size, ptr, num_events_in_wait_list, event_wait_list, event);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(command_queue);
   TRACE_FN_ARG_PTR(buffer);
@@ -527,29 +509,29 @@ cl_int TRACE_FN(clEnqueueWriteBuffer)(
   TRACE_FN_ARG_PTR(event_wait_list);
   TRACE_FN_ARG_PTR(event);
   TRACE_FN_ARG_END();
-  return rc;
+  return clEnqueueWriteBuffer(command_queue, buffer, blocking_write, offset,
+                              size, ptr, num_events_in_wait_list,
+                              event_wait_list, event);
 }
 
 cl_int TRACE_FN(clFinish)(
     cl_command_queue command_queue) {
-  auto rc = clFinish(command_queue);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(command_queue);
   TRACE_FN_ARG_END();
-  return rc;
+  return clFinish(command_queue);
 }
 
 cl_int TRACE_FN(clGetDeviceAndHostTimer)(
     cl_device_id device,
     cl_ulong *device_timestamp,
     cl_ulong *host_timestamp) {
-  auto rc = clGetDeviceAndHostTimer(device, device_timestamp, host_timestamp);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(device);
   TRACE_FN_ARG_PTR(device_timestamp);
   TRACE_FN_ARG_PTR(host_timestamp);
   TRACE_FN_ARG_END();
-  return rc;
+  return clGetDeviceAndHostTimer(device, device_timestamp, host_timestamp);
 }
 
 cl_int TRACE_FN(clGetDeviceIDs)(
@@ -558,8 +540,6 @@ cl_int TRACE_FN(clGetDeviceIDs)(
     cl_uint num_entries,
     cl_device_id *devices,
     cl_uint *num_devices) {
-  auto rc = clGetDeviceIDs(platform, device_type, num_entries, devices,
-                           num_devices);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(platform);
   TRACE_FN_ARG_ULONG(device_type);
@@ -567,7 +547,8 @@ cl_int TRACE_FN(clGetDeviceIDs)(
   TRACE_FN_ARG_PTR(devices);
   TRACE_FN_ARG_PTR(num_devices);
   TRACE_FN_ARG_END();
-  return rc;
+  return clGetDeviceIDs(platform, device_type, num_entries, devices,
+                        num_devices);
 }
 
 cl_int TRACE_FN(clGetDeviceInfo)(
@@ -576,8 +557,6 @@ cl_int TRACE_FN(clGetDeviceInfo)(
     size_t param_value_size,
     void *param_value,
     size_t *param_value_size_ret) {
-  auto rc = clGetDeviceInfo(device, param_name, param_value_size, param_value,
-                            param_value_size_ret);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(device);
   TRACE_FN_ARG_UINT(param_name);
@@ -585,7 +564,8 @@ cl_int TRACE_FN(clGetDeviceInfo)(
   TRACE_FN_ARG_PTR(param_value);
   TRACE_FN_ARG_PTR(param_value_size_ret);
   TRACE_FN_ARG_END();
-  return rc;
+  return clGetDeviceInfo(device, param_name, param_value_size, param_value,
+                         param_value_size_ret);
 }
 
 cl_int TRACE_FN(clGetEventInfo)(
@@ -594,8 +574,6 @@ cl_int TRACE_FN(clGetEventInfo)(
     size_t param_value_size,
     void *param_value,
     size_t *param_value_size_ret) {
-  auto rc = clGetEventInfo(event, param_name, param_value_size, param_value,
-                           param_value_size_ret);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(event);
   TRACE_FN_ARG_UINT(param_name);
@@ -603,7 +581,8 @@ cl_int TRACE_FN(clGetEventInfo)(
   TRACE_FN_ARG_PTR(param_value);
   TRACE_FN_ARG_PTR(param_value_size_ret);
   TRACE_FN_ARG_END();
-  return rc;
+  return clGetEventInfo(event, param_name, param_value_size, param_value,
+                        param_value_size_ret);
 }
 
 cl_int TRACE_FN(clGetEventProfilingInfo)(
@@ -612,8 +591,6 @@ cl_int TRACE_FN(clGetEventProfilingInfo)(
     size_t param_value_size,
     void *param_value,
     size_t *param_value_size_ret) {
-  auto rc = clGetEventProfilingInfo(event, param_name, param_value_size,
-                                    param_value, param_value_size_ret);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(event);
   TRACE_FN_ARG_UINT(param_name);
@@ -621,18 +598,18 @@ cl_int TRACE_FN(clGetEventProfilingInfo)(
   TRACE_FN_ARG_PTR(param_value);
   TRACE_FN_ARG_PTR(param_value_size_ret);
   TRACE_FN_ARG_END();
-  return rc;
+  return clGetEventProfilingInfo(event, param_name, param_value_size,
+                                 param_value, param_value_size_ret);
 }
 
 void *TRACE_FN(clGetExtensionFunctionAddressForPlatform)(
     cl_platform_id platform,
     const char *funcname) {
-  auto ret = clGetExtensionFunctionAddressForPlatform(platform, funcname);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(platform);
   TRACE_FN_ARG_PTR(funcname);
   TRACE_FN_ARG_END();
-  return ret;
+  return clGetExtensionFunctionAddressForPlatform(platform, funcname);
 }
 
 cl_int TRACE_FN(clGetKernelArgInfo)(
@@ -642,8 +619,6 @@ cl_int TRACE_FN(clGetKernelArgInfo)(
     size_t param_value_size,
     void *param_value,
     size_t *param_value_size_ret) {
-  auto rc = clGetKernelArgInfo(kernel, arg_index, param_name, param_value_size,
-                               param_value, param_value_size_ret);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(kernel);
   TRACE_FN_ARG_UINT(arg_index);
@@ -652,7 +627,8 @@ cl_int TRACE_FN(clGetKernelArgInfo)(
   TRACE_FN_ARG_PTR(param_value);
   TRACE_FN_ARG_PTR(param_value_size_ret);
   TRACE_FN_ARG_END();
-  return rc;
+  return clGetKernelArgInfo(kernel, arg_index, param_name, param_value_size,
+                            param_value, param_value_size_ret);
 }
 
 cl_int TRACE_FN(clGetKernelInfo)(
@@ -661,8 +637,6 @@ cl_int TRACE_FN(clGetKernelInfo)(
     size_t param_value_size,
     void *param_value,
     size_t *param_value_size_ret) {
-  auto rc = clGetKernelInfo(kernel, param_name, param_value_size, param_value,
-                            param_value_size_ret);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(kernel);
   TRACE_FN_ARG_UINT(param_name);
@@ -670,7 +644,8 @@ cl_int TRACE_FN(clGetKernelInfo)(
   TRACE_FN_ARG_PTR(param_value);
   TRACE_FN_ARG_PTR(param_value_size_ret);
   TRACE_FN_ARG_END();
-  return rc;
+  return clGetKernelInfo(kernel, param_name, param_value_size, param_value,
+                         param_value_size_ret);
 }
 
 cl_int TRACE_FN(clGetKernelSubGroupInfo)(
@@ -682,9 +657,6 @@ cl_int TRACE_FN(clGetKernelSubGroupInfo)(
     size_t param_value_size,
     void *param_value,
     size_t *param_value_size_ret) {
-  auto rc = clGetKernelSubGroupInfo(kernel, device, param_name,
-      input_value_size, input_value, param_value_size, param_value,
-      param_value_size_ret);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(kernel);
   TRACE_FN_ARG_PTR(device);
@@ -695,7 +667,9 @@ cl_int TRACE_FN(clGetKernelSubGroupInfo)(
   TRACE_FN_ARG_PTR(param_value);
   TRACE_FN_ARG_PTR(param_value_size_ret);
   TRACE_FN_ARG_END();
-  return rc;
+  return clGetKernelSubGroupInfo(kernel, device, param_name, input_value_size,
+                                 input_value, param_value_size, param_value,
+                                 param_value_size_ret);
 }
 
 cl_int TRACE_FN(clGetKernelWorkGroupInfo)(
@@ -705,8 +679,6 @@ cl_int TRACE_FN(clGetKernelWorkGroupInfo)(
     size_t param_value_size,
     void *param_value,
     size_t *param_value_size_ret) {
-  auto rc = clGetKernelWorkGroupInfo(kernel, device, param_name,
-      param_value_size, param_value, param_value_size_ret);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(kernel);
   TRACE_FN_ARG_PTR(device);
@@ -715,7 +687,8 @@ cl_int TRACE_FN(clGetKernelWorkGroupInfo)(
   TRACE_FN_ARG_PTR(param_value);
   TRACE_FN_ARG_PTR(param_value_size_ret);
   TRACE_FN_ARG_END();
-  return rc;
+  return clGetKernelWorkGroupInfo(kernel, device, param_name, param_value_size,
+                                  param_value, param_value_size_ret);
 }
 
 cl_int TRACE_FN(clGetMemAllocInfoINTEL)(
@@ -726,8 +699,6 @@ cl_int TRACE_FN(clGetMemAllocInfoINTEL)(
     size_t param_value_size,
     void *param_value,
     size_t *param_value_size_ret) {
-  auto rc = (*funcptr)(context, ptr, param_name, param_value_size, param_value,
-                       param_value_size_ret);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(context);
   TRACE_FN_ARG_PTR(ptr);
@@ -736,20 +707,20 @@ cl_int TRACE_FN(clGetMemAllocInfoINTEL)(
   TRACE_FN_ARG_PTR(param_value);
   TRACE_FN_ARG_PTR(param_value_size_ret);
   TRACE_FN_ARG_END();
-  return rc;
+  return funcptr(context, ptr, param_name, param_value_size, param_value,
+                 param_value_size_ret);
 }
 
 cl_int TRACE_FN(clGetPlatformIDs)(
     cl_uint num_entries,
     cl_platform_id *platforms,
     cl_uint *num_platforms) {
-  auto rc = clGetPlatformIDs(num_entries, platforms, num_platforms);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_UINT(num_entries);
   TRACE_FN_ARG_PTR(platforms);
   TRACE_FN_ARG_PTR(num_platforms);
   TRACE_FN_ARG_END();
-  return rc;
+  return clGetPlatformIDs(num_entries, platforms, num_platforms);
 }
 
 cl_int TRACE_FN(clGetPlatformInfo)(
@@ -758,8 +729,6 @@ cl_int TRACE_FN(clGetPlatformInfo)(
     size_t param_value_size,
     void *param_value,
     size_t *param_value_size_ret) {
-  auto rc = clGetPlatformInfo(platform, param_name, param_value_size,
-                              param_value, param_value_size_ret);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(platform);
   TRACE_FN_ARG_UINT(param_name);
@@ -767,7 +736,8 @@ cl_int TRACE_FN(clGetPlatformInfo)(
   TRACE_FN_ARG_PTR(param_value);
   TRACE_FN_ARG_PTR(param_value_size_ret);
   TRACE_FN_ARG_END();
-  return rc;
+  return clGetPlatformInfo(platform, param_name, param_value_size, param_value,
+                           param_value_size_ret);
 }
 
 cl_int TRACE_FN(clGetProgramBuildInfo)(
@@ -777,8 +747,6 @@ cl_int TRACE_FN(clGetProgramBuildInfo)(
     size_t param_value_size,
     void *param_value,
     size_t *param_value_size_ret) {
-  auto rc = clGetProgramBuildInfo(program, device, param_name, param_value_size,
-                                  param_value, param_value_size_ret);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(program);
   TRACE_FN_ARG_PTR(device);
@@ -787,7 +755,8 @@ cl_int TRACE_FN(clGetProgramBuildInfo)(
   TRACE_FN_ARG_PTR(param_value);
   TRACE_FN_ARG_PTR(param_value_size_ret);
   TRACE_FN_ARG_END();
-  return rc;
+  return clGetProgramBuildInfo(program, device, param_name, param_value_size,
+                               param_value, param_value_size_ret);
 }
 
 void *TRACE_FN(clHostMemAllocINTEL)(
@@ -797,7 +766,6 @@ void *TRACE_FN(clHostMemAllocINTEL)(
     size_t size,
     cl_uint alignment,
     cl_int *errcode_ret) {
-  auto ret = (*funcptr)(context, properties, size, alignment, errcode_ret);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(context);
   TRACE_FN_ARG_PTR(properties);
@@ -805,7 +773,7 @@ void *TRACE_FN(clHostMemAllocINTEL)(
   TRACE_FN_ARG_UINT(alignment);
   TRACE_FN_ARG_PTR(errcode_ret);
   TRACE_FN_ARG_END();
-  return ret;
+  return funcptr(context, properties, size, alignment, errcode_ret);
 }
 
 void *TRACE_FN(clDeviceMemAllocINTEL)(
@@ -816,8 +784,6 @@ void *TRACE_FN(clDeviceMemAllocINTEL)(
     size_t size,
     cl_uint alignment,
     cl_int *errcode_ret) {
-  auto ret = (*funcptr)(context, device, properties, size, alignment,
-                        errcode_ret);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(context);
   TRACE_FN_ARG_PTR(device);
@@ -826,7 +792,7 @@ void *TRACE_FN(clDeviceMemAllocINTEL)(
   TRACE_FN_ARG_UINT(alignment);
   TRACE_FN_ARG_PTR(errcode_ret);
   TRACE_FN_ARG_END();
-  return ret;
+  return funcptr(context, device, properties, size, alignment, errcode_ret);
 }
 
 cl_program TRACE_FN(clLinkProgram)(
@@ -839,8 +805,6 @@ cl_program TRACE_FN(clLinkProgram)(
     void (CL_CALLBACK *pfn_notify)(cl_program, void *),
     void *user_data,
     cl_int *errcode_ret) {
-  auto ret = clLinkProgram(context, num_devices, device_list, options,
-      num_input_programs, input_programs, pfn_notify, user_data, errcode_ret);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(context);
   TRACE_FN_ARG_UINT(num_devices);
@@ -851,7 +815,9 @@ cl_program TRACE_FN(clLinkProgram)(
   TRACE_FN_ARG_PTR(pfn_notify);
   TRACE_FN_ARG_PTR(user_data);
   TRACE_FN_ARG_END();
-  return ret;
+  return clLinkProgram(context, num_devices, device_list, options,
+                       num_input_programs, input_programs, pfn_notify,
+                       user_data, errcode_ret);
 }
 
 cl_program TRACE_FN(clCreateProgramWithBinary)(
@@ -862,10 +828,6 @@ cl_program TRACE_FN(clCreateProgramWithBinary)(
     const unsigned char **binaries,
     cl_int *binary_status,
     cl_int *errcode_ret) {
-  auto ret = clCreateProgramWithBinary(context, num_devices,
-                                       device_list, lengths,
-                                       binaries, binary_status,
-                                       errcode_ret);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(context);
   TRACE_FN_ARG_UINT(num_devices);
@@ -874,64 +836,59 @@ cl_program TRACE_FN(clCreateProgramWithBinary)(
   TRACE_FN_ARG_PTR(binaries);
   TRACE_FN_ARG_PTR(binary_status);
   TRACE_FN_ARG_END();
-  return ret;
+  return clCreateProgramWithBinary(context, num_devices, device_list, lengths,
+                                   binaries, binary_status, errcode_ret);
 }
 
 cl_int TRACE_FN(clMemFreeINTEL)(
     clMemFreeINTEL_fn funcptr,
     cl_context context,
     void *ptr) {
-  auto rc = (*funcptr)(context, ptr);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(context);
   TRACE_FN_ARG_PTR(ptr);
   TRACE_FN_ARG_END();
-  return rc;
+  return funcptr(context, ptr);
 }
 
 cl_int TRACE_FN(clReleaseCommandQueue)(
     cl_command_queue command_queue) {
-  auto rc = clReleaseCommandQueue(command_queue);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(command_queue);
   TRACE_FN_ARG_END();
-  return rc;
+  return clReleaseCommandQueue(command_queue);
 }
 
 cl_int TRACE_FN(clReleaseContext)(
     cl_context context) {
-  auto rc = clReleaseContext(context);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(context);
   TRACE_FN_ARG_END();
-  return rc;
+  return clReleaseContext(context);
 }
 
 cl_int TRACE_FN(clReleaseKernel)(
     cl_kernel kernel) {
-  auto rc = clReleaseKernel(kernel);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(kernel);
   TRACE_FN_ARG_END();
-  return rc;
+  return clReleaseKernel(kernel);
 }
 
 cl_int TRACE_FN(clReleaseMemObject)(
     cl_mem memobj) {
-  auto rc = clReleaseMemObject(memobj);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(memobj);
   TRACE_FN_ARG_END();
-  return rc;
+  return clReleaseMemObject(memobj);
 }
 
 cl_int TRACE_FN(clReleaseProgram)(
     cl_program program) {
-  auto rc = clReleaseProgram(program);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(program);
   TRACE_FN_ARG_END();
-  return rc;
+  return clReleaseProgram(program);
 }
 
 cl_int TRACE_FN(clSetEventCallback)(
@@ -939,15 +896,14 @@ cl_int TRACE_FN(clSetEventCallback)(
     cl_int command_exec_callback_type,
     void (CL_CALLBACK *pfn_notify)(cl_event, cl_int, void *),
     void *user_data) {
-  auto rc = clSetEventCallback(event, command_exec_callback_type, pfn_notify,
-                               user_data);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(event);
   TRACE_FN_ARG_INT(command_exec_callback_type);
   TRACE_FN_ARG_PTR(pfn_notify);
   TRACE_FN_ARG_PTR(user_data);
   TRACE_FN_ARG_END();
-  return rc;
+  return clSetEventCallback(event, command_exec_callback_type, pfn_notify,
+                            user_data);
 }
 
 cl_int TRACE_FN(clSetKernelArg)(
@@ -955,27 +911,25 @@ cl_int TRACE_FN(clSetKernelArg)(
     cl_uint arg_index,
     size_t arg_size,
     const void *arg_value) {
-  auto rc = clSetKernelArg(kernel, arg_index, arg_size, arg_value);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(kernel);
   TRACE_FN_ARG_UINT(arg_index);
   TRACE_FN_ARG_SIZE(arg_size);
   TRACE_FN_ARG_PTR(arg_value);
   TRACE_FN_ARG_END();
-  return rc;
+  return clSetKernelArg(kernel, arg_index, arg_size, arg_value);
 }
 
 cl_int TRACE_FN(clSetKernelArgSVMPointer)(
     cl_kernel kernel,
     cl_uint arg_index,
     const void *arg_value) {
-  auto rc = clSetKernelArgSVMPointer(kernel, arg_index, arg_value);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(kernel);
   TRACE_FN_ARG_UINT(arg_index);
   TRACE_FN_ARG_PTR(arg_value);
   TRACE_FN_ARG_END();
-  return rc;
+  return clSetKernelArgSVMPointer(kernel, arg_index, arg_value);
 }
 
 cl_int TRACE_FN(clSetKernelArgMemPointerINTEL)(
@@ -983,13 +937,12 @@ cl_int TRACE_FN(clSetKernelArgMemPointerINTEL)(
     cl_kernel kernel,
     cl_uint arg_index,
     const void *arg_value) {
-  auto rc = (*funcptr)(kernel, arg_index, arg_value);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(kernel);
   TRACE_FN_ARG_UINT(arg_index);
   TRACE_FN_ARG_PTR(arg_value);
   TRACE_FN_ARG_END();
-  return rc;
+  return funcptr(kernel, arg_index, arg_value);
 }
 
 cl_int TRACE_FN(clSetKernelExecInfo)(
@@ -997,15 +950,13 @@ cl_int TRACE_FN(clSetKernelExecInfo)(
     cl_kernel_exec_info param_name,
     size_t param_value_size,
     const void *param_value) {
-  auto rc = clSetKernelExecInfo(kernel, param_name, param_value_size,
-                                param_value);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(kernel);
   TRACE_FN_ARG_UINT(param_name);
   TRACE_FN_ARG_SIZE(param_value_size);
   TRACE_FN_ARG_PTR(param_value);
   TRACE_FN_ARG_END();
-  return rc;
+  return clSetKernelExecInfo(kernel, param_name, param_value_size, param_value);
 }
 
 void *TRACE_FN(clSharedMemAllocINTEL)(
@@ -1016,8 +967,6 @@ void *TRACE_FN(clSharedMemAllocINTEL)(
     size_t size,
     cl_uint alignment,
     cl_int *errcode_ret) {
-  auto ret = (*funcptr)(context, device, properties, size, alignment,
-                        errcode_ret);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(context);
   TRACE_FN_ARG_PTR(device);
@@ -1026,7 +975,7 @@ void *TRACE_FN(clSharedMemAllocINTEL)(
   TRACE_FN_ARG_UINT(alignment);
   TRACE_FN_ARG_PTR(errcode_ret);
   TRACE_FN_ARG_END();
-  return ret;
+  return funcptr(context, device, properties, size, alignment, errcode_ret);
 }
 
 void *TRACE_FN(clSVMAlloc)(
@@ -1034,38 +983,35 @@ void *TRACE_FN(clSVMAlloc)(
     cl_svm_mem_flags flags,
     size_t size,
     cl_uint alignment) {
-  auto ret = clSVMAlloc(context, flags, size, alignment);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(context);
   TRACE_FN_ARG_ULONG(flags);
   TRACE_FN_ARG_SIZE(size);
   TRACE_FN_ARG_UINT(alignment);
   TRACE_FN_ARG_END();
-  return ret;
+  return clSVMAlloc(context, flags, size, alignment);
 }
 
 void TRACE_FN(clSVMFree)(
     cl_context context,
     void *svm_pointer) {
-  clSVMFree(context, svm_pointer);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(context);
   TRACE_FN_ARG_PTR(svm_pointer);
   TRACE_FN_ARG_END();
+  clSVMFree(context, svm_pointer);
 }
 
 cl_int TRACE_FN(clWaitForEvents)(
     cl_uint num_events,
     const cl_event *event_list) {
-  auto rc = clWaitForEvents(num_events, event_list);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_UINT(num_events);
   TRACE_FN_ARG_PTR(event_list);
   TRACE_FN_ARG_END();
-  return rc;
+  return clWaitForEvents(num_events, event_list);
 }
 
-#if INTEL_CUSTOMIZATION
 cl_int TRACE_FN(clGetKernelSuggestedLocalWorkSizeINTEL)(
     clGetKernelSuggestedLocalWorkSizeINTEL_fn funcptr,
     cl_command_queue command_queue,
@@ -1074,8 +1020,6 @@ cl_int TRACE_FN(clGetKernelSuggestedLocalWorkSizeINTEL)(
     const size_t *global_work_offset,
     const size_t *global_work_size,
     size_t *suggested_local_work_size) {
-  auto rc = funcptr(command_queue, kernel, work_dim, global_work_offset,
-                    global_work_size, suggested_local_work_size);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(command_queue);
   TRACE_FN_ARG_PTR(kernel);
@@ -1084,9 +1028,9 @@ cl_int TRACE_FN(clGetKernelSuggestedLocalWorkSizeINTEL)(
   TRACE_FN_ARG_PTR(global_work_size);
   TRACE_FN_ARG_PTR(suggested_local_work_size);
   TRACE_FN_ARG_END();
-  return rc;
+  return funcptr(command_queue, kernel, work_dim, global_work_offset,
+                 global_work_size, suggested_local_work_size);
 }
-#endif // INTEL_CUSTOMIZATION
 
 cl_int TRACE_FN(clSetProgramSpecializationConstant)(
     clSetProgramSpecializationConstant_fn funcptr,
@@ -1094,14 +1038,13 @@ cl_int TRACE_FN(clSetProgramSpecializationConstant)(
     cl_uint spec_id,
     size_t spec_size,
     const void* spec_value) {
-  auto rc = funcptr(program, spec_id, spec_size, spec_value);
   TRACE_FN_ARG_BEGIN();
   TRACE_FN_ARG_PTR(program);
   TRACE_FN_ARG_UINT(spec_id);
   TRACE_FN_ARG_SIZE(spec_size);
   TRACE_FN_ARG_PTR(spec_value);
   TRACE_FN_ARG_END();
-  return rc;
+  return funcptr(program, spec_id, spec_size, spec_value);
 }
 
 /// Calls without error check

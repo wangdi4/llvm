@@ -285,6 +285,7 @@ EXTERN int32_t __tgt_rtl_is_supported_device(int32_t ID, void *DeviceType);
 // Deinit RTL
 EXTERN void __tgt_rtl_deinit(void);
 
+#if INTEL_CUSTOMIZATION
 // Create OpenMP interop with the given interop context
 EXTERN __tgt_interop *__tgt_rtl_create_interop(
     int32_t ID, int32_t InteropContext, int32_t NumPrefers,
@@ -310,6 +311,7 @@ EXTERN const char *__tgt_rtl_get_interop_property_info(
 
 // Get interop return code description from plugin
 EXTERN const char *__tgt_rtl_get_interop_rc_desc(int32_t ID, int32_t Rc);
+#endif // INTEL_CUSTOMIZATION
 
 // Return number of available sub-devices at the given level
 EXTERN int32_t __tgt_rtl_get_num_sub_devices(int32_t ID, int32_t Level);

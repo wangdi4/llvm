@@ -77,6 +77,7 @@ struct RTLInfoTy {
   typedef void (add_build_options_ty)(const char *, const char *);
   typedef int32_t(is_supported_device_ty)(int32_t, void *);
   typedef void (deinit_ty)(void);
+#if INTEL_CUSTOMIZATION
   typedef __tgt_interop *(create_interop_ty)(int32_t, int32_t, int32_t,
                                              intptr_t *);
   typedef int32_t(release_interop_ty)(int32_t, __tgt_interop *);
@@ -87,6 +88,7 @@ struct RTLInfoTy {
                                                  void *);
   typedef const char *(get_interop_property_info_ty)(int32_t, int32_t, int32_t);
   typedef const char *(get_interop_rc_desc_ty)(int32_t, int32_t);
+#endif // INTEL_CUSTOMIZATION
   typedef int32_t(get_num_sub_devices_ty)(int32_t, int32_t);
   typedef int32_t(is_accessible_addr_range_ty)(int32_t, const void *, size_t);
   typedef int32_t(notify_indirect_access_ty)(int32_t, const void *, size_t);
@@ -172,6 +174,7 @@ struct RTLInfoTy {
   add_build_options_ty *add_build_options = nullptr;
   is_supported_device_ty *is_supported_device = nullptr;
   deinit_ty *deinit = nullptr;
+#if INTEL_CUSTOMIZATION
   create_interop_ty *create_interop = nullptr;
   release_interop_ty *release_interop = nullptr;
   use_interop_ty *use_interop = nullptr;
@@ -179,6 +182,7 @@ struct RTLInfoTy {
   get_interop_property_value_ty *get_interop_property_value = nullptr;
   get_interop_property_info_ty *get_interop_property_info = nullptr;
   get_interop_rc_desc_ty *get_interop_rc_desc = nullptr;
+#endif // INTEL_CUSTOMIZATION
   get_num_sub_devices_ty *get_num_sub_devices = nullptr;
   is_accessible_addr_range_ty *is_accessible_addr_range = nullptr;
   notify_indirect_access_ty *notify_indirect_access = nullptr;
