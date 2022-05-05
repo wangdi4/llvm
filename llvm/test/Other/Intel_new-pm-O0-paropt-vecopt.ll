@@ -80,6 +80,7 @@
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-NEXT: Running analysis: AAManager on foo
 ;CHECK-NEXT: Running analysis: BasicAA on foo
+;CHECK-NEXT: Running pass: VPlanPragmaOmpSimdIfPass on foo
 ;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running pass: VPlanPragmaOmpOrderedSimdExtractPass on [module]
 ;CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{.*Function.*}}, llvm::Module> on [module]

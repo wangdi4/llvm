@@ -241,6 +241,7 @@
 #include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 #include "llvm/Transforms/Vectorize/IntelVPlanFunctionVectorizer.h"
 #include "llvm/Transforms/Vectorize/IntelVPlanPragmaOmpOrderedSimdExtract.h"
+#include "llvm/Transforms/Vectorize/IntelVPlanPragmaOmpSimdIf.h"
 
 // Analysis passes
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
@@ -1857,6 +1858,8 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, FunctionPassManager &FPM,
   // assetion failure as the feature matures.
   if (RunVec || EnableDeviceSimd) {
     if (EnableDeviceSimd || (OptLevel == 0 && RunVPOVecopt)) {
+      // Makes sure #pragma omp if clause will be reduced before VPlan pass
+      FPM.addPass(VPlanPragmaOmpSimdIfPass());
       // LegacyPM calls an equivalent addFunctionSimplificationPasses,
       // which internally asserts that OptLevel is >= 1. With New PM,
       // the same assertion happens inside buildFunctionSimplificationPipeline.
@@ -2206,6 +2209,12 @@ void PassBuilder::addLoopOptAndAssociatedVPOPasses(ModulePassManager &MPM,
     // harder, so run CSE here to do some clean-up before HIR construction.
     FPM.addPass(EarlyCSEPass());
   }
+
+  // Enable VPlanPragmaOmpSimdIfPass pass only in case VPlan pass will be
+  // enabled after that
+  if (RunVPOOpt && EnableVPlanDriver)
+    // Makes sure #pragma omp if clause will be reduced before VPlan pass
+    FPM.addPass(VPlanPragmaOmpSimdIfPass());
 
   if (RunVPOOpt && EnableVPlanDriver && RunPreLoopOptVPOPasses) {
     // Run LLVM-IR VPlan vectorizer before loopopt to vectorize all explicit
