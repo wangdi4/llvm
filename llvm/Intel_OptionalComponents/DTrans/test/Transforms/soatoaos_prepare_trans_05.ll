@@ -197,13 +197,13 @@
 ; CHECK: ret void
 
 ; Make sure argument of AppendElem is demoted.
-; CHECK: define void @_ZN1FC2Ev{{.*}}(
+; CHECK: define internal void @_ZN1FC2Ev{{.*}}(
 ; CHECK: %0 = alloca i16**
 ; CHECK:   store i16** null, i16*** %0
 ; CHECK: tail call void @_ZN7BaseArrIPsE3addEPS0_{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr* nocapture %12, i16*** nocapture readonly %0)
 
 ; Make sure new simple SetElem function is created
-; CHECK: define void @_ZN7BaseArrIPsE3setEjPS0_{{.*}}{{.*}}{{.*}}
+; CHECK: define internal void @_ZN7BaseArrIPsE3setEjPS0_{{.*}}{{.*}}{{.*}}
 ; CHECK:   %3 = getelementptr inbounds %_DPRE__REP_struct.RefArr, %_DPRE__REP_struct.RefArr* %0, i64 0, i32 3
 ; CHECK:  %4 = load i16***, i16**** %3, align 8
 ; CHECK:  %5 = zext i32 %2 to i64
@@ -212,7 +212,7 @@
 ; CHECK:   ret void
 
 ; Make sure new simple CCtor function is created
-; CHECK: define void @_ZN7BaseArrIPsEC2EjbP3Mem{{.*}}{{.*}}{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr* nocapture %0, %_DPRE__REP_struct.RefArr* nocapture readonly %1)
+; CHECK: define internal void @_ZN7BaseArrIPsEC2EjbP3Mem{{.*}}{{.*}}{{.*}}{{.*}}(%_DPRE__REP_struct.RefArr* nocapture %0, %_DPRE__REP_struct.RefArr* nocapture readonly %1)
 ; CHECK:  %2 = getelementptr %_DPRE__REP_struct.RefArr, %_DPRE__REP_struct.RefArr* %1, i64 0, i32 0
 ; CHECK:  %3 = load i8, i8* %2
 ; CHECK:  %flag = getelementptr inbounds %_DPRE__REP_struct.RefArr, %_DPRE__REP_struct.RefArr* %0, i64 0, i32 0

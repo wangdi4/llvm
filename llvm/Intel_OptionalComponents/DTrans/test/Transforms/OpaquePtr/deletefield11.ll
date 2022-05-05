@@ -57,7 +57,7 @@ define i32 @doSomething(%struct.test* "intel_dtrans_func_index"="1" %p_test) !in
   ret i32 %valA
 }
 
-; CHECK-LABEL: define i32 @doSomething
+; CHECK-LABEL: define internal i32 @doSomething
 ; CHECK: %mul.dt = mul i32 32, %valC
 ; CHECK: %mul = mul i32 64, %valC
 ; CHECK: %sz = zext i32 %mul.dt to i64

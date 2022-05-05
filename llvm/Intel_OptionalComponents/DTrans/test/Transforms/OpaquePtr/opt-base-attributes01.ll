@@ -91,7 +91,7 @@ define i32 @test04callee(<{ %struct.test01a, i32, %struct.test01a }>* "intel_dtr
 ; CHECK-NONOPAQUE: define internal void @test03callee.3
 ; CHECK-NONOPAQUE-SAME: sret(%__DDT_struct.test01b)
 
-; CHECK-NONOPAQUE: define i32 @test04callee.4
+; CHECK-NONOPAQUE: define internal i32 @test04callee.4
 ; CHECK-NONOPAQUE-SAME: preallocated(<{ %__DTT_struct.test01a, i32, %__DTT_struct.test01a }>
 
 !1 = !{i32 0, i32 0}  ; i32

@@ -70,4 +70,4 @@ define i32 @test04callee(<{ %struct.type01a, i32, %struct.type01a }>* preallocat
 ; CHECK: define internal void @test01callee.1(%__DDT_struct.type01b* byval(%__DDT_struct.type01b) %in)
 ; CHECK: define internal void @test02callee.2(%__DDT_struct.type01b* byref(%__DDT_struct.type01b) %test.result)
 ; CHECK: define internal void @test03callee.3(%__DDT_struct.type01b* sret(%__DDT_struct.type01b) %test.result)
-; CHECK: define i32 @test04callee.4(<{ %__DTT_struct.type01a, i32, %__DTT_struct.type01a }>* preallocated(<{ %__DTT_struct.type01a, i32, %__DTT_struct.type01a }>) %p)
+; CHECK: define internal i32 @test04callee.4(<{ %__DTT_struct.type01a, i32, %__DTT_struct.type01a }>* preallocated(<{ %__DTT_struct.type01a, i32, %__DTT_struct.type01a }>) %p)

@@ -39,7 +39,7 @@ define "intel_dtrans_func_index"="1" %struct.test01* @test02()  !intel.dtrans.fu
   %v1 = load %struct.test01*, %struct.test01** %p1
   ret %struct.test01* null
 }
-; CHECK-LABEL: define i64 @test02
+; CHECK-LABEL: define internal i64 @test02
 ; CHECK-NONOPAQUE: %p1 = getelementptr %__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @var01, i64 0, i32 1
 ; CHECK-NONOPAQUE: %alloc_idx = call i64* @llvm.ptr.annotation.p0i64(i64* %p1, i8* getelementptr inbounds ([33 x i8], [33 x i8]* @__intel_dtrans_aostosoa_index, i32 0, i32 0), i8* getelementptr inbounds ([1 x i8], [1 x i8]* @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, i8* null)
 ; CHECK-NONOPAQUE: %v1 = load i64, i64* %p1, align 8

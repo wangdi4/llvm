@@ -19,7 +19,7 @@ entry:
   %z = load i16, i16* %y, align 4
   ret i16 %z
 }
-; CHECK-LABEL: define i16 @foo
+; CHECK-LABEL: define internal i16 @foo
 ; CHECK: %y = getelementptr inbounds %__DFT_struct.A, {{.*}} %a, i64 0, i32 0, i32 0
 
 define i16 @bar(%struct.B* "intel_dtrans_func_index"="1" %b) !intel.dtrans.func.type !8 {
@@ -28,7 +28,7 @@ entry:
   %z = load i16, i16* %y, align 4
   ret i16 %z
 }
-; CHECK-LABEL: define i16 @bar
+; CHECK-LABEL: define internal i16 @bar
 ; CHECK: %y = getelementptr inbounds %__DFT_struct.B, {{.*}} %b, i64 0, i32 0
 
 !1 = !{i16 0, i32 0}  ; i16

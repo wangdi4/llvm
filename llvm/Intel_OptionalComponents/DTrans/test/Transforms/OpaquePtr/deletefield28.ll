@@ -48,7 +48,7 @@ define i32 @main(i32 %argc, i8** "intel_dtrans_func_index"="1" %argv) !intel.dtr
 ; CHECK: %val = call i32 @doSomething.1([4 x %__DFT_struct.test]* %p_test)
 
 
-; CHECK-LABEL: define i32 @doSomething.1
+; CHECK-LABEL: define internal i32 @doSomething.1
 ; CHECK: %p_test_A = getelementptr [4 x %__DFT_struct.test],
 ; CHECK-SAME:                      [4 x %__DFT_struct.test]* %p_test,
 ; CHECK-SAME:                      i64 0, i32 1, i32 0

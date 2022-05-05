@@ -46,7 +46,7 @@ define i32 @doSomething(%struct.test* "intel_dtrans_func_index"="1" %p_test) !in
 
   ret i32 %sum
 }
-; CHECK-LABEL: define i32 @doSomething
+; CHECK-LABEL: define internal i32 @doSomething
 
 ; CHECK: %p8_A = getelementptr i8, {{.*}} %p, i64 0
 ; CHECK-NOT: %p8_B = getelementptr i8, {{.*}} %p, i64 4
