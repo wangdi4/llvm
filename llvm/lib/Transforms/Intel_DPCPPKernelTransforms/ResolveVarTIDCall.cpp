@@ -35,15 +35,29 @@ static bool runOnTID(Module &M, IRBuilder<> &Builder, Constant *ConstZero,
     return false;
 
   SmallVector<CallInst *, 4> VarTIDCalls;
+  SmallVector<CallInst *, 4> OOBTIDCalls;
   for (User *U : F->users()) {
     auto *CI = dyn_cast<CallInst>(U);
     if (!CI)
       continue;
-    if (isa<ConstantInt>(CI->getArgOperand(0)))
+    if (auto *C = dyn_cast<ConstantInt>(CI->getArgOperand(0))) {
+      uint64_t Dim = C->getZExtValue();
+      if (Dim >= MAX_WORK_DIM) {
+        LLVM_DEBUG(dbgs() << "Found out-of-bound TID Call:" << *CI
+                          << " in function: " << CI->getFunction()->getName()
+                          << "\n");
+        OOBTIDCalls.push_back(CI);
+      }
       continue;
+    }
     LLVM_DEBUG(dbgs() << "Found var TID call: " << *CI << " in function "
                       << CI->getFunction()->getName() << "\n");
     VarTIDCalls.push_back(CI);
+  }
+
+  for (CallInst *CI : OOBTIDCalls) {
+    CI->replaceAllUsesWith(ConstZero);
+    CI->eraseFromParent();
   }
 
   auto &Ctx = M.getContext();
@@ -85,7 +99,7 @@ static bool runOnTID(Module &M, IRBuilder<> &Builder, Constant *ConstZero,
     CI->eraseFromParent();
   }
 
-  return !VarTIDCalls.empty();
+  return !VarTIDCalls.empty() || !OOBTIDCalls.empty();
 }
 
 static bool runImpl(Module &M) {

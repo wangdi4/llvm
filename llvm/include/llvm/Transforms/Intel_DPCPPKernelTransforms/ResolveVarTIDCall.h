@@ -21,9 +21,10 @@
 
 namespace llvm {
 
-/// Resolve get_*_id call with variable argument. If the argument is
-/// out-of-bound, it is replaced with const zero. Otherwise, it is replaced with
-/// conditional get_*_id call with fixed arguments of 0, 1 and 2.
+/// Resolve get_*_id call with variable or out-of-bound argument.
+/// If the argument is out-of-bound, it is replaced with const zero.
+/// Otherwise, it is replaced with conditional get_*_id call with fixed
+/// arguments of 0, 1 and 2.
 ///
 /// This pass intends to simplify KernelAnalysis and remove limitation for
 /// vectorizer and sub-group emulation.
