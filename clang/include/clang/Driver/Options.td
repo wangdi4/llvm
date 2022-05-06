@@ -4674,15 +4674,11 @@ defm openmp_implicit_rpath: BoolFOption<"openmp-implicit-rpath",
   NegFlag<SetFalse>>;
 def r : Flag<["-"], "r">, Flags<[LinkerInput,NoArgumentUnused]>,
         Group<Link_Group>;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 def regcall : Flag<["-"], "regcall">,
   HelpText<"Set __regcall as a default calling convention">;
 #endif // INTEL_CUSTOMIZATION
-def save_temps_EQ : Joined<["-", "--"], "save-temps=">, Flags<[CC1Option, NoXarchOption]>,
-=======
 def save_temps_EQ : Joined<["-", "--"], "save-temps=">, Flags<[CC1Option, FlangOption, NoXarchOption]>,
->>>>>>> a65afce731c2fa91effcfa5d4917d6ad90a28bf0
   HelpText<"Save intermediate compilation results.">;
 def save_temps : Flag<["-", "--"], "save-temps">, Flags<[FlangOption, NoXarchOption]>,
   Alias<save_temps_EQ>, AliasArgs<["cwd"]>,
