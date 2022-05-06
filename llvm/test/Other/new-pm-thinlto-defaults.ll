@@ -205,6 +205,8 @@
 ; CHECK-POSTLINK-O-NEXT: Running pass: StdContainerOptPass ;INTEL
 ; CHECK-POSTLINK-O-NEXT: Running pass: CleanupFakeLoadsPass{{.*}} ;INTEL
 ; CHECK-POSTLINK-O-NEXT: Running pass: EliminateAvailableExternallyPass
+; CHECK-POSTLINK-O3-NEXT: Running pass: ArgNoAliasPropPass ;INTEL
+; CHECK-POSTLINK-O3-NEXT: Running analysis: XmainOptLevelAnalysis ;INTEL
 ; CHECK-POSTLINK-O-NEXT: Running pass: ReversePostOrderFunctionAttrsPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}AndersensAA ;INTEL
 ; CHECK-POSTLINK-O-NEXT: Running analysis: AndersensAA ;INTEL
