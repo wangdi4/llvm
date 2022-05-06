@@ -225,9 +225,17 @@ VPValue* getReductionUpdateOp(VPGeneralMemOptConflict *VPConflict,
     // updating value.
     VPValue *Op0 = InsnInVConflictRegion->getOperand(0);
     VPValue *Op1 = InsnInVConflictRegion->getOperand(1);
-    RednUpdateOp = Op0 == *ConflictRegion->getLiveIns().begin() ? Op1 : Op0;
+    // if Op0 == Op1, then we have something like the following:
+    //   V = A[idx];
+    //   A[idx] = V + V;
+    // Don't assert for such cases and set
+    // RednUpdateOp = VPConflict->getConflictLoad().
+    if (Op0 == Op1)
+      RednUpdateOp = VPConflict->getConflictLoad();
+    else
+      RednUpdateOp = Op0 == *ConflictRegion->getLiveIns().begin() ? Op1 : Op0;
     assert(isa<VPConstant>(RednUpdateOp) ||
-           isa<VPExternalDef>(RednUpdateOp) &&
+           isa<VPExternalDef>(RednUpdateOp) || Op0 == Op1 &&
                "Constant or external definition is expected.");
   } else {
     assert(VPConflict->getNumOperands() == 4 &&
