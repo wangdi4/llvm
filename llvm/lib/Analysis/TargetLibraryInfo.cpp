@@ -2700,7 +2700,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(2)->isPointerTy() &&
             FTy.getParamType(3)->isPointerTy() &&
             FTy.getParamType(4)->isPointerTy() &&
-            FTy.getParamType(5)->isPointerTy() &
+            FTy.getParamType(5)->isPointerTy() &&
             FTy.getParamType(6)->isPointerTy());
 
   case LibFunc_msvc_std_num_get_do_get_double_ptr:
@@ -2710,7 +2710,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(2)->isPointerTy() &&
             FTy.getParamType(3)->isPointerTy() &&
             FTy.getParamType(4)->isPointerTy() &&
-            FTy.getParamType(5)->isPointerTy() &
+            FTy.getParamType(5)->isPointerTy() &&
             FTy.getParamType(6)->isPointerTy());
 
   case LibFunc_msvc_std_num_get_do_get_float_ptr:
@@ -2720,7 +2720,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(2)->isPointerTy() &&
             FTy.getParamType(3)->isPointerTy() &&
             FTy.getParamType(4)->isPointerTy() &&
-            FTy.getParamType(5)->isPointerTy() &
+            FTy.getParamType(5)->isPointerTy() &&
             FTy.getParamType(6)->isPointerTy());
 
   case LibFunc_msvc_std_num_get_do_get_long_long_ptr:
@@ -2730,7 +2730,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(2)->isPointerTy() &&
             FTy.getParamType(3)->isPointerTy() &&
             FTy.getParamType(4)->isPointerTy() &&
-            FTy.getParamType(5)->isPointerTy() &
+            FTy.getParamType(5)->isPointerTy() &&
             FTy.getParamType(6)->isPointerTy());
 
   case LibFunc_msvc_std_num_get_do_get_long_double_ptr:
@@ -2740,7 +2740,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(2)->isPointerTy() &&
             FTy.getParamType(3)->isPointerTy() &&
             FTy.getParamType(4)->isPointerTy() &&
-            FTy.getParamType(5)->isPointerTy() &
+            FTy.getParamType(5)->isPointerTy() &&
             FTy.getParamType(6)->isPointerTy());
 
   case LibFunc_msvc_std_num_get_do_get_long_ptr:
@@ -2750,7 +2750,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(2)->isPointerTy() &&
             FTy.getParamType(3)->isPointerTy() &&
             FTy.getParamType(4)->isPointerTy() &&
-            FTy.getParamType(5)->isPointerTy() &
+            FTy.getParamType(5)->isPointerTy() &&
             FTy.getParamType(6)->isPointerTy());
 
   case LibFunc_msvc_std_num_get_do_get_unsigned_int_ptr:
@@ -2760,7 +2760,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(2)->isPointerTy() &&
             FTy.getParamType(3)->isPointerTy() &&
             FTy.getParamType(4)->isPointerTy() &&
-            FTy.getParamType(5)->isPointerTy() &
+            FTy.getParamType(5)->isPointerTy() &&
             FTy.getParamType(6)->isPointerTy());
 
   case LibFunc_msvc_std_num_get_do_get_unsigned_long_long_ptr:
@@ -2770,7 +2770,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(2)->isPointerTy() &&
             FTy.getParamType(3)->isPointerTy() &&
             FTy.getParamType(4)->isPointerTy() &&
-            FTy.getParamType(5)->isPointerTy() &
+            FTy.getParamType(5)->isPointerTy() &&
             FTy.getParamType(6)->isPointerTy());
 
   case LibFunc_msvc_std_num_get_do_get_unsigned_long_ptr:
@@ -2780,7 +2780,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(2)->isPointerTy() &&
             FTy.getParamType(3)->isPointerTy() &&
             FTy.getParamType(4)->isPointerTy() &&
-            FTy.getParamType(5)->isPointerTy() &
+            FTy.getParamType(5)->isPointerTy() &&
             FTy.getParamType(6)->isPointerTy());
 
   case LibFunc_msvc_std_num_get_do_get_unsigned_short_ptr:
@@ -2790,7 +2790,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(2)->isPointerTy() &&
             FTy.getParamType(3)->isPointerTy() &&
             FTy.getParamType(4)->isPointerTy() &&
-            FTy.getParamType(5)->isPointerTy() &
+            FTy.getParamType(5)->isPointerTy() &&
             FTy.getParamType(6)->isPointerTy());
 
   case LibFunc_msvc_std_num_get_do_get_void_ptr:
@@ -2800,7 +2800,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(2)->isPointerTy() &&
             FTy.getParamType(3)->isPointerTy() &&
             FTy.getParamType(4)->isPointerTy() &&
-            FTy.getParamType(5)->isPointerTy() &
+            FTy.getParamType(5)->isPointerTy() &&
             FTy.getParamType(6)->isPointerTy());
 
   case LibFunc_msvc_std_num_get_scalar_deleting_dtor:
