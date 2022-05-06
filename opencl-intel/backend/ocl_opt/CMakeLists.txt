@@ -23,7 +23,6 @@ set(OCL_BE_PASSES
     BuiltinLibInfo
     ChannelPipeTransformation
     ChannelsUsageAnalysis
-    RemoveAtExit
     DebugInfoPass
     DetectRecursion
     InfiniteLoopCreator

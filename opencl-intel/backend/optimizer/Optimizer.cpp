@@ -874,7 +874,7 @@ OptimizerOCL::OptimizerOCL(llvm::Module &pModule,
         m_PM.add(createCoerceWin64TypesLegacyPass());
     }
     if (m_IsFpgaEmulator)
-      m_PM.add(createRemoveAtExitPass());
+      m_PM.add(llvm::createRemoveAtExitLegacyPass());
   };
   materializerPM();
 
