@@ -30,10 +30,8 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeCLStreamSamplerPass(Registry);
     intel::initializeRemoveDuplicationBarrierPass(Registry);
 
-    intel::initializeResolveVariableTIDCallPass(Registry);
     intel::initializeReplaceScalarWithMaskPass(Registry);
     intel::initializePreventDivCrashesPass(Registry);
-    intel::initializeInternalizeGlobalVariablesPass(Registry);
     intel::initializeOclFunctionAttrsPass(Registry);
     intel::initializeBuiltinLibInfoPass(Registry);
     intel::initializeRelaxedPassPass(Registry);
@@ -53,11 +51,9 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeOCLReqdSubGroupSizePass(Registry);
     intel::initializeChannelsUsageAnalysisPass(Registry);
     intel::initializeKernelSubGroupInfoPass(Registry);
-    intel::initializeSYCLPipesHackPass(Registry);
     intel::initializePatchCallbackArgsPass(Registry);
     intel::initializeWeightedInstCounterPass(Registry);
     intel::initializeScalarizeFunctionPass(Registry);
-    intel::initializeRemoveAtExitPass(Registry);
     intel::initializeChooseVectorizationDimensionPass(Registry);
     intel::initializeVectorKernelDiscardPass(Registry);
     intel::initializeSetPreferVectorWidthPass(Registry);

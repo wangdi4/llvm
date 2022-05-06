@@ -1,8 +1,8 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -fopenmp-new-depend-ir -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s
 
@@ -37,8 +37,8 @@ void foo(int *arr1, int **arr2) {
 
 // CHECK: [[T4:%[0-9]+]] = call token {{.*}}region.entry() [ "DIR.OMP.SIMD"()
 // CHECK-SAME: "QUAL.OMP.SAFELEN"(i32 4)
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[IV]])
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[IV]]
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"
 // CHECK: region.exit(token [[T4]]) [ "DIR.OMP.END.SIMD"() ]
   #pragma omp simd safelen(4)
   for (iter = first1(); iter < last1(); ++iter) {
@@ -47,9 +47,9 @@ void foo(int *arr1, int **arr2) {
 
 // CHECK: [[T24:%[0-9]+]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: [ "DIR.OMP.PARALLEL.LOOP"(),
-// CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[ARR2]])
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[IV11]])
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"
+// CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[ARR2]]
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[IV11]]
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"
 // CHECK: region.exit(token [[T24]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
   #pragma omp parallel for collapse(2)
   for (i=first2(); i<last2(); ++i)
@@ -58,9 +58,9 @@ void foo(int *arr1, int **arr2) {
 
 // CHECK: [[T42:%[0-9]+]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: [ "DIR.OMP.PARALLEL.LOOP"(),
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[IV72]])
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[K]])
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[IV72]]
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[K]]
 // CHECK: region.exit(token [[T42]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
   #pragma omp parallel for
   for (int k=0; k<10; k++) {
@@ -69,9 +69,9 @@ void foo(int *arr1, int **arr2) {
 
 // CHECK: [[T49:%[0-9]+]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: [ "DIR.OMP.LOOP"(),
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[IV88]])
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[K97]])
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[IV88]]
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[K97]]
 // CHECK: region.exit(token [[T49]]) [ "DIR.OMP.END.LOOP"() ]
   #pragma omp for
   for (int k=0; k<10; k++) {
@@ -80,9 +80,9 @@ void foo(int *arr1, int **arr2) {
 
 // CHECK: [[T61:%[0-9]+]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: [ "DIR.OMP.PARALLEL.LOOP"()
-// CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[ARR1]])
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[IV105]])
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"
+// CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[ARR1]]
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[IV105]]
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"
 
 // CHECK: [[T62:%[0-9]+]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: [ "DIR.OMP.SIMD"()
@@ -124,11 +124,11 @@ void multiloop(int in, int *arr)
   // CHECK: [[OMP_UB4:%.omp.ub.*]] = alloca i32,
   // CHECK: [[OMP_UB5:%.omp.ub.*]] = alloca i32,
   // CHECK: [ "DIR.OMP.PARALLEL"()
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_UB1]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_UB2]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_UB3]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_UB4]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[OMP_UB5]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[OMP_UB1]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[OMP_UB2]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[OMP_UB3]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[OMP_UB4]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[OMP_UB5]]
   // CHECK: [ "DIR.OMP.END.PARALLEL"() ]
   #pragma omp parallel
   {
@@ -239,8 +239,8 @@ void doacross_test_two(int (*v_ptr)[5][4])
   int i, j;
   // CHECK: region.entry{{.*}}OMP.PARALLEL.LOOP
   // CHECK-SAME: ORDERED"(i32 2, i32 4, i32 2)
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[I]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[J]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[I]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[J]]
   #pragma omp parallel for ordered (2)
   for (i = 1; i < M; i++) {
     for (j = 2; j < N; j++) {

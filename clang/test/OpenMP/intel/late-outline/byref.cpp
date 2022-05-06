@@ -1,9 +1,9 @@
 // INTEL_COLLAB
 // RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fintel-compatibility \
-// RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s \
+// RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s
 // RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fexceptions -fopenmp \
-// RUN:  -fintel-compatibility -fopenmp-late-outline \
+// RUN:  -fintel-compatibility -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 #define LOOP for(int i=0;i<16;++i) {}
@@ -15,7 +15,7 @@ void bar1(int &d) {
   // CHECK: [[DADDR:%d.*]] = alloca ptr, align
   // CHECK: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"()
-  // CHECK-SAME: "QUAL.OMP.PRIVATE:BYREF"(ptr [[DADDR]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:BYREF.TYPED"(ptr [[DADDR]]
   // CHECK: directive.region.exit(token [[T0]]) [ "DIR.OMP.END.PARALLEL.LOOP"
   #pragma omp parallel for private(d)
   for(int i=0;i<16;++i) {
@@ -28,7 +28,7 @@ void bar2(int &d) {
   // CHECK: [[DADDR:%d.*]] = alloca ptr, align
   // CHECK: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"()
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:BYREF"(ptr [[DADDR]])
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:BYREF.TYPED"(ptr [[DADDR]]
   // CHECK: directive.region.exit(token [[T0]]) [ "DIR.OMP.END.PARALLEL.LOOP"
   #pragma omp parallel for firstprivate(d)
   for(int i=0;i<16;++i) {
@@ -41,7 +41,7 @@ void bar3(int &d) {
   // CHECK: [[DADDR:%d.*]] = alloca ptr, align
   // CHECK: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"()
-  // CHECK-SAME: "QUAL.OMP.LASTPRIVATE:BYREF"(ptr [[DADDR]])
+  // CHECK-SAME: "QUAL.OMP.LASTPRIVATE:BYREF.TYPED"(ptr [[DADDR]]
   // CHECK: directive.region.exit(token [[T0]]) [ "DIR.OMP.END.PARALLEL.LOOP"
   #pragma omp parallel for lastprivate(d)
   for(int i=0;i<16;++i) {
@@ -54,7 +54,7 @@ void bar4(int &d) {
   // CHECK: [[DADDR:%d.*]] = alloca ptr, align
   // CHECK: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"()
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:BYREF"(ptr [[DADDR]])
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:BYREF.TYPED"(ptr [[DADDR]]
   // CHECK: directive.region.exit(token [[T0]]) [ "DIR.OMP.END.PARALLEL.LOOP"
   #pragma omp parallel for reduction(+:d)
   for(int i=0;i<16;++i) {
@@ -77,13 +77,13 @@ void bar5(int &yref, int other, short *&zptr_ref, float (*&y_arrptr_ref)[10]) {
 
   // CHECK: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"()
-  // CHECK-SAME: "QUAL.OMP.LINEAR:BYREF"(ptr [[YREFDADDR]], i32 1)
-  // CHECK-SAME: "QUAL.OMP.LINEAR"(ptr [[OTHERDADDR]], i32 1)
-  // CHECK-SAME: "QUAL.OMP.LINEAR:BYREF"(ptr [[ZPTR_REFDADDR]], i32 1)
-  // CHECK-SAME: "QUAL.OMP.LINEAR:BYREF"(ptr [[Y_ARRPTR_REFDADDR]],
-  // CHECK-SAME: "QUAL.OMP.SHARED"{{.*}}[[YREF_ADDR]]
-  // CHECK-SAME: "QUAL.OMP.SHARED"{{.*}}[[ZPTR_REF_ADDR]]
-  // CHECK-SAME: "QUAL.OMP.SHARED"{{.*}}[[Y_ARRPTR_REF_ADDR]]
+  // CHECK-SAME: "QUAL.OMP.LINEAR:BYREF.TYPED"(ptr [[YREFDADDR]], i32 0, i32 1, i32 1)
+  // CHECK-SAME: "QUAL.OMP.LINEAR:TYPED"(ptr [[OTHERDADDR]], i32 0, i32 1, i32 1)
+  // CHECK-SAME: "QUAL.OMP.LINEAR:BYREF.PTR_TO_PTR.TYPED"(ptr [[ZPTR_REFDADDR]], i16 0, i32 1, i32 1)
+  // CHECK-SAME: "QUAL.OMP.LINEAR:BYREF.PTR_TO_PTR.TYPED"(ptr [[Y_ARRPTR_REFDADDR]],
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"{{.*}}[[YREF_ADDR]]
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"{{.*}}[[ZPTR_REF_ADDR]]
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"{{.*}}[[Y_ARRPTR_REF_ADDR]]
   #pragma omp parallel for linear(yref, other, zptr_ref, y_arrptr_ref)
   for (int i = 0; i < 5; i++) {
     foo(yref_addr != &yref);

@@ -1,22 +1,22 @@
 // INTEL_COLLAB
 // RUN: %clang_cc1 -opaque-pointers -emit-pch -o %t -std=c++14 -fopenmp \
-// RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s
+// RUN:  -fopenmp-late-outline -fopenmp-typed-clauses -triple x86_64-unknown-linux-gnu %s
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -include-pch %t -verify \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 //RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm-bc -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses \
 //RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s
 
 //RUN: %clang_cc1 -opaque-pointers -triple spir64 \
 //RUN:  -aux-triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64 \
-//RUN:  -fopenmp-late-outline \
+//RUN:  -fopenmp-late-outline -fopenmp-typed-clauses \
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
 //RUN:  -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s -check-prefix TARG
@@ -55,20 +55,20 @@ void foo1() {
   //CHECK: "DIR.OMP.TEAMS"(),
   //CHECK-DAG: "QUAL.OMP.NUM_TEAMS"(i32 8)
   //CHECK-DAG: "QUAL.OMP.THREAD_LIMIT"(i32 4)
-  //CHECK-DAG: "QUAL.OMP.SHARED"(ptr @aaa)
+  //CHECK-DAG: "QUAL.OMP.SHARED:TYPED"(ptr @aaa
   //CHECK-DAG: "QUAL.OMP.DEFAULT.NONE"()
   //CHECK-DAG: "QUAL.OMP.ALLOCATE"(i64 4, ptr [[Z]], i64 1)
   //CHECK: "DIR.OMP.GENERICLOOP"(),
   //CHECK-DAG: "QUAL.OMP.BIND.TEAMS"()
   //CHECK-DAG: "QUAL.OMP.ORDER.CONCURRENT"()
-  //CHECK-DAG: "QUAL.OMP.LASTPRIVATE"(ptr [[I]])
-  //CHECK-DAG: "QUAL.OMP.LASTPRIVATE"(ptr [[J]])
-  //CHECK-DAG: "QUAL.OMP.REDUCTION.ADD"(ptr [[X]])
-  //CHECK-DAG: "QUAL.OMP.PRIVATE"(ptr [[Z]])
-  //CHECK-DAG: "QUAL.OMP.SHARED"(ptr @aaa)
-  //CHECK-DAG: "QUAL.OMP.NORMALIZED.IV"(ptr [[IV]])
-  //CHECK-DAG: "QUAL.OMP.NORMALIZED.UB"(ptr [[UB]])
-  //CHECK-DAG: "QUAL.OMP.FIRSTPRIVATE"(ptr [[LB]])
+  //CHECK-DAG: "QUAL.OMP.LASTPRIVATE:TYPED"(ptr [[I]]
+  //CHECK-DAG: "QUAL.OMP.LASTPRIVATE:TYPED"(ptr [[J]]
+  //CHECK-DAG: "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr [[X]]
+  //CHECK-DAG: "QUAL.OMP.PRIVATE:TYPED"(ptr [[Z]]
+  //CHECK-DAG: "QUAL.OMP.SHARED:TYPED"(ptr @aaa
+  //CHECK-DAG: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[IV]]
+  //CHECK-DAG: "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[UB]]
+  //CHECK-DAG: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[LB]]
   //CHECK: "DIR.OMP.END.GENERICLOOP"()
   //CHECK: "DIR.OMP.END.TEAMS"()
   //CHECK: "DIR.OMP.END.TARGET"()

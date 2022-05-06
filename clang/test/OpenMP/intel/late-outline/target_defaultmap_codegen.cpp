@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -fopenmp-version=50 -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 // CHECK-LABEL: implicit_maps_double_complex{{.*}}(
@@ -57,7 +57,7 @@ void implicit_maps_double (int a){
   double d = (double)a;
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.FIRSTPRIVATE:SCALAR"()
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr %d)
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %d
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(firstprivate:scalar)
   {
@@ -70,7 +70,7 @@ void implicit_maps_double_1 (int a){
   double d = (double)a;
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.DEFAULT:SCALAR"()
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr %d)
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %d
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(default: scalar)
   {

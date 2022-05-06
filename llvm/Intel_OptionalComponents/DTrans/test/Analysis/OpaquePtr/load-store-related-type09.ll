@@ -4,7 +4,7 @@
 ; RUN: opt  < %s -opaque-pointers -whole-program-assume -dtrans-outofboundsok=false -passes='require<dtrans-safetyanalyzer>' -disable-output -debug-only=dtrans-safetyanalyzer-verbose -dtrans-print-types 2>&1 | FileCheck %s
 
 ; This test case checks that "Bad pointer manipulation (related types) -- Byte
-; flattened GEP used for accessing next field" was printed for the store in
+; flattened GEP used for accessing next field" was printed for the GEP %5 in
 ; function @test. The reason is because the store instruction is moving data
 ; within the same structure. Also, this test case checks that the structure
 ; %class.TestClass.Inner was set to "Bad pointer manipulation (related types)".
@@ -22,7 +22,7 @@
 ; CHECK:      No element pointees.
 
 ; CHECK:  Name: class.TestClass.Inner
-; CHECK:  Safety data: Mismatched element access | Unsafe pointer store | Nested structure | Contains nested structure | Bad casting (related types) | Bad pointer manipulation (related types){{.*}}
+; CHECK:   Safety data: Nested structure | Contains nested structure | Bad casting (related types) | Bad pointer manipulation (related types) | Mismatched element access (related types) | Unsafe pointer store (related types){{.*}}
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

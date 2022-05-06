@@ -25,6 +25,44 @@
 
 namespace llvm {
 
+namespace {
+struct OpUseIterator {
+  OpUseIterator(Use *U) : U(U) {}
+  OpUseIterator operator++(int) {
+    OpUseIterator Ret(U);
+    unsigned NextOpIdx = U->getOperandNo() + 1;
+    User *TheUser = U->getUser();
+    U = TheUser->getOperandList() + NextOpIdx;
+    return Ret;
+  }
+  inline Use *operator*() { return U; }
+  inline bool operator==(const OpUseIterator &RHS) const { return U == RHS.U; }
+  inline bool operator!=(const OpUseIterator &RHS) const { return U != RHS.U; }
+
+private:
+  Use *U;
+};
+} // namespace
+
+template <> struct GraphTraits<Use *> {
+  using NodeRef = Use *;
+  using ChildIteratorType = OpUseIterator;
+
+  static inline NodeRef getEntryNode(NodeRef N) { return N; }
+
+  static inline ChildIteratorType child_begin(NodeRef N) {
+    if (auto *Inst = dyn_cast<Instruction>(N->get()))
+      return Inst->op_begin();
+    return nullptr;
+  }
+
+  static inline ChildIteratorType child_end(NodeRef N) {
+    if (auto *Inst = dyn_cast<Instruction>(N->get()))
+      return Inst->op_end();
+    return nullptr;
+  }
+};
+
 // A tuple of three strings:
 // 1. scalar variant name
 // 2. "kernel-call-once" | ""
@@ -147,8 +185,8 @@ using ValueVec = SmallVector<Value *, 4>;
 bool isImplicitGID(AllocaInst *AI);
 
 /// Append the dimension string to S.
-std::string AppendWithDimension(StringRef S, int Dimension);
-std::string AppendWithDimension(StringRef S, const Value *Dimension);
+std::string AppendWithDimension(const Twine &S, int Dimension);
+std::string AppendWithDimension(const Twine &S, const Value *Dimension);
 
 /// Return true if string is __enqueue_kernel_*.
 bool isEnqueueKernel(StringRef S);
@@ -663,6 +701,10 @@ CallInst *createSubGroupInsertRowSliceToMatrixCall(Value *RowSliceId,
 void calculateMemorySizeWithPostOrderTraversal(
     CallGraph &CG, DenseMap<Function *, size_t> &FnDirectSize,
     DenseMap<Function *, size_t> &FnSize);
+
+/// Get total number of elements of nested array type.
+/// e.g. [2 x [3 x i32]] --> 6
+uint64_t getNumElementsOfNestedArray(const ArrayType *ArrTy);
 
 } // namespace DPCPPKernelCompilationUtils
 } // namespace llvm

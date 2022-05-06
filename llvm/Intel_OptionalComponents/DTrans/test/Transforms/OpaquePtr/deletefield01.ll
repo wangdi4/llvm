@@ -45,7 +45,7 @@ define i32 @doSomething(%struct.test* "intel_dtrans_func_index"="1" %p_test) !in
 
   ret i32 %sum
 }
-; CHECK-NONOPAQUE: define i32 @doSomething.1
+; CHECK-NONOPAQUE: define internal i32 @doSomething.1
 ; CHECK-NONOPAQUE: %p_test_A = getelementptr %__DFT_struct.test, %__DFT_struct.test* %p_test, i64 0, i32 0
 ; CHECK-NONOPAQUE-NOT: %p_test_B = getelementptr
 ; CHECK-NONOPAQUE: %p_test_C = getelementptr %__DFT_struct.test, %__DFT_struct.test* %p_test, i64 0, i32 1

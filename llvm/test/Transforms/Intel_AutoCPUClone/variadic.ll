@@ -18,15 +18,15 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: @__intel_cpu_feature_indicator_x = external global [2 x i64]
 ; CHECK: @llvm.compiler.used = appending global [2 x i8*] [i8* bitcast (i32 (i32, ...)* @_Z3bariz to i8*), i8* bitcast (i32 ()* @main to i8*)],
-; CHECK: @_Z3bariz = ifunc i32 (i32, ...), i32 (i32, ...)* ()* @_Z3bariz.resolver
-; CHECK: @main = ifunc i32 (), i32 ()* ()* @main.resolver
+; CHECK: @_Z3bariz = dso_local ifunc i32 (i32, ...), i32 (i32, ...)* ()* @_Z3bariz.resolver
+; CHECK: @main = dso_local ifunc i32 (), i32 ()* ()* @main.resolver
 
 ; CHECK: define dso_local i32 @_Z3bariz.A(i32 %Size, ...)
 ; CHECK: define dso_local i32 @main.A()
 ; CHECK: define dso_local i32 @_Z3bariz.V(i32 %Size, ...)
-; CHECK: define i32 (i32, ...)* @_Z3bariz.resolver()
+; CHECK: define dso_local i32 (i32, ...)* @_Z3bariz.resolver()
 ; CHECK: define dso_local i32 @main.V()
-; CHECK: define i32 ()* @main.resolver()
+; CHECK: define dso_local i32 ()* @main.resolver()
 
 ; Function Attrs: mustprogress noinline nounwind optnone uwtable
 define dso_local i32 @_Z3bariz(i32 %Size, ...) #0 !llvm.auto.cpu.dispatch !4 {

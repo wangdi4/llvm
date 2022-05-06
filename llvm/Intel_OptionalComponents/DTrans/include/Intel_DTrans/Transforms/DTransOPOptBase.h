@@ -168,7 +168,7 @@ public:
       DenseMap<DTransType *, SetVector<DTransType *>>;
 
   DTransOPOptBase(LLVMContext &Ctx, DTransSafetyInfo *DTInfo,
-                  bool UsingOpaquePtrs, StringRef DepTypePrefix);
+                  StringRef DepTypePrefix);
 
   DTransOPOptBase(const DTransOPOptBase &) = delete;
   DTransOPOptBase &operator=(const DTransOPOptBase &) = delete;

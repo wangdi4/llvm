@@ -1528,9 +1528,14 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   VPLAN_DUMP(VPlanPrintInit,
              "initial VPlan for VF=" + std::to_string(VF), Plan);
 
+  bool TreeConflictsLowered = false;
   // If new CFG merger is not enabled, run AZB at this point in pipeline.
   if (!EnableNewCFGMerge || !EnableNewCFGMergeHIR) {
     LVP.insertAllZeroBypasses(Plan, VF);
+    TreeConflictsLowered =
+        lowerTreeConflictsToDoublePermuteTreeReduction(Plan, VF, Fn);
+    Plan->computeDT();
+    Plan->computePDT();
   }
 
   unsigned UF = LVP.getLoopUnrollFactor();
@@ -1555,11 +1560,19 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
       auto LpKind = PlanDescr.getLoopType();
       VPlan *Plan = PlanDescr.getVPlan();
 
-      if (isa<VPlanVector>(Plan)) {
+      if (auto *VectorPlan = dyn_cast<VPlanVector>(Plan)) {
+        unsigned VectorPlanVF = PlanDescr.getVF();
         // All-zero bypass is added after best plan selection because cost model
         // tuning is not yet implemented and we don't want to prevent
         // vectorization.
-        LVP.insertAllZeroBypasses(cast<VPlanVector>(Plan), PlanDescr.getVF());
+        LVP.insertAllZeroBypasses(VectorPlan, VectorPlanVF);
+
+        // We need to lower tree conflict here where VF is available for each
+        // VPlan. Otherwise, we can end up generating illegal permute
+        // instructions.
+        TreeConflictsLowered =
+            lowerTreeConflictsToDoublePermuteTreeReduction(VectorPlan,
+                                                           VectorPlanVF, Fn);
       }
 
       // TODO: SOA transform missing here.
@@ -1599,6 +1612,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     bool LoopIsHandled =
         (VF != 1 && VCodeGen.loopIsHandled(Lp, VF) &&
          LVP.canLowerVPlan(*Plan, VF));
+    VCodeGen.setTreeConflictsLowered(TreeConflictsLowered);
 
     // Erase intrinsics before and after the loop if we either vectorized the
     // loop or if this loop is an auto vectorization candidate. SIMD Intrinsics
@@ -1611,9 +1625,6 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
       // When CFG merger is not enabled run unroller here.
       if (LVP.mergerVPlans().empty())
         LVP.unroll(*cast<VPlanNonMasked>(Plan));
-      bool treeConflictsLowered =
-          lowerTreeConflictsToDoublePermuteTreeReduction(Plan, VF, Fn);
-      VCodeGen.setTreeConflictsLowered(treeConflictsLowered);
       if (LVP.executeBestPlan(&VCodeGen, UF)) {
         ModifiedLoop = true;
         // Use HLLoop based opt-report generation for non-merged CFG-based CG.

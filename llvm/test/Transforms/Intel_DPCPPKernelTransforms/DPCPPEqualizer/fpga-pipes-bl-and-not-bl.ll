@@ -12,7 +12,7 @@
 ;   -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -x cl -cl-std=CL1.2 -disable-llvm-passes -finclude-default-header
 ; ----------------------------------------------------
 
-; RUN: llvm-as %p/fpga-pipes.rtl -o %t.rtl.bc
+; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-demangle-fpga-pipes -passes=dpcpp-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-demangle-fpga-pipes -passes=dpcpp-kernel-equalizer -S %s | FileCheck %s

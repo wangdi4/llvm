@@ -216,7 +216,6 @@ set( BACKEND_PASSES
     ChannelPipeTransformation
     ChannelsUsageAnalysis
     PipeIOTransformation
-    RemoveAtExit
     PipeOrdering
     PipeSupport
     OclFunctionAttrs
@@ -224,10 +223,8 @@ set( BACKEND_PASSES
     DebugInfoPass
     DetectRecursion
     InfiniteLoopCreator
-    InternalizeGlobalVariables
     PreventDivCrashes
     PrintIRPass
-    ProfilingInfoPass
     RelaxedPass
     SetPreferVectorWidth
     UndefExternalFuncs
@@ -238,8 +235,6 @@ set( BACKEND_PASSES
     SmartGVN
     StripIntelIP
     OCLAliasAnalysis
-    SYCLPipesHack
-    ResolveVariableTIDCall
 )
 
 set(UTILS_LIBS

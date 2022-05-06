@@ -47,7 +47,7 @@ define i32 @doSomething(i64 %idx, %struct.test* "intel_dtrans_func_index"="1" al
 ; Delete field should reset the alignment of structure elements back to the
 ; default alignment for the type.
 
-; CHECK-LABEL: define i32 @doSomething
+; CHECK-LABEL: define internal i32 @doSomething
 ; CHECK:  %valA = load i32, i32* %pA, align 4
 ; CHECK:  %valB = load i32, i32* %pB, align 4
 
@@ -67,7 +67,7 @@ define i64 @user(i64 %idx, %struct.test* "intel_dtrans_func_index"="1" align 16 
   %tmp4 = add i64 %tmp3, %valE
   ret i64 %tmp4
 }
-; CHECK-LABEL: define i64 @user
+; CHECK-LABEL: define internal i64 @user
 ; CHECK:  %valB = load i32, i32* %p_test_B, align 4
 ; CHECK:  %valC = load i64, i64* %p_test_C, align 8
 ; CHECK:  %valD = load i32, i32* %p_test_D, align 4

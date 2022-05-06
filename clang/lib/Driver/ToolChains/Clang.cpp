@@ -4821,8 +4821,9 @@ void Clang::ClangTidySourceCheck(Compilation &C, const JobAction &JA,
   // Add the command line options
   ClangTidyArgs.push_back("--");
   for (Arg *A : TCArgs) {
-    // Skip -Wcheck-unicode-security
-    if (A->getOption().matches(options::OPT_Wcheck_unicode_security))
+    // Skip -Wcheck-unicode-security and --intel-config
+    if (A->getOption().matches(options::OPT_Wcheck_unicode_security) ||
+        A->getOption().matches(options::OPT_intel_config))
       continue;
     if (getToolChain().getTriple().isWindowsMSVCEnvironment()) {
       // There are a few options that are implied for Intel mode, we skip

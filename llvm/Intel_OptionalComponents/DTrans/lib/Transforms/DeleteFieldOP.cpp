@@ -96,10 +96,9 @@ public:
 class DeleteFieldOPImpl : public DTransOPOptBase {
 public:
   DeleteFieldOPImpl(LLVMContext &Ctx, DTransSafetyInfo *DTInfo,
-                    bool UsingOpaquePointers, StringRef DepTypePrefix,
-                    const DataLayout &DL, DeleteFieldOPPass::GetTLIFn GetTLI)
-      : DTransOPOptBase(Ctx, DTInfo, UsingOpaquePointers, DepTypePrefix),
-        DL(DL), GetTLI(GetTLI) {}
+                    StringRef DepTypePrefix, const DataLayout &DL,
+                    DeleteFieldOPPass::GetTLIFn GetTLI)
+      : DTransOPOptBase(Ctx, DTInfo, DepTypePrefix), DL(DL), GetTLI(GetTLI) {}
 
   bool prepareTypes(Module &M) override;
   void populateTypes(Module &M) override;
@@ -1196,8 +1195,7 @@ bool dtransOP::DeleteFieldOPPass::runImpl(Module &M, DTransSafetyInfo *DTInfo,
     return false;
   }
 
-  DeleteFieldOPImpl Transformer(M.getContext(), DTInfo,
-                                DTInfo->getPtrTypeAnalyzer().sawOpaquePointer(),
-                                "__DFDT_", M.getDataLayout(), GetTLI);
+  DeleteFieldOPImpl Transformer(M.getContext(), DTInfo, "__DFDT_",
+                                M.getDataLayout(), GetTLI);
   return Transformer.run(M);
 }

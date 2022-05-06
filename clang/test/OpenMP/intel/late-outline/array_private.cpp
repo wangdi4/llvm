@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -O0 -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -O0 -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -fopenmp-use-single-elem-array-funcs \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
@@ -27,7 +27,7 @@ void fn_vlas(int c) {
   //CHECK: [[V:%vla[0-9]*]] = alloca [[TD]],
 
   //CHECK: "DIR.OMP.PARALLEL.LOOP"
-  //CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"(ptr [[V]],
+  //CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr [[V]],
   //CHECK-SAME: _ZTS7complexIdE.omp.def_constr,
   //CHECK-SAME: _ZTS7complexIdE.omp.destr)
   //CHECK: "DIR.OMP.END.PARALLEL.LOOP"
@@ -35,7 +35,7 @@ void fn_vlas(int c) {
   for (int d = 0; d < 1; d++);
 
   //CHECK: "DIR.OMP.PARALLEL.LOOP"
-  //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:NONPOD"(ptr [[V]],
+  //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:NONPOD.TYPED"(ptr [[V]],
   //CHECK-SAME: _ZTS7complexIdE.omp.copy_constr,
   //CHECK-SAME: _ZTS7complexIdE.omp.destr)
   //CHECK: "DIR.OMP.END.PARALLEL.LOOP"
@@ -43,7 +43,7 @@ void fn_vlas(int c) {
   for (int d = 0; d < 1; d++);
 
   //CHECK: "DIR.OMP.PARALLEL.LOOP"
-  //CHECK-SAME: "QUAL.OMP.LASTPRIVATE:NONPOD"(ptr [[V]],
+  //CHECK-SAME: "QUAL.OMP.LASTPRIVATE:NONPOD.TYPED"(ptr [[V]],
   //CHECK-SAME: _ZTS7complexIdE.omp.def_constr,
   //CHECK-SAME: _ZTS7complexIdE.omp.copy_assign,
   //CHECK-SAME: _ZTS7complexIdE.omp.destr)
@@ -54,7 +54,7 @@ void fn_vlas(int c) {
   // Element type seen first
   complex<float> cf;
   //CHECK: "DIR.OMP.PARALLEL.LOOP"
-  //CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"(ptr [[CF]],
+  //CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr [[CF]],
   //CHECK-SAME: _ZTS7complexIfE.omp.def_constr,
   //CHECK-SAME: _ZTS7complexIfE.omp.destr)
   //CHECK: "DIR.OMP.END.PARALLEL.LOOP"
@@ -65,7 +65,7 @@ void fn_vlas(int c) {
   //CHECK: [[V:%vla[0-9]*]] = alloca [[TF]],
 
   //CHECK: "DIR.OMP.PARALLEL.LOOP"
-  //CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"(ptr [[V]],
+  //CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr [[V]],
   //CHECK-SAME: _ZTS7complexIfE.omp.def_constr,
   //CHECK-SAME: _ZTS7complexIfE.omp.destr)
   //CHECK: "DIR.OMP.END.PARALLEL.LOOP"
@@ -114,7 +114,7 @@ void fn_fixed_arrays() {
   complex<double> e[4];
 
   //CHECK: "DIR.OMP.PARALLEL.LOOP"
-  //CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"(ptr [[E]],
+  //CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr [[E]],
   //CHECK-SAME: _ZTS7complexIdE.omp.def_constr,
   //CHECK-SAME: _ZTS7complexIdE.omp.destr)
   //CHECK: "DIR.OMP.END.PARALLEL.LOOP"
@@ -122,7 +122,7 @@ void fn_fixed_arrays() {
   for (int d = 0; d < 1; d++);
 
   //CHECK: "DIR.OMP.PARALLEL.LOOP"
-  //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:NONPOD"(ptr [[E]],
+  //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:NONPOD.TYPED"(ptr [[E]],
   //CHECK-SAME: _ZTS7complexIdE.omp.copy_constr,
   //CHECK-SAME: _ZTS7complexIdE.omp.destr)
   //CHECK: "DIR.OMP.END.PARALLEL.LOOP"
@@ -130,7 +130,7 @@ void fn_fixed_arrays() {
   for (int d = 0; d < 1; d++);
 
   //CHECK: "DIR.OMP.PARALLEL.LOOP"
-  //CHECK-SAME: "QUAL.OMP.LASTPRIVATE:NONPOD"(ptr [[E]],
+  //CHECK-SAME: "QUAL.OMP.LASTPRIVATE:NONPOD.TYPED"(ptr [[E]],
   //CHECK-SAME: _ZTS7complexIdE.omp.def_constr,
   //CHECK-SAME: _ZTS7complexIdE.omp.copy_assign,
   //CHECK-SAME: _ZTS7complexIdE.omp.destr)
@@ -141,7 +141,7 @@ void fn_fixed_arrays() {
   // Element type seen first
   complex<float> cf;
   //CHECK: "DIR.OMP.PARALLEL.LOOP"
-  //CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"(ptr [[CF]],
+  //CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr [[CF]],
   //CHECK-SAME: _ZTS7complexIfE.omp.def_constr,
   //CHECK-SAME: _ZTS7complexIfE.omp.destr)
   //CHECK: "DIR.OMP.END.PARALLEL.LOOP"
@@ -151,7 +151,7 @@ void fn_fixed_arrays() {
   complex<float> acf[8];
 
   //CHECK: "DIR.OMP.PARALLEL.LOOP"
-  //CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD"(ptr [[ACF]],
+  //CHECK-SAME: "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr [[ACF]],
   //CHECK-SAME: _ZTS7complexIfE.omp.def_constr,
   //CHECK-SAME: _ZTS7complexIfE.omp.destr)
   //CHECK: "DIR.OMP.END.PARALLEL.LOOP"

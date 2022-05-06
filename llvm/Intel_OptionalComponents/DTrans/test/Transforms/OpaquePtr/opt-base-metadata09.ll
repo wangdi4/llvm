@@ -69,7 +69,7 @@ define void @foo(%struct.test01** "intel_dtrans_func_index"="1" %in) !intel.dtra
 !12 = distinct !{!13}
 !13 = distinct !{%struct.test02 zeroinitializer, i32 2}
 
-; CHECK-NONOPAQUE-LABEL: define void @test01.1
+; CHECK-NONOPAQUE-LABEL: define internal void @test01.1
 ; CHECK-NONOPAQUE: %local01_ptr01 = alloca %__DTT_struct.test01*, align 8, !intel_dtrans_type ![[L1P1_MD:[0-9]+]]
 ; CHECK-NONOPAQUE: %local01_depptr01 = alloca %__DDT_struct.test01dep*, align 8, !intel_dtrans_type ![[L1DP1_MD:[0-9]+]]
 ; CHECK-NONOPAQUE: %local01_ptr02 = alloca %struct.test02*, align 8, !intel_dtrans_type ![[L1P2_MD:[0-9]+]]
@@ -82,7 +82,7 @@ define void @foo(%struct.test01** "intel_dtrans_func_index"="1" %in) !intel.dtra
 ; CHECK-NONOPAQUE-DAG: ![[F1VOID_MD]] = {{.*}}!{!"void", i32 0}
 ; CHECK-NONOPAQUE-DAG: ![[F1ARG1_MD]] = {{.*}}!{%__DTT_struct.test01 zeroinitializer, i32 2}
 
-; CHECK-OPAQUE-LABEL: define void @test01.1
+; CHECK-OPAQUE-LABEL: define internal void @test01.1
 ; CHECK-OPAQUE: %local01_ptr01 = alloca ptr, align 8, !intel_dtrans_type ![[L1P1_MD:[0-9]+]]
 ; CHECK-OPAQUE: %local01_depptr01 = alloca ptr, align 8, !intel_dtrans_type ![[L1DP1_MD:[0-9]+]]
 ; CHECK-OPAQUE: %local01_ptr02 = alloca ptr, align 8, !intel_dtrans_type ![[L1P2_MD:[0-9]+]]

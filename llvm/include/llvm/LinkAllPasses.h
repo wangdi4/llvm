@@ -456,6 +456,7 @@ namespace {
       (void)llvm::createDPCPPKernelWGLoopCreatorLegacyPass();
       (void)llvm::createDPCPPKernelAnalysisLegacyPass();
       (void)llvm::createDPCPPPreprocessSPIRVFriendlyIRLegacyPass();
+      (void)llvm::createDPCPPRewritePipesLegacyPass();
       (void)llvm::createDeduceMaxWGDimLegacyPass();
       (void)llvm::createDuplicateCalledKernelsLegacyPass();
       (void)llvm::createExternalizeGlobalVariablesLegacyPass();
@@ -472,6 +473,7 @@ namespace {
       (void)llvm::createImplicitArgsAnalysisLegacyPass();
       (void)llvm::createImplicitGIDLegacyPass();
       (void)llvm::createInstToFuncCallLegacyPass();
+      (void)llvm::createInternalizeGlobalVariablesLegacyPass();
       (void)llvm::createInternalizeNonKernelFuncLegacyPass();
       (void)llvm::createLocalBufferAnalysisLegacyPass();
       (void)llvm::createLocalBuffersLegacyPass(false);
@@ -482,10 +484,12 @@ namespace {
       (void)llvm::createAddNTAttrLegacyPass();
       (void)llvm::createAddTLSGlobalsLegacyPass();
       (void)llvm::createAutorunReplicatorLegacyPass();
+      (void)llvm::createRemoveAtExitLegacyPass();
       (void)llvm::createResolveMatrixFillLegacyPass();
       (void)llvm::createResolveMatrixLayoutLegacyPass();
       (void)llvm::createResolveMatrixWISliceLegacyPass();
       (void)llvm::createResolveSubGroupWICallLegacyPass();
+      (void)llvm::createResolveVarTIDCallLegacyPass();
       (void)llvm::createResolveWICallLegacyPass(false, false);
       (void)llvm::createSGBarrierPropagateLegacyPass();
       (void)llvm::createSGBarrierSimplifyLegacyPass();
@@ -496,6 +500,7 @@ namespace {
       (void)llvm::createSinCosFoldLegacyPass();
       (void)llvm::createSoaAllocaAnalysisLegacyPass();
       (void)llvm::createPrepareKernelArgsLegacyPass(false);
+      (void)llvm::createProfilingInfoLegacyPass();
       (void)llvm::createCleanupWrappedKernelLegacyPass();
       (void)llvm::createCoerceTypesLegacyPass();
       (void)llvm::createVFAnalysisLegacyPass();

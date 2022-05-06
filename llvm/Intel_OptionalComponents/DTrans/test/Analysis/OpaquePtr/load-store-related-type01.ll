@@ -1,29 +1,50 @@
 ; REQUIRES: asserts
 
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -disable-output -debug-only=dtrans-safetyanalyzer-verbose 2>&1 | FileCheck %s
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -disable-output -debug-only=dtrans-safetyanalyzer-verbose 2>&1 | FileCheck %s
+; RUN: opt  < %s -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -disable-output -debug-only=dtrans-safetyanalyzer-verbose 2>&1 | FileCheck %s --check-prefixes=CHECK-BC,CHECK-UPS,CHECK-MEA
+; RUN: opt  < %s -opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -disable-output -debug-only=dtrans-safetyanalyzer-verbose 2>&1 | FileCheck %s --check-prefixes=CHECK-BC,CHECK-UPS,CHECK-MEA
+
 
 ; This test case checks that "Bad casting (related types) -- Pointer type
-; for field load/store contains related types" was set for the load instruction
-; in %2, and the store instruction. The reason is because field 0 in
-; %class.TestClass.Outer is a pointer to %class.TestClass, but then the pointer
-; is used as %class.MainClass, which is a related type of %class.MainClass.base.
+; for field load/store contains related types" and "Mismatched element
+; access (related types) -- Type for field load/store contains related types"
+; were set for the load instruction in %2, and the store instruction. The
+; reason is because field 0 in %class.TestClass.Outer is a pointer to
+; %class.TestClass, but then the pointer is used as %class.MainClass, which is
+; a related type of %class.MainClass.base. Also, this test case checks that the
+; store instruction was set to "Unsafe pointer store (related types) -- Type
+; for field load/store contains related types".
 
-; CHECK-NOT: Bad casting -- Incompatible pointer type for field load/store
-; CHECK: dtrans-safety: Bad casting (related types) -- Pointer type for field load/store contains related types
-; CHECK:   [foo]   %2 = load ptr, ptr %1, align 8
-; CHECK: dtrans-safety: Cascading pointer carried safety condition: From: %class.TestClass.Outer = type { %class.TestClass*, i32 } To: %class.TestClass = type { %class.MainClass.base, [4 x i8] } :: Bad casting (related types)
-; CHECK: dtrans-safety: Bad casting (related types) -- Pointer type for field load/store contains related types
-; CHECK:   [foo]   %2 = load ptr, ptr %1, align 8
-; CHECK: dtrans-safety: Bad casting (related types) -- Pointer type for field load/store contains related types
-; CHECK:   [foo]   %2 = load ptr, ptr %1, align 8
+; CHECK-BC-NOT: Bad casting -- Incompatible pointer type for field load/store
+; CHECK-MEA-NOT: Mismatched element access -- Incompatible type for field load/store
+; CHECK-UPS-NOT: Unsafe pointer store -- Incompatible type for field load/store
 
-; CHECK: dtrans-safety: Bad casting (related types) -- Pointer type for field load/store contains related types
-; CHECK:   [foo]   store ptr %2, ptr %0, align 8
-; CHECK: dtrans-safety: Bad casting (related types) -- Pointer type for field load/store contains related types
-; CHECK:   [foo]   store ptr %2, ptr %0, align 8
-; CHECK: dtrans-safety: Bad casting (related types) -- Pointer type for field load/store contains related types
-; CHECK:   [foo]   store ptr %2, ptr %0, align 8
+; CHECK-BC: dtrans-safety: Bad casting (related types) -- Pointer type for field load/store contains related types
+; CHECK-BC:   [foo]   %2 = load ptr, ptr %1, align 8
+; CHECK-BC: dtrans-safety: Cascading pointer carried safety condition: From: %class.TestClass.Outer = type { %class.TestClass*, i32 } To: %class.TestClass = type { %class.MainClass.base, [4 x i8] } :: Bad casting (related types)
+; CHECK-BC: dtrans-safety: Bad casting (related types) -- Pointer type for field load/store contains related types
+; CHECK-BC:   [foo]   %2 = load ptr, ptr %1, align 8
+; CHECK-BC: dtrans-safety: Bad casting (related types) -- Pointer type for field load/store contains related types
+; CHECK-BC:   [foo]   %2 = load ptr, ptr %1, align 8
+
+; CHECK-MEA: dtrans-safety: Mismatched element access (related types) -- Type for field load/store contains related types
+; CHECK-MEA:   [foo]   %2 = load ptr, ptr %1, align 8
+
+; CHECK-BC: dtrans-safety: Bad casting (related types) -- Pointer type for field load/store contains related types
+; CHECK-BC:   [foo]   store ptr %2, ptr %0, align 8
+; CHECK-BC: dtrans-safety: Bad casting (related types) -- Pointer type for field load/store contains related types
+; CHECK-BC:   [foo]   store ptr %2, ptr %0, align 8
+; CHECK-BC: dtrans-safety: Bad casting (related types) -- Pointer type for field load/store contains related types
+; CHECK-BC:   [foo]   store ptr %2, ptr %0, align 8
+
+; CHECK-UPS: dtrans-safety: Unsafe pointer store (related types) -- Type for field load/store contains related types
+; CHECK-UPS:   [foo]   store ptr %2, ptr %0, align 8
+; CHECK-UPS: dtrans-safety: Unsafe pointer store (related types) -- Type for field load/store contains related types
+; CHECK-UPS:   [foo]   store ptr %2, ptr %0, align 8
+; CHECK-UPS: dtrans-safety: Unsafe pointer store (related types) -- Type for field load/store contains related types
+; CHECK-UPS:  [foo]   store ptr %2, ptr %0, align 8
+
+; CHECK-MEA: dtrans-safety: Mismatched element access (related types) -- Type for field load/store contains related types
+; CHECK-MEA:   [foo]   store ptr %2, ptr %0, align 8
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

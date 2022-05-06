@@ -1,7 +1,7 @@
 //===-----------------DTransOptBaseOpaquePtrTest.cpp-----------------------===//
 // Test pass for DTransOPOptBase functionality
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -68,8 +68,8 @@ public:
 class DTransOptBaseTest : public DTransOPOptBase {
 public:
   DTransOptBaseTest(LLVMContext &Ctx, DTransSafetyInfo *DTInfo,
-                    bool UsingOpaquePtrs, StringRef DepTypePrefix)
-      : DTransOPOptBase(Ctx, DTInfo, UsingOpaquePtrs, DepTypePrefix) {}
+                    StringRef DepTypePrefix)
+      : DTransOPOptBase(Ctx, DTInfo, DepTypePrefix) {}
 
   virtual bool prepareTypes(Module &M) override {
     SmallVector<StringRef, 16> SubStrings;
@@ -160,29 +160,8 @@ dtransOP::DTransOPOptBaseTestPass::run(Module &M, ModuleAnalysisManager &AM) {
 
 bool dtransOP::DTransOPOptBaseTestPass::runImpl(Module &M,
                                                 DTransSafetyInfo *DTInfo) {
-  auto CheckForOpaquePointers = [](Module &M, DTransSafetyInfo *DTInfo) {
-    if (DTInfo->useDTransSafetyAnalysis())
-      return DTInfo->getPtrTypeAnalyzer().sawOpaquePointer();
-
-    // If the DTrans pointer type analyzer did not run, then we need to scan for
-    // opaque pointers being present here.
-    for (auto &GV : M.globals())
-      if (GV.getType()->isOpaquePointerTy())
-        return true;
-
-    for (auto &F : M) {
-      if (F.getType()->isOpaquePointerTy())
-        return true;
-      for (auto &I : instructions(F))
-        if (I.getType()->isOpaquePointerTy())
-          return true;
-    }
-    return false;
-  };
-
   assert(DTInfo && "DTransSafetyInfo is required");
-  DTransOptBaseTest Transformer(M.getContext(), DTInfo,
-                                CheckForOpaquePointers(M, DTInfo), "__DDT_");
+  DTransOptBaseTest Transformer(M.getContext(), DTInfo, "__DDT_");
   return Transformer.run(M);
 }
 

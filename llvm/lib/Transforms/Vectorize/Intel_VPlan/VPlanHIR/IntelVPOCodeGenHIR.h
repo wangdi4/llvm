@@ -135,6 +135,25 @@ public:
   HLLoop *getRemainderLoop() const { return OrigLoop; }
   bool getIsOmpSIMD() const { return IsOmpSIMD; }
 
+  unsigned getNestingLevelFromInsertPoint() {
+    if (InsertPoint) {
+      HLLoop *TLoop = InsertPoint->getParentLoop();
+
+      // If the insertion point is in a loop, use its nesting level. The
+      // instruction is added outside the OrigLoop otherwise and use (OrigLoop's
+      // nesting level - 1) for this case.
+      if (TLoop)
+        return TLoop->getNestingLevel();
+      else
+        return OrigLoop->getNestingLevel() - 1;
+    }
+
+    // Use OrigLoop's nesting level - InsertPoint may be null in mixed CG mode.
+    assert(ForceMixedCG &&
+           "Expected non-null insertion point for VPValue based CG");
+    return OrigLoop->getNestingLevel();
+  }
+
   OptReportStatsTracker &getOptReportStats(const VPInstruction *I) {
     auto *BB = I->getParent();
     auto *VPLp = Plan->getVPLoopInfo()->getLoopFor(BB);

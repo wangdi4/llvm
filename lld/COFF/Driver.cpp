@@ -1593,6 +1593,10 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
   v.push_back("lld-link (LLVM option parsing)");
   for (auto *arg : args.filtered(OPT_mllvm))
     v.push_back(arg->getValue());
+#if INTEL_CUSTOMIZATION
+  // Don't reset llvm::cl states if coff::link is embedded in the compiler.
+  if (!args.hasArg(OPT_intel_embedded_linker))
+#endif // INTEL_CUSTOMIZATION
   cl::ResetAllOptionOccurrences();
   cl::ParseCommandLineOptions(v.size(), v.data());
 

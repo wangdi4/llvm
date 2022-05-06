@@ -50,6 +50,7 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Pass.h"
 #endif  // INTEL_CUSTOMIZATION
 
 #include <functional>
@@ -105,8 +106,13 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   bool runImpl(Module &M,
                std::function<vpo::WRegionInfo &(Function &F, bool *Changed)>
+#if INTEL_CUSTOMIZATION
                    WRegionInfoGetter,
-               unsigned OptLevel);
+               unsigned OptLevel,
+               LoopOptLimiter Limiter = LoopOptLimiter::None);
+#else
+                   WRegionInfoGetter);
+#endif // INTEL_CUSTOMIZATION
   static bool isRequired() { return true; }
 
 private:

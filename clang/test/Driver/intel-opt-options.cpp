@@ -118,35 +118,35 @@
 // RUN: %clang_cl -### %s -c /Qopt-dynamic-align- 2>&1 | FileCheck %s --check-prefix=CHECK-NO-DYNAMIC-ALIGN
 // CHECK-NO-DYNAMIC-ALIGN: "-mllvm" "-vplan-enable-peeling=false"
 
-// Behavior with -fvectorize-masked-mode option
-// RUN: %clang -### %s -c -fvectorize-masked-mode 2>&1 | FileCheck %s --check-prefix=CHECK-VECTORIZE-MASKED-MODE
-// RUN: %clang_cl -### %s -c /Qvectorize-masked-mode 2>&1 | FileCheck %s --check-prefix=CHECK-VECTORIZE-MASKED-MODE
+// Behavior with -fvec-with-mask option
+// RUN: %clang -### %s -c -fvec-with-mask 2>&1 | FileCheck %s --check-prefix=CHECK-VECTORIZE-MASKED-MODE
+// RUN: %clang_cl -### %s -c /Qvec-with-mask 2>&1 | FileCheck %s --check-prefix=CHECK-VECTORIZE-MASKED-MODE
 // CHECK-VECTORIZE-MASKED-MODE: "-mllvm" "-vplan-enable-masked-variant=true"
 
-// Behavior with -fvectorize-peel-loops option
-// RUN: %clang -### %s -c -fvectorize-peel-loops 2>&1 | FileCheck %s --check-prefix=CHECK-VECTORIZE-PEEL-LOOPS
-// RUN: %clang_cl -### %s -c /Qvectorize-peel-loops 2>&1 | FileCheck %s --check-prefix=CHECK-VECTORIZE-PEEL-LOOPS
+// Behavior with -fvec-peel-loops option
+// RUN: %clang -### %s -c -fvec-peel-loops 2>&1 | FileCheck %s --check-prefix=CHECK-VECTORIZE-PEEL-LOOPS
+// RUN: %clang_cl -### %s -c /Qvec-peel-loops 2>&1 | FileCheck %s --check-prefix=CHECK-VECTORIZE-PEEL-LOOPS
 // CHECK-VECTORIZE-PEEL-LOOPS: "-mllvm" "-vplan-enable-vectorized-peel=true"
 
-// Behavior with -fvectorize-remainder-loops option
-// RUN: %clang -### %s -c -fvectorize-remainder-loops 2>&1 | FileCheck %s --check-prefix=CHECK-VECTORIZE-REMAINDER-LOOPS
-// RUN: %clang_cl -### %s -c /Qvectorize-remainder-loops 2>&1 | FileCheck %s --check-prefix=CHECK-VECTORIZE-REMAINDER-LOOPS
+// Behavior with -fvec-remainder-loops option
+// RUN: %clang -### %s -c -fvec-remainder-loops 2>&1 | FileCheck %s --check-prefix=CHECK-VECTORIZE-REMAINDER-LOOPS
+// RUN: %clang_cl -### %s -c /Qvec-remainder-loops 2>&1 | FileCheck %s --check-prefix=CHECK-VECTORIZE-REMAINDER-LOOPS
 // CHECK-VECTORIZE-REMAINDER-LOOPS: "-mllvm" "-vplan-enable-masked-vectorized-remainder=true"
 // CHECK-VECTORIZE-REMAINDER-LOOPS: "-mllvm" "-vplan-enable-non-masked-vectorized-remainder=true"
 
-// Behavior with -fno-vectorize-masked-mode option
-// RUN: %clang -### %s -c -fno-vectorize-masked-mode 2>&1 | FileCheck %s --check-prefix=CHECK-NO-VECTORIZE-MASKED-MODE
-// RUN: %clang_cl -### %s -c /Qvectorize-masked-mode- 2>&1 | FileCheck %s --check-prefix=CHECK-NO-VECTORIZE-MASKED-MODE
+// Behavior with -fno-vec-with-mask option
+// RUN: %clang -### %s -c -fno-vec-with-mask 2>&1 | FileCheck %s --check-prefix=CHECK-NO-VECTORIZE-MASKED-MODE
+// RUN: %clang_cl -### %s -c /Qvec-with-mask- 2>&1 | FileCheck %s --check-prefix=CHECK-NO-VECTORIZE-MASKED-MODE
 // CHECK-NO-VECTORIZE-MASKED-MODE: "-mllvm" "-vplan-enable-masked-variant=false"
 
-// Behavior with -fno-vectorize-peel-loops option
-// RUN: %clang -### %s -c -fno-vectorize-peel-loops 2>&1 | FileCheck %s --check-prefix=CHECK-NO-VECTORIZE-PEEL-LOOPS
-// RUN: %clang_cl -### %s -c /Qvectorize-peel-loops- 2>&1 | FileCheck %s --check-prefix=CHECK-NO-VECTORIZE-PEEL-LOOPS
+// Behavior with -fno-vec-peel-loops option
+// RUN: %clang -### %s -c -fno-vec-peel-loops 2>&1 | FileCheck %s --check-prefix=CHECK-NO-VECTORIZE-PEEL-LOOPS
+// RUN: %clang_cl -### %s -c /Qvec-peel-loops- 2>&1 | FileCheck %s --check-prefix=CHECK-NO-VECTORIZE-PEEL-LOOPS
 // CHECK-NO-VECTORIZE-PEEL-LOOPS: "-mllvm" "-vplan-enable-vectorized-peel=false"
 
-// Behavior with -fno-vectorize-remainder-loops option
-// RUN: %clang -### %s -c -fno-vectorize-remainder-loops 2>&1 | FileCheck %s --check-prefix=CHECK-NO-VECTORIZE-REMAINDER-LOOPS
-// RUN: %clang_cl -### %s -c /Qvectorize-remainder-loops- 2>&1 | FileCheck %s --check-prefix=CHECK-NO-VECTORIZE-REMAINDER-LOOPS
+// Behavior with -fno-vec-remainder-loops option
+// RUN: %clang -### %s -c -fno-vec-remainder-loops 2>&1 | FileCheck %s --check-prefix=CHECK-NO-VECTORIZE-REMAINDER-LOOPS
+// RUN: %clang_cl -### %s -c /Qvec-remainder-loops- 2>&1 | FileCheck %s --check-prefix=CHECK-NO-VECTORIZE-REMAINDER-LOOPS
 // CHECK-NO-VECTORIZE-REMAINDER-LOOPS: "-mllvm" "-vplan-enable-masked-vectorized-remainder=false"
 // CHECK-NO-VECTORIZE-REMAINDER-LOOPS: "-mllvm" "-vplan-enable-non-masked-vectorized-remainder=false"
 

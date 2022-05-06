@@ -21,8 +21,8 @@ entry:
 ; CHECK-NEXT: %init.gid.dim0 = extractvalue [7 x i64] %early_exit_call, 1
 ; CHECK-NEXT: %loop.size.dim0 = extractvalue [7 x i64] %early_exit_call, 2
 ; CHECK-NEXT: %max.gid.dim0 = add i64 %init.gid.dim0, %loop.size.dim0
-; CHECK-NEXT: [[GEP:%[0-9]+]] = getelementptr inbounds i32, i32 addrspace(1)* %dst, i64 %init.gid.dim0
-; CHECK-NEXT: [[BITCAST:%[0-9]+]] = bitcast i32 addrspace(1)* [[GEP]] to <16 x i32> addrspace(1)*
+; CHECK-NEXT: [[GEP:%.*]] = getelementptr inbounds i32, i32 addrspace(1)* %dst, i64 %init.gid.dim0
+; CHECK-NEXT: [[BITCAST:%.*]] = bitcast i32 addrspace(1)* [[GEP]] to <16 x i32> addrspace(1)*
 ; CHECK-NEXT: %peel.ptr2int = ptrtoint <16 x i32> addrspace(1)* [[BITCAST]] to i64
 ; CHECK-NEXT: %peel.quotient = ashr i64 %peel.ptr2int, 2
 ; CHECK-NEXT: %peel.quotient.multiplier = mul i64 %peel.quotient, 15

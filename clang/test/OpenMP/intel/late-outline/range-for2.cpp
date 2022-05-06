@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -fopenmp-version=50 -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 // CHECK-LABEL: @_Z5test1i(i32 noundef %n) #0 {
@@ -60,14 +60,14 @@ int test1(int n) {
   // CHECK-NEXT: [[LD12:%[0-9]+]] = load ptr, ptr %aref, align 8
 
   // CHECK: region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"()
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[LD12]])
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[CE]])
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[IV]])
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[LB]])
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr [[UB]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[BEGIN]])
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[OMPVLA]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr %aref) ]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[LD12]]
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[CE]]
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[IV]]
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[LB]]
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[UB]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[BEGIN]]
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[OMPVLA]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr %aref
   // CHECK-NEXT: [[LD14:%[0-9]+]] = load i64, ptr [[OMPVLA]], align 8
   // CHECK-NEXT: [[LD15:%[0-9]+]] = load i64, ptr [[LB]], align 8
   // CHECK-NEXT: store i64 [[LD15]], ptr [[IV]], align 8
@@ -177,14 +177,15 @@ int test2() {
   // CHECK-NEXT: [[LD8:%[0-9]+]] = load ptr, ptr [[RANGE]], align 8
 
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:NONPOD"(ptr @foobar, ptr @_ZTS1A.omp.copy_constr, ptr @_ZTS1A.omp.destr)
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[LD7]])
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[IV]])
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[LB]])
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr [[UB]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[BEGIN]])
-  // CHECK-SAME: "QUAL.OMP.SHARED:BYREF"(ptr [[RANGE]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr %a)
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:NONPOD.TYPED"(ptr @foobar,
+  // CHECK-SAME:  ptr @_ZTS1A.omp.copy_constr, ptr @_ZTS1A.omp.destr)
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[LD7]]
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[IV]]
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[LB]]
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[UB]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[BEGIN]]
+  // CHECK-SAME: "QUAL.OMP.SHARED:BYREF.TYPED"(ptr [[RANGE]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr %a
 
 // CHECK-LABEL: omp.inner.for.body{{[0-9]*}}:
   // CHECK: [[LD:%[0-9]+]] = load ptr, ptr [[RANGE]], align 8

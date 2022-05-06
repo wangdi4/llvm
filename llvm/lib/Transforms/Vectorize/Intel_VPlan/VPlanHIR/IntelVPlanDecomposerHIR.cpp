@@ -1764,7 +1764,12 @@ void VPDecomposerHIR::fixPhiNodes() {
     // 1. The PHI node has just a single incoming value along all edges.
     //    Solution : We replace all uses of this PHI with its operand, and
     //    remove the PHI.
-    // 2. The PHI node has no incoming value.
+    // 2. The PHI node has only 2 incoming values and blends itself as incoming
+    //    value along one of the edges. For example -
+    //      %phi = phi [ %v1, BB1 ], [ %phi, BB2 ]
+    //    Solution: Replace all uses of PHI with the actual incoming value, and
+    //    remove the PHI. In the above example, we RAUW(%phi, %v1).
+    // 3. The PHI node has no incoming value.
     //    Solution : This means there was no definition of the ambiguous symbase
     //    before visiting the VPBB i.e. the VPBB defines this symbase for the
     //    first time. Iterate over the underlying HIR instructions of the VPBB,
@@ -1787,8 +1792,19 @@ void VPDecomposerHIR::fixPhiNodes() {
       FixedPhi->replaceAllUsesWith(FixedPhi->getIncomingValue(Idx),
                                    false /*InvalidateIR*/);
       FixedPhi->getParent()->eraseInstruction(FixedPhi);
-    } else if (FixedPhi->getNumIncomingValues() == 0) {
+    } else if (FixedPhi->getNumIncomingValues() == 2 &&
+               (FixedPhi->getIncomingValue(0u) == FixedPhi ||
+                FixedPhi->getIncomingValue(1u) == FixedPhi)) {
       // Solution for case 2
+      LLVM_DEBUG(dbgs() << "VPDecomp fixPhiNodes : The fixed PHI node will be "
+                           "replaced and removed:";
+                 FixedPhi->dump(); dbgs() << "\n");
+      unsigned Idx = FixedPhi->getIncomingValue(0u) == FixedPhi ? 1 : 0;
+      FixedPhi->replaceAllUsesWith(FixedPhi->getIncomingValue(Idx),
+                                   false /*InvalidateIR*/);
+      FixedPhi->getParent()->eraseInstruction(FixedPhi);
+    } else if (FixedPhi->getNumIncomingValues() == 0) {
+      // Solution for case 3
       LLVM_DEBUG(dbgs() << "VPDecomp fixPhiNodes : The fixed PHI node will be "
                            "replaced and removed:";
                  FixedPhi->dump(); dbgs() << "\n");

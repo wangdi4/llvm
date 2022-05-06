@@ -5,57 +5,60 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   AddNTAttr.cpp
   AddTLSGlobals.cpp
   AutorunReplicator.cpp
+  BarrierInFunctionPass.cpp
+  BarrierPass.cpp
   BuiltinCallToInst.cpp
   BuiltinImport.cpp
-  CoerceTypes.cpp
   BuiltinLibInfoAnalysis.cpp
+  CleanupWrappedKernel.cpp
+  CoerceTypes.cpp
   CoerceWin64Types.cpp
+  DataPerBarrierPass.cpp
+  DataPerValuePass.cpp
+  DeduceMaxWGDim.cpp
   DPCPPEqualizer.cpp
-  DPCPPKernelTransforms.cpp
-  DPCPPKernelVecClone.cpp
-  DPCPPPrepareKernelForVecClone.cpp
-  DPCPPKernelPostVec.cpp
+  DPCPPKernelAnalysis.cpp
   DPCPPKernelCompilationUtils.cpp
   DPCPPKernelLoopUtils.cpp
+  DPCPPKernelPostVec.cpp
+  DPCPPKernelTransforms.cpp
+  DPCPPKernelVecClone.cpp
   DPCPPKernelWGLoopCreator.cpp
-  DPCPPKernelAnalysis.cpp
+  DPCPPPrepareKernelForVecClone.cpp
   DPCPPPreprocessSPIRVFriendlyIR.cpp
-  DeduceMaxWGDim.cpp
+  DPCPPRewritePipes.cpp
+  DuplicateCalledKernelsPass.cpp
   ExternalizeGlobalVariables.cpp
+  GroupBuiltinPass.cpp
   HandleVPlanMask.cpp
   ImplicitArgsAnalysis.cpp
   ImplicitGID.cpp
   InstToFuncCall.cpp
+  InternalizeGlobalVariables.cpp
   InternalizeNonKernelFunc.cpp
+  KernelBarrierUtils.cpp
+  LinearIdResolver.cpp
   LocalBufferAnalysis.cpp
   LocalBuffers.cpp
-  LinearIdResolver.cpp
   LoopStridedCodeMotion.cpp
   LoopWIAnalysis.cpp
-  DuplicateCalledKernelsPass.cpp
   PhiCanonicalization.cpp
-  RedundantPhiNodePass.cpp
-  GroupBuiltinPass.cpp
-  SplitBBonBarrierPass.cpp
-  KernelBarrierUtils.cpp
-  WIRelatedValuePass.cpp
-  DataPerBarrierPass.cpp
-  DataPerValuePass.cpp
-  BarrierPass.cpp
-  BarrierInFunctionPass.cpp
+  PrepareKernelArgs.cpp
+  ProfilingInfo.cpp
   ReduceCrossBarrierValues.cpp
+  RedundantPhiNodePass.cpp
+  RemoveAtexit.cpp
   ResolveMatrixFill.cpp
   ResolveMatrixLayout.cpp
   ResolveMatrixWISlice.cpp
   ResolveSubGroupWICall.cpp
+  ResolveVarTIDCall.cpp
   ResolveWICall.cpp
-  SoaAllocaAnalysis.cpp
-  SplitBBonBarrierPass.cpp
-  WIRelatedValuePass.cpp
-  PrepareKernelArgs.cpp
-  CleanupWrappedKernel.cpp
   SetVectorizationFactor.cpp
   SinCosFold.cpp
+  SoaAllocaAnalysis.cpp
+  SplitBBonBarrierPass.cpp
+  SplitBBonBarrierPass.cpp
   SubgroupEmulation/SGBarrierPropagate.cpp
   SubgroupEmulation/SGBarrierSimplify.cpp
   SubgroupEmulation/SGBuiltin.cpp
@@ -65,19 +68,8 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   SubgroupEmulation/SGSizeAnalysis.cpp
   SubgroupEmulation/SGValueWiden.cpp
   TaskSeqAsyncHandling.cpp
-  VectorVariant/CreateSimdVariantPropagation.cpp
-  VectorVariant/IndirectCallLowering.cpp
-  VectorVariant/SGSizeCollector.cpp
-  VectorVariant/SGSizeCollectorIndirect.cpp
-  VectorVariant/UpdateCallAttrs.cpp
-  VectorVariant/VectorVariantFillIn.cpp
-  VectorVariant/VectorVariantLowering.cpp
-  VFAnalysis.cpp
-  VectorizationDimensionAnalysis.cpp
-  WGLoopBoundaries.cpp
-  WorkItemAnalysis.cpp
-
   Utils/CPUDetect.cpp
+  Utils/DPCPPChannelPipeUtils.cpp
   Utils/DPCPPStatistic.cpp
   Utils/FunctionDescriptor.cpp
   Utils/ImplicitArgsUtils.cpp
@@ -88,6 +80,19 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   Utils/TypeAlignment.cpp
   Utils/VectorizerUtils.cpp
   Utils/WGBoundDecoder.cpp
+  VectorizationDimensionAnalysis.cpp
+  VectorVariant/CreateSimdVariantPropagation.cpp
+  VectorVariant/IndirectCallLowering.cpp
+  VectorVariant/SGSizeCollector.cpp
+  VectorVariant/SGSizeCollectorIndirect.cpp
+  VectorVariant/UpdateCallAttrs.cpp
+  VectorVariant/VectorVariantFillIn.cpp
+  VectorVariant/VectorVariantLowering.cpp
+  VFAnalysis.cpp
+  WGLoopBoundaries.cpp
+  WIRelatedValuePass.cpp
+  WIRelatedValuePass.cpp
+  WorkItemAnalysis.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Intel_DPCPPKernelTransforms

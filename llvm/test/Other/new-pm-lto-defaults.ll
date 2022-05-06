@@ -241,8 +241,9 @@
 ; CHECK-O23SZ-NEXT:Running analysis: TargetIRAnalysis
 ; CHECK-O23SZ-NEXT:Running analysis: DominatorTreeAnalysis
 ; CHECK-O23SZ-NEXT:Running analysis: AssumptionAnalysis
-; CHECK-O23SZ-NEXT:Running pass: LoopSimplifyPass
+; CHECK-O23SZ-NEXT:Running pass: VPlanPragmaOmpSimdIfPass on foo
 ; CHECK-O23SZ-NEXT:Running analysis: LoopAnalysis
+; CHECK-O23SZ-NEXT:Running pass: LoopSimplifyPass
 ; CHECK-O23SZ-NEXT:Running pass: LowerSwitchPass
 ; CHECK-O23SZ-NEXT:Running analysis: LazyValueAnalysis
 ; CHECK-O23SZ-NEXT:Running pass: LCSSAPass

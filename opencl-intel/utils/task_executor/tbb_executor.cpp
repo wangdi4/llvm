@@ -541,16 +541,27 @@ bool TBBTaskExecutor::LoadTBBLibrary()
       bool keyret = GetStringValueFromRegistryOrETC(
           HKEY_LOCAL_MACHINE, tbbLocInReg.c_str(), "TBB_DLL_PATH",
           cszLibraryName, 1024);
+      std::string tbbFullPath;
       if (keyret) {
-        std::string tbbFullPath = std::string(cszLibraryName) + "\\" + tbbPath;
+        tbbFullPath = std::string(cszLibraryName) + "\\" + tbbPath;
         m_err = m_dllTBBLib.Load(tbbFullPath.c_str());
+      }
 
-        if (m_err != 0) {
-          LOG_ERROR(TEXT("Failed to load TBB from full path %s"),
-                    tbbFullPath.c_str());
-        }
-      } else {
-        LOG_ERROR(TEXT("TBB path is not configured in windows registry."));
+      if (m_err != 0 && !basicConfig.GetTBBDLLPath().empty()) {
+        // Suppose there is a field named TBB_DLL_PATH in OCL CPU RT
+        // configuration file.
+        tbbFullPath = basicConfig.GetTBBDLLPath() + "\\" + tbbPath;
+        m_err = m_dllTBBLib.Load(tbbFullPath.c_str());
+      }
+
+      if (m_err != 0) {
+        fprintf(
+            stderr,
+            "Cannot load TBB from neither Windows registry key nor CPU runtime "
+            "configuration file (cl.cfg / cl.fpga_emu.cfg). Error: %s.\n"
+            "You can ask your administrator to configure TBB library location "
+            "in the configuration file.\n",
+            m_dllTBBLib.GetError().c_str());
       }
     }
 #endif

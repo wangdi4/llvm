@@ -19,7 +19,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 define "intel_dtrans_func_index"="1" %struct.test01* @test01(%struct.test01* "intel_dtrans_func_index"="2" %in) !intel.dtrans.func.type !3 {
   ret %struct.test01* %in
 }
-; CHECK: define i64 @test01.1(i64 %in)
+; CHECK: define internal i64 @test01.1(i64 %in)
 ; CHECK-NOT: !intel.dtrans.func.type
 
 ; The return pointer to the structure should be converted to an integer index.
@@ -28,8 +28,8 @@ define "intel_dtrans_func_index"="1" %struct.test01* @test02(%struct.test01** "i
   %p = load %struct.test01*, %struct.test01** %in
   ret %struct.test01* %p
 }
-; CHECK-NONOPAQUE: define i64 @test02.2(i64* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type ![[FUNC2_MD:[0-9]+]]
-; CHECK-OPAQUE: define i64 @test02.2(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type ![[FUNC2_MD:[0-9]+]]
+; CHECK-NONOPAQUE: define internal i64 @test02.2(i64* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type ![[FUNC2_MD:[0-9]+]]
+; CHECK-OPAQUE: define internal i64 @test02.2(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type ![[FUNC2_MD:[0-9]+]]
 
 !intel.dtrans.types = !{!6, !7}
 

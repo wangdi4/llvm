@@ -49,7 +49,7 @@ void TripCountInfo::calculateEstimatedTripCount() {
   // No known trip count or known average tripcount. Try to estimate to the best
   // of our abilities.
 
-  bool KnownMax = MaxTripCount != TripCountInfo::UnknownMaxTripCount;
+  bool KnownMax = MaxTripCount < DefaultTripCount;
   bool KnownMin = MinTripCount != 0;
 
   if (KnownMax && KnownMin)

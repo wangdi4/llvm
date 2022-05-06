@@ -35,7 +35,9 @@ VERS1.0 {
     __tgt_get_interop_property;
     __tgt_set_interop_property;
     __tgt_offload_proxy_task_complete_ooo;
+# INTEL_CUSTOMIZATION
     __tgt_push_code_location;
+# end INTEL_CUSTOMIZATION
     __tgt_get_num_devices;
     __tgt_get_target_memory_info;
     __tgt_add_build_options;

@@ -48,6 +48,7 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Pass.h"
 #endif  // INTEL_CUSTOMIZATION
 
 #include <functional>
@@ -73,16 +74,21 @@ class VPOParoptModuleTransform {
 
 public:
   /// ParoptModuleTransform object constructor
-  VPOParoptModuleTransform(Module &M, int Mode, unsigned OptLevel = 2,
-                           bool DisableOffload = false)
-      : M(M), C(M.getContext()), Mode(Mode),
+  VPOParoptModuleTransform(Module &M, int Mode, bool DisableOffload = false,
 #if INTEL_CUSTOMIZATION
-        ORVerbosity(OptReportVerbosity::Low),
+                           unsigned OptLevel = 2,
+                           LoopOptLimiter Limiter = LoopOptLimiter::None)
+#else
+                           unsigned OptLevel = 2)
 #endif  // INTEL_CUSTOMIZATION
-        OptLevel(OptLevel),
-        DisableOffload(DisableOffload), TgtOffloadEntryTy(nullptr),
-        TgDeviceImageTy(nullptr), TgBinaryDescriptorTy(nullptr),
-        DsoHandle(nullptr), PrintfDecl(nullptr), OCLPrintfDecl(nullptr) {}
+      : M(M), C(M.getContext()), Mode(Mode),
+        DisableOffload(DisableOffload), OptLevel(OptLevel),
+#if INTEL_CUSTOMIZATION
+        Limiter(Limiter), ORVerbosity(OptReportVerbosity::Low),
+#endif  // INTEL_CUSTOMIZATION
+        TgtOffloadEntryTy(nullptr), TgDeviceImageTy(nullptr),
+        TgBinaryDescriptorTy(nullptr), DsoHandle(nullptr), PrintfDecl(nullptr),
+        OCLPrintfDecl(nullptr) {}
 
   ~VPOParoptModuleTransform() {
     for (auto E : OffloadEntries)
@@ -116,17 +122,20 @@ private:
   /// Paropt compilation mode.
   int Mode;
 
-#if INTEL_CUSTOMIZATION
-  /// Verbosity level for generating remarks using Loop Opt Report
-  /// framework (under -qopt-report).
-  OptReportVerbosity::Level ORVerbosity;
-#endif  // INTEL_CUSTOMIZATION
+  /// Ignore TARGET constructs
+  bool DisableOffload;
 
   /// Optimization level.
   unsigned OptLevel;
 
-  /// Ignore TARGET constructs
-  bool DisableOffload;
+#if INTEL_CUSTOMIZATION
+  /// Needed to let VPOParoptModuleTransform bail out from -lto -c pass pipeline
+  LoopOptLimiter Limiter = LoopOptLimiter::None;
+
+  /// Verbosity level for generating remarks using Loop Opt Report
+  /// framework (under -qopt-report).
+  OptReportVerbosity::Level ORVerbosity;
+#endif  // INTEL_CUSTOMIZATION
 
   /// A list of device triples for offload compilation.
   SmallVector<Triple, 16> TgtDeviceTriples;

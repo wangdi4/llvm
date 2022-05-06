@@ -22,7 +22,7 @@ entry:
 
   ret i32 %2
 }
-; CHECK-LABEL: define i32 @foo
+; CHECK-LABEL: define internal i32 @foo
 ; CHECK: call void @llvm.memset
 ; CHECK-SAME: i64 12
 
@@ -35,7 +35,7 @@ entry:
   %0 = load i16, i16* %y, align 4
   ret i16 %0
 }
-; CHECK-LABEL: define i16 @bar
+; CHECK-LABEL: define internal i16 @bar
 ; CHECK: getelementptr inbounds %__DFT_struct.B, {{.*}} %b, i64 0, i32 0
 
 declare !intel.dtrans.func.type !10 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)

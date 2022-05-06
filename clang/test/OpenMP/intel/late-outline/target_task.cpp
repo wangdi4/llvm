@@ -1,9 +1,9 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck --check-prefixes CHECK,CHECK-NEW %s
 
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -fno-openmp-new-depend-ir -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck --check-prefixes CHECK,CHECK-OLD %s
 
@@ -18,14 +18,14 @@ void foo1() {
   // CHECK: DIR.OMP.TASK
   // CHECK-SAME: "QUAL.OMP.IF"(i32 0)
   // CHECK-SAME: "QUAL.OMP.TARGET.TASK"
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[W]])
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[X]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[W]]
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[X]]
   // CHECK-OLD-SAME: "QUAL.OMP.DEPEND.OUT"(ptr [[Y]])
   // CHECK-NEW-SAME: "QUAL.OMP.DEPARRAY"(i32 1, ptr [[DARR]])
   // CHECK: DIR.OMP.TARGET
   // CHECK-SAME: "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0)
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[W]])
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[X]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[W]]
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[X]]
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[Y]], ptr [[Y]], i64 2, i64 35
   // CHECK: DIR.OMP.END.TARGET
   // CHECK: DIR.OMP.END.TASK
@@ -46,10 +46,10 @@ void foo2() {
   // CHECK-SAME: "QUAL.OMP.TARGET.TASK"
   // CHECK-OLD-SAME: "QUAL.OMP.DEPEND.OUT"(ptr [[Y]])
   // CHECK-NEW-SAME: "QUAL.OMP.DEPARRAY"(i32 1, ptr [[DARR]])
-  // CHECK-DAG: "QUAL.OMP.FIRSTPRIVATE"(ptr [[YP]])
-  // CHECK-DAG: "QUAL.OMP.FIRSTPRIVATE"(ptr [[Y]])
-  // CHECK-DAG: "QUAL.OMP.FIRSTPRIVATE"(ptr [[SZ]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[YPMAP]])
+  // CHECK-DAG: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[YP]]
+  // CHECK-DAG: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[Y]]
+  // CHECK-DAG: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[SZ]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[YPMAP]]
   // CHECK: [[L0:%.+]] = load ptr, ptr [[YP]]
   // CHECK: [[L1:%.+]] = load ptr, ptr [[YP]]
   // CHECK: [[L2:%.+]] = load ptr, ptr [[YP]]
@@ -58,7 +58,7 @@ void foo2() {
   // CHECK-SAME: "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1)
   // CHECK-SAME: "QUAL.OMP.NOWAIT"
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[L1]], ptr [[AI]], i64 %{{.*}}, i64 35
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[YPMAP]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[YPMAP]]
   // CHECK: store ptr [[L1]], ptr [[YPMAP]], align 8
   // CHECK: DIR.OMP.END.TARGET
   // CHECK: DIR.OMP.END.TASK
@@ -96,8 +96,8 @@ void foo3(float *vx_in, float *vx_out) {
   // CHECK: [[OUT:%.+]] = alloca ptr,
   // CHECK: DIR.OMP.TASK
   // CHECK: "QUAL.OMP.TARGET.TASK"
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[IN]])
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[OUT]])
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[IN]]
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[OUT]]
   // CHECK: DIR.OMP.TARGET
   // CHECK: DIR.OMP.END.TARGET
   // CHECK: DIR.OMP.END.TASK
@@ -116,29 +116,29 @@ void foo4() {
   // CHECK: [[L5:%.+]] = load ptr, ptr @sp,
   // CHECK: DIR.OMP.TASK
   // CHECK-SAME: "QUAL.OMP.TARGET.TASK"
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr @xp)
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr @yp)
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr @za)
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr @s)
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr @sp)
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr @xp
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr @yp
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr @za
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr @s
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr @sp
   // CHECK: DIR.OMP.END.TASK
   #pragma omp target nowait map(tofrom:xp) map(to:za[0:1]) map(to:s.x[0:]) map(to: sp->x[0:1])
   bar(xp, yp, za[0][0]);
 
   // CHECK: DIR.OMP.TASK
   // CHECK-SAME: "QUAL.OMP.TARGET.TASK"
-  // CHECK-SAME: QUAL.OMP.INREDUCTION.ADD:ARRSECT"(ptr @xp
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr @yp)
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr @za)
+  // CHECK-SAME: QUAL.OMP.INREDUCTION.ADD:ARRSECT.PTR_TO_PTR.TYPED"(ptr @xp
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr @yp
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr @za
   // CHECK: DIR.OMP.END.TASK
   #pragma omp target nowait map(tofrom:xp) in_reduction(+ : xp[0:1])
   bar(xp, yp, za[0][0]);
 
   // CHECK: DIR.OMP.TASK
   // CHECK-SAME: "QUAL.OMP.TARGET.TASK"
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr @xp)
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr @yp)
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr @za)
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr @xp
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr @yp
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr @za
   #pragma omp target nowait map(tofrom:xp[0:1])
   bar(xp, yp, za[0][0]);
 }
@@ -148,15 +148,15 @@ void DoTask(int a, int b);
 void foo5(int x, int y)
 {
 // CHECK: DIR.OMP.PARALLEL
-// CHECK-SAME "QUAL.OMP.PRIVATE"(ptr %a)
-// CHECK-SAME "QUAL.OMP.PRIVATE"(ptr %aa)
+// CHECK-SAME "QUAL.OMP.PRIVATE:TYPED"(ptr %a
+// CHECK-SAME "QUAL.OMP.PRIVATE:TYPED"(ptr %aa
 #pragma omp parallel
   {
    int &a = x;
    int &aa = y;
 // CHECK: DIR.OMP.TASK
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:BYREF"(ptr %a)
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:BYREF"(ptr %aa)
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:BYREF.TYPED"(ptr %a
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:BYREF.TYPED"(ptr %aa
 #pragma omp task
    DoTask(a, aa);
   }

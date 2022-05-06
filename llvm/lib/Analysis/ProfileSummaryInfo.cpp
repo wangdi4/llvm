@@ -46,7 +46,7 @@ extern cl::opt<unsigned> ProfileSummaryHugeWorkingSetSizeThreshold;
 extern cl::opt<unsigned> ProfileSummaryLargeWorkingSetSizeThreshold;
 extern cl::opt<int> ProfileSummaryHotCount;
 extern cl::opt<int> ProfileSummaryColdCount;
-
+extern cl::opt<bool> DTransInlineHeuristics; // INTEL
 static cl::opt<bool> PartialProfile(
     "partial-profile", cl::Hidden, cl::init(false),
     cl::desc("Specify the current profile is used as a partial profile."));
@@ -117,7 +117,9 @@ bool ProfileSummaryInfo::isFunctionEntryHot(const Function *F) const {
   // Make this consistent with ProfileSummaryInfo::isFunctionEntryCold
   if (!F)
     return false;
-  if (F->hasFnAttribute(Attribute::Hot))
+  // CMPLRLLVM-37160: Even though the attribute may be set by the user,
+  // it does not benefit all benchmarks.
+  if (!DTransInlineHeuristics && F->hasFnAttribute(Attribute::Hot))
     return true;
   if (!hasProfileSummary())
     return false;

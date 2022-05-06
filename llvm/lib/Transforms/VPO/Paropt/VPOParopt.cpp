@@ -52,6 +52,7 @@
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/Analysis/VPO/Intel_VPOParoptConfig.h"
+#include "llvm/Pass.h"
 #endif  // INTEL_CUSTOMIZATION
 
 #define DEBUG_TYPE "VPOParopt"
@@ -134,7 +135,7 @@ bool VPOParopt::runOnModule(Module &M) {
 
 #if INTEL_CUSTOMIZATION
   ORVerbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
-  return Impl.runImpl(M, WRegionInfoGetter, OptLevel);
+  return Impl.runImpl(M, WRegionInfoGetter, OptLevel, getLimiter());
 #else
   return Impl.runImpl(M, WRegionInfoGetter);
 #endif  // INTEL_CUSTOMIZATION
@@ -183,7 +184,7 @@ bool VPOParoptPass::runImpl(
     std::function<vpo::WRegionInfo &(Function &F, bool *Changed)>
 #if INTEL_CUSTOMIZATION
         WRegionInfoGetter,
-    unsigned OptLevel) {
+    unsigned OptLevel, LoopOptLimiter Limiter) {
 #else
         WRegionInfoGetter) {
 #endif // INTEL_CUSTOMIZATION
@@ -196,9 +197,9 @@ bool VPOParoptPass::runImpl(
 
   // AUTOPAR | OPENMP | SIMD | OFFLOAD
 #if INTEL_CUSTOMIZATION
-  VPOParoptModuleTransform VP(M, Mode, OptLevel, DisableOffload);
+  VPOParoptModuleTransform VP(M, Mode, DisableOffload, OptLevel, Limiter);
 #else
-  VPOParoptModuleTransform VP(M, Mode, /*OptLevel=*/2, DisableOffload);
+  VPOParoptModuleTransform VP(M, Mode, DisableOffload);
 #endif // INTEL_CUSTOMIZATION
 
   bool Changed = VP.doParoptTransforms(WRegionInfoGetter);

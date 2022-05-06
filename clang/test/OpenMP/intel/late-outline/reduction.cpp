@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-//RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+//RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 //RUN:   -triple x86_64-unknown-linux-gnu -fopenmp-version=50 %s | FileCheck %s
 
 int bar(int i);
@@ -23,17 +23,17 @@ void foo1(int *d) {
 
 //CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKGROUP"()
-//CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(ptr [[N1_ADDR]])
-//CHECK-SAME: "QUAL.OMP.REDUCTION.SUB"(ptr [[N2_ADDR]])
-//CHECK-SAME: "QUAL.OMP.REDUCTION.MUL"(ptr [[N3_ADDR]])
-//CHECK-SAME: "QUAL.OMP.REDUCTION.BAND"(ptr [[N4_ADDR]])
-//CHECK-SAME: "QUAL.OMP.REDUCTION.BOR"(ptr [[N5_ADDR]])
-//CHECK-SAME: "QUAL.OMP.REDUCTION.BXOR"(ptr [[N6_ADDR]])
-//CHECK-SAME: "QUAL.OMP.REDUCTION.AND"(ptr [[N7_ADDR]])
-//CHECK-SAME: "QUAL.OMP.REDUCTION.OR"(ptr [[N8_ADDR]])
-//CHECK-SAME: "QUAL.OMP.REDUCTION.MAX"(ptr [[N9_ADDR]])
-//CHECK-SAME: "QUAL.OMP.REDUCTION.MIN"(ptr [[N10_ADDR]])
-//CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:CMPLX"(ptr [[X_ADDR]])
+//CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr [[N1_ADDR]]
+//CHECK-SAME: "QUAL.OMP.REDUCTION.SUB:TYPED"(ptr [[N2_ADDR]]
+//CHECK-SAME: "QUAL.OMP.REDUCTION.MUL:TYPED"(ptr [[N3_ADDR]]
+//CHECK-SAME: "QUAL.OMP.REDUCTION.BAND:TYPED"(ptr [[N4_ADDR]]
+//CHECK-SAME: "QUAL.OMP.REDUCTION.BOR:TYPED"(ptr [[N5_ADDR]]
+//CHECK-SAME: "QUAL.OMP.REDUCTION.BXOR:TYPED"(ptr [[N6_ADDR]]
+//CHECK-SAME: "QUAL.OMP.REDUCTION.AND:TYPED"(ptr [[N7_ADDR]]
+//CHECK-SAME: "QUAL.OMP.REDUCTION.OR:TYPED"(ptr [[N8_ADDR]]
+//CHECK-SAME: "QUAL.OMP.REDUCTION.MAX:TYPED"(ptr [[N9_ADDR]]
+//CHECK-SAME: "QUAL.OMP.REDUCTION.MIN:TYPED"(ptr [[N10_ADDR]]
+//CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:CMPLX.TYPED"(ptr [[X_ADDR]]
 
   #pragma omp taskgroup \
                task_reduction(+:n1)   \
@@ -54,7 +54,7 @@ void foo1(int *d) {
     {
 //CHECK: [[TOK2:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASK"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.ADD"(ptr [[N1_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.ADD:TYPED"(ptr [[N1_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK2]])
 //CHECK-SAME: [ "DIR.OMP.END.TASK"() ]
       #pragma omp task in_reduction(+:n1)
@@ -62,7 +62,7 @@ void foo1(int *d) {
 
 //CHECK: [[TOK6:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASK"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.ADD"(ptr [[N1_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.ADD:TYPED"(ptr [[N1_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK6]])
 //CHECK-SAME: [ "DIR.OMP.END.TASK"() ]
       #pragma omp task in_reduction(+:n1)
@@ -70,7 +70,7 @@ void foo1(int *d) {
 
 //CHECK: [[TOK11:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASK"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.SUB"(ptr [[N2_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.SUB:TYPED"(ptr [[N2_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK11]])
 //CHECK-SAME: [ "DIR.OMP.END.TASK"() ]
       #pragma omp task in_reduction(-:n2)
@@ -78,7 +78,7 @@ void foo1(int *d) {
 
 //CHECK: [[TOK16:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASK"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.MUL"(ptr [[N3_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.MUL:TYPED"(ptr [[N3_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK16]])
 //CHECK-SAME: [ "DIR.OMP.END.TASK"() ]
       #pragma omp task in_reduction(*:n3)
@@ -86,7 +86,7 @@ void foo1(int *d) {
 
 //CHECK: [[TOK17:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASK"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.BAND"(ptr [[N4_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.BAND:TYPED"(ptr [[N4_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK17]])
 //CHECK-SAME: [ "DIR.OMP.END.TASK"() ]
       #pragma omp task in_reduction(&:n4)
@@ -94,7 +94,7 @@ void foo1(int *d) {
 
 //CHECK: [[TOK18:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASK"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.BOR"(ptr [[N5_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.BOR:TYPED"(ptr [[N5_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK18]])
 //CHECK-SAME: [ "DIR.OMP.END.TASK"() ]
       #pragma omp task in_reduction(|:n5)
@@ -102,7 +102,7 @@ void foo1(int *d) {
 
 //CHECK: [[TOK19:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASK"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.BXOR"(ptr [[N6_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.BXOR:TYPED"(ptr [[N6_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK19]])
 //CHECK-SAME: [ "DIR.OMP.END.TASK"() ]
       #pragma omp task in_reduction(^:n6)
@@ -110,7 +110,7 @@ void foo1(int *d) {
 
 //CHECK: [[TOK20:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASK"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.AND"(ptr [[N7_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.AND:TYPED"(ptr [[N7_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK20]])
 //CHECK-SAME: [ "DIR.OMP.END.TASK"() ]
       #pragma omp task in_reduction(&&:n7)
@@ -118,7 +118,7 @@ void foo1(int *d) {
 
 //CHECK: [[TOK21:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASK"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.OR"(ptr [[N8_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.OR:TYPED"(ptr [[N8_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK21]])
 //CHECK-SAME: [ "DIR.OMP.END.TASK"() ]
       #pragma omp task in_reduction(||:n8)
@@ -126,7 +126,7 @@ void foo1(int *d) {
 
 //CHECK: [[TOK22:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASK"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.MAX"(ptr [[N9_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.MAX:TYPED"(ptr [[N9_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK22]])
 //CHECK-SAME: [ "DIR.OMP.END.TASK"() ]
       #pragma omp task in_reduction(max:n9)
@@ -134,14 +134,14 @@ void foo1(int *d) {
 
 //CHECK: [[TOK23:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASK"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.MIN"(ptr [[N10_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.MIN:TYPED"(ptr [[N10_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK23]])
 //CHECK-SAME: [ "DIR.OMP.END.TASK"() ]
       #pragma omp task in_reduction(min:n10)
       n10 = bar(10);
 //CHECK: [[TOK24:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASK"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.ADD:CMPLX"(ptr [[X_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.ADD:CMPLX.TYPED"(ptr [[X_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK24]])
 //CHECK-SAME: [ "DIR.OMP.END.TASK"() ]
       #pragma omp task in_reduction(+:x)
@@ -172,17 +172,17 @@ void foo2(int *d) {
   double _Complex x;
 //CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKGROUP"()
-//CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(ptr [[N1_ADDR]])
-//CHECK-SAME: "QUAL.OMP.REDUCTION.SUB"(ptr [[N2_ADDR]])
-//CHECK-SAME: "QUAL.OMP.REDUCTION.MUL"(ptr [[N3_ADDR]])
-//CHECK-SAME: "QUAL.OMP.REDUCTION.BAND"(ptr [[N4_ADDR]])
-//CHECK-SAME: "QUAL.OMP.REDUCTION.BOR"(ptr [[N5_ADDR]])
-//CHECK-SAME: "QUAL.OMP.REDUCTION.BXOR"(ptr [[N6_ADDR]])
-//CHECK-SAME: "QUAL.OMP.REDUCTION.AND"(ptr [[N7_ADDR]])
-//CHECK-SAME: "QUAL.OMP.REDUCTION.OR"(ptr [[N8_ADDR]])
-//CHECK-SAME: "QUAL.OMP.REDUCTION.MAX"(ptr [[N9_ADDR]])
-//CHECK-SAME: "QUAL.OMP.REDUCTION.MIN"(ptr [[N10_ADDR]])
-//CHECK-SAME: "QUAL.OMP.REDUCTION.MUL:CMPLX"(ptr [[X_ADDR]])
+//CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr [[N1_ADDR]]
+//CHECK-SAME: "QUAL.OMP.REDUCTION.SUB:TYPED"(ptr [[N2_ADDR]]
+//CHECK-SAME: "QUAL.OMP.REDUCTION.MUL:TYPED"(ptr [[N3_ADDR]]
+//CHECK-SAME: "QUAL.OMP.REDUCTION.BAND:TYPED"(ptr [[N4_ADDR]]
+//CHECK-SAME: "QUAL.OMP.REDUCTION.BOR:TYPED"(ptr [[N5_ADDR]]
+//CHECK-SAME: "QUAL.OMP.REDUCTION.BXOR:TYPED"(ptr [[N6_ADDR]]
+//CHECK-SAME: "QUAL.OMP.REDUCTION.AND:TYPED"(ptr [[N7_ADDR]]
+//CHECK-SAME: "QUAL.OMP.REDUCTION.OR:TYPED"(ptr [[N8_ADDR]]
+//CHECK-SAME: "QUAL.OMP.REDUCTION.MAX:TYPED"(ptr [[N9_ADDR]]
+//CHECK-SAME: "QUAL.OMP.REDUCTION.MIN:TYPED"(ptr [[N10_ADDR]]
+//CHECK-SAME: "QUAL.OMP.REDUCTION.MUL:CMPLX.TYPED"(ptr [[X_ADDR]]
   #pragma omp taskgroup \
                task_reduction(+:n1)   \
                task_reduction(-:n2)   \
@@ -198,7 +198,7 @@ void foo2(int *d) {
   {
 //CHECK: [[TOK6:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.ADD"(ptr [[N1_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.ADD:TYPED"(ptr [[N1_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK6]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
   #pragma omp taskloop in_reduction(+:n1) nogroup
@@ -207,7 +207,7 @@ void foo2(int *d) {
 
 //CHECK: [[TOK71:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.SUB"(ptr [[N2_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.SUB:TYPED"(ptr [[N2_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK71]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
   #pragma omp taskloop in_reduction(-:n2) nogroup
@@ -216,7 +216,7 @@ void foo2(int *d) {
 
 //CHECK: [[TOK81:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.MUL"(ptr [[N3_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.MUL:TYPED"(ptr [[N3_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK81]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
   #pragma omp taskloop in_reduction(*:n3) nogroup
@@ -225,7 +225,7 @@ void foo2(int *d) {
 
 //CHECK: [[TOK91:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.BAND"(ptr [[N4_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.BAND:TYPED"(ptr [[N4_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK91]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
   #pragma omp taskloop in_reduction(&:n4) nogroup
@@ -234,7 +234,7 @@ void foo2(int *d) {
 
 //CHECK: [[TOK101:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.BOR"(ptr [[N5_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.BOR:TYPED"(ptr [[N5_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK101]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
   #pragma omp taskloop in_reduction(|:n5) nogroup
@@ -243,7 +243,7 @@ void foo2(int *d) {
 
 //CHECK: [[TOK111:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.BXOR"(ptr [[N6_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.BXOR:TYPED"(ptr [[N6_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK111]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
   #pragma omp taskloop in_reduction(^:n6) nogroup
@@ -252,7 +252,7 @@ void foo2(int *d) {
 
 //CHECK: [[TOK121:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.AND"(ptr [[N7_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.AND:TYPED"(ptr [[N7_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK121]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
   #pragma omp taskloop in_reduction(&&:n7) nogroup
@@ -261,7 +261,7 @@ void foo2(int *d) {
 
 //CHECK: [[TOK131:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.OR"(ptr [[N8_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.OR:TYPED"(ptr [[N8_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK131]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
   #pragma omp taskloop in_reduction(||:n8) nogroup
@@ -270,7 +270,7 @@ void foo2(int *d) {
 
 //CHECK: [[TOK141:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.MAX"(ptr [[N9_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.MAX:TYPED"(ptr [[N9_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK141]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
   #pragma omp taskloop in_reduction(max:n9) nogroup
@@ -279,7 +279,7 @@ void foo2(int *d) {
 
 //CHECK: [[TOK151:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.MIN"(ptr [[N10_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.MIN:TYPED"(ptr [[N10_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK151]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
   #pragma omp taskloop in_reduction(min:n10) nogroup
@@ -291,8 +291,8 @@ void foo2(int *d) {
 
 //CHECK: [[TOK16:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"()
-//CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(ptr [[N9_ADDR]])
-//CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(ptr [[N10_ADDR]])
+//CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr [[N9_ADDR]]
+//CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr [[N10_ADDR]]
   #pragma omp parallel for reduction(+ : n9, n10)
   for (int i = 0; i < 10; i++) {
     n9++;
@@ -303,7 +303,7 @@ void foo2(int *d) {
 
 //CHECK: [[TOK171:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
-//CHECK-SAME: "QUAL.OMP.INREDUCTION.MUL:CMPLX"(ptr [[X_ADDR]])
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.MUL:CMPLX.TYPED"(ptr [[X_ADDR]]
 //CHECK: call void @llvm.directive.region.exit(token [[TOK171]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
   #pragma omp taskloop in_reduction(*:x) nogroup
@@ -352,7 +352,7 @@ void foo3() {
   B a2(1), a3(2);
   B a4; init_an_A(&a4, 1, 0);
 // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
-// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr [[N5_ADDR]],
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr [[N5_ADDR]],
 // CHECK-SAME: ptr null,
 // CHECK-SAME: ptr @_ZTS1B.omp.destr,
 // CHECK-SAME: ptr @.omp_combiner.,
@@ -363,7 +363,7 @@ void foo3() {
 //CHECK: [ "DIR.OMP.END.PARALLEL"() ]
 
 // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
-// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr [[N2_ADDR]],
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr [[N2_ADDR]],
 // CHECK-SAME: ptr null,
 // CHECK-SAME: ptr @_ZTS1A.omp.destr,
 // CHECK-SAME: ptr @.omp_combiner..1,
@@ -375,12 +375,12 @@ void foo3() {
 //CHECK: [ "DIR.OMP.END.PARALLEL"() ]
 
 // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
-// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr [[N3_ADDR]],
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr [[N3_ADDR]],
 // CHECK-SAME: ptr null,
 // CHECK-SAME: ptr @_ZTS1B.omp.destr,
 // CHECK-SAME: ptr @.omp_combiner..3,
 // CHECK-SAME: ptr @.omp_initializer..4),
-// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr [[N4_ADDR]],
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr [[N4_ADDR]],
 // CHECK-SAME: ptr null,
 // CHECK-SAME: ptr @_ZTS1B.omp.destr,
 // CHECK-SAME: ptr @.omp_combiner..3,
@@ -390,7 +390,7 @@ void foo3() {
   }
 // CHECK: [ "DIR.OMP.END.PARALLEL"() ]
 // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
-// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %a1,
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %a1,
 // CHECK-SAME: ptr null,
 // CHECK-SAME: ptr @_ZTS1A.omp.destr,
 // CHECK-SAME: ptr @.omp_combiner..5
@@ -400,7 +400,7 @@ void foo3() {
 //CHECK: [ "DIR.OMP.END.PARALLEL"() ]
 
 // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
-// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %a1,
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %a1,
 // CHECK-SAME: ptr null,
 // CHECK-SAME: ptr @_ZTS1A.omp.destr,
 // CHECK-SAME: ptr @.omp_combiner..7
@@ -410,7 +410,7 @@ void foo3() {
 //CHECK: [ "DIR.OMP.END.PARALLEL"() ]
 
 // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
-// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %a1,
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %a1,
 // CHECK-SAME: ptr @_ZTS1A.omp.def_constr,
 // CHECK-SAME: ptr @_ZTS1A.omp.destr,
 // CHECK-SAME: ptr @.omp_combiner..9
@@ -454,7 +454,7 @@ void findMinMax(Point* points, int n, Point* minPoint, Point* maxPoint) {
   Point *pMax = &lmaxPoint, *pMin = &lminPoint;
 
 // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
-// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %lminPoint,
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %lminPoint,
 // CHECK-SAME: ptr null,
 // CHECK-SAME: ptr @_ZTS5Point.omp.destr,
 // CHECK-SAME: ptr @.omp_combiner..10,
@@ -518,27 +518,27 @@ void foo4() {
   A4 avar4a;
 
 // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
-// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %bvar1,
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %bvar1,
 // CHECK-SAME: ptr null,
 // CHECK-SAME: ptr null,
 // CHECK-SAME: ptr @.omp_combiner..
 // CHECK-SAME: ptr @.[[I1:omp_initializer..[0-9]*]]),
-// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %bvar2,
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %bvar2,
 // CHECK-SAME: ptr null,
 // CHECK-SAME: ptr null,
 // CHECK-SAME: ptr @.omp_combiner..
 // CHECK-SAME: ptr @.[[I2:omp_initializer..[0-9]*]]),
-// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %bvar3,
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %bvar3,
 // CHECK-SAME: ptr null,
 // CHECK-SAME: ptr null,
 // CHECK-SAME: ptr @.omp_combiner..
 // CHECK-SAME: ptr @.[[I3:omp_initializer..[0-9]*]]),
-// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %bvar4,
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %bvar4,
 // CHECK-SAME: ptr null,
 // CHECK-SAME: ptr null,
 // CHECK-SAME: ptr @.omp_combiner..
 // CHECK-SAME: ptr @.[[I4:omp_initializer..[0-9]*]]),
-// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %avar4a,
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %avar4a,
 // CHECK-SAME: ptr null,
 // CHECK-SAME: ptr @_ZTS2A4.omp.destr,
 // CHECK-SAME: ptr @.omp_combiner..
@@ -605,7 +605,7 @@ void foo5()
 {
   AA3 bvar3;
 // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
-// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %bvar3,
+// CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %bvar3,
 // CHECK-SAME: ptr null,
 // CHECK-SAME: ptr @_ZTS3AA3.omp.destr,
 // CHECK-SAME: ptr [[COMB1:@.omp_combiner..[0-9]*]]
@@ -641,17 +641,17 @@ void test1()
   int z = 0;
   Foo f;
   // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %f,
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %f,
   // CHECK-SAME: ptr null,
   // CHECK-SAME: ptr null,
   // CHECK-SAME: ptr [[COMB1:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: ptr [[INIT:@.omp_initializer..[0-9]*]]
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(ptr %z),
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %z
   #pragma omp parallel reduction(+:f,z)
   for (j = 0; j < 10; ++j);
   // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(ptr %z),
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %f,
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %z
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %f,
   // CHECK-SAME: ptr null,
   // CHECK-SAME: ptr null,
   // CHECK-SAME: ptr [[COMB1:@.omp_combiner..[0-9]*]]
@@ -662,8 +662,8 @@ void test1()
   Foo f1;
   int z1 = 0;
   // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(ptr %z1),
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %f1,
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %z1
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %f1,
   // CHECK-SAME: ptr null,
   // CHECK-SAME: ptr null,
   // CHECK-SAME: ptr [[COMB1:@.omp_combiner..[0-9]*]]
@@ -674,12 +674,12 @@ void test1()
   Foo f2;
   int z2 = 0;
   // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %f2,
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %f2,
   // CHECK-SAME: ptr null,
   // CHECK-SAME: ptr null,
   // CHECK-SAME: ptr [[COMB1:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: ptr [[INIT:@.omp_initializer..[0-9]*]]
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(ptr %z2),
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %z2
   #pragma omp parallel reduction(+:f2) reduction(+:z2)
   for (j = 0; j < 10; ++j);
   // CHECK: [ "DIR.OMP.END.PARALLEL"() ]
@@ -687,15 +687,15 @@ void test1()
   long lz = 0;
   int z3 = 0;
   // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %dz,
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %dz,
   // CHECK-SAME: ptr null,
   // CHECK-SAME: ptr [[COMB1:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: ptr [[INIT:@.omp_initializer..[0-9]*]]
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %lz,
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %lz,
   // CHECK-SAME: ptr null,
   // CHECK-SAME: ptr [[COMB1:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: ptr [[INIT:@.omp_initializer..[0-9]*]]
-  // CHECK-SAME: QUAL.OMP.REDUCTION.UDR"(ptr %z3,
+  // CHECK-SAME: QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %z3,
   // CHECK-SAME: ptr null,
   // CHECK-SAME: ptr [[COMB1:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: ptr  [[INIT:@.omp_initializer..[0-9]*]]
@@ -707,17 +707,17 @@ void test1()
   long lz1 = 0;
   int z4 = 0;
   // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %dz1,
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %dz1,
   // CHECK-SAME: ptr null,
   // CHECK-SAME: ptr null
   // CHECK-SAME: ptr [[COMB1:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: ptr null)
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %lz1,
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %lz1,
   // CHECK-SAME: ptr null,
   // CHECK-SAME: ptr null,
   // CHECK-SAME: ptr [[COMB1:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: ptr null)
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %z4,
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %z4,
   // CHECK-SAME: ptr null,
   // CHECK-SAME: ptr null,
   // CHECK-SAME: ptr [[COMB1:@.omp_combiner..[0-9]*]]
@@ -729,12 +729,12 @@ void test1()
   int z5 = 0;
   myint z6 = 0;
   // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %z5,
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %z5,
   // CHECK-SAME: ptr null,
   // CHECK-SAME: ptr null,
   // CHECK-SAME: ptr [[COMB1:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: ptr null)
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %z6,
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %z6,
   // CHECK-SAME: ptr null,
   // CHECK-SAME: ptr null,
   // CHECK-SAME: ptr [[COMB1:@.omp_combiner..[0-9]*]]
@@ -771,13 +771,13 @@ T tmain()
   // CHECK-SAME: "DIR.OMP.PARALLEL"
   // CHECK: [[T1:%[0-9]*]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.LOOP"
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %arr,
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %arr,
   // CHECK-SAME:  ptr [[COMB1:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: ptr null)
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:BYREF"(ptr %var,
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:BYREF.TYPED"(ptr %var,
   // CHECK-SAME: ptr [[COMB2:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: ptr null)
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(ptr %var1,
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %var1,
   // CHECK-SAME: ptr [[COMB3:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: ptr null)
 #pragma omp parallel
@@ -813,14 +813,14 @@ void my_add(TYPE &lhs, TYPE const &rhs) {
 void test2(TYPE ypas[100], int N) {
   #pragma omp parallel reduction(my_reduction_add:ypas[:])
   // CHECK: call token @llvm.directive.region.entry()
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:ARRSECT"(ptr %ypas.addr,
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:ARRSECT.PTR_TO_PTR.TYPED"(ptr %ypas.addr,
   // CHECK-SAME: ptr @_ZTS9my_struct.omp.def_constr,
   // CHECK-SAME: ptr @_ZTS9my_struct.omp.destr,
   for (int i = 0; i < 100; i++);
   // CHECK: [ "DIR.OMP.END.PARALLEL"() ]
   #pragma omp parallel reduction(my_reduction_add:ypas[1:N])
   // CHECK: call token @llvm.directive.region.entry()
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:ARRSECT"(ptr %ypas.addr,
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:ARRSECT.PTR_TO_PTR.TYPED"(ptr %ypas.addr,
   // CHECK-SAME: ptr @_ZTS9my_struct.omp.def_constr,
   for (int i = 0; i < 100; i++);
 }

@@ -43,7 +43,7 @@ define double @doSomething(i64 %idx, %struct.test* align 16 %p_test) {
 ; Delete field should reset the alignment of embedded array elements back to
 ; the default alignment for the type.
 
-; CHECK-LABEL: define double @doSomething
+; CHECK-LABEL: define internal double @doSomething
 ; CHECK:   %valB0 = load double, double* %p_test_B0, align 8
 ; CHECK:   %valB1 = load double, double* %p_test_B1, align 8
 ; CHECK:   %valB2 = load double, double* %p_test_B2, align 8

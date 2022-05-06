@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -fopenmp-version=50 -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 // CHECK-LABEL: @_Z5test1{{.*}}(
@@ -50,14 +50,14 @@ int test1() {
   // CHECK-NEXT: [[LD9:%[0-9]+]] = load ptr, ptr %aref, align 8
 
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(ptr %sum)
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[LD9]])
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[CE1]])
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[IV]])
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[LB]])
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr [[UB]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[BEGIN]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr %aref)
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %sum
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[LD9]]
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[CE1]]
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[IV]]
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[LB]]
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[UB]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[BEGIN]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr %aref
 
 // CHECK-LABEL: omp.inner.for.body{{[0-9]*}}:
   // CHECK: [[LD4:%[0-9]+]] = load ptr, ptr [[CE1]], align 8
@@ -181,20 +181,20 @@ int test2() {
   // CHECK-NEXT: [[LD15:%[0-9]+]] = load ptr, ptr %v, align 8
   // CHECK-NEXT: [[LD16:%[0-9]+]] = load ptr, ptr %v2, align 8
   // CHECK-NEXT: region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"()
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.MUL"(ptr %sum)
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.MUL:TYPED"(ptr %sum
   // CHECK-SAME: "QUAL.OMP.COLLAPSE"(i32 2)
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[LD15]])
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[CE0]])
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[IV]])
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[LB]])
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr [[UB]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[BEGIN1]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[LD16]])
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[CE2]])
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[CE3]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[BEGIN2]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr %v)
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr %v2)
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[LD15]]
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[CE0]]
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[IV]]
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[LB]]
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[UB]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[BEGIN1]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[LD16]]
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[CE2]]
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[CE3]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[BEGIN2]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr %v
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr %v2
   // CHECK-NEXT: [[LD18:%[0-9]+]] = load i64, ptr [[LB]], align 8
   // CHECK-NEXT: store i64 [[LD18]], ptr [[IV]], align 8
   // CHECK-NEXT: br label %omp.inner.for.cond{{[0-9]*}}
@@ -347,17 +347,17 @@ int test3() {
   // CHECK-NEXT: store i64 [[LD7]], ptr [[UB]], align 8
   // CHECK-NEXT: [[LD8:%[0-9]+]] = load ptr, ptr %v, align 8
   // CHECK: region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"()
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.SUB"(ptr %sum)
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.SUB:TYPED"(ptr %sum
   // CHECK-SAME: "QUAL.OMP.COLLAPSE"(i32 2)
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr %avar4)
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[LD8]])
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[CE]])
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[IV]])
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[LB]])
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr [[UB]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[BEGIN1]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr %i)
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr %v)
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr %avar4
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[LD8]]
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[CE]]
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[IV]]
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[LB]]
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[UB]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[BEGIN1]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr %i
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr %v
   // CHECK-NEXT: [[LD10:%[0-9]+]] = load i64, ptr [[LB]], align 8
   // CHECK-NEXT: store i64 [[LD10]], ptr [[IV]], align 8
   // CHECK-NEXT: br label %omp.inner.for.cond{{[0-9]*}}
@@ -475,18 +475,18 @@ int test4() {
   // CHECK-NEXT: store i64 [[LD7]], ptr [[UB]], align 8
   // CHECK-NEXT: [[LD8:%[0-9]+]] = load ptr, ptr %v, align 8
   // CHECK-NEXT: region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"()
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.MUL"(ptr %sum)
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.MUL:TYPED"(ptr %sum
   // CHECK-SAME: "QUAL.OMP.COLLAPSE"(i32 2)
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr %avar6)
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(ptr [[IV]])
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr [[LB]])
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(ptr [[UB]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr %i)
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[LD8]])
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[CE0]])
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[CE1]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[BEGIN2]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr %v)
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr %avar6
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr [[IV]]
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[LB]]
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr [[UB]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr %i
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[LD8]]
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[CE0]]
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[CE1]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[BEGIN2]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr %v
   // CHECK-NEXT: [[LD10:%[0-9]+]] = load i64, ptr [[LB]], align 8
   // CHECK-NEXT: store i64 [[LD10]], ptr [[IV]], align 8
   // CHECK-NEXT: br label %omp.inner.for.cond{{[0-9]*}}

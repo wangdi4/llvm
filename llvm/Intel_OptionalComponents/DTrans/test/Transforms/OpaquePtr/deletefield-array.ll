@@ -19,7 +19,7 @@ entry:
   %add = add nsw i32 %tmp1, %tmp0
   ret i32 %add
 }
-; CHECK-LABEL: define i32 @bar
+; CHECK-LABEL: define internal i32 @bar
 ; CHECK: %x = getelementptr inbounds [4 x %__DFT_struct.A], {{.*}} %a, i64 0, i64 0, i32 0
 ; CHECK: %z = getelementptr inbounds [4 x %__DFT_struct.A], {{.*}} %a, i64 0, i64 3, i32 1
 

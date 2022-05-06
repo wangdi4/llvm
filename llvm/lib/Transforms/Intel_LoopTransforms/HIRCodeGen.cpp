@@ -963,7 +963,21 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
           IndexV.push_back(OffsetIndex);
         }
 
-        GEPVal = Builder.CreateInBoundsGEP(GEPElemTy, GEPVal, IndexV);
+        auto *DimTy = Ref->getDimensionType(DimNum);
+        bool IsOpaquePointer =
+            DimTy->isPointerTy() && cast<PointerType>(DimTy)->isOpaque();
+
+        // TODO: Currently, GEP's index folding is avoided
+        // when opaque pointers are used and BasePtrElemTy is a struct.
+        // If folding is done, BasePtrElemTy should be updated correctly
+        // in sync. This is a quick workaround of updating pointer type.
+        // See opaque-pointer-struct-ty-base-ptr.ll as an example.
+        if (IsOpaquePointer && BasePtrElementTy->isStructTy())
+          GEPVal = Builder.Insert(
+              GetElementPtrInst::CreateInBounds(GEPElemTy, GEPVal, IndexV),
+              "my");
+        else
+          GEPVal = Builder.CreateInBoundsGEP(GEPElemTy, GEPVal, IndexV);
       }
 
       // Update BasePtrElementTy for processing of next dimension if we

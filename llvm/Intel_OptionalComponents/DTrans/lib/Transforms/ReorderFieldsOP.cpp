@@ -529,9 +529,9 @@ public:
       const DataLayout &DL,
       std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
       ReorderFieldTransInfo &RTI, DTransSafetyInfo *DTInfo, LLVMContext &Ctx,
-      bool UsingOpaquePointers, StringRef DepTypePrefix)
-      : DTransOPOptBase(Ctx, DTInfo, UsingOpaquePointers, DepTypePrefix),
-        DL(DL), GetTLI(GetTLI), RTI(RTI) {}
+      StringRef DepTypePrefix)
+      : DTransOPOptBase(Ctx, DTInfo, DepTypePrefix), DL(DL), GetTLI(GetTLI),
+        RTI(RTI) {}
 
   virtual bool prepareTypes(Module &M) override;
   virtual void populateTypes(Module &M) override;
@@ -2130,7 +2130,7 @@ bool ReorderFieldsOPPass::runImpl(
     return false;
 
   ReorderFieldsOPImpl ReorderFieldsImpl(DL, GetTLI, RTI, DTInfo, M.getContext(),
-                                        /*UsingOpaquePointers=*/true, "__DFR_");
+                                        "__DFR_");
   bool RunResult = ReorderFieldsImpl.run(M);
   return RunResult;
 }

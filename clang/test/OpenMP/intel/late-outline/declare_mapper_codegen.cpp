@@ -4,17 +4,17 @@
 #define HEADER
 
 ///==========================================================================///
-// RUN: %clang_cc1 -opaque-pointers -verify -fopenmp -fopenmp-late-outline -fopenmp-targets=powerpc64le-ibm-linux-gnu -x c++ -triple powerpc64le-unknown-unknown -emit-llvm -femit-all-decls -disable-llvm-passes %s -o - | FileCheck --check-prefix CK0 --check-prefix CK0-64 --check-prefix CK0-NO-DB %s
-// RUN: %clang_cc1 -opaque-pointers -fopenmp -fopenmp-late-outline -fopenmp-targets=powerpc64le-ibm-linux-gnu -x c++ -std=c++11 -triple powerpc64le-unknown-unknown -emit-pch -femit-all-decls -disable-llvm-passes -o %t %s
-// RUN: %clang_cc1 -opaque-pointers -fopenmp -fopenmp-late-outline -fopenmp-targets=powerpc64le-ibm-linux-gnu -x c++ -triple powerpc64le-unknown-unknown -std=c++11 -femit-all-decls -disable-llvm-passes -include-pch %t -verify %s -emit-llvm -o - | FileCheck --check-prefix CK0 --check-prefix CK0-64 --check-prefix CK0-NO-DB %s
-// RUN: %clang_cc1 -opaque-pointers  -verify -fopenmp -fopenmp-late-outline -fopenmp-targets=i386-pc-linux-gnu -x c++ -triple i386-unknown-unknown -emit-llvm -femit-all-decls -disable-llvm-passes %s -o - | FileCheck --check-prefix CK0 --check-prefix CK0-32 --check-prefix CK0-NO-DB %s
-// RUN: %clang_cc1 -opaque-pointers  -fopenmp -fopenmp-late-outline -fopenmp-targets=i386-pc-linux-gnu -x c++ -std=c++11 -triple i386-unknown-unknown -emit-pch -femit-all-decls -disable-llvm-passes -o %t %s
-// RUN: %clang_cc1 -opaque-pointers  -fopenmp -fopenmp-late-outline -fopenmp-targets=i386-pc-linux-gnu -x c++ -triple i386-unknown-unknown -std=c++11 -femit-all-decls -disable-llvm-passes -include-pch %t -verify %s -emit-llvm -o - | FileCheck --check-prefix CK0 --check-prefix CK0-32 --check-prefix CK0-NO-DB %s
+// RUN: %clang_cc1 -opaque-pointers -verify -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-targets=powerpc64le-ibm-linux-gnu -x c++ -triple powerpc64le-unknown-unknown -emit-llvm -femit-all-decls -disable-llvm-passes %s -o - | FileCheck --check-prefix CK0 --check-prefix CK0-64 --check-prefix CK0-NO-DB %s
+// RUN: %clang_cc1 -opaque-pointers -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-targets=powerpc64le-ibm-linux-gnu -x c++ -std=c++11 -triple powerpc64le-unknown-unknown -emit-pch -femit-all-decls -disable-llvm-passes -o %t %s
+// RUN: %clang_cc1 -opaque-pointers -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-targets=powerpc64le-ibm-linux-gnu -x c++ -triple powerpc64le-unknown-unknown -std=c++11 -femit-all-decls -disable-llvm-passes -include-pch %t -verify %s -emit-llvm -o - | FileCheck --check-prefix CK0 --check-prefix CK0-64 --check-prefix CK0-NO-DB %s
+// RUN: %clang_cc1 -opaque-pointers  -verify -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-targets=i386-pc-linux-gnu -x c++ -triple i386-unknown-unknown -emit-llvm -femit-all-decls -disable-llvm-passes %s -o - | FileCheck --check-prefix CK0 --check-prefix CK0-32 --check-prefix CK0-NO-DB %s
+// RUN: %clang_cc1 -opaque-pointers  -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-targets=i386-pc-linux-gnu -x c++ -std=c++11 -triple i386-unknown-unknown -emit-pch -femit-all-decls -disable-llvm-passes -o %t %s
+// RUN: %clang_cc1 -opaque-pointers  -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-targets=i386-pc-linux-gnu -x c++ -triple i386-unknown-unknown -std=c++11 -femit-all-decls -disable-llvm-passes -include-pch %t -verify %s -emit-llvm -o - | FileCheck --check-prefix CK0 --check-prefix CK0-32 --check-prefix CK0-NO-DB %s
 
-// RUN: %clang_cc1 -opaque-pointers -verify -debug-info-kind=limited -fopenmp -fopenmp-late-outline -fopenmp-targets=powerpc64le-ibm-linux-gnu -x c++ -triple powerpc64le-unknown-unknown -emit-llvm -femit-all-decls -disable-llvm-passes %s -o - | FileCheck --check-prefix CK0 --check-prefix CK0-64 --check-prefix CK0-DB %s
-// RUN: %clang_cc1 -opaque-pointers  -debug-info-kind=limited -fopenmp -fopenmp-late-outline -fopenmp-targets=powerpc64le-ibm-linux-gnu -x c++ -std=c++11 -triple powerpc64le-unknown-unknown -emit-pch -femit-all-decls -disable-llvm-passes -o %t %s
-// RUN: %clang_cc1 -opaque-pointers -debug-info-kind=limited -fopenmp -fopenmp-late-outline -fopenmp-targets=powerpc64le-ibm-linux-gnu -x c++ -triple powerpc64le-unknown-unknown -std=c++11 -femit-all-decls -disable-llvm-passes -include-pch %t -verify %s -emit-llvm -o - | FileCheck --check-prefix CK0 --check-prefix CK0-64 --check-prefix CK0-DB %s
-// RUN: %clang_cc1 -opaque-pointers  -verify -debug-info-kind=limited -fopenmp -fopenmp-late-outline -fopenmp-targets=i386-pc-linux-gnu -x c++ -triple i386-unknown-unknown -emit-llvm -femit-all-decls -disable-llvm-passes %s -o - | FileCheck --check-prefix CK0 --check-prefix CK0-DB --check-prefix CK0-32  %s
+// RUN: %clang_cc1 -opaque-pointers -verify -debug-info-kind=limited -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-targets=powerpc64le-ibm-linux-gnu -x c++ -triple powerpc64le-unknown-unknown -emit-llvm -femit-all-decls -disable-llvm-passes %s -o - | FileCheck --check-prefix CK0 --check-prefix CK0-64 --check-prefix CK0-DB %s
+// RUN: %clang_cc1 -opaque-pointers  -debug-info-kind=limited -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-targets=powerpc64le-ibm-linux-gnu -x c++ -std=c++11 -triple powerpc64le-unknown-unknown -emit-pch -femit-all-decls -disable-llvm-passes -o %t %s
+// RUN: %clang_cc1 -opaque-pointers -debug-info-kind=limited -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-targets=powerpc64le-ibm-linux-gnu -x c++ -triple powerpc64le-unknown-unknown -std=c++11 -femit-all-decls -disable-llvm-passes -include-pch %t -verify %s -emit-llvm -o - | FileCheck --check-prefix CK0 --check-prefix CK0-64 --check-prefix CK0-DB %s
+// RUN: %clang_cc1 -opaque-pointers  -verify -debug-info-kind=limited -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses -fopenmp-targets=i386-pc-linux-gnu -x c++ -triple i386-unknown-unknown -emit-llvm -femit-all-decls -disable-llvm-passes %s -o - | FileCheck --check-prefix CK0 --check-prefix CK0-DB --check-prefix CK0-32  %s
 
 // Mapper function code generation and runtime interface.
 
@@ -183,7 +183,7 @@ void foo(int a){
 //CK0: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
 
 //CK0: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TASK
-//CK0-SAME: "QUAL.OMP.SHARED"(ptr %c)
+//CK0-SAME: "QUAL.OMP.SHARED:TYPED"(ptr %c
 
 //CK0: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 //CK0-NO-DB: "QUAL.OMP.MAP.TOFROM"(ptr %c, ptr %c, i64 {{.*}}, i64 35, ptr null, ptr @.omp_mapper._ZTS1C.id
@@ -200,7 +200,7 @@ void foo(int a){
 //CK0-NO-DB: "QUAL.OMP.MAP.TO"(ptr %c, ptr %c, i64 {{.*}}, i64 33, ptr null, ptr @.omp_mapper._ZTS1C.id
 //CK0-DB: "QUAL.OMP.MAP.TO"(ptr %c, ptr %c, i64 {{.*}}, i64 33, ptr @7, ptr @.omp_mapper._ZTS1C.id
 //CK0: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TEAMS
-//CK0-SAME: "QUAL.OMP.SHARED"(ptr %c)
+//CK0-SAME: "QUAL.OMP.SHARED:TYPED"(ptr %c
   #pragma omp target teams map(mapper(id),to: c)
   {
     ++c.a;
@@ -211,13 +211,13 @@ void foo(int a){
 
 
 //CK0: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TASK
-//CK0-SAME: "QUAL.OMP.SHARED"(ptr %c)
+//CK0-SAME: "QUAL.OMP.SHARED:TYPED"(ptr %c
 
 //CK0: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 //CK0-NO-DB: "QUAL.OMP.MAP.TO"(ptr %c, ptr %c, i64 {{.*}}, i64 33, ptr null, ptr @.omp_mapper._ZTS1C.id
 //CK0-DB: "QUAL.OMP.MAP.TO"(ptr %c, ptr %c, i64 {{.*}}, i64 33, ptr @7, ptr @.omp_mapper._ZTS1C.id
 //CK0: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TEAMS
-//CK-SAME: "QUAL.OMP.SHARED"(ptr %c)
+//CK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr %c
   #pragma omp target teams map(mapper(id),to: c) nowait
   {
     ++c.a;
@@ -233,7 +233,7 @@ void foo(int a){
 //CK0: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET.ENTER.DATA"() ]
 
 //CK0: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TASK
-//CK0-SAME: "QUAL.OMP.SHARED"(ptr %c)
+//CK0-SAME: "QUAL.OMP.SHARED:TYPED"(ptr %c
 //CK0: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET.ENTER.DATA
 //CK0-NO-DB: "QUAL.OMP.MAP.TO"(ptr %c, ptr %c, i64 {{.*}}, i64 1, ptr null, ptr @.omp_mapper._ZTS1C.id
 //CK0-DB: "QUAL.OMP.MAP.TO"(ptr %c, ptr %c, i64 {{.*}}, i64 1, ptr @7, ptr @.omp_mapper._ZTS1C.id
@@ -250,7 +250,7 @@ void foo(int a){
 //CK0: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET.EXIT.DATA"() ]
 
 //CK0: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TASK
-//CK0-SAME: "QUAL.OMP.SHARED"(ptr %c)
+//CK0-SAME: "QUAL.OMP.SHARED:TYPED"(ptr %c
 //CK0: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET.EXIT.DATA
 //CK0-NO-DB: "QUAL.OMP.MAP.FROM"(ptr %c, ptr %c, i64 {{.*}}, i64 2, ptr null, ptr @.omp_mapper._ZTS1C.id
 //CK0-DB: "QUAL.OMP.MAP.FROM"(ptr %c, ptr %c, i64 {{.*}}, i64 2, ptr @7, ptr @.omp_mapper._ZTS1C.id
@@ -266,7 +266,7 @@ void foo(int a){
 
 
 //CK0: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TASK
-//CK0-SAME: "QUAL.OMP.SHARED"(ptr %c)
+//CK0-SAME: "QUAL.OMP.SHARED:TYPED"(ptr %c
 //CK0: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET.UPDATE
 //CK0-NO-DB: "QUAL.OMP.MAP.FROM"(ptr %c, ptr %c, i64 {{.*}}, i64 2, ptr null, ptr @.omp_mapper._ZTS1C.id
 //CK0-DB: "QUAL.OMP.MAP.FROM"(ptr %c, ptr %c, i64 {{.*}}, i64 2, ptr @7, ptr @.omp_mapper._ZTS1C.id

@@ -19,7 +19,7 @@ define i32 @test01(%struct.test01* "intel_dtrans_func_index"="1" %s1, %struct.te
   ret i32 %r
 }
 
-; CHECK-LABEL: define i32 @test01
+; CHECK-LABEL: define internal i32 @test01
 ; CHECK: call void @llvm.memset
 ; CHECK-SAME: i64 8
 

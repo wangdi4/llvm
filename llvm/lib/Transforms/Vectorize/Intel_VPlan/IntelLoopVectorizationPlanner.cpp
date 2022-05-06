@@ -451,6 +451,15 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
   // live-in to VPGeneralMemOptConflict.
   for (auto &VPInst : vpinstructions(Plan.get()))
     if (auto *VPConflict = dyn_cast<VPGeneralMemOptConflict>(&VPInst)) {
+      // Filter out all VFs if tree conflict region does not meet certain
+      // criteria.
+      VPInstruction *InsnInVConflictRegion =
+          isSupportedVConflictRegion(VPConflict);
+      if (!InsnInVConflictRegion) {
+        VFs.clear();
+        break;
+      }
+
       unsigned VConflictIndexSizeInBits = VPConflict->getConflictIndex()
                                               ->getType()
                                               ->getPrimitiveSizeInBits()
@@ -465,6 +474,30 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
                                          VConflictIndexSizeInBits == 32);
                                }),
                 VFs.end());
+
+      // Filter out any VPlans where permute intrinsics for TreeConflict
+      // aren't available or are not currently supported.
+      VPValue *RednUpdateOp =
+          getReductionUpdateOp(VPConflict, InsnInVConflictRegion);
+      assert(RednUpdateOp && "Could not find reduction update op");
+      if (!Plan->getVPlanDA()->isUniform(*RednUpdateOp)) {
+        unsigned PermuteSize =
+            RednUpdateOp->getType()->getPrimitiveSizeInBits();
+        MaxVF = MaxVecRegSize / PermuteSize;
+        // Case (PermuteSize < 32): We don't yet support type sizes less than
+        // 32-bits.
+        if (PermuteSize < 32) {
+          VFs.clear();
+          break;
+        }
+        //
+        // Case (VF < 4): No direct intrinsic mapping and pumping is required.
+        VFs.erase(std::remove_if(VFs.begin(), VFs.end(),
+                                 [MaxVF](unsigned VF) {
+                                   return VF > MaxVF || VF < 4;
+                                 }),
+                  VFs.end());
+      }
     }
 
   // When we force VF to have a special value, VFs vector has only one value.
@@ -732,10 +765,14 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   // peel/remainder vectorization.
 
   // Even if TripCount is more than 2^32 we can safely assume that it's equal
-  // to 2^32, otherwise all logic below will have a problem with overflow.
+  // to 2^32, otherwise all cost modeling logic below will have a problem with
+  // overflow. But using the forced max for decision whether a remainder loop
+  // is needed is incorrect - this should be based on the actual trip count.
+  // TODO - look into handling overflow in a better way.
   VPLoop *OuterMostVPLoop = ScalarPlan->getMainLoop(true);
-  uint64_t TripCount = std::min(OuterMostVPLoop->getTripCountInfo().TripCount,
-                                (uint64_t)std::numeric_limits<unsigned>::max());
+  uint64_t OrigTripCount = OuterMostVPLoop->getTripCountInfo().TripCount;
+  uint64_t TripCount =
+      std::min(OrigTripCount, (uint64_t)std::numeric_limits<unsigned>::max());
   unsigned BestUF = getLoopUnrollFactor();
   bool IsTripCountEstimated = OuterMostVPLoop->getTripCountInfo().IsEstimated;
   unsigned ForcedVF = getForcedVF(WRLp);
@@ -924,7 +961,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     bool PeelIsDynamic = PeelingVariant ?
         isa<VPlanDynamicPeeling>(PeelingVariant) : false;
     VPlanRemainderEvaluator RemainderEvaluator(
-        *this, ScalarIterationCost, TLI, TTI, DL, VLSA, TripCount,
+        *this, ScalarIterationCost, TLI, TTI, DL, VLSA, OrigTripCount,
         PeelEvaluator.getTripCount(), PeelIsDynamic, VF, BestUF);
 
     // Calculate main loop's trip count. Currently, the unroll factor is set to
@@ -954,7 +991,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     // Calculate the total cost of remainder loop having no peeling, if there
     // is one.
     VPlanRemainderEvaluator RemainderEvaluatorWithoutPeel(
-        *this, ScalarIterationCost, TLI, TTI, DL, VLSA, TripCount,
+        *this, ScalarIterationCost, TLI, TTI, DL, VLSA, OrigTripCount,
         0 /*Peel trip count */, false /*no dynamic peeling*/, VF, BestUF);
     const decltype(TripCount) MainLoopTripCountWithoutPeel =
         TripCount / (VF * BestUF);
@@ -1579,18 +1616,6 @@ bool LoopVectorizationPlanner::canLowerVPlan(const VPlanVector &Plan,
           !isSOACodegenSupported() &&
           AllocaPriv->getAllocatedType()->isArrayTy())
         return false;
-
-    // Determine if there are permute intrinsics available for a given type
-    // size and VF combination. If the intrinsic is not available then tree
-    // conflict lowering to double permute tree reduction will not happen.
-    if (auto *TreeConflict = dyn_cast<VPTreeConflict>(&VPI)) {
-      Optional<unsigned> PermuteSize = getPermuteTypeSize(TreeConflict, VF);
-      if (PermuteSize == None) {
-        LLVM_DEBUG(dbgs() << "Permute intrinsic not available for tree "
-                          << "conflict lowering\n");
-        return false;
-      }
-    }
   }
 
   // All checks passed.

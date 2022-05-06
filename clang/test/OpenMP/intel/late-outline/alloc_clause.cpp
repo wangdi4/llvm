@@ -1,8 +1,8 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 //
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -x c -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 // Verify allocate clause is emitted properly when late outlining.
@@ -46,9 +46,9 @@ int main() {
   // CHECK-SAME: "QUAL.OMP.ALLOCATE"(i64 1, ptr %v1, i64 [[L1]])
   // CHECK-SAME: "QUAL.OMP.ALLOCATE"(i64 2, ptr %v2, i64 [[L1]])
   // CHECK-SAME: "QUAL.OMP.ALLOCATE"(i64 4, ptr %v3, i64 [[L1]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr %v1)
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr %v2)
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr %v3)
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr %v1
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr %v2
+  // CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr %v3
   // CHECK: DIR.OMP.END.SINGLE
   omp_allocator_handle_t MyAlloc = omp_large_cap_mem_alloc;
 #pragma omp single allocate(MyAlloc: v1, v2, v3) private(v1, v2, v3)

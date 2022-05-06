@@ -1,5 +1,5 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 // CHECK: @{{.*}}foobar =
@@ -8,7 +8,7 @@ void bar() {
   const A foobar = {1,2,3,4};
   // CHECK: [[FP:%.+]] = alloca %struct.A
   // CHECK: "DIR.OMP.TARGET"
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(ptr %foobar)
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %foobar
   // CHECK-SAME: "QUAL.OMP.MAP.TO"(ptr [[FP]]
   #pragma omp target firstprivate(foobar)
   {
@@ -23,7 +23,7 @@ void foo() {
   // CHECK: "DIR.OMP.TARGET"
   // CHECK-SAME: "QUAL.OMP.MAP.TO"(ptr [[FP1]]
   // CHECK: "DIR.OMP.TEAMS"
-  // CHECK-SAME: "QUAL.OMP.SHARED"(ptr [[FP1]]
+  // CHECK-SAME: "QUAL.OMP.SHARED:TYPED"(ptr [[FP1]]
   #pragma omp target teams
   {
     // CHECK: call void @_ZZ3foovENKUliE_clEi(ptr noundef {{.*}} [[FP1]]

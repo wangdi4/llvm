@@ -4,11 +4,11 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-print-scalvec-results -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-VF4
-; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-scalvec-results -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-VF4
+; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-lower-tree-conflict -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-VF4
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-lower-tree-conflict -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir=0 | FileCheck %s --check-prefix=CHECK-VF4
 
-; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-print-scalvec-results -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s --check-prefix=CHECK-VF4
-; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-scalvec-results -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s --check-prefix=CHECK-VF4
+; RUN: opt -S -enable-new-pm=0 -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-lower-tree-conflict -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s --check-prefix=CHECK-VF4
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-lower-tree-conflict -disable-output < %s 2>&1 -vplan-enable-new-cfg-merge-hir | FileCheck %s --check-prefix=CHECK-VF4
 
 define dso_local void @foo(i32* noalias nocapture noundef %A, i32* nocapture noundef readonly %B, i32* noalias nocapture noundef readonly %C, i32* noalias nocapture noundef readonly %D) local_unnamed_addr #0 {
 ;
@@ -20,7 +20,7 @@ define dso_local void @foo(i32* noalias nocapture noundef %A, i32* nocapture nou
 ;    }
 ;  }
 ;
-; CHECK-VF4-LABEL:  VPlan after ScalVec analysis:
+; CHECK-VF4-LABEL:  VPlan after VPlanLowerTreeConflict:
 ; CHECK-VF4-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-VF4-NEXT:  External Defs Start:
 ; CHECK-VF4-DAG:     [[VP0:%.*]] = {%A}
@@ -29,11 +29,11 @@ define dso_local void @foo(i32* noalias nocapture noundef %A, i32* nocapture nou
 ; CHECK-VF4-DAG:     [[VP3:%.*]] = {%B}
 ; CHECK-VF4-NEXT:  External Defs End:
 ; CHECK-VF4-NEXT:    [[BB0:BB[0-9]+]]: # preds:
-; CHECK-VF4:          [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
+; CHECK-VF4-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-VF4-EMPTY:
 ; CHECK-VF4-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-VF4-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 4, UF = 1 (SVAOpBits 0->F )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-VF4-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; CHECK-VF4-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-VF4-EMPTY:
@@ -55,70 +55,62 @@ define dso_local void @foo(i32* noalias nocapture noundef %A, i32* nocapture nou
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_3]] (SVAOpBits 0->F )
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP8:%.*]] = sext i32 [[VP_LOAD_1]] to i64 (SVAOpBits 0->V )
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP8]] (SVAOpBits 0->V 1->V 2->V 3->V )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: RetVal:(F  ), Inst:( V )] i64 [[VP_VPCONFLICT_INTRINSIC:%.*]] = vpconflict-insn i64 [[VP_VCONFLICT_INDEX]] (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_CTLZ:%.*]] = call i64 [[VP_VPCONFLICT_INTRINSIC]] i1 false llvm.ctlz.v4i64 [x 1] (SVAOpBits 0->V 1->F 2->F )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP9:%.*]] = sub i64 63 i64 [[VP_CTLZ]] (SVAOpBits 0->V 1->V )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP10:%.*]] = trunc i64 [[VP9]] to i32 (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_MASK_TODO:%.*]] = icmp ne i32 [[VP10]] i32 -1 (SVAOpBits 0->V 1->V )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP11:%.*]] = and i1 [[VP_MASK_TODO]] i1 [[VP6]] (SVAOpBits 0->V 1->V )
-; CHECK-VF4-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] i1 [[VP_CONFLICT_TOP_TEST:%.*]] = all-zero-check i1 [[VP11]] (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP12:%.*]] = hir-copy i32 [[VP_LOAD_3]] , OriginPhiId: 3 (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_CONFLICT_TOP_TEST]], [[BB5:BB[0-9]+]], [[BB6:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i64 [[VP_VPCONFLICT_INTRINSIC:%.*]] = vpconflict-insn i64 [[VP_VCONFLICT_INDEX]] (SVAOpBits 0-> )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i64 [[VP_CTLZ:%.*]] = call i64 [[VP_VPCONFLICT_INTRINSIC]] i1 false llvm.ctlz [x 1] (SVAOpBits 0-> 1-> 2-> )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i64 [[VP9:%.*]] = sub i64 63 i64 [[VP_CTLZ]] (SVAOpBits 0-> 1-> )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i32 [[VP10:%.*]] = trunc i64 [[VP9]] to i32 (SVAOpBits 0-> )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i1 [[VP_MASK_TODO:%.*]] = icmp ne i32 [[VP10]] i32 -1 (SVAOpBits 0-> 1-> )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i1 [[VP11:%.*]] = and i1 [[VP_MASK_TODO]] i1 [[VP6]] (SVAOpBits 0-> 1-> )
+; CHECK-VF4-NEXT:     [DA: Uni, SVA: (   )] i1 [[VP_CONFLICT_TOP_TEST:%.*]] = all-zero-check i1 [[VP11]] (SVAOpBits 0-> )
+; CHECK-VF4-NEXT:     [DA: Uni, SVA: (   )] br i1 [[VP_CONFLICT_TOP_TEST]], [[BB5:BB[0-9]+]], [[BB6:BB[0-9]+]] (SVAOpBits 0-> 1-> 2-> )
 ; CHECK-VF4-EMPTY:
 ; CHECK-VF4-NEXT:      [[BB6]]: # preds: [[BB4]]
-; CHECK-VF4-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP13:%.*]] = hir-copy i32 [[VP10]] , OriginPhiId: 0 (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP14:%.*]] = hir-copy i32 [[VP_LOAD_3]] , OriginPhiId: 1 (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP15:%.*]] = hir-copy i1 [[VP11]] , OriginPhiId: 2 (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:       [DA: Uni, SVA: (F  )] br [[BB7:BB[0-9]+]] (SVAOpBits 0->F )
+; CHECK-VF4-NEXT:       [DA: Uni, SVA: (   )] br [[BB7:BB[0-9]+]] (SVAOpBits 0-> )
 ; CHECK-VF4-EMPTY:
 ; CHECK-VF4-NEXT:      [[BB7]]: # preds: [[BB6]], [[BB7]]
-; CHECK-VF4-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP_CURR_VPERM_CONTROL:%.*]] = phi  [ i32 [[VP13]], [[BB6]] ],  [ i32 [[VP16:%.*]], [[BB7]] ] (SVAOpBits 0->V 1->V )
-; CHECK-VF4-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP_CURR_VRES:%.*]] = phi  [ i32 [[VP14]], [[BB6]] ],  [ i32 [[VP17:%.*]], [[BB7]] ] (SVAOpBits 0->V 1->V )
-; CHECK-VF4-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP_CURR_MASK_TODO:%.*]] = phi  [ i1 [[VP15]], [[BB6]] ],  [ i1 [[VP18:%.*]], [[BB7]] ] (SVAOpBits 0->V 1->V )
-; CHECK-VF4-NEXT:       [DA: Div, SVA: ( V )] float [[VP19:%.*]] = bitcast i32 [[VP_CURR_VRES]] (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:       [DA: Div, SVA: ( V )] float [[VP_VTMP:%.*]] = permute float [[VP19]] i32 [[VP_CURR_VPERM_CONTROL]] (SVAOpBits 0->V 1->V )
-; CHECK-VF4-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP20:%.*]] = bitcast float [[VP_VTMP]] (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP_DUMMY_CMP:%.*]] = icmp eq i1 [[VP_CURR_MASK_TODO]] i1 true (SVAOpBits 0->V 1->V )
-; CHECK-VF4-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP_VTMP_SELECT:%.*]] = select i1 [[VP_DUMMY_CMP]] i32 [[VP20]] i32 0 (SVAOpBits 0->V 1->V 2->V )
-; CHECK-VF4-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP21:%.*]] = add i32 [[VP_VTMP_SELECT]] i32 [[VP_CURR_VRES]] (SVAOpBits 0->V 1->V )
-; CHECK-VF4-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP_VRES_NEXT:%.*]] = select i1 [[VP_DUMMY_CMP]] i32 [[VP21]] i32 [[VP_CURR_VRES]] (SVAOpBits 0->V 1->V 2->V )
-; CHECK-VF4-NEXT:       [DA: Div, SVA: ( V )] float [[VP22:%.*]] = bitcast i32 [[VP_CURR_VPERM_CONTROL]] (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:       [DA: Div, SVA: ( V )] float [[VP_VPERM_CONTROL_NEXT:%.*]] = permute float [[VP22]] i32 [[VP_CURR_VPERM_CONTROL]] (SVAOpBits 0->V 1->V )
-; CHECK-VF4-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP23:%.*]] = bitcast float [[VP_VPERM_CONTROL_NEXT]] (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP_VPERM_CONTROL_SELECT:%.*]] = select i1 [[VP_DUMMY_CMP]] i32 [[VP23]] i32 [[VP_CURR_VPERM_CONTROL]] (SVAOpBits 0->V 1->V 2->V )
-; CHECK-VF4-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP_MASK_TODO_NEXT:%.*]] = icmp ne i32 [[VP_VPERM_CONTROL_SELECT]] i32 -1 (SVAOpBits 0->V 1->V )
-; CHECK-VF4-NEXT:       [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] i1 [[VP_LATCH_COND:%.*]] = all-zero-check i1 [[VP_MASK_TODO_NEXT]] (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_LATCH_COND_NOT:%.*]] = not i1 [[VP_LATCH_COND]] (SVAOpBits 0->F )
-; CHECK-VF4-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP16]] = hir-copy i32 [[VP_VPERM_CONTROL_SELECT]] , OriginPhiId: 0 (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP17]] = hir-copy i32 [[VP_VRES_NEXT]] , OriginPhiId: 1 (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP18]] = hir-copy i1 [[VP_MASK_TODO_NEXT]] , OriginPhiId: 2 (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP24:%.*]] = hir-copy i32 [[VP_VRES_NEXT]] , OriginPhiId: 3 (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_LATCH_COND_NOT]], [[BB7]], [[BB8:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
+; CHECK-VF4-NEXT:       [DA: Div, SVA: (   )] i32 [[VP_CURR_VPERM_CONTROL:%.*]] = phi  [ i32 [[VP10]], [[BB6]] ],  [ i32 [[VP_VPERM_CONTROL_SELECT:%.*]], [[BB7]] ] (SVAOpBits 0-> 1-> )
+; CHECK-VF4-NEXT:       [DA: Div, SVA: (   )] i32 [[VP_CURR_VRES:%.*]] = phi  [ i32 [[VP_LOAD_3]], [[BB6]] ],  [ i32 [[VP_VRES_NEXT:%.*]], [[BB7]] ] (SVAOpBits 0-> 1-> )
+; CHECK-VF4-NEXT:       [DA: Div, SVA: (   )] i1 [[VP_CURR_MASK_TODO:%.*]] = phi  [ i1 [[VP11]], [[BB6]] ],  [ i1 [[VP_MASK_TODO_NEXT:%.*]], [[BB7]] ] (SVAOpBits 0-> 1-> )
+; CHECK-VF4-NEXT:       [DA: Div, SVA: (   )] float [[VP12:%.*]] = bitcast i32 [[VP_CURR_VRES]] (SVAOpBits 0-> )
+; CHECK-VF4-NEXT:       [DA: Div, SVA: (   )] float [[VP_VTMP:%.*]] = permute float [[VP12]] i32 [[VP_CURR_VPERM_CONTROL]] (SVAOpBits 0-> 1-> )
+; CHECK-VF4-NEXT:       [DA: Div, SVA: (   )] i32 [[VP13:%.*]] = bitcast float [[VP_VTMP]] (SVAOpBits 0-> )
+; CHECK-VF4-NEXT:       [DA: Div, SVA: (   )] i1 [[VP_DUMMY_CMP:%.*]] = icmp eq i1 [[VP_CURR_MASK_TODO]] i1 true (SVAOpBits 0-> 1-> )
+; CHECK-VF4-NEXT:       [DA: Div, SVA: (   )] i32 [[VP_VTMP_SELECT:%.*]] = select i1 [[VP_DUMMY_CMP]] i32 [[VP13]] i32 0 (SVAOpBits 0-> 1-> 2-> )
+; CHECK-VF4-NEXT:       [DA: Div, SVA: (   )] i32 [[VP14:%.*]] = add i32 [[VP_VTMP_SELECT]] i32 [[VP_CURR_VRES]] (SVAOpBits 0-> 1-> )
+; CHECK-VF4-NEXT:       [DA: Div, SVA: (   )] i32 [[VP_VRES_NEXT]] = select i1 [[VP_DUMMY_CMP]] i32 [[VP14]] i32 [[VP_CURR_VRES]] (SVAOpBits 0-> 1-> 2-> )
+; CHECK-VF4-NEXT:       [DA: Div, SVA: (   )] float [[VP15:%.*]] = bitcast i32 [[VP_CURR_VPERM_CONTROL]] (SVAOpBits 0-> )
+; CHECK-VF4-NEXT:       [DA: Div, SVA: (   )] float [[VP_VPERM_CONTROL_NEXT:%.*]] = permute float [[VP15]] i32 [[VP_CURR_VPERM_CONTROL]] (SVAOpBits 0-> 1-> )
+; CHECK-VF4-NEXT:       [DA: Div, SVA: (   )] i32 [[VP16:%.*]] = bitcast float [[VP_VPERM_CONTROL_NEXT]] (SVAOpBits 0-> )
+; CHECK-VF4-NEXT:       [DA: Div, SVA: (   )] i32 [[VP_VPERM_CONTROL_SELECT]] = select i1 [[VP_DUMMY_CMP]] i32 [[VP16]] i32 [[VP_CURR_VPERM_CONTROL]] (SVAOpBits 0-> 1-> 2-> )
+; CHECK-VF4-NEXT:       [DA: Div, SVA: (   )] i1 [[VP_MASK_TODO_NEXT]] = icmp ne i32 [[VP_VPERM_CONTROL_SELECT]] i32 -1 (SVAOpBits 0-> 1-> )
+; CHECK-VF4-NEXT:       [DA: Uni, SVA: (   )] i1 [[VP_LATCH_COND:%.*]] = all-zero-check i1 [[VP_MASK_TODO_NEXT]] (SVAOpBits 0-> )
+; CHECK-VF4-NEXT:       [DA: Uni, SVA: (   )] i1 [[VP_LATCH_COND_NOT:%.*]] = not i1 [[VP_LATCH_COND]] (SVAOpBits 0-> )
+; CHECK-VF4-NEXT:       [DA: Uni, SVA: (   )] br i1 [[VP_LATCH_COND_NOT]], [[BB7]], [[BB8:BB[0-9]+]] (SVAOpBits 0-> 1-> 2-> )
 ; CHECK-VF4-EMPTY:
 ; CHECK-VF4-NEXT:      [[BB8]]: # preds: [[BB7]]
-; CHECK-VF4-NEXT:       [DA: Uni, SVA: (F  )] br [[BB5]] (SVAOpBits 0->F )
+; CHECK-VF4-NEXT:       [DA: Uni, SVA: (   )] br [[BB5]] (SVAOpBits 0-> )
 ; CHECK-VF4-EMPTY:
 ; CHECK-VF4-NEXT:    [[BB5]]: # preds: [[BB8]], [[BB4]]
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_FINAL_RESULT:%.*]] = phi  [ i32 [[VP12]], [[BB4]] ],  [ i32 [[VP24]], [[BB7]] ] (SVAOpBits 0->V 1->V )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP25:%.*]] = block-predicate i1 [[VP6]] (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP26:%.*]] = add i32 [[VP_LOAD_2]] i32 [[VP_FINAL_RESULT]] (SVAOpBits 0->V 1->V )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP26]] i32* [[VP_SUBSCRIPT_4]] (SVAOpBits 0->V 1->V )
-; CHECK-VF4-NEXT:     [DA: Uni, SVA: (F  )] br [[BB9:BB[0-9]+]] (SVAOpBits 0->F )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i32 [[VP_FINAL_RESULT:%.*]] = phi  [ i32 [[VP_LOAD_3]], [[BB4]] ],  [ i32 [[VP_VRES_NEXT]], [[BB7]] ] (SVAOpBits 0-> 1-> )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i1 [[VP17:%.*]] = block-predicate i1 [[VP6]] (SVAOpBits 0-> )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i32 [[VP18:%.*]] = add i32 [[VP_LOAD_2]] i32 [[VP_FINAL_RESULT]] (SVAOpBits 0-> 1-> )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP18]] i32* [[VP_SUBSCRIPT_4]] (SVAOpBits 0->V 1->V )
+; CHECK-VF4-NEXT:     [DA: Uni, SVA: (   )] br [[BB9:BB[0-9]+]] (SVAOpBits 0-> )
 ; CHECK-VF4-EMPTY:
 ; CHECK-VF4-NEXT:    [[BB9]]: # preds: [[BB5]]
-; CHECK-VF4-NEXT:     [DA: Uni, SVA: (F  )] br [[BB3]] (SVAOpBits 0->F )
+; CHECK-VF4-NEXT:     [DA: Uni, SVA: (   )] br [[BB3]] (SVAOpBits 0-> )
 ; CHECK-VF4-EMPTY:
 ; CHECK-VF4-NEXT:    [[BB3]]: # preds: [[BB9]]
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP5]] = add i64 [[VP4]] i64 [[VP__IND_INIT_STEP]] (SVAOpBits 0->F 1->F )
-; CHECK-VF4-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP27:%.*]] = icmp slt i64 [[VP5]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
-; CHECK-VF4-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP27]], [[BB2]], [[BB10:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
+; CHECK-VF4-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP19:%.*]] = icmp slt i64 [[VP5]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-VF4-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP19]], [[BB2]], [[BB10:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-VF4-EMPTY:
 ; CHECK-VF4-NEXT:    [[BB10]]: # preds: [[BB3]]
 ; CHECK-VF4-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-VF4-NEXT:     [DA: Uni, SVA: (F  )] br [[BB11:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-VF4-EMPTY:
 ; CHECK-VF4-NEXT:    [[BB11]]: # preds: [[BB10]]
-; CHECK-VF4:          [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
+; CHECK-VF4-NEXT:     [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
 ; CHECK-VF4-EMPTY:
 ; CHECK-VF4-NEXT:  External Uses:
 ; CHECK-VF4-NEXT:  Id: 0   no underlying for i64 [[VP__IND_FINAL]]

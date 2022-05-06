@@ -126,7 +126,16 @@ public:
 
     // If the current field is an array of integers then we can collect
     // constant entries for it.
-    if (auto *ArrTy = dyn_cast<llvm::ArrayType>(Ty.getLLVMType()))
+    llvm::Type *ArrField = Ty.getLLVMType();
+
+    // There are cases where the array is hidden behind another structure (e.g.
+    // arrays created with boost libraries). The field type will be a
+    // structure, with one field that is an array.
+    if (auto *StrTy = dyn_cast<llvm::StructType>(Ty.getLLVMType()))
+      if (StrTy && StrTy->getNumElements() == 1)
+        ArrField = StrTy->getElementType(0);
+
+    if (auto *ArrTy = dyn_cast<llvm::ArrayType>(ArrField))
       canAddConstantEntriesForArray = ArrTy->getElementType()->isIntegerTy();
     else
       canAddConstantEntriesForArray = false;
@@ -691,6 +700,22 @@ const SafetyData UnhandledUse = 0x8000'0000'0000'0000;
 static const SafetyData AnyFieldAddressTaken =
     FieldAddressTakenMemory | FieldAddressTakenCall | FieldAddressTakenReturn;
 
+// Enum that could be used to identify which variation of safety data will be
+// preferred when we have multiple forms of the same safety violation. List
+// could be expanded as we add more cases.
+//
+// NOTE: Not all safety violations will have all the forms listed in the enum.
+// For example, the only variation for BadPtrManipulation is
+// BadPtrManipulationForRelatedTypes. This means that when SafetyDataKind is
+// used, it needs to be guarded with the proper checks for each case. This
+// could be extended as a helper class as needed.
+enum SafetyDataKind {
+  Original,    // Used for identifying the original case (e.g. BadCasting)
+  Pending,     // Used for "pending" (e.g. BadCastingPending)
+  Conditional, // Used for "conditional" (e.g. BadCastingConditional)
+  RelatedTypes // Used for "related types" (e.g. BadCastingForRelatedTypes)
+};
+
 // TODO: Create a safety mask for the conditions that are common to all
 //       DTrans optimizations.
 //
@@ -890,6 +915,24 @@ const SafetyData SDArraysWithConstantEntries =
     UnsafePointerStore | FieldAddressTakenMemory | HasInitializerList |
     GlobalArray | GlobalInstance | UnsafePtrMerge | BadMemFuncSize |
     MemFuncPartialWrite | BadMemFuncManipulation | AmbiguousPointerTarget |
+    AddressTaken | NoFieldsInStruct | SystemObject | MismatchedArgUse |
+    BadCastingPending | BadCastingConditional | UnsafePointerStorePending |
+    UnsafePointerStoreConditional | MismatchedElementAccessConditional |
+    FieldAddressTakenReturn | UnhandledUse;
+
+// Safety conditions for arrays with constant entries in the opaque pointers
+// case. The difference is that AmbiguousGEP won't be considered since the
+// structures with related types will have uses without dominant aggregate
+// types. Also, MemFuncPartialWrite is not an issue since a memfunc can
+// be used to copy part of the structure.
+// NOTE: This safety data should replace SDArraysWithConstantEntries
+// when the code for the types pointed pointers is removed.
+const SafetyData SDArraysWithConstantEntriesOpq =
+    BadCasting | BadAllocSizeArg | BadPtrManipulation |
+    VolatileData | MismatchedElementAccess | WholeStructureReference |
+    UnsafePointerStore | FieldAddressTakenMemory | HasInitializerList |
+    GlobalArray | GlobalInstance | UnsafePtrMerge | BadMemFuncSize |
+    BadMemFuncManipulation | AmbiguousPointerTarget |
     AddressTaken | NoFieldsInStruct | SystemObject | MismatchedArgUse |
     BadCastingPending | BadCastingConditional | UnsafePointerStorePending |
     UnsafePointerStoreConditional | MismatchedElementAccessConditional |

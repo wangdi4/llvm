@@ -67,10 +67,21 @@ RelatedTypesSDHandler::RelatedTypesSDHandler() {
       {dtrans::BadPtrManipulationForRelatedTypes,
        dtrans::BadPtrManipulation});
 
+  // Map "mismatched element access for related types" to "mismatched
+  // element access"
+  RelatedSDToOriginalSDMap.insert(
+      {dtrans::MismatchedElementAccessRelatedTypes,
+       dtrans::MismatchedElementAccess});
+
   // Map "unsafe pointer merge for related types" to "unsafe pointer merge"
   RelatedSDToOriginalSDMap.insert(
       {dtrans::UnsafePtrMergeRelatedTypes,
        dtrans::UnsafePtrMerge});
+
+  // Map "unsafe pointer store for related types" to "unsafe pointer store"
+  RelatedSDToOriginalSDMap.insert(
+      {dtrans::UnsafePointerStoreRelatedTypes,
+       dtrans::UnsafePointerStore});
 
   for (auto Pair : RelatedSDToOriginalSDMap)
     AllRelatedTypesSafety |= Pair.first;

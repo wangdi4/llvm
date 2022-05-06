@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -844,6 +844,18 @@ static void HandleInlinedEHPad(InvokeInst *II, BasicBlock *FirstNewBlock,
 /// be propagated to all memory-accessing cloned instructions.
 static void PropagateCallSiteMetadata(CallBase &CB, Function::iterator FStart,
                                       Function::iterator FEnd) {
+
+  auto Concatenate = [](unsigned KindID, Instruction &I, CallBase &CB) {
+    MDNode *NewMD = CB.getMetadata(KindID);
+    if (!NewMD)
+      return;
+    SmallSetVector<Metadata *, 4> Operands;
+    if (MDNode *AM = I.getMetadata(KindID))
+      Operands.insert(AM->op_begin(), AM->op_end());
+    Operands.insert(NewMD->op_begin(), NewMD->op_end());
+    I.setMetadata(KindID, MDNode::get(I.getContext(), Operands.getArrayRef()));
+  };
+
   MDNode *MemParallelLoopAccess =
       CB.getMetadata(LLVMContext::MD_mem_parallel_loop_access);
   MDNode *AccessGroup = CB.getMetadata(LLVMContext::MD_access_group);
@@ -857,27 +869,12 @@ static void PropagateCallSiteMetadata(CallBase &CB, Function::iterator FStart,
       // This metadata is only relevant for instructions that access memory.
       if (!I.mayReadOrWriteMemory())
         continue;
-
-      if (MemParallelLoopAccess) {
-        // TODO: This probably should not overwrite MemParalleLoopAccess.
-        MemParallelLoopAccess = MDNode::concatenate(
-            I.getMetadata(LLVMContext::MD_mem_parallel_loop_access),
-            MemParallelLoopAccess);
-        I.setMetadata(LLVMContext::MD_mem_parallel_loop_access,
-                      MemParallelLoopAccess);
-      }
-
+      Concatenate(LLVMContext::MD_mem_parallel_loop_access, I, CB);
       if (AccessGroup)
         I.setMetadata(LLVMContext::MD_access_group, uniteAccessGroups(
             I.getMetadata(LLVMContext::MD_access_group), AccessGroup));
-
-      if (AliasScope)
-        I.setMetadata(LLVMContext::MD_alias_scope, MDNode::concatenate(
-            I.getMetadata(LLVMContext::MD_alias_scope), AliasScope));
-
-      if (NoAlias)
-        I.setMetadata(LLVMContext::MD_noalias, MDNode::concatenate(
-            I.getMetadata(LLVMContext::MD_noalias), NoAlias));
+      Concatenate(LLVMContext::MD_alias_scope, I, CB);
+      Concatenate(LLVMContext::MD_noalias, I, CB);
     }
   }
 }
@@ -1032,6 +1029,18 @@ AddPtrNoAliasLoads(CallBase &CB, const Argument &Arg,
 static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
                                   const DataLayout &DL, AAResults *CalleeAAR,
                                   ClonedCodeInfo &InlinedFunctionInfo) {
+
+  auto Concatenate = [](unsigned KindID, Instruction &I, 
+                        SmallVectorImpl<Metadata *> &NewMD) {
+    if (NewMD.empty())
+      return;
+    SmallSetVector<Metadata *, 4> Operands;
+    if (MDNode *AM = I.getMetadata(KindID))
+      Operands.insert(AM->op_begin(), AM->op_end());
+    Operands.insert(NewMD.begin(), NewMD.end());
+    I.setMetadata(KindID, MDNode::get(I.getContext(), Operands.getArrayRef()));
+  };
+
   if (!EnableNoAliasConversion)
     return;
 
@@ -1302,11 +1311,7 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
       }
 #endif // INTEL_CUSTOMIZATION
 
-      if (!NoAliases.empty())
-        NI->setMetadata(LLVMContext::MD_noalias,
-                        MDNode::concatenate(
-                            NI->getMetadata(LLVMContext::MD_noalias),
-                            MDNode::get(CalledFunc->getContext(), NoAliases)));
+      Concatenate(LLVMContext::MD_noalias, *NI, NoAliases);
 
       // Next, we want to figure out all of the sets to which we might belong.
       // We might belong to a set if the noalias argument is in the set of
@@ -1352,11 +1357,7 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
 #endif // INTEL_CUSTOMIZATION
       } // INTEL
 
-      if (!Scopes.empty())
-        NI->setMetadata(
-            LLVMContext::MD_alias_scope,
-            MDNode::concatenate(NI->getMetadata(LLVMContext::MD_alias_scope),
-                                MDNode::get(CalledFunc->getContext(), Scopes)));
+      Concatenate(LLVMContext::MD_alias_scope, *NI, Scopes);
     }
   }
 }

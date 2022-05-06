@@ -125,7 +125,6 @@ llvm::ModulePass *createPipeIOTransformationPass();
 llvm::ModulePass *createPipeOrderingPass();
 llvm::ModulePass *createPipeSupportPass();
 llvm::ModulePass *createOclFunctionAttrsPass();
-llvm::ModulePass *createInternalizeGlobalVariablesPass();
 llvm::Pass *createBuiltinLibInfoPass(ArrayRef<Module *> pRtlModuleList,
                                      std::string type);
 llvm::ModulePass *createUndifinedExternalFunctionsPass(
@@ -138,15 +137,12 @@ llvm::ModulePass *createRemovePrefetchPass();
 llvm::ModulePass *createPrintIRPass(int option, int optionLocation,
                                     std::string dumpDir);
 llvm::ModulePass *createDebugInfoPass();
-llvm::ModulePass *createProfilingInfoPass();
 llvm::Pass *createSmartGVNPass(bool);
 
 llvm::ModulePass *createDetectRecursionPass();
 llvm::ImmutablePass *createOCLAliasAnalysisPass();
 llvm::ModulePass *createChannelsUsageAnalysisPass();
-llvm::ModulePass *createSYCLPipesHackPass();
 llvm::ModulePass *createRemoveAtExitPass();
-llvm::Pass *createResolveVariableTIDCallPass();
 llvm::ModulePass *createVectorKernelDiscardPass(const intel::OptimizerConfig *);
 llvm::ModulePass *createSetPreferVectorWidthPass(const CPUDetect *CPUID);
 }
@@ -345,10 +341,9 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   }
 
   if (isFpgaEmulator) {
-      // ChannelPipeTransformation and SYCLPipesHack passes populate
-      // channel/pipes error log.
+      // ChannelPipeTransformation pass populate channel/pipes error log.
       Intel::OpenCL::DeviceBackend::ChannelPipesErrorLog.clear();
-      PM.add(createSYCLPipesHackPass());
+      PM.add(createDPCPPRewritePipesLegacyPass());
       PM.add(createChannelPipeTransformationPass());
       PM.add(createPipeIOTransformationPass());
       PM.add(createPipeOrderingPass());
@@ -454,7 +449,7 @@ static void populatePassesPostFailCheck(
     // non-inlined functions left - then we don't have to inline new ones.
   }
 
-  PM.add(createResolveVariableTIDCallPass());
+  PM.add(llvm::createResolveVarTIDCallLegacyPass());
 
   if (IsSYCL)
     PM.add(createTaskSeqAsyncHandlingLegacyPass());
@@ -528,7 +523,7 @@ static void populatePassesPostFailCheck(
 
     // In profiling mode remove llvm.dbg.value calls before vectorizer.
     if (isProfiling) {
-      PM.add(createProfilingInfoPass());
+      PM.add(createProfilingInfoLegacyPass());
     }
 
     if (!isEyeQEmulator) {
@@ -660,7 +655,7 @@ static void populatePassesPostFailCheck(
   // The debugType enum and isProfiling flag are mutually exclusive, with
   // precedence given to debugType.
   if (isProfiling) {
-    PM.add(createProfilingInfoPass());
+    PM.add(createProfilingInfoLegacyPass());
   }
 
   // Get Some info about the kernel should be called before BarrierPass and
@@ -755,7 +750,7 @@ static void populatePassesPostFailCheck(
     if (OptLevel > 0) {
       // After the globals used in built-ins are imported - we can internalize
       // them with further wiping them out with GlobalDCE pass
-      PM.add(createInternalizeGlobalVariablesPass());
+      PM.add(llvm::createInternalizeGlobalVariablesLegacyPass());
       // Cleaning up internal globals
       PM.add(llvm::createGlobalDCEPass());
     }
@@ -879,7 +874,7 @@ OptimizerOCL::OptimizerOCL(llvm::Module &pModule,
         m_PM.add(createCoerceWin64TypesLegacyPass());
     }
     if (m_IsFpgaEmulator)
-      m_PM.add(createRemoveAtExitPass());
+      m_PM.add(llvm::createRemoveAtExitLegacyPass());
   };
   materializerPM();
 

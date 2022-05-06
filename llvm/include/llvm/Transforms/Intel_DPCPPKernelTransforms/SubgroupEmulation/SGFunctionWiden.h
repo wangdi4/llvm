@@ -22,7 +22,7 @@ namespace llvm {
 class FunctionWidener {
 public:
   void run(DPCPPKernelCompilationUtils::FuncSet &Functions,
-           DenseMap<Function *, Function *> &FuncMap);
+           DenseMap<Function *, std::set<Function *>> &FuncMap);
 
 private:
   SGHelper Helper;

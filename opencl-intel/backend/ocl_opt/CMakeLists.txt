@@ -23,11 +23,9 @@ set(OCL_BE_PASSES
     BuiltinLibInfo
     ChannelPipeTransformation
     ChannelsUsageAnalysis
-    RemoveAtExit
     DebugInfoPass
     DetectRecursion
     InfiniteLoopCreator
-    InternalizeGlobalVariables
     KernelInfo
     LLVMBarrier
     LLVMVectorizer
@@ -44,8 +42,6 @@ set(OCL_BE_PASSES
     SmartGVN
     StripIntelIP
     OCLAliasAnalysis
-    SYCLPipesHack
-    ResolveVariableTIDCall
     UndefExternalFuncs
 )
 

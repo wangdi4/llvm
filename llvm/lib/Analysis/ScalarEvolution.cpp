@@ -9193,6 +9193,45 @@ ScalarEvolution::BackedgeTakenInfo::BackedgeTakenInfo(
          "No point in having a non-constant max backedge taken count!");
 }
 
+#if INTEL_CUSTOMIZATION
+/// Determines the maximum trip count for \p L according to the metadata
+/// corresponding to \p Name.
+///
+/// If it isn't present, this returns None.
+static Optional<uint64_t> getMaxTripCountFromSingleMetadata(const Loop *L,
+                                                            StringRef Name) {
+  if (const MDOperand *const Opnd =
+          findStringMetadataForLoop(L, Name).getValueOr(nullptr))
+    if (const auto *const Constant =
+            mdconst::dyn_extract_or_null<ConstantInt>(Opnd->get()))
+      return Constant->getZExtValue();
+
+  return None;
+}
+
+/// Determines the maximum trip count for \p L as specified by trip count
+/// metadata.
+///
+/// If there isn't any maximum trip count metadata, returns None.
+static Optional<uint64_t> getMaxTripCountFromMetadata(const Loop *L) {
+  // Our compiler is fancy enough to have two different metadata for this, so
+  // check both.
+  const Optional<uint64_t> LoopcountMaximum =
+      getMaxTripCountFromSingleMetadata(L, "llvm.loop.intel.loopcount_maximum");
+  const Optional<uint64_t> MaxTripCount =
+      getMaxTripCountFromSingleMetadata(L, "llvm.loop.intel.max.trip_count");
+  if (!MaxTripCount)
+    return LoopcountMaximum;
+  if (!LoopcountMaximum)
+    return MaxTripCount;
+
+  // If both are present, use the smaller one.
+  if (*LoopcountMaximum < *MaxTripCount)
+    return LoopcountMaximum;
+  return MaxTripCount;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Compute the number of times the backedge of the specified loop will execute.
 ScalarEvolution::BackedgeTakenInfo
 ScalarEvolution::computeBackedgeTakenCount(const Loop *L,
@@ -9234,6 +9273,25 @@ ScalarEvolution::computeBackedgeTakenCount(const Loop *L,
     }
   }
 #endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+  // If the loop has maximum trip count metadata of some form, compute an upper
+  // bound for the backedge-taken count.
+  const Optional<uint64_t> MaxTripCountFromMetadata =
+      getMaxTripCountFromMetadata(L);
+  const SCEV *MaxBackedgeTakenFromMetadata = getCouldNotCompute();
+  if (MaxTripCountFromMetadata) {
+
+    // In the very unlikely event that the max trip count metadata is zero, the
+    // backedge-taken count should be zero instead of underflowing.
+    if (*MaxTripCountFromMetadata == 0)
+      MaxBackedgeTakenFromMetadata = getZero(Type::getInt64Ty(getContext()));
+    else
+      MaxBackedgeTakenFromMetadata = getConstant(
+          Type::getInt64Ty(getContext()), *MaxTripCountFromMetadata - 1, false);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Compute the ExitLimit for each loop exit. Use this to populate ExitCounts
   // and compute maxBECount.
   // Do a union of all the predicates here.
@@ -9251,6 +9309,18 @@ ScalarEvolution::computeBackedgeTakenCount(const Loop *L,
       }
 
     ExitLimit EL = computeExitLimit(L, ExitBB, AllowPredicates);
+
+#if INTEL_CUSTOMIZATION
+    // If the loop has maximum trip count metadata, use that as an upper bound
+    // for MaxNotTaken.
+    if (MaxTripCountFromMetadata) {
+      if (EL.MaxNotTaken == getCouldNotCompute())
+        EL.MaxNotTaken = MaxBackedgeTakenFromMetadata;
+      else
+        EL.MaxNotTaken = getUMinFromMismatchedTypes(
+            EL.MaxNotTaken, MaxBackedgeTakenFromMetadata);
+    }
+#endif // INTEL_CUSTOMIZATION
 
     assert((AllowPredicates || EL.Predicates.empty()) &&
            "Predicated exit limit when predicates are not allowed!");

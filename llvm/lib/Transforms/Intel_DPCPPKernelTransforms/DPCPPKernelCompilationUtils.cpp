@@ -247,11 +247,11 @@ bool isImplicitGID(AllocaInst *AI) {
   return false;
 }
 
-std::string AppendWithDimension(StringRef S, int Dimension) {
+std::string AppendWithDimension(const Twine &S, int Dimension) {
   return Dimension >= 0 ? (S + Twine(Dimension)).str() : (S + "var").str();
 }
 
-std::string AppendWithDimension(StringRef S, const Value *Dimension) {
+std::string AppendWithDimension(const Twine &S, const Value *Dimension) {
   int D = -1;
   if (const ConstantInt *C = dyn_cast<ConstantInt>(Dimension))
     D = C->getZExtValue();
@@ -2371,6 +2371,15 @@ void calculateMemorySizeWithPostOrderTraversal(
 
     FnSize[F] = MaxSize + FnDirectSize[F];
   }
+}
+
+uint64_t getNumElementsOfNestedArray(const ArrayType *ArrTy) {
+  uint64_t NumElements = ArrTy->getNumElements();
+  while (auto *InnerArrayTy = dyn_cast<ArrayType>(ArrTy->getElementType())) {
+    NumElements *= InnerArrayTy->getNumElements();
+    ArrTy = InnerArrayTy;
+  }
+  return NumElements;
 }
 
 } // end namespace DPCPPKernelCompilationUtils

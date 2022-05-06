@@ -828,7 +828,11 @@ public:
                                     dtrans::BadPtrManipulationForRelatedTypes,
                                     "Byte flattened GEP used for accessing "
                                     "next field", GEP);
-
+      else if(isByteFlattenedGEPForRelatedTypes(GEP, PtrInfo))
+        setAllAliasedTypeSafetyData(PtrInfo,
+                                    dtrans::BadPtrManipulationForRelatedTypes,
+                                    "Byte flattened GEP used for accessing "
+                                    "fields in related types", GEP);
       else
         setAllAliasedTypeSafetyData(PtrInfo, dtrans::BadPtrManipulation,
                                     "Byte flattened GEP could not be resolved",
@@ -990,9 +994,162 @@ public:
     }
   }
 
+  // Return true if the offset of the input byte flattened GEP covers the
+  // right fields' number of the pointer operand. For example:
+  //
+  //   %class.MainClass = type { [4 x i32], i32, [4 x i8]}
+  //   %class.MainClass.base = type { [4 x i32], i32}
+  //
+  //   %class.TestClass.Outer = type { %class.TestClass.Inner,
+  //                                   %class.TestClass.Inner_vect}
+  //   %class.TestClass.Inner = type { %class.MainClass.base, [4 x i8] }
+  //
+  //   %class.TestClass.Inner_vect = type { %class.TestClass.Inner_vect_imp,
+  //                                        %class.TestClass.Inner_vect_imp,
+  //                                        %class.TestClass.Inner_vect_imp }
+  //   %class.TestClass.Inner_vect_imp = type { ptr, ptr, ptr }
+  //   ; %class.TestClass.Inner_vect_imp = type { %class.TestClass.Inner*,
+  //   ;                                          %class.TestClass.Inner*,
+  //   ;                                          %class.TestClass.Inner* }
+  //
+  //   %0 = alloca %class.TestClass.Outer
+  //   %1 = getelementptr inbounds %class.MainClass, ptr %0, i64 0, i32 0
+  //   %2 = getelementptr inbounds [4 x i32], ptr %1, i64 0, i32 0
+  //   %3 = load i32, ptr %2
+  //
+  //   %4 = getelementptr i8, ptr %0, i64 32
+  //   %5 = load ptr, ptr %4
+  //
+  // The pointer operand of the GEP instruction %4 (%0) won't have a dominant
+  // aggregate type since the pointer is used as a related type (%1). This
+  // function will return true since the size of field 0 in
+  // %class.TestClass.Outer is 24 bytes, and the last 8 bytes points to field
+  // 1 in %class.TestClass.Inner_vect_imp.
+  bool isByteFlattenedGEPForRelatedTypes(GEPOperator *GEP,
+                                         ValueTypeInfo *PtrInfo) {
+    if (!GEP || !PtrInfo)
+      return false;
+
+    // Should be byte flattened GEP
+    if (GEP->getNumIndices() != 1)
+      return false;
+
+    // This function is intended for related types, therefore the value type
+    // info shouldn't have dominant aggregate type. This is conservative since
+    // the basic idea of the function should work also when we have dominant
+    // aggregate type.
+    if (PTA.getDominantAggregateUsageType(*PtrInfo))
+      return false;
+
+    // The offset can't be negative or zero. This is conservative, perhaps
+    // could be relaxed in the future since zero means the beginning of
+    // the structure.
+    auto *OffsetOP = dyn_cast<ConstantInt>(GEP->getOperand(1));
+    if (!OffsetOP || OffsetOP->isZero() || OffsetOP->isNegative())
+      return false;
+
+    // Find the type that encloses the base and padded structures.
+    auto *PtrEncloseType = getEnclosingParentDeclType(*PtrInfo);
+    if (!PtrEncloseType || !PtrEncloseType->isPointerTy())
+      return false;
+
+    DTransStructType *DTStruct =
+        dyn_cast<DTransStructType>(PtrEncloseType->getPointerElementType());
+    if (!DTStruct)
+      return false;
+
+    llvm::Type *LLVMTy = DTStruct->getLLVMType();
+    if (!LLVMTy->isSized())
+      return false;
+
+    // Offset should be smaller than the structure's size, else it is
+    // accessing out of bounds.
+    uint64_t StructSize = DL.getTypeAllocSize(LLVMTy);
+    uint64_t Offset = OffsetOP->getZExtValue();
+    if (StructSize == 0 || StructSize <= Offset)
+      return false;
+
+    // Traverse through the structures, collect the elements that use the
+    // offset and check if the access was done correctly. In other words,
+    // the offset must cover the entire fields.
+    llvm::StructType *CurrStrLLVMTy = cast<StructType>(LLVMTy);
+    int64_t TempOffset = (int64_t)Offset;
+    while (CurrStrLLVMTy) {
+      if (CurrStrLLVMTy->getNumElements() == 0)
+        return false;
+
+      const StructLayout *SL = DL.getStructLayout(CurrStrLLVMTy);
+      uint64_t Elem = SL->getElementContainingOffset(Offset);
+      uint64_t BytesBeforeElem = SL->getElementOffset(Elem);
+
+      // Subtract the bytes before the element that the offset is accessing
+      // and collect the inner structure.
+      TempOffset -= (int64_t)BytesBeforeElem;
+      Offset -= BytesBeforeElem;
+
+      // If the offset reaches 0 then it means that the field is accessed
+      // correctly since we subtracted the bytes before the current element.
+      if (TempOffset == 0)
+        return true;
+
+      CurrStrLLVMTy =
+        dyn_cast<StructType>(CurrStrLLVMTy->getTypeAtIndex(Elem));
+    }
+
+    // If we reach here then it means that the GEP is not accessing the right
+    // number of bytes to cover all fields. Using the example above, assume
+    // the following GEP:
+    //
+    //   %4 = getelementptr i8, ptr %0, i64 34
+    //
+    // The value of TempOffset will be 2 at this point because 32 bytes are
+    // needed to access field 1 in %class.TestClass.Inner_vect_imp, and 40
+    // bytes to access field 2 in %class.TestClass.Inner_vect_imp.
+    return false;
+  }
+
   void analyzeAndCollectArrayConstantEntries(GEPOperator *GEP,
                                              dtrans::StructInfo *STInfo,
                                              uint64_t FieldNum) {
+
+    // If the input GEP represents an access to a structure's field, and
+    // this field is a special array (structure with one field that is an
+    // array), then return the GEP's user. This user will be another GEP
+    // that will be used to load and store data.
+    auto GetArrayAccessGEP = [GEP, STInfo]() -> GEPOperator * {
+      if (!GEP->hasOneUser())
+        return GEP;
+
+      if (GEP->getNumIndices() != 2 || !GEP->hasAllConstantIndices())
+        return GEP;
+
+      auto *TempGEP = dyn_cast<GEPOperator>(GEP->user_back());
+      if (!TempGEP || !TempGEP->hasAllZeroIndices())
+        return GEP;
+
+      auto *ZeroIndex = dyn_cast<ConstantInt>(GEP->getOperand(1));
+      if (!ZeroIndex || !ZeroIndex->isZero())
+        return GEP;
+
+      auto *FieldIndex = cast<ConstantInt>(GEP->getOperand(2));
+      auto *DTStrTy =
+          dyn_cast_or_null<DTransStructType>(STInfo->getDTransType());
+      if (!DTStrTy || DTStrTy->getNumFields() == 0)
+        return GEP;
+
+      uint64_t FieldIdxInt = FieldIndex->getZExtValue();
+      if (FieldIdxInt >= DTStrTy->getNumFields())
+        return GEP;
+
+      auto *SpecialArr =
+          dyn_cast<DTransStructType>(DTStrTy->getFieldType(FieldIdxInt));
+      if (!SpecialArr || SpecialArr->getNumFields() != 1 ||
+         !isa<DTransArrayType>(SpecialArr->getFieldType(0)))
+        return GEP;
+
+      return TempGEP;
+    };
+
     if (!GEP || !STInfo || FieldNum >= STInfo->getNumFields())
       return;
 
@@ -1006,7 +1163,8 @@ public:
     if (!FI.canUpdateArrayWithConstantEntries())
       return;
 
-    for (auto *U : GEP->users()) {
+    auto *ArrayGEP = GetArrayAccessGEP();
+    for (auto *U : ArrayGEP->users()) {
       if (!FI.canUpdateArrayWithConstantEntries())
         return;
 
@@ -1014,12 +1172,6 @@ public:
       // NOTE: For now the direct user will be a GEP. Once we reach the
       // actual benchmark we can expand this for other cases.
       if (!CurrGEP) {
-        FI.disableArraysWithConstantEntries();
-        return;
-      }
-
-      // The user will be a load or a store
-      if (!CurrGEP->hasOneUser()) {
         FI.disableArraysWithConstantEntries();
         return;
       }
@@ -1055,15 +1207,6 @@ public:
         // Load instructions are safe
         continue;
       } else {
-        // Anything else is not allowed at the moment, disable the information
-        //
-        // TODO: We may need to deal with the case when the field is a structure
-        // that encapsulates an array. For example:
-        //
-        //   %struct.Test = type { i32, %boost.array }
-        //   %boost.array = type { [4 x i32] }
-        //
-        // This case is common when dealing with boost libraries.
         FI.disableArraysWithConstantEntries();
         return;
       }
@@ -1391,7 +1534,7 @@ public:
           continue;
 
         setFieldMismatchedElementAccess(PtrAliasTy, ValSize, ValTy,
-                                        /*FieldNum=*/0, I, false);
+                                        /*FieldNum=*/0, I);
       }
     } else if (PtrDomTy && !isPtrToPtr(PtrDomTy)) {
       // Treat this as an element zero access if the pointer operand alias info
@@ -1971,7 +2114,7 @@ public:
       // - a pointer was used, but not with the expected type
       bool TypesCompatible = true;
       bool BadCasting = false;
-      bool BadCastingForRelatedTypes = false;
+      bool LoadStoreUseRelatedTypes = false;
       DTransType *ValTy = getLoadStoreValueType(*ValOp, ValInfo, IsLoad);
       if (!ValTy) {
         // In some cases we may not have a ValTy identified for a pointer being
@@ -1986,7 +2129,7 @@ public:
           // related types. In this case ValTy couldn't be collected since
           // there is no dominant aggregate type.
           if (areLoadStoresWithRelatedTypes(IndexedType, ValInfo, &PtrInfo))
-            BadCastingForRelatedTypes = true;
+            LoadStoreUseRelatedTypes = true;
           else
             BadCasting = true;
         }
@@ -2019,7 +2162,7 @@ public:
         // related types
         if (areLoadStoresWithRelatedTypes(IndexedType, ValInfo, &PtrInfo) ||
             isStoringDataInNextEntry(&I, ValOp, PtrOp, &PtrInfo))
-          BadCastingForRelatedTypes = true;
+          LoadStoreUseRelatedTypes = true;
         else
           BadCasting = true;
       }
@@ -2034,7 +2177,7 @@ public:
           // check if we are using a byte flattened GEP to access the next entry
           if (isStoringDataInNextEntry(&I, ValOp, PtrOp, &PtrInfo)) {
             TypesCompatible = false;
-            BadCastingForRelatedTypes = true;
+            LoadStoreUseRelatedTypes = true;
           } else if (ValTy->getPointerElementType()->isAggregateType()) {
             if (hasIncompatibleAggregateDecl(ValTy->getPointerElementType(),
                                              ValInfo)) {
@@ -2061,9 +2204,9 @@ public:
       bool IsCandidate = IsCandidateLoad || IsAllocStore;
 
       // If IsCandidate is enabled then we are going to turn off
-      // BadCastingForRelatedTypes
-      if (IsCandidate && BadCastingForRelatedTypes) {
-        BadCastingForRelatedTypes = false;
+      // LoadStoreUseRelatedTypes
+      if (IsCandidate && LoadStoreUseRelatedTypes) {
+        LoadStoreUseRelatedTypes = false;
         BadCasting = true;
       }
 
@@ -2081,7 +2224,11 @@ public:
                 ValAliasTy, SD,
                 "Incompatible pointer type for field load/store", &I);
           }
-      } else if (BadCastingForRelatedTypes) {
+
+        // If BadCasting is enabled then we aren't going to treat the
+        // instruction as a special case for related types.
+        LoadStoreUseRelatedTypes = false;
+      } else if (LoadStoreUseRelatedTypes) {
         const llvm::dtrans::SafetyData SD = dtrans::BadCastingForRelatedTypes;
         setBaseTypeInfoSafetyData(
             ParentTy, SD,
@@ -2107,9 +2254,26 @@ public:
           if (IndexedType->isPointerTy() &&
               IndexedType->getPointerElementType()->isAggregateType())
             PtrToAggregateFound = true;
-          const llvm::dtrans::SafetyData SD =
-              IsCandidate ? dtrans::UnsafePointerStorePending
-                           : dtrans::UnsafePointerStore;
+
+          // If LoadStoreUseRelatedTypes is true then the store instruction is
+          // used to move data between two pointers with related types. The
+          // comment for areLoadStoresWithRelatedTypes contains a detailed
+          // explanation about this. In this case we are going to set
+          // dtrans::UnsafePointerStoreRelatedTypes and
+          // dtrans::MismatchedElementAccessRelatedTypes.
+          llvm::dtrans::SafetyData SD;
+          StringRef Message;
+          if (IsCandidate) {
+            Message = "Incompatible type for field load/store";
+            SD = dtrans::UnsafePointerStorePending;
+          } else if (LoadStoreUseRelatedTypes) {
+            Message = "Type for field load/store contains related types";
+            SD = dtrans::UnsafePointerStoreRelatedTypes;
+          } else {
+            Message = "Incompatible type for field load/store";
+            SD = dtrans::UnsafePointerStore;
+          }
+
           if (ValInfo) {
             auto &AliasSet =
                 ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
@@ -2118,9 +2282,7 @@ public:
               for (auto *ValAliasTy : AliasSet) {
                 if (IsCandidate)
                   DTBCA.setSawUnsafePointerStore(&I);
-                setBaseTypeInfoSafetyData(
-                    ValAliasTy, SD, "Incompatible type for field load/store",
-                    &I);
+                setBaseTypeInfoSafetyData(ValAliasTy, SD, Message, &I);
               }
             }
           }
@@ -2128,17 +2290,24 @@ public:
           if (PtrToAggregateFound) {
             if (IsCandidate)
               DTBCA.setSawUnsafePointerStore(&I);
-            setBaseTypeInfoSafetyData(
-                IndexedType, SD, "Incompatible type for field load/store", &I);
+            setBaseTypeInfoSafetyData(IndexedType, SD, Message, &I);
           }
         }
 
         // Finally, mark the structure as having a mismatched element access.
         TypeSize ValSize = DL.getTypeSizeInBits(ValOp->getType());
-        if (IsCandidate)
+        dtrans::SafetyDataKind SDKind;
+        if (IsCandidate) {
           DTBCA.setSawMismatchedElementAccess(&I);
+          SDKind = dtrans::SafetyDataKind::Pending;
+        } else if (LoadStoreUseRelatedTypes) {
+          SDKind = dtrans::SafetyDataKind::RelatedTypes;
+        } else {
+          SDKind = dtrans::SafetyDataKind::Original;
+        }
+
         setFieldMismatchedElementAccess(ParentTy, ValSize, IndexedType,
-                                        ElementNum, I, IsCandidate);
+                                        ElementNum, I, SDKind);
       }
     }
   }
@@ -2585,28 +2754,42 @@ public:
   }
 
   void setFieldMismatchedElementAccess(DTransType *ParentTy,
-                                       TypeSize AccessSize,
-                                       DTransType *AccessTy,
-                                       unsigned int ElementNum, Instruction &I,
-                                       bool IsPending) {
-    const llvm::dtrans::SafetyData SD =
-        IsPending ? dtrans::MismatchedElementAccessPending
-                  : dtrans::MismatchedElementAccess;
+      TypeSize AccessSize, DTransType *AccessTy, unsigned int ElementNum,
+      Instruction &I,
+      dtrans::SafetyDataKind SDKind = dtrans::SafetyDataKind::Original) {
+
+    llvm::dtrans::SafetyData SD;
+    StringRef Message;
+    switch (SDKind) {
+    case dtrans::SafetyDataKind::RelatedTypes:
+      Message = "Type for field load/store contains related types";
+      SD = dtrans::MismatchedElementAccessRelatedTypes;
+      break;
+    case dtrans::SafetyDataKind::Pending:
+      Message = "Incompatible type for field load/store";
+      SD = dtrans::MismatchedElementAccessPending;
+      break;
+    case dtrans::SafetyDataKind::Original:
+      Message = "Incompatible type for field load/store";
+      SD = dtrans::MismatchedElementAccess;
+      break;
+    case dtrans::SafetyDataKind::Conditional:
+      llvm_unreachable(
+          "Conditional variation for mismatched element access not available");
+    }
+
     if (getLangRuleOutOfBoundsOK()) {
       // Assuming out of bound access, set safety issue for the entire
       // ParentTy.
-      setBaseTypeInfoSafetyData(ParentTy, SD,
-                                "Incompatible type for field load/store", &I);
+      setBaseTypeInfoSafetyData(ParentTy, SD, Message, &I);
     } else {
       // Set the safety issue only on the structure containing the field and the
       // field type, rather than to all fields reachable from the structure
       // because out of bounds accesses are known to not occur based on the
       // LangRuleOutOfBoundsOK definition.
-      setOnlyBaseTypeInfoSafetyData(
-          ParentTy, SD, "Incompatible type for field load/store", &I);
+      setOnlyBaseTypeInfoSafetyData(ParentTy, SD, Message, &I);
       if (AccessTy)
-        setBaseTypeInfoSafetyData(AccessTy, SD,
-                                  "Incompatible type for field load/store", &I);
+        setBaseTypeInfoSafetyData(AccessTy, SD, Message, &I);
     }
 
     // If the mismatched element access was caused by an access to an array,
@@ -6599,10 +6782,12 @@ private:
     case dtrans::MismatchedElementAccess:
     case dtrans::MismatchedElementAccessPending:
     case dtrans::MismatchedElementAccessConditional:
+    case dtrans::MismatchedElementAccessRelatedTypes:
     case dtrans::NestedStruct:
     case dtrans::NoFieldsInStruct:
     case dtrans::WholeStructureReference:
     case dtrans::UnsafePointerStorePending:
+    case dtrans::UnsafePointerStoreRelatedTypes:
     case dtrans::VolatileData:
       // These cases do not need to be pointer carried
       return false;
@@ -6660,6 +6845,7 @@ private:
     case dtrans::MismatchedElementAccess:
     case dtrans::MismatchedElementAccessPending:
     case dtrans::MismatchedElementAccessConditional:
+    case dtrans::MismatchedElementAccessRelatedTypes:
     case dtrans::NestedStruct:
     case dtrans::NoFieldsInStruct:
     case dtrans::SystemObject:
@@ -6670,6 +6856,7 @@ private:
     case dtrans::UnsafePointerStore:
     case dtrans::UnsafePointerStoreConditional:
     case dtrans::UnsafePointerStorePending:
+    case dtrans::UnsafePointerStoreRelatedTypes:
     case dtrans::VolatileData:
       return true;
 
@@ -6692,7 +6879,9 @@ private:
     case dtrans::BadCastingForRelatedTypes:
     case dtrans::BadMemFuncManipulationForRelatedTypes:
     case dtrans::BadPtrManipulationForRelatedTypes:
+    case dtrans::MismatchedElementAccessRelatedTypes:
     case dtrans::UnsafePtrMergeRelatedTypes:
+    case dtrans::UnsafePointerStoreRelatedTypes:
       return true;
     default:
       break;
@@ -8089,10 +8278,18 @@ void DTransSafetyInfo::printArraysWithConstantEntriesInformation() {
 
     for (auto I : FieldsVect) {
       auto &FI = STInfo->getField(I);
+      // We already proved that the field is an array, or a structure with
+      // one field that is an array with constant entries. The data needs
+      // to be sorted since it is stored in a map.
+      llvm::ArrayType *ArrTy = nullptr;
+      if (auto *SpecialArr = dyn_cast<StructType>(FI.getLLVMType())) {
+        assert(SpecialArr->getNumElements() == 1 &&
+            "Incorrect structure considered as special array type");
+        ArrTy = cast<ArrayType>(SpecialArr->getElementType(0));
+      } else {
+        ArrTy = cast<ArrayType>(FI.getLLVMType());
+      }
 
-      // We already prove that the field is an array with constant entries
-      // but the data needs to be sorted since it is stored in a map
-      llvm::ArrayType *ArrTy = cast<ArrayType>(FI.getLLVMType());
       std::vector<Constant *> Entries(ArrTy->getNumElements());
       for (auto Pair : FI.getArrayConstantEntries()) {
         auto Index = cast<ConstantInt>(Pair.first);
@@ -8170,7 +8367,7 @@ void DTransSafetyInfo::postProcessArraysWithConstantEntries() {
 
     // Check if there is any safety that invalidates the structure.
     bool DisableArraysWithConstEntries =
-        STInfo->testSafetyData(dtrans::SDArraysWithConstantEntries);
+        STInfo->testSafetyData(dtrans::SDArraysWithConstantEntriesOpq);
 
     // Traverse through the fields and collect the information
     for (unsigned I = 0, E = STInfo->getNumFields(); I < E; I++) {
@@ -8178,10 +8375,9 @@ void DTransSafetyInfo::postProcessArraysWithConstantEntries() {
       if (!FI.isFieldAnArrayWithConstEntries())
         continue;
 
-      // NOTE: These are some general conditions to disable the data. We may
-      // need to adjust them once we analyze the actual cases.
-      if (DisableArraysWithConstEntries || FI.isRead() || FI.isWritten() ||
-          FI.isAddressTaken() || FI.hasNonGEPAccess())
+      if (DisableArraysWithConstEntries || FI.isRead() ||
+          FI.isAddressTaken() || FI.hasNonGEPAccess() ||
+          (FI.isWritten() && !FI.isRWTop()))
         FI.disableArraysWithConstantEntries();
     }
   }

@@ -8,7 +8,7 @@
 ; CHECK:          BEGIN REGION { }
 ; CHECK:                + DO i1 = 0, %n + -1, 1   <DO_LOOP>
 ; CHECK:                |   (%a1.red)[0] = 0.000000e+00;
-; CHECK:                |   %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%a1.red)[0])),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0])1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null) ]
+; CHECK:                |   %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%a1.red)[0])),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0])1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LIVEIN(null),  QUAL.OMP.LIVEIN:F90_DV(null) ]
 ; CHECK:                |   %1 = (%x)[i1];
 ; CHECK:                |   %conv14 = fpext.float.double(%1);
 ; CHECK:                |   %mul12 = %conv14  *  3.140000e+00;
@@ -46,7 +46,7 @@
 ;CHECK:          BEGIN REGION { modified }
 ;CHECK:                + DO i1 = 0, %n + -1, 1   <DO_LOOP>
 ;CHECK:                |   (%a1.red)[0] = 0.000000e+00;
-;CHECK:                |   %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%a1.red)[0])),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0])1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null) ]
+;CHECK:                |   %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%a1.red)[0])),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0])1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LIVEIN(null),  QUAL.OMP.LIVEIN:F90_DV(null) ]
 ;CHECK:                |   %1 = (%x)[i1];
 ;CHECK:                |   %conv14 = fpext.float.double(%1);
 ;CHECK:                |   %mul12 = %conv14  *  3.140000e+00;
@@ -74,7 +74,7 @@
 
 ;CHECK:                |   if (smax(0, %ivcopy) < smin((-1 + %n), %ivcopy) + 1)
 ;CHECK:                |    {
-;CHECK:                |       %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%a1.red)[0])),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0])1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null) ]
+;CHECK:                |       %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%a1.red)[0])),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0])1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null), QUAL.OMP.LIVEIN(null), QUAL.OMP.LIVEIN:F90_DV(null) ]
 ;CHECK:                |       %a1.red.promoted = (%a1.red)[0];
 ;CHECK:                |       %2 = %a1.red.promoted;
 
@@ -88,7 +88,7 @@
 ;CHECK:                |       @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
 ;CHECK:                |   }
 
-;CHECK:                |   %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%a1.red)[0])),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0])1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null) ]
+;CHECK:                |   %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%a1.red)[0])),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0])1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null), QUAL.OMP.LIVEIN(null), QUAL.OMP.LIVEIN:F90_DV(null) ]
 ;CHECK:                |   %a1.red.promoted = (%a1.red)[0];
 ;CHECK:                |   %2 = %a1.red.promoted;
 ;     :                |
@@ -138,7 +138,7 @@ DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.1.preh
   br label %DIR.OMP.SIMD.162
 
 DIR.OMP.SIMD.162:                                 ; preds = %DIR.OMP.SIMD.1
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(float* %a1.red), "QUAL.OMP.LINEAR:IV"(i64* %j.linear.iv, i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(float* %a1.red), "QUAL.OMP.LINEAR:IV"(i64* %j.linear.iv, i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LIVEIN"(i8* null), "QUAL.OMP.LIVEIN:F90_DV"(i8* null) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.162

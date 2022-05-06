@@ -2220,6 +2220,10 @@ bool WRegionNode::canHaveShared() const {
   case WRNDistributeParLoop:
   case WRNTask:
   case WRNTaskloop:
+  case WRNGenericLoop:
+    // Note: Even though the OMP spec doesn't allow GenericLoop to take
+    // shared clauses, in our implementation the FE may emit such clauses
+    // for GenericLoop.
     return true;
   }
   return false;
@@ -2253,9 +2257,11 @@ bool WRegionNode::canHaveFirstprivate() const {
   unsigned SubClassID = getWRegionKindID();
   if (SubClassID == WRNTile) // TODO: remove Firstprivate from Tile
     return true;
-  if (SubClassID == WRNVecLoop || SubClassID == WRNGenericLoop ||
-      SubClassID == WRNScope)
+  if (SubClassID == WRNVecLoop || SubClassID == WRNScope)
     return false;
+  // Note: this returns true for GenericLoop. Even though the OMP spec
+  // doesn't allow GenericLoop to take firstprivate clauses, in our
+  // implementation the FE may emit such clauses for GenericLoop.
   return canHavePrivate();
 }
 

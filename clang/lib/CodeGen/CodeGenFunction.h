@@ -1856,6 +1856,8 @@ public:
     llvm::MapVector<const Expr*, std::pair<llvm::Value*, CharUnits>> AddressMap;
     CGVLASizeMapHandler *PrevHandler = nullptr;
     bool Initialized = false;
+    bool MapRestored = false;
+
   public:
     CGVLASizeMapHandler(CodeGenFunction &CGF)
         : CGF(CGF), PrevHandler(CGF.VLASizeMapHandler) {
@@ -1868,6 +1870,7 @@ public:
     // than one llvm directive per OMPExecutable directive, use the
     // Initialized field so it happens only at the outermost.
     void ModifyVLASizeMap(const CapturedStmt *CS) {
+      assert(!MapRestored && "VLASizeMap already restored");
       if (Initialized || !CS)
         return;
       Initialized = true;
@@ -1895,6 +1898,7 @@ public:
     // Before dumping the captured statement, load the temp and store that
     // value in the VLASizeMap.  Record the value so it will appear in a clause.
     void EmitVLASizeExpressions() {
+      assert(!MapRestored && "VLASizeMap already restored");
       for (auto &Z : AddressMap) {
         const Expr *E = Z.first;
         llvm::Value *V = Z.second.first;
@@ -1907,8 +1911,19 @@ public:
                                                      A.getElementType());
       }
     }
-    ~CGVLASizeMapHandler() {
+    // Restore the map to the previous state. This must happen before emitting
+    // any implicit clauses. Since a statement may have no late-outline regions
+    // or multiple regions, whether it was restored must be tracked so it is
+    // done exactly once.
+    void RestoreVLASizeMap() {
+      if (MapRestored)
+        return;
+      MapRestored = true;
       CGF.VLASizeMap = SavedVLASizeMap;
+    }
+    ~CGVLASizeMapHandler() {
+      if (!MapRestored)
+        RestoreVLASizeMap();
       CGF.VLASizeMapHandler = PrevHandler;
     }
   };
