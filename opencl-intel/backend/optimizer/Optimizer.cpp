@@ -125,7 +125,6 @@ llvm::ModulePass *createPipeIOTransformationPass();
 llvm::ModulePass *createPipeOrderingPass();
 llvm::ModulePass *createPipeSupportPass();
 llvm::ModulePass *createOclFunctionAttrsPass();
-llvm::ModulePass *createInternalizeGlobalVariablesPass();
 llvm::Pass *createBuiltinLibInfoPass(ArrayRef<Module *> pRtlModuleList,
                                      std::string type);
 llvm::ModulePass *createUndifinedExternalFunctionsPass(
@@ -750,7 +749,7 @@ static void populatePassesPostFailCheck(
     if (OptLevel > 0) {
       // After the globals used in built-ins are imported - we can internalize
       // them with further wiping them out with GlobalDCE pass
-      PM.add(createInternalizeGlobalVariablesPass());
+      PM.add(llvm::createInternalizeGlobalVariablesLegacyPass());
       // Cleaning up internal globals
       PM.add(llvm::createGlobalDCEPass());
     }

@@ -9,12 +9,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "LoopPeeling.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
-
+#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
+
+#define DEBUG_TYPE "dpcpp-kernel-loop-peeling"
 
 namespace llvm {
 
@@ -73,62 +75,62 @@ Optional<Value *> computePeelCount(BasicBlock &EntryBB, BasicBlock &VectorEntry,
   if (!PeelTarget)
     return None;
 
-  // Run DFS to find all dependent instructions of peeling target's pointer
-  // operand and clone them into EntryBB.
+  // Traverse use-def chain in post order to find all dependent instructions of
+  // peeling target's pointer operand and clone them into EntryBB.
+  // Post-order traversal guarantees that defs are visited before their uses.
   Module *M = EntryBB.getModule();
   auto *ConstZero = ConstantInt::get(DPCPPKernelLoopUtils::getIndTy(M), 0);
-  Value *Ptr = getLoadStorePointerOperand(PeelTarget);
+  Use *PtrUse = PeelTarget->getOperandList() + PeelTarget->getNumOperands() - 1;
+  Value *Ptr = PtrUse->get();
+  assert(Ptr == getLoadStorePointerOperand(PeelTarget) &&
+         "The last operand of a load/store instruction must be the pointer "
+         "operand!");
   Value *PeelPtr = nullptr;
   if (auto *PtrI = dyn_cast<Instruction>(Ptr)) {
     std::string GID = DPCPPKernelCompilationUtils::mangledGetGID();
     std::string LID = DPCPPKernelCompilationUtils::mangledGetLID();
     ValueToValueMapTy VMap;
-    Instruction *InsertPt = &EntryBB.back();
+    Instruction *PreviousBBEnd = &EntryBB.back();
     SmallSet<Instruction *, 8> Visited;
-    SmallVector<Instruction *, 8> WorkList;
-    WorkList.push_back(PtrI);
 
-    while (!WorkList.empty()) {
-      Instruction *I = WorkList.pop_back_val();
+    LLVM_DEBUG(dbgs() << "Collecting all dependent instructions of " << *PtrI
+                      << '\n');
+    for (Use *DepUse : make_range(po_begin(PtrUse), po_end(PtrUse))) {
+      if (auto *I = dyn_cast<Instruction>(DepUse->get())) {
+        LLVM_DEBUG(dbgs().indent(2) << "Instruction use: " << *I << '\n');
+        if (Visited.count(I))
+          continue;
 
-      if (auto *CI = dyn_cast<CallInst>(I)) {
-        if (Function *CalledF = CI->getCalledFunction()) {
-          StringRef FName = CalledF->getName();
-          if (FName == GID) {
-            // Replace get_global_id call with InitGID.
-            uint64_t Dim =
-                cast<ConstantInt>(CI->getArgOperand(0))->getZExtValue();
-            assert(Dim < InitGIDs.size() && "Dim is out of range");
-            VMap[I] = InitGIDs[Dim];
-            continue;
-          } else if (FName == LID) {
-            // Replace get_local_id call with zero.
-            VMap[I] = ConstZero;
-            continue;
+        Visited.insert(I);
+        if (auto *CI = dyn_cast<CallInst>(I)) {
+          if (Function *CalledF = CI->getCalledFunction()) {
+            StringRef FName = CalledF->getName();
+            if (FName == GID) {
+              // Replace get_global_id call with InitGID.
+              uint64_t Dim =
+                  cast<ConstantInt>(CI->getArgOperand(0))->getZExtValue();
+              assert(Dim < InitGIDs.size() && "Dim is out of range");
+              VMap[I] = InitGIDs[Dim];
+              continue;
+            }
+            if (FName == LID) {
+              // Replace get_local_id call with zero.
+              VMap[I] = ConstZero;
+              continue;
+            }
           }
         }
-      }
 
-      Instruction *NewI = I->clone();
-      VMap[I] = NewI;
-      NewI->insertAfter(InsertPt);
-      Visited.insert(I);
-      for (Value *Op : I->operands()) {
-        auto *OpInst = dyn_cast<Instruction>(Op);
-        if (!OpInst)
-          continue;
-        if (Visited.count(OpInst)) {
-          // Move dependent instruction to the beginning so that it dominates
-          // its users.
-          cast<Instruction>(VMap[OpInst])->moveAfter(InsertPt);
-          continue;
-        }
-        WorkList.push_back(OpInst);
+        Instruction *NewI = I->clone();
+        VMap[I] = NewI;
+        NewI->insertAfter(&EntryBB.back());
+        NewI->takeName(I);
       }
     }
 
     // Update operand references of cloned instructions.
-    for (BasicBlock::iterator It(&EntryBB.back()), E(InsertPt); It != E; --It)
+    for (BasicBlock::iterator It(&EntryBB.back()), E(PreviousBBEnd); It != E;
+         --It)
       RemapInstruction(&*It, VMap,
                        RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
     PeelPtr = &EntryBB.back();

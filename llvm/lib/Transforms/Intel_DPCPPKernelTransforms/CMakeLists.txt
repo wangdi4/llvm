@@ -34,6 +34,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   ImplicitArgsAnalysis.cpp
   ImplicitGID.cpp
   InstToFuncCall.cpp
+  InternalizeGlobalVariables.cpp
   InternalizeNonKernelFunc.cpp
   KernelBarrierUtils.cpp
   LinearIdResolver.cpp

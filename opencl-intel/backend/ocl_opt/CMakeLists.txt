@@ -26,7 +26,6 @@ set(OCL_BE_PASSES
     DebugInfoPass
     DetectRecursion
     InfiniteLoopCreator
-    InternalizeGlobalVariables
     KernelInfo
     LLVMBarrier
     LLVMVectorizer
