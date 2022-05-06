@@ -120,44 +120,6 @@ ReduceCrossBarrierValuesPass::run(Module &M, ModuleAnalysisManager &MAM) {
   return PA;
 }
 
-namespace {
-struct OpUseIterator {
-  OpUseIterator(Use *U) : U(U) {}
-  OpUseIterator operator++(int) {
-    OpUseIterator Ret(U);
-    unsigned NextOpIdx = U->getOperandNo() + 1;
-    User *TheUser = U->getUser();
-    U = TheUser->getOperandList() + NextOpIdx;
-    return Ret;
-  }
-  inline Use *operator*() { return U; }
-  inline bool operator==(const OpUseIterator &RHS) const { return U == RHS.U; }
-  inline bool operator!=(const OpUseIterator &RHS) const { return U != RHS.U; }
-
-private:
-  Use *U;
-};
-} // namespace
-
-template <> struct llvm::GraphTraits<Use *> {
-  using NodeRef = Use *;
-  using ChildIteratorType = OpUseIterator;
-
-  static inline NodeRef getEntryNode(NodeRef N) { return N; }
-
-  static inline ChildIteratorType child_begin(NodeRef N) {
-    if (auto *Inst = dyn_cast<Instruction>(N->get()))
-      return Inst->op_begin();
-    return nullptr;
-  }
-
-  static inline ChildIteratorType child_end(NodeRef N) {
-    if (auto *Inst = dyn_cast<Instruction>(N->get()))
-      return Inst->op_end();
-    return nullptr;
-  }
-};
-
 static bool isBarrierOrDummyBarrierCall(Value *Val) {
   static std::string Barriers[] = {
       DPCPPKernelCompilationUtils::mangledBarrier(),

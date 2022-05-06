@@ -223,7 +223,6 @@ set( BACKEND_PASSES
     DebugInfoPass
     DetectRecursion
     InfiniteLoopCreator
-    InternalizeGlobalVariables
     PreventDivCrashes
     PrintIRPass
     RelaxedPass

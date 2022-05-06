@@ -27,12 +27,12 @@ entry:
 ; CHECK-NEXT: %init.gid.dim0 = extractvalue [7 x i64] %early_exit_call, 1
 ; CHECK-NEXT: %loop.size.dim0 = extractvalue [7 x i64] %early_exit_call, 2
 ; CHECK-NEXT: %max.gid.dim0 = add i64 %init.gid.dim0, %loop.size.dim0
-; CHECK-NEXT: [[LSize0:%[0-9]+]] = tail call i64 @_Z14get_local_sizej(i32 0) #2
-; CHECK-NEXT: [[GroupID0:%[0-9]+]] = tail call i64 @_Z12get_group_idj(i32 0) #2
-; CHECK-NEXT: [[MUL0:%[0-9]+]] = mul i64 [[LSize0]], [[GroupID0]]
+; CHECK-NEXT: [[LSize0:%.*]] = tail call i64 @_Z14get_local_sizej(i32 0) #2
+; CHECK-NEXT: [[GroupID0:%.*]] = tail call i64 @_Z12get_group_idj(i32 0) #2
+; CHECK-NEXT: [[MUL0:%.*]] = mul i64 [[LSize0]], [[GroupID0]]
 ; CHECK-NEXT: add i64 [[MUL0]], 0
 
-; CHECK: %peel.ptr2int = ptrtoint <16 x i32> addrspace(1)* %{{[0-9]+}} to i64
+; CHECK: %peel.ptr2int = ptrtoint <16 x i32> addrspace(1)* %{{.*}} to i64
 ; CHECK-NEXT: %peel.quotient = ashr i64 %peel.ptr2int, 2
 ; CHECK-NEXT: %peel.quotient.multiplier = mul i64 %peel.quotient, 15
 ; CHECK-NEXT: %peel.count.dynamic = and i64 %peel.quotient.multiplier, 15

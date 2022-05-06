@@ -475,6 +475,7 @@ namespace {
       (void)llvm::createImplicitArgsAnalysisLegacyPass();
       (void)llvm::createImplicitGIDLegacyPass();
       (void)llvm::createInstToFuncCallLegacyPass();
+      (void)llvm::createInternalizeGlobalVariablesLegacyPass();
       (void)llvm::createInternalizeNonKernelFuncLegacyPass();
       (void)llvm::createLocalBufferAnalysisLegacyPass();
       (void)llvm::createLocalBuffersLegacyPass(false);
