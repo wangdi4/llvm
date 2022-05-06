@@ -8,7 +8,6 @@ include_directories(${LLVM_INCLUDE_DIRS}
 add_subdirectory(ChannelPipeTransformation)
 add_subdirectory(ChannelsUsageAnalysis)
 add_subdirectory(PipeIOTransformation)
-add_subdirectory(RemoveAtExit)
 add_subdirectory(PipeOrdering)
 add_subdirectory(PipeSupport)
 add_subdirectory(OclFunctionAttrs)

@@ -216,7 +216,6 @@ set( BACKEND_PASSES
     ChannelPipeTransformation
     ChannelsUsageAnalysis
     PipeIOTransformation
-    RemoveAtExit
     PipeOrdering
     PipeSupport
     OclFunctionAttrs
