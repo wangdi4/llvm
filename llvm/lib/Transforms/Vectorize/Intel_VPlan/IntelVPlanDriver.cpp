@@ -1421,6 +1421,20 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 //#endif
   }
 
+  if (!Lp->isInnermost()) {
+    SmallVector<HLLoop *, 8> InnerLoops;
+    HIRF->getHLNodeUtils().gatherAllLoops(Lp, InnerLoops);
+    unsigned NumMultiExitLps =
+        llvm::count_if(InnerLoops, [](HLLoop *L) { return L->isMultiExit(); });
+    if (Lp->isMultiExit())
+      NumMultiExitLps++;
+    if (NumMultiExitLps > 1) {
+      LLVM_DEBUG(dbgs() << "VD: Not vectorizing: Cannot support multiple "
+                           "multi-exit loops.\n");
+      return false;
+    }
+  }
+
   // If region has SIMD directive mark then mark source loop with SIMD directive
   // so that WarnMissedTransforms pass will detect that this loop is not
   // vectorized later
