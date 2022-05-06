@@ -2267,6 +2267,12 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   if (EnableOrderFileInstrumentation)
     MPM.addPass(InstrOrderFilePass());
 
+#if INTEL_CUSTOMIZATION
+  // Propagate noalias attribute to function arguments.
+  if (Level.getSpeedupLevel() > 2)
+    MPM.addPass(ArgNoAliasPropPass());
+#endif // INTEL_CUSTOMIZATION
+
   // Do RPO function attribute inference across the module to forward-propagate
   // attributes where applicable.
   // FIXME: Is this really an optimization rather than a canonicalization?
@@ -3060,6 +3066,10 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     MPM.addPass(DeadArrayOpsEliminationPass());
 #endif // INTEL_FEATURE_SW_ADVANCED
 
+  // Propagate noalias attribute to function arguments.
+  if (Level.getSpeedupLevel() > 2)
+    MPM.addPass(ArgNoAliasPropPass());
+
   if (EnableAndersen) {
     // Andersen's IP alias analysis
     // AndersensAA is stateless analysis that is not invalided by any passes.
@@ -3076,7 +3086,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // GlobalsAA.
   MPM.addPass(
       createModuleToFunctionPassAdaptor(InvalidateAnalysisPass<AAManager>()));
-
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   // Loop transformations need information about structure fields that are
