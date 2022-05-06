@@ -132,9 +132,17 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
 
-static cl::opt<unsigned>
-    RerollLoopSizeThreshold(OPT_SWITCH "-size-threshold", cl::init(450),
-                            cl::Hidden, cl::desc("Disable " OPT_DESC " pass"));
+static cl::opt<unsigned> RerollLoopSizeThreshold(
+    OPT_SWITCH "-size-threshold", cl::init(450), cl::Hidden,
+    cl::desc("Disable " OPT_DESC " pass if loop is larger than threshold"));
+
+static cl::opt<float> VecRatioThreshold(
+    OPT_SWITCH "-vec-ratio-threshold", cl::init(0.8), cl::Hidden,
+    cl::desc("Disable " OPT_DESC
+             " if loop body is vectorized at least this much ratio, value "
+             "between [0, 1]. To enable rerolling regardless of vectorized "
+             "code, give value larger than 1."));
+
 namespace {
 
 class HIRLoopRerollLegacyPass : public HIRTransformPass {
@@ -1891,6 +1899,34 @@ bool areRerollSequencesBuilt(const HLLoop *Loop, HIRDDAnalysis &DDA,
   return true;
 }
 
+// See if majority of the code in the loop body are already vectorized.
+// The majority is controlled by VecRatioTheshold.
+bool isMostlyVectorized(const HLLoop *Loop) {
+  int TotalInsts = Loop->getNumChildren();
+  int VectorCount = 0;
+  int NonVecCount = 0;
+  float VecThreshold = TotalInsts * VecRatioThreshold;
+  float NonVecThreshold = TotalInsts - VecThreshold;
+
+  // Loop body doesn't have ifs or other control flow
+  for (const HLNode &Node :
+       make_range(Loop->child_begin(), Loop->child_end())) {
+    const HLInst *HInst = cast<HLInst>(&Node);
+    if (HInst->getLvalDDRef()->getDestType()->isVectorTy())
+      VectorCount++;
+    else
+      NonVecCount++;
+
+    if ((float)VectorCount >= VecThreshold)
+      return true;
+
+    if ((float)NonVecCount >= NonVecThreshold)
+      return false;
+  }
+
+  return false;
+}
+
 bool isRerollCandidate(const HLLoop *Loop, HIRLoopStatistics &HLS,
                        DDRefScavenger &RefScavenger) {
   if (!Loop->isInnermost() || !Loop->isDo() || !Loop->isNormalized()) {
@@ -1911,6 +1947,12 @@ bool isRerollCandidate(const HLLoop *Loop, HIRLoopStatistics &HLS,
   // pragmas
   // We don't stop rerolling with unroll and jam pragma on the parent loop.
   if (Loop->hasUnrollEnablingPragma() || Loop->hasVectorizeEnablingPragma()) {
+    return false;
+  }
+
+  if (isMostlyVectorized(Loop)) {
+    // The loop is already hand-vectorized. Don't reroll.
+    LLVM_DEBUG(dbgs() << "Reroll skipping.. Loop is manually vectorized.\n");
     return false;
   }
 
