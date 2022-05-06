@@ -14,6 +14,7 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/MathExtras.h"
@@ -292,6 +293,7 @@ void DPCPPKernelWGLoopCreatorPass::processFunction(Function *F,
     F->removeFnAttr(llvm::Attribute::NoInline);
 
   LLVM_DEBUG(dbgs() << "Created loop for " << F->getName() << "\n";);
+  assert(!verifyFunction(*F, &dbgs()));
 }
 
 void DPCPPKernelWGLoopCreatorPass::initializeImplicitGID(Function *F) {
