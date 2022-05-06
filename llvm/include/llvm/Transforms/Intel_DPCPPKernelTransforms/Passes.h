@@ -38,6 +38,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/HandleVPlanMask.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ImplicitGID.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/InstToFuncCall.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/InternalizeGlobalVariables.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/InternalizeNonKernelFunc.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LinearIdResolver.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LocalBuffers.h"
