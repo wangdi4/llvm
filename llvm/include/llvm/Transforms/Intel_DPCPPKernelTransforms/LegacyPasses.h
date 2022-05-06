@@ -81,6 +81,7 @@ ModulePass *createLocalBuffersLegacyPass(bool UseTLSGlobals);
 ModulePass *createPrepareKernelArgsLegacyPass(bool UseTLSGlobals);
 ModulePass *createProfilingInfoLegacyPass();
 ModulePass *createReduceCrossBarrierValuesLegacyPass();
+ModulePass *createRemoveAtExitLegacyPass();
 ModulePass *createResolveMatrixFillLegacyPass();
 ModulePass *createResolveMatrixLayoutLegacyPass();
 ModulePass *createResolveMatrixWISliceLegacyPass();

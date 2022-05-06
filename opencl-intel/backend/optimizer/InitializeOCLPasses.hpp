@@ -55,7 +55,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializePatchCallbackArgsPass(Registry);
     intel::initializeWeightedInstCounterPass(Registry);
     intel::initializeScalarizeFunctionPass(Registry);
-    intel::initializeRemoveAtExitPass(Registry);
     intel::initializeChooseVectorizationDimensionPass(Registry);
     intel::initializeVectorKernelDiscardPass(Registry);
     intel::initializeSetPreferVectorWidthPass(Registry);

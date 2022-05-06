@@ -68,7 +68,6 @@ void initializeKernelSubGroupInfoPass(llvm::PassRegistry&);
 void initializePatchCallbackArgsPass(llvm::PassRegistry &);
 void initializeWeightedInstCounterPass(llvm::PassRegistry &);
 void initializeScalarizeFunctionPass(llvm::PassRegistry &);
-void initializeRemoveAtExitPass(llvm::PassRegistry &);
 void initializeChooseVectorizationDimensionPass(llvm::PassRegistry &);
 void initializeCoerceWin64TypesPass(llvm::PassRegistry &);
 void initializeVectorKernelDiscardPass(llvm::PassRegistry &);
