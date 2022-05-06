@@ -1347,6 +1347,11 @@ ModRefInfo AndersensAAResult::getModRefInfo(const CallBase *Call1,
 bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
                                                AAQueryInfo &AAQI,
                                                bool OrLocal) {
+  // TODO: This seems to be broken in some circumstances.
+  //       See CMPLRLLVM-37408
+  //       Until it is fixed, always defer to other AA passes.
+  return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
+  // End TODO
 
   if (ValueNodes.size() == 0) {
     return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
