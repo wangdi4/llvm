@@ -503,6 +503,8 @@ void LLDJIT::buildDllFromObjs(
   std::vector<const char *> Args;
   Args.push_back("dummy.exe");
   Args.push_back("-dll");
+  // This option is required to avoid lld::coff::link() resetting the global
+  // llvm::cl states.
   Args.push_back("-intel-embedded-linker");
   Args.push_back("-nodefaultlib");
   Args.push_back(LibPathArg.c_str());
