@@ -490,7 +490,21 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
           VFs.clear();
           break;
         }
-        //
+
+        // Case where the generated loop for tree conflict lowering would cause
+        // allowed maximum loop nesting level to be exceeded. In order to
+        // prevent this, the conflict instruction's VPLoop depth when added to
+        // the nesting level of the original loop being vectorized should be
+        // atmost equal to maximum loop nesting level.
+        auto *VPLI = Plan->getVPLoopInfo();
+        VPLoop *VPLp = VPLI->getLoopFor(VPConflict->getParent());
+        assert(VPLp && "Conflict instruction outside VPLoop");
+
+        if (Plan->exceedsMaxLoopNestingLevel(VPLp->getLoopDepth())) {
+          VFs.clear();
+          break;
+        }
+
         // Case (VF < 4): No direct intrinsic mapping and pumping is required.
         VFs.erase(std::remove_if(VFs.begin(), VFs.end(),
                                  [MaxVF](unsigned VF) {

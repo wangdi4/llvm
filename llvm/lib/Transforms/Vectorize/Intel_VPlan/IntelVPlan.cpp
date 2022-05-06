@@ -1713,6 +1713,9 @@ void VPlanVector::copyData(VPAnalysesFactoryBase &VPAF, UpdateDA UDA,
       TargetPlan->getVPlanDA()->disableDARecomputation();
     }
   }
+
+  // Copy loop nesting level
+  TargetPlan->setOrigLoopNestingLevel(getOrigLoopNestingLevel());
 }
 
 VPlanVector *VPlanMasked::clone(VPAnalysesFactoryBase &VPAF, UpdateDA UDA) {

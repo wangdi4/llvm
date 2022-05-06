@@ -102,6 +102,7 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlannerHIR::buildInitialVPlan(
       std::make_shared<VPlanNonMasked>(Ext, UVPI);
   VPlanVector *Plan = SharedPlan.get();
   Plan->setName(VPlanName);
+  Plan->setOrigLoopNestingLevel(TheLoop->getNestingLevel());
 
   // Enable SOA-analysis if enabled in the header.
   if (EnableSOAAnalysisHIR)

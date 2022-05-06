@@ -4496,6 +4496,23 @@ public:
   /// Clone live-out values from OrigVPlan and add them in LiveOutValues.
   void cloneLiveOutValues(const VPlan &OrigPlan, VPValueMapper &Mapper);
 
+  /// Return true if adding instructions at specified loop depth starting
+  /// from topmost loop being vectorized will cause us to exceed maximum
+  /// allowed loop nesting level.
+  bool exceedsMaxLoopNestingLevel(unsigned InstDepth) {
+    // This check is only relevant for HIR path where we have a limit
+    // on maximum allowed loop nesting. For LLVM IR case, OrigLoopNestingLevel
+    // remains set to 0.
+    if (!OrigLoopNestingLevel)
+      return false;
+
+    return OrigLoopNestingLevel + InstDepth > loopopt::MaxLoopNestLevel;
+  }
+
+  void setOrigLoopNestingLevel(unsigned Level) { OrigLoopNestingLevel = Level; }
+
+  unsigned getOrigLoopNestingLevel() const { return OrigLoopNestingLevel; }
+
 private:
   void addLiveInValue(VPLiveInValue *V) {
     assert(V->getMergeId() == LiveInValues.size() &&
@@ -4542,6 +4559,12 @@ private:
   /// Flag showing that a new scheme of CG for loops and basic blocks
   /// should be used.
   bool ExplicitRemainderUsed = false;
+
+  /// Nesting level of outermost loop being vectorized. VPlan transformations
+  /// may generated additional loops and we cannot exceed the maximum
+  /// nesting level allowed for HIR. Currently this field is only used in the
+  /// HIR path to check such optimizations(TreeConflict lowering for now).
+  unsigned OrigLoopNestingLevel = 0;
 };
 
 /// Class to represent VPlan for scalar-loops.
