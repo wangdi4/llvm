@@ -1096,7 +1096,8 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
     // Conservatively mark the pointer as Random shape when -
     // 1. stride is non-constant
     // 2. lower is loop variant
-    if (!ZeroDimStride || !ZeroDimLowerShape.isUniform())
+    if (!ZeroDimStride || isa<UndefValue>(ZeroDimStride->getConstant()) ||
+        !ZeroDimLowerShape.isUniform())
       return getRandomVectorShape();
     if (IdxShape.isAnyStrided() && IdxShape.hasKnownStride()) {
       // Recompute correct stride for last index of subscript. Consider the
