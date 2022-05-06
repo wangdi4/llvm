@@ -4678,9 +4678,9 @@ def r : Flag<["-"], "r">, Flags<[LinkerInput,NoArgumentUnused]>,
 def regcall : Flag<["-"], "regcall">,
   HelpText<"Set __regcall as a default calling convention">;
 #endif // INTEL_CUSTOMIZATION
-def save_temps_EQ : Joined<["-", "--"], "save-temps=">, Flags<[CC1Option, NoXarchOption]>,
+def save_temps_EQ : Joined<["-", "--"], "save-temps=">, Flags<[CC1Option, FlangOption, NoXarchOption]>,
   HelpText<"Save intermediate compilation results.">;
-def save_temps : Flag<["-", "--"], "save-temps">, Flags<[NoXarchOption]>,
+def save_temps : Flag<["-", "--"], "save-temps">, Flags<[FlangOption, NoXarchOption]>,
   Alias<save_temps_EQ>, AliasArgs<["cwd"]>,
   HelpText<"Save intermediate compilation results">;
 def save_stats_EQ : Joined<["-", "--"], "save-stats=">, Flags<[NoXarchOption]>,
@@ -4843,7 +4843,7 @@ def y : Joined<["-"], "y">;
 
 defm integrated_as : BoolFOption<"integrated-as",
   CodeGenOpts<"DisableIntegratedAS">, DefaultFalse,
-  NegFlag<SetTrue, [CC1Option], "Disable">, PosFlag<SetFalse, [], "Enable">,
+  NegFlag<SetTrue, [CC1Option, FlangOption], "Disable">, PosFlag<SetFalse, [], "Enable">,
   BothFlags<[], " the integrated assembler">>;
 
 def fintegrated_cc1 : Flag<["-"], "fintegrated-cc1">,
@@ -4855,7 +4855,7 @@ def fno_integrated_cc1 : Flag<["-"], "fno-integrated-cc1">,
 
 def : Flag<["-"], "integrated-as">, Alias<fintegrated_as>, Flags<[NoXarchOption]>;
 def : Flag<["-"], "no-integrated-as">, Alias<fno_integrated_as>,
-      Flags<[CC1Option, NoXarchOption]>;
+      Flags<[CC1Option, FlangOption, NoXarchOption]>;
 
 def working_directory : JoinedOrSeparate<["-"], "working-directory">, Flags<[CC1Option]>,
   HelpText<"Resolve file paths relative to the specified directory">,
