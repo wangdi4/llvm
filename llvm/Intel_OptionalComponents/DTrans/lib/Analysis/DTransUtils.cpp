@@ -979,6 +979,23 @@ bool dtrans::FieldInfo::isFieldAnArrayWithConstEntries() {
   return false;
 }
 
+// Helper function that generates the information related to arrays with
+// constant entries for the DTrans immutable analysis.
+//
+// NOTE: This function is expected to be used only by the DTrans analysis
+// for typed pointers. The opaque pointers version stores the information
+// automatically in ArrayWithConstEntriesMap. This code can be removed once
+// we move to opaque pointers by default and the code for typed pointers
+// is removed.
+void dtrans::FieldInfo::generateArraysWithConstInmmutableData() {
+  assert(ArrayWithConstEntriesMap.empty() &&
+         "Incorrect arrays with constant entries data collection");
+
+  for (auto Pair : ArrayConstEntries)
+    if (Pair.second)
+      ArrayWithConstEntriesMap.insert({Pair.first, Pair.second});
+}
+
 // This is a helper function used to break the relationship between
 // a base and a padded structure.
 void StructInfo::unsetRelatedType() {

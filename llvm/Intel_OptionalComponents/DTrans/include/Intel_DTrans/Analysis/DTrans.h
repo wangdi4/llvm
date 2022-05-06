@@ -325,6 +325,13 @@ public:
   // is an array with constant entries.
   void addConstantEntryIntoTheArray(Constant *Index, Constant* ConstVal);
 
+  // Helper function that generates the information related to arrays with
+  // constant entries for the DTrans immutable analysis.
+  //
+  // NOTE: This function is intended for typed pointers. It will be removed
+  // once we fully move from typed pointer to opaque pointers.
+  void generateArraysWithConstInmmutableData();
+
   // Insert a new entry in ArrayWithConstEntriesMap.
   //
   // NOTE: This function replaces addConstantEntryIntoTheArray in the opaque
@@ -444,7 +451,9 @@ private:
   // the constant value.
   //
   // NOTE: This will replace the set ArrayConstEntries when we fully move
-  // to opaque pointers and the typed pointers code is removed.
+  // to opaque pointers and the typed pointers code is removed. Also,
+  // the typed pointers case will use this map to transfer the information
+  // of arrays with constant entries to the DTrans immutable analysis.
   DenseMap<Constant*, Constant*> ArrayWithConstEntriesMap;
 
   // True if it is enabled to insert new entries into ArrayWithConstEntriesMap,
