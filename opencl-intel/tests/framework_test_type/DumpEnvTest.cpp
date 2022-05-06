@@ -18,11 +18,16 @@ extern cl_device_type gDeviceType;
 class DumpEnvTest : public ::testing::Test {
 protected:
   virtual void TearDown() override {
-    cl_int err = clReleaseProgram(m_program);
-    EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
+    cl_int Err = clReleaseProgram(m_program);
+    EXPECT_OCL_SUCCESS(Err, "clReleaseProgram");
 
-    err = clReleaseContext(m_context);
-    EXPECT_OCL_SUCCESS(err, "clReleaseContext");
+    if (!m_kernelName1.empty()) {
+      Err = clReleaseProgram(m_program1);
+      EXPECT_OCL_SUCCESS(Err, "clReleaseProgram");
+    }
+
+    Err = clReleaseContext(m_context);
+    EXPECT_OCL_SUCCESS(Err, "clReleaseContext");
 
     for (auto &e : m_env)
       ASSERT_TRUE(UNSETENV(e.first.c_str()))
@@ -44,24 +49,54 @@ protected:
     ASSERT_OCL_SUCCESS(err, "clCreateContext");
   }
 
-  void createProgram() {
-    m_kernelName = "some_kernel_test";
-    std::string source = "kernel void " + m_kernelName +
+  void createProgramHelper(const std::string &KernelName, cl_program &Program) {
+    std::string Source = "kernel void " + KernelName +
                          "(global int* src, global int* dst) {"
                          "  size_t gid = get_global_id(0);"
                          "  dst[gid] = src[gid];"
                          "}";
-    const char *csource = source.c_str();
-    cl_int err;
-    m_program =
-        clCreateProgramWithSource(m_context, 1, &csource, nullptr, &err);
-    ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
+    const char *Csource = Source.c_str();
+    cl_int Err;
+    Program = clCreateProgramWithSource(m_context, 1, &Csource, nullptr, &Err);
+    ASSERT_OCL_SUCCESS(Err, "clCreateProgramWithSource");
+  }
+
+  void createFirstProgram() {
+    m_kernelName = "first_kernel";
+    createProgramHelper(m_kernelName, m_program);
+  }
+
+  void createSecondProgram() {
+    m_kernelName1 = "second_kernel";
+    createProgramHelper(m_kernelName1, m_program1);
   }
 
   void testBody(const std::vector<std::string> &suffix,
                 const std::vector<std::vector<std::string>> &patterns) {
     std::string prefix("framework_test_type");
     testBody(prefix, suffix, patterns);
+  }
+
+  void
+  validateDumpedFiles(const std::string &Prefix,
+                      const std::vector<std::string> &Suffix,
+                      const std::vector<std::vector<std::string>> &Patterns,
+                      unsigned ProgramIndex = 1) {
+    size_t NumFiles = Suffix.size();
+    size_t NumPatterns = Patterns.size();
+    ASSERT_TRUE(NumPatterns == 0 || NumPatterns == NumFiles);
+    for (size_t I = 0; I < NumFiles; ++I) {
+      std::string FilenamePattern = Prefix + "_" +
+                                    std::to_string(ProgramIndex) +
+                                    "_[0-9a-f]{16}" + Suffix[I];
+      Regex R(FilenamePattern);
+      std::string DumpFilename = findFileInDir(".", R);
+      ASSERT_TRUE(!DumpFilename.empty())
+          << (FilenamePattern + " is not dumped");
+      if (NumPatterns != 0)
+        ASSERT_TRUE(fileContains(DumpFilename, Patterns[I]));
+      m_dumpFilenames.push_back(DumpFilename);
+    }
   }
 
   void testBody(const std::string &prefix,
@@ -72,23 +107,13 @@ protected:
           << ("Failed to set env " + e.first);
 
     ASSERT_NO_FATAL_FAILURE(createContext());
-    ASSERT_NO_FATAL_FAILURE(createProgram());
+    ASSERT_NO_FATAL_FAILURE(createFirstProgram());
 
     cl_int err =
         clBuildProgram(m_program, 1, &m_device, nullptr, nullptr, nullptr);
     ASSERT_OCL_SUCCESS(err, "clBuildProgram");
 
-    size_t numFiles = suffix.size();
-    size_t numPatterns = patterns.size();
-    ASSERT_TRUE(numPatterns == 0 || numPatterns == numFiles);
-    for (size_t i = 0; i < numFiles; ++i) {
-      Regex r(prefix + "_1_[0-9a-f]{16}" + suffix[i]);
-      std::string dumpFilename = findFileInDir(".", r);
-      ASSERT_TRUE(!dumpFilename.empty()) << (suffix[i] + " is not dumped");
-      if (numPatterns != 0)
-        ASSERT_TRUE(fileContains(dumpFilename, patterns[i]));
-      m_dumpFilenames.push_back(dumpFilename);
-    }
+    validateDumpedFiles(prefix, suffix, patterns);
   }
 
 protected:
@@ -96,7 +121,9 @@ protected:
   cl_device_id m_device;
   cl_context m_context;
   cl_program m_program;
+  cl_program m_program1;
   std::string m_kernelName;
+  std::string m_kernelName1;
   std::vector<std::string> m_dumpFilenames;
   std::vector<std::pair<std::string, std::string>> m_env;
 };
@@ -119,7 +146,7 @@ TEST_F(DumpEnvTest, StatsAll) {
 
 TEST_F(DumpEnvTest, OptIRAsm) {
   ASSERT_NO_FATAL_FAILURE(createContext());
-  ASSERT_NO_FATAL_FAILURE(createProgram());
+  ASSERT_NO_FATAL_FAILURE(createFirstProgram());
 
   std::string dir = get_exe_dir();
   std::string asmFile = dir + "dump_opt.asm";
@@ -144,7 +171,7 @@ TEST_F(DumpEnvTest, OptIRAsm) {
 
 TEST_F(DumpEnvTest, OptIRAsmDebug) {
   ASSERT_NO_FATAL_FAILURE(createContext());
-  ASSERT_NO_FATAL_FAILURE(createProgram());
+  ASSERT_NO_FATAL_FAILURE(createFirstProgram());
 
   std::string dir = get_exe_dir();
   std::string asmFile = dir + "dump_opt_debug.asm";
@@ -245,4 +272,41 @@ TEST_F(DumpEnvTest, CheckHashSame) {
     }
   };
   checkAOT();
+}
+
+/// Check that IR can be dumped for an independent program which is built after
+/// a previous clCreateKernel call.
+TEST_F(DumpEnvTest, DumpAfterCreateKernel) {
+  ASSERT_TRUE(SETENV("VOLCANO_EQUALIZER_STATS", "all"));
+  ASSERT_NO_FATAL_FAILURE(createContext());
+  ASSERT_NO_FATAL_FAILURE(createFirstProgram());
+
+  // "-g" option guarantees that LLDJIT is used on windows.
+  cl_int Err = clBuildProgram(m_program, 1, &m_device, "-g", nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(Err, "clBuildProgram");
+  // clCreateKernel --> Program::Finalize() --> LLDJIT::finalizeObject() -->
+  // lld::coff::link() --> cl::ResetAllOptionOccurrences()
+  cl_kernel Ker = clCreateKernel(m_program, m_kernelName.c_str(), &Err);
+  ASSERT_OCL_SUCCESS(Err, "clCreateKernel");
+  Err = clReleaseKernel(Ker);
+  ASSERT_OCL_SUCCESS(Err, "clReleaseKernel");
+
+  std::string Prefix = "framework_test_type";
+  std::vector<std::string> Suffix = {"_eq.ll"};
+  std::vector<std::vector<std::string>> Patterns = {
+      {m_kernelName, m_kernelName1, "spir_kernel"}};
+  ASSERT_NO_FATAL_FAILURE(
+      validateDumpedFiles(Prefix, Suffix, Patterns, /*ProgramIndex*/ 1));
+
+  // Check whether IR is dumped for an independent program built after a
+  // previous clCreateKernel call (where all llvm cl options are reset).
+  ASSERT_NO_FATAL_FAILURE(createSecondProgram());
+  Err = clBuildProgram(m_program1, 1, &m_device, "-g", nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(Err, "clBuildProgram");
+  Patterns.clear();
+  Patterns.push_back({m_kernelName1, "spir_kernel"});
+  ASSERT_NO_FATAL_FAILURE(
+      validateDumpedFiles(Prefix, Suffix, Patterns, /*ProgramIndex*/ 2));
+
+  ASSERT_TRUE(UNSETENV("VOLCANO_EQUALIZER_STATS"));
 }
