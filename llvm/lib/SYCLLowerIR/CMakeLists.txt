@@ -30,12 +30,10 @@ endif()
 if (NOT TARGET LLVMGenXIntrinsics)
   if (NOT DEFINED LLVMGenXIntrinsics_SOURCE_DIR)
     set(LLVMGenXIntrinsics_GIT_REPO https://github.com/intel/vc-intrinsics.git)
-    # commit 8b6e209fe1269a2c6470b36dfbaa0e051d2a100f (master)
-    # Author: Konstantin Vladimirov <konstantin.vladimirov@intel.com>
-    # Date:   Tue Feb 8 10:47:03 2022 +0000
-    # introducing named barrier support in adaptor pass
-    # named barrier required for DPC++ and other customers
-    set(LLVMGenXIntrinsics_GIT_TAG 8b6e209fe1269a2c6470b36dfbaa0e051d2a100f)
+    # Author: Victor Mustya <victor.mustya@intel.com>
+    # Date:   Tue, 3 May 2022 17:56:40 +0000
+    # Remove default switch labels for LSC-related functions
+    set(LLVMGenXIntrinsics_GIT_TAG 561f4ff575a198b36a72fcb790e1997d7d6d6c91)
 
     if (INTEL_CUSTOMIZATION)
       # for xmain builds the LLVMGenXIntrinsics_GIT_REPO is constructed from
@@ -46,12 +44,10 @@ if (NOT TARGET LLVMGenXIntrinsics)
       # default repo path for public xmain builds, not using ICS
       set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel-innersource)
       set(LLVMGenXIntrinsics_GIT_REPO_NAME applications.compilers.source.vc-intrinsics.git)
-      # commit 8b6e209fe1269a2c6470b36dfbaa0e051d2a100f (master)
-      # Author: Konstantin Vladimirov <konstantin.vladimirov@intel.com>
-      # Date:   Tue Feb 8 10:47:03 2022 +0000
-      # introducing named barrier support in adaptor pass
-      # named barrier required for DPC++ and other customers
-      set(LLVMGenXIntrinsics_GIT_TAG 8b6e209fe1269a2c6470b36dfbaa0e051d2a100f)
+      # Author: Victor Mustya <victor.mustya@intel.com>
+      # Date:   Tue, 3 May 2022 17:56:40 +0000
+      # Remove default switch labels for LSC-related functions
+      set(LLVMGenXIntrinsics_GIT_TAG 561f4ff575a198b36a72fcb790e1997d7d6d6c91)
 
       # Determine if the build is embargo and provide specific settings.
       set(IS_INTERNAL_ESIMD_BUILD FALSE)
@@ -61,11 +57,10 @@ if (NOT TARGET LLVMGenXIntrinsics)
       if (IS_INTERNAL_ESIMD_BUILD)
         # override git repo name and tag for the internal ESIMD EMBARGO build
         set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
-        # commit 86c90afd3c5e56bf24d1a368bbb2bbf1714de9e8
-        # Author: Nikita Rudenko <nikita.rudenko@intel.com>
-        # Date:   Wed Feb 2 20:47:10 2022 +0300
-        # Put DEBUG_TYPE macro after includes
-        set(LLVMGenXIntrinsics_GIT_TAG 86c90afd3c5e56bf24d1a368bbb2bbf1714de9e8)
+        # Author: Victor Mustya <victor.mustya@intel.com>
+        # Date:   Tue, 3 May 2022 12:36:29 -0700
+        # [ESIMD BugFix]: Remove default switch labels for LSC-related functions
+        set(LLVMGenXIntrinsics_GIT_TAG 25f6effcba269d4b9df02a527cfcaf33992391ee)
 
         add_compile_definitions(__INTEL_EMBARGO__)
         # LLVM_CMAKE_DIR is required by the internal vc-intrinsics repo, but is
