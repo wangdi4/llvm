@@ -4949,6 +4949,84 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     return;
   }
 
+  case VPInstruction::ActiveLane: {
+    assert(!Mask && "ActiveLane calculation is expected to be unmasked!");
+    assert(Plan->getVPlanDA()->isUniform(*VPInst) &&
+           "ActiveLane instruction is expected to be uniform!");
+    VPValue *MaskOp = VPInst->getOperand(0);
+    RegDDRef *WideMaskOp = widenRef(MaskOp, getVF());
+    HLInst *CTTZ =
+        createCTZCall(WideMaskOp, Intrinsic::cttz, false /*MaskIsNonZero*/);
+    addVPValueScalRefMapping(VPInst, CTTZ->getLvalDDRef(), 0);
+    return;
+  }
+
+  case VPInstruction::ActiveLaneExtract: {
+    RegDDRef *Val = widenRef(VPInst->getOperand(0), getVF());
+    RegDDRef *ActiveLane =
+        getScalRefForVPVal(VPInst->getOperand(1), 0 /*Lane*/)->clone();
+
+    if (!VPInst->getType()->isVectorTy()) {
+      HLInst *Extract = HLNodeUtilities.createExtractElementInst(
+          Val, ActiveLane, "active.ln.extract");
+      addInstUnmasked(Extract);
+      addVPValueScalRefMapping(VPInst, Extract->getLvalDDRef(), 0);
+      return;
+    }
+
+    // Original type was vector. Suppose it was <2 x type>, VF == 2 and active
+    // lane is equals to "1" (in runtime). We'd need to extract elements (2, 3)
+    // from the wide vector in this case:
+    //
+    // VecValue: |0.1, 0.2 | 1.1, 1.2 |
+    //
+    // ActiveScalar: <1.1, 1.2>
+    //
+    // To emulate this we first multiply the ActiveLane by OrigNumElements and
+    // increment it while emitting sequence of extracts + inserts to obtain
+    // final result.
+
+    auto *I32Ty = IntegerType::getInt32Ty(HLNodeUtilities.getContext());
+    if (ActiveLane->getDestType()->getScalarSizeInBits() < 32) {
+      auto *ActiveLaneZext = createZExt(I32Ty, ActiveLane);
+      ActiveLane = ActiveLaneZext->getLvalDDRef();
+    } else if (ActiveLane->getDestType()->getScalarSizeInBits() > 32) {
+      auto *ActiveLaneTrunc = HLNodeUtilities.createTrunc(I32Ty, ActiveLane);
+      addInstUnmasked(ActiveLaneTrunc);
+      ActiveLane = ActiveLaneTrunc->getLvalDDRef();
+    }
+    unsigned OrigNumElts =
+        cast<FixedVectorType>(VPInst->getType())->getNumElements();
+    RegDDRef *Undef = DDRefUtilities.createUndefDDRef(VPInst->getType());
+    auto *Init = HLNodeUtilities.createCopyInst(Undef, "active.ln.result");
+    addInstUnmasked(Init);
+    RegDDRef *Result = Init->getLvalDDRef();
+
+    // TODO: Should we fold the mul/adds into CanonExprs directly instead of
+    // standalone HLInsts?
+    HLInst *IndexBaseMul = HLNodeUtilities.createMul(
+        ActiveLane->clone(),
+        DDRefUtilities.createConstDDRef(I32Ty, OrigNumElts));
+    addInstUnmasked(IndexBaseMul);
+    RegDDRef *IndexBase = IndexBaseMul->getLvalDDRef();
+
+    for (unsigned EltIdx = 0; EltIdx < OrigNumElts; ++EltIdx) {
+      auto *Index = HLNodeUtilities.createAdd(
+          IndexBase->clone(), DDRefUtilities.createConstDDRef(I32Ty, EltIdx));
+      addInstUnmasked(Index);
+      auto *Extract = HLNodeUtilities.createExtractElementInst(
+          Val->clone(), Index->getLvalDDRef()->clone());
+      addInstUnmasked(Extract);
+      auto *Insert = HLNodeUtilities.createInsertElementInst(
+          Result->clone(), Extract->getLvalDDRef()->clone(), EltIdx,
+          "active.ln.insert", Result->clone());
+      addInstUnmasked(Insert);
+    }
+
+    addVPValueScalRefMapping(VPInst, Result, 0);
+    return;
+  }
+
   case VPInstruction::ScalarPeelHIR: {
     auto *VPPeelLp = cast<VPScalarPeelHIR>(VPInst);
     HLLoop *ScalarPeel = VPPeelLp->getLoop()->clone();

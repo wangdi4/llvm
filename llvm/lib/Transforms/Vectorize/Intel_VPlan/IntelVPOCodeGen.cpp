@@ -1712,10 +1712,11 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     auto *Val = getVectorValue(VPInst->getOperand(0));
     auto *ActiveLane = getScalarValue(VPInst->getOperand(1), 0);
     auto *I32Ty = IntegerType::getInt32Ty(ActiveLane->getType()->getContext());
+    ActiveLane = Builder.CreateZExtOrTrunc(ActiveLane, I32Ty);
     unsigned NumElt = cast<FixedVectorType>(VPInst->getType())->getNumElements();
     Value *Result = UndefValue::get(VPInst->getType());
-    auto *IndexBase = Builder.CreateMul(Builder.CreateZExt(ActiveLane, I32Ty),
-                                        ConstantInt::get(I32Ty, NumElt));
+    auto *IndexBase =
+        Builder.CreateMul(ActiveLane, ConstantInt::get(I32Ty, NumElt));
     for (unsigned EltIdx = 0; EltIdx < NumElt; ++EltIdx) {
       auto *Index =
           Builder.CreateAdd(IndexBase, ConstantInt::get(I32Ty, EltIdx));
