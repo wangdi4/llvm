@@ -16,6 +16,7 @@
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/DTransCommon.h"
+#include "llvm/IR/Constants.h"
 
 using namespace llvm;
 
@@ -44,7 +45,7 @@ void DTransImmutableInfo::addStructFieldInfo(
     StructType *StructTy, unsigned FieldNum,
     const SetVector<Constant *> &LikelyValues,
     const SetVector<Constant *> &LikelyIndirectArrayValues,
-    const SetVector< std::pair<Constant*, Constant*> > &ConsEntriesInArray) {
+    const DenseMap<Constant*, Constant*> &ConstEntriesInArray) {
 
   StructInfo *SInfo = nullptr;
 
@@ -66,8 +67,24 @@ void DTransImmutableInfo::addStructFieldInfo(
   SInfo->Fields[FieldNum].LikelyIndirectArrayValues.assign(
       LikelyIndirectArrayValues.begin(), LikelyIndirectArrayValues.end());
 
-  SInfo->Fields[FieldNum].ConstantEntriesInArray.assign(
-      ConsEntriesInArray.begin(), ConsEntriesInArray.end());
+  if (!ConstEntriesInArray.empty()) {
+    // We need to sort the map to prevent any non-deterministic result.
+    // Ideally, we would prefer to use std::sort, but ConstEntriesInArray is
+    // constant, and the size is expected to be small (around two entries),
+    // therefore we are going to use a temporary vector to sort, then we insert
+    // the non-null entries into ConstantEntriesInArray.
+    SmallVector<std::pair<Constant*, Constant*>, 2> TempVect;
+    TempVect.resize(ConstEntriesInArray.size());
+    for (auto Pair : ConstEntriesInArray) {
+      unsigned Index = cast<ConstantInt>(Pair.first)->getZExtValue();
+      TempVect[Index] = std::make_pair(Pair.first, Pair.second);
+    }
+
+    for (auto Pair : TempVect)
+      if (Pair.second)
+        SInfo->Fields[FieldNum].ConstantEntriesInArray.push_back(
+            std::make_pair(Pair.first, Pair.second));
+  }
 }
 
 const SmallVectorImpl<llvm::Constant *> *

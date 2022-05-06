@@ -7640,7 +7640,7 @@ void DTransSafetyInfo::analyzeModule(
               cast<StructType>(StructInfo->getLLVMType()), I,
               StructInfo->getField(I).values(),
               StructInfo->getField(I).iavalues(),
-              StructInfo->getField(I).getArrayWithConstantEntries());
+              StructInfo->getField(I).getArrayConstantEntries());
         }
     }
   }
