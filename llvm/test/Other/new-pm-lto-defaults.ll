@@ -186,14 +186,16 @@
 ; CHECK-O23SZ-NEXT: Running pass: PostOrderFunctionAttrsPass on (foo)
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: IPArrayTransposePass on [module]
+; CHECK-O3: Running pass: ArgNoAliasPropPass
+; CHECK-O3-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-O23SZ: Running pass: InvalidateAnalysisPass<{{.*}}AndersensAA
 ; CHECK-O23SZ-NEXT: Invalidating analysis: AAManager on foo
 ; CHECK-O23SZ-NEXT: Invalidating analysis: AndersensAA on [module]
 ; CHECK-O23SZ-NEXT: Running pass: RequireAnalysisPass<{{.*}}AndersensAA
 ; CHECK-O23SZ-NEXT: Running analysis: AndersensAA
-; CHECK-O23SZ-NEXT: Running analysis: CallGraphAnalysis
+; CHECK-O2SZ-NEXT: Running analysis: CallGraphAnalysis
+; CHECK-O23SZ: Running pass: RequireAnalysisPass<{{.*}}GlobalsAA
 ; END INTEL_CUSTOMIZATION
-; CHECK-O23SZ-NEXT: Running pass: RequireAnalysisPass<{{.*}}GlobalsAA
 ; CHECK-O23SZ-NEXT: Running analysis: GlobalsAA on [module]
 ; CHECK-O23SZ-NEXT: Running pass: InvalidateAnalysisPass<{{.*}}AAManager
 ; INTEL_CUSTOMIZATION
