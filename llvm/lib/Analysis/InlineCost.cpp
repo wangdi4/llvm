@@ -3531,8 +3531,15 @@ InlineParams llvm::getInlineParams() {
 // size opt level.
 static int computeThresholdFromOptLevels(unsigned OptLevel,
                                          unsigned SizeOptLevel) {
-  if (OptLevel > 2)
-    return InlineConstants::OptAggressiveThreshold;
+#if INTEL_CUSTOMIZATION
+  if (OptLevel > 2) {
+    // CMPLRLLVM-37426: Ensure that inline threshold can be increased
+    // beyond InlineConstants::OptAggressiveThreshold using the internal
+    // option -inlinedefault-threshold=X.
+    return std::max(DefaultThreshold.getValue(),             
+      InlineConstants::OptAggressiveThreshold);
+  }
+#endif // INTEL_CUSTOMIZATION
   if (SizeOptLevel == 1) // -Os
     return InlineForXmain                                     // INTEL
       ? OptSizeThreshold : InlineConstants::OptSizeThreshold; // INTEL
