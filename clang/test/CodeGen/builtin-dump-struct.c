@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 // INTEL RUN: %clang_cc1 -triple x86_64-unknown-unknown -opaque-pointers -emit-llvm %s -o - | FileCheck %s
+=======
+// RUN: %clang_cc1 -triple x86_64-unknown-unknown -opaque-pointers -emit-llvm %s -o - | FileCheck %s
+>>>>>>> dfb8b8da10b3934944d6191230160c64d4178673
 
 #include "Inputs/stdio.h"
 #include <stdint.h>
