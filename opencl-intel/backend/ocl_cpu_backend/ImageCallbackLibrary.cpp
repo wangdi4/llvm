@@ -288,7 +288,7 @@ void* ImageCallbackFunctions::GetCbkPtr(const CbkDesc& _desc)
       addr = nullptr;
     } else
       addr = reinterpret_cast<void *>(static_cast<uintptr_t>(
-          sym->getAddress()));
+          sym->getValue()));
 
     if(addr == nullptr)
     {
