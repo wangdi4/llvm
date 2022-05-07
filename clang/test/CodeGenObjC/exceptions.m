@@ -25,12 +25,12 @@ void f1(void) {
     // CHECK-NEXT: icmp
     // CHECK-NEXT: br i1
     @try {
-    // INTEL  this CHECK line moved down verbatim
-    // CHECK:      call void asm sideeffect "", "=*m"   ;INTEL
     // CHECK:      call void asm sideeffect "", "*m"
     // CHECK-NEXT: call void @foo()
       foo();
     // CHECK:      call void @objc_exception_try_exit
+    // CHECK:      try.handler:
+    // CHECK:      call void asm sideeffect "", "=*m"
 
     } @finally {
       break;
@@ -55,16 +55,18 @@ int f2(void) {
   // CHECK-NEXT:   br i1 [[CAUGHT]]
   @try {
     // CHECK: store i32 6, i32* [[X]]
-
-    // CHECK-NEXT: call void asm sideeffect "", "*m,*m"(i32* nonnull elementtype(i32) [[X]] ;INTEL
-    // CHECK-NEXT: call void @foo()                                        ;INTEL
-    // CHECK-NEXT: call void @objc_exception_try_exit                      ;INTEL
-    // CHECK-NEXT: [[T:%.*]] = load i32, i32* [[X]]                        ;INTEL
-
     x++;
-    // ;INTEL  4 lines from here moved up verbatim
+    // CHECK-NEXT: call void asm sideeffect "", "*m,*m"(i32* nonnull elementtype(i32) [[X]]
+    // CHECK-NEXT: call void @foo()
+    // CHECK-NEXT: call void @objc_exception_try_exit
+    // CHECK-NEXT: [[T:%.*]] = load i32, i32* [[X]]
     foo();
   } @catch (id) {
+    // Landing pad.  Note that we elide the re-enter.
+    // CHECK:      call void asm sideeffect "", "=*m,=*m"(i32* nonnull elementtype(i32) [[X]]
+    // CHECK-NEXT: call i8* @objc_exception_extract
+    // CHECK-NEXT: [[T1:%.*]] = load i32, i32* [[X]]
+    // CHECK-NEXT: [[T2:%.*]] = add nsw i32 [[T1]], -1
 
     x--;
   }
@@ -149,17 +151,11 @@ void f4(void) {
   // finally.call-exit:  Predecessors are the @try and @catch fallthroughs
   // as well as the no-match case in the catch mechanism.  The i1 is whether
   // to rethrow and should be true only in the last case.
-  // INTEL_CUSTOMIZATION
-  // llorg has some useless phis here that feed the branch below
-  // CHECK-DISABLED:      phi i8*
-  // CHECK-DISABLED-NEXT: phi i1
-  // CHECK: call void @objc_exception_try_exit([[EXNDATA_T]]* nonnull [[EXNDATA]])
-  // end INTEL_CUSTOMIZATION
+  // CHECK:      phi i8*
+  // CHECK-NEXT: phi i1
+  // CHECK-NEXT: call void @objc_exception_try_exit([[EXNDATA_T]]* nonnull [[EXNDATA]])
   // CHECK-NEXT: call void @f4_help(i32 noundef 2)
-  // INTEL_CUSTOMIZATION
-  // llorg has this as a conditional branch, can be made unconditional
-  // CHECK-NEXT: br
-  // end INTEL_CUSTOMIZATION
+  // CHECK-NEXT: br i1
   //   -> ret, rethrow
 
   // ret:
