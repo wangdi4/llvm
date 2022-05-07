@@ -100,6 +100,11 @@ static cl::opt<bool>
                                 cl::Hidden,
                                 cl::desc("Enable native subgroup functionality"));
 
+// Enable vectorization at O0 optimization level.
+static cl::opt<bool> EnableO0Vectorization(
+    "enable-o0-vectorization", cl::init(false), cl::Hidden,
+    cl::desc("Enable vectorization at O0 optimization level"));
+
 // If set, then optimization passes will process functions as if they have the
 // optnone attribute.
 extern bool DPCPPForceOptnone;
@@ -518,7 +523,7 @@ static void populatePassesPostFailCheck(
 
   // In Apple build TRANSPOSE_SIZE_1 is not declared
   if (pConfig.GetTransposeSize() != 1 /*TRANSPOSE_SIZE_1*/
-      && OptLevel != 0) {
+      && (OptLevel != 0 || EnableO0Vectorization)) {
 
     // In profiling mode remove llvm.dbg.value calls before vectorizer.
     if (isProfiling) {
