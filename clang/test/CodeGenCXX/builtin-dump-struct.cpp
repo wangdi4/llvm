@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-// INTEL RUN: %clang_cc1 -std=c++20 -triple x86_64-linux-gnu %s -opaque-pointers -emit-llvm -o - | FileCheck %s
-=======
 // RUN: %clang_cc1 -std=c++20 -triple x86_64-linux-gnu %s -opaque-pointers -emit-llvm -o - | FileCheck %s
->>>>>>> dfb8b8da10b3934944d6191230160c64d4178673
 
 // CHECK-DAG: @[[STR_0:.*]] = {{.*}} [3 x i8] c"%s\00",
 // CHECK-DAG: @[[STR_1:.*]] = {{.*}} [2 x i8] c"C\00",
