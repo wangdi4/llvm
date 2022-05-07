@@ -1,6 +1,6 @@
 ; RUN: SATest -BUILD -enable-expensive-mem-opts=1 -tsize=1 --config=%s.cfg --dump-llvm-file=- -dump-time-passes=- | FileCheck %s
 
-; The test checks that OCLAliasAnalysis takes effect and the LICM pass moves
+; The test checks that DPCPPAliasAnalysis takes effect and the LICM pass moves
 ; loop invariants outside the loop.
 
 ; CHECK-LABEL: define void @test_fn

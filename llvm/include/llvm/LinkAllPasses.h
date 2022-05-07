@@ -450,6 +450,8 @@ namespace {
       (void)llvm::createBuiltinImportLegacyPass();
       (void)llvm::createBuiltinLibInfoAnalysisLegacyPass();
       (void)llvm::createCoerceWin64TypesLegacyPass();
+      (void)llvm::createDPCPPAliasAnalysisLegacyPass();
+      (void)llvm::createDPCPPExternalAliasAnalysisLegacyPass();
       (void)llvm::createDPCPPEqualizerLegacyPass();
       (void)llvm::createDPCPPKernelVecClonePass();
       (void)llvm::createDPCPPKernelPostVecPass();

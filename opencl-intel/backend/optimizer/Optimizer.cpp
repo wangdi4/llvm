@@ -15,7 +15,6 @@
 #include "ChannelPipeUtils.h"
 #include "CompilationUtils.h"
 #include "InitializeOCLPasses.hpp"
-#include "OCLAliasAnalysis.h"
 #include "PrintIRPass.h"
 #include "VecConfig.h"
 #include "mic_dev_limits.h"
@@ -145,7 +144,6 @@ llvm::ModulePass *createDebugInfoPass();
 llvm::Pass *createSmartGVNPass(bool);
 
 llvm::ModulePass *createDetectRecursionPass();
-llvm::ImmutablePass *createOCLAliasAnalysisPass();
 llvm::ModulePass *createChannelsUsageAnalysisPass();
 llvm::ModulePass *createRemoveAtExitPass();
 llvm::ModulePass *createVectorKernelDiscardPass(const intel::OptimizerConfig *);
@@ -372,12 +370,8 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 
   PM.add(llvm::createBasicAAWrapperPass());
   if (pConfig.EnableOCLAA()) {
-    PM.add(createOCLAliasAnalysisPass());
-    PM.add(createExternalAAWrapperPass(
-      [](Pass &P, Function &, AAResults &AAR) {
-        if (auto *OCLAA = P.getAnalysisIfAvailable<OCLAliasAnalysis>())
-          AAR.addAAResult(OCLAA->getOCLAAResult());
-      }));
+    PM.add(createDPCPPAliasAnalysisLegacyPass());
+    PM.add(createDPCPPExternalAliasAnalysisLegacyPass());
   }
 
   std::string Env;
@@ -427,12 +421,8 @@ static void populatePassesPostFailCheck(
       VectorizerCommon::getCPUIdISA(pConfig.GetCpuId());
 
   if (pConfig.EnableOCLAA()) {
-    PM.add(createOCLAliasAnalysisPass());
-    PM.add(createExternalAAWrapperPass(
-      [](Pass &P, Function &, AAResults &AAR) {
-        if (auto *OCLAA = P.getAnalysisIfAvailable<OCLAliasAnalysis>())
-          AAR.addAAResult(OCLAA->getOCLAAResult());
-      }));
+    PM.add(createDPCPPAliasAnalysisLegacyPass());
+    PM.add(createDPCPPExternalAliasAnalysisLegacyPass());
   }
 
   PM.add(createImplicitArgsAnalysisLegacyPass());
