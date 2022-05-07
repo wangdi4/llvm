@@ -16,6 +16,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DataPerBarrierPass.cpp
   DataPerValuePass.cpp
   DeduceMaxWGDim.cpp
+  DPCPPAliasAnalysis.cpp
   DPCPPEqualizer.cpp
   DPCPPKernelAnalysis.cpp
   DPCPPKernelCompilationUtils.cpp

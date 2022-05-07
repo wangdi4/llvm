@@ -234,7 +234,6 @@ set( BACKEND_PASSES
     PatchCallbackArgs
     SmartGVN
     StripIntelIP
-    OCLAliasAnalysis
 )
 
 set(UTILS_LIBS
