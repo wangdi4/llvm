@@ -24,6 +24,15 @@
 #endif
 typedef int si_int;
 typedef unsigned su_int;
+#if UINT_MAX == 0xFFFFFFFF
+#define clzsi __builtin_clz
+#define ctzsi __builtin_ctz
+#elif ULONG_MAX == 0xFFFFFFFF
+#define clzsi __builtin_clzl
+#define ctzsi __builtin_ctzl
+#else
+#error could not determine appropriate clzsi macro for this system
+#endif
 
 typedef long long di_int;
 typedef unsigned long long du_int;
