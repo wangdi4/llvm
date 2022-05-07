@@ -41,7 +41,6 @@ set(OCL_BE_PASSES
     SetPreferVectorWidth
     SmartGVN
     StripIntelIP
-    OCLAliasAnalysis
     UndefExternalFuncs
 )
 

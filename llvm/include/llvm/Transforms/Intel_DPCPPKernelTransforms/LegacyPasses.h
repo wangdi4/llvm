@@ -33,6 +33,8 @@ FunctionPass *createSoaAllocaAnalysisLegacyPass();
 FunctionPass *createWorkItemAnalysisLegacyPass(unsigned VectorizeDim = 0);
 ImmutablePass *
 createBuiltinLibInfoAnalysisLegacyPass(ArrayRef<Module *> BuiltinModules = {});
+ImmutablePass *createDPCPPAliasAnalysisLegacyPass();
+ImmutablePass *createDPCPPExternalAliasAnalysisLegacyPass();
 LoopPass *createLoopStridedCodeMotionLegacyPass();
 LoopPass *createLoopWIAnalysisLegacyPass();
 ModulePass *createAddFunctionAttrsLegacyPass();
