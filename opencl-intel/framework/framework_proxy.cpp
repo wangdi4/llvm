@@ -40,8 +40,6 @@ cl_icd_dispatch             FrameworkProxy::ICDDispatchTable;
 SOCLCRTDispatchTable        FrameworkProxy::CRTDispatchTable;
 ocl_entry_points            FrameworkProxy::OclEntryPoints;
 
-
-FrameworkProxy * FrameworkProxy::m_pInstance = nullptr;
 OclSpinMutex FrameworkProxy::m_initializationMutex;
 
 volatile FrameworkProxy::GLOBAL_STATE FrameworkProxy::gGlobalState = FrameworkProxy::WORKING;
@@ -444,28 +442,15 @@ bool FrameworkProxy::NeedToDisableAPIsAtShutdown() const
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // FrameworkProxy::Destroy()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-void FrameworkProxy::Destroy()
-{
-    if (nullptr != m_pInstance)
-    {
-        if (m_pInstance->NeedToDisableAPIsAtShutdown())
-        {
-            // If this function is being called during process shutdown AND we
-            // should just disable external APIs. Do not delete or release
-            // anything as it may cause a deadlock.
-            if (TERMINATED != gGlobalState)
-            {
-                m_pInstance->Release(true);
-                delete m_pInstance;
-            }
-        }
-        else
-        {
-            m_pInstance->Release(true);
-            delete m_pInstance;
-        }
-        m_pInstance = nullptr;
-    }
+void FrameworkProxy::Destroy() {
+  if (Instance()->NeedToDisableAPIsAtShutdown()) {
+    // If this function is being called during process shutdown AND we
+    // should just disable external APIs. Do not delete or release
+    // anything as it may cause a deadlock.
+    if (TERMINATED != gGlobalState)
+      Instance()->Release(true);
+  } else
+    Instance()->Release(true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -477,7 +462,7 @@ void FrameworkProxy::Release(bool bTerminate)
     {
         // Many modules assume that FrameWorkProxy singleton, execution_module, context_module and platform_module
         // exist all the time -> we must ensure that everything is shut down before deleting them.
-        m_pInstance->m_pContextModule->ShutDown(true);
+        Instance()->m_pContextModule->ShutDown(true);
     }
 
     if (nullptr != m_pExecutionModule)
@@ -547,16 +532,14 @@ void FrameworkProxy::UnregisterDllCallback( at_exit_dll_callback_fn cb )
 
 void FrameworkProxy::AtExitTrigger( at_exit_dll_callback_fn cb )
 {
-    bool needToDisableAPI = (nullptr == m_pInstance) ?
-      false : m_pInstance->NeedToDisableAPIsAtShutdown();
+  bool needToDisableAPI = Instance()->NeedToDisableAPIsAtShutdown();
 
-    if (isDllUnloadingState())
-    {
-        UnregisterDllCallback( cb );
-        cb(AT_EXIT_GLB_PROCESSING_STARTED, AT_EXIT_DLL_UNLOADING_MODE,
-            needToDisableAPI);
-        cb(AT_EXIT_GLB_PROCESSING_DONE, AT_EXIT_DLL_UNLOADING_MODE,
-            needToDisableAPI);
+  if (isDllUnloadingState()) {
+    UnregisterDllCallback(cb);
+    cb(AT_EXIT_GLB_PROCESSING_STARTED, AT_EXIT_DLL_UNLOADING_MODE,
+       needToDisableAPI);
+    cb(AT_EXIT_GLB_PROCESSING_DONE, AT_EXIT_DLL_UNLOADING_MODE,
+       needToDisableAPI);
     }
     else
     {
@@ -597,13 +580,8 @@ void FrameworkProxy::TerminateProcess(bool needToDisableAPI)
         }
     }
 
-    if (nullptr != m_pInstance)
-    {
-        if (!m_pInstance->NeedToDisableAPIsAtShutdown())
-        {
-            m_pInstance->m_pContextModule->ShutDown(true);
-        }
-    }
+    if (!Instance()->NeedToDisableAPIsAtShutdown())
+      Instance()->m_pContextModule->ShutDown(true);
 
     gGlobalState = TERMINATED;
 
@@ -622,26 +600,18 @@ void FrameworkProxy::TerminateProcess(bool needToDisableAPI)
     }
 
 #if defined(_DEBUG)
-    if (!m_pInstance->NeedToDisableAPIsAtShutdown())
-    {
-        DumpSharedPts("TerminateProcess - only SharedPtrs local to intelocl DLL", true);
+    if (!Instance()->NeedToDisableAPIsAtShutdown()) {
+      DumpSharedPts("TerminateProcess - only SharedPtrs local to intelocl DLL",
+                    true);
     }
 #endif
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // FrameworkProxy::Instance()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-FrameworkProxy* FrameworkProxy::Instance()
-{
-    if (nullptr == m_pInstance)
-    {
-        OclAutoMutex cs(&m_initializationMutex);
-        if (nullptr == m_pInstance)
-        {
-            m_pInstance = new FrameworkProxy();            
-        }
-    }
-    return m_pInstance;
+FrameworkProxy *FrameworkProxy::Instance() {
+  static FrameworkProxy S;
+  return &S;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
