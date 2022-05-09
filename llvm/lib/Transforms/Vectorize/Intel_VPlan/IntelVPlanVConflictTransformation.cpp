@@ -410,21 +410,27 @@ bool lowerTreeConflictsToDoublePermuteTreeReduction(VPlanVector *Plan,
   auto *DA = Plan->getVPlanDA();
   auto *VPLI = Plan->getVPLoopInfo();
   auto *C = Plan->getLLVMContext();
-  SmallVector<VPTreeConflict *, 2> TreeConflicts;
+  SmallMapVector<VPTreeConflict *, VPValue*, 2> TreeConflicts;
   bool TreeConflictsLowered = false;
 
+  // Collect tree conflict instructions and associated block-predicate. We need
+  // to collect the block-predicates before lowering because once the lowering
+  // starts blocks are split and this information is lost.
   for (auto &VPInst : vpinstructions(Plan))
-    if (auto *TreeConflict = dyn_cast<VPTreeConflict>(&VPInst))
-      TreeConflicts.push_back(TreeConflict);
+    if (auto *TreeConflict = dyn_cast<VPTreeConflict>(&VPInst)) {
+      VPValue *Pred = TreeConflict->getParent()->getPredicate();
+      TreeConflicts[TreeConflict] = Pred;
+    }
 
-  for (auto *TreeConflict : TreeConflicts) {
+  for (auto TreeConflictItem : TreeConflicts) {
+    VPTreeConflict *TreeConflict = TreeConflictItem.first;
     assert(TreeConflict->getNumUsers() == 1 &&
            cast<VPInstruction>(*TreeConflict->users().begin())->getOpcode() ==
                Instruction::Store &&
                "VPTreeConflict can only have a store user.");
 
     auto *TreeConflictParent = TreeConflict->getParent();
-    auto *Pred = TreeConflictParent->getPredicate();
+    auto *Pred = TreeConflictItem.second;
 
     // Generate the conflict loop.
     auto SplitIt = TreeConflict->getIterator();
@@ -626,7 +632,7 @@ bool lowerTreeConflictsToDoublePermuteTreeReduction(VPlanVector *Plan,
     // splitting happened for the conflict loop. Necessary for conditional
     // tree conflict lowering.
     if (Pred) {
-      auto *BlockPredInst = VPBldr.createPred(TreeConflictParent->getPredicate());
+      auto *BlockPredInst = VPBldr.createPred(Pred);
       PostConflict->setBlockPredicate(BlockPredInst);
     }
 
