@@ -1195,17 +1195,18 @@ static Instruction *canonicalizeSPF(SelectInst &Sel, ICmpInst &Cmp,
   }
 
 #if INTEL_CUSTOMIZATION
-  // Suppress min/max before loopopt, which is not yet fully optimized for
-  // these intrinsics.
+  // Suppress min/max: for AVX2 always, and AVX512 before loopopt. Avoids
+  // vectorization cases that don't produce optimal codegen.
+  // CMPLRLLVM-36522,37173,37342
   auto HasAVX512 =
       TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512;
   auto HasAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
   auto &TTI = IC.getTargetTransformInfo();
-  if (Cmp.getFunction()->isPreLoopOpt() &&
-      (TTI.isAdvancedOptEnabled(HasAVX512) ||
-       TTI.isAdvancedOptEnabled(HasAVX2))) {
+  if (TTI.isAdvancedOptEnabled(HasAVX2) &&
+          !TTI.isAdvancedOptEnabled(HasAVX512) ||
+      TTI.isAdvancedOptEnabled(HasAVX512) &&
+          Cmp.getFunction()->isPreLoopOpt())
     return nullptr;
-  }
 #endif // INTEL_CUSTOMIZATION
   if (SelectPatternResult::isMinOrMax(SPF)) {
     Intrinsic::ID IntrinsicID;
