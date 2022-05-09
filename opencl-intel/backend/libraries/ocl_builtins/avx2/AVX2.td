@@ -4,6 +4,7 @@ include "avx/AVX.td"
 
 defset list<OclBuiltinImpl> avx2_impls = {
 include "avx2/math_impl.td"
+include "avx2/relational_impl.td"
 }
 
 // Declare this helpers here due to they use ocl_char32 type with in define only for avx2 and higher
