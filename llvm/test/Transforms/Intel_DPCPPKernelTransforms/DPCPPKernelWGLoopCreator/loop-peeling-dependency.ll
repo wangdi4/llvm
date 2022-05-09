@@ -46,6 +46,6 @@ entry:
 !3 = !{i32 16}
 !4 = !{i32 32}
 
-; DEBUGIFY-COUNT-59: WARNING: Instruction with empty DebugLoc in function _ZTS18larger_sad_calc_16
+; DEBUGIFY-COUNT-60: WARNING: Instruction with empty DebugLoc in function _ZTS18larger_sad_calc_16
 ; DEBUGIFY-NEXT: WARNING: Missing line 13
 ; DEBUGIFY-NEXT: PASS
