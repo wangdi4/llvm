@@ -1767,6 +1767,15 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
       return NewCall;
   }
 
+  // Unused constrained FP intrinsic calls may have declared side effect, which
+  // prevents it from being removed. In some cases however the side effect is
+  // actually absent. To detect this case, call SimplifyConstrainedFPCall. If it
+  // returns a replacement, the call may be removed.
+  if (CI.use_empty() && isa<ConstrainedFPIntrinsic>(CI)) {
+    if (Value *V = SimplifyConstrainedFPCall(&CI, SQ.getWithInstruction(&CI)))
+      return eraseInstFromFunction(CI);
+  }
+
   Intrinsic::ID IID = II->getIntrinsicID();
 #if INTEL_CUSTOMIZATION
   if (IID == Intrinsic::vector_reduce_and ||
