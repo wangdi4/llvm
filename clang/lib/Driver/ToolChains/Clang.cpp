@@ -8425,28 +8425,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   // For all the host OpenMP offloading compile jobs we need to pass the targets
   // information using -fopenmp-targets= option.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (JA.isOffloading(Action::OFK_OpenMP)) {
 #endif // INTEL_CUSTOMIZATION
-    SmallString<128> TargetInfo("-fopenmp-targets=");
-
-    Arg *Tgts = Args.getLastArg(options::OPT_fopenmp_targets_EQ);
-    assert(Tgts && Tgts->getNumValues() &&
-           "OpenMP offloading has to have targets specified.");
-    for (unsigned i = 0; i < Tgts->getNumValues(); ++i) {
-      if (i)
-        TargetInfo += ',';
-      // We need to get the string from the triple because it may be not exactly
-      // the same as the one we get directly from the arguments.
-#if INTEL_CUSTOMIZATION
-      llvm::Triple T(StringRef(Tgts->getValue(i)).split('=').first);
-#endif // INTEL_CUSTOMIZATION
-      TargetInfo += T.getTriple();
-    }
-    CmdArgs.push_back(Args.MakeArgString(TargetInfo.str()));
-=======
-  if (JA.isHostOffloading(Action::OFK_OpenMP)) {
     SmallString<128> Targets("-fopenmp-targets=");
 
     SmallVector<std::string, 4> Triples;
@@ -8454,7 +8435,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     std::transform(TCRange.first, TCRange.second, std::back_inserter(Triples),
                    [](auto TC) { return TC.second->getTripleString(); });
     CmdArgs.push_back(Args.MakeArgString(Targets + llvm::join(Triples, ",")));
->>>>>>> f5a81c2df1c2d47a7082ae6d8095cad81fc05284
   }
 
 #if INTEL_CUSTOMIZATION

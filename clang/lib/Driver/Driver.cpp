@@ -1148,44 +1148,17 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
   // OpenMP
   //
   // We need to generate an OpenMP toolchain if the user specified targets with
-<<<<<<< HEAD
-  // the -fopenmp-targets option.
-  if (Arg *OpenMPTargets =
-          C.getInputArgs().getLastArg(options::OPT_fopenmp_targets_EQ)) {
-    if (OpenMPTargets->getNumValues()) {
-      // We expect that -fopenmp-targets is always used in conjunction with the
-      // option -fopenmp specifying a valid runtime with offloading support,
-      // i.e. libomp or libiomp.
-      bool HasValidOpenMPRuntime = C.getInputArgs().hasFlag(
-          options::OPT_fopenmp, options::OPT_fopenmp_EQ,
-#if INTEL_COLLAB
-          options::OPT_fno_openmp, false) ||
-          C.getInputArgs().hasFlag(options::OPT_fiopenmp,
-                                   options::OPT_fno_openmp, false);
-#else
-          options::OPT_fno_openmp, false);
-#endif // INTEL_COLLAB
-      if (HasValidOpenMPRuntime) {
-        OpenMPRuntimeKind OpenMPKind = getOpenMPRuntime(C.getInputArgs());
-        HasValidOpenMPRuntime =
-            OpenMPKind == OMPRT_OMP || OpenMPKind == OMPRT_IOMP5;
-      }
-
-      if (HasValidOpenMPRuntime) {
-        llvm::StringMap<const char *> FoundNormalizedTriples;
-        for (const char *Val : OpenMPTargets->getValues()) {
-#if INTEL_CUSTOMIZATION
-          // Strip off any trailing options from
-          // -fopenmp-targets=<triple>="opts" usage.
-          llvm::Triple TT(
-              ToolChain::getOpenMPTriple(StringRef(Val).split('=').first));
-#endif // INTEL_CUSTOMIZATION
-          std::string NormalizedName = TT.normalize();
-=======
   // the -fopenmp-targets option or used --offload-arch with OpenMP enabled.
   bool IsOpenMPOffloading =
+#if INTEL_COLLAB
+      (C.getInputArgs().hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
+                                options::OPT_fno_openmp, false) ||
+       C.getInputArgs().hasFlag(options::OPT_fiopenmp, options::OPT_fno_openmp,
+                                false)) &&
+#else
       C.getInputArgs().hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
                                options::OPT_fno_openmp, false) &&
+#endif // INTEL_COLLAB
       (C.getInputArgs().hasArg(options::OPT_fopenmp_targets_EQ) ||
        C.getInputArgs().hasArg(options::OPT_offload_arch_EQ));
   if (IsOpenMPOffloading) {
@@ -1241,7 +1214,6 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
       for (const auto &TripleAndArchs : DerivedArchs)
         OpenMPTriples.push_back(TripleAndArchs.first());
     }
->>>>>>> f5a81c2df1c2d47a7082ae6d8095cad81fc05284
 
     for (StringRef Val : OpenMPTriples) {
       llvm::Triple TT(ToolChain::getOpenMPTriple(Val));
