@@ -34,7 +34,6 @@ if (NOT TARGET LLVMGenXIntrinsics)
     # Date:   Tue, 3 May 2022 17:56:40 +0000
     # Remove default switch labels for LSC-related functions
     set(LLVMGenXIntrinsics_GIT_TAG 561f4ff575a198b36a72fcb790e1997d7d6d6c91)
-<<<<<<< HEAD
 
     if (INTEL_CUSTOMIZATION)
       # for xmain builds the LLVMGenXIntrinsics_GIT_REPO is constructed from
@@ -87,8 +86,6 @@ if (NOT TARGET LLVMGenXIntrinsics)
       set( LLVMGenXIntrinsics_GIT_REPO
         ${LLVMGenXIntrinsics_GIT_REPO_PATH}/${LLVMGenXIntrinsics_GIT_REPO_NAME} )
     endif (INTEL_CUSTOMIZATION)
-=======
->>>>>>> ba5a1266e28636c20ddce2afaf2b2dbec1d987e7
 
     message(STATUS "vc-intrinsics repo is missing. Will try to download it from ${LLVMGenXIntrinsics_GIT_REPO}")
     include(FetchContent)
