@@ -61,7 +61,8 @@ static int computeMultiplierForPeeling(int Step, Align RequiredAlignment,
 namespace LoopDynamicPeeling {
 
 Optional<Value *> computePeelCount(BasicBlock &EntryBB, BasicBlock &VectorEntry,
-                                   ArrayRef<Value *> InitGIDs) {
+                                   ArrayRef<Value *> InitGIDs,
+                                   Value *MaxPeelSize) {
   // Search for load or store instruction with intel.preferred_alignment
   // metadata inside vector entry basic block.
   Instruction *PeelTarget = nullptr;
@@ -201,6 +202,10 @@ Optional<Value *> computePeelCount(BasicBlock &EntryBB, BasicBlock &VectorEntry,
       Builder.CreateSelect(AddrReqAlignCmp, DynamicPeelCount,
                            ConstantInt::get(IntPtrTy, 0), NamePrefix + "size");
 
+  // Peel size should be not exceed the limit.
+  PeelSize =
+      Builder.CreateBinaryIntrinsic(Intrinsic::umin, MaxPeelSize, PeelSize,
+                                    nullptr, NamePrefix + "actual.size");
   return PeelSize;
 }
 
