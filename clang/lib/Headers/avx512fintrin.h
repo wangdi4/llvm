@@ -9627,7 +9627,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///
 /// This intrinsic corresponds to the <c> VGATHERDPD </c> instructions.
 ///
-/// \operation
+/// \code{.operation}
 /// FOR j := 0 to 7
 ///   i := j*64
 ///   m := j*32
@@ -9635,7 +9635,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///   dst[i+63:i] := MEM[addr+63:addr]
 /// ENDFOR
 /// dst[MAX:512] := 0
-/// \endoperation
+/// \endcode
 #define _mm512_i32logather_pd(vindex, base_addr, scale)                        \
   _mm512_i32gather_pd(_mm512_castsi512_si256(vindex), (base_addr), (scale))
 
@@ -9647,7 +9647,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///
 /// This intrinsic corresponds to the <c> VGATHERDPD </c> instructions.
 ///
-/// \operation
+/// \code{.operation}
 /// FOR j := 0 to 7
 ///   i := j*64
 ///   m := j*32
@@ -9659,7 +9659,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///   FI
 /// ENDFOR
 /// dst[MAX:512] := 0
-/// \endoperation
+/// \endcode
 #define _mm512_mask_i32logather_pd(src, mask, vindex, base_addr, scale)        \
   _mm512_mask_i32gather_pd((src), (mask), _mm512_castsi512_si256(vindex),      \
                            (base_addr), (scale))
@@ -9670,7 +9670,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///
 /// This intrinsic corresponds to the <c> VPGATHERDQ </c> instructions.
 ///
-/// \operation
+/// \code{.operation}
 /// FOR j := 0 to 7
 ///   i := j*64
 ///   m := j*32
@@ -9678,7 +9678,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///   dst[i+63:i] := MEM[addr+63:addr]
 /// ENDFOR
 /// dst[MAX:512] := 0
-/// \endoperation
+/// \endcode
 #define _mm512_i32logather_epi64(vindex, base_addr, scale)                     \
   _mm512_i32gather_epi64(_mm512_castsi512_si256(vindex), (base_addr), (scale))
 
@@ -9689,7 +9689,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///
 /// This intrinsic corresponds to the <c> VPGATHERDQ </c> instructions.
 ///
-/// \operation
+/// \code{.operation}
 /// FOR j := 0 to 7
 ///   i := j*64
 ///   m := j*32
@@ -9701,7 +9701,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///   FI
 /// ENDFOR
 /// dst[MAX:512] := 0
-/// \endoperation
+/// \endcode
 #define _mm512_mask_i32logather_epi64(src, mask, vindex, base_addr, scale)     \
   _mm512_mask_i32gather_epi64((src), (mask), _mm512_castsi512_si256(vindex),   \
                               (base_addr), (scale))
@@ -9712,14 +9712,14 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///
 /// This intrinsic corresponds to the <c> VSCATTERDPD </c> instructions.
 ///
-/// \operation
+/// \code{.operation}
 /// FOR j := 0 to 7
 ///   i := j*64
 ///   m := j*32
 ///   addr := base_addr + SignExtend64(vindex[m+31:m]) * ZeroExtend64(scale) * 8
 ///   MEM[addr+63:addr] := v1[i+63:i]
 /// ENDFOR
-/// \endoperation
+/// \endcode
 #define _mm512_i32loscatter_pd(base_addr, vindex, v1, scale)                   \
   _mm512_i32scatter_pd((base_addr), _mm512_castsi512_si256(vindex), (v1), (scale))
 
@@ -9731,7 +9731,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///
 /// This intrinsic corresponds to the <c> VSCATTERDPD </c> instructions.
 ///
-/// \operation
+/// \code{.operation}
 /// FOR j := 0 to 7
 ///   i := j*64
 ///   m := j*32
@@ -9740,7 +9740,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///     MEM[addr+63:addr] := a[i+63:i]
 ///   FI
 /// ENDFOR
-/// \endoperation
+/// \endcode
 #define _mm512_mask_i32loscatter_pd(base_addr, mask, vindex, v1, scale)        \
   _mm512_mask_i32scatter_pd((base_addr), (mask),                               \
                             _mm512_castsi512_si256(vindex), (v1), (scale))
@@ -9751,14 +9751,14 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///
 /// This intrinsic corresponds to the <c> VPSCATTERDQ </c> instructions.
 ///
-/// \operation
+/// \code{.operation}
 /// FOR j := 0 to 7
 ///   i := j*64
 ///   m := j*32
 ///   addr := base_addr + SignExtend64(vindex[m+31:m]) * ZeroExtend64(scale) * 8
 ///   MEM[addr+63:addr] := a[i+63:i]
 /// ENDFOR
-/// \endoperation
+/// \endcode
 #define _mm512_i32loscatter_epi64(base_addr, vindex, v1, scale)                \
   _mm512_i32scatter_epi64((base_addr),                                         \
                           _mm512_castsi512_si256(vindex), (v1), (scale))
@@ -9770,7 +9770,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///
 /// This intrinsic corresponds to the <c> VPSCATTERDQ </c> instructions.
 ///
-/// \operation
+/// \code{.operation}
 /// FOR j := 0 to 7
 ///   i := j*64
 ///   m := j*32
@@ -9779,7 +9779,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///     MEM[addr+63:addr] := a[i+63:i]
 ///   FI
 /// ENDFOR
-/// \endoperation
+/// \endcode
 #define _mm512_mask_i32loscatter_epi64(base_addr, mask, vindex, v1, scale)     \
   _mm512_mask_i32scatter_epi64((base_addr), (mask),                            \
                                _mm512_castsi512_si256(vindex), (v1), (scale))
