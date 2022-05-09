@@ -637,7 +637,7 @@ DPCPPKernelWGLoopCreatorPass::getVectorLoopBoundaries(Value *InitVal,
   Value *PeelLoopSize = nullptr;
   if (!HasSubGroupPath) {
     if (auto PeelSize = LoopDynamicPeeling::computePeelCount(
-            *NewEntry, *VectorEntry, InitGIDs))
+            *NewEntry, *VectorEntry, InitGIDs, DimSize))
       PeelLoopSize = PeelSize.getValue();
   }
   Value *VectorScalarSize;

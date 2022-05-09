@@ -127,3 +127,53 @@ foreach name = ["acos", "acosh", "acospi", "asin", "asinh", "asinpi", "atan",
   defvar builtin = !cast<OclBuiltin>("native_" # name # "_mask");
   def name # _native_mask_impl : OclBuiltinImpl<builtin, v32v64FTypes, 0, mask_code, [["$DEF0", def0], ["$DEF1", def1], ["$DEF2", "0"]]>;
 }
+
+// Relaxed masked
+foreach name = ["cos", "divide", "exp", "exp2", "exp10", "log", "log2", "pow",
+    "sin", "tan", "sincos_pas", "sincos_las", "sincos_gas", "sincos_gen"] in {
+  defvar mask_code = !cond(
+      !or(!eq(name, "divide"), !eq(name, "pow")) : masked_impl_code_G_G2_M,
+      !or(!ne(!find(name, "_pas"), -1), !ne(!find(name, "_las"), -1),
+          !ne(!find(name, "_gas"), -1), !ne(!find(name, "_gen"), -1)): masked_impl_code_G_G_P_M,
+      true: masked_impl_code_G_G_M);
+  defvar def0 = !cond(
+      !ne(!find(name, "log"), -1) : "4.2",
+      !ne(!find(name, "pow"), -1) : "5",
+      !eq(name, "divide") : "1",
+      true : "0");
+  defvar def1 = !cond(
+      !ne(!find(name, "pow"), -1) : "5",
+      true: "1");
+  defvar builtin = !cast<OclBuiltin>(name # "_rm_mask");
+  def name # _rm_mask_impl : OclBuiltinImpl<builtin, v32v64FTypes, 0, mask_code, [["$DEF0", def0], ["$DEF1", def1], ["$DEF2", "0"]]>;
+}
+
+defvar v32v64F32Types = ExpandTypesByVFAndFlatten<[v1f32], [32, 64]>.Tout;
+
+// sincos linear strided vector impl
+foreach is_masked = [true, false] in {
+  foreach is_native = [true, false] in {
+    defvar prefix = !if(is_native, "native_", "");
+    defvar suffix = "_strided" # !if(is_masked, "_mask", "");
+    foreach name = ["sincos_pas", "sincos_las", "sincos_gas", "sincos_gen"] in {
+      defvar builtin = !cast<OclBuiltin>(prefix # name # suffix);
+      defvar impl_code = !if(is_masked, ret2ptr_strided_mask_code, ret2ptr_strided_code);
+
+      def : OclBuiltinImpl<builtin, v32v64FTypes, /*IsDeclOnly*/false, impl_code, [["$FUNC", "sincos"]]>;
+    } // foreach name
+
+    // sincos_ret2ptr
+    defvar builtin = !cast<OclBuiltin>(prefix # "sincos_pas2" # suffix);
+    defvar impl_code = !if(is_masked, ret2ptr2_strided_mask_code, ret2ptr2_strided_code);
+
+    def : OclBuiltinImpl<builtin, v32v64FTypes, /*IsDeclOnly*/false, impl_code, [["$FUNC", "sincos"]]>;
+  } // foreach is_native
+
+  // relaxed
+  defvar suffix = "_strided_rm" # !if(is_masked, "_mask", "");
+  foreach name = ["sincos_pas", "sincos_las", "sincos_gas", "sincos_gen"] in {
+    defvar builtin = !cast<OclBuiltin>(name # suffix);
+    defvar impl_code = !if(is_masked, ret2ptr_strided_mask_code, ret2ptr_strided_code);
+    def : OclBuiltinImpl<builtin, v32v64F32Types, /*IsDeclOnly*/false, impl_code, [["$FUNC", "sincos_rm"]]>;
+  } // foreach name
+} // foreach is_masked
