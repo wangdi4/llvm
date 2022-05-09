@@ -125,12 +125,12 @@
 ///      DST.dword[j] := S.dword[j] + tmp1 + tmp2 + tmp3 + tmp4
 ///    ENDFOR
 ///    DST[MAX:128] := 0
+/// \endcode
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_DSPV1 */
 #if !defined(__DSPV1_SUPPORTED__)
 /* end INTEL_FEATURE_ISA_DSPV1 */
 /* end INTEL_CUSTOMIZATION */
-/// \endcode
 #define _mm_dpbusd_epi32(S, A, B) \
   ((__m128i)__builtin_ia32_vpdpbusd128((__v4si)(S), (__v4si)(A), (__v4si)(B)))
 
