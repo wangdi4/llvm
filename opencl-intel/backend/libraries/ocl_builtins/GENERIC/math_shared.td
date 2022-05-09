@@ -81,13 +81,10 @@ OclBuiltinImpl tan_svml_rm = OclBuiltinImpl<tan_rm, math_shared_f32_types, 0, [{
   }]>;
 
 // sincos_rm
-defvar sincos_svml_rm = [{
-    return __ocl_svml_$Target_sincos$SVMLSuffix_rm($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
-  }];
-OclBuiltinImpl sincos_pas_svml_rm = OclBuiltinImpl<sincos_pas_rm, math_shared_f32_types, 0, sincos_svml_rm>;
-OclBuiltinImpl sincos_las_svml_rm = OclBuiltinImpl<sincos_las_rm, math_shared_f32_types, 0, sincos_svml_rm>;
-OclBuiltinImpl sincos_gas_svml_rm = OclBuiltinImpl<sincos_gas_rm, math_shared_f32_types, 0, sincos_svml_rm>;
-OclBuiltinImpl sincos_gen_svml_rm = OclBuiltinImpl<sincos_gen_rm, math_shared_f32_types, 0, sincos_svml_rm>;
+OclBuiltinImpl sincos_pas_svml_rm = OclBuiltinImpl<sincos_pas_rm, math_shared_f32_types, 0, svml_rm_code_sincos>;
+OclBuiltinImpl sincos_las_svml_rm = OclBuiltinImpl<sincos_las_rm, math_shared_f32_types, 0, svml_rm_code_sincos>;
+OclBuiltinImpl sincos_gas_svml_rm = OclBuiltinImpl<sincos_gas_rm, math_shared_f32_types, 0, svml_rm_code_sincos>;
+OclBuiltinImpl sincos_gen_svml_rm = OclBuiltinImpl<sincos_gen_rm, math_shared_f32_types, 0, svml_rm_code_sincos>;
 
 // divide_rm
 OclBuiltinImpl divide_svml_rm = OclBuiltinImpl<divide_rm, math_shared_f32_types, 0, [{
