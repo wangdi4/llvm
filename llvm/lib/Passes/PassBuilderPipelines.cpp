@@ -262,6 +262,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRDeadStoreEliminationPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRGeneralUnrollPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRGenerateMKLCallPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRMinMaxRecognitionPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixIdiomRecognitionPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixSubstitution.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdiomRecognitionPass.h"
@@ -2089,6 +2090,7 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
     FPM.addPass(HIRUndoSinkingForPerfectLoopnestPass());
     FPM.addPass(HIRDeadStoreEliminationPass());
     FPM.addPass(HIRLoopReversalPass());
+    FPM.addPass(HIRMinMaxRecognitionPass());
     FPM.addPass(HIRIdentityMatrixIdiomRecognitionPass());
 
     if (Level.getSizeLevel() == 0)
