@@ -12442,18 +12442,6 @@ static unsigned evaluateCDTSize(const FunctionDecl *FD,
   return C.getTypeSize(CDT);
 }
 
-<<<<<<< HEAD
-static void emitX86DeclareSimdFunction(
-    const FunctionDecl *FD, llvm::Function *Fn, const llvm::APSInt &VLENVal,
-    ArrayRef<ParamAttrTy> ParamAttrs,
-#if INTEL_CUSTOMIZATION
-    OMPDeclareSimdDeclAttr::BranchStateTy State,
-    bool UseSPIRMangling) {
-  QualType RetTy = FD->getReturnType();
-  if (RetTy->isComplexType() || RetTy->isStructureType())
-    return;
-#endif // INTEL_CUSTOMIZATION
-=======
 /// Mangle the parameter part of the vector function name according to
 /// their OpenMP classification. The mangling function is defined in
 /// section 4.5 of the AAVFABI(2021Q1).
@@ -12503,8 +12491,14 @@ static void
 emitX86DeclareSimdFunction(const FunctionDecl *FD, llvm::Function *Fn,
                            const llvm::APSInt &VLENVal,
                            ArrayRef<ParamAttrTy> ParamAttrs,
-                           OMPDeclareSimdDeclAttr::BranchStateTy State) {
->>>>>>> 1a02519bc504a12a12ba875db29c9e5901ed9bef
+#if INTEL_CUSTOMIZATION
+    OMPDeclareSimdDeclAttr::BranchStateTy State,
+    bool UseSPIRMangling) {
+  QualType RetTy = FD->getReturnType();
+  if (RetTy->isComplexType() || RetTy->isStructureType())
+    return;
+#endif // INTEL_CUSTOMIZATION
+
   struct ISADataTy {
     char ISA;
     unsigned VecRegSize;

@@ -216,7 +216,6 @@ double Four(int& a, int &b) {
 // CHECK-NOT: _ZGVdM8l32v__Z5add_1Pf
 // CHECK-NOT: _ZGVeM16l32v__Z5add_1Pf
 
-<<<<<<< HEAD
 // CHECK-DAG: _ZGVbM2va16va16vv__Z1hIiEvPT_S1_S1_S1_
 // CHECK-DAG: _ZGVbN2va16va16vv__Z1hIiEvPT_S1_S1_S1_
 // CHECK-DAG: _ZGVcM4va16va16vv__Z1hIiEvPT_S1_S1_S1_
@@ -240,42 +239,16 @@ double Four(int& a, int &b) {
 // SPIR-DAG: _ZGVxM8vvvv__Z1hIiEvPT_S1_S1_S1_
 // SPIR-DAG: _ZGVxM16vvvv__Z1hIiEvPT_S1_S1_S1_
 
-// CHECK-DAG: _ZGVbM4uus1__ZN2VV3addEii
-// CHECK-DAG: _ZGVbN4uus1__ZN2VV3addEii
-// CHECK-DAG: _ZGVcM8uus1__ZN2VV3addEii
-// CHECK-DAG: _ZGVcN8uus1__ZN2VV3addEii
-// CHECK-DAG: _ZGVdM8uus1__ZN2VV3addEii
-// CHECK-DAG: _ZGVdN8uus1__ZN2VV3addEii
-// CHECK-DAG: _ZGVeM16uus1__ZN2VV3addEii
-// CHECK-DAG: _ZGVeN16uus1__ZN2VV3addEii
-
 // SPIR-DAG: _ZGVxN8uus1__ZN2VV3addEii
 // SPIR-DAG: _ZGVxN16uus1__ZN2VV3addEii
 // SPIR-DAG: _ZGVxM8uus1__ZN2VV3addEii
 // SPIR-DAG: _ZGVxM16uus1__ZN2VV3addEii
-
-// CHECK-DAG: _ZGVbM4ll4a16l4a4__ZN2VV6taddpfEPfRS0_
-// CHECK-DAG: _ZGVbN4ll4a16l4a4__ZN2VV6taddpfEPfRS0_
-// CHECK-DAG: _ZGVcM8ll4a16l4a4__ZN2VV6taddpfEPfRS0_
-// CHECK-DAG: _ZGVcN8ll4a16l4a4__ZN2VV6taddpfEPfRS0_
-// CHECK-DAG: _ZGVdM8ll4a16l4a4__ZN2VV6taddpfEPfRS0_
-// CHECK-DAG: _ZGVdN8ll4a16l4a4__ZN2VV6taddpfEPfRS0_
-// CHECK-DAG: _ZGVeM16ll4a16l4a4__ZN2VV6taddpfEPfRS0_
-// CHECK-DAG: _ZGVeN16ll4a16l4a4__ZN2VV6taddpfEPfRS0_
 
 // SPIR-DAG: _ZGVxN8ll4l4a4__ZN2VV6taddpfEPfRS0_
 // SPIR-DAG: _ZGVxN16ll4l4a4__ZN2VV6taddpfEPfRS0_
 // SPIR-DAG: _ZGVxM8ll4l4a4__ZN2VV6taddpfEPfRS0_
 // SPIR-DAG: _ZGVxM16ll4l4a4__ZN2VV6taddpfEPfRS0_
 
-// CHECK-DAG: _ZGVbM4vvl8__ZN2VV4taddERA_iRi
-// CHECK-DAG: _ZGVbN4vvl8__ZN2VV4taddERA_iRi
-// CHECK-DAG: _ZGVcM8vvl8__ZN2VV4taddERA_iRi
-// CHECK-DAG: _ZGVcN8vvl8__ZN2VV4taddERA_iRi
-// CHECK-DAG: _ZGVdM8vvl8__ZN2VV4taddERA_iRi
-// CHECK-DAG: _ZGVdN8vvl8__ZN2VV4taddERA_iRi
-// CHECK-DAG: _ZGVeM16vvl8__ZN2VV4taddERA_iRi
-// CHECK-DAG: _ZGVeN16vvl8__ZN2VV4taddERA_iRi
 // CHECK-DAG: _ZGVbM4vva8v__ZN2VV4taddERA_iRi
 // CHECK-DAG: _ZGVbN4vva8v__ZN2VV4taddERA_iRi
 // CHECK-DAG: _ZGVcM8vva8v__ZN2VV4taddERA_iRi
@@ -289,15 +262,6 @@ double Four(int& a, int &b) {
 // SPIR-DAG: _ZGVxN16vvl8__ZN2VV4taddERA_iRi
 // SPIR-DAG: _ZGVxM8vvl8__ZN2VV4taddERA_iRi
 // SPIR-DAG: _ZGVxM16vvl8__ZN2VV4taddERA_iRi
-
-// CHECK-DAG: _ZGVbM4vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
-// CHECK-DAG: _ZGVbN4vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
-// CHECK-DAG: _ZGVcM8vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
-// CHECK-DAG: _ZGVcN8vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
-// CHECK-DAG: _ZGVdM8vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
-// CHECK-DAG: _ZGVdN8vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
-// CHECK-DAG: _ZGVeM16vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
-// CHECK-DAG: _ZGVeN16vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
 
 // SimdDefaultAlign is 0 for SPIR but 128-512 for x86
 // SPIR-DAG: _ZGVxN8vva32l16__ZN3TVVILi16EfE6taddpfEPfRS1_
@@ -326,15 +290,6 @@ double Four(int& a, int &b) {
 // SPIR-DAG: _ZGVxN16uu__ZN3TVVILi16EfE4taddEi
 // SPIR-DAG: _ZGVxM8uu__ZN3TVVILi16EfE4taddEi
 // SPIR-DAG: _ZGVxM16uu__ZN3TVVILi16EfE4taddEi
-
-// CHECK-DAG: _ZGVbM64va128l64__Z3fooILi64EEvRAT__iRPf
-// CHECK-DAG: _ZGVbN64va128l64__Z3fooILi64EEvRAT__iRPf
-// CHECK-DAG: _ZGVcM64va128l64__Z3fooILi64EEvRAT__iRPf
-// CHECK-DAG: _ZGVcN64va128l64__Z3fooILi64EEvRAT__iRPf
-// CHECK-DAG: _ZGVdM64va128l64__Z3fooILi64EEvRAT__iRPf
-// CHECK-DAG: _ZGVdN64va128l64__Z3fooILi64EEvRAT__iRPf
-// CHECK-DAG: _ZGVeM64va128l64__Z3fooILi64EEvRAT__iRPf
-// CHECK-DAG: _ZGVeN64va128l64__Z3fooILi64EEvRAT__iRPf
 
 // SPIR-DAG: _ZGVxN64va128l64__Z3fooILi64EEvRAT__iRPf
 // SPIR-DAG: _ZGVxN64va128l64__Z3fooILi64EEvRAT__iRPf
@@ -385,10 +340,6 @@ double Four(int& a, int &b) {
 // CHECK-DAG: _ZGVdN4vva16__Z3bay2VVRPd
 // CHECK-DAG: _ZGVeN8vva16__Z3bay2VVRPd
 
-// CHECK-DAG: _ZGVbM4us2u__Z3bax2VVPdi
-// CHECK-DAG: _ZGVcM8us2u__Z3bax2VVPdi
-// CHECK-DAG: _ZGVdM8us2u__Z3bax2VVPdi
-// CHECK-DAG: _ZGVeM16us2u__Z3bax2VVPdi
 // CHECK-DAG: _ZGVbM4vvv__Z3bax2VVPdi
 // CHECK-DAG: _ZGVbN4vvv__Z3bax2VVPdi
 // CHECK-DAG: _ZGVcM8vvv__Z3bax2VVPdi
@@ -442,7 +393,7 @@ double Four(int& a, int &b) {
 
 // CHECK-NOT: _ZGV{{.+}}__Z1fRA_i
 // end INTEL_CUSTOMIZATION
-=======
+
 // CHECK-DAG: "_ZGVbM2va16va16vv__Z1hIiEvPT_S1_S1_S1_"
 // CHECK-DAG: "_ZGVbN2va16va16vv__Z1hIiEvPT_S1_S1_S1_"
 // CHECK-DAG: "_ZGVcM4va16va16vv__Z1hIiEvPT_S1_S1_S1_"
@@ -629,6 +580,5 @@ double Four(int& a, int &b) {
 // CHECK-DAG: "_ZGVbN4R8R4__Z4FourRiS_"
 
 // CHECK-NOT: "_ZGV{{.+}}__Z1fRA_i
->>>>>>> 1a02519bc504a12a12ba875db29c9e5901ed9bef
 
 #endif
