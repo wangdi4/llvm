@@ -23,11 +23,7 @@ namespace {
 struct Lowerer : coro::LowererBase {
   IRBuilder<> Builder;
   Lowerer(Module &M) : LowererBase(M), Builder(Context) {}
-<<<<<<< HEAD
-  bool lower(Function &F); // INTEL
-=======
   bool lower(Function &F);
->>>>>>> beeed0994eff7397d692a050cfdad9f4de7b75db
 };
 }
 
@@ -48,14 +44,7 @@ static void lowerSubFn(IRBuilder<> &Builder, CoroSubFnInst *SubFn) {
   SubFn->replaceAllUsesWith(Load);
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
 bool Lowerer::lower(Function &F) {
-  bool Changed = false;
-#endif // INTEL_CUSTOMIZATION
-=======
-bool Lowerer::lower(Function &F) {
->>>>>>> beeed0994eff7397d692a050cfdad9f4de7b75db
   bool IsPrivateAndUnprocessed =
       F.hasFnAttribute(CORO_PRESPLIT_ATTR) && F.hasLocalLinkage();
   bool Changed = false;
@@ -113,21 +102,11 @@ bool Lowerer::lower(Function &F) {
         break;
       }
       II->eraseFromParent();
-<<<<<<< HEAD
-      Changed = true; // INTEL
-    }
-  }
-
-  // After replacement were made we can cleanup the function body a little.
-  simplifyCFG(F);
-  return Changed; // INTEL
-=======
       Changed = true;
     }
   }
 
   return Changed;
->>>>>>> beeed0994eff7397d692a050cfdad9f4de7b75db
 }
 
 static bool declaresCoroCleanupIntrinsics(const Module &M) {
