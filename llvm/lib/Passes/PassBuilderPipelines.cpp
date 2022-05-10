@@ -753,6 +753,11 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
   addInstCombinePass(FPM, !DTransEnabled); // INTEL
   invokePeepholeEPCallbacks(FPM, Level);
 
+#if INTEL_CUSTOMIZATION
+  if (!SYCLOptimizationMode)
+    FPM.addPass(TransformSinAndCosCallsPass());
+#endif // INTEL_CUSTOMIZATION
+
   return FPM;
 }
 #if INTEL_CUSTOMIZATION
@@ -1063,6 +1068,10 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
       (PGOOpt->Action == PGOOptions::IRUse ||
        PGOOpt->Action == PGOOptions::SampleUse))
     FPM.addPass(ControlHeightReductionPass());
+#if INTEL_CUSTOMIZATION
+  if (!SYCLOptimizationMode)
+    FPM.addPass(TransformSinAndCosCallsPass());
+#endif // INTEL_CUSTOMIZATION
 
   return FPM;
 }
