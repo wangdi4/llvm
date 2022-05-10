@@ -86,6 +86,7 @@ ModulePass *createPipeOrderingLegacyPass();
 ModulePass *createPrepareKernelArgsLegacyPass(bool UseTLSGlobals);
 ModulePass *createProfilingInfoLegacyPass();
 ModulePass *createReduceCrossBarrierValuesLegacyPass();
+ModulePass *createRelaxedMathLegacyPass();
 ModulePass *createRemoveAtExitLegacyPass();
 ModulePass *createResolveMatrixFillLegacyPass();
 ModulePass *createResolveMatrixLayoutLegacyPass();

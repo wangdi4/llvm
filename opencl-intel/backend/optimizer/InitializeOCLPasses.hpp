@@ -34,7 +34,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializePreventDivCrashesPass(Registry);
     intel::initializeOclFunctionAttrsPass(Registry);
     intel::initializeBuiltinLibInfoPass(Registry);
-    intel::initializeRelaxedPassPass(Registry);
     intel::initializePrefetchPass(Registry);
     intel::initializeSubGroupAdaptationPass(Registry);
     intel::initializeRemovePrefetchPass(Registry);

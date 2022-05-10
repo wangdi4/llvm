@@ -487,6 +487,7 @@ namespace {
       (void)llvm::createAddNTAttrLegacyPass();
       (void)llvm::createAddTLSGlobalsLegacyPass();
       (void)llvm::createAutorunReplicatorLegacyPass();
+      (void)llvm::createRelaxedMathLegacyPass();
       (void)llvm::createRemoveAtExitLegacyPass();
       (void)llvm::createResolveMatrixFillLegacyPass();
       (void)llvm::createResolveMatrixLayoutLegacyPass();

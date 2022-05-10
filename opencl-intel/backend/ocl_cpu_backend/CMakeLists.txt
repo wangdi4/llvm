@@ -223,7 +223,6 @@ set( BACKEND_PASSES
     InfiniteLoopCreator
     PreventDivCrashes
     PrintIRPass
-    RelaxedPass
     SetPreferVectorWidth
     UndefExternalFuncs
     KernelInfo
