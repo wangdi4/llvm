@@ -216,7 +216,6 @@ set( BACKEND_PASSES
     ChannelPipeTransformation
     ChannelsUsageAnalysis
     PipeIOTransformation
-    PipeOrdering
     PipeSupport
     OclFunctionAttrs
     BuiltinLibInfo

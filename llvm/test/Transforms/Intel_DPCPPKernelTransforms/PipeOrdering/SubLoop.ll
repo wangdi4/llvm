@@ -2,31 +2,27 @@
 ; ----------------------------------------------------
 ; #pragma OPENCL EXTENSION cl_intel_channels : enable
 ;
-; channel int ch1;
-; channel int ch2;
+; channel int ch;
 ;
 ; __kernel void foo(__global int* iters) {
 ;   for (int i = 0; i < *iters; ++i) {
-;     for (int j = 0; j < i*i+1; ++j) {
-;       write_channel_intel(ch1, 42);
+;     for (int j = 0; j < (i*i+1); ++j) {
+;       write_channel_intel(ch, 42);
 ;       // implicit work-group barrier here
 ;     }
-;     write_channel_intel(ch2, 42);
-;     // implicit work-group barrier here
 ;   }
 ; }
 ; ----------------------------------------------------
 ; Compile options:
 ;   clang -cc1 -x cl -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -finclude-default-header -cl-std=CL1.2 -emit-llvm
 ; Optimizer options:
-;   opt -runtimelib=%p/../../vectorizer/Full/runtime.bc -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -channel-pipe-transformation -verify %s -S
+;   opt -dpcpp-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl.bc -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
-; RUN: %oclopt -pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -pipe-ordering -verify %s -S | FileCheck %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-pipe-ordering %s -S | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-pipe-ordering %s -S | FileCheck %s
 
-; CHECK-LABEL: for.cond:
-; CHECK: call void @_Z18work_group_barrierj(i32 1)
-; CHECK: br i1 %cmp, label %for.body, label %for.cond.cleanup
 ; CHECK-LABEL: for.cond1:
 ; CHECK: call void @_Z18work_group_barrierj(i32 1)
 ; CHECK: br i1 %cmp2, label %for.body4, label %for.cond.cleanup3
@@ -39,13 +35,10 @@ target triple = "spir64-unknown-unknown-intelfpga"
 %opencl.pipe_wo_t = type opaque
 %struct.__pipe_t = type { i32, i32, i32, i32, i32, i32, [0 x i8] }
 
-@ch1 = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
-@ch2 = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
+@ch = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
 @llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 65535, void ()* @__pipe_global_ctor, i8* null }]
-@ch1.pipe = addrspace(1) global %opencl.pipe_rw_t addrspace(1)* null, align 8, !packet_size !0, !packet_align !0
-@ch1.pipe.bs = addrspace(1) global [328 x i8] zeroinitializer, align 4
-@ch2.pipe = addrspace(1) global %opencl.pipe_rw_t addrspace(1)* null, align 8, !packet_size !0, !packet_align !0
-@ch2.pipe.bs = addrspace(1) global [328 x i8] zeroinitializer, align 4
+@ch.pipe = addrspace(1) global %opencl.pipe_rw_t addrspace(1)* null, align 8, !packet_size !0, !packet_align !0
+@ch.pipe.bs = addrspace(1) global [328 x i8] zeroinitializer, align 4
 
 ; Function Attrs: convergent nounwind
 define void @foo(i32 addrspace(1)* %iters) #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 {
@@ -96,8 +89,8 @@ for.cond.cleanup3:                                ; preds = %for.cond1
   br label %for.end
 
 for.body4:                                        ; preds = %for.cond1
-  %10 = load %opencl.pipe_rw_t addrspace(1)*, %opencl.pipe_rw_t addrspace(1)* addrspace(1)* @ch1.pipe
-  %11 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @ch1, align 4, !tbaa !18
+  %10 = load %opencl.pipe_rw_t addrspace(1)*, %opencl.pipe_rw_t addrspace(1)* addrspace(1)* @ch.pipe
+  %11 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @ch, align 4, !tbaa !18
   store i32 42, i32* %write.src
   %12 = bitcast %opencl.pipe_rw_t addrspace(1)* %10 to %opencl.pipe_wo_t addrspace(1)*
   %13 = addrspacecast i32* %write.src to i8 addrspace(4)*
@@ -111,17 +104,11 @@ for.inc:                                          ; preds = %for.body4
   br label %for.cond1
 
 for.end:                                          ; preds = %for.cond.cleanup3
-  %16 = load %opencl.pipe_rw_t addrspace(1)*, %opencl.pipe_rw_t addrspace(1)* addrspace(1)* @ch2.pipe
-  %17 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @ch2, align 4, !tbaa !18
-  store i32 42, i32* %write.src
-  %18 = bitcast %opencl.pipe_rw_t addrspace(1)* %16 to %opencl.pipe_wo_t addrspace(1)*
-  %19 = addrspacecast i32* %write.src to i8 addrspace(4)*
-  %20 = call i32 @__write_pipe_2_bl(%opencl.pipe_wo_t addrspace(1)* %18, i8 addrspace(4)* %19, i32 4, i32 4)
   br label %for.inc5
 
 for.inc5:                                         ; preds = %for.end
-  %21 = load i32, i32* %i, align 4, !tbaa !16
-  %inc6 = add nsw i32 %21, 1
+  %16 = load i32, i32* %i, align 4, !tbaa !16
+  %inc6 = add nsw i32 %16, 1
   store i32 %inc6, i32* %i, align 4, !tbaa !16
   br label %for.cond
 
@@ -137,10 +124,8 @@ declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
 
 define void @__pipe_global_ctor() {
 entry:
-  call void @__pipe_init_intel(%struct.__pipe_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @ch1.pipe.bs to %struct.__pipe_t addrspace(1)*), i32 4, i32 0, i32 0)
-  store %opencl.pipe_rw_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @ch1.pipe.bs to %opencl.pipe_rw_t addrspace(1)*), %opencl.pipe_rw_t addrspace(1)* addrspace(1)* @ch1.pipe
-  call void @__pipe_init_intel(%struct.__pipe_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @ch2.pipe.bs to %struct.__pipe_t addrspace(1)*), i32 4, i32 0, i32 0)
-  store %opencl.pipe_rw_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @ch2.pipe.bs to %opencl.pipe_rw_t addrspace(1)*), %opencl.pipe_rw_t addrspace(1)* addrspace(1)* @ch2.pipe
+  call void @__pipe_init_intel(%struct.__pipe_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @ch.pipe.bs to %struct.__pipe_t addrspace(1)*), i32 4, i32 0, i32 0)
+  store %opencl.pipe_rw_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @ch.pipe.bs to %opencl.pipe_rw_t addrspace(1)*), %opencl.pipe_rw_t addrspace(1)* addrspace(1)* @ch.pipe
   ret void
 }
 

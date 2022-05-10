@@ -2,30 +2,34 @@
 ; ----------------------------------------------------
 ; #pragma OPENCL EXTENSION cl_intel_channels : enable
 ;
-; channel int ch;
+; channel int ch1;
+; channel int ch2;
 ;
-; __kernel void foo(__global int *iters) {
+; __kernel void foo(__global int* iters) {
 ;   for (int i = 0; i < *iters; ++i) {
-;     write_channel_intel(ch, 42);
+;     if (i % 2) {
+;       write_channel_intel(ch1, 42);
+;     }
+;     else {
+;       write_channel_intel(ch2, 42);
+;     }
+;     // implicit work-group barrier here
 ;   }
-; }
-;
-; __attribute__ ((max_global_work_dim(0))) __kernel void boo(__global int *iters) {
-;   foo(iters);
 ; }
 ; ----------------------------------------------------
 ; Compile options:
 ;   clang -cc1 -x cl -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -finclude-default-header -cl-std=CL1.2 -emit-llvm
 ; Optimizer options:
-;   opt -runtimelib=%p/../../vectorizer/Full/runtime.bc -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -channel-pipe-transformation -verify %s -S
+;   opt -dpcpp-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl.bc -dpcpp-demangle-fpga-pipes --dpcpp-kernel-equalizer -channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
-; RUN: %oclopt -pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -pipe-ordering -verify %s -S | FileCheck %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-pipe-ordering %s -S | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-pipe-ordering %s -S | FileCheck %s
 
-; CHECK: define void @foo(i32 addrspace(1)* %iters)
 ; CHECK-LABEL: for.cond:
 ; CHECK: call void @_Z18work_group_barrierj(i32 1)
-; CHECK: br i1 %cmp, label %for.body, label %for.cond.cleanup
+; CHECK: br i1 %tobool, label %if.then, label %if.else
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-unknown-intelfpga"
@@ -35,10 +39,13 @@ target triple = "spir64-unknown-unknown-intelfpga"
 %opencl.pipe_wo_t = type opaque
 %struct.__pipe_t = type { i32, i32, i32, i32, i32, i32, [0 x i8] }
 
-@ch = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
+@ch1 = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
+@ch2 = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
 @llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 65535, void ()* @__pipe_global_ctor, i8* null }]
-@ch.pipe = addrspace(1) global %opencl.pipe_rw_t addrspace(1)* null, align 8, !packet_size !0, !packet_align !0
-@ch.pipe.bs = addrspace(1) global [328 x i8] zeroinitializer, align 4
+@ch1.pipe = addrspace(1) global %opencl.pipe_rw_t addrspace(1)* null, align 8, !packet_size !0, !packet_align !0
+@ch1.pipe.bs = addrspace(1) global [328 x i8] zeroinitializer, align 4
+@ch2.pipe = addrspace(1) global %opencl.pipe_rw_t addrspace(1)* null, align 8, !packet_size !0, !packet_align !0
+@ch2.pipe.bs = addrspace(1) global [328 x i8] zeroinitializer, align 4
 
 ; Function Attrs: convergent nounwind
 define void @foo(i32 addrspace(1)* %iters) #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 {
@@ -65,17 +72,35 @@ for.cond.cleanup:                                 ; preds = %for.cond
   br label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %5 = load %opencl.pipe_rw_t addrspace(1)*, %opencl.pipe_rw_t addrspace(1)* addrspace(1)* @ch.pipe
-  %6 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @ch, align 4, !tbaa !18
+  %5 = load i32, i32* %i, align 4, !tbaa !16
+  %rem = srem i32 %5, 2
+  %tobool = icmp ne i32 %rem, 0
+  br i1 %tobool, label %if.then, label %if.else
+
+if.then:                                          ; preds = %for.body
+  %6 = load %opencl.pipe_rw_t addrspace(1)*, %opencl.pipe_rw_t addrspace(1)* addrspace(1)* @ch1.pipe
+  %7 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @ch1, align 4, !tbaa !18
   store i32 42, i32* %write.src
-  %7 = bitcast %opencl.pipe_rw_t addrspace(1)* %5 to %opencl.pipe_wo_t addrspace(1)*
-  %8 = addrspacecast i32* %write.src to i8 addrspace(4)*
-  %9 = call i32 @__write_pipe_2_bl(%opencl.pipe_wo_t addrspace(1)* %7, i8 addrspace(4)* %8, i32 4, i32 4)
+  %8 = bitcast %opencl.pipe_rw_t addrspace(1)* %6 to %opencl.pipe_wo_t addrspace(1)*
+  %9 = addrspacecast i32* %write.src to i8 addrspace(4)*
+  %10 = call i32 @__write_pipe_2_bl(%opencl.pipe_wo_t addrspace(1)* %8, i8 addrspace(4)* %9, i32 4, i32 4)
+  br label %if.end
+
+if.else:                                          ; preds = %for.body
+  %11 = load %opencl.pipe_rw_t addrspace(1)*, %opencl.pipe_rw_t addrspace(1)* addrspace(1)* @ch2.pipe
+  %12 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @ch2, align 4, !tbaa !18
+  store i32 42, i32* %write.src
+  %13 = bitcast %opencl.pipe_rw_t addrspace(1)* %11 to %opencl.pipe_wo_t addrspace(1)*
+  %14 = addrspacecast i32* %write.src to i8 addrspace(4)*
+  %15 = call i32 @__write_pipe_2_bl(%opencl.pipe_wo_t addrspace(1)* %13, i8 addrspace(4)* %14, i32 4, i32 4)
+  br label %if.end
+
+if.end:                                           ; preds = %if.else, %if.then
   br label %for.inc
 
-for.inc:                                          ; preds = %for.body
-  %10 = load i32, i32* %i, align 4, !tbaa !16
-  %inc = add nsw i32 %10, 1
+for.inc:                                          ; preds = %if.end
+  %16 = load i32, i32* %i, align 4, !tbaa !16
+  %inc = add nsw i32 %16, 1
   store i32 %inc, i32* %i, align 4, !tbaa !16
   br label %for.cond
 
@@ -89,20 +114,12 @@ declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
 
-; Function Attrs: convergent nounwind
-define void @boo(i32 addrspace(1)* %iters) #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !max_global_work_dim !11 {
-entry:
-  %iters.addr = alloca i32 addrspace(1)*, align 8
-  store i32 addrspace(1)* %iters, i32 addrspace(1)** %iters.addr, align 8, !tbaa !12
-  %0 = load i32 addrspace(1)*, i32 addrspace(1)** %iters.addr, align 8, !tbaa !12
-  call void @foo(i32 addrspace(1)* %0) #4
-  ret void
-}
-
 define void @__pipe_global_ctor() {
 entry:
-  call void @__pipe_init_intel(%struct.__pipe_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @ch.pipe.bs to %struct.__pipe_t addrspace(1)*), i32 4, i32 0, i32 0)
-  store %opencl.pipe_rw_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @ch.pipe.bs to %opencl.pipe_rw_t addrspace(1)*), %opencl.pipe_rw_t addrspace(1)* addrspace(1)* @ch.pipe
+  call void @__pipe_init_intel(%struct.__pipe_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @ch1.pipe.bs to %struct.__pipe_t addrspace(1)*), i32 4, i32 0, i32 0)
+  store %opencl.pipe_rw_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @ch1.pipe.bs to %opencl.pipe_rw_t addrspace(1)*), %opencl.pipe_rw_t addrspace(1)* addrspace(1)* @ch1.pipe
+  call void @__pipe_init_intel(%struct.__pipe_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @ch2.pipe.bs to %struct.__pipe_t addrspace(1)*), i32 4, i32 0, i32 0)
+  store %opencl.pipe_rw_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @ch2.pipe.bs to %opencl.pipe_rw_t addrspace(1)*), %opencl.pipe_rw_t addrspace(1)* addrspace(1)* @ch2.pipe
   ret void
 }
 
@@ -118,7 +135,6 @@ attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="f
 attributes #1 = { argmemonly nounwind }
 attributes #2 = { nounwind readnone }
 attributes #3 = { nounwind }
-attributes #4 = { convergent "uniform-work-group-size"="true" }
 
 !llvm.module.flags = !{!1}
 !opencl.enable.FP_CONTRACT = !{}
@@ -135,7 +151,7 @@ attributes #4 = { convergent "uniform-work-group-size"="true" }
 !2 = !{i32 1, i32 2}
 !3 = !{}
 !4 = !{!"clang version 7.0.0 "}
-!5 = !{void (i32 addrspace(1)*)* @foo, void (i32 addrspace(1)*)* @boo}
+!5 = !{void (i32 addrspace(1)*)* @foo}
 !6 = !{i32 1}
 !7 = !{!"none"}
 !8 = !{!"int*"}

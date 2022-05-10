@@ -13,20 +13,25 @@
 ; __attribute__ ((max_global_work_dim(0))) __kernel void boo(__global int *iters) {
 ;   foo(*iters);
 ; }
+;
+; __kernel void moo(__global int *iters) {
+;   foo(*iters);
+; }
 ; ----------------------------------------------------
 ; Compile options:
 ;   clang -cc1 -x cl -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -finclude-default-header -cl-std=CL1.2 -emit-llvm
 ; Optimizer options:
-;   opt -runtimelib=%p/../../vectorizer/Full/runtime.bc -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -channel-pipe-transformation -verify %s -S
+;   opt -dpcpp-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl.bc -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
-; RUN: %oclopt -pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -pipe-ordering -verify %s -S | FileCheck %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-pipe-ordering %s -S | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-pipe-ordering %s -S | FileCheck %s
 
 ; CHECK: define void @foo(i32 %iters)
 ; CHECK-LABEL: for.cond:
-; CHECK-NOT: call void @_Z7barrierj(i32 1)
+; CHECK: call void @_Z18work_group_barrierj(i32 1)
 ; CHECK: br i1 %cmp, label %for.body, label %for.cond.cleanup
-; CHECK-NOT: declare void @_Z7barrierj(i32)
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-unknown-intelfpga"
@@ -100,6 +105,17 @@ entry:
   ret void
 }
 
+; Function Attrs: convergent nounwind
+define void @moo(i32 addrspace(1)* %iters) #2 !kernel_arg_addr_space !11 !kernel_arg_access_qual !12 !kernel_arg_type !13 !kernel_arg_base_type !13 !kernel_arg_type_qual !14 !kernel_arg_host_accessible !15 !kernel_arg_pipe_depth !16 !kernel_arg_pipe_io !14 !kernel_arg_buffer_location !14 {
+entry:
+  %iters.addr = alloca i32 addrspace(1)*, align 8
+  store i32 addrspace(1)* %iters, i32 addrspace(1)** %iters.addr, align 8, !tbaa !17
+  %0 = load i32 addrspace(1)*, i32 addrspace(1)** %iters.addr, align 8, !tbaa !17
+  %1 = load i32, i32 addrspace(1)* %0, align 4, !tbaa !6
+  call void @foo(i32 %1) #5
+  ret void
+}
+
 define void @__pipe_global_ctor() {
 entry:
   call void @__pipe_init_intel(%struct.__pipe_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @ch.pipe.bs to %struct.__pipe_t addrspace(1)*), i32 4, i32 0, i32 0)
@@ -137,7 +153,7 @@ attributes #5 = { convergent }
 !2 = !{i32 1, i32 2}
 !3 = !{}
 !4 = !{!"clang version 7.0.0 "}
-!5 = !{void (i32 addrspace(1)*)* @boo}
+!5 = !{void (i32 addrspace(1)*)* @boo, void (i32 addrspace(1)*)* @moo}
 !6 = !{!7, !7, i64 0}
 !7 = !{!"int", !8, i64 0}
 !8 = !{!"omnipotent char", !9, i64 0}
