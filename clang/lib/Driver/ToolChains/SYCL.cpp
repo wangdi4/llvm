@@ -683,6 +683,13 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
       DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
   TC.TranslateLinkerTargetArgs(
       DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
+  // Strip out -cl-no-match-sincospi in case it was used to disable the
+  // default setting.
+  CmdArgs.erase(llvm::remove_if(CmdArgs,
+                                [&](auto Cur) {
+                                  return !strcmp(Cur, "-cl-no-match-sincospi");
+                                }),
+                CmdArgs.end());
 #endif // INTEL_CUSTOMIZATION
   SmallString<128> ExecPath(
       getToolChain().GetProgramPath(makeExeName(C, "ocloc")));
@@ -886,9 +893,20 @@ void SYCLToolChain::AddImpliedTargetArgs(
       IsMSVCOd = true;
   }
   if (DeviceOffloadKind == Action::OFK_OpenMP) {
-    if (IsGen)
+    if (IsGen) {
       // Add -cl-take-global-addresses by default for GEN/ocloc
       BeArgs.push_back("-cl-take-global-address");
+      // Add -cl-match-sincospi by default for GEN/ocloc, but do a quick
+      // check for -cl-no-match-sincospi if somebody passed it to disable.
+      ArgStringList TargArgs;
+      Args.AddAllArgValues(TargArgs, options::OPT_Xs, options::OPT_Xs_separate);
+      Args.AddAllArgValues(TargArgs, options::OPT_Xopenmp_backend,
+                           options::OPT_Xopenmp_backend_EQ);
+      if (llvm::find_if(TargArgs, [&](auto Cur) {
+            return !strcmp(Cur, "-cl-no-match-sincospi");
+          }) == TargArgs.end())
+        BeArgs.push_back("-cl-match-sincospi");
+    }
     // -vc-codegen is the default with -fopenmp-target-simd
     if (Args.hasArg(options::OPT_fopenmp_target_simd) &&
         (Triple.getSubArch() == llvm::Triple::NoSubArch || IsGen))
