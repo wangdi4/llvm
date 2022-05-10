@@ -50,6 +50,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   ProfilingInfo.cpp
   ReduceCrossBarrierValues.cpp
   RedundantPhiNodePass.cpp
+  RelaxedMath.cpp
   RemoveAtexit.cpp
   ResolveMatrixFill.cpp
   ResolveMatrixLayout.cpp

@@ -287,7 +287,7 @@ static cl::opt<bool> EnableTbaaProp("enable-tbaa-prop", cl::init(true),
                                     cl::desc("Enable Tbaa Propagation"));
 
 // Andersen AliasAnalysis
-static cl::opt<bool> EnableAndersen("enable-andersen", cl::init(true),
+cl::opt<bool> EnableAndersen("enable-andersen", cl::init(true),
     cl::Hidden, cl::desc("Enable Andersen's Alias Analysis"));
 
 // Indirect call Conv

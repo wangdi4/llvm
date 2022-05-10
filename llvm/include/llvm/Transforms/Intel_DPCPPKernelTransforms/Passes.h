@@ -52,6 +52,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ProfilingInfo.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ReduceCrossBarrierValues.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/RedundantPhiNodePass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/RelaxedMath.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/RemoveAtexit.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveMatrixFill.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveMatrixLayout.h"

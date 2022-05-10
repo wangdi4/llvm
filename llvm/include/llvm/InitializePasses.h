@@ -773,6 +773,7 @@ void initializePrepareKernelArgsLegacyPass(PassRegistry &);
 void initializeProfilingInfoLegacyPass(PassRegistry &);
 void initializeReduceCrossBarrierValuesLegacyPass(PassRegistry &);
 void initializeRedundantPhiNodeLegacyPass(PassRegistry &);
+void initializeRelaxedMathLegacyPass(PassRegistry &);
 void initializeRemoveAtExitLegacyPass(PassRegistry &);
 void initializeResolveMatrixFillLegacyPass(PassRegistry &);
 void initializeResolveMatrixLayoutLegacyPass(PassRegistry &);
