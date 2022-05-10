@@ -122,7 +122,6 @@ llvm::Pass *createCLBuiltinLICMPass();
 llvm::Pass *createCLStreamSamplerPass();
 llvm::Pass *createPreventDivisionCrashesPass();
 llvm::Pass *createOptimizeIDivPass();
-llvm::Pass *createRelaxedPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
 llvm::ModulePass *createChannelPipeTransformationPass();
 llvm::ModulePass *createPipeIOTransformationPass();
@@ -692,7 +691,7 @@ static void populatePassesPostFailCheck(
   }
 
   if (pConfig.GetRelaxedMath()) {
-    PM.add(createRelaxedPass());
+    PM.add(llvm::createRelaxedMathLegacyPass());
   }
 
   // The following three passes (AddImplicitArgsLegacy/AddTLSGlobals,
