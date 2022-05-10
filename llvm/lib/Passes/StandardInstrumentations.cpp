@@ -320,6 +320,7 @@ void printIR(raw_ostream &OS, const Loop *L) {
     return;
   printLoop(const_cast<Loop &>(*L), OS);
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 std::string getIRName(Any IR) {
   if (any_isa<const Module *>(IR))
@@ -346,6 +347,7 @@ std::string getIRName(Any IR) {
   llvm_unreachable("Unknown wrapped IR type");
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 bool moduleContainsFilterPrintFunc(const Module &M) {
   return any_of(M.functions(),
                 [](const Function &F) {
@@ -983,7 +985,6 @@ bool OptNoneInstrumentation::shouldRun(StringRef PassID, Any IR) {
   return ShouldRun;
 }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 void OptBisectInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &PIC) {
   if (!OptBisector->isEnabled())
@@ -993,6 +994,7 @@ void OptBisectInstrumentation::registerCallbacks(
   });
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 raw_ostream &PrintPassInstrumentation::print() {
   if (Opts.Indent) {
     assert(Indent >= 0);
@@ -2251,9 +2253,7 @@ void StandardInstrumentations::registerCallbacks(
   PrintPass.registerCallbacks(PIC);
   TimePasses.registerCallbacks(PIC);
   OptNone.registerCallbacks(PIC);
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   OptBisect.registerCallbacks(PIC);
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (FAM)
     PreservedCFGChecker.registerCallbacks(PIC, *FAM);
   PrintChangedIR.registerCallbacks(PIC);
