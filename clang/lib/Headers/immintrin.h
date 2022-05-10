@@ -1369,7 +1369,7 @@ _sgdt(void *__ptr) {
 
 #endif /* __has_extension(gnu_asm) */
 
-#if !defined(_MSC_VER) && __has_extension(gnu_asm)
+#if !defined(_MSC_VER) && !defined(__cpuid) && __has_extension(gnu_asm)
 #ifdef __cplusplus
 extern "C" {
 #endif
