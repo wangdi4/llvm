@@ -502,6 +502,7 @@ namespace {
       (void)llvm::createSGValueWidenLegacyPass();
       (void)llvm::createSinCosFoldLegacyPass();
       (void)llvm::createSoaAllocaAnalysisLegacyPass();
+      (void)llvm::createPipeOrderingLegacyPass();
       (void)llvm::createPrepareKernelArgsLegacyPass(false);
       (void)llvm::createProfilingInfoLegacyPass();
       (void)llvm::createCleanupWrappedKernelLegacyPass();

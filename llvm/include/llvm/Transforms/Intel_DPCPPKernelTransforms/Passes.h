@@ -46,6 +46,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LoopStridedCodeMotion.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LoopWIAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/PhiCanonicalization.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/PipeOrdering.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/PrepareKernelArgs.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ProfilingInfo.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ReduceCrossBarrierValues.h"

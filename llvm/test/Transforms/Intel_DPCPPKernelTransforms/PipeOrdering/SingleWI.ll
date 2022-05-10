@@ -4,7 +4,7 @@
 ;
 ; channel int ch;
 ;
-; __kernel void foo(__global int *iters) {
+; __attribute__ ((max_global_work_dim(0))) __kernel void foo(__global int *iters) {
 ;     for (int i = 0; i < *iters; ++i) {
 ;         write_channel_intel(ch, 42);
 ;     }
@@ -13,15 +13,17 @@
 ; Compile options:
 ;   clang -cc1 -x cl -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -finclude-default-header -cl-std=CL1.2 -emit-llvm
 ; Optimizer options:
-;   opt -runtimelib=%p/../../vectorizer/Full/runtime.bc -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -channel-pipe-transformation -verify %s -S
+;   opt -dpcpp-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl.bc -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
-; RUN: %oclopt -pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -pipe-ordering -verify %s -S | FileCheck %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-pipe-ordering %s -S | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-pipe-ordering %s -S | FileCheck %s
 
 ; CHECK-LABEL: for.cond:
-; CHECK: call void @_Z18work_group_barrierj(i32 1)
+; CHECK-NOT: call void @_Z7barrierj(i32 1)
 ; CHECK: br i1 %cmp, label %for.body, label %for.cond.cleanup
-; CHECK: declare void @_Z18work_group_barrierj(i32)
+; CHECK-NOT: declare void @_Z7barrierj(i32)
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-unknown-intelfpga"
@@ -37,7 +39,7 @@ target triple = "spir64-unknown-unknown-intelfpga"
 @ch.pipe.bs = addrspace(1) global [328 x i8] zeroinitializer, align 4
 
 ; Function Attrs: convergent nounwind
-define void @foo(i32 addrspace(1)* %iters) #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 {
+define void @foo(i32 addrspace(1)* %iters) #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !max_global_work_dim !11 {
 entry:
   %write.src = alloca i32
   %iters.addr = alloca i32 addrspace(1)*, align 8
