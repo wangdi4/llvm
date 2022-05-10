@@ -30,7 +30,6 @@ set(OCL_BE_PASSES
     LLVMVectorizer
     SubGroupAdaptation
     OclFunctionAttrs
-    PatchCallbackArgs
     PipeIOTransformation
     PipeSupport
     Prefetch

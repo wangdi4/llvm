@@ -134,8 +134,6 @@ llvm::ModulePass *createUndifinedExternalFunctionsPass(
     std::vector<std::string> &undefinedExternalFunctions);
 llvm::ModulePass *createKernelInfoWrapperPass();
 llvm::ModulePass *createKernelSubGroupInfoPass();
-llvm::ModulePass *createPatchCallbackArgsPass(bool useTLSGlobals);
-
 llvm::ModulePass *createRemovePrefetchPass();
 llvm::ModulePass *createPrintIRPass(int option, int optionLocation,
                                     std::string dumpDir);
@@ -776,7 +774,7 @@ static void populatePassesPostFailCheck(
   // arguments that are retrieved from the function's implicit arguments.
   // Currently only applies to OpenCL 2.x
   if (isOcl20)
-    PM.add(createPatchCallbackArgsPass(UseTLSGlobals));
+    PM.add(llvm::createPatchCallbackArgsLegacyPass(UseTLSGlobals));
 
   if (OptLevel > 0) {
     // AddImplicitArgs pass may create dead implicit arguments.
