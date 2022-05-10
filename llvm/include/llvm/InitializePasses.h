@@ -767,6 +767,7 @@ void initializeLocalBuffersLegacyPass(PassRegistry &);
 void initializeLoopStridedCodeMotionLegacyPass(PassRegistry &);
 void initializeLoopWIAnalysisLegacyPass(PassRegistry &);
 void initializePhiCanonicalizationLegacyPass(PassRegistry &);
+void initializePipeOrderingLegacyPass(PassRegistry &);
 void initializePrepareKernelArgsLegacyPass(PassRegistry &);
 void initializeProfilingInfoLegacyPass(PassRegistry &);
 void initializeReduceCrossBarrierValuesLegacyPass(PassRegistry &);

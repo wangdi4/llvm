@@ -4,23 +4,25 @@
 ;
 ; channel int ch;
 ;
-; __attribute__ ((noinline)) __attribute__ ((max_global_work_dim(0))) __kernel void foo(__global int *iters) {
+; __kernel void foo(__global int *iters) {
 ;   for (int i = 0; i < *iters; ++i) {
 ;     write_channel_intel(ch, 42);
 ;   }
 ; }
 ;
-; __kernel void boo(__global int *iters) {
+; __attribute__ ((max_global_work_dim(0))) __kernel void boo(__global int *iters) {
 ;   foo(iters);
 ; }
 ; ----------------------------------------------------
 ; Compile options:
 ;   clang -cc1 -x cl -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -finclude-default-header -cl-std=CL1.2 -emit-llvm
 ; Optimizer options:
-;   opt -runtimelib=%p/../../vectorizer/Full/runtime.bc -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -channel-pipe-transformation -verify %s -S
+;   opt -dpcpp-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl.bc -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
-; RUN: %oclopt -pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -pipe-ordering -verify %s -S | FileCheck %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-pipe-ordering %s -S | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-pipe-ordering %s -S | FileCheck %s
 
 ; CHECK: define void @foo(i32 addrspace(1)* %iters)
 ; CHECK-LABEL: for.cond:
@@ -40,15 +42,15 @@ target triple = "spir64-unknown-unknown-intelfpga"
 @ch.pipe = addrspace(1) global %opencl.pipe_rw_t addrspace(1)* null, align 8, !packet_size !0, !packet_align !0
 @ch.pipe.bs = addrspace(1) global [328 x i8] zeroinitializer, align 4
 
-; Function Attrs: convergent noinline nounwind
-define void @foo(i32 addrspace(1)* %iters) #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !max_global_work_dim !11 {
+; Function Attrs: convergent nounwind
+define void @foo(i32 addrspace(1)* %iters) #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 {
 entry:
   %write.src = alloca i32
   %iters.addr = alloca i32 addrspace(1)*, align 8
   %i = alloca i32, align 4
   store i32 addrspace(1)* %iters, i32 addrspace(1)** %iters.addr, align 8, !tbaa !12
   %0 = bitcast i32* %i to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #4
+  call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #3
   store i32 0, i32* %i, align 4, !tbaa !16
   br label %for.cond
 
@@ -61,7 +63,7 @@ for.cond:                                         ; preds = %for.inc, %entry
 
 for.cond.cleanup:                                 ; preds = %for.cond
   %4 = bitcast i32* %i to i8*
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %4) #4
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* %4) #3
   br label %for.end
 
 for.body:                                         ; preds = %for.cond
@@ -90,12 +92,12 @@ declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
 declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
 
 ; Function Attrs: convergent nounwind
-define void @boo(i32 addrspace(1)* %iters) #2 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 {
+define void @boo(i32 addrspace(1)* %iters) #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !max_global_work_dim !11 {
 entry:
   %iters.addr = alloca i32 addrspace(1)*, align 8
   store i32 addrspace(1)* %iters, i32 addrspace(1)** %iters.addr, align 8, !tbaa !12
   %0 = load i32 addrspace(1)*, i32 addrspace(1)** %iters.addr, align 8, !tbaa !12
-  call void @foo(i32 addrspace(1)* %0) #5
+  call void @foo(i32 addrspace(1)* %0) #4
   ret void
 }
 
@@ -107,19 +109,18 @@ entry:
 }
 
 ; Function Attrs: nounwind readnone
-declare void @__pipe_init_intel(%struct.__pipe_t addrspace(1)*, i32, i32, i32) #3
+declare void @__pipe_init_intel(%struct.__pipe_t addrspace(1)*, i32, i32, i32) #2
 
 ; Function Attrs: nounwind readnone
-declare i32 @__write_pipe_2(%opencl.pipe_wo_t addrspace(1)*, i8 addrspace(4)* nocapture readonly, i32, i32) #3
+declare i32 @__write_pipe_2(%opencl.pipe_wo_t addrspace(1)*, i8 addrspace(4)* nocapture readonly, i32, i32) #2
 
 declare i32 @__write_pipe_2_bl(%opencl.pipe_wo_t addrspace(1)*, i8 addrspace(4)*, i32, i32)
 
-attributes #0 = { convergent noinline nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "uniform-work-group-size"="true" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "uniform-work-group-size"="true" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }
-attributes #2 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "uniform-work-group-size"="true" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #3 = { nounwind readnone }
-attributes #4 = { nounwind }
-attributes #5 = { convergent "uniform-work-group-size"="true" }
+attributes #2 = { nounwind readnone }
+attributes #3 = { nounwind }
+attributes #4 = { convergent "uniform-work-group-size"="true" }
 
 !llvm.module.flags = !{!1}
 !opencl.enable.FP_CONTRACT = !{}

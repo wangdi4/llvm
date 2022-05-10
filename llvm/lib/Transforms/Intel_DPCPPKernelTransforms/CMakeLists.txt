@@ -44,6 +44,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   LoopStridedCodeMotion.cpp
   LoopWIAnalysis.cpp
   PhiCanonicalization.cpp
+  PipeOrdering.cpp
   PrepareKernelArgs.cpp
   ProfilingInfo.cpp
   ReduceCrossBarrierValues.cpp

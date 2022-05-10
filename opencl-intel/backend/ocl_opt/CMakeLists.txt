@@ -33,7 +33,6 @@ set(OCL_BE_PASSES
     OclFunctionAttrs
     PatchCallbackArgs
     PipeIOTransformation
-    PipeOrdering
     PipeSupport
     Prefetch
     PreventDivCrashes

@@ -4,25 +4,27 @@
 ;
 ; channel int ch;
 ;
-; __kernel void foo() {
-;   // Loop only in for header.
-;   while (true) {
-;     write_channel_intel(ch, 42);
+; __kernel void foo(__global int* iters) {
+;   while(true) {
+;     if (write_channel_nb_intel(ch, 42))
+;       break;
 ;   }
 ; }
 ; ----------------------------------------------------
 ; Compile options:
 ;   clang -cc1 -x cl -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -finclude-default-header -cl-std=CL1.2 -emit-llvm
 ; Optimizer options:
-;   opt -runtimelib=%p/../../vectorizer/Full/runtime.bc -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -channel-pipe-transformation -verify %s -S
+;   opt -dpcpp-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl.bc -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
-; RUN: %oclopt -pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -pipe-ordering -verify %s -S | FileCheck %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-pipe-ordering %s -S | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-pipe-ordering %s -S | FileCheck %s
 
 ; CHECK-LABEL: while.body:
-; CHECK: call i32 @__write_pipe_2_bl
+; CHECK: call i32 @__write_pipe_2
 ; CHECK: call void @_Z18work_group_barrierj(i32 1)
-; CHECK: br label %while.body
+; CHECK: br i1 %{{.*}}, label %if.then, label %if.end
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-unknown-intelfpga"
@@ -38,21 +40,30 @@ target triple = "spir64-unknown-unknown-intelfpga"
 @ch.pipe.bs = addrspace(1) global [328 x i8] zeroinitializer, align 4
 
 ; Function Attrs: convergent nounwind
-define void @foo() #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !3 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !3 !kernel_arg_host_accessible !3 !kernel_arg_pipe_depth !3 !kernel_arg_pipe_io !3 !kernel_arg_buffer_location !3 {
+define void @foo(i32 addrspace(1)* %iters) #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 {
 entry:
   %write.src = alloca i32
+  %iters.addr = alloca i32 addrspace(1)*, align 8
+  store i32 addrspace(1)* %iters, i32 addrspace(1)** %iters.addr, align 8, !tbaa !12
   br label %while.body
 
-while.body:                                       ; preds = %while.body, %entry
+while.body:                                       ; preds = %if.end, %entry
   %0 = load %opencl.pipe_rw_t addrspace(1)*, %opencl.pipe_rw_t addrspace(1)* addrspace(1)* @ch.pipe
-  %1 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @ch, align 4, !tbaa !6
+  %1 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @ch, align 4, !tbaa !16
   store i32 42, i32* %write.src
   %2 = bitcast %opencl.pipe_rw_t addrspace(1)* %0 to %opencl.pipe_wo_t addrspace(1)*
   %3 = addrspacecast i32* %write.src to i8 addrspace(4)*
-  %4 = call i32 @__write_pipe_2_bl(%opencl.pipe_wo_t addrspace(1)* %2, i8 addrspace(4)* %3, i32 4, i32 4)
+  %call1 = call i32 @__write_pipe_2(%opencl.pipe_wo_t addrspace(1)* %2, i8 addrspace(4)* %3, i32 4, i32 4)
+  %4 = icmp eq i32 %call1, 0
+  br i1 %4, label %if.then, label %if.end
+
+if.then:                                          ; preds = %while.body
+  br label %while.end
+
+if.end:                                           ; preds = %while.body
   br label %while.body
 
-return:                                           ; No predecessors!
+while.end:                                        ; preds = %if.then
   ret void
 }
 
@@ -68,8 +79,6 @@ declare void @__pipe_init_intel(%struct.__pipe_t addrspace(1)*, i32, i32, i32) #
 
 ; Function Attrs: nounwind readnone
 declare i32 @__write_pipe_2(%opencl.pipe_wo_t addrspace(1)*, i8 addrspace(4)* nocapture readonly, i32, i32) #1
-
-declare i32 @__write_pipe_2_bl(%opencl.pipe_wo_t addrspace(1)*, i8 addrspace(4)*, i32, i32)
 
 attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "uniform-work-group-size"="true" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind readnone }
@@ -89,9 +98,17 @@ attributes #1 = { nounwind readnone }
 !2 = !{i32 1, i32 2}
 !3 = !{}
 !4 = !{!"clang version 7.0.0 "}
-!5 = !{void ()* @foo}
-!6 = !{!7, !7, i64 0}
-!7 = !{!"omnipotent char", !8, i64 0}
-!8 = !{!"Simple C/C++ TBAA"}
+!5 = !{void (i32 addrspace(1)*)* @foo}
+!6 = !{i32 1}
+!7 = !{!"none"}
+!8 = !{!"int*"}
+!9 = !{!""}
+!10 = !{i1 false}
+!11 = !{i32 0}
+!12 = !{!13, !13, i64 0}
+!13 = !{!"any pointer", !14, i64 0}
+!14 = !{!"omnipotent char", !15, i64 0}
+!15 = !{!"Simple C/C++ TBAA"}
+!16 = !{!14, !14, i64 0}
 
 ; DEBUGIFY-NOT: WARNING

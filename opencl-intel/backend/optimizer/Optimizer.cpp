@@ -126,7 +126,6 @@ llvm::Pass *createRelaxedPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
 llvm::ModulePass *createChannelPipeTransformationPass();
 llvm::ModulePass *createPipeIOTransformationPass();
-llvm::ModulePass *createPipeOrderingPass();
 llvm::ModulePass *createPipeSupportPass();
 llvm::ModulePass *createOclFunctionAttrsPass();
 llvm::Pass *createBuiltinLibInfoPass(ArrayRef<Module *> pRtlModuleList,
@@ -348,7 +347,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
       PM.add(createDPCPPRewritePipesLegacyPass());
       PM.add(createChannelPipeTransformationPass());
       PM.add(createPipeIOTransformationPass());
-      PM.add(createPipeOrderingPass());
+      PM.add(createPipeOrderingLegacyPass());
       PM.add(createAutorunReplicatorLegacyPass());
       PM.add(createChannelsUsageAnalysisPass());
   }
