@@ -81,6 +81,7 @@ ModulePass *createKernelBarrierLegacyPass(bool isNativeDebug,
 ModulePass *createLinearIdResolverPass();
 ModulePass *createLocalBufferAnalysisLegacyPass();
 ModulePass *createLocalBuffersLegacyPass(bool UseTLSGlobals);
+ModulePass *createPatchCallbackArgsLegacyPass(bool UseTLSGlobals);
 ModulePass *createPipeOrderingLegacyPass();
 ModulePass *createPrepareKernelArgsLegacyPass(bool UseTLSGlobals);
 ModulePass *createProfilingInfoLegacyPass();

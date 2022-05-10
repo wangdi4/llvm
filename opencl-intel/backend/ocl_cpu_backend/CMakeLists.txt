@@ -214,7 +214,6 @@ set( BACKEND_PASSES
     LLVMBarrier
     LLVMVectorizer
     ChannelPipeTransformation
-    ChannelsUsageAnalysis
     PipeIOTransformation
     PipeSupport
     OclFunctionAttrs
@@ -230,7 +229,6 @@ set( BACKEND_PASSES
     KernelInfo
     Prefetch
     SubGroupAdaptation
-    PatchCallbackArgs
     SmartGVN
     StripIntelIP
 )

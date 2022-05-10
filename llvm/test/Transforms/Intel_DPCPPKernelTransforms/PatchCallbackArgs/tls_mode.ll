@@ -1,9 +1,8 @@
-; RUN: %oclopt -dpcpp-kernel-add-tls-globals -patch-callback-args -dpcpp-kernel-enable-tls-globals -S %s -o -| FileCheck %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-enable-tls-globals -dpcpp-kernel-add-tls-globals -dpcpp-kernel-patch-callback-args -S %s | FileCheck %s
+; RUN: opt -dpcpp-kernel-enable-tls-globals -passes='dpcpp-kernel-add-tls-globals,dpcpp-kernel-patch-callback-args' -S %s | FileCheck %s
 
 ; Check thread-local storage globals mode in PatchCallbackArgs pass
 
-; ModuleID = 'main'
-source_filename = "1"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 

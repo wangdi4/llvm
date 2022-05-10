@@ -43,6 +43,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   LocalBuffers.cpp
   LoopStridedCodeMotion.cpp
   LoopWIAnalysis.cpp
+  PatchCallbackArgs.cpp
   PhiCanonicalization.cpp
   PipeOrdering.cpp
   PrepareKernelArgs.cpp

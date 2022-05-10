@@ -134,8 +134,6 @@ llvm::ModulePass *createUndifinedExternalFunctionsPass(
     std::vector<std::string> &undefinedExternalFunctions);
 llvm::ModulePass *createKernelInfoWrapperPass();
 llvm::ModulePass *createKernelSubGroupInfoPass();
-llvm::ModulePass *createPatchCallbackArgsPass(bool useTLSGlobals);
-
 llvm::ModulePass *createRemovePrefetchPass();
 llvm::ModulePass *createPrintIRPass(int option, int optionLocation,
                                     std::string dumpDir);
@@ -143,8 +141,6 @@ llvm::ModulePass *createDebugInfoPass();
 llvm::Pass *createSmartGVNPass(bool);
 
 llvm::ModulePass *createDetectRecursionPass();
-llvm::ModulePass *createChannelsUsageAnalysisPass();
-llvm::ModulePass *createRemoveAtExitPass();
 llvm::ModulePass *createVectorKernelDiscardPass(const intel::OptimizerConfig *);
 llvm::ModulePass *createSetPreferVectorWidthPass(const CPUDetect *CPUID);
 }
@@ -349,7 +345,6 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
       PM.add(createPipeIOTransformationPass());
       PM.add(createPipeOrderingLegacyPass());
       PM.add(createAutorunReplicatorLegacyPass());
-      PM.add(createChannelsUsageAnalysisPass());
   }
 
   // Adding module passes.
@@ -778,7 +773,7 @@ static void populatePassesPostFailCheck(
   // arguments that are retrieved from the function's implicit arguments.
   // Currently only applies to OpenCL 2.x
   if (isOcl20)
-    PM.add(createPatchCallbackArgsPass(UseTLSGlobals));
+    PM.add(llvm::createPatchCallbackArgsLegacyPass(UseTLSGlobals));
 
   if (OptLevel > 0) {
     // AddImplicitArgs pass may create dead implicit arguments.
