@@ -22,7 +22,6 @@ include_directories(${LLVM_INCLUDE_DIRS}
 set(OCL_BE_PASSES
     BuiltinLibInfo
     ChannelPipeTransformation
-    ChannelsUsageAnalysis
     DebugInfoPass
     DetectRecursion
     InfiniteLoopCreator

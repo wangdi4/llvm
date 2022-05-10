@@ -60,7 +60,6 @@ void initializePipeSupportPass(llvm::PassRegistry&);
 void initializeInfiniteLoopCreatorPass(llvm::PassRegistry&);
 void initializeStripIntelIPPass(llvm::PassRegistry&);
 void initializeOCLReqdSubGroupSizePass(llvm::PassRegistry&);
-void initializeChannelsUsageAnalysisPass(llvm::PassRegistry&);
 void initializeKernelSubGroupInfoPass(llvm::PassRegistry&);
 void initializePatchCallbackArgsPass(llvm::PassRegistry &);
 void initializeWeightedInstCounterPass(llvm::PassRegistry &);

@@ -214,7 +214,6 @@ set( BACKEND_PASSES
     LLVMBarrier
     LLVMVectorizer
     ChannelPipeTransformation
-    ChannelsUsageAnalysis
     PipeIOTransformation
     PipeSupport
     OclFunctionAttrs

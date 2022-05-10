@@ -143,8 +143,6 @@ llvm::ModulePass *createDebugInfoPass();
 llvm::Pass *createSmartGVNPass(bool);
 
 llvm::ModulePass *createDetectRecursionPass();
-llvm::ModulePass *createChannelsUsageAnalysisPass();
-llvm::ModulePass *createRemoveAtExitPass();
 llvm::ModulePass *createVectorKernelDiscardPass(const intel::OptimizerConfig *);
 llvm::ModulePass *createSetPreferVectorWidthPass(const CPUDetect *CPUID);
 }
@@ -349,7 +347,6 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
       PM.add(createPipeIOTransformationPass());
       PM.add(createPipeOrderingLegacyPass());
       PM.add(createAutorunReplicatorLegacyPass());
-      PM.add(createChannelsUsageAnalysisPass());
   }
 
   // Adding module passes.
