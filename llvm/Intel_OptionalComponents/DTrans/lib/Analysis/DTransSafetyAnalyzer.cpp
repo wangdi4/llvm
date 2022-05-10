@@ -1176,6 +1176,11 @@ public:
         return;
       }
 
+      // If there is no user for the GEP then continue the loop, it shouldn't
+      // prevent collecting the data.
+      if (CurrGEP->user_empty())
+        continue;
+
       // Collect which entry in the array we are accessing
       //
       // NOTE: Perhaps we may need to extend this analysis to check for byte
@@ -1194,22 +1199,56 @@ public:
 
       Constant *Index = dyn_cast<Constant>(CurrGEP->getOperand(2));
       Constant *EntryVal = nullptr;
+      bool EntryValSet = false;
+      bool OnlyLoad = true;
+      for (auto *GEPU : CurrGEP->users()) {
+        if (auto *SI = dyn_cast<StoreInst>(GEPU)) {
+          // All indices must be constant if we are storing
+          if (!CurrGEP->hasAllConstantIndices()) {
+            FI.disableArraysWithConstantEntries();
+            return;
+          }
 
-      if (auto *SI = dyn_cast<StoreInst>(CurrGEP->user_back())) {
-        // All indices must be constant if we are storing
-        if (!CurrGEP->hasAllConstantIndices()) {
+          // Collect what is being stored. If EntryVal is set already then
+          // it means that the value is not constant.
+          //
+          // NOTE: This is conservative. A variable can be set to a constant,
+          // then its value can be set to another constant, and if there is
+          // no use in between then we can use the second value set.
+          Constant *SIValueOP = dyn_cast<Constant>(SI->getValueOperand());
+          if (!EntryValSet) {
+            EntryVal = SIValueOP;
+            EntryValSet = true;
+          } else if (EntryVal && EntryVal != SIValueOP) {
+            EntryVal = nullptr;
+          }
+          OnlyLoad = false;
+        } else if (isa<LoadInst>(GEPU)) {
+          // Load instructions are safe
+          continue;
+        } else {
           FI.disableArraysWithConstantEntries();
           return;
         }
-        // Collect what is being stored
-        EntryVal = dyn_cast<Constant>(SI->getValueOperand());
-      } else if (isa<LoadInst>(CurrGEP->user_back())) {
-        // Load instructions are safe
-        continue;
-      } else {
-        FI.disableArraysWithConstantEntries();
-        return;
       }
+
+      if (!Index) {
+        if (EntryValSet) {
+          // If there is no Index, but an EntryVal was set then it means that
+          // a value is stored in any possible index. Disable the whole array.
+          FI.disableArraysWithConstantEntries();
+          return;
+        } else {
+          // Else we can skip the loop. This means that GEP is not used for
+          // storing data, just loading (e.g. loop traversal).
+          continue;
+        }
+      }
+
+      // If the GEP was only used for loading data then continue. It shouldn't
+      // affect collecting the information.
+      if (OnlyLoad)
+        continue;
 
       FI.addNewArrayConstantEntry(Index, EntryVal);
     }

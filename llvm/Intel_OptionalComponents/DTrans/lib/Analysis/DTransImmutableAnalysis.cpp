@@ -68,22 +68,32 @@ void DTransImmutableInfo::addStructFieldInfo(
       LikelyIndirectArrayValues.begin(), LikelyIndirectArrayValues.end());
 
   if (!ConstEntriesInArray.empty()) {
-    // We need to sort the map to prevent any non-deterministic result.
-    // Ideally, we would prefer to use std::sort, but ConstEntriesInArray is
-    // constant, and the size is expected to be small (around two entries),
-    // therefore we are going to use a temporary vector to sort, then we insert
-    // the non-null entries into ConstantEntriesInArray.
-    SmallVector<std::pair<Constant*, Constant*>, 2> TempVect;
-    TempVect.resize(ConstEntriesInArray.size());
-    for (auto Pair : ConstEntriesInArray) {
-      unsigned Index = cast<ConstantInt>(Pair.first)->getZExtValue();
-      TempVect[Index] = std::make_pair(Pair.first, Pair.second);
-    }
 
-    for (auto Pair : TempVect)
+    // Structure for handling the function that sorts a
+    // SmallVector<std::pair<Constant *, Constant *>>
+    struct SortingArrayConst
+    {
+      typedef std::pair<Constant *, Constant *> ConstVectIterator;
+
+      bool operator()(ConstVectIterator &Lhs, ConstVectIterator &Rhs) const {
+        llvm::ConstantInt *ConstLhs = cast<llvm::ConstantInt>(Lhs.first);
+        llvm::ConstantInt *ConstRhs = cast<llvm::ConstantInt>(Rhs.first);
+
+        return ConstLhs->getZExtValue() < ConstRhs->getZExtValue();
+      }
+    };
+
+    // We need to sort the map to prevent any non-deterministic result.
+    SmallVector<std::pair<Constant*, Constant*>, 2> TempVect;
+    for (auto Pair : ConstEntriesInArray)
       if (Pair.second)
-        SInfo->Fields[FieldNum].ConstantEntriesInArray.push_back(
-            std::make_pair(Pair.first, Pair.second));
+        TempVect.push_back(std::make_pair(Pair.first, Pair.second));
+
+    if (!TempVect.empty()) {
+      std::sort(TempVect.begin(), TempVect.end(), SortingArrayConst());
+      SInfo->Fields[FieldNum].ConstantEntriesInArray.assign(
+          TempVect.begin(), TempVect.end());
+    }
   }
 }
 
