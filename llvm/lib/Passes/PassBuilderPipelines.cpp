@@ -367,16 +367,11 @@ static cl::opt<bool> EnableSyntheticCounts(
     cl::desc("Run synthetic function entry count generation "
              "pass"));
 #if INTEL_CUSTOMIZATION
-// Andersen AliasAnalysis
-static cl::opt<bool> EnableAndersen("enable-npm-andersen", cl::init(true),
-    cl::Hidden, cl::desc("Enable AndersensAA for the new PM (default = on)"));
-
 // Inline Aggressive Analysis
 static cl::opt<bool> EnableInlineAggAnalysis(
    "enable-npm-inline-aggressive-analysis", cl::init(true), cl::Hidden,
    cl::desc("Enable Inline Aggressive Analysis for the new PM (default = on)"));
 
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
 // IP Cloning
 static cl::opt<bool> EnableIPCloning(
@@ -386,7 +381,6 @@ static cl::opt<bool> EnableIPCloning(
 static cl::opt<bool> EnableCallTreeCloning(
     "enable-npm-call-tree-cloning", cl::init(true), cl::Hidden,
     cl::desc("Enable Call Tree Cloning for the new PM (default = on)"));
-#endif // INTEL_CUSTOMIZATION
 
 // IPO Array Transpose
 static cl::opt<bool> EnableIPArrayTranspose(
@@ -480,6 +474,8 @@ extern cl::opt<ThroughputMode> ThroughputModeOpt;
 #endif // INTEL_CUSTOMIZATION
 namespace llvm {
 #if INTEL_CUSTOMIZATION
+// Andersen AliasAnalysis
+extern cl::opt<bool> EnableAndersen;
 extern cl::opt<bool> RunLoopOptFrameworkOnly;
 enum class LoopOptMode { None, LightWeight, Full };
 extern cl::opt<LoopOptMode> RunLoopOpts;
