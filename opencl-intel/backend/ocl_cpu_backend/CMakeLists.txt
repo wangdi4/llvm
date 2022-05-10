@@ -229,7 +229,6 @@ set( BACKEND_PASSES
     KernelInfo
     Prefetch
     SubGroupAdaptation
-    PatchCallbackArgs
     SmartGVN
     StripIntelIP
 )
