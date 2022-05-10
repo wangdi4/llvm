@@ -61,7 +61,10 @@ static cl::opt<bool> EnableTranspose("enable-dtrans-transpose", cl::init(true),
 static cl::opt<bool> EnableDeleteFields("enable-dtrans-deletefield",
                                         cl::init(true), cl::Hidden,
                                         cl::desc("Enable DTrans delete field"));
-
+// Reuse fields transformation.
+static cl::opt<bool> EnableReuseFields("enable-dtrans-reusefield",
+                                       cl::init(false), cl::Hidden,
+                                       cl::desc("Enable DTrans reuse field"));
 // Valid values for the dump-module-after-dtrans and dump-module-before-dtrans
 // options:
 //   early -> dump before/after early DTrans passes
@@ -79,6 +82,7 @@ enum DumpModuleDTransValues {
   memmanagetrans,
   codealign,
   weakalign,
+  reusefield,
   deletefield,
   meminittrimdown,
   reorderfields,
@@ -100,6 +104,7 @@ static const char *DumpModuleDTransNames[] = {"Early",
                                               "MemManageTrans",
                                               "CodeAlign",
                                               "WeakAlign",
+                                              "ReuseField",
                                               "DeleteField",
                                               "MemInitTrimDown",
                                               "ReorderFields",
@@ -129,6 +134,7 @@ static cl::list<DumpModuleDTransValues> DumpModuleBeforeDTrans(
                   "Dump LLVM Module before MemManageTrans pass"),
         clEnumVal(codealign, "Dump LLVM Module before CodeAlign pass"),
         clEnumVal(weakalign, "Dump LLVM Module before WeakAlign pass"),
+        clEnumVal(reusefield, "Dump LLVM Module before ReuseField pass"),
         clEnumVal(deletefield, "Dump LLVM Module before DeleteField pass"),
         clEnumVal(meminittrimdown,
                   "Dump LLVM Module before MemInitTrimDown pass"),
@@ -165,6 +171,7 @@ static cl::list<DumpModuleDTransValues> DumpModuleAfterDTrans(
                   "Dump LLVM Module after MemManageTrans pass"),
         clEnumVal(codealign, "Dump LLVM Module after CodeAlign pass"),
         clEnumVal(weakalign, "Dump LLVM Module after WeakAlign pass"),
+        clEnumVal(reusefield, "Dump LLVM Module after ReuseField pass"),
         clEnumVal(deletefield, "Dump LLVM Module after DeleteField pass"),
         clEnumVal(meminittrimdown,
                   "Dump LLVM Module after MemInitTrimDown pass"),
@@ -218,6 +225,7 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransSOAToAOSOPPrepareWrapperPass(PR);
   initializeDTransSOAToAOSWrapperPass(PR);
   initializeDTransSOAToAOSOPWrapperPass(PR);
+  initializeDTransReuseFieldWrapperPass(PR);
   initializeDTransDeleteFieldWrapperPass(PR);
   initializeDTransDeleteFieldOPWrapperPass(PR);
   initializeDTransReorderFieldsWrapperPass(PR);
@@ -297,6 +305,8 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
       addPass(MPM, deletefield, dtrans::DeleteFieldPass());
     addPass(MPM, reorderfields, dtrans::ReorderFieldsPass());
     addPass(MPM, aostosoa, dtrans::AOSToSOAPass());
+    if (EnableReuseFields)
+      addPass(MPM, reusefield, dtrans::ReuseFieldPass());
     addPass(MPM, elimrofieldaccess, dtrans::EliminateROFieldAccessPass());
     addPass(MPM, dynclone, dtrans::DynClonePass());
   } else {
@@ -362,6 +372,8 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
       addPass(PM, deletefield, createDTransDeleteFieldWrapperPass());
     addPass(PM, reorderfields, createDTransReorderFieldsWrapperPass());
     addPass(PM, aostosoa, createDTransAOSToSOAWrapperPass());
+    if (EnableReuseFields)
+      addPass(PM, reusefield, createDTransReuseFieldWrapperPass());
     addPass(PM, elimrofieldaccess,
             createDTransEliminateROFieldAccessWrapperPass());
     addPass(PM, dynclone, createDTransDynCloneWrapperPass());
@@ -424,6 +436,7 @@ void llvm::addLateDTransLegacyPasses(legacy::PassManagerBase &PM) {
 // This is used by LinkAllPasses.h. The passes are never actually used when
 // created this way.
 void llvm::createDTransPasses() {
+  (void)llvm::createDTransReuseFieldWrapperPass();
   (void)llvm::createDTransDeleteFieldWrapperPass();
   (void)llvm::createDTransDeleteFieldOPWrapperPass();
   (void)llvm::createDTransAOSToSOAWrapperPass();

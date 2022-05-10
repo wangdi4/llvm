@@ -176,6 +176,10 @@
 ; CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: SROAPass on foo
+; INTEL_CUSTOMIZATION
+; CHECK-O23SZ-NEXT: Running pass: CorrelatedValuePropagationPass on foo
+; CHECK-O23SZ-NEXT: Invalidating analysis: LazyValueAnalysis on foo
+; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: MultiVersioningPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: TailCallElimPass on foo
 ; INTEL_CUSTOMIZATION
