@@ -48,6 +48,7 @@
 #include "Intel_DTrans/Transforms/ReorderFields.h"
 #include "Intel_DTrans/Transforms/ReorderFieldsOP.h"
 #include "Intel_DTrans/Transforms/ResolveTypes.h"
+#include "Intel_DTrans/Transforms/ReuseField.h"
 #include "Intel_DTrans/Transforms/SOAToAOS.h"
 #include "Intel_DTrans/Transforms/SOAToAOSOP.h"
 #include "Intel_DTrans/Transforms/SOAToAOSPrepare.h"

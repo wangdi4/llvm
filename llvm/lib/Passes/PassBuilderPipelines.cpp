@@ -3044,6 +3044,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   FPM.addPass(SROAPass());
 
 #if INTEL_CUSTOMIZATION
+  FPM.addPass(CorrelatedValuePropagationPass());
   if (EnableMultiVersioning)
     FPM.addPass(MultiVersioningPass());
 #endif // INTEL_CUSTOMIZATION
