@@ -9391,6 +9391,8 @@ void DTransAnalysisInfo::parseIgnoreList() {
           TransName = dtrans::DT_FieldSingleAllocFunction;
         else if (TransformationAndTypes.first == "reorderfields")
           TransName = dtrans::DT_ReorderFields;
+        else if (TransformationAndTypes.first == "reusefield")
+          TransName = dtrans::DT_ReuseField;
         else if (TransformationAndTypes.first == "deletefield")
           TransName = dtrans::DT_DeleteField;
         else if (TransformationAndTypes.first == "aostosoa")

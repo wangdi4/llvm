@@ -19,6 +19,7 @@ add_llvm_component_library(LLVMIntel_DTransOpt
   CodeAlign.cpp
   CodeAlignOP.cpp
   CommuteCond.cpp
+  ReuseField.cpp
   DeleteField.cpp
   DeleteFieldOP.cpp
   ReorderFields.cpp

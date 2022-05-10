@@ -40,6 +40,7 @@ void initializeDTransSafetyAnalyzerWrapperPass(PassRegistry&);
 // Transform passes
 void initializeDTransAOSToSOAWrapperPass(PassRegistry&);
 void initializeDTransAOSToSOAOPWrapperPass(PassRegistry&);
+void initializeDTransReuseFieldWrapperPass(PassRegistry&);
 void initializeDTransDeleteFieldWrapperPass(PassRegistry&);
 void initializeDTransDeleteFieldOPWrapperPass(PassRegistry&);
 void initializeDTransPaddedMallocWrapperPass(PassRegistry&);

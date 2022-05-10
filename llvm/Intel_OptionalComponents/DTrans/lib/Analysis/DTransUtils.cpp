@@ -1292,6 +1292,8 @@ StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
     return "fsv";
   case dtrans::DT_FieldSingleAllocFunction:
     return "fsaf";
+  case dtrans::DT_ReuseField:
+    return "reusefield";
   case dtrans::DT_DeleteField:
     return "deletefield";
   case dtrans::DT_ReorderFields:
@@ -1335,6 +1337,8 @@ dtrans::SafetyData dtrans::getConditionsForTransform(dtrans::Transform Trans,
     return DTransOutOfBoundsOK
                ? dtrans::SDSingleAllocFunction
                : dtrans::SDSingleAllocFunctionNoFieldAddressTaken;
+  case dtrans::DT_ReuseField:
+    return dtrans::SDReuseField;
   case dtrans::DT_DeleteField:
     return dtrans::SDDeleteField;
   case dtrans::DT_ReorderFields:
