@@ -26,19 +26,19 @@ define void @foo-min-max() {
 ; CHECK-NEXT:    Cost 1.09375 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.2 i64 0 i64 [[VP0]]
 ; CHECK-NEXT:    Cost 1.09375 for i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:    Cost 1 for i32 [[VP2:%.*]] = umax i32 [[VP_LOAD_1]] i32 [[VP_LOAD]]
-; CHECK-NEXT:    Cost 1 for i32 [[VP3:%.*]] = smax i32 [[VP_LOAD_1]] i32 [[VP_LOAD]]
+; CHECK-NEXT:    Cost 2 for i32 [[VP2:%.*]] = umax i32 [[VP_LOAD_1]] i32 [[VP_LOAD]]
+; CHECK-NEXT:    Cost 2 for i32 [[VP3:%.*]] = smax i32 [[VP_LOAD_1]] i32 [[VP_LOAD]]
 ; CHECK-NEXT:    Cost 1 for i32 [[VP4:%.*]] = add i32 [[VP2]] i32 [[VP3]]
-; CHECK-NEXT:    Cost 1 for i32 [[VP5:%.*]] = umin i32 [[VP_LOAD]] i32 [[VP_LOAD_1]]
+; CHECK-NEXT:    Cost 2 for i32 [[VP5:%.*]] = umin i32 [[VP_LOAD]] i32 [[VP_LOAD_1]]
 ; CHECK-NEXT:    Cost 1 for i32 [[VP6:%.*]] = add i32 [[VP4]] i32 [[VP5]]
-; CHECK-NEXT:    Cost 1 for i32 [[VP7:%.*]] = smin i32 [[VP_LOAD]] i32 [[VP_LOAD_1]]
+; CHECK-NEXT:    Cost 2 for i32 [[VP7:%.*]] = smin i32 [[VP_LOAD]] i32 [[VP_LOAD_1]]
 ; CHECK-NEXT:    Cost 1 for i32 [[VP8:%.*]] = add i32 [[VP6]] i32 [[VP7]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.3 i64 0 i64 [[VP0]]
 ; CHECK-NEXT:    Cost 1.1875 for store i32 [[VP8]] i32* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:    Cost 4 for i1 [[VP9:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:  [[BB2]]: base cost: 15.375
+; CHECK-NEXT:  [[BB2]]: base cost: 19.375
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
@@ -46,7 +46,7 @@ define void @foo-min-max() {
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CHECK-NEXT:    Cost 0 for br <External Block>
 ; CHECK-NEXT:  [[BB4]]: base cost: 0
-; CHECK-NEXT:  Base Cost: 15.375
+; CHECK-NEXT:  Base Cost: 19.375
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
@@ -106,15 +106,15 @@ define void @foo-uminseq() {
 ; CHECK-NEXT:    Cost 1.09375 for float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:    Cost 4 for i1 [[VP2:%.*]] = fcmp oeq float [[VP_LOAD]] float 0.000000e+00
 ; CHECK-NEXT:    Cost 4 for i1 [[VP3:%.*]] = fcmp une float [[VP_LOAD_1]] float 0.000000e+00
-; CHECK-NEXT:    Cost 5 for i1 [[VP4:%.*]] = umin-seq i1 [[VP2]] i1 [[VP3]]
+; CHECK-NEXT:    Cost 8 for i1 [[VP4:%.*]] = umin-seq i1 [[VP2]] i1 [[VP3]]
 ; CHECK-NEXT:    Cost 4 for i1 [[VP5:%.*]] = icmp ne i1 [[VP4]] i1 false
-; CHECK-NEXT:    Cost 1 for float [[VP6:%.*]] = select i1 [[VP5]] float [[VP_LOAD]] float [[VP_LOAD_1]]
+; CHECK-NEXT:    Cost 2 for float [[VP6:%.*]] = select i1 [[VP5]] float [[VP_LOAD]] float [[VP_LOAD_1]]
 ; CHECK-NEXT:    Cost 0 for float* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x float]* @arr.float.3 i64 0 i64 [[VP0]]
 ; CHECK-NEXT:    Cost 1.1875 for store float [[VP6]] float* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:    Cost 4 for i1 [[VP7:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP7]], [[BB2]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:  [[BB2]]: base cost: 26.375
+; CHECK-NEXT:  [[BB2]]: base cost: 30.375
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
@@ -122,7 +122,7 @@ define void @foo-uminseq() {
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CHECK-NEXT:    Cost 0 for br <External Block>
 ; CHECK-NEXT:  [[BB4]]: base cost: 0
-; CHECK-NEXT:  Base Cost: 26.375
+; CHECK-NEXT:  Base Cost: 30.375
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
