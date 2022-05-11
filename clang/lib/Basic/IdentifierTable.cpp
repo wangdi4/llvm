@@ -125,9 +125,10 @@ namespace {
     KEYMSCOMPAT   = 0x800000,
     KEYSYCL       = 0x1000000,
     KEYCUDA       = 0x2000000,
+    KEYMAX        = KEYCUDA, // The maximum key
     KEYALLCXX = KEYCXX | KEYCXX11 | KEYCXX20,
 #if INTEL_CUSTOMIZATION
-    KEYALL = (0x7fffffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0x7fffffff
+    KEYALL = ((KEYMAX | (KEYMAX-1)) & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0x7fffffff
               ~KEYNOOPENCL), // KEYNOMS18 and KEYNOOPENCL are used to exclude.
     KEYFLOAT128 = 0x2000000,
     KEYRESTRICT = 0x4000000,
