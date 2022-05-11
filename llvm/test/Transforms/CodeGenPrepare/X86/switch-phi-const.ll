@@ -15,27 +15,37 @@ define void @switch_phi_const(i32 %x) {
 ; CHECK-NEXT:    i32 7, label [[CASE_7:%.*]]
 ; CHECK-NEXT:    ]
 ; CHECK:       case_13:
-; CHECK-NEXT:    [[X0:%.*]] = phi i32 [ [[X]], [[BB0:%.*]] ], [ [[X_LOOPBACK:%.*]], [[CASE_7]] ]
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    br label [[DOTSPLIT9:%.*]]
+; CHECK:       .split9:
+; CHECK-NEXT:    [[MERGE11:%.*]] = phi i32 [ [[X]], [[CASE_13]] ], [ [[X_LOOPBACK:%.*]], [[CASE_7]] ]
 ; CHECK-NEXT:    store i32 13, i32* @effect, align 4
-; CHECK-NEXT:    br label [[CASE_42]]
+; CHECK-NEXT:    br label [[DOTSPLIT6:%.*]]
 ; CHECK:       case_42:
-; CHECK-NEXT:    [[X1:%.*]] = phi i32 [ [[X]], [[BB0]] ], [ [[X0]], [[CASE_13]] ]
-; CHECK-NEXT:    store i32 [[X1]], i32* @effect, align 4
-; CHECK-NEXT:    br label [[CASE_50_51]]
+; CHECK-NEXT:    br label [[DOTSPLIT6]]
+; CHECK:       .split6:
+; CHECK-NEXT:    [[MERGE8:%.*]] = phi i32 [ [[X]], [[CASE_42]] ], [ [[MERGE11]], [[DOTSPLIT9]] ]
+; CHECK-NEXT:    store i32 [[MERGE8]], i32* @effect, align 4
+; CHECK-NEXT:    br label [[DOTSPLIT1:%.*]]
 ; CHECK:       case_50_51:
-; CHECK-NEXT:    [[X2:%.*]] = phi i32 [ 50, [[BB0]] ], [ 50, [[BB0]] ], [ [[X1]], [[CASE_42]] ]
-; CHECK-NEXT:    [[X2_2:%.*]] = phi i32 [ 51, [[BB0]] ], [ 51, [[BB0]] ], [ [[X1]], [[CASE_42]] ]
-; CHECK-NEXT:    store i32 [[X2]], i32* @effect, align 4
-; CHECK-NEXT:    store i32 [[X2_2]], i32* @effect, align 4
-; CHECK-NEXT:    br label [[CASE_55]]
+; CHECK-NEXT:    br label [[DOTSPLIT1]]
+; CHECK:       .split1:
+; CHECK-NEXT:    [[MERGE3:%.*]] = phi i32 [ 50, [[CASE_50_51]] ], [ [[MERGE8]], [[DOTSPLIT6]] ]
+; CHECK-NEXT:    [[MERGE5:%.*]] = phi i32 [ 51, [[CASE_50_51]] ], [ [[MERGE8]], [[DOTSPLIT6]] ]
+; CHECK-NEXT:    store i32 [[MERGE3]], i32* @effect, align 4
+; CHECK-NEXT:    store i32 [[MERGE5]], i32* @effect, align 4
+; CHECK-NEXT:    br label [[DOTSPLIT:%.*]]
 ; CHECK:       case_55:
-; CHECK-NEXT:    [[X3:%.*]] = phi i32 [ 42, [[BB0]] ], [ 55, [[CASE_50_51]] ]
-; CHECK-NEXT:    store i32 [[X3]], i32* @effect, align 4
+; CHECK-NEXT:    br label [[DOTSPLIT]]
+; CHECK:       .split:
+; CHECK-NEXT:    [[MERGE:%.*]] = phi i32 [ 42, [[CASE_55]] ], [ 55, [[DOTSPLIT1]] ]
+; CHECK-NEXT:    store i32 [[MERGE]], i32* @effect, align 4
 ; CHECK-NEXT:    br label [[DEFAULT]]
 ; CHECK:       case_7:
 ; CHECK-NEXT:    [[X_LOOPBACK]] = load i32, i32* @g, align 4
 ; CHECK-NEXT:    store i32 7, i32* @effect, align 4
-; CHECK-NEXT:    br label [[CASE_13]]
+; CHECK-NEXT:    br label [[DOTSPLIT9]]
+; end INTEL_CUSTOMIZATION
 ; CHECK:       default:
 ; CHECK-NEXT:    ret void
 ;
@@ -89,17 +99,21 @@ default:
 define void @switch_phi_const_multiple_phis(i32 %x) {
 ; CHECK-LABEL: @switch_phi_const_multiple_phis(
 ; CHECK-NEXT:  bb0:
-; CHECK-NEXT:    br i1 undef, label [[BB1:%.*]], label [[CASE_13:%.*]]
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    br i1 undef, label [[BB1:%.*]], label [[DOTSPLIT:%.*]]
 ; CHECK:       bb1:
 ; CHECK-NEXT:    [[COND:%.*]] = icmp eq i32 [[X:%.*]], 13
-; CHECK-NEXT:    br i1 [[COND]], label [[CASE_13]], label [[DEFAULT:%.*]]
+; CHECK-NEXT:    br i1 [[COND]], label [[CASE_13:%.*]], label [[DEFAULT:%.*]]
 ; CHECK:       case_13:
-; CHECK-NEXT:    [[X0:%.*]] = phi i32 [ [[X]], [[BB1]] ], [ 1, [[BB0:%.*]] ]
-; CHECK-NEXT:    [[N0:%.*]] = phi i32 [ 14, [[BB1]] ], [ 1, [[BB0]] ]
-; CHECK-NEXT:    [[X1:%.*]] = phi i32 [ 27, [[BB0]] ], [ [[X]], [[BB1]] ]
-; CHECK-NEXT:    store volatile i32 [[X0]], i32* @effect, align 4
-; CHECK-NEXT:    store volatile i32 [[N0]], i32* @effect, align 4
-; CHECK-NEXT:    store volatile i32 [[X1]], i32* @effect, align 4
+; CHECK-NEXT:    br label [[DOTSPLIT]]
+; CHECK:       .split:
+; CHECK-NEXT:    [[MERGE:%.*]] = phi i32 [ [[X]], [[CASE_13]] ], [ 1, [[BB0:%.*]] ]
+; CHECK-NEXT:    [[MERGE2:%.*]] = phi i32 [ 14, [[CASE_13]] ], [ 1, [[BB0]] ]
+; CHECK-NEXT:    [[MERGE4:%.*]] = phi i32 [ [[X]], [[CASE_13]] ], [ 27, [[BB0]] ]
+; CHECK-NEXT:    store volatile i32 [[MERGE]], i32* @effect, align 4
+; CHECK-NEXT:    store volatile i32 [[MERGE2]], i32* @effect, align 4
+; CHECK-NEXT:    store volatile i32 [[MERGE4]], i32* @effect, align 4
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret void
 ; CHECK:       default:
 ; CHECK-NEXT:    ret void
