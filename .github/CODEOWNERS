@@ -275,6 +275,7 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/test/Transforms/Intel_DeadArrayOpsElimination/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_DopeVectorConstProp/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_DopeVectorHoist/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_DynamicCastsOptimization/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_FoldWPIntrinsic/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_FunctionRecognizer/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_InlineReport/ @robertcox-github @pvbattin
