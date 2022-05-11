@@ -1,6 +1,6 @@
 //===--- Intel_OptimizeDynamicCasts.cpp - Optimize dynamic_cast calls. ----===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -35,13 +35,37 @@ using namespace PatternMatch;
 
 STATISTIC(OptimizedCounter, "Count of dynamic_cast calls optimized");
 
-static bool isTypeInfoGlobalForFinalClass(GlobalVariable *TypeInfoGlobal) {
+static bool isTypeInfoGlobalForFinalClass(GlobalVariable *TypeInfoGlobal,
+                                          bool IsOpaque) {
+
+  auto TestForGlobal = [](User *U) -> bool {
+    auto TI = dyn_cast<GlobalVariable>(U);
+    if (!TI) {
+      LLVM_DEBUG(dbgs()
+                 << "Expected virtual table but found something else: "
+                 << *U << "\n");
+      LLVM_DEBUG(dbgs() << "So class could be NOT FINAL."
+                        << "\n\n");
+      return false;
+    }
+    if (TI->hasMetadata() &&
+        TI->getMetadata(llvm::LLVMContext::MD_type)) {
+      // This is a virtual table, we can skip it.
+      return true;
+    }
+    // We don't know what is it.
+    LLVM_DEBUG(dbgs() << "Found unexpected user: " << *U << "\n");
+    LLVM_DEBUG(dbgs() << "So class could be NOT FINAL."
+                      << "\n\n");
+    return false;
+  };
+
   assert(TypeInfoGlobal && "Expected non-null pointer to type_info!");
 
   LLVM_DEBUG(dbgs() << "Analysis of type_info:"
                     << "  " << TypeInfoGlobal->getName() << "\n");
   // Even when whole program is detected there could be library classes from
-  // standard header files with descedants in some other parts of library.
+  // standard header files with descendants in some other parts of library.
   // In this case all information will be available for the linker, so we
   // could rely on the linkage type of a type_info global (because there are
   // no things like dlopen in the standard library which could break the
@@ -62,7 +86,7 @@ static bool isTypeInfoGlobalForFinalClass(GlobalVariable *TypeInfoGlobal) {
   // cannot say that class is final.
   //
   //
-  // Example of type_info global variable initilization:
+  // Example of type_info global variable initialization for typed pointers:
   // @_ZTI8Derived2 = internal dso_local constant { i8*, i8*, i8* }
   // {
   //   i8* bitcast (i8** getelementptr inbounds
@@ -80,18 +104,21 @@ static bool isTypeInfoGlobalForFinalClass(GlobalVariable *TypeInfoGlobal) {
   //    i8* bitcast ({ i8*, i8*, i8* }* @_ZTI8Derived2 to i8*),
   //    i8* bitcast (i32 (%class.Parent1.base*)* @_ZN8Derived21kEv to i8*)]
   // }, comdat, align 8, !type !7, !type !8
+  // If we have opaque pointers, the bitcasts will be absent.
   //
   // If TypeInfoGlobal references @_ZTI7Parent3 then the first level of Use
   // is the bitcast constant expression: i8* bitcast ({ i8*, i8* }*
   // @_ZTI7Parent3 to i8*) and the second level of use will be Constant.
   // Necessary to note that vtable has !type metadata.
   for (auto U1 : TypeInfoGlobal->users()) {
-    auto BitCastExpr = dyn_cast<ConstantExpr>(U1);
-    if (!BitCastExpr || !BitCastExpr->isCast()) {
-      LLVM_DEBUG(dbgs() << "Found unexpected user: " << *U1 << "\n");
-      LLVM_DEBUG(dbgs() << "So class could be NOT FINAL."
-                        << "\n\n");
-      return false;
+    if (!IsOpaque) {
+      auto BitCastExpr = dyn_cast<ConstantExpr>(U1);
+      if (!BitCastExpr || !BitCastExpr->isCast()) {
+        LLVM_DEBUG(dbgs() << "Found unexpected user: " << *U1 << "\n");
+        LLVM_DEBUG(dbgs() << "So class could be NOT FINAL."
+                          << "\n\n");
+        return false;
+      }
     }
 
     for (auto U2 : U1->users()) {
@@ -120,36 +147,23 @@ static bool isTypeInfoGlobalForFinalClass(GlobalVariable *TypeInfoGlobal) {
           return false;
         }
 
-        if (isa<GlobalVariable>(U3)) {
-          // Here we found the user which is another type_info or some unknown
-          // user. In both cases we could not say that class is final.
-          LLVM_DEBUG(dbgs() << "Found the user which is likely type_info: "
-                            << *U3 << "\n");
-          LLVM_DEBUG(dbgs() << "So class could be NOT FINAL."
-                            << "\n\n");
-          return false;
-        }
-
-        // We expect that this user is an initializer of a virtual table.
-        for (auto U4 : U3->users()) {
-          auto TI = dyn_cast<GlobalVariable>(U4);
-          if (!TI) {
-            LLVM_DEBUG(dbgs()
-                       << "Expected virtual table but found something else: "
-                       << *U4 << "\n");
+        if (IsOpaque) {
+          if (!TestForGlobal(U3))
+            return false;
+        } else {
+          if (auto TI = dyn_cast<GlobalVariable>(U3)) {
+            // Here we found the user which is another type_info or some unknown
+            // user. In both cases we could not say that class is final.
+            LLVM_DEBUG(dbgs() << "Found the user which is likely type_info: "
+                              << *TI << "\n");
             LLVM_DEBUG(dbgs() << "So class could be NOT FINAL."
                               << "\n\n");
             return false;
           }
-          if (TI->hasMetadata() &&
-              TI->getMetadata(llvm::LLVMContext::MD_type)) {
-            // This is a virtual table, we can skip it.
-            continue;
-          } else {
-            // We don't know what is it.
-            LLVM_DEBUG(dbgs() << "Found unexpected user: " << *U4 << "\n");
-            LLVM_DEBUG(dbgs() << "So class could be NOT FINAL."
-                              << "\n\n");
+          // We expect that this user is an initializer of a virtual table.
+          for (auto U4 : U3->users()) {
+            if (TestForGlobal(U4))
+              continue;
             return false;
           }
         }
@@ -176,7 +190,8 @@ static bool allUsersICmpEQorNE(CallInst *Call) {
   return true;
 }
 
-bool OptimizeDynamicCastsPass::isTransformationApplicable(CallInst *Call) {
+bool OptimizeDynamicCastsPass::isTransformationApplicable(CallInst *Call,
+                                                          bool IsOpaque) {
   assert(Call->arg_size() == 4 &&
          "Unexpected number of operands in dynamic_cast call!");
 
@@ -185,15 +200,17 @@ bool OptimizeDynamicCastsPass::isTransformationApplicable(CallInst *Call) {
   // a global variable.
   auto DstOp = Call->getOperand(2);
   assert(DstOp && "Expected the non-null third operand of dynamic_cast call!");
-
-  Value *V;
-  auto DstOpType = DstOp->getType();
-  if (!(match(DstOp, m_BitCast(m_Value(V))) && DstOpType->isPointerTy() &&
-        DstOpType->getPointerElementType()->isIntegerTy(8)))
-    return false;
-
-  auto DestTypeInfo = dyn_cast<GlobalVariable>(V);
-
+  GlobalVariable *DestTypeInfo = nullptr;
+  if (IsOpaque) {
+    DestTypeInfo = dyn_cast<GlobalVariable>(DstOp);
+  } else {
+    Value *V;
+    auto DstOpType = DstOp->getType();
+    if (!(match(DstOp, m_BitCast(m_Value(V))) && DstOpType->isPointerTy() &&
+          DstOpType->getNonOpaquePointerElementType()->isIntegerTy(8)))
+      return false;
+    DestTypeInfo = dyn_cast<GlobalVariable>(V);
+  }
   if (!DestTypeInfo)
     return false;
 
@@ -204,7 +221,8 @@ bool OptimizeDynamicCastsPass::isTransformationApplicable(CallInst *Call) {
     if (!it->second)
       return false;
   } else {
-    bool IsTransformable = isTypeInfoGlobalForFinalClass(DestTypeInfo);
+    bool IsTransformable = isTypeInfoGlobalForFinalClass(DestTypeInfo,
+                                                         IsOpaque);
     TypeInfoAnalysis.insert(
         std::pair<GlobalVariable *, bool>(DestTypeInfo, IsTransformable));
     if (!IsTransformable)
@@ -304,8 +322,9 @@ PreservedAnalyses OptimizeDynamicCastsPass::runImpl(
         if (!GetTLI(F).getLibFunc(*DynCastFunc, Func) ||
             Func != LibFunc::LibFunc_dynamic_cast)
           continue;
-
-        if (!isTransformationApplicable(Call))
+        auto ObjPointer = Call->getArgOperand(0);
+        bool IsOpaque = ObjPointer->getType()->isOpaquePointerTy();
+        if (!isTransformationApplicable(Call, IsOpaque))
           continue;
 
         LLVM_DEBUG(dbgs() << "Found dynamic_cast eligible for transformation:\n"
@@ -317,26 +336,34 @@ PreservedAnalyses OptimizeDynamicCastsPass::runImpl(
 
         // Here we have an appropriate case. Generate comparison of pointers
         // to type_info objects.
-        auto ObjPointer = Call->getArgOperand(0);
-        auto ObjPointerType = ObjPointer->getType();
-        auto ObjType = ObjPointerType->getPointerElementType();
-        assert(
-            ObjPointerType->isPointerTy() &&
-            ObjType->isIntegerTy(8) &&
-            "Expected that the first argument of the dynamic_cast call has i8* "
-            "type!");
+        Type *ObjType = nullptr;
+        if (IsOpaque) {
+          ObjType = Type::getInt8Ty(Call->getContext());
+        } else {
+          auto ObjPointerType = ObjPointer->getType();
+          assert(ObjPointerType->isPointerTy() && "Expecting ptr type");
+          ObjType = ObjPointerType->getNonOpaquePointerElementType();
+          assert(ObjType->isIntegerTy(8) &&
+              "Expected that the first argument of the dynamic_cast call "
+              "has i8* type!");
+        }
 
         IRBuilder<> Builder(&I);
 
         // Cast pointer to object to i8***, because it is a pointer to pointer
         // to vtable that contains pointer to type_info object.
+        LoadInst *Vptr = nullptr;
+        // NOTE: This will be a generic pointer type if IsOpaque is true.
         auto Int8PtrTy = Type::getInt8PtrTy(Call->getContext());
-        auto CastObjPointer =
-            Builder.CreateCast(Instruction::BitCast, ObjPointer,
-                               Int8PtrTy->getPointerTo()->getPointerTo());
         // Load pointer to vtable.
-        auto Vptr =
-            Builder.CreateLoad(Int8PtrTy->getPointerTo(), CastObjPointer);
+        if (IsOpaque) {
+          Vptr = Builder.CreateLoad(Int8PtrTy, ObjPointer);
+        } else {
+          auto CastObjPointer =
+              Builder.CreateCast(Instruction::BitCast, ObjPointer,
+                                 Int8PtrTy->getPointerTo()->getPointerTo());
+          Vptr = Builder.CreateLoad(Int8PtrTy->getPointerTo(), CastObjPointer);
+        }
         // Calculate address of pointer to type_info.
         auto AddressOfTypeInfoPtr =
             Builder.CreateGEP(Int8PtrTy, Vptr, Builder.getInt32(-1));
