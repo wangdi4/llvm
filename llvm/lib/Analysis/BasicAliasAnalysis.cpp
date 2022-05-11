@@ -1847,7 +1847,6 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // with a new AAQueryInfo.
   AAQueryInfo NewAAQI = AAQI.withEmptyCache();
   AAQueryInfo *UseAAQI = BlockInserted ? &NewAAQI : &AAQI;
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -1858,15 +1857,9 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
         MemoryLocation(V1Srcs[0], PNSize), *UseAAQI);
   else
     Alias = getBestAAResults().alias(
-        MemoryLocation(V2, V2Size),
-        MemoryLocation(V1Srcs[0], PNSize), *UseAAQI);
-#endif // INTEL_CUSTOMIZATION
-=======
-
-  AliasResult Alias = getBestAAResults().alias(
       MemoryLocation(V1Srcs[0], PNSize), MemoryLocation(V2, V2Size), *UseAAQI);
+#endif // INTEL_CUSTOMIZATION
 
->>>>>>> 7e0802aeb5b9059c580479049e6074f6b97ba5d6
   // Early exit if the check of the first PHI source against V2 is MayAlias.
   // Other results are not possible.
   if (Alias == AliasResult::MayAlias)
@@ -1881,7 +1874,6 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   for (unsigned i = 1, e = V1Srcs.size(); i != e; ++i) {
     Value *V = V1Srcs[i];
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     AliasResult ThisAlias = AliasResult::MayAlias;
     if (UseAAQI->NeedLoopCarried)
@@ -1889,14 +1881,9 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
             MemoryLocation(V2, V2Size),
             MemoryLocation(V, PNSize), *UseAAQI);
     else
-      ThisAlias = getBestAAResults().alias(
-            MemoryLocation(V2, V2Size),
-            MemoryLocation(V, PNSize), *UseAAQI);
-#endif // INTEL_CUSTOMIZATION
-=======
-    AliasResult ThisAlias = getBestAAResults().alias(
+       ThisAlias = getBestAAResults().alias(
         MemoryLocation(V, PNSize), MemoryLocation(V2, V2Size), *UseAAQI);
->>>>>>> 7e0802aeb5b9059c580479049e6074f6b97ba5d6
+#endif // INTEL_CUSTOMIZATION
     Alias = MergeAliasResults(ThisAlias, Alias);
     if (Alias == AliasResult::MayAlias)
       break;
