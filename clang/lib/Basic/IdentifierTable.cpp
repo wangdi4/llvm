@@ -125,7 +125,9 @@ namespace {
     KEYMSCOMPAT   = 0x800000,
     KEYSYCL       = 0x1000000,
     KEYCUDA       = 0x2000000,
+    KEYMAX        = KEYCUDA, // The maximum key
     KEYALLCXX = KEYCXX | KEYCXX11 | KEYCXX20,
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     KEYALL = (0x7fffffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0x7fffffff
               ~KEYNOOPENCL), // KEYNOMS18 and KEYNOOPENCL are used to exclude.
@@ -139,6 +141,10 @@ namespace {
                   KEYOPENCLCHANNEL,
     KEYNOINTELALL = KEYALL & ~KEYINTELALL,
 #endif // INTEL_CUSTOMIZATION
+=======
+    KEYALL = (KEYMAX | (KEYMAX-1)) & ~KEYNOMS18 &
+             ~KEYNOOPENCL // KEYNOMS18 and KEYNOOPENCL are used to exclude.
+>>>>>>> 84db35594953a6f7aff7cbc007f1c5d2fd35b1a9
   };
 
   /// How a keyword is treated in the selected standard.
