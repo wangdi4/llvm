@@ -3183,6 +3183,7 @@ StringRef CXXNameMangler::getCallingConvQualifierName(CallingConv CC) {
   case CC_AAPCS:
   case CC_AAPCS_VFP:
   case CC_AArch64VectorCall:
+  case CC_AArch64SVEPCS:
   case CC_IntelOclBicc:
 #if INTEL_CUSTOMIZATION
   case CC_IntelOclBiccAVX:
