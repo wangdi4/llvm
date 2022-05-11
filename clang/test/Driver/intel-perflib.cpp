@@ -116,6 +116,9 @@
 // RUN: env MKLROOT=//NFS_MKLROOT_TEST \
 // RUN: %clang_cl -Qmkl -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-NFS-MKLROOT %s
+// RUN: env MKLROOT=%t_dir/mkl \
+// RUN: %clang_cl -Qmkl -target i386-pc-windows-msvc -### %s 2>&1 \
+// RUN: | FileCheck -check-prefix=CHECK-MKL-WIN-PARALLEL-IA32 %s
 // CHECK-MKL-WIN-PARALLEL: clang{{.*}} "--dependent-lib=mkl_intel_lp64" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
 // CHECK-MKL-WIN-PARALLEL-OMP: clang{{.*}} "--dependent-lib=mkl_intel_lp64" "--dependent-lib=mkl_intel_thread" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
 // CHECK-MKL-WIN-SEQUENTIAL: clang{{.*}} "--dependent-lib=mkl_intel_lp64" "--dependent-lib=mkl_sequential" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
@@ -149,6 +152,7 @@
 // CHECK-MKL-WIN: "-libpath:{{[^ ]+}}mkl{{/|\\\\}}lib{{/|\\\\}}intel64"
 // CHECK-MKL-WIN-DPCPP: "-libpath:{{.*}}tbb{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}vc14"
 // CHECK-NFS-MKLROOT: link{{.*}} "-libpath:\\\\NFS_MKLROOT_TEST{{.*}}"
+// CHECK-MKL-WIN-PARALLEL-IA32: clang{{.*}} "--dependent-lib=mkl_intel_c" "--dependent-lib=mkl_intel_thread" "--dependent-lib=mkl_core"
 
 // TBB tests
 // RUN: env TBBROOT=/dummy/tbb \
