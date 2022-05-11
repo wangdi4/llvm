@@ -1401,14 +1401,15 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
         LibName += "d";
       MKLLibs.push_back(Args.MakeArgString(LibName));
     }
-    auto addMKLExt = [&Args](std::string LN, const llvm::Triple &Triple) {
+    auto addMKLExt = [&Args, IsMSVC](std::string LN, const llvm::Triple &Triple) {
       std::string LibName(LN);
       if (Triple.getArch() == llvm::Triple::x86_64) {
         if (Args.hasArg(options::OPT_fsycl))
           LibName.append("_ilp64");
         else
           LibName.append("_lp64");
-      }
+      } else if (IsMSVC && Triple.getArch() == llvm::Triple::x86)
+        LibName.append("_c");
       return LibName;
     };
     MKLLibs.push_back(Args.MakeArgString(addMKLExt("mkl_intel", getTriple())));
