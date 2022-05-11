@@ -476,6 +476,7 @@ namespace llvm {
 #if INTEL_CUSTOMIZATION
 // Andersen AliasAnalysis
 extern cl::opt<bool> EnableAndersen;
+extern cl::opt<bool> EnableArgNoAliasProp;
 extern cl::opt<bool> RunLoopOptFrameworkOnly;
 enum class LoopOptMode { None, LightWeight, Full };
 extern cl::opt<LoopOptMode> RunLoopOpts;
@@ -1273,6 +1274,19 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
     addVPOPasses(*MPM, FPM, Level, /*RunVec=*/false, /*Simplify=*/true);
     if (!FPM.isEmpty())
       MPM->addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+#if INTEL_CUSTOMIZATION
+    // Propagate noalias attribute to function arguments.
+    // Run ArgNoAliasProp module pass here to avoid breaking
+    // Inliner+CGSCC pipeline later.
+    if (EnableArgNoAliasProp && Level.getSpeedupLevel() > 2) {
+      // Running ArgumentPromotion & SROA before ArgNoAliasProp will
+      // create more noalias attribute propagation opportunities.
+      MPM->addPass(createModuleToPostOrderCGSCCPassAdaptor(
+                              ArgumentPromotionPass(true)));
+      MPM->addPass(createModuleToFunctionPassAdaptor(SROAPass()));
+      MPM->addPass(ArgNoAliasPropPass());
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 #endif // INTEL_COLLAB
 
@@ -2290,7 +2304,7 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
 
 #if INTEL_CUSTOMIZATION
   // Propagate noalias attribute to function arguments.
-  if (Level.getSpeedupLevel() > 2)
+  if (EnableArgNoAliasProp && Level.getSpeedupLevel() > 2)
     MPM.addPass(ArgNoAliasPropPass());
 #endif // INTEL_CUSTOMIZATION
 
@@ -3082,7 +3096,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 #endif // INTEL_FEATURE_SW_ADVANCED
 
   // Propagate noalias attribute to function arguments.
-  if (Level.getSpeedupLevel() > 2)
+  if (EnableArgNoAliasProp && Level.getSpeedupLevel() > 2)
     MPM.addPass(ArgNoAliasPropPass());
 
   if (EnableAndersen) {

@@ -130,6 +130,9 @@
 ;CHECK-NEXT: Running pass: GlobalDCEPass on [module]                ;INTEL
 ;CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{llvm::FunctionAnalysisManager|llvm::AnalysisManager<llvm::Function>}}, llvm::Module> on {{.*}}
 ;            Running pass: ModuleInlinerWrapperPass on [module]
+; CHECK:     Running pass: ArgumentPromotionPass on (foo)           ;INTEL
+; CHECK:     Running pass: SROAPass on foo                          ;INTEL
+; CHECK:     Running pass: ArgNoAliasPropPass on [module]           ;INTEL
 ;            Running analysis: InlineAdvisorAnalysis on [module]
 ;            Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module> on [module]
 ;            Running pass: RequireAnalysisPass<llvm::GlobalsAA, llvm::Module> on [module]
