@@ -2,7 +2,6 @@
 /// Perform driver tests for OpenMP offloading with -fiopenmp and target spir64
 ///
 
-// REQUIRES: clang-driver
 // REQUIRES: x86-registered-target
 
 /// ###########################################################################
