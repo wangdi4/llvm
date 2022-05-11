@@ -109,7 +109,7 @@ define i8* @SyFgets(i8* %line, i64 %length, i64 %fid) {
 ; CHECK-NEXT:    testb %r13b, %r13b
 ; CHECK-NEXT:    je LBB0_54
 ; CHECK-NEXT:    .p2align 4, 0x90
-; CHECK-NEXT:  LBB0_20: ## %while.cond197.backedge
+; CHECK-NEXT:  LBB0_20: ## %.split
 ; CHECK-NEXT:    ## in Loop: Header=BB0_13 Depth=1
 ; CHECK-NEXT:    decl %r15d
 ; CHECK-NEXT:    testl %r15d, %r15d
@@ -185,7 +185,8 @@ define i8* @SyFgets(i8* %line, i64 %length, i64 %fid) {
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rcx
 ; CHECK-NEXT:    cmpq %rax, %rcx
 ; CHECK-NEXT:    jb LBB0_54
-; CHECK-NEXT:  ## %bb.45: ## in Loop: Header=BB0_13 Depth=1
+; CHECK-NEXT:  ## %bb.45: ## %sw.bb1134
+; CHECK-NEXT:    ## in Loop: Header=BB0_13 Depth=1
 ; CHECK-NEXT:    movl $0, {{[-0-9]+}}(%r{{[sb]}}p) ## 4-byte Folded Spill
 ; CHECK-NEXT:    movl $268, %r14d ## imm = 0x10C
 ; CHECK-NEXT:    jmp LBB0_20
@@ -246,7 +247,7 @@ define i8* @SyFgets(i8* %line, i64 %length, i64 %fid) {
 ; CHECK-NEXT:  LBB0_24: ## %for.cond357
 ; CHECK-NEXT:    ## =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    jmp LBB0_24
-; CHECK-NEXT:  LBB0_11:
+; CHECK-NEXT:  LBB0_11: ## %do.end
 ; CHECK-NEXT:    movl $0, {{[-0-9]+}}(%r{{[sb]}}p) ## 4-byte Folded Spill
 ; CHECK-NEXT:  LBB0_21: ## %while.end1465
 ; CHECK-NEXT:    incl %r14d
@@ -256,7 +257,7 @@ define i8* @SyFgets(i8* %line, i64 %length, i64 %fid) {
 ; CHECK-NEXT:    movl $83969, %eax ## imm = 0x14801
 ; CHECK-NEXT:    btl %r14d, %eax
 ; CHECK-NEXT:    jae LBB0_49
-; CHECK-NEXT:  ## %bb.23:
+; CHECK-NEXT:  ## %bb.23: ## %while.end1465
 ; CHECK-NEXT:    xorl %ebp, %ebp
 ; CHECK-NEXT:    movq {{[-0-9]+}}(%r{{[sb]}}p), %rbx ## 8-byte Reload
 ; CHECK-NEXT:  LBB0_47: ## %if.then1477
