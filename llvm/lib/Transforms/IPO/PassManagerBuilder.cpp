@@ -374,7 +374,7 @@ static cl::opt<bool> EnableCSAPasses("enable-csa-passes",
   cl::desc("Enable extra passes for CSA target."));
 #endif  // INTEL_FEATURE_CSA
 
-static cl::opt<bool> EnableArgNoAliasProp(
+cl::opt<bool> EnableArgNoAliasProp(
     "enable-arg-noalias-prop", cl::init(true), cl::Hidden, cl::ZeroOrMore,
     cl::desc("Enable noalias propagation for function arguments."));
 
