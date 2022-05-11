@@ -1696,59 +1696,9 @@ Value *SCEVExpander::visitSignExtendExpr(const SCEVSignExtendExpr *S) {
   return Builder.CreateSExt(V, Ty);
 }
 
-Value *SCEVExpander::expandSMaxExpr(const SCEVNAryExpr *S) {
-  Value *LHS = expand(S->getOperand(S->getNumOperands()-1));
-  Type *Ty = LHS->getType();
-#if INTEL_COLLAB
-  assert(Builder.GetInsertBlock());
-  bool isSPIRV = isTargetSPIRV(Builder.GetInsertBlock()->getParent());
-#endif // INTEL_COLLAB
-  for (int i = S->getNumOperands()-2; i >= 0; --i) {
-    Value *RHS = expandCodeForImpl(S->getOperand(i), Ty, false);
-    Value *Sel;
-#if INTEL_COLLAB
-    if (Ty->isIntegerTy() && !isSPIRV)
-#else
-    if (Ty->isIntegerTy())
-#endif // INTEL_COLLAB
-      Sel = Builder.CreateIntrinsic(Intrinsic::smax, {Ty}, {LHS, RHS},
-                                    /*FMFSource=*/nullptr, "smax");
-    else {
-      Value *ICmp = Builder.CreateICmpSGT(LHS, RHS);
-      Sel = Builder.CreateSelect(ICmp, LHS, RHS, "smax");
-    }
-    LHS = Sel;
-  }
-  return LHS;
-}
 
-Value *SCEVExpander::expandUMaxExpr(const SCEVNAryExpr *S) {
-  Value *LHS = expand(S->getOperand(S->getNumOperands()-1));
-  Type *Ty = LHS->getType();
-#if INTEL_COLLAB
-  assert(Builder.GetInsertBlock());
-  bool isSPIRV = isTargetSPIRV(Builder.GetInsertBlock()->getParent());
-#endif // INTEL_COLLAB
-  for (int i = S->getNumOperands()-2; i >= 0; --i) {
-    Value *RHS = expandCodeForImpl(S->getOperand(i), Ty, false);
-    Value *Sel;
-#if INTEL_COLLAB
-    if (Ty->isIntegerTy() && !isSPIRV)
-#else
-    if (Ty->isIntegerTy())
-#endif // INTEL_COLLAB
-      Sel = Builder.CreateIntrinsic(Intrinsic::umax, {Ty}, {LHS, RHS},
-                                    /*FMFSource=*/nullptr, "umax");
-    else {
-      Value *ICmp = Builder.CreateICmpUGT(LHS, RHS);
-      Sel = Builder.CreateSelect(ICmp, LHS, RHS, "umax");
-    }
-    LHS = Sel;
-  }
-  return LHS;
-}
-
-Value *SCEVExpander::expandSMinExpr(const SCEVNAryExpr *S) {
+Value *SCEVExpander::expandMinMaxExpr(const SCEVNAryExpr *S,
+                                      Intrinsic::ID IntrinID, Twine Name) {
   Value *LHS = expand(S->getOperand(S->getNumOperands() - 1));
   Type *Ty = LHS->getType();
 #if INTEL_COLLAB
@@ -1763,37 +1713,12 @@ Value *SCEVExpander::expandSMinExpr(const SCEVNAryExpr *S) {
 #else
     if (Ty->isIntegerTy())
 #endif // INTEL_COLLAB
-      Sel = Builder.CreateIntrinsic(Intrinsic::smin, {Ty}, {LHS, RHS},
-                                    /*FMFSource=*/nullptr, "smin");
+      Sel = Builder.CreateIntrinsic(IntrinID, {Ty}, {LHS, RHS},
+                                    /*FMFSource=*/nullptr, Name);
     else {
-      Value *ICmp = Builder.CreateICmpSLT(LHS, RHS);
-      Sel = Builder.CreateSelect(ICmp, LHS, RHS, "smin");
-    }
-    LHS = Sel;
-  }
-  return LHS;
-}
-
-Value *SCEVExpander::expandUMinExpr(const SCEVNAryExpr *S) {
-  Value *LHS = expand(S->getOperand(S->getNumOperands() - 1));
-  Type *Ty = LHS->getType();
-#if INTEL_COLLAB
-  assert(Builder.GetInsertBlock());
-  bool isSPIRV = isTargetSPIRV(Builder.GetInsertBlock()->getParent());
-#endif // INTEL_COLLAB
-  for (int i = S->getNumOperands() - 2; i >= 0; --i) {
-    Value *RHS = expandCodeForImpl(S->getOperand(i), Ty, false);
-    Value *Sel;
-#if INTEL_COLLAB
-    if (Ty->isIntegerTy() && !isSPIRV)
-#else
-    if (Ty->isIntegerTy())
-#endif // INTEL_COLLAB
-      Sel = Builder.CreateIntrinsic(Intrinsic::umin, {Ty}, {LHS, RHS},
-                                    /*FMFSource=*/nullptr, "umin");
-    else {
-      Value *ICmp = Builder.CreateICmpULT(LHS, RHS);
-      Sel = Builder.CreateSelect(ICmp, LHS, RHS, "umin");
+      Value *ICmp =
+          Builder.CreateICmp(MinMaxIntrinsic::getPredicate(IntrinID), LHS, RHS);
+      Sel = Builder.CreateSelect(ICmp, LHS, RHS, Name);
     }
     LHS = Sel;
   }
@@ -1801,19 +1726,19 @@ Value *SCEVExpander::expandUMinExpr(const SCEVNAryExpr *S) {
 }
 
 Value *SCEVExpander::visitSMaxExpr(const SCEVSMaxExpr *S) {
-  return expandSMaxExpr(S);
+  return expandMinMaxExpr(S, Intrinsic::smax, "smax");
 }
 
 Value *SCEVExpander::visitUMaxExpr(const SCEVUMaxExpr *S) {
-  return expandUMaxExpr(S);
+  return expandMinMaxExpr(S, Intrinsic::umax, "umax");
 }
 
 Value *SCEVExpander::visitSMinExpr(const SCEVSMinExpr *S) {
-  return expandSMinExpr(S);
+  return expandMinMaxExpr(S, Intrinsic::smin, "smin");
 }
 
 Value *SCEVExpander::visitUMinExpr(const SCEVUMinExpr *S) {
-  return expandUMinExpr(S);
+  return expandMinMaxExpr(S, Intrinsic::umin, "umin");
 }
 
 Value *SCEVExpander::visitSequentialUMinExpr(const SCEVSequentialUMinExpr *S) {
@@ -1830,7 +1755,7 @@ Value *SCEVExpander::visitSequentialUMinExpr(const SCEVSequentialUMinExpr *S) {
 
   Value *AnyOpIsZero = Builder.CreateLogicalOr(OpIsZero);
 
-  Value *NaiveUMin = expandUMinExpr(S);
+  Value *NaiveUMin = expandMinMaxExpr(S, Intrinsic::umin, "umin");
   return Builder.CreateSelect(AnyOpIsZero, SaturationPoint, NaiveUMin);
 }
 
