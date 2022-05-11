@@ -3731,6 +3731,35 @@ X86InstrInfo::getAddrModeFromMemoryOp(const MachineInstr &MemI,
   return AM;
 }
 
+bool X86InstrInfo::verifyInstruction(const MachineInstr &MI,
+                                     StringRef &ErrInfo) const {
+  Optional<ExtAddrMode> AMOrNone = getAddrModeFromMemoryOp(MI, nullptr);
+  if (!AMOrNone)
+    return true;
+
+  ExtAddrMode AM = *AMOrNone;
+
+  if (AM.ScaledReg != X86::NoRegister) {
+    switch (AM.Scale) {
+    case 1:
+    case 2:
+    case 4:
+    case 8:
+      break;
+    default:
+      ErrInfo = "Scale factor in address must be 1, 2, 4 or 8";
+      return false;
+    }
+  }
+  if (!isInt<32>(AM.Displacement)) {
+    ErrInfo = "Displacement in address must fit into 32-bit signed "
+              "integer";
+    return false;
+  }
+
+  return true;
+}
+
 bool X86InstrInfo::getConstValDefinedInReg(const MachineInstr &MI,
                                            const Register Reg,
                                            int64_t &ImmVal) const {
@@ -5071,22 +5100,6 @@ static bool hasPartialRegUpdate(unsigned Opcode,
   case X86::SQRTSDr_Int:
   case X86::SQRTSDm_Int:
     return true;
-  // GPR
-  case X86::POPCNT32rm:
-  case X86::POPCNT32rr:
-  case X86::POPCNT64rm:
-  case X86::POPCNT64rr:
-    return Subtarget.hasPOPCNTFalseDeps();
-  case X86::LZCNT32rm:
-  case X86::LZCNT32rr:
-  case X86::LZCNT64rm:
-  case X86::LZCNT64rr:
-  case X86::TZCNT32rm:
-  case X86::TZCNT32rr:
-  case X86::TZCNT64rm:
-  case X86::TZCNT64rr:
-    return Subtarget.hasLZCNTFalseDeps();
-#if INTEL_CUSTOMIZATION
   case X86::VFCMULCPHZ128rm:
   case X86::VFCMULCPHZ128rmb:
   case X86::VFCMULCPHZ128rmbkz:
@@ -5139,7 +5152,7 @@ static bool hasPartialRegUpdate(unsigned Opcode,
   case X86::VFMULCSHZrrb:
   case X86::VFMULCSHZrrbkz:
   case X86::VFMULCSHZrrkz:
-    return Subtarget.hasCMULFalseDeps();
+    return Subtarget.hasMULCFalseDeps();
   case X86::VPERMDYrm:
   case X86::VPERMDYrr:
   case X86::VPERMQYmi:
@@ -5336,8 +5349,21 @@ static bool hasPartialRegUpdate(unsigned Opcode,
   case X86::VPMULLQZrr:
   case X86::VPMULLQZrrkz:
     return Subtarget.hasMULLQFalseDeps();
-
-#endif // INTEL_CUSTOMIZATION
+  // GPR
+  case X86::POPCNT32rm:
+  case X86::POPCNT32rr:
+  case X86::POPCNT64rm:
+  case X86::POPCNT64rr:
+    return Subtarget.hasPOPCNTFalseDeps();
+  case X86::LZCNT32rm:
+  case X86::LZCNT32rr:
+  case X86::LZCNT64rm:
+  case X86::LZCNT64rr:
+  case X86::TZCNT32rm:
+  case X86::TZCNT32rr:
+  case X86::TZCNT64rm:
+  case X86::TZCNT64rr:
+    return Subtarget.hasLZCNTFalseDeps();
   }
 
   return false;
@@ -5753,13 +5779,11 @@ void X86InstrInfo::breakPartialRegDependency(
         .addReg(XReg, RegState::Undef)
         .addReg(Reg, RegState::ImplicitDefine);
     MI.addRegisterKilled(Reg, TRI, true);
-#if INTEL_CUSTOMIZATION
   } else if (X86::VR128XRegClass.contains(Reg)) {
     // Only handle VLX targets.
     if (!Subtarget.hasVLX())
       return;
-    // These instructions are all floating point domain, so vpxord is the best
-    // choice.
+    // Since vxorps requires AVX512DQ, vpxord should be the best choice.
     BuildMI(*MI.getParent(), MI, MI.getDebugLoc(), get(X86::VPXORDZ128rr), Reg)
         .addReg(Reg, RegState::Undef)
         .addReg(Reg, RegState::Undef);
@@ -5777,7 +5801,6 @@ void X86InstrInfo::breakPartialRegDependency(
         .addReg(XReg, RegState::Undef)
         .addReg(Reg, RegState::ImplicitDefine);
     MI.addRegisterKilled(Reg, TRI, true);
-#endif // INTEL_CUSTOMIZATION
   } else if (X86::GR64RegClass.contains(Reg)) {
     // Using XOR32rr because it has shorter encoding and zeros up the upper bits
     // as well.

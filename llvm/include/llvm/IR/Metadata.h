@@ -186,7 +186,7 @@ inline raw_ostream &operator<<(raw_ostream &OS, const Metadata &MD) {
 /// Metadata wrapper in the Value hierarchy.
 ///
 /// A member of the \a Value hierarchy to represent a reference to metadata.
-/// This allows, e.g., instrinsics to have metadata as operands.
+/// This allows, e.g., intrinsics to have metadata as operands.
 ///
 /// Notably, this is the only thing in either hierarchy that is allowed to
 /// reference \a LocalAsMetadata.
@@ -319,10 +319,8 @@ public:
   ///
   /// Replace all uses of this with \c MD, which is allowed to be null.
   void replaceAllUsesWith(Metadata *MD);
-#if INTEL_CUSTOMIZATION
-  /// Replace all uses of the constant with Undef in debug info metadata
-  static void SalvageDebugInfo(const Constant &C);
-#endif
+   /// Replace all uses of the constant with Undef in debug info metadata
+  static void SalvageDebugInfo(const Constant &C); 
   /// Returns the list of all DIArgList users of this.
   SmallVector<Metadata *> getAllArgListUsers();
 

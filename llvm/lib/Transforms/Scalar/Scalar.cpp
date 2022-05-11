@@ -97,7 +97,9 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLoopRerollLegacyPassPass(Registry);
   initializeLoopUnrollPass(Registry);
   initializeLoopUnrollAndJamPass(Registry);
+#if INTEL_CUSTOMIZATION
   initializeLoopUnswitchPass(Registry);
+#endif // INTEL_CUSTOMIZATION
   initializeWarnMissedTransformationsLegacyPass(Registry);
   initializeLoopVersioningLICMLegacyPassPass(Registry);
   initializeLoopIdiomRecognizeLegacyPassPass(Registry);
@@ -265,9 +267,11 @@ void LLVMAddLoopUnrollAndJamPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createLoopUnrollAndJamPass());
 }
 
+#if INTEL_CUSTOMIZATION
 void LLVMAddLoopUnswitchPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createLoopUnswitchPass());
 }
+#endif // INTEL_CUSTOMIZATION
 
 void LLVMAddLowerAtomicPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createLowerAtomicPass());

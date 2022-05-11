@@ -1436,6 +1436,10 @@ private:
     set(InlineCostFeatureIndex::ColdCcPenalty,
         (F.getCallingConv() == CallingConv::Cold));
 
+    set(InlineCostFeatureIndex::LastCallToStaticBonus,
+        (F.hasLocalLinkage() && F.hasOneLiveUse() &&
+         &F == CandidateCall.getCalledFunction()));
+
     // FIXME: we shouldn't repeat this logic in both the Features and Cost
     // analyzer - instead, we should abstract it to a common method in the
     // CallAnalyzer

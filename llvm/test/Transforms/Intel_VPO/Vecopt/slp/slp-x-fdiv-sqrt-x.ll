@@ -64,27 +64,34 @@ define hidden void @foo(double* nocapture %p, double* nocapture readonly %p1, do
 ; FORCED-NEXT:    [[TMP5:%.*]] = fmul fast <2 x double> [[TMP1]], [[TMP3]]
 ; FORCED-NEXT:    [[TMP6:%.*]] = shufflevector <2 x double> [[TMP4]], <2 x double> [[TMP5]], <2 x i32> <i32 0, i32 3>
 ; FORCED-NEXT:    [[I237:%.*]] = fmul fast double [[I161]], [[I160]]
-; FORCED-NEXT:    [[I238:%.*]] = fadd fast double [[X]], [[C:%.*]]
-; FORCED-NEXT:    [[I239:%.*]] = fmul fast double [[I165]], [[I165]]
-; FORCED-NEXT:    [[I240:%.*]] = fsub fast double [[I238]], [[I239]]
+; FORCED-NEXT:    [[TMP7:%.*]] = insertelement <2 x double> poison, double [[X]], i32 0
+; FORCED-NEXT:    [[TMP8:%.*]] = insertelement <2 x double> [[TMP7]], double [[I165]], i32 1
+; FORCED-NEXT:    [[TMP9:%.*]] = insertelement <2 x double> poison, double [[C:%.*]], i32 0
+; FORCED-NEXT:    [[TMP10:%.*]] = insertelement <2 x double> [[TMP9]], double [[I165]], i32 1
+; FORCED-NEXT:    [[TMP11:%.*]] = fadd fast <2 x double> [[TMP8]], [[TMP10]]
+; FORCED-NEXT:    [[TMP12:%.*]] = fmul fast <2 x double> [[TMP8]], [[TMP10]]
+; FORCED-NEXT:    [[TMP13:%.*]] = shufflevector <2 x double> [[TMP11]], <2 x double> [[TMP12]], <2 x i32> <i32 0, i32 3>
+; FORCED-NEXT:    [[TMP14:%.*]] = extractelement <2 x double> [[TMP13]], i32 0
+; FORCED-NEXT:    [[TMP15:%.*]] = extractelement <2 x double> [[TMP13]], i32 1
+; FORCED-NEXT:    [[I240:%.*]] = fsub fast double [[TMP14]], [[TMP15]]
 ; FORCED-NEXT:    [[GEP1:%.*]] = getelementptr double, double* [[P:%.*]], i32 0
-; FORCED-NEXT:    [[TMP7:%.*]] = fdiv fast <2 x double> <double 1.000000e+00, double 5.000000e-01>, [[TMP6]]
-; FORCED-NEXT:    [[TMP8:%.*]] = fmul fast <2 x double> <double 1.000000e+00, double 5.000000e-01>, [[TMP6]]
-; FORCED-NEXT:    [[TMP9:%.*]] = shufflevector <2 x double> [[TMP7]], <2 x double> [[TMP8]], <2 x i32> <i32 0, i32 3>
-; FORCED-NEXT:    [[TMP10:%.*]] = insertelement <2 x double> poison, double [[I160]], i32 0
-; FORCED-NEXT:    [[TMP11:%.*]] = insertelement <2 x double> [[TMP10]], double [[I240]], i32 1
-; FORCED-NEXT:    [[TMP12:%.*]] = fmul fast <2 x double> [[TMP9]], [[TMP11]]
-; FORCED-NEXT:    [[TMP13:%.*]] = extractelement <2 x double> [[TMP9]], i32 0
-; FORCED-NEXT:    [[I245:%.*]] = fsub fast double [[TMP13]], [[I160]]
-; FORCED-NEXT:    [[I247:%.*]] = fmul fast double [[I165]], [[TMP13]]
-; FORCED-NEXT:    [[I248:%.*]] = call fast double @llvm.sqrt.f64(double [[I247]])
-; FORCED-NEXT:    [[TMP14:%.*]] = insertelement <2 x double> poison, double [[I245]], i32 0
-; FORCED-NEXT:    [[TMP15:%.*]] = insertelement <2 x double> [[TMP14]], double [[I248]], i32 1
-; FORCED-NEXT:    [[TMP16:%.*]] = fmul fast <2 x double> [[TMP15]], [[TMP12]]
-; FORCED-NEXT:    [[TMP17:%.*]] = fadd fast <2 x double> [[TMP15]], [[TMP12]]
+; FORCED-NEXT:    [[TMP16:%.*]] = fdiv fast <2 x double> <double 1.000000e+00, double 5.000000e-01>, [[TMP6]]
+; FORCED-NEXT:    [[TMP17:%.*]] = fmul fast <2 x double> <double 1.000000e+00, double 5.000000e-01>, [[TMP6]]
 ; FORCED-NEXT:    [[TMP18:%.*]] = shufflevector <2 x double> [[TMP16]], <2 x double> [[TMP17]], <2 x i32> <i32 0, i32 3>
-; FORCED-NEXT:    [[TMP19:%.*]] = bitcast double* [[GEP1]] to <2 x double>*
-; FORCED-NEXT:    store <2 x double> [[TMP18]], <2 x double>* [[TMP19]], align 8
+; FORCED-NEXT:    [[TMP19:%.*]] = insertelement <2 x double> poison, double [[I160]], i32 0
+; FORCED-NEXT:    [[TMP20:%.*]] = insertelement <2 x double> [[TMP19]], double [[I240]], i32 1
+; FORCED-NEXT:    [[TMP21:%.*]] = fmul fast <2 x double> [[TMP18]], [[TMP20]]
+; FORCED-NEXT:    [[TMP22:%.*]] = extractelement <2 x double> [[TMP18]], i32 0
+; FORCED-NEXT:    [[I245:%.*]] = fsub fast double [[TMP22]], [[I160]]
+; FORCED-NEXT:    [[I247:%.*]] = fmul fast double [[I165]], [[TMP22]]
+; FORCED-NEXT:    [[I248:%.*]] = call fast double @llvm.sqrt.f64(double [[I247]])
+; FORCED-NEXT:    [[TMP23:%.*]] = insertelement <2 x double> poison, double [[I245]], i32 0
+; FORCED-NEXT:    [[TMP24:%.*]] = insertelement <2 x double> [[TMP23]], double [[I248]], i32 1
+; FORCED-NEXT:    [[TMP25:%.*]] = fmul fast <2 x double> [[TMP24]], [[TMP21]]
+; FORCED-NEXT:    [[TMP26:%.*]] = fadd fast <2 x double> [[TMP24]], [[TMP21]]
+; FORCED-NEXT:    [[TMP27:%.*]] = shufflevector <2 x double> [[TMP25]], <2 x double> [[TMP26]], <2 x i32> <i32 0, i32 3>
+; FORCED-NEXT:    [[TMP28:%.*]] = bitcast double* [[GEP1]] to <2 x double>*
+; FORCED-NEXT:    store <2 x double> [[TMP27]], <2 x double>* [[TMP28]], align 8
 ; FORCED-NEXT:    br label [[BB3]]
 ; FORCED:       bb3:
 ; FORCED-NEXT:    ret void

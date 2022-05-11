@@ -5,6 +5,8 @@
 ; In llorg, this is happening in the late-LTO SimplifyCFG pass.
 ; The hoisting is disabled in xmain in the pass builder.
 
+; REQUIRES: DEBUG
+
 ; RUN: opt -S -passes="lto<O3>" %s | FileCheck %s
 ; RUN: clang -flegacy-pass-manager -O3 -o - -S -flto -emit-llvm %s | FileCheck %s
 ; RUN: clang -fno-legacy-pass-manager -mllvm -loopopt=1 -O3 -o - -S -flto -emit-llvm %s | FileCheck %s

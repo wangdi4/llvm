@@ -1,3 +1,4 @@
+#if INTEL_CUSTOMIZATION
 //===-- Coroutines.h - Coroutine Transformations ----------------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -35,3 +36,4 @@ Pass *createCoroCleanupLegacyPass();
 }
 
 #endif
+#endif // INTEL_CUSTOMIZATION

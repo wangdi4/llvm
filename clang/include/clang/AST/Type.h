@@ -847,6 +847,8 @@ public:
   /// Return true if this is a trivially copyable type (C++0x [basic.types]p9)
   bool isTriviallyCopyableType(const ASTContext &Context) const;
 
+  /// Return true if this is a trivially relocatable type.
+  bool isTriviallyRelocatableType(const ASTContext &Context) const;
 
   /// Returns true if it is a class and it might be dynamic.
   bool mayBeDynamicClass() const;
@@ -1332,6 +1334,8 @@ private:
   static bool hasNonTrivialToPrimitiveDestructCUnion(const RecordDecl *RD);
   static bool hasNonTrivialToPrimitiveCopyCUnion(const RecordDecl *RD);
 };
+
+raw_ostream &operator<<(raw_ostream &OS, QualType QT);
 
 } // namespace clang
 

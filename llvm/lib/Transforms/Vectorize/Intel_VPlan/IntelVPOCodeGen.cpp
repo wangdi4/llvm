@@ -2483,7 +2483,7 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
 
     if ((!VecVariant || Parms[ParamsIdx].isVector()) &&
         !isScalarArgument(FnName, OrigArgIdx) &&
-        !hasVectorInstrinsicScalarOpd(VectorIntrinID, OrigArgIdx)) {
+        !isVectorIntrinsicWithScalarOpAtArg(VectorIntrinID, OrigArgIdx)) {
       // This is a vector call arg, so vectorize it.
       VPValue *Arg = VPCall->getOperand(OrigArgIdx);
 

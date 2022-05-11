@@ -1067,23 +1067,6 @@ public:
   /// context.
   unsigned FunctionScopesStart = 0;
 
-  /// Whether we are currently in the context of a mutable agnostic identifier
-  /// as described by CWG2569.
-  /// We are handling the unqualified-id of a decltype or noexcept expression.
-  bool InMutableAgnosticContext = false;
-
-  /// RAII object used to change the value of \c InMutableAgnosticContext
-  /// within a \c Sema object.
-  class MutableAgnosticContextRAII {
-    Sema &SemaRef;
-
-  public:
-    MutableAgnosticContextRAII(Sema &S) : SemaRef(S) {
-      SemaRef.InMutableAgnosticContext = true;
-    }
-    ~MutableAgnosticContextRAII() { SemaRef.InMutableAgnosticContext = false; }
-  };
-
   ArrayRef<sema::FunctionScopeInfo*> getFunctionScopes() const {
     return llvm::makeArrayRef(FunctionScopes.begin() + FunctionScopesStart,
                               FunctionScopes.end());
@@ -2625,7 +2608,7 @@ private:
   /// Namespace definitions that we will export when they finish.
   llvm::SmallPtrSet<const NamespaceDecl*, 8> DeferredExportedNamespaces;
 
-  /// Get the module whose scope we are currently within.
+  /// Get the module unit whose scope we are currently within.
   Module *getCurrentModule() const {
     return ModuleScopes.empty() ? nullptr : ModuleScopes.back().Module;
   }
@@ -2642,6 +2625,11 @@ private:
   void PopGlobalModuleFragment();
 
   VisibleModuleSet VisibleModules;
+
+  /// Cache for module units which is usable for current module.
+  llvm::DenseSet<const Module *> UsableModuleUnitsCache;
+
+  bool isUsableModule(const Module *M);
 
 public:
   /// Get the module owning an entity.
@@ -3875,6 +3863,8 @@ public:
   HLSLNumThreadsAttr *mergeHLSLNumThreadsAttr(Decl *D,
                                               const AttributeCommonInfo &AL,
                                               int X, int Y, int Z);
+  HLSLShaderAttr *mergeHLSLShaderAttr(Decl *D, const AttributeCommonInfo &AL,
+                                      HLSLShaderAttr::ShaderType ShaderType);
 
 #if INTEL_CUSTOMIZATION
   void AddAllowCpuFeaturesAttr(Decl *D, const AttributeCommonInfo &CI, Expr *P1,
@@ -3967,7 +3957,8 @@ public:
                                 QualType& ConvertedType);
   bool FunctionParamTypesAreEqual(const FunctionProtoType *OldType,
                                   const FunctionProtoType *NewType,
-                                  unsigned *ArgPos = nullptr);
+                                  unsigned *ArgPos = nullptr,
+                                  bool Reversed = false);
   void HandleFunctionTypeMismatch(PartialDiagnostic &PDiag,
                                   QualType FromType, QualType ToType);
 
@@ -5711,9 +5702,6 @@ public:
       UnqualifiedId &Id, bool HasTrailingLParen, bool IsAddressOfOperand,
       CorrectionCandidateCallback *CCC = nullptr,
       bool IsInlineAsmIdentifier = false, Token *KeywordReplacement = nullptr);
-
-  ExprResult ActOnMutableAgnosticIdExpression(Scope *S, CXXScopeSpec &SS,
-                                              UnqualifiedId &Id);
 
   void DecomposeUnqualifiedId(const UnqualifiedId &Id,
                               TemplateArgumentListInfo &Buffer,
@@ -9201,7 +9189,8 @@ public:
   FunctionTemplateDecl *getMoreSpecializedTemplate(
       FunctionTemplateDecl *FT1, FunctionTemplateDecl *FT2, SourceLocation Loc,
       TemplatePartialOrderingContext TPOC, unsigned NumCallArguments1,
-      unsigned NumCallArguments2, bool Reversed = false);
+      unsigned NumCallArguments2, bool Reversed = false,
+      bool AllowOrderingByConstraints = true);
   UnresolvedSetIterator
   getMostSpecialized(UnresolvedSetIterator SBegin, UnresolvedSetIterator SEnd,
                      TemplateSpecCandidateSet &FailedCandidates,
@@ -12623,6 +12612,10 @@ public:
   QualType CheckVectorConditionalTypes(ExprResult &Cond, ExprResult &LHS,
                                        ExprResult &RHS,
                                        SourceLocation QuestionLoc);
+
+  QualType CheckSizelessVectorConditionalTypes(ExprResult &Cond,
+                                               ExprResult &LHS, ExprResult &RHS,
+                                               SourceLocation QuestionLoc);
   QualType FindCompositePointerType(SourceLocation Loc, Expr *&E1, Expr *&E2,
                                     bool ConvertArgs = true);
   QualType FindCompositePointerType(SourceLocation Loc,

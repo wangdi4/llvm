@@ -13,7 +13,7 @@
 
 #include "CoroInstr.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/Transforms/Coroutines.h"
+#include "llvm/Transforms/Coroutines.h" // INTEL
 
 namespace llvm {
 
@@ -21,32 +21,26 @@ class CallGraph;
 class CallGraphSCC;
 class PassRegistry;
 
-void initializeCoroEarlyLegacyPass(PassRegistry &);
-void initializeCoroSplitLegacyPass(PassRegistry &);
-void initializeCoroElideLegacyPass(PassRegistry &);
-void initializeCoroCleanupLegacyPass(PassRegistry &);
+void initializeCoroEarlyLegacyPass(PassRegistry &);   // INTEL
+void initializeCoroSplitLegacyPass(PassRegistry &);   // INTEL
+void initializeCoroElideLegacyPass(PassRegistry &);   // INTEL
+void initializeCoroCleanupLegacyPass(PassRegistry &); // INTEL
 
 // CoroEarly pass marks every function that has coro.begin with a string
-// attribute "coroutine.presplit"="0". CoroSplit pass processes the coroutine
-// twice. First, it lets it go through complete IPO optimization pipeline as a
-// single function. It forces restart of the pipeline by inserting an indirect
-// call to an empty function "coro.devirt.trigger" which is devirtualized by
-// CoroElide pass that triggers a restart of the pipeline by CGPassManager.
-// When CoroSplit pass sees the same coroutine the second time, it splits it up,
-// adds coroutine subfunctions to the SCC to be processed by IPO pipeline.
-// Async lowering similarily triggers a restart of the pipeline after it has
-// split the coroutine.
+// attribute "coroutine.presplit". CoroSplit pass would processes the 
+// function marked as "coroutine.presplit" only.
 //
 // FIXME: Refactor these attributes as LLVM attributes instead of string
 // attributes since these attributes are already used outside LLVM's
 // coroutine module.
-// FIXME: Remove these values once we remove the Legacy PM.
 #define CORO_PRESPLIT_ATTR "coroutine.presplit"
+#if INTEL_CUSTOMIZATION
+#define CORO_DEVIRT_TRIGGER_FN "coro.devirt.trigger"
 #define UNPREPARED_FOR_SPLIT "0"
 #define PREPARED_FOR_SPLIT "1"
 #define ASYNC_RESTART_AFTER_SPLIT "2"
-
 #define CORO_DEVIRT_TRIGGER_FN "coro.devirt.trigger"
+#endif // INTEL_CUSTOMIZATION
 
 namespace coro {
 
@@ -54,8 +48,9 @@ bool declaresAnyIntrinsic(const Module &M);
 bool declaresIntrinsics(const Module &M,
                         const std::initializer_list<StringRef>);
 void replaceCoroFree(CoroIdInst *CoroId, bool Elide);
-void updateCallGraph(Function &Caller, ArrayRef<Function *> Funcs,
-                     CallGraph &CG, CallGraphSCC &SCC);
+void updateCallGraph(Function &Caller, ArrayRef<Function *> Funcs, // INTEL
+                     CallGraph &CG, CallGraphSCC &SCC);            // INTEL
+
 /// Recover a dbg.declare prepared by the frontend and emit an alloca
 /// holding a pointer to the coroutine frame.
 void salvageDebugInfo(

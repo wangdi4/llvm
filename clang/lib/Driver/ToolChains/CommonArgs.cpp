@@ -528,7 +528,7 @@ llvm::StringRef tools::getLTOParallelism(const ArgList &Args, const Driver &D) {
   return LtoJobsArg->getValue();
 }
 
-// CloudABI uses -ffunction-sections and -fdata-sections by default.
+// CloudABI and PS4/PS5 use -ffunction-sections and -fdata-sections by default.
 #if INTEL_CUSTOMIZATION
 bool tools::isUseSeparateSections(const Driver &D,
                                   const llvm::Triple &Triple) {
@@ -536,7 +536,7 @@ bool tools::isUseSeparateSections(const Driver &D,
   if (D.IsIntelMode())
     return false;
 #endif // INTEL_CUSTOMIZATION
-  return Triple.getOS() == llvm::Triple::CloudABI;
+  return Triple.getOS() == llvm::Triple::CloudABI || Triple.isPS();
 }
 
 void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
@@ -2609,3 +2609,18 @@ void tools::addX86UnalignedVectorMoveArgs(const ToolChain &TC,
     addArg("-x86-enable-unaligned-vector-move=false");
 }
 #endif // INTEL_CUSTOMIZATION
+
+void tools::addHIPRuntimeLibArgs(const ToolChain &TC,
+                                 const llvm::opt::ArgList &Args,
+                                 llvm::opt::ArgStringList &CmdArgs) {
+  if (Args.hasArg(options::OPT_hip_link) &&
+      !Args.hasArg(options::OPT_nostdlib) &&
+      !Args.hasArg(options::OPT_no_hip_rt)) {
+    TC.AddHIPRuntimeLibArgs(Args, CmdArgs);
+  } else {
+    // Claim "no HIP libraries" arguments if any
+    for (auto Arg : Args.filtered(options::OPT_no_hip_rt)) {
+      Arg->claim();
+    }
+  }
+}

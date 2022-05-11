@@ -1608,10 +1608,9 @@ Instruction *InstCombinerImpl::visitSExt(SExtInst &CI) {
   };
 #endif // INTEL_CUSTOMIZATION
 
-  // If we know that the value being extended is positive, we can use a zext
-  // instead.
-  KnownBits Known = computeKnownBits(Src, 0, &CI);
-  if (Known.isNonNegative() && !AvoidSExtTransform(CI, Src)) // INTEL
+  // If the value being extended is zero or positive, use a zext instead.
+  if (isKnownNonNegative(Src, DL, 0, &AC, &CI, &DT) &&
+      !AvoidSExtTransform(CI, Src)) // INTEL
     return CastInst::Create(Instruction::ZExt, Src, DestTy);
 
 #if INTEL_CUSTOMIZATION
@@ -2469,6 +2468,8 @@ static bool collectInsertionElements(Value *V, unsigned Shift,
   switch (I->getOpcode()) {
   default: return false; // Unhandled case.
   case Instruction::BitCast:
+    if (I->getOperand(0)->getType()->isVectorTy())
+      return false;
     return collectInsertionElements(I->getOperand(0), Shift, Elements, VecEltTy,
                                     isBigEndian);
   case Instruction::ZExt:

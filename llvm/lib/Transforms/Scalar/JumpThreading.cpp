@@ -436,10 +436,8 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
                                 AliasAnalysis *AA_, DomTreeUpdater *DTU_,
                                 bool HasProfileData_,
                                 std::unique_ptr<BlockFrequencyInfo> BFI_,
-#if INTEL_CUSTOMIZATION
-                                std::unique_ptr<BranchProbabilityInfo> BPI_,
-                                PostDominatorTree *PDT_) {
-#endif // INTEL_CUSTOMIZATION
+                                std::unique_ptr<BranchProbabilityInfo> BPI_, // INTEL
+                                PostDominatorTree *PDT_) { // INTEL
   LLVM_DEBUG(dbgs() << "Jump threading on function '" << F.getName() << "'\n");
   TLI = TLI_;
   TTI = TTI_;
@@ -448,7 +446,7 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
   DTU = DTU_;
   BFI.reset();
   BPI.reset();
-  PDT = PDT_;               // INTEL
+  PDT = PDT_;// INTEL
   BlockThreadCount.clear(); // INTEL
   // When profile data is available, we need to update edge weights after
   // successful jump threading, which requires both BPI and BFI being available.

@@ -123,6 +123,11 @@ Bug Fixes
   a lambda expression that shares the name of a variable in a containing
   if/while/for/switch init statement as a redeclaration.
   This fixes `Issue 54913 <https://github.com/llvm/llvm-project/issues/54913>`_.
+- Overload resolution for constrained function templates could use the partial
+  order of constraints to select an overload, even if the parameter types of
+  the functions were different. It now diagnoses this case correctly as an
+  ambiguous call and an error. Fixes
+  `Issue 53640 <https://github.com/llvm/llvm-project/issues/53640>`_.
 
 Improvements to Clang's diagnostics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -144,18 +149,27 @@ Improvements to Clang's diagnostics
   now only diagnose deprecated declarations and definitions of functions
   without a prototype where the behavior in C2x will remain correct. This
   diagnostic remains off by default but is now enabled via ``-pedantic`` due to
-  it being a deprecation warning. ``-Wdeprecated-non-prototype`` will diagnose
-  cases where the deprecated declarations or definitions of a function without
-  a prototype will change behavior in C2x. Additionally, it will diagnose calls
-  which pass arguments to a function without a prototype. This warning is
-  enabled only when the ``-Wdeprecated-non-prototype`` option is enabled at the
-  function declaration site, which allows a developer to disable the diagnostic
-  for all callers at the point of declaration. This diagnostic is grouped under
-  the ``-Wstrict-prototypes`` warning group, but is enabled by default.
+  it being a deprecation warning. ``-Wstrict-prototypes`` has no effect in C2x
+  or when ``-fno-knr-functions`` is enabled. ``-Wdeprecated-non-prototype``
+  will diagnose cases where the deprecated declarations or definitions of a
+  function without a prototype will change behavior in C2x. Additionally, it
+  will diagnose calls which pass arguments to a function without a prototype.
+  This warning is enabled only when the ``-Wdeprecated-non-prototype`` option
+  is enabled at the function declaration site, which allows a developer to
+  disable the diagnostic for all callers at the point of declaration. This
+  diagnostic is grouped under the ``-Wstrict-prototypes`` warning group, but is
+  enabled by default. ``-Wdeprecated-non-prototype`` has no effect in C2x or
+  when ``-fno-knr-functions`` is enabled.
 - Clang now appropriately issues an error in C when a definition of a function
   without a prototype and with no arguments is an invalid redeclaration of a
   function with a prototype. e.g., ``void f(int); void f() {}`` is now properly
   diagnosed.
+- The ``-Wimplicit-function-declaration`` warning diagnostic now defaults to
+  an error in C99 and later. Prior to C2x, it may be downgraded to a warning
+  with ``-Wno-error=implicit-function-declaration``, or disabled entirely with
+  ``-Wno-implicit-function-declaration``. As of C2x, support for implicit
+  function declarations has been removed, and the warning options will have no
+  effect.
 
 - ``-Wmisexpect`` warns when the branch weights collected during profiling
   conflict with those added by ``llvm.expect``.
@@ -167,9 +181,17 @@ Non-comprehensive list of changes in this release
   - Improve the dump format, dump both bitwidth(if its a bitfield) and field value.
   - Remove anonymous tag locations.
   - Beautify dump format, add indent for nested struct and struct members.
+- Previously disabled sanitizer options now enabled by default:
+  - ASAN_OPTIONS=detect_stack_use_after_return=1 (only on Linux).
+  - MSAN_OPTIONS=poison_in_dtor=1.
 
 New Compiler Flags
 ------------------
+- Added the ``-fno-knr-functions`` flag to allow users to opt into the C2x
+  behavior where a function with an empty parameter list is treated as though
+  the parameter list were ``void``. There is no ``-fknr-functions`` or
+  ``-fno-no-knr-functions`` flag; this feature cannot be disabled in language
+  modes where it is required, such as C++ or C2x.
 
 Deprecated Compiler Flags
 -------------------------
@@ -245,6 +267,11 @@ C2x Feature Support
 - Implemented the `*_WIDTH` macros to complete support for
   `WG14 N2412 Two's complement sign representation for C2x <https://www9.open-std.org/jtc1/sc22/wg14/www/docs/n2412.pdf>`_.
 - Implemented `WG14 N2418 Adding the u8 character prefix <http://www.open-std.org/jtc1/sc22/wg14/www/docs/n2418.pdf>`_.
+- Removed support for implicit function declarations. This was a C89 feature
+  that was removed in C99, but cannot be supported in C2x because it requires
+  support for functions without prototypes, which no longer exist in C2x.
+- Implemented `WG14 N2841 No function declarators without prototypes <https://www9.open-std.org/jtc1/sc22/wg14/www/docs/n2841.htm>`_
+  and `WG14 N2432 Remove support for function definitions with identifier lists <https://www9.open-std.org/jtc1/sc22/wg14/www/docs/n2432.pdf>`_.
 
 C++ Language Changes in Clang
 -----------------------------
@@ -253,6 +280,10 @@ C++ Language Changes in Clang
   ``std::move_if_noexcept``, ``std::addressof``, and ``std::as_const``. These
   are now treated as compiler builtins and implemented directly, rather than
   instantiating the definition from the standard library.
+- Fixed mangling of nested dependent names such as ``T::a::b``, where ``T`` is a
+  template parameter, to conform to the Itanium C++ ABI and be compatible with
+  GCC. This breaks binary compatibility with code compiled with earlier versions
+  of clang; use the ``-fclang-abi-compat=14`` option to get the old mangling.
 
 C++20 Feature Support
 ^^^^^^^^^^^^^^^^^^^^^

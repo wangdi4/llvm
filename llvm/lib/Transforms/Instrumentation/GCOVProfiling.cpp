@@ -165,6 +165,7 @@ private:
   StringMap<bool> InstrumentedFiles;
 };
 
+#if INTEL_CUSTOMIZATION
 class GCOVProfilerLegacyPass : public ModulePass {
 public:
   static char ID;
@@ -197,6 +198,7 @@ public:
 private:
   GCOVProfiler Profiler;
 };
+#endif // INTEL_CUSTOMIZATION
 
 struct BBInfo {
   BBInfo *Group;
@@ -233,6 +235,7 @@ struct Edge {
 };
 }
 
+#if INTEL_CUSTOMIZATION
 char GCOVProfilerLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(
     GCOVProfilerLegacyPass, "insert-gcov-profiling",
@@ -247,6 +250,7 @@ INITIALIZE_PASS_END(
 ModulePass *llvm::createGCOVProfilerPass(const GCOVOptions &Options) {
   return new GCOVProfilerLegacyPass(Options);
 }
+#endif // INTEL_CUSTOMIZATION
 
 static StringRef getFunctionName(const DISubprogram *SP) {
   if (!SP->getLinkageName().empty())

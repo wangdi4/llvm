@@ -135,8 +135,10 @@ public:
   /// If given, list of names of the target CPUs to multiversion code for
   std::vector<std::string> AutoMultiVersionTargets;
 #endif //INTEL_CUSTOMIZATION
+  /// The validator version for dxil.
+  std::string DxilValidatorVersion;
 };
 
-}  // end namespace clang
+} // end namespace clang
 
 #endif

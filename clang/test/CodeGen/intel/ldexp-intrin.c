@@ -1,7 +1,7 @@
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fintel-compatibility -w -S -o - -emit-llvm              %s | FileCheck %s --check-prefix=NO_ERRNO
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fintel-compatibility -w -S -o - -emit-llvm -fmath-errno %s | FileCheck %s --check-prefix=HAS_ERRNO
-// RUN: %clang_cc1 -triple x86_64-unknown-windows-msvc -fintel-compatibility -w -S -o - -emit-llvm              %s | FileCheck %s --check-prefix=NO_ERRNO_WIN
-// RUN: %clang_cc1 -triple x86_64-unknown-windows-msvc -fintel-compatibility -w -S -o - -emit-llvm -fmath-errno %s | FileCheck %s --check-prefix=HAS_ERRNO_WIN
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fintel-compatibility -Wno-implicit-function-declaration -w -S -o - -emit-llvm              %s | FileCheck %s --check-prefix=NO_ERRNO
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fintel-compatibility -Wno-implicit-function-declaration -w -S -o - -emit-llvm -fmath-errno %s | FileCheck %s --check-prefix=HAS_ERRNO
+// RUN: %clang_cc1 -triple x86_64-unknown-windows-msvc -fintel-compatibility -Wno-implicit-function-declaration -w -S -o - -emit-llvm              %s | FileCheck %s --check-prefix=NO_ERRNO_WIN
+// RUN: %clang_cc1 -triple x86_64-unknown-windows-msvc -fintel-compatibility -Wno-implicit-function-declaration -w -S -o - -emit-llvm -fmath-errno %s | FileCheck %s --check-prefix=HAS_ERRNO_WIN
 
 // Test attributes and builtin codegen of math library calls.
 

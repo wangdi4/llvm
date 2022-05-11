@@ -29,6 +29,7 @@ include(CheckCCompilerFlag)
 include(CMakePushCheckState)
 
 include(CheckCompilerVersion)
+include(CheckProblematicConfigurations)
 include(HandleLLVMStdlib)
 
 if( UNIX AND NOT (APPLE OR BEOS OR HAIKU) )
