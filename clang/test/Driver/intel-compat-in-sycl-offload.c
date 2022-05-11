@@ -1,4 +1,3 @@
-// REQUIRES: clang-driver
 // REQUIRES: x86-registered-target
 
 /// Check that -fintel-compatibility option is passed to clang CC1 when compiling for the device when --intel is used.

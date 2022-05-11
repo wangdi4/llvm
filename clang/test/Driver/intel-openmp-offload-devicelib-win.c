@@ -3,7 +3,6 @@
 /// with -device-math-lib option on Windows.
 ///
 
-// REQUIRES: clang-driver
 // REQUIRES: x86-registered-target
 // REQUIRES: intel_libompdevice
 // The driver looks for .obj devicelib files, that only exist on Windows:
