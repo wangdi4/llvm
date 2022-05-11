@@ -1696,6 +1696,7 @@ Value *SCEVExpander::visitSignExtendExpr(const SCEVSignExtendExpr *S) {
   return Builder.CreateSExt(V, Ty);
 }
 
+<<<<<<< HEAD
 Value *SCEVExpander::expandSMaxExpr(const SCEVNAryExpr *S) {
   Value *LHS = expand(S->getOperand(S->getNumOperands()-1));
   Type *Ty = LHS->getType();
@@ -1775,6 +1776,10 @@ Value *SCEVExpander::expandSMinExpr(const SCEVNAryExpr *S) {
 }
 
 Value *SCEVExpander::expandUMinExpr(const SCEVNAryExpr *S) {
+=======
+Value *SCEVExpander::expandMinMaxExpr(const SCEVNAryExpr *S,
+                                      Intrinsic::ID IntrinID, Twine Name) {
+>>>>>>> c1bb4a881efe7d15083fd9a453c82d92ad663878
   Value *LHS = expand(S->getOperand(S->getNumOperands() - 1));
   Type *Ty = LHS->getType();
 #if INTEL_COLLAB
@@ -1788,12 +1793,18 @@ Value *SCEVExpander::expandUMinExpr(const SCEVNAryExpr *S) {
     if (Ty->isIntegerTy() && !isSPIRV)
 #else
     if (Ty->isIntegerTy())
+<<<<<<< HEAD
 #endif // INTEL_COLLAB
       Sel = Builder.CreateIntrinsic(Intrinsic::umin, {Ty}, {LHS, RHS},
                                     /*FMFSource=*/nullptr, "umin");
+=======
+      Sel = Builder.CreateIntrinsic(IntrinID, {Ty}, {LHS, RHS},
+                                    /*FMFSource=*/nullptr, Name);
+>>>>>>> c1bb4a881efe7d15083fd9a453c82d92ad663878
     else {
-      Value *ICmp = Builder.CreateICmpULT(LHS, RHS);
-      Sel = Builder.CreateSelect(ICmp, LHS, RHS, "umin");
+      Value *ICmp =
+          Builder.CreateICmp(MinMaxIntrinsic::getPredicate(IntrinID), LHS, RHS);
+      Sel = Builder.CreateSelect(ICmp, LHS, RHS, Name);
     }
     LHS = Sel;
   }
@@ -1801,19 +1812,19 @@ Value *SCEVExpander::expandUMinExpr(const SCEVNAryExpr *S) {
 }
 
 Value *SCEVExpander::visitSMaxExpr(const SCEVSMaxExpr *S) {
-  return expandSMaxExpr(S);
+  return expandMinMaxExpr(S, Intrinsic::smax, "smax");
 }
 
 Value *SCEVExpander::visitUMaxExpr(const SCEVUMaxExpr *S) {
-  return expandUMaxExpr(S);
+  return expandMinMaxExpr(S, Intrinsic::umax, "umax");
 }
 
 Value *SCEVExpander::visitSMinExpr(const SCEVSMinExpr *S) {
-  return expandSMinExpr(S);
+  return expandMinMaxExpr(S, Intrinsic::smin, "smin");
 }
 
 Value *SCEVExpander::visitUMinExpr(const SCEVUMinExpr *S) {
-  return expandUMinExpr(S);
+  return expandMinMaxExpr(S, Intrinsic::umin, "umin");
 }
 
 Value *SCEVExpander::visitSequentialUMinExpr(const SCEVSequentialUMinExpr *S) {
@@ -1830,7 +1841,7 @@ Value *SCEVExpander::visitSequentialUMinExpr(const SCEVSequentialUMinExpr *S) {
 
   Value *AnyOpIsZero = Builder.CreateLogicalOr(OpIsZero);
 
-  Value *NaiveUMin = expandUMinExpr(S);
+  Value *NaiveUMin = expandMinMaxExpr(S, Intrinsic::umin, "umin");
   return Builder.CreateSelect(AnyOpIsZero, SaturationPoint, NaiveUMin);
 }
 
