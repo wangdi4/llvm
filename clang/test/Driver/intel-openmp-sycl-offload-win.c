@@ -3,7 +3,6 @@
 /// on Windows.
 ///
 
-// REQUIRES: clang-driver
 // REQUIRES: x86-registered-target
 // REQUIRES: system-windows
 #if INTEL_CUSTOMIZATION
