@@ -168,6 +168,7 @@ private:
   mutable std::unique_ptr<Tool> IfsMerge;
   mutable std::unique_ptr<Tool> OffloadBundler;
   mutable std::unique_ptr<Tool> OffloadWrapper;
+  mutable std::unique_ptr<Tool> OffloadPackager;
   mutable std::unique_ptr<Tool> OffloadDeps;
   mutable std::unique_ptr<Tool> SPIRVTranslator;
   mutable std::unique_ptr<Tool> SPIRCheck;
@@ -187,6 +188,7 @@ private:
   Tool *getClangAs() const;
   Tool *getOffloadBundler() const;
   Tool *getOffloadWrapper() const;
+  Tool *getOffloadPackager() const;
   Tool *getOffloadDeps() const;
   Tool *getSPIRVTranslator() const;
   Tool *getSPIRCheck() const;
