@@ -443,7 +443,16 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
     LLVM_DEBUG(dbgs() << "NO FORTRAN FUNCTION\n");
     LLVM_DEBUG(dbgs() << "DOPE VECTOR CONSTANT PROPAGATION: END\n");
     return false;
-  } 
+  }
+
+  // CMPLRLLVM-37474: DVCP analysis is disabled for opaque pointers. This
+  // will be turned back on once the FE supplies a mechanism to collect the
+  // type of the pointers.
+  if (!M.getContext().supportsTypedPointers()) {
+    LLVM_DEBUG(dbgs() << "OPAQUE POINTERS ENABLED\n");
+    LLVM_DEBUG(dbgs() << "DOPE VECTOR CONSTANT PROPAGATION: END\n");
+    return false;
+  }
 
   bool Change = false;
   const DataLayout &DL = M.getDataLayout();

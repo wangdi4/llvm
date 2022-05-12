@@ -734,6 +734,7 @@ void initializeBarrierInFunctionLegacyPass(PassRegistry &);
 void initializeBuiltinCallToInstLegacyPass(PassRegistry &);
 void initializeBuiltinImportLegacyPass(PassRegistry &);
 void initializeBuiltinLibInfoAnalysisLegacyPass(PassRegistry &);
+void initializeChannelPipeTransformationLegacyPass(PassRegistry &);
 void initializeCleanupWrappedKernelLegacyPass(PassRegistry &);
 void initializeCoerceTypesLegacyPass(PassRegistry &);
 void initializeCoerceWin64TypesLegacyPass(PassRegistry &);
@@ -801,6 +802,7 @@ void initializeVectorVariantLoweringLegacyPass(PassRegistry &);
 void initializeVFAnalysisLegacyPass(PassRegistry &);
 void initializeVectorizationDimensionAnalysisLegacyPass(PassRegistry &);
 void initializeWGLoopBoundariesLegacyPass(PassRegistry &);
+void initializeWeightedInstCountAnalysisLegacyPass(PassRegistry &);
 void initializeWorkItemAnalysisLegacyPass(PassRegistry &);
 void initializeWIRelatedValueWrapperPass(PassRegistry &);
 // Add/Sub reassociation pass

@@ -30,6 +30,8 @@ FunctionPass *createPhiCanonicalizationLegacyPass();
 FunctionPass *createRedundantPhiNodeLegacyPass();
 FunctionPass *createSinCosFoldLegacyPass();
 FunctionPass *createSoaAllocaAnalysisLegacyPass();
+FunctionPass *createWeightedInstCountAnalysisLegacyPass(
+    VectorVariant::ISAClass ISA = VectorVariant::XMM, bool PreVec = true);
 FunctionPass *createWorkItemAnalysisLegacyPass(unsigned VectorizeDim = 0);
 ImmutablePass *
 createBuiltinLibInfoAnalysisLegacyPass(ArrayRef<Module *> BuiltinModules = {});
@@ -45,6 +47,7 @@ ModulePass *createBarrierInFunctionLegacyPass();
 ModulePass *createBuiltinImportLegacyPass(
     const SmallVector<Module *, 2> &BuiltinModules = SmallVector<Module *, 2>(),
     StringRef CPUPrefix = "");
+ModulePass *createChannelPipeTransformationLegacyPass();
 ModulePass *createCleanupWrappedKernelLegacyPass();
 ModulePass *createCoerceTypesLegacyPass();
 ModulePass *createCoerceWin64TypesLegacyPass();

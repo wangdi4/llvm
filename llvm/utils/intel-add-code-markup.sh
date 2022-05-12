@@ -21,9 +21,9 @@ fi
 filename=$(basename -- "$exp")
 ext="${filename##*.}"
 if [[ $ext == ll ]]; then
-  markup="; INTEL"
+  markup=";INTEL"
 elif [[ $ext == mir ]]; then
-  markup="# INTEL"
+  markup="#INTEL"
 else
   echo "Unsupported file extension!" && exit 1
 fi

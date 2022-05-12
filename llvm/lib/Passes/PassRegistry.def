@@ -127,6 +127,7 @@ MODULE_PASS("dpcpp-kernel-patch-callback-args", PatchCallbackArgsPass())
 MODULE_PASS("dpcpp-kernel-pipe-ordering", PipeOrderingPass())
 MODULE_PASS("dpcpp-kernel-prepare-args", PrepareKernelArgsPass())
 MODULE_PASS("dpcpp-kernel-profiling-info", ProfilingInfoPass())
+MODULE_PASS("dpcpp-kernel-channel-pipe-transformation", ChannelPipeTransformationPass())
 MODULE_PASS("dpcpp-kernel-cleanup-wrapped", CleanupWrappedKernelPass())
 MODULE_PASS("dpcpp-kernel-coerce-types", CoerceTypesPass())
 MODULE_PASS("dpcpp-kernel-duplicate-called-kernels", DuplicateCalledKernelsPass())
@@ -506,6 +507,7 @@ FUNCTION_ANALYSIS("hir-parvec-analysis", loopopt::HIRParVecAnalysisPass())
 FUNCTION_ANALYSIS("hir-array-section-analysis", loopopt::HIRArraySectionAnalysisPass())
 
 FUNCTION_ANALYSIS("dpcpp-kernel-soa-alloca-analysis", SoaAllocaAnalysis())
+FUNCTION_ANALYSIS("dpcpp-kernel-weighted-inst-count-analysis", WeightedInstCountAnalysis())
 FUNCTION_ANALYSIS("dpcpp-kernel-work-item-analysis", WorkItemAnalysis())
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB

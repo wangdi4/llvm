@@ -25,7 +25,6 @@ add_custom_target(VectorizationInfoGen ALL
 )
 
 include_directories(BEFORE "Heuristic")
-include_directories(BEFORE "PostDominanceFrontier")
 include_directories(BEFORE "Utils")
 include_directories(BEFORE "Predication")
 include_directories(BEFORE "OCLBranchProbability")
@@ -63,7 +62,6 @@ set(TARGET_INCLUDE_FILES
   OCLBranchProbability/OCLBranchProbability.h
   OCLVecClone/OCLVecClone.h
   Packetizer/Packetizer.h
-  PostDominanceFrontier/PostDominanceFrontier.h
   Predication/Linearizer.h
   Predication/PhiCanon.h
   Predication/Predicator.h
@@ -92,7 +90,6 @@ set(TARGET_SOURCE_FILES
   OCLVecClone/OCLVecClone.cpp
   Packetizer/Packetizer.cpp
   Packetizer/PacketizerInstData.cpp
-  PostDominanceFrontier/PostDominanceFrontier.cpp
   Predication/Linearizer.cpp
   Predication/PhiCanon.cpp
   Predication/Predicator.cpp

@@ -510,6 +510,7 @@ namespace {
       (void)llvm::createPipeOrderingLegacyPass();
       (void)llvm::createPrepareKernelArgsLegacyPass(false);
       (void)llvm::createProfilingInfoLegacyPass();
+      (void)llvm::createChannelPipeTransformationLegacyPass();
       (void)llvm::createCleanupWrappedKernelLegacyPass();
       (void)llvm::createCoerceTypesLegacyPass();
       (void)llvm::createVFAnalysisLegacyPass();
@@ -527,6 +528,7 @@ namespace {
       (void)llvm::createLinearIdResolverPass();
       (void)llvm::createVectorizationDimensionAnalysisLegacyPass();
       (void)llvm::createWGLoopBoundariesLegacyPass();
+      (void)llvm::createWeightedInstCountAnalysisLegacyPass();
       (void)llvm::createWorkItemAnalysisLegacyPass();
 
       // Optimize math calls

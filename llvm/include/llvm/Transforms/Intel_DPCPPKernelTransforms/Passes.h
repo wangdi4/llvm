@@ -21,6 +21,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinCallToInst.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinImport.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/ChannelPipeTransformation.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/CleanupWrappedKernel.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/CoerceTypes.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/CoerceWin64Types.h"
@@ -82,6 +83,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorVariant/VectorVariantLowering.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorizationDimensionAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/WGLoopBoundaries.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/WeightedInstCount.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/WorkItemAnalysis.h"
 
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_PASSES_H

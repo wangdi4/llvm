@@ -273,6 +273,18 @@ PipeKind getPipeKind(StringRef Name);
 /// Returns pipe builtin name of a kind.
 std::string getPipeName(PipeKind);
 
+/// @brief Returns the undelying type of the ArrayType
+///
+/// Functionality is similar to clang::ASTContext::getBaseElementType
+Type *getArrayElementType(const ArrayType *ArrTy);
+
+/// @brief Returns vector of numbers of elements in each dimension of the
+///        ArrayType
+void getArrayTypeDimensions(const ArrayType *ArrTy,
+                            SmallVectorImpl<size_t> &Dimensions);
+
+ArrayType *createMultiDimArray(Type *Ty, const ArrayRef<size_t> &Dimensions);
+
 /// Return true if string is name of work-item pipe builtin.
 bool isWorkItemPipeBuiltin(StringRef S);
 
@@ -342,6 +354,15 @@ std::string appendWorkGroupFinalizePrefix(StringRef S);
 
 /// Remove "__finalize_" prefix for \p S.
 std::string removeWorkGroupFinalizePrefix(StringRef S);
+
+/// Returns struct type with corresponding name if such exists
+/// The main difference from Module::getTypeByName is that this function
+/// doesn't account '.N' suffixes while comparing type names.
+///
+/// For example, if module contains only '__pipe_t.2' type:
+///   * Module::getTypeByName('__pipe_t') will return nullptr
+///   * getStructByName('__pipe_t', M) will return '__pipe_t_.2' type
+StructType *getStructByName(StringRef Name, const Module *M);
 
 /// Returns struct type with corresponding name if such exists
 /// The main difference from Module::getTypeByName is that this function

@@ -19,7 +19,6 @@
 #include "BitCodeContainer.h"
 #include "BuiltinModuleManager.h"
 #include "BuiltinModules.h"
-#include "ChannelPipeUtils.h"
 #include "CompilationUtils.h"
 #include "Compiler.h"
 #include "Kernel.h"
@@ -79,16 +78,6 @@ static void BEFatalErrorHandler(void * /*user_data*/, const char *reason,
       << "**Internal compiler error** " << reason << "\n"
       << "Please report the issue on Intel OpenCL forum \n"
       << "https://software.intel.com/en-us/forums/opencl for assistance. \n ";
-  // If the error is allocation memory failure, the info of big channel
-  // will be shown as a hint for user.
-  std::string reasonStr(reason);
-  if (reasonStr.find("Unable to allocate section memory") != std::string::npos &&
-      !Intel::OpenCL::DeviceBackend::ChannelPipesErrorLog.empty()) {
-    errs()
-        << "**The potential reason is the following big channel declaration:\n";
-    errs() << Intel::OpenCL::DeviceBackend::ChannelPipesErrorLog;
-  }
-
   abort();
 }
 
