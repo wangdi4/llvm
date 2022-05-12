@@ -2259,14 +2259,14 @@ BUILTIN(__builtin_csa_local_cache, "vi", "n")
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-TARGET_BUILTIN(__builtin_ia32_vdpphps128_mask, "V4fV4fV4fV4fUc", "ncV:128:", "avx512dotprodphps,avx512vl")
-TARGET_BUILTIN(__builtin_ia32_vdpphps256_mask, "V8fV8fV8fV8fUc", "ncV:256:", "avx512dotprodphps,avx512vl")
-TARGET_BUILTIN(__builtin_ia32_vdpphps512_mask, "V16fV16fV16fV16fUsIi", "ncV:512:", "avx512dotprodphps")
-TARGET_BUILTIN(__builtin_ia32_vdpphps128_maskz, "V4fV4fV4fV4fUc", "ncV:128:", "avx512dotprodphps,avx512vl")
-TARGET_BUILTIN(__builtin_ia32_vdpphps256_maskz, "V8fV8fV8fV8fUc", "ncV:256:", "avx512dotprodphps,avx512vl")
-TARGET_BUILTIN(__builtin_ia32_vdpphps512_maskz, "V16fV16fV16fV16fUsIi", "ncV:512:", "avx512dotprodphps")
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
+TARGET_BUILTIN(__builtin_ia32_vdpphps128_mask, "V4fV4fV4fV4fUc", "ncV:128:", "avx512vnnifp16,avx512vl")
+TARGET_BUILTIN(__builtin_ia32_vdpphps256_mask, "V8fV8fV8fV8fUc", "ncV:256:", "avx512vnnifp16,avx512vl")
+TARGET_BUILTIN(__builtin_ia32_vdpphps512_mask, "V16fV16fV16fV16fUsIi", "ncV:512:", "avx512vnnifp16")
+TARGET_BUILTIN(__builtin_ia32_vdpphps128_maskz, "V4fV4fV4fV4fUc", "ncV:128:", "avx512vnnifp16,avx512vl")
+TARGET_BUILTIN(__builtin_ia32_vdpphps256_maskz, "V8fV8fV8fV8fUc", "ncV:256:", "avx512vnnifp16,avx512vl")
+TARGET_BUILTIN(__builtin_ia32_vdpphps512_maskz, "V16fV16fV16fV16fUsIi", "ncV:512:", "avx512vnnifp16")
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 TARGET_BUILTIN(__builtin_ia32_vpdpbssd512, "V16iV16iV16iV16i", "ncV:512:", "avx512vnniint8")

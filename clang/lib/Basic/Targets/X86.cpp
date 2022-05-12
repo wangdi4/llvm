@@ -463,18 +463,18 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+amx-complex") {
       HasAMXCOMPLEX = true;
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
-#if INTEL_FEATURE_ISA_AMX_FP19
-    } else if (Feature == "+amx-fp19") {
-      HasAMXFP19 = true;
-#endif // INTEL_FEATURE_ISA_AMX_FP19
+#if INTEL_FEATURE_ISA_AMX_TF32
+    } else if (Feature == "+amx-tf32") {
+      HasAMXTF32 = true;
+#endif // INTEL_FEATURE_ISA_AMX_TF32
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
     } else if (Feature == "+avx512vnniint8") {
       HasAVX512VNNIINT8 = true;
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-    } else if (Feature == "+avx512dotprodphps") {
-      HasAVX512DOTPRODPHPS = true;
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
+    } else if (Feature == "+avx512vnnifp16") {
+      HasAVX512VNNIFP16 = true;
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
     } else if (Feature == "+avx512convert") {
       HasAVX512CONVERT = true;
@@ -1194,21 +1194,21 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMXCOMPLEX__");
   Builder.defineMacro("__AMXCOMPLEX_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
-#if INTEL_FEATURE_ISA_AMX_FP19
-  if (HasAMXFP19)
-    Builder.defineMacro("__AMXFP19__");
-  Builder.defineMacro("__AMXFP19_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_AMX_FP19
+#if INTEL_FEATURE_ISA_AMX_TF32
+  if (HasAMXTF32)
+    Builder.defineMacro("__AMXTF32__");
+  Builder.defineMacro("__AMXTF32_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_TF32
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
   if (HasAVX512VNNIINT8)
     Builder.defineMacro("__AVX512VNNIINT8__");
   Builder.defineMacro("__AVX512VNNIINT8_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-  if (HasAVX512DOTPRODPHPS)
-    Builder.defineMacro("__AVX512DOTPRODPHPS__");
-  Builder.defineMacro("__AVX512DOTPRODPHPS_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
+  if (HasAVX512VNNIFP16)
+    Builder.defineMacro("__AVX512VNNIFP16__");
+  Builder.defineMacro("__AVX512VNNIFP16_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
   if (HasAVX512CONVERT)
     Builder.defineMacro("__AVX512CONVERT__");
@@ -1576,9 +1576,9 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
       .Case("amx-complex", true)
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
-#if INTEL_FEATURE_ISA_AMX_FP19
-      .Case("amx-fp19", true)
-#endif // INTEL_FEATURE_ISA_AMX_FP19
+#if INTEL_FEATURE_ISA_AMX_TF32
+      .Case("amx-tf32", true)
+#endif // INTEL_FEATURE_ISA_AMX_TF32
 #endif // INTEL_CUSTOMIZATION
       .Case("avx", true)
       .Case("avx2", true)
@@ -1685,9 +1685,9 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
       .Case("avx512vnniint8", true)
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-      .Case("avx512dotprodphps", true)
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
+      .Case("avx512vnnifp16", true)
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
       .Case("avx512convert", true)
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
@@ -1867,9 +1867,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
       .Case("amx-complex", HasAMXCOMPLEX)
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
-#if INTEL_FEATURE_ISA_AMX_FP19
-      .Case("amx-fp19", HasAMXFP19)
-#endif // INTEL_FEATURE_ISA_AMX_FP19
+#if INTEL_FEATURE_ISA_AMX_TF32
+      .Case("amx-tf32", HasAMXTF32)
+#endif // INTEL_FEATURE_ISA_AMX_TF32
 #if INTEL_FEATURE_ISA_AVX_IFMA
       .Case("avxifma", HasAVXIFMA)
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
@@ -1900,9 +1900,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
       .Case("avx512vnniint8", HasAVX512VNNIINT8)
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-      .Case("avx512dotprodphps", HasAVX512DOTPRODPHPS)
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
+      .Case("avx512vnnifp16", HasAVX512VNNIFP16)
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
       .Case("avx512convert", HasAVX512CONVERT)
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT

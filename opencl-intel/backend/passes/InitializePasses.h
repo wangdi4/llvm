@@ -41,8 +41,7 @@ void initializeRemoveDuplicationBarrierPass(llvm::PassRegistry&);
 
 void initializeReplaceScalarWithMaskPass(llvm::PassRegistry&);
 void initializePreventDivCrashesPass(llvm::PassRegistry&);
-void initializeOclFunctionAttrsPass(llvm::PassRegistry&);
-void initializeBuiltinLibInfoPass(llvm::PassRegistry &);
+void initializeBuiltinLibInfoPass(llvm::PassRegistry&);
 void initializePrefetchPass(llvm::PassRegistry&);
 void initializePostDominanceFrontierPass(llvm::PassRegistry&);
 void initializeLocalBuffersPass(llvm::PassRegistry &);

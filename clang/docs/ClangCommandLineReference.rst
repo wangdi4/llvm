@@ -3715,10 +3715,10 @@ X86
 .. option:: -mamx-fp16, -mno-amx-fp16
 
 .. end INTEL_FEATURE_ISA_AMX_FP16
-.. INTEL_FEATURE_ISA_AMX_FP19
-.. option:: -mamx-fp19, -mno-amx-fp19
+.. INTEL_FEATURE_ISA_AMX_TF32
+.. option:: -mamx-tf32, -mno-amx-tf32
 
-.. end INTEL_FEATURE_ISA_AMX_FP19
+.. end INTEL_FEATURE_ISA_AMX_TF32
 .. INTEL_FEATURE_ISA_AMX_MEMORY2
 .. option:: -mamx-memory2, -mno-amx-memory2
 

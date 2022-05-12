@@ -126,7 +126,6 @@ llvm::ModulePass *createSubGroupAdaptationPass();
 llvm::ModulePass *createChannelPipeTransformationPass();
 llvm::ModulePass *createPipeIOTransformationPass();
 llvm::ModulePass *createPipeSupportPass();
-llvm::ModulePass *createOclFunctionAttrsPass();
 llvm::Pass *createBuiltinLibInfoPass(ArrayRef<Module *> pRtlModuleList,
                                      std::string type);
 llvm::ModulePass *createUndifinedExternalFunctionsPass(
@@ -449,7 +448,7 @@ static void populatePassesPostFailCheck(
   }
 
   // Run few more passes after GenericAddressStaticResolution
-  PM.add(createOclFunctionAttrsPass());
+  PM.add(llvm::createInferArgumentAliasLegacyPass());
   PM.add(llvm::createUnifyFunctionExitNodesPass());
 
 

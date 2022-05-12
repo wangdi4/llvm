@@ -263,10 +263,9 @@ constexpr FeatureBitset FeaturesCommonAVX256 =
 // FIXME: Need to change to AVX512-NE-CONVERT
     FeatureAVX512CONVERT |
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-// FIXME: Need to change to AVX512-VNNI-FP16
-    FeatureAVX512DOTPRODPHPS |
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
+    FeatureAVX512VNNIFP16 |
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT16
     FeatureAVX512VNNIINT16 |
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT16
@@ -711,11 +710,11 @@ static constexpr FeatureBitset ImpliedFeaturesAVX512MOVGET = FeatureAVX512F;
 static constexpr FeatureBitset ImpliedFeaturesAVX512VNNIINT8 = FeatureAVX512F |
     FeatureAVXVNNIINT8;
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-static constexpr FeatureBitset ImpliedFeaturesAVX512DOTPRODPHPS = FeatureAVX512F |
+#if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
+static constexpr FeatureBitset ImpliedFeaturesAVX512VNNIFP16 = FeatureAVX512F |
     FeatureAVX512FP16 | FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL |
     FeatureAVXDOTPRODPHPS;
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
 static constexpr FeatureBitset ImpliedFeaturesAVX512CONVERT = FeatureAVX512F |
     FeatureAVX512FP16 | FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL |
@@ -772,9 +771,9 @@ static constexpr FeatureBitset ImpliedFeaturesAMX_MEMADVISE_EVEX = FeatureAMX_TI
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
 static constexpr FeatureBitset ImpliedFeaturesAMX_COMPLEX = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
-#if INTEL_FEATURE_ISA_AMX_FP19
-static constexpr FeatureBitset ImpliedFeaturesAMX_FP19 = FeatureAMX_TILE;
-#endif // INTEL_FEATURE_ISA_AMX_FP19
+#if INTEL_FEATURE_ISA_AMX_TF32
+static constexpr FeatureBitset ImpliedFeaturesAMX_TF32 = FeatureAMX_TILE;
+#endif // INTEL_FEATURE_ISA_AMX_TF32
 #if INTEL_FEATURE_ISA_GPR_MOVGET
 static constexpr FeatureBitset ImpliedFeaturesGPRMOVGET = {};
 #endif // INTEL_FEATURE_ISA_GPR_MOVGET

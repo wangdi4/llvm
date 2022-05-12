@@ -1098,10 +1098,10 @@ static ShapeT getTileShape(Register VirtReg, VirtRegMap *VRM,
   case X86::PTTCMMIMFP16PSV:
   case X86::PTTCMMRLFP16PSV:
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
-#if INTEL_FEATURE_ISA_AMX_FP19
-  case X86::PTMMULFP19PSV:
-  case X86::PTTMMULFP19PSV:
-#endif // INTEL_FEATURE_ISA_AMX_FP19
+#if INTEL_FEATURE_ISA_AMX_TF32
+  case X86::PTMMULTF32PSV:
+  case X86::PTTMMULTF32PSV:
+#endif // INTEL_FEATURE_ISA_AMX_TF32
 #endif // INTEL_CUSTOMIZATION
     MachineOperand &MO1 = MI->getOperand(1);
     MachineOperand &MO2 = MI->getOperand(2);

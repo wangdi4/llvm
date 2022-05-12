@@ -5134,10 +5134,10 @@ def mamx_fp16 : Flag<["-"], "mamx-fp16">, Group<m_x86_Features_Group>;
 def mno_amx_fp16 : Flag<["-"], "mno-amx-fp16">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AMX_FP16
 
-#if INTEL_FEATURE_ISA_AMX_FP19
-def mamx_fp19 : Flag<["-"], "mamx-fp19">, Group<m_x86_Features_Group>;
-def mno_amx_fp19 : Flag<["-"], "mno-amx-fp19">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_AMX_FP19
+#if INTEL_FEATURE_ISA_AMX_TF32
+def mamx_tf32 : Flag<["-"], "mamx-tf32">, Group<m_x86_Features_Group>;
+def mno_amx_tf32 : Flag<["-"], "mno-amx-tf32">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AMX_TF32
 
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
 def mamx_memory2 : Flag<["-"], "mamx-memory2">, Group<m_x86_Features_Group>;
@@ -5238,10 +5238,10 @@ def mno_avx512convert : Flag<["-"], "mno-avx512convert">, Group<m_x86_Features_G
 def mavx512vnniint8 : Flag<["-"], "mavx512vnniint8">, Group<m_x86_Features_Group>;
 def mno_avx512vnniint8 : Flag<["-"], "mno-avx512vnniint8">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-def mavx512dotprodphps : Flag<["-"], "mavx512dotprodphps">, Group<m_x86_Features_Group>;
-def mno_avx512dotprodphps : Flag<["-"], "mno-avx512dotprodphps">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
+def mavx512vnnifp16 : Flag<["-"], "mavx512vnnifp16">, Group<m_x86_Features_Group>;
+def mno_avx512vnnifp16 : Flag<["-"], "mno-avx512vnnifp16">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 #endif // INTEL_CUSTOMIZATION
 def mavx512bitalg : Flag<["-"], "mavx512bitalg">, Group<m_x86_Features_Group>;
 def mno_avx512bitalg : Flag<["-"], "mno-avx512bitalg">, Group<m_x86_Features_Group>;

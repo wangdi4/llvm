@@ -999,13 +999,13 @@ def HasAVXVNNIINT8 : Predicate<"Subtarget->hasAVXVNNIINT8()">;
 def NoVLX_Or_NoAVX512VNNIINT8 :
     Predicate<"!Subtarget->hasVLX() || !Subtarget->hasAVX512VNNIINT8()">;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT8
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-def HasAVX512DOTPRODPHPS : Predicate<"Subtarget->hasAVX512DOTPRODPHPS()">;
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
+def HasAVX512VNNIFP16 : Predicate<"Subtarget->hasAVX512VNNIFP16()">;
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 def HasAVXDOTPRODPHPS : Predicate<"Subtarget->hasAVXDOTPRODPHPS()">;
-def NoVLX_Or_NoAVX512DOTPRODPHPS :
-    Predicate<"!Subtarget->hasVLX() || !Subtarget->hasAVX512DOTPRODPHPS()">;
+def NoVLX_Or_NoAVX512VNNIFP16 :
+    Predicate<"!Subtarget->hasVLX() || !Subtarget->hasAVX512VNNIFP16()">;
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
 def HasCONVERT : Predicate<"Subtarget->hasCONVERT()">;
@@ -1174,9 +1174,9 @@ def HasAMXMEMADVISEEVEX : Predicate<"Subtarget->hasAMXMEMADVISEEVEX()">;
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
 def HasAMXCOMPLEX : Predicate<"Subtarget->hasAMXCOMPLEX()">;
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
-#if INTEL_FEATURE_ISA_AMX_FP19
-def HasAMXFP19 : Predicate<"Subtarget->hasAMXFP19()">;
-#endif // INTEL_FEATURE_ISA_AMX_FP19
+#if INTEL_FEATURE_ISA_AMX_TF32
+def HasAMXTF32 : Predicate<"Subtarget->hasAMXTF32()">;
+#endif // INTEL_FEATURE_ISA_AMX_TF32
 #if INTEL_FEATURE_ISA_GPR_MOVGET
 def HasGPRMOVGET : Predicate<"Subtarget->hasGPRMOVGET()">;
 #endif // INTEL_FEATURE_ISA_GPR_MOVGET

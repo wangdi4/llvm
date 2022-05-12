@@ -249,12 +249,12 @@ def FeatureAVX512VNNIINT8 : SubtargetFeature<"avx512vnniint8",
                                "Enable AVX512-VNNI-INT8",
                                [FeatureAVXVNNIINT8, FeatureAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT8
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
-def FeatureAVX512DOTPRODPHPS : SubtargetFeature<"avx512dotprodphps",
-                               "HasAVX512DOTPRODPHPS", "true",
-                               "Enable AVX512-DOTPROD-PHPS",
+#if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
+def FeatureAVX512VNNIFP16 : SubtargetFeature<"avx512vnnifp16",
+                               "HasAVX512VNNIFP16", "true",
+                               "Enable AVX512-VNNI-FP16",
                                [FeatureAVXDOTPRODPHPS, FeatureFP16, FeatureAVX512]>;
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 #if INTEL_FEATURE_ISA_AVX_CONVERT
 def FeatureAVXCONVERT  : SubtargetFeature<"avxconvert", "HasAVXCONVERT", "true",
                            "Enable AVX-CONVERT",
@@ -474,11 +474,11 @@ def FeatureAMXCOMPLEX : SubtargetFeature<"amx-complex", "HasAMXCOMPLEX", "true",
                                           "Support AMX-COMPLEX instructions",
                                           [FeatureAMXTILE]>;
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
-#if INTEL_FEATURE_ISA_AMX_FP19
-def FeatureAMXFP19 : SubtargetFeature<"amx-fp19", "HasAMXFP19", "true",
-                                      "Support AMX-FP19 instructions",
+#if INTEL_FEATURE_ISA_AMX_TF32
+def FeatureAMXTF32 : SubtargetFeature<"amx-tf32", "HasAMXTF32", "true",
+                                      "Support AMX-TF32 instructions",
                                       [FeatureAMXTILE]>;
-#endif // INTEL_FEATURE_ISA_AMX_FP19
+#endif // INTEL_FEATURE_ISA_AMX_TF32
 #if INTEL_FEATURE_ISA_GPR_MOVGET
 def FeatureGPRMOVGET : SubtargetFeature<"gprmovget", "HasGPRMOVGET", "true",
                                         "Support GPR-MOVGET instructions",
@@ -1352,10 +1352,10 @@ def ProcessorFeatures {
 // FIXME: Need to change to AVX512-NE-CONVERT
     FeatureCONVERT,
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 // FIXME: Need to change to AVX512-VNNI-FP16
-    FeatureAVX512DOTPRODPHPS,
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+    FeatureAVX512VNNIFP16,
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT16
     FeatureAVX512VNNIINT16,
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT16

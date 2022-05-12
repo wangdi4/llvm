@@ -23,9 +23,9 @@ define void @test_amx(i8* %pointer, i8* %base, i64 %stride) {
 ; CHECK-NEXT:    tilezero %tmm2
 ; CHECK-NEXT:    ttdpbf16ps %tmm1, %tmm0, %tmm2
 ; CHECK-NEXT:    ttdpfp16ps %tmm1, %tmm0, %tmm2
-; CHECK-NEXT:    tilemovrowe $16, %tmm0, %zmm0
+; CHECK-NEXT:    tilemovrow $16, %tmm0, %zmm0
 ; CHECK-NEXT:    movl $16, %ecx
-; CHECK-NEXT:    tilemovrowe %ecx, %tmm0, %zmm0
+; CHECK-NEXT:    tilemovrow %ecx, %tmm0, %zmm0
 ; CHECK-NEXT:    tilestored %tmm2, (%rdi,%rdx)
 ; CHECK-NEXT:    tilerelease
 ; CHECK-NEXT:    vzeroupper
@@ -36,8 +36,8 @@ define void @test_amx(i8* %pointer, i8* %base, i64 %stride) {
   %c = call x86_amx @llvm.x86.tilezero.internal(i16 8, i16 8)
   %c1 = call x86_amx @llvm.x86.ttdpbf16ps.internal(i16 8, i16 8, i16 8, x86_amx %c, x86_amx %a, x86_amx %b)
   %c2 = call x86_amx @llvm.x86.ttdpfp16ps.internal(i16 8, i16 8, i16 8, x86_amx %c1, x86_amx %a, x86_amx %b)
-  call <16 x float> @llvm.x86.tilemovrowei.internal(i16 8, i16 8, x86_amx %a, i32 16)
-  call <16 x float> @llvm.x86.tilemovrowee.internal(i16 8, i16 8, x86_amx %a, i32 16)
+  call <16 x float> @llvm.x86.tilemovrowi.internal(i16 8, i16 8, x86_amx %a, i32 16)
+  call <16 x float> @llvm.x86.tilemovrowe.internal(i16 8, i16 8, x86_amx %a, i32 16)
   call void @llvm.x86.tilestored64.internal(i16 8, i16 8, i8* %pointer, i64 %stride, x86_amx %c2)
   ret void
 }
@@ -50,5 +50,5 @@ declare void @llvm.x86.tilestored64.internal(i16, i16, i8*, i64, x86_amx)
 declare x86_amx @llvm.x86.ttransposed.internal(i16, i16, x86_amx)
 declare x86_amx @llvm.x86.ttdpbf16ps.internal(i16, i16, i16, x86_amx, x86_amx, x86_amx)
 declare x86_amx @llvm.x86.ttdpfp16ps.internal(i16, i16, i16, x86_amx, x86_amx, x86_amx)
-declare <16 x float> @llvm.x86.tilemovrowei.internal(i16, i16, x86_amx, i32)
-declare <16 x float> @llvm.x86.tilemovrowee.internal(i16, i16, x86_amx, i32)
+declare <16 x float> @llvm.x86.tilemovrowi.internal(i16, i16, x86_amx, i32)
+declare <16 x float> @llvm.x86.tilemovrowe.internal(i16, i16, x86_amx, i32)

@@ -5,9 +5,9 @@
 ; CHECK:       # %bb.0:
 ; amx-avx512
 ; CHECK:    tile16move %zmm{{.*}}, %tmm4
-; CHECK:    tilemovrowe $9, %tmm7, %zmm{{.*}}
-; CHECK:    tilemovrowe %{{.*}}, %tmm7, %zmm{{.*}}
-; CHECK:    tilemovrowe %xmm{{.*}}, %tmm7, %zmm{{.*}}
+; CHECK:    tilemovrow $9, %tmm7, %zmm{{.*}}
+; CHECK:    tilemovrow %{{.*}}, %tmm7, %zmm{{.*}}
+; CHECK:    tilemovrow %xmm{{.*}}, %tmm7, %zmm{{.*}}
 ; amx-transpose
 ; CHECK:    t2rpntlvw       %{{.*}}, (%{{.*}},%{{.*}}), %tmm0
 ; CHECK:    t2rpntlvwt1     %{{.*}}, (%{{.*}},%{{.*}}), %tmm2

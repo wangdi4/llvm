@@ -8,7 +8,6 @@ include_directories(${LLVM_INCLUDE_DIRS}
 add_subdirectory(ChannelPipeTransformation)
 add_subdirectory(PipeIOTransformation)
 add_subdirectory(PipeSupport)
-add_subdirectory(OclFunctionAttrs)
 add_subdirectory(BuiltinLibInfo)
 add_subdirectory(InfiniteLoopCreator)
 add_subdirectory(PreventDivCrashes)
