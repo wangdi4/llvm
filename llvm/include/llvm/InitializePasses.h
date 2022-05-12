@@ -757,6 +757,7 @@ void initializeHandleVPlanMaskLegacyPass(PassRegistry &);
 void initializeImplicitArgsAnalysisLegacyPass(PassRegistry &);
 void initializeImplicitGIDLegacyPass(PassRegistry &);
 void initializeIndirectCallLoweringLegacyPass(PassRegistry &);
+void initializeInferArgumentAliasLegacyPass(PassRegistry &);
 void initializeInstToFuncCallLegacyPass(PassRegistry &);
 void initializeInternalizeGlobalVariablesLegacyPass(PassRegistry &);
 void initializeInternalizeNonKernelFuncLegacyPass(PassRegistry &);

@@ -216,7 +216,6 @@ set( BACKEND_PASSES
     ChannelPipeTransformation
     PipeIOTransformation
     PipeSupport
-    OclFunctionAttrs
     BuiltinLibInfo
     DebugInfoPass
     DetectRecursion

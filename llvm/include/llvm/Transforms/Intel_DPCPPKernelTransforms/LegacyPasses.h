@@ -72,6 +72,7 @@ createHandleVPlanMaskLegacyPass(const StringSet<> *VPlanMaskedFuncs);
 ModulePass *createImplicitArgsAnalysisLegacyPass();
 ModulePass *createImplicitGIDLegacyPass(bool HandleBarrier = true);
 ModulePass *createIndirectCallLoweringLegacyPass();
+ModulePass *createInferArgumentAliasLegacyPass();
 ModulePass *createInstToFuncCallLegacyPass(
     VectorVariant::ISAClass ISA = VectorVariant::XMM);
 ModulePass *createInternalizeGlobalVariablesLegacyPass();

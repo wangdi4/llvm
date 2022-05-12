@@ -34,6 +34,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   HandleVPlanMask.cpp
   ImplicitArgsAnalysis.cpp
   ImplicitGID.cpp
+  InferArgumentAlias.cpp
   InstToFuncCall.cpp
   InternalizeGlobalVariables.cpp
   InternalizeNonKernelFunc.cpp
