@@ -48,6 +48,7 @@
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Lex/Lexer.h"
 #include "clang/Lex/LiteralSupport.h"
+#include "clang/Lex/Preprocessor.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/raw_ostream.h"
@@ -2261,12 +2262,19 @@ APValue SourceLocExpr::EvaluateInContext(const ASTContext &Ctx,
   switch (getIdentKind()) {
 #if INTEL_CUSTOMIZATION
   case SourceLocExpr::File: {
+<<<<<<< HEAD
     if (Ctx.getLangOpts().isIntelCompat(LangOptions::DisplayFullFilePath)) {
       SmallString<256> Path(PLoc.getFilename());
       Ctx.getLangOpts().remapPathPrefix(Path);
       return MakeStringLiteral(Path);
     }
     return MakeStringLiteral(llvm::sys::path::filename(PLoc.getFilename()));
+=======
+    SmallString<256> Path(PLoc.getFilename());
+    clang::Preprocessor::processPathForFileMacro(Path, Ctx.getLangOpts(),
+                                                 Ctx.getTargetInfo());
+    return MakeStringLiteral(Path);
+>>>>>>> 5e4f8f782b24b67de9a43d3b79838b6e67780260
   }
 #endif  // INTEL_CUSTOMIZATION
   case SourceLocExpr::Function: {
@@ -2299,7 +2307,8 @@ APValue SourceLocExpr::EvaluateInContext(const ASTContext &Ctx,
       StringRef Name = F->getName();
       if (Name == "_M_file_name") {
         SmallString<256> Path(PLoc.getFilename());
-        Ctx.getLangOpts().remapPathPrefix(Path);
+        clang::Preprocessor::processPathForFileMacro(Path, Ctx.getLangOpts(),
+                                                     Ctx.getTargetInfo());
         Value.getStructField(F->getFieldIndex()) = MakeStringLiteral(Path);
       } else if (Name == "_M_function_name") {
         // Note: this emits the PrettyFunction name -- different than what
