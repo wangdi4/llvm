@@ -853,7 +853,7 @@ def SDTX86MaskedStore: SDTypeProfile<0, 3, [       // masked store
 ]>;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 def X86vdpphps : SDNode<"X86ISD::VDPPHPS",
                     SDTypeProfile<1, 3, [SDTCVecEltisVT<0, f32>,
                                          SDTCVecEltisVT<1, f32>,
@@ -865,7 +865,7 @@ def X86vdpphpsRnd : SDNode<"X86ISD::VDPPHPS_RND",
                                             SDTCisSameAs<1,2>,
                                             SDTCisSameAs<1,3>,
                                             SDTCisVT<4, i32>]>>;
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
 def X86vpdpbssd  : SDNode<"X86ISD::VPDPBSSD",  SDTVnni>;
 def X86vpdpbssds : SDNode<"X86ISD::VPDPBSSDS", SDTVnni>;

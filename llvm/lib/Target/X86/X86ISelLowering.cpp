@@ -34526,10 +34526,10 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(ENQCMDS)
   NODE_NAME_CASE(VP2INTERSECT)
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
   NODE_NAME_CASE(VDPPHPS)
   NODE_NAME_CASE(VDPPHPS_RND)
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT8
   NODE_NAME_CASE(VPDPBSUD)
   NODE_NAME_CASE(VPDPBSUDS)
@@ -37783,9 +37783,9 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
-  case X86::PTILEMOVROWErri:{
+  case X86::PTILEMOVROWrri:{
     const DebugLoc &DL = MI.getDebugLoc();
-    unsigned Opc = X86::TILEMOVROWErri;
+    unsigned Opc = X86::TILEMOVROWrri;
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
     MIB.add(MI.getOperand(0));
     MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()), RegState::Undef);
@@ -37794,14 +37794,14 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
-  case X86::PTILEMOVROWErre:
-  case X86::PTILEMOVROWErrx:{
+  case X86::PTILEMOVROWrre:
+  case X86::PTILEMOVROWrrx:{
     const DebugLoc &DL = MI.getDebugLoc();
     unsigned Opc;
     switch (MI.getOpcode()) {
     default: llvm_unreachable("Unexpected instruction!");
-    case X86::PTILEMOVROWErre: Opc = X86::TILEMOVROWErre; break;
-    case X86::PTILEMOVROWErrx: Opc = X86::TILEMOVROWErrx; break;
+    case X86::PTILEMOVROWrre: Opc = X86::TILEMOVROWrre; break;
+    case X86::PTILEMOVROWrrx: Opc = X86::TILEMOVROWrrx; break;
     }
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
     MIB.add(MI.getOperand(0));
@@ -38320,15 +38320,15 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     return BB;
   }
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
-#if INTEL_FEATURE_ISA_AMX_FP19
-  case X86::PTMMULFP19PS:
-  case X86::PTTMMULFP19PS: {
+#if INTEL_FEATURE_ISA_AMX_TF32
+  case X86::PTMMULTF32PS:
+  case X86::PTTMMULTF32PS: {
     const DebugLoc &DL = MI.getDebugLoc();
     unsigned Opc;
     switch (MI.getOpcode()) {
     default: llvm_unreachable("Unexpected instruction!");
-    case X86::PTMMULFP19PS:  Opc = X86::TMMULFP19PS;  break;
-    case X86::PTTMMULFP19PS: Opc = X86::TTMMULFP19PS; break;
+    case X86::PTMMULTF32PS:  Opc = X86::TMMULTF32PS;  break;
+    case X86::PTTMMULTF32PS: Opc = X86::TTMMULTF32PS; break;
     }
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
     MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
@@ -38339,22 +38339,22 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
-#endif // INTEL_FEATURE_ISA_AMX_FP19
+#endif // INTEL_FEATURE_ISA_AMX_TF32
 #if INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
-  case X86::PTCVTROWPS2PBF16HErri:
-  case X86::PTCVTROWPS2PBF16LErri:
-  case X86::PTCVTROWPS2PHHErri:
-  case X86::PTCVTROWPS2PHLErri:
-  case X86::PTCVTROWD2PSErri: {
+  case X86::PTCVTROWPS2PBF16Hrri:
+  case X86::PTCVTROWPS2PBF16Lrri:
+  case X86::PTCVTROWPS2PHHrri:
+  case X86::PTCVTROWPS2PHLrri:
+  case X86::PTCVTROWD2PSrri: {
     const DebugLoc &DL = MI.getDebugLoc();
     unsigned Opc;
     switch (MI.getOpcode()) {
     default: llvm_unreachable("Unexpected instruction!");
-    case X86::PTCVTROWD2PSErri: Opc = X86::TCVTROWD2PSErri; break;
-    case X86::PTCVTROWPS2PBF16HErri: Opc = X86::TCVTROWPS2PBF16HErri; break;
-    case X86::PTCVTROWPS2PHHErri: Opc = X86::TCVTROWPS2PHHErri; break;
-    case X86::PTCVTROWPS2PBF16LErri: Opc = X86::TCVTROWPS2PBF16LErri; break;
-    case X86::PTCVTROWPS2PHLErri: Opc = X86::TCVTROWPS2PHLErri; break;
+    case X86::PTCVTROWD2PSrri: Opc = X86::TCVTROWD2PSrri; break;
+    case X86::PTCVTROWPS2PBF16Hrri: Opc = X86::TCVTROWPS2PBF16Hrri; break;
+    case X86::PTCVTROWPS2PHHrri: Opc = X86::TCVTROWPS2PHHrri; break;
+    case X86::PTCVTROWPS2PBF16Lrri: Opc = X86::TCVTROWPS2PBF16Lrri; break;
+    case X86::PTCVTROWPS2PHLrri: Opc = X86::TCVTROWPS2PHLrri; break;
     }
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
     MIB.add(MI.getOperand(0));
@@ -38364,20 +38364,20 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
-  case X86::PTCVTROWPS2PBF16HErre:
-  case X86::PTCVTROWPS2PBF16LErre:
-  case X86::PTCVTROWPS2PHHErre:
-  case X86::PTCVTROWPS2PHLErre:
-  case X86::PTCVTROWD2PSErre: {
+  case X86::PTCVTROWPS2PBF16Hrre:
+  case X86::PTCVTROWPS2PBF16Lrre:
+  case X86::PTCVTROWPS2PHHrre:
+  case X86::PTCVTROWPS2PHLrre:
+  case X86::PTCVTROWD2PSrre: {
     const DebugLoc &DL = MI.getDebugLoc();
     unsigned Opc;
     switch (MI.getOpcode()) {
     default: llvm_unreachable("Unexpected instruction!");
-    case X86::PTCVTROWD2PSErre: Opc = X86::TCVTROWD2PSErre; break;
-    case X86::PTCVTROWPS2PBF16HErre: Opc = X86::TCVTROWPS2PBF16HErre; break;
-    case X86::PTCVTROWPS2PBF16LErre: Opc = X86::TCVTROWPS2PBF16LErre; break;
-    case X86::PTCVTROWPS2PHHErre: Opc = X86::TCVTROWPS2PHHErre; break;
-    case X86::PTCVTROWPS2PHLErre: Opc = X86::TCVTROWPS2PHLErre; break;
+    case X86::PTCVTROWD2PSrre: Opc = X86::TCVTROWD2PSrre; break;
+    case X86::PTCVTROWPS2PBF16Hrre: Opc = X86::TCVTROWPS2PBF16Hrre; break;
+    case X86::PTCVTROWPS2PBF16Lrre: Opc = X86::TCVTROWPS2PBF16Lrre; break;
+    case X86::PTCVTROWPS2PHHrre: Opc = X86::TCVTROWPS2PHHrre; break;
+    case X86::PTCVTROWPS2PHLrre: Opc = X86::TCVTROWPS2PHLrre; break;
     }
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
     MIB.add(MI.getOperand(0));

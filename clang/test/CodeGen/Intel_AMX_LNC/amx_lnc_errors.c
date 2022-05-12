@@ -391,16 +391,16 @@ void test_tile_mov16zmm(__m512 tsrc1, __m512 tsrc2, __m512 tsrc3, __m512 tsrc4,
             tsrc9, tsrc10, tsrc11, tsrc12, tsrc13, tsrc14, tsrc15, tsrc16);
 }
 
-void test_tile_tilemovrowei() {
-  _tile_tilemovrowei(8, 1); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
+void test_tile_tilemovrowi() {
+  _tile_tilemovrowi(8, 1); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 typedef unsigned int uint32_t;
-void test_tile_tilemovrowee(uint32_t A) {
-  _tile_tilemovrowee(8, A); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
+void test_tile_tilemovrowe(uint32_t A) {
+  _tile_tilemovrowe(8, A); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 typedef float __m128 __attribute__((__vector_size__(16)));
-void test_tile_tilemovrowex(__m128 A) {
-  _tile_tilemovrowex(8, A); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
+void test_tile_tilemovrowx(__m128 A) {
+  _tile_tilemovrowx(8, A); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }

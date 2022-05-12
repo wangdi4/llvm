@@ -5,47 +5,47 @@
 
 #include <immintrin.h>
 #include <stddef.h>
-void test_tile_tcvtrowps2pbf16hei() {
-  _tile_tcvtrowps2pbf16hei(32, 1);   // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-  _tile_tcvtrowps2pbf16hei(31, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
+void test_tile_tcvtrowps2pbf16hi() {
+  _tile_tcvtrowps2pbf16hi(32, 1);   // expected-error {{argument value 32 is outside the valid range [0, 31]}}
+  _tile_tcvtrowps2pbf16hi(31, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
 }
 
-void test_tile_tcvtrowps2pbf16hee(unsigned int A) {
-  _tile_tcvtrowps2pbf16hee(32, A); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
+void test_tile_tcvtrowps2pbf16he(unsigned int A) {
+  _tile_tcvtrowps2pbf16he(32, A); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
 }
 
-void test_tile_tcvtrowps2phhei() {
-  _tile_tcvtrowps2phhei(32, 1);   // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-  _tile_tcvtrowps2phhei(31, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
+void test_tile_tcvtrowps2phhi() {
+  _tile_tcvtrowps2phhi(32, 1);   // expected-error {{argument value 32 is outside the valid range [0, 31]}}
+  _tile_tcvtrowps2phhi(31, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
 }
 
-void test_tile_tcvtrowps2phhee(unsigned int A) {
-  _tile_tcvtrowps2phhee(32, A); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
+void test_tile_tcvtrowps2phhe(unsigned int A) {
+  _tile_tcvtrowps2phhe(32, A); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
 }
 
-void test_tile_tcvtrowps2pbf16lei() {
-  _tile_tcvtrowps2pbf16lei(32, 1);   // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-  _tile_tcvtrowps2pbf16lei(31, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
+void test_tile_tcvtrowps2pbf16li() {
+  _tile_tcvtrowps2pbf16li(32, 1);   // expected-error {{argument value 32 is outside the valid range [0, 31]}}
+  _tile_tcvtrowps2pbf16li(31, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
 }
 
-void test_tile_tcvtrowps2pbf16lee(unsigned int A) {
-  _tile_tcvtrowps2pbf16lee(32, A); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
+void test_tile_tcvtrowps2pbf16le(unsigned int A) {
+  _tile_tcvtrowps2pbf16le(32, A); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
 }
 
-void test_tile_tcvtrowps2phlei() {
-  _tile_tcvtrowps2phlei(32, 1);   // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-  _tile_tcvtrowps2phlei(31, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
+void test_tile_tcvtrowps2phli() {
+  _tile_tcvtrowps2phli(32, 1);   // expected-error {{argument value 32 is outside the valid range [0, 31]}}
+  _tile_tcvtrowps2phli(31, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
 }
 
-void test_tile_tcvtrowps2phlee(unsigned int A) {
-  _tile_tcvtrowps2phlee(32, A); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
+void test_tile_tcvtrowps2phle(unsigned int A) {
+  _tile_tcvtrowps2phle(32, A); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
 }
 
-void test_tile_tcvtrowd2psee(unsigned int A) {
-  return _tile_tcvtrowd2psee(32, A); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
+void test_tile_tcvtrowd2pse(unsigned int A) {
+  return _tile_tcvtrowd2pse(32, A); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
 }
 
-void test_tile_tcvtrowd2psei() {
-  _tile_tcvtrowd2psei(32, 127); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-  _tile_tcvtrowd2psei(1, 256);  // expected-error {{argument value 256 is outside the valid range [0, 255]}}
+void test_tile_tcvtrowd2psi() {
+  _tile_tcvtrowd2psi(32, 127); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
+  _tile_tcvtrowd2psi(1, 256);  // expected-error {{argument value 256 is outside the valid range [0, 255]}}
 }

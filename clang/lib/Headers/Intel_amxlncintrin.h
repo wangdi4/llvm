@@ -49,9 +49,9 @@
   __builtin_ia32_tile16move(tdst, tsrc1, tsrc2, tsrc3, tsrc4, tsrc5, tsrc6,    \
   tsrc7, tsrc8, tsrc9, tsrc10, tsrc11, tsrc12, tsrc13, tsrc14, tsrc15, tsrc16)
 
-#define _tile_tilemovrowei(tsrc1, tsrc2)  __builtin_ia32_tilemovei(tsrc1, tsrc2)
-#define _tile_tilemovrowee(tsrc1, tsrc2)  __builtin_ia32_tilemovee(tsrc1, tsrc2)
-#define _tile_tilemovrowex(tsrc1, tsrc2)  __builtin_ia32_tilemovex(tsrc1, tsrc2)
+#define _tile_tilemovrowi(tsrc1, tsrc2)  __builtin_ia32_tilemovei(tsrc1, tsrc2)
+#define _tile_tilemovrowe(tsrc1, tsrc2)  __builtin_ia32_tilemovee(tsrc1, tsrc2)
+#define _tile_tilemovrowx(tsrc1, tsrc2)  __builtin_ia32_tilemovex(tsrc1, tsrc2)
 // BF16EVEX
 #define _tile_dpbf16pse(tsrc1_dst, tsrc2, tsrc3)                               \
   __builtin_ia32_tdpbf16pse(tsrc1_dst, tsrc2, tsrc3)
@@ -103,13 +103,13 @@ _tile_ttdpfp16ps_internal(unsigned short m, unsigned short n, unsigned short k,
 }
 
 static __inline__ __m512 __DEFAULT_FN_ATTRS_AVX512
-_tile_tilemovrowee_internal(unsigned short m, unsigned short n,
+_tile_tilemovrowe_internal(unsigned short m, unsigned short n,
                               _tile1024i src, unsigned u) {
-  return __builtin_ia32_tilemovrowee_internal(m, n, src, u);
+  return __builtin_ia32_tilemovrowe_internal(m, n, src, u);
 }
 
-#define _tile_tilemovrowei_internal(m, n, tsrc, i)                            \
-  __builtin_ia32_tilemovrowei_internal(m, n, tsrc, i)
+#define _tile_tilemovrowi_internal(m, n, tsrc, i)                            \
+  __builtin_ia32_tilemovrowi_internal(m, n, tsrc, i)
 
 /// Transpose 32-bit elements from src and write the result to dst.
 ///
@@ -183,7 +183,7 @@ static void __tile_ttdpfp16ps(__tile1024i *dst, __tile1024i src0,
 ///
 /// \headerfile <immintrin.h>
 ///
-/// This intrinsic corresponds to the <c> TILEMOVROWE </c> instruction.
+/// This intrinsic corresponds to the <c> TILEMOVROW </c> instruction.
 ///
 /// \param src0
 ///    The 1st source tile. Max size is 1024 Bytes.
@@ -192,8 +192,8 @@ static void __tile_ttdpfp16ps(__tile1024i *dst, __tile1024i src0,
 /// \ret
 ///    The destination v16f32 data. Size is 64 Bytes.
 __DEFAULT_FN_ATTRS_AVX512
-static __m512 __tile_tilemovrowee(__tile1024i src0, unsigned src1) {
-  return _tile_tilemovrowee_internal(src0.row, src0.col, src0.tile, src1);
+static __m512 __tile_tilemovrowe(__tile1024i src0, unsigned src1) {
+  return _tile_tilemovrowe_internal(src0.row, src0.col, src0.tile, src1);
 }
 
 /// Move one row of a tile data to a v16f32 data.
@@ -201,7 +201,7 @@ static __m512 __tile_tilemovrowee(__tile1024i src0, unsigned src1) {
 ///
 /// \headerfile <immintrin.h>
 ///
-/// This intrinsic corresponds to the <c> TILEMOVROWE </c> instruction.
+/// This intrinsic corresponds to the <c> TILEMOVROW </c> instruction.
 ///
 /// \param src0
 ///    The 1st source tile. Max size is 1024 Bytes.
@@ -209,8 +209,8 @@ static __m512 __tile_tilemovrowee(__tile1024i src0, unsigned src1) {
 ///    The 1st source imm8. Size is 4 Bytes.
 /// \ret
 ///    The destination v16f32 data. Size is 64 Bytes.
-#define __tile_tilemovrowei(src0, src1)                                     \
-  _tile_tilemovrowei_internal(src0.row, src0.col, src0.tile, src1);
+#define __tile_tilemovrowi(src0, src1)                                     \
+  _tile_tilemovrowi_internal(src0.row, src0.col, src0.tile, src1);
 
 #endif /* __x86_64__ */
 #endif /* __AMX_LNCINTRIN_H */

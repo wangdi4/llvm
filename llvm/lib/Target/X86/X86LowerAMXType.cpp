@@ -198,9 +198,9 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
   }
   // a * b + c
   // The shape depends on which operand.
-#if INTEL_FEATURE_ISA_AMX_FP19
-  case Intrinsic::x86_tmmulfp19ps_internal:
-#endif // INTEL_FEATURE_ISA_AMX_FP19
+#if INTEL_FEATURE_ISA_AMX_TF32
+  case Intrinsic::x86_tmmultf32ps_internal:
+#endif // INTEL_FEATURE_ISA_AMX_TF32
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
   case Intrinsic::x86_tcmmimfp16ps_internal:
   case Intrinsic::x86_tcmmrlfp16ps_internal:
@@ -251,16 +251,16 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
     }
     break;
   }
-#if INTEL_FEATURE_ISA_AMX_FP19
-  case Intrinsic::x86_ttmmulfp19ps_internal:
-#endif // INTEL_FEATURE_ISA_AMX_FP19
+#if INTEL_FEATURE_ISA_AMX_TF32
+  case Intrinsic::x86_ttmmultf32ps_internal:
+#endif // INTEL_FEATURE_ISA_AMX_TF32
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
   case Intrinsic::x86_tconjtcmmimfp16ps_internal:
   case Intrinsic::x86_ttcmmimfp16ps_internal:
   case Intrinsic::x86_ttcmmrlfp16ps_internal:
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_LNC
-  // Fixme: Here suppose feature amx_lnc is base of amx_fp19 and amx_complex.
+  // Fixme: Here suppose feature amx_lnc is base of amx_tf32 and amx_complex.
   case Intrinsic::x86_ttdpbf16ps_internal:
   case Intrinsic::x86_ttdpfp16ps_internal:
   {
@@ -312,16 +312,16 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
   }
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
-  case Intrinsic::x86_tcvtrowps2pbf16hee_internal:
-  case Intrinsic::x86_tcvtrowps2pbf16hei_internal:
-  case Intrinsic::x86_tcvtrowps2pbf16lee_internal:
-  case Intrinsic::x86_tcvtrowps2pbf16lei_internal:
-  case Intrinsic::x86_tcvtrowps2phhee_internal:
-  case Intrinsic::x86_tcvtrowps2phhei_internal:
-  case Intrinsic::x86_tcvtrowps2phlee_internal:
-  case Intrinsic::x86_tcvtrowps2phlei_internal:
-  case Intrinsic::x86_tcvtrowd2psee_internal:
-  case Intrinsic::x86_tcvtrowd2psei_internal: {
+  case Intrinsic::x86_tcvtrowps2pbf16he_internal:
+  case Intrinsic::x86_tcvtrowps2pbf16hi_internal:
+  case Intrinsic::x86_tcvtrowps2pbf16le_internal:
+  case Intrinsic::x86_tcvtrowps2pbf16li_internal:
+  case Intrinsic::x86_tcvtrowps2phhe_internal:
+  case Intrinsic::x86_tcvtrowps2phhi_internal:
+  case Intrinsic::x86_tcvtrowps2phle_internal:
+  case Intrinsic::x86_tcvtrowps2phli_internal:
+  case Intrinsic::x86_tcvtrowd2pse_internal:
+  case Intrinsic::x86_tcvtrowd2psi_internal: {
     assert(OpNo == 3 && "Illegal Operand Number.");
     Row = II->getArgOperand(0);
     Col = II->getArgOperand(1);

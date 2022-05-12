@@ -4790,9 +4790,9 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_vfcmulcsh_mask:
   case X86::BI__builtin_ia32_vfcmulcph512_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX512_VNNI_FP16
   case X86::BI__builtin_ia32_vdpphps512_mask:
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP16
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
   case X86::BI__builtin_ia32_vcvt2ps2ph512_mask:
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
@@ -5210,23 +5210,23 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_tconjtfp16:
     return CheckX86BuiltinTileArgumentsRange(TheCall, {0, 1});
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
-#if INTEL_FEATURE_ISA_AMX_FP19
-  case X86::BI__builtin_ia32_tmmulfp19ps:
-  case X86::BI__builtin_ia32_ttmmulfp19ps:
+#if INTEL_FEATURE_ISA_AMX_TF32
+  case X86::BI__builtin_ia32_tmmultf32ps:
+  case X86::BI__builtin_ia32_ttmmultf32ps:
     return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1, 2});
-#endif // INTEL_FEATURE_ISA_AMX_FP19
+#endif // INTEL_FEATURE_ISA_AMX_TF32
 #if INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
-  case X86::BI__builtin_ia32_tcvtrowps2pbf16hee:
-  case X86::BI__builtin_ia32_tcvtrowps2pbf16lee:
-  case X86::BI__builtin_ia32_tcvtrowps2phhee:
-  case X86::BI__builtin_ia32_tcvtrowps2phlee:
-  case X86::BI__builtin_ia32_tcvtrowd2psee:
+  case X86::BI__builtin_ia32_tcvtrowps2pbf16he:
+  case X86::BI__builtin_ia32_tcvtrowps2pbf16le:
+  case X86::BI__builtin_ia32_tcvtrowps2phhe:
+  case X86::BI__builtin_ia32_tcvtrowps2phle:
+  case X86::BI__builtin_ia32_tcvtrowd2pse:
     return CheckX86BuiltinTileArgumentsRange(TheCall, 0, 0, 31);
-  case X86::BI__builtin_ia32_tcvtrowps2pbf16hei:
-  case X86::BI__builtin_ia32_tcvtrowps2pbf16lei:
-  case X86::BI__builtin_ia32_tcvtrowps2phhei:
-  case X86::BI__builtin_ia32_tcvtrowps2phlei:
-  case X86::BI__builtin_ia32_tcvtrowd2psei:
+  case X86::BI__builtin_ia32_tcvtrowps2pbf16hi:
+  case X86::BI__builtin_ia32_tcvtrowps2pbf16li:
+  case X86::BI__builtin_ia32_tcvtrowps2phhi:
+  case X86::BI__builtin_ia32_tcvtrowps2phli:
+  case X86::BI__builtin_ia32_tcvtrowd2psi:
     return (CheckX86BuiltinTileArgumentsRange(TheCall, 0, 0, 31) ||
             CheckX86BuiltinTileArgumentsRange(TheCall, 1, 0, 255));
 #endif // INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
