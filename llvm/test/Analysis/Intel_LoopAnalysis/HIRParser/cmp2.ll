@@ -12,7 +12,7 @@
 ;  q[i] += p[i];
 ;}
 
-; CHECK: if (umin(%cmp2, %cmp4) != 0)
+; CHECK: if (%M1 == 2 && %M2 == 3)
 
 
 ; ModuleID = 'compare.c'
@@ -25,9 +25,6 @@ entry:
   br i1 %cmp.24, label %for.body.lr.ph, label %for.end
 
 for.body.lr.ph:                                   ; preds = %entry
-  %cmp2 = icmp eq i32 %M1, 2
-  %cmp4 = icmp eq i32 %M2, 3
-  %or.cond = and i1 %cmp2, %cmp4
   br label %for.body
 
 for.body:                                         ; preds = %if.end, %for.body.lr.ph
@@ -36,6 +33,9 @@ for.body:                                         ; preds = %if.end, %for.body.l
   %0 = load float, float* %arrayidx, align 4
   %conv1 = fadd float %0, 1.000000e+00
   store float %conv1, float* %arrayidx, align 4
+  %cmp2 = icmp eq i32 %M1, 2
+  %cmp4 = icmp eq i32 %M2, 3
+  %or.cond = and i1 %cmp2, %cmp4
   br i1 %or.cond, label %if.then, label %if.end
 
 if.then:                                          ; preds = %for.body

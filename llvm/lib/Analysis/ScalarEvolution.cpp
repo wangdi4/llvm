@@ -8226,7 +8226,12 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
         }
       }
       // Binary `and` is a bit-wise `umin`.
-      if (BO->LHS->getType()->isIntegerTy(1))
+#if INTEL_CUSTOMIZATION
+      // Parsing 'and' as 'umin' doesn't seem profitable for HIR.
+      // It is also a workaround for CMPLRLLVM-36301.
+      if (!isa<ScopedScalarEvolution>(this) &&
+          BO->LHS->getType()->isIntegerTy(1))
+#endif // INTEL_CUSTOMIZATION
         return getUMinExpr(getSCEV(BO->LHS), getSCEV(BO->RHS));
       break;
 

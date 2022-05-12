@@ -9,7 +9,8 @@
 
 ; "2": <2>          %"module_mp_thompson_mp_mp_thompson_$NO_MICRO.7.out" = %"module_mp_thompson_mp_mp_thompson_$NO_MICRO.7";
 ; "121": <121>        %rel.507 = trunc.i32.i1(%"module_mp_thompson_mp_mp_thompson_$NO_MICRO.7") != 0;
-; "124": <124>        %"module_mp_thompson_mp_mp_thompson_$NO_MICRO.7" = (umin(%rel.507, %rel.508) != 0) ? 0 : %"module_mp_thompson_mp_mp_thompson_$NO_MICRO.7";
+; "123": <123>        %and.633 = %rel.507 & %rel.508;
+; "124": <124>        %"module_mp_thompson_mp_mp_thompson_$NO_MICRO.7" = (%and.633 != 0) ? 0 : %"module_mp_thompson_mp_mp_thompson_$NO_MICRO.7";
 ; <end>
 
 ; Verify we distribute the piblock at the end of the loop
@@ -26,7 +27,8 @@
 ;               |   |   %rel.508 = (%.TempArray)[0][i2];
 ;               |   |   %"module_mp_thompson_mp_mp_thompson_$NO_MICRO.7.out" = %"module_mp_thompson_mp_mp_thompson_$NO_MICRO.7";
 ;               |   |   %rel.507 = trunc.i32.i1(%"module_mp_thompson_mp_mp_thompson_$NO_MICRO.7") != 0;
-; CHECK:        |   |   %"module_mp_thompson_mp_mp_thompson_$NO_MICRO.7" = (umin(%rel.507, %rel.508) != 0) ? 0 : %"module_mp_thompson_mp_mp_thompson_$NO_MICRO.7";
+;               |   |   %and.633 = %rel.507 & %rel.508;
+; CHECK:        |   |   %"module_mp_thompson_mp_mp_thompson_$NO_MICRO.7" = (%and.633 != 0) ? 0 : %"module_mp_thompson_mp_mp_thompson_$NO_MICRO.7";
 ;               |   + END LOOP
 ;               + END LOOP
 ;         END REGION
