@@ -39,7 +39,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeDetectRecursionPass(Registry);
     intel::initializeDebugInfoPassPass(Registry);
     intel::initializeSmartGVNPass(Registry);
-    intel::initializeChannelPipeTransformationPass(Registry);
     intel::initializePipeIOTransformationPass(Registry);
     intel::initializePipeSupportPass(Registry);
     intel::initializeInfiniteLoopCreatorPass(Registry);

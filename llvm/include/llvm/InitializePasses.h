@@ -734,6 +734,7 @@ void initializeBarrierInFunctionLegacyPass(PassRegistry &);
 void initializeBuiltinCallToInstLegacyPass(PassRegistry &);
 void initializeBuiltinImportLegacyPass(PassRegistry &);
 void initializeBuiltinLibInfoAnalysisLegacyPass(PassRegistry &);
+void initializeChannelPipeTransformationLegacyPass(PassRegistry &);
 void initializeCleanupWrappedKernelLegacyPass(PassRegistry &);
 void initializeCoerceTypesLegacyPass(PassRegistry &);
 void initializeCoerceWin64TypesLegacyPass(PassRegistry &);

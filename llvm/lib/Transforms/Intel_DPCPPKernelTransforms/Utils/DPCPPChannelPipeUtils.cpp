@@ -15,6 +15,7 @@
 // ===--------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPChannelPipeUtils.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/GlobalVariable.h"
@@ -32,6 +33,12 @@
 
 constexpr static int ChannelSizeLimit = 256 * 1024;
 constexpr static int ChannelArraySizeLimit = 256 * 1024 * 1024;
+
+unsigned DPCPPChannelDepthEmulationMode = llvm::DPCPPChannelPipeUtils::Strict;
+static llvm::cl::opt<unsigned, true> DPCPPChannelDepthEmulationModeOpt(
+    "dpcpp-channel-depth-emulation-mode", llvm::cl::Hidden,
+    llvm::cl::desc("Channel depth emulation mode"),
+    llvm::cl::location(DPCPPChannelDepthEmulationMode));
 
 namespace llvm {
 namespace DPCPPChannelPipeUtils {
@@ -134,12 +141,6 @@ int __pipe_get_total_size_fpga(int packet_size, int depth, int mode) {
 
 } // namespace OpenCLInterface
 
-unsigned DPCPPChannelDepthEmulationMode = OpenCLInterface::ChannelDepth::Strict;
-static cl::opt<unsigned, true> DPCPPChannelDepthEmulationModeOpt(
-    "dpcpp-channel-depth-emulation-mode", cl::Hidden,
-    cl::desc("Channel depth emulation mode"),
-    cl::location(DPCPPChannelDepthEmulationMode));
-
 DiagnosticKind LargeChannelPipeWarningDiagInfo::Kind =
     static_cast<DiagnosticKind>(getNextAvailablePluginDiagnosticKind());
 
@@ -201,8 +202,8 @@ Function *createPipeGlobalCtor(Module &M) {
   return Ctor;
 }
 
-static GlobalVariable *createPipeBackingStore(GlobalVariable *GV,
-                                              const ChannelPipeMD &MD) {
+GlobalVariable *createPipeBackingStore(GlobalVariable *GV,
+                                       const ChannelPipeMD &MD) {
   Module *M = GV->getParent();
   Type *Int8Ty = IntegerType::getInt8Ty(M->getContext());
 
@@ -237,6 +238,41 @@ static GlobalVariable *createPipeBackingStore(GlobalVariable *GV,
   BS->setAlignment(MaybeAlign(MD.PacketAlign));
 
   return BS;
+}
+
+ChannelKind getChannelKind(const StringRef Name) {
+  ChannelKind Kind;
+
+  std::tie(Kind.Access, Kind.Blocking) =
+      StringSwitch<std::pair<ChannelKind::AccessKind, bool>>(Name)
+          .StartsWith("_Z18read_channel_intel", {ChannelKind::READ, true})
+          .StartsWith("_Z21read_channel_nb_intel", {ChannelKind::READ, false})
+          .StartsWith("_Z19write_channel_intel", {ChannelKind::WRITE, true})
+          .StartsWith("_Z22write_channel_nb_intel", {ChannelKind::WRITE, false})
+          .Default({ChannelKind::NONE, false});
+
+  return Kind;
+}
+
+ChannelPipeMD getChannelPipeMetadata(GlobalVariable *Channel,
+                                     int ChannelDepthEmulationMode) {
+  auto GVMetadata = DPCPPKernelMetadataAPI::GlobalVariableMetadataAPI(Channel);
+
+  assert(GVMetadata.PipePacketSize.hasValue() &&
+         GVMetadata.PipePacketAlign.hasValue() &&
+         "Channel metadata must contain packet_size and packet_align");
+
+  ChannelPipeMD CMD;
+  CMD.PacketSize = GVMetadata.PipePacketSize.get();
+  CMD.PacketAlign = GVMetadata.PipePacketAlign.get();
+  CMD.Depth = GVMetadata.PipeDepth.hasValue() ? GVMetadata.PipeDepth.get() : 0;
+  CMD.IO = GVMetadata.PipeIO.hasValue() ? GVMetadata.PipeIO.get() : "";
+
+  if (!GVMetadata.PipeDepth.hasValue() &&
+      ChannelDepthEmulationMode == ChannelDepthMode::Default)
+    GVMetadata.DepthIsIgnored.set(true);
+
+  return CMD;
 }
 
 void initializeGlobalPipeScalar(GlobalVariable *PipeGV, const ChannelPipeMD &MD,
