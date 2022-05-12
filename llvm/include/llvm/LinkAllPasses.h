@@ -527,6 +527,7 @@ namespace {
       (void)llvm::createLinearIdResolverPass();
       (void)llvm::createVectorizationDimensionAnalysisLegacyPass();
       (void)llvm::createWGLoopBoundariesLegacyPass();
+      (void)llvm::createWeightedInstCountAnalysisLegacyPass();
       (void)llvm::createWorkItemAnalysisLegacyPass();
 
       // Optimize math calls

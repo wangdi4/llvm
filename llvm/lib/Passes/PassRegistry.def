@@ -499,6 +499,7 @@ FUNCTION_ANALYSIS("hir-parvec-analysis", loopopt::HIRParVecAnalysisPass())
 FUNCTION_ANALYSIS("hir-array-section-analysis", loopopt::HIRArraySectionAnalysisPass())
 
 FUNCTION_ANALYSIS("dpcpp-kernel-soa-alloca-analysis", SoaAllocaAnalysis())
+FUNCTION_ANALYSIS("dpcpp-kernel-weighted-inst-count-analysis", WeightedInstCountAnalysis())
 FUNCTION_ANALYSIS("dpcpp-kernel-work-item-analysis", WorkItemAnalysis())
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB

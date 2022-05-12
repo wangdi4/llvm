@@ -801,6 +801,7 @@ void initializeVectorVariantLoweringLegacyPass(PassRegistry &);
 void initializeVFAnalysisLegacyPass(PassRegistry &);
 void initializeVectorizationDimensionAnalysisLegacyPass(PassRegistry &);
 void initializeWGLoopBoundariesLegacyPass(PassRegistry &);
+void initializeWeightedInstCountAnalysisLegacyPass(PassRegistry &);
 void initializeWorkItemAnalysisLegacyPass(PassRegistry &);
 void initializeWIRelatedValueWrapperPass(PassRegistry &);
 // Add/Sub reassociation pass

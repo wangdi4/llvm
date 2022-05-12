@@ -17,10 +17,12 @@
 
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Pass.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/WeightedInstCount.h"
 
 namespace  intel {
 
@@ -38,10 +40,11 @@ public:
   }
 
 private:
-  WeightedInstCounter *
+  llvm::WeightedInstCountAnalysisLegacy *
   addPassesToCalculateCost(llvm::legacy::FunctionPassManager &FPM,
                            TargetMachine *TM, TargetLibraryInfoImpl &TLI,
-                           ArrayRef<Module *> BuiltinModules, bool IsScalar);
+                           ArrayRef<Module *> BuiltinModules,
+                           VectorVariant::ISAClass ISA, bool IsScalar);
 
   const OptimizerConfig* Config;
 };

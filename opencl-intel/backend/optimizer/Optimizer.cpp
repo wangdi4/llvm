@@ -112,7 +112,6 @@ using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 
 extern "C"{
 
-FunctionPass *createWeightedInstCounter(bool, const CPUDetect *);
 llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
 llvm::Pass *createOCLReqdSubGroupSizePass();
@@ -541,7 +540,7 @@ static void populatePassesPostFailCheck(
         PM.add(createOCLReqdSubGroupSizePass());
 
         // Calculate VL.
-        PM.add(createWeightedInstCounter(true, pConfig.GetCpuId()));
+        PM.add(llvm::createWeightedInstCountAnalysisLegacyPass(ISA, true));
 
         // This pass may throw VFAnalysisDiagInfo error if VF checking fails.
         // TODO: we should run SetVectorizationFactor unconditionally when we

@@ -1,5 +1,7 @@
-; RUN: %oclopt -winstcounter -S %s | FileCheck %s
-; RUN: %oclopt -winstcounter %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes='require<dpcpp-kernel-builtin-info-analysis>,function(require<dpcpp-kernel-weighted-inst-count-analysis>)' -S %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-builtin-info-analysis -dpcpp-kernel-weighted-inst-count-analysis -S %s | FileCheck %s
+
+; FIXME move to a transform pass.
 
 ; Check that recommended_vector_length metadata is not added to non-kernel
 ; function or kernel function which already has vectorized_width metadata.
@@ -183,5 +185,3 @@ attributes #10 = { convergent }
 !19 = !{null}
 !20 = !{i32 0}
 !21 = !{i32 16}
-
-; DEBUGIFY-NOT: WARNING

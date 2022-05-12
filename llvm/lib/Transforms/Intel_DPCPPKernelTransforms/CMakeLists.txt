@@ -81,6 +81,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   Utils/LoopPeeling.cpp
   Utils/NameMangleAPI.cpp
   Utils/ParameterType.cpp
+  Utils/Predicator.cpp
   Utils/RuntimeService.cpp
   Utils/TypeAlignment.cpp
   Utils/VectorizerUtils.cpp
@@ -97,6 +98,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   WGLoopBoundaries.cpp
   WIRelatedValuePass.cpp
   WIRelatedValuePass.cpp
+  WeightedInstCount.cpp
   WorkItemAnalysis.cpp
 
   ADDITIONAL_HEADER_DIRS

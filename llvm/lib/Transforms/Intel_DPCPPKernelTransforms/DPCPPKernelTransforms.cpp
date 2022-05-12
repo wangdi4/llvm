@@ -91,6 +91,7 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeVFAnalysisLegacyPass(Registry);
   initializeWGLoopBoundariesLegacyPass(Registry);
   initializeWIRelatedValueWrapperPass(Registry);
+  initializeWeightedInstCountAnalysisLegacyPass(Registry);
   initializeWorkItemAnalysisLegacyPass(Registry);
 }
 

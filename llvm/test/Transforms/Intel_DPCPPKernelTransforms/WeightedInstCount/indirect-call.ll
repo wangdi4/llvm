@@ -1,6 +1,7 @@
-; RUN: llvm-as %s -o %t.bc
-; check that WightedInstCounter doesn't crash on indirect calls
-; RUN: %oclopt -winstcounter -verify %t.bc -S -o %t.2.bc
+; RUN: opt -passes='require<dpcpp-kernel-builtin-info-analysis>,function(require<dpcpp-kernel-weighted-inst-count-analysis>)' %s -S
+; RUN: opt -enable-new-pm=0 -analyze -dpcpp-kernel-weighted-inst-count-analysis %s -S
+
+; check that WightedInstCounter doesn't crash on indirect calls.
 
 ; ModuleID = 'Program'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32-S32"

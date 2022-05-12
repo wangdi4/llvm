@@ -16,6 +16,7 @@
 #include "VectorKernelDiscard.h"
 #include "InitializePasses.h"
 #include "OCLPassSupport.h"
+#include "VectorizerCommon.h"
 
 #include "llvm/ADT/Triple.h"
 #include "llvm/InitializePasses.h"
@@ -32,8 +33,6 @@ using namespace llvm;
 
 extern "C" {
 Pass *createBuiltinLibInfoPass(ArrayRef<Module *>, std::string);
-FunctionPass *
-createWeightedInstCounter(bool, const Intel::OpenCL::Utils::CPUDetect *);
 }
 
 namespace intel {
@@ -55,18 +54,17 @@ VectorKernelDiscard::VectorKernelDiscard(const OptimizerConfig *Config)
   initializeVectorKernelDiscardPass(*PassRegistry::getPassRegistry());
 }
 
-WeightedInstCounter *VectorKernelDiscard::addPassesToCalculateCost(
+WeightedInstCountAnalysisLegacy *VectorKernelDiscard::addPassesToCalculateCost(
     legacy::FunctionPassManager &FPM, TargetMachine *TM,
     TargetLibraryInfoImpl &TLI, ArrayRef<Module *> BuiltinModules,
-    bool IsScalar) {
+    VectorVariant::ISAClass ISA, bool IsScalar) {
   FPM.add(createTargetTransformInfoWrapperPass(
           TM->getTargetIRAnalysis()));
   FPM.add(new TargetLibraryInfoWrapperPass(TLI));
   FPM.add(createBuiltinLibInfoAnalysisLegacyPass(BuiltinModules));
   FPM.add(createBuiltinLibInfoPass(BuiltinModules, ""));
-  WeightedInstCounter *Counter =
-      (WeightedInstCounter *)createWeightedInstCounter(
-          IsScalar, Config->GetCpuId());
+  WeightedInstCountAnalysisLegacy *Counter = (WeightedInstCountAnalysisLegacy *)
+      llvm::createWeightedInstCountAnalysisLegacyPass(ISA, IsScalar);
   FPM.add(Counter);
   return Counter;
 }
@@ -74,6 +72,8 @@ WeightedInstCounter *VectorKernelDiscard::addPassesToCalculateCost(
 bool VectorKernelDiscard::runOnModule(Module &M) {
   TargetMachine* TM = Config->GetTargetMachine();
   TargetLibraryInfoImpl TLI(Triple(M.getTargetTriple()));
+  VectorVariant::ISAClass ISA =
+      Intel::VectorizerCommon::getCPUIdISA(Config->GetCpuId());
 
   ArrayRef<Module *> BuiltinModules =
       getAnalysis<BuiltinLibInfoAnalysisLegacy>()
@@ -86,9 +86,9 @@ bool VectorKernelDiscard::runOnModule(Module &M) {
   bool Changed = false;
 
   auto *ScalarCounter =
-      addPassesToCalculateCost(ScalarFPM, TM, TLI, BuiltinModules, true);
+      addPassesToCalculateCost(ScalarFPM, TM, TLI, BuiltinModules, ISA, true);
   auto *VectorCounter =
-      addPassesToCalculateCost(VectorFPM, TM, TLI, BuiltinModules, false);
+      addPassesToCalculateCost(VectorFPM, TM, TLI, BuiltinModules, ISA, false);
 
   ScalarFPM.doInitialization();
   VectorFPM.doInitialization();
@@ -126,8 +126,8 @@ bool VectorKernelDiscard::runOnModule(Module &M) {
     ScalarFPM.run(*F);
     VectorFPM.run(*VecF);
 
-    int ScalarCost = ScalarCounter->getWeight();
-    int VectorCost = VectorCounter->getWeight() / VF;
+    int ScalarCost = ScalarCounter->getResult().getWeight();
+    int VectorCost = VectorCounter->getResult().getWeight() / VF;
 
     LLVM_DEBUG(dbgs() << "  ScalarCost: " << ScalarCost
                       << "  VectorCost: " << VectorCost << '\n');
