@@ -163,6 +163,14 @@ double Five(int a, short &b, short &c, short &d, short &e, short &f, short &g,
   return a + int(b);
 }
 
+// Test negative strides
+#pragma omp declare simd simdlen(4) linear(a:-2) linear(b:-8) \
+                                    linear(uval(c):-4) linear(ref(d):-16) \
+                                    linear(e:-1) linear(f:-1) linear(g:0)
+double Six(int a, float *b, int &c, int *&d, char e, char *f, short g) {
+ return a + int(*b) + c + *d + e + *f + g;
+}
+
 // CHECK-DAG: define {{.+}}@_Z5add_1Pf(
 // CHECK-DAG: define {{.+}}@_Z1hIiEvPT_S1_S1_S1_(
 // CHECK-DAG: define {{.+}}@_Z1hIfEvPT_S1_S1_S1_(
@@ -186,6 +194,7 @@ double Five(int a, short &b, short &c, short &d, short &e, short &f, short &g,
 // CHECK-DAG: define {{.+}}@_Z5ThreeRiS_
 // CHECK-DAG: define {{.+}}@_Z4FourRiS_
 // CHECK-DAG: define {{.+}}@_Z4FiveiRsS_S_S_S_S_S_S_
+// CHECK-DAG: define {{.+}}@_Z3SixiPfRiRPicPcs
 
 // begin INTEL_CUSTOMIZATION
 // Functions marked as simd functions now have attributes in the form
