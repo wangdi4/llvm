@@ -21,6 +21,7 @@ include_directories(${LLVM_INCLUDE_DIRS}
 # Backend passes
 set(OCL_BE_PASSES
     BuiltinLibInfo
+    ChannelPipeTransformation
     DebugInfoPass
     DetectRecursion
     InfiniteLoopCreator

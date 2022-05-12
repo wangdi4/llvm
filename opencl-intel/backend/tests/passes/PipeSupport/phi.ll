@@ -1,6 +1,6 @@
-; This code was compiled from llvm/test/Transforms/Intel_DPCPPKernelTransforms/ChannelPipeTransformation/phi.ll
+; This code was compiled from backend/tests/passes/ChannelPipeTransformation/phi.ll
 ; by the follow command:
-; %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -dpcpp-kernel-channel-pipe-transformation -verify -S
+; %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -channel-pipe-transformation -verify -S
 ; ----------------------------------------------------
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-support -verify %s -S | FileCheck %s
 
