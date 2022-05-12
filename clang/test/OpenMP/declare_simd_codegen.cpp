@@ -474,6 +474,8 @@ double Six(int a, float *b, int &c, int *&d, char e, char *f, short g) {
 // CHECK-DAG: _ZGVbN4R8R4__Z4FourRiS_
 // CHECK-DAG: _ZGVbM4uL2Ls0L4Ls0U8Us0R32Rs0__Z4FiveiRsS_S_S_S_S_S_S_
 // CHECK-DAG: _ZGVbN4uL2Ls0L4Ls0U8Us0R32Rs0__Z4FiveiRsS_S_S_S_S_S_S_
+// CHECK-DAG: _ZGVbM4ln2ln32Un4Rn128ln1ln1l0__Z3SixiPfRiRPicPcs
+// CHECK-DAG: _ZGVbN4ln2ln32Un4Rn128ln1ln1l0__Z3SixiPfRiRPicPcs
 
 // CHECK-NOT: _ZGV{{.+}}__Z1fRA_i
 // end INTEL_CUSTOMIZATION
