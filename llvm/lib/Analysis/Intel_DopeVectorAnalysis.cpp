@@ -1,6 +1,6 @@
 //===------- Intel_DopeVectorAnalysis.cpp ----------------------- -*------===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -920,6 +920,18 @@ void DopeVectorAnalyzer::analyze(bool ForCreation) {
   GetElementPtrInst *LowerBoundBase = nullptr;
 
   for (auto *DVUser : DVObject->users()) {
+    // CMPLRLLVM-3747: DVCP analysis is disabled for opaque pointers. This
+    // will be turned back on once the FE supplies a mechanism to collect the
+    // type of the pointers.
+    if (auto *Inst = dyn_cast<Instruction>(DVUser)) {
+      auto *Func = Inst->getFunction();
+      if (!Func->getParent()->getContext().supportsTypedPointers()) {
+        LLVM_DEBUG(dbgs() << "  Opaque pointers not supported\n");
+        setInvalid();
+        return;
+      }
+    }
+
     LLVM_DEBUG(dbgs() << "  DV user: " << *DVUser << "\n");
     if (auto *GEP = dyn_cast<GetElementPtrInst>(DVUser)) {
       // Find which of the fields this GEP is the address of.
@@ -3699,6 +3711,16 @@ void GlobalDopeVector::validateGlobalDopeVector() {
 
 void GlobalDopeVector::collectAndValidate(const DataLayout &DL,
                                           bool ForDVCP) {
+
+  // CMPLRLLVM-37474: DVCP analysis is disabled for opaque pointers. This
+  // will be turned back on once the FE supplies a mechanism to collect the
+  // type of the pointers.
+  if (!Glob->getParent()->getContext().supportsTypedPointers()) {
+    LLVM_DEBUG(dbgs() << "  Opaque pointers not supported for global DVCP\n");
+    getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
+    return;
+  }
+
   for (auto *U : Glob->users()) {
     if (auto *BC = dyn_cast<BitCastOperator>(U)) {
       // The BitCast should only be used for data allocation and
