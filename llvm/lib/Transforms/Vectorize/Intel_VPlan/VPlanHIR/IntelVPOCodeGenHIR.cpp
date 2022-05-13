@@ -1698,7 +1698,7 @@ static void setRefAlignment(Type *ScalRefTy, RegDDRef *WideRef) {
 }
 
 RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
-                                  bool LaneZeroOnly) {
+                                  bool LaneZeroOnly, bool IsUniform) {
   assert(Ref && "DDRef to be widened should not be null.");
 
   RegDDRef *WideRef;
@@ -1832,8 +1832,8 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
 
       // We do not need to widen invariant scalar blobs, invariant vector blobs
       // need to be replicated - check for blob invariance by comparing
-      // maxbloblevel against the loop's nesting level.
-      if (WideRef->findMaxBlobLevel(BI) < NestingLevel) {
+      // maxbloblevel against the loop's nesting level or using IsUniform flag.
+      if (IsUniform || WideRef->findMaxBlobLevel(BI) < NestingLevel) {
         if (TopBlob->getType()->isVectorTy()) {
           Constant *ConstVec = nullptr;
           UndefValue *UndefVec = nullptr;
@@ -2397,6 +2397,9 @@ HLInst *VPOCodeGenHIR::handleLiveOutLinearInEarlyExit(HLInst *INode,
 
   addInstUnmasked(INode);
   SmallVector<const RegDDRef *, 1> AuxRefs = {ZExtRef};
+
+  assert(getForceMixedCG() &&
+         "Unexpected to be called in VPValue based CG mode");
   INode->getRvalDDRef()->makeConsistent(AuxRefs, Level);
   return INode;
 }
@@ -3209,10 +3212,11 @@ RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
 
     if (const auto *Blob = dyn_cast<VPBlob>(HIROperand)) {
       const auto *BlobRef = Blob->getBlob();
-      if (BlobRef->isSelfBlob())
+      if (BlobRef->isSelfBlob()) {
         ScalarRef = DDRefUtilities.createSelfBlobRef(
             BlobRef->getSelfBlobIndex(), BlobRef->getDefinedAtLevel());
-      else {
+        ScalarRef->makeConsistent({}, getNestingLevelFromInsertPoint());
+      } else {
         unsigned BlobIndex = Blob->getBlobIndex();
         // If a valid blob index was not recorded for temp, then try to find the
         // index using its symbase. For example -
@@ -3231,14 +3235,14 @@ RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
 
         // Use RDDR to set proper defined at level for blob in WideRef.
         SmallVector<const RegDDRef *, 1> AuxRefs = {RDDR};
-        ScalarRef->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
+        ScalarRef->makeConsistent(AuxRefs, getNestingLevelFromInsertPoint());
       }
     } else if (const auto *VPCE = dyn_cast<VPCanonExpr>(HIROperand)) {
       auto *CE = VPCE->getCanonExpr()->clone();
       auto *DDR = VPCE->getDDR();
       ScalarRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, CE);
       SmallVector<const RegDDRef *, 1> AuxRefs = {DDR};
-      ScalarRef->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
+      ScalarRef->makeConsistent(AuxRefs, getNestingLevelFromInsertPoint());
     } else if (const auto *If = dyn_cast<VPIfCond>(HIROperand)) {
       HLInst *Res = nullptr;
       const HLIf *HIf = If->getIf();
@@ -3249,12 +3253,8 @@ RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
         auto *Cmp = HLNodeUtilities.createCmp(*PredIt, LHS, RHS);
 
         // Make LHS and RHS operands consistent at attached loop level.
-        unsigned NestingLvl =
-            InsertPoint->getParentLoop()
-                ? InsertPoint->getParentLoop()->getNestingLevel()
-                : 0;
-        LHS->makeConsistent({LHS->clone()}, NestingLvl);
-        RHS->makeConsistent({RHS->clone()}, NestingLvl);
+        LHS->makeConsistent({LHS->clone()}, getNestingLevelFromInsertPoint());
+        RHS->makeConsistent({RHS->clone()}, getNestingLevelFromInsertPoint());
 
         addInstUnmasked(Cmp);
         if (Res) {
@@ -3317,7 +3317,8 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
 
   // VPVal is expected to be a VPExternalDef or VPConstant.
   WideRef = getUniformScalarRef(VPVal);
-  WideRef = widenRef(WideRef, VF);
+  WideRef = widenRef(WideRef, getVF(), false /* LaneZeroOnly */,
+                     true /* IsUniform */);
   assert(WideRef && "Expected non-null widened ref");
   LLVM_DEBUG(WideRef->dump(true));
   LLVM_DEBUG(errs() << "\n");
@@ -5241,7 +5242,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     assert(!Plan->getVPLoopInfo()->getLoopFor(VPInst->getParent()) &&
            "Expected InvSCEVWrapper to be outside topmost loop");
     AddrOfRef->makeConsistent({AddRecHIR->Ref},
-                              OrigLoop->getNestingLevel() - 1);
+                              getNestingLevelFromInsertPoint());
     addVPValueScalRefMapping(VPInst, AddrOfRef, 0);
     return;
   }
@@ -5473,7 +5474,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     SmallVector<const RegDDRef *, 2> AuxRefs = {RefOp0};
     RegDDRef *NegRef = RefOp0->clone();
     NegRef->getSingleCanonExpr()->negate();
-    NegRef->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
+    NegRef->makeConsistent(AuxRefs, getNestingLevelFromInsertPoint());
 
     // Create the following select instruction:
     //    RefOp0 < 0 ? NegRef : RefOp0
@@ -6031,13 +6032,8 @@ void VPOCodeGenHIR::makeConsistentAndAddToMap(
     SmallVectorImpl<const RegDDRef *> &AuxRefs, bool Widen,
     unsigned ScalarLaneID) {
   // Use AuxRefs if it is not empty to make Ref consistent
-  if (!AuxRefs.empty()) {
-    unsigned NestingLevel = OrigLoop->getNestingLevel();
-    // Adjust nesting level if instruction is outside the outermost loop.
-    if (!Plan->getVPLoopInfo()->getLoopFor(VPInst->getParent()))
-      NestingLevel -= 1;
-    Ref->makeConsistent(AuxRefs, NestingLevel);
-  }
+  if (!AuxRefs.empty())
+    Ref->makeConsistent(AuxRefs, getNestingLevelFromInsertPoint());
   if (Widen) {
     RegDDRef *WideRef = Ref;
 

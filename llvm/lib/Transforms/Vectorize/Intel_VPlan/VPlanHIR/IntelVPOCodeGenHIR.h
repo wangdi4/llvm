@@ -508,9 +508,11 @@ public:
     return UnitStrideRefSet.count(Ref);
   }
 
-  // Widen Ref to specified VF if needed and return the widened ref.
+  // Widen Ref to specified VF if needed and return the widened ref. IsUniform
+  // flag is true if the value in Ref is uniform in which case a broadcast
+  // either implicit or explicit is all that is needed.
   RegDDRef *widenRef(const RegDDRef *Ref, unsigned VF,
-                     bool LaneZeroOnly = false);
+                     bool LaneZeroOnly = false, bool IsUniform = false);
 
   // Return the widened DDRef corresponding to VPVal - when we enable full
   // VPValue based codegen, this function will generate the widened DDRef
