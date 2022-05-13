@@ -1310,6 +1310,8 @@ bool X86TTIImpl::hasCDI() const {
   return ST->hasCDI();
 }
 
+bool X86TTIImpl::hasVLX() const { return ST->hasVLX(); }
+
 bool X86TTIImpl::displacementFoldable() const {
   return true;
 }
