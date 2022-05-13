@@ -18,9 +18,8 @@
 ;              + END LOOP
 ;
 ; CHECK:           + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; FIXME:  Doing the add (i1 + %n1 + 2) before the divide can overflow leading
-; to incorrect results from vectorization.
-; CHECK-NEXT:      |   (<4 x i64>*)(%lp)[i1] = (i1 + %n1 + <i64 0, i64 1, i64 2, i64 3> + 2)/2;
+; CHECK-NEXT:      |   %.vec = (i1 + %n1 + <i64 0, i64 1, i64 2, i64 3>)/2 + 1;
+; CHECK-NEXT:      |   (<4 x i64>*)(%lp)[i1] = %.vec;
 ; CHECK-NEXT:      + END LOOP
 ;
 define void @foo(i64* %lp, i64 %n1) {

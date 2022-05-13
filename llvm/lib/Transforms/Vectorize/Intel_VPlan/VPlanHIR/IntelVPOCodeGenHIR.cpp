@@ -5121,7 +5121,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       addInstUnmasked(InitInst);
       if (TempToInit->isTerminalRef())
         TempToInit->makeSelfBlob();
-      
+
       // Initialized temp will be live-in to scalar loop.
       ScalarRem->addLiveInTemp(TempToInit);
     }
@@ -5322,8 +5322,16 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
     auto *CE1 = RefOp0->getSingleCanonExpr();
     auto *CE2 = RefOp1->getSingleCanonExpr();
-    if (!ReductionVPInsts.count(VPInst) &&
-        CanonExprUtilities.canAdd(CE1, CE2)) {
+
+    // When we do add folding with denominator(s), the add operation effectively
+    // does the following:
+    //
+    //      CE1/D1 + CE2/D2 ==> ((LCM/D1 * CE1) + (LCM/D2 * CE2))/LCM
+    //
+    //  This cannot be done blindly as we need to make sure that no overflow
+    //  occurs. To prevent issues, we avoid folding when we have a denominator.
+    if (!ReductionVPInsts.count(VPInst) && CE1->getDenominator() == 1 &&
+        CE2->getDenominator() == 1 && CanonExprUtilities.canAdd(CE1, CE2)) {
       SmallVector<const RegDDRef *, 2> AuxRefs = {RefOp0->clone(), RefOp1};
       CanonExprUtilities.add(CE1, CE2);
       makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);
