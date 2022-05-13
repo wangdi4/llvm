@@ -67,14 +67,15 @@
 ; CHECK: [[R1:%[0-9]+]] = call{{.*}}@GetVirtualPixelsFromNexus.1({{.*}} [[R0]]) #[[A0]]
 ; CHECK: call{{.*}}@GetVirtualPixelsFromNexus.2({{.*}} [[R1]])
 ; CHECK: define internal ptr @GetVirtualPixelsFromNexus(ptr %arg, i32 %arg1, i64 %arg2, i64 %arg3, i64 %arg4, i64 %arg5, ptr %arg6, ptr %arg7)
-; CHECK: define internal ptr @GetVirtualPixelsFromNexus.1(ptr %0, i32 %1, i64 %2, i64 %3, i64 %4, i64 %5, ptr %6, ptr %7, ptr %8)
-; CHECK: define internal ptr @GetVirtualPixelsFromNexus.2(ptr %0, i32 %1, i64 %2, i64 %3, i64 %4, i64 %5, ptr %6, ptr %7, ptr %8)
+; CHECK: define internal ptr @GetVirtualPixelsFromNexus.1(ptr %0, i32 %1, i64 %2, i64 %3, i64 %4, i64 %5, ptr %6, ptr %7, ptr %8) #[[A1:[0-9]+]]
+; CHECK: define internal ptr @GetVirtualPixelsFromNexus.2(ptr %0, i32 %1, i64 %2, i64 %3, i64 %4, i64 %5, ptr %6, ptr %7, ptr %8) #[[A1]]
 ; CHECK: store i32 0, ptr [[R2:%[0-9]+]], align 4
 ; CHECK: [[R3:%[0-9]+]] = call{{.*}}@GetVirtualPixelsFromNexus.1({{.*}} [[R2]])
 ; CHECK: call{{.*}}@GetVirtualPixelsFromNexus.2({{.*}} [[R3]])
 ; CHECK: store i32 0, ptr [[R4:%[0-9]+]], align 4
 ; CHECK: [[R5:%[0-9]+]] = call{{.*}}@GetVirtualPixelsFromNexus.1({{.*}} [[R4]])
 ; CHECK: call{{.*}}@GetVirtualPixelsFromNexus.2({{.*}} [[R5]])
+; CHECK: attributes #[[A1]] = { "ip-clone-split-function" }
 ; CHECK: attributes #[[A0]] = { "prefer-inline-mrc-split" }
 
 

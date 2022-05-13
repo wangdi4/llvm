@@ -67,14 +67,15 @@
 ; CHECK: [[R1:%[0-9]+]] = call{{.*}}@GetVirtualPixelsFromNexus.1({{.*}} [[R0]]) #[[A0]]
 ; CHECK: call{{.*}}@GetVirtualPixelsFromNexus.2({{.*}} [[R1]])
 ; CHECK: define  internal %struct._PixelPacket* @GetVirtualPixelsFromNexus(%struct._Image* %0, i32 %1, i64 %2, i64 %3, i64 %4, i64 %5, %struct._NexusInfo* %6, %struct._ExceptionInfo* %7)
-; CHECK: define internal %struct._PixelPacket* @GetVirtualPixelsFromNexus.1(%struct._Image* %0, i32 %1, i64 %2, i64 %3, i64 %4, i64 %5, %struct._NexusInfo* %6, %struct._ExceptionInfo* %7, i32* %8)
-; CHECK: define internal %struct._PixelPacket* @GetVirtualPixelsFromNexus.2(%struct._Image* %0, i32 %1, i64 %2, i64 %3, i64 %4, i64 %5, %struct._NexusInfo* %6, %struct._ExceptionInfo* %7, %struct._PixelPacket* %8)
+; CHECK: define internal %struct._PixelPacket* @GetVirtualPixelsFromNexus.1(%struct._Image* %0, i32 %1, i64 %2, i64 %3, i64 %4, i64 %5, %struct._NexusInfo* %6, %struct._ExceptionInfo* %7, i32* %8) #[[A1:[0-9]+]]
+; CHECK: define internal %struct._PixelPacket* @GetVirtualPixelsFromNexus.2(%struct._Image* %0, i32 %1, i64 %2, i64 %3, i64 %4, i64 %5, %struct._NexusInfo* %6, %struct._ExceptionInfo* %7, %struct._PixelPacket* %8) #[[A1]]
 ; CHECK: store i32 0, i32* [[R2:%[0-9]+]], align 4
 ; CHECK: [[R3:%[0-9]+]] = call{{.*}}@GetVirtualPixelsFromNexus.1({{.*}} [[R2]])
 ; CHECK: call{{.*}}@GetVirtualPixelsFromNexus.2({{.*}} [[R3]])
 ; CHECK: store i32 0, i32* [[R4:%[0-9]+]], align 4
 ; CHECK: [[R5:%[0-9]+]] = call{{.*}}@GetVirtualPixelsFromNexus.1({{.*}} [[R4]])
 ; CHECK: call{{.*}}@GetVirtualPixelsFromNexus.2({{.*}} [[R5]])
+; CHECK: attributes #[[A1]] = { "ip-clone-split-function" }
 ; CHECK: attributes #[[A0]] = { "prefer-inline-mrc-split" }
 
 @.str.129 = private unnamed_addr constant [15 x i8] c"magick/cache.c\00", align 1
