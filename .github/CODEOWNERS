@@ -105,6 +105,7 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/test/Transforms/Intel_IVSplit/ @williamweixiao
 /llvm/test/tools/llvm-mca/X86/ @HaohaiWen
 /llvm/test/tools/llvm-tli-checker/ @yubingex007-a11y
+/llvm/test/tools/llvm-tli-checker/ps4-tli-check.yaml @robertcox-github @pvbattin
 /llvm/unittests/BinaryFormat/Intel_TraceTest.cpp @KanRobert
 /llvm/unittests/MC/Intel_MCTraceTest.cpp @KanRobert
 /llvm/lib/BinaryFormat/Intel_Trace.cpp @KanRobert
@@ -166,8 +167,8 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/include/llvm/Analysis/Intel_WP.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/LazyCallGraph.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/ModuleSummaryAnalysis.h  @robertcox-github @pvbattin @intel-restricted/cmplrllvm-llvm-scalar-optimizer
-/llvm/include/llvm/Analysis/TargetLibraryInfo.def  @robertcox-github @pvbattin @intel-restricted/cmplrllvm-llvm-scalar-optimizer
-/llvm/include/llvm/Analysis/TargetLibraryInfo.h @robertcox-github @pvbattin @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/include/llvm/Analysis/TargetLibraryInfo.def  @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/TargetLibraryInfo.h @robertcox-github @pvbattin
 /llvm/include/llvm/Support/Intel_WP_utils.h @robertcox-github @pvbattin
 /llvm/include/llvm/Support/intel-plugin-api.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/IPO/ @robertcox-github @pvbattin
@@ -217,7 +218,7 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/lib/Analysis/LazyCallGraph.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/ModuleSummaryAnalysis.cpp @robertcox-github @pvbattin @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/ReplayInlineAdvisor.cpp @robertcox-github @pvbattin
-/llvm/lib/Analysis/TargetLibraryInfo.cpp @robertcox-github @pvbattin @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Analysis/TargetLibraryInfo.cpp @robertcox-github @pvbattin
 /llvm/lib/Linker/ @robertcox-github @pvbattin
 /llvm/lib/LTO/ @robertcox-github @pvbattin
 /llvm/lib/Transforms/IPO/ @robertcox-github @pvbattin
