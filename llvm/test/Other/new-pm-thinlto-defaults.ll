@@ -93,8 +93,11 @@
 ; CHECK-O-NEXT: Running analysis: ScopedNoAliasAA
 ; CHECK-O-NEXT: Running analysis: TypeBasedAA
 ; CHECK-O-NEXT: Running analysis: StdContainerAA ;INTEL
-; Moved up to after XmainOptLevelAnalysis ;INTEL
-; COM: CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy ;INTEL
+; INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running pass: JumpThreadingPass
+; CHECK-O-NEXT: Running analysis: LazyValueAnalysis
+; CHECK-O-NEXT: Running analysis: PostDominatorTreeAnalysis
+; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running pass: ModuleInlinerWrapperPass
 ; CHECK-O-NEXT: Running analysis: InlineAdvisorAnalysis
@@ -126,8 +129,7 @@
 ; CHECK-O-NEXT: Running analysis: MemorySSAAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: SpeculativeExecutionPass
 ; CHECK-O23SZ-NEXT: Running pass: JumpThreadingPass
-; CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis
-; CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis ;INTEL
+; COM: CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: CorrelatedValuePropagationPass
 ; CHECK-O23SZ-NEXT: Invalidating analysis: LazyValueAnalysis
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
@@ -188,7 +190,6 @@
 ; CHECK-O23SZ-NEXT: Invalidating analysis: LazyValueAnalysis
 ; CHECK-O1-NEXT: Running pass: CoroElidePass
 ; CHECK-O-NEXT: Running pass: ADCEPass
-; CHECK-O1-NEXT: Running analysis: PostDominatorTreeAnalysis ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: MemCpyOptPass
 ; CHECK-O23SZ-NEXT: Running pass: DSEPass
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass

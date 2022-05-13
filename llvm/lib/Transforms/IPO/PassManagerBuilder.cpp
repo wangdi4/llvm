@@ -124,9 +124,6 @@ cl::opt<bool> ConvertToSubs(
     "convert-to-subs-before-loopopt", cl::init(false), cl::ReallyHidden,
     cl::desc("Enables conversion of GEPs to subscripts before loopopt"));
 
-static cl::opt<bool>
-EarlyJumpThreading("early-jump-threading", cl::init(true), cl::Hidden,
-                   cl::desc("Run the early jump threading pass"));
 cl::opt<bool>
 EnableLV("enable-lv", cl::init(false), cl::Hidden,
          cl::desc("Enable community loop vectorizer"));
@@ -389,6 +386,10 @@ cl::opt<bool> EnableVPOParoptTargetInline(
 static cl::opt<bool> EnableEarlyLSR("enable-early-lsr", cl::init(false),
                                     cl::Hidden, cl::ZeroOrMore,
                                     cl::desc("Add LSR pass before code gen."));
+
+cl::opt<bool>
+    EarlyJumpThreading("early-jump-threading", cl::init(true), cl::Hidden,
+                       cl::desc("Run the early jump threading pass"));
 #endif // INTEL_CUSTOMIZATION
 
 cl::opt<bool> EnableDFAJumpThreading("enable-dfa-jump-thread",

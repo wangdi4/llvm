@@ -1,4 +1,6 @@
-// RUN: %clang_cc1 -no-opaque-pointers -triple i386-apple-darwin10 -fobjc-runtime=macosx-fragile-10.5 -emit-llvm -fexceptions -fobjc-exceptions -O2 -o - %s | FileCheck %s
+// INTEL_CUSTOMIZATION
+// Early jump threading has a major effect on the -O2 output.
+// RUN: %clang_cc1 -no-opaque-pointers -triple i386-apple-darwin10 -fobjc-runtime=macosx-fragile-10.5 -emit-llvm -fexceptions -fobjc-exceptions -mllvm -early-jump-threading=false -O2 -o - %s | FileCheck %s
 
 // Test we maintain at least a basic amount of interoperation between
 // ObjC and C++ exceptions in the legacy runtime.
