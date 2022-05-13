@@ -1211,10 +1211,8 @@ define <2 x i32> @test62vec(<2 x i32> %A) {
 
 define i32 @test63(i32 %A) {
 ; CHECK-LABEL: @test63(
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[B:%.*]] = shl i32 [[A:%.*]], 1
-; CHECK-NEXT:    ret i32 [[B]]
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[DOTNEG_NEG:%.*]] = shl i32 [[A:%.*]], 1
+; CHECK-NEXT:    ret i32 [[DOTNEG_NEG]]
 ;
   %B = sub i32 1, %A
   %C = shl i32 %B, 1
@@ -1224,10 +1222,8 @@ define i32 @test63(i32 %A) {
 
 define <2 x i32> @test63vec(<2 x i32> %A) {
 ; CHECK-LABEL: @test63vec(
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[B:%.*]] = shl <2 x i32> [[A:%.*]], <i32 1, i32 1>
-; CHECK-NEXT:    ret <2 x i32> [[B]]
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[DOTNEG_NEG:%.*]] = shl <2 x i32> [[A:%.*]], <i32 1, i32 1>
+; CHECK-NEXT:    ret <2 x i32> [[DOTNEG_NEG]]
 ;
   %B = sub <2 x i32> <i32 1, i32 1>, %A
   %C = shl <2 x i32> %B, <i32 1, i32 1>
@@ -1711,4 +1707,26 @@ define i32 @pr51584(i32 %a, i32 %b) {
   %add = add nsw i32 11, %b
   %sub1 = sub i32 %sub, %add
   ret i32 %sub1
+}
+
+define i8 @sub_srem(i8 noundef %x, i8 %y) {
+; CHECK-LABEL: @sub_srem(
+; CHECK-NEXT:    [[REM:%.*]] = srem i8 [[X:%.*]], [[Y:%.*]]
+; CHECK-NEXT:    [[SUB:%.*]] = sub i8 [[X]], [[REM]]
+; CHECK-NEXT:    ret i8 [[SUB]]
+;
+  %rem = srem i8 %x, %y
+  %sub = sub i8 %x, %rem
+  ret i8 %sub
+}
+
+define <2 x i5> @sub_urem(<2 x i5> noundef %x, <2 x i5> %y) {
+; CHECK-LABEL: @sub_urem(
+; CHECK-NEXT:    [[REM:%.*]] = urem <2 x i5> [[X:%.*]], [[Y:%.*]]
+; CHECK-NEXT:    [[SUB:%.*]] = sub <2 x i5> [[X]], [[REM]]
+; CHECK-NEXT:    ret <2 x i5> [[SUB]]
+;
+  %rem = urem <2 x i5> %x, %y
+  %sub = sub <2 x i5> %x, %rem
+  ret <2 x i5> %sub
 }
