@@ -633,6 +633,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @\"?seekpos@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAA?AV?$fpos@U_Mbstatet@@@2@V32@H@Z\"(%struct*, %struct*, %struct*, i32)\n"
       "declare %struct* @\"?setbuf@?$basic_filebuf@DU?$char_traits@D@std@@@std@@MEAAPEAV?$basic_streambuf@DU?$char_traits@D@std@@@2@PEAD_J@Z\"(%struct*, i8*, i64)\n"
       "declare %struct* @\"?setbuf@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAAPEAV12@PEAD_J@Z\"(%struct*, i8*, i64)\n"
+      "declare void @\"?setstate@?$basic_ios@DU?$char_traits@D@std@@@std@@QEAAXH_N@Z\"(%struct*,i32, i1)\n"
       "declare i64 @\"?showmanyc@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAA_JXZ\"(%struct*)\n"
       "declare i32 @\"?sync@?$basic_filebuf@DU?$char_traits@D@std@@@std@@MEAAHXZ\"(%struct*)\n"
       "declare i32 @\"?sync@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAAHXZ\"(%struct*)\n"

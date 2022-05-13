@@ -643,6 +643,9 @@ TLI_DEFINE_STRING_INTERNAL("?setbuf@?$basic_filebuf@DU?$char_traits@D@std@@@std@
 /// protected: virtual class std::basic_streambuf<char,struct std::char_traits<char> > * __ptr64 __cdecl std::basic_streambuf<char,struct std::char_traits<char> >::setbuf(char * __ptr64,__int64) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_streambuf_setbuf)
 TLI_DEFINE_STRING_INTERNAL("?setbuf@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAAPEAV12@PEAD_J@Z")
+/// public: void __cdecl std::basic_ios<char,struct std::char_traits<char> >::setstate(int,bool) __ptr64
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_ios_setstate)
+TLI_DEFINE_STRING_INTERNAL("?setstate@?$basic_ios@DU?$char_traits@D@std@@@std@@QEAAXH_N@Z")
 /// virtual __int64 __cdecl std::basic_streambuf<char,struct std::char_traits<char> >::showmanyc(void) __ptr64
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_basic_streambuf_showmanyc)
 TLI_DEFINE_STRING_INTERNAL("?showmanyc@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MEAA_JXZ")

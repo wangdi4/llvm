@@ -1212,6 +1212,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_msvc_std_basic_streambuf_pbackfail:
   case LibFunc_msvc_std_basic_streambuf_scalar_deleting_dtor:
   case LibFunc_msvc_std_basic_streambuf_setbuf:
+  case LibFunc_msvc_std_basic_ios_setstate:
   case LibFunc_msvc_std_basic_streambuf_showmanyc:
   case LibFunc_msvc_std_basic_streambuf_std_fpos_seekoff:
   case LibFunc_msvc_std_basic_streambuf_std_fpos_seekpos:
