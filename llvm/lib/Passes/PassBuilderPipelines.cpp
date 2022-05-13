@@ -529,6 +529,7 @@ extern cl::opt<bool> EnableVPOParoptTargetInline;
 
 #if INTEL_CUSTOMIZATION
 extern cl::opt<bool> EnableStdContainerOpt;
+extern cl::opt<bool> EarlyJumpThreading;
 #endif // INTEL_CUSTOMIZATION
 
 extern cl::opt<bool> SYCLOptimizationMode;
@@ -1572,6 +1573,8 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
   // IP ArrayTranspose is enabled.
   addInstCombinePass(GlobalCleanupPM, !DTransEnabled);
+  if (EarlyJumpThreading && !SYCLOptimizationMode)
+    GlobalCleanupPM.addPass(JumpThreadingPass(/*FreezeSelectCond*/ false));
 #endif // INTEL_CUSTOMIZATION
   invokePeepholeEPCallbacks(GlobalCleanupPM, Level);
 
