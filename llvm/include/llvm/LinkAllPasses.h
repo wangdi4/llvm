@@ -510,7 +510,6 @@ namespace {
       (void)llvm::createPipeOrderingLegacyPass();
       (void)llvm::createPrepareKernelArgsLegacyPass(false);
       (void)llvm::createProfilingInfoLegacyPass();
-      (void)llvm::createChannelPipeTransformationLegacyPass();
       (void)llvm::createCleanupWrappedKernelLegacyPass();
       (void)llvm::createCoerceTypesLegacyPass();
       (void)llvm::createVFAnalysisLegacyPass();

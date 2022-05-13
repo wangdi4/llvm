@@ -809,11 +809,11 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
                             ParentLoop->child_end());
     HLNodeUtils::visitRange(ThenUnsafe, If->then_begin(), If->then_end());
     HLNodeUtils::visitRange(ElseUnsafe, If->else_begin(), If->else_end());
-    PUC.IsUpdatedInThenBranch = PUC.IsUpdatedInThenBranch |
-                                ThenUnsafe.hasUnsafeCall() |
+    PUC.IsUpdatedInThenBranch = PUC.IsUpdatedInThenBranch ||
+                                ThenUnsafe.hasUnsafeCall() ||
                                 LoopUnsafe.hasUnsafeCall();
-    PUC.IsUpdatedInElseBranch = PUC.IsUpdatedInElseBranch |
-                                ElseUnsafe.hasUnsafeCall() |
+    PUC.IsUpdatedInElseBranch = PUC.IsUpdatedInElseBranch ||
+                                ElseUnsafe.hasUnsafeCall() ||
                                 LoopUnsafe.hasUnsafeCall();
     IsCandidate = PUC.isPUCandidate();
   }

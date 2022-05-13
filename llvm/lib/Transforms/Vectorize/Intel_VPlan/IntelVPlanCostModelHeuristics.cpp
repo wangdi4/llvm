@@ -918,7 +918,9 @@ void HeuristicSVMLIDivIRem::apply(
   const VPInstructionCost &TTICost, VPInstructionCost &Cost,
   const VPInstruction *VPInst, raw_ostream *OS) const {
 
-  if (VF == 1)
+  // SVML implementation kicks in for VF > 2. Two scalar calls are used
+  // to implement the operation for VF == 2.
+  if (VF == 1 || VF == 2)
     return;
 
   unsigned Opcode = VPInst->getOpcode();

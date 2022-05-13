@@ -63,7 +63,8 @@ bool llvm::InferAddrSpacesForGlobals(unsigned FlatAddrSpace, Module &M) {
     if (!ValTy)
       continue;
 #if !ENABLE_OPAQUEPOINTER
-    if (isa<PointerType>(ValTy->getPointerElementType()))
+    if (!ValTy->isOpaque() &&
+        isa<PointerType>(ValTy->getNonOpaquePointerElementType()))
       // TODO: for now analyze only pointer to non-pointer globals.
       // TODO: OPAQUEPOINTER: remove this check
       continue;

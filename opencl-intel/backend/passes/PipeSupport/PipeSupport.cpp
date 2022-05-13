@@ -43,6 +43,7 @@ OCL_INITIALIZE_PASS_BEGIN(
     "Apply transformation required by pipe built-ins implementation",
     false, true)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
+OCL_INITIALIZE_PASS_DEPENDENCY(ChannelPipeTransformation)
 OCL_INITIALIZE_PASS_END(
     PipeSupport, "pipe-support",
     "Apply transformation required by pipe built-ins implementation",

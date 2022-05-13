@@ -10,7 +10,7 @@
 ; }
 ; ----------------------------------------------------
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -x cl -cl-std=CL1.2
-; Opt options: oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -dpcpp-kernel-channel-pipe-transformation -S
+; Opt options: oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -channel-pipe-transformation -S
 ; ----------------------------------------------------
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-support %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-support -verify %s -S | FileCheck %s
