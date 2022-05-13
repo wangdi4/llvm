@@ -115,16 +115,14 @@ struct CandidateInfo {
 
   bool matches(const HLInst *Inst) const {
     auto *LLVMInst = Inst->getLLVMInstruction();
-    auto *FPMathOp = dyn_cast<FPMathOperator>(LLVMInst);
     auto *OBinOp = dyn_cast<OverflowingBinaryOperator>(LLVMInst);
 
     return (!Inst->isCallInst() && Opcode == LLVMInst->getOpcode()) &&
            DDRefUtils::areEqual(LvalRef, Inst->getLvalDDRef()) &&
            DDRefUtils::areEqual(FirstRvalRef, Inst->getOperandDDRef(1)) &&
            (Inst->isCopyInst() ||
-            ((!FPMathOp || FPMathOp->isFast()) &&
-             (!OBinOp || ((HasNSW == OBinOp->hasNoSignedWrap()) &&
-                          (HasNUW == OBinOp->hasNoUnsignedWrap())))));
+            (!OBinOp || ((HasNSW == OBinOp->hasNoSignedWrap()) &&
+                          (HasNUW == OBinOp->hasNoUnsignedWrap()))));
   }
 };
 
@@ -267,13 +265,7 @@ static bool isReductionLike(HLLoop *Lp, HLInst *Inst, CandidateInfo &CandInfo) {
 
   bool HasNSW = false, HasNUW = false;
 
-  if (auto *FPMathOp = dyn_cast<FPMathOperator>(LLVMInst)) {
-    // Only handle fast math operations.
-    if (!FPMathOp->isFast()) {
-      return false;
-    }
-
-  } else if (auto *OBinOp = dyn_cast<OverflowingBinaryOperator>(LLVMInst)) {
+  if (auto *OBinOp = dyn_cast<OverflowingBinaryOperator>(LLVMInst)) {
     HasNSW = OBinOp->hasNoSignedWrap();
     HasNUW = OBinOp->hasNoUnsignedWrap();
   }
