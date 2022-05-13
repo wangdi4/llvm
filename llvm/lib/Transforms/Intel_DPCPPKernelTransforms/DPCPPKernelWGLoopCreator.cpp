@@ -14,11 +14,13 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/WGBoundDecoder.h"
@@ -27,93 +29,229 @@
 #include <sstream>
 
 using namespace llvm;
-using namespace llvm::DPCPPKernelCompilationUtils;
+using namespace DPCPPKernelCompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-wgloop-creator"
 
+using MapFunctionToReturnInst = DenseMap<Function *, ReturnInst *>;
+
 namespace {
-
-class DPCPPKernelWGLoopCreatorLegacy : public ModulePass {
-  DPCPPKernelWGLoopCreatorPass Impl;
-
+class WGLoopCreatorImpl {
 public:
-  static char ID;
+  WGLoopCreatorImpl(Module &M, MapFunctionToReturnInst &FuncReturn)
+      : M(M), Ctx(M.getContext()), Builder(Ctx), FuncReturn(FuncReturn) {}
 
-  DPCPPKernelWGLoopCreatorLegacy() : ModulePass(ID) {
-    initializeDPCPPKernelWGLoopCreatorLegacyPass(
-        *PassRegistry::getPassRegistry());
-  }
+  /// Run on the module.
+  bool run();
 
-  llvm::StringRef getPassName() const override { return "WGLoopCreatorLegacy"; }
+private:
+  /// Struct that contains dimesion 0 loop attributes.
+  struct LoopBoundaries {
+    Value *PeelLoopSize;   // num peel loop iterations.
+    Value *VectorLoopSize; // num vector loop iterations.
+    Value *ScalarLoopSize; // num scalar loop iterations.
+    Value *MaxPeel;        // max peeling global id.
+    Value *MaxVector;      // max vector global id.
+  };
 
-  bool runOnModule(Module &M) override;
+  Module &M;
 
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  /// LLVM context of the current module.
+  LLVMContext &Ctx;
+
+  IRBuilder<> Builder;
+
+  /// Prefix for name of instructions used for loop of the dimension.
+  std::string DimStr;
+
+  // Remainder scalar or masked vector kernel return.
+  ReturnInst *RemainderRet = nullptr;
+
+  /// vector kernel return.
+  ReturnInst *VectorRet = nullptr;
+
+  // size_t type.
+  Type *IndTy = nullptr;
+
+  /// size_t one constant.
+  Constant *ConstZero = nullptr;
+
+  /// size_t one constant.
+  Constant *ConstOne = nullptr;
+
+  /// size_t packet constant
+  Constant *ConstVF = nullptr;
+
+  /// Function being processed.
+  Function *F = nullptr;
+
+  /// Vectorized inner loop func.
+  Function *VectorF = nullptr;
+
+  /// Masked function being processed.
+  Function *MaskedF = nullptr;
+
+  /// Scalar or masked vector kernel entry.
+  BasicBlock *RemainderEntry = nullptr;
+
+  /// Vector kernel entry.
+  BasicBlock *VectorEntry = nullptr;
+
+  /// New entry block.
+  BasicBlock *NewEntry = nullptr;
+
+  /// global_id lower bounds per dimension.
+  ValueVec InitGIDs;
+
+  /// global_id upper bounds per dimension.
+  ValueVec MaxGIDs;
+
+  /// base_global_id per dimension.
+  ValueVec BaseGIDs;
+
+  /// LoopSize per dimension.
+  ValueVec LoopSizes;
+
+  /// Index i contains vector with scalar or masked vector kernel
+  /// get_global_id(i) calls.
+  InstVecVec GidCalls;
+
+  /// Index i contains vector with scalar or masked vector kernel
+  /// get_local_id(i) calls.
+  InstVecVec LidCalls;
+
+  /// Index i contains vector with vector kernel get_global_id(i) calls.
+  InstVecVec GidCallsVec;
+
+  /// Index i contains vector with vector kernel get_local_id(i) calls.
+  InstVecVec LidCallsVec;
+
+  /// Early exit call.
+  CallInst *EECall = nullptr;
+
+  /// Number of WG dimensions.
+  unsigned NumDim = MAX_WORK_DIM;
+
+  /// The dimension by which we vectorize (usually 0).
+  unsigned VectorizedDim = 0;
+
+  /// Vectorization factor.
+  unsigned VF = 0;
+
+  /// Whether current function has subgroup path.
+  bool HasSubGroupPath = false;
+
+  /// Implicit GIDs in scalar/masked kernel.
+  SmallVector<AllocaInst *, 3> ImplicitGIDs;
+
+  /// Map from function to its return instruction.
+  MapFunctionToReturnInst &FuncReturn;
+
+  /// LoopRegion of scalar or masked remainder.
+  LoopRegion RemainderRegion;
+
+  /// Collect the get_global_id(), get_local_id(), and return of F.
+  /// F - kernel to collect information for.
+  /// Gids - array of get_global_id call to fill.
+  /// Lids - array of get_local_id call to fill.
+  /// Returns kernel single return instruction.
+  ReturnInst *getFunctionData(Function *F, InstVecVec &Gids, InstVecVec &Lids);
+
+  /// Public interface that allows running on pair of scalar - vector
+  /// kernels not through pass manager.
+  void processFunction(Function *F, Function *VectorF, unsigned VF);
+
+  /// Create the early exit call.
+  void createEECall(Function *Func);
+
+  /// Create a condition jump over the entire WG loops according to uniform
+  /// early exit value.
+  /// \param RetBB Return block to jump to in case of uniform early exit.
+  void handleUniformEE(BasicBlock *RetBB);
+
+  /// Get or create the base global id for dimension Dim.
+  /// \param Dim dimension to get base global id for.
+  /// \returns base global id value.
+  Value *getOrCreateBaseGID(unsigned Dim);
+
+  /// Obtain initial global id, and loop size per dimension.
+  void getLoopsBoundaries();
+
+  /// Add work group loops on the kernel. converts get_***_id according
+  /// to the generated loops. Moves Alloca instruction in kernel entry
+  /// block to the new entry block on the way.
+  /// KernelEntry - entry block of the kernel.
+  /// IsVector - true iff working on vector kernel
+  /// Ret - singel return instruction of the kernel.
+  /// GIDs - array with get_global_id calls.
+  /// LIDs - array with get_local_id calls.
+  /// InitGIDs - initial global id per dimension.
+  /// MaxGIDs - max (or upper bound) global id per dimension.
+  /// Returns struct with preheader and exit block of the outmost loop.
+  LoopRegion addWGLoops(BasicBlock *KernelEntry, bool IsVector, ReturnInst *Ret,
+                        InstVecVec &GIDs, InstVecVec &LIDs, ValueVec &InitGIDs,
+                        ValueVec &MaxGIDs);
+
+  /// Replace the get***tid calls with incremented phi in loop head.
+  /// TIDs - array of get***id to replace.
+  /// InitVal - inital value (for the first iteration).
+  /// IncBy - amount by which to increase the tid in each iteration.
+  /// Head - head block of the loop.
+  /// PreHead - pre header of the loop.
+  /// Latch - latch block of the loop.
+  void replaceTIDsWithPHI(InstVec &TIDs, Value *InitVal, Value *IncBy,
+                          BasicBlock *Head, BasicBlock *PreHead,
+                          BasicBlock *Latch);
+
+  /// Create WG loops over scalar kernel.
+  /// Returns a struct with entry and exit block of the WG loop region.
+  LoopRegion createScalarLoops();
+
+  /// Create WG loops over vector kernel and remainder loop over scalar kernel.
+  /// Returns a struct with entry and exit block of the WG loop region.
+  LoopRegion createVectorAndRemainderLoops();
+
+  /// Create WG loops over vector kernel and remainder loop over masked vector
+  /// kernel.
+  LoopRegion createVectorAndMaskedRemainderLoops();
+
+  /// Create WG loops over peeling loop over scalar or masked vector kernel,
+  LoopRegion
+  createPeelAndVectorAndRemainderLoops(LoopBoundaries &Dim0Boundaries);
+
+  /// Inline the vector kernel into the scalar kernel.
+  /// BB - location to move the vector blocks.
+  /// Returns the vector kernel entry block.
+  BasicBlock *inlineVectorFunction(BasicBlock *BB);
+
+  /// computes the sizes of scalar and vector loops of the zero
+  ///       dimension in case vector kernel exists.
+  /// InitVal - Initial global id of zero dimension.
+  /// DimSize - Number of iteration of zero dimensions.
+  /// Returns struct with the sizes of the vector and scalar loop + the initial
+  ///         scalar loop global id.
+  LoopBoundaries getVectorLoopBoundaries(Value *InitVal, Value *DimSize);
+
+  /// Returns the "true" dimension taking into account that
+  /// the vectorized dimension might not be 0. If VectorizedDim
+  /// is 0, then the returned value is always the same as Dim.
+  /// but suppose m_vectorizedDim is 1, then resolveDimension(1) = 0,
+  /// and resolveDimension(0) = 1. Since now Dim 1 is the innermost loop.
+  unsigned resolveDimension(unsigned Dim) const;
+
+  /// Find implicit GID alloca instructions and store initial GIDs to them.
+  void initializeImplicitGID(Function *F);
+
+  /// Compute a string indicating current loop level to later assign it to a
+  /// label.
+  void computeDimStr(unsigned Dim, bool IsVector);
 };
-
-} // namespace
-
-char DPCPPKernelWGLoopCreatorLegacy::ID = 0;
-
-INITIALIZE_PASS_BEGIN(DPCPPKernelWGLoopCreatorLegacy, DEBUG_TYPE,
-                      "Create loops over dpcpp kernels", false, false)
-INITIALIZE_PASS_DEPENDENCY(UnifyFunctionExitNodesLegacyPass)
-INITIALIZE_PASS_END(DPCPPKernelWGLoopCreatorLegacy, DEBUG_TYPE,
-                    "Create loops over dpcpp kernels", false, false)
-
-bool DPCPPKernelWGLoopCreatorLegacy::runOnModule(Module &M) {
-  FuncSet FSet = getAllKernels(M);
-  MapFunctionToReturnInst FuncReturn;
-  for (auto *F : FSet) {
-    bool Changed = false;
-    BasicBlock *SingleRetBB =
-        getAnalysis<UnifyFunctionExitNodesLegacyPass>(*F, &Changed)
-            .getReturnBlock();
-    if (SingleRetBB)
-      FuncReturn[F] = cast<ReturnInst>(SingleRetBB->getTerminator());
-  }
-  Impl.setFuncReturn(FuncReturn);
-  return Impl.runImpl(M);
 }
 
-void DPCPPKernelWGLoopCreatorLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<UnifyFunctionExitNodesLegacyPass>();
-}
-
-llvm::ModulePass *llvm::createDPCPPKernelWGLoopCreatorLegacyPass() {
-  return new DPCPPKernelWGLoopCreatorLegacy();
-}
-
-DPCPPKernelWGLoopCreatorPass::DPCPPKernelWGLoopCreatorPass()
-    : Ctx(nullptr), RemainderRet(nullptr), VectorRet(nullptr), IndTy(nullptr),
-      ConstZero(nullptr), ConstOne(nullptr), ConstVF(nullptr), F(nullptr),
-      VectorF(nullptr), MaskedF(nullptr), RemainderEntry(nullptr),
-      VectorEntry(nullptr), NewEntry(nullptr), EECall(nullptr),
-      NumDim(MAX_WORK_DIM), VectorizedDim(0), VF(0) {}
-
-PreservedAnalyses DPCPPKernelWGLoopCreatorPass::run(Module &M,
-                                                    ModuleAnalysisManager &) {
-  FuncSet FSet = getAllKernels(M);
-  for (auto *F : FSet) {
-    auto &BBList = F->getBasicBlockList();
-    auto It = std::find_if(BBList.rbegin(), BBList.rend(), [](BasicBlock &BB) {
-      return isa<ReturnInst>(BB.getTerminator());
-    });
-    if (It != BBList.rend())
-      FuncReturn[F] = cast<ReturnInst>(It->getTerminator());
-  }
-  if (!runImpl(M))
-    return PreservedAnalyses::all();
-  return PreservedAnalyses::none();
-}
-
-bool DPCPPKernelWGLoopCreatorPass::runImpl(Module &M) {
-  Ctx = &M.getContext();
+bool WGLoopCreatorImpl::run() {
   IndTy = DPCPPKernelLoopUtils::getIndTy(&M);
   ConstZero = ConstantInt::get(IndTy, 0);
   ConstOne = ConstantInt::get(IndTy, 1);
-  IRBuilder<> Builder(*Ctx);
-  this->Builder = &Builder;
 
   auto Kernels = getKernels(M);
   bool Changed = false;
@@ -174,9 +312,8 @@ static void disableRemainderLoopUnroll(Function &F, BasicBlock *Header) {
     disableLoopUnrollRecursively(L);
 }
 
-void DPCPPKernelWGLoopCreatorPass::processFunction(Function *F,
-                                                   Function *VectorF,
-                                                   unsigned VF) {
+void WGLoopCreatorImpl::processFunction(Function *F, Function *VectorF,
+                                        unsigned VF) {
   LLVM_DEBUG(dbgs() << "Creating loop for " << F->getName() << "\n";);
   LLVM_DEBUG(dbgs().indent(2));
   LLVM_DEBUG(if (VectorF) {
@@ -228,7 +365,7 @@ void DPCPPKernelWGLoopCreatorPass::processFunction(Function *F,
   RemainderEntry = &Func->getEntryBlock();
   RemainderEntry->setName(MaskedF ? "masked_kernel_entry"
                                   : "scalar_kernel_entry");
-  NewEntry = BasicBlock::Create(*Ctx, "", Func, RemainderEntry);
+  NewEntry = BasicBlock::Create(Ctx, "", Func, RemainderEntry);
 
   // Create early exit call to obtain boundaries from.
   createEECall(Func);
@@ -253,9 +390,9 @@ void DPCPPKernelWGLoopCreatorPass::processFunction(Function *F,
   // We must create separate block for the return since the it might be
   // that there are no WG loops (NumDim=0) and WGLoopRegion.Exit
   // is not empty.
-  auto *NewRetBB = BasicBlock::Create(*Ctx, "exit", Func);
+  auto *NewRetBB = BasicBlock::Create(Ctx, "exit", Func);
   BranchInst::Create(NewRetBB, WGLoopRegion.Exit);
-  auto *RI = ReturnInst::Create(*Ctx, NewRetBB);
+  auto *RI = ReturnInst::Create(Ctx, NewRetBB);
   if (RetDILoc)
     RI->setDebugLoc(RetDILoc);
 
@@ -296,7 +433,7 @@ void DPCPPKernelWGLoopCreatorPass::processFunction(Function *F,
   assert(!verifyFunction(*F, &dbgs()));
 }
 
-void DPCPPKernelWGLoopCreatorPass::initializeImplicitGID(Function *F) {
+void WGLoopCreatorImpl::initializeImplicitGID(Function *F) {
   ImplicitGIDs.clear();
 
   if (!F->getSubprogram())
@@ -320,8 +457,8 @@ void DPCPPKernelWGLoopCreatorPass::initializeImplicitGID(Function *F) {
 
   // Get initial GID and store to implicit GIDs.
   // Insert to new entry block.
-  Builder->SetInsertPoint(NewEntry);
-  Builder->SetCurrentDebugLocation(DebugLoc());
+  Builder.SetInsertPoint(NewEntry);
+  Builder.SetCurrentDebugLocation(DebugLoc());
   for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim) {
     Value *InitGID;
     if (Dim < NumDim) {
@@ -335,7 +472,7 @@ void DPCPPKernelWGLoopCreatorPass::initializeImplicitGID(Function *F) {
             F->getParent(), nameGetBaseGID(), IndTy, Dim, NewEntry);
       }
     }
-    Builder->CreateStore(InitGID, ImplicitGIDs[Dim], /* isVolatile */ true);
+    Builder.CreateStore(InitGID, ImplicitGIDs[Dim], /* isVolatile */ true);
   }
 }
 
@@ -345,7 +482,7 @@ void DPCPPKernelWGLoopCreatorPass::initializeImplicitGID(Function *F) {
 //   scalar loops
 // return
 //
-LoopRegion DPCPPKernelWGLoopCreatorPass::createScalarLoops() {
+LoopRegion WGLoopCreatorImpl::createScalarLoops() {
   LLVM_DEBUG(dbgs() << "Create scalar loops\n");
   if (VectorF)
     VectorF->eraseFromParent();
@@ -361,7 +498,7 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::createScalarLoops() {
 // if (scalarLoopSize != 0)
 //   scalar loops
 // return
-LoopRegion DPCPPKernelWGLoopCreatorPass::createVectorAndRemainderLoops() {
+LoopRegion WGLoopCreatorImpl::createVectorAndRemainderLoops() {
   LLVM_DEBUG(dbgs() << "Create vector and scalar remainder loops\n");
   // Collect get_*_id and return instructions in the vector kernel.
   VectorRet = getFunctionData(VectorF, GidCallsVec, LidCallsVec);
@@ -394,11 +531,11 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::createVectorAndRemainderLoops() {
 
   // Create blocks to jump over the loops.
   BasicBlock *LoopsEntry =
-      BasicBlock::Create(*Ctx, "vect_if", F, VectorBlocks.PreHeader);
+      BasicBlock::Create(Ctx, "vect_if", F, VectorBlocks.PreHeader);
   BasicBlock *ScalarIf =
-      BasicBlock::Create(*Ctx, "scalar_if", F, ScalarBlocks.PreHeader);
+      BasicBlock::Create(Ctx, "scalar_if", F, ScalarBlocks.PreHeader);
 
-  BasicBlock *RetBB = BasicBlock::Create(*Ctx, "ret", F);
+  BasicBlock *RetBB = BasicBlock::Create(Ctx, "ret", F);
 
   // Execute the vector loops if(vectorLoopSize != 0).
   Instruction *Vectcmp =
@@ -418,7 +555,7 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::createVectorAndRemainderLoops() {
   return LoopRegion{LoopsEntry, nullptr, RetBB};
 }
 
-LoopRegion DPCPPKernelWGLoopCreatorPass::createVectorAndMaskedRemainderLoops() {
+LoopRegion WGLoopCreatorImpl::createVectorAndMaskedRemainderLoops() {
   LLVM_DEBUG(dbgs() << "Create vector and masked remainder loops\n");
   // Do not create scalar remainder for subgroup kernels as the semantics does
   // not allow execution of workitems in a serial manner.
@@ -456,13 +593,13 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::createVectorAndMaskedRemainderLoops() {
 
   // Create blocks to jump over the loops.
   auto *LoopsEntry =
-      BasicBlock::Create(*Ctx, "vect_if", MaskedF, VectorBlocks.PreHeader);
-  auto *MaskGeneration = BasicBlock::Create(*Ctx, "mask_generate", MaskedF,
-                                            MaskedBlocks.PreHeader);
+      BasicBlock::Create(Ctx, "vect_if", MaskedF, VectorBlocks.PreHeader);
+  auto *MaskGeneration =
+      BasicBlock::Create(Ctx, "mask_generate", MaskedF, MaskedBlocks.PreHeader);
   auto *MaskedLoopEntry =
-      BasicBlock::Create(*Ctx, "masked_vect_if", MaskedF, MaskGeneration);
+      BasicBlock::Create(Ctx, "masked_vect_if", MaskedF, MaskGeneration);
 
-  auto *RetBB = BasicBlock::Create(*Ctx, "ret", MaskedF);
+  auto *RetBB = BasicBlock::Create(Ctx, "ret", MaskedF);
 
   // Execute the vector loop if (VectorLoopSize != 0)/
   auto *VectCmp = new ICmpInst(*LoopsEntry, CmpInst::ICMP_NE,
@@ -518,7 +655,7 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::createVectorAndMaskedRemainderLoops() {
 //   if (IsPeelLoop)
 //     br VectorEntry
 // ret
-LoopRegion DPCPPKernelWGLoopCreatorPass::createPeelAndVectorAndRemainderLoops(
+LoopRegion WGLoopCreatorImpl::createPeelAndVectorAndRemainderLoops(
     LoopBoundaries &Dim0Boundaries) {
   LLVM_DEBUG(
       dbgs() << (MaskedF
@@ -533,18 +670,18 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::createPeelAndVectorAndRemainderLoops(
 
   // Create peeling loop region.
   LoopRegion PeelBlocks;
-  PeelBlocks.Exit = BasicBlock::Create(*Ctx, "peel_exit", Func, VectorEntry);
+  PeelBlocks.Exit = BasicBlock::Create(Ctx, "peel_exit", Func, VectorEntry);
   PeelBlocks.PreHeader =
-      BasicBlock::Create(*Ctx, "peel_pre_head", Func, PeelBlocks.Exit);
+      BasicBlock::Create(Ctx, "peel_pre_head", Func, PeelBlocks.Exit);
 
   // Skip the remainder loop if (ScalarLoopSize == 0).
   auto *RemainderPreEntry =
-      BasicBlock::Create(*Ctx, "remainder_pre_entry", Func, RemainderEntry);
+      BasicBlock::Create(Ctx, "remainder_pre_entry", Func, RemainderEntry);
   auto *RemainderIf =
-      BasicBlock::Create(*Ctx, "remainder_if", Func, RemainderPreEntry);
+      BasicBlock::Create(Ctx, "remainder_if", Func, RemainderPreEntry);
   auto *RemainderCmp = new ICmpInst(*RemainderIf, CmpInst::ICMP_NE,
                                     Dim0Boundaries.ScalarLoopSize, ConstZero);
-  auto *RetBB = BasicBlock::Create(*Ctx, "ret", Func);
+  auto *RetBB = BasicBlock::Create(Ctx, "ret", Func);
   BranchInst::Create(RemainderPreEntry, RetBB, RemainderCmp, RemainderIf);
 
   // Create vector loop.
@@ -556,10 +693,10 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::createPeelAndVectorAndRemainderLoops(
                  InitGIDsCopy, MaxGIDs);
 
   // Create peel/remainder loops.
-  auto *IsPeelLoop = PHINode::Create(Type::getInt1Ty(*Ctx), 2, "is.peel.loop",
+  auto *IsPeelLoop = PHINode::Create(Type::getInt1Ty(Ctx), 2, "is.peel.loop",
                                      RemainderPreEntry);
-  IsPeelLoop->addIncoming(ConstantInt::getFalse(*Ctx), RemainderIf);
-  IsPeelLoop->addIncoming(ConstantInt::getTrue(*Ctx), PeelBlocks.PreHeader);
+  IsPeelLoop->addIncoming(ConstantInt::getFalse(Ctx), RemainderIf);
+  IsPeelLoop->addIncoming(ConstantInt::getTrue(Ctx), PeelBlocks.PreHeader);
 
   Value *PeelInitGID = InitGIDs[VectorizedDim];
   auto *RemainderInitGID =
@@ -594,10 +731,9 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::createPeelAndVectorAndRemainderLoops(
                  InitGIDsCopy, MaxGIDs);
 
   // Create blocks to jump over the loops.
-  auto *PeelIf =
-      BasicBlock::Create(*Ctx, "peel_if", Func, PeelBlocks.PreHeader);
+  auto *PeelIf = BasicBlock::Create(Ctx, "peel_if", Func, PeelBlocks.PreHeader);
   auto *VectIf =
-      BasicBlock::Create(*Ctx, "vect_if", Func, VectorBlocks.PreHeader);
+      BasicBlock::Create(Ctx, "vect_if", Func, VectorBlocks.PreHeader);
 
   // Execute the peel loop if (PeelLoopSize != 0).
   auto *PeelCmp = new ICmpInst(*PeelIf, CmpInst::ICMP_NE,
@@ -622,9 +758,8 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::createPeelAndVectorAndRemainderLoops(
   return LoopRegion{PeelIf, nullptr, RetBB};
 }
 
-DPCPPKernelWGLoopCreatorPass::LoopBoundaries
-DPCPPKernelWGLoopCreatorPass::getVectorLoopBoundaries(Value *InitVal,
-                                                      Value *DimSize) {
+WGLoopCreatorImpl::LoopBoundaries
+WGLoopCreatorImpl::getVectorLoopBoundaries(Value *InitVal, Value *DimSize) {
   // computes constant log VF
   assert(VF && ((VF & (VF - 1)) == 0) && "VF is not power of 2");
   unsigned LogVF = Log2_32(VF);
@@ -667,7 +802,7 @@ DPCPPKernelWGLoopCreatorPass::getVectorLoopBoundaries(Value *InitVal,
                         MaxVector};
 }
 
-BasicBlock *DPCPPKernelWGLoopCreatorPass::inlineVectorFunction(BasicBlock *BB) {
+BasicBlock *WGLoopCreatorImpl::inlineVectorFunction(BasicBlock *BB) {
   // Create denseMap of function arguments
   ValueToValueMapTy ValueMap;
   assert(F->getFunctionType() == VectorF->getFunctionType() &&
@@ -762,7 +897,7 @@ BasicBlock *DPCPPKernelWGLoopCreatorPass::inlineVectorFunction(BasicBlock *BB) {
   return VectorEntryBlock;
 }
 
-void DPCPPKernelWGLoopCreatorPass::createEECall(Function *Func) {
+void WGLoopCreatorImpl::createEECall(Function *Func) {
   // Obtain early exit function, which should have the same arguments
   // as the kernel.
   std::string EEFuncName = WGBoundDecoder::encodeWGBound(F->getName());
@@ -790,15 +925,15 @@ void DPCPPKernelWGLoopCreatorPass::createEECall(Function *Func) {
   }
 
   // Return a call in the new entry block.
-  Builder->SetInsertPoint(NewEntry);
-  EECall = Builder->CreateCall(EEFunc, Args, "early_exit_call");
+  Builder.SetInsertPoint(NewEntry);
+  EECall = Builder.CreateCall(EEFunc, Args, "early_exit_call");
   // Make -debugify happy.
   if (EEFunc->getSubprogram())
     if (DISubprogram *SP = Func->getSubprogram())
-      EECall->setDebugLoc(DILocation::get(*Ctx, 0, 0, SP));
+      EECall->setDebugLoc(DILocation::get(Ctx, 0, 0, SP));
 }
 
-void DPCPPKernelWGLoopCreatorPass::handleUniformEE(BasicBlock *RetBB) {
+void WGLoopCreatorImpl::handleUniformEE(BasicBlock *RetBB) {
   if (!EECall)
     return;
 
@@ -810,7 +945,7 @@ void DPCPPKernelWGLoopCreatorPass::handleUniformEE(BasicBlock *RetBB) {
   Instruction *UniEECond =
       ExtractValueInst::Create(EECall, UniInd, "", InsertPt);
   auto *TruncCond =
-      new TruncInst(UniEECond, Type::getInt1Ty(*Ctx), "", InsertPt);
+      new TruncInst(UniEECond, Type::getInt1Ty(Ctx), "", InsertPt);
   // Split the basic block after obtaining the uniform early exit condition,
   // and conditionally jump to the WG loops.
   BasicBlock *WGLoopsEntry =
@@ -819,9 +954,8 @@ void DPCPPKernelWGLoopCreatorPass::handleUniformEE(BasicBlock *RetBB) {
   BranchInst::Create(WGLoopsEntry, RetBB, TruncCond, NewEntry);
 }
 
-ReturnInst *DPCPPKernelWGLoopCreatorPass::getFunctionData(Function *F,
-                                                          InstVecVec &Gids,
-                                                          InstVecVec &Lids) {
+ReturnInst *WGLoopCreatorImpl::getFunctionData(Function *F, InstVecVec &Gids,
+                                               InstVecVec &Lids) {
   std::string GID = mangledGetGID();
   std::string LID = mangledGetLID();
   DPCPPKernelLoopUtils::collectTIDCallInst(GID, Gids, F);
@@ -832,11 +966,11 @@ ReturnInst *DPCPPKernelWGLoopCreatorPass::getFunctionData(Function *F,
     return It->second;
 
   // Create dummy return block for e.g. infinite loop.
-  BasicBlock *DummyRetBB = BasicBlock::Create(*Ctx, "dummy_ret", F);
-  return ReturnInst::Create(*Ctx, DummyRetBB);
+  BasicBlock *DummyRetBB = BasicBlock::Create(Ctx, "dummy_ret", F);
+  return ReturnInst::Create(Ctx, DummyRetBB);
 }
 
-Value *DPCPPKernelWGLoopCreatorPass::getOrCreateBaseGID(unsigned Dim) {
+Value *WGLoopCreatorImpl::getOrCreateBaseGID(unsigned Dim) {
   // If it is cached, return the cached value.
   assert(BaseGIDs.size() > Dim && "Dim is out of range");
   if (BaseGIDs[Dim])
@@ -850,7 +984,7 @@ Value *DPCPPKernelWGLoopCreatorPass::getOrCreateBaseGID(unsigned Dim) {
   return BaseGID;
 }
 
-void DPCPPKernelWGLoopCreatorPass::getLoopsBoundaries() {
+void WGLoopCreatorImpl::getLoopsBoundaries() {
   BaseGIDs.assign(MAX_WORK_DIM, nullptr);
   InitGIDs.clear();
   LoopSizes.clear();
@@ -883,7 +1017,7 @@ void DPCPPKernelWGLoopCreatorPass::getLoopsBoundaries() {
   }
 }
 
-unsigned DPCPPKernelWGLoopCreatorPass::resolveDimension(unsigned Dim) const {
+unsigned WGLoopCreatorImpl::resolveDimension(unsigned Dim) const {
   if (Dim == 0)
     return VectorizedDim;
   else if (Dim > VectorizedDim)
@@ -892,13 +1026,14 @@ unsigned DPCPPKernelWGLoopCreatorPass::resolveDimension(unsigned Dim) const {
     return Dim - 1;
 }
 
-void DPCPPKernelWGLoopCreatorPass::computeDimStr(unsigned Dim, bool IsVector) {
+void WGLoopCreatorImpl::computeDimStr(unsigned Dim, bool IsVector) {
   DimStr = ("dim_" + Twine(Dim) + "_" + (IsVector ? "vector_" : "")).str();
 }
 
-LoopRegion DPCPPKernelWGLoopCreatorPass::addWGLoops(
-    BasicBlock *KernelEntry, bool IsVector, ReturnInst *Ret, InstVecVec &GIDs,
-    InstVecVec &LIDs, ValueVec &InitGIDs, ValueVec &MaxGIDs) {
+LoopRegion WGLoopCreatorImpl::addWGLoops(BasicBlock *KernelEntry, bool IsVector,
+                                         ReturnInst *Ret, InstVecVec &GIDs,
+                                         InstVecVec &LIDs, ValueVec &InitGIDs,
+                                         ValueVec &MaxGIDs) {
   assert(KernelEntry && Ret && "uninitialized parameters");
 
   // Move allocas and llvm.dbg.declare in the entry kernel entry block to the
@@ -936,7 +1071,7 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::addWGLoops(
     PHINode *IndVar;
     std::tie(Blocks, IndVar) = DPCPPKernelLoopUtils::createLoop(
         Head, Latch, InitGID, IncBy, MaxGIDs[ResolvedDim],
-        MaskedF ? CmpInst::ICMP_SGE : CmpInst::ICMP_EQ, DimStr, *Ctx);
+        MaskedF ? CmpInst::ICMP_SGE : CmpInst::ICMP_EQ, DimStr, Ctx);
     // Modify get***id accordingly.
     if (!GIDs[ResolvedDim].empty()) {
       for (auto *TID : GIDs[ResolvedDim]) {
@@ -965,9 +1100,10 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::addWGLoops(
   return LoopRegion{Head, HeaderOutmost, Latch};
 }
 
-void DPCPPKernelWGLoopCreatorPass::replaceTIDsWithPHI(
-    InstVec &TIDs, Value *InitVal, Value *IncBy, BasicBlock *Head,
-    BasicBlock *PreHead, BasicBlock *Latch) {
+void WGLoopCreatorImpl::replaceTIDsWithPHI(InstVec &TIDs, Value *InitVal,
+                                           Value *IncBy, BasicBlock *Head,
+                                           BasicBlock *PreHead,
+                                           BasicBlock *Latch) {
   assert(TIDs.size() && "unexpected empty tid vector");
   PHINode *DimTID =
       PHINode::Create(IndTy, 2, DimStr + "tid", Head->getFirstNonPHI());
@@ -983,4 +1119,69 @@ void DPCPPKernelWGLoopCreatorPass::replaceTIDsWithPHI(
     TID->replaceAllUsesWith(DimTID);
     TID->eraseFromParent();
   }
+}
+
+namespace {
+
+class DPCPPKernelWGLoopCreatorLegacy : public ModulePass {
+public:
+  static char ID;
+
+  DPCPPKernelWGLoopCreatorLegacy() : ModulePass(ID) {
+    initializeDPCPPKernelWGLoopCreatorLegacyPass(
+        *PassRegistry::getPassRegistry());
+  }
+
+  StringRef getPassName() const override { return "WGLoopCreatorLegacy"; }
+
+  bool runOnModule(Module &M) override;
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<UnifyFunctionExitNodesLegacyPass>();
+  }
+};
+
+} // namespace
+
+char DPCPPKernelWGLoopCreatorLegacy::ID = 0;
+
+INITIALIZE_PASS_BEGIN(DPCPPKernelWGLoopCreatorLegacy, DEBUG_TYPE,
+                      "Create loops over dpcpp kernels", false, false)
+INITIALIZE_PASS_DEPENDENCY(UnifyFunctionExitNodesLegacyPass)
+INITIALIZE_PASS_END(DPCPPKernelWGLoopCreatorLegacy, DEBUG_TYPE,
+                    "Create loops over dpcpp kernels", false, false)
+
+bool DPCPPKernelWGLoopCreatorLegacy::runOnModule(Module &M) {
+  FuncSet FSet = getAllKernels(M);
+  MapFunctionToReturnInst FuncReturn;
+  for (auto *F : FSet) {
+    bool Changed = false;
+    BasicBlock *SingleRetBB =
+        getAnalysis<UnifyFunctionExitNodesLegacyPass>(*F, &Changed)
+            .getReturnBlock();
+    if (SingleRetBB)
+      FuncReturn[F] = cast<ReturnInst>(SingleRetBB->getTerminator());
+  }
+  WGLoopCreatorImpl Impl(M, FuncReturn);
+  return Impl.run();
+}
+
+llvm::ModulePass *llvm::createDPCPPKernelWGLoopCreatorLegacyPass() {
+  return new DPCPPKernelWGLoopCreatorLegacy();
+}
+
+PreservedAnalyses DPCPPKernelWGLoopCreatorPass::run(Module &M,
+                                                    ModuleAnalysisManager &) {
+  FuncSet FSet = getAllKernels(M);
+  MapFunctionToReturnInst FuncReturn;
+  for (auto *F : FSet) {
+    auto &BBList = F->getBasicBlockList();
+    auto It = std::find_if(BBList.rbegin(), BBList.rend(), [](BasicBlock &BB) {
+      return isa<ReturnInst>(BB.getTerminator());
+    });
+    if (It != BBList.rend())
+      FuncReturn[F] = cast<ReturnInst>(It->getTerminator());
+  }
+  WGLoopCreatorImpl Impl(M, FuncReturn);
+  return Impl.run() ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
