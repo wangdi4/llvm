@@ -1102,7 +1102,6 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
       }
     }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // For callbacks need to check that broker function propagates argument to
     // the callee at all callback call sites.
@@ -1128,13 +1127,13 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
       continue;
 #endif // INTEL_CUSTOMIZATION
 
-    // If this is a byval argument, and if the aggregate type is small, just
-    // pass the elements, which is always safe, if the passed value is densely
-    // packed or if we can prove the padding bytes are never accessed.
-=======
     // If we can promote the pointer to its value.
     SmallVector<OffsetAndArgPart, 4> ArgParts;
-    if (findArgParts(PtrArg, DL, AAR, MaxElements, IsRecursive, ArgParts)) {
+#if INTEL_CUSTOMIZATION
+    if (findArgParts(PtrArg, DL, AAR, MaxElements, IsRecursive,
+                     IsSelfRecursive, isCallback, RemoveHomedArguments,
+                     ArgParts)) {
+#endif // INTEL_CUSTOMIZATION
       SmallVector<Type *, 4> Types;
       for (const auto &Pair : ArgParts)
         Types.push_back(Pair.second.Ty);
@@ -1149,7 +1148,6 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
     // small, just pass the elements, which is always safe, if the passed value
     // is densely packed or if we can prove the padding bytes are never
     // accessed.
->>>>>>> 098afdb0a0f9254f84733fb1987018528a89accc
     //
     // Only handle arguments with specified alignment; if it's unspecified, the
     // actual alignment of the argument is target-specific.
@@ -1158,7 +1156,6 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
         ByValTy && PtrArg->getParamAlign() && !isCallback && // INTEL
         (ArgumentPromotionPass::isDenselyPacked(ByValTy, DL) ||
          !canPaddingBeAccessed(PtrArg));
-<<<<<<< HEAD
 #if INTEL_COLLAB
     if (cast<PointerType>(PtrArg->getType())->getAddressSpace() !=
         DL.getAllocaAddrSpace()) {
@@ -1176,48 +1173,13 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
       IsSafeToPromote = false;
     }
 #endif // INTEL_COLLAB
-    if (IsSafeToPromote) {
-      if (StructType *STy = dyn_cast<StructType>(ByValTy)) {
-        if (MaxElements > 0 && STy->getNumElements() > MaxElements) {
-          LLVM_DEBUG(dbgs() << "ArgPromotion disables promoting argument '"
-                            << PtrArg->getName()
-                            << "' because it would require adding more"
-                            << " than " << MaxElements
-                            << " arguments to the function.\n");
-          continue;
-        }
-
-        SmallVector<Type *, 4> Types;
-        append_range(Types, STy->elements());
-
-        // If all the elements are single-value types, we can promote it.
-        bool AllSimple =
-            all_of(Types, [](Type *Ty) { return Ty->isSingleValueType(); });
-
-        // Safe to transform, don't even bother trying to "promote" it.
-        // Passing the elements as a scalar will allow sroa to hack on
-        // the new alloca we introduce.
-        if (AllSimple && areTypesABICompatible(Types, *F, TTI)) {
-          ByValArgsToTransform.insert(PtrArg);
-          continue;
-        }
-      }
-    }
-
-    // Otherwise, see if we can promote the pointer to its value.
-    SmallVector<OffsetAndArgPart, 4> ArgParts;
-#if INTEL_CUSTOMIZATION
-    if (findArgParts(PtrArg, DL, AAR, MaxElements, IsRecursive,
-                     IsSelfRecursive, isCallback, RemoveHomedArguments,
-                     ArgParts)) {
-#endif // INTEL_CUSTOMIZATION
-=======
-    if (!IsSafeToPromote) {
+     if (!IsSafeToPromote) {
       LLVM_DEBUG(dbgs() << "ArgPromotion disables passing the elements of"
                         << " the argument '" << PtrArg->getName()
                         << "' because it is not safe.\n");
       continue;
     }
+
     if (StructType *STy = dyn_cast<StructType>(ByValTy)) {
       if (MaxElements > 0 && STy->getNumElements() > MaxElements) {
         LLVM_DEBUG(dbgs() << "ArgPromotion disables passing the elements of"
@@ -1227,7 +1189,6 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
                           << " arguments to the function.\n");
         continue;
       }
->>>>>>> 098afdb0a0f9254f84733fb1987018528a89accc
       SmallVector<Type *, 4> Types;
       append_range(Types, STy->elements());
 
