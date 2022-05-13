@@ -2064,6 +2064,9 @@ public:
   /// one team/WG is allowed, which corresponds to false return value.
   static bool getSPIRImplicitMultipleTeams();
 
+  /// Control data prefetch API generation for GPUs
+  static uint32_t dataPrefetchKind();
+
   /// Returns true, if the given instruction \p I represents a call
   /// to library function __kmpc_critical.
   static bool isOMPCritical(const Instruction *I, const TargetLibraryInfo &TLI);
@@ -2109,6 +2112,28 @@ public:
   static GlobalVariable *storeIntToThreadLocalGlobal(Value *V,
                                                      Instruction *InsertBefore,
                                                      StringRef VarName = "");
+
+  /// This function generates calls to perform data prefetch on ATS and PVC
+  /// based on data element type, data type of number of elements.
+  ///
+  /// \code
+  /// call void __builtin_spirv_OpenCL_prefetch_p1i8_i32((const global uchar*)a, 1);
+  /// call void __builtin_spirv_OpenCL_prefetch_p1i8_i64((const global uchar*)a, 1);
+  /// ... ...
+  /// \endcode
+  static void genSPIRVPrefetchBuiltIn(WRegionNode *w, Instruction *InsertPt);
+
+  /// This function generates calls to perform data prefetch with different API
+  /// which takes base address, prefetch distance/offset, cache Hint on PVC
+  ///
+  /// \code
+  /// void __builtin_IB_lsc_prefetch_global_uint (const __global uint  *base,
+  ///                                 int elemOff, enum LSC_LDCC cacheOpt); //D32V1
+  /// void __builtin_IB_lsc_prefetch_global_ulong (const __global ulong  *base,
+  ///                                 int elemOff, enum LSC_LDCC cacheOpt); //D64V1
+  /// ... ...
+  /// \endcode
+  static void genSPIRVLscPrefetchBuiltIn(WRegionNode *w, Instruction *InsertPt);
 
 private:
   /// \name Private constructor and destructor to disable instantiation.

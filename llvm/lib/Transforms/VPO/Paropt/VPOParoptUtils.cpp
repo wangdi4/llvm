@@ -155,6 +155,12 @@ static cl::opt<bool> PutInteropAfterVararg(
     cl::desc(
         "Put interop after last arg in a variant dispatch variadic function."));
 
+// Control data prefetch API generation
+static cl::opt<uint32_t> DataPrefetchKind(
+    "vpo-paropt-data-prefetch-kind", cl::Hidden, cl::init(2),
+    cl::desc("Control prefetch API generation in OpenMP code. 0 = none; "
+             "1 = lsc_prefetch; 2 (default) = OpenCL_prefetch."));
+
 // Get the TidPtrHolder global variable @tid.addr.
 // Assert if the variable is not found or is not i32.
 GlobalVariable *VPOParoptUtils::getTidPtrHolder(Module *M) {
@@ -642,6 +648,174 @@ CallInst *VPOParoptUtils::genKmpcPushNumThreads(WRegionNode *W,
   PushNumThreads->insertBefore(InsertPt);
 
   return PushNumThreads;
+}
+
+// Allow using short names for llvm::vpo::intrinsics::IntrinsicOperandTy
+// constants (e.g. I8, I16, etc.)
+using namespace llvm::vpo::intrinsics;
+
+/// This function generates calls to perform data prefetch on ATS and PVC
+/// based on data element type, data type of number of elements.
+///
+/// \code
+/// call void __builtin_spirv_OpenCL_prefetch_p1i8_i32((const global uchar*)a, 1);
+/// call void __builtin_spirv_OpenCL_prefetch_p1i8_i64((const global uchar*)a, 1);
+/// ... ...
+/// \endcode
+void VPOParoptUtils::genSPIRVPrefetchBuiltIn(
+    WRegionNode *W, Instruction *InsertPt) {
+
+  // The prefetch SPIRV builtin is selected based on
+  // the element data type and data type of size.
+  typedef std::pair<IntrinsicOperandTy, int>
+      SPIRVPrefetchTy;
+
+  // TODO: check if DenseMap<SPIRVPrefetchTy, StringRef> works here
+  static const std::map<SPIRVPrefetchTy, const std::string>
+      SPIRVPrefetchMap = {
+        { { I8,  32 }, "__builtin_spirv_OpenCL_prefetch_p1i8_i32"  },
+        { { I16, 32 }, "__builtin_spirv_OpenCL_prefetch_p1i16_i32" },
+        { { I32, 32 }, "__builtin_spirv_OpenCL_prefetch_p1i32_i32" },
+        { { I64, 32 }, "__builtin_spirv_OpenCL_prefetch_p1i64_i32" },
+
+        { { F16, 32 }, "__builtin_spirv_OpenCL_prefetch_p1f16_i32" },
+        { { F32, 32 }, "__builtin_spirv_OpenCL_prefetch_p1f32_i32" },
+        { { F64, 32 }, "__builtin_spirv_OpenCL_prefetch_p1f64_i32" },
+
+        { { I8,  64 }, "__builtin_spirv_OpenCL_prefetch_p1i8_i64"  },
+        { { I16, 64 }, "__builtin_spirv_OpenCL_prefetch_p1i16_i64" },
+        { { I32, 64 }, "__builtin_spirv_OpenCL_prefetch_p1i32_i64" },
+        { { I64, 64 }, "__builtin_spirv_OpenCL_prefetch_p1i64_i64" },
+
+        { { F16, 64 }, "__builtin_spirv_OpenCL_prefetch_p1f16_i64" },
+        { { F32, 64 }, "__builtin_spirv_OpenCL_prefetch_p1f32_i64" },
+        { { F64, 64 }, "__builtin_spirv_OpenCL_prefetch_p1f64_i64" },
+      };
+
+  if (!W->canHaveData())
+    return;
+
+  BasicBlock *B = W->getEntryBBlock();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+
+  Module *M = F->getParent();
+  DataClause &DataC = W->getData();
+
+  for (DataItem *DI : DataC.items()) {
+    Value *V = DI->getOrig();
+
+    // TODO: OPAQUEPOINTER: to be changed to support opaque pointer
+    auto PtrTy = V->getType()->getScalarType()->getPointerElementType();
+    auto DataTy = PtrTy->getPointerElementType();
+
+    // TODO: GPU prefetch API supports i32 and i64, we may change to
+    // allow both 32-bit and 64-bit, We need type info from Front-End.
+    auto NumElemTy = Type::getInt64Ty(C);
+    int NumElemTySize = 64;
+
+    IntrinsicOperandTy DataElemTyID = {DataTy->getTypeID(),
+                                       DataTy->getPrimitiveSizeInBits()};
+
+    auto MapEntry = SPIRVPrefetchMap.find(
+           { DataElemTyID, NumElemTySize });
+
+    if (MapEntry == SPIRVPrefetchMap.end())
+      continue;
+
+    StringRef FnName = MapEntry->second;
+
+    IRBuilder<> Builder(InsertPt);
+    Value *NumElements = Builder.CreateSExtOrTrunc(
+                           Builder.getInt64(DI->getNumElem()), NumElemTy);
+
+    SmallVector<Value *, 2> FnArgs = {V, NumElements};
+    Type *RetTy = Type::getVoidTy(C);
+
+    CallInst *PrefetchBuiltIn = genCall(M, FnName, RetTy, FnArgs);
+    PrefetchBuiltIn->insertBefore(InsertPt);
+  }
+  return;
+}
+
+/// This function generates calls to perform data prefetch on ATS and PVC
+/// based on data element type, data type of number of elements.
+///
+/// \code
+/// void __builtin_IB_lsc_prefetch_global_uint(const __global uint *base,
+///                                int elemOff, enum LSC_LDCC cacheOpt); //D32V1
+/// void __builtin_IB_lsc_prefetch_global_ulong(const __global ulong *base,
+///                                int elemOff, enum LSC_LDCC cacheOpt); //D64V1
+/// ... ...
+/// \endcode
+void VPOParoptUtils::genSPIRVLscPrefetchBuiltIn(
+    WRegionNode *W, Instruction *InsertPt) {
+
+  // The prefetch SPIRV builtin is selected based on
+  // the element data type and data type of size.
+  typedef std::pair<IntrinsicOperandTy, int>
+      LscPrefetchTy;
+
+  // TODO: check if DenseMap<LscPrefetchTy, StringRef> works here
+  static const std::map<LscPrefetchTy, const std::string>
+      LscPrefetchMap = {
+        { { I32, 32 }, "__builtin_IB_lsc_prefetch_global_uint" },
+        { { I64, 32 }, "__builtin_IB_lsc_prefetch_global_ulong" },
+
+        { { I32, 64 }, "__builtin_IB_lsc_prefetch_global_uint" },
+        { { I64, 64 }, "__builtin_IB_lsc_prefetch_global_ulong" },
+      };
+
+  if (!W->canHaveData())
+    return;
+
+  BasicBlock *B = W->getEntryBBlock();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+
+  Module *M = F->getParent();
+
+  DataClause &DataC = W->getData();
+
+  for (DataItem *DI : DataC.items()) {
+    Value *V = DI->getOrig();
+
+    // TODO: OPAQUEPOINTER: to be changed to support opaque pointer
+    auto PtrTy = V->getType()->getScalarType()->getPointerElementType();
+    auto DataTy = PtrTy->getPointerElementType();
+
+    // TODO: LSC prefetch API supports i32 and i64, we may change to
+    // allow both 32-bit and 64-bit, We need type info from Front-End.
+    auto ElemOffsetTy = Type::getInt32Ty(C);
+    int ElemOffsetTySize = 32;
+
+    auto HintTy = Type::getInt32Ty(C);
+
+    IntrinsicOperandTy DataElemTyID = { DataTy->getTypeID(),
+                                        DataTy->getPrimitiveSizeInBits() };
+
+    auto MapEntry = LscPrefetchMap.find(
+           { DataElemTyID, ElemOffsetTySize });
+
+    if (MapEntry == LscPrefetchMap.end())
+      continue;
+
+    StringRef FnName = MapEntry->second;
+
+    IRBuilder<> Builder(InsertPt);
+    Value *ElemOffset = Builder.CreateSExtOrTrunc(
+                          Builder.getInt32(DI->getNumElem()), ElemOffsetTy);
+
+    Value *CacheHint = Builder.CreateSExtOrTrunc(
+                         Builder.getInt32(DI->getHint()), HintTy);
+
+    SmallVector<Value *, 2> FnArgs = {V, ElemOffset, CacheHint};
+    Type *RetTy = Type::getVoidTy(C);
+
+    CallInst *PrefetchBuiltIn = genCall(M, FnName, RetTy, FnArgs);
+    PrefetchBuiltIn->insertBefore(InsertPt);
+  }
+  return;
 }
 
 // This function generates a call as follows.
@@ -6517,6 +6691,10 @@ bool VPOParoptUtils::enableAsyncHelperThread() {
 
 bool VPOParoptUtils::getSPIRImplicitMultipleTeams() {
   return SPIRImplicitMultipleTeams;
+}
+
+uint32_t VPOParoptUtils::dataPrefetchKind() {
+  return DataPrefetchKind;
 }
 
 bool VPOParoptUtils::isOMPCritical(
