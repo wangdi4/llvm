@@ -3676,6 +3676,8 @@ private:
 
   void analyzeSelectOrPhi(SmallVectorImpl<Value *> &IncomingVals,
                           ValueTypeInfo *ResultInfo) {
+    SmallPtrSet<GlobalObject *, 4> PossibleGlobalWithElidedGEP;
+    bool HasNonGlobalObject = false;
     for (auto *ValIn : IncomingVals) {
       // It's possible the operand to the select or phi is 0 or null, ignore
       // these because they do not supply type information useful for
@@ -3683,6 +3685,27 @@ private:
       if (isCompilerConstant(ValIn))
         continue;
 
+      // Defer processing of Globals merged with other values because it's
+      // possible that the actual use is for the element zero rather than the
+      // type of global variable, when the GEP has been elided. In this case,
+      // first merge the information from the other inputs, and then we will
+      // check if the global should merged using the type of Global, or as an
+      // element-zero access type.
+      //
+      // For example:
+      //   @GetPageGeometry.PageSizes = constant [76 x [2 x ptr]]
+      //   i10 = phi ptr [ @GetPageGeometry.PageSizes, %bb ], [ %i4, %bb2 ]
+      //
+      // When %i4 is identified as type [2 x i8*], then we want to conclude that
+      // there is an elided element zero GEP on the global variable, rather than
+      // treating the result type as also containing [76 x [2 x i8*]]
+      if (auto *GO = dyn_cast<GlobalObject>(ValIn))
+        if (GO->getValueType()->isAggregateType()) {
+          PossibleGlobalWithElidedGEP.insert(GO);
+          continue;
+        }
+
+      HasNonGlobalObject = true;
       ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(ValIn);
       propagate(SrcInfo, ResultInfo, true, true, DerefType::DT_SameType);
 
@@ -3691,6 +3714,52 @@ private:
 
       if (!SrcInfo->isCompletelyAnalyzed())
         ResultInfo->setPartiallyAnalyzed();
+    }
+
+    if (!PossibleGlobalWithElidedGEP.empty()) {
+      // These sets hold the info that needs to be added from the global
+      // variables. In order to ensure the updates to ResultInfo are
+      // deterministic, we need to check all the Globals against the ResultInfo
+      // before we start adding types into the ResultInfo.
+      SmallPtrSet<ValueTypeInfo*, 4> InfosToMerge;
+      SmallPtrSet<DTransType*, 4> ElementZeroPointeesToAdd;
+      for (auto *GO : PossibleGlobalWithElidedGEP) {
+        ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(GO);
+        bool IsElementZero = false;
+        if (HasNonGlobalObject) {
+          DTransType *GOType =
+              PTA.getDominantAggregateType(*SrcInfo, ValueTypeInfo::VAT_Decl);
+          if (GOType) {
+            for (auto AliasTy :
+                 ResultInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+              if (AliasTy == GOType)
+                continue;
+
+              DTransType* AccessedType = nullptr;
+              if (PTA.isElementZeroAccess(GOType, AliasTy, &AccessedType)) {
+                IsElementZero = true;
+                ElementZeroPointeesToAdd.insert(AccessedType);
+              }
+            }
+          }
+        }
+
+        if (!IsElementZero || !HasNonGlobalObject)
+          InfosToMerge.insert(SrcInfo);
+
+        // Check for the possibility that the Global object was missing
+        // metadata. There is no need to check for "Depends on unhandled" or
+        // "Completely analyzed" because Globals are completely processed
+        // based on their ValueType and metadata.
+        if (SrcInfo->getUnhandled())
+          ResultInfo->setDependsOnUnhandled();
+      }
+
+      for (auto *Info : InfosToMerge)
+        propagate(Info, ResultInfo, true, true, DerefType::DT_SameType);
+
+      for (auto *Ty : ElementZeroPointeesToAdd)
+        ResultInfo->addElementPointee(ValueTypeInfo::VAT_Use, Ty, 0);
     }
   }
 
