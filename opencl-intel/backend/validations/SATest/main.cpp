@@ -264,7 +264,7 @@ ExpensiveMemOpts("enable-expensive-mem-opts",
 llvm::cl::opt<PassManagerType> OptPassManagerType(
     "pass-manager-type",
     llvm::cl::desc("Specify pass manager type. "
-                   "Default value - ocl."),
+                   "Default value - none."),
     llvm::cl::values(
         clEnumValN(PM_NONE, "none", "pass pipeline is not specified"),
         clEnumValN(PM_OCL, "ocl", "OpenCL pass pipeline"),

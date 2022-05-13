@@ -486,11 +486,11 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
     m_disableOptimization = buildOptions.GetDisableOpt();
     m_useNativeDebugger = buildOptions.GetUseNativeDebuggerFlag();
 
-    // Default to C++ legacy pipeline if triple is spir64_x86_64.
+    // Default to C++ new-pm pipeline if triple is spir64_x86_64.
     llvm::Triple TT(pModule->getTargetTriple());
     if (m_passManagerType == PM_NONE &&
         TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64)
-      m_passManagerType = PM_LTO_LEGACY;
+      m_passManagerType = PM_LTO_NEW;
 
     applyBuildProgramLLVMOptions(m_passManagerType);
 
