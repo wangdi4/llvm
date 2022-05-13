@@ -16,6 +16,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Intel_OptReport/OptReport.h" // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
@@ -74,6 +75,41 @@ BasicBlock *llvm::CloneBasicBlock(const BasicBlock *BB, ValueToValueMapTy &VMap,
   }
   return NewBB;
 }
+
+#if INTEL_CUSTOMIZATION
+/// Clones any opt-report metadata found on the mapped-from instructions in
+/// \p VMap to the corresponding mapped-to instructions.
+static void cloneOptReportLoopMetadata(ValueToValueMapTy &VMap) {
+  for (const auto &MappedValues : VMap) {
+
+    // See if the mapped-from instruction is a branch with opt-report metadata
+    // attached.
+    const auto *const From = dyn_cast<BranchInst>(MappedValues.first);
+    if (!From)
+      continue;
+    MDNode *const FromLoopID = From->getMetadata(LLVMContext::MD_loop);
+    const OptReport Report = OptReport::findOptReportInLoopID(FromLoopID);
+    if (!Report)
+      continue;
+
+    // Check if the mapped-to instruction has already had opt-report metadata
+    // copied to it. This happens when cloning multiple functions using the same
+    // VMap, because the instructions from earlier functions are still in the
+    // VMap when later functions are cloned.
+    auto *const To = dyn_cast<BranchInst>(MappedValues.second);
+    assert(To);
+    MDNode *const ToLoopID = To->getMetadata(LLVMContext::MD_loop);
+    if (OptReport::findOptReportInLoopID(ToLoopID))
+      continue;
+
+    // If not, copy the report from the mapped-from instruction to the mapped-to
+    // instruction.
+    MDNode *const NewLoopID = OptReport::addOptReportToLoopID(
+        ToLoopID, Report.copy(), To->getContext());
+    To->setMetadata(LLVMContext::MD_loop, NewLoopID);
+  }
+}
+#endif // INTEL_CUSTOMIZATION
 
 // Clone OldFunc into NewFunc, transforming the old arguments into references to
 // VMap values.
@@ -190,6 +226,13 @@ void llvm::CloneFunctionInto(Function *NewFunc, const Function *OldFunc,
     if (ReturnInst *RI = dyn_cast<ReturnInst>(CBB->getTerminator()))
       Returns.push_back(RI);
   }
+
+#if INTEL_CUSTOMIZATION
+  // opt-report metadata is not cloned at the basic block level, but should be
+  // cloned at the function level. Copy over all of the original function's
+  // opt-report metadata now that the blocks have been cloned.
+  cloneOptReportLoopMetadata(VMap);
+#endif // INTEL_CUSTOMIZATION
 
   if (Changes < CloneFunctionChangeType::DifferentModule &&
       DIFinder->subprogram_count() > 0) {
