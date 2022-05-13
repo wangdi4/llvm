@@ -17,6 +17,9 @@ target triple = "x86_64-unknown-linux-gnu"
 @.source.0.0.9 = private unnamed_addr constant [22 x i8] c";unknown;unknown;0;0;;"
 @.kmpc_loc.0.0.10 = private unnamed_addr global %struct.ident_t { i32 0, i32 838860802, i32 0, i32 0, i8* getelementptr inbounds ([22 x i8], [22 x i8]* @.source.0.0.9, i32 0, i32 0) }
 
+declare void @llvm.lifetime.start.p0i8(i64, i8*)
+declare void @llvm.lifetime.end.p0i8(i64, i8*)
+
 define i32 @main() #0 {
 b0:
   %g = alloca double*, align 8
@@ -25,8 +28,11 @@ b0:
   %p1 = tail call i8* @malloc(i64 214400000)
   %pinc = getelementptr inbounds i8, i8* %p1, i64 320000
   %bc0 = bitcast i8* %pinc to double*
+  %bc1 = bitcast i32* %lb to i8*
+  call void @llvm.lifetime.start.p0i8(i64 8, i8* %bc1)
   store double* %bc0, double** %g, align 8
   call void (%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_call(%struct.ident_t* @.kmpc_loc.0.0.10, i32 3, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, double**, i32*, i32*)* @foo to void (i32*, i32*, ...)*), double** %g, i32* %lb, i32* %ub)
+  call void @llvm.lifetime.end.p0i8(i64 8, i8* %bc1)
   br label %b1
 
 b1:                                               ; preds = %b0
