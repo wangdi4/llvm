@@ -2662,6 +2662,13 @@ bool VPOParoptTransform::paroptTransforms() {
           RemoveDirectives = true;
         }
         break;
+      case WRegionNode::WRNPrefetch:
+        if (Mode & ParPrepare) {
+          debugPrintHeader(W, Mode);
+          Changed |= genPrefetchCode(W, isTargetSPIRV());
+          RemoveDirectives = true;
+        }
+        break;
       default:
         break;
       } // switch
@@ -2721,6 +2728,65 @@ bool VPOParoptTransform::paroptTransforms() {
 
   WRegionList.clear();
   return RoutineChanged;
+}
+
+// Insert a call to *_prefetch_*(...) at the end of the construct (or before
+// InsertBefore).
+bool VPOParoptTransform::genPrefetchCode(WRegionNode *W,
+                                    bool IsTargetSPIRV) {
+
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genPrefetchCode.\n");
+
+  // Generate data prefetch builtin functions for GPUs
+  if (!IsTargetSPIRV)
+    return false;
+
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  Instruction *InsertPt = EntryBB->getTerminator();
+
+  auto *IfExpr = W->getIf();
+  if (IfExpr) {
+    // If the construct has an 'IF' clause, we need to generate code like:
+    // if (if_expr != 0) {
+    //   %0 = load i32 addrspace(1)*, i32 addrspace(1)** %A.addr, align 8
+    //   %1 = bitcast i32 addrspace(1)* %0 to i8 addrspace(1)*
+    //   call spir_func void @__builtin_spirv_OpenCL_prefetch_p1i8_i32
+    //                       (i8 addrspace(1)* %1, i32 1) #2
+    // }
+    IRBuilder<> Builder(InsertPt);
+    assert(IfExpr->getType()->getIntegerBitWidth() == 1 &&
+           "Illegal prefetch condition expression");
+    auto *CondInst = IfExpr;
+
+    Instruction *IfPrefetchThen = nullptr;
+    Instruction *IfPrefetchElse = nullptr;
+
+    SplitBlockAndInsertIfThenElse(CondInst, InsertPt, &IfPrefetchThen,
+                                  &IfPrefetchElse);
+    assert(IfPrefetchThen && "genPrefetchCode: Null Then Inst for Prefetch If");
+    assert(IfPrefetchElse && "genPrefetchCode: Null Else Inst for Prefetch If");
+
+    IfPrefetchThen->getParent()->setName(CondInst->getName() + ".prefetch.then");
+    IfPrefetchElse->getParent()->setName(CondInst->getName() + ".prefetch.else");
+
+    LLVM_DEBUG(
+        dbgs() << "genPrefetchCode: Emitted If-Then for IF EXPR: if (";
+        IfExpr->printAsOperand(dbgs());
+        dbgs() << ") then < void @__builtin_*_prefetch>; \n");
+
+    // Set the insert point for the prefetch call.
+    InsertPt = IfPrefetchThen;
+  }
+
+  if (VPOParoptUtils::dataPrefetchKind() == 1)
+    VPOParoptUtils::genSPIRVLscPrefetchBuiltIn(W, InsertPt);
+  else if (VPOParoptUtils::dataPrefetchKind() == 2)
+    VPOParoptUtils::genSPIRVPrefetchBuiltIn(W, InsertPt);
+
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genPrefetchCode\n");
+
+  W->resetBBSet(); // CFG changed because of NewBB; clear BBSet
+  return true;
 }
 
 // Generate calling constructor and initializer function for user-defined

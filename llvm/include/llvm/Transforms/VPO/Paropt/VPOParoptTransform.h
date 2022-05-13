@@ -1459,6 +1459,9 @@ private:
   /// Insert a flush call
   bool genFlush(WRegionNode *W);
 
+  /// Generate prefetch code
+  bool genPrefetchCode(WRegionNode *W, bool IsTargetSPIRV);
+
   /// \name Cancellation Specific Functions
   /// {@
 
