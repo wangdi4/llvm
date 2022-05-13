@@ -1219,8 +1219,13 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
         if (auto CB = dyn_cast<CallBase>(U))
           if (CB->getArgOperand(I.getArgNo())->getType() != I.getType())
             return nullptr;
+#if INTEL_FEATURE_SW_ADVANCED
+  // CMPLRLLVM-37247: Inhibit argument promotion on split functions
+  // created by IP Cloning.
+  if (F->hasFnAttribute("ip-clone-split-function"))
+    return nullptr;
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
-     
   return doPromotion(F, ArgsToPromote, ByValArgsToTransform, // INTEL
                      isCallback, ReplaceCallSite);           // INTEL
 }

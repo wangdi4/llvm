@@ -4484,6 +4484,9 @@ Function *Splitter::makeNewFxnWithExtraArg(Type *ArgTy, Argument **Arg,
   *Arg = ArgLast;
   *NewSplitValue = cast<PHINode>(VMap[SplitValue]);
   *NewBBSplit = cast<BasicBlock>(VMap[BBSplit]);
+  // CMPLRLLVM-37247: Mark this split function so that we can inhibit
+  // argument promotion on it.
+  NewF->addFnAttr("ip-clone-split-function");
   return NewF;
 }
 

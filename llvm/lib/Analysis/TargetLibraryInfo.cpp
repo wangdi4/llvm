@@ -1212,6 +1212,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_msvc_std_basic_streambuf_pbackfail);
     TLI.setUnavailable(LibFunc_msvc_std_basic_streambuf_scalar_deleting_dtor);
     TLI.setUnavailable(LibFunc_msvc_std_basic_streambuf_setbuf);
+    TLI.setUnavailable(LibFunc_msvc_std_basic_ios_setstate);
     TLI.setUnavailable(LibFunc_msvc_std_basic_streambuf_showmanyc);
     TLI.setUnavailable(LibFunc_msvc_std_basic_streambuf_std_fpos_seekoff);
     TLI.setUnavailable(LibFunc_msvc_std_basic_streambuf_std_fpos_seekpos);
@@ -2332,6 +2333,12 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy() &&       // this pointer
             FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_msvc_std_basic_ios_setstate:
+    return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&       // this pointer
+            FTy.getParamType(1)->isIntegerTy() &&
             FTy.getParamType(2)->isIntegerTy());
 
   case LibFunc_msvc_std_basic_streambuf_showmanyc:
