@@ -758,6 +758,7 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/lib/Transforms/Intel_LoopTransforms/HIROptReportEmitter.cpp @karthik-senthil @pankaj-chawla @dwoodwor-intel
 /llvm/lib/Transforms/Scalar/Intel_OptReportEmitter.cpp @karthik-senthil @pankaj-chawla @dwoodwor-intel
 /llvm/test/Analysis/Intel_OptReport/ @karthik-senthil @pankaj-chawla @dwoodwor-intel
+/llvm/test/tools/llvm-reduce/intel-opt-report-metadata.ll @karthik-senthil @pankaj-chawla @dwoodwor-intel
 
 # Code owners for binary opt-report
 /llvm/include/llvm/Analysis/Intel_OptReport/OptReportSupport.h @andykaylor @karthik-senthil
