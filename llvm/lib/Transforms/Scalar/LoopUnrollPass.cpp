@@ -1658,7 +1658,9 @@ PreservedAnalyses LoopUnrollPass::run(Function &F,
         /*PreserveLCSSA*/ true, UnrollOpts.OptLevel, // INTEL
         ORBuilder, UnrollOpts.OnlyWhenForced,        // INTEL
         UnrollOpts.ForgetSCEV, /*Count*/ None,
-        /*Threshold*/ None, UnrollOpts.AllowPartial, UnrollOpts.AllowRuntime,
+#if INTEL_COLLAB
+        UnrollOpts.Threshold, UnrollOpts.AllowPartial, UnrollOpts.AllowRuntime,
+#endif // INTEL_COLLAB
         UnrollOpts.AllowUpperBound, LocalAllowPeeling,
         UnrollOpts.AllowProfileBasedPeeling, UnrollOpts.FullUnrollMaxCount);
     Changed |= Result != LoopUnrollResult::Unmodified;

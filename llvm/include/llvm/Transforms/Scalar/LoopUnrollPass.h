@@ -64,6 +64,7 @@ struct LoopUnrollOptions {
   Optional<bool> AllowRuntime;
   Optional<bool> AllowUpperBound;
   Optional<bool> AllowProfileBasedPeeling;
+  Optional<unsigned> Threshold; // INTEL_COLLAB
   Optional<unsigned> FullUnrollMaxCount;
   int OptLevel;
 
@@ -120,6 +121,13 @@ struct LoopUnrollOptions {
     return *this;
   }
 
+#if INTEL_COLLAB
+  // Sets "cost threshold" tuning parameter for loop unrolling.
+  LoopUnrollOptions &setThreshold(unsigned T) {
+    Threshold = T;
+    return *this;
+  }
+#endif // INTEL_COLLAB
   // Sets the max full unroll count.
   LoopUnrollOptions &setFullUnrollMaxCount(unsigned O) {
     FullUnrollMaxCount = O;
