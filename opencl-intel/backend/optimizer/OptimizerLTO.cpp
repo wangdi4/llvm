@@ -268,8 +268,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     // workload, which can benefit from LoopIdiom.
     if (Level != OptimizationLevel::O0 && Config.GetTransposeSize() != 1) {
       LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
-      UnrollOpts.setPartial(false);
-      UnrollOpts.setRuntime(true);
+      UnrollOpts.setPartial(false).setRuntime(true).setThreshold(24);
       MPM.addPass(
           createModuleToFunctionPassAdaptor(LoopUnrollPass(UnrollOpts)));
     }

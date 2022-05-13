@@ -1,4 +1,5 @@
 ; RUN: SATest -BUILD -pass-manager-type=lto-new -debug-passes=Structure -config=%S/pipeline_lto_g.tst.cfg 2>&1 | FileCheck %s
+; RUN: SATest -BUILD -debug-passes=Structure -config=%S/pipeline_lto_g.tst.cfg 2>&1 | FileCheck %s
 ; TODO:
 ;   check CoerceWin64Types pass when SATest is enabled on Windows.
 
