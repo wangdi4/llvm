@@ -30,7 +30,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeCLStreamSamplerPass(Registry);
     intel::initializeRemoveDuplicationBarrierPass(Registry);
 
-    intel::initializeReplaceScalarWithMaskPass(Registry);
     intel::initializePreventDivCrashesPass(Registry);
     intel::initializeBuiltinLibInfoPass(Registry);
     intel::initializePrefetchPass(Registry);

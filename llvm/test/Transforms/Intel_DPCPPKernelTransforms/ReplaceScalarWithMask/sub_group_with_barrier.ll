@@ -1,5 +1,7 @@
-; RUN: %oclopt -B-ReplaceScalarWithMask -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -B-ReplaceScalarWithMask -S < %s | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-replace-scalar-with-mask -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-replace-scalar-with-mask -S < %s | FileCheck %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-replace-scalar-with-mask -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-replace-scalar-with-mask -S < %s | FileCheck %s
 
 ; CHECK-LEBEL: define void @_test
 ; CHECK: !vectorized_kernel ![[#VECTOR_KERNEL:]]

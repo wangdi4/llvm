@@ -21,9 +21,7 @@
 using namespace llvm;
 
 extern "C" {
-  void *createRemoveDuplicationBarrierPass(bool IsNativeDebug);
-
-  void *createReplaceScalarWithMaskPass();
+void *createRemoveDuplicationBarrierPass(bool IsNativeDebug);
 }
 
 namespace intel {
@@ -35,7 +33,7 @@ void addBarrierMainPasses(llvm::legacy::PassManagerBase &PM,
                           bool UseTLSGlobals, ArrayRef<VectItem> VectInfos) {
   if (OptLevel > 0) {
     // Currently, vectorizer is enabled only when OptLevel > 0.
-    PM.add((ModulePass *)createReplaceScalarWithMaskPass());
+    PM.add(createReplaceScalarWithMaskLegacyPass());
     // Reslove sub_group call introduced by ReplaceScalarWithMask pass.
     PM.add(createResolveSubGroupWICallLegacyPass(RtlModuleList,
                                                  /*ResolveSGBarrier*/ false));
