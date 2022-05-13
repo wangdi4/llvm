@@ -492,6 +492,7 @@ namespace {
       (void)llvm::createAutorunReplicatorLegacyPass();
       (void)llvm::createRelaxedMathLegacyPass();
       (void)llvm::createRemoveAtExitLegacyPass();
+      (void)llvm::createReplaceScalarWithMaskLegacyPass();
       (void)llvm::createResolveMatrixFillLegacyPass();
       (void)llvm::createResolveMatrixLayoutLegacyPass();
       (void)llvm::createResolveMatrixWISliceLegacyPass();

@@ -55,6 +55,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/RedundantPhiNodePass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/RelaxedMath.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/RemoveAtexit.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/ReplaceScalarWithMask.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveMatrixFill.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveMatrixLayout.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveMatrixWISlice.h"

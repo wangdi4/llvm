@@ -776,6 +776,7 @@ void initializeReduceCrossBarrierValuesLegacyPass(PassRegistry &);
 void initializeRedundantPhiNodeLegacyPass(PassRegistry &);
 void initializeRelaxedMathLegacyPass(PassRegistry &);
 void initializeRemoveAtExitLegacyPass(PassRegistry &);
+void initializeReplaceScalarWithMaskLegacyPass(PassRegistry &);
 void initializeResolveMatrixFillLegacyPass(PassRegistry &);
 void initializeResolveMatrixLayoutLegacyPass(PassRegistry &);
 void initializeResolveMatrixWISliceLegacyPass(PassRegistry &);

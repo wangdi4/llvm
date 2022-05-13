@@ -91,6 +91,7 @@ ModulePass *createProfilingInfoLegacyPass();
 ModulePass *createReduceCrossBarrierValuesLegacyPass();
 ModulePass *createRelaxedMathLegacyPass();
 ModulePass *createRemoveAtExitLegacyPass();
+ModulePass *createReplaceScalarWithMaskLegacyPass();
 ModulePass *createResolveMatrixFillLegacyPass();
 ModulePass *createResolveMatrixLayoutLegacyPass();
 ModulePass *createResolveMatrixWISliceLegacyPass();
