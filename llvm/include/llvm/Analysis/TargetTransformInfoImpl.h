@@ -792,6 +792,8 @@ public:
 
   bool hasCDI() const { return false; }
 
+  bool hasVLX() const { return false; }
+
   bool displacementFoldable() const { return false; }
 #endif
   Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,

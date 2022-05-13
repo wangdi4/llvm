@@ -467,11 +467,27 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
 
       unsigned MaxVF = MaxVecRegSize / VConflictIndexSizeInBits;
 
+      auto VFNotValidForConflict = [MaxVF, VConflictIndexSizeInBits,
+                                    this](unsigned VF) {
+        // VF is greater than max supported VF.
+        if (VF > MaxVF)
+          return true;
+
+        // No intrinsics to perform conflict for 64-bit vector register.
+        if (VF == 2 && VConflictIndexSizeInBits == 32)
+          return true;
+
+        // Target does not have AVX512VL feature in which case only 512-bit
+        // vector register conflict is supported.
+        if (!TTI->hasVLX() && VF * VConflictIndexSizeInBits != 512)
+          return true;
+
+        return false;
+      };
+
       VFs.erase(std::remove_if(VFs.begin(), VFs.end(),
-                               [MaxVF, VConflictIndexSizeInBits](unsigned VF) {
-                                 return VF > MaxVF ||
-                                        (VF == 2 &&
-                                         VConflictIndexSizeInBits == 32);
+                               [VFNotValidForConflict](unsigned VF) {
+                                 return VFNotValidForConflict(VF);
                                }),
                 VFs.end());
 

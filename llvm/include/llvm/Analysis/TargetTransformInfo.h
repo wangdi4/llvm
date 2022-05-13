@@ -1402,6 +1402,9 @@ public:
   // Indicate whether target has conflict detection instruction.
   bool hasCDI() const;
 
+  // Indicate whether target has vector length extension instruction.
+  bool hasVLX() const;
+
   // Returns true if the target supports folding a constant displacement into
   // its load instruction.
   bool displacementFoldable() const;
@@ -1908,6 +1911,7 @@ public:
   virtual bool needsStructuredCFG() const = 0;
   virtual const char *getISASetForIMLFunctions() const = 0;
   virtual bool hasCDI() const = 0;
+  virtual bool hasVLX() const = 0;
   virtual bool displacementFoldable() const = 0;
 #endif // INTEL_CUSTOMIZATION
   virtual Type *
@@ -2571,6 +2575,8 @@ public:
   bool hasCDI() const override {
     return Impl.hasCDI();
   }
+
+  bool hasVLX() const override { return Impl.hasVLX(); }
 
   bool displacementFoldable() const override {
     return Impl.displacementFoldable();
