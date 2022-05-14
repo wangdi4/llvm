@@ -269,7 +269,7 @@ cl::opt<bool> RunLoopOptFrameworkOnly(
     cl::desc("Enables loopopt framework without any transformation passes"));
 
 // register promotion for global vars at -O2 and above.
-static cl::opt<bool> EnableNonLTOGlobalVarOpt(
+cl::opt<bool> EnableNonLTOGlobalVarOpt(
     "enable-non-lto-global-var-opt", cl::init(true), cl::Hidden,
     cl::desc("Enable register promotion for global vars outside of the LTO."));
 

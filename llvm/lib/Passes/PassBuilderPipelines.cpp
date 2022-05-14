@@ -529,6 +529,7 @@ extern cl::opt<bool> EnableVPOParoptTargetInline;
 
 #if INTEL_CUSTOMIZATION
 extern cl::opt<bool> EnableStdContainerOpt;
+extern cl::opt<bool> EnableNonLTOGlobalVarOpt;
 extern cl::opt<bool> EarlyJumpThreading;
 #endif // INTEL_CUSTOMIZATION
 
@@ -2283,9 +2284,11 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
     MPM.addPass(PartialInlinerPass());
 
 #if INTEL_CUSTOMIZATION
+  FunctionPassManager FakeLoadFPM;
   if (EnableStdContainerOpt)
-    MPM.addPass(createModuleToFunctionPassAdaptor(StdContainerOptPass()));
-  MPM.addPass(createModuleToFunctionPassAdaptor(CleanupFakeLoadsPass()));
+    FakeLoadFPM.addPass(StdContainerOptPass());
+  FakeLoadFPM.addPass(CleanupFakeLoadsPass());
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FakeLoadFPM)));
 #endif // INTEL_CUSTOMIZATION
 
   // Remove avail extern fns and globals definitions since we aren't compiling
@@ -2333,8 +2336,16 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   if (EnableAndersen) {
     // Andersen's IP alias analysis
     MPM.addPass(RequireAnalysisPass<AndersensAA, Module>());
+    // Global var opt that is outside LTO. Can still run with LTO.
+    if (EnableNonLTOGlobalVarOpt && Level.getSpeedupLevel() > 1) {
+      FunctionPassManager GlobalOptFPM;
+      GlobalOptFPM.addPass(NonLTOGlobalOptPass());
+      GlobalOptFPM.addPass(PromotePass());
+      // ADCE avoids a regression in aifftr01@opt_speed.
+      GlobalOptFPM.addPass(ADCEPass());
+      MPM.addPass(createModuleToFunctionPassAdaptor(std::move(GlobalOptFPM)));
+    }
   }
-
 #endif // INTEL_CUSTOMIZATION
   // Re-compute GlobalsAA here prior to function passes. This is particularly
   // useful as the above will have inlined, DCE'ed, and function-attr
