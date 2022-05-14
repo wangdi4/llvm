@@ -1768,7 +1768,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // In LTO mode, loopopt runs in link phase along with community unroller
   // after it.
   if (!PrepareForLTO || !isLoopOptEnabled(Level)) {
-#endif // INTEL_CUSTOMIZATION
+    // Unroll passes, same as llorg.
     if (EnableUnrollAndJam && PTO.LoopUnrolling) {
       FPM.addPass(createFunctionToLoopPassAdaptor(
           LoopUnrollAndJamPass(Level.getSpeedupLevel())));
@@ -1776,7 +1776,9 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     FPM.addPass(LoopUnrollPass(LoopUnrollOptions(
         Level.getSpeedupLevel(), /*OnlyWhenForced=*/!PTO.LoopUnrolling,
         PTO.ForgetAllSCEVInLoopUnroll)));
-#if INTEL_CUSTOMIZATION
+    // We add SROA here, because unroll may convert GEPs with variable
+    // indices to constant indices, which are registerizable.
+    FPM.addPass(SROAPass()); // INTEL
   }
   // Postpone warnings to LTO link phase. Most transformations which process
   // user pragmas (like unroller & vectorizer) are triggered in LTO link phase.
