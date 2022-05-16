@@ -128,12 +128,11 @@ cl::opt<bool>
 EnableLV("enable-lv", cl::init(false), cl::Hidden,
          cl::desc("Enable community loop vectorizer"));
 
-static cl::opt<bool> EnableLoadCoalescing("enable-load-coalescing",
-                                          cl::init(true), cl::Hidden,
-                                          cl::ZeroOrMore,
-                                          cl::desc("Enable load coalescing"));
+cl::opt<bool> EnableLoadCoalescing("enable-load-coalescing", cl::init(true),
+                                   cl::Hidden, cl::ZeroOrMore,
+                                   cl::desc("Enable load coalescing"));
 
-static cl::opt<bool>
+cl::opt<bool>
     EnableSROAAfterSLP("enable-sroa-after-slp", cl::init(true), cl::Hidden,
                        cl::desc("Run SROA pass after the SLP vectorizer"));
 

@@ -334,6 +334,14 @@
 ; CHECK-O2-NEXT: Running pass: SLPVectorizerPass
 ; CHECK-O3-NEXT: Running pass: SLPVectorizerPass
 ; CHECK-Os-NEXT: Running pass: SLPVectorizerPass
+; INTEL_CUSTOMIZATION
+; CHECK-O2-NEXT: Running pass: LoadCoalescingPass
+; CHECK-O3-NEXT: Running pass: LoadCoalescingPass
+; CHECK-Os-NEXT: Running pass: LoadCoalescingPass
+; CHECK-O2-NEXT: Running pass: SROAPass
+; CHECK-O3-NEXT: Running pass: SROAPass
+; CHECK-Os-NEXT: Running pass: SROAPass
+; END INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: VectorCombinePass
 ; CHECK-O-NEXT: Running pass: EarlyCSEPass ;INTEL
 ; CHECK-O-NEXT: Running pass: InstCombinePass
