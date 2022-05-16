@@ -44,9 +44,12 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
       add_definitions(-DOMPTARGET_LEVEL0_DEBUG)
     endif()
 
-    include_directories(${LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS})
-    include_directories(${LIBOMPTARGET_LLVM_INCLUDE_DIRS})
     add_library(omptarget.rtl.level0 SHARED src/rtl.cpp src/ompt-level0.cpp)
+    target_include_directories(omptarget.rtl.level0 PRIVATE
+      ${LIBOMPTARGET_INCLUDE_DIR}
+      ${LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS}
+      ${LIBOMPTARGET_LLVM_INCLUDE_DIRS}
+    )
     if(NOT LIBOMPTARGET_DEP_LIBELF_FOUND OR LIBOMPTARGET_FORCE_LLVM_ELF)
       # Statically link C run-time library on Windows.
       # Otherwise, we cannot use LLVMObject and LLVMSupport.
