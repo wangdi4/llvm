@@ -6423,12 +6423,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     }
 
   // If all of the operands are identical or constant we have a simple solution.
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  if (allConstant(VL) || isSplat(VL) || !allSameBlock(VL)) {
-#endif // INTEL_CUSTOMIZATION
-    LLVM_DEBUG(dbgs() << "SLP: Gathering due to C,S,B,O. \n");
-=======
   // If we deal with insert/extract instructions, they all must have constant
   // indices, otherwise we should gather them, not try to vectorize.
   // If alternate op node with 2 elements with gathered operands - do not
@@ -6484,12 +6478,10 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     }
     return true;
   };
-  if (allConstant(VL) || isSplat(VL) || !allSameBlock(VL) || !S.getOpcode() ||
-      (isa<InsertElementInst, ExtractValueInst, ExtractElementInst>(S.MainOp) &&
-       !all_of(VL, isVectorLikeInstWithConstOps)) ||
-      NotProfitableForVectorization(VL)) {
+#if INTEL_CUSTOMIZATION
+  if (allConstant(VL) || isSplat(VL) || !allSameBlock(VL)) {
+#endif // INTEL_CUSTOMIZATION
     LLVM_DEBUG(dbgs() << "SLP: Gathering due to C,S,B,O, small shuffle. \n");
->>>>>>> 8b8281f354758be2d154625155b392bee2daad58
     if (TryToFindDuplicates(S))
       newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
                    ReuseShuffleIndicies);
