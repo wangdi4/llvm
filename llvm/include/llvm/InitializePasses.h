@@ -800,6 +800,7 @@ void initializeUpdateCallAttrsLegacyPass(PassRegistry &);
 void initializeVectorVariantFillInLegacyPass(PassRegistry &);
 void initializeVectorVariantLoweringLegacyPass(PassRegistry &);
 void initializeVFAnalysisLegacyPass(PassRegistry &);
+void initializeVectorKernelEliminationLegacyPass(PassRegistry &);
 void initializeVectorizationDimensionAnalysisLegacyPass(PassRegistry &);
 void initializeWGLoopBoundariesLegacyPass(PassRegistry &);
 void initializeWeightedInstCountAnalysisLegacyPass(PassRegistry &);

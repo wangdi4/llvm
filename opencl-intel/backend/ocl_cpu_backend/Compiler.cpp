@@ -283,16 +283,27 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
     s_globalStateInitialized = true;
 }
 
-static void applyBuildProgramLLVMOptions(PassManagerType PMType) {
-  if (PMType != PM_LTO_LEGACY && PMType != PM_LTO_NEW)
-    return;
-
-  SmallVector<const char *, 4> Args;
+/// Commandline setting should be eventually moved into
+/// Compiler::InitGlobalState once we switch to LTO pipeline.
+static void
+applyBuildProgramLLVMOptions(PassManagerType PMType,
+                             const Intel::OpenCL::Utils::CPUDetect *CPUId) {
+  SmallVector<const char *, 8> Args;
   Args.push_back("Compiler");
 
-  /// Disable unrolling with runtime trip count. It is harmful for
-  /// sycl_benchmarks/dnnbench-pooling.
-  Args.push_back("-unroll-runtime=false");
+  // FIXME This is a temporary solution for WeightedInstCountAnalysis pass to
+  // obtain correct ISA.
+  std::string ISA = "-dpcpp-vector-variant-isa-encoding-override=";
+  ISA += CPUId->HasAVX512Core() ? "AVX512Core"
+         : CPUId->HasAVX2()     ? "AVX2"
+         : CPUId->HasAVX1()     ? "AVX1"
+                                : "SSE42";
+  Args.push_back(ISA.c_str());
+
+  // Disable unrolling with runtime trip count. It is harmful for
+  // sycl_benchmarks/dnnbench-pooling.
+  if (PMType == PM_LTO_LEGACY || PMType == PM_LTO_NEW)
+    Args.push_back("-unroll-runtime=false");
 
   // inline threshold is not exposed by standard new pass manager pipeline, so
   // we have to set threshold globally here.
@@ -443,7 +454,7 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
         TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64)
       m_passManagerType = PM_LTO_NEW;
 
-    applyBuildProgramLLVMOptions(m_passManagerType);
+    applyBuildProgramLLVMOptions(m_passManagerType, m_CpuId);
 
     materializeSpirTriple(pModule);
 

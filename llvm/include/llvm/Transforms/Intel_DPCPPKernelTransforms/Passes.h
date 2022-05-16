@@ -74,6 +74,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGValueWiden.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/TaskSeqAsyncHandling.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VFAnalysis.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorKernelElimination.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorVariant/CreateSimdVariantPropagation.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorVariant/IndirectCallLowering.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorVariant/SGSizeCollector.h"

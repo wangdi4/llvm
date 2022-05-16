@@ -60,7 +60,6 @@ void initializeKernelSubGroupInfoPass(llvm::PassRegistry&);
 void initializeScalarizeFunctionPass(llvm::PassRegistry &);
 void initializeChooseVectorizationDimensionPass(llvm::PassRegistry &);
 void initializeCoerceWin64TypesPass(llvm::PassRegistry &);
-void initializeVectorKernelDiscardPass(llvm::PassRegistry &);
 void initializeSetPreferVectorWidthPass(llvm::PassRegistry &);
 }
 

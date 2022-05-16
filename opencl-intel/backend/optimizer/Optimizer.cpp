@@ -136,7 +136,6 @@ llvm::ModulePass *createDebugInfoPass();
 llvm::Pass *createSmartGVNPass(bool);
 
 llvm::ModulePass *createDetectRecursionPass();
-llvm::ModulePass *createVectorKernelDiscardPass(const intel::OptimizerConfig *);
 llvm::ModulePass *createSetPreferVectorWidthPass(const CPUDetect *CPUID);
 }
 
@@ -588,8 +587,9 @@ static void populatePassesPostFailCheck(
         // fastest moving dimension (that maps to get_global_id(0) for LLVM IR
         // in our implementation). The vec/no-vec decision belongs to the
         // programmer.
-        if (!IsSYCL && !DisableVPlanCM)
-          PM.add(createVectorKernelDiscardPass(&pConfig));
+        if (!IsSYCL && !DisableVPlanCM &&
+            pConfig.GetTransposeSize() == TRANSPOSE_SIZE_NOT_SET)
+          PM.add(llvm::createVectorKernelEliminationLegacyPass());
       } else {
         if (EmitKernelVectorizerSignOn)
           dbgs() << "OpenCL Kernel Vectorizer\n";

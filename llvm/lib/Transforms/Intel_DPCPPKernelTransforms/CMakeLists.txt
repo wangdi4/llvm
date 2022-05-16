@@ -88,6 +88,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   Utils/VectorizerUtils.cpp
   Utils/WGBoundDecoder.cpp
   VectorizationDimensionAnalysis.cpp
+  VectorKernelElimination.cpp
   VectorVariant/CreateSimdVariantPropagation.cpp
   VectorVariant/IndirectCallLowering.cpp
   VectorVariant/SGSizeCollector.cpp
