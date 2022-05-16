@@ -1441,6 +1441,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_dynamic_cast:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setMustProgress(F);
+    Changed |= setWillReturn(F);
     return Changed;
   case LibFunc_errno_location:
     Changed |= setOnlyReadsMemory(F);
