@@ -13676,20 +13676,13 @@ static bool tryToVectorizeHorReductionOrInstOperands(
   SmallPtrSet<Value *, 8> VisitedInstrs;
   SmallVector<WeakTrackingVH> PostponedInsts;
   bool Res = false;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   auto &&TryToReduce =
       [TTI, &SE, &DL, &P, &R,
        &TLI](Instruction *Inst, Value *&B0, Value *&B1,
              SmallVector<SmallVector<Value *>> &ReducedVals) -> Value * {
 #endif // INTEL_CUSTOMIZATION
-    if (R.isAnalizedReductionRoot(Inst))
-=======
-  auto &&TryToReduce = [TTI, &SE, &DL, &P, &R, &TLI](Instruction *Inst,
-                                                     Value *&B0,
-                                                     Value *&B1) -> Value * {
     if (R.isAnalyzedReductionRoot(Inst))
->>>>>>> b3097eb6cda67f8f5ff0d2a77c3af530e1b6fe04
       return nullptr;
     bool IsBinop = matchRdxBop(Inst, B0, B1);
     bool IsSelect = match(Inst, m_Select(m_Value(), m_Value(), m_Value()));
