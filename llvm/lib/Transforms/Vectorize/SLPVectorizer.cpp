@@ -2291,13 +2291,13 @@ public:
 
   /// Checks if the instruction was already analyzed for being possible
   /// reduction root.
-  bool isAnalizedReductionRoot(Instruction *I) const {
-    return AnalizedReductionsRoots.count(I);
+  bool isAnalyzedReductionRoot(Instruction *I) const {
+    return AnalyzedReductionsRoots.count(I);
   }
   /// Register given instruction as already analyzed for being possible
   /// reduction root.
   void analyzedReductionRoot(Instruction *I) {
-    AnalizedReductionsRoots.insert(I);
+    AnalyzedReductionsRoots.insert(I);
   }
   /// Checks if the provided list of reduced values was checked already for
   /// vectorization.
@@ -2311,7 +2311,7 @@ public:
   }
   /// Clear the list of the analyzed reduction root instructions.
   void clearReductionData() {
-    AnalizedReductionsRoots.clear();
+    AnalyzedReductionsRoots.clear();
     AnalyzedReductionVals.clear();
   }
   /// Checks if the given value is gathered in one of the nodes.
@@ -4026,7 +4026,7 @@ private:
   DenseSet<Instruction *> DeletedInstructions;
 
   /// Set of the instruction, being analyzed already for reductions.
-  SmallPtrSet<Instruction *, 16> AnalizedReductionsRoots;
+  SmallPtrSet<Instruction *, 16> AnalyzedReductionsRoots;
 
   /// Set of hashes for the list of reduction values already being analyzed.
   DenseSet<size_t> AnalyzedReductionVals;
@@ -13682,7 +13682,7 @@ static bool tryToVectorizeHorReductionOrInstOperands(
        &TLI](Instruction *Inst, Value *&B0, Value *&B1,
              SmallVector<SmallVector<Value *>> &ReducedVals) -> Value * {
 #endif // INTEL_CUSTOMIZATION
-    if (R.isAnalizedReductionRoot(Inst))
+    if (R.isAnalyzedReductionRoot(Inst))
       return nullptr;
     bool IsBinop = matchRdxBop(Inst, B0, B1);
     bool IsSelect = match(Inst, m_Select(m_Value(), m_Value(), m_Value()));
