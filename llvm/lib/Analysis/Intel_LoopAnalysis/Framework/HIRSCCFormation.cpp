@@ -1088,6 +1088,13 @@ void HIRSCCFormation::runImpl() {
         continue;
       }
 
+      // Sometimes outer loop headers are included for inner simd loops as they
+      // contain the region entry/exit directives. These will be split off by
+      // HIRSSADeconstruction later so we need to ignore these bblocks.
+      if (RegIt->isNonLoopBlock(BB)) {
+        continue;
+      }
+
       CurLoop = LI.getLoopFor(BB);
 
       // Remove invalidated nodes from visited set so they can be reconsidered
