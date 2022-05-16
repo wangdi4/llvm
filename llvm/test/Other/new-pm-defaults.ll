@@ -243,6 +243,9 @@
 ; CHECK-O-NEXT: Running pass: ReversePostOrderFunctionAttrsPass
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}AndersensAA ;INTEL
 ; CHECK-O-NEXT: Running analysis: AndersensAA ;INTEL
+; CHECK-O23SZ-NEXT: Running pass: NonLTOGlobalOptPass ;INTEL
+; CHECK-O23SZ-NEXT: Running pass: PromotePass ;INTEL
+; CHECK-O23SZ-NEXT: Running pass: ADCEPass ;INTEL
 ; CHECK-O-NEXT: Running pass: RecomputeGlobalsAAPass
 ; CHECK-EP-OPTIMIZER-EARLY: Running pass: NoOpModulePass
 ; CHECK-O-NEXT: Running pass: Float2IntPass
@@ -336,6 +339,7 @@
 ; CHECK-O-NEXT: Running pass: EarlyCSEPass ;INTEL
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: LoopUnrollPass
+; CHECK-O-NEXT: Running pass: SROAPass ;INTEL
 ; CHECK-DEFAULT: Running pass: WarnMissedTransformationsPass ;INTEL
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}OptimizationRemarkEmitterAnalysis

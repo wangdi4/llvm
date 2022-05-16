@@ -56,6 +56,7 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/GlobalAlias.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
@@ -1996,7 +1997,6 @@ bool InlineCostCallAnalyzer::isColdCallSite(CallBase &Call,
 Optional<int>
 InlineCostCallAnalyzer::getHotCallSiteThreshold(CallBase &Call,
                                                 BlockFrequencyInfo *CallerBFI) {
-
   // If global profile summary is available, then callsite's hotness is
   // determined based on that.
   if (PSI && PSI->hasProfileSummary() && PSI->isHotCallSite(Call, CallerBFI))
@@ -2118,6 +2118,13 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
     // BlockFrequencyInfo is available.
     BlockFrequencyInfo *CallerBFI = GetBFI ? &(GetBFI(*Caller)) : nullptr;
     auto HotCallSiteThreshold = getHotCallSiteThreshold(Call, CallerBFI);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+    if (HotCallSiteThreshold != None &&
+        intelNotHotCallee(Callee, Params.PrepareForLTO.getValueOr(false)))
+      HotCallSiteThreshold = None;
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
     if (!Caller->hasOptSize() && HotCallSiteThreshold) {
       LLVM_DEBUG(dbgs() << "Hot callsite.\n");
       // FIXME: This should update the threshold only if it exceeds the

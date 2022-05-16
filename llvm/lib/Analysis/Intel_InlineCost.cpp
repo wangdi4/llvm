@@ -3984,5 +3984,37 @@ extern int intelWorthInlining(CallBase &CB, const InlineParams &Params,
   }
   return 0;
 }
+
+extern bool intelNotHotCallee(Function &F, bool PrepareForLTO) {
+  if (!PrepareForLTO)
+    return false;
+  // Check if 'F' is a multiple callsite function.
+  unsigned Count = 0;
+  for (User *U : F.users())
+    if (isa<CallBase>(U))
+      if (++Count > 1)
+        break;
+  if (Count <= 1)
+    return false;
+  // Check if some call inside 'F' is to a declaration
+  // that appears only once in this translation unit.
+  for (auto &I : instructions(F)) {
+    auto CB = dyn_cast<CallBase>(&I);
+    if (!CB || isa<IntrinsicInst>(CB))
+      continue;
+    Function *Callee = CB->getCalledFunction();
+    if (!Callee || !Callee->isDeclaration())
+      continue;
+    Count = 0;
+    for (User *U : Callee->users())
+      if (isa<CallBase>(U))
+        if (++Count >= 2)
+          break;
+    if (Count == 1)
+      return true;
+  }
+  return false;
+}
+
 #endif // INTEL_FEATURE_SW_ADVANCED
 } // end namespace llvm

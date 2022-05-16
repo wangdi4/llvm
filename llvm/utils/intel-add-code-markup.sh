@@ -20,10 +20,8 @@ fi
 # 3. This script is mostly for updating auto-generated test files
 filename=$(basename -- "$exp")
 ext="${filename##*.}"
-if [[ $ext == ll ]]; then
+if [[ $ext == ll ]] || [[ $ext == mir ]]; then
   markup=";INTEL"
-elif [[ $ext == mir ]]; then
-  markup="#INTEL"
 else
   echo "Unsupported file extension!" && exit 1
 fi
