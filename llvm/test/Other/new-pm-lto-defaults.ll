@@ -314,6 +314,14 @@
 ; CHECK-O2-NEXT: Running pass: SLPVectorizerPass on foo
 ; CHECK-O3-NEXT: Running pass: SLPVectorizerPass on foo
 ; CHECK-OS-NEXT: Running pass: SLPVectorizerPass on foo
+; INTEL_CUSTOMIZATION
+; CHECK-O2-NEXT: Running pass: LoadCoalescingPass
+; CHECK-O3-NEXT: Running pass: LoadCoalescingPass
+; CHECK-OS-NEXT: Running pass: LoadCoalescingPass
+; CHECK-O2-NEXT: Running pass: SROAPass
+; CHECK-O3-NEXT: Running pass: SROAPass
+; CHECK-OS-NEXT: Running pass: SROAPass
+; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: VectorCombinePass on foo
 ; CHECK-O23SZ-NEXT: Running pass: AlignmentFromAssumptionsPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: InstCombinePass on foo

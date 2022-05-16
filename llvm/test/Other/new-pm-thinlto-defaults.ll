@@ -301,6 +301,14 @@
 ; CHECK-POSTLINK-O2-NEXT: Running pass: SLPVectorizerPass
 ; CHECK-POSTLINK-O3-NEXT: Running pass: SLPVectorizerPass
 ; CHECK-POSTLINK-Os-NEXT: Running pass: SLPVectorizerPass
+; INTEL_CUSTOMIZATION
+; CHECK-POSTLINK-O2-NEXT: Running pass: LoadCoalescingPass
+; CHECK-POSTLINK-O3-NEXT: Running pass: LoadCoalescingPass
+; CHECK-POSTLINK-Os-NEXT: Running pass: LoadCoalescingPass
+; CHECK-POSTLINK-O2-NEXT: Running pass: SROAPass
+; CHECK-POSTLINK-O3-NEXT: Running pass: SROAPass
+; CHECK-POSTLINK-Os-NEXT: Running pass: SROAPass
+; END INTEL_CUSTOMIZATION
 ; CHECK-POSTLINK-O-NEXT: Running pass: VectorCombinePass
 ; CHECK-POSTLINK-O-NEXT: Running pass: EarlyCSEPass ;INTEL
 ; CHECK-POSTLINK-O-NEXT: Running pass: InstCombinePass

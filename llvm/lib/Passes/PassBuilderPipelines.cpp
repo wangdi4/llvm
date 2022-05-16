@@ -471,6 +471,8 @@ extern cl::opt<bool> ConvertToSubs;
 extern cl::opt<bool> EnableLV;
 enum class ThroughputMode { None, SingleJob, MultipleJob };
 extern cl::opt<ThroughputMode> ThroughputModeOpt;
+extern cl::opt<bool> EnableLoadCoalescing;
+extern cl::opt<bool> EnableSROAAfterSLP;
 #endif // INTEL_CUSTOMIZATION
 namespace llvm {
 #if INTEL_CUSTOMIZATION
@@ -1740,6 +1742,15 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // Optimize parallel scalar instruction chains into SIMD instructions.
   if (PTO.SLPVectorization) {
     FPM.addPass(SLPVectorizerPass());
+#if INTEL_CUSTOMIZATION
+    AfterSLPVectorizer = !PrepareForLTO;
+    if (EnableLoadCoalescing)
+      FPM.addPass(LoadCoalescingPass());
+    if (EnableSROAAfterSLP) {
+      // SLP creates opportunities for SROA.
+      FPM.addPass(SROAPass());
+    }
+#endif // INTEL_CUSTOMIZATION
     if (Level.getSpeedupLevel() > 1 && ExtraVectorizerPasses) {
       FPM.addPass(EarlyCSEPass());
     }
