@@ -2097,7 +2097,11 @@ public:
                              BasicBlock *LoopExitBlock) {
     if (!SCEVCheckCond)
       return nullptr;
-    if (auto *C = dyn_cast<ConstantInt>(SCEVCheckCond))
+
+    Value *Cond = SCEVCheckCond;
+    // Mark the check as used, to prevent it from being removed during cleanup.
+    SCEVCheckCond = nullptr;
+    if (auto *C = dyn_cast<ConstantInt>(Cond))
       if (C->isZero())
         return nullptr;
 
@@ -2116,11 +2120,8 @@ public:
     DT->addNewBlock(SCEVCheckBlock, Pred);
     DT->changeImmediateDominator(LoopVectorPreHeader, SCEVCheckBlock);
 
-    ReplaceInstWithInst(
-        SCEVCheckBlock->getTerminator(),
-        BranchInst::Create(Bypass, LoopVectorPreHeader, SCEVCheckCond));
-    // Mark the check as used, to prevent it from being removed during cleanup.
-    SCEVCheckCond = nullptr;
+    ReplaceInstWithInst(SCEVCheckBlock->getTerminator(),
+                        BranchInst::Create(Bypass, LoopVectorPreHeader, Cond));
     return SCEVCheckBlock;
   }
 
