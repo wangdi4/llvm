@@ -65,6 +65,7 @@ if (OPENMP_ENABLE_LIBOMPTARGET_PROFILING)
   target_compile_definitions(omptarget PUBLIC OMPTARGET_PROFILE_ENABLED)
   target_link_libraries(omptarget PRIVATE LLVMSupport)
 endif()
+<<<<<<< HEAD
 if(INTEL_COLLAB)
   if(INTEL_CUSTOMIZATION)
     include_directories("${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}")
@@ -85,6 +86,10 @@ if(INTEL_COLLAB)
     endif()
   endif(INTEL_CUSTOMIZATION)
 else(INTEL_COLLAB)
+=======
+target_include_directories(omptarget PRIVATE
+  ${LIBOMPTARGET_INCLUDE_DIR})
+>>>>>>> 9ffa945c401ccd248e1e35fbbccb1860b253b290
 target_link_libraries(omptarget PRIVATE
   ${CMAKE_DL_LIBS}
   "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports")

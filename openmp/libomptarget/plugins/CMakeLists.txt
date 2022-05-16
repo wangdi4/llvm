@@ -41,9 +41,6 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
 
       libomptarget_say("Building ${tmachine_name} offloading plugin.")
 
-      include_directories(${LIBOMPTARGET_DEP_LIBFFI_INCLUDE_DIR})
-      include_directories(${LIBOMPTARGET_DEP_LIBELF_INCLUDE_DIR})
-
       # Define macro to be used as prefix of the runtime messages for this target.
       add_definitions("-DTARGET_NAME=${tmachine_name}")
 
@@ -67,6 +64,11 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
         COMPONENT llvm-${tmachine_libname}-ompplugin
 # end INTEL_CUSTOMIZATION
         LIBRARY DESTINATION "${OPENMP_INSTALL_LIBDIR}")
+
+      target_include_directories( "omptarget.rtl.${tmachine_libname}" PRIVATE
+        ${LIBOMPTARGET_INCLUDE_DIR}
+        ${LIBOMPTARGET_DEP_LIBFFI_INCLUDE_DIR}
+        ${LIBOMPTARGET_DEP_LIBELF_INCLUDE_DIR})
 
       target_link_libraries(
         "omptarget.rtl.${tmachine_libname}"
