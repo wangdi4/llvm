@@ -526,6 +526,7 @@ namespace {
       (void)llvm::createIndirectCallLoweringLegacyPass();
       (void)llvm::createCreateSimdVariantPropagationLegacyPass();
       (void)llvm::createLinearIdResolverPass();
+      (void)llvm::createVectorKernelEliminationLegacyPass();
       (void)llvm::createVectorizationDimensionAnalysisLegacyPass();
       (void)llvm::createWGLoopBoundariesLegacyPass();
       (void)llvm::createWeightedInstCountAnalysisLegacyPass();

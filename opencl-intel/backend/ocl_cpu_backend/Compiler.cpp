@@ -72,20 +72,6 @@ const char *PC_WIN64 = "x86_64-pc-win32-msvc-elf"; // Win 64 bit.
 namespace Utils
 {
 /**
- * Generates the log record (to the given stream) enumerating the given external function names
- */
-static void LogUndefinedExternals(llvm::raw_ostream& logs, const std::vector<std::string>& externals)
-{
-    logs << "Error: unimplemented function(s) used:\n";
-
-    for( std::vector<std::string>::const_iterator i = externals.begin(), e = externals.end(); i != e; ++i)
-    {
-        logs << *i << "\n";
-    }
-    //LLVMBackend::GetInstance()->m_logger->Log(Logger::ERROR_LEVEL, L"implemented function(s) used:\n<%s>", m_strLastError.c_str());
-}
-
-/**
  * Generates the log record (to the given stream) enumerating function names
    with recursive calls
  */
@@ -297,16 +283,27 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
     s_globalStateInitialized = true;
 }
 
-static void applyBuildProgramLLVMOptions(PassManagerType PMType) {
-  if (PMType != PM_LTO_LEGACY && PMType != PM_LTO_NEW)
-    return;
-
-  SmallVector<const char *, 4> Args;
+/// Commandline setting should be eventually moved into
+/// Compiler::InitGlobalState once we switch to LTO pipeline.
+static void
+applyBuildProgramLLVMOptions(PassManagerType PMType,
+                             const Intel::OpenCL::Utils::CPUDetect *CPUId) {
+  SmallVector<const char *, 8> Args;
   Args.push_back("Compiler");
 
-  /// Disable unrolling with runtime trip count. It is harmful for
-  /// sycl_benchmarks/dnnbench-pooling.
-  Args.push_back("-unroll-runtime=false");
+  // FIXME This is a temporary solution for WeightedInstCountAnalysis pass to
+  // obtain correct ISA.
+  std::string ISA = "-dpcpp-vector-variant-isa-encoding-override=";
+  ISA += CPUId->HasAVX512Core() ? "AVX512Core"
+         : CPUId->HasAVX2()     ? "AVX2"
+         : CPUId->HasAVX1()     ? "AVX1"
+                                : "SSE42";
+  Args.push_back(ISA.c_str());
+
+  // Disable unrolling with runtime trip count. It is harmful for
+  // sycl_benchmarks/dnnbench-pooling.
+  if (PMType == PM_LTO_LEGACY || PMType == PM_LTO_NEW)
+    Args.push_back("-unroll-runtime=false");
 
   // inline threshold is not exposed by standard new pass manager pipeline, so
   // we have to set threshold globally here.
@@ -422,41 +419,6 @@ llvm::TargetMachine* Compiler::GetTargetMachine(
   return TargetMachine;
 }
 
-/*
- * This is a static method which check whether undefined external symbols
- * are from MPIR library or not.
- */
-static bool
-isUndefinedExternalsFromMPIRLib(const std::vector<std::string> &externals) {
-  static StringSet<> symbolFromMPIRLib = {"_ihc_mutex_create",
-                                          "_ihc_mutex_delete",
-                                          "_ihc_mutex_lock",
-                                          "_ihc_mutex_unlock",
-                                          "_ihc_cond_create",
-                                          "_ihc_cond_delete",
-                                          "_ihc_cond_notify_one",
-                                          "_ihc_cond_wait",
-                                          "_ihc_pthread_create",
-                                          "_ihc_pthread_join",
-                                          "_ihc_pthread_detach",
-                                          "_Znwy",
-                                          "_ZdlPvy",
-                                          "_ZSt14_Xlength_errorPKc",
-                                          "_ZdlPv"};
-  for (std::vector<std::string>::const_iterator i = externals.begin(),
-                                                e = externals.end();
-       i != e; ++i) {
-    std::string ele = *i;
-    // Deal with string with space, e.g "_Z7unknownv is undefined "
-    std::string symbol =
-        ele.find(' ') != std::string::npos ? ele.substr(0, ele.find(' ')) : ele;
-    if (symbolFromMPIRLib.find(symbol) != symbolFromMPIRLib.end()) {
-      return true;
-    }
-  }
-  return false;
-}
-
 llvm::Module *
 Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
                        ProgramBuildResult *pResult,
@@ -492,7 +454,7 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
         TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64)
       m_passManagerType = PM_LTO_NEW;
 
-    applyBuildProgramLLVMOptions(m_passManagerType);
+    applyBuildProgramLLVMOptions(m_passManagerType, m_CpuId);
 
     materializeSpirTriple(pModule);
 
@@ -557,18 +519,6 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
       throw Exceptions::UserErrorCompilerException(
           "Vector-variant processing problem for an indirect function call.",
           CL_DEV_INVALID_BINARY);
-    }
-
-    if (optimizer->hasUndefinedExternals()) {
-      auto undefExternals = optimizer->GetUndefinedExternals();
-      if (m_bIsFPGAEmulator && !this->getBuiltinInitLog().empty() &&
-          isUndefinedExternalsFromMPIRLib(undefExternals)) {
-        pResult->LogS() << this->getBuiltinInitLog() << "\n";
-      }
-
-      Utils::LogUndefinedExternals(pResult->LogS(), undefExternals);
-      throw Exceptions::CompilerException("Failed to parse IR",
-                                          CL_DEV_INVALID_BINARY);
     }
 
     if (optimizer->hasUnsupportedRecursion()) {

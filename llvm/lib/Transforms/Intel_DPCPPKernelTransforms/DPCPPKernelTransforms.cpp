@@ -87,6 +87,7 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeTaskSeqAsyncHandlingLegacyPass(Registry);
   initializeUpdateCallAttrsLegacyPass(Registry);
   initializeVectorizationDimensionAnalysisLegacyPass(Registry);
+  initializeVectorKernelEliminationLegacyPass(Registry);
   initializeVectorVariantFillInLegacyPass(Registry);
   initializeVectorVariantLoweringLegacyPass(Registry);
   initializeVFAnalysisLegacyPass(Registry);

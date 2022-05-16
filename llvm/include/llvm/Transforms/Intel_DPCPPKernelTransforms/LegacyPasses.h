@@ -117,6 +117,7 @@ ModulePass *createSplitBBonBarrierLegacyPass();
 ModulePass *createTaskSeqAsyncHandlingLegacyPass();
 ModulePass *createUpdateCallAttrsLegacyPass();
 ModulePass *createVectorizationDimensionAnalysisLegacyPass();
+ModulePass *createVectorKernelEliminationLegacyPass();
 ModulePass *createVectorVariantFillInLegacyPass();
 ModulePass *createVectorVariantLoweringLegacyPass(VectorVariant::ISAClass);
 ModulePass *createVFAnalysisLegacyPass();

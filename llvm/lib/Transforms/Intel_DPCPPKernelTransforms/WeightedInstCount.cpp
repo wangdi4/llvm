@@ -31,6 +31,8 @@ using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-weighted-inst-count-analysis"
 
+extern cl::opt<VectorVariant::ISAClass> IsaEncodingOverride;
+
 // MAGIC NUMBERS
 
 // Guess for the number of iterations for loops for which
@@ -179,7 +181,7 @@ private:
 
   // Outputs:
   // Desired vectorization width
-  int DesiredVF;
+  int DesiredVF = 1;
 
   // Total weight of all instructions
   float TotalWeight;
@@ -199,6 +201,8 @@ InstCountResultImpl::InstCountResultImpl(Function &F, BuiltinLibInfo &BLI,
                                          VectorVariant::ISAClass ISA,
                                          bool PreVec)
     : F(F), DT(DT), LI(LI), SE(SE), ISA(ISA), PreVec(PreVec) {
+  if (IsaEncodingOverride.getNumOccurrences())
+    this->ISA = IsaEncodingOverride.getValue();
 
   RTS = BLI.getRuntimeService();
   assert(RTS && "Unable to get runtime services");
@@ -263,6 +267,15 @@ InstCountResultImpl::InstCountResultImpl(Function &F, BuiltinLibInfo &BLI,
   else
     TransCosts.insert(CostDB32Bit.begin(), CostDB32Bit.end());
 
+  // If function is already vectorized, PreVec should be forced to be false.
+  // E.g. when this pass is run before VectorKernelElimination, vectorized
+  // kernel probably exists.
+  auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F);
+  static constexpr StringRef VolcanoVectorKernelPrefix = "__Vectorized_";
+  if (!F.getName().startswith(VolcanoVectorKernelPrefix) &&
+      KIMD.ScalarKernel.hasValue() && KIMD.ScalarKernel.get())
+    this->PreVec = false;
+
   analyze();
 }
 
@@ -300,7 +313,8 @@ void InstCountResultImpl::analyze() {
   TotalWeight = 0;
 
   // For each basic block, add up its weight
-  LLVM_DEBUG(dbgs() << "Calculate cost for function " << F.getName() << '\n');
+  LLVM_DEBUG(dbgs() << "Calculate cost for function " << F.getName()
+                    << ", PreVec: " << PreVec << "\n");
 
   for (auto &BB : F) {
     bool DiscardPhis = false;

@@ -322,7 +322,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
 
         buildResult.LogS() << e.what() << "\n";
         buildResult.SetBuildResult( e.GetErrorCode());
-        pProgram->SetBuildLog( buildResult.GetBuildLog() );
+        pProgram->SetBuildLog(buildResult.GetBuildLog());
         throw e;
     }
 

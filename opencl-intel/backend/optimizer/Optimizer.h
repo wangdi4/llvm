@@ -59,10 +59,6 @@ public:
 
   virtual void Optimize(llvm::raw_ostream &LogStream) = 0;
 
-  bool hasUndefinedExternals() const;
-
-  const std::vector<std::string> &GetUndefinedExternals() const;
-
   /// @brief recursion was detected after standard LLVM optimizations
   /// @return for SYCL returns true if the recursive function also calls
   /// barrier; for OpenCL returns true if any recursive function is present.
@@ -100,7 +96,6 @@ protected:
   llvm::SmallVector<llvm::Module *, 2> m_RtlModules;
   const intel::OptimizerConfig &Config;
   StringRef CPUPrefix;
-  std::vector<std::string> m_undefinedExternalFunctions;
 
   /// True if OpenCL version is greater or equal to 2.0.
   bool m_IsOcl20;

@@ -442,6 +442,14 @@ void CPUProgramBuilder::JitProcessing(
       program->SetModule(std::move(TSM));
     };
     LLJIT->getIRCompileLayer().setNotifyCompiled(std::move(notifyCompiled));
+    // Print LLJIT log to strings, and then save them to program build log when
+    // handle exception
+    LLJIT->getExecutionSession().setErrorReporter([=](Error Err) {
+      logAllUnhandledErrors(
+          std::move(Err),
+          (static_cast<CPUProgram *>(program))->getLLJITLogStream(),
+          "JIT session error: ");
+    });
     program->SetLLJIT(std::move(LLJIT));
   }
 

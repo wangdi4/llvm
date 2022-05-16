@@ -223,7 +223,6 @@ set( BACKEND_PASSES
     PreventDivCrashes
     PrintIRPass
     SetPreferVectorWidth
-    UndefExternalFuncs
     KernelInfo
     Prefetch
     SubGroupAdaptation

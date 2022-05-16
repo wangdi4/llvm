@@ -75,7 +75,6 @@ set(TARGET_INCLUDE_FILES
   Utils/VecConfig.h
   Utils/VectorizerCommon.h
   Utils/VectorizerCore.h
-  VectorKernelDiscard/VectorKernelDiscard.h
   VolcanoWrapper/Main.h
   ${TARGET_EXTRA_INCLUDE_FILES}
 )
@@ -102,7 +101,6 @@ set(TARGET_SOURCE_FILES
   Utils/SimplifyGEP.cpp
   Utils/VectorizerCore.cpp
   Utils/VectorizerCommon.cpp
-  VectorKernelDiscard/VectorKernelDiscard.cpp
   VolcanoWrapper/Main.cpp
   ${TARGET_EXTRA_SOURCE_FILES}
 )

@@ -36,7 +36,6 @@ set(OCL_BE_PASSES
     SetPreferVectorWidth
     SmartGVN
     StripIntelIP
-    UndefExternalFuncs
 )
 
 # Dependencies of the passes
