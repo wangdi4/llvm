@@ -102,8 +102,15 @@ TEST_F(GetProgramBuildInfoTest, LLDJITLog) {
   ASSERT_NO_FATAL_FAILURE(GetBuildLog(m_device, m_program, log));
 
   // Check LLDJIT log is saved to program build log
+#if defined _M_X64 || defined __x86_64__
   ASSERT_TRUE(log.find("error: undefined symbol: foo") != std::string::npos &&
               log.find("error: undefined symbol: bar") != std::string::npos)
       << "Can not find LLDJIT log";
+#else
+  // windows X86
+  ASSERT_TRUE(log.find("error: undefined symbol: _foo") != std::string::npos &&
+              log.find("error: undefined symbol: _bar") != std::string::npos)
+      << "Can not find LLDJIT log";
+#endif
 }
 #endif
