@@ -6479,8 +6479,12 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     return true;
   };
 #if INTEL_CUSTOMIZATION
-  if (allConstant(VL) || isSplat(VL) || !allSameBlock(VL)) {
+  if (allConstant(VL) || isSplat(VL) || !allSameBlock(VL) ||
+      (S.getOpcode() &&
+       isa<InsertElementInst, ExtractValueInst, ExtractElementInst>(S.MainOp) &&
+       !all_of(VL, isVectorLikeInstWithConstOps)) ||
 #endif // INTEL_CUSTOMIZATION
+      NotProfitableForVectorization(VL)) {
     LLVM_DEBUG(dbgs() << "SLP: Gathering due to C,S,B,O, small shuffle. \n");
     if (TryToFindDuplicates(S))
       newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
@@ -6579,14 +6583,9 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 #if INTEL_CUSTOMIZATION
   bool MultiNodeCompatibleInstructions = MultiNode::hasCompatibleOpcodes(VL);
 
-  // If we deal with insert/extract instructions, they all must have constant
-  // indices, otherwise we should gather them, not try to vectorize.
   // tryScheduleBundle() fails to schedule bundles with phi-nodes in some of the
   // lanes. We therefore check S.Opcode and bail out early.
-  if ((!S.getOpcode() ||
-       (isa<InsertElementInst, ExtractValueInst, ExtractElementInst>(
-            S.MainOp) &&
-        !all_of(VL, isVectorLikeInstWithConstOps))) &&
+  if (!S.getOpcode() &&
       (!EnableMultiNodeSLP || !MultiNodeCompatibleInstructions)) {
     LLVM_DEBUG(dbgs() << "SLP: Gathering due to O. \n");
     newTreeEntry(VL, None, S, UserTreeIdx, ReuseShuffleIndicies);
