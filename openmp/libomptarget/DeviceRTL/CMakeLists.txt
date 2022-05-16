@@ -255,6 +255,7 @@ foreach(arch ${amdgpu_mcpus})
   set(clang_lib_flags ${clang_lib_flags} --offload-arch=${arch})
 endforeach()
 
+if(NOT INTEL_CUSTOMIZATION)
 # Build the static library version of the device runtime.
 add_library(omptarget.devicertl STATIC)
 target_compile_features(omptarget.devicertl PRIVATE cxx_std_17)
@@ -264,3 +265,4 @@ target_compile_options(omptarget.devicertl PRIVATE ${clang_lib_flags})
 install(TARGETS omptarget.devicertl ARCHIVE DESTINATION ${OPENMP_INSTALL_LIBDIR})
 
 add_subdirectory(src)
+endif(NOT INTEL_CUSTOMIZATION)
