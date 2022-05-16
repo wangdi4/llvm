@@ -206,6 +206,9 @@ private:
   // perform lookup of pre-compiled code to avoid re-compilation.
   llvm::ObjectCache *ObjCache;
 
+  mutable llvm::raw_string_ostream LogStream;
+  mutable std::string BuildLog;
+
   llvm::Function *FindFunctionNamedInModulePtrSet(llvm::StringRef FnName,
                                                   ModulePtrSet::iterator I,
                                                   ModulePtrSet::iterator E);
@@ -325,6 +328,11 @@ public:
   // getSymbolAddress takes an unmangled name and returns the corresponding
   // JITSymbol if a definition of the name has been added to the JIT.
   uint64_t getSymbolAddress(const std::string &Name, bool CheckFunctionsOnly);
+
+  const std::string &getBuildLog() const {
+    LogStream.flush();
+    return BuildLog;
+  }
 
 protected:
   /// emitObject -- Generate a JITed object in memory from the specified module

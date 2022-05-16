@@ -62,7 +62,6 @@ void initializeChooseVectorizationDimensionPass(llvm::PassRegistry &);
 void initializeCoerceWin64TypesPass(llvm::PassRegistry &);
 void initializeVectorKernelDiscardPass(llvm::PassRegistry &);
 void initializeSetPreferVectorWidthPass(llvm::PassRegistry &);
-void initializeUndefExternalFuncsPass(llvm::PassRegistry &);
 }
 
 #endif

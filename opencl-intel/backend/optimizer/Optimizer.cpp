@@ -127,8 +127,6 @@ llvm::ModulePass *createPipeIOTransformationPass();
 llvm::ModulePass *createPipeSupportPass();
 llvm::Pass *createBuiltinLibInfoPass(ArrayRef<Module *> pRtlModuleList,
                                      std::string type);
-llvm::ModulePass *createUndifinedExternalFunctionsPass(
-    std::vector<std::string> &undefinedExternalFunctions);
 llvm::ModulePass *createKernelInfoWrapperPass();
 llvm::ModulePass *createKernelSubGroupInfoPass();
 llvm::ModulePass *createRemovePrefetchPass();
@@ -398,8 +396,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 static void populatePassesPostFailCheck(
     llvm::legacy::PassManagerBase &PM, llvm::Module &M,
     SmallVector<Module *, 2> &pRtlModuleList, unsigned OptLevel,
-    const intel::OptimizerConfig &pConfig,
-    std::vector<std::string> &UndefinedExternals, bool isOcl20,
+    const intel::OptimizerConfig &pConfig, bool isOcl20,
     bool isFpgaEmulator, bool isEyeQEmulator, bool UnrollLoops, bool UseVplan,
     bool IsSPIRV, bool IsSYCL, bool IsOMP, DebuggingServiceType debugType,
     bool UseTLSGlobals) {
@@ -714,10 +711,6 @@ static void populatePassesPostFailCheck(
   PM.add(llvm::createVerifierPass());
 #endif
 
-  // This pass checks if the module uses an undefined function or not
-  // assumption: should run after WI function resolving
-  PM.add(createUndifinedExternalFunctionsPass(UndefinedExternals));
-
   // Externalize globals if IR is generated from OpenMP offloading. Now we
   // cannot get address of globals with internal/private linkage from LLJIT
   // (by design), but it's necessary by OpenMP to pass address of declare
@@ -871,10 +864,9 @@ OptimizerOCL::OptimizerOCL(llvm::Module &pModule,
   // Add passes which will be run only if hasFunctionPtrCalls() and
   // hasRecursion() will return false
   populatePassesPostFailCheck(m_PM, pModule, m_RtlModules, OptLevel, pConfig,
-                              m_undefinedExternalFunctions, m_IsOcl20,
-                              m_IsFpgaEmulator, m_IsEyeQEmulator, UnrollLoops,
-                              EnableVPlan, m_IsSPIRV, m_IsSYCL, m_IsOMP,
-                              m_debugType, m_UseTLSGlobals);
+                              m_IsOcl20, m_IsFpgaEmulator, m_IsEyeQEmulator,
+                              UnrollLoops, EnableVPlan, m_IsSPIRV, m_IsSYCL,
+                              m_IsOMP, m_debugType, m_UseTLSGlobals);
 }
 
 /// Customized diagnostic handler to be registered to LLVMContext before running
@@ -944,14 +936,6 @@ Optimizer::Optimizer(llvm::Module &M,
   m_debugType = getDebuggingServiceType(Config.GetDebugInfoFlag(), &M,
                                         Config.GetUseNativeDebuggerFlag());
   m_UseTLSGlobals = (m_debugType == intel::Native) && !m_IsEyeQEmulator;
-}
-
-bool Optimizer::hasUndefinedExternals() const {
-  return !m_undefinedExternalFunctions.empty();
-}
-
-const std::vector<std::string> &Optimizer::GetUndefinedExternals() const {
-  return m_undefinedExternalFunctions;
 }
 
 bool Optimizer::hasUnsupportedRecursion() {

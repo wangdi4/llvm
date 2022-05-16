@@ -28,13 +28,19 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class CPUProgram : public Program
 {
 public:
-    CPUProgram() {}
+    CPUProgram() : LLJITLogStream(LLJITLog) {}
     virtual ~CPUProgram();
-
     void SetBuiltinModule(llvm::SmallVector<llvm::Module *, 2> & bltnFuncList)
         override {
       m_bltnFuncList = bltnFuncList;
     }
+
+    const std::string &getLLJITLog() const {
+      LLJITLogStream.flush();
+      return LLJITLog;
+    }
+
+    llvm::raw_ostream &getLLJITLogStream() { return LLJITLogStream; }
 
     void SetExecutionEngine(std::unique_ptr<llvm::ExecutionEngine> EE) override {
       m_pExecutionEngine = std::move(EE);
@@ -82,6 +88,9 @@ public:
     std::unique_ptr<llvm::orc::LLJIT> m_LLJIT;
     llvm::SmallVector<llvm::Module*, 2> m_bltnFuncList;
     std::unique_ptr<ObjectCodeCache> m_ObjectCodeCache;
+    // Store log from LLJIT
+    mutable llvm::raw_string_ostream LLJITLogStream;
+    mutable std::string LLJITLog;
 
     // Disable copy ctor and assignment operator
     CPUProgram( const CPUProgram& );

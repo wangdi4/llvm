@@ -14,6 +14,7 @@
 
 #include "exceptions.h"
 #include "CompileService.h"
+#include "CPUProgram.h"
 #include "Program.h"
 #include "BitCodeContainer.h"
 #include "LibraryProgramManager.h"
@@ -142,6 +143,15 @@ cl_dev_err_code CompileService::FinalizeProgram(ICLDevBackendProgram_ *Prog) {
   try {
     return GetProgramBuilder()->FinalizeProgram(static_cast<Program *>(Prog));
   } catch (Exceptions::DeviceBackendExceptionBase &E) {
+    // FIXME: The commit 2c5a21ce041a1259a9e041fa2a521b269a92b6af delays program
+    // global ctors/dll load from clBuildProgram. So for LLDJIT some build
+    // errors such as undefined symbol may occur after call clCreateKernel
+    // instead of clBuildProgram. Here we save LLDJIT log to program build log.
+    Program *ProgInstance = static_cast<Program *>(Prog);
+    if (static_cast<CPUProgram *>(ProgInstance)->GetExecutionEngine()) {
+      std::string BuildLog = ProgInstance->GetBuildLog();
+      ProgInstance->SetBuildLog(BuildLog + '\n' + E.what());
+    }
     return E.GetErrorCode();
   } catch (std::bad_alloc &) {
     return CL_DEV_OUT_OF_MEMORY;

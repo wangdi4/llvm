@@ -72,20 +72,6 @@ const char *PC_WIN64 = "x86_64-pc-win32-msvc-elf"; // Win 64 bit.
 namespace Utils
 {
 /**
- * Generates the log record (to the given stream) enumerating the given external function names
- */
-static void LogUndefinedExternals(llvm::raw_ostream& logs, const std::vector<std::string>& externals)
-{
-    logs << "Error: unimplemented function(s) used:\n";
-
-    for( std::vector<std::string>::const_iterator i = externals.begin(), e = externals.end(); i != e; ++i)
-    {
-        logs << *i << "\n";
-    }
-    //LLVMBackend::GetInstance()->m_logger->Log(Logger::ERROR_LEVEL, L"implemented function(s) used:\n<%s>", m_strLastError.c_str());
-}
-
-/**
  * Generates the log record (to the given stream) enumerating function names
    with recursive calls
  */
@@ -422,41 +408,6 @@ llvm::TargetMachine* Compiler::GetTargetMachine(
   return TargetMachine;
 }
 
-/*
- * This is a static method which check whether undefined external symbols
- * are from MPIR library or not.
- */
-static bool
-isUndefinedExternalsFromMPIRLib(const std::vector<std::string> &externals) {
-  static StringSet<> symbolFromMPIRLib = {"_ihc_mutex_create",
-                                          "_ihc_mutex_delete",
-                                          "_ihc_mutex_lock",
-                                          "_ihc_mutex_unlock",
-                                          "_ihc_cond_create",
-                                          "_ihc_cond_delete",
-                                          "_ihc_cond_notify_one",
-                                          "_ihc_cond_wait",
-                                          "_ihc_pthread_create",
-                                          "_ihc_pthread_join",
-                                          "_ihc_pthread_detach",
-                                          "_Znwy",
-                                          "_ZdlPvy",
-                                          "_ZSt14_Xlength_errorPKc",
-                                          "_ZdlPv"};
-  for (std::vector<std::string>::const_iterator i = externals.begin(),
-                                                e = externals.end();
-       i != e; ++i) {
-    std::string ele = *i;
-    // Deal with string with space, e.g "_Z7unknownv is undefined "
-    std::string symbol =
-        ele.find(' ') != std::string::npos ? ele.substr(0, ele.find(' ')) : ele;
-    if (symbolFromMPIRLib.find(symbol) != symbolFromMPIRLib.end()) {
-      return true;
-    }
-  }
-  return false;
-}
-
 llvm::Module *
 Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
                        ProgramBuildResult *pResult,
@@ -557,18 +508,6 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
       throw Exceptions::UserErrorCompilerException(
           "Vector-variant processing problem for an indirect function call.",
           CL_DEV_INVALID_BINARY);
-    }
-
-    if (optimizer->hasUndefinedExternals()) {
-      auto undefExternals = optimizer->GetUndefinedExternals();
-      if (m_bIsFPGAEmulator && !this->getBuiltinInitLog().empty() &&
-          isUndefinedExternalsFromMPIRLib(undefExternals)) {
-        pResult->LogS() << this->getBuiltinInitLog() << "\n";
-      }
-
-      Utils::LogUndefinedExternals(pResult->LogS(), undefExternals);
-      throw Exceptions::CompilerException("Failed to parse IR",
-                                          CL_DEV_INVALID_BINARY);
     }
 
     if (optimizer->hasUnsupportedRecursion()) {

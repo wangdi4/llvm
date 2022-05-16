@@ -70,7 +70,7 @@ LLDJIT::createJIT(std::unique_ptr<Module> M, std::string *ErrorStr,
 
 LLDJIT::LLDJIT(std::unique_ptr<Module> M, std::unique_ptr<TargetMachine> TM)
     : ExecutionEngine(TM->createDataLayout(), std::move(M)), TM(std::move(TM)),
-      DLLHandle(nullptr), ObjCache(nullptr) {
+      DLLHandle(nullptr), ObjCache(nullptr), LogStream(BuildLog) {
   // FIXME: We are managing our modules, so we do not want the base class
   // ExecutionEngine to manage them as well. To avoid double destruction
   // of the first (and only) module added in ExecutionEngine constructor
@@ -526,12 +526,9 @@ void LLDJIT::buildDllFromObjs(
 
   Args.push_back(JumpTableObjectFile.FileName().c_str());
 
-  bool Success =
-      lld::coff::link(Args, llvm::outs(), llvm::errs(), false, false);
-  if (!Success) {
-    // TODO: Currently, error message will be written to stdout.
-    throw Exceptions::CompilerException("Linker failed");
-  }
+  // Store LLDJIT log to strings, undefined symbol error is catched here
+  if (!lld::coff::link(Args, LogStream, LogStream, false, false))
+    throw Exceptions::CompilerException("Linker failed: " + getBuildLog());
 }
 
 // FIXME: Rename this.
