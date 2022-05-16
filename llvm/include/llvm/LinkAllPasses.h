@@ -190,6 +190,7 @@ namespace {
       (void) llvm::createDeadCodeEliminationPass();
       (void) llvm::createDeadStoreEliminationPass();
       (void) llvm::createDependenceAnalysisWrapperPass();
+<<<<<<< HEAD
       (void) llvm::createDomOnlyPrinterPass();
       (void) llvm::createDomPrinterPass();
       (void) llvm::createDomOnlyViewerPass();
@@ -202,6 +203,12 @@ namespace {
       (void) llvm::createPGOIndirectCallPromotionLegacyPass();
       (void) llvm::createPGOMemOPSizeOptLegacyPass();
 #endif // INTEL_CUSTOMIZATION
+=======
+      (void) llvm::createDomOnlyPrinterWrapperPassPass();
+      (void) llvm::createDomPrinterWrapperPassPass();
+      (void) llvm::createDomOnlyViewerWrapperPassPass();
+      (void) llvm::createDomViewerWrapperPassPass();
+>>>>>>> 7dce9eb6e507d48d0b79bfb408592936d378cc28
       (void) llvm::createInstrProfilingLegacyPass();
       (void) llvm::createFunctionImportPass();
       (void) llvm::createFunctionInliningPass();
@@ -260,10 +267,10 @@ namespace {
       (void) llvm::createPromoteMemoryToRegisterPass();
       (void) llvm::createDemoteRegisterToMemoryPass();
       (void) llvm::createPruneEHPass();
-      (void) llvm::createPostDomOnlyPrinterPass();
-      (void) llvm::createPostDomPrinterPass();
-      (void) llvm::createPostDomOnlyViewerPass();
-      (void) llvm::createPostDomViewerPass();
+      (void)llvm::createPostDomOnlyPrinterWrapperPassPass();
+      (void)llvm::createPostDomPrinterWrapperPassPass();
+      (void)llvm::createPostDomOnlyViewerWrapperPassPass();
+      (void)llvm::createPostDomViewerWrapperPassPass();
       (void) llvm::createReassociatePass();
       (void) llvm::createRedundantDbgInstEliminationPass();
       (void) llvm::createRegionInfoPass();
