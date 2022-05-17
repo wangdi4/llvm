@@ -2250,7 +2250,6 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     return Changed;
   case LibFunc_getopt_long:
   case LibFunc_getopt_long_only:
-    Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_under_getpid:
