@@ -41,7 +41,6 @@ extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL,
                              Type **ElementType) {
   const unsigned int DVFieldCount = 7;
   const unsigned int PerDimensionCount = 3;
-  Type* ElemType = nullptr;
   uint32_t ArRank = 0;
 
   // Helper to check that all types contained in the structure in the range
@@ -67,7 +66,6 @@ extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL,
   llvm::Type *FirstType = StTy->getContainedType(0);
   if (!FirstType->isPointerTy())
     return false;
-  ElemType = FirstType->getPointerElementType();
 
   // All fields are "long" type?
   llvm::Type *LongType =
@@ -93,14 +91,21 @@ extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL,
     return false;
 
   *ArrayRank = ArRank;
-  *ElementType = ElemType;
+
+  // NOTE: Collecting the type for the pointer address is only available
+  // for typed pointers. This needs to be updated for opaque pointers.
+  if (ElementType) {
+    assert(Ty->getContext().supportsTypedPointers() &&
+           "Trying to collect pointer address' type for opaque pointers");
+    *ElementType = FirstType->getNonOpaquePointerElementType();
+  }
+
   return true;
 }
 
 extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL) {
   uint32_t ArrayRank = 0;
-  Type *ElementType = nullptr;
-  return isDopeVectorType(Ty, DL, &ArrayRank, &ElementType);
+  return isDopeVectorType(Ty, DL, &ArrayRank, nullptr);
 }
 
 extern bool isUplevelVarType(Type *Ty) {
@@ -179,7 +184,7 @@ static bool isFieldInUplevelTypeVar(Value *V) {
   if (!GEP)
     return false;
   return isUplevelVarType(
-      GEP->getPointerOperand()->getType()->getPointerElementType());
+      GEP->getPointerOperand()->getType()->getNonOpaquePointerElementType());
 }
 
 Optional<uint64_t> getConstGEPIndex(const GEPOperator &GEP,
@@ -2172,16 +2177,23 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
     if (!STy->isPointerTy())
       return false;
     // Will need to be updated for opaque pointers.
-    auto SPTy = STy->getPointerElementType();
+    auto SPTy = STy->getNonOpaquePointerElementType();
     if (!isDopeVectorType(SPTy, DL, &SArrayRank, &SElementType))
       return false;
     auto DTy = BC->getDestTy();
     if (!DTy->isPointerTy())
       return false;
     // Will need to be updated for opaque pointers.
-    auto DPTy = DTy->getPointerElementType();
+    auto DPTy = DTy->getNonOpaquePointerElementType();
     if (!isDopeVectorType(DPTy, DL, &DArrayRank, &DElementType))
       return false;
+
+    // If typed pointers are enabled then SElementType and DElementType
+    // shouldn't be nullptr.
+    if (DPTy->getContext().supportsTypedPointers())
+      assert((SElementType && DElementType) &&
+             "Pointer address not collected when typed pointers are enabled");
+
     return SArrayRank == DArrayRank && SElementType == DElementType;
   };
 
@@ -2454,12 +2466,12 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
         return NullPair;
 
       // NOTE: This may need to be updated for opaque pointers.
-      SrcTy = SrcTy->getPointerElementType();
+      SrcTy = SrcTy->getNonOpaquePointerElementType();
       if (!SrcTy->isStructTy() || SrcTy->getStructNumElements() == 0)
         return NullPair;
 
       Type *ZeroType = SrcTy->getStructElementType(0);
-      DestTy = DestTy->getPointerElementType();
+      DestTy = DestTy->getNonOpaquePointerElementType();
       if (ZeroType == DestTy)
         RetType = DestTy;
     } else if (auto GEP = dyn_cast<GetElementPtrInst>(Val)) {
@@ -2796,17 +2808,32 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
       if (!STy->isPointerTy())
         return nullptr;
       // Will need to be updated for opaque pointers.
-      Type *SPETy = STy->getPointerElementType();
+      Type *SPETy = STy->getNonOpaquePointerElementType();
       if (!isDopeVectorType(SPETy, DL, &SArrayRank, &SElementType))
         return nullptr;
+
+      // NOTE: This needs to be updated when opaque pointers support is
+      // enabled. SElementType and DElementType need to be collected when
+      // typed pointers are enabled.
+      if (SPETy->getContext().supportsTypedPointers())
+        assert(SElementType &&
+               "Pointer address not collected for source pointer");
+
       uint32_t DArrayRank;
       Type *DElementType = nullptr;
       Type *DTy = BC->getDestTy();
       if (!DTy->isPointerTy())
         return nullptr;
-      Type *DPETy = DTy->getPointerElementType();
+      Type *DPETy = DTy->getNonOpaquePointerElementType();
       if (!isDopeVectorType(DPETy, DL, &DArrayRank, &DElementType))
         return nullptr;
+
+      // NOTE: This needs to be updated when opaque pointers support is
+      // enabled.
+      if (DPETy->getContext().supportsTypedPointers())
+        assert(DElementType &&
+               "Pointer address not collected for destination pointer");
+
       if (SArrayRank != DArrayRank || SElementType != DElementType)
         return nullptr;
       if (!BC->hasOneUser())
@@ -3235,7 +3262,7 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
         return false;
 
       StructType *StrSource =
-          dyn_cast<StructType>(SrcTy->getPointerElementType());
+          dyn_cast<StructType>(SrcTy->getNonOpaquePointerElementType());
 
       if (!StrSource || StrSource->getNumElements() == 0)
         return false;
@@ -3502,7 +3529,7 @@ void GlobalDopeVector::collectAndAnalyzeCopyNestedDopeVectors(
     auto *PtrAllocType = AI->getType();
     // NOTE: This won't work for opaque pointers. We need to address collecting
     // the dope vector for opaque pointers.
-    auto *AllocMainType = PtrAllocType->getPointerElementType();
+    auto *AllocMainType = PtrAllocType->getNonOpaquePointerElementType();
     if (AllocMainType != DVType)
       return nullptr;
 
@@ -3593,7 +3620,7 @@ GlobalDopeVector::collectAndAnalyzeNestedDopeVectors(const DataLayout &DL,
   auto GetResultTypeFromSubscript = [](SubscriptInst *SI) {
     Type *ResType = SI->getType();
     if (ResType->isPointerTy())
-      ResType = ResType->getPointerElementType();
+      ResType = ResType->getNonOpaquePointerElementType();
 
     return ResType;
   };
