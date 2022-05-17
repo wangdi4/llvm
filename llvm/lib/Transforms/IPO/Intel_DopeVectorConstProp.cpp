@@ -86,7 +86,7 @@ static bool hasDopeVectorConstants(const Function &F, const Argument &Arg,
   // corresponding to 'Arg'.
   for (const User *U : F.users()) {
     uint32_t ArRank;
-    Type *ElemType;
+    Type *ElemType = nullptr;
     auto CB = cast<CallBase>(U);
     Value *V = CB->getArgOperand(Arg.getArgNo());
     // Each actual must be a pointer to a dope vector of the same expected
@@ -94,9 +94,17 @@ static bool hasDopeVectorConstants(const Function &F, const Argument &Arg,
     Type *VTy = V->getType();
     if (!VTy->isPointerTy())
       return false;
-    VTy = VTy->getPointerElementType();
-    if (!isDopeVectorType(VTy, DL, &ArRank, &ElemType) ||
-        ArRank != ArrayRank || ElemType != ElementType)
+    VTy = VTy->getNonOpaquePointerElementType();
+    if (!isDopeVectorType(VTy, DL, &ArRank, &ElemType))
+      return false;
+
+    // NOTE: This needs to be updated when opaque pointers support is
+    // enabled.
+    if (VTy->getContext().supportsTypedPointers())
+      assert(ElemType &&
+             "Pointer address not collected when checking for constants");
+
+    if (ArRank != ArrayRank || ElemType != ElementType)
       return false;
     // Use the dope analyzer to get the value of the dope vector constants.
     DopeVectorAnalyzer DVAActual(V);
@@ -245,7 +253,8 @@ static bool replaceDopeVectorConstants(Argument &Arg,
     // to a structure, each field of which points to an uplevel variable.
     assert(CF->arg_size() != 0 && "Expecting at least one arg");
     assert(CF->getArg(0)->getType()->isPointerTy() &&
-        isUplevelVarType(CF->getArg(0)->getType()->getPointerElementType()) &&
+        isUplevelVarType(
+        CF->getArg(0)->getType()->getNonOpaquePointerElementType()) &&
         "Expecting pointer to uplevel type");
     // Identify GEPs that refer to the dope vector uplevel variable.
     Argument *Arg = CF->getArg(0);
@@ -482,10 +491,16 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
       Type *Ty = Arg.getType();
       if (!Ty->isPointerTy())
         continue;
-      Ty = Ty->getPointerElementType();
+      Ty = Ty->getNonOpaquePointerElementType();
       if (!isDopeVectorType(Ty, DL, &ArRank, &ElemType))
         continue;
       LLVM_DEBUG({
+        // NOTE: This needs to be updated when opaque pointers support is
+        // enabled.
+        if (Ty->getContext().supportsTypedPointers())
+          assert(ElemType &&
+                 "Pointer address not collected for debugging");
+
         dbgs() << "DV FOUND: ARG #" << Arg.getArgNo() << " "
                << F.getName() << " " << ArRank << " x ";
         ElemType->dump();
