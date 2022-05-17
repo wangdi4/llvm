@@ -1,10 +1,9 @@
 #include "CL/cl.h"
-#include "cl_types.h"
-#include <stdio.h>
-#include <time.h>
 #include "FrameworkTest.h"
-
-#define BUFFER_SIZE 128
+#include "TestsHelpClasses.h"
+#include "cl_types.h"
+#include "gtest/gtest.h"
+#include <stdio.h>
 
 extern cl_device_type gDeviceType;
 
@@ -13,139 +12,114 @@ extern cl_device_type gDeviceType;
  * -------------------
  * Implement image access test
  **************************************************************************************************/
-bool clLocalStructTest()
-{
-    bool         bResult = true;
-    cl_int       iRet = CL_SUCCESS;
-    cl_device_id clDefaultDeviceId;
+void clLocalStructTest() {
+  printf("=============================================================\n");
+  printf("clILocalSTructAssingTest\n");
+  printf("=============================================================\n");
 
-	printf("=============================================================\n");
-	printf("clILocalSTructAssingTest\n");
-	printf("=============================================================\n");
+  typedef struct _AABB {
+    int Min[3];
+    int Max[3];
+  } AABB;
 
-	typedef struct _AABB {int Min[3];int Max[3];} AABB;
+  const char *ocl_test_program[] = {
+      "typedef struct _AABB {int Min[3];int Max[3];} AABB;\n"
+      "kernel void Foo(global AABB* p, local AABB* lcl)\n"
+      "{\n"
+      "	int g=get_global_id(0);\n"
+      "	__local AABB tileBB;\n"
+      "	tileBB.Min[0] = -1.0; tileBB.Min[1] = -2.0; tileBB.Min[2] = -3.0;\n"
+      "	tileBB.Max[0] = 1.0; tileBB.Max[1] = 2.0; tileBB.Max[2] = 3.0;\n"
+      "	*lcl = tileBB;\n"
+      "	event_t ev = async_work_group_copy((__global char*)&p[0], (__local "
+      "char*)&tileBB, sizeof(AABB), 0);\n"
+      "	wait_group_events(1, &ev);\n"
+      "	p[1]=*lcl;\n"
+      "}"};
 
-	const char *ocl_test_program[] = {
-	"typedef struct _AABB {int Min[3];int Max[3];} AABB;\n"
-	"kernel void Foo(global AABB* p, local AABB* lcl)\n"
-	"{\n"
-    "	int g=get_global_id(0);\n"
-	"	__local AABB tileBB;\n"
-	"	tileBB.Min[0] = -1.0; tileBB.Min[1] = -2.0; tileBB.Min[2] = -3.0;\n"
-	"	tileBB.Max[0] = 1.0; tileBB.Max[1] = 2.0; tileBB.Max[2] = 3.0;\n"
-	"	*lcl = tileBB;\n"
-	"	event_t ev = async_work_group_copy((__global char*)&p[0], (__local char*)&tileBB, sizeof(AABB), 0);\n"
-	"	wait_group_events(1, &ev);\n"
-    "	p[1]=*lcl;\n"
-	"}"
-	};
+  cl_platform_id platform = 0;
 
-	cl_platform_id platform = 0;
+  cl_int err = clGetPlatformIDs(1, &platform, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clGetPlatformIDs");
 
-	
-	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
+  // define local variables
+  cl_context_properties prop[3] = {CL_CONTEXT_PLATFORM,
+                                   (cl_context_properties)platform, 0};
+  cl_program program;
+  cl_command_queue queue;
+  cl_kernel kernel;
 
-	if (!bResult)
-	{
-		return bResult;
-	}
+  size_t global_work_size[1] = {1};
 
-	// define local variables 
-	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
-	cl_program program;
-	cl_command_queue queue;
-	cl_kernel kernel;
-	
-	size_t global_work_size[1] = { 1 };
-	
-	AABB		pDstBuff[2];
-	
-	cl_mem clBuff;
-    //
-    // Initiate test infrastructure:
-    // Create context, Queue
-    //
-	cl_context context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
-    bResult &= Check("clCreateContextFromType", CL_SUCCESS, iRet);    
-    if (!bResult) goto release_end;
+  AABB pDstBuff[2];
 
-	iRet = clGetDeviceIDs(platform, gDeviceType, 1, &clDefaultDeviceId, NULL);
-        bResult &= Check("clGetDeviceIDs", CL_SUCCESS, iRet);
-        if (!bResult)
-          goto release_context;
+  //
+  // Initiate test infrastructure:
+  // Create context, Queue
+  //
+  cl_context context =
+      clCreateContextFromType(prop, gDeviceType, nullptr, nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateContextFromType");
 
-        queue = clCreateCommandQueueWithProperties(
-            context, clDefaultDeviceId, NULL /*no properties*/, &iRet);
-        bResult &= Check("clCreateCommandQueueWithProperties - queue",
-                         CL_SUCCESS, iRet);
-        if (!bResult)
-          goto release_context;
+  cl_device_id clDefaultDeviceId;
+  err = clGetDeviceIDs(platform, gDeviceType, 1, &clDefaultDeviceId, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clGetDeviceIDs");
 
-        if ( !BuildProgramSynch(context, 1, (const char**)&ocl_test_program, NULL, NULL, &program) )
-		goto release_queue;
+  queue = clCreateCommandQueueWithProperties(context, clDefaultDeviceId,
+                                             nullptr /*no properties*/, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateCommandQueueWithProperties - queue");
 
-    kernel = clCreateKernel(program, "Foo", &iRet);
-	bResult &= Check("clCreateKernel - Foo", CL_SUCCESS, iRet);
-	if (!bResult) goto release_program;
+  ASSERT_TRUE(BuildProgramSynch(context, 1, (const char **)&ocl_test_program,
+                                nullptr, nullptr, &program));
 
+  kernel = clCreateKernel(program, "Foo", &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateKernel - Foo");
 
+  srand(0);
 
-	srand( 0 );
+  cl_mem clBuff = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(pDstBuff),
+                                 nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateBuffer");
 
-	clBuff = clCreateBuffer(context, CL_MEM_READ_WRITE , sizeof(pDstBuff), NULL, &iRet);
-	bResult &= Check("clCreateBuffer", CL_SUCCESS, iRet);
-	if (!bResult)
-	{
-		goto release_kernel;
-	}
+  // Set Kernel Arguments
+  err = clSetKernelArg(kernel, 0, sizeof(cl_mem), &clBuff);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArg - clBuff");
 
-	// Set Kernel Arguments
-	iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &clBuff);
-	bResult &= Check("clSetKernelArg - clBuff", CL_SUCCESS, iRet);
-	if (!bResult) goto release_image;
+  err = clSetKernelArg(kernel, 1, sizeof(AABB), (void *)nullptr);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArg - local");
 
-	iRet = clSetKernelArg(kernel, 1, sizeof(AABB), (void*)NULL);
-	bResult &= Check("clSetKernelArg - local", CL_SUCCESS, iRet);
-	if (!bResult) goto release_image;
+  // Execute kernel
+  err = clEnqueueNDRangeKernel(queue, kernel, 1, nullptr, global_work_size,
+                               nullptr, 0, nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
+  //
+  // Verification phase
+  //
+  err = clEnqueueReadBuffer(queue, clBuff, CL_TRUE, 0, sizeof(pDstBuff),
+                            &pDstBuff, 0, nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueReadBuffer - Dst");
 
-    
+  ASSERT_TRUE(pDstBuff[0].Min[0] == -1);
+  ASSERT_TRUE(pDstBuff[0].Min[1] == -2);
+  ASSERT_TRUE(pDstBuff[0].Min[2] == -3);
+  ASSERT_TRUE(pDstBuff[0].Max[0] == 1);
+  ASSERT_TRUE(pDstBuff[0].Max[1] == 2);
+  ASSERT_TRUE(pDstBuff[0].Max[2] == 3);
+  ASSERT_TRUE(pDstBuff[1].Min[0] == -1);
+  ASSERT_TRUE(pDstBuff[1].Min[1] == -2);
+  ASSERT_TRUE(pDstBuff[1].Min[2] == -3);
+  ASSERT_TRUE(pDstBuff[1].Max[0] == 1);
+  ASSERT_TRUE(pDstBuff[1].Max[1] == 2);
+  ASSERT_TRUE(pDstBuff[1].Max[2] == 3);
 
-	// Execute kernel
-    iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, NULL, 0, NULL, NULL);
-    bResult &= Check("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
-    //
-    // Verification phase
-    //
-	iRet = clEnqueueReadBuffer( queue, clBuff, CL_TRUE, 0, sizeof(pDstBuff), &pDstBuff, 0, NULL, NULL );
-	bResult &= Check("clEnqueueReadBuffer - Dst", CL_SUCCESS, iRet);
-	if (!bResult) goto release_image;
-
-	bResult &= (pDstBuff[0].Min[0] == -1) && (pDstBuff[0].Min[1] == -2) && (pDstBuff[0].Min[2] == -3) &&
-				(pDstBuff[0].Max[0] == 1) && (pDstBuff[0].Max[1] == 2) && (pDstBuff[0].Max[2] == 3) &&
-				(pDstBuff[1].Min[0] == -1) && (pDstBuff[1].Min[1] == -2) && (pDstBuff[1].Min[2] == -3) &&
-				(pDstBuff[1].Max[0] == 1) && (pDstBuff[1].Max[1] == 2) && (pDstBuff[1].Max[2] == 3);
-	if ( bResult )
-	{
-	    printf ("*** clILocalSTructAssingTest compare verification succeeded *** \n");
-	}
-	else
-	{
-		printf ("!!!!!! clILocalSTructAssingTest compare verification failed !!!!! \n");
-	}
-
-release_image:
-    clReleaseMemObject(clBuff);
-release_kernel:
-	clReleaseKernel(kernel);
-release_program:
-	clReleaseProgram(program);
-release_queue:
-    clFinish(queue);
-    clReleaseCommandQueue(queue);
-release_context:
-    clReleaseContext(context);
-release_end:
-    return bResult;
+  err = clReleaseMemObject(clBuff);
+  ASSERT_OCL_SUCCESS(err, "clReleaseMemObject");
+  err = clReleaseKernel(kernel);
+  ASSERT_OCL_SUCCESS(err, "clReleaseKernel");
+  err = clReleaseProgram(program);
+  ASSERT_OCL_SUCCESS(err, "clReleaseProgram");
+  err = clReleaseCommandQueue(queue);
+  ASSERT_OCL_SUCCESS(err, "clReleaseCommandQueue");
+  err = clReleaseContext(context);
+  ASSERT_OCL_SUCCESS(err, "clReleaseContext");
 }
-

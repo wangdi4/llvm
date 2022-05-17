@@ -369,10 +369,7 @@ TEST(FrameworkTestType, DISABLED_Test_saturated_conversion_NaN_test)
     EXPECT_TRUE(saturated_conversion_NaN_test());
 }
 
-TEST(FrameworkTestType, Test_clLocalStructTest)
-{
-    EXPECT_TRUE(clLocalStructTest());
-}
+TEST(FrameworkTestType, Test_clLocalStructTest) { clLocalStructTest(); }
 
 TEST(FrameworkTestType, Test_opencl_printf_test)
 {

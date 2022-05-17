@@ -81,7 +81,7 @@ bool TBBTest();
 bool saturated_conversion_NaN_test();
 bool printf_test();
 bool MultithreadedPrintf();
-bool clLocalStructTest();
+void clLocalStructTest();
 bool VecTypeHintTest();
 void intelVecTypeHintTest();
 void intelReqdSubGroupSizeTest();
