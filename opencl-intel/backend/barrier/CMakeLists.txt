@@ -17,7 +17,6 @@ include_directories(
 
 set(TARGET_SOURCE_FILES
   BarrierMain.cpp
-  RemoveDuplicationBarrierPass.cpp
 )
 
 add_opencl_library(

@@ -142,7 +142,7 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
         int channelDepthEmulationMode = pBackendOptions->GetIntValue(
             (int)CL_DEV_BACKEND_OPTION_CHANNEL_DEPTH_EMULATION_MODE,
             (int)CHANNEL_DEPTH_MODE_STRICT);
-        m_LLVMOptions.emplace_back("--channel-depth-emulation-mode="
+        m_LLVMOptions.emplace_back("--dpcpp-channel-depth-emulation-mode="
             + std::to_string(channelDepthEmulationMode));
         m_LLVMOptions.emplace_back("--dpcpp-remove-fpga-reg");
         m_LLVMOptions.emplace_back("--dpcpp-demangle-fpga-pipes");

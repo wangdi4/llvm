@@ -10,6 +10,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   BuiltinCallToInst.cpp
   BuiltinImport.cpp
   BuiltinLibInfoAnalysis.cpp
+  ChannelPipeTransformation.cpp
   CleanupWrappedKernel.cpp
   CoerceTypes.cpp
   CoerceWin64Types.cpp
@@ -53,6 +54,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   RedundantPhiNodePass.cpp
   RelaxedMath.cpp
   RemoveAtexit.cpp
+  RemoveDuplicatedBarrier.cpp
   ReplaceScalarWithMask.cpp
   ResolveMatrixFill.cpp
   ResolveMatrixLayout.cpp

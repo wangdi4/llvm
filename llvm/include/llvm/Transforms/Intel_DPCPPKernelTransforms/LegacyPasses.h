@@ -47,6 +47,7 @@ ModulePass *createBarrierInFunctionLegacyPass();
 ModulePass *createBuiltinImportLegacyPass(
     const SmallVector<Module *, 2> &BuiltinModules = SmallVector<Module *, 2>(),
     StringRef CPUPrefix = "");
+ModulePass *createChannelPipeTransformationLegacyPass();
 ModulePass *createCleanupWrappedKernelLegacyPass();
 ModulePass *createCoerceTypesLegacyPass();
 ModulePass *createCoerceWin64TypesLegacyPass();
@@ -91,6 +92,7 @@ ModulePass *createProfilingInfoLegacyPass();
 ModulePass *createReduceCrossBarrierValuesLegacyPass();
 ModulePass *createRelaxedMathLegacyPass();
 ModulePass *createRemoveAtExitLegacyPass();
+ModulePass *createRemoveDuplicatedBarrierLegacyPass(bool IsNativeDebug);
 ModulePass *createReplaceScalarWithMaskLegacyPass();
 ModulePass *createResolveMatrixFillLegacyPass();
 ModulePass *createResolveMatrixLayoutLegacyPass();

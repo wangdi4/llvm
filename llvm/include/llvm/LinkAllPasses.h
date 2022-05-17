@@ -492,6 +492,7 @@ namespace {
       (void)llvm::createAutorunReplicatorLegacyPass();
       (void)llvm::createRelaxedMathLegacyPass();
       (void)llvm::createRemoveAtExitLegacyPass();
+      (void)llvm::createRemoveDuplicatedBarrierLegacyPass(false);
       (void)llvm::createReplaceScalarWithMaskLegacyPass();
       (void)llvm::createResolveMatrixFillLegacyPass();
       (void)llvm::createResolveMatrixLayoutLegacyPass();
@@ -511,6 +512,7 @@ namespace {
       (void)llvm::createPipeOrderingLegacyPass();
       (void)llvm::createPrepareKernelArgsLegacyPass(false);
       (void)llvm::createProfilingInfoLegacyPass();
+      (void)llvm::createChannelPipeTransformationLegacyPass();
       (void)llvm::createCleanupWrappedKernelLegacyPass();
       (void)llvm::createCoerceTypesLegacyPass();
       (void)llvm::createVFAnalysisLegacyPass();

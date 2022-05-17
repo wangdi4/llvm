@@ -17,6 +17,7 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_CHANNEL_PIPE_UTILS_H
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_CHANNEL_PIPE_UTILS_H
 
+#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/GlobalVariable.h"
@@ -30,6 +31,31 @@ struct ChannelPipeMD {
   int Depth;
   std::string IO;
 };
+
+enum ChannelDepthMode { Strict, Default, IgnoreDepth };
+
+ChannelPipeMD getChannelPipeMetadata(
+    GlobalVariable *Channel,
+    int ChannelDepthEmulationMode = ChannelDepthMode::Strict);
+
+struct ChannelKind {
+  enum AccessKind {
+    NONE, // not a channel
+    READ,
+    WRITE
+  };
+
+  AccessKind Access;
+  bool Blocking;
+
+  bool operator==(const ChannelKind &LHS) const {
+    return Access == LHS.Access && Blocking == LHS.Blocking;
+  }
+
+  operator bool() const { return Access != AccessKind::NONE; }
+};
+
+ChannelKind getChannelKind(const StringRef);
 
 /// Emitting warning messages of large-size channel declaration.
 class LargeChannelPipeWarningDiagInfo : public DiagnosticInfo {
@@ -72,6 +98,12 @@ void initializeGlobalPipeScalar(GlobalVariable *PipeStorageVar,
                                 const ChannelPipeMD &MD, Function *GlobalCtor,
                                 Function *PipeInit);
 
+GlobalVariable *createPipeBackingStore(GlobalVariable *GV,
+                                       const ChannelPipeMD &MD);
+
+namespace OpenCLInterface {
+int __pipe_get_total_size_fpga(int packet_size, int depth, int mode);
+}
 } // namespace DPCPPChannelPipeUtils
 } // namespace llvm
 

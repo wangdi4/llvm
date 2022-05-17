@@ -36,8 +36,7 @@ void initializeAVX512ResolverPass(llvm::PassRegistry&);
 void initializeOCLBuiltinPreVectorizationPassPass(llvm::PassRegistry&);
 void initializeSpecialCaseBuiltinResolverPass(llvm::PassRegistry&);
 void initializeCLBuiltinLICMPass(llvm::PassRegistry&);
-void initializeCLStreamSamplerPass(llvm::PassRegistry&);
-void initializeRemoveDuplicationBarrierPass(llvm::PassRegistry&);
+void initializeCLStreamSamplerPass(llvm::PassRegistry &);
 
 void initializePreventDivCrashesPass(llvm::PassRegistry&);
 void initializeBuiltinLibInfoPass(llvm::PassRegistry&);
@@ -50,7 +49,6 @@ void initializeResolveSubGroupWICallPass(llvm::PassRegistry&);
 void initializeDetectRecursionPass(llvm::PassRegistry&);
 void initializeDebugInfoPassPass(llvm::PassRegistry&);
 void initializeSmartGVNPass(llvm::PassRegistry&);
-void initializeChannelPipeTransformationPass(llvm::PassRegistry&);
 void initializePipeIOTransformationPass(llvm::PassRegistry&);
 void initializePipeSupportPass(llvm::PassRegistry&);
 void initializeInfiniteLoopCreatorPass(llvm::PassRegistry&);

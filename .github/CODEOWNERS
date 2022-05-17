@@ -142,6 +142,8 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/test/DebugInfo/X86/ @bwyma @stevemerr
 /llvm/tools/llvm-pdbutil/ @bwyma @stevemerr
 /llvm/unittests/DebugInfo/ @bwyma @stevemerr
+/llvm/lib/MC/MCDwarf.cpp @bwyma @stevemerr
+/llvm/include/llvm/MC/MCDwarf.h @bwyma @stevemerr
 
 # COMPONENT: IPO/PGO
 # JIRA: CMPLRLLVM->LLVM Interprocedural Optimization

@@ -36,9 +36,11 @@ using namespace llvm;
 
 extern bool EnableTLSGlobals;
 
-static cl::opt<bool> OptEnableNativeDebug("enable-native-debug",
-                                          cl::init(false), cl::Hidden,
-                                          cl::desc("enable native debug"));
+bool EnableNativeDebug;
+static cl::opt<bool, true>
+    OptEnableNativeDebug("enable-native-debug", cl::location(EnableNativeDebug),
+                         cl::init(false), cl::Hidden,
+                         cl::desc("enable native debug"));
 
 KernelBarrier::KernelBarrier(bool IsNativeDebug, bool UseTLSGlobals)
     : DL(nullptr), Context(nullptr), SizeT(0), SizeTTy(nullptr), I32Ty(nullptr),

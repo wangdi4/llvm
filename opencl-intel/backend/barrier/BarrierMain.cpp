@@ -20,10 +20,6 @@
 
 using namespace llvm;
 
-extern "C" {
-void *createRemoveDuplicationBarrierPass(bool IsNativeDebug);
-}
-
 namespace intel {
 
 void addBarrierMainPasses(llvm::legacy::PassManagerBase &PM,
@@ -54,8 +50,7 @@ void addBarrierMainPasses(llvm::legacy::PassManagerBase &PM,
   if (DebugType != Native) {
     // This optimization removes debug information from extraneous barrier
     // calls by deleting them.
-    PM.add(
-        (ModulePass *)createRemoveDuplicationBarrierPass(DebugType == Native));
+    PM.add(llvm::createRemoveDuplicatedBarrierLegacyPass(DebugType == Native));
   }
 
   // Begin sub-group emulation
