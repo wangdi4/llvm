@@ -191,7 +191,6 @@ set (INCLUDE_DIRS
     ${BACKEND_ROOT_DIR}/plugin_manager
     ${BACKEND_ROOT_DIR}/dynamic_lib
     ${BACKEND_ROOT_DIR}/metadata_api
-    ${BACKEND_ROOT_DIR}/passes/ChannelPipeTransformation
     ${BACKEND_ROOT_DIR}/utils/objdump
     ${CMAKE_BINARY_DIR}/include/
 )
@@ -213,7 +212,6 @@ endif( WIN32 )
 set( BACKEND_PASSES
     LLVMBarrier
     LLVMVectorizer
-    ChannelPipeTransformation
     PipeIOTransformation
     PipeSupport
     BuiltinLibInfo

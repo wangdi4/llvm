@@ -12,7 +12,6 @@
 
 #include "Optimizer.h"
 #include "BarrierMain.h"
-#include "ChannelPipeUtils.h"
 #include "CompilationUtils.h"
 #include "InitializeOCLPasses.hpp"
 #include "PrintIRPass.h"
@@ -122,7 +121,6 @@ llvm::Pass *createCLStreamSamplerPass();
 llvm::Pass *createPreventDivisionCrashesPass();
 llvm::Pass *createOptimizeIDivPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
-llvm::ModulePass *createChannelPipeTransformationPass();
 llvm::ModulePass *createPipeIOTransformationPass();
 llvm::ModulePass *createPipeSupportPass();
 llvm::Pass *createBuiltinLibInfoPass(ArrayRef<Module *> pRtlModuleList,
@@ -332,10 +330,8 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   }
 
   if (isFpgaEmulator) {
-      // ChannelPipeTransformation pass populate channel/pipes error log.
-      Intel::OpenCL::DeviceBackend::ChannelPipesErrorLog.clear();
       PM.add(createDPCPPRewritePipesLegacyPass());
-      PM.add(createChannelPipeTransformationPass());
+      PM.add(createChannelPipeTransformationLegacyPass());
       PM.add(createPipeIOTransformationPass());
       PM.add(createPipeOrderingLegacyPass());
       PM.add(createAutorunReplicatorLegacyPass());
