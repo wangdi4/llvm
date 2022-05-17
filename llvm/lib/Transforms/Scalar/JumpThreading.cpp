@@ -4096,8 +4096,7 @@ bool JumpThreadingPass::tryToUnfoldSelectInCurrBB(BasicBlock *BB) {
     // Expand the select.
     Value *Cond = SI->getCondition();
     if (InsertFreezeWhenUnfoldingSelect &&
-        !isGuaranteedNotToBeUndefOrPoison(Cond, nullptr, SI,
-                                          &DTU->getDomTree()))
+        !isGuaranteedNotToBeUndefOrPoison(Cond, nullptr, SI))
       Cond = new FreezeInst(Cond, "cond.fr", SI);
     Instruction *Term = SplitBlockAndInsertIfThen(Cond, SI, false);
     BasicBlock *SplitBB = SI->getParent();
