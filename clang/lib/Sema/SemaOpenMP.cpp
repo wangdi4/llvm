@@ -14254,6 +14254,11 @@ StmtResult Sema::ActOnOpenMPTargetUpdateDirective(ArrayRef<OMPClause *> Clauses,
     return StmtError();
   }
 
+#if INTEL_COLLAB
+  // Allow variables with internal linkage even though community doesn't want to
+  // allow this.
+  if (!LangOpts.OpenMPLateOutline)
+#endif // INTEL_COLLAB
   if (!isClauseMappable(Clauses)) {
     Diag(StartLoc, diag::err_omp_cannot_update_with_internal_linkage);
     return StmtError();
