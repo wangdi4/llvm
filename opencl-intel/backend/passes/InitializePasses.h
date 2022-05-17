@@ -36,8 +36,7 @@ void initializeAVX512ResolverPass(llvm::PassRegistry&);
 void initializeOCLBuiltinPreVectorizationPassPass(llvm::PassRegistry&);
 void initializeSpecialCaseBuiltinResolverPass(llvm::PassRegistry&);
 void initializeCLBuiltinLICMPass(llvm::PassRegistry&);
-void initializeCLStreamSamplerPass(llvm::PassRegistry&);
-void initializeRemoveDuplicationBarrierPass(llvm::PassRegistry&);
+void initializeCLStreamSamplerPass(llvm::PassRegistry &);
 
 void initializePreventDivCrashesPass(llvm::PassRegistry&);
 void initializeBuiltinLibInfoPass(llvm::PassRegistry&);

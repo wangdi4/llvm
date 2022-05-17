@@ -53,6 +53,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   RedundantPhiNodePass.cpp
   RelaxedMath.cpp
   RemoveAtexit.cpp
+  RemoveDuplicatedBarrier.cpp
   ReplaceScalarWithMask.cpp
   ResolveMatrixFill.cpp
   ResolveMatrixLayout.cpp

@@ -91,6 +91,7 @@ ModulePass *createProfilingInfoLegacyPass();
 ModulePass *createReduceCrossBarrierValuesLegacyPass();
 ModulePass *createRelaxedMathLegacyPass();
 ModulePass *createRemoveAtExitLegacyPass();
+ModulePass *createRemoveDuplicatedBarrierLegacyPass(bool IsNativeDebug);
 ModulePass *createReplaceScalarWithMaskLegacyPass();
 ModulePass *createResolveMatrixFillLegacyPass();
 ModulePass *createResolveMatrixLayoutLegacyPass();
