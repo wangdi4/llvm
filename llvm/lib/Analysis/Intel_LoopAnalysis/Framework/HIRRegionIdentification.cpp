@@ -109,6 +109,11 @@ static cl::opt<unsigned> MaxIfNestThresholdOption(
     cl::desc(
         "Threshold for maximum number of nested ifs allowed in a HIR loop"));
 
+static cl::opt<unsigned> OuterIVDepBBThreshold(
+    "outer-ivdep-bb-threshold", cl::init(420), cl::Hidden,
+    cl::desc(
+        "Threshold for maximum number of bblocks allowed in outer ivdep loop"));
+
 static cl::opt<bool>
     PrintCostModelStats("hir-region-print-cost-model-stats", cl::init(false),
                         cl::Hidden,
@@ -824,8 +829,16 @@ static bool isIVDepLoop(const Loop &Lp) {
 
 void HIRRegionIdentification::CostModelAnalyzer::analyze() {
 
-  // SIMD/IVDep loops should not be throttled.
-  if (isLoopWithDirective(Lp) || isIVDepLoop(Lp)) {
+  // SIMD loops should not be throttled.
+  if (isLoopWithDirective(Lp)) {
+    IsProfitable = true;
+    return;
+  }
+
+  // Do not throttle IVDep loops except for outer 'branchy' loops since they can
+  // potentially cause compilation issues.
+  if (isIVDepLoop(Lp) &&
+      (IsInnermostLoop || (Lp.getNumBlocks() <= OuterIVDepBBThreshold))) {
     IsProfitable = true;
     return;
   }
