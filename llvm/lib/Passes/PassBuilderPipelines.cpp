@@ -1791,6 +1791,14 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     // indices to constant indices, which are registerizable.
     FPM.addPass(SROAPass()); // INTEL
   }
+
+#if INTEL_FEATURE_SW_ADVANCED
+  // Make unaligned nontemporal stores use a wrapper function instead of
+  // scalarizing them.
+  if (!PrepareForLTO && isLoopOptEnabled(Level))
+    FPM.addPass(NontemporalStorePass());
+#endif // INTEL_FEATURE_SW_ADVANCED
+
   // Postpone warnings to LTO link phase. Most transformations which process
   // user pragmas (like unroller & vectorizer) are triggered in LTO link phase.
   if (!PrepareForLTO)
@@ -1811,8 +1819,17 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // alignment information, try to re-derive it here.
   FPM.addPass(AlignmentFromAssumptionsPass());
 
-  if (IsFullLTO)
-    addInstCombinePass(FPM, true /* EnableUpCasting */); // INTEL
+#if INTEL_CUSTOMIZATION
+  if (IsFullLTO) {
+#if INTEL_FEATURE_SW_ADVANCED
+    // Make unaligned nontemporal stores use a wrapper function instead of
+    // scalarizing them.
+    if (isLoopOptEnabled(Level))
+      FPM.addPass(NontemporalStorePass());
+#endif // INTEL_FEATURE_SW_ADVANCED
+    addInstCombinePass(FPM, true /* EnableUpCasting */);
+  }
+#endif // INTEL_CUSTOMIZATOIN
 }
 
 #if INTEL_COLLAB

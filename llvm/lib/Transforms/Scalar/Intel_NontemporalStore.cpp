@@ -149,7 +149,7 @@ public:
     LargestVector = TypeSize::Fixed(
         TTI.getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector) / 8);
   }
-  void run();
+  bool run();
 
   /// Determines whether \p SI is independent and has a statically known stride
   /// within its containing loop. If so, a pair containing the loop and the
@@ -175,7 +175,7 @@ public:
                     StoreInst *NewStore, int64_t StoreStride);
 };
 
-void NontemporalStore::run() {
+bool NontemporalStore::run() {
   SmallVector<StoreBlock, 2> Worklist;
   for (auto &BB : F) {
     // Only consider instructions in loops.
@@ -253,7 +253,7 @@ void NontemporalStore::run() {
       Worklist.end());
 
   if (Worklist.empty())
-    return;
+    return false;
 
   // Find the first non alloca in the entry block. This is where we'll insert
   // our allocas.
@@ -446,6 +446,8 @@ void NontemporalStore::run() {
     for (StoreInst *const SI : Block.Stores)
       SI->eraseFromParent();
   }
+
+  return true;
 }
 
 Optional<std::pair<Loop *, int64_t>>
@@ -803,7 +805,10 @@ PreservedAnalyses NontemporalStorePass::run(Function &F,
       AM.getResult<LoopAnalysis>(F),
       AM.getResult<ScalarEvolutionAnalysis>(F),
       AM.getResult<TargetIRAnalysis>(F));
-  Impl.run();
+  bool Changed = Impl.run();
+
+  if (!Changed)
+    return PreservedAnalyses::all();
 
   PreservedAnalyses PA;
   PA.preserve<DominatorTreeAnalysis>();
@@ -840,11 +845,7 @@ bool NontemporalStoreWrapperPass::runOnFunction(Function &F) {
     getAnalysis<LoopInfoWrapperPass>().getLoopInfo(),
     getAnalysis<ScalarEvolutionWrapperPass>().getSE(),
     getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F));
-  Impl.run();
-
-  // TODO: this is conservative. We still may not have actually made any
-  // changes.
-  return true;
+  return Impl.run();
 }
 
 #endif // INTEL_FEATURE_SW_ADVANCED
