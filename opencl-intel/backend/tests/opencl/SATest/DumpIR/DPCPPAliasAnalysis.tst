@@ -3,7 +3,7 @@
 ; The test checks that DPCPPAliasAnalysis takes effect and the LICM pass moves
 ; loop invariants outside the loop.
 
-; CHECK-LABEL: define void @test_fn
+; CHECK-LABEL: define dso_local void @test_fn
 ; CHECK: wrapper_entry:
 ; CHECK:   [[IDX:%.*]] = getelementptr inbounds i64, i64 addrspace(1)* %explicit_0, i64 15
 ; CHECK:   [[LOAD:%.*]] = load i64, i64 addrspace(1)* [[IDX]], align 8

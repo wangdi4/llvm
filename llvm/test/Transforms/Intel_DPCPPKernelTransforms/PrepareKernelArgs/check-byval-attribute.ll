@@ -14,6 +14,8 @@ entry:
   ret void
 }
 
+; CHECK: %explicit_2.ptr = alloca <4 x i32>, align 16
+
 ;; struct1 my_struct1 arg1 - 17 bytes - expected alignment: 0
 ; CHECK: [[ARG0_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8, i8* %UniformArgs, i32 0
 ; CHECK-NEXT: %explicit_0 = bitcast i8* [[ARG0_BUFF_INDEX]] to %struct.struct1*
@@ -24,11 +26,53 @@ entry:
 ; CHECK-NEXT: [[ARG2_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8, i8* %UniformArgs, i32 32
 ; CHECK-NEXT: %explicit_2 = bitcast i8* [[ARG2_BUFF_INDEX]] to <4 x i32>*
 ;;implicit args
-; CHECK: ret void
+
+;; copy of byval arg
+; CHECK: [[EXPLICIT2PtrBC:%[0-9]+]] = bitcast <4 x i32>* %explicit_2.ptr to i8*
+; CHECK-NEXT: [[EXPLICIT2BC:%[0-9]+]] = bitcast <4 x i32>* %explicit_2 to i8*
+; CHECK-NEXT: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 1 [[EXPLICIT2PtrBC]], i8* align 1 [[EXPLICIT2BC]], i64 16, i1 false)
+; CHECK-NEXT: ret void
 
 !sycl.kernels = !{!0}
 !0 = !{void (%struct.struct1*, %struct.struct2*, <4 x i32>*)* @t1}
 
-; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-40: WARNING: Instruction with empty DebugLoc in function {{.*}}
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} bitcast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} bitcast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} bitcast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} bitcast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} load
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} load
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} load
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} load
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} load
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} load
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} load
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} load
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} load
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} mul
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} add
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} mul
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} add
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} mul
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} add
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} insertvalue
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} insertvalue
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} insertvalue
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} mul
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} mul
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} mul
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function t1 {{.*}} alloca
 ; DEBUGIFY-NOT: WARNING
