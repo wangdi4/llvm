@@ -56930,9 +56930,9 @@ static SDValue combineConcatVectorOps(const SDLoc &DL, MVT VT,
   return SDValue();
 }
 
-static SDValue combineConcatVectors(SDNode *N, SelectionDAG &DAG,
-                                    TargetLowering::DAGCombinerInfo &DCI,
-                                    const X86Subtarget &Subtarget) {
+static SDValue combineCONCAT_VECTORS(SDNode *N, SelectionDAG &DAG,
+                                     TargetLowering::DAGCombinerInfo &DCI,
+                                     const X86Subtarget &Subtarget) {
   EVT VT = N->getValueType(0);
   EVT SrcVT = N->getOperand(0).getValueType();
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
@@ -56951,9 +56951,9 @@ static SDValue combineConcatVectors(SDNode *N, SelectionDAG &DAG,
   return SDValue();
 }
 
-static SDValue combineInsertSubvector(SDNode *N, SelectionDAG &DAG,
-                                      TargetLowering::DAGCombinerInfo &DCI,
-                                      const X86Subtarget &Subtarget) {
+static SDValue combineINSERT_SUBVECTOR(SDNode *N, SelectionDAG &DAG,
+                                       TargetLowering::DAGCombinerInfo &DCI,
+                                       const X86Subtarget &Subtarget) {
   if (DCI.isBeforeLegalizeOps())
     return SDValue();
 
@@ -57144,9 +57144,9 @@ static SDValue narrowExtractedVectorSelect(SDNode *Ext, SelectionDAG &DAG) {
   return DAG.getBitcast(VT, NarrowSel);
 }
 
-static SDValue combineExtractSubvector(SDNode *N, SelectionDAG &DAG,
-                                       TargetLowering::DAGCombinerInfo &DCI,
-                                       const X86Subtarget &Subtarget) {
+static SDValue combineEXTRACT_SUBVECTOR(SDNode *N, SelectionDAG &DAG,
+                                        TargetLowering::DAGCombinerInfo &DCI,
+                                        const X86Subtarget &Subtarget) {
   // For AVX1 only, if we are extracting from a 256-bit and+not (which will
   // eventually get combined/lowered into ANDNP) with a concatenated operand,
   // split the 'and' into 128-bit ops to avoid the concatenate and extract.
@@ -57974,11 +57974,11 @@ SDValue X86TargetLowering::PerformDAGCombine(SDNode *N,
   case X86ISD::PEXTRB:
     return combineExtractVectorElt(N, DAG, DCI, Subtarget);
   case ISD::CONCAT_VECTORS:
-    return combineConcatVectors(N, DAG, DCI, Subtarget);
+    return combineCONCAT_VECTORS(N, DAG, DCI, Subtarget);
   case ISD::INSERT_SUBVECTOR:
-    return combineInsertSubvector(N, DAG, DCI, Subtarget);
+    return combineINSERT_SUBVECTOR(N, DAG, DCI, Subtarget);
   case ISD::EXTRACT_SUBVECTOR:
-    return combineExtractSubvector(N, DAG, DCI, Subtarget);
+    return combineEXTRACT_SUBVECTOR(N, DAG, DCI, Subtarget);
   case ISD::VSELECT:
   case ISD::SELECT:
   case X86ISD::BLENDV:      return combineSelect(N, DAG, DCI, Subtarget);
