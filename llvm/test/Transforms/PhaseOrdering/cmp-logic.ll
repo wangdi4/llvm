@@ -87,8 +87,10 @@ define i1 @PR54692_c(i8 noundef signext %c) {
 ; CHECK-NEXT:    [[AND:%.*]] = and i32 [[DOTNOT]], [[CONV4]]
 ; CHECK-NEXT:    [[TOBOOL:%.*]] = icmp ne i32 [[AND]], 0
 ; CHECK-NEXT:    [[CMP6:%.*]] = icmp eq i8 [[C]], 127
-; CHECK-NEXT:    [[T0:%.*]] = or i1 [[CMP6]], [[TOBOOL]]
-; CHECK-NEXT:    ret i1 [[T0]]
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP2:%.*]] = or i1 [[TOBOOL]], [[CMP6]]
+; CHECK-NEXT:    ret i1 [[TMP2]]
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   %conv = sext i8 %c to i32
