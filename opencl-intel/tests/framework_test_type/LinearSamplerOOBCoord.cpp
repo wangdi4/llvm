@@ -54,8 +54,10 @@ static void TestImage(cl_context context, cl_command_queue queue,
     ByteSize *= depth;
   size_t ByteSizeF = ByteSize * sizeof(float);
 
-  char *input = (char *)malloc(ByteSize);
+  uint8_t *input = (uint8_t *)malloc(ByteSize);
+  ASSERT_NE(input, nullptr);
   float *output = (float *)malloc(ByteSizeF);
+  ASSERT_NE(output, nullptr);
 
   static const float val[] = {.1, .3, .5, .7, .9};
 
@@ -96,8 +98,9 @@ static void TestImage(cl_context context, cl_command_queue queue,
   err = clSetKernelArg(kernel, 2, sizeof(cl_mem), &outbuf);
   ASSERT_OCL_SUCCESS(err, "clSetKernelArg(2)");
 
-  size_t gsize[] =
-    {img_desc->image_width, img_desc->image_height, img_desc->image_depth};
+  size_t gsize[] = {img_desc->image_width,
+                    img_desc->image_height == 0 ? 1 : img_desc->image_height,
+                    img_desc->image_depth == 0 ? 1 : img_desc->image_depth};
   cl_event ev;
   err = clEnqueueNDRangeKernel(queue, kernel, dim, nullptr, gsize, nullptr, 0,
                                nullptr, &ev);
@@ -107,7 +110,6 @@ static void TestImage(cl_context context, cl_command_queue queue,
                             1, &ev, nullptr);
   ASSERT_OCL_SUCCESS(err, "clEnqueueReadBuffer");
 
-  clFlush(queue);
   err = clFinish(queue);
   ASSERT_OCL_SUCCESS(err, "clFinish");
 
@@ -117,11 +119,16 @@ static void TestImage(cl_context context, cl_command_queue queue,
 
   free(input);
   free(output);
-  clReleaseEvent(ev);
-  clReleaseKernel(kernel);
-  clReleaseMemObject(outbuf);
-  clReleaseProgram(program);
-  clReleaseMemObject(clImg);
+  err = clReleaseEvent(ev);
+  ASSERT_OCL_SUCCESS(err, "clReleaseEvent");
+  err = clReleaseKernel(kernel);
+  ASSERT_OCL_SUCCESS(err, "clReleaseKernel");
+  err = clReleaseMemObject(outbuf);
+  ASSERT_OCL_SUCCESS(err, "clReleaseMemObject");
+  err = clReleaseProgram(program);
+  ASSERT_OCL_SUCCESS(err, "clReleaseProgram");
+  err = clReleaseMemObject(clImg);
+  ASSERT_OCL_SUCCESS(err, "clReleaseMemObject");
 }
 
 static void TestImage1D(
@@ -169,14 +176,9 @@ static void TestImage3D(
   TestImage(context, queue, sampler, &image_desc);
 }
 
-void LinearSampleOOBCoord()
-{
-  // FPGA emulator doesn't support sampler
-  if (gDeviceType == CL_DEVICE_TYPE_ACCELERATOR)
-    return;
-
+void LinearSampleOOBCoord() {
   cl_int err;
-  cl_platform_id platform = 0;
+  cl_platform_id platform = nullptr;
   cl_device_id device = nullptr;
   cl_context context = nullptr;
 
@@ -206,8 +208,8 @@ void LinearSampleOOBCoord()
   TestImage2D(context, queue, sampler);
   TestImage3D(context, queue, sampler);
 
-  clReleaseSampler(sampler);
-  clReleaseDevice(device);
-  clReleaseContext(context);
-  return;
+  err = clReleaseSampler(sampler);
+  ASSERT_OCL_SUCCESS(err, "clReleaseSampler");
+  err = clReleaseContext(context);
+  ASSERT_OCL_SUCCESS(err, "clReleaseContext");
 }
