@@ -1,6 +1,8 @@
 ; RUN: llc -filetype=obj -o - %s | llvm-dwarfdump -debug-line - | FileCheck -check-prefix=CHECK-4 %s
 ; RUN: llc -filetype=obj -o - %s -debug-line-version=4 | llvm-dwarfdump -debug-line - | FileCheck -check-prefix=CHECK-4 %s
+; RUN: llc -filetype=obj -o - %s -debug-line-version=3 | llvm-dwarfdump -debug-line - | FileCheck -check-prefix=CHECK-3 %s
 ; RUN: llc -filetype=obj -o - %s -debug-line-version=2 | llvm-dwarfdump -debug-line - | FileCheck -check-prefix=CHECK-2 %s
+; RUN: sed -e "s#\"Dwarf Version\", i32 4#\"Dwarf Version\", i32 5#g" %s | llc -filetype=obj -o - -debug-line-version=2 | llvm-dwarfdump -debug-line - | FileCheck -check-prefix=CHECK-5 %s
 ;
 ; Verify the proper .debug_line version is emitted.
 ;
@@ -18,7 +20,9 @@
 ; Test
 ; ----
 ; CHECK-2: version: 2
+; CHECK-3: version: 3
 ; CHECK-4: version: 4
+; CHECK-5: version: 5
 ;
 
 ; ModuleID = 'test.c'

@@ -525,7 +525,10 @@ MCDwarfLineTableHeader::Emit(MCStreamer *MCOS, MCDwarfLineTableParams Params,
   // defaults to version 2 which using the icx driver.
   // Older versions of dsymutil will not support line table versions greater
   // than 2 so the line table version may need to be adjusted there too.
-  if (DebugLineTableVersion != 0)
+  // We can only "pretend" one line table version is another if the line tables
+  // in both versions are sufficiently similar.
+  if (LineTableVersion <= 4 &&
+      DebugLineTableVersion >= 2 && DebugLineTableVersion <= 4)
     LineTableVersion = DebugLineTableVersion;
 #endif // INTEL_CUSTOMIZATION
   MCOS->emitInt16(LineTableVersion);
