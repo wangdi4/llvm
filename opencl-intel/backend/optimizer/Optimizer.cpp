@@ -115,7 +115,6 @@ llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
 llvm::Pass *createOCLReqdSubGroupSizePass();
 
-llvm::ModulePass *createInfiniteLoopCreatorPass();
 llvm::Pass *createCLBuiltinLICMPass();
 llvm::Pass *createCLStreamSamplerPass();
 llvm::Pass *createPreventDivisionCrashesPass();
@@ -659,7 +658,7 @@ static void populatePassesPostFailCheck(
   }
 
   if (isFpgaEmulator) {
-    PM.add(createInfiniteLoopCreatorPass());
+    PM.add(llvm::createInfiniteLoopCreatorLegacyPass());
   }
 
   // Barrier pass can't work with a token type, so here we remove region

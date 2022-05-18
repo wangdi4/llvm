@@ -23,7 +23,6 @@ set(OCL_BE_PASSES
     BuiltinLibInfo
     DebugInfoPass
     DetectRecursion
-    InfiniteLoopCreator
     KernelInfo
     LLVMBarrier
     LLVMVectorizer

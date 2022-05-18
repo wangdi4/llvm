@@ -13,17 +13,22 @@
 ;   }
 ; }
 ; ----------------------------------------------------
-; Clang options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl
-; ----------------------------------------------------
-; Opt passes: -dpcpp-kernel-equalizer
+; Compilation command:
+;   clang -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl
+;   opt -dpcpp-kernel-equalizer -S
 ; ----------------------------------------------------
 ; without -dpcpp-kernel-wgloop-creator there are no ret instructions (or all of them are
 ; unreachable), check that pass doesn't change the ir
-; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -dpcpp-kernel-analysis -infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -dpcpp-kernel-analysis -infinite-loop-creator -verify %s -S > %t1.ll
-; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -dpcpp-kernel-analysis %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -dpcpp-kernel-analysis -verify %s -S > %t2.ll
-; diff %t1.ll %t2.ll
+; ----------------------------------------------------
+; RUN: opt -dpcpp-kernel-analysis %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-kernel-analysis %s -S > %t1.ll
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-analysis -dpcpp-kernel-infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-analysis -dpcpp-kernel-infinite-loop-creator %s -S > %t2.ll
+; RUN: diff %t1.ll %t2.ll
+; RUN: opt -passes=dpcpp-kernel-analysis,dpcpp-kernel-infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-analysis,dpcpp-kernel-infinite-loop-creator %s -S > %t3.ll
+; RUN: diff %t1.ll %t3.ll
+
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-unknown-intelfpga"
 
@@ -52,7 +57,7 @@ while.body:                                       ; preds = %while.cond
   br label %while.cond
 
 return:                                           ; No predecessors!
-  ret void
+  unreachable
 }
 
 ; Function Attrs: argmemonly nounwind

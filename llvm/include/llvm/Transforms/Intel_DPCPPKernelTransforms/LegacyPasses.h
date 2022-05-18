@@ -76,6 +76,7 @@ ModulePass *createImplicitArgsAnalysisLegacyPass();
 ModulePass *createImplicitGIDLegacyPass(bool HandleBarrier = true);
 ModulePass *createIndirectCallLoweringLegacyPass();
 ModulePass *createInferArgumentAliasLegacyPass();
+ModulePass *createInfiniteLoopCreatorLegacyPass();
 ModulePass *createInstToFuncCallLegacyPass(
     VectorVariant::ISAClass ISA = VectorVariant::XMM);
 ModulePass *createInternalizeGlobalVariablesLegacyPass();

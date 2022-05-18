@@ -8,24 +8,30 @@
 ; __attribute__((autorun))
 ; __attribute__((max_global_work_dim(0)))
 ; void __kernel test_autorun_1() {
-;   int a = 10;
-;   write_channel_intel(out, a);
-;   a = read_channel_intel(in);
+;   int a = read_channel_intel(in);
+;   if (a < 0) {
+;     while (true) {
+;       write_channel_intel(out, -a);
+;     }
+;   }
 ; }
 ; ----------------------------------------------------
-; Clang options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl
+; Compilation command:
+;   clang -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl
+;   opt -dpcpp-kernel-equalizer -S
 ; ----------------------------------------------------
-; Opt passes: -dpcpp-kernel-equalizer
-; ----------------------------------------------------
-; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -infinite-loop-creator -verify %s -S | FileCheck %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-infinite-loop-creator %s -S | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-infinite-loop-creator %s -S | FileCheck %s
+
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-unknown-intelfpga"
 
 %opencl.channel_t = type opaque
 
-@out = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
 @in = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
+@out = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
 
 ; CHECK: define void @test_autorun_1
 ; CHECK: br label %infinite_loop_entry
@@ -42,15 +48,29 @@ entry:
   %a = alloca i32, align 4
   %0 = bitcast i32* %a to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #3
-  store i32 10, i32* %a, align 4, !tbaa !9
-  %1 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @out, align 4, !tbaa !13
-  %2 = load i32, i32* %a, align 4, !tbaa !9
-  call void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace(1)* %1, i32 %2) #4
-  %3 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @in, align 4, !tbaa !13
-  %call = call i32 @_Z18read_channel_intel11ocl_channeli(%opencl.channel_t addrspace(1)* %3) #4
-  store i32 %call, i32* %a, align 4, !tbaa !9
-  %4 = bitcast i32* %a to i8*
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %4) #3
+  %1 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @in, align 4, !tbaa !9
+  %call = call i32 @_Z18read_channel_intel11ocl_channeli(%opencl.channel_t addrspace(1)* %1) #4
+  store i32 %call, i32* %a, align 4, !tbaa !12
+  %2 = load i32, i32* %a, align 4, !tbaa !12
+  %cmp = icmp slt i32 %2, 0
+  br i1 %cmp, label %if.then, label %if.end
+
+if.then:                                          ; preds = %entry
+  br label %while.cond
+
+while.cond:                                       ; preds = %while.body, %if.then
+  br label %while.body
+
+while.body:                                       ; preds = %while.cond
+  %3 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @out, align 4, !tbaa !9
+  %4 = load i32, i32* %a, align 4, !tbaa !12
+  %sub = sub nsw i32 0, %4
+  call void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace(1)* %3, i32 %sub) #4
+  br label %while.cond
+
+if.end:                                           ; preds = %entry
+  %5 = bitcast i32* %a to i8*
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* %5) #3
   ret void
 }
 
@@ -58,10 +78,10 @@ entry:
 declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
 
 ; Function Attrs: convergent
-declare void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace(1)*, i32) #2
+declare i32 @_Z18read_channel_intel11ocl_channeli(%opencl.channel_t addrspace(1)*) #2
 
 ; Function Attrs: convergent
-declare i32 @_Z18read_channel_intel11ocl_channeli(%opencl.channel_t addrspace(1)*) #2
+declare void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace(1)*, i32) #2
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
@@ -92,9 +112,9 @@ attributes #4 = { convergent }
 !7 = !{i32 0}
 !8 = !{i1 true}
 !9 = !{!10, !10, i64 0}
-!10 = !{!"int", !11, i64 0}
-!11 = !{!"omnipotent char", !12, i64 0}
-!12 = !{!"Simple C/C++ TBAA"}
-!13 = !{!11, !11, i64 0}
+!10 = !{!"omnipotent char", !11, i64 0}
+!11 = !{!"Simple C/C++ TBAA"}
+!12 = !{!13, !13, i64 0}
+!13 = !{!"int", !10, i64 0}
 
 ; DEBUGIFY-NOT: WARNING

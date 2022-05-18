@@ -217,7 +217,6 @@ set( BACKEND_PASSES
     BuiltinLibInfo
     DebugInfoPass
     DetectRecursion
-    InfiniteLoopCreator
     PreventDivCrashes
     PrintIRPass
     SetPreferVectorWidth

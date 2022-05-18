@@ -48,6 +48,7 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeImplicitGIDLegacyPass(Registry);
   initializeIndirectCallLoweringLegacyPass(Registry);
   initializeInferArgumentAliasLegacyPass(Registry);
+  initializeInfiniteLoopCreatorLegacyPass(Registry);
   initializeInstToFuncCallLegacyPass(Registry);
   initializeInternalizeGlobalVariablesLegacyPass(Registry);
   initializeInternalizeNonKernelFuncLegacyPass(Registry);

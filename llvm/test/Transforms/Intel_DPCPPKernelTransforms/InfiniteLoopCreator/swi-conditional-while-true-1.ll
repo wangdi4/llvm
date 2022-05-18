@@ -16,12 +16,15 @@
 ;   }
 ; }
 ; ----------------------------------------------------
-; Clang options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl
+; Compilation command:
+;   clang -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl
+;   opt -dpcpp-kernel-equalizer -dpcpp-kernel-analysis -dpcpp-kernel-wg-loop-bound -dpcpp-kernel-wgloop-creator -S
 ; ----------------------------------------------------
-; Opt passes: -dpcpp-kernel-equalizer -dpcpp-kernel-analysis -dpcpp-kernel-wg-loop-bound -dpcpp-kernel-wgloop-creator
-; ----------------------------------------------------
-; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -infinite-loop-creator -verify %s -S | FileCheck %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-infinite-loop-creator %s -S | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-infinite-loop-creator %s -S | FileCheck %s
+
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-unknown-intelfpga"
 
