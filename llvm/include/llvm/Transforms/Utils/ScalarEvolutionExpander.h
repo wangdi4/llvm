@@ -468,7 +468,7 @@ private:
   const Loop *getRelevantLoop(const SCEV *);
 
   Value *expandMinMaxExpr(const SCEVNAryExpr *S, Intrinsic::ID IntrinID,
-                          Twine Name);
+                          Twine Name, bool IsSequential = false);
 
   Value *visitConstant(const SCEVConstant *S) { return S->getValue(); }
 
