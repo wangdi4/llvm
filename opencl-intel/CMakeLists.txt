@@ -329,7 +329,6 @@ else ()
 endif ()
 
 set( OCL_GLOBAL_INCLUDE  ${OCL_SOURCE_DIR}/cl_api )
-set( OCL_CLANG_HEADERS   ${OCL_SOURCE_DIR}/backend/clang_headers )
 
 # set OS-dependent source tree elements
 if (WIN32)

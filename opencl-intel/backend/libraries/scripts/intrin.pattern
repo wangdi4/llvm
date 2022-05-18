@@ -1,0 +1,24 @@
+# Search & replace patterns for processing <*intrin.h> C headers
+
+# remove incompatible headers
+c:#include <svmlintrin.h>
+c:#include <dspv1/dspv1intrin.h>
+c:#include <avxraoint/avxraointintrin.h>
+c:#include <avx512raoint/avx512raointintrin.h>
+c:#include <avx512raoint/avx512vlraointintrin.h>
+c:#include <sha512/sha512intrin.h>
+
+# remove declarations conflicting with clang builtins
+c:void _mm_clflush\(void const\s*\*\s*[_\w]+\);
+c:void __cpuid\(int\[4\], int\);
+c:void __cpuidex\(int\[4\], int, int\);
+
+# replace "long long" (assumed to be 64 bit int in C, but is 128 bit in OpenCL C)
+s:unsigned long long
+r:__ocl_u64
+s:long long
+r:__ocl_i64
+s:([0-9]+)ULL
+r:\1UL
+s:__LONG_LONG_MAX__
+r:__LONG_MAX__

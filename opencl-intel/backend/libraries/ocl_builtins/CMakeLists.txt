@@ -74,7 +74,7 @@ set(CLANG_CL_COMMON_COMPILER_FLAGS
 
 set (CLANG_C_COMPILER_PARAMS
   -cc1 -triple ${DEVICE_TRIPLE} -emit-llvm-bc -fwrapv -O3 -disable-intel-proprietary-opts
-  -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CLANG_OPENCL_HEADERS_DIR} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -mstackrealign
+  -I ${IMPORT_DIR} ${INCLUDE_OCL_CLANG_HEADERS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -mstackrealign
   # Pretend we use LTO as Intel's clang version doesn't allows emitting LLVM
   # bytecode for C/C++ files w/o LTO flag.
   -flto
@@ -120,7 +120,7 @@ function( compile COMPILE_OPTIONS OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR )
     COMMAND ${CLANG} ${COMPILE_OPTIONS} -target-cpu ${PROC} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${INPUT_FILE}
     COMMAND ${OPT}  ${LLVM_OPT_PARAMS} -o ${OUTPUT_DIR}/${OUTPUT_FILE} ${OUTPUT_DIR}/${OUTPUT_FILE}
     MAIN_DEPENDENCY ${INPUT_FILE}
-    DEPENDS ${HEADER_FILES} ${OPT} ${CLANG} ${OCL_CLANG_HEADERS}
+    DEPENDS ${HEADER_FILES} ${OPT} ${CLANG} process-intrin-headers
     IMPLICIT_DEPENDS CXX ${INPUT_FILE}
     WORKING_DIRECTORY ${CL_BUILTIN_SOURCE_DIR}
     COMMENT "Compiling ${INPUT_FILE}"
@@ -359,7 +359,7 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
 
   # top-level target for OCL target
   add_custom_target (${TARGET_NAME} ALL
-    DEPENDS ${TARGET_DEPENDENCIES} ${OCL_20_SOURCE_FILES} ${TD_SOURCES} ${OCL_CLANG_HEADERS}
+    DEPENDS ${TARGET_DEPENDENCIES} ${OCL_20_SOURCE_FILES} ${TD_SOURCES} ${OCL_CLANG_HEADER_DIR}
     COMMENT "Target ${TARGET_NAME} build completed"
     VERBATIM
     SOURCES ${OCL_20_SOURCE_FILES} ${OCL_IMAGE_CALLBACK_SOURCE_FILE} ${HEADER_FILES}
@@ -474,7 +474,7 @@ add_custom_target(clbltpipe_target
 add_custom_command(OUTPUT clbltpipe.obj
   DEPENDS ${TARGET_NAME_MINIMAL} ${TARGET_NAME_SHARED}
   DEPENDS pipes.cl pipes-info.cl pipes-internal.h pipes-defines.h
-  DEPENDS ${CLANG}
+  DEPENDS ${CLANG} process-intrin-headers
 
   # Use host triple to let llc produce object file in a native format.
   COMMAND ${CLANG} ${CLANG_CL_COMMON_COMPILER_FLAGS} -triple ${HOST_TRIPLE}
@@ -515,7 +515,7 @@ add_custom_target(clbltpipeinfo_target
 
 add_custom_command(OUTPUT clbltpipeinfo.obj
   DEPENDS pipes-info.cl pipes-internal.h pipes-defines.h
-  DEPENDS ${CLANG}
+  DEPENDS ${CLANG} process-intrin-headers
 
   # Use host triple to let llc produce object file in a native format.
   COMMAND ${CLANG} ${CLANG_CL_COMMON_COMPILER_FLAGS} -triple ${HOST_TRIPLE}
