@@ -2696,22 +2696,83 @@ private:
         return false;
 
       if (auto *IndexedStTy = dyn_cast<DTransStructType>(IndexedTy)) {
-        // The final argument of the GEP of a structure field element must
-        // always be a constant value when a structure type is indexed. However,
-        // if the alias type we are testing does not match the type of the GEP,
-        // then we may not have a constant value. For example:
-        //   %18 = getelementptr %struct.varray_head_tag,
-        //                       %struct.varray_head_tag* %2, i64 0, i32 4
-        //   %19 = bitcast %union.varray_data_tag* %18 to [1 x i8*]*
-        //   %20 = getelementptr [1 x i8*], [1 x i8*]* %19, i64 0, i64 %21
+        // The final operand of the GEP of a structure type will always be a
+        // constant value when the result of the GEP is the address of a field
+        // within a structure. When the operand is not a constant then the
+        // indexing is into an array. If the alias type that is being tested
+        // matches the type used for the GEP, we should be able to walk the
+        // element zero field of the aggregate type identified by
+        // GetGEPIndexedType() until reaching the source type of the GEP. If a
+        // match of the source type is found, then that type will be added as
+        // the result type of the GEP.
+        // For example:
+        //   Given:
+        //     %arg as the DTrans type '%struct.outer*'
+        //     %gep = getelementptr [16 x ptr], ptr %arg, i64 0, i64 %idx
         //
-        // The pointer type collection analysis would have %19 as being the type
-        // "%union.varray_data_tag*" based on the result of the GEP for %18, and
-        // not the type the GEP is being used as.
+        //   Where:
+        //     %struct.outer = type { %struct.nodeInfo }
+        //     %struct.nodeInfo = type { [16 x ptr], ptr, i64, i64 }
+        //
+        //   %gep can be resolved as being the type of pointer stored in the
+        //   array of %struct.nodeInfo
+        //
+        // However, other cases caused by union types may not be able to be
+        // resolved in this manner because the type used for the GEP does not
+        // correspond to a type within the structure. Those will be marked as
+        // 'unhandled' for now.
+        // For example:
+        //   Given:
+        //     %18 = getelementptr %struct.varray_head_tag,
+        //                         ptr %2, i64 0, i32 4
+        //     %20 = getelementptr [1 x ptr], ptr %18, i64 0, i64 %21
+        //
+        //   Where:
+        //      %union.varray_head_tag = type { i64, i64, i32, ptr,
+        //                                      %union.varray_data_tag }
+        //      %union.varray_data_tag = type { [1 x i64] }
+        //
+        // The pointer type collection analysis would have %18 as being the type
+        // "%union.varray_data_tag*" based on the result of the first GEP. When
+        // evaluating the second GEP, the element zero array type will not match
+        // the type used in the GEP. This case will return 'false' to
+        // conservatively treat the GEP as 'unhandled'
         auto *LastArg =
             dyn_cast<ConstantInt>(GEP.getOperand(GEP.getNumOperands() - 1));
-        if (!LastArg)
-          return false;
+        if (!LastArg) {
+          if (IndexedStTy->getNumFields() == 0)
+            return false;
+
+          DTransType* FieldTy = IndexedStTy->getFieldType(0);
+          if (!FieldTy)
+            return false;
+
+          llvm::Type* GEPSrcTy = GEP.getSourceElementType();
+          DTransType* ElemTy = FieldTy;
+          bool FoundType = false;
+          while (ElemTy->isAggregateType()) {
+            FieldTy = ElemTy;
+            if (ElemTy->isArrayTy())
+              ElemTy = ElemTy->getArrayElementType();
+            else if (auto* NestedStTy = dyn_cast<DTransStructType>(ElemTy))
+              ElemTy = NestedStTy->getFieldType(0);
+            else
+              llvm_unreachable("Expected Array or Structure type\n");
+
+            if (FieldTy->getLLVMType() == GEPSrcTy) {
+              FoundType = true;
+              break;
+            }
+          }
+          if (!FoundType)
+            return false;
+
+          DTransType* PtrToElemTy = TM.getOrCreatePointerType(ElemTy);
+          ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, PtrToElemTy);
+          ResultInfo->addElementPointee(ValueTypeInfo::VAT_Decl, FieldTy, 0);
+
+          return true;
+        }
 
         uint64_t FieldNum = LastArg->getLimitedValue();
         if (FieldNum >= IndexedStTy->getNumFields())
