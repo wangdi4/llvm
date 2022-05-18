@@ -31,13 +31,13 @@ public:
   /// subgroup function call vectorization. \returns true if the function
   /// can be vectorized.
   static bool
-  canVectorizeForVPO(Function &F, RuntimeService *RTService,
+  canVectorizeForVPO(Function &F,
                      DPCPPKernelCompilationUtils::FuncSet &UnsupportedFuncs,
                      bool EnableDirectCallVectorization = false,
                      bool EnableSGDirectCallVectorization = false);
 
   // Check if the function has variable access to get_global/loval_id(X)
-  static bool hasVariableGetTIDAccess(Function &F, RuntimeService *RTService);
+  static bool hasVariableGetTIDAccess(Function &F);
 
   // Get unsupported function in a module.
   // An unsupported function is function that contains

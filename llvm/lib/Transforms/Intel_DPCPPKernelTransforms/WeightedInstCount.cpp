@@ -20,7 +20,6 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
@@ -28,6 +27,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/Predicator.h"
 
 using namespace llvm;
+using namespace DPCPPKernelCompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-weighted-inst-count-analysis"
 
@@ -81,9 +81,9 @@ static constexpr unsigned NumParamsInGEPPenaltyHack = 6;
 namespace llvm {
 class InstCountResultImpl {
 public:
-  InstCountResultImpl(Function &F, BuiltinLibInfo &BLI, PostDominatorTree &DT,
-                      LoopInfo &LI, ScalarEvolution &SE,
-                      VectorVariant::ISAClass ISA, bool PreVec);
+  InstCountResultImpl(Function &F, PostDominatorTree &DT, LoopInfo &LI,
+                      ScalarEvolution &SE, VectorVariant::ISAClass ISA,
+                      bool PreVec);
 
   void analyze();
 
@@ -170,8 +170,6 @@ private:
 
   ScalarEvolution &SE;
 
-  const RuntimeService *RTS;
-
   VectorVariant::ISAClass ISA;
 
   // Is this a before or after vectorization pass.
@@ -195,17 +193,13 @@ private:
 };
 } // namespace llvm
 
-InstCountResultImpl::InstCountResultImpl(Function &F, BuiltinLibInfo &BLI,
-                                         PostDominatorTree &DT, LoopInfo &LI,
-                                         ScalarEvolution &SE,
+InstCountResultImpl::InstCountResultImpl(Function &F, PostDominatorTree &DT,
+                                         LoopInfo &LI, ScalarEvolution &SE,
                                          VectorVariant::ISAClass ISA,
                                          bool PreVec)
     : F(F), DT(DT), LI(LI), SE(SE), ISA(ISA), PreVec(PreVec) {
   if (IsaEncodingOverride.getNumOccurrences())
     this->ISA = IsaEncodingOverride.getValue();
-
-  RTS = BLI.getRuntimeService();
-  assert(RTS && "Unable to get runtime services");
 
   // Costs for transpose functions for 64bit target.
   using FuncCostEntry = std::pair<const char *, int>;
@@ -280,7 +274,7 @@ InstCountResultImpl::InstCountResultImpl(Function &F, BuiltinLibInfo &BLI,
 }
 
 void InstCountResultImpl::analyze() {
-  if (F.hasOptNone() || DPCPPKernelCompilationUtils::isGlobalCtorDtor(&F))
+  if (F.hasOptNone() || isGlobalCtorDtor(&F))
     return;
 
   // for statistics:
@@ -376,20 +370,8 @@ void InstCountResultImpl::analyze() {
   // Note that v16 support was already decided earlier. The reason the code is
   // split is that for the v16 we don't need to compute the various maps, while
   // in this part of the code we want to use them.
-  if (PreVec) {
+  if (PreVec)
     DesiredVF = getPreferredVectorizationWidth(F, IterMap, ProbMap);
-
-    // FIXME move following code to a transform pass.
-    // Here, recommended_vector_length is set. This metadata is used by later
-    // VF analysis passes.
-    const auto Kernels =
-        DPCPPKernelMetadataAPI::KernelList(*F.getParent()).getList();
-    if (llvm::find(Kernels, &F) != Kernels.end()) {
-      auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F);
-      if (!KIMD.VectorizedWidth.hasValue())
-        KIMD.RecommendedVL.set(DesiredVF);
-    }
-  }
 }
 
 int InstCountResultImpl::getPreferredVectorizationWidth(
@@ -528,7 +510,7 @@ int InstCountResultImpl::estimateCall(CallInst *CI) {
   bool IsTidGen;
   bool Err;
   unsigned Dim;
-  std::tie(IsTidGen, Err, Dim) = RTS->isTIDGenerator(CI);
+  std::tie(IsTidGen, Err, Dim) = isTIDGenerator(CI);
   if (IsTidGen)
     return DefaultWeight;
 
@@ -1243,7 +1225,7 @@ void InstCountResultImpl::estimateMemOpCosts(
       bool IsTidGen;
       bool Err;
       unsigned Dim;
-      std::tie(IsTidGen, Err, Dim) = RTS->isTIDGenerator(CI);
+      std::tie(IsTidGen, Err, Dim) = isTIDGenerator(CI);
 
       if (IsTidGen || Name.equals("get_group_id")) {
         assert(!Err && "Should not have variable TID access at this stage");
@@ -1419,11 +1401,10 @@ void InstCountResultImpl::print(raw_ostream &OS) {
   OS.indent(2) << "Total weight : " << TotalWeight << "\n";
 }
 
-InstCountResult::InstCountResult(Function &F, BuiltinLibInfo &BLI,
-                                 PostDominatorTree &DT, LoopInfo &LI,
-                                 ScalarEvolution &SE,
+InstCountResult::InstCountResult(Function &F, PostDominatorTree &DT,
+                                 LoopInfo &LI, ScalarEvolution &SE,
                                  VectorVariant::ISAClass ISA, bool PreVec) {
-  Impl.reset(new InstCountResultImpl(F, BLI, DT, LI, SE, ISA, PreVec));
+  Impl.reset(new InstCountResultImpl(F, DT, LI, SE, ISA, PreVec));
 }
 
 InstCountResult::InstCountResult(InstCountResult &&Other)
@@ -1448,7 +1429,6 @@ void InstCountResult::copyBlockCosts(std::map<BasicBlock *, int> *Dest) {
 
 INITIALIZE_PASS_BEGIN(WeightedInstCountAnalysisLegacy, DEBUG_TYPE,
                       "Weighted instruction count analysis", false, true)
-INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
@@ -1466,7 +1446,6 @@ WeightedInstCountAnalysisLegacy::WeightedInstCountAnalysisLegacy(
 
 void WeightedInstCountAnalysisLegacy::getAnalysisUsage(
     AnalysisUsage &AU) const {
-  AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
   AU.addRequired<PostDominatorTreeWrapperPass>();
   AU.addRequired<LoopInfoWrapperPass>();
   AU.addRequired<ScalarEvolutionWrapperPass>();
@@ -1474,12 +1453,11 @@ void WeightedInstCountAnalysisLegacy::getAnalysisUsage(
 }
 
 bool WeightedInstCountAnalysisLegacy::runOnFunction(Function &F) {
-  BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
   PostDominatorTree &DT =
       getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
   LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-  Result.reset(new InstCountResult(F, BLI, DT, LI, SE, ISA, PreVec));
+  Result.reset(new InstCountResult(F, DT, LI, SE, ISA, PreVec));
   return false;
 }
 
@@ -1493,11 +1471,8 @@ AnalysisKey WeightedInstCountAnalysis::Key;
 
 InstCountResult WeightedInstCountAnalysis::run(Function &F,
                                                FunctionAnalysisManager &AM) {
-  auto &MAM = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
-  BuiltinLibInfo &BLI =
-      *MAM.getCachedResult<BuiltinLibInfoAnalysis>(*F.getParent());
   PostDominatorTree &DT = AM.getResult<PostDominatorTreeAnalysis>(F);
   LoopInfo &LI = AM.getResult<LoopAnalysis>(F);
   ScalarEvolution &SE = AM.getResult<ScalarEvolutionAnalysis>(F);
-  return InstCountResult{F, BLI, DT, LI, SE, ISA, PreVec};
+  return InstCountResult{F, DT, LI, SE, ISA, PreVec};
 }

@@ -529,9 +529,6 @@ static void populatePassesPostFailCheck(
         PM.add(createDeadCodeEliminationPass());
         PM.add(createOCLReqdSubGroupSizePass());
 
-        // Calculate VL.
-        PM.add(llvm::createWeightedInstCountAnalysisLegacyPass(ISA, true));
-
         // This pass may throw VFAnalysisDiagInfo error if VF checking fails.
         // TODO: we should run SetVectorizationFactor unconditionally when we
         // get rid of WeightedInstCounter. Currently we're setting the initial

@@ -456,7 +456,7 @@ WorkItemInfo::Dependency WorkItemInfo::calculateDep(const CallInst *I) {
   bool IsTidGen;
   bool Err;
   unsigned Dim;
-  std::tie(IsTidGen, Err, Dim) = RTService->isTIDGenerator(I);
+  std::tie(IsTidGen, Err, Dim) = isTIDGenerator(I);
   assert(!Err && "TIDGen inst receives non-constant input. Cannot vectorize!");
   // All WorkItem's are consecutive along the dimension.
   if (IsTidGen && Dim == VectorizeDim)

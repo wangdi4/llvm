@@ -6,8 +6,8 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-define void @_ZTSZ4mainE9broadcast(i32 addrspace(1)* %_arg_, i32 addrspace(1)* %_arg_1) local_unnamed_addr #0 !kernel_has_sub_groups !1 !recommended_vector_length !2 {
-; CHECK:  define void @_ZGVeN8uu__ZTSZ4mainE9broadcast(
+define void @_ZTSZ4mainE9broadcast(i32 addrspace(1)* %_arg_, i32 addrspace(1)* %_arg_1) local_unnamed_addr #0 !kernel_has_sub_groups !1 {
+; CHECK:  define void @_ZGVeN16uu__ZTSZ4mainE9broadcast(
 ; CHECK:       simd.loop.header:
 ; CHECK-NEXT:    [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_LOOP_PREHEADER0:%.*]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_LATCH0:%.*]] ]
 ; CHECK-NEXT:    [[DOTSEXT0:%.*]] = sext i32 [[INDEX0]] to i64
@@ -47,6 +47,5 @@ declare i32 @_Z22get_sub_group_local_idv() local_unnamed_addr #2
 
 !0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @_ZTSZ4mainE9broadcast}
 !1 = !{i1 true}
-!2 = !{i32 8}
 
 ; DEBUGIFY: CheckModuleDebugify: PASS

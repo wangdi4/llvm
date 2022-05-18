@@ -18,8 +18,6 @@
 
 namespace llvm {
 
-class RuntimService;
-
 /// VectorizeDimInfo decides which dimension is best for vectorization. The
 /// heuristic dramatically prefers to vectorize in dimension 0, and only switch
 /// dimension if the chances of harming performance this way seems very small.
@@ -38,7 +36,7 @@ public:
 
   /// Return true if vectorization dimension is chosen to be 0 based on fast
   /// checks, e.g. NoBarrierPath is false.
-  bool preCheckDimZero(Function &F, const RuntimeService *RTS);
+  bool preCheckDimZero(Function &F);
 
   /// Compute analysis.
   void compute(Function &F, WorkItemInfo &WIInfo);
@@ -56,8 +54,6 @@ private:
   /// get_*_id(dim)) \param F the function to test. \param Dim the dimension to
   /// look for.
   bool hasDim(Function *F, unsigned Dim) const;
-
-  const RuntimeService *RTService;
 
   /// The vectorization dimension.
   unsigned VectorizeDim;
