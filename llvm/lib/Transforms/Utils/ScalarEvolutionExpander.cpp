@@ -1702,15 +1702,12 @@ Value *SCEVExpander::expandMinMaxExpr(const SCEVNAryExpr *S,
                                       bool IsSequential) {
   Value *LHS = expand(S->getOperand(S->getNumOperands() - 1));
   Type *Ty = LHS->getType();
-<<<<<<< HEAD
 #if INTEL_COLLAB
   assert(Builder.GetInsertBlock());
   bool isSPIRV = isTargetSPIRV(Builder.GetInsertBlock()->getParent());
 #endif // INTEL_COLLAB
-=======
   if (IsSequential)
     LHS = Builder.CreateFreeze(LHS);
->>>>>>> e9a1c82d695472820c93af40cbf3d9fde2a149c6
   for (int i = S->getNumOperands() - 2; i >= 0; --i) {
     Value *RHS = expandCodeForImpl(S->getOperand(i), Ty, false);
     if (IsSequential && i != 0)
