@@ -831,6 +831,59 @@ const DebugLoc HLInst::getDebugLoc() const {
   return Inst->getDebugLoc();
 }
 
+bool HLInst::isSameOperationAs(const HLInst *HInst, bool Relaxed) const {
+  auto *Inst1 = getLLVMInstruction();
+  auto *Inst2 = HInst->getLLVMInstruction();
+
+  // Instruction::isSameOperationAs() will check opcodes, type, operand
+  // types and haveSameSpecialState() of the underlying LLVMInstruction
+  if (!Inst1->isSameOperationAs(Inst2)) {
+    // If not relaxed mod, return false if underlying LLVMInst is not the same
+    if (!Relaxed) {
+      return false;
+    }
+
+    // GEP/Subscript and copy instructions can correspond to each other in HIR
+    // so we should allow them. Inside HIR clients create copy instructions
+    // instead of GEPs due to its ease.
+    //
+    // For example-
+    //
+    // %t1 = &(%A)[4*i1]  // can be copy inst
+    //
+    // %t2 = &(%A)[4*i1 + 1] // can be GEP inst
+    if ((!this->isCopyInst() || !isa<GEPOrSubsOperator>(Inst2)) &&
+        (!HInst->isCopyInst() || !isa<GEPOrSubsOperator>(Inst1))) {
+      return false;
+    }
+  }
+
+  if (isa<CmpInst>(Inst1) || isa<SelectInst>(Inst1)) {
+    if (this->getPredicate() != HInst->getPredicate()) {
+      return false;
+    }
+  }
+
+  if (auto *FPInst1 = dyn_cast<FPMathOperator>(Inst1)) {
+    auto *FPInst2 = cast<FPMathOperator>(Inst2);
+
+    if (FPInst1->getFastMathFlags() != FPInst2->getFastMathFlags()) {
+      return false;
+    }
+  }
+
+  if (auto *BinOpInst1 = dyn_cast<OverflowingBinaryOperator>(Inst1)) {
+    auto *BinOpInst2 = cast<OverflowingBinaryOperator>(Inst2);
+
+    if ((BinOpInst1->hasNoUnsignedWrap() != BinOpInst2->hasNoUnsignedWrap()) ||
+        (BinOpInst1->hasNoSignedWrap() != BinOpInst2->hasNoSignedWrap())) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 int OMPRegionProxy::getOmpRegionEntryDir(const HLInst *I) {
   bool IsEntry = false;
   const Instruction *LI = I->getLLVMInstruction();
