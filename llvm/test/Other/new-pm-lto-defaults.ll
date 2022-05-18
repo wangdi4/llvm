@@ -328,6 +328,7 @@
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: JumpThreadingPass on foo
 ; CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis on foo ;INTEL
+; CHECK-O23SZ-NEXT: Running pass: ForcedCMOVGenerationPass on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-O-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-O23SZ-NEXT: Running pass: SimplifyCFGPass
