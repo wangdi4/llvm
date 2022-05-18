@@ -174,7 +174,12 @@
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-O23SZ-NEXT: Running pass: JumpThreadingPass
 ; CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis
-; CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis on foo ;INTEL
+; INTEL_CUSTOMIZATION
+; CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis on foo
+; CHECK-O23SZ-NEXT: Running pass: HandlePragmaVectorAlignedPass on foo
+; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo
+; CHECK-O23SZ-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
+; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: SROAPass on foo
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: CorrelatedValuePropagationPass on foo
@@ -182,11 +187,7 @@
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: MultiVersioningPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: TailCallElimPass on foo
-; INTEL_CUSTOMIZATION
-; CHECK-O23SZ-NEXT: Running pass: IntelLoopAttrsPass on foo
-; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo
-; CHECK-O23SZ-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
-; END INTEL_CUSTOMIZATION
+; CHECK-O23SZ-NEXT: Running pass: IntelLoopAttrsPass on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: PostOrderFunctionAttrsPass on (foo)
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: IPArrayTransposePass on [module]
