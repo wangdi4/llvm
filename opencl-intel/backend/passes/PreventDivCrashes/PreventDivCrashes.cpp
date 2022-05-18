@@ -36,10 +36,6 @@ extern "C" {
   void* createPreventDivisionCrashesPass() {
     return new intel::PreventDivCrashes();
   }
-
-  void* createOptimizeIDivPass() {
-    return new intel::OptimizeIDiv();
-  }
 }
 
 // Add command line to specify EyeQ device behavior
@@ -50,15 +46,10 @@ static llvm::cl::opt<bool> EyeQDivCrashBehavior(
 
 namespace intel {
 
-  char PreventDivCrashes::ID = 0;
-  char OptimizeIDiv::ID = 0;
+char PreventDivCrashes::ID = 0;
 
 /// Register pass to for opt
   OCL_INITIALIZE_PASS(PreventDivCrashes, "prevent-div-crash", "Dynamically handle cases that divisor is zero or there is integer overflow during division", false, false)
-
-  OCL_INITIALIZE_PASS_BEGIN(OptimizeIDiv, "optimize-idiv-irem", "Replace integer divide and integer remainder with call to SVML", false, false)
-  OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
-  OCL_INITIALIZE_PASS_END(OptimizeIDiv, "optimize-idiv-irem", "Replace integer divide and integer remainder with call to SVML", false, false)
 
   static const unsigned int DIVIDEND_POSITION = 0;
   static const unsigned int DIVISOR_POSITION = 1;
@@ -223,129 +214,4 @@ namespace intel {
 
     return true;
   }
-
-  /// @brief Replace the given instruction with a call to built-in function (if possible)
-  /// @returns true if instructin was replaced
-  static
-  bool ReplaceWithBuiltInCall(BinaryOperator* divInst, const intel::RuntimeServices *rtServices) {
-
-    Type* divisorType = divInst->getType();
-
-    // Performance measurements show that such replacement is good only for vectors
-    if (!divisorType->isVectorTy())
-      return false;
-
-    Type* divisorElemType = ((VectorType *)divisorType)->getElementType();
-
-    assert(divisorElemType->isIntegerTy() && "Unexpected divisor element type");
-
-    // this optimization exists only for 32 bit integers
-    if (((IntegerType*)divisorElemType)->getBitWidth() != 32)
-      return false;
-
-    Value* divisor = divInst->getOperand(1);
-    // do not optimize constants that may be replaced with shifts in the future
-    if (Constant *C = dyn_cast<Constant>(divisor)) {
-      Constant *constOp = C->getSplatValue();
-      if (constOp) {
-        const APInt &constIntVal = cast<ConstantInt>(constOp)->getValue();
-        if (constIntVal.isPowerOf2() || (-constIntVal).isPowerOf2())
-          return false;
-      }
-    }
-    FixedVectorType* vecType = static_cast<FixedVectorType *>(divisorType);
-    reflection::FunctionDescriptor funcDesc;
-    funcDesc.Width = (reflection::width::V)vecType->getNumElements();
-    if ((funcDesc.Width != 8) && (funcDesc.Width != 16))
-      return false;
-
-    reflection::TypePrimitiveEnum primitiveType;
-    switch(divInst->getOpcode()) {
-      default:
-        return false;
-      case Instruction::SRem:
-        funcDesc.Name = "irem";
-        primitiveType = reflection::PRIMITIVE_INT;
-        break;
-      case Instruction::URem:
-        funcDesc.Name = "urem";
-        primitiveType = reflection::PRIMITIVE_UINT;
-        break;
-      case Instruction::SDiv:
-        funcDesc.Name = "idiv";
-        primitiveType = reflection::PRIMITIVE_INT;
-        break;
-      case Instruction::UDiv:
-        funcDesc.Name = "udiv";
-        primitiveType = reflection::PRIMITIVE_UINT;
-        break;
-    }
-
-    reflection::RefParamType scalarTy(new reflection::PrimitiveType(primitiveType));
-
-    reflection::RefParamType vectorTy(new reflection::VectorType(scalarTy, vecType->getNumElements()));
-    funcDesc.Parameters.push_back(vectorTy);
-    funcDesc.Parameters.push_back(vectorTy);
-
-    // get name of the built-in function
-    std::string funcName = mangle(funcDesc);
-
-    Function* divFuncRT = rtServices->findInRuntimeModule(funcName);
-    if (!divFuncRT)
-      return false;
-
-    // put function declaration inside current module
-    SmallVector<Type *, 2> types;
-    types.push_back(divisorType);
-    types.push_back(divisorType);
-    FunctionType *intr = FunctionType::get(divisorType, types, false);
-    llvm::Module* pModule = divInst->getParent()->getParent()->getParent();
-    Function* divFuncInModule = cast<Function>(pModule->getOrInsertFunction(funcName.c_str(), intr).getCallee());
-
-    // Create a call
-    SmallVector<Value*, 2> args;
-    args.push_back(divInst->getOperand(0));
-    args.push_back(divInst->getOperand(1));
-    CallInst* newCall = CallInst::Create(divFuncInModule, args, funcName, divInst);
-    newCall->setDebugLoc(divInst->getDebugLoc());
-
-    // replace original instruction with call
-    divInst->replaceAllUsesWith(newCall);
-    divInst->eraseFromParent();
-    
-    return true;
-  }
-
-  bool OptimizeIDiv::runOnFunction(Function &F) {
-
-    std::vector<BinaryOperator*> divInstuctions;
-    for (inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
-
-      // Div and rem instructions are of type BinaryOperator
-      BinaryOperator* inst = dyn_cast<BinaryOperator>(&*i);
-      if (!inst) continue;
-
-      Instruction::BinaryOps opcode = inst->getOpcode();
-
-      // Check if opcode is div or rem
-      if((opcode == Instruction::UDiv)
-            || (opcode == Instruction::SDiv)
-            || (opcode == Instruction::URem)
-            || (opcode == Instruction::SRem)) {
-        divInstuctions.push_back(inst);
-
-      }
-    }
-
-    const RuntimeServices* rtServices =
-      getAnalysis<BuiltinLibInfo>().getRuntimeServices();
-    bool changed = false;
-    for (unsigned i=0; i< divInstuctions.size(); ++i) {
-
-      BinaryOperator* divInst = divInstuctions[i];
-      changed |= ReplaceWithBuiltInCall(divInst, rtServices);
-    }
-    return changed;
-  }
-
 } // namespace intel

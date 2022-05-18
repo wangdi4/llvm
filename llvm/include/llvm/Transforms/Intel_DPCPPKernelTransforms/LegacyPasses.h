@@ -26,6 +26,7 @@ template <typename T, unsigned N> class SmallVector;
 FunctionPass *createAddFastMathLegacyPass();
 FunctionPass *createAddNTAttrLegacyPass();
 FunctionPass *createBuiltinCallToInstLegacyPass();
+FunctionPass *createOptimizeIDivAndIRemLegacyPass();
 FunctionPass *createPhiCanonicalizationLegacyPass();
 FunctionPass *createRedundantPhiNodeLegacyPass();
 FunctionPass *createSinCosFoldLegacyPass();

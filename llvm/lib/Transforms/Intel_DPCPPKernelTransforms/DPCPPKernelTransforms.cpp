@@ -58,6 +58,7 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeLocalBuffersLegacyPass(Registry);
   initializeLoopStridedCodeMotionLegacyPass(Registry);
   initializeLoopWIAnalysisLegacyPass(Registry);
+  initializeOptimizeIDivAndIRemLegacyPass(Registry);
   initializePatchCallbackArgsLegacyPass(Registry);
   initializePhiCanonicalizationLegacyPass(Registry);
   initializePipeOrderingLegacyPass(Registry);

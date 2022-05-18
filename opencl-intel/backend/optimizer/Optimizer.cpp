@@ -118,7 +118,6 @@ llvm::Pass *createOCLReqdSubGroupSizePass();
 llvm::Pass *createCLBuiltinLICMPass();
 llvm::Pass *createCLStreamSamplerPass();
 llvm::Pass *createPreventDivisionCrashesPass();
-llvm::Pass *createOptimizeIDivPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
 llvm::ModulePass *createPipeIOTransformationPass();
 llvm::ModulePass *createPipeSupportPass();
@@ -613,9 +612,9 @@ static void populatePassesPostFailCheck(
 
   // Unroll small loops with unknown trip count.
   PM.add(llvm::createLoopUnrollPass(OptLevel, false, false, 16, 0, 0, 1));
-  if (!isEyeQEmulator) {
-    PM.add(createOptimizeIDivPass());
-  }
+  if (!isEyeQEmulator)
+    PM.add(createOptimizeIDivAndIRemLegacyPass());
+
   PM.add(createPreventDivisionCrashesPass());
   // We need InstructionCombining and GVN passes after PreventDivisionCrashes
   // passes to optimize redundancy introduced by those passes
