@@ -459,13 +459,15 @@ static void processOmpOffloadEntries(Module &M, bool DoLink, bool DoSort,
           error("OpenMP offload entry has no name");
         const auto *NameGEP = dyn_cast<ConstantExpr>(NamesInit[I]);
         // Assert getelementptr (@GV, 0, 0) initializer.
-        if (!NameGEP || NameGEP->getOpcode() != Instruction::GetElementPtr ||
-            NameGEP->getNumOperands() != 3 ||
-            !NameGEP->getOperand(1)->isNullValue() ||
-            !NameGEP->getOperand(2)->isNullValue())
+        if ((!NamesInit[I]->getType()->isOpaquePointerTy() || NameGEP) &&
+            (!NameGEP || NameGEP->getOpcode() != Instruction::GetElementPtr ||
+             NameGEP->getNumOperands() != 3 ||
+             !NameGEP->getOperand(1)->isNullValue() ||
+             !NameGEP->getOperand(2)->isNullValue()))
           error("unsupported initializer for OpenMP offload entry");
 
-        const auto *GV = dyn_cast<GlobalVariable>(NameGEP->getOperand(0));
+        const auto *GV = dyn_cast<GlobalVariable>(
+            NameGEP ? NameGEP->getOperand(0) : NamesInit[I]);
         if (!GV || !GV->isConstant() || !GV->hasInitializer())
           error("unsupported initializer for OpenMP offload entry");
 
