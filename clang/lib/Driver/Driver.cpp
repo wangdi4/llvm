@@ -558,11 +558,12 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
         !Args.hasArg(options::OPT_c, options::OPT_S))
       addClaim(options::OPT_fuse_ld_EQ, "lld");
 
-    // -fveclib=SVML default.
-    if (!Args.hasArg(options::OPT_fveclib)) {
+    // -fveclib=SVML default. Use of -ffreestanding disables this.
+    if (!Args.hasArg(options::OPT_fveclib) &&
+        !Args.hasArg(options::OPT_ffreestanding)) {
       bool HasDefaultVeclib = true;
-      const Arg *A =
-          Args.getLastArg(options::OPT_no_intel_lib, options::OPT_no_intel_lib_EQ);
+      const Arg *A = Args.getLastArg(options::OPT_no_intel_lib,
+                                     options::OPT_no_intel_lib_EQ);
       if (A) {
         if (A->getOption().matches(options::OPT_no_intel_lib))
           HasDefaultVeclib = false;
