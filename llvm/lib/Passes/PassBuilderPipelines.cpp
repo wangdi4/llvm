@@ -3231,6 +3231,11 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   invokePeepholeEPCallbacks(MainFPM, Level);
   MainFPM.addPass(JumpThreadingPass(/*InsertFreezeWhenUnfoldingSelect*/ true));
+
+#if INTEL_CUSTOMIZATION
+  MainFPM.addPass(ForcedCMOVGenerationPass()); // To help CMOV generation
+#endif // INTEL_CUSTOMIZATION
+
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(MainFPM),
                                                 PTO.EagerlyInvalidateAnalyses));
 
