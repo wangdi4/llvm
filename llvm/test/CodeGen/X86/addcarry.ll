@@ -1354,7 +1354,6 @@ define void @add_U256_without_i128_or_recursive(%uint256* sret(%uint256) %0, %ui
   ret void
 }
 
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; Do not "Fold ADC(ADD(X,Y),0,Carry) -> ADC(X,Y,Carry)" if ADD has muti-uses.
 define i32 @addcarry_mult_uses(i32 %a, i32 %b, i32 %x, i32 %y, i32* %t) {
@@ -1375,10 +1374,7 @@ define i32 @addcarry_mult_uses(i32 %a, i32 %b, i32 %x, i32 %y, i32* %t) {
 }
 ; end INTEL_CUSTOMIZATION
 
-define i32 @addcarry_ult(i32 %a, i32 %b, i32 %x, i32 %y) {
-=======
 define i32 @addcarry_ult(i32 %a, i32 %b, i32 %x, i32 %y) nounwind {
->>>>>>> 4e198377f68085f866c516e635a35e4c3c3582cf
 ; CHECK-LABEL: addcarry_ult:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    movl %edi, %eax
