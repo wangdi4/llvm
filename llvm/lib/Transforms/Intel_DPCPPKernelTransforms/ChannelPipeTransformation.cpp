@@ -93,7 +93,7 @@ static Function *getPipeBuiltin(Module &M, RuntimeService *RTService,
 }
 
 static bool isGlobalChannel(const GlobalValue *GV, const Type *ChannelTy) {
-  auto *GVValueTy = GV->getType()->getElementType();
+  auto *GVValueTy = GV->getValueType();
 
   if (ChannelTy == GVValueTy)
     return true;
@@ -191,8 +191,8 @@ static void convertToGEPIndicesList(const SmallVectorImpl<size_t> &IndicesList,
 static void generateBSItemsToPipeArrayStores(Module &M, IRBuilder<> &Builder,
                                             Value *BS, Value *PipeArrayGlobal,
                                             const ChannelPipeMD &PipeMD) {
-  auto *PipePtrArrayTy = cast<ArrayType>(
-      cast<PointerType>(PipeArrayGlobal->getType())->getElementType());
+  auto *PipePtrArrayTy =
+      cast<ArrayType>(cast<GlobalVariable>(PipeArrayGlobal)->getValueType());
   auto *PipePtrTy = getArrayElementType(PipePtrArrayTy);
   auto *PipePtrPtrTy = PointerType::get(PipePtrTy, ADDRESS_SPACE_GLOBAL);
 
@@ -252,8 +252,7 @@ static void initializeGlobalPipeArray(GlobalVariable *PipeGV,
   generateBSItemsToPipeArrayStores(
       *(PipeGV->getParent()), Builder, BS, PipeGV, MD);
 
-  ArrayType *PipePtrArrayTy =
-      cast<ArrayType>(PipeGV->getType()->getElementType());
+  ArrayType *PipePtrArrayTy = cast<ArrayType>(PipeGV->getValueType());
 
   size_t BSNumItems = getNumElementsOfNestedArray(PipePtrArrayTy);
   Value *Mode = Builder.getInt32(DPCPPChannelDepthEmulationMode);
@@ -281,8 +280,7 @@ static bool replaceGlobalChannels(Module &M, Type *ChannelTy, Type *PipeTy,
     ChannelPipeMD MD =
         getChannelPipeMetadata(&ChannelGV, DPCPPChannelDepthEmulationMode);
     GlobalVariable *PipeGV = nullptr;
-    if (auto *GVArrTy =
-            dyn_cast<ArrayType>(ChannelGV.getType()->getElementType())) {
+    if (auto *GVArrTy = dyn_cast<ArrayType>(ChannelGV.getValueType())) {
       SmallVector<size_t, 8> Dimensions;
       getArrayTypeDimensions(GVArrTy, Dimensions);
 

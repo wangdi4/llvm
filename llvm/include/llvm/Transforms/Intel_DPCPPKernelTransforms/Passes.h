@@ -48,6 +48,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LocalBuffers.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LoopStridedCodeMotion.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LoopWIAnalysis.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/OptimizeIDivAndIRem.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/PatchCallbackArgs.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/PhiCanonicalization.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/PipeOrdering.h"

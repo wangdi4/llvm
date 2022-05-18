@@ -289,8 +289,8 @@ void initializeGlobalPipeScalar(GlobalVariable *PipeGV, const ChannelPipeMD &MD,
       PacketSize, Depth, Mode};
 
   Builder.CreateCall(PipeInit, CallArgs);
-  Builder.CreateStore(
-      Builder.CreateBitCast(BS, PipeGV->getType()->getElementType()), PipeGV);
+  Builder.CreateStore(Builder.CreateBitCast(BS, PipeGV->getValueType()),
+                      PipeGV);
 }
 
 } // namespace DPCPPChannelPipeUtils

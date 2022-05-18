@@ -86,7 +86,7 @@ static Function *getPipeBuiltin(OCLBuiltins &Builtins, const PipeKind &Kind) {
 }
 
 static bool isPipe(const GlobalValue *GV, const PipeTypesHelper &PipeTypes) {
-  auto *GVValueTy = GV->getType()->getElementType();
+  auto *GVValueTy = GV->getValueType();
 
   if (PipeTypes.isPipeType(GVValueTy))
     return true;

@@ -1048,7 +1048,7 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
                     {
                         const GlobalVariable * GV = localList[i];
                         const Type *GlobalType =
-                            GV->getType()->getElementType();
+                            GV->getValueType();
 
                         // skip unsupported variables
                         if(NEATDataLayout ::IsNEATSupported(GlobalType) == false)

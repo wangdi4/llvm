@@ -796,6 +796,7 @@ FUNCTION_PASS("print<dpcpp-kernel-work-item-analysis>", WorkItemAnalysisPrinter(
 
 FUNCTION_PASS("dpcpp-kernel-add-fast-math", AddFastMathPass())
 FUNCTION_PASS("dpcpp-kernel-builtin-call-to-inst", BuiltinCallToInstPass())
+FUNCTION_PASS("dpcpp-kernel-optimize-idiv-and-irem", OptimizeIDivAndIRemPass())
 FUNCTION_PASS("dpcpp-kernel-phi-canonicalization", PhiCanonicalization())
 FUNCTION_PASS("dpcpp-kernel-redundant-phi-node", RedundantPhiNode())
 FUNCTION_PASS("dpcpp-kernel-add-nt-attr", AddNTAttrPass())

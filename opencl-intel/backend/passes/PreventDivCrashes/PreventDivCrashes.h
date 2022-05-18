@@ -66,32 +66,6 @@ namespace intel {
     /// The division instructions (div, rem) in the function
     std::vector<BinaryOperator*> m_divInstuctions;
   };
-
-  /// @brief  OptimizeIDiv class replaces integer division and integer remainder
-  ///         with call to svml
-  class OptimizeIDiv : public FunctionPass {
-
-  public:
-    /// Pass identification, replacement for typeid
-    static char ID;
-
-    // Constructor
-    OptimizeIDiv() : FunctionPass(ID){}
-
-    /// @brief Provides name of pass
-    virtual llvm::StringRef getPassName() const override {
-      return "OptimizeIDiv";
-    }
-
-    /// @brief    LLVM Function pass entry
-    /// @param F  Function to transform
-    /// @returns  true if changed
-    virtual bool runOnFunction(Function &F) override;
-
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
-      AU.addRequired<BuiltinLibInfo>();
-    }
-  };
 } // namespace intel
 
 #endif // __PREVENT_DIV_CRASHES_H__
