@@ -3634,6 +3634,16 @@ void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
     addVPValueScalRefMapping(VPPhi, PhiTemp, 0 /*Lane*/);
   else
     addVPValueWideRefMapping(VPPhi, PhiTemp);
+
+  if (!hasNoExternalUsers(VPPhi)) {
+    // If it's used by an external, copy it to that temp.
+    assert(instShouldBeScalar(HIRCopy) && "Expected scalar");
+    const VPExternalUse *ExtUse = getSingleExternalUse(VPPhi, Plan);
+    auto PhiExtUse = getUniformScalarRef(ExtUse);
+    HLInst *NewInst =
+        HLNodeUtilities.createCopyInst(PhiTemp->clone(), ".copy", PhiExtUse);
+    addInstUnmasked(NewInst);
+  }
 }
 
 void VPOCodeGenHIR::generateLoopInductionRef(const VPPHINode *VPPhi) {

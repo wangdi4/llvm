@@ -85,7 +85,7 @@ define void @foo(i1 %cond, i32* %val) #1 {
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0   i32 live-out0 -> [[VP25:%.*]] = {%priv}
+; CHECK-NEXT:  Id: 0   i32 live-out0 -> [[VP21:%.*]] = {%priv}
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Id: 1   no underlying for i64 [[VP__IND_FINAL]]
 
@@ -125,10 +125,14 @@ define void @foo(i1 %cond, i32* %val) #1 {
 ; CHECK-NEXT:        [[PRIV0]] = extractelement [[PHI_TEMP70]],  [[BSF0]]
 ; CHECK-NEXT:        [[PHI_TEMP140]] = [[PRIV0]]
 ; CHECK-NEXT:        [[BB6]].54:
+; CHECK-NEXT:        [[PRIV0]] = [[PHI_TEMP140]]
 ; CHECK-NEXT:        ([[VAL0:%.*]])[0] = [[PRIV0]]
 ; CHECK-NEXT:        ret
 ; CHECK-NEXT:  END REGION
 ;
+
+
+
 entry:
   br label %DIR.OMP.SIMD.1
 

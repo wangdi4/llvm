@@ -113,7 +113,7 @@ define i32 @main() {
 ; HIR:          i32 [[VP_X_PRIV_FINAL:%.*]] = private-final-uc i32 [[VP_X]]
 ;
 ; HIR-LABEL:  VPlan after emitting masked variant
-; HIR-NEXT:   VPlan IR for: main:HIR.#{{[0-9]+}}.cloned.masked
+; HIR-NEXT:  VPlan IR for: main:HIR.#{{[0-9]+}}.cloned.masked
 ;
 ; HIR:          [DA: Div] i32* [[VP0:%.*]] = allocate-priv i32*, OrigAlign = 4
 ; HIR:          [DA: Div] i1 [[VP3:%.*]] = icmp ult i32 [[VP_IV_1:%.*]] i32 128
@@ -180,6 +180,7 @@ define i32 @main() {
 ; HIR-NEXT:        [[PHI_TEMP0]] = extractelement [[SELECT0]],  [[EXTLANE]]
 ; HIR-NEXT:        [[PHI_TEMP190]] = [[PHI_TEMP0]]
 ; HIR-NEXT:        [[BB12]].77:
+; HIR-NEXT:        [[X0]] = [[PHI_TEMP190]]
 ; HIR-NEXT:        [[PHI_TEMP80:%.*]] = [[PHI_TEMP190]]
 ; HIR-NEXT:        [[PHI_TEMP100:%.*]] = 128
 ; HIR-NEXT:        final.merge.51:
