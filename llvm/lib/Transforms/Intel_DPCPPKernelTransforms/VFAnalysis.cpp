@@ -23,6 +23,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/WeightedInstCount.h"
 #include <unordered_set>
 
 using namespace llvm;
@@ -68,31 +69,7 @@ bool VFAnalysisInfo::hasMultipleVFConstraints(Function *Kernel) {
   return MultiConstraint;
 }
 
-/// Get default preferred VF according to ISA.
-/// TODO: Future heuristics could be implemented here.
-static unsigned getPreferredVectorizationWidth(VectorVariant::ISAClass ISA) {
-  switch (ISA) {
-  case VectorVariant::XMM:
-  case VectorVariant::YMM1:
-    return 4;
-  case VectorVariant::YMM2:
-    return 8;
-  case VectorVariant::ZMM:
-    return 16;
-  default:
-    llvm_unreachable("unexpected ISA");
-  }
-}
-
-static unsigned getKernelDefaultVF(Function *Kernel,
-                                   VectorVariant::ISAClass ISA) {
-  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
-  if (KIMD.RecommendedVL.hasValue())
-    return KIMD.RecommendedVL.get();
-  return getPreferredVectorizationWidth(ISA);
-}
-
-void VFAnalysisInfo::deduceVF(Function *Kernel) {
+void VFAnalysisInfo::deduceVF(Function *Kernel, unsigned HeuristicVF) {
   LLVM_DEBUG(dbgs() << "Deducing VF with given constraint:\n");
   DPCPPKernelMetadataAPI::KernelMetadataAPI KMD(Kernel);
   DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
@@ -126,9 +103,9 @@ void VFAnalysisInfo::deduceVF(Function *Kernel) {
     return;
   }
 
-  // Otherwise, get default VF determined by ISA or set by a previous pass.
-  KernelToVF[Kernel] = getKernelDefaultVF(Kernel, ISA);
-  LLVM_DEBUG(dbgs() << "Initial VF<Default>: " << KernelToVF[Kernel] << '\n');
+  // Otherwise, get heuristic VF computed by WeightedInstCountAnalysis.
+  KernelToVF[Kernel] = HeuristicVF;
+  LLVM_DEBUG(dbgs() << "Initial VF<Heuristic>: " << KernelToVF[Kernel] << '\n');
   return;
 }
 
@@ -208,7 +185,8 @@ bool VFAnalysisInfo::hasUnsupportedPatterns(Function *Kernel) {
   return false;
 }
 
-bool VFAnalysisInfo::tryFallbackUnimplementedBuiltins(Function *Kernel) {
+bool VFAnalysisInfo::tryFallbackUnimplementedBuiltins(Function *Kernel,
+                                                      unsigned HeuristicVF) {
   LLVM_DEBUG(dbgs() << "Checking unimplemented builtins:\n");
   static std::unordered_set<unsigned> SupportedWorkGroupVFs{1,  4,  8,
                                                             16, 32, 64};
@@ -228,8 +206,8 @@ bool VFAnalysisInfo::tryFallbackUnimplementedBuiltins(Function *Kernel) {
         (isWorkGroupBuiltin(FuncName) && !SupportedWorkGroupVFs.count(VF))) {
       if (!CanFallBackToDefaultVF)
         return true;
-      // Can fallback to default VF.
-      KernelToVF[Kernel] = getKernelDefaultVF(Kernel, ISA);
+      // Can fallback to heuristic VF.
+      KernelToVF[Kernel] = HeuristicVF;
       Kernel->getContext().diagnose(VFAnalysisDiagInfo(
           *Kernel,
           "Fall back vectorization width to " + Twine(getVF(Kernel)) +
@@ -282,6 +260,21 @@ bool VFAnalysisInfo::isSubgroupBroken(Function *Kernel) {
   return Broken;
 }
 
+/// Get default preferred VF according to ISA.
+static unsigned getPreferredVectorizationWidth(VectorVariant::ISAClass ISA) {
+  switch (ISA) {
+  case VectorVariant::XMM:
+  case VectorVariant::YMM1:
+    return 4;
+  case VectorVariant::YMM2:
+    return 8;
+  case VectorVariant::ZMM:
+    return 16;
+  default:
+    llvm_unreachable("unexpected ISA");
+  }
+}
+
 void VFAnalysisInfo::deduceSGEmulationSize(Function *Kernel) {
   KernelToSGEmuSize[Kernel] = KernelToVF[Kernel];
   LLVM_DEBUG(dbgs() << "Initial SGEmuSize: " << KernelToSGEmuSize[Kernel]
@@ -315,7 +308,8 @@ void VFAnalysisInfo::deduceSGEmulationSize(Function *Kernel) {
          "Subgroup emulation size = 1 is not supported.");
 }
 
-void VFAnalysisInfo::analyzeModule(Module &M) {
+void VFAnalysisInfo::analyzeModule(
+    Module &M, function_ref<unsigned(Function &)> GetHeuristicVF) {
   CG = std::make_unique<CallGraph>(M);
 
   auto Kernels = DPCPPKernelMetadataAPI::KernelList(M).getList();
@@ -335,14 +329,15 @@ void VFAnalysisInfo::analyzeModule(Module &M) {
     }
 
     // Deduce VF from the given constraint.
-    deduceVF(Kernel);
+    unsigned HeuristicVF = GetHeuristicVF(*Kernel);
+    deduceVF(Kernel, HeuristicVF);
 
     // Detect VPLAN unsupported patterns.
     if (hasUnsupportedPatterns(Kernel))
       KernelToVF[Kernel] = 1;
 
     // Detect unimplemented WG/SG builtins.
-    if (tryFallbackUnimplementedBuiltins(Kernel)) {
+    if (tryFallbackUnimplementedBuiltins(Kernel, HeuristicVF)) {
       // Map string map range to customized std::string range.
       auto R = map_range(
           UnimplementedBuiltinToVF, [&](const StringMapEntry<unsigned> &Entry) {
@@ -377,14 +372,32 @@ void VFAnalysisInfo::print(raw_ostream &OS) const {
     OS << "  <" << P.getFirst()->getName() << "> : " << P.getSecond() << '\n';
 }
 
-INITIALIZE_PASS(VFAnalysisLegacy, DEBUG_TYPE, DEBUG_TYPE, /*cfg*/ false,
-                /*analysis*/ true)
+INITIALIZE_PASS_BEGIN(VFAnalysisLegacy, DEBUG_TYPE, DEBUG_TYPE, /*cfg*/ false,
+                      /*analysis*/ true)
+INITIALIZE_PASS_DEPENDENCY(WeightedInstCountAnalysisLegacy)
+INITIALIZE_PASS_END(VFAnalysisLegacy, DEBUG_TYPE, DEBUG_TYPE, /*cfg*/ false,
+                    /*analysis*/ true)
 
 ModulePass *llvm::createVFAnalysisLegacyPass() {
   return new VFAnalysisLegacy();
 }
 
 char VFAnalysisLegacy::ID = 0;
+
+bool VFAnalysisLegacy::runOnModule(Module &M) {
+  auto GetHeuristicVF = [&](Function &F) {
+    return getAnalysis<WeightedInstCountAnalysisLegacy>(F)
+        .getResult()
+        .getDesiredVF();
+  };
+  Result.analyzeModule(M, GetHeuristicVF);
+  return false;
+}
+
+void VFAnalysisLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.addRequired<WeightedInstCountAnalysisLegacy>();
+  AU.setPreservesAll();
+}
 
 void VFAnalysisLegacy::print(raw_ostream &OS, const Module *M) const {
   getResult().print(OS);
@@ -393,9 +406,14 @@ void VFAnalysisLegacy::print(raw_ostream &OS, const Module *M) const {
 // Provide a definition for the static class member used to identify passes.
 AnalysisKey VFAnalysis::Key;
 
-VFAnalysisInfo VFAnalysis::run(Module &M, ModuleAnalysisManager &) {
+VFAnalysisInfo VFAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
+  FunctionAnalysisManager &FAM =
+      AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetHeuristicVF = [&FAM](Function &F) {
+    return FAM.getResult<WeightedInstCountAnalysis>(F).getDesiredVF();
+  };
   VFAnalysisInfo Result;
-  Result.analyzeModule(M);
+  Result.analyzeModule(M, GetHeuristicVF);
   return Result;
 }
 

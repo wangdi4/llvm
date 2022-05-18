@@ -29,7 +29,6 @@
 #include <map>
 
 namespace llvm {
-class BuiltinLibInfo;
 class InstCountResultImpl;
 class LoopInfo;
 class PostDominatorTree;
@@ -41,9 +40,9 @@ class InstCountResult {
   std::unique_ptr<InstCountResultImpl> Impl;
 
 public:
-  InstCountResult(Function &F, BuiltinLibInfo &BLI, PostDominatorTree &DT,
-                  LoopInfo &LI, ScalarEvolution &SE,
-                  VectorVariant::ISAClass ISA, bool PreVec);
+  InstCountResult(Function &F, PostDominatorTree &DT, LoopInfo &LI,
+                  ScalarEvolution &SE, VectorVariant::ISAClass ISA,
+                  bool PreVec);
 
   InstCountResult(InstCountResult &&Other);
 

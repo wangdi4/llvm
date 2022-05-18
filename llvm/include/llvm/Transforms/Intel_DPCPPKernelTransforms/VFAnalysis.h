@@ -56,7 +56,8 @@ class VFAnalysisInfo {
 public:
   VFAnalysisInfo();
 
-  void analyzeModule(Module &M);
+  void analyzeModule(Module &M,
+                     function_ref<unsigned(Function &)> GetHeuristicVF);
 
   void print(raw_ostream &OS) const;
 
@@ -84,7 +85,8 @@ private:
 
   /// Deduces VF according to the given constriant. Stores "Kernel" -->
   /// "VF" mapping into `KernelToVF`.
-  void deduceVF(Function *Kernel);
+  /// - HeuristicVF Heuristic VF computed by WeightedInstCountAnalysis.
+  void deduceVF(Function *Kernel, unsigned HeuristicVF);
 
   /// Checks whether the function has pattern that can't be vectorized:
   /// - Non-kernel function with byval/byref parameters and "has-sub-groups"
@@ -94,11 +96,11 @@ private:
   /// - vec_type_hint on unsupported types.
   bool hasUnsupportedPatterns(Function *Kernel);
 
-  /// Tries to fallback WG/SG builtins with unimplemented VF to default VF.
+  /// Tries to fallback WG/SG builtins with unimplemented VF to heuristic VF.
   /// Returns true if fallbacked successfully or there's no unimplemented
   /// builtins. Returns false on fallback failure, and records unimplemented
   /// builtins.
-  bool tryFallbackUnimplementedBuiltins(Function *Kernel);
+  bool tryFallbackUnimplementedBuiltins(Function *Kernel, unsigned HeuristicVF);
 
   /// Checks whether subgroup semantics is broken due to VF = 1.
   bool isSubgroupBroken(Function *Kernel);
@@ -199,14 +201,9 @@ public:
 
   StringRef getPassName() const override { return "VFAnalysisLegacy"; }
 
-  bool runOnModule(Module &M) override {
-    Result.analyzeModule(M);
-    return false;
-  }
+  bool runOnModule(Module &M) override;
 
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-  }
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
 
   const VFAnalysisInfo &getResult() const { return Result; }
 

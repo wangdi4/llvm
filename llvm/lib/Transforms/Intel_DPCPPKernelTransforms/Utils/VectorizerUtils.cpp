@@ -364,11 +364,10 @@ static bool isShuffleVectorTruncate(ShuffleVectorInst *SVI) {
 
 namespace VectorizerUtils {
 
-bool CanVectorize::canVectorizeForVPO(Function &F, RuntimeService *RTService,
-                                      FuncSet &UnsupportedFuncs,
+bool CanVectorize::canVectorizeForVPO(Function &F, FuncSet &UnsupportedFuncs,
                                       bool EnableDirectCallVectorization,
                                       bool EnableSGDirectCallVectorization) {
-  if (hasVariableGetTIDAccess(F, RTService))
+  if (hasVariableGetTIDAccess(F))
     return false;
 
   if (!EnableDirectCallVectorization) {
@@ -383,12 +382,11 @@ bool CanVectorize::canVectorizeForVPO(Function &F, RuntimeService *RTService,
   return true;
 }
 
-bool CanVectorize::hasVariableGetTIDAccess(Function &F,
-                                           RuntimeService *RTService) {
+bool CanVectorize::hasVariableGetTIDAccess(Function &F) {
   for (auto &I : instructions(F)) {
     if (CallInst *CI = dyn_cast<CallInst>(&I)) {
       bool Err;
-      std::tie(std::ignore, Err, std::ignore) = RTService->isTIDGenerator(CI);
+      std::tie(std::ignore, Err, std::ignore) = isTIDGenerator(CI);
       // We are unable to vectorize this code because get_global_id is messed
       // up.
       if (Err)

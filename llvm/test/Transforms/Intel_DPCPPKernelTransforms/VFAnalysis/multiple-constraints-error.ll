@@ -6,7 +6,7 @@
 ; RUN: not opt -dpcpp-kernel-vf-analysis -dpcpp-force-vf=4 %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-FORCE
 ; RUN: not opt -passes="print<dpcpp-kernel-vf-analysis>" -dpcpp-force-vf=4 %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-FORCE
 
-define void @recommended() !recommended_vector_length !{i32 4} {
+define void @heuristic() {
   ret void
 }
 
@@ -24,11 +24,11 @@ define void @vec_len_hint_and_reqd_sg_size() !intel_vec_len_hint !{i32 16} !inte
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @recommended, void ()* @vec_len_hint, void ()* @reqd_sg_size, void ()* @vec_len_hint_and_reqd_sg_size}
+!0 = !{void ()* @heuristic, void ()* @vec_len_hint, void ()* @reqd_sg_size, void ()* @vec_len_hint_and_reqd_sg_size}
 
 ; No diagnostics with zero or one constraint.
-; CHECK-NO-FORCE-NOT: error: kernel "{{recommended|vec_len_hint|reqd_sg_size}}"
-; CHECK-FORCE-NOT: error: kernel "recommended"
+; CHECK-NO-FORCE-NOT: error: kernel "{{heuristic|vec_len_hint|reqd_sg_size}}"
+; CHECK-FORCE-NOT: error: kernel "heuristic"
 
 ; Report error with multiple constraints.
 ; CHECK-NO-FORCE: error: kernel "vec_len_hint_and_reqd_sg_size": Only one of CL_CONFIG_CPU_VECTORIZER_MODE, intel_vec_len_hint and intel_reqd_sub_group_size can be specified

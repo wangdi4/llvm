@@ -46,6 +46,10 @@
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
 ; CHECK-NEXT: Running pass: SetVectorizationFactorPass
 ; CHECK-NEXT: Running analysis: VFAnalysis
+; CHECK-NEXT: Running analysis: WeightedInstCountAnalysis
+; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
+; CHECK-NEXT: Running analysis: LoopAnalysis
+; CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-NEXT: Running pass: VectorVariantLowering
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running pass: CreateSimdVariantPropagation
