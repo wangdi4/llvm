@@ -1098,6 +1098,17 @@ StringRef getFnAttributeStringInList(Function &F, StringRef AttrKind,
   return AttrVec[Idx];
 }
 
+void moveAlloca(BasicBlock *FromBB, BasicBlock *ToBB) {
+  auto InsertionPt = ToBB->getFirstInsertionPt();
+  SmallVector<Instruction *, 4> ToMove;
+  for (auto &I : *FromBB) {
+    if (isa<AllocaInst>(&I))
+      ToMove.push_back(&I);
+  }
+  for (auto *I : ToMove)
+    I->moveBefore(*ToBB, InsertionPt);
+}
+
 void moveInstructionIf(BasicBlock *FromBB, BasicBlock *ToBB,
                        function_ref<bool(Instruction &)> Predicate) {
   SmallVector<Instruction *, 8> ToMove;

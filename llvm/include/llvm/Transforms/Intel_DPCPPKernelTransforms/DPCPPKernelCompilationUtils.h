@@ -593,6 +593,9 @@ void getImplicitArgs(Function *F, Value **LocalMem, Value **WorkDim,
 /// \param Idx The ImplicitArgsUtils::ImplicitArg index of the requested global.
 GlobalVariable *getTLSGlobal(Module *M, unsigned Idx);
 
+/// @brief Moves alloca instructions from FromBB to ToBB
+void moveAlloca(BasicBlock *FromBB, BasicBlock *ToBB);
+
 /// Move instructions, which meets the requirements of Predicate, from FromBB to
 /// ToBB.
 void moveInstructionIf(BasicBlock *FromBB, BasicBlock *ToBB,

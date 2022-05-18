@@ -759,6 +759,7 @@ void initializeImplicitArgsAnalysisLegacyPass(PassRegistry &);
 void initializeImplicitGIDLegacyPass(PassRegistry &);
 void initializeIndirectCallLoweringLegacyPass(PassRegistry &);
 void initializeInferArgumentAliasLegacyPass(PassRegistry &);
+void initializeInfiniteLoopCreatorLegacyPass(PassRegistry &);
 void initializeInstToFuncCallLegacyPass(PassRegistry &);
 void initializeInternalizeGlobalVariablesLegacyPass(PassRegistry &);
 void initializeInternalizeNonKernelFuncLegacyPass(PassRegistry &);

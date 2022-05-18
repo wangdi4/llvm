@@ -112,6 +112,7 @@ MODULE_PASS("dpcpp-kernel-internalize-global-variables", InternalizeGlobalVariab
 MODULE_PASS("dpcpp-kernel-autorun-replicator", AutorunReplicatorPass())
 MODULE_PASS("dpcpp-kernel-implicit-gid", ImplicitGIDPass())
 MODULE_PASS("dpcpp-kernel-infer-argument-alias", InferArgumentAliasPass())
+MODULE_PASS("dpcpp-kernel-infinite-loop-creator", InfiniteLoopCreatorPass())
 MODULE_PASS("dpcpp-kernel-internalize-func", InternalizeNonKernelFuncPass())
 MODULE_PASS("dpcpp-kernel-linear-id-resolver", LinearIdResolverPass())
 MODULE_PASS("dpcpp-kernel-local-buffers", LocalBuffersPass())
