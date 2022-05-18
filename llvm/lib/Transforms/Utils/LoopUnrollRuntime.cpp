@@ -42,6 +42,7 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/MDBuilder.h"
@@ -780,6 +781,11 @@ bool llvm::UnrollRuntimeLoopRemainder(
                            B.CreateIsNotNull(ModVal, "lcmp.mod");
   BasicBlock *RemainderLoop = UseEpilogRemainder ? NewExit : PrologPreHeader;
   BasicBlock *UnrollingLoop = UseEpilogRemainder ? NewPreHeader : PrologExit;
+  // Freeze the condition if there are other exits before the latch that may
+  // cause the latch exit branch to never be executed.
+  if ((!OtherExits.empty() || !SE->loopHasNoAbnormalExits(L)) &&
+      !isGuaranteedNotToBeUndefOrPoison(BranchVal, AC, PreHeaderBR, DT))
+    BranchVal = B.CreateFreeze(BranchVal);
   // Branch to either remainder (extra iterations) loop or unrolling loop.
   B.CreateCondBr(BranchVal, RemainderLoop, UnrollingLoop);
   PreHeaderBR->eraseFromParent();
