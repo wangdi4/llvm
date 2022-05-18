@@ -8259,13 +8259,9 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
       RHS = getSCEV(BO->RHS);
       return getUDivExpr(LHS, RHS);
     case Instruction::URem:
-<<<<<<< HEAD
-      return getURemExpr(getSCEV(BO->LHS), getSCEV(BO->RHS), V); // INTEL
-=======
       LHS = getSCEV(BO->LHS);
       RHS = getSCEV(BO->RHS);
-      return getURemExpr(LHS, RHS);
->>>>>>> 6ca7eb2c6d7da2264f410f270633bf698ab5d87d
+      return getURemExpr(LHS, RHS, V); // INTEL
     case Instruction::Sub: {
       SCEV::NoWrapFlags Flags = SCEV::FlagAnyWrap;
       if (BO->Op)
@@ -8325,21 +8321,16 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
         }
       }
       // Binary `and` is a bit-wise `umin`.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       // Parsing 'and' as 'umin' doesn't seem profitable for HIR.
       // It is also a workaround for CMPLRLLVM-36301.
       if (!isa<ScopedScalarEvolution>(this) &&
-          BO->LHS->getType()->isIntegerTy(1))
+          BO->LHS->getType()->isIntegerTy(1)) {
 #endif // INTEL_CUSTOMIZATION
-        return getUMinExpr(getSCEV(BO->LHS), getSCEV(BO->RHS));
-=======
-      if (BO->LHS->getType()->isIntegerTy(1)) {
         LHS = getSCEV(BO->LHS);
         RHS = getSCEV(BO->RHS);
         return getUMinExpr(LHS, RHS);
       }
->>>>>>> 6ca7eb2c6d7da2264f410f270633bf698ab5d87d
       break;
 
     case Instruction::Or:
