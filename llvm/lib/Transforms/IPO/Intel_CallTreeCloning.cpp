@@ -3930,13 +3930,6 @@ bool MultiVersionImpl::doCodeGenMV1VarClone(Function *F, unsigned Pos,
 }
 
 bool MultiVersionImpl::doCodeGen(Function *F) {
-  // Clean F's function body, prepare for MultiVersion code generation
-  auto LT = F->getLinkage();
-  F->deleteBody();
-  getInlineReport()->deleteFunctionBody(F);
-  getMDInlineReport()->deleteFunctionBody(F);
-  F->setLinkage(LT);
-  LLVM_DEBUG(F->dump());
 
   // Figure out the mapping between F's parameter list and C0,C1, etc.
   MVFunctionInfo &MVFI = MVFIMap[F];
@@ -3948,6 +3941,14 @@ bool MultiVersionImpl::doCodeGen(Function *F) {
     LLVM_DEBUG(dbgs() << "Wrong size of Pos2ValsMap\n");
     return false;
   }
+
+  // Clean F's function body, prepare for MultiVersion code generation
+  auto LT = F->getLinkage();
+  F->deleteBody();
+  getInlineReport()->deleteFunctionBody(F);
+  getMDInlineReport()->deleteFunctionBody(F);
+  F->setLinkage(LT);
+  LLVM_DEBUG(F->dump());
 
   SmallVector<unsigned, 2> PosVec;
   PosVec.resize(PosSize);
