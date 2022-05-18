@@ -14,7 +14,7 @@ function(create_ocl_kernel_target CLANG_FLAGS INPUT_CL TMP_DIR OUTPUT_DIR OUTPUT
 
   # generate frontend IR and run optimizer on it.
   add_custom_command(OUTPUT ${OUTPUT_OPT_FILE}
-    DEPENDS ${CLANG} ${OPT} ${INPUT_CL}
+    DEPENDS ${CLANG} ${OPT} ${INPUT_CL} process-intrin-headers
     COMMAND ${CLANG} ${CLANG_FLAGS} ${INPUT_CL}
             -o ${TMP_DIR}/${OUTPUT_BC_FILE}
     COMMAND ${OPT} ${TMP_DIR}/${OUTPUT_BC_FILE} -verify -dpcpp-kernel-equalizer

@@ -53,7 +53,7 @@ code Prolog = [{
     #define ALIGN32 __attribute__((aligned(32)))
 
     #define __OPENCL__
-    #include <intrin.h>
+    #include "opencl-intrin-wrapper.h"
     #include "generic-builtin-defines.h"
     #include "cpu-builtin-defines.h"
     #ifdef __x86_64__
