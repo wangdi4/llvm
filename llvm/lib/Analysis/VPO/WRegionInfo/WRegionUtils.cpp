@@ -461,11 +461,14 @@ int WRegionUtils::getClauseIdFromAtomicKind(WRNAtomicKind Kind) {
 
 }
 
-// gets the induction variable of the OMP loop.
-PHINode *WRegionUtils::getOmpCanonicalInductionVariable(Loop* L) {
+// Get the induction variable of the OMP loop; if not found, either assert or
+// return nullptr depending on AssertIfIVNotFound.
+PHINode *
+WRegionUtils::getOmpCanonicalInductionVariable(Loop *L,
+                                               bool AssertIfIVNotFound) {
   assert(L && "getOmpCanonicalInductionVariable: null loop");
   BasicBlock *H = L->getHeader();
-  assert(L && "getOmpCanonicalInductionVariable: null loop header");
+  assert(H && "getOmpCanonicalInductionVariable: null loop header");
 
   BasicBlock *Incoming = nullptr, *Backedge = nullptr;
   pred_iterator PI = pred_begin(H);
@@ -510,8 +513,10 @@ PHINode *WRegionUtils::getOmpCanonicalInductionVariable(Loop* L) {
       }
     }
   }
-  llvm_unreachable("Omp loop must have induction variable!");
+  if (AssertIfIVNotFound)
+    llvm_unreachable("Omp loop must have induction variable!");
 
+  return nullptr;
 }
 
 // gets the loop lower bound of the OMP loop.

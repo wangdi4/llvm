@@ -1694,6 +1694,8 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNParallelLoop:
       case WRegionNode::WRNDistributeParLoop:
         RoutineChanged |= regularizeOMPLoop(W, false);
+        if (isLoopOptimizedAway(W))
+          break;
         improveAliasForOutlinedFunc(W);
         break;
       case WRegionNode::WRNTask:
@@ -1701,6 +1703,8 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
       case WRegionNode::WRNTaskloop:
         RoutineChanged |= regularizeOMPLoop(W, false);
+        if (isLoopOptimizedAway(W))
+          break;
         improveAliasForOutlinedFunc(W);
         break;
       case WRegionNode::WRNTarget:
@@ -1928,6 +1932,21 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= fixupKnownNDRange(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          if (isLoopOptimizedAway(W)) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+            if (isTargetCSA() && !W->getIsParSections() && W->getIsParLoop())
+              RemoveDirectives = true;
+            else
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+              if (isTargetSPIRV() && !isFunctionOpenMPTargetDeclare()) {
+                RemoveDirectives = false;
+                HandledWithoutRemovingDirectives = true;
+              } else
+                RemoveDirectives = true;
+            break;
+          }
           Changed |= clearCancellationPointAllocasFromIR(W);
           WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(W);
           Changed |= genLaunderIntrinIfPrivatizedInAncestor(W);
@@ -2109,6 +2128,10 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= renameOperandsUsingStoreThenLoad(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          if (isLoopOptimizedAway(W)) {
+            RemoveDirectives = true;
+            break;
+          }
           StructType *KmpTaskTTWithPrivatesTy;
           StructType *KmpSharedTy;
           AllocaInst *LBPtr, *UBPtr, *STPtr;
@@ -2300,6 +2323,10 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         // Privatization is enabled for SIMD Transform passes
         if ((Mode & OmpVec) && (Mode & ParTrans)) {
+          if (isLoopOptimizedAway(W)) {
+            RemoveDirectives = false;
+            break;
+          }
           debugPrintHeader(W, Mode);
           Changed |= setInsertionPtForVlaAllocas(W);
           Changed |= regularizeOMPLoop(W, false);
@@ -2361,6 +2388,17 @@ bool VPOParoptTransform::paroptTransforms() {
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= clearCancellationPointAllocasFromIR(W);
           Changed |= regularizeOMPLoop(W, false);
+          if (isLoopOptimizedAway(W)) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+            if (isTargetCSA() && !W->getIsSections() && W->getIsOmpLoop())
+              RemoveDirectives = true;
+            else
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+              RemoveDirectives = true;
+            break;
+          }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
           if (isTargetCSA()) {
@@ -8567,8 +8605,9 @@ void VPOParoptTransform::registerizeLoopEssentialValues(
 }
 
 // Transform the Ith level of the loop in the region W into the
-// OMP canonical loop form.
-void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
+// OMP canonical loop form. In case the loop is optimized away, set
+// LoopOptimizedAway and return false, otherwise return true.
+bool VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
   Loop *L = W->getWRNLoopInfo().getLoop(Index);
   const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
   const SimplifyQuery SQ = {DL, TLI, DT, AC};
@@ -8615,6 +8654,12 @@ void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
   // This is why we process all IVs in a loop nest before starting
   // rotating the loops.
   simplifyLoopPHINodes(*L, SQ);
+
+  // if Loop is optimized away set LoopOptimizedAway and return false.
+  if (!WRegionUtils::getOmpCanonicalInductionVariable(L, false)) {
+    W->getWRNLoopInfo().setLoopOptimizedAway();
+    return false;
+  }
   fixOMPDoWhileLoop(W, L);
 
   BasicBlock *ZTTBB = nullptr;
@@ -8627,6 +8672,19 @@ void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
   // is there to make sure that we do not miss ZTT block setup
   // for a Loop.
   W->getWRNLoopInfo().setZTTBB(ZTTBB, Index);
+  return true;
+}
+
+// Check if loop is optimized away and print remark.
+bool VPOParoptTransform::isLoopOptimizedAway(WRegionNode *W) {
+  if (W->getWRNLoopInfo().getLoopOptimizedAway()) {
+    OptimizationRemarkMissed R("openmp", "Region", W->getEntryDirective());
+    R << ore::NV("Construct", W->getName())
+      << " construct's associated loop was optimized away.";
+    ORE.emit(R);
+    return true;
+  }
+  return false;
 }
 
 // The OMP loop is converted into bottom test loop to facilitate the
@@ -8653,8 +8711,10 @@ bool VPOParoptTransform::regularizeOMPLoop(WRegionNode *W, bool First) {
     // Regularize the loops, which includes the loops rotation,
     // simplification of PHI instructions and loop conditions,
     // and finding the loops' ZTT instructions.
-    for (unsigned I = W->getWRNLoopInfo().getNormIVSize(); I > 0; --I)
-      regularizeOMPLoopImpl(W, I - 1);
+    for (unsigned I = W->getWRNLoopInfo().getNormIVSize(); I > 0; --I) {
+      if (!regularizeOMPLoopImpl(W, I - 1))
+        break;
+    }
   } else {
     std::vector<AllocaInst *> Allocas;
     SmallVector<Value *, 2> LoopEssentialValues;

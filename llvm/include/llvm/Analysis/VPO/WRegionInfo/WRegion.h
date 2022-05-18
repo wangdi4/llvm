@@ -128,6 +128,9 @@ private:
   /// region.
   bool KnownNDRange = false;
 
+  /// If set to true, then the associated loop(s) is optimized away.
+  bool LoopOptimizedAway = false;
+
   /// For each loop in the loop nest described by this WRNLoopInfo
   /// we have to map the loop to some ND-range dimension.
   /// NDRangeStartDim specifies the starting dimension for the loop
@@ -210,6 +213,10 @@ public:
   BasicBlock *getZTTBBOrNull(unsigned Idx = 0) const {
     return ZTTBB.lookup(Idx);
   }
+
+  void setLoopOptimizedAway() { LoopOptimizedAway = true; }
+
+  bool getLoopOptimizedAway() { return LoopOptimizedAway; }
 
   void setKnownNDRange() {
     assert(!KnownNDRange && "KnownNDRange must be set only once.");

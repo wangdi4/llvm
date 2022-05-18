@@ -269,8 +269,14 @@ public:
   /// Get the Clause Id for the WRNAtomicKind \p kind.
   static int getClauseIdFromAtomicKind(WRNAtomicKind Kind);
 
-  /// \brief Get the induction variable of the OMP loop.
-  static PHINode *getOmpCanonicalInductionVariable(Loop *L);
+  /// Get the induction variable of the OMP loop. In case the induction variable
+  /// is not found, the function can either assert or return nullptr depending
+  /// on the value of the input flag AssertIfIVNotFound. We need the nullptr
+  /// version, to accomodate for the case where the loop is optimized away. In
+  /// this case asserting that the induction variable is not found is
+  /// misleading. In all other cases we use the asserting version.
+  static PHINode *
+  getOmpCanonicalInductionVariable(Loop *L, bool AssertIfIVNotFound = true);
 
   /// \brief Get the loop lower bound of the OMP loop.
   static Value *getOmpLoopLowerBound(Loop *L);

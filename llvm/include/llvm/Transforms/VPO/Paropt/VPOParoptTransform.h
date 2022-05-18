@@ -1884,6 +1884,9 @@ private:
   ///  loop index variable into the register and performs loop rotation.
   bool regularizeOMPLoop(WRegionNode *W, bool First = true);
 
+  /// Check if loop is optimized away.
+  bool isLoopOptimizedAway(WRegionNode *W);
+
   /// For the given loop \p Index in the loop kind region \p W
   /// promote the loop's IV and UB variables to registers.
   void registerizeLoopEssentialValues(WRegionNode *W, unsigned Index);
@@ -1896,8 +1899,9 @@ private:
   void simplifyLoopPHINodes(const Loop &L, const SimplifyQuery &SQ) const;
 
   /// Transform the Ith level of the loop in the region W into the
-  /// OMP canonical loop form.
-  void regularizeOMPLoopImpl(WRegionNode *W, unsigned I);
+  /// OMP canonical loop form. In case the loop is optimized away, set
+  /// LoopOptimizedAway and return false, otherwise return true.
+  bool regularizeOMPLoopImpl(WRegionNode *W, unsigned I);
 
   /// Transform the given do-while loop into the canonical form
   /// as follows.
