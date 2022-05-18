@@ -476,6 +476,7 @@ extern cl::opt<bool> EnableSROAAfterSLP;
 #endif // INTEL_CUSTOMIZATION
 namespace llvm {
 #if INTEL_CUSTOMIZATION
+extern cl::opt<bool> EnableHandlePragmaVectorAligned;
 // Andersen AliasAnalysis
 extern cl::opt<bool> EnableAndersen;
 extern cl::opt<bool> EnableArgNoAliasProp;
@@ -3089,6 +3090,12 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   invokePeepholeEPCallbacks(FPM, Level);
 
   FPM.addPass(JumpThreadingPass(/*InsertFreezeWhenUnfoldingSelect*/ true));
+
+#if INTEL_CUSTOMIZATION
+  // Handle '#pragma vector aligned'.
+  if (EnableHandlePragmaVectorAligned && Level.getSpeedupLevel() > 1)
+    FPM.addPass(HandlePragmaVectorAlignedPass());
+#endif // INTEL_CUSTOMIZATION
 
   // Do a post inline PGO instrumentation and use pass. This is a context
   // sensitive PGO pass.

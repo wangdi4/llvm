@@ -354,7 +354,7 @@ static cl::opt<bool> EnableMultiVersioning("enable-multiversioning",
   cl::init(false), cl::Hidden,
   cl::desc("Enable Function Multi-versioning"));
 
-static cl::opt<bool> EnableHandlePragmaVectorAligned(
+cl::opt<bool> EnableHandlePragmaVectorAligned(
     "enable-handle-pragma-vector-aligned", cl::init(true),
     cl::desc("Enable Handle Pragma Vector Aligned pass"));
 
