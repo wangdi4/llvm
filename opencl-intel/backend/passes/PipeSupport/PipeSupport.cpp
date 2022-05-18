@@ -92,7 +92,7 @@ static int getNumUsedPipes(Function &F, const PipeTypesHelper &PipeTypes) {
   // Count global pipes
   auto *M = F.getParent();
   for (auto &GV : M->globals()) {
-    auto *Ty = GV.getType()->getElementType();
+    auto *Ty = GV.getValueType();
 
     auto *ArrTy = dyn_cast<ArrayType>(Ty);
     if (ArrTy)

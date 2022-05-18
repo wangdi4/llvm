@@ -869,14 +869,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     bool isPipe(const Value *V) const {
       Type *Ty = V->getType();
       if (isa<GlobalVariable>(V))
-        Ty = cast<PointerType>(Ty)->getElementType();
+        Ty = cast<GlobalVariable>(V)->getValueType();
       return isPipeType(Ty);
     }
 
     bool isPipeArray(const Value *V) const {
       Type *Ty = V->getType();
       if (isa<GlobalVariable>(V))
-        Ty = cast<PointerType>(Ty)->getElementType();
+        Ty = cast<GlobalVariable>(V)->getValueType();
       return isPipeArrayType(Ty);
     }
   };
