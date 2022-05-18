@@ -3524,6 +3524,14 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
           Builder.SetInsertPoint(getInsertPointPH());
         return;
       }
+
+      // If the scalar value is the result of an invoke instruction which should
+      // be the last instruction in the block, set the insertion point to PH.
+      if (isa<InvokeInst>(ScalarInst)) {
+        Builder.SetInsertPoint(getInsertPointPH());
+        return;
+      }
+
       auto It = ++(ScalarInst->getIterator());
 
       while (isa<PHINode>(*It))
