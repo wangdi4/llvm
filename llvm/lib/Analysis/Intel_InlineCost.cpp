@@ -4016,5 +4016,12 @@ extern bool intelNotHotCallee(Function &F, bool PrepareForLTO) {
   return false;
 }
 
+extern bool intelCallTerminatesUnreachable(CallBase &CB) {
+  Function *F = CB.getCalledFunction();
+  if (!F)
+    return false;
+  return DTransInlineHeuristics && F->size() == 1 &&
+      isa<UnreachableInst>(F->getEntryBlock().getTerminator());
+}
 #endif // INTEL_FEATURE_SW_ADVANCED
 } // end namespace llvm
