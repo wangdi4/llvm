@@ -14,6 +14,7 @@
 ; CHECK-NEXT: Running analysis: AssumptionAnalysis
 ; CHECK-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
+; CHECK-NEXT: Running pass: DetectRecursionPass
 ; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::ImplicitArgsAnalysis, llvm::Module>
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
 ; CHECK-NEXT: Running pass: InferAddressSpacesPass

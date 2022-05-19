@@ -17,6 +17,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DataPerBarrierPass.cpp
   DataPerValuePass.cpp
   DeduceMaxWGDim.cpp
+  DetectRecursion.cpp
   DPCPPAliasAnalysis.cpp
   DPCPPEqualizer.cpp
   DPCPPKernelAnalysis.cpp
@@ -58,6 +59,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   RemoveAtexit.cpp
   RemoveDuplicatedBarrier.cpp
   ReplaceScalarWithMask.cpp
+  ReqdSubGroupSize.cpp
   ResolveMatrixFill.cpp
   ResolveMatrixLayout.cpp
   ResolveMatrixWISlice.cpp

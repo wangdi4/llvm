@@ -92,6 +92,8 @@
 ; CHECK-NEXT: Running pass: GlobalDCEPass
 ; CHECK-NEXT: Running pass: ConstantMergePass
 ; CHECK-NEXT: Running pass: UnifyFunctionExitNodesPass
+; CHECK-NEXT: Running pass: DetectRecursionPass
+; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::ImplicitArgsAnalysis, llvm::Module>
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
 ; CHECK-NEXT: Running pass: InferAddressSpacesPass
@@ -111,13 +113,12 @@
 ; CHECK-NEXT: Running pass: DuplicateCalledKernels
 ; CHECK-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running pass: WGLoopBoundariesPass
 ; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
 ; CHECK-NEXT: Invalidating analysis: LazyCallGraphAnalysis
 ; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::CGSCCAnalysisManager, llvm::Module>
-; CHECK-NEXT: Invalidating analysis: ImplicitArgsAnalysis
 ; CHECK-NEXT: Invalidating analysis: CallGraphAnalysis
+; CHECK-NEXT: Invalidating analysis: ImplicitArgsAnalysis
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
 ; CHECK-NEXT: Running pass: DCEPass
 
