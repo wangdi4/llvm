@@ -36,10 +36,10 @@ void OptReportStatsTracker::emitRemarks(VPlanOptReportBuilder &Builder,
   Builder.addRemark(Lp, OptReportVerbosity::High, ID);
 #define VPLAN_OPTRPT_VEC_HANDLE(VEC)                                           \
   for (auto &Itr : VEC) {                                                      \
-    if (Itr.Msg.empty())                                                       \
+    if (Itr.Arg.empty())                                                       \
       Builder.addRemark(Lp, Itr.MessageVerbosity, Itr.RemarkID);               \
     else                                                                       \
-      Builder.addRemark(Lp, Itr.MessageVerbosity, Itr.RemarkID, Itr.Msg);      \
+      Builder.addRemark(Lp, Itr.MessageVerbosity, Itr.RemarkID, Itr.Arg);      \
   } // end of definition
 #define VPLAN_OPTRPT_ORIGIN_VEC_HANDLE(VEC)                                    \
   for (auto &Itr : VEC) {                                                      \
@@ -72,11 +72,11 @@ void OptReportStatsTracker::emitRemarks(OptReportBuilder &Builder, VPLoop *Lp,
   Builder(*Lp, *VPLI).addRemark(OptReportVerbosity::High, ID);
 #define VPLAN_OPTRPT_VEC_HANDLE(VEC)                                           \
   for (auto &Itr : VEC) {                                                      \
-    if (Itr.Msg.empty())                                                       \
+    if (Itr.Arg.empty())                                                       \
       Builder(*Lp, *VPLI).addRemark(Itr.MessageVerbosity, Itr.RemarkID);       \
     else                                                                       \
       Builder(*Lp, *VPLI)                                                      \
-          .addRemark(Itr.MessageVerbosity, Itr.RemarkID, Itr.Msg);             \
+          .addRemark(Itr.MessageVerbosity, Itr.RemarkID, Itr.Arg);             \
   } // end of definition
 #define VPLAN_OPTRPT_ORIGIN_VEC_HANDLE(VEC)                                    \
   for (auto &Itr : VEC) {                                                      \

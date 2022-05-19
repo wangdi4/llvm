@@ -112,7 +112,9 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
     PassManagerType passManagerType =
         static_cast<PassManagerType>(pBackendOptions->GetIntValue(
             CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE, PM_NONE));
-    if (PM_LTO_NEW != passManagerType && !debugPassManager.empty())
+    if ((PM_LTO_LEGACY == passManagerType ||
+         PM_OCL_LEGACY == passManagerType) &&
+        !debugPassManager.empty())
       m_LLVMOptions.emplace_back("-debug-pass=" + debugPassManager);
 
     std::string LLVMOption = pBackendOptions->GetStringValue(

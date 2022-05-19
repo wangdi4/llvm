@@ -18,6 +18,7 @@
 #include "debuggingservicetype.h"
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
@@ -94,7 +95,11 @@ protected:
   llvm::Module &m_M;
   /// Builtin rtl modules (not owned by this class).
   llvm::SmallVector<llvm::Module *, 2> m_RtlModules;
+
+  VectorVariant::ISAClass ISA;
+
   const intel::OptimizerConfig &Config;
+
   StringRef CPUPrefix;
 
   /// True if OpenCL version is greater or equal to 2.0.
@@ -128,13 +133,11 @@ protected:
  *  Responsible for running the IR=>IR optimization passes on given program
     using legacy OCL pass manager.
  */
-class OptimizerOCL : public Optimizer {
+class OptimizerOCLLegacy : public Optimizer {
 public:
-  OptimizerOCL(llvm::Module &pModule,
-               llvm::SmallVector<llvm::Module *, 2> &RtlModules,
-               const intel::OptimizerConfig &pConfig);
-
-  ~OptimizerOCL();
+  OptimizerOCLLegacy(llvm::Module &pModule,
+                     llvm::SmallVector<llvm::Module *, 2> &RtlModules,
+                     const intel::OptimizerConfig &pConfig);
 
   void Optimize(llvm::raw_ostream &LogStream) override;
 

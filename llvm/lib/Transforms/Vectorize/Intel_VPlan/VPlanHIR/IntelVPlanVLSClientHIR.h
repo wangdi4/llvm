@@ -28,24 +28,22 @@ namespace vpo {
 
 class VPVLSClientMemrefHIR final : public VPVLSClientMemref {
 private:
-  /// That is necessary to keep information about parent loop of the current
-  /// memory reference, because whether it can or cannot be moved depends on
-  /// it.
-  const unsigned LoopLevel;
+  /// Keep information about loop being vectorized, so that we can determine
+  /// whether memory reference can or cannot be moved using the same.
+  const HLLoop *TheLoop = nullptr; // Loop being vectorized
   HIRDDAnalysis *DDA;
   const RegDDRef *Ref;
 
-  unsigned getLoopLevel() const { return LoopLevel; }
-  const DDGraph getDDGraph() const;
+  unsigned getLoopLevel() const { return TheLoop->getNestingLevel(); }
+  const DDGraph getDDGraph() const { return DDA->getGraph(TheLoop); }
 
 public:
   explicit VPVLSClientMemrefHIR(OVLSAccessKind AccKind, const OVLSType &Ty,
-                                const VPLoadStoreInst *Inst,
-                                const unsigned LoopLevel, HIRDDAnalysis *DDA,
-                                const RegDDRef *Ref)
+                                const VPLoadStoreInst *Inst, const HLLoop *Loop,
+                                HIRDDAnalysis *DDA, const RegDDRef *Ref)
       : VPVLSClientMemref(VLSK_VPlanHIRVLSClientMemref, AccKind, Ty, Inst,
                           /*VLSA=*/nullptr),
-        LoopLevel(LoopLevel), DDA(DDA), Ref(Ref) {}
+        TheLoop(Loop), DDA(DDA), Ref(Ref) {}
 
   Optional<int64_t> getConstDistanceFrom(const OVLSMemref &From) override {
     auto FromMem = dyn_cast<const VPVLSClientMemrefHIR>(&From);

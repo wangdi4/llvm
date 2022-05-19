@@ -49,10 +49,14 @@ private:
   static MemAccessTy getAccessType(const RegDDRef *Ref, const unsigned Level,
                                    int64_t *Stride);
 
+  const HLLoop *TheLoop = nullptr;
+
 public:
   VPlanVLSAnalysisHIR(HIRDDAnalysis *DDA, LLVMContext &Context,
-                      const DataLayout &DL, TargetTransformInfo *TTI)
-      : VPlanVLSAnalysis(/*MainLoop=*/nullptr, Context, DL, TTI), DDA(DDA) {}
+                      const DataLayout &DL, TargetTransformInfo *TTI,
+                      const HLLoop *Loop)
+      : VPlanVLSAnalysis(/*MainLoop=*/nullptr, Context, DL, TTI), DDA(DDA),
+        TheLoop(Loop) {}
 
   ~VPlanVLSAnalysisHIR() {}
 };

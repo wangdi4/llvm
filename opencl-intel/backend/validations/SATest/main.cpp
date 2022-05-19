@@ -267,9 +267,10 @@ llvm::cl::opt<PassManagerType> OptPassManagerType(
                    "Default value - none."),
     llvm::cl::values(
         clEnumValN(PM_NONE, "none", "pass pipeline is not specified"),
-        clEnumValN(PM_OCL, "ocl", "OpenCL pass pipeline"),
+        clEnumValN(PM_OCL_LEGACY, "ocl-legacy", "OpenCL pass pipeline"),
+        clEnumValN(PM_OCL, "ocl", "OpenCL new pass manager pipeline"),
         clEnumValN(PM_LTO_LEGACY, "lto-legacy", "llvm legacy pass pipeline"),
-        clEnumValN(PM_LTO_NEW, "lto-new", "llvm new pass pipeline")),
+        clEnumValN(PM_LTO, "lto", "llvm new pass manager pipeline")),
     llvm::cl::init(PM_NONE));
 
 llvm::cl::opt<bool> SerializeWorkGroups(

@@ -119,7 +119,9 @@ PassManagerType CPUDeviceConfig::GetPassManagerType() const {
   if ("legacy" == PMType)
     return PM_LTO_LEGACY;
   else if ("new" == PMType)
-    return PM_LTO_NEW;
+    return PM_LTO;
+  else if ("legacyocl" == PMType)
+    return PM_OCL_LEGACY;
   else if ("ocl" == PMType)
     return PM_OCL;
   return PM_NONE;
