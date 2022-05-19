@@ -1014,15 +1014,38 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
   }
   bool IsByRef = ClauseInfo.getIsByRef();
   bool IsConditional = ClauseInfo.getIsConditional();
-  if (IsConditional)
-    assert(ClauseID == QUAL_OMP_LASTPRIVATE &&
-           "The CONDITIONAL keyword is for LASTPRIVATE clauses only");
 #if INTEL_CUSTOMIZATION
-  if (ClauseInfo.getIsNonPod() || ClauseInfo.getIsF90NonPod()) {
-    // F90_NONPODs are NONPODs for which Ctor args are replaced by CCtors.
+  bool IsNonPod = ClauseInfo.getIsNonPod() || ClauseInfo.getIsF90NonPod();
+  // F90_NONPODs are NONPODs for which Ctor args are replaced by CCtors.
 #else // INTEL_CUSTOMIZATION
-  if (ClauseInfo.getIsNonPod()) {
+  bool IsNonPod = ClauseInfo.getIsNonPod();
 #endif // INTEL_CUSTOMIZATION
+
+  assert(!IsConditional ||
+         ClauseID == QUAL_OMP_LASTPRIVATE &&
+             "The CONDITIONAL keyword is for LASTPRIVATE clauses only");
+  assert((!IsConditional || !IsNonPod) &&
+         "NonPod can't be conditional by OMP standard.");
+
+  auto addModifiersToItem = [&](ClauseItemTy *I) {
+    if (IsByRef)
+      I->setIsByRef(true);
+    if (IsConditional)
+      I->setIsConditional(true);
+    if (IsNonPod)
+      I->setIsNonPod(true);
+    if (ClauseInfo.getIsTyped())
+      I->setIsTyped(true);
+#if INTEL_CUSTOMIZATION
+    if (ClauseInfo.getIsF90DopeVector())
+      I->setIsF90DopeVector(true);
+    I->setIsWILocal(ClauseInfo.getIsWILocal());
+    if (ClauseInfo.getIsF90NonPod())
+      I->setIsF90NonPod(true);
+#endif // INTEL_CUSTOMIZATION
+  };
+
+  if (IsNonPod) {
     // NONPOD representation requires multiple args per var:
     //  - PRIVATE:      3 args : Var, Ctor, Dtor
     //  - FIRSTPRIVATE: 3 args : Var, CCtor, Dtor
@@ -1042,18 +1065,11 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
       return;
     }
     ClauseItemTy *Item = new ClauseItemTy(Args, IsTyped);
-    Item->setIsByRef(IsByRef);
-    Item->setIsNonPod(true);
-    assert(!IsConditional && "NonPod can't be conditional by OMP standard.");
+    addModifiersToItem(Item);
 #if INTEL_CUSTOMIZATION
     if (!CurrentBundleDDRefs.empty() &&
         WRegionUtils::supportsRegDDRefs(ClauseID))
       Item->setHOrig(CurrentBundleDDRefs[0]);
-    if (ClauseInfo.getIsF90DopeVector())
-      Item->setIsF90DopeVector(true);
-    Item->setIsWILocal(ClauseInfo.getIsWILocal());
-    if (ClauseInfo.getIsF90NonPod())
-      Item->setIsF90NonPod(true);
 #endif // INTEL_CUSTOMIZATION
     C.add(Item);
   } else if (IsTyped) { // Typed PODs
@@ -1064,20 +1080,20 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
       return;
     }
     C.add(V);
-    C.back()->setIsTyped(true);
+    addModifiersToItem(C.back());
     C.back()->setOrigItemElementTypeFromIR(Args[1]->getType());
+#if INTEL_CUSTOMIZATION
+    if (ClauseInfo.getIsF90DopeVector()) {
+      C.back()->setF90DVPointeeElementTypeFromIR(Args[2]->getType());
+      C.back()->setNumElements(
+          ConstantInt::get(IntegerType::getInt32Ty(Args[2]->getContext()), 1));
+    } else
+#endif // INTEL_CUSTOMIZATION
     C.back()->setNumElements(Args[2]);
-    if (IsByRef)
-      C.back()->setIsByRef(true);
-    if (IsConditional)
-      C.back()->setIsConditional(true);
 #if INTEL_CUSTOMIZATION
     if (!CurrentBundleDDRefs.empty() &&
         WRegionUtils::supportsRegDDRefs(ClauseID))
       C.back()->setHOrig(CurrentBundleDDRefs[0]);
-    if (ClauseInfo.getIsF90DopeVector())
-      C.back()->setIsF90DopeVector(true);
-    C.back()->setIsWILocal(ClauseInfo.getIsWILocal());
 #endif // INTEL_CUSTOMIZATION
   } else { // non-Typed PODs
     for (unsigned I = 0; I < NumArgs; ++I) {
@@ -1088,17 +1104,11 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
         continue;
       }
       C.add(V);
-      if (IsByRef)
-        C.back()->setIsByRef(true);
-      if (IsConditional)
-        C.back()->setIsConditional(true);
+      addModifiersToItem(C.back());
 #if INTEL_CUSTOMIZATION
       if (!CurrentBundleDDRefs.empty() &&
           WRegionUtils::supportsRegDDRefs(ClauseID))
         C.back()->setHOrig(CurrentBundleDDRefs[I]);
-      if (ClauseInfo.getIsF90DopeVector())
-        C.back()->setIsF90DopeVector(true);
-      C.back()->setIsWILocal(ClauseInfo.getIsWILocal());
 #endif // INTEL_CUSTOMIZATION
     }
   }

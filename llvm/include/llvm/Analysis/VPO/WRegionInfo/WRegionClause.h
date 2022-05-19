@@ -175,6 +175,10 @@ class Item
     bool IsTyped = false; // true if type is transfered thru arguments
     Type *OrigItemElementTypeFromIR = nullptr; // Type of an item
     Value *NumElements = nullptr; // Number of elements of this item
+#if INTEL_CUSTOMIZATION
+    Type *F90DVPointeeElementTypeFromIR =
+        nullptr; // pointee element type for F90 DVs
+#endif // INTEL_CUSTOMIZATION
 
   public:
     Item(VAR Orig, ItemKind K)
@@ -276,6 +280,12 @@ class Item
       if (getIsTyped()) {
         OS << ", TYPED (TYPE: ";
         getOrigItemElementTypeFromIR()->print(OS);
+#if INTEL_CUSTOMIZATION
+        if (getIsF90DopeVector()) {
+          OS << ", POINTEE_TYPE: ";
+          getF90DVPointeeElementTypeFromIR()->print(OS);
+        }
+#endif // INTEL_CUSTOMIZATION
         OS << ", NUM_ELEMENTS: ";
         getNumElements()->printAsOperand(OS, PrintType);
         OS << ")";
@@ -395,6 +405,14 @@ class Item
                                     "a clause that doesn't support it");
       return NumElements;
     }
+#if INTEL_CUSTOMIZATION
+    void setF90DVPointeeElementTypeFromIR(Type *Ty) {
+      F90DVPointeeElementTypeFromIR = Ty;
+    }
+    Type *getF90DVPointeeElementTypeFromIR() const {
+      return F90DVPointeeElementTypeFromIR;
+    }
+#endif // INTEL_CUSTOMIZATION
 };
 
 //
