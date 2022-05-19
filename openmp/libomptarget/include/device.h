@@ -468,7 +468,7 @@ struct DeviceTy {
   int32_t isSupportedDevice(void *DeviceType);
 #if INTEL_CUSTOMIZATION
   __tgt_interop *createInterop(int32_t InteropContext, int32_t NumPrefers,
-                               intptr_t *PreferIDs);
+                               int32_t *PreferIDs);
   int32_t releaseInterop(__tgt_interop *Interop);
   int32_t useInterop(__tgt_interop *Interop);
   int32_t getNumInteropProperties(void);
