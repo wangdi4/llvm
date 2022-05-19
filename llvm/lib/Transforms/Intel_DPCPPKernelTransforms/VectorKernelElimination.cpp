@@ -60,6 +60,7 @@ bool runImpl(Module &M,
     LLVM_DEBUG(dbgs() << "  Vectorized kernel: " << VecF->getName() << "\n");
 
     int ScalarCost = GetInstCountResult(*F).getWeight();
+    assert(VF != 0 && "Kernel vectorized_width metadata must not be zero!");
     int VectorCost = GetInstCountResult(*VecF).getWeight() / VF;
     LLVM_DEBUG(dbgs() << "  ScalarCost: " << ScalarCost
                       << "  VectorCost: " << VectorCost << '\n');
