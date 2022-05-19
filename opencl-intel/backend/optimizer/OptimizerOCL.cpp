@@ -371,7 +371,7 @@ void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
   createStandardLLVMPasses(MPM);
 
   // check there is no recursion, if there is fail compilation
-  //  MPM.addPass(DetectRecursionPass());
+  MPM.addPass(DetectRecursionPass());
 
   // PipeSupport can fail if dynamic pipe access is discovered after LLVM
   // optimizations

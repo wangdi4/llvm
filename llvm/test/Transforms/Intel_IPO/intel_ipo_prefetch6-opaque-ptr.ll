@@ -31,87 +31,65 @@
 ; *** Check section 1 ***
 ; The LLVM-IR check below ensures that a call to the Prefetch.Backbone function is inserted inside host
 ; _Z6searchP7state_tiiiii.
-; CHECK: define internal i32 @_Z6searchP7state_tiiiii(ptr %0, i32 %1, i32 %2, i32 %3, i32 %4, i32 %5) #{{.}} {
+; CHECK: define internal noundef i32 @_Z6searchP7state_tiiiii(ptr noundef %0, i32 noundef %1, i32 noundef %2, i32 noundef %3, i32 noundef %4, i32 noundef %5) #{{.}} {
 ; CHECK: call void @Prefetch.Backbone(ptr %0)
 ;
 
 ; *** Check section 2 ***
 ; The LLVM-IR check below ensures that a call to the Prefetch.Backbone function is inserted inside host
 ; _Z7qsearchP7state_tiiii.
-; CHECK:define internal i32 @_Z7qsearchP7state_tiiii(ptr %0, i32 %1, i32 %2, i32 %3, i32 %4) #{{.}} {
+; CHECK: define internal noundef i32 @_Z7qsearchP7state_tiiii(ptr noundef %0, i32 noundef %1, i32 noundef %2, i32 noundef %3, i32 noundef %4) #{{.}} {
 ; CHECK: call void @Prefetch.Backbone(ptr %0)
 ;
 
 ; *** Check section 3 ***
 ; The LLVM-IR check below ensures the prefetch function is generated.
-; CHECK: define internal void @Prefetch.Backbone(ptr nocapture %0) #{{.}} {
+; CHECK: define internal void @Prefetch.Backbone(ptr nocapture noundef %0) #{{.}} {
 ;
-
 
 ; ModuleID = 'intel_ipo_prefetch6.ll'
 source_filename = "<stdin>"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct.pawntt_t = type { i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i32, i32 }
-%struct._IO_FILE = type { i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, i64, i16, i8, [1 x i8], ptr, i64, ptr, ptr, ptr, ptr, i64, i32, [20 x i8] }
-%struct._IO_marker = type opaque
-%struct._IO_codecvt = type opaque
-%struct._IO_wide_data = type opaque
-%struct.state_t = type { i32, [64 x i32], i64, i64, i64, [13 x i64], i32, i32, [13 x i32], i32, i32, i32, i32, i32, i32, i32, i64, i64, [64 x %struct.move_x], [64 x i32], [64 x i32], [64 x %struct.anon], i64, i64, i32, [64 x i32], i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, [1000 x i64] }
-%struct.move_x = type { i32, i32, i32, i32, i64, i64 }
-%struct.anon = type { i32, i32, i32, i32 }
-%struct.gamestate_t = type { i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, [1000 x i32], [1000 x %struct.move_x], i64, i32, i32, i32, i32, i32, i32, i32, i32 }
-%struct.scoreboard_t = type { i32, i32, [8 x %struct.anon.0], [8 x i32], [8 x %struct.state_t] }
-%struct.anon.0 = type { i32, i32, i32 }
-%struct.ttentry_t = type { [4 x %struct.ttbucket_t] }
-%struct.ttbucket_t = type { i32, i16, i16, i8, i8 }
+%struct._ZTS8pawntt_t.pawntt_t = type { i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i32, i32 }
+%struct._ZTS7state_t.state_t = type { i32, [64 x i32], i64, i64, i64, [13 x i64], i32, i32, [13 x i32], i32, i32, i32, i32, i32, i32, i32, i64, i64, [64 x %struct._ZTS6move_x.move_x], [64 x i32], [64 x i32], [64 x %struct._ZTSN7state_tUt_E.anon], i64, i64, i32, [64 x i32], i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, [1000 x i64] }
+%struct._ZTS6move_x.move_x = type { i32, i32, i32, i32, i64, i64 }
+%struct._ZTSN7state_tUt_E.anon = type { i32, i32, i32, i32 }
+%struct._ZTS12scoreboard_t.scoreboard_t = type { i32, i32, [8 x %struct._ZTSN12scoreboard_tUt_E.anon], [8 x i32], [8 x %struct._ZTS7state_t.state_t] }
+%struct._ZTSN12scoreboard_tUt_E.anon = type { i32, i32, i32 }
+%struct._ZTS11gamestate_t.gamestate_t = type { i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, [1000 x i32], [1000 x %struct._ZTS6move_x.move_x], i64, i32, i32, i32, i32, i32, i32, i32, i32 }
+%struct._ZTS12t_eval_comps.t_eval_comps = type { i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32 }
+%struct._ZTS9ttentry_t.ttentry_t = type { [4 x %struct._ZTS10ttbucket_t.ttbucket_t] }
+%struct._ZTS10ttbucket_t.ttbucket_t = type { i32, i16, i16, i8, i8 }
+%struct._ZTS13__va_list_tag.__va_list_tag = type { i32, i32, ptr, ptr }
+%struct._ZTS8_IO_FILE._IO_FILE = type { i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, i64, i16, i8, [1 x i8], ptr, i64, ptr, ptr, ptr, ptr, i64, i32, [20 x i8] }
+%struct._ZTS10_IO_marker._IO_marker = type opaque
+%struct._ZTS11_IO_codecvt._IO_codecvt = type opaque
+%struct._ZTS13_IO_wide_data._IO_wide_data = type opaque
+%struct._ZTS12attackinfo_t.attackinfo_t = type { i64, i64, i64, i64, i64, i64, i64, i64, i64, i64 }
 
-@Mask = internal global [64 x i64] zeroinitializer, align 16
-@InvMask = internal global [64 x i64] zeroinitializer, align 16
-@FileMask = internal global [8 x i64] zeroinitializer, align 16
-@RankMask = internal global [8 x i64] zeroinitializer, align 16
-@FileUpMask = internal global [64 x i64] zeroinitializer, align 16
-@FileDownMask = internal global [64 x i64] zeroinitializer, align 16
-@DiagMaska1h8 = internal global [64 x i64] zeroinitializer, align 16
-@DiagMaska8h1 = internal global [64 x i64] zeroinitializer, align 16
-@_ZL19DiagonalLength_a1h8 = internal unnamed_addr constant [64 x i32] [i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 7, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 7, i32 6, i32 4, i32 5, i32 6, i32 7, i32 8, i32 7, i32 6, i32 5, i32 5, i32 6, i32 7, i32 8, i32 7, i32 6, i32 5, i32 4, i32 6, i32 7, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 7, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2, i32 1], align 16
-@_ZL19DiagonalLength_a8h1 = internal unnamed_addr constant [64 x i32] [i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2, i32 1, i32 7, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2, i32 6, i32 7, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 5, i32 6, i32 7, i32 8, i32 7, i32 6, i32 5, i32 4, i32 4, i32 5, i32 6, i32 7, i32 8, i32 7, i32 6, i32 5, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 7, i32 6, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 7, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8], align 16
-@KingSafetyMask = internal global [64 x i64] zeroinitializer, align 16
-@KingSafetyMask1 = internal global [64 x i64] zeroinitializer, align 16
-@KnightMoves = internal global [64 x i64] zeroinitializer, align 16
-@PawnAttacksBlack = internal global [64 x i64] zeroinitializer, align 16
-@PawnAttacksWhite = internal global [64 x i64] zeroinitializer, align 16
 @PawnMovesBlack = internal global [64 x i64] zeroinitializer, align 16
 @PawnMovesWhite = internal global [64 x i64] zeroinitializer, align 16
-@KingMoves = internal global [64 x i64] zeroinitializer, align 16
-@firstRankAttacks = internal global [64 x [8 x i8]] zeroinitializer, align 16
 @fillUpAttacks = internal global [64 x [8 x i64]] zeroinitializer, align 16
 @aFileAttacks = internal global [64 x [8 x i64]] zeroinitializer, align 16
-@RookMask = internal global [64 x i64] zeroinitializer, align 16
-@BishopMask = internal global [64 x i64] zeroinitializer, align 16
-@QueenMask = internal global [64 x i64] zeroinitializer, align 16
-@AboveMask = internal global [8 x i64] zeroinitializer, align 16
-@BelowMask = internal global [8 x i64] zeroinitializer, align 16
+@firstRankAttacks = internal global [64 x [8 x i8]] zeroinitializer, align 16
+@DiagMaska1h8 = internal global [64 x i64] zeroinitializer, align 16
+@DiagMaska8h1 = internal global [64 x i64] zeroinitializer, align 16
 @LeftMask = internal global [8 x i64] zeroinitializer, align 16
 @RightMask = internal global [8 x i64] zeroinitializer, align 16
-@WhiteSqMask = internal global i64 0, align 8
-@BlackSqMask = internal global i64 0, align 8
+@QueenMask = internal global [64 x i64] zeroinitializer, align 16
 @WhiteKingSide = internal global i64 0, align 8
 @WhiteQueenSide = internal global i64 0, align 8
 @BlackKingSide = internal global i64 0, align 8
 @BlackQueenSide = internal global i64 0, align 8
-@QSMask = internal global i64 0, align 8
-@KSMask = internal global i64 0, align 8
-@WhiteStrongSquareMask = internal global i64 0, align 8
-@BlackStrongSquareMask = internal global i64 0, align 8
+@KingSafetyMask1 = internal global [64 x i64] zeroinitializer, align 16
 @CenterMask = internal global i64 0, align 8
-@KingFilesMask = internal global [8 x i64] zeroinitializer, align 16
-@KingPressureMask = internal global [64 x i64] zeroinitializer, align 16
-@KingPressureMask1 = internal global [64 x i64] zeroinitializer, align 16
 @SpaceMask = internal global [2 x i64] zeroinitializer, align 16
-@CastleMask = internal global [4 x i64] zeroinitializer, align 16
+@_ZL19DiagonalLength_a1h8 = internal unnamed_addr constant [64 x i32] [i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 7, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 7, i32 6, i32 4, i32 5, i32 6, i32 7, i32 8, i32 7, i32 6, i32 5, i32 5, i32 6, i32 7, i32 8, i32 7, i32 6, i32 5, i32 4, i32 6, i32 7, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 7, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2, i32 1], align 16
+@_ZL19DiagonalLength_a8h1 = internal unnamed_addr constant [64 x i32] [i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2, i32 1, i32 7, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 2, i32 6, i32 7, i32 8, i32 7, i32 6, i32 5, i32 4, i32 3, i32 5, i32 6, i32 7, i32 8, i32 7, i32 6, i32 5, i32 4, i32 4, i32 5, i32 6, i32 7, i32 8, i32 7, i32 6, i32 5, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 7, i32 6, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 7, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8], align 16
 @last_bit = internal global [65536 x i8] zeroinitializer, align 16
+@KingSafetyMask = internal global [64 x i64] zeroinitializer, align 16
 @_ZZ14setup_epd_lineP11gamestate_tP7state_tPKcE11rankoffsets = internal unnamed_addr constant [8 x i32] [i32 0, i32 8, i32 16, i32 24, i32 32, i32 40, i32 48, i32 56], align 16
 @.str.3 = private unnamed_addr constant [2 x i8] c"r\00", align 1
 @.str.4 = private unnamed_addr constant [20 x i8] c"Workload not found\0A\00", align 1
@@ -119,34 +97,54 @@ target triple = "x86_64-unknown-linux-gnu"
 @.str.6 = private unnamed_addr constant [23 x i8] c"Analyzing %d plies...\0A\00", align 1
 @.str.7 = private unnamed_addr constant [31 x i8] c"\0ANodes: %llu (%0.2f%% qnodes)\0A\00", align 1
 @.str.8 = private unnamed_addr constant [2 x i8] c"\0A\00", align 1
+@KingMoves = internal global [64 x i64] zeroinitializer, align 16
+@PawnAttacksBlack = internal global [64 x i64] zeroinitializer, align 16
+@PawnAttacksWhite = internal global [64 x i64] zeroinitializer, align 16
 @.str = private unnamed_addr constant [10 x i8] c"sjeng.log\00", align 1
+@InvMask = internal global [64 x i64] zeroinitializer, align 16
+@CastleMask = internal global [4 x i64] zeroinitializer, align 16
+@KnightMoves = internal global [64 x i64] zeroinitializer, align 16
+@KingFilesMask = internal global [8 x i64] zeroinitializer, align 16
+@KingPressureMask = internal global [64 x i64] zeroinitializer, align 16
+@KingPressureMask1 = internal global [64 x i64] zeroinitializer, align 16
 @_ZL8w_passer = internal unnamed_addr constant [6 x i32] [i32 185, i32 120, i32 70, i32 40, i32 20, i32 15], align 16
 @_ZL23w_passer_pawn_supported = internal unnamed_addr constant [6 x i32] [i32 65, i32 25, i32 8, i32 -3, i32 -5, i32 -5], align 16
 @_ZL23w_passer_king_supported = internal unnamed_addr constant [6 x i32] [i32 -25, i32 25, i32 7, i32 5, i32 5, i32 4], align 16
 @_ZL13w_passer_free = internal unnamed_addr constant [6 x i32] [i32 185, i32 15, i32 10, i32 8, i32 3, i32 1], align 16
 @_ZL18w_passer_very_free = internal unnamed_addr constant [6 x i32] [i32 0, i32 80, i32 30, i32 15, i32 10, i32 10], align 16
 @_ZL16w_passer_blocked = internal unnamed_addr constant [6 x i32] [i32 -25, i32 -10, i32 -4, i32 0, i32 0, i32 0], align 16
-@material = internal constant [14 x i32] [i32 0, i32 85, i32 -85, i32 305, i32 -305, i32 40000, i32 -40000, i32 490, i32 -490, i32 935, i32 -935, i32 330, i32 -330, i32 0], align 16
-@_ZL6PawnTT = internal global [8 x [16384 x %struct.pawntt_t]] zeroinitializer, align 16
+@WhiteSqMask = internal global i64 0, align 8
+@BlackSqMask = internal global i64 0, align 8
+@_ZL6PawnTT = internal global [8 x [16384 x %struct._ZTS8pawntt_t.pawntt_t]] zeroinitializer, align 16
+@FileMask = internal global [8 x i64] zeroinitializer, align 16
+@FileUpMask = internal global [64 x i64] zeroinitializer, align 16
+@AboveMask = internal global [8 x i64] zeroinitializer, align 16
+@BelowMask = internal global [8 x i64] zeroinitializer, align 16
+@RankMask = internal global [8 x i64] zeroinitializer, align 16
 @_ZL11w_candidate = internal unnamed_addr constant [6 x i32] [i32 0, i32 44, i32 12, i32 10, i32 3, i32 3], align 16
-@_ZL15psq_king_nopawn = internal unnamed_addr constant [64 x i32] [i32 -40, i32 -30, i32 -22, i32 -20, i32 -20, i32 -22, i32 -30, i32 -40, i32 -30, i32 -15, i32 -10, i32 -5, i32 -5, i32 -10, i32 -15, i32 -30, i32 -22, i32 -10, i32 5, i32 10, i32 10, i32 5, i32 -10, i32 -22, i32 -20, i32 -5, i32 10, i32 20, i32 20, i32 10, i32 -5, i32 -20, i32 -20, i32 -5, i32 10, i32 20, i32 20, i32 10, i32 -5, i32 -20, i32 -22, i32 -10, i32 5, i32 10, i32 10, i32 5, i32 -10, i32 -22, i32 -30, i32 -15, i32 -10, i32 -5, i32 -5, i32 -10, i32 -15, i32 -30, i32 -40, i32 -30, i32 -22, i32 -20, i32 -20, i32 -22, i32 -30, i32 -40], align 16
-@_ZL18psq_king_queenside = internal unnamed_addr constant [64 x i32] [i32 -40, i32 -30, i32 -20, i32 -20, i32 -30, i32 -40, i32 -55, i32 -75, i32 -25, i32 0, i32 0, i32 -5, i32 -15, i32 -30, i32 -50, i32 -70, i32 -20, i32 10, i32 15, i32 20, i32 -10, i32 -25, i32 -45, i32 -70, i32 -15, i32 15, i32 30, i32 30, i32 -5, i32 -15, i32 -35, i32 -60, i32 -15, i32 10, i32 20, i32 25, i32 -10, i32 -25, i32 -35, i32 -60, i32 -25, i32 5, i32 15, i32 15, i32 -15, i32 -25, i32 -45, i32 -75, i32 -30, i32 -10, i32 -10, i32 -10, i32 -20, i32 -30, i32 -50, i32 -75, i32 -50, i32 -20, i32 -15, i32 -30, i32 -40, i32 -50, i32 -60, i32 -80], align 16
-@_ZL17psq_king_kingside = internal unnamed_addr constant [64 x i32] [i32 -75, i32 -55, i32 -40, i32 -30, i32 -20, i32 -20, i32 -30, i32 -40, i32 -70, i32 -50, i32 -30, i32 -15, i32 -5, i32 0, i32 0, i32 -25, i32 -70, i32 -45, i32 -25, i32 -10, i32 20, i32 15, i32 10, i32 -20, i32 -60, i32 -35, i32 -15, i32 -5, i32 30, i32 30, i32 15, i32 -15, i32 -60, i32 -35, i32 -25, i32 -10, i32 25, i32 20, i32 10, i32 -15, i32 -75, i32 -45, i32 -25, i32 -15, i32 15, i32 15, i32 5, i32 -25, i32 -75, i32 -50, i32 -30, i32 -20, i32 -10, i32 -10, i32 -10, i32 -30, i32 -80, i32 -60, i32 -50, i32 -40, i32 -30, i32 -15, i32 -20, i32 -50], align 16
-@_ZL13wking_psq_end = internal unnamed_addr constant [64 x i32] [i32 0, i32 30, i32 35, i32 20, i32 20, i32 35, i32 30, i32 0, i32 -4, i32 25, i32 20, i32 24, i32 24, i32 20, i32 25, i32 -4, i32 -4, i32 14, i32 16, i32 6, i32 6, i32 16, i32 14, i32 -4, i32 -20, i32 0, i32 5, i32 -6, i32 -6, i32 5, i32 0, i32 -20, i32 -16, i32 -4, i32 0, i32 2, i32 2, i32 0, i32 -4, i32 -16, i32 -22, i32 -8, i32 -4, i32 0, i32 0, i32 -4, i32 -8, i32 -22, i32 -26, i32 -15, i32 -10, i32 -8, i32 -8, i32 -10, i32 -15, i32 -26, i32 -30, i32 -25, i32 -25, i32 -25, i32 -25, i32 -25, i32 -25, i32 -30], align 16
-@flip = internal constant [64 x i32] [i32 56, i32 57, i32 58, i32 59, i32 60, i32 61, i32 62, i32 63, i32 48, i32 49, i32 50, i32 51, i32 52, i32 53, i32 54, i32 55, i32 40, i32 41, i32 42, i32 43, i32 44, i32 45, i32 46, i32 47, i32 32, i32 33, i32 34, i32 35, i32 36, i32 37, i32 38, i32 39, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7], align 16
+@FileDownMask = internal global [64 x i64] zeroinitializer, align 16
+@WhiteStrongSquareMask = internal global i64 0, align 8
+@BlackStrongSquareMask = internal global i64 0, align 8
 @psq_table = internal global [12 x [64 x i8]] zeroinitializer, align 16
-@_ZL9wpawn_psq = internal unnamed_addr constant <{ [38 x i32], [26 x i32] }> <{ [38 x i32] [i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 -10, i32 0, i32 0, i32 0, i32 0, i32 -10, i32 0, i32 0, i32 -5, i32 8, i32 12, i32 12, i32 8, i32 -5, i32 0, i32 0, i32 0, i32 6, i32 10, i32 10, i32 6, i32 0, i32 0, i32 0, i32 0, i32 4, i32 8, i32 8, i32 4], [26 x i32] zeroinitializer }>, align 16
+@flip = internal constant [64 x i32] [i32 56, i32 57, i32 58, i32 59, i32 60, i32 61, i32 62, i32 63, i32 48, i32 49, i32 50, i32 51, i32 52, i32 53, i32 54, i32 55, i32 40, i32 41, i32 42, i32 43, i32 44, i32 45, i32 46, i32 47, i32 32, i32 33, i32 34, i32 35, i32 36, i32 37, i32 38, i32 39, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7], align 16
+@KSMask = internal global i64 0, align 8
+@QSMask = internal global i64 0, align 8
+@_ZL13wking_psq_end = internal unnamed_addr constant [64 x i32] [i32 0, i32 30, i32 35, i32 20, i32 20, i32 35, i32 30, i32 0, i32 -4, i32 25, i32 20, i32 24, i32 24, i32 20, i32 25, i32 -4, i32 -4, i32 14, i32 16, i32 6, i32 6, i32 16, i32 14, i32 -4, i32 -20, i32 0, i32 5, i32 -6, i32 -6, i32 5, i32 0, i32 -20, i32 -16, i32 -4, i32 0, i32 2, i32 2, i32 0, i32 -4, i32 -16, i32 -22, i32 -8, i32 -4, i32 0, i32 0, i32 -4, i32 -8, i32 -22, i32 -26, i32 -15, i32 -10, i32 -8, i32 -8, i32 -10, i32 -15, i32 -26, i32 -30, i32 -25, i32 -25, i32 -25, i32 -25, i32 -25, i32 -25, i32 -30], align 16
+@_ZL17psq_king_kingside = internal unnamed_addr constant [64 x i32] [i32 -75, i32 -55, i32 -40, i32 -30, i32 -20, i32 -20, i32 -30, i32 -40, i32 -70, i32 -50, i32 -30, i32 -15, i32 -5, i32 0, i32 0, i32 -25, i32 -70, i32 -45, i32 -25, i32 -10, i32 20, i32 15, i32 10, i32 -20, i32 -60, i32 -35, i32 -15, i32 -5, i32 30, i32 30, i32 15, i32 -15, i32 -60, i32 -35, i32 -25, i32 -10, i32 25, i32 20, i32 10, i32 -15, i32 -75, i32 -45, i32 -25, i32 -15, i32 15, i32 15, i32 5, i32 -25, i32 -75, i32 -50, i32 -30, i32 -20, i32 -10, i32 -10, i32 -10, i32 -30, i32 -80, i32 -60, i32 -50, i32 -40, i32 -30, i32 -15, i32 -20, i32 -50], align 16
+@_ZL18psq_king_queenside = internal unnamed_addr constant [64 x i32] [i32 -40, i32 -30, i32 -20, i32 -20, i32 -30, i32 -40, i32 -55, i32 -75, i32 -25, i32 0, i32 0, i32 -5, i32 -15, i32 -30, i32 -50, i32 -70, i32 -20, i32 10, i32 15, i32 20, i32 -10, i32 -25, i32 -45, i32 -70, i32 -15, i32 15, i32 30, i32 30, i32 -5, i32 -15, i32 -35, i32 -60, i32 -15, i32 10, i32 20, i32 25, i32 -10, i32 -25, i32 -35, i32 -60, i32 -25, i32 5, i32 15, i32 15, i32 -15, i32 -25, i32 -45, i32 -75, i32 -30, i32 -10, i32 -10, i32 -10, i32 -20, i32 -30, i32 -50, i32 -75, i32 -50, i32 -20, i32 -15, i32 -30, i32 -40, i32 -50, i32 -60, i32 -80], align 16
+@_ZL15psq_king_nopawn = internal unnamed_addr constant [64 x i32] [i32 -40, i32 -30, i32 -22, i32 -20, i32 -20, i32 -22, i32 -30, i32 -40, i32 -30, i32 -15, i32 -10, i32 -5, i32 -5, i32 -10, i32 -15, i32 -30, i32 -22, i32 -10, i32 5, i32 10, i32 10, i32 5, i32 -10, i32 -22, i32 -20, i32 -5, i32 10, i32 20, i32 20, i32 10, i32 -5, i32 -20, i32 -20, i32 -5, i32 10, i32 20, i32 20, i32 10, i32 -5, i32 -20, i32 -22, i32 -10, i32 5, i32 10, i32 10, i32 5, i32 -10, i32 -22, i32 -30, i32 -15, i32 -10, i32 -5, i32 -5, i32 -10, i32 -15, i32 -30, i32 -40, i32 -30, i32 -22, i32 -20, i32 -20, i32 -22, i32 -30, i32 -40], align 16
 @_ZL15wknight_psq_end = internal unnamed_addr constant [64 x i32] [i32 -25, i32 -5, i32 0, i32 8, i32 8, i32 0, i32 -5, i32 -25, i32 -16, i32 4, i32 10, i32 16, i32 16, i32 10, i32 4, i32 7, i32 -1, i32 15, i32 20, i32 22, i32 22, i32 20, i32 15, i32 -7, i32 -5, i32 10, i32 16, i32 16, i32 16, i32 16, i32 10, i32 6, i32 -6, i32 5, i32 14, i32 13, i32 13, i32 14, i32 5, i32 -2, i32 -14, i32 -3, i32 4, i32 7, i32 7, i32 4, i32 -3, i32 -14, i32 -20, i32 -12, i32 -4, i32 -5, i32 -5, i32 -4, i32 -12, i32 -20, i32 -25, i32 -24, i32 -16, i32 -14, i32 -14, i32 -16, i32 -24, i32 -25], align 16
 @_ZL15wbishop_psq_end = internal unnamed_addr constant [64 x i32] [i32 -8, i32 -10, i32 -6, i32 -1, i32 -1, i32 -6, i32 -10, i32 -8, i32 -8, i32 -1, i32 -1, i32 0, i32 0, i32 -1, i32 -1, i32 -8, i32 -1, i32 5, i32 7, i32 8, i32 8, i32 7, i32 5, i32 -1, i32 -1, i32 4, i32 5, i32 10, i32 10, i32 5, i32 4, i32 -1, i32 2, i32 2, i32 3, i32 9, i32 9, i32 7, i32 3, i32 -5, i32 -2, i32 0, i32 6, i32 4, i32 4, i32 6, i32 0, i32 -2, i32 -5, i32 3, i32 1, i32 2, i32 2, i32 1, i32 3, i32 -5, i32 -10, i32 -6, i32 -8, i32 -8, i32 -8, i32 -8, i32 -6, i32 -10], align 16
 @_ZL13wrook_psq_end = internal unnamed_addr constant [64 x i32] [i32 5, i32 5, i32 7, i32 10, i32 10, i32 7, i32 5, i32 5, i32 8, i32 10, i32 14, i32 14, i32 14, i32 14, i32 10, i32 8, i32 1, i32 7, i32 7, i32 7, i32 7, i32 7, i32 7, i32 1, i32 -1, i32 4, i32 3, i32 0, i32 0, i32 3, i32 4, i32 -1, i32 -6, i32 -1, i32 -3, i32 -2, i32 -2, i32 -3, i32 -1, i32 -6, i32 -10, i32 -4, i32 -8, i32 -8, i32 -8, i32 -8, i32 -4, i32 -10, i32 -15, i32 -12, i32 -9, i32 -8, i32 -8, i32 -9, i32 -12, i32 -15, i32 -15, i32 -10, i32 -8, i32 -8, i32 -8, i32 -8, i32 -10, i32 -15], align 16
 @_ZL14wqueen_psq_end = internal unnamed_addr constant [64 x i32] [i32 5, i32 12, i32 16, i32 16, i32 16, i32 16, i32 12, i32 5, i32 -10, i32 12, i32 20, i32 26, i32 26, i32 20, i32 12, i32 -10, i32 -5, i32 10, i32 15, i32 18, i32 18, i32 15, i32 10, i32 -5, i32 -15, i32 1, i32 10, i32 14, i32 14, i32 10, i32 1, i32 -15, i32 -7, i32 -4, i32 6, i32 9, i32 9, i32 6, i32 -4, i32 -7, i32 -12, i32 -8, i32 -2, i32 -4, i32 -4, i32 -2, i32 -8, i32 -12, i32 -12, i32 -12, i32 -13, i32 -10, i32 -10, i32 -13, i32 -12, i32 -12, i32 -20, i32 -25, i32 -25, i32 -10, i32 -10, i32 -25, i32 -25, i32 -20], align 16
+@_ZL9wpawn_psq = internal unnamed_addr constant <{ [38 x i32], [26 x i32] }> <{ [38 x i32] [i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 -10, i32 0, i32 0, i32 0, i32 0, i32 -10, i32 0, i32 0, i32 -5, i32 8, i32 12, i32 12, i32 8, i32 -5, i32 0, i32 0, i32 0, i32 6, i32 10, i32 10, i32 6, i32 0, i32 0, i32 0, i32 0, i32 4, i32 8, i32 8, i32 4], [26 x i32] zeroinitializer }>, align 16
+@history_h = internal global [8 x [12 x [64 x i32]]] zeroinitializer, align 16
 @history_hit = internal global [8 x [12 x [64 x i32]]] zeroinitializer, align 16
 @history_tot = internal global [8 x [12 x [64 x i32]]] zeroinitializer, align 16
-@history_h = internal global [8 x [12 x [64 x i32]]] zeroinitializer, align 16
 @_ZL8rc_index = internal unnamed_addr constant [14 x i32] [i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3, i32 4, i32 4, i32 5, i32 5, i32 2, i32 2, i32 0], align 16
+@_ZZ11search_rootP7state_tiiiE7changes = internal unnamed_addr global i32 0, align 4
 @_ZZ11search_rootP7state_tiiiE5bmove = internal unnamed_addr global i32 0, align 4
 @.str.37 = private unnamed_addr constant [20 x i8] c"info refutation %s \00", align 1
-@_ZZ11search_rootP7state_tiiiE7changes = internal unnamed_addr global i32 0, align 4
 @_ZZ5thinkP11gamestate_tP7state_tE15lastsearchscore = internal unnamed_addr global i32 0, align 4
 @.str.1 = private unnamed_addr constant [41 x i8] c"info depth 1 time 0 nodes 1 score cp %d\0A\00", align 1
 @.str.2 = private unnamed_addr constant [13 x i8] c"bestmove %s\0A\00", align 1
@@ -158,37 +156,32 @@ target triple = "x86_64-unknown-linux-gnu"
 @.str.8.45 = private unnamed_addr constant [85 x i8] c"info string Nonsense in temp_move, time_failure %d failed %d time_exit %d result %d\0A\00", align 1
 @.str.9 = private unnamed_addr constant [15 x i8] c"bestmove 0000\0A\00", align 1
 @.str.10 = private unnamed_addr constant [23 x i8] c"bestmove %s ponder %s\0A\00", align 1
-@stdout = external dso_local local_unnamed_addr global ptr, align 8
-@stdin = external dso_local local_unnamed_addr global ptr, align 8
-@contempt = internal global i32 0, align 4
-@is_pondering = internal global i32 0, align 4
-@allow_pondering = internal global i32 0, align 4
+@RookMask = internal global [64 x i64] zeroinitializer, align 16
+@BishopMask = internal global [64 x i64] zeroinitializer, align 16
 @is_analyzing = internal global i32 0, align 4
-@time_check_log = internal global i32 0, align 4
-@buffered_command = internal global [20 x [8192 x i8]] zeroinitializer, align 16
-@buffered_count = internal global i32 0, align 4
-@.str.58 = private unnamed_addr constant [30 x i8] c"Please specify the workfile.\0A\00", align 1
-@TTSize = internal global i32 0, align 4
-@uci_mode = internal global i32 0, align 4
-@uci_chess960_mode = internal global i32 0, align 4
 @uci_showcurrline = internal global i32 0, align 4
 @uci_showrefutations = internal global i32 0, align 4
 @uci_limitstrength = internal global i32 0, align 4
 @uci_elo = internal global i32 0, align 4
-@uci_multipv = internal global i32 0, align 4
-@cfg_logging = internal global i32 0, align 4
-@cfg_logfile = internal global [512 x i8] zeroinitializer, align 16
-@EGTBHits = internal global i32 0, align 4
-@state = internal global %struct.state_t zeroinitializer, align 8
-@gamestate = internal global %struct.gamestate_t zeroinitializer, align 8
-@scoreboard = internal global %struct.scoreboard_t zeroinitializer, align 8
+@contempt = internal global i32 0, align 4
+@time_check_log = internal global i32 0, align 4
+@.str.58 = private unnamed_addr constant [30 x i8] c"Please specify the workfile.\0A\00", align 1
+@state = internal global %struct._ZTS7state_t.state_t zeroinitializer, align 8
+@scoreboard = internal global %struct._ZTS12scoreboard_t.scoreboard_t zeroinitializer, align 8
+@zobrist = internal global [14 x [64 x i64]] zeroinitializer, align 16
 @TTable = internal global ptr null, align 8
 @TTAge = internal global i32 0, align 4
-@zobrist = internal global [14 x [64 x i64]] zeroinitializer, align 16
+@TTSize = internal global i32 0, align 4
 @.str.101 = private unnamed_addr constant [38 x i8] c"Out of memory allocating hashtables.\0A\00", align 1
 @.str.1.102 = private unnamed_addr constant [50 x i8] c"Allocated %d hash entries, totalling %llu bytes.\0A\00", align 1
-@.str.117 = private unnamed_addr constant [5 x i8] c"%c%d\00", align 1
+@root_scores = internal global [240 x i32] zeroinitializer, align 16
+@multipv_strings = internal global [240 x [512 x i8]] zeroinitializer, align 16
+@multipv_scores = internal global [240 x i32] zeroinitializer, align 16
+@uci_mode = internal global i32 0, align 4
+@gamestate = internal global %struct._ZTS11gamestate_t.gamestate_t zeroinitializer, align 8
+@allow_pondering = internal global i32 0, align 4
 @__const._Z11comp_to_sanP7state_tiPc.type_to_char = private unnamed_addr constant [14 x i8] c"FPPNNKKRRQQBBE", align 1
+@.str.117 = private unnamed_addr constant [5 x i8] c"%c%d\00", align 1
 @.str.1.118 = private unnamed_addr constant [8 x i8] c"%c%d=%c\00", align 1
 @.str.2.119 = private unnamed_addr constant [8 x i8] c"%cx%c%d\00", align 1
 @.str.3.120 = private unnamed_addr constant [11 x i8] c"%cx%c%d=%c\00", align 1
@@ -200,18 +193,12 @@ target triple = "x86_64-unknown-linux-gnu"
 @.str.10.126 = private unnamed_addr constant [7 x i8] c"%c%c%d\00", align 1
 @.str.11 = private unnamed_addr constant [5 x i8] c"illg\00", align 1
 @.str.14 = private unnamed_addr constant [5 x i8] c"0000\00", align 1
+@uci_chess960_mode = internal global i32 0, align 4
 @.str.15 = private unnamed_addr constant [10 x i8] c"%c%d%c%dn\00", align 1
 @.str.16 = private unnamed_addr constant [10 x i8] c"%c%d%c%dr\00", align 1
 @.str.17 = private unnamed_addr constant [10 x i8] c"%c%d%c%db\00", align 1
 @.str.18 = private unnamed_addr constant [10 x i8] c"%c%d%c%dq\00", align 1
-@.str.34 = private unnamed_addr constant [6 x i8] c"  %s\0A\00", align 1
 @.str.19 = private unnamed_addr constant [42 x i8] c"+----+----+----+----+----+----+----+----+\00", align 1
-@.str.35 = private unnamed_addr constant [5 x i8] c"%d |\00", align 1
-@__const._Z13display_boardP7state_ti.piece_rep = private unnamed_addr constant [14 x ptr] [ptr getelementptr inbounds ([3 x i8], ptr @.str.20, i32 0, i32 0), ptr getelementptr inbounds ([3 x i8], ptr @.str.21, i32 0, i32 0), ptr getelementptr inbounds ([3 x i8], ptr @.str.22, i32 0, i32 0), ptr getelementptr inbounds ([3 x i8], ptr @.str.23, i32 0, i32 0), ptr getelementptr inbounds ([3 x i8], ptr @.str.24, i32 0, i32 0), ptr getelementptr inbounds ([3 x i8], ptr @.str.25, i32 0, i32 0), ptr getelementptr inbounds ([3 x i8], ptr @.str.26, i32 0, i32 0), ptr getelementptr inbounds ([3 x i8], ptr @.str.27, i32 0, i32 0), ptr getelementptr inbounds ([3 x i8], ptr @.str.28, i32 0, i32 0), ptr getelementptr inbounds ([3 x i8], ptr @.str.29, i32 0, i32 0), ptr getelementptr inbounds ([3 x i8], ptr @.str.30, i32 0, i32 0), ptr getelementptr inbounds ([3 x i8], ptr @.str.31, i32 0, i32 0), ptr getelementptr inbounds ([3 x i8], ptr @.str.32, i32 0, i32 0), ptr getelementptr inbounds ([3 x i8], ptr @.str.33, i32 0, i32 0)], align 16
-@.str.36 = private unnamed_addr constant [6 x i8] c" %s |\00", align 1
-@.str.37.133 = private unnamed_addr constant [7 x i8] c"\0A  %s\0A\00", align 1
-@.str.38 = private unnamed_addr constant [45 x i8] c"\0A     a    b    c    d    e    f    g    h\0A\0A\00", align 1
-@.str.39 = private unnamed_addr constant [45 x i8] c"\0A     h    g    f    e    d    c    b    a\0A\0A\00", align 1
 @.str.20 = private unnamed_addr constant [3 x i8] c"!!\00", align 1
 @.str.21 = private unnamed_addr constant [3 x i8] c" P\00", align 1
 @.str.22 = private unnamed_addr constant [3 x i8] c"*P\00", align 1
@@ -226,30 +213,45 @@ target triple = "x86_64-unknown-linux-gnu"
 @.str.31 = private unnamed_addr constant [3 x i8] c" B\00", align 1
 @.str.32 = private unnamed_addr constant [3 x i8] c"*B\00", align 1
 @.str.33 = private unnamed_addr constant [3 x i8] c"  \00", align 1
-@.str.55 = private unnamed_addr constant [2 x i8] c"a\00", align 1
+@__const._Z13display_boardP7state_ti.piece_rep = private unnamed_addr constant [14 x ptr] [ptr @.str.20, ptr @.str.21, ptr @.str.22, ptr @.str.23, ptr @.str.24, ptr @.str.25, ptr @.str.26, ptr @.str.27, ptr @.str.28, ptr @.str.29, ptr @.str.30, ptr @.str.31, ptr @.str.32, ptr @.str.33], align 16
+@.str.34 = private unnamed_addr constant [6 x i8] c"  %s\0A\00", align 1
+@.str.35 = private unnamed_addr constant [5 x i8] c"%d |\00", align 1
+@.str.36 = private unnamed_addr constant [6 x i8] c" %s |\00", align 1
+@.str.37.133 = private unnamed_addr constant [7 x i8] c"\0A  %s\0A\00", align 1
+@.str.38 = private unnamed_addr constant [45 x i8] c"\0A     a    b    c    d    e    f    g    h\0A\0A\00", align 1
+@.str.39 = private unnamed_addr constant [45 x i8] c"\0A     h    g    f    e    d    c    b    a\0A\0A\00", align 1
 @_ZZ9init_gameP11gamestate_tP7state_tE10init_board = internal unnamed_addr constant [64 x i32] [i32 8, i32 4, i32 12, i32 10, i32 6, i32 12, i32 4, i32 8, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 13, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 7, i32 3, i32 11, i32 9, i32 5, i32 11, i32 3, i32 7], align 16
-@_ZZL15hash_extract_pvP7state_tiPcE10levelstack = internal unnamed_addr global [65 x i64] zeroinitializer, align 16
+@.str.41 = private unnamed_addr constant [2 x i8] c"\0A\00", align 1
 @.str.42 = private unnamed_addr constant [20 x i8] c"%2d %7d %5d %8llu  \00", align 1
 @.str.43 = private unnamed_addr constant [36 x i8] c"info currmove %s currmovenumber %d\0A\00", align 1
 @.str.44 = private unnamed_addr constant [81 x i8] c"info depth %d seldepth %d time %d nodes %llu tbhits %d score cp %d multipv 1 pv \00", align 1
+@EGTBHits = internal global i32 0, align 4
 @.str.45 = private unnamed_addr constant [83 x i8] c"info depth %d seldepth %d time %d nodes %llu tbhits %d score mate %d multipv 1 pv \00", align 1
 @.str.46 = private unnamed_addr constant [3 x i8] c"%s\00", align 1
-@.str.41 = private unnamed_addr constant [2 x i8] c"\0A\00", align 1
 @.str.47 = private unnamed_addr constant [92 x i8] c"info depth %d seldepth %d time %d nodes %llu tbhits %d score cp %d lowerbound multipv 1 pv \00", align 1
 @.str.48 = private unnamed_addr constant [6 x i8] c"%s !!\00", align 1
 @.str.49 = private unnamed_addr constant [35 x i8] c"info currmove %s currmovenumber %d\00", align 1
 @.str.50 = private unnamed_addr constant [92 x i8] c"info depth %d seldepth %d time %d nodes %llu tbhits %d score cp %d upperbound multipv 1 pv \00", align 1
 @.str.51 = private unnamed_addr constant [6 x i8] c"%s ??\00", align 1
-@multipv_strings = internal global [240 x [512 x i8]] zeroinitializer, align 16
-@multipv_scores = internal global [240 x i32] zeroinitializer, align 16
 @.str.52 = private unnamed_addr constant [66 x i8] c"depth %d seldepth %d time %d nodes %llu tbhits %d score cp %d pv \00", align 1
 @.str.53 = private unnamed_addr constant [68 x i8] c"depth %d seldepth %d time %d nodes %llu tbhits %d score mate %d pv \00", align 1
+@uci_multipv = internal global i32 0, align 4
 @.str.54 = private unnamed_addr constant [17 x i8] c"info multipv %d \00", align 1
+@material = internal constant [14 x i32] [i32 0, i32 85, i32 -85, i32 305, i32 -305, i32 40000, i32 -40000, i32 490, i32 -490, i32 935, i32 -935, i32 330, i32 -330, i32 0], align 16
+@Mask = internal global [64 x i64] zeroinitializer, align 16
+@cfg_logging = internal global i32 0, align 4
+@cfg_logfile = internal global [512 x i8] zeroinitializer, align 16
+@.str.55 = private unnamed_addr constant [2 x i8] c"a\00", align 1
+@buffered_count = internal global i32 0, align 4
+@is_pondering = internal global i32 0, align 4
+@buffered_command = internal global [20 x [8192 x i8]] zeroinitializer, align 16
 @.str.58.158 = private unnamed_addr constant [74 x i8] c"Deep Sjeng version 3.2 SPEC, Copyright (C) 2000-2009 Gian-Carlo Pascutto\0A\00", align 1
+@stdin = external dso_local local_unnamed_addr global ptr, align 8
 @_ZL2s1 = internal unnamed_addr global i32 0, align 4
 @_ZL2s2 = internal unnamed_addr global i32 0, align 4
 @_ZL2s3 = internal unnamed_addr global i32 0, align 4
-@root_scores = internal global [240 x i32] zeroinitializer, align 16
+@_ZZL15hash_extract_pvP7state_tiPcE10levelstack = internal unnamed_addr global [65 x i64] zeroinitializer, align 16
+@stdout = external dso_local local_unnamed_addr global ptr, align 8
 
 ; Function Attrs: mustprogress uwtable
 declare dso_local i32 @printf(ptr nocapture readonly, ...) local_unnamed_addr #0
@@ -327,6 +329,8 @@ declare void @_ZL16fast_order_movesP7state_tPiS1_ij(ptr, ptr nonnull, ptr nonnul
 
 declare i32 @_ZL17search_time_checkP7state_t(i64)
 
+declare void @_ZL11history_badP7state_tii(ptr, i32, i32)
+
 ; Function Attrs: mustprogress nosync nounwind readnone uwtable willreturn
 declare i32 @puts(ptr nocapture readonly) local_unnamed_addr #5
 
@@ -341,199 +345,198 @@ entry:
 }
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind uwtable
-define internal i32 @_Z7ProbeTTP7state_tPiiiPjS1_S1_S1_S1_i(ptr nocapture %0, ptr nocapture %1, i32 %2, i32 %3, ptr nocapture %4, ptr nocapture %5, ptr nocapture %6, ptr nocapture %7, ptr nocapture %8, i32 %9) #1 {
-  store i32 1, ptr %6, align 4, !tbaa !6
-  %11 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 26, !intel-tbaa !10
-  %12 = load i32, ptr %11, align 4, !tbaa !10
+define internal noundef i32 @_Z7ProbeTTP7state_tPiiiPjS1_S1_S1_S1_i(ptr nocapture noundef %0, ptr nocapture noundef writeonly %1, i32 noundef %2, i32 noundef %3, ptr nocapture noundef writeonly %4, ptr nocapture noundef writeonly %5, ptr nocapture noundef writeonly %6, ptr nocapture noundef writeonly %7, ptr nocapture noundef writeonly %8, i32 noundef %9) #1 {
+  store i32 1, ptr %6, align 4
+  %11 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 26
+  %12 = load i32, ptr %11, align 4
   %13 = add i32 %12, 1
-  store i32 %13, ptr %11, align 4, !tbaa !10
-  %14 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 11, !intel-tbaa !21
-  %15 = load i32, ptr %14, align 4, !tbaa !21
+  store i32 %13, ptr %11, align 4
+  %14 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 11
+  %15 = load i32, ptr %14, align 4
   %16 = icmp eq i32 %15, 0
-  %17 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 16
-  %18 = load i64, ptr %17, align 8, !tbaa !22
+  %17 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 16
+  %18 = load i64, ptr %17, align 8
   %19 = zext i1 %16 to i64
   %20 = add i64 %18, %19
   %21 = trunc i64 %20 to i32
-  %22 = load ptr, ptr @TTable, align 8, !tbaa !23
-  %23 = load i32, ptr @TTSize, align 4, !tbaa !6
+  %22 = load ptr, ptr @TTable, align 8
+  %23 = load i32, ptr @TTSize, align 4
   %24 = urem i32 %21, %23
   %25 = zext i32 %24 to i64
-  %26 = getelementptr inbounds %struct.ttentry_t, ptr %22, i64 %25
+  %26 = getelementptr inbounds %struct._ZTS9ttentry_t.ttentry_t, ptr %22, i64 %25
   %27 = lshr i64 %20, 32
-  %28 = getelementptr inbounds %struct.ttentry_t, ptr %26, i64 0, i32 0, !intel-tbaa !25
+  %28 = getelementptr inbounds %struct._ZTS9ttentry_t.ttentry_t, ptr %26, i64 0, i32 0
   %29 = trunc i64 %27 to i32
   br label %33
 
 30:                                               ; preds = %33
   %31 = add nuw nsw i64 %34, 1
   %32 = icmp eq i64 %31, 4
-  br i1 %32, label %132, label %33, !llvm.loop !30
+  br i1 %32, label %131, label %33, !llvm.loop !53
 
 33:                                               ; preds = %30, %10
   %34 = phi i64 [ 0, %10 ], [ %31, %30 ]
-  %35 = getelementptr inbounds [4 x %struct.ttbucket_t], ptr %28, i64 0, i64 %34, !intel-tbaa !32
-  %36 = getelementptr inbounds %struct.ttbucket_t, ptr %35, i64 0, i32 0, !intel-tbaa !33
-  %37 = load i32, ptr %36, align 4, !tbaa !34
-  %38 = icmp eq i32 %37, %29
-  br i1 %38, label %39, label %30
+  %35 = getelementptr inbounds [4 x %struct._ZTS10ttbucket_t.ttbucket_t], ptr %28, i64 0, i64 %34
+  %36 = load i32, ptr %35, align 4
+  %37 = icmp eq i32 %36, %29
+  br i1 %37, label %38, label %30
 
-39:                                               ; preds = %33
-  %40 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 27, !intel-tbaa !35
-  %41 = load i32, ptr %40, align 8, !tbaa !35
-  %42 = add i32 %41, 1
-  store i32 %42, ptr %40, align 8, !tbaa !35
-  %43 = getelementptr inbounds %struct.ttbucket_t, ptr %35, i64 0, i32 4
-  %44 = load i8, ptr %43, align 1, !tbaa !36
-  %45 = lshr i8 %44, 5
-  %46 = and i8 %45, 3
-  %47 = zext i8 %46 to i32
-  %48 = load i32, ptr @TTAge, align 4, !tbaa !6
-  %49 = icmp eq i32 %48, %47
-  br i1 %49, label %56, label %50
+38:                                               ; preds = %33
+  %39 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 27
+  %40 = load i32, ptr %39, align 8
+  %41 = add i32 %40, 1
+  store i32 %41, ptr %39, align 8
+  %42 = getelementptr inbounds %struct._ZTS10ttbucket_t.ttbucket_t, ptr %35, i64 0, i32 4
+  %43 = load i8, ptr %42, align 1
+  %44 = lshr i8 %43, 5
+  %45 = and i8 %44, 3
+  %46 = zext i8 %45 to i32
+  %47 = load i32, ptr @TTAge, align 4
+  %48 = icmp eq i32 %47, %46
+  br i1 %48, label %55, label %49
 
-50:                                               ; preds = %39
-  %51 = trunc i32 %48 to i8
-  %52 = shl i8 %51, 5
-  %53 = and i8 %52, 96
-  %54 = and i8 %44, -97
-  %55 = or i8 %53, %54
-  store i8 %55, ptr %43, align 1, !tbaa !36
-  br label %56
+49:                                               ; preds = %38
+  %50 = trunc i32 %47 to i8
+  %51 = shl i8 %50, 5
+  %52 = and i8 %51, 96
+  %53 = and i8 %43, -97
+  %54 = or i8 %52, %53
+  store i8 %54, ptr %42, align 1
+  br label %55
 
-56:                                               ; preds = %50, %39
-  %57 = phi i8 [ %55, %50 ], [ %44, %39 ]
-  %58 = and i8 %57, 6
-  %59 = icmp eq i8 %58, 2
-  br i1 %59, label %60, label %72
+55:                                               ; preds = %49, %38
+  %56 = phi i8 [ %54, %49 ], [ %43, %38 ]
+  %57 = and i8 %56, 6
+  %58 = icmp eq i8 %57, 2
+  br i1 %58, label %59, label %71
 
-60:                                               ; preds = %56
-  %61 = add nsw i32 %9, -16
-  %62 = getelementptr inbounds %struct.ttbucket_t, ptr %35, i64 0, i32 3, !intel-tbaa !37
-  %63 = load i8, ptr %62, align 4, !tbaa !38
-  %64 = zext i8 %63 to i32
-  %65 = icmp sgt i32 %61, %64
-  br i1 %65, label %72, label %66
+59:                                               ; preds = %55
+  %60 = add nsw i32 %9, -16
+  %61 = getelementptr inbounds %struct._ZTS10ttbucket_t.ttbucket_t, ptr %35, i64 0, i32 3
+  %62 = load i8, ptr %61, align 4
+  %63 = zext i8 %62 to i32
+  %64 = icmp sgt i32 %60, %63
+  br i1 %64, label %71, label %65
 
-66:                                               ; preds = %60
-  %67 = getelementptr inbounds %struct.ttbucket_t, ptr %35, i64 0, i32 1, !intel-tbaa !39
-  %68 = load i16, ptr %67, align 4, !tbaa !40
-  %69 = sext i16 %68 to i32
-  %70 = icmp slt i32 %69, %3
-  br i1 %70, label %71, label %72
+65:                                               ; preds = %59
+  %66 = getelementptr inbounds %struct._ZTS10ttbucket_t.ttbucket_t, ptr %35, i64 0, i32 1
+  %67 = load i16, ptr %66, align 4
+  %68 = sext i16 %67 to i32
+  %69 = icmp slt i32 %68, %3
+  br i1 %69, label %70, label %71
 
-71:                                               ; preds = %66
-  store i32 0, ptr %6, align 4, !tbaa !6
-  br label %72
+70:                                               ; preds = %65
+  store i32 0, ptr %6, align 4
+  br label %71
 
-72:                                               ; preds = %71, %66, %60, %56
-  %73 = getelementptr inbounds %struct.ttbucket_t, ptr %35, i64 0, i32 3, !intel-tbaa !37
-  %74 = load i8, ptr %73, align 4, !tbaa !38
-  %75 = zext i8 %74 to i32
-  %76 = icmp slt i32 %75, %9
-  br i1 %76, label %109, label %77
+71:                                               ; preds = %70, %65, %59, %55
+  %72 = getelementptr inbounds %struct._ZTS10ttbucket_t.ttbucket_t, ptr %35, i64 0, i32 3
+  %73 = load i8, ptr %72, align 4
+  %74 = zext i8 %73 to i32
+  %75 = icmp slt i32 %74, %9
+  br i1 %75, label %108, label %76
 
-77:                                               ; preds = %72
-  %78 = getelementptr inbounds %struct.ttbucket_t, ptr %35, i64 0, i32 1, !intel-tbaa !39
-  %79 = load i16, ptr %78, align 4, !tbaa !40
-  %80 = sext i16 %79 to i32
-  store i32 %80, ptr %1, align 4, !tbaa !6
-  %81 = icmp sgt i16 %79, 31500
-  br i1 %81, label %82, label %87
+76:                                               ; preds = %71
+  %77 = getelementptr inbounds %struct._ZTS10ttbucket_t.ttbucket_t, ptr %35, i64 0, i32 1
+  %78 = load i16, ptr %77, align 4
+  %79 = sext i16 %78 to i32
+  store i32 %79, ptr %1, align 4
+  %80 = icmp sgt i16 %78, 31500
+  br i1 %80, label %81, label %86
 
-82:                                               ; preds = %77
-  %83 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 14, !intel-tbaa !41
-  %84 = load i32, ptr %83, align 8, !tbaa !41
-  %85 = add nsw i32 %80, 1
-  %86 = sub i32 %85, %84
-  store i32 %86, ptr %1, align 4, !tbaa !6
-  br label %94
+81:                                               ; preds = %76
+  %82 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 14
+  %83 = load i32, ptr %82, align 8
+  %84 = add nsw i32 %79, 1
+  %85 = sub i32 %84, %83
+  store i32 %85, ptr %1, align 4
+  br label %93
 
-87:                                               ; preds = %77
-  %88 = icmp slt i16 %79, -31500
-  br i1 %88, label %89, label %94
+86:                                               ; preds = %76
+  %87 = icmp slt i16 %78, -31500
+  br i1 %87, label %88, label %93
 
-89:                                               ; preds = %87
-  %90 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 14, !intel-tbaa !41
-  %91 = load i32, ptr %90, align 8, !tbaa !41
-  %92 = add nsw i32 %80, -1
-  %93 = add i32 %92, %91
-  store i32 %93, ptr %1, align 4, !tbaa !6
-  br label %94
+88:                                               ; preds = %86
+  %89 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 14
+  %90 = load i32, ptr %89, align 8
+  %91 = add nsw i32 %79, -1
+  %92 = add i32 %91, %90
+  store i32 %92, ptr %1, align 4
+  br label %93
 
-94:                                               ; preds = %89, %87, %82
-  %95 = getelementptr inbounds %struct.ttbucket_t, ptr %35, i64 0, i32 2, !intel-tbaa !42
-  %96 = load i16, ptr %95, align 2, !tbaa !43
-  %97 = zext i16 %96 to i32
-  store i32 %97, ptr %4, align 4, !tbaa !6
-  %98 = and i8 %57, 1
-  %99 = zext i8 %98 to i32
-  store i32 %99, ptr %5, align 4, !tbaa !6
-  %100 = lshr i8 %57, 3
-  %101 = and i8 %100, 1
-  %102 = zext i8 %101 to i32
-  store i32 %102, ptr %7, align 4, !tbaa !6
-  %103 = lshr i8 %57, 4
-  %104 = and i8 %103, 1
-  %105 = zext i8 %104 to i32
-  store i32 %105, ptr %8, align 4, !tbaa !6
-  %106 = lshr i8 %57, 1
-  %107 = and i8 %106, 3
-  %108 = zext i8 %107 to i32
-  br label %132
+93:                                               ; preds = %88, %86, %81
+  %94 = getelementptr inbounds %struct._ZTS10ttbucket_t.ttbucket_t, ptr %35, i64 0, i32 2
+  %95 = load i16, ptr %94, align 2
+  %96 = zext i16 %95 to i32
+  store i32 %96, ptr %4, align 4
+  %97 = and i8 %56, 1
+  %98 = zext i8 %97 to i32
+  store i32 %98, ptr %5, align 4
+  %99 = lshr i8 %56, 3
+  %100 = and i8 %99, 1
+  %101 = zext i8 %100 to i32
+  store i32 %101, ptr %7, align 4
+  %102 = lshr i8 %56, 4
+  %103 = and i8 %102, 1
+  %104 = zext i8 %103 to i32
+  store i32 %104, ptr %8, align 4
+  %105 = lshr i8 %56, 1
+  %106 = and i8 %105, 3
+  %107 = zext i8 %106 to i32
+  br label %131
 
-109:                                              ; preds = %72
-  %110 = getelementptr inbounds %struct.ttbucket_t, ptr %35, i64 0, i32 2, !intel-tbaa !42
-  %111 = load i16, ptr %110, align 2, !tbaa !43
-  %112 = zext i16 %111 to i32
-  store i32 %112, ptr %4, align 4, !tbaa !6
-  %113 = and i8 %57, 1
-  %114 = zext i8 %113 to i32
-  store i32 %114, ptr %5, align 4, !tbaa !6
-  %115 = lshr i8 %57, 3
-  %116 = and i8 %115, 1
-  %117 = zext i8 %116 to i32
-  store i32 %117, ptr %7, align 4, !tbaa !6
-  %118 = lshr i8 %57, 4
-  %119 = and i8 %118, 1
-  %120 = zext i8 %119 to i32
-  store i32 %120, ptr %8, align 4, !tbaa !6
-  %121 = lshr i8 %57, 1
-  %122 = and i8 %121, 3
-  switch i8 %122, label %125 [
-    i8 1, label %123
-    i8 2, label %124
+108:                                              ; preds = %71
+  %109 = getelementptr inbounds %struct._ZTS10ttbucket_t.ttbucket_t, ptr %35, i64 0, i32 2
+  %110 = load i16, ptr %109, align 2
+  %111 = zext i16 %110 to i32
+  store i32 %111, ptr %4, align 4
+  %112 = and i8 %56, 1
+  %113 = zext i8 %112 to i32
+  store i32 %113, ptr %5, align 4
+  %114 = lshr i8 %56, 3
+  %115 = and i8 %114, 1
+  %116 = zext i8 %115 to i32
+  store i32 %116, ptr %7, align 4
+  %117 = lshr i8 %56, 4
+  %118 = and i8 %117, 1
+  %119 = zext i8 %118 to i32
+  store i32 %119, ptr %8, align 4
+  %120 = lshr i8 %56, 1
+  %121 = and i8 %120, 3
+  switch i8 %121, label %124 [
+    i8 1, label %122
+    i8 2, label %123
   ]
 
-123:                                              ; preds = %109
-  store i32 -1000000, ptr %1, align 4, !tbaa !6
-  br label %129
+122:                                              ; preds = %108
+  store i32 -1000000, ptr %1, align 4
+  br label %128
 
-124:                                              ; preds = %109
-  store i32 1000000, ptr %1, align 4, !tbaa !6
-  br label %129
+123:                                              ; preds = %108
+  store i32 1000000, ptr %1, align 4
+  br label %128
 
-125:                                              ; preds = %109
-  %126 = getelementptr inbounds %struct.ttbucket_t, ptr %35, i64 0, i32 1, !intel-tbaa !39
-  %127 = load i16, ptr %126, align 4, !tbaa !40
-  %128 = sext i16 %127 to i32
-  store i32 %128, ptr %1, align 4, !tbaa !6
-  br label %129
+124:                                              ; preds = %108
+  %125 = getelementptr inbounds %struct._ZTS10ttbucket_t.ttbucket_t, ptr %35, i64 0, i32 1
+  %126 = load i16, ptr %125, align 4
+  %127 = sext i16 %126 to i32
+  store i32 %127, ptr %1, align 4
+  br label %128
 
-129:                                              ; preds = %125, %124, %123
-  %130 = trunc i32 %9 to i8
-  store i8 %130, ptr %73, align 4, !tbaa !38
-  %131 = and i8 %57, -7
-  store i8 %131, ptr %43, align 1, !tbaa !36
-  br label %132
+128:                                              ; preds = %124, %123, %122
+  %129 = trunc i32 %9 to i8
+  store i8 %129, ptr %72, align 4
+  %130 = and i8 %56, -7
+  store i8 %130, ptr %42, align 1
+  br label %131
 
-132:                                              ; preds = %129, %94, %30
-  %133 = phi i32 [ %108, %94 ], [ 0, %129 ], [ 4, %30 ]
-  ret i32 %133
+131:                                              ; preds = %128, %93, %30
+  %132 = phi i32 [ %107, %93 ], [ 0, %128 ], [ 4, %30 ]
+  ret i32 %132
 }
 
 ; Function Attrs: mustprogress uwtable
-define internal i32 @_Z6searchP7state_tiiiii(ptr %0, i32 %1, i32 %2, i32 %3, i32 %4, i32 %5) #0 {
+define internal noundef i32 @_Z6searchP7state_tiiiii(ptr noundef %0, i32 noundef %1, i32 noundef %2, i32 noundef %3, i32 noundef %4, i32 noundef %5) #0 {
   %7 = alloca [240 x i32], align 16
   %8 = alloca [240 x i32], align 16
   %9 = alloca i32, align 4
@@ -546,2076 +549,2027 @@ define internal i32 @_Z6searchP7state_tiiiii(ptr %0, i32 %1, i32 %2, i32 %3, i32
   %16 = alloca [240 x i32], align 16
   %17 = alloca i32, align 4
   %18 = alloca i32, align 4
-  %19 = bitcast ptr %7 to ptr
-  call void @llvm.lifetime.start.p0(i64 960, ptr nonnull %19) #7
-  %20 = bitcast ptr %8 to ptr
-  call void @llvm.lifetime.start.p0(i64 960, ptr nonnull %20) #7
-  %21 = bitcast ptr %9 to ptr
-  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %21) #7
-  %22 = bitcast ptr %10 to ptr
-  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %22) #7
-  %23 = bitcast ptr %11 to ptr
-  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %23) #7
-  %24 = bitcast ptr %12 to ptr
-  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %24) #7
-  %25 = bitcast ptr %13 to ptr
-  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %25) #7
-  %26 = bitcast ptr %14 to ptr
-  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %26) #7
-  %27 = bitcast ptr %15 to ptr
-  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %27) #7
-  %28 = bitcast ptr %16 to ptr
-  call void @llvm.lifetime.start.p0(i64 960, ptr nonnull %28) #7
-  %29 = icmp slt i32 %3, 1
-  br i1 %29, label %34, label %30
+  call void @llvm.lifetime.start.p0(i64 960, ptr nonnull %7) #28
+  call void @llvm.lifetime.start.p0(i64 960, ptr nonnull %8) #28
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %9) #28
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %10) #28
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %11) #28
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %12) #28
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %13) #28
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %14) #28
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %15) #28
+  call void @llvm.lifetime.start.p0(i64 960, ptr nonnull %16) #28
+  %19 = icmp slt i32 %3, 1
+  br i1 %19, label %24, label %20
 
-30:                                               ; preds = %6
-  %31 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 14
-  %32 = load i32, ptr %31, align 8
-  %33 = icmp sgt i32 %32, 59
-  br i1 %33, label %34, label %36
+20:                                               ; preds = %6
+  %21 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 14
+  %22 = load i32, ptr %21, align 8
+  %23 = icmp sgt i32 %22, 59
+  br i1 %23, label %24, label %26
 
-34:                                               ; preds = %30, %6
-  %35 = tail call i32 @_Z7qsearchP7state_tiiii(ptr %0, i32 %1, i32 %2, i32 0, i32 0)
-  br label %1052
+24:                                               ; preds = %20, %6
+  %25 = tail call noundef i32 @_Z7qsearchP7state_tiiii(ptr noundef %0, i32 noundef %1, i32 noundef %2, i32 noundef 0, i32 noundef 0)
+  br label %1016
 
-36:                                               ; preds = %30
-  %37 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 22
-  %38 = load i64, ptr %37, align 8
-  %39 = add i64 %38, 1
-  store i64 %39, ptr %37, align 8
-  %40 = tail call fastcc i32 @_ZL17search_time_checkP7state_t(i64 %39)
-  %41 = icmp eq i32 %40, 0
-  br i1 %41, label %42, label %1052
+26:                                               ; preds = %20
+  %27 = getelementptr %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 22
+  %28 = load i64, ptr %27, align 8
+  %29 = add i64 %28, 1
+  store i64 %29, ptr %27, align 8
+  %30 = tail call fastcc noundef i32 @_ZL17search_time_checkP7state_t(i64 %29)
+  %31 = icmp eq i32 %30, 0
+  br i1 %31, label %32, label %1016
 
-42:                                               ; preds = %36
-  %43 = tail call i32 @_Z7is_drawP11gamestate_tP7state_t(ptr nonnull @gamestate, ptr nonnull %0)
-  %44 = icmp eq i32 %43, 0
-  br i1 %44, label %45, label %49
+32:                                               ; preds = %26
+  %33 = tail call noundef i32 @_Z7is_drawP11gamestate_tP7state_t(ptr noundef nonnull @gamestate, ptr noundef nonnull %0)
+  %34 = icmp eq i32 %33, 0
+  br i1 %34, label %35, label %39
 
-45:                                               ; preds = %42
-  %46 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 15
-  %47 = load i32, ptr %46, align 4
-  %48 = icmp sgt i32 %47, 99
-  br i1 %48, label %49, label %57
+35:                                               ; preds = %32
+  %36 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 15
+  %37 = load i32, ptr %36, align 4
+  %38 = icmp sgt i32 %37, 99
+  br i1 %38, label %39, label %47
 
-49:                                               ; preds = %45, %42
-  %50 = load i32, ptr getelementptr inbounds (%struct.gamestate_t, ptr @gamestate, i64 0, i32 3), align 4
-  %51 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 11
-  %52 = load i32, ptr %51, align 4
-  %53 = icmp eq i32 %50, %52
-  %54 = load i32, ptr @contempt, align 4
-  %55 = sub nsw i32 0, %54
-  %56 = select i1 %53, i32 %54, i32 %55
-  br label %1052
+39:                                               ; preds = %35, %32
+  %40 = load i32, ptr getelementptr inbounds (%struct._ZTS11gamestate_t.gamestate_t, ptr @gamestate, i64 0, i32 3), align 4
+  %41 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 11
+  %42 = load i32, ptr %41, align 4
+  %43 = icmp eq i32 %40, %42
+  %44 = load i32, ptr @contempt, align 4
+  %45 = sub nsw i32 0, %44
+  %46 = select i1 %43, i32 %44, i32 %45
+  br label %1016
 
-57:                                               ; preds = %45
-  %58 = load i32, ptr %31, align 8
-  %59 = add nsw i32 %58, -32000
-  %60 = icmp sgt i32 %59, %1
-  br i1 %60, label %61, label %63
+47:                                               ; preds = %35
+  %48 = load i32, ptr %21, align 8
+  %49 = add nsw i32 %48, -32000
+  %50 = icmp sgt i32 %49, %1
+  br i1 %50, label %51, label %53
 
-61:                                               ; preds = %57
-  %62 = icmp slt i32 %59, %2
-  br i1 %62, label %63, label %1052
+51:                                               ; preds = %47
+  %52 = icmp slt i32 %49, %2
+  br i1 %52, label %53, label %1016
 
-63:                                               ; preds = %61, %57
-  %64 = phi i32 [ %59, %61 ], [ %1, %57 ]
-  %65 = sub i32 31999, %58
-  %66 = icmp slt i32 %65, %2
-  br i1 %66, label %67, label %69
+53:                                               ; preds = %51, %47
+  %54 = phi i32 [ %49, %51 ], [ %1, %47 ]
+  %55 = sub i32 31999, %48
+  %56 = icmp slt i32 %55, %2
+  br i1 %56, label %57, label %59
 
-67:                                               ; preds = %63
-  %68 = icmp sgt i32 %65, %64
-  br i1 %68, label %69, label %1052
+57:                                               ; preds = %53
+  %58 = icmp sgt i32 %55, %54
+  br i1 %58, label %59, label %1016
 
-69:                                               ; preds = %67, %63
-  %70 = phi i32 [ %65, %67 ], [ %2, %63 ]
-  %71 = call i32 @_Z7ProbeTTP7state_tPiiiPjS1_S1_S1_S1_i(ptr nonnull %0, ptr nonnull %10, i32 %64, i32 %70, ptr nonnull %13, ptr nonnull %11, ptr nonnull %12, ptr nonnull %14, ptr nonnull %15, i32 %3)
-  switch i32 %71, label %85 [
-    i32 3, label %72
-    i32 1, label %74
-    i32 2, label %77
-    i32 0, label %80
-    i32 4, label %84
+59:                                               ; preds = %57, %53
+  %60 = phi i32 [ %55, %57 ], [ %2, %53 ]
+  %61 = call noundef i32 @_Z7ProbeTTP7state_tPiiiPjS1_S1_S1_S1_i(ptr noundef nonnull %0, ptr noundef nonnull %10, i32 noundef %54, i32 noundef %60, ptr noundef nonnull %13, ptr noundef nonnull %11, ptr noundef nonnull %12, ptr noundef nonnull %14, ptr noundef nonnull %15, i32 noundef %3)
+  switch i32 %61, label %75 [
+    i32 3, label %62
+    i32 1, label %64
+    i32 2, label %67
+    i32 0, label %70
+    i32 4, label %74
   ]
 
-72:                                               ; preds = %69
-  %73 = load i32, ptr %10, align 4
-  br label %1052
+62:                                               ; preds = %59
+  %63 = load i32, ptr %10, align 4
+  br label %1016
 
-74:                                               ; preds = %69
-  %75 = load i32, ptr %10, align 4
-  %76 = icmp sgt i32 %75, %64
-  br i1 %76, label %85, label %1052
+64:                                               ; preds = %59
+  %65 = load i32, ptr %10, align 4
+  %66 = icmp sgt i32 %65, %54
+  br i1 %66, label %75, label %1016
 
-77:                                               ; preds = %69
-  %78 = load i32, ptr %10, align 4
-  %79 = icmp slt i32 %78, %70
-  br i1 %79, label %85, label %1052
+67:                                               ; preds = %59
+  %68 = load i32, ptr %10, align 4
+  %69 = icmp slt i32 %68, %60
+  br i1 %69, label %75, label %1016
 
-80:                                               ; preds = %69
-  %81 = load i32, ptr %10, align 4
-  %82 = icmp slt i32 %81, %70
-  %83 = select i1 %82, i32 %5, i32 1
-  br label %85
+70:                                               ; preds = %59
+  %71 = load i32, ptr %10, align 4
+  %72 = icmp slt i32 %71, %60
+  %73 = select i1 %72, i32 %5, i32 1
+  br label %75
 
-84:                                               ; preds = %69
+74:                                               ; preds = %59
   store i32 65535, ptr %13, align 4
   store i32 0, ptr %11, align 4
   store i32 0, ptr %14, align 4
   store i32 0, ptr %15, align 4
-  br label %85
+  br label %75
 
-85:                                               ; preds = %84, %80, %77, %74, %69
-  %86 = phi i32 [ %5, %69 ], [ %5, %84 ], [ 0, %74 ], [ 1, %77 ], [ %83, %80 ]
-  %87 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 25
-  %88 = load i32, ptr %31, align 8
-  %89 = sext i32 %88 to i64
-  %90 = getelementptr inbounds [64 x i32], ptr %87, i64 0, i64 %89
-  %91 = load i32, ptr %90, align 4
-  %92 = call i32 @_Z13retrieve_evalP7state_t(ptr nonnull %0)
-  %93 = icmp ne i32 %91, 0
-  %94 = xor i1 %93, true
-  %95 = add nsw i32 %64, 1
-  %96 = icmp eq i32 %70, %95
-  %97 = select i1 %94, i1 %96, i1 false
-  br i1 %97, label %98, label %122
+75:                                               ; preds = %74, %70, %67, %64, %59
+  %76 = phi i32 [ %5, %59 ], [ %5, %74 ], [ 0, %64 ], [ 1, %67 ], [ %73, %70 ]
+  %77 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 25
+  %78 = load i32, ptr %21, align 8
+  %79 = sext i32 %78 to i64
+  %80 = getelementptr inbounds [64 x i32], ptr %77, i64 0, i64 %79
+  %81 = load i32, ptr %80, align 4
+  %82 = call noundef i32 @_Z13retrieve_evalP7state_t(ptr noundef nonnull %0)
+  %83 = icmp ne i32 %81, 0
+  %84 = xor i1 %83, true
+  %85 = add nsw i32 %54, 1
+  %86 = icmp eq i32 %60, %85
+  %87 = select i1 %84, i1 %86, i1 false
+  br i1 %87, label %88, label %112
 
-98:                                               ; preds = %85
-  %99 = icmp ult i32 %3, 5
+88:                                               ; preds = %75
+  %89 = icmp ult i32 %3, 5
+  br i1 %89, label %90, label %102
+
+90:                                               ; preds = %88
+  %91 = add nsw i32 %82, -75
+  %92 = icmp slt i32 %91, %60
+  br i1 %92, label %98, label %93
+
+93:                                               ; preds = %90
+  %94 = load i32, ptr %13, align 4
+  %95 = load i32, ptr %11, align 4
+  %96 = load i32, ptr %14, align 4
+  %97 = load i32, ptr %15, align 4
+  call void @_Z7StoreTTP7state_tiiijiiii(ptr noundef nonnull %0, i32 noundef %91, i32 noundef %54, i32 noundef %60, i32 noundef %94, i32 noundef %95, i32 noundef %96, i32 noundef %97, i32 noundef %3)
+  br label %1016
+
+98:                                               ; preds = %90
+  %99 = icmp slt i32 %82, %60
   br i1 %99, label %100, label %112
 
 100:                                              ; preds = %98
-  %101 = add nsw i32 %92, -75
-  %102 = icmp slt i32 %101, %70
-  br i1 %102, label %108, label %103
+  %101 = call noundef i32 @_Z7qsearchP7state_tiiii(ptr noundef nonnull %0, i32 noundef %54, i32 noundef %60, i32 noundef 0, i32 noundef 0)
+  br label %1016
 
-103:                                              ; preds = %100
-  %104 = load i32, ptr %13, align 4
-  %105 = load i32, ptr %11, align 4
-  %106 = load i32, ptr %14, align 4
-  %107 = load i32, ptr %15, align 4
-  call void @_Z7StoreTTP7state_tiiijiiii(ptr nonnull %0, i32 %101, i32 %64, i32 %70, i32 %104, i32 %105, i32 %106, i32 %107, i32 %3)
-  br label %1052
+102:                                              ; preds = %88
+  %103 = icmp ult i32 %3, 9
+  br i1 %103, label %104, label %112
 
-108:                                              ; preds = %100
-  %109 = icmp slt i32 %92, %70
-  br i1 %109, label %110, label %122
+104:                                              ; preds = %102
+  %105 = add nsw i32 %82, -125
+  %106 = icmp slt i32 %105, %60
+  br i1 %106, label %112, label %107
 
-110:                                              ; preds = %108
-  %111 = call i32 @_Z7qsearchP7state_tiiii(ptr nonnull %0, i32 %64, i32 %70, i32 0, i32 0)
-  br label %1052
+107:                                              ; preds = %104
+  %108 = load i32, ptr %13, align 4
+  %109 = load i32, ptr %11, align 4
+  %110 = load i32, ptr %14, align 4
+  %111 = load i32, ptr %15, align 4
+  call void @_Z7StoreTTP7state_tiiijiiii(ptr noundef nonnull %0, i32 noundef %105, i32 noundef %54, i32 noundef %60, i32 noundef %108, i32 noundef %109, i32 noundef %110, i32 noundef %111, i32 noundef %3)
+  br label %1016
 
-112:                                              ; preds = %98
-  %113 = icmp ult i32 %3, 9
-  br i1 %113, label %114, label %122
-
-114:                                              ; preds = %112
-  %115 = add nsw i32 %92, -125
-  %116 = icmp slt i32 %115, %70
-  br i1 %116, label %122, label %117
-
-117:                                              ; preds = %114
-  %118 = load i32, ptr %13, align 4
-  %119 = load i32, ptr %11, align 4
-  %120 = load i32, ptr %14, align 4
-  %121 = load i32, ptr %15, align 4
-  call void @_Z7StoreTTP7state_tiiijiiii(ptr nonnull %0, i32 %115, i32 %64, i32 %70, i32 %118, i32 %119, i32 %120, i32 %121, i32 %3)
-  br label %1052
-
-122:                                              ; preds = %114, %112, %108, %85
-  %123 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 8
-  %124 = getelementptr inbounds [13 x i32], ptr %123, i64 0, i64 9
-  %125 = load i32, ptr %124, align 4
-  %126 = getelementptr inbounds [13 x i32], ptr %123, i64 0, i64 7
-  %127 = load i32, ptr %126, align 4
-  %128 = add nsw i32 %127, %125
-  %129 = getelementptr inbounds [13 x i32], ptr %123, i64 0, i64 11
-  %130 = load i32, ptr %129, align 4
-  %131 = add nsw i32 %128, %130
-  %132 = getelementptr inbounds [13 x i32], ptr %123, i64 0, i64 3
-  %133 = load i32, ptr %132, align 4
-  %134 = add nsw i32 %131, %133
-  %135 = getelementptr inbounds [13 x i32], ptr %123, i64 0, i64 10
-  %136 = load i32, ptr %135, align 8
-  %137 = getelementptr inbounds [13 x i32], ptr %123, i64 0, i64 8
-  %138 = load i32, ptr %137, align 8
-  %139 = add nsw i32 %138, %136
-  %140 = getelementptr inbounds [13 x i32], ptr %123, i64 0, i64 12
-  %141 = load i32, ptr %140, align 8
-  %142 = add nsw i32 %139, %141
-  %143 = getelementptr inbounds [13 x i32], ptr %123, i64 0, i64 4
-  %144 = load i32, ptr %143, align 8
-  %145 = add nsw i32 %142, %144
+112:                                              ; preds = %104, %102, %98, %75
+  %113 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 8
+  %114 = getelementptr inbounds [13 x i32], ptr %113, i64 0, i64 9
+  %115 = load i32, ptr %114, align 4
+  %116 = getelementptr inbounds [13 x i32], ptr %113, i64 0, i64 7
+  %117 = load i32, ptr %116, align 4
+  %118 = add nsw i32 %117, %115
+  %119 = getelementptr inbounds [13 x i32], ptr %113, i64 0, i64 11
+  %120 = load i32, ptr %119, align 4
+  %121 = add nsw i32 %118, %120
+  %122 = getelementptr inbounds [13 x i32], ptr %113, i64 0, i64 3
+  %123 = load i32, ptr %122, align 4
+  %124 = add nsw i32 %121, %123
+  %125 = getelementptr inbounds [13 x i32], ptr %113, i64 0, i64 10
+  %126 = load i32, ptr %125, align 8
+  %127 = getelementptr inbounds [13 x i32], ptr %113, i64 0, i64 8
+  %128 = load i32, ptr %127, align 8
+  %129 = add nsw i32 %128, %126
+  %130 = getelementptr inbounds [13 x i32], ptr %113, i64 0, i64 12
+  %131 = load i32, ptr %130, align 8
+  %132 = add nsw i32 %129, %131
+  %133 = getelementptr inbounds [13 x i32], ptr %113, i64 0, i64 4
+  %134 = load i32, ptr %133, align 8
+  %135 = add nsw i32 %132, %134
   store i32 0, ptr %11, align 4
-  %146 = icmp eq i32 %4, 0
-  br i1 %146, label %147, label %231
+  %136 = icmp eq i32 %4, 0
+  br i1 %136, label %137, label %221
 
-147:                                              ; preds = %122
-  %148 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 11
-  %149 = load i32, ptr %148, align 4
-  %150 = icmp eq i32 %149, 0
-  %151 = select i1 %150, i32 %145, i32 %134
-  %152 = icmp eq i32 %151, 0
-  %153 = select i1 %152, i1 true, i1 %93
-  %154 = xor i1 %153, true
-  %155 = load i32, ptr %12, align 4
-  %156 = icmp ne i32 %155, 0
-  %157 = select i1 %154, i1 %156, i1 false
-  %158 = icmp ugt i32 %3, 4
-  %159 = and i1 %96, %158
-  %160 = select i1 %157, i1 %159, i1 false
-  br i1 %160, label %161, label %231
+137:                                              ; preds = %112
+  %138 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 11
+  %139 = load i32, ptr %138, align 4
+  %140 = icmp eq i32 %139, 0
+  %141 = select i1 %140, i32 %135, i32 %124
+  %142 = icmp eq i32 %141, 0
+  %143 = select i1 %142, i1 true, i1 %83
+  %144 = xor i1 %143, true
+  %145 = load i32, ptr %12, align 4
+  %146 = icmp ne i32 %145, 0
+  %147 = select i1 %144, i1 %146, i1 false
+  %148 = icmp ugt i32 %3, 4
+  %149 = and i1 %86, %148
+  %150 = select i1 %147, i1 %149, i1 false
+  br i1 %150, label %151, label %221
 
-161:                                              ; preds = %147
-  %162 = load i32, ptr getelementptr inbounds (%struct.gamestate_t, ptr @gamestate, i64 0, i32 1), align 4
-  %163 = icmp eq i32 %162, 2
-  br i1 %163, label %164, label %183
+151:                                              ; preds = %137
+  %152 = load i32, ptr getelementptr inbounds (%struct._ZTS11gamestate_t.gamestate_t, ptr @gamestate, i64 0, i32 1), align 4
+  %153 = icmp eq i32 %152, 2
+  br i1 %153, label %154, label %173
 
-164:                                              ; preds = %161
-  %165 = icmp ult i32 %3, 25
-  %166 = add nsw i32 %70, -1
-  br i1 %165, label %167, label %169
+154:                                              ; preds = %151
+  %155 = icmp ult i32 %3, 25
+  %156 = add nsw i32 %60, -1
+  br i1 %155, label %157, label %159
 
-167:                                              ; preds = %164
-  %168 = call i32 @_Z7qsearchP7state_tiiii(ptr nonnull %0, i32 %166, i32 %70, i32 0, i32 0)
-  br label %172
+157:                                              ; preds = %154
+  %158 = call noundef i32 @_Z7qsearchP7state_tiiii(ptr noundef nonnull %0, i32 noundef %156, i32 noundef %60, i32 noundef 0, i32 noundef 0)
+  br label %162
 
-169:                                              ; preds = %164
-  %170 = add nsw i32 %3, -24
-  %171 = call i32 @_Z6searchP7state_tiiiii(ptr nonnull %0, i32 %166, i32 %70, i32 %170, i32 1, i32 %86)
-  br label %172
+159:                                              ; preds = %154
+  %160 = add nsw i32 %3, -24
+  %161 = call noundef i32 @_Z6searchP7state_tiiiii(ptr noundef nonnull %0, i32 noundef %156, i32 noundef %60, i32 noundef %160, i32 noundef 1, i32 noundef %76)
+  br label %162
 
-172:                                              ; preds = %169, %167
-  %173 = phi i32 [ %168, %167 ], [ %171, %169 ]
-  %174 = load i32, ptr getelementptr inbounds (%struct.gamestate_t, ptr @gamestate, i64 0, i32 25), align 8
-  %175 = icmp eq i32 %174, 0
-  br i1 %175, label %176, label %1052
+162:                                              ; preds = %159, %157
+  %163 = phi i32 [ %158, %157 ], [ %161, %159 ]
+  %164 = load i32, ptr getelementptr inbounds (%struct._ZTS11gamestate_t.gamestate_t, ptr @gamestate, i64 0, i32 25), align 8
+  %165 = icmp eq i32 %164, 0
+  br i1 %165, label %166, label %1016
 
-176:                                              ; preds = %172
-  %177 = load i32, ptr getelementptr inbounds (%struct.gamestate_t, ptr @gamestate, i64 0, i32 1), align 4
-  %178 = icmp eq i32 %177, 2
-  %179 = icmp slt i32 %173, %70
-  %180 = and i1 %178, %179
-  br i1 %180, label %248, label %181
+166:                                              ; preds = %162
+  %167 = load i32, ptr getelementptr inbounds (%struct._ZTS11gamestate_t.gamestate_t, ptr @gamestate, i64 0, i32 1), align 4
+  %168 = icmp eq i32 %167, 2
+  %169 = icmp slt i32 %163, %60
+  %170 = and i1 %168, %169
+  br i1 %170, label %238, label %171
 
-181:                                              ; preds = %176
-  %182 = load i32, ptr %148, align 4
-  br label %183
+171:                                              ; preds = %166
+  %172 = load i32, ptr %138, align 4
+  br label %173
 
-183:                                              ; preds = %181, %161
-  %184 = phi i32 [ %182, %181 ], [ %149, %161 ]
-  %185 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 10
-  %186 = load i32, ptr %185, align 8
-  store i32 0, ptr %185, align 8
-  %187 = xor i32 %184, 1
-  store i32 %187, ptr %148, align 4
-  %188 = load i32, ptr %31, align 8
-  %189 = add nsw i32 %188, 1
-  store i32 %189, ptr %31, align 8
-  %190 = load i32, ptr %46, align 4
-  %191 = add nsw i32 %190, 1
-  store i32 %191, ptr %46, align 4
-  %192 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 19
-  %193 = sext i32 %188 to i64
-  %194 = getelementptr inbounds [64 x i32], ptr %192, i64 0, i64 %193
-  store i32 0, ptr %194, align 4
-  %195 = sext i32 %189 to i64
-  %196 = getelementptr inbounds [64 x i32], ptr %87, i64 0, i64 %195
-  store i32 0, ptr %196, align 4
-  %197 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 20
-  %198 = getelementptr inbounds [64 x i32], ptr %197, i64 0, i64 %193
-  %199 = load i32, ptr %198, align 4
-  %200 = getelementptr inbounds [64 x i32], ptr %197, i64 0, i64 %195
-  store i32 %199, ptr %200, align 4
-  %201 = icmp ult i32 %3, 17
-  %202 = sub nsw i32 0, %70
-  %203 = sub i32 1, %70
-  br i1 %201, label %204, label %206
+173:                                              ; preds = %171, %151
+  %174 = phi i32 [ %172, %171 ], [ %139, %151 ]
+  %175 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 10
+  %176 = load i32, ptr %175, align 8
+  store i32 0, ptr %175, align 8
+  %177 = xor i32 %174, 1
+  store i32 %177, ptr %138, align 4
+  %178 = load i32, ptr %21, align 8
+  %179 = add nsw i32 %178, 1
+  store i32 %179, ptr %21, align 8
+  %180 = load i32, ptr %36, align 4
+  %181 = add nsw i32 %180, 1
+  store i32 %181, ptr %36, align 4
+  %182 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 19
+  %183 = sext i32 %178 to i64
+  %184 = getelementptr inbounds [64 x i32], ptr %182, i64 0, i64 %183
+  store i32 0, ptr %184, align 4
+  %185 = sext i32 %179 to i64
+  %186 = getelementptr inbounds [64 x i32], ptr %77, i64 0, i64 %185
+  store i32 0, ptr %186, align 4
+  %187 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 20
+  %188 = getelementptr inbounds [64 x i32], ptr %187, i64 0, i64 %183
+  %189 = load i32, ptr %188, align 4
+  %190 = getelementptr inbounds [64 x i32], ptr %187, i64 0, i64 %185
+  store i32 %189, ptr %190, align 4
+  %191 = icmp ult i32 %3, 17
+  %192 = sub nsw i32 0, %60
+  %193 = sub i32 1, %60
+  br i1 %191, label %194, label %196
 
-204:                                              ; preds = %183
-  %205 = call i32 @_Z7qsearchP7state_tiiii(ptr nonnull %0, i32 %202, i32 %203, i32 0, i32 0)
-  br label %211
+194:                                              ; preds = %173
+  %195 = call noundef i32 @_Z7qsearchP7state_tiiii(ptr noundef nonnull %0, i32 noundef %192, i32 noundef %193, i32 noundef 0, i32 noundef 0)
+  br label %201
 
-206:                                              ; preds = %183
-  %207 = add nsw i32 %3, -16
-  %208 = icmp eq i32 %86, 0
-  %209 = zext i1 %208 to i32
-  %210 = call i32 @_Z6searchP7state_tiiiii(ptr nonnull %0, i32 %202, i32 %203, i32 %207, i32 1, i32 %209)
-  br label %211
+196:                                              ; preds = %173
+  %197 = add nsw i32 %3, -16
+  %198 = icmp eq i32 %76, 0
+  %199 = zext i1 %198 to i32
+  %200 = call noundef i32 @_Z6searchP7state_tiiiii(ptr noundef nonnull %0, i32 noundef %192, i32 noundef %193, i32 noundef %197, i32 noundef 1, i32 noundef %199)
+  br label %201
 
-211:                                              ; preds = %206, %204
-  %212 = phi i32 [ %205, %204 ], [ %210, %206 ]
-  %213 = sub nsw i32 0, %212
-  %214 = load i32, ptr %46, align 4
-  %215 = add nsw i32 %214, -1
-  store i32 %215, ptr %46, align 4
-  %216 = load i32, ptr %31, align 8
-  %217 = add nsw i32 %216, -1
-  store i32 %217, ptr %31, align 8
-  %218 = load i32, ptr %148, align 4
-  %219 = xor i32 %218, 1
-  store i32 %219, ptr %148, align 4
-  store i32 %186, ptr %185, align 8
-  %220 = load i32, ptr getelementptr inbounds (%struct.gamestate_t, ptr @gamestate, i64 0, i32 25), align 8
-  %221 = icmp eq i32 %220, 0
-  br i1 %221, label %222, label %1052
+201:                                              ; preds = %196, %194
+  %202 = phi i32 [ %195, %194 ], [ %200, %196 ]
+  %203 = sub nsw i32 0, %202
+  %204 = load i32, ptr %36, align 4
+  %205 = add nsw i32 %204, -1
+  store i32 %205, ptr %36, align 4
+  %206 = load i32, ptr %21, align 8
+  %207 = add nsw i32 %206, -1
+  store i32 %207, ptr %21, align 8
+  %208 = load i32, ptr %138, align 4
+  %209 = xor i32 %208, 1
+  store i32 %209, ptr %138, align 4
+  store i32 %176, ptr %175, align 8
+  %210 = load i32, ptr getelementptr inbounds (%struct._ZTS11gamestate_t.gamestate_t, ptr @gamestate, i64 0, i32 25), align 8
+  %211 = icmp eq i32 %210, 0
+  br i1 %211, label %212, label %1016
 
-222:                                              ; preds = %211
-  %223 = icmp sgt i32 %70, %213
-  br i1 %223, label %228, label %224
+212:                                              ; preds = %201
+  %213 = icmp sgt i32 %60, %203
+  br i1 %213, label %218, label %214
 
-224:                                              ; preds = %222
-  %225 = load i32, ptr %13, align 4
-  %226 = load i32, ptr %11, align 4
-  %227 = load i32, ptr %15, align 4
-  call void @_Z7StoreTTP7state_tiiijiiii(ptr nonnull %0, i32 %213, i32 %64, i32 %70, i32 %225, i32 %226, i32 0, i32 %227, i32 %3)
-  br label %1052
+214:                                              ; preds = %212
+  %215 = load i32, ptr %13, align 4
+  %216 = load i32, ptr %11, align 4
+  %217 = load i32, ptr %15, align 4
+  call void @_Z7StoreTTP7state_tiiijiiii(ptr noundef nonnull %0, i32 noundef %203, i32 noundef %54, i32 noundef %60, i32 noundef %215, i32 noundef %216, i32 noundef 0, i32 noundef %217, i32 noundef %3)
+  br label %1016
 
-228:                                              ; preds = %222
-  %229 = icmp sgt i32 %212, 31400
-  br i1 %229, label %230, label %248
+218:                                              ; preds = %212
+  %219 = icmp sgt i32 %202, 31400
+  br i1 %219, label %220, label %238
 
-230:                                              ; preds = %228
+220:                                              ; preds = %218
   store i32 1, ptr %11, align 4
-  br label %248
+  br label %238
 
-231:                                              ; preds = %147, %122
-  %232 = icmp ult i32 %3, 13
-  %233 = and i1 %96, %232
-  %234 = add nsw i32 %70, -300
-  %235 = icmp slt i32 %92, %234
-  %236 = select i1 %233, i1 %235, i1 false
-  br i1 %236, label %237, label %248
+221:                                              ; preds = %137, %112
+  %222 = icmp ult i32 %3, 13
+  %223 = and i1 %86, %222
+  %224 = add nsw i32 %60, -300
+  %225 = icmp slt i32 %82, %224
+  %226 = select i1 %223, i1 %225, i1 false
+  br i1 %226, label %227, label %238
 
-237:                                              ; preds = %231
-  %238 = call i32 @_Z7qsearchP7state_tiiii(ptr nonnull %0, i32 %64, i32 %70, i32 0, i32 0)
-  %239 = load i32, ptr getelementptr inbounds (%struct.gamestate_t, ptr @gamestate, i64 0, i32 25), align 8
-  %240 = icmp eq i32 %239, 0
-  br i1 %240, label %241, label %1052
+227:                                              ; preds = %221
+  %228 = call noundef i32 @_Z7qsearchP7state_tiiii(ptr noundef nonnull %0, i32 noundef %54, i32 noundef %60, i32 noundef 0, i32 noundef 0)
+  %229 = load i32, ptr getelementptr inbounds (%struct._ZTS11gamestate_t.gamestate_t, ptr @gamestate, i64 0, i32 25), align 8
+  %230 = icmp eq i32 %229, 0
+  br i1 %230, label %231, label %1016
 
-241:                                              ; preds = %237
-  %242 = icmp sgt i32 %238, %64
-  br i1 %242, label %248, label %243
+231:                                              ; preds = %227
+  %232 = icmp sgt i32 %228, %54
+  br i1 %232, label %238, label %233
 
-243:                                              ; preds = %241
-  %244 = load i32, ptr %13, align 4
-  %245 = load i32, ptr %11, align 4
-  %246 = load i32, ptr %14, align 4
-  %247 = load i32, ptr %15, align 4
-  call void @_Z7StoreTTP7state_tiiijiiii(ptr nonnull %0, i32 %64, i32 %64, i32 %70, i32 %244, i32 %245, i32 %246, i32 %247, i32 %3)
-  br label %1052
+233:                                              ; preds = %231
+  %234 = load i32, ptr %13, align 4
+  %235 = load i32, ptr %11, align 4
+  %236 = load i32, ptr %14, align 4
+  %237 = load i32, ptr %15, align 4
+  call void @_Z7StoreTTP7state_tiiijiiii(ptr noundef nonnull %0, i32 noundef %54, i32 noundef %54, i32 noundef %60, i32 noundef %234, i32 noundef %235, i32 noundef %236, i32 noundef %237, i32 noundef %3)
+  br label %1016
 
-248:                                              ; preds = %241, %231, %230, %228, %176
-  br i1 %93, label %249, label %272
+238:                                              ; preds = %231, %221, %220, %218, %166
+  br i1 %83, label %239, label %262
 
-249:                                              ; preds = %248
-  %250 = getelementptr inbounds [240 x i32], ptr %7, i64 0, i64 0
-  %251 = call i32 @_Z12gen_evasionsP7state_tPii(ptr nonnull %0, ptr nonnull %250, i32 %91)
-  %252 = icmp eq i32 %251, 0
-  br i1 %252, label %275, label %253
+239:                                              ; preds = %238
+  %240 = getelementptr inbounds [240 x i32], ptr %7, i64 0, i64 0
+  %241 = call noundef i32 @_Z12gen_evasionsP7state_tPii(ptr noundef nonnull %0, ptr noundef nonnull %240, i32 noundef %81)
+  %242 = icmp eq i32 %241, 0
+  br i1 %242, label %265, label %243
 
-253:                                              ; preds = %249
-  %254 = icmp sgt i32 %251, 0
-  br i1 %254, label %255, label %275
+243:                                              ; preds = %239
+  %244 = icmp sgt i32 %241, 0
+  br i1 %244, label %245, label %265
 
-255:                                              ; preds = %253
-  %256 = zext i32 %251 to i64
-  br label %257
+245:                                              ; preds = %243
+  %246 = zext i32 %241 to i64
+  br label %247
 
-257:                                              ; preds = %257, %255
-  %258 = phi i64 [ 0, %255 ], [ %268, %257 ]
-  %259 = phi i32 [ 0, %255 ], [ %266, %257 ]
-  %260 = getelementptr inbounds [240 x i32], ptr %7, i64 0, i64 %258
-  %261 = load i32, ptr %260, align 4
-  call void @_Z4makeP7state_ti(ptr %0, i32 %261)
-  %262 = load i32, ptr %260, align 4
-  %263 = call i32 @_Z11check_legalP7state_ti(ptr %0, i32 %262)
-  %264 = icmp ne i32 %263, 0
-  %265 = zext i1 %264 to i32
-  %266 = add nuw nsw i32 %259, %265
-  %267 = load i32, ptr %260, align 4
-  call void @_Z6unmakeP7state_ti(ptr %0, i32 %267)
-  %268 = add nuw nsw i64 %258, 1
-  %269 = icmp ult i64 %268, %256
-  %270 = icmp ult i32 %266, 2
-  %271 = select i1 %269, i1 %270, i1 false
-  br i1 %271, label %257, label %275, !llvm.loop !44
+247:                                              ; preds = %247, %245
+  %248 = phi i64 [ 0, %245 ], [ %258, %247 ]
+  %249 = phi i32 [ 0, %245 ], [ %256, %247 ]
+  %250 = getelementptr inbounds [240 x i32], ptr %7, i64 0, i64 %248
+  %251 = load i32, ptr %250, align 4
+  call void @_Z4makeP7state_ti(ptr noundef %0, i32 noundef %251)
+  %252 = load i32, ptr %250, align 4
+  %253 = call noundef i32 @_Z11check_legalP7state_ti(ptr noundef %0, i32 noundef %252)
+  %254 = icmp ne i32 %253, 0
+  %255 = zext i1 %254 to i32
+  %256 = add nuw nsw i32 %249, %255
+  %257 = load i32, ptr %250, align 4
+  call void @_Z6unmakeP7state_ti(ptr noundef %0, i32 noundef %257)
+  %258 = add nuw nsw i64 %248, 1
+  %259 = icmp ult i64 %258, %246
+  %260 = icmp ult i32 %256, 2
+  %261 = select i1 %259, i1 %260, i1 false
+  br i1 %261, label %247, label %265, !llvm.loop !45
 
-272:                                              ; preds = %248
-  %273 = getelementptr inbounds [240 x i32], ptr %7, i64 0, i64 0
-  %274 = call i32 @_Z3genP7state_tPi(ptr nonnull %0, ptr nonnull %273)
-  br label %275
+262:                                              ; preds = %238
+  %263 = getelementptr inbounds [240 x i32], ptr %7, i64 0, i64 0
+  %264 = call noundef i32 @_Z3genP7state_tPi(ptr noundef nonnull %0, ptr noundef nonnull %263)
+  br label %265
 
-275:                                              ; preds = %272, %257, %253, %249
-  %276 = phi i32 [ 0, %249 ], [ %274, %272 ], [ %251, %253 ], [ %251, %257 ]
-  %277 = phi i32 [ 0, %249 ], [ %274, %272 ], [ 0, %253 ], [ %266, %257 ]
-  %278 = getelementptr inbounds [240 x i32], ptr %7, i64 0, i64 0
-  %279 = getelementptr inbounds [240 x i32], ptr %8, i64 0, i64 0
-  %280 = load i32, ptr %13, align 4
-  call fastcc void @_ZL11order_movesP7state_tPiS1_ij(ptr %0, ptr nonnull %278, ptr nonnull %279, i32 %276, i32 %280)
-  %281 = icmp sgt i32 %3, 19
-  br i1 %281, label %282, label %330
+265:                                              ; preds = %262, %247, %243, %239
+  %266 = phi i32 [ 0, %239 ], [ %264, %262 ], [ %241, %243 ], [ %241, %247 ]
+  %267 = phi i32 [ 0, %239 ], [ %264, %262 ], [ 0, %243 ], [ %256, %247 ]
+  %268 = getelementptr inbounds [240 x i32], ptr %7, i64 0, i64 0
+  %269 = getelementptr inbounds [240 x i32], ptr %8, i64 0, i64 0
+  %270 = load i32, ptr %13, align 4
+  call fastcc void @_ZL11order_movesP7state_tPiS1_ij(ptr noundef %0, ptr noundef nonnull %268, ptr noundef nonnull %269, i32 noundef %266, i32 noundef %270)
+  %271 = icmp sgt i32 %3, 19
+  br i1 %271, label %272, label %318
 
-282:                                              ; preds = %275
-  %283 = icmp ne i32 %70, %95
-  %284 = load i32, ptr %13, align 4
-  %285 = icmp eq i32 %284, 65535
-  %286 = select i1 %283, i1 %285, i1 false
-  br i1 %286, label %287, label %330
+272:                                              ; preds = %265
+  %273 = icmp ne i32 %60, %85
+  %274 = load i32, ptr %13, align 4
+  %275 = icmp eq i32 %274, 65535
+  %276 = select i1 %273, i1 %275, i1 false
+  br i1 %276, label %277, label %318
 
-287:                                              ; preds = %282
-  %288 = icmp sgt i32 %276, 0
-  br i1 %288, label %289, label %318
+277:                                              ; preds = %272
+  %278 = icmp sgt i32 %266, 0
+  br i1 %278, label %279, label %308
 
-289:                                              ; preds = %287
-  %290 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 1
-  %291 = zext i32 %276 to i64
-  br label %292
+279:                                              ; preds = %277
+  %280 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 1
+  %281 = zext i32 %266 to i64
+  br label %282
 
-292:                                              ; preds = %312, %289
-  %293 = phi i64 [ 0, %289 ], [ %314, %312 ]
-  %294 = phi i32 [ 0, %289 ], [ %313, %312 ]
-  %295 = getelementptr inbounds [240 x i32], ptr %7, i64 0, i64 %293
-  %296 = load i32, ptr %295, align 4
-  %297 = lshr i32 %296, 19
-  %298 = and i32 %297, 15
-  %299 = icmp eq i32 %298, 13
-  br i1 %299, label %312, label %300
+282:                                              ; preds = %302, %279
+  %283 = phi i64 [ 0, %279 ], [ %304, %302 ]
+  %284 = phi i32 [ 0, %279 ], [ %303, %302 ]
+  %285 = getelementptr inbounds [240 x i32], ptr %7, i64 0, i64 %283
+  %286 = load i32, ptr %285, align 4
+  %287 = lshr i32 %286, 19
+  %288 = and i32 %287, 15
+  %289 = icmp eq i32 %288, 13
+  br i1 %289, label %302, label %290
 
-300:                                              ; preds = %292
-  %301 = lshr i32 %296, 6
-  %302 = and i32 %301, 63
-  %303 = zext i32 %302 to i64
-  %304 = getelementptr inbounds [64 x i32], ptr %290, i64 0, i64 %303
-  %305 = load i32, ptr %304, align 4
-  %306 = sext i32 %305 to i64
-  %307 = getelementptr inbounds [14 x i32], ptr @material, i64 0, i64 %306
-  %308 = load i32, ptr %307, align 4
-  %309 = call i32 @llvm.abs.i32(i32 %308, i1 true)
-  %310 = icmp ugt i32 %298, %309
-  %311 = select i1 %310, i32 1, i32 %294
-  br label %312
+290:                                              ; preds = %282
+  %291 = lshr i32 %286, 6
+  %292 = and i32 %291, 63
+  %293 = zext i32 %292 to i64
+  %294 = getelementptr inbounds [64 x i32], ptr %280, i64 0, i64 %293
+  %295 = load i32, ptr %294, align 4
+  %296 = sext i32 %295 to i64
+  %297 = getelementptr inbounds [14 x i32], ptr @material, i64 0, i64 %296
+  %298 = load i32, ptr %297, align 4
+  %299 = call i32 @llvm.abs.i32(i32 %298, i1 true)
+  %300 = icmp ugt i32 %288, %299
+  %301 = select i1 %300, i32 1, i32 %284
+  br label %302
 
-312:                                              ; preds = %300, %292
-  %313 = phi i32 [ %294, %292 ], [ %311, %300 ]
-  %314 = add nuw nsw i64 %293, 1
-  %315 = icmp eq i64 %314, %291
-  br i1 %315, label %316, label %292, !llvm\5C.loop !45
+302:                                              ; preds = %290, %282
+  %303 = phi i32 [ %284, %282 ], [ %301, %290 ]
+  %304 = add nuw nsw i64 %283, 1
+  %305 = icmp eq i64 %304, %281
+  br i1 %305, label %306, label %282, !llvm.loop !46
 
-316:                                              ; preds = %312
-  %317 = icmp eq i32 %313, 0
-  br i1 %317, label %318, label %330
+306:                                              ; preds = %302
+  %307 = icmp eq i32 %303, 0
+  br i1 %307, label %308, label %318
 
-318:                                              ; preds = %316, %287
-  %319 = bitcast ptr %17 to ptr
-  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %319) #7
-  %320 = bitcast ptr %18 to ptr
-  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %320) #7
-  %321 = ashr i32 %3, 1
-  %322 = call i32 @_Z6searchP7state_tiiiii(ptr %0, i32 %64, i32 %70, i32 %321, i32 0, i32 %86)
-  %323 = call i32 @_Z7ProbeTTP7state_tPiiiPjS1_S1_S1_S1_i(ptr %0, ptr nonnull %17, i32 0, i32 0, ptr nonnull %18, ptr nonnull %17, ptr nonnull %17, ptr nonnull %17, ptr nonnull %17, i32 0)
-  %324 = icmp eq i32 %323, 4
-  br i1 %324, label %327, label %325
+308:                                              ; preds = %306, %277
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %17) #28
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %18) #28
+  %309 = ashr i32 %3, 1
+  %310 = call noundef i32 @_Z6searchP7state_tiiiii(ptr noundef %0, i32 noundef %54, i32 noundef %60, i32 noundef %309, i32 noundef 0, i32 noundef %76)
+  %311 = call noundef i32 @_Z7ProbeTTP7state_tPiiiPjS1_S1_S1_S1_i(ptr noundef %0, ptr noundef nonnull %17, i32 noundef 0, i32 noundef 0, ptr noundef nonnull %18, ptr noundef nonnull %17, ptr noundef nonnull %17, ptr noundef nonnull %17, ptr noundef nonnull %17, i32 noundef 0)
+  %312 = icmp eq i32 %311, 4
+  br i1 %312, label %315, label %313
 
-325:                                              ; preds = %318
-  %326 = load i32, ptr %18, align 4
-  call fastcc void @_ZL11order_movesP7state_tPiS1_ij(ptr %0, ptr nonnull %278, ptr nonnull %279, i32 %276, i32 %326)
-  br label %329
+313:                                              ; preds = %308
+  %314 = load i32, ptr %18, align 4
+  call fastcc void @_ZL11order_movesP7state_tPiS1_ij(ptr noundef %0, ptr noundef nonnull %268, ptr noundef nonnull %269, i32 noundef %266, i32 noundef %314)
+  br label %317
 
-327:                                              ; preds = %318
-  %328 = load i32, ptr %13, align 4
-  call fastcc void @_ZL11order_movesP7state_tPiS1_ij(ptr %0, ptr nonnull %278, ptr nonnull %279, i32 %276, i32 %328)
-  br label %329
+315:                                              ; preds = %308
+  %316 = load i32, ptr %13, align 4
+  call fastcc void @_ZL11order_movesP7state_tPiS1_ij(ptr noundef %0, ptr noundef nonnull %268, ptr noundef nonnull %269, i32 noundef %266, i32 noundef %316)
+  br label %317
 
-329:                                              ; preds = %327, %325
-  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %320) #7
-  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %319) #7
-  br label %330
+317:                                              ; preds = %315, %313
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %18) #28
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %17) #28
+  br label %318
 
-330:                                              ; preds = %329, %316, %282, %275
-  %331 = load i32, ptr %11, align 4
+318:                                              ; preds = %317, %306, %272, %265
+  %319 = load i32, ptr %11, align 4
+  %320 = icmp eq i32 %319, 0
+  %321 = select i1 %84, i1 %320, i1 false
+  %322 = icmp sgt i32 %3, 15
+  %323 = and i1 %321, %322
+  %324 = icmp sgt i32 %267, 8
+  %325 = select i1 %323, i1 %324, i1 false
+  br i1 %325, label %326, label %424
+
+326:                                              ; preds = %318
+  %327 = load i32, ptr %21, align 8
+  %328 = add nsw i32 %327, -1
+  %329 = sext i32 %328 to i64
+  %330 = getelementptr inbounds [64 x i32], ptr %77, i64 0, i64 %329
+  %331 = load i32, ptr %330, align 4
   %332 = icmp eq i32 %331, 0
-  %333 = select i1 %94, i1 %332, i1 false
-  %334 = icmp sgt i32 %3, 15
-  %335 = and i1 %333, %334
-  %336 = icmp sgt i32 %277, 8
-  %337 = select i1 %335, i1 %336, i1 false
-  br i1 %337, label %338, label %478
+  br i1 %332, label %333, label %424
 
-338:                                              ; preds = %330
-  %339 = load i32, ptr %31, align 8
-  %340 = add nsw i32 %339, -1
-  %341 = sext i32 %340 to i64
-  %342 = getelementptr inbounds [64 x i32], ptr %87, i64 0, i64 %341
-  %343 = load i32, ptr %342, align 4
-  %344 = icmp eq i32 %343, 0
-  br i1 %344, label %345, label %478
+333:                                              ; preds = %326
+  %334 = icmp slt i32 %327, 3
+  br i1 %334, label %349, label %335
 
-345:                                              ; preds = %338
-  %346 = icmp slt i32 %339, 3
-  br i1 %346, label %361, label %347
+335:                                              ; preds = %333
+  %336 = add nsw i32 %327, -2
+  %337 = zext i32 %336 to i64
+  %338 = getelementptr inbounds [64 x i32], ptr %77, i64 0, i64 %337
+  %339 = load i32, ptr %338, align 4
+  %340 = icmp eq i32 %339, 0
+  br i1 %340, label %341, label %424
 
-347:                                              ; preds = %345
-  %348 = add nsw i32 %339, -2
-  %349 = zext i32 %348 to i64
-  %350 = getelementptr inbounds [64 x i32], ptr %87, i64 0, i64 %349
-  %351 = load i32, ptr %350, align 4
-  %352 = icmp eq i32 %351, 0
-  br i1 %352, label %353, label %478
+341:                                              ; preds = %335
+  %342 = icmp ult i32 %327, 4
+  br i1 %342, label %349, label %343
 
-353:                                              ; preds = %347
-  %354 = icmp ult i32 %339, 4
-  br i1 %354, label %361, label %355
+343:                                              ; preds = %341
+  %344 = add nsw i32 %327, -3
+  %345 = zext i32 %344 to i64
+  %346 = getelementptr inbounds [64 x i32], ptr %77, i64 0, i64 %345
+  %347 = load i32, ptr %346, align 4
+  %348 = icmp eq i32 %347, 0
+  br i1 %348, label %349, label %424
 
-355:                                              ; preds = %353
-  %356 = add nsw i32 %339, -3
-  %357 = zext i32 %356 to i64
-  %358 = getelementptr inbounds [64 x i32], ptr %87, i64 0, i64 %357
-  %359 = load i32, ptr %358, align 4
-  %360 = icmp eq i32 %359, 0
-  br i1 %360, label %361, label %478
-
-361:                                              ; preds = %355, %353, %345
+349:                                              ; preds = %343, %341, %333
   store i32 -1, ptr %9, align 4
-  %362 = call fastcc i32 @_ZL15remove_one_fastPiS_S_i(ptr nonnull %9, ptr nonnull %279, ptr nonnull %278, i32 %276)
-  %363 = icmp eq i32 %362, 0
-  br i1 %363, label %478, label %364
+  %350 = call fastcc noundef i32 @_ZL15remove_one_fastPiS_S_i(ptr noundef nonnull %9, ptr noundef nonnull %269, ptr noundef nonnull %268, i32 noundef %266)
+  %351 = icmp eq i32 %350, 0
+  br i1 %351, label %424, label %352
 
-364:                                              ; preds = %361
-  %365 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 16
-  %366 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 36
-  %367 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 19
-  %368 = sub nsw i32 0, %70
-  %369 = sub i32 50, %64
-  %370 = icmp ugt i32 %3, 16
-  %371 = icmp ult i32 %3, 17
-  %372 = sub i32 1, %70
-  %373 = add nsw i32 %3, -16
-  %374 = icmp eq i32 %86, 0
-  %375 = zext i1 %374 to i32
-  br i1 %371, label %376, label %425
+352:                                              ; preds = %349
+  %353 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 16
+  %354 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 36
+  %355 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 19
+  %356 = sub nsw i32 0, %60
+  %357 = sub i32 50, %54
+  %358 = icmp ugt i32 %3, 16
+  %359 = icmp ult i32 %3, 17
+  %360 = sub i32 1, %60
+  %361 = add nsw i32 %3, -16
+  %362 = icmp eq i32 %76, 0
+  %363 = zext i1 %362 to i32
+  br label %364
 
-376:                                              ; preds = %419, %364
-  %377 = phi i32 [ %420, %419 ], [ 0, %364 ]
-  %378 = phi i32 [ %380, %419 ], [ 0, %364 ]
-  %379 = phi i32 [ %410, %419 ], [ -32000, %364 ]
-  %380 = add nuw nsw i32 %378, 1
-  %381 = load i32, ptr %9, align 4
+364:                                              ; preds = %412, %352
+  %365 = phi i32 [ 0, %352 ], [ %413, %412 ]
+  %366 = phi i32 [ 0, %352 ], [ %368, %412 ]
+  %367 = phi i32 [ -32000, %352 ], [ %403, %412 ]
+  %368 = add nuw nsw i32 %366, 1
+  %369 = load i32, ptr %9, align 4
+  %370 = sext i32 %369 to i64
+  %371 = getelementptr inbounds [240 x i32], ptr %7, i64 0, i64 %370
+  %372 = load i32, ptr %371, align 4
+  call void @_Z4makeP7state_ti(ptr noundef %0, i32 noundef %372)
+  %373 = load i32, ptr %371, align 4
+  %374 = call noundef i32 @_Z11check_legalP7state_ti(ptr noundef %0, i32 noundef %373)
+  %375 = icmp eq i32 %374, 0
+  br i1 %375, label %402, label %376
+
+376:                                              ; preds = %364
+  %377 = load i64, ptr %353, align 8
+  %378 = load i32, ptr getelementptr inbounds (%struct._ZTS11gamestate_t.gamestate_t, ptr @gamestate, i64 0, i32 15), align 4
+  %379 = load i32, ptr %21, align 8
+  %380 = add i32 %379, -1
+  %381 = add i32 %380, %378
   %382 = sext i32 %381 to i64
-  %383 = getelementptr inbounds [240 x i32], ptr %7, i64 0, i64 %382
-  %384 = load i32, ptr %383, align 4
-  call void @_Z4makeP7state_ti(ptr %0, i32 %384)
-  %385 = load i32, ptr %383, align 4
-  %386 = call i32 @_Z11check_legalP7state_ti(ptr %0, i32 %385)
-  %387 = icmp eq i32 %386, 0
-  br i1 %387, label %409, label %388
+  %383 = getelementptr inbounds [1000 x i64], ptr %354, i64 0, i64 %382
+  store i64 %377, ptr %383, align 8
+  %384 = load i32, ptr %371, align 4
+  %385 = sext i32 %380 to i64
+  %386 = getelementptr inbounds [64 x i32], ptr %355, i64 0, i64 %385
+  store i32 %384, ptr %386, align 4
+  %387 = call noundef i32 @_Z8in_checkP7state_t(ptr noundef %0)
+  %388 = load i32, ptr %21, align 8
+  %389 = sext i32 %388 to i64
+  %390 = getelementptr inbounds [64 x i32], ptr %77, i64 0, i64 %389
+  store i32 %387, ptr %390, align 4
+  %391 = icmp ne i32 %387, 0
+  %392 = or i1 %358, %391
+  %393 = zext i1 %392 to i32
+  %394 = call noundef i32 @_Z4evalP7state_tiii(ptr noundef %0, i32 noundef %356, i32 noundef %357, i32 noundef %393)
+  br i1 %359, label %395, label %397
 
-388:                                              ; preds = %376
-  %389 = load i64, ptr %365, align 8
-  %390 = load i32, ptr getelementptr inbounds (%struct.gamestate_t, ptr @gamestate, i64 0, i32 15), align 4
-  %391 = load i32, ptr %31, align 8
-  %392 = add i32 %391, -1
-  %393 = add i32 %392, %390
-  %394 = sext i32 %393 to i64
-  %395 = getelementptr inbounds [1000 x i64], ptr %366, i64 0, i64 %394
-  store i64 %389, ptr %395, align 8
-  %396 = load i32, ptr %383, align 4
-  %397 = sext i32 %392 to i64
-  %398 = getelementptr inbounds [64 x i32], ptr %367, i64 0, i64 %397
-  store i32 %396, ptr %398, align 4
-  %399 = call i32 @_Z8in_checkP7state_t(ptr %0)
-  %400 = load i32, ptr %31, align 8
-  %401 = sext i32 %400 to i64
-  %402 = getelementptr inbounds [64 x i32], ptr %87, i64 0, i64 %401
-  store i32 %399, ptr %402, align 4
-  %403 = icmp ne i32 %399, 0
-  %404 = or i1 %370, %403
-  %405 = zext i1 %404 to i32
-  %406 = call i32 @_Z4evalP7state_tiii(ptr %0, i32 %368, i32 %369, i32 %405)
-  %407 = call i32 @_Z7qsearchP7state_tiiii(ptr nonnull %0, i32 %368, i32 %372, i32 0, i32 0)
-  %408 = sub nsw i32 0, %407
-  br label %409
+395:                                              ; preds = %376
+  %396 = call noundef i32 @_Z7qsearchP7state_tiiii(ptr noundef nonnull %0, i32 noundef %356, i32 noundef %360, i32 noundef 0, i32 noundef 0)
+  br label %399
 
-409:                                              ; preds = %388, %376
-  %410 = phi i32 [ %408, %388 ], [ %379, %376 ]
-  %411 = load i32, ptr %383, align 4
-  call void @_Z6unmakeP7state_ti(ptr %0, i32 %411)
-  %412 = load i32, ptr getelementptr inbounds (%struct.gamestate_t, ptr @gamestate, i64 0, i32 25), align 8
-  %413 = icmp eq i32 %412, 0
-  br i1 %413, label %414, label %478
+397:                                              ; preds = %376
+  %398 = call noundef i32 @_Z6searchP7state_tiiiii(ptr noundef nonnull %0, i32 noundef %356, i32 noundef %360, i32 noundef %361, i32 noundef 0, i32 noundef %363)
+  br label %399
 
-414:                                              ; preds = %409
-  %415 = icmp slt i32 %410, %70
-  %416 = or i1 %387, %415
-  br i1 %416, label %419, label %417
+399:                                              ; preds = %397, %395
+  %400 = phi i32 [ %396, %395 ], [ %398, %397 ]
+  %401 = sub nsw i32 0, %400
+  br label %402
 
-417:                                              ; preds = %414
-  %418 = icmp sgt i32 %377, 0
-  br i1 %418, label %474, label %419
+402:                                              ; preds = %399, %364
+  %403 = phi i32 [ %401, %399 ], [ %367, %364 ]
+  %404 = load i32, ptr %371, align 4
+  call void @_Z6unmakeP7state_ti(ptr noundef %0, i32 noundef %404)
+  %405 = load i32, ptr getelementptr inbounds (%struct._ZTS11gamestate_t.gamestate_t, ptr @gamestate, i64 0, i32 25), align 8
+  %406 = icmp eq i32 %405, 0
+  br i1 %406, label %407, label %422
 
-419:                                              ; preds = %417, %414
-  %420 = phi i32 [ 1, %417 ], [ %377, %414 ]
-  %421 = call fastcc i32 @_ZL15remove_one_fastPiS_S_i(ptr nonnull %9, ptr nonnull %279, ptr nonnull %278, i32 %276)
-  %422 = icmp ne i32 %421, 0
-  %423 = icmp ult i32 %378, 2
-  %424 = select i1 %422, i1 %423, i1 false
-  br i1 %424, label %376, label %478, !llvm\5C.loop !46
+407:                                              ; preds = %402
+  %408 = icmp slt i32 %403, %60
+  %409 = or i1 %375, %408
+  br i1 %409, label %412, label %410
 
-425:                                              ; preds = %468, %364
-  %426 = phi i32 [ %469, %468 ], [ 0, %364 ]
-  %427 = phi i32 [ %429, %468 ], [ 0, %364 ]
-  %428 = phi i32 [ %459, %468 ], [ -32000, %364 ]
-  %429 = add nuw nsw i32 %427, 1
-  %430 = load i32, ptr %9, align 4
-  %431 = sext i32 %430 to i64
-  %432 = getelementptr inbounds [240 x i32], ptr %7, i64 0, i64 %431
-  %433 = load i32, ptr %432, align 4
-  call void @_Z4makeP7state_ti(ptr %0, i32 %433)
-  %434 = load i32, ptr %432, align 4
-  %435 = call i32 @_Z11check_legalP7state_ti(ptr %0, i32 %434)
-  %436 = icmp eq i32 %435, 0
-  br i1 %436, label %458, label %437
+410:                                              ; preds = %407
+  %411 = icmp sgt i32 %365, 0
+  br i1 %411, label %418, label %412
 
-437:                                              ; preds = %425
-  %438 = load i64, ptr %365, align 8
-  %439 = load i32, ptr getelementptr inbounds (%struct.gamestate_t, ptr @gamestate, i64 0, i32 15), align 4
-  %440 = load i32, ptr %31, align 8
-  %441 = add i32 %440, -1
-  %442 = add i32 %441, %439
-  %443 = sext i32 %442 to i64
-  %444 = getelementptr inbounds [1000 x i64], ptr %366, i64 0, i64 %443
-  store i64 %438, ptr %444, align 8
-  %445 = load i32, ptr %432, align 4
-  %446 = sext i32 %441 to i64
-  %447 = getelementptr inbounds [64 x i32], ptr %367, i64 0, i64 %446
-  store i32 %445, ptr %447, align 4
-  %448 = call i32 @_Z8in_checkP7state_t(ptr %0)
-  %449 = load i32, ptr %31, align 8
-  %450 = sext i32 %449 to i64
-  %451 = getelementptr inbounds [64 x i32], ptr %87, i64 0, i64 %450
-  store i32 %448, ptr %451, align 4
-  %452 = icmp ne i32 %448, 0
-  %453 = or i1 %370, %452
-  %454 = zext i1 %453 to i32
-  %455 = call i32 @_Z4evalP7state_tiii(ptr %0, i32 %368, i32 %369, i32 %454)
-  %456 = call i32 @_Z6searchP7state_tiiiii(ptr nonnull %0, i32 %368, i32 %372, i32 %373, i32 0, i32 %375)
-  %457 = sub nsw i32 0, %456
-  br label %458
+412:                                              ; preds = %410, %407
+  %413 = phi i32 [ 1, %410 ], [ %365, %407 ]
+  %414 = call fastcc noundef i32 @_ZL15remove_one_fastPiS_S_i(ptr noundef nonnull %9, ptr noundef nonnull %269, ptr noundef nonnull %268, i32 noundef %266)
+  %415 = icmp ne i32 %414, 0
+  %416 = icmp ult i32 %366, 2
+  %417 = select i1 %415, i1 %416, i1 false
+  br i1 %417, label %364, label %422, !llvm.loop !47
 
-458:                                              ; preds = %437, %425
-  %459 = phi i32 [ %457, %437 ], [ %428, %425 ]
-  %460 = load i32, ptr %432, align 4
-  call void @_Z6unmakeP7state_ti(ptr %0, i32 %460)
-  %461 = load i32, ptr getelementptr inbounds (%struct.gamestate_t, ptr @gamestate, i64 0, i32 25), align 8
-  %462 = icmp eq i32 %461, 0
-  br i1 %462, label %463, label %478
+418:                                              ; preds = %410
+  %419 = load i32, ptr %13, align 4
+  %420 = load i32, ptr %11, align 4
+  %421 = load i32, ptr %15, align 4
+  call void @_Z7StoreTTP7state_tiiijiiii(ptr noundef %0, i32 noundef %60, i32 noundef %54, i32 noundef %60, i32 noundef %419, i32 noundef %420, i32 noundef 0, i32 noundef %421, i32 noundef %3)
+  br label %1016
 
-463:                                              ; preds = %458
-  %464 = icmp slt i32 %459, %70
-  %465 = or i1 %436, %464
-  br i1 %465, label %468, label %466
+422:                                              ; preds = %412, %402
+  %423 = load i32, ptr %11, align 4
+  br label %424
 
-466:                                              ; preds = %463
-  %467 = icmp sgt i32 %426, 0
-  br i1 %467, label %474, label %468
+424:                                              ; preds = %422, %349, %343, %335, %326, %318
+  %425 = phi i32 [ 0, %326 ], [ 0, %343 ], [ 0, %335 ], [ %319, %318 ], [ 0, %349 ], [ %423, %422 ]
+  %426 = phi i32 [ -32000, %326 ], [ -32000, %343 ], [ -32000, %335 ], [ -32000, %318 ], [ -32000, %349 ], [ %403, %422 ]
+  %427 = load i32, ptr %14, align 4
+  %428 = icmp eq i32 %427, 0
+  %429 = load i32, ptr %15, align 4
+  %430 = icmp eq i32 %429, 0
+  %431 = select i1 %428, i1 %430, i1 false
+  %432 = icmp eq i32 %425, 0
+  %433 = select i1 %431, i1 %432, i1 false
+  %434 = and i1 %433, %271
+  %435 = icmp sgt i32 %267, 1
+  %436 = select i1 %434, i1 %435, i1 false
+  %437 = load i32, ptr getelementptr inbounds (%struct._ZTS11gamestate_t.gamestate_t, ptr @gamestate, i64 0, i32 1), align 4
+  %438 = icmp ne i32 %437, 2
+  %439 = select i1 %436, i1 %438, i1 false
+  br i1 %439, label %440, label %517
 
-468:                                              ; preds = %466, %463
-  %469 = phi i32 [ 1, %466 ], [ %426, %463 ]
-  %470 = call fastcc i32 @_ZL15remove_one_fastPiS_S_i(ptr nonnull %9, ptr nonnull %279, ptr nonnull %278, i32 %276)
-  %471 = icmp ne i32 %470, 0
-  %472 = icmp ult i32 %427, 2
-  %473 = select i1 %471, i1 %472, i1 false
-  br i1 %473, label %425, label %478, !llvm\5C.loop !46
+440:                                              ; preds = %424
+  %441 = add nsw i32 %3, -24
+  %442 = call noundef i32 @_Z6searchP7state_tiiiii(ptr noundef %0, i32 noundef %54, i32 noundef %60, i32 noundef %441, i32 noundef 0, i32 noundef %76)
+  %443 = icmp sgt i32 %442, %54
+  br i1 %443, label %444, label %517
 
-474:                                              ; preds = %466, %417
-  %475 = load i32, ptr %13, align 4
-  %476 = load i32, ptr %11, align 4
-  %477 = load i32, ptr %15, align 4
-  call void @_Z7StoreTTP7state_tiiijiiii(ptr %0, i32 %70, i32 %64, i32 %70, i32 %475, i32 %476, i32 0, i32 %477, i32 %3)
-  br label %1052
-
-478:                                              ; preds = %468, %458, %419, %409, %361, %355, %347, %338, %330
-  %479 = phi i32 [ -32000, %338 ], [ -32000, %355 ], [ -32000, %347 ], [ -32000, %330 ], [ -32000, %361 ], [ %410, %419 ], [ %410, %409 ], [ %459, %468 ], [ %459, %458 ]
-  %480 = load i32, ptr %14, align 4
-  %481 = icmp eq i32 %480, 0
-  %482 = load i32, ptr %15, align 4
-  %483 = icmp eq i32 %482, 0
-  %484 = select i1 %481, i1 %483, i1 false
-  %485 = load i32, ptr %11, align 4
-  %486 = icmp eq i32 %485, 0
-  %487 = select i1 %484, i1 %486, i1 false
-  %488 = and i1 %487, %281
-  %489 = icmp sgt i32 %277, 1
-  %490 = select i1 %488, i1 %489, i1 false
-  %491 = load i32, ptr getelementptr inbounds (%struct.gamestate_t, ptr @gamestate, i64 0, i32 1), align 4
-  %492 = icmp ne i32 %491, 2
-  %493 = select i1 %490, i1 %492, i1 false
-  br i1 %493, label %494, label %571
-
-494:                                              ; preds = %478
-  %495 = add nsw i32 %3, -24
-  %496 = call i32 @_Z6searchP7state_tiiiii(ptr %0, i32 %64, i32 %70, i32 %495, i32 0, i32 %86)
-  %497 = icmp sgt i32 %496, %64
-  br i1 %497, label %498, label %571
-
-498:                                              ; preds = %494
+444:                                              ; preds = %440
   store i32 -1, ptr %9, align 4
-  %499 = call fastcc i32 @_ZL15remove_one_fastPiS_S_i(ptr nonnull %9, ptr nonnull %279, ptr nonnull %278, i32 %276)
-  %500 = icmp ne i32 %499, 0
-  %501 = load i32, ptr %14, align 4
-  %502 = icmp slt i32 %501, 2
-  %503 = select i1 %500, i1 %502, i1 false
-  br i1 %503, label %504, label %571
+  %445 = call fastcc noundef i32 @_ZL15remove_one_fastPiS_S_i(ptr noundef nonnull %9, ptr noundef nonnull %269, ptr noundef nonnull %268, i32 noundef %266)
+  %446 = icmp ne i32 %445, 0
+  %447 = load i32, ptr %14, align 4
+  %448 = icmp slt i32 %447, 2
+  %449 = select i1 %446, i1 %448, i1 false
+  br i1 %449, label %450, label %517
 
-504:                                              ; preds = %498
-  %505 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 16
-  %506 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 36
-  %507 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 19
-  %508 = add nsw i32 %3, -16
-  %509 = sub nsw i32 0, %70
-  %510 = sub i32 50, %64
-  %511 = sub nsw i32 0, %64
-  %512 = xor i32 %64, -1
-  %513 = icmp eq i32 %86, 0
-  %514 = zext i1 %513 to i32
-  %515 = sub i32 49, %64
-  %516 = add nsw i32 %64, -50
-  br label %517
+450:                                              ; preds = %444
+  %451 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 16
+  %452 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 36
+  %453 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 19
+  %454 = add nsw i32 %3, -16
+  %455 = sub nsw i32 0, %60
+  %456 = sub i32 50, %54
+  %457 = sub nsw i32 0, %54
+  %458 = xor i32 %54, -1
+  %459 = icmp eq i32 %76, 0
+  %460 = zext i1 %459 to i32
+  %461 = sub i32 49, %54
+  %462 = add nsw i32 %54, -50
+  br label %463
 
-517:                                              ; preds = %559, %504
-  %518 = phi i32 [ 0, %504 ], [ %562, %559 ]
-  %519 = phi i32 [ %479, %504 ], [ %561, %559 ]
-  %520 = phi i32 [ 1, %504 ], [ %560, %559 ]
-  %521 = load i32, ptr %9, align 4
-  %522 = sext i32 %521 to i64
-  %523 = getelementptr inbounds [240 x i32], ptr %7, i64 0, i64 %522
-  %524 = load i32, ptr %523, align 4
-  call void @_Z4makeP7state_ti(ptr %0, i32 %524)
-  %525 = load i32, ptr %523, align 4
-  %526 = call i32 @_Z11check_legalP7state_ti(ptr %0, i32 %525)
-  %527 = icmp eq i32 %526, 0
-  br i1 %527, label %559, label %528
+463:                                              ; preds = %505, %450
+  %464 = phi i32 [ 0, %450 ], [ %508, %505 ]
+  %465 = phi i32 [ %426, %450 ], [ %507, %505 ]
+  %466 = phi i32 [ 1, %450 ], [ %506, %505 ]
+  %467 = load i32, ptr %9, align 4
+  %468 = sext i32 %467 to i64
+  %469 = getelementptr inbounds [240 x i32], ptr %7, i64 0, i64 %468
+  %470 = load i32, ptr %469, align 4
+  call void @_Z4makeP7state_ti(ptr noundef %0, i32 noundef %470)
+  %471 = load i32, ptr %469, align 4
+  %472 = call noundef i32 @_Z11check_legalP7state_ti(ptr noundef %0, i32 noundef %471)
+  %473 = icmp eq i32 %472, 0
+  br i1 %473, label %505, label %474
 
-528:                                              ; preds = %517
-  %529 = load i64, ptr %505, align 8
-  %530 = load i32, ptr getelementptr inbounds (%struct.gamestate_t, ptr @gamestate, i64 0, i32 15), align 4
-  %531 = load i32, ptr %31, align 8
-  %532 = add i32 %531, -1
-  %533 = add i32 %532, %530
-  %534 = sext i32 %533 to i64
-  %535 = getelementptr inbounds [1000 x i64], ptr %506, i64 0, i64 %534
-  store i64 %529, ptr %535, align 8
-  %536 = load i32, ptr %523, align 4
-  %537 = sext i32 %532 to i64
-  %538 = getelementptr inbounds [64 x i32], ptr %507, i64 0, i64 %537
-  store i32 %536, ptr %538, align 4
-  %539 = add nsw i32 %518, 1
-  %540 = call i32 @_Z8in_checkP7state_t(ptr %0)
-  %541 = load i32, ptr %31, align 8
-  %542 = sext i32 %541 to i64
-  %543 = getelementptr inbounds [64 x i32], ptr %87, i64 0, i64 %542
-  store i32 %540, ptr %543, align 4
-  %544 = call i32 @_Z4evalP7state_tiii(ptr %0, i32 %509, i32 %510, i32 1)
-  %545 = icmp eq i32 %520, 0
-  br i1 %545, label %553, label %546
+474:                                              ; preds = %463
+  %475 = load i64, ptr %451, align 8
+  %476 = load i32, ptr getelementptr inbounds (%struct._ZTS11gamestate_t.gamestate_t, ptr @gamestate, i64 0, i32 15), align 4
+  %477 = load i32, ptr %21, align 8
+  %478 = add i32 %477, -1
+  %479 = add i32 %478, %476
+  %480 = sext i32 %479 to i64
+  %481 = getelementptr inbounds [1000 x i64], ptr %452, i64 0, i64 %480
+  store i64 %475, ptr %481, align 8
+  %482 = load i32, ptr %469, align 4
+  %483 = sext i32 %478 to i64
+  %484 = getelementptr inbounds [64 x i32], ptr %453, i64 0, i64 %483
+  store i32 %482, ptr %484, align 4
+  %485 = add nsw i32 %464, 1
+  %486 = call noundef i32 @_Z8in_checkP7state_t(ptr noundef %0)
+  %487 = load i32, ptr %21, align 8
+  %488 = sext i32 %487 to i64
+  %489 = getelementptr inbounds [64 x i32], ptr %77, i64 0, i64 %488
+  store i32 %486, ptr %489, align 4
+  %490 = call noundef i32 @_Z4evalP7state_tiii(ptr noundef %0, i32 noundef %455, i32 noundef %456, i32 noundef 1)
+  %491 = icmp eq i32 %466, 0
+  br i1 %491, label %499, label %492
 
-546:                                              ; preds = %528
-  %547 = call i32 @_Z6searchP7state_tiiiii(ptr nonnull %0, i32 %512, i32 %511, i32 %508, i32 0, i32 %514)
-  %548 = sub nsw i32 0, %547
-  %549 = icmp slt i32 %64, %548
-  br i1 %549, label %550, label %551
+492:                                              ; preds = %474
+  %493 = call noundef i32 @_Z6searchP7state_tiiiii(ptr noundef nonnull %0, i32 noundef %458, i32 noundef %457, i32 noundef %454, i32 noundef 0, i32 noundef %460)
+  %494 = sub nsw i32 0, %493
+  %495 = icmp slt i32 %54, %494
+  br i1 %495, label %496, label %497
 
-550:                                              ; preds = %546
+496:                                              ; preds = %492
   store i32 1, ptr %14, align 4
-  br label %559
+  br label %505
 
-551:                                              ; preds = %546
+497:                                              ; preds = %492
   store i32 0, ptr %14, align 4
-  %552 = add nsw i32 %518, 11
-  br label %559
+  %498 = add nsw i32 %464, 11
+  br label %505
 
-553:                                              ; preds = %528
-  %554 = call i32 @_Z6searchP7state_tiiiii(ptr nonnull %0, i32 %515, i32 %510, i32 %508, i32 0, i32 0)
-  %555 = sub nsw i32 0, %554
-  %556 = icmp slt i32 %516, %555
-  br i1 %556, label %557, label %559
+499:                                              ; preds = %474
+  %500 = call noundef i32 @_Z6searchP7state_tiiiii(ptr noundef nonnull %0, i32 noundef %461, i32 noundef %456, i32 noundef %454, i32 noundef 0, i32 noundef 0)
+  %501 = sub nsw i32 0, %500
+  %502 = icmp slt i32 %462, %501
+  br i1 %502, label %503, label %505
 
-557:                                              ; preds = %553
+503:                                              ; preds = %499
   store i32 0, ptr %14, align 4
-  %558 = add nsw i32 %518, 11
-  br label %559
+  %504 = add nsw i32 %464, 11
+  br label %505
 
-559:                                              ; preds = %557, %553, %551, %550, %517
-  %560 = phi i32 [ %520, %517 ], [ 0, %553 ], [ 0, %557 ], [ 0, %550 ], [ 0, %551 ]
-  %561 = phi i32 [ %519, %517 ], [ %555, %553 ], [ %555, %557 ], [ %548, %550 ], [ %548, %551 ]
-  %562 = phi i32 [ %518, %517 ], [ %539, %553 ], [ %558, %557 ], [ %539, %550 ], [ %552, %551 ]
-  %563 = load i32, ptr %523, align 4
-  call void @_Z6unmakeP7state_ti(ptr %0, i32 %563)
-  %564 = call fastcc i32 @_ZL15remove_one_fastPiS_S_i(ptr nonnull %9, ptr nonnull %279, ptr nonnull %278, i32 %276)
-  %565 = icmp ne i32 %564, 0
-  %566 = load i32, ptr %14, align 4
-  %567 = icmp slt i32 %566, 2
-  %568 = select i1 %565, i1 %567, i1 false
-  %569 = icmp slt i32 %562, 3
-  %570 = select i1 %568, i1 %569, i1 false
-  br i1 %570, label %517, label %571, !llvm\5C.loop !47
+505:                                              ; preds = %503, %499, %497, %496, %463
+  %506 = phi i32 [ %466, %463 ], [ 0, %499 ], [ 0, %503 ], [ 0, %496 ], [ 0, %497 ]
+  %507 = phi i32 [ %465, %463 ], [ %501, %499 ], [ %501, %503 ], [ %494, %496 ], [ %494, %497 ]
+  %508 = phi i32 [ %464, %463 ], [ %485, %499 ], [ %504, %503 ], [ %485, %496 ], [ %498, %497 ]
+  %509 = load i32, ptr %469, align 4
+  call void @_Z6unmakeP7state_ti(ptr noundef %0, i32 noundef %509)
+  %510 = call fastcc noundef i32 @_ZL15remove_one_fastPiS_S_i(ptr noundef nonnull %9, ptr noundef nonnull %269, ptr noundef nonnull %268, i32 noundef %266)
+  %511 = icmp ne i32 %510, 0
+  %512 = load i32, ptr %14, align 4
+  %513 = icmp slt i32 %512, 2
+  %514 = select i1 %511, i1 %513, i1 false
+  %515 = icmp slt i32 %508, 3
+  %516 = select i1 %514, i1 %515, i1 false
+  br i1 %516, label %463, label %517, !llvm.loop !48
 
-571:                                              ; preds = %559, %498, %494, %478
-  %572 = phi i32 [ %479, %478 ], [ %479, %494 ], [ %479, %498 ], [ %561, %559 ]
-  br i1 %96, label %578, label %573
+517:                                              ; preds = %505, %444, %440, %424
+  %518 = phi i32 [ %426, %424 ], [ %426, %440 ], [ %426, %444 ], [ %507, %505 ]
+  br i1 %86, label %524, label %519
 
-573:                                              ; preds = %571
-  %574 = load i32, ptr %31, align 8
-  %575 = load i32, ptr getelementptr inbounds (%struct.gamestate_t, ptr @gamestate, i64 0, i32 5), align 4
-  %576 = shl nsw i32 %575, 1
-  %577 = icmp sle i32 %574, %576
-  br label %578
+519:                                              ; preds = %517
+  %520 = load i32, ptr %21, align 8
+  %521 = load i32, ptr getelementptr inbounds (%struct._ZTS11gamestate_t.gamestate_t, ptr @gamestate, i64 0, i32 5), align 4
+  %522 = shl nsw i32 %521, 1
+  %523 = icmp sle i32 %520, %522
+  br label %524
 
-578:                                              ; preds = %573, %571
-  %579 = phi i1 [ false, %571 ], [ %577, %573 ]
+524:                                              ; preds = %519, %517
+  %525 = phi i1 [ false, %517 ], [ %523, %519 ]
   store i32 -1, ptr %9, align 4
-  %580 = call fastcc i32 @_ZL15remove_one_fastPiS_S_i(ptr nonnull %9, ptr nonnull %279, ptr nonnull %278, i32 %276)
-  %581 = icmp eq i32 %580, 0
-  br i1 %581, label %1020, label %582
+  %526 = call fastcc noundef i32 @_ZL15remove_one_fastPiS_S_i(ptr noundef nonnull %9, ptr noundef nonnull %269, ptr noundef nonnull %268, i32 noundef %266)
+  %527 = icmp eq i32 %526, 0
+  br i1 %527, label %984, label %528
 
-582:                                              ; preds = %578
-  %583 = icmp eq i32 %277, 1
-  %584 = select i1 %93, i1 %583, i1 false
-  %585 = select i1 %584, i32 4, i32 0
-  %586 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 1
-  %587 = or i32 %585, 2
-  %588 = select i1 %579, i32 %587, i32 %585
-  %589 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 19
-  %590 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 11
-  %591 = select i1 %579, i32 3, i32 1
-  %592 = add nsw i32 %145, %134
-  %593 = icmp eq i32 %592, 1
-  %594 = sdiv i32 %3, 4
-  %595 = add nsw i32 %594, 1
-  %596 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 0
-  %597 = icmp slt i32 %3, 25
-  %598 = icmp slt i32 %3, 9
-  %599 = icmp ult i32 %3, 13
-  %600 = add nsw i32 %92, 100
-  %601 = add nsw i32 %92, 300
-  %602 = add nsw i32 %92, 75
-  %603 = add nsw i32 %92, 200
-  %604 = select i1 %579, i32 4, i32 2
-  %605 = sub nsw i32 0, %70
-  %606 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 16
-  %607 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 36
-  %608 = icmp sgt i32 %3, 4
-  %609 = icmp eq i32 %86, 0
-  %610 = zext i1 %609 to i32
-  %611 = add nsw i32 %3, -4
-  br label %612
+528:                                              ; preds = %524
+  %529 = icmp eq i32 %267, 1
+  %530 = select i1 %83, i1 %529, i1 false
+  %531 = select i1 %530, i32 4, i32 0
+  %532 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 1
+  %533 = or i32 %531, 2
+  %534 = select i1 %525, i32 %533, i32 %531
+  %535 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 19
+  %536 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 11
+  %537 = select i1 %525, i32 3, i32 1
+  %538 = add nsw i32 %135, %124
+  %539 = icmp eq i32 %538, 1
+  %540 = sdiv i32 %3, 4
+  %541 = add nsw i32 %540, 1
+  %542 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 0
+  %543 = icmp slt i32 %3, 25
+  %544 = icmp slt i32 %3, 9
+  %545 = icmp ult i32 %3, 13
+  %546 = add nsw i32 %82, 100
+  %547 = add nsw i32 %82, 300
+  %548 = add nsw i32 %82, 75
+  %549 = add nsw i32 %82, 200
+  %550 = select i1 %525, i32 4, i32 2
+  %551 = sub nsw i32 0, %60
+  %552 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 16
+  %553 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 36
+  %554 = icmp sgt i32 %3, 4
+  %555 = icmp eq i32 %76, 0
+  %556 = zext i1 %555 to i32
+  %557 = add nsw i32 %3, -4
+  br label %558
 
-612:                                              ; preds = %1011, %582
-  %613 = phi i32 [ %64, %582 ], [ %1018, %1011 ]
-  %614 = phi i32 [ %572, %582 ], [ %1017, %1011 ]
-  %615 = phi i32 [ 1, %582 ], [ %1016, %1011 ]
-  %616 = phi i32 [ -32000, %582 ], [ %1015, %1011 ]
-  %617 = phi i32 [ 1, %582 ], [ %1014, %1011 ]
-  %618 = phi i32 [ 1, %582 ], [ %1013, %1011 ]
-  %619 = icmp ne i32 %617, 0
-  %620 = icmp sgt i32 %618, %595
-  %621 = add nsw i32 %613, 1
-  %622 = icmp eq i32 %70, %621
-  br label %623
+558:                                              ; preds = %972, %528
+  %559 = phi i32 [ %54, %528 ], [ %979, %972 ]
+  %560 = phi i32 [ %518, %528 ], [ %978, %972 ]
+  %561 = phi i32 [ 1, %528 ], [ %977, %972 ]
+  %562 = phi i32 [ -32000, %528 ], [ %976, %972 ]
+  %563 = phi i32 [ 1, %528 ], [ %975, %972 ]
+  %564 = phi i32 [ 1, %528 ], [ %974, %972 ]
+  %565 = icmp ne i32 %563, 0
+  %566 = icmp sgt i32 %564, %541
+  %567 = add nsw i32 %559, 1
+  %568 = icmp eq i32 %60, %567
+  %569 = load i32, ptr %21, align 8
+  %570 = icmp slt i32 %569, 60
+  br i1 %570, label %622, label %571
 
-623:                                              ; preds = %751, %612
-  %624 = phi i32 [ %615, %612 ], [ 0, %751 ]
-  %625 = load i32, ptr %31, align 8
-  %626 = icmp slt i32 %625, 60
-  br i1 %626, label %630, label %627
+571:                                              ; preds = %558
+  %572 = load i32, ptr %9, align 4
+  %573 = sext i32 %572 to i64
+  %574 = getelementptr inbounds [240 x i32], ptr %7, i64 0, i64 %573
+  %575 = load i32, ptr %574, align 4
+  %576 = and i32 %575, 7864320
+  %577 = icmp eq i32 %576, 6815744
+  br i1 %577, label %578, label %758
 
-627:                                              ; preds = %623
-  %628 = load i32, ptr %9, align 4
-  %629 = sext i32 %628 to i64
-  br label %709
+578:                                              ; preds = %571
+  br i1 %566, label %579, label %758
 
-630:                                              ; preds = %623
-  %631 = load i32, ptr %9, align 4
-  %632 = sext i32 %631 to i64
-  %633 = getelementptr inbounds [240 x i32], ptr %7, i64 0, i64 %632
-  %634 = load i32, ptr %633, align 4
-  %635 = lshr i32 %634, 6
-  %636 = and i32 %635, 63
-  %637 = zext i32 %636 to i64
-  %638 = getelementptr inbounds [64 x i32], ptr %586, i64 0, i64 %637
-  %639 = load i32, ptr %638, align 4
-  %640 = add nsw i32 %639, 1
-  %641 = and i32 %640, -2
-  %642 = icmp eq i32 %641, 2
-  br i1 %642, label %643, label %650
+579:                                              ; preds = %578
+  %580 = load i32, ptr %542, align 8
+  %581 = sext i32 %580 to i64
+  %582 = getelementptr inbounds [8 x [12 x [64 x i32]]], ptr @history_hit, i64 0, i64 %581
+  %583 = getelementptr inbounds [8 x [12 x [64 x i32]]], ptr @history_tot, i64 0, i64 %581
+  %584 = and i1 %568, %543
+  br i1 %584, label %585, label %758
 
-643:                                              ; preds = %630
-  %644 = lshr i32 %634, 3
-  %645 = and i32 %644, 7
-  switch i32 %645, label %646 [
-    i32 1, label %649
-    i32 6, label %649
+585:                                              ; preds = %610, %579
+  %586 = phi i32 [ %614, %610 ], [ %575, %579 ]
+  %587 = phi i32 [ %611, %610 ], [ %572, %579 ]
+  %588 = phi i32 [ 0, %610 ], [ %561, %579 ]
+  %589 = lshr i32 %586, 6
+  %590 = and i32 %589, 63
+  %591 = zext i32 %590 to i64
+  %592 = getelementptr inbounds [64 x i32], ptr %532, i64 0, i64 %591
+  %593 = load i32, ptr %592, align 4
+  %594 = add nsw i32 %593, -1
+  %595 = and i32 %586, 63
+  %596 = sext i32 %594 to i64
+  %597 = getelementptr inbounds [12 x [64 x i32]], ptr %582, i64 0, i64 %596
+  %598 = zext i32 %595 to i64
+  %599 = getelementptr inbounds [64 x i32], ptr %597, i64 0, i64 %598
+  %600 = load i32, ptr %599, align 4
+  %601 = getelementptr inbounds [12 x [64 x i32]], ptr %583, i64 0, i64 %596
+  %602 = getelementptr inbounds [64 x i32], ptr %601, i64 0, i64 %598
+  %603 = load i32, ptr %602, align 4
+  %604 = sub nsw i32 %603, %600
+  %605 = mul nsw i32 %600, %541
+  %606 = icmp slt i32 %605, %604
+  %607 = and i32 %586, 61440
+  %608 = icmp eq i32 %607, 0
+  %609 = select i1 %606, i1 %608, i1 false
+  br i1 %609, label %617, label %752
+
+610:                                              ; preds = %617
+  %611 = load i32, ptr %9, align 4
+  %612 = sext i32 %611 to i64
+  %613 = getelementptr inbounds [240 x i32], ptr %7, i64 0, i64 %612
+  %614 = load i32, ptr %613, align 4
+  %615 = and i32 %614, 7864320
+  %616 = icmp eq i32 %615, 6815744
+  br i1 %616, label %585, label %752, !llvm.loop !49
+
+617:                                              ; preds = %585
+  %618 = call fastcc noundef i32 @_ZL15remove_one_fastPiS_S_i(ptr noundef nonnull %9, ptr noundef nonnull %269, ptr noundef nonnull %268, i32 noundef %266)
+  %619 = icmp eq i32 %618, 0
+  br i1 %619, label %981, label %610, !llvm.loop !49
+
+620:                                              ; preds = %749
+  %621 = load i32, ptr %21, align 8
+  br label %622
+
+622:                                              ; preds = %620, %558
+  %623 = phi i32 [ %621, %620 ], [ %569, %558 ]
+  %624 = phi i32 [ 0, %620 ], [ %561, %558 ]
+  %625 = icmp slt i32 %623, 60
+  br i1 %625, label %629, label %626
+
+626:                                              ; preds = %622
+  %627 = load i32, ptr %9, align 4
+  %628 = sext i32 %627 to i64
+  br label %708
+
+629:                                              ; preds = %622
+  %630 = load i32, ptr %9, align 4
+  %631 = sext i32 %630 to i64
+  %632 = getelementptr inbounds [240 x i32], ptr %7, i64 0, i64 %631
+  %633 = load i32, ptr %632, align 4
+  %634 = lshr i32 %633, 6
+  %635 = and i32 %634, 63
+  %636 = zext i32 %635 to i64
+  %637 = getelementptr inbounds [64 x i32], ptr %532, i64 0, i64 %636
+  %638 = load i32, ptr %637, align 4
+  %639 = add nsw i32 %638, 1
+  %640 = and i32 %639, -2
+  %641 = icmp eq i32 %640, 2
+  br i1 %641, label %642, label %649
+
+642:                                              ; preds = %629
+  %643 = lshr i32 %633, 3
+  %644 = and i32 %643, 7
+  switch i32 %644, label %645 [
+    i32 1, label %648
+    i32 6, label %648
   ]
 
-646:                                              ; preds = %643
-  %647 = and i32 %634, 61440
-  %648 = icmp eq i32 %647, 0
-  br i1 %648, label %650, label %649
+645:                                              ; preds = %642
+  %646 = and i32 %633, 61440
+  %647 = icmp eq i32 %646, 0
+  br i1 %647, label %649, label %648
 
-649:                                              ; preds = %646, %643, %643
-  br label %650
+648:                                              ; preds = %645, %642, %642
+  br label %649
 
-650:                                              ; preds = %649, %646, %630
-  %651 = phi i32 [ %585, %646 ], [ %585, %630 ], [ %588, %649 ]
-  %652 = lshr i32 %634, 19
-  %653 = and i32 %652, 15
-  %654 = icmp eq i32 %653, 13
-  br i1 %654, label %685, label %655
+649:                                              ; preds = %648, %645, %629
+  %650 = phi i32 [ %531, %645 ], [ %531, %629 ], [ %534, %648 ]
+  %651 = lshr i32 %633, 19
+  %652 = and i32 %651, 15
+  %653 = icmp eq i32 %652, 13
+  br i1 %653, label %684, label %654
 
-655:                                              ; preds = %650
-  %656 = add nsw i32 %625, -1
-  %657 = sext i32 %656 to i64
-  %658 = getelementptr inbounds [64 x i32], ptr %589, i64 0, i64 %657
-  %659 = load i32, ptr %658, align 4
-  %660 = lshr i32 %659, 19
-  %661 = and i32 %660, 15
-  %662 = icmp eq i32 %661, 13
-  br i1 %662, label %685, label %663
+654:                                              ; preds = %649
+  %655 = add nsw i32 %623, -1
+  %656 = sext i32 %655 to i64
+  %657 = getelementptr inbounds [64 x i32], ptr %535, i64 0, i64 %656
+  %658 = load i32, ptr %657, align 4
+  %659 = lshr i32 %658, 19
+  %660 = and i32 %659, 15
+  %661 = icmp eq i32 %660, 13
+  br i1 %661, label %684, label %662
 
-663:                                              ; preds = %655
-  %664 = zext i32 %653 to i64
-  %665 = getelementptr inbounds [14 x i32], ptr @_ZL8rc_index, i64 0, i64 %664
-  %666 = load i32, ptr %665, align 4
-  %667 = zext i32 %661 to i64
-  %668 = getelementptr inbounds [14 x i32], ptr @_ZL8rc_index, i64 0, i64 %667
-  %669 = load i32, ptr %668, align 4
-  %670 = icmp eq i32 %666, %669
-  br i1 %670, label %671, label %685
+662:                                              ; preds = %654
+  %663 = zext i32 %652 to i64
+  %664 = getelementptr inbounds [14 x i32], ptr @_ZL8rc_index, i64 0, i64 %663
+  %665 = load i32, ptr %664, align 4
+  %666 = zext i32 %660 to i64
+  %667 = getelementptr inbounds [14 x i32], ptr @_ZL8rc_index, i64 0, i64 %666
+  %668 = load i32, ptr %667, align 4
+  %669 = icmp eq i32 %665, %668
+  br i1 %669, label %670, label %684
 
-671:                                              ; preds = %663
-  %672 = and i32 %634, 63
-  %673 = and i32 %659, 63
-  %674 = icmp eq i32 %672, %673
-  br i1 %674, label %675, label %685
+670:                                              ; preds = %662
+  %671 = and i32 %633, 63
+  %672 = and i32 %658, 63
+  %673 = icmp eq i32 %671, %672
+  br i1 %673, label %674, label %684
 
-675:                                              ; preds = %671
-  %676 = load i32, ptr %590, align 4
-  %677 = icmp eq i32 %676, 0
-  %678 = zext i1 %677 to i32
-  %679 = lshr i32 %634, 12
-  %680 = and i32 %679, 15
-  %681 = call i32 @_Z3seeP7state_tiiii(ptr nonnull %0, i32 %678, i32 %636, i32 %672, i32 %680)
-  %682 = icmp sgt i32 %681, 0
-  %683 = select i1 %682, i32 %591, i32 0
-  %684 = add nsw i32 %683, %651
-  br label %685
+674:                                              ; preds = %670
+  %675 = load i32, ptr %536, align 4
+  %676 = icmp eq i32 %675, 0
+  %677 = zext i1 %676 to i32
+  %678 = lshr i32 %633, 12
+  %679 = and i32 %678, 15
+  %680 = call noundef i32 @_Z3seeP7state_tiiii(ptr noundef nonnull %0, i32 noundef %677, i32 noundef %635, i32 noundef %671, i32 noundef %679)
+  %681 = icmp sgt i32 %680, 0
+  %682 = select i1 %681, i32 %537, i32 0
+  %683 = add nsw i32 %682, %650
+  br label %684
 
-685:                                              ; preds = %675, %671, %663, %655, %650
-  %686 = phi i32 [ %651, %671 ], [ %651, %663 ], [ %651, %655 ], [ %651, %650 ], [ %684, %675 ]
-  %687 = load i32, ptr %14, align 4
-  %688 = icmp eq i32 %687, 1
-  %689 = icmp ne i32 %686, 0
-  %690 = select i1 %688, i1 %689, i1 false
-  %691 = select i1 %690, i1 %619, i1 false
-  br i1 %691, label %692, label %693
+684:                                              ; preds = %674, %670, %662, %654, %649
+  %685 = phi i32 [ %650, %670 ], [ %650, %662 ], [ %650, %654 ], [ %650, %649 ], [ %683, %674 ]
+  %686 = load i32, ptr %14, align 4
+  %687 = icmp eq i32 %686, 1
+  %688 = icmp ne i32 %685, 0
+  %689 = select i1 %687, i1 %688, i1 false
+  %690 = select i1 %689, i1 %565, i1 false
+  br i1 %690, label %691, label %692
 
-692:                                              ; preds = %685
+691:                                              ; preds = %684
   store i32 1, ptr %15, align 4
-  br label %699
+  br label %698
 
-693:                                              ; preds = %685
-  %694 = xor i1 %689, true
-  %695 = select i1 %694, i1 %688, i1 false
-  %696 = select i1 %695, i1 %619, i1 false
-  br i1 %696, label %697, label %699
+692:                                              ; preds = %684
+  %693 = xor i1 %688, true
+  %694 = select i1 %693, i1 %687, i1 false
+  %695 = select i1 %694, i1 %565, i1 false
+  br i1 %695, label %696, label %698
 
-697:                                              ; preds = %693
+696:                                              ; preds = %692
   store i32 0, ptr %15, align 4
-  %698 = add nsw i32 %686, %591
-  br label %699
+  %697 = add nsw i32 %685, %537
+  br label %698
 
-699:                                              ; preds = %697, %693, %692
-  %700 = phi i32 [ %686, %692 ], [ %686, %693 ], [ %698, %697 ]
-  %701 = icmp slt i32 %700, 4
-  %702 = select i1 %701, i32 %700, i32 4
-  %703 = load i32, ptr %633, align 4
-  %704 = lshr i32 %703, 19
-  %705 = and i32 %704, 15
-  switch i32 %705, label %706 [
-    i32 13, label %709
-    i32 1, label %709
-    i32 2, label %709
+698:                                              ; preds = %696, %692, %691
+  %699 = phi i32 [ %685, %691 ], [ %685, %692 ], [ %697, %696 ]
+  %700 = icmp sgt i32 %699, 4
+  %701 = select i1 %700, i32 4, i32 %699
+  %702 = load i32, ptr %632, align 4
+  %703 = lshr i32 %702, 19
+  %704 = and i32 %703, 15
+  switch i32 %704, label %705 [
+    i32 13, label %708
+    i32 1, label %708
+    i32 2, label %708
   ]
 
-706:                                              ; preds = %699
-  %707 = add nsw i32 %702, 4
-  %708 = select i1 %593, i32 %707, i32 %702
-  br label %709
+705:                                              ; preds = %698
+  %706 = add nsw i32 %701, 4
+  %707 = select i1 %539, i32 %706, i32 %701
+  br label %708
 
-709:                                              ; preds = %706, %699, %699, %699, %627
-  %710 = phi i64 [ %629, %627 ], [ %632, %706 ], [ %632, %699 ], [ %632, %699 ], [ %632, %699 ]
-  %711 = phi i32 [ 0, %627 ], [ %708, %706 ], [ %702, %699 ], [ %702, %699 ], [ %702, %699 ]
-  %712 = getelementptr inbounds [240 x i32], ptr %7, i64 0, i64 %710
-  %713 = load i32, ptr %712, align 4
-  %714 = and i32 %713, 7864320
-  %715 = icmp eq i32 %714, 6815744
-  %716 = xor i1 %715, true
-  %717 = xor i1 %620, true
-  %718 = select i1 %716, i1 true, i1 %717
-  %719 = select i1 %716, i1 false, i1 true
-  %720 = select i1 %716, i32 %624, i32 %615
-  br i1 %718, label %757, label %721
+708:                                              ; preds = %705, %698, %698, %698, %626
+  %709 = phi i64 [ %628, %626 ], [ %631, %705 ], [ %631, %698 ], [ %631, %698 ], [ %631, %698 ]
+  %710 = phi i32 [ 0, %626 ], [ %707, %705 ], [ %701, %698 ], [ %701, %698 ], [ %701, %698 ]
+  %711 = getelementptr inbounds [240 x i32], ptr %7, i64 0, i64 %709
+  %712 = load i32, ptr %711, align 4
+  %713 = and i32 %712, 7864320
+  %714 = icmp eq i32 %713, 6815744
+  %715 = xor i1 %714, true
+  %716 = xor i1 %566, true
+  %717 = select i1 %715, i1 true, i1 %716
+  %718 = select i1 %715, i32 %624, i32 %561
+  br i1 %717, label %758, label %719
 
-721:                                              ; preds = %709
-  %722 = lshr i32 %713, 6
-  %723 = and i32 %722, 63
-  %724 = zext i32 %723 to i64
-  %725 = getelementptr inbounds [64 x i32], ptr %586, i64 0, i64 %724
-  %726 = load i32, ptr %725, align 4
-  %727 = add nsw i32 %726, -1
-  %728 = and i32 %713, 63
-  %729 = load i32, ptr %596, align 8
-  %730 = sext i32 %729 to i64
-  %731 = getelementptr inbounds [8 x [12 x [64 x i32]]], ptr @history_hit, i64 0, i64 %730
-  %732 = sext i32 %727 to i64
-  %733 = getelementptr inbounds [12 x [64 x i32]], ptr %731, i64 0, i64 %732
-  %734 = zext i32 %728 to i64
-  %735 = getelementptr inbounds [64 x i32], ptr %733, i64 0, i64 %734
-  %736 = load i32, ptr %735, align 4
-  %737 = getelementptr inbounds [8 x [12 x [64 x i32]]], ptr @history_tot, i64 0, i64 %730
-  %738 = getelementptr inbounds [12 x [64 x i32]], ptr %737, i64 0, i64 %732
-  %739 = getelementptr inbounds [64 x i32], ptr %738, i64 0, i64 %734
-  %740 = load i32, ptr %739, align 4
-  %741 = sub nsw i32 %740, %736
-  %742 = mul nsw i32 %736, %595
-  %743 = icmp slt i32 %742, %741
-  %744 = icmp eq i32 %711, 0
-  %745 = and i1 %743, %597
-  %746 = select i1 %745, i1 %744, i1 false
-  %747 = select i1 %746, i1 %622, i1 false
-  %748 = and i32 %713, 61440
-  %749 = icmp eq i32 %748, 0
-  %750 = select i1 %747, i1 %749, i1 false
-  br i1 %750, label %751, label %757
+719:                                              ; preds = %708
+  %720 = lshr i32 %712, 6
+  %721 = and i32 %720, 63
+  %722 = zext i32 %721 to i64
+  %723 = getelementptr inbounds [64 x i32], ptr %532, i64 0, i64 %722
+  %724 = load i32, ptr %723, align 4
+  %725 = add nsw i32 %724, -1
+  %726 = and i32 %712, 63
+  %727 = load i32, ptr %542, align 8
+  %728 = sext i32 %727 to i64
+  %729 = getelementptr inbounds [8 x [12 x [64 x i32]]], ptr @history_hit, i64 0, i64 %728
+  %730 = sext i32 %725 to i64
+  %731 = getelementptr inbounds [12 x [64 x i32]], ptr %729, i64 0, i64 %730
+  %732 = zext i32 %726 to i64
+  %733 = getelementptr inbounds [64 x i32], ptr %731, i64 0, i64 %732
+  %734 = load i32, ptr %733, align 4
+  %735 = getelementptr inbounds [8 x [12 x [64 x i32]]], ptr @history_tot, i64 0, i64 %728
+  %736 = getelementptr inbounds [12 x [64 x i32]], ptr %735, i64 0, i64 %730
+  %737 = getelementptr inbounds [64 x i32], ptr %736, i64 0, i64 %732
+  %738 = load i32, ptr %737, align 4
+  %739 = sub nsw i32 %738, %734
+  %740 = mul nsw i32 %734, %541
+  %741 = icmp slt i32 %740, %739
+  %742 = icmp eq i32 %710, 0
+  %743 = and i1 %741, %543
+  %744 = select i1 %743, i1 %742, i1 false
+  %745 = select i1 %744, i1 %568, i1 false
+  %746 = and i32 %712, 61440
+  %747 = icmp eq i32 %746, 0
+  %748 = select i1 %745, i1 %747, i1 false
+  br i1 %748, label %749, label %758
 
-751:                                              ; preds = %721
-  %752 = call fastcc i32 @_ZL15remove_one_fastPiS_S_i(ptr nonnull %9, ptr nonnull %279, ptr nonnull %278, i32 %276)
-  %753 = icmp eq i32 %752, 0
-  br i1 %753, label %754, label %623, !llvm\5C.loop !48
+749:                                              ; preds = %719
+  %750 = call fastcc noundef i32 @_ZL15remove_one_fastPiS_S_i(ptr noundef nonnull %9, ptr noundef nonnull %269, ptr noundef nonnull %268, i32 noundef %266)
+  %751 = icmp eq i32 %750, 0
+  br i1 %751, label %981, label %620, !llvm.loop !50
 
-754:                                              ; preds = %751
-  %755 = load i32, ptr getelementptr inbounds (%struct.gamestate_t, ptr @gamestate, i64 0, i32 25), align 8
-  %756 = icmp eq i32 %755, 0
-  br label %1039
+752:                                              ; preds = %610, %585
+  %753 = phi i32 [ %587, %585 ], [ %611, %610 ]
+  %754 = phi i32 [ %586, %585 ], [ %614, %610 ]
+  %755 = phi i32 [ %588, %585 ], [ 0, %610 ]
+  %756 = sext i32 %753 to i64
+  %757 = xor i1 %609, true
+  br label %758
 
-757:                                              ; preds = %721, %709
-  %758 = phi i1 [ true, %721 ], [ %719, %709 ]
-  %759 = phi i32 [ %624, %721 ], [ %720, %709 ]
-  br i1 %598, label %760, label %763
+758:                                              ; preds = %752, %719, %708, %579, %578, %571
+  %759 = phi i64 [ %756, %752 ], [ %573, %571 ], [ %573, %579 ], [ %573, %578 ], [ %709, %708 ], [ %709, %719 ]
+  %760 = phi i32 [ 0, %752 ], [ 0, %571 ], [ 0, %579 ], [ 0, %578 ], [ %710, %708 ], [ %710, %719 ]
+  %761 = phi i32 [ %754, %752 ], [ %575, %571 ], [ %575, %579 ], [ %575, %578 ], [ %712, %708 ], [ %712, %719 ]
+  %762 = phi i1 [ %757, %752 ], [ false, %571 ], [ true, %579 ], [ true, %578 ], [ %714, %708 ], [ %714, %719 ]
+  %763 = phi i32 [ %755, %752 ], [ %561, %571 ], [ %561, %579 ], [ %561, %578 ], [ %718, %708 ], [ %624, %719 ]
+  %764 = getelementptr inbounds [240 x i32], ptr %7, i64 0, i64 %759
+  br i1 %544, label %765, label %768
 
-760:                                              ; preds = %757
-  %761 = icmp slt i32 %602, %613
-  %762 = icmp slt i32 %603, %613
-  br label %768
+765:                                              ; preds = %758
+  %766 = icmp slt i32 %548, %559
+  %767 = icmp slt i32 %549, %559
+  br label %773
 
-763:                                              ; preds = %757
-  %764 = icmp slt i32 %600, %613
-  %765 = icmp slt i32 %601, %613
-  %766 = select i1 %599, i1 %764, i1 false
-  %767 = select i1 %599, i1 %765, i1 false
-  br label %768
+768:                                              ; preds = %758
+  %769 = icmp slt i32 %546, %559
+  %770 = icmp slt i32 %547, %559
+  %771 = select i1 %545, i1 %769, i1 false
+  %772 = select i1 %545, i1 %770, i1 false
+  br label %773
 
-768:                                              ; preds = %763, %760
-  %769 = phi i1 [ %761, %760 ], [ %766, %763 ]
-  %770 = phi i1 [ %762, %760 ], [ %767, %763 ]
-  br i1 %758, label %781, label %771
+773:                                              ; preds = %768, %765
+  %774 = phi i1 [ %766, %765 ], [ %771, %768 ]
+  %775 = phi i1 [ %767, %765 ], [ %772, %768 ]
+  br i1 %762, label %786, label %776
 
-771:                                              ; preds = %768
-  %772 = load i32, ptr %590, align 4
-  %773 = icmp eq i32 %772, 0
-  %774 = zext i1 %773 to i32
-  %775 = lshr i32 %713, 6
-  %776 = and i32 %775, 63
-  %777 = and i32 %713, 63
-  %778 = lshr i32 %713, 12
-  %779 = and i32 %778, 15
-  %780 = call i32 @_Z3seeP7state_tiiii(ptr nonnull %0, i32 %774, i32 %776, i32 %777, i32 %779)
-  br label %781
+776:                                              ; preds = %773
+  %777 = load i32, ptr %536, align 4
+  %778 = icmp eq i32 %777, 0
+  %779 = zext i1 %778 to i32
+  %780 = lshr i32 %761, 6
+  %781 = and i32 %780, 63
+  %782 = and i32 %761, 63
+  %783 = lshr i32 %761, 12
+  %784 = and i32 %783, 15
+  %785 = call noundef i32 @_Z3seeP7state_tiiii(ptr noundef nonnull %0, i32 noundef %779, i32 noundef %781, i32 noundef %782, i32 noundef %784)
+  br label %786
 
-781:                                              ; preds = %771, %768
-  %782 = phi i32 [ %780, %771 ], [ -1000000, %768 ]
-  %783 = load i32, ptr %712, align 4
-  call void @_Z4makeP7state_ti(ptr nonnull %0, i32 %783)
-  %784 = load i32, ptr %712, align 4
-  %785 = call i32 @_Z11check_legalP7state_ti(ptr nonnull %0, i32 %784)
-  %786 = icmp eq i32 %785, 0
-  br i1 %786, label %921, label %787
+786:                                              ; preds = %776, %773
+  %787 = phi i32 [ %785, %776 ], [ -1000000, %773 ]
+  %788 = load i32, ptr %764, align 4
+  call void @_Z4makeP7state_ti(ptr noundef nonnull %0, i32 noundef %788)
+  %789 = load i32, ptr %764, align 4
+  %790 = call noundef i32 @_Z11check_legalP7state_ti(ptr noundef nonnull %0, i32 noundef %789)
+  %791 = icmp eq i32 %790, 0
+  br i1 %791, label %926, label %792
 
-787:                                              ; preds = %781
-  %788 = call i32 @_Z8in_checkP7state_t(ptr nonnull %0)
-  %789 = icmp ne i32 %788, 0
-  %790 = select i1 %789, i32 %604, i32 0
-  %791 = add nsw i32 %790, %711
-  %792 = or i32 %788, %91
-  %793 = icmp eq i32 %792, 0
-  %794 = select i1 %793, i1 %622, i1 false
-  br i1 %794, label %795, label %813
+792:                                              ; preds = %786
+  %793 = call noundef i32 @_Z8in_checkP7state_t(ptr noundef nonnull %0)
+  %794 = icmp ne i32 %793, 0
+  %795 = select i1 %794, i32 %550, i32 0
+  %796 = add nsw i32 %795, %760
+  %797 = or i32 %793, %81
+  %798 = icmp eq i32 %797, 0
+  %799 = select i1 %798, i1 %568, i1 false
+  br i1 %799, label %800, label %818
 
-795:                                              ; preds = %787
-  %796 = icmp slt i32 %782, 86
-  %797 = and i1 %770, %796
-  br i1 %797, label %798, label %804
+800:                                              ; preds = %792
+  %801 = icmp slt i32 %787, 86
+  %802 = and i1 %775, %801
+  br i1 %802, label %803, label %809
 
-798:                                              ; preds = %795
-  %799 = load i32, ptr %712, align 4
-  %800 = and i32 %799, 61440
-  %801 = icmp eq i32 %800, 0
-  br i1 %801, label %802, label %804
+803:                                              ; preds = %800
+  %804 = load i32, ptr %764, align 4
+  %805 = and i32 %804, 61440
+  %806 = icmp eq i32 %805, 0
+  br i1 %806, label %807, label %809
 
-802:                                              ; preds = %798
-  call void @_Z6unmakeP7state_ti(ptr nonnull %0, i32 %799)
-  %803 = call fastcc i32 @_ZL15remove_one_fastPiS_S_i(ptr nonnull %9, ptr nonnull %279, ptr nonnull %278, i32 %276)
-  br label %1011, !llvm\5C.loop !48
+807:                                              ; preds = %803
+  call void @_Z6unmakeP7state_ti(ptr noundef nonnull %0, i32 noundef %804)
+  %808 = call fastcc noundef i32 @_ZL15remove_one_fastPiS_S_i(ptr noundef nonnull %9, ptr noundef nonnull %269, ptr noundef nonnull %268, i32 noundef %266)
+  br label %972, !llvm.loop !49
 
-804:                                              ; preds = %798, %795
-  %805 = icmp slt i32 %782, -50
-  %806 = and i1 %769, %805
-  br i1 %806, label %807, label %813
+809:                                              ; preds = %803, %800
+  %810 = icmp slt i32 %787, -50
+  %811 = and i1 %774, %810
+  br i1 %811, label %812, label %818
 
-807:                                              ; preds = %804
-  %808 = load i32, ptr %712, align 4
-  %809 = and i32 %808, 61440
-  %810 = icmp eq i32 %809, 0
-  br i1 %810, label %811, label %813
+812:                                              ; preds = %809
+  %813 = load i32, ptr %764, align 4
+  %814 = and i32 %813, 61440
+  %815 = icmp eq i32 %814, 0
+  br i1 %815, label %816, label %818
 
-811:                                              ; preds = %807
-  call void @_Z6unmakeP7state_ti(ptr nonnull %0, i32 %808)
-  %812 = call fastcc i32 @_ZL15remove_one_fastPiS_S_i(ptr nonnull %9, ptr nonnull %279, ptr nonnull %278, i32 %276)
-  br label %1011, !llvm\5C.loop !48
+816:                                              ; preds = %812
+  call void @_Z6unmakeP7state_ti(ptr noundef nonnull %0, i32 noundef %813)
+  %817 = call fastcc noundef i32 @_ZL15remove_one_fastPiS_S_i(ptr noundef nonnull %9, ptr noundef nonnull %269, ptr noundef nonnull %268, i32 noundef %266)
+  br label %972, !llvm.loop !49
 
-813:                                              ; preds = %807, %804, %787
-  %814 = add nsw i32 %791, %3
-  %815 = sub nsw i32 0, %613
-  %816 = sub i32 130, %613
-  %817 = icmp sgt i32 %814, 4
-  %818 = or i1 %817, %789
-  %819 = zext i1 %818 to i32
-  %820 = call i32 @_Z4evalP7state_tiii(ptr nonnull %0, i32 %605, i32 %816, i32 %819)
-  %821 = load i32, ptr %31, align 8
-  %822 = sext i32 %821 to i64
-  %823 = getelementptr inbounds [64 x i32], ptr %87, i64 0, i64 %822
-  store i32 %788, ptr %823, align 4
-  %824 = load i64, ptr %606, align 8
-  %825 = load i32, ptr getelementptr inbounds (%struct.gamestate_t, ptr @gamestate, i64 0, i32 15), align 4
-  %826 = add i32 %821, -1
-  %827 = add i32 %826, %825
-  %828 = sext i32 %827 to i64
-  %829 = getelementptr inbounds [1000 x i64], ptr %607, i64 0, i64 %828
-  store i64 %824, ptr %829, align 8
-  %830 = load i32, ptr %712, align 4
-  %831 = sext i32 %826 to i64
-  %832 = getelementptr inbounds [64 x i32], ptr %589, i64 0, i64 %831
-  store i32 %830, ptr %832, align 4
-  %833 = icmp sgt i32 %618, 3
-  %834 = select i1 %608, i1 %833, i1 false
-  br i1 %834, label %835, label %870
+818:                                              ; preds = %812, %809, %792
+  %819 = add nsw i32 %796, %3
+  %820 = sub nsw i32 0, %559
+  %821 = sub i32 130, %559
+  %822 = icmp sgt i32 %819, 4
+  %823 = or i1 %822, %794
+  %824 = zext i1 %823 to i32
+  %825 = call noundef i32 @_Z4evalP7state_tiii(ptr noundef nonnull %0, i32 noundef %551, i32 noundef %821, i32 noundef %824)
+  %826 = load i32, ptr %21, align 8
+  %827 = sext i32 %826 to i64
+  %828 = getelementptr inbounds [64 x i32], ptr %77, i64 0, i64 %827
+  store i32 %793, ptr %828, align 4
+  %829 = load i64, ptr %552, align 8
+  %830 = load i32, ptr getelementptr inbounds (%struct._ZTS11gamestate_t.gamestate_t, ptr @gamestate, i64 0, i32 15), align 4
+  %831 = add i32 %826, -1
+  %832 = add i32 %831, %830
+  %833 = sext i32 %832 to i64
+  %834 = getelementptr inbounds [1000 x i64], ptr %553, i64 0, i64 %833
+  store i64 %829, ptr %834, align 8
+  %835 = load i32, ptr %764, align 4
+  %836 = sext i32 %831 to i64
+  %837 = getelementptr inbounds [64 x i32], ptr %535, i64 0, i64 %836
+  store i32 %835, ptr %837, align 4
+  %838 = icmp sgt i32 %564, 3
+  %839 = select i1 %554, i1 %838, i1 false
+  br i1 %839, label %840, label %875
 
-835:                                              ; preds = %813
-  %836 = icmp ne i32 %70, %621
-  %837 = icmp ne i32 %791, 0
-  %838 = select i1 %836, i1 true, i1 %837
-  %839 = or i1 %838, %789
-  %840 = icmp sgt i32 %782, -51
-  %841 = or i1 %839, %840
-  br i1 %841, label %870, label %842
+840:                                              ; preds = %818
+  %841 = icmp ne i32 %60, %567
+  %842 = icmp ne i32 %796, 0
+  %843 = select i1 %841, i1 true, i1 %842
+  %844 = or i1 %843, %794
+  %845 = icmp sgt i32 %787, -51
+  %846 = or i1 %844, %845
+  br i1 %846, label %875, label %847
 
-842:                                              ; preds = %835
-  %843 = and i32 %830, 63
-  %844 = zext i32 %843 to i64
-  %845 = getelementptr inbounds [64 x i32], ptr %586, i64 0, i64 %844
-  %846 = load i32, ptr %845, align 4
-  %847 = add nsw i32 %846, -1
-  %848 = load i32, ptr %596, align 8
-  %849 = sext i32 %848 to i64
-  %850 = getelementptr inbounds [8 x [12 x [64 x i32]]], ptr @history_hit, i64 0, i64 %849
-  %851 = sext i32 %847 to i64
-  %852 = getelementptr inbounds [12 x [64 x i32]], ptr %850, i64 0, i64 %851
-  %853 = getelementptr inbounds [64 x i32], ptr %852, i64 0, i64 %844
-  %854 = load i32, ptr %853, align 4
-  %855 = shl i32 %854, 7
-  %856 = add i32 %855, 128
-  %857 = getelementptr inbounds [8 x [12 x [64 x i32]]], ptr @history_tot, i64 0, i64 %849
-  %858 = getelementptr inbounds [12 x [64 x i32]], ptr %857, i64 0, i64 %851
-  %859 = getelementptr inbounds [64 x i32], ptr %858, i64 0, i64 %844
-  %860 = load i32, ptr %859, align 4
-  %861 = add nsw i32 %860, 1
-  %862 = sdiv i32 %856, %861
-  %863 = icmp slt i32 %862, 80
-  %864 = and i32 %830, 61440
-  %865 = icmp eq i32 %864, 0
-  %866 = select i1 %863, i1 %865, i1 false
-  %867 = select i1 %866, i32 4, i32 0
-  %868 = select i1 %866, i32 -4, i32 0
-  %869 = select i1 %866, i32 %611, i32 %814
-  br label %870
+847:                                              ; preds = %840
+  %848 = and i32 %835, 63
+  %849 = zext i32 %848 to i64
+  %850 = getelementptr inbounds [64 x i32], ptr %532, i64 0, i64 %849
+  %851 = load i32, ptr %850, align 4
+  %852 = add nsw i32 %851, -1
+  %853 = load i32, ptr %542, align 8
+  %854 = sext i32 %853 to i64
+  %855 = getelementptr inbounds [8 x [12 x [64 x i32]]], ptr @history_hit, i64 0, i64 %854
+  %856 = sext i32 %852 to i64
+  %857 = getelementptr inbounds [12 x [64 x i32]], ptr %855, i64 0, i64 %856
+  %858 = getelementptr inbounds [64 x i32], ptr %857, i64 0, i64 %849
+  %859 = load i32, ptr %858, align 4
+  %860 = shl i32 %859, 7
+  %861 = add i32 %860, 128
+  %862 = getelementptr inbounds [8 x [12 x [64 x i32]]], ptr @history_tot, i64 0, i64 %854
+  %863 = getelementptr inbounds [12 x [64 x i32]], ptr %862, i64 0, i64 %856
+  %864 = getelementptr inbounds [64 x i32], ptr %863, i64 0, i64 %849
+  %865 = load i32, ptr %864, align 4
+  %866 = add nsw i32 %865, 1
+  %867 = sdiv i32 %861, %866
+  %868 = icmp slt i32 %867, 80
+  %869 = and i32 %835, 61440
+  %870 = icmp eq i32 %869, 0
+  %871 = select i1 %868, i1 %870, i1 false
+  %872 = select i1 %871, i32 4, i32 0
+  %873 = select i1 %871, i32 -4, i32 0
+  %874 = select i1 %871, i32 %557, i32 %819
+  br label %875
 
-870:                                              ; preds = %842, %835, %813
-  %871 = phi i1 [ false, %835 ], [ false, %813 ], [ %866, %842 ]
-  %872 = phi i32 [ 0, %835 ], [ 0, %813 ], [ %867, %842 ]
-  %873 = phi i32 [ %791, %835 ], [ %791, %813 ], [ %868, %842 ]
-  %874 = phi i32 [ %814, %835 ], [ %814, %813 ], [ %869, %842 ]
-  %875 = add nsw i32 %874, -4
-  %876 = icmp eq i32 %617, 1
-  %877 = icmp slt i32 %874, 5
-  br i1 %876, label %878, label %885
+875:                                              ; preds = %847, %840, %818
+  %876 = phi i1 [ false, %840 ], [ false, %818 ], [ %871, %847 ]
+  %877 = phi i32 [ 0, %840 ], [ 0, %818 ], [ %872, %847 ]
+  %878 = phi i32 [ %796, %840 ], [ %796, %818 ], [ %873, %847 ]
+  %879 = phi i32 [ %819, %840 ], [ %819, %818 ], [ %874, %847 ]
+  %880 = add nsw i32 %879, -4
+  %881 = icmp eq i32 %563, 1
+  %882 = icmp slt i32 %879, 5
+  br i1 %881, label %883, label %890
 
-878:                                              ; preds = %870
-  br i1 %877, label %879, label %882
+883:                                              ; preds = %875
+  br i1 %882, label %884, label %887
 
-879:                                              ; preds = %878
-  %880 = call i32 @_Z7qsearchP7state_tiiii(ptr nonnull %0, i32 %605, i32 %815, i32 0, i32 0)
-  %881 = sub nsw i32 0, %880
-  br label %917
+884:                                              ; preds = %883
+  %885 = call noundef i32 @_Z7qsearchP7state_tiiii(ptr noundef nonnull %0, i32 noundef %551, i32 noundef %820, i32 noundef 0, i32 noundef 0)
+  %886 = sub nsw i32 0, %885
+  br label %922
 
-882:                                              ; preds = %878
-  %883 = call i32 @_Z6searchP7state_tiiiii(ptr nonnull %0, i32 %605, i32 %815, i32 %875, i32 0, i32 %610)
-  %884 = sub nsw i32 0, %883
-  br label %917
+887:                                              ; preds = %883
+  %888 = call noundef i32 @_Z6searchP7state_tiiiii(ptr noundef nonnull %0, i32 noundef %551, i32 noundef %820, i32 noundef %880, i32 noundef 0, i32 noundef %556)
+  %889 = sub nsw i32 0, %888
+  br label %922
 
-885:                                              ; preds = %870
-  %886 = xor i32 %613, -1
-  br i1 %877, label %887, label %889
+890:                                              ; preds = %875
+  %891 = xor i32 %559, -1
+  br i1 %882, label %892, label %894
 
-887:                                              ; preds = %885
-  %888 = call i32 @_Z7qsearchP7state_tiiii(ptr nonnull %0, i32 %886, i32 %815, i32 0, i32 0)
-  br label %891
+892:                                              ; preds = %890
+  %893 = call noundef i32 @_Z7qsearchP7state_tiiii(ptr noundef nonnull %0, i32 noundef %891, i32 noundef %820, i32 noundef 0, i32 noundef 0)
+  br label %896
 
-889:                                              ; preds = %885
-  %890 = call i32 @_Z6searchP7state_tiiiii(ptr nonnull %0, i32 %886, i32 %815, i32 %875, i32 0, i32 1)
-  br label %891
+894:                                              ; preds = %890
+  %895 = call noundef i32 @_Z6searchP7state_tiiiii(ptr noundef nonnull %0, i32 noundef %891, i32 noundef %820, i32 noundef %880, i32 noundef 0, i32 noundef 1)
+  br label %896
 
-891:                                              ; preds = %889, %887
-  %892 = phi i32 [ %888, %887 ], [ %890, %889 ]
-  %893 = sub nsw i32 0, %892
-  %894 = icmp slt i32 %616, %893
-  %895 = load i32, ptr getelementptr inbounds (%struct.gamestate_t, ptr @gamestate, i64 0, i32 25), align 8
-  %896 = icmp eq i32 %895, 0
-  %897 = select i1 %894, i1 %896, i1 false
-  %898 = icmp slt i32 %613, %893
-  %899 = select i1 %897, i1 %898, i1 false
-  br i1 %899, label %900, label %917
+896:                                              ; preds = %894, %892
+  %897 = phi i32 [ %893, %892 ], [ %895, %894 ]
+  %898 = sub nsw i32 0, %897
+  %899 = icmp slt i32 %562, %898
+  %900 = load i32, ptr getelementptr inbounds (%struct._ZTS11gamestate_t.gamestate_t, ptr @gamestate, i64 0, i32 25), align 8
+  %901 = icmp eq i32 %900, 0
+  %902 = select i1 %899, i1 %901, i1 false
+  %903 = icmp slt i32 %559, %898
+  %904 = select i1 %902, i1 %903, i1 false
+  br i1 %904, label %905, label %922
 
-900:                                              ; preds = %891
-  br i1 %871, label %901, label %903
+905:                                              ; preds = %896
+  br i1 %876, label %906, label %908
 
-901:                                              ; preds = %900
-  %902 = add nsw i32 %873, %872
-  br label %905
+906:                                              ; preds = %905
+  %907 = add nsw i32 %878, %877
+  br label %910
 
-903:                                              ; preds = %900
-  %904 = icmp sgt i32 %70, %893
-  br i1 %904, label %905, label %917
+908:                                              ; preds = %905
+  %909 = icmp sgt i32 %60, %898
+  br i1 %909, label %910, label %922
 
-905:                                              ; preds = %903, %901
-  %906 = phi i32 [ %902, %901 ], [ %873, %903 ]
-  %907 = add nsw i32 %906, %3
-  %908 = icmp slt i32 %907, 5
-  br i1 %908, label %909, label %912
+910:                                              ; preds = %908, %906
+  %911 = phi i32 [ %907, %906 ], [ %878, %908 ]
+  %912 = add nsw i32 %911, %3
+  %913 = icmp slt i32 %912, 5
+  br i1 %913, label %914, label %917
 
-909:                                              ; preds = %905
-  %910 = call i32 @_Z7qsearchP7state_tiiii(ptr nonnull %0, i32 %605, i32 %815, i32 0, i32 0)
-  %911 = sub nsw i32 0, %910
-  br label %917
-
-912:                                              ; preds = %905
-  %913 = add nsw i32 %907, -4
-  %914 = zext i1 %871 to i32
-  %915 = call i32 @_Z6searchP7state_tiiiii(ptr nonnull %0, i32 %605, i32 %815, i32 %913, i32 0, i32 %914)
+914:                                              ; preds = %910
+  %915 = call noundef i32 @_Z7qsearchP7state_tiiii(ptr noundef nonnull %0, i32 noundef %551, i32 noundef %820, i32 noundef 0, i32 noundef 0)
   %916 = sub nsw i32 0, %915
-  br label %917
+  br label %922
 
-917:                                              ; preds = %912, %909, %903, %891, %882, %879
-  %918 = phi i32 [ %881, %879 ], [ %884, %882 ], [ %893, %891 ], [ %911, %909 ], [ %916, %912 ], [ %893, %903 ]
-  %919 = icmp sgt i32 %918, %616
-  %920 = select i1 %919, i32 %918, i32 %616
-  br label %921
+917:                                              ; preds = %910
+  %918 = add nsw i32 %912, -4
+  %919 = zext i1 %876 to i32
+  %920 = call noundef i32 @_Z6searchP7state_tiiiii(ptr noundef nonnull %0, i32 noundef %551, i32 noundef %820, i32 noundef %918, i32 noundef 0, i32 noundef %919)
+  %921 = sub nsw i32 0, %920
+  br label %922
 
-921:                                              ; preds = %917, %781
-  %922 = phi i32 [ %616, %781 ], [ %920, %917 ]
-  %923 = phi i32 [ %759, %781 ], [ 0, %917 ]
-  %924 = phi i32 [ %614, %781 ], [ %918, %917 ]
-  %925 = load i32, ptr %712, align 4
-  call void @_Z6unmakeP7state_ti(ptr nonnull %0, i32 %925)
-  %926 = load i32, ptr getelementptr inbounds (%struct.gamestate_t, ptr @gamestate, i64 0, i32 25), align 8
-  %927 = icmp eq i32 %926, 0
-  br i1 %927, label %928, label %1052
+922:                                              ; preds = %917, %914, %908, %896, %887, %884
+  %923 = phi i32 [ %886, %884 ], [ %889, %887 ], [ %898, %896 ], [ %916, %914 ], [ %921, %917 ], [ %898, %908 ]
+  %924 = icmp sgt i32 %923, %562
+  %925 = select i1 %924, i32 %923, i32 %562
+  br label %926
 
-928:                                              ; preds = %921
-  br i1 %786, label %1006, label %929
+926:                                              ; preds = %922, %786
+  %927 = phi i32 [ %562, %786 ], [ %925, %922 ]
+  %928 = phi i32 [ %763, %786 ], [ 0, %922 ]
+  %929 = phi i32 [ %560, %786 ], [ %923, %922 ]
+  %930 = load i32, ptr %764, align 4
+  call void @_Z6unmakeP7state_ti(ptr noundef nonnull %0, i32 noundef %930)
+  %931 = load i32, ptr getelementptr inbounds (%struct._ZTS11gamestate_t.gamestate_t, ptr @gamestate, i64 0, i32 25), align 8
+  %932 = icmp eq i32 %931, 0
+  br i1 %932, label %933, label %1016
 
-929:                                              ; preds = %928
-  %930 = icmp sgt i32 %924, %613
-  br i1 %930, label %931, label %999
+933:                                              ; preds = %926
+  br i1 %791, label %967, label %934
 
-931:                                              ; preds = %929
-  %932 = icmp slt i32 %924, %70
-  %933 = load i32, ptr %712, align 4
-  br i1 %932, label %996, label %934
-
-934:                                              ; preds = %931
-  call fastcc void @_ZL12history_goodP7state_tii(ptr nonnull %0, i32 %933, i32 %3)
-  %935 = icmp sgt i32 %618, 1
-  br i1 %935, label %936, label %989
+934:                                              ; preds = %933
+  %935 = icmp sgt i32 %929, %559
+  br i1 %935, label %936, label %960
 
 936:                                              ; preds = %934
-  %937 = add nsw i32 %618, -1
-  %938 = add nsw i32 %3, 3
-  %939 = sdiv i32 %938, 4
-  %940 = zext i32 %937 to i64
-  br label %941
+  %937 = icmp slt i32 %929, %60
+  %938 = load i32, ptr %764, align 4
+  br i1 %937, label %957, label %939
 
-941:                                              ; preds = %986, %936
-  %942 = phi i64 [ 0, %936 ], [ %987, %986 ]
-  %943 = getelementptr inbounds [240 x i32], ptr %16, i64 0, i64 %942
-  %944 = load i32, ptr %943, align 4
-  %945 = and i32 %944, 7925760
-  %946 = icmp eq i32 %945, 6815744
-  br i1 %946, label %947, label %986
+939:                                              ; preds = %936
+  call fastcc void @_ZL12history_goodP7state_tii(ptr noundef nonnull %0, i32 noundef %938, i32 noundef %3)
+  %940 = icmp sgt i32 %564, 1
+  br i1 %940, label %941, label %950
 
-947:                                              ; preds = %941
-  %948 = lshr i32 %944, 6
-  %949 = and i32 %948, 63
-  %950 = zext i32 %949 to i64
-  %951 = getelementptr inbounds [64 x i32], ptr %586, i64 0, i64 %950
-  %952 = load i32, ptr %951, align 4
-  %953 = add nsw i32 %952, -1
-  %954 = and i32 %944, 63
-  %955 = load i32, ptr %596, align 8
-  %956 = sext i32 %955 to i64
-  %957 = getelementptr inbounds [8 x [12 x [64 x i32]]], ptr @history_tot, i64 0, i64 %956
-  %958 = sext i32 %953 to i64
-  %959 = getelementptr inbounds [12 x [64 x i32]], ptr %957, i64 0, i64 %958
-  %960 = zext i32 %954 to i64
-  %961 = getelementptr inbounds [64 x i32], ptr %959, i64 0, i64 %960
-  %962 = load i32, ptr %961, align 4
-  %963 = add nsw i32 %962, %939
-  store i32 %963, ptr %961, align 4
-  %964 = icmp sgt i32 %963, 16384
-  br i1 %964, label %965, label %986
+941:                                              ; preds = %939
+  %942 = add nsw i32 %564, -1
+  %943 = zext i32 %942 to i64
+  br label %944
 
-965:                                              ; preds = %947
-  %966 = getelementptr inbounds [8 x [12 x [64 x i32]]], ptr @history_hit, i64 0, i64 %956
+944:                                              ; preds = %944, %941
+  %945 = phi i64 [ 0, %941 ], [ %948, %944 ]
+  %946 = getelementptr inbounds [240 x i32], ptr %16, i64 0, i64 %945
+  %947 = load i32, ptr %946, align 4
+  call fastcc void @_ZL11history_badP7state_tii(ptr noundef %0, i32 noundef %947, i32 noundef %3)
+  %948 = add nuw nsw i64 %945, 1
+  %949 = icmp eq i64 %948, %943
+  br i1 %949, label %950, label %944, !llvm.loop !52
+
+950:                                              ; preds = %944, %939
+  %951 = load i32, ptr %764, align 4
+  %952 = call noundef zeroext i16 @_Z12compact_movei(i32 noundef %951)
+  %953 = zext i16 %952 to i32
+  %954 = load i32, ptr %11, align 4
+  %955 = load i32, ptr %14, align 4
+  %956 = load i32, ptr %15, align 4
+  call void @_Z7StoreTTP7state_tiiijiiii(ptr noundef %0, i32 noundef %929, i32 noundef %54, i32 noundef %60, i32 noundef %953, i32 noundef %954, i32 noundef %955, i32 noundef %956, i32 noundef %3)
+  br label %1016
+
+957:                                              ; preds = %936
+  %958 = call noundef zeroext i16 @_Z12compact_movei(i32 noundef %938)
+  %959 = zext i16 %958 to i32
+  store i32 %959, ptr %13, align 4
+  br label %960
+
+960:                                              ; preds = %957, %934
+  %961 = phi i32 [ %929, %957 ], [ %559, %934 ]
+  %962 = load i32, ptr %764, align 4
+  %963 = add nsw i32 %564, -1
+  %964 = sext i32 %963 to i64
+  %965 = getelementptr inbounds [240 x i32], ptr %16, i64 0, i64 %964
+  store i32 %962, ptr %965, align 4
+  %966 = add nsw i32 %564, 1
   br label %967
 
-967:                                              ; preds = %983, %965
-  %968 = phi i64 [ 0, %965 ], [ %984, %983 ]
-  %969 = getelementptr inbounds [12 x [64 x i32]], ptr %966, i64 0, i64 %968
-  %970 = getelementptr inbounds [12 x [64 x i32]], ptr %957, i64 0, i64 %968
-  br label %971
+967:                                              ; preds = %960, %933
+  %968 = phi i32 [ %966, %960 ], [ %564, %933 ]
+  %969 = phi i32 [ 0, %960 ], [ %563, %933 ]
+  %970 = phi i32 [ %961, %960 ], [ %559, %933 ]
+  %971 = call fastcc noundef i32 @_ZL15remove_one_fastPiS_S_i(ptr noundef nonnull %9, ptr noundef nonnull %269, ptr noundef nonnull %268, i32 noundef %266)
+  br label %972
 
-971:                                              ; preds = %971, %967
-  %972 = phi i64 [ 0, %967 ], [ %981, %971 ]
-  %973 = getelementptr inbounds [64 x i32], ptr %969, i64 0, i64 %972
-  %974 = load i32, ptr %973, align 4
-  %975 = add nsw i32 %974, 1
-  %976 = ashr i32 %975, 1
-  store i32 %976, ptr %973, align 4
-  %977 = getelementptr inbounds [64 x i32], ptr %970, i64 0, i64 %972
-  %978 = load i32, ptr %977, align 4
-  %979 = add nsw i32 %978, 1
-  %980 = ashr i32 %979, 1
-  store i32 %980, ptr %977, align 4
-  %981 = add nuw nsw i64 %972, 1
-  %982 = icmp eq i64 %981, 64
-  br i1 %982, label %983, label %971, !llvm\5C.loop !49
+972:                                              ; preds = %967, %816, %807
+  %973 = phi i32 [ %971, %967 ], [ %817, %816 ], [ %808, %807 ]
+  %974 = phi i32 [ %968, %967 ], [ %564, %816 ], [ %564, %807 ]
+  %975 = phi i32 [ %969, %967 ], [ %563, %816 ], [ %563, %807 ]
+  %976 = phi i32 [ %927, %967 ], [ %559, %816 ], [ %559, %807 ]
+  %977 = phi i32 [ %928, %967 ], [ 0, %816 ], [ 0, %807 ]
+  %978 = phi i32 [ %929, %967 ], [ %560, %816 ], [ %560, %807 ]
+  %979 = phi i32 [ %970, %967 ], [ %559, %816 ], [ %559, %807 ]
+  %980 = icmp eq i32 %973, 0
+  br i1 %980, label %984, label %558
 
-983:                                              ; preds = %971
-  %984 = add nuw nsw i64 %968, 1
-  %985 = icmp eq i64 %984, 12
-  br i1 %985, label %986, label %967, !llvm.loop !50
+981:                                              ; preds = %749, %617
+  %982 = load i32, ptr getelementptr inbounds (%struct._ZTS11gamestate_t.gamestate_t, ptr @gamestate, i64 0, i32 25), align 8
+  %983 = icmp eq i32 %982, 0
+  br label %1003
 
-986:                                              ; preds = %983, %947, %941
-  %987 = add nuw nsw i64 %942, 1
-  %988 = icmp eq i64 %987, %940
-  br i1 %988, label %989, label %941, !llvm.loop !51
+984:                                              ; preds = %972, %524
+  %985 = phi i32 [ -32000, %524 ], [ %976, %972 ]
+  %986 = phi i32 [ 1, %524 ], [ %977, %972 ]
+  %987 = load i32, ptr getelementptr inbounds (%struct._ZTS11gamestate_t.gamestate_t, ptr @gamestate, i64 0, i32 25), align 8
+  %988 = icmp eq i32 %987, 0
+  %989 = icmp ne i32 %986, 0
+  %990 = select i1 %989, i1 %988, i1 false
+  br i1 %990, label %991, label %1003
 
-989:                                              ; preds = %986, %934
-  %990 = load i32, ptr %712, align 4
-  %991 = call zeroext i16 @_Z12compact_movei(i32 %990)
-  %992 = zext i16 %991 to i32
-  %993 = load i32, ptr %11, align 4
-  %994 = load i32, ptr %14, align 4
-  %995 = load i32, ptr %15, align 4
-  call void @_Z7StoreTTP7state_tiiijiiii(ptr %0, i32 %924, i32 %64, i32 %70, i32 %992, i32 %993, i32 %994, i32 %995, i32 %3)
-  br label %1052
+991:                                              ; preds = %984
+  %992 = call noundef i32 @_Z8in_checkP7state_t(ptr noundef %0)
+  %993 = icmp eq i32 %992, 0
+  %994 = load i32, ptr %11, align 4
+  %995 = load i32, ptr %14, align 4
+  %996 = load i32, ptr %15, align 4
+  br i1 %993, label %1002, label %997
 
-996:                                              ; preds = %931
-  %997 = call zeroext i16 @_Z12compact_movei(i32 %933)
-  %998 = zext i16 %997 to i32
-  store i32 %998, ptr %13, align 4
-  br label %999
+997:                                              ; preds = %991
+  %998 = load i32, ptr %21, align 8
+  %999 = add nsw i32 %998, -32000
+  call void @_Z7StoreTTP7state_tiiijiiii(ptr noundef %0, i32 noundef %999, i32 noundef %54, i32 noundef %60, i32 noundef 0, i32 noundef %994, i32 noundef %995, i32 noundef %996, i32 noundef %3)
+  %1000 = load i32, ptr %21, align 8
+  %1001 = add nsw i32 %1000, -32000
+  br label %1016
 
-999:                                              ; preds = %996, %929
-  %1000 = phi i32 [ %924, %996 ], [ %613, %929 ]
-  %1001 = load i32, ptr %712, align 4
-  %1002 = add nsw i32 %618, -1
-  %1003 = sext i32 %1002 to i64
-  %1004 = getelementptr inbounds [240 x i32], ptr %16, i64 0, i64 %1003
-  store i32 %1001, ptr %1004, align 4
-  %1005 = add nsw i32 %618, 1
-  br label %1006
+1002:                                             ; preds = %991
+  call void @_Z7StoreTTP7state_tiiijiiii(ptr noundef %0, i32 noundef 0, i32 noundef %54, i32 noundef %60, i32 noundef 0, i32 noundef %994, i32 noundef %995, i32 noundef %996, i32 noundef %3)
+  br label %1016
 
-1006:                                             ; preds = %999, %928
-  %1007 = phi i32 [ %1005, %999 ], [ %618, %928 ]
-  %1008 = phi i32 [ 0, %999 ], [ %617, %928 ]
-  %1009 = phi i32 [ %1000, %999 ], [ %613, %928 ]
-  %1010 = call fastcc i32 @_ZL15remove_one_fastPiS_S_i(ptr nonnull %9, ptr nonnull %279, ptr nonnull %278, i32 %276)
-  br label %1011
+1003:                                             ; preds = %984, %981
+  %1004 = phi i1 [ %983, %981 ], [ %988, %984 ]
+  %1005 = phi i32 [ %562, %981 ], [ %985, %984 ]
+  %1006 = load i32, ptr %36, align 4
+  %1007 = icmp sgt i32 %1006, 98
+  %1008 = xor i1 %1004, true
+  %1009 = select i1 %1007, i1 true, i1 %1008
+  %1010 = select i1 %1007, i32 0, i32 %1005
+  br i1 %1009, label %1016, label %1011
 
-1011:                                             ; preds = %1006, %811, %802
-  %1012 = phi i32 [ %1010, %1006 ], [ %812, %811 ], [ %803, %802 ]
-  %1013 = phi i32 [ %1007, %1006 ], [ %618, %811 ], [ %618, %802 ]
-  %1014 = phi i32 [ %1008, %1006 ], [ %617, %811 ], [ %617, %802 ]
-  %1015 = phi i32 [ %922, %1006 ], [ %613, %811 ], [ %613, %802 ]
-  %1016 = phi i32 [ %923, %1006 ], [ 0, %811 ], [ 0, %802 ]
-  %1017 = phi i32 [ %924, %1006 ], [ %614, %811 ], [ %614, %802 ]
-  %1018 = phi i32 [ %1009, %1006 ], [ %613, %811 ], [ %613, %802 ]
-  %1019 = icmp eq i32 %1012, 0
-  br i1 %1019, label %1020, label %612
+1011:                                             ; preds = %1003
+  %1012 = load i32, ptr %13, align 4
+  %1013 = load i32, ptr %11, align 4
+  %1014 = load i32, ptr %14, align 4
+  %1015 = load i32, ptr %15, align 4
+  call void @_Z7StoreTTP7state_tiiijiiii(ptr noundef nonnull %0, i32 noundef %1005, i32 noundef %54, i32 noundef %60, i32 noundef %1012, i32 noundef %1013, i32 noundef %1014, i32 noundef %1015, i32 noundef %3)
+  br label %1016
 
-1020:                                             ; preds = %1011, %578
-  %1021 = phi i32 [ -32000, %578 ], [ %1015, %1011 ]
-  %1022 = phi i32 [ 1, %578 ], [ %1016, %1011 ]
-  %1023 = load i32, ptr getelementptr inbounds (%struct.gamestate_t, ptr @gamestate, i64 0, i32 25), align 8
-  %1024 = icmp eq i32 %1023, 0
-  %1025 = icmp ne i32 %1022, 0
-  %1026 = select i1 %1025, i1 %1024, i1 false
-  br i1 %1026, label %1027, label %1039
-
-1027:                                             ; preds = %1020
-  %1028 = call i32 @_Z8in_checkP7state_t(ptr %0)
-  %1029 = icmp eq i32 %1028, 0
-  %1030 = load i32, ptr %11, align 4
-  %1031 = load i32, ptr %14, align 4
-  %1032 = load i32, ptr %15, align 4
-  br i1 %1029, label %1038, label %1033
-
-1033:                                             ; preds = %1027
-  %1034 = load i32, ptr %31, align 8
-  %1035 = add nsw i32 %1034, -32000
-  call void @_Z7StoreTTP7state_tiiijiiii(ptr %0, i32 %1035, i32 %64, i32 %70, i32 0, i32 %1030, i32 %1031, i32 %1032, i32 %3)
-  %1036 = load i32, ptr %31, align 8
-  %1037 = add nsw i32 %1036, -32000
-  br label %1052
-
-1038:                                             ; preds = %1027
-  call void @_Z7StoreTTP7state_tiiijiiii(ptr %0, i32 0, i32 %64, i32 %70, i32 0, i32 %1030, i32 %1031, i32 %1032, i32 %3)
-  br label %1052
-
-1039:                                             ; preds = %1020, %754
-  %1040 = phi i1 [ %756, %754 ], [ %1024, %1020 ]
-  %1041 = phi i32 [ %616, %754 ], [ %1021, %1020 ]
-  %1042 = load i32, ptr %46, align 4
-  %1043 = icmp sgt i32 %1042, 98
-  %1044 = xor i1 %1040, true
-  %1045 = select i1 %1043, i1 true, i1 %1044
-  %1046 = select i1 %1043, i32 0, i32 %1041
-  br i1 %1045, label %1052, label %1047
-
-1047:                                             ; preds = %1039
-  %1048 = load i32, ptr %13, align 4
-  %1049 = load i32, ptr %11, align 4
-  %1050 = load i32, ptr %14, align 4
-  %1051 = load i32, ptr %15, align 4
-  call void @_Z7StoreTTP7state_tiiijiiii(ptr nonnull %0, i32 %1041, i32 %64, i32 %70, i32 %1048, i32 %1049, i32 %1050, i32 %1051, i32 %3)
-  br label %1052
-
-1052:                                             ; preds = %1047, %1039, %1038, %1033, %989, %921, %474, %243, %237, %224, %211, %172, %117, %110, %103, %77, %74, %72, %67, %61, %49, %36, %34
-  %1053 = phi i32 [ %35, %34 ], [ %56, %49 ], [ %73, %72 ], [ 0, %36 ], [ %59, %61 ], [ %65, %67 ], [ %75, %74 ], [ %78, %77 ], [ %70, %474 ], [ 0, %172 ], [ %92, %103 ], [ %111, %110 ], [ %92, %117 ], [ %213, %224 ], [ 0, %211 ], [ %1037, %1033 ], [ 0, %1038 ], [ %1046, %1039 ], [ %1041, %1047 ], [ 0, %237 ], [ %64, %243 ], [ %924, %989 ], [ 0, %921 ]
-  call void @llvm.lifetime.end.p0(i64 960, ptr nonnull %28) #7
-  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %27) #7
-  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %26) #7
-  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %25) #7
-  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %24) #7
-  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %23) #7
-  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %22) #7
-  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %21) #7
-  call void @llvm.lifetime.end.p0(i64 960, ptr nonnull %20) #7
-  call void @llvm.lifetime.end.p0(i64 960, ptr nonnull %19) #7
-  ret i32 %1053
+1016:                                             ; preds = %1011, %1003, %1002, %997, %950, %926, %418, %233, %227, %214, %201, %162, %107, %100, %93, %67, %64, %62, %57, %51, %39, %26, %24
+  %1017 = phi i32 [ %25, %24 ], [ %46, %39 ], [ %63, %62 ], [ 0, %26 ], [ %49, %51 ], [ %55, %57 ], [ %65, %64 ], [ %68, %67 ], [ %60, %418 ], [ 0, %162 ], [ %82, %93 ], [ %101, %100 ], [ %82, %107 ], [ %203, %214 ], [ 0, %201 ], [ %1001, %997 ], [ 0, %1002 ], [ %1010, %1003 ], [ %1005, %1011 ], [ 0, %227 ], [ %54, %233 ], [ %929, %950 ], [ 0, %926 ]
+  call void @llvm.lifetime.end.p0(i64 960, ptr nonnull %16) #28
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %15) #28
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %14) #28
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %13) #28
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %12) #28
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %11) #28
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %10) #28
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %9) #28
+  call void @llvm.lifetime.end.p0(i64 960, ptr nonnull %8) #28
+  call void @llvm.lifetime.end.p0(i64 960, ptr nonnull %7) #28
+  ret i32 %1017
 }
 
 ; Function Attrs: mustprogress uwtable
-define internal i32 @_Z7qsearchP7state_tiiii(ptr %0, i32 %1, i32 %2, i32 %3, i32 %4) #0 {
+define internal noundef i32 @_Z7qsearchP7state_tiiii(ptr noundef %0, i32 noundef %1, i32 noundef %2, i32 noundef %3, i32 noundef %4) #0 {
   %6 = alloca i32, align 4
   %7 = alloca i32, align 4
   %8 = alloca i32, align 4
   %9 = alloca i32, align 4
   %10 = alloca [240 x i32], align 16
   %11 = alloca [240 x i32], align 16
-  %12 = bitcast ptr %6 to ptr
-  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %12) #7
-  %13 = bitcast ptr %7 to ptr
-  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %13) #7
-  %14 = bitcast ptr %8 to ptr
-  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %14) #7
-  %15 = bitcast ptr %9 to ptr
-  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %15) #7
-  %16 = bitcast ptr %10 to ptr
-  call void @llvm.lifetime.start.p0(i64 960, ptr nonnull %16) #7
-  %17 = bitcast ptr %11 to ptr
-  call void @llvm.lifetime.start.p0(i64 960, ptr nonnull %17) #7
-  %18 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 22
-  %19 = load i64, ptr %18, align 8
-  %20 = add i64 %19, 1
-  store i64 %20, ptr %18, align 8
-  %21 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 23
-  %22 = load i64, ptr %21, align 8
-  %23 = add i64 %22, 1
-  store i64 %23, ptr %21, align 8
-  %24 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 14
-  %25 = load i32, ptr %24, align 8
-  %26 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 24
-  %27 = load i32, ptr %26, align 8
-  %28 = icmp sgt i32 %25, %27
-  br i1 %28, label %29, label %30
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %6) #28
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %7) #28
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %8) #28
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %9) #28
+  call void @llvm.lifetime.start.p0(i64 960, ptr nonnull %10) #28
+  call void @llvm.lifetime.start.p0(i64 960, ptr nonnull %11) #28
+  %12 = getelementptr %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 22
+  %13 = load i64, ptr %12, align 8
+  %14 = add i64 %13, 1
+  store i64 %14, ptr %12, align 8
+  %15 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 23
+  %16 = load i64, ptr %15, align 8
+  %17 = add i64 %16, 1
+  store i64 %17, ptr %15, align 8
+  %18 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 14
+  %19 = load i32, ptr %18, align 8
+  %20 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 24
+  %21 = load i32, ptr %20, align 8
+  %22 = icmp sgt i32 %19, %21
+  br i1 %22, label %23, label %24
 
-29:                                               ; preds = %5
-  store i32 %25, ptr %26, align 8
-  br label %30
+23:                                               ; preds = %5
+  store i32 %19, ptr %20, align 8
+  br label %24
 
-30:                                               ; preds = %29, %5
-  %31 = tail call fastcc i32 @_ZL17search_time_checkP7state_t(i64 %20)
-  %32 = icmp eq i32 %31, 0
-  br i1 %32, label %33, label %378
+24:                                               ; preds = %23, %5
+  %25 = tail call fastcc noundef i32 @_ZL17search_time_checkP7state_t(i64 %14)
+  %26 = icmp eq i32 %25, 0
+  br i1 %26, label %27, label %372
 
-33:                                               ; preds = %30
-  %34 = tail call i32 @_Z7is_drawP11gamestate_tP7state_t(ptr nonnull @gamestate, ptr nonnull %0)
-  %35 = icmp eq i32 %34, 0
-  br i1 %35, label %36, label %40
+27:                                               ; preds = %24
+  %28 = tail call noundef i32 @_Z7is_drawP11gamestate_tP7state_t(ptr noundef nonnull @gamestate, ptr noundef nonnull %0)
+  %29 = icmp eq i32 %28, 0
+  br i1 %29, label %30, label %34
 
-36:                                               ; preds = %33
-  %37 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 15
-  %38 = load i32, ptr %37, align 4
-  %39 = icmp sgt i32 %38, 99
-  br i1 %39, label %40, label %48
+30:                                               ; preds = %27
+  %31 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 15
+  %32 = load i32, ptr %31, align 4
+  %33 = icmp sgt i32 %32, 99
+  br i1 %33, label %34, label %42
 
-40:                                               ; preds = %36, %33
-  %41 = load i32, ptr getelementptr inbounds (%struct.gamestate_t, ptr @gamestate, i64 0, i32 3), align 4
-  %42 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 11
-  %43 = load i32, ptr %42, align 4
-  %44 = icmp eq i32 %41, %43
-  %45 = load i32, ptr @contempt, align 4
-  %46 = sub nsw i32 0, %45
-  %47 = select i1 %44, i32 %45, i32 %46
-  br label %378
+34:                                               ; preds = %30, %27
+  %35 = load i32, ptr getelementptr inbounds (%struct._ZTS11gamestate_t.gamestate_t, ptr @gamestate, i64 0, i32 3), align 4
+  %36 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 11
+  %37 = load i32, ptr %36, align 4
+  %38 = icmp eq i32 %35, %37
+  %39 = load i32, ptr @contempt, align 4
+  %40 = sub nsw i32 0, %39
+  %41 = select i1 %38, i32 %39, i32 %40
+  br label %372
 
-48:                                               ; preds = %36
-  %49 = call i32 @_Z7ProbeTTP7state_tPiiiPjS1_S1_S1_S1_i(ptr nonnull %0, ptr nonnull %8, i32 %1, i32 %2, ptr nonnull %7, ptr nonnull %9, ptr nonnull %9, ptr nonnull %9, ptr nonnull %9, i32 0)
-  switch i32 %49, label %59 [
-    i32 3, label %50
-    i32 1, label %52
-    i32 2, label %55
-    i32 4, label %58
+42:                                               ; preds = %30
+  %43 = call noundef i32 @_Z7ProbeTTP7state_tPiiiPjS1_S1_S1_S1_i(ptr noundef nonnull %0, ptr noundef nonnull %8, i32 noundef %1, i32 noundef %2, ptr noundef nonnull %7, ptr noundef nonnull %9, ptr noundef nonnull %9, ptr noundef nonnull %9, ptr noundef nonnull %9, i32 noundef 0)
+  switch i32 %43, label %53 [
+    i32 3, label %44
+    i32 1, label %46
+    i32 2, label %49
+    i32 4, label %52
   ]
 
-50:                                               ; preds = %48
-  %51 = load i32, ptr %8, align 4
-  br label %378
+44:                                               ; preds = %42
+  %45 = load i32, ptr %8, align 4
+  br label %372
 
-52:                                               ; preds = %48
-  %53 = load i32, ptr %8, align 4
-  %54 = icmp sgt i32 %53, %1
-  br i1 %54, label %59, label %378
+46:                                               ; preds = %42
+  %47 = load i32, ptr %8, align 4
+  %48 = icmp sgt i32 %47, %1
+  br i1 %48, label %53, label %372
 
-55:                                               ; preds = %48
-  %56 = load i32, ptr %8, align 4
-  %57 = icmp slt i32 %56, %2
-  br i1 %57, label %59, label %378
+49:                                               ; preds = %42
+  %50 = load i32, ptr %8, align 4
+  %51 = icmp slt i32 %50, %2
+  br i1 %51, label %53, label %372
 
-58:                                               ; preds = %48
+52:                                               ; preds = %42
   store i32 65535, ptr %7, align 4
-  br label %59
+  br label %53
 
-59:                                               ; preds = %58, %55, %52, %48
-  %60 = load i32, ptr getelementptr inbounds (%struct.gamestate_t, ptr @gamestate, i64 0, i32 5), align 4
-  %61 = shl nsw i32 %60, 1
-  %62 = icmp slt i32 %61, %4
-  br i1 %62, label %66, label %63
+53:                                               ; preds = %52, %49, %46, %42
+  %54 = load i32, ptr getelementptr inbounds (%struct._ZTS11gamestate_t.gamestate_t, ptr @gamestate, i64 0, i32 5), align 4
+  %55 = shl nsw i32 %54, 1
+  %56 = icmp slt i32 %55, %4
+  br i1 %56, label %60, label %57
 
-63:                                               ; preds = %59
-  %64 = load i32, ptr %24, align 8
-  %65 = icmp sgt i32 %64, 60
-  br i1 %65, label %66, label %68
+57:                                               ; preds = %53
+  %58 = load i32, ptr %18, align 8
+  %59 = icmp sgt i32 %58, 60
+  br i1 %59, label %60, label %62
 
-66:                                               ; preds = %63, %59
-  %67 = call i32 @_Z4evalP7state_tiii(ptr nonnull %0, i32 %1, i32 %2, i32 0)
-  br label %378
+60:                                               ; preds = %57, %53
+  %61 = call noundef i32 @_Z4evalP7state_tiii(ptr noundef nonnull %0, i32 noundef %1, i32 noundef %2, i32 noundef 0)
+  br label %372
 
-68:                                               ; preds = %63
-  %69 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 25
-  %70 = sext i32 %64 to i64
-  %71 = getelementptr inbounds [64 x i32], ptr %69, i64 0, i64 %70
-  %72 = load i32, ptr %71, align 4
-  %73 = call i32 @_Z13retrieve_evalP7state_t(ptr nonnull %0)
-  %74 = add nsw i32 %73, 50
-  %75 = icmp ne i32 %72, 0
-  br i1 %75, label %147, label %76
+62:                                               ; preds = %57
+  %63 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 25
+  %64 = sext i32 %58 to i64
+  %65 = getelementptr inbounds [64 x i32], ptr %63, i64 0, i64 %64
+  %66 = load i32, ptr %65, align 4
+  %67 = call noundef i32 @_Z13retrieve_evalP7state_t(ptr noundef nonnull %0)
+  %68 = add nsw i32 %67, 50
+  %69 = icmp ne i32 %66, 0
+  br i1 %69, label %141, label %70
 
-76:                                               ; preds = %68
-  %77 = icmp slt i32 %73, %2
-  br i1 %77, label %80, label %78
+70:                                               ; preds = %62
+  %71 = icmp slt i32 %67, %2
+  br i1 %71, label %74, label %72
 
-78:                                               ; preds = %76
-  %79 = load i32, ptr %7, align 4
-  call void @_Z7StoreTTP7state_tiiijiiii(ptr nonnull %0, i32 %73, i32 %1, i32 %2, i32 %79, i32 0, i32 0, i32 0, i32 0)
-  br label %378
+72:                                               ; preds = %70
+  %73 = load i32, ptr %7, align 4
+  call void @_Z7StoreTTP7state_tiiijiiii(ptr noundef nonnull %0, i32 noundef %67, i32 noundef %1, i32 noundef %2, i32 noundef %73, i32 noundef 0, i32 noundef 0, i32 noundef 0, i32 noundef 0)
+  br label %372
 
-80:                                               ; preds = %76
-  %81 = icmp sgt i32 %73, %1
-  br i1 %81, label %150, label %82
+74:                                               ; preds = %70
+  %75 = icmp sgt i32 %67, %1
+  br i1 %75, label %144, label %76
 
-82:                                               ; preds = %80
-  %83 = add nsw i32 %73, 985
-  %84 = icmp sgt i32 %83, %1
-  br i1 %84, label %87, label %85
+76:                                               ; preds = %74
+  %77 = add nsw i32 %67, 985
+  %78 = icmp sgt i32 %77, %1
+  br i1 %78, label %81, label %79
 
-85:                                               ; preds = %82
-  %86 = load i32, ptr %7, align 4
-  call void @_Z7StoreTTP7state_tiiijiiii(ptr nonnull %0, i32 %83, i32 %1, i32 %2, i32 %86, i32 0, i32 0, i32 0, i32 0)
-  br label %378
+79:                                               ; preds = %76
+  %80 = load i32, ptr %7, align 4
+  call void @_Z7StoreTTP7state_tiiijiiii(ptr noundef nonnull %0, i32 noundef %77, i32 noundef %1, i32 noundef %2, i32 noundef %80, i32 noundef 0, i32 noundef 0, i32 noundef 0, i32 noundef 0)
+  br label %372
 
-87:                                               ; preds = %82
-  %88 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 8
-  %89 = getelementptr inbounds [13 x i32], ptr %88, i64 0, i64 0
-  %90 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 11
-  %91 = load i32, ptr %90, align 4
-  %92 = icmp eq i32 %91, 0
-  br i1 %92, label %120, label %93
+81:                                               ; preds = %76
+  %82 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 8
+  %83 = getelementptr inbounds [13 x i32], ptr %82, i64 0, i64 0
+  %84 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 11
+  %85 = load i32, ptr %84, align 4
+  %86 = icmp eq i32 %85, 0
+  br i1 %86, label %114, label %87
 
-93:                                               ; preds = %87
-  %94 = getelementptr inbounds i32, ptr %89, i64 10
-  %95 = load i32, ptr %94, align 4
-  %96 = icmp eq i32 %95, 0
-  br i1 %96, label %97, label %150
+87:                                               ; preds = %81
+  %88 = getelementptr inbounds i32, ptr %83, i64 10
+  %89 = load i32, ptr %88, align 4
+  %90 = icmp eq i32 %89, 0
+  br i1 %90, label %91, label %144
 
-97:                                               ; preds = %93
-  %98 = getelementptr inbounds i32, ptr %89, i64 8
-  %99 = load i32, ptr %98, align 4
-  %100 = icmp eq i32 %99, 0
-  br i1 %100, label %101, label %115
+91:                                               ; preds = %87
+  %92 = getelementptr inbounds i32, ptr %83, i64 8
+  %93 = load i32, ptr %92, align 4
+  %94 = icmp eq i32 %93, 0
+  br i1 %94, label %95, label %109
 
-101:                                              ; preds = %97
-  %102 = getelementptr inbounds i32, ptr %89, i64 12
-  %103 = load i32, ptr %102, align 4
-  %104 = icmp eq i32 %103, 0
-  br i1 %104, label %105, label %112
+95:                                               ; preds = %91
+  %96 = getelementptr inbounds i32, ptr %83, i64 12
+  %97 = load i32, ptr %96, align 4
+  %98 = icmp eq i32 %97, 0
+  br i1 %98, label %99, label %106
 
-105:                                              ; preds = %101
-  %106 = getelementptr inbounds i32, ptr %89, i64 4
-  %107 = load i32, ptr %106, align 4
-  %108 = icmp eq i32 %107, 0
-  br i1 %108, label %109, label %112
+99:                                               ; preds = %95
+  %100 = getelementptr inbounds i32, ptr %83, i64 4
+  %101 = load i32, ptr %100, align 4
+  %102 = icmp eq i32 %101, 0
+  br i1 %102, label %103, label %106
 
-109:                                              ; preds = %105
-  %110 = add nsw i32 %73, 135
+103:                                              ; preds = %99
+  %104 = add nsw i32 %67, 135
+  %105 = icmp sgt i32 %104, %1
+  br i1 %105, label %144, label %372
+
+106:                                              ; preds = %99, %95
+  %107 = add nsw i32 %67, 380
+  %108 = icmp sgt i32 %107, %1
+  br i1 %108, label %144, label %372
+
+109:                                              ; preds = %91
+  %110 = add nsw i32 %67, 540
   %111 = icmp sgt i32 %110, %1
-  br i1 %111, label %150, label %378
+  br i1 %111, label %144, label %112
 
-112:                                              ; preds = %105, %101
-  %113 = add nsw i32 %73, 380
-  %114 = icmp sgt i32 %113, %1
-  br i1 %114, label %150, label %378
+112:                                              ; preds = %109
+  %113 = load i32, ptr %7, align 4
+  call void @_Z7StoreTTP7state_tiiijiiii(ptr noundef nonnull %0, i32 noundef %110, i32 noundef %1, i32 noundef %2, i32 noundef %113, i32 noundef 0, i32 noundef 0, i32 noundef 0, i32 noundef 0)
+  br label %372
 
-115:                                              ; preds = %97
-  %116 = add nsw i32 %73, 540
-  %117 = icmp sgt i32 %116, %1
-  br i1 %117, label %150, label %118
+114:                                              ; preds = %81
+  %115 = getelementptr inbounds i32, ptr %83, i64 9
+  %116 = load i32, ptr %115, align 4
+  %117 = icmp eq i32 %116, 0
+  br i1 %117, label %118, label %144
 
-118:                                              ; preds = %115
-  %119 = load i32, ptr %7, align 4
-  call void @_Z7StoreTTP7state_tiiijiiii(ptr nonnull %0, i32 %116, i32 %1, i32 %2, i32 %119, i32 0, i32 0, i32 0, i32 0)
-  br label %378
+118:                                              ; preds = %114
+  %119 = getelementptr inbounds i32, ptr %83, i64 7
+  %120 = load i32, ptr %119, align 4
+  %121 = icmp eq i32 %120, 0
+  br i1 %121, label %122, label %136
 
-120:                                              ; preds = %87
-  %121 = getelementptr inbounds i32, ptr %89, i64 9
-  %122 = load i32, ptr %121, align 4
-  %123 = icmp eq i32 %122, 0
-  br i1 %123, label %124, label %150
+122:                                              ; preds = %118
+  %123 = getelementptr inbounds i32, ptr %83, i64 11
+  %124 = load i32, ptr %123, align 4
+  %125 = icmp eq i32 %124, 0
+  br i1 %125, label %126, label %133
 
-124:                                              ; preds = %120
-  %125 = getelementptr inbounds i32, ptr %89, i64 7
-  %126 = load i32, ptr %125, align 4
-  %127 = icmp eq i32 %126, 0
-  br i1 %127, label %128, label %142
+126:                                              ; preds = %122
+  %127 = getelementptr inbounds i32, ptr %83, i64 3
+  %128 = load i32, ptr %127, align 4
+  %129 = icmp eq i32 %128, 0
+  br i1 %129, label %130, label %133
 
-128:                                              ; preds = %124
-  %129 = getelementptr inbounds i32, ptr %89, i64 11
-  %130 = load i32, ptr %129, align 4
-  %131 = icmp eq i32 %130, 0
-  br i1 %131, label %132, label %139
+130:                                              ; preds = %126
+  %131 = add nsw i32 %67, 135
+  %132 = icmp sgt i32 %131, %1
+  br i1 %132, label %144, label %372
 
-132:                                              ; preds = %128
-  %133 = getelementptr inbounds i32, ptr %89, i64 3
-  %134 = load i32, ptr %133, align 4
-  %135 = icmp eq i32 %134, 0
-  br i1 %135, label %136, label %139
+133:                                              ; preds = %126, %122
+  %134 = add nsw i32 %67, 380
+  %135 = icmp sgt i32 %134, %1
+  br i1 %135, label %144, label %372
 
-136:                                              ; preds = %132
-  %137 = add nsw i32 %73, 135
+136:                                              ; preds = %118
+  %137 = add nsw i32 %67, 540
   %138 = icmp sgt i32 %137, %1
-  br i1 %138, label %150, label %378
+  br i1 %138, label %144, label %139
 
-139:                                              ; preds = %132, %128
-  %140 = add nsw i32 %73, 380
-  %141 = icmp sgt i32 %140, %1
-  br i1 %141, label %150, label %378
+139:                                              ; preds = %136
+  %140 = load i32, ptr %7, align 4
+  call void @_Z7StoreTTP7state_tiiijiiii(ptr noundef nonnull %0, i32 noundef %137, i32 noundef %1, i32 noundef %2, i32 noundef %140, i32 noundef 0, i32 noundef 0, i32 noundef 0, i32 noundef 0)
+  br label %372
 
-142:                                              ; preds = %124
-  %143 = add nsw i32 %73, 540
-  %144 = icmp sgt i32 %143, %1
-  br i1 %144, label %150, label %145
+141:                                              ; preds = %62
+  %142 = load i32, ptr %7, align 4
+  %143 = icmp sgt i32 %3, -6
+  br i1 %143, label %149, label %158
 
-145:                                              ; preds = %142
-  %146 = load i32, ptr %7, align 4
-  call void @_Z7StoreTTP7state_tiiijiiii(ptr nonnull %0, i32 %143, i32 %1, i32 %2, i32 %146, i32 0, i32 0, i32 0, i32 0)
-  br label %378
+144:                                              ; preds = %136, %133, %130, %114, %109, %106, %103, %87, %74
+  %145 = phi i32 [ %1, %114 ], [ %1, %136 ], [ %1, %130 ], [ %1, %133 ], [ %1, %87 ], [ %1, %109 ], [ %1, %103 ], [ %1, %106 ], [ %67, %74 ]
+  %146 = sub nsw i32 %145, %68
+  %147 = load i32, ptr %7, align 4
+  %148 = icmp sgt i32 %3, -6
+  br i1 %148, label %152, label %155
 
-147:                                              ; preds = %68
-  %148 = load i32, ptr %7, align 4
-  %149 = icmp sgt i32 %3, -6
-  br i1 %149, label %155, label %164
+149:                                              ; preds = %141
+  %150 = getelementptr inbounds [240 x i32], ptr %10, i64 0, i64 0
+  %151 = call noundef i32 @_Z12gen_evasionsP7state_tPii(ptr noundef nonnull %0, ptr noundef nonnull %150, i32 noundef %66)
+  br label %161
 
-150:                                              ; preds = %142, %139, %136, %120, %115, %112, %109, %93, %80
-  %151 = phi i32 [ %1, %120 ], [ %1, %142 ], [ %1, %136 ], [ %1, %139 ], [ %1, %93 ], [ %1, %115 ], [ %1, %109 ], [ %1, %112 ], [ %73, %80 ]
-  %152 = sub nsw i32 %151, %74
-  %153 = load i32, ptr %7, align 4
-  %154 = icmp sgt i32 %3, -6
-  br i1 %154, label %158, label %161
+152:                                              ; preds = %144
+  %153 = getelementptr inbounds [240 x i32], ptr %10, i64 0, i64 0
+  %154 = call noundef i32 @_Z12gen_capturesP7state_tPi(ptr noundef nonnull %0, ptr noundef nonnull %153)
+  br label %161
 
-155:                                              ; preds = %147
+155:                                              ; preds = %144
   %156 = getelementptr inbounds [240 x i32], ptr %10, i64 0, i64 0
-  %157 = call i32 @_Z12gen_evasionsP7state_tPii(ptr nonnull %0, ptr nonnull %156, i32 %72)
-  br label %167
+  %157 = call noundef i32 @_Z12gen_capturesP7state_tPi(ptr noundef nonnull %0, ptr noundef nonnull %156)
+  br label %161
 
-158:                                              ; preds = %150
+158:                                              ; preds = %141
   %159 = getelementptr inbounds [240 x i32], ptr %10, i64 0, i64 0
-  %160 = call i32 @_Z12gen_capturesP7state_tPi(ptr nonnull %0, ptr nonnull %159)
-  br label %167
+  %160 = call noundef i32 @_Z12gen_evasionsP7state_tPii(ptr noundef nonnull %0, ptr noundef nonnull %159, i32 noundef %66)
+  br label %161
 
-161:                                              ; preds = %150
-  %162 = getelementptr inbounds [240 x i32], ptr %10, i64 0, i64 0
-  %163 = call i32 @_Z12gen_capturesP7state_tPi(ptr nonnull %0, ptr nonnull %162)
-  br label %167
+161:                                              ; preds = %158, %155, %152, %149
+  %162 = phi i32 [ %147, %155 ], [ %142, %158 ], [ %142, %149 ], [ %147, %152 ]
+  %163 = phi i32 [ %146, %155 ], [ 0, %158 ], [ 0, %149 ], [ %146, %152 ]
+  %164 = phi i32 [ %145, %155 ], [ %1, %158 ], [ %1, %149 ], [ %145, %152 ]
+  %165 = phi i1 [ false, %155 ], [ false, %158 ], [ false, %149 ], [ true, %152 ]
+  %166 = phi i32 [ %157, %155 ], [ %160, %158 ], [ %151, %149 ], [ %154, %152 ]
+  %167 = getelementptr inbounds [240 x i32], ptr %10, i64 0, i64 0
+  %168 = getelementptr inbounds [240 x i32], ptr %11, i64 0, i64 0
+  %169 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 1
+  %170 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 0
+  %171 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 11
+  %172 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 16
+  %173 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 36
+  %174 = getelementptr inbounds %struct._ZTS7state_t.state_t, ptr %0, i64 0, i32 19
+  %175 = sub nsw i32 0, %2
+  %176 = add nsw i32 %4, 1
+  %177 = icmp sgt i32 %3, -1
+  br label %178
 
-164:                                              ; preds = %147
-  %165 = getelementptr inbounds [240 x i32], ptr %10, i64 0, i64 0
-  %166 = call i32 @_Z12gen_evasionsP7state_tPii(ptr nonnull %0, ptr nonnull %165, i32 %72)
-  br label %167
+178:                                              ; preds = %357, %161
+  %179 = phi i32 [ %162, %161 ], [ %197, %357 ]
+  %180 = phi i32 [ 1, %161 ], [ %198, %357 ]
+  %181 = phi i32 [ -32000, %161 ], [ %199, %357 ]
+  %182 = phi i1 [ false, %161 ], [ %356, %357 ]
+  %183 = phi i1 [ false, %161 ], [ %358, %357 ]
+  %184 = phi i1 [ true, %161 ], [ false, %357 ]
+  %185 = phi i32 [ %166, %161 ], [ %193, %357 ]
+  %186 = phi i32 [ %164, %161 ], [ %200, %357 ]
+  br i1 %182, label %187, label %189
 
-167:                                              ; preds = %164, %161, %158, %155
-  %168 = phi i32 [ %153, %161 ], [ %148, %164 ], [ %148, %155 ], [ %153, %158 ]
-  %169 = phi i32 [ %152, %161 ], [ 0, %164 ], [ 0, %155 ], [ %152, %158 ]
-  %170 = phi i32 [ %151, %161 ], [ %1, %164 ], [ %1, %155 ], [ %151, %158 ]
-  %171 = phi i1 [ false, %161 ], [ false, %164 ], [ false, %155 ], [ true, %158 ]
-  %172 = phi i32 [ %163, %161 ], [ %166, %164 ], [ %157, %155 ], [ %160, %158 ]
-  %173 = getelementptr inbounds [240 x i32], ptr %10, i64 0, i64 0
-  %174 = getelementptr inbounds [240 x i32], ptr %11, i64 0, i64 0
-  %175 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 1
-  %176 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 0
-  %177 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 11
-  %178 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 16
-  %179 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 36
-  %180 = getelementptr inbounds %struct.state_t, ptr %0, i64 0, i32 19
-  %181 = sub nsw i32 0, %2
-  %182 = add nsw i32 %4, 1
-  %183 = icmp sgt i32 %3, -1
-  br label %184
+187:                                              ; preds = %178
+  %188 = call noundef i32 @_Z15gen_good_checksP7state_tPi(ptr noundef %0, ptr noundef nonnull %167)
+  br label %192
 
-184:                                              ; preds = %363, %167
-  %185 = phi i32 [ %168, %167 ], [ %203, %363 ]
-  %186 = phi i32 [ 1, %167 ], [ %204, %363 ]
-  %187 = phi i32 [ -32000, %167 ], [ %205, %363 ]
-  %188 = phi i1 [ false, %167 ], [ %362, %363 ]
-  %189 = phi i1 [ false, %167 ], [ %364, %363 ]
-  %190 = phi i1 [ true, %167 ], [ false, %363 ]
-  %191 = phi i32 [ %172, %167 ], [ %199, %363 ]
-  %192 = phi i32 [ %170, %167 ], [ %206, %363 ]
-  br i1 %188, label %193, label %195
+189:                                              ; preds = %178
+  br i1 %183, label %190, label %192
 
-193:                                              ; preds = %184
-  %194 = call i32 @_Z15gen_good_checksP7state_tPi(ptr %0, ptr nonnull %173)
-  br label %198
+190:                                              ; preds = %189
+  %191 = call noundef i32 @_Z9gen_quietP7state_tPi(ptr noundef %0, ptr noundef nonnull %167)
+  br label %192
 
-195:                                              ; preds = %184
-  br i1 %189, label %196, label %198
-
-196:                                              ; preds = %195
-  %197 = call i32 @_Z9gen_quietP7state_tPi(ptr %0, ptr nonnull %173)
-  br label %198
-
-198:                                              ; preds = %196, %195, %193
-  %199 = phi i32 [ %194, %193 ], [ %197, %196 ], [ %191, %195 ]
-  %200 = load i32, ptr %7, align 4
-  call fastcc void @_ZL16fast_order_movesP7state_tPiS1_ij(ptr %0, ptr nonnull %173, ptr nonnull %174, i32 %199, i32 %200)
+192:                                              ; preds = %190, %189, %187
+  %193 = phi i32 [ %188, %187 ], [ %191, %190 ], [ %185, %189 ]
+  %194 = load i32, ptr %7, align 4
+  call fastcc void @_ZL16fast_order_movesP7state_tPiS1_ij(ptr noundef %0, ptr noundef nonnull %167, ptr noundef nonnull %168, i32 noundef %193, i32 noundef %194)
   store i32 -1, ptr %6, align 4
-  %201 = or i1 %188, %189
-  br label %202
+  %195 = or i1 %182, %183
+  br label %196
 
-202:                                              ; preds = %358, %198
-  %203 = phi i32 [ %359, %358 ], [ %185, %198 ]
-  %204 = phi i32 [ %344, %358 ], [ %186, %198 ]
-  %205 = phi i32 [ %345, %358 ], [ %187, %198 ]
-  %206 = phi i32 [ %360, %358 ], [ %192, %198 ]
-  br i1 %75, label %207, label %212
+196:                                              ; preds = %352, %192
+  %197 = phi i32 [ %353, %352 ], [ %179, %192 ]
+  %198 = phi i32 [ %338, %352 ], [ %180, %192 ]
+  %199 = phi i32 [ %339, %352 ], [ %181, %192 ]
+  %200 = phi i32 [ %354, %352 ], [ %186, %192 ]
+  br i1 %69, label %201, label %206
 
-207:                                              ; preds = %202
-  %208 = call fastcc i32 @_ZL15remove_one_fastPiS_S_i(ptr nonnull %6, ptr nonnull %174, ptr nonnull %173, i32 %199)
-  %209 = icmp eq i32 %208, 0
-  br i1 %209, label %361, label %210
+201:                                              ; preds = %196
+  %202 = call fastcc noundef i32 @_ZL15remove_one_fastPiS_S_i(ptr noundef nonnull %6, ptr noundef nonnull %168, ptr noundef nonnull %167, i32 noundef %193)
+  %203 = icmp eq i32 %202, 0
+  br i1 %203, label %355, label %204
 
-210:                                              ; preds = %207
+204:                                              ; preds = %201
+  %205 = load i32, ptr %6, align 4
+  br label %298
+
+206:                                              ; preds = %240, %196
+  %207 = call fastcc noundef i32 @_ZL15remove_one_fastPiS_S_i(ptr noundef nonnull %6, ptr noundef nonnull %168, ptr noundef nonnull %167, i32 noundef %193)
+  %208 = icmp eq i32 %207, 0
+  br i1 %208, label %355, label %209
+
+209:                                              ; preds = %206
+  br i1 %184, label %210, label %225
+
+210:                                              ; preds = %209
   %211 = load i32, ptr %6, align 4
-  br label %304
+  %212 = sext i32 %211 to i64
+  %213 = getelementptr inbounds [240 x i32], ptr %10, i64 0, i64 %212
+  %214 = load i32, ptr %213, align 4
+  %215 = lshr i32 %214, 19
+  %216 = and i32 %215, 15
+  %217 = zext i32 %216 to i64
+  %218 = getelementptr inbounds [14 x i32], ptr @material, i64 0, i64 %217
+  %219 = load i32, ptr %218, align 4
+  %220 = call i32 @llvm.abs.i32(i32 %219, i1 true)
+  %221 = icmp sle i32 %220, %163
+  %222 = and i32 %214, 61440
+  %223 = icmp eq i32 %222, 0
+  %224 = select i1 %221, i1 %223, i1 false
+  br i1 %224, label %355, label %225
 
-212:                                              ; preds = %246, %202
-  %213 = call fastcc i32 @_ZL15remove_one_fastPiS_S_i(ptr nonnull %6, ptr nonnull %174, ptr nonnull %173, i32 %199)
-  %214 = icmp eq i32 %213, 0
-  br i1 %214, label %361, label %215
+225:                                              ; preds = %210, %209
+  br i1 %195, label %226, label %264
 
-215:                                              ; preds = %212
-  br i1 %190, label %216, label %231
+226:                                              ; preds = %225
+  %227 = load i32, ptr %6, align 4
+  %228 = sext i32 %227 to i64
+  %229 = getelementptr inbounds [240 x i32], ptr %10, i64 0, i64 %228
+  %230 = load i32, ptr %229, align 4
+  %231 = lshr i32 %230, 19
+  %232 = and i32 %231, 15
+  %233 = icmp eq i32 %232, 13
+  br i1 %233, label %241, label %234
 
-216:                                              ; preds = %215
-  %217 = load i32, ptr %6, align 4
-  %218 = sext i32 %217 to i64
-  %219 = getelementptr inbounds [240 x i32], ptr %10, i64 0, i64 %218
-  %220 = load i32, ptr %219, align 4
-  %221 = lshr i32 %220, 19
-  %222 = and i32 %221, 15
-  %223 = zext i32 %222 to i64
-  %224 = getelementptr inbounds [14 x i32], ptr @material, i64 0, i64 %223
-  %225 = load i32, ptr %224, align 4
-  %226 = call i32 @llvm.abs.i32(i32 %225, i1 true)
-  %227 = icmp sle i32 %226, %169
-  %228 = and i32 %220, 61440
-  %229 = icmp eq i32 %228, 0
-  %230 = select i1 %227, i1 %229, i1 false
-  br i1 %230, label %361, label %231
+234:                                              ; preds = %226
+  %235 = zext i32 %232 to i64
+  %236 = getelementptr inbounds [14 x i32], ptr @material, i64 0, i64 %235
+  %237 = load i32, ptr %236, align 4
+  %238 = call i32 @llvm.abs.i32(i32 %237, i1 true)
+  %239 = icmp sgt i32 %238, %163
+  br i1 %239, label %240, label %241
 
-231:                                              ; preds = %216, %215
-  br i1 %201, label %232, label %270
+240:                                              ; preds = %285, %242, %234
+  br label %206, !llvm.loop !44
 
-232:                                              ; preds = %231
-  %233 = load i32, ptr %6, align 4
-  %234 = sext i32 %233 to i64
-  %235 = getelementptr inbounds [240 x i32], ptr %10, i64 0, i64 %234
-  %236 = load i32, ptr %235, align 4
-  %237 = lshr i32 %236, 19
-  %238 = and i32 %237, 15
-  %239 = icmp eq i32 %238, 13
-  br i1 %239, label %247, label %240
+241:                                              ; preds = %234, %226
+  br i1 %183, label %242, label %285
 
-240:                                              ; preds = %232
-  %241 = zext i32 %238 to i64
-  %242 = getelementptr inbounds [14 x i32], ptr @material, i64 0, i64 %241
-  %243 = load i32, ptr %242, align 4
-  %244 = call i32 @llvm.abs.i32(i32 %243, i1 true)
-  %245 = icmp sgt i32 %244, %169
-  br i1 %245, label %246, label %247
+242:                                              ; preds = %241
+  %243 = lshr i32 %230, 6
+  %244 = and i32 %243, 63
+  %245 = zext i32 %244 to i64
+  %246 = getelementptr inbounds [64 x i32], ptr %169, i64 0, i64 %245
+  %247 = load i32, ptr %246, align 4
+  %248 = add nsw i32 %247, -1
+  %249 = and i32 %230, 63
+  %250 = load i32, ptr %170, align 8
+  %251 = sext i32 %250 to i64
+  %252 = getelementptr inbounds [8 x [12 x [64 x i32]]], ptr @history_hit, i64 0, i64 %251
+  %253 = sext i32 %248 to i64
+  %254 = getelementptr inbounds [12 x [64 x i32]], ptr %252, i64 0, i64 %253
+  %255 = zext i32 %249 to i64
+  %256 = getelementptr inbounds [64 x i32], ptr %254, i64 0, i64 %255
+  %257 = load i32, ptr %256, align 4
+  %258 = getelementptr inbounds [8 x [12 x [64 x i32]]], ptr @history_tot, i64 0, i64 %251
+  %259 = getelementptr inbounds [12 x [64 x i32]], ptr %258, i64 0, i64 %253
+  %260 = getelementptr inbounds [64 x i32], ptr %259, i64 0, i64 %255
+  %261 = load i32, ptr %260, align 4
+  %262 = sub nsw i32 %261, %257
+  %263 = icmp slt i32 %257, %262
+  br i1 %263, label %240, label %285
 
-246:                                              ; preds = %291, %248, %240
-  br label %212, !llvm.loop !52
-
-247:                                              ; preds = %240, %232
-  br i1 %189, label %248, label %291
-
-248:                                              ; preds = %247
-  %249 = lshr i32 %236, 6
-  %250 = and i32 %249, 63
-  %251 = zext i32 %250 to i64
-  %252 = getelementptr inbounds [64 x i32], ptr %175, i64 0, i64 %251
-  %253 = load i32, ptr %252, align 4
-  %254 = add nsw i32 %253, -1
-  %255 = and i32 %236, 63
-  %256 = load i32, ptr %176, align 8
-  %257 = sext i32 %256 to i64
-  %258 = getelementptr inbounds [8 x [12 x [64 x i32]]], ptr @history_hit, i64 0, i64 %257
-  %259 = sext i32 %254 to i64
-  %260 = getelementptr inbounds [12 x [64 x i32]], ptr %258, i64 0, i64 %259
-  %261 = zext i32 %255 to i64
-  %262 = getelementptr inbounds [64 x i32], ptr %260, i64 0, i64 %261
-  %263 = load i32, ptr %262, align 4
-  %264 = getelementptr inbounds [8 x [12 x [64 x i32]]], ptr @history_tot, i64 0, i64 %257
-  %265 = getelementptr inbounds [12 x [64 x i32]], ptr %264, i64 0, i64 %259
-  %266 = getelementptr inbounds [64 x i32], ptr %265, i64 0, i64 %261
-  %267 = load i32, ptr %266, align 4
-  %268 = sub nsw i32 %267, %263
-  %269 = icmp slt i32 %263, %268
-  br i1 %269, label %246, label %291
-
-270:                                              ; preds = %231
-  %271 = load i32, ptr %6, align 4
-  %272 = sext i32 %271 to i64
-  %273 = getelementptr inbounds [240 x i32], ptr %10, i64 0, i64 %272
-  %274 = load i32, ptr %273, align 4
-  %275 = lshr i32 %274, 19
-  %276 = and i32 %275, 15
+264:                                              ; preds = %225
+  %265 = load i32, ptr %6, align 4
+  %266 = sext i32 %265 to i64
+  %267 = getelementptr inbounds [240 x i32], ptr %10, i64 0, i64 %266
+  %268 = load i32, ptr %267, align 4
+  %269 = lshr i32 %268, 19
+  %270 = and i32 %269, 15
+  %271 = zext i32 %270 to i64
+  %272 = getelementptr inbounds [14 x i32], ptr @material, i64 0, i64 %271
+  %273 = load i32, ptr %272, align 4
+  %274 = call i32 @llvm.abs.i32(i32 %273, i1 true)
+  %275 = lshr i32 %268, 6
+  %276 = and i32 %275, 63
   %277 = zext i32 %276 to i64
-  %278 = getelementptr inbounds [14 x i32], ptr @material, i64 0, i64 %277
+  %278 = getelementptr inbounds [64 x i32], ptr %169, i64 0, i64 %277
   %279 = load i32, ptr %278, align 4
-  %280 = call i32 @llvm.abs.i32(i32 %279, i1 true)
-  %281 = lshr i32 %274, 6
-  %282 = and i32 %281, 63
-  %283 = zext i32 %282 to i64
-  %284 = getelementptr inbounds [64 x i32], ptr %175, i64 0, i64 %283
-  %285 = load i32, ptr %284, align 4
-  %286 = sext i32 %285 to i64
-  %287 = getelementptr inbounds [14 x i32], ptr @material, i64 0, i64 %286
-  %288 = load i32, ptr %287, align 4
-  %289 = call i32 @llvm.abs.i32(i32 %288, i1 true)
-  %290 = icmp ult i32 %280, %289
-  br i1 %290, label %291, label %304
+  %280 = sext i32 %279 to i64
+  %281 = getelementptr inbounds [14 x i32], ptr @material, i64 0, i64 %280
+  %282 = load i32, ptr %281, align 4
+  %283 = call i32 @llvm.abs.i32(i32 %282, i1 true)
+  %284 = icmp ult i32 %274, %283
+  br i1 %284, label %285, label %298
 
-291:                                              ; preds = %270, %248, %247
-  %292 = phi i64 [ %234, %247 ], [ %272, %270 ], [ %234, %248 ]
-  %293 = phi i32 [ %233, %247 ], [ %271, %270 ], [ %233, %248 ]
-  %294 = load i32, ptr %177, align 4
-  %295 = icmp eq i32 %294, 0
-  %296 = zext i1 %295 to i32
-  %297 = getelementptr inbounds [240 x i32], ptr %10, i64 0, i64 %292
-  %298 = load i32, ptr %297, align 4
-  %299 = lshr i32 %298, 6
-  %300 = and i32 %299, 63
-  %301 = and i32 %298, 63
-  %302 = call i32 @_Z3seeP7state_tiiii(ptr %0, i32 %296, i32 %300, i32 %301, i32 0)
-  %303 = icmp slt i32 %302, -50
-  br i1 %303, label %246, label %304
+285:                                              ; preds = %264, %242, %241
+  %286 = phi i64 [ %228, %241 ], [ %266, %264 ], [ %228, %242 ]
+  %287 = phi i32 [ %227, %241 ], [ %265, %264 ], [ %227, %242 ]
+  %288 = load i32, ptr %171, align 4
+  %289 = icmp eq i32 %288, 0
+  %290 = zext i1 %289 to i32
+  %291 = getelementptr inbounds [240 x i32], ptr %10, i64 0, i64 %286
+  %292 = load i32, ptr %291, align 4
+  %293 = lshr i32 %292, 6
+  %294 = and i32 %293, 63
+  %295 = and i32 %292, 63
+  %296 = call noundef i32 @_Z3seeP7state_tiiii(ptr noundef %0, i32 noundef %290, i32 noundef %294, i32 noundef %295, i32 noundef 0)
+  %297 = icmp slt i32 %296, -50
+  br i1 %297, label %240, label %298
 
-304:                                              ; preds = %291, %270, %210
-  %305 = phi i32 [ %211, %210 ], [ %293, %291 ], [ %271, %270 ]
-  %306 = sext i32 %305 to i64
-  %307 = getelementptr inbounds [240 x i32], ptr %10, i64 0, i64 %306
-  %308 = load i32, ptr %307, align 4
-  call void @_Z4makeP7state_ti(ptr %0, i32 %308)
-  %309 = load i32, ptr %307, align 4
-  %310 = call i32 @_Z11check_legalP7state_ti(ptr %0, i32 %309)
-  %311 = icmp eq i32 %310, 0
-  br i1 %311, label %343, label %312
+298:                                              ; preds = %285, %264, %204
+  %299 = phi i32 [ %205, %204 ], [ %265, %264 ], [ %287, %285 ]
+  %300 = sext i32 %299 to i64
+  %301 = getelementptr inbounds [240 x i32], ptr %10, i64 0, i64 %300
+  %302 = load i32, ptr %301, align 4
+  call void @_Z4makeP7state_ti(ptr noundef %0, i32 noundef %302)
+  %303 = load i32, ptr %301, align 4
+  %304 = call noundef i32 @_Z11check_legalP7state_ti(ptr noundef %0, i32 noundef %303)
+  %305 = icmp eq i32 %304, 0
+  br i1 %305, label %337, label %306
 
-312:                                              ; preds = %304
-  %313 = load i64, ptr %178, align 8
-  %314 = load i32, ptr getelementptr inbounds (%struct.gamestate_t, ptr @gamestate, i64 0, i32 15), align 4
-  %315 = load i32, ptr %24, align 8
-  %316 = add i32 %315, -1
-  %317 = add i32 %316, %314
-  %318 = sext i32 %317 to i64
-  %319 = getelementptr inbounds [1000 x i64], ptr %179, i64 0, i64 %318
-  store i64 %313, ptr %319, align 8
-  %320 = load i32, ptr %307, align 4
-  %321 = sext i32 %316 to i64
-  %322 = getelementptr inbounds [64 x i32], ptr %180, i64 0, i64 %321
-  store i32 %320, ptr %322, align 4
-  %323 = call i32 @_Z8in_checkP7state_t(ptr %0)
-  %324 = load i32, ptr %24, align 8
-  %325 = sext i32 %324 to i64
-  %326 = getelementptr inbounds [64 x i32], ptr %69, i64 0, i64 %325
-  store i32 %323, ptr %326, align 4
-  %327 = sub nsw i32 0, %206
-  %328 = sub i32 60, %206
-  %329 = icmp ne i32 %323, 0
-  %330 = zext i1 %329 to i32
-  %331 = call i32 @_Z4evalP7state_tiii(ptr %0, i32 %181, i32 %328, i32 %330)
-  br i1 %189, label %332, label %335
+306:                                              ; preds = %298
+  %307 = load i64, ptr %172, align 8
+  %308 = load i32, ptr getelementptr inbounds (%struct._ZTS11gamestate_t.gamestate_t, ptr @gamestate, i64 0, i32 15), align 4
+  %309 = load i32, ptr %18, align 8
+  %310 = add i32 %309, -1
+  %311 = add i32 %310, %308
+  %312 = sext i32 %311 to i64
+  %313 = getelementptr inbounds [1000 x i64], ptr %173, i64 0, i64 %312
+  store i64 %307, ptr %313, align 8
+  %314 = load i32, ptr %301, align 4
+  %315 = sext i32 %310 to i64
+  %316 = getelementptr inbounds [64 x i32], ptr %174, i64 0, i64 %315
+  store i32 %314, ptr %316, align 4
+  %317 = call noundef i32 @_Z8in_checkP7state_t(ptr noundef %0)
+  %318 = load i32, ptr %18, align 8
+  %319 = sext i32 %318 to i64
+  %320 = getelementptr inbounds [64 x i32], ptr %63, i64 0, i64 %319
+  store i32 %317, ptr %320, align 4
+  %321 = sub nsw i32 0, %200
+  %322 = sub i32 60, %200
+  %323 = icmp ne i32 %317, 0
+  %324 = zext i1 %323 to i32
+  %325 = call noundef i32 @_Z4evalP7state_tiii(ptr noundef %0, i32 noundef %175, i32 noundef %322, i32 noundef %324)
+  br i1 %183, label %326, label %329
 
-332:                                              ; preds = %312
-  %333 = sub nsw i32 0, %331
-  %334 = icmp slt i32 %206, %333
-  br i1 %334, label %339, label %343
+326:                                              ; preds = %306
+  %327 = sub nsw i32 0, %325
+  %328 = icmp slt i32 %200, %327
+  br i1 %328, label %333, label %337
 
-335:                                              ; preds = %312
-  %336 = select i1 %329, i1 true, i1 %75
-  %337 = select i1 %336, i32 -1, i32 -8
-  %338 = add nsw i32 %337, %3
-  br label %339
+329:                                              ; preds = %306
+  %330 = select i1 %323, i1 true, i1 %69
+  %331 = select i1 %330, i32 -1, i32 -8
+  %332 = add nsw i32 %331, %3
+  br label %333
 
-339:                                              ; preds = %335, %332
-  %340 = phi i32 [ %3, %332 ], [ %338, %335 ]
-  %341 = call i32 @_Z7qsearchP7state_tiiii(ptr nonnull %0, i32 %181, i32 %327, i32 %340, i32 %182)
-  %342 = sub nsw i32 0, %341
-  br label %343
+333:                                              ; preds = %329, %326
+  %334 = phi i32 [ %3, %326 ], [ %332, %329 ]
+  %335 = call noundef i32 @_Z7qsearchP7state_tiiii(ptr noundef nonnull %0, i32 noundef %175, i32 noundef %321, i32 noundef %334, i32 noundef %176)
+  %336 = sub nsw i32 0, %335
+  br label %337
 
-343:                                              ; preds = %339, %332, %304
-  %344 = phi i32 [ %204, %304 ], [ 0, %339 ], [ 0, %332 ]
-  %345 = phi i32 [ %205, %304 ], [ %342, %339 ], [ %205, %332 ]
-  %346 = load i32, ptr %307, align 4
-  call void @_Z6unmakeP7state_ti(ptr %0, i32 %346)
-  %347 = load i32, ptr getelementptr inbounds (%struct.gamestate_t, ptr @gamestate, i64 0, i32 25), align 8
-  %348 = icmp eq i32 %347, 0
-  br i1 %348, label %349, label %378
+337:                                              ; preds = %333, %326, %298
+  %338 = phi i32 [ %198, %298 ], [ 0, %333 ], [ 0, %326 ]
+  %339 = phi i32 [ %199, %298 ], [ %336, %333 ], [ %199, %326 ]
+  %340 = load i32, ptr %301, align 4
+  call void @_Z6unmakeP7state_ti(ptr noundef %0, i32 noundef %340)
+  %341 = load i32, ptr getelementptr inbounds (%struct._ZTS11gamestate_t.gamestate_t, ptr @gamestate, i64 0, i32 25), align 8
+  %342 = icmp eq i32 %341, 0
+  br i1 %342, label %343, label %372
 
-349:                                              ; preds = %343
-  %350 = icmp sle i32 %345, %206
-  %351 = or i1 %311, %350
-  br i1 %351, label %358, label %352
+343:                                              ; preds = %337
+  %344 = icmp sle i32 %339, %200
+  %345 = or i1 %305, %344
+  br i1 %345, label %352, label %346
 
-352:                                              ; preds = %349
-  %353 = load i32, ptr %307, align 4
-  %354 = call zeroext i16 @_Z12compact_movei(i32 %353)
-  %355 = zext i16 %354 to i32
-  %356 = icmp slt i32 %345, %2
-  br i1 %356, label %358, label %357
+346:                                              ; preds = %343
+  %347 = load i32, ptr %301, align 4
+  %348 = call noundef zeroext i16 @_Z12compact_movei(i32 noundef %347)
+  %349 = zext i16 %348 to i32
+  %350 = icmp slt i32 %339, %2
+  br i1 %350, label %352, label %351
 
-357:                                              ; preds = %352
-  call void @_Z7StoreTTP7state_tiiijiiii(ptr %0, i32 %345, i32 %1, i32 %2, i32 %355, i32 0, i32 0, i32 0, i32 0)
-  br label %378
+351:                                              ; preds = %346
+  call void @_Z7StoreTTP7state_tiiijiiii(ptr noundef %0, i32 noundef %339, i32 noundef %1, i32 noundef %2, i32 noundef %349, i32 noundef 0, i32 noundef 0, i32 noundef 0, i32 noundef 0)
+  br label %372
 
-358:                                              ; preds = %352, %349
-  %359 = phi i32 [ %203, %349 ], [ %355, %352 ]
-  %360 = phi i32 [ %206, %349 ], [ %345, %352 ]
-  br label %202, !llvm.loop !52
+352:                                              ; preds = %346, %343
+  %353 = phi i32 [ %197, %343 ], [ %349, %346 ]
+  %354 = phi i32 [ %200, %343 ], [ %339, %346 ]
+  br label %196, !llvm.loop !44
 
-361:                                              ; preds = %216, %212, %207
-  %362 = and i1 %171, %190
-  br i1 %362, label %363, label %365
+355:                                              ; preds = %210, %206, %201
+  %356 = and i1 %165, %184
+  br i1 %356, label %357, label %359
 
-363:                                              ; preds = %365, %361
-  %364 = xor i1 %362, true
-  br label %184
+357:                                              ; preds = %359, %355
+  %358 = xor i1 %356, true
+  br label %178
 
-365:                                              ; preds = %361
-  %366 = and i1 %171, %188
-  %367 = and i1 %366, %183
-  %368 = icmp sgt i32 %74, %206
-  %369 = select i1 %367, i1 %368, i1 false
-  br i1 %369, label %363, label %370
+359:                                              ; preds = %355
+  %360 = and i1 %165, %182
+  %361 = and i1 %360, %177
+  %362 = icmp sgt i32 %68, %200
+  %363 = select i1 %361, i1 %362, i1 false
+  br i1 %363, label %357, label %364
 
-370:                                              ; preds = %365
-  %371 = icmp ne i32 %204, 0
-  %372 = select i1 %371, i1 %75, i1 false
-  br i1 %372, label %373, label %376
+364:                                              ; preds = %359
+  %365 = icmp ne i32 %198, 0
+  %366 = select i1 %365, i1 %69, i1 false
+  br i1 %366, label %367, label %370
 
-373:                                              ; preds = %370
-  %374 = load i32, ptr %24, align 8
-  %375 = add nsw i32 %374, -32000
-  br label %376
+367:                                              ; preds = %364
+  %368 = load i32, ptr %18, align 8
+  %369 = add nsw i32 %368, -32000
+  br label %370
 
-376:                                              ; preds = %373, %370
-  %377 = phi i32 [ %375, %373 ], [ %206, %370 ]
-  call void @_Z7StoreTTP7state_tiiijiiii(ptr %0, i32 %377, i32 %1, i32 %2, i32 %203, i32 0, i32 0, i32 0, i32 0)
-  br label %378
+370:                                              ; preds = %367, %364
+  %371 = phi i32 [ %369, %367 ], [ %200, %364 ]
+  call void @_Z7StoreTTP7state_tiiijiiii(ptr noundef %0, i32 noundef %371, i32 noundef %1, i32 noundef %2, i32 noundef %197, i32 noundef 0, i32 noundef 0, i32 noundef 0, i32 noundef 0)
+  br label %372
 
-378:                                              ; preds = %376, %357, %343, %145, %139, %136, %118, %112, %109, %85, %78, %66, %55, %52, %50, %40, %30
-  %379 = phi i32 [ %47, %40 ], [ %67, %66 ], [ %345, %357 ], [ %377, %376 ], [ %73, %78 ], [ %83, %85 ], [ %51, %50 ], [ 0, %30 ], [ %53, %52 ], [ %56, %55 ], [ %140, %139 ], [ %137, %136 ], [ %113, %112 ], [ %110, %109 ], [ %116, %118 ], [ %143, %145 ], [ 0, %343 ]
-  call void @llvm.lifetime.end.p0(i64 960, ptr nonnull %17) #7
-  call void @llvm.lifetime.end.p0(i64 960, ptr nonnull %16) #7
-  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %15) #7
-  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %14) #7
-  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %13) #7
-  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %12) #7
-  ret i32 %379
+372:                                              ; preds = %370, %351, %337, %139, %133, %130, %112, %106, %103, %79, %72, %60, %49, %46, %44, %34, %24
+  %373 = phi i32 [ %41, %34 ], [ %61, %60 ], [ %339, %351 ], [ %371, %370 ], [ %67, %72 ], [ %77, %79 ], [ %45, %44 ], [ 0, %24 ], [ %47, %46 ], [ %50, %49 ], [ %134, %133 ], [ %131, %130 ], [ %107, %106 ], [ %104, %103 ], [ %110, %112 ], [ %137, %139 ], [ 0, %337 ]
+  call void @llvm.lifetime.end.p0(i64 960, ptr nonnull %11) #28
+  call void @llvm.lifetime.end.p0(i64 960, ptr nonnull %10) #28
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %9) #28
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %8) #28
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %7) #28
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %6) #28
+  ret i32 %373
 }
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
@@ -2686,8 +2640,9 @@ attributes #7 = { nounwind }
 !47 = distinct !{!47, !31}
 !48 = distinct !{!48, !31}
 !49 = distinct !{!49, !31}
-!50 = distinct !{!50, !31}
-!51 = distinct !{!51, !31}
+!50 = distinct !{!50, !31, !51}
+!51 = !{!"llvm.loop.unswitch.partial.disable"}
 !52 = distinct !{!52, !31}
+!53 = distinct !{!53, !31}
 
 ; end INTEL_FEATURE_SW_ADVANCED

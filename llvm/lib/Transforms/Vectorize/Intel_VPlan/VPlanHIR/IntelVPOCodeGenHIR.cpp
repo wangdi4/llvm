@@ -1013,6 +1013,7 @@ void VPOCodeGenHIR::setupHLLoop(const VPLoop *VPLp) {
   assert(MainLoop && "Expected non-null MainLoop");
   HLLoop *HLoop;
   if (!VPLp->getParentLoop()) {
+    CurTopVPLoop = VPLp;
     HLoop = isMergedCFG() ? getMergedCFGVecHLLoop(VPLp) : MainLoop;
     if (isMergedCFG()) {
       // TODO - this code is making some implicit assumptions that the first
@@ -1329,13 +1330,38 @@ void VPOCodeGenHIR::setupLiveInLiveOut() {
       addLiveInLiveOut(Def, User, DefRef);
   }
 
-  // For each external value in VPValsToFlushForVF map, get the users and add
-  // the livein information.
+  // For each external value in VPValsToFlushForVF map add the livein
+  // information. VPExternals can't be liveout.
   for (auto &ValRef : VPValsToFlushForVF) {
     auto *Def = ValRef.first;
-    auto *DefRef = ValRef.second;
-    for (auto *User : Def->users())
-      addLiveInLiveOut(Def, User, DefRef);
+    if (isa<VPConstant>(Def))
+      continue;
+
+    for (auto *User : Def->users()) {
+      VPInstruction *UserInst = dyn_cast<VPInstruction>(User);
+      if (UserInst) {
+        auto ParentBB = UserInst->getParent();
+
+        // Can have a use of VPExternalDef in a VPlan that was not merged.
+        if (ParentBB->getParent() != Plan)
+          continue;
+
+        // Get topmost VPloop (which can be peel/main/remainder) that contains
+        // the use. We keep the DDRefs along with those VPloops in the map.
+        const VPLoop *VLp = Plan->getVPLoopInfo()->getLoopFor(ParentBB);
+        while (VLp && VLp->getParentLoop())
+          VLp = VLp->getParentLoop();
+
+        // User outside of any loop
+        if (!VLp)
+          continue;
+
+        for (auto &DefRef : ValRef.second)
+          if (VLp == DefRef.second) {
+            addLiveInLiveOut(Def, User, DefRef.first);
+          }
+      }
+    }
   }
 
   // For each definition in VPValScalRef map, get the users and add the
@@ -3329,8 +3355,10 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
 
   // Keep the VPValue for dropping when we switch VF. TODO: Move it to
   // addVPValueWideRefMapping instead?
-  if (!isa<VPInstruction>(VPVal))
-    VPValsToFlushForVF[VPVal] = WideRef;
+  if (!isa<VPInstruction>(VPVal)) {
+    auto &Vec = VPValsToFlushForVF[VPVal];
+    Vec.push_back(std::make_pair(WideRef, nullptr));
+  }
 
   // Clients can potentially modify the returned value. Return the cloned value.
   return WideRef->clone();

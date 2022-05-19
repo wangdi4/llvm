@@ -463,6 +463,7 @@ namespace {
       (void)llvm::createDPCPPPreprocessSPIRVFriendlyIRLegacyPass();
       (void)llvm::createDPCPPRewritePipesLegacyPass();
       (void)llvm::createDeduceMaxWGDimLegacyPass();
+      (void)llvm::createDetectRecursionLegacyPass();
       (void)llvm::createDuplicateCalledKernelsLegacyPass();
       (void)llvm::createExternalizeGlobalVariablesLegacyPass();
       (void)llvm::createPhiCanonicalizationLegacyPass();
@@ -496,6 +497,7 @@ namespace {
       (void)llvm::createRemoveAtExitLegacyPass();
       (void)llvm::createRemoveDuplicatedBarrierLegacyPass(false);
       (void)llvm::createReplaceScalarWithMaskLegacyPass();
+      (void)llvm::createReqdSubGroupSizeLegacyPass();
       (void)llvm::createResolveMatrixFillLegacyPass();
       (void)llvm::createResolveMatrixLayoutLegacyPass();
       (void)llvm::createResolveMatrixWISliceLegacyPass();

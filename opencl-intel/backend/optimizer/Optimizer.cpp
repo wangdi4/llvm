@@ -109,7 +109,6 @@ extern "C"{
 
 llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
-llvm::Pass *createOCLReqdSubGroupSizePass();
 
 llvm::Pass *createCLBuiltinLICMPass();
 llvm::Pass *createCLStreamSamplerPass();
@@ -127,7 +126,6 @@ llvm::ModulePass *createPrintIRPass(int option, int optionLocation,
 llvm::ModulePass *createDebugInfoPass();
 llvm::Pass *createSmartGVNPass(bool);
 
-llvm::ModulePass *createDetectRecursionPass();
 llvm::ModulePass *createSetPreferVectorWidthPass(const CPUDetect *CPUID);
 }
 
@@ -373,7 +371,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                            UseVplan);
 
   // check there is no recursion, if there is fail compilation
-  PM.add(createDetectRecursionPass());
+  PM.add(llvm::createDetectRecursionLegacyPass());
 
   // PipeSupport can fail if dynamic pipe access is discovered after LLVM
   // optimizations
@@ -523,7 +521,7 @@ static void populatePassesPostFailCheck(
         PM.add(createInstructionCombiningPass());
         PM.add(createGVNHoistPass());
         PM.add(createDeadCodeEliminationPass());
-        PM.add(createOCLReqdSubGroupSizePass());
+        PM.add(createReqdSubGroupSizeLegacyPass());
 
         // This pass may throw VFAnalysisDiagInfo error if VF checking fails.
         PM.add(llvm::createSetVectorizationFactorLegacyPass(ISA));
@@ -586,7 +584,7 @@ static void populatePassesPostFailCheck(
     // When forced VF equals 1 or in O0 case, check subgroup semantics AND
     // prepare subgroup_emu_size for sub-group emulation.
     if (UseVplan && EnableNativeOpenCLSubgroups) {
-      PM.add(createOCLReqdSubGroupSizePass());
+      PM.add(createReqdSubGroupSizeLegacyPass());
       PM.add(llvm::createSetVectorizationFactorLegacyPass(ISA));
     }
   }
