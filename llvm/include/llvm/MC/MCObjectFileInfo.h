@@ -247,14 +247,11 @@ protected:
   MCSection *GIATsSection = nullptr;
   MCSection *GLJMPSection = nullptr;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   MCSection *OptReportSection = nullptr;
 #endif  // INTEL_CUSTOMIZATION
-=======
   // GOFF specific sections.
   MCSection *PPA1Section = nullptr;
->>>>>>> 5ac411aea802f5983b7979b9198ba7d8fb38f64d
 
   // XCOFF specific sections
   MCSection *TOCBaseSection = nullptr;
