@@ -662,7 +662,7 @@ void BasicAAResult::DecomposeSubscript(const SubscriptInst *Subs,
   const ConstantInt *CStride = cast<ConstantInt>(Stride);
   unsigned MaxPointerSize = DL.getMaxIndexSizeInBits();
 
-  APInt StrideVal = CStride->getValue().sextOrSelf(MaxPointerSize);
+  APInt StrideVal = CStride->getValue().sext(MaxPointerSize);
 
   const Value *Offsets[] = {Subs->getIndex(), Subs->getLowerBound()};
   for (int i = 0; i < 2; ++i) {

@@ -3202,8 +3202,8 @@ public:
                                       LB->getType()->getPrimitiveSizeInBits());
 
         bool SubOverflow = false;
-        ZeroBasedIndex = ZeroBasedIndex.sextOrSelf(DiffWidth).ssub_ov(
-            ConstLB->getValue().sextOrSelf(DiffWidth), SubOverflow);
+        ZeroBasedIndex = ZeroBasedIndex.sext(DiffWidth).ssub_ov(
+            ConstLB->getValue().sext(DiffWidth), SubOverflow);
         assert(!SubOverflow && "Unexpected (index - lower) overflow");
       }
 
