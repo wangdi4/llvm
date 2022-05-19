@@ -6331,6 +6331,12 @@ public:
     return;
   }
 
+  void visitFreezeInst(FreezeInst &I) {
+    // This instruction may result in a type containing a pointer, but there are
+    // no safety flags affected.
+    return;
+  }
+
   void visitResume(ResumeInst &I) {
     // This instruction has an operand containing a pointer type, but there are
     // no safety flags affected.
