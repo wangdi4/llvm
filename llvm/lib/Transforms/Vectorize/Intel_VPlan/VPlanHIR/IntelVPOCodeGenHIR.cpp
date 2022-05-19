@@ -6919,19 +6919,20 @@ void VPOCodeGenHIR::emitRemarksForScalarLoops() {
     EraseOptReportLoopVisitor ELV;
     ELV.visit(ScalarHLp);
 
-    // TODO: Any other remarks for scalar peel/remainder loops? Should we report
-    // that they were not vectorized?
-    if (isa<VPScalarPeelHIR>(ScalarLpVPI)) {
-      // remark #25518: PEELED LOOP FOR VECTORIZATION.
-      ORBuilder(*ScalarHLp).addOrigin(25518u);
-    } else {
-      assert(isa<VPScalarRemainderHIR>(ScalarLpVPI) &&
-             "Remainder loop type expected here.");
-      // remark #25519: REMAINDER LOOP FOR VECTORIZATION.
-      ORBuilder(*ScalarHLp).addOrigin(25519u);
-      // remark #15441: remainder loop was not vectorized
-      ORBuilder(*ScalarHLp).addRemark(OptReportVerbosity::Medium, 15441u, "");
-    }
+    // Emit remarks collected for scalar loop instruction into outgoing scalar
+    // loop's opt-report.
+    auto EmitScalarLpVPIRemarks = [this, ScalarHLp](auto *LpVPI) {
+      for (auto R : LpVPI->getOriginRemarks())
+        ORBuilder(*ScalarHLp).addOrigin(R.RemarkID);
+
+      for (auto R : LpVPI->getGeneralRemarks())
+        ORBuilder(*ScalarHLp).addRemark(R.MessageVerbosity, R.RemarkID, R.Arg);
+    };
+
+    if (auto *RemLp = dyn_cast<VPScalarRemainderHIR>(ScalarLpVPI))
+      EmitScalarLpVPIRemarks(RemLp);
+    else
+      EmitScalarLpVPIRemarks(cast<VPScalarPeelHIR>(ScalarLpVPI));
   }
 }
 } // end namespace llvm

@@ -1052,13 +1052,10 @@ VPlanAdapter::VPlanAdapter(unsigned Opcode, VPlan &P)
       Plan(P) {}
 
 VPValue *VPlanPeelAdapter::getPeelLoop() const {
-  auto It = llvm::find_if(vpinstructions(&Plan), [](const VPInstruction &I) {
-    return isa<VPScalarPeel>(&I) || isa<VPScalarPeelHIR>(&I);
-  });
-
-  if (It != vpinstructions(&Plan).end())
-    return &*It;
-  llvm_unreachable("can't find scalar peel");
+  VPInstruction *LoopI = cast<VPlanScalar>(Plan).getScalarLoopInst();
+  assert((isa<VPScalarPeel>(LoopI) || isa<VPScalarPeelHIR>(LoopI)) &&
+         "Scalar loop instruction expected for peel adapter VPlan.");
+  return LoopI;
 }
 
 // Visit all orig-liveout-hir instructions and update original loop UB.
@@ -1321,31 +1318,27 @@ void VPlanScalar::setNeedCloneOrigLoop(bool V) {
   NeedCloneOrigLoop = V;
   if (!V)
     return;
-  for (VPBasicBlock &B : *this) {
-    auto LoopI = llvm::find_if(B, [](const VPInstruction &I) {
-      switch (I.getOpcode()) {
-      case VPInstruction::ScalarPeel:
-      case VPInstruction::ScalarRemainder:
-      case VPInstruction::ScalarPeelHIR:
-      case VPInstruction::ScalarRemainderHIR:
-        return true;
-      default:
-        return false;
-      }
-    });
-    if (LoopI != B.end()) {
-      if (auto *IRPeel = dyn_cast<VPScalarPeel>(&*LoopI))
-        IRPeel->setCloningRequired();
-      else if (auto *IRRem = dyn_cast<VPScalarRemainder>(&*LoopI))
-        IRRem->setCloningRequired();
-      else if (auto *HIRPeel = dyn_cast<VPScalarPeelHIR>(&*LoopI))
-        HIRPeel->setCloningRequired();
-      else
-        cast<VPScalarRemainderHIR>(*LoopI).setCloningRequired();
-      return;
-    }
-  }
-  llvm_unreachable("can't find loop instruction");
+
+  VPInstruction *LoopI = getScalarLoopInst();
+  if (auto *IRPeel = dyn_cast<VPScalarPeel>(&*LoopI))
+    IRPeel->setCloningRequired();
+  else if (auto *IRRem = dyn_cast<VPScalarRemainder>(&*LoopI))
+    IRRem->setCloningRequired();
+  else if (auto *HIRPeel = dyn_cast<VPScalarPeelHIR>(&*LoopI))
+    HIRPeel->setCloningRequired();
+  else
+    cast<VPScalarRemainderHIR>(*LoopI).setCloningRequired();
+}
+
+VPInstruction *VPlanScalar::getScalarLoopInst() {
+  auto It = llvm::find_if(vpinstructions(this), [](VPInstruction &I) {
+    return isa<VPScalarPeel>(&I) || isa<VPScalarPeelHIR>(&I) ||
+           isa<VPScalarRemainder>(&I) || isa<VPScalarRemainderHIR>(&I);
+  });
+
+  if (It != vpinstructions(this).end())
+    return &*It;
+  llvm_unreachable("can't find scalar loop instruction");
 }
 
 void VPBlendInst::addIncoming(VPValue *IncomingVal, VPValue *BlockPred, VPlan *Plan) {

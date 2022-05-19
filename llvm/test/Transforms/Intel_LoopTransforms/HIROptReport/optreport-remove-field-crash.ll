@@ -46,7 +46,6 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
 ; CHECK-NEXT: <Remainder loop for vectorization>
-; CHECK-NEXT:     remark #15441: remainder loop was not vectorized:
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
@@ -58,7 +57,6 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
 ; CHECK-NEXT: <Remainder loop for vectorization>
-; CHECK-NEXT:     remark #15441: remainder loop was not vectorized:
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
@@ -72,7 +70,6 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
 ; CHECK-NEXT: <Remainder loop for vectorization>
-; CHECK-NEXT:     remark #15441: remainder loop was not vectorized:
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
@@ -84,7 +81,6 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
 ; CHECK-NEXT: <Remainder loop for vectorization>
-; CHECK-NEXT:     remark #15441: remainder loop was not vectorized:
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
@@ -97,7 +93,6 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
 ; CHECK-NEXT: <Remainder loop for vectorization>
-; CHECK-NEXT:     remark #15441: remainder loop was not vectorized:
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
@@ -109,7 +104,6 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
 ; CHECK-NEXT: <Remainder loop for vectorization>
-; CHECK-NEXT:     remark #15441: remainder loop was not vectorized:
 ; CHECK-NEXT: LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
@@ -124,7 +118,6 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN at opt_report_crash_reproducer.c (18, 5)
 ; CHECK-NEXT: <Remainder loop for vectorization>
-; CHECK-NEXT:     remark #15441: remainder loop was not vectorized:
 ; CHECK-NEXT: LOOP END
 ;
 ;

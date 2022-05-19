@@ -8,6 +8,7 @@ set(TARGET_INCLUDE_FILES
 
 set(TARGET_SOURCE_FILES
     Optimizer.cpp
+    OptimizerOCL.cpp
     OptimizerLTO.cpp
     OptimizerLTOLegacyPM.cpp
 )

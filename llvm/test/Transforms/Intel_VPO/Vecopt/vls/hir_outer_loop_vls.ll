@@ -15,14 +15,20 @@
 ;               |   + END LOOP
 ;               + END LOOP
 ;
-; FIXME: Generated VPlan should not have any vls related instructions. The memory accesses
-; are uniform relative to i1 loop vectorization.
 ;
-; CHECK:             vls-load {{.*}}, group_size=2
-; CHECK-NEXT:        vls-extract {{.*}}, group_size=2, offset=0
-; CHECK-NEXT:        vls-extract {{.*}}, group_size=2, offset=1
+; CHECK: Function: foo
+; CHECK:                     + DO i1 = 0, 1023, 4   <DO_LOOP> <simd-vectorized> <novectorize>
+; CHECK-NEXT:                |   %phi.temp = 0;
+; CHECK-NEXT:                |   
+; CHECK-NEXT:                |   + DO i2 = 0, 1023, 1   <DO_LOOP> <novectorize>
+; CHECK-NEXT:                |   |   %.unifload = (i64*)(@arr)[0][2 * i2];
+; CHECK-NEXT:                |   |   %.unifload3 = (i64*)(@arr)[0][2 * i2 + 1];
+; CHECK-NEXT:                |   |   (<4 x i64>*)(@arr2)[0][i2][i1] = %.unifload + %.unifload3;
+; CHECK-NEXT:                |   |   %.vec = i2 + 1 < 1024;
+; CHECK-NEXT:                |   |   %phi.temp = i2 + 1;
+; CHECK-NEXT:                |   + END LOOP
+; CHECK-NEXT:                + END LOOP
 ;
-
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 

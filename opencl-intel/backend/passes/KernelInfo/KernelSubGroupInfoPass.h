@@ -17,6 +17,7 @@
 
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 
 using namespace llvm;
@@ -30,7 +31,7 @@ namespace intel {
     static char ID;
 
     /// @brief Constructor
-    KernelSubGroupInfo() : ModulePass(ID), CG(nullptr) {}
+    KernelSubGroupInfo() : ModulePass(ID) {}
 
     /// @brief Provides name of pass
     virtual llvm::StringRef getPassName() const override {
@@ -43,17 +44,12 @@ namespace intel {
     }
 
     /// @brief performs KernelSubGroupInfo pass on the module
-    bool runOnModule(Module& M) override;
+    bool runOnModule(Module &M) override;
+  };
 
-  protected:
-
-    /// @brief checks if a kernel has sub groups
-    /// @param F ptr to function
-    bool containsSubGroups(Function*) const;
-
-    bool runOnFunction(Function&) const;
-
-    CallGraph *CG;
+  class KernelSubGroupInfoPass : public PassInfoMixin<KernelSubGroupInfoPass> {
+  public:
+    PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
   };
 
 } // namespace intel

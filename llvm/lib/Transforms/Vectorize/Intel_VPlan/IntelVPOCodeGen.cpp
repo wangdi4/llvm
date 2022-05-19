@@ -972,14 +972,8 @@ void VPOCodeGen::vectorizeScalarPeelRem(VPPeelRemainderTy *LoopReuse) {
   }
 
   // Capture outgoing scalar loop.
-  if (isa<VPScalarPeel>(LoopReuse))
-    OutgoingScalarLoopHeaders.push_back(
-        std::make_pair(CfgMergerPlanDescr::LoopType::LTPeel,
-                       LoopReuse->getLoop()->getHeader()));
-  else
-    OutgoingScalarLoopHeaders.push_back(
-        std::make_pair(CfgMergerPlanDescr::LoopType::LTRemainder,
-                       LoopReuse->getLoop()->getHeader()));
+  OutgoingScalarLoopHeaders.push_back(
+      std::make_pair(LoopReuse, LoopReuse->getLoop()->getHeader()));
 
   // Make the current block predecessor of the original loop header.
   ReplaceInstWithInst(Builder.GetInsertBlock()->getTerminator(),
@@ -4749,7 +4743,7 @@ void VPOCodeGen::emitRemarksForScalarLoops() {
   };
 
   for (auto &ScalarLoopPair : OutgoingScalarLoopHeaders) {
-    auto LpKind = ScalarLoopPair.first;
+    auto *ScalarLpVPI = ScalarLoopPair.first;
     Loop *ScalarLp = LI->getLoopFor(ScalarLoopPair.second);
     assert(ScalarLp && "Loop not found.");
 
@@ -4758,20 +4752,21 @@ void VPOCodeGen::emitRemarksForScalarLoops() {
     for (auto *Lp : post_order(ScalarLp))
       RemoveOptReport(Lp);
 
-    // TODO: Any other remarks for scalar peel/remainder loops? Should we report
-    // that they were not vectorized?
-    if (LpKind == CfgMergerPlanDescr::LoopType::LTPeel) {
-      // remark #25518: PEELED LOOP FOR VECTORIZATION.
-      ORBuilder(*ScalarLp, *LI).addOrigin(25518u);
-    } else {
-      assert(LpKind == CfgMergerPlanDescr::LoopType::LTRemainder &&
-             "Remainder loop type expected here.");
-      // remark #25519: REMAINDER LOOP FOR VECTORIZATION.
-      ORBuilder(*ScalarLp, *LI).addOrigin(25519u);
-      // remark #15441: remainder loop was not vectorized
-      ORBuilder(*ScalarLp, *LI)
-          .addRemark(OptReportVerbosity::Medium, 15441u, "");
-    }
+    // Emit remarks collected for scalar loop instruction into outgoing scalar
+    // loop's opt-report.
+    auto EmitScalarLpVPIRemarks = [this, ScalarLp](auto *LpVPI) {
+      for (auto R : LpVPI->getOriginRemarks())
+        ORBuilder(*ScalarLp, *LI).addOrigin(R.RemarkID);
+
+      for (auto R : LpVPI->getGeneralRemarks())
+        ORBuilder(*ScalarLp, *LI)
+            .addRemark(R.MessageVerbosity, R.RemarkID, R.Arg);
+    };
+
+    if (auto *RemLp = dyn_cast<VPScalarRemainder>(ScalarLpVPI))
+      EmitScalarLpVPIRemarks(RemLp);
+    else
+      EmitScalarLpVPIRemarks(cast<VPScalarPeel>(ScalarLpVPI));
   }
 }
 

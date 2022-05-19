@@ -25,7 +25,6 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT: LOOP BEGIN
 ; CHECK-NEXT: <Remainder loop for vectorization>
-; CHECK-NEXT:     remark #15441: remainder loop was not vectorized:
 ; CHECK-EMPTY:
 ; CHECK-NEXT:     LOOP BEGIN
 ; CHECK-NEXT:     LOOP END

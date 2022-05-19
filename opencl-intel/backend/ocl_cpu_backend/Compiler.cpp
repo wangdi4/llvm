@@ -19,6 +19,7 @@
 #include "CompilerConfig.h"
 #include "OptimizerLTO.h"
 #include "OptimizerLTOLegacyPM.h"
+#include "OptimizerOCL.h"
 #include "VecConfig.h"
 #include "cl_config.h"
 #include "cl_env.h"
@@ -236,7 +237,7 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
     if( s_globalStateInitialized )
         return;
 
-    OptimizerOCL::initializePasses();
+    OptimizerOCLLegacy::initializePasses();
 
     SmallVector<const char*, 32> Args;
 
@@ -302,12 +303,12 @@ applyBuildProgramLLVMOptions(PassManagerType PMType,
 
   // Disable unrolling with runtime trip count. It is harmful for
   // sycl_benchmarks/dnnbench-pooling.
-  if (PMType == PM_LTO_LEGACY || PMType == PM_LTO_NEW)
+  if (PMType == PM_LTO_LEGACY || PMType == PM_LTO)
     Args.push_back("-unroll-runtime=false");
 
   // inline threshold is not exposed by standard new pass manager pipeline, so
   // we have to set threshold globally here.
-  if (PMType == PM_LTO_NEW)
+  if (PMType == PM_LTO)
     Args.push_back("-inline-threshold=4096");
 
   Args.push_back(nullptr);
@@ -452,7 +453,7 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
     llvm::Triple TT(pModule->getTargetTriple());
     if (m_passManagerType == PM_NONE &&
         TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64)
-      m_passManagerType = PM_LTO_NEW;
+      m_passManagerType = PM_LTO;
 
     applyBuildProgramLLVMOptions(m_passManagerType, m_CpuId);
 
@@ -489,13 +490,17 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
       optimizer = std::make_unique<OptimizerLTOLegacyPM>(*pModule, BIModules,
                                                          optimizerConfig);
       break;
-    case PM_LTO_NEW:
+    case PM_LTO:
       optimizer = std::make_unique<OptimizerLTO>(
           *pModule, BIModules, optimizerConfig, !m_debugPassManager.empty());
       break;
+    case PM_OCL:
+      optimizer = std::make_unique<OptimizerOCL>(
+          *pModule, BIModules, optimizerConfig, !m_debugPassManager.empty());
+      break;
     default:
-      optimizer =
-          std::make_unique<OptimizerOCL>(*pModule, BIModules, optimizerConfig);
+      optimizer = std::make_unique<OptimizerOCLLegacy>(*pModule, BIModules,
+                                                       optimizerConfig);
       break;
     };
 

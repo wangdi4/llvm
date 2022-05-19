@@ -161,9 +161,6 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
           // still non-inlined functions, then we don't have to inline new ones.
         }
 
-        VectorVariant::ISAClass ISA =
-            Intel::VectorizerCommon::getCPUIdISA(Config.GetCpuId());
-
         MPM.add(createDPCPPKernelAnalysisLegacyPass());
         MPM.add(createWGLoopBoundariesLegacyPass());
         MPM.add(createDeadCodeEliminationPass());
