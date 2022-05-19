@@ -45,26 +45,12 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
     endif()
 
     add_library(omptarget.rtl.level0 SHARED src/rtl.cpp src/ompt-level0.cpp)
-<<<<<<< HEAD
     target_include_directories(omptarget.rtl.level0 PRIVATE
       ${LIBOMPTARGET_INCLUDE_DIR}
       ${LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS}
       ${LIBOMPTARGET_LLVM_INCLUDE_DIRS}
     )
 
-    add_library(omptarget.sycl.wrap SHARED src/omp_sycl.cpp)
-    add_dependencies(omptarget.sycl.wrap sycl)
-    target_include_directories(omptarget.sycl.wrap PRIVATE
-        ${LIBOMPTARGET_INCLUDE_DIR}
-        ${LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS}
-        ${LLVM_BINARY_DIR}/include/sycl)
-    # Need to silence deprecated-declarations for the sycl wrapper
-    target_compile_options(omptarget.sycl.wrap PRIVATE
-        -Wno-deprecated-declarations)
-    set_property(TARGET omptarget.sycl.wrap PROPERTY CXX_STANDARD 17)
-
-=======
->>>>>>> 2e0cd2c3268212013a49292abc2da6c8b5f5ead3
     if(NOT LIBOMPTARGET_DEP_LIBELF_FOUND OR LIBOMPTARGET_FORCE_LLVM_ELF)
       # Statically link C run-time library on Windows.
       # Otherwise, we cannot use LLVMObject and LLVMSupport.
