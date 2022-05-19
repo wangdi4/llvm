@@ -95,82 +95,41 @@ default:
 define void @switch_trunc_phi_const(i32 %x) {
 ; CHECK-LABEL: switch_trunc_phi_const:
 ; CHECK:       # %bb.0: # %bb0
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    movzbl %dil, %eax
-; CHECK-NEXT:    decl %eax
-; CHECK-NEXT:    cmpl $54, %eax
-; CHECK-NEXT:    ja .LBB1_13
-; CHECK-NEXT:  # %bb.1: # %bb0
-; CHECK-NEXT:    jmpq *.LJTI1_0(,%rax,8)
-=======
 ; CHECK-NEXT:    # kill: def $edi killed $edi def $rdi
 ; CHECK-NEXT:    movzbl %dil, %ecx
 ; CHECK-NEXT:    movzbl %dil, %eax
-; CHECK-NEXT:    movl $3895, %edx # imm = 0xF37
+; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    decl %ecx
 ; CHECK-NEXT:    cmpl $54, %ecx
-; CHECK-NEXT:    ja .LBB1_8
+; CHECK-NEXT:    ja .LBB1_9
 ; CHECK-NEXT:  # %bb.1: # %bb0
 ; CHECK-NEXT:    jmpq *.LJTI1_0(,%rcx,8)
-; CHECK-NEXT:  .LBB1_8: # %default
-; CHECK-NEXT:    retq
->>>>>>> 8d03c49f498cb19358aacd28f57a852549d34ebd
-; CHECK-NEXT:  .LBB1_2: # %case_1_loop
-; CHECK-NEXT:    movl $1, %eax
-; CHECK-NEXT:    jmp .LBB1_3
-; CHECK-NEXT:  .LBB1_13: # %default
-; CHECK-NEXT:    retq
-; CHECK-NEXT:  .LBB1_4: # %case_5
-; CHECK-NEXT:    movl $5, %eax
-; CHECK-NEXT:    jmp .LBB1_5
-; CHECK-NEXT:  .LBB1_6: # %case_13
-; CHECK-NEXT:    movl $13, %eax
-; CHECK-NEXT:    jmp .LBB1_7
-; CHECK-NEXT:  .LBB1_8: # %case_42
-; CHECK-NEXT:    movl $42, %eax
-; CHECK-NEXT:    jmp .LBB1_9
-; CHECK-NEXT:  .LBB1_10: # %case_55
+; CHECK-NEXT:  .LBB1_2: # %case_55
 ; CHECK-NEXT:    movl $3895, %eax # imm = 0xF37
-; CHECK-NEXT:    jmp .LBB1_11
-; CHECK-NEXT:  .LBB1_3: # %.split10
+; CHECK-NEXT:    jmp .LBB1_3
+; CHECK-NEXT:  .LBB1_9: # %default
+; CHECK-NEXT:    retq
+; CHECK-NEXT:  .LBB1_3: # %.split
+; CHECK-NEXT:    movq effect64@GOTPCREL(%rip), %rcx
+; CHECK-NEXT:    movq %rax, (%rcx)
+; CHECK-NEXT:  .LBB1_4: # %case_7
+; CHECK-NEXT:    movq g64@GOTPCREL(%rip), %rax
+; CHECK-NEXT:    movq (%rax), %rax
+; CHECK-NEXT:    movq effect64@GOTPCREL(%rip), %rcx
+; CHECK-NEXT:    movq $7, (%rcx)
+; CHECK-NEXT:  .LBB1_5: # %.split10
 ; CHECK-NEXT:    movq effect64@GOTPCREL(%rip), %rcx
 ; CHECK-NEXT:    movq $1, (%rcx)
-<<<<<<< HEAD
-; CHECK-NEXT:  .LBB1_5: # %.split7
+; CHECK-NEXT:  .LBB1_6: # %.split7
 ; CHECK-NEXT:    movq effect64@GOTPCREL(%rip), %rcx
 ; CHECK-NEXT:    movq $5, (%rcx)
 ; CHECK-NEXT:  .LBB1_7: # %.split4
 ; CHECK-NEXT:    movq effect64@GOTPCREL(%rip), %rcx
 ; CHECK-NEXT:    movq $13, (%rcx)
-; CHECK-NEXT:  .LBB1_9: # %.split1
+; CHECK-NEXT:  .LBB1_8: # %.split1
 ; CHECK-NEXT:    movq effect64@GOTPCREL(%rip), %rcx
 ; CHECK-NEXT:    movq %rax, (%rcx)
 ; CHECK-NEXT:    movl $55, %eax
-; CHECK-NEXT:  .LBB1_11: # %.split
-; CHECK-NEXT:    movq effect64@GOTPCREL(%rip), %rcx
-; CHECK-NEXT:    movq %rax, (%rcx)
-; CHECK-NEXT:  .LBB1_12: # %case_7
-=======
-; CHECK-NEXT:  .LBB1_3: # %case_5
-; CHECK-NEXT:    movq effect64@GOTPCREL(%rip), %rcx
-; CHECK-NEXT:    movq $5, (%rcx)
-; CHECK-NEXT:  .LBB1_4: # %case_13
-; CHECK-NEXT:    movq effect64@GOTPCREL(%rip), %rcx
-; CHECK-NEXT:    movq $13, (%rcx)
-; CHECK-NEXT:  .LBB1_5: # %case_42
-; CHECK-NEXT:    movq effect64@GOTPCREL(%rip), %rcx
-; CHECK-NEXT:    movq %rax, (%rcx)
-; CHECK-NEXT:    movl $55, %edx
-; CHECK-NEXT:  .LBB1_6: # %case_55
-; CHECK-NEXT:    movq effect64@GOTPCREL(%rip), %rax
-; CHECK-NEXT:    movq %rdx, (%rax)
-; CHECK-NEXT:  .LBB1_7: # %case_7
->>>>>>> 8d03c49f498cb19358aacd28f57a852549d34ebd
-; CHECK-NEXT:    movq g64@GOTPCREL(%rip), %rax
-; CHECK-NEXT:    movq (%rax), %rax
-; CHECK-NEXT:    movq effect64@GOTPCREL(%rip), %rcx
-; CHECK-NEXT:    movq $7, (%rcx)
 ; CHECK-NEXT:    jmp .LBB1_3
 ; end INTEL_CUSTOMIZATION
 bb0:
