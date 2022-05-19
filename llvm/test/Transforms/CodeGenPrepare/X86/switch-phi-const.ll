@@ -185,21 +185,29 @@ define void @switch_trunc_phi_const(i32 %x) {
 ; CHECK-NEXT:    i32 7, label [[CASE_7:%.*]]
 ; CHECK-NEXT:    ]
 ; CHECK:       case_13:
-; CHECK-NEXT:    [[X0:%.*]] = phi i64 [ [[TMP0]], [[BB0:%.*]] ], [ [[X7:%.*]], [[CASE_7]] ]
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    br label [[DOTSPLIT4:%.*]]
+; CHECK:       .split4:
+; CHECK-NEXT:    [[MERGE6:%.*]] = phi i64 [ [[TMP0]], [[CASE_13]] ], [ [[X7:%.*]], [[CASE_7]] ]
 ; CHECK-NEXT:    store i64 13, i64* @effect64, align 4
-; CHECK-NEXT:    br label [[CASE_42]]
+; CHECK-NEXT:    br label [[DOTSPLIT1:%.*]]
 ; CHECK:       case_42:
-; CHECK-NEXT:    [[X1:%.*]] = phi i64 [ [[TMP1]], [[BB0]] ], [ [[X0]], [[CASE_13]] ]
-; CHECK-NEXT:    store i64 [[X1]], i64* @effect64, align 4
-; CHECK-NEXT:    br label [[CASE_55]]
+; CHECK-NEXT:    br label [[DOTSPLIT1]]
+; CHECK:       .split1:
+; CHECK-NEXT:    [[MERGE3:%.*]] = phi i64 [ [[TMP1]], [[CASE_42]] ], [ [[MERGE6]], [[DOTSPLIT4]] ]
+; CHECK-NEXT:    store i64 [[MERGE3]], i64* @effect64, align 4
+; CHECK-NEXT:    br label [[DOTSPLIT:%.*]]
 ; CHECK:       case_55:
-; CHECK-NEXT:    [[X2:%.*]] = phi i64 [ 3895, [[BB0]] ], [ 55, [[CASE_42]] ]
-; CHECK-NEXT:    store i64 [[X2]], i64* @effect64, align 4
+; CHECK-NEXT:    br label [[DOTSPLIT]]
+; CHECK:       .split:
+; CHECK-NEXT:    [[MERGE:%.*]] = phi i64 [ 3895, [[CASE_55]] ], [ 55, [[DOTSPLIT1]] ]
+; CHECK-NEXT:    store i64 [[MERGE]], i64* @effect64, align 4
 ; CHECK-NEXT:    br label [[DEFAULT]]
 ; CHECK:       case_7:
 ; CHECK-NEXT:    [[X7]] = load i64, i64* @g64, align 4
 ; CHECK-NEXT:    store i64 7, i64* @effect64, align 4
-; CHECK-NEXT:    br label [[CASE_13]]
+; CHECK-NEXT:    br label [[DOTSPLIT4]]
+; end INTEL_CUSTOMIZATION
 ; CHECK:       default:
 ; CHECK-NEXT:    ret void
 ;
