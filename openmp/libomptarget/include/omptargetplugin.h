@@ -289,7 +289,7 @@ EXTERN void __tgt_rtl_deinit(void);
 // Create OpenMP interop with the given interop context
 EXTERN __tgt_interop *__tgt_rtl_create_interop(
     int32_t ID, int32_t InteropContext, int32_t NumPrefers,
-    int32_t *PreferIDs);
+    intptr_t *PreferIDs);
 
 // Release OpenMP interop
 EXTERN int32_t __tgt_rtl_release_interop(int32_t ID, __tgt_interop *Interop);

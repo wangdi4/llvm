@@ -985,7 +985,7 @@ int32_t DeviceTy::isSupportedDevice(void *DeviceType) {
 #if INTEL_CUSTOMIZATION
 __tgt_interop *DeviceTy::createInterop(int32_t InteropContext,
                                        int32_t NumPrefers,
-                                       int32_t *PreferIDs) {
+                                       intptr_t *PreferIDs) {
   if (RTL->create_interop)
     return RTL->create_interop(RTLDeviceID, InteropContext, NumPrefers,
                                PreferIDs);
