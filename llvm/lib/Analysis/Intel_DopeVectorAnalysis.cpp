@@ -26,6 +26,15 @@ using namespace llvm;
 
 #define DEBUG_TYPE "dopevector-analysis"
 
+// If true then we are going to relax some conditions to enable a more
+// aggressive DVCP.
+//
+// TODO: This option is turned off until the issues with HIRInterLoopBlocking
+// and HIROptPredicate are fixed.
+static cl::opt<bool> EnabledRelaxedConditions("intel-dvcp-relaxed",
+                                              cl::init(false),
+                                              cl::ReallyHidden);
+
 #if INTEL_FEATURE_SW_ADVANCED
 static cl::opt<bool> CheckOutOfBoundsOK("dva-check-dtrans-outofboundsok",
                                         cl::init(true),
@@ -219,9 +228,10 @@ static bool isCallToAllocFunction(CallBase *Call,
     return false;
 
   Function *F = Call->getCalledFunction();
+  Function *Caller = Call->getFunction();
 
   LibFunc TheLibFunc;
-  const TargetLibraryInfo &TLI = GetTLI(*const_cast<Function *>(F));
+  const TargetLibraryInfo &TLI = GetTLI(*const_cast<Function *>(Caller));
   if (TLI.getLibFunc(F->getName(), TheLibFunc) && TLI.has(TheLibFunc)) {
     // TODO: We may want to expand this in the future for other forms of
     // alloc
@@ -237,9 +247,36 @@ static bool isCallToAllocFunction(CallBase *Call,
   return false;
 }
 
+// Return true if the input CallBase is a call to a function that deallocates
+// memory (e.g. for_dealloc_allocatable_handle)
+static bool isCallToDeallocFunction(CallBase *Call,
+    std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) {
+
+  if (!Call || !Call->getCalledFunction())
+    return false;
+
+  Function *F = Call->getCalledFunction();
+  Function *Caller = Call->getFunction();
+
+  LibFunc TheLibFunc;
+  const TargetLibraryInfo &TLI = GetTLI(*const_cast<Function *>(Caller));
+  if (TLI.getLibFunc(F->getName(), TheLibFunc) && TLI.has(TheLibFunc)) {
+    // TODO: We may want to expand this in the future for other forms of
+    // dealloc
+    switch (TheLibFunc) {
+      case LibFunc_for_dealloc_allocatable_handle:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  return false;
+}
+
 // Given a Value and the TargetLibraryInfo, check if it is a BitCast
-// and is only used for data allocation. Return the call to the data
-// alloc function.
+// and is only used for data allocation and deallocation. Return the
+// call to the data alloc function.
 static CallBase *bitCastUsedForAllocation(Value *Val,
     std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) {
 
@@ -247,12 +284,45 @@ static CallBase *bitCastUsedForAllocation(Value *Val,
     return nullptr;
 
   auto *BC = dyn_cast<BitCastOperator>(Val);
-  if (!BC || !BC->hasOneUser())
+  if (!BC)
     return nullptr;
 
-  CallBase *Call = dyn_cast<CallBase>(BC->user_back());
-  if (!Call || !isCallToAllocFunction(Call, GetTLI))
-    return nullptr;
+  CallBase *Call = nullptr;
+
+  // TODO: This condition needs to be removed after fixing
+  // HIRInterLoopBlocking and HIROptPredicate
+  if (!EnabledRelaxedConditions) {
+    if (!BC->hasOneUser())
+      return nullptr;
+
+    Call = dyn_cast<CallBase>(BC->user_back());
+    if (!Call || !isCallToAllocFunction(Call, GetTLI))
+      return nullptr;
+
+    return Call;
+  }
+
+  for (auto *U : BC->users()) {
+    if (auto *LI = dyn_cast<LoadInst>(U)) {
+      // Check if the BitCast is used for loading the pointer to call
+      // dealloc
+      if (!LI->hasOneUser())
+        return nullptr;
+
+      auto *DeAllocCall = dyn_cast<CallBase>(LI->user_back());
+      if (!DeAllocCall || !isCallToDeallocFunction(DeAllocCall, GetTLI))
+        return nullptr;
+    } else if (auto *TempCall = dyn_cast<CallBase>(U)) {
+      // Else the BitCast is used for alloc and should be one alloc call
+      if (Call || !isCallToAllocFunction(TempCall, GetTLI))
+        return nullptr;
+
+      Call = TempCall;
+    } else {
+      // Anything else is not valid
+      return nullptr;
+    }
+  }
 
   return Call;
 }
@@ -3609,6 +3679,36 @@ void GlobalDopeVector::collectAndAnalyzeCopyNestedDopeVectors(
   }
 }
 
+// Return true if the pointer address of the current global dope vector is a
+// pointer to another dope vector, or if it is a pointer to a structure where
+// at least one field is a dope vector. Else, return false.
+bool GlobalDopeVector::isCandidateForNestedDopeVectors(const DataLayout &DL) {
+  assert(Glob == GlobalDVInfo->getDVObject() &&
+         "Dope vector object mismatch with global");
+
+  StructType *DVStruct = GlobalDVInfo->getLLVMStructType();
+  assert(DVStruct && "Analyzing dope vector without the proper structure");
+
+  PointerType *PtrAddr = dyn_cast<PointerType>(DVStruct->getElementType(0));
+  if (!PtrAddr)
+    return false;
+
+  // TODO: This needs to be updated to handle opaque pointers.
+  StructType *StrTy =
+      dyn_cast<StructType>(PtrAddr->getNonOpaquePointerElementType());
+  if (!StrTy)
+    return false;
+
+  if (isDopeVectorType(StrTy, DL))
+    return true;
+
+  for (unsigned I = 0, E = StrTy->getNumElements(); I < E; I++)
+    if (isDopeVectorType(StrTy->getElementType(I), DL))
+      return true;
+
+  return false;
+}
+
 // This function will check if there are nested dope vectors for the global
 // dope vector, collect the information and analyze if there is any illegal
 // access that could invalidate the data.
@@ -3634,6 +3734,14 @@ GlobalDopeVector::collectAndAnalyzeNestedDopeVectors(const DataLayout &DL,
   // collecting the nested dope vectors
   if (GlobalDVInfo->getAnalysisResult() ==
       DopeVectorInfo::AnalysisResult::AR_Invalid)
+    return;
+
+  // Don't perform any analysis for nested dope vectors if the current
+  // global doesn't qualify for it.
+  //
+  // TODO: The condition EnabledRelaxedConditions needs to be removed after
+  // fixing HIRInterLoopBlocking and HIROptPredicate.
+  if (EnabledRelaxedConditions && !isCandidateForNestedDopeVectors(DL))
     return;
 
   auto *PtrAddressField = GlobalDVInfo->getDopeVectorField(
@@ -3706,7 +3814,7 @@ GlobalDopeVector::collectAndAnalyzeNestedDopeVectors(const DataLayout &DL,
 }
 
 // Validate that the data was collected correctly for the global dope vector
-void GlobalDopeVector::validateGlobalDopeVector() {
+void GlobalDopeVector::validateGlobalDopeVector(const DataLayout &DL) {
 
   // If the global dope vector info is not valid then the analysis for
   // the fields of the global dope vector failed
@@ -3719,8 +3827,17 @@ void GlobalDopeVector::validateGlobalDopeVector() {
   // If NestedDVDataCollected is false then it means that something happened
   // while collecting the nested dope vectors
   if (!NestedDVDataCollected) {
-    AnalysisRes = GlobalDopeVector::AnalysisResult::AR_IncompleteNestedDVData;
-    return;
+    // If the pointer address is candidate for nested dope vectors then disable
+    // DVCP. This is conservative, in reality, if we have all the information
+    // for the outer dope vector, then we can propagate that information.
+    //
+    // TODO: The condition EnabledRelaxedConditions needs to be removed after
+    // fixing HIRInterLoopBlocking and HIROptPredicate.
+    if (!EnabledRelaxedConditions || isCandidateForNestedDopeVectors(DL)) {
+      AnalysisRes =
+          GlobalDopeVector::AnalysisResult::AR_IncompleteNestedDVData;
+      return;
+    }
   }
 
   // Check that all nested dope vectors were validated correctly
@@ -3780,7 +3897,7 @@ void GlobalDopeVector::collectAndValidate(const DataLayout &DL,
   collectAndAnalyzeNestedDopeVectors(DL, ForDVCP);
 
   // Validate that the data was collected correctly
-  validateGlobalDopeVector();
+  validateGlobalDopeVector(DL);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
