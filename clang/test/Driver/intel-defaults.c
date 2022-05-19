@@ -246,3 +246,9 @@
 // FP_MODEL_FAST_INTEL: "-ffp-contract=fast"
 // FP_MODEL_FAST_INTEL: "-ffast-math"
 // FP_MODEL_FAST_INTEL: "-ffinite-math-only"
+
+// Use of -ffreestanding should disable -fveclib=SVML and libirc extensions
+// RUN: %clang -### -c -ffreestanding --intel %s 2>&1 | FileCheck -check-prefixes=CHECK_FREESTANDING %s
+// RUN: %clang_cl -### -c -Qfreestanding --intel %s 2>&1 | FileCheck -check-prefixes=CHECK_FREESTANDING %s
+// CHECK_FREESTANDING-NOT: "-fveclib=SVML"
+// CHECK-FREESTANDING-NOT: "-mllvm" "-intel-libirc-allowed"
