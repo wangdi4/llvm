@@ -609,6 +609,9 @@ namespace llvm {
 
   /// JMC instrument pass.
   ModulePass *createJMCInstrumenterPass();
+
+  /// This pass converts conditional moves to conditional jumps when profitable.
+  FunctionPass *createSelectOptimizePass();
 } // End llvm namespace
 
 #endif
