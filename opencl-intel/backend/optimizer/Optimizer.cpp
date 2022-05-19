@@ -72,34 +72,30 @@ llvm::FunctionPass* createFMASplitterPass();
 #include "llvm/Transforms/Vectorize.h"
 #include "llvm/Transforms/Vectorize/VectorCombine.h"
 
-static cl::opt<bool>
-    DisableVPlanCM("disable-ocl-vplan-cost-model",
-                   cl::init(false), cl::Hidden,
+cl::opt<bool>
+    DisableVPlanCM("disable-ocl-vplan-cost-model", cl::init(false), cl::Hidden,
                    cl::desc("Disable cost model for VPlan vectorizer"));
 
 // This flag enables VPlan for OpenCL.
-static cl::opt<bool>
-    EnableVPlan("enable-vplan-kernel-vectorizer", cl::init(true),
-                cl::Hidden,
-                cl::desc("Enable VPlan Kernel Vectorizer"));
+cl::opt<bool> EnableVPlan("enable-vplan-kernel-vectorizer", cl::init(true),
+                          cl::Hidden,
+                          cl::desc("Enable VPlan Kernel Vectorizer"));
 
 // Enables kernel vectorizer identification message.
-static cl::opt<bool>
+cl::opt<bool>
     EmitKernelVectorizerSignOn("emit-kernel-vectorizer-sign-on",
-                              cl::init(false),
-                              cl::Hidden,
-                              cl::desc("Emit which vectorizer is used "
-                                       "(Volcano or Vplan)"));
+                               cl::init(false), cl::Hidden,
+                               cl::desc("Emit which vectorizer is used "
+                                        "(Volcano or Vplan)"));
 
 // TODO: The switch is required until subgroup implementation passes
 // the conformance test fully (meaning that masked kernel is integrated).
-static cl::opt<bool>
-    EnableNativeOpenCLSubgroups("enable-native-opencl-subgroups", cl::init(false),
-                                cl::Hidden,
-                                cl::desc("Enable native subgroup functionality"));
+cl::opt<bool> EnableNativeOpenCLSubgroups(
+    "enable-native-opencl-subgroups", cl::init(false), cl::Hidden,
+    cl::desc("Enable native subgroup functionality"));
 
 // Enable vectorization at O0 optimization level.
-static cl::opt<bool> EnableO0Vectorization(
+cl::opt<bool> EnableO0Vectorization(
     "enable-o0-vectorization", cl::init(false), cl::Hidden,
     cl::desc("Enable vectorization at O0 optimization level"));
 
@@ -530,11 +526,6 @@ static void populatePassesPostFailCheck(
         PM.add(createOCLReqdSubGroupSizePass());
 
         // This pass may throw VFAnalysisDiagInfo error if VF checking fails.
-        // TODO: we should run SetVectorizationFactor unconditionally when we
-        // get rid of WeightedInstCounter. Currently we're setting the initial
-        // VF ('recommended_vector_length' metadata) in WeightedInstCounter
-        // pass, SetVectorizationFactor must run after it to avoid overwriting
-        // the fine-tuned VF.
         PM.add(llvm::createSetVectorizationFactorLegacyPass(ISA));
         PM.add(createVectorVariantLoweringLegacyPass(ISA));
         PM.add(createCreateSimdVariantPropagationLegacyPass());
@@ -804,11 +795,9 @@ static void populatePassesPostFailCheck(
   }
 }
 
-OptimizerOCL::~OptimizerOCL() {}
-
-OptimizerOCL::OptimizerOCL(llvm::Module &pModule,
-                           llvm::SmallVector<llvm::Module *, 2> &RtlModules,
-                           const intel::OptimizerConfig &pConfig)
+OptimizerOCLLegacy::OptimizerOCLLegacy(
+    llvm::Module &pModule, llvm::SmallVector<llvm::Module *, 2> &RtlModules,
+    const intel::OptimizerConfig &pConfig)
     : Optimizer(pModule, RtlModules, pConfig) {
   TargetMachine* targetMachine = pConfig.GetTargetMachine();
   assert(targetMachine && "Uninitialized TargetMachine!");
@@ -847,13 +836,10 @@ OptimizerOCL::OptimizerOCL(llvm::Module &pModule,
   };
   materializerPM();
 
-  // Add passes which will run unconditionally
   populatePassesPreFailCheck(m_PM, pModule, OptLevel, pConfig, m_IsOcl20,
                              m_IsFpgaEmulator, UnrollLoops, m_IsSPIRV,
                              EnableVPlan);
 
-  // Add passes which will be run only if hasFunctionPtrCalls() and
-  // hasRecursion() will return false
   populatePassesPostFailCheck(m_PM, pModule, m_RtlModules, OptLevel, pConfig,
                               m_IsOcl20, m_IsFpgaEmulator, m_IsEyeQEmulator,
                               UnrollLoops, EnableVPlan, m_IsSPIRV, m_IsSYCL,
@@ -886,7 +872,7 @@ private:
   llvm::DiagnosticPrinterRawOStream OS;
 };
 
-void OptimizerOCL::Optimize(llvm::raw_ostream &LogStream) {
+void OptimizerOCLLegacy::Optimize(llvm::raw_ostream &LogStream) {
   m_M.getContext().setDiagnosticHandler(
       std::make_unique<OCLDiagnosticHandler>(LogStream));
 
@@ -921,7 +907,9 @@ Optimizer::Optimizer(llvm::Module &M,
       m_IsFpgaEmulator(Config.isFpgaEmulator()),
       m_IsEyeQEmulator(Config.isEyeQEmulator()) {
   assert(Config.GetCpuId() && "Invalid optimizer config");
+  ISA = VectorizerCommon::getCPUIdISA(Config.GetCpuId());
   CPUPrefix = Config.GetCpuId()->GetCPUPrefix();
+  DPCPPForceOptnone = Config.GetDisableOpt();
   m_IsOcl20 = CompilationUtils::fetchCLVersionFromMetadata(M) >=
               OclVersion::CL_VER_2_0;
   m_debugType = getDebuggingServiceType(Config.GetDebugInfoFlag(), &M,
@@ -1010,7 +998,7 @@ Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) const {
   return Res;
 }
 
-void OptimizerOCL::initializePasses() {
+void OptimizerOCLLegacy::initializePasses() {
   // Initialize passes so that -print-after/-print-before work.
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeCore(Registry);

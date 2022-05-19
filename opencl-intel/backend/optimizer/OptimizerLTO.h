@@ -30,8 +30,6 @@ public:
                llvm::SmallVector<llvm::Module *, 2> &RtlModules,
                const intel::OptimizerConfig &Config, bool DebugPassManager);
 
-  ~OptimizerLTO();
-
   /// Run pass manager on a module.
   void Optimize(llvm::raw_ostream &LogStream) override;
 

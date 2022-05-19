@@ -31,16 +31,8 @@ char KernelSubGroupInfo::ID = 0;
 OCL_INITIALIZE_PASS(KernelSubGroupInfo, "kernel-sub-group-info",
                     "mark functions and kernels with subgroups", false, false)
 
-bool KernelSubGroupInfo::runOnFunction(Function &F) const {
-  if (!F.isDeclaration() && containsSubGroups(&F)) {
-    F.addFnAttr(CompilationUtils::ATTR_HAS_SUBGROUPS);
-    return true;
-  }
-  return false;
-}
-
-bool KernelSubGroupInfo::containsSubGroups(Function *pFunc) const {
-  CallGraphNode *Node = (*CG)[pFunc];
+static bool containsSubGroups(Function *pFunc, CallGraph &CG) {
+  CallGraphNode *Node = CG[pFunc];
   for (auto It = df_begin(Node), End = df_end(Node); It != End;) {
     Function *Fn = It->getFunction();
     if (Fn && Fn->isDeclaration()) {
@@ -54,13 +46,20 @@ bool KernelSubGroupInfo::containsSubGroups(Function *pFunc) const {
   return false;
 }
 
-bool KernelSubGroupInfo::runOnModule(Module &M) {
-  CG = &getAnalysis<CallGraphWrapperPass>().getCallGraph();
+static bool runOnFunction(Function &F, CallGraph &CG) {
+  if (!F.isDeclaration() && containsSubGroups(&F, CG)) {
+    F.addFnAttr(CompilationUtils::ATTR_HAS_SUBGROUPS);
+    return true;
+  }
+  return false;
+}
 
+bool runImpl(Module &M) {
   bool Changed = false;
 
+  CallGraph CG(M);
   for (auto &F : M)
-    Changed |= runOnFunction(F);
+    Changed |= runOnFunction(F, CG);
 
   // Get all kernels.
   CompilationUtils::FunctionSet kernelsFunctionSet;
@@ -75,6 +74,13 @@ bool KernelSubGroupInfo::runOnModule(Module &M) {
   }
 
   return Changed || !kernelsFunctionSet.empty();
+}
+
+bool KernelSubGroupInfo::runOnModule(Module &M) { return runImpl(M); }
+
+PreservedAnalyses KernelSubGroupInfoPass::run(Module &M,
+                                              ModuleAnalysisManager &) {
+  return runImpl(M) ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
 
 } // namespace intel

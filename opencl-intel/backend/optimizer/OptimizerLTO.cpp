@@ -66,8 +66,6 @@ OptimizerLTO::OptimizerLTO(Module &M, SmallVector<Module *, 2> &RtlModuleList,
                            bool DebugPassManager)
     : Optimizer(M, RtlModuleList, Config), DebugPassManager(DebugPassManager) {}
 
-OptimizerLTO::~OptimizerLTO() {}
-
 void OptimizerLTO::Optimize(raw_ostream &LogStream) {
   TargetMachine *TM = Config.GetTargetMachine();
   assert(TM && "Uninitialized TargetMachine!");
@@ -198,8 +196,6 @@ void OptimizerLTO::registerOptimizerEarlyCallback(llvm::PassBuilder &PB) {
           MPM.addPass(DeduceMaxWGDimPass());
         }
 
-        VectorVariant::ISAClass ISA =
-            Intel::VectorizerCommon::getCPUIdISA(Config.GetCpuId());
         MPM.addPass(InstToFuncCallPass(ISA));
 
         if (Config.GetTransposeSize() == 1)
@@ -337,8 +333,10 @@ void OptimizerLTO::addBarrierPasses(ModulePassManager &MPM, OptimizationLevel Le
     MPM.addPass(
         ResolveSubGroupWICallPass(m_RtlModules, /*ResolveSGBarrier*/ false));
   }
-  MPM.addPass(createModuleToFunctionPassAdaptor(PhiCanonicalization()));
-  MPM.addPass(createModuleToFunctionPassAdaptor(RedundantPhiNode()));
+  FunctionPassManager FPM;
+  FPM.addPass(PhiCanonicalization());
+  FPM.addPass(RedundantPhiNode());
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
   MPM.addPass(GroupBuiltinPass());
   MPM.addPass(BarrierInFunction());
    // Resolve subgroup barriers after subgroup emulation passes
