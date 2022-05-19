@@ -2858,6 +2858,13 @@ class VPPeelRemainderImpl : public VPInstruction {
   /// need two copies of it and this is the second one.)
   bool NeedsCloning = false;
 
+  /// Set of origin opt-report remarks for scalar loop used for annotation
+  /// purposes.
+  SmallVector<OptReportStatsTracker::RemarkRecord, 4> OriginRemarks;
+
+  /// Set of general opt-report remarks for scalar loop.
+  SmallVector<OptReportStatsTracker::RemarkRecord, 4> GeneralRemarks;
+
   static LLVMContext &getContext(Loop *Lp) {
     return Lp->getHeader()->getContext();
   }
@@ -2919,6 +2926,26 @@ public:
     assert(Idx <= OpLiveInMap.size() - 1 &&
            "Invalid entry in the live-in map requested.");
     OpLiveInMap[Idx] = U;
+  }
+
+  /// Add a new origin remark for outgoing scalar loop.
+  void addOriginRemark(OptReportStatsTracker::RemarkRecord R) {
+    OriginRemarks.push_back(R);
+  }
+
+  /// Add a new general remark for outgoing scalar loop.
+  void addGeneralRemark(OptReportStatsTracker::RemarkRecord R) {
+    GeneralRemarks.push_back(R);
+  }
+
+  /// Get all origin remarks for this scalar loop.
+  ArrayRef<OptReportStatsTracker::RemarkRecord> getOriginRemarks() const {
+    return OriginRemarks;
+  }
+
+  /// Get all general remarks for this scalar loop.
+  ArrayRef<OptReportStatsTracker::RemarkRecord> getGeneralRemarks() const {
+    return GeneralRemarks;
   }
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
@@ -4593,6 +4620,10 @@ public:
 
   void setNeedCloneOrigLoop(bool V);
   bool getNeedCloneOrigLoop() const { return NeedCloneOrigLoop; }
+
+  /// Utility to retrieve VPInstruction that represents the scalar loop in this
+  /// scalar VPlan.
+  VPInstruction *getScalarLoopInst();
 
 protected:
   VPlanScalar(VPlanKind K, VPExternalValues &E, VPUnlinkedInstructions &UVPI)

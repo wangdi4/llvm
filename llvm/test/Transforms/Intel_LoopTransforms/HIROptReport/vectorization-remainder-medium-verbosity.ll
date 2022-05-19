@@ -21,7 +21,6 @@
 ; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
 ; OPTREPORT-NEXT:         <Remainder loop for vectorization>
-; OPTREPORT-NEXT:         remark #15441: remainder loop was not vectorized:
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 
@@ -55,11 +54,9 @@
 ; MERGED-CFG: [[OM4]] = !{!"intel.optreport.remark", i32 15553, !"loop was not vectorized: outer loop is not an auto-vectorization candidate at -O2. Consider using -O3."}
 ; MERGED-CFG: [[M6:!.*]] = distinct !{[[M6]]{{.*}}[[M7:!.*]]{{.*}}}
 ; MERGED-CFG: [[M7]] = distinct !{!"intel.optreport.rootnode", [[M8:!.*]]}
-; MERGED-CFG: [[M8]] = distinct !{!"intel.optreport", [[M10:!.*]], [[M12:!.*]]}
+; MERGED-CFG: [[M8]] = distinct !{!"intel.optreport", [[M10:!.*]]}
 ; MERGED-CFG: [[M10]] = !{!"intel.optreport.origin", [[M11:!.*]]}
 ; MERGED-CFG: [[M11]] = !{!"intel.optreport.remark", i32 25519, !"Remainder loop for vectorization"}
-; MERGED-CFG: [[M12]] = !{!"intel.optreport.remarks", [[M13:!.*]]}
-; MERGED-CFG: [[M13]] = !{!"intel.optreport.remark", i32 15441, !"remainder loop was not vectorized: %s ", {{.*}}}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
