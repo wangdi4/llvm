@@ -2367,7 +2367,8 @@ static Instruction *foldSelectToCopysign(SelectInst &Sel,
   // Match select ?, TC, FC where the constants are equal but negated.
   // TODO: Generalize to handle a negated variable operand?
   const APFloat *TC, *FC;
-  if (!match(TVal, m_APFloat(TC)) || !match(FVal, m_APFloat(FC)) ||
+  if (!match(TVal, m_APFloatAllowUndef(TC)) ||
+      !match(FVal, m_APFloatAllowUndef(FC)) ||
       !abs(*TC).bitwiseIsEqual(abs(*FC)))
     return nullptr;
 
@@ -2393,7 +2394,7 @@ static Instruction *foldSelectToCopysign(SelectInst &Sel,
 
   // Canonicalize the magnitude argument as the positive constant since we do
   // not care about its sign.
-  Value *MagArg = TC->isNegative() ? FVal : TVal;
+  Value *MagArg = ConstantFP::get(SelType, abs(*TC));
   Function *F = Intrinsic::getDeclaration(Sel.getModule(), Intrinsic::copysign,
                                           Sel.getType());
   return CallInst::Create(F, { MagArg, X });
