@@ -1967,6 +1967,12 @@ bool CallAnalyzer::allowSizeGrowth(CallBase &Call) {
       return false;
   } else if (isa<UnreachableInst>(Call.getParent()->getTerminator()))
     return false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+  else if (intelCallTerminatesUnreachable(Call))
+    return false;
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
 
   return true;
 }

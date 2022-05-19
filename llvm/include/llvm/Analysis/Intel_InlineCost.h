@@ -119,8 +119,22 @@ extern int intelWorthInlining(CallBase &CB, const InlineParams &Params,
 // large. So we try to detect this case and not increase the likely that
 // bar() will be inlined due to hit profiling info in the compile step.
 //
-
 extern bool intelNotHotCallee(Function &F, bool PrepareForLTO);
+
+//
+// Return 'true' if 'Call' provably terminates in an unreachable instruction.
+// NOTE: The old pass manager used to run a 'pruneEH' pass that would
+// propagate unreachable instructions to the instruction following a call.
+// The community did not port that pass over to the new pass manager,
+// because "It isn't clear this is valuable as the inliner doesn't currently
+// care whether it is inlining an invoke or a call." (This a quote from
+// llvm/lib/Passes/PassBuilderPipeline.cpp.) But in reality, without this
+// pass we will end up inlining some functions where the program terminates
+// after calling them. For now, intelFunctionTerminatesUnreachable() is
+// used to catch the important cases of prohibiting inlining that we don't
+// want to lose when we move from the old to the new pass manager. 
+
+extern bool intelCallTerminatesUnreachable(CallBase &CB);
 
 } // end namespace llvm
 #endif // LLVM_ANALYSIS_INTELINLINECOST_H
