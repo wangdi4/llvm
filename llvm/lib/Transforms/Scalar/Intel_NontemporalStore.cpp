@@ -602,8 +602,8 @@ bool NontemporalStore::hasConflictingLoads(StoreInst &SI, int64_t StoreStride,
               unsigned BitWidth =
                   std::max(IncVal.getBitWidth(), TripCountVal.getBitWidth());
               QuerySize =
-                  LocationSize::upperBound((IncVal.zextOrSelf(BitWidth) *
-                                            TripCountVal.zextOrSelf(BitWidth))
+                  LocationSize::upperBound((IncVal.zext(BitWidth) *
+                                            TripCountVal.zext(BitWidth))
                                                .getZExtValue());
             }
           }
