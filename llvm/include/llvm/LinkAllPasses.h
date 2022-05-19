@@ -463,6 +463,7 @@ namespace {
       (void)llvm::createDPCPPPreprocessSPIRVFriendlyIRLegacyPass();
       (void)llvm::createDPCPPRewritePipesLegacyPass();
       (void)llvm::createDeduceMaxWGDimLegacyPass();
+      (void)llvm::createDetectRecursionLegacyPass();
       (void)llvm::createDuplicateCalledKernelsLegacyPass();
       (void)llvm::createExternalizeGlobalVariablesLegacyPass();
       (void)llvm::createPhiCanonicalizationLegacyPass();

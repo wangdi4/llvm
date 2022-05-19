@@ -31,6 +31,7 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeDataPerBarrierWrapperPass(Registry);
   initializeDataPerValueWrapperPass(Registry);
   initializeDeduceMaxWGDimLegacyPass(Registry);
+  initializeDetectRecursionLegacyPass(Registry);
   initializeDPCPPAliasAnalysisLegacyPass(Registry);
   initializeDPCPPExternalAliasAnalysisLegacyPass(Registry);
   initializeDPCPPEqualizerLegacyPass(Registry);

@@ -126,7 +126,6 @@ llvm::ModulePass *createPrintIRPass(int option, int optionLocation,
 llvm::ModulePass *createDebugInfoPass();
 llvm::Pass *createSmartGVNPass(bool);
 
-llvm::ModulePass *createDetectRecursionPass();
 llvm::ModulePass *createSetPreferVectorWidthPass(const CPUDetect *CPUID);
 }
 
@@ -372,7 +371,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                            UseVplan);
 
   // check there is no recursion, if there is fail compilation
-  PM.add(createDetectRecursionPass());
+  PM.add(llvm::createDetectRecursionLegacyPass());
 
   // PipeSupport can fail if dynamic pipe access is discovered after LLVM
   // optimizations

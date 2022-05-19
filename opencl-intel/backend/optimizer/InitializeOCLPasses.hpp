@@ -34,7 +34,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializePrefetchPass(Registry);
     intel::initializeSubGroupAdaptationPass(Registry);
     intel::initializeRemovePrefetchPass(Registry);
-    intel::initializeDetectRecursionPass(Registry);
     intel::initializeDebugInfoPassPass(Registry);
     intel::initializeSmartGVNPass(Registry);
     intel::initializePipeIOTransformationPass(Registry);

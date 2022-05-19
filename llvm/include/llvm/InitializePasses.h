@@ -741,6 +741,7 @@ void initializeCoerceWin64TypesLegacyPass(PassRegistry &);
 void initializeCreateSimdVariantPropagationLegacyPass(PassRegistry &);
 void initializeDataPerBarrierWrapperPass(PassRegistry &);
 void initializeDataPerValueWrapperPass(PassRegistry &);
+void initializeDetectRecursionLegacyPass(PassRegistry &);
 void initializeDPCPPAliasAnalysisLegacyPass(PassRegistry &);
 void initializeDPCPPExternalAliasAnalysisLegacyPass(PassRegistry &);
 void initializeDPCPPEqualizerLegacyPass(PassRegistry &);

@@ -216,7 +216,6 @@ set( BACKEND_PASSES
     PipeSupport
     BuiltinLibInfo
     DebugInfoPass
-    DetectRecursion
     PreventDivCrashes
     PrintIRPass
     SetPreferVectorWidth

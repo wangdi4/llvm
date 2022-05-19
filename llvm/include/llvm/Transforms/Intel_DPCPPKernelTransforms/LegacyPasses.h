@@ -56,6 +56,7 @@ ModulePass *createCreateSimdVariantPropagationLegacyPass();
 ModulePass *createDataPerBarrierWrapperPass();
 ModulePass *createDataPerValueWrapperPass();
 ModulePass *createDeduceMaxWGDimLegacyPass();
+ModulePass *createDetectRecursionLegacyPass();
 ModulePass *
 createDPCPPEqualizerLegacyPass(ArrayRef<Module *> BuiltinModules = {});
 ModulePass *createDPCPPKernelAnalysisLegacyPass();
