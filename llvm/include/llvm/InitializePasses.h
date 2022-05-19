@@ -781,6 +781,7 @@ void initializeRelaxedMathLegacyPass(PassRegistry &);
 void initializeRemoveAtExitLegacyPass(PassRegistry &);
 void initializeRemoveDuplicatedBarrierLegacyPass(PassRegistry &);
 void initializeReplaceScalarWithMaskLegacyPass(PassRegistry &);
+void initializeReqdSubGroupSizeLegacyPass(PassRegistry &);
 void initializeResolveMatrixFillLegacyPass(PassRegistry &);
 void initializeResolveMatrixLayoutLegacyPass(PassRegistry &);
 void initializeResolveMatrixWISliceLegacyPass(PassRegistry &);

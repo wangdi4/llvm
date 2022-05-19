@@ -58,6 +58,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   RemoveAtexit.cpp
   RemoveDuplicatedBarrier.cpp
   ReplaceScalarWithMask.cpp
+  ReqdSubGroupSize.cpp
   ResolveMatrixFill.cpp
   ResolveMatrixLayout.cpp
   ResolveMatrixWISlice.cpp

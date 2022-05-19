@@ -109,7 +109,6 @@ extern "C"{
 
 llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
-llvm::Pass *createOCLReqdSubGroupSizePass();
 
 llvm::Pass *createCLBuiltinLICMPass();
 llvm::Pass *createCLStreamSamplerPass();
@@ -523,7 +522,7 @@ static void populatePassesPostFailCheck(
         PM.add(createInstructionCombiningPass());
         PM.add(createGVNHoistPass());
         PM.add(createDeadCodeEliminationPass());
-        PM.add(createOCLReqdSubGroupSizePass());
+        PM.add(createReqdSubGroupSizeLegacyPass());
 
         // This pass may throw VFAnalysisDiagInfo error if VF checking fails.
         PM.add(llvm::createSetVectorizationFactorLegacyPass(ISA));
@@ -586,7 +585,7 @@ static void populatePassesPostFailCheck(
     // When forced VF equals 1 or in O0 case, check subgroup semantics AND
     // prepare subgroup_emu_size for sub-group emulation.
     if (UseVplan && EnableNativeOpenCLSubgroups) {
-      PM.add(createOCLReqdSubGroupSizePass());
+      PM.add(createReqdSubGroupSizeLegacyPass());
       PM.add(llvm::createSetVectorizationFactorLegacyPass(ISA));
     }
   }

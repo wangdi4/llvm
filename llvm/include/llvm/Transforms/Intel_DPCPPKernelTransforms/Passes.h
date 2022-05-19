@@ -60,6 +60,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/RemoveAtexit.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/RemoveDuplicatedBarrier.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ReplaceScalarWithMask.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/ReqdSubGroupSize.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveMatrixFill.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveMatrixLayout.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveMatrixWISlice.h"

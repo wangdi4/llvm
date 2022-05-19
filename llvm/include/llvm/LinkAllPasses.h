@@ -496,6 +496,7 @@ namespace {
       (void)llvm::createRemoveAtExitLegacyPass();
       (void)llvm::createRemoveDuplicatedBarrierLegacyPass(false);
       (void)llvm::createReplaceScalarWithMaskLegacyPass();
+      (void)llvm::createReqdSubGroupSizeLegacyPass();
       (void)llvm::createResolveMatrixFillLegacyPass();
       (void)llvm::createResolveMatrixLayoutLegacyPass();
       (void)llvm::createResolveMatrixWISliceLegacyPass();

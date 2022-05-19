@@ -70,6 +70,7 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeRemoveAtExitLegacyPass(Registry);
   initializeRemoveDuplicatedBarrierLegacyPass(Registry);
   initializeReplaceScalarWithMaskLegacyPass(Registry);
+  initializeReqdSubGroupSizeLegacyPass(Registry);
   initializeResolveMatrixFillLegacyPass(Registry);
   initializeResolveMatrixLayoutLegacyPass(Registry);
   initializeResolveMatrixWISliceLegacyPass(Registry);

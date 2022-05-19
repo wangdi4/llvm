@@ -96,6 +96,7 @@ ModulePass *createRelaxedMathLegacyPass();
 ModulePass *createRemoveAtExitLegacyPass();
 ModulePass *createRemoveDuplicatedBarrierLegacyPass(bool IsNativeDebug);
 ModulePass *createReplaceScalarWithMaskLegacyPass();
+ModulePass *createReqdSubGroupSizeLegacyPass();
 ModulePass *createResolveMatrixFillLegacyPass();
 ModulePass *createResolveMatrixLayoutLegacyPass();
 ModulePass *createResolveMatrixWISliceLegacyPass();

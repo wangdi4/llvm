@@ -60,7 +60,6 @@ set(TARGET_INCLUDE_FILES
   LoopHandler/CLBuiltinLICM.h
   LoopHandler/CLStreamSampler.h
   OCLBranchProbability/OCLBranchProbability.h
-  OCLVecClone/OCLVecClone.h
   Packetizer/Packetizer.h
   Predication/Linearizer.h
   Predication/PhiCanon.h
@@ -86,7 +85,6 @@ set(TARGET_SOURCE_FILES
   LoopHandler/CLBuiltinLICM.cpp
   LoopHandler/CLStreamSampler.cpp
   OCLBranchProbability/OCLBranchProbability.cpp
-  OCLVecClone/OCLVecClone.cpp
   Packetizer/Packetizer.cpp
   Packetizer/PacketizerInstData.cpp
   Predication/Linearizer.cpp

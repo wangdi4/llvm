@@ -19,10 +19,13 @@
 #include "cl_sys_defines.h"
 #include "cl_utils.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 
 #include <sstream>
 #include <string.h>
+
+extern cl::opt<std::string> OptReqdSubGroupSizes;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -93,9 +96,9 @@ void GlobalCompilerConfig::LoadConfig()
     }
 
     if (Intel::OpenCL::Utils::getEnvVar(Env,
-                                        "CL_CONFIG_CPU_REQD_SUB_GROUP_SIZE")) {
-      m_LLVMOptions.emplace_back("-reqd-sub-group-size=" + Env);
-    }
+                                        "CL_CONFIG_CPU_REQD_SUB_GROUP_SIZE"))
+      m_LLVMOptions.emplace_back("-" + OptReqdSubGroupSizes.ArgStr.str() + "="
+                                 + Env);
 }
 
 void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
