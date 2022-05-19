@@ -156,17 +156,6 @@ typedef enum omp_interop_rc {
     omp_irc_other = -6
 } omp_interop_rc_t;
 
-typedef enum omp_interop_fr {
-  omp_ifr_cuda = 1,
-  omp_ifr_cuda_driver = 2,
-  omp_ifr_opencl = 3,
-  omp_ifr_sycl = 4,
-  omp_ifr_hip = 5,
-  omp_ifr_level_zero = 6,
-  omp_ifr_last = 7
-} omp_interop_fr_t;
-
-
 enum OmpIprValueTy : int32_t {
   OMP_IPR_VALUE_INT = 0,
   OMP_IPR_VALUE_PTR,
@@ -721,7 +710,7 @@ EXTERN int __tgt_release_interop_obj(void *interop_obj);
 // Create an OpenMP 5.1 interop object.
 EXTERN omp_interop_t __tgt_create_interop(
     int64_t device_id, int32_t interop_type, int32_t num_prefers,
-    int32_t *prefer_ids);
+    intptr_t *prefer_ids);
 
 // Release an OpenMP 5.1 interop object.
 EXTERN int __tgt_release_interop(omp_interop_t interop);
