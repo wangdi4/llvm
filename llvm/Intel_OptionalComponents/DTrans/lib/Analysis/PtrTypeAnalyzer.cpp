@@ -1081,6 +1081,7 @@ public:
   void visitBitCastInst(BitCastInst &I) { analyzeValue(&I); }
   void visitCallBase(CallBase &I) { analyzeValue(&I); }
   void visitExtractValueInst(ExtractValueInst &I) { analyzeValue(&I); }
+  void visitFreezeInst(FreezeInst& I) { analyzeValue(&I); }
   void visitGetElementPtrInst(GetElementPtrInst &I) { analyzeValue(&I); }
   void visitIntToPtrInst(IntToPtrInst &I) {
     ValueTypeInfo *ResultInfo = analyzeValue(&I);
@@ -1440,6 +1441,9 @@ private:
       break;
     case Instruction::ExtractValue:
       analyzeExtractValueInst(cast<ExtractValueInst>(I), Info);
+      break;
+    case Instruction::Freeze:
+      analyzeFreezeInst(cast<FreezeInst>(I), Info);
       break;
     case Instruction::GetElementPtr:
       analyzeGetElementPtrOperator(cast<GEPOperator>(I), Info);
@@ -2140,6 +2144,8 @@ private:
         break;
 
       case Instruction::BitCast:
+      case Instruction::ExtractValue:
+      case Instruction::Freeze:
         if (addDependency(I->getOperand(0), DependentVals))
           populateDependencyStack(I->getOperand(0), DependentVals);
         break;
@@ -3424,6 +3430,23 @@ private:
         LLVM_DEBUG(dbgs() << "Unahndled ExtractValue: " << *EV << "\n");
       }
     }
+  }
+
+  // The result type of a 'freeze' instruction is the same as the source operand
+  // type. If there is pointer information tracked for the source operand,
+  // propagate it to 'ResultInfo'.
+  void analyzeFreezeInst(FreezeInst *FI, ValueTypeInfo *ResultInfo) {
+    ValueTypeInfo *SrcInfo = PTA.getValueTypeInfo(FI, 0);
+    if (!SrcInfo)
+      return;
+
+    propagate(SrcInfo, ResultInfo, /*Decl=*/true, /*Use=*/true,
+              DerefType::DT_SameType);
+    if (!SrcInfo->isCompletelyAnalyzed())
+      ResultInfo->setPartiallyAnalyzed();
+
+    if (SrcInfo->getUnhandled() || SrcInfo->getDependsOnUnhandled())
+      ResultInfo->setDependsOnUnhandled();
   }
 
   void analyzeLandingPadInst(LandingPadInst *LP, ValueTypeInfo *ResultInfo) {
