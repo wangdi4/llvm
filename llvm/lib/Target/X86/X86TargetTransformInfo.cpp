@@ -4067,7 +4067,7 @@ InstructionCost X86TTIImpl::getScalarizationOverhead(VectorType *Ty,
         assert(CostValue >= 0 && "Negative cost!");
         unsigned Num128Lanes = SizeInBits / 128 * CostValue;
         unsigned NumElts = LT.second.getVectorNumElements() * CostValue;
-        APInt WidenedDemandedElts = DemandedElts.zextOrSelf(NumElts);
+        APInt WidenedDemandedElts = DemandedElts.zext(NumElts);
         unsigned Scale = NumElts / Num128Lanes;
         // We iterate each 128-lane, and check if we need a
         // extracti128/inserti128 for this 128-lane.
@@ -4227,8 +4227,7 @@ X86TTIImpl::getReplicationShuffleCost(Type *EltTy, int ReplicationFactor,
   // if all elements that will form a single Dst vector aren't demanded,
   // then we won't need to do that shuffle, so adjust the cost accordingly.
   APInt DemandedDstVectors = APIntOps::ScaleBitMask(
-      DemandedDstElts.zextOrSelf(NumDstVectors * NumEltsPerDstVec),
-      NumDstVectors);
+      DemandedDstElts.zext(NumDstVectors * NumEltsPerDstVec), NumDstVectors);
   unsigned NumDstVectorsDemanded = DemandedDstVectors.countPopulation();
 
   InstructionCost SingleShuffleCost =

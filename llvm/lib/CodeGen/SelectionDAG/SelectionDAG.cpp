@@ -159,11 +159,11 @@ bool ISD::isConstantSplatVector(const SDNode *N, APInt &SplatVal) {
     unsigned EltSize =
         N->getValueType(0).getVectorElementType().getSizeInBits();
     if (auto *Op0 = dyn_cast<ConstantSDNode>(N->getOperand(0))) {
-      SplatVal = Op0->getAPIntValue().truncOrSelf(EltSize);
+      SplatVal = Op0->getAPIntValue().trunc(EltSize);
       return true;
     }
     if (auto *Op0 = dyn_cast<ConstantFPSDNode>(N->getOperand(0))) {
-      SplatVal = Op0->getValueAPF().bitcastToAPInt().truncOrSelf(EltSize);
+      SplatVal = Op0->getValueAPF().bitcastToAPInt().trunc(EltSize);
       return true;
     }
   }
@@ -2708,7 +2708,7 @@ bool SelectionDAG::isSplatValue(SDValue V, const APInt &DemandedElts,
     uint64_t Idx = V.getConstantOperandVal(1);
     unsigned NumSrcElts = Src.getValueType().getVectorNumElements();
     APInt UndefSrcElts;
-    APInt DemandedSrcElts = DemandedElts.zextOrSelf(NumSrcElts).shl(Idx);
+    APInt DemandedSrcElts = DemandedElts.zext(NumSrcElts).shl(Idx);
     if (isSplatValue(Src, DemandedSrcElts, UndefSrcElts, Depth + 1)) {
       UndefElts = UndefSrcElts.extractBits(NumElts, Idx);
       return true;
@@ -2725,9 +2725,9 @@ bool SelectionDAG::isSplatValue(SDValue V, const APInt &DemandedElts,
       return false;
     unsigned NumSrcElts = Src.getValueType().getVectorNumElements();
     APInt UndefSrcElts;
-    APInt DemandedSrcElts = DemandedElts.zextOrSelf(NumSrcElts);
+    APInt DemandedSrcElts = DemandedElts.zext(NumSrcElts);
     if (isSplatValue(Src, DemandedSrcElts, UndefSrcElts, Depth + 1)) {
-      UndefElts = UndefSrcElts.truncOrSelf(NumElts);
+      UndefElts = UndefSrcElts.trunc(NumElts);
       return true;
     }
     break;
@@ -3105,7 +3105,7 @@ KnownBits SelectionDAG::computeKnownBits(SDValue Op, const APInt &DemandedElts,
       break;
     uint64_t Idx = Op.getConstantOperandVal(1);
     unsigned NumSrcElts = Src.getValueType().getVectorNumElements();
-    APInt DemandedSrcElts = DemandedElts.zextOrSelf(NumSrcElts).shl(Idx);
+    APInt DemandedSrcElts = DemandedElts.zext(NumSrcElts).shl(Idx);
     Known = computeKnownBits(Src, DemandedSrcElts, Depth + 1);
     break;
   }
@@ -3468,7 +3468,7 @@ KnownBits SelectionDAG::computeKnownBits(SDValue Op, const APInt &DemandedElts,
   }
   case ISD::ZERO_EXTEND_VECTOR_INREG: {
     EVT InVT = Op.getOperand(0).getValueType();
-    APInt InDemandedElts = DemandedElts.zextOrSelf(InVT.getVectorNumElements());
+    APInt InDemandedElts = DemandedElts.zext(InVT.getVectorNumElements());
     Known = computeKnownBits(Op.getOperand(0), InDemandedElts, Depth + 1);
     Known = Known.zext(BitWidth);
     break;
@@ -3480,7 +3480,7 @@ KnownBits SelectionDAG::computeKnownBits(SDValue Op, const APInt &DemandedElts,
   }
   case ISD::SIGN_EXTEND_VECTOR_INREG: {
     EVT InVT = Op.getOperand(0).getValueType();
-    APInt InDemandedElts = DemandedElts.zextOrSelf(InVT.getVectorNumElements());
+    APInt InDemandedElts = DemandedElts.zext(InVT.getVectorNumElements());
     Known = computeKnownBits(Op.getOperand(0), InDemandedElts, Depth + 1);
     // If the sign bit is known to be zero or one, then sext will extend
     // it to the top bits, else it will just zext.
@@ -3496,7 +3496,7 @@ KnownBits SelectionDAG::computeKnownBits(SDValue Op, const APInt &DemandedElts,
   }
   case ISD::ANY_EXTEND_VECTOR_INREG: {
     EVT InVT = Op.getOperand(0).getValueType();
-    APInt InDemandedElts = DemandedElts.zextOrSelf(InVT.getVectorNumElements());
+    APInt InDemandedElts = DemandedElts.zext(InVT.getVectorNumElements());
     Known = computeKnownBits(Op.getOperand(0), InDemandedElts, Depth + 1);
     Known = Known.anyext(BitWidth);
     break;
@@ -4043,7 +4043,7 @@ unsigned SelectionDAG::ComputeNumSignBits(SDValue Op, const APInt &DemandedElts,
   case ISD::SIGN_EXTEND_VECTOR_INREG: {
     SDValue Src = Op.getOperand(0);
     EVT SrcVT = Src.getValueType();
-    APInt DemandedSrcElts = DemandedElts.zextOrSelf(SrcVT.getVectorNumElements());
+    APInt DemandedSrcElts = DemandedElts.zext(SrcVT.getVectorNumElements());
     Tmp = VTBits - SrcVT.getScalarSizeInBits();
     return ComputeNumSignBits(Src, DemandedSrcElts, Depth+1) + Tmp;
   }
@@ -4330,7 +4330,7 @@ unsigned SelectionDAG::ComputeNumSignBits(SDValue Op, const APInt &DemandedElts,
       break;
     uint64_t Idx = Op.getConstantOperandVal(1);
     unsigned NumSrcElts = Src.getValueType().getVectorNumElements();
-    APInt DemandedSrcElts = DemandedElts.zextOrSelf(NumSrcElts).shl(Idx);
+    APInt DemandedSrcElts = DemandedElts.zext(NumSrcElts).shl(Idx);
     return ComputeNumSignBits(Src, DemandedSrcElts, Depth + 1);
   }
   case ISD::CONCAT_VECTORS: {
@@ -5356,6 +5356,10 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
     if (Operand.getValueType().getScalarType() == MVT::i1)
       return getNOT(DL, Operand, Operand.getValueType());
     break;
+  case ISD::VECREDUCE_ADD:
+    if (Operand.getValueType().getScalarType() == MVT::i1)
+      return getNode(ISD::VECREDUCE_XOR, DL, VT, Operand);
+    break;
   case ISD::VECREDUCE_SMIN:
   case ISD::VECREDUCE_UMAX:
     if (Operand.getValueType().getScalarType() == MVT::i1)
@@ -5614,7 +5618,7 @@ SDValue SelectionDAG::FoldConstantArithmetic(unsigned Opcode, const SDLoc &DL,
           for (unsigned I = 0, E = DstBits.size(); I != E; ++I) {
             if (DstUndefs[I])
               continue;
-            Ops[I] = getConstant(DstBits[I].sextOrSelf(BVEltBits), DL, BVEltVT);
+            Ops[I] = getConstant(DstBits[I].sext(BVEltBits), DL, BVEltVT);
           }
           return getBitcast(VT, getBuildVector(BVVT, DL, Ops));
         }
@@ -11532,9 +11536,8 @@ bool BuildVectorSDNode::getConstantRawBits(
     auto *CInt = dyn_cast<ConstantSDNode>(Op);
     auto *CFP = dyn_cast<ConstantFPSDNode>(Op);
     assert((CInt || CFP) && "Unknown constant");
-    SrcBitElements[I] =
-        CInt ? CInt->getAPIntValue().truncOrSelf(SrcEltSizeInBits)
-             : CFP->getValueAPF().bitcastToAPInt();
+    SrcBitElements[I] = CInt ? CInt->getAPIntValue().trunc(SrcEltSizeInBits)
+                             : CFP->getValueAPF().bitcastToAPInt();
   }
 
   // Recast to dst width.
