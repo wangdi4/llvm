@@ -1547,6 +1547,17 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
             MPM.addPass(InstrProfiling(*Options, false));
           });
 
+#if INTEL_CUSTOMIZATION
+    // Multiversion functions marked for auto cpu dispatching.
+    if (!TargetOpts.AutoMultiVersionTargets.empty() &&
+        CodeGenOpts.OptimizationLevel > 1) {
+      PB.registerPipelineStartEPCallback(
+          [](ModulePassManager &MPM, OptimizationLevel Level) {
+            MPM.addPass(AutoCPUClonePass());
+          });
+    }
+#endif // INTEL_CUSTOMIZATION
+
     if (CodeGenOpts.OptimizationLevel == 0) {
       MPM = PB.buildO0DefaultPipeline(Level, IsLTO || IsThinLTO);
     } else if (IsThinLTO) {
