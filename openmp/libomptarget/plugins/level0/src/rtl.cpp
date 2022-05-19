@@ -56,9 +56,6 @@
 #include "omptargetplugin.h"
 #include "omptarget-tools.h"
 #include "rtl-trace.h"
-#ifdef _WIN32
-#include "intel_win_dlfcn.h"
-#endif
 
 #include "llvm/Support/Endian.h"
 
@@ -176,14 +173,6 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
 
 /// Interop support
 namespace L0Interop {
-  // Library needed to convert interop object into a sycl interop object
-  // when preferred type is sycl for interop object
-#if _WIN32
-  const char *SyclWrapName = "libomptarget.sycl.wrap.dll";
-#else  // !_WIN32
-  const char *SyclWrapName = "libomptarget.sycl.wrap.so";
-#endif // !_WIN32
-
   // ID and names from openmp.org
   const int32_t Vendor = 8;
   const char *VendorName = GETNAME(intel);
@@ -251,9 +240,7 @@ namespace L0Interop {
 
   /// Level Zero interop property
   struct Property {
-    // Use this when command queue needs to be accessed as
-    // the targetsync field in interop will be changed if preferred type is sycl.
-    ze_command_queue_handle_t CommandQueue;
+    // TODO: define implementation-defined properties
   };
 
   /// Dump implementation-defined properties
@@ -262,66 +249,6 @@ namespace L0Interop {
     for (int I = -omp_ipr_first; I < (int)IprNames.size(); I++)
       DP("-- %" PRId32 ", %s, %s\n", I + omp_ipr_first, IprNames[I],
          IprTypeDescs[I]);
-  }
-
-  struct SyclWrapperTY{
-
-     bool WrapApiValid;
-     typedef void *(get_sycl_interop_ty)(void*);
-     typedef void  (create_sycl_interop_ty)(omp_interop_t);
-     typedef void  (delete_sycl_interop_ty)(omp_interop_t);
-     typedef void  (delete_all_sycl_interop_ty)();
-
-     get_sycl_interop_ty        *get_sycl_interop        = nullptr;
-     create_sycl_interop_ty     *create_sycl_interop     = nullptr;
-     delete_sycl_interop_ty     *delete_sycl_interop     = nullptr;
-     delete_all_sycl_interop_ty *delete_all_sycl_interop = nullptr;
-
-  }SyclWrapper;
-
-  /// Wrap interop object as a SYCl object
-  static void wrapInteropSycl(__tgt_interop * Interop) {
-
-     static std::once_flag Flag{};
-     std::call_once(Flag, []() {
-       SyclWrapper.WrapApiValid = true;
-       void *dynlib_handle = dlopen(L0Interop::SyclWrapName, RTLD_NOW);
-       if (!dynlib_handle) {
-          // Library does not exist or cannot be found.
-          DP("Unable to load library '%s': %s!\n", L0Interop::SyclWrapName, dlerror());
-          SyclWrapper.WrapApiValid = false;
-          return;
-       }
-       DP("loaded library '%s': \n", L0Interop::SyclWrapName);
-       if(!(*((void **)&SyclWrapper.get_sycl_interop) =
-                 dlsym(dynlib_handle, "__tgt_sycl_get_interop"))) {
-          SyclWrapper.WrapApiValid = false;
-          return;
-       }
-       if(!(*((void **)&SyclWrapper.create_sycl_interop) =
-                 dlsym(dynlib_handle, "__tgt_sycl_create_interop_wrapper"))) {
-          SyclWrapper.WrapApiValid = false;
-          return;
-       }
-       if(!(*((void **)&SyclWrapper.delete_sycl_interop) =
-                 dlsym(dynlib_handle, "__tgt_sycl_delete_interop_wrapper"))) {
-          SyclWrapper.WrapApiValid = false;
-          return;
-       }
-       if(!(*((void **)&SyclWrapper.delete_all_sycl_interop) =
-                 dlsym(dynlib_handle, "__tgt_sycl_delete_all_interop_wrapper"))) {
-          SyclWrapper.WrapApiValid = false;
-          return;
-       }
-     });
-
-     if (!SyclWrapper.WrapApiValid) {
-       DP("SyclWrapper API is invalid\n");
-       return;
-     }
-
-     // Call to replace L0 info with Sycl info.
-     SyclWrapper.create_sycl_interop(Interop);
   }
 }
 
@@ -5910,7 +5837,8 @@ void __tgt_rtl_deinit(void) {
 
 __tgt_interop *__tgt_rtl_create_interop(
     int32_t DeviceId, int32_t InteropContext, int32_t NumPrefers,
-    int32_t *PreferIDs) {
+    intptr_t *PreferIDs) {
+  // Preference-list is ignored since we cannot have multiple runtimes.
   auto ret = new __tgt_interop();
   ret->FrId = L0Interop::FrId;
   ret->FrName = L0Interop::FrName;
@@ -5924,29 +5852,12 @@ __tgt_interop *__tgt_rtl_create_interop(
     ret->Device = DeviceInfo->Devices[DeviceId];
     ret->DeviceContext = DeviceInfo->Context;
   }
-
-  ret->RTLProperty = new L0Interop::Property();
   if (InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC) {
     ret->TargetSync = DeviceInfo->createCommandQueue(DeviceId);
-    auto L0 = static_cast<L0Interop::Property *>(ret->RTLProperty);
-    L0->CommandQueue = static_cast<ze_command_queue_handle_t>(ret->TargetSync);
   }
 
-  // Currently we only support prefer-type level0 and sycl
-  // Default is level0.
-  // For sycl we need to wrap  the interop  object with sycl wrapper.
-  bool foundsycl = false;
-  for (int i=0; i<NumPrefers; i++) {
-     if (PreferIDs[i] == omp_ifr_level_zero)
-        break;
-     else if (PreferIDs[i] == omp_ifr_sycl) {
-        foundsycl = true;
-        break;
-     }
-  }
-  if (foundsycl) {
-     L0Interop::wrapInteropSycl(ret);
-  }
+  // TODO: define implementation-defined interop properties
+  ret->RTLProperty = new L0Interop::Property();
 
   return ret;
 }
@@ -5958,13 +5869,13 @@ int32_t __tgt_rtl_release_interop(int32_t DeviceId, __tgt_interop *Interop) {
     return OFFLOAD_FAIL;
   }
 
-  auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
   if (Interop->TargetSync) {
-    auto cmdQueue = L0->CommandQueue;
+    auto cmdQueue = static_cast<ze_command_queue_handle_t>(Interop->TargetSync);
     CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
     CALL_ZE_RET_FAIL(zeCommandQueueDestroy, cmdQueue);
   }
 
+  auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
   delete L0;
   delete Interop;
 

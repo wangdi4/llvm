@@ -810,7 +810,7 @@ EXTERN int __tgt_get_interop_property(
 #if INTEL_CUSTOMIZATION
 EXTERN omp_interop_t __tgt_create_interop(
     int64_t device_num, int32_t interop_type, int32_t num_prefers,
-    int32_t *prefer_ids) {
+    intptr_t *prefer_ids) {
   DP("Call to %s with device_num %" PRId64 ", interop_type %" PRId32
      ", num_prefers %" PRId32 ", prefer_ids " DPxMOD "\n",
      __func__, device_num, interop_type, num_prefers, DPxPTR(prefer_ids));

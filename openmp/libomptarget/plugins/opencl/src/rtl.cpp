@@ -4583,7 +4583,7 @@ void __tgt_rtl_deinit(void) {
 #if INTEL_CUSTOMIZATION
 __tgt_interop *__tgt_rtl_create_interop(
     int32_t DeviceId, int32_t InteropContext, int32_t NumPrefers,
-    int32_t *PreferIDs) {
+    intptr_t *PreferIDs) {
   // Preference-list is ignored since we cannot have multiple runtimes.
   auto Ret = new __tgt_interop();
   Ret->FrId = OCLInterop::FrId;
