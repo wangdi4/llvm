@@ -656,6 +656,29 @@ public:
       if (Has3ContLoads(*BBI.getBasicBlock()))
         ResultBBIVec.push_back(BBI);
 
+    // ResultBBIVec contains all the basic block infos that are candidates for
+    // basic block targets. If filtering by counting the load instructions
+    // doesn't work then ResultBBIVec will be empty since the data was moved to
+    // TempBBIVec. Also, if the size of TempBBIVec is larger than the expected
+    // number of targets (ExpectedNumRes) then it means that there is more
+    // filtering to be done. In this case, we are going to add into
+    // ResultBBIVec all basic block infos that are the same as the input
+    // heuristic. This is only for opaque pointers.
+    if (ResultBBIVec.empty() && TempBBIVec.size() > ExpectedNumRes) {
+      if (F && !F->getParent()->getContext().supportsTypedPointers()) {
+        for (auto &BBI : TempBBIVec)
+          if (BBI == Heuristic)
+            ResultBBIVec.push_back(BBI);
+
+        LLVM_DEBUG({
+          unsigned NumBBsFiltered = ResultBBIVec.size();
+          dbgs() << "\tFound " << NumBBsFiltered << " basic block"
+                 << (NumBBsFiltered > 1 ? "s" : "") << " after aggressive "
+                 << "filtering\n";
+        });
+      }
+    }
+
     return (ResultBBIVec.size() == ExpectedNumRes);
   }
 
@@ -2046,15 +2069,39 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
         BBSC_Regular,   /* BasicBlockSizeCategory  */
         BBIR_1stQuarter /*BasicBlockIndexRange */
     );
+
+    // Delinquent Load Position Description for the opaque pointers case
+    // (on BB level):
+    static BasicBlockInfo DLPDHeuristicOpaquePtr(
+        nullptr,        /* BasicBlock*BB    */
+        2,              /* unsigned BBIndex  */
+        5,              /* unsigned NumInst */
+        2,              /* unsigned NumPred */
+        2,              /* unsigned NumSucc */
+        BBSC_Small,   /* BasicBlockSizeCategory  */
+        BBIR_1stQuarter /*BasicBlockIndexRange */
+    );
+
     BasicBlockPositionDescription PD(F);
     BasicBlockInfo ResultBBI;
 
-    if (!PD.identifyInsertPosition(DLPDHeuristic, ResultBBI)) {
-      LLVM_DEBUG({
-        dbgs() << "Fail to identify Insert Position in " << F->getName()
-               << "():\n";
-      });
-      return false;
+    // The heuristics changes between opaque pointers and typed pointers
+    if (F->getParent()->getContext().supportsTypedPointers()) {
+      if (!PD.identifyInsertPosition(DLPDHeuristic, ResultBBI)) {
+        LLVM_DEBUG({
+          dbgs() << "Fail to identify Insert Position in " << F->getName()
+                 << "():\n";
+        });
+        return false;
+      }
+    } else {
+      if (!PD.identifyInsertPosition(DLPDHeuristicOpaquePtr, ResultBBI)) {
+        LLVM_DEBUG({
+          dbgs() << "Fail to identify Insert Position in " << F->getName()
+                 << "():\n";
+        });
+        return false;
+      }
     }
 
     Instruction *DLInst = ResultBBI.getLoad(1);
