@@ -1136,6 +1136,7 @@ void HIRSSADeconstruction::processNonLoopRegionBlocks() {
     return;
   }
 
+  IntrinsicInst *RegionEntryIntrin = nullptr;
   if (CurRegIt->isLoopMaterializationCandidate()) {
     ModifiedIR = true;
 
@@ -1166,8 +1167,8 @@ void HIRSSADeconstruction::processNonLoopRegionBlocks() {
 
     splitNonLoopRegionExit(SplitPos);
 
-  } else if (auto *RegionEntryIntrin =
-                 findRegionEntryIntrinsic(RegionEntryBB)) {
+  } else if (CurRegIt->isNonLoopBlock(RegionEntryBB) &&
+             (RegionEntryIntrin = findRegionEntryIntrinsic(RegionEntryBB))) {
     // Look for region entry intrinsic in the entry bblock and split the bblock
     // starting at that instruction if-
     // 1) It is not the first bblock instruction, Or
