@@ -39,10 +39,7 @@ OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPLoadStoreInst *Inst,
   if (!DDNode)
     return nullptr;
 
-  int Level = 0;
-  if (HLLoop *Lp = Node->getParentLoop())
-    Level = Lp->getNestingLevel();
-
+  int Level = TheLoop->getNestingLevel();
   const RegDDRef *Ref = Inst->getHIRMemoryRef();
   if (!Ref)
     return nullptr;
@@ -60,26 +57,18 @@ OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPLoadStoreInst *Inst,
   unsigned Opcode = Inst->getOpcode();
 
   if (AccTy == MemAccessTy::Strided && Opcode == Instruction::Load)
-    return new VPVLSClientMemrefHIR(OVLSAccessKind::SLoad, Ty, Inst, Level, DDA,
-                                    Ref);
+    return new VPVLSClientMemrefHIR(OVLSAccessKind::SLoad, Ty, Inst, TheLoop,
+                                    DDA, Ref);
   if (AccTy == MemAccessTy::Strided && Opcode == Instruction::Store)
-    return new VPVLSClientMemrefHIR(OVLSAccessKind::SStore, Ty, Inst, Level,
+    return new VPVLSClientMemrefHIR(OVLSAccessKind::SStore, Ty, Inst, TheLoop,
                                     DDA, Ref);
   if (AccTy == MemAccessTy::Indexed && Opcode == Instruction::Load)
-    return new VPVLSClientMemrefHIR(OVLSAccessKind::ILoad, Ty, Inst, Level, DDA,
-                                    Ref);
+    return new VPVLSClientMemrefHIR(OVLSAccessKind::ILoad, Ty, Inst, TheLoop,
+                                    DDA, Ref);
   if (AccTy == MemAccessTy::Indexed && Opcode == Instruction::Store)
-    return new VPVLSClientMemrefHIR(OVLSAccessKind::IStore, Ty, Inst, Level,
+    return new VPVLSClientMemrefHIR(OVLSAccessKind::IStore, Ty, Inst, TheLoop,
                                     DDA, Ref);
   return nullptr;
-}
-
-const DDGraph VPVLSClientMemrefHIR::getDDGraph() const {
-  const HLNode *Node = getInstruction()->HIR().getUnderlyingNode();
-  assert(Node && "Expected underlying HLNode!");
-  const HLLoop *Loop = Node->getParentLoop();
-  const DDGraph &DDG = DDA->getGraph(Loop);
-  return DDG;
 }
 
 } // namespace vpo
