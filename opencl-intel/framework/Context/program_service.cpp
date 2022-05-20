@@ -1343,8 +1343,12 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>&   program,
     return CL_SUCCESS;
 }
 
-cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_uint num_devices, const cl_device_id *device_list, const char *options, pfnNotifyBuildDone pfn_notify, void *user_data)
-{
+cl_err_code ProgramService::BuildProgram(SharedPtr<Program> &program,
+                                         cl_uint num_devices,
+                                         const cl_device_id *device_list,
+                                         const char *options,
+                                         pfnNotifyBuildDone pfn_notify,
+                                         void *user_data) {
     if (program->GetNumKernels() > 0)
     {
         return CL_INVALID_OPERATION;
@@ -1490,6 +1494,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
                     break;
                 }
                 //Else: some changes to build options. Need to build.
+                program->ClearFinalizedFlag();
                 //Intentional fall through.
             }
             LLVM_FALLTHROUGH;
