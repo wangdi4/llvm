@@ -85,6 +85,10 @@ private:
   // Indicates whether only pragma enabled unrolling is allowed.
   bool PragmaOnlyUnroll;
 
+  /// The total number of ddrefs in the loops of the function which are
+  /// profitable for unrolling.
+  unsigned CumulativeProfitableLoopDDRefs;
+
   /// Storage for loops which will be transformed.
   /// Only outermost loops to be transformed will be stored.
   SmallVector<HLLoop *, 32> CandidateLoops;
