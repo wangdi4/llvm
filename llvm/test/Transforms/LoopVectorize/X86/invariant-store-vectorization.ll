@@ -345,13 +345,7 @@ define void @variant_val_store_to_inv_address_conditional(i32* %a, i64 %n, i32* 
 ; CHECK:       latch:
 ; CHECK-NEXT:    [[I_NEXT]] = add nuw nsw i64 [[I]], 1
 ; CHECK-NEXT:    [[COND:%.*]] = icmp slt i64 [[I_NEXT]], [[N]]
-<<<<<<< HEAD
-; CHECK-NEXT:    br i1 [[COND]], label [[FOR_BODY]], label [[FOR_END_LOOPEXIT]], !llvm.loop [[LOOP27:![0-9]+]]
-; CHECK:       for.end.loopexit:
-; CHECK-NEXT:    br label [[FOR_END]]
-=======
 ; CHECK-NEXT:    br i1 [[COND]], label [[FOR_BODY]], label [[FOR_END]], !llvm.loop [[LOOP28:![0-9]+]]
->>>>>>> cd61d4bd2fcd5ba212747bfe48f32f121010e1a6
 ; CHECK:       for.end:
 ; CHECK-NEXT:    ret void
 ;
