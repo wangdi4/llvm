@@ -2020,6 +2020,8 @@ bool CompilerInvocation::ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args,
 
   bool NeedLocTracking = false;
 
+  Opts.OptRecordFile = LangOpts->OptRecordFile;
+
   if (!Opts.OptRecordFile.empty())
     NeedLocTracking = true;
 
@@ -3414,6 +3416,8 @@ void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
       GenerateArg(Args, OPT_pic_is_pie, SA);
     for (StringRef Sanitizer : serializeSanitizerKinds(Opts.Sanitize))
       GenerateArg(Args, OPT_fsanitize_EQ, Sanitizer, SA);
+    if (!Opts.OptRecordFile.empty())
+      GenerateArg(Args, OPT_opt_record_file, Opts.OptRecordFile, SA);
 
     return;
   }
@@ -3786,6 +3790,12 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
     Opts.PIE = Args.hasArg(OPT_pic_is_pie);
     parseSanitizerKinds("-fsanitize=", Args.getAllArgValues(OPT_fsanitize_EQ),
                         Diags, Opts.Sanitize);
+
+    // OptRecordFile is used to generate the optimization record file should
+    // be set regardless of the input type.
+    if (Args.hasArg(OPT_opt_record_file))
+      Opts.OptRecordFile =
+          std::string(Args.getLastArgValue(OPT_opt_record_file));
 
     return Diags.getNumErrors() == NumErrorsBefore;
   }
