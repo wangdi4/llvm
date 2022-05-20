@@ -158,8 +158,8 @@
 ; CHECK: Running analysis: DPCPPAliasAnalysis
 
 ; CHECK: Running pass: GVNHoistPass
-
 ; CHECK: Running pass: DCEPass
+; CHECK-NEXT: Running pass: ReqdSubGroupSizePass
 ; CHECK-NEXT: Running pass: SetVectorizationFactorPass
 ; CHECK-NEXT: Running analysis: VFAnalysis
 ; CHECK-NEXT: Running analysis: WeightedInstCountAnalysis

@@ -471,9 +471,9 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     FPM1.addPass(InstCombinePass());
     FPM1.addPass(GVNHoistPass());
     FPM1.addPass(DCEPass());
-    //      FPM1.addPass(OCLReqdSubGroupSizePass());
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM1)));
 
+    MPM.addPass(ReqdSubGroupSizePass());
     // This pass may throw VFAnalysisDiagInfo error if VF checking fails.
     MPM.addPass(SetVectorizationFactorPass(ISA));
     MPM.addPass(VectorVariantLowering(ISA));
@@ -537,7 +537,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     // When forced VF equals 1 or in O0 case, check subgroup semantics AND
     // prepare subgroup_emu_size for sub-group emulation.
     if (EnableNativeOpenCLSubgroups) {
-      //      MPM.addPass(OCLReqdSubGroupSizePass());
+      MPM.addPass(ReqdSubGroupSizePass());
       MPM.addPass(SetVectorizationFactorPass(ISA));
     }
   }
