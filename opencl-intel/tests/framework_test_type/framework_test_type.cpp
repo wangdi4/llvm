@@ -156,11 +156,6 @@ TEST(FrameworkTestType, DISABLED_Test_clCheckCPUArchForJIT)
     EXPECT_TRUE(clCheckCPUArchForJIT());
 }
 
-TEST(FrameworkTestType, Test_clBuildProgramTwiceTest)
-{
-    EXPECT_TRUE(clBuildProgramTwiceTest());
-}
-
 TEST(FrameworkTestType, Test_clBuildEmptyProgramTest)
 {
     EXPECT_TRUE(clBuildEmptyProgramTest());

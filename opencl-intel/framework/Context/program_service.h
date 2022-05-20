@@ -123,7 +123,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Author:       Sagi Shahar
         * Date:         January 2012
         ******************************************************************************************/
-        cl_err_code BuildProgram(const SharedPtr<Program>& program,
+        cl_err_code BuildProgram(SharedPtr<Program>& program,
                                  cl_uint                num_devices,
                                  const cl_device_id*    device_list,
                                  const char*            options,

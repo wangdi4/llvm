@@ -174,6 +174,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // Free USM wrappers for global variable pointers
         void FreeUSMForGVPointers();
 
+        /// Clear m_isFinalized in the case that program is built again.
+        void ClearFinalizedFlag();
+
 	protected:
 		virtual ~Program();
 
