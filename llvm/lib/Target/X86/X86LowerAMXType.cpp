@@ -860,16 +860,12 @@ class X86LowerAMXCast {
   ShapeCalculator *SC; // INTEL
 
 public:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   X86LowerAMXCast(Function &F, ShapeCalculator *ShapeC) : Func(F), SC(ShapeC) {}
 #endif // INTEL_CUSTOMIZATION
-=======
-  X86LowerAMXCast(Function &F) : Func(F) {}
   void combineCastStore(IntrinsicInst *Cast, StoreInst *ST);
   void combineLoadCast(IntrinsicInst *Cast, LoadInst *LD);
   bool combineLdSt(SmallVectorImpl<Instruction *> &Casts);
->>>>>>> d5999bd3f7528db844f95479d6a66be4ac6c79c6
   bool combineAMXcast(TargetLibraryInfo *TLI);
   bool transformAMXCast(IntrinsicInst *AMXCast);
   bool transformAllAMXCast();
