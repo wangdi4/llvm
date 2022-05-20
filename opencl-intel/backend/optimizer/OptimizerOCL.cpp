@@ -317,7 +317,7 @@ void OptimizerOCL::createStandardLLVMPasses(ModulePassManager &MPM) const {
 }
 
 void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
-  //  MPM.addPass(SetPreferVectorWidthPass(ISA));
+  MPM.addPass(SetPreferVectorWidthPass(ISA));
   if (m_IsSPIRV && Config.GetRelaxedMath())
     MPM.addPass(createModuleToFunctionPassAdaptor(AddFastMathPass()));
 

@@ -504,6 +504,7 @@ namespace {
       (void)llvm::createResolveSubGroupWICallLegacyPass();
       (void)llvm::createResolveVarTIDCallLegacyPass();
       (void)llvm::createResolveWICallLegacyPass(false, false);
+      (void)llvm::createSetPreferVectorWidthLegacyPass();
       (void)llvm::createSGBarrierPropagateLegacyPass();
       (void)llvm::createSGBarrierSimplifyLegacyPass();
       (void)llvm::createSGBuiltinLegacyPass();

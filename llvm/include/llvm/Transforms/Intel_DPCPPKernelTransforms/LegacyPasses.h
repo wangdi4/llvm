@@ -107,6 +107,8 @@ ModulePass *createResolveSubGroupWICallLegacyPass(
 ModulePass *createResolveVarTIDCallLegacyPass();
 ModulePass *createResolveWICallLegacyPass(bool IsUniformWGSize,
                                           bool UseTLSGlobals);
+ModulePass *createSetPreferVectorWidthLegacyPass(
+    VectorVariant::ISAClass ISA = VectorVariant::XMM);
 ModulePass *createSetVectorizationFactorLegacyPass(
     VectorVariant::ISAClass ISA = VectorVariant::XMM);
 ModulePass *createSGBarrierPropagateLegacyPass();

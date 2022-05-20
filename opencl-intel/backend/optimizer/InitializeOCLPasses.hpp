@@ -42,6 +42,5 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeKernelSubGroupInfoPass(Registry);
     intel::initializeScalarizeFunctionPass(Registry);
     intel::initializeChooseVectorizationDimensionPass(Registry);
-    intel::initializeSetPreferVectorWidthPass(Registry);
 }
 #endif //INITIALIZE_OCL_PASSES_H
