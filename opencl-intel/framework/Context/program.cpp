@@ -98,6 +98,11 @@ bool Program::Finalize() {
   return true;
 }
 
+void Program::ClearFinalizedFlag() {
+  std::lock_guard<std::mutex> locked(m_finalizeMutex);
+  m_isFinalized = false;
+}
+
 cl_err_code Program::GetDeviceFunctionPointer(cl_device_id device,
     const char* func_name, cl_ulong* func_pointer_ret)
 {

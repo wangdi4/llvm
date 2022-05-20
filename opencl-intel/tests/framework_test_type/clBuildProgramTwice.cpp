@@ -1,117 +1,144 @@
-#include "CL/cl.h"
-#include "cl_types.h"
-#include <stdio.h>
-#include "FrameworkTest.h"
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
 
 /**************************************************************************************************
-* clBuildProgram
-* -------------------
-* (1) get device ids
-* (2) create context
-* (3) create program with source
-* (4) build program
-* (5) build program again
-**************************************************************************************************/
+ * clBuildProgram
+ * -------------------
+ * (1) get device ids
+ * (2) create context
+ * (3) create program with source
+ * (4) build program
+ * (5) build program again
+ **************************************************************************************************/
+
+#include "FrameworkTestThreads.h"
+#include "TestsHelpClasses.h"
+#include <CL/cl.h>
 
 extern cl_device_type gDeviceType;
 
-bool clBuildProgramTwiceTest()
-{
-    bool bResult = true;
-    const char *ocl_test_program[] = {\
-    "__kernel void test_kernel(__global char16* pBuff0, __global char* pBuff1, __global char* pBuff2, image2d_t __read_only test_image)"\
-    "{"\
-    "    size_t id = get_global_id(0);"\
-    "    pBuff0[id] = pBuff1[id] ? pBuff0[id] : pBuff2[id];"\
-    "}"
-    };
+class BuildProgramTwiceTest : public ::testing::Test {
+protected:
+  virtual void SetUp() override {
+    cl_int err = clGetPlatformIDs(1, &m_platform, nullptr);
+    ASSERT_OCL_SUCCESS(err, "clGetPlatformIDs");
 
-    printf("clBuildProgramTwiceTest\n");
+    err = clGetDeviceIDs(m_platform, gDeviceType, 1, &m_device, nullptr);
+    ASSERT_OCL_SUCCESS(err, "clGetDeviceIDs");
 
-    cl_platform_id platform = 0;
+    m_context = clCreateContext(nullptr, 1, &m_device, nullptr, nullptr, &err);
+    ASSERT_OCL_SUCCESS(err, "clCreateContext");
 
-    cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-    bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
-    if (!bResult)
+    cl_command_queue_properties properties[] = {CL_QUEUE_PROPERTIES,
+                                                CL_QUEUE_PROFILING_ENABLE, 0};
+    m_queue = clCreateCommandQueueWithProperties(m_context, m_device,
+                                                 properties, &err);
+    ASSERT_OCL_SUCCESS(err, "clCreateCommandQueueWithProperties");
+
+    source = R"(kernel void test(global int *dst)
     {
-        return bResult;
+      dst[0] = VALUE;
+    })";
+  }
+
+  virtual void TearDown() override {
+    cl_int err;
+    if (m_program) {
+      err = clReleaseProgram(m_program);
+      EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
     }
-
-    cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
-
-    cl_uint uiNumDevices = 0;
-    // get device(s)
-    iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
-    if (CL_SUCCESS != iRet)
-    {
-        printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
-        return false;
+    if (m_queue) {
+      err = clReleaseCommandQueue(m_queue);
+      EXPECT_OCL_SUCCESS(err, "clReleaseCommandQueue");
     }
-
-    std::vector<cl_device_id> devices(uiNumDevices);
-    iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, &devices[0], NULL);
-    if (CL_SUCCESS != iRet)
-    {
-        printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
-        return false;
+    if (m_context) {
+      err = clReleaseContext(m_context);
+      EXPECT_OCL_SUCCESS(err, "clReleaseContext");
     }
+  }
 
-    // check if all devices support images
-    cl_bool isImagesSupported = CL_TRUE;
-    for (unsigned int i = 0; i < uiNumDevices; ++i)
-    {
-        iRet = clGetDeviceInfo(devices[i], CL_DEVICE_IMAGE_SUPPORT, sizeof(cl_bool), &isImagesSupported, NULL);
-        bResult = Check("clGetDeviceInfo(CL_DEVICE_IMAGE_SUPPORT)", CL_SUCCESS, iRet);
-        if (!bResult)
-        {
-            return bResult;
-        }
-        // We build program on all the devices, so build is expected to fail
-        // if at least one of them doesn't support images.
-        if (isImagesSupported == CL_FALSE) break;
-    }
+protected:
+  void testProgram(int value);
 
-    // create context
-    cl_context context = clCreateContext(prop, uiNumDevices, &devices[0], NULL, NULL, &iRet);
-    if (CL_SUCCESS != iRet)
-    {
-        printf("clCreateContext = %s\n",ClErrTxt(iRet));
-        return false;
-    }
-    printf("context = %p\n", (void*)context);
+  cl_platform_id m_platform;
+  cl_device_id m_device;
+  cl_context m_context = nullptr;
+  cl_command_queue m_queue = nullptr;
+  cl_program m_program = nullptr;
+  const char *source;
+};
 
-    cl_program clProg = clCreateProgramWithSource(context, 1, ocl_test_program, NULL, &iRet);
-    if (CL_SUCCESS != iRet)
-    {
-        printf("clCreateProgramWithSource = %s\n",ClErrTxt(iRet));
-        clReleaseContext(context);
+void BuildProgramTwiceTest::testProgram(int value) {
+  cl_int err;
+  cl_kernel kernel = clCreateKernel(m_program, "test", &err);
+  EXPECT_OCL_SUCCESS(err, "clCreateKernel");
 
-        return false;
-    }
-    printf("program id = %p\n", (void*)clProg);
+  int dst = 0;
 
-    iRet = clBuildProgram(clProg, uiNumDevices, &devices[0], "-cl-denorms-are-zero", NULL, NULL);
-    if (((CL_SUCCESS != iRet) && (CL_TRUE == isImagesSupported)) || ((CL_BUILD_PROGRAM_FAILURE != iRet) && (CL_FALSE == isImagesSupported)))
-    {
-        printf("first clBuildProgram = %s\n",ClErrTxt(iRet));
-        clReleaseContext(context);
-        clReleaseProgram(clProg);
+  err = clSetKernelArgMemPointerINTEL(kernel, 0, &dst);
+  EXPECT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
 
-        return false;
-    }
+  size_t gdims[1] = {1};
+  err = clEnqueueNDRangeKernel(m_queue, kernel, 1, nullptr, gdims, nullptr, 0,
+                               nullptr, nullptr);
+  EXPECT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
 
-    iRet = clBuildProgram(clProg, uiNumDevices, &devices[0], "-cl-denorms-are-zero", NULL, NULL);
-    if (((CL_SUCCESS != iRet) && (CL_TRUE == isImagesSupported)) || ((CL_BUILD_PROGRAM_FAILURE != iRet) && (CL_FALSE == isImagesSupported)))
-    {
-        printf("second clBuildProgram = %s\n",ClErrTxt(iRet));
-        clReleaseContext(context);
-        clReleaseProgram(clProg);
+  err = clFinish(m_queue);
+  EXPECT_OCL_SUCCESS(err, "clFinish");
 
-        return false;
-    }
+  ASSERT_EQ(dst, value);
 
-    // Release objects
-    clReleaseProgram(clProg);
-    clReleaseContext(context);
-    return bResult;
+  err = clReleaseKernel(kernel);
+  EXPECT_OCL_SUCCESS(err, "clReleaseKernel");
+}
+
+TEST_F(BuildProgramTwiceTest, sameOptions) {
+  cl_int err;
+  m_program = clCreateProgramWithSource(m_context, 1, &source, nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
+
+  int value = 1;
+  std::string buildOption = "-DVALUE=" + std::to_string(value);
+  err = clBuildProgram(m_program, 1, &m_device, buildOption.c_str(), nullptr,
+                       nullptr);
+  ASSERT_OCL_SUCCESS(err, "first clBuildProgram");
+
+  ASSERT_NO_FATAL_FAILURE(testProgram(value));
+
+  err = clBuildProgram(m_program, 1, &m_device, buildOption.c_str(), nullptr,
+                       nullptr);
+  ASSERT_OCL_SUCCESS(err, "second clBuildProgram");
+
+  ASSERT_NO_FATAL_FAILURE(testProgram(value));
+}
+
+TEST_F(BuildProgramTwiceTest, differentOptions) {
+  cl_int err;
+  m_program = clCreateProgramWithSource(m_context, 1, &source, nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
+
+  int value = 1;
+  std::string buildOption = "-cl-opt-disable -DVALUE=" + std::to_string(value);
+  err = clBuildProgram(m_program, 1, &m_device, buildOption.c_str(), nullptr,
+                       nullptr);
+  ASSERT_OCL_SUCCESS(err, "first clBuildProgram");
+
+  ASSERT_NO_FATAL_FAILURE(testProgram(value));
+
+  value = 2;
+  std::string buildOption2 = "-cl-opt-disable -DVALUE=" + std::to_string(value);
+  err = clBuildProgram(m_program, 1, &m_device, buildOption2.c_str(), nullptr,
+                       nullptr);
+  ASSERT_OCL_SUCCESS(err, "second clBuildProgram");
+
+  ASSERT_NO_FATAL_FAILURE(testProgram(value));
 }
