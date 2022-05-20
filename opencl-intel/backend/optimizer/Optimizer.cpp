@@ -126,7 +126,6 @@ llvm::ModulePass *createPrintIRPass(int option, int optionLocation,
 llvm::ModulePass *createDebugInfoPass();
 llvm::Pass *createSmartGVNPass(bool);
 
-llvm::ModulePass *createSetPreferVectorWidthPass(const CPUDetect *CPUID);
 }
 
 using namespace intel;
@@ -288,7 +287,8 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   bool HasGatherScatterPrefetch =
       pConfig.GetCpuId()->HasGatherScatterPrefetch();
 
-  PM.add(createSetPreferVectorWidthPass(pConfig.GetCpuId()));
+  PM.add(llvm::createSetPreferVectorWidthLegacyPass(
+      VectorizerCommon::getCPUIdISA(pConfig.GetCpuId())));
   if (isSPIRV && pConfig.GetRelaxedMath()) {
     PM.add(llvm::createAddFastMathLegacyPass());
   }

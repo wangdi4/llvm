@@ -66,6 +66,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   ResolveSubGroupWICall.cpp
   ResolveVarTIDCall.cpp
   ResolveWICall.cpp
+  SetPreferVectorWidth.cpp
   SetVectorizationFactor.cpp
   SinCosFold.cpp
   SoaAllocaAnalysis.cpp
