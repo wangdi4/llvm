@@ -30,7 +30,6 @@ set(OCL_BE_PASSES
     PipeSupport
     Prefetch
     PreventDivCrashes
-    SetPreferVectorWidth
     SmartGVN
     StripIntelIP
 )

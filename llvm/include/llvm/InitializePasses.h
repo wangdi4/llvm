@@ -790,6 +790,7 @@ void initializeResolveMatrixWISliceLegacyPass(PassRegistry &);
 void initializeResolveSubGroupWICallLegacyPass(PassRegistry &);
 void initializeResolveVarTIDCallLegacyPass(PassRegistry &);
 void initializeResolveWICallLegacyPass(PassRegistry &);
+void initializeSetPreferVectorWidthLegacyPass(PassRegistry &);
 void initializeSetVectorizationFactorLegacyPass(PassRegistry &);
 void initializeSGBarrierPropagateLegacyPass(PassRegistry &);
 void initializeSGBarrierSimplifyLegacyPass(PassRegistry &);
