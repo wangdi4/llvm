@@ -32,6 +32,7 @@
 ; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
 ; CHECK-NEXT: Invalidating analysis: CallGraphAnalysis
 ; CHECK-NEXT: Invalidating analysis: ImplicitArgsAnalysis
+; CHECK-NEXT: Running pass: ReqdSubGroupSizePass
 ; CHECK-NEXT: Running pass: SetVectorizationFactorPass
 ; CHECK-NEXT: Running analysis: VFAnalysis
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>

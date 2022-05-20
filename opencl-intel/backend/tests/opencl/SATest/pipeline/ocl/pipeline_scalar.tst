@@ -132,6 +132,7 @@
 ; CHECK: Running pass: DeduceMaxWGDimPass
 ; CHECK-NEXT: Running pass: intel::KernelSubGroupInfoPass
 ; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-NEXT: Running pass: ReqdSubGroupSizePass
 ; CHECK-NEXT: Running pass: SetVectorizationFactorPass
 ; CHECK-NEXT: Running analysis: VFAnalysis
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
