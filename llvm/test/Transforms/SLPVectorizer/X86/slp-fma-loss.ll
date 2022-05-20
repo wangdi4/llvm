@@ -7,6 +7,11 @@
 
 ; FIXME: We generate a horizontal reduction today.
 
+; XFAIL: *
+; We currently XFAIL this test since the problems it checks for have been
+; fixed in xmain, but not yet fixed in the upstream community.  When this
+; has been addressed upstream, the test will change and pass again.
+
 define void @hr() {
 ; CHECK-LABEL: @hr(
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
