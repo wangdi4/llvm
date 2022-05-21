@@ -2962,6 +2962,18 @@ cc_binary(
     ],
 )
 
+gentbl(
+    name = "IfsOptionsTableGen",
+    strip_include_prefix = "tools/llvm-ifs",
+    tbl_outs = [(
+        "-gen-opt-parser-defs",
+        "tools/llvm-ifs/Opts.inc",
+    )],
+    tblgen = ":llvm-tblgen",
+    td_file = "tools/llvm-ifs/Opts.td",
+    td_srcs = ["include/llvm/Option/OptParser.td"],
+)
+
 cc_binary(
     name = "llvm-ifs",
     srcs = glob([
@@ -2971,8 +2983,10 @@ cc_binary(
     copts = llvm_copts,
     stamp = 0,
     deps = [
+        ":IfsOptionsTableGen",
         ":InterfaceStub",
         ":ObjectYAML",
+        ":Option",
         ":Support",
         ":TextAPI",
     ],
