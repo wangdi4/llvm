@@ -176,15 +176,10 @@ namespace {
   public:
     static char ID; // Pass identification
 
-<<<<<<< HEAD
-    JumpThreading(bool InsertFreezeWhenUnfoldingSelect = false,         // INTEL
+    JumpThreading(bool InsertFreezeWhenUnfoldingSelect = true,          // INTEL
                   int T = -1, bool AllowCFGSimps = true) :              // INTEL
       FunctionPass(ID),                                                 // INTEL
       Impl(InsertFreezeWhenUnfoldingSelect, T, AllowCFGSimps) {         // INTEL
-=======
-    JumpThreading(bool InsertFreezeWhenUnfoldingSelect = true, int T = -1)
-        : FunctionPass(ID), Impl(InsertFreezeWhenUnfoldingSelect, T) {
->>>>>>> 6f0ca6fd2305be860057a1b2c21c6708f4ffdb38
       initializeJumpThreadingPass(*PassRegistry::getPassRegistry());
     }
 
