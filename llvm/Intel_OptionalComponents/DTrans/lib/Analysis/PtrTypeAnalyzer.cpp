@@ -1101,39 +1101,53 @@ public:
   void visitSelectInst(SelectInst &I) { analyzeValue(&I); }
 
   void visitStoreInst(StoreInst &I) {
+    Value *Ptr = I.getPointerOperand();
 
-    // Analyze the pointer operand to ensure that there is a ValueTypeInfo
-    // object available for it for the DTransSafetyAnalyzer. This is needed to
-    // handle cases where the operand is not a local or global variable. For
-    // example:
-    //   store i32 0, ptrtoint (i64 256 to i32*)
-    ValueTypeInfo *PtrInfo = analyzeValue(I.getPointerOperand());
-    checkForElementZeroAccess(&I, I.getValueOperand()->getType(), PtrInfo,
-                              ValueTypeInfo::ValueAnalysisType::VAT_Decl);
+    if (isCompilerConstant(Ptr)) {
+      // If there is something of the form:
+      //   store ptr poison, ptr null
+      //
+      // Create a dummy ValueTypeInfo for the pointer operand so that an object
+      // will be available for the DTransSafetyAnalyzer. There is no need to
+      // track types for the pointer operand.
+      ValueTypeInfo *PtrInfo = PTA.getOrCreateValueTypeInfo(&I, 1);
+      PtrInfo->setCompletelyAnalyzed();
+    } else {
+      // Analyze the pointer operand to ensure that there is a ValueTypeInfo
+      // object available for it for the DTransSafetyAnalyzer. This is needed to
+      // handle cases where the operand is not a local or global variable. For
+      // example:
+      //   store i32 0, ptrtoint (i64 256 to i32*)
+      ValueTypeInfo *PtrInfo = analyzeValue(Ptr);
+      checkForElementZeroAccess(&I, I.getValueOperand()->getType(), PtrInfo,
+                                ValueTypeInfo::ValueAnalysisType::VAT_Decl);
 
-    // If the pointer operand is used to store a scalar type, note the type
-    // in the usage types for the pointer. TODO: May need to do something
-    // for storing pointer type as well.
-    if (!PtrInfo->getIsPartialPointerUse()) {
-      llvm::Type *ValTy = I.getValueOperand()->getType();
-      if (!dtrans::hasPointerType(ValTy))
-        PtrInfo->addTypeAlias(
-            ValueTypeInfo::VAT_Use,
-            TM.getOrCreatePointerType(TM.getOrCreateSimpleType(ValTy)));
+      // If the pointer operand is used to store a scalar type, note the type
+      // in the usage types for the pointer. TODO: May need to do something
+      // for storing pointer type as well.
+      if (!PtrInfo->getIsPartialPointerUse()) {
+        llvm::Type *ValTy = I.getValueOperand()->getType();
+        if (!dtrans::hasPointerType(ValTy))
+          PtrInfo->addTypeAlias(
+              ValueTypeInfo::VAT_Use,
+              TM.getOrCreatePointerType(TM.getOrCreateSimpleType(ValTy)));
+      }
     }
 
-    // Storing a 'null' constant is a special case, because a Value of
-    // 'ptr null' may be used to represent any pointer type. For a store of a
-    // 'null' constant we want to capture a type of the value operand so that
+    // Storing a constant, such as 'null' or 'poison', is a special case. The
+    // pointer may be used to represent any pointer type. For a store of a
+    // constant we want to capture a type of the value operand so that
     // the safety analyzer will be able to analyze the instruction without
-    // needing to examine the value being stored with a special case for 'null'
-    // constants.
-    if (isa<ConstantPointerNull>(I.getValueOperand())) {
+    // needing to examine the value being stored with a special case for
+    // constants, so we will just propagate an appropriate type from what is
+    // known about the pointer operand.
+    Value *ValOp = I.getValueOperand();
+    if (isa<ConstantPointerNull>(ValOp) || isa<PoisonValue>(ValOp)) {
       auto &LocalTM = this->TM;
       auto &LocalPTA = this->PTA;
 
       // Propagate the known types from the pointer-operand to ValueInfo that
-      // represents a use of the 'null' constant. This may also, identify that
+      // represents a use of the constant. This may also, identify that
       // it appears that an element-zero location of an aggregate is being
       // stored, in which case the PointerInfo will be updated to reflect that
       // the pointer operand is being used as an element-pointee.
@@ -1173,6 +1187,7 @@ public:
           };
 
       ValueTypeInfo *ValInfo = PTA.getOrCreateValueTypeInfo(&I, 0);
+      ValueTypeInfo *PtrInfo = PTA.getValueTypeInfo(&I, 1);
       PropagateDereferencedType(PtrInfo, ValInfo,
                                 ValueTypeInfo::ValueAnalysisType::VAT_Decl);
       PropagateDereferencedType(PtrInfo, ValInfo,
