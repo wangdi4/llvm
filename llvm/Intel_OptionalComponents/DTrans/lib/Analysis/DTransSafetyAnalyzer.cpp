@@ -1614,9 +1614,8 @@ public:
   }
 
   void visitStoreInst(StoreInst &I) {
-    Value *Ptr = I.getPointerOperand();
     Value *Val = I.getValueOperand();
-    ValueTypeInfo *PtrInfo = PTA.getValueTypeInfo(Ptr);
+    ValueTypeInfo *PtrInfo = PTA.getValueTypeInfo(&I, 1);
     ValueTypeInfo *ValInfo = PTA.getValueTypeInfo(&I, 0);
 
     assert(PtrInfo &&
