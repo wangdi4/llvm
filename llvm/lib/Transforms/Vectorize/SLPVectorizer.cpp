@@ -5604,7 +5604,7 @@ void BoUpSLP::buildExternalUses(
         }
 
         // Ignore users in the user ignore list.
-        if (is_contained(UserIgnoreList, UserInst))
+        if (UserIgnoreList.contains(UserInst))
           continue;
 
         LLVM_DEBUG(dbgs() << "SLP: Need to extract:" << *U << " from lane "
@@ -5863,17 +5863,11 @@ void BoUpSLP::reorderMultiNodeOperands(SmallVectorImpl<Value *> &VL,
   // Update VL to be the root of the Multi-Node.
   VL = VectorizableTree[CurrentMultiNode->getRoot()]->Scalars;
 
-<<<<<<< HEAD
 #ifdef EXPENSIVE_CHECKS
   if (MultiNodeVerifierChecks)
     assert(!verifyFunction(*F, &dbgs()));
 #endif // EXPENSIVE_CHECKS
 }
-=======
-        // Ignore users in the user ignore list.
-        if (UserIgnoreList.contains(UserInst))
-          continue;
->>>>>>> 4e271fc49517362a9333371fb1ab7e865d4c1b0e
 
 // Return true if we have finished building the Multi-Node, false otherwise.
 void BoUpSLP::buildTreeMultiNode_rec(const InstructionsState &S,
