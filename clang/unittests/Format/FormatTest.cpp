@@ -19609,7 +19609,8 @@ TEST_F(FormatTest, UnderstandPragmaRegion) {
   auto Style = getLLVMStyleWithColumns(0);
   verifyFormat("#pragma region TEST(FOO : BAR)", Style);
 
-  EXPECT_EQ("#pragma region TEST(FOO : BAR)", format("#pragma region TEST(FOO : BAR)", Style));
+  EXPECT_EQ("#pragma region TEST(FOO : BAR)",
+            format("#pragma region TEST(FOO : BAR)", Style));
 }
 
 TEST_F(FormatTest, OptimizeBreakPenaltyVsExcess) {
@@ -21338,6 +21339,7 @@ TEST_F(FormatTest, FormatsLambdas) {
   verifyFormat("int c = []() -> int * { return 2; }();\n");
   verifyFormat("int c = []() -> vector<int> { return {2}; }();\n");
   verifyFormat("Foo([]() -> std::vector<int> { return {2}; }());");
+  verifyFormat("foo([]() noexcept -> int {});");
   verifyGoogleFormat("auto a = [&b, c](D* d) -> D* {};");
   verifyGoogleFormat("auto a = [&b, c](D* d) -> pair<D*, D*> {};");
   verifyGoogleFormat("auto a = [&b, c](D* d) -> D& {};");
