@@ -4893,10 +4893,38 @@ class OffloadingActionBuilder final {
         auto *DeviceLinkAction =
             C.MakeAction<LinkJobAction>(ToLinkAction, types::TY_LLVM_BC);
         if (TT.isSPIR()) {
+          // Only use llvm-foreach when we enable -fopenmp-device-code-split.
+          bool DeviceCodeSplit = false;
+          for (StringRef Val : Args.getAllArgValues(
+                   options::OPT_fopenmp_device_code_split_EQ)) {
+            // Capture triple from -fopenmp-device-code-split=<triple>=<arg>
+            std::pair<StringRef, StringRef> T = Val.split('=');
+            if (!T.second.empty()) {
+              // Triple provided, use that to determine if the current
+              // toolchain should be doing any splitting (i.e. enable
+              // usage of llvm-foreach)
+              if (llvm::Triple(T.first) == TT)
+                DeviceCodeSplit = true;
+            } else
+              // No triple provided, turn on splitting for all targets.
+              DeviceCodeSplit = true;
+          }
+          types::ID LinkType =
+              DeviceCodeSplit ? types::TY_Tempfiletable : types::TY_LLVM_BC;
           auto *PostLinkAction = C.MakeAction<SYCLPostLinkJobAction>(
-              DeviceLinkAction, types::TY_LLVM_BC, types::TY_LLVM_BC);
-          Action *SPIRVTranslateAction = C.MakeAction<SPIRVTranslatorJobAction>(
-              PostLinkAction, types::TY_SPIRV);
+              DeviceLinkAction, LinkType, LinkType);
+          Action *SPIRVTranslateAction;
+          if (DeviceCodeSplit) {
+            auto *ExtractIRFilesAction = C.MakeAction<FileTableTformJobAction>(
+                PostLinkAction, types::TY_Tempfilelist, types::TY_Tempfilelist);
+            // single column w/o title fits TY_Tempfilelist format
+            ExtractIRFilesAction->addExtractColumnTform(
+                FileTableTformJobAction::COL_CODE, false /*drop titles*/);
+            SPIRVTranslateAction = C.MakeAction<SPIRVTranslatorJobAction>(
+                ExtractIRFilesAction, types::TY_SPIRV);
+          } else
+            SPIRVTranslateAction = C.MakeAction<SPIRVTranslatorJobAction>(
+                PostLinkAction, types::TY_SPIRV);
           // After the Link, wrap the files before the final host link
           if (TT.getSubArch() == llvm::Triple::SPIRSubArch_gen ||
               TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64) {
@@ -4904,11 +4932,22 @@ class OffloadingActionBuilder final {
             // triple calls for it (provided a valid subarch).
             ActionList BEInputs;
             BEInputs.push_back(SPIRVTranslateAction);
-            SPIRVTranslateAction =
-                C.MakeAction<BackendCompileJobAction>(BEInputs, types::TY_Image);
+            SPIRVTranslateAction = C.MakeAction<BackendCompileJobAction>(
+                BEInputs, types::TY_Image);
           }
-          DeviceLinkDeps.add(*SPIRVTranslateAction, **TC, /*BoundArch=*/nullptr,
-                             Action::OFK_OpenMP);
+          if (DeviceCodeSplit) {
+            ActionList TformInputs{PostLinkAction, SPIRVTranslateAction};
+            auto *ReplaceFilesAction = C.MakeAction<FileTableTformJobAction>(
+                TformInputs, types::TY_Tempfiletable, types::TY_Tempfiletable);
+            ReplaceFilesAction->addReplaceColumnTform(
+                FileTableTformJobAction::COL_CODE,
+                FileTableTformJobAction::COL_CODE);
+
+            DeviceLinkDeps.add(*ReplaceFilesAction, **TC, /*BoundArch=*/nullptr,
+                               Action::OFK_OpenMP);
+          } else
+            DeviceLinkDeps.add(*SPIRVTranslateAction, **TC,
+                               /*BoundArch=*/nullptr, Action::OFK_OpenMP);
         } else
           DeviceLinkDeps.add(*DeviceLinkAction, **TC, /*BoundArch=*/nullptr,
                              Action::OFK_OpenMP);

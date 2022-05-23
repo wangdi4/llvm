@@ -10179,6 +10179,13 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
     });
     addRunTimeWrapperOpts(C, DeviceKind, TCArgs, CmdArgs, *DeviceTC); // INTEL
 
+#if INTEL_CUSTOMIZATION
+    if (Inputs[I].getType() == types::TY_Tempfiletable ||
+        Inputs[I].getType() == types::TY_Tempfilelist)
+      // wrapper actual input files are passed via the batch job file table:
+      CmdArgs.push_back(C.getArgs().MakeArgString("-split-batch"));
+#endif // INTEL_CUSTOMIZATION
+
     // And add it to the offload targets.
     CmdArgs.push_back(C.getArgs().MakeArgString(
         Twine("-kind=") + Action::GetOffloadKindName(DeviceKind)));
@@ -10385,7 +10392,11 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
     ForeachArgs.push_back(
         TCArgs.MakeArgString("--out-replace=" + OutputFileName));
     StringRef ParallelJobs =
-        TCArgs.getLastArgValue(options::OPT_fsycl_max_parallel_jobs_EQ);
+#if INTEL_CUSTOMIZATION
+        TCArgs.getLastArgValue(JA.isDeviceOffloading(Action::OFK_SYCL)
+                                   ? options::OPT_fsycl_max_parallel_jobs_EQ
+                                   : options::OPT_fopenmp_max_parallel_jobs_EQ);
+#endif // INTEL_CUSTOMIZATION
     if (!ParallelJobs.empty())
       ForeachArgs.push_back(TCArgs.MakeArgString("--jobs=" + ParallelJobs));
 
@@ -10503,8 +10514,18 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
   bool IsOpenMPSPIRV = JA.isDeviceOffloading(Action::OFK_OpenMP) &&
                        getToolChain().getTriple().isSPIR();
 
-  // For OpenMP offload, -split=* should not be used
-  if (!IsOpenMPSPIRV) {
+  if (IsOpenMPSPIRV) {
+    // For OpenMP offload, -split=kernel can be used
+    // See if device code splitting is requested
+    if (Arg *A = TCArgs.getLastArg(options::OPT_fopenmp_device_code_split_EQ)) {
+      // Capture triple from -fopenmp-device-code-split=<triple>=<arg>
+      StringRef Val(A->getValue());
+      std::pair<StringRef, StringRef> T = Val.split('=');
+      StringRef CodeSplitValue(T.second.empty() ? T.first : Val);
+      if (CodeSplitValue == "per_kernel")
+        addArgs(CmdArgs, TCArgs, {"-split=kernel"});
+    }
+  } else {
     // See if device code splitting is requested
     if (Arg *A = TCArgs.getLastArg(options::OPT_fsycl_device_code_split_EQ)) {
       auto CodeSplitValue = StringRef(A->getValue());
@@ -10755,7 +10776,11 @@ void SpirvToIrWrapper::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs, None);
   if (!ForeachInputs.empty()) {
     StringRef ParallelJobs =
-        TCArgs.getLastArgValue(options::OPT_fsycl_max_parallel_jobs_EQ);
+#if INTEL_CUSTOMIZATION
+        TCArgs.getLastArgValue(JA.isDeviceOffloading(Action::OFK_SYCL)
+                                   ? options::OPT_fsycl_max_parallel_jobs_EQ
+                                   : options::OPT_fopenmp_max_parallel_jobs_EQ);
+#endif // INTEL_CUSTOMIZATION
     tools::SYCL::constructLLVMForeachCommand(
         C, JA, std::move(Cmd), ForeachInputs, Output, this, "",
         types::getTypeTempSuffix(types::TY_Tempfilelist), ParallelJobs);

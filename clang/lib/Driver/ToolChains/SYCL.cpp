@@ -470,7 +470,11 @@ void SYCL::fpga::BackendCompiler::constructOpenCLAOTCommand(
                                        Exec, CmdArgs, None);
   if (!ForeachInputs.empty()) {
     StringRef ParallelJobs =
-        Args.getLastArgValue(options::OPT_fsycl_max_parallel_jobs_EQ);
+#if INTEL_CUSTOMIZATION
+        Args.getLastArgValue(DeviceOffloadKind == Action::OFK_SYCL
+                                 ? options::OPT_fsycl_max_parallel_jobs_EQ
+                                 : options::OPT_fopenmp_max_parallel_jobs_EQ);
+#endif // INTEL_CUSTOMIZATION
     constructLLVMForeachCommand(C, JA, std::move(Cmd), ForeachInputs, Output,
                                 this, "", ForeachExt, ParallelJobs);
   } else
@@ -644,7 +648,11 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
   addFPGATimingDiagnostic(Cmd, C);
   if (!ForeachInputs.empty()) {
     StringRef ParallelJobs =
-        Args.getLastArgValue(options::OPT_fsycl_max_parallel_jobs_EQ);
+#if INTEL_CUSTOMIZATION
+        Args.getLastArgValue(DeviceOffloadKind == Action::OFK_SYCL
+                                 ? options::OPT_fsycl_max_parallel_jobs_EQ
+                                 : options::OPT_fopenmp_max_parallel_jobs_EQ);
+#endif // INTEL_CUSTOMIZATION
     constructLLVMForeachCommand(C, JA, std::move(Cmd), ForeachInputs, Output,
                                 this, ReportOptArg, ForeachExt, ParallelJobs);
   } else
@@ -698,7 +706,11 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
                                        Exec, CmdArgs, None);
   if (!ForeachInputs.empty()) {
     StringRef ParallelJobs =
-        Args.getLastArgValue(options::OPT_fsycl_max_parallel_jobs_EQ);
+#if INTEL_CUSTOMIZATION
+        Args.getLastArgValue(DeviceOffloadKind == Action::OFK_SYCL
+                                 ? options::OPT_fsycl_max_parallel_jobs_EQ
+                                 : options::OPT_fopenmp_max_parallel_jobs_EQ);
+#endif // INTEL_CUSTOMIZATION
     constructLLVMForeachCommand(C, JA, std::move(Cmd), ForeachInputs, Output,
                                 this, "", "out", ParallelJobs);
   } else
@@ -739,7 +751,11 @@ void SYCL::x86_64::BackendCompiler::ConstructJob(
                                        Exec, CmdArgs, None);
   if (!ForeachInputs.empty()) {
     StringRef ParallelJobs =
-        Args.getLastArgValue(options::OPT_fsycl_max_parallel_jobs_EQ);
+#if INTEL_CUSTOMIZATION
+        Args.getLastArgValue(DeviceOffloadKind == Action::OFK_SYCL
+                                 ? options::OPT_fsycl_max_parallel_jobs_EQ
+                                 : options::OPT_fopenmp_max_parallel_jobs_EQ);
+#endif // INTEL_CUSTOMIZATION
     constructLLVMForeachCommand(C, JA, std::move(Cmd), ForeachInputs, Output,
                                 this, "", "out", ParallelJobs);
   } else
