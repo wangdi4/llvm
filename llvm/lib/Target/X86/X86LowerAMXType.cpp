@@ -1107,7 +1107,6 @@ void X86LowerAMXCast::combineLoadCast(IntrinsicInst *Cast, LoadInst *LD) {
   Use &U = *(Cast->use_begin());
   unsigned OpNo = U.getOperandNo();
   auto *II = cast<IntrinsicInst>(U.getUser());
-  ShapeCalculator *SC = nullptr; // INTEL
   // TODO: If it is cast intrinsic or phi node, we can propagate the
   // shape information through def-use chain.
   if (!isAMXIntrinsic(II))
