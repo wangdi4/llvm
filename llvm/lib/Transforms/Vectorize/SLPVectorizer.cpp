@@ -1064,7 +1064,10 @@ public:
   /// Construct a vectorizable tree that starts at \p Roots, ignoring users for
   /// the purpose of scheduling and extraction in the \p UserIgnoreLst.
   void buildTree(ArrayRef<Value *> Roots,
-                 ArrayRef<Value *> UserIgnoreLst = None);
+                 const SmallDenseSet<Value *> &UserIgnoreLst);
+
+  /// Construct a vectorizable tree that starts at \p Roots.
+  void buildTree(ArrayRef<Value *> Roots);
 
   /// Builds external uses of the vectorized scalars, i.e. the list of
   /// vectorized scalars to be extracted, their lanes and their scalar users. \p
@@ -1085,10 +1088,14 @@ public:
     }
     MinBWs.clear();
     InstrElementSize.clear();
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     undoMultiNodeReordering();
     AllMultiNodeValues.clear();
 #endif // INTEL_CUSTOMIZATION
+=======
+    UserIgnoreList = nullptr;
+>>>>>>> 319a722f6fca365c8f71f457eac60bc3909988ee
   }
 
   unsigned getTreeSize() const { return VectorizableTree.size(); }
@@ -2315,8 +2322,8 @@ public:
     AnalyzedReductionVals.clear();
   }
   /// Checks if the given value is gathered in one of the nodes.
-  bool isGathered(Value *V) const {
-    return MustGather.contains(V);
+  bool isAnyGathered(const SmallDenseSet<Value *> &Vals) const {
+    return any_of(MustGather, [&](Value *V) { return Vals.contains(V); });
   }
 
   ~BoUpSLP();
@@ -4628,7 +4635,7 @@ private:
   void scheduleBlock(BlockScheduling *BS);
 
   /// List of users to ignore during scheduling and that don't need extracting.
-  SmallPtrSet<Value *, 4> UserIgnoreList;
+  const SmallDenseSet<Value *> *UserIgnoreList = nullptr;
 
   /// A DenseMapInfo implementation for holding DenseMaps and DenseSets of
   /// sorted SmallVectors of unsigned.
@@ -5863,11 +5870,17 @@ void BoUpSLP::reorderMultiNodeOperands(SmallVectorImpl<Value *> &VL,
   // Update VL to be the root of the Multi-Node.
   VL = VectorizableTree[CurrentMultiNode->getRoot()]->Scalars;
 
+<<<<<<< HEAD
 #ifdef EXPENSIVE_CHECKS
   if (MultiNodeVerifierChecks)
     assert(!verifyFunction(*F, &dbgs()));
 #endif // EXPENSIVE_CHECKS
 }
+=======
+        // Ignore users in the user ignore list.
+        if (UserIgnoreList && UserIgnoreList->contains(UserInst))
+          continue;
+>>>>>>> 319a722f6fca365c8f71f457eac60bc3909988ee
 
 // Return true if we have finished building the Multi-Node, false otherwise.
 void BoUpSLP::buildTreeMultiNode_rec(const InstructionsState &S,
@@ -6084,10 +6097,16 @@ BoUpSLP::findExternalStoreUsersReorderIndices(TreeEntry *TE) const {
 }
 
 void BoUpSLP::buildTree(ArrayRef<Value *> Roots,
-                        ArrayRef<Value *> UserIgnoreLst) {
+                        const SmallDenseSet<Value *> &UserIgnoreLst) {
   deleteTree();
-  UserIgnoreList.clear();
-  UserIgnoreList.insert(UserIgnoreLst.begin(), UserIgnoreLst.end());
+  UserIgnoreList = &UserIgnoreLst;
+  if (!allSameType(Roots))
+    return;
+  buildTree_rec(Roots, 0, EdgeInfo());
+}
+
+void BoUpSLP::buildTree(ArrayRef<Value *> Roots) {
+  deleteTree();
   if (!allSameType(Roots))
     return;
   buildTree_rec(Roots, 0, EdgeInfo());
@@ -6505,12 +6524,14 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
   // the same block.
 
   // Don't vectorize ephemeral values.
-  for (Value *V : VL) {
-    if (EphValues.count(V)) {
-      LLVM_DEBUG(dbgs() << "SLP: The instruction (" << *V
-                        << ") is ephemeral.\n");
-      newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx);
-      return;
+  if (!EphValues.empty()) {
+    for (Value *V : VL) {
+      if (EphValues.count(V)) {
+        LLVM_DEBUG(dbgs() << "SLP: The instruction (" << *V
+                          << ") is ephemeral.\n");
+        newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx);
+        return;
+      }
     }
   }
 
@@ -6548,13 +6569,15 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
   }
 
   // The reduction nodes (stored in UserIgnoreList) also should stay scalar.
-  for (Value *V : VL) {
-    if (UserIgnoreList.contains(V)) {
-      LLVM_DEBUG(dbgs() << "SLP: Gathering due to gathered scalar.\n");
-      if (TryToFindDuplicates(S))
-        newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
-                     ReuseShuffleIndicies);
-      return;
+  if (UserIgnoreList && !UserIgnoreList->empty()) {
+    for (Value *V : VL) {
+      if (UserIgnoreList && UserIgnoreList->contains(V)) {
+        LLVM_DEBUG(dbgs() << "SLP: Gathering due to gathered scalar.\n");
+        if (TryToFindDuplicates(S))
+          newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
+                       ReuseShuffleIndicies);
+        return;
+      }
     }
   }
 
@@ -10919,7 +10942,8 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
           LLVM_DEBUG(dbgs() << "SLP: \tvalidating user:" << *U << ".\n");
 
           // It is legal to delete users in the ignorelist.
-          assert((getTreeEntry(U) || UserIgnoreList.contains(U) ||
+          assert((getTreeEntry(U) ||
+                  (UserIgnoreList && UserIgnoreList->contains(U)) ||
                   (isa_and_nonnull<Instruction>(U) &&
                    isDeleted(cast<Instruction>(U)))) &&
                  "Deleting out-of-tree value");
@@ -13296,6 +13320,8 @@ public:
   /// Attempt to vectorize the tree found by matchAssociativeReduction.
   Value *tryToReduce(BoUpSLP &V, TargetTransformInfo *TTI) {
     constexpr int ReductionLimit = 4;
+    constexpr unsigned RegMaxNumber = 4;
+    constexpr unsigned RedValsMaxNumber = 128;
     // If there are a sufficient number of reduction values, reduce
     // to a nearby power-of-2. We can safely generate oversized
     // vectors and rely on the backend to split them to legal sizes.
@@ -13333,12 +13359,12 @@ public:
     // The reduction root is used as the insertion point for new instructions,
     // so set it as externally used to prevent it from being deleted.
     ExternallyUsedValues[ReductionRoot];
-    SmallVector<Value *> IgnoreList;
+    SmallDenseSet<Value *> IgnoreList;
     for (ReductionOpsType &RdxOps : ReductionOps)
       for (Value *RdxOp : RdxOps) {
         if (!RdxOp)
           continue;
-        IgnoreList.push_back(RdxOp);
+        IgnoreList.insert(RdxOp);
       }
     bool IsCmpSelMinMax = isCmpSelMinMax(cast<Instruction>(ReductionRoot));
 
@@ -13400,7 +13426,12 @@ public:
       if (NumReducedVals < ReductionLimit)
         continue;
 
-      unsigned ReduxWidth = PowerOf2Floor(NumReducedVals);
+      unsigned MaxVecRegSize = V.getMaxVecRegSize();
+      unsigned EltSize = V.getVectorElementSize(Candidates[0]);
+      unsigned MaxElts = RegMaxNumber * PowerOf2Floor(MaxVecRegSize / EltSize);
+
+      unsigned ReduxWidth = std::min<unsigned>(
+          PowerOf2Floor(NumReducedVals), std::max(RedValsMaxNumber, MaxElts));
       unsigned Start = 0;
       unsigned Pos = Start;
       // Restarts vectorization attempt with lower vector factor.
@@ -13410,10 +13441,7 @@ public:
                                   &CheckForReusedReductionOpsLocal,
                                   &PrevReduxWidth, &V,
                                   &IgnoreList](bool IgnoreVL = false) {
-        bool IsAnyRedOpGathered =
-            !IgnoreVL && any_of(IgnoreList, [&V](Value *RedOp) {
-              return V.isGathered(RedOp);
-            });
+        bool IsAnyRedOpGathered = !IgnoreVL && V.isAnyGathered(IgnoreList);
         if (!CheckForReusedReductionOpsLocal && PrevReduxWidth == ReduxWidth) {
           // Check if any of the reduction ops are gathered. If so, worth
           // trying again with less number of reduction ops.
@@ -13478,13 +13506,37 @@ public:
                        LocalExternallyUsedValues[TrackedVals[V]];
                    });
         }
-        for (unsigned Cnt = 0; Cnt < NumReducedVals; ++Cnt) {
-          if (Cnt >= Pos && Cnt < Pos + ReduxWidth)
+        // Number of uses of the candidates in the vector of values.
+        SmallDenseMap<Value *, unsigned> NumUses;
+        for (unsigned Cnt = 0; Cnt < Pos; ++Cnt) {
+          Value *V = Candidates[Cnt];
+          if (NumUses.count(V) > 0)
             continue;
-          unsigned NumOps = VectorizedVals.lookup(Candidates[Cnt]) +
-                            std::count(VL.begin(), VL.end(), Candidates[Cnt]);
-          if (NumOps != ReducedValsToOps.find(Candidates[Cnt])->second.size())
-            LocalExternallyUsedValues[Candidates[Cnt]];
+          NumUses[V] = std::count(VL.begin(), VL.end(), V);
+        }
+        for (unsigned Cnt = Pos + ReduxWidth; Cnt < NumReducedVals; ++Cnt) {
+          Value *V = Candidates[Cnt];
+          if (NumUses.count(V) > 0)
+            continue;
+          NumUses[V] = std::count(VL.begin(), VL.end(), V);
+        }
+        // Gather externally used values.
+        SmallPtrSet<Value *, 4> Visited;
+        for (unsigned Cnt = 0; Cnt < Pos; ++Cnt) {
+          Value *V = Candidates[Cnt];
+          if (!Visited.insert(V).second)
+            continue;
+          unsigned NumOps = VectorizedVals.lookup(V) + NumUses[V];
+          if (NumOps != ReducedValsToOps.find(V)->second.size())
+            LocalExternallyUsedValues[V];
+        }
+        for (unsigned Cnt = Pos + ReduxWidth; Cnt < NumReducedVals; ++Cnt) {
+          Value *V = Candidates[Cnt];
+          if (!Visited.insert(V).second)
+            continue;
+          unsigned NumOps = VectorizedVals.lookup(V) + NumUses[V];
+          if (NumOps != ReducedValsToOps.find(V)->second.size())
+            LocalExternallyUsedValues[V];
         }
         V.buildExternalUses(LocalExternallyUsedValues);
 
