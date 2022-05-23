@@ -61,7 +61,8 @@
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
 ; CHECK: br i1 %is.master.thread, label %[[IF_MASTER_4:[^ ,]+]]
 ; CHECK: [[IF_MASTER_4]]:
-; CHECK: call void @llvm.memcpy.p3i8.p3i8.i64(i8 addrspace(3)* align 8 %[[COUNTER]], i8 addrspace(3)* align 8 %[[REF]], i64 16, i1 false)
+; TODO: The globals for ref.tmp.ascast and ref.tmp1.ascast are under-aligned.
+; CHECK: call void @llvm.memcpy.p3i8.p3i8.i64(i8 addrspace(3)* align 1 %[[COUNTER]], i8 addrspace(3)* align 1 %[[REF]], i64 16, i1 false)
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
 
 
