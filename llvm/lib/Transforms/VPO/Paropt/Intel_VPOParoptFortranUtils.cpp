@@ -37,6 +37,25 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+std::tuple<Type *, Type *> VPOParoptUtils::getF90DVItemInfo(const Item *I) {
+  assert(I && "Null Clause Item.");
+  assert(I->getIsF90DopeVector() && "Item is not an F90 DV.");
+
+  Type *DVType = nullptr;
+  std::tie(DVType, std::ignore, std::ignore) = VPOParoptUtils::getItemInfo(I);
+  assert(isa<StructType>(DVType) && "DV Type is not a struct type.");
+
+  if (I->getIsTyped())
+    return {DVType, I->getF90DVPointeeElementTypeFromIR()};
+
+  Type *DVAddr0Ty = cast<StructType>(DVType)->getElementType(0);
+  assert(!DVAddr0Ty->isOpaquePointerTy() &&
+         "Need TYPED F90_DV clause item to support opaque pointers.");
+
+  Type *DVPointeeElementTy = DVAddr0Ty->getNonOpaquePointerElementType();
+  return {DVType, DVPointeeElementTy};
+}
+
 CallInst *VPOParoptUtils::genF90DVSizeCall(Value *DV,
                                            Instruction *InsertBefore) {
   IRBuilder<> Builder(InsertBefore);
@@ -88,9 +107,9 @@ void VPOParoptUtils::genF90DVInitCode(
 
   StringRef NamePrefix = DstV->getName();
   assert(isa<PointerType>(SrcV->getType()) && "Orig value is not a pointer");
-  assert(
-      isa<StructType>(SrcV->getType()->getPointerElementType()) &&
-      "Clause item is expected to be a struct for F90 DVs.");
+  assert(SrcV->getType()->isOpaquePointerTy() ||
+         isa<StructType>(SrcV->getType()->getNonOpaquePointerElementType()) &&
+             "Clause item is expected to be a struct for F90 DVs.");
 
   if (AllowOverrideInsertPt && !GeneralUtils::isOMPItemGlobalVAR(DstV))
     InsertPt = (cast<Instruction>(DstV))->getParent()->getTerminator();
@@ -104,9 +123,9 @@ void VPOParoptUtils::genF90DVInitCode(
 
   Instruction *AllocBuilderInsertPt = &*Builder.GetInsertPoint();
 
-  // TODO: OPAQUEPOINTER: We need another way to get the DV struct/element type.
-  auto *DVType = cast<StructType>(SrcV->getType()->getPointerElementType());
-  Type *ElementTy = DVType->getElementType(0)->getPointerElementType();
+  Type *DVType = nullptr;
+  Type *DataElementTy = nullptr;
+  std::tie(DVType, DataElementTy) = VPOParoptUtils::getF90DVItemInfo(I);
 
   // We need to compute the number of elements in the dope vector.  DataSize is
   // the size in bytes of the data "array" for the dope vector. To get number of
@@ -114,7 +133,7 @@ void VPOParoptUtils::genF90DVInitCode(
   auto *NumElements = Builder.CreateUDiv(
       DataSize,
       Builder.getIntN(DataSize->getType()->getPrimitiveSizeInBits(),
-                      DL.getTypeSizeInBits(ElementTy) / 8),
+                      DL.getTypeSizeInBits(DataElementTy) / 8),
       NamePrefix + ".num_elements");
   I->setF90DVNumElements(NumElements);
 
@@ -145,8 +164,8 @@ void VPOParoptUtils::genF90DVInitCode(
   auto *Addr0GEP = AllocBuilder.CreateInBoundsGEP(DVType, DstV, {Zero, Zero},
                                                   NamePrefix + ".addr0");
   Value *PointeeData = genPrivatizationAlloca(
-      ElementTy, NumElements, OrigAlignment, &*AllocBuilder.GetInsertPoint(),
-      IsTargetSPIRV, NamePrefix + ".data");
+      DataElementTy, NumElements, OrigAlignment,
+      &*AllocBuilder.GetInsertPoint(), IsTargetSPIRV, NamePrefix + ".data");
   auto *StoreVal = AllocBuilder.CreatePointerBitCastOrAddrSpaceCast(
       PointeeData, cast<GEPOperator>(Addr0GEP)->getResultElementType());
   AllocBuilder.CreateStore(StoreVal, Addr0GEP);
