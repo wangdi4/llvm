@@ -868,8 +868,8 @@ private:
 };
 
 void OptimizerOCLLegacy::Optimize(llvm::raw_ostream &LogStream) {
-  m_M.getContext().setDiagnosticHandler(
-      std::make_unique<OCLDiagnosticHandler>(LogStream));
+  // Set custom DiagnosticHandler callback.
+  setDiagnosticHandler(LogStream);
 
   m_PM.run(m_M);
 
@@ -910,6 +910,11 @@ Optimizer::Optimizer(llvm::Module &M,
   m_debugType = getDebuggingServiceType(Config.GetDebugInfoFlag(), &M,
                                         Config.GetUseNativeDebuggerFlag());
   m_UseTLSGlobals = (m_debugType == intel::Native) && !m_IsEyeQEmulator;
+}
+
+void Optimizer::setDiagnosticHandler(llvm::raw_ostream &LogStream) {
+  m_M.getContext().setDiagnosticHandler(
+      std::make_unique<OCLDiagnosticHandler>(LogStream));
 }
 
 bool Optimizer::hasUnsupportedRecursion() {

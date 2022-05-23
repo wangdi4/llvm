@@ -330,6 +330,9 @@ void OptimizerLTOLegacyPM::registerLastPasses(PassManagerBuilder &PMBuilder) {
 }
 
 void OptimizerLTOLegacyPM::Optimize(raw_ostream &LogStream) {
+  // Set custom DiagnosticHandler callback.
+  setDiagnosticHandler(LogStream);
+
   MaterializerMPM.run(m_M);
 
   FPM.doInitialization();
