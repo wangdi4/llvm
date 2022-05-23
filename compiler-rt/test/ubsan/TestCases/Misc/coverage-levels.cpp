@@ -1,4 +1,4 @@
-// // Test various levels of coverage
+// Test various levels of coverage
 //
 // FIXME: Port the environment variable logic below for the lit shell.
 // REQUIRES: shell
