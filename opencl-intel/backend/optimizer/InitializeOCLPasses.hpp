@@ -26,7 +26,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeOCLBuiltinPreVectorizationPassPass(Registry);
     intel::initializeSpecialCaseBuiltinResolverPass(Registry);
     intel::initializeOCLBuiltinPreVectorizationPassPass(Registry);
-    intel::initializeCLBuiltinLICMPass(Registry);
     intel::initializeCLStreamSamplerPass(Registry);
 
     intel::initializePreventDivCrashesPass(Registry);

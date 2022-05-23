@@ -57,7 +57,6 @@ set(TARGET_INCLUDE_FILES
   ChooseVectorizationDimension/ChooseVectorizationDimension.h
   Heuristic/InstCounter.h
   IRPrinter/IRPrinter.h
-  LoopHandler/CLBuiltinLICM.h
   LoopHandler/CLStreamSampler.h
   OCLBranchProbability/OCLBranchProbability.h
   Packetizer/Packetizer.h
@@ -82,7 +81,6 @@ set(TARGET_SOURCE_FILES
   ChooseVectorizationDimension/ChooseVectorizationDimension.cpp
   Heuristic/InstCounter.cpp
   IRPrinter/IRPrinter.cpp
-  LoopHandler/CLBuiltinLICM.cpp
   LoopHandler/CLStreamSampler.cpp
   OCLBranchProbability/OCLBranchProbability.cpp
   Packetizer/Packetizer.cpp
