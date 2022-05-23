@@ -343,8 +343,15 @@
 
 ; CHECK: Running analysis: DPCPPAliasAnalysis
 
+; CHECK: Running pass: BuiltinLICMPass
+; CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Loop, llvm::LoopStandardAnalysisResults &>
+
 ; CHECK: Running pass: LICMPass
 ; CHECK-NEXT: Running pass: LoopStridedCodeMotionPass
+; CHECK-NEXT: Running analysis: LoopWIAnalysis
+
+; CHECK: Running pass: BuiltinLICMPass
+; CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Loop, llvm::LoopStandardAnalysisResults &>
 
 ; CHECK: Running pass: LICMPass
 ; CHECK-NEXT: Running pass: LoopStridedCodeMotionPass

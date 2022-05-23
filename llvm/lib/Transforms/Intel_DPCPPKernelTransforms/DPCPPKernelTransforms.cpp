@@ -22,6 +22,7 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeBarrierInFunctionLegacyPass(Registry);
   initializeBuiltinCallToInstLegacyPass(Registry);
   initializeBuiltinImportLegacyPass(Registry);
+  initializeBuiltinLICMLegacyPass(Registry);
   initializeBuiltinLibInfoAnalysisLegacyPass(Registry);
   initializeChannelPipeTransformationLegacyPass(Registry);
   initializeCleanupWrappedKernelLegacyPass(Registry);

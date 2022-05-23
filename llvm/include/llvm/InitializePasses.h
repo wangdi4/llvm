@@ -734,6 +734,7 @@ void initializeAutorunReplicatorLegacyPass(PassRegistry &);
 void initializeBarrierInFunctionLegacyPass(PassRegistry &);
 void initializeBuiltinCallToInstLegacyPass(PassRegistry &);
 void initializeBuiltinImportLegacyPass(PassRegistry &);
+void initializeBuiltinLICMLegacyPass(PassRegistry &);
 void initializeBuiltinLibInfoAnalysisLegacyPass(PassRegistry &);
 void initializeChannelPipeTransformationLegacyPass(PassRegistry &);
 void initializeCleanupWrappedKernelLegacyPass(PassRegistry &);

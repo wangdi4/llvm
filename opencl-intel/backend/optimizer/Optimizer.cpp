@@ -109,8 +109,6 @@ extern "C"{
 
 llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
-
-llvm::Pass *createCLBuiltinLICMPass();
 llvm::Pass *createCLStreamSamplerPass();
 llvm::Pass *createPreventDivisionCrashesPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
@@ -659,7 +657,7 @@ static void populatePassesPostFailCheck(
     // Add LoopSimplify pass before CLBuiltinLICM pass as CLBuiltinLICM pass
     // requires loops in Simplified Form.
     PM.add(createLoopSimplifyPass());
-    PM.add(createCLBuiltinLICMPass());
+    PM.add(llvm::createBuiltinLICMLegacyPass());
     PM.add(llvm::createLICMPass());
     PM.add(llvm::createLoopStridedCodeMotionLegacyPass());
     PM.add(createCLStreamSamplerPass());

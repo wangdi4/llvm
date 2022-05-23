@@ -9,6 +9,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   BarrierPass.cpp
   BuiltinCallToInst.cpp
   BuiltinImport.cpp
+  BuiltinLICM.cpp
   BuiltinLibInfoAnalysis.cpp
   ChannelPipeTransformation.cpp
   CleanupWrappedKernel.cpp

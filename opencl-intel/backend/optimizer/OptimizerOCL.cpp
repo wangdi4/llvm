@@ -610,11 +610,11 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   // After adding loops run loop optimizations.
   if (Level != OptimizationLevel::O0) {
     FunctionPassManager FPM2;
-    // Add LoopSimplify pass before CLBuiltinLICM pass as CLBuiltinLICM pass
+    // Add LoopSimplify pass before BuiltinLICM pass as BuiltinLICM pass
     // requires loops in Simplified Form.
     FPM2.addPass(LoopSimplifyPass());
-    //    MPM.addPass(CLBuiltinLICMPass());
     LoopPassManager LPM;
+    LPM.addPass(BuiltinLICMPass());
     LPM.addPass(LICMPass(SetLicmMssaOptCap, SetLicmMssaNoAccForPromotionCap,
                          /*AllowSpeculation*/ true));
     LPM.addPass(LoopStridedCodeMotionPass());
