@@ -1086,7 +1086,7 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
     if (ClauseInfo.getIsF90DopeVector()) {
       C.back()->setF90DVPointeeElementTypeFromIR(Args[2]->getType());
       C.back()->setNumElements(
-          ConstantInt::get(IntegerType::getInt32Ty(Args[2]->getContext()), 1));
+          ConstantInt::get(Type::getInt32Ty(Args[2]->getContext()), 1));
     } else
 #endif // INTEL_CUSTOMIZATION
     C.back()->setNumElements(Args[2]);

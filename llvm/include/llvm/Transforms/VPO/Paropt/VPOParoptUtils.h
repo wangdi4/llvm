@@ -2361,6 +2361,12 @@ public:
   /// nullptr otherwise. AddrSpace is the address space of the input item
   /// object.
   static std::tuple<Type *, Value *, unsigned> getItemInfo(const Item *I);
+#if INTEL_CUSTOMIZATION
+
+  /// For an F90_DV Item \p I, return the DV struct's type and the pointee
+  /// data's element type. \returns a \b tuple of <DVType, PointeeElementType>.
+  static std::tuple<Type *, Type *> getF90DVItemInfo(const Item *I);
+#endif // INTEL_CUSTOMIZATION
 
   /// Return default address space for the current target.
   /// It is vpo::ADDRESS_SPACE_GENERIC for SPIR-V targets, 0 - otherwise.
