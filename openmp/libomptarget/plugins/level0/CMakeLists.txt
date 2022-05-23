@@ -37,7 +37,7 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
     libomptarget_say("Building Level0 offloading plugin.")
 
     # Define the suffix for the runtime messaging dumps.
-    add_definitions(-DTARGET_NAME=LEVEL0)
+    #add_definitions(-DTARGET_NAME=LEVEL0)
     #add_definitions(-DTARGET_LEVEL0_VERSION=?)
 
     if(LIBOMPTARGET_CMAKE_BUILD_TYPE MATCHES debug)
@@ -47,10 +47,21 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
     include_directories(${LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS})
     include_directories(${LIBOMPTARGET_LLVM_INCLUDE_DIRS})
     add_library(omptarget.rtl.level0 SHARED src/rtl.cpp src/ompt-level0.cpp)
+
+    add_library(omptarget.sycl.wrap SHARED src/omp_sycl.cpp)
+    add_dependencies(omptarget.sycl.wrap sycl)
+    target_include_directories(omptarget.sycl.wrap PRIVATE
+        ${LLVM_BINARY_DIR}/include/sycl)
+    # Need to silence deprecated-declarations for the sycl wrapper
+    target_compile_options(omptarget.sycl.wrap PRIVATE
+        -Wno-deprecated-declarations)
+    set_property(TARGET omptarget.sycl.wrap PROPERTY CXX_STANDARD 17)
+
     if(NOT LIBOMPTARGET_DEP_LIBELF_FOUND OR LIBOMPTARGET_FORCE_LLVM_ELF)
       # Statically link C run-time library on Windows.
       # Otherwise, we cannot use LLVMObject and LLVMSupport.
       set_msvc_crt_flags(omptarget.rtl.level0)
+      set_msvc_crt_flags(omptarget.sycl.wrap)
     endif()
 
     if(NOT OPENMP_STANDALONE_BUILD)
@@ -58,13 +69,14 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
       # For standalone OpenMP build, we need to come up
       # with our own EH flags management.
       llvm_update_compile_flags(omptarget.rtl.level0)
+      llvm_update_compile_flags(omptarget.sycl.wrap)
     endif()
 
     # Install plugin under the lib destination folder.
     # DLL part (for DLL platforms) is installed into bin.
     # Do not install interface library for DLL platforms,
     # since the plugin is only supposed to be used by libomptarget.
-    install(TARGETS omptarget.rtl.level0
+    install(TARGETS omptarget.rtl.level0 omptarget.sycl.wrap
             LIBRARY COMPONENT llvm-level0-ompplugin
             DESTINATION lib${LIBOMPTARGET_LIBDIR_SUFFIX}
             RUNTIME COMPONENT llvm-level0-ompplugin
@@ -81,6 +93,20 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
           ${LIBOMPTARGET_DEP_LEVEL0_LIBRARIES} ${LIBOMP_LIB_FILE} dl
           ${OPENMP_PTHREAD_LIB}
           "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports")
+      # Compilation of the sycl wrapper requires runtime type information and
+      # exceptions enabled
+      # Xmain's self-build phase forces -stdlib=libc++ but sycl library removes
+      # this due to STL compatibility issues, and we need to force libstdc++ in
+      # that case.
+      if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
+        set(LIBOMPTARGET_LEVEL0_SYCL_FLAG "-stdlib=libstdc++")
+      endif()
+      target_compile_options(omptarget.sycl.wrap PRIVATE
+          -frtti -fexceptions
+          ${LIBOMPTARGET_LEVEL0_SYCL_FLAG}
+          -DSYCL_DISABLE_CPP_VERSION_CHECK_WARNING)
+      target_link_libraries(omptarget.sycl.wrap PRIVATE sycl
+          ${LIBOMPTARGET_LEVEL0_SYCL_FLAG})
     elseif(CMAKE_SYSTEM_NAME MATCHES "Windows")
       # Full path to the L0 library is recognized as a linker option, so we
       # separate directory and file name
@@ -91,7 +117,17 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
       target_link_libraries(omptarget.rtl.level0 PRIVATE
           ${LEVEL0_LIBRARY_NAME} ${LIBOMP_LIB_FILE}
           -LIBPATH:${LEVEL0_LIBRARY_PATH})
+      # Compilation of the sycl wrapper requires runtime type information and
+      # exceptions enabled
+      target_compile_options(omptarget.sycl.wrap PRIVATE
+          -GR -EHsc -DSYCL_DISABLE_CPP_VERSION_CHECK_WARNING)
+      if (CMAKE_BUILD_TYPE MATCHES Debug)
+        target_link_libraries(omptarget.sycl.wrap PRIVATE sycld)
+      else()
+        target_link_libraries(omptarget.sycl.wrap PRIVATE sycl)
+      endif()
       libomptarget_add_resource_file(omptarget.rtl.level0)
+      libomptarget_add_resource_file(omptarget.sycl.wrap)
     else()
       message(FATAL_ERROR "Missing platfrom support.")
     endif()
