@@ -3006,11 +3006,12 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
                                                         /* IsAnd */ IsAnd))
           return I;
 
-      if (auto *ICmp0 = dyn_cast<ICmpInst>(CondVal)) {
-        if (auto *ICmp1 = dyn_cast<ICmpInst>(Op1)) {
-          if (auto *V = foldAndOrOfICmpsOfAndWithPow2(ICmp0, ICmp1, &SI, IsAnd,
-                                                      /* IsLogical */ true))
+      if (auto *ICmp0 = dyn_cast<ICmpInst>(CondVal))
+        if (auto *ICmp1 = dyn_cast<ICmpInst>(Op1))
+          if (auto *V = foldAndOrOfICmps(ICmp0, ICmp1, SI, IsAnd,
+                                         /* IsLogical */ true))
             return replaceInstUsesWith(SI, V);
+<<<<<<< HEAD
 
           if (auto *V = foldEqOfParts(ICmp0, ICmp1, IsAnd))
             return replaceInstUsesWith(SI, V);
@@ -3028,6 +3029,8 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
         if (Instruction *X = recognizeFCmpMinMaxIdiom(SI))
           return X;
 #endif
+=======
+>>>>>>> 45226d04f016cf2fdfa8e4d84b31650b975c58e1
     }
 
     // select (select a, true, b), c, false -> select a, c, false
