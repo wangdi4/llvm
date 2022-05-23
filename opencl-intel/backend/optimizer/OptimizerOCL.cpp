@@ -351,7 +351,7 @@ void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
   if (m_IsFpgaEmulator) {
     MPM.addPass(DPCPPRewritePipesPass());
     MPM.addPass(ChannelPipeTransformationPass());
-    //    MPM.addPass(PipeIOTransformationPass());
+    MPM.addPass(PipeIOTransformationPass());
     MPM.addPass(PipeOrderingPass());
     MPM.addPass(AutorunReplicatorPass());
   }

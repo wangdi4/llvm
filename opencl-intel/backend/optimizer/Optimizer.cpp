@@ -111,7 +111,6 @@ llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
 llvm::Pass *createCLStreamSamplerPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
-llvm::ModulePass *createPipeIOTransformationPass();
 llvm::ModulePass *createPipeSupportPass();
 llvm::Pass *createBuiltinLibInfoPass(ArrayRef<Module *> pRtlModuleList,
                                      std::string type);
@@ -321,7 +320,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   if (isFpgaEmulator) {
       PM.add(createDPCPPRewritePipesLegacyPass());
       PM.add(createChannelPipeTransformationLegacyPass());
-      PM.add(createPipeIOTransformationPass());
+      PM.add(createPipeIOTransformationLegacyPass());
       PM.add(createPipeOrderingLegacyPass());
       PM.add(createAutorunReplicatorLegacyPass());
   }

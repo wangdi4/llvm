@@ -13,6 +13,7 @@
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intel_VectorVariant.h"
@@ -1014,10 +1015,22 @@ StructType *getStructFromTypePtr(Type *Ty) {
 }
 
 bool isSameStructType(StructType *STy1, StructType *STy2) {
+  if (!STy1 || !STy2)
+    return false;
   if (!STy1->hasName() || !STy2->hasName())
     return false;
   return 0 == stripStructNameTrailingDigits(STy1->getName())
                   .compare(stripStructNameTrailingDigits(STy2->getName()));
+}
+
+bool isSameStructPtrType(PointerType *PTy1, PointerType *PTy2) {
+  if (!PTy1 || !PTy2)
+    return false;
+  if (PTy1->isOpaque() || PTy2->isOpaque())
+    return false;
+  return isSameStructType(
+      dyn_cast<StructType>(PTy1->getNonOpaquePointerElementType()),
+      dyn_cast<StructType>(PTy2->getNonOpaquePointerElementType()));
 }
 
 PointerType *mutatePtrElementType(PointerType *SrcPTy, Type *DstTy) {

@@ -516,6 +516,7 @@ namespace {
       (void)llvm::createSinCosFoldLegacyPass();
       (void)llvm::createSoaAllocaAnalysisLegacyPass();
       (void)llvm::createPatchCallbackArgsLegacyPass(false);
+      (void)llvm::createPipeIOTransformationLegacyPass();
       (void)llvm::createPipeOrderingLegacyPass();
       (void)llvm::createPrepareKernelArgsLegacyPass(false);
       (void)llvm::createPreventDivCrashesLegacyPass();

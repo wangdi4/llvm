@@ -26,7 +26,6 @@ set(OCL_BE_PASSES
     LLVMBarrier
     LLVMVectorizer
     SubGroupAdaptation
-    PipeIOTransformation
     PipeSupport
     Prefetch
     SmartGVN

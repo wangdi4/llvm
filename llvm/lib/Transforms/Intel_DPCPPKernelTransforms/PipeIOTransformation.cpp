@@ -1,163 +1,105 @@
-// INTEL CONFIDENTIAL
+//= PipeIOTransformation.cpp - Transform pipe builtins to IO builtins - C++ -//
 //
-// Copyright 2018-2020 Intel Corporation.
+// Copyright (C) 2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you (License). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
 // License.
+//
+// ===--------------------------------------------------------------------===//
 
-#include "PipeIOTransformation.h"
-
-#include "llvm/ADT/MapVector.h"
-#include "llvm/Analysis/CallGraph.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/PipeIOTransformation.h"
+#include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/NoFolder.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Support/Debug.h"
+#include "llvm/PassRegistry.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPChannelPipeUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/RuntimeService.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/Utils/ModuleUtils.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 
-#include <CompilationUtils.h>
-#include <InitializePasses.h>
-#include <OCLAddressSpace.h>
-#include <OCLPassSupport.h>
-
-#include <string>
+#define DEBUG_TYPE "dpcpp-kernel-pipe-io-transform"
 
 using namespace llvm;
-using namespace DPCPPKernelMetadataAPI;
-using namespace Intel::OpenCL::DeviceBackend;
-using namespace Intel::OpenCL::DeviceBackend::ChannelPipeMetadata;
-
-namespace intel {
-char PipeIOTransformation::ID = 0;
-OCL_INITIALIZE_PASS_BEGIN(PipeIOTransformation, "pipe-io-transformation",
-                          "Transform pipes with io attributes", false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
-OCL_INITIALIZE_PASS_END(PipeIOTransformation, "pipe-io-transformation",
-                        "Transform pipes with io attributes", false, false)
-}
-
-#define DEBUG_TYPE "pipe-io-transformation"
+using namespace DPCPPChannelPipeUtils;
+using namespace DPCPPKernelCompilationUtils;
 
 namespace {
 
-typedef SmallPtrSet<Function *, 8> FunctionSet;
-typedef std::map<std::string, unsigned> PipeNameIdMap;
+/// Legacy PipeIOTransformation pass.
+class PipeIOTransformationLegacy : public ModulePass {
+  PipeIOTransformationPass Impl;
+
+public:
+  static char ID;
+
+  PipeIOTransformationLegacy() : ModulePass(ID) {
+    initializePipeIOTransformationLegacyPass(*PassRegistry::getPassRegistry());
+  }
+
+  StringRef getPassName() const override {
+    return "PipeIOTransformationLegacy";
+  }
+
+  bool runOnModule(Module &M) override {
+    auto *BLI = &getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
+    return Impl.runImpl(M, BLI);
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
+  }
+};
+
+} // namespace
+
+char PipeIOTransformationLegacy::ID = 0;
+INITIALIZE_PASS_BEGIN(PipeIOTransformationLegacy, DEBUG_TYPE,
+                      "PipeIOTransformationLegacy", false, false)
+INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
+INITIALIZE_PASS_END(PipeIOTransformationLegacy, DEBUG_TYPE,
+                    "PipeIOTransformationLegacy", false, false)
+
+ModulePass *llvm::createPipeIOTransformationLegacyPass() {
+  return new PipeIOTransformationLegacy();
+}
+
 // Vector of <Pipe, Pipe Id> pairs.
-typedef SmallVector<std::pair<Value *, unsigned>, 4> PipesWithIdVector;
-typedef MapVector<CallInst *, unsigned> PipesBuiltinsMap;
+using PipesWithIdVector = SmallVector<std::pair<Value *, unsigned>, 4>;
+using PipeNameIdMap = StringMap<unsigned>;
+using FuncToPipeArgVec = MapVector<Function *, PipesWithIdVector>;
+using PipesBuiltinsMap = MapVector<CallInst *, unsigned>;
 // Map from CallInst to a set of <Argument number, Pipe Id> pairs.
 // Pairs are sorted so that iteration is in the order of argument number.
-typedef MapVector<CallInst *, std::set<std::pair<unsigned, unsigned>>>
-    PipesCallToArgNos;
-typedef MapVector<Function *, PipesWithIdVector> FuncToPipeArgVec;
+using PipesCallToArgNos =
+    MapVector<CallInst *, std::set<std::pair<unsigned, unsigned>>>;
 
-} // anonymous namespace
-
-namespace intel {
-
-static Function *getPipeBuiltin(OCLBuiltins &Builtins, const PipeKind &Kind) {
-  if (Kind.Blocking) {
-    // There are no declarations and definitions of blocking pipe built-ins in
-    // RTL's.
-    // Calls to blocking pipe built-ins will be resolved later in PipeSupport,
-    // so we just need to insert declarations here.
-    PipeKind NonBlockingKind = Kind;
-    NonBlockingKind.Blocking = false;
-
-    Function *NonBlockingBuiltin =
-        Builtins.get(CompilationUtils::getPipeName(NonBlockingKind));
-    return cast<Function>(Builtins.getTargetModule().getOrInsertFunction(
-        CompilationUtils::getPipeName(Kind),
-        NonBlockingBuiltin->getFunctionType()).getCallee());
-  }
-
-  return Builtins.get(CompilationUtils::getPipeName(Kind));
-}
-
-static bool isPipe(const GlobalValue *GV, const PipeTypesHelper &PipeTypes) {
-  auto *GVValueTy = GV->getValueType();
-
-  if (PipeTypes.isPipeType(GVValueTy))
-    return true;
-
-  if (auto *GVArrTy = dyn_cast<ArrayType>(GVValueTy)) {
-    auto *ElTy = CompilationUtils::getArrayElementType(GVArrTy);
-    if (PipeTypes.isPipeType(ElTy))
-      return true;
-  }
-
-  return false;
-}
-
-static GlobalVariable *createGlobalTextConstant(Module &M,
-                                                const std::string &Name) {
-  ArrayType *Ty =
-      ArrayType::get(Type::getInt8Ty(M.getContext()), Name.size() + 1);
-  auto *ConstStringGV = new GlobalVariable(
-      M, Ty, /*isConstant=*/true, GlobalValue::PrivateLinkage,
-      /*Initializer=*/ConstantDataArray::getString(M.getContext(), Name),
-      Name + ".str", /*InsertBefore=*/nullptr);
-
-  ConstStringGV->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
-  const auto &DL = M.getDataLayout();
-  ConstStringGV->setAlignment(MaybeAlign(DL.getPrefTypeAlignment(Ty)));
-  return ConstStringGV;
-}
-
-PipeIOTransformation::PipeIOTransformation() : ModulePass(ID) {
-  initializePipeIOTransformationPass(*llvm::PassRegistry::getPassRegistry());
-}
-
-static void initializeGlobalPipeReleaseCall(Module & /*M*/,
-                                            Function *GlobalDtor,
-                                            Function *PipeReleaseFunc,
-                                            GlobalVariable *PipeGV) {
-  IRBuilder<> Builder(GlobalDtor->getEntryBlock().getTerminator());
-
-  Value *CallArgs[] = {Builder.CreateBitCast(
-      PipeGV, PipeReleaseFunc->getFunctionType()->getParamType(0))};
-
-  Builder.CreateCall(PipeReleaseFunc, CallArgs);
-}
-
-static Function *createGlobalPipeDtor(Module &M) {
-  auto *DtorTy = FunctionType::get(Type::getVoidTy(M.getContext()),
-                                   ArrayRef<Type *>(), false);
-
-  Function *Dtor =
-      cast<Function>(M.getOrInsertFunction("__pipe_global_dtor", DtorTy)
-                                          .getCallee());
-
-  Dtor->setLinkage(GlobalValue::ExternalLinkage);
-
-  auto *EntryBB = BasicBlock::Create(M.getContext(), "entry", Dtor);
-  ReturnInst::Create(M.getContext(), EntryBB);
-
-  appendToGlobalDtors(M, Dtor, /*Priority=*/65535);
-
-  return Dtor;
+static bool isPipeGV(const GlobalValue &GV, const PipeTypesHelper &PipeTypes) {
+  auto *VTy = GV.getValueType();
+  return PipeTypes.isPipeType(VTy) || PipeTypes.isPipeArrayType(VTy);
 }
 
 static bool processGlobalIOPipes(Module &M, const PipeTypesHelper &PipeTypes,
                                  PipesWithIdVector &PipesWithIdVec,
-                                 OCLBuiltins &Builtins, unsigned &PipeId,
+                                 RuntimeService *RTS, unsigned &PipeId,
                                  PipeNameIdMap &PipeNameIds) {
   bool Changed = false;
   Function *GlobalDtor = nullptr;
 
   for (auto &PipeGV : M.globals()) {
-    if (!isPipe(&PipeGV, PipeTypes))
+    if (!isPipeGV(PipeGV, PipeTypes))
       continue;
 
     // If IO pipe MD string is empty or GV has no IO pipe MD at all - skip it
@@ -167,10 +109,11 @@ static bool processGlobalIOPipes(Module &M, const PipeTypesHelper &PipeTypes,
       continue;
 
     if (!GlobalDtor)
-      GlobalDtor = createGlobalPipeDtor(M);
+      GlobalDtor = createPipeGlobalDtor(M);
 
-    initializeGlobalPipeReleaseCall(
-        M, GlobalDtor, Builtins.get("__pipe_release_fpga"), &PipeGV);
+    auto *PipeReleaseFunc = importFunctionDecl(
+        &M, RTS->findFunctionInBuiltinModules("__pipe_release_fpga"));
+    initializeGlobalPipeReleaseCall(GlobalDtor, PipeReleaseFunc, &PipeGV);
 
     ChannelPipeMD MD = getChannelPipeMetadata(&PipeGV);
     if (PipeNameIds.count(MD.IO))
@@ -192,15 +135,15 @@ static bool processIOPipesFromKernelArg(Module &M,
                                         PipeNameIdMap &PipeNameIds) {
   bool Changed = false;
 
-  auto KernelsVec = KernelList(M).getList();
-  for (auto *Kernel : KernelsVec) {
-    auto ArgIOAttributeList = KernelMetadataAPI(Kernel).ArgIOAttributeList;
+  for (auto *Kernel : DPCPPKernelMetadataAPI::KernelList(M)) {
+    auto ArgIOAttributeList =
+        DPCPPKernelMetadataAPI::KernelMetadataAPI(Kernel).ArgIOAttributeList;
     PipesWithIdVector Pipes;
     if (ArgIOAttributeList.hasValue()) {
       auto IOList = ArgIOAttributeList.getList();
-      auto *it = Kernel->arg_begin();
+      auto *It = Kernel->arg_begin();
       for (auto &IO : IOList) {
-        Value *Pipe = it++;
+        Value *Pipe = It++;
         std::string IOName = IO;
         if (IOName.empty())
           continue;
@@ -224,7 +167,8 @@ static bool processIOPipesFromKernelArg(Module &M,
 /// is io pipe and which io pipe it is. Therefore, there is no need to traverse
 /// CallGraph recursively.
 static void getPipeUsersInFunc(const Function *F, const Value *V,
-                               unsigned PipeId, std::set<User *> &VisitedUsers,
+                               unsigned PipeId,
+                               SmallPtrSetImpl<User *> &VisitedUsers,
                                PipesCallToArgNos &PCA, PipesBuiltinsMap &PBV) {
   for (auto &VU : V->uses()) {
     User *U = VU.getUser();
@@ -253,7 +197,7 @@ static void getPipeUsersInFunc(const Function *F, const Value *V,
             getPipeUsersInFunc(F, U, PipeId, VisitedUsers, PCA, PBV);
         }
       }
-      if (CompilationUtils::isPipeBuiltin(CFName.str()))
+      if (isPipeBuiltin(CFName))
         PBV[CI] = PipeId;
       else if (!CF->isDeclaration()) {
         // Found a user.
@@ -314,12 +258,12 @@ static void clonePipeFunctions(CallGraph &CG, const PipesCallToArgNos &PCA) {
 /// If io pipe is used as argument in a CallInst, clone called function.
 /// Run BFS to find pipe usages in a function and clone if needed. Run DFS to
 /// traverse all called functions in it.
-static void cloneFunctionsWithIOPipe(CallGraph &CG,
-                                     const PipesWithIdVector &GlobalPipes,
-                                     const FuncToPipeArgVec &FuncPipeArg,
-                                     PipesBuiltinsMap &PBV,
-                                     FunctionSet &VisitedFuncs) {
-  std::set<User *> VisitedUsers;
+static void
+cloneFunctionsWithIOPipe(CallGraph &CG, const PipesWithIdVector &GlobalPipes,
+                         const FuncToPipeArgVec &FuncPipeArg,
+                         PipesBuiltinsMap &PBV,
+                         SmallPtrSetImpl<Function *> &VisitedFuncs) {
+  SmallPtrSet<User *, 8> VisitedUsers;
   for (auto &FA : FuncPipeArg) {
     Function *F = FA.first;
     PipesCallToArgNos PCA;
@@ -364,75 +308,84 @@ static void cloneFunctionsWithIOPipe(CallGraph &CG,
   }
 }
 
+static GlobalVariable *createGlobalTextConstant(Module &M, StringRef Name) {
+  ArrayType *Ty =
+      ArrayType::get(Type::getInt8Ty(M.getContext()), Name.size() + 1);
+  auto *ConstStringGV = new GlobalVariable(
+      M, Ty, /*isConstant=*/true, GlobalValue::PrivateLinkage,
+      /*Initializer=*/ConstantDataArray::getString(M.getContext(), Name),
+      Name + ".str", /*InsertBefore=*/nullptr);
+
+  ConstStringGV->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+  const auto &DL = M.getDataLayout();
+  ConstStringGV->setAlignment(MaybeAlign(DL.getPrefTypeAlignment(Ty)));
+  return ConstStringGV;
+}
+
 static void replacePipeBuiltinCall(CallInst *PipeCall, GlobalVariable *TC,
-                                   OCLBuiltins &Builtins) {
+                                   RuntimeService *RTS) {
   IRBuilder<NoFolder> Builder(PipeCall);
   Function *CF = PipeCall->getCalledFunction();
   assert(CF && "Indirect function call");
-  PipeKind PK = CompilationUtils::getPipeKind(std::string(CF->getName()));
+  PipeKind PK = getPipeKind(CF->getName());
   PK.IO = true;
   PK.FPGA = true;
 
-  Function *Builtin = getPipeBuiltin(Builtins, PK);
+  Function *Builtin = getPipeBuiltin(*PipeCall->getModule(), RTS, PK);
   FunctionType *FTy = Builtin->getFunctionType();
-  Value *Args[] = {
-      PipeCall->getArgOperand(0), PipeCall->getArgOperand(1),
-      Builder.CreatePointerCast(TC, FTy->getParamType(2), ""),
-      PipeCall->getArgOperand(2), PipeCall->getArgOperand(3)};
+  Value *Args[] = {PipeCall->getArgOperand(0), PipeCall->getArgOperand(1),
+                   Builder.CreatePointerCast(TC, FTy->getParamType(2), ""),
+                   PipeCall->getArgOperand(2), PipeCall->getArgOperand(3)};
 
-  auto PC = Builder.CreateCall(Builtin, Args, PipeCall->getName());
+  auto *PC = Builder.CreateCall(Builtin, Args, PipeCall->getName());
   PipeCall->replaceAllUsesWith(PC);
   PipeCall->eraseFromParent();
 }
 
-bool PipeIOTransformation::runOnModule(Module &M) {
+bool PipeIOTransformationPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
   PipeTypesHelper PipeTypes(M);
   if (!PipeTypes.hasPipeTypes())
-    return false; // no pipes in the module, nothing to do
+    return false;
 
   bool Changed = false;
-  BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
-  OCLBuiltins Builtins(M, BLI.getBuiltinModules());
-
   // Each io pipe has a unique id. PipeId is incremented whenever an io pipe is
   // found in processGlobalIOPipes and processIOPipesFromKernelArg.
   unsigned PipeId = 0;
   PipesWithIdVector GlobalPipes;
   // Map from io pipe name to its id.
   PipeNameIdMap PipeNameIds;
-  Changed |= processGlobalIOPipes(M, PipeTypes, GlobalPipes, Builtins, PipeId,
-                                  PipeNameIds);
+  assert(BLI && "Invalid builtin lib info!");
+  auto *RTS = BLI->getRuntimeService();
+  assert(RTS && "Invalid runtime service!");
+  Changed |=
+      processGlobalIOPipes(M, PipeTypes, GlobalPipes, RTS, PipeId, PipeNameIds);
 
   FuncToPipeArgVec FuncPipeArg;
   Changed |= processIOPipesFromKernelArg(M, FuncPipeArg, PipeId, PipeNameIds);
 
   PipesBuiltinsMap PBV;
-  FunctionSet VisitedFuncs;
+  SmallPtrSet<Function *, 4> VisitedFuncs;
   CallGraph CG(M);
   cloneFunctionsWithIOPipe(CG, GlobalPipes, FuncPipeArg, PBV, VisitedFuncs);
 
   unsigned PipeCount = PipeNameIds.size();
   std::vector<GlobalVariable *> TCs(PipeCount);
   for (auto &NameId : PipeNameIds)
-    TCs[NameId.second] = createGlobalTextConstant(M, NameId.first);
+    TCs[NameId.second] = createGlobalTextConstant(M, NameId.first());
 
   for (auto &PC : PBV) {
     unsigned PipeId = PC.second;
     assert(PipeId < PipeCount && "Pipe id is out of range");
-    replacePipeBuiltinCall(PC.first, TCs[PipeId], Builtins);
+    replacePipeBuiltinCall(PC.first, TCs[PipeId], RTS);
   }
 
   return Changed;
 }
 
-void PipeIOTransformation::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
-}
-
-} // namespace intel
-
-extern "C" {
-ModulePass *createPipeIOTransformationPass() {
-  return new intel::PipeIOTransformation();
-}
+PreservedAnalyses PipeIOTransformationPass::run(Module &M,
+                                                ModuleAnalysisManager &AM) {
+  auto *BLI = &AM.getResult<BuiltinLibInfoAnalysis>(M);
+  if (!runImpl(M, BLI))
+    return PreservedAnalyses::all();
+  return PreservedAnalyses::none();
 }
