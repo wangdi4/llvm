@@ -54,6 +54,8 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
     add_library(omptarget.sycl.wrap SHARED src/omp_sycl.cpp)
     add_dependencies(omptarget.sycl.wrap sycl)
     target_include_directories(omptarget.sycl.wrap PRIVATE
+        ${LIBOMPTARGET_INCLUDE_DIR}
+        ${LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS}
         ${LLVM_BINARY_DIR}/include/sycl)
     # Need to silence deprecated-declarations for the sycl wrapper
     target_compile_options(omptarget.sycl.wrap PRIVATE
