@@ -28,6 +28,7 @@ FunctionPass *createAddNTAttrLegacyPass();
 FunctionPass *createBuiltinCallToInstLegacyPass();
 FunctionPass *createOptimizeIDivAndIRemLegacyPass();
 FunctionPass *createPhiCanonicalizationLegacyPass();
+FunctionPass *createPreventDivCrashesLegacyPass();
 FunctionPass *createRedundantPhiNodeLegacyPass();
 FunctionPass *createSinCosFoldLegacyPass();
 FunctionPass *createSoaAllocaAnalysisLegacyPass();

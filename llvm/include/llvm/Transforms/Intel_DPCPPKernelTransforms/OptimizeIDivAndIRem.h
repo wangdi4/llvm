@@ -1,4 +1,4 @@
-//===- OptimizeIDiv.h - OptimizeIDiv pass C++ -*---------------------------===//
+//===- OptimizeIDivAndIRem.h - OptimizeIDivAndIRem pass C++ -*-------------===//
 //
 // Copyright (C) 2022 Intel Corporation. All rights reserved.
 //

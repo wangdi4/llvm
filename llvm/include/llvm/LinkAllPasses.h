@@ -517,6 +517,7 @@ namespace {
       (void)llvm::createPatchCallbackArgsLegacyPass(false);
       (void)llvm::createPipeOrderingLegacyPass();
       (void)llvm::createPrepareKernelArgsLegacyPass(false);
+      (void)llvm::createPreventDivCrashesLegacyPass();
       (void)llvm::createProfilingInfoLegacyPass();
       (void)llvm::createChannelPipeTransformationLegacyPass();
       (void)llvm::createCleanupWrappedKernelLegacyPass();

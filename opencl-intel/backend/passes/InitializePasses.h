@@ -37,7 +37,6 @@ void initializeOCLBuiltinPreVectorizationPassPass(llvm::PassRegistry&);
 void initializeSpecialCaseBuiltinResolverPass(llvm::PassRegistry&);
 void initializeCLStreamSamplerPass(llvm::PassRegistry &);
 
-void initializePreventDivCrashesPass(llvm::PassRegistry&);
 void initializeBuiltinLibInfoPass(llvm::PassRegistry&);
 void initializePrefetchPass(llvm::PassRegistry&);
 void initializeLocalBuffersPass(llvm::PassRegistry &);

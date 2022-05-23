@@ -110,7 +110,6 @@ extern "C"{
 llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
 llvm::Pass *createCLStreamSamplerPass();
-llvm::Pass *createPreventDivisionCrashesPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
 llvm::ModulePass *createPipeIOTransformationPass();
 llvm::ModulePass *createPipeSupportPass();
@@ -599,8 +598,8 @@ static void populatePassesPostFailCheck(
   if (!isEyeQEmulator)
     PM.add(createOptimizeIDivAndIRemLegacyPass());
 
-  PM.add(createPreventDivisionCrashesPass());
-  // We need InstructionCombining and GVN passes after PreventDivisionCrashes
+  PM.add(createPreventDivCrashesLegacyPass());
+  // We need InstructionCombining and GVN passes after PreventDivCrashes
   // passes to optimize redundancy introduced by those passes
   if (OptLevel > 0) {
     PM.add(llvm::createInstructionCombiningPass());

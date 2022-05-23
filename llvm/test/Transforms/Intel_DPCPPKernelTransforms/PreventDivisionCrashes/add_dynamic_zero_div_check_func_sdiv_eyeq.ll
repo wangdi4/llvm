@@ -1,6 +1,7 @@
-; RUN: %oclopt -prevent-div-crash -eyeq-div-crash-behavior -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -prevent-div-crash -eyeq-div-crash-behavior -S %s -o %t.ll
-; RUN: FileCheck %s --input-file=%t.ll
+; RUN: opt -passes=dpcpp-kernel-prevent-div-crashes -dpcpp-eyeq-div-crash-behavior -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-prevent-div-crashes -dpcpp-eyeq-div-crash-behavior -S %s -o - | FileCheck %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-prevent-div-crashes -dpcpp-eyeq-div-crash-behavior -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-prevent-div-crashes -dpcpp-eyeq-div-crash-behavior -S %s -o - | FileCheck %s
 
 target triple = "spir64-unknown-unknown-inteleyeq"
 
