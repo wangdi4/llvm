@@ -2012,7 +2012,7 @@ Instruction *InstCombinerImpl::visitAnd(BinaryOperator &I) {
           return replaceInstUsesWith(I, Builder.CreateAnd(Res, Y));
       if (auto *Cmp = dyn_cast<ICmpInst>(Y))
         if (Value *Res = foldAndOrOfICmps(LHS, Cmp, I, /* IsAnd */ true))
-          return replaceInstUsesWith(I, Builder.CreateAnd(Res, X));
+          return replaceInstUsesWith(I, Builder.CreateAnd(X, Res));
     }
     if (RHS && match(Op0, m_OneUse(m_And(m_Value(X), m_Value(Y))))) {
       if (auto *Cmp = dyn_cast<ICmpInst>(X))
@@ -2020,7 +2020,7 @@ Instruction *InstCombinerImpl::visitAnd(BinaryOperator &I) {
           return replaceInstUsesWith(I, Builder.CreateAnd(Res, Y));
       if (auto *Cmp = dyn_cast<ICmpInst>(Y))
         if (Value *Res = foldAndOrOfICmps(Cmp, RHS, I, /* IsAnd */ true))
-          return replaceInstUsesWith(I, Builder.CreateAnd(Res, X));
+          return replaceInstUsesWith(I, Builder.CreateAnd(X, Res));
     }
   }
 
@@ -2816,7 +2816,7 @@ Instruction *InstCombinerImpl::visitOr(BinaryOperator &I) {
           return replaceInstUsesWith(I, Builder.CreateOr(Res, Y));
       if (auto *Cmp = dyn_cast<ICmpInst>(Y))
         if (Value *Res = foldAndOrOfICmps(LHS, Cmp, I, /* IsAnd */ false))
-          return replaceInstUsesWith(I, Builder.CreateOr(Res, X));
+          return replaceInstUsesWith(I, Builder.CreateOr(X, Res));
     }
     if (RHS && match(Op0, m_OneUse(m_Or(m_Value(X), m_Value(Y))))) {
       if (auto *Cmp = dyn_cast<ICmpInst>(X))
@@ -2824,7 +2824,7 @@ Instruction *InstCombinerImpl::visitOr(BinaryOperator &I) {
           return replaceInstUsesWith(I, Builder.CreateOr(Res, Y));
       if (auto *Cmp = dyn_cast<ICmpInst>(Y))
         if (Value *Res = foldAndOrOfICmps(Cmp, RHS, I, /* IsAnd */ false))
-          return replaceInstUsesWith(I, Builder.CreateOr(Res, X));
+          return replaceInstUsesWith(I, Builder.CreateOr(X, Res));
     }
   }
 
