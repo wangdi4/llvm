@@ -150,6 +150,8 @@
 ; CHECK-NEXT: Running pass: LoopUnrollPass
 ; CHECK-NEXT: Running pass: OptimizeIDivAndIRemPass
 
+; CHECK: Running pass: PreventDivCrashesPass
+
 ; CHECK: Running pass: InstCombinePass
 
 ; CHECK: Running analysis: DPCPPAliasAnalysis
@@ -162,6 +164,8 @@
 ; CHECK: Running pass: LoopUnrollPass
 
 ; CHECK: Running pass: OptimizeIDivAndIRemPass
+
+; CHECK: Running pass: PreventDivCrashesPass
 
 ; CHECK: Running pass: InstCombinePass
 
