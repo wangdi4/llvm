@@ -6621,6 +6621,10 @@ Value *VPOParoptTransform::genPrivatizationAlloca(
 
   Value *Orig = I->getOrig();
   assert(Orig && "Null original Value in clause item.");
+  // TODO: This will cause under-alignment. If getPointerAlignment cannot
+  // determine the alignment, it returns "Align(1)", not llvm::None.
+  // This seems to work because under-aligned stack vars are auto-aligned
+  // to the natural alignment by the backend.
   MaybeAlign OrigAlignment =
       Orig->getPointerAlignment(InsertPt->getModule()->getDataLayout());
 
@@ -6899,9 +6903,60 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
         }
       };
 
+  // Privatization may convert an aligned object, into a field in a struct
+  // which may be less aligned.
+  // Try to find the alignment of the new private value. Use "4" as a minimum.
+  const DataLayout &DL = W->getEntryDirective()->getModule()->getDataLayout();
+  Align MaxAlign(4);
+  // First get rid of casts.
+  SmallVector<Instruction *, 2> SeenCastInsts;
+  Value *NPV = VPOUtils::stripCasts(NewPrivValue, SeenCastInsts);
+  if (auto *ASC = dyn_cast<AddrSpaceCastOperator>(NPV))
+    NPV = ASC->getOperand(0);
+  // Then handle the various kinds of allocated private objects.
+  if (auto *GV = dyn_cast<GlobalObject>(NPV)) {
+    if (GV->getAlign().hasValue())
+      MaxAlign = GV->getAlign().valueOrOne();
+    else
+      MaxAlign = DL.getPrefTypeAlign(GV->getType());
+  } else if (auto *GEP = dyn_cast<GEPOperator>(NPV)) {
+    MaxAlign = DL.getPrefTypeAlign(GEP->getResultElementType());
+  } else if (auto *AI = dyn_cast<AllocaInst>(NPV)) {
+    MaxAlign = AI->getAlign();
+    // Possible under-aligned object. The backend rounds to the natural
+    // alignment.
+    if (MaxAlign < DL.getPrefTypeAlign(AI->getType()))
+      MaxAlign = DL.getPrefTypeAlign(AI->getType());
+  }
+
   while (!UserInsts.empty()) {
     Instruction *UI = UserInsts.pop_back_val();
     UI->replaceUsesOfWith(PrivValue, NewPrivValue);
+
+    // If the use of the new private value is more aligned than we can
+    // guarantee, reduce the alignment.
+    Value *TrueUse = UI;
+    if (isa<CastInst>(UI)) {
+      // If the user is a cast, look at the user of the cast.
+      // FIXME: This only assumes a cast with a single use.
+      // To really find all the loads and stores that are based on the
+      // private object, we need an iterative worklist search similar to
+      // the addrspace fixup below.
+      Use *SingleUse = UI->getSingleUndroppableUse();
+      if (SingleUse)
+        TrueUse = SingleUse->getUser();
+    }
+    // just handle intrinsics for now; loads and stores are usually
+    // natural-aligned and aren't causing a problem.
+    if (auto *MI = dyn_cast<MemTransferInst>(TrueUse)) {
+      if (MI->getDestAlign().valueOrOne() > MaxAlign ||
+          MI->getSourceAlign().valueOrOne() > MaxAlign) {
+        // if either the src or dest is over-aligned, match them
+        // both.
+        MI->setSourceAlignment(MaxAlign);
+        MI->setDestAlignment(MaxAlign);
+      }
+    }
 
     // In case we relinked the operand we have to check
     // whether the result type has to be mutated.
