@@ -35,7 +35,6 @@ void initializeX86ResolverPass(llvm::PassRegistry&);
 void initializeAVX512ResolverPass(llvm::PassRegistry&);
 void initializeOCLBuiltinPreVectorizationPassPass(llvm::PassRegistry&);
 void initializeSpecialCaseBuiltinResolverPass(llvm::PassRegistry&);
-void initializeCLBuiltinLICMPass(llvm::PassRegistry&);
 void initializeCLStreamSamplerPass(llvm::PassRegistry &);
 
 void initializePreventDivCrashesPass(llvm::PassRegistry&);

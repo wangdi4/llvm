@@ -956,6 +956,7 @@ LOOP_PASS("loop-bound-split", LoopBoundSplitPass())
 LOOP_PASS("loop-reroll", LoopRerollPass())
 LOOP_PASS("loop-versioning-licm", LoopVersioningLICMPass())
 #if INTEL_CUSTOMIZATION
+LOOP_PASS("dpcpp-kernel-builtin-licm", BuiltinLICMPass())
 LOOP_PASS("dpcpp-kernel-loop-strided-code-motion", LoopStridedCodeMotionPass())
 LOOP_PASS("print<dpcpp-kernel-loop-wi-analysis>", LoopWIAnalysisPrinter(dbgs()))
 #endif // INTEL_CUSTOMIZATION

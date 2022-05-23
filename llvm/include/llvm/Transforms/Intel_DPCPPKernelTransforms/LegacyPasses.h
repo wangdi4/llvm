@@ -38,6 +38,7 @@ ImmutablePass *
 createBuiltinLibInfoAnalysisLegacyPass(ArrayRef<Module *> BuiltinModules = {});
 ImmutablePass *createDPCPPAliasAnalysisLegacyPass();
 ImmutablePass *createDPCPPExternalAliasAnalysisLegacyPass();
+LoopPass *createBuiltinLICMLegacyPass();
 LoopPass *createLoopStridedCodeMotionLegacyPass();
 LoopPass *createLoopWIAnalysisLegacyPass();
 ModulePass *createAddFunctionAttrsLegacyPass();

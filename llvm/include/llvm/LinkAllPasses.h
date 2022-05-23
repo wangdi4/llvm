@@ -451,6 +451,7 @@ namespace {
       // DPCPP Kernel Transformations
       (void)llvm::createAddFunctionAttrsLegacyPass();
       (void)llvm::createBuiltinImportLegacyPass();
+      (void)llvm::createBuiltinLICMLegacyPass();
       (void)llvm::createBuiltinLibInfoAnalysisLegacyPass();
       (void)llvm::createCoerceWin64TypesLegacyPass();
       (void)llvm::createDPCPPAliasAnalysisLegacyPass();
