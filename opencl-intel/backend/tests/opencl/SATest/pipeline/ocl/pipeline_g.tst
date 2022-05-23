@@ -244,6 +244,7 @@
 ; CHECK: Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: LoopUnrollPass
 ; CHECK-NEXT: Running pass: OptimizeIDivAndIRemPass
+; CHECK-NEXT: Running pass: PreventDivCrashesPass
 ; CHECK-NEXT: Running pass: InstCombinePass
 ; CHECK-NEXT: Running pass: GVNPass
 
@@ -251,6 +252,7 @@
 ; CHECK-NEXT: Running pass: JumpThreadingPass
 ; CHECK-NEXT: Running pass: LoopUnrollPass
 ; CHECK-NEXT: Running pass: OptimizeIDivAndIRemPass
+; CHECK-NEXT: Running pass: PreventDivCrashesPass
 ; CHECK-NEXT: Running pass: InstCombinePass
 ; CHECK-NEXT: Running pass: GVNPass
 
@@ -259,6 +261,7 @@
 ; CHECK-NEXT: Running pass: LoopUnrollPass
 
 ; CHECK: Running pass: OptimizeIDivAndIRemPass
+; CHECK-NEXT: Running pass: PreventDivCrashesPass
 ; CHECK-NEXT: Running pass: InstCombinePass
 
 ; CHECK: Running pass: GVNPass

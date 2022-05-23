@@ -29,7 +29,6 @@ set(OCL_BE_PASSES
     PipeIOTransformation
     PipeSupport
     Prefetch
-    PreventDivCrashes
     SmartGVN
     StripIntelIP
 )

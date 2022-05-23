@@ -50,6 +50,7 @@
 ; CHECK-NEXT: Running pass: LoopUnrollPass
 ; CHECK-NEXT: Running pass: OptimizeIDivAndIRemPass
 ; CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<llvm::ModuleAnalysisManager, llvm::Function>
+; CHECK-NEXT: Running pass: PreventDivCrashesPass
 ; CHECK-NEXT: Running pass: IndirectCallLowering
 ; CHECK-NEXT: Running pass: RemoveRegionDirectivesPass
 ; CHECK-NEXT: Running pass: UnifyFunctionExitNodesPass

@@ -53,6 +53,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   PhiCanonicalization.cpp
   PipeOrdering.cpp
   PrepareKernelArgs.cpp
+  PreventDivCrashes.cpp
   ProfilingInfo.cpp
   ReduceCrossBarrierValues.cpp
   RedundantPhiNodePass.cpp

@@ -777,6 +777,7 @@ void initializePatchCallbackArgsLegacyPass(PassRegistry &);
 void initializePhiCanonicalizationLegacyPass(PassRegistry &);
 void initializePipeOrderingLegacyPass(PassRegistry &);
 void initializePrepareKernelArgsLegacyPass(PassRegistry &);
+void initializePreventDivCrashesLegacyPass(PassRegistry &);
 void initializeProfilingInfoLegacyPass(PassRegistry &);
 void initializeReduceCrossBarrierValuesLegacyPass(PassRegistry &);
 void initializeRedundantPhiNodeLegacyPass(PassRegistry &);

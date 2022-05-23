@@ -207,7 +207,7 @@ endif( LLVM_USE_OPROFILE )
 if( WIN32 AND NOT OPENCL_INTREE_BUILD)
     # Libraries in LLD_LIBS are in LLVM_LIBRARY_DIRS directory
     link_directories(${LLVM_LIBRARY_DIRS})
-endif( WIN32 )
+endif( WIN32 AND NOT OPENCL_INTREE_BUILD)
 
 set( BACKEND_PASSES
     LLVMBarrier
@@ -216,7 +216,6 @@ set( BACKEND_PASSES
     PipeSupport
     BuiltinLibInfo
     DebugInfoPass
-    PreventDivCrashes
     PrintIRPass
     KernelInfo
     Prefetch

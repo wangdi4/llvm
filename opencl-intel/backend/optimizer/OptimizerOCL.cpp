@@ -558,8 +558,8 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   if (!m_IsEyeQEmulator)
     FPM1.addPass(OptimizeIDivAndIRemPass());
 
-  //  FPM1.addPass(PreventDivisionCrashesPass());
-  // We need InstructionCombining and GVN passes after PreventDivisionCrashes
+  FPM1.addPass(PreventDivCrashesPass());
+  // We need InstructionCombining and GVN passes after PreventDivCrashes
   // passes to optimize redundancy introduced by those passes
   if (Level != OptimizationLevel::O0) {
     FPM1.addPass(InstCombinePass());
