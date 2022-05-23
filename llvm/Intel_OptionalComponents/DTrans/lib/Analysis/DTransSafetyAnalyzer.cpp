@@ -1899,7 +1899,8 @@ public:
     // a field element that is a pointer to a scalar type can be traced back to
     // newly allocated memory.
     auto IsSafeAllocatedMemoryStore = [this](Instruction &I,
-                                             DTransType *ExpectTy) {
+                                             DTransType *ExpectTy,
+                                             Value **Allocation) {
       // Look for a pattern such as:
       //   %a = call ptr @malloc(i64 %size)
       //   %int = ptrtoint ptr %a to i64
@@ -1930,6 +1931,7 @@ public:
         return nullptr;
       };
 
+      *Allocation = nullptr;
       auto *SI = dyn_cast<StoreInst>(&I);
       if (!SI)
         return false;
@@ -1951,18 +1953,21 @@ public:
       if (AKind == dtrans::AK_NotAlloc)
         return false;
 
-      // Check that the usage type is only i8* or the expected pointer type.
+      // Check that the usage type is only i8*, i8** or the expected pointer type.
       ValueTypeInfo *Info = PTA.getValueTypeInfo(ValOp);
       if (!Info)
         return false;
       auto &UseAliases = Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
       for (auto *AliasTy : UseAliases) {
-        if (AliasTy == DTransI8PtrType)
+        if (AliasTy == DTransI8PtrType ||
+            (AliasTy->isPointerTy() &&
+             AliasTy->getPointerElementType() == DTransI8PtrType))
           continue;
         if (AliasTy != ExpectTy)
           return false;
       }
 
+      *Allocation = SrcOp;
       return true;
     };
 
@@ -1974,7 +1979,8 @@ public:
     // should be allowed even if the structure field being stored to is a
     // double*:
     //   call void @llvm.memset.ptr.i64(ptr %290, i8 0, i64 %384, i1  false)
-    auto AreAllMemoryUsersSafe = [](Instruction &I, DTransType *ExpectTy) {
+    auto AreAllMemoryUsersSafe = [](Instruction &I, DTransType *ExpectTy,
+                                    Value *Allocation) {
       // Lambda to collect the set of Values that use 'V', either directly or
       // indirectly from 'V' being moved to another Value object.
       std::function<void(Value *, SmallPtrSetImpl<Value *> &)> CollectUsers =
@@ -1993,6 +1999,8 @@ public:
              ExpectTy->getPointerElementType()->isAtomicTy() &&
              "Field type needs to be pointer to atomic type");
 
+      llvm::Type *ExpectElemLLVMTy =
+          ExpectTy->getPointerElementType()->getLLVMType();
       auto *SI = cast<StoreInst>(&I);
       Value *ValOp = SI->getValueOperand();
       SmallPtrSet<Value *, 16> ValueUsers;
@@ -2026,16 +2034,50 @@ public:
         if (isa<ICmpInst>(V))
           continue;
 
+        // Storing a value of the expected array type at the pointer location is
+        // ok.
+        if (auto *UserSI = dyn_cast<StoreInst>(V))
+          if (UserSI->getPointerOperand() == ValOp &&
+              UserSI->getValueOperand()->getType() == ExpectElemLLVMTy)
+            continue;
+
+        // Loading a value of the expected array type from the pointer location
+        // is ok.
+        if (auto *UserLI = dyn_cast<LoadInst>(V))
+          if (UserLI->getPointerOperand() == ValOp &&
+              UserLI->getType() == ExpectElemLLVMTy)
+            continue;
+
         // Allow call to memset
         if (auto *II = dyn_cast<IntrinsicInst>(V))
           if (II->getIntrinsicID() == Intrinsic::memset)
             continue;
 
-        // Only allow a GEP that indexes the value using the field type.
+        // Only allow a GEP that indexes as one of the following:
+        // 1. A location in the dynamic array using the field's array type.
+        //      %x = getelementptr double, ptr %alloc, i64 %idx
+        // 2. The pattern for adjusting the pointer returned by the allocation
+        //     memory used to store the original allocated pointer may use a GEP
+        //    after the pointer alignment computation.
+        //    Instead of:
+        //      %manip2 = add i64 %manip1, -64
+        //
+        //    The offset is computed via a GEP:
+        //      %adjusted_alloc = inttoptr i64 %manip1 to ptr
+        //      %x = getelementptr ptr, ptr %adjusted_alloc, i64 -1
+        //      store ptr %alloc, ptr %x
         if (auto *GEP = dyn_cast<GetElementPtrInst>(V)) {
           llvm::Type *Ty = GEP->getSourceElementType();
-          if (ExpectTy->getPointerElementType()->getLLVMType() == Ty)
+          if (ExpectElemLLVMTy == Ty)
             continue;
+
+          if (GEP->getPointerOperand() == ValOp && GEP->getNumIndices() == 1 &&
+              GEP->hasOneUse()) {
+            auto *GEPUser = *GEP->user_begin();
+            if (auto *GEPUserSI = dyn_cast<StoreInst>(GEPUser))
+              if (GEPUserSI->getValueOperand() == Allocation)
+                continue;
+          }
         }
 
         return false;
@@ -2159,8 +2201,9 @@ public:
         // stored because the value had an i8* alias due to be a dynamically
         // allocated pointer. Check for that pattern before treating it as an
         // incompatible type.
-        if (!IsSafeAllocatedMemoryStore(I, IndexedType) ||
-            !AreAllMemoryUsersSafe(I, IndexedType)) {
+        Value* Allocation = nullptr;
+        if (!IsSafeAllocatedMemoryStore(I, IndexedType, &Allocation) ||
+            !AreAllMemoryUsersSafe(I, IndexedType, Allocation)) {
           TypesCompatible = false;
 
           // Check if the type of the values stored or loaded are used with

@@ -2982,8 +2982,14 @@ private:
 
       // Try to process the alias type for any of the potential types the base
       // pointer represents.
+      bool FoundType = false;
       for (auto *Alias :
            PointerInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl)) {
+        // Skip over an i8* type since there is no information that can be
+        // resolved from it.
+        if (Alias == PTA.getDTransI8PtrType())
+          continue;
+
         bool Handled = false;
         if (Alias->isPointerTy())
           Handled = ProcessIndexedElement(Alias->getPointerElementType(), Ops);
@@ -2994,7 +3000,15 @@ private:
           PointerInfo->setUnhandled();
           ResultInfo->setDependsOnUnhandled();
           LLVM_DEBUG(dbgs() << "unable to resolve index type: " << GEP << "\n");
+          break;
         }
+        FoundType = true;
+      }
+      if (!FoundType && PointerInfo->isCompletelyAnalyzed()) {
+        // No type was able to resolved for the GEP using the pointer.
+        PointerInfo->setUnhandled();
+        ResultInfo->setDependsOnUnhandled();
+        LLVM_DEBUG(dbgs() << "unable to resolve index type: " << GEP << "\n");
       }
       return;
     }
