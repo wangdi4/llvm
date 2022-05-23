@@ -24,15 +24,19 @@
 ; Compile options:
 ;   clang -cc1 -x cl -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -finclude-default-header -cl-std=CL1.2 -emit-llvm
 ; Optimizer options:
-;   opt -runtimelib=%p/../../vectorizer/Full/runtime.bc -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -dpcpp-kernel-channel-pipe-transformation -verify %s -S
+;   opt -dpcpp-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl.bc -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -dpcpp-kernel-channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
-; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-io-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-io-transformation -verify %s -S | FileCheck %s
 
-; CHECK: @llvm.global_dtors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 65535, void ()* @__pipe_global_dtor, i8* null }]
-; CHECK: @test1.str = private unnamed_addr constant [6 x i8] c"test1\00", align 1
-; CHECK: @test2.str = private unnamed_addr constant [6 x i8] c"test2\00", align 1
-; CHECK: @test_ch_in.str = private unnamed_addr constant [11 x i8] c"test_ch_in\00", align 1
+; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
+; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-pipe-io-transform %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-pipe-io-transform %s -S | FileCheck %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-kernel-pipe-io-transform %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-kernel-pipe-io-transform %s -S | FileCheck %s
+
+; CHECK-DAG: @llvm.global_dtors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 65535, void ()* @__pipe_global_dtor, i8* null }]
+; CHECK-DAG: @test1.str = private unnamed_addr constant [6 x i8] c"test1\00", align 1
+; CHECK-DAG: @test2.str = private unnamed_addr constant [6 x i8] c"test2\00", align 1
+; CHECK-DAG: @test_ch_in.str = private unnamed_addr constant [11 x i8] c"test_ch_in\00", align 1
 ;
 ; CHECK: define void @k1
 ; CHECK: %[[PIPERO:[0-9]+]] = load %opencl.pipe_ro_t {{.*}} %p1.addr

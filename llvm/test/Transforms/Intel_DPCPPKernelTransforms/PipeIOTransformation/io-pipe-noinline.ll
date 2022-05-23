@@ -1,9 +1,12 @@
-; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-io-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-io-transformation %s -S | FileCheck %s
+; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
+; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-pipe-io-transform %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-pipe-io-transform %s -S | FileCheck %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-kernel-pipe-io-transform %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-kernel-pipe-io-transform %s -S | FileCheck %s
 ;
 ; This test checks that io pipe is replaced with builtin correctly when
 ; user-defined functions are not inlined.
-; IR is dumped from VOLCANO_LLVM_OPTIONS=-print-before=pipe-io-transformation
+; IR is dumped from VOLCANO_LLVM_OPTIONS=-print-before=dpcpp-kernel-pipe-io-transform
 ; from following cl source:
 ;
 ; #pragma OPENCL EXTENSION cl_intel_channels:enable

@@ -378,6 +378,9 @@ StructType *getStructFromTypePtr(Type *Ty);
 /// %opencl.image2d_ro_t.0
 bool isSameStructType(StructType *STy1, StructType *STy2);
 
+/// Check if two types points to the same struct type.
+bool isSameStructPtrType(PointerType *PTy1, PointerType *PTy2);
+
 /// Replaces innermost element type from a pointer to a given struct type.
 PointerType *mutatePtrElementType(PointerType *SrcPTy, Type *DstTy);
 

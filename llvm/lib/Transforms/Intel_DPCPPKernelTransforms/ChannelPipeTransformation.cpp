@@ -71,27 +71,6 @@ INITIALIZE_PASS_END(ChannelPipeTransformationLegacy, DEBUG_TYPE,
                     "Transform Intel FPGA channels into OpenCL 2.0 pipes",
                     false, false)
 
-static Function *getPipeBuiltin(Module &M, RuntimeService *RTService,
-                                const PipeKind &Kind) {
-  if (Kind.Blocking) {
-    // There are no declarations and definitions of blocking pipe built-ins in
-    // RTL's.
-    // Calls to blocking pipe built-ins will be resolved later in PipeSupport,
-    // so we just need to insert declarations here.
-    PipeKind NonBlockingKind = Kind;
-    NonBlockingKind.Blocking = false;
-    Function *NonBlockingBuiltin = importFunctionDecl(
-        &M,
-        RTService->findFunctionInBuiltinModules(getPipeName(NonBlockingKind)));
-    return cast<Function>(
-        M.getOrInsertFunction(getPipeName(Kind),
-                              NonBlockingBuiltin->getFunctionType())
-            .getCallee());
-  }
-  return importFunctionDecl(
-      &M, RTService->findFunctionInBuiltinModules(getPipeName(Kind)));
-}
-
 static bool isGlobalChannel(const GlobalValue *GV, const Type *ChannelTy) {
   auto *GVValueTy = GV->getValueType();
 
