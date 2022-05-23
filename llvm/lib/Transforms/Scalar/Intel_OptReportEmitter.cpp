@@ -150,8 +150,19 @@ bool OptReportEmitter::run(Function &F, LoopInfo &LI) {
 
   // First check that there are attached reports to the function itself.
   OptReport FunOR = OptReportTraits<Function>::getOptReport(F);
-  if (FunOR)
-    printEnclosedOptReport(OS, 0, FunOR.firstChild());
+  if (FunOR) {
+    // Print the opt-report with remarks at function level.
+    if (!FunOR.remarks().empty()) {
+      printNodeHeaderAndOrigin(OS, 0, FunOR, DebugLoc());
+      for (const OptRemark R : FunOR.remarks())
+        printRemark(OS, 1, R);
+      printNodeFooter(OS, 0, FunOR);
+    }
+
+    // Print lost loop opt-reports attached at function level.
+    if (FunOR.firstChild())
+      printEnclosedOptReport(OS, 0, FunOR.firstChild());
+  }
 
   // Traversal through all loops of the program in lexicographical order.
   // Due to the specifics of loop build algorithm, it is achieved via reverse

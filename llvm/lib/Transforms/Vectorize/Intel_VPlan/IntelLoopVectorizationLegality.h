@@ -38,6 +38,7 @@ class Function;
 namespace vpo {
 class VPOVectorizationLegality;
 extern bool ForceComplexTyReductionVec;
+extern bool ForceInscanReductionVec;
 
 template <typename LegalityTy> class VectorizationLegalityBase {
   static constexpr IRKind IR =
@@ -66,7 +67,8 @@ public:
     ArrayLastprivateNonPod,
     ArrayPrivate,
     UserDefinedReduction,
-    UnsupportedReductionOp
+    UnsupportedReductionOp,
+    InscanReduction
   };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -88,6 +90,8 @@ public:
       return "User defined reductions are not supported.\n";
     case BailoutReason::UnsupportedReductionOp:
       return "A reduction of this operation is not supported.\n";
+    case BailoutReason::InscanReduction:
+      return "Inscan reduction is not supported.\n";
     }
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -96,6 +100,11 @@ public:
   /// reduction
   static bool forceComplexTyReductionVec() {
     return ForceComplexTyReductionVec;
+  }
+
+  /// Return true if requested to vectorize a loop with inscan reduction.
+  static bool forceInscanReductionVec() {
+    return ForceInscanReductionVec;
   }
 
 protected:
@@ -295,6 +304,9 @@ private:
   bool visitReduction(const ReductionItem *Item) {
     if (!forceComplexTyReductionVec() && Item->getIsComplex())
       return bailout(BailoutReason::ComplexTyReduction);
+
+    if (!forceInscanReductionVec() && Item->getIsInscan())
+      return bailout(BailoutReason::InscanReduction);
 
     Type *Type = nullptr;
     Value *NumElements = nullptr;

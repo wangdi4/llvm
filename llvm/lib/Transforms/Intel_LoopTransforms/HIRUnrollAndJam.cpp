@@ -446,6 +446,21 @@ bool LegalityChecker::canIgnoreRef(const RegDDRef *Ref,
   return true;
 }
 
+/// Returns true if the edge is between two sibling loops.
+static bool isInnerSiblingLoopEdge(const HLLoop *SrcLoop,
+                                   const HLLoop *SinkLoop) {
+
+  // If the LCALoop is different than both src/sink loops, then loops are in
+  // sibling loopnests.
+  auto *LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(SrcLoop, SinkLoop);
+
+  if ((SrcLoop != LCALoop) && (SinkLoop != LCALoop)) {
+    return true;
+  }
+
+  return false;
+}
+
 void LegalityChecker::visit(const HLDDNode *Node) {
 
   auto *ParentLoop = Node->getLexicalParentLoop();
@@ -462,10 +477,19 @@ void LegalityChecker::visit(const HLDDNode *Node) {
 
     for (auto *Edge : DDG.outgoing(Ref)) {
 
-      if (!isLegalToPermute(
-              Edge->getDV(),
-              (IsInnermostLoop ||
-               Edge->getSink()->getLexicalParentLoop()->isInnermost()))) {
+      auto *SinkLoop = Edge->getSink()->getLexicalParentLoop();
+
+      if (isInnerSiblingLoopEdge(ParentLoop, SinkLoop)) {
+        LLVM_DEBUG(dbgs() << "Illegal to unroll & jam due to dependence "
+                             "between inner sibling loops\n");
+        LLVM_DEBUG(Edge->dump());
+        IsLegal = false;
+        return;
+      }
+
+      if (!isLegalToPermute(Edge->getDV(),
+                            (IsInnermostLoop || SinkLoop->isInnermost()))) {
+        LLVM_DEBUG(Edge->dump());
         IsLegal = false;
         return;
       }

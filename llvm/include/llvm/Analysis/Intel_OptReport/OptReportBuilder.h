@@ -362,7 +362,7 @@ template <> struct OptReportTraits<Function> {
   static DebugLoc getDebugLoc(const Function &F) { return nullptr; }
 
   static Optional<std::string> getOptReportTitle(const Function &F) {
-    return None;
+    return std::string("FUNCTION REPORT");
   }
 };
 
