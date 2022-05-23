@@ -3011,26 +3011,12 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
           if (auto *V = foldAndOrOfICmps(ICmp0, ICmp1, SI, IsAnd,
                                          /* IsLogical */ true))
             return replaceInstUsesWith(SI, V);
-<<<<<<< HEAD
-
-          if (auto *V = foldEqOfParts(ICmp0, ICmp1, IsAnd))
-            return replaceInstUsesWith(SI, V);
-
-          // This pattern would usually be converted into a bitwise and/or based
-          // on "implies poison" reasoning. However, this may fail if adds with
-          // nowrap flags are involved.
-          if (auto *V = foldAndOrOfICmpsUsingRanges(ICmp0, ICmp1, IsAnd))
-            return replaceInstUsesWith(SI, V);
-        }
-      }
 
 #if INTEL_CUSTOMIZATION
       if (enableFcmpMinMaxCombine())
         if (Instruction *X = recognizeFCmpMinMaxIdiom(SI))
           return X;
 #endif
-=======
->>>>>>> 45226d04f016cf2fdfa8e4d84b31650b975c58e1
     }
 
     // select (select a, true, b), c, false -> select a, c, false
