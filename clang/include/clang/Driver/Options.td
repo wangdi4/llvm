@@ -2919,6 +2919,20 @@ def fno_openmp_device_lib_EQ : CommaJoined<["-"], "fno-openmp-device-lib=">, Fla
   Values<"libc, libm-fp32, libm-fp64, all">, HelpText<"Control exclusion of "
   "device libraries from device binary linkage. Valid arguments "
   "are libc, libm-fp32, libm-fp64, all">;
+def fopenmp_device_code_split_EQ
+    : Joined<["-"], "fopenmp-device-code-split=">, Group<f_Group>,
+      Flags<[CoreOption, HelpHidden]>, // Undocumented until full support is
+                                       // available and tested.
+      HelpText<"Perform device code split: "
+               "per_kernel (device code module is created for each kernel)">,
+      Values<"per_kernel, off">;
+def fopenmp_max_parallel_jobs_EQ
+    : Joined<["-"], "fopenmp-max-parallel-link-jobs=">, Group<f_Group>,
+      Flags<[CoreOption, HelpHidden]>, // Undocumented until full support is
+                                       // available and tested.
+      HelpText<"Controls the maximum parallelism of actions performed on "
+               "device code post-link, i.e. the generation of SPIR-V device "
+               "images or AOT compilation of each device image.">;
 def fiopenmp_offload : Flag<["-"], "fiopenmp-offload">, Flags<[NoXarchOption]>, Group<f_Group>;
 def fno_iopenmp_offload : Flag<["-"], "fno-iopenmp-offload">, Flags<[NoXarchOption]>, Group<f_Group>;
 def fopenmp_declare_target_scalar_defaultmap_EQ : Joined<["-"], "fopenmp-declare-target-scalar-defaultmap=">,
@@ -8086,6 +8100,30 @@ def _SLASH_Qopenmp_declare_target_scalar_defaultmap_COL :
   HelpText<"Assume that a scalar declare target variable with implicit "
   "data-mapping referenced in a 'target' construct has the same value "
   "in the host and device environment">;
+def _SLASH_Qopenmp_device_code_split_COL
+    : Option<["/", "-"], "Qopenmp-device-code-split:", KIND_JOINED>,
+      // Undocumented until full support is available and tested. Revert back
+      // to 'CLCommaJoined' when enabling.
+      Group<cl_Group>, Flags<[CLOption, NoXarchOption, HelpHidden]>,
+      Alias<fopenmp_device_code_split_EQ>,
+      HelpText<"Perform device code split: "
+               "per_kernel (device code module is created for each kernel)">,
+      Values<"per_kernel, off">;
+def _SLASH_Qopenmp_device_code_split_EQ
+    : CLJoined<"Qopenmp-device-code-split=">,
+      Alias<fopenmp_device_code_split_EQ>;
+def _SLASH_Qopenmp_max_parallel_jobs_COL
+    : Option<["/", "-"], "Qopenmp-max-parallel-link-jobs:", KIND_JOINED>,
+      // Undocumented until full support is available and tested. Revert back
+      // to 'CLCommaJoined' when enabling.
+      Group<cl_Group>, Flags<[CLOption, NoXarchOption, HelpHidden]>,
+      Alias<fopenmp_max_parallel_jobs_EQ>,
+      HelpText<"Controls the maximum parallelism of actions performed on "
+               "device code post-link, i.e. the generation of SPIR-V device "
+               "images or AOT compilation of each device image.">;
+def _SLASH_Qopenmp_max_parallel_jobs_EQ
+    : CLJoined<"Qopenmp-max-parallel-link-jobs=">,
+      Alias<fopenmp_max_parallel_jobs_EQ>;
 def _SLASH_Qopenmp_target_simdlen_EQ : CLJoined<"Qopenmp-target-simdlen=">,
   Alias<fopenmp_target_simdlen_EQ>;
 def _SLASH_Qopenmp_target_simdlen_COL : CLJoined<"Qopenmp-target-simdlen:">,

@@ -997,6 +997,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 #if INTEL_CUSTOMIZATION
   if (Calls.empty()) {
     Report->endSCC();
+    delete ILIC;
     return PreservedAnalyses::all();
   }
 #endif // INTEL_CUSTOMIZATION
