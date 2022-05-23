@@ -91,6 +91,7 @@ ModulePass *createLinearIdResolverPass();
 ModulePass *createLocalBufferAnalysisLegacyPass();
 ModulePass *createLocalBuffersLegacyPass(bool UseTLSGlobals);
 ModulePass *createPatchCallbackArgsLegacyPass(bool UseTLSGlobals);
+ModulePass *createPipeIOTransformationLegacyPass();
 ModulePass *createPipeOrderingLegacyPass();
 ModulePass *createPrepareKernelArgsLegacyPass(bool UseTLSGlobals);
 ModulePass *createProfilingInfoLegacyPass();

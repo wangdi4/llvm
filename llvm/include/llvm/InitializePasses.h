@@ -774,6 +774,7 @@ void initializeLoopWIAnalysisLegacyPass(PassRegistry &);
 void initializeOptimizeIDivAndIRemLegacyPass(PassRegistry &);
 void initializePatchCallbackArgsLegacyPass(PassRegistry &);
 void initializePhiCanonicalizationLegacyPass(PassRegistry &);
+void initializePipeIOTransformationLegacyPass(PassRegistry &);
 void initializePipeOrderingLegacyPass(PassRegistry &);
 void initializePrepareKernelArgsLegacyPass(PassRegistry &);
 void initializePreventDivCrashesLegacyPass(PassRegistry &);

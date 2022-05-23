@@ -51,6 +51,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   OptimizeIDivAndIRem.cpp
   PatchCallbackArgs.cpp
   PhiCanonicalization.cpp
+  PipeIOTransformation.cpp
   PipeOrdering.cpp
   PrepareKernelArgs.cpp
   PreventDivCrashes.cpp
