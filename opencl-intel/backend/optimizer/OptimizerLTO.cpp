@@ -128,6 +128,9 @@ void OptimizerLTO::Optimize(raw_ostream &LogStream) {
 
   registerLastPasses(MPM);
 
+  // Set custom DiagnosticHandler callback.
+  setDiagnosticHandler(LogStream);
+
   MPM.run(m_M, MAM);
 }
 

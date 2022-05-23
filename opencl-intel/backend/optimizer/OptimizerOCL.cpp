@@ -148,6 +148,9 @@ void OptimizerOCL::Optimize(raw_ostream &LogStream) {
   populatePassesPreFailCheck(MPM);
   populatePassesPostFailCheck(MPM);
 
+  // Set custom DiagnosticHandler callback.
+  setDiagnosticHandler(LogStream);
+
   MPM.run(m_M, MAM);
 }
 
@@ -260,7 +263,7 @@ void OptimizerOCL::createStandardLLVMPasses(ModulePassManager &MPM) const {
     LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
     UnrollOpts.setPartial(false).setRuntime(false).setThreshold(512);
     FPM3.addPass(LoopUnrollPass(UnrollOpts));
-    //    MPM.addPass(LoopUnrollPass(Level, false, false, 512, 0, 0, 0));
+
     // unroll loops with non-constant trip count
     const int thresholdBase = 16;
     int RTLoopUnrollFactor = Config.GetRTLoopUnrollFactor();

@@ -92,6 +92,9 @@ public:
   static const StringSet<> &getVPlanMaskedFuncs();
 
 protected:
+  /// Register OCLDiagnosticHandler callback to LLVMContext.
+  void setDiagnosticHandler(llvm::raw_ostream &LogStream);
+
   llvm::Module &m_M;
   /// Builtin rtl modules (not owned by this class).
   llvm::SmallVector<llvm::Module *, 2> m_RtlModules;
