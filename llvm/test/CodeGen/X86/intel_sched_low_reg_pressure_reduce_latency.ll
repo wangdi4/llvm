@@ -1,7 +1,12 @@
 ;RUN: llc < %s --stats -mtriple=x86_64-apple-darwin -mattr=+avx512bitalg,+avx512vl 2>&1 | FileCheck %s
 
+<<<<<<< HEAD
 ; CHECK:{{[0-6]}}{{[0-9]}} regalloc              - Number of reloads inserted
 ; CHECK:{{[0-6]}}{{[0-9]}} regalloc              - Number of spills inserted
+=======
+; CHECK:5{{[0-9]}} regalloc              - Number of reloads inserted
+; CHECK:5{{[0-9]}} regalloc              - Number of spills inserted
+>>>>>>> 6764610252dc65f3f172d77ea6b7b16b846edac1
 
 source_filename = "ld-temp.o"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
