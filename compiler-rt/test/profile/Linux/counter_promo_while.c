@@ -7,7 +7,9 @@
 // RUN: llvm-profdata merge -o %t.promo.profdata %t.promo.prof/
 // RUN: llvm-profdata show --counts --all-functions %t.promo.profdata  > %t.promo.dump
 // RUN: %clang_pgogen=%t.nopromo.prof/ -mllvm -do-counter-promotion=false -mllvm -simplifycfg-sink-common=false -o %t.nopromo.gen -O2 %s
-// RUN: %clang_pgogen=%t.nopromo.prof/ -mllvm -do-counter-promotion=false -mllvm -simplifycfg-sink-common=false -o %t.nopromo.gen.ll -emit-llvm -S -O2 -Xclang -no-opaque-pointers %s
+// INTEL_CUSTOMIZATION
+// RUN: %clang_pgogen=%t.nopromo.prof/ -mllvm -do-counter-promotion=false -mllvm -simplifycfg-sink-common=false -o %t.nopromo.gen.ll -emit-llvm -S -O2 -mllvm -enable-andersen=false -Xclang -no-opaque-pointers %s
+// end INTEL_CUSTOMIZATION
 // RUN: cat %t.nopromo.gen.ll | FileCheck --check-prefix=NOPROMO %s
 // RUN: %run %t.nopromo.gen
 // RUN: llvm-profdata merge -o %t.nopromo.profdata %t.nopromo.prof/
