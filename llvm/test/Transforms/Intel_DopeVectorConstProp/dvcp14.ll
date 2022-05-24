@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dopevectorconstprop  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
+; RUN: opt < %s -S -dope-vector-local-const-prop=false -dopevectorconstprop  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
+; RUN: opt < %s -S -dope-vector-local-const-prop=false -passes=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 
 ; Check that dope vector constants get propagated for uplevels #0 and #1 in
 ; new_solver_IP_specific_, a contained subroutine for new_solver_.
