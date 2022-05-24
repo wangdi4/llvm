@@ -165,6 +165,10 @@ static cl::opt<unsigned>
                          cl::desc("The max size of single BB loop which "
                                    "need shrink reg pressure limit"),
                          cl::init(100));
+static cl::opt<unsigned>
+    MaxSchedRegionInstrs("sched-region-instrs-limit", cl::Hidden,
+                         cl::desc("The max instructions in scheduling region"),
+                         cl::init(1000));
 #endif // INTEL_CUSTOMIZATION
 // DAG subtrees must have at least this many nodes.
 static const unsigned MinSubtreeSize = 8;
@@ -540,6 +544,10 @@ getSchedRegions(MachineBasicBlock *MBB,
         // count as a single instruction.
         ++NumRegionInstrs;
       }
+#if INTEL_CUSTOMIZATION
+      if (MaxSchedRegionInstrs == NumRegionInstrs)
+        break;
+#endif // INTEL_CUSTOMIZATION
     }
 
     // It's possible we found a scheduling region that only has debug
