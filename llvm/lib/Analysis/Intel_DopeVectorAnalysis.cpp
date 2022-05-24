@@ -274,6 +274,27 @@ static bool isCallToDeallocFunction(CallBase *Call,
   return false;
 }
 
+// Return true if the input BitCastOperator is casting the dope vector's
+// pointer address to initialize it as null (0).
+static bool bitCastUsedForInit(BitCastInst *BI, Value *DVObject) {
+  if (!EnabledRelaxedConditions || !BI || !DVObject)
+    return false;
+
+  if (!BI->hasOneUser())
+    return false;
+
+  Value *BCOperand = BI->getOperand(0);
+  if (BCOperand != DVObject)
+    return false;
+
+  StoreInst *SI = dyn_cast<StoreInst>(BI->user_back());
+  if (!SI)
+    return false;
+
+  ConstantInt *ZeroInit = dyn_cast<ConstantInt>(SI->getValueOperand());
+  return ZeroInit && ZeroInit->isZero();
+}
+
 // Given a Value and the TargetLibraryInfo, check if it is a BitCast
 // and is only used for data allocation and deallocation. Return the
 // call to the data alloc function.
@@ -981,7 +1002,7 @@ bool DopeVectorAnalyzer::getAllValuesHoldingFieldValue(
   return true;
 }
 
-void DopeVectorAnalyzer::analyze(bool ForCreation) {
+void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV) {
   LLVM_DEBUG(dbgs() << "\nChecking "
                     << (ForCreation ? "construction" : "use")
                     << " of dope vector: " << *DVObject << "\n");
@@ -994,6 +1015,8 @@ void DopeVectorAnalyzer::analyze(bool ForCreation) {
   GetElementPtrInst *StrideBase = nullptr;
   GetElementPtrInst *LowerBoundBase = nullptr;
 
+  bool AllocSiteFound = false;
+  bool PtrAddressInitFound = false;
   for (auto *DVUser : DVObject->users()) {
     // CMPLRLLVM-3747: DVCP analysis is disabled for opaque pointers. This
     // will be turned back on once the FE supplies a mechanism to collect the
@@ -1071,6 +1094,14 @@ void DopeVectorAnalyzer::analyze(bool ForCreation) {
         break;
       }
     } else if (const auto *CI = dyn_cast<CallInst>(DVUser)) {
+      if (IsLocalDV) {
+        LLVM_DEBUG(dbgs() << "Dope vector used in call when it was expected "
+                          << "to be local to the function: " << *CI << "\n");
+        setInvalid();
+        return;
+      }
+
+
       Function *F = CI->getCalledFunction();
       if (!F) {
         LLVM_DEBUG(dbgs() << "Dope vector passed in indirect function call:\n"
@@ -1094,7 +1125,7 @@ void DopeVectorAnalyzer::analyze(bool ForCreation) {
       // var. Save the variable and field number for later analysis. (The
       // dope vector should only ever need to be stored to a single uplevel,
       // but make sure we didn't see one yet.)
-      if (SI->getValueOperand() == DVObject) {
+      if (SI->getValueOperand() == DVObject && !IsLocalDV) {
         Value *PtrOp = SI->getPointerOperand();
         if (isFieldInUplevelTypeVar(PtrOp) && Uplevel.first == nullptr) {
           LLVM_DEBUG(dbgs() << "Dope vector needs uplevel analysis: "
@@ -1113,6 +1144,45 @@ void DopeVectorAnalyzer::analyze(bool ForCreation) {
                         << *DVUser << "\n");
       setInvalid();
       return;
+    } else if (auto *BI = dyn_cast<BitCastInst>(DVUser)) {
+      if (!IsLocalDV || !GetTLI) {
+        LLVM_DEBUG(dbgs() << "Unsupported use of dope vector object\n"
+                        << *DVUser << "\n");
+        setInvalid();
+        return;
+      }
+
+      bool BCForAlloc = bitCastUsedForAllocation(BI, *GetTLI);
+      bool BCForInit = bitCastUsedForInit(BI, DVObject);
+
+      if (!BCForAlloc && !BCForInit) {
+        LLVM_DEBUG(dbgs() << "Unsupported BitCastInst using dope vector "
+                          << "object\n" << *DVUser << "\n");
+        setInvalid();
+        return;
+      }
+
+      if (BCForAlloc) {
+        if (AllocSiteFound) {
+          LLVM_DEBUG(dbgs() << "Multiple allocations for dope vector "
+                            << "object\n" << *DVUser << "\n");
+          setInvalid();
+          return;
+        }
+
+        AllocSiteFound = true;
+      }
+
+      if (BCForInit) {
+        if (PtrAddressInitFound) {
+          LLVM_DEBUG(dbgs() << "Multiple initializations for dope vector "
+                            << "object\n" << *DVUser << "\n");
+          setInvalid();
+          return;
+        }
+
+        PtrAddressInitFound = true;
+      }
     } else {
       LLVM_DEBUG(dbgs() << "Unsupported use of dope vector object\n"
                         << *DVUser << "\n");
@@ -1139,6 +1209,15 @@ void DopeVectorAnalyzer::analyze(bool ForCreation) {
     Result = findPerDimensionArrayFieldGEP(*PerDimensionBase, DVR_LowerBound);
     if (Result.second == FR_Valid)
       LowerBoundBase = Result.first;
+  }
+
+  // If the dope vector is local to the function, then check if the allocation
+  // site was found.
+  if (IsLocalDV && !AllocSiteFound) {
+    LLVM_DEBUG(dbgs() << "Allocation site not found for local dope vector "
+                      << "object\n" << *DVObject << "\n");
+    setInvalid();
+    return;
   }
 
   // Check the uses of the fields to make sure there are no unsupported uses,
@@ -1241,6 +1320,15 @@ void DopeVectorAnalyzer::analyze(bool ForCreation) {
           setInvalid();
           return;
         }
+      }
+
+      // If the dope vector is used only for the local function then all
+      // the analysis process has been done and we can safely identify the
+      // constant values that will be propagated.
+      if (IsLocalDV) {
+        ExtentAddr[Dim].identifyConstantValue();
+        StrideAddr[Dim].identifyConstantValue();
+        LowerBoundAddr[Dim].identifyConstantValue();
       }
     }
   }
