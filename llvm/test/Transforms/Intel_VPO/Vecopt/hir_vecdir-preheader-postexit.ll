@@ -42,7 +42,7 @@ define void @foo(i64* nocapture %ary, i64 %size.inner) {
 ; CHECK-NEXT:        |   {
 ; CHECK-NEXT:        |      @llvm.memset.p0i64.i64(&((%ary)[0]),  0,  8,  0);
 
-; CHECK:             |         + DO i2 = 0, {{.*}} + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:             |         + DO i2 = 0, {{.*}}, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:        |         |   (<4 x i64>*)(%ary)[i2] = i2 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:        |         + END LOOP
 

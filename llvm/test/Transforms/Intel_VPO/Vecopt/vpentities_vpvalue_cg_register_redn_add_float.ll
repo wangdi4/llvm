@@ -28,7 +28,7 @@
 ; CHECK-HIR-LABEL: Function: foo_float
 ; CHECK-HIR: [[RED_INIT:%.*]] = -0.000000e+00;
 ; CHECK-HIR: [[PHI_TEMP:%.*]] = [[RED_INIT]];
-; CHECK-HIR: DO i1 = 0, {{.*}} + -1, 4   <DO_LOOP>
+; CHECK-HIR: DO i1 = 0, {{.*}}, 4   <DO_LOOP>
 ; CHECK-HIR: [[VEC_LD:%.*]] = (<4 x float>*)(%ptr)
 ; CHECK-HIR: [[RED_ADD:%.*]] = [[PHI_TEMP]] + [[VEC_LD]];
 ; CHECK-HIR: [[PHI_TEMP]] = [[RED_ADD]];

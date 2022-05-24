@@ -21,69 +21,70 @@
 
 ; CHECK-LABEL: Function: foo
 ; CHECK:          BEGIN REGION { modified }
-; CHECK-NEXT:           %sum.07 = %init;
-; CHECK-NEXT:           %.vec = 5 >u %N;
-; CHECK-NEXT:           %phi.temp = %sum.07;
-; CHECK-NEXT:           %phi.temp2 = 0;
-; CHECK-NEXT:           %extract.0. = extractelement %.vec,  0;
-; CHECK-NEXT:           if (%extract.0. == 1)
-; CHECK-NEXT:           {
-; CHECK-NEXT:              goto [[MERGE_AFTER_MAIN:.*]];
-; CHECK-NEXT:           }
-; CHECK-NEXT:           %ub.tmp = 1;
-; CHECK-NEXT:           %peel.ub = %ub.tmp  -  1;
+; CHECK-NEXT:        [[SUM_070:%.*]] = [[INIT0:%.*]];
+; CHECK-NEXT:        [[DOTVEC0:%.*]] = 5 >u [[N0:%.*]];
+; CHECK-NEXT:        [[PHI_TEMP0:%.*]] = [[SUM_070]]
+; CHECK-NEXT:        [[PHI_TEMP20:%.*]] = 0
+; CHECK-NEXT:        [[EXTRACT_0_0:%.*]] = extractelement [[DOTVEC0]],  0
+; CHECK-NEXT:        if ([[EXTRACT_0_0]] == 1)
+; CHECK-NEXT:        {
+; CHECK-NEXT:           goto [[MERGE_AFTER_MAIN:.*]];
+; CHECK-NEXT:        }
+; CHECK-NEXT:        [[UB_TMP0:%.*]] = 1
+; CHECK-NEXT:        [[PEEL_UB0:%.*]] = [[UB_TMP0]]  -  1
 
-; CHECK:                + DO i1 = 0, %peel.ub, 1   <DO_LOOP> <MAX_TC_EST = 3> <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
-; CHECK-NEXT:           |   %A.i = (%A)[i1];
-; CHECK-NEXT:           |   %sum.07 = %A.i  +  %sum.07;
-; CHECK-NEXT:           + END LOOP
+; CHECK:             + DO i1 = 0, [[PEEL_UB0]], 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK-NEXT:        |   [[A_I0:%.*]] = ([[A0:%.*]])[i1]
+; CHECK-NEXT:        |   [[SUM_070]] = [[A_I0]]  +  [[SUM_070]]
+; CHECK-NEXT:        + END LOOP
 
-; CHECK:                %.vec4 = 5 >u %N;
-; CHECK-NEXT:           %phi.temp = %sum.07;
-; CHECK-NEXT:           %phi.temp2 = %ub.tmp;
-; CHECK-NEXT:           %extract.0.7 = extractelement %.vec4,  0;
-; CHECK-NEXT:           if (%extract.0.7 == 1)
-; CHECK-NEXT:           {
-; CHECK-NEXT:              goto [[MERGE_AFTER_MAIN]];
-; CHECK-NEXT:           }
-; CHECK-NEXT:           %adj.tc = %N  -  1;
-; CHECK-NEXT:           %tgu = %adj.tc  /u  4;
-; CHECK-NEXT:           %vec.tc = %tgu  *  4;
-; CHECK-NEXT:           %adj.tc8 = %vec.tc  +  1;
-; CHECK-NEXT:           %red.init = 0;
-; CHECK-NEXT:           %red.init.insert = insertelement %red.init,  %sum.07,  0;
-; CHECK-NEXT:           %phi.temp9 = %red.init.insert;
+; CHECK:             [[DOTVEC40:%.*]] = 5 >u [[N0]]
+; CHECK-NEXT:        [[PHI_TEMP0]] = [[SUM_070]]
+; CHECK-NEXT:        [[PHI_TEMP20]] = [[UB_TMP0]]
+; CHECK-NEXT:        [[EXTRACT_0_70:%.*]] = extractelement [[DOTVEC40]],  0
+; CHECK-NEXT:        if ([[EXTRACT_0_70]] == 1)
+; CHECK-NEXT:        {
+; CHECK-NEXT:           goto [[MERGE_AFTER_MAIN]]
+; CHECK-NEXT:        }
+; CHECK-NEXT:        [[ADJ_TC0:%.*]] = [[N0]]  -  1
+; CHECK-NEXT:        [[TGU0:%.*]] = [[ADJ_TC0]]  /u  4
+; CHECK-NEXT:        [[VEC_TC0:%.*]] = [[TGU0]]  *  4
+; CHECK-NEXT:        [[ADJ_TC80:%.*]] = [[VEC_TC0]]  +  1
+; CHECK-NEXT:        [[RED_INIT0:%.*]] = 0
+; CHECK-NEXT:        [[RED_INIT_INSERT0:%.*]] = insertelement [[RED_INIT0]],  [[SUM_070]],  0
+; CHECK-NEXT:        [[PHI_TEMP90:%.*]] = [[RED_INIT_INSERT0]]
+; CHECK-NEXT:        [[LOOP_UB0:%.*]] = [[ADJ_TC80]]  -  1
 
-; CHECK:                + DO i1 = %ub.tmp, %adj.tc8 + -1, 4   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:           |   %.vec11 = (<4 x i32>*)(%A)[i1];
-; CHECK-NEXT:           |   %.vec12 = %.vec11  +  %phi.temp9;
-; CHECK-NEXT:           |   %phi.temp9 = %.vec12;
-; CHECK-NEXT:           + END LOOP
+; CHECK:             + DO i1 = [[UB_TMP0]], [[LOOP_UB0]], 4   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:        |   [[DOTVEC110:%.*]] = (<4 x i32>*)([[A0]])[i1]
+; CHECK-NEXT:        |   [[DOTVEC120:%.*]] = [[DOTVEC110]]  +  [[PHI_TEMP90]]
+; CHECK-NEXT:        |   [[PHI_TEMP90]] = [[DOTVEC120]]
+; CHECK-NEXT:        + END LOOP
 
-; CHECK:                %sum.07 = @llvm.vector.reduce.add.v4i32(%.vec12);
-; CHECK-NEXT:           %.vec14 = %N == %adj.tc8;
-; CHECK-NEXT:           %phi.temp = %sum.07;
-; CHECK-NEXT:           %phi.temp2 = %adj.tc8;
-; CHECK-NEXT:           %phi.temp17 = %sum.07;
-; CHECK-NEXT:           %phi.temp19 = %adj.tc8;
-; CHECK-NEXT:           %extract.0.21 = extractelement %.vec14,  0;
-; CHECK-NEXT:           if (%extract.0.21 == 1)
-; CHECK-NEXT:           {
-; CHECK-NEXT:              goto [[FINAL_MERGE:.*]];
-; CHECK-NEXT:           }
-; CHECK-NEXT:           [[MERGE_AFTER_MAIN]]:
-; CHECK-NEXT:           %lb.tmp = %phi.temp2;
-; CHECK-NEXT:           %sum.07 = %phi.temp;
+; CHECK:             [[SUM_070]] = @llvm.vector.reduce.add.v4i32([[DOTVEC120]])
+; CHECK-NEXT:        [[DOTVEC140:%.*]] = [[N0]] == [[ADJ_TC80]]
+; CHECK-NEXT:        [[PHI_TEMP0]] = [[SUM_070]]
+; CHECK-NEXT:        [[PHI_TEMP20]] = [[ADJ_TC80]]
+; CHECK-NEXT:        [[PHI_TEMP170:%.*]] = [[SUM_070]]
+; CHECK-NEXT:        [[PHI_TEMP190:%.*]] = [[ADJ_TC80]]
+; CHECK-NEXT:        [[EXTRACT_0_210:%.*]] = extractelement [[DOTVEC140]],  0
+; CHECK-NEXT:        if ([[EXTRACT_0_210]] == 1)
+; CHECK-NEXT:        {
+; CHECK-NEXT:           goto [[FINAL_MERGE:.*]];
+; CHECK-NEXT:        }
+; CHECK-NEXT:        [[MERGE_AFTER_MAIN]]:
+; CHECK-NEXT:        [[LB_TMP0:%.*]] = [[PHI_TEMP20]]
+; CHECK-NEXT:        [[SUM_070]] = [[PHI_TEMP0]]
 
-; CHECK:                + DO i1 = %lb.tmp, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
-; CHECK-NEXT:           |   %A.i = (%A)[i1];
-; CHECK-NEXT:           |   %sum.07 = %A.i  +  %sum.07;
-; CHECK-NEXT:           + END LOOP
+; CHECK:             + DO i1 = [[LB_TMP0]], [[N0]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK-NEXT:        |   [[A_I0]] = ([[A0]])[i1]
+; CHECK-NEXT:        |   [[SUM_070]] = [[A_I0]]  +  [[SUM_070]]
+; CHECK-NEXT:        + END LOOP
 
-; CHECK:                %phi.temp17 = %sum.07;
-; CHECK-NEXT:           %phi.temp19 = %N + -1;
-; CHECK-NEXT:           [[FINAL_MERGE]]:
-; CHECK-NEXT:     END REGION
+; CHECK:             [[PHI_TEMP170]] = [[SUM_070]]
+; CHECK-NEXT:        [[PHI_TEMP190]] = [[N0]] + -1
+; CHECK-NEXT:        [[FINAL_MERGE]]:
+; CHECK-NEXT:  END REGION
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

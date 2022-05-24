@@ -21,60 +21,63 @@
 
 ; CHECK-LABEL: Function: _Z3fooPlPS_
 ; CHECK:    BEGIN REGION { modified }
-; CHECK:          + DO i64 i1 = 0, 99, 1   <DO_LOOP>
-; CHECK:          |   %0 = (%lpp)[i1];
-; CHECK:          |   %1 = (%lp)[i1];
-; CHECK:          |   <LVAL-REG> NON-LINEAR i64 %1 {sb:9}
-; CHECK:          |   <RVAL-REG> {al:8}(LINEAR i64* %lp)[LINEAR i64 i1] inbounds  {sb:17}
-; CHECK:          |      <BLOB> LINEAR i64* %lp {sb:8}
-; CHECK:          |   if (%1 > 0)
-; CHECK:          |   {
-; CHECK:          |      %tgu = %1  /u  4;
-; CHECK:          |      <LVAL-REG> NON-LINEAR i64 %tgu {sb:20}
-; CHECK:          |      <RVAL-REG> NON-LINEAR i64 %1 {sb:9}
-; CHECK:          |      %vec.tc = %tgu  *  4;
-; CHECK:          |      %.vec = 0 == %vec.tc;
-; CHECK:          |      %phi.temp = 0;
-; CHECK:          |      %extract.0. = extractelement %.vec,  0;
-; CHECK:          |      if (%extract.0. == 1)
-; CHECK:          |      {
-; CHECK:          |         goto [[MERGE_AFTER_MAIN:.*]];
-; CHECK:          |      }
-; CHECK:          |      %tgu2 = %1  /u  4;
-; CHECK:          |      <LVAL-REG> NON-LINEAR i64 %tgu2 {sb:25}
-; CHECK:          |      <RVAL-REG> NON-LINEAR i64 %1 {sb:9}
-; CHECK:          |      %vec.tc3 = %tgu2  *  4;
-; CHECK:          |
-; CHECK:          |      + DO i64 i2 = 0, %vec.tc3 + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
-; CHECK:          |      |   (<4 x i64>*)(%0)[i2] = i2 + <i64 0, i64 1, i64 2, i64 3>;
-; CHECK:          |      + END LOOP
-; CHECK:          |
-; CHECK:          |      %.vec4 = %1 == %vec.tc3;
-; CHECK:          |      <LVAL-REG> NON-LINEAR <4 x i1> %.vec4 {sb:29}
-; CHECK:          |      <RVAL-REG> NON-LINEAR <4 x i64> %1 {sb:9}
-; CHECK:          |      <RVAL-REG> NON-LINEAR <4 x i64> %vec.tc3 {sb:26}
-; CHECK:          |      %phi.temp = %vec.tc3;
-; CHECK:          |      %phi.temp6 = %vec.tc3;
-; CHECK:          |      %extract.0.8 = extractelement %.vec4,  0;
-; CHECK:          |      if (%extract.0.8 == 1)
-; CHECK:          |      {
-; CHECK:          |         goto [[FINAL_MERGE:.*]];
-; CHECK:          |      }
-; CHECK:          |      [[MERGE_AFTER_MAIN]]:
-; CHECK:          |      %lb.tmp = %phi.temp;
-; CHECK:          |
-; CHECK:          |      + DO i64 i2 = %lb.tmp, %1 + -1, 1   <DO_LOOP>
-; CHECK:          |      |   (%0)[i2] = i2;
-; CHECK:          |      + END LOOP
-; CHECK:          |
-; CHECK:          |      %phi.temp6 = %1 + -1;
-; CHECK:          |      <LVAL-REG> NON-LINEAR i64 %phi.temp6 {sb:30}
-; CHECK:          |      <RVAL-REG> NON-LINEAR i64 %1 + -1 {sb:2}
-; CHECK:          |         <BLOB> NON-LINEAR i64 %1 {sb:9}
-; CHECK:          |      [[FINAL_MERGE]]:
-; CHECK:          |   }
-; CHECK:          + END LOOP
-; CHECK:    END REGION
+; CHECK:        + DO i64 i1 = 0, 99, 1   <DO_LOOP>
+; CHECK:        |   [[TMP0:%.*]] = ([[LPP0:%.*]])[i1]
+; CHECK:        |   [[TMP1:%.*]] = ([[LP0:%.*]])[i1]
+; CHECK:        |   <LVAL-REG> NON-LINEAR i64 [[TMP1]] {sb:9}
+; CHECK:        |   <RVAL-REG> {al:8}(LINEAR i64* [[LP0]])[LINEAR i64 i1] inbounds  {sb:17}
+; CHECK:        |      <BLOB> LINEAR i64* [[LP0]] {sb:8}
+; CHECK:        |   if ([[TMP1]] > 0)
+; CHECK:        |   {
+; CHECK:        |      [[TGU0:%.*]] = [[TMP1]]  /u  4
+; CHECK:        |      <LVAL-REG> NON-LINEAR i64 [[TGU0]] {sb:20}
+; CHECK:        |      <RVAL-REG> NON-LINEAR i64 [[TMP1]] {sb:9}
+; CHECK:        |
+; CHECK:        |      [[VEC_TC0:%.*]] = [[TGU0]]  *  4
+; CHECK:        |      [[DOTVEC0:%.*]] = 0 == [[VEC_TC0]]
+; CHECK:        |      [[PHI_TEMP0:%.*]] = 0
+; CHECK:        |      [[EXTRACT_0_0:%.*]] = extractelement [[DOTVEC0]],  0
+; CHECK:        |      if ([[EXTRACT_0_0]] == 1)
+; CHECK:        |      {
+; CHECK:        |         goto [[MERGE_AFTER_MAIN:.*]];
+; CHECK:        |      }
+; CHECK:        |      [[TGU20:%.*]] = [[TMP1]]  /u  4
+; CHECK:        |      <LVAL-REG> NON-LINEAR i64 [[TGU20]] {sb:25}
+; CHECK:        |      <RVAL-REG> NON-LINEAR i64 [[TMP1]] {sb:9}
+; CHECK:        |      [[VEC_TC30:%.*]] = [[TGU20]]  *  4
+; CHECK:        |
+; CHECK:        |      [[LOOP_UB0:%.*]] = [[VEC_TC30]]  -  1
+; CHECK:        |      <LVAL-REG> NON-LINEAR i64 [[LOOP_UB0]] {sb:27}
+; CHECK:        |      <RVAL-REG> NON-LINEAR i64 [[VEC_TC30]] {sb:26}
+; CHECK:        |      + DO i64 i2 = 0, [[LOOP_UB0]], 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:        |      |   (<4 x i64>*)([[TMP0]])[i2] = i2 + <i64 0, i64 1, i64 2, i64 3>
+; CHECK:        |      + END LOOP
+; CHECK:        |
+; CHECK:        |      [[DOTVEC40:%.*]] = [[TMP1]] == [[VEC_TC30]]
+; CHECK:        |      <LVAL-REG> NON-LINEAR <4 x i1> [[DOTVEC40]] {sb:30}
+; CHECK:        |      <RVAL-REG> NON-LINEAR <4 x i64> [[TMP1]] {sb:9}
+; CHECK:        |      <RVAL-REG> NON-LINEAR <4 x i64> [[VEC_TC30]] {sb:26}
+; CHECK:        |      [[PHI_TEMP0]] = [[VEC_TC30]]
+; CHECK:        |      [[PHI_TEMP60:%.*]] = [[VEC_TC30]]
+; CHECK:        |      [[EXTRACT_0_80:%.*]] = extractelement [[DOTVEC40]],  0
+; CHECK:        |      if ([[EXTRACT_0_80]] == 1)
+; CHECK:        |      {
+; CHECK:        |         goto [[FINAL_MERGE:.*]];
+; CHECK:        |      }
+; CHECK:        |      [[MERGE_AFTER_MAIN]]:
+; CHECK:        |      [[LB_TMP0:%.*]] = [[PHI_TEMP0]]
+; CHECK:        |      + DO i64 i2 = [[LB_TMP0]], [[TMP1]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:        |      |   ([[TMP0]])[i2] = i2
+; CHECK:        |      + END LOOP
+; CHECK:        |
+; CHECK:        |      [[PHI_TEMP60]] = [[TMP1]] + -1
+; CHECK:        |      <LVAL-REG> NON-LINEAR i64 [[PHI_TEMP60]] {sb:31}
+; CHECK:        |      <RVAL-REG> NON-LINEAR i64 [[TMP1]] + -1 {sb:2}
+; CHECK:        |         <BLOB> NON-LINEAR i64 [[TMP1]] {sb:9}
+; CHECK:        |      [[FINAL_MERGE]]:
+; CHECK:        |   }
+; CHECK:        + END LOOP
+; CHECK:  END REGION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
