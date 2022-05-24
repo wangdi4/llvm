@@ -71,6 +71,7 @@ const StringRef NAME_GET_ENQUEUED_LOCAL_SIZE = "get_enqueued_local_size";
 const StringRef NAME_BARRIER = "barrier";
 const StringRef NAME_WG_BARRIER = "work_group_barrier";
 const StringRef NAME_SG_BARRIER = "sub_group_barrier";
+const StringRef NAME_TLS_LOCAL_IDS = "LocalIds";
 const StringRef NAME_PREFETCH = "prefetch";
 const StringRef NAME_WAIT_GROUP_EVENTS = "wait_group_events";
 const StringRef SAMPLER = "sampler_t";
@@ -1164,6 +1165,16 @@ void moveInstructionIf(BasicBlock *FromBB, BasicBlock *ToBB,
     I->moveBefore(*ToBB, MovePos);
 }
 
+InstVec getCallInstUsersOfFunc(const Module &M, StringRef FuncName) {
+  InstVec CIs;
+  if (Function *F = M.getFunction(FuncName)) {
+    for (User *U : F->users())
+      if (auto *CI = dyn_cast<CallInst>(U))
+        CIs.push_back(CI);
+  }
+  return CIs;
+}
+
 FuncSet getAllSyncBuiltinsDecls(Module &M, bool IsWG) {
   FuncSet FSet;
 
@@ -1519,6 +1530,19 @@ void getImplicitArgs(Function *pFunc, Value **LocalMem, Value **WorkDim,
 GlobalVariable *getTLSGlobal(Module *M, unsigned Idx) {
   assert(M && "Module cannot be null");
   return M->getGlobalVariable(ImplicitArgsUtils::getArgName(Idx));
+}
+
+StringRef getTLSLocalIdsName() { return NAME_TLS_LOCAL_IDS; }
+
+Value *createGetPtrToLocalId(Value *LocalIdValues, Value *Dim,
+                             IRBuilderBase &Builder) {
+  SmallVector<Value *, 4> Indices;
+  Indices.push_back(Builder.getInt64(0));
+  Indices.push_back(Dim);
+  return Builder.CreateInBoundsGEP(
+      LocalIdValues->getType()->getScalarType()->getPointerElementType(),
+      LocalIdValues, Indices,
+      DPCPPKernelCompilationUtils::AppendWithDimension("pLocalId_", Dim));
 }
 
 void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
@@ -2478,6 +2502,108 @@ uint64_t getNumElementsOfNestedArray(const ArrayType *ArrTy) {
     ArrTy = InnerArrayTy;
   }
   return NumElements;
+}
+
+void patchNotInlinedTIDUserFunc(
+    Module &M, IRBuilderBase &Builder, const FuncSet &KernelAndSyncFuncs,
+    const InstVec &TIDCallsToFix,
+    DenseMap<Function *, Value *> &PatchedFToLocalIds,
+    PointerType *LocalIdAllocTy,
+    function_ref<Value *(CallInst *CI)> CreateLIDArg) {
+  FuncSet FuncsToPatch;
+  SetVector<CallInst *> CIsToPatch;
+  DenseMap<ConstantExpr *, Function *> ConstBitcastsToPatch;
+  FuncVec WorkList;
+
+  // Initialize the set of functions that need patching by selecting the
+  // functions which contain direct calls to get_*_id() and are w/o syncs.
+  for (auto *I : TIDCallsToFix) {
+    Function *Caller = cast<CallInst>(I)->getFunction();
+    FuncsToPatch.insert(Caller);
+    WorkList.push_back(Caller);
+  }
+
+  // Traverse back the call graph and find the set of all functions which need
+  // to be patched. Also find the corresponding call instructions.
+  // Functions which need to be patched are either:
+  // 1. Functions w/o sync instructions which are direct callers of get_*_id()
+  //    (handled in the loop above).
+  // 2. Functions which are direct callers of functions described in 1 or
+  //    (recursively) functions defined in this line which do not contain sync
+  //    instructions.
+  while (!WorkList.empty()) {
+    Function *F = WorkList.pop_back_val();
+    for (User *U : F->users()) {
+      // OCL2.0 : handle constant expression with bitcast of function pointer.
+      if (auto *CE = dyn_cast<ConstantExpr>(U)) {
+        if ((CE->getOpcode() == Instruction::BitCast ||
+             CE->getOpcode() == Instruction::AddrSpaceCast) &&
+            CE->getType()->isPointerTy()) {
+          ConstBitcastsToPatch[CE] = F;
+          continue;
+        }
+      }
+
+      auto *CI = dyn_cast<CallInst>(U);
+      if (!CI)
+        continue;
+      CIsToPatch.insert(CI);
+      Function *Caller = CI->getFunction();
+      assert(Caller && "invalid caller");
+      if (KernelAndSyncFuncs.contains(Caller))
+        continue;
+      FuncsToPatch.insert(Caller);
+      WorkList.push_back(Caller);
+    }
+  }
+
+  DenseMap<Function *, Function *> OldF2PatchedF;
+
+  // Setup stuff needed for adding another argument to patched functions.
+  auto &Ctx = M.getContext();
+  auto NewAttrSet =
+      AttributeSet::get(Ctx, {Attribute::get(Ctx, Attribute::NoAlias)});
+
+  // Patch the functions.
+  for (Function *OldF : FuncsToPatch) {
+    Function *PatchedF = AddMoreArgsToFunc(OldF, LocalIdAllocTy, {"local.ids"},
+                                           {NewAttrSet}, "patched");
+    OldF2PatchedF[OldF] = PatchedF;
+    PatchedFToLocalIds[PatchedF] = &*(PatchedF->arg_end() - 1);
+  }
+
+  // Patch the calls.
+  for (CallInst *CI : CIsToPatch) {
+    Function *Caller = CI->getFunction();
+    Function *Callee = CI->getCalledFunction();
+    assert(OldF2PatchedF.count(Callee) && "callee not found in the map");
+    Function *PatchedF = OldF2PatchedF[Callee];
+    auto It = PatchedFToLocalIds.find(Caller);
+    Value *NewArg;
+    if (It != PatchedFToLocalIds.end())
+      NewArg = It->second;
+    else
+      NewArg = CreateLIDArg(CI);
+    SmallVector<Value *, 1> NewArgs(1, NewArg);
+    (void)AddMoreArgsToCall(CI, NewArgs, PatchedF);
+  }
+
+  // Patch the constant function ptr addr bitcasts. Used in OpenCL 2.0 extended
+  // execution.
+  for (auto &Pair : ConstBitcastsToPatch) {
+    ConstantExpr *CE = Pair.first;
+    Function *F = Pair.second;
+    assert(OldF2PatchedF.count(F) && "patched function not found in the map");
+    Function *PatchedF = OldF2PatchedF[F];
+
+    // This case happens when global block variable is used.
+    auto *NewCE = ConstantExpr::getPointerCast(PatchedF, CE->getType());
+    CE->replaceAllUsesWith(NewCE);
+  }
+
+  // Erase the functions since they're replaced with the ones patched.
+  for (Function *OldF : FuncsToPatch)
+    OldF->eraseFromParent();
 }
 
 } // end namespace DPCPPKernelCompilationUtils

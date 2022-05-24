@@ -117,7 +117,7 @@ attributes #3 = { convergent }
 !sycl.kernels = !{!3}
 
 !0 = !{i32 2, i32 0}
-!1 = !{!"-cl-std=CL2.0", !"-cl-kernel-arg-info", !"-cl-opt-disable"}
+!1 = !{!"-cl-std=CL2.0", !"-cl-opt-disable"}
 !2 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2022.1.0 (2022.x.0.YYYYMMDD)"}
 !3 = !{void (i32 addrspace(1)*, i32)* @test}
 !4 = !{i32 1, i32 0}

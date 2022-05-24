@@ -4,10 +4,10 @@
 ; RUN: opt -dpcpp-kernel-analysis %s -S -debug -disable-output 2>&1| FileCheck %s
 
 ; CHECK: KernelAnalysis
-; CHECK: Kernel <kernel_call_func_with_gid>: NoBarrierPath=0
-; CHECK: Kernel <kernel_call_func_with_lid>: NoBarrierPath=0
-; CHECK: Kernel <kernel_call_func_call_func_with_gid>: NoBarrierPath=0
-; CHECK: Kernel <kernel_call_func_call_func_with_lid>: NoBarrierPath=0
+; CHECK: Kernel <kernel_call_func_with_gid>: NoBarrierPath=1
+; CHECK: Kernel <kernel_call_func_with_lid>: NoBarrierPath=1
+; CHECK: Kernel <kernel_call_func_call_func_with_gid>: NoBarrierPath=1
+; CHECK: Kernel <kernel_call_func_call_func_with_lid>: NoBarrierPath=1
 ; CHECK: Kernel <kernel_call_func_without_tid>: NoBarrierPath=1
 
 define void @func_with_gid(i32 addrspace(1)* %out) nounwind alwaysinline {

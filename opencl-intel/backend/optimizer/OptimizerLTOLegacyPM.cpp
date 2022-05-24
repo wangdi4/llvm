@@ -224,7 +224,9 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
                                                 /*ResolveSGBarrier*/ false));
   if (OptLevel > 0 && Config.GetStreamingAlways())
     MPM.add(createAddNTAttrLegacyPass());
-  MPM.add(createDPCPPKernelWGLoopCreatorLegacyPass());
+  if (m_debugType == intel::Native)
+    MPM.add(createImplicitGIDLegacyPass(/*HandleBarrier*/ false));
+  MPM.add(createDPCPPKernelWGLoopCreatorLegacyPass(m_UseTLSGlobals));
 
   // Can't run loop unroll between WGLoopCreator and LoopIdiom for scalar
   // workload, which can benefit from LoopIdiom.

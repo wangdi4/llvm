@@ -24,6 +24,7 @@
 #include "llvm/IR/Module.h"
 
 namespace llvm {
+class IRBuilderBase;
 
 namespace {
 struct OpUseIterator {
@@ -563,6 +564,9 @@ CallInst *addMoreArgsToIndirectCall(CallInst *OldC, ArrayRef<Value *> NewArgs);
 /// Obtain CL version from "!opencl.ocl.version" named metadata.
 unsigned fetchCLVersionFromMetadata(const Module &M);
 
+/// Collect all CallInst users of a function in a module.
+InstVec getCallInstUsersOfFunc(const Module &M, StringRef FuncName);
+
 /// Collect built-ins declared in the module and force synchronization, i.e.
 /// implemented using barrier built-in.
 /// \param M the module to search synchronize built-ins declarations in.
@@ -602,6 +606,13 @@ void getImplicitArgs(Function *F, Value **LocalMem, Value **WorkDim,
 /// \param M The module for which global variable needs to be retrieved.
 /// \param Idx The ImplicitArgsUtils::ImplicitArg index of the requested global.
 GlobalVariable *getTLSGlobal(Module *M, unsigned Idx);
+
+/// Return the name of TLS LocalIds, which is a global variable.
+StringRef getTLSLocalIdsName();
+
+/// Create GEP of TLS LocalIds.
+Value *createGetPtrToLocalId(Value *LocalIdValues, Value *Dim,
+                             IRBuilderBase &Builder);
 
 /// @brief Moves alloca instructions from FromBB to ToBB
 void moveAlloca(BasicBlock *FromBB, BasicBlock *ToBB);
@@ -739,6 +750,27 @@ void calculateMemorySizeWithPostOrderTraversal(
 /// Get total number of elements of nested array type.
 /// e.g. [2 x [3 x i32]] --> 6
 uint64_t getNumElementsOfNestedArray(const ArrayType *ArrTy);
+
+/// Patch a set of functions that meets following conditions:
+///   * Call graph contains get_*_id call.
+///   * Not a kernel.
+///   * Doesn't contain sync instructions.
+/// These functions will be patched with TID parameters in non-debug mode.
+/// \param M module to search.
+/// \param Builder IRBuilder instance.
+/// \param KernelAndSyncFuncs a set of all kernels, and all functions whose call
+/// graph contains sync instructions.
+/// \param TIDCallsToFix vector of get_*_id calls that are in the functions.
+/// \param PatchedFToLocalIds map from patched function to local ids. It may be
+/// updated if new local ids are created.
+/// \param LocalIdAllocTy local.ids alloca type.
+/// \param CreateLIDArg function object to create local.ids argument for.
+void patchNotInlinedTIDUserFunc(
+    Module &M, IRBuilderBase &Builder, const FuncSet &KernelAndSyncFuncs,
+    const InstVec &TIDCallsToFix,
+    DenseMap<Function *, Value *> &PatchedFToLocalIds,
+    PointerType *LocalIdAllocTy,
+    function_ref<Value *(CallInst *CI)> CreateLIDArg);
 
 } // namespace DPCPPKernelCompilationUtils
 } // namespace llvm

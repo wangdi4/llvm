@@ -28,22 +28,16 @@
 ; CHECK-NEXT: Running pass: UnifyFunctionExitNodesPass
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
 ; CHECK-NEXT: Running pass: DuplicateCalledKernels
-; CHECK-NEXT: Running pass: intel::KernelSubGroupInfoPass
-; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
-; CHECK-NEXT: Invalidating analysis: CallGraphAnalysis
-; CHECK-NEXT: Invalidating analysis: ImplicitArgsAnalysis
+; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
 ; CHECK-NEXT: Running pass: ReqdSubGroupSizePass
 ; CHECK-NEXT: Running pass: SetVectorizationFactorPass
 ; CHECK-NEXT: Running analysis: VFAnalysis
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
 ; CHECK-NEXT: Running analysis: WeightedInstCountAnalysis
 ; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
 ; CHECK-NEXT: Running analysis: LoopAnalysis
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-NEXT: Running analysis: TargetLibraryAnalysis
-; CHECK-NEXT: Running analysis: AssumptionAnalysis
-; CHECK-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
 ; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass
@@ -51,47 +45,51 @@
 ; CHECK-NEXT: Running pass: OptimizeIDivAndIRemPass
 ; CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<llvm::ModuleAnalysisManager, llvm::Function>
 ; CHECK-NEXT: Running pass: PreventDivCrashesPass
+; CHECK-NEXT: Running pass: ImplicitGIDPass
+; CHECK-NEXT: Running analysis: Intel Kernel DataPerBarrier Analysis
+; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
+; CHECK-NEXT: Invalidating analysis: CallGraphAnalysis
+; CHECK-NEXT: Invalidating analysis: ImplicitArgsAnalysis
+; CHECK-NEXT: Invalidating analysis: VFAnalysis
+; CHECK-NEXT: Invalidating analysis: VerifierAnalysis
+; CHECK-NEXT: Running pass: DPCPPKernelWGLoopCreatorPass
+; CHECK-NEXT: Invalidating analysis: Intel Kernel DataPerBarrier Analysis
 ; CHECK-NEXT: Running pass: IndirectCallLowering
+; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
 ; CHECK-NEXT: Running pass: RemoveRegionDirectivesPass
 ; CHECK-NEXT: Running pass: UnifyFunctionExitNodesPass
 ; CHECK-NEXT: Running pass: PhiCanonicalization
+; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
+; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
 ; CHECK-NEXT: Running pass: Intel Kernel RedundantPhiNode
 ; CHECK-NEXT: Running pass: GroupBuiltinPass
 ; CHECK-NEXT: Running pass: Intel Kernel BarrierInFunction
 ; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
-; CHECK-NEXT: Invalidating analysis: VFAnalysis
-; CHECK-NEXT: Invalidating analysis: VerifierAnalysis
 ; CHECK-NEXT: Running pass: SGBuiltinPass
 ; CHECK-NEXT: Running analysis: SGSizeAnalysisPass
 ; CHECK-NEXT: Running pass: SGBarrierPropagatePass
 ; CHECK-NEXT: Running pass: SGBarrierSimplifyPass
 ; CHECK-NEXT: Running pass: ImplicitGIDPass
 ; CHECK-NEXT: Running analysis: Intel Kernel DataPerBarrier Analysis
-; CHECK-NEXT: Invalidating analysis: SGSizeAnalysisPass
 ; CHECK-NEXT: Running pass: SGValueWidenPass
-; CHECK-NEXT: Running analysis: SGSizeAnalysisPass
 ; CHECK-NEXT: Running pass: SGLoopConstructPass
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
 ; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: Intel Kernel SplitBBonBarrier
-; CHECK-NEXT: Invalidating analysis: Intel Kernel DataPerBarrier Analysis
-; CHECK-NEXT: Invalidating analysis: SGSizeAnalysisPass
-; CHECK-NEXT: Invalidating analysis: VerifierAnalysis
 ; CHECK-NEXT: Running pass: Intel Kernel Barrier
-; CHECK-NEXT: Running analysis: Intel Kernel DataPerBarrier Analysis
 ; CHECK-NEXT: Running analysis: Intel Kernel DataPerValue Analysis
 ; CHECK-NEXT: Running analysis: Intel Kernel WIRelatedValue Analysis
-; CHECK-NEXT: Invalidating analysis: Intel Kernel WIRelatedValue Analysis
 ; CHECK-NEXT: Running pass: VerifierPass
-; CHECK-NEXT: Running analysis: VerifierAnalysis
 ; CHECK-NEXT: Running pass: AddTLSGlobalsPass
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
+; CHECK-NEXT: Invalidating analysis: SGSizeAnalysisPass
 ; CHECK-NEXT: Invalidating analysis: Intel Kernel DataPerBarrier Analysis
-; CHECK-NEXT: Invalidating analysis: Intel Kernel DataPerValue Analysis
 ; CHECK-NEXT: Invalidating analysis: VerifierAnalysis
+; CHECK-NEXT: Invalidating analysis: Intel Kernel WIRelatedValue Analysis
+; CHECK-NEXT: Invalidating analysis: Intel Kernel DataPerValue Analysis
 ; CHECK-NEXT: Invalidating analysis: CallGraphAnalysis
 ; CHECK-NEXT: Invalidating analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running pass: ResolveWICallPass

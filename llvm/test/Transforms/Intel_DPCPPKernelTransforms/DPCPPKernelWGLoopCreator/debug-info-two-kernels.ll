@@ -17,13 +17,13 @@ entry:
 
 ; CHECK: entryvector_func:
 ; CHECK: store volatile i64 %dim_0_vector_ind_var, i64* %__ocl_dbg_gid0
-; CHECK: store volatile i64 %GlobalID_1vector_func, i64* %__ocl_dbg_gid1
-; CHECK: store volatile i64 %GlobalID_2vector_func, i64* %__ocl_dbg_gid2
+; CHECK: store volatile i64 %init.gid.dim1, i64* %__ocl_dbg_gid1
+; CHECK: store volatile i64 %init.gid.dim2, i64* %__ocl_dbg_gid2
 
 ; CHECK: scalar_kernel_entry:
 ; CHECK: store volatile i64 %dim_0_ind_var, i64* %__ocl_dbg_gid0
-; CHECK: store volatile i64 %GlobalID_1, i64* %__ocl_dbg_gid1
-; CHECK: store volatile i64 %GlobalID_2, i64* %__ocl_dbg_gid2
+; CHECK: store volatile i64 %init.gid.dim1, i64* %__ocl_dbg_gid1
+; CHECK: store volatile i64 %init.gid.dim2, i64* %__ocl_dbg_gid2
 
   %__ocl_dbg_gid0 = alloca i64, align 8
   call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0, metadata !28, metadata !DIExpression()), !dbg !31
@@ -58,13 +58,13 @@ entry:
 
 ; CHECK: entryvector_func:
 ; CHECK: store volatile i64 %dim_0_vector_ind_var, i64* %__ocl_dbg_gid0
-; CHECK: store volatile i64 %GlobalID_1vector_func, i64* %__ocl_dbg_gid1
-; CHECK: store volatile i64 %GlobalID_2vector_func, i64* %__ocl_dbg_gid2
+; CHECK: store volatile i64 %init.gid.dim1, i64* %__ocl_dbg_gid1
+; CHECK: store volatile i64 %init.gid.dim2, i64* %__ocl_dbg_gid2
 
 ; CHECK: scalar_kernel_entry:
 ; CHECK: store volatile i64 %dim_0_ind_var, i64* %__ocl_dbg_gid0
-; CHECK: store volatile i64 %GlobalID_1, i64* %__ocl_dbg_gid1
-; CHECK: store volatile i64 %GlobalID_2, i64* %__ocl_dbg_gid2
+; CHECK: store volatile i64 %init.gid.dim1, i64* %__ocl_dbg_gid1
+; CHECK: store volatile i64 %init.gid.dim2, i64* %__ocl_dbg_gid2
 
   %__ocl_dbg_gid0 = alloca i64, align 8
   call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0, metadata !47, metadata !DIExpression()), !dbg !48

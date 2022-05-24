@@ -67,7 +67,8 @@ ModulePass *createDPCPPKernelVecClonePass(
     ArrayRef<std::tuple<const char *, const char *, const char *>> VectInfos =
         {},
     VectorVariant::ISAClass ISA = VectorVariant::XMM, bool IsOCL = false);
-ModulePass *createDPCPPKernelWGLoopCreatorLegacyPass();
+ModulePass *
+createDPCPPKernelWGLoopCreatorLegacyPass(bool UseTLSGlobals = false);
 ModulePass *createDPCPPPreprocessSPIRVFriendlyIRLegacyPass();
 ModulePass *createDPCPPRewritePipesLegacyPass();
 ModulePass *createDuplicateCalledKernelsLegacyPass();
