@@ -44,5 +44,9 @@ int main(int argc, char **argv) {
 // FIXME: Currently, ubsan with -fno-sanitize-recover and w/o asan will fail
 // to dump coverage.
 // CHECK1:  1 PCs written
-// CHECK2:  2 PCs written
+// INTEL_CUSTOMIZATION
+// This is the number of blocks covered. Either 2 or 3 is OK, depending
+// on whether the if-statement is folded or not.
+// CHECK2:  {{2|3}} PCs written
+// end INTEL_CUSTOMIZATION
 // CHECK3:  2 PCs written
