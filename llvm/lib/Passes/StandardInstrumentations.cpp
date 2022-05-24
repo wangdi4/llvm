@@ -2316,11 +2316,8 @@ void StandardInstrumentations::registerCallbacks(
   PrintChangedDiff.registerCallbacks(PIC);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   WebsiteChangeReporter.registerCallbacks(PIC);
-<<<<<<< HEAD
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
   PrintCrashIR.registerCallbacks(PIC);
->>>>>>> 24239e246c78c48dabdc042e5c40f40b2a28947b
 }
 
 template class ChangeReporter<std::string>;

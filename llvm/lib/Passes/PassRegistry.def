@@ -352,11 +352,8 @@ MODULE_PASS("strip-debug-declare", StripDebugDeclarePass())
 MODULE_PASS("strip-nondebug", StripNonDebugSymbolsPass())
 MODULE_PASS("strip-nonlinetable-debuginfo", StripNonLineTableDebugInfoPass())
 MODULE_PASS("synthetic-counts-propagation", SyntheticCountsPropagation())
-<<<<<<< HEAD
 MODULE_PASS("tilemvinlmarker", TileMVInlMarkerPass()) // INTEL
-=======
 MODULE_PASS("trigger-crash", TriggerCrashPass())
->>>>>>> 24239e246c78c48dabdc042e5c40f40b2a28947b
 MODULE_PASS("verify", VerifierPass())
 MODULE_PASS("view-callgraph", CallGraphViewerPass())
 MODULE_PASS("wholeprogramdevirt", WholeProgramDevirtPass())
