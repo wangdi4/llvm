@@ -3150,12 +3150,15 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
       std::tie(BufTy, std::ignore, std::ignore) =
           VPOParoptUtils::getItemInfo(RedI);
       BufTy = ArrayType::get(BufTy, AtomicFreeRedLocalBufSize);
+
+      auto Addrspace = VPOParoptUtils::getDeviceMemoryKind();
+
       auto *LocalBuf =
           new GlobalVariable(*F->getParent(), BufTy, false,
                              GlobalValue::LinkageTypes::InternalLinkage,
                              Constant::getNullValue(BufTy), "red_local_buf",
                              nullptr, GlobalValue::NotThreadLocal,
-                             isTargetSPIRV() ? vpo::ADDRESS_SPACE_LOCAL : 0);
+                             isTargetSPIRV() ? Addrspace : 0);
       auto *LocalPtr = Builder.CreateInBoundsGEP(
           LocalBuf->getValueType(), LocalBuf,
           {Builder.getInt32(0), AtomicFreeRedLocalUpdateInfos.lookup(W).LocalId});
@@ -3275,12 +3278,15 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
     IVInit = cast<Instruction>(RoundToPow2(IVInit));
     if (!IsArraySection) {
       auto *BufTy = ArrayType::get(ElemTy, AtomicFreeRedLocalBufSize);
+
+      auto Addrspace = VPOParoptUtils::getDeviceMemoryKind();
+
       auto *LocalBuf =
           new GlobalVariable(*F->getParent(), BufTy, false,
                              GlobalValue::LinkageTypes::InternalLinkage,
                              Constant::getNullValue(BufTy), "red_local_buf",
                              nullptr, GlobalValue::NotThreadLocal,
-                             isTargetSPIRV() ? vpo::ADDRESS_SPACE_LOCAL : 0);
+                             isTargetSPIRV() ? Addrspace : 0);
       LocalPtr = Builder.CreateInBoundsGEP(LocalBuf->getValueType(), LocalBuf,
                                            {Builder.getInt32(0), LocalId});
       Rhs1->setOperand(0, LocalPtr);
@@ -4271,12 +4277,15 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
       auto BufSize = AtomicFreeRedLocalBufSize *
                      cast<ConstantInt>(NumElements)->getZExtValue();
       auto *BufTy = ArrayType::get(DestElementTy, BufSize);
+
+      auto Addrspace = VPOParoptUtils::getDeviceMemoryKind();
+
       BufPtr =
           new GlobalVariable(*F->getParent(), BufTy, false,
                              GlobalValue::LinkageTypes::InternalLinkage,
                              Constant::getNullValue(BufTy), "red_local_buf",
                              nullptr, GlobalValue::NotThreadLocal,
-                             isTargetSPIRV() ? vpo::ADDRESS_SPACE_LOCAL : 0);
+                             isTargetSPIRV() ? Addrspace : 0);
       AtomicFreeRedLocalBufs[RedI] = BufPtr;
     }
     // (1) Filling the local array with private values
