@@ -110,7 +110,7 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) {
 ; CHECK-NEXT: !5 = !{!6}
 ; CHECK-NEXT: !6 = distinct !{!6, !2, !"foo: var:cloned.BB216"}
 ;
-; CHECK-HIR:      + DO i64 i1 = 0, {{.*}} + -1, 4 <DO_LOOP>
+; CHECK-HIR:      + DO i64 i1 = 0, {{.*}}, 4 <DO_LOOP>
 ; CHECK-HIR:      |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
 ; CHECK-HIR-NEXT: |   <LVAL-REG> NON-LINEAR <4 x i32> [[DOTVEC0]]
 ; CHECK-HIR-NEXT: |   <RVAL-REG> {al:4}(<4 x i32>*)(LINEAR i32* [[A0]])[LINEAR i64 i1] inbounds  !alias.scope !1

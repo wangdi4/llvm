@@ -29,7 +29,7 @@ L:
 define void @foo() {
 entry:
 ;CHECK: %BaseGlobalId_0 = call i32 @get_base_global_id.(i32 0)
-;CHECK-NEXT: %pLocalId_0 = getelementptr inbounds [3 x i32], [3 x i32]* %pLocalIdValues, i32 0, i32 0
+;CHECK-NEXT: %pLocalId_0 = getelementptr inbounds [3 x i32], [3 x i32]* %local.ids, i64 0, i32 0
 ;CHECK-NEXT: [[LID:%LocalId_[0-9]*]] = load i32, i32* %pLocalId_0, align 4
 ;CHECK-NEXT: {{%GlobalID_[0-9]*}} = add i32 [[LID]], %BaseGlobalId_0
 ;CHECK-NEXT: {{%LocalId_[0-9]*}} = load i32, i32* %pLocalId_0, align 4

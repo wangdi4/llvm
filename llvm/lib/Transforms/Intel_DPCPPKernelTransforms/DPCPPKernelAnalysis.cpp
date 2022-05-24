@@ -85,42 +85,6 @@ void DPCPPKernelAnalysisPass::fillSyncUsersFuncs() {
   DPCPPKernelLoopUtils::fillFuncUsersSet(SyncFunctions, UnsupportedFuncs);
 }
 
-void DPCPPKernelAnalysisPass::fillUnsupportedTIDFuncs() {
-  FuncSet DirectTIDUsers;
-  std::string LID = DPCPPKernelCompilationUtils::mangledGetLID();
-  std::string GID = DPCPPKernelCompilationUtils::mangledGetGID();
-  fillUnsupportedTIDFuncs(LID, DirectTIDUsers);
-  fillUnsupportedTIDFuncs(GID, DirectTIDUsers);
-  DPCPPKernelLoopUtils::fillFuncUsersSet(DirectTIDUsers, UnsupportedFuncs);
-}
-
-bool DPCPPKernelAnalysisPass::isUnsupportedDim(Value *V) {
-  ConstantInt *ConstDim = dyn_cast<ConstantInt>(V);
-  // If arg is not a constant return true OR,
-  // if it is illegal constant.
-  if (!ConstDim || ConstDim->getValue().getZExtValue() > 2)
-    return true;
-  return false;
-}
-
-void DPCPPKernelAnalysisPass::fillUnsupportedTIDFuncs(StringRef Name,
-                                                      FuncSet &DirectTIDUsers) {
-  Function *F = M->getFunction(Name);
-  if (!F)
-    return;
-  for (auto *U : F->users()) {
-    CallInst *CI = dyn_cast<CallInst>(U);
-    if (!CI)
-      continue;
-    // if the tid is variable add it to the set
-    Function *CallingFunc = CI->getParent()->getParent();
-    DirectTIDUsers.insert(CallingFunc);
-    if (isUnsupportedDim(CI->getArgOperand(0))) {
-      UnsupportedFuncs.insert(CI->getParent()->getParent());
-    }
-  }
-}
-
 void DPCPPKernelAnalysisPass::fillKernelCallers() {
   for (Function *Kernel : Kernels) {
     if (!Kernel)
@@ -166,7 +130,6 @@ bool DPCPPKernelAnalysisPass::runImpl(Module &M, CallGraph &CG) {
 
   fillKernelCallers();
   fillSyncUsersFuncs();
-  fillUnsupportedTIDFuncs();
   if (DPCPPEnableNativeSubgroups)
     fillSubgroupCallingFuncs(CG);
 

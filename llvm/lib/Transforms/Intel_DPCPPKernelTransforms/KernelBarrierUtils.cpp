@@ -289,17 +289,9 @@ Instruction *BarrierUtils::createGetSpecialBuffer(Instruction *InsertBefore) {
 InstVector &BarrierUtils::getAllGetLocalId() {
   if (!LIDInitialized) {
     GetLIDInstructions.clear();
-    Function *Func =
-        M->getFunction(DPCPPKernelCompilationUtils::mangledGetLID());
-    if (Func) {
-      for (Value::user_iterator ui = Func->user_begin(), ue = Func->user_end();
-           ui != ue; ++ui) {
-        CallInst *InstCall = dyn_cast<CallInst>(*ui);
-        assert(InstCall &&
-               "Something other than CallInst is using get_local_id function!");
-        GetLIDInstructions.push_back(InstCall);
-      }
-    }
+    auto CIs = DPCPPKernelCompilationUtils::getCallInstUsersOfFunc(
+        *M, DPCPPKernelCompilationUtils::mangledGetLID());
+    GetLIDInstructions.assign(CIs.begin(), CIs.end());
     LIDInitialized = true;
   }
   return GetLIDInstructions;
@@ -308,14 +300,9 @@ InstVector &BarrierUtils::getAllGetLocalId() {
 InstVector &BarrierUtils::getAllGetGlobalId() {
   if (!GIDInitialized) {
     GetGIDInstructions.clear();
-    Function *Func =
-        M->getFunction(DPCPPKernelCompilationUtils::mangledGetGID());
-    if (Func) {
-      for (auto *U : Func->users()) {
-        CallInst *InstCall = cast<CallInst>(U);
-        GetGIDInstructions.push_back(InstCall);
-      }
-    }
+    auto CIs = DPCPPKernelCompilationUtils::getCallInstUsersOfFunc(
+        *M, DPCPPKernelCompilationUtils::mangledGetGID());
+    GetGIDInstructions.assign(CIs.begin(), CIs.end());
     GIDInitialized = true;
   }
   return GetGIDInstructions;

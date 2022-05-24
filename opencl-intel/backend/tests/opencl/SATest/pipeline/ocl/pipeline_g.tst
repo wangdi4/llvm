@@ -112,8 +112,8 @@
 ; CHECK-NEXT: Running pass: UnifyFunctionExitNodesPass
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
 ; CHECK-NEXT: Running pass: DuplicateCalledKernels
-; CHECK-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
+; CHECK-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-NEXT: Running pass: WGLoopBoundariesPass
 ; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
 ; CHECK-NEXT: Invalidating analysis: LazyCallGraphAnalysis
@@ -130,7 +130,6 @@
 ; CHECK: Running pass: SimplifyCFGPass
 
 ; CHECK: Running pass: DeduceMaxWGDimPass
-; CHECK-NEXT: Running pass: intel::KernelSubGroupInfoPass
 
 ; CHECK: Running pass: SinCosFoldPass
 
@@ -329,10 +328,6 @@
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running pass: Intel Kernel Barrier
-; CHECK-NEXT: Invalidating analysis: SGSizeAnalysisPass
-; CHECK-NEXT: Invalidating analysis: VerifierAnalysis
-; CHECK-NEXT: Invalidating analysis: Intel Kernel WIRelatedValue Analysis
-; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
 ; CHECK-NEXT: Running pass: VerifierPass
 
 ; CHECK: Running pass: PromotePass
@@ -363,9 +358,11 @@
 
 ; CHECK: Running pass: LoopSimplifyPass
 ; CHECK-NEXT: Running pass: LCSSAPass
+; CHECK-NEXT: Invalidating analysis: SGSizeAnalysisPass
 ; CHECK-NEXT: Invalidating analysis: Intel Kernel DataPerBarrier Analysis
-; CHECK-NEXT: Invalidating analysis: Intel Kernel DataPerValue Analysis
 ; CHECK-NEXT: Invalidating analysis: VerifierAnalysis
+; CHECK-NEXT: Invalidating analysis: Intel Kernel WIRelatedValue Analysis
+; CHECK-NEXT: Invalidating analysis: Intel Kernel DataPerValue Analysis
 ; CHECK-NEXT: Running pass: AddTLSGlobalsPass
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis

@@ -20,13 +20,7 @@ namespace llvm {
 // This class implements a pass that recieves a module and assigns each function
 // an attribute indicating whether a kernel will take WGLoopCreator
 // path or Barrier path.
-// kernels can take WGLoopCreator if the following conditions
-// are met:
-// 1. does not have a barrier path.
-// 2. does not contain a variable get***id call (although can be handled)
-// 3. does not contain call to kernel or called by another kernel.
-// 4. does not contain call to function that use get***id calls.
-// both 3,4 should be eliminated by the inliner.
+// kernels can take WGLoopCreator if it does not have a barrier path.
 //
 // This pass also analyzes whether function/kernel contains subgroup builtin
 // calls.
@@ -45,28 +39,13 @@ private:
   using FuncVec = SmallVector<Function *, 8>;
   using FuncSet = DPCPPKernelCompilationUtils::FuncSet;
 
-  /// Returns true iff the Value is constant int < 3
-  /// V - value to check.
-  bool isUnsupportedDim(Value *V);
-
   /// Fills the unsupported set with function that call (also indirectly)
   /// barrier (or implemented using barrier).
   void fillSyncUsersFuncs();
 
   /// Fills the unsupported set with function that have non constant
   /// dimension get***id calls, or indirect calls to get***id.
-  void fillUnsupportedTIDFuncs();
-
-  /// Fills the unsupported set with function that have non constant
-  /// dimension get***id calls, or indirect calls to get***id.
   void fillKernelCallers();
-
-  /// Fills the unsupported set with function that have non constant
-  /// dimension get***id calls, and gets the direct users of the call
-  /// into TIDUsers.
-  /// Name - name of get***id.
-  /// DirectTIDUsers - set of direct get***id users.
-  void fillUnsupportedTIDFuncs(StringRef Name, FuncSet &DirectTIDUsers);
 
   /// Fills the subgroup-calling function set -- functions containing subroup
   /// builtins or subgroup barrier.

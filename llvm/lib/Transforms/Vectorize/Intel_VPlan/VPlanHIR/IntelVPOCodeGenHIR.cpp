@@ -6603,20 +6603,29 @@ void VPOCodeGenHIR::setBoundsForVectorLoop(VPLoop *VPLp) {
 
   RegDDRef *UBRef = getOrCreateScalarRef(VectorTC, 0 /*Lane*/);
   assert(UBRef && "Non-null ref expected to compute TC.");
-  UBRef = UBRef->clone();
+
+  unsigned LoopLevel = VecLoop->getNestingLevel();
 
   auto *UBCanonExpr = UBRef->getSingleCanonExpr();
-  unsigned LoopLevel = VecLoop->getNestingLevel();
-  // Add blobs and adjust def@level for non-constant temp-based UB since it is
-  // defined outside the loop.
-  if (!UBCanonExpr->isIntConstant() &&
-      UBRef->getSymbase() > GenericRvalSymbase) {
-    UBRef->addBlobDDRef(UBCanonExpr->getSingleBlobIndex(), LoopLevel - 1);
-    UBCanonExpr->setDefinedAtLevel(LoopLevel - 1);
-    UBRef->setSymbase(GenericRvalSymbase);
+  // Subtract 1 from UB.
+  if (!UBCanonExpr->isIntConstant()) {
+    HLInst *SubInst = HLNodeUtilities.createSub(
+        UBRef->clone(),
+        DDRefUtilities.createConstDDRef(UBRef->getDestType(), 1), "loop.ub");
+    addInstUnmasked(SubInst);
+    UBRef = SubInst->getLvalDDRef()->clone();
+
+    // Initialized UB temp will be live-in.
+    VecLoop->addLiveInTemp(UBRef);
+
+    assert(UBRef->getSingleCanonExpr()->isNonLinear() && "Non linear UB!");
+
+    // Set the defined at level of new bound to (nesting level - 1) as the
+    // bound temp is defined just before the loop.
+    UBRef->getSingleCanonExpr()->setDefinedAtLevel(LoopLevel - 1);
+  } else {
+    UBCanonExpr->addConstant(-1, true);
   }
-  // Subtract 1
-  UBCanonExpr->addConstant(-1, true);
   VecLoop->setUpperDDRef(UBRef);
 
   // Set LB of loop if available. We adjust def@level since LB is defined

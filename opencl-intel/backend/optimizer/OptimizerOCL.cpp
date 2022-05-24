@@ -11,7 +11,6 @@
 // License.
 
 #include "OptimizerOCL.h"
-#include "KernelInfo/KernelSubGroupInfoPass.h" // FIXME remove
 #include "VecConfig.h"
 
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -430,9 +429,9 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
 
   MPM.addPass(DuplicateCalledKernelsPass());
 
+  MPM.addPass(DPCPPKernelAnalysisPass());
   if (Level != OptimizationLevel::O0) {
     MPM.addPass(createModuleToFunctionPassAdaptor(SimplifyCFGPass()));
-    MPM.addPass(DPCPPKernelAnalysisPass());
     MPM.addPass(WGLoopBoundariesPass());
     FunctionPassManager FPM;
     FPM.addPass(DCEPass());
@@ -440,10 +439,6 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
     MPM.addPass(DeduceMaxWGDimPass());
   }
-
-  // Mark the kernels using subgroups
-  if (EnableNativeOpenCLSubgroups)
-    MPM.addPass(intel::KernelSubGroupInfoPass());
 
   if (Config.GetTransposeSize() != 1 &&
       (Level != OptimizationLevel::O0 || EnableO0Vectorization)) {
@@ -581,13 +576,13 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     MPM.addPass(ProfilingInfoPass());
 
   // Adding WG loops
-  if (Level != OptimizationLevel::O0) {
-    if (Config.GetStreamingAlways())
-      MPM.addPass(createModuleToFunctionPassAdaptor(AddNTAttrPass()));
-    if (m_debugType == intel::Native)
-      MPM.addPass(ImplicitGIDPass(/*HandleBarrier*/ false));
-    MPM.addPass(DPCPPKernelWGLoopCreatorPass());
-  }
+  if (Level != OptimizationLevel::O0 && Config.GetStreamingAlways())
+    MPM.addPass(createModuleToFunctionPassAdaptor(AddNTAttrPass()));
+
+  if (m_debugType == intel::Native)
+    MPM.addPass(ImplicitGIDPass(/*HandleBarrier*/ false));
+  MPM.addPass(DPCPPKernelWGLoopCreatorPass(m_UseTLSGlobals));
+
   MPM.addPass(IndirectCallLowering());
 
   // Clean up scalar kernel after WGLoop for native subgroups.

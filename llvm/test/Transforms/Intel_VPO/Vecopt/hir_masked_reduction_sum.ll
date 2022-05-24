@@ -31,7 +31,7 @@
 ; Checks for generated HIR code
 ; VPCHECK-LABEL: %red.init = 0.000000e+00;
 ; VPCHECK-NEXT:  %[[phi_temp:.*]] = %red.init;
-; VPCHECK:       + DO i1 = 0, {{.*}} + -1, 4 <DO_LOOP>
+; VPCHECK:       + DO i1 = 0, {{.*}}, 4 <DO_LOOP>
 ; VPCHECK-NEXT:  |   %.[[vec2:.*]] = undef;
 ; VPCHECK-NEXT:  |   %.[[vec:.*]] = (<4 x float>*)(@B)[0][i1];
 ; VPCHECK-NEXT:  |   %.[[vec1:.*]] = %.[[vec]] > 0.000000e+00;

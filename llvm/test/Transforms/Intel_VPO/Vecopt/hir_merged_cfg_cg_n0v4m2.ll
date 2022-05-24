@@ -74,39 +74,39 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:        [[VEC_TC0:%.*]] = [[TGU0]]  *  4
 ; CHECK-NEXT:        [[DOTVEC0:%.*]] = 0 == [[VEC_TC0]]
 ; CHECK-NEXT:        [[PHI_TEMP0:%.*]] = 0
-; CHECK-NEXT:        [[UNIFCOND0:%.*]] = extractelement [[DOTVEC0]],  0
-; CHECK-NEXT:        if ([[UNIFCOND0]] == 1)
+; CHECK-NEXT:        [[EXTRACT_0_0:%.*]] = extractelement [[DOTVEC0]],  0
+; CHECK-NEXT:        if ([[EXTRACT_0_0]] == 1)
 ; CHECK-NEXT:        {
 ; CHECK-NEXT:           goto [[MERGE_BLK0:merge.blk[0-9]+]].28
 ; CHECK-NEXT:        }
 ; CHECK-NEXT:        [[TGU20:%.*]] = umax(1, sext.i32.i64([[C0]]))  /u  4
 ; CHECK-NEXT:        [[VEC_TC30:%.*]] = [[TGU20]]  *  4
+; CHECK-NEXT:        [[LOOP_UB0:%.*]] = [[VEC_TC30]]  -  1
 
-; CHECK:             + DO i1 = 0, [[VEC_TC30]] + -1, 4   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
+; CHECK:             + DO i1 = 0, [[LOOP_UB0]], 4   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:        |   (<4 x i64>*)([[ARY0]])[i1] = i1 + sext.i32.i64([[C0]]) + <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:        + END LOOP
 
 ; CHECK:             [[DOTVEC40:%.*]] = umax(1, sext.i32.i64([[C0]])) == [[VEC_TC30]]
 ; CHECK-NEXT:        [[PHI_TEMP0]] = [[VEC_TC30]]
 ; CHECK-NEXT:        [[PHI_TEMP60:%.*]] = [[VEC_TC30]]
-; CHECK-NEXT:        [[UNIFCOND80:%.*]] = extractelement [[DOTVEC40]],  0
-; CHECK-NEXT:        if ([[UNIFCOND80]] == 1)
+; CHECK-NEXT:        [[EXTRACT_0_80:%.*]] = extractelement [[DOTVEC40]],  0
+; CHECK-NEXT:        if ([[EXTRACT_0_80]] == 1)
 ; CHECK-NEXT:        {
-; CHECK-NEXT:           goto final.merge.48
+; CHECK-NEXT:           goto final.merge.49
 ; CHECK-NEXT:        }
 ; CHECK-NEXT:        [[MERGE_BLK0]].28:
-
-; CHECK:             + DO i1 = [[PHI_TEMP0]], umax(1, sext.i32.i64([[C0]])) + -1, 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <nounroll> <novectorize> <max_trip_count = 2>
-; CHECK-NEXT:        |   [[DOTVEC90:%.*]] = i1 + <i64 0, i64 1> <u umax(1, sext.i32.i64([[C0]]))
-; CHECK-NEXT:        |   (<2 x i64>*)([[ARY0]])[i1] = i1 + sext.i32.i64([[C0]]) + <i64 0, i64 1>, Mask = @{[[DOTVEC90]]}
-; CHECK-NEXT:        |   [[DOTVEC100:%.*]] = i1 + <i64 0, i64 1> + 2 <u umax(1, sext.i32.i64([[C0]]))
-; CHECK-NEXT:        |   [[TMP0:%.*]] = bitcast.<2 x i1>.i2([[DOTVEC100]])
-; CHECK-NEXT:        |   [[CMP110:%.*]] = [[TMP0]] == 0
-; CHECK-NEXT:        |   [[ALL_ZERO_CHECK0:%.*]] = [[CMP110]]
+; CHECK-NEXT:        [[LOOP_UB90:%.*]] = umax(1, sext.i32.i64([[C0]]))  -  1
+; CHECK:             + DO i1 = [[PHI_TEMP0]], [[LOOP_UB90]], 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <nounroll> <novectorize> <max_trip_count = 2>
+; CHECK-NEXT:        |   [[DOTVEC100:%.*]] = i1 + <i64 0, i64 1> <u umax(1, sext.i32.i64([[C0]]))
+; CHECK-NEXT:        |   (<2 x i64>*)([[ARY0]])[i1] = i1 + sext.i32.i64([[C0]]) + <i64 0, i64 1>, Mask = @{[[DOTVEC100]]}
+; CHECK-NEXT:        |   [[DOTVEC110:%.*]] = i1 + <i64 0, i64 1> + 2 <u umax(1, sext.i32.i64([[C0]]))
+; CHECK-NEXT:        |   [[TMP0:%.*]] = bitcast.<2 x i1>.i2([[DOTVEC110]])
+; CHECK-NEXT:        |   [[CMP120:%.*]] = [[TMP0]] == 0
+; CHECK-NEXT:        |   [[ALL_ZERO_CHECK0:%.*]] = [[CMP120]]
 ; CHECK-NEXT:        + END LOOP
-
 ; CHECK:             [[PHI_TEMP60]] = umax(1, sext.i32.i64([[C0]]))
-; CHECK-NEXT:        final.merge.48:
+; CHECK-NEXT:        final.merge.49:
 ; CHECK-NEXT:        ret
 ; CHECK-NEXT:  END REGION
 ;

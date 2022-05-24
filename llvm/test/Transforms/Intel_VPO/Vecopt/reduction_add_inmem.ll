@@ -51,7 +51,7 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; HIR-NEXT:           [[RED_INIT0:%.*]] = 0
 ; HIR-NEXT:           [[RED_INIT_INSERT0:%.*]] = insertelement [[RED_INIT0]],  [[DOTUNIFLOAD0]],  0
 ; HIR-NEXT:           (<2 x i32>*)([[PRIV_MEM0]])[0] = [[RED_INIT_INSERT0]]
-; HIR:                + DO i1 = 0, {{.*}} + -1, 2   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
+; HIR:                + DO i1 = 0, {{.*}}, 2   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
 ; HIR-NEXT:           |   [[DOTVEC0:%.*]] = (<2 x i32>*)([[A0]])[i1]
 ; HIR-NEXT:           |   [[DOTVEC30:%.*]] = (<2 x i32>*)([[PRIV_MEM0]])[0]
 ; HIR-NEXT:           |   (<2 x i32>*)([[PRIV_MEM0]])[0] = [[DOTVEC0]] + [[DOTVEC30]]
@@ -144,6 +144,7 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:    [[TMP12:%.*]] = add i64 0, [[TMP11]]
 ; CHECK-NEXT:    br label [[VPLANNEDBB70:%.*]]
 ;
+
 entry:
   %sum = alloca i32, align 4
   store i32 %init, i32* %sum, align 4

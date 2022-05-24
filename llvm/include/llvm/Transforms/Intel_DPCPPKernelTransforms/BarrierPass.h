@@ -152,10 +152,10 @@ private:
 
   /// fixSynclessTIDUsers - Patch functions which are users of get_*_id() and do
   /// not produce the values within.
-  void fixSynclessTIDUsers(Module &M, const FuncSet &);
+  bool fixSynclessTIDUsers(Module &M, const FuncSet &FuncsWithSync);
 
   /// Remove all instructions in ToRemoveInstructions.
-  void eraseAllToRemoveInstructions();
+  bool eraseAllToRemoveInstructions();
 
   /// Update Map with structure stride size for each kernel.
   /// M module to optimize.
@@ -196,14 +196,15 @@ private:
   }
   Instruction *createGetLocalId(Value *LocalIdValues, Value *Dim,
                                 IRBuilder<> &B) {
-    Value *Ptr = createGetPtrToLocalId(LocalIdValues, Dim, B);
+    Value *Ptr = DPCPPKernelCompilationUtils::createGetPtrToLocalId(
+        LocalIdValues, Dim, B);
     return B.CreateLoad(
         SizeTTy, Ptr,
         DPCPPKernelCompilationUtils::AppendWithDimension("LocalId_", Dim));
   }
   Instruction *createGetLocalId(Value *LocalIdValues, unsigned Dim,
                                 IRBuilder<> &B) {
-    Value *Ptr = createGetPtrToLocalId(
+    Value *Ptr = DPCPPKernelCompilationUtils::createGetPtrToLocalId(
         LocalIdValues, ConstantInt::get(I32Ty, APInt(32, Dim)), B);
     return B.CreateLoad(
         SizeTTy, Ptr,
@@ -240,21 +241,12 @@ private:
               &*CurrentBarrierKeyValues->TheFunction->getEntryBlock().begin());
         LocalIdValues = CurrentBarrierKeyValues->LocalIdValues;
       }
-      *Ptr = createGetPtrToLocalId(LocalIdValues,
-                                   ConstantInt::get(I32Ty, APInt(32, Dim)), LB);
+      *Ptr = DPCPPKernelCompilationUtils::createGetPtrToLocalId(
+          LocalIdValues, ConstantInt::get(I32Ty, APInt(32, Dim)), LB);
     }
     return *Ptr;
   }
-  Value *createGetPtrToLocalId(Value *LocalIdValues, Value *Dim,
-                               IRBuilder<> &B) {
-    SmallVector<Value *, 4> Indices;
-    Indices.push_back(ConstZero);
-    Indices.push_back(Dim);
-    return B.CreateInBoundsGEP(
-        LocalIdValues->getType()->getScalarType()->getPointerElementType(),
-        LocalIdValues, Indices,
-        DPCPPKernelCompilationUtils::AppendWithDimension("pLocalId_", Dim));
-  }
+
   Value *getLocalSize(unsigned Dim) {
     return CurrentBarrierKeyValues->LocalSize[Dim];
   }

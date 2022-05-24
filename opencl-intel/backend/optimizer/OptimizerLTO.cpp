@@ -261,7 +261,9 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
         ResolveSubGroupWICallPass(m_RtlModules, /*ResolveSGBarrier*/ false));
     if (Level != OptimizationLevel::O0 && Config.GetStreamingAlways())
       MPM.addPass(createModuleToFunctionPassAdaptor(AddNTAttrPass()));
-    MPM.addPass(DPCPPKernelWGLoopCreatorPass());
+    if (m_debugType == intel::Native)
+      MPM.addPass(ImplicitGIDPass(/*HandleBarrier*/ false));
+    MPM.addPass(DPCPPKernelWGLoopCreatorPass(m_UseTLSGlobals));
 
     // Can't run loop unroll between WGLoopCreator and LoopIdiom for scalar
     // workload, which can benefit from LoopIdiom.
