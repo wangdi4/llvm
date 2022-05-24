@@ -658,24 +658,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
       CmpInst::BAD_ICMP_PREDICATE, TTI::TCK_RecipThroughput);
   }
   case Instruction::Select: {
-    // FIXME: Due to issues in VPlan creation VPInstruction with Select opcode
-    // can have 4 operands. This is obviously wrong and is not related to the
-    // cost modeling. Skip such cases.
-    if (VPInst->getNumOperands() != 3)
-      return VPInstructionCost::getUnknown();
-
-    Type *CondTy = VPInst->getOperand(0)->getCMType();
-    Type *OpTy = VPInst->getOperand(1)->getCMType();
-
-    // FIXME: Remove once VPValue is known to always have type.
-    if (!CondTy)
-      return VPInstructionCost::getUnknown();
-
-    if (!OpTy)
-      OpTy = VPInst->getOperand(2)->getCMType();
-    if (!OpTy)
-      return VPInstructionCost::getUnknown();
-
+    Type *CondTy = VPInst->getOperand(0)->getType();
+    Type *OpTy = VPInst->getOperand(1)->getType();
     Type *VecCondTy = getWidenedType(CondTy, VF);
 
     if(!isVectorizableTy(OpTy)) {
