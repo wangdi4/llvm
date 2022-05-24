@@ -4585,6 +4585,9 @@ static bool hasAllocateModifiers(Parser &P, OpenMPClauseKind Kind) {
   Token Tok = P.getCurToken();
   Preprocessor &PP = P.getPreprocessor();
 
+  if (Kind != OMPC_allocate)
+    return false;
+
   unsigned KindModifier = getOpenMPSimpleClauseType(
       Kind, Tok.isAnnotation() ? "" : PP.getSpelling(Tok),
       P.getLangOpts());
