@@ -22,94 +22,96 @@
 
 ; CHECK-LABEL: Function: foo
 ; CHECK:          BEGIN REGION { modified }
-; CHECK-NEXT:           %sum.07 = %init;
-; CHECK-NEXT:           %tgu = %N  /u  2;
-; CHECK-NEXT:           %vec.tc = %tgu  *  2;
-; CHECK-NEXT:           %.vec = 0 == %vec.tc;
-; CHECK-NEXT:           %phi.temp = %sum.07;
-; CHECK-NEXT:           %phi.temp2 = 0;
-; CHECK-NEXT:           %extract.0. = extractelement %.vec,  0;
-; CHECK-NEXT:           if (%extract.0. == 1)
-; CHECK-NEXT:           {
-; CHECK-NEXT:              goto [[MERGE_BEFORE_SCAL_REM:.*]];
-; CHECK-NEXT:           }
-; CHECK-NEXT:           %tgu4 = %N  /u  4;
-; CHECK-NEXT:           %vec.tc5 = %tgu4  *  4;
-; CHECK-NEXT:           %.vec6 = 0 == %vec.tc5;
-; CHECK-NEXT:           %phi.temp7 = %sum.07;
-; CHECK-NEXT:           %phi.temp9 = 0;
-; CHECK-NEXT:           %extract.0.11 = extractelement %.vec6,  0;
-; CHECK-NEXT:           if (%extract.0.11 == 1)
-; CHECK-NEXT:           {
-; CHECK-NEXT:              goto [[MERGE_AFTER_MAIN:.*]];
-; CHECK-NEXT:           }
-; CHECK-NEXT:           %tgu12 = %N  /u  4;
-; CHECK-NEXT:           %vec.tc13 = %tgu12  *  4;
-; CHECK-NEXT:           %red.init = 0;
-; CHECK-NEXT:           %red.init.insert = insertelement %red.init,  %sum.07,  0;
-; CHECK-NEXT:           %phi.temp14 = %red.init.insert;
+; CHECK-NEXT:        [[SUM_070:%.*]] = [[INIT0:%.*]]
+; CHECK-NEXT:        [[TGU0:%.*]] = [[N0:%.*]]  /u  2
+; CHECK-NEXT:        [[VEC_TC0:%.*]] = [[TGU0]]  *  2
+; CHECK-NEXT:        [[DOTVEC0:%.*]] = 0 == [[VEC_TC0]]
+; CHECK-NEXT:        [[PHI_TEMP0:%.*]] = [[SUM_070]]
+; CHECK-NEXT:        [[PHI_TEMP20:%.*]] = 0
+; CHECK-NEXT:        [[EXTRACT_0_0:%.*]] = extractelement [[DOTVEC0]],  0
+; CHECK-NEXT:        if ([[EXTRACT_0_0]] == 1)
+; CHECK-NEXT:        {
+; CHECK-NEXT:           goto [[MERGE_BEFORE_SCAL_REM:.*]];
+; CHECK-NEXT:        }
+; CHECK-NEXT:        [[TGU40:%.*]] = [[N0]]  /u  4
+; CHECK-NEXT:        [[VEC_TC50:%.*]] = [[TGU40]]  *  4
+; CHECK-NEXT:        [[DOTVEC60:%.*]] = 0 == [[VEC_TC50]]
+; CHECK-NEXT:        [[PHI_TEMP70:%.*]] = [[SUM_070]]
+; CHECK-NEXT:        [[PHI_TEMP90:%.*]] = 0
+; CHECK-NEXT:        [[EXTRACT_0_110:%.*]] = extractelement [[DOTVEC60]],  0
+; CHECK-NEXT:        if ([[EXTRACT_0_110]] == 1)
+; CHECK-NEXT:        {
+; CHECK-NEXT:           goto [[MERGE_AFTER_MAIN:.*]];
+; CHECK-NEXT:        }
+; CHECK-NEXT:        [[TGU120:%.*]] = [[N0]]  /u  4
+; CHECK-NEXT:        [[VEC_TC130:%.*]] = [[TGU120]]  *  4
+; CHECK-NEXT:        [[RED_INIT0:%.*]] = 0
+; CHECK-NEXT:        [[RED_INIT_INSERT0:%.*]] = insertelement [[RED_INIT0]],  [[SUM_070]],  0
+; CHECK-NEXT:        [[PHI_TEMP140:%.*]] = [[RED_INIT_INSERT0]]
+; CHECK-NEXT:        [[LOOP_UB0:%.*]] = [[VEC_TC130]]  -  1
 
-; CHECK:                + DO i1 = 0, %vec.tc13 + -1, 4   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:           |   %.vec16 = (<4 x i32>*)(%A)[i1];
-; CHECK-NEXT:           |   %.vec17 = %.vec16  +  %phi.temp14;
-; CHECK-NEXT:           |   %phi.temp14 = %.vec17;
-; CHECK-NEXT:           + END LOOP
+; CHECK:             + DO i1 = 0, [[LOOP_UB0]], 4   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:        |   [[DOTVEC160:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
+; CHECK-NEXT:        |   [[DOTVEC170:%.*]] = [[DOTVEC160]]  +  [[PHI_TEMP140]]
+; CHECK-NEXT:        |   [[PHI_TEMP140]] = [[DOTVEC170]]
+; CHECK-NEXT:        + END LOOP
 
-; CHECK:                %sum.07 = @llvm.vector.reduce.add.v4i32(%.vec17);
-; CHECK-NEXT:           %tgu19 = %N  /u  2;
-; CHECK-NEXT:           %vec.tc20 = %tgu19  *  2;
-; CHECK-NEXT:           %.vec21 = %vec.tc20 == %vec.tc13;
-; CHECK-NEXT:           %phi.temp7 = %sum.07;
-; CHECK-NEXT:           %phi.temp9 = %vec.tc13;
-; CHECK-NEXT:           %phi.temp24 = %sum.07;
-; CHECK-NEXT:           %phi.temp26 = %vec.tc13;
-; CHECK-NEXT:           %extract.0.28 = extractelement %.vec21,  0;
-; CHECK-NEXT:           if (%extract.0.28 == 1)
-; CHECK-NEXT:           {
-; CHECK-NEXT:              goto [[MERGE_AFTER_VEC_REM:.*]];
-; CHECK-NEXT:           }
-; CHECK-NEXT:           [[MERGE_AFTER_MAIN]]:
-; CHECK-NEXT:           %tgu29 = %N  /u  2;
-; CHECK-NEXT:           %vec.tc30 = %tgu29  *  2;
-; CHECK-NEXT:           %red.init31 = 0;
-; CHECK-NEXT:           %red.init.insert32 = insertelement %red.init31,  %phi.temp7,  0;
-; CHECK-NEXT:           %phi.temp33 = %red.init.insert32;
+; CHECK:             [[SUM_070]] = @llvm.vector.reduce.add.v4i32([[DOTVEC170]])
+; CHECK-NEXT:        [[TGU190:%.*]] = [[N0]]  /u  2
+; CHECK-NEXT:        [[VEC_TC200:%.*]] = [[TGU190]]  *  2
+; CHECK-NEXT:        [[DOTVEC210:%.*]] = [[VEC_TC200]] == [[VEC_TC130]]
+; CHECK-NEXT:        [[PHI_TEMP70]] = [[SUM_070]]
+; CHECK-NEXT:        [[PHI_TEMP90]] = [[VEC_TC130]]
+; CHECK-NEXT:        [[PHI_TEMP240:%.*]] = [[SUM_070]]
+; CHECK-NEXT:        [[PHI_TEMP260:%.*]] = [[VEC_TC130]]
+; CHECK-NEXT:        [[EXTRACT_0_280:%.*]] = extractelement [[DOTVEC210]],  0
+; CHECK-NEXT:        if ([[EXTRACT_0_280]] == 1)
+; CHECK-NEXT:        {
+; CHECK-NEXT:           goto [[MERGE_AFTER_VEC_REM:.*]];
+; CHECK-NEXT:        }
+; CHECK-NEXT:        [[MERGE_AFTER_MAIN]]:
+; CHECK-NEXT:        [[TGU290:%.*]] = [[N0]]  /u  2
+; CHECK-NEXT:        [[VEC_TC300:%.*]] = [[TGU290]]  *  2
+; CHECK-NEXT:        [[RED_INIT310:%.*]] = 0
+; CHECK-NEXT:        [[RED_INIT_INSERT320:%.*]] = insertelement [[RED_INIT310]],  [[PHI_TEMP70]],  0
+; CHECK-NEXT:        [[PHI_TEMP330:%.*]] = [[RED_INIT_INSERT320]]
+; CHECK-NEXT:        [[LOOP_UB350:%.*]] = [[VEC_TC300]]  -  1
 
-; CHECK:                + DO i1 = %phi.temp9, %vec.tc30 + -1, 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <nounroll> <novectorize> <max_trip_count = 2>
-; CHECK-NEXT:           |   %.vec35 = (<2 x i32>*)(%A)[i1];
-; CHECK-NEXT:           |   %.vec36 = %.vec35  +  %phi.temp33;
-; CHECK-NEXT:           |   %phi.temp33 = %.vec36;
-; CHECK-NEXT:           + END LOOP
+; CHECK:             + DO i1 = [[PHI_TEMP90]], [[LOOP_UB350]], 2   <DO_LOOP>  <MAX_TC_EST = 2>  <LEGAL_MAX_TC = 2> <nounroll> <novectorize> <max_trip_count = 2>
+; CHECK-NEXT:        |   [[DOTVEC360:%.*]] = (<2 x i32>*)([[A0]])[i1]
+; CHECK-NEXT:        |   [[DOTVEC370:%.*]] = [[DOTVEC360]]  +  [[PHI_TEMP330]]
+; CHECK-NEXT:        |   [[PHI_TEMP330]] = [[DOTVEC370]]
+; CHECK-NEXT:        + END LOOP
 
-; CHECK:                %sum.07 = @llvm.vector.reduce.add.v2i32(%.vec36);
-; CHECK-NEXT:           %phi.temp24 = %sum.07;
-; CHECK-NEXT:           %phi.temp26 = %vec.tc30;
-; CHECK-NEXT:           [[MERGE_AFTER_VEC_REM]]:
-; CHECK-NEXT:           %tgu41 = %N  /u  2;
-; CHECK-NEXT:           %vec.tc42 = %tgu41  *  2;
-; CHECK-NEXT:           %.vec43 = %N == %vec.tc42;
-; CHECK-NEXT:           %phi.temp = %phi.temp24;
-; CHECK-NEXT:           %phi.temp2 = %phi.temp26;
-; CHECK-NEXT:           %phi.temp46 = %phi.temp24;
-; CHECK-NEXT:           %phi.temp48 = %phi.temp26;
-; CHECK-NEXT:           %extract.0.50 = extractelement %.vec43,  0;
-; CHECK-NEXT:           if (%extract.0.50 == 1)
-; CHECK-NEXT:           {
-; CHECK-NEXT:              goto [[FINAL_MERGE:.*]];
-; CHECK-NEXT:           }
-; CHECK-NEXT:           [[MERGE_BEFORE_SCAL_REM]]:
-; CHECK-NEXT:           %lb.tmp = %phi.temp2;
-; CHECK-NEXT:           %sum.07 = %phi.temp;
+; CHECK:             [[SUM_070]] = @llvm.vector.reduce.add.v2i32([[DOTVEC370]])
+; CHECK-NEXT:        [[PHI_TEMP240]] = [[SUM_070]]
+; CHECK-NEXT:        [[PHI_TEMP260]] = [[VEC_TC300]]
+; CHECK-NEXT:        [[MERGE_AFTER_VEC_REM]]:
+; CHECK-NEXT:        [[TGU420:%.*]] = [[N0]]  /u  2
+; CHECK-NEXT:        [[VEC_TC430:%.*]] = [[TGU420]]  *  2
+; CHECK-NEXT:        [[DOTVEC440:%.*]] = [[N0]] == [[VEC_TC430]]
+; CHECK-NEXT:        [[PHI_TEMP0]] = [[PHI_TEMP240]]
+; CHECK-NEXT:        [[PHI_TEMP20]] = [[PHI_TEMP260]]
+; CHECK-NEXT:        [[PHI_TEMP470:%.*]] = [[PHI_TEMP240]]
+; CHECK-NEXT:        [[PHI_TEMP490:%.*]] = [[PHI_TEMP260]]
+; CHECK-NEXT:        [[EXTRACT_0_510:%.*]] = extractelement [[DOTVEC440]],  0
+; CHECK-NEXT:        if ([[EXTRACT_0_510]] == 1)
+; CHECK-NEXT:        {
+; CHECK-NEXT:           goto [[FINAL_MERGE:.*]];
+; CHECK-NEXT:        }
+; CHECK-NEXT:        [[MERGE_BEFORE_SCAL_REM]]:
+; CHECK-NEXT:        [[LB_TMP0:%.*]] = [[PHI_TEMP20]]
+; CHECK-NEXT:        [[SUM_070]] = [[PHI_TEMP0]]
 
-; CHECK:                + DO i1 = %lb.tmp, %N + -1, 1 <DO_LOOP> <MAX_TC_EST = 3> <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
-; CHECK-NEXT:           |   %A.i = (%A)[i1];
-; CHECK-NEXT:           |   %sum.07 = %A.i  +  %sum.07;
-; CHECK-NEXT:           + END LOOP
+; CHECK:             + DO i1 = [[LB_TMP0]], [[N0]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK-NEXT:        |   [[A_I0:%.*]] = ([[A0]])[i1]
+; CHECK-NEXT:        |   [[SUM_070]] = [[A_I0]]  +  [[SUM_070]]
+; CHECK-NEXT:        + END LOOP
 
-; CHECK:                %phi.temp46 = %sum.07;
-; CHECK-NEXT:           %phi.temp48 = %N + -1;
-; CHECK-NEXT:           [[FINAL_MERGE]]:
-; CHECK-NEXT: END REGION
+; CHECK:             [[PHI_TEMP470]] = [[SUM_070]]
+; CHECK-NEXT:        [[PHI_TEMP490]] = [[N0]] + -1
+; CHECK-NEXT:        [[FINAL_MERGE]]:
+; CHECK-NEXT:  END REGION
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

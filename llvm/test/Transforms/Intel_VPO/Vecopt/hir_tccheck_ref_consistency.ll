@@ -32,7 +32,7 @@
 ;
 ; CHECK:           |      %vec.tc4 = %tgu3  *  4;
 ;
-; CHECK:           |      + DO i64 i2 = 0, %vec.tc4 + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:           |      + DO i64 i2 = 0, [[LOOP_UB0:%.*]], 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
 ;
 define void @foo(i64** %lpp, i64* %lp1, i64* %lp2) {
 entry:

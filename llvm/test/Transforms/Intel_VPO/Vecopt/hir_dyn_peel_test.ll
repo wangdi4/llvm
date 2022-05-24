@@ -100,73 +100,74 @@ define void @foo(i64* %lp, i64 %n1) {
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP__IND_FINAL]]
 ;
-; CHECK:        BEGIN REGION { modified }
-; CHECK:              %.vec = ptrtoint.<4 x i64*>.<4 x i64>(&((<4 x i64*>)(%lp)[0]));
-; CHECK:              %.vec1 = %.vec  /u  8;
-; CHECK:              %.vec2 = %.vec1  *  3;
-; CHECK:              %.vec3 = %.vec2  %u  4;
-; CHECK:              %.vec4 = 0 == %.vec3;
-; CHECK:              %phi.temp = 0;
-; CHECK:              %extract.0. = extractelement %.vec4,  0;
-; CHECK:              if (%extract.0. == 1)
-; CHECK:              {
-; CHECK:                 goto [[MERGE_AFTER_PEEL:.*]];
-; CHECK:              }
-; CHECK:              %.vec5 = %.vec3 + 4 >u %n1;
-; CHECK:              %phi.temp6 = 0;
-; CHECK:              %extract.0.8 = extractelement %.vec5,  0;
-; CHECK:              if (%extract.0.8 == 1)
-; CHECK:              {
-; CHECK:                 goto [[MERGE_AFTER_MAIN:.*]];
-; CHECK:              }
-; CHECK:              %extract.0.9 = extractelement %.vec3,  0;
-; CHECK:              %ub.tmp = %extract.0.9;
-; CHECK:              %peel.ub = %ub.tmp  -  1;
+; CHECK:       BEGIN REGION { modified }
+; CHECK:             [[DOTVEC0:%.*]] = ptrtoint.<4 x i64*>.<4 x i64>(&((<4 x i64*>)([[LP0]])[0]))
+; CHECK:             [[DOTVEC10:%.*]] = [[DOTVEC0]]  /u  8
+; CHECK:             [[DOTVEC20:%.*]] = [[DOTVEC10]]  *  3
+; CHECK:             [[DOTVEC30:%.*]] = [[DOTVEC20]]  [[U0:%.*]]  4
+; CHECK:             [[DOTVEC40:%.*]] = 0 == [[DOTVEC30]]
+; CHECK:             [[PHI_TEMP0:%.*]] = 0
+; CHECK:             [[EXTRACT_0_0:%.*]] = extractelement [[DOTVEC40]],  0
+; CHECK:             if ([[EXTRACT_0_0]] == 1)
+; CHECK:             {
+; CHECK:                goto [[MERGE_AFTER_PEEL:.*]];
+; CHECK:             }
+; CHECK:             [[DOTVEC50:%.*]] = [[DOTVEC30]] + 4 >u [[N10]]
+; CHECK:             [[PHI_TEMP60:%.*]] = 0
+; CHECK:             [[EXTRACT_0_80:%.*]] = extractelement [[DOTVEC50]],  0
+; CHECK:             if ([[EXTRACT_0_80]] == 1)
+; CHECK:             {
+; CHECK:                goto [[MERGE_AFTER_MAIN:.*]];
+; CHECK:             }
+; CHECK:             [[EXTRACT_0_90:%.*]] = extractelement [[DOTVEC30]],  0
 
-; CHECK:              + DO i64 i1 = 0, %peel.ub, 1   <DO_LOOP>
-; CHECK:              |   (%lp)[i1] = i1;
-; CHECK:              + END LOOP
+; CHECK:             [[UB_TMP0]] = [[EXTRACT_0_90]]
+; CHECK:             [[PEEL_UB0:%.*]] = [[UB_TMP0]]  -  1
+; CHECK:             + DO i64 i1 = 0, [[PEEL_UB0]], 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:             |   ([[LP0]])[i1] = i1
+; CHECK:             + END LOOP
 
-; CHECK:              %phi.temp = %ub.tmp;
-; CHECK:              [[MERGE_AFTER_PEEL]]:
-; CHECK:              %.vec11 = %.vec3 + 4 >u %n1;
-; CHECK:              %phi.temp6 = %phi.temp;
-; CHECK:              %extract.0.13 = extractelement %.vec11,  0;
-; CHECK:              if (%extract.0.13 == 1)
-; CHECK:              {
-; CHECK:                 goto [[MERGE_AFTER_MAIN]];
-; CHECK:              }
-; CHECK:              %extract.0.14 = extractelement %.vec3,  0;
-; CHECK:              %adj.tc = %n1  -  %extract.0.14;
-; CHECK:              %tgu = %adj.tc  /u  4;
-; CHECK:              %vec.tc = %tgu  *  4;
-; CHECK:              %extract.0.15 = extractelement %.vec3,  0;
-; CHECK:              %adj.tc16 = %vec.tc  +  %extract.0.15;
+; CHECK:             [[PHI_TEMP0]] = [[UB_TMP0]]
+; CHECK:             [[MERGE_AFTER_PEEL]]:
+; CHECK:             [[DOTVEC110:%.*]] = [[DOTVEC30]] + 4 >u [[N10]]
+; CHECK:             [[PHI_TEMP60]] = [[PHI_TEMP0]]
+; CHECK:             [[EXTRACT_0_130:%.*]] = extractelement [[DOTVEC110]],  0
+; CHECK:             if ([[EXTRACT_0_130]] == 1)
+; CHECK:             {
+; CHECK:                goto [[MERGE_AFTER_MAIN]]
+; CHECK:             }
+; CHECK:             [[EXTRACT_0_140:%.*]] = extractelement [[DOTVEC30]],  0
+; CHECK:             [[ADJ_TC0:%.*]] = [[N10]]  -  [[EXTRACT_0_140]]
+; CHECK:             [[TGU0:%.*]] = [[ADJ_TC0]]  /u  4
+; CHECK:             [[VEC_TC0:%.*]] = [[TGU0]]  *  4
+; CHECK:             [[EXTRACT_0_150:%.*]] = extractelement [[DOTVEC30]],  0
+; CHECK:             [[ADJ_TC160:%.*]] = [[VEC_TC0]]  +  [[EXTRACT_0_150]]
+; CHECK:             [[LOOP_UB0:%.*]] = [[ADJ_TC160]]  -  1
 
-; CHECK:              + DO i64 i1 = %phi.temp, %adj.tc16 + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
-; CHECK:              |   (<4 x i64>*)(%lp)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
-; CHECK:              |   <LVAL-REG> {al:8}(<4 x i64>*)(LINEAR i64* %lp)[LINEAR i64 i1] inbounds  !tbaa {{.*}} !intel.preferred_alignment <{{.*}}>
-; CHECK:              + END LOOP
+; CHECK:             + DO i64 i1 = [[PHI_TEMP0]], [[LOOP_UB0]], 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:             |   (<4 x i64>*)([[LP0]])[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>
+; CHECK:             |   <LVAL-REG> {al:8}(<4 x i64>*)(LINEAR i64* [[LP0]])[LINEAR i64 i1] inbounds  !tbaa !4 !intel.preferred_alignment <{{.*}}>
+; CHECK:             + END LOOP
 
-; CHECK:              %.vec17 = %n1 == %adj.tc16;
-; CHECK:              %phi.temp6 = %adj.tc16;
-; CHECK:              %phi.temp19 = %adj.tc16;
-; CHECK:              %extract.0.21 = extractelement %.vec17,  0;
-; CHECK:              if (%extract.0.21 == 1)
-; CHECK:              {
-; CHECK:                 goto [[FINAL_MERGE:.*]];
-; CHECK:              }
-; CHECK:              [[MERGE_AFTER_MAIN]]:
-; CHECK:              %lb.tmp = %phi.temp6;
+; CHECK:             [[DOTVEC170:%.*]] = [[N10]] == [[ADJ_TC160]]
+; CHECK:             [[PHI_TEMP60]] = [[ADJ_TC160]]
+; CHECK:             [[PHI_TEMP190:%.*]] = [[ADJ_TC160]]
+; CHECK:             [[EXTRACT_0_210:%.*]] = extractelement [[DOTVEC170]],  0
+; CHECK:             if ([[EXTRACT_0_210]] == 1)
+; CHECK:             {
+; CHECK:                goto [[FINAL_MERGE:.*]];
+; CHECK:             }
+; CHECK:             [[MERGE_AFTER_MAIN]]:
+; CHECK:             [[LB_TMP0]] = [[PHI_TEMP60]]
+; CHECK:             + DO i64 i1 = [[LB_TMP0]], [[N10]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <nounroll> <novectorize> <max_trip_count = 3>
 
-; CHECK:              + DO i64 i1 = %lb.tmp, %n1 + -1, 1   <DO_LOOP>
-; CHECK:              |   (%lp)[i1] = i1;
-; CHECK:              + END LOOP
+; CHECK:             |   ([[LP0]])[i1] = i1
+; CHECK:             + END LOOP
 
-; CHECK:              %phi.temp19 = %n1 + -1;
-; CHECK:              [[FINAL_MERGE]]:
-; CHECK:        END REGION
-;
+; CHECK:             [[PHI_TEMP190]] = [[N10]] + -1
+; CHECK:             [[FINAL_MERGE]]:
+; CHECK:       END REGION
+
 entry:
   %cmp5 = icmp sgt i64 %n1, 0
   br i1 %cmp5, label %for.body.preheader, label %for.end
