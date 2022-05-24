@@ -321,17 +321,6 @@ static SmallPtrSet<BasicBlock *, 16u> findWRNBlocks(WRegionNode *W, Value *V) {
   return BBs;
 }
 
-// Return the <ElementType, NumElements> pair for the alloca AI.
-ElementTypeAndNumElements getTypedClauseInfoForAlloca(AllocaInst *AI) {
-  Value *NumElements = AI->getArraySize();
-  Type *AllocatedTy = AI->getAllocatedType();
-
-  if (!NumElements)
-    return {AllocatedTy, IRBuilder<>(AI).getInt32(1)};
-
-  return {AllocatedTy, NumElements};
-}
-
 // Return the <ElementType, NumElements> pair, that should be used when
 // creating a PRIVATE clause for the typed item I.
 ElementTypeAndNumElements getTypedClauseInfoForTypedItem(Item *I) {
@@ -606,7 +595,7 @@ static bool cleanupItem(
     else if (!V->getType()->isOpaquePointerTy())
       ToPrivatize.insert({V, llvm::None});
     else if (auto *AI = dyn_cast<AllocaInst>(V))
-      ToPrivatize.insert({AI, getTypedClauseInfoForAlloca(AI)});
+      ToPrivatize.insert({AI, VPOUtils::getTypedClauseInfoForAlloca(AI)});
     else
       llvm_unreachable("Need TYPED clause item to support opaque pointers.");
   }

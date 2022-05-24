@@ -26,8 +26,10 @@
 ;   !$OMP END parallel
 ; END PROGRAM parallel__do__simd
 
-; RUN: opt -vpo-paropt -vpo-paropt-keep-blocks-order=false -S %s | FileCheck %s
-; RUN: opt -passes='vpo-paropt' -vpo-paropt-keep-blocks-order=false -S %s | FileCheck %s
+; RUN: opt -vpo-paropt -vpo-paropt-keep-blocks-order=false -S %s | FileCheck %s --check-prefixes=CHECK,UNTYPED
+; RUN: opt -vpo-paropt -vpo-paropt-keep-blocks-order=false -S --vpo-utils-add-typed-privates %s | FileCheck %s --check-prefixes=CHECK,TYPED
+; RUN: opt -passes='vpo-paropt' -vpo-paropt-keep-blocks-order=false -S %s | FileCheck %s --check-prefixes=CHECK,UNTYPED
+; RUN: opt -passes='vpo-paropt' -vpo-paropt-keep-blocks-order=false -S --vpo-utils-add-typed-privates %s | FileCheck %s --check-prefixes=CHECK,TYPED
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -50,7 +52,8 @@ define void @MAIN__() local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[MUL_40:%.*]] = mul nsw i32 0, [[TEMP_FETCH_260]]
 ; CHECK-NEXT:    [[ADD_30:%.*]] = add nsw i32 [[MUL_40]], [[TEMP_FETCH_250]]
 ; CHECK-NEXT:    store i32 [[ADD_30]], i32* %"parallel__do__simd_$I2.linear.iv", align 1
-; CHECK-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(i32* %"parallel__do__simd_$I2.linear.iv", i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.PRIVATE"(float* [[TEMP90]]), "QUAL.OMP.PRIVATE"(float* [[TEMP0]]) ]
+; TYPED-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(i32* %"parallel__do__simd_$I2.linear.iv", i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.PRIVATE:TYPED"(float* [[TEMP90]], float 0.000000e+00, i32 1), "QUAL.OMP.PRIVATE:TYPED"(float* [[TEMP0]], float 0.000000e+00, i32 1) ]
+; UNTYPED-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(i32* %"parallel__do__simd_$I2.linear.iv", i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.PRIVATE"(float* [[TEMP90]]), "QUAL.OMP.PRIVATE"(float* [[TEMP0]]) ]
 ; CHECK-NEXT:    br label {{%.*}}
 
 ; CHECK:       bb11:
