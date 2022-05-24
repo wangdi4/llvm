@@ -161,6 +161,12 @@ static cl::opt<uint32_t> DataPrefetchKind(
     cl::desc("Control prefetch API generation in OpenMP code. 0 = none; "
              "1 = lsc_prefetch; 2 (default) = OpenCL_prefetch."));
 
+// Switch to control memory address-space setting for device.
+static cl::opt<uint32_t> DeviceMemoryKind(
+    "vpo-paropt-device-memory-kind", cl::Hidden, cl::init(3),
+    cl::desc("Control memory address space setting for device. 0 = private; "
+             "1 = global, 2 = constant, 3 (default) = local; 4 = generic."));
+
 // Get the TidPtrHolder global variable @tid.addr.
 // Assert if the variable is not found or is not i32.
 GlobalVariable *VPOParoptUtils::getTidPtrHolder(Module *M) {
@@ -6687,6 +6693,10 @@ bool VPOParoptUtils::enableDeviceSimdCodeGen() {
 
 bool VPOParoptUtils::enableAsyncHelperThread() {
   return EnableAsyncHelperThread;
+}
+
+uint32_t VPOParoptUtils::getDeviceMemoryKind() {
+  return DeviceMemoryKind;
 }
 
 bool VPOParoptUtils::getSPIRImplicitMultipleTeams() {
