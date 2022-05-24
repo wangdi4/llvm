@@ -28,7 +28,7 @@
 ; RTL:       call void [[KERNEL:@__omp_offloading.*foo.*]](i32* %x)
 ;
 ; RTL:     define internal void [[KERNEL]](i32* %x)
-; RTL:       %x.fpriv = alloca i32, align 1
+; RTL:       %x.fpriv = alloca i32, align 4
 ; RTL:       [[X_VAL:[^ ]+]] = load i32, i32* %x, align 4
 ; RTL:       store i32 [[X_VAL]], i32* %x.fpriv, align 4
 ; RTL:       call {{.*}} @printf({{.*}}, i32* noundef %x.fpriv)
@@ -48,7 +48,7 @@
 ; NOTRTL:    call void [[KERNEL:@__omp_offloading.*foo.*]](i64 [[X_VAL_CAST]])
 ;
 ; NOTRTL:  define internal void [[KERNEL]](i64 [[X_VAL_PARM:[^ ]+]])
-; NOTRTL:    %x.fpriv = alloca i32, align 1
+; NOTRTL:    %x.fpriv = alloca i32, align 4
 ; NOTRTL:    [[X_VAL_CAST:%[^ ]+]] = trunc i64 [[X_VAL_PARM]] to i32
 ; NOTRTL:    store i32 [[X_VAL_CAST]], i32* %x.fpriv, align 4
 ; NOTRTL:    call {{.*}} @printf({{.*}}, i32* noundef %x.fpriv)

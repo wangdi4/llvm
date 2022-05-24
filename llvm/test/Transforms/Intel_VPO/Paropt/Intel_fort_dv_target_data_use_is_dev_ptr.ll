@@ -51,7 +51,7 @@ entry:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_PTR:F90_DV"(%"QNCA_a0$i32*$rank1$"* %"foo_$B") ]
 
 ; Check that a local dope vector is allocated for the USE_DEVICE_PTR:F90_DV operand.
-; CHECK: %"foo_$B.new" = alloca %"QNCA_a0$i32*$rank1$", align 1
+; CHECK: %"foo_$B.new" = alloca %"QNCA_a0$i32*$rank1$", align 8
 
 ; Check that B.addr[0] is used in the map clause for use_device_ptr to get the corresponding device pointer.
 ; CHECK: [[B_ADDR0_GEP:%[^ ]+]] = getelementptr inbounds %"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* %"foo_$B", i32 0, i32 0

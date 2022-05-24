@@ -32,7 +32,7 @@
 ; Check that the captured VLA size is used in the target region for allocation of the private VLA.
 ; CHECK: define weak dso_local spir_kernel void @__omp_offloading{{.*}}main{{.*}}(i64 addrspace(1)* noalias [[SIZE_ADDR]], i32 addrspace(1)* %{{.*}}, i64 addrspace(1)* %{{.*}})
 ; CHECK: [[SIZE_VAL:%[^ ]+]] = load i64, i64 addrspace(1)* [[SIZE_ADDR]], align 8
-; CHECK: %{{.*}} = alloca i32, i64 [[SIZE_VAL]], align 1
+; CHECK: %{{.*}} = alloca i32, i64 [[SIZE_VAL]], align 4
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"

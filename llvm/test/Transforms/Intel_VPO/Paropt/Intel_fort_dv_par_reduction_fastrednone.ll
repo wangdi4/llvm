@@ -38,7 +38,7 @@
 ; CHECK-LABEL: define internal void @foo{{[^ ]*}}DIR.OMP.PARALLEL{{[^ ]*}}(i32* {{[^ ,]+}}, i32* {{[^ ,]+}}, %"QNCA_a0$i16*$rank3$"* %"foo_$A")
 
 ; Check for the allocation of the local copy of the dope vector.
-; CHECK: [[PRIV_DV:[^ ]+]] = alloca %"QNCA_a0$i16*$rank3$", align 1
+; CHECK: [[PRIV_DV:[^ ]+]] = alloca %"QNCA_a0$i16*$rank3$", align 8
 
 ; Check that the dope vector init call is emitted for PRIV_DV.
 ; CHECK: [[PRIV_DV_CAST:[^ ]+]] = bitcast %"QNCA_a0$i16*$rank3$"* [[PRIV_DV]] to i8*
@@ -48,7 +48,7 @@
 
 ; Check that local data is allocated and stored to the addr0 field of the dope vector.
 ; CHECK: [[PRIV_DV_ADDR0:[^ ]+]] = getelementptr inbounds %"QNCA_a0$i16*$rank3$", %"QNCA_a0$i16*$rank3$"* [[PRIV_DV]], i32 0, i32 0
-; CHECK: [[PRIV_DV_DATA:[^ ]+]] = alloca i16, i64 [[NUM_ELEMENTS_1]], align 1
+; CHECK: [[PRIV_DV_DATA:[^ ]+]] = alloca i16, i64 [[NUM_ELEMENTS_1]], align 2
 ; CHECK: store i16* [[PRIV_DV_DATA]], i16** [[PRIV_DV_ADDR0]]
 
 ; Check that the GEP for the dope vector in the fast-reduction struct is computed:

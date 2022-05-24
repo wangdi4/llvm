@@ -12,8 +12,8 @@
 
 ; Check that we are able to privatize x and y.
 
-; CHECK: [[XP:@.*priv.__global]] = internal addrspace(1) global i16 0, align 1
-; CHECK: [[YP:@.*y.ascast.priv.__global]] = internal addrspace(1) global i16 0, align 1
+; CHECK: [[XP:@.*priv.__global]] = internal addrspace(1) global i16 0
+; CHECK: [[YP:@.*y.ascast.priv.__global]] = internal addrspace(1) global i16 0
 
 ; CHECK: [[YP_VAL:%.+]] = load i16, ptr addrspace(1) [[YP]], align 2
 ; CHECK: store i16 [[YP_VAL]], ptr addrspace(1) [[XP]], align 2

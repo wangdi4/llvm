@@ -16,7 +16,7 @@
 
 ; CHECK: define internal void @f{{.*}}(ptr %tid, ptr %bid, ptr [[SIZE_ADDR:%size.addr]], ptr [[A_ORIG:%vla]])
 ; CHECK:  [[SIZE:%size.*]] = load i64, ptr [[SIZE_ADDR]], align 8
-; CHECK:  [[A_FP:%vla.fpriv]] = alloca i32, i64 [[SIZE]], align 1
+; CHECK:  [[A_FP:%vla.fpriv]] = alloca i32, i64 [[SIZE]], align 4
 ; CHECK:  [[SIZE_BYTES:%.*]] = mul i64 4, [[SIZE]]
 ; CHECK:  call void @llvm.memcpy.p0.p0.i64(ptr align 4 [[A_FP]], ptr align 4 [[A_ORIG]], i64 [[SIZE_BYTES]], i1 false)
 
