@@ -335,7 +335,9 @@ public:
   // the fields listed in this enumeration.
   enum DopeVectorRankFields { DVR_Extent, DVR_Stride, DVR_LowerBound };
 
-  DopeVectorAnalyzer(Value *DVObject) : DVObject(DVObject) {
+  DopeVectorAnalyzer(Value *DVObject,
+    std::function<const TargetLibraryInfo &(Function &F)> *GetTLI = nullptr) :
+    DVObject(DVObject), GetTLI(GetTLI) {
     assert(
         DVObject->getType()->isPointerTy() &&
         DVObject->getType()->getPointerElementType()->isStructTy() &&
@@ -414,6 +416,34 @@ public:
     return StrideAddr[Dim];
   }
 
+  // Check whether information is available about the extent for the specified
+  // dimension.
+  bool hasExtentField(uint32_t Dim) const {
+    if (ExtentAddr.size() <= Dim)
+      return false;
+    return ExtentAddr[Dim].hasFieldAddr();
+  }
+
+  // Get the extent field information for the specified dimension.
+  const DopeVectorFieldUse &getExtentField(uint32_t Dim) const {
+    assert(hasExtentField(Dim) && "Invalid request");
+    return ExtentAddr[Dim];
+  }
+
+  // Check whether information is available about the lower bound for the
+  // specified dimension.
+  bool hasLowerBoundField(uint32_t Dim) const {
+    if (LowerBoundAddr.size() <= Dim)
+      return false;
+    return LowerBoundAddr[Dim].hasFieldAddr();
+  }
+
+  // Get the lower bound field information for the specified dimension.
+  const DopeVectorFieldUse &getLowerBoundField(uint32_t Dim) const {
+    assert(hasLowerBoundField(Dim) && "Invalid request");
+    return LowerBoundAddr[Dim];
+  }
+
   // Get all the store instructions for the stride field for the specified
   // dimension.
   iterator_range<DopeVectorFieldUse::StoreInstSetIter>
@@ -484,8 +514,10 @@ public:
   // If \p ForCreation is set, it means the analysis is for the construction of
   // the dope vector, and requires addresses for all fields to be identified.
   // When it is not set, it is allowed to only identify a subset of the Value
-  // objects holding field addresses.
-  void analyze(bool ForCreation);
+  // objects holding field addresses. If IsLocal is true, then it means that
+  // the analysis process will verify that the dope vector is not used outside
+  // of the function.
+  void analyze(bool ForCreation, bool IsLocal = false);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
@@ -616,6 +648,8 @@ private:
   // created the dope vector, the same uplevel variable is passed to all of
   // them.
   UplevelDVField Uplevel;
+
+  std::function<const TargetLibraryInfo &(Function &F)> *GetTLI;
 };
 
 // Helper class to handle all the information related to one dope vector.
