@@ -1,8 +1,10 @@
-; RUN: opt -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s 2>&1 | FileCheck %s
+; RUN: opt < %s -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S --vpo-utils-add-typed-privates 2>&1 | FileCheck %s --check-prefixes=CHECK,TYPED
+; RUN: opt < %s -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S 2>&1 | FileCheck %s --check-prefixes=CHECK,UNTYPED
 
 ; CHECK: define{{.*}}split
 ; CHECK:  %Array.i = alloca [2050 x i32], align 16
-; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(i32* %i.priv, i32 1), "QUAL.OMP.PRIVATE"([2050 x i32]* %Array.i) ]
+; TYPED: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(i32* %i.priv, i32 1), "QUAL.OMP.PRIVATE:TYPED"([2050 x i32]* %Array.i, i32 0, i64 2050) ]
+; UNTYPED: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(i32* %i.priv, i32 1), "QUAL.OMP.PRIVATE"([2050 x i32]* %Array.i) ]
 ; CHECK-NOT: %Array.i = alloca [2050 x i32], align 16
 
 ; After inlining, the alloca for Array is placed inside the SIMD loop. It

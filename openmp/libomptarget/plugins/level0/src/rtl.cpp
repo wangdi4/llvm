@@ -598,11 +598,14 @@ public:
     kernelId = 0;
     for (const auto &d : Data) {
       double hostTime = d.second.HostTime * Multiplier;
-      double deviceTime = hostTime;
+      double deviceTime = 0.0;
       std::string key(d.first);
       if (d.first.substr(0, kernelPrefix.size()) == kernelPrefix) {
         deviceTime = d.second.DeviceTime * Multiplier;
         key = kernelPrefix + std::to_string(kernelId++);
+      } else if (d.first.substr(0, 8) == "DataRead" ||
+                 d.first.substr(0, 9) == "DataWrite") {
+        deviceTime = d.second.DeviceTime * Multiplier;
       }
       fprintf(stderr, "-- %s: %20.3f %20.3f\n",
               alignLeft(maxKeyLength, key).c_str(), hostTime, deviceTime);
@@ -2457,6 +2460,8 @@ public:
   }
 }; /// MemAllocatorTy
 
+class ScopedTimerTy; // Forward declaration
+
 /// Device information
 struct RTLDeviceInfoTy {
 
@@ -2746,7 +2751,8 @@ struct RTLDeviceInfoTy {
 
   /// Enqueue copy command
   int32_t enqueueMemCopy(int32_t DeviceId, void *Dst, const void *Src,
-                         size_t Size, bool Locked = false);
+                         size_t Size, ScopedTimerTy *Timer = nullptr,
+                         bool Locked = false);
 
   /// Return memory allocation type
   uint32_t getMemAllocType(const void *Ptr);
@@ -3281,7 +3287,7 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
       return Batch.enqueueMemCopyTo(DeviceId, TgtPtr, HstPtr, Size);
   }
 
-  ScopedTimerTy tmDataWrite(DeviceId, "DataWrite (Host to Device)");
+  ScopedTimerTy Timer(DeviceId, "DataWrite (Host to Device)");
 
   // Add synthetic delay for experiments
   addDataTransferLatency();
@@ -3297,7 +3303,7 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
       std::copy_n(
           static_cast<char *>(HstPtr), Size, static_cast<char *>(SrcPtr));
     }
-    if (DeviceInfo->enqueueMemCopy(DeviceId, TgtPtr, SrcPtr, Size) !=
+    if (DeviceInfo->enqueueMemCopy(DeviceId, TgtPtr, SrcPtr, Size, &Timer) !=
         OFFLOAD_SUCCESS)
       return OFFLOAD_FAIL;
   } else {
@@ -3323,7 +3329,7 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
       return Batch.enqueueMemCopyFrom(DeviceId, HstPtr, TgtPtr, Size);
   }
 
-  ScopedTimerTy tmDataRead(DeviceId, "DataRead (Device to Host)");
+  ScopedTimerTy Timer(DeviceId, "DataRead (Device to Host)");
 
   // Add synthetic delay for experiments
   addDataTransferLatency();
@@ -3338,7 +3344,7 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
       DstPtr = DeviceInfo->getStagingBuffer().get();
     }
     if (OFFLOAD_SUCCESS !=
-        DeviceInfo->enqueueMemCopy(DeviceId, DstPtr, TgtPtr, Size))
+        DeviceInfo->enqueueMemCopy(DeviceId, DstPtr, TgtPtr, Size, &Timer))
       return OFFLOAD_FAIL;
     if (DstPtr != HstPtr)
       std::copy_n(
@@ -4178,22 +4184,33 @@ ze_kernel_indirect_access_flags_t RTLDeviceInfoTy::getKernelIndirectAccessFlags(
 
 /// Enqueue memory copy
 int32_t RTLDeviceInfoTy::enqueueMemCopy(
-    int32_t DeviceId, void *Dst, const void *Src, size_t Size, bool Locked) {
-  auto cmdList = getLinkCopyCmdList(DeviceId);
-  auto cmdQueue = getLinkCopyCmdQueue(DeviceId);
+    int32_t DeviceId, void *Dst, const void *Src, size_t Size,
+    ScopedTimerTy *Timer, bool Locked) {
+  auto CmdList = getLinkCopyCmdList(DeviceId);
+  auto CmdQueue = getLinkCopyCmdQueue(DeviceId);
 
-  CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, Dst, Src, Size,
-                   nullptr, 0, nullptr);
-  CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
+  ze_event_handle_t Event = nullptr;
+  if (Timer && Option.Flags.EnableProfile) {
+    Event = EventPool.getEvent();
+  }
+
+  CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, CmdList, Dst, Src, Size,
+                   Event, 0, nullptr);
+  CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
   if (Locked) {
-    CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList,
+    CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
                      nullptr);
   } else {
-    CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists,
-                         Mutexes[DeviceId], cmdQueue, 1, &cmdList, nullptr);
+    CALL_ZE_RET_FAIL_MTX(zeCommandQueueExecuteCommandLists, Mutexes[DeviceId],
+                         CmdQueue, 1, &CmdList, nullptr);
   }
-  CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
-  CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
+  CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
+  CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
+
+  if (Event) {
+    Timer->updateDeviceTime(Event);
+    EventPool.releaseEvent(Event);
+  }
 
   return OFFLOAD_SUCCESS;
 }
@@ -5437,7 +5454,8 @@ int32_t LevelZeroProgramTy::resetProgramData() {
     return OFFLOAD_SUCCESS;
 
   return DeviceInfo->enqueueMemCopy(DeviceId, PGMDataPtr, &PGMData,
-                                    sizeof(PGMData), true /* Locked */);
+                                    sizeof(PGMData), nullptr /* Timer */,
+                                    true /* Locked */);
 }
 
 ///

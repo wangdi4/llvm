@@ -360,11 +360,16 @@ struct ProfileDataTy {
     kernelId = 0;
     for (const auto &d : data) {
       double hostTime = 1e-9 * d.second.host * resolution;
-      double deviceTime = 1e-9 * d.second.device * resolution;
+      double deviceTime = 0.0;
       std::string key(d.first);
 
-      if (d.first.substr(0, kernelPrefix.size()) == kernelPrefix)
+      if (d.first.substr(0, kernelPrefix.size()) == kernelPrefix) {
         key = kernelPrefix + std::to_string(kernelId++);
+        deviceTime = 1e-9 * d.second.device * resolution;
+      } else if (d.first.substr(0, 8) == "DataRead" ||
+                 d.first.substr(0, 9) == "DataWrite") {
+        deviceTime = 1e-9 * d.second.device * resolution;
+      }
 
       fprintf(stderr, "-- %s: %20.3f %20.3f\n",
               alignLeft(maxKeyLength, key).c_str(), hostTime, deviceTime);
