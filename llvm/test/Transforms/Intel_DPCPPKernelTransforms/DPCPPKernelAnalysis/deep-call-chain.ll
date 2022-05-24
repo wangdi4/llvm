@@ -4,7 +4,7 @@
 ; RUN: opt -dpcpp-kernel-analysis %s -S -debug -disable-output 2>&1| FileCheck %s
 
 ; CHECK: KernelAnalysis
-; CHECK: Kernel <kernel_call_func_with_lid>: NoBarrierPath=0
+; CHECK: Kernel <kernel_call_func_with_lid>: NoBarrierPath=1
 ; CHECK: Kernel <kernel_call_func_without_tid>: NoBarrierPath=1
 
 ;; CFG for call chain with TID

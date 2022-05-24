@@ -80,6 +80,8 @@
 ; CHECK:      Running pass: HandleVPlanMask
 
 ; CHECK:      Running pass: ResolveSubGroupWICallPass
+; CHECK-NEXT: Running pass: ImplicitGIDPass
+; CHECK-NEXT: Running analysis: Intel Kernel DataPerBarrier Analysis
 ; CHECK-NEXT: Running pass: DPCPPKernelWGLoopCreatorPass
 ; CHECK:      Running pass: LoopUnrollPass
 ; CHECK:      Running pass: IndirectCallLowering

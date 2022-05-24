@@ -18,7 +18,13 @@ namespace llvm {
 class DPCPPKernelWGLoopCreatorPass
     : public PassInfoMixin<DPCPPKernelWGLoopCreatorPass> {
 public:
+  DPCPPKernelWGLoopCreatorPass(bool UseTLSGlobals = false)
+      : UseTLSGlobals(UseTLSGlobals) {}
+
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+
+private:
+  bool UseTLSGlobals;
 };
 
 } // namespace llvm

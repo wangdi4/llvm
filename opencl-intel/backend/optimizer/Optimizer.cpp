@@ -469,18 +469,14 @@ static void populatePassesPostFailCheck(
     PM.add(createDebugInfoPass());
   }
 
+  PM.add(llvm::createDPCPPKernelAnalysisLegacyPass());
   if (OptLevel > 0) {
     PM.add(llvm::createCFGSimplificationPass());
-    PM.add(llvm::createDPCPPKernelAnalysisLegacyPass());
     PM.add(llvm::createWGLoopBoundariesLegacyPass());
     PM.add(llvm::createDeadCodeEliminationPass());
     PM.add(llvm::createCFGSimplificationPass());
     PM.add(llvm::createDeduceMaxWGDimLegacyPass());
   }
-
-  // Mark the kernels using subgroups
-  if (EnableNativeOpenCLSubgroups)
-    PM.add(createKernelSubGroupInfoPass());
 
   // In Apple build TRANSPOSE_SIZE_1 is not declared
   if (pConfig.GetTransposeSize() != 1 /*TRANSPOSE_SIZE_1*/
@@ -623,13 +619,13 @@ static void populatePassesPostFailCheck(
   }
 
   // Adding WG loops
-  if (OptLevel > 0) {
-    if (pConfig.GetStreamingAlways())
-      PM.add(createAddNTAttrLegacyPass());
-    if (debugType == Native)
-      PM.add(createImplicitGIDLegacyPass(/*HandleBarrier*/ false));
-    PM.add(llvm::createDPCPPKernelWGLoopCreatorLegacyPass());
-  }
+  if (OptLevel > 0 && pConfig.GetStreamingAlways())
+    PM.add(createAddNTAttrLegacyPass());
+
+  if (debugType == Native)
+    PM.add(createImplicitGIDLegacyPass(/*HandleBarrier*/ false));
+  PM.add(llvm::createDPCPPKernelWGLoopCreatorLegacyPass(UseTLSGlobals));
+
   PM.add(createIndirectCallLoweringLegacyPass());
 
   // Clean up scalar kernel after WGLoop for native subgroups.
