@@ -485,8 +485,8 @@ define i32 @test_chr_5(i32* %i, i32 %sum0) !prof !14 {
 ; CHECK-NEXT:    br label [[BB3]]
 ; CHECK:       bb3:
 ; CHECK-NEXT:    [[SUM6:%.*]] = phi i32 [ [[TMP4]], [[BB0]] ], [ [[SUM0]], [[ENTRY_SPLIT_NONCHR]] ], [ [[TMP16]], [[BB0_NONCHR]] ]
-; CHECK-NEXT:    ret i32 [[SUM6]]
 ; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    ret i32 [[SUM6]]
 ;
 entry:
   %0 = load i32, i32* %i
@@ -1662,13 +1662,12 @@ bb3:
 ; } while (tmp2 != 100)
 ; return sum4
 define i32 @test_chr_18(i32* %i, i32 %sum0) !prof !14 {
+; INTEL_CUSTOMIZATION
 ; CHECK-LABEL: @test_chr_18(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[BB0:%.*]]
 ; CHECK:       bb0:
-; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[INC1:%.*]] = phi i32 [ [[TMP3:%.*]], [[BB2:%.*]] ], [ 0, [[ENTRY:%.*]] ]
-; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[LI:%.*]] = load i32, i32* [[I:%.*]], align 4
 ; CHECK-NEXT:    [[LI_FR:%.*]] = freeze i32 [[LI]]
 ; CHECK-NEXT:    [[SUM1:%.*]] = add i32 [[SUM0:%.*]], 42
@@ -1681,16 +1680,9 @@ define i32 @test_chr_18(i32* %i, i32 %sum0) !prof !14 {
 ; CHECK:       bb0.split.nonchr:
 ; CHECK-NEXT:    [[A4_NONCHR:%.*]] = and i32 [[LI_FR]], 4
 ; CHECK-NEXT:    [[CMP4_NONCHR:%.*]] = icmp eq i32 [[A4_NONCHR]], 0
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[SUM2_NONCHR:%.*]] = select i1 [[CMP1_NOT]], i32 [[SUM0]], i32 [[SUM1]]
-=======
-; CHECK-NEXT:    br i1 [[CMP4_NONCHR]], label [[BB2]], label [[BB1_NONCHR:%.*]], !prof [[PROF16]]
-; CHECK:       bb1.nonchr:
 ; CHECK-NEXT:    [[A1:%.*]] = and i32 [[LI_FR]], 1
 ; CHECK-NEXT:    [[CMP1_NOT:%.*]] = icmp eq i32 [[A1]], 0
-; CHECK-NEXT:    [[SUM2_NONCHR:%.*]] = select i1 [[CMP1_NOT]], i32 [[SUM0]], i32 [[SUM1]], !prof [[PROF16]]
->>>>>>> b2a13d3e2ddb905a7340dae42a08b9fc985b1054
+; CHECK-NEXT:    [[SUM2_NONCHR:%.*]] = select i1 [[CMP1_NOT]], i32 [[SUM0]], i32 [[SUM1]]
 ; CHECK-NEXT:    [[SUM3_NONCHR:%.*]] = add i32 [[SUM2_NONCHR]], 44
 ; CHECK-NEXT:    [[TMP2:%.*]] = select i1 [[CMP4_NONCHR]], i32 [[SUM1]], i32 [[SUM3_NONCHR]], !prof [[PROF16]]
 ; CHECK-NEXT:    br label [[BB2]]
@@ -1698,11 +1690,11 @@ define i32 @test_chr_18(i32* %i, i32 %sum0) !prof !14 {
 ; CHECK-NEXT:    [[SUM4:%.*]] = phi i32 [ [[SUM3]], [[BB1]] ], [ [[TMP2]], [[BB0_SPLIT_NONCHR]] ]
 ; CHECK-NEXT:    [[TMP3]] = add i32 [[INC1]], 1
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i32 [[TMP3]], 100
-; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br i1 [[CMP]], label [[BB3:%.*]], label [[BB0]], !prof [[PROF16]]
 ; CHECK:       bb3:
 ; CHECK-NEXT:    ret i32 [[SUM4]]
 ;
+; end INTEL_CUSTOMIZATION
 entry:
   br label %bb0
 
