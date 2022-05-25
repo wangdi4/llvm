@@ -113,6 +113,9 @@ FunctionPass *createX86DynAllocaExpander();
 /// Return a pass that config the tile registers.
 FunctionPass *createX86TileConfigPass();
 
+/// Return a pass that preconfig the tile registers before fast reg allocation.
+FunctionPass *createX86FastPreTileConfigPass();
+
 /// Return a pass that config the tile registers after fast reg allocation.
 FunctionPass *createX86FastTileConfigPass();
 
@@ -244,6 +247,7 @@ void initializeX86SplitLongBlockPassPass(PassRegistry &);
 void initializeX86PreISelIntrinsicLoweringPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
 void initializeX86PreTileConfigPass(PassRegistry &);
+void initializeX86FastPreTileConfigPass(PassRegistry &);
 void initializeX86FastTileConfigPass(PassRegistry &);
 void initializeX86TileConfigPass(PassRegistry &);
 void initializeX86LowerAMXTypeLegacyPassPass(PassRegistry &);
