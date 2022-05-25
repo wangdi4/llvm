@@ -12,6 +12,7 @@ target triple = "x86_64-pc-linux"
 ; Function Attrs: convergent mustprogress nofree norecurse nounwind willreturn writeonly
 define dso_local void @test(i32 addrspace(1)* nocapture noundef writeonly %dst) local_unnamed_addr #0 !kernel_arg_addr_space !2 !kernel_arg_access_qual !3 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 !kernel_arg_host_accessible !7 !kernel_arg_pipe_depth !8 !kernel_arg_pipe_io !5 !kernel_arg_buffer_location !5 !no_barrier_path !9 !kernel_has_sub_groups !9 !vectorized_kernel !10 !vectorized_masked_kernel !11 !vectorized_width !2 {
 ; CHECK-LABEL: @test(
+; CHECK:       entry:
 ; CHECK-NEXT:    [[EARLY_EXIT_CALL:%.*]] = call [7 x i64] @WG.boundaries.test(i32 addrspace(1)* [[DST:%.*]])
 ; CHECK-NEXT:    [[TMP1:%.*]] = extractvalue [7 x i64] [[EARLY_EXIT_CALL]], 0
 ; CHECK-NEXT:    [[TMP2:%.*]] = trunc i64 [[TMP1]] to i1

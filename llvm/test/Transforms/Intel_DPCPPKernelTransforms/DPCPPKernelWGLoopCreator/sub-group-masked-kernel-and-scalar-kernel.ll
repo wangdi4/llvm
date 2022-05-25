@@ -10,6 +10,7 @@ target triple = "x86_64-pc-linux"
 ; Function Attrs: convergent nounwind
 define void @test(i32 addrspace(1)* noalias %a) local_unnamed_addr #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !7 !vectorized_kernel !8 !vectorized_masked_kernel !9 !no_barrier_path !10 !kernel_has_sub_groups !10 !vectorized_width !1 !scalar_kernel !11 !kernel_execution_length !12 !kernel_has_barrier !5 !kernel_has_global_sync !5 {
 ; CHECK-LABEL: @test(
+; CHECK:       entry:
 ; CHECK-NEXT:    [[EARLY_EXIT_CALL:%.*]] = call [7 x i64] @WG.boundaries.test(i32 addrspace(1)* [[A:%.*]])
 ; CHECK-NEXT:    [[TMP1:%.*]] = extractvalue [7 x i64] [[EARLY_EXIT_CALL]], 0
 ; CHECK-NEXT:    [[TMP2:%.*]] = trunc i64 [[TMP1]] to i1
@@ -142,6 +143,7 @@ entry:
 ; Function Attrs: nounwind
 define void @foo(i32 addrspace(1)* noalias %a) local_unnamed_addr #2 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !7 !no_barrier_path !10 !kernel_has_barrier !5 !kernel_has_global_sync !5 {
 ; CHECK-LABEL: @foo(
+; CHECK:       entry:
 ; CHECK-NEXT:    [[BASE_GID_DIM0:%.*]] = call i64 @get_base_global_id.(i32 0)
 ; CHECK-NEXT:    [[LOCAL_SIZE_DIM0:%.*]] = call i64 @_Z14get_local_sizej(i32 0)
 ; CHECK-NEXT:    [[MAX_GID_DIM0:%.*]] = add i64 [[BASE_GID_DIM0]], [[LOCAL_SIZE_DIM0]]

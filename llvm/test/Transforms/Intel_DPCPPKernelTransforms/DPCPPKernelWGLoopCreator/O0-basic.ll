@@ -27,8 +27,8 @@ entry:
 ; CHECK: scalar_kernel_entry:
 ; CHECK-NEXT: %dim_0_ind_var = phi i64 [ %base.gid.dim0, %dim_0_pre_head ], [ %dim_0_inc_ind_var, %scalar_kernel_entry ]
 ; CHECK-NEXT: store i32 addrspace(1)* %dst, i32 addrspace(1)** %dst.addr, align 8
-; CHECK-NEXT: %1 = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8
-; CHECK-NEXT: %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %1, i64 %dim_0_ind_var
+; CHECK-NEXT: [[Load:%[0-9]+]] = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8
+; CHECK-NEXT: %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* [[Load]], i64 %dim_0_ind_var
 ; CHECK-NEXT: store i32 0, i32 addrspace(1)* %arrayidx, align 4
 ; CHECK-NEXT: %dim_0_inc_ind_var = add nuw nsw i64 %dim_0_ind_var, 1
 ; CHECK-NEXT: %dim_0_cmp.to.max = icmp eq i64 %dim_0_inc_ind_var, %max.gid.dim0
