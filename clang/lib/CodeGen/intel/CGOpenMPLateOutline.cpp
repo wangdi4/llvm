@@ -2608,6 +2608,7 @@ void OpenMPLateOutliner::emitOMPSizesClause(const OMPSizesClause *) {}
 void OpenMPLateOutliner::emitOMPAlignClause(const OMPAlignClause *Cl) {}
 void OpenMPLateOutliner::emitOMPFullClause(const OMPFullClause *Cl) {}
 void OpenMPLateOutliner::emitOMPPartialClause(const OMPPartialClause *Cl) {}
+void OpenMPLateOutliner::emitOMPFailClause(const OMPFailClause *Cl) {}
 
 static unsigned getForeignRuntimeID(StringRef Str) {
   return llvm::StringSwitch<unsigned>(Str)
