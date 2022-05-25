@@ -478,15 +478,9 @@ void X86PassConfig::addIRPasses() {
   addPass(createX86LowerAMXIntrinsicsPass());
   addPass(createX86LowerAMXTypePass());
 
-<<<<<<< HEAD
-  if (TM->getOptLevel() == CodeGenOpt::None)
-    addPass(createX86PreAMXConfigPass());
-
   if (TM->getOptLevel() != CodeGenOpt::None) // INTEL
     insertPass(&HeteroArchOptID, &X86InstCombineID); // INTEL
 
-=======
->>>>>>> 496156ac57da3abd9c8a6dc422852b7bdfaa448f
   TargetPassConfig::addIRPasses();
 
   if (TM->getOptLevel() != CodeGenOpt::None) {
