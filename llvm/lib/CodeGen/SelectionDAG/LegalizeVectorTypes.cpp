@@ -3750,6 +3750,7 @@ void DAGTypeLegalizer::WidenVectorResult(SDNode *N, unsigned ResNo) {
     Res = WidenVecRes_Binary(N);
     break;
 
+  case ISD::FPOW:
   case ISD::FREM:
     if (unrollExpandedOp())
       break;
@@ -3760,7 +3761,6 @@ void DAGTypeLegalizer::WidenVectorResult(SDNode *N, unsigned ResNo) {
 
   case ISD::FADD:
   case ISD::FMUL:
-  case ISD::FPOW:
   case ISD::FSUB:
   case ISD::FDIV:
   case ISD::SDIV:
