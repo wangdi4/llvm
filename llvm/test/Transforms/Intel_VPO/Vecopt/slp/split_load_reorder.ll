@@ -34,14 +34,14 @@ define void @test(float* nocapture readonly %p1, float* nocapture readonly %p2) 
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x float>, <2 x float>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast float* [[I49]] to <2 x float>*
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x float>, <2 x float>* [[TMP2]], align 4
-; CHECK-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <2 x float> [[TMP1]], <2 x float> [[TMP3]], <4 x i32> <i32 1, i32 0, i32 3, i32 2>
+; CHECK-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <2 x float> [[TMP1]], <2 x float> [[TMP3]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    br label [[BB63:%.*]]
 ; CHECK:       bb53:
 ; CHECK-NEXT:    [[I54:%.*]] = getelementptr float, float* null, i32 0
 ; CHECK-NEXT:    [[I56:%.*]] = getelementptr float, float* [[P2:%.*]], i32 1
 ; CHECK-NEXT:    br i1 undef, label [[BB146:%.*]], label [[BB136:%.*]]
 ; CHECK:       bb58:
-; CHECK-NEXT:    [[TMP4:%.*]] = phi <4 x float> [ [[TMP19:%.*]], [[BB147:%.*]] ], [ [[TMP25:%.*]], [[BB150:%.*]] ], [ [[TMP13:%.*]], [[BB139:%.*]] ]
+; CHECK-NEXT:    [[TMP4:%.*]] = phi <4 x float> [ [[TMP15:%.*]], [[BB147:%.*]] ], [ [[TMP19:%.*]], [[BB150:%.*]] ], [ [[TMP12:%.*]], [[BB139:%.*]] ]
 ; CHECK-NEXT:    br label [[BB63]]
 ; CHECK:       bb63:
 ; CHECK-NEXT:    [[TMP5:%.*]] = phi <4 x float> [ [[TMP4]], [[BB58:%.*]] ], [ [[SPLITLOADSHUFFLE]], [[BB45]] ]
@@ -53,28 +53,22 @@ define void @test(float* nocapture readonly %p1, float* nocapture readonly %p2) 
 ; CHECK:       bb139:
 ; CHECK-NEXT:    [[TMP8:%.*]] = bitcast float* [[I56]] to <2 x float>*
 ; CHECK-NEXT:    [[TMP9:%.*]] = load <2 x float>, <2 x float>* [[TMP8]], align 4
-; CHECK-NEXT:    [[TMP10:%.*]] = shufflevector <2 x float> [[TMP7]], <2 x float> poison, <4 x i32> <i32 1, i32 0, i32 undef, i32 undef>
-; CHECK-NEXT:    [[TMP11:%.*]] = shufflevector <4 x float> poison, <4 x float> [[TMP10]], <4 x i32> <i32 4, i32 5, i32 2, i32 3>
-; CHECK-NEXT:    [[TMP12:%.*]] = shufflevector <2 x float> [[TMP9]], <2 x float> poison, <4 x i32> <i32 1, i32 0, i32 undef, i32 undef>
-; CHECK-NEXT:    [[TMP13]] = shufflevector <4 x float> [[TMP11]], <4 x float> [[TMP12]], <4 x i32> <i32 0, i32 1, i32 4, i32 5>
+; CHECK-NEXT:    [[TMP10:%.*]] = shufflevector <2 x float> [[TMP7]], <2 x float> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP11:%.*]] = shufflevector <2 x float> [[TMP9]], <2 x float> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP12]] = shufflevector <4 x float> [[TMP10]], <4 x float> [[TMP11]], <4 x i32> <i32 0, i32 1, i32 4, i32 5>
 ; CHECK-NEXT:    br i1 undef, label [[BB58]], label [[BB146]]
 ; CHECK:       bb146:
 ; CHECK-NEXT:    br i1 undef, label [[BB159:%.*]], label [[BB147]]
 ; CHECK:       bb147:
-; CHECK-NEXT:    [[TMP14:%.*]] = bitcast float* [[I54]] to <2 x float>*
-; CHECK-NEXT:    [[TMP15:%.*]] = load <2 x float>, <2 x float>* [[TMP14]], align 4
-; CHECK-NEXT:    [[TMP16:%.*]] = extractelement <2 x float> [[TMP15]], i32 1
-; CHECK-NEXT:    [[TMP17:%.*]] = insertelement <4 x float> poison, float [[TMP16]], i32 0
-; CHECK-NEXT:    [[TMP18:%.*]] = extractelement <2 x float> [[TMP15]], i32 0
-; CHECK-NEXT:    [[TMP19]] = insertelement <4 x float> [[TMP17]], float [[TMP18]], i32 1
+; CHECK-NEXT:    [[TMP13:%.*]] = bitcast float* [[I54]] to <2 x float>*
+; CHECK-NEXT:    [[TMP14:%.*]] = load <2 x float>, <2 x float>* [[TMP13]], align 4
+; CHECK-NEXT:    [[TMP15]] = shufflevector <2 x float> [[TMP14]], <2 x float> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
 ; CHECK-NEXT:    br i1 undef, label [[BB150]], label [[BB58]]
 ; CHECK:       bb150:
-; CHECK-NEXT:    [[TMP20:%.*]] = bitcast float* [[I56]] to <2 x float>*
-; CHECK-NEXT:    [[TMP21:%.*]] = load <2 x float>, <2 x float>* [[TMP20]], align 4
-; CHECK-NEXT:    [[TMP22:%.*]] = shufflevector <2 x float> [[TMP15]], <2 x float> poison, <4 x i32> <i32 1, i32 0, i32 undef, i32 undef>
-; CHECK-NEXT:    [[TMP23:%.*]] = shufflevector <4 x float> poison, <4 x float> [[TMP22]], <4 x i32> <i32 4, i32 5, i32 2, i32 3>
-; CHECK-NEXT:    [[TMP24:%.*]] = shufflevector <2 x float> [[TMP21]], <2 x float> poison, <4 x i32> <i32 1, i32 0, i32 undef, i32 undef>
-; CHECK-NEXT:    [[TMP25]] = shufflevector <4 x float> [[TMP23]], <4 x float> [[TMP24]], <4 x i32> <i32 0, i32 1, i32 4, i32 5>
+; CHECK-NEXT:    [[TMP16:%.*]] = bitcast float* [[I56]] to <2 x float>*
+; CHECK-NEXT:    [[TMP17:%.*]] = load <2 x float>, <2 x float>* [[TMP16]], align 4
+; CHECK-NEXT:    [[TMP18:%.*]] = shufflevector <2 x float> [[TMP17]], <2 x float> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP19]] = shufflevector <4 x float> [[TMP15]], <4 x float> [[TMP18]], <4 x i32> <i32 0, i32 1, i32 4, i32 5>
 ; CHECK-NEXT:    br i1 undef, label [[BB58]], label [[BB159]]
 ; CHECK:       bb159:
 ; CHECK-NEXT:    br i1 undef, label [[BB124:%.*]], label [[BB39]]
