@@ -2530,7 +2530,7 @@ struct RTLDeviceInfoTy {
 
   /// Contains all modules (possibly from multiple device images) to handle
   /// dynamic link across multiple images
-  std::vector<ze_module_handle_t> GlobalModules;
+  std::vector<std::vector<ze_module_handle_t>> GlobalModules;
 
   /// Internally defined/used kernel properties
   std::vector<std::map<ze_kernel_handle_t, KernelPropertiesTy>>
@@ -4537,6 +4537,7 @@ int32_t RTLDeviceInfoTy::findDevices() {
   NumActiveKernels.resize(NumRootDevices, 0);
   BatchCmdQueues.resize(NumRootDevices);
   ImmCmdLists.resize(NumDevices);
+  GlobalModules.resize(NumDevices);
   Mutexes.reset(new std::mutex[NumDevices]);
   KernelMutexes.reset(new std::mutex[NumDevices]);
 
@@ -4702,7 +4703,10 @@ int32_t LevelZeroProgramTy::addModule(
 
   bool BuildFailed = (RC != ZE_RESULT_SUCCESS);
   bool ShowBuildLog = DeviceInfo->Option.Flags.ShowBuildLog;
-  if (BuildFailed || ShowBuildLog) {
+  // Suppress build log if it is due to -library-compilation
+  bool SuppressLog =
+      !BuildFailed && IsLibModule && DeviceInfo->isDiscreteDevice(DeviceId);
+  if (!SuppressLog && (BuildFailed || ShowBuildLog)) {
     if (BuildFailed)
       DP("Error: module creation failed\n");
     if (DebugLevel > 0 || ShowBuildLog) {
@@ -4739,7 +4743,7 @@ int32_t LevelZeroProgramTy::addModule(
     if (Modules.empty())
       GlobalModule = Module;
     Modules.push_back(Module);
-    DeviceInfo->GlobalModules.push_back(Module);
+    DeviceInfo->GlobalModules[DeviceId].push_back(Module);
     return OFFLOAD_SUCCESS;
   }
 }
@@ -4759,7 +4763,7 @@ int32_t LevelZeroProgramTy::linkModules() {
 
   ze_result_t RC;
   ze_module_build_log_handle_t LinkLog = nullptr;
-  auto &AllModules = DeviceInfo->GlobalModules;
+  auto &AllModules = DeviceInfo->GlobalModules[DeviceId];
   CALL_ZE_RC(RC, zeModuleDynamicLink, (uint32_t)AllModules.size(),
              AllModules.data(), &LinkLog);
   bool LinkFailed = (RC != ZE_RESULT_SUCCESS);
