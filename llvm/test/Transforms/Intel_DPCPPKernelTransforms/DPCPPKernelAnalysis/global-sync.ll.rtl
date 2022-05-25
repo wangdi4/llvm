@@ -1,0 +1,53 @@
+define dso_local i32 @_Z8atom_addPU3AS1Vii(i32 addrspace(1)* nocapture noundef %p, i32 noundef %val) local_unnamed_addr #0 {
+entry:
+  %0 = atomicrmw add i32 addrspace(1)* %p, i32 %val seq_cst, align 4
+  ret i32 %0
+}
+
+define dso_local void @_Z22atomic_work_item_fencej12memory_order12memory_scope(i32 noundef %flags, i32 noundef %order, i32 noundef %scope) local_unnamed_addr #1 {
+entry:
+  %and = and i32 %flags, 6
+  %tobool.not = icmp eq i32 %and, 0
+  br i1 %tobool.not, label %if.end15, label %switch.early.test
+
+switch.early.test:                                ; preds = %entry
+  switch i32 %scope, label %if.then [
+    i32 4, label %if.end15
+    i32 1, label %if.end15
+    i32 0, label %if.end15
+  ]
+
+if.then:                                          ; preds = %switch.early.test
+  switch i32 %order, label %if.else9 [
+    i32 2, label %if.then6
+    i32 3, label %if.then8
+  ]
+
+if.then6:                                         ; preds = %if.then
+  tail call void @llvm.x86.sse2.lfence()
+  br label %if.end15
+
+if.then8:                                         ; preds = %if.then
+  tail call void @llvm.x86.sse.sfence()
+  br label %if.end15
+
+if.else9:                                         ; preds = %if.then
+  %0 = and i32 %order, -2
+  %1 = icmp eq i32 %0, 4
+  br i1 %1, label %if.then12, label %if.end15
+
+if.then12:                                        ; preds = %if.else9
+  tail call void @llvm.x86.sse2.mfence()
+  br label %if.end15
+
+if.end15:                                         ; preds = %if.then12, %if.else9, %if.then8, %if.then6, %switch.early.test, %switch.early.test, %switch.early.test, %entry
+  ret void
+}
+
+declare void @llvm.x86.sse2.lfence() #2
+declare void @llvm.x86.sse.sfence() #2
+declare void @llvm.x86.sse2.mfence() #2
+
+attributes #0 = { mustprogress nofree norecurse nounwind willreturn }
+attributes #1 = { norecurse nounwind }
+attributes #2 = { nounwind }

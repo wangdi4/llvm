@@ -305,6 +305,15 @@ bool isAtomicBuiltin(StringRef S) {
   return stripName(S).startswith("atom");
 }
 
+bool isAtomicWorkItemFenceBuiltin(StringRef S) {
+  // S is atomic built-in name if
+  // - it's mangled (only built-in function names are mangled)
+  // - it's equal to "atomic_work_item_fence" string
+  if (!isMangledName(S))
+    return false;
+  return stripName(S) == NAME_ATOMIC_WORK_ITEM_FENCE;
+}
+
 bool isGlobalCtorDtor(Function *F) {
   // TODO: implement good solution based on value of @llvm.global_ctors variable
   return F->getName() == "__pipe_global_ctor" ||

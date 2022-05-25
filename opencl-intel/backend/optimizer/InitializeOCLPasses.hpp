@@ -36,7 +36,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeSmartGVNPass(Registry);
     intel::initializePipeSupportPass(Registry);
     intel::initializeStripIntelIPPass(Registry);
-    intel::initializeKernelSubGroupInfoPass(Registry);
     intel::initializeScalarizeFunctionPass(Registry);
     intel::initializeChooseVectorizationDimensionPass(Registry);
 }

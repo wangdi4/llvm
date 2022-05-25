@@ -30,6 +30,7 @@
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
 
 ; CHECK:      Running pass: DPCPPKernelAnalysisPass
+; CHECK-NEXT: Running analysis: LoopAnalysis
 ; CHECK-NEXT: Running pass: WGLoopBoundariesPass
 
 ; CHECK:      Running pass: ReassociatePass
