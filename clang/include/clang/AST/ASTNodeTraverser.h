@@ -231,10 +231,6 @@ public:
   }
 
   void Visit(const OMPClause *C) {
-    if (OMPFailClause::classof(C)) {
-      Visit(static_cast<const OMPFailClause *>(C));
-      return;
-    }
     getNodeDelegate().AddChild([=] {
       getNodeDelegate().Visit(C);
       for (const auto *S : C->children())
@@ -242,13 +238,6 @@ public:
     });
   }
 
-  void Visit(const OMPFailClause *C) {
-    getNodeDelegate().AddChild([=] {
-      getNodeDelegate().Visit(C);
-      const OMPClause *MOC = C->const_getMemoryOrderClause();
-      Visit(MOC);
-    });
-  }
   void Visit(const GenericSelectionExpr::ConstAssociation &A) {
     getNodeDelegate().AddChild([=] {
       getNodeDelegate().Visit(A);
