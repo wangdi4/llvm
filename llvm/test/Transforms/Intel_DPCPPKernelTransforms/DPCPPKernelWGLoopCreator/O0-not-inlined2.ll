@@ -41,12 +41,12 @@ entry:
 ; CHECK: store i64 %dim_0_tid, i64* %local.id0, align 8
 ; CHECK-NEXT: store i64 %dim_1_tid, i64* %local.id1, align 8
 ; CHECK-NEXT: store i64 %dim_2_tid, i64* %local.id2, align 8
-; CHECK-NEXT: call void @foo(i32 addrspace(1)* noalias noundef %1, [3 x i64]* noalias %local.ids) #2
+; CHECK-NEXT: call void @foo(i32 addrspace(1)* noalias noundef {{.*}}, [3 x i64]* noalias %local.ids)
 ;; TODO following 3 lines are redundant
 ; CHECK: store i64 %dim_0_tid, i64* %local.id0, align 8
 ; CHECK-NEXT: store i64 %dim_1_tid, i64* %local.id1, align 8
 ; CHECK-NEXT: store i64 %dim_2_tid, i64* %local.id2, align 8
-; CHECK-NEXT: call void @foo(i32 addrspace(1)* noalias noundef %2, [3 x i64]* noalias %local.ids) #2
+; CHECK-NEXT: call void @foo(i32 addrspace(1)* noalias noundef {{.*}}, [3 x i64]* noalias %local.ids)
 
   %dst1.addr = alloca i32 addrspace(1)*, align 8
   %dst2.addr = alloca i32 addrspace(1)*, align 8
