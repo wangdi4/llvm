@@ -161,8 +161,10 @@ bool X86TargetInfo::initFeatureMap(
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XUCC
   // Enable xucc-mode for XuCC target.
-  if (getTriple().getArch() == llvm::Triple::x86_64_xucc)
+  if (getTriple().getArch() == llvm::Triple::x86_64_xucc) {
     setFeatureEnabled(Features, "xucc-mode", true);
+    setFeatureEnabled(Features, "sse2", true);
+  }
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
 

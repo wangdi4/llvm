@@ -135,6 +135,11 @@ void tools::gcc::Common::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-m32");
     break;
   case llvm::Triple::x86_64:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  case llvm::Triple::x86_64_xucc:
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   case llvm::Triple::ppc64:
   case llvm::Triple::ppc64le:
     CmdArgs.push_back("-m64");
@@ -331,6 +336,9 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
     return "elf64_s390";
   case llvm::Triple::x86_64:
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  case llvm::Triple::x86_64_xucc:
+#endif // INTEL_FEATURE_XUCC
 #if INTEL_FEATURE_CSA
   case llvm::Triple::csa:
 #endif  // INTEL_FEATURE_CSA
@@ -3440,6 +3448,11 @@ bool Generic_GCC::IsIntegratedAssemblerDefault() const {
   case llvm::Triple::ve:
   case llvm::Triple::x86:
   case llvm::Triple::x86_64:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+    case llvm::Triple::x86_64_xucc:
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
     return true;
   default:
     return false;

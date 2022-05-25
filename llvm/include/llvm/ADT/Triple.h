@@ -931,7 +931,14 @@ public:
 
   /// Tests whether the target is x86 (32- or 64-bit).
   bool isX86() const {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+    return getArch() == Triple::x86 || getArch() == Triple::x86_64 ||
+           getArch() == Triple::x86_64_xucc;
+#else // INTEL_FEATURE_XUCC
     return getArch() == Triple::x86 || getArch() == Triple::x86_64;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   }
 
   /// Tests whether the target is VE

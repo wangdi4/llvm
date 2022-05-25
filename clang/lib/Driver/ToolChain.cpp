@@ -813,6 +813,11 @@ std::string ToolChain::ComputeLLVMTriple(const ArgList &Args,
   default:
     return getTripleString();
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  case llvm::Triple::x86_64_xucc:
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   case llvm::Triple::x86_64: {
     llvm::Triple Triple = getTriple();
     if (!Triple.isOSBinFormatMachO())
@@ -1541,10 +1546,20 @@ SanitizerMask ToolChain::getSupportedSanitizers() const {
       SanitizerKind::Nullability | SanitizerKind::LocalBounds;
   if (getTriple().getArch() == llvm::Triple::x86 ||
       getTriple().getArch() == llvm::Triple::x86_64 ||
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+      getTriple().getArch() ==  llvm::Triple::x86_64_xucc ||
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
       getTriple().getArch() == llvm::Triple::arm || getTriple().isWasm() ||
       getTriple().isAArch64() || getTriple().isRISCV())
     Res |= SanitizerKind::CFIICall;
   if (getTriple().getArch() == llvm::Triple::x86_64 ||
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+      getTriple().getArch() ==  llvm::Triple::x86_64_xucc ||
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
       getTriple().isAArch64(64) || getTriple().isRISCV())
     Res |= SanitizerKind::ShadowCallStack;
   if (getTriple().isAArch64(64))
