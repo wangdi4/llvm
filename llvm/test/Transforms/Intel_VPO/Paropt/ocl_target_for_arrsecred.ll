@@ -12,7 +12,7 @@
 ; }
 
 ; Check for the allocation of local copy of reduction operand
-; CHECK: [[P_LOCAL:%p.ascast[^ ]+]] = alloca [2 x i32], align 1
+; CHECK: [[P_LOCAL:%p.ascast[^ ]+]] = alloca [2 x i32], align 4
 ; CHECK: [[P_LOCAL_MINUS_OFFSET_ADDR:%p.ascast[^ ]+]] = alloca i32 addrspace(4)*, align 8
 ; CHECK: [[P_LOCAL_0:%[^ ]+]] = getelementptr inbounds [2 x i32], [2 x i32]* [[P_LOCAL]], i32 0, i32 0
 ; CHECK: [[P_LOCAL_0_CAST:%[^ ]+]] = addrspacecast i32* [[P_LOCAL_0]] to i32 addrspace(4)*

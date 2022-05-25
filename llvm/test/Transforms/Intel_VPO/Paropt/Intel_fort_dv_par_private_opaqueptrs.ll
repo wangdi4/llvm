@@ -28,7 +28,7 @@
 
 
 ; Check for the allocation of local dope vector
-; CHECK: [[PRIV_DV:%[^ ]+]] = alloca %"QNCA_a0$i16*$rank3$", align 1
+; CHECK: [[PRIV_DV:%[^ ]+]] = alloca %"QNCA_a0$i16*$rank3$", align 8
 
 ; Check that the dope vector init call is emitted
 ; CHECK: [[SIZE:%[^ ]+]] = call i64 @_f90_dope_vector_init(ptr [[PRIV_DV]], ptr %"foo_$A")
@@ -39,7 +39,7 @@
 ; CHECK: br i1 [[IS_ALLOCATED]], label %allocated.then, label %{{.*}}
 ; CHECK: allocated.then:
 ; CHECK: [[ADDR0:%[^ ]+]] = getelementptr inbounds %"QNCA_a0$i16*$rank3$", ptr [[PRIV_DV]], i32 0, i32 0
-; CHECK: [[DATA:%[^ ]+]] = alloca i16, i64 [[NUM_ELEMENTS]], align 1
+; CHECK: [[DATA:%[^ ]+]] = alloca i16, i64 [[NUM_ELEMENTS]], align 2
 ; CHECK: store ptr [[DATA]], ptr [[ADDR0]]
 
 ; Check that the private DV is used inside the region.

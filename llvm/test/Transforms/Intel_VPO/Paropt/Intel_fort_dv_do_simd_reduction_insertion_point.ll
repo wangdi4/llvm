@@ -16,12 +16,12 @@
 ;CHECK: setInsertionPtForVlaAllocas: Found a VLA operand. Setting VLA insertion point to
 ;
 ;check in the IR that the allocas and the stacksave call are inserted before the region entry and that the stackrestore is inserted after the region exit
-;CHECK:   %"test_$B.1.red" = alloca %{{[^,]+}}, align 1
-;CHECK:   %"test_$B.1.red.data" = alloca i32, i64 %{{[^,]+}}, align 1
+;CHECK:   %"test_$B.1.red" = alloca %{{[^,]+}}, align 8
+;CHECK:   %"test_$B.1.red.data" = alloca i32, i64 %{{[^,]+}}, align 4
 ;CHECK:  [[SS:%[^ ]+]] = call i8* @llvm.stacksave()
 ;CHECK:  %{{[^,]+}}  = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"()
 ;CHECK:  call void @llvm.directive.region.exit(token %{{[^,]+}}) [ "DIR.OMP.END.SIMD"() ]
-;CHECK:  %"test_$B.1.fast_red.data" = alloca i32, i64 %{{[^,]+}}, align 1
+;CHECK:  %"test_$B.1.fast_red.data" = alloca i32, i64 %{{[^,]+}}, align 8
 ;CHECK:  call void @llvm.stackrestore(i8* [[SS]])
 
 ; ModuleID = '/tmp/ifxGSl2CU.i90'
