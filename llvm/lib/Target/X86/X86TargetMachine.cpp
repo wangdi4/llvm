@@ -102,6 +102,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86CmovConverterPassPass(PR);
   initializeX86CiscizationHelperPassPass(PR); // INTEL
   initializeX86TileConfigPass(PR);
+  initializeX86FastPreTileConfigPass(PR);
   initializeX86FastTileConfigPass(PR);
   initializeX86LowerTileCopyPass(PR);
   initializeX86ExpandPseudoPass(PR);
@@ -477,12 +478,15 @@ void X86PassConfig::addIRPasses() {
   addPass(createX86LowerAMXIntrinsicsPass());
   addPass(createX86LowerAMXTypePass());
 
+<<<<<<< HEAD
   if (TM->getOptLevel() == CodeGenOpt::None)
     addPass(createX86PreAMXConfigPass());
 
   if (TM->getOptLevel() != CodeGenOpt::None) // INTEL
     insertPass(&HeteroArchOptID, &X86InstCombineID); // INTEL
 
+=======
+>>>>>>> 496156ac57da3abd9c8a6dc422852b7bdfaa448f
   TargetPassConfig::addIRPasses();
 
   if (TM->getOptLevel() != CodeGenOpt::None) {
@@ -603,9 +607,10 @@ void X86PassConfig::addPreRegAlloc() {
   addPass(createX86PRAExpandPseudoPass());
 #endif // INTEL_CUSTOMIZATION
 
-  if (getOptLevel() != CodeGenOpt::None) {
+  if (getOptLevel() != CodeGenOpt::None)
     addPass(createX86PreTileConfigPass());
-  }
+  else
+    addPass(createX86FastPreTileConfigPass());
 }
 
 void X86PassConfig::addMachineSSAOptimization() {
