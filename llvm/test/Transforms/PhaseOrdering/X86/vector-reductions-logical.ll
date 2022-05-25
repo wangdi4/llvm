@@ -23,15 +23,15 @@ define float @test_merge_allof_v4sf(<4 x float> %t) {
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <4 x i1> [[TMP3]] to i4
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i4 [[TMP4]], 0
 ; CHECK-NEXT:    [[SHIFT:%.*]] = shufflevector <4 x float> [[T_FR]], <4 x float> poison, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
-; CHECK-NEXT:    [[TMP6:%.*]] = fadd <4 x float> [[SHIFT]], [[T_FR]]
+; CHECK-NEXT:    [[TMP6:%.*]] = fadd <4 x float> [[T_FR]], [[SHIFT]]
 ; CHECK-NEXT:    [[ADD:%.*]] = extractelement <4 x float> [[TMP6]], i64 0
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[TMP7:%.*]] = select i1 [[TMP5]], float 0.000000e+00, float [[ADD]]
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       return:
 ; CHECK-NEXT:    [[RETVAL_0:%.*]] = phi float [ 0.000000e+00, [[ENTRY:%.*]] ], [ [[TMP7]], [[LOR_LHS_FALSE]] ]
-; CHECK-NEXT:    ret float [[RETVAL_0]]
 ; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    ret float [[RETVAL_0]]
 ;
 entry:
   %vecext = extractelement <4 x float> %t, i32 0
@@ -199,12 +199,14 @@ define float @test_separate_allof_v4sf(<4 x float> %t) {
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <4 x i1> [[TMP3]] to i4
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i4 [[TMP4]], 0
 ; CHECK-NEXT:    [[SHIFT:%.*]] = shufflevector <4 x float> [[T_FR]], <4 x float> poison, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
-; CHECK-NEXT:    [[TMP6:%.*]] = fadd <4 x float> [[SHIFT]], [[T_FR]]
+; CHECK-NEXT:    [[TMP6:%.*]] = fadd <4 x float> [[T_FR]], [[SHIFT]]
 ; CHECK-NEXT:    [[ADD:%.*]] = extractelement <4 x float> [[TMP6]], i64 0
+; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[TMP7:%.*]] = select i1 [[TMP5]], float 0.000000e+00, float [[ADD]]
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       return:
 ; CHECK-NEXT:    [[RETVAL_0:%.*]] = phi float [ 0.000000e+00, [[ENTRY:%.*]] ], [ [[TMP7]], [[IF_END]] ]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret float [[RETVAL_0]]
 ;
 entry:
@@ -448,13 +450,13 @@ return:
 define float @test_merge_anyof_v4si(<4 x i32> %t) {
 ; CHECK-LABEL: @test_merge_anyof_v4si(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[T_FR7:%.*]] = freeze <4 x i32> [[T:%.*]]
-; CHECK-NEXT:    [[TMP0:%.*]] = add <4 x i32> [[T_FR7]], <i32 -256, i32 -256, i32 -256, i32 -256>
+; CHECK-NEXT:    [[T_FR:%.*]] = freeze <4 x i32> [[T:%.*]]
+; CHECK-NEXT:    [[TMP0:%.*]] = add <4 x i32> [[T_FR]], <i32 -256, i32 -256, i32 -256, i32 -256>
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp ult <4 x i32> [[TMP0]], <i32 -255, i32 -255, i32 -255, i32 -255>
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast <4 x i1> [[TMP1]] to i4
 ; CHECK-NEXT:    [[DOTNOT:%.*]] = icmp eq i4 [[TMP2]], 0
-; CHECK-NEXT:    [[SHIFT:%.*]] = shufflevector <4 x i32> [[T_FR7]], <4 x i32> poison, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
-; CHECK-NEXT:    [[TMP3:%.*]] = add nsw <4 x i32> [[SHIFT]], [[T_FR7]]
+; CHECK-NEXT:    [[SHIFT:%.*]] = shufflevector <4 x i32> [[T_FR]], <4 x i32> poison, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP3:%.*]] = add nsw <4 x i32> [[T_FR]], [[SHIFT]]
 ; CHECK-NEXT:    [[ADD:%.*]] = extractelement <4 x i32> [[TMP3]], i64 0
 ; CHECK-NEXT:    [[CONV:%.*]] = sitofp i32 [[ADD]] to float
 ; INTEL_CUSTOMIZATION
@@ -608,12 +610,12 @@ define i32 @test_separate_anyof_v4si(<4 x i32> %t) {
 ; CHECK:       if.end:
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp ugt <4 x i32> [[T_FR]], <i32 255, i32 255, i32 255, i32 255>
 ; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <4 x i1> [[TMP2]] to i4
-; CHECK-NEXT:    [[DOTNOT7:%.*]] = icmp eq i4 [[TMP3]], 0
+; CHECK-NEXT:    [[DOTNOT6:%.*]] = icmp eq i4 [[TMP3]], 0
 ; CHECK-NEXT:    [[SHIFT:%.*]] = shufflevector <4 x i32> [[T_FR]], <4 x i32> poison, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
-; CHECK-NEXT:    [[TMP4:%.*]] = add nuw nsw <4 x i32> [[SHIFT]], [[T_FR]]
+; CHECK-NEXT:    [[TMP4:%.*]] = add nuw nsw <4 x i32> [[T_FR]], [[SHIFT]]
 ; CHECK-NEXT:    [[ADD:%.*]] = extractelement <4 x i32> [[TMP4]], i64 0
 ; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[TMP5:%.*]] = select i1 [[DOTNOT7]], i32 [[ADD]], i32 0
+; CHECK-NEXT:    [[TMP5:%.*]] = select i1 [[DOTNOT6]], i32 [[ADD]], i32 0
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       return:
 ; CHECK-NEXT:    [[RETVAL_0:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[TMP5]], [[IF_END]] ]
