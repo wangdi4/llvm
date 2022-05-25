@@ -2255,6 +2255,7 @@ StandardInstrumentations::StandardInstrumentations(
 #endif // INTEL_CUSTOMIZATION
       Verify(DebugLogging), VerifyEach(VerifyEach) {}
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 PrintCrashIRInstrumentation *PrintCrashIRInstrumentation::CrashReporter =
     nullptr;
 
@@ -2299,6 +2300,7 @@ void PrintCrashIRInstrumentation::registerCallbacks(
     unwrapAndPrint(OS, IR);
   });
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 void StandardInstrumentations::registerCallbacks(
     PassInstrumentationCallbacks &PIC, FunctionAnalysisManager *FAM) {
@@ -2316,8 +2318,8 @@ void StandardInstrumentations::registerCallbacks(
   PrintChangedDiff.registerCallbacks(PIC);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   WebsiteChangeReporter.registerCallbacks(PIC);
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   PrintCrashIR.registerCallbacks(PIC);
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 
 template class ChangeReporter<std::string>;
