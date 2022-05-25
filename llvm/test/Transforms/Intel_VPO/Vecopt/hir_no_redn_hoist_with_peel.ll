@@ -24,14 +24,7 @@
 ; instructions we were only checking to see that a remainder is not needed. We also need
 ; to check that a peel loop is not emitted.
 ;
-; FIXME: The reduction init/final related instructions need to be around
-; the main vector loop and should not be hoisted out due to the peel
-; loop.
-;
 ; CHECK:       BEGIN REGION { modified }
-; CHECK-NEXT:         %red.init = 0;
-; CHECK-NEXT:         %red.init.insert = insertelement %red.init,  %k.022,  0;
-; CHECK-NEXT:         %phi.temp = %red.init.insert;
 ; CHECK-NEXT:      + DO i1 = 0, 6, 1   <DO_LOOP>
 ; CHECK-NEXT:      |   %ub.tmp = 3;
 ; CHECK-NEXT:      |   %peel.ub = %ub.tmp  -  1;
@@ -39,11 +32,15 @@
 ; CHECK:           |   + DO i2 = 0, %peel.ub, 1   <DO_LOOP>
 ; CHECK:           |   + END LOOP                  
 ;
+; CHECK:           |   %red.init = 0;
+; CHECK-NEXT:      |   %red.init.insert = insertelement %red.init,  %k.022,  0;
+; CHECK-NEXT:      |   %phi.temp = %red.init.insert;
+;
 ; CHECK:           |   + DO i2 = %ub.tmp, %loop.ub, 4   <DO_LOOP>
 ; CHECK:           |   + END LOOP
+; CHECK:           |   %k.022 = @llvm.vector.reduce.add.v4i32(%.vec4);
 ;
 ; CHECK:           + END LOOP
-; CHECK-NEXT:         %k.022 = @llvm.vector.reduce.add.v4i32(%.vec4);
 ; CHECK-NEXT:  END REGION
 ;
 
