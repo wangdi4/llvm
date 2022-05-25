@@ -591,6 +591,11 @@ std::string Linux::getDynamicLinker(const ArgList &Args) const {
     LibDir = "lib";
     Loader = "ld-linux.so.2";
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  case llvm::Triple::x86_64_xucc:
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   case llvm::Triple::x86_64: {
     bool X32 = Triple.isX32();
 
