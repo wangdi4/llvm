@@ -1,8 +1,6 @@
-// INTEL_CUSTOMIZATION
-// RUN: %clang_cc1 -fexperimental-new-pass-manager -triple x86_64-linux-gnu -fsanitize=address -emit-llvm -O3 -fdebug-pass-manager -o - %s 2>&1 | FileCheck %s
-// RUN: %clang_cc1 -fexperimental-new-pass-manager -triple x86_64-linux-gnu -fsanitize=thread -emit-llvm -O3 -fdebug-pass-manager -o - %s 2>&1 | FileCheck %s
-// RUN: %clang_cc1 -fexperimental-new-pass-manager -triple x86_64-linux-gnu -fsanitize=memory -emit-llvm -O3 -fdebug-pass-manager -o - %s 2>&1 | FileCheck %s
-// end INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 -triple x86_64-linux-gnu -fsanitize=address -O3 -emit-llvm -fdebug-pass-manager -o - %s 2>&1 | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-linux-gnu -fsanitize=thread -O3 -emit-llvm -fdebug-pass-manager -o - %s 2>&1 | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-linux-gnu -fsanitize=memory -O3 -emit-llvm -fdebug-pass-manager -o - %s 2>&1 | FileCheck %s
 
 // This is regression test for PR42877
 
