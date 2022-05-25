@@ -22,8 +22,8 @@
 ; copy of "x" happens in the private address-space
 
 ; PRIVATE: define{{.*}} spir_kernel void @__omp_offloading{{.*}}foo{{.*}}(i64 [[X_VAL_PARM:%x.ascast[^ ,]+]], {{.*}})
-; PRIVATE:   [[X_TGTFP:%x.ascast.fpriv.*]] = alloca i32, align 1
-; PRIVATE:   [[X_DSTFP:%x.ascast.fpriv.*]] = alloca i32, align 1
+; PRIVATE:   [[X_TGTFP:%x.ascast.fpriv.*]] = alloca i32, align 4
+; PRIVATE:   [[X_DSTFP:%x.ascast.fpriv.*]] = alloca i32, align 4
 ; PRIVATE:   [[X_VAL_PARM_CAST:%x.ascast.*]] = trunc i64 [[X_VAL_PARM]] to i32
 ; PRIVATE:   store i32 [[X_VAL_PARM_CAST]], i32* [[X_TGTFP]], align 4
 ; PRIVATE:   [[X_TGTFP_VAL:%.+]] = load i32, i32* [[X_TGTFP]], align 4
@@ -40,9 +40,9 @@
 ; With the make-distribute-fp-wilocal flag false, the allocation of the private
 ; copy of "x" happens at the module level in address space local (3).
 
-; LOCAL:  [[X_DSTFP:@x.ascast.fpriv.__local]] = internal addrspace(3) global i32 0, align 1
+; LOCAL:  [[X_DSTFP:@x.ascast.fpriv.__local]] = internal addrspace(3) global i32 0
 ; LOCAL:  define{{.*}} spir_kernel void @__omp_offloading{{.*}}foo{{.*}}(i64 [[X_VAL_PARM:%x.ascast[^ ,]+]], {{.*}})
-; LOCAL:    [[X_TGTFP:%x.ascast.fpriv.*]] = alloca i32, align 1
+; LOCAL:    [[X_TGTFP:%x.ascast.fpriv.*]] = alloca i32, align 4
 ; LOCAL:    [[X_VAL_PARM_CAST:%x.ascast.*]] = trunc i64 [[X_VAL_PARM]] to i32
 ; LOCAL:    store i32 [[X_VAL_PARM_CAST]], i32* [[X_TGTFP]], align 4
 ; LOCAL:    [[X_TGTFP_VAL:%.+]] = load i32, i32* [[X_TGTFP]], align 4

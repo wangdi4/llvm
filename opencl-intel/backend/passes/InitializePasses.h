@@ -48,7 +48,6 @@ void initializeDebugInfoPassPass(llvm::PassRegistry&);
 void initializeSmartGVNPass(llvm::PassRegistry &);
 void initializePipeSupportPass(llvm::PassRegistry&);
 void initializeStripIntelIPPass(llvm::PassRegistry &);
-void initializeKernelSubGroupInfoPass(llvm::PassRegistry&);
 void initializeScalarizeFunctionPass(llvm::PassRegistry &);
 void initializeChooseVectorizationDimensionPass(llvm::PassRegistry &);
 void initializeCoerceWin64TypesPass(llvm::PassRegistry &);

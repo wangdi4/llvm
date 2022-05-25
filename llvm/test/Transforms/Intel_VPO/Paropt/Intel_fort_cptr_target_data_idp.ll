@@ -47,7 +47,7 @@
 ; CHECK: call void @__omp_offloading{{[^ (]+}}(%"ISO_C_BINDING$.btC_PTR"* %"foo$A_CPTR2$_3", i8* [[VAL]])
 ; CHECK-LABEL: define internal void @__omp_offloading{{[^ (]+}}
 ; CHECK-SAME: (%"ISO_C_BINDING$.btC_PTR"* %{{[^ ,]+}}, i8* [[VAL_PASSED:%[^ ,]+]])
-; CHECK: [[NEWV:%A_CPTR1[^ ]+]] = alloca %"ISO_C_BINDING$.btC_PTR", align 1
+; CHECK: [[NEWV:%A_CPTR1[^ ]+]] = alloca %"ISO_C_BINDING$.btC_PTR", align 8
 ; CHECK: [[NEWV_CAST:%[^ ]+]] = bitcast %"ISO_C_BINDING$.btC_PTR"* [[NEWV]] to i8**
 ; CHECK: store i8* [[VAL_PASSED]], i8** [[NEWV_CAST]], align 8
 

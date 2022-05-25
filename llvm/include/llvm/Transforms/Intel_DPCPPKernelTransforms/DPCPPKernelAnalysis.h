@@ -1,4 +1,4 @@
-//==--- DPCPPKernelAnalysis.h - Detect barriers in DPCPP kernels- C++ -*---==//
+//==--- DPCPPKernelAnalysis.h - Analyze DPCPP kernel properties -- C++ -*---==//
 //
 // Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
@@ -16,14 +16,17 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 
 namespace llvm {
+class LoopInfo;
+class RuntimeService;
 
-// This class implements a pass that recieves a module and assigns each function
-// an attribute indicating whether a kernel will take WGLoopCreator
-// path or Barrier path.
-// kernels can take WGLoopCreator if it does not have a barrier path.
-//
-// This pass also analyzes whether function/kernel contains subgroup builtin
-// calls.
+/// This pass analyze kernel properties and adds function attribute or metadata.
+///   1. a metadata indicating whether a kernel will take WGLoopCreator
+///      path or Barrier path.
+///   2. an attribute and metadata whether function/kernel contains subgroup
+///      builtin.
+///   3. a metadata indicating there is global atomic in the kernel
+///   4. a metadata indicating execution length, which is an estimated length of
+///      instructions in the kernel.
 class DPCPPKernelAnalysisPass : public PassInfoMixin<DPCPPKernelAnalysisPass> {
 public:
   static StringRef name() { return "DPCPPKernelAnalysisPass"; }
@@ -31,7 +34,8 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   /// Glue for old PM.
-  bool runImpl(Module &M, CallGraph &CG);
+  bool runImpl(Module &M, CallGraph &CG, const RuntimeService *RTS,
+               function_ref<LoopInfo &(Function &)> GetLI);
 
   void print(raw_ostream &OS, const Module *M) const;
 

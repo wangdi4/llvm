@@ -41,7 +41,7 @@
 
 ; Check for the allocation of local dope vector, and the fast reduction struct.
 ; CHECK: [[FAST_RED_STR:[^ ]+]] = alloca %struct.fast_red_t, align 4
-; CHECK: [[PRIV_DV:[^ ]+]] = alloca %"QNCA_a0$i16*$rank3$", align 1
+; CHECK: [[PRIV_DV:[^ ]+]] = alloca %"QNCA_a0$i16*$rank3$", align 8
 
 ; Check that the dope vector init call is emitted for PRIV_DV.
 ; CHECK: [[PRIV_DV_CAST:[^ ]+]] = bitcast %"QNCA_a0$i16*$rank3$"* [[PRIV_DV]] to i8*
@@ -51,7 +51,7 @@
 
 ; Check that local data is allocated and stored to the addr0 field of the dope vector.
 ; CHECK: [[PRIV_DV_ADDR0:[^ ]+]] = getelementptr inbounds %"QNCA_a0$i16*$rank3$", %"QNCA_a0$i16*$rank3$"* [[PRIV_DV]], i32 0, i32 0
-; CHECK: [[PRIV_DV_DATA:[^ ]+]] = alloca i16, i64 [[NUM_ELEMENTS]], align 1
+; CHECK: [[PRIV_DV_DATA:[^ ]+]] = alloca i16, i64 [[NUM_ELEMENTS]], align 2
 ; CHECK: store i16* [[PRIV_DV_DATA]], i16** [[PRIV_DV_ADDR0]]
 ; Check that num_elements is stored to a global so that it can be accessed from the reduction callback.
 ; CHECK: store i64 [[NUM_ELEMENTS]], i64* [[NUM_ELEMENTS_GV]], align 8
@@ -70,7 +70,7 @@
 ; CHECK: [[FAST_RED_DV_ARR_SIZE:[^ ]+]] = call i64 @_f90_dope_vector_init(i8* [[FAST_RED_DV_CAST]], i8* [[PRIV_DV_CAST]])
 ; CHECK: [[NUM_ELEMENTS_1:[^ ]+]] = udiv i64 [[FAST_RED_DV_ARR_SIZE]], 2
 ; CHECK: [[FAST_RED_DV_ADDR0:[^ ]+]] = getelementptr inbounds %"QNCA_a0$i16*$rank3$", %"QNCA_a0$i16*$rank3$"* [[FAST_RED_DV]], i32 0, i32 0
-; CHECK: [[FAST_RED_DV_DATA:[^ ]+]] = alloca i16, i64 [[NUM_ELEMENTS_1]], align 1
+; CHECK: [[FAST_RED_DV_DATA:[^ ]+]] = alloca i16, i64 [[NUM_ELEMENTS_1]], align 8
 ; CHECK: store i16* [[FAST_RED_DV_DATA]], i16** [[FAST_RED_DV_ADDR0]]
 
 ; Check for calls to kmpc_[end_]reduce, and that FAST_RED_DV and Orig (%"foo_$A") are used between those calls, but not PRIV_DV.

@@ -6630,12 +6630,9 @@ Value *VPOParoptTransform::genPrivatizationAlloca(
 
   Value *Orig = I->getOrig();
   assert(Orig && "Null original Value in clause item.");
-  // TODO: This will cause under-alignment. If getPointerAlignment cannot
-  // determine the alignment, it returns "Align(1)", not llvm::None.
-  // This seems to work because under-aligned stack vars are auto-aligned
-  // to the natural alignment by the backend.
-  MaybeAlign OrigAlignment =
-      Orig->getPointerAlignment(InsertPt->getModule()->getDataLayout());
+  const DataLayout &DL = InsertPt->getModule()->getDataLayout();
+  Align MinAlign = Orig->getPointerAlignment(DL);
+  MaybeAlign OrigAlignment = MinAlign > 1 ? MinAlign : (MaybeAlign)llvm::None;
 
   Type *ElementType = nullptr;
   Value *NumElements = nullptr;

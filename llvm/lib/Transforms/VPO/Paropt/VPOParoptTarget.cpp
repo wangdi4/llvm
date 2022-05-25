@@ -1374,8 +1374,11 @@ void VPOParoptTransform::guardSideEffectStatements(
     Value *TeamLocalVal = nullptr;
     auto &DL = StartI->getModule()->getDataLayout();
     MaybeAlign Alignment = llvm::None;
-    if(StartI->getType()->isPointerTy())
-      Alignment = StartI->getPointerAlignment(DL);
+    if (StartI->getType()->isPointerTy()) {
+      Align MinAlign = StartI->getPointerAlignment(DL);
+      if (MinAlign > 1)
+        Alignment = MinAlign;
+    }
     if (StartIHasUses)
       TeamLocalVal = VPOParoptUtils::genPrivatizationAlloca( //           (1)
           StartI->getType(), nullptr, Alignment, TargetDirectiveBegin,

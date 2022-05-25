@@ -31,7 +31,7 @@
 ; addrspace 1 at the module level. Its initial value is passed in as a
 ; parameter, and the initialization is guarded by a master-thread check.
 
-; MODULE: [[X_FPRIV:@.*.fpriv.__global]] = internal addrspace(1) global i32 0, align 1
+; MODULE: [[X_FPRIV:@.*.fpriv.__global]] = internal addrspace(1) global i32 0
 ; MODULE: define{{.*}} spir_kernel void @__omp_offloading{{.*}}foo{{.*}}(i64 [[X_VAL:%[^ ]+]])
 ; MODULE:   [[X_VAL_CAST:%[^ ]+]] = trunc i64 [[X_VAL]] to i32
 ;
@@ -47,7 +47,7 @@
 ; WILOCAL modifier was present for it.
 
 ; LOCAL:  define{{.*}} spir_kernel void @__omp_offloading{{.*}}foo{{.*}}(i64 [[X_VAL:%[^ ]+]])
-; LOCAL:    [[X_FPRIV:%.*.fpriv]] = alloca i32, align 1
+; LOCAL:    [[X_FPRIV:%.*.fpriv]] = alloca i32, align 4
 ; LOCAL:    [[X_CAST:%[^ ]+]] = addrspacecast i32* [[X_FPRIV]] to i32 addrspace(4)*
 ; LOCAL:    [[X_VAL_CAST:%[^ ]+]] = trunc i64 [[X_VAL]] to i32
 ; LOCAL:    store i32 [[X_VAL_CAST]], i32* [[X_FPRIV]], align 4

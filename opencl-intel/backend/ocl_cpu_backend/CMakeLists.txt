@@ -216,7 +216,6 @@ set( BACKEND_PASSES
     BuiltinLibInfo
     DebugInfoPass
     PrintIRPass
-    KernelInfo
     Prefetch
     SubGroupAdaptation
     SmartGVN

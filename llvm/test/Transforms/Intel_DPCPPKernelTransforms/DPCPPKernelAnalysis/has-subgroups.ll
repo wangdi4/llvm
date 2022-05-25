@@ -7,9 +7,12 @@
 ; RUN: opt -dpcpp-enable-native-subgroups -dpcpp-kernel-analysis %s -S -debug -disable-output 2>&1| FileCheck %s -check-prefix=CHECK-DEBUG
 
 ; CHECK-DEBUG: DPCPPKernelAnalysisPass
-; CHECK-DEBUG-DAG: Kernel <testKernel1>: {{.*}} KernelHasSubgroups=1
-; CHECK-DEBUG-DAG: Kernel <testKernel2>: {{.*}} KernelHasSubgroups=0
-; CHECK-DEBUG-DAG: Kernel <testKernel3>: {{.*}} KernelHasSubgroups=1
+; CHECK-DEBUG: Kernel <testKernel1>:
+; CHECK-DEBUG: KernelHasSubgroups=1
+; CHECK-DEBUG: Kernel <testKernel2>:
+; CHECK-DEBUG: KernelHasSubgroups=0
+; CHECK-DEBUG: Kernel <testKernel3>:
+; CHECK-DEBUG: KernelHasSubgroups=1
 
 ; CHECK-DEBUG: Functions that call subgroup builtins:
 ; CHECK-DEBUG-DAG: testKernel1

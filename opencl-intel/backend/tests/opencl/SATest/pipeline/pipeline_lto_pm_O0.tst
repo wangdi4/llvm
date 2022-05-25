@@ -24,19 +24,19 @@
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
 
 ; CHECK:      Running pass: DPCPPKernelAnalysisPass
+; CHECK-NEXT: Running analysis: LoopAnalysis
+; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
 
 ; CHECK-NOT:  Running pass: InferAddressSpacesPass
 
 ; CHECK:      Running pass: SetVectorizationFactorPass
 ; CHECK-NEXT: Running analysis: VFAnalysis
-; CHECK-NEXT: Running analysis: WeightedInstCountAnalysis on test
-; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis on test
-; CHECK-NEXT: Running analysis: LoopAnalysis on test
-; CHECK-NEXT: Running analysis: DominatorTreeAnalysis on test
-; CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on test
-; CHECK-NEXT: Running analysis: TargetLibraryAnalysis on test
-; CHECK-NEXT: Running analysis: AssumptionAnalysis on test
-; CHECK-NEXT: Running analysis: TargetIRAnalysis on test
+; CHECK-NEXT: Running analysis: WeightedInstCountAnalysis
+; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
+; CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis
+; CHECK-NEXT: Running analysis: TargetLibraryAnalysis
+; CHECK-NEXT: Running analysis: AssumptionAnalysis
+; CHECK-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-NEXT: Running pass: VectorVariantLowering
 ; CHECK-NEXT: Running pass: CreateSimdVariantPropagation
 ; CHECK-NEXT: Running pass: SGSizeCollectorPass

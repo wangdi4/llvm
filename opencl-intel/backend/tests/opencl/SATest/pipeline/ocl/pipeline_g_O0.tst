@@ -29,13 +29,13 @@
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
 ; CHECK-NEXT: Running pass: DuplicateCalledKernels
 ; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
+; CHECK-NEXT: Running analysis: LoopAnalysis on test
+; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-NEXT: Running pass: ReqdSubGroupSizePass
 ; CHECK-NEXT: Running pass: SetVectorizationFactorPass
 ; CHECK-NEXT: Running analysis: VFAnalysis
 ; CHECK-NEXT: Running analysis: WeightedInstCountAnalysis
 ; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
-; CHECK-NEXT: Running analysis: LoopAnalysis
-; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-NEXT: Running pass: VerifierPass
