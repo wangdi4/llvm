@@ -10094,8 +10094,6 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
 #if INTEL_CUSTOMIZATION
       }
 
-      assert(E->ReorderIndices.empty() && "Unsupported split-load case.");
-
       auto createVecLoad = [&](TreeEntry *E, Value *VL0, VectorType *VecLdTy) {
         auto *LI = cast<LoadInst>(VL0);
         unsigned AS = LI->getPointerAddressSpace();
@@ -10202,6 +10200,17 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
           std::iota(ShuffleMask.begin(), ShuffleMask.end(), 0);
         }
 
+        // If we are about to generate finalizing shuffle
+        // apply reording idices directly to the shuffle mask
+        // rather than generate another one afterwards.
+        if (WorkList.empty() && !E->ReorderIndices.empty()) {
+          assert(ShuffleMask.size() == E->ReorderIndices.size() &&
+                 "Reordering indices mask does not match vector size");
+          SmallVector<int> Mask;
+          inversePermutation(E->ReorderIndices, Mask);
+          addMask(ShuffleMask, Mask);
+        }
+
         Value *Shuffle = Builder.CreateShuffleVector(Vec0, Vec1, ShuffleMask,
                                                      "SplitLoadShuffle");
         if (WorkList.empty()) {
@@ -10211,17 +10220,8 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
         VecOrder0.clear();
         WorkList.emplace_front(Shuffle, VecOrder0);
       }
-      // When split load support is enabled we may need to shuffle resulting
-      // vector.
-      if (NeedToShuffleReuses) {
-        RetValue = Builder.CreateShuffleVector(RetValue, E->ReuseShuffleIndices,
-                                               "SplitLoadReuseShuffle");
-        if (auto *I = dyn_cast<Instruction>(RetValue)) {
-          GatherShuffleSeq.insert(I);
-          CSEBlocks.insert(I->getParent());
-        }
-      }
-
+      ShuffleBuilder.addMask(E->ReuseShuffleIndices);
+      RetValue = ShuffleBuilder.finalize(RetValue);
       E->VectorizedValue = RetValue;
       return RetValue;
 #endif // INTEL_CUSTOMIZATION
