@@ -10817,10 +10817,6 @@ def note_omp_atomic_compare_capture: Note<
   "expected '==' operator|result must be of integral type|"
   "expected an lvalue expression|cannot match 'r' component in expression}0">;
 #endif // INTEL_COLLAB
-def err_omp_atomic_fail_wrong_or_no_clauses : Error<"expected a memory order clause">;
-def err_omp_atomic_fail_extra_mem_order_clauses : Error<"directive '#pragma omp atomic compare fail' cannot contain more than one memory order clause">;
-def err_omp_atomic_fail_extra_clauses : Error<"directive '#pragma omp atomic compare' cannot contain more than one fail clause">;
-def err_omp_atomic_fail_no_compare : Error<"expected 'compare' clause with the 'fail' modifier">;
 def err_omp_atomic_several_clauses : Error<
   "directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update', 'capture', or 'compare' clause">;
 def err_omp_several_mem_order_clauses : Error<
