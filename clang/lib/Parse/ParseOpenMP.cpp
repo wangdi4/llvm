@@ -4582,7 +4582,6 @@ ExprResult Parser::ParseOpenMPIteratorsExpr() {
                                       Data);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 /// Checks if current token (immediately following the left-paren of the
 /// allocate clause) is either of the valid allocate clause modifiers.
@@ -4602,7 +4601,7 @@ static bool hasAllocateModifiers(Parser &P, OpenMPClauseKind Kind) {
   return false;
 }
 #endif // INTEL_COLLAB
-=======
+
 bool Parser::ParseOpenMPReservedLocator(OpenMPClauseKind Kind,
                                         Sema::OpenMPVarListDataTy &Data,
                                         const LangOptions &LangOpts) {
@@ -4629,7 +4628,6 @@ bool Parser::ParseOpenMPReservedLocator(OpenMPClauseKind Kind,
   }
   return false;
 }
->>>>>>> 9ba937112fa6d4076e4a98b587a334786b6c0d9c
 
 /// Parses clauses with list.
 bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
@@ -5052,19 +5050,7 @@ OMPClause *Parser::ParseOpenMPVarListClause(OpenMPDirectiveKind DKind,
   if (ParseOnly)
     return nullptr;
   OMPVarListLocTy Locs(Loc, LOpen, Data.RLoc);
-<<<<<<< HEAD
-  return Actions.ActOnOpenMPVarListClause(
-      Kind, Vars, Data.DepModOrTailExpr, Locs, Data.ColonLoc,
-      Data.ReductionOrMapperIdScopeSpec, Data.ReductionOrMapperId,
-      Data.ExtraModifier, Data.MapTypeModifiers, Data.MapTypeModifiersLoc,
-      Data.IsMapTypeImplicit, Data.ExtraModifierLoc, Data.MotionModifiers,
-#if INTEL_COLLAB
-      Data.AllocAlignModifier,
-#endif // INTEL_COLLAB
-      Data.MotionModifiersLoc);
-=======
   return Actions.ActOnOpenMPVarListClause(Kind, Vars, Locs, Data);
->>>>>>> 9ba937112fa6d4076e4a98b587a334786b6c0d9c
 }
 
 #if INTEL_CUSTOMIZATION
@@ -5388,7 +5374,7 @@ OMPClause *Parser::ParseOpenMPDataClause(bool ParseOnly) {
 /// Return false if modifiers parsed successfully (no errors). Otherwise true.
 bool Parser::ParseOpenMPAllocateModifiers(OpenMPDirectiveKind DKind,
                                           OpenMPClauseKind Kind,
-                                          OpenMPVarListDataTy &Data,
+                                          Sema::OpenMPVarListDataTy &Data,
                                           SourceLocation LParLoc) {
   auto SkipPragmaAfterError = [this]() {
     while (!SkipUntil(tok::annot_pragma_openmp_end, StopBeforeMatch))

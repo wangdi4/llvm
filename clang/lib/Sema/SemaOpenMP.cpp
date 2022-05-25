@@ -18756,26 +18756,10 @@ OMPClause *Sema::ActOnOpenMPFilterClause(Expr *ThreadID,
                                        StartLoc, LParenLoc, EndLoc);
 }
 
-<<<<<<< HEAD
-OMPClause *Sema::ActOnOpenMPVarListClause(
-    OpenMPClauseKind Kind, ArrayRef<Expr *> VarList, Expr *DepModOrTailExpr,
-    const OMPVarListLocTy &Locs, SourceLocation ColonLoc,
-    CXXScopeSpec &ReductionOrMapperIdScopeSpec,
-    DeclarationNameInfo &ReductionOrMapperId, int ExtraModifier,
-    ArrayRef<OpenMPMapModifierKind> MapTypeModifiers,
-    ArrayRef<SourceLocation> MapTypeModifiersLoc, bool IsMapTypeImplicit,
-    SourceLocation ExtraModifierLoc,
-    ArrayRef<OpenMPMotionModifierKind> MotionModifiers,
-#if INTEL_COLLAB
-    Expr *AllocAlignModifier,
-#endif // INTEL_COLLAB
-    ArrayRef<SourceLocation> MotionModifiersLoc) {
-=======
 OMPClause *Sema::ActOnOpenMPVarListClause(OpenMPClauseKind Kind,
                                           ArrayRef<Expr *> VarList,
                                           const OMPVarListLocTy &Locs,
                                           OpenMPVarListDataTy &Data) {
->>>>>>> 9ba937112fa6d4076e4a98b587a334786b6c0d9c
   SourceLocation StartLoc = Locs.StartLoc;
   SourceLocation LParenLoc = Locs.LParenLoc;
   SourceLocation EndLoc = Locs.EndLoc;
@@ -18881,16 +18865,12 @@ OMPClause *Sema::ActOnOpenMPVarListClause(OpenMPClauseKind Kind,
     Res = ActOnOpenMPHasDeviceAddrClause(VarList, Locs);
     break;
   case OMPC_allocate:
-<<<<<<< HEAD
 #if INTEL_COLLAB
-    Res = ActOnOpenMPAllocateClause(DepModOrTailExpr, AllocAlignModifier,
-                                    VarList, StartLoc,
-#else // INTEL_COLLAB
-    Res = ActOnOpenMPAllocateClause(DepModOrTailExpr, VarList, StartLoc,
-#endif // INTEL_COLLAB
-=======
+    Res = ActOnOpenMPAllocateClause(Data.DepModOrTailExpr,
+                                    Data.AllocAlignModifier, VarList, StartLoc,
+#else  // INTEL_COLLAB
     Res = ActOnOpenMPAllocateClause(Data.DepModOrTailExpr, VarList, StartLoc,
->>>>>>> 9ba937112fa6d4076e4a98b587a334786b6c0d9c
+#endif // INTEL_COLLAB
                                     LParenLoc, ColonLoc, EndLoc);
     break;
   case OMPC_nontemporal:

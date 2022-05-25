@@ -3525,36 +3525,10 @@ public:
   ExprResult ParseOpenMPParensExpr(StringRef ClauseName, SourceLocation &RLoc,
                                    bool IsAddressOfOperand = false);
 
-<<<<<<< HEAD
-  /// Data used for parsing list of variables in OpenMP clauses.
-  struct OpenMPVarListDataTy {
-    Expr *DepModOrTailExpr = nullptr;
-    SourceLocation ColonLoc;
-    SourceLocation RLoc;
-    CXXScopeSpec ReductionOrMapperIdScopeSpec;
-    DeclarationNameInfo ReductionOrMapperId;
-    int ExtraModifier = -1; ///< Additional modifier for linear, map, depend or
-                            ///< lastprivate clause.
-    SmallVector<OpenMPMapModifierKind, NumberOfOMPMapClauseModifiers>
-    MapTypeModifiers;
-    SmallVector<SourceLocation, NumberOfOMPMapClauseModifiers>
-    MapTypeModifiersLoc;
-    SmallVector<OpenMPMotionModifierKind, NumberOfOMPMotionModifiers>
-        MotionModifiers;
-    SmallVector<SourceLocation, NumberOfOMPMotionModifiers> MotionModifiersLoc;
-    bool IsMapTypeImplicit = false;
-    SourceLocation ExtraModifierLoc;
-#if INTEL_COLLAB
-    Expr *AllocAlignModifier = nullptr;
-#endif // INTEL_COLLAB
-  };
-
-=======
   /// Parses a reserved locator like 'omp_all_memory'.
   bool ParseOpenMPReservedLocator(OpenMPClauseKind Kind,
                                   Sema::OpenMPVarListDataTy &Data,
                                   const LangOptions &LangOpts);
->>>>>>> 9ba937112fa6d4076e4a98b587a334786b6c0d9c
   /// Parses clauses with list.
   bool ParseOpenMPVarList(OpenMPDirectiveKind DKind, OpenMPClauseKind Kind,
                           SmallVectorImpl<Expr *> &Vars,
@@ -3570,18 +3544,14 @@ public:
   /// Parses map-type-modifiers in map clause.
   /// map([ [map-type-modifier[,] [map-type-modifier[,] ...] map-type : ] list)
   /// where, map-type-modifier ::= always | close | mapper(mapper-identifier)
-<<<<<<< HEAD
-  bool parseMapTypeModifiers(OpenMPVarListDataTy &Data);
+  bool parseMapTypeModifiers(Sema::OpenMPVarListDataTy &Data);
 #if INTEL_COLLAB
   /// Parses allocate-modifiers in allocate clause.
   bool ParseOpenMPAllocateModifiers(OpenMPDirectiveKind DKind,
                                     OpenMPClauseKind CKind,
-                                    OpenMPVarListDataTy &Data,
+                                    Sema::OpenMPVarListDataTy &Data,
                                     SourceLocation LParLoc);
 #endif // INTEL_COLLAB
-=======
-  bool parseMapTypeModifiers(Sema::OpenMPVarListDataTy &Data);
->>>>>>> 9ba937112fa6d4076e4a98b587a334786b6c0d9c
 
 private:
   //===--------------------------------------------------------------------===//
