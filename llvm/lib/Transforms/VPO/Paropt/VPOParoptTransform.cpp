@@ -13722,10 +13722,11 @@ bool VPOParoptTransform::shouldNotUseKnownNDRange(WRegionNode *W) const {
 
   // Check if there is an enclosing teams region.
   WRegionNode *WTeams = WRegionUtils::getParentRegion(W, WRegionNode::WRNTeams);
-  if (!WTeams && !VPOParoptUtils::getSPIRImplicitMultipleTeams())
+  if (!WTeams && !VPOParoptUtils::getSPIRImplicitMultipleTeams()) {
     // "omp target parallel for" is not allowed to use multiple WGs implicitly.
     // It has to use one team/WG by specification.
     return true;
+  }
 
   // "omp teams" with num_teams() clause overrules ImplicitSIMDSPMDES mode.
   //
@@ -13766,11 +13767,18 @@ bool VPOParoptTransform::shouldNotUseKnownNDRange(WRegionNode *W) const {
   // Note that "omp target parallel for" can still use ND-range
   // partitioning under VPOParoptUtils::getSPIRImplicitMultipleTeams(),
   // which we check above.
-  if (WTeams)
-    if (!WRegionUtils::isDistributeNode(W) &&
-        !WRegionUtils::isDistributeParLoopNode(W))
+  if (WTeams) {
+    if (WRNGenericLoopNode *WGL = dyn_cast<WRNGenericLoopNode>(W)) {
+      if (WGL->getMappedDir() != DIR_OMP_DISTRIBUTE_PARLOOP) {
+        // Use NDRange if W is a GenericLoop mapped to DistributeParLoop.
+        // Bail out for all other GenericLoop cases.
+        return true;
+      }
+    } else if (!WRegionUtils::isDistributeNode(W) &&
+               !WRegionUtils::isDistributeParLoopNode(W)) {
       return true;
-
+    }
+  }
   return false;
 }
 
