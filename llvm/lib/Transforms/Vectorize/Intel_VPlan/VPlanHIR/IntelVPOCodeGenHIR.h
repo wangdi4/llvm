@@ -667,7 +667,7 @@ private:
   HLLoop *MainLoop;
 
   // Current topmost VPLoop
-  const VPLoop *CurTopVPLoop;
+  const VPLoop *CurTopVPLoop = nullptr;
 
   // Mask value to add for instructions being added to MainLoop
   RegDDRef *CurMaskValue;
