@@ -7,7 +7,6 @@ include_directories(${LLVM_INCLUDE_DIRS}
 
 add_subdirectory(PipeSupport)
 add_subdirectory(BuiltinLibInfo)
-add_subdirectory(KernelInfo)
 add_subdirectory(SubGroupAdaptation)
 add_subdirectory(DebugInfoPass)
 add_subdirectory(Prefetch)

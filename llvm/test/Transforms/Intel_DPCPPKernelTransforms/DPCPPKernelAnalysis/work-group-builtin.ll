@@ -4,17 +4,28 @@
 ; RUN: opt -dpcpp-kernel-analysis %s -S -debug -disable-output 2>&1| FileCheck %s
 
 ; CHECK: DPCPPKernelAnalysisPass
-; CHECK: Kernel <kernel_contains_wg_all>: NoBarrierPath=0
-; CHECK: Kernel <kernel_contains_wg_any>: NoBarrierPath=0
-; CHECK: Kernel <kernel_contains_wg_broadcastij>: NoBarrierPath=0
-; CHECK: Kernel <kernel_contains_wg_broadcastijj>: NoBarrierPath=0
-; CHECK: Kernel <kernel_contains_wg_broadcastijjj>: NoBarrierPath=0
-; CHECK: Kernel <kernel_contains_wg_reduce_add>: NoBarrierPath=0
-; CHECK: Kernel <kernel_contains_wg_reduce_min>: NoBarrierPath=0
-; CHECK: Kernel <kernel_contains_wg_scan_exclusive_add>: NoBarrierPath=0
-; CHECK: Kernel <kernel_contains_wg_scan_exclusive_min>: NoBarrierPath=0
-; CHECK: Kernel <kernel_contains_wg_scan_inclusive_add>: NoBarrierPath=0
-; CHECK: Kernel <kernel_contains_wg_scan_inclusive_min>: NoBarrierPath=0
+; CHECK: Kernel <kernel_contains_wg_all>:
+; CHECK-NEXT: NoBarrierPath=0
+; CHECK: Kernel <kernel_contains_wg_any>:
+; CHECK-NEXT: NoBarrierPath=0
+; CHECK: Kernel <kernel_contains_wg_broadcastij>:
+; CHECK-NEXT: NoBarrierPath=0
+; CHECK: Kernel <kernel_contains_wg_broadcastijj>:
+; CHECK-NEXT: NoBarrierPath=0
+; CHECK: Kernel <kernel_contains_wg_broadcastijjj>:
+; CHECK-NEXT: NoBarrierPath=0
+; CHECK: Kernel <kernel_contains_wg_reduce_add>:
+; CHECK-NEXT: NoBarrierPath=0
+; CHECK: Kernel <kernel_contains_wg_reduce_min>:
+; CHECK-NEXT: NoBarrierPath=0
+; CHECK: Kernel <kernel_contains_wg_scan_exclusive_add>:
+; CHECK-NEXT: NoBarrierPath=0
+; CHECK: Kernel <kernel_contains_wg_scan_exclusive_min>:
+; CHECK-NEXT: NoBarrierPath=0
+; CHECK: Kernel <kernel_contains_wg_scan_inclusive_add>:
+; CHECK-NEXT: NoBarrierPath=0
+; CHECK: Kernel <kernel_contains_wg_scan_inclusive_min>:
+; CHECK-NEXT: NoBarrierPath=0
 
 define void @kernel_contains_wg_all() {
 entry:

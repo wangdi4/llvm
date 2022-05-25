@@ -114,7 +114,6 @@ llvm::ModulePass *createSubGroupAdaptationPass();
 llvm::ModulePass *createPipeSupportPass();
 llvm::Pass *createBuiltinLibInfoPass(ArrayRef<Module *> pRtlModuleList,
                                      std::string type);
-llvm::ModulePass *createKernelInfoWrapperPass();
 llvm::ModulePass *createKernelSubGroupInfoPass();
 llvm::ModulePass *createRemovePrefetchPass();
 llvm::ModulePass *createPrintIRPass(int option, int optionLocation,
@@ -610,12 +609,6 @@ static void populatePassesPostFailCheck(
   // precedence given to debugType.
   if (isProfiling) {
     PM.add(createProfilingInfoLegacyPass());
-  }
-
-  // Get Some info about the kernel should be called before BarrierPass and
-  // createPrepareKernelArgsLegacyPass.
-  if (!pRtlModuleList.empty()) {
-    PM.add(createKernelInfoWrapperPass());
   }
 
   // Adding WG loops

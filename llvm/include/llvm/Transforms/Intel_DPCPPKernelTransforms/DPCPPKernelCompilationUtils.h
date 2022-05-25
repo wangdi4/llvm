@@ -231,8 +231,11 @@ bool isGetLocalId(StringRef S);
 /// Return true if string is plain or mangled get_global_id.
 bool isGetGlobalId(StringRef S);
 
-///  Return true if string is name of atomic builtin.
+/// Return true if string is name of atomic builtin.
 bool isAtomicBuiltin(StringRef S);
+
+/// Return true if string is mangled atomic_work_item_fence.
+bool isAtomicWorkItemFenceBuiltin(StringRef S);
 
 /// Return true if the function is global constructor or destructor (listed in
 /// @llvm.global_ctors variable). NOTE: current implementation is *the only*
