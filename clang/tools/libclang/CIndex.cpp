@@ -1528,8 +1528,7 @@ bool CursorVisitor::VisitTemplateParameters(
   }
 
   if (const auto *E = Params->getRequiresClause()) {
-    if (Visit(MakeCXCursor(Params->getRequiresClause(), nullptr, TU,
-                           RegionOfInterest)))
+    if (Visit(MakeCXCursor(E, nullptr, TU, RegionOfInterest)))
       return true;
   }
 
