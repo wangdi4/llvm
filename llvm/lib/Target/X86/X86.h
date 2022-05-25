@@ -188,6 +188,9 @@ FunctionPass *createX86LowerMatrixIntrinsicsPass();
 
 FunctionPass *createX86SplitLongBlockPass();
 
+/// Return a pass that avoids creating store forward block issues in the hardware.
+FunctionPass *createX86AvoidMemoryRenamingBlocks();
+
 #endif // INTEL_CUSTOMIZATION
 
 /// This pass insert wait instruction after X87 instructions which could raise
@@ -239,6 +242,7 @@ void initializeX86SpeculativeExecutionSideEffectSuppressionPass(PassRegistry &);
 void initializeGenerateLEAPassPass(PassRegistry &);
 void initializeX86Gather2LoadPermutePassPass(PassRegistry &);
 void initializeX86LowerMatrixIntrinsicsPassPass(PassRegistry &);
+void initializeX86AvoidMRNBPassPass(PassRegistry &);
 void initializeX86InstCombinePass(PassRegistry &);
 void initializeX86SplitLongBlockPassPass(PassRegistry &);
 void initializeX86PreISelIntrinsicLoweringPass(PassRegistry &);

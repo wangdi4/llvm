@@ -117,6 +117,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86PartialReductionPass(PR);
   initializePseudoProbeInserterPass(PR);
 #if INTEL_CUSTOMIZATION
+  initializeX86AvoidMRNBPassPass(PR);
   initializeX86GlobalFMAPass(PR);
   initializeX86CFMAPass(PR);
   initializeGenerateLEAPassPass(PR);
@@ -588,6 +589,7 @@ void X86PassConfig::addPreRegAlloc() {
     addPass(&LiveRangeShrinkID);
     addPass(createX86FixupSetCC());
 #if INTEL_CUSTOMIZATION
+    addPass(createX86AvoidMemoryRenamingBlocks());
     addPass(createX86GenerateLEAs());
 #endif // INTEL_CUSTOMIZATION
     addPass(createX86OptimizeLEAs());
