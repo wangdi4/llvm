@@ -114,19 +114,7 @@ define dso_local void @fn() {
 ; CHECK-NEXT:    # implicit-def: $dh
 ; CHECK-NEXT:    # implicit-def: $ebp
 ; CHECK-NEXT:    .p2align 4, 0x90
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:  .LBB0_7: # %for.cond35
-; CHECK-NEXT:    # in Loop: Header=BB0_1 Depth=1
-; end INTEL_CUSTOMIZATION
-; CHECK-NEXT:    xorl %edi, %edi
-; CHECK-NEXT:    movb %dl, %dh
-; CHECK-NEXT:    movb {{[-0-9]+}}(%e{{[sb]}}p), %dl # 1-byte Reload
-; CHECK-NEXT:    .p2align 4, 0x90
-; CHECK-NEXT:  .LBB0_20: # %for.cond47
-=======
 ; CHECK-NEXT:  .LBB0_19: # %for.cond47
->>>>>>> 80c4910f3d4c8b36120bcdb6670d15c693f0f0df
 ; CHECK-NEXT:    # Parent Loop BB0_1 Depth=1
 ; CHECK-NEXT:    # => This Inner Loop Header: Depth=2
 ; CHECK-NEXT:    testb %bl, %bl
@@ -154,26 +142,18 @@ define dso_local void @fn() {
 ; CHECK-NEXT:    xorl %ebp, %ebp
 ; CHECK-NEXT:    jmp .LBB0_15
 ; CHECK-NEXT:    .p2align 4, 0x90
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
-; CHECK-NEXT:  .LBB0_10: # %ae
+; CHECK-NEXT:  .LBB0_11: # %ae
 ; CHECK-NEXT:    # in Loop: Header=BB0_1 Depth=1
 ; end INTEL_CUSTOMIZATION
-; CHECK-NEXT:    # implicit-def: $eax
-; CHECK-NEXT:    testb %bl, %bl
-; CHECK-NEXT:    je .LBB0_17
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:  .LBB0_12: # %af
-; CHECK-NEXT:    # in Loop: Header=BB0_1 Depth=1
-; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:  .LBB0_11: # in Loop: Header=BB0_1 Depth=1
 ; CHECK-NEXT:    movl %edi, %esi
 ; CHECK-NEXT:    # implicit-def: $eax
 ; CHECK-NEXT:    testb %bl, %bl
 ; CHECK-NEXT:    je .LBB0_16
-; CHECK-NEXT:  .LBB0_8: # in Loop: Header=BB0_1 Depth=1
->>>>>>> 80c4910f3d4c8b36120bcdb6670d15c693f0f0df
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:  .LBB0_8: # %af
+; CHECK-NEXT:    # in Loop: Header=BB0_1 Depth=1
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    # implicit-def: $edi
 ; CHECK-NEXT:    # implicit-def: $cl
 ; CHECK-NEXT:    # implicit-def: $dl
