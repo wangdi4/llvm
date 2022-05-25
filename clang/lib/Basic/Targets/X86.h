@@ -518,9 +518,26 @@ public:
                             DiagnosticsEngine &Diags) override;
 
   StringRef getABI() const override {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+    if ((getTriple().getArch() == llvm::Triple::x86_64 ||
+         getTriple().getArch() == llvm::Triple::x86_64_xucc) &&
+        SSELevel >= AVX512F)
+#else // INTEL_FEATURE_XUCC
     if (getTriple().getArch() == llvm::Triple::x86_64 && SSELevel >= AVX512F)
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
       return "avx512";
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+    if ((getTriple().getArch() == llvm::Triple::x86_64 ||
+         getTriple().getArch() == llvm::Triple::x86_64_xucc) &&
+        SSELevel >= AVX)
+#else // INTEL_FEATURE_XUCC
     if (getTriple().getArch() == llvm::Triple::x86_64 && SSELevel >= AVX)
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
+
       return "avx";
     if (getTriple().getArch() == llvm::Triple::x86 &&
         MMX3DNowLevel == NoMMX3DNow)

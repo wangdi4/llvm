@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LoopStridedCodeMotion.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
@@ -317,6 +318,52 @@ static bool IsVectorAssume(Instruction *I) {
   });
 }
 
+// Check if I is critical for floating point accuracy.
+// We assume that I is a strided value or a user of strided value.
+static bool isFPAccuracyCritical(Instruction *I) {
+  // If I operates on fp values under non-fast mode, then we do care about the
+  // accuracy.
+  if (isa<FPMathOperator>(I) && !I->isFast()) {
+    LLVM_DEBUG(dbgs().indent(2)
+               << "FPMathOperator " << *I << " is critical for accuracy\n");
+    return true;
+  }
+
+  // If I may write fp values to memory, then it should be
+  // accuracy critical.
+  if (I->mayWriteToMemory()) {
+    LLVM_DEBUG(dbgs().indent(2) << "Memory writing instruction " << *I
+                                << " is critical for accuracy\n");
+    assert(
+        any_of(I->operands(),
+               [](Value *Op) { return Op->getType()->isFPOrFPVectorTy(); }) &&
+        "I should have fp value operands");
+    return true;
+  }
+
+  // If any user of a fp-cast instruction is accuracy critical, then the cast
+  // instruction itself is critical too.
+  bool IsCritical = false;
+  switch (I->getOpcode()) {
+  default:
+    break;
+  case Instruction::UIToFP:
+  case Instruction::SIToFP:
+  case Instruction::FPExt:
+  case Instruction::FPTrunc:
+    IsCritical = any_of(I->users(), [](User *U) {
+      auto *IU = dyn_cast<Instruction>(U);
+      return IU && isFPAccuracyCritical(IU);
+    });
+    break;
+  }
+  if (IsCritical)
+    LLVM_DEBUG(dbgs().indent(2) << "FP casting instruction " << *I
+                                << " is critical for accuracy\n");
+
+  return IsCritical;
+}
+
 bool LoopStridedCodeMotionImpl::canHoistInstruction(Instruction *I) {
   // Can move strided values or their intermediates.
   if (!WIInfo.isStrided(I) && !WIInfo.isStridedIntermediate(I)) {
@@ -331,9 +378,10 @@ bool LoopStridedCodeMotionImpl::canHoistInstruction(Instruction *I) {
     return false;
   }
 
-  // To avoid accuracy loss, don't hoist FMul instruction without fast flag.
-  if (I->getOpcode() == Instruction::FMul && !I->isFast()) {
-    LLVM_DEBUG(dbgs() << "Can't hoist fast FMul: " << *I << "\n");
+  // To avoid accuracy loss, don't hoist accuracy critical instructions.
+  if (isFPAccuracyCritical(I)) {
+    LLVM_DEBUG(dbgs() << "Can't hoist fp accuracy critical instruction: " << *I
+                      << '\n');
     return false;
   }
 
@@ -528,6 +576,8 @@ public:
   }
 
   bool runOnLoop(Loop *L, LPPassManager &) override {
+    if (skipLoop(L))
+      return false;
     LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     LoopWIInfo &WIInfo = getAnalysis<LoopWIAnalysisLegacy>().getResult();

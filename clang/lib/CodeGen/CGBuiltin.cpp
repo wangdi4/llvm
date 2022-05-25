@@ -6035,6 +6035,11 @@ static Value *EmitTargetArchBuiltinExpr(CodeGenFunction *CGF,
     return CGF->EmitBPFBuiltinExpr(BuiltinID, E);
   case llvm::Triple::x86:
   case llvm::Triple::x86_64:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  case llvm::Triple::x86_64_xucc:
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
     return CGF->EmitX86BuiltinExpr(BuiltinID, E);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA

@@ -28,8 +28,7 @@ unsigned getIndexOfInitGidAtDim(unsigned Dim);
 /// \param Dim dimension to query.
 unsigned getIndexOfSizeAtDim(unsigned Dim);
 
-/// Returns the uniform early exit index for dimension Dim in the workgroup
-/// boundaries array.
+/// Returns the uniform early exit condition in the workgroup boundaries array.
 unsigned getUniformIndex();
 
 /// Returns the number of entries in the workgroup boundaries array.

@@ -214,7 +214,14 @@ std::string x86::getX86TargetCPU(const Driver &D, const ArgList &Args,
   if (!Triple.isX86())
     return ""; // This routine is only handling x86 targets.
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  bool Is64Bit = (Triple.getArch() == llvm::Triple::x86_64 ||
+                  Triple.getArch() == llvm::Triple::x86_64_xucc);
+#else // INTEL_FEATURE_XUCC
   bool Is64Bit = Triple.getArch() == llvm::Triple::x86_64;
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
 
   // FIXME: Need target hooks.
   if (Triple.isOSDarwin()) {

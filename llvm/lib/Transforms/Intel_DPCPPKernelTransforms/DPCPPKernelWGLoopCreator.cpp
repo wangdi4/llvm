@@ -195,8 +195,7 @@ private:
   /// Returns kernel single return instruction.
   ReturnInst *getFunctionData(Function *F, InstVecVec &Gids, InstVecVec &Lids);
 
-  /// Public interface that allows running on pair of scalar - vector
-  /// kernels not through pass manager.
+  /// Process a kernel function.
   void processFunction(Function *F, Function *VectorF, unsigned VF);
 
   /// Create the early exit call.
@@ -228,10 +227,12 @@ private:
   /// LIDs - array with get_local_id calls.
   /// InitGIDs - initial global id per dimension.
   /// MaxGIDs - max (or upper bound) global id per dimension.
-  /// Returns struct with preheader and exit block of the outmost loop.
-  LoopRegion addWGLoops(BasicBlock *KernelEntry, bool IsVector, ReturnInst *Ret,
-                        InstVecVec &GIDs, InstVecVec &LIDs, ValueVec &InitGIDs,
-                        ValueVec &MaxGIDs);
+  /// Returns a pair of LoopRegion and IndVar on vectorization dim.
+  std::pair<LoopRegion, Value *> addWGLoops(BasicBlock *KernelEntry,
+                                            bool IsVector, ReturnInst *Ret,
+                                            InstVecVec &GIDs, InstVecVec &LIDs,
+                                            ValueVec &InitGIDs,
+                                            ValueVec &MaxGIDs);
 
   /// Create local id phi in loop head.
   /// InitVal - inital value (for the first iteration).
@@ -243,11 +244,11 @@ private:
                         BasicBlock *PreHead, BasicBlock *Latch);
 
   /// Create WG loops over scalar kernel.
-  /// Returns a struct with entry and exit block of the WG loop region.
+  /// \returns a struct with entry and exit block of the WG loop region.
   LoopRegion createScalarLoops();
 
   /// Create WG loops over vector kernel and remainder loop over scalar kernel.
-  /// Returns a struct with entry and exit block of the WG loop region.
+  /// \returns a struct with entry and exit block of the WG loop region.
   LoopRegion createVectorAndRemainderLoops();
 
   /// Create WG loops over vector kernel and remainder loop over masked vector
@@ -257,6 +258,10 @@ private:
   /// Create WG loops over peeling loop over scalar or masked vector kernel,
   LoopRegion
   createPeelAndVectorAndRemainderLoops(LoopBoundaries &Dim0Boundaries);
+
+  /// Create WG loops over masked kernel.
+  /// \returns a struct with entry and exit block of the WG loop region.
+  LoopRegion createMaskedLoop();
 
   /// Inline the vector kernel into the scalar kernel.
   /// BB - location to move the vector blocks.
@@ -311,20 +316,21 @@ bool WGLoopCreatorImpl::run() {
     unsigned VectWidth = 0;
     // Get the vectorized function
     Function *VectKernel = KIMD.VectorizedKernel.get();
+    Function *MaskedKernel = KIMD.VectorizedMaskedKernel.get();
     // Need to check if vectorized kernel exists, it is not guaranteed that
-    // Vectorized is running in all scenarios.
-    if (VectKernel) {
+    // vectorizer is running in all scenarios.
+    Function *VectOrMaskedKernel = VectKernel     ? VectKernel
+                                   : MaskedKernel ? MaskedKernel
+                                                  : nullptr;
+    if (VectOrMaskedKernel) {
       // Get the vectorized width
-      KernelInternalMetadataAPI VKIMD(VectKernel);
+      KernelInternalMetadataAPI VKIMD(VectOrMaskedKernel);
       VectWidth = VKIMD.VectorizedWidth.get();
-
-      // save the relevant information from the vectorized kernel
-      // prior to erasing this information.
-      KIMD.VectorizedKernel.set(nullptr);
-      KIMD.VectorizedWidth.set(VectWidth);
 
       // Save the relevant information from the vectorized kernel in KIMD prior
       // to erasing these information.
+      KIMD.VectorizedKernel.set(nullptr);
+      KIMD.VectorizedWidth.set(VectWidth);
       KIMD.VectorizationDimension.set(VKIMD.VectorizationDimension.get());
       KIMD.CanUniteWorkgroups.set(VKIMD.CanUniteWorkgroups.get());
     }
@@ -638,6 +644,8 @@ void WGLoopCreatorImpl::processFunction(Function *F, Function *VectorF,
   // Get the number of the for which we need to create work group loops.
   NumDim = KIMD.MaxWGDimensions.hasValue() ? KIMD.MaxWGDimensions.get()
                                            : MAX_WORK_DIM;
+  assert((NumDim == 0 || VectorizedDim < NumDim) &&
+         "vectorized dimension is out of range");
 
   // Create WG loops.
   // If no workgroup loop is created (no calls to get_*_id), avoid inlining
@@ -662,7 +670,7 @@ void WGLoopCreatorImpl::processFunction(Function *F, Function *VectorF,
   RemainderEntry = &Func->getEntryBlock();
   RemainderEntry->setName(MaskedF ? "masked_kernel_entry"
                                   : "scalar_kernel_entry");
-  NewEntry = BasicBlock::Create(Ctx, "", Func, RemainderEntry);
+  NewEntry = BasicBlock::Create(Ctx, "entry", Func, RemainderEntry);
 
   // Create early exit call to obtain boundaries from.
   createEECall(Func);
@@ -673,10 +681,11 @@ void WGLoopCreatorImpl::processFunction(Function *F, Function *VectorF,
   initializeImplicitGID(Func);
 
   // Create loops.
-  LoopRegion WGLoopRegion = MaskedF ? createVectorAndMaskedRemainderLoops()
-                            : (VectorF && NumDim)
-                                ? createVectorAndRemainderLoops()
-                                : createScalarLoops();
+  LoopRegion WGLoopRegion =
+      (VectorF && MaskedF)  ? createVectorAndMaskedRemainderLoops()
+      : (VectorF && NumDim) ? createVectorAndRemainderLoops()
+      : MaskedF             ? createMaskedLoop()
+                            : createScalarLoops();
   assert(WGLoopRegion.PreHeader && WGLoopRegion.Exit &&
          "Workgroup loop entry or exit not initialized");
 
@@ -699,8 +708,9 @@ void WGLoopCreatorImpl::processFunction(Function *F, Function *VectorF,
   if (NumDim > 0 && RemainderRegion.Header)
     disableRemainderLoopUnroll(*Func, RemainderRegion.Header);
 
-  // Now the masked kernel is a full workgroup which is organized as several
-  // loops of vector kernel following by one masked kernel.
+  // Now the masked kernel is a full workgroup which is organized as one of
+  //   * several loops of vector kernel following by one masked kernel
+  //   * loops of masked kernel.
   // Replace the scalar kernel body with the masked kernel body.
   if (MaskedF) {
     auto replaceScalarKernelWithMasked = [](Function *F, Function *MaskedF) {
@@ -715,16 +725,13 @@ void WGLoopCreatorImpl::processFunction(Function *F, Function *VectorF,
                 MaskedI = MaskedF->arg_begin();
            I != E; ++I, ++MaskedI)
         MaskedI->replaceAllUsesWith(I);
+
       F->setSubprogram(MaskedF->getSubprogram());
 
       MaskedF->eraseFromParent();
     };
     replaceScalarKernelWithMasked(F, MaskedF);
   }
-
-  // Finally, remove noinline attr
-  if (!F->hasFnAttribute(llvm::Attribute::OptimizeNone))
-    F->removeFnAttr(llvm::Attribute::NoInline);
 
   LLVM_DEBUG(dbgs().indent(2) << "Created loop for " << F->getName() << "\n";);
   assert(!verifyFunction(*F, &dbgs()));
@@ -781,11 +788,14 @@ void WGLoopCreatorImpl::initializeImplicitGID(Function *F) {
 // return
 //
 LoopRegion WGLoopCreatorImpl::createScalarLoops() {
-  LLVM_DEBUG(dbgs() << "Create scalar loops\n");
+  LLVM_DEBUG(dbgs().indent(2) << "Create scalar loops\n");
   if (VectorF)
     VectorF->eraseFromParent();
-  return addWGLoops(RemainderEntry, false, RemainderRet, GidCalls, LidCalls,
-                    InitGIDs, MaxGIDs);
+  LoopRegion Region;
+  std::tie(Region, std::ignore) =
+      addWGLoops(RemainderEntry, false, RemainderRet, GidCalls, LidCalls,
+                 InitGIDs, MaxGIDs);
+  return Region;
 }
 
 // if the vector kernel exists then we create the following code:
@@ -816,14 +826,16 @@ LoopRegion WGLoopCreatorImpl::createVectorAndRemainderLoops() {
 
   // Create vector loops.
   MaxGIDs[VectorizedDim] = Dim0Boundaries.MaxVector;
-  LoopRegion VectorBlocks =
+  LoopRegion VectorBlocks;
+  std::tie(VectorBlocks, std::ignore) =
       addWGLoops(VectorEntry, true, VectorRet, GidCallsVec, LidCallsVec,
                  InitGIDsCopy, MaxGIDs);
 
   // Create scalar loops.
   InitGIDsCopy[VectorizedDim] = Dim0Boundaries.MaxVector;
   MaxGIDs[VectorizedDim] = MaxGIDTemp;
-  LoopRegion ScalarBlocks =
+  LoopRegion ScalarBlocks;
+  std::tie(ScalarBlocks, std::ignore) =
       addWGLoops(RemainderEntry, false, RemainderRet, GidCalls, LidCalls,
                  InitGIDsCopy, MaxGIDs);
 
@@ -854,7 +866,7 @@ LoopRegion WGLoopCreatorImpl::createVectorAndRemainderLoops() {
 }
 
 LoopRegion WGLoopCreatorImpl::createVectorAndMaskedRemainderLoops() {
-  LLVM_DEBUG(dbgs() << "Create vector and masked remainder loops\n");
+  LLVM_DEBUG(dbgs().indent(2) << "Create vector and masked remainder loops\n");
   // Do not create scalar remainder for subgroup kernels as the semantics does
   // not allow execution of workitems in a serial manner.
   // Intentionally forget about scalar kernel. Let DCE delete it.
@@ -878,14 +890,16 @@ LoopRegion WGLoopCreatorImpl::createVectorAndMaskedRemainderLoops() {
 
   // Create vector loops.
   MaxGIDs[VectorizedDim] = Dim0Boundaries.MaxVector;
-  LoopRegion VectorBlocks =
+  LoopRegion VectorBlocks;
+  std::tie(VectorBlocks, std::ignore) =
       addWGLoops(VectorEntry, true, VectorRet, GidCallsVec, LidCallsVec,
                  InitGIDsCopy, MaxGIDs);
 
   // Create masked vector loop.
   InitGIDsCopy[VectorizedDim] = Dim0Boundaries.MaxVector;
   MaxGIDs[VectorizedDim] = MaxGIDTemp;
-  LoopRegion MaskedBlocks =
+  LoopRegion MaskedBlocks;
+  std::tie(MaskedBlocks, std::ignore) =
       addWGLoops(RemainderEntry, true, RemainderRet, GidCalls, LidCalls,
                  InitGIDsCopy, MaxGIDs);
 
@@ -955,8 +969,8 @@ LoopRegion WGLoopCreatorImpl::createVectorAndMaskedRemainderLoops() {
 // ret
 LoopRegion WGLoopCreatorImpl::createPeelAndVectorAndRemainderLoops(
     LoopBoundaries &Dim0Boundaries) {
-  LLVM_DEBUG(
-      dbgs() << (MaskedF
+  LLVM_DEBUG(dbgs().indent(2)
+             << (MaskedF
                      ? "Create masked peel, vector and masked remainder loops"
                      : "Create scalar peel, vector and scalar remainder loops")
              << "\n");
@@ -986,7 +1000,8 @@ LoopRegion WGLoopCreatorImpl::createPeelAndVectorAndRemainderLoops(
   InitGIDsCopy[VectorizedDim] = Dim0Boundaries.MaxPeel;
   Value *MaxGIDTemp = MaxGIDs[VectorizedDim];
   MaxGIDs[VectorizedDim] = Dim0Boundaries.MaxVector;
-  LoopRegion VectorBlocks =
+  LoopRegion VectorBlocks;
+  std::tie(VectorBlocks, std::ignore) =
       addWGLoops(VectorEntry, true, VectorRet, GidCallsVec, LidCallsVec,
                  InitGIDsCopy, MaxGIDs);
 
@@ -1024,7 +1039,8 @@ LoopRegion WGLoopCreatorImpl::createPeelAndVectorAndRemainderLoops(
     MaskArg->replaceAllUsesWith(Mask);
   }
 
-  LoopRegion RemainderBlocks =
+  LoopRegion RemainderBlocks;
+  std::tie(RemainderBlocks, std::ignore) =
       addWGLoops(RemainderEntry, IsMasked, RemainderRet, GidCalls, LidCalls,
                  InitGIDsCopy, MaxGIDs);
 
@@ -1054,6 +1070,32 @@ LoopRegion WGLoopCreatorImpl::createPeelAndVectorAndRemainderLoops(
 
   RemainderRegion = RemainderBlocks;
   return LoopRegion{PeelIf, nullptr, RetBB};
+}
+
+LoopRegion WGLoopCreatorImpl::createMaskedLoop() {
+  LLVM_DEBUG(dbgs().indent(2) << "Create masked loops\n");
+  LoopRegion MaskedBlocks;
+  Value *VecDimIndVar;
+  std::tie(MaskedBlocks, VecDimIndVar) =
+      addWGLoops(RemainderEntry, true, RemainderRet, GidCalls, LidCalls,
+                 InitGIDs, MaxGIDs);
+  assert(VecDimIndVar && "invalid IndVar on vectorization dim");
+
+  // Generate mask.
+  Builder.SetInsertPoint(&*RemainderEntry->getFirstInsertionPt());
+  Value *Splat = Builder.CreateVectorSplat(VF, VecDimIndVar, "ind.var");
+  Value *StepVec = Builder.CreateStepVector(FixedVectorType::get(IndTy, VF));
+  Value *IndVars = Builder.CreateNUWAdd(Splat, StepVec, "ind.var.vec");
+  Value *MaxGIDSplat =
+      Builder.CreateVectorSplat(VF, MaxGIDs[VectorizedDim], "max.gid");
+  auto *MaskI1 = Builder.CreateICmpULT(IndVars, MaxGIDSplat, "ind.var.mask.i1");
+  auto *Mask = Builder.CreateZExt(
+      MaskI1, FixedVectorType::get(Builder.getInt32Ty(), VF), "ind.var.mask");
+
+  auto MaskArg = MaskedF->arg_end() - 1;
+  MaskArg->replaceAllUsesWith(Mask);
+
+  return MaskedBlocks;
 }
 
 WGLoopCreatorImpl::LoopBoundaries
@@ -1242,7 +1284,7 @@ void WGLoopCreatorImpl::handleUniformEE(BasicBlock *RetBB) {
   assert(InsertPt && "expect insert point after early exit call");
   unsigned UniInd = WGBoundDecoder::getUniformIndex();
   Instruction *UniEECond =
-      ExtractValueInst::Create(EECall, UniInd, "", InsertPt);
+      ExtractValueInst::Create(EECall, UniInd, "uniform.early.exit", InsertPt);
   auto *TruncCond =
       new TruncInst(UniEECond, Type::getInt1Ty(Ctx), "", InsertPt);
   // Split the basic block after obtaining the uniform early exit condition,
@@ -1339,10 +1381,9 @@ void WGLoopCreatorImpl::computeDimStr(unsigned Dim, bool IsVector) {
   DimStr = ("dim_" + Twine(Dim) + "_" + (IsVector ? "vector_" : "")).str();
 }
 
-LoopRegion WGLoopCreatorImpl::addWGLoops(BasicBlock *KernelEntry, bool IsVector,
-                                         ReturnInst *Ret, InstVecVec &GIDs,
-                                         InstVecVec &LIDs, ValueVec &InitGIDs,
-                                         ValueVec &MaxGIDs) {
+std::pair<LoopRegion, Value *> WGLoopCreatorImpl::addWGLoops(
+    BasicBlock *KernelEntry, bool IsVector, ReturnInst *Ret, InstVecVec &GIDs,
+    InstVecVec &LIDs, ValueVec &InitGIDs, ValueVec &MaxGIDs) {
   assert(KernelEntry && Ret && "uninitialized parameters");
 
   // Move allocas, llvm.dbg.declare and local id GEP in the entry kernel entry
@@ -1372,6 +1413,8 @@ LoopRegion WGLoopCreatorImpl::addWGLoops(BasicBlock *KernelEntry, bool IsVector,
   // width. In case of scalar loop increment by 1.
   Value *Dim0IncBy = IsVector ? ConstVF : ConstOne;
 
+  Value *VecDimIndVar = nullptr;
+
   for (unsigned Dim = 0; Dim < NumDim; ++Dim) {
     unsigned ResolvedDim = resolveDimension(Dim);
     computeDimStr(ResolvedDim, IsVector);
@@ -1385,6 +1428,10 @@ LoopRegion WGLoopCreatorImpl::addWGLoops(BasicBlock *KernelEntry, bool IsVector,
     std::tie(Blocks, IndVar) = DPCPPKernelLoopUtils::createLoop(
         Head, Latch, InitGID, IncBy, MaxGIDs[ResolvedDim],
         MaskedF ? CmpInst::ICMP_SGE : CmpInst::ICMP_EQ, DimStr, Ctx);
+
+    if (Dim == VectorizedDim)
+      VecDimIndVar = IndVar;
+
     // Modify get***id accordingly.
     if (!GIDs[ResolvedDim].empty()) {
       for (auto *TID : GIDs[ResolvedDim]) {
@@ -1444,7 +1491,7 @@ LoopRegion WGLoopCreatorImpl::addWGLoops(BasicBlock *KernelEntry, bool IsVector,
     assert(LIDs[Dim].empty() && "Unexpected Local Id on the dimension");
   }
 
-  return LoopRegion{Head, HeaderOutmost, Latch};
+  return {LoopRegion{Head, HeaderOutmost, Latch}, VecDimIndVar};
 }
 
 PHINode *WGLoopCreatorImpl::createLIDPHI(Value *InitVal, Value *IncBy,
