@@ -386,7 +386,6 @@ class OpenMPLateOutliner {
   void emitOMPAlignClause(const OMPAlignClause *Cl);
   void emitOMPFullClause(const OMPFullClause *Cl);
   void emitOMPPartialClause(const OMPPartialClause *Cl);
-  void emitOMPFailClause(const OMPFailClause *Cl);
   void emitOMPOmpxPlacesClause(const OMPOmpxPlacesClause *Cl);
 
   llvm::Value *emitOpenMPDefaultConstructor(const Expr *IPriv,
