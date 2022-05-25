@@ -7,10 +7,9 @@
 ; RUN: -enable-intel-advanced-opts -vplan-enable-all-zero-bypass-non-loops -vplan-print-after-all-zero-bypass\
 ; RUN: -vplan-force-vf=4 -vplan-all-zero-bypass-region-threshold=1 -vplan-enable-new-cfg-merge -disable-vplan-codegen -disable-output < %s  2>&1 | FileCheck %s
 
-; This test was copied from vplan_loopcfu_uniform_toptest.ll to check that an all-zero bypass is formed
-; around the loop body. This bypass is really unnecessary because the all-zero check inserted by loop cfu
-; for the bottom test guarantees the loop body will never execute under all-zero condition. In the future,
-; perhaps some additional processing could be done to prevent this.
+; Don't insert non-loop bypass regions for loopcfu massaged inner loop blocks. The loop
+; already has an all-zero condition in the latch to exit the loop based on the same
+; mask.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -23,66 +22,57 @@ declare void @llvm.directive.region.exit(token)
 define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unnamed_addr #0 {
 ;
 ; CHECK-LABEL:  VPlan after all zero bypass insertion:
-; CHECK-NEXT:  VPlan IR for: foo:for.cond1.preheader
+; CHECK-NEXT:  VPlan IR for: foo:for.cond1.preheader.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_OUTER_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_OUTER_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[N0:%.*]], UF = 1
-; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_OUTER_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1 (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_OUTER_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[N0:%.*]], UF = 1 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_OUTER_IV:%.*]] = phi  [ i64 [[VP_OUTER_IV_NEXT:%.*]], [[BB3]] ],  [ i64 [[VP_OUTER_IV_IND_INIT]], [[BB1]] ]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_TOP_TEST:%.*]] = icmp eq i64 [[N0]] i64 0
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_TOP_TEST_NOT:%.*]] = not i1 [[VP_UNIFORM_TOP_TEST]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP_UNIFORM_TOP_TEST]], [[BB3]], [[BB4:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_OUTER_IV:%.*]] = phi  [ i64 [[VP_OUTER_IV_NEXT:%.*]], [[BB3]] ],  [ i64 [[VP_OUTER_IV_IND_INIT]], [[BB1]] ] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_UNIFORM_TOP_TEST:%.*]] = icmp eq i64 [[N0]] i64 0 (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_UNIFORM_TOP_TEST_NOT:%.*]] = not i1 [[VP_UNIFORM_TOP_TEST]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_UNIFORM_TOP_TEST]], [[BB3]], [[BB4:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:       [DA: Uni] br [[BB5:BB[0-9]+]]
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB5:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[BB4]], [[BB6:BB[0-9]+]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP0:%.*]], [[BB6]] ],  [ i64 0, [[BB4]] ]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_UNIFORM_TOP_TEST_NOT]], [[BB4]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB6]] ]
-; CHECK-NEXT:       [DA: Uni] br all.zero.bypass.begin30
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT:%.*]], [[BB6]] ],  [ i64 0, [[BB4]] ] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_UNIFORM_TOP_TEST_NOT]], [[BB4]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB6]] ] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB7:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:      all.zero.bypass.begin30: # preds: [[BB5]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_ALL_ZERO_CHECK:%.*]] = all-zero-check i1 [[VP_LOOP_MASK]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_ALL_ZERO_CHECK]], all.zero.bypass.end32, [[BB7:BB[0-9]+]]
+; CHECK-NEXT:      [[BB7]]: # preds: [[BB5]]
+; CHECK-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP0:%.*]] = block-predicate i1 [[VP_LOOP_MASK]] (SVAOpBits 0->V )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_INNER_IV]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_INNER_IV_NEXT]] = add i64 [[VP_INNER_IV]] i64 1 (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INNER_IV_NEXT]] i64 [[VP_OUTER_IV]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB6]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB7]]: # preds: all.zero.bypass.begin30
-; CHECK-NEXT:         [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_LOOP_MASK]]
-; CHECK-NEXT:         [DA: Uni] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_INNER_IV]]
-; CHECK-NEXT:         [DA: Uni] i64 [[VP_INNER_IV_NEXT:%.*]] = add i64 [[VP_INNER_IV]] i64 1
-; CHECK-NEXT:         [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INNER_IV_NEXT]] i64 [[VP_OUTER_IV]]
-; CHECK-NEXT:         [DA: Uni] br all.zero.bypass.end32
-; CHECK-EMPTY:
-; CHECK-NEXT:      all.zero.bypass.end32: # preds: [[BB7]], all.zero.bypass.begin30
-; CHECK-NEXT:       [DA: Uni] i64 [[VP0]] = phi  [ i64 [[VP_INNER_IV_NEXT]], [[BB7]] ],  [ i64 0, all.zero.bypass.begin30 ]
-; CHECK-NEXT:       [DA: Div] i1 [[VP2:%.*]] = phi  [ i1 [[VP_EXITCOND]], [[BB7]] ],  [ i1 false, all.zero.bypass.begin30 ]
-; CHECK-NEXT:       [DA: Uni] br [[BB6]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB6]]: # preds: all.zero.bypass.end32
-; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP2]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP3:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP3]], [[BB8:BB[0-9]+]], [[BB5]]
+; CHECK-NEXT:      [[BB6]]: # preds: [[BB7]]
+; CHECK-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP_EXITCOND]] (SVAOpBits 0->V )
+; CHECK-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:       [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] i1 [[VP1:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]] (SVAOpBits 0->V )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP1]], [[BB8:BB[0-9]+]], [[BB5]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]]: # preds: [[BB6]]
-; CHECK-NEXT:       [DA: Uni] br [[BB3]]
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB3]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]], [[BB8]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_OUTER_IV_NEXT]] = add i64 [[VP_OUTER_IV]] i64 [[VP_OUTER_IV_IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_OUTER_EXIT_COND:%.*]] = icmp uge i64 [[VP_OUTER_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP_OUTER_EXIT_COND]], [[BB9:BB[0-9]+]], [[BB2]]
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_OUTER_IV_NEXT]] = add i64 [[VP_OUTER_IV]] i64 [[VP_OUTER_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_OUTER_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB9:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]: # preds: [[BB3]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_OUTER_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:     [DA: Uni] br [[BB10:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_OUTER_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB10:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB10]]: # preds: [[BB9]]
-; CHECK-NEXT:     [DA: Uni] br <External Block>
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_OUTER_IV_IND_FINAL]]
