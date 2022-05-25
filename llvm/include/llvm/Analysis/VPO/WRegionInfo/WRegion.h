@@ -442,7 +442,7 @@ public:
   WRNProcBindKind getProcBind() const override { return ProcBind; }
   int getCollapse() const override { return Collapse; }
   int getOrdered() const override { return Ordered; }
-  int getOmpLoopDepth() {
+  int getOmpLoopDepth() const override {
     // Depth of associated loop. Ordered >= Collapse if both exist
     assert((Ordered <= 0 || Ordered >= Collapse) &&
            "Ordered must be >= Collapse when both are specified.");
@@ -743,7 +743,7 @@ public:
   WRNProcBindKind getProcBind() const override { return ProcBind; }
   int getCollapse() const override { return Collapse; }
   int getOrdered() const override { return Ordered; }
-  int getOmpLoopDepth() {
+  int getOmpLoopDepth() const override {
     // Depth of associated loop. Ordered >= Collapse if both exist
     assert((Ordered <= 0 || Ordered >= Collapse) &&
            "Ordered must be >= Collapse when both are specified.");
@@ -1397,7 +1397,7 @@ public:
   EXPR getNumTasks() const override { return NumTasks; }
   int getSchedCode() const override { return SchedCode; }
   int getCollapse() const override { return Collapse; }
-  int getOmpLoopDepth() { return Collapse > 0 ? Collapse : 1; }
+  int getOmpLoopDepth() const override { return Collapse > 0 ? Collapse : 1; }
   bool getNogroup() const override { return Nogroup; }
 
   // Defined in parent class WRNTaskNode
@@ -1493,7 +1493,7 @@ public:
   int getSimdlen() const override{ return Simdlen; }
   int getSafelen() const override{ return Safelen; }
   int getCollapse() const override{ return Collapse; }
-  int getOmpLoopDepth() { return Collapse > 0 ? Collapse : 1; }
+  int getOmpLoopDepth() const override { return Collapse > 0 ? Collapse : 1; }
   WRNLoopOrderKind getLoopOrder() const override{ return LoopOrder; }
 
 #if INTEL_CUSTOMIZATION
@@ -1591,7 +1591,7 @@ public:
 
   int getCollapse() const override{ return Collapse; }
   int getOrdered() const override { return Ordered; }
-  int getOmpLoopDepth() {
+  int getOmpLoopDepth() const override {
     assert((Ordered <= 0 || Ordered >= Collapse) &&
            "Ordered must be >= Collapse when both are specified.");
     // Depth of associated loop. Ordered >= Collapse if both exist
@@ -1755,7 +1755,7 @@ public:
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo,  WRNLI)
 
   int getCollapse() const override  { return Collapse; }
-  int getOmpLoopDepth() { return Collapse > 0 ? Collapse : 1; }
+  int getOmpLoopDepth() const override { return Collapse > 0 ? Collapse : 1; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const override ;
@@ -1896,7 +1896,7 @@ public:
   DEFINE_GETTER(SizesClause,        getSizes,       Sizes)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
-  int getOmpLoopDepth() { return Sizes.size(); }
+  int getOmpLoopDepth() const override { return Sizes.size(); }
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -2246,7 +2246,7 @@ public:
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   int getCollapse() const override { return Collapse; }
-  int getOmpLoopDepth() { return Collapse > 0 ? Collapse : 1; }
+  int getOmpLoopDepth() const override { return Collapse > 0 ? Collapse : 1; }
 #if INTEL_CUSTOMIZATION
   bool getIsDoConcurrent() const override { return IsDoConcurrent; }
 #endif // INTEL_CUSTOMIZATION
