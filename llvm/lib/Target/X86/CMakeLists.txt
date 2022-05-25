@@ -43,6 +43,7 @@ endif()
 add_public_tablegen_target(X86CommonTableGen)
 
 set(sources
+  Intel_X86AvoidMemoryRenamingBlocks.cpp     # INTEL
   Intel_X86SplitVectorValueType.cpp     # INTEL
   Intel_X86CiscizationHelper.cpp        # INTEL
   Intel_X86FMA.cpp        # INTEL

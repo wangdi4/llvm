@@ -1211,9 +1211,9 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
   // Do not attempt hoisting when a remainder loop is needed as remainder
   // loop updates the scalar reduction value. Since we blend in the scalar
   // reduction value in reduction initialization code, hoisting up the
-  // initialization will generate incorrect code.
-
-  if (NeedRemainderLoop)
+  // initialization will generate incorrect code. The same holds if we
+  // generate a peel loop.
+  if (NeedRemainderLoop || NeedPeelLoop)
     RednHoistLp = OrigLoop;
 
   // The reduction initializer hoist loop should point to the vector loop and
