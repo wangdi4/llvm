@@ -781,7 +781,7 @@ static bool parseDeclareSimdClauses(
       OpenMPClauseKind CKind = getOpenMPClauseKind(ClauseName);
       if (CKind == OMPC_uniform || CKind == OMPC_aligned ||
           CKind == OMPC_linear) {
-        Parser::OpenMPVarListDataTy Data;
+        Sema::OpenMPVarListDataTy Data;
         SmallVectorImpl<Expr *> *Vars = &Uniforms;
         if (CKind == OMPC_aligned) {
           Vars = &Aligneds;
@@ -1488,7 +1488,7 @@ void Parser::ParseOMPDeclareVariantClauses(Parser::DeclGroupPtrTy Ptr,
       case OMPC_adjust_args: {
         AdjustArgsLoc = Tok.getLocation();
         ConsumeToken();
-        Parser::OpenMPVarListDataTy Data;
+        Sema::OpenMPVarListDataTy Data;
         SmallVector<Expr *> Vars;
         IsError = ParseOpenMPVarList(OMPD_declare_variant, OMPC_adjust_args,
                                      Vars, Data);
@@ -4375,7 +4375,7 @@ static OpenMPMapModifierKind isMapModifier(Parser &P) {
 }
 
 /// Parse the mapper modifier in map, to, and from clauses.
-bool Parser::parseMapperModifier(OpenMPVarListDataTy &Data) {
+bool Parser::parseMapperModifier(Sema::OpenMPVarListDataTy &Data) {
   // Parse '('.
   BalancedDelimiterTracker T(*this, tok::l_paren, tok::colon);
   if (T.expectAndConsume(diag::err_expected_lparen_after, "mapper")) {
@@ -4407,7 +4407,7 @@ bool Parser::parseMapperModifier(OpenMPVarListDataTy &Data) {
 /// map([ [map-type-modifier[,] [map-type-modifier[,] ...] map-type : ] list)
 /// where, map-type-modifier ::= always | close | mapper(mapper-identifier) |
 /// present
-bool Parser::parseMapTypeModifiers(OpenMPVarListDataTy &Data) {
+bool Parser::parseMapTypeModifiers(Sema::OpenMPVarListDataTy &Data) {
   while (getCurToken().isNot(tok::colon)) {
     OpenMPMapModifierKind TypeModifier = isMapModifier(*this);
     if (TypeModifier == OMPC_MAP_MODIFIER_always ||
@@ -4463,7 +4463,7 @@ static OpenMPMapClauseKind isMapType(Parser &P) {
 /// Parse map-type in map clause.
 /// map([ [map-type-modifier[,] [map-type-modifier[,] ...] map-type : ] list)
 /// where, map-type ::= to | from | tofrom | alloc | release | delete
-static void parseMapType(Parser &P, Parser::OpenMPVarListDataTy &Data) {
+static void parseMapType(Parser &P, Sema::OpenMPVarListDataTy &Data) {
   Token Tok = P.getCurToken();
   if (Tok.is(tok::colon)) {
     P.Diag(Tok, diag::err_omp_map_type_missing);
@@ -4582,6 +4582,7 @@ ExprResult Parser::ParseOpenMPIteratorsExpr() {
                                       Data);
 }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 /// Checks if current token (immediately following the left-paren of the
 /// allocate clause) is either of the valid allocate clause modifiers.
@@ -4601,12 +4602,40 @@ static bool hasAllocateModifiers(Parser &P, OpenMPClauseKind Kind) {
   return false;
 }
 #endif // INTEL_COLLAB
+=======
+bool Parser::ParseOpenMPReservedLocator(OpenMPClauseKind Kind,
+                                        Sema::OpenMPVarListDataTy &Data,
+                                        const LangOptions &LangOpts) {
+  // Currently the only reserved locator is 'omp_all_memory' which is only
+  // allowed on a depend clause.
+  if (Kind != OMPC_depend || LangOpts.OpenMP < 51)
+    return false;
+
+  if (Tok.is(tok::identifier) &&
+      Tok.getIdentifierInfo()->isStr("omp_all_memory")) {
+
+    if (Data.ExtraModifier == OMPC_DEPEND_outallmemory ||
+        Data.ExtraModifier == OMPC_DEPEND_inoutallmemory)
+      Diag(Tok, diag::warn_omp_more_one_omp_all_memory);
+    else if (Data.ExtraModifier != OMPC_DEPEND_out &&
+             Data.ExtraModifier != OMPC_DEPEND_inout)
+      Diag(Tok, diag::err_omp_requires_out_inout_depend_type);
+    else
+      Data.ExtraModifier = Data.ExtraModifier == OMPC_DEPEND_out
+                               ? OMPC_DEPEND_outallmemory
+                               : OMPC_DEPEND_inoutallmemory;
+    ConsumeToken();
+    return true;
+  }
+  return false;
+}
+>>>>>>> 9ba937112fa6d4076e4a98b587a334786b6c0d9c
 
 /// Parses clauses with list.
 bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
                                 OpenMPClauseKind Kind,
                                 SmallVectorImpl<Expr *> &Vars,
-                                OpenMPVarListDataTy &Data) {
+                                Sema::OpenMPVarListDataTy &Data) {
   UnqualifiedId UnqualifiedReductionId;
   bool InvalidReductionId = false;
   bool IsInvalidMapperModifier = false;
@@ -4889,14 +4918,16 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
                      Tok.isNot(tok::annot_pragma_openmp_end))) {
     ParseScope OMPListScope(this, Scope::OpenMPDirectiveScope);
     ColonProtectionRAIIObject ColonRAII(*this, MayHaveTail);
-    // Parse variable
-    ExprResult VarExpr =
-        Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression());
-    if (VarExpr.isUsable()) {
-      Vars.push_back(VarExpr.get());
-    } else {
-      SkipUntil(tok::comma, tok::r_paren, tok::annot_pragma_openmp_end,
-                StopBeforeMatch);
+    if (!ParseOpenMPReservedLocator(Kind, Data, getLangOpts())) {
+      // Parse variable
+      ExprResult VarExpr =
+          Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression());
+      if (VarExpr.isUsable()) {
+        Vars.push_back(VarExpr.get());
+      } else {
+        SkipUntil(tok::comma, tok::r_paren, tok::annot_pragma_openmp_end,
+                  StopBeforeMatch);
+      }
     }
     // Skip ',' if any
     IsComma = Tok.is(tok::comma);
@@ -5013,7 +5044,7 @@ OMPClause *Parser::ParseOpenMPVarListClause(OpenMPDirectiveKind DKind,
   SourceLocation Loc = Tok.getLocation();
   SourceLocation LOpen = ConsumeToken();
   SmallVector<Expr *, 4> Vars;
-  OpenMPVarListDataTy Data;
+  Sema::OpenMPVarListDataTy Data;
 
   if (ParseOpenMPVarList(DKind, Kind, Vars, Data))
     return nullptr;
@@ -5021,6 +5052,7 @@ OMPClause *Parser::ParseOpenMPVarListClause(OpenMPDirectiveKind DKind,
   if (ParseOnly)
     return nullptr;
   OMPVarListLocTy Locs(Loc, LOpen, Data.RLoc);
+<<<<<<< HEAD
   return Actions.ActOnOpenMPVarListClause(
       Kind, Vars, Data.DepModOrTailExpr, Locs, Data.ColonLoc,
       Data.ReductionOrMapperIdScopeSpec, Data.ReductionOrMapperId,
@@ -5030,6 +5062,9 @@ OMPClause *Parser::ParseOpenMPVarListClause(OpenMPDirectiveKind DKind,
       Data.AllocAlignModifier,
 #endif // INTEL_COLLAB
       Data.MotionModifiersLoc);
+=======
+  return Actions.ActOnOpenMPVarListClause(Kind, Vars, Locs, Data);
+>>>>>>> 9ba937112fa6d4076e4a98b587a334786b6c0d9c
 }
 
 #if INTEL_CUSTOMIZATION
