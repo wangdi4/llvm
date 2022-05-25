@@ -3269,11 +3269,18 @@ def fsycl_device_code_split_EQ : Joined<["-"], "fsycl-device-code-split=">,
 def fsycl_device_code_split : Flag<["-"], "fsycl-device-code-split">, Alias<fsycl_device_code_split_EQ>,
   AliasArgs<["auto"]>, Flags<[CC1Option, CoreOption, DpcppOption]>,
   HelpText<"Perform SYCL device code split in the 'auto' mode, i.e. use heuristic to distribute device code across modules">;
+<<<<<<< HEAD
 defm sycl_instrument_device_code : BoolOption<"f", "sycl-instrument-device-code",
   CodeGenOpts<"SPIRITTAnnotations">, DefaultFalse,
   PosFlag<SetTrue, [], "Add ITT instrumentation intrinsics calls">,
   NegFlag<SetFalse, [], "Do not add ITT instrumentation intrinsics calls">,
   BothFlags<[CC1Option, CoreOption]>>, Group<sycl_Group>;
+=======
+defm sycl_instrument_device_code : BoolFOption<"sycl-instrument-device-code",
+  CodeGenOpts<"SPIRITTAnnotations">, DefaultFalse,
+  PosFlag<SetTrue, [], "Add">, NegFlag<SetFalse, [], "Do not add">,
+  BothFlags<[CC1Option, CoreOption], " ITT instrumentation intrinsics calls">>;
+>>>>>>> 53fc8e453c60dd3ed1fdaa81e65d5f5d58a05848
 defm sycl_id_queries_fit_in_int: BoolFOption<"sycl-id-queries-fit-in-int",
   LangOpts<"SYCLValueFitInMaxInt">, DefaultTrue,
   PosFlag<SetTrue, [], "Assume">, NegFlag<SetFalse, [], "Do not assume">,
