@@ -1093,4 +1093,4 @@ bool OverrideImportedFunction(const char *module_to_patch,
 
 }  // namespace __interception
 
-#endif  // SANITIZER_MAC
+#endif  // SANITIZER_APPLE
