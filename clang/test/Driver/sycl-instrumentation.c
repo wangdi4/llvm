@@ -23,13 +23,10 @@
 // RUN: | FileCheck -check-prefixes=CHECK-NONPASSED %s
 // RUN: %clangxx -fsycl -fsycl-targets=nvptx64-nvidia-cuda -nocudalib -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-NONPASSED %s
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
-// RUN: %clangxx -fsycl -fsycl-targets=nvptx64-nvidia-cuda -fsycl-instrument-device-code -fno-sycl-libspirv -nocudalib -### %s 2>&1 \
+// RUN: %clangxx -fsycl -fsycl-targets=nvptx64-nvidia-cuda -fno-sycl-instrument-device-code -fno-sycl-libspirv -nocudalib -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-WARNING,CHECK-NONPASSED %s
 // end INTEL_CUSTOMIZATION
-=======
->>>>>>> 53fc8e453c60dd3ed1fdaa81e65d5f5d58a05848
 // CHECK-NONPASSED-NOT: "-fsycl-instrument-device-code"
 // CHECK-NONPASSED-NOT: "-input={{.*}}libsycl-itt-{{.*}}.{{o|obj}}"
 // RUN: %clangxx -fsycl -fsycl-targets=nvptx64-nvidia-cuda -fno-sycl-instrument-device-code -nocudalib -### %s 2>&1 \
