@@ -2946,6 +2946,9 @@ static bool isProfitableChain(IVChain &Chain,
     --cost;
   }
   const SCEV *LastIncExpr = nullptr;
+#if INTEL_CUSTOMIZATION
+  const SCEV *LastLastIncExpr = nullptr;
+#endif // INTEL_CUSTOMIZATION
   unsigned NumConstIncrements = 0;
   unsigned NumVarIncrements = 0;
   unsigned NumReusedIncrements = 0;
@@ -2953,7 +2956,12 @@ static bool isProfitableChain(IVChain &Chain,
   if (TTI.isProfitableLSRChainElement(Chain.Incs[0].UserInst))
     return true;
 
-  for (const IVInc &Inc : Chain) {
+#if INTEL_CUSTOMIZATION
+  for (unsigned I = 1; I != Chain.Incs.size(); ++I) {
+    const IVInc &Inc = Chain.Incs[I];
+    if (I != 1)
+      LastLastIncExpr = Chain.Incs[I - 2].IncExpr;
+#endif // INTEL_CUSTOMIZATION
     if (TTI.isProfitableLSRChainElement(Inc.UserInst))
       return true;
     if (Inc.IncExpr->isZero())
@@ -2966,7 +2974,9 @@ static bool isProfitableChain(IVChain &Chain,
       continue;
     }
 
-    if (Inc.IncExpr == LastIncExpr)
+#if INTEL_CUSTOMIZATION
+    if (Inc.IncExpr == LastIncExpr || Inc.IncExpr == LastLastIncExpr)
+#endif // INTEL_CUSTOMIZATION
       ++NumReusedIncrements;
     else
       ++NumVarIncrements;
