@@ -55,8 +55,10 @@ bool VPlanPrintLegality = false;
 VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
                                    const WRNVecLoopNode *WRL, VPlanVector *Plan,
                                    VPOVectorizationLegality *Legal,
-                                   ScalarEvolution *SE)
-    : TheLoop(Lp), LI(LI), WRLp(WRL), Plan(Plan), Legal(Legal), SE(SE) {
+                                   ScalarEvolution *SE,
+                                   BlockFrequencyInfo *BFI)
+    : TheLoop(Lp), LI(LI), BFI(BFI), WRLp(WRL), Plan(Plan), Legal(Legal),
+      SE(SE) {
   // TODO: Turn Verifier pointer into an object when Patch #3 of Patch Series
   // #1 lands into VPO and VPlanHCFGBuilderBase is removed.
   Verifier = std::make_unique<VPlanVerifier>(Lp, DL);
@@ -201,8 +203,9 @@ class PlainCFGBuilder : public VPlanLoopCFGBuilder {
 public:
   friend PrivatesListCvt;
 
-  PlainCFGBuilder(Loop *Lp, LoopInfo *LI, VPlanVector *Plan)
-      : VPlanLoopCFGBuilder(Plan, Lp, LI) {}
+  PlainCFGBuilder(Loop *Lp, LoopInfo *LI, VPlanVector *Plan,
+                 BlockFrequencyInfo *BFI)
+      : VPlanLoopCFGBuilder(Plan, Lp, LI, BFI) {}
 
   void
   convertEntityDescriptors(LoopVectorizationLegality *Legal,
@@ -638,7 +641,7 @@ void PlainCFGBuilder::convertEntityDescriptors(
 }
 
 bool VPlanHCFGBuilder::buildPlainCFG(VPLoopEntityConverterList &Cvts) {
-  PlainCFGBuilder PCFGBuilder(TheLoop, LI, Plan);
+  PlainCFGBuilder PCFGBuilder(TheLoop, LI, Plan, BFI);
   PCFGBuilder.buildCFG();
   // Converting loop enities.
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

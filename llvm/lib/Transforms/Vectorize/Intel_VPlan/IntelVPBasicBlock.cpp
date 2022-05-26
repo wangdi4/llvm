@@ -35,6 +35,10 @@
 
 #define DEBUG_TYPE "VPBasicBlock"
 
+static cl::opt<bool> PrintBlockFrequencies(
+    "vplan-print-block-frequencies", cl::init(false), cl::Hidden,
+    cl::desc("Print block frequencies of VPBasicBlocks"));
+
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -262,12 +266,14 @@ VPBasicBlock::VPBasicBlock(const Twine &Name, VPlan *Plan)
     : VPValue(VPBasicBlockSC, Type::getLabelTy(*Plan->getLLVMContext())),
       // We don't insert the VPBB into the Plan's VPBasicBlockList here,
       // so do NOT set parent.
-      Parent(nullptr) {
+      Parent(nullptr),
+      BlockFreq(BlockFrequency(0)) {
   setName(Name);
 }
 
 VPBasicBlock::VPBasicBlock(const Twine &Name, LLVMContext *C)
-    : VPValue(VPBasicBlockSC, Type::getLabelTy(*C)), Parent(nullptr) {
+    : VPValue(VPBasicBlockSC, Type::getLabelTy(*C)), Parent(nullptr),
+      BlockFreq(BlockFrequency(0)) {
   setName(Name);
 }
 
@@ -362,11 +368,13 @@ void VPBasicBlock::setCondBit(VPValue *CB) {
 
 void VPBasicBlock::insertBefore(VPBasicBlock *InsertPos) {
   VPlan *CurPlan = InsertPos->getParent();
+  this->setFrequency(InsertPos->getFrequency());
   CurPlan->insertBefore(this, InsertPos);
 }
 
 void VPBasicBlock::insertAfter(VPBasicBlock *InsertPos) {
   VPlan *CurPlan = InsertPos->getParent();
+  this->setFrequency(InsertPos->getFrequency());
   CurPlan->insertAfter(this, InsertPos);
 }
 
@@ -665,6 +673,8 @@ void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
       OS << ", ";
     OS << (*It)->getName();
   }
+  if (PrintBlockFrequencies)
+    OS << " {freq: " << getFrequency().getFrequency() << "}";
   OS << "\n";
 
   // Print block body

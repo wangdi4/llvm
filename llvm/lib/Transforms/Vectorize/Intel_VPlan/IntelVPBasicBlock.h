@@ -33,6 +33,7 @@
 #include "llvm/ADT/ilist_node.h"
 #include "llvm/ADT/simple_ilist.h"
 #include "llvm/Analysis/LoopInfoImpl.h"
+#include "llvm/Support/BlockFrequency.h"
 
 namespace llvm {
 
@@ -137,6 +138,8 @@ private:
   // something similar to LLVM IR's loop metadata on the backedge branch
   // instruction, so it will be filled for the latches only.
   std::unique_ptr<TripCountInfo> TCInfo;
+
+  BlockFrequency BlockFreq;
 
 public:
   /// Instruction iterators...
@@ -393,6 +396,9 @@ public:
 
   VPBranchInst *getTerminator();
   const VPBranchInst *getTerminator() const;
+
+  BlockFrequency getFrequency() const { return BlockFreq; }
+  void setFrequency(BlockFrequency Freq) { BlockFreq = Freq; }
 
 private:
   /// Create an IR BasicBlock to hold the instructions vectorized from this
