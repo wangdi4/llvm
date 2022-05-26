@@ -255,15 +255,18 @@ void VPOParoptUtils::genF90DVReductionInitDstInfo(const Item *I, Value *&NewV,
   IRBuilder<> Builder(InsertBefore);
   StringRef NamePrefix = NewV->getName();
 
+  Type *DVType = nullptr;
+  Type *DataElementTy = nullptr;
+  std::tie(DVType, DataElementTy) = VPOParoptUtils::getF90DVItemInfo(I);
+
   // Get base address from the dope vector.
   auto *Zero = Builder.getInt32(0);
-  auto *DVType = cast<StructType>(NewV->getType()->getPointerElementType());
   auto *Addr0GEP = Builder.CreateInBoundsGEP(DVType, NewV, {Zero, Zero},
                                              NamePrefix + ".addr0");
-  DestArrayBeginOut = Builder.CreateLoad(
-      Addr0GEP->getType()->getPointerElementType(), Addr0GEP,
-      NamePrefix + ".data");
-  DestElementTyOut = DestArrayBeginOut->getType()->getPointerElementType();
+  DestArrayBeginOut =
+      Builder.CreateLoad(cast<GEPOperator>(Addr0GEP)->getResultElementType(),
+                         Addr0GEP, NamePrefix + ".data");
+  DestElementTyOut = DataElementTy;
 
   Value *NumElementsFromI = I->getF90DVNumElements();
   GlobalVariable *NumElementsGV = I->getF90DVNumElementsGV();
@@ -297,12 +300,14 @@ void VPOParoptUtils::genF90DVReductionSrcDstInfo(
   IRBuilder<> Builder(InsertBefore);
   StringRef NamePrefix = DestVal->getName();
 
-  auto *DVType = cast<StructType>(DestVal->getType()->getPointerElementType());
+  Type *DVType = nullptr;
+  std::tie(DVType, std::ignore) = VPOParoptUtils::getF90DVItemInfo(I);
+
   auto *Zero = Builder.getInt32(0);
   auto *Addr0GEP = Builder.CreateInBoundsGEP(DVType, DestVal, {Zero, Zero},
                                              NamePrefix + ".addr0");
-  DestArrayBeginOut = Builder.CreateLoad(
-      Addr0GEP->getType()->getPointerElementType(), Addr0GEP,
-      NamePrefix + ".data");
+  DestArrayBeginOut =
+      Builder.CreateLoad(cast<GEPOperator>(Addr0GEP)->getResultElementType(),
+                         Addr0GEP, NamePrefix + ".data");
 }
 #endif // INTEL_CUSTOMIZATION
