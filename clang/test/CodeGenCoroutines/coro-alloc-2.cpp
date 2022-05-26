@@ -1,5 +1,9 @@
 // Tests that we wouldn't generate an allocation call in global scope with (std::size_t, p0, ..., pn)
+<<<<<<< HEAD
 // INTEL RUN: %clang_cc1 %s -opaque-pointers -std=c++20 -S -triple x86_64-unknown-linux-gnu -emit-llvm -disable-llvm-passes %s -o - | FileCheck %s
+=======
+// RUN: %clang_cc1 %s -opaque-pointers -std=c++20 -S -triple x86_64-unknown-linux-gnu -emit-llvm -disable-llvm-passes %s -o - | FileCheck %s
+>>>>>>> a943e703e3f71c664b3e6c6eb98038cf4e772127
 #include "Inputs/coroutine.h"
 
 namespace std {
