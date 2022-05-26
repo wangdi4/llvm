@@ -22,7 +22,7 @@
 
 /************************************************************************
  * This file is the Windows implementation of the cl_synch_objects interface
-/************************************************************************/
+ ************************************************************************/
 using namespace Intel::OpenCL::Utils;
 
 void Intel::OpenCL::Utils::InnerSpinloopImpl()
@@ -36,7 +36,7 @@ void Intel::OpenCL::Utils::InnerSpinloopImpl()
 
 /************************************************************************
  * Creates the mutex section object.
-/************************************************************************/
+ ************************************************************************/
 OclMutex::OclMutex(unsigned int uiSpinCount, bool recursive) : m_uiSpinCount(uiSpinCount), m_bRecursive(recursive)
 {
     InitializeCriticalSectionAndSpinCount((LPCRITICAL_SECTION)&m_mutex, uiSpinCount);
@@ -44,7 +44,7 @@ OclMutex::OclMutex(unsigned int uiSpinCount, bool recursive) : m_uiSpinCount(uiS
 
 /************************************************************************
  * Destroys the critical section object.
-/************************************************************************/
+ ************************************************************************/
 OclMutex::~OclMutex()
 {
     DeleteCriticalSection((LPCRITICAL_SECTION)&m_mutex);
@@ -54,14 +54,14 @@ OclMutex::~OclMutex()
  * Take the lock on this critical section.
  * If lock is acquired, all other threads are blocked on this lock until
  * the current thread unlocked it.
-/************************************************************************/
+ ************************************************************************/
 void OclMutex::Lock()
 {
     EnterCriticalSection((LPCRITICAL_SECTION)&m_mutex);
 }
 /************************************************************************
  * Release the lock
-/************************************************************************/
+ ************************************************************************/
 void OclMutex::Unlock()
 {
     LeaveCriticalSection((LPCRITICAL_SECTION)&m_mutex);
@@ -69,7 +69,7 @@ void OclMutex::Unlock()
 
 /************************************************************************
  *
-/************************************************************************/
+ ************************************************************************/
 OclCondition::OclCondition()
 {
 	STATIC_ASSERT(sizeof(m_condVar)==sizeof(CONDITION_VARIABLE));
@@ -81,14 +81,14 @@ OclCondition::OclCondition()
  * Condition distructor must be called when there are no threads waiting
  * on this condition.
  * Else, the behavior is undefined.
-/************************************************************************/
+ ************************************************************************/
 OclCondition::~OclCondition()
 {
 }
 
 /************************************************************************
-*
-/************************************************************************/
+ *
+ ************************************************************************/
 COND_RESULT OclCondition::Wait(OclMutex* mutexObj)
 {
 	assert( nullptr!=mutexObj && "mutexObj must be valid object");
@@ -104,8 +104,8 @@ COND_RESULT OclCondition::Wait(OclMutex* mutexObj)
 }
 
 /************************************************************************
-*
-/************************************************************************/
+ *
+ ************************************************************************/
 COND_RESULT OclCondition::Signal()
 {
 	WakeAllConditionVariable((CONDITION_VARIABLE*)&m_condVar);
@@ -113,8 +113,8 @@ COND_RESULT OclCondition::Signal()
 }
 
 /************************************************************************
-* OclOsDependentEvent implementation
-/************************************************************************/
+ * OclOsDependentEvent implementation
+ ************************************************************************/
 OclOsDependentEvent::OclOsDependentEvent() : m_eventRepresentation(nullptr)
 {
 }
@@ -179,8 +179,8 @@ void OclOsDependentEvent::Reset()
 }
 
 /************************************************************************
-* OclOsDependentEvent implementation
-/************************************************************************/
+ * OclOsDependentEvent implementation
+ ************************************************************************/
 OclBinarySemaphore::OclBinarySemaphore()
 {
     m_semaphore = CreateEvent(nullptr, false, false, nullptr);
@@ -202,8 +202,8 @@ void OclBinarySemaphore::Wait()
 }
 
 /************************************************************************
-* AtomicCounter implementation
-/************************************************************************/
+ * AtomicCounter implementation
+ ************************************************************************/
 AtomicCounter::operator long() const
 {
 	return InterlockedCompareExchange(const_cast<volatile LONG*>(&m_val), 0, 0);
@@ -245,8 +245,8 @@ long AtomicCounter::exchange(long val)
 }
 
 /************************************************************************
-* AtomicBitField implementation
-/************************************************************************/
+ * AtomicBitField implementation
+ ************************************************************************/
 AtomicBitField::AtomicBitField() : m_size(0), m_oneTimeFlag(0), m_isInitialize(false), m_eventLock()
 {
 	m_bitField = nullptr;
@@ -317,8 +317,8 @@ long AtomicBitField::bitTestAndSet(unsigned int bitNum)
 }
 
 /************************************************************************
-* OclReaderWriterLock implementation
-/************************************************************************/
+ * OclReaderWriterLock implementation
+ ************************************************************************/
 OclReaderWriterLock::OclReaderWriterLock()
 {
 	STATIC_ASSERT(sizeof(void*)==sizeof(SRWLOCK)); // We assume that SRWLOCK defined as struct{void*}

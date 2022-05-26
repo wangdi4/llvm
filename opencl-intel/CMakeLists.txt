@@ -161,12 +161,6 @@ else()
   add_flag_if_supported("-Wmissing-field-initializers" CMPLR_MISSING_FIELD_INITIALIZERS)
 endif()
 
-if (OPENCL_INTREE_BUILD)
-# TODO: Temporarily disable warnings for OpenCL component when built in-tree on Windows, related to CORC-6069.
-  string(REGEX REPLACE "/WX" "/WX-" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-  string(REGEX REPLACE "/WX" "/WX-" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-endif()
-
 if (NOT OPENCL_INTREE_BUILD)
   # Supported configurations
   set(CMAKE_CONFIGURATION_TYPES

@@ -13,7 +13,7 @@
 // License.
 
 #include "debuginfo_utils.h"
-#include "debugservermessages.pb.h"
+#include "debugservermessages_wrapper.h"
 #include <cl_utils.h>
 
 #include "llvm/BinaryFormat/Dwarf.h"

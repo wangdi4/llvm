@@ -458,7 +458,7 @@ int LLDJIT::compileSymbolJumpTable(
               << ":\n"
                  "sub $8, %rsp\n"
                  "movl $0x"
-              << std::hex << reinterpret_cast<uint32_t>(F)
+              << std::hex << (uint32_t)(reinterpret_cast<size_t>(F))
               << ", 0(%rsp)\n"
                  "movl $0x"
               << std::hex << (reinterpret_cast<size_t>(F) >> 32)
