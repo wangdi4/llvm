@@ -2467,9 +2467,6 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
       return ParseOMPDeclareSimdClauses(Ptr, Toks, Loc);
 #if INTEL_COLLAB
     else if (DKind == OMPD_declare_target_function) {
-      Sema::DeclareTargetContextInfo DTCI(OMPD_declare_target_function, Loc);
-      ParseOMPXDeclareTargetFunctionClauses(DTCI, Toks);
-      Actions.ActOnStartOpenMPDeclareTargetContext(DTCI);
       if (!Ptr.get().isSingleDecl()) {
         Diag(Loc, diag::err_omp_decl_in_declare_target_function);
         return DeclGroupPtrTy();
@@ -2479,6 +2476,9 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
         Diag(Loc, diag::err_omp_decl_in_declare_target_function);
         return DeclGroupPtrTy();
       }
+      Sema::DeclareTargetContextInfo DTCI(OMPD_declare_target_function, Loc);
+      ParseOMPXDeclareTargetFunctionClauses(DTCI, Toks);
+      Actions.ActOnStartOpenMPDeclareTargetContext(DTCI);
       Actions.ActOnOpenMPDeclareTargetName(
           FD, Loc, OMPDeclareTargetDeclAttr::MT_To, DTCI);
       Actions.ActOnFinishedOpenMPDeclareTargetContext(DTCI);
