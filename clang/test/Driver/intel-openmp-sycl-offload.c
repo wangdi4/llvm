@@ -9,7 +9,7 @@
 /// ###########################################################################
 
 /// Check phases graph when using single source file.
-// RUN:   %clang -ccc-print-phases --intel -fsycl -fno-sycl-use-footer -fno-sycl-device-lib=all -fiopenmp -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 %s -fno-openmp-device-lib=all 2>&1 \
+// RUN:   %clang -ccc-print-phases --sysroot=%S/Inputs/SYCL --intel -fsycl -fno-sycl-use-footer -fno-sycl-device-lib=all -fiopenmp -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 %s -fno-openmp-device-lib=all 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-PHASES %s
 
 // CHK-PHASES: 0: input, "[[INPUT:.+\.c]]", c++, (host-sycl)
@@ -61,7 +61,7 @@
 /// ###########################################################################
 
 /// Check of the commands passed to each tool when using valid OpenMP targets.
-// RUN:   %clang -### --intel -fsycl -fno-sycl-use-footer -fno-sycl-device-lib=all -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 -fno-openmp-device-lib=all %s 2>&1 \
+// RUN:   %clang -### --sysroot=%S/Inputs/SYCL --intel -fsycl -fno-sycl-use-footer -fno-sycl-device-lib=all -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 -fno-openmp-device-lib=all %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-COMMANDS %s
 
 // CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown"{{.*}} "-fsycl-is-device"{{.*}} "-fsycl-int-header=[[SYCLHEADER:.+\.h]]"{{.*}} "-emit-llvm-bc"{{.*}} "-std=c++17"{{.*}} "-o" "[[SYCLBC:.+\.bc]]" {{.*}} "[[INPUT:.+\.c]]"
@@ -120,7 +120,7 @@
 
 /// Check separate compilation with offloading - unbundling actions
 // RUN:   touch %t.o
-// RUN:   %clang -### -ccc-print-phases --intel -fsycl -fno-sycl-device-lib=all -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 %t.o -no-canonical-prefixes -fno-openmp-device-lib=all 2>&1 \
+// RUN:   %clang -### -ccc-print-phases --sysroot=%S/Inputs/SYCL --intel -fsycl -fno-sycl-device-lib=all -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 %t.o -no-canonical-prefixes -fno-openmp-device-lib=all 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-UBACTIONS %s
 
 // CHK-UBACTIONS: 0: input, "[[INPUT:.+\.o]]", object, (host-openmp-sycl)
@@ -178,7 +178,7 @@
 
 /// Check separate compilation with offloading - unbundling jobs construct
 // RUN:   touch %t.o
-// RUN:   %clang -### --intel -fsycl -fno-sycl-device-lib=all -fiopenmp %t.o -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 -no-canonical-prefixes -fno-openmp-device-lib=all 2>&1 \
+// RUN:   %clang -### --sysroot=%S/Inputs/SYCL --intel -fsycl -fno-sycl-device-lib=all -fiopenmp %t.o -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 -no-canonical-prefixes -fno-openmp-device-lib=all 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-UBJOBS -DFATOBJ=%t.o %s
 // CHK-UBJOBS: clang-offload-bundler{{.*}} "-type=o" "-targets=host-x86_64-unknown-linux-gnu,openmp-spir64,sycl-spir64-unknown-unknown" "-input=[[FATOBJ]]" "-output=[[HOSTOBJ:.+\.o]]" "-output=[[OMPBCO:.+\.o]]" "-output=[[SYCLBCO:.+\.o]]" "-unbundle"
 // CHK-UBJOBS: spirv-to-ir-wrapper{{.*}} "[[SYCLBCO]]" "-o" "[[SYCLBC:.+\.bc]]"
@@ -218,7 +218,7 @@
 // RUN: touch %t-1.o
 // RUN: touch %t-2.o
 // RUN: touch %t-3.o
-// RUN: %clang -target x86_64-unknown-linux-gnu --intel -fsycl -fno-sycl-device-lib=all -fiopenmp -fopenmp-targets=spir64 -foffload-static-lib=%t.a -### %t-1.o %t-2.o %t-3.o -fno-openmp-device-lib=all 2>&1 \
+// RUN: %clang -target x86_64-unknown-linux-gnu --sysroot=%S/Inputs/SYCL --intel -fsycl -fno-sycl-device-lib=all -fiopenmp -fopenmp-targets=spir64 -foffload-static-lib=%t.a -### %t-1.o %t-2.o %t-3.o -fno-openmp-device-lib=all 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=FOFFLOAD_STATIC_LIB_MULTI_O
 // FOFFLOAD_STATIC_LIB_MULTI_O: clang-offload-bundler{{.*}} "-type=aoo" "-targets=openmp-spir64,sycl-spir64-unknown-unknown" "-input=[[INPUTA:.+\.a]]" "-output=[[OMPLIB:.+\.txt]]" "-output=[[SYCLLIB:.+\.txt]]" "-unbundle"
 // FOFFLOAD_STATIC_LIB_MULTI_O: spirv-to-ir-wrapper{{.*}} "[[SYCLLIB]]" "-o" "[[SYCLLIBLIST:.+\.txt]]"
@@ -247,7 +247,7 @@
 
 /// Check phases when -foffload-static-lib=<lib> is used.
 // RUN: touch %t.a
-// RUN: %clang -target x86_64-unknown-linux-gnu --intel -fsycl -fno-sycl-use-footer -fno-sycl-device-lib=all -fiopenmp -fopenmp-targets=spir64 -foffload-static-lib=%t.a -ccc-print-phases %s -fno-openmp-device-lib=all 2>&1 \
+// RUN: %clang -target x86_64-unknown-linux-gnu --sysroot=%S/Inputs/SYCL --intel -fsycl -fno-sycl-use-footer -fno-sycl-device-lib=all -fiopenmp -fopenmp-targets=spir64 -foffload-static-lib=%t.a -ccc-print-phases %s -fno-openmp-device-lib=all 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=FOFFLOAD_STATIC_LIB_SRC
 // FOFFLOAD_STATIC_LIB_SRC: 0: input, "[[INPUT1:.+\.a]]", object, (host-openmp-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 1: input, "[[INPUT2:.+\.c]]", c++, (host-sycl)
