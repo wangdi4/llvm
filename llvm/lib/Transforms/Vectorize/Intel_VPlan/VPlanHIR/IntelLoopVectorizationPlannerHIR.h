@@ -80,7 +80,7 @@ public:
                               HIRDDAnalysis *DDA, VPlanVLSAnalysisHIR *VLSA,
                               bool LightWeightMode)
       : LoopVectorizationPlanner(WRL, /*Lp=*/nullptr, /*LI=*/nullptr, TLI, TTI,
-                                 DL, nullptr, nullptr, VLSA),
+                                 DL, nullptr, nullptr, VLSA, nullptr /* BFI */),
         TheLoop(Lp), LightWeightMode(LightWeightMode), DDA(DDA),
         HIRLegality(HIRLegal) {
     // Set the flag in scenario to indicate if we are dealing with a constant

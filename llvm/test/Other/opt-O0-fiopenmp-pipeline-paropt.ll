@@ -125,6 +125,9 @@
 ;CHECK-NEXT:       VPO Work-Region Information
 ;CHECK-NEXT:       Demanded bits analysis
 ;CHECK-NEXT:       Loop Access Analysis
+;CHECK-NEXT:       Post-Dominator Tree Construction
+;CHECK-NEXT:       Branch Probability Analysis
+;CHECK-NEXT:       Block Frequency Analysis
 ;CHECK-NEXT:       VPlan Vectorizer
 ;CHECK-NEXT:     CallGraph Construction
 ;CHECK-NEXT:     Call Graph SCC Pass Manager
