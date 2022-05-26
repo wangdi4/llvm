@@ -88,11 +88,16 @@ bool X86AsmPrinter::runOnMachineFunction(MachineFunction &MF) {
   if (Subtarget->isTargetCOFF()) {
     bool Local = MF.getFunction().hasLocalLinkage();
     OutStreamer->BeginCOFFSymbolDef(CurrentFnSym);
-    OutStreamer->EmitCOFFSymbolStorageClass(
+    OutStreamer->emitCOFFSymbolStorageClass(
         Local ? COFF::IMAGE_SYM_CLASS_STATIC : COFF::IMAGE_SYM_CLASS_EXTERNAL);
+<<<<<<< HEAD
     OutStreamer->EmitCOFFSymbolType(COFF::IMAGE_SYM_DTYPE_FUNCTION
                                                << COFF::SCT_COMPLEX_TYPE_SHIFT);
     OutStreamer->emitSyntaxDirective();
+=======
+    OutStreamer->emitCOFFSymbolType(COFF::IMAGE_SYM_DTYPE_FUNCTION
+                                    << COFF::SCT_COMPLEX_TYPE_SHIFT);
+>>>>>>> 9ee15bba4744fb3b671428eec3cbec6a424dde07
     OutStreamer->EndCOFFSymbolDef();
   }
   else
@@ -701,8 +706,8 @@ void X86AsmPrinter::emitStartOfAsmFile(Module &M) {
     // compiler features bitfield read by link.exe.
     MCSymbol *S = MMI->getContext().getOrCreateSymbol(StringRef("@feat.00"));
     OutStreamer->BeginCOFFSymbolDef(S);
-    OutStreamer->EmitCOFFSymbolStorageClass(COFF::IMAGE_SYM_CLASS_STATIC);
-    OutStreamer->EmitCOFFSymbolType(COFF::IMAGE_SYM_DTYPE_NULL);
+    OutStreamer->emitCOFFSymbolStorageClass(COFF::IMAGE_SYM_CLASS_STATIC);
+    OutStreamer->emitCOFFSymbolType(COFF::IMAGE_SYM_DTYPE_NULL);
     OutStreamer->EndCOFFSymbolDef();
     int64_t Feat00Flags = 0;
 
