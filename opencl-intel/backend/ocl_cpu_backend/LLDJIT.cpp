@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2019-2021 Intel Corporation.
+// Copyright 2019-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,9 +13,8 @@
 // License.
 
 #include "LLDJIT.h"
-
 #include "AsmCompiler.h"
-#include "CompilationUtils.h"
+#include "exceptions.h"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringMap.h"
@@ -38,6 +37,7 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Process.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include <mutex>
 
 #include "lld/Common/Driver.h"
@@ -174,7 +174,8 @@ void LLDJIT::mapDllFunctions(void *DLLHandle) {
       if (!GO.hasDLLExportStorageClass())
         continue;
       StringRef SymbolName = GO.getName();
-      void *Addr = GetProcAddress(HMod, SymbolName.data());
+      void *Addr =
+          reinterpret_cast<void *>(GetProcAddress(HMod, SymbolName.data()));
       if (Addr)
         updateGlobalMapping(SymbolName, static_cast<uint64_t>(
                                             reinterpret_cast<uintptr_t>(Addr)));
@@ -198,7 +199,8 @@ static void dllExportGlobalVariables(Module *M) {
         F->setDLLStorageClass(GlobalValue::DLLExportStorageClass);
     } else {
       unsigned AS = GV.getAddressSpace();
-      if (IS_ADDR_SPACE_GLOBAL(AS) || IS_ADDR_SPACE_CONSTANT(AS))
+      if (CompilationUtils::ADDRESS_SPACE_GLOBAL == AS ||
+          CompilationUtils::ADDRESS_SPACE_CONSTANT == AS)
         GV.setDLLStorageClass(GlobalValue::DLLExportStorageClass);
     }
   }

@@ -1,4 +1,4 @@
-// Copyright 2010-2021 Intel Corporation.
+// Copyright 2010-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -35,7 +35,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/PrettyStackTrace.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #ifdef _WIN32
@@ -396,7 +396,7 @@ llvm::TargetMachine* Compiler::GetTargetMachine(
   // the OpenCL Spec).
   // Disabling Codegen's -do-x86-global-fma optimization in this situation
   // could improve the precision (Only apply this for OpenCL program).
-  if (!DPCPPKernelCompilationUtils::isGeneratedFromOCLCPP(*pModule) &&
+  if (!llvm::CompilationUtils::isGeneratedFromOCLCPP(*pModule) &&
       CompilationUtils::hasFDivWithFastFlag(pModule))
     TargetOpts.DoFMAOpt = false;
 
@@ -509,9 +509,9 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
     if (optimizer->hasVectorVariantFailure()) {
       std::map<std::string, std::vector<std::string>> Reasons;
       for (auto &F : *pModule)
-        if (F.hasFnAttribute(CompilationUtils::ATTR_VECTOR_VARIANT_FAILURE)) {
+        if (F.hasFnAttribute(llvm::KernelAttribute::VectorVariantFailure)) {
           std::string Value =
-              F.getFnAttribute(CompilationUtils::ATTR_VECTOR_VARIANT_FAILURE)
+              F.getFnAttribute(llvm::KernelAttribute::VectorVariantFailure)
                   .getValueAsString()
                   .str();
           Reasons[Value].push_back(F.getName().str());

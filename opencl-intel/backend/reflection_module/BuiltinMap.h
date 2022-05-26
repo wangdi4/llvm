@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,12 +15,12 @@
 #ifndef __BUILTIN_MAP_H__
 #define __BUILTIN_MAP_H__
 
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
 #include <map>
 #include <string>
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/SmallVector.h"
-#include "FunctionDescriptor.h"
 
 namespace Reflection {
 

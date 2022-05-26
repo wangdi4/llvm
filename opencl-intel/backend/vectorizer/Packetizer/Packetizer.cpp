@@ -12,14 +12,13 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "CompilationUtils.h"
 #include "Packetizer.h"
+#include "CompilationUtils.h"
+#include "FakeExtractInsert.h"
+#include "InitializePasses.h"
+#include "OCLPassSupport.h"
 #include "Predicator.h"
 #include "VectorizerUtils.h"
-#include "FunctionDescriptor.h"
-#include "FakeExtractInsert.h"
-#include "OCLPassSupport.h"
-#include "InitializePasses.h"
 
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/IRBuilder.h"
@@ -28,6 +27,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/TypeSize.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
 
 #define DEBUG_TYPE "Vectorizer"
 

@@ -1,4 +1,4 @@
-//===------ DPCPPKernelLoopUtils.cpp - Function definitions -*- C++ -------===//
+//===------ LoopUtils.cpp - Function definitions -*- C++ -------===//
 //
 // Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
@@ -8,7 +8,7 @@
 //
 // ===--------------------------------------------------------------------=== //
 
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Dominators.h"
@@ -23,9 +23,9 @@
 
 namespace llvm {
 
-using namespace DPCPPKernelCompilationUtils;
+using namespace CompilationUtils;
 
-namespace DPCPPKernelLoopUtils {
+namespace LoopUtils {
 
 Function *getWIFunc(Module *M, StringRef FuncName, Type *RetTy) {
   // First look in the module if it already exists
@@ -343,5 +343,5 @@ bool inSubLoop(Instruction *I, Loop *CurLoop, LoopInfo *LI) {
   return inSubLoop(I->getParent(), CurLoop, LI);
 }
 
-} // namespace DPCPPKernelLoopUtils
+} // namespace LoopUtils
 } // namespace llvm

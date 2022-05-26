@@ -9,11 +9,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/RuntimeService.h"
-#include "NameMangleAPI.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 
 using namespace llvm;
-using namespace DPCPPKernelCompilationUtils;
+using namespace CompilationUtils;
 using namespace NameMangleAPI;
 using namespace reflection;
 
@@ -81,7 +81,7 @@ bool RuntimeService::hasNoSideEffect(StringRef FuncName) const {
 bool RuntimeService::isAtomicBuiltin(StringRef FuncName) const {
   if (!findFunctionInBuiltinModules(FuncName))
     return false;
-  return DPCPPKernelCompilationUtils::isAtomicBuiltin(FuncName);
+  return CompilationUtils::isAtomicBuiltin(FuncName);
 }
 
 bool RuntimeService::isImageDescBuiltin(StringRef FuncName) const {

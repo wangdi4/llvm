@@ -122,11 +122,11 @@ ReduceCrossBarrierValuesPass::run(Module &M, ModuleAnalysisManager &MAM) {
 
 static bool isBarrierOrDummyBarrierCall(Value *Val) {
   static std::string Barriers[] = {
-      DPCPPKernelCompilationUtils::mangledBarrier(),
-      DPCPPKernelCompilationUtils::mangledWGBarrier(
-          DPCPPKernelCompilationUtils::BarrierType::NoScope),
-      DPCPPKernelCompilationUtils::mangledWGBarrier(
-          DPCPPKernelCompilationUtils::BarrierType::WithScope),
+      CompilationUtils::mangledBarrier(),
+      CompilationUtils::mangledWGBarrier(
+          CompilationUtils::BarrierType::NoScope),
+      CompilationUtils::mangledWGBarrier(
+          CompilationUtils::BarrierType::WithScope),
       DUMMY_BARRIER_FUNC_NAME,
   };
   CallInst *CI;

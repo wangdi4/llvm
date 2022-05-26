@@ -15,10 +15,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/PatchCallbackArgs.h"
-#include "ImplicitArgsUtils.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 
 using namespace llvm;
 
@@ -115,9 +115,9 @@ bool PatchCallbackArgsPass::runImpl(Module &M, ImplicitArgsInfo *IAInfo) {
         // Need to create a cache entry for implicit arg values
         if (UseTLSGlobals) {
           ValuePair &ImplicitArgs = FuncToImplicitArgs[CallingF];
-          Value *WorkInfo = DPCPPKernelCompilationUtils::getTLSGlobal(
+          Value *WorkInfo = CompilationUtils::getTLSGlobal(
               &M, ImplicitArgsUtils::IA_WORK_GROUP_INFO);
-          Value *RuntimeHandle = DPCPPKernelCompilationUtils::getTLSGlobal(
+          Value *RuntimeHandle = CompilationUtils::getTLSGlobal(
               &M, ImplicitArgsUtils::IA_RUNTIME_HANDLE);
           assert(WorkInfo && "WorkInfo should be nullptr");
           assert(RuntimeHandle && "RuntimeHandle should not be null");
@@ -130,9 +130,9 @@ bool PatchCallbackArgsPass::runImpl(Module &M, ImplicitArgsInfo *IAInfo) {
         } else {
           Value *WorkInfo;      // Used to access CallbackContext
           Value *RuntimeHandle; // Needed by some callbacks
-          DPCPPKernelCompilationUtils::getImplicitArgs(
-              CallingF, nullptr, &WorkInfo, nullptr, nullptr, nullptr,
-              &RuntimeHandle);
+          CompilationUtils::getImplicitArgs(CallingF, nullptr, &WorkInfo,
+                                            nullptr, nullptr, nullptr,
+                                            &RuntimeHandle);
           ImplicitArgs.first = WorkInfo;
           ImplicitArgs.second = RuntimeHandle;
         }

@@ -17,8 +17,8 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ChannelPipeTransformation.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPChannelPipeUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <stack>
@@ -26,7 +26,7 @@
 using namespace llvm;
 using namespace DPCPPChannelPipeUtils;
 using namespace DPCPPKernelMetadataAPI;
-using namespace DPCPPKernelCompilationUtils;
+using namespace CompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-channel-pipe-transformation"
 

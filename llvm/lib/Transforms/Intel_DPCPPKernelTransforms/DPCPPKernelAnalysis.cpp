@@ -1,6 +1,6 @@
 //==--- DPCPPKernelAnalysis.cpp - Analyze DPCPP kernel properties - C++ -*--==//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -15,15 +15,15 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #define DEBUG_TYPE "dpcpp-kernel-analysis"
 
 using namespace llvm;
-using namespace DPCPPKernelCompilationUtils;
+using namespace CompilationUtils;
 
 static cl::opt<bool> DPCPPEnableNativeSubgroups(
     "dpcpp-enable-native-subgroups", cl::init(true), cl::Hidden,
@@ -95,7 +95,7 @@ void DPCPPKernelAnalysisPass::fillSyncUsersFuncs() {
   // Get all synchronize built-ins declared in module
   FuncSet SyncFunctions = getAllSyncBuiltinsDecls(*M);
 
-  DPCPPKernelLoopUtils::fillFuncUsersSet(SyncFunctions, UnsupportedFuncs);
+  LoopUtils::fillFuncUsersSet(SyncFunctions, UnsupportedFuncs);
 }
 
 void DPCPPKernelAnalysisPass::fillKernelCallers() {
@@ -105,7 +105,7 @@ void DPCPPKernelAnalysisPass::fillKernelCallers() {
     FuncSet KernelRootSet;
     FuncSet KernelUsers;
     KernelRootSet.insert(Kernel);
-    DPCPPKernelLoopUtils::fillFuncUsersSet(KernelRootSet, KernelUsers);
+    LoopUtils::fillFuncUsersSet(KernelRootSet, KernelUsers);
     // The kernel has user functions meaning it is called by another kernel.
     // Since there is no barrier in it's start it will be executed
     // multiple time (because of the WG loop of the calling kernel).
@@ -116,11 +116,11 @@ void DPCPPKernelAnalysisPass::fillKernelCallers() {
   // Also can not use explicit loops on kernel callers since the barrier
   // pass need to handle them in order to process the called kernels.
   FuncSet KernelSet(Kernels.begin(), Kernels.end());
-  DPCPPKernelLoopUtils::fillFuncUsersSet(KernelSet, UnsupportedFuncs);
+  LoopUtils::fillFuncUsersSet(KernelSet, UnsupportedFuncs);
 }
 
 void DPCPPKernelAnalysisPass::fillSubgroupCallingFuncs(CallGraph &CG) {
-  using namespace DPCPPKernelCompilationUtils;
+  using namespace CompilationUtils;
   for (auto &F : *M) {
     if (F.isDeclaration())
       continue;
@@ -204,7 +204,7 @@ bool DPCPPKernelAnalysisPass::runImpl(
     function_ref<LoopInfo &(Function &)> GetLI) {
   this->M = &M;
   UnsupportedFuncs.clear();
-  auto KernelList = DPCPPKernelCompilationUtils::getKernels(M);
+  auto KernelList = CompilationUtils::getKernels(M);
   Kernels.insert(KernelList.begin(), KernelList.end());
 
   fillKernelCallers();

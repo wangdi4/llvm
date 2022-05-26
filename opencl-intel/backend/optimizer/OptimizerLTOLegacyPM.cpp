@@ -1,4 +1,4 @@
-// Copyright 2021 Intel Corporation.
+// Copyright 2021-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -116,8 +116,8 @@ void OptimizerLTOLegacyPM::registerPipelineStartCallback(
     PassManagerBuilder &PMBuilder) {
   FPM.add(createUnifyFunctionExitNodesPass());
   if (PMBuilder.OptLevel > 0 && (m_IsOcl20 || m_IsSPIRV))
-    FPM.add(createInferAddressSpacesPass(
-        DPCPPKernelCompilationUtils::ADDRESS_SPACE_GENERIC));
+    FPM.add(
+        createInferAddressSpacesPass(CompilationUtils::ADDRESS_SPACE_GENERIC));
 
   auto EP = (PMBuilder.OptLevel == 0)
                 ? PassManagerBuilder::EP_EnabledOnOptLevel0
@@ -150,7 +150,7 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
           // Repeat resolution of generic address space pointers after LLVM
           // IR was optimized.
           MPM.add(createInferAddressSpacesPass(
-              DPCPPKernelCompilationUtils::ADDRESS_SPACE_GENERIC));
+              CompilationUtils::ADDRESS_SPACE_GENERIC));
           // Cleanup after InferAddressSpaces pPass.
           MPM.add(createCFGSimplificationPass());
           MPM.add(createSROAPass());

@@ -95,6 +95,7 @@ set(TARGET_SOURCE_FILES
   Scalarizer/PreScalarizeScan.cpp
   Scalarizer/Scalarize.cpp
   Utils/SimplifyGEP.cpp
+  Utils/VecConfig.cpp
   Utils/VectorizerCore.cpp
   Utils/VectorizerCommon.cpp
   VolcanoWrapper/Main.cpp

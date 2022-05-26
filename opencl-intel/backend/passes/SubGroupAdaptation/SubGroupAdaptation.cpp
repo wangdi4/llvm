@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2015-2018 Intel Corporation.
+// Copyright 2015-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,18 +13,18 @@
 // License.
 
 #include "SubGroupAdaptation.h"
-#include "OCLPassSupport.h"
-#include "InitializePasses.h"
 #include "CompilationUtils.h"
-#include "NameMangleAPI.h"
+#include "InitializePasses.h"
 #include "Mangler.h"
+#include "OCLPassSupport.h"
 
 #include "llvm/ADT/StringSwitch.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 #include <assert.h>
 
 #include <utility>

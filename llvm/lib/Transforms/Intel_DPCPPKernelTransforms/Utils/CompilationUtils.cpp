@@ -1,4 +1,4 @@
-//===-- DPCPPKernelCompilationUtils.cpp - Function definitions -*- C++ ----===//
+//===-- CompilationUtils.cpp - Compilation utilities -------------*- C++ *-===//
 //
 // Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
@@ -8,7 +8,7 @@
 //
 // ===--------------------------------------------------------------------=== //
 
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/STLExtras.h"
@@ -18,12 +18,11 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
-
-#include "ImplicitArgsUtils.h"
-#include "NameMangleAPI.h"
-#include "ParameterType.h"
-#include "TypeAlignment.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/TypeAlignment.h"
 
 using namespace llvm::NameMangleAPI;
 
@@ -173,7 +172,7 @@ static cl::opt<std::string> OptVectInfoFile("dpcpp-vect-info",
                                             cl::desc("Builtin VectInfo list"),
                                             cl::value_desc("filename"));
 
-namespace DPCPPKernelCompilationUtils {
+namespace CompilationUtils {
 
 static unsigned CLVersionToVal(uint64_t Major, uint64_t Minor) {
   return Major * 100 + Minor * 10;
@@ -236,6 +235,15 @@ bool isGeneratedFromOMP(const Module &M) {
       M.getGlobalVariable("__omp_offloading_entries_table"))
     return true;
   return false;
+}
+
+bool generatedFromSPIRV(const Module &M) {
+  /*
+  Example of the metadata
+  !spirv.Source = !{!0}
+  */
+  NamedMDNode *Node = M.getNamedMetadata("spirv.Source");
+  return Node != nullptr;
 }
 
 bool isImplicitGID(AllocaInst *AI) {
@@ -1551,7 +1559,7 @@ Value *createGetPtrToLocalId(Value *LocalIdValues, Value *Dim,
   return Builder.CreateInBoundsGEP(
       LocalIdValues->getType()->getScalarType()->getPointerElementType(),
       LocalIdValues, Indices,
-      DPCPPKernelCompilationUtils::AppendWithDimension("pLocalId_", Dim));
+      CompilationUtils::AppendWithDimension("pLocalId_", Dim));
 }
 
 void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
@@ -2615,5 +2623,5 @@ void patchNotInlinedTIDUserFunc(
     OldF->eraseFromParent();
 }
 
-} // end namespace DPCPPKernelCompilationUtils
+} // end namespace CompilationUtils
 } // end namespace llvm

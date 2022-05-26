@@ -20,9 +20,9 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/UnrollLoop.h"
 
@@ -172,8 +172,8 @@ bool PipeOrderingPass::runImpl(Module &M,
       continue;
 
     auto FuncName = Func.getName();
-    auto PKind = DPCPPKernelCompilationUtils::getPipeKind(FuncName);
-    if (PKind.Op == DPCPPKernelCompilationUtils::PipeKind::OpKind::ReadWrite)
+    auto PKind = CompilationUtils::getPipeKind(FuncName);
+    if (PKind.Op == CompilationUtils::PipeKind::OpKind::ReadWrite)
       findCallersRequiringBarrier(Kernels, Func, ProcessedFuncs,
                                   BarrierRequired, GetLI);
   }

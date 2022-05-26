@@ -21,7 +21,7 @@
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/GlobalVariable.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/RuntimeService.h"
 
 namespace llvm {
@@ -140,11 +140,11 @@ public:
 };
 
 inline bool isPipeBuiltin(StringRef Name) {
-  return DPCPPKernelCompilationUtils::getPipeKind(Name);
+  return CompilationUtils::getPipeKind(Name);
 }
 
 Function *getPipeBuiltin(Module &M, RuntimeService *RTS,
-                         const DPCPPKernelCompilationUtils::PipeKind &Kind);
+                         const CompilationUtils::PipeKind &Kind);
 
 } // namespace DPCPPChannelPipeUtils
 } // namespace llvm

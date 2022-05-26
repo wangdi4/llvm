@@ -1,6 +1,6 @@
 //===- AddImplicitArgs.cpp - Add implicit arguments to DPC++ kernel  ------===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -9,14 +9,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddImplicitArgs.h"
-#include "ImplicitArgsUtils.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/ValueMap.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DevLimits.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
@@ -114,7 +114,7 @@ bool AddImplicitArgsPass::runImpl(Module &M, LocalBufferInfo *LBInfo,
     // global ctor's and dtor's don't need implicit arguments, as it only
     // called once by runStaticConstructorsDestructors function.
     // C++ function does not need implicit arguments.
-    if (DPCPPKernelCompilationUtils::isGlobalCtorDtorOrCPPFunc(&F))
+    if (CompilationUtils::isGlobalCtorDtorOrCPPFunc(&F))
       continue;
 
     WorkList.push_back(&F);
@@ -125,7 +125,7 @@ bool AddImplicitArgsPass::runImpl(Module &M, LocalBufferInfo *LBInfo,
     runOnFunction(F);
 
   // update Metadata now.
-  DPCPPKernelCompilationUtils::updateFunctionMetadata(&M, FixupFunctionsRefs);
+  CompilationUtils::updateFunctionMetadata(&M, FixupFunctionsRefs);
 
   // Indirect calls are not users of any functions. We need to collect them
   // and add stubs for implicit arguments here
@@ -192,7 +192,7 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
       NewAttrs.push_back(NoAttr);
   }
   // Create the new function with appended implicit attributes.
-  Function *NewF = DPCPPKernelCompilationUtils::AddMoreArgsToFunc(
+  Function *NewF = CompilationUtils::AddMoreArgsToFunc(
       F, NewTypes, NewNames, NewAttrs, "AddImplicitArgs");
 
   // maintain this map to preserve original/modified relation for functions.
@@ -222,9 +222,8 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
     bool IsDirectCall = (Callee != nullptr);
     // C++ Callee will be skipped as C++ func does not add implicit arguments.
     // TODO: handle C++ function as indirect callee.
-    if (IsDirectCall &&
-        (Callee->isDeclaration() ||
-         DPCPPKernelCompilationUtils::isGlobalCtorDtorOrCPPFunc(Callee)))
+    if (IsDirectCall && (Callee->isDeclaration() ||
+                         CompilationUtils::isGlobalCtorDtorOrCPPFunc(Callee)))
       continue;
     StringRef Name =
         IsDirectCall ? Callee->getName() : CI->getCalledOperand()->getName();
@@ -437,9 +436,8 @@ void AddImplicitArgsPass::replaceCallInst(CallInst *CI,
     NewArgs.push_back(UndefValue::get(ImplicitArgsTypes[I]));
   }
   CallInst *NewCI =
-      NewF
-          ? DPCPPKernelCompilationUtils::AddMoreArgsToCall(CI, NewArgs, NewF)
-          : DPCPPKernelCompilationUtils::addMoreArgsToIndirectCall(CI, NewArgs);
+      NewF ? CompilationUtils::AddMoreArgsToCall(CI, NewArgs, NewF)
+           : CompilationUtils::addMoreArgsToIndirectCall(CI, NewArgs);
 
   // Place the new call into the mapping.
   if (FixupCallsNeedsUpdate)

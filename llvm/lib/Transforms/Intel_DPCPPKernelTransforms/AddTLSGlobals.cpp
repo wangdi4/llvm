@@ -9,10 +9,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddTLSGlobals.h"
-#include "ImplicitArgsUtils.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 
 using namespace llvm;
 
@@ -108,7 +108,7 @@ bool AddTLSGlobalsPass::runImpl(Module &M, LocalBufferInfo *LBInfo,
       continue;
     }
     // No need to handle global ctors/dtors
-    if (DPCPPKernelCompilationUtils::isGlobalCtorDtorOrCPPFunc(&Func))
+    if (CompilationUtils::isGlobalCtorDtorOrCPPFunc(&Func))
       continue;
 
     FunctionsToHandle.push_back(&Func);

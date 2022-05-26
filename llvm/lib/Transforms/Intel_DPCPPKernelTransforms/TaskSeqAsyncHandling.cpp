@@ -1,6 +1,6 @@
 // ===--- TaskSeqAsyncHandling.cpp ------------------------------ C++ -*--=== //
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -13,13 +13,13 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #define DEBUG_TYPE "dpcpp-kernel-handle-taskseq-async"
 
 using namespace llvm;
-using namespace llvm::DPCPPKernelCompilationUtils;
+using namespace llvm::CompilationUtils;
 
 using FunctionVector = SmallVector<Function *>;
 

@@ -15,15 +15,15 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SinCosFold.h"
-#include "NameMangleAPI.h"
-#include "ParameterType.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/RuntimeService.h"
 
 using namespace llvm;
@@ -180,7 +180,7 @@ static bool foldSinCosPairs(ArgToPairsType &ArgToSinCosPairs,
           RTS->findFunctionInBuiltinModules(MangledSincosFuncName);
       assert(SincosF && "sincos function not found in builtin modules!");
 
-      SincosF = DPCPPKernelCompilationUtils::importFunctionDecl(M, SincosF);
+      SincosF = CompilationUtils::importFunctionDecl(M, SincosF);
       assert(SincosF && "Failed to import sincos into current module!");
 
       SmallVector<Value *, 2> Args{Arg, CosAlloca};

@@ -1,6 +1,6 @@
 //===- PrepareKernelArgs.cpp - Prepare DPC++ kernel arguments -------------===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -9,8 +9,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/PrepareKernelArgs.h"
-#include "ImplicitArgsUtils.h"
-#include "TypeAlignment.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/IR/Attributes.h"
@@ -18,9 +16,11 @@
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/TypeAlignment.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
@@ -113,7 +113,7 @@ bool PrepareKernelArgsPass::runImpl(
   I8Ty = Type::getInt8Ty(C);
 
   // Get all kernels (original scalar kernels and vectorized kernels).
-  auto kernelsFuncSet = DPCPPKernelCompilationUtils::getAllKernels(*this->M);
+  auto kernelsFuncSet = CompilationUtils::getAllKernels(*this->M);
 
   // Handle all kernels.
   for (auto *F : kernelsFuncSet)
@@ -161,8 +161,8 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
   // Get old function's arguments list in the OpenCL level from its metadata
   std::vector<KernelArgument> Arguments;
   std::vector<unsigned int> memoryArguments;
-  DPCPPKernelCompilationUtils::parseKernelArguments(
-      M, WrappedKernel, UseTLSGlobals, Arguments, memoryArguments);
+  CompilationUtils::parseKernelArguments(M, WrappedKernel, UseTLSGlobals,
+                                         Arguments, memoryArguments);
 
   std::vector<Value *> Params;
   Function::arg_iterator CallIt = WrappedKernel->arg_begin();
@@ -425,7 +425,7 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
 
     if (UseTLSGlobals) {
       assert(Arg && "No value was created for this TLS global!");
-      GlobalVariable *GV = DPCPPKernelCompilationUtils::getTLSGlobal(M, I);
+      GlobalVariable *GV = CompilationUtils::getTLSGlobal(M, I);
       Builder.CreateAlignedStore(Arg, GV, DL.getABITypeAlign(Arg->getType()));
     } else {
       assert(Arg && "No value was created for this implicit argument!");
@@ -492,9 +492,9 @@ void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
             EECall->getArgOperand(BlockInvokeIdx)->stripPointerCasts();
         if (BlockInvoke != WrappedKernel)
           continue;
-        auto *Int8PtrTy = PointerType::get(
-            IntegerType::getInt8Ty(M->getContext()),
-            DPCPPKernelCompilationUtils::ADDRESS_SPACE_GENERIC);
+        auto *Int8PtrTy =
+            PointerType::get(IntegerType::getInt8Ty(M->getContext()),
+                             CompilationUtils::ADDRESS_SPACE_GENERIC);
         Builder.SetInsertPoint(EECall);
         auto *NewCast = Builder.CreatePointerCast(Wrapper, Int8PtrTy);
         EECall->setArgOperand(BlockInvokeIdx, NewCast);

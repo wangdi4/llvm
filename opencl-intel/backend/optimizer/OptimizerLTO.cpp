@@ -1,4 +1,4 @@
-// Copyright 2021 Intel Corporation.
+// Copyright 2021-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -147,8 +147,8 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
 #endif // #ifndef NDEBUG
 
         if (Level != OptimizationLevel::O0 && (m_IsOcl20 || m_IsSPIRV))
-          MPM.addPass(createModuleToFunctionPassAdaptor(InferAddressSpacesPass(
-              DPCPPKernelCompilationUtils::ADDRESS_SPACE_GENERIC)));
+          MPM.addPass(createModuleToFunctionPassAdaptor(
+              InferAddressSpacesPass(CompilationUtils::ADDRESS_SPACE_GENERIC)));
 
         MPM.addPass(DPCPPEqualizerPass());
         Triple TargetTriple(m_M.getTargetTriple());
@@ -177,7 +177,7 @@ void OptimizerLTO::registerOptimizerEarlyCallback(llvm::PassBuilder &PB) {
             // Repeat resolution of generic address space pointers after LLVM
             // IR was optimized.
             FPM.addPass(InferAddressSpacesPass(
-                DPCPPKernelCompilationUtils::ADDRESS_SPACE_GENERIC));
+                CompilationUtils::ADDRESS_SPACE_GENERIC));
             // Cleanup after InferAddressSpaces pass.
             FPM.addPass(SimplifyCFGPass());
             FPM.addPass(SROAPass());

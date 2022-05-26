@@ -1,6 +1,6 @@
 //==--- WIRelatedValue.cpp - Detect values dependent on TIDs - C++ -*-------==//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -9,8 +9,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/WIRelatedValuePass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/ModuleSlotTracker.h"
@@ -169,37 +169,36 @@ bool WIRelatedValue::calculateDep(CallInst *Inst) {
   StringRef OrigFuncName = OrigFunc->getName();
 
   // Check if call is TID-generator.
-  if (DPCPPKernelCompilationUtils::isGetGlobalId(OrigFuncName) ||
-      DPCPPKernelCompilationUtils::isGetLocalId(OrigFuncName)) {
+  if (CompilationUtils::isGetGlobalId(OrigFuncName) ||
+      CompilationUtils::isGetLocalId(OrigFuncName)) {
     // These functions return WI Id, they are indeed WI Id related.
     return true;
   }
 
   std::string OrigWGFuncName = OrigFuncName.str();
-  if (DPCPPKernelCompilationUtils::hasWorkGroupFinalizePrefix(OrigFuncName)) {
+  if (CompilationUtils::hasWorkGroupFinalizePrefix(OrigFuncName)) {
     // Remove the finalize prefix from work group function to
     // get the Original work group function name to check against below.
-    OrigWGFuncName = DPCPPKernelCompilationUtils::removeWorkGroupFinalizePrefix(
-        OrigFuncName);
+    OrigWGFuncName =
+        CompilationUtils::removeWorkGroupFinalizePrefix(OrigFuncName);
   }
 
-  if (DPCPPKernelCompilationUtils::isWorkGroupScan(OrigWGFuncName)) {
+  if (CompilationUtils::isWorkGroupScan(OrigWGFuncName)) {
     // WG scan functions are WI Id related.
     return true;
-  } else if (DPCPPKernelCompilationUtils::isWorkGroupUniform(OrigWGFuncName)) {
+  } else if (CompilationUtils::isWorkGroupUniform(OrigWGFuncName)) {
     // WG uniform functions are WI Id unrelated.
     return false;
   }
 
-  if (DPCPPKernelCompilationUtils::isWorkGroupReserveReadPipe(OrigWGFuncName) ||
-      DPCPPKernelCompilationUtils::isWorkGroupReserveWritePipe(
-          OrigWGFuncName)) {
+  if (CompilationUtils::isWorkGroupReserveReadPipe(OrigWGFuncName) ||
+      CompilationUtils::isWorkGroupReserveWritePipe(OrigWGFuncName)) {
     // WG reserve pipe built-ins are WI unrelated.
     return false;
   }
 
-  if (DPCPPKernelCompilationUtils::isAtomicBuiltin(OrigFuncName) ||
-      DPCPPKernelCompilationUtils::isWorkItemPipeBuiltin(OrigFuncName)) {
+  if (CompilationUtils::isAtomicBuiltin(OrigFuncName) ||
+      CompilationUtils::isWorkItemPipeBuiltin(OrigFuncName)) {
     // Atomic and pipe built-ins are WI Id related.
     return true;
   }

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2019-2021 Intel Corporation.
+// Copyright 2019-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -62,8 +62,8 @@ class LLDJIT : public llvm::ExecutionEngine {
     std::string Name;
 
     // Non-copyable, but movable with std::move
-    TmpFile::TmpFile(const TmpFile &) = delete;
-    TmpFile &TmpFile::operator=(const TmpFile &) = delete;
+    TmpFile(const TmpFile &) = delete;
+    TmpFile &operator=(const TmpFile &) = delete;
 
   public:
     TmpFile &operator=(TmpFile &&other) = default;
@@ -252,7 +252,7 @@ public:
   void setObjectCache(llvm::ObjectCache *Manager) override;
 
   void setProcessAllSections(bool ProcessAllSections) override {
-    assert(!"Not supported");
+    assert(false && "Not supported");
   }
 
   void generateCodeForModule(llvm::Module *M) override;
@@ -299,7 +299,7 @@ public:
   /// This is the address which will be used for relocation resolution.
   void mapSectionAddress(const void *LocalAddress,
                          uint64_t TargetAddress) override {
-    assert(!"Not supported");
+    assert(false && "Not supported");
   }
   void RegisterJITEventListener(llvm::JITEventListener *L) override;
   void UnregisterJITEventListener(llvm::JITEventListener *L) override;
