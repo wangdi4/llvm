@@ -72,7 +72,8 @@ static std::string exe_path(unsigned int pid) {
 
     if (len == 0) {
       int err = GetLastError();
-      //VNX_ERR("ERROR: Getting executable path failed: %s\n", vnx::err_str(err).c_str());
+      fprintf(stderr, "ERROR: Getting executable path failed: %s\n",
+              std::to_string(err).c_str());
       return "";
     }; // if
 
@@ -104,6 +105,7 @@ std::string get_exe_dir(unsigned int pid) {
     size_t i = path.find_last_of("/\\");
     return path.substr(0, i) + dir_sep();
   }
+  return std::string();
 }
 
 void readBinary(std::string filename, std::vector<unsigned char> &binary) {

@@ -661,7 +661,7 @@ static void WINAPI CreateFiberExRoutineFunc(LPVOID params) {
 
 static llvm::once_flag PrintErrorMessageOnce;
 
-static void ErrorExit(LPTSTR lpszFunction) {
+static void ErrorExit(LPCTSTR lpszFunction) {
   // Display the error message and exit the process
   llvm::call_once(PrintErrorMessageOnce, [&]() {
     DWORD LastError = GetLastError();
@@ -682,7 +682,7 @@ static void ErrorExit(LPTSTR lpszFunction) {
       }
 
       std::string FunctionName(lpszFunction,
-                               lpszFunction + lstrlen((LPCTSTR)lpszFunction));
+                               lpszFunction + lstrlen(lpszFunction));
       std::string ErrorMessage((LPTSTR)MessageBuffer,
                                (LPTSTR)MessageBuffer + BufferLength);
       // TODO: use LOG_ERROR (It needs to implement LogErrorW since backend
@@ -752,14 +752,14 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
     LPVOID primaryFiber = nullptr, fiber = nullptr;
     primaryFiber = ConvertThreadToFiber(nullptr);
     if (!primaryFiber)
-      ErrorExit((LPTSTR)TEXT("ConvertThreadToFiber"));
+      ErrorExit(TEXT("ConvertThreadToFiber"));
 
     FIBERDATA fiberData = {pKernelUniformArgs, pGroupID, pRuntimeHandle, kernel,
                            primaryFiber};
     fiber = CreateFiberEx(m_stackActualSize, 0,
                           0, CreateFiberExRoutineFunc, &fiberData);
     if (!fiber)
-      ErrorExit((LPTSTR)TEXT("CreateFiberEx"));
+      ErrorExit(TEXT("CreateFiberEx"));
 
     SwitchToFiber(fiber);
     DeleteFiber(fiber);

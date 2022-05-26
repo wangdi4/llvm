@@ -31,7 +31,7 @@ public:
     NamedPipeThread();
 
 protected:
-    virtual RETURN_TYPE_ENTRY_POINT Run();
+  virtual RETURN_TYPE_ENTRY_POINT Run() override;
 };
 #endif // _WIN32
 
