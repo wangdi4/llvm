@@ -57,8 +57,10 @@ bool gl_directx_support_test(bool supported)
     extStringDevice = (char*) malloc( size );
     if ( NULL == extStringDevice )
     {
-        printf( "Error: unable to allocate %ld byte buffer for extension string (err = %d)\n", size,  err );
-        return false;
+      printf("Error: unable to allocate %zu byte buffer for extension string "
+             "(err = %d)\n",
+             size, err);
+      return false;
     }
     err = clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, size, extStringDevice, NULL);
     bResult &= SilentCheck("clGetDeviceInfo",CL_SUCCESS,err);
@@ -70,8 +72,10 @@ bool gl_directx_support_test(bool supported)
     extStringPlatform = (char*) malloc( size );
     if ( NULL == extStringPlatform )
     {
-        printf( "Error: unable to allocate %ld byte buffer for extension string (err = %d)\n", size,  err );
-        return false;
+      printf("Error: unable to allocate %zu byte buffer for extension string "
+             "(err = %d)\n",
+             size, err);
+      return false;
     }
 
     err = clGetPlatformInfo(platform, CL_PLATFORM_EXTENSIONS, size, extStringPlatform, NULL);

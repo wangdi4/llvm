@@ -17,9 +17,17 @@ bool validateData(unsigned int numDevices, unsigned int numRounds, unsigned int 
 		cl_long expectedValue = initialValue + ((round * numDevices * numIncInRound) + (deviceRound * numIncInRound) + readNum);
 		if (buff[bufferFrom+ ui] != expectedValue)
 		{
-			printf("Validation error: Buff[%d] = %ld, expected %ld\n", (bufferFrom + ui), buff[bufferFrom + ui], expectedValue);
-			result = false;
-			break;
+#if defined(_WIN32)
+                  printf("Validation error: Buff[%d] = %lld, expected %lld\n",
+                         (bufferFrom + ui), buff[bufferFrom + ui],
+                         expectedValue);
+#else
+                  printf("Validation error: Buff[%d] = %ld, expected %ld\n",
+                         (bufferFrom + ui), buff[bufferFrom + ui],
+                         expectedValue);
+#endif
+                  result = false;
+                  break;
 		}
 	}
 	return result;
@@ -754,9 +762,18 @@ bool run_multi_devices_sub_buffer_simple_test(const char* test_name)
 		{
 			if (mapPtr[i] != i * 2 + 1)
 			{
-				printf("Error: Validation error at index %u, expected %u got %ld\n", i, i * 2 + 1, mapPtr[i]);
-				bResult = false;
-				break;
+#if defined(_WIN32)
+                          printf("Error: Validation error at index %u, "
+                                 "expected %u got %lld\n",
+                                 i, i * 2 + 1, mapPtr[i]);
+#else
+                          printf("Error: Validation error at index %u, "
+                                 "expected %u got %ld\n",
+                                 i, i * 2 + 1, mapPtr[i]);
+
+#endif
+                          bResult = false;
+                          break;
 			}
 		}
 		if (!bResult) 

@@ -168,8 +168,17 @@ bool fission_deviceInfoSelectors_test(){
   if (!((0 == actual_size) || ((sizeof(cl_device_partition_property) == actual_size) && (0 == prop[0]))))
 	{
 		printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_PARTITION_TYPE\n");
-		printf("\t\texpected size of zero or a single NULL property: %ld, result: %zu properties - %ld\n", properties[0], actual_size, prop[0]);
-		return false;
+#if defined(_WIN32)
+                printf("\t\texpected size of zero or a single NULL property: "
+                       "%lld, result: %zu properties - %lld\n",
+                       properties[0], actual_size, prop[0]);
+#else
+                printf("\t\texpected size of zero or a single NULL property: "
+                       "%ld, result: %zu properties - %ld\n",
+                       properties[0], actual_size, prop[0]);
+
+#endif
+                return false;
 	}
 
 	//CL_DEVICE_PARTITION_TYPE for sub device
@@ -182,8 +191,14 @@ bool fission_deviceInfoSelectors_test(){
 		if (prop[i] != properties[i])
 		{
 			printf("FAIL: clGetDeviceInfo for selector CL_DEVICE_PARTITION_TYPE\n");
-			printf("\t\texpected = %ld, result = %ld\n", properties[i], prop[i]);
-			return false;
+#if defined(_WIN32)
+                        printf("\t\texpected = %lld, result = %lld\n",
+                               properties[i], prop[i]);
+#else
+                        printf("\t\texpected = %ld, result = %ld\n",
+                               properties[i], prop[i]);
+#endif
+                        return false;
 		}
 	}
 	printf("\n---------------------------------------\n");

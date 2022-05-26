@@ -3,10 +3,13 @@ set(TARGET_NAME OclPluginManager)
 # ITT/VTune integration
 add_definitions( -DUSE_ITT )
 
-if (NOT WIN32)
-# The C flag is only used for compiling ittnotify_static.c file
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-implicit-fallthrough -Wno-self-assign")
-endif(NOT WIN32)
+# disable "implicit-fallthrough", "self-assign" and "static-in-inline"(windows only) warnings in
+# itt/ittnotify/ittnotify_static.c
+if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+set_source_files_properties(${OCL_SOURCE_DIR}/externals/itt/ittnotify/ittnotify_static.c
+                            PROPERTIES COMPILE_FLAGS
+                            "-Wno-implicit-fallthrough -Wno-self-assign -Wno-static-in-inline")
+endif(CMAKE_SIZEOF_VOID_P EQUAL 8)
 
 add_opencl_library( ${TARGET_NAME} STATIC
   plugin_manager.h

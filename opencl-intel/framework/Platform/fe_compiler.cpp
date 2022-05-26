@@ -86,10 +86,11 @@ cl_err_code FrontEndCompiler::Initialize(const char * psModuleName, const void *
 
 #ifdef _WIN32
       // This path is for loading clang from GPU driver.
-      const char *path = (GetDriverStorePathToLibrary() + psModuleName).c_str();
-      if (m_dlModule.Load(GetFullModuleNameForLoad(path)) != 0) {
+      const std::string pathString =
+          GetDriverStorePathToLibrary() + std::string(psModuleName);
+      if (m_dlModule.Load(GetFullModuleNameForLoad(pathString.c_str())) != 0) {
         LOG_ERROR(TEXT("Can't find frontend library neither %s nor %s)"),
-                  psModuleName, path);
+                  psModuleName, pathString.c_str());
         return CL_COMPILER_NOT_AVAILABLE;
       }
 #else
@@ -163,7 +164,7 @@ cl_err_code FrontEndCompiler::ProcessResults(cl_err_code Error,
       *Binary = new char[*BinarySize];
       MEMCPY_S(*Binary, *BinarySize, Result->GetIR(), *BinarySize);
     }
-  } catch (std::bad_alloc& e) {
+  } catch (std::bad_alloc &) {
     Result->Release();
     return CL_OUT_OF_HOST_MEMORY;
   }
@@ -333,7 +334,7 @@ cl_err_code FrontEndCompiler::LinkProgram(
       *ppBinary = new char[*puiBinarySize];
       MEMCPY_S(*ppBinary, *puiBinarySize, Result->GetIR(), *puiBinarySize);
     }
-  } catch (std::bad_alloc& e) {
+  } catch (std::bad_alloc &) {
     Result->Release();
     return CL_OUT_OF_HOST_MEMORY;
   }

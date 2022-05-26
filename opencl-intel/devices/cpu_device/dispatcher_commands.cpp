@@ -762,7 +762,12 @@ cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, Shar
         return NativeKernelTask::Create(pTD, pList, pCmd, pTask);
     }
 #endif
-    pCmd->id = (cl_dev_cmd_id)((long)pCmd->id & ~(1L << (sizeof(long) * 8 - 1)));    // device NDRange IDs have their MSB set, while in host NDRange IDs they're reset
+    pCmd->id =
+        (cl_dev_cmd_id)((size_t)(pCmd->id) &
+                        ~(1ULL
+                          << (sizeof(size_t) * 8 -
+                              1))); // device NDRange IDs have their MSB set,
+                                    // while in host NDRange IDs they're reset
     NDRange* pCommand = new NDRange(pTD, pCmd, pList.GetPtr(), nullptr);
 
     assert(pTask && "Invalid task parameter");
@@ -1523,7 +1528,8 @@ void DeviceNDRange::InitBlockCmdDesc(const Intel::OpenCL::DeviceBackend::ICLDevB
 
     m_cmdDesc.type = CL_DEV_CMD_EXEC_KERNEL;
     // device NDRange IDs have their MSB set, while in host NDRange IDs they're reset
-    m_cmdDesc.id = (cl_dev_cmd_id)(DeviceNDRange::GetNextCmdId() | (1L << (sizeof(long) * 8 - 1)));
+    m_cmdDesc.id = (cl_dev_cmd_id)((size_t)(DeviceNDRange::GetNextCmdId() |
+                                            (1L << (sizeof(long) * 8 - 1))));
     m_cmdDesc.data = this;
     m_cmdDesc.device_agent_data = nullptr;
     m_cmdDesc.profiling = GetList()->IsProfilingEnabled();

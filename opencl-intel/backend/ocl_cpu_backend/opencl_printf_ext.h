@@ -65,7 +65,10 @@ public:
     virtual int output_count() override;
 
   private:
+#if !defined(_WIN32)
     FILE* stream;
+#endif
+
     int count;
 #if (defined(_WIN32) || defined(_WIN64)) 
     HANDLE hStdout;
