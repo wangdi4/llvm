@@ -16,8 +16,8 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/InfiniteLoopCreator.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
@@ -80,7 +80,7 @@ static bool runOnFunction(Function *F) {
     }
     // we need to move all alloca instructions out of the infinite loop to avoid
     // overflowing of stack
-    DPCPPKernelCompilationUtils::moveAlloca(InfiniteLoopEntry, EntryBlock);
+    CompilationUtils::moveAlloca(InfiniteLoopEntry, EntryBlock);
     ReplaceInstWithInst(SingleRetBB->getTerminator(),
                         BranchInst::Create(InfiniteLoopEntry));
     return true;

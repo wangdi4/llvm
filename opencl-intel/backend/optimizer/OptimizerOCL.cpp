@@ -363,8 +363,8 @@ void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
     // Static resolution of generic address space pointers
     if (Level != OptimizationLevel::O0)
       FPM.addPass(PromotePass());
-    FPM.addPass(InferAddressSpacesPass(
-        DPCPPKernelCompilationUtils::ADDRESS_SPACE_GENERIC));
+    FPM.addPass(
+        InferAddressSpacesPass(CompilationUtils::ADDRESS_SPACE_GENERIC));
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
   }
 
@@ -393,8 +393,8 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     FunctionPassManager FPM;
     // Repeat resolution of generic address space pointers after LLVM
     // IR was optimized
-    FPM.addPass(InferAddressSpacesPass(
-        DPCPPKernelCompilationUtils::ADDRESS_SPACE_GENERIC));
+    FPM.addPass(
+        InferAddressSpacesPass(CompilationUtils::ADDRESS_SPACE_GENERIC));
     // Cleanup after InferAddressSpacesPass
     if (Level != OptimizationLevel::O0) {
       FPM.addPass(SimplifyCFGPass());
@@ -500,12 +500,12 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
         LICMPass(SetLicmMssaOptCap, SetLicmMssaNoAccForPromotionCap,
                  /*AllowSpeculation*/ true),
         /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/true));
+    FPM2.addPass(VPOCFGRestructuringPass());
     // TODO support FatalErrorHandler
     // [](Function *F) {
-    //      F->addFnAttr(CompilationUtils::ATTR_VECTOR_VARIANT_FAILURE,
-    //                   CompilationUtils::ATTR_VALUE_FAILED_TO_VECTORIZE);
+    //      F->addFnAttr(llvm::KernelAttribute::VectorVariantFailure,
+    //                   "failed to vectorize");
     // }
-    FPM2.addPass(VPOCFGRestructuringPass());
     FPM2.addPass(vpo::VPlanDriverPass());
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM2)));
     MPM.addPass(DPCPPKernelPostVecPass());

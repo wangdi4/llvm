@@ -33,7 +33,6 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelVecClone.h"
-#include "Utils/NameMangleAPI.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SmallVector.h"
@@ -47,6 +46,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPPrepareKernelForVecClone.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/VectorizerUtils.h"
 
 #define SV_NAME "dpcpp-kernel-vec-clone"
@@ -54,7 +54,7 @@
 #define DEBUG_TYPE SV_NAME
 
 using namespace llvm;
-using namespace llvm::DPCPPKernelCompilationUtils;
+using namespace llvm::CompilationUtils;
 using namespace llvm::DPCPPKernelMetadataAPI;
 
 // In DPCPP header we have only one type of TID which is local TID.

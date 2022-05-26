@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,10 +13,10 @@
 // License.
 
 #include "BuiltinKeeper.h"
-#include "NameMangleAPI.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/Support/Mutex.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/ADT/ArrayRef.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 #include <cctype>
 #include <mutex>
 #include <sstream>

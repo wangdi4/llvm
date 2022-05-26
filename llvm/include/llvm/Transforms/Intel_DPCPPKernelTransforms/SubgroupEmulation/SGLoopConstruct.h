@@ -1,6 +1,6 @@
 //=------------ SGLoopConstruct.h - Create subgroup loop - C++ -*------------=//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -13,9 +13,9 @@
 
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGHelper.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGSizeAnalysis.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 #include <tuple>
 
@@ -36,7 +36,7 @@ private:
 
   /// For every sub_group_barrier, find all sync instructions which can reach
   /// here.
-  DPCPPKernelCompilationUtils::InstSet findSyncPredecessors(Instruction *I);
+  CompilationUtils::InstSet findSyncPredecessors(Instruction *I);
 
   /// Find the sg loop header for every sub_group_barrier, and create subgroup
   /// loop.
@@ -57,7 +57,7 @@ private:
   void updateMetadata(Module &M);
 
   /// Map from function to all sub_group_barrier calls inside.
-  MapVector<Function *, DPCPPKernelCompilationUtils::InstSet> FuncToSGBarriers;
+  MapVector<Function *, CompilationUtils::InstSet> FuncToSGBarriers;
 
   /// Map from function to Alloca for sub-group local id and sub-group loop
   /// source.
@@ -65,15 +65,14 @@ private:
 
   /// Map from sub_group_barrier call to  sub_group_barrier / dummy_sg_barrier
   /// calls may reach it.
-  MapVector<Instruction *, DPCPPKernelCompilationUtils::InstSet>
-      BarrierToJumpTargets;
+  MapVector<Instruction *, CompilationUtils::InstSet> BarrierToJumpTargets;
 
   /// Map from sync instruction to a unique ID.
   MapVector<Instruction *, unsigned> SyncInstToUniqueID;
 
   MapVector<BasicBlock *, BasicBlock *> LoopHeaderToPrevExiting;
 
-  DPCPPKernelCompilationUtils::FuncSet FunctionsNeedEmulation;
+  CompilationUtils::FuncSet FunctionsNeedEmulation;
 
   SGHelper Helper;
   const SGSizeInfo *SizeInfo;

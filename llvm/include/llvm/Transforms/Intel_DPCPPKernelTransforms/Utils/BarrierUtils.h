@@ -1,6 +1,6 @@
-//===- KernelBarrierUtils.h - Barrier Utils -------------------------------===//
+//===- BarrierUtils.h - Barrier Utils ---------------------------*- C++ -*-===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -8,8 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef INTEL_DPCPP_KERNEL_TRANSFORMS_BARRIER_UTILS_H
-#define INTEL_DPCPP_KERNEL_TRANSFORMS_BARRIER_UTILS_H
+#ifndef INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_BARRIER_UTILS_H
+#define INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_BARRIER_UTILS_H
 
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
@@ -17,7 +17,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 #include <map>
 #include <vector>
@@ -280,4 +280,4 @@ private:
 
 } // namespace llvm
 
-#endif // INTEL_DPCPP_KERNEL_TRANSFORMS_BARRIER_UTILS_H
+#endif // INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_BARRIER_UTILS_H

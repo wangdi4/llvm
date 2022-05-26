@@ -1,6 +1,6 @@
 //==--- BarrierPass.cpp - Main Barrier pass - C++ -*------------------------==//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -12,16 +12,16 @@
 #include "llvm/Analysis/CFG.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/CFG.h"
-#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DIBuilder.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -91,8 +91,7 @@ bool KernelBarrier::runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV) {
 
   if (UseTLSGlobals) {
     // LocalIds should already be created in WGLoopCreatorPass.
-    LocalIds =
-        M.getGlobalVariable(DPCPPKernelCompilationUtils::getTLSLocalIdsName());
+    LocalIds = M.getGlobalVariable(CompilationUtils::getTLSLocalIdsName());
     assert(LocalIds && "TLS LocalIds not found");
   }
 
@@ -214,24 +213,24 @@ bool KernelBarrier::fixSynclessTIDUsers(Module &M,
 
   // Collect TID calls in not-inlined functions, which are neither kernel nor
   // functions with sync instruction.
-  DPCPPKernelCompilationUtils::InstVec TIDCallsToFix;
-  auto FindTIDsToPatch = [&](const DPCPPKernelCompilationUtils::InstVec &TIDs) {
+  CompilationUtils::InstVec TIDCallsToFix;
+  auto FindTIDsToPatch = [&](const CompilationUtils::InstVec &TIDs) {
     for (auto *I : TIDs) {
       auto *CI = cast<CallInst>(I);
       if (!FuncsWithSync.contains(CI->getFunction()))
         TIDCallsToFix.push_back(CI);
     }
   };
-  FindTIDsToPatch(DPCPPKernelCompilationUtils::getCallInstUsersOfFunc(
-      M, DPCPPKernelCompilationUtils::mangledGetLID()));
-  FindTIDsToPatch(DPCPPKernelCompilationUtils::getCallInstUsersOfFunc(
-      M, DPCPPKernelCompilationUtils::mangledGetGID()));
+  FindTIDsToPatch(CompilationUtils::getCallInstUsersOfFunc(
+      M, CompilationUtils::mangledGetLID()));
+  FindTIDsToPatch(CompilationUtils::getCallInstUsersOfFunc(
+      M, CompilationUtils::mangledGetGID()));
 
   if (TIDCallsToFix.empty())
     return false;
 
   IRBuilder<> Builder(M.getContext());
-  DPCPPKernelCompilationUtils::patchNotInlinedTIDUserFunc(
+  CompilationUtils::patchNotInlinedTIDUserFunc(
       M, Builder, FuncsWithSync, TIDCallsToFix, PatchedFToLocalIds,
       LocalIdAllocTy, CreateLIDArg);
 
@@ -486,7 +485,7 @@ void KernelBarrier::fixAllocaValues(Function &F) {
     assert(AI && "container of alloca values has non AllocaInst value!");
 
     // Don't fix implicit GID.
-    if (IsNativeDBG && DPCPPKernelCompilationUtils::isImplicitGID(AI)) {
+    if (IsNativeDBG && CompilationUtils::isImplicitGID(AI)) {
       // Move implicit GID out of barrier loop.
       AI->moveBefore(AddrInsertBefore);
       continue;
@@ -754,8 +753,7 @@ BasicBlock *KernelBarrier::createLatchNesting(unsigned Dim, BasicBlock *Body,
   Function *F = Body->getParent();
   // BB that is jumped to if loop in current nesting finishes.
   BasicBlock *LoopEnd = BasicBlock::Create(
-      C, DPCPPKernelCompilationUtils::AppendWithDimension("LoopEnd_", Dim), F,
-      Dispatch);
+      C, CompilationUtils::AppendWithDimension("LoopEnd_", Dim), F, Dispatch);
 
   {
     IRBuilder<> B(Body);
@@ -1133,7 +1131,7 @@ bool KernelBarrier::fixGetWIIdFunctions(Module & /*M*/) {
     } else {
       Value *LID = resolveGetLocalIDCall(OldCall);
       // Replace get_global_id(arg) with global_base_id + local_id.
-      Name = DPCPPKernelCompilationUtils::AppendWithDimension("GlobalID_", Dim);
+      Name = CompilationUtils::AppendWithDimension("GlobalID_", Dim);
       Instruction *GlobalID =
           BinaryOperator::CreateAdd(LID, BaseGID, Name, OldCall);
       GlobalID->setDebugLoc(OldCall->getDebugLoc());
@@ -1187,13 +1185,12 @@ void KernelBarrier::fixNonInlineFunction(Function *FuncToFix) {
       std::string FuncName;
       if (Func) {
         FuncName = Func->getName().str();
-        if (DPCPPKernelCompilationUtils::hasWorkGroupFinalizePrefix(FuncName))
-          FuncName = DPCPPKernelCompilationUtils::removeWorkGroupFinalizePrefix(
-              FuncName);
+        if (CompilationUtils::hasWorkGroupFinalizePrefix(FuncName))
+          FuncName = CompilationUtils::removeWorkGroupFinalizePrefix(FuncName);
       }
       if ((Inst != nullptr) &&
           !(Func != nullptr &&
-            DPCPPKernelCompilationUtils::isWorkGroupUniform(FuncName))) {
+            CompilationUtils::isWorkGroupUniform(FuncName))) {
         // Find next instruction so we can create new instruction before it.
         NextInst = &*(++BasicBlock::iterator(Inst));
         if (isa<PHINode>(NextInst)) {
@@ -1428,7 +1425,7 @@ void KernelBarrier::calculatePrivateSize(
   calculateDirectPrivateSize(M, FnsWithSync, DirectPrivateSizeMap);
   // Use post order traversal to calculate function' non-barrier memory usage.
   CallGraph CG{M};
-  DPCPPKernelCompilationUtils::calculateMemorySizeWithPostOrderTraversal(
+  CompilationUtils::calculateMemorySizeWithPostOrderTraversal(
       CG, DirectPrivateSizeMap, PrivateSizeMap);
 }
 

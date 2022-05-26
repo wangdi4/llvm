@@ -1,6 +1,6 @@
 //===- LinearIdResolver.cpp - DPC++ linear id resolver --------------------===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -16,8 +16,8 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;
 
@@ -96,9 +96,9 @@ bool LinearIdResolverPass::runImpl(Module &M, CallGraph *CG) {
         continue;
 
       StringRef CalleeName = Callee->getName();
-      if (DPCPPKernelCompilationUtils::isGetGlobalLinearId(CalleeName))
+      if (CompilationUtils::isGetGlobalLinearId(CalleeName))
         WorkList.push_back(std::make_pair(CI, LK_GLOBAL));
-      else if (DPCPPKernelCompilationUtils::isGetLocalLinearId(CalleeName))
+      else if (CompilationUtils::isGetLocalLinearId(CalleeName))
         WorkList.push_back(std::make_pair(CI, LK_LOCAL));
     }
 
@@ -129,23 +129,21 @@ void LinearIdResolverPass::replaceGetGlobalLinearId(Module *M, CallInst *CI) {
   IRBuilder<> Builder(CI);
 
   // call get_global_id(0), get_global_id(1), get_global_id(2)
-  static std::string IdName = DPCPPKernelCompilationUtils::mangledGetGID();
+  static std::string IdName = CompilationUtils::mangledGetGID();
   CallInst *GId2 = createWIFunctionCall(M, Builder, IdName, Two, "gid2");
   CallInst *GId1 = createWIFunctionCall(M, Builder, IdName, One, "gid1");
   CallInst *GId0 = createWIFunctionCall(M, Builder, IdName, Zero, "gid0");
   assert(GId0 && GId1 && GId2 && "Can't create get_global_id calls");
 
   // call get_global_offset(0), get_global_offset(1), get_global_offset(2)
-  static std::string OffName =
-      DPCPPKernelCompilationUtils::mangledGetGlobalOffset();
+  static std::string OffName = CompilationUtils::mangledGetGlobalOffset();
   CallInst *GOff2 = createWIFunctionCall(M, Builder, OffName, Two, "goff2");
   CallInst *GOff1 = createWIFunctionCall(M, Builder, OffName, One, "goff1");
   CallInst *GOff0 = createWIFunctionCall(M, Builder, OffName, Zero, "goff0");
   assert(GOff0 && GOff1 && GOff2 && "Can't create get_global_offset calls");
 
   // call get_global_size(0), get_global_size(1)
-  static std::string SizeName =
-      DPCPPKernelCompilationUtils::mangledGetGlobalSize();
+  static std::string SizeName = CompilationUtils::mangledGetGlobalSize();
   CallInst *GSize1 = createWIFunctionCall(M, Builder, SizeName, One, "gsz1");
   CallInst *GSize0 = createWIFunctionCall(M, Builder, SizeName, Zero, "gsz0");
   assert(GSize0 && GSize1 && "Can't create get_global_size calls");
@@ -180,15 +178,14 @@ void LinearIdResolverPass::replaceGetLocalLinearId(Module *M, CallInst *CI) {
   IRBuilder<> Builder(CI);
 
   // call get_local_id(2), get_local_id(1), get_local_id(0)
-  static std::string IdName = DPCPPKernelCompilationUtils::mangledGetLID();
+  static std::string IdName = CompilationUtils::mangledGetLID();
   CallInst *LId2 = createWIFunctionCall(M, Builder, IdName, Two, "lid2");
   CallInst *LId1 = createWIFunctionCall(M, Builder, IdName, One, "lid1");
   CallInst *LId0 = createWIFunctionCall(M, Builder, IdName, Zero, "lid0");
   assert(LId0 && LId1 && LId2 && "Can't create get_local_id calls");
 
   // call get_local_size(1), get_local_size(0)
-  static std::string SizeName =
-      DPCPPKernelCompilationUtils::mangledGetLocalSize();
+  static std::string SizeName = CompilationUtils::mangledGetLocalSize();
   CallInst *LSize1 = createWIFunctionCall(M, Builder, SizeName, One, "lsz1");
   CallInst *LSize0 = createWIFunctionCall(M, Builder, SizeName, Zero, "lsz0");
   assert(LSize0 && LSize1 && "Can't create get_local_size calls");

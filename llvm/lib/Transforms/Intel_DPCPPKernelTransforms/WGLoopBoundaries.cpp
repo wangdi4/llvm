@@ -15,17 +15,17 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataStatsAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/WGBoundDecoder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
-using namespace DPCPPKernelCompilationUtils;
+using namespace CompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-wg-loop-bound"
 
@@ -334,7 +334,7 @@ bool WGLoopBoundariesImpl::run() {
 
   Ctx = &M.getContext();
   NumDim = RTService->getNumJitDimensions();
-  IndTy = DPCPPKernelLoopUtils::getIndTy(&M);
+  IndTy = LoopUtils::getIndTy(&M);
   ConstOne = ConstantInt::get(IndTy, 1);
   ConstZero = ConstantInt::get(IndTy, 0);
 
@@ -366,7 +366,7 @@ void WGLoopBoundariesImpl::collectWIUniqueFuncUsers() {
 
   // Obtain all the recursive users of the atomic/pipe functions.
   if (!WIUniqueFuncs.empty())
-    DPCPPKernelLoopUtils::fillFuncUsersSet(WIUniqueFuncs, WIUniqueFuncUsers);
+    LoopUtils::fillFuncUsersSet(WIUniqueFuncs, WIUniqueFuncUsers);
 }
 
 bool WGLoopBoundariesImpl::isUniform(Value *V) {
@@ -441,7 +441,7 @@ void WGLoopBoundariesImpl::collectTIDData() {
   auto ProcessTIDCalls = [this](bool IsGID) {
     std::string TIDName = IsGID ? mangledGetGID() : mangledGetLID();
     SmallVector<CallInst *, 4> TIDCalls;
-    DPCPPKernelLoopUtils::getAllCallInFunc(TIDName, F, TIDCalls);
+    LoopUtils::getAllCallInFunc(TIDName, F, TIDCalls);
     for (auto *CI : TIDCalls) {
       processTIDCall(CI, IsGID);
     }
@@ -1169,8 +1169,8 @@ void WGLoopBoundariesImpl::replaceTidWithBound(bool IsGID, unsigned Dim,
                                                Value *ToRep) {
   assert(ToRep->getType() == IndTy && "bad type");
   SmallVector<CallInst *, 4> TidCalls;
-  DPCPPKernelLoopUtils::getAllCallInFunc(
-      IsGID ? mangledGetGID() : mangledGetLID(), F, TidCalls);
+  LoopUtils::getAllCallInFunc(IsGID ? mangledGetGID() : mangledGetLID(), F,
+                              TidCalls);
   for (auto *TidCall : TidCalls) {
     auto *DimConst = cast<ConstantInt>(TidCall->getOperand(0));
     unsigned DimArg = DimConst->getZExtValue();
@@ -1505,10 +1505,9 @@ void WGLoopBoundariesImpl::fillInitialBoundaries(BasicBlock *BB) {
   LoopSizes.clear();
   StringRef BaseGIDName = nameGetBaseGID();
   for (unsigned Dim = 0; Dim < NumDim; ++Dim) {
-    CallInst *LocalSize = DPCPPKernelLoopUtils::getWICall(
-        &M, mangledGetLocalSize(), IndTy, Dim, BB);
-    CallInst *BaseGID =
-        DPCPPKernelLoopUtils::getWICall(&M, BaseGIDName, IndTy, Dim, BB);
+    CallInst *LocalSize =
+        LoopUtils::getWICall(&M, mangledGetLocalSize(), IndTy, Dim, BB);
+    CallInst *BaseGID = LoopUtils::getWICall(&M, BaseGIDName, IndTy, Dim, BB);
     LocalSizes.push_back(LocalSize);
     BaseGIDs.push_back(BaseGID);
     LowerBounds.push_back(BaseGID);

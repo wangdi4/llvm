@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2013-2018 Intel Corporation.
+// Copyright 2013-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,8 +13,8 @@
 // License.
 
 #include "WorkGroupBuiltinsNames.h"
-#include "NameMangleAPI.h"
-#include "ParameterType.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
 
 using namespace llvm;
 using namespace llvm::NameMangleAPI;

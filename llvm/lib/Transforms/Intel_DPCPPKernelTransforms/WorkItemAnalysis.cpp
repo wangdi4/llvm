@@ -9,7 +9,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/WorkItemAnalysis.h"
-#include "NameMangleAPI.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/Dominators.h"
@@ -17,15 +16,16 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SoaAllocaAnalysis.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 #include <stack>
 
 #define DEBUG_TYPE "dpcpp-kernel-work-item-analysis"
 
 using namespace llvm;
-using namespace DPCPPKernelCompilationUtils;
+using namespace CompilationUtils;
 
 /// WorkItemAnalysis follows pointer arithmetic and index arithmetic when
 /// calculating dependency properties. If a part of the index is lost due to a

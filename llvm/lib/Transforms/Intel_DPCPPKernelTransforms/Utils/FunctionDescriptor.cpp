@@ -1,6 +1,6 @@
 //===- FunctionDescriptor.cpp - Function descriptor utilities -------------===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -8,9 +8,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "FunctionDescriptor.h"
-#include "ParameterType.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
 
 using namespace llvm;
 using namespace llvm::reflection;

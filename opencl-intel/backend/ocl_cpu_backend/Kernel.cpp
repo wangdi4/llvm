@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,17 +12,17 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "CompilerConfig.h"
 #include "Kernel.h"
+#include "CompilerConfig.h"
 #include "KernelProperties.h"
-#include "ImplicitArgsUtils.h"
-#include "TypeAlignment.h"
-#include "exceptions.h"
 #include "Serializer.h"
 #include "SerializerCompatibility.h"
-
 #include "cpu_dev_limits.h"
+#include "exceptions.h"
 #include "llvm/Support/Threading.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/TypeAlignment.h"
 #include <cmath>
 #include <cstring>
 #include <iostream>
@@ -36,8 +36,6 @@
 #else
 #include <ucontext.h>
 #endif
-
-#include <llvm/Support/raw_ostream.h>
 
 static size_t GCD(size_t a, size_t b) {
   while (1) {

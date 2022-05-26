@@ -1,6 +1,6 @@
-//===- LoopPeeling.h - Loop peeling utilities ----------------------*- C++-===//
+//===- LoopPeeling.h - Loop peeling utilities -------------------*- C++ -*-===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -34,4 +34,4 @@ Optional<Value *> computePeelCount(BasicBlock &EntryBB, BasicBlock &VectorEntry,
 } // namespace LoopDynamicPeeling
 } // namespace llvm
 
-#endif
+#endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_LOOP_PEELING_H

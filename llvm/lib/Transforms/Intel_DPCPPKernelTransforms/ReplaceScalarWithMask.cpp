@@ -17,10 +17,10 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ReplaceScalarWithMask.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGHelper.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
@@ -92,14 +92,14 @@ bool ReplaceScalarWithMaskPass::runImpl(Module &M) {
 
     // Get current sub-group size.
     Value *SGSize = Helper.createGetSubGroupSize(FirstInst);
-    Type *IndTy = DPCPPKernelLoopUtils::getIndTy(&M);
+    Type *IndTy = LoopUtils::getIndTy(&M);
     if (SGSize->getType() != IndTy) {
       SGSize = new ZExtInst(SGSize, IndTy, "sg.size.zext", FirstInst);
       cast<Instruction>(SGSize)->setDebugLoc(FirstInst->getDebugLoc());
     }
 
     // Generate mask and replace the mask argument with generated mask.
-    Value *Mask = DPCPPKernelLoopUtils::generateRemainderMask(
+    Value *Mask = LoopUtils::generateRemainderMask(
         KernelInternalMetadataAPI(MaskKernel).VectorizedWidth.get(), SGSize,
         FirstInst);
     (MaskKernel->arg_end() - 1)->replaceAllUsesWith(Mask);

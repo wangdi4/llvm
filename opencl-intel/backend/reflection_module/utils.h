@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,6 +14,8 @@
 
 #ifndef __REFLECTION_MOD_UTILS_H__
 #define __REFLECTION_MOD_UTILS_H__
+
+#include <utility>
 
 namespace Reflection {
 ///////////////////////////////////////////////////////////////////////////////

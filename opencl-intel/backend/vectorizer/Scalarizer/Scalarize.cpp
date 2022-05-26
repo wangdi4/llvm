@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,20 +13,20 @@
 // License.
 
 #include "Scalarize.h"
-#include "Mangler.h"
-#include "VectorizerUtils.h"
-#include "OCLPassSupport.h"
-#include "InitializePasses.h"
 #include "FakeExtractInsert.h"
+#include "InitializePasses.h"
+#include "Mangler.h"
+#include "OCLPassSupport.h"
 #include "TypeConversion.h"
-#include "FunctionDescriptor.h"
-#include "NameMangleAPI.h"
+#include "VectorizerUtils.h"
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 
 using namespace llvm::NameMangleAPI;
 

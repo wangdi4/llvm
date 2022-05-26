@@ -1,6 +1,6 @@
 //===- ImplicitArgsUtils.cpp - Implicit argument utilities ----------------===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -8,10 +8,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "ImplicitArgsUtils.h"
-#include "TypeAlignment.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelArgType.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/TypeAlignment.h"
 #include <algorithm>
 
 using namespace llvm;

@@ -1,6 +1,6 @@
 //==DPCPPKernelWGLoopCreator.cpp - Create WG loops in DPCPP kernels -*- C++-==//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -9,7 +9,6 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelWGLoopCreator.h"
-#include "LoopPeeling.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Dominators.h"
@@ -19,9 +18,10 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/MathExtras.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopPeeling.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/WGBoundDecoder.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -29,7 +29,7 @@
 #include <sstream>
 
 using namespace llvm;
-using namespace DPCPPKernelCompilationUtils;
+using namespace CompilationUtils;
 using namespace DPCPPKernelMetadataAPI;
 
 #define DEBUG_TYPE "dpcpp-kernel-wgloop-creator"
@@ -293,7 +293,7 @@ private:
 }
 
 bool WGLoopCreatorImpl::run() {
-  IndTy = DPCPPKernelLoopUtils::getIndTy(&M);
+  IndTy = LoopUtils::getIndTy(&M);
   ConstZero = ConstantInt::get(IndTy, 0);
   ConstOne = ConstantInt::get(IndTy, 1);
 
@@ -363,7 +363,7 @@ bool WGLoopCreatorImpl::processTIDInNotInlinedFuncs() {
   // Get all synchronize built-ins declared in module and their user functions.
   FuncSet SyncFunctions = getAllSyncBuiltinsDecls(M);
   FuncSet KernelAndSyncFuncs;
-  DPCPPKernelLoopUtils::fillFuncUsersSet(SyncFunctions, KernelAndSyncFuncs);
+  LoopUtils::fillFuncUsersSet(SyncFunctions, KernelAndSyncFuncs);
 
   FuncSet Kernels = getAllKernels(M);
   KernelAndSyncFuncs.insert(Kernels.begin(), Kernels.end());
@@ -482,8 +482,8 @@ void WGLoopCreatorImpl::patchNotInlinedFuncs(FuncSet &KernelAndSyncFuncs,
     // TODO only do the stores once.
     Builder.SetInsertPoint(CI);
     for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim) {
-      auto *LIDCall = DPCPPKernelLoopUtils::getWICall(
-          &M, mangledGetLID(), IndTy, Dim, CI, Twine("lid") + Twine(Dim));
+      auto *LIDCall = LoopUtils::getWICall(&M, mangledGetLID(), IndTy, Dim, CI,
+                                           Twine("lid") + Twine(Dim));
       Builder.CreateStore(LIDCall, LIDs[Dim]);
     }
 
@@ -573,9 +573,9 @@ void WGLoopCreatorImpl::fixTIDCallInNotInlinedFuncs(InstVec &TIDCalls) {
       Builder.SetInsertPoint(FuncsToInsertPoint[F]);
       GIDAddr = Builder.CreateAlloca(
           IndTy, nullptr, Twine("gid") + Twine(Dim) + Twine(".addr"));
-      CallInst *BaseGID = DPCPPKernelLoopUtils::getWICall(
-          &M, nameGetBaseGID(), IndTy, DimVal, Builder,
-          Twine("base.gid") + Twine(Dim));
+      CallInst *BaseGID =
+          LoopUtils::getWICall(&M, nameGetBaseGID(), IndTy, DimVal, Builder,
+                               Twine("base.gid") + Twine(Dim));
       GID = Builder.CreateAdd(LID, BaseGID, AppendWithDimension("gid", Dim));
       Builder.CreateStore(GID, GIDAddr);
       FuncsToGID.insert({Key, {GID, GIDAddr}});
@@ -926,7 +926,7 @@ LoopRegion WGLoopCreatorImpl::createVectorAndMaskedRemainderLoops() {
   BranchInst::Create(MaskGeneration, RetBB, MaskedLoopCmp, MaskedLoopEntry);
 
   // Generate mask.
-  auto *Mask = DPCPPKernelLoopUtils::generateRemainderMask(
+  auto *Mask = LoopUtils::generateRemainderMask(
       VF, Dim0Boundaries.ScalarLoopSize, MaskGeneration);
   BranchInst::Create(MaskedBlocks.PreHeader, MaskGeneration);
   auto MaskArg = MaskedF->arg_end() - 1;
@@ -1033,8 +1033,8 @@ LoopRegion WGLoopCreatorImpl::createPeelAndVectorAndRemainderLoops(
     ScalarLoopSize->addIncoming(Dim0Boundaries.ScalarLoopSize, RemainderIf);
 
     // Generate mask.
-    auto *Mask = DPCPPKernelLoopUtils::generateRemainderMask(VF, ScalarLoopSize,
-                                                             RemainderPreEntry);
+    auto *Mask =
+        LoopUtils::generateRemainderMask(VF, ScalarLoopSize, RemainderPreEntry);
     auto MaskArg = Func->arg_end() - 1;
     MaskArg->replaceAllUsesWith(Mask);
   }
@@ -1299,8 +1299,8 @@ ReturnInst *WGLoopCreatorImpl::getFunctionData(Function *F, InstVecVec &Gids,
                                                InstVecVec &Lids) {
   std::string GID = mangledGetGID();
   std::string LID = mangledGetLID();
-  DPCPPKernelLoopUtils::collectTIDCallInst(GID, Gids, F);
-  DPCPPKernelLoopUtils::collectTIDCallInst(LID, Lids, F);
+  LoopUtils::collectTIDCallInst(GID, Gids, F);
+  LoopUtils::collectTIDCallInst(LID, Lids, F);
 
   auto It = FuncReturn.find(F);
   if (It != FuncReturn.end())
@@ -1318,9 +1318,9 @@ Value *WGLoopCreatorImpl::getOrCreateBaseGID(unsigned Dim) {
     return BaseGIDs[Dim];
 
   // Create the value.
-  CallInst *BaseGID = DPCPPKernelLoopUtils::getWICall(
-      F->getParent(), nameGetBaseGID(), IndTy, Dim, NewEntry,
-      Twine("base.gid.dim") + Twine(Dim));
+  CallInst *BaseGID =
+      LoopUtils::getWICall(F->getParent(), nameGetBaseGID(), IndTy, Dim,
+                           NewEntry, Twine("base.gid.dim") + Twine(Dim));
   BaseGIDs[Dim] = BaseGID;
   return BaseGID;
 }
@@ -1340,9 +1340,9 @@ void WGLoopCreatorImpl::getLoopsBoundaries() {
           EECall, LoopSizeInd, Twine("loop.size.dim") + Twine(Dim), NewEntry);
     } else {
       InitGID = getOrCreateBaseGID(Dim);
-      LoopSize = DPCPPKernelLoopUtils::getWICall(
-          F->getParent(), mangledGetLocalSize(), IndTy, Dim, NewEntry,
-          Twine("local.size.dim") + Twine(Dim));
+      LoopSize = LoopUtils::getWICall(F->getParent(), mangledGetLocalSize(),
+                                      IndTy, Dim, NewEntry,
+                                      Twine("local.size.dim") + Twine(Dim));
     }
     InitGIDs.push_back(InitGID);
     LoopSizes.push_back(LoopSize);
@@ -1362,8 +1362,8 @@ void WGLoopCreatorImpl::getLoopsBoundaries() {
       break;
     Value *InitGID =
         EECall ? getEEInitGid(Dim)
-               : DPCPPKernelLoopUtils::getWICall(
-                     F->getParent(), nameGetBaseGID(), IndTy, Dim, NewEntry);
+               : LoopUtils::getWICall(F->getParent(), nameGetBaseGID(), IndTy,
+                                      Dim, NewEntry);
     InitGIDs.push_back(InitGID);
   }
 }
@@ -1425,7 +1425,7 @@ std::pair<LoopRegion, Value *> WGLoopCreatorImpl::addWGLoops(
     Value *InitGID = InitGIDs[ResolvedDim];
     LoopRegion Blocks;
     PHINode *IndVar;
-    std::tie(Blocks, IndVar) = DPCPPKernelLoopUtils::createLoop(
+    std::tie(Blocks, IndVar) = LoopUtils::createLoop(
         Head, Latch, InitGID, IncBy, MaxGIDs[ResolvedDim],
         MaskedF ? CmpInst::ICMP_SGE : CmpInst::ICMP_EQ, DimStr, Ctx);
 

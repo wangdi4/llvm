@@ -1,7 +1,6 @@
 //=------------------------ SGSizeCollector.cpp -*- C++ -*-------------------=//
-
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -16,8 +15,8 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #define DEBUG_TYPE "dpcpp-kernel-sg-size-collector"
@@ -76,7 +75,7 @@ bool SGSizeCollectorPass::runImpl(Module &M) {
     return false;
   // No need to vectorize function calls in OMP offload,
   // we are not enforced by the execution model.
-  if (DPCPPKernelCompilationUtils::isGeneratedFromOMP(M))
+  if (CompilationUtils::isGeneratedFromOMP(M))
     return false;
 
   bool Modified = false;
@@ -112,7 +111,7 @@ bool SGSizeCollectorPass::runImpl(Module &M) {
           // parameters. We can ignore the children as they won't be called
           // in vector context.
           (!EnableVectorizationOfByvalByrefFunctionsOpt &&
-           DPCPPKernelCompilationUtils::hasByvalByrefArgs(CalledFunc))) {
+           CompilationUtils::hasByvalByrefArgs(CalledFunc))) {
         if (isStructReturn) {
           LLVM_DEBUG(dbgs() << "Vectorization for function with struct return "
                             << "type is not supported\n");

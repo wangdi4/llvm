@@ -1,6 +1,6 @@
 //==------------------- ResolveMatrixWISlice.cpp -  C++ -*------------------==//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -21,8 +21,8 @@
 #include "llvm/Pass.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;
 
@@ -66,8 +66,8 @@ static Value *resolveSliceLengthCall(CallInst *CI) {
   unsigned Rows = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
   unsigned Cols = cast<ConstantInt>(CI->getArgOperand(2))->getZExtValue();
   // Create a @get_sub_group_slice_length.(i32 %total.element.count) call.
-  return DPCPPKernelCompilationUtils::createGetSubGroupSliceLengthCall(
-      Rows * Cols, CI, "sg.slice.length");
+  return CompilationUtils::createGetSubGroupSliceLengthCall(Rows * Cols, CI,
+                                                            "sg.slice.length");
 }
 
 // Create @get_sub_group_rowslice_id call for either
@@ -81,7 +81,7 @@ static Value *resolveSliceLengthCall(CallInst *CI) {
 static Value *createGetSubGroupRowSliceIdFromExtractOrInsert(CallInst *CI) {
   // Matrix is always the first arg.
   auto *Matrix = CI->getArgOperand(0);
-  assert(DPCPPKernelCompilationUtils::isValidMatrixType(
+  assert(CompilationUtils::isValidMatrixType(
              cast<FixedVectorType>(Matrix->getType())) &&
          "Unsupported matrix type");
   // Matrix size are always the second, third args.
@@ -89,7 +89,7 @@ static Value *createGetSubGroupRowSliceIdFromExtractOrInsert(CallInst *CI) {
   unsigned Cols = cast<ConstantInt>(CI->getArgOperand(2))->getZExtValue();
   // Element index is always the third last arg.
   auto *Index = CI->getArgOperand(CI->arg_size() - 3);
-  return DPCPPKernelCompilationUtils::createGetSubGroupRowSliceIdCall(
+  return CompilationUtils::createGetSubGroupRowSliceIdCall(
       Matrix, Rows, Cols, Index, CI, "rowslice.id");
 }
 
@@ -97,7 +97,7 @@ static Value *resolveSliceExtractElement(CallInst *CI) {
   auto *RowSliceId = createGetSubGroupRowSliceIdFromExtractOrInsert(CI);
   // Element data type of the matrix.
   auto *DataType = CI->getArgOperand(0)->getType()->getScalarType();
-  return DPCPPKernelCompilationUtils::createSubGroupRowSliceExtractElementCall(
+  return CompilationUtils::createSubGroupRowSliceExtractElementCall(
       RowSliceId, DataType, CI, "extract.elem");
 }
 
@@ -105,10 +105,10 @@ static Value *resolveSliceInsertElement(CallInst *CI) {
   auto *RowSliceId = createGetSubGroupRowSliceIdFromExtractOrInsert(CI);
   // %val is the fourth arg.
   auto *Val = CI->getArgOperand(3);
-  (void)DPCPPKernelCompilationUtils::createSubGroupRowSliceInsertElementCall(
-      RowSliceId, Val, CI);
+  (void)CompilationUtils::createSubGroupRowSliceInsertElementCall(RowSliceId,
+                                                                  Val, CI);
   auto *MatrixType = CI->getArgOperand(0)->getType();
-  return DPCPPKernelCompilationUtils::createSubGroupInsertRowSliceToMatrixCall(
+  return CompilationUtils::createSubGroupInsertRowSliceToMatrixCall(
       RowSliceId, MatrixType, CI, "mat.update");
 }
 

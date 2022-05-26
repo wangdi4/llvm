@@ -1,4 +1,4 @@
-//==-------- DPCPPKernelLoopUtils.h - Function declarations -*- C++---------==//
+//==-------- LoopUtils.h - Loop utilities -----------------------*- C++ -*-===//
 //
 // Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
@@ -8,15 +8,15 @@
 //
 // ===--------------------------------------------------------------------=== //
 
-#ifndef __DPCPP_KERNEL_LOOP_UTILS_H__
-#define __DPCPP_KERNEL_LOOP_UTILS_H__
+#ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_LOOP_UTILS_H
+#define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_LOOP_UTILS_H
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 namespace llvm {
 
@@ -29,7 +29,7 @@ struct LoopRegion {
   BasicBlock *Exit = nullptr;      // Exit block of the loop.
 };
 
-namespace DPCPPKernelLoopUtils {
+namespace LoopUtils {
 
 /// Creates loop with loopSize iterations arround the CFG region that
 ///       begins in head and finishes in latch.
@@ -93,19 +93,18 @@ Type *getIndTy(Module *M);
 /// TidCalls - array of get_***_id call to fill.
 /// F - kernel to collect information for.
 void collectTIDCallInst(StringRef TIDName,
-                        DPCPPKernelCompilationUtils::InstVecVec &TidCalls,
-                        Function *F);
+                        CompilationUtils::InstVecVec &TidCalls, Function *F);
 
 /// Fill atomic builtin user functions.
 void fillAtomicBuiltinUsers(Module &M, RuntimeService *RTService,
-                            DPCPPKernelCompilationUtils::FuncSet &UserFunc);
+                            CompilationUtils::FuncSet &UserFunc);
 
 /// Fills the users function through call instructions of roots
 ///       (also indirect users) into userFuncs.
 /// Roots - function to obtain their user functions.
 /// UserFuncs - set to fill with users of roots
-void fillFuncUsersSet(const DPCPPKernelCompilationUtils::FuncSet &Roots,
-                      DPCPPKernelCompilationUtils::FuncSet &UserFuncs);
+void fillFuncUsersSet(const CompilationUtils::FuncSet &Roots,
+                      CompilationUtils::FuncSet &UserFuncs);
 
 /// Fills direct user functions through instructions of functions in
 ///       funcs set into userFuncs. If a function is introduced into
@@ -113,9 +112,9 @@ void fillFuncUsersSet(const DPCPPKernelCompilationUtils::FuncSet &Roots,
 /// Funcs - function to obtain direct users.
 /// UserFuncs - set of users functions to fills.
 /// NewUsers - set of newly found users.
-void fillDirectUsers(const DPCPPKernelCompilationUtils::FuncSet *Funcs,
-                     DPCPPKernelCompilationUtils::FuncSet *UserFuncs,
-                     DPCPPKernelCompilationUtils::FuncSet *NewUsers);
+void fillDirectUsers(const CompilationUtils::FuncSet *Funcs,
+                     CompilationUtils::FuncSet *UserFuncs,
+                     CompilationUtils::FuncSet *NewUsers);
 
 /// Fill the user instructions (including users via other values)
 ///        of the input Function into the input vector.
@@ -125,15 +124,14 @@ void fillInstructionUsers(Function *F,
                           SmallVectorImpl<Instruction *> &UserInsts);
 
 /// Fill internal user functions.
-void fillInternalFuncUsers(Module &M,
-                           DPCPPKernelCompilationUtils::FuncSet &UserFuncs);
+void fillInternalFuncUsers(Module &M, CompilationUtils::FuncSet &UserFuncs);
 
 /// Fill printf or opencl_printf user functions.
-void fillPrintfs(Module &M, DPCPPKernelCompilationUtils::FuncSet &UserFuncs);
+void fillPrintfs(Module &M, CompilationUtils::FuncSet &UserFuncs);
 
 /// Fill work-item pipe builtin user functions.
-void fillWorkItemPipeBuiltinUsers(
-    Module &M, DPCPPKernelCompilationUtils::FuncSet &UserFuncs);
+void fillWorkItemPipeBuiltinUsers(Module &M,
+                                  CompilationUtils::FuncSet &UserFuncs);
 
 /// Generate the mask argument for masked vectorized kernel.
 /// \param VF the vectorization factor.
@@ -152,7 +150,7 @@ bool inSubLoop(BasicBlock *BB, Loop *CurLoop, LoopInfo *LI);
 /// Return true if instruction \p I is in a subloop of \p CurLoop.
 bool inSubLoop(Instruction *I, Loop *CurLoop, LoopInfo *LI);
 
-} // namespace DPCPPKernelLoopUtils
+} // namespace LoopUtils
 } // namespace llvm
 
-#endif //__DPCPP_KERNEL_LOOP_UTILS_H__
+#endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_LOOP_UTILS_H

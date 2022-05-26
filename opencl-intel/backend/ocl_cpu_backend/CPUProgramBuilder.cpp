@@ -1,4 +1,4 @@
-// Copyright 2010-2021 Intel Corporation.
+// Copyright 2010-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -25,7 +25,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #include "BitCodeContainer.h"
@@ -232,7 +232,7 @@ Kernel *CPUProgramBuilder::CreateKernel(llvm::Function *pFunc,
     std::vector<unsigned int>       memoryArguments;
 
     // TODO : consider separating into a different analisys pass
-    DPCPPKernelCompilationUtils::parseKernelArguments(
+    llvm::CompilationUtils::parseKernelArguments(
         pFunc->getParent() /* = pModule */, pFunc, useTLSGlobals, arguments,
         memoryArguments);
 
@@ -250,9 +250,9 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
     llvm::Module* pModule = pProgram->GetModule();
     auto Kernels = KernelList(pModule).getList();
     // TODO [CMPLRLLVM-27268] replace opencl.kernels metadata with attribute so
-    // that DPCPPKernelCompilationUtils::getKernels query is enough.
+    // that CompilationUtils::getKernels query is enough.
     if (Kernels.empty()) {
-      auto FSet = DPCPPKernelCompilationUtils::getKernels(*pModule);
+      auto FSet = llvm::CompilationUtils::getKernels(*pModule);
       for (auto *F : FSet)
         Kernels.push_back(F);
     }
@@ -264,7 +264,7 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
       if (kimd.KernelWrapper.hasValue())
         pWrapperFunc = kimd.KernelWrapper.get();
       else if (pFunc->hasFnAttribute("kernel_wrapper"))
-        pWrapperFunc = DPCPPKernelCompilationUtils::getFnAttributeFunction(
+        pWrapperFunc = llvm::CompilationUtils::getFnAttributeFunction(
             *pModule, *pFunc, "kernel_wrapper");
       assert(pWrapperFunc && "Always expect a kernel wrapper to be present");
       // Create a kernel and kernel JIT properties
@@ -325,16 +325,16 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
           vecSize = vkimd.VectorizedWidth.get();
         }
       } else if (pFunc->hasFnAttribute("vectorized_kernel")) {
-        pVecFunc = DPCPPKernelCompilationUtils::getFnAttributeFunction(
+        pVecFunc = llvm::CompilationUtils::getFnAttributeFunction(
             *pModule, *pFunc, "vectorized_kernel");
         assert(!(spKernelProps->IsVectorizedWithTail() && pVecFunc) &&
                "if the vector kernel is inlined the entry of the vector "
                "kernel should be nullptr");
         if (nullptr != pVecFunc && !dontVectorize) {
-          pWrapperVecFunc = DPCPPKernelCompilationUtils::getFnAttributeFunction(
+          pWrapperVecFunc = llvm::CompilationUtils::getFnAttributeFunction(
               *pModule, *pFunc, "kernel_wrapper");
-          DPCPPKernelCompilationUtils::getFnAttributeInt(
-              pFunc, "vectorized_width", vecSize);
+          llvm::CompilationUtils::getFnAttributeInt(pFunc, "vectorized_width",
+                                                    vecSize);
         }
       }
       if (nullptr != pVecFunc && !dontVectorize) {
@@ -491,7 +491,7 @@ void CPUProgramBuilder::JitProcessing(
   using namespace DPCPPKernelMetadataAPI;
   auto Kernels = KernelList(module).getList();
   if (Kernels.empty()) {
-    auto FSet = DPCPPKernelCompilationUtils::getKernels(*module);
+    auto FSet = llvm::CompilationUtils::getKernels(*module);
     for (auto *F : FSet)
       Kernels.push_back(F);
   }

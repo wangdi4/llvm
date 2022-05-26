@@ -1,6 +1,6 @@
 //===--GroupBuiltinPass.cpp - Process WorkGroup Builtins ---------*- C++ -*-==//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -9,16 +9,16 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/GroupBuiltinPass.h"
-#include "Utils/FunctionDescriptor.h"
-#include "Utils/NameMangleAPI.h"
-#include "Utils/ParameterType.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/TypeSize.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
 
 #define DEBUG_TYPE "dpcpp-kernel-group-builtin"
 
@@ -47,7 +47,7 @@ typedef uint64_t cl_ulong __attribute__((aligned(8)));
 
 using namespace llvm;
 using namespace llvm::NameMangleAPI;
-using namespace DPCPPKernelCompilationUtils;
+using namespace CompilationUtils;
 
 char GroupBuiltinLegacy::ID = 0;
 

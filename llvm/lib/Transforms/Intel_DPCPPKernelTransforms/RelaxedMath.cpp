@@ -15,13 +15,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/RelaxedMath.h"
-#include "NameMangleAPI.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 
 using namespace llvm;
-using namespace DPCPPKernelCompilationUtils;
+using namespace CompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-relaxed-math"
 

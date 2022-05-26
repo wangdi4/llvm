@@ -1,6 +1,6 @@
 //===-- VectorizerUtils.cpp - Vectorizer utilities --------------*- C++ -*-===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -9,16 +9,16 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/VectorizerUtils.h"
-#include "NameMangleAPI.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/RuntimeService.h"
 
 namespace llvm {
 
-using namespace DPCPPKernelCompilationUtils;
+using namespace CompilationUtils;
 
 namespace {
 
@@ -399,7 +399,7 @@ bool CanVectorize::hasVariableGetTIDAccess(Function &F) {
 }
 
 FuncSet CanVectorize::getNonInlineUnsupportedFunctions(Module &M) {
-  using namespace llvm::DPCPPKernelCompilationUtils;
+  using namespace llvm::CompilationUtils;
 
   // Add all kernels to root functions.
   // Kernels assumes to have implicit barrier.
@@ -432,7 +432,7 @@ FuncSet CanVectorize::getNonInlineUnsupportedFunctions(Module &M) {
   // Fill UnsupportedFuncs set with all functions that calls directly or
   // undirectly functions from the root functions set.
   FuncSet UnsupportedFuncs;
-  DPCPPKernelLoopUtils::fillFuncUsersSet(Roots, UnsupportedFuncs);
+  LoopUtils::fillFuncUsersSet(Roots, UnsupportedFuncs);
 
   return UnsupportedFuncs;
 }

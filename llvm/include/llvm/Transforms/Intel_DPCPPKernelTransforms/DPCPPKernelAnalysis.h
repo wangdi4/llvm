@@ -1,6 +1,6 @@
 //==--- DPCPPKernelAnalysis.h - Analyze DPCPP kernel properties -- C++ -*---==//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -13,7 +13,7 @@
 
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 namespace llvm {
 class LoopInfo;
@@ -41,7 +41,7 @@ public:
 
 private:
   using FuncVec = SmallVector<Function *, 8>;
-  using FuncSet = DPCPPKernelCompilationUtils::FuncSet;
+  using FuncSet = CompilationUtils::FuncSet;
 
   /// Fills the unsupported set with function that call (also indirectly)
   /// barrier (or implemented using barrier).

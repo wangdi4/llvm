@@ -1,6 +1,6 @@
 //===- LocalBuffers.h - Map GlobalVariable __local to local buffer --------===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -14,7 +14,7 @@
 #include "LocalBufferAnalysis.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 namespace llvm {
 
@@ -77,7 +77,7 @@ private:
   DebugInfoFinder DIFinder;
 
   /// @brief Store all kernels in the module
-  DPCPPKernelCompilationUtils::FuncSet KernelsFunctionSet;
+  CompilationUtils::FuncSet KernelsFunctionSet;
 
   /// @brief stores all the DIGlobalVariableExpression's need to be removed
   ///        in DICompileUnit.globals

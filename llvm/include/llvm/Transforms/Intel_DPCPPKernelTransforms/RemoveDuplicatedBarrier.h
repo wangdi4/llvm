@@ -17,7 +17,7 @@
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_REMOVE_DUPLICATED_BARRIER_PASS_H
 
 #include "llvm/IR/PassManager.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 
 namespace llvm {
 /// @brief RemoveDuplicatedBarrier pass is a module pass used to prevent
