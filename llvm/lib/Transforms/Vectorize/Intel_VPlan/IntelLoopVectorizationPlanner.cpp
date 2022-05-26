@@ -1431,7 +1431,7 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlanner::buildInitialVPlan(
     Plan->enableSOAAnalysis();
 
   // Build hierarchical CFG
-  VPlanHCFGBuilder HCFGBuilder(TheLoop, LI, *DL, WRLp, Plan, Legal, SE);
+  VPlanHCFGBuilder HCFGBuilder(TheLoop, LI, *DL, WRLp, Plan, Legal, SE, BFI);
   if (!HCFGBuilder.buildHierarchicalCFG())
     return nullptr;
 

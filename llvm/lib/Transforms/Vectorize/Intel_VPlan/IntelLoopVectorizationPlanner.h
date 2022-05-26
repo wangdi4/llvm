@@ -340,9 +340,10 @@ public:
                            const TargetTransformInfo *TTI, const DataLayout *DL,
                            class DominatorTree *DT,
                            VPOVectorizationLegality *Legal,
-                           VPlanVLSAnalysis *VLSA)
+                           VPlanVLSAnalysis *VLSA,
+                           BlockFrequencyInfo *BFI = nullptr)
       : WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL), Legal(Legal), VLSA(VLSA),
-        TheLoop(Lp), LI(LI), DT(DT) {}
+        TheLoop(Lp), LI(LI), DT(DT), BFI(BFI) {}
 #endif // INTEL_CUSTOMIZATION
 
   virtual ~LoopVectorizationPlanner() {}
@@ -680,6 +681,9 @@ private:
 
   /// The dominators tree.
   class DominatorTree *DT;
+
+  /// Block frequency info
+  BlockFrequencyInfo *BFI;
 
   /// The profitablity analysis.
   // LoopVectorizationCostModel *CM;
