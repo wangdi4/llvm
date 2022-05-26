@@ -714,6 +714,12 @@ static bool isCountableLoop(const BasicBlock *HeaderBB,
   for (const Value *Op : CmpInst->operands()) {
     auto *OpInst = dyn_cast<Instruction>(Op);
 
+    while (OpInst && (isa<TruncInst>(OpInst) || isa<FreezeInst>(OpInst) ||
+                      isa<ZExtInst>(OpInst) || isa<SExtInst>(OpInst))) {
+      Value *Op = OpInst->getOperand(0);
+      OpInst = dyn_cast<Instruction>(Op);
+    }
+
     if (!OpInst)
       continue;
 
