@@ -15,6 +15,8 @@
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -173,6 +175,11 @@ class VecCloneImpl {
     void disableLoopUnrolling(BasicBlock *Latch);
 
 #if INTEL_CUSTOMIZATION
+    /// Filter out unsupported R/U/L/s encodings.
+    /// Can be removed once these encodings are supported.
+    void filterUnsupportedVectorVariants(Module &M,
+                                         OptReportBuilder *ORBuilder);
+
     /// Languages like OpenCL override this method to perform some
     /// pre-processing for enabling VecClone pass.
     virtual void languageSpecificInitializations(Module &M);
@@ -188,11 +195,13 @@ class VecCloneImpl {
   public:
     VecCloneImpl() {}
     virtual ~VecCloneImpl() {}
-    bool runImpl(Module &M, LoopOptLimiter Limiter = LoopOptLimiter::None);
+    bool runImpl(Module &M, OptReportBuilder *ORBuilder = nullptr,
+                 LoopOptLimiter Limiter = LoopOptLimiter::None);
 }; // end pass class
 
 class VecClonePass : public PassInfoMixin<VecClonePass> {
   VecCloneImpl Impl;
+  OptReportBuilder ORBuilder;
 
   public:
     VecClonePass() {}
@@ -202,6 +211,7 @@ class VecClonePass : public PassInfoMixin<VecClonePass> {
 
 class VecClone : public ModulePass {
   VecCloneImpl Impl;
+  OptReportBuilder ORBuilder;
 
 protected:
   bool runOnModule(Module &M) override;

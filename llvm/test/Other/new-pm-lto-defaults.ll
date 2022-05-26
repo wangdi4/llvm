@@ -238,6 +238,7 @@
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running analysis:  OuterAnalysisManagerProxy{{.*}}on Loop at depth 1 containing: %loop<header><latch><exiting>
 ; CHECK-O23SZ-NEXT:Running pass: VecClonePass
+; CHECK-O23SZ-NEXT:Running analysis: OptReportOptionsAnalysis
 ; CHECK-O23SZ-NEXT:Invalidating analysis: InnerAnalysisManagerProxy
 ; CHECK-O23SZ-NEXT:Invalidating analysis: LazyCallGraphAnalysis
 ; CHECK-O23SZ-NEXT:Invalidating analysis: InnerAnalysisManagerProxy

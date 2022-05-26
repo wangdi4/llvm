@@ -231,6 +231,7 @@
 
 ; INTEL_CUSTOMIZATION
 ; CHECK-POSTLINK-O-NEXT: Running pass: VecClonePass
+; CHECK-POSTLINK-O-NEXT: Running analysis: OptReportOptionsAnalysis
 ; CHECK-POSTLINK-O-NEXT: Invalidating analysis: InnerAnalysisManagerProxy
 ; CHECK-POSTLINK-O-NEXT: Invalidating analysis: CallGraphAnalysis
 ; CHECK-POSTLINK-O-NEXT: Invalidating analysis: LazyCallGraphAnalysis

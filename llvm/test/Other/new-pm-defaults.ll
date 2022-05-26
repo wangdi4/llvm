@@ -262,6 +262,7 @@
 
 ; INTEL_CUSTOMIZATION
 ; CHECK-DEFAULT-NEXT:  Running pass: VecClonePass
+; CHECK-DEFAULT-NEXT:  Running analysis: OptReportOptionsAnalysis
 ; CHECK-DEFAULT-NEXT:  Invalidating analysis: InnerAnalysisManagerProxy
 ; CHECK-DEFAULT-NEXT:  Invalidating analysis: CallGraphAnalysis
 ; CHECK-DEFAULT-NEXT:  Invalidating analysis: LazyCallGraphAnalysis
