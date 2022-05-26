@@ -5896,6 +5896,12 @@ def fsycl_fp32_prec_sqrt : Flag<["-"], "fsycl-fp32-prec-sqrt">, Group<sycl_Group
   HelpText<"SYCL only. Specify that single precision floating-point sqrt is correctly rounded.">,
   MarshallingInfoFlag<CodeGenOpts<"SYCLFp32PrecSqrt">>;
 #endif // INTEL_CUSTOMIZATION
+  def fsycl_device_lib_online_link : Flag<["-"], "fsycl-device-lib-online-link">,
+  Group<sycl_Group>, Flags<[NoArgumentUnused, CoreOption]>, HelpText<"Enables "
+  "sycl device library online link (experimental)">;
+def fno_sycl_device_lib_online_link : Flag<["-"], "fno-sycl-device-lib-online-link">,
+  Group<sycl_Group>, Flags<[NoArgumentUnused, CoreOption]>, HelpText<"Disables "
+  "sycl device library online link (experimental)">;
 
 //===----------------------------------------------------------------------===//
 // FLangOption + NoXarchOption
