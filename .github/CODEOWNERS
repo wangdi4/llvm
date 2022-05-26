@@ -118,7 +118,13 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/lib/Passes/ @andykaylor @pankaj-chawla
 /llvm/include/llvm/Passes/ @andykaylor @pankaj-chawla
 /llvm/test/Transforms/PhaseOrdering/ @andykaylor @pankaj-chawla
+/llvm/test/Other/Intel_new-pm-O0-paropt-vecopt.ll @andykaylor @pankaj-chawla @sguggill @skozhukh @intel-restricted/cmplrllvm-llvm-paropt
+/llvm/test/Other/Intel_new-pm-O2-paropt.ll @andykaylor @pankaj-chawla @intel-restricted/cmplrllvm-llvm-paropt
+/llvm/test/Other/Intel_new-pm-O3-paropt.ll @andykaylor @pankaj-chawla @intel-restricted/cmplrllvm-llvm-paropt
+/llvm/test/Other/Intel_opt-O2-pipeline-paropt.ll @andykaylor @pankaj-chawla @intel-restricted/cmplrllvm-llvm-paropt
+/llvm/test/Other/Intel_opt-O3-pipeline-paropt.ll @andykaylor @pankaj-chawla @intel-restricted/cmplrllvm-llvm-paropt
 /clang/lib/CodeGen/BackendUtil.cpp @andykaylor @pankaj-chawla @LuoYuanke @phoebewang @williamweixiao
+/clang/test/CodeGen/lto-newpm-pipeline.c @andykaylor @pankaj-chawla
 
 # COMPONENT: DGI
 # JIRA: CMPLRLLVM->LLVM Debug Information
