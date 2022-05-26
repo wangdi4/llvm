@@ -5892,20 +5892,16 @@ def fno_sycl_device_lib_EQ : CommaJoined<["-"], "fno-sycl-device-lib=">, Group<s
   Values<"libc, libm-fp32, libm-fp64, all">, HelpText<"Control exclusion of "
   "device libraries from device binary linkage. Valid arguments "
   "are libc, libm-fp32, libm-fp64, all">;
-<<<<<<< HEAD
 def fsycl_fp32_prec_sqrt : Flag<["-"], "fsycl-fp32-prec-sqrt">, Group<sycl_Group>, Flags<[CC1Option, DpcppOption]>,
-=======
-def fsycl_device_lib_online_link : Flag<["-"], "fsycl-device-lib-online-link">,
+  HelpText<"SYCL only. Specify that single precision floating-point sqrt is correctly rounded.">,
+  MarshallingInfoFlag<CodeGenOpts<"SYCLFp32PrecSqrt">>;
+#endif // INTEL_CUSTOMIZATION
+  def fsycl_device_lib_online_link : Flag<["-"], "fsycl-device-lib-online-link">,
   Group<sycl_Group>, Flags<[NoArgumentUnused, CoreOption]>, HelpText<"Enables "
   "sycl device library online link (experimental)">;
 def fno_sycl_device_lib_online_link : Flag<["-"], "fno-sycl-device-lib-online-link">,
   Group<sycl_Group>, Flags<[NoArgumentUnused, CoreOption]>, HelpText<"Disables "
   "sycl device library online link (experimental)">;
-def fsycl_fp32_prec_sqrt : Flag<["-"], "fsycl-fp32-prec-sqrt">, Group<sycl_Group>, Flags<[CC1Option]>,
->>>>>>> dfb37a81bd8cf626409d3070930d856d03f21f9d
-  HelpText<"SYCL only. Specify that single precision floating-point sqrt is correctly rounded.">,
-  MarshallingInfoFlag<CodeGenOpts<"SYCLFp32PrecSqrt">>;
-#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // FLangOption + NoXarchOption
