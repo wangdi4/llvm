@@ -1,6 +1,6 @@
-//===- TypeAlignment.h - Type alignment utilities--------------------------===//
+//===- TypeAlignment.h - Type alignment utilities----------------*- C++ -*-===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -8,8 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef INTEL_DPCPP_KERNEL_TRANSFORMS_TYPE_ALIGNMRENT_H
-#define INTEL_DPCPP_KERNEL_TRANSFORMS_TYPE_ALIGNMRENT_H
+#ifndef INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_TYPE_ALIGNMRENT_H
+#define INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_TYPE_ALIGNMRENT_H
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelArgType.h"
 
@@ -44,4 +44,4 @@ public:
 
 } // namespace llvm
 
-#endif
+#endif // INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_TYPE_ALIGNMRENT_H

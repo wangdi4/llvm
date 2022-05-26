@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,22 +12,22 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "DriverVectorizerFunction.h"
 #include "OpenclRuntime.h"
-#include "VectorizerFunction.h"
 #include "BuiltinKeeper.h"
-#include "NameMangleAPI.h"
-#include "Mangler.h"
-#include "ParameterType.h"
-#include "Logger.h"
 #include "CompilationUtils.h"
+#include "DriverVectorizerFunction.h"
+#include "Logger.h"
+#include "Mangler.h"
+#include "VectorizerFunction.h"
 #include "common_dev_limits.h"
 
+#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/IR/Module.h"
-#include "llvm/ADT/StringRef.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
 
 using namespace llvm::reflection;
 using namespace llvm::NameMangleAPI;

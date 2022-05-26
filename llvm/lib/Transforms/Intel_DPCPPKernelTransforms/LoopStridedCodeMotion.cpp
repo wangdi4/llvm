@@ -22,10 +22,10 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LoopWIAnalysis.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/VectorizerUtils.h"
 
 #define DEBUG_TYPE "dpcpp-kernel-loop-strided-code-motion"
@@ -195,7 +195,7 @@ void LoopStridedCodeMotionImpl::scanLoop(DomTreeNode *N) {
     return;
 
   // Don't process instruction in sub loops.
-  if (!DPCPPKernelLoopUtils::inSubLoop(BB, &L, &LI)) {
+  if (!LoopUtils::inSubLoop(BB, &L, &LI)) {
     for (auto &I : *BB) {
       // Avoid moving original header phi nodes or latch entries.
       if (HeaderPhi.contains(&I) || HeaderPhiLatchEntries.contains(&I)) {

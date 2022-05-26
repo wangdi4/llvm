@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,9 +15,9 @@
 #ifndef __TYPE_CONVERSION_H__
 #define __TYPE_CONVERSION_H__
 
-#include "ParameterType.h"
-#include "llvm/IR/Type.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Type.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
 
 namespace intel{
 llvm::Type *reflectionToLLVM(llvm::LLVMContext &,

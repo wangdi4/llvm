@@ -1,6 +1,6 @@
 //===- CoerceTypes.cpp - CoerceTypes pass C++ -*--------------------------===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -11,12 +11,12 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/CoerceTypes.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;
 using namespace DPCPPKernelMetadataAPI;
-using namespace DPCPPKernelCompilationUtils;
+using namespace CompilationUtils;
 
 namespace {
 

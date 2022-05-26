@@ -22,8 +22,6 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DPCPPAliasAnalysis.cpp
   DPCPPEqualizer.cpp
   DPCPPKernelAnalysis.cpp
-  DPCPPKernelCompilationUtils.cpp
-  DPCPPKernelLoopUtils.cpp
   DPCPPKernelPostVec.cpp
   DPCPPKernelTransforms.cpp
   DPCPPKernelVecClone.cpp
@@ -42,7 +40,6 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   InstToFuncCall.cpp
   InternalizeGlobalVariables.cpp
   InternalizeNonKernelFunc.cpp
-  KernelBarrierUtils.cpp
   LinearIdResolver.cpp
   LocalBufferAnalysis.cpp
   LocalBuffers.cpp
@@ -84,12 +81,14 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   SubgroupEmulation/SGSizeAnalysis.cpp
   SubgroupEmulation/SGValueWiden.cpp
   TaskSeqAsyncHandling.cpp
-  Utils/CPUDetect.cpp
+  Utils/BarrierUtils.cpp
+  Utils/CompilationUtils.cpp
   Utils/DPCPPChannelPipeUtils.cpp
   Utils/DPCPPStatistic.cpp
   Utils/FunctionDescriptor.cpp
   Utils/ImplicitArgsUtils.cpp
   Utils/LoopPeeling.cpp
+  Utils/LoopUtils.cpp
   Utils/NameMangleAPI.cpp
   Utils/ParameterType.cpp
   Utils/Predicator.cpp
@@ -128,10 +127,3 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   Support
   TransformUtils
 )
-
-# FIXME: There is no corresponding argument in add_llvm_component_library with
-# the same semantic as target_include_directories. It's not typical to include
-# additional directories the way below. This require some redesign for headers
-# layout. Community changes can break this.
-target_include_directories(LLVMIntel_DPCPPKernelTransforms
-  PRIVATE ${LLVM_MAIN_SRC_DIR}/lib/Transforms/Intel_DPCPPKernelTransforms/Utils)

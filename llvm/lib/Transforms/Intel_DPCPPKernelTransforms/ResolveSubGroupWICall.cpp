@@ -1,6 +1,6 @@
 //= ResolveSubGroupWICall.cpp - Resolve DPC++ kernel subgroup work-item call =//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -17,10 +17,10 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveWICall.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/WGBoundDecoder.h"
 #include <map>
@@ -30,7 +30,7 @@
 
 using namespace llvm;
 using namespace DPCPPKernelMetadataAPI;
-using namespace DPCPPKernelCompilationUtils;
+using namespace CompilationUtils;
 
 namespace {
 /// Legacy ResolveSubGroupWICall pass.
@@ -178,7 +178,7 @@ bool ResolveSubGroupWICallPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
   std::map<Function *, Function *> OrigToPatchedFuncMap;
 
   // Collect all functions which directly/indiectly call subgroups functions.
-  DPCPPKernelLoopUtils::fillFuncUsersSet(SubGroupFunctions, FuncsToBePatched);
+  LoopUtils::fillFuncUsersSet(SubGroupFunctions, FuncsToBePatched);
 
   for (Function *OrigFunc : FuncsToBePatched) {
     if (EarlyExitFuncToKernelMap.count(OrigFunc))
@@ -583,7 +583,7 @@ void ResolveSubGroupWICallPass::resolveGetSubGroupRowSliceId(
   assert(CI->arg_size() == 4 &&
          "A get_sub_group_rowslice_id call must have exactly 4 args.");
   auto *Matrix = CI->getArgOperand(0);
-  assert(DPCPPKernelCompilationUtils::isValidMatrixType(
+  assert(CompilationUtils::isValidMatrixType(
              cast<FixedVectorType>(Matrix->getType())) &&
          "Unsupported matrix type");
   unsigned R = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
@@ -656,7 +656,7 @@ Value *ResolveSubGroupWICallPass::replaceSubGroupInsertRowSliceToMatrix(
   CallInst *SGRowSliceInsertElementCall = nullptr;
   for (auto *U : RowSliceId->users()) {
     auto *I = cast<CallInst>(U);
-    if (DPCPPKernelCompilationUtils::isSubGroupRowSliceInsertElement(
+    if (CompilationUtils::isSubGroupRowSliceInsertElement(
             I->getCalledFunction()->getName())) {
       SGRowSliceInsertElementCall = I;
       break;

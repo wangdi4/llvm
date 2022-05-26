@@ -1,6 +1,6 @@
 //===- BuiltinImport.cpp - Import DPC++ builtin modules -------------------===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -9,7 +9,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinImport.h"
-#include "CPUDetect.h"
 #include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
@@ -17,13 +16,13 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ImplicitArgsAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
-using namespace DPCPPKernelCompilationUtils;
+using namespace CompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-builtin-import"
 
@@ -111,6 +110,22 @@ BuiltinImportPass::BuiltinImportPass(const SmallVector<Module *, 2> &,
   initializeBuiltinImportLegacyPass(*PassRegistry::getPassRegistry());
 }
 
+static StringRef getCPUPrefixSSE(bool is64BitOS) {
+  return is64BitOS ? "h8" : "n8";
+}
+static StringRef getCPUPrefixAVX(bool is64BitOS) {
+  return is64BitOS ? "e9" : "g9";
+}
+static StringRef getCPUPrefixAVX2(bool is64BitOS) {
+  return is64BitOS ? "l9" : "s9";
+}
+static StringRef getCPUPrefixAVX512(bool is64BitOS) {
+  return is64BitOS ? "z0" : "x0";
+}
+static StringRef getCPUPrefixAMX(bool is64BitOS) {
+  return is64BitOS ? "z1" : "x1";
+}
+
 // This function replaces keyword "shared" in the builtin name by current CPU
 // prefix, for example:
 // If CPU is l9, __ocl_svml_shared_acos1f to be changed to __ocl_svml_l9_acos1f
@@ -121,30 +136,30 @@ void BuiltinImportPass::UpdateSvmlBuiltin(const FuncVec &SvmlFunctions,
 
   // Get svml calling convention based on cpu perfix.
   CallingConv::ID CC = CallingConv::C; // default
-  std::string SVMLCPUPrefix = CPUPrefix.str();
-  if (CPUPrefix.compare(CPUDetect::GetCPUPrefixSSE(true)) == 0 ||
-      CPUPrefix.compare(CPUDetect::GetCPUPrefixSSE(false)) == 0)
+  StringRef SVMLCPUPrefix = CPUPrefix;
+  if (CPUPrefix.equals(getCPUPrefixSSE(true)) ||
+      CPUPrefix.equals(getCPUPrefixSSE(false)))
     CC = CallingConv::Intel_OCL_BI;
-  else if (CPUPrefix.compare(CPUDetect::GetCPUPrefixAVX(true)) == 0 ||
-           CPUPrefix.compare(CPUDetect::GetCPUPrefixAVX(false)) == 0 ||
-           CPUPrefix.compare(CPUDetect::GetCPUPrefixAVX2(true)) == 0 ||
-           CPUPrefix.compare(CPUDetect::GetCPUPrefixAVX2(false)) == 0)
+  else if (CPUPrefix.equals(getCPUPrefixAVX(true)) ||
+           CPUPrefix.equals(getCPUPrefixAVX(false)) ||
+           CPUPrefix.equals(getCPUPrefixAVX2(true)) ||
+           CPUPrefix.equals(getCPUPrefixAVX2(false)))
     CC = CallingConv::Intel_OCL_BI_AVX;
-  else if (CPUPrefix.compare(CPUDetect::GetCPUPrefixAVX512(true)) == 0 ||
-           CPUPrefix.compare(CPUDetect::GetCPUPrefixAVX512(false)) == 0)
+  else if (CPUPrefix.equals(getCPUPrefixAVX512(true)) ||
+           CPUPrefix.equals(getCPUPrefixAVX512(false)))
     CC = CallingConv::Intel_OCL_BI_AVX512;
-  else if (CPUPrefix.compare(CPUDetect::GetCPUPrefixAMX(true)) == 0) {
+  else if (CPUPrefix.equals(getCPUPrefixAMX(true))) {
     CC = CallingConv::Intel_OCL_BI_AVX512;
     // FIXME:
     // ocl_svml lib for AMX 64bit is not available yet (__ocl_svml_z1.so/dll)
     // Use AVX512 implementations as a workaround
-    SVMLCPUPrefix = CPUDetect::GetCPUPrefixAVX512(true);
-  } else if (CPUPrefix.compare(CPUDetect::GetCPUPrefixAMX(false)) == 0) {
+    SVMLCPUPrefix = getCPUPrefixAVX512(true);
+  } else if (CPUPrefix.equals(getCPUPrefixAMX(false))) {
     CC = llvm::CallingConv::Intel_OCL_BI_AVX512;
     // FIXME:
     // ocl_svml lib for AMX 32bit is not available yet (__ocl_svml_x1.so/dll)
     // Use AVX512 implementations as a workaround
-    SVMLCPUPrefix = CPUDetect::GetCPUPrefixAVX512(false);
+    SVMLCPUPrefix = getCPUPrefixAVX512(false);
   }
 
   for (auto &SvmlF : SvmlFunctions) {
@@ -156,7 +171,7 @@ void BuiltinImportPass::UpdateSvmlBuiltin(const FuncVec &SvmlFunctions,
       if (!F)
         continue;
       std::string NewName = FName.str();
-      NewName.replace(11, 6, SVMLCPUPrefix);
+      NewName.replace(11, 6, SVMLCPUPrefix.str());
       F->setName(NewName);
       F->setCallingConv(CC);
 
@@ -170,7 +185,7 @@ void BuiltinImportPass::UpdateSvmlBuiltin(const FuncVec &SvmlFunctions,
 void BuiltinImportPass::GetCalledFunctions(const Function *F,
                                            FuncVec &CalledFuncs,
                                            FuncVec &SvmlFunctions) const {
-  DPCPPKernelCompilationUtils::FuncSet VisitedSet;
+  CompilationUtils::FuncSet VisitedSet;
 
   // Iterate over function instructions and look for call instructions.
   for (auto &I : instructions(F)) {
@@ -515,8 +530,7 @@ bool BuiltinImportPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
 
   for (auto &TyNamePair : STyNames)
     TyNamePair.first->setName(
-        DPCPPKernelCompilationUtils::stripStructNameTrailingDigits(
-            TyNamePair.second));
+        CompilationUtils::stripStructNameTrailingDigits(TyNamePair.second));
 
   // Allow removal of function from module after it is inlined.
   for (auto &F : M)

@@ -1,6 +1,6 @@
 //=== LocalBuffers.cpp -  Map GlobalVariable __local to local buffer -========//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -10,7 +10,6 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LocalBuffers.h"
 
-#include "ImplicitArgsUtils.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DataLayout.h"
@@ -20,8 +19,9 @@
 #include "llvm/IR/Value.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
@@ -100,7 +100,7 @@ bool LocalBuffersPass::runImpl(Module &M, LocalBufferInfo *LBInfo) {
   DIFinder.processModule(M);
 
   // Get all kernels
-  KernelsFunctionSet = DPCPPKernelCompilationUtils::getAllKernels(M);
+  KernelsFunctionSet = CompilationUtils::getAllKernels(M);
 
   // Run on all defined function in the module
   for (auto &Func : M) {
@@ -111,7 +111,7 @@ bool LocalBuffersPass::runImpl(Module &M, LocalBufferInfo *LBInfo) {
     }
 
     // pipes ctor is not a kernel
-    if (DPCPPKernelCompilationUtils::isGlobalCtorDtorOrCPPFunc(F))
+    if (CompilationUtils::isGlobalCtorDtorOrCPPFunc(F))
       continue;
 
     runOnFunction(F);
@@ -198,8 +198,8 @@ static void replaceAllUsesOfConstantWith(Constant *From, Instruction *To) {
         else
           Replacement->replaceUsesOfWith(Prev, UserToInstMap[Prev]);
       } else {
-        Replacement = DPCPPKernelCompilationUtils::
-            createInstructionFromConstantWithReplacement(
+        Replacement =
+            CompilationUtils::createInstructionFromConstantWithReplacement(
                 cast<Constant>(U), Prev, UserToInstMap[Prev], InsertPoint);
         UserToInstMap[U] = Replacement;
       }
@@ -358,16 +358,16 @@ void LocalBuffersPass::runOnFunction(Function *F) {
   // Getting the implicit arguments
   Value *LocalMem = 0;
   if (UseTLSGlobals) {
-    LocalMem = DPCPPKernelCompilationUtils::getTLSGlobal(
-        M, ImplicitArgsUtils::IA_SLM_BUFFER);
+    LocalMem =
+        CompilationUtils::getTLSGlobal(M, ImplicitArgsUtils::IA_SLM_BUFFER);
     assert(LocalMem && "TLS LocalMem is not found.");
     // Load the LocalMem pointer from TLS GlobalVariable
     IRBuilder<> Builder(InsertPoint);
     LocalMem = Builder.CreateLoad(LocalMem->getType()->getPointerElementType(),
                                   LocalMem, "LocalMemBase");
   } else {
-    DPCPPKernelCompilationUtils::getImplicitArgs(F, &LocalMem, nullptr, nullptr,
-                                                 nullptr, nullptr, nullptr);
+    CompilationUtils::getImplicitArgs(F, &LocalMem, nullptr, nullptr, nullptr,
+                                      nullptr, nullptr);
   }
 
   assert(LocalMem && "LocalMem should not be nullptr.");

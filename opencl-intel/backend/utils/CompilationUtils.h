@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2022 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -43,10 +43,6 @@ namespace llvm {
 using namespace llvm;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
-  DEFINE_EXCEPTION(CompilerException)
-  // exception to signal compiler to emit a "build error" diagnostic.
-  DEFINE_EXCEPTION(UserErrorCompilerException)
 
   namespace OclVersion {
 
@@ -482,13 +478,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string ATTR_KERNEL_UNIFORM_CALL;
     static const std::string ATTR_KERNEL_CONVERGENT_CALL;
 
-    // Indicates that function's code is invalid because of an issue with
-    // vector-variant attributes. Below are possible reasons of this.
-    static const std::string ATTR_VECTOR_VARIANT_FAILURE;
-
-    // Indicates that a must vectorize functions failed to vectorize.
-    static const std::string ATTR_VALUE_FAILED_TO_VECTORIZE;
-
     // Indicates that there is no acceptable (masked) vector-variants to lower
     // an indirect call in scalar context.
     static const std::string ATTR_VALUE_FAILED_TO_LOWER_INDIRECT_CALL;
@@ -679,9 +668,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     /// hasFDivWithFastFlag - check FDiv with fast flag
     static bool hasFDivWithFastFlag(Module *M);
-
-    /// generatedFromSPIRV - check that IR was generated from SPIRV
-    static bool generatedFromSPIRV(const Module &M);
 
     /// Import a declaration of \p Orig into module \p Dst
     ///

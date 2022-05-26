@@ -11,12 +11,12 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorizationDimensionAnalysis.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
-using namespace DPCPPKernelCompilationUtils;
+using namespace CompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-vec-dim-analysis"
 
@@ -133,7 +133,7 @@ static bool canSwitchDimension(Function *F) {
     if (Function *Func = F->getParent()->getFunction(*It))
       ForbiddenFuncs.insert(Func);
   FuncSet UserFuncs;
-  DPCPPKernelLoopUtils::fillFuncUsersSet(ForbiddenFuncs, UserFuncs);
+  LoopUtils::fillFuncUsersSet(ForbiddenFuncs, UserFuncs);
   if (UserFuncs.contains(F))
     return false;
 

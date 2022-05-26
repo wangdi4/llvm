@@ -1,4 +1,4 @@
-//===-- DPCPPKernelCompilationUtils.h - Function declarations -*- C++ -----===//
+//===-- CompilationUtils.h - Function declarations --------------*- C++ -*-===//
 //
 // Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
@@ -8,11 +8,9 @@
 //
 // ===--------------------------------------------------------------------=== //
 
-#ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_COMPILATION_UTILS_H
-#define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_COMPILATION_UTILS_H
+#ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_COMPILATION_UTILS_H
+#define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_COMPILATION_UTILS_H
 
-#include "KernelArgType.h"
-#include "Utils/MetadataAPI.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringExtras.h"
@@ -22,6 +20,8 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelArgType.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 namespace llvm {
 class IRBuilderBase;
@@ -115,7 +115,7 @@ inline int getAttributeAsInt(const Function &F, StringRef Attr, int Default) {
 }
 } // namespace KernelAttribute
 
-namespace DPCPPKernelCompilationUtils {
+namespace CompilationUtils {
 
 enum AddressSpace {
   ADDRESS_SPACE_PRIVATE = 0,
@@ -200,6 +200,9 @@ bool isGeneratedFromOCLCPP(const Module &M);
 
 /// generatedFromOMP - check that IR was generated from OpenMP.
 bool isGeneratedFromOMP(const Module &M);
+
+/// Return true if IR is generated from SPIRV.
+bool generatedFromSPIRV(const Module &M);
 
 /// Return true if string is plain or mangled get_enqueued_local_size.
 bool isGetEnqueuedLocalSize(StringRef S);
@@ -775,7 +778,7 @@ void patchNotInlinedTIDUserFunc(
     PointerType *LocalIdAllocTy,
     function_ref<Value *(CallInst *CI)> CreateLIDArg);
 
-} // namespace DPCPPKernelCompilationUtils
+} // namespace CompilationUtils
 } // namespace llvm
 
-#endif
+#endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_COMPILATION_UTILS_H

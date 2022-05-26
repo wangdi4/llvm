@@ -1,6 +1,6 @@
-//===- NameMangleAPI.h - Name mangle APIs ---------------------------------===//
+//===- NameMangleAPI.h - Name mangle APIs -----------------------*- C++ -*-===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -8,11 +8,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef INTEL_DPCPP_KERNEL_TRANSFORMS_NAME_MANGLE_API_H
-#define INTEL_DPCPP_KERNEL_TRANSFORMS_NAME_MANGLE_API_H
+#ifndef INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_NAME_MANGLE_API_H
+#define INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_NAME_MANGLE_API_H
 
-#include "FunctionDescriptor.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
 
 namespace llvm {
 namespace NameMangleAPI {
@@ -43,4 +43,4 @@ std::string mangle(const reflection::FunctionDescriptor &FD);
 } // namespace NameMangleAPI
 } // namespace llvm
 
-#endif
+#endif // INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_NAME_MANGLE_API_H

@@ -12,9 +12,9 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 
 using namespace llvm;
 
@@ -193,7 +193,7 @@ void LoopWIInfo::scanLoop(DomTreeNode *N) {
     return;
 
   // We don't analyze instructions in sub-loops.
-  if (!DPCPPKernelLoopUtils::inSubLoop(BB, L, LI))
+  if (!LoopUtils::inSubLoop(BB, L, LI))
     for (auto It = (BB == L->getHeader())
                        ? BasicBlock::iterator(BB->getFirstNonPHI())
                        : BB->begin(),
@@ -215,9 +215,8 @@ LoopWIInfo::Dependency LoopWIInfo::getDependency(Value *V) {
   // Thus the only value that are not encountered before should be invariant
   // or instruction computed inside sub-loops.
   bool IsInvariant = L->isLoopInvariant(V);
-  assert((IsInvariant ||
-          (isa<Instruction>(V) &&
-           DPCPPKernelLoopUtils::inSubLoop(cast<Instruction>(V), L, LI))) &&
+  assert((IsInvariant || (isa<Instruction>(V) &&
+                          LoopUtils::inSubLoop(cast<Instruction>(V), L, LI))) &&
          "non-invariant value with no dep");
 
   // Do not assume anything on values computed in sub-loops.

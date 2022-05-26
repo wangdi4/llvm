@@ -1,6 +1,6 @@
 //===---------------- SGFunctionWiden.h - Widen functions ----------------===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -13,15 +13,15 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/Intel_VectorVariant.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGHelper.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
 namespace llvm {
 
 class FunctionWidener {
 public:
-  void run(DPCPPKernelCompilationUtils::FuncSet &Functions,
+  void run(CompilationUtils::FuncSet &Functions,
            DenseMap<Function *, std::set<Function *>> &FuncMap);
 
 private:
@@ -29,9 +29,9 @@ private:
 
   BarrierUtils Utils;
 
-  DPCPPKernelCompilationUtils::FuncSet WGSyncFunctions;
+  CompilationUtils::FuncSet WGSyncFunctions;
 
-  DPCPPKernelCompilationUtils::FuncSet FunctionsToWiden;
+  CompilationUtils::FuncSet FunctionsToWiden;
 
   /// Remove byval attribute for vector parameters.
   void removeByValAttr(Function &F);

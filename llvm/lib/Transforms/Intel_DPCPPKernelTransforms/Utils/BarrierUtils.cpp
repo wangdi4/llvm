@@ -1,6 +1,6 @@
-//===- KernelBarrierUtils.cpp - Barrier Utils -----------------------------===//
+//===- BarrierUtils.cpp - Barrier Utils -----------------------------------===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -8,8 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
-
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
@@ -17,8 +16,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
-namespace llvm {
-
+using namespace llvm;
 using namespace DPCPPKernelMetadataAPI;
 
 BarrierUtils::BarrierUtils()
@@ -116,10 +114,9 @@ InstVector BarrierUtils::getWGCallInstructions(CALL_BI_TYPE Ty) {
     }
     StringRef FName = F.getName();
     if ((CALL_BI_TYPE_WG == Ty &&
-         DPCPPKernelCompilationUtils::isWorkGroupBuiltin(FName)) ||
+         CompilationUtils::isWorkGroupBuiltin(FName)) ||
         (CALL_BI_TYPE_WG_ASYNC_OR_PIPE == Ty &&
-         DPCPPKernelCompilationUtils::isWorkGroupAsyncOrPipeBuiltin(FName,
-                                                                    *M))) {
+         CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(FName, *M))) {
       // Module contains declaration of a WG function built-in, FIx its
       // usages.
       for (User *U : F.users()) {
@@ -219,16 +216,16 @@ unsigned BarrierUtils::getFunctionVectorizationWidth(const Function *F) const {
 
 Instruction *BarrierUtils::createBarrier(Instruction *InsertBefore) {
   if (!BarrierFunc)
-    BarrierFunc = M->getFunction(DPCPPKernelCompilationUtils::mangledWGBarrier(
-        DPCPPKernelCompilationUtils::BarrierType::NoScope));
+    BarrierFunc = M->getFunction(CompilationUtils::mangledWGBarrier(
+        CompilationUtils::BarrierType::NoScope));
   if (!BarrierFunc) {
     // Module has no barrier declaration. Create one
     Type *Result = Type::getVoidTy(M->getContext());
     Type *FuncArgTys[] = {IntegerType::get(M->getContext(), 32)};
-    BarrierFunc = createFunctionDeclaration(
-        DPCPPKernelCompilationUtils::mangledWGBarrier(
-            DPCPPKernelCompilationUtils::BarrierType::NoScope),
-        Result, FuncArgTys);
+    BarrierFunc =
+        createFunctionDeclaration(CompilationUtils::mangledWGBarrier(
+                                      CompilationUtils::BarrierType::NoScope),
+                                  Result, FuncArgTys);
     BarrierFunc->setAttributes(BarrierFunc->getAttributes().addFnAttribute(
         BarrierFunc->getContext(),
         Attribute::Convergent));
@@ -289,8 +286,8 @@ Instruction *BarrierUtils::createGetSpecialBuffer(Instruction *InsertBefore) {
 InstVector &BarrierUtils::getAllGetLocalId() {
   if (!LIDInitialized) {
     GetLIDInstructions.clear();
-    auto CIs = DPCPPKernelCompilationUtils::getCallInstUsersOfFunc(
-        *M, DPCPPKernelCompilationUtils::mangledGetLID());
+    auto CIs = CompilationUtils::getCallInstUsersOfFunc(
+        *M, CompilationUtils::mangledGetLID());
     GetLIDInstructions.assign(CIs.begin(), CIs.end());
     LIDInitialized = true;
   }
@@ -300,8 +297,8 @@ InstVector &BarrierUtils::getAllGetLocalId() {
 InstVector &BarrierUtils::getAllGetGlobalId() {
   if (!GIDInitialized) {
     GetGIDInstructions.clear();
-    auto CIs = DPCPPKernelCompilationUtils::getCallInstUsersOfFunc(
-        *M, DPCPPKernelCompilationUtils::mangledGetGID());
+    auto CIs = CompilationUtils::getCallInstUsersOfFunc(
+        *M, CompilationUtils::mangledGetGID());
     GetGIDInstructions.assign(CIs.begin(), CIs.end());
     GIDInitialized = true;
   }
@@ -324,12 +321,12 @@ Instruction *BarrierUtils::createGetBaseGlobalId(Value *Dim,
   }
   return CallInst::Create(
       GetBaseGIDFunc, Dim,
-      DPCPPKernelCompilationUtils::AppendWithDimension("BaseGlobalId_", Dim),
+      CompilationUtils::AppendWithDimension("BaseGlobalId_", Dim),
       InsertBefore);
 }
 
 Instruction *BarrierUtils::createGetLocalId(unsigned Dim, IRBuilderBase &B) {
-  const std::string strLID = DPCPPKernelCompilationUtils::mangledGetLID();
+  const std::string strLID = CompilationUtils::mangledGetLID();
   if (!GetLIDFunc) {
     // Get existing get_local_id function
     GetLIDFunc = M->getFunction(strLID);
@@ -343,13 +340,12 @@ Instruction *BarrierUtils::createGetLocalId(unsigned Dim, IRBuilderBase &B) {
   }
   Type *uintType = IntegerType::get(M->getContext(), 32);
   Value *constDim = ConstantInt::get(uintType, Dim, false);
-  return B.CreateCall(
-      GetLIDFunc, constDim,
-      DPCPPKernelCompilationUtils::AppendWithDimension("LocalID_", Dim));
+  return B.CreateCall(GetLIDFunc, constDim,
+                      CompilationUtils::AppendWithDimension("LocalID_", Dim));
 }
 
 Instruction *BarrierUtils::createGetGlobalId(unsigned Dim, IRBuilderBase &B) {
-  const std::string strGID = DPCPPKernelCompilationUtils::mangledGetGID();
+  const std::string strGID = CompilationUtils::mangledGetGID();
   if (!GetGIDFunc) {
     // Get existing get_global_id function
     GetGIDFunc = M->getFunction(strGID);
@@ -363,9 +359,8 @@ Instruction *BarrierUtils::createGetGlobalId(unsigned Dim, IRBuilderBase &B) {
   }
   Type *uintType = IntegerType::get(M->getContext(), 32);
   Value *constDim = ConstantInt::get(uintType, Dim, false);
-  return B.CreateCall(
-      GetGIDFunc, constDim,
-      DPCPPKernelCompilationUtils::AppendWithDimension("GlobalID_", Dim));
+  return B.CreateCall(GetGIDFunc, constDim,
+                      CompilationUtils::AppendWithDimension("GlobalID_", Dim));
 }
 
 bool BarrierUtils::doesCallModuleFunction(Function *Func) {
@@ -398,13 +393,13 @@ void BarrierUtils::initializeSyncData() {
   DummyBarriers.clear();
 
   // Find all calls to barrier()
-  findAllUsesOfFunc(DPCPPKernelCompilationUtils::mangledBarrier(), Barriers);
+  findAllUsesOfFunc(CompilationUtils::mangledBarrier(), Barriers);
   // Find all calls to work_group_barrier()
-  findAllUsesOfFunc(DPCPPKernelCompilationUtils::mangledWGBarrier(
-                        DPCPPKernelCompilationUtils::BarrierType::NoScope),
+  findAllUsesOfFunc(CompilationUtils::mangledWGBarrier(
+                        CompilationUtils::BarrierType::NoScope),
                     Barriers);
-  findAllUsesOfFunc(DPCPPKernelCompilationUtils::mangledWGBarrier(
-                        DPCPPKernelCompilationUtils::BarrierType::WithScope),
+  findAllUsesOfFunc(CompilationUtils::mangledWGBarrier(
+                        CompilationUtils::BarrierType::WithScope),
                     Barriers);
   // Find all calls to dummyBarrier()
   findAllUsesOfFunc(DUMMY_BARRIER_FUNC_NAME, DummyBarriers);
@@ -425,7 +420,7 @@ void BarrierUtils::findAllUsesOfFunc(const StringRef Name, InstSet &UsesSet) {
 Instruction *BarrierUtils::createGetLocalSize(unsigned Dim,
                                               Instruction *InsertBefore) {
   // Callee's declaration: size_t get_local_size(uint Dimindx);
-  const std::string strGID = DPCPPKernelCompilationUtils::mangledGetLocalSize();
+  const std::string strGID = CompilationUtils::mangledGetLocalSize();
   if (!GetLocalSizeFunc) {
     // Get existing get_local_size function
     GetLocalSizeFunc = M->getFunction(strGID);
@@ -440,8 +435,7 @@ Instruction *BarrierUtils::createGetLocalSize(unsigned Dim,
   Value *ConstDim = ConstantInt::get(I32Ty, Dim, false);
   return CallInst::Create(
       GetLocalSizeFunc, ConstDim,
-      DPCPPKernelCompilationUtils::AppendWithDimension("LocalSize_", Dim),
-      InsertBefore);
+      CompilationUtils::AppendWithDimension("LocalSize_", Dim), InsertBefore);
 }
 
 Function *BarrierUtils::createFunctionDeclaration(const llvm::Twine &Name,
@@ -530,4 +524,3 @@ inst_range BarrierUtils::findDummyRegion(Function &F) {
   }
   return make_range(inst_iterator(), inst_iterator());
 }
-} // namespace llvm

@@ -19,12 +19,12 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DataPerBarrierPass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGHelper.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
@@ -124,7 +124,7 @@ static bool noBarrierPath(SmallPtrSetImpl<Function *> &Kernels,
   FuncSet FS;
   FS.insert(&F);
   FuncSet FuncUsers;
-  DPCPPKernelLoopUtils::fillFuncUsersSet(FS, FuncUsers);
+  LoopUtils::fillFuncUsersSet(FS, FuncUsers);
   return all_of(FuncUsers, [&](Function *FuncUser) {
     return Kernels.count(FuncUser) ? KernelsNoBarrierPath[FuncUser] : true;
   });
@@ -150,7 +150,7 @@ bool ImplicitGIDImpl::run() {
   bool Changed = false;
 
   // Use worklist since this pass may insert TID function declarations.
-  FuncSet AllKernels = DPCPPKernelCompilationUtils::getAllKernels(M);
+  FuncSet AllKernels = CompilationUtils::getAllKernels(M);
   SmallVector<Function *, 16> NonKernelFuncs;
   for (auto &F : M)
     if (!F.isDeclaration() && !AllKernels.contains(&F))
@@ -207,7 +207,7 @@ bool ImplicitGIDImpl::run() {
 bool hasImplicitGID(Function &F) {
   for (auto &I : instructions(&F)) {
     if (auto *AI = dyn_cast<AllocaInst>(&I))
-      if (DPCPPKernelCompilationUtils::isImplicitGID(AI))
+      if (CompilationUtils::isImplicitGID(AI))
         return true;
   }
   return false;
@@ -219,7 +219,7 @@ bool ImplicitGIDImpl::runOnFunction(Function &F) {
   if (!F.getSubprogram())
     return false;
 
-  if (DPCPPKernelCompilationUtils::isGlobalCtorDtorOrCPPFunc(&F))
+  if (CompilationUtils::isGlobalCtorDtorOrCPPFunc(&F))
     return false;
 
   if (F.empty())
@@ -268,9 +268,8 @@ void ImplicitGIDImpl::insertGIDAlloca(Function &F, bool HasSyncInst,
   DebugLoc DIL = DILocation::get(F.getContext(), SP->getLine(), 0, SP);
 
   for (unsigned I = 0; I < MAX_WORK_DIM; ++I) {
-    AllocaInst *GIDAlloca =
-        new AllocaInst(DPCPPKernelLoopUtils::getIndTy(&M), 0,
-                       Twine("__ocl_dbg_gid") + Twine(I), IP);
+    AllocaInst *GIDAlloca = new AllocaInst(
+        LoopUtils::getIndTy(&M), 0, Twine("__ocl_dbg_gid") + Twine(I), IP);
     LLVM_DEBUG(dbgs().indent(2) << "Insert " << *GIDAlloca << " to function "
                                 << F.getName() << "\n");
 
@@ -354,7 +353,7 @@ DIType *ImplicitGIDImpl::getOrCreateIndDIType() const {
       return T;
 
   // If the type wasn't found, create it now.
-  Type *IndTy = DPCPPKernelLoopUtils::getIndTy(&M);
+  Type *IndTy = LoopUtils::getIndTy(&M);
   uint64_t IndTySize =
       M.getDataLayout().getTypeSizeInBits(IndTy).getFixedSize();
   return DIB->createBasicType("ind type", IndTySize, dwarf::DW_ATE_unsigned);

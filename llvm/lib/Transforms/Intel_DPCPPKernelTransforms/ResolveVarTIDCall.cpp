@@ -17,14 +17,14 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveVarTIDCall.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 
 using namespace llvm;
-using namespace DPCPPKernelCompilationUtils;
-using namespace DPCPPKernelLoopUtils;
+using namespace CompilationUtils;
+using namespace LoopUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-resolve-var-tid-call"
 

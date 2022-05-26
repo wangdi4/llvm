@@ -1,6 +1,6 @@
 //==--- BarrierInFunction.cpp - BarrierInFunction pass - C++ -*-------------==//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -12,8 +12,8 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
@@ -64,7 +64,7 @@ bool BarrierInFunction::runImpl(Module &M) {
   FunctionsToHandle.assign(FunctionsAddedToHandle.begin(),
                            FunctionsAddedToHandle.end());
 
-  auto Kernels = DPCPPKernelCompilationUtils::getKernels(M);
+  auto Kernels = CompilationUtils::getKernels(M);
 
   // As long as there are functions to handle...
   while (!FunctionsToHandle.empty()) {

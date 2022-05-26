@@ -1,6 +1,6 @@
 //==--- BarrierPass.h - Main Barrier pass - C++ -*--------------------------==//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -20,7 +20,7 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DataPerBarrierPass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DataPerValuePass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/BarrierUtils.h"
 
 #include <map>
 
@@ -190,25 +190,21 @@ private:
   }
   Instruction *createGetLocalId(unsigned Dim, IRBuilder<> &B) {
     Value *Ptr = createGetPtrToLocalId(Dim);
-    return B.CreateLoad(
-        SizeTTy, Ptr,
-        DPCPPKernelCompilationUtils::AppendWithDimension("LocalId_", Dim));
+    return B.CreateLoad(SizeTTy, Ptr,
+                        CompilationUtils::AppendWithDimension("LocalId_", Dim));
   }
   Instruction *createGetLocalId(Value *LocalIdValues, Value *Dim,
                                 IRBuilder<> &B) {
-    Value *Ptr = DPCPPKernelCompilationUtils::createGetPtrToLocalId(
-        LocalIdValues, Dim, B);
-    return B.CreateLoad(
-        SizeTTy, Ptr,
-        DPCPPKernelCompilationUtils::AppendWithDimension("LocalId_", Dim));
+    Value *Ptr = CompilationUtils::createGetPtrToLocalId(LocalIdValues, Dim, B);
+    return B.CreateLoad(SizeTTy, Ptr,
+                        CompilationUtils::AppendWithDimension("LocalId_", Dim));
   }
   Instruction *createGetLocalId(Value *LocalIdValues, unsigned Dim,
                                 IRBuilder<> &B) {
-    Value *Ptr = DPCPPKernelCompilationUtils::createGetPtrToLocalId(
+    Value *Ptr = CompilationUtils::createGetPtrToLocalId(
         LocalIdValues, ConstantInt::get(I32Ty, APInt(32, Dim)), B);
-    return B.CreateLoad(
-        SizeTTy, Ptr,
-        DPCPPKernelCompilationUtils::AppendWithDimension("LocalId_", Dim));
+    return B.CreateLoad(SizeTTy, Ptr,
+                        CompilationUtils::AppendWithDimension("LocalId_", Dim));
   }
   Instruction *createSetLocalId(unsigned Dim, Value *V, IRBuilder<> &B) {
     Value *Ptr = createGetPtrToLocalId(Dim);
@@ -241,7 +237,7 @@ private:
               &*CurrentBarrierKeyValues->TheFunction->getEntryBlock().begin());
         LocalIdValues = CurrentBarrierKeyValues->LocalIdValues;
       }
-      *Ptr = DPCPPKernelCompilationUtils::createGetPtrToLocalId(
+      *Ptr = CompilationUtils::createGetPtrToLocalId(
           LocalIdValues, ConstantInt::get(I32Ty, APInt(32, Dim)), LB);
     }
     return *Ptr;

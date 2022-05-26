@@ -59,8 +59,7 @@ use_rtti(FALSE)
 
 include_directories (BEFORE
                      ${BACKEND_ROOT_DIR}/utils
-                     ${OCL_SOURCE_DIR}/cl_api
-                     ${LLVM_MAIN_SRC_DIR}/lib/Transforms/Intel_DPCPPKernelTransforms/Utils)
+                     ${OCL_SOURCE_DIR}/cl_api)
 
 if (OPENCL_INTREE_BUILD)
   llvm_map_components_to_libnames(LLVM_MODULE_LIBS

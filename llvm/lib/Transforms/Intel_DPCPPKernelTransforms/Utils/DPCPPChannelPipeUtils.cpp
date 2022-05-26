@@ -23,14 +23,14 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <tuple>
 
 #define DEBUG_TYPE "dpcpp-kernel-channel-pipe-utils"
 
-using namespace llvm::DPCPPKernelCompilationUtils;
+using namespace llvm::CompilationUtils;
 
 constexpr static int ChannelSizeLimit = 256 * 1024;
 constexpr static int ChannelArraySizeLimit = 256 * 1024 * 1024;

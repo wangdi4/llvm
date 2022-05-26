@@ -1,6 +1,6 @@
-//===- ImplicitArgsUtils.h - Implicit argument utilities ------------------===//
+//===- ImplicitArgsUtils.h - Implicit argument utilities --------*- C++ -*-===//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -8,8 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef INTEL_DPCPP_KERNEL_TRANSFORMS_IMPLICIT_ARGS_UTILS_H
-#define INTEL_DPCPP_KERNEL_TRANSFORMS_IMPLICIT_ARGS_UTILS_H
+#ifndef INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_IMPLICIT_ARGS_UTILS_H
+#define INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_IMPLICIT_ARGS_UTILS_H
 
 #include "llvm/ADT/StringRef.h"
 
@@ -187,4 +187,4 @@ private:
 
 } // namespace llvm
 
-#endif
+#endif // INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_IMPLICIT_ARGS_UTILS_H

@@ -12,16 +12,14 @@
 
 #include "Optimizer.h"
 #include "BarrierMain.h"
-#include "CompilationUtils.h"
 #include "InitializeOCLPasses.hpp"
 #include "PrintIRPass.h"
 #include "VecConfig.h"
-#include "mic_dev_limits.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
-
 #include "VectorizerCommon.h"
 #include "cl_config.h"
 #include "cl_cpu_detect.h"
+#include "exceptions.h"
+#include "mic_dev_limits.h"
 
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/LoopPass.h"
@@ -49,7 +47,8 @@
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VFAnalysis.h"
 #include "llvm/Transforms/Scalar.h"
@@ -335,7 +334,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
       PM.add(llvm::createPromoteMemoryToRegisterPass());
     }
     PM.add(llvm::createInferAddressSpacesPass(
-        DPCPPKernelCompilationUtils::ADDRESS_SPACE_GENERIC));
+        llvm::CompilationUtils::ADDRESS_SPACE_GENERIC));
   }
 
   PM.add(llvm::createBasicAAWrapperPass());
@@ -400,7 +399,7 @@ static void populatePassesPostFailCheck(
     // Repeat resolution of generic address space pointers after LLVM
     // IR was optimized
     PM.add(llvm::createInferAddressSpacesPass(
-        DPCPPKernelCompilationUtils::ADDRESS_SPACE_GENERIC));
+        llvm::CompilationUtils::ADDRESS_SPACE_GENERIC));
     // Cleanup after InferAddressSpacesPass
     if (OptLevel > 0) {
       PM.add(llvm::createCFGSimplificationPass());
@@ -539,8 +538,8 @@ static void populatePassesPostFailCheck(
         PM.add(createLICMPass());
         PM.add(createVPOCFGRestructuringPass());
         PM.add(createVPlanDriverPass([](Function *F) {
-          F->addFnAttr(CompilationUtils::ATTR_VECTOR_VARIANT_FAILURE,
-                       CompilationUtils::ATTR_VALUE_FAILED_TO_VECTORIZE);
+          F->addFnAttr(llvm::KernelAttribute::VectorVariantFailure,
+                       "failed to vectorize");
         }));
         PM.add(llvm::createDPCPPKernelPostVecPass());
 
@@ -884,17 +883,17 @@ Optimizer::Optimizer(llvm::Module &M,
                      llvm::SmallVector<llvm::Module *, 2> &RtlModules,
                      const intel::OptimizerConfig &OptConfig)
     : m_M(M), m_RtlModules(RtlModules), Config(OptConfig),
-      m_IsSPIRV(CompilationUtils::generatedFromSPIRV(M)),
-      m_IsSYCL(DPCPPKernelCompilationUtils::isGeneratedFromOCLCPP(M)),
-      m_IsOMP(DPCPPKernelCompilationUtils::isGeneratedFromOMP(M)),
+      m_IsSPIRV(llvm::CompilationUtils::generatedFromSPIRV(M)),
+      m_IsSYCL(llvm::CompilationUtils::isGeneratedFromOCLCPP(M)),
+      m_IsOMP(llvm::CompilationUtils::isGeneratedFromOMP(M)),
       m_IsFpgaEmulator(Config.isFpgaEmulator()),
       m_IsEyeQEmulator(Config.isEyeQEmulator()) {
   assert(Config.GetCpuId() && "Invalid optimizer config");
   ISA = VectorizerCommon::getCPUIdISA(Config.GetCpuId());
   CPUPrefix = Config.GetCpuId()->GetCPUPrefix();
   DPCPPForceOptnone = Config.GetDisableOpt();
-  m_IsOcl20 = CompilationUtils::fetchCLVersionFromMetadata(M) >=
-              OclVersion::CL_VER_2_0;
+  m_IsOcl20 = llvm::CompilationUtils::fetchCLVersionFromMetadata(M) >=
+              llvm::CompilationUtils::OclVersion::CL_VER_2_0;
   m_debugType = getDebuggingServiceType(Config.GetDebugInfoFlag(), &M,
                                         Config.GetUseNativeDebuggerFlag());
   m_UseTLSGlobals = (m_debugType == intel::Native) && !m_IsEyeQEmulator;
@@ -959,14 +958,14 @@ Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) const {
       Invalid = KMD.RecursiveCall.hasValue() && KMD.RecursiveCall.get();
       break;
     case RECURSION_WITH_BARRIER:
-      Invalid = F.hasFnAttribute(CompilationUtils::ATTR_RECURSION_WITH_BARRIER);
+      Invalid = F.hasFnAttribute(llvm::KernelAttribute::RecursionWithBarrier);
       break;
     case FPGA_PIPE_DYNAMIC_ACCESS:
       Invalid = KMD.FpgaPipeDynamicAccess.hasValue() &&
         KMD.FpgaPipeDynamicAccess.get();
       break;
     case VECTOR_VARIANT_FAILURE:
-      Invalid = F.hasFnAttribute(CompilationUtils::ATTR_VECTOR_VARIANT_FAILURE);
+      Invalid = F.hasFnAttribute(llvm::KernelAttribute::VectorVariantFailure);
       break;
     }
 
