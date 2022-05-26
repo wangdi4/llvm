@@ -37,3 +37,5 @@ add_llvm_unittest(UtilsTests
   VPOUtilsTest.cpp
 # end INTEL_COLLAB
   )
+
+set_property(TARGET UtilsTests PROPERTY FOLDER "Tests/UnitTests/TransformsTests")

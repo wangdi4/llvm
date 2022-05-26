@@ -189,7 +189,7 @@ static void __tile_ttdpfp16ps(__tile1024i *dst, __tile1024i src0,
 ///    The 1st source tile. Max size is 1024 Bytes.
 /// \param src1
 ///    The 1st source r32. Size is 4 Bytes.
-/// \ret
+/// \returns
 ///    The destination v16f32 data. Size is 64 Bytes.
 __DEFAULT_FN_ATTRS_AVX512
 static __m512 __tile_tilemovrowe(__tile1024i src0, unsigned src1) {
@@ -207,7 +207,7 @@ static __m512 __tile_tilemovrowe(__tile1024i src0, unsigned src1) {
 ///    The 1st source tile. Max size is 1024 Bytes.
 /// \param src1
 ///    The 1st source imm8. Size is 4 Bytes.
-/// \ret
+/// \returns
 ///    The destination v16f32 data. Size is 64 Bytes.
 #define __tile_tilemovrowi(src0, src1)                                     \
   _tile_tilemovrowi_internal(src0.row, src0.col, src0.tile, src1);

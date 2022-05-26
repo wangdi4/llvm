@@ -2270,5 +2270,6 @@ include "llvm/IR/Intel_IntrinsicsCSA.td"
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 include "llvm/IR/IntrinsicsRISCV.td"
+include "llvm/IR/IntrinsicsSPIRV.td"
 include "llvm/IR/IntrinsicsVE.td"
 include "llvm/IR/Intel_IntrinsicsFPGA.td" // INTEL

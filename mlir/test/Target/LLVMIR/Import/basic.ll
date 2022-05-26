@@ -435,3 +435,173 @@ define i32 @useFenceInst() {
   fence syncscope("") seq_cst
   ret i32 0
 }
+
+; Switch instruction
+declare void @g(i32)
+
+; CHECK-LABEL: llvm.func @simple_switch(%arg0: i32) {
+define void @simple_switch(i32 %val) {
+; CHECK: %[[C0:.+]] = llvm.mlir.constant(11 : i32) : i32
+; CHECK: %[[C1:.+]] = llvm.mlir.constant(87 : i32) : i32
+; CHECK: %[[C2:.+]] = llvm.mlir.constant(78 : i32) : i32
+; CHECK: %[[C3:.+]] = llvm.mlir.constant(94 : i32) : i32
+; CHECK: %[[C4:.+]] = llvm.mlir.constant(1 : i32) : i32
+; CHECK: llvm.switch %arg0 : i32, ^[[BB5:.+]] [
+; CHECK:   0: ^[[BB1:.+]],
+; CHECK:   9: ^[[BB2:.+]],
+; CHECK:   994: ^[[BB3:.+]],
+; CHECK:   1154: ^[[BB4:.+]]
+; CHECK: ]
+  switch i32 %val, label %def [
+    i32 0, label %one
+    i32 9, label %two
+    i32 994, label %three
+    i32 1154, label %four
+  ]
+
+; CHECK: ^[[BB1]]:
+; CHECK: llvm.call @g(%[[C4]]) : (i32) -> ()
+; CHECK: llvm.return
+one:
+  call void @g(i32 1)
+  ret void
+; CHECK: ^[[BB2]]:
+; CHECK: llvm.call @g(%[[C3]]) : (i32) -> ()
+; CHECK: llvm.return
+two:
+  call void @g(i32 94)
+  ret void
+; CHECK: ^[[BB3]]:
+; CHECK: llvm.call @g(%[[C2]]) : (i32) -> ()
+; CHECK: llvm.return
+three:
+  call void @g(i32 78)
+  ret void
+; CHECK: ^[[BB4]]:
+; CHECK: llvm.call @g(%[[C1]]) : (i32) -> ()
+; CHECK: llvm.return
+four:
+  call void @g(i32 87)
+  ret void
+; CHECK: ^[[BB5]]:
+; CHECK: llvm.call @g(%[[C0]]) : (i32) -> ()
+; CHECK: llvm.return
+def:
+  call void @g(i32 11)
+  ret void
+}
+
+; CHECK-LABEL: llvm.func @switch_args(%arg0: i32) {
+define void @switch_args(i32 %val) {
+  ; CHECK: %[[C0:.+]] = llvm.mlir.constant(44 : i32) : i32
+  ; CHECK: %[[C1:.+]] = llvm.mlir.constant(34 : i32) : i32
+  ; CHECK: %[[C2:.+]] = llvm.mlir.constant(33 : i32) : i32
+  %pred = icmp ult i32 %val, 87
+  br i1 %pred, label %bbs, label %bb1
+
+bb1:
+  %vx = add i32 %val, 22
+  %pred2 = icmp ult i32 %val, 94
+  br i1 %pred2, label %bb2, label %bb3
+
+bb2:
+  %vx0 = add i32 %val, 23
+  br label %one
+
+bb3:
+  br label %def
+
+; CHECK: %[[V1:.+]] = llvm.add %arg0, %[[C2]] : i32
+; CHECK: %[[V2:.+]] = llvm.add %arg0, %[[C1]] : i32
+; CHECK: %[[V3:.+]] = llvm.add %arg0, %[[C0]] : i32
+; CHECK: llvm.switch %arg0 : i32, ^[[BBD:.+]](%[[V3]] : i32) [
+; CHECK:   0: ^[[BB1:.+]](%[[V1]], %[[V2]] : i32, i32)
+; CHECK: ]
+bbs:
+  %vy = add i32 %val, 33
+  %vy0 = add i32 %val, 34
+  %vz = add i32 %val, 44
+  switch i32 %val, label %def [
+    i32 0, label %one
+  ]
+
+; CHECK: ^[[BB1]](%[[BA0:.+]]: i32, %[[BA1:.+]]: i32):
+one: ; pred: bb2, bbs
+  %v0 = phi i32 [%vx, %bb2], [%vy, %bbs]
+  %v1 = phi i32 [%vx0, %bb2], [%vy0, %bbs]
+  ; CHECK: llvm.add %[[BA0]], %[[BA1]]  : i32
+  %vf = add i32 %v0, %v1
+  call void @g(i32 %vf)
+  ret void
+
+; CHECK: ^[[BBD]](%[[BA2:.+]]: i32):
+def: ; pred: bb3, bbs
+  %v2 = phi i32 [%vx, %bb3], [%vz, %bbs]
+  ; CHECK: llvm.call @g(%[[BA2]])
+  call void @g(i32 %v2)
+  ret void
+}
+
+; Insert/ExtractValue
+; CHECK-LABEL: llvm.func @insert_extract_value_struct
+define float @insert_extract_value_struct({{i32},{float, double}}* %p) {
+  ; CHECK: %[[C0:.+]] = llvm.mlir.constant(2.000000e+00 : f64)
+  ; CHECK: %[[VT:.+]] = llvm.load %{{.+}}
+  %t = load {{i32},{float, double}}, {{i32},{float, double}}* %p
+  ; CHECK: %[[EV:.+]] = llvm.extractvalue %[[VT]][1 : i32, 0 : i32] :
+  ; CHECK-SAME: !llvm.struct<(struct<(i32)>, struct<(f32, f64)>)>
+  %s = extractvalue {{i32},{float, double}} %t, 1, 0
+  ; CHECK: %[[IV:.+]] = llvm.insertvalue %[[C0]], %[[VT]][1 : i32, 1 : i32] :
+  ; CHECK-SAME: !llvm.struct<(struct<(i32)>, struct<(f32, f64)>)>
+  %r = insertvalue {{i32},{float, double}} %t, double 2.0, 1, 1
+  ; CHECK: llvm.store %[[IV]], %{{.+}}
+  store {{i32},{float, double}} %r, {{i32},{float, double}}* %p
+  ; CHECK: llvm.return %[[EV]]
+  ret float %s
+}
+
+; CHECK-LABEL: llvm.func @insert_extract_value_array
+define void @insert_extract_value_array([4 x [4 x i8]] %x1) {
+  ; CHECK: %[[C0:.+]] = llvm.mlir.constant(0 : i8)
+  ; CHECK: llvm.insertvalue %[[C0]], %{{.+}}[0 : i32, 0 : i32] : !llvm.array<4 x array<4 x i8>>
+  %res1 = insertvalue [4 x [4 x i8 ]] %x1, i8 0, 0, 0
+  ; CHECK: llvm.extractvalue %{{.+}}[1 : i32] : !llvm.array<4 x array<4 x i8>>
+  %res2 = extractvalue [4 x [4 x i8 ]] %x1, 1
+  ; CHECK: llvm.extractvalue %{{.+}}[0 : i32, 1 : i32] : !llvm.array<4 x array<4 x i8>>
+  %res3 = extractvalue [4 x [4 x i8 ]] %x1, 0, 1
+  ret void
+}
+
+; Shufflevector
+; CHECK-LABEL: llvm.func @shuffle_vec
+define <4 x half> @shuffle_vec(<4 x half>* %arg0, <4 x half>* %arg1) {
+  ; CHECK: %[[V0:.+]] = llvm.load %{{.+}} : !llvm.ptr<vector<4xf16>>
+  %val0 = load <4 x half>, <4 x half>* %arg0
+  ; CHECK: %[[V1:.+]] = llvm.load %{{.+}} : !llvm.ptr<vector<4xf16>>
+  %val1 = load <4 x half>, <4 x half>* %arg1
+  ; CHECK: llvm.shufflevector %[[V0]], %[[V1]] [2 : i32, 3 : i32, -1 : i32, -1 : i32] : vector<4xf16>, vector<4xf16>
+  %shuffle = shufflevector <4 x half> %val0, <4 x half> %val1, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
+  ret <4 x half> %shuffle
+}
+
+; ExtractElement
+; CHECK-LABEL: llvm.func @extract_element
+define half @extract_element(<4 x half>* %vec, i32 %idx) {
+  ; CHECK: %[[V0:.+]] = llvm.load %{{.+}} : !llvm.ptr<vector<4xf16>>
+  %val0 = load <4 x half>, <4 x half>* %vec
+  ; CHECK: %[[V1:.+]] = llvm.extractelement %[[V0]][%{{.+}} : i32] : vector<4xf16>
+  %r = extractelement <4 x half> %val0, i32 %idx
+  ; CHECK: llvm.return %[[V1]]
+  ret half %r
+}
+
+; InsertElement
+; CHECK-LABEL: llvm.func @insert_element
+define <4 x half> @insert_element(<4 x half>* %vec, half %v, i32 %idx) {
+  ; CHECK: %[[V0:.+]] = llvm.load %{{.+}} : !llvm.ptr<vector<4xf16>>
+  %val0 = load <4 x half>, <4 x half>* %vec
+  ; CHECK: %[[V1:.+]] = llvm.insertelement %{{.+}}, %[[V0]][%{{.+}} : i32] : vector<4xf16>
+  %r = insertelement <4 x half> %val0, half %v, i32 %idx
+  ; CHECK: llvm.return %[[V1]]
+  ret <4 x half> %r
+}

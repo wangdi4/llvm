@@ -62,30 +62,27 @@ static StringRef ToolName;
 // The basename of this program.
 static StringRef Stem;
 
-const char RanlibHelp[] = R"(OVERVIEW: LLVM Ranlib (llvm-ranlib)
+static void printRanLibHelp(StringRef ToolName) {
+  outs() << "OVERVIEW: LLVM Ranlib\n\n"
+         << "This program generates an index to speed access to archives\n\n"
+         << "USAGE: " + ToolName + " <archive-file>\n\n"
+         << "OPTIONS:\n"
+         << "  -h --help             - Display available options\n"
+         << "  -v --version          - Display the version of this program\n"
+         << "  -D                    - Use zero for timestamps and uids/gids "
+            "(default)\n"
+         << "  -U                    - Use actual timestamps and uids/gids\n";
+}
 
-  This program generates an index to speed access to archives
-
-USAGE: llvm-ranlib <archive-file>
-
-OPTIONS:
-  -h --help             - Display available options
-  -v --version          - Display the version of this program
-  -D                    - Use zero for timestamps and uids/gids (default)
-  -U                    - Use actual timestamps and uids/gids
-)";
-
-const char ArHelp[] = R"(OVERVIEW: LLVM Archiver
-
-USAGE: llvm-ar [options] [-]<operation>[modifiers] [relpos] [count] <archive> [files]
-       llvm-ar -M [<mri-script]
-
-OPTIONS:
+static void printArHelp(StringRef ToolName) {
+  const char ArOptions[] =
+      R"(OPTIONS:
   --format              - archive format to create
     =default            -   default
     =gnu                -   gnu
     =darwin             -   darwin
     =bsd                -   bsd
+    =aix                -   aix (big archive)
   --plugin=<string>     - ignored for compatibility
   -h --help             - display this help and exit
   --rsp-quoting         - quoting style for response files
@@ -127,11 +124,20 @@ MODIFIERS:
   [V] - display the version and exit
 )";
 
+  outs() << "OVERVIEW: LLVM Archiver\n\n"
+         << "USAGE: " + ToolName +
+                " [options] [-]<operation>[modifiers] [relpos] "
+                "[count] <archive> [files]\n"
+         << "       " + ToolName + " -M [<mri-script]\n\n";
+
+  outs() << ArOptions;
+}
+
 static void printHelpMessage() {
   if (Stem.contains_insensitive("ranlib"))
-    outs() << RanlibHelp;
+    printRanLibHelp(Stem);
   else if (Stem.contains_insensitive("ar"))
-    outs() << ArHelp;
+    printArHelp(Stem);
 }
 
 static unsigned MRILineNumber;
@@ -182,7 +188,7 @@ static SmallVector<const char *, 256> PositionalArgs;
 static bool MRI;
 
 namespace {
-enum Format { Default, GNU, BSD, DARWIN, Unknown };
+enum Format { Default, GNU, BSD, DARWIN, BIGARCHIVE, Unknown };
 }
 
 static Format FormatType = Default;
@@ -945,8 +951,6 @@ static void performWriteOperation(ArchiveOperation Operation,
     else
       Kind = !NewMembers.empty() ? getKindFromMember(NewMembers.front())
                                  : getDefaultForHost();
-    if (Kind == object::Archive::K_AIXBIG)
-      fail("big archive writer operation on AIX not yet supported");
     break;
   case GNU:
     Kind = object::Archive::K_GNU;
@@ -960,6 +964,11 @@ static void performWriteOperation(ArchiveOperation Operation,
     if (Thin)
       fail("only the gnu format has a thin mode");
     Kind = object::Archive::K_DARWIN;
+    break;
+  case BIGARCHIVE:
+    if (Thin)
+      fail("only the gnu format has a thin mode");
+    Kind = object::Archive::K_AIXBIG;
     break;
   case Unknown:
     llvm_unreachable("");
@@ -1129,7 +1138,8 @@ static void runMRIScript() {
 
   // Nothing to do if not saved.
   if (Saved)
-    performOperation(ReplaceOrInsert, &NewMembers);
+    performOperation(ReplaceOrInsert, /*OldArchive=*/nullptr,
+                     /*OldArchiveBuf=*/nullptr, &NewMembers);
   exit(0);
 }
 
@@ -1232,6 +1242,7 @@ static int ar_main(int argc, char **argv) {
                        .Case("gnu", GNU)
                        .Case("darwin", DARWIN)
                        .Case("bsd", BSD)
+                       .Case("bigarchive", BIGARCHIVE)
                        .Default(Unknown);
       if (FormatType == Unknown)
         fail(std::string("Invalid format ") + Match);

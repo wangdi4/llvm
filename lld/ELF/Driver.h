@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -65,12 +65,17 @@ private:
 
   std::vector<InputFile *> files;
 #if INTEL_CUSTOMIZATION
+  // Helper function for finding the ELF target used for GNU LTO files and
+  // invoke doGNULTOLinking.
+  void finalizeGNULTO(llvm::SmallVectorImpl<InputFile *> &InputGNULTOFiles,
+                      bool isLazyFile);
+
   // Pass to g++ the input vector of GNU LTO files in order to do LTO and
   // build a temporary object. Then collect the ELF object generated and
   // add it to the linking process either as a regular object file or
   // lazy object (archive members).
   template <class ELFT> void
-      doGnuLTOLinking(llvm::SmallVectorImpl<InputFile *> &gnuLTOFiles,
+      doGNULTOLinking(llvm::SmallVectorImpl<InputFile *> &InputGNULTOFiles,
                       bool isLazyFile);
 #endif // INTEL_CUSTOMIZATION
   SmallVector<std::pair<StringRef, unsigned>, 0> archiveFiles;

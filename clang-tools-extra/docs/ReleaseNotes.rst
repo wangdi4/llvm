@@ -120,6 +120,13 @@ New checks
   Detects confusable unicode identifiers.
 ..
   end INTEL_CUSTOMIZATION
+
+- New :doc:`bugprone-unchecked-optional-access
+  <clang-tidy/checks/bugprone-unchecked-optional-access>` check.
+
+   Warns when the code is unwrapping a `std::optional<T>`, `absl::optional<T>`,
+   or `base::Optional<T>` object without assuring that it contains a value.
+
 - New :doc:`modernize-macro-to-enum
   <clang-tidy/checks/modernize-macro-to-enum>` check.
 

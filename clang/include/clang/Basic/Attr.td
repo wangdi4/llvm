@@ -917,6 +917,7 @@ def Availability : InheritableAttr {
              .Case("macos", "macOS")
              .Case("tvos", "tvOS")
              .Case("watchos", "watchOS")
+             .Case("driverkit", "DriverKit")
              .Case("ios_app_extension", "iOS (App Extension)")
              .Case("macos_app_extension", "macOS (App Extension)")
              .Case("tvos_app_extension", "tvOS (App Extension)")
@@ -1261,7 +1262,7 @@ def HLSDevice : InheritableAttr {
 def SYCLDevice : InheritableAttr {
   let Spellings = [GNU<"sycl_device">];
   let Subjects = SubjectList<[Function]>;
-  let LangOpts = [SYCLIsDevice];
+  let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost];
   let Documentation = [SYCLDeviceDocs];
 }
 
@@ -2755,8 +2756,9 @@ def Convergent : InheritableAttr {
 }
 
 def NoInline : DeclOrStmtAttr {
-  let Spellings = [GCC<"noinline">, CXX11<"clang", "noinline">,
-                   C2x<"clang", "noinline">, Declspec<"noinline">];
+  let Spellings = [Keyword<"__noinline__">, GCC<"noinline">,
+                   CXX11<"clang", "noinline">, C2x<"clang", "noinline">,
+                   Declspec<"noinline">];
   let Accessors = [Accessor<"isClangNoInline", [CXX11<"clang", "noinline">,
                                                 C2x<"clang", "noinline">]>];
   let Documentation = [NoInlineDocs];
@@ -3290,6 +3292,11 @@ def Pcs : DeclOrTypeAttr {
 def AArch64VectorPcs: DeclOrTypeAttr {
   let Spellings = [Clang<"aarch64_vector_pcs">];
   let Documentation = [AArch64VectorPcsDocs];
+}
+
+def AArch64SVEPcs: DeclOrTypeAttr {
+  let Spellings = [Clang<"aarch64_sve_pcs">];
+  let Documentation = [AArch64SVEPcsDocs];
 }
 
 def Pure : InheritableAttr {

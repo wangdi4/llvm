@@ -38,12 +38,13 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
-#include "llvm/InitializePasses.h"
+#include "llvm/InitializePasses.h" // INTEL
 #include "llvm/ProfileData/InstrProf.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/EscapeEnumerator.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -196,7 +197,6 @@ void insertModuleCtor(Module &M) {
       // time. Hook them into the global ctors list in that case:
       [&](Function *Ctor, FunctionCallee) { appendToGlobalCtors(M, Ctor, 0); });
 }
-
 }  // namespace
 
 PreservedAnalyses ThreadSanitizerPass::run(Function &F,
@@ -541,10 +541,11 @@ static bool isTsanAtomic(const Instruction *I) {
 }
 
 void ThreadSanitizer::InsertRuntimeIgnores(Function &F) {
-  IRBuilder<> IRB(F.getEntryBlock().getFirstNonPHI());
+  InstrumentationIRBuilder IRB(F.getEntryBlock().getFirstNonPHI());
   IRB.CreateCall(TsanIgnoreBegin);
   EscapeEnumerator EE(F, "tsan_ignore_cleanup", ClHandleCxxExceptions);
   while (IRBuilder<> *AtExit = EE.Next()) {
+    InstrumentationIRBuilder::ensureDebugInfo(*AtExit, F);
     AtExit->CreateCall(TsanIgnoreEnd);
   }
 }
@@ -627,7 +628,7 @@ bool ThreadSanitizer::sanitizeFunction(Function &F,
 
   // Instrument function entry/exit points if there were instrumented accesses.
   if ((Res || HasCalls) && ClInstrumentFuncEntryExit) {
-    IRBuilder<> IRB(F.getEntryBlock().getFirstNonPHI());
+    InstrumentationIRBuilder IRB(F.getEntryBlock().getFirstNonPHI());
     Value *ReturnAddress = IRB.CreateCall(
         Intrinsic::getDeclaration(F.getParent(), Intrinsic::returnaddress),
         IRB.getInt32(0));
@@ -635,6 +636,7 @@ bool ThreadSanitizer::sanitizeFunction(Function &F,
 
     EscapeEnumerator EE(F, "tsan_cleanup", ClHandleCxxExceptions);
     while (IRBuilder<> *AtExit = EE.Next()) {
+      InstrumentationIRBuilder::ensureDebugInfo(*AtExit, F);
       AtExit->CreateCall(TsanFuncExit, {});
     }
     Res = true;
@@ -644,7 +646,7 @@ bool ThreadSanitizer::sanitizeFunction(Function &F,
 
 bool ThreadSanitizer::instrumentLoadOrStore(const InstructionInfo &II,
                                             const DataLayout &DL) {
-  IRBuilder<> IRB(II.Inst);
+  InstrumentationIRBuilder IRB(II.Inst);
   const bool IsWrite = isa<StoreInst>(*II.Inst);
   Value *Addr = IsWrite ? cast<StoreInst>(II.Inst)->getPointerOperand()
                         : cast<LoadInst>(II.Inst)->getPointerOperand();
@@ -773,7 +775,7 @@ bool ThreadSanitizer::instrumentMemIntrinsic(Instruction *I) {
 // http://www.hpl.hp.com/personal/Hans_Boehm/c++mm/
 
 bool ThreadSanitizer::instrumentAtomic(Instruction *I, const DataLayout &DL) {
-  IRBuilder<> IRB(I);
+  InstrumentationIRBuilder IRB(I);
   if (LoadInst *LI = dyn_cast<LoadInst>(I)) {
     Value *Addr = LI->getPointerOperand();
     Type *OrigTy = LI->getType();

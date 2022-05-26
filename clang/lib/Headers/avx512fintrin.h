@@ -1806,7 +1806,7 @@ _mm512_floor_ps(__m512 __A)
 {
   return (__m512) __builtin_ia32_rndscaleps_mask ((__v16sf) __A,
                                                   _MM_FROUND_FLOOR,
-                                                  (__v16sf) __A, -1,
+                                                  (__v16sf) __A, (unsigned short)-1,
                                                   _MM_FROUND_CUR_DIRECTION);
 }
 
@@ -1824,7 +1824,7 @@ _mm512_floor_pd(__m512d __A)
 {
   return (__m512d) __builtin_ia32_rndscalepd_mask ((__v8df) __A,
                                                    _MM_FROUND_FLOOR,
-                                                   (__v8df) __A, -1,
+                                                   (__v8df) __A, (unsigned char)-1,
                                                    _MM_FROUND_CUR_DIRECTION);
 }
 
@@ -1851,7 +1851,7 @@ _mm512_ceil_ps(__m512 __A)
 {
   return (__m512) __builtin_ia32_rndscaleps_mask ((__v16sf) __A,
                                                   _MM_FROUND_CEIL,
-                                                  (__v16sf) __A, -1,
+                                                  (__v16sf) __A, (unsigned short)-1,
                                                   _MM_FROUND_CUR_DIRECTION);
 }
 
@@ -1860,7 +1860,7 @@ _mm512_ceil_pd(__m512d __A)
 {
   return (__m512d) __builtin_ia32_rndscalepd_mask ((__v8df) __A,
                                                    _MM_FROUND_CEIL,
-                                                   (__v8df) __A, -1,
+                                                   (__v8df) __A, (unsigned char)-1,
                                                    _MM_FROUND_CUR_DIRECTION);
 }
 
@@ -5143,7 +5143,7 @@ _mm512_maskz_rolv_epi64 (__mmask8 __U, __m512i __A, __m512i __B)
 static __inline__ __m512i __DEFAULT_FN_ATTRS512
 _mm512_slli_epi32(__m512i __A, unsigned int __B)
 {
-  return (__m512i)__builtin_ia32_pslldi512((__v16si)__A, __B);
+  return (__m512i)__builtin_ia32_pslldi512((__v16si)__A, (int)__B);
 }
 
 static __inline__ __m512i __DEFAULT_FN_ATTRS512
@@ -5165,7 +5165,7 @@ _mm512_maskz_slli_epi32(__mmask16 __U, __m512i __A, unsigned int __B) {
 static __inline__ __m512i __DEFAULT_FN_ATTRS512
 _mm512_slli_epi64(__m512i __A, unsigned int __B)
 {
-  return (__m512i)__builtin_ia32_psllqi512((__v8di)__A, __B);
+  return (__m512i)__builtin_ia32_psllqi512((__v8di)__A, (int)__B);
 }
 
 static __inline__ __m512i __DEFAULT_FN_ATTRS512
@@ -5187,7 +5187,7 @@ _mm512_maskz_slli_epi64(__mmask8 __U, __m512i __A, unsigned int __B)
 static __inline__ __m512i __DEFAULT_FN_ATTRS512
 _mm512_srli_epi32(__m512i __A, unsigned int __B)
 {
-  return (__m512i)__builtin_ia32_psrldi512((__v16si)__A, __B);
+  return (__m512i)__builtin_ia32_psrldi512((__v16si)__A, (int)__B);
 }
 
 static __inline__ __m512i __DEFAULT_FN_ATTRS512
@@ -5209,7 +5209,7 @@ _mm512_maskz_srli_epi32(__mmask16 __U, __m512i __A, unsigned int __B) {
 static __inline__ __m512i __DEFAULT_FN_ATTRS512
 _mm512_srli_epi64(__m512i __A, unsigned int __B)
 {
-  return (__m512i)__builtin_ia32_psrlqi512((__v8di)__A, __B);
+  return (__m512i)__builtin_ia32_psrlqi512((__v8di)__A, (int)__B);
 }
 
 static __inline__ __m512i __DEFAULT_FN_ATTRS512
@@ -6632,7 +6632,7 @@ _mm_maskz_scalef_ss (__mmask8 __U, __m128 __A, __m128 __B)
 static __inline__ __m512i __DEFAULT_FN_ATTRS512
 _mm512_srai_epi32(__m512i __A, unsigned int __B)
 {
-  return (__m512i)__builtin_ia32_psradi512((__v16si)__A, __B);
+  return (__m512i)__builtin_ia32_psradi512((__v16si)__A, (int)__B);
 }
 
 static __inline__ __m512i __DEFAULT_FN_ATTRS512
@@ -6655,7 +6655,7 @@ _mm512_maskz_srai_epi32(__mmask16 __U, __m512i __A,
 static __inline__ __m512i __DEFAULT_FN_ATTRS512
 _mm512_srai_epi64(__m512i __A, unsigned int __B)
 {
-  return (__m512i)__builtin_ia32_psraqi512((__v8di)__A, __B);
+  return (__m512i)__builtin_ia32_psraqi512((__v8di)__A, (int)__B);
 }
 
 static __inline__ __m512i __DEFAULT_FN_ATTRS512
@@ -9349,7 +9349,7 @@ static __inline__ long long __DEFAULT_FN_ATTRS512 _mm512_reduce_add_epi64(__m512
 }
 
 static __inline__ long long __DEFAULT_FN_ATTRS512 _mm512_reduce_mul_epi64(__m512i __W) {
-  return __builtin_ia32_reduce_mul_q512(__W);
+  return __builtin_reduce_mul((__v8di)__W);
 }
 
 static __inline__ long long __DEFAULT_FN_ATTRS512 _mm512_reduce_and_epi64(__m512i __W) {
@@ -9369,12 +9369,12 @@ _mm512_mask_reduce_add_epi64(__mmask8 __M, __m512i __W) {
 static __inline__ long long __DEFAULT_FN_ATTRS512
 _mm512_mask_reduce_mul_epi64(__mmask8 __M, __m512i __W) {
   __W = _mm512_mask_mov_epi64(_mm512_set1_epi64(1), __M, __W);
-  return __builtin_ia32_reduce_mul_q512(__W);
+  return __builtin_reduce_mul((__v8di)__W);
 }
 
 static __inline__ long long __DEFAULT_FN_ATTRS512
 _mm512_mask_reduce_and_epi64(__mmask8 __M, __m512i __W) {
-  __W = _mm512_mask_mov_epi64(_mm512_set1_epi64(~0ULL), __M, __W);
+  __W = _mm512_mask_mov_epi64(_mm512_set1_epi64(-1LL), __M, __W);
   return __builtin_reduce_and((__v8di)__W);
 }
 
@@ -9414,7 +9414,7 @@ _mm512_reduce_add_epi32(__m512i __W) {
 
 static __inline__ int __DEFAULT_FN_ATTRS512
 _mm512_reduce_mul_epi32(__m512i __W) {
-  return __builtin_ia32_reduce_mul_d512((__v16si)__W);
+  return __builtin_reduce_mul((__v16si)__W);
 }
 
 static __inline__ int __DEFAULT_FN_ATTRS512
@@ -9436,12 +9436,12 @@ _mm512_mask_reduce_add_epi32( __mmask16 __M, __m512i __W) {
 static __inline__ int __DEFAULT_FN_ATTRS512
 _mm512_mask_reduce_mul_epi32( __mmask16 __M, __m512i __W) {
   __W = _mm512_mask_mov_epi32(_mm512_set1_epi32(1), __M, __W);
-  return __builtin_ia32_reduce_mul_d512((__v16si)__W);
+  return __builtin_reduce_mul((__v16si)__W);
 }
 
 static __inline__ int __DEFAULT_FN_ATTRS512
 _mm512_mask_reduce_and_epi32( __mmask16 __M, __m512i __W) {
-  __W = _mm512_mask_mov_epi32(_mm512_set1_epi32(~0U), __M, __W);
+  __W = _mm512_mask_mov_epi32(_mm512_set1_epi32(-1), __M, __W);
   return __builtin_reduce_and((__v16si)__W);
 }
 
@@ -9513,7 +9513,7 @@ _mm512_mask_reduce_min_epi64(__mmask8 __M, __m512i __V) {
 
 static __inline__ unsigned long long __DEFAULT_FN_ATTRS512
 _mm512_mask_reduce_min_epu64(__mmask8 __M, __m512i __V) {
-  __V = _mm512_mask_mov_epi64(_mm512_set1_epi64(~0ULL), __M, __V);
+  __V = _mm512_mask_mov_epi64(_mm512_set1_epi64(-1LL), __M, __V);
   return __builtin_reduce_min((__v8du)__V);
 }
 static __inline__ int __DEFAULT_FN_ATTRS512
@@ -9556,7 +9556,7 @@ _mm512_mask_reduce_min_epi32(__mmask16 __M, __m512i __V) {
 
 static __inline__ unsigned int __DEFAULT_FN_ATTRS512
 _mm512_mask_reduce_min_epu32(__mmask16 __M, __m512i __V) {
-  __V = _mm512_mask_mov_epi32(_mm512_set1_epi32(~0U), __M, __V);
+  __V = _mm512_mask_mov_epi32(_mm512_set1_epi32(-1), __M, __V);
   return __builtin_reduce_min((__v16su)__V);
 }
 
@@ -9627,7 +9627,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///
 /// This intrinsic corresponds to the <c> VGATHERDPD </c> instructions.
 ///
-/// \operation
+/// \code{.operation}
 /// FOR j := 0 to 7
 ///   i := j*64
 ///   m := j*32
@@ -9635,7 +9635,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///   dst[i+63:i] := MEM[addr+63:addr]
 /// ENDFOR
 /// dst[MAX:512] := 0
-/// \endoperation
+/// \endcode
 #define _mm512_i32logather_pd(vindex, base_addr, scale)                        \
   _mm512_i32gather_pd(_mm512_castsi512_si256(vindex), (base_addr), (scale))
 
@@ -9647,7 +9647,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///
 /// This intrinsic corresponds to the <c> VGATHERDPD </c> instructions.
 ///
-/// \operation
+/// \code{.operation}
 /// FOR j := 0 to 7
 ///   i := j*64
 ///   m := j*32
@@ -9659,7 +9659,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///   FI
 /// ENDFOR
 /// dst[MAX:512] := 0
-/// \endoperation
+/// \endcode
 #define _mm512_mask_i32logather_pd(src, mask, vindex, base_addr, scale)        \
   _mm512_mask_i32gather_pd((src), (mask), _mm512_castsi512_si256(vindex),      \
                            (base_addr), (scale))
@@ -9670,7 +9670,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///
 /// This intrinsic corresponds to the <c> VPGATHERDQ </c> instructions.
 ///
-/// \operation
+/// \code{.operation}
 /// FOR j := 0 to 7
 ///   i := j*64
 ///   m := j*32
@@ -9678,7 +9678,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///   dst[i+63:i] := MEM[addr+63:addr]
 /// ENDFOR
 /// dst[MAX:512] := 0
-/// \endoperation
+/// \endcode
 #define _mm512_i32logather_epi64(vindex, base_addr, scale)                     \
   _mm512_i32gather_epi64(_mm512_castsi512_si256(vindex), (base_addr), (scale))
 
@@ -9689,7 +9689,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///
 /// This intrinsic corresponds to the <c> VPGATHERDQ </c> instructions.
 ///
-/// \operation
+/// \code{.operation}
 /// FOR j := 0 to 7
 ///   i := j*64
 ///   m := j*32
@@ -9701,7 +9701,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///   FI
 /// ENDFOR
 /// dst[MAX:512] := 0
-/// \endoperation
+/// \endcode
 #define _mm512_mask_i32logather_epi64(src, mask, vindex, base_addr, scale)     \
   _mm512_mask_i32gather_epi64((src), (mask), _mm512_castsi512_si256(vindex),   \
                               (base_addr), (scale))
@@ -9712,14 +9712,14 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///
 /// This intrinsic corresponds to the <c> VSCATTERDPD </c> instructions.
 ///
-/// \operation
+/// \code{.operation}
 /// FOR j := 0 to 7
 ///   i := j*64
 ///   m := j*32
 ///   addr := base_addr + SignExtend64(vindex[m+31:m]) * ZeroExtend64(scale) * 8
 ///   MEM[addr+63:addr] := v1[i+63:i]
 /// ENDFOR
-/// \endoperation
+/// \endcode
 #define _mm512_i32loscatter_pd(base_addr, vindex, v1, scale)                   \
   _mm512_i32scatter_pd((base_addr), _mm512_castsi512_si256(vindex), (v1), (scale))
 
@@ -9731,7 +9731,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///
 /// This intrinsic corresponds to the <c> VSCATTERDPD </c> instructions.
 ///
-/// \operation
+/// \code{.operation}
 /// FOR j := 0 to 7
 ///   i := j*64
 ///   m := j*32
@@ -9740,7 +9740,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///     MEM[addr+63:addr] := a[i+63:i]
 ///   FI
 /// ENDFOR
-/// \endoperation
+/// \endcode
 #define _mm512_mask_i32loscatter_pd(base_addr, mask, vindex, v1, scale)        \
   _mm512_mask_i32scatter_pd((base_addr), (mask),                               \
                             _mm512_castsi512_si256(vindex), (v1), (scale))
@@ -9751,14 +9751,14 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///
 /// This intrinsic corresponds to the <c> VPSCATTERDQ </c> instructions.
 ///
-/// \operation
+/// \code{.operation}
 /// FOR j := 0 to 7
 ///   i := j*64
 ///   m := j*32
 ///   addr := base_addr + SignExtend64(vindex[m+31:m]) * ZeroExtend64(scale) * 8
 ///   MEM[addr+63:addr] := a[i+63:i]
 /// ENDFOR
-/// \endoperation
+/// \endcode
 #define _mm512_i32loscatter_epi64(base_addr, vindex, v1, scale)                \
   _mm512_i32scatter_epi64((base_addr),                                         \
                           _mm512_castsi512_si256(vindex), (v1), (scale))
@@ -9770,7 +9770,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///
 /// This intrinsic corresponds to the <c> VPSCATTERDQ </c> instructions.
 ///
-/// \operation
+/// \code{.operation}
 /// FOR j := 0 to 7
 ///   i := j*64
 ///   m := j*32
@@ -9779,7 +9779,7 @@ _mm512_cvtsi512_si32(__m512i __A) {
 ///     MEM[addr+63:addr] := a[i+63:i]
 ///   FI
 /// ENDFOR
-/// \endoperation
+/// \endcode
 #define _mm512_mask_i32loscatter_epi64(base_addr, mask, vindex, v1, scale)     \
   _mm512_mask_i32scatter_epi64((base_addr), (mask),                            \
                                _mm512_castsi512_si256(vindex), (v1), (scale))

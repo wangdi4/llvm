@@ -305,6 +305,7 @@ bool TypePrinter::canPrefixQualifiers(const Type *T,
       // address_space attribute.
       const auto *AttrTy = cast<AttributedType>(UnderlyingType);
       CanPrefixQualifiers = AttrTy->getAttrKind() == attr::AddressSpace;
+      break;
     }
   }
 
@@ -989,6 +990,9 @@ void TypePrinter::printFunctionAfter(const FunctionType::ExtInfo &Info,
       break;
     case CC_AArch64VectorCall:
       OS << "__attribute__((aarch64_vector_pcs))";
+      break;
+    case CC_AArch64SVEPCS:
+      OS << "__attribute__((aarch64_sve_pcs))";
       break;
     case CC_IntelOclBicc:
       OS << " __attribute__((intel_ocl_bicc))";
@@ -1809,6 +1813,7 @@ void TypePrinter::printAttributedAfter(const AttributedType *T,
    break;
   }
   case attr::AArch64VectorPcs: OS << "aarch64_vector_pcs"; break;
+  case attr::AArch64SVEPcs: OS << "aarch64_sve_pcs"; break;
   case attr::IntelOclBicc: OS << "inteloclbicc"; break;
 #if INTEL_CUSTOMIZATION
   case attr::IntelOclBiccAVX: OS << "inteloclbiccavx"; break;

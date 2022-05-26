@@ -196,6 +196,19 @@ def OneShotBufferize : Pass<"one-shot-bufferize", "ModuleOp"> {
     when encountering an op that is not included in the filter (even if it is
     bufferizable).
 
+    One-Shot Bufferize will by default assume memref types with fully dynamic
+    layout maps when a precise layout cannot be inferred. E.g., this is the case
+    when wrapping a non-bufferizable op in to_memref/to_tensor ops. This
+    behavior can be overridden with `unknown-type-conversion`. Valid values are
+    `fully-dynamic-layout-map` and `identity-layout-map`.
+
+    Layout maps on function signatures can be controlled with a separate
+    `function-boundary-type-conversion` option, which can be set to
+    `infer-layout-map` in addition to the two possible values mentioned above.
+    When layout maps are referred, function return types may be more precise.
+    Function argument types cannot be inferred and have fully dynamic layout
+    maps in that case.
+
     For testing/debugging purposes, `test-analysis-only=1 print-conflicts=1`
     prints analysis results and explains why an OpOperand was decided to
     bufferize out-of-place. This is useful for understanding why One-Shot
@@ -230,12 +243,19 @@ def OneShotBufferize : Pass<"one-shot-bufferize", "ModuleOp"> {
     `test-analysis-only`.
   }];
   let options = [
+    Option<"dropEquivalentFuncResults", "drop-equivalent-func-results", "bool",
+           /*default=*/"true",
+           "Drop buffer return values that are equivalent to a FuncOp arg.">,
     Option<"allowReturnAllocs", "allow-return-allocs", "bool",
             /*default=*/"false",
            "Allows returning/yielding new allocations from a block.">,
     Option<"allowUnknownOps", "allow-unknown-ops", "bool",
            /*default=*/"false",
            "Allows unknown (not bufferizable) ops in the input IR.">,
+    Option<"alwaysAliasingWithDest", "always-aliasing-with-dest", "bool",
+            /*default=*/"true",
+            "Tensor OpResult cannot bufferize inplace OpOperands other than "
+            "out/dest OpOperands (if the op has such operands; experimental)">,
     Option<"analysisFuzzerSeed", "analysis-fuzzer-seed", "unsigned",
            /*default=*/"0",
            "Test only: Analyze ops in random order with a given seed (fuzzer)">,
@@ -247,9 +267,10 @@ def OneShotBufferize : Pass<"one-shot-bufferize", "ModuleOp"> {
            "core bufferization passes.">,
     ListOption<"dialectFilter", "dialect-filter", "std::string",
                "Restrict bufferization to ops from these dialects.">,
-    Option<"fullyDynamicLayoutMaps", "fully-dynamic-layout-maps", "bool",
-           /*default=*/"true",
-           "Generate MemRef types with dynamic offset+strides by default.">,
+    Option<"functionBoundaryTypeConversion",
+           "function-boundary-type-conversion", "std::string",
+           /*default=*/"\"infer-layout-map\"",
+           "Controls layout maps when bufferizing function signatures.">,
     Option<"testAnalysisOnly", "test-analysis-only", "bool",
             /*default=*/"false",
            "Test only: Only run inplaceability analysis and annotate IR">,
@@ -257,6 +278,12 @@ def OneShotBufferize : Pass<"one-shot-bufferize", "ModuleOp"> {
             /*default=*/"false",
            "Test only: Annotate IR with RaW conflicts. Requires "
            "test-analysis-only.">,
+    Option<"promoteBufferResultsToOutParams",
+           "promote-buffer-results-to-out-params", "bool", /*default=*/"false",
+           "Replace returned buffers (that were not dropped) with out params.">,
+    Option<"unknownTypeConversion", "unknown-type-conversion", "std::string",
+           /*default=*/"\"fully-dynamic-layout-map\"",
+           "Controls layout maps for non-inferrable memref types.">,
   ];
   let constructor = "mlir::bufferization::createOneShotBufferizePass()";
 }

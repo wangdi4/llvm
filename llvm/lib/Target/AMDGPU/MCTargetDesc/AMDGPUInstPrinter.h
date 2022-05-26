@@ -50,7 +50,6 @@ private:
   void printOffen(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printIdxen(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printAddr64(const MCInst *MI, unsigned OpNo, raw_ostream &O);
-  void printMBUFOffset(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printOffset(const MCInst *MI, unsigned OpNo, const MCSubtargetInfo &STI,
                    raw_ostream &O);
   void printFlatOffset(const MCInst *MI, unsigned OpNo, const MCSubtargetInfo &STI,
@@ -64,6 +63,8 @@ private:
                        const MCSubtargetInfo &STI, raw_ostream &O);
   void printSMEMOffset(const MCInst *MI, unsigned OpNo,
                        const MCSubtargetInfo &STI, raw_ostream &O);
+  void printSMEMOffsetMod(const MCInst *MI, unsigned OpNo,
+                          const MCSubtargetInfo &STI, raw_ostream &O);
   void printSMRDLiteralOffset(const MCInst *MI, unsigned OpNo,
                               const MCSubtargetInfo &STI, raw_ostream &O);
   void printGDS(const MCInst *MI, unsigned OpNo, const MCSubtargetInfo &STI,
@@ -236,6 +237,8 @@ protected:
                      const MCSubtargetInfo &STI, raw_ostream &O);
   void printDepCtr(const MCInst *MI, unsigned OpNo, const MCSubtargetInfo &STI,
                    raw_ostream &O);
+  void printDelayFlag(const MCInst *MI, unsigned OpNo,
+                      const MCSubtargetInfo &STI, raw_ostream &O);
   void printHwreg(const MCInst *MI, unsigned OpNo, const MCSubtargetInfo &STI,
                   raw_ostream &O);
   void printEndpgm(const MCInst *MI, unsigned OpNo, const MCSubtargetInfo &STI,

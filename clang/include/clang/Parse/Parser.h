@@ -216,8 +216,10 @@ class Parser : public CodeCompletionHandler {
   std::unique_ptr<PragmaHandler> MSSection;
   std::unique_ptr<PragmaHandler> MSRuntimeChecks;
   std::unique_ptr<PragmaHandler> MSIntrinsic;
+  std::unique_ptr<PragmaHandler> MSFunction;
   std::unique_ptr<PragmaHandler> MSOptimize;
   std::unique_ptr<PragmaHandler> MSFenvAccess;
+  std::unique_ptr<PragmaHandler> MSAllocText;
   std::unique_ptr<PragmaHandler> CUDAForceHostDeviceHandler;
   std::unique_ptr<PragmaHandler> OptimizeHandler;
   std::unique_ptr<PragmaHandler> LoopHintHandler;
@@ -467,7 +469,9 @@ public:
     return Actions.incrementMSManglingNumber();
   }
 
-  Decl  *getObjCDeclContext() const { return Actions.getObjCDeclContext(); }
+  ObjCContainerDecl *getObjCDeclContext() const {
+    return Actions.getObjCDeclContext();
+  }
 
   // Type forwarding.  All of these are statically 'void*', but they may all be
   // different actual classes based on the actions in place.
@@ -740,6 +744,10 @@ private:
                              SourceLocation PragmaLocation);
   bool HandlePragmaMSInitSeg(StringRef PragmaName,
                              SourceLocation PragmaLocation);
+  bool HandlePragmaMSFunction(StringRef PragmaName,
+                              SourceLocation PragmaLocation);
+  bool HandlePragmaMSAllocText(StringRef PragmaName,
+                               SourceLocation PragmaLocation);
 
   /// Handle the annotation token produced for
   /// #pragma align...
@@ -1054,18 +1062,18 @@ private:
   /// back.
   class ObjCDeclContextSwitch {
     Parser &P;
-    Decl *DC;
+    ObjCContainerDecl *DC;
     SaveAndRestore<bool> WithinObjCContainer;
   public:
     explicit ObjCDeclContextSwitch(Parser &p)
       : P(p), DC(p.getObjCDeclContext()),
         WithinObjCContainer(P.ParsingInObjCContainer, DC != nullptr) {
       if (DC)
-        P.Actions.ActOnObjCTemporaryExitContainerContext(cast<DeclContext>(DC));
+        P.Actions.ActOnObjCTemporaryExitContainerContext(DC);
     }
     ~ObjCDeclContextSwitch() {
       if (DC)
-        P.Actions.ActOnObjCReenterContainerContext(cast<DeclContext>(DC));
+        P.Actions.ActOnObjCReenterContainerContext(DC);
     }
   };
 
@@ -1667,11 +1675,12 @@ private:
       SmallVectorImpl<IdentifierLocPair> &protocolIdents,
       SourceLocation &rAngleLoc, bool mayBeProtocolList = true);
 
-  void HelperActionsForIvarDeclarations(Decl *interfaceDecl, SourceLocation atLoc,
+  void HelperActionsForIvarDeclarations(ObjCContainerDecl *interfaceDecl,
+                                        SourceLocation atLoc,
                                         BalancedDelimiterTracker &T,
                                         SmallVectorImpl<Decl *> &AllIvarDecls,
                                         bool RBraceMissing);
-  void ParseObjCClassInstanceVariables(Decl *interfaceDecl,
+  void ParseObjCClassInstanceVariables(ObjCContainerDecl *interfaceDecl,
                                        tok::ObjCKeywordKind visibility,
                                        SourceLocation atLoc);
   bool ParseObjCProtocolReferences(SmallVectorImpl<Decl *> &P,
@@ -2964,6 +2973,8 @@ private:
   void ParseOpenCLKernelAttributes(ParsedAttributes &attrs);
   void ParseOpenCLQualifiers(ParsedAttributes &Attrs);
   void ParseNullabilityTypeSpecifiers(ParsedAttributes &attrs);
+  void ParseCUDAFunctionAttributes(ParsedAttributes &attrs);
+
   VersionTuple ParseVersionTuple(SourceRange &Range);
   void ParseAvailabilityAttribute(IdentifierInfo &Availability,
                                   SourceLocation AvailabilityLoc,

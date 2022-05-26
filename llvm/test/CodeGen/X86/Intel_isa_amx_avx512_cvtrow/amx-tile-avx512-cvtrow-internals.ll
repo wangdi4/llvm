@@ -7,7 +7,7 @@
 define void @test_amx(i8* %pointer, i8* %base, i64 %stride) {
 ; CHECK-LABEL: test_amx:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vxorps %zmm0, %zmm0, %zmm0
+; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vmovups %zmm0, -{{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movb $1, -{{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movb $8, -{{[0-9]+}}(%rsp)

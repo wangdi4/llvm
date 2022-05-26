@@ -2054,9 +2054,8 @@ Instruction *InstCombinerImpl::visitAnd(BinaryOperator &I) {
   unsigned FullShift = Ty->getScalarSizeInBits() - 1;
   if (match(&I, m_c_And(m_OneUse(m_AShr(m_Value(X), m_SpecificInt(FullShift))),
                         m_Value(Y)))) {
-    Constant *Zero = ConstantInt::getNullValue(Ty);
-    Value *Cmp = Builder.CreateICmpSLT(X, Zero, "isneg");
-    return SelectInst::Create(Cmp, Y, Zero);
+    Value *IsNeg = Builder.CreateIsNeg(X, "isneg");
+    return SelectInst::Create(IsNeg, Y, ConstantInt::getNullValue(Ty));
   }
 #if INTEL_CUSTOMIZATION
   if (enableFcmpMinMaxCombine())
@@ -2068,9 +2067,8 @@ Instruction *InstCombinerImpl::visitAnd(BinaryOperator &I) {
   if (match(&I, m_c_And(m_OneUse(m_Not(
                             m_AShr(m_Value(X), m_SpecificInt(FullShift)))),
                         m_Value(Y)))) {
-    Constant *Zero = ConstantInt::getNullValue(Ty);
-    Value *Cmp = Builder.CreateICmpSLT(X, Zero, "isneg");
-    return SelectInst::Create(Cmp, Zero, Y);
+    Value *IsNeg = Builder.CreateIsNeg(X, "isneg");
+    return SelectInst::Create(IsNeg, ConstantInt::getNullValue(Ty), Y);
   }
 
   // (~x) & y  -->  ~(x | (~y))  iff that gets rid of inversions
@@ -2366,8 +2364,12 @@ Value *InstCombinerImpl::matchSelectFromAndOr(Value *A, Value *C, Value *B,
     // not create unnecessary casts if the types already match.
     Type *SelTy = A->getType();
     if (auto *VecTy = dyn_cast<VectorType>(Cond->getType())) {
+      // For a fixed or scalable vector get N from <{vscale x} N x iM>
       unsigned Elts = VecTy->getElementCount().getKnownMinValue();
-      Type *EltTy = Builder.getIntNTy(SelTy->getPrimitiveSizeInBits() / Elts);
+      // For a fixed or scalable vector, get the size in bits of N x iM; for a
+      // scalar this is just M.
+      unsigned SelEltSize = SelTy->getPrimitiveSizeInBits().getKnownMinSize();
+      Type *EltTy = Builder.getIntNTy(SelEltSize / Elts);
       SelTy = VectorType::get(EltTy, VecTy->getElementCount());
     }
     Value *BitcastC = Builder.CreateBitCast(C, SelTy);
@@ -2710,6 +2712,14 @@ Instruction *InstCombinerImpl::visitOr(BinaryOperator &I) {
     if (match(Op1, m_Xor(m_Specific(B), m_Specific(A))))
       return BinaryOperator::CreateOr(Op1, C);
 
+  // ((A & B) ^ C) | B -> C | B
+  if (match(Op0, m_c_Xor(m_c_And(m_Value(A), m_Specific(Op1)), m_Value(C))))
+    return BinaryOperator::CreateOr(C, Op1);
+
+  // B | ((A & B) ^ C) -> B | C
+  if (match(Op1, m_c_Xor(m_c_And(m_Value(A), m_Specific(Op0)), m_Value(C))))
+    return BinaryOperator::CreateOr(Op0, C);
+
   // ((B | C) & A) | B -> B | (A & C)
   if (match(Op0, m_And(m_Or(m_Specific(Op1), m_Value(C)), m_Value(A))))
     return BinaryOperator::CreateOr(Op1, Builder.CreateAnd(A, C));
@@ -2935,6 +2945,36 @@ Instruction *InstCombinerImpl::visitOr(BinaryOperator &I) {
   if (matchSimpleRecurrence(&I, PN, Start, Step) && DT.dominates(Step, PN))
     return replaceInstUsesWith(I, Builder.CreateOr(Start, Step));
 
+  // (A & B) | (C | D) or (C | D) | (A & B)
+  // Can be combined if C or D is of type (A/B & X)
+  if (match(&I, m_c_Or(m_OneUse(m_And(m_Value(A), m_Value(B))),
+                       m_OneUse(m_Or(m_Value(C), m_Value(D)))))) {
+    // (A & B) | (C | ?) -> C | (? | (A & B))
+    // (A & B) | (C | ?) -> C | (? | (A & B))
+    // (A & B) | (C | ?) -> C | (? | (A & B))
+    // (A & B) | (C | ?) -> C | (? | (A & B))
+    // (C | ?) | (A & B) -> C | (? | (A & B))
+    // (C | ?) | (A & B) -> C | (? | (A & B))
+    // (C | ?) | (A & B) -> C | (? | (A & B))
+    // (C | ?) | (A & B) -> C | (? | (A & B))
+    if (match(D, m_c_And(m_Specific(A), m_Value())) ||
+        match(D, m_c_And(m_Specific(B), m_Value())))
+      return BinaryOperator::CreateOr(
+          C, Builder.CreateOr(D, Builder.CreateAnd(A, B)));
+    // (A & B) | (? | D) -> (? | (A & B)) | D
+    // (A & B) | (? | D) -> (? | (A & B)) | D
+    // (A & B) | (? | D) -> (? | (A & B)) | D
+    // (A & B) | (? | D) -> (? | (A & B)) | D
+    // (? | D) | (A & B) -> (? | (A & B)) | D
+    // (? | D) | (A & B) -> (? | (A & B)) | D
+    // (? | D) | (A & B) -> (? | (A & B)) | D
+    // (? | D) | (A & B) -> (? | (A & B)) | D
+    if (match(C, m_c_And(m_Specific(A), m_Value())) ||
+        match(C, m_c_And(m_Specific(B), m_Value())))
+      return BinaryOperator::CreateOr(
+          Builder.CreateOr(C, Builder.CreateAnd(A, B)), D);
+  }
+
   return nullptr;
 }
 
@@ -3025,19 +3065,17 @@ Value *InstCombinerImpl::foldXorOfICmps(ICmpInst *LHS, ICmpInst *RHS,
     if ((PredL == CmpInst::ICMP_SGT && match(LHS1, m_AllOnes()) &&
          PredR == CmpInst::ICMP_SGT && match(RHS1, m_AllOnes())) ||
         (PredL == CmpInst::ICMP_SLT && match(LHS1, m_Zero()) &&
-         PredR == CmpInst::ICMP_SLT && match(RHS1, m_Zero()))) {
-      Value *Zero = ConstantInt::getNullValue(LHS0->getType());
-      return Builder.CreateICmpSLT(Builder.CreateXor(LHS0, RHS0), Zero);
-    }
+         PredR == CmpInst::ICMP_SLT && match(RHS1, m_Zero())))
+      return Builder.CreateIsNeg(Builder.CreateXor(LHS0, RHS0));
+
     // (X > -1) ^ (Y <  0) --> (X ^ Y) > -1
     // (X <  0) ^ (Y > -1) --> (X ^ Y) > -1
     if ((PredL == CmpInst::ICMP_SGT && match(LHS1, m_AllOnes()) &&
          PredR == CmpInst::ICMP_SLT && match(RHS1, m_Zero())) ||
         (PredL == CmpInst::ICMP_SLT && match(LHS1, m_Zero()) &&
-         PredR == CmpInst::ICMP_SGT && match(RHS1, m_AllOnes()))) {
-      Value *MinusOne = ConstantInt::getAllOnesValue(LHS0->getType());
-      return Builder.CreateICmpSGT(Builder.CreateXor(LHS0, RHS0), MinusOne);
-    }
+         PredR == CmpInst::ICMP_SGT && match(RHS1, m_AllOnes())))
+      return Builder.CreateIsNotNeg(Builder.CreateXor(LHS0, RHS0));
+
   }
 
   // Instead of trying to imitate the folds for and/or, decompose this 'xor'
@@ -3185,12 +3223,12 @@ static Instruction *canonicalizeAbs(BinaryOperator &Xor,
     // Op1 = ashr i32 A, 31   ; smear the sign bit
     // xor (add A, Op1), Op1  ; add -1 and flip bits if negative
     // --> (A < 0) ? -A : A
-    Value *Cmp = Builder.CreateICmpSLT(A, ConstantInt::getNullValue(Ty));
+    Value *IsNeg = Builder.CreateIsNeg(A);
     // Copy the nuw/nsw flags from the add to the negate.
     auto *Add = cast<BinaryOperator>(Op0);
-    Value *Neg = Builder.CreateNeg(A, "", Add->hasNoUnsignedWrap(),
+    Value *NegA = Builder.CreateNeg(A, "", Add->hasNoUnsignedWrap(),
                                    Add->hasNoSignedWrap());
-    return SelectInst::Create(Cmp, Neg, A);
+    return SelectInst::Create(IsNeg, NegA, A);
   }
   return nullptr;
 }
@@ -3498,9 +3536,8 @@ Instruction *InstCombinerImpl::visitXor(BinaryOperator &I) {
         *CA == X->getType()->getScalarSizeInBits() - 1 &&
         !match(C1, m_AllOnes())) {
       assert(!C1->isZeroValue() && "Unexpected xor with 0");
-      Value *ICmp =
-          Builder.CreateICmpSGT(X, Constant::getAllOnesValue(X->getType()));
-      return SelectInst::Create(ICmp, Op1, Builder.CreateNot(Op1));
+      Value *IsNotNeg = Builder.CreateIsNotNeg(X);
+      return SelectInst::Create(IsNotNeg, Op1, Builder.CreateNot(Op1));
     }
   }
 

@@ -1293,7 +1293,7 @@ static void DiagnoseSwitchLabelsFallthrough(Sema &S, AnalysisDeclContext &AC,
   for (const CFGBlock *B : llvm::reverse(*Cfg)) {
     const Stmt *Label = B->getLabel();
 
-    if (!Label || !isa<SwitchCase>(Label))
+    if (!isa_and_nonnull<SwitchCase>(Label))
       continue;
 
     int AnnotatedCnt;

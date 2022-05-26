@@ -232,6 +232,7 @@
 ; CHECK-O-NEXT: Running pass: TransformSinAndCosCallsPass ;INTEL
 ; CHECK-O-NEXT: Running pass: CoroSplitPass
 ; CHECK-O-NEXT: Invalidating analysis: InlineAdvisorAnalysis
+; CHECK-O-NEXT: Running pass: CoroCleanupPass
 ; CHECK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
 ; CHECK-O-NEXT: Running pass: StdContainerOptPass ;INTEL
@@ -361,7 +362,6 @@
 ; CHECK-O-NEXT: Running pass: InstSimplifyPass
 ; CHECK-O-NEXT: Running pass: DivRemPairsPass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
-; CHECK-O-NEXT: Running pass: CoroCleanupPass
 ; CHECK-EP-OPTIMIZER-LAST: Running pass: NoOpModulePass
 ; CHECK-HOT-COLD-SPLIT-NEXT: Running pass: HotColdSplittingPass
 ; CHECK-IR-OUTLINER-NEXT: Running pass: IROutlinerPass

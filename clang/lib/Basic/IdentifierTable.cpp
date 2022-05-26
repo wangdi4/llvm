@@ -124,20 +124,22 @@ namespace {
     KEYOPENCLCXX  = 0x400000,
     KEYMSCOMPAT   = 0x800000,
     KEYSYCL       = 0x1000000,
+    KEYCUDA       = 0x2000000,
     KEYALLCXX = KEYCXX | KEYCXX11 | KEYCXX20,
 #if INTEL_CUSTOMIZATION
-    KEYALL = (0x7fffffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0x7fffffff
-              ~KEYNOOPENCL), // KEYNOMS18 and KEYNOOPENCL are used to exclude.
-    KEYFLOAT128 = 0x2000000,
-    KEYRESTRICT = 0x4000000,
-    KEYMSASM    = 0x8000000,
-    KEYBASES    = 0x10000000,
-    KEYDECIMAL  = 0x20000000,
-    KEYOPENCLCHANNEL = 0x40000000,
+    KEYFLOAT128 = 0x4000000,
+    KEYRESTRICT = 0x8000000,
+    KEYMSASM    = 0x10000000,
+    KEYBASES    = 0x20000000,
+    KEYDECIMAL  = 0x40000000,
+    KEYOPENCLCHANNEL =  0x80000000,
+    KEYMAX      = KEYOPENCLCHANNEL, // The maximum key
     KEYINTELALL = KEYFLOAT128 | KEYRESTRICT | KEYMSASM | KEYBASES | KEYDECIMAL |
                   KEYOPENCLCHANNEL,
-    KEYNOINTELALL = KEYALL & ~KEYINTELALL,
 #endif // INTEL_CUSTOMIZATION
+    KEYALL = (KEYMAX | (KEYMAX-1)) & ~KEYNOMS18 &
+              ~KEYNOOPENCL, // KEYNOMS18 and KEYNOOPENCL are used to exclude.
+    KEYNOINTELALL = KEYALL & ~KEYINTELALL, // INTEL
   };
 
   /// How a keyword is treated in the selected standard.
@@ -154,10 +156,11 @@ namespace {
 /// in the given language standard.
 static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
                                       unsigned Flags) {
-  if (Flags == KEYALL) return KS_Enabled;
 #if INTEL_CUSTOMIZATION
+  if (Flags == static_cast<unsigned>(KEYALL))
+     return KS_Enabled;
   if (LangOpts.IntelCompat) {
-    if ((Flags & KEYINTELALL) == KEYINTELALL)
+    if ((Flags & KEYINTELALL) == static_cast<unsigned>(KEYINTELALL))
       return KS_Enabled;
     if ((Flags & KEYNOINTELALL) == KEYNOINTELALL)
       Flags = Flags & KEYINTELALL;
@@ -209,6 +212,8 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
   if (LangOpts.CPlusPlus && !LangOpts.CPlusPlus20 && (Flags & CHAR8SUPPORT))
     return KS_Future;
   if (LangOpts.isSYCL() && (Flags & KEYSYCL))
+    return KS_Enabled;
+  if (LangOpts.CUDA && (Flags & KEYCUDA))
     return KS_Enabled;
   return KS_Disabled;
 }

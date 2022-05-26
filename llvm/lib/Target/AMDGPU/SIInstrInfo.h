@@ -337,6 +337,8 @@ public:
 
   static bool isFoldableCopy(const MachineInstr &MI);
 
+  void removeModOperands(MachineInstr &MI) const;
+
   bool FoldImmediate(MachineInstr &UseMI, MachineInstr &DefMI, Register Reg,
                      MachineRegisterInfo *MRI) const final;
 
@@ -1216,9 +1218,6 @@ namespace AMDGPU {
   /// \returns \p Opcode if it is an Addr64 opcode, otherwise -1.
   LLVM_READONLY
   int getIfAddr64Inst(uint16_t Opcode);
-
-  LLVM_READONLY
-  int getMUBUFNoLdsInst(uint16_t Opcode);
 
   LLVM_READONLY
   int getAtomicNoRetOp(uint16_t Opcode);

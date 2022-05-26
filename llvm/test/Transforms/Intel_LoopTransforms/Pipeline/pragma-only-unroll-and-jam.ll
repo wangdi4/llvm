@@ -8,7 +8,6 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; CHECK-LABEL: @foo(
 ; CHECK: = load
 ; CHECK: = load
-; CHECK: = load
 ; CHECK-NOT: = load
 
 ; ModuleID = 'simple-unroll-and-jam.ll'

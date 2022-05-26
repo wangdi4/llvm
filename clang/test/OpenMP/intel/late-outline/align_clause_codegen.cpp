@@ -43,8 +43,8 @@ foobar bar;
 // CHECK-32-NEXT:  entry:
 // CHECK-32-NEXT:    [[MYALLOC:%.*]] = alloca i32, align 4
 // CHECK-32-NEXT:    [[TMP0:%.*]] = call i32 @__kmpc_global_thread_num(ptr @[[GLOB1:[0-9]+]])
-// CHECK-32-NEXT:    [[DOTFOO1__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i32 1, i32 40, ptr inttoptr (i32 7 to ptr))
-// CHECK-32-NEXT:    [[DOTFOO2__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i32 2, i32 80, ptr inttoptr (i32 6 to ptr))
+// CHECK-32-NEXT:    [[DOTFOO1__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i32 4, i32 40, ptr inttoptr (i32 7 to ptr))
+// CHECK-32-NEXT:    [[DOTFOO2__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i32 4, i32 80, ptr inttoptr (i32 6 to ptr))
 // CHECK-32-NEXT:    [[DOTFOO3__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i32 4, i32 120, ptr inttoptr (i32 5 to ptr))
 // CHECK-32-NEXT:    [[DOTFOO4__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i32 8, i32 160, ptr inttoptr (i32 4 to ptr))
 // CHECK-32-NEXT:    [[DOTFOO5__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i32 16, i32 200, ptr inttoptr (i32 3 to ptr))
@@ -55,13 +55,13 @@ foobar bar;
 // CHECK-32-NEXT:    call void @__kmpc_free(i32 [[TMP0]], ptr [[DOTFOO8__VOID_ADDR]], ptr inttoptr (i32 8 to ptr))
 // CHECK-32-NEXT:    [[TMP1:%.*]] = load i32, ptr [[MYALLOC]], align 4
 // CHECK-32-NEXT:    [[CONV:%.*]] = inttoptr i32 [[TMP1]] to ptr
-// CHECK-32-NEXT:    [[DOTBAR1__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i32 2, i32 4, ptr [[CONV]])
+// CHECK-32-NEXT:    [[DOTBAR1__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i32 4, i32 4, ptr [[CONV]])
 // CHECK-32-NEXT:    [[TMP2:%.*]] = load i32, ptr [[MYALLOC]], align 4
 // CHECK-32-NEXT:    [[CONV1:%.*]] = inttoptr i32 [[TMP2]] to ptr
-// CHECK-32-NEXT:    [[DOTBAR2__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i32 2, i32 40, ptr [[CONV1]])
+// CHECK-32-NEXT:    [[DOTBAR2__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i32 4, i32 40, ptr [[CONV1]])
 // CHECK-32-NEXT:    [[TMP3:%.*]] = load i32, ptr [[MYALLOC]], align 4
 // CHECK-32-NEXT:    [[CONV2:%.*]] = inttoptr i32 [[TMP3]] to ptr
-// CHECK-32-NEXT:    [[DOTBAR3__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i32 2, i32 80, ptr [[CONV2]])
+// CHECK-32-NEXT:    [[DOTBAR3__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i32 4, i32 80, ptr [[CONV2]])
 // CHECK-32-NEXT:    [[TMP4:%.*]] = load i32, ptr [[MYALLOC]], align 4
 // CHECK-32-NEXT:    [[CONV3:%.*]] = inttoptr i32 [[TMP4]] to ptr
 // CHECK-32-NEXT:    call void @__kmpc_free(i32 [[TMP0]], ptr [[DOTBAR3__VOID_ADDR]], ptr [[CONV3]])
@@ -84,8 +84,8 @@ foobar bar;
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[MYALLOC:%.*]] = alloca i64, align 8
 // CHECK-NEXT:    [[TMP0:%.*]] = call i32 @__kmpc_global_thread_num(ptr @[[GLOB1:[0-9]+]])
-// CHECK-NEXT:    [[DOTFOO1__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i64 1, i64 48, ptr inttoptr (i64 7 to ptr))
-// CHECK-NEXT:    [[DOTFOO2__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i64 2, i64 80, ptr inttoptr (i64 6 to ptr))
+// CHECK-NEXT:    [[DOTFOO1__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i64 4, i64 48, ptr inttoptr (i64 7 to ptr))
+// CHECK-NEXT:    [[DOTFOO2__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i64 4, i64 80, ptr inttoptr (i64 6 to ptr))
 // CHECK-NEXT:    [[DOTFOO3__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i64 4, i64 128, ptr inttoptr (i64 5 to ptr))
 // CHECK-NEXT:    [[DOTFOO4__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i64 8, i64 160, ptr inttoptr (i64 4 to ptr))
 // CHECK-NEXT:    [[DOTFOO5__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i64 16, i64 208, ptr inttoptr (i64 3 to ptr))
@@ -96,13 +96,13 @@ foobar bar;
 // CHECK-NEXT:    call void @__kmpc_free(i32 [[TMP0]], ptr [[DOTFOO8__VOID_ADDR]], ptr inttoptr (i64 8 to ptr))
 // CHECK-NEXT:    [[TMP1:%.*]] = load i64, ptr [[MYALLOC]], align 8
 // CHECK-NEXT:    [[CONV:%.*]] = inttoptr i64 [[TMP1]] to ptr
-// CHECK-NEXT:    [[DOTBAR1__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i64 2, i64 4, ptr [[CONV]])
+// CHECK-NEXT:    [[DOTBAR1__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i64 4, i64 4, ptr [[CONV]])
 // CHECK-NEXT:    [[TMP2:%.*]] = load i64, ptr [[MYALLOC]], align 8
 // CHECK-NEXT:    [[CONV1:%.*]] = inttoptr i64 [[TMP2]] to ptr
-// CHECK-NEXT:    [[DOTBAR2__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i64 2, i64 48, ptr [[CONV1]])
+// CHECK-NEXT:    [[DOTBAR2__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i64 4, i64 48, ptr [[CONV1]])
 // CHECK-NEXT:    [[TMP3:%.*]] = load i64, ptr [[MYALLOC]], align 8
 // CHECK-NEXT:    [[CONV2:%.*]] = inttoptr i64 [[TMP3]] to ptr
-// CHECK-NEXT:    [[DOTBAR3__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i64 2, i64 80, ptr [[CONV2]])
+// CHECK-NEXT:    [[DOTBAR3__VOID_ADDR:%.*]] = call ptr @__kmpc_aligned_alloc(i32 [[TMP0]], i64 4, i64 80, ptr [[CONV2]])
 // CHECK-NEXT:    [[TMP4:%.*]] = load i64, ptr [[MYALLOC]], align 8
 // CHECK-NEXT:    [[CONV3:%.*]] = inttoptr i64 [[TMP4]] to ptr
 // CHECK-NEXT:    call void @__kmpc_free(i32 [[TMP0]], ptr [[DOTBAR3__VOID_ADDR]], ptr [[CONV3]])

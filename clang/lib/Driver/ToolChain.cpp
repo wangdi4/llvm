@@ -85,8 +85,9 @@ static ToolChain::RTTIMode CalculateRTTIMode(const ArgList &Args,
       return ToolChain::RM_Disabled;
   }
 
-  // -frtti is default, except for the PS4.
-  return (Triple.isPS4()) ? ToolChain::RM_Disabled : ToolChain::RM_Enabled;
+  // -frtti is default, except for the PS4 and DriverKit.
+  bool NoRTTI = Triple.isPS4() || Triple.isDriverKit();
+  return NoRTTI ? ToolChain::RM_Disabled : ToolChain::RM_Enabled;
 }
 
 ToolChain::ToolChain(const Driver &D, const llvm::Triple &T,
@@ -350,6 +351,12 @@ Tool *ToolChain::getOffloadWrapper() const {
   return OffloadWrapper.get();
 }
 
+Tool *ToolChain::getOffloadPackager() const {
+  if (!OffloadPackager)
+    OffloadPackager.reset(new tools::OffloadPackager(*this));
+  return OffloadPackager.get();
+}
+
 Tool *ToolChain::getOffloadDeps() const {
   if (!OffloadDeps)
     OffloadDeps.reset(new tools::OffloadDeps(*this));
@@ -444,6 +451,8 @@ Tool *ToolChain::getTool(Action::ActionClass AC) const {
 
   case Action::OffloadWrapperJobClass:
     return getOffloadWrapper();
+  case Action::OffloadPackagerJobClass:
+    return getOffloadPackager();
 
   case Action::OffloadDepsJobClass:
     return getOffloadDeps();
@@ -1543,7 +1552,7 @@ SanitizerMask ToolChain::getSupportedSanitizers() const {
 #endif // INTEL_FEATURE_XUCC
 #endif // INTEL_CUSTOMIZATION
       getTriple().getArch() == llvm::Triple::arm || getTriple().isWasm() ||
-      getTriple().isAArch64())
+      getTriple().isAArch64() || getTriple().isRISCV())
     Res |= SanitizerKind::CFIICall;
   if (getTriple().getArch() == llvm::Triple::x86_64 ||
 #if INTEL_CUSTOMIZATION
@@ -1649,10 +1658,17 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
       // AMD GPU is a special case, as -mcpu is required for the device
       // compilation, except for SYCL which uses --offload-arch.
       if (SameTripleAsHost || (getTriple().getArch() == llvm::Triple::amdgcn &&
-                               DeviceOffloadKind != Action::OFK_SYCL))
+                               DeviceOffloadKind != Action::OFK_SYCL)) {
         DAL->append(A);
-      else
-        Modified = true;
+        continue;
+      }
+      // SPIR-V special case for -mlong-double
+      if (getTriple().isSPIR() &&
+          A->getOption().matches(options::OPT_LongDouble_Group)) {
+        DAL->append(A);
+        continue;
+      }
+      Modified = true;
       continue;
     }
 

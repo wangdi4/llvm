@@ -9906,15 +9906,11 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     }
 
     if (isFriend) {
-      // In MSVC mode for older versions of the standard, friend function
-      // declarations behave as declarations
-      bool PerformFriendInjection =
-          getLangOpts().MSVCCompat && !getLangOpts().CPlusPlus20;
       if (FunctionTemplate) {
-        FunctionTemplate->setObjectOfFriendDecl(PerformFriendInjection);
+        FunctionTemplate->setObjectOfFriendDecl();
         FunctionTemplate->setAccess(AS_public);
       }
-      NewFD->setObjectOfFriendDecl(PerformFriendInjection);
+      NewFD->setObjectOfFriendDecl();
       NewFD->setAccess(AS_public);
     }
 
@@ -10506,10 +10502,13 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
   // marking the function.
   AddCFAuditedAttribute(NewFD);
 
-  // If this is a function definition, check if we have to apply optnone due to
-  // a pragma.
-  if(D.isFunctionDefinition())
+  // If this is a function definition, check if we have to apply any
+  // attributes (i.e. optnone and no_builtin) due to a pragma.
+  if (D.isFunctionDefinition()) {
     AddRangeBasedOptnone(NewFD);
+    AddImplicitMSFunctionNoBuiltinAttr(NewFD);
+    AddSectionMSAllocText(NewFD);
+  }
 
   // If this is the first declaration of an extern C variable, update
   // the map of such variables.
@@ -11699,6 +11698,15 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
 
       if (Method->isStatic())
         checkThisInStaticMemberFunctionType(Method);
+    }
+
+    // C++20: dcl.decl.general p4:
+    // The optional requires-clause ([temp.pre]) in an init-declarator or
+    // member-declarator shall be present only if the declarator declares a
+    // templated function ([dcl.fct]).
+    if (Expr *TRC = NewFD->getTrailingRequiresClause()) {
+      if (!NewFD->isTemplated() && !NewFD->isTemplateInstantiation())
+        Diag(TRC->getBeginLoc(), diag::err_constrained_non_templated_function);
     }
 
     if (CXXConversionDecl *Conversion = dyn_cast<CXXConversionDecl>(NewFD))
@@ -14653,18 +14661,28 @@ void Sema::ActOnFinishKNRParamDeclarations(Scope *S, Declarator &D,
                                            SourceLocation LocAfterDecls) {
   DeclaratorChunk::FunctionTypeInfo &FTI = D.getFunctionTypeInfo();
 
-  // Verify 6.9.1p6: 'every identifier in the identifier list shall be declared'
-  // for a K&R function.
+  // C99 6.9.1p6 "If a declarator includes an identifier list, each declaration
+  // in the declaration list shall have at least one declarator, those
+  // declarators shall only declare identifiers from the identifier list, and
+  // every identifier in the identifier list shall be declared.
+  //
+  // C89 3.7.1p5 "If a declarator includes an identifier list, only the
+  // identifiers it names shall be declared in the declaration list."
+  //
+  // This is why we only diagnose in C99 and later. Note, the other conditions
+  // listed are checked elsewhere.
   if (!FTI.hasPrototype) {
     for (int i = FTI.NumParams; i != 0; /* decrement in loop */) {
       --i;
       if (FTI.Params[i].Param == nullptr) {
-        SmallString<256> Code;
-        llvm::raw_svector_ostream(Code)
-            << "  int " << FTI.Params[i].Ident->getName() << ";\n";
-        Diag(FTI.Params[i].IdentLoc, diag::ext_param_not_declared)
-            << FTI.Params[i].Ident
-            << FixItHint::CreateInsertion(LocAfterDecls, Code);
+        if (getLangOpts().C99) {
+          SmallString<256> Code;
+          llvm::raw_svector_ostream(Code)
+              << "  int " << FTI.Params[i].Ident->getName() << ";\n";
+          Diag(FTI.Params[i].IdentLoc, diag::ext_param_not_declared)
+              << FTI.Params[i].Ident
+              << FixItHint::CreateInsertion(LocAfterDecls, Code);
+        }
 
         // Implicitly declare the argument as type 'int' for lack of a better
         // type.
@@ -17306,14 +17324,10 @@ bool Sema::ActOnDuplicateDefinition(Decl *Prev, SkipBodyInfo &SkipBody) {
   return true;
 }
 
-Decl *Sema::ActOnObjCContainerStartDefinition(Decl *IDecl) {
-  assert(isa<ObjCContainerDecl>(IDecl) &&
-         "ActOnObjCContainerStartDefinition - Not ObjCContainerDecl");
-  DeclContext *OCD = cast<DeclContext>(IDecl);
-  assert(OCD->getLexicalParent() == CurContext &&
+void Sema::ActOnObjCContainerStartDefinition(ObjCContainerDecl *IDecl) {
+  assert(IDecl->getLexicalParent() == CurContext &&
       "The next DeclContext should be lexically contained in the current one.");
-  CurContext = OCD;
-  return IDecl;
+  CurContext = IDecl;
 }
 
 void Sema::ActOnStartCXXMemberDeclarations(Scope *S, Decl *TagD,
@@ -17421,14 +17435,14 @@ void Sema::ActOnObjCContainerFinishDefinition() {
   PopDeclContext();
 }
 
-void Sema::ActOnObjCTemporaryExitContainerContext(DeclContext *DC) {
-  assert(DC == CurContext && "Mismatch of container contexts");
-  OriginalLexicalContext = DC;
+void Sema::ActOnObjCTemporaryExitContainerContext(ObjCContainerDecl *ObjCCtx) {
+  assert(ObjCCtx == CurContext && "Mismatch of container contexts");
+  OriginalLexicalContext = ObjCCtx;
   ActOnObjCContainerFinishDefinition();
 }
 
-void Sema::ActOnObjCReenterContainerContext(DeclContext *DC) {
-  ActOnObjCContainerStartDefinition(cast<Decl>(DC));
+void Sema::ActOnObjCReenterContainerContext(ObjCContainerDecl *ObjCCtx) {
+  ActOnObjCContainerStartDefinition(ObjCCtx);
   OriginalLexicalContext = nullptr;
 }
 
@@ -19354,7 +19368,7 @@ void Sema::ActOnPragmaWeakAlias(IdentifierInfo* Name,
   }
 }
 
-Decl *Sema::getObjCDeclContext() const {
+ObjCContainerDecl *Sema::getObjCDeclContext() const {
   return (dyn_cast_or_null<ObjCContainerDecl>(CurContext));
 }
 

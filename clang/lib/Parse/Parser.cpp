@@ -1212,10 +1212,12 @@ Decl *Parser::ParseFunctionDefinition(ParsingDeclarator &D,
   const DeclaratorChunk::FunctionTypeInfo &FTI = D.getFunctionTypeInfo();
   TemplateParameterDepthRAII CurTemplateDepthTracker(TemplateParameterDepth);
 
-  // If this is C90 and the declspecs were completely missing, fudge in an
+  // If this is C89 and the declspecs were completely missing, fudge in an
   // implicit int.  We do this here because this is the only place where
   // declaration-specifiers are completely optional in the grammar.
-  if (getLangOpts().ImplicitInt && D.getDeclSpec().isEmpty()) {
+  if (getLangOpts().isImplicitIntRequired() && D.getDeclSpec().isEmpty()) {
+    Diag(D.getIdentifierLoc(), diag::warn_missing_type_specifier)
+        << D.getDeclSpec().getSourceRange();
     const char *PrevSpec;
     unsigned DiagID;
     const PrintingPolicy &Policy = Actions.getASTContext().getPrintingPolicy();
@@ -1469,12 +1471,6 @@ void Parser::ParseKNRParamDeclarations(Declarator &D) {
     // the declarations though.  It's trivial to ignore them, really hard to do
     // anything else with them.
     if (TryConsumeToken(tok::semi)) {
-#if INTEL_CUSTOMIZATION
-      //CQ#373127: allow compilation with empty declaration in IntelCompat mode.
-      if (getLangOpts().IntelCompat)
-        Diag(DSStart, diag::warn_declaration_does_not_declare_param);
-      else
-#endif //INTEL_CUSTOMIZATION
       Diag(DSStart, diag::err_declaration_does_not_declare_param);
       continue;
     }

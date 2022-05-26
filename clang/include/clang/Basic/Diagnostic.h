@@ -1431,7 +1431,13 @@ inline const StreamingDiagnostic &operator<<(const StreamingDiagnostic &DB,
 }
 
 inline const StreamingDiagnostic &operator<<(const StreamingDiagnostic &DB,
-                                             int64_t I) {
+                                             long I) {
+  DB.AddTaggedVal(I, DiagnosticsEngine::ak_sint);
+  return DB;
+}
+
+inline const StreamingDiagnostic &operator<<(const StreamingDiagnostic &DB,
+                                             long long I) {
   DB.AddTaggedVal(I, DiagnosticsEngine::ak_sint);
   return DB;
 }
@@ -1453,7 +1459,13 @@ inline const StreamingDiagnostic &operator<<(const StreamingDiagnostic &DB,
 }
 
 inline const StreamingDiagnostic &operator<<(const StreamingDiagnostic &DB,
-                                             uint64_t I) {
+                                             unsigned long I) {
+  DB.AddTaggedVal(I, DiagnosticsEngine::ak_uint);
+  return DB;
+}
+
+inline const StreamingDiagnostic &operator<<(const StreamingDiagnostic &DB,
+                                             unsigned long long I) {
   DB.AddTaggedVal(I, DiagnosticsEngine::ak_uint);
   return DB;
 }

@@ -105,6 +105,28 @@ void f(int (&g)[]) {
   foo(c, p);
 }
 
+struct A {
+  #pragma omp declare simd linear(a:X)
+  template<int X, typename T>
+  T infunc(T a) { return a * 2; }
+
+  template<int Y, typename U>
+  U outfunc(U *a);
+};
+
+#pragma omp declare simd linear(a:Y)
+template<int Y, typename U>
+U A::outfunc(U *a) { return *a * 2; }
+
+void test_member_template()
+{
+  struct A a;
+  int i = 32;
+  float f = 1.0;
+  int t = a.infunc<8, int>(i);
+  float u = a.outfunc<4, float>(&f);
+}
+
 #pragma omp declare simd
 #pragma omp declare simd notinbranch aligned(a : 32)
 int bar(VV v, float *a) { return 0; }
@@ -125,6 +147,52 @@ double foo(double x) { return 0; }
 #pragma omp declare simd notinbranch linear(i)
 double constlinear(const int i) { return 0.0; }
 
+// Test linear modifiers
+// linear(x) cases
+#pragma omp declare simd simdlen(4) linear(a:2) linear(b:4) linear(c:8) \
+                                    linear(d,e,f)
+double One(int &a, int *b, int c, int &d, int *e, int f) {
+  return a + *b + c;
+}
+
+// linear(val(x)) cases
+#pragma omp declare simd simdlen(4) linear(val(a):2) linear(val(b):4) \
+                                    linear(val(c):8) linear(val(d,e,f))
+double Two(int &a, int *b, int c, int &d, int *e, int f) {
+  return a + *b + c;
+}
+
+// linear(uval(x) case
+#pragma omp declare simd simdlen(4) linear(uval(a):2) linear(uval(b))
+double Three(int &a, int &b) {
+  return a;
+}
+
+// linear(ref(x) case
+#pragma omp declare simd simdlen(4) linear(ref(a):2) linear(ref(b))
+double Four(int& a, int &b) {
+  return a;
+}
+
+// Test reference parameters with variable stride.
+#pragma omp declare simd simdlen(4) uniform(a)               \
+                         linear(b:2) linear(c:a)             \
+                         linear(val(d):4) linear(val(e):a)   \
+                         linear(uval(f):8) linear(uval(g):a) \
+                         linear(ref(h):16) linear(ref(i):a)
+double Five(int a, short &b, short &c, short &d, short &e, short &f, short &g,
+            short &h, short &i) {
+  return a + int(b);
+}
+
+// Test negative strides
+#pragma omp declare simd simdlen(4) linear(a:-2) linear(b:-8) \
+                                    linear(uval(c):-4) linear(ref(d):-16) \
+                                    linear(e:-1) linear(f:-1) linear(g:0)
+double Six(int a, float *b, int &c, int *&d, char e, char *f, short g) {
+ return a + int(*b) + c + *d + e + *f + g;
+}
+
 // CHECK-DAG: define {{.+}}@_Z5add_1Pf(
 // CHECK-DAG: define {{.+}}@_Z1hIiEvPT_S1_S1_S1_(
 // CHECK-DAG: define {{.+}}@_Z1hIfEvPT_S1_S1_S1_(
@@ -135,6 +203,8 @@ double constlinear(const int i) { return 0.0; }
 // CHECK-DAG: define {{.+}}@_ZN3TVVILi16EfE6taddpfEPfRS1_(
 // CHECK-DAG: define {{.+}}@_ZN3TVVILi16EfE4taddEi(
 // CHECK-DAG: define {{.+}}@_Z3fooILi64EEvRAT__iRPf(
+// CHECK-DAG: define {{.+}}@_ZN1A6infuncILi8EiEET0_S1_
+// CHECK-DAG: define {{.+}}@_ZN1A7outfuncILi4EfEET0_PS1_
 // CHECK-DAG: define {{.+}}@_Z3bar2VVPf(
 // CHECK-DAG: define {{.+}}@_Z3baz2VVPi(
 // CHECK-DAG: define {{.+}}@_Z3bay2VVRPd(
@@ -143,6 +213,12 @@ double constlinear(const int i) { return 0.0; }
 // CHECK-DAG: define {{.+}}@_Z3food(
 // CHECK-DAG: declare {{.+}}@_Z5add_2Pf(
 // CHECK-DAG: define {{.+}}@_Z11constlineari(
+// CHECK-DAG: define {{.+}}@_Z3OneRiPiiS_S0_i
+// CHECK-DAG: define {{.+}}@_Z3TwoRiPiiS_S0_i
+// CHECK-DAG: define {{.+}}@_Z5ThreeRiS_
+// CHECK-DAG: define {{.+}}@_Z4FourRiS_
+// CHECK-DAG: define {{.+}}@_Z4FiveiRsS_S_S_S_S_S_S_
+// CHECK-DAG: define {{.+}}@_Z3SixiPfRiRPicPcs
 
 // begin INTEL_CUSTOMIZATION
 // Functions marked as simd functions now have attributes in the form
@@ -212,42 +288,42 @@ double constlinear(const int i) { return 0.0; }
 // SPIR-DAG: _ZGVxM8vvvv__Z1hIiEvPT_S1_S1_S1_
 // SPIR-DAG: _ZGVxM16vvvv__Z1hIiEvPT_S1_S1_S1_
 
-// CHECK-DAG: _ZGVbM4uus1__ZN2VV3addEii
-// CHECK-DAG: _ZGVbN4uus1__ZN2VV3addEii
-// CHECK-DAG: _ZGVcM8uus1__ZN2VV3addEii
-// CHECK-DAG: _ZGVcN8uus1__ZN2VV3addEii
-// CHECK-DAG: _ZGVdM8uus1__ZN2VV3addEii
-// CHECK-DAG: _ZGVdN8uus1__ZN2VV3addEii
-// CHECK-DAG: _ZGVeM16uus1__ZN2VV3addEii
-// CHECK-DAG: _ZGVeN16uus1__ZN2VV3addEii
+// CHECK-DAG: _ZGVbM4uuls1__ZN2VV3addEii
+// CHECK-DAG: _ZGVbN4uuls1__ZN2VV3addEii
+// CHECK-DAG: _ZGVcM8uuls1__ZN2VV3addEii
+// CHECK-DAG: _ZGVcN8uuls1__ZN2VV3addEii
+// CHECK-DAG: _ZGVdM8uuls1__ZN2VV3addEii
+// CHECK-DAG: _ZGVdN8uuls1__ZN2VV3addEii
+// CHECK-DAG: _ZGVeM16uuls1__ZN2VV3addEii
+// CHECK-DAG: _ZGVeN16uuls1__ZN2VV3addEii
 
-// SPIR-DAG: _ZGVxN8uus1__ZN2VV3addEii
-// SPIR-DAG: _ZGVxN16uus1__ZN2VV3addEii
-// SPIR-DAG: _ZGVxM8uus1__ZN2VV3addEii
-// SPIR-DAG: _ZGVxM16uus1__ZN2VV3addEii
+// SPIR-DAG: _ZGVxN8uuls1__ZN2VV3addEii
+// SPIR-DAG: _ZGVxN16uuls1__ZN2VV3addEii
+// SPIR-DAG: _ZGVxM8uuls1__ZN2VV3addEii
+// SPIR-DAG: _ZGVxM16uuls1__ZN2VV3addEii
 
-// CHECK-DAG: _ZGVbM4ll4a16l4a4__ZN2VV6taddpfEPfRS0_
-// CHECK-DAG: _ZGVbN4ll4a16l4a4__ZN2VV6taddpfEPfRS0_
-// CHECK-DAG: _ZGVcM8ll4a16l4a4__ZN2VV6taddpfEPfRS0_
-// CHECK-DAG: _ZGVcN8ll4a16l4a4__ZN2VV6taddpfEPfRS0_
-// CHECK-DAG: _ZGVdM8ll4a16l4a4__ZN2VV6taddpfEPfRS0_
-// CHECK-DAG: _ZGVdN8ll4a16l4a4__ZN2VV6taddpfEPfRS0_
-// CHECK-DAG: _ZGVeM16ll4a16l4a4__ZN2VV6taddpfEPfRS0_
-// CHECK-DAG: _ZGVeN16ll4a16l4a4__ZN2VV6taddpfEPfRS0_
+// CHECK-DAG: _ZGVbM4l40l4a16R32a4__ZN2VV6taddpfEPfRS0_
+// CHECK-DAG: _ZGVbN4l40l4a16R32a4__ZN2VV6taddpfEPfRS0_
+// CHECK-DAG: _ZGVcM8l40l4a16R32a4__ZN2VV6taddpfEPfRS0_
+// CHECK-DAG: _ZGVcN8l40l4a16R32a4__ZN2VV6taddpfEPfRS0_
+// CHECK-DAG: _ZGVdM8l40l4a16R32a4__ZN2VV6taddpfEPfRS0_
+// CHECK-DAG: _ZGVdN8l40l4a16R32a4__ZN2VV6taddpfEPfRS0_
+// CHECK-DAG: _ZGVeM16l40l4a16R32a4__ZN2VV6taddpfEPfRS0_
+// CHECK-DAG: _ZGVeN16l40l4a16R32a4__ZN2VV6taddpfEPfRS0_
 
-// SPIR-DAG: _ZGVxN8ll4l4a4__ZN2VV6taddpfEPfRS0_
-// SPIR-DAG: _ZGVxN16ll4l4a4__ZN2VV6taddpfEPfRS0_
-// SPIR-DAG: _ZGVxM8ll4l4a4__ZN2VV6taddpfEPfRS0_
-// SPIR-DAG: _ZGVxM16ll4l4a4__ZN2VV6taddpfEPfRS0_
+// SPIR-DAG: _ZGVxN8l40l4R32a4__ZN2VV6taddpfEPfRS0_
+// SPIR-DAG: _ZGVxN16l40l4R32a4__ZN2VV6taddpfEPfRS0_
+// SPIR-DAG: _ZGVxM8l40l4R32a4__ZN2VV6taddpfEPfRS0_
+// SPIR-DAG: _ZGVxM16l40l4R32a4__ZN2VV6taddpfEPfRS0_
 
-// CHECK-DAG: _ZGVbM4vvl8__ZN2VV4taddERA_iRi
-// CHECK-DAG: _ZGVbN4vvl8__ZN2VV4taddERA_iRi
-// CHECK-DAG: _ZGVcM8vvl8__ZN2VV4taddERA_iRi
-// CHECK-DAG: _ZGVcN8vvl8__ZN2VV4taddERA_iRi
-// CHECK-DAG: _ZGVdM8vvl8__ZN2VV4taddERA_iRi
-// CHECK-DAG: _ZGVdN8vvl8__ZN2VV4taddERA_iRi
-// CHECK-DAG: _ZGVeM16vvl8__ZN2VV4taddERA_iRi
-// CHECK-DAG: _ZGVeN16vvl8__ZN2VV4taddERA_iRi
+// CHECK-DAG: _ZGVbM4vvU8__ZN2VV4taddERA_iRi
+// CHECK-DAG: _ZGVbN4vvU8__ZN2VV4taddERA_iRi
+// CHECK-DAG: _ZGVcM8vvU8__ZN2VV4taddERA_iRi
+// CHECK-DAG: _ZGVcN8vvU8__ZN2VV4taddERA_iRi
+// CHECK-DAG: _ZGVdM8vvU8__ZN2VV4taddERA_iRi
+// CHECK-DAG: _ZGVdN8vvU8__ZN2VV4taddERA_iRi
+// CHECK-DAG: _ZGVeM16vvU8__ZN2VV4taddERA_iRi
+// CHECK-DAG: _ZGVeN16vvU8__ZN2VV4taddERA_iRi
 // CHECK-DAG: _ZGVbM4vva8v__ZN2VV4taddERA_iRi
 // CHECK-DAG: _ZGVbN4vva8v__ZN2VV4taddERA_iRi
 // CHECK-DAG: _ZGVcM8vva8v__ZN2VV4taddERA_iRi
@@ -257,25 +333,25 @@ double constlinear(const int i) { return 0.0; }
 // CHECK-DAG: _ZGVeM16vva8v__ZN2VV4taddERA_iRi
 // CHECK-DAG: _ZGVeN16vva8v__ZN2VV4taddERA_iRi
 
-// SPIR-DAG: _ZGVxN8vvl8__ZN2VV4taddERA_iRi
-// SPIR-DAG: _ZGVxN16vvl8__ZN2VV4taddERA_iRi
-// SPIR-DAG: _ZGVxM8vvl8__ZN2VV4taddERA_iRi
-// SPIR-DAG: _ZGVxM16vvl8__ZN2VV4taddERA_iRi
+// SPIR-DAG: _ZGVxN8vvU8__ZN2VV4taddERA_iRi
+// SPIR-DAG: _ZGVxN16vvU8__ZN2VV4taddERA_iRi
+// SPIR-DAG: _ZGVxM8vvU8__ZN2VV4taddERA_iRi
+// SPIR-DAG: _ZGVxM16vvU8__ZN2VV4taddERA_iRi
 
-// CHECK-DAG: _ZGVbM4vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
-// CHECK-DAG: _ZGVbN4vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
-// CHECK-DAG: _ZGVcM8vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
-// CHECK-DAG: _ZGVcN8vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
-// CHECK-DAG: _ZGVdM8vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
-// CHECK-DAG: _ZGVdN8vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
-// CHECK-DAG: _ZGVeM16vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
-// CHECK-DAG: _ZGVeN16vva32l16a16__ZN3TVVILi16EfE6taddpfEPfRS1_
+// CHECK-DAG: _ZGVbM4vva32R128a16__ZN3TVVILi16EfE6taddpfEPfRS1_
+// CHECK-DAG: _ZGVbN4vva32R128a16__ZN3TVVILi16EfE6taddpfEPfRS1_
+// CHECK-DAG: _ZGVcM8vva32R128a16__ZN3TVVILi16EfE6taddpfEPfRS1_
+// CHECK-DAG: _ZGVcN8vva32R128a16__ZN3TVVILi16EfE6taddpfEPfRS1_
+// CHECK-DAG: _ZGVdM8vva32R128a16__ZN3TVVILi16EfE6taddpfEPfRS1_
+// CHECK-DAG: _ZGVdN8vva32R128a16__ZN3TVVILi16EfE6taddpfEPfRS1_
+// CHECK-DAG: _ZGVeM16vva32R128a16__ZN3TVVILi16EfE6taddpfEPfRS1_
+// CHECK-DAG: _ZGVeN16vva32R128a16__ZN3TVVILi16EfE6taddpfEPfRS1_
 
 // SimdDefaultAlign is 0 for SPIR but 128-512 for x86
-// SPIR-DAG: _ZGVxN8vva32l16__ZN3TVVILi16EfE6taddpfEPfRS1_
-// SPIR-DAG: _ZGVxN16vva32l16__ZN3TVVILi16EfE6taddpfEPfRS1_
-// SPIR-DAG: _ZGVxM8vva32l16__ZN3TVVILi16EfE6taddpfEPfRS1_
-// SPIR-DAG: _ZGVxM16vva32l16__ZN3TVVILi16EfE6taddpfEPfRS1_
+// SPIR-DAG: _ZGVxN8vva32R128__ZN3TVVILi16EfE6taddpfEPfRS1_
+// SPIR-DAG: _ZGVxN16vva32R128__ZN3TVVILi16EfE6taddpfEPfRS1_
+// SPIR-DAG: _ZGVxM8vva32R128__ZN3TVVILi16EfE6taddpfEPfRS1_
+// SPIR-DAG: _ZGVxM16vva32R128__ZN3TVVILi16EfE6taddpfEPfRS1_
 
 // CHECK-DAG: _ZGVbM4uu__ZN3TVVILi16EfE4taddEi
 // CHECK-DAG: _ZGVbN4uu__ZN3TVVILi16EfE4taddEi
@@ -299,19 +375,37 @@ double constlinear(const int i) { return 0.0; }
 // SPIR-DAG: _ZGVxM8uu__ZN3TVVILi16EfE4taddEi
 // SPIR-DAG: _ZGVxM16uu__ZN3TVVILi16EfE4taddEi
 
-// CHECK-DAG: _ZGVbM64va128l64__Z3fooILi64EEvRAT__iRPf
-// CHECK-DAG: _ZGVbN64va128l64__Z3fooILi64EEvRAT__iRPf
-// CHECK-DAG: _ZGVcM64va128l64__Z3fooILi64EEvRAT__iRPf
-// CHECK-DAG: _ZGVcN64va128l64__Z3fooILi64EEvRAT__iRPf
-// CHECK-DAG: _ZGVdM64va128l64__Z3fooILi64EEvRAT__iRPf
-// CHECK-DAG: _ZGVdN64va128l64__Z3fooILi64EEvRAT__iRPf
-// CHECK-DAG: _ZGVeM64va128l64__Z3fooILi64EEvRAT__iRPf
-// CHECK-DAG: _ZGVeN64va128l64__Z3fooILi64EEvRAT__iRPf
+// CHECK-DAG: _ZGVbM64va128U64__Z3fooILi64EEvRAT__iRPf
+// CHECK-DAG: _ZGVbN64va128U64__Z3fooILi64EEvRAT__iRPf
+// CHECK-DAG: _ZGVcM64va128U64__Z3fooILi64EEvRAT__iRPf
+// CHECK-DAG: _ZGVcN64va128U64__Z3fooILi64EEvRAT__iRPf
+// CHECK-DAG: _ZGVdM64va128U64__Z3fooILi64EEvRAT__iRPf
+// CHECK-DAG: _ZGVdN64va128U64__Z3fooILi64EEvRAT__iRPf
+// CHECK-DAG: _ZGVeM64va128U64__Z3fooILi64EEvRAT__iRPf
+// CHECK-DAG: _ZGVeN64va128U64__Z3fooILi64EEvRAT__iRPf
 
-// SPIR-DAG: _ZGVxN64va128l64__Z3fooILi64EEvRAT__iRPf
-// SPIR-DAG: _ZGVxN64va128l64__Z3fooILi64EEvRAT__iRPf
-// SPIR-DAG: _ZGVxM64va128l64__Z3fooILi64EEvRAT__iRPf
-// SPIR-DAG: _ZGVxM64va128l64__Z3fooILi64EEvRAT__iRPf
+// CHECK-DAG: _ZGVbM4vl8__ZN1A6infuncILi8EiEET0_S1_
+// CHECK-DAG: _ZGVbN4vl8__ZN1A6infuncILi8EiEET0_S1_
+// CHECK-DAG: _ZGVcM8vl8__ZN1A6infuncILi8EiEET0_S1_
+// CHECK-DAG: _ZGVcN8vl8__ZN1A6infuncILi8EiEET0_S1_
+// CHECK-DAG: _ZGVdM8vl8__ZN1A6infuncILi8EiEET0_S1_
+// CHECK-DAG: _ZGVdN8vl8__ZN1A6infuncILi8EiEET0_S1_
+// CHECK-DAG: _ZGVeM16vl8__ZN1A6infuncILi8EiEET0_S1_
+// CHECK-DAG: _ZGVeN16vl8__ZN1A6infuncILi8EiEET0_S1_
+
+// CHECK-DAG: _ZGVbM4vl16__ZN1A7outfuncILi4EfEET0_PS1_
+// CHECK-DAG: _ZGVbN4vl16__ZN1A7outfuncILi4EfEET0_PS1_
+// CHECK-DAG: _ZGVcM8vl16__ZN1A7outfuncILi4EfEET0_PS1_
+// CHECK-DAG: _ZGVcN8vl16__ZN1A7outfuncILi4EfEET0_PS1_
+// CHECK-DAG: _ZGVdM8vl16__ZN1A7outfuncILi4EfEET0_PS1_
+// CHECK-DAG: _ZGVdN8vl16__ZN1A7outfuncILi4EfEET0_PS1_
+// CHECK-DAG: _ZGVeM16vl16__ZN1A7outfuncILi4EfEET0_PS1_
+// CHECK-DAG: _ZGVeN16vl16__ZN1A7outfuncILi4EfEET0_PS1_
+
+// SPIR-DAG: _ZGVxN64va128U64__Z3fooILi64EEvRAT__iRPf
+// SPIR-DAG: _ZGVxN64va128U64__Z3fooILi64EEvRAT__iRPf
+// SPIR-DAG: _ZGVxM64va128U64__Z3fooILi64EEvRAT__iRPf
+// SPIR-DAG: _ZGVxM64va128U64__Z3fooILi64EEvRAT__iRPf
 
 // CHECK-DAG: _ZGVbM4vv__Z3bar2VVPf
 // CHECK-DAG: _ZGVbN4vv__Z3bar2VVPf
@@ -357,10 +451,10 @@ double constlinear(const int i) { return 0.0; }
 // CHECK-DAG: _ZGVdN4vva16__Z3bay2VVRPd
 // CHECK-DAG: _ZGVeN8vva16__Z3bay2VVRPd
 
-// CHECK-DAG: _ZGVbM4us2u__Z3bax2VVPdi
-// CHECK-DAG: _ZGVcM8us2u__Z3bax2VVPdi
-// CHECK-DAG: _ZGVdM8us2u__Z3bax2VVPdi
-// CHECK-DAG: _ZGVeM16us2u__Z3bax2VVPdi
+// CHECK-DAG: _ZGVbM4uls2u__Z3bax2VVPdi
+// CHECK-DAG: _ZGVcM8uls2u__Z3bax2VVPdi
+// CHECK-DAG: _ZGVdM8uls2u__Z3bax2VVPdi
+// CHECK-DAG: _ZGVeM16uls2u__Z3bax2VVPdi
 // CHECK-DAG: _ZGVbM4vvv__Z3bax2VVPdi
 // CHECK-DAG: _ZGVbN4vvv__Z3bax2VVPdi
 // CHECK-DAG: _ZGVcM8vvv__Z3bax2VVPdi
@@ -412,7 +506,19 @@ double constlinear(const int i) { return 0.0; }
 // SPIR-DAG: _ZGVxN8l__Z11constlineari
 // SPIR-DAG: _ZGVxN16l__Z11constlineari
 
+// CHECK-DAG: _ZGVbM4L2l16l8Ll4l__Z3OneRiPiiS_S0_i
+// CHECK-DAG: _ZGVbN4L2l16l8Ll4l__Z3OneRiPiiS_S0_i
+// CHECK-DAG: _ZGVbM4L2l16l8Ll4l__Z3TwoRiPiiS_S0_i
+// CHECK-DAG: _ZGVbN4L2l16l8Ll4l__Z3TwoRiPiiS_S0_i
+// CHECK-DAG: _ZGVbM4U2U__Z5ThreeRiS_
+// CHECK-DAG: _ZGVbN4U2U__Z5ThreeRiS_
+// CHECK-DAG: _ZGVbM4R8R4__Z4FourRiS_
+// CHECK-DAG: _ZGVbN4R8R4__Z4FourRiS_
+// CHECK-DAG: _ZGVbM4uL2Ls0L4Ls0U8Us0R32Rs0__Z4FiveiRsS_S_S_S_S_S_S_
+// CHECK-DAG: _ZGVbN4uL2Ls0L4Ls0U8Us0R32Rs0__Z4FiveiRsS_S_S_S_S_S_S_
+// CHECK-DAG: _ZGVbM4ln2ln32Un4Rn128ln1ln1l0__Z3SixiPfRiRPicPcs
+// CHECK-DAG: _ZGVbN4ln2ln32Un4Rn128ln1ln1l0__Z3SixiPfRiRPicPcs
+
 // CHECK-NOT: _ZGV{{.+}}__Z1fRA_i
 // end INTEL_CUSTOMIZATION
-
 #endif

@@ -45,9 +45,12 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
             add_definitions(-DOMPTARGET_OPENCL_DEBUG)
         endif()
 
-        include_directories(${LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS})
-        include_directories(${LIBOMPTARGET_LLVM_INCLUDE_DIRS})
         add_library(omptarget.rtl.opencl SHARED src/rtl.cpp src/ompt-opencl.cpp)
+        target_include_directories(omptarget.rtl.opencl PRIVATE
+          ${LIBOMPTARGET_INCLUDE_DIR}
+          ${LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS}
+          ${LIBOMPTARGET_LLVM_INCLUDE_DIRS}
+        )
         if(NOT LIBOMPTARGET_DEP_LIBELF_FOUND OR LIBOMPTARGET_FORCE_LLVM_ELF)
           # Statically link C run-time library on Windows.
           # Otherwise, we cannot use LLVMObject and LLVMSupport.

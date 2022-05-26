@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1249,7 +1249,7 @@ static void readConfigs(opt::InputArgList &args) {
   config->oFormatBinary = isOutputFormatBinary(args);
   config->omagic = args.hasFlag(OPT_omagic, OPT_no_omagic, false);
   config->optRemarksFilename = args.getLastArgValue(OPT_opt_remarks_filename);
-  config->optStatsFilename = args.getLastArgValue(OPT_opt_stats_filename);
+  config->optStatsFilename = args.getLastArgValue(OPT_plugin_opt_stats_file);
 
   // Parse remarks hotness threshold. Valid value is either integer or 'auto'.
   if (auto *arg = args.getLastArg(OPT_opt_remarks_hotness_threshold)) {
@@ -1772,12 +1772,12 @@ void LinkerDriver::createFiles(opt::InputArgList &args) {
 #if INTEL_CUSTOMIZATION
   // Process the GNU LTO files
   if (!gnuLTOFiles.empty())
-    invokeELFT(doGnuLTOLinking, gnuLTOFiles, /* isLazyFile */ false);
+    finalizeGNULTO(gnuLTOFiles, /* isLazyFile */ false);
 
   // If there are GNU LTO files in archives then we need to do a partial
   // linking in order to preserve the the lazy symbols.
   if (!lazyGNULTOFiles.empty())
-    invokeELFT(doGnuLTOLinking, lazyGNULTOFiles, /* isLazyFile */ true);
+    finalizeGNULTO(lazyGNULTOFiles, /* isLazyFile */ true);
 #endif // INTEL_CUSTOMIZATION
 
   if (files.empty() && !hasInput && errorCount() == 0)
@@ -1802,13 +1802,63 @@ void LinkerDriver::inferMachineType() {
 }
 
 #if INTEL_CUSTOMIZATION
+// Helper function for finding the ELF target used for GNU LTO files and
+// invoke doGNULTOLinking.
+void LinkerDriver::finalizeGNULTO(
+    llvm::SmallVectorImpl<InputFile *> &InputGNULTOFiles, bool isLazyFile) {
+
+  if (InputGNULTOFiles.empty())
+    return;
+
+  // If -m was set then use the configuration passed through the config
+  if (config->ekind != ELFNoneKind) {
+    invokeELFT(doGNULTOLinking, InputGNULTOFiles, isLazyFile);
+    return;
+  }
+
+  // Else, we are going to try to find the ELF target
+  auto FileKind = ELFNoneKind;
+  for (InputFile *f : InputGNULTOFiles) {
+    if (!f)
+      return;
+    if (f->ekind == ELFNoneKind)
+      continue;
+    // Collect the ELF target set by the file. It has to be the same for all
+    // input files.
+    if (FileKind == ELFNoneKind) {
+      FileKind = f->ekind;
+    } else if (FileKind != f->ekind) {
+      FileKind = ELFNoneKind;
+      break;
+    }
+  }
+
+  // Now invoke doGNULTOLinking with the proper ELF target
+  switch (FileKind) {
+  case ELF32LEKind:
+    doGNULTOLinking<ELF32LE>(InputGNULTOFiles, isLazyFile);
+    break;
+  case ELF32BEKind:
+    doGNULTOLinking<ELF32BE>(InputGNULTOFiles, isLazyFile);
+    break;
+  case ELF64LEKind:
+    doGNULTOLinking<ELF64LE>(InputGNULTOFiles, isLazyFile);
+    break;
+  case ELF64BEKind:
+    doGNULTOLinking<ELF64BE>(InputGNULTOFiles, isLazyFile);
+    break;
+  default:
+    break;
+  }
+}
+
 // Pass to g++ the input vector of GNU LTO files in order to do LTO and
 // build a temporary object. Then collect the ELF object generated and
 // add it to the linking process either as a regular object file or
 // lazy object (archive members).
 template <class ELFT>
-void LinkerDriver::doGnuLTOLinking(
-    llvm::SmallVectorImpl<InputFile *> &gnuLTOFiles, bool isLazyFile) {
+void LinkerDriver::doGNULTOLinking(
+    llvm::SmallVectorImpl<InputFile *> &InputGNULTOFiles, bool isLazyFile) {
 
   // Given an ObjFile and a SmallString, write the file in the temporary
   // directory
@@ -1903,7 +1953,7 @@ void LinkerDriver::doGnuLTOLinking(
   std::vector<StringRef> tempsVector;
 
   // Traverse through the GNU LTO objects and write them
-  for (auto file : gnuLTOFiles) {
+  for (auto file : InputGNULTOFiles) {
     SmallString<128> s;
     writeTempObjFile(cast<ObjFile<ELFT>>(file), s);
     std::string tempFile = s.str().str();

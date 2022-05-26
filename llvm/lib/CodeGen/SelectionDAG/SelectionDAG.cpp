@@ -4723,12 +4723,33 @@ bool SelectionDAG::isEqualTo(SDValue A, SDValue B) const {
   return false;
 }
 
+// Only bits set in Mask must be negated, other bits may be arbitrary.
+SDValue llvm::getBitwiseNotOperand(SDValue V, SDValue Mask, bool AllowUndefs) {
+  if (isBitwiseNot(V, AllowUndefs))
+    return V.getOperand(0);
+
+  // Handle any_extend (not (truncate X)) pattern, where Mask only sets
+  // bits in the non-extended part.
+  ConstantSDNode *MaskC = isConstOrConstSplat(Mask);
+  if (!MaskC || V.getOpcode() != ISD::ANY_EXTEND)
+    return SDValue();
+  SDValue ExtArg = V.getOperand(0);
+  if (ExtArg.getScalarValueSizeInBits() >=
+          MaskC->getAPIntValue().getActiveBits() &&
+      isBitwiseNot(ExtArg, AllowUndefs) &&
+      ExtArg.getOperand(0).getOpcode() == ISD::TRUNCATE &&
+      ExtArg.getOperand(0).getOperand(0).getValueType() == V.getValueType())
+    return ExtArg.getOperand(0).getOperand(0);
+  return SDValue();
+}
+
 static bool haveNoCommonBitsSetCommutative(SDValue A, SDValue B) {
   // Match masked merge pattern (X & ~M) op (Y & M)
   // Including degenerate case (X & ~M) op M
-  auto MatchNoCommonBitsPattern = [&](SDValue NotM, SDValue Other) {
-    if (isBitwiseNot(NotM, true)) {
-      SDValue NotOperand = NotM->getOperand(0);
+  auto MatchNoCommonBitsPattern = [&](SDValue Not, SDValue Mask,
+                                      SDValue Other) {
+    if (SDValue NotOperand =
+            getBitwiseNotOperand(Not, Mask, /* AllowUndefs */ true)) {
       if (Other == NotOperand)
         return true;
       if (Other->getOpcode() == ISD::AND)
@@ -4738,8 +4759,8 @@ static bool haveNoCommonBitsSetCommutative(SDValue A, SDValue B) {
     return false;
   };
   if (A->getOpcode() == ISD::AND)
-    return MatchNoCommonBitsPattern(A->getOperand(0), B) ||
-           MatchNoCommonBitsPattern(A->getOperand(1), B);
+    return MatchNoCommonBitsPattern(A->getOperand(0), A->getOperand(1), B) ||
+           MatchNoCommonBitsPattern(A->getOperand(1), A->getOperand(0), B);
   return false;
 }
 
@@ -6249,9 +6270,9 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
       std::swap(N1, N2);
     } else {
       switch (Opcode) {
-      case ISD::SIGN_EXTEND_INREG:
       case ISD::SUB:
         return getUNDEF(VT);     // fold op(undef, arg2) -> undef
+      case ISD::SIGN_EXTEND_INREG:
       case ISD::UDIV:
       case ISD::SDIV:
       case ISD::UREM:
@@ -8661,7 +8682,6 @@ SDValue SelectionDAG::getMaskedGather(SDVTList VTs, EVT MemVT, const SDLoc &dl,
     return SDValue(E, 0);
   }
 
-  IndexType = TLI->getCanonicalIndexType(IndexType, MemVT, Ops[4]);
   auto *N = newSDNode<MaskedGatherSDNode>(dl.getIROrder(), dl.getDebugLoc(),
                                           VTs, MemVT, MMO, IndexType, ExtTy);
   createOperands(N, Ops);
@@ -8709,7 +8729,6 @@ SDValue SelectionDAG::getMaskedScatter(SDVTList VTs, EVT MemVT, const SDLoc &dl,
     return SDValue(E, 0);
   }
 
-  IndexType = TLI->getCanonicalIndexType(IndexType, MemVT, Ops[4]);
   auto *N = newSDNode<MaskedScatterSDNode>(dl.getIROrder(), dl.getDebugLoc(),
                                            VTs, MemVT, MMO, IndexType, IsTrunc);
   createOperands(N, Ops);
@@ -8918,6 +8937,25 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
     if (VT.isVector() && VT.getVectorElementType() == MVT::i1)
       Opcode = ISD::VP_AND;
     break;
+  case ISD::VP_REDUCE_ADD:
+    // If it is VP_REDUCE_ADD mask operation then turn it to VP_REDUCE_XOR
+    if (VT == MVT::i1)
+      Opcode = ISD::VP_REDUCE_XOR;
+    break;
+  case ISD::VP_REDUCE_SMAX:
+  case ISD::VP_REDUCE_UMIN:
+    // If it is VP_REDUCE_SMAX/VP_REDUCE_UMIN mask operation then turn it to
+    // VP_REDUCE_AND.
+    if (VT == MVT::i1)
+      Opcode = ISD::VP_REDUCE_AND;
+    break;
+  case ISD::VP_REDUCE_SMIN:
+  case ISD::VP_REDUCE_UMAX:
+    // If it is VP_REDUCE_SMIN/VP_REDUCE_UMAX mask operation then turn it to
+    // VP_REDUCE_OR.
+    if (VT == MVT::i1)
+      Opcode = ISD::VP_REDUCE_OR;
+    break;
   }
 
   // Memoize nodes.
@@ -8964,7 +9002,7 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, SDVTList VTList,
 SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, SDVTList VTList,
                               ArrayRef<SDValue> Ops, const SDNodeFlags Flags) {
   if (VTList.NumVTs == 1)
-    return getNode(Opcode, DL, VTList.VTs[0], Ops);
+    return getNode(Opcode, DL, VTList.VTs[0], Ops, Flags);
 
 #ifndef NDEBUG
   for (auto &Op : Ops)

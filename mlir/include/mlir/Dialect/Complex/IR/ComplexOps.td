@@ -110,6 +110,26 @@ def ConstantOp : Complex_Op<"constant", [
 }
 
 //===----------------------------------------------------------------------===//
+// CosOp
+//===----------------------------------------------------------------------===//
+
+def CosOp : ComplexUnaryOp<"cos", [SameOperandsAndResultType]> {
+  let summary = "computes cosine of a complex number";
+  let description = [{
+    The `cos` op takes a single complex number and computes the cosine of
+    it, i.e. `cos(x)`, where `x` is the input value.
+
+    Example:
+
+    ```mlir
+    %a = complex.cos %b : complex<f32>
+    ```
+  }];
+
+  let results = (outs Complex<AnyFloat>:$result);
+}
+
+//===----------------------------------------------------------------------===//
 // CreateOp
 //===----------------------------------------------------------------------===//
 
@@ -327,6 +347,24 @@ def NotEqualOp : Complex_Op<"neq",
 }
 
 //===----------------------------------------------------------------------===//
+// PowOp
+//===----------------------------------------------------------------------===//
+
+def PowOp : ComplexArithmeticOp<"pow"> {
+  let summary = "complex power function";
+  let description = [{
+    The `sqrt` operation takes a complex number raises it to the given complex
+    exponent.
+
+    Example:
+
+    ```mlir
+    %a = complex.pow %b, %c : complex<f32>
+    ```
+  }];
+}
+
+//===----------------------------------------------------------------------===//
 // ReOp
 //===----------------------------------------------------------------------===//
 
@@ -370,6 +408,45 @@ def SignOp : ComplexUnaryOp<"sign", [SameOperandsAndResultType]> {
 }
 
 //===----------------------------------------------------------------------===//
+// SinOp
+//===----------------------------------------------------------------------===//
+
+def SinOp : ComplexUnaryOp<"sin", [SameOperandsAndResultType]> {
+  let summary = "computes sine of a complex number";
+  let description = [{
+    The `sin` op takes a single complex number and computes the sine of
+    it, i.e. `sin(x)`, where `x` is the input value.
+
+    Example:
+
+    ```mlir
+    %a = complex.sin %b : complex<f32>
+    ```
+  }];
+
+  let results = (outs Complex<AnyFloat>:$result);
+}
+
+//===----------------------------------------------------------------------===//
+// SqrtOp
+//===----------------------------------------------------------------------===//
+
+def SqrtOp : ComplexUnaryOp<"sqrt", [SameOperandsAndResultType]> {
+  let summary = "complex square root";
+  let description = [{
+    The `sqrt` operation takes a complex number and returns its square root.
+
+    Example:
+
+    ```mlir
+    %a = complex.sqrt %b : complex<f32>
+    ```
+  }];
+
+  let results = (outs Complex<AnyFloat>:$result);
+}
+
+//===----------------------------------------------------------------------===//
 // SubOp
 //===----------------------------------------------------------------------===//
 
@@ -384,6 +461,26 @@ def SubOp : ComplexArithmeticOp<"sub"> {
     %a = complex.sub %b, %c : complex<f32>
     ```
   }];
+}
+
+//===----------------------------------------------------------------------===//
+// TanhOp
+//===----------------------------------------------------------------------===//
+
+def TanhOp : ComplexUnaryOp<"tanh", [SameOperandsAndResultType]> {
+  let summary = "complex hyperbolic tangent";
+  let description = [{
+    The `tanh` operation takes a complex number and returns its hyperbolic
+    tangent.
+
+    Example:
+
+    ```mlir
+    %a = complex.tanh %b : complex<f32>
+    ```
+  }];
+
+  let results = (outs Complex<AnyFloat>:$result);
 }
 
 #endif // COMPLEX_OPS

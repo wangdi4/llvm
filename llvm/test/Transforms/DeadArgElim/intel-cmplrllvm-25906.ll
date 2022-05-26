@@ -3,11 +3,13 @@
 ; RUN: opt < %s -passes='deadargelim,vec-clone' -debug-only=deadargelim -S 2>&1 | FileCheck %s
 
 ; Check that dead argument elimination does not happen for @foo because it
-; has vector variants.
+; has vector variants. The arguments of vector variants cannot be eliminated
+; because the number of arguments is tied to the function signature of the
+; vector variant.
 
 ; CHECK: DeadArgumentEliminationPass - foo has vector variants
 ; CHECK: define dso_local i32 @main()
-; CHECK: call i32 @foo(i32 %0, i32 %1)
+; CHECK: call i32 @foo(i32 %0, i32 undef)
 ; CHECK: define internal i32 @foo(i32 %i, i32 %x)
 
 @glob1 = dso_local global i32 5, align 4

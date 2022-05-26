@@ -69,6 +69,14 @@ Changes to the LLVM IR
 Changes to building LLVM
 ------------------------
 
+* Omitting ``CMAKE_BUILD_TYPE`` when using a single configuration generator is now
+  an error. You now have to pass ``-DCMAKE_BUILD_TYPE=<type>`` in order to configure
+  LLVM. This is done to help new users of LLVM select the correct type: since building
+  LLVM in Debug mode is very resource intensive, we want to make sure that new users
+  make the choice that lines up with their usage. We have also improved documentation
+  around this setting that should help new users. You can find this documentation
+  `here <https://llvm.org/docs/CMake.html#cmake-build-type>`_.
+
 Changes to TableGen
 -------------------
 
@@ -91,6 +99,8 @@ Changes to the ARM Backend
   warnings will be generated and -mrestrict-it is now always off by default.
   Previously it was on by default for Armv8 and off for all other architecture
   versions.
+* Added a pass to workaround Cortex-A57 Erratum 1742098 and Cortex-A72
+  Erratum 1655431. This is enabled by default when targeting either CPU.
 
 Changes to the AVR Backend
 --------------------------

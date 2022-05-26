@@ -56,7 +56,7 @@ void* CPUProgram::GetPointerToGlobalValue(llvm::StringRef Name) const {
             throw Exceptions::CompilerException(
                 "Failed to lookup symbol " + Name.str() + '\n' + getLLJITLog());
         }
-        Addr = static_cast<uintptr_t>(Sym->getAddress());
+        Addr = static_cast<uintptr_t>(Sym->getValue());
     } else
         Addr = static_cast<uintptr_t>(
             m_pExecutionEngine->getGlobalValueAddress(Name.str()));
@@ -73,7 +73,7 @@ void* CPUProgram::GetPointerToFunction(llvm::StringRef Name) const {
             throw Exceptions::CompilerException(
                 "Failed to lookup symbol " + Name.str() + '\n' + getLLJITLog());
         }
-        Addr = static_cast<uintptr_t>(Sym->getAddress());
+        Addr = static_cast<uintptr_t>(Sym->getValue());
     } else
         Addr = static_cast<uintptr_t>(
             m_pExecutionEngine->getFunctionAddress(Name.str()));

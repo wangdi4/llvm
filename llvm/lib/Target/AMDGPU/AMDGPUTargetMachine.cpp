@@ -16,6 +16,7 @@
 #include "AMDGPU.h"
 #include "AMDGPUAliasAnalysis.h"
 #include "AMDGPUExportClustering.h"
+#include "AMDGPUMFMAClustering.h"
 #include "AMDGPUMacroFusion.h"
 #include "AMDGPUTargetObjectFile.h"
 #include "AMDGPUTargetTransformInfo.h"
@@ -44,6 +45,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Passes/PassBuilder.h"
+#include "llvm/SYCLLowerIR/GlobalOffset.h"
 #include "llvm/SYCLLowerIR/LocalAccessorToSharedMemory.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
@@ -386,6 +388,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeAMDGPUTarget() {
   initializeGCNPreRAOptimizationsPass(*PR);
 
   // SYCL-specific passes, needed here to be available to `opt`.
+  initializeGlobalOffsetPass(*PR);
   initializeLocalAccessorToSharedMemoryPass(*PR);
 }
 
@@ -402,6 +405,7 @@ createGCNMaxOccupancyMachineScheduler(MachineSchedContext *C) {
   ScheduleDAGMILive *DAG =
     new GCNScheduleDAGMILive(C, std::make_unique<GCNMaxOccupancySchedStrategy>(C));
   DAG->addMutation(createLoadClusterDAGMutation(DAG->TII, DAG->TRI));
+  DAG->addMutation(createMFMAClusterDAGMutation());
   DAG->addMutation(createAMDGPUMacroFusionDAGMutation());
   DAG->addMutation(createAMDGPUExportClusteringDAGMutation());
   return DAG;
@@ -883,6 +887,7 @@ public:
     const GCNSubtarget &ST = C->MF->getSubtarget<GCNSubtarget>();
     DAG->addMutation(createLoadClusterDAGMutation(DAG->TII, DAG->TRI));
     DAG->addMutation(ST.createFillMFMAShadowMutation(DAG->TII));
+    DAG->addMutation(createMFMAClusterDAGMutation());
     return DAG;
   }
 
@@ -972,7 +977,7 @@ void AMDGPUPassConfig::addIRPasses() {
   addPass(createAlwaysInlinerLegacyPass());
   // We need to add the barrier noop pass, otherwise adding the function
   // inlining pass will cause all of the PassConfigs passes to be run
-  // one function at a time, which means if we have a nodule with two
+  // one function at a time, which means if we have a module with two
   // functions, then we will generate code for the first function
   // without ever running any passes on the second.
   addPass(createBarrierNoopPass());
@@ -1041,8 +1046,10 @@ void AMDGPUPassConfig::addIRPasses() {
     addEarlyCSEOrGVNPass();
 
   if (TM.getTargetTriple().getArch() == Triple::amdgcn &&
-      TM.getTargetTriple().getOS() == Triple::OSType::AMDHSA)
+      TM.getTargetTriple().getOS() == Triple::OSType::AMDHSA) {
     addPass(createLocalAccessorToSharedMemoryPass());
+    addPass(createGlobalOffsetPass());
+  }
 }
 
 void AMDGPUPassConfig::addCodeGenPrepare() {

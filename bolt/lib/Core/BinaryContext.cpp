@@ -809,6 +809,7 @@ BinaryContext::duplicateJumpTable(BinaryFunction &Function, JumpTable *JT,
     break;
   }
   assert(Found && "Label not found");
+  (void)Found;
   MCSymbol *NewLabel = Ctx->createNamedTempSymbol("duplicatedJT");
   JumpTable *NewJT =
       new JumpTable(*NewLabel, JT->getAddress(), JT->EntrySize, JT->Type,
@@ -1172,6 +1173,7 @@ void BinaryContext::postProcessSymbolTable() {
     }
   }
   assert(Valid);
+  (void)Valid;
   generateSymbolHashes();
 }
 
@@ -1500,6 +1502,8 @@ void BinaryContext::preprocessDebugInfo() {
            << DwCtx->getNumCompileUnits() << " CUs will be updated\n";
   }
 
+  preprocessDWODebugInfo();
+
   // Populate MCContext with DWARF files from all units.
   StringRef GlobalPrefix = AsmInfo->getPrivateGlobalPrefix();
   for (const std::unique_ptr<DWARFUnit> &CU : DwCtx->compile_units()) {
@@ -1521,10 +1525,16 @@ void BinaryContext::preprocessDebugInfo() {
       Optional<MD5::MD5Result> Checksum = None;
       if (LineTable->Prologue.ContentTypes.HasMD5)
         Checksum = LineTable->Prologue.FileNames[0].Checksum;
-      BinaryLineTable.setRootFile(
-          CU->getCompilationDir(),
-          dwarf::toString(CU->getUnitDIE().find(dwarf::DW_AT_name), nullptr),
-          Checksum, None);
+      Optional<const char *> Name =
+          dwarf::toString(CU->getUnitDIE().find(dwarf::DW_AT_name), nullptr);
+      if (Optional<uint64_t> DWOID = CU->getDWOId()) {
+        auto Iter = DWOCUs.find(*DWOID);
+        assert(Iter != DWOCUs.end() && "DWO CU was not found.");
+        Name = dwarf::toString(
+            Iter->second->getUnitDIE().find(dwarf::DW_AT_name), nullptr);
+      }
+      BinaryLineTable.setRootFile(CU->getCompilationDir(), *Name, Checksum,
+                                  None);
     }
 
     BinaryLineTable.setDwarfVersion(DwarfVersion);
@@ -1557,8 +1567,6 @@ void BinaryContext::preprocessDebugInfo() {
           getDwarfFile(Dir, FileName, 0, Checksum, None, CUID, DwarfVersion));
     }
   }
-
-  preprocessDWODebugInfo();
 }
 
 bool BinaryContext::shouldEmit(const BinaryFunction &Function) const {

@@ -35,13 +35,14 @@
 #include "llvm/Analysis/CFLAndersAliasAnalysis.h"
 #include "llvm/Analysis/CFLSteensAliasAnalysis.h"
 #include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/InlineCost.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Analysis/InlineCost.h"
+#include "llvm/IR/Verifier.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
@@ -49,7 +50,6 @@
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/PrintPasses.h" // INTEL
-#include "llvm/IR/Verifier.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Target/CGPassBuilderOption.h"
