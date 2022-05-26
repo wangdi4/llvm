@@ -156,10 +156,11 @@ namespace {
 /// in the given language standard.
 static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
                                       unsigned Flags) {
-  if (Flags == KEYALL) return KS_Enabled;
 #if INTEL_CUSTOMIZATION
+  if (Flags == static_cast<unsigned>(KEYALL))
+     return KS_Enabled;
   if (LangOpts.IntelCompat) {
-    if ((Flags & KEYINTELALL) == KEYINTELALL)
+    if ((Flags & KEYINTELALL) == static_cast<unsigned>(KEYINTELALL))
       return KS_Enabled;
     if ((Flags & KEYNOINTELALL) == KEYNOINTELALL)
       Flags = Flags & KEYINTELALL;
