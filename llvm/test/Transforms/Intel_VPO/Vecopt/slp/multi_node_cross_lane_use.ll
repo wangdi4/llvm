@@ -17,15 +17,10 @@ define void @main(i32* %arg, i32 %arg1, i32 %arg2) {
 ; CHECK-NEXT:    [[TMP4:%.*]] = add <4 x i32> [[TMP2]], [[TMP3]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = insertelement <4 x i32> <i32 poison, i32 13, i32 13, i32 13>, i32 [[ARG2]], i32 0
 ; CHECK-NEXT:    [[TMP6:%.*]] = add <4 x i32> [[TMP5]], [[TMP4]]
-; CHECK-NEXT:    [[TMP7:%.*]] = extractelement <4 x i32> [[TMP4]], i32 1
-; CHECK-NEXT:    [[TMP8:%.*]] = insertelement <4 x i32> <i32 poison, i32 poison, i32 poison, i32 91>, i32 [[TMP7]], i32 0
-; CHECK-NEXT:    [[TMP9:%.*]] = extractelement <4 x i32> [[TMP4]], i32 2
-; CHECK-NEXT:    [[TMP10:%.*]] = insertelement <4 x i32> [[TMP8]], i32 [[TMP9]], i32 1
-; CHECK-NEXT:    [[TMP11:%.*]] = extractelement <4 x i32> [[TMP4]], i32 3
-; CHECK-NEXT:    [[TMP12:%.*]] = insertelement <4 x i32> [[TMP10]], i32 [[TMP11]], i32 2
-; CHECK-NEXT:    [[TMP13:%.*]] = add <4 x i32> [[TMP6]], [[TMP12]]
-; CHECK-NEXT:    [[TMP14:%.*]] = bitcast i32* [[T3]] to <4 x i32>*
-; CHECK-NEXT:    store <4 x i32> [[TMP13]], <4 x i32>* [[TMP14]], align 16
+; CHECK-NEXT:    [[TMP7:%.*]] = shufflevector <4 x i32> <i32 poison, i32 poison, i32 poison, i32 91>, <4 x i32> [[TMP4]], <4 x i32> <i32 5, i32 6, i32 7, i32 3>
+; CHECK-NEXT:    [[TMP8:%.*]] = add <4 x i32> [[TMP6]], [[TMP7]]
+; CHECK-NEXT:    [[TMP9:%.*]] = bitcast i32* [[T3]] to <4 x i32>*
+; CHECK-NEXT:    store <4 x i32> [[TMP8]], <4 x i32>* [[TMP9]], align 16
 ; CHECK-NEXT:    ret void
 ;
 bb:
