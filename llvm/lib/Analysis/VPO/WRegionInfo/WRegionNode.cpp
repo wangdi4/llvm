@@ -1550,6 +1550,12 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
         LLVMContext &Ctxt = V->getContext();
         RI->setIsTyped(true);
         RI->setOrigItemElementTypeFromIR(Args[I + 1]->getType());
+#if INTEL_CUSTOMIZATION
+        if (ClauseInfo.getIsF90DopeVector()) {
+          RI->setF90DVPointeeElementTypeFromIR(Args[I + 2]->getType());
+          RI->setNumElements(ConstantInt::get(Type::getInt32Ty(Ctxt), 1));
+        } else
+#endif // INTEL_CUSTOMIZATION
         RI->setNumElements(Args[I + 2]);
         RI->setArraySectionOffset(
             Constant::getNullValue(Type::getInt32Ty(Ctxt)));
