@@ -33,6 +33,7 @@
 #include "llvm/ADT/ilist_node.h"
 #include "llvm/ADT/simple_ilist.h"
 #include "llvm/Analysis/LoopInfoImpl.h"
+#include "llvm/Support/BlockFrequency.h"
 
 namespace llvm {
 
@@ -138,9 +139,14 @@ private:
   // instruction, so it will be filled for the latches only.
   std::unique_ptr<TripCountInfo> TCInfo;
 
+<<<<<<< HEAD
   using AsVPPHINodeFunc = std::function<VPPHINode &(VPInstruction &)>;
   using AsVPPHINodeFuncConst =
       std::function<const VPPHINode &(const VPInstruction &)>;
+=======
+  BlockFrequency BlockFreq;
+
+>>>>>>> fc21b2e9eb257e806d77d1fbebf3f1249827c7ed
 public:
   /// Instruction iterators...
   using iterator = VPInstructionListTy::iterator;
@@ -368,6 +374,9 @@ public:
 
   VPBranchInst *getTerminator();
   const VPBranchInst *getTerminator() const;
+
+  BlockFrequency getFrequency() const { return BlockFreq; }
+  void setFrequency(BlockFrequency Freq) { BlockFreq = Freq; }
 
 private:
   /// Create an IR BasicBlock to hold the instructions vectorized from this

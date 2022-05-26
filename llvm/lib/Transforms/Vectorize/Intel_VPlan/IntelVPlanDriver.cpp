@@ -29,6 +29,7 @@
 #include "IntelVPlanVLSTransform.h"
 #include "IntelVolcanoOpenCL.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/DemandedBits.h"  // INTEL
 #include "llvm/Analysis/GlobalsModRef.h" // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/LoopAccessAnalysis.h"
@@ -394,7 +395,8 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 
   BasicBlock *Header = Lp->getHeader();
   VPlanVLSAnalysis VLSA(Lp, Header->getContext(), *DL, TTI);
-  LoopVectorizationPlanner LVP(WRLp, Lp, LI, TLI, TTI, DL, DT, &LVL, &VLSA);
+  LoopVectorizationPlanner LVP(WRLp, Lp, LI, TLI, TTI, DL, DT, &LVL, &VLSA,
+                               BFI);
   std::string VPlanName = "";
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   VPlanName = std::string(Fn.getName()) + ":" + std::string(Lp->getName());
@@ -1161,6 +1163,7 @@ void VPlanDriver::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<LoopAccessLegacyAnalysis>();
   AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
   AU.addRequired<OptReportOptionsPass>();
+  AU.addRequired<BlockFrequencyInfoWrapperPass>();
 
   AU.addPreserved<AndersensAAWrapperPass>();
   AU.addPreserved<GlobalsAAWrapperPass>();
@@ -1207,9 +1210,10 @@ bool VPlanDriver::runOnFunction(Function &Fn) {
   auto TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
   auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(Fn);
   auto WR = &getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
+  auto *BFI = &getAnalysis<BlockFrequencyInfoWrapperPass>().getBFI();
 
   return Impl.runImpl(Fn, LI, SE, DT, AC, AA, DB, GetLAA, ORE, Verbosity, WR,
-                      TTI, TLI, nullptr, nullptr, FatalErrorHandler);
+                      TTI, TLI, BFI, nullptr, FatalErrorHandler);
 }
 
 PreservedAnalyses VPlanDriverPass::run(Function &F,
@@ -1232,14 +1236,14 @@ PreservedAnalyses VPlanDriverPass::run(Function &F,
   auto BFI = &AM.getResult<BlockFrequencyAnalysis>(F);
   auto &LAM = AM.getResult<LoopAnalysisManagerFunctionProxy>(F).getManager();
   auto GetLAA = [&](Loop &L) -> const LoopAccessInfo & {
-    LoopStandardAnalysisResults AR = {*AA,  *AC,  *DT, *LI,    *SE,
+    LoopStandardAnalysisResults AR = {*AA,  *AC,  *DT, *LI, *SE,
                                       *TLI, *TTI, BFI, nullptr /* BPI */,
                                       nullptr /* MemorySSA */};
     return LAM.getResult<LoopAccessAnalysis>(L, AR);
   };
 
   if (!Impl.runImpl(F, LI, SE, DT, AC, AA, DB, GetLAA, ORE, Verbosity, WR, TTI,
-                    TLI, nullptr, nullptr, nullptr))
+                    TLI, BFI, nullptr, nullptr))
     return PreservedAnalyses::all();
 
   auto PA = PreservedAnalyses::none();
@@ -1272,6 +1276,7 @@ bool VPlanDriverImpl::runImpl(
   this->ORE = ORE;
   this->TTI = TTI;
   this->TLI = TLI;
+  this->BFI = BFI;
   this->WR = WR;
   this->FatalErrorHandler = FatalErrorHandler;
 
