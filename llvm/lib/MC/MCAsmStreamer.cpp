@@ -334,15 +334,11 @@ public:
   void emitCVStringTableDirective() override;
   void emitCVFileChecksumsDirective() override;
   void emitCVFileChecksumOffsetDirective(unsigned FileNo) override;
-<<<<<<< HEAD
-  void EmitCVFPOData(const MCSymbol *ProcSym, SMLoc L) override;
+  void emitCVFPOData(const MCSymbol *ProcSym, SMLoc L) override;
 #if INTEL_CUSTOMIZATION
   /// Emit the line record in .trace section.
   void emitTraceLine(const MCTraceLine &Line) override;
 #endif // INTEL_CUSTOMIZATION
-=======
-  void emitCVFPOData(const MCSymbol *ProcSym, SMLoc L) override;
->>>>>>> 9ee15bba4744fb3b671428eec3cbec6a424dde07
 
   void emitIdent(StringRef IdentString) override;
   void emitCFIBKeyFrame() override;
