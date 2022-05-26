@@ -56,6 +56,8 @@ VPBasicBlock *VPlanCFGBuilderBase<CFGBuilder>::getOrCreateVPBB(BasicBlock *BB) {
     VPBB = new VPBasicBlock(
         ImportOrigBBNames ? BB->getName() : VPlanUtils::createUniqueName("BB"),
         Plan);
+    if (BFI)
+      VPBB->setFrequency(BFI->getBlockFreq(BB));
     BB2VPBB[BB] = VPBB;
     VPBB->setOriginalBB(BB);
     Plan->insertAtBack(VPBB);
