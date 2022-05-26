@@ -157,6 +157,7 @@ int main()
   test_5(cp, pf);
   bar();
 }
+#pragma omp end declare target
 // TARG: !omp_offload.info = !{!0, !1, !2, !3, !4, !5, !6, !7}
 // TARG: !3 = !{i32 2, !"_Z2f5fRKPi", i32 3, i32 addrspace(4)* addrspace(4)* (float, i32 addrspace(4)* addrspace(4)*)* @_Z2f5fRKPi}
 // TARG-NEXT: !4 = !{i32 2, !"_Z3mooi", i32 {{.*}}, i32 (i32)* @_Z3mooi}

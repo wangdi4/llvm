@@ -48,6 +48,7 @@ void test() {
   #pragma omp target
   D d;
 }
+#pragma omp end declare target
 
 }
 // end INTEL_COLLAB

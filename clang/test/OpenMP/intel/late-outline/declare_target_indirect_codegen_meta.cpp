@@ -52,6 +52,7 @@ int main()
   PMFn pf = &C::foo;
   test_5(cp, pf);
 }
+#pragma omp end declare target
 // HOST: define {{.*}}zoo{{.*}} #[[DECLARE_TARGET:[0-9]+]]
 // TARG: define {{.*}} spir_func {{.*}}zoo{{.*}} #[[DECLARE_TARGET:[0-9]+]]
 // HOST: define {{.*}}baz{{.*}} #[[DECLARE_TARGET]]

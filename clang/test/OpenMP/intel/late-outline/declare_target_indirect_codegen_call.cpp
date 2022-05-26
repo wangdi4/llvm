@@ -217,5 +217,6 @@ int main()
   test_5(cp, pf);
   bar();
 }
+#pragma omp end declare target
 
 // end INTEL_COLLAB
