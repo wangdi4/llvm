@@ -97,12 +97,17 @@ define void @switch_trunc_phi_const(i32 %x) {
 ; CHECK:       # %bb.0: # %bb0
 ; CHECK-NEXT:    # kill: def $edi killed $edi def $rdi
 ; CHECK-NEXT:    movzbl %dil, %ecx
+<<<<<<< HEAD
 ; CHECK-NEXT:    movzbl %dil, %eax
 ; INTEL_CUSTOMIZATION
+=======
+>>>>>>> d79275238f9fb11fac31d42a846fe80fca2306d9
 ; CHECK-NEXT:    decl %ecx
 ; CHECK-NEXT:    cmpl $54, %ecx
 ; CHECK-NEXT:    ja .LBB1_9
 ; CHECK-NEXT:  # %bb.1: # %bb0
+; CHECK-NEXT:    movzbl %dil, %eax
+; CHECK-NEXT:    movl $3895, %edx # imm = 0xF37
 ; CHECK-NEXT:    jmpq *.LJTI1_0(,%rcx,8)
 ; CHECK-NEXT:  .LBB1_2: # %case_55
 ; CHECK-NEXT:    movl $3895, %eax # imm = 0xF37
