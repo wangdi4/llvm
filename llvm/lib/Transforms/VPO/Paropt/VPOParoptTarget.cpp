@@ -267,6 +267,10 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
       //       i8 addrspace(2)* getelementptr inbounds
       //       ([25 x i8], [25 x i8] addrspace(2)* @.str.as2, i64 0, i64 0)
       //       , ...)
+      // For opaque pointers, the string operand does not have a zero-offset
+      // GEP, and the printf call looks like:
+      //   call spir_func i32 (ptr addrspace(4), ...) @printf(ptr addrspace(4)
+      //   addrspacecast (ptr addrspace(1) @.str to ptr addrspace(4)), ...)
       Type* FirstParmTy = FnArgs[0]->getType();
       assert(isa<PointerType>(FirstParmTy) &&
              "First argument to printf should be a pointer.");
@@ -291,8 +295,9 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
           }
           V = CE->getOperand(0);
         }
-        assert(Indices.size() == 2 && "Expected only 1 GetElementPtr in "
-                                      "constant expression!\n");
+        assert((V->getType()->isOpaquePointerTy() || Indices.size() == 2) &&
+               "Expected only 1 GetElementPtr in "
+               "constant expression!\n");
 
         auto OldArg0 = dyn_cast<GlobalVariable>(V);
         assert(OldArg0 != nullptr &&
@@ -307,9 +312,10 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
         NewArg0->setTargetDeclare(true);
 
         // Relink the newly generated string to printf
-        FnArgs[0] =
-            Builder.CreateInBoundsGEP(NewArg0->getValueType(), NewArg0, Indices,
-                                      NewArg0->getName() + ".gep");
+        FnArgs[0] = Indices.empty() ? NewArg0
+                                    : Builder.CreateInBoundsGEP(
+                                          NewArg0->getValueType(), NewArg0,
+                                          Indices, NewArg0->getName() + ".gep");
         LLVM_DEBUG(dbgs() << "New argument 0 of printf: " << *FnArgs[0]
                           << "\n");
       }
