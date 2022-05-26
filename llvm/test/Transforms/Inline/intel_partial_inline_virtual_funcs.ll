@@ -611,7 +611,7 @@ attributes #12 = { builtin nounwind }
 ; CHECK:         call void @_ZN8Derived23fooEPvi.1.for.body.preheader(i32 %Size, i32* %A)
 ; CHECK-NEXT:    br label %_ZN8Derived23fooEPvi.1.exit
 ;
-; CHECK_LABEL: _ZN8Derived23fooEPvi.1.exit:
+; CHECK-LABEL: _ZN8Derived23fooEPvi.1.exit:
 ; CHECK:    %retval.0.i = phi i1 [ false, %BBDevirt__ZN8Derived23fooEPvi ], [ true, %for.cond.preheader.i ], [ true, %codeRepl.i ]
 ; CHECK-NEXT:    br label %MergeBB
 ;

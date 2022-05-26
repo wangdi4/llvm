@@ -245,7 +245,7 @@ void test(long* buffer1)
   //CHECK-NEXT: DeclRefExpr{{.*}}'buffer1' 'long *'
   //CHECK-NEXT: WhileStmt
   //CHECK-NEXT: ImplicitCastExpr{{.*}}'bool' <IntegralToBoolean>
-  //CHECK_NEXT: IntegerLiteral{{.*}} 1
+  //CHECK-NEXT: IntegerLiteral{{.*}} 1
   [[intel::ivdep(buffer1)]]
   while (1) { }
 }
