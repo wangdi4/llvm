@@ -139,14 +139,12 @@ private:
   // instruction, so it will be filled for the latches only.
   std::unique_ptr<TripCountInfo> TCInfo;
 
-<<<<<<< HEAD
+  BlockFrequency BlockFreq;
+
   using AsVPPHINodeFunc = std::function<VPPHINode &(VPInstruction &)>;
   using AsVPPHINodeFuncConst =
       std::function<const VPPHINode &(const VPInstruction &)>;
-=======
-  BlockFrequency BlockFreq;
 
->>>>>>> fc21b2e9eb257e806d77d1fbebf3f1249827c7ed
 public:
   /// Instruction iterators...
   using iterator = VPInstructionListTy::iterator;
