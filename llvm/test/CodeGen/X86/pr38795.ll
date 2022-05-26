@@ -141,7 +141,6 @@ define dso_local void @fn() {
 ; CHECK-NEXT:    xorl %ebp, %ebp
 ; CHECK-NEXT:    jmp .LBB0_16
 ; CHECK-NEXT:    .p2align 4, 0x90
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:  .LBB0_11: # %ae
 ; CHECK-NEXT:    # in Loop: Header=BB0_1 Depth=1
@@ -154,13 +153,11 @@ define dso_local void @fn() {
 ; CHECK-NEXT:  .LBB0_8: # %af
 ; CHECK-NEXT:    # in Loop: Header=BB0_1 Depth=1
 ; end INTEL_CUSTOMIZATION
-=======
 ; CHECK-NEXT:  .LBB0_10: # in Loop: Header=BB0_1 Depth=1
 ; CHECK-NEXT:    # implicit-def: $eax
 ; CHECK-NEXT:    testb %bl, %bl
 ; CHECK-NEXT:    je .LBB0_17
 ; CHECK-NEXT:  .LBB0_12: # in Loop: Header=BB0_1 Depth=1
->>>>>>> d79275238f9fb11fac31d42a846fe80fca2306d9
 ; CHECK-NEXT:    # implicit-def: $edi
 ; CHECK-NEXT:    # implicit-def: $cl
 ; CHECK-NEXT:    # kill: killed $cl
