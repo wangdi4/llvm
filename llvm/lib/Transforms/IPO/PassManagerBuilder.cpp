@@ -1415,10 +1415,14 @@ void PassManagerBuilder::populateModulePassManager(
 #if INTEL_CUSTOMIZATION
   // Clean up after IPCP & DAE
   addInstructionCombiningPass(MPM, !DTransEnabled);
-#endif // INTEL_CUSTOMIZATION
   addExtensionsToPM(EP_Peephole, MPM);
+  // In 2019, "false" was passed to the AllowCFGSimps parameter.
+  // In 2020, after the FreezeSelect arg was added, the Allow CFGSimps parm
+  // was accidentally left at default (true) [e9e5aace]
+  // Leaving it "true" for now as it has been 2 years without regressions.
   if (EarlyJumpThreading && !SYCLOptimizationMode)                // INTEL
-    MPM.add(createJumpThreadingPass(/*FreezeSelectCond*/ false)); // INTEL
+    MPM.add(createJumpThreadingPass()); // INTEL
+#endif // INTEL_CUSTOMIZATION
   MPM.add(
       createCFGSimplificationPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
           true))); // Clean up after IPCP & DAE
