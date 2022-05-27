@@ -1526,12 +1526,26 @@ bool DDTest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
     // Our implementation  using canon will return false for 2*n
     // But GCD test should get Indep for 2*n vs 2*n+1
 
-    const CanonExpr *AbsDelta = HLNodeUtils::isKnownNonNegative(Delta, CurLoop)
-                                    ? Delta
-                                    : getNegative(Delta);
-    const CanonExpr *AbsCoeff = HLNodeUtils::isKnownNonNegative(Coeff, CurLoop)
-                                    ? Coeff
-                                    : getNegative(Coeff);
+    const CanonExpr *AbsDelta = nullptr;
+    if (HLNodeUtils::isKnownNonNegative(Delta, CurLoop)) {
+      AbsDelta = Delta;
+    } else if (HLNodeUtils::isKnownNegative(Delta, CurLoop)) {
+      AbsDelta = getNegative(Delta);
+    } else {
+      // Delta not known to be positive or negative.
+      return false;
+    }
+
+    const CanonExpr *AbsCoeff = nullptr;
+    if (HLNodeUtils::isKnownNonNegative(Coeff, CurLoop)) {
+      AbsCoeff = Coeff;
+    } else if (HLNodeUtils::isKnownNegative(Coeff, CurLoop)) {
+      AbsCoeff = getNegative(Coeff);
+    } else {
+      // Coeff not known to be positive or negative.
+      return false;
+    }
+
     const CanonExpr *Product = getMulExpr(UpperBound, AbsCoeff);
 
     LLVM_DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
@@ -2276,9 +2290,15 @@ bool DDTest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
   const CanonExpr *AbsCoeff = HLNodeUtils::isKnownNegative(ConstCoeff, CurLoop)
                                   ? getNegative(ConstCoeff)
                                   : ConstCoeff;
-  const CanonExpr *NewDelta = HLNodeUtils::isKnownNegative(ConstCoeff, CurLoop)
-                                  ? getNegative(Delta)
-                                  : Delta;
+  const CanonExpr *NewDelta = nullptr;
+  if (HLNodeUtils::isKnownNonNegative(Delta, CurLoop)) {
+    NewDelta = Delta;
+  } else if (HLNodeUtils::isKnownNegative(Delta, CurLoop)) {
+    NewDelta = getNegative(Delta);
+  } else {
+    // Coeff not known to be positive or negative.
+    return false;
+  }
 
   // check that Delta/SrcCoeff < iteration count
   // really check NewDelta < count*AbsCoeff
@@ -2403,13 +2423,18 @@ bool DDTest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
   if (ConstCoeff->isIntConstant(&K1)) {
     return false;
   }
-
   const CanonExpr *AbsCoeff = HLNodeUtils::isKnownNegative(ConstCoeff, CurLoop)
                                   ? getNegative(ConstCoeff)
                                   : ConstCoeff;
-  const CanonExpr *NewDelta = HLNodeUtils::isKnownNegative(ConstCoeff, CurLoop)
-                                  ? getNegative(Delta)
-                                  : Delta;
+  const CanonExpr *NewDelta = nullptr;
+  if (HLNodeUtils::isKnownNonNegative(Delta, CurLoop)) {
+    NewDelta = Delta;
+  } else if (HLNodeUtils::isKnownNegative(Delta, CurLoop)) {
+    NewDelta = getNegative(Delta);
+  } else {
+    // Coeff not known to be positive or negative.
+    return false;
+  }
 
   // check that Delta/SrcCoeff < iteration count
   // really check NewDelta < count*AbsCoeff

@@ -844,6 +844,12 @@ static bool runImpl(Function &F, const TargetLibraryInfo &TLI,
   if (!TLI.has(LibFunc_memcmp))
     return false;
 
+#if INTEL_CUSTOMIZATION
+  // Check for overrides, no-builtin options, etc.
+  if (!llvm::isLibFuncEmittable(F.getParent(), &TLI, LibFunc_memcmp))
+    return false;
+#endif // INTEL_CUSTOMIZATION
+
   DomTreeUpdater DTU(DT, /*PostDominatorTree*/ nullptr,
                      DomTreeUpdater::UpdateStrategy::Eager);
 

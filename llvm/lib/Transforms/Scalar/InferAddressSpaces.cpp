@@ -1582,7 +1582,12 @@ PreservedAnalyses InferAddressSpacesPass::run(Function &F,
           .run(F);
   if (Changed) {
     PreservedAnalyses PA;
+#if INTEL_COLLAB
+    // handleMemIntrinsicPtrUse may create new memory intrinsic calls and then
+    // call graph is changed.
+#else // INTEL_COLLAB
     PA.preserveSet<CFGAnalyses>();
+#endif // INTEL_COLLAB
     PA.preserve<DominatorTreeAnalysis>();
     return PA;
   }
