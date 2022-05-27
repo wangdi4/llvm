@@ -1,5 +1,5 @@
-; Verify that the test won't hit the assertion. We only allow one pre-loop copy inst candidate.
-; In this test case, there are two pre-loop copy insts %4 = 0 and %5 = 0. Sinking does not happen in this case.
+; Verify that the test allows multiple pre-loop copy inst candidates.
+; In this test case, there are two pre-loop copy insts %4 = 0 and %5 = 0.
 ;
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -print-after=hir-sinking-for-perfect-loopnest < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
@@ -8,12 +8,12 @@
 ;Function: matrix_mul_matrix
 ;
 ;<0>          BEGIN REGION { }
-;<53>               + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
-;<54>               |   + DO i2 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+;<53>               + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+;<54>               |   + DO i2 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
 ;<11>               |   |   %4 = 0;
 ;<12>               |   |   %5 = 0;
-;<55>               |   |
-;<55>               |   |   + DO i3 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+;<55>               |   |   
+;<55>               |   |   + DO i3 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
 ;<17>               |   |   |   %7 = (%A)[zext.i32.i64(%N) * i1 + i3];
 ;<21>               |   |   |   %10 = (%B)[i2 + zext.i32.i64(%N) * i3];
 ;<23>               |   |   |   %5 = %5  +  (%7 * %10);
@@ -21,7 +21,7 @@
 ;<28>               |   |   |   %13 = (%B)[zext.i32.i64(%N) * i1 + i3];
 ;<30>               |   |   |   %4 = %4  +  (%12 * %13);
 ;<55>               |   |   + END LOOP
-;<55>               |   |
+;<55>               |   |   
 ;<38>               |   |   (%C)[zext.i32.i64(%N) * i1 + i2] = %5;
 ;<39>               |   |   (%D)[zext.i32.i64(%N) * i1 + i2] = %4;
 ;<54>               |   + END LOOP
@@ -32,25 +32,147 @@
 ;Function: matrix_mul_matrix
 ;
 ; CHECK:     BEGIN REGION { }
-; CHECK:           + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
-; CHECK:           |   + DO i2 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
-; CHECK:           |   |   %4 = 0;
-; CHECK:           |   |   %5 = 0;
-; CHECK:           |   |
-; CHECK:           |   |   + DO i3 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+; CHECK:           + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK:           |   + DO i2 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK:           |   |   (%C)[zext.i32.i64(%N) * i1 + i2] = 0;
+; CHECK:           |   |   (%D)[zext.i32.i64(%N) * i1 + i2] = 0;
+; CHECK:           |   |   
+; CHECK:           |   |   + DO i3 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK:           |   |   |   %4 = (%D)[zext.i32.i64(%N) * i1 + i2];
+; CHECK:           |   |   |   %5 = (%C)[zext.i32.i64(%N) * i1 + i2];
 ; CHECK:           |   |   |   %7 = (%A)[zext.i32.i64(%N) * i1 + i3];
 ; CHECK:           |   |   |   %10 = (%B)[i2 + zext.i32.i64(%N) * i3];
 ; CHECK:           |   |   |   %5 = %5  +  (%7 * %10);
 ; CHECK:           |   |   |   %12 = (%A)[zext.i32.i64(%N) * i2 + i3];
 ; CHECK:           |   |   |   %13 = (%B)[zext.i32.i64(%N) * i1 + i3];
 ; CHECK:           |   |   |   %4 = %4  +  (%12 * %13);
+; CHECK:           |   |   |   (%C)[zext.i32.i64(%N) * i1 + i2] = %5;
+; CHECK:           |   |   |   (%D)[zext.i32.i64(%N) * i1 + i2] = %4;
 ; CHECK:           |   |   + END LOOP
-; CHECK:           |   |
-; CHECK:           |   |   (%C)[zext.i32.i64(%N) * i1 + i2] = %5;
-; CHECK:           |   |   (%D)[zext.i32.i64(%N) * i1 + i2] = %4;
 ; CHECK:           |   + END LOOP
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
+;
+; Test undo sinking pass can hoist out the load insts and stores insts when loop interchange
+; was not triggered.
+;
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-distribute-loopnest -hir-loop-interchange -hir-undo-sinking-for-perfect-loopnest -print-after=hir-sinking-for-perfect-loopnest -print-after=hir-loop-distribute-loopnest -print-after=hir-loop-interchange -print-after=hir-undo-sinking-for-perfect-loopnest < %s 2>&1 | FileCheck %s --check-prefix=CHECK-UNDO
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-distribute-loopnest,hir-loop-interchange,hir-undo-sinking-for-perfect-loopnest,print<hir>,print<hir>,print<hir>,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s --check-prefix=CHECK-UNDO
+; 
+;*** IR Dump After HIR Sinking For Perfect Loopnest (hir-sinking-for-perfect-loopnest) ***
+;Function: matrix_mul_matrix
+;
+;<0>          BEGIN REGION { }
+;<53>               + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+;<54>               |   + DO i2 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+;<56>               |   |   (%C)[zext.i32.i64(%N) * i1 + i2] = 0;
+;<58>               |   |   (%D)[zext.i32.i64(%N) * i1 + i2] = 0;
+;<55>               |   |   
+;<55>               |   |   + DO i3 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+;<59>               |   |   |   %4 = (%D)[zext.i32.i64(%N) * i1 + i2];
+;<57>               |   |   |   %5 = (%C)[zext.i32.i64(%N) * i1 + i2];
+;<17>               |   |   |   %7 = (%A)[zext.i32.i64(%N) * i1 + i3];
+;<21>               |   |   |   %10 = (%B)[i2 + zext.i32.i64(%N) * i3];
+;<23>               |   |   |   %5 = %5  +  (%7 * %10);
+;<26>               |   |   |   %12 = (%A)[zext.i32.i64(%N) * i2 + i3];
+;<28>               |   |   |   %13 = (%B)[zext.i32.i64(%N) * i1 + i3];
+;<30>               |   |   |   %4 = %4  +  (%12 * %13);
+;<38>               |   |   |   (%C)[zext.i32.i64(%N) * i1 + i2] = %5;
+;<39>               |   |   |   (%D)[zext.i32.i64(%N) * i1 + i2] = %4;
+;<55>               |   |   + END LOOP
+;<54>               |   + END LOOP
+;<53>               + END LOOP
+;<0>          END REGION
+;
+;*** IR Dump After HIR Loop Distribution LoopNest (hir-loop-distribute-loopnest) ***
+;Function: matrix_mul_matrix
+;
+;<0>          BEGIN REGION { }
+;<62>               + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+;<60>               |   + DO i2 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+;<56>               |   |   (%C)[zext.i32.i64(%N) * i1 + i2] = 0;
+;<58>               |   |   (%D)[zext.i32.i64(%N) * i1 + i2] = 0;
+;<60>               |   + END LOOP
+;<62>               + END LOOP
+;<62>               
+;<63>               
+;<63>               + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+;<61>               |   + DO i2 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+;<55>               |   |   + DO i3 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+;<59>               |   |   |   %4 = (%D)[zext.i32.i64(%N) * i1 + i2];
+;<57>               |   |   |   %5 = (%C)[zext.i32.i64(%N) * i1 + i2];
+;<17>               |   |   |   %7 = (%A)[zext.i32.i64(%N) * i1 + i3];
+;<21>               |   |   |   %10 = (%B)[i2 + zext.i32.i64(%N) * i3];
+;<23>               |   |   |   %5 = %5  +  (%7 * %10);
+;<26>               |   |   |   %12 = (%A)[zext.i32.i64(%N) * i2 + i3];
+;<28>               |   |   |   %13 = (%B)[zext.i32.i64(%N) * i1 + i3];
+;<30>               |   |   |   %4 = %4  +  (%12 * %13);
+;<38>               |   |   |   (%C)[zext.i32.i64(%N) * i1 + i2] = %5;
+;<39>               |   |   |   (%D)[zext.i32.i64(%N) * i1 + i2] = %4;
+;<55>               |   |   + END LOOP
+;<61>               |   + END LOOP
+;<63>               + END LOOP
+;<0>          END REGION
+;
+;*** IR Dump After HIR Loop Interchange (hir-loop-interchange) ***
+;Function: matrix_mul_matrix
+;
+;<0>          BEGIN REGION { }
+;<62>               + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+;<60>               |   + DO i2 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+;<56>               |   |   (%C)[zext.i32.i64(%N) * i1 + i2] = 0;
+;<58>               |   |   (%D)[zext.i32.i64(%N) * i1 + i2] = 0;
+;<60>               |   + END LOOP
+;<62>               + END LOOP
+;<62>               
+;<63>               
+;<63>               + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+;<61>               |   + DO i2 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+;<55>               |   |   + DO i3 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+;<59>               |   |   |   %4 = (%D)[zext.i32.i64(%N) * i1 + i2];
+;<57>               |   |   |   %5 = (%C)[zext.i32.i64(%N) * i1 + i2];
+;<17>               |   |   |   %7 = (%A)[zext.i32.i64(%N) * i1 + i3];
+;<21>               |   |   |   %10 = (%B)[i2 + zext.i32.i64(%N) * i3];
+;<23>               |   |   |   %5 = %5  +  (%7 * %10);
+;<26>               |   |   |   %12 = (%A)[zext.i32.i64(%N) * i2 + i3];
+;<28>               |   |   |   %13 = (%B)[zext.i32.i64(%N) * i1 + i3];
+;<30>               |   |   |   %4 = %4  +  (%12 * %13);
+;<38>               |   |   |   (%C)[zext.i32.i64(%N) * i1 + i2] = %5;
+;<39>               |   |   |   (%D)[zext.i32.i64(%N) * i1 + i2] = %4;
+;<55>               |   |   + END LOOP
+;<61>               |   + END LOOP
+;<63>               + END LOOP
+;<0>          END REGION
+;
+;*** IR Dump After HIR Undo Sinking For Perfect Loopnest (hir-undo-sinking-for-perfect-loopnest) ***
+;Function: matrix_mul_matrix
+;
+; CHECK-UNDO:    BEGIN REGION { }
+; CHECK-UNDO:       + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK-UNDO:      |   + DO i2 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK-UNDO:      |   |   (%C)[zext.i32.i64(%N) * i1 + i2] = 0;
+; CHECK-UNDO:      |   |   (%D)[zext.i32.i64(%N) * i1 + i2] = 0;
+; CHECK-UNDO:      |   + END LOOP
+; CHECK-UNDO:      + END LOOP
+;      
+;               
+; CHECK-UNDO:      + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK-UNDO:      |   + DO i2 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK-UNDO:      |   |      %4 = 0;
+; CHECK-UNDO:      |   |      %5 = 0;
+; CHECK-UNDO:      |   |   + DO i3 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK-UNDO:      |   |   |   %7 = (%A)[zext.i32.i64(%N) * i1 + i3];
+; CHECK-UNDO:      |   |   |   %10 = (%B)[i2 + zext.i32.i64(%N) * i3];
+; CHECK-UNDO:      |   |   |   %5 = %5  +  (%7 * %10);
+; CHECK-UNDO:      |   |   |   %12 = (%A)[zext.i32.i64(%N) * i2 + i3];
+; CHECK-UNDO:      |   |   |   %13 = (%B)[zext.i32.i64(%N) * i1 + i3];
+; CHECK-UNDO:      |   |   |   %4 = %4  +  (%12 * %13);
+; CHECK-UNDO:      |   |   + END LOOP
+; CHECK-UNDO:      |   |      (%C)[zext.i32.i64(%N) * i1 + i2] = %5;
+; CHECK-UNDO:      |   |      (%D)[zext.i32.i64(%N) * i1 + i2] = %4;
+; CHECK-UNDO:      |   + END LOOP
+; CHECK-UNDO:      + END LOOP
+; CHECK-UNDO:    END REGION
 ;
 ;Module Before HIR
 ; ModuleID = 't.c'
