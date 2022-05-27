@@ -216,6 +216,11 @@ public:
   /// scalar op and insertelement instructions into the then branch.
   void serializeInstruction(const VPInstruction *VPInst, RegDDRef *Mask);
 
+  /// Serialize integer div/rem instructions if the divisor is not safe.
+  /// Returns true if the serialization happened and false otherwise.
+  bool serializeDivRem(const VPInstruction *VPInst, RegDDRef *Mask,
+                       OptReportStatsTracker &Stats);
+
   /// Scalarize the given uniform instruction that should not be widened using
   /// operands for lane 0. If Mask is non-null then predicated scalarization is
   /// done on-the-fly by creating a HLIf for !AllZeroCheck(Mask) and inserting
@@ -904,9 +909,14 @@ private:
   // VPInstruction. We generate new RegDDRefs or HLInsts that correspond to
   // the given VPInstruction. Widen parameter is used to specify if we are
   // generating VF wide constructs. If Widen is false, we generate scalar
-  // constructs for lane given in ScalarLaneID.
+  // constructs for lane given in ScalarLaneID. The OnlyExistingScalarOps
+  // is meaningful when Widen is false and its meaning is as follows.
+  // If the scalar DDRef does not exist, false means that we should read wide
+  // DDRef from the corresponding map and extract the scalar DDRef from it,
+  // true means we return without generating scalar instruction.
   void generateHIR(const VPInstruction *VPInst, RegDDRef *Mask, bool Widen,
-                   unsigned ScalarLaneID = -1);
+                   unsigned ScalarLaneID = -1,
+                   bool OnlyExistingScalarOps = true);
 
   // Wrapper used to call generateHIR appropriately based on nature of given
   // VPInstruction.

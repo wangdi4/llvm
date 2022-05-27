@@ -601,17 +601,6 @@ void HandledCheck::visit(HLDDNode *Node) {
     }
 
     auto Opcode = LLInst->getOpcode();
-    if ((Opcode == Instruction::UDiv || Opcode == Instruction::SDiv ||
-         Opcode == Instruction::URem || Opcode == Instruction::SRem) &&
-        (Inst->getParent() != OrigLoop)) {
-      DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
-      DEBUG_WITH_TYPE("VPOCGHIR-bailout",
-                      dbgs() << "VPLAN_OPTREPORT: Loop not handled - masked "
-                                "DIV/REM instruction\n");
-      IsHandled = false;
-      return;
-    }
-
     if (Opcode == Instruction::Alloca) {
       DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
       DEBUG_WITH_TYPE(
@@ -3723,6 +3712,7 @@ RegDDRef *VPOCodeGenHIR::getOrCreateScalarRef(const VPValue *VPVal,
 
   assert(ScalarLaneID < getVF() && "Invalid lane ID.");
   RegDDRef *WideRef = widenRef(VPVal, getVF());
+
   HLInst *ExtractInst = nullptr;
 
   // Decide the extraction scheme based on type of VPValue - we need to extract
@@ -3750,8 +3740,7 @@ RegDDRef *VPOCodeGenHIR::getOrCreateScalarRef(const VPValue *VPVal,
   }
 
   addInstUnmasked(ExtractInst);
-  ScalarRef = ExtractInst->getLvalDDRef();
-  return ScalarRef->clone();
+  return ExtractInst->getLvalDDRef()->clone();
 }
 
 // For the code generated see comment in *.h file.
@@ -4571,9 +4560,42 @@ RegDDRef *VPOCodeGenHIR::getVLSLoadStoreMask(VectorType *WideValueType,
   return Shuffle->getLvalDDRef();
 }
 
+bool VPOCodeGenHIR::serializeDivRem(const VPInstruction *VPInst, RegDDRef *Mask,
+                                    OptReportStatsTracker &OptRptStats) {
+  bool DivisorIsSafe = isDivisorSpeculationSafeForDivRem(VPInst->getOpcode(),
+                                                         VPInst->getOperand(1));
+  if (Mask && !DivisorIsSafe) {
+    if (Plan->getVPlanDA()->isUniform(*VPInst)) {
+      scalarizePredicatedUniformInst(VPInst, Mask);
+      return true;
+    } else {
+      serializeInstruction(VPInst, Mask);
+      // Remark: division was scalarized due to fp-model requirements
+      OptRptStats.SerializedInstRemarks.emplace_back(
+          15566, Instruction::getOpcodeName(VPInst->getOpcode()));
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool isIntDivRemOpcode(unsigned Opcode) {
+  switch (Opcode) {
+  case Instruction::UDiv:
+  case Instruction::SDiv:
+  case Instruction::URem:
+  case Instruction::SRem:
+    return true;
+  default:
+    return false;
+  }
+}
+
 void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
-                                bool Widen, unsigned ScalarLaneID) {
+                                bool Widen, unsigned ScalarLaneID,
+                                bool OnlyExistingScalarOps) {
   assert((Widen || isOpcodeForScalarInst(VPInst->getOpcode()) ||
+          isIntDivRemOpcode(VPInst->getOpcode()) ||
           isa<VPCallInstruction>(VPInst) || isa<VPHIRCopyInst>(VPInst)) &&
          "Unxpected instruction for scalar constructs");
 
@@ -5306,13 +5328,22 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     if (Widen)
       Ref = widenRef(Operand, getVF());
     else {
+      // TODO: The whole IF below should be replaced by getOrCreateScalarRef
+      // call when we switch to SVA-based CG, see widenNodeImpl, the last call
+      // of generateHIR(). The OnlyExistingScalarOps argument will be not needed
+      // then.
+
       // Obtain the scalar ref for lane ScalarLaneID if one exists already
-      if ((Ref = getScalRefForVPVal(Operand, ScalarLaneID)))
+      if ((Ref = getScalRefForVPVal(Operand, ScalarLaneID))) {
         Ref = Ref->clone();
-      else if (isa<VPExternalDef>(Operand) || isa<VPConstant>(Operand))
-        // Creation of a scalar ref for externaldefs/constants does not require
-        // a new instruction - try to get uniform scalar ref if Ref is null.
+      } else if (isa<VPExternalDef>(Operand) || isa<VPConstant>(Operand)) {
+        // Creation of a scalar ref for externaldefs/constants does not
+        // require a new instruction - try to get uniform scalar ref if Ref is
+        // null.
         Ref = getUniformScalarRef(Operand);
+      } else if (!OnlyExistingScalarOps) {
+        Ref = getOrCreateScalarRef(Operand, ScalarLaneID);
+      }
     }
 
     // Ref can be null for a case where we do not have a scalar ref created.
@@ -5386,6 +5417,9 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
   case Instruction::UDiv:
   case Instruction::SDiv: {
+    if (Widen &&
+        serializeDivRem(VPInst, Mask ? Mask : CurMaskValue, OptRptStats))
+      return;
     assert(RefOp0->isTerminalRef() && RefOp1->isTerminalRef() &&
            "Expected terminal refs");
 
@@ -5471,6 +5505,10 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
   case Instruction::SRem:
   case Instruction::URem:
+    if (Widen &&
+        serializeDivRem(VPInst, Mask ? Mask : CurMaskValue, OptRptStats))
+      return;
+    LLVM_FALLTHROUGH;
   case Instruction::FAdd:
   case Instruction::Sub:
   case Instruction::FSub:
@@ -6439,7 +6477,8 @@ void VPOCodeGenHIR::serializeInstruction(const VPInstruction *VPInst,
 
     // Generate a scalar HLInst for given VPInstruction using operands for
     // corresponding lane.
-    generateHIR(VPInst, Mask, false /*Widen*/, Lane);
+    generateHIR(VPInst, nullptr /*Mask*/, false /*Widen*/, Lane,
+                false /* OnlyExistingScalarOps */);
 
     // If the scalar HLInst produces an l-val then we need to insert it into
     // SerialTemp at appropriate lane.
@@ -6519,7 +6558,7 @@ void VPOCodeGenHIR::scalarizePredicatedUniformInst(const VPInstruction *VPInst,
   if (VPInst->getOpcode() == Instruction::Load)
     generateUniformScalarLoad(cast<VPLoadStoreInst>(VPInst));
   else
-    generateHIR(VPInst, Mask, false /*Widen*/, 0 /*Lane*/);
+    generateHIR(VPInst, nullptr /*Mask*/, false /*Widen*/, 0 /*Lane*/);
 
   // Get l-val that scalar HLInst produces, if any.
   RegDDRef *ScalarRef = getScalRefForVPVal(VPInst, 0 /*Lane*/);

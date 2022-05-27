@@ -1212,23 +1212,19 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
   case Instruction::SDiv:
   case Instruction::URem:
   case Instruction::SRem: {
-    bool DivisorIsSafe = false;
-    auto *Const = dyn_cast<VPConstant>(VPInst->getOperand(1));
-    if (!PredicateSafeValueDivision && Const && Const->isConstantInt()) {
-      int64_t Val = Const->getSExtValue();
-      if (Val != 0 && Val != -1)
-        DivisorIsSafe = true;
-    }
+    bool DivisorIsSafe = isDivisorSpeculationSafeForDivRem(
+        VPInst->getOpcode(), VPInst->getOperand(1));
     if (MaskValue && !DivisorIsSafe) {
-      if (DA->isUniform(*VPInst))
+      if (DA->isUniform(*VPInst)) {
         serializePredicatedUniformInstruction(VPInst);
-      else {
+        return;
+      } else {
         serializeWithPredication(VPInst);
         // Remark: division was scalarized due to fp-model requirements
         OptRptStats.SerializedInstRemarks.emplace_back(
             15566, Instruction::getOpcodeName(VPInst->getOpcode()));
+        return;
       }
-      return;
     }
     LLVM_FALLTHROUGH;
   }
