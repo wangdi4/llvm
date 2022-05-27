@@ -270,14 +270,10 @@ def thinlto_jobs: JJ<"thinlto-jobs=">,
   HelpText<"Number of ThinLTO jobs. Default to --threads=">;
 def no_lto_legacy_pass_manager: FF<"no-lto-legacy-pass-manager">,
   HelpText<"Use new pass manager">;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 defm lto_legacy_pass_manager: BB<"lto-legacy-pass-manager", "Use legacy pass manager", "Use new pass manager">;
 #endif INTEL_CUSTOMIZATION
-def lto_debug_pass_manager: F<"lto-debug-pass-manager">,
-=======
 def lto_debug_pass_manager: FF<"lto-debug-pass-manager">,
->>>>>>> 87628f5804e23a40986692f6cdcf66654ce3f017
   HelpText<"Debug new pass manager">;
 
 // Experimental PIC mode.
