@@ -171,14 +171,10 @@ namespace {
   public:
     static char ID; // Pass identification
 
-<<<<<<< HEAD
-    JumpThreading(bool InsertFreezeWhenUnfoldingSelect = true,          // INTEL
-                  int T = -1, bool AllowCFGSimps = true) :              // INTEL
-      FunctionPass(ID),                                                 // INTEL
-      Impl(InsertFreezeWhenUnfoldingSelect, T, AllowCFGSimps) {         // INTEL
-=======
-    JumpThreading(int T = -1) : FunctionPass(ID), Impl(T) {
->>>>>>> 36096c2b383ec78030aad47c6b9f479f34d571d7
+    JumpThreading(int T = -1,                                            // INTEL
+                  bool AllowCFGSimps = true) :                           // INTEL
+       FunctionPass(ID),                                                 // INTEL
+       Impl(T, AllowCFGSimps) {                                          // INTEL
       initializeJumpThreadingPass(*PassRegistry::getPassRegistry());
     }
 
@@ -216,24 +212,14 @@ INITIALIZE_PASS_END(JumpThreading, "jump-threading",
                 "Jump Threading", false, false)
 
 // Public interface to the Jump Threading pass
-<<<<<<< HEAD
-FunctionPass *llvm::createJumpThreadingPass(bool InsertFr,              // INTEL
-                                            int Threshold,              // INTEL
+FunctionPass *llvm::createJumpThreadingPass(int Threshold,              // INTEL
                                             bool AllowCFGSimps) {       // INTEL
-  return new JumpThreading(InsertFr, Threshold, AllowCFGSimps);         // INTEL
+  return new JumpThreading(Threshold, AllowCFGSimps);                   // INTEL
 }                                                                       // INTEL
 
-JumpThreadingPass::JumpThreadingPass(bool InsertFr,int T,               // INTEL
+JumpThreadingPass::JumpThreadingPass(int T,                             // INTEL
                                      bool AllowCFGSimps) {              // INTEL
   DoCFGSimplifications = AllowCFGSimps;                                 // INTEL
-  InsertFreezeWhenUnfoldingSelect = JumpThreadingFreezeSelectCond | InsertFr;
-=======
-FunctionPass *llvm::createJumpThreadingPass(int Threshold) {
-  return new JumpThreading(Threshold);
-}
-
-JumpThreadingPass::JumpThreadingPass(int T) {
->>>>>>> 36096c2b383ec78030aad47c6b9f479f34d571d7
   DefaultBBDupThreshold = (T == -1) ? BBDuplicateThreshold : unsigned(T);
 }
 

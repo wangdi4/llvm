@@ -2192,9 +2192,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
   addExtensionsToPM(EP_Peephole, PM);
 
-<<<<<<< HEAD
-  PM.add(createJumpThreadingPass(/*FreezeSelectCond*/ true));
-
 #if INTEL_CUSTOMIZATION
   PM.add(createForcedCMOVGenerationPass()); // To help CMOV generation
 #endif // INTEL_CUSTOMIZATION
@@ -2203,9 +2200,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (RunInliner)
     PM.add(createInlineReportEmitterPass(OptLevel, SizeLevel, false));
 #endif // INTEL_CUSTOMIZATION
-=======
   PM.add(createJumpThreadingPass());
->>>>>>> 36096c2b383ec78030aad47c6b9f479f34d571d7
 }
 
 void PassManagerBuilder::addLateLTOOptimizationPasses(

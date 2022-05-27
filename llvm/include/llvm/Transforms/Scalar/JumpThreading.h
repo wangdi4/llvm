@@ -169,12 +169,8 @@ class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
 #endif // INTEL_CUSTOMIZATION
 
 public:
-<<<<<<< HEAD
-  JumpThreadingPass(bool InsertFreezeWhenUnfoldingSelect = true,  // INTEL
-                    int T = -1, bool AllowCFGSimps = true);       // INTEL
-=======
-  JumpThreadingPass(int T = -1);
->>>>>>> 36096c2b383ec78030aad47c6b9f479f34d571d7
+  JumpThreadingPass(int T = -1, // INTEL
+                    bool AllowCFGSimps = true); // INTEL
 
   // Glue for old PM.
   bool runImpl(Function &F, TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
