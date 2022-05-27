@@ -125,11 +125,6 @@ static cl::opt<bool> PrintLVIAfterJumpThreading(
     cl::desc("Print the LazyValueInfo cache after JumpThreading"), cl::init(false),
     cl::Hidden);
 
-static cl::opt<bool> JumpThreadingFreezeSelectCond(
-    "jump-threading-freeze-select-cond",
-    cl::desc("Freeze the condition when unfolding select"), cl::init(true),
-    cl::Hidden);
-
 static cl::opt<bool> ThreadAcrossLoopHeaders(
     "jump-threading-across-loop-headers",
     cl::desc("Allow JumpThreading to thread across loop headers, for testing"),
@@ -176,10 +171,10 @@ namespace {
   public:
     static char ID; // Pass identification
 
-    JumpThreading(bool InsertFreezeWhenUnfoldingSelect = true,          // INTEL
-                  int T = -1, bool AllowCFGSimps = true) :              // INTEL
-      FunctionPass(ID),                                                 // INTEL
-      Impl(InsertFreezeWhenUnfoldingSelect, T, AllowCFGSimps) {         // INTEL
+    JumpThreading(int T = -1,                                            // INTEL
+                  bool AllowCFGSimps = true) :                           // INTEL
+       FunctionPass(ID),                                                 // INTEL
+       Impl(T, AllowCFGSimps) {                                          // INTEL
       initializeJumpThreadingPass(*PassRegistry::getPassRegistry());
     }
 
@@ -217,16 +212,14 @@ INITIALIZE_PASS_END(JumpThreading, "jump-threading",
                 "Jump Threading", false, false)
 
 // Public interface to the Jump Threading pass
-FunctionPass *llvm::createJumpThreadingPass(bool InsertFr,              // INTEL
-                                            int Threshold,              // INTEL
+FunctionPass *llvm::createJumpThreadingPass(int Threshold,              // INTEL
                                             bool AllowCFGSimps) {       // INTEL
-  return new JumpThreading(InsertFr, Threshold, AllowCFGSimps);         // INTEL
+  return new JumpThreading(Threshold, AllowCFGSimps);                   // INTEL
 }                                                                       // INTEL
 
-JumpThreadingPass::JumpThreadingPass(bool InsertFr,int T,               // INTEL
+JumpThreadingPass::JumpThreadingPass(int T,                             // INTEL
                                      bool AllowCFGSimps) {              // INTEL
   DoCFGSimplifications = AllowCFGSimps;                                 // INTEL
-  InsertFreezeWhenUnfoldingSelect = JumpThreadingFreezeSelectCond | InsertFr;
   DefaultBBDupThreshold = (T == -1) ? BBDuplicateThreshold : unsigned(T);
 }
 
@@ -4102,8 +4095,7 @@ bool JumpThreadingPass::tryToUnfoldSelectInCurrBB(BasicBlock *BB) {
       continue;
     // Expand the select.
     Value *Cond = SI->getCondition();
-    if (InsertFreezeWhenUnfoldingSelect &&
-        !isGuaranteedNotToBeUndefOrPoison(Cond, nullptr, SI))
+    if (!isGuaranteedNotToBeUndefOrPoison(Cond, nullptr, SI))
       Cond = new FreezeInst(Cond, "cond.fr", SI);
     Instruction *Term = SplitBlockAndInsertIfThen(Cond, SI, false);
     BasicBlock *SplitBB = SI->getParent();

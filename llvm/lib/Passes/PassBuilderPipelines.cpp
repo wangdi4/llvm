@@ -3089,7 +3089,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   addInstCombinePass(FPM, !DTransEnabled); // INTEL
   invokePeepholeEPCallbacks(FPM, Level);
 
-  FPM.addPass(JumpThreadingPass(/*InsertFreezeWhenUnfoldingSelect*/ true));
+  FPM.addPass(JumpThreadingPass());
 
 #if INTEL_CUSTOMIZATION
   // Handle '#pragma vector aligned'.
@@ -3232,11 +3232,11 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
       createModuleToPostOrderCGSCCPassAdaptor(OpenMPOptCGSCCPass()));
 
   invokePeepholeEPCallbacks(MainFPM, Level);
-  MainFPM.addPass(JumpThreadingPass(/*InsertFreezeWhenUnfoldingSelect*/ true));
 
 #if INTEL_CUSTOMIZATION
   MainFPM.addPass(ForcedCMOVGenerationPass()); // To help CMOV generation
 #endif // INTEL_CUSTOMIZATION
+  MainFPM.addPass(JumpThreadingPass());
 
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(MainFPM),
                                                 PTO.EagerlyInvalidateAnalyses));

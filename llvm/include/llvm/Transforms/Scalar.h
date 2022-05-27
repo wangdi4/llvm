@@ -302,20 +302,18 @@ FunctionPass *createTransformSinAndCosCallsPass();
 //===----------------------------------------------------------------------===//
 //
 // JumpThreading - Thread control through mult-pred/multi-succ blocks where some
-// preds always go to some succ. If FreezeSelectCond is true, unfold the
-// condition of a select that unfolds to branch. Thresholds other than minus one
+// preds always go to some succ. Thresholds other than minus one
 // override the internal BB duplication default threshold.
 //
-
 // AllowCFGSimps is an Intel-specific argument that specifies whether the jump
 // threading pass may perform simple CFG simplifications other than jump
 // threading. CFGSimplification does a more thorough job of exploring the
 // possible CFG simplifications, so when running jump threading before
 // CFGSimplification, we want it to do jump threading and nothing else.
 //
-FunctionPass *createJumpThreadingPass(bool FreezeSelectCond = false,
-                                      int Threshold = -1,
+FunctionPass *createJumpThreadingPass(int Threshold = -1,
                                       bool AllowCFGSimps = true);
+
 // NonLTOGlobalOptimizerPass is a pass which pormotes the non escaped block
 // scope global variables into the registers.
 FunctionPass *createNonLTOGlobalOptimizerPass();
