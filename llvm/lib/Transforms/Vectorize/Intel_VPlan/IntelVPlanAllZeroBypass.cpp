@@ -558,7 +558,6 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
           RegionBlocks.insert(*BlockIt);
           LastBB = *(++BlockIt);
         }
-        ++BlockIt;
       }
 
       // Bypass region will include blocks that only compute predicates and
