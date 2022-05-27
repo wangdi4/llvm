@@ -138,6 +138,7 @@
 // also serves to canonicalize the input IR to the loop vectorizer.
 
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/Directives.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
@@ -176,7 +177,11 @@ VecClone::VecClone() : ModulePass(ID) {
   initializeVecClonePass(*PassRegistry::getPassRegistry());
 }
 
-bool VecClone::runOnModule(Module &M) { return Impl.runImpl(M, getLimiter()); }
+bool VecClone::runOnModule(Module &M) {
+  auto &OROP = getAnalysis<OptReportOptionsPass>();
+  ORBuilder.setup(M.getContext(), OROP.getVerbosity());
+  return Impl.runImpl(M, &ORBuilder, getLimiter());
+}
 
 #if INTEL_CUSTOMIZATION
 // The following two functions are virtual and they are overloaded when
@@ -1096,7 +1101,11 @@ void VecCloneImpl::disableLoopUnrolling(BasicBlock *Latch) {
 PreservedAnalyses VecClonePass::run(Module &M, ModuleAnalysisManager &AM) {
   // NOTE: Update here if new analyses are needed before VecClone
   // (getAnalysisUsage from LegacyPM)
-  if (!Impl.runImpl(M))
+
+  auto &OROA = AM.getResult<OptReportOptionsAnalysis>(M);
+  ORBuilder.setup(M.getContext(), OROA.getVerbosity());
+
+  if (!Impl.runImpl(M, &ORBuilder))
     return PreservedAnalyses::all();
 
   auto PA = PreservedAnalyses::none();
@@ -1111,13 +1120,71 @@ void VecClone::getAnalysisUsage(AnalysisUsage &AU) const {
   // as preserved.
   AU.addPreserved<AndersensAAWrapperPass>(); // INTEL
   AU.addPreserved<GlobalsAAWrapperPass>();
+  AU.addRequired<OptReportOptionsPass>(); // INTEL
 }
 
-bool VecCloneImpl::runImpl(Module &M, LoopOptLimiter Limiter) {
+#if INTEL_CUSTOMIZATION
+void VecCloneImpl::filterUnsupportedVectorVariants(
+    Module &M, OptReportBuilder *ORBuilder) {
+  // Traverse both definitions and declarations to not pick the unsupported
+  // vector variant when vectorizing.
+  for (auto &F : M) {
+    if (F.hasFnAttribute("vector-variants")) {
+      Attribute Attr = F.getFnAttribute("vector-variants");
+      StringRef VariantsStr = Attr.getValueAsString();
+      SmallVector<StringRef, 8> Variants;
+      VariantsStr.split(Variants, ',');
+
+      SmallVector<StringRef, 8> SupportedVariants;
+      llvm::copy_if(Variants, std::back_inserter(SupportedVariants),
+                    [](StringRef Variant) {
+                      assert(Variant.find_first_of("_ZGV") == 0 &&
+                             "Expect vector variant mangling!");
+                      // Drop "_ZGV".
+                      StringRef Encoding =
+                      Variant.drop_front(StringRef("_ZGV").size());
+                      // Extract encoding.
+                      size_t EncodingEnd = Encoding.find_first_of('_');
+                      assert(EncodingEnd != Encoding.npos &&
+                             "Unexpected end of vector variant.");
+                      Encoding = Encoding.take_front(EncodingEnd);
+                      bool Unsupported = Encoding.contains('R') ||
+                                         Encoding.contains('U') ||
+                                         Encoding.contains('L') ||
+                                         Encoding.contains('s');
+                      return !Unsupported;
+                    });
+
+      if (ORBuilder && (Variants.size() != SupportedVariants.size()))
+        (*ORBuilder)(F).addRemark(
+          OptReportVerbosity::Medium,
+          "'omp declare' vector variants with linear reference/ref()/uval()/" \
+          "val() or linear step passed as another argument were skipped " \
+          "as unsupported.");
+
+      // Replace existing vector variants with supported ones.
+      if (!SupportedVariants.empty()) {
+        AttributeList AL = F.getAttributes();
+        AL = AL.addFnAttribute(F.getContext(), "vector-variants",
+                               llvm::join(SupportedVariants, ","));
+        F.setAttributes(AL);
+      } else {
+        F.removeFnAttr("vector-variants");
+      }
+    }
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
+bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
+                           LoopOptLimiter Limiter) {
 
   LLVM_DEBUG(dbgs() << "\nExecuting SIMD Function Cloning ...\n\n");
 
 #if INTEL_CUSTOMIZATION
+  // This filtering can be removed once R/U/L/s encodings are supported.
+  filterUnsupportedVectorVariants(M, ORBuilder);
+
   // Language specific hook
   languageSpecificInitializations(M);
 #endif // INTEL_CUSTOMIZATION
@@ -1254,5 +1321,6 @@ char VecClone::ID = 0;
 static const char lv_name[] = "VecClone";
 INITIALIZE_PASS_BEGIN(VecClone, SV_NAME, lv_name,
                       false /* modifies CFG */, false /* transform pass */)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_END(VecClone, SV_NAME, lv_name,
                     false /* modififies CFG */, false /* transform pass */)

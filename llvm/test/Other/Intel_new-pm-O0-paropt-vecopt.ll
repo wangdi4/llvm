@@ -42,6 +42,7 @@
 ;            Running pass: AlwaysInlinerPass on [module]
 ;            Running analysis: ProfileSummaryAnalysis on [module]
 ;            Running pass: VecClonePass on [module]
+;            Running analysis: OptReportOptionsAnalysis on [module]
 ;            Invalidating analysis: InnerAnalysisManagerProxy<{{.*}}>
 ;CHECK:      Running analysis: InnerAnalysisManagerProxy<{{.*}}> on [module]
 ;CHECK-NEXT: Running pass: VPORestoreOperandsPass on foo
@@ -74,7 +75,6 @@
 ;CHECK-NEXT: Running analysis: LoopAnalysis on foo
 ;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ;CHECK-NEXT: Running pass: VPOParoptPass on [module]
-;CHECK-NEXT: Running analysis: OptReportOptionsAnalysis on [module]
 ;CHECK-NEXT: Running analysis: WRegionInfoAnalysis on foo
 ;CHECK-NEXT: Running analysis: WRegionCollectionAnalysis on foo
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo

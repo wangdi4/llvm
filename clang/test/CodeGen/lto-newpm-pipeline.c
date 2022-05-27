@@ -46,6 +46,7 @@
 // CHECK-FULL-O0-NEXT: Running pass: AlwaysInlinerPass ;INTEL
 // CHECK-FULL-O0-NEXT: Running analysis: ProfileSummaryAnalysis
 // CHECK-FULL-O0-NEXT: Running pass: VecClonePass ;INTEL
+// CHECK-FULL-O0-NEXT: Running analysis: OptReportOptionsAnalysis ;INTEL
 // CHECK-FULL-O0-NEXT: Invalidating analysis: InnerAnalysisManagerProxy ;INTEL
 // CHECK-FULL-O0-NEXT: Running pass: CoroConditionalWrapper
 // CHECK-FULL-O0-NEXT: Running pass: CanonicalizeAliasesPass
@@ -63,6 +64,7 @@
 // CHECK-THIN-O0-NEXT: Running pass: AlwaysInlinerPass ;INTEL
 // CHECK-THIN-O0-NEXT: Running analysis: ProfileSummaryAnalysis
 // CHECK-THIN-O0-NEXT: Running pass: VecClonePass ;INTEL
+// CHECK-THIN-O0-NEXT: Running analysis: OptReportOptionsAnalysis ;INTEL
 // CHECK-THIN-O0-NEXT: Invalidating analysis: InnerAnalysisManagerProxy ;INTEL
 // CHECK-THIN-O0-NEXT: Running pass: CoroConditionalWrapper
 // CHECK-THIN-O0-NEXT: Running pass: CanonicalizeAliasesPass
