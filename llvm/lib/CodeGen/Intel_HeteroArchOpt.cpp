@@ -30,6 +30,11 @@ using namespace llvm;
 
 #define DEBUG_TYPE "hetero-arch-opt"
 
+static cl::opt<bool> DisableHeteroArchOpt(
+    "disable-hetero-arch-opt", cl::Hidden,
+    cl::desc("Disable Hetero Architecture Optimization."),
+    cl::init(false));
+
 // Defines preferable loop height to clone. If the max height of loop candidate
 // is less than this value, this pass will try to find its ancestor loop with
 // max height equals to this value, or top level loop if its max height is less
@@ -104,7 +109,7 @@ INITIALIZE_PASS(HeteroArchOpt, DEBUG_TYPE, "Hetero Arch Optimization", false,
 FunctionPass *llvm::createHeteroArchOptPass() { return new HeteroArchOpt(); }
 
 bool HeteroArchOpt::runOnFunction(Function &F) {
-  if (skipFunction(F))
+  if (DisableHeteroArchOpt || skipFunction(F))
     return false;
 
   // This opt will bloat code.
