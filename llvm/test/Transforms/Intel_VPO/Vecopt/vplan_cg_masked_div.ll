@@ -2,6 +2,11 @@
 ; RUN: opt < %s -vplan-vec -vplan-force-vf=2 -S | FileCheck %s
 ; RUN: opt < %s -vplan-vec -vplan-force-vf=2  -intel-ir-optreport-emitter -intel-opt-report=high -disable-output 2>&1 | FileCheck %s -check-prefixes=OPTREPORT
 
+; RUN: opt %s -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=2 -print-after=hir-vplan-vec -disable-output 2>&1 | FileCheck %s -check-prefixes=HIR
+; RUN: opt %s -enable-new-pm=0 -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=2  -hir-optreport-emitter -intel-opt-report=high -disable-output 2>&1 | FileCheck %s -check-prefixes=HIR-OPTREPORT
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec" -vplan-force-vf=2 -print-after=hir-vplan-vec -disable-output 2>&1 | FileCheck %s -check-prefixes=HIR
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,hir-optreport-emitter" -vplan-force-vf=2   -intel-opt-report=high -disable-output 2>&1 | FileCheck %s -check-prefixes=HIR-OPTREPORT
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -63,6 +68,26 @@ define void @masked_divergent_div(i32 *%p, i64 %n) {
 ; CHECK-NEXT:    [[TMP21:%.*]] = add i64 0, [[TMP20]]
 ;
 ; OPTREPORT:   remark #15566: 'sdiv': division was scalarized due to fp-model requirements.
+;
+; HIR-LABEL:  Function: masked_divergent_div
+; HIR:             |   [[SERIAL_TEMP0:%.*]] = undef
+; HIR-NEXT:        |   [[MASK_0_0:%.*]] = extractelement [[DOTVEC50:%.*]],  0
+; HIR-NEXT:        |   if ([[MASK_0_0]] == 1)
+; HIR-NEXT:        |   {
+; HIR-NEXT:        |      [[EXTRACT_0_60:%.*]] = extractelement [[DOTVEC40:%.*]],  0
+; HIR-NEXT:        |      [[DOTSCAL0:%.*]] = 42  /  [[EXTRACT_0_60]]
+; HIR-NEXT:        |      [[SERIAL_TEMP0]] = insertelement [[SERIAL_TEMP0]],  [[DOTSCAL0]],  0
+; HIR-NEXT:        |   }
+; HIR-NEXT:        |   [[MASK_1_0:%.*]] = extractelement [[DOTVEC50]],  1
+; HIR-NEXT:        |   if ([[MASK_1_0]] == 1)
+; HIR-NEXT:        |   {
+; HIR-NEXT:        |      [[EXTRACT_1_0:%.*]] = extractelement [[DOTVEC40]],  1
+; HIR-NEXT:        |      [[DOTSCAL70:%.*]] = 42  /  [[EXTRACT_1_0]]
+; HIR-NEXT:        |      [[SERIAL_TEMP0]] = insertelement [[SERIAL_TEMP0]],  [[DOTSCAL70]],  1
+; HIR-NEXT:        |   }
+; HIR-NEXT:        |   (<2 x i32>*)([[P0:%.*]])[i1] = [[SERIAL_TEMP0]], Mask = @{[[DOTVEC50]]}
+;
+; HIR-OPTREPORT:           remark #15566: 'sdiv': division was scalarized due to fp-model requirements.
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
@@ -136,6 +161,14 @@ define void @masked_uniform_div(i32 *%p, i64 %n, i32 %val) {
 ; CHECK-NEXT:    [[TMP17:%.*]] = mul i64 1, [[TMP2]]
 ; CHECK-NEXT:    [[TMP18:%.*]] = add i64 0, [[TMP17]]
 ;
+; HIR-LABEL:  Function: masked_uniform_div
+; HIR:             |   [[DOTSCAL0:%.*]] = undef
+; HIR-NEXT:        |   if ([[CMP0:%.*]] == 1)
+; HIR-NEXT:        |   {
+; HIR-NEXT:        |      [[DOTSCAL0]] = 42  /  [[VAL0:%.*]];
+; HIR-NEXT:        |   }
+; HIR-NEXT:        |   (<2 x i32>*)([[P0:%.*]])[i1] = [[DOTSCAL0]], Mask = @{[[DOTVEC80:%.*]]}
+;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %header
@@ -191,6 +224,11 @@ define void @masked_safe_speculation_div(i32 *%p, i64 %n, i32 %m) {
 ; CHECK-NEXT:  VPlannedBB6:
 ; CHECK-NEXT:    [[TMP11:%.*]] = mul i64 1, [[TMP2]]
 ; CHECK-NEXT:    [[TMP12:%.*]] = add i64 0, [[TMP11]]
+;
+; HIR-LABEL:  Function: masked_safe_speculation_div
+; HIR:             |   [[DOTVEC50:%.*]] = [[DOTVEC40:%.*]] != [[M0:%.*]]
+; HIR-NEXT:        |   [[DOTVEC60:%.*]] = [[DOTVEC40]]  /  42
+; HIR-NEXT:        |   (<2 x i32>*)([[P0:%.*]])[i1] = [[DOTVEC60]], Mask = @{[[DOTVEC50]]}
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
@@ -275,6 +313,28 @@ define void @masked_unsafe_speculation_div(i32 *%p, i64 %n, i32 %m) {
 ; CHECK-NEXT:  VPlannedBB7:
 ; CHECK-NEXT:    [[TMP20:%.*]] = mul i64 1, [[TMP2]]
 ; CHECK-NEXT:    [[TMP21:%.*]] = add i64 0, [[TMP20]]
+;
+; OPTREPORT:           remark #15566: 'sdiv': division was scalarized due to fp-model requirements.
+;
+; HIR-LABEL:  Function: masked_unsafe_speculation_div
+; HIR:             |   [[SERIAL_TEMP0:%.*]] = undef
+; HIR-NEXT:        |   [[MASK_0_0:%.*]] = extractelement [[DOTVEC50:%.*]],  0
+; HIR-NEXT:        |   if ([[MASK_0_0]] == 1)
+; HIR-NEXT:        |   {
+; HIR-NEXT:        |      [[EXTRACT_0_60:%.*]] = extractelement [[DOTVEC40:%.*]],  0
+; HIR-NEXT:        |      [[DOTSCAL0:%.*]] = [[EXTRACT_0_60]]  /  -1
+; HIR-NEXT:        |      [[SERIAL_TEMP0]] = insertelement [[SERIAL_TEMP0]],  [[DOTSCAL0]],  0
+; HIR-NEXT:        |   }
+; HIR-NEXT:        |   [[MASK_1_0:%.*]] = extractelement [[DOTVEC50]],  1
+; HIR-NEXT:        |   if ([[MASK_1_0]] == 1)
+; HIR-NEXT:        |   {
+; HIR-NEXT:        |      [[EXTRACT_1_0:%.*]] = extractelement [[DOTVEC40]],  1
+; HIR-NEXT:        |      [[DOTSCAL70:%.*]] = [[EXTRACT_1_0]]  /  -1
+; HIR-NEXT:        |      [[SERIAL_TEMP0]] = insertelement [[SERIAL_TEMP0]],  [[DOTSCAL70]],  1
+; HIR-NEXT:        |   }
+; HIR-NEXT:        |   (<2 x i32>*)([[P0:%.*]])[i1] = [[SERIAL_TEMP0]], Mask = @{[[DOTVEC50]]}
+;
+; HIR-OPTREPORT:           remark #15566: 'sdiv': division was scalarized due to fp-model requirements.
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
