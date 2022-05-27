@@ -302,10 +302,10 @@ FunctionPass *createTransformSinAndCosCallsPass();
 //===----------------------------------------------------------------------===//
 //
 // JumpThreading - Thread control through mult-pred/multi-succ blocks where some
-// preds always go to some succ. If FreezeSelectCond is true, unfold the
-// condition of a select that unfolds to branch. Thresholds other than minus one
+// preds always go to some succ. Thresholds other than minus one
 // override the internal BB duplication default threshold.
 //
+<<<<<<< HEAD
 
 // AllowCFGSimps is an Intel-specific argument that specifies whether the jump
 // threading pass may perform simple CFG simplifications other than jump
@@ -373,6 +373,9 @@ FunctionPass *createNontemporalStoreWrapperPass();
 // VPOParoptTpv - Supports the thread private legacy mode.
 ModulePass *createVPOParoptTpvPass();
 #endif // INTEL_COLLAB
+=======
+FunctionPass *createJumpThreadingPass(int Threshold = -1);
+>>>>>>> 36096c2b383ec78030aad47c6b9f479f34d571d7
 
 //===----------------------------------------------------------------------===//
 //
