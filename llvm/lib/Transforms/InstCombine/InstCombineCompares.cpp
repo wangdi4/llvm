@@ -2499,7 +2499,6 @@ Instruction *InstCombinerImpl::foldICmpUDivConstant(ICmpInst &Cmp,
 
 /// Fold icmp ({su}div X, Y), C.
 Instruction *InstCombinerImpl::foldICmpDivConstant(ICmpInst &Cmp,
-<<<<<<< HEAD
                                                BinaryOperator *Div,
                                                const APInt &C) {
 #if INTEL_CUSTOMIZATION
@@ -2508,14 +2507,10 @@ Instruction *InstCombinerImpl::foldICmpDivConstant(ICmpInst &Cmp,
   if (Cmp.getParent()->getParent()->isPreLoopOpt())
     return nullptr;
 #endif // INTEL_CUSTOMIZATION
-=======
-                                                   BinaryOperator *Div,
-                                                   const APInt &C) {
   ICmpInst::Predicate Pred = Cmp.getPredicate();
   Value *X = Div->getOperand(0);
   Value *Y = Div->getOperand(1);
   Type *Ty = Div->getType();
->>>>>>> ed5be1523fe1650a0e52e526eb430011fac60434
 
   // Fold: icmp pred ([us]div X, C2), C -> range test
   // Fold this div into the comparison, producing a range check.
