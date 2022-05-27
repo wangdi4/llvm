@@ -5940,10 +5940,19 @@ const SCEV *ScalarEvolution::createSimpleAffineAddRec(PHINode *PN,
     return nullptr;
 
   const SCEV *Accum = nullptr;
-  if (BO->LHS == PN && L->isLoopInvariant(BO->RHS))
-    Accum = getSCEV(BO->RHS);
-  else if (BO->RHS == PN && L->isLoopInvariant(BO->LHS))
-    Accum = getSCEV(BO->LHS);
+#if INTEL_CUSTOMIZATION
+  Value *LHS = BO->LHS, *RHS = BO->RHS;
+  // Handle freezed IV.
+  if (isa<FreezeInst>(LHS))
+    LHS = cast<FreezeInst>(LHS)->getOperand(0);
+  if (isa<FreezeInst>(RHS))
+    RHS = cast<FreezeInst>(RHS)->getOperand(0);
+
+  if (LHS == PN && L->isLoopInvariant(RHS))
+    Accum = getSCEV(RHS);
+  else if (RHS == PN && L->isLoopInvariant(LHS))
+    Accum = getSCEV(LHS);
+#endif
 
   if (!Accum)
     return nullptr;
