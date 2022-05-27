@@ -1,4 +1,4 @@
-; Verify this test case will not fail. Only allow one TmpInitalizationInst to be existed
+; Verify this test case allows multiple TmpInitalizationInst to be existed.
 ;Source code:
 ;int a[100][100];
 ;int b[100][100];
@@ -25,13 +25,13 @@
 ;Function: multiply
 ;
 ;<0>          BEGIN REGION { }
-;<54>               + DO i1 = 0, zext.i32.i64(%M) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
-;<55>               |   + DO i2 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
+;<54>               + DO i1 = 0, zext.i32.i64(%M) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>  <LEGAL_MAX_TC = 2147483647>
+;<55>               |   + DO i2 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>  <LEGAL_MAX_TC = 2147483647>
 ;<10>               |   |   (@d)[0][i1][i2] = 0;
-;<56>               |   |
+;<56>               |   |   
 ;<17>               |   |      %add3268 = 0;
 ;<18>               |   |      %t.066 = 0;
-;<56>               |   |   + DO i3 = 0, zext.i32.i64(%L) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
+;<56>               |   |   + DO i3 = 0, zext.i32.i64(%L) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>  <LEGAL_MAX_TC = 2147483647>
 ;<22>               |   |   |   %0 = (@a)[0][i1][i3];
 ;<24>               |   |   |   %1 = (@b)[0][i3][i2];
 ;<26>               |   |   |   %t.066 = (%0 * %1)  +  %t.066;
@@ -47,20 +47,21 @@
 ;Function: multiply
 ;
 ; CHECK:    BEGIN REGION { }
-; CHECK:           + DO i1 = 0, zext.i32.i64(%M) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
-; CHECK:           |   + DO i2 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
+; CHECK:           + DO i1 = 0, zext.i32.i64(%M) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>  <LEGAL_MAX_TC = 2147483647>
+; CHECK:           |   + DO i2 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>  <LEGAL_MAX_TC = 2147483647>
 ; CHECK:           |   |   (@d)[0][i1][i2] = 0;
-; CHECK:           |   |
-; CHECK:           |   |      %add3268 = 0;
-; CHECK:           |   |      %t.066 = 0;
-; CHECK:           |   |   + DO i3 = 0, zext.i32.i64(%L) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
+; CHECK:           |   |   (@c)[0][i1][i2] = 0;
+; CHECK:           |   |   
+; CHECK:           |   |   + DO i3 = 0, zext.i32.i64(%L) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>  <LEGAL_MAX_TC = 2147483647>
+; CHECK:           |   |   |   %add3268 = (@d)[0][i1][i2];
+; CHECK:           |   |   |   %t.066 = (@c)[0][i1][i2];
 ; CHECK:           |   |   |   %0 = (@a)[0][i1][i3];
 ; CHECK:           |   |   |   %1 = (@b)[0][i3][i2];
 ; CHECK:           |   |   |   %t.066 = (%0 * %1)  +  %t.066;
 ; CHECK:           |   |   |   %add3268 = %add3268  +  (%0 * %1);
+; CHECK:           |   |   |   (@d)[0][i1][i2] = %add3268;
+; CHECK:           |   |   |   (@c)[0][i1][i2] = %t.066;
 ; CHECK:           |   |   + END LOOP
-; CHECK:           |   |      (@d)[0][i1][i2] = %add3268;
-; CHECK:           |   |      (@c)[0][i1][i2] = %t.066;
 ; CHECK:           |   + END LOOP
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
