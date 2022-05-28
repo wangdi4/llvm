@@ -242,11 +242,16 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
       CCPrintOptions(false), CCPrintHeaders(false), CCLogDiagnostics(false),
       CCGenDiagnostics(false), CCPrintProcessStats(false),
       TargetTriple(TargetTriple), Saver(Alloc), CheckInputsExist(true),
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       ProbePrecompiled(true), SuppressMissingInputWarning(false),
       IntelPrintOptions(false),
       IntelMode(false), DPCPPMode(false) {
 #endif // INTEL_CUSTOMIZATION
+=======
+      ProbePrecompiled(true), GenReproducer(false),
+      SuppressMissingInputWarning(false) {
+>>>>>>> 4dc3893eeb47bef9298c34cdc993165af88721a5
   // Provide a sane fallback if no VFS is specified.
   if (!this->VFS)
     this->VFS = llvm::vfs::getRealFileSystem();
@@ -1840,6 +1845,9 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
   CCCPrintBindings = Args.hasArg(options::OPT_ccc_print_bindings);
   if (const Arg *A = Args.getLastArg(options::OPT_ccc_gcc_name))
     CCCGenericGCCName = A->getValue();
+  GenReproducer = Args.hasFlag(options::OPT_gen_reproducer,
+                               options::OPT_fno_crash_diagnostics,
+                               !!::getenv("FORCE_CLANG_DIAGNOSTICS_CRASH"));
 
   // Process -fproc-stat-report options.
   if (const Arg *A = Args.getLastArg(options::OPT_fproc_stat_report_EQ)) {
