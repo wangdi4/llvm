@@ -242,16 +242,11 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
       CCPrintOptions(false), CCPrintHeaders(false), CCLogDiagnostics(false),
       CCGenDiagnostics(false), CCPrintProcessStats(false),
       TargetTriple(TargetTriple), Saver(Alloc), CheckInputsExist(true),
-<<<<<<< HEAD
+      ProbePrecompiled(true), GenReproducer(false),
 #if INTEL_CUSTOMIZATION
-      ProbePrecompiled(true), SuppressMissingInputWarning(false),
-      IntelPrintOptions(false),
+      SuppressMissingInputWarning(false), IntelPrintOptions(false),
       IntelMode(false), DPCPPMode(false) {
 #endif // INTEL_CUSTOMIZATION
-=======
-      ProbePrecompiled(true), GenReproducer(false),
-      SuppressMissingInputWarning(false) {
->>>>>>> 4dc3893eeb47bef9298c34cdc993165af88721a5
   // Provide a sane fallback if no VFS is specified.
   if (!this->VFS)
     this->VFS = llvm::vfs::getRealFileSystem();
