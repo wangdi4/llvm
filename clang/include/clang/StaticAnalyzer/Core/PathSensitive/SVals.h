@@ -154,9 +154,6 @@ public:
 
   bool isZeroConstant() const;
 
-  /// hasConjuredSymbol - If this SVal wraps a conjured symbol, return true;
-  bool hasConjuredSymbol() const;
-
   /// getAsFunctionDecl - If this SVal is a MemRegionVal and wraps a
   /// CodeTextRegion wrapping a FunctionDecl, return that FunctionDecl.
   /// Otherwise return 0.
@@ -390,10 +387,7 @@ public:
     return *static_cast<const llvm::APSInt *>(Data);
   }
 
-  // Transfer functions for binary/unary operations on ConcreteInts.
-  SVal evalBinOp(SValBuilder &svalBuilder, BinaryOperator::Opcode Op,
-                 const ConcreteInt& R) const;
-
+  // Transfer functions for unary operations on ConcreteInts.
   ConcreteInt evalComplement(SValBuilder &svalBuilder) const;
 
   ConcreteInt evalMinus(SValBuilder &svalBuilder) const;
@@ -644,10 +638,6 @@ public:
   const llvm::APSInt &getValue() const {
     return *static_cast<const llvm::APSInt *>(Data);
   }
-
-  // Transfer functions for binary/unary operations on ConcreteInts.
-  SVal evalBinOp(BasicValueFactory& BasicVals, BinaryOperator::Opcode Op,
-                 const ConcreteInt& R) const;
 
 private:
   friend class SVal;
