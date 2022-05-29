@@ -1,9 +1,5 @@
-<<<<<<< HEAD
 // INTEL UNSUPPORTED: intel_opencl && i686-pc-windows
-
-=======
 // RUN: clang-repl "int x = 10;" "int y=7; err;" "int y = 10;"
->>>>>>> 5ff27fe1ff03d5aeaf8567c97618170f0cef8f58
 // RUN: clang-repl "int i = 10;" 'extern "C" int printf(const char*,...);' \
 // RUN:            'auto r1 = printf("i = %d\n", i);' | FileCheck --check-prefix=CHECK-DRIVER %s
 // REQUIRES: host-supports-jit
