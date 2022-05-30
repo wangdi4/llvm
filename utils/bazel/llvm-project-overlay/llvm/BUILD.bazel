@@ -159,7 +159,7 @@ cc_library(
 genrule(
     name = "generate_vcs_revision",
     outs = ["include/llvm/Support/VCSRevision.h"],
-    cmd = "echo '#define LLVM_REVISION \"git\"' >> $@\n" +
+    cmd = "echo '#undef LLVM_REVISION' >> $@\n" +
           "echo '#undef LLVM_REPOSITORY' >> $@\n",
 )
 
@@ -1729,6 +1729,21 @@ llvm_target_lib_list = [lib for lib in [
         ],
     },
     {
+        "name": "VE",
+        "short_name": "VE",
+        "tbl_outs": [
+            ("-gen-asm-matcher", "lib/Target/VE/VEGenAsmMatcher.inc"),
+            ("-gen-asm-writer", "lib/Target/VE/VEGenAsmWriter.inc"),
+            ("-gen-callingconv", "lib/Target/VE/VEGenCallingConv.inc"),
+            ("-gen-dag-isel", "lib/Target/VE/VEGenDAGISel.inc"),
+            ("-gen-disassembler", "lib/Target/VE/VEGenDisassemblerTables.inc"),
+            ("-gen-emitter", "lib/Target/VE/VEGenMCCodeEmitter.inc"),
+            ("-gen-instr-info", "lib/Target/VE/VEGenInstrInfo.inc"),
+            ("-gen-register-info", "lib/Target/VE/VEGenRegisterInfo.inc"),
+            ("-gen-subtarget", "lib/Target/VE/VEGenSubtargetInfo.inc"),
+        ],
+    },
+    {
         "name": "WebAssembly",
         "short_name": "WebAssembly",
         "tbl_outs": [
@@ -2962,6 +2977,18 @@ cc_binary(
     ],
 )
 
+gentbl(
+    name = "IfsOptionsTableGen",
+    strip_include_prefix = "tools/llvm-ifs",
+    tbl_outs = [(
+        "-gen-opt-parser-defs",
+        "tools/llvm-ifs/Opts.inc",
+    )],
+    tblgen = ":llvm-tblgen",
+    td_file = "tools/llvm-ifs/Opts.td",
+    td_srcs = ["include/llvm/Option/OptParser.td"],
+)
+
 cc_binary(
     name = "llvm-ifs",
     srcs = glob([
@@ -2971,8 +2998,10 @@ cc_binary(
     copts = llvm_copts,
     stamp = 0,
     deps = [
+        ":IfsOptionsTableGen",
         ":InterfaceStub",
         ":ObjectYAML",
+        ":Option",
         ":Support",
         ":TextAPI",
     ],

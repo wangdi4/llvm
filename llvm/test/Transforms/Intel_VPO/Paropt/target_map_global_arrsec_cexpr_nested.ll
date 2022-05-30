@@ -15,7 +15,7 @@
 
 ; PREPR:      store [10 x float]* @za, [10 x float]** [[ZA_ADDR1:%za.addr[0-9]*]], align 8
 ; PREPR:      call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"()
-; PREPR_SAME:   "QUAL.OMP.FIRSTPRIVATE"([10 x float]* @za)
+; PREPR-SAME:   "QUAL.OMP.FIRSTPRIVATE"([10 x float]* @za)
 ; PREPR-SAME:   "QUAL.OMP.OPERAND.ADDR"([10 x float]* @za, [10 x float]** [[ZA_ADDR1]])
 ; PREPR:      [[ZA1:%za[0-9]*]] = load volatile [10 x float]*, [10 x float]** [[ZA_ADDR1]], align 8
 ; PREPR:      {{%[^ ]+}} = getelementptr inbounds [10 x float], [10 x float]* [[ZA1]], i64 0, i64 0

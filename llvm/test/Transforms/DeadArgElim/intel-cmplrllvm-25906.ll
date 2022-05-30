@@ -9,7 +9,7 @@
 
 ; CHECK: DeadArgumentEliminationPass - foo has vector variants
 ; CHECK: define dso_local i32 @main()
-; CHECK: call i32 @foo(i32 %0, i32 undef)
+; CHECK: call i32 @foo(i32 %0, i32 poison)
 ; CHECK: define internal i32 @foo(i32 %i, i32 %x)
 
 @glob1 = dso_local global i32 5, align 4

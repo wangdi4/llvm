@@ -80,7 +80,7 @@ define void @init() {
 ; CHECK-NEXT:  br i1 [[OR_2]],
 
 ; CHECK-LABEL:  d.set_happened:
-; CHECK_NEXT:  store i8 1, i8* @__Shrink__Happened__
+; CHECK:  store i8 1, i8* @__Shrink__Happened__
 
   ret void
 }

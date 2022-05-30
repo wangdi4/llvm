@@ -662,7 +662,7 @@ void BasicAAResult::DecomposeSubscript(const SubscriptInst *Subs,
   const ConstantInt *CStride = cast<ConstantInt>(Stride);
   unsigned MaxPointerSize = DL.getMaxIndexSizeInBits();
 
-  APInt StrideVal = CStride->getValue().sextOrSelf(MaxPointerSize);
+  APInt StrideVal = CStride->getValue().sext(MaxPointerSize);
 
   const Value *Offsets[] = {Subs->getIndex(), Subs->getLowerBound()};
   for (int i = 0; i < 2; ++i) {
@@ -876,8 +876,8 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
       unsigned TypeSize =
           DL.getTypeAllocSize(GTI.getIndexedType()).getFixedSize();
       LE = LE.mul(APInt(IndexSize, TypeSize), GEPOp->isInBounds());
-      Decomposed.Offset += LE.Offset.sextOrSelf(MaxIndexSize);
-      APInt Scale = LE.Scale.sextOrSelf(MaxIndexSize);
+      Decomposed.Offset += LE.Offset.sext(MaxIndexSize);
+      APInt Scale = LE.Scale.sext(MaxIndexSize);
 
       // If we already had an occurrence of this index variable, merge this
       // scale into it.  For example, we want to handle:

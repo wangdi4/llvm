@@ -23,8 +23,8 @@
 ; CHECK: ColdFunction2{{.*}}Callee is cold
 
 ; CHECK-MD-LABEL: define i32 @simpleFunction(i32 %a)
-; CHECK-MD_LABEL: define i32 @ColdFunction(i32 %a)
-; CHECK-MD_LABEL: define i32 @ColdFunction2(i32 %a)
+; CHECK-MD-LABEL: define i32 @ColdFunction(i32 %a)
+; CHECK-MD-LABEL: define i32 @ColdFunction2(i32 %a)
 ; CHECK-MD-LABEL: define i32 @bar(i32 %a)
 ; CHECK-MD: tail call i32 @ColdFunction(i32 5)
 ; CHECK-MD: tail call i32 @ColdFunction2(i32 5)

@@ -1,10 +1,4 @@
-// INTEL_CUSTOMIZATION
-// This test depends on the shift not being optimized at -O1, which is not
-// realistic.
-// UNSUPPORTED: *
-// end INTEL_CUSTOMIZATION
-//
-// // Test various levels of coverage
+// Test various levels of coverage
 //
 // FIXME: Port the environment variable logic below for the lit shell.
 // REQUIRES: shell

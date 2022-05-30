@@ -170,7 +170,7 @@ class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
 #endif // INTEL_CUSTOMIZATION
 
 public:
-  JumpThreadingPass(bool InsertFreezeWhenUnfoldingSelect = false, // INTEL
+  JumpThreadingPass(bool InsertFreezeWhenUnfoldingSelect = true,  // INTEL
                     int T = -1, bool AllowCFGSimps = true);       // INTEL
 
   // Glue for old PM.

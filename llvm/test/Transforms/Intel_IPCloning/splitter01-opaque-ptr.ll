@@ -20,7 +20,7 @@
 ; CHECK: MRCS: START ANALYSIS: GetVirtualPixelsFromNexus
 ; CHECK: MRCS: Can split blocks: Visited: 42 NonVisted: 60
 ; CHECK: MRCS: Begin 7 split insts
-; CHECK_DAG: MRCS:   %i = alloca i16, align 2
+; CHECK-DAG: MRCS:   %i = alloca i16, align 2
 ; CHECK-DAG: MRCS:   %i8 = alloca %struct._PixelPacket, align 2
 ; CHECK-DAG: MRCS:   %i13 = load ptr, ptr %i12, align 8
 ; CHECK-DAG: MRCS:   %i171 = phi ptr [ %i150, %bb167 ], [ %i79, %bb78 ]

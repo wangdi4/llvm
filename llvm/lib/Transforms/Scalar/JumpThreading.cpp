@@ -127,7 +127,7 @@ static cl::opt<bool> PrintLVIAfterJumpThreading(
 
 static cl::opt<bool> JumpThreadingFreezeSelectCond(
     "jump-threading-freeze-select-cond",
-    cl::desc("Freeze the condition when unfolding select"), cl::init(false),
+    cl::desc("Freeze the condition when unfolding select"), cl::init(true),
     cl::Hidden);
 
 static cl::opt<bool> ThreadAcrossLoopHeaders(
@@ -176,7 +176,7 @@ namespace {
   public:
     static char ID; // Pass identification
 
-    JumpThreading(bool InsertFreezeWhenUnfoldingSelect = false,         // INTEL
+    JumpThreading(bool InsertFreezeWhenUnfoldingSelect = true,          // INTEL
                   int T = -1, bool AllowCFGSimps = true) :              // INTEL
       FunctionPass(ID),                                                 // INTEL
       Impl(InsertFreezeWhenUnfoldingSelect, T, AllowCFGSimps) {         // INTEL

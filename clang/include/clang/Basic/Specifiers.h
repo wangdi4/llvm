@@ -308,6 +308,7 @@ namespace clang {
     CC_IntelOclBiccAVX512, // __attribute__((intel_ocl_bicc_avx512))
 #endif // INTEL_CUSTOMIZATION
     CC_AArch64SVEPCS, // __attribute__((aarch64_sve_pcs))
+    CC_AMDGPUKernelCall, // __attribute__((amdgpu_kernel))
   };
 
   /// Checks whether the given calling convention supports variadic

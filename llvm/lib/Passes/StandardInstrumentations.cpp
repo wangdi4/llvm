@@ -45,12 +45,14 @@
 #include "llvm/IR/PrintPasses.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/CrashRecoveryContext.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/GraphWriter.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/Regex.h"
+#include "llvm/Support/Signals.h"
 #include "llvm/Support/raw_ostream.h"
 #include <unordered_map>
 #include <unordered_set>
@@ -182,6 +184,12 @@ static cl::opt<std::string> DotCfgDir(
     "dot-cfg-dir",
     cl::desc("Generate dot files into specified directory for changed IRs"),
     cl::Hidden, cl::init("./"));
+
+// An option to print the IR that was being processed when a pass crashes.
+static cl::opt<bool>
+    PrintCrashIR("print-on-crash",
+                 cl::desc("Print the last form of the IR before crash"),
+                 cl::init(false), cl::Hidden);
 
 namespace {
 
@@ -2247,6 +2255,53 @@ StandardInstrumentations::StandardInstrumentations(
 #endif // INTEL_CUSTOMIZATION
       Verify(DebugLogging), VerifyEach(VerifyEach) {}
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+PrintCrashIRInstrumentation *PrintCrashIRInstrumentation::CrashReporter =
+    nullptr;
+
+void PrintCrashIRInstrumentation::reportCrashIR() { dbgs() << SavedIR; }
+
+void PrintCrashIRInstrumentation::SignalHandler(void *) {
+  // Called by signal handlers so do not lock here
+  // Is the PrintCrashIRInstrumentation still alive?
+  if (!CrashReporter)
+    return;
+
+  assert(PrintCrashIR && "Did not expect to get here without option set.");
+  CrashReporter->reportCrashIR();
+}
+
+PrintCrashIRInstrumentation::~PrintCrashIRInstrumentation() {
+  if (!CrashReporter)
+    return;
+
+  assert(PrintCrashIR && "Did not expect to get here without option set.");
+  CrashReporter = nullptr;
+}
+
+void PrintCrashIRInstrumentation::registerCallbacks(
+    PassInstrumentationCallbacks &PIC) {
+  if (!PrintCrashIR || CrashReporter)
+    return;
+
+  sys::AddSignalHandler(SignalHandler, nullptr);
+  CrashReporter = this;
+
+  PIC.registerBeforeNonSkippedPassCallback([this](StringRef PassID, Any IR) {
+    SavedIR.clear();
+    raw_string_ostream OS(SavedIR);
+    OS << formatv("*** Dump of {0}IR Before Last Pass {1}",
+                  llvm::forcePrintModuleIR() ? "Module " : "", PassID);
+    if (!isInteresting(IR, PassID)) {
+      OS << " Filtered Out ***\n";
+      return;
+    }
+    OS << " Started ***\n";
+    unwrapAndPrint(OS, IR);
+  });
+}
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+
 void StandardInstrumentations::registerCallbacks(
     PassInstrumentationCallbacks &PIC, FunctionAnalysisManager *FAM) {
   PrintIR.registerCallbacks(PIC);
@@ -2263,6 +2318,7 @@ void StandardInstrumentations::registerCallbacks(
   PrintChangedDiff.registerCallbacks(PIC);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   WebsiteChangeReporter.registerCallbacks(PIC);
+  PrintCrashIR.registerCallbacks(PIC);
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 

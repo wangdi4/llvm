@@ -50,11 +50,11 @@ void foo(int ifval, int finalval, int priorityval)
   }
 
   // CHECK-NEW: [[DEP_ARR_ADDR:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], ptr %.dep.arr.addr{{.*}}, i64 0, i64 0
+  // CHECK-NEW: [[DVAR:%.*]] = ptrtoint ptr %var to i64
   // CHECK-NEW: [[TMP:%.*]] = getelementptr %struct.kmp_depend_info, ptr [[DEP_ARR_ADDR]], i64 0
 
   // Dependency variable.
   // CHECK-NEW: [[DEP_VAR_ADDR:%.*]] = getelementptr inbounds %struct.kmp_depend_info, ptr [[TMP]], i32 0, i32 0
-  // CHECK-NEW: [[DVAR:%.*]] = ptrtoint ptr %var to i64
   // CHECK-NEW: store i64 [[DVAR]], ptr [[DEP_VAR_ADDR]], align 8
 
   // Dependency type (in).
@@ -74,11 +74,12 @@ void foo(int ifval, int finalval, int priorityval)
   }
 
   // CHECK-NEW: [[DEP_ARR_ADDR:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], ptr %.dep.arr.addr{{.*}}, i64 0, i64 0
+  // CHECK-NEW: %{{.+}} = sub nuw
+  // CHECK-NEW: [[DVAR:%.*]] = ptrtoint ptr %arrayidx{{.*}} to i64
   // CHECK-NEW: [[TMP:%.*]] = getelementptr %struct.kmp_depend_info, ptr [[DEP_ARR_ADDR]], i64 0
 
   // Dependency variable.
   // CHECK-NEW: [[DEP_VAR_ADDR:%.*]] = getelementptr inbounds %struct.kmp_depend_info, ptr [[TMP]], i32 0, i32 0
-  // CHECK-NEW: [[DVAR:%.*]] = ptrtoint ptr %arrayidx{{.*}} to i64
   // CHECK-NEW: store i64 [[DVAR]], ptr [[DEP_VAR_ADDR]], align 8
 
   // Dependency type.
@@ -98,11 +99,11 @@ void foo(int ifval, int finalval, int priorityval)
   }
 
   // CHECK-NEW: [[DEP_ARR_ADDR:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], ptr %.dep.arr.addr{{.*}}, i64 0, i64 0
+  // CHECK-NEW: [[DVAR:%.*]] = ptrtoint ptr %var to i64
   // CHECK-NEW: [[TMP:%.*]] = getelementptr %struct.kmp_depend_info, ptr [[DEP_ARR_ADDR]], i64 0
 
   // Dependency variable.
   // CHECK-NEW: [[DEP_VAR_ADDR:%.*]] = getelementptr inbounds %struct.kmp_depend_info, ptr [[TMP]], i32 0, i32 0
-  // CHECK-NEW: [[DVAR:%.*]] = ptrtoint ptr %var to i64
   // CHECK-NEW: store i64 [[DVAR]], ptr [[DEP_VAR_ADDR]], align 8
 
   // Dependency type (out).
@@ -121,11 +122,12 @@ void foo(int ifval, int finalval, int priorityval)
     bar();
   }
   // CHECK-NEW: [[DEP_ARR_ADDR:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], ptr %.dep.arr.addr{{.*}}, i64 0, i64 0
+  // CHECK-NEW: %{{.+}} = sub nuw
+  // CHECK-NEW: [[DVAR:%.*]] = ptrtoint ptr %arrayidx{{.*}} to i64
   // CHECK-NEW: [[TMP:%.*]] = getelementptr %struct.kmp_depend_info, ptr [[DEP_ARR_ADDR]], i64 0
 
   // Dependency variable
   // CHECK-NEW: [[DEP_VAR_ADDR:%.*]] = getelementptr inbounds %struct.kmp_depend_info, ptr [[TMP]], i32 0, i32 0
-  // CHECK-NEW: [[DVAR:%.*]] = ptrtoint ptr %arrayidx{{.*}} to i64
   // CHECK-NEW: store i64 [[DVAR]], ptr [[DEP_VAR_ADDR]], align 8
 
   // Dependency type.
@@ -145,11 +147,11 @@ void foo(int ifval, int finalval, int priorityval)
   }
 
   // CHECK-NEW: [[DEP_ARR_ADDR:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], ptr %.dep.arr.addr{{.*}}, i64 0, i64 0
+  // CHECK-NEW: [[DVAR:%.*]] = ptrtoint ptr %var to i64
   // CHECK-NEW: [[TMP:%.*]] = getelementptr %struct.kmp_depend_info, ptr [[DEP_ARR_ADDR]], i64 0
 
   // Dependency variable.
   // CHECK-NEW: [[DEP_VAR_ADDR:%.*]] = getelementptr inbounds %struct.kmp_depend_info, ptr [[TMP]], i32 0, i32 0
-  // CHECK-NEW: [[DVAR:%.*]] = ptrtoint ptr %var to i64
   // CHECK-NEW: store i64 [[DVAR]], ptr [[DEP_VAR_ADDR]], align 8
 
   // Dependency type (in).
@@ -169,11 +171,12 @@ void foo(int ifval, int finalval, int priorityval)
   }
 
   // CHECK-NEW: [[DEP_ARR_ADDR:%.*]] = getelementptr inbounds [1 x %struct.kmp_depend_info], ptr %.dep.arr.addr{{.*}}, i64 0, i64 0
+  // CHECK-NEW: %{{.+}} = sub nuw
+  // CHECK-NEW: [[DVAR:%.*]] = ptrtoint ptr %arrayidx{{.*}} to i64
   // CHECK-NEW: [[TMP:%.*]] = getelementptr %struct.kmp_depend_info, ptr [[DEP_ARR_ADDR]], i64 0
 
   // Dependency variable.
   // CHECK-NEW: [[DEP_VAR_ADDR:%.*]] = getelementptr inbounds %struct.kmp_depend_info, ptr [[TMP]], i32 0, i32 0
-  // CHECK-NEW: [[DVAR:%.*]] = ptrtoint ptr %arrayidx{{.*}} to i64
   // CHECK-NEW: store i64 [[DVAR]], ptr [[DEP_VAR_ADDR]], align 8
 
   // Dependency type.
@@ -193,22 +196,23 @@ void foo(int ifval, int finalval, int priorityval)
   }
 
   // CHECK-NEW: [[DEP_ARR_ADDR:%.*]] = getelementptr inbounds [2 x %struct.kmp_depend_info], ptr %.dep.arr.addr{{.*}}, i64 0, i64 0
+  // CHECK-NEW: [[DVAR:%.*]] = ptrtoint ptr %var to i64
   // CHECK-NEW: [[TMP:%.*]] = getelementptr %struct.kmp_depend_info, ptr [[DEP_ARR_ADDR]], i64 0
 
   // Dependency variable, 'var'.
   // CHECK-NEW: [[DEP_VAR_ADDR:%.*]] = getelementptr inbounds %struct.kmp_depend_info, ptr [[TMP]], i32 0, i32 0
-  // CHECK-NEW: [[DVAR:%.*]] = ptrtoint ptr %var to i64
   // CHECK-NEW: store i64 [[DVAR]], ptr [[DEP_VAR_ADDR]], align 8
 
   // Dependency type (in).
   // CHECK-NEW: [[DEP_TYPE_ADDR:%.*]] = getelementptr inbounds %struct.kmp_depend_info, ptr [[TMP]], i32 0, i32 2
   // CHECK-NEW: store i8 1, ptr [[DEP_TYPE_ADDR]], align 8
 
+  // CHECK-NEW: %{{.+}} = sub nuw
+  // CHECK-NEW: [[DVAR:%.*]] = ptrtoint ptr %arrayidx{{.*}} to i64
   // CHECK-NEW: [[TMP2:%.*]] = getelementptr %struct.kmp_depend_info, ptr [[DEP_ARR_ADDR]], i64 1
 
   // Dependency variable, 'arr'.
   // CHECK-NEW: [[DEP_VAR_ADDR:%.*]] = getelementptr inbounds %struct.kmp_depend_info, ptr [[TMP2]], i32 0, i32 0
-  // CHECK-NEW: [[DVAR:%.*]] = ptrtoint ptr %arrayidx{{.*}} to i64
   // CHECK-NEW: store i64 [[DVAR]], ptr [[DEP_VAR_ADDR]], align 8
 
   // Dependency type.

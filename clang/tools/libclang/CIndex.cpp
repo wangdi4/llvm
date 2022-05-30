@@ -778,10 +778,10 @@ bool CursorVisitor::VisitClassTemplatePartialSpecializationDecl(
 }
 
 bool CursorVisitor::VisitTemplateTypeParmDecl(TemplateTypeParmDecl *D) {
-  if (const auto *TC = D->getTypeConstraint())
-    if (Visit(MakeCXCursor(TC->getImmediatelyDeclaredConstraint(), StmtParent,
-                           TU, RegionOfInterest)))
+  if (const auto *TC = D->getTypeConstraint()) {
+    if (VisitTypeConstraint(*TC))
       return true;
+  }
 
   // Visit the default argument.
   if (D->hasDefaultArgument() && !D->defaultArgumentWasInherited())
@@ -878,6 +878,11 @@ bool CursorVisitor::VisitFunctionDecl(FunctionDecl *ND) {
       return true;
 
     // FIXME: Attributes?
+  }
+
+  if (auto *E = ND->getTrailingRequiresClause()) {
+    if (Visit(E))
+      return true;
   }
 
   if (ND->doesThisDeclarationHaveABody() && !ND->isLateTemplateParsed()) {
@@ -1327,6 +1332,75 @@ bool CursorVisitor::VisitDecompositionDecl(DecompositionDecl *D) {
   return VisitVarDecl(D);
 }
 
+bool CursorVisitor::VisitConceptDecl(ConceptDecl *D) {
+  if (VisitTemplateParameters(D->getTemplateParameters()))
+    return true;
+
+  if (auto *E = D->getConstraintExpr()) {
+    if (Visit(MakeCXCursor(E, D, TU, RegionOfInterest)))
+      return true;
+  }
+  return false;
+}
+
+bool CursorVisitor::VisitTypeConstraint(const TypeConstraint &TC) {
+  if (TC.getNestedNameSpecifierLoc()) {
+    if (VisitNestedNameSpecifierLoc(TC.getNestedNameSpecifierLoc()))
+      return true;
+  }
+  if (TC.getNamedConcept()) {
+    if (Visit(MakeCursorTemplateRef(TC.getNamedConcept(),
+                                    TC.getConceptNameLoc(), TU)))
+      return true;
+  }
+  if (auto Args = TC.getTemplateArgsAsWritten()) {
+    for (const auto &Arg : Args->arguments()) {
+      if (VisitTemplateArgumentLoc(Arg))
+        return true;
+    }
+  }
+  return false;
+}
+
+bool CursorVisitor::VisitConceptRequirement(const concepts::Requirement &R) {
+  using namespace concepts;
+  switch (R.getKind()) {
+  case Requirement::RK_Type: {
+    const TypeRequirement &TR = cast<TypeRequirement>(R);
+    if (!TR.isSubstitutionFailure()) {
+      if (Visit(TR.getType()->getTypeLoc()))
+        return true;
+    }
+    break;
+  }
+  case Requirement::RK_Simple:
+  case Requirement::RK_Compound: {
+    const ExprRequirement &ER = cast<ExprRequirement>(R);
+    if (!ER.isExprSubstitutionFailure()) {
+      if (Visit(ER.getExpr()))
+        return true;
+    }
+    if (ER.getKind() == Requirement::RK_Compound) {
+      const auto &RTR = ER.getReturnTypeRequirement();
+      if (RTR.isTypeConstraint()) {
+        if (const auto *Cons = RTR.getTypeConstraint())
+          VisitTypeConstraint(*Cons);
+      }
+    }
+    break;
+  }
+  case Requirement::RK_Nested: {
+    const NestedRequirement &NR = cast<NestedRequirement>(R);
+    if (!NR.isSubstitutionFailure()) {
+      if (Visit(NR.getConstraintExpr()))
+        return true;
+    }
+    break;
+  }
+  }
+  return false;
+}
+
 bool CursorVisitor::VisitDeclarationNameInfo(DeclarationNameInfo Name) {
   switch (Name.getName().getNameKind()) {
   case clang::DeclarationName::Identifier:
@@ -1450,6 +1524,11 @@ bool CursorVisitor::VisitTemplateParameters(
                                              PEnd = Params->end();
        P != PEnd; ++P) {
     if (Visit(MakeCXCursor(*P, TU, RegionOfInterest)))
+      return true;
+  }
+
+  if (const auto *E = Params->getRequiresClause()) {
+    if (Visit(MakeCXCursor(E, nullptr, TU, RegionOfInterest)))
       return true;
   }
 
@@ -1616,6 +1695,11 @@ bool CursorVisitor::VisitTagTypeLoc(TagTypeLoc TL) {
 }
 
 bool CursorVisitor::VisitTemplateTypeParmTypeLoc(TemplateTypeParmTypeLoc TL) {
+  if (const auto *TC = TL.getDecl()->getTypeConstraint()) {
+    if (VisitTypeConstraint(*TC))
+      return true;
+  }
+
   return Visit(MakeCursorTypeRef(TL.getDecl(), TL.getNameLoc(), TU));
 }
 
@@ -1897,6 +1981,9 @@ DEF_JOB(DeclRefExprParts, DeclRefExpr, DeclRefExprPartsKind)
 DEF_JOB(OverloadExprParts, OverloadExpr, OverloadExprPartsKind)
 DEF_JOB(SizeOfPackExprParts, SizeOfPackExpr, SizeOfPackExprPartsKind)
 DEF_JOB(LambdaExprParts, LambdaExpr, LambdaExprPartsKind)
+DEF_JOB(ConceptSpecializationExprVisit, ConceptSpecializationExpr,
+        ConceptSpecializationExprVisitKind)
+DEF_JOB(RequiresExprVisit, RequiresExpr, RequiresExprVisitKind)
 DEF_JOB(PostChildrenVisit, void, PostChildrenVisitKind)
 #undef DEF_JOB
 
@@ -2072,6 +2159,8 @@ public:
   void VisitPseudoObjectExpr(const PseudoObjectExpr *E);
   void VisitOpaqueValueExpr(const OpaqueValueExpr *E);
   void VisitLambdaExpr(const LambdaExpr *E);
+  void VisitConceptSpecializationExpr(const ConceptSpecializationExpr *E);
+  void VisitRequiresExpr(const RequiresExpr *E);
   void VisitOMPExecutableDirective(const OMPExecutableDirective *D);
   void VisitOMPLoopBasedDirective(const OMPLoopBasedDirective *D);
   void VisitOMPLoopDirective(const OMPLoopDirective *D);
@@ -2954,6 +3043,15 @@ void EnqueueVisitor::VisitLambdaExpr(const LambdaExpr *E) {
   AddStmt(E->getBody());
   WL.push_back(LambdaExprParts(E, Parent));
 }
+void EnqueueVisitor::VisitConceptSpecializationExpr(
+    const ConceptSpecializationExpr *E) {
+  WL.push_back(ConceptSpecializationExprVisit(E, Parent));
+}
+void EnqueueVisitor::VisitRequiresExpr(const RequiresExpr *E) {
+  WL.push_back(RequiresExprVisit(E, Parent));
+  for (ParmVarDecl *VD : E->getLocalParameters())
+    AddDecl(VD);
+}
 void EnqueueVisitor::VisitPseudoObjectExpr(const PseudoObjectExpr *E) {
   // Treat the expression like its syntactic form.
   Visit(E->getSyntacticForm());
@@ -3444,6 +3542,36 @@ bool CursorVisitor::RunVisitorWorkList(VisitorWorkList &WL) {
             return true;
         }
       }
+      break;
+    }
+
+    case VisitorJob::ConceptSpecializationExprVisitKind: {
+      const ConceptSpecializationExpr *E =
+          cast<ConceptSpecializationExprVisit>(&LI)->get();
+      if (NestedNameSpecifierLoc QualifierLoc =
+              E->getNestedNameSpecifierLoc()) {
+        if (VisitNestedNameSpecifierLoc(QualifierLoc))
+          return true;
+      }
+
+      if (E->getNamedConcept() &&
+          Visit(MakeCursorTemplateRef(E->getNamedConcept(),
+                                      E->getConceptNameLoc(), TU)))
+        return true;
+
+      if (auto Args = E->getTemplateArgsAsWritten()) {
+        for (const auto &Arg : Args->arguments()) {
+          if (VisitTemplateArgumentLoc(Arg))
+            return true;
+        }
+      }
+      break;
+    }
+
+    case VisitorJob::RequiresExprVisitKind: {
+      const RequiresExpr *E = cast<RequiresExprVisit>(&LI)->get();
+      for (const concepts::Requirement *R : E->getRequirements())
+        VisitConceptRequirement(*R);
       break;
     }
 
@@ -5468,6 +5596,10 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("ObjCMessageExpr");
   case CXCursor_BuiltinBitCastExpr:
     return cxstring::createRef("BuiltinBitCastExpr");
+  case CXCursor_ConceptSpecializationExpr:
+    return cxstring::createRef("ConceptSpecializationExpr");
+  case CXCursor_RequiresExpr:
+    return cxstring::createRef("RequiresExpr");
   case CXCursor_UnexposedStmt:
     return cxstring::createRef("UnexposedStmt");
   case CXCursor_DeclStmt:
@@ -5826,6 +5958,8 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("attribute(warn_unused_result)");
   case CXCursor_AlignedAttr:
     return cxstring::createRef("attribute(aligned)");
+  case CXCursor_ConceptDecl:
+    return cxstring::createRef("ConceptDecl");
   }
 
   llvm_unreachable("Unhandled CXCursorKind");

@@ -10,7 +10,7 @@
 
 ; CHECK: COMPILE FUNC: bar
 ; CHECK-NEXT: INLINE: foo{{.*}}<<Callee was inlined due to deeply nested ifs>>
-; CHECK_NEXT: INLINE: foo{{.*}}<<Callee was inlined due to deeply nested ifs>>
+; CHECK-NEXT: INLINE: foo{{.*}}<<Callee was inlined due to deeply nested ifs>>
 
 
 ; ModuleID = 'test.c'

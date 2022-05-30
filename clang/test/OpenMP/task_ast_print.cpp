@@ -190,6 +190,18 @@ int main(int argc, char **argv) {
 #pragma omp task in_reduction(+: arr1)
   foo();
   // CHECK-NEXT: foo();
+  // CHECK-NEXT: #pragma omp task depend(out : arr,omp_all_memory)
+#pragma omp task depend(out: omp_all_memory, arr)
+  foo();
+  // CHECK-NEXT: foo();
+  // CHECK-NEXT: #pragma omp task depend(inout : b,arr,a,x,omp_all_memory)
+#pragma omp task depend(inout: b, arr, omp_all_memory, a, x)
+  foo();
+  // CHECK-NEXT: foo();
+  // CHECK-NEXT: #pragma omp task depend(inout : omp_all_memory)
+#pragma omp task depend(inout: omp_all_memory)
+  foo();
+  // CHECK-NEXT: foo();
   return tmain<int, 5>(b, &b) + tmain<long, 1>(x, &x);
 }
 

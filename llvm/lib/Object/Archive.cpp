@@ -39,6 +39,7 @@
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorOr.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Host.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
@@ -967,6 +968,14 @@ Archive::Archive(MemoryBufferRef Source, Error &Err)
 
   setFirstRegular(*C);
   Err = Error::success();
+}
+
+object::Archive::Kind Archive::getDefaultKindForHost() {
+  Triple HostTriple(sys::getProcessTriple());
+  return HostTriple.isOSDarwin()
+             ? object::Archive::K_DARWIN
+             : (HostTriple.isOSAIX() ? object::Archive::K_AIXBIG
+                                     : object::Archive::K_GNU);
 }
 
 Archive::child_iterator Archive::child_begin(Error &Err,
