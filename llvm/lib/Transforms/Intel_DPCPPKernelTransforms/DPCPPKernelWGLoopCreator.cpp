@@ -651,7 +651,7 @@ void WGLoopCreatorImpl::processFunction(Function *F, Function *VectorF,
   // If no workgroup loop is created (no calls to get_*_id), avoid inlining
   // the vector function into the scalar one since there is only one workitem
   // to be executed.
-  if (NumDim && KIMD.VectorizedMaskedKernel.hasValue()) {
+  if (KIMD.VectorizedMaskedKernel.hasValue()) {
     MaskedF = KIMD.VectorizedMaskedKernel.get();
     // Set vetorized masked kernel to F. This metadata can be used as an
     // indicator of vectorized masked kernel being used.
@@ -681,11 +681,11 @@ void WGLoopCreatorImpl::processFunction(Function *F, Function *VectorF,
   initializeImplicitGID(Func);
 
   // Create loops.
-  LoopRegion WGLoopRegion =
-      (VectorF && MaskedF)  ? createVectorAndMaskedRemainderLoops()
-      : (VectorF && NumDim) ? createVectorAndRemainderLoops()
-      : MaskedF             ? createMaskedLoop()
-                            : createScalarLoops();
+  LoopRegion WGLoopRegion = (VectorF && MaskedF)
+                                ? createVectorAndMaskedRemainderLoops()
+                            : VectorF ? createVectorAndRemainderLoops()
+                            : MaskedF ? createMaskedLoop()
+                                      : createScalarLoops();
   assert(WGLoopRegion.PreHeader && WGLoopRegion.Exit &&
          "Workgroup loop entry or exit not initialized");
 

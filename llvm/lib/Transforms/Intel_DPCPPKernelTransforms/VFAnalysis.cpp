@@ -83,6 +83,15 @@ void VFAnalysisInfo::deduceVF(Function *Kernel, unsigned HeuristicVF) {
     return;
   }
 
+  if (KIMD.MaxWGDimensions.hasValue() && KIMD.MaxWGDimensions.get() == 0 &&
+      KIMD.NoBarrierPath.get()) {
+    // Workgroup loop won't be created, so there is no need to vectorize kernel.
+    KernelToVF[Kernel] = 1;
+    LLVM_DEBUG(dbgs() << "Initial VF<MaxWGDim is 0>: " << KernelToVF[Kernel]
+                      << '\n');
+    return;
+  }
+
   // Allow intel_vec_len_hint and intel_reqd_sub_group_size overriding default
   // VF.
   if (KMD.hasVecLength()) {
