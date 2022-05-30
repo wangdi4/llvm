@@ -25,7 +25,6 @@ set(OCL_BE_PASSES
     LLVMBarrier
     LLVMVectorizer
     SubGroupAdaptation
-    PipeSupport
     Prefetch
     SmartGVN
     StripIntelIP

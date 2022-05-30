@@ -50,6 +50,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   PhiCanonicalization.cpp
   PipeIOTransformation.cpp
   PipeOrdering.cpp
+  PipeSupport.cpp
   PrepareKernelArgs.cpp
   PreventDivCrashes.cpp
   ProfilingInfo.cpp

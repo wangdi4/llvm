@@ -12,10 +12,13 @@
 ; ----------------------------------------------------
 ; Compilation command:
 ;   clang -cc1 -triple spir64-unknown-unknown-intelfpga -x cl -disable-llvm-passes -emit-llvm -cl-std=CL1.2
-;   oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -dpcpp-kernel-channel-pipe-transformation -verify %s -S
+;   opt -dpcpp-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl.bc -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -dpcpp-kernel-channel-pipe-transformation %s -S
 ; ----------------------------------------------------
-; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-support %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-support -verify %s -S | FileCheck %s
+; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-kernel-pipe-support %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -enable-new-pm=0 -dpcpp-kernel-builtin-lib=%t.rtl.bc -dpcpp-kernel-pipe-support %s -S | FileCheck %s
+; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-pipe-support %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-kernel-builtin-lib=%t.rtl.bc -passes=dpcpp-kernel-pipe-support %s -S | FileCheck %s
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-unknown-intelfpga"

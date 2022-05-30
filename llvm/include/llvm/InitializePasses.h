@@ -778,6 +778,7 @@ void initializePatchCallbackArgsLegacyPass(PassRegistry &);
 void initializePhiCanonicalizationLegacyPass(PassRegistry &);
 void initializePipeIOTransformationLegacyPass(PassRegistry &);
 void initializePipeOrderingLegacyPass(PassRegistry &);
+void initializePipeSupportLegacyPass(PassRegistry &);
 void initializePrepareKernelArgsLegacyPass(PassRegistry &);
 void initializePreventDivCrashesLegacyPass(PassRegistry &);
 void initializeProfilingInfoLegacyPass(PassRegistry &);

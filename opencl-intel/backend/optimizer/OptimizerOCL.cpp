@@ -377,8 +377,8 @@ void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
 
   // PipeSupport can fail if dynamic pipe access is discovered after LLVM
   // optimizations
-  //  if (m_IsFpgaEmulator)
-  //    MPM.addPass(PipeSupportPass());
+  if (m_IsFpgaEmulator)
+    MPM.addPass(PipeSupportPass());
 }
 
 void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {

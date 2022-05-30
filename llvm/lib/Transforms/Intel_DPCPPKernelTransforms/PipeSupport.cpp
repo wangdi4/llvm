@@ -1,58 +1,71 @@
-// INTEL CONFIDENTIAL
+//===-- PipeSupport.cpp ---------------------------------------------------===//
 //
-// Copyright 2017-2018 Intel Corporation.
+// Copyright (C) 2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you (License). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
 // License.
+//
+//===----------------------------------------------------------------------===//
 
-#include "PipeSupport.h"
-
-#include <CompilationUtils.h>
-#include <InitializePasses.h>
-#include <OCLAddressSpace.h>
-#include <OCLPassSupport.h>
-#include "ICLDevBackendOptions.h"
-
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/PipeSupport.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
-#include <llvm/ADT/SmallVector.h>
-#include <llvm/IR/IRBuilder.h>
-#include <llvm/IR/InstIterator.h>
-#include <llvm/IR/Instructions.h>
-#include <llvm/Transforms/Utils/BasicBlockUtils.h>
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPChannelPipeUtils.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
-#include <algorithm>
 #include <stack>
 
 using namespace llvm;
-using namespace Intel::OpenCL::DeviceBackend;
+using namespace DPCPPChannelPipeUtils;
+using namespace CompilationUtils;
 
-namespace intel {
-
-char PipeSupport::ID = 0;
-OCL_INITIALIZE_PASS_BEGIN(
-    PipeSupport, "pipe-support",
-    "Apply transformation required by pipe built-ins implementation",
-    false, true)
-OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
-OCL_INITIALIZE_PASS_END(
-    PipeSupport, "pipe-support",
-    "Apply transformation required by pipe built-ins implementation",
-    false, true)
-
-PipeSupport::PipeSupport() : ModulePass(ID) {}
-
-} // namespace intel
+#define DEBUG_TYPE "dpcpp-kernel-pipe-support"
 
 namespace {
+class PipeSupportLegacy : public ModulePass {
+public:
+  static char ID;
+
+  PipeSupportLegacy();
+
+  StringRef getPassName() const override { return "PipeSupport"; }
+
+  bool runOnModule(Module &M) override;
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+
+private:
+  PipeSupportPass Impl;
+};
+
+} // namespace
+
+char PipeSupportLegacy::ID = 0;
+
+INITIALIZE_PASS_BEGIN(
+    PipeSupportLegacy, DEBUG_TYPE,
+    "Apply transformation required by pipe built-ins implementation", false,
+    false)
+INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
+INITIALIZE_PASS_END(
+    PipeSupportLegacy, DEBUG_TYPE,
+    "Apply transformation required by pipe built-ins implementation", false,
+    false)
+
+PipeSupportLegacy::PipeSupportLegacy() : ModulePass(ID) {
+  initializePipeSupportLegacyPass(*PassRegistry::getPassRegistry());
+}
 
 struct PipeArrayView {
   Value *Ptr;
@@ -63,10 +76,6 @@ struct PipeCallInfo {
   CallInst *Call;
   PipeKind Kind;
 };
-
-} // namespace
-
-namespace intel {
 
 static bool hasUsersInFunction(Value &V, Function &F) {
   for (auto *VU : V.users()) {
@@ -96,13 +105,13 @@ static int getNumUsedPipes(Function &F, const PipeTypesHelper &PipeTypes) {
 
     auto *ArrTy = dyn_cast<ArrayType>(Ty);
     if (ArrTy)
-      Ty = CompilationUtils::getArrayElementType(ArrTy);
+      Ty = getArrayElementType(ArrTy);
 
     if (!PipeTypes.isGlobalPipeType(Ty))
       continue;
 
     if (hasUsersInFunction(GV, F))
-      PipesNum += (ArrTy) ? CompilationUtils::getArrayNumElements(ArrTy) : 1;
+      PipesNum += (ArrTy) ? getNumElementsOfNestedArray(ArrTy) : 1;
   }
   return PipesNum;
 }
@@ -118,7 +127,7 @@ static void findPipeCalls(Function &F,
     if (!Callee)
       continue;
 
-    PipeKind Kind = CompilationUtils::getPipeKind(std::string(Callee->getName()));
+    PipeKind Kind = getPipeKind(Callee->getName());
     if (Kind)
       PipeCalls.push_back({Call, Kind});
   }
@@ -127,18 +136,20 @@ static void findPipeCalls(Function &F,
 static PipeArrayView createPipeArray(Function &F, int Size) {
   IRBuilder<> Builder(&F.getEntryBlock().front());
 
-  auto *Array =
-      Builder.CreateAlloca(Builder.getInt8PtrTy(Utils::OCLAddressSpace::Global),
-                           Builder.getInt32(Size));
+  auto *Array = Builder.CreateAlloca(
+      Builder.getInt8PtrTy(AddressSpace::ADDRESS_SPACE_GLOBAL),
+      Builder.getInt32(Size));
   auto *ArraySize = Builder.CreateAlloca(Builder.getInt32Ty());
   Builder.CreateStore(Builder.getInt32(0), ArraySize);
 
   return {Array, ArraySize};
 }
 
-static CallInst *createFlushCall(StringRef Name, PipeArrayView PipeStorage,
-                                 OCLBuiltins &Builtins) {
-  auto *FlushF = Builtins.get(Name);
+static CallInst *createFlushCall(Module *M, StringRef Name,
+                                 PipeArrayView PipeStorage,
+                                 RuntimeService *RTService) {
+  Function *FlushF =
+      importFunctionDecl(M, RTService->findFunctionInBuiltinModules(Name));
   return CallInst::Create(FlushF, {PipeStorage.Ptr, PipeStorage.Size});
 }
 
@@ -163,11 +174,12 @@ static void insertFlushAtExit(Function &F, Instruction *FlushReadCall,
   FlushWriteCall->deleteValue();
 }
 
-static void insertStorePipeCall(StringRef Name, CallInst *Call,
-                                PipeArrayView StoreA, OCLBuiltins &Builtins) {
+static void insertStorePipeCall(Module *M, StringRef Name, CallInst *Call,
+                                PipeArrayView StoreA,
+                                RuntimeService *RTService) {
   IRBuilder<> Builder(Call);
-
-  auto *StoreF = Builtins.get(Name);
+  Function *StoreF =
+      importFunctionDecl(M, RTService->findFunctionInBuiltinModules(Name));
   auto *Pipe = Call->getOperand(0);
 
   Value *StoreArgs[] = {StoreA.Ptr, StoreA.Size, Pipe};
@@ -177,7 +189,8 @@ static void insertStorePipeCall(StringRef Name, CallInst *Call,
 static Value *getPipeCallRetcode(const PipeCallInfo &PC) {
 
   // SIMD read pipe built-in has a retcode as a second parameter
-  if (PC.Kind.Access == PipeKind::READ && !PC.Kind.SimdSuffix.empty()) {
+  if (PC.Kind.Access == PipeKind::AccessKind::Read &&
+      !PC.Kind.SimdSuffix.empty()) {
     auto *RetcodePtr = PC.Call->getArgOperand(1);
 
     Type *Ty = cast<PointerType>(RetcodePtr->getType())->getElementType();
@@ -188,45 +201,43 @@ static Value *getPipeCallRetcode(const PipeCallInfo &PC) {
   return PC.Call;
 }
 
-static PipeCallInfo replaceBlockingCall(const PipeCallInfo &PC,
-                                        OCLBuiltins &Builtins) {
+static PipeCallInfo replaceBlockingCall(Module *M, const PipeCallInfo &PC,
+                                        RuntimeService *RTService) {
   PipeKind NonBlockingKind = PC.Kind;
   NonBlockingKind.Blocking = false;
 
-  auto *NonBlockingFun =
-    Builtins.get(CompilationUtils::getPipeName(NonBlockingKind));
+  Function *NonBlockingFun = importFunctionDecl(
+      M, RTService->findFunctionInBuiltinModules(getPipeName(NonBlockingKind)));
 
   SmallVector<Value *, 4> NewArgs(PC.Call->args());
 
   // Blocking SIMD read does not have a retcode, allocate it.
-  if (NonBlockingKind.Access == PipeKind::READ &&
+  if (NonBlockingKind.Access == PipeKind::AccessKind::Read &&
       !NonBlockingKind.SimdSuffix.empty()) {
     IRBuilder<> Builder(PC.Call);
 
     auto *NonBlockingFTy = NonBlockingFun->getFunctionType();
-    assert(NonBlockingFTy->getNumParams() == 2
-           && "Unexpected number of function parameters");
+    assert(NonBlockingFTy->getNumParams() == 2 &&
+           "Unexpected number of function parameters");
 
     auto *RetcodePtrTy = cast<PointerType>(
-      NonBlockingFTy->getParamType(NonBlockingFTy->getNumParams() - 1));
+        NonBlockingFTy->getParamType(NonBlockingFTy->getNumParams() - 1));
 
-    NewArgs.push_back(
-      Builder.CreatePointerBitCastOrAddrSpaceCast(
-        Builder.CreateAlloca(RetcodePtrTy->getElementType()),
-        RetcodePtrTy,
+    NewArgs.push_back(Builder.CreatePointerBitCastOrAddrSpaceCast(
+        Builder.CreateAlloca(RetcodePtrTy->getElementType()), RetcodePtrTy,
         "retcode"));
   }
   auto *NonBlockingCall = CallInst::Create(NonBlockingFun, NewArgs);
-  llvm::ReplaceInstWithInst(PC.Call, NonBlockingCall);
+  ReplaceInstWithInst(PC.Call, NonBlockingCall);
 
   return {NonBlockingCall, NonBlockingKind};
 }
 
 static void restoreBlockingCall(CallInst *Call, BasicBlock *FlushBB) {
 
-  BasicBlock *CallBB = llvm::SplitBlock(Call->getParent(), Call);
+  BasicBlock *CallBB = SplitBlock(Call->getParent(), Call);
   auto *NewTerm = BranchInst::Create(CallBB);
-  llvm::ReplaceInstWithInst(FlushBB->getTerminator(), NewTerm);
+  ReplaceInstWithInst(FlushBB->getTerminator(), NewTerm);
 }
 
 static BasicBlock *insertFlushAtNonBlockingCall(const PipeCallInfo &PC,
@@ -240,9 +251,9 @@ static BasicBlock *insertFlushAtNonBlockingCall(const PipeCallInfo &PC,
   auto *CallSuccessRetcode = Builder.getInt32(0);
   auto *IsCallFailed = Builder.CreateICmpNE(Retcode, CallSuccessRetcode);
 
-  auto *ThenTerm = llvm::SplitBlockAndInsertIfThen(
-    IsCallFailed, cast<Instruction>(IsCallFailed)->getNextNode(),
-    /*Unreachable=*/false);
+  auto *ThenTerm = SplitBlockAndInsertIfThen(
+      IsCallFailed, cast<Instruction>(IsCallFailed)->getNextNode(),
+      /*Unreachable=*/false);
 
   Builder.SetInsertPoint(ThenTerm);
   Builder.Insert(FlushReadCall);
@@ -251,16 +262,16 @@ static BasicBlock *insertFlushAtNonBlockingCall(const PipeCallInfo &PC,
   return ThenTerm->getParent();
 }
 
-static BasicBlock *insertFlushAtBlockingCall(const PipeCallInfo &PC,
+static BasicBlock *insertFlushAtBlockingCall(Module *M, const PipeCallInfo &PC,
                                              Instruction *FlushReadCall,
                                              Instruction *FlushWriteCall,
-                                             OCLBuiltins &Builtins) {
+                                             RuntimeService *RTService) {
   // Blocking BIs are the same as non-blocking but with a spin-loop over
   // We can easily replace them here to get flushes into the spin-loop
-  PipeCallInfo NonBlockingPC = replaceBlockingCall(PC, Builtins);
+  PipeCallInfo NonBlockingPC = replaceBlockingCall(M, PC, RTService);
 
-  BasicBlock* FlushBB =
-    insertFlushAtNonBlockingCall(NonBlockingPC, FlushReadCall, FlushWriteCall);
+  BasicBlock *FlushBB = insertFlushAtNonBlockingCall(
+      NonBlockingPC, FlushReadCall, FlushWriteCall);
 
   // Restore blocking functionality by creating a loop over the call and flushes
   restoreBlockingCall(NonBlockingPC.Call, FlushBB);
@@ -268,7 +279,8 @@ static BasicBlock *insertFlushAtBlockingCall(const PipeCallInfo &PC,
   return FlushBB;
 }
 
-static bool addImplicitFlushCalls(Function &F, OCLBuiltins &Builtins,
+static bool addImplicitFlushCalls(Module *M, Function &F,
+                                  RuntimeService *RTService,
                                   const PipeTypesHelper &PipeTypes) {
 
   SmallVector<PipeCallInfo, 16> PipeCalls;
@@ -288,26 +300,26 @@ static bool addImplicitFlushCalls(Function &F, OCLBuiltins &Builtins,
   PipeArrayView WriteArray = createPipeArray(F, NumPipes);
 
   CallInst *FlushReadCall =
-    createFlushCall("__flush_pipe_read_array", ReadArray, Builtins);
+      createFlushCall(M, "__flush_pipe_read_array", ReadArray, RTService);
   CallInst *FlushWriteCall =
-    createFlushCall("__flush_pipe_write_array", WriteArray, Builtins);
+      createFlushCall(M, "__flush_pipe_write_array", WriteArray, RTService);
 
   // Insert store pipe and flushes BI calls at every pipe BI call
   for (const auto &PC : PipeCalls) {
 
-    if (PC.Kind.Access == PipeKind::WRITE)
-      insertStorePipeCall("__store_write_pipe_use", PC.Call, WriteArray,
-                          Builtins);
+    if (PC.Kind.Access == PipeKind::AccessKind::Write)
+      insertStorePipeCall(M, "__store_write_pipe_use", PC.Call, WriteArray,
+                          RTService);
     else
-      insertStorePipeCall("__store_read_pipe_use", PC.Call, ReadArray,
-                          Builtins);
+      insertStorePipeCall(M, "__store_read_pipe_use", PC.Call, ReadArray,
+                          RTService);
 
     if (PC.Kind.Blocking)
-      insertFlushAtBlockingCall(
-        PC, FlushReadCall->clone(), FlushWriteCall->clone(), Builtins);
+      insertFlushAtBlockingCall(M, PC, FlushReadCall->clone(),
+                                FlushWriteCall->clone(), RTService);
     else
-      insertFlushAtNonBlockingCall(
-        PC, FlushReadCall->clone(), FlushWriteCall->clone());
+      insertFlushAtNonBlockingCall(PC, FlushReadCall->clone(),
+                                   FlushWriteCall->clone());
   }
 
   // Ensure that nothing is cached upon exit from a function
@@ -315,21 +327,33 @@ static bool addImplicitFlushCalls(Function &F, OCLBuiltins &Builtins,
   return true;
 }
 
-bool PipeSupport::runOnModule(Module &M) {
+bool PipeSupportLegacy::runOnModule(Module &M) {
+  BuiltinLibInfo *BLI =
+      &getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
+  return Impl.runImpl(M, BLI);
+}
+
+PreservedAnalyses PipeSupportPass::run(Module &M, ModuleAnalysisManager &MAM) {
+  BuiltinLibInfo *BLI = &MAM.getResult<BuiltinLibInfoAnalysis>(M);
+  return runImpl(M, BLI) ? PreservedAnalyses::none() : PreservedAnalyses::all();
+}
+
+bool PipeSupportPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
+  assert(BLI && "Invalid builtin lib info!");
+  RuntimeService *RTService = BLI->getRuntimeService();
+  assert(RTService && "Invalid runtime service!");
+
   bool Changed = false;
 
   PipeTypesHelper PipeTypes(M);
   if (!PipeTypes.hasPipeTypes())
     return false; // no pipes in the module, nothing to do
 
-  BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
-  OCLBuiltins Builtins(M, BLI.getBuiltinModules());
-
   std::stack<Function *, std::vector<Function *>> WorkList;
   for (auto &F : M) {
     if (F.isDeclaration())
       continue;
-    bool FuncUseFPGAPipes = addImplicitFlushCalls(F, Builtins, PipeTypes);
+    bool FuncUseFPGAPipes = addImplicitFlushCalls(&M, F, RTService, PipeTypes);
     Changed |= FuncUseFPGAPipes;
 
     DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F).UseFPGAPipes.set(
@@ -341,7 +365,8 @@ bool PipeSupport::runOnModule(Module &M) {
     // operations. Disable vectorization of the functions with
     // these operations by setting vector width to 1.
 
-    DPCPPKernelMetadataAPI::KernelMetadataAPI(&F).VecLenHint.set(TRANSPOSE_SIZE_1);
+    DPCPPKernelMetadataAPI::KernelMetadataAPI(&F).VecLenHint.set(
+        1 /* TRANSPOSE_SIZE_1 */);
 
     WorkList.push(&F);
   }
@@ -351,7 +376,7 @@ bool PipeSupport::runOnModule(Module &M) {
     WorkList.pop();
     for (const auto &U : F->users()) {
       if (CallInst *Call = dyn_cast<CallInst>(U)) {
-        auto ParentFunction = Call->getFunction();
+        auto *ParentFunction = Call->getFunction();
         auto UseFPGAPipesMD =
             DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(ParentFunction)
                 .UseFPGAPipes;
@@ -367,12 +392,10 @@ bool PipeSupport::runOnModule(Module &M) {
   return Changed;
 }
 
-void PipeSupport::getAnalysisUsage(AnalysisUsage &AU) const {
+void PipeSupportLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<BuiltinLibInfoAnalysisLegacy>();
 }
 
-} // namespace intel
-
-extern "C" {
-ModulePass *createPipeSupportPass() { return new intel::PipeSupport(); }
+ModulePass *llvm::createPipeSupportLegacyPass() {
+  return new PipeSupportLegacy();
 }
