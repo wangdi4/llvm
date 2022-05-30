@@ -4896,6 +4896,7 @@ bool llvm::isSafeToSpeculativelyExecuteWithOpcode(unsigned Opcode,
                                         const Instruction *CtxI,
                                         const DominatorTree *DT,
                                         const TargetLibraryInfo *TLI) {
+#ifndef NDEBUG
   if (Inst->getOpcode() != Opcode) {
     // Check that the operands are actually compatible with the Opcode override.
     auto hasEqualReturnAndLeadingOperandTypes =
@@ -4913,6 +4914,7 @@ bool llvm::isSafeToSpeculativelyExecuteWithOpcode(unsigned Opcode,
     assert(!Instruction::isUnaryOp(Opcode) ||
            hasEqualReturnAndLeadingOperandTypes(Inst, 1));
   }
+#endif
 
   for (unsigned i = 0, e = Inst->getNumOperands(); i != e; ++i)
     if (Constant *C = dyn_cast<Constant>(Inst->getOperand(i)))
