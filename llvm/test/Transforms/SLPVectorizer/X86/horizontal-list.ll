@@ -2,6 +2,8 @@
 ; RUN: opt -slp-vectorizer -slp-vectorize-hor -slp-vectorize-hor-store -S < %s -mtriple=x86_64-unknown-linux-gnu -mcpu=bdver2 | FileCheck %s
 ; RUN: opt -slp-vectorizer -slp-vectorize-hor -slp-vectorize-hor-store -S < %s -mtriple=x86_64-unknown-linux-gnu -mcpu=bdver2 -slp-threshold=-10 | FileCheck %s --check-prefix=THRESHOLD
 
+// XFAIL: *
+
 @n = external local_unnamed_addr global i32, align 4
 @arr = common local_unnamed_addr global [20 x float] zeroinitializer, align 16
 @arr1 = common local_unnamed_addr global [20 x float] zeroinitializer, align 16
