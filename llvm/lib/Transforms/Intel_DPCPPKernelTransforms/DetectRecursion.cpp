@@ -92,7 +92,7 @@ bool DetectRecursionPass::runImpl(Module &M, CallGraph *CG) {
   // for each function
   Module::FunctionListType &FL = M.getFunctionList();
   for (auto &F : FL) {
-    if (!isDbgInfoIntrinsic(F.getIntrinsicID()) &&
+    if (!F.isDeclaration() &&
         detectRecursionInFunction(&F, CG)) {
       FunctionMetadataAPI(&F).RecursiveCall.set(true);
       RecursionExists = true;
