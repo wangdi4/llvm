@@ -110,7 +110,6 @@ llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
 llvm::Pass *createCLStreamSamplerPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
-llvm::ModulePass *createPipeSupportPass();
 llvm::Pass *createBuiltinLibInfoPass(ArrayRef<Module *> pRtlModuleList,
                                      std::string type);
 llvm::ModulePass *createKernelSubGroupInfoPass();
@@ -370,7 +369,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   // PipeSupport can fail if dynamic pipe access is discovered after LLVM
   // optimizations
   if (isFpgaEmulator) {
-    PM.add(createPipeSupportPass());
+    PM.add(llvm::createPipeSupportLegacyPass());
   }
 }
 

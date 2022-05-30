@@ -94,6 +94,7 @@ ModulePass *createLocalBuffersLegacyPass(bool UseTLSGlobals);
 ModulePass *createPatchCallbackArgsLegacyPass(bool UseTLSGlobals);
 ModulePass *createPipeIOTransformationLegacyPass();
 ModulePass *createPipeOrderingLegacyPass();
+ModulePass *createPipeSupportLegacyPass();
 ModulePass *createPrepareKernelArgsLegacyPass(bool UseTLSGlobals);
 ModulePass *createProfilingInfoLegacyPass();
 ModulePass *createReduceCrossBarrierValuesLegacyPass();

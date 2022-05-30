@@ -46,7 +46,6 @@ void initializeRemovePrefetchPass(llvm::PassRegistry&);
 void initializeResolveSubGroupWICallPass(llvm::PassRegistry&);
 void initializeDebugInfoPassPass(llvm::PassRegistry&);
 void initializeSmartGVNPass(llvm::PassRegistry &);
-void initializePipeSupportPass(llvm::PassRegistry&);
 void initializeStripIntelIPPass(llvm::PassRegistry &);
 void initializeScalarizeFunctionPass(llvm::PassRegistry &);
 void initializeChooseVectorizationDimensionPass(llvm::PassRegistry &);

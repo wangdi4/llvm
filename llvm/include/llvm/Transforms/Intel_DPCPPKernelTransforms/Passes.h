@@ -55,6 +55,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/PhiCanonicalization.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/PipeIOTransformation.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/PipeOrdering.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/PipeSupport.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/PrepareKernelArgs.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/PreventDivCrashes.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ProfilingInfo.h"

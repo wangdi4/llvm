@@ -1,19 +1,21 @@
-// INTEL CONFIDENTIAL
+//===-- PipeSupport.h ----------------------------------------------------===//
 //
-// Copyright 2017-2018 Intel Corporation.
+// Copyright (C) 2022 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you (License). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
 // License.
+//
+//===----------------------------------------------------------------------===//
 
-#ifndef __PIPE_SUPPORT_H__
-#define __PIPE_SUPPORT_H__
+#ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_PIPE_SUPPORT_H
+#define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_PIPE_SUPPORT_H
 
 // This pass processes functions with pipe built-in calls to support
 // pipe internal caching mechanism. Pipe writes and reads are not immediately
@@ -50,23 +52,21 @@
 // 2. at exit of every function, that uses pipe built-ins to ensure
 // nothing is cached before exit.
 
-#include <llvm/IR/Module.h>
-#include <llvm/Pass.h>
+#include "llvm/IR/PassManager.h"
 
-namespace intel {
+namespace llvm {
 
-class PipeSupport : public llvm::ModulePass {
+class BuiltinLibInfo;
+
+class PipeSupportPass : public PassInfoMixin<PipeSupportPass> {
 public:
-  static char ID;
-  PipeSupport();
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
-  llvm::StringRef getPassName() const override { return "PipeSupport"; }
+  bool runImpl(Module &M, BuiltinLibInfo *BLI);
 
-  bool runOnModule(llvm::Module &M) override;
-
-  void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
+  static bool isRequired() { return true; }
 };
 
-} // namespace intel
+} // namespace llvm
 
-#endif // __PIPE_SUPPORT_H__
+#endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_PIPE_SUPPORT_H
