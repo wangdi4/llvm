@@ -10,15 +10,20 @@ extern cl_device_type gDeviceType;
 bool VecTypeHintTest()
 {
   bool bResult = true;
-  const char *ocl_test_program[] = {\
-    "kernel void kernel1(int a) {}\n"\
-    "kernel __attribute__((vec_type_hint(int))) void kernel2(int a) {}\n"   \
-    "kernel __attribute__((vec_type_hint(float))) void kernel3(int a) {}\n" \
-    "kernel __attribute__((vec_type_hint(short))) void kernel4(int a) {}\n" \
-    "kernel __attribute__((vec_type_hint(int4))) void kernel5(int a) {}\n"  \
-    "kernel __attribute__((vec_type_hint(float4))) void kernel6(int a) {}\n"\
-    "kernel __attribute__((vec_type_hint(short16))) void kernel7(int a) {}\n"
-  };
+  const char *ocl_test_program[] = {
+      "kernel void kernel1(global int *a) { a[get_global_id(0)] = 0; }\n"
+      "kernel __attribute__((vec_type_hint(int))) void kernel2(global int *a) "
+      "{ a[get_global_id(0)] = 0; }\n"
+      "kernel __attribute__((vec_type_hint(float))) void kernel3(global int "
+      "*a) { a[get_global_id(0)] = 0; }\n"
+      "kernel __attribute__((vec_type_hint(short))) void kernel4(global int "
+      "*a) { a[get_global_id(0)] = 0; }\n"
+      "kernel __attribute__((vec_type_hint(int4))) void kernel5(global int *a) "
+      "{ a[get_global_id(0)] = 0; }\n"
+      "kernel __attribute__((vec_type_hint(float4))) void kernel6(global int "
+      "*a) { a[get_global_id(0)] = 0; }\n"
+      "kernel __attribute__((vec_type_hint(short16))) void kernel7(global int "
+      "*a) { a[get_global_id(0)] = 0; }\n"};
   const int num_kernels = 7;
   const bool expectedRes[] = {true, true, true, true, false, false, false};
   const char trueString[]   = " successfully vectorized";
