@@ -1,20 +1,31 @@
 ; RUN: opt -dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
-; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
+; RUN: opt -opaque-pointers -dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY-OPAQUE %s
+; RUN: opt -opaque-pointers -passes=dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY-OPAQUE %s
+; RUN: opt -dpcpp-kernel-add-implicit-args %s -S | FileCheck -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE %s
+; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S | FileCheck -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE %s
+; RUN: opt -opaque-pointers -dpcpp-kernel-add-implicit-args %s -S | FileCheck -check-prefix=CHECK -check-prefix=CHECK-OPAQUE %s
+; RUN: opt -opaque-pointers -passes=dpcpp-kernel-add-implicit-args %s -S | FileCheck -check-prefix=CHECK -check-prefix=CHECK-OPAQUE %s
+
+; For opaque pointer, there is no bitcast from function with implicit args
+; to original function when select function pointer
 
 ; CHECK: define spir_func i32 @_Z3addii(i32 %a, i32 %b,
 ; CHECK: define spir_func i32 @_Z3subii(i32 %a, i32 %b,
 ; CHECK: define void @_ZTS1K
-; CHECK: %[[ADD:.*]] = bitcast i32 (i32, i32, {{.*}})* @_Z3addii to i32 (i32, i32)*
-; CHECK: %[[SUB:.*]] = bitcast i32 (i32, i32, {{.*}})* @_Z3subii to i32 (i32, i32)*
-; CHECK: %[[SELECT:.*]] = select i1 %{{.*}}, i32 (i32, i32)* %[[ADD]], i32 (i32, i32)* %[[SUB]]
-; CHECK: %[[BITCAST:.*]] = bitcast i32 (i32, i32)* %[[SELECT]] to i32 (i32, i32,
+; CHECK-NONOPAQUE: %[[ADD:.*]] = bitcast i32 (i32, i32, {{.*}})* @_Z3addii to i32 (i32, i32)*
+; CHECK-NONOPAQUE: %[[SUB:.*]] = bitcast i32 (i32, i32, {{.*}})* @_Z3subii to i32 (i32, i32)*
+; CHECK-NONOPAQUE: %[[SELECT:.*]] = select i1 %{{.*}}, i32 (i32, i32)* %[[ADD]], i32 (i32, i32)* %[[SUB]]
+; CHECK-OPAQUE: %{{.*}} = select i1 %{{.*}}, ptr @{{.*}}, ptr @{{.*}}
+; CHECK-NONOPAQUE: %[[BITCAST:.*]] = bitcast i32 (i32, i32)* %[[SELECT]] to i32 (i32, i32,
+; CHECK-OPAQUE: %[[BITCAST:.*]] = bitcast ptr %{{.*}} to ptr
 ; CHECK: call spir_func i32 %[[BITCAST]]
-; CHECK: %[[ADD2:.*]] = bitcast i32 (i32, i32, {{.*}})* @_Z3addii to i32 (i32, i32)*
-; CHECK: %[[SUB2:.*]] = bitcast i32 (i32, i32, {{.*}})* @_Z3subii to i32 (i32, i32)*
-; CHECK: %[[SELECT2:.*]] = select i1 %{{.*}}, i32 (i32, i32)* %[[ADD2]], i32 (i32, i32)* %[[SUB2]]
-; CHECK: %[[BITCAST2:.*]] = bitcast i32 (i32, i32)* %[[SELECT2]] to i32 (i32, i32,
+; CHECK-NONOPAQUE: %[[ADD2:.*]] = bitcast i32 (i32, i32, {{.*}})* @_Z3addii to i32 (i32, i32)*
+; CHECK-NONOPAQUE: %[[SUB2:.*]] = bitcast i32 (i32, i32, {{.*}})* @_Z3subii to i32 (i32, i32)*
+; CHECK-NONOPAQUE: %[[SELECT2:.*]] = select i1 %{{.*}}, i32 (i32, i32)* %[[ADD2]], i32 (i32, i32)* %[[SUB2]]
+; CHECK-OPAQUE: %{{.*}} = select i1 %{{.*}}, ptr @{{.*}}, ptr @{{.*}}
+; CHECK-NONOPAQUE: %[[BITCAST2:.*]] = bitcast i32 (i32, i32)* %[[SELECT2]] to i32 (i32, i32,
+; CHECK-OPAQUE: %[[BITCAST2:.*]] = bitcast ptr %{{.*}} to ptr
 ; CHECK: call spir_func i32 %[[BITCAST2]]
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
@@ -74,6 +85,9 @@ entry:
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function {{.*}} bitcast
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function {{.*}} bitcast
 ; DEBUGIFY-NOT: WARNING
+
+; DEBUGIFY-OPAQUE-COUNT-2: WARNING: Instruction with empty DebugLoc in function {{.*}} bitcast
+; DEBUGIFY-OPAQUE-NOT: WARNING
 
 !sycl.kernels = !{!0}
 !0 = !{void (i32, i32 addrspace(1)*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, i32 addrspace(1)*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, i32 addrspace(1)*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*)* @_ZTS1K}

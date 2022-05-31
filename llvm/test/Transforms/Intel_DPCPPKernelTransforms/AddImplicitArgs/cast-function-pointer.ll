@@ -1,22 +1,37 @@
 ; RUN: opt -dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
-; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
+; RUN: opt -opaque-pointers -dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers -passes=dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-kernel-add-implicit-args %s -S | FileCheck -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE %s
+; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S | FileCheck -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE %s
+; RUN: opt -opaque-pointers -dpcpp-kernel-add-implicit-args %s -S | FileCheck -check-prefix=CHECK -check-prefix=CHECK-OPAQUE %s
+; RUN: opt -opaque-pointers -passes=dpcpp-kernel-add-implicit-args %s -S | FileCheck -check-prefix=CHECK -check-prefix=CHECK-OPAQUE %s
 
 ; CHECK: define void @_ZTS1K
 ; CHECK: %[[ALLOCA:.*]] = alloca i32
-; CHECK: %[[PTRTOINT:.*]] = ptrtoint i32 (i32, i32, {{.*}})* @_Z3addii to i32
-; CHECK: %{{.*}} = bitcast i32 (i32, i32, {{.*}})* @_Z3addii to i8*
-; CHECK: %{{.*}} = addrspacecast i32 (i32, i32, {{.*}})* @_Z3addii to i32 (i32, i32) addrspace(4)*
-; CHECK: store i32 %[[PTRTOINT]], i32* %[[ALLOCA]]
-; CHECK: %[[INT:.*]] = load i32, i32* %[[ALLOCA]]
-; CHECK: %[[INTTOPTR:.*]] = inttoptr i32 %[[INT]] to i32 (i32, i32)*
-; CHECK: %[[BITCAST:.*]] = bitcast i32 (i32, i32)* %[[INTTOPTR]] to i32 (i32, i32, {{.*}})*
+; CHECK-NONOPAQUE: %[[PTRTOINT:.*]] = ptrtoint i32 (i32, i32, {{.*}})* @_Z3addii to i32
+; CHECK-OPAQUE: %[[PTRTOINT:.*]] = ptrtoint ptr @_Z3addii to i32
+; CHECK-NONOPAQUE: %{{.*}} = bitcast i32 (i32, i32, {{.*}})* @_Z3addii to i8*
+; CHECK-OPAQUE: %{{.*}} = bitcast ptr @_Z3addii to ptr
+; CHECK-NONOPAQUE: %{{.*}} = addrspacecast i32 (i32, i32, {{.*}})* @_Z3addii to i32 (i32, i32) addrspace(4)*
+; CHECK-OPAQUE: %{{.*}} = addrspacecast ptr @_Z3addii to ptr addrspace(4)
+; CHECK-NONOPAQUE: store i32 %[[PTRTOINT]], i32* %[[ALLOCA]]
+; CHECK-OPAQUE: store i32 %[[PTRTOINT]], ptr %[[ALLOCA]]
+; CHECK-NONOPAQUE: %[[INT:.*]] = load i32, i32* %[[ALLOCA]]
+; CHECK-OPAQUE: %[[INT:.*]] = load i32, ptr %[[ALLOCA]]
+; CHECK-NONOPAQUE: %[[INTTOPTR:.*]] = inttoptr i32 %[[INT]] to i32 (i32, i32)*
+; CHECK-OPAQUE: %[[INTTOPTR:.*]] = inttoptr i32 %[[INT]] to ptr
+; CHECK-NONOPAQUE: %[[BITCAST:.*]] = bitcast i32 (i32, i32)* %[[INTTOPTR]] to i32 (i32, i32, {{.*}})*
+; CHECK-OPAQUE: %[[BITCAST:.*]] = bitcast ptr %[[INTTOPTR]] to ptr
 ; CHECK: call spir_func i32 %[[BITCAST]]
-; CHECK: store i32 ptrtoint (i32 (i32, i32, {{.*}})* @_Z3addii to i32), i32* %[[ALLOCA]]
-; CHECK: %[[INT:.*]] = load i32, i32* %[[ALLOCA]]
-; CHECK: %[[INTTOPTR:.*]] = inttoptr i32 %[[INT]] to i32 (i32, i32)*
-; CHECK: %[[BITCAST:.*]] = bitcast i32 (i32, i32)* %[[INTTOPTR]] to i32 (i32, i32, {{.*}})*
+; CHECK-NONOPAQUE: store i32 ptrtoint (i32 (i32, i32, {{.*}})* @_Z3addii to i32), i32* %[[ALLOCA]]
+; CHECK-OPAQUE: store i32 ptrtoint (ptr @_Z3addii to i32), ptr %[[ALLOCA]]
+; CHECK-NONOPAQUE: %[[INT:.*]] = load i32, i32* %[[ALLOCA]]
+; CHECK-OPAQUE: %[[INT:.*]] = load i32, ptr %[[ALLOCA]]
+; CHECK-NONOPAQUE: %[[INTTOPTR:.*]] = inttoptr i32 %[[INT]] to i32 (i32, i32)*
+; CHECK-OPAQUE: %[[INTTOPTR:.*]] = inttoptr i32 %[[INT]] to ptr
+; CHECK-NONOPAQUE: %[[BITCAST:.*]] = bitcast i32 (i32, i32)* %[[INTTOPTR]] to i32 (i32, i32, {{.*}})*
+; CHECK-OPAQUE: %[[BITCAST:.*]] = bitcast ptr %[[INTTOPTR]] to ptr
 ; CHECK: call spir_func i32 %[[BITCAST]]
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
