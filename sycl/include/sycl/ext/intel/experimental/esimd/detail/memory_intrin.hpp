@@ -261,7 +261,6 @@ __ESIMD_INTRIN void __esimd_raw_send_nbarrier_signal(
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
@@ -270,7 +269,7 @@ SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void __esimd_wait(uint16_t val);
 
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
-=======
+
 #ifndef __SYCL_DEVICE_ONLY__
 // Shared utility/helper functions for LSC support under emulation
 // (ESIMD_EMULATOR backend)
@@ -599,7 +598,6 @@ void __esimd_emu_write_2d(__ESIMD_DNS::simd_mask_storage_t<N> Pred,
 }
 
 #endif
->>>>>>> b78bf006f78b8537dba3e413987e7420530d4f2e
 
 /// SLM gather.
 /// Supported platforms: DG2, PVC
