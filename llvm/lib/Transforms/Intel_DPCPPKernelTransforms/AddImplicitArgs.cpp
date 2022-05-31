@@ -240,12 +240,10 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
     IRBuilder<> Builder(CI);
     Value *LocalMem = CallArgs[ImplicitArgsUtils::IA_SLM_BUFFER];
     Twine ValName = "LocalMem_" + Name;
-    // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual
-    // type (not using type from pointer as this functionality is planned o
-    // be removed.
-    Type *Ty = LocalMem->getType()->getScalarType()->getPointerElementType();
     Value *NewLocalMemOffset = ConstantInt::get(
         IntegerType::get(F->getContext(), 32), DirectLocalSize);
+    // pLocalMemBase is a pointer to i8
+    Type *Ty = IntegerType::get(F->getContext(), 8);
     auto *NewLocalMem =
         Builder.CreateGEP(Ty, LocalMem, NewLocalMemOffset, ValName);
     CallArgs[ImplicitArgsUtils::IA_SLM_BUFFER] = NewLocalMem;
