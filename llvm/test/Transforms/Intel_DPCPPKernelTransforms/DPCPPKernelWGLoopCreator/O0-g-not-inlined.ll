@@ -47,9 +47,9 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NEXT:  store volatile i64 %gid2.ld, i64* %__ocl_dbg_gid2, align 8
 ; CHECK-NEXT:  store i32 addrspace(1)* %dst, i32 addrspace(1)** %dst.addr, align 8
 ; CHECK-NEXT:  call void @llvm.dbg.declare(metadata i32 addrspace(1)** %dst.addr, metadata !17, metadata !DIExpression()), !dbg
-; CHECK-NEXT:  %0 = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8, !dbg
+; CHECK-NEXT:  [[LOAD:%[0-9]+]] = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8, !dbg
 ; CHECK-NEXT:  %gid0.ld1 = load i64, i64* %gid0.addr, align 8, !dbg [[DBGGid:![0-9]+]]
-; CHECK-NEXT:  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %0, i64 %gid0.ld1, !dbg
+; CHECK-NEXT:  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* [[LOAD]], i64 %gid0.ld1, !dbg
 
 ; CHECK: [[DBGGid]] = !DILocation(line: 3, column: 7, scope: !6)
 
