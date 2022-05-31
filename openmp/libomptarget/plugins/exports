@@ -63,6 +63,7 @@ VERS1.0 {
     __tgt_rtl_set_function_ptr_map;
     __tgt_rtl_alloc_per_hw_thread_scratch;
     __tgt_rtl_free_per_hw_thread_scratch;
+    __tgt_rtl_get_device_info;
 # end INTEL_COLLAB
     __tgt_rtl_register_lib;
     __tgt_rtl_unregister_lib;

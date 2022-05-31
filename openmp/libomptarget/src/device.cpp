@@ -1151,6 +1151,15 @@ void DeviceTy::freePerHWThreadScratch(void *Ptr) {
   if (RTL->free_per_hw_thread_scratch)
     RTL->free_per_hw_thread_scratch(RTLDeviceID, Ptr);
 }
+
+int32_t DeviceTy::getDeviceInfo(int32_t InfoID, size_t InfoSize,
+                                void *InfoValue, size_t *InfoSizeRet) {
+  if (RTL->get_device_info)
+    return RTL->get_device_info(RTLDeviceID, InfoID, InfoSize, InfoValue,
+                                InfoSizeRet);
+  else
+    return OFFLOAD_SUCCESS;
+}
 #endif // INTEL_COLLAB
 
 // Whether data can be copied to DstDevice directly

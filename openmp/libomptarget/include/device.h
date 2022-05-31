@@ -499,6 +499,9 @@ struct DeviceTy {
   void *allocPerHWThreadScratch(size_t ObjSize, int32_t AllocKind);
   // Free per-hw-thread reduction scratch
   void freePerHWThreadScratch(void *Ptr);
+  /// Get device information
+  int32_t getDeviceInfo(int32_t InfoID, size_t InfoSize, void *InfoValue,
+                        size_t *InfoSizeRet);
 #endif // INTEL_COLLAB
 
   /// Synchronize device/queue/event based on \p AsyncInfo and return

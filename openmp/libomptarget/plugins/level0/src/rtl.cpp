@@ -325,6 +325,39 @@ namespace L0Interop {
   }
 }
 
+/// Tentative enumerators used with ompx_get_device_info() and the data type
+/// ompx_devinfo_name, char[N],
+/// ompx_devinfo_pci_id, uint32_t
+/// ompx_devinfo_tile_id, int32_t
+/// ompx_devinfo_ccs_id, int32_t
+/// ompx_devinfo_num_eus, uint32_t
+/// ompx_devinfo_num_threads_per_eu, uint32_t
+/// ompx_devinfo_eu_simd_width, uint32_t
+/// ompx_devinfo_num_eus_per_subslice, uint32_t
+/// ompx_devinfo_num_subslice_per_slice, uint32_t
+/// ompx_devinfo_num_slices, uint32_t
+/// ompx_devinfo_local_mem_size, size_t
+/// ompx_devinfo_global_mem_size, size_t
+/// ompx_devinfo_global_mem_cache_size, size_t
+/// ompx_devinfo_max_clock_frequency, uint32_t
+/// We always need same definition in omp.h.
+enum {
+  ompx_devinfo_name = 0,
+  ompx_devinfo_pci_id,
+  ompx_devinfo_tile_id,
+  ompx_devinfo_ccs_id,
+  ompx_devinfo_num_eus,
+  ompx_devinfo_num_threads_per_eu,
+  ompx_devinfo_eu_simd_width,
+  ompx_devinfo_num_eus_per_subslice,
+  ompx_devinfo_num_subslices_per_slice,
+  ompx_devinfo_num_slices,
+  ompx_devinfo_local_mem_size,
+  ompx_devinfo_global_mem_size,
+  ompx_devinfo_global_mem_cache_size,
+  ompx_devinfo_max_clock_frequency
+};
+
 /// Staging buffer
 /// A single staging buffer is not enough when batching is enabled since there
 /// can be multiple pending copy operations.
@@ -6300,6 +6333,117 @@ void *__tgt_rtl_alloc_per_hw_thread_scratch(
 
 void __tgt_rtl_free_per_hw_thread_scratch(int32_t DeviceId, void *Ptr) {
   DeviceInfo->dataDelete(DeviceId, Ptr);
+}
+
+int32_t __tgt_rtl_get_device_info(int32_t DeviceId, int32_t InfoID,
+                                  size_t InfoSize, void *InfoValue,
+                                  size_t *InfoSizeRet) {
+  auto &DeviceProp = DeviceInfo->DeviceProperties[DeviceId];
+  auto &ComputeProp = DeviceInfo->ComputeProperties[DeviceId];
+  auto &MemProp = DeviceInfo->MemoryProperties[DeviceId];
+  auto &CacheProp = DeviceInfo->CacheProperties[DeviceId];
+  auto &IDStr = DeviceInfo->DeviceIdStr[DeviceId];
+  void *InfoSrc = nullptr;
+  size_t SizeRet = 0;
+  int32_t TileID = 0;
+  int32_t CCSID = 0;
+  uint32_t NumEUs = 0;
+
+  auto IDStrToSubID = [&IDStr](uint32_t Level) {
+    std::vector<int32_t> IDs;
+    size_t Prev = 0, Curr = 0;
+    do {
+      Curr = IDStr.find('.', Prev);
+      IDs.push_back(std::stoi(IDStr.substr(Prev, Curr)));
+      Prev = Curr + 1;
+    } while (Curr != std::string::npos);
+    if (Level == 0 && IDs.size() > 1)
+      return IDs[1];
+    if (Level == 1 && IDs.size() > 2)
+      return IDs[2];
+    return -1; // Sub-device is not used
+  };
+
+  switch (InfoID) {
+  case ompx_devinfo_name:
+    InfoSrc = &DeviceProp.name[0];
+    SizeRet = ZE_MAX_DEVICE_NAME;
+    break;
+  case ompx_devinfo_pci_id:
+    InfoSrc = &DeviceProp.deviceId;
+    SizeRet = sizeof(uint32_t);
+    break;
+  case ompx_devinfo_tile_id:
+    TileID = IDStrToSubID(0);
+    InfoSrc = &TileID;
+    SizeRet = sizeof(int32_t);
+    break;
+  case ompx_devinfo_ccs_id:
+    CCSID = IDStrToSubID(1);
+    InfoSrc = &CCSID;
+    SizeRet = sizeof(int32_t);
+    break;
+  case ompx_devinfo_num_eus:
+    NumEUs = DeviceProp.numEUsPerSubslice * DeviceProp.numSubslicesPerSlice *
+             DeviceProp.numSlices;
+    InfoSrc = &NumEUs;
+    SizeRet = sizeof(uint32_t);
+    break;
+  case ompx_devinfo_num_threads_per_eu:
+    InfoSrc = &DeviceProp.numThreadsPerEU;
+    SizeRet = sizeof(uint32_t);
+    break;
+  case ompx_devinfo_eu_simd_width:
+    InfoSrc = &DeviceProp.physicalEUSimdWidth;
+    SizeRet = sizeof(uint32_t);
+    break;
+  case ompx_devinfo_num_eus_per_subslice:
+    InfoSrc = &DeviceProp.numEUsPerSubslice;
+    SizeRet = sizeof(uint32_t);
+    break;
+  case ompx_devinfo_num_subslices_per_slice:
+    InfoSrc = &DeviceProp.numSubslicesPerSlice;
+    SizeRet = sizeof(uint32_t);
+    break;
+  case ompx_devinfo_num_slices:
+    InfoSrc = &DeviceProp.numSlices;
+    SizeRet = sizeof(uint32_t);
+    break;
+  case ompx_devinfo_local_mem_size:
+    InfoSrc = &ComputeProp.maxSharedLocalMemory;
+    SizeRet = sizeof(uint32_t);
+    break;
+  case ompx_devinfo_global_mem_size:
+    InfoSrc = &MemProp.totalSize;
+    SizeRet = sizeof(uint64_t);
+    break;
+  case ompx_devinfo_global_mem_cache_size:
+    InfoSrc = &CacheProp.cacheSize;
+    SizeRet = sizeof(uint64_t);
+    break;
+  case ompx_devinfo_max_clock_frequency:
+    InfoSrc = &DeviceProp.coreClockRate;
+    SizeRet = sizeof(uint32_t);
+    break;
+  default:
+    DP("Unknown device info requested\n");
+    return OFFLOAD_FAIL;
+  }
+
+  if (InfoSize == 0 && !InfoValue && InfoSizeRet) {
+    *InfoSizeRet = SizeRet;
+  } else if (InfoSize > 0 && InfoValue) {
+    if (InfoSize < SizeRet) {
+      DP("Cannot copy device info due to insufficient output buffer\n");
+      return OFFLOAD_FAIL;
+    }
+    std::copy_n(static_cast<char *>(InfoSrc), SizeRet,
+                static_cast<char *>(InfoValue));
+  } else {
+    return OFFLOAD_FAIL;
+  }
+
+  return OFFLOAD_SUCCESS;
 }
 
 #endif // INTEL_CUSTOMIZATION
