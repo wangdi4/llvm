@@ -1,6 +1,6 @@
 // RUN: rm -rf %t && mkdir %t
 
-// RUN: echo "%s -fcrash-diagnostics-dir=%t -fsyntax-only" > %t.rsp
+// RUN: echo "%s -fcrash-diagnostics-dir=%t -fsyntax-only" | sed -e 's/\\/\\\\/g' > %t.rsp
 
 // RUN: not %clang -DFATAL @%t.rsp -gen-reproducer=off    2>&1 | FileCheck %s --check-prefix=NOT
 // RUN: not %clang -DFATAL @%t.rsp -fno-crash-diagnostics 2>&1 | FileCheck %s --check-prefix=NOT
