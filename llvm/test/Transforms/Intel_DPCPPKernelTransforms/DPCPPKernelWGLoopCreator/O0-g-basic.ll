@@ -12,11 +12,8 @@ target triple = "x86_64-pc-linux"
 define dso_local void @test(i32 addrspace(1)* noalias noundef align 4 %dst) #0 !dbg !6 !kernel_arg_addr_space !13 !kernel_arg_access_qual !14 !kernel_arg_type !15 !kernel_arg_base_type !15 !kernel_arg_type_qual !16 !kernel_arg_name !17 !kernel_arg_host_accessible !18 !kernel_arg_pipe_depth !19 !kernel_arg_pipe_io !16 !kernel_arg_buffer_location !16 !no_barrier_path !20 !kernel_has_sub_groups !18 !kernel_execution_length !21 !kernel_has_global_sync !18 !recommended_vector_length !13 {
 entry:
 ; CHECK: %__ocl_dbg_gid0 = alloca i64, align 8
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0, metadata !22, metadata !DIExpression()), !dbg !24
 ; CHECK-NEXT: %__ocl_dbg_gid1 = alloca i64, align 8
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid1, metadata !25, metadata !DIExpression()), !dbg !24
 ; CHECK-NEXT: %__ocl_dbg_gid2 = alloca i64, align 8
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid2, metadata !26, metadata !DIExpression()), !dbg !24
 ; CHECK: store volatile i64 %base.gid.dim0, i64* %__ocl_dbg_gid0, align 8
 ; CHECK-NEXT: store volatile i64 %base.gid.dim1, i64* %__ocl_dbg_gid1, align 8
 ; CHECK-NEXT: store volatile i64 %base.gid.dim2, i64* %__ocl_dbg_gid2, align 8
@@ -35,6 +32,9 @@ entry:
 ; CHECK-NEXT: %dim_0_ind_var = phi i64 [ %base.gid.dim0, %dim_0_pre_head ], [ %dim_0_inc_ind_var, %scalar_kernel_entry ]
 ; CHECK-NEXT: %dim_0_tid = phi i64 [ %dim_0_sub_lid, %dim_0_pre_head ], [ %dim_0_inc_tid, %scalar_kernel_entry ]
 ; CHECK-NEXT: store i64 %dim_0_tid, i64* getelementptr inbounds ([3 x i64], [3 x i64]* @LocalIds, i64 0, i32 0), align 8
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0, metadata [[DIVarGID0:![0-9]+]], metadata !DIExpression()), !dbg [[DILocGID:![0-9]+]]
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid1, metadata [[DIVarGID1:![0-9]+]], metadata !DIExpression()), !dbg [[DILocGID]]
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid2, metadata [[DIVarGID2:![0-9]+]], metadata !DIExpression()), !dbg [[DILocGID]]
 ; CHECK-NEXT: store volatile i64 %dim_0_ind_var, i64* %__ocl_dbg_gid0, align 8
 ; CHECK-NEXT: store volatile i64 %dim_1_ind_var, i64* %__ocl_dbg_gid1, align 8
 ; CHECK-NEXT: store volatile i64 %dim_2_ind_var, i64* %__ocl_dbg_gid2, align 8
@@ -76,6 +76,11 @@ attributes #3 = { convergent nounwind readnone willreturn }
 !llvm.module.flags = !{!2, !3}
 !opencl.compiler.options = !{!4}
 !sycl.kernels = !{!5}
+
+; CHECK-DAG: [[DILocGID]] = !DILocation(line: 1, scope: [[SCOPE:![0-9]+]])
+; CHECK-DAG: [[DIVarGID0]] = !DILocalVariable(name: "__ocl_dbg_gid0", scope: [[SCOPE]], line: 1, type: [[IndTy:![0-9]+]], flags: DIFlagArtificial)
+; CHECK-DAG: [[DIVarGID1]] = !DILocalVariable(name: "__ocl_dbg_gid1", scope: [[SCOPE]], line: 1, type: [[IndTy]], flags: DIFlagArtificial)
+; CHECK-DAG: [[DIVarGID2]] = !DILocalVariable(name: "__ocl_dbg_gid2", scope: [[SCOPE]], line: 1, type: [[IndTy]], flags: DIFlagArtificial)
 
 !0 = distinct !DICompileUnit(language: DW_LANG_OpenCL, file: !1, producer: "clang based Intel(R) oneAPI DPC++/C++ Compiler 2022.1.0 (2022.x.0.YYYYMMDD)", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, splitDebugInlining: false, nameTableKind: None)
 !1 = !DIFile(filename: "test.cl", directory: "")
