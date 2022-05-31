@@ -458,6 +458,11 @@ EXTERN int ompx_get_num_subdevices(int device_num, int level);
 
 EXTERN void ompx_kernel_batch_begin(int device_num, uint32_t max_kernels);
 EXTERN void ompx_kernel_batch_end(int device_num);
+
+/// Return OMP device information
+EXTERN int ompx_get_device_info(int device_num, int info_id,
+                                size_t info_size, void *info_value,
+                                size_t *info_size_ret);
 #endif // INTEL_COLLAB
 
 /// Explicit target memory allocators

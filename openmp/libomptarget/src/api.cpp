@@ -801,5 +801,21 @@ EXTERN void ompx_kernel_batch_end(int device_num) {
 
   PM->Devices[device_num]->kernelBatchEnd();
 }
+
+EXTERN int ompx_get_device_info(int device_num, int info_id, size_t info_size,
+                                void *info_value, size_t *info_size_ret) {
+  if (device_num == omp_get_initial_device()) {
+    REPORT("%s does nothing for the host device\n", __func__);
+    return OFFLOAD_FAIL;
+  }
+
+  if (!device_is_ready(device_num)) {
+    REPORT("%s does nothing for device %d\n", __func__, device_num);
+    return OFFLOAD_FAIL;
+  }
+
+  return PM->Devices[device_num]->getDeviceInfo(info_id, info_size, info_value,
+                                                info_size_ret);
+}
 #endif  // INTEL_COLLAB
 

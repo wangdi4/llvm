@@ -347,6 +347,11 @@ EXTERN void *__tgt_rtl_alloc_per_hw_thread_scratch(
 
 // Free per-hw-thread reduction scratch
 EXTERN void __tgt_rtl_free_per_hw_thread_scratch(int32_t ID, void *Ptr);
+
+// Access device information
+EXTERN int __tgt_rtl_get_device_info(
+    int32_t ID, int32_t InfoID, size_t InfoSize, void *InfoVal,
+    size_t *InfoSizeRet);
 #endif // INTEL_COLLAB
 // Set plugin's internal information flag externally.
 void __tgt_rtl_set_info_flag(uint32_t);
