@@ -178,6 +178,7 @@ class VecCloneImpl {
     /// Filter out unsupported R/U/L/s encodings.
     /// Can be removed once these encodings are supported.
     void filterUnsupportedVectorVariants(Module &M,
+                                         SmallVector<Function *, 8> &DiagList,
                                          OptReportBuilder *ORBuilder);
 
     /// Languages like OpenCL override this method to perform some

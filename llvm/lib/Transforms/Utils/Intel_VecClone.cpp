@@ -1125,7 +1125,8 @@ void VecClone::getAnalysisUsage(AnalysisUsage &AU) const {
 
 #if INTEL_CUSTOMIZATION
 void VecCloneImpl::filterUnsupportedVectorVariants(
-    Module &M, OptReportBuilder *ORBuilder) {
+    Module &M, SmallVector<Function *, 8> &FuncDiagList,
+    OptReportBuilder *ORBuilder) {
   // Traverse both definitions and declarations to not pick the unsupported
   // vector variant when vectorizing.
   for (auto &F : M) {
@@ -1156,11 +1157,7 @@ void VecCloneImpl::filterUnsupportedVectorVariants(
                     });
 
       if (ORBuilder && (Variants.size() != SupportedVariants.size()))
-        (*ORBuilder)(F).addRemark(
-          OptReportVerbosity::Medium,
-          "'omp declare' vector variants with linear reference/ref()/uval()/" \
-          "val() or linear step passed as another argument were skipped " \
-          "as unsupported.");
+        FuncDiagList.push_back(&F);
 
       // Replace existing vector variants with supported ones.
       if (!SupportedVariants.empty()) {
@@ -1183,7 +1180,8 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
 
 #if INTEL_CUSTOMIZATION
   // This filtering can be removed once R/U/L/s encodings are supported.
-  filterUnsupportedVectorVariants(M, ORBuilder);
+  SmallVector<Function *, 8> FuncDiagList;
+  filterUnsupportedVectorVariants(M, FuncDiagList, ORBuilder);
 
   // Language specific hook
   languageSpecificInitializations(M);
@@ -1307,6 +1305,18 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
       disableLoopUnrolling(LoopLatch);
     } // End of function cloning for the variant
   } // End of function cloning for all variants
+
+#if INTEL_CUSTOMIZATION
+ // Issue the diagnostics post-cloning to avoid duplicating them.
+ if (ORBuilder)
+   for (auto *F : FuncDiagList) {
+       (*ORBuilder)(*F).addRemark(
+         OptReportVerbosity::Medium,
+         "'omp declare' vector variants with linear reference/ref()/uval()/" \
+         "val() or linear step passed as another argument were skipped " \
+         "as unsupported.");
+}
+#endif // INTEL_CUSTOMIZATION
 
   //FIXME: return false if all functions were skipped or IR was not modified.
   return true; // LLVM IR has been modified
