@@ -155,25 +155,35 @@ static Instruction *CreateFP128LifetimeEnd(IRBuilder<> &Builder,
   return Builder.CreateLifetimeEnd(AllocaPtr, SizeVal64);
 }
 
-static bool isUsedByFP128Libcall(Value *Val) {
-  for (auto UI : Val->users()) {
-    Instruction *I = cast<Instruction>(UI);
-    switch (I->getOpcode()) {
-    default:
-      break;
-    case Instruction::FAdd:
-    case Instruction::FSub:
-    case Instruction::FMul:
-    case Instruction::FDiv:
-    case Instruction::FNeg:
-    case Instruction::FPTrunc:
-    case Instruction::FPExt:
-    case Instruction::FPToSI:
-    case Instruction::FPToUI:
-    case Instruction::FCmp:
-      return true;
-    }
+static bool canLowerToFP128Libcall(Instruction *I, bool CheckType = false) {
+  switch (I->getOpcode()) {
+  default:
+    return false;
+  case Instruction::FAdd:
+  case Instruction::FSub:
+  case Instruction::FMul:
+  case Instruction::FDiv:
+  case Instruction::FNeg:
+  case Instruction::FPExt:
+  case Instruction::SIToFP:
+  case Instruction::UIToFP:
+    if (CheckType)
+      return I->getType()->getScalarType()->isFP128Ty();
+    return true;
+  case Instruction::FCmp:
+  case Instruction::FPTrunc:
+  case Instruction::FPToSI:
+  case Instruction::FPToUI:
+    if (CheckType)
+      return I->getOperand(0)->getType()->getScalarType()->isFP128Ty();
+    return true;
   }
+}
+
+static bool isUsedByFP128Libcall(Value *Val) {
+  for (auto UI : Val->users())
+    if (canLowerToFP128Libcall(cast<Instruction>(UI)))
+      return true;
   return false;
 }
 
@@ -745,6 +755,46 @@ bool Float128Expand::PerformFp128Transform(DomTreeNode *Node) {
   return Changed;
 }
 
+static bool scalarizeFP128Op(Function &F) {
+  bool MadeChange = false;
+  SmallVector<Instruction *, 8> ScalarWorkList;
+  for (Instruction &I : instructions(F))
+    if (isa<FixedVectorType>(I.getType()) &&
+        canLowerToFP128Libcall(&I, true))
+      ScalarWorkList.push_back(&I);
+
+  for (auto *V : ScalarWorkList) {
+    IRBuilder<> Builder(V);
+    auto *DstVT = cast<FixedVectorType>(V->getType());
+    Value *Res = UndefValue::get(DstVT);
+    for (unsigned I = 0, E = DstVT->getNumElements(); I != E; ++I) {
+      Value *S0, *S1, *Tmp;
+      if (auto *U = dyn_cast<UnaryOperator>(V)) {
+        S0 = Builder.CreateExtractElement(V->getOperand(0), I);
+        Tmp = Builder.CreateUnOp(U->getOpcode(), S0);
+      } else if (auto *C = dyn_cast<CastInst>(V)) {
+        S0 = Builder.CreateExtractElement(V->getOperand(0), I);
+        Tmp = Builder.CreateCast(C->getOpcode(), S0, DstVT->getScalarType());
+      } else if (auto *B = dyn_cast<BinaryOperator>(V)) {
+        S0 = Builder.CreateExtractElement(V->getOperand(0), I);
+        S1 = Builder.CreateExtractElement(V->getOperand(1), I);
+        Tmp = Builder.CreateBinOp(B->getOpcode(), S0, S1);
+      } else if (auto *C = dyn_cast<FCmpInst>(V)) {
+        S0 = Builder.CreateExtractElement(V->getOperand(0), I);
+        S1 = Builder.CreateExtractElement(V->getOperand(1), I);
+        Tmp = Builder.CreateFCmp(C->getPredicate(), S0, S1);
+      } else {
+        llvm_unreachable("Unexpected instruction");
+      }
+      Res = Builder.CreateInsertElement(Res, Tmp, I);
+    }
+    V->replaceAllUsesWith(Res);
+    MadeChange = true;
+  }
+
+  return MadeChange;
+}
+
 bool Float128Expand::runOnFunction(Function &F) {
   using namespace llvm::PatternMatch;
 
@@ -765,7 +815,7 @@ bool Float128Expand::runOnFunction(Function &F) {
   for (Instruction &I : instructions(F)) {
     IntrinsicInst *II = dyn_cast<IntrinsicInst>(&I);
     if (II && II->getIntrinsicID() == Intrinsic::fmuladd &&
-        II->getType()->isFP128Ty())
+        II->getType()->getScalarType()->isFP128Ty())
       ExpandFMAWorkList.push_back(II);
   }
   for (Instruction *I : ExpandFMAWorkList) {
@@ -775,6 +825,8 @@ bool Float128Expand::runOnFunction(Function &F) {
     I->replaceAllUsesWith(Res);
     MadeChange = true;
   }
+
+  MadeChange |= scalarizeFP128Op(F);
 
   // Calculate each SCC’s predecessors and successors in reverse topological
   // order and check if each SCC has a USE of fp128 PX
