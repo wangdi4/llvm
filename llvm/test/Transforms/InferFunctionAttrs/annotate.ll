@@ -293,11 +293,7 @@ declare void @bcopy(i8*, i8*, i64)
 ; CHECK: declare void @bzero(i8* nocapture writeonly, i64)  [[ARGMEMONLY_NOFREE_NOUNWIND_WILLRETURN]]
 declare void @bzero(i8*, i64)
 
-<<<<<<< HEAD
-; CHECK: declare noalias noundef i8* @calloc(i64 noundef, i64 noundef) [[NOFREE_NOUNWIND_WILLRETURN:#[0-9]+]] ;INTEL
-=======
-; CHECK: declare noalias noundef i8* @calloc(i64 noundef, i64 noundef) [[INACCESSIBLEMEMONLY_NOFREE_NOUNWIND_WILLRETURN_ALLOCKIND_ALLOCZEROED_ALLOCSIZE01_FAMILY_MALLOC:#[0-9]+]]
->>>>>>> 73f664601c105e5897e12bf9766c2f7e79c92e62
+; CHECK: declare noalias noundef i8* @calloc(i64 noundef, i64 noundef) [[NOFREE_NOUNWIND_WILLRETURN_ALLOCKIND_ALLOCZEROED:#[0-9]+]] ;INTEL
 declare i8* @calloc(i64, i64)
 
 ; CHECK: declare double @cbrt(double) [[NOFREE_NOUNWIND_READONLY_WILLRETURN]] ;INTEL
