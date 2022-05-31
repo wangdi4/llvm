@@ -38,9 +38,9 @@ entry:
 ; CHECK-NEXT: %base.gid2 = call i64 @get_base_global_id.(i32 2)
 ; CHECK-NEXT: %gid2 = add i64 %lid2, %base.gid2
 ; CHECK-NEXT: store i64 %gid2, i64* %gid2.addr, align 8
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0, metadata !13, metadata !DIExpression()), !dbg !15
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid1, metadata !16, metadata !DIExpression()), !dbg !15
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid2, metadata !17, metadata !DIExpression()), !dbg !15
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0, metadata {{.*}}, metadata !DIExpression()), !dbg
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid1, metadata {{.*}}, metadata !DIExpression()), !dbg
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid2, metadata {{.*}}, metadata !DIExpression()), !dbg
 ; CHECK-NEXT: %gid0.ld = load i64, i64* %gid0.addr, align 8
 ; CHECK-NEXT: store volatile i64 %gid0.ld, i64* %__ocl_dbg_gid0, align 8
 ; CHECK-NEXT: %gid1.ld = load i64, i64* %gid1.addr, align 8
@@ -48,10 +48,10 @@ entry:
 ; CHECK-NEXT: %gid2.ld = load i64, i64* %gid2.addr, align 8
 ; CHECK-NEXT: store volatile i64 %gid2.ld, i64* %__ocl_dbg_gid2, align 8
 ; CHECK-NEXT: store i32 addrspace(1)* %dst, i32 addrspace(1)** %dst.addr, align 8
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i32 addrspace(1)** %dst.addr, metadata !18, metadata !DIExpression()), !dbg !19
-; CHECK-NEXT: [[PTR:%[0-9]+]] = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8, !dbg !20
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata i32 addrspace(1)** %dst.addr, metadata {{.*}}, metadata !DIExpression()), !dbg
+; CHECK-NEXT: [[PTR:%[0-9]+]] = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8, !dbg
 ; CHECK-NEXT: [[GIDLoad:%gid0.ld[0-9]+]] = load i64, i64* %gid0.addr, align 8, !dbg [[DBGGidFoo:![0-9]+]]
-; CHECK: %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* [[PTR]], i64 [[GIDLoad]], !dbg !20
+; CHECK: %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* [[PTR]], i64 [[GIDLoad]], !dbg
 
   %__ocl_dbg_gid0 = alloca i64, align 8
   call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0, metadata !13, metadata !DIExpression()), !dbg !15
@@ -154,7 +154,7 @@ attributes #8 = { convergent "kernel-call-once" "kernel-convergent-call" }
 !opencl.compiler.options = !{!4}
 !sycl.kernels = !{!5}
 
-; CHECK: [[DBGGidFoo]] = !DILocation(line: 2, column: 7, scope: !6)
+; CHECK: [[DBGGidFoo]] = !DILocation(line: 2, column: 7, scope:
 
 !0 = distinct !DICompileUnit(language: DW_LANG_OpenCL, file: !1, producer: "clang based Intel(R) oneAPI DPC++/C++ Compiler 2022.1.0 (2022.x.0.YYYYMMDD)", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, splitDebugInlining: false, nameTableKind: None)
 !1 = !DIFile(filename: "test.cl", directory: "")

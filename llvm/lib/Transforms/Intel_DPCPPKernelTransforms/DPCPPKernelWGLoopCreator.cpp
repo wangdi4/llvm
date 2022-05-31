@@ -1386,11 +1386,20 @@ std::pair<LoopRegion, Value *> WGLoopCreatorImpl::addWGLoops(
     InstVecVec &LIDs, ValueVec &InitGIDs, ValueVec &MaxGIDs) {
   assert(KernelEntry && Ret && "uninitialized parameters");
 
-  // Move allocas, llvm.dbg.declare and local id GEP in the entry kernel entry
+  // Move alloca, llvm.dbg.declare and local id GEP in the entry kernel entry
   // block to the new entry block.
   moveInstructionIf(KernelEntry, NewEntry, [](Instruction &I) {
-    if (isa<AllocaInst>(&I) || isa<DbgDeclareInst>(&I))
+    if (isa<AllocaInst>(&I))
       return true;
+    if (auto *DI = dyn_cast<DbgDeclareInst>(&I)) {
+      Metadata *Meta = cast<MetadataAsValue>(DI->getOperand(0))->getMetadata();
+      if (!isa<ValueAsMetadata>(Meta))
+        return true;
+      auto *AI = dyn_cast<AllocaInst>(cast<ValueAsMetadata>(Meta)->getValue());
+      // Don't move implicit gid llvm.dbg.declare.
+      if (!AI || !isImplicitGID(AI))
+        return true;
+    }
     auto *GEP = dyn_cast<GetElementPtrInst>(&I);
     return GEP && GEP->getPointerOperand()->getName() == PatchLocalIDsName;
   });
