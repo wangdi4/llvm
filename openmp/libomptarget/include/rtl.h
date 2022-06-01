@@ -61,11 +61,7 @@ struct RTLInfoTy {
   typedef char *(get_device_name_ty)(int32_t, char *, size_t);
   typedef int32_t(run_team_nd_region_ty)(int32_t, void *, void **, ptrdiff_t *,
                                          int32_t, int32_t, int32_t, void *);
-  typedef void (get_offload_queue_ty)(int32_t, void *, bool);
-  typedef void *(get_platform_handle_ty)(int32_t);
-  typedef void (set_device_handle_ty)(int32_t, void *);
   typedef void *(get_context_handle_ty)(int32_t);
-  typedef int32_t(release_offload_queue_ty)(int32_t, void *);
   typedef void *(data_alloc_managed_ty)(int32_t, int64_t);
   typedef void *(data_realloc_ty)(int32_t, void *, size_t, int32_t);
   typedef void *(data_aligned_alloc_ty)(int32_t, size_t, size_t, int32_t);
@@ -160,11 +156,7 @@ struct RTLInfoTy {
   data_alloc_base_ty *data_alloc_base = nullptr;
   get_device_name_ty *get_device_name = nullptr;
   run_team_nd_region_ty *run_team_nd_region = nullptr;
-  get_offload_queue_ty *get_offload_queue = nullptr;
-  get_platform_handle_ty *get_platform_handle = nullptr;
-  set_device_handle_ty *set_device_handle = nullptr;
   get_context_handle_ty *get_context_handle = nullptr;
-  release_offload_queue_ty *release_offload_queue = nullptr;
   data_alloc_managed_ty *data_alloc_managed = nullptr;
   data_realloc_ty *data_realloc = nullptr;
   data_aligned_alloc_ty *data_aligned_alloc = nullptr;

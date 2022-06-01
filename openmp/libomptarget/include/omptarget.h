@@ -122,6 +122,14 @@ enum TargetAllocTy : int32_t {
 };
 
 #if INTEL_COLLAB
+struct __tgt_interop_obj {
+  int64_t device_id; // OpenMP device id
+  int64_t device_code; // Encoded device id
+  int32_t is_async; // Whether it is for asynchronous operation
+  void *async_obj; // Pointer to the asynchronous object
+  void (*async_handler)(void *); // Callback function for asynchronous operation
+  int32_t plugin_interface; // Plugin selector
+};
 #if INTEL_CUSTOMIZATION
 ///
 /// OpenMP 5.1 interop support types
@@ -195,6 +203,12 @@ struct __tgt_interop {
   void *DeviceContext;
   void *TargetSync;
   void *RTLProperty; // implementation-defined interop property
+  // The following field are temporary intel extensions
+  // used for enabling transition from Original Intel interop extension
+  // to OpenMP 5.1 extension.  Once MKL transitions to use openmp 5.1 interop
+  // they will be removed.  Simpler to add here then add it in RTLProperty which
+  // require changes in plugin apis which will have to be obsoleted later.
+  __tgt_interop_obj *intel_tmp_ext;
 };
 #endif // INTEL_CUSTOMIZATION
 
@@ -220,22 +234,6 @@ enum InteropPluginInterfaceTy : int32_t {
   INTEROP_PLUGIN_OPENCL = 1,
   INTEROP_PLUGIN_LEVEL0,
   INTEROP_PLUGIN_X86_64
-};
-
-struct __tgt_interop_obj {
-  int64_t device_id; // OpenMP device id
-  int64_t device_code; // Encoded device id
-  bool is_async; // Whether it is for asynchronous operation
-  void *async_obj; // Pointer to the asynchronous object
-  void (*async_handler)(void *); // Callback function for asynchronous operation
-  void *queue; // Opaque handle to device-dependent offload queue
-  void *platform_handle; // Opaque handle:  For opencl  cl_context,
-                         //for level0  ze_driver_handle_t
-  void *device_handle; // Opaque handle:  For level0 ze_device_handle_t.
-                       // Not valid for opencl
-  void *context_handle; // Opaque handle:  For level0 ze_context_handle_t.
-                       // Not valid for opencl
-  int32_t plugin_interface; // Plugin selector
 };
 
 struct __tgt_memory_info {

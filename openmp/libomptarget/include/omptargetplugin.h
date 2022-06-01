@@ -238,19 +238,6 @@ int32_t __tgt_rtl_run_target_team_nd_region(int32_t ID, void *Entry,
                                             int32_t ThreadLimit,
                                             void *LoopDesc);
 
-// Creates an opaque handle to a device-dependent offload queue if CreateNew is true
-// Return existing queue if false.
-EXTERN void __tgt_rtl_get_offload_queue(int32_t ID, void *InteropObj, bool CreateNew);
-
-// Releases a device-dependent offload queue.
-EXTERN int32_t __tgt_rtl_release_offload_queue(int32_t ID, void *Queue);
-
-// Creates an opaque handle to the platform handle.
-EXTERN void *__tgt_rtl_get_platform_handle(int32_t ID);
-
-// Creates an opaque handle to the  device  handle.
-EXTERN void __tgt_rtl_set_device_handle(int32_t ID, void *InteropObj);
-
 // Creates an opaque handle to the  context handle.
 EXTERN void *__tgt_rtl_get_context_handle(int32_t ID);
 

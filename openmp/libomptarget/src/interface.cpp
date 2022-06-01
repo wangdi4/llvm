@@ -32,7 +32,7 @@
 extern bool isOffloadDisabled();
 
 #if INTEL_COLLAB
-static uint32_t useSingleQueue = 0;
+//static uint32_t useSingleQueue = 0;
 
 static int64_t GetEncodedDeviceID(int64_t &DeviceID) {
   if (DeviceID == OFFLOAD_DEVICE_DEFAULT)
@@ -634,100 +634,59 @@ EXTERN char *__tgt_get_device_rtl_name(
   return buffer;
 }
 
-
+// Begin INTEL DISPATCH extension
+// The following code upto "End INTEL DISPATCH extension should be deleted
+// once we obsolete INTEL DISPATCH extension
 EXTERN void __tgt_offload_proxy_task_complete_ooo(void *interop_obj) {
-
-// This structure is same as kmp_task_t defined in omp.h
-typedef struct {
-  void *shareds;   // not used
-  void * routine;  // not used
-  int part_id;     // not used
-}async_t;
 
   DP("Call to __tgt_offload_proxy_task_complete_ooo interop obj " DPxMOD "\n",
       DPxPTR(interop_obj));
-  __tgt_interop_obj *tgt_interop_obj = (__tgt_interop_obj *) interop_obj;
-  async_t *async_obj =  (async_t *) tgt_interop_obj->async_obj;
-
-  __tgt_release_interop_obj(interop_obj);
-
+  void *async_obj =  ((__tgt_interop *) interop_obj)->intel_tmp_ext->async_obj;
+  (void)__tgt_release_interop(interop_obj);
   __kmpc_proxy_task_completed_ooo(async_obj);
 }
+
+// TEMPORARY Remove once Intel interop extension is obsoleted
+// Declared in api.cpp
+EXTERN omp_intptr_t omp_get_interop_int(const omp_interop_t interop,
+    omp_interop_property_t property_id, int *ret_code);
+EXTERN void *omp_get_interop_ptr(const omp_interop_t interop,
+    omp_interop_property_t property_id, int *ret_code);
+// END TEMPORARY
 
 EXTERN void *__tgt_create_interop_obj(
     int64_t device_code, bool is_async, void *async_obj) {
   int64_t device_id = EXTRACT_BITS(device_code, 31, 0);
+  int plugin_type;
 
-  static std::once_flag Flag{};
+  omp_interop_t Interop = __tgt_create_interop(device_id, 
+                              OMP_INTEROP_CONTEXT_TARGETSYNC, 0, NULL);
+  __tgt_interop_obj *intel_ext_obj = (__tgt_interop_obj *)malloc(sizeof(__tgt_interop_obj));
+  ((__tgt_interop *)Interop)->intel_tmp_ext = intel_ext_obj;
 
-  DP("Call to __tgt_create_interop_obj with device_id %" PRId64 ", is_async %s"
-     ", async_obj " DPxMOD "\n", device_id, is_async ? "true" : "false",
-     DPxPTR(async_obj));
-
-  if (checkDeviceAndCtors(device_id, nullptr) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId64 " ready\n", device_id);
-    handleTargetOutcome(false, nullptr);
-    return NULL;
-  }
-
-  DeviceTy &Device = *PM->Devices[device_id];
-
-  auto &rtl_name = Device.RTL->RTLName;
-  int32_t plugin;
-
-  if (rtl_name.find("opencl") != std::string::npos) {
-    plugin = INTEROP_PLUGIN_OPENCL;
-  } else if (rtl_name.find("level0") != std::string::npos) {
-    plugin = INTEROP_PLUGIN_LEVEL0;
-  } else if (rtl_name.find("x86_64") != std::string::npos) {
-    plugin = INTEROP_PLUGIN_X86_64;
-  } else {
-    DP("%s does not support interop interface\n", rtl_name.c_str());
-    return NULL;
-  }
-
-  __tgt_interop_obj *obj =
-      (__tgt_interop_obj *)malloc(sizeof(__tgt_interop_obj));
-  if (!obj) {
-    DP("Failed to malloc memory for interop object\n");
-    return NULL;
-  }
-   std::call_once(Flag, []() {
-   useSingleQueue = 0;
-   if (char *EnvStr = getenv("LIBOMPTARGET_INTEROP_USE_SINGLE_QUEUE"))
-         useSingleQueue = std::atoi(EnvStr);
-   });
-
-  obj->device_id = device_id;
-  obj->device_code = device_code; // Preserve 64-bit device encoding
-  obj->is_async = is_async;
-  obj->async_obj = async_obj;
-  obj->async_handler = &__tgt_offload_proxy_task_complete_ooo;
-  obj->queue = nullptr; // Will be created when property is requested.
-  obj->platform_handle = Device.get_platform_handle();
-  obj->context_handle = Device.get_context_handle();
-  Device.setDeviceHandle(obj);
-  obj->plugin_interface = plugin;
-
-  return obj;
+  intel_ext_obj->is_async = is_async;
+  intel_ext_obj->async_obj = async_obj;
+  intel_ext_obj->async_handler = &__tgt_offload_proxy_task_complete_ooo;
+  int ret_code = OFFLOAD_FAIL;
+  intel_ext_obj->device_id = omp_get_interop_int(Interop, omp_ipr_device_num, &ret_code);
+  plugin_type= (int) omp_get_interop_int(Interop, omp_ipr_fr_id, &ret_code);
+  if (plugin_type == 6)
+    plugin_type = INTEROP_PLUGIN_LEVEL0;
+  else if (plugin_type == 3) 
+    plugin_type = INTEROP_PLUGIN_OPENCL;
+  else 
+    DP("%d does not support interop plugin type \n", plugin_type);
+  intel_ext_obj->plugin_interface = plugin_type;
+  return Interop;
 }
 
 EXTERN int __tgt_release_interop_obj(void *interop_obj) {
   DP("Call to __tgt_release_interop_obj with interop_obj " DPxMOD "\n",
      DPxPTR(interop_obj));
 
-  assert(!isOffloadDisabled() &&
-          "Freeing interop object with Offload Disabled.");
-  if (!interop_obj)
-    return OFFLOAD_FAIL;
+  free(static_cast<__tgt_interop *>(interop_obj)->intel_tmp_ext);
+  return __tgt_release_interop((omp_interop_t) interop_obj);
 
-  __tgt_interop_obj *obj = static_cast<__tgt_interop_obj *>(interop_obj);
-  DeviceTy &Device = *PM->Devices[obj->device_id];
-  if (obj->queue && obj->is_async && !useSingleQueue)
-    Device.release_offload_queue(obj->queue);
-  free(interop_obj);
-
-  return OFFLOAD_SUCCESS;
 }
 
 EXTERN int __tgt_set_interop_property(
@@ -739,65 +698,65 @@ EXTERN int __tgt_set_interop_property(
     return OFFLOAD_FAIL;
   }
 
-  __tgt_interop_obj *interop = (__tgt_interop_obj *)interop_obj;
+  __tgt_interop_obj * Interop = (__tgt_interop_obj *) ((__tgt_interop *) interop_obj)->intel_tmp_ext;
+
   // Currently we support setting async object only
   switch (property_id) {
   case INTEROP_ASYNC_OBJ:
-    if (interop->async_obj) {
+    if (Interop->async_obj) {
        DP("Updating async obj is not allowed" PRId32 "\n");
        return OFFLOAD_FAIL;
     }
-    interop->async_obj = property_value;
+    Interop->async_obj = property_value;
     break;
   default:
     DP("Invalid interop property name " PRId32 "\n");
     return OFFLOAD_FAIL;
   }
-
+  
   return OFFLOAD_SUCCESS;
 }
 
 EXTERN int __tgt_get_interop_property(
     void *interop_obj, int32_t property_id, void **property_value) {
+
   DP("Call to __tgt_get_interop_property with interop_obj " DPxMOD
      ", property_id %" PRId32 "\n", DPxPTR(interop_obj), property_id);
 
-  if (isOffloadDisabled() || !interop_obj || !property_value) {
-    return OFFLOAD_FAIL;
-  }
+  int ret_code = OFFLOAD_FAIL;
 
-  __tgt_interop_obj *interop = (__tgt_interop_obj *)interop_obj;
+  __tgt_interop_obj *ext_obj = ((__tgt_interop *)interop_obj)->intel_tmp_ext;
   switch (property_id) {
   case INTEROP_DEVICE_ID:
-    *property_value = (void *)&interop->device_id;
+    *property_value = (void *)&ext_obj->device_id;
+    ret_code = OFFLOAD_SUCCESS;
     break;
   case INTEROP_IS_ASYNC:
-    *property_value = (void *)&interop->is_async;
+    *property_value = (void *)&ext_obj->is_async;
+    ret_code = OFFLOAD_SUCCESS;
     break;
   case INTEROP_ASYNC_OBJ:
-    *property_value = interop->async_obj;
+    *property_value = (void *)ext_obj->async_obj;
+    ret_code = OFFLOAD_SUCCESS;
     break;
   case INTEROP_ASYNC_CALLBACK:
-    *property_value = (void *)interop->async_handler;
-    break;
-  case INTEROP_OFFLOAD_QUEUE:
-    if (!interop->queue)
-      PM->Devices[interop->device_id]->get_offload_queue(
-          interop, (!interop->is_async || useSingleQueue)
-                        ? false : true /*create_new*/);
-    *property_value = interop->queue;
-    break;
-  case INTEROP_PLATFORM_HANDLE:
-    *property_value = interop->platform_handle;
-    break;
-  case INTEROP_DEVICE_HANDLE:
-    *property_value = interop->device_handle;
+    *property_value = (void *)ext_obj->async_handler;
     break;
   case INTEROP_PLUGIN_INTERFACE:
-    *property_value = (void *)&interop->plugin_interface;
+    *property_value = (void *)&ext_obj->plugin_interface;
+    ret_code = OFFLOAD_SUCCESS;
+    break;
+  case INTEROP_OFFLOAD_QUEUE:
+    *property_value = (void *) omp_get_interop_ptr(interop_obj, omp_ipr_targetsync, &ret_code);
+    break;
+  case INTEROP_PLATFORM_HANDLE:
+    *property_value = (void *) omp_get_interop_ptr(interop_obj, omp_ipr_platform, &ret_code);
+    break;
+  case INTEROP_DEVICE_HANDLE:
+    *property_value = (void *) omp_get_interop_ptr(interop_obj, omp_ipr_device, &ret_code);
     break;
   case INTEROP_CONTEXT_HANDLE:
-    *property_value = interop->context_handle;
+    *property_value = (void *) omp_get_interop_ptr(interop_obj, omp_ipr_device_context, &ret_code);
     break;
   default:
     DP("Invalid interop property name " PRId32 "\n");
@@ -806,6 +765,8 @@ EXTERN int __tgt_get_interop_property(
 
   return OFFLOAD_SUCCESS;
 }
+
+// End INTEL DISPATCH extension
 
 #if INTEL_CUSTOMIZATION
 EXTERN omp_interop_t __tgt_create_interop(

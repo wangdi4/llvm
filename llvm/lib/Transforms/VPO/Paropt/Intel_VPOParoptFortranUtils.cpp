@@ -46,7 +46,7 @@ std::tuple<Type *, Type *> VPOParoptUtils::getF90DVItemInfo(const Item *I) {
   assert(isa<StructType>(DVType) && "DV Type is not a struct type.");
 
   if (I->getIsTyped())
-    return {DVType, I->getF90DVPointeeElementTypeFromIR()};
+    return {DVType, I->getPointeeElementTypeFromIR()};
 
   Type *DVAddr0Ty = cast<StructType>(DVType)->getElementType(0);
   assert(!DVAddr0Ty->isOpaquePointerTy() &&

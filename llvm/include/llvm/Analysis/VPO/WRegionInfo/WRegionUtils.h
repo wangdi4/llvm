@@ -196,6 +196,12 @@ public:
   ///                         If \p H != null, then HIR is assumed; otherwise
   ///                         LLVM IR CFG is assumed (using BB, DT, LI)
 #endif // INTEL_CUSTOMIZATION
+
+  /// Return default address space for the current target.
+  /// It is vpo::ADDRESS_SPACE_GENERIC for SPIR-V targets, 0 - otherwise.
+  /// \p M is used to identify the current target.
+  static unsigned getDefaultAS(const Module *M);
+
   static void updateWRGraph(IntrinsicInst *Call, WRContainerImpl *WRGraph,
                             WRStack<WRegionNode *> &S, LoopInfo *LI,
                             DominatorTree *DT,
