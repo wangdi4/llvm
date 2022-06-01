@@ -4400,7 +4400,7 @@ void VPOParoptTransform::genCopyByAddr(Item *I, Value *To, Value *From,
   // For by-refs, do a pointer dereference to reach the actual operand.
   if (IsByRef) {
     Type *RefTy = AllocaTy->getPointerTo(
-        VPOParoptUtils::getDefaultAS(InsertPt->getModule()));
+        WRegionUtils::getDefaultAS(InsertPt->getModule()));
     From = Builder.CreateLoad(RefTy, From);
   }
   assert(From->getType()->isPointerTy() && To->getType()->isPointerTy());
@@ -7209,10 +7209,17 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W, BasicBlock *LinearFiniBB,
     auto *Mul = InitBuilder.CreateMul(Index, Step);                     // (7)
 
     Value *Add = nullptr;
-    if (isa<PointerType>(LinearTy))
-      Add = InitBuilder.CreateInBoundsGEP(LinearTy->getPointerElementType(),
-                                          LinearStart, Mul);
-    else {
+    if (isa<PointerType>(LinearTy)) {
+      Type *PointeeType = nullptr;
+      if (LinearI->getIsTyped() && LinearI->getIsPointerToPointer()) {
+        PointeeType = LinearI->getPointeeElementTypeFromIR();
+      } else {
+        assert(!LinearTy->isOpaquePointerTy() &&
+               "Need TYPED PTR_TO_PTR IR for opaque pointer type.");
+        PointeeType = LinearTy->getNonOpaquePointerElementType();
+      }
+      Add = InitBuilder.CreateInBoundsGEP(PointeeType, LinearStart, Mul);
+    } else {
       Type *MulTy = Mul->getType();
 
       if (LinearTy->getIntegerBitWidth() < MulTy->getIntegerBitWidth())

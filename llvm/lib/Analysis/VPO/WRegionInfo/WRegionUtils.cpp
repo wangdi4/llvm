@@ -40,6 +40,12 @@ using namespace vpo;
 using namespace loopopt;
 #endif // INTEL_CUSTOMIZATION
 
+// Return default address space for the current target.
+// It is vpo::ADDRESS_SPACE_GENERIC for SPIR-V targets, 0 - otherwise.
+unsigned WRegionUtils::getDefaultAS(const Module *M) {
+  return VPOAnalysisUtils::isTargetSPIRV(M) ? vpo::ADDRESS_SPACE_GENERIC : 0;
+}
+
 /// Update the graph of WRegionNodes
 void WRegionUtils::updateWRGraph(IntrinsicInst *Call, WRContainerImpl *WRGraph,
                                  WRStack<WRegionNode *> &S, LoopInfo *LI,

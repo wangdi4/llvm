@@ -175,10 +175,9 @@ class Item
     bool IsTyped = false; // true if type is transfered thru arguments
     Type *OrigItemElementTypeFromIR = nullptr; // Type of an item
     Value *NumElements = nullptr; // Number of elements of this item
-#if INTEL_CUSTOMIZATION
-    Type *F90DVPointeeElementTypeFromIR =
-        nullptr; // pointee element type for F90 DVs
-#endif // INTEL_CUSTOMIZATION
+    Type *PointeeElementTypeFromIR =
+        nullptr; // Pointee element type of a pointer item
+                 // (e.g. i16 for "TYPED.PTR_TO_PTR(i16** %a, i16 0, ...)".
 
   public:
     Item(VAR Orig, ItemKind K)
@@ -281,11 +280,17 @@ class Item
         OS << ", TYPED (TYPE: ";
         getOrigItemElementTypeFromIR()->print(OS);
 #if INTEL_CUSTOMIZATION
+        assert((!getIsF90DopeVector() || !getIsPointerToPointer()) &&
+               "F90_DV and PTR_TO_PTR can't be on the same case.");
         if (getIsF90DopeVector()) {
           OS << ", POINTEE_TYPE: ";
-          getF90DVPointeeElementTypeFromIR()->print(OS);
+          getPointeeElementTypeFromIR()->print(OS);
         }
 #endif // INTEL_CUSTOMIZATION
+        if (getIsPointerToPointer()) {
+          OS << ", POINTEE_TYPE: ";
+          getPointeeElementTypeFromIR()->print(OS);
+        }
         OS << ", NUM_ELEMENTS: ";
         getNumElements()->printAsOperand(OS, PrintType);
         OS << ")";
@@ -405,14 +410,12 @@ class Item
                                     "a clause that doesn't support it");
       return NumElements;
     }
-#if INTEL_CUSTOMIZATION
-    void setF90DVPointeeElementTypeFromIR(Type *Ty) {
-      F90DVPointeeElementTypeFromIR = Ty;
+    void setPointeeElementTypeFromIR(Type *Ty) {
+      PointeeElementTypeFromIR = Ty;
     }
-    Type *getF90DVPointeeElementTypeFromIR() const {
-      return F90DVPointeeElementTypeFromIR;
+    Type *getPointeeElementTypeFromIR() const {
+      return PointeeElementTypeFromIR;
     }
-#endif // INTEL_CUSTOMIZATION
 };
 
 //

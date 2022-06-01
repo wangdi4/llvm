@@ -279,7 +279,7 @@ StructType *VPOParoptUtils::getIdentStructType(Function *F) {
   assert(F && "Null function pointer.");
 
   LLVMContext &C = F->getContext();
-  unsigned AS = VPOParoptUtils::getDefaultAS(F->getParent());
+  unsigned AS = WRegionUtils::getDefaultAS(F->getParent());
   Type *IdentTyArgs[] = {Type::getInt32Ty(C),        // reserved_1
                          Type::getInt32Ty(C),        // flags
                          Type::getInt32Ty(C),        // reserved_2
@@ -6935,12 +6935,6 @@ VPOParoptUtils::getItemInfo(const Item *I) {
              } dbgs() << ", AddrSpace: " << AddrSpace;
              dbgs() << "\n");
   return std::make_tuple(ElementType, NumElements, AddrSpace);
-}
-
-// Return default address space for the current target.
-// It is vpo::ADDRESS_SPACE_GENERIC for SPIR-V targets, 0 - otherwise.
-unsigned VPOParoptUtils::getDefaultAS(const Module *M) {
-  return VPOAnalysisUtils::isTargetSPIRV(M) ? vpo::ADDRESS_SPACE_GENERIC : 0;
 }
 
 // Return an array of offload entries read from "omp_offloading.info" metadata.

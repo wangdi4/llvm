@@ -2376,11 +2376,6 @@ public:
   static std::tuple<Type *, Type *> getF90DVItemInfo(const Item *I);
 #endif // INTEL_CUSTOMIZATION
 
-  /// Return default address space for the current target.
-  /// It is vpo::ADDRESS_SPACE_GENERIC for SPIR-V targets, 0 - otherwise.
-  /// \p M is used to identify the current target.
-  static unsigned getDefaultAS(const Module *M);
-
   /// Load offload metadata from the module and create offload entries that
   /// need to be emitted after lowering all target constructs.
   /// The entries are returned in the result vector.

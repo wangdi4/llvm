@@ -1084,7 +1084,7 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
     C.back()->setOrigItemElementTypeFromIR(Args[1]->getType());
 #if INTEL_CUSTOMIZATION
     if (ClauseInfo.getIsF90DopeVector()) {
-      C.back()->setF90DVPointeeElementTypeFromIR(Args[2]->getType());
+      C.back()->setPointeeElementTypeFromIR(Args[2]->getType());
       C.back()->setNumElements(
           ConstantInt::get(Type::getInt32Ty(Args[2]->getContext()), 1));
     } else
@@ -1363,6 +1363,9 @@ void WRegionNode::extractLinearOpndList(const Use *Args, unsigned NumArgs,
     LI->setStep(StepValue);
     LI->setIsByRef(ClauseInfo.getIsByRef());
     LI->setIsIV(ClauseInfo.getIsIV());
+    if (ClauseInfo.getIsPointerToPointer()) {
+      LI->setIsPointerToPointer(true);
+    }
 #if INTEL_CUSTOMIZATION
     if (!CurrentBundleDDRefs.empty() &&
         WRegionUtils::supportsRegDDRefs(C.getClauseID())) {
@@ -1375,7 +1378,14 @@ void WRegionNode::extractLinearOpndList(const Use *Args, unsigned NumArgs,
       LI->setIsTyped(IsTyped);
       Type *V1 = Args[I + 1]->getType();
       Value *V2 = Args[I + 2];
-      LI->setOrigItemElementTypeFromIR(V1);
+      if (LI->getIsPointerToPointer()) {
+        unsigned AS =
+            WRegionUtils::getDefaultAS(getEntryDirective()->getModule());
+        LI->setOrigItemElementTypeFromIR(PointerType::get(V1, AS));
+        LI->setPointeeElementTypeFromIR(V1);
+      } else {
+        LI->setOrigItemElementTypeFromIR(V1);
+      }
       LI->setNumElements(V2);
       break;
     }
@@ -1552,7 +1562,7 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
         RI->setOrigItemElementTypeFromIR(Args[I + 1]->getType());
 #if INTEL_CUSTOMIZATION
         if (ClauseInfo.getIsF90DopeVector()) {
-          RI->setF90DVPointeeElementTypeFromIR(Args[I + 2]->getType());
+          RI->setPointeeElementTypeFromIR(Args[I + 2]->getType());
           RI->setNumElements(ConstantInt::get(Type::getInt32Ty(Ctxt), 1));
         } else
 #endif // INTEL_CUSTOMIZATION

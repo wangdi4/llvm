@@ -92,15 +92,6 @@ namespace vpo {
 
 extern cl::opt<bool> UseMapperAPI;
 
-/// opencl address space.
-enum AddressSpace {
-  ADDRESS_SPACE_PRIVATE = 0,
-  ADDRESS_SPACE_GLOBAL = 1,
-  ADDRESS_SPACE_CONSTANT = 2,
-  ADDRESS_SPACE_LOCAL = 3,
-  ADDRESS_SPACE_GENERIC = 4
-};
-
 /// Device architectures supported
 enum DeviceArch : uint64_t {
   DeviceArch_None   = 0,
