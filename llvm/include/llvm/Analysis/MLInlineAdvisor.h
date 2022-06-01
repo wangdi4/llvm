@@ -98,22 +98,8 @@ private:
 /// overrides the "successful inlining" extension points.
 class MLInlineAdvice : public InlineAdvice {
 public:
-<<<<<<< HEAD
   MLInlineAdvice(MLInlineAdvisor *Advisor, CallBase &CB, InlineCost IC, // INTEL
-                 OptimizationRemarkEmitter &ORE, bool Recommendation)
-      : InlineAdvice(Advisor, CB, IC, ORE, Recommendation), // INTEL
-        CallerIRSize(Advisor->isForcedToStop() ? 0
-                                               : Advisor->getIRSize(*Caller)),
-        CalleeIRSize(Advisor->isForcedToStop() ? 0
-                                               : Advisor->getIRSize(*Callee)),
-        CallerAndCalleeEdges(Advisor->isForcedToStop()
-                                 ? 0
-                                 : (Advisor->getLocalCalls(*Caller) +
-                                    Advisor->getLocalCalls(*Callee))) {}
-=======
-  MLInlineAdvice(MLInlineAdvisor *Advisor, CallBase &CB,
                  OptimizationRemarkEmitter &ORE, bool Recommendation);
->>>>>>> f46dd19b480496d2ba0a57d12935882e530f2b93
   virtual ~MLInlineAdvice() = default;
 
   void recordInliningImpl() override;

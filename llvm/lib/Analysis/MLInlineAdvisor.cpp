@@ -242,13 +242,6 @@ int64_t MLInlineAdvisor::getModuleIRSize() const {
   return Ret;
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-std::unique_ptr<InlineAdvice>
-MLInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
-                               WholeProgramInfo *WPI, InlineCost **IC) {
-#endif // INTEL_CUSTOMIZATION
-=======
 FunctionPropertiesInfo &MLInlineAdvisor::getCachedFPI(Function &F) const {
   auto InsertPair =
       FPICache.insert(std::make_pair(&F, FunctionPropertiesInfo()));
@@ -258,8 +251,11 @@ FunctionPropertiesInfo &MLInlineAdvisor::getCachedFPI(Function &F) const {
   return InsertPair.first->second;
 }
 
-std::unique_ptr<InlineAdvice> MLInlineAdvisor::getAdviceImpl(CallBase &CB) {
->>>>>>> f46dd19b480496d2ba0a57d12935882e530f2b93
+#if INTEL_CUSTOMIZATION
+std::unique_ptr<InlineAdvice>
+MLInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
+                               WholeProgramInfo *WPI, InlineCost **IC) {
+#endif // INTEL_CUSTOMIZATION
   auto &Caller = *CB.getCaller();
   auto &Callee = *CB.getCalledFunction();
 
@@ -404,9 +400,10 @@ MLInlineAdvisor::getMandatoryAdviceImpl(CallBase &CB) {
 }
 
 MLInlineAdvice::MLInlineAdvice(MLInlineAdvisor *Advisor, CallBase &CB,
+                               InlineCost IC, // INTEL
                                OptimizationRemarkEmitter &ORE,
                                bool Recommendation)
-    : InlineAdvice(Advisor, CB, ORE, Recommendation),
+    : InlineAdvice(Advisor, CB, IC, ORE, Recommendation), // INTEL
       CallerIRSize(Advisor->isForcedToStop() ? 0 : Advisor->getIRSize(*Caller)),
       CalleeIRSize(Advisor->isForcedToStop() ? 0 : Advisor->getIRSize(*Callee)),
       CallerAndCalleeEdges(Advisor->isForcedToStop()
