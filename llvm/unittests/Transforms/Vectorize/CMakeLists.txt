@@ -14,6 +14,7 @@ set(LLVM_LINK_COMPONENTS
   )
 
 add_llvm_unittest(VectorizeTests
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
   IntelVPlanAlignmentAnalysisTest.cpp
   IntelVPlanAllZeroCheckCost.cpp
@@ -30,6 +31,8 @@ add_llvm_unittest(VectorizeTests
   VPlanDominatorTreeTest.cpp
   VPlanLoopInfoTest.cpp
   VPlanPredicatorTest.cpp
+=======
+>>>>>>> d157019482e19b33b4348f315692385c0ace4a61
   VPlanTest.cpp
   VPlanHCFGTest.cpp
   VPlanSlpTest.cpp
