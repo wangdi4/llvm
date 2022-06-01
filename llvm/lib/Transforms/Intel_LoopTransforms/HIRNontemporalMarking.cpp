@@ -82,6 +82,11 @@ class HIRNontemporalMarking {
   HIRLoopLocality &HLL;
   TargetTransformInfo &TTI;
 
+  /// Whether this transform should only be run on vector-aligned stores, which
+  /// can benefit from nontemporal marking even if not transformed later by the
+  /// unaligned-nontemporal pass.
+  bool OnlyVectorAligned;
+
   bool markInnermostLoop(HLLoop *Loop);
 public:
   HIRNontemporalMarking(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
@@ -93,12 +98,21 @@ public:
 } // namespace
 
 bool HIRNontemporalMarking::run() {
-  if (DisablePass || !TTI.isLibIRCAllowed() ||
+  if (DisablePass ||
       !(TTI.isAdvancedOptEnabled(
             TargetTransformInfo::AO_TargetHasIntelAVX512) ||
         TTI.isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasIntelAVX2))) {
     return false;
   }
+
+  // If LibIRC is not enabled, the nontemporal library function is not available
+  // but vector-aligned stores can still be marked.
+  OnlyVectorAligned = !TTI.isLibIRCAllowed();
+  LLVM_DEBUG({
+    if (OnlyVectorAligned)
+      dbgs() << "LibIRC not enabled; will only mark vector-aligned stores as "
+                "nontemporal\n";
+  });
 
   // CMPLRLLVM-21684: The nontemporal library function does not work correctly
   // on 32-bit code for reasons that are not yet understood. Disable this
@@ -203,6 +217,17 @@ bool HIRNontemporalMarking::markInnermostLoop(HLLoop *Loop) {
     if (!StoreAddr->isUnitStride(Loop->getNestingLevel(), IsNegStride)) {
       LLVM_DEBUG(dbgs() << "Not contiguous\n");
       continue;
+    }
+
+    // Also skip stores that aren't vector-aligned if the unaligned nontemporal
+    // optimization is not available. Stores that are 8 bytes or smaller are
+    // assumed to not benefit from nontemporal marking alone in this case.
+    if (OnlyVectorAligned) {
+      const unsigned Alignment = StoreAddr->getAlignment();
+      if (Alignment <= 8 || Alignment < StoreAddr->getDestTypeSizeInBytes()) {
+        LLVM_DEBUG(dbgs() << "Not vector-aligned\n");
+        continue;
+      }
     }
 
     // Regular store in the main body of the loop, check dependencies.
