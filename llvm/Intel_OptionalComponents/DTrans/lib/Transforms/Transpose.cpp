@@ -1,6 +1,6 @@
 //===--------------- Transpose.cpp - DTransTransposePass------------------===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1124,6 +1124,11 @@ public:
                 GetLI(GetLI), GetTLI(GetTLI) {}
 
   bool run(Module &M) {
+    // TODO: If opaque pointers are enabled then return false. Dope vector
+    // analysis is disabled for this case.
+    if (!M.getContext().supportsTypedPointers())
+      return false;
+
     const DataLayout &DL = M.getDataLayout();
 
     IdentifyCandidates(M);
@@ -1241,6 +1246,7 @@ private:
                                   const DataLayout &DL) -> bool {
       uint32_t ArrayRank = 0;
       llvm::Type *ElemType = nullptr;
+
       if (!isDopeVectorType(GV->getValueType(), DL, &ArrayRank, &ElemType))
         return false;
       // In the future, it may be possible to transform some of the nested
