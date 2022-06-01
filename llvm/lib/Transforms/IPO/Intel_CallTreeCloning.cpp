@@ -682,12 +682,11 @@ struct CloneMapKeyLess {
   using key_t = std::pair<const Function *, ConstParamVec>;
 
   bool operator()(const key_t &K1, const key_t &K2) const {
-    if (K1.first < K2.first)
+    auto diff = K1.first->getName().compare(K2.first->getName());
+    if (diff == -1)
       return true;
-
-    if (K1.first > K2.first)
+    if (diff == 1)
       return false;
-
     ConstParamVecLess CmpSets;
     return CmpSets(K1.second, K2.second);
   }
@@ -783,6 +782,24 @@ struct CompareFuncPtr
   }
 };
 
+struct CompareCallInstPtr
+    : public std::binary_function<CallInst *, CallInst *, bool> {
+  bool operator()(const CallInst *lhs, const CallInst *rhs) const {
+    if (lhs == nullptr || rhs == nullptr)
+      return lhs < rhs;
+    auto LCallerName = lhs->getCaller()->getName();
+    auto RCallerName = rhs->getCaller()->getName();
+    auto diff0 = LCallerName.compare(RCallerName);
+    if (diff0 == -1)
+      return true;
+    if (diff0 == 1)
+      return false;
+    auto LCalleeName = lhs->getCalledFunction()->getName();
+    auto RCalleeName = rhs->getCalledFunction()->getName();
+    return LCalleeName.compare(RCalleeName) == -1;
+  }
+};
+
 // In a "detailed" call graph, nodes are call sites, an edge from node N to node
 // M is present if N's callee is M's caller function. It also maps a function to
 // nodes where the function is a caller.
@@ -851,7 +868,7 @@ private:
   std::list<DCGNode> Nodes;
   // maps a function to nodes where it is the callee
   // - maps a function to all DCGNodes (calls) it has
-  std::map<const Function *, DCGNodeList> Callee2Nodes;
+  std::map<const Function *, DCGNodeList, CompareFuncPtr> Callee2Nodes;
   uint32_t NodeId;
 };
 
@@ -1201,7 +1218,8 @@ void printSeeds(
   dbgs() << "\n";
 }
 
-void print_FunctionMap(const std::string &Msg, std::map<Function *, bool> &Map,
+void print_FunctionMap(const std::string &Msg,
+                       std::map<Function *, bool, CompareFuncPtr> &Map,
                        bool PrintEachNewLine = true) {
   dbgs() << Msg << "<" << Map.size() << ">:\n";
   unsigned Count = 0;
@@ -2096,10 +2114,10 @@ private:
   std::function<const TargetLibraryInfo &(Function &F)> GetTLI;
   CallTreeCloningImpl *CTCI;
 
-  std::map<CallInst *, unsigned> PPCandidates;
+  std::map<CallInst *, unsigned, CompareCallInstPtr> PPCandidates;
   // includes both original and populated seed functions:
-  std::map<Function *, bool> ExtSeedFunctions;
-  std::map<Function *, bool> ClonedFunctions;
+  std::map<Function *, bool, CompareFuncPtr> ExtSeedFunctions;
+  std::map<Function *, bool, CompareFuncPtr> ClonedFunctions;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   ProgressLog Tracer; // Post-Process Tracer
