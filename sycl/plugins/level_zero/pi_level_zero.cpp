@@ -3437,12 +3437,7 @@ pi_result piQueueRelease(pi_queue Queue) {
   return PI_SUCCESS;
 }
 
-<<<<<<< HEAD
-static pi_result piQueueReleaseInternal(pi_queue Queue, pi_queue LockedQueue) {
-  (void)LockedQueue; // INTEL
-=======
 static pi_result piQueueReleaseInternal(pi_queue Queue) {
->>>>>>> 4c619e9ba75175504d086b8e5796cf7ee4204e35
   PI_ASSERT(Queue, PI_INVALID_QUEUE);
 
   if (!Queue->RefCount.decrementAndTest())
