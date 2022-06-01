@@ -14,7 +14,6 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -2154,9 +2153,10 @@ static std::string getFormatStr(Value *V) {
   llvm_unreachable("Can't print this value");
 }
 
-void insertPrintf(const Twine &Prefix, Instruction *IP,
+void insertPrintf(const Twine &Prefix, IRBuilder<> &Builder,
                   ArrayRef<Value *> Inputs) {
-  auto &Context = IP->getContext();
+  auto *BB = Builder.GetInsertBlock();
+  auto &Context = BB->getContext();
   unsigned StrAddrSpace = 2;
 
   // Declare printf function
@@ -2164,11 +2164,10 @@ void insertPrintf(const Twine &Prefix, Instruction *IP,
   SmallVector<Type *, 1> ArgList{StrType};
   auto *FuncType = FunctionType::get(Type::getInt32Ty(Context), ArgList, true);
   FunctionCallee PrintFuncConst =
-      IP->getModule()->getOrInsertFunction("printf", FuncType);
+      BB->getModule()->getOrInsertFunction("printf", FuncType);
   auto *PrintFunc = cast<Function>(PrintFuncConst.getCallee());
 
   SmallVector<Value *, 16> TempInputs;
-  IRBuilder<> Builder(IP);
   for (auto *I : Inputs) {
     if (auto *T = dyn_cast<FixedVectorType>(I->getType())) {
       unsigned Len = T->getNumElements();
@@ -2189,27 +2188,38 @@ void insertPrintf(const Twine &Prefix, Instruction *IP,
     Type *T = V->getType();
     if (T->isIntegerTy())
       if (!T->isIntegerTy(32))
-        V = CastInst::CreateIntegerCast(V, Type::getInt32Ty(V->getContext()),
-                                        false, V->getName() + "cast.", IP);
+        V = Builder.CreateIntCast(V, Builder.getInt32Ty(), false,
+                                  V->getName() + "cast.");
     FormatStr += getFormatStr(V);
     TempInputsCast.push_back(V);
   }
   FormatStr += "\n";
 
   Constant *StrVal =
-      ConstantDataArray::getString(IP->getContext(), FormatStr, true);
+      ConstantDataArray::getString(BB->getContext(), FormatStr, true);
   auto *ArrayType = StrVal->getType();
   auto *FormatStrGV = new GlobalVariable(
-      *IP->getModule(), ArrayType, true, GlobalValue::InternalLinkage, StrVal,
+      *BB->getModule(), ArrayType, true, GlobalValue::InternalLinkage, StrVal,
       "format.str.", 0, GlobalVariable::NotThreadLocal, StrAddrSpace);
 
-  SmallVector<Value *, 2> Idx(2, Builder.getInt32(0));
-  auto *StrPtr = GetElementPtrInst::Create(ArrayType, FormatStrGV, Idx, "", IP);
+  auto *StrPtr = Builder.CreateConstGEP2_32(ArrayType, FormatStrGV, 0, 0);
 
   // Insert call.
   SmallVector<Value *, 4> Args{StrPtr};
   Args.append(TempInputsCast.begin(), TempInputsCast.end());
   Builder.CreateCall(PrintFunc, Args, "PRINT.");
+}
+
+void insertPrintf(const Twine &Prefix, Instruction *IP,
+                  ArrayRef<Value *> Inputs) {
+  IRBuilder<> Builder(IP);
+  insertPrintf(Prefix, Builder, Inputs);
+}
+
+void insertPrintf(const Twine &Prefix, BasicBlock *BB,
+                  ArrayRef<Value *> Inputs) {
+  IRBuilder<> Builder(BB);
+  insertPrintf(Prefix, Builder, Inputs);
 }
 
 bool isValidMatrixType(FixedVectorType *MatrixType) {
