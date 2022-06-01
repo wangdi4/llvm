@@ -165,7 +165,7 @@ static cl::opt<bool> CompatibilitySLPMode(
 // FIXME: This is a hack because SLPCostThreshold is adjustable and if it gets a
 // value higher than this, it can still trigger vectorization. This happens in
 // SLPVectorizer lit tests such as call.ll.
-#define FORBIDEN_TINY_TREE 666666
+#define FORBIDEN_TINY_TREE 1000001
 
 // NOTE: This is a quick hack for following the best path (left or right branch)
 // while buildTree_rec(). Ideally we would like to explore both orderings and
@@ -13752,12 +13752,6 @@ public:
     return VectorizedTree;
   }
 
-#if INTEL_CUSTOMIZATION
-  ArrayRef<SmallVector<Value *>> getReducedVals() const {
-    return makeArrayRef(ReducedVals);
-  }
-#endif // INTEL_CUSTOMIZATION
-
 private:
   /// Calculate the cost of a reduction.
   InstructionCost getReductionCost(TargetTransformInfo *TTI,
@@ -14091,12 +14085,9 @@ static bool tryToVectorizeHorReductionOrInstOperands(
   SmallPtrSet<Value *, 8> VisitedInstrs;
   SmallVector<WeakTrackingVH> PostponedInsts;
   bool Res = false;
-#if INTEL_CUSTOMIZATION
-  auto &&TryToReduce =
-      [TTI, &SE, &DL, &P, &R,
-       &TLI](Instruction *Inst, Value *&B0, Value *&B1,
-             SmallVector<SmallVector<Value *>> &ReducedVals) -> Value * {
-#endif // INTEL_CUSTOMIZATION
+  auto &&TryToReduce = [TTI, &SE, &DL, &P, &R, &TLI](Instruction *Inst,
+                                                     Value *&B0,
+                                                     Value *&B1) -> Value * {
     if (R.isAnalyzedReductionRoot(Inst))
       return nullptr;
     bool IsBinop = matchRdxBop(Inst, B0, B1);
@@ -14105,10 +14096,6 @@ static bool tryToVectorizeHorReductionOrInstOperands(
       HorizontalReduction HorRdx;
       if (HorRdx.matchAssociativeReduction(P, Inst, SE, DL, TLI))
         return HorRdx.tryToReduce(R, TTI);
-#if INTEL_CUSTOMIZATION
-      ArrayRef<SmallVector<Value *>> Values = HorRdx.getReducedVals();
-      ReducedVals.assign(Values.begin(), Values.end());
-#endif // INTEL_CUSTOMIZATION
     }
     return nullptr;
   };
@@ -14122,30 +14109,13 @@ static bool tryToVectorizeHorReductionOrInstOperands(
     // iteration while stack was populated before that happened.
     if (R.isDeleted(Inst))
       continue;
-#if INTEL_CUSTOMIZATION
-    Value *RedV;
-    SmallVector<SmallVector<Value *>> ReducedVals;
     Value *B0 = nullptr, *B1 = nullptr;
-    if (RedV = TryToReduce(Inst, B0, B1, ReducedVals)) {
+    if (Value *V = TryToReduce(Inst, B0, B1)) {
       Res = true;
-    } else {
-      RedV = nullptr;
-      // If reduced values are comparisons then we want to direct
-      // vectorizer first to make attempt to vectorize pair which
-      // are operands of a same cmp instruction.
-      for (ArrayRef<Value *> Candidates : ReducedVals) {
-        for (Value *V : Candidates)
-          if (isa<CmpInst>(V) && VisitedInstrs.insert(V).second &&
-              Vectorize(cast<Instruction>(V), R))
-            Res = true;
-      }
-    }
-    if (Res) {
-#endif // INTEL_CUSTOMIZATION
       // Set P to nullptr to avoid re-analysis of phi node in
       // matchAssociativeReduction function unless this is the root node.
       P = nullptr;
-      if (auto *I = dyn_cast_or_null<Instruction>(RedV)) { // INTEL
+      if (auto *I = dyn_cast<Instruction>(V)) {
         // Try to find another reduction.
         Stack.emplace(I, Level);
         continue;
