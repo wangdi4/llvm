@@ -128,11 +128,11 @@ static bool isRecProgressionCloneArgument1(bool TestCountForConstant,
   };
 
   //
-  // Given 'BS' and 'BT', which dominates 'BS', and 'LI', check if 'BT'
-  // terminates in a test of 'LI' against a constant 'CI' which exits
+  // Given 'BS' and 'BT', which dominates 'BS', and 'VB', check if 'BT'
+  // terminates in a test of 'VB' against a constant 'CI' which exits
   // 'BT' on a path that always avoids 'BS'. If so, return 'CI'.
   //
-  auto ExitValue = [&GenOutBlocks](LoadInst *LI, BasicBlock *BT,
+  auto ExitValue = [&GenOutBlocks](Value *VB, BasicBlock *BT,
                                    BasicBlock *BS) -> ConstantInt * {
     SmallPtrSet<BasicBlock *, 10> OutBlocks;
     auto TI = BT->getTerminator();
@@ -152,15 +152,15 @@ static bool isRecProgressionCloneArgument1(bool TestCountForConstant,
            P == ICmpInst::ICMP_EQ) ||
           (OutBlocks.count(BBTrue) && !OutBlocks.count(BBFalse) &&
            P == ICmpInst::ICMP_NE)) {
-        if (CMI->getOperand(0) == LI)
+        if (CMI->getOperand(0) == VB)
           ECI = dyn_cast<ConstantInt>(CMI->getOperand(1));
-        else if (CMI->getOperand(1) == LI)
+        else if (CMI->getOperand(1) == VB)
           ECI = dyn_cast<ConstantInt>(CMI->getOperand(0));
       }
     }
     auto SI = dyn_cast<SwitchInst>(TI);
     if (SI) {
-      if (SI->getCondition() != LI)
+      if (SI->getCondition() != VB)
         return nullptr;
       GenOutBlocks(BT, BS, OutBlocks);
       if (!OutBlocks.count(SI->getDefaultDest()))
@@ -195,17 +195,21 @@ static bool isRecProgressionCloneArgument1(bool TestCountForConstant,
   // Validate the form of the recursive progression.
   AllocaInst *LAV = nullptr;
   StoreInst *SI = nullptr;
-  for (User *U : LI->users()) {
+  Value *VB = LI;
+  if (LI->hasOneUser())
+    if (auto FI = dyn_cast<FreezeInst>(LI->user_back()))
+      VB = FI;
+  for (User *U : VB->users()) {
     auto BIT = dyn_cast<BinaryOperator>(U);
     if (!BIT || BIT->getOpcode() != Instruction::Add)
       continue;
     auto CIT = dyn_cast<ConstantInt>(BIT->getOperand(0));
     if (CIT) {
-      if (BIT->getOperand(1) != LI)
+      if (BIT->getOperand(1) != VB) 
         continue;
     } else {
       CIT = dyn_cast<ConstantInt>(BIT->getOperand(1));
-      if (BIT->getOperand(0) != LI)
+      if (BIT->getOperand(0) != VB)
         continue;
     }
     if (!CIT)
@@ -295,7 +299,7 @@ static bool isRecProgressionCloneArgument1(bool TestCountForConstant,
     return false;
   for (DTN = DTN->getIDom(); DTN; DTN = DTN->getIDom()) {
     BasicBlock *BT = DTN->getBlock();
-    ECI = ExitValue(LI, BT, BP);
+    ECI = ExitValue(VB, BT, BP);
     if (ECI)
       break;
   }
@@ -503,7 +507,6 @@ extern bool isRecProgressionCloneCandidate(Function &F,
   bool LocalIsByRef;
   Type *LocalArgType = nullptr;
   bool LocalIsCyclic;
-
   for (auto &Arg : F.args()) {
     if (isRecProgressionCloneArgument(TestCountForConstant, Arg, LocalCount,
                                       LocalStart, LocalInc, LocalIsByRef,
