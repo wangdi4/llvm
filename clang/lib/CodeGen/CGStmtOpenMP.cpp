@@ -5981,6 +5981,15 @@ static std::pair<bool, RValue> emitOMPAtomicRMW(CodeGenFunction &CGF, LValue X,
     if (T->isIntegerTy())
       return true;
 
+#if INTEL_COLLAB
+    // INTEL atomic fadd/fsub not supported with SPIR-V. See CMPLRLLVM-37966.
+    llvm::Triple::ArchType AT =
+        CGF.getContext().getTargetInfo().getTriple().getArch();
+    if (T->isFloatingPointTy() &&
+        (AT == llvm::Triple::spir64 || AT == llvm::Triple::spir))
+      return false;
+#endif // INTEL_COLLAB
+
     if (T->isFloatingPointTy() && (BO == BO_Add || BO == BO_Sub))
       return llvm::isPowerOf2_64(CGF.CGM.getDataLayout().getTypeStoreSize(T));
 
