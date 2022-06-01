@@ -18,6 +18,7 @@
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelArgType.h"
@@ -684,6 +685,10 @@ void initializeVectInfoOnce(
 
 /// Insert printf in the kernel for debug purpose.
 void insertPrintf(const Twine &Prefix, Instruction *IP,
+                  ArrayRef<Value *> Inputs = None);
+void insertPrintf(const Twine &Prefix, BasicBlock *BB,
+                  ArrayRef<Value *> Inputs = None);
+void insertPrintf(const Twine &Prefix, IRBuilder<> &Builder,
                   ArrayRef<Value *> Inputs = None);
 
 /// Check whether the given FixedVectorType represents a valid SYCL matrix.
