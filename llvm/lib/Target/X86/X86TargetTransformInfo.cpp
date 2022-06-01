@@ -5676,8 +5676,8 @@ InstructionCost X86TTIImpl::getGatherScatterOpCost(
 }
 #endif // INTEL_CUSTOMIZATION
 
-bool X86TTIImpl::isLSRCostLess(TargetTransformInfo::LSRCost &C1,
-                               TargetTransformInfo::LSRCost &C2) {
+bool X86TTIImpl::isLSRCostLess(const TargetTransformInfo::LSRCost &C1,
+                               const TargetTransformInfo::LSRCost &C2) {
     // X86 specific here are "instruction number 1st priority".
     return std::tie(C1.Insns, C1.NumRegs, C1.AddRecCost,
                     C1.NumIVMuls, C1.NumBaseAdds,

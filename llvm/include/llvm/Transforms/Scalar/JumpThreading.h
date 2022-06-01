@@ -150,7 +150,6 @@ class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
 
   unsigned BBDupThreshold;
   unsigned DefaultBBDupThreshold;
-  bool InsertFreezeWhenUnfoldingSelect;
 
 #if INTEL_CUSTOMIZATION
   // Jump threading performs several CFG simplifications that are not
@@ -170,8 +169,8 @@ class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
 #endif // INTEL_CUSTOMIZATION
 
 public:
-  JumpThreadingPass(bool InsertFreezeWhenUnfoldingSelect = true,  // INTEL
-                    int T = -1, bool AllowCFGSimps = true);       // INTEL
+  JumpThreadingPass(int T = -1, // INTEL
+                    bool AllowCFGSimps = true); // INTEL
 
   // Glue for old PM.
   bool runImpl(Function &F, TargetLibraryInfo *TLI, TargetTransformInfo *TTI,

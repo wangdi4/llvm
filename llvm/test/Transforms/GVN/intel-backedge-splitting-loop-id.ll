@@ -1,4 +1,4 @@
-; RUN: opt < %s -gvn -S | FileCheck %s
+; RUN: opt < %s -gvn -enable-split-backedge-in-load-pre -S | FileCheck %s
 
 ; Verify that loop id gets duplicated to the new basic block when the backedge
 ; is split by GVN.

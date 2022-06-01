@@ -1577,8 +1577,10 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
   // IP ArrayTranspose is enabled.
   addInstCombinePass(GlobalCleanupPM, !DTransEnabled);
+  // We may consider passing "false" to the AllowCFGSimps arg here,
+  // as originally intended. See IPO/PassManagerBuilder.cpp for details.
   if (EarlyJumpThreading && !SYCLOptimizationMode)
-    GlobalCleanupPM.addPass(JumpThreadingPass(/*FreezeSelectCond*/ false));
+    GlobalCleanupPM.addPass(JumpThreadingPass());
 #endif // INTEL_CUSTOMIZATION
   invokePeepholeEPCallbacks(GlobalCleanupPM, Level);
 
@@ -3089,7 +3091,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   addInstCombinePass(FPM, !DTransEnabled); // INTEL
   invokePeepholeEPCallbacks(FPM, Level);
 
-  FPM.addPass(JumpThreadingPass(/*InsertFreezeWhenUnfoldingSelect*/ true));
+  FPM.addPass(JumpThreadingPass());
 
 #if INTEL_CUSTOMIZATION
   // Handle '#pragma vector aligned'.
@@ -3232,8 +3234,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
       createModuleToPostOrderCGSCCPassAdaptor(OpenMPOptCGSCCPass()));
 
   invokePeepholeEPCallbacks(MainFPM, Level);
-  MainFPM.addPass(JumpThreadingPass(/*InsertFreezeWhenUnfoldingSelect*/ true));
 
+  MainFPM.addPass(JumpThreadingPass());
 #if INTEL_CUSTOMIZATION
   MainFPM.addPass(ForcedCMOVGenerationPass()); // To help CMOV generation
 #endif // INTEL_CUSTOMIZATION
