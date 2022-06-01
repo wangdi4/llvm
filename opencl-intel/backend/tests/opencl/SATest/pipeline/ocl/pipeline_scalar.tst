@@ -332,7 +332,9 @@
 ; CHECK: Running pass: DSEPass
 
 ; CHECK: Running pass: EarlyCSEPass
-; CHECK-NEXT: Running pass: DCEPass
+; CHECK-NEXT: Running pass: GVNPass
+
+; CHECK: Running pass: DCEPass
 
 ; CHECK: Running pass: SimplifyCFGPass
 
@@ -343,6 +345,8 @@
 ; CHECK: Running pass: DSEPass
 
 ; CHECK: Running pass: EarlyCSEPass
+
+; CHECK: Running pass: GVNPass
 
 ; CHECK: Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis

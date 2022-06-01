@@ -446,7 +446,9 @@
 ; CHECK-NEXT: Running pass: DSEPass
 
 ; CHECK: Running pass: EarlyCSEPass
-; CHECK-NEXT: Running pass: DCEPass
+; CHECK-NEXT: Running pass: GVNPass
+
+; CHECK: Running pass: DCEPass
 
 ; CHECK: Running pass: SimplifyCFGPass
 
