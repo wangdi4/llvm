@@ -55,11 +55,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
-<<<<<<< HEAD
 #include "llvm/InitializePasses.h"  // INTEL
-=======
 #include "llvm/Linker/Linker.h"
->>>>>>> 8c7bb455491749861fdef0d7f349194dd51f2549
 #include "llvm/SYCLLowerIR/ESIMD/LowerESIMD.h"
 #include "llvm/SYCLLowerIR/LowerInvokeSimd.h"
 #include "llvm/Support/CommandLine.h"
@@ -658,20 +655,6 @@ std::string saveModuleProperties(module_split::ModuleDesc &MD,
   return SCFile;
 }
 
-<<<<<<< HEAD
-// TODO: This is temporary edit. The version with no INTEL flag
-// will be added to intel/llvm.
-#if INTEL_CUSTOMIZATION
-#define CHECK_AND_EXIT(E)                                                      \
-  {                                                                            \
-    Error LocE = E;                                                            \
-    if (LocE) {                                                                \
-      logAllUnhandledErrors(std::move(LocE), WithColor::error(errs()));        \
-      return 1;                                                                \
-    }                                                                          \
-  }
-#endif
-=======
 // Saves specified collection of symbols to a file.
 std::string saveModuleSymbolTable(const module_split::EntryPointVec &Es, int I,
                                   StringRef Suffix) {
@@ -701,19 +684,14 @@ bool lowerInvokeSimd(Module &M) {
   MPM.add(createSYCLLowerInvokeSimdPass());
   return MPM.run(M);
 }
->>>>>>> 8c7bb455491749861fdef0d7f349194dd51f2549
 
 // When ESIMD code was separated from the regular SYCL code,
 // we can safely process ESIMD part.
 // TODO: support options like -debug-pass, -print-[before|after], and others
-<<<<<<< HEAD
-void lowerEsimdConstructs(Module &M) {
+bool lowerEsimdConstructs(module_split::ModuleDesc &MD) {
 #if INTEL_CUSTOMIZATION
   initializeXmainOptLevelWrapperPassPass(*PassRegistry::getPassRegistry());
 #endif // INTEL_CUSTOMIZATION
-=======
-bool lowerEsimdConstructs(module_split::ModuleDesc &MD) {
->>>>>>> 8c7bb455491749861fdef0d7f349194dd51f2549
   legacy::PassManager MPM;
   MPM.add(createSYCLLowerESIMDPass());
   if (!OptLevelO0) {
@@ -917,13 +895,14 @@ processInputModule(std::unique_ptr<Module> M) {
   // and these declarations cause an assertion in llvm-spirv. To workaround this
   // issue remove "llvm.used" from the input module before performing any other
   // actions.
-<<<<<<< HEAD
-  bool IsLLVMUsedRemoved = false;
-  if (GlobalVariable *GV = M->getGlobalVariable("llvm.used"))
-    IsLLVMUsedRemoved = removeSYCLKernelsConstRefArray(GV);
+  Modified |= removeSYCLKernelsConstRefArray(*M.get());
 
-  if (IsEsimd && LowerEsimd)
-    lowerEsimdConstructs(*M);
+  // Do invoke_simd processing before splitting because this:
+  // - saves processing time (the pass is run once, even though on larger IR)
+  // - doing it before SYCL/ESIMD splitting is required for correctness
+  Modified |= lowerInvokeSimd(*M);
+
+  DUMP_ENTRY_POINTS(*M, EmitOnlyKernelsAsEntryPoints, "Input");
 
 #if INTEL_COLLAB
   bool DoLinkOmpOffloadEntries =
@@ -955,55 +934,6 @@ processInputModule(std::unique_ptr<Module> M) {
   }
 #endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
-
-  module_split::IRSplitMode Mode = (SplitMode.getNumOccurrences() > 0)
-                                       ? SplitMode
-                                       : module_split::SPLIT_NONE;
-  std::unique_ptr<module_split::ModuleSplitterBase> MSplit =
-      module_split::getSplitterByMode(std::move(M), Mode, IROutputOnly,
-                                      EmitOnlyKernelsAsEntryPoints,
-                                      DeviceGlobals);
-
-  StringRef FileSuffix = IsEsimd ? "esimd_" : "";
-
-  for (size_t I = 0; I < MSplit->totalSplits(); ++I) {
-    module_split::ModuleDesc ResMDesc = MSplit->nextSplit();
-    Module &ResM = ResMDesc.getModule();
-
-    bool SpecConstsMet = processSpecConstants(ResM);
-    bool CompileTimePropertiesMet = processCompileTimeProperties(ResM);
-
-    if (IROutputOnly) {
-      // the result is the transformed input LLVM IR file rather than a file
-      // table
-      saveModuleIR(ResM, OutputFilename);
-      return TblFiles;
-    }
-
-    {
-      // Reuse input module with only regular SYCL kernels if there were
-      // no spec constants and no splitting.
-      // We cannot reuse input module for ESIMD code since it was transformed.
-      std::string ResModuleFile{};
-      bool CanReuseInputModule = !SyclAndEsimdCode && !IsEsimd &&
-                                 !IsLLVMUsedRemoved && !SpecConstsMet &&
-                                 !CompileTimePropertiesMet &&
-                                 (MSplit->totalSplits() == 1);
-      if (CanReuseInputModule)
-        ResModuleFile = InputFilename;
-      else {
-        ResModuleFile =
-            makeResultFileName((OutputAssembly) ? ".ll" : ".bc", I, FileSuffix);
-        saveModuleIR(ResM, ResModuleFile);
-=======
-  Modified |= removeSYCLKernelsConstRefArray(*M.get());
-
-  // Do invoke_simd processing before splitting because this:
-  // - saves processing time (the pass is run once, even though on larger IR)
-  // - doing it before SYCL/ESIMD splitting is required for correctness
-  Modified |= lowerInvokeSimd(*M);
-
-  DUMP_ENTRY_POINTS(*M, EmitOnlyKernelsAsEntryPoints, "Input");
 
   // --ir-output-only assumes single module output thus no code splitting.
   // Violation of this invariant is user error and must've been reported.
@@ -1050,7 +980,6 @@ processInputModule(std::unique_ptr<Module> M) {
       if (!MDesc1.isSYCL() && LowerEsimd) {
         assert(MDesc1.isESIMD() && "NYI");
         Modified |= lowerEsimdConstructs(MDesc1);
->>>>>>> 8c7bb455491749861fdef0d7f349194dd51f2549
       }
       MMs.emplace_back(std::move(MDesc1));
     }
@@ -1200,13 +1129,9 @@ int main(int argc, char **argv) {
       !DoLinkOmpOffloadEntries && !DoMakeOmpGlobalsStatic &&
 #else  // INTEL_COLLAB
   if (!DoSplit && !DoSpecConst && !DoSymGen && !DoParamInfo &&
-<<<<<<< HEAD
 #endif // INTEL_COLLAB
-      !DoProgMetadata && !DoSplitEsimd && !DoExportedSyms && !DoDeviceGlobals) {
-=======
       !DoProgMetadata && !DoSplitEsimd && !DoExportedSyms && !DoDeviceGlobals &&
       !DoLowerEsimd) {
->>>>>>> 8c7bb455491749861fdef0d7f349194dd51f2549
     errs() << "no actions specified; try --help for usage info\n";
     return 1;
   }

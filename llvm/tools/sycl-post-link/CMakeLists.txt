@@ -34,6 +34,7 @@ set(LLVM_LINK_COMPONENTS
   IRReader
   Support
 # INTEL_CUSTOMIZATION
+  Linker
   GenXIntrinsics
   VPOTransforms
 # end INTEL_CUSTOMIZATION
