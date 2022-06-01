@@ -171,15 +171,9 @@ define i32 @PR12375(i32* readnone %arg) {
 ; CHECK-NEXT:    %tmp2 = phi i32* [ %arg, %bb ], [ %tmp5, %bb1 ]
 ; CHECK-NEXT:    --> {%arg,+,4}<nuw><%bb1> U: full-set S: full-set Exits: (4 + %arg)<nuw> LoopDispositions: { %bb1: Computable }
 ; CHECK-NEXT:    %tmp3 = phi i32 [ 0, %bb ], [ %tmp4, %bb1 ]
-<<<<<<< HEAD
-; CHECK-NEXT:    --> {0,+,1}<nuw><nsw><%bb1> U: [0,2) S: [0,2) Exits: (trunc i64 ((-1 + (-1 * (ptrtoint i32* %arg to i64)) + ((4 + (ptrtoint i32* %arg to i64)) umax (8 + (ptrtoint i32* %arg to i64)))) /u 4) to i32) LoopDispositions: { %bb1: Computable }
+; CHECK-NEXT:    --> {0,+,1}<nuw><nsw><%bb1> U: [0,2) S: [0,2) Exits: 1 LoopDispositions: { %bb1: Computable }
 ; CHECK-NEXT:    %tmp4 = add nsw i32 %tmp3, 1
-; CHECK-NEXT:    --> {1,+,1}<nuw><nsw><%bb1> U: [1,3) S: [1,3) Exits: (1 + (trunc i64 ((-1 + (-1 * (ptrtoint i32* %arg to i64)) + ((4 + (ptrtoint i32* %arg to i64)) umax (8 + (ptrtoint i32* %arg to i64)))) /u 4) to i32)) LoopDispositions: { %bb1: Computable }
-=======
-; CHECK-NEXT:    --> {0,+,1}<nuw><nsw><%bb1> U: [0,-2147483648) S: [0,-2147483648) Exits: 1 LoopDispositions: { %bb1: Computable }
-; CHECK-NEXT:    %tmp4 = add nsw i32 %tmp3, 1
-; CHECK-NEXT:    --> {1,+,1}<nuw><%bb1> U: [1,0) S: [1,0) Exits: 2 LoopDispositions: { %bb1: Computable }
->>>>>>> 03aceab08bc9439e454d827bd1ffc94659c2c510
+; CHECK-NEXT:    --> {1,+,1}<nuw><nsw><%bb1> U: [1,3) S: [1,3) Exits: 2 LoopDispositions: { %bb1: Computable }
 ; CHECK-NEXT:    %tmp5 = getelementptr inbounds i32, i32* %tmp2, i64 1
 ; CHECK-NEXT:    --> {(4 + %arg)<nuw>,+,4}<nuw><%bb1> U: [4,0) S: [4,0) Exits: (8 + %arg)<nuw> LoopDispositions: { %bb1: Computable }
 ; CHECK-NEXT:  Determining loop execution counts for: @PR12375
@@ -282,11 +276,7 @@ define void @test4(i32 %arg) {
 ; CHECK-NEXT:    %sub = add nsw i32 %index, -2
 ; CHECK-NEXT:    --> {(-2 + %arg)<nsw>,+,1}<nsw><%for.body> U: full-set S: full-set Exits: (-3 + (10 smax (1 + %arg)<nsw>))<nsw> LoopDispositions: { %for.body: Computable }
 ; CHECK-NEXT:    %idxprom = sext i32 %sub to i64
-<<<<<<< HEAD
-; CHECK-NEXT:    --> {(-2 + (sext i32 %arg to i64))<nsw>,+,1}<nsw><%for.body> U: [-2147483650,4294967304) S: [-2147483650,4294967304) Exits: (-2 + (zext i32 (-1 + (-1 * %arg) + (10 smax (1 + %arg))) to i64) + (sext i32 %arg to i64))<nsw> LoopDispositions: { %for.body: Computable }
-=======
-; CHECK-NEXT:    --> {(-2 + (sext i32 %arg to i64))<nsw>,+,1}<nsw><%for.body> U: [-2147483650,4294967304) S: [-2147483650,4294967304) Exits: (-2 + (zext i32 (-1 + (-1 * %arg) + (10 smax (1 + %arg)<nsw>)) to i64) + (sext i32 %arg to i64)) LoopDispositions: { %for.body: Computable }
->>>>>>> 03aceab08bc9439e454d827bd1ffc94659c2c510
+; CHECK-NEXT:    --> {(-2 + (sext i32 %arg to i64))<nsw>,+,1}<nsw><%for.body> U: [-2147483650,4294967304) S: [-2147483650,4294967304) Exits: (-2 + (zext i32 (-1 + (-1 * %arg) + (10 smax (1 + %arg)<nsw>)) to i64) + (sext i32 %arg to i64))<nsw> LoopDispositions: { %for.body: Computable }
 ; CHECK-NEXT:    %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* %array, i64 0, i64 %idxprom
 ; CHECK-NEXT:    --> {(-8 + (4 * (sext i32 %arg to i64))<nsw> + %array),+,4}<nw><%for.body> U: [0,-3) S: [-9223372036854775808,9223372036854775805) Exits: (-8 + (4 * (zext i32 (-1 + (-1 * %arg) + (10 smax (1 + %arg)<nsw>)) to i64))<nuw><nsw> + (4 * (sext i32 %arg to i64))<nsw> + %array) LoopDispositions: { %for.body: Computable }
 ; CHECK-NEXT:    %data = load i32, i32* %arrayidx, align 4

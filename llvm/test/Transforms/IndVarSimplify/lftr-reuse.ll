@@ -64,11 +64,7 @@ for.end:
 define void @expandOuterRecurrence(i32 %arg) nounwind {
 ; CHECK-LABEL: @expandOuterRecurrence(
 ; CHECK-NEXT:  entry:
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[SUB1:%.*]] = sub nsw i32 [[ARG:%.*]], 1 ;INTEL
-=======
-; CHECK-NEXT:    [[SUB1:%.*]] = sub nsw i32 [[ARG:%.*]], 1
->>>>>>> 03aceab08bc9439e454d827bd1ffc94659c2c510
 ; CHECK-NEXT:    [[CMP1:%.*]] = icmp slt i32 0, [[SUB1]]
 ; CHECK-NEXT:    br i1 [[CMP1]], label [[OUTER_PREHEADER:%.*]], label [[EXIT:%.*]]
 ; CHECK:       outer.preheader:
