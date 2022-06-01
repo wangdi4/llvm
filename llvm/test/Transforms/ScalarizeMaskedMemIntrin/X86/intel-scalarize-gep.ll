@@ -35,15 +35,18 @@ header:
 define dso_local <2 x i32> @test_gather_load(i64 %offset, <2 x i64>* %index_ptr) local_unnamed_addr {
 ; CHECK-LABEL: @test_gather_load(
 ; CHECK-NEXT:  header:
-; CHECK-NEXT:    [[INDEX:%.*]] = load <2 x i64>, <2 x i64>* [[INDEX_PTR:%.*]], align 16
-; CHECK-NEXT:    [[TMP0:%.*]] = extractelement <2 x i64> [[INDEX]], i64 0
-; CHECK-NEXT:    [[TMP1:%.*]] = add i64 [[TMP0]], 0
-; CHECK-NEXT:    [[PTR0:%.*]] = getelementptr [10240 x [10240 x i32]], [10240 x [10240 x i32]]* @a, i64 0, i64 [[TMP1]], i64 0
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <2 x i64>* [[INDEX_PTR:%.*]] to i64*
+; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr i64, i64* [[TMP0]], i32 0
+; CHECK-NEXT:    [[TMP2:%.*]] = load i64, i64* [[TMP1]], align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = add i64 [[TMP2]], 0
+; CHECK-NEXT:    [[PTR0:%.*]] = getelementptr [10240 x [10240 x i32]], [10240 x [10240 x i32]]* @a, i64 0, i64 [[TMP3]], i64 0
 ; CHECK-NEXT:    [[LOAD0:%.*]] = load i32, i32* [[PTR0]], align 4
 ; CHECK-NEXT:    [[RES0:%.*]] = insertelement <2 x i32> undef, i32 [[LOAD0]], i64 0
-; CHECK-NEXT:    [[TMP2:%.*]] = extractelement <2 x i64> [[INDEX]], i64 1
-; CHECK-NEXT:    [[TMP3:%.*]] = add i64 [[TMP2]], 1
-; CHECK-NEXT:    [[PTR1:%.*]] = getelementptr [10240 x [10240 x i32]], [10240 x [10240 x i32]]* @a, i64 0, i64 [[TMP3]], i64 0
+; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <2 x i64>* [[INDEX_PTR]] to i64*
+; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr i64, i64* [[TMP4]], i32 1
+; CHECK-NEXT:    [[TMP6:%.*]] = load i64, i64* [[TMP5]], align 8
+; CHECK-NEXT:    [[TMP7:%.*]] = add i64 [[TMP6]], 1
+; CHECK-NEXT:    [[PTR1:%.*]] = getelementptr [10240 x [10240 x i32]], [10240 x [10240 x i32]]* @a, i64 0, i64 [[TMP7]], i64 0
 ; CHECK-NEXT:    [[LOAD1:%.*]] = load i32, i32* [[PTR1]], align 4
 ; CHECK-NEXT:    [[RES1:%.*]] = insertelement <2 x i32> [[RES0]], i32 [[LOAD1]], i64 1
 ; CHECK-NEXT:    ret <2 x i32> [[RES1]]
@@ -85,16 +88,19 @@ header:
 define dso_local void @test_scatter_load(i64 %offset, <2 x i32> %data, <2 x i64>* %index_ptr) local_unnamed_addr {
 ; CHECK-LABEL: @test_scatter_load(
 ; CHECK-NEXT:  header:
-; CHECK-NEXT:    [[INDEX:%.*]] = load <2 x i64>, <2 x i64>* [[INDEX_PTR:%.*]], align 16
 ; CHECK-NEXT:    [[ELT0:%.*]] = extractelement <2 x i32> [[DATA:%.*]], i64 0
-; CHECK-NEXT:    [[TMP0:%.*]] = extractelement <2 x i64> [[INDEX]], i64 0
-; CHECK-NEXT:    [[TMP1:%.*]] = sub i64 [[TMP0]], 0
-; CHECK-NEXT:    [[PTR0:%.*]] = getelementptr [10240 x [10240 x i32]], [10240 x [10240 x i32]]* @a, i64 0, i64 [[TMP1]], i64 0
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <2 x i64>* [[INDEX_PTR:%.*]] to i64*
+; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr i64, i64* [[TMP0]], i32 0
+; CHECK-NEXT:    [[TMP2:%.*]] = load i64, i64* [[TMP1]], align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = sub i64 [[TMP2]], 0
+; CHECK-NEXT:    [[PTR0:%.*]] = getelementptr [10240 x [10240 x i32]], [10240 x [10240 x i32]]* @a, i64 0, i64 [[TMP3]], i64 0
 ; CHECK-NEXT:    store i32 [[ELT0]], i32* [[PTR0]], align 4
 ; CHECK-NEXT:    [[ELT1:%.*]] = extractelement <2 x i32> [[DATA]], i64 1
-; CHECK-NEXT:    [[TMP2:%.*]] = extractelement <2 x i64> [[INDEX]], i64 1
-; CHECK-NEXT:    [[TMP3:%.*]] = sub i64 [[TMP2]], 1
-; CHECK-NEXT:    [[PTR1:%.*]] = getelementptr [10240 x [10240 x i32]], [10240 x [10240 x i32]]* @a, i64 0, i64 [[TMP3]], i64 0
+; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <2 x i64>* [[INDEX_PTR]] to i64*
+; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr i64, i64* [[TMP4]], i32 1
+; CHECK-NEXT:    [[TMP6:%.*]] = load i64, i64* [[TMP5]], align 8
+; CHECK-NEXT:    [[TMP7:%.*]] = sub i64 [[TMP6]], 1
+; CHECK-NEXT:    [[PTR1:%.*]] = getelementptr [10240 x [10240 x i32]], [10240 x [10240 x i32]]* @a, i64 0, i64 [[TMP7]], i64 0
 ; CHECK-NEXT:    store i32 [[ELT1]], i32* [[PTR1]], align 4
 ; CHECK-NEXT:    ret void
 ;

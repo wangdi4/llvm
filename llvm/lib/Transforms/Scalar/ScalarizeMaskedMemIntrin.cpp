@@ -631,9 +631,26 @@ static bool isSplatAndConst(Value *V, unsigned Depth, unsigned &LoadCount,
     ++LoadCount;
     if (LoadCount <= MaxLoads)
       return true;
-  } else if (auto ZExt = dyn_cast<ZExtInst>(V))
-    return isSplatAndConst(ZExt->getOperand(0), Depth + 1, LoadCount,
+  } else if (isa<SExtInst>(V) || isa<ZExtInst>(V)) {
+    auto *Ext = cast<CastInst>(V);
+    return isSplatAndConst(Ext->getOperand(0), Depth + 1, LoadCount, ConstCount,
+                           ScalarCount);
+  } else if (auto Shuf = dyn_cast<ShuffleVectorInst>(V)) {
+    auto *SrcTy = dyn_cast<FixedVectorType>(Shuf->getOperand(0)->getType());
+    if (!SrcTy)
+      return false;
+
+    int NumSrcElts = SrcTy->getNumElements();
+    auto ShufMask = Shuf->getShuffleMask();
+    for (int I = 0, NumElts = ShufMask.size(); I < NumElts; ++I) {
+      if (ShufMask[I] == -1)
+        continue;
+      if (NumSrcElts < ShufMask[I])
+        return false;
+    }
+    return isSplatAndConst(Shuf->getOperand(0), Depth + 1, LoadCount,
                            ConstCount, ScalarCount);
+  }
 
   return false;
 }
@@ -667,15 +684,30 @@ static Value *createSplatAndConstExpr(Value *V, unsigned Element,
     if (createBinOpExpr(LHS, RHS, Element, Builder) ||
         createBinOpExpr(RHS, LHS, Element, Builder))
       return Builder.CreateBinOp(Bin->getOpcode(), LHS, RHS);
-  } else if (auto ZExt = dyn_cast<ZExtInst>(V)) {
-    auto Src = createSplatAndConstExpr(ZExt->getOperand(0), Element, Builder);
-    auto DstTy = dyn_cast<VectorType>(ZExt->getType());
+  } else if (isa<SExtInst>(V) || isa<ZExtInst>(V)) {
+    auto *Ext = cast<CastInst>(V);
+    Value *Src = createSplatAndConstExpr(Ext->getOperand(0), Element, Builder);
+    auto *DstTy = dyn_cast<VectorType>(Ext->getType());
     assert(DstTy && "DstTy must be ");
-    auto ScalarDstTy = DstTy->getElementType();
-    return Builder.CreateZExt(Src, ScalarDstTy);
-  } else if (auto Load = dyn_cast<LoadInst>(V))
-    return Builder.CreateExtractElement(Load, Element);
-
+    Type *ScalarDstTy = DstTy->getElementType();
+    return Builder.CreateCast(Ext->getOpcode(), Src, ScalarDstTy);
+  } else if (auto Shuf = dyn_cast<ShuffleVectorInst>(V)) {
+    auto ShufMask = Shuf->getShuffleMask();
+    auto ShufTy = cast<FixedVectorType>(Shuf->getOperand(0)->getType());
+    if (ShufMask[Element] == -1)
+      return UndefValue::get(ShufTy->getElementType());
+    return createSplatAndConstExpr(Shuf->getOperand(0), ShufMask[Element],
+                                   Builder);
+  } else if (auto Load = dyn_cast<LoadInst>(V)) {
+    Value *Ptrs = Load->getPointerOperand();
+    auto *PtrsTy = cast<PointerType>(Ptrs->getType());
+    auto *DataTy = cast<FixedVectorType>(Load->getType());
+    Type *ElemTy = DataTy->getElementType();
+    auto *NewPtrTy = PointerType::get(ElemTy, PtrsTy->getAddressSpace());
+    Value *NewPtr = Builder.CreateBitCast(Ptrs, NewPtrTy);
+    Value *NewGEP = Builder.CreateConstGEP1_32(ElemTy, NewPtr, Element);
+    return Builder.CreateLoad(ElemTy, NewGEP);
+  }
   llvm_unreachable("Not reachable.");
   return nullptr;
 }
@@ -764,10 +796,17 @@ static Value *getScalarAddress(Value *Ptrs, unsigned Element,
   unsigned LoadCount = 0;
   unsigned ConstCount = 0;
   unsigned ScalarCount = 0;
-  if (auto *GEP = dyn_cast<GetElementPtrInst>(Ptrs))
+
+  auto BC = dyn_cast<BitCastInst>(Ptrs);
+  if (auto *GEP = dyn_cast<GetElementPtrInst>(BC ? BC->getOperand(0) : Ptrs))
     if (Value *V = tryScalarizeGEP(GEP, Element, Builder, LoadCount,
-                                   ConstCount, ScalarCount, TTI))
+                                   ConstCount, ScalarCount, TTI)) {
+      if (BC) {
+        auto BCTy = cast<FixedVectorType>(BC->getType());
+        return Builder.CreateBitCast(V, BCTy->getElementType());
+      }
       return V;
+    }
 
   return Builder.CreateExtractElement(Ptrs, Element, "Ptr" + Twine(Element));
 }
