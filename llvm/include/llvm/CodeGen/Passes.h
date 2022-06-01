@@ -240,6 +240,8 @@ namespace llvm {
 
   extern char &HeteroArchOptID;
 
+  extern char &ExpandVectorPredicationID;
+
 #endif  // INTEL_CUSTOMIZATION
 
   /// PostRAHazardRecognizer - This pass runs the post-ra hazard

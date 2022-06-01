@@ -4421,7 +4421,7 @@ void SelectionDAGBuilder::visitMaskedStore(const CallInst &I,
 static bool getUniformBase(const Value *Ptr, SDValue &Base, SDValue &Index,
                            ISD::MemIndexType &IndexType, SDValue &Scale,
                            SelectionDAGBuilder *SDB, const BasicBlock *CurBB,
-                           uint64_t ElemSize) {
+                           uint64_t ElemSize, const TargetTransformInfo *TTI) { // INTEL
   SelectionDAG& DAG = SDB->DAG;
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
   const DataLayout &DL = DAG.getDataLayout();
@@ -4443,6 +4443,9 @@ static bool getUniformBase(const Value *Ptr, SDValue &Base, SDValue &Index,
     Scale = DAG.getTargetConstant(1, SDB->getCurSDLoc(), TLI.getPointerTy(DL));
     return true;
   }
+
+  if (auto Bitcast = dyn_cast<BitCastOperator>(Ptr)) // INTEL
+    Ptr = Bitcast->getOperand(0);                    // INTEL
 
   const GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Ptr);
   if (!GEP || GEP->getParent() != CurBB)
@@ -4466,7 +4469,7 @@ static bool getUniformBase(const Value *Ptr, SDValue &Base, SDValue &Index,
   // element size. Other scales may be produced using target-specific DAG
   // combines.
   uint64_t ScaleVal = DL.getTypeAllocSize(GEP->getResultElementType());
-  if (ScaleVal != ElemSize && ScaleVal != 1)
+  if (ScaleVal > TTI->getMaxScale() || !isPowerOf2_64(ScaleVal))  // INTEL
     return false;
 
   Scale =
@@ -4510,6 +4513,9 @@ static bool getUniformBaseExt(const Value *Ptr, SDValue &Base, SDValue &Index,
   const DataLayout &DL = DAG.getDataLayout();
 
   assert(Ptr->getType()->isVectorTy() && "Unexpected pointer type");
+
+  if (auto Bitcast = dyn_cast<BitCastOperator>(Ptr))
+    Ptr = Bitcast->getOperand(0);
 
   const GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Ptr);
   if (!GEP || GEP->getParent() != CurBB)
@@ -4684,7 +4690,7 @@ void SelectionDAGBuilder::visitMaskedScatter(const CallInst &I) {
                         I.getArgOperand(0), TTI, AC, DT, SCEV, LPI);
   if (!UniformBase)
     UniformBase = getUniformBase(Ptr, Base, Index, IndexType, Scale, this,
-                                 I.getParent(), VT.getScalarStoreSize());
+                                 I.getParent(), VT.getScalarStoreSize(), TTI);
 #endif // INTEL_CUSTOMIZATION
   unsigned AS = Ptr->getType()->getScalarType()->getPointerAddressSpace();
   MachineMemOperand *MMO = DAG.getMachineFunction().getMachineMemOperand(
@@ -4797,7 +4803,7 @@ void SelectionDAGBuilder::visitMaskedGather(const CallInst &I) {
                         I.getArgOperand(3), TTI, AC, DT, SCEV, LPI);
   if (!UniformBase)
     UniformBase = getUniformBase(Ptr, Base, Index, IndexType, Scale, this,
-                                 I.getParent(), VT.getScalarStoreSize());
+                                 I.getParent(), VT.getScalarStoreSize(), TTI);
 #endif // INTEL_CUSTOMIZATION
   unsigned AS = Ptr->getType()->getScalarType()->getPointerAddressSpace();
   MachineMemOperand *MMO = DAG.getMachineFunction().getMachineMemOperand(
@@ -7768,7 +7774,7 @@ void SelectionDAGBuilder::visitVPLoadGather(const VPIntrinsic &VPIntrin, EVT VT,
     ISD::MemIndexType IndexType;
     bool UniformBase = getUniformBase(PtrOperand, Base, Index, IndexType, Scale,
                                       this, VPIntrin.getParent(),
-                                      VT.getScalarStoreSize());
+                                      VT.getScalarStoreSize(), TTI); // INTEL
     if (!UniformBase) {
       Base = DAG.getConstant(0, DL, TLI.getPointerTy(DAG.getDataLayout()));
       Index = getValue(PtrOperand);
@@ -7825,7 +7831,7 @@ void SelectionDAGBuilder::visitVPStoreScatter(const VPIntrinsic &VPIntrin,
     ISD::MemIndexType IndexType;
     bool UniformBase = getUniformBase(PtrOperand, Base, Index, IndexType, Scale,
                                       this, VPIntrin.getParent(),
-                                      VT.getScalarStoreSize());
+                                      VT.getScalarStoreSize(), TTI); // INTEL
     if (!UniformBase) {
       Base = DAG.getConstant(0, DL, TLI.getPointerTy(DAG.getDataLayout()));
       Index = getValue(PtrOperand);

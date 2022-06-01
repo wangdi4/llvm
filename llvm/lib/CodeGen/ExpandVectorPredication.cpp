@@ -591,6 +591,8 @@ public:
 } // namespace
 
 char ExpandVectorPredication::ID;
+char &llvm::ExpandVectorPredicationID = ExpandVectorPredication::ID; // INTEL
+
 INITIALIZE_PASS_BEGIN(ExpandVectorPredication, "expandvp",
                       "Expand vector predication intrinsics", false, false)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
