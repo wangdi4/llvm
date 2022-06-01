@@ -4465,9 +4465,24 @@ DTransType *PtrTypeAnalyzerImpl::getDominantAggregateType(
 
     DTransType *DomDerefTy = DomTy->getPointerElementType();
     DTransType *AliasDerefTy = AliasTy->getPointerElementType();
-    if (isElementZeroAccess(DomDerefTy, AliasDerefTy) ||
-        isElementZeroAccess(AliasDerefTy, DomDerefTy))
+
+    // Given that 'DomTy' was '%struct.middle**' and 'AliasTy' was
+    // '%struct.inner**', the pointer-to-pointer type in 'AliasTy' is an element
+    // zero type of the pointer-to-pointer type in 'DomTy'.
+    if (isElementZeroAccess(DomDerefTy, AliasDerefTy)) {
+      DomTyIsElementZeroAccess = true;
       continue;
+    }
+
+    // Given that 'DomTy' was '%struct.inner**' and 'AliasTy' was
+    // '%struct.middle**', the pointer-to-pointer type in 'DomTy' is an element
+    // zero type of the pointer-to-pointer in 'AliasTy', update the 'DomTy' to
+    // be the pointer-to-pointer of the outer type.
+    if (isElementZeroAccess(AliasDerefTy, DomDerefTy)) {
+      DomTy = AliasTy;
+      DomTyIsElementZeroAccess = true;
+      continue;
+    }
 
     // Otherwise, there are conflicting aliases and nothing can be dominant.
     return nullptr;
