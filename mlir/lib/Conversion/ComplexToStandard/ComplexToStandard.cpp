@@ -728,6 +728,22 @@ struct SignOpConversion : public OpConversionPattern<complex::SignOp> {
     return success();
   }
 };
+
+struct TanOpConversion : public OpConversionPattern<complex::TanOp> {
+  using OpConversionPattern<complex::TanOp>::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(complex::TanOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    auto loc = op.getLoc();
+
+    Value cos = rewriter.create<complex::CosOp>(loc, adaptor.getComplex());
+    Value sin = rewriter.create<complex::SinOp>(loc, adaptor.getComplex());
+    rewriter.replaceOpWithNewOp<complex::DivOp>(op, sin, cos);
+
+    return success();
+  }
+};
 } // namespace
 
 void mlir::populateComplexToStandardConversionPatterns(
@@ -748,7 +764,8 @@ void mlir::populateComplexToStandardConversionPatterns(
       MulOpConversion,
       NegOpConversion,
       SignOpConversion,
-      SinOpConversion>(patterns.getContext());
+      SinOpConversion,
+      TanOpConversion>(patterns.getContext());
   // clang-format on
 }
 
