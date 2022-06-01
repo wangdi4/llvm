@@ -160,13 +160,6 @@ static cl::opt<bool> CompatibilitySLPMode(
     cl::desc("Suppress some customizations in order to produce results like "
              "unaltered LLVM community version."));
 
-// This is the Cost returned by getTreeCost() when the tree is tiny and
-// non-vectorizable.
-// FIXME: This is a hack because SLPCostThreshold is adjustable and if it gets a
-// value higher than this, it can still trigger vectorization. This happens in
-// SLPVectorizer lit tests such as call.ll.
-#define FORBIDEN_TINY_TREE 1000001
-
 // NOTE: This is a quick hack for following the best path (left or right branch)
 // while buildTree_rec(). Ideally we would like to explore both orderings and
 // select the best, but this could be computationally intensive.
@@ -1050,11 +1043,10 @@ public:
 
   /// \returns the vectorization cost of the subtree that starts at \p VL.
   /// A negative number means that this is profitable.
-#if INTEL_CUSTOMIZATION
-  InstructionCost getTreeCost(ArrayRef<Value *> VectorizedVals = None,
-                              bool ForReduction = false);
+  InstructionCost getTreeCost(ArrayRef<Value *> VectorizedVals = None);
 
-  /// Cleanup Multi-Node state once vectorization has succeeded.
+#if INTEL_CUSTOMIZATION
+ /// Cleanup Multi-Node state once vectorization has succeeded.
   void cleanupMultiNodeReordering();
 
   /// Restore the code to the original condition, by unswapping instructions.
@@ -8999,10 +8991,7 @@ static T *performExtractsShuffleAction(
   return Prev;
 }
 
-#if INTEL_CUSTOMIZATION
-InstructionCost BoUpSLP::getTreeCost(ArrayRef<Value *> VectorizedVals,
-                                     bool ForReduction) {
-#endif // INTEL_CUSTOMIZATION
+InstructionCost BoUpSLP::getTreeCost(ArrayRef<Value *> VectorizedVals) {
   InstructionCost Cost = 0;
   LLVM_DEBUG(dbgs() << "SLP: Calculating cost for tree of size "
                     << VectorizableTree.size() << ".\n");
@@ -9213,11 +9202,6 @@ InstructionCost BoUpSLP::getTreeCost(ArrayRef<Value *> VectorizedVals,
     ViewGraph(this, "SLP" + F->getName(), false, Str);
 #endif
 
-#if INTEL_CUSTOMIZATION
-  // Override Cost for tiny non-fully vectorizable trees.
-  if (isTreeTinyAndNotFullyVectorizable(ForReduction))
-    Cost = FORBIDEN_TINY_TREE;
-#endif // INTEL_CUSTOMIZATION
   return Cost;
 }
 
@@ -12390,10 +12374,8 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
                     << "\n");
 
   R.buildTree(Chain);
-#if !INTEL_CUSTOMIZATION
   if (R.isTreeTinyAndNotFullyVectorizable())
     return false;
-#endif // INTEL_CUSTOMIZATION
 
   if (R.isLoadCombineCandidate())
     return false;
@@ -12707,17 +12689,15 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
                         << "\n");
 
       R.buildTree(Ops);
-#if !INTEL_CUSTOMIZATION
       if (R.isTreeTinyAndNotFullyVectorizable())
         continue;
-#endif // !INTEL_CUSTOMIZATION
       R.reorderTopToBottom();
       R.reorderBottomToTop(!isa<InsertElementInst>(Ops.front()));
       R.buildExternalUses();
 
       R.computeMinimumValueSizes();
       InstructionCost Cost = R.getTreeCost();
-      CandidateFound = Cost < FORBIDEN_TINY_TREE; // INTEL
+      CandidateFound = true;
       MinCost = std::min(MinCost, Cost);
 
       if (Cost < -SLPCostThreshold) {
@@ -13563,9 +13543,7 @@ public:
           if (auto *FPMO = dyn_cast<FPMathOperator>(U))
             RdxFMF &= FPMO->getFastMathFlags();
         // Estimate cost.
-#if INTEL_CUSTOMIZATION
-        InstructionCost TreeCost = V.getTreeCost(VL, /*ForReduction=*/true);
-#endif // INTEL_CUSTOMIZATION
+        InstructionCost TreeCost = V.getTreeCost(VL);
         InstructionCost ReductionCost =
             getReductionCost(TTI, VL, ReduxWidth, RdxFMF);
         InstructionCost Cost = TreeCost + ReductionCost;
