@@ -16,7 +16,7 @@ define void @ptriv(i8* %base, i32 %n) nounwind {
 ; CHECK-LABEL: @ptriv(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[IDX_EXT:%.*]] = sext i32 [[N:%.*]] to i64
-; CHECK-NEXT:    [[ADD_PTR:%.*]] = getelementptr i8, i8* [[BASE:%.*]], i64 [[IDX_EXT]]
+; CHECK-NEXT:    [[ADD_PTR:%.*]] = getelementptr inbounds i8, i8* [[BASE:%.*]], i64 [[IDX_EXT]]
 ; CHECK-NEXT:    [[CMP1:%.*]] = icmp ult i8* [[BASE]], [[ADD_PTR]]
 ; CHECK-NEXT:    br i1 [[CMP1]], label [[FOR_BODY_PREHEADER:%.*]], label [[FOR_END:%.*]]
 ; CHECK:       for.body.preheader:
@@ -64,7 +64,11 @@ for.end:
 define void @expandOuterRecurrence(i32 %arg) nounwind {
 ; CHECK-LABEL: @expandOuterRecurrence(
 ; CHECK-NEXT:  entry:
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[SUB1:%.*]] = sub nsw i32 [[ARG:%.*]], 1 ;INTEL
+=======
+; CHECK-NEXT:    [[SUB1:%.*]] = sub nsw i32 [[ARG:%.*]], 1
+>>>>>>> 03aceab08bc9439e454d827bd1ffc94659c2c510
 ; CHECK-NEXT:    [[CMP1:%.*]] = icmp slt i32 0, [[SUB1]]
 ; CHECK-NEXT:    br i1 [[CMP1]], label [[OUTER_PREHEADER:%.*]], label [[EXIT:%.*]]
 ; CHECK:       outer.preheader:
