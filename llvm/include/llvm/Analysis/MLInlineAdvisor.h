@@ -9,6 +9,7 @@
 #ifndef LLVM_ANALYSIS_MLINLINEADVISOR_H
 #define LLVM_ANALYSIS_MLINLINEADVISOR_H
 
+#include "llvm/Analysis/FunctionPropertiesAnalysis.h"
 #include "llvm/Analysis/InlineAdvisor.h"
 #include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/Analysis/MLModelRunner.h"
@@ -33,13 +34,17 @@ public:
   void onPassEntry() override;
   void onPassExit(LazyCallGraph::SCC *SCC) override;
 
-  int64_t getIRSize(const Function &F) const { return F.getInstructionCount(); }
+  int64_t getIRSize(Function &F) const {
+    return getCachedFPI(F).TotalInstructionCount;
+  }
   void onSuccessfulInlining(const MLInlineAdvice &Advice,
                             bool CalleeWasDeleted);
 
   bool isForcedToStop() const { return ForceStop; }
   int64_t getLocalCalls(Function &F);
   const MLModelRunner &getModelRunner() const { return *ModelRunner.get(); }
+  FunctionPropertiesInfo &getCachedFPI(Function &) const;
+  const LoopInfo &getLoopInfo(Function &F) const;
 
 protected:
 #if INTEL_CUSTOMIZATION
@@ -73,6 +78,8 @@ private:
        << "\n";
   }
 
+  mutable DenseMap<const Function *, FunctionPropertiesInfo> FPICache;
+
   LazyCallGraph &CG;
 
   int64_t NodeCount = 0;
@@ -91,6 +98,7 @@ private:
 /// overrides the "successful inlining" extension points.
 class MLInlineAdvice : public InlineAdvice {
 public:
+<<<<<<< HEAD
   MLInlineAdvice(MLInlineAdvisor *Advisor, CallBase &CB, InlineCost IC, // INTEL
                  OptimizationRemarkEmitter &ORE, bool Recommendation)
       : InlineAdvice(Advisor, CB, IC, ORE, Recommendation), // INTEL
@@ -102,6 +110,10 @@ public:
                                  ? 0
                                  : (Advisor->getLocalCalls(*Caller) +
                                     Advisor->getLocalCalls(*Callee))) {}
+=======
+  MLInlineAdvice(MLInlineAdvisor *Advisor, CallBase &CB,
+                 OptimizationRemarkEmitter &ORE, bool Recommendation);
+>>>>>>> f46dd19b480496d2ba0a57d12935882e530f2b93
   virtual ~MLInlineAdvice() = default;
 
   void recordInliningImpl() override;
@@ -118,10 +130,14 @@ public:
 
 private:
   void reportContextForRemark(DiagnosticInfoOptimizationBase &OR);
-
+  void updateCachedCallerFPI();
   MLInlineAdvisor *getAdvisor() const {
     return static_cast<MLInlineAdvisor *>(Advisor);
   };
+  // Make a copy of the FPI of the caller right before inlining. If inlining
+  // fails, we can just update the cache with that value.
+  const FunctionPropertiesInfo PreInlineCallerFPI;
+  Optional<FunctionPropertiesUpdater> FPU;
 };
 
 } // namespace llvm
