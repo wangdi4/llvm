@@ -204,6 +204,7 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/include/llvm/Transforms/Utils/SplitModule.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Utils/ValueMapper.h @robertcox-github @pvbattin
 /llvm/Intel_OptionalComponents/DTrans/ @robertcox-github @pvbattin
+/llvm/Intel_OptionalComponents/Intel_SupportedFeatures.txt  @LuoYuanke @phoebewang
 /llvm/lib/Analysis/CallGraph.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/CallGraphSCCPass.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/CFLAndersAliasAnalysis.cpp @robertcox-github @pvbattin
