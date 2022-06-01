@@ -244,7 +244,7 @@ void OptimizerOCL::createStandardLLVMPasses(ModulePassManager &MPM) const {
   // LoopUnroll pass refuses to unroll the loop, so we should inline the
   // function first to help unroller to decide if it's worthy to unroll the
   // loop.
-  // // Inline (not only small) functions.
+  // Inline (not only small) functions.
   auto InlineParams = getInlineParams();
   InlineParams.DefaultThreshold = 4096;
   MPM.addPass(ModuleInlinerWrapperPass(InlineParams));
@@ -672,8 +672,6 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     MPM.addPass(createModuleToFunctionPassAdaptor(BuiltinCallToInstPass()));
   }
 
-  // funcPassMgr->add(new intel::SelectLower());
-
 #ifdef _DEBUG
   MPM.addPass(VerifierPass());
 #endif
@@ -735,8 +733,9 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     FPM.addPass(InstCombinePass()); // Instruction combining
     FPM.addPass(DSEPass());         // Eliminated dead stores
     FPM.addPass(EarlyCSEPass());
+    // In legacy pipeline, SmartGVNPass(true) is used here.
+    FPM.addPass(GVNPass());
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
-//    MPM.addPass(SmartGVNPass(true)); // GVN with "no load" heuristic
 #ifdef _DEBUG
     MPM.addPass(VerifierPass());
 #endif

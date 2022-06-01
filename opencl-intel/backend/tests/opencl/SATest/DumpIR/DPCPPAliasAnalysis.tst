@@ -1,4 +1,5 @@
-; RUN: SATest -BUILD -enable-expensive-mem-opts=1 -tsize=1 --config=%s.cfg --dump-llvm-file=- -dump-time-passes=- | FileCheck %s
+; RUN: SATest -BUILD -enable-expensive-mem-opts=1 -tsize=1 --config=%s.cfg --dump-llvm-file=- | FileCheck %s
+; RUN: SATest -BUILD -enable-expensive-mem-opts=1 -tsize=1 --config=%s.cfg -dump-time-passes=- | FileCheck %s -check-prefix=ENABLE
 
 ; The test checks that DPCPPAliasAnalysis takes effect and the LICM pass moves
 ; loop invariants outside the loop.
@@ -10,9 +11,10 @@
 ; CHECK:   br label %[[FOR_BODY:.*]]
 ; CHECK: [[FOR_BODY]]:
 ; CHECK:   store i64 [[LOAD]], i64 addrspace(3)* {{%.*}}, align 8
-; CHECK: Pass execution timing report
-; CHECK: External Alias Analysis
+
+; ENABLE: Pass execution timing report
+; ENABLE: DPCPPAliasAnalysis
 
 ; RUN: SATest -BUILD -enable-expensive-mem-opts=0 -tsize=1 --config=%s.cfg -dump-time-passes=- | FileCheck -check-prefix=DISABLE %s
 ; DISABLE:     Pass execution timing report
-; DISABLE-NOT: External Alias Analysis
+; DISABLE-NOT: DPCPPAliasAnalysis

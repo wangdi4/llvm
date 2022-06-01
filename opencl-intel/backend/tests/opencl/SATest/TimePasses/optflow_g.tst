@@ -1,4 +1,5 @@
-; RUN: SATest -BUILD -vectorizer-type=volcano -dump-time-passes=- -config=%s.cfg | FileCheck %s
-; CHECK-DAG: Intel OpenCL Vectorizer
-; CHECK-DAG: Dead Code Elimination
-; CHECK-DAG: Simplify the CFG
+; RUN: SATest -BUILD -dump-time-passes=- -config=%s.cfg | FileCheck %s
+
+; CHECK-DAG: SimplifyCFGPass
+; CHECK-DAG: vpo::VPlanDriverPass
+; CHECK-DAG: DCEPass

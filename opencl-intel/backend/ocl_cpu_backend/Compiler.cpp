@@ -494,13 +494,13 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
       optimizer = std::make_unique<OptimizerLTO>(
           *pModule, BIModules, optimizerConfig, !m_debugPassManager.empty());
       break;
-    case PM_OCL:
-      optimizer = std::make_unique<OptimizerOCL>(
-          *pModule, BIModules, optimizerConfig, !m_debugPassManager.empty());
-      break;
-    default:
+    case PM_OCL_LEGACY:
       optimizer = std::make_unique<OptimizerOCLLegacy>(*pModule, BIModules,
                                                        optimizerConfig);
+      break;
+    default:
+      optimizer = std::make_unique<OptimizerOCL>(
+          *pModule, BIModules, optimizerConfig, !m_debugPassManager.empty());
       break;
     };
 

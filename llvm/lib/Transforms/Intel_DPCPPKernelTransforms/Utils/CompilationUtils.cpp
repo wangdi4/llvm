@@ -133,22 +133,29 @@ const StringRef NAME_IB_KMP_RELEASE_LOCK = "__builtin_IB_kmp_release_lock";
 // subgroup functions
 const StringRef NAME_SUB_GROUP_ALL = "sub_group_all";
 const StringRef NAME_SUB_GROUP_ANY = "sub_group_any";
+const StringRef NAME_SUB_GROUP_BALLOT = "sub_group_ballot";
 const StringRef NAME_SUB_GROUP_BROADCAST = "sub_group_broadcast";
 const StringRef NAME_SUB_GROUP_REDUCE_ADD = "sub_group_reduce_add";
+const StringRef NAME_SUB_GROUP_REDUCE_MIN = "sub_group_reduce_min";
+const StringRef NAME_SUB_GROUP_REDUCE_MAX = "sub_group_reduce_max";
 const StringRef NAME_SUB_GROUP_SCAN_EXCLUSIVE_ADD =
     "sub_group_scan_exclusive_add";
 const StringRef NAME_SUB_GROUP_SCAN_INCLUSIVE_ADD =
     "sub_group_scan_inclusive_add";
-const StringRef NAME_SUB_GROUP_REDUCE_MIN = "sub_group_reduce_min";
 const StringRef NAME_SUB_GROUP_SCAN_EXCLUSIVE_MIN =
     "sub_group_scan_exclusive_min";
 const StringRef NAME_SUB_GROUP_SCAN_INCLUSIVE_MIN =
     "sub_group_scan_inclusive_min";
-const StringRef NAME_SUB_GROUP_REDUCE_MAX = "sub_group_reduce_max";
 const StringRef NAME_SUB_GROUP_SCAN_EXCLUSIVE_MAX =
     "sub_group_scan_exclusive_max";
 const StringRef NAME_SUB_GROUP_SCAN_INCLUSIVE_MAX =
     "sub_group_scan_inclusive_max";
+const StringRef NAME_SUB_GROUP_SHUFFLE = "sub_group_shuffle";
+const StringRef NAME_SUB_GROUP_SHUFFLE_DOWN = "sub_group_shuffle_down";
+const StringRef NAME_SUB_GROUP_SHUFFLE_UP = "sub_group_shuffle_up";
+const StringRef NAME_SUB_GROUP_SHUFFLE_XOR = "sub_group_shuffle_xor";
+const StringRef NAME_SUB_GROUP_BLOCK_READ = "sub_group_block_read";
+const StringRef NAME_SUB_GROUP_BLOCK_WRITE = "sub_group_block_write";
 
 /// Not mangled names.
 const StringRef NAME_GET_BASE_GID = "get_base_global_id.";
@@ -761,6 +768,17 @@ bool isSubGroupBroadCast(StringRef S) {
   return isMangleOf(S, NAME_SUB_GROUP_BROADCAST);
 }
 
+static bool isSubGroupBallot(StringRef S) {
+  return isMangleOf(S, NAME_SUB_GROUP_BALLOT) ||
+         isMangleOf(S, "sub_group_inverse_ballot") ||
+         isMangleOf(S, "sub_group_ballot_bit_extract") ||
+         isMangleOf(S, "sub_group_ballot_bit_count") ||
+         isMangleOf(S, "sub_group_ballot_inclusive_scan") ||
+         isMangleOf(S, "sub_group_ballot_exclusive_scan") ||
+         isMangleOf(S, "sub_group_ballot_find_lsb") ||
+         isMangleOf(S, "sub_group_ballot_find_msb");
+}
+
 bool isSubGroupReduceAdd(StringRef S) {
   return isMangleOf(S, NAME_SUB_GROUP_REDUCE_ADD);
 }
@@ -803,17 +821,53 @@ bool isSubGroupScan(StringRef S) {
          isSubGroupScanExclusiveMax(S) || isSubGroupScanInclusiveMax(S);
 }
 
-// TODO: add ballot function, refactor OCLVecClone - opencl-vec-uniform-return.
+static bool isSubGroupShuffle(StringRef S) {
+  if (!isMangledName(S))
+    return false;
+  StringRef Name = stripName(S);
+  (void)Name.consume_front("intel_");
+  return Name == NAME_SUB_GROUP_SHUFFLE ||
+         Name == NAME_SUB_GROUP_SHUFFLE_DOWN ||
+         Name == NAME_SUB_GROUP_SHUFFLE_UP ||
+         Name == NAME_SUB_GROUP_SHUFFLE_XOR;
+}
+
+static bool isIntelSubGroupBlockReadWrite(StringRef S, StringRef ReadOrWrite) {
+  if (!isMangledName(S))
+    return false;
+  StringRef Name = stripName(S);
+  if (!Name.consume_front("intel_") || !Name.consume_front(ReadOrWrite))
+    return false;
+  // Check e.g. intel_sub_group_block_read
+  if (Name.empty())
+    return true;
+  // Check e.g. intel_sub_group_block_read8
+  unsigned Num;
+  return !Name.consumeInteger(10, Num) && (Num == 2 || Num == 4 || Num == 8) &&
+         Name.empty();
+}
+
+static bool isSubGroupBlockRead(StringRef S) {
+  return isIntelSubGroupBlockReadWrite(S, NAME_SUB_GROUP_BLOCK_READ);
+}
+
+static bool isSubGroupBlockWrite(StringRef S) {
+  return isIntelSubGroupBlockReadWrite(S, NAME_SUB_GROUP_BLOCK_WRITE);
+}
+
+// TODO: refactor OCLVecClone - opencl-vec-uniform-return.
 bool isSubGroupUniform(StringRef S) {
   return isGetSubGroupSize(S) || isGetSubGroupId(S) ||
          isGetMaxSubGroupSize(S) || isGetNumSubGroups(S) ||
          isGetEnqueuedNumSubGroups(S) || isSubGroupAll(S) || isSubGroupAny(S) ||
-         isSubGroupBroadCast(S) || isSubGroupReduceAdd(S) ||
-         isSubGroupReduceMin(S) || isSubGroupReduceMax(S);
+         isSubGroupBroadCast(S) || isSubGroupBallot(S) ||
+         isSubGroupReduceAdd(S) || isSubGroupReduceMin(S) ||
+         isSubGroupReduceMax(S);
 }
 
 bool isSubGroupDivergent(StringRef S) {
-  return isGetSubGroupLocalId(S) || isSubGroupScan(S);
+  return isGetSubGroupLocalId(S) || isSubGroupScan(S) || isSubGroupShuffle(S) ||
+         isSubGroupBlockRead(S) || isSubGroupBlockWrite(S);
 }
 
 bool isSubGroupBuiltin(StringRef S) {
