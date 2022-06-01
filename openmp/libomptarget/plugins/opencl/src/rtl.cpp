@@ -4331,91 +4331,6 @@ int32_t __tgt_rtl_manifest_data_for_region(
   return OFFLOAD_SUCCESS;
 }
 
-void __tgt_rtl_get_offload_queue(int32_t DeviceId, void *Interop,
-                                 bool CreateNew) {
-
-  if (Interop == nullptr) {
-    DP("Invalid interop object in %s\n", __func__);
-    return;
-  }
-
-  __tgt_interop_obj *Obj = static_cast<__tgt_interop_obj *>(Interop);
-  cl_int RC;
-  cl_command_queue Queue = nullptr;
-  auto Device = DeviceInfo->Devices[DeviceId];
-  auto Context = DeviceInfo->getContext(DeviceId);
-
-  // Queue properties for profiling
-  cl_queue_properties QProperties[] = {
-    CL_QUEUE_PROPERTIES,
-    CL_QUEUE_PROFILING_ENABLE,
-    0
-  };
-  auto EnableProfile = DeviceInfo->Option.Flags.EnableProfile;
-
-  // Return a shared in-order queue for synchronous case
-  if (!CreateNew) {
-    std::lock_guard<std::mutex> Lock(DeviceInfo->Mutexes[DeviceId]);
-    Queue = DeviceInfo->QueuesInOrder[DeviceId];
-    if (!Queue) {
-      CALL_CL_RVRC(Queue, clCreateCommandQueueWithProperties, RC, Context,
-                   Device, EnableProfile ? QProperties : nullptr);
-      if (RC != CL_SUCCESS) {
-        DP("Error: Failed to create interop command queue: %d\n", RC);
-        Obj->queue = nullptr;
-        return;
-      }
-      DeviceInfo->QueuesInOrder[DeviceId] = Queue;
-    }
-    DP("%s returns a shared in-order queue " DPxMOD "\n", __func__,
-       DPxPTR(Queue));
-    Obj->queue = Queue;
-    return;
-  }
-
-  // Return a new in-order queue for asynchronous case
-  CALL_CL_RVRC(Queue, clCreateCommandQueueWithProperties, RC, Context,
-               Device, EnableProfile ? QProperties : nullptr);
-  if (RC != CL_SUCCESS) {
-    DP("Error: Failed to create interop command queue\n");
-    Obj->queue = nullptr;
-    return;
-  }
-  DP("%s creates and returns a new in-order queue " DPxMOD "\n", __func__,
-     DPxPTR(Queue));
-  Obj->queue = Queue;
-  return;
-}
-
-// Release the command queue if it is a new in-order command queue.
-int32_t __tgt_rtl_release_offload_queue(int32_t DeviceId, void *Queue) {
-  cl_command_queue CmdQueue = reinterpret_cast<cl_command_queue>(Queue);
-  std::lock_guard<std::mutex> Lock(DeviceInfo->Mutexes[DeviceId]);
-  if (CmdQueue != DeviceInfo->QueuesInOrder[DeviceId] &&
-      CmdQueue != DeviceInfo->Queues[DeviceId]) {
-    CALL_CL_RET_FAIL(clReleaseCommandQueue, CmdQueue);
-    DP("%s releases an in-order queue " DPxMOD "\n", __func__, DPxPTR(Queue));
-  }
-  return OFFLOAD_SUCCESS;
-}
-
-void *__tgt_rtl_get_platform_handle(int32_t DeviceId) {
-  return (void *)DeviceInfo->getContext(DeviceId);
-}
-
-void __tgt_rtl_set_device_handle(int32_t DeviceId, void *Interop) {
-  if (Interop == nullptr) {
-    DP("Invalid interop object in %s\n", __func__);
-    return;
-  }
-  __tgt_interop_obj *Obj = static_cast<__tgt_interop_obj *>(Interop);
-  Obj->device_handle = DeviceInfo->Devices[DeviceId];
-}
-
-void *__tgt_rtl_get_context_handle(int32_t DeviceId) {
-  return (void *)DeviceInfo->getContext(DeviceId);
-}
-
 int32_t __tgt_rtl_requires_mapping(int32_t DeviceId, void *Ptr, int64_t Size) {
   // Force mapping for host memory with positive size
   int32_t Ret;
@@ -4494,6 +4409,10 @@ void *__tgt_rtl_data_realloc(
   }
 
   return Mem;
+}
+
+void *__tgt_rtl_get_context_handle(int32_t DeviceId) {
+  return (void *)DeviceInfo->getContext(DeviceId);
 }
 
 void *__tgt_rtl_data_aligned_alloc(int32_t DeviceId, size_t Align, size_t Size,

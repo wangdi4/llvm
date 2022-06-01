@@ -882,29 +882,6 @@ int32_t DeviceTy::run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
   return ret;
 }
 
-void DeviceTy::get_offload_queue(void *Interop, bool CreateNew) {
-  if (RTL->get_offload_queue)
-    RTL->get_offload_queue(RTLDeviceID, Interop, CreateNew);
-}
-
-int32_t DeviceTy::release_offload_queue(void *Queue) {
-  if (RTL->release_offload_queue)
-    return RTL->release_offload_queue(RTLDeviceID, Queue);
-  else
-    return OFFLOAD_SUCCESS;
-}
-
-void *DeviceTy::get_platform_handle() {
-  if (!RTL->get_platform_handle)
-    return nullptr;
-  return RTL->get_platform_handle(RTLDeviceID);
-}
-
-void DeviceTy::setDeviceHandle(void *Interop) {
-  if (RTL->set_device_handle)
-    RTL->set_device_handle(RTLDeviceID, Interop);
-}
-
 void *DeviceTy::get_context_handle() {
   if (!RTL->get_context_handle)
     return nullptr;
