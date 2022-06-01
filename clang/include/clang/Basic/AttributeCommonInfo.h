@@ -86,10 +86,14 @@ private:
   // Corresponds to the Kind enum.
   unsigned AttrKind : 16;
   /// Corresponds to the Syntax enum.
+<<<<<<< HEAD
   unsigned SyntaxUsed : 3;
 #if INTEL_CUSTOMIZATION
   unsigned SpellingIndex : 5;
 #else // INTEL_CUSTOMIZATION
+=======
+  unsigned SyntaxUsed : 4;
+>>>>>>> aaf04c72159109f37507589ba13ff034b73403c2
   unsigned SpellingIndex : 4;
 #endif // INTEL_CUSTOMIZATION
 
