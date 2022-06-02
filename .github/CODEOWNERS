@@ -724,6 +724,7 @@ sycl/include/sycl/ext/intel/experimental/esimd/ @kbobrovs @v-klochkov
 /llvm/test/Transforms/IndVarSimplify/ @tcreech-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/InferAddressSpaces/ @intel-restricted/cmplrllvm-llvm-paropt
 /llvm/test/Transforms/InstCombine/ @tcreech-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/ScalarizeMaskedMemIntrin/X86/ @gpei-dev
 # Temporarily removed @sndmitriev
 /llvm/test/Transforms/InstSimplify/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/Intel_ForcedCMOVGeneration/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
