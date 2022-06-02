@@ -1,16 +1,17 @@
-; RUN: opt -vector-library=SVML       -inject-tli-mappings        -S < %s | FileCheck %s  --check-prefixes=COMMON,SVML
-; RUN: opt -vector-library=SVML       -passes=inject-tli-mappings -S < %s | FileCheck %s  --check-prefixes=COMMON,SVML
-; RUN: opt -vector-library=MASSV      -inject-tli-mappings        -S < %s | FileCheck %s  --check-prefixes=COMMON,MASSV
-; RUN: opt -vector-library=MASSV      -passes=inject-tli-mappings -S < %s | FileCheck %s  --check-prefixes=COMMON,MASSV
-; RUN: opt -vector-library=Accelerate -inject-tli-mappings        -S < %s | FileCheck %s  --check-prefixes=COMMON,ACCELERATE
-; RUN: opt -vector-library=LIBMVEC-X86 -inject-tli-mappings        -S < %s | FileCheck %s  --check-prefixes=COMMON,LIBMVEC-X86
-; RUN: opt -vector-library=LIBMVEC-X86 -passes=inject-tli-mappings -S < %s | FileCheck %s  --check-prefixes=COMMON,LIBMVEC-X86
-; RUN: opt -vector-library=Accelerate -passes=inject-tli-mappings -S < %s | FileCheck %s  --check-prefixes=COMMON,ACCELERATE
+; INTEL RUN: opt -opaque-pointers -vector-library=SVML       -inject-tli-mappings        -S < %s | FileCheck %s  --check-prefixes=COMMON,SVML
+; INTEL RUN: opt -opaque-pointers -vector-library=SVML       -passes=inject-tli-mappings -S < %s | FileCheck %s  --check-prefixes=COMMON,SVML
+; INTEL RUN: opt -opaque-pointers -vector-library=MASSV      -inject-tli-mappings        -S < %s | FileCheck %s  --check-prefixes=COMMON,MASSV
+; INTEL RUN: opt -opaque-pointers -vector-library=MASSV      -passes=inject-tli-mappings -S < %s | FileCheck %s  --check-prefixes=COMMON,MASSV
+; INTEL RUN: opt -opaque-pointers -vector-library=Accelerate -inject-tli-mappings        -S < %s | FileCheck %s  --check-prefixes=COMMON,ACCELERATE
+; INTEL RUN: opt -opaque-pointers -vector-library=LIBMVEC-X86 -inject-tli-mappings        -S < %s | FileCheck %s  --check-prefixes=COMMON,LIBMVEC-X86
+; INTEL RUN: opt -opaque-pointers -vector-library=LIBMVEC-X86 -passes=inject-tli-mappings -S < %s | FileCheck %s  --check-prefixes=COMMON,LIBMVEC-X86
+; INTEL RUN: opt -opaque-pointers -vector-library=Accelerate -passes=inject-tli-mappings -S < %s | FileCheck %s  --check-prefixes=COMMON,ACCELERATE
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; COMMON-LABEL: @llvm.compiler.used = appending global
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; SVML-SAME:        [12 x i8*] [
 ; end INTEL_CUSTOMIZATION
@@ -28,6 +29,23 @@ target triple = "x86_64-unknown-linux-gnu"
 ; LIBMVEC-X86-SAME: [2 x i8*] [
 ; LIBMVEC-X86-SAME:   i8* bitcast (<2 x double> (<2 x double>)* @_ZGVbN2v_sin to i8*),
 ; LIBMVEC-X86-SAME:   i8* bitcast (<4 x double> (<4 x double>)* @_ZGVdN4v_sin to i8*)
+=======
+; SVML-SAME:        [6 x ptr] [
+; SVML-SAME:          ptr @__svml_sin2,
+; SVML-SAME:          ptr @__svml_sin4,
+; SVML-SAME:          ptr @__svml_sin8,
+; SVML-SAME:          ptr @__svml_log10f4,
+; SVML-SAME:          ptr @__svml_log10f8,
+; SVML-SAME:          ptr @__svml_log10f16
+; MASSV-SAME:       [2 x ptr] [
+; MASSV-SAME:         ptr @__sind2,
+; MASSV-SAME:         ptr @__log10f4
+; ACCELERATE-SAME:  [1 x ptr] [
+; ACCELERATE-SAME:    ptr @vlog10f
+; LIBMVEC-X86-SAME: [2 x ptr] [
+; LIBMVEC-X86-SAME:   ptr @_ZGVbN2v_sin,
+; LIBMVEC-X86-SAME:   ptr @_ZGVdN4v_sin
+>>>>>>> 9221f84f8ef3224429c9eb71109897f64085d785
 ; COMMON-SAME:      ], section "llvm.metadata"
 
 define double @sin_f64(double %in) {
