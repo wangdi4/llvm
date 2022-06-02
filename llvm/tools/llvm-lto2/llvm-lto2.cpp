@@ -143,12 +143,18 @@ static cl::opt<bool>
                  cl::desc("Run PGO context sensitive IR instrumentation"),
                  cl::init(false), cl::Hidden);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool>
     UseNewPM("use-new-pm",
              cl::desc("Run LTO passes using the new pass manager"),
              cl::init(LLVM_ENABLE_NEW_PASS_MANAGER), cl::Hidden);
 #endif // INTEL_CUSTOMIZATION
+=======
+static cl::opt<bool> LtoOpaquePointers("lto-opaque-pointers",
+                                       cl::desc("Enable opaque pointer types"),
+                                       cl::init(true), cl::Hidden);
+>>>>>>> 850d53a197f9ffbf5708b7bd795056335e81e9b7
 
 static cl::opt<bool>
     DebugPassManager("debug-pass-manager", cl::init(false), cl::Hidden,
@@ -299,6 +305,7 @@ static int run(int argc, char **argv) {
   Conf.StatsFile = StatsFile;
   Conf.PTO.LoopVectorization = Conf.OptLevel > 1;
   Conf.PTO.SLPVectorization = Conf.OptLevel > 1;
+  Conf.OpaquePointers = LtoOpaquePointers;
 
   ThinBackend Backend;
   if (ThinLTODistributedIndexes)
