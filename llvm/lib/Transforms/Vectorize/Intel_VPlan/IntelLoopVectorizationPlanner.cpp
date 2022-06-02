@@ -928,6 +928,8 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
         }),
       VFs.end());
 
+  DenseMap<unsigned, VPCostSummary> VFCosts;
+
   //
   // The main loop where we choose VF.
   // Please note that best peeling variant is expected to be selected up to
@@ -955,8 +957,8 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       &outs() : nullptr;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-    VPInstructionCost MainLoopIterationCost = MainLoopCM->getCost(
-      PeelingVariant, OS);
+    VPInstructionCost MainLoopIterationCost =
+        MainLoopCM->getCost(PeelingVariant, OS);
 
     if (MainLoopIterationCost.isUnknown()) {
       LLVM_DEBUG(dbgs() << "Cost for VF = " << VF << " is unknown. Skip it.\n");
@@ -997,10 +999,9 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
 
     // The total vector cost is calculated by adding the total cost of peel,
     // main and remainder loops.
-    VPInstructionCost VectorCost =
-      PeelEvaluator.getLoopCost() +
-      MainLoopIterationCost * MainLoopTripCount +
-      RemainderEvaluator.getLoopCost();
+    VPInstructionCost VectorCost = PeelEvaluator.getLoopCost() +
+                                   MainLoopIterationCost * MainLoopTripCount +
+                                   RemainderEvaluator.getLoopCost();
 
     // Calculate cost of one iteration of the main loop without preferred
     // alignment.
@@ -1043,8 +1044,19 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
           GainWithPeel, GainWithoutPeel, ScalarCost, TripCount, PeelIsDynamic,
           IsTripCountEstimated);
 
-    const char CmpChar =
-        ScalarCost < VectorCost ? '<' : ScalarCost == VectorCost ? '=' : '>';
+    VPInstructionCost VectorGain = GoUnaligned ? GainWithoutPeel : GainWithPeel;
+    // Calculate speedup relatively to single scalar iteration.
+    VPInstructionCost Speedup =
+        ScalarIterationCost / (ScalarIterationCost - VectorGain / TripCount);
+    VPInstructionCost VectorIterationCost =
+        GoUnaligned ? MainLoopIterationCostWithoutPeel : MainLoopIterationCost;
+    VectorIterationCost = VectorIterationCost / (VF * BestUF);
+    VFCosts.insert(
+        {VF, VPCostSummary(ScalarIterationCost, VectorIterationCost, Speedup)});
+
+    const char CmpChar = ScalarCost < VectorCost    ? '<'
+                         : ScalarCost == VectorCost ? '='
+                                                    : '>';
     (void)CmpChar;
     LLVM_DEBUG(
         dbgs() << "Scalar Cost = " << TripCount << " x " << ScalarIterationCost
@@ -1169,6 +1181,30 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       VPlans.erase(It.first);
   }
   LLVM_DEBUG(dbgs() << "Selecting VPlan with VF=" << getBestVF() << '\n');
+
+  OptReportStatsTracker &OptRptStats =
+      getVPlanForVF(getBestVF())->getOptRptStatsForLoop(OuterMostVPLoop);
+  auto Record = VFCosts.find(getBestVF());
+  if (Record != VFCosts.end()) {
+    VPCostSummary &CostSummary = Record->second;
+    if (CostSummary.ScalarIterationCost.isValid()) {
+      // Add remark: scalar cost
+      OptRptStats.CostModelRemarks.emplace_back(
+          15476,
+          std::to_string(CostSummary.ScalarIterationCost.getFloatValue()));
+    }
+    if (CostSummary.VectorIterationCost.isValid()) {
+      // Add remark: vector cost
+      OptRptStats.CostModelRemarks.emplace_back(
+          15477,
+          std::to_string(CostSummary.VectorIterationCost.getFloatValue()));
+    }
+    if (CostSummary.Speedup.isValid()) {
+      // Add remark: estimated potential speedup
+      OptRptStats.CostModelRemarks.emplace_back(
+          15478, std::to_string(CostSummary.Speedup.getFloatValue()));
+    }
+  }
 
   return std::make_pair(getBestVF(), getBestVPlan());
 }

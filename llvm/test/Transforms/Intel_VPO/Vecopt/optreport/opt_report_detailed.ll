@@ -20,6 +20,9 @@ define void @test_serialized(i32* nocapture %arr) local_unnamed_addr {
 ; LLVM-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; LLVM-NEXT:      remark #15305: vectorization support: vector length 4
 ; LLVM-NEXT:      remark #15475: --- begin vector loop cost summary ---
+; LLVM-NEXT:      remark #15476: scalar cost: 2.000000
+; LLVM-NEXT:      remark #15477: vector cost: 4.500000
+; LLVM-NEXT:      remark #15478: estimated potential speedup: 0.437500
 ; LLVM-NEXT:      remark #15482: vectorized math library calls: 0
 ; LLVM-NEXT:      remark #15484: vector function calls: 0
 ; LLVM-NEXT:      remark #15485: serialized function calls: 2
@@ -51,6 +54,9 @@ define void @test_serialized(i32* nocapture %arr) local_unnamed_addr {
 ; HIR-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; HIR-NEXT:      remark #15305: vectorization support: vector length 4
 ; HIR-NEXT:      remark #15475: --- begin vector loop cost summary ---
+; HIR-NEXT:      remark #15476: scalar cost: 2.000000
+; HIR-NEXT:      remark #15477: vector cost: 4.500000
+; HIR-NEXT:      remark #15478: estimated potential speedup: 0.437500
 ; HIR-NEXT:      remark #15482: vectorized math library calls: 0
 ; HIR-NEXT:      remark #15484: vector function calls: 0
 ; HIR-NEXT:      remark #15485: serialized function calls: 2
@@ -85,6 +91,9 @@ define void @test_vector_variant(i32* nocapture %arr) local_unnamed_addr {
 ; LLVM-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; LLVM-NEXT:      remark #15305: vectorization support: vector length 4
 ; LLVM-NEXT:      remark #15475: --- begin vector loop cost summary ---
+; LLVM-NEXT:      remark #15476: scalar cost: 2.000000
+; LLVM-NEXT:      remark #15477: vector cost: 4.500000
+; LLVM-NEXT:      remark #15478: estimated potential speedup: 0.437500
 ; LLVM-NEXT:      remark #15482: vectorized math library calls: 0
 ; LLVM-NEXT:      remark #15484: vector function calls: 1
 ; LLVM-NEXT:      remark #15485: serialized function calls: 0
@@ -114,6 +123,9 @@ define void @test_vector_variant(i32* nocapture %arr) local_unnamed_addr {
 ; HIR-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; HIR-NEXT:      remark #15305: vectorization support: vector length 4
 ; HIR-NEXT:      remark #15475: --- begin vector loop cost summary ---
+; HIR-NEXT:      remark #15476: scalar cost: 2.000000
+; HIR-NEXT:      remark #15477: vector cost: 4.500000
+; HIR-NEXT:      remark #15478: estimated potential speedup: 0.437500
 ; HIR-NEXT:      remark #15482: vectorized math library calls: 0
 ; HIR-NEXT:      remark #15484: vector function calls: 0
 ; HIR-NEXT:      remark #15485: serialized function calls: 1
@@ -147,10 +159,13 @@ define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
 ; LLVM-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; LLVM-NEXT:      remark #15305: vectorization support: vector length 4
 ; LLVM-NEXT:      remark #15475: --- begin vector loop cost summary ---
+; LLVM-NEXT:      remark #15476: scalar cost: 31.000000
+; LLVM-NEXT:      remark #15477: vector cost: 12.000000
+; LLVM-NEXT:      remark #15478: estimated potential speedup: 2.578125
 ; LLVM-NEXT:      remark #15482: vectorized math library calls: 3
 ; LLVM-NEXT:      remark #15484: vector function calls: 0
 ; LLVM-NEXT:      remark #15485: serialized function calls: 0
-; LLVM:           remark #15488: --- end vector loop cost summary ---
+; LLVM-NEXT:      remark #15488: --- end vector loop cost summary ---
 ; LLVM:       LOOP END
 ; LLVM-NEXT:  =================================================================
 
@@ -172,6 +187,9 @@ define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
 ; HIR-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; HIR-NEXT:      remark #15305: vectorization support: vector length 4
 ; HIR-NEXT:      remark #15475: --- begin vector loop cost summary ---
+; HIR-NEXT:      remark #15476: scalar cost: 31.000000
+; HIR-NEXT:      remark #15477: vector cost: 12.000000
+; HIR-NEXT:      remark #15478: estimated potential speedup: 2.578125
 ; HIR-NEXT:      remark #15482: vectorized math library calls: 3
 ; HIR-NEXT:      remark #15484: vector function calls: 0
 ; HIR-NEXT:      remark #15485: serialized function calls: 0
