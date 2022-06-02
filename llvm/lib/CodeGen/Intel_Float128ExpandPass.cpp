@@ -828,7 +828,7 @@ bool Float128Expand::runOnFunction(Function &F) {
 
   MadeChange |= scalarizeFP128Op(F);
 
-  // Calculate each SCC’s predecessors and successors in reverse topological
+  // Calculate each SCC's predecessors and successors in reverse topological
   // order and check if each SCC has a USE of fp128 PX
   for (scc_iterator<Function *> SCCI = scc_begin(&F); !SCCI.isAtEnd(); ++SCCI) {
     const std::vector<BasicBlock *> &CurSCC = *SCCI;
@@ -840,7 +840,7 @@ bool Float128Expand::runOnFunction(Function &F) {
     for (auto *BI : CurSCC) {
       for (auto *CurBB : successors(BI)) {
         assert(BB2SCC[CurBB] != nullptr &&
-               "Since we calculate each SCC’s predecessors and successors in "
+               "Since we calculate each SCC's predecessors and successors in "
                "reverse topological order, BB2SCC[CurBB] should never be "
                "nullptr");
         SCCNode *SCCOut = BB2SCC[CurBB];
