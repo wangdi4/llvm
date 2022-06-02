@@ -288,7 +288,11 @@ namespace L0Interop {
        void *dynlib_handle = dlopen(L0Interop::SyclWrapName, RTLD_NOW);
        if (!dynlib_handle) {
           // Library does not exist or cannot be found.
-          DP("Unable to load library '%s': %s!\n", L0Interop::SyclWrapName, dlerror());
+          char *ErrorStr = dlerror();
+          if (!ErrorStr)
+            ErrorStr = "";
+          DP("Unable to load library '%s': %s!\n", L0Interop::SyclWrapName,
+             ErrorStr);
           SyclWrapper.WrapApiValid = false;
           return;
        }
