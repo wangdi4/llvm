@@ -179,7 +179,7 @@ namespace L0Interop {
   // Library needed to convert interop object into a sycl interop object
   // when preferred type is sycl for interop object
 #if _WIN32
-  const char *SyclWrapName = "libomptarget.sycl.wrap.dll";
+  const char *SyclWrapName = "omptarget.sycl.wrap.dll";
 #else  // !_WIN32
   const char *SyclWrapName = "libomptarget.sycl.wrap.so";
 #endif // !_WIN32
