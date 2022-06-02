@@ -2,7 +2,7 @@
 ; can't be merged since the calls (@Not_Ctor1 and @Not_Ctor2) are not
 ; constructor calls.
 
-; RUN: opt < %s -whole-program-assume -disable-output                                                                     \
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -disable-output                                      \
 ; RUN:          -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-struct                                                    \
 ; RUN:          -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-struct-methods>'    \
 ; RUN:          -dtrans-soatoaosop-array-type=struct.Arr                                                                  \

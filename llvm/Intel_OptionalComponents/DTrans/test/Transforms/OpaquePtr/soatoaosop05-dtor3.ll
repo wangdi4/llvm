@@ -4,7 +4,7 @@
 ; This test is same as soatoaosop05-dtor2.ll except landingpad
 ; instruction in %b20 block has extra clause.
 
-; RUN: opt < %s -whole-program-assume -disable-output                                                                     \
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -disable-output                                      \
 ; RUN:          -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-struct                                                    \
 ; RUN:          -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-struct-methods>'    \
 ; RUN:          -dtrans-soatoaosop-array-type=struct.Arr                                                                  \

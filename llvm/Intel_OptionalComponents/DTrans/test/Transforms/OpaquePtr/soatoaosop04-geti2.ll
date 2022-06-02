@@ -1,9 +1,9 @@
-; RUN: opt < %s -whole-program-assume -disable-output                                                       \
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -disable-output                                                       \
 ; RUN: -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-array-methods>' \
 ; RUN:        -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=4                                    \
 ; RUN:        -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-arrays                                            \
 ; RUN:        2>&1 | FileCheck %s
-; RUN: opt -S < %s -whole-program-assume                                                                    \
+; RUN: opt -S < %s -dtransop-allow-typed-pointers -whole-program-assume                                                                    \
 ; RUN:        -passes=soatoaosop-arrays-methods-transform                                                     \
 ; RUN:        -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=4                                    \
 ; RUN:        | FileCheck --check-prefix=CHECK-MOD %s

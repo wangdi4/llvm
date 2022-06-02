@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt  < %s -whole-program-assume -disable-output -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.type01,struct.type02 -debug-only=dtransop-optbase 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE
-; RUN: opt  < %s -whole-program-assume -disable-output -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.type01,struct.type02 -debug-only=dtransop-optbase 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE
+; RUN: opt  < %s -dtransop-allow-typed-pointers -whole-program-assume -disable-output -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.type01,struct.type02 -debug-only=dtransop-optbase 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE
+; RUN: opt  < %s -dtransop-allow-typed-pointers -whole-program-assume -disable-output -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.type01,struct.type02 -debug-only=dtransop-optbase 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE
 ; RUN: opt  < %s -opaque-pointers -whole-program-assume -disable-output -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.type01,struct.type02 -debug-only=dtransop-optbase 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-OPAQUE
 ; RUN: opt  < %s -opaque-pointers -whole-program-assume -disable-output -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.type01,struct.type02 -debug-only=dtransop-optbase 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-OPAQUE
 

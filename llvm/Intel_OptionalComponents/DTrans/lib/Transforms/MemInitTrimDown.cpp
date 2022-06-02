@@ -1,6 +1,6 @@
 //===---------------- MemInitTrimDown.cpp - DTransMemInitTrimDownPass -----===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -817,7 +817,12 @@ bool MemInitTrimDownImpl::run(void) {
 bool MemInitTrimDownPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
                                   SOAGetTLITy GetTLI, WholeProgramInfo &WPInfo,
                                   dtrans::SOADominatorTreeType &GetDT) {
-
+  if (dtrans::shouldRunOpaquePointerPasses(M)) {
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+      dbgs() << "mem-init-trimdown inhibited: opaque pointer passes in use\n";
+    });
+    return false;
+  }
   auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
   if (!WPInfo.isWholeProgramSafe() || !WPInfo.isAdvancedOptEnabled(TTIAVX2))
     return false;

@@ -7,7 +7,7 @@
 ; used, rather than crashing. The resolve types pass is deprecated and will
 ; be removed when switching to opaque pointers.
 
-; CHECK: resolve-types inhibited: opaque pointers not supported
+; CHECK: resolve-types inhibited: opaque pointers passes in use
 
 %struct.outer = type { i32, i32, ptr }
 %struct.middle = type { i32, i32, %struct.bar }

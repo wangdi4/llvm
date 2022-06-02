@@ -17,4 +17,4 @@ define void @test1() {
 
 declare ptr @malloc(i64)
 
-; CHECK: dtrans: Pointers are opaque ... DTransAnalysis didn't run
+; CHECK: dtrans: Pointers are opaque or opaque passes requested ... DTransAnalysis didn't run

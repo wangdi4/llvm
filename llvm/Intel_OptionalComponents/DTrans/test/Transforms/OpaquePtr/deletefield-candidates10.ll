@@ -1,9 +1,9 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -whole-program-assume -dtrans-deletefieldop-typelist=struct.other -dtrans-deletefieldop -debug-only=dtrans-deletefieldop -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -dtrans-deletefieldop-typelist=struct.other -passes=dtrans-deletefieldop -debug-only=dtrans-deletefieldop -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -dtrans-deletefieldop-typelist=struct.other -dtrans-deletefieldop -debug-only=dtrans-deletefieldop -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -dtrans-deletefieldop-typelist=struct.other -passes=dtrans-deletefieldop -debug-only=dtrans-deletefieldop -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
 
-; RUN: opt < %s -whole-program-assume -dtrans-deletefieldop-max-struct=1 -dtrans-deletefieldop -debug-only=dtrans-deletefieldop -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -dtrans-deletefieldop-max-struct=1 -passes=dtrans-deletefieldop -debug-only=dtrans-deletefieldop -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -dtrans-deletefieldop-max-struct=1 -dtrans-deletefieldop -debug-only=dtrans-deletefieldop -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -dtrans-deletefieldop-max-struct=1 -passes=dtrans-deletefieldop -debug-only=dtrans-deletefieldop -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
 
 ; In this case, both %struct.test and %struct.other are candidates for deletion
 ; based on the selection heuristics.

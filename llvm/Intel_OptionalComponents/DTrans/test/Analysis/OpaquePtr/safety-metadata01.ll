@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -disable-output -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types  2>&1 | FileCheck %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -disable-output -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types 2>&1 | FileCheck %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -disable-output -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types  2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -disable-output -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -disable-output -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types  2>&1 | FileCheck %s
 

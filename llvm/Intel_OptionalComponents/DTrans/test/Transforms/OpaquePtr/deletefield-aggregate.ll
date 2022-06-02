@@ -1,5 +1,5 @@
-; RUN: opt %s -whole-program-assume -passes=dtrans-deletefieldop -S 2>&1 | FileCheck %s
-; RUN: opt %s -whole-program-assume -dtrans-deletefieldop -S 2>&1 | FileCheck %s
+; RUN: opt %s -dtransop-allow-typed-pointers -whole-program-assume -passes=dtrans-deletefieldop -S 2>&1 | FileCheck %s
+; RUN: opt %s -dtransop-allow-typed-pointers -whole-program-assume -dtrans-deletefieldop -S 2>&1 | FileCheck %s
 
 ; This test verifies that the DTrans delete pass correctly transforms
 ; nested structure element accesses.
