@@ -246,12 +246,10 @@ VPInstructionCost VPlanTTICostModel::getArithmeticInstructionCost(
   const unsigned Opcode,
   const VPValue *Op1,
   const VPValue *Op2,
-  const Type *ScalarTy,
+  const Type *Ty,
   const unsigned VF) {
   assert(Op1 != nullptr && "First operand is expected.");
-  if (!ScalarTy)
-    return VPInstructionCost::getUnknown();
-  Type *VecTy = getWidenedType(const_cast<Type *>(ScalarTy), VF);
+  Type *VecTy = getWidenedType(Ty, VF);
 
   auto SetOperandValueFeatures = [](
     const VPValue *Val,
