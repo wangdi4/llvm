@@ -261,8 +261,6 @@ void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOpt
     m_passManagerType =
         static_cast<PassManagerType>(pBackendOptions->GetIntValue(
             CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE, PM_NONE));
-    m_debugPassManager = pBackendOptions->GetStringValue(
-        (int)CL_DEV_BACKEND_OPTION_DEBUG_PASS_MANAGER, "");
 
     // Adjust m_forcedPrivateMemorySize if it is not set.
     if (m_forcedPrivateMemorySize == 0)

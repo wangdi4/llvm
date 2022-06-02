@@ -25,6 +25,8 @@
 
 #include <vector>
 
+enum class DebugLogging { None, Normal, Quiet, Verbose };
+
 namespace intel {
 class OptimizerConfig;
 }
@@ -43,8 +45,7 @@ namespace DeviceBackend {
 
 class Optimizer {
 public:
-  Optimizer(llvm::Module &M,
-            llvm::SmallVector<llvm::Module *, 2> &RtlModules,
+  Optimizer(llvm::Module &M, llvm::SmallVector<llvm::Module *, 2> &RtlModules,
             const intel::OptimizerConfig &Config);
 
   virtual ~Optimizer() {}

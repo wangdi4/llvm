@@ -27,7 +27,7 @@ class OptimizerOCL : public Optimizer {
 public:
   OptimizerOCL(llvm::Module &M,
                llvm::SmallVector<llvm::Module *, 2> &RtlModules,
-               const intel::OptimizerConfig &Config, bool DebugPassManager);
+               const intel::OptimizerConfig &Config);
 
   /// Run pass manager on a module.
   void Optimize(llvm::raw_ostream &LogStream) override;
@@ -45,8 +45,6 @@ private:
   void addBarrierPasses(llvm::ModulePassManager &MPM) const;
 
   llvm::OptimizationLevel Level;
-
-  bool DebugPassManager;
 
   bool UnrollLoops;
 

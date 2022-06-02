@@ -325,22 +325,18 @@ void Compiler::Terminate()
     llvm::llvm_shutdown();
 }
 
-Compiler::Compiler(const ICompilerConfig& config):
-    m_bIsFPGAEmulator(FPGA_EMU_DEVICE == config.TargetDevice()),
-    m_bIsEyeQEmulator(EYEQ_EMU_DEVICE == config.TargetDevice()),
-    m_transposeSize(config.GetTransposeSize()),
-    m_rtLoopUnrollFactor(config.GetRTLoopUnrollFactor()),
-    m_dumpHeuristicIR(config.GetDumpHeuristicIRFlag()),
-    m_debug(false),
-    m_disableOptimization(false),
-    m_useNativeDebugger(true),
-    m_streamingAlways(config.GetStreamingAlways()),
-    m_expensiveMemOpts(config.GetExpensiveMemOpts()),
-    m_passManagerType(config.GetPassManagerType()),
-    m_debugPassManager(config.DebugPassManager())
-{
-    // WORKAROUND!!! See the notes in TerminationBlocker description
-   static Utils::TerminationBlocker blocker;
+Compiler::Compiler(const ICompilerConfig &config)
+    : m_bIsFPGAEmulator(FPGA_EMU_DEVICE == config.TargetDevice()),
+      m_bIsEyeQEmulator(EYEQ_EMU_DEVICE == config.TargetDevice()),
+      m_transposeSize(config.GetTransposeSize()),
+      m_rtLoopUnrollFactor(config.GetRTLoopUnrollFactor()),
+      m_dumpHeuristicIR(config.GetDumpHeuristicIRFlag()), m_debug(false),
+      m_disableOptimization(false), m_useNativeDebugger(true),
+      m_streamingAlways(config.GetStreamingAlways()),
+      m_expensiveMemOpts(config.GetExpensiveMemOpts()),
+      m_passManagerType(config.GetPassManagerType()) {
+  // WORKAROUND!!! See the notes in TerminationBlocker description
+  static Utils::TerminationBlocker blocker;
 }
 
 Compiler::~Compiler()
@@ -491,16 +487,16 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
                                                          optimizerConfig);
       break;
     case PM_LTO:
-      optimizer = std::make_unique<OptimizerLTO>(
-          *pModule, BIModules, optimizerConfig, !m_debugPassManager.empty());
+      optimizer =
+          std::make_unique<OptimizerLTO>(*pModule, BIModules, optimizerConfig);
       break;
     case PM_OCL_LEGACY:
       optimizer = std::make_unique<OptimizerOCLLegacy>(*pModule, BIModules,
                                                        optimizerConfig);
       break;
     default:
-      optimizer = std::make_unique<OptimizerOCL>(
-          *pModule, BIModules, optimizerConfig, !m_debugPassManager.empty());
+      optimizer =
+          std::make_unique<OptimizerOCL>(*pModule, BIModules, optimizerConfig);
       break;
     };
 
