@@ -311,6 +311,9 @@
 ; CHECK-O23SZ-NEXT: Running pass: InstCombinePass on foo
 ; CHECK-O23SZ-NEXT: Running pass: SimplifyCFGPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: SCCPPass on foo
+; INTEL_CUSTOMIZATION
+; CHECK-O23SZ-NEXT: Running pass: RequireAnalysisPass<llvm::LoopAnalysis
+; end INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: InstCombinePass on foo
 ; CHECK-O23SZ-NEXT: Running pass: BDCEPass on foo
 ; CHECK-O2-NEXT: Running pass: SLPVectorizerPass on foo
