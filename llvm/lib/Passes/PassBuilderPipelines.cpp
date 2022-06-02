@@ -1738,7 +1738,12 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
 
   if (IsFullLTO) {
     FPM.addPass(SCCPPass());
-    addInstCombinePass(FPM, !DTransEnabled); // INTEL
+#if INTEL_CUSTOMIZATION
+    // This IC instance must be made loop-aware to avoid sinking expensive
+    // insts into loops. Make sure loops were not invalidated by above passes.
+    FPM.addPass(RequireAnalysisPass<LoopAnalysis, Function>());
+    addInstCombinePass(FPM, !DTransEnabled);
+#endif // INTEL_CUSTOMIZATION
     FPM.addPass(BDCEPass());
   }
 
