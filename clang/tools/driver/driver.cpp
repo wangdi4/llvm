@@ -506,9 +506,9 @@ int main(int Argc, const char **Argv) {
       HasIntelOption = true;
     }
   }
-  assert(!(HasDpcppOption && HasIntelOption)
-          && "Both --intel and --dpcpp has been set!");
-  if (HasDpcppOption)
+  // Use of --intel --dpcpp is valid (icpx -fdpcpp) so in that case we
+  // want the name to follow the --intel path.
+  if (HasDpcppOption && !HasIntelOption)
     // TODO: Update dpcpp output 'name' similar to icx to include dpcpp-cl
     DiagClient->setPrefix(std::string("dpcpp"));
 #endif // INTEL_CUSTOMIZATION
@@ -528,8 +528,6 @@ int main(int Argc, const char **Argv) {
 
   Driver TheDriver(Path, llvm::sys::getDefaultTargetTriple(), Diags);
 #if INTEL_CUSTOMIZATION
-  if (HasDpcppOption)
-    TheDriver.setDriverName(std::string("dpcpp"));
   if (HasIntelOption) {
     StringRef DrBasename(llvm::sys::path::stem(Args[0]));
     auto DriverMode = getDriverMode(Args[0], llvm::makeArrayRef(Args).slice(1));
@@ -540,7 +538,8 @@ int main(int Argc, const char **Argv) {
       DiagClient->setPrefix(GetDriverName(DrBasename.str()));
       TheDriver.setDriverName(GetDriverName(DrBasename.str()));
     }
-  }
+  } else if (HasDpcppOption)
+    TheDriver.setDriverName(std::string("dpcpp"));
 #endif // INTEL_CUSTOMIZATION
   SetInstallDir(Args, TheDriver, CanonicalPrefixes);
   auto TargetAndMode = ToolChain::getTargetAndModeFromProgramName(Args[0]);
