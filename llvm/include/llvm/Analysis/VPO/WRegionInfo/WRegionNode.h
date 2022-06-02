@@ -952,7 +952,6 @@ public:
     WRNFlush,
     WRNPrefetch,
     WRNOrdered,
-    WRNMaster,
     WRNMasked,
     WRNSingle,
     WRNTaskgroup,

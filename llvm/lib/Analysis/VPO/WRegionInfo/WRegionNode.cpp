@@ -78,7 +78,6 @@ DenseMap<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNPrefetch, "prefetch"},
     {WRegionNode::WRNInterop, "interop"},
     {WRegionNode::WRNOrdered, "ordered"},
-    {WRegionNode::WRNMaster, "master"},
     {WRegionNode::WRNMasked, "masked"},
     {WRegionNode::WRNSingle, "single"},
     {WRegionNode::WRNTaskgroup, "taskgroup"},
