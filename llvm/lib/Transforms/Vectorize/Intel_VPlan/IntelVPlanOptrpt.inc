@@ -70,6 +70,8 @@ VPLAN_OPTRPT_ORIGIN_VEC_HANDLE(OriginRemarks)
 VPLAN_OPTRPT_VEC_HANDLE(GeneralRemarks)
 
 VPLAN_OPTRPT_HANDLE_FUNC_GROUP_BEGIN(15475u)
+// Remarks related to CM
+VPLAN_OPTRPT_VEC_HANDLE(CostModelRemarks)
 // Basically everything vectorizable through TargetLibraryInfo.
 VPLAN_OPTRPT_HANDLE_FUNC(15482u, VectorMathCalls)
 // Vectorizable due to vector-variants attribute.

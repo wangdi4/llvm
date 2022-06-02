@@ -2,12 +2,18 @@
 ; outer loopnest with nested inner loop.
 
 ; RUN: opt -vplan-vec -vplan-force-vf=2 -intel-opt-report=high -intel-ir-optreport-emitter < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace --check-prefixes=CHECK,IR
-; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -vplan-enable-new-cfg-merge-hir -intel-opt-report=high -hir-optreport-emitter < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-force-vf=2 -vplan-enable-new-cfg-merge-hir -intel-opt-report=high -hir-optreport-emitter < %s -disable-output 2>&1 | FileCheck %s --strict-whitespace --check-prefixes=CHECK,HIR
 
 ; CHECK:      LOOP BEGIN
 ; CHECK-NEXT:     remark #15301: SIMD LOOP WAS VECTORIZED
 ; CHECK-NEXT:     remark #15305: vectorization support: vector length 2
 ; CHECK-NEXT:     remark #15475: --- begin vector loop cost summary ---
+; IR-NEXT:        remark #15476: scalar cost: 7.000000
+; IR-NEXT:        remark #15477: vector cost: 5.000000
+; IR-NEXT:        remark #15478: estimated potential speedup: 1.390625
+; HIR-NEXT:       remark #15476: scalar cost: 9.000000
+; HIR-NEXT:       remark #15477: vector cost: 6.500000
+; HIR-NEXT:       remark #15478: estimated potential speedup: 1.375000
 ; CHECK-NEXT:     remark #15482: vectorized math library calls: 0
 ; CHECK-NEXT:     remark #15484: vector function calls: 0
 ; CHECK-NEXT:     remark #15485: serialized function calls: 1

@@ -631,6 +631,18 @@ protected:
   /// creation and cloning.
   std::list<CfgMergerPlanDescr> MergerVPlans;
 
+  struct VPCostSummary {
+    VPInstructionCost ScalarIterationCost;
+    VPInstructionCost VectorIterationCost;
+    VPInstructionCost Speedup;
+
+    VPCostSummary(VPInstructionCost ScalarIterationCost,
+                  VPInstructionCost VectorIterationCost,
+                  VPInstructionCost Speedup)
+        : ScalarIterationCost(ScalarIterationCost),
+          VectorIterationCost(VectorIterationCost), Speedup(Speedup) {}
+  };
+
 private:
   /// Determine whether \p I will be scalarized in a given range of VFs.
   /// The returned value reflects the result for a prefix of the range, with \p
