@@ -486,59 +486,19 @@ void VPBasicBlock::dropAllReferences() {
 }
 
 void VPBasicBlock::execute(VPTransformState *State) {
-  bool Replica = State->Instance &&
-                 !(State->Instance->Part == 0 && State->Instance->Lane == 0);
-  VPBasicBlock *PrevVPBB = State->CFG.PrevVPBB;
-  VPBasicBlock *SinglePred = nullptr;
-  BasicBlock *NewBB = State->CFG.PrevBB; // Reuse it if possible.
+  // Always have a separate BasicBlock for each VPBasicBlock in the new CG
+  // scheme.
+  BasicBlock *NewBB = cast<BasicBlock>(State->ILV->getScalarValue(this, 0));
+  NewBB->moveAfter(State->CFG.PrevBB);
+  State->CFG.PrevBB = NewBB;
 
-  bool DoesNotHaveExplicitRemainder = !getParent()->hasExplicitRemainder();
-  if (DoesNotHaveExplicitRemainder) {
-    VPLoop *OuterMostVPLoop = cast<VPlanVector>(getParent())->getMainLoop(true);
-
-    // 1. Create an IR basic block, or reuse one already available if possible.
-    // The last IR basic block is reused in four cases:
-    // A. the first VPBB reuses the pre-header BB - when PrevVPBB is null;
-    // B. the second VPBB reuses the header BB;
-    // C. when the current VPBB has a single (hierarchical) predecessor which
-    //    is PrevVPBB and the latter has a single (hierarchical) successor; and
-    // D. when the current VPBB is an entry of a region replica - where PrevVPBB
-    //    is the exit of this region from a previous instance.
-    if (OuterMostVPLoop->getHeader() == this) {
-      // Set NewBB to loop H basic block
-      BasicBlock *LoopPH = State->CFG.PrevBB;
-      NewBB = LoopPH->getSingleSuccessor();
-      assert(NewBB && "Expected single successor from loop pre-header");
-      State->Builder.SetInsertPoint(NewBB->getTerminator());
-      State->CFG.PrevBB = NewBB;
-    } else if (PrevVPBB /* A */ &&
-               !((SinglePred = getSinglePredecessor()) &&
-                 SinglePred == PrevVPBB &&
-                 PrevVPBB->getSingleSuccessor()) &&       /* C */
-               !(Replica && getPredecessors().empty())) { /* D */
-
-      NewBB = createEmptyBasicBlock(State);
-      State->Builder.SetInsertPoint(NewBB);
-      // Temporarily terminate with unreachable until CFG is rewired.
-      UnreachableInst *Terminator = State->Builder.CreateUnreachable();
-      State->Builder.SetInsertPoint(Terminator);
-      State->CFG.PrevBB = NewBB;
-    }
-  } else {
-    // Always have a separate BasicBlock for each VPBasicBlock in the new CG
-    // scheme.
-    NewBB = cast<BasicBlock>(State->ILV->getScalarValue(this, 0));
-    NewBB->moveAfter(State->CFG.PrevBB);
-    State->CFG.PrevBB = NewBB;
-
-    State->Builder.SetInsertPoint(NewBB);
-    // Temporarily terminate with unreachable until CFG is rewired.
-    UnreachableInst *Terminator = State->Builder.CreateUnreachable();
-    State->Builder.SetInsertPoint(Terminator);
-    // Preserve debug location of terminator instruction generated for the
-    // BasicBlock.
-    Terminator->setDebugLoc(getTerminator()->getDebugLocation());
-  }
+  State->Builder.SetInsertPoint(NewBB);
+  // Temporarily terminate with unreachable until CFG is rewired.
+  UnreachableInst *Terminator = State->Builder.CreateUnreachable();
+  State->Builder.SetInsertPoint(Terminator);
+  // Preserve debug location of terminator instruction generated for the
+  // BasicBlock.
+  Terminator->setDebugLoc(getTerminator()->getDebugLocation());
 
   // 2. Fill the IR basic block with IR instructions.
   LLVM_DEBUG(dbgs() << "LV: vectorizing VPBB:" << getName()
@@ -557,65 +517,43 @@ void VPBasicBlock::execute(VPTransformState *State) {
   State->ILV->setMaskValue(nullptr);
 
   State->CFG.VPBB2IREndBB[this] = State->CFG.PrevBB;
-  if (DoesNotHaveExplicitRemainder) {
+  // TODO: Not needed after explicit VPTerminators and the CG support for
+  // them are implemented.
+  auto *CurrentTerminator = State->CFG.PrevBB->getTerminator();
+  // VPOrigLoopReuse makes terminator fixup on its own. Same should be done
+  // for VPBranchInst once we make CFG through terminator VPInstructions.
+  // Note that VPOrigLoopReuse can *NOT* be a terminator due to live out
+  // extracts. We might need an extra VPInstruction to represent the fixup
+  // of CFG for it.
+  if (isa<UnreachableInst>(CurrentTerminator)) {
+    BranchInst *Br;
     if (auto *CBV = getCondBit()) {
-      // Condition bit value in a VPBasicBlock is used as the branch selector.
-      // All branches that remain are uniform - we generate a branch instruction
-      // using the condition value from vector lane 0 and dummy successors. The
-      // successors are fixed later when the successor blocks are visited.
+      // Condition bit value in a VPBasicBlock is used as the branch
+      // selector. All branches that remain are uniform - we generate a
+      // branch instruction using the condition value from vector lane 0.
       Value *NewCond = State->ILV->getScalarValue(CBV, 0);
-      BasicBlock *EndBB = State->CFG.VPBB2IREndBB[this];
-
-      // Replace the temporary unreachable terminator with the new conditional
-      // branch.
-      auto *CurrentTerminator = EndBB->getTerminator();
-      assert(isa<UnreachableInst>(CurrentTerminator) &&
-             "Expected to replace unreachable terminator with conditional "
-             "branch.");
-      auto *CondBr = BranchInst::Create(EndBB, nullptr, NewCond);
-      CondBr->setSuccessor(0, nullptr);
-      ReplaceInstWithInst(CurrentTerminator, CondBr);
+      auto *TrueSucc =
+          cast<BasicBlock>(State->ILV->getScalarValue(getSuccessor(0), 0));
+      auto *FalseSucc =
+          cast<BasicBlock>(State->ILV->getScalarValue(getSuccessor(1), 0));
+      Br = BranchInst::Create(TrueSucc, FalseSucc, NewCond);
+    } else {
+      auto *Succ =
+          getNumSuccessors() == 1
+              ? cast<BasicBlock>(State->ILV->getScalarValue(getSuccessor(0), 0))
+              // TODO: That fixup should probably happen on the VPlan level,
+              // not on the VPBasicBlock. Unreachable should be fine here.
+              : State->ILV->getOrigScalarExit();
+      Br = BranchInst::Create(Succ);
     }
-  } else {
-    // TODO: Not needed after explicit VPTerminators and the CG support for
-    // them are implemented.
-    auto *CurrentTerminator = State->CFG.PrevBB->getTerminator();
-    // VPOrigLoopReuse makes terminator fixup on its own. Same should be done
-    // for VPBranchInst once we make CFG through terminator VPInstructions.
-    // Note that VPOrigLoopReuse can *NOT* be a terminator due to live out
-    // extracts. We might need an extra VPInstruction to represent the fixup
-    // of CFG for it.
-    if (isa<UnreachableInst>(CurrentTerminator)) {
-      BranchInst *Br;
-      if (auto *CBV = getCondBit()) {
-        // Condition bit value in a VPBasicBlock is used as the branch
-        // selector. All branches that remain are uniform - we generate a
-        // branch instruction using the condition value from vector lane 0.
-        Value *NewCond = State->ILV->getScalarValue(CBV, 0);
-        auto *TrueSucc =
-            cast<BasicBlock>(State->ILV->getScalarValue(getSuccessor(0), 0));
-        auto *FalseSucc =
-            cast<BasicBlock>(State->ILV->getScalarValue(getSuccessor(1), 0));
-        Br = BranchInst::Create(TrueSucc, FalseSucc, NewCond);
-      } else {
-        auto *Succ =
-            getNumSuccessors() == 1
-                ? cast<BasicBlock>(
-                      State->ILV->getScalarValue(getSuccessor(0), 0))
-                // TODO: That fixup should probably happen on the VPlan level,
-                // not on the VPBasicBlock. Unreachable should be fine here.
-                : State->ILV->getOrigScalarExit();
-        Br = BranchInst::Create(Succ);
-      }
-      ReplaceInstWithInst(CurrentTerminator, Br);
-      // Replace now-stale insert point, in case someone can see it. Even
-      // InsertPointGuard without real insertion into a broken insert point
-      // could crash...
-      State->Builder.SetInsertPoint(Br);
-      // Preserve debug location of branch instruction generated for the
-      // BasicBlock.
-      Br->setDebugLoc(getTerminator()->getDebugLocation());
-    }
+    ReplaceInstWithInst(CurrentTerminator, Br);
+    // Replace now-stale insert point, in case someone can see it. Even
+    // InsertPointGuard without real insertion into a broken insert point
+    // could crash...
+    State->Builder.SetInsertPoint(Br);
+    // Preserve debug location of branch instruction generated for the
+    // BasicBlock.
+    Br->setDebugLoc(getTerminator()->getDebugLocation());
   }
   LLVM_DEBUG(dbgs() << "LV: filled BB:" << *NewBB);
 }

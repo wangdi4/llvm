@@ -154,10 +154,7 @@ public:
 
   VPlanVLSAnalysis *getVLS() { return VLSA; }
 
-  void setVPlan(const VPlanVector *P, const VPLoopEntityList *Entities) {
-    Plan = P;
-    VPEntities = Entities;
-  }
+  void setVPlan(const VPlanVector *P) { Plan = P; }
 
   OptReportStatsTracker &getOptReportStats(VPInstruction *I) {
     auto *BB = I->getParent();
@@ -194,14 +191,6 @@ private:
   /// Return true if instruction \p V needs vector generated, i.e. is
   /// used in vector context after vectorization.
   bool needVectorCode(VPValue *V) { return true; }
-
-  /// Emit a bypass check to see if the vector trip count is nonzero.
-  void emitVectorLoopEnteredCheck(Loop *L, BasicBlock *Bypass);
-
-  /// Check whether the original loop trip count \p Count is equal to vector
-  /// loop trip count \p CountRoundDown. In this case we can bypass the scalar
-  /// remainder.
-  void emitEndOfVectorLoop(Value *Count, Value *CountRoundDown);
 
   // Return the trip count for the scalar loop.
   Value *getTripCount() const { return TripCount; }
@@ -315,33 +304,6 @@ private:
   /// Reverse vector elements
   Value *reverseVector(Value *Vec, unsigned Stride = 1);
 
-  /// Make the needed fixups for all live out values.
-  void fixOutgoingValues();
-
-  /// Fix up reduction last value (link with remainder etc).
-  void fixReductionLastVal(const VPReduction &Red, VPReductionFinal *RedFinal);
-
-  /// Fix up live out value for a loop entity with finalization instruction \p
-  /// FinalVPInst. NOTE: This fixup assumes that all external uses of VPEntity
-  /// related instructions are replaced by its corresponding finalization
-  /// VPInstruction.
-  void fixLiveOutValues(VPInstruction *FinalVPInst, Value *LastVal);
-
-  /// A part of fix up of last value. Creates a needed phi in intermediate
-  /// block and updates phi in remainder.
-  void createLastValPhiAndUpdateOldStart(Value *OrigStartValue, PHINode *Phi,
-                                         const Twine &NameStr, Value *LastVal);
-  /// Fix up induction last value.
-  void fixInductionLastVal(const VPInduction &Ind, VPInductionFinal *IndFinal);
-
-  /// Fix up private last value.
-  void fixPrivateLastVal(VPInstruction *PrivFinal);
-
-  /// The Loop exit block may have single value PHI nodes where the incoming
-  /// value is 'Undef'. While vectorizing we only handled real values that were
-  /// defined inside the loop. Here we fix the 'undef case'.
-  void fixLCSSAPHIs();
-
   /// Insert the new loop to the loop hierarchy and pass manager
   /// and update the analysis passes.
   void updateAnalysis();
@@ -372,9 +334,8 @@ private:
 
   /// Generate vector code for reduction finalization.
   /// The final vector reduction value is reduced horizontally using
-  /// "llvm.experimental.vector.reduce" intrinsics. The scalar result is
-  /// recorded in VPEntities last-value tracking map to update out-of-the-loop
-  /// uses. If accumulator value is present, then a final scalar operation is
+  /// "llvm.experimental.vector.reduce" intrinsics.
+  /// If accumulator value is present, then a final scalar operation is
   /// also performed.
   // Example -
   // i32 % vp1 = reduction-final{u_add} i32 %vp.red.add
@@ -459,9 +420,6 @@ private:
 
   /// VPlan for which vector code is generated, need to finalize external uses.
   const VPlanVector *Plan;
-
-  // Loop entities, for correct reductions processing
-  const VPLoopEntityList *VPEntities = nullptr;
 
   // Loop trip count
   Value *TripCount = nullptr;
