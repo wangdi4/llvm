@@ -1007,7 +1007,7 @@ static std::unique_ptr<LTO> createLTO(IndexWriteCallback OnIndexWrite,
 
   Conf.HasWholeProgramVisibility = options::whole_program_visibility;
 
-  Conf.OpaquePointers = options.opaque_pointers;
+  Conf.OpaquePointers = options::opaque_pointers;
 
   Conf.StatsFile = options::stats_file;
   Conf.WPUtils.setLinkingExecutable(options::BuildingExecutable);   // INTEL
