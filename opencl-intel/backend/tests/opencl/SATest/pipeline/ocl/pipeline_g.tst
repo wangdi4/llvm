@@ -1,4 +1,4 @@
-; RUN: SATest -BUILD -enable-expensive-mem-opts=1 -pass-manager-type=ocl -debug-passes=Structure -config=%s.cfg 2>&1 | FileCheck %s --check-prefixes=CHECK
+; RUN: SATest -BUILD -enable-expensive-mem-opts=1 -pass-manager-type=ocl -llvm-option=-debug-pass-manager -config=%s.cfg 2>&1 | FileCheck %s --check-prefixes=CHECK
 
 ; CHECK: Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass

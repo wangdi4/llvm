@@ -245,8 +245,7 @@ llvm::cl::opt<std::string> TimePasses(
 // Debugging pass manager.
 llvm::cl::opt<std::string> DebugPassManager(
     "debug-passes",
-    llvm::cl::desc("Enable -debug-pass for legacy pass manager and"
-                   "debugging for new pass manager."));
+    llvm::cl::desc("Enable -debug-pass for legacy pass manager"));
 
 // Seed for random input data generator
 llvm::cl::opt<uint64_t>

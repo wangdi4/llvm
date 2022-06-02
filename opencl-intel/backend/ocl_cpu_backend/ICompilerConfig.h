@@ -82,10 +82,6 @@ public:
     virtual DeviceMode TargetDevice() const = 0;
 
     virtual PassManagerType GetPassManagerType() const = 0;
-
-    /// Enable -debug-pass for legacy pass manager and debugging for new pass
-    /// manager.
-    virtual std::string DebugPassManager() const = 0;
 };
 
 }}}
