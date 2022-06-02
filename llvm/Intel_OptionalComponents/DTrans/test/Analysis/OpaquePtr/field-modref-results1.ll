@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=true -dtrans-fieldmodrefop-analysis -dtrans-fieldmodref-eval -disable-output 2>&1 | FileCheck --check-prefix=CHECK-TYPED %s
-; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=true -passes='require<dtrans-fieldmodrefop-analysis>' -dtrans-fieldmodref-eval -disable-output 2>&1 | FileCheck --check-prefix=CHECK-TYPED %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -dtrans-outofboundsok=true -dtrans-fieldmodrefop-analysis -dtrans-fieldmodref-eval -disable-output 2>&1 | FileCheck --check-prefix=CHECK-TYPED %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -dtrans-outofboundsok=true -passes='require<dtrans-fieldmodrefop-analysis>' -dtrans-fieldmodref-eval -disable-output 2>&1 | FileCheck --check-prefix=CHECK-TYPED %s
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -dtrans-outofboundsok=true -dtrans-fieldmodrefop-analysis -dtrans-fieldmodref-eval -disable-output 2>&1 | FileCheck --check-prefix=CHECK-OPAQUE %s
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -dtrans-outofboundsok=true -passes='require<dtrans-fieldmodrefop-analysis>' -dtrans-fieldmodref-eval -disable-output 2>&1 | FileCheck --check-prefix=CHECK-OPAQUE %s
 

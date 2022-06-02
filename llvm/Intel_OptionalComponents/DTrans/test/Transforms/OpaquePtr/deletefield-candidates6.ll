@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -whole-program-assume -dtrans-deletefieldop -debug-only=dtrans-deletefieldop -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -passes=dtrans-deletefieldop -debug-only=dtrans-deletefieldop -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -dtrans-deletefieldop -debug-only=dtrans-deletefieldop -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -passes=dtrans-deletefieldop -debug-only=dtrans-deletefieldop -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
 
 ; This test checks the delete fields candidate selection for nested
 ; structures.

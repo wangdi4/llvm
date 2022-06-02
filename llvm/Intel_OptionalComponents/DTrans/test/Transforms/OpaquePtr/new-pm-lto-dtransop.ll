@@ -10,7 +10,7 @@
 
 ; RUN: opt -disable-verify -debug-pass-manager -whole-program-assume    \
 ; RUN:     -passes='lto<O2>' -internalize-public-api-list main          \
-; RUN:     -S  %s -enable-npm-dtrans -dtrans-opaque-pointer-pipeline    \
+; RUN:     -S  %s -enable-npm-dtrans -dtransop-allow-typed-pointers     \
 ; RUN:     2>&1                                                         \
 ; RUN:     | FileCheck %s
 
@@ -38,12 +38,12 @@
 ; CHECK-NEXT: Running pass: GlobalSplitPass
 ; CHECK-NEXT: Running pass: WholeProgramDevirtPass
 
-; Verify the DTrans passes get run next
-; CHECK-NEXT: Running pass: dtransOP::RemoveDeadDTransTypeMetadataPass on [module]
+; Verify the DTrans opaque pointer passes get run in the proper order
+
+; CHECK: Running pass: dtransOP::RemoveDeadDTransTypeMetadataPass on [module]
 ; CHECK-NEXT: Running pass: dtransOP::DTransNormalizeOPPass
 ; CHECK-NEXT: Running pass: dtransOP::CommuteCondOPPass
 ; CHECK-NEXT: Running analysis: dtransOP::DTransSafetyAnalyzer
-; CHECK-NEXT: Running analysis: DTransImmutableAnalysis on [module]
 ; CHECK-NEXT: Running pass: dtransOP::MemInitTrimDownOPPass
 ; CHECK-NEXT: Running pass: dtransOP::SOAToAOSOPPreparePass
 ; CHECK-NEXT: Running pass: dtransOP::CodeAlignPass

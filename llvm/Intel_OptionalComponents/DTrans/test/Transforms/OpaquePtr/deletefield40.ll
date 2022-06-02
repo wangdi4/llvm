@@ -1,5 +1,5 @@
-; RUN: opt -whole-program-assume -dtrans-deletefieldop -dtrans-outofboundsok=false -S -o - %s | FileCheck %s
-; RUN: opt -whole-program-assume -passes='dtrans-deletefieldop' -dtrans-outofboundsok=false -S -o - %s | FileCheck %s
+; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -dtrans-deletefieldop -dtrans-outofboundsok=false -S -o - %s | FileCheck %s
+; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -passes='dtrans-deletefieldop' -dtrans-outofboundsok=false -S -o - %s | FileCheck %s
 
 ; This test checks that the delete fields transformation happens with enclosed
 ; structures. For this case, the fields 0 and 2 in %struct.B will be deleted

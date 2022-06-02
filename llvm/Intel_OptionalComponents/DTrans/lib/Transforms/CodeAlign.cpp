@@ -422,6 +422,11 @@ void CodeAlignImpl::increaseAlignment() {
 }
 
 bool CodeAlignPass::runImpl(Module &M, WholeProgramInfo &WPInfo) {
+  if (dtrans::shouldRunOpaquePointerPasses(M)) {
+    LLVM_DEBUG(
+        dbgs() << "code-align inhibited: opaque pointer passes in use\n");
+    return false;
+  }
   auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
   if (!WPInfo.isWholeProgramSafe() || !WPInfo.isAdvancedOptEnabled(TTIAVX2)) {
     LLVM_DEBUG(

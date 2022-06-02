@@ -7,8 +7,8 @@
 ; to trim down capacity values that are passed to constructors of
 ; Arr and Arr1.
 
-; RUN: opt < %s -S -dtrans-meminittrimdownop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck --check-prefix=CHECK-TRANS %s
-; RUN: opt < %s -S -passes=dtrans-meminittrimdownop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck --check-prefix=CHECK-TRANS %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -S -dtrans-meminittrimdownop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck --check-prefix=CHECK-TRANS %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -S -passes=dtrans-meminittrimdownop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck --check-prefix=CHECK-TRANS %s
 ; RUN: opt < %s -opaque-pointers -S -dtrans-meminittrimdownop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck --check-prefix=CHECK-OP-TRANS %s
 ; RUN: opt < %s -opaque-pointers -S -passes=dtrans-meminittrimdownop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck --check-prefix=CHECK-OP-TRANS %s
 
