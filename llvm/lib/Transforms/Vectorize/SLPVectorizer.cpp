@@ -1046,11 +1046,9 @@ public:
   InstructionCost getTreeCost(ArrayRef<Value *> VectorizedVals = None);
 
 #if INTEL_CUSTOMIZATION
- /// Cleanup Multi-Node state once vectorization has succeeded.
-  void cleanupMultiNodeReordering();
-
-  /// Restore the code to the original condition, by unswapping instructions.
-  void undoMultiNodeReordering();
+ /// If \p Vectorized is false restore IR to the original condition, reverting
+ /// changes made by Multi-Node reordering. Otherwise reset Multi-Node state.
+  void cleanupMultiNodeReordering(bool Vectorized);
 #endif // INTEL_CUSTOMIZATION
 
   /// Construct a vectorizable tree that starts at \p Roots, ignoring users for
@@ -1081,7 +1079,8 @@ public:
     MinBWs.clear();
     InstrElementSize.clear();
 #if INTEL_CUSTOMIZATION
-    undoMultiNodeReordering();
+    assert(!CurrentMultiNode && MultiNodes.empty() &&
+           "Multi-Node state has not been cleared");
     AllMultiNodeValues.clear();
 #endif // INTEL_CUSTOMIZATION
     UserIgnoreList = nullptr;
@@ -4771,12 +4770,16 @@ template <> struct DOTGraphTraits<BoUpSLP *> : public DefaultDOTGraphTraits {
 } // end namespace llvm
 
 #if INTEL_CUSTOMIZATION
-// Cleanup pass to remove any code modifications performed by the Multi-Node.
-void BoUpSLP::undoMultiNodeReordering() {
+void BoUpSLP::cleanupMultiNodeReordering(bool Vectorized) {
   if (!EnableMultiNodeSLP)
     return;
+  CurrentMultiNode = nullptr;
+  if (Vectorized) {
+    MultiNodes.clear();
+    return;
+  }
   for (MultiNode &MNode : reverse(MultiNodes)) {
-    // 1. Restore the instructions in CurrentMultiNode to their original state
+    // 1. Restore affected instructions to their original state
     for (int OpI : seq<int>(0, MNode.getNumOperands())) {
       for (int Lane : seq<int>(0, MNode.getNumLanes())) {
         Optional<MultiNode::BackupData> Data = MNode.getBackupData(OpI, Lane);
@@ -4807,14 +4810,7 @@ void BoUpSLP::undoMultiNodeReordering() {
     // 2. Restore the instruction position before scheduling.
     MNode.undoMultiNodeScheduling();
   }
-  CurrentMultiNode = nullptr;
-  MultiNodes.clear();
-}
 
-void BoUpSLP::cleanupMultiNodeReordering() {
-  if (!EnableMultiNodeSLP)
-    return;
-  CurrentMultiNode = nullptr;
   MultiNodes.clear();
 }
 #endif // INTEL_CUSTOMIZATION
@@ -10961,6 +10957,7 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
   Builder.ClearInsertionPoint();
   InstrElementSize.clear();
 
+  cleanupMultiNodeReordering(/*Vectorized=*/true); // INTEL
   return VectorizableTree[0]->VectorizedValue;
 }
 
@@ -12400,13 +12397,10 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
                      << NV("TreeSize", R.getTreeSize()));
 
     R.vectorizeTree();
-#if INTEL_CUSTOMIZATION
-    R.cleanupMultiNodeReordering();
     return true;
   }
-  R.undoMultiNodeReordering();
-#endif // INTEL_CUSTOMIZATION
 
+  R.cleanupMultiNodeReordering(/*Vectorized=*/false); // INTEL
   return false;
 }
 
@@ -12714,9 +12708,8 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
         NextInst = I + 1;
         Changed = true;
 #if INTEL_CUSTOMIZATION
-        R.cleanupMultiNodeReordering();
       } else {
-        R.undoMultiNodeReordering();
+        R.cleanupMultiNodeReordering(/*Vectorized=*/false);
       }
 #endif // INTEL_CUSTOMIZATION
     }
@@ -13561,9 +13554,8 @@ public:
                    << " and threshold "
                    << ore::NV("Threshold", -SLPCostThreshold);
           });
-#if INTEL_CUSTOMIZATION
-          V.undoMultiNodeReordering();
-#endif // INTEL_CUSTOMIZATION
+
+          V.cleanupMultiNodeReordering(/*Vectorized=*/false); // INTEL
           if (!AdjustReducedVals())
             V.analyzedReductionVals(VL);
           continue;
@@ -13585,9 +13577,6 @@ public:
         // Vectorize a tree.
         Value *VectorizedRoot = V.vectorizeTree(LocalExternallyUsedValues);
 
-#if INTEL_CUSTOMIZATION
-        V.cleanupMultiNodeReordering();
-#endif // INTEL_CUSTOMIZATION
         // Emit a reduction. If the root is a select (min/max idiom), the insert
         // point is the compare condition of that select.
         Instruction *RdxRootInst = cast<Instruction>(ReductionRoot);
