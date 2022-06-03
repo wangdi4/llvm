@@ -1,23 +1,29 @@
 ; REQUIRES: x86-registered-target
 
 ; Do setup work for all below tests: generate bitcode and combined index
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; Use extra option to allow full source filename path in module
 ; RUN: opt -opaque-pointers -strip-module-src-path=false -module-summary %s -o %t.bc
 ; RUN: opt -opaque-pointers -strip-module-src-path=false -module-summary %p/Inputs/funcimport.ll -o %t2.bc
 ; RUN: llvm-lto -strip-module-src-path=false -thinlto -print-summary-global-ids -o %t3 %t.bc %t2.bc 2>&1 | FileCheck %s --check-prefix=GUID
 ; end INTEL_CUSTOMIZATION
+=======
+; RUN: opt -opaque-pointers -module-summary %s -o %t.bc
+; RUN: opt -opaque-pointers -module-summary %p/Inputs/funcimport.ll -o %t2.bc
+; RUN: llvm-lto -thinlto -print-summary-global-ids -o %t3 %t.bc %t2.bc 2>&1 | FileCheck %s --check-prefix=GUID
+>>>>>>> 0e33d45274238bab346062d2ef12352dc42b3b14
 
 ; Do the import now
-; INTEL RUN: opt -opaque-pointers -function-import -stats -print-imports -enable-import-metadata -summary-file %t3.thinlto.bc %t.bc -S 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=INSTLIMDEF
+; RUN: opt -opaque-pointers -function-import -stats -print-imports -enable-import-metadata -summary-file %t3.thinlto.bc %t.bc -S 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=INSTLIMDEF
 ; Try again with new pass manager
-; INTEL RUN: opt -opaque-pointers -passes='function-import' -stats -print-imports -enable-import-metadata -summary-file %t3.thinlto.bc %t.bc -S 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=INSTLIMDEF
-; INTEL RUN: opt -opaque-pointers -passes='function-import' -debug-only=function-import -enable-import-metadata -summary-file %t3.thinlto.bc %t.bc -S 2>&1 | FileCheck %s --check-prefix=DUMP
+; RUN: opt -opaque-pointers -passes='function-import' -stats -print-imports -enable-import-metadata -summary-file %t3.thinlto.bc %t.bc -S 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=INSTLIMDEF
+; RUN: opt -opaque-pointers -passes='function-import' -debug-only=function-import -enable-import-metadata -summary-file %t3.thinlto.bc %t.bc -S 2>&1 | FileCheck %s --check-prefix=DUMP
 ; "-stats" and "-debug-only" require +Asserts.
 ; REQUIRES: asserts
 
 ; Test import with smaller instruction limit
-; INTEL RUN: opt -opaque-pointers -function-import -enable-import-metadata  -summary-file %t3.thinlto.bc %t.bc -import-instr-limit=5 -S | FileCheck %s --check-prefix=CHECK --check-prefix=INSTLIM5
+; RUN: opt -opaque-pointers -function-import -enable-import-metadata  -summary-file %t3.thinlto.bc %t.bc -import-instr-limit=5 -S | FileCheck %s --check-prefix=CHECK --check-prefix=INSTLIM5
 ; INSTLIM5-NOT: @staticfunc.llvm.
 
 ; Test force import all
