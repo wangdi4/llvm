@@ -977,6 +977,201 @@ def X86vcvtne2ps2ph : SDNode<"X86ISD::VCVTNE2PS2PH",
                                            SDTCVecEltisVT<1, f32>,
                                            SDTCisSameAs<1,2>]>>;
 #endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+#if INTEL_FEATURE_ISA_AVX512_SAT_CVT
+def SDTAVX512SATCVT_BF162I_MASK : SDTypeProfile<1, 4, [
+  SDTCVecEltisVT<0, i16>, SDTCisSameAs<0, 1>, SDTCVecEltisVT<2, i1>,
+  SDTCisSameAs<0, 3>, SDTCisInt<4>, SDTCisSameNumEltsAs<0, 2>
+]>;
+
+def SDTAVX512SATCVT_BF162I_MASKZ : SDTypeProfile<1, 3, [
+  SDTCVecEltisVT<0, i16>, SDTCVecEltisVT<1, i1>, SDTCisSameAs<0, 2>,
+  SDTCisInt<3>, SDTCisSameNumEltsAs<0, 1>
+]>;
+
+def SDTAVX512SATCVT_PH2I_MASK : SDTypeProfile<1, 4, [
+  SDTCVecEltisVT<0, i16>, SDTCisSameAs<0, 1>, SDTCVecEltisVT<2, i1>,
+  SDTCVecEltisVT<3, f16>, SDTCisInt<4>, SDTCisSameNumEltsAs<0, 2>
+]>;
+
+def SDTAVX512SATCVT_PH2I_MASKZ : SDTypeProfile<1, 3, [
+  SDTCVecEltisVT<0, i16>, SDTCVecEltisVT<1, i1>, SDTCVecEltisVT<2, f16>,
+  SDTCisInt<3>, SDTCisSameNumEltsAs<0, 1>
+]>;
+
+def SDTAVX512SATCVT_PH2I_MASK_ROUND : SDTypeProfile<1, 5, [
+  SDTCVecEltisVT<0, i16>, SDTCisSameAs<0, 1>, SDTCVecEltisVT<2, i1>,
+  SDTCVecEltisVT<3, f16>, SDTCisInt<4>, SDTCisInt<5>, SDTCisSameNumEltsAs<0, 2>
+]>;
+
+def SDTAVX512SATCVT_PH2I_MASKZ_ROUND : SDTypeProfile<1, 4, [
+  SDTCVecEltisVT<0, i16>, SDTCVecEltisVT<1, i1>, SDTCVecEltisVT<2, f16>,
+  SDTCisInt<3>, SDTCisInt<4>, SDTCisSameNumEltsAs<0, 1>
+]>;
+
+def SDTAVX512SATCVT_PS2I_MASK : SDTypeProfile<1, 4, [
+  SDTCVecEltisVT<0, i32>, SDTCisSameAs<0, 1>, SDTCVecEltisVT<2, i1>,
+  SDTCVecEltisVT<3, f32>, SDTCisInt<4>, SDTCisSameNumEltsAs<0, 2>
+]>;
+
+def SDTAVX512SATCVT_PS2I_MASKZ : SDTypeProfile<1, 3, [
+  SDTCVecEltisVT<0, i32>, SDTCVecEltisVT<1, i1>, SDTCVecEltisVT<2, f32>,
+  SDTCisInt<3>, SDTCisSameNumEltsAs<0, 1>
+]>;
+
+def SDTAVX512SATCVT_PS2I_MASK_RND : SDTypeProfile<1, 5, [
+  SDTCVecEltisVT<0, i32>, SDTCisSameAs<0, 1>, SDTCVecEltisVT<2, i1>,
+  SDTCVecEltisVT<3, f32>, SDTCisInt<4>, SDTCisInt<5>, SDTCisSameNumEltsAs<0, 2>
+]>;
+
+def SDTAVX512SATCVT_PS2I_MASKZ_RND : SDTypeProfile<1, 4, [
+  SDTCVecEltisVT<0, i32>, SDTCVecEltisVT<1, i1>, SDTCVecEltisVT<2, f32>,
+  SDTCisInt<3>, SDTCisInt<4>, SDTCisSameNumEltsAs<0, 1>
+]>;
+
+def SDTAVX512SATCVT_PH2I_SAE : SDTypeProfile<1, 2, [
+  SDTCVecEltisVT<0, i16>, SDTCVecEltisVT<1, f16>, SDTCisInt<2>,
+  SDTCisSameNumEltsAs<0, 1>
+]>;
+
+def SDTAVX512SATCVT_PH2I_MASK_SAE : SDTypeProfile<1, 4, [
+  SDTCVecEltisVT<0, i16>, SDTCisSameAs<0, 1>, SDTCVecEltisVT<2, i1>,
+  SDTCVecEltisVT<3, f16>, SDTCisInt<4>, SDTCisSameNumEltsAs<0, 2>
+]>;
+
+def SDTAVX512SATCVT_PH2I_MASKZ_SAE : SDTypeProfile<1, 3, [
+  SDTCVecEltisVT<0, i16>, SDTCVecEltisVT<1, i1>, SDTCVecEltisVT<2, f16>,
+  SDTCisInt<3>, SDTCisSameNumEltsAs<0, 1>
+]>;
+
+def SDTAVX512SATCVT_PS2I_SAE : SDTypeProfile<1, 2, [
+  SDTCVecEltisVT<0, i32>, SDTCVecEltisVT<1, f32>, SDTCisInt<2>,
+  SDTCisSameNumEltsAs<0, 1>
+]>;
+
+def SDTAVX512SATCVT_PS2I_MASK_SAE : SDTypeProfile<1, 4, [
+  SDTCVecEltisVT<0, i32>, SDTCisSameAs<0, 1>, SDTCVecEltisVT<2, i1>,
+  SDTCVecEltisVT<3, f32>, SDTCisInt<4>, SDTCisSameNumEltsAs<0, 2>
+]>;
+
+def SDTAVX512SATCVT_PS2I_MASKZ_SAE : SDTypeProfile<1, 3, [
+  SDTCVecEltisVT<0, i32>, SDTCVecEltisVT<1, i1>, SDTCVecEltisVT<2, f32>,
+  SDTCisInt<3>, SDTCisSameNumEltsAs<0, 1>
+]>;
+
+def X86vcvtnebf162ibs
+    : SDNode<"X86ISD::VCVTNEBF162IBS", SDTAVX512SATCVT_BF162I_MASK>;
+
+def X86vcvtnebf162ibsz
+    : SDNode<"X86ISD::VCVTNEBF162IBSZ", SDTAVX512SATCVT_BF162I_MASKZ>;
+
+def X86vcvtnebf162iubs
+    : SDNode<"X86ISD::VCVTNEBF162IUBS", SDTAVX512SATCVT_BF162I_MASK>;
+
+def X86vcvtnebf162iubsz
+    : SDNode<"X86ISD::VCVTNEBF162IUBSZ", SDTAVX512SATCVT_BF162I_MASKZ>;
+
+def X86vcvtph2ibs : SDNode<"X86ISD::VCVTPH2IBS", SDTAVX512SATCVT_PH2I_MASK>;
+
+def X86vcvtph2ibsz : SDNode<"X86ISD::VCVTPH2IBSZ", SDTAVX512SATCVT_PH2I_MASKZ>;
+
+def X86vcvtph2ibsRnd
+    : SDNode<"X86ISD::VCVTPH2IBS_RND", SDTAVX512SATCVT_PH2I_MASK_ROUND>;
+
+def X86vcvtph2ibszRnd
+    : SDNode<"X86ISD::VCVTPH2IBSZ_RND", SDTAVX512SATCVT_PH2I_MASKZ_ROUND>;
+
+def X86vcvtph2iubs : SDNode<"X86ISD::VCVTPH2IUBS", SDTAVX512SATCVT_PH2I_MASK>;
+
+def X86vcvtph2iubsz
+    : SDNode<"X86ISD::VCVTPH2IUBSZ", SDTAVX512SATCVT_PH2I_MASKZ>;
+
+def X86vcvtph2iubsRnd
+    : SDNode<"X86ISD::VCVTPH2IUBS_RND", SDTAVX512SATCVT_PH2I_MASK_ROUND>;
+
+def X86vcvtph2iubszRnd
+    : SDNode<"X86ISD::VCVTPH2IUBSZ_RND", SDTAVX512SATCVT_PH2I_MASKZ_ROUND>;
+
+def X86vcvtps2ibs : SDNode<"X86ISD::VCVTPS2IBS", SDTAVX512SATCVT_PS2I_MASK>;
+
+def X86vcvtps2ibsz : SDNode<"X86ISD::VCVTPS2IBSZ", SDTAVX512SATCVT_PS2I_MASKZ>;
+
+def X86vcvtps2ibsRnd
+    : SDNode<"X86ISD::VCVTPS2IBS_RND", SDTAVX512SATCVT_PS2I_MASK_RND>;
+
+def X86vcvtps2ibszRnd
+    : SDNode<"X86ISD::VCVTPS2IBSZ_RND", SDTAVX512SATCVT_PS2I_MASKZ_RND>;
+
+def X86vcvtps2iubs : SDNode<"X86ISD::VCVTPS2IUBS", SDTAVX512SATCVT_PS2I_MASK>;
+
+def X86vcvtps2iubsz
+    : SDNode<"X86ISD::VCVTPS2IUBSZ", SDTAVX512SATCVT_PS2I_MASKZ>;
+
+def X86vcvtps2iubsRnd
+    : SDNode<"X86ISD::VCVTPS2IUBS_RND", SDTAVX512SATCVT_PS2I_MASK_RND>;
+
+def X86vcvtps2iubszRnd
+    : SDNode<"X86ISD::VCVTPS2IUBSZ_RND", SDTAVX512SATCVT_PS2I_MASKZ_RND>;
+
+def X86vcvttnebf162ibs
+    : SDNode<"X86ISD::VCVTTNEBF162IBS", SDTAVX512SATCVT_BF162I_MASK>;
+
+def X86vcvttnebf162ibsz
+    : SDNode<"X86ISD::VCVTTNEBF162IBSZ", SDTAVX512SATCVT_BF162I_MASKZ>;
+
+def X86vcvttnebf162iubs
+    : SDNode<"X86ISD::VCVTTNEBF162IUBS", SDTAVX512SATCVT_BF162I_MASK>;
+
+def X86vcvttnebf162iubsz
+    : SDNode<"X86ISD::VCVTTNEBF162IUBSZ", SDTAVX512SATCVT_BF162I_MASKZ>;
+
+def X86vcvttph2ibs : SDNode<"X86ISD::VCVTTPH2IBS", SDTAVX512SATCVT_PH2I_MASK>;
+
+def X86vcvttph2ibsz
+    : SDNode<"X86ISD::VCVTTPH2IBSZ", SDTAVX512SATCVT_PH2I_MASKZ>;
+
+def X86vcvttph2ibsSAE
+    : SDNode<"X86ISD::VCVTTPH2IBS_SAE", SDTAVX512SATCVT_PH2I_SAE>;
+def X86vcvttph2ibsMaskSAE
+    : SDNode<"X86ISD::VCVTTPH2IBSMask_SAE", SDTAVX512SATCVT_PH2I_MASK_SAE>;
+def X86vcvttph2ibsMaskzSAE
+    : SDNode<"X86ISD::VCVTTPH2IBSMaskZ_SAE", SDTAVX512SATCVT_PH2I_MASKZ_SAE>;
+
+def X86vcvttph2iubs : SDNode<"X86ISD::VCVTTPH2IUBS", SDTAVX512SATCVT_PH2I_MASK>;
+
+def X86vcvttph2iubsz
+    : SDNode<"X86ISD::VCVTTPH2IUBSZ", SDTAVX512SATCVT_PH2I_MASKZ>;
+
+def X86vcvttph2iubsSAE
+    : SDNode<"X86ISD::VCVTTPH2IUBS_SAE", SDTAVX512SATCVT_PH2I_SAE>;
+def X86vcvttph2iubsMaskSAE
+    : SDNode<"X86ISD::VCVTTPH2IUBSMask_SAE", SDTAVX512SATCVT_PH2I_MASK_SAE>;
+def X86vcvttph2iubsMaskzSAE
+    : SDNode<"X86ISD::VCVTTPH2IUBSMaskZ_SAE", SDTAVX512SATCVT_PH2I_MASKZ_SAE>;
+
+def X86vcvttps2ibs : SDNode<"X86ISD::VCVTTPS2IBS", SDTAVX512SATCVT_PS2I_MASK>;
+
+def X86vcvttps2ibsz
+    : SDNode<"X86ISD::VCVTTPS2IBSZ", SDTAVX512SATCVT_PS2I_MASKZ>;
+
+def X86vcvttps2ibsSAE
+    : SDNode<"X86ISD::VCVTTPS2IBS_SAE", SDTAVX512SATCVT_PS2I_SAE>;
+def X86vcvttps2ibsMaskSAE
+    : SDNode<"X86ISD::VCVTTPS2IBSMask_SAE", SDTAVX512SATCVT_PS2I_MASK_SAE>;
+def X86vcvttps2ibsMaskzSAE
+    : SDNode<"X86ISD::VCVTTPS2IBSMaskZ_SAE", SDTAVX512SATCVT_PS2I_MASKZ_SAE>;
+
+def X86vcvttps2iubs : SDNode<"X86ISD::VCVTTPS2IUBS", SDTAVX512SATCVT_PS2I_MASK>;
+
+def X86vcvttps2iubsz
+    : SDNode<"X86ISD::VCVTTPS2IUBSZ", SDTAVX512SATCVT_PS2I_MASKZ>;
+
+def X86vcvttps2iubsSAE
+    : SDNode<"X86ISD::VCVTTPS2IUBS_SAE", SDTAVX512SATCVT_PS2I_SAE>;
+def X86vcvttps2iubsMaskSAE
+    : SDNode<"X86ISD::VCVTTPS2IUBSMask_SAE", SDTAVX512SATCVT_PS2I_MASK_SAE>;
+def X86vcvttps2iubsMaskzSAE
+    : SDNode<"X86ISD::VCVTTPS2IUBSMaskZ_SAE", SDTAVX512SATCVT_PS2I_MASKZ_SAE>;
+#endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // SSE pattern fragments
