@@ -3876,6 +3876,10 @@ X86
 .. option:: -mavx512raoint, -mno-avx512raoint
 
 .. end INTEL_FEATURE_ISA_AVX512_RAO_INT
+.. INTEL_FEATURE_ISA_AVX512_SAT_CVT
+.. option:: -mavx512satcvt, -mno-avx512satcvt
+
+.. end INTEL_FEATURE_ISA_AVX512_SAT_CVT
 .. end INTEL_CUSTOMIZATION
 .. option:: -mavx512vbmi, -mno-avx512vbmi
 
