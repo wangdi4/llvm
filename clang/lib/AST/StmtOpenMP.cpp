@@ -1005,13 +1005,18 @@ OMPAtomicDirective::Create(const ASTContext &C, SourceLocation StartLoc,
                            SourceLocation EndLoc, ArrayRef<OMPClause *> Clauses,
                            Stmt *AssociatedStmt, Expressions Exprs) {
   auto *Dir = createDirective<OMPAtomicDirective>(
+<<<<<<< HEAD
 #if INTEL_COLLAB
       C, Clauses, AssociatedStmt, /*NumChildren=*/8, StartLoc, EndLoc);
 #else // INTEL_COLLAB
       C, Clauses, AssociatedStmt, /*NumChildren=*/6, StartLoc, EndLoc);
 #endif // INTEL_COLLAB
+=======
+      C, Clauses, AssociatedStmt, /*NumChildren=*/7, StartLoc, EndLoc);
+>>>>>>> c4a90db72064cca70c51b9c49212fa54d34b02ba
   Dir->setX(Exprs.X);
   Dir->setV(Exprs.V);
+  Dir->setR(Exprs.R);
   Dir->setExpr(Exprs.E);
 #if INTEL_COLLAB
   Dir->setExpected(Exprs.Expected);
@@ -1022,11 +1027,15 @@ OMPAtomicDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setCond(Exprs.Cond);
   Dir->Flags.IsXLHSInRHSPart = Exprs.IsXLHSInRHSPart ? 1 : 0;
   Dir->Flags.IsPostfixUpdate = Exprs.IsPostfixUpdate ? 1 : 0;
+<<<<<<< HEAD
 #if INTEL_COLLAB
   Dir->Flags.IsCompareMin = Exprs.IsCompareMin ? 1 : 0;
   Dir->Flags.IsCompareMax = Exprs.IsCompareMax ? 1 : 0;
   Dir->Flags.IsConditionalCapture = Exprs.IsConditionalCapture ? 1 : 0;
 #endif // INTEL_COLLAB
+=======
+  Dir->Flags.IsFailOnly = Exprs.IsFailOnly ? 1 : 0;
+>>>>>>> c4a90db72064cca70c51b9c49212fa54d34b02ba
   return Dir;
 }
 
@@ -1034,11 +1043,15 @@ OMPAtomicDirective *OMPAtomicDirective::CreateEmpty(const ASTContext &C,
                                                     unsigned NumClauses,
                                                     EmptyShell) {
   return createEmptyDirective<OMPAtomicDirective>(
+<<<<<<< HEAD
 #if INTEL_COLLAB
       C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/8);
 #else // INTEL_COLLAB
       C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/6);
 #endif // INTEL_COLLAB
+=======
+      C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/7);
+>>>>>>> c4a90db72064cca70c51b9c49212fa54d34b02ba
 }
 
 OMPTargetDirective *OMPTargetDirective::Create(const ASTContext &C,

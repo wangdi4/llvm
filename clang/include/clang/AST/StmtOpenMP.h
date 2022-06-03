@@ -3265,6 +3265,7 @@ class OMPAtomicDirective : public OMPExecutableDirective {
     /// This field is 1 for the first(postfix) form of the expression and 0
     /// otherwise.
     uint8_t IsPostfixUpdate : 1;
+<<<<<<< HEAD
 #if INTEL_COLLAB
     /// Used for 'atomic compare' constructs. 1 for forms that result in a
     /// 'min' operation:
@@ -3292,6 +3293,11 @@ class OMPAtomicDirective : public OMPExecutableDirective {
     /// \endcode
     uint8_t IsConditionalCapture : 1;
 #endif // INTEL_COLLAB
+=======
+    /// 1 if 'v' is updated only when the condition is false (compare capture
+    /// only).
+    uint8_t IsFailOnly : 1;
+>>>>>>> c4a90db72064cca70c51b9c49212fa54d34b02ba
   } Flags;
 
   /// Build directive with the given start and end location.
@@ -3316,10 +3322,14 @@ class OMPAtomicDirective : public OMPExecutableDirective {
     POS_UpdateExpr,
     POS_D,
     POS_Cond,
+<<<<<<< HEAD
 #if INTEL_COLLAB
     POS_Expected,
     POS_Result,
 #endif
+=======
+    POS_R,
+>>>>>>> c4a90db72064cca70c51b9c49212fa54d34b02ba
   };
 
   /// Set 'x' part of the associated expression/statement.
@@ -3332,6 +3342,8 @@ class OMPAtomicDirective : public OMPExecutableDirective {
   }
   /// Set 'v' part of the associated expression/statement.
   void setV(Expr *V) { Data->getChildren()[DataPositionTy::POS_V] = V; }
+  /// Set 'r' part of the associated expression/statement.
+  void setR(Expr *R) { Data->getChildren()[DataPositionTy::POS_R] = R; }
   /// Set 'expr' part of the associated expression/statement.
 #if INTEL_COLLAB
   /// This is also in the CAS 'compare' form for the 'desired' value.
@@ -3360,6 +3372,8 @@ public:
     Expr *X = nullptr;
     /// 'v' part of the associated expression/statement.
     Expr *V = nullptr;
+    // 'r' part of the associated expression/statement.
+    Expr *R = nullptr;
     /// 'expr' part of the associated expression/statement.
     Expr *E = nullptr;
 #if INTEL_COLLAB
@@ -3380,6 +3394,7 @@ public:
     bool IsXLHSInRHSPart;
     /// True if original value of 'x' must be stored in 'v', not an updated one.
     bool IsPostfixUpdate;
+<<<<<<< HEAD
 #if INTEL_COLLAB
     /// True for forms that result in a 'min' operation:
     bool IsCompareMin;
@@ -3388,6 +3403,11 @@ public:
     /// True for forms that update 'v' only when the condition is false.
     bool IsConditionalCapture;
 #endif // INTEL_COLLAB
+=======
+    /// True if 'v' is updated only when the condition is false (compare capture
+    /// only).
+    bool IsFailOnly;
+>>>>>>> c4a90db72064cca70c51b9c49212fa54d34b02ba
   };
 
   /// Creates directive with a list of \a Clauses and 'x', 'v' and 'expr'
@@ -3449,12 +3469,22 @@ public:
 #endif // INTEL_COLLAB
 
   bool isPostfixUpdate() const { return Flags.IsPostfixUpdate; }
+  /// Return true if 'v' is updated only when the condition is evaluated false
+  /// (compare capture only).
+  bool isFailOnly() const { return Flags.IsFailOnly; }
   /// Get 'v' part of the associated expression/statement.
   Expr *getV() {
     return cast_or_null<Expr>(Data->getChildren()[DataPositionTy::POS_V]);
   }
   const Expr *getV() const {
     return cast_or_null<Expr>(Data->getChildren()[DataPositionTy::POS_V]);
+  }
+  /// Get 'r' part of the associated expression/statement.
+  Expr *getR() {
+    return cast_or_null<Expr>(Data->getChildren()[DataPositionTy::POS_R]);
+  }
+  const Expr *getR() const {
+    return cast_or_null<Expr>(Data->getChildren()[DataPositionTy::POS_R]);
   }
   /// Get 'expr' part of the associated expression/statement.
 #if INTEL_COLLAB
