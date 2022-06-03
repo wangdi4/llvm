@@ -137,6 +137,7 @@ private:
                                              DTransStructType *DTStTy);
   void populateDTransStructTypeFromLLVMType(llvm::StructType *Sty,
                                             DTransStructType *DSTy);
+  bool validateMDFieldType(DTransType *DTy, llvm::Type *LTy);
 
   DTransTypeManager &TM;
 

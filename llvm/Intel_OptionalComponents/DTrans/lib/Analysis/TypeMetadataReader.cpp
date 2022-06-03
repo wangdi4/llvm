@@ -433,12 +433,11 @@ TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
     }
 
     llvm::Type *IRFieldType = StTy->getElementType(FieldNum);
-    bool ExpectPointer = IRFieldType->isPointerTy();
-    bool GotPointer = DTFieldTy->isPointerTy();
-    if (ExpectPointer ^ GotPointer) {
+    if (!validateMDFieldType(DTFieldTy, IRFieldType)) {
       DTStTy->setReconstructError();
       LLVM_DEBUG(dbgs() << "Mismatch occurred:\n  Expected: " << *IRFieldType
                         << "\n  Found: " << *DTFieldTy << "\n");
+      continue;
     }
 
     DTransFieldMember &Field = DTStTy->getField(FieldNum);
@@ -468,6 +467,69 @@ void TypeMetadataReader::populateDTransStructTypeFromLLVMType(
     DTransFieldMember &Field = DSTy->getField(Elem.index());
     Field.addResolvedType(DTFieldTy);
   }
+}
+
+// This method is used when populating structure bodies based on the DTrans
+// metadata to check whether the field type in the metadata matches the expected
+// type of the field in the LLVM structure type. Return 'false' if the
+// DTransType 'DTy' from the metadata is not compatible with the LLVM type.
+bool TypeMetadataReader::validateMDFieldType(DTransType *DTy, llvm::Type *LTy) {
+  assert(DTy && LTy && "Invalid parameters to validateMDFieldType");
+  switch (DTy->getTypeID()) {
+  case DTransType::DTransAtomicTypeID:
+    if (DTy->getLLVMType() != LTy)
+      return false;
+    break;
+  case DTransType::DTransPointerTypeID:
+    if (!LTy->isPointerTy())
+      return false;
+    break;
+  case DTransType::DTransStructTypeID: {
+    auto *LStructTy = dyn_cast<llvm::StructType>(LTy);
+    if (!LStructTy)
+      return false;
+    if (LStructTy->hasName()) {
+      auto *DStructTy = cast<DTransStructType>(DTy);
+      if (LStructTy->getName().compare(DStructTy->getName()) != 0)
+        return false;
+    }
+    // TODO: Assume literal types are equal. This can be expanded to check
+    // each field type later.
+    break;
+  }
+  case DTransType::DTransArrayTypeID: {
+    auto *LArrTy = dyn_cast<llvm::ArrayType>(LTy);
+    if (!LArrTy)
+      return false;
+    auto *DArrTy = cast<DTransArrayType>(DTy);
+    if (LArrTy->getArrayNumElements() != DArrTy->getNumElements())
+      return false;
+    return validateMDFieldType(DArrTy->getArrayElementType(),
+                               LArrTy->getArrayElementType());
+  }
+  case DTransType::DTransVectorTypeID: {
+    auto *LVecTy = dyn_cast<llvm::VectorType>(LTy);
+    if (!LVecTy)
+      return false;
+    auto *DVecTy = cast<DTransVectorType>(DTy);
+    if (LVecTy->getElementCount().getKnownMinValue() !=
+        DVecTy->getNumElements())
+      return false;
+    return validateMDFieldType(DVecTy->getElementType(),
+                               LVecTy->getElementType());
+    break;
+  }
+  case DTransType::DTransFunctionTypeID:
+    auto *LFnTy = dyn_cast<llvm::FunctionType>(LTy);
+    if (!LFnTy)
+      return false;
+
+    // TODO: This could be extended to do additional checking to verify the
+    // types within the function signature match.
+    break;
+  }
+
+  return true;
 }
 
 // This method is the publicly visible method that will check whether a Value
