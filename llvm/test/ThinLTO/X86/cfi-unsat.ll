@@ -19,6 +19,7 @@
 ; INTEL_CUSTOMIZATION
 ; RUN:   -use-new-pm=true \
 ; end INTEL_CUSTOMIZATION
+; RUN:   -opaque-pointers \
 ; RUN:   -whole-program-visibility \
 ; RUN:   -o %t3 \
 ; RUN:   -r=%t.o,test2,px \

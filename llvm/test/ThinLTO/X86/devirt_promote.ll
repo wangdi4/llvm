@@ -10,6 +10,7 @@
 ; RUN: opt -thinlto-bc -o %t4.o %p/Inputs/devirt_promote.ll
 
 ; RUN: llvm-lto2 run %t3.o %t4.o -save-temps -pass-remarks=. \
+; RUN:   -opaque-pointers \
 ; RUN:   -whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_devirt_options \

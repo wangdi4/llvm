@@ -38,6 +38,7 @@
 
 ; Index based WPD
 ; RUN: llvm-lto2 run %t3.o %t4.o -save-temps -pass-remarks=. \
+; RUN:   -opaque-pointers \
 ; RUN:   -whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_devirt_options \
@@ -75,6 +76,7 @@
 
 ; Index based WPD, distributed backends
 ; RUN: llvm-lto2 run %t3.o %t4.o -save-temps \
+; RUN:   -opaque-pointers \
 ; RUN:   -whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_devirt_options \
@@ -102,6 +104,7 @@
 
 ; New PM
 ; RUN: llvm-lto2 run %t1.o %t2.o -save-temps -pass-remarks=. \
+; RUN:   -opaque-pointers \
 ; RUN:   -whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_devirt_options \
