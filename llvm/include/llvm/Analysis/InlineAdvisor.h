@@ -61,6 +61,28 @@ using namespace InlineReportTypes; // INTEL
 /// training.
 enum class InliningAdvisorMode : int { Default, Release, Development };
 
+// Each entry represents an inline driver.
+enum class InlinePass : int {
+  AlwaysInliner,
+  CGSCCInliner,
+  EarlyInliner,
+  ModuleInliner,
+  MLInliner,
+  ReplayCGSCCInliner,
+  ReplaySampleProfileInliner,
+  SampleProfileInliner,
+};
+
+/// Provides context on when an inline advisor is constructed in the pipeline
+/// (e.g., link phase, inline driver).
+struct InlineContext {
+  ThinOrFullLTOPhase LTOPhase;
+
+  InlinePass Pass;
+};
+
+std::string AnnotateInlinePassName(InlineContext IC);
+
 class InlineAdvisor;
 /// Capture state between an inlining decision having had been made, and
 /// its impact being observable. When collecting model training data, this
@@ -202,7 +224,11 @@ public:
     OS << "Unimplemented InlineAdvisor print\n";
   }
 
+  /// NOTE pass name is annotated only when inline advisor constructor provides InlineContext.
+  const char *getAnnotatedInlinePassName();
+
 protected:
+<<<<<<< HEAD
   InlineAdvisor(Module &M, FunctionAnalysisManager &FAM);
 #if INTEL_CUSTOMIZATION
   virtual std::unique_ptr<InlineAdvice>
@@ -212,9 +238,17 @@ protected:
   getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
                      WholeProgramInfo *WPI, InlineCost **IC, bool Advice);
 #endif // INTEL_CUSTOMIZATION
+=======
+  InlineAdvisor(Module &M, FunctionAnalysisManager &FAM,
+                Optional<InlineContext> IC = NoneType::None);
+  virtual std::unique_ptr<InlineAdvice> getAdviceImpl(CallBase &CB) = 0;
+  virtual std::unique_ptr<InlineAdvice> getMandatoryAdvice(CallBase &CB,
+                                                           bool Advice);
+>>>>>>> 8601f269f1094fd833db6bd10335441ecee99cf5
 
   Module &M;
   FunctionAnalysisManager &FAM;
+  const Optional<InlineContext> IC;
   std::unique_ptr<ImportedFunctionsInliningStatistics> ImportedFunctionsStats;
 
   enum class MandatoryInliningKind { NotMandatory, Always, Never };

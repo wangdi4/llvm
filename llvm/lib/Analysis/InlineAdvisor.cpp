@@ -101,7 +101,8 @@ private:
   void recordUnsuccessfulInliningImpl(const InlineResult &Result) override {
     if (IsInliningRecommended)
       ORE.emit([&]() {
-        return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", DLoc, Block)
+        return OptimizationRemarkMissed(Advisor->getAnnotatedInlinePassName(),
+                                        "NotInlined", DLoc, Block)
                << "'" << NV("Callee", Callee) << "' is not AlwaysInline into '"
                << NV("Caller", Caller)
                << "': " << NV("Reason", Result.getFailureReason());
@@ -120,7 +121,8 @@ void DefaultInlineAdvice::recordUnsuccessfulInliningImpl(
   llvm::setInlineRemark(*OriginalCB, std::string(Result.getFailureReason()) +
                                          "; " + inlineCostStr(IC)); // INTEL
   ORE.emit([&]() {
-    return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", DLoc, Block)
+    return OptimizationRemarkMissed(Advisor->getAnnotatedInlinePassName(),
+                                    "NotInlined", DLoc, Block)
            << "'" << NV("Callee", Callee) << "' is not inlined into '"
            << NV("Caller", Caller)
            << "': " << NV("Reason", Result.getFailureReason());
@@ -129,12 +131,24 @@ void DefaultInlineAdvice::recordUnsuccessfulInliningImpl(
 
 void DefaultInlineAdvice::recordInliningWithCalleeDeletedImpl() {
   if (EmitRemarks)
+<<<<<<< HEAD
     emitInlinedIntoBasedOnCost(ORE, DLoc, Block, *Callee, *Caller, IC); // INTEL
+=======
+    emitInlinedIntoBasedOnCost(ORE, DLoc, Block, *Callee, *Caller, *OIC,
+                               /* ForProfileContext= */ false,
+                               Advisor->getAnnotatedInlinePassName());
+>>>>>>> 8601f269f1094fd833db6bd10335441ecee99cf5
 }
 
 void DefaultInlineAdvice::recordInliningImpl() {
   if (EmitRemarks)
+<<<<<<< HEAD
     emitInlinedIntoBasedOnCost(ORE, DLoc, Block, *Callee, *Caller, IC); // INTEL
+=======
+    emitInlinedIntoBasedOnCost(ORE, DLoc, Block, *Callee, *Caller, *OIC,
+                               /* ForProfileContext= */ false,
+                               Advisor->getAnnotatedInlinePassName());
+>>>>>>> 8601f269f1094fd833db6bd10335441ecee99cf5
 }
 
 #if INTEL_CUSTOMIZATION
@@ -563,8 +577,9 @@ void llvm::emitInlinedIntoBasedOnCost(
       PassName);
 }
 
-InlineAdvisor::InlineAdvisor(Module &M, FunctionAnalysisManager &FAM)
-    : M(M), FAM(FAM) {
+InlineAdvisor::InlineAdvisor(Module &M, FunctionAnalysisManager &FAM,
+                             Optional<InlineContext> IC)
+    : M(M), FAM(FAM), IC(IC) {
   if (InlinerFunctionImportStats != InlinerFunctionImportStatsOpts::No) {
     ImportedFunctionsStats =
         std::make_unique<ImportedFunctionsInliningStatistics>();
@@ -606,6 +621,60 @@ InlineAdvisor::getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
   return UP;
 }
 #endif // INTEL_CUSTOMIZATION
+
+static inline const char *getLTOPhase(ThinOrFullLTOPhase LTOPhase) {
+  switch (LTOPhase) {
+  case (ThinOrFullLTOPhase::None):
+    return "main";
+  case (ThinOrFullLTOPhase::ThinLTOPreLink):
+  case (ThinOrFullLTOPhase::FullLTOPreLink):
+    return "prelink";
+  case (ThinOrFullLTOPhase::ThinLTOPostLink):
+  case (ThinOrFullLTOPhase::FullLTOPostLink):
+    return "postlink";
+  }
+  llvm_unreachable("unreachable");
+}
+
+static inline const char *getInlineAdvisorContext(InlinePass IP) {
+  switch (IP) {
+  case (InlinePass::AlwaysInliner):
+    return "always-inline";
+  case (InlinePass::CGSCCInliner):
+    return "cgscc-inline";
+  case (InlinePass::EarlyInliner):
+    return "early-inline";
+  case (InlinePass::MLInliner):
+    return "ml-inline";
+  case (InlinePass::ModuleInliner):
+    return "module-inline";
+  case (InlinePass::ReplayCGSCCInliner):
+    return "replay-cgscc-inline";
+  case (InlinePass::ReplaySampleProfileInliner):
+    return "replay-sample-profile-inline";
+  case (InlinePass::SampleProfileInliner):
+    return "sample-profile-inline";
+  }
+
+  llvm_unreachable("unreachable");
+}
+
+std::string llvm::AnnotateInlinePassName(InlineContext IC) {
+  return std::string(getLTOPhase(IC.LTOPhase)) + "-" +
+         std::string(getInlineAdvisorContext(IC.Pass));
+}
+
+const char *InlineAdvisor::getAnnotatedInlinePassName() {
+  if (!IC.hasValue())
+    return DEBUG_TYPE;
+
+  // IC is constant and initialized in constructor, so compute the annotated
+  // name only once.
+  static const std::string PassName =
+      llvm::AnnotateInlinePassName(IC.getValue());
+
+  return PassName.c_str();
+}
 
 InlineAdvisor::MandatoryInliningKind
 InlineAdvisor::getMandatoryKind(CallBase &CB, FunctionAnalysisManager &FAM,
