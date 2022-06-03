@@ -228,8 +228,8 @@ public:
   const char *getAnnotatedInlinePassName();
 
 protected:
-<<<<<<< HEAD
-  InlineAdvisor(Module &M, FunctionAnalysisManager &FAM);
+  InlineAdvisor(Module &M, FunctionAnalysisManager &FAM,
+                Optional<InlineContext> IC = NoneType::None);
 #if INTEL_CUSTOMIZATION
   virtual std::unique_ptr<InlineAdvice>
   getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC = nullptr,
@@ -238,13 +238,6 @@ protected:
   getMandatoryAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
                      WholeProgramInfo *WPI, InlineCost **IC, bool Advice);
 #endif // INTEL_CUSTOMIZATION
-=======
-  InlineAdvisor(Module &M, FunctionAnalysisManager &FAM,
-                Optional<InlineContext> IC = NoneType::None);
-  virtual std::unique_ptr<InlineAdvice> getAdviceImpl(CallBase &CB) = 0;
-  virtual std::unique_ptr<InlineAdvice> getMandatoryAdvice(CallBase &CB,
-                                                           bool Advice);
->>>>>>> 8601f269f1094fd833db6bd10335441ecee99cf5
 
   Module &M;
   FunctionAnalysisManager &FAM;

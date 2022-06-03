@@ -131,24 +131,16 @@ void DefaultInlineAdvice::recordUnsuccessfulInliningImpl(
 
 void DefaultInlineAdvice::recordInliningWithCalleeDeletedImpl() {
   if (EmitRemarks)
-<<<<<<< HEAD
-    emitInlinedIntoBasedOnCost(ORE, DLoc, Block, *Callee, *Caller, IC); // INTEL
-=======
-    emitInlinedIntoBasedOnCost(ORE, DLoc, Block, *Callee, *Caller, *OIC,
+    emitInlinedIntoBasedOnCost(ORE, DLoc, Block, *Callee, *Caller, IC, // INTEL
                                /* ForProfileContext= */ false,
                                Advisor->getAnnotatedInlinePassName());
->>>>>>> 8601f269f1094fd833db6bd10335441ecee99cf5
 }
 
 void DefaultInlineAdvice::recordInliningImpl() {
   if (EmitRemarks)
-<<<<<<< HEAD
-    emitInlinedIntoBasedOnCost(ORE, DLoc, Block, *Callee, *Caller, IC); // INTEL
-=======
-    emitInlinedIntoBasedOnCost(ORE, DLoc, Block, *Callee, *Caller, *OIC,
+    emitInlinedIntoBasedOnCost(ORE, DLoc, Block, *Callee, *Caller, IC, // INTEL
                                /* ForProfileContext= */ false,
                                Advisor->getAnnotatedInlinePassName());
->>>>>>> 8601f269f1094fd833db6bd10335441ecee99cf5
 }
 
 #if INTEL_CUSTOMIZATION
