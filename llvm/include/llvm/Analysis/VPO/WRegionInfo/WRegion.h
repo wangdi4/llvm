@@ -66,8 +66,7 @@
 ///   WRNFlushNode            | #pragma omp flush
 ///   WRNPrefetchNode         | #pragma omp prefetch
 ///   WRNOrderedNode          | #pragma omp ordered
-///   WRNMasterNode           | #pragma omp master
-///   WRNMaskedNode           | #pragma omp masked
+///   WRNMaskedNode           | #pragma omp masked/master
 ///   WRNSingleNode           | #pragma omp single
 ///   WRNTaskgroupNode        | #pragma omp taskgroup
 ///   WRNTaskwaitNode         | #pragma omp taskwait
@@ -1971,20 +1970,6 @@ public:
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNCancel;
-  }
-};
-
-/// WRN for
-/// \code
-///   #pragma omp master
-/// \endcode
-class WRNMasterNode : public WRegionNode {
-public:
-  WRNMasterNode(BasicBlock *BB);
-
-  /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
-  static bool classof(const WRegionNode *W) {
-    return W->getWRegionKindID() == WRegionNode::WRNMaster;
   }
 };
 

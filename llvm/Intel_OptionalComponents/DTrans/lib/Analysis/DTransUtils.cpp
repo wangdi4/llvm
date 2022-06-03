@@ -35,6 +35,13 @@ using namespace dtrans;
 // Debug type for verbose field single alloc function analysis output.
 #define SAFETY_FSAF "dtrans-safetyanalyzer-fsaf"
 
+// When set, force the opaque pointer passes instead of the legacy DTrans passes
+// to run if the IR is using typed pointers.
+static cl::opt<bool> DTransForceOpaquePointerPasses(
+    "dtransop-allow-typed-pointers", cl::init(false), cl::Hidden,
+    cl::desc("Use the DTrans opaque pointers passes even when the IR is using "
+             "typed pointers"));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 cl::opt<bool> dtrans::DTransPrintAnalyzedTypes("dtrans-print-types",
                                                cl::ReallyHidden);
@@ -1294,6 +1301,10 @@ StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
     return "fsaf";
   case dtrans::DT_ReuseField:
     return "reusefield";
+  case dtrans::DT_ReuseFieldPtrOfPtr:
+    return "reusefieldptrofptr";
+  case dtrans::DT_ReuseFieldPtr:
+    return "reusefieldptr";
   case dtrans::DT_DeleteField:
     return "deletefield";
   case dtrans::DT_ReorderFields:
@@ -1339,6 +1350,10 @@ dtrans::SafetyData dtrans::getConditionsForTransform(dtrans::Transform Trans,
                : dtrans::SDSingleAllocFunctionNoFieldAddressTaken;
   case dtrans::DT_ReuseField:
     return dtrans::SDReuseField;
+  case dtrans::DT_ReuseFieldPtrOfPtr:
+    return dtrans::SDReuseFieldPtrOfPtr;
+  case dtrans::DT_ReuseFieldPtr:
+    return dtrans::SDReuseFieldPtr;
   case dtrans::DT_DeleteField:
     return dtrans::SDDeleteField;
   case dtrans::DT_ReorderFields:
@@ -2389,4 +2404,10 @@ bool dtrans::compareStructName(const llvm::StructType *Ty1,
   OS2 << *Ty2;
   OS2.flush();
   return Lit1 < Lit2;
+}
+
+bool dtrans::shouldRunOpaquePointerPasses(Module &M) {
+  if (!M.getContext().supportsTypedPointers())
+    return true;
+  return DTransForceOpaquePointerPasses;
 }

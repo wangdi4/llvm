@@ -1,5 +1,5 @@
-; RUN: SATest -BUILD -tsize=1 -pass-manager-type=lto -debug-passes=Structure -config=%S/pipeline_lto.tst.cfg 2>&1 | FileCheck %s
-; RUN: SATest -BUILD -tsize=1 -debug-passes=Structure -config=%S/pipeline_lto.tst.cfg 2>&1 | FileCheck %s
+; RUN: SATest -BUILD -tsize=1 -pass-manager-type=lto -llvm-option=-debug-pass-manager -config=%S/pipeline_lto.tst.cfg 2>&1 | FileCheck %s
+; RUN: SATest -BUILD -tsize=1 -llvm-option=-debug-pass-manager -config=%S/pipeline_lto.tst.cfg 2>&1 | FileCheck %s
 ; TODO:
 ;   check VPlan driver pass is not run when VPlan is enabled in buildPerModuleDefaultPipeline.
 ;   check CoerceWin64Types pass when SATest is enabled on Windows.

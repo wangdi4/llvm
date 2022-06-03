@@ -1,12 +1,12 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; Verify results get copied to the DTrans immutable analysis.
-; RUN: opt < %s -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-immutable-types -disable-output 2>&1 | FileCheck %s --check-prefix=IMMUTABLE
-; RUN: opt < %s -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-immutable-types -disable-output 2>&1 | FileCheck %s --check-prefix=IMMUTABLE
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-immutable-types -disable-output 2>&1 | FileCheck %s --check-prefix=IMMUTABLE
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-immutable-types -disable-output 2>&1 | FileCheck %s --check-prefix=IMMUTABLE
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-immutable-types -disable-output 2>&1 | FileCheck %s --check-prefix=IMMUTABLE
 ; RUN: opt < %s -opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-immutable-types -disable-output 2>&1 | FileCheck %s --check-prefix=IMMUTABLE
 

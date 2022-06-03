@@ -46,7 +46,7 @@
 
 ; ALL: remark: <unknown>:0:0: construct 4 (critical) ignored on user's direction
 ; ALL: remark: <unknown>:0:0: construct 8 (parallel) ignored on user's direction
-; ALL: remark: <unknown>:0:0: construct 9 (master) ignored on user's direction
+; ALL: remark: <unknown>:0:0: construct 9 (masked) ignored on user's direction
 
 ; IGNOREALL: remark: <unknown>:0:0: construct 10 (barrier) ignored on user's direction
 ; IGNORERANGE-NOT: remark: <unknown>:0:0: construct 10 (barrier) ignored on user's direction

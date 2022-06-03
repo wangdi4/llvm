@@ -1,5 +1,5 @@
-; RUN: opt -whole-program-assume -dtrans-deletefieldop -S -o - %s | FileCheck %s
-; RUN: opt -whole-program-assume -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s
+; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -dtrans-deletefieldop -S -o - %s | FileCheck %s
+; RUN: opt -dtransop-allow-typed-pointers -whole-program-assume -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s
 
 ; Check that all unused fields are deleted and GEPs are updated.
 ; Fields (A:1) and (B:1) should stay.

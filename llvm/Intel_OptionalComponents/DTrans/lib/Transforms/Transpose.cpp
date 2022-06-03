@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 #include "Intel_DTrans/Transforms/Transpose.h"
+#include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/DTransCommon.h"
 
 #include "llvm/ADT/Optional.h"
@@ -1461,6 +1462,10 @@ PreservedAnalyses TransposePass::run(Module &M, ModuleAnalysisManager &AM) {
 
 bool TransposePass::runImpl(Module &M, TransposeLoopInfoFuncType GetLI,
                             dtrans::TransposeTLIType GetTLI) {
+  if (dtrans::shouldRunOpaquePointerPasses(M)) {
+    LLVM_DEBUG(dbgs() << "Transpose inhibited: opaque pointer passes in use\n");
+    return false;
+  }
   TransposeImpl Transpose(GetLI, GetTLI);
   return Transpose.run(M);
 }

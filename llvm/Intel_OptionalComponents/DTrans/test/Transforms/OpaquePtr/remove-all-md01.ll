@@ -1,4 +1,4 @@
-; RUN: opt -S -remove-all-dtranstypemetadata %s | FileCheck %s --check-prefix=CHECK-TYPED
+; RUN: opt -dtransop-allow-typed-pointers -S -remove-all-dtranstypemetadata %s | FileCheck %s --check-prefix=CHECK-TYPED
 ; RUN: opt -opaque-pointers -S -remove-all-dtranstypemetadata %s | FileCheck %s --check-prefix=CHECK-OPAQUE
 
 ; Test that all DTrans type metadata is removed from the IR.

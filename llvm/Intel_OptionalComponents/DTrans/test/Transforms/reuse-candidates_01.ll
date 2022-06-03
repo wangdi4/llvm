@@ -1,11 +1,11 @@
 ; This test verifies only candidate selection for field reusing
+; REQUIRES: asserts
+; RUN: opt -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume < %s -dtrans-reusefield -debug-only=dtrans-reusefield -disable-output 2>&1 | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume < %s -passes=dtrans-reusefield -debug-only=dtrans-reusefield -disable-output 2>&1 | FileCheck %s
 
-;  RUN: opt  -whole-program-assume < %s -dtrans-reusefield -debug-only=dtrans-reusefield -disable-output 2>&1 | FileCheck %s
-;  RUN: opt  -whole-program-assume < %s -passes=dtrans-reusefield -debug-only=dtrans-reusefield -disable-output 2>&1 | FileCheck %s
-
-; CHECK: Reuse field: looking for candidate structures.
+; CHECK: Reuse field: looking for candidate structure field.
 ; CHECK: LLVM Type: %struct.test
-; CHECK:   Selected for reuse: %struct.test
+; CHECK:   Candidate structure for reuse field: %struct.test
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

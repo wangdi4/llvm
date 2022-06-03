@@ -68,6 +68,8 @@
 
 using namespace llvm;
 
+extern cl::opt<DebugLogging> DebugPM;
+extern cl::opt<bool> VerifyEachPass;
 extern bool DPCPPForceOptnone;
 extern cl::opt<bool> DisableVPlanCM;
 extern cl::opt<bool> EmitKernelVectorizerSignOn;
@@ -79,9 +81,8 @@ namespace OpenCL {
 namespace DeviceBackend {
 
 OptimizerOCL::OptimizerOCL(Module &M, SmallVector<Module *, 2> &RtlModuleList,
-                           const intel::OptimizerConfig &Config,
-                           bool DebugPassManager)
-    : Optimizer(M, RtlModuleList, Config), DebugPassManager(DebugPassManager) {
+                           const intel::OptimizerConfig &Config)
+    : Optimizer(M, RtlModuleList, Config) {
   Level =
       Config.GetDisableOpt() ? OptimizationLevel::O0 : OptimizationLevel::O3;
   UnrollLoops = true;
@@ -101,11 +102,11 @@ void OptimizerOCL::Optimize(raw_ostream &LogStream) {
 
   Optional<PGOOptions> PGOOpt;
   PassInstrumentationCallbacks PIC;
+  bool DebugPassManager = DebugPM != DebugLogging::None;
   PrintPassOptions PrintPassOpts;
-  PrintPassOpts.Verbose = false;
-  PrintPassOpts.SkipAnalyses = false;
-  StandardInstrumentations SI(DebugPassManager, /*VerifyEachPass*/ false,
-                              PrintPassOpts);
+  PrintPassOpts.Verbose = DebugPM == DebugLogging::Verbose;
+  PrintPassOpts.SkipAnalyses = DebugPM == DebugLogging::Quiet;
+  StandardInstrumentations SI(DebugPassManager, VerifyEachPass, PrintPassOpts);
   SI.registerCallbacks(PIC);
   PassBuilder PB(TM, PTO, PGOOpt, &PIC);
 

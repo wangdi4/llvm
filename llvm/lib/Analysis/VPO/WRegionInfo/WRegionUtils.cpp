@@ -253,9 +253,8 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
     case DIR_OMP_CANCELLATION_POINT:
       W = new WRNCancelNode(EntryBB, true);
       break;
-    case DIR_OMP_MASTER:
-      W = new WRNMasterNode(EntryBB);
-      break;
+    case DIR_OMP_MASTER: // TODO: Remove once CFE starts generating MASKED for
+                         // MASTER.
     case DIR_OMP_MASKED:
       W = new WRNMaskedNode(EntryBB);
       break;

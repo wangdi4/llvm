@@ -1,12 +1,12 @@
-; RUN: opt < %s -S -whole-program-assume -dtrans-soatoaosop                                        \
+; RUN: opt < %s -dtransop-allow-typed-pointers -S -whole-program-assume -dtrans-soatoaosop                                        \
 ; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
 ; RUN:          -dtrans-soatoaosop-size-heuristic=false                   \
 ; RUN:       | FileCheck %s
-; RUN: opt < %s -S -whole-program-assume -dtrans-soatoaosop                                       \
+; RUN: opt < %s -dtransop-allow-typed-pointers -S -whole-program-assume -dtrans-soatoaosop                                       \
 ; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
 ; RUN:          -dtrans-soatoaosop-size-heuristic=false                   \
 ; RUN:       | %lli
-; RUN: opt < %s -S -whole-program-assume -passes=dtrans-soatoaosop                                \
+; RUN: opt < %s -dtransop-allow-typed-pointers -S -whole-program-assume -passes=dtrans-soatoaosop                                \
 ; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
 ; RUN:          -dtrans-soatoaosop-size-heuristic=false                   \
 ; RUN:       | FileCheck %s

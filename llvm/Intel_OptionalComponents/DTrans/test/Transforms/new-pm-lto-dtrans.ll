@@ -59,6 +59,18 @@
 ; CHECK-NEXT: Running pass: dtrans::AOSToSOAPass
 ; CHECK-NEXT: Running pass: dtrans::EliminateROFieldAccessPass
 ; CHECK-NEXT: Running pass: dtrans::DynClonePass
+; CHECK-NEXT: Running pass: dtransOP::RemoveDeadDTransTypeMetadataPass
+; CHECK-NEXT: Running pass: dtransOP::DTransNormalizeOPPass
+; CHECK-NEXT: Running pass: dtransOP::CommuteCondOPPass
+; CHECK-NEXT: Running analysis: dtransOP::DTransSafetyAnalyzer
+; CHECK-NEXT: Running pass: dtransOP::MemInitTrimDownOPPass
+; CHECK-NEXT: Running pass: dtransOP::SOAToAOSOPPreparePass
+; CHECK-NEXT: Running pass: dtransOP::CodeAlignPass
+; CHECK-NEXT: Running pass: dtransOP::DeleteFieldOPPass
+; CHECK-NEXT: Running pass: dtransOP::ReorderFieldsOPPass
+; CHECK-NEXT: Running pass: dtransOP::AOSToSOAOPPass
+; CHECK-NEXT: Running pass: dtrans::EliminateROFieldAccessPass
+; CHECK-NEXT: Running pass: dtransOP::DynClonePass
 ; CHECK-NEXT: Running pass: dtrans::AnnotatorCleaner
 ; CHECK-NEXT: Running pass: DopeVectorConstProp
 ; CHECK: Running pass: ArgumentPromotionPass on (foo)

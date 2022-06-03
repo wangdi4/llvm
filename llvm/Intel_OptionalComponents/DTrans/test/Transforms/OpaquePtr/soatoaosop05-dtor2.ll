@@ -3,7 +3,7 @@
 ; the calls are not exactly same.
 ; Dtors: _ZN3ArrIPiED2Ev, _ZN3ArrIPfED2Ev and _ZN3ArrIPsED2Ev
 
-; RUN: opt < %s -whole-program-assume -disable-output                                                                     \
+; RUN: opt < %s -dtransop-allow-typed-pointers -whole-program-assume -disable-output                                      \
 ; RUN:          -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-struct                                                    \
 ; RUN:          -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-struct-methods>'    \
 ; RUN:          -dtrans-soatoaosop-array-type=struct.Arr                                                                  \

@@ -468,6 +468,10 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
     RegionsCollectedTy &RegionsCollected, VPlanCostModelInterface *CM,
     Optional<unsigned> VF) {
 
+  // Probability is very low that for large VFs all lanes are 0.
+  if (VF && *VF >= 32)
+    return;
+
   VPLoopInfo *VPLI = Plan.getVPLoopInfo();
 
   // Detect blocks that are candidates to begin a bypass region. Candidate

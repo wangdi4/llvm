@@ -2,8 +2,8 @@
 ; be triggered because "resize" member function is called from functions
 ; other than "add" function.
 
-; RUN: opt < %s -dtrans-meminittrimdownop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdownop -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes=dtrans-meminittrimdownop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdownop -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -dtrans-meminittrimdownop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdownop -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -dtransop-allow-typed-pointers -passes=dtrans-meminittrimdownop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdownop -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -dtrans-meminittrimdownop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdownop -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -passes=dtrans-meminittrimdownop -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdownop -disable-output 2>&1 | FileCheck %s
 

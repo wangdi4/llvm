@@ -15,6 +15,7 @@
 #include "Intel_DTrans/Transforms/WeakAlign.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
+#include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
@@ -788,6 +789,11 @@ bool WeakAlignPass::runImpl(
     Module &M,
     std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
     WholeProgramInfo &WPInfo) {
+  if (dtrans::shouldRunOpaquePointerPasses(M)) {
+    LLVM_DEBUG(
+        dbgs() << "weak-align inhibited: opaque pointer passes in use\n");
+    return false;
+  }
   if (!WPInfo.isWholeProgramSafe()) {
     LLVM_DEBUG(
         dbgs() << "DTRANS Weak Align: inhibited -- not whole program safe");

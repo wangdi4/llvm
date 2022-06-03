@@ -12,9 +12,10 @@
 //
 // The main goal of this transformation is try to reuse one structure field
 // in instructions where multiple fields are set to the same value together.
-// However, this pass doesn't delete the redundant fields in the structure.
-// That will be done by the delete field pass when it is run after this pass
-// in the normal execution pipeline.
+// However, this pass doesn't delete the redundant fields in the structure,
+// but remaps the redundant fields of load's GEP to one of them. Other work
+// will be done by the delete field pass when it is run after this pass in the
+// normal execution pipeline.
 //
 // Use of "org_cost" is replaced by use of "cost":
 // Before:
@@ -31,11 +32,11 @@
 // After:
 // struct arc_t { int flow, int cost, int org_cost };
 //
-// arc[i].cost = arc[i].cost = 5;
+// arc[i].cost = arc[i].org_cost = 5;
 // ...
 // lb = arc[i].cost;
 // ...
-// arc[i].cost = arc[i].cost = (net->bigM+15);
+// arc[i].cost = arc[i].org_cost = (net->bigM+15);
 // ...
 // la = arc[i].cost;
 //

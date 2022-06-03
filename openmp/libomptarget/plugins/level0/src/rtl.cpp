@@ -179,7 +179,7 @@ namespace L0Interop {
   // Library needed to convert interop object into a sycl interop object
   // when preferred type is sycl for interop object
 #if _WIN32
-  const char *SyclWrapName = "libomptarget.sycl.wrap.dll";
+  const char *SyclWrapName = "omptarget.sycl.wrap.dll";
 #else  // !_WIN32
   const char *SyclWrapName = "libomptarget.sycl.wrap.so";
 #endif // !_WIN32
@@ -288,7 +288,11 @@ namespace L0Interop {
        void *dynlib_handle = dlopen(L0Interop::SyclWrapName, RTLD_NOW);
        if (!dynlib_handle) {
           // Library does not exist or cannot be found.
-          DP("Unable to load library '%s': %s!\n", L0Interop::SyclWrapName, dlerror());
+          char *ErrorStr = dlerror();
+          if (!ErrorStr)
+            ErrorStr = "";
+          DP("Unable to load library '%s': %s!\n", L0Interop::SyclWrapName,
+             ErrorStr);
           SyclWrapper.WrapApiValid = false;
           return;
        }

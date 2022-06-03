@@ -51,6 +51,22 @@
 
 #include "SPIRVLowerConstExpr.h"
 
+cl::opt<DebugLogging> DebugPM(
+    "debug-pass-manager", cl::Hidden, cl::ValueOptional,
+    cl::desc("Print pass management debugging information"),
+    cl::init(DebugLogging::None),
+    cl::values(
+        clEnumValN(DebugLogging::Normal, "", ""),
+        clEnumValN(DebugLogging::Quiet, "quiet",
+                   "Skip printing info about analyses"),
+        clEnumValN(
+            DebugLogging::Verbose, "verbose",
+            "Print extra information about adaptors and pass managers")));
+
+cl::opt<bool> VerifyEachPass("verify-each-pass", cl::Hidden,
+                             cl::desc("Verify IR after each pass"),
+                             cl::init(false));
+
 // If set, then optimization passes will process functions as if they have the
 // optnone attribute.
 extern bool DPCPPForceOptnone;
@@ -62,9 +78,8 @@ namespace OpenCL {
 namespace DeviceBackend {
 
 OptimizerLTO::OptimizerLTO(Module &M, SmallVector<Module *, 2> &RtlModuleList,
-                           const intel::OptimizerConfig &Config,
-                           bool DebugPassManager)
-    : Optimizer(M, RtlModuleList, Config), DebugPassManager(DebugPassManager) {}
+                           const intel::OptimizerConfig &Config)
+    : Optimizer(M, RtlModuleList, Config) {}
 
 void OptimizerLTO::Optimize(raw_ostream &LogStream) {
   TargetMachine *TM = Config.GetTargetMachine();
@@ -80,11 +95,11 @@ void OptimizerLTO::Optimize(raw_ostream &LogStream) {
 
   Optional<PGOOptions> PGOOpt;
   PassInstrumentationCallbacks PIC;
+  bool DebugPassManager = DebugPM != DebugLogging::None;
   PrintPassOptions PrintPassOpts;
-  PrintPassOpts.Verbose = false;
-  PrintPassOpts.SkipAnalyses = false;
-  StandardInstrumentations SI(DebugPassManager, /*VerifyEachPass*/ false,
-                              PrintPassOpts);
+  PrintPassOpts.Verbose = DebugPM == DebugLogging::Verbose;
+  PrintPassOpts.SkipAnalyses = DebugPM == DebugLogging::Quiet;
+  StandardInstrumentations SI(DebugPassManager, VerifyEachPass, PrintPassOpts);
   SI.registerCallbacks(PIC);
   PassBuilder PB(TM, PTO, PGOOpt, &PIC);
 
