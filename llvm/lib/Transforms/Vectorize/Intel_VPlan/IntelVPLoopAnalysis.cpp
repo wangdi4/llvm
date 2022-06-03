@@ -702,12 +702,10 @@ void VPLoopEntityList::processInitValue(VPLoopEntity &E, VPValue *AI,
 // Replace out-of-the-loop uses of the \p From by the calculated last value (\p
 // To). Code generation should transform those uses to the final IR.
 static void relinkLiveOuts(VPValue *From, VPValue *To, const VPLoop &Loop) {
-  for (auto *User : From->users())
-    // Don't replace use in \To itself. It can use original value as, e.g.,
-    // accumulator of reduction.
-    if (User != To &&
-        (isa<VPExternalUse>(User) || !Loop.contains(cast<VPInstruction>(User))))
-      User->replaceUsesOfWith(From, To);
+  From->replaceUsesWithIf(To, [&Loop, To](VPUser *User) {
+    return User != To && (isa<VPExternalUse>(User) ||
+                          !Loop.contains(cast<VPInstruction>(User)));
+  });
 }
 
 #if INTEL_CUSTOMIZATION
