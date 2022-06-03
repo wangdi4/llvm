@@ -9393,6 +9393,10 @@ void DTransAnalysisInfo::parseIgnoreList() {
           TransName = dtrans::DT_ReorderFields;
         else if (TransformationAndTypes.first == "reusefield")
           TransName = dtrans::DT_ReuseField;
+        else if (TransformationAndTypes.first == "reusefieldptr")
+          TransName = dtrans::DT_ReuseFieldPtr;
+        else if (TransformationAndTypes.first == "reusefieldptrofptr")
+          TransName = dtrans::DT_ReuseFieldPtrOfPtr;
         else if (TransformationAndTypes.first == "deletefield")
           TransName = dtrans::DT_DeleteField;
         else if (TransformationAndTypes.first == "aostosoa")
