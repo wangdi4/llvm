@@ -347,6 +347,7 @@ LANGOPT(OffloadingNewDriver, 1, 0, "use the new driver for generating offloading
 
 LANGOPT(SYCLIsDevice      , 1, 0, "Generate code for SYCL device")
 LANGOPT(SYCLIsHost        , 1, 0, "SYCL host compilation")
+LANGOPT(IntelFPGA         , 1, 0, "Perform ahead-of-time compilation for FPGA")
 LANGOPT(SYCLAllowFuncPtr  , 1, 0, "Allow function pointers in SYCL device code")
 #if INTEL_CUSTOMIZATION
 LANGOPT(EnableVariantVirtualCalls , 1, 0, "Allow Virtual function call with vecttor variants")
