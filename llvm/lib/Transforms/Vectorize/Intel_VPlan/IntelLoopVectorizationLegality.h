@@ -68,7 +68,9 @@ public:
     ArrayPrivate,
     UserDefinedReduction,
     UnsupportedReductionOp,
-    InscanReduction
+    InscanReduction,
+    // TODO: Temporary bailout for F90_NONPOD directive
+    F90NonPod
   };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -92,6 +94,8 @@ public:
       return "A reduction of this operation is not supported.\n";
     case BailoutReason::InscanReduction:
       return "Inscan reduction is not supported.\n";
+    case BailoutReason::F90NonPod:
+      return "F90 non-POD privates are not supported.\n";
     }
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -124,6 +128,8 @@ private:
     for (LastprivateItem *Item : WRLp->getLpriv().items()) {
       if (Item->getIsF90DopeVector())
         return bailout(BailoutReason::F90DopeVectorPrivate);
+      if (Item->getIsF90NonPod())
+        return bailout(BailoutReason::F90NonPod);
       if (!visitLastPrivate(Item))
         return false;
     }
@@ -131,6 +137,8 @@ private:
     for (PrivateItem *Item : WRLp->getPriv().items()) {
       if (Item->getIsF90DopeVector())
         return bailout(BailoutReason::F90DopeVectorPrivate);
+      if (Item->getIsF90NonPod())
+        return bailout(BailoutReason::F90NonPod);
       if (!visitPrivate(Item))
         return false;
     }

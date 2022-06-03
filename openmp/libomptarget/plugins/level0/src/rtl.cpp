@@ -2602,6 +2602,9 @@ struct RTLDeviceInfoTy {
   /// Returns number of devices reported to omptarget.
   int32_t findDevices();
 
+  /// Report device information
+  void reportDeviceInfo();
+
   /// Initialize memory allocator for the specified device
   void initMemAllocator(int32_t DeviceId);
 
@@ -4495,8 +4498,11 @@ int32_t RTLDeviceInfoTy::findDevices() {
       if (NumSub > 0)
         Tuples.emplace_back(SubDevices[J], I, J, -1);
       uint32_t NumCCS = getComputeOrdinal(SubDevices[J]).second;
-      for (uint32_t K = 0; K < NumCCS; K++)
-        Tuples.emplace_back(SubDevices[J], I, J, K);
+      if (NumCCS > 1) {
+        // Only multiple CCSs are counted as subsubdevice
+        for (uint32_t K = 0; K < NumCCS; K++)
+          Tuples.emplace_back(SubDevices[J], I, J, K);
+      }
     }
   }
 
@@ -4566,6 +4572,9 @@ int32_t RTLDeviceInfoTy::findDevices() {
   for (auto &Str : DeviceIdStr)
     DP("-- %s\n", Str.c_str());
 
+  if (DebugLevel > 0)
+    reportDeviceInfo();
+
   // Prepare space for internal data
   Programs.resize(NumDevices);
   KernelProperties.resize(NumDevices);
@@ -4613,6 +4622,35 @@ int32_t RTLDeviceInfoTy::findDevices() {
     GitsIndirectAllocationOffsets = nullptr;
 
   return NumRootDevices;
+}
+
+void RTLDeviceInfoTy::reportDeviceInfo() {
+  DP("Root Device Information\n");
+  for (uint32_t I = 0; I < NumRootDevices; I++) {
+    auto &DPR = DeviceProperties[I];
+    auto &CPR = ComputeProperties[I];
+    auto &MPR = MemoryProperties[I];
+    auto &MCPR = CacheProperties[I];
+    uint32_t NumEUs = DPR.numEUsPerSubslice * DPR.numSubslicesPerSlice *
+                      DPR.numSlices;
+    DP("Device %" PRIu32 "\n", I);
+    DP("-- Name                         : %s\n", DPR.name);
+    DP("-- PCI ID                       : 0x%" PRIx32 "\n", DPR.deviceId);
+    DP("-- Number of total EUs          : %" PRIu32 "\n", NumEUs);
+    DP("-- Number of threads per EU     : %" PRIu32 "\n", DPR.numThreadsPerEU);
+    DP("-- EU SIMD width                : %" PRIu32 "\n",
+       DPR.physicalEUSimdWidth);
+    DP("-- Number of EUs per subslice   : %" PRIu32 "\n",
+       DPR.numEUsPerSubslice);
+    DP("-- Number of subslices per slice: %" PRIu32 "\n",
+       DPR.numSubslicesPerSlice);
+    DP("-- Number of slices             : %" PRIu32 "\n", DPR.numSlices);
+    DP("-- Local memory size (bytes)    : %" PRIu32 "\n",
+       CPR.maxSharedLocalMemory);
+    DP("-- Global memory size (bytes)   : %" PRIu64 "\n", MPR.totalSize);
+    DP("-- Cache size (bytes)           : %" PRIu64 "\n", MCPR.cacheSize);
+    DP("-- Max clock frequency (MHz)    : %" PRIu32 "\n", DPR.coreClockRate);
+  }
 }
 
 void RTLDeviceInfoTy::initMemAllocator(int32_t DeviceId) {
