@@ -6410,10 +6410,10 @@ static void emitOMPAtomicCompareExpr(CodeGenFunction &CGF,
 
 static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
                               llvm::AtomicOrdering AO, bool IsPostfixUpdate,
-<<<<<<< HEAD
-                              const Expr *X, const Expr *V, const Expr *E,
-                              const Expr *UE, const Expr *D, const Expr *CE,
-                              bool IsXLHSInRHSPart, bool IsCompareCapture,
+                              const Expr *X, const Expr *V, const Expr *R,
+                              const Expr *E, const Expr *UE, const Expr *D,
+                              const Expr *CE, bool IsXLHSInRHSPart,
+                              bool IsFailOnly,
 #if INTEL_COLLAB
                               const Expr *Expected, const Expr *Result,
                               bool IsCompareMin, bool IsCompareMax,
@@ -6421,12 +6421,6 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
 #endif // INTEL_COLLAB
                               SourceLocation Loc) {
 
-=======
-                              const Expr *X, const Expr *V, const Expr *R,
-                              const Expr *E, const Expr *UE, const Expr *D,
-                              const Expr *CE, bool IsXLHSInRHSPart,
-                              bool IsFailOnly, SourceLocation Loc) {
->>>>>>> c4a90db72064cca70c51b9c49212fa54d34b02ba
   switch (Kind) {
   case OMPC_read:
     emitOMPAtomicReadExpr(CGF, AO, X, V, Loc);
@@ -6443,28 +6437,17 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
                              IsXLHSInRHSPart, Loc);
     break;
   case OMPC_compare: {
-<<<<<<< HEAD
 #if INTEL_COLLAB
     if (CGF.CGM.getLangOpts().OpenMPLateOutline) {
       bool IsPostUpdate = (V ? !IsPostfixUpdate : false);
       emitOMPAtomicCompareExprIntel(CGF, AO, IsPostUpdate, V, X, E, Expected,
                                     Result, IsCompareMin, IsCompareMax,
                                     IsConditionalCapture, Loc);
-    } else
-#endif // INTEL_COLLAB
-    if (IsCompareCapture) {
-      // Emit an error here.
-      unsigned DiagID = CGF.CGM.getDiags().getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "'atomic compare capture' is not supported for now");
-      CGF.CGM.getDiags().Report(DiagID);
     } else {
-      emitOMPAtomicCompareExpr(CGF, AO, X, E, D, CE, IsXLHSInRHSPart, Loc);
+      emitOMPAtomicCompareExpr(CGF, AO, X, V, R, E, D, CE, IsXLHSInRHSPart,
+                               IsPostfixUpdate, IsFailOnly, Loc);
     }
-=======
-    emitOMPAtomicCompareExpr(CGF, AO, X, V, R, E, D, CE, IsXLHSInRHSPart,
-                             IsPostfixUpdate, IsFailOnly, Loc);
->>>>>>> c4a90db72064cca70c51b9c49212fa54d34b02ba
+#endif // INTEL_COLLAB
     break;
   }
   case OMPC_if:
@@ -6629,21 +6612,13 @@ void CodeGenFunction::EmitOMPAtomicDirective(const OMPAtomicDirective &S) {
   LexicalScope Scope(*this, S.getSourceRange());
   EmitStopPoint(S.getAssociatedStmt());
   emitOMPAtomicExpr(*this, Kind, AO, S.isPostfixUpdate(), S.getX(), S.getV(),
-<<<<<<< HEAD
-                    S.getExpr(), S.getUpdateExpr(), S.getD(), S.getCondExpr(),
-#if INTEL_COLLAB
-                    S.isXLHSInRHSPart(), IsCompareCapture,
-                    S.getExpected(), S.getResult(), S.isCompareMin(),
-                    S.isCompareMax(), S.isConditionalCapture(),
-                    S.getBeginLoc());
-#else // INTEL_COLLAB
-                    S.isXLHSInRHSPart(), IsCompareCapture, S.getBeginLoc());
-#endif // INTEL_COLLAB
-=======
                     S.getR(), S.getExpr(), S.getUpdateExpr(), S.getD(),
                     S.getCondExpr(), S.isXLHSInRHSPart(), S.isFailOnly(),
+#if INTEL_COLLAB
+                    S.getExpected(), S.getResult(), S.isCompareMin(),
+                    S.isCompareMax(), S.isConditionalCapture(),
+#endif // INTEL_COLLAB
                     S.getBeginLoc());
->>>>>>> c4a90db72064cca70c51b9c49212fa54d34b02ba
 }
 
 static void emitCommonOMPTargetDirective(CodeGenFunction &CGF,

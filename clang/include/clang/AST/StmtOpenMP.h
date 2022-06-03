@@ -3265,7 +3265,9 @@ class OMPAtomicDirective : public OMPExecutableDirective {
     /// This field is 1 for the first(postfix) form of the expression and 0
     /// otherwise.
     uint8_t IsPostfixUpdate : 1;
-<<<<<<< HEAD
+    /// 1 if 'v' is updated only when the condition is false (compare capture
+    /// only).
+    uint8_t IsFailOnly : 1;
 #if INTEL_COLLAB
     /// Used for 'atomic compare' constructs. 1 for forms that result in a
     /// 'min' operation:
@@ -3293,11 +3295,6 @@ class OMPAtomicDirective : public OMPExecutableDirective {
     /// \endcode
     uint8_t IsConditionalCapture : 1;
 #endif // INTEL_COLLAB
-=======
-    /// 1 if 'v' is updated only when the condition is false (compare capture
-    /// only).
-    uint8_t IsFailOnly : 1;
->>>>>>> c4a90db72064cca70c51b9c49212fa54d34b02ba
   } Flags;
 
   /// Build directive with the given start and end location.
@@ -3322,14 +3319,11 @@ class OMPAtomicDirective : public OMPExecutableDirective {
     POS_UpdateExpr,
     POS_D,
     POS_Cond,
-<<<<<<< HEAD
+    POS_R,
 #if INTEL_COLLAB
     POS_Expected,
     POS_Result,
 #endif
-=======
-    POS_R,
->>>>>>> c4a90db72064cca70c51b9c49212fa54d34b02ba
   };
 
   /// Set 'x' part of the associated expression/statement.
@@ -3394,7 +3388,9 @@ public:
     bool IsXLHSInRHSPart;
     /// True if original value of 'x' must be stored in 'v', not an updated one.
     bool IsPostfixUpdate;
-<<<<<<< HEAD
+    /// True if 'v' is updated only when the condition is false (compare capture
+    /// only).
+    bool IsFailOnly;
 #if INTEL_COLLAB
     /// True for forms that result in a 'min' operation:
     bool IsCompareMin;
@@ -3403,11 +3399,6 @@ public:
     /// True for forms that update 'v' only when the condition is false.
     bool IsConditionalCapture;
 #endif // INTEL_COLLAB
-=======
-    /// True if 'v' is updated only when the condition is false (compare capture
-    /// only).
-    bool IsFailOnly;
->>>>>>> c4a90db72064cca70c51b9c49212fa54d34b02ba
   };
 
   /// Creates directive with a list of \a Clauses and 'x', 'v' and 'expr'

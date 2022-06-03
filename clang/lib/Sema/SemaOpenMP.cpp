@@ -13524,7 +13524,7 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
   Expr *R = nullptr;
   bool IsXLHSInRHSPart = false;
   bool IsPostfixUpdate = false;
-<<<<<<< HEAD
+  bool IsFailOnly = false;
 #if INTEL_COLLAB
   Expr *Result = nullptr;
   Expr *Expected = nullptr;
@@ -13532,9 +13532,6 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
   bool IsCompareMax = false;
   bool IsConditionalCapture = false;
 #endif // INTEL_COLLAB
-=======
-  bool IsFailOnly = false;
->>>>>>> c4a90db72064cca70c51b9c49212fa54d34b02ba
   // OpenMP [2.12.6, atomic Construct]
   // In the next expressions:
   // * x and v (as applicable) are both l-value expressions with scalar type.
@@ -14002,16 +13999,12 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
 
   return OMPAtomicDirective::Create(
       Context, StartLoc, EndLoc, Clauses, AStmt,
-<<<<<<< HEAD
 #if INTEL_COLLAB
-      {X, V, E, Expected, Result, UE, D, CE, IsXLHSInRHSPart, IsPostfixUpdate,
+      {X, V, R, E, Expected, Result, UE, D, CE, IsXLHSInRHSPart, IsPostfixUpdate, IsFailOnly,
        IsCompareMin, IsCompareMax, IsConditionalCapture});
 #else // INTEL_COLLAB
-      {X, V, E, UE, D, CE, IsXLHSInRHSPart, IsPostfixUpdate});
-#endif // INTEL_COLLAB
-=======
       {X, V, R, E, UE, D, CE, IsXLHSInRHSPart, IsPostfixUpdate, IsFailOnly});
->>>>>>> c4a90db72064cca70c51b9c49212fa54d34b02ba
+#endif // INTEL_COLLAB
 }
 
 StmtResult Sema::ActOnOpenMPTargetDirective(ArrayRef<OMPClause *> Clauses,

@@ -2377,15 +2377,12 @@ void ASTStmtWriter::VisitOMPAtomicDirective(OMPAtomicDirective *D) {
   VisitOMPExecutableDirective(D);
   Record.writeBool(D->isXLHSInRHSPart());
   Record.writeBool(D->isPostfixUpdate());
-<<<<<<< HEAD
+  Record.writeBool(D->isFailOnly());
 #if INTEL_COLLAB
   Record.writeBool(D->isCompareMin());
   Record.writeBool(D->isCompareMax());
   Record.writeBool(D->isConditionalCapture());
 #endif // INTEL_COLLAB
-=======
-  Record.writeBool(D->isFailOnly());
->>>>>>> c4a90db72064cca70c51b9c49212fa54d34b02ba
   Code = serialization::STMT_OMP_ATOMIC_DIRECTIVE;
 }
 
