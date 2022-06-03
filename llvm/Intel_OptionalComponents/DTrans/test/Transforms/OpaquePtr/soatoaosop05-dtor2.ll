@@ -159,12 +159,12 @@ declare i32 @__gxx_personality_v0(...)
 
 !intel.dtrans.types = !{!1, !6, !10, !15, !23}
 
-!1 = !{!"S", %struct.Arr zeroinitializer, i32 5, !5, !2, !4, !5, !2}
+!1 = !{!"S", %struct.Arr zeroinitializer, i32 5, !3, !2, !4, !5, !2}
 !2 = !{!"A", i32 4, !3}
 !3 = !{i8 0, i32 0}
 !4 = !{i32 0, i32 2}
 !5 = !{i32 0, i32 0}
-!6 = !{!"S", %struct.Arr.0 zeroinitializer, i32 5, !5, !2, !7, !5, !2}
+!6 = !{!"S", %struct.Arr.0 zeroinitializer, i32 5, !3, !2, !7, !5, !2}
 !7 = !{float 0.000000e+00, i32 2}
 !8 = !{%struct.Arr zeroinitializer, i32 1}
 !9 = !{%struct.Arr.0 zeroinitializer, i32 1}
@@ -173,7 +173,7 @@ declare i32 @__gxx_personality_v0(...)
 !12 = distinct !{!11}
 !13 = distinct !{!8}
 !14 = distinct !{!9}
-!15 = !{!"S", %struct.Arr.1 zeroinitializer, i32 5, !5, !2, !16, !5, !2}
+!15 = !{!"S", %struct.Arr.1 zeroinitializer, i32 5, !3, !2, !16, !5, !2}
 !16 = !{i16 0, i32 2}
 !17 = !{%struct.Arr.1 zeroinitializer, i32 1}
 !18 = distinct !{!17}
