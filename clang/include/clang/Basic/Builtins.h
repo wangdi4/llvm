@@ -59,15 +59,12 @@ enum LanguageID {
   OCL_PIPE = 0x200,          // builtin requires OpenCL pipe.
   OCL_DSE = 0x400,           // builtin requires OpenCL device side enqueue.
   ALL_OCL_LANGUAGES = 0x800, // builtin for OCL languages.
-<<<<<<< HEAD
+  HLSL_LANG = 0x1000,        // builtin requires HLSL.
 #if INTEL_CUSTOMIZATION
-  ICC_LANG = 0x1000,             // INTEL: builtin requires ICC mode.
-  INTEL_FPGA_PIPE1X = 0x2000,    // INTEL: pipe builtin for OpenCL C 1.x only.
+  ICC_LANG = 0x2000,             // INTEL: builtin requires ICC mode.
+  INTEL_FPGA_PIPE1X = 0x4000,    // INTEL: pipe builtin for OpenCL C 1.x only.
   ALL_OCL_PIPE = INTEL_FPGA_PIPE1X | OCL_PIPE,
 #endif // INTEL_CUSTOMIZATION
-=======
-  HLSL_LANG = 0x1000,        // builtin requires HLSL.
->>>>>>> 6bea9ff91378571b3bedcdc12fac7bb916371871
   ALL_LANGUAGES = C_LANG | CXX_LANG | OBJC_LANG, // builtin for all languages.
   ALL_GNU_LANGUAGES = ALL_LANGUAGES | GNU_LANG,  // builtin requires GNU mode.
   ALL_MS_LANGUAGES = ALL_LANGUAGES | MS_LANG     // builtin requires MS mode.
