@@ -644,7 +644,7 @@ declare void @llvm.dbg.value(metadata, metadata, metadata)
 !43 = distinct !{!5}
 !44 = distinct !{!21}
 !45 = distinct !{!30}
-!64 = !{!"S", %eh.ThrowInfo zeroinitializer, i32 4, !12, !12, !12, !12}
+!64 = !{!"S", %eh.ThrowInfo zeroinitializer, i32 4, !10, !10, !10, !10}
 !65 = !{%eh.ThrowInfo zeroinitializer, i32 1}
 !70 = distinct !{!21, !65}
 

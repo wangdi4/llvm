@@ -48,7 +48,7 @@ attributes #0 = { mustprogress nounwind uwtable "approx-func-fp-math"="true" "de
 !1 = !{i32 7, !"uwtable", i32 1}
 !2 = !{i32 1, !"ThinLTO", i32 0}
 !3 = !{i32 1, !"EnableSplitLTOUnit", i32 1}
-!4 = !{!"S", %struct.test.b zeroinitializer, i32 2, !13, !6}
+!4 = !{!"S", %struct.test.b zeroinitializer, i32 2, !13, !8}
 !5 = !{%struct.test.a zeroinitializer, i32 0}
 !6 = !{i32 0, i32 0}
 !7 = !{!"S", %struct.test.a zeroinitializer, i32 3, !6, !6, !8}
