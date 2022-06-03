@@ -3259,7 +3259,7 @@ defm strict_vtable_pointers : BoolFOption<"strict-vtable-pointers",
 def fstrict_overflow : Flag<["-"], "fstrict-overflow">, Group<f_Group>;
 #if INTEL_CUSTOMIZATION
 def fintelfpga : Flag<["-"], "fintelfpga">, Group<f_Group>,
-  Flags<[CC1Option, CoreOption, DpcppOption]>, MarshallingInfoFlag<LangOpts<"IntelFPGA">>,
+  Flags<[CC1Option, CoreOption, DpcppOption]>,
   HelpText<"Perform ahead-of-time compilation for FPGA">;
 def fsycl_device_only : Flag<["-"], "fsycl-device-only">, Flags<[CoreOption, DpcppOption]>,
   HelpText<"Compile SYCL kernels for device">;
