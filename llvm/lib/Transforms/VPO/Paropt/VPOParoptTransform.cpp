@@ -2554,7 +2554,6 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
       case WRegionNode::WRNMasked:
-      case WRegionNode::WRNMaster:
         if (Mode & ParPrepare) {
           debugPrintHeader(W, Mode);
 #if INTEL_CUSTOMIZATION
@@ -12518,7 +12517,7 @@ bool VPOParoptTransform::removeCompilerGeneratedFences(WRegionNode *W) {
   switch (W->getWRegionKindID()) {
   case WRegionNode::WRNAtomic:
   case WRegionNode::WRNCritical:
-  case WRegionNode::WRNMaster:
+  case WRegionNode::WRNMasked:
   case WRegionNode::WRNSingle:
     if (auto *BB = W->getEntryBBlock()->getSingleSuccessor())
       Changed |= removeFirstFence(make_range(BB->begin(), BB->end()),

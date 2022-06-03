@@ -1762,17 +1762,17 @@ bool IPOPrefetcher::identifyMainFunction(void) {
 // Check if a StoreInst is to write into a stack-allocated memory.
 // (All non-local stores have global side effects and thus unsafe.)
 static bool IsLocalStore(Value *V) {
+  assert(V && "Trying to analyze Store instruction from a null value");
+
   LLVM_DEBUG(dbgs() << "Value: : " << *V << "\n";);
 
   if (isa<Argument>(V) || isa<GlobalVariable>(V))
     return false;
-  else if (isa<StoreInst>(V)) {
-    StoreInst *SI = dyn_cast<StoreInst>(V);
+  else if (StoreInst *SI = dyn_cast<StoreInst>(V))
     return IsLocalStore(SI->getPointerOperand());
-  } else if (isa<GetElementPtrInst>(V)) {
-    GetElementPtrInst *GEPT = dyn_cast<GetElementPtrInst>(V);
+  else if (GetElementPtrInst *GEPT = dyn_cast<GetElementPtrInst>(V))
     return IsLocalStore(GEPT->getOperand(0));
-  }
+
   return true;
 }
 

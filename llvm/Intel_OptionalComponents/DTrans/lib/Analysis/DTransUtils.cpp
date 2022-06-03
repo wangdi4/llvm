@@ -1301,6 +1301,10 @@ StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
     return "fsaf";
   case dtrans::DT_ReuseField:
     return "reusefield";
+  case dtrans::DT_ReuseFieldPtrOfPtr:
+    return "reusefieldptrofptr";
+  case dtrans::DT_ReuseFieldPtr:
+    return "reusefieldptr";
   case dtrans::DT_DeleteField:
     return "deletefield";
   case dtrans::DT_ReorderFields:
@@ -1346,6 +1350,10 @@ dtrans::SafetyData dtrans::getConditionsForTransform(dtrans::Transform Trans,
                : dtrans::SDSingleAllocFunctionNoFieldAddressTaken;
   case dtrans::DT_ReuseField:
     return dtrans::SDReuseField;
+  case dtrans::DT_ReuseFieldPtrOfPtr:
+    return dtrans::SDReuseFieldPtrOfPtr;
+  case dtrans::DT_ReuseFieldPtr:
+    return dtrans::SDReuseFieldPtr;
   case dtrans::DT_DeleteField:
     return dtrans::SDDeleteField;
   case dtrans::DT_ReorderFields:

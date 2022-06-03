@@ -762,6 +762,36 @@ const SafetyData SDReuseField =
     ComplexAllocSize | StructCouldHaveABIPadding | StructCouldBeBaseABIPadding |
     BadMemFuncManipulationForRelatedTypes;
 
+const SafetyData SDReuseFieldPtrOfPtr =
+    BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
+    VolatileData | MismatchedElementAccess | WholeStructureReference |
+    UnsafePointerStore | AnyFieldAddressTaken | HasInitializerList |
+    UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
+    BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
+    NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
+    MismatchedArgUse | LocalInstance | HasCppHandling | BadCastingConditional |
+    UnsafePointerStoreConditional | MismatchedElementAccessConditional |
+    UnhandledUse | DopeVector | BadCastingForRelatedTypes |
+    BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
+    UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
+    ComplexAllocSize | StructCouldHaveABIPadding | StructCouldBeBaseABIPadding |
+    BadMemFuncManipulationForRelatedTypes;
+
+const SafetyData SDReuseFieldPtr =
+    BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
+    VolatileData | MismatchedElementAccess | WholeStructureReference |
+    UnsafePointerStore | FieldAddressTakenMemory | FieldAddressTakenReturn |
+    HasInitializerList | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
+    BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
+    NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
+    MismatchedArgUse | LocalInstance | HasCppHandling | BadCastingConditional |
+    UnsafePointerStoreConditional | MismatchedElementAccessConditional |
+    UnhandledUse | DopeVector | BadCastingForRelatedTypes |
+    BadPtrManipulationForRelatedTypes | MismatchedElementAccessRelatedTypes |
+    UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
+    ComplexAllocSize | StructCouldHaveABIPadding | StructCouldBeBaseABIPadding |
+    BadMemFuncManipulationForRelatedTypes;
+
 const SafetyData SDReorderFields =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
     VolatileData | MismatchedElementAccess | WholeStructureReference |
@@ -981,8 +1011,10 @@ const Transform DT_SOAToAOS = 0x0400;
 const Transform DT_MemInitTrimDown = 0x0800;
 const Transform DT_ArraysWithConstantEntries = 0x1000;
 const Transform DT_ReuseField = 0x2000;
-const Transform DT_Last = 0x4000;
-const Transform DT_Legal = 0x3fff;
+const Transform DT_ReuseFieldPtr = 0x4000;
+const Transform DT_ReuseFieldPtrOfPtr = 0x8000;
+const Transform DT_Last = 0x10000;
+const Transform DT_Legal = 0xffff;
 
 /// A three value enum that indicates whether for a particular Type of
 /// interest if a there is another distinct Type with which it is compatible
