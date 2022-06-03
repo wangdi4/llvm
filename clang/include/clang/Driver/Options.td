@@ -3259,14 +3259,9 @@ defm strict_vtable_pointers : BoolFOption<"strict-vtable-pointers",
 def fstrict_overflow : Flag<["-"], "fstrict-overflow">, Group<f_Group>;
 #if INTEL_CUSTOMIZATION
 def fintelfpga : Flag<["-"], "fintelfpga">, Group<f_Group>,
-<<<<<<< HEAD
-  Flags<[CC1Option, CoreOption, DpcppOption]>, MarshallingInfoFlag<LangOpts<"IntelFPGA">>,
+  Flags<[CC1Option, CoreOption, DpcppOption]>,
   HelpText<"Perform ahead-of-time compilation for FPGA">;
 def fsycl_device_only : Flag<["-"], "fsycl-device-only">, Flags<[CoreOption, DpcppOption]>,
-=======
-  Flags<[CC1Option, CoreOption]>, HelpText<"Perform ahead of time compilation for FPGA">;
-def fsycl_device_only : Flag<["-"], "fsycl-device-only">, Flags<[CoreOption]>,
->>>>>>> c9cdf2572ab1097f93e27274c0571219ba22880e
   HelpText<"Compile SYCL kernels for device">;
 def fsycl_targets_EQ : CommaJoined<["-"], "fsycl-targets=">, Flags<[NoXarchOption, CC1Option, CoreOption, DpcppOption]>,
   HelpText<"Specify comma-separated list of triples SYCL offloading targets to be supported">;
