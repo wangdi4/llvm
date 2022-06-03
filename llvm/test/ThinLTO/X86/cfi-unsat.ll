@@ -16,9 +16,13 @@
 ; RUN: opt -thinlto-bc -thinlto-split-lto-unit -o %t1.o %p/Inputs/cfi-unsat.ll
 
 ; RUN: llvm-lto2 run %t.o %t1.o -save-temps -pass-remarks=. \
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; RUN:   -use-new-pm=true \
 ; end INTEL_CUSTOMIZATION
+=======
+; RUN:   -opaque-pointers \
+>>>>>>> f0baf722ba3c405cba77cb290fb690c180efe8a8
 ; RUN:   -whole-program-visibility \
 ; RUN:   -o %t3 \
 ; RUN:   -r=%t.o,test2,px \
