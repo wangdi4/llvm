@@ -1406,22 +1406,12 @@ void CodeGenModule::setDLLImportDLLExport(llvm::GlobalValue *GV,
   setDLLImportDLLExport(GV, D);
 }
 
-bool CodeGenModule::shouldMapVisibilityToDLLExport(const NamedDecl *D) const {
-  return D &&
-         (D->getLinkageAndVisibility().getVisibility() == DefaultVisibility) &&
-         ((D->getLinkageAndVisibility().isVisibilityExplicit() &&
-           getLangOpts().isExplicitDefaultVisibilityExportMapping()) ||
-          getLangOpts().isAllDefaultVisibilityExportMapping());
-}
-
 void CodeGenModule::setDLLImportDLLExport(llvm::GlobalValue *GV,
                                           const NamedDecl *D) const {
   if (D && D->isExternallyVisible()) {
     if (D->hasAttr<DLLImportAttr>())
       GV->setDLLStorageClass(llvm::GlobalVariable::DLLImportStorageClass);
-    else if ((D->hasAttr<DLLExportAttr>() ||
-              shouldMapVisibilityToDLLExport(D)) &&
-             !GV->isDeclarationForLinker())
+    else if (D->hasAttr<DLLExportAttr>() && !GV->isDeclarationForLinker())
       GV->setDLLStorageClass(llvm::GlobalVariable::DLLExportStorageClass);
   }
 }
@@ -4605,8 +4595,7 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
 #endif // INTEL_COLLAB
 
     // Handle dropped DLL attributes.
-    if (D && !D->hasAttr<DLLImportAttr>() && !D->hasAttr<DLLExportAttr>() &&
-        !shouldMapVisibilityToDLLExport(cast_or_null<NamedDecl>(D))) {
+    if (D && !D->hasAttr<DLLImportAttr>() && !D->hasAttr<DLLExportAttr>()) {
       Entry->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
       setDSOLocal(Entry);
     }
@@ -4985,8 +4974,7 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName, llvm::Type *Ty,
     }
 
     // Handle dropped DLL attributes.
-    if (D && !D->hasAttr<DLLImportAttr>() && !D->hasAttr<DLLExportAttr>() &&
-        !shouldMapVisibilityToDLLExport(D))
+    if (D && !D->hasAttr<DLLImportAttr>() && !D->hasAttr<DLLExportAttr>())
       Entry->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
 
     if (LangOpts.OpenMP && !LangOpts.OpenMPSimd && D)

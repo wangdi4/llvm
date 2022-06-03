@@ -1073,7 +1073,9 @@ void DAGTypeLegalizer::SplitVectorResult(SDNode *N, unsigned ResNo) {
   case ISD::FP_EXTEND:
   case ISD::FP_ROUND:
   case ISD::FP_TO_SINT:
+  case ISD::VP_FPTOSI:
   case ISD::FP_TO_UINT:
+  case ISD::VP_FPTOUI:
   case ISD::FRINT:
   case ISD::FROUND:
   case ISD::FROUNDEVEN:
@@ -1081,9 +1083,11 @@ void DAGTypeLegalizer::SplitVectorResult(SDNode *N, unsigned ResNo) {
   case ISD::FSQRT:
   case ISD::FTRUNC:
   case ISD::SINT_TO_FP:
+  case ISD::VP_SITOFP:
   case ISD::TRUNCATE:
   case ISD::VP_TRUNCATE:
   case ISD::UINT_TO_FP:
+  case ISD::VP_UITOFP:
   case ISD::FCANONICALIZE:
     SplitVecRes_UnaryOp(N, Lo, Hi);
     break;
@@ -3849,13 +3853,17 @@ void DAGTypeLegalizer::WidenVectorResult(SDNode *N, unsigned ResNo) {
   case ISD::FP_EXTEND:
   case ISD::FP_ROUND:
   case ISD::FP_TO_SINT:
+  case ISD::VP_FPTOSI:
   case ISD::FP_TO_UINT:
+  case ISD::VP_FPTOUI:
   case ISD::SIGN_EXTEND:
   case ISD::VP_SIGN_EXTEND:
   case ISD::SINT_TO_FP:
+  case ISD::VP_SITOFP:
   case ISD::VP_TRUNCATE:
   case ISD::TRUNCATE:
   case ISD::UINT_TO_FP:
+  case ISD::VP_UITOFP:
   case ISD::ZERO_EXTEND:
   case ISD::VP_ZERO_EXTEND:
     Res = WidenVecRes_Convert(N);
