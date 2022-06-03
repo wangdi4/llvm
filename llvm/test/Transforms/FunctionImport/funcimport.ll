@@ -1,18 +1,12 @@
 ; REQUIRES: x86-registered-target
 
 ; Do setup work for all below tests: generate bitcode and combined index
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; Use extra option to allow full source filename path in module
-; RUN: opt -strip-module-src-path=false -module-summary %s -o %t.bc
-; RUN: opt -strip-module-src-path=false -module-summary %p/Inputs/funcimport.ll -o %t2.bc
+; RUN: opt -opaque-pointers -strip-module-src-path=false -module-summary %s -o %t.bc
+; RUN: opt -opaque-pointers -strip-module-src-path=false -module-summary %p/Inputs/funcimport.ll -o %t2.bc
 ; RUN: llvm-lto -strip-module-src-path=false -thinlto -print-summary-global-ids -o %t3 %t.bc %t2.bc 2>&1 | FileCheck %s --check-prefix=GUID
 ; end INTEL_CUSTOMIZATION
-=======
-; INTEL RUN: opt -opaque-pointers -module-summary %s -o %t.bc
-; INTEL RUN: opt -opaque-pointers -module-summary %p/Inputs/funcimport.ll -o %t2.bc
-; RUN: llvm-lto -thinlto -print-summary-global-ids -o %t3 %t.bc %t2.bc 2>&1 | FileCheck %s --check-prefix=GUID
->>>>>>> 9221f84f8ef3224429c9eb71109897f64085d785
 
 ; Do the import now
 ; INTEL RUN: opt -opaque-pointers -function-import -stats -print-imports -enable-import-metadata -summary-file %t3.thinlto.bc %t.bc -S 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=INSTLIMDEF
