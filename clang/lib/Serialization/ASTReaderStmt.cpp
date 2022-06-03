@@ -2483,6 +2483,7 @@ void ASTStmtReader::VisitOMPAtomicDirective(OMPAtomicDirective *D) {
   VisitOMPExecutableDirective(D);
   D->Flags.IsXLHSInRHSPart = Record.readBool() ? 1 : 0;
   D->Flags.IsPostfixUpdate = Record.readBool() ? 1 : 0;
+  D->Flags.IsFailOnly = Record.readBool() ? 1 : 0;
 #if INTEL_COLLAB
   D->Flags.IsCompareMin = Record.readBool() ? 1 : 0;
   D->Flags.IsCompareMax = Record.readBool() ? 1 : 0;

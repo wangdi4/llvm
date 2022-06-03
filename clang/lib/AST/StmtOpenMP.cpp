@@ -1006,12 +1006,13 @@ OMPAtomicDirective::Create(const ASTContext &C, SourceLocation StartLoc,
                            Stmt *AssociatedStmt, Expressions Exprs) {
   auto *Dir = createDirective<OMPAtomicDirective>(
 #if INTEL_COLLAB
-      C, Clauses, AssociatedStmt, /*NumChildren=*/8, StartLoc, EndLoc);
+      C, Clauses, AssociatedStmt, /*NumChildren=*/9, StartLoc, EndLoc);
 #else // INTEL_COLLAB
-      C, Clauses, AssociatedStmt, /*NumChildren=*/6, StartLoc, EndLoc);
+      C, Clauses, AssociatedStmt, /*NumChildren=*/7, StartLoc, EndLoc);
 #endif // INTEL_COLLAB
   Dir->setX(Exprs.X);
   Dir->setV(Exprs.V);
+  Dir->setR(Exprs.R);
   Dir->setExpr(Exprs.E);
 #if INTEL_COLLAB
   Dir->setExpected(Exprs.Expected);
@@ -1022,6 +1023,7 @@ OMPAtomicDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setCond(Exprs.Cond);
   Dir->Flags.IsXLHSInRHSPart = Exprs.IsXLHSInRHSPart ? 1 : 0;
   Dir->Flags.IsPostfixUpdate = Exprs.IsPostfixUpdate ? 1 : 0;
+  Dir->Flags.IsFailOnly = Exprs.IsFailOnly ? 1 : 0;
 #if INTEL_COLLAB
   Dir->Flags.IsCompareMin = Exprs.IsCompareMin ? 1 : 0;
   Dir->Flags.IsCompareMax = Exprs.IsCompareMax ? 1 : 0;
@@ -1035,9 +1037,9 @@ OMPAtomicDirective *OMPAtomicDirective::CreateEmpty(const ASTContext &C,
                                                     EmptyShell) {
   return createEmptyDirective<OMPAtomicDirective>(
 #if INTEL_COLLAB
-      C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/8);
+      C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/9);
 #else // INTEL_COLLAB
-      C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/6);
+      C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/7);
 #endif // INTEL_COLLAB
 }
 

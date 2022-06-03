@@ -2377,6 +2377,7 @@ void ASTStmtWriter::VisitOMPAtomicDirective(OMPAtomicDirective *D) {
   VisitOMPExecutableDirective(D);
   Record.writeBool(D->isXLHSInRHSPart());
   Record.writeBool(D->isPostfixUpdate());
+  Record.writeBool(D->isFailOnly());
 #if INTEL_COLLAB
   Record.writeBool(D->isCompareMin());
   Record.writeBool(D->isCompareMax());
