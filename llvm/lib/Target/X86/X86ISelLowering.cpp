@@ -27453,6 +27453,91 @@ SDValue X86TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
       return DAG.getNode(IntrData->Opc1, dl, Op.getValueType(), Src, PassThru,
                          Mask);
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_SAT_CVT
+    case AVX512_SAT_CVT_MASK: {
+      SDValue PassThru = Op.getOperand(1);
+      SDValue Mask = Op.getOperand(2);
+      SDValue Src1 = Op.getOperand(3);
+      SDValue Src2 = Op.getOperand(4);
+      MVT DstVecTy = Op.getSimpleValueType();
+      int NumElts = DstVecTy.getVectorNumElements();
+      MVT MaskVT = MVT::getVectorVT(MVT::i1, NumElts);
+      SDValue VMask = getMaskNode(Mask, MaskVT, Subtarget, DAG, dl);
+      if (IntrData->Opc1 != 0) {
+        SDValue Rnd = Op.getOperand(5);
+        unsigned RC = 0;
+        if (isRoundModeSAEToX(Rnd, RC))
+          return DAG.getNode(IntrData->Opc1, dl, Op.getValueType(),
+                              {PassThru, VMask, Src1, Src2,
+                              DAG.getTargetConstant(RC, dl, MVT::i32)});
+        else if (!isRoundModeCurDirection(Rnd))
+          return SDValue();
+      }
+      return DAG.getNode(IntrData->Opc0, dl, Op.getValueType(),
+                         {PassThru, VMask, Src1, Src2});
+    }
+    case AVX512_SAT_CVT_MASKZ: {
+      SDValue Mask = Op.getOperand(1);
+      SDValue Src1 = Op.getOperand(2);
+      SDValue Src2 = Op.getOperand(3);
+      MVT DstVecTy = Op.getSimpleValueType();
+      int NumElts = DstVecTy.getVectorNumElements();
+      MVT MaskVT = MVT::getVectorVT(MVT::i1, NumElts);
+      SDValue VMask = getMaskNode(Mask, MaskVT, Subtarget, DAG, dl);
+      if (IntrData->Opc1 != 0) {
+        SDValue Rnd = Op.getOperand(4);
+        unsigned RC = 0;
+        if (isRoundModeSAEToX(Rnd, RC))
+          return DAG.getNode(IntrData->Opc1, dl, Op.getValueType(),
+                              {VMask, Src1, Src2,
+                              DAG.getTargetConstant(RC, dl, MVT::i32)});
+        else if (!isRoundModeCurDirection(Rnd))
+          return SDValue();
+      }
+      return DAG.getNode(IntrData->Opc0, dl, Op.getValueType(),
+                         {VMask, Src1, Src2});
+    }
+    case AVX512_SAT_CVT_MASK_SAE: {
+      SDValue PassThru = Op.getOperand(1);
+      SDValue Mask = Op.getOperand(2);
+      SDValue Src1 = Op.getOperand(3);
+      SDValue Src2 = Op.getOperand(4);
+      SDValue Rnd = Op.getOperand(5);
+      MVT DstVecTy = Op.getSimpleValueType();
+      int NumElts = DstVecTy.getVectorNumElements();
+      MVT MaskVT = MVT::getVectorVT(MVT::i1, NumElts);
+      SDValue VMask = getMaskNode(Mask, MaskVT, Subtarget, DAG, dl);
+      unsigned Opc;
+      if (isRoundModeCurDirection(Rnd))
+        Opc = IntrData->Opc0;
+      else if (isRoundModeSAE(Rnd))
+        Opc = IntrData->Opc1;
+      else
+        return SDValue();
+      return DAG.getNode(Opc, dl, Op.getValueType(),
+                         {PassThru, VMask, Src1, Src2});
+    }
+    case AVX512_SAT_CVT_MASKZ_SAE: {
+      SDValue Mask = Op.getOperand(1);
+      SDValue Src1 = Op.getOperand(2);
+      SDValue Src2 = Op.getOperand(3);
+      SDValue Rnd = Op.getOperand(4);
+      MVT DstVecTy = Op.getSimpleValueType();
+      int NumElts = DstVecTy.getVectorNumElements();
+      MVT MaskVT = MVT::getVectorVT(MVT::i1, NumElts);
+      SDValue VMask = getMaskNode(Mask, MaskVT, Subtarget, DAG, dl);
+      unsigned Opc;
+      if (isRoundModeCurDirection(Rnd))
+        Opc = IntrData->Opc0;
+      else if (isRoundModeSAE(Rnd))
+        Opc = IntrData->Opc1;
+      else
+        return SDValue();
+      return DAG.getNode(Opc, dl, Op.getValueType(), {VMask, Src1, Src2});
+    }
+#endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
+#endif // INTEL_CUSTOMIZATION
     default:
       break;
     }
@@ -27808,6 +27893,80 @@ SDValue X86TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
     report_fatal_error(
         "Target OS doesn't support __builtin_thread_pointer() yet.");
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_SAT_CVT
+  case Intrinsic::x86_vcvtph2ibs_round_512:
+  case Intrinsic::x86_vcvtph2iubs_round_512:
+  case Intrinsic::x86_vcvtps2ibs_round_512:
+  case Intrinsic::x86_vcvtps2iubs_round_512: {
+    SDLoc DL(Op);
+    SDValue Src0 = Op.getOperand(0);
+    SDValue Src1 = Op.getOperand(1);
+    SDValue Src2 = Op.getOperand(2);
+    SDValue Rnd = Op.getOperand(3);
+    unsigned RC = 0;
+    if (isRoundModeSAEToX(Rnd, RC))
+      return DAG.getNode(ISD::INTRINSIC_WO_CHAIN, DL, Op.getValueType(),
+                         {Src0, Src1, Src2,
+                         DAG.getTargetConstant(RC, DL, MVT::i32)});
+
+    return SDValue();
+  }
+  case Intrinsic::x86_vcvttph2ibs_round_512:
+  case Intrinsic::x86_vcvttph2iubs_round_512:
+  case Intrinsic::x86_vcvttps2ibs_round_512:
+  case Intrinsic::x86_vcvttps2iubs_round_512: {
+    SDLoc DL(Op);
+    SDValue Src1 = Op.getOperand(1);
+    SDValue Src2 = Op.getOperand(2);
+    SDValue Rnd = Op.getOperand(3);
+    if (isRoundModeCurDirection(Rnd)) {
+      unsigned NewIntrinsic;
+      switch (IntNo) {
+        default:
+          llvm_unreachable("Impossible intrinsic");
+        case Intrinsic::x86_vcvttph2ibs_round_512:
+          NewIntrinsic = Intrinsic::x86_vcvttph2ibs512;
+          break;
+        case Intrinsic::x86_vcvttph2iubs_round_512:
+          NewIntrinsic = Intrinsic::x86_vcvttph2iubs512;
+          break;
+        case Intrinsic::x86_vcvttps2ibs_round_512:
+          NewIntrinsic = Intrinsic::x86_vcvttps2ibs512;
+          break;
+        case Intrinsic::x86_vcvttps2iubs_round_512:
+          NewIntrinsic = Intrinsic::x86_vcvttps2iubs512;
+          break;
+        }
+      SDValue S = DAG.getTargetConstant(NewIntrinsic, DL,
+                                        getPointerTy(DAG.getDataLayout()));
+      return DAG.getNode(ISD::INTRINSIC_WO_CHAIN, DL, Op.getValueType(),
+                         {S, Src1, Src2});
+    } else if (isRoundModeSAE(Rnd)) {
+      unsigned NewOpc;
+      switch (IntNo) {
+        default:
+          llvm_unreachable("Impossible intrinsic");
+        case Intrinsic::x86_vcvttph2ibs_round_512:
+          NewOpc = X86ISD::VCVTTPH2IBS_SAE;
+          break;
+        case Intrinsic::x86_vcvttph2iubs_round_512:
+          NewOpc = X86ISD::VCVTTPH2IUBS_SAE;
+          break;
+        case Intrinsic::x86_vcvttps2ibs_round_512:
+          NewOpc = X86ISD::VCVTTPS2IBS_SAE;
+          break;
+        case Intrinsic::x86_vcvttps2iubs_round_512:
+          NewOpc = X86ISD::VCVTTPS2IUBS_SAE;
+          break;
+        }
+      return DAG.getNode(NewOpc, dl, Op.getValueType(), Src1,
+                         Src2);
+    }
+    return SDValue();
+  }
+#endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -34578,6 +34737,52 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(VBCSTNESH2PSZ)
   NODE_NAME_CASE(VCVTNE2PS2PH)
 #endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+#if INTEL_FEATURE_ISA_AVX512_SAT_CVT
+  NODE_NAME_CASE(VCVTNEBF162IBS)
+  NODE_NAME_CASE(VCVTNEBF162IBSZ)
+  NODE_NAME_CASE(VCVTNEBF162IUBS)
+  NODE_NAME_CASE(VCVTNEBF162IUBSZ)
+  NODE_NAME_CASE(VCVTPH2IBS)
+  NODE_NAME_CASE(VCVTPH2IBSZ)
+  NODE_NAME_CASE(VCVTPH2IBS_RND)
+  NODE_NAME_CASE(VCVTPH2IBSZ_RND)
+  NODE_NAME_CASE(VCVTPH2IUBS)
+  NODE_NAME_CASE(VCVTPH2IUBSZ)
+  NODE_NAME_CASE(VCVTPH2IUBS_RND)
+  NODE_NAME_CASE(VCVTPH2IUBSZ_RND)
+  NODE_NAME_CASE(VCVTPS2IBS)
+  NODE_NAME_CASE(VCVTPS2IBSZ)
+  NODE_NAME_CASE(VCVTPS2IBS_RND)
+  NODE_NAME_CASE(VCVTPS2IBSZ_RND)
+  NODE_NAME_CASE(VCVTTNEBF162IBS)
+  NODE_NAME_CASE(VCVTTNEBF162IBSZ)
+  NODE_NAME_CASE(VCVTTNEBF162IUBS)
+  NODE_NAME_CASE(VCVTTNEBF162IUBSZ)
+  NODE_NAME_CASE(VCVTPS2IUBS)
+  NODE_NAME_CASE(VCVTPS2IUBSZ)
+  NODE_NAME_CASE(VCVTPS2IUBS_RND)
+  NODE_NAME_CASE(VCVTPS2IUBSZ_RND)
+  NODE_NAME_CASE(VCVTTPH2IBS)
+  NODE_NAME_CASE(VCVTTPH2IBSZ)
+  NODE_NAME_CASE(VCVTTPH2IBS_SAE)
+  NODE_NAME_CASE(VCVTTPH2IBSMask_SAE)
+  NODE_NAME_CASE(VCVTTPH2IBSMaskZ_SAE)
+  NODE_NAME_CASE(VCVTTPH2IUBS)
+  NODE_NAME_CASE(VCVTTPH2IUBSZ)
+  NODE_NAME_CASE(VCVTTPH2IUBS_SAE)
+  NODE_NAME_CASE(VCVTTPH2IUBSMask_SAE)
+  NODE_NAME_CASE(VCVTTPH2IUBSMaskZ_SAE)
+  NODE_NAME_CASE(VCVTTPS2IBS)
+  NODE_NAME_CASE(VCVTTPS2IBSZ)
+  NODE_NAME_CASE(VCVTTPS2IBS_SAE)
+  NODE_NAME_CASE(VCVTTPS2IBSMask_SAE)
+  NODE_NAME_CASE(VCVTTPS2IBSMaskZ_SAE)
+  NODE_NAME_CASE(VCVTTPS2IUBS)
+  NODE_NAME_CASE(VCVTTPS2IUBSZ)
+  NODE_NAME_CASE(VCVTTPS2IUBS_SAE)
+  NODE_NAME_CASE(VCVTTPS2IUBSMask_SAE)
+  NODE_NAME_CASE(VCVTTPS2IUBSMaskZ_SAE)
+#endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
 #endif // INTEL_CUSTOMIZATION
   NODE_NAME_CASE(AESENC128KL)
   NODE_NAME_CASE(AESDEC128KL)

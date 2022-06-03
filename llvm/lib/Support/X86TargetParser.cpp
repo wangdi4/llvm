@@ -284,6 +284,9 @@ constexpr FeatureBitset FeaturesCommonAVX256 =
 #if INTEL_FEATURE_ISA_SHA512
     FeatureSHA512 |
 #endif // INTEL_FEATURE_ISA_SHA512
+#if INTEL_FEATURE_ISA_AVX512_SAT_CVT
+    FeatureAVX512SATCVT |
+#endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
 #endif // ENABLE_ISA_AVX256
 #if INTEL_FEATURE_ISA_AVX256
     FeaturesSapphireRapids;
@@ -871,6 +874,9 @@ static constexpr FeatureBitset ImpliedFeaturesPREFETCHST2 = {};
 #if INTEL_FEATURE_ISA_PREFETCHI
 static constexpr FeatureBitset ImpliedFeaturesPREFETCHI = {};
 #endif // INTEL_FEATURE_ISA_PREFETCHI
+#if INTEL_FEATURE_ISA_AVX512_SAT_CVT
+static constexpr FeatureBitset ImpliedFeaturesAVX512SATCVT = FeatureAVX512F | FeatureAVX512FP16;
+#endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
 #endif // INTEL_CUSTOMIZATION
 static constexpr FeatureBitset ImpliedFeaturesAVX512FP16 =
     FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL;
