@@ -262,12 +262,15 @@ class BoolMultiVersioningImpl {
 
         // Collect compares.
         BoolClosure::CmpList Cmps;
-        for (const auto &LoadU : Load->uses()) {
+        Value *VB = Load;
+        if (Load->hasOneUser())
+          if (auto FI = dyn_cast<FreezeInst>(Load->user_back()))
+            VB = FI;
+        for (User *U : VB->users()) {
           LLVM_DEBUG(dbgs() << DEBUG_PREFIX "Checking load use\n"
-                            << *LoadU.getUser() << "\n");
-
+                            << *U << "\n");
           // We are looking for integer EQ/NE compares with a zero.
-          auto *Cmp = dyn_cast<ICmpInst>(LoadU.getUser());
+          auto *Cmp = dyn_cast<ICmpInst>(U);
           if (!Cmp || !Cmp->isEquality()) {
             LLVM_DEBUG(dbgs()
                        << DEBUG_PREFIX "(Skip) Does not match pattern\n");
