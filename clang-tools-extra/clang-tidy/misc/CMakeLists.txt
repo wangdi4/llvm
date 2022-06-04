@@ -3,13 +3,6 @@ set(LLVM_LINK_COMPONENTS
   Support
   )
 
-<<<<<<< HEAD
-# INTEL_CUSTOMIZATION
-# The clang-tidy additions for misc-homoglyph are marked INTEL_CUSTOMIZATION
-# but there is an expected conflict when these changes are pulled down from
-# community.
-=======
->>>>>>> b94db7ed7eaf4a3b21f600653a09c55cab77b79f
 add_subdirectory(ConfusableTable)
 
 add_custom_command(
@@ -18,18 +11,10 @@ add_custom_command(
     DEPENDS make_confusable_table ConfusableTable/confusables.txt)
 
 add_custom_target(genconfusable DEPENDS Confusables.inc)
-<<<<<<< HEAD
-# end INTEL_CUSTOMIZATION
-
-add_clang_library(clangTidyMiscModule
-  DefinitionsInHeadersCheck.cpp
-  Homoglyph.cpp # INTEL
-=======
 
 add_clang_library(clangTidyMiscModule
   DefinitionsInHeadersCheck.cpp
   Homoglyph.cpp
->>>>>>> b94db7ed7eaf4a3b21f600653a09c55cab77b79f
   MiscTidyModule.cpp
   MisleadingBidirectional.cpp
   MisleadingIdentifier.cpp
@@ -53,11 +38,7 @@ add_clang_library(clangTidyMiscModule
 
   DEPENDS
   omp_gen
-<<<<<<< HEAD
-  genconfusable # INTEL
-=======
   genconfusable
->>>>>>> b94db7ed7eaf4a3b21f600653a09c55cab77b79f
   )
 
 clang_target_link_libraries(clangTidyMiscModule

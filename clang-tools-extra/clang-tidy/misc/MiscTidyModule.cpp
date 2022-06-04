@@ -10,11 +10,7 @@
 #include "../ClangTidyModule.h"
 #include "../ClangTidyModuleRegistry.h"
 #include "DefinitionsInHeadersCheck.h"
-<<<<<<< HEAD
-#include "Homoglyph.h" // INTEL
-=======
 #include "Homoglyph.h"
->>>>>>> b94db7ed7eaf4a3b21f600653a09c55cab77b79f
 #include "MisleadingBidirectional.h"
 #include "MisleadingIdentifier.h"
 #include "MisplacedConstCheck.h"
