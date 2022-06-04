@@ -5406,6 +5406,9 @@ pi_result piEventGetInfo(pi_event Event, pi_event_info ParamName,
     //       https://gitlab.devtools.intel.com/one-api/level_zero/issues/243
 #endif // INTEL_FEATURE_SHARED_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
+    // Level Zero has a much more explicit notion of command submission than
+    // OpenCL. It doesn't happen unless the user submits a command list. We've
+    // done it just above so the status is at least CL_RUNNING.
     pi_int32 Result = CL_RUNNING;
 
     // Make sure that we query a host-visible event only.
