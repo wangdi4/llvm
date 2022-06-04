@@ -765,8 +765,10 @@ DTransType *TypeMetadataReader::decodeMDArrayNode(MDNode *MD) {
   assert(RefMD && "Expected metadata constant");
 
   auto *ElemType = decodeMDNode(RefMD);
-  unsigned NumElem = cast<ConstantInt>(NumElemMD->getValue())->getZExtValue();
+  if (!ElemType)
+    return nullptr;
 
+  unsigned NumElem = cast<ConstantInt>(NumElemMD->getValue())->getZExtValue();
   auto Result = DTransArrayType::get(TM, ElemType, NumElem);
   cacheMDDecoding(MD, Result);
   return Result;
@@ -790,8 +792,10 @@ DTransType *TypeMetadataReader::decodeMDVectorNode(MDNode *MD) {
   assert(RefMD && "Expected metadata constant");
 
   auto *ElemType = decodeMDNode(RefMD);
-  unsigned NumElem = cast<ConstantInt>(NumElemMD->getValue())->getZExtValue();
+  if (!ElemType)
+    return nullptr;
 
+  unsigned NumElem = cast<ConstantInt>(NumElemMD->getValue())->getZExtValue();
   auto Result = DTransVectorType::get(TM, ElemType, NumElem);
   cacheMDDecoding(MD, Result);
   return Result;
