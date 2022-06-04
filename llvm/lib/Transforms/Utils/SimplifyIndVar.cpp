@@ -698,6 +698,22 @@ bool SimplifyIndvar::eliminateIdentitySCEV(Instruction *UseInst,
       (SE->getSCEV(UseInst) != SE->getSCEV(IVOperand)))
     return false;
 
+#if INTEL_CUSTOMIZATION
+  // In opaque pointer mode, UseInst and IVOperand always have the same type so
+  // the getType() check above doesn't work. This results in GEPs with trailing
+  // 0 struct offsets getting eliminated which is a problem for pattern matching
+  // code in loopopt passes so we supppress the optimization with an equivalent
+  // opaque ptr mode check.
+  if (UseInst->getParent()->getParent()->isPreLoopOpt()) {
+
+    auto *UseGep = dyn_cast<GetElementPtrInst>(UseInst);
+    auto *IVGep = dyn_cast<GetElementPtrInst>(IVOperand);
+
+    if (UseGep && IVGep &&
+        (UseGep->getResultElementType() != IVGep->getResultElementType()))
+      return false;
+  }
+#endif // INTEL_CUSTOMIZATION
   // getSCEV(X) == getSCEV(Y) does not guarantee that X and Y are related in the
   // dominator tree, even if X is an operand to Y.  For instance, in
   //
