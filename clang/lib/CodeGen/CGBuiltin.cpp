@@ -22795,6 +22795,7 @@ static std::string createMangledSIMDName(const FunctionProtoType *ProtoType,
 
   QualType ReturnType = ProtoType->getReturnType();
   const auto *RTy = ReturnType->getAs<RecordType>();
+  assert(RTy && "expected record type!");
   Out << llvm::StringSwitch<char>(RTy->getDecl()->getName())
              .Case("masked", 'M')
              .Default('N');
