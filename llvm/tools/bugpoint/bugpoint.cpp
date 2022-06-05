@@ -88,7 +88,7 @@ static cl::opt<bool>
 // PassNameParser.
 //
 static cl::list<const PassInfo *, bool, PassNameParser>
-    PassList(cl::desc("Passes available:"), cl::ZeroOrMore);
+    PassList(cl::desc("Passes available:"));
 
 #ifdef INTEL_CUSTOMIZATION
 static cl::opt<bool>
