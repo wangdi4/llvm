@@ -59,6 +59,7 @@ add_clang_tool(clang
   DEPENDS
   intrinsics_gen
   ${support_plugins}
+  GENERATE_DRIVER
   )
 
 clang_target_link_libraries(clang
