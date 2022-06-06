@@ -540,11 +540,33 @@ struct KernelBatchTy {
   }
 };
 
+/// Data type to track statistics (total, min, max, average).
+template <typename T>
+class StatTy {
+  uint64_t Count = 0;
+  T Total = 0;
+  T Min = 0;
+  T Max = 0;
+public:
+  StatTy& operator+=(const T Num) {
+    Total += Num;
+    Min = (Count == 0) ? Num : (std::min)(Min, Num);
+    Max = (std::max)(Max, Num);
+    Count++;
+    return *this;
+  }
+  uint64_t count() const { return Count; }
+  T getMin() const { return Min; }
+  T getMax() const { return Max; }
+  T getTot() const { return Total; }
+  T getAvg() const { return Count > 0 ? (Total / Count) : 0; }
+};
+
 /// RTL profile -- only host timer for now
 class RTLProfileTy {
   struct TimeTy {
-    double HostTime = 0.0;
-    double DeviceTime = 0.0; // Not used for now
+    StatTy<double> HostTime;
+    StatTy<double> DeviceTime;
   };
   int ThreadId;
   std::string DeviceIdStr;
@@ -585,81 +607,116 @@ public:
               validBits);
   }
 
-  ~RTLProfileTy() {
-    printData();
-  }
-
-  std::string alignLeft(size_t Width, std::string Str) {
-    if (Str.size() < Width)
-      return Str + std::string(Width - Str.size(), ' ');
-    return Str;
-  }
+  ~RTLProfileTy() { printData(); }
 
   void printData() {
-    std::string profileSep(80, '=');
-    std::string lineSep(80, '-');
+    const std::string KernelPrefix("Kernel ");
 
-    fprintf(stderr, "%s\n", profileSep.c_str());
+    auto IsKernel = [&KernelPrefix](const std::string &Key) {
+      return Key.substr(0, KernelPrefix.size()) == KernelPrefix;
+    };
+
+    auto AlignLeft = [](size_t Width, const std::string &Str) {
+      if (Str.size() < Width)
+        return Str + std::string(Width - Str.size(), ' ');
+      return Str;
+    };
+
+    // Print number with limited string count
+    auto PrintNum = [](double Num) {
+      if (Num > 1e6)
+        fprintf(stderr, "%10.2e", Num);
+      else
+        fprintf(stderr, "%10.2f", Num);
+    };
+
+    size_t MaxKeyLength = 0;
+    for (const auto &D : Data)
+      if (!IsKernel(D.first) && MaxKeyLength < D.first.size())
+        MaxKeyLength = D.first.size();
+
+    std::string BoldLine(MaxKeyLength + 92, '=');
+    std::string Line(MaxKeyLength + 92, '-');
+
+    fprintf(stderr, "%s\n", BoldLine.c_str());
 
     fprintf(stderr, "LIBOMPTARGET_PLUGIN_PROFILE(%s) for OMP DEVICE(%s) %s"
             ", Thread %" PRId32 "\n", GETNAME(TARGET_NAME), DeviceIdStr.c_str(),
             DeviceName.c_str(), ThreadId);
-    const char *unit = (Multiplier == MSEC_PER_SEC) ? "msec" : "usec";
 
-    fprintf(stderr, "%s\n", lineSep.c_str());
+    fprintf(stderr, "%s\n", Line.c_str());
 
-    std::string kernelPrefix("Kernel ");
-    size_t maxKeyLength = kernelPrefix.size() + 3;
-    for (const auto &d : Data)
-      if (d.first.substr(0, kernelPrefix.size()) != kernelPrefix &&
-          maxKeyLength < d.first.size())
-        maxKeyLength = d.first.size();
-
-    // Print kernel key and name
-    int kernelId = 0;
-    for (const auto &d: Data) {
-      if (d.first.substr(0, kernelPrefix.size()) == kernelPrefix)
-        fprintf(stderr, "-- %s: %s\n",
-                alignLeft(maxKeyLength, kernelPrefix +
-                          std::to_string(kernelId++)).c_str(),
-                d.first.substr(kernelPrefix.size()).c_str());
+    // Print kernel ID and name
+    int KernelID = 0;
+    for (const auto &D : Data) {
+      if (!IsKernel(D.first))
+        continue;
+      std::string KernelIDStr = KernelPrefix + std::to_string(KernelID++);
+      fprintf(stderr, "%s: %s\n", AlignLeft(MaxKeyLength, KernelIDStr).c_str(),
+              D.first.substr(KernelPrefix.size()).c_str());
     }
 
-    fprintf(stderr, "%s\n", lineSep.c_str());
+    fprintf(stderr, "%s\n", Line.c_str());
 
-    fprintf(stderr, "-- %s:     Host Time (%s)   Device Time (%s)\n",
-            alignLeft(maxKeyLength, "Name").c_str(), unit, unit);
+    // Print column headers
+    bool IsMsec = (Multiplier == MSEC_PER_SEC);
+    const char *HostTime = IsMsec ? "Host Time (msec)" : "Host Time (usec)";
+    const char *DeviceTime =
+        IsMsec ? "Device Time (msec)" : "Device Time (usec)";
+    fprintf(stderr, "%s: %40s%40s\n", AlignLeft(MaxKeyLength, "").c_str(),
+            AlignLeft(40, HostTime).c_str(), AlignLeft(40, DeviceTime).c_str());
+    fprintf(stderr, "%s: %10s%10s%10s%10s%10s%10s%10s%10s%10s\n",
+            AlignLeft(MaxKeyLength, "Name").c_str(),
+            "Total", "Average", "Min", "Max",
+            "Total", "Average", "Min", "Max", "Count");
+    fprintf(stderr, "%s\n", Line.c_str());
 
-    double hostTotal = 0.0;
-    double deviceTotal = 0.0;
-    kernelId = 0;
-    for (const auto &d : Data) {
-      double hostTime = d.second.HostTime * Multiplier;
-      double deviceTime = 0.0;
-      std::string key(d.first);
-      if (d.first.substr(0, kernelPrefix.size()) == kernelPrefix) {
-        deviceTime = d.second.DeviceTime * Multiplier;
-        key = kernelPrefix + std::to_string(kernelId++);
-      } else if (d.first.substr(0, 8) == "DataRead" ||
-                 d.first.substr(0, 9) == "DataWrite") {
-        deviceTime = d.second.DeviceTime * Multiplier;
+    // Print numbers
+    KernelID = 0;
+    for (const auto &D : Data) {
+      std::string Key(D.first);
+      double HTFactor = Multiplier;
+      double DTFactor = 0;
+      if (IsKernel(Key) ||
+          Key.substr(0, 8) == "DataRead" || Key.substr(0, 9) == "DataWrite") {
+        DTFactor = Multiplier;
+        if (IsKernel(Key))
+          Key = KernelPrefix + std::to_string(KernelID++);
       }
-      fprintf(stderr, "-- %s: %20.3f %20.3f\n",
-              alignLeft(maxKeyLength, key).c_str(), hostTime, deviceTime);
-      hostTotal += hostTime;
-      deviceTotal += deviceTime;
+      auto &HT = D.second.HostTime;
+      auto &DT = D.second.DeviceTime;
+      fprintf(stderr, "%s: ", AlignLeft(MaxKeyLength, Key).c_str());
+      PrintNum(HT.getTot() * HTFactor);
+      PrintNum(HT.getAvg() * HTFactor);
+      PrintNum(HT.getMin() * HTFactor);
+      PrintNum(HT.getMax() * HTFactor);
+      PrintNum(DT.getTot() * DTFactor);
+      PrintNum(DT.getAvg() * DTFactor);
+      PrintNum(DT.getMin() * DTFactor);
+      PrintNum(DT.getMax() * DTFactor);
+      PrintNum((double)HT.count());
+      fprintf(stderr, "\n");
     }
-    fprintf(stderr, "-- %s: %20.3f %20.3f\n",
-            alignLeft(maxKeyLength, "Total").c_str(), hostTotal, deviceTotal);
-    fprintf(stderr, "%s\n", profileSep.c_str());
+
+    fprintf(stderr, "%s\n", BoldLine.c_str());
   }
 
-  void update(const char *Name, double HostTime, double DeviceTime = 0) {
+  void update(const char *Name, double HostTime) {
+    std::string Key(Name);
+    update(Key, HostTime);
+  }
+
+  void update(const char *Name, double HostTime, double DeviceTime) {
     std::string Key(Name);
     update(Key, HostTime, DeviceTime);
   }
 
-  void update(std::string &Name, double HostTime, double DeviceTime = 0) {
+  void update(std::string &Name, double HostTime) {
+    auto &Time = Data[Name];
+    Time.HostTime += HostTime;
+  }
+
+  void update(std::string &Name, double HostTime, double DeviceTime) {
     auto &Time = Data[Name];
     Time.HostTime += HostTime;
     Time.DeviceTime += DeviceTime;
