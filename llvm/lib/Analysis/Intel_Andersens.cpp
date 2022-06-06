@@ -1347,12 +1347,6 @@ ModRefInfo AndersensAAResult::getModRefInfo(const CallBase *Call1,
 bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
                                                AAQueryInfo &AAQI,
                                                bool OrLocal) {
-  // TODO: This seems to be broken in some circumstances.
-  //       See CMPLRLLVM-37408
-  //       Until it is fixed, always defer to other AA passes.
-  return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
-  // End TODO
-
   if (ValueNodes.size() == 0) {
     return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
   }
@@ -1556,6 +1550,10 @@ void AndersensAAResult::IdentifyObjects(Module &M) {
   // Add all the GlobalIFunc.
   for (GlobalIFunc &GIF : M.ifuncs())
     ValueNodes[&GIF] = NumObjects++;
+
+  // Add all aliases.
+  for (auto &GA : M.aliases())
+    ValueNodes[&GA] = NumObjects++;
 
   // Add nodes for all of the functions and the instructions inside of them.
   for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
@@ -2036,6 +2034,10 @@ void AndersensAAResult::CollectConstraints(Module &M) {
     else
       CreateConstraint(Constraint::Copy, getNode(&GIF), getReturnNode(RF));
   }
+
+  // GlobalAlias: Treat it as Universal.
+  for (auto &GA : M.aliases())
+    CreateConstraint(Constraint::Copy, getNode(&GA), UniversalSet);
 
   // Treat Indirect calls conservatively if number of indirect calls exceeds
   // AndersIndirectCallsLimit
@@ -2560,7 +2562,6 @@ void AndersensAAResult::AddConstraintsForCall(CallBase *CB, Function *F) {
   //
   // Callee can be found by parsing getCalledValue but it may not be 
   // useful due to mismatch of args and formals. Decided to go conservative. 
-  //
   if (F == nullptr && isa<ConstantExpr>(CB->getCalledOperand())) {
     AddConstraintsForInitActualsToUniversalSet(CB);
     return;
@@ -2600,6 +2601,14 @@ void AndersensAAResult::checkCall(CallBase &CB) {
   }
   if (isTrackableType(CB.getType()))
     getNodeValue(CB);
+
+  if (!F) {
+    // Get target function if CalledVal is GlobalAlias and treat it
+    // as direct call.
+    Value *CalledVal = CB.getCalledOperand()->stripPointerCasts();
+    if (auto *GA = dyn_cast<GlobalAlias>(CalledVal))
+      F = dyn_cast<Function>(GA->getAliaseeObject());
+  }
 
   if (F) {
     AddConstraintsForCall(&CB, F);
@@ -2749,14 +2758,24 @@ void AndersensAAResult::ClumpAddressTaken() {
 #define DEBUG_TYPE "anders-aa"
 }
 
-//
-//
+// Treat indirect calls and their arguments as possible source
+// of points-to info.
 void AndersensAAResult::CollectPossibleIndirectNodes(void) {
   PossibleSourceOfPointsToInfo.clear();
   for (unsigned i = 0, e = IndirectCallList.size(); i != e; ++i) {
     if (isTrackableType(IndirectCallList[i]->getType())) {
       PossibleSourceOfPointsToInfo.insert(
                     getNode(IndirectCallList[i]));
+    }
+    // Treat "actual" as possible source of points-to info since
+    // edges are added during points-to propagation.
+    CallBase *CB = IndirectCallList[i];
+    auto arg_itr = CB->arg_begin();
+    auto arg_end = CB->arg_end();
+    for (; arg_itr != arg_end; ++arg_itr) {
+      Value* actual = *arg_itr;
+      if (isTrackableType(actual->getType()))
+        PossibleSourceOfPointsToInfo.insert(getNode(actual));
     }
   }
 }
@@ -3728,8 +3747,8 @@ void AndersensAAResult::InitIndirectCallActualsToUniversalSet(CallBase *CB) {
   for (; arg_itr != arg_end; ++arg_itr) {
     Value* actual = *arg_itr;
     if (isPointsToType(actual->getType())) {
-      // TODO: Need to think more about it. ICC is not doing it.
-      // Need to check with small test cases.
+      // Add edges from actual of 'CB' to UniversalSet
+      AddEdgeInGraph(getNode(actual), UniversalSet);
     }
   }
 }
