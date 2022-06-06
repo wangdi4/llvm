@@ -156,6 +156,7 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
         MPM.addPass(SPIRVLowerConstExprPass());
         MPM.addPass(SPIRVToOCL20Pass());
         MPM.addPass(NameAnonGlobalPass());
+        MPM.addPass(SpecializeConstantPass());
 
 #ifndef NDEBUG
         MPM.addPass(VerifierPass());
