@@ -919,11 +919,7 @@ endmacro(add_llvm_library name)
 
 macro(add_llvm_executable name)
   cmake_parse_arguments(ARG
-<<<<<<< HEAD
-    "DISABLE_LLVM_LINK_LLVM_DYLIB;IGNORE_EXTERNALIZE_DEBUGINFO;NO_INSTALL_RPATH;SUPPORT_PLUGINS;CUSTOM_WIN_VER"
-=======
-    "DISABLE_LLVM_LINK_LLVM_DYLIB;IGNORE_EXTERNALIZE_DEBUGINFO;NO_INSTALL_RPATH;SUPPORT_PLUGINS;GENERATE_DRIVER"
->>>>>>> f06abbb393800b0d466c88e283c06f75561c432c
+    "DISABLE_LLVM_LINK_LLVM_DYLIB;IGNORE_EXTERNALIZE_DEBUGINFO;NO_INSTALL_RPATH;SUPPORT_PLUGINS;GENERATE_DRIVER;CUSTOM_WIN_VER"
     "ENTITLEMENTS;BUNDLE_PATH"
     "DEPENDS"
     ${ARGN})
@@ -951,13 +947,12 @@ macro(add_llvm_executable name)
     # end INTEL_CUSTOMIZATION
   endif()
 
-<<<<<<< HEAD
   # INTEL_CUSTOMIZATION
   if(NOT ARG_CUSTOM_WIN_VER)
     add_windows_version_resource_file(ALL_FILES ${ALL_FILES})
   endif()
   # end INTEL_CUSTOMIZATION
-=======
+
   if (ARG_GENERATE_DRIVER)
     string(REPLACE "-" "_" TOOL_NAME ${name})
     configure_file(
@@ -976,7 +971,6 @@ macro(add_llvm_executable name)
   endif()
 
   add_windows_version_resource_file(ALL_FILES ${ALL_FILES})
->>>>>>> f06abbb393800b0d466c88e283c06f75561c432c
 
   if(XCODE)
     # Note: the dummy.cpp source file provides no definitions. However,

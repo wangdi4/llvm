@@ -357,17 +357,15 @@ if config.target_triple:
     if not config.target_triple.startswith(("nvptx", "xcore")):
         config.available_features.add('object-emission')
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # Add 'intel_opencl' feature based on ICS_WSVARIANT value.
 ics_wsvariant = os.environ.get("ICS_WSVARIANT")
 if ics_wsvariant and ics_wsvariant.startswith('xmainocl'):
     config.available_features.add("intel_opencl")
 # end INTEL_CUSTOMIZATION
-=======
+
 if config.have_llvm_driver:
   config.available_features.add('llvm-driver')
->>>>>>> f06abbb393800b0d466c88e283c06f75561c432c
 
 import subprocess
 
