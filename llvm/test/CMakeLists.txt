@@ -28,6 +28,7 @@ llvm_canonicalize_cmake_booleans(
 # end INTEL_FEATURE_SW_DTRANS
 # end INTEL_CUSTOMIZATION
   LLVM_INCLUDE_DXIL_TESTS
+  LLVM_TOOL_LLVM_DRIVER_BUILD
   )
 
 configure_lit_site_cfg(
@@ -158,6 +159,10 @@ set(LLVM_TEST_DEPENDS
 
 if(TARGET llvm-lto)
   set(LLVM_TEST_DEPENDS ${LLVM_TEST_DEPENDS} llvm-lto)
+endif()
+
+if(TARGET llvm-driver)
+  set(LLVM_TEST_DEPENDS ${LLVM_TEST_DEPENDS} llvm-driver)
 endif()
 
 # If Intel JIT events are supported, depend on a tool that tests the listener.
