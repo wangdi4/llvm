@@ -86,7 +86,7 @@ private:
   // Corresponds to the Kind enum.
   unsigned AttrKind : 16;
   /// Corresponds to the Syntax enum.
-  unsigned SyntaxUsed : 3;
+  unsigned SyntaxUsed : 4;
 #if INTEL_CUSTOMIZATION
   unsigned SpellingIndex : 5;
 #else // INTEL_CUSTOMIZATION

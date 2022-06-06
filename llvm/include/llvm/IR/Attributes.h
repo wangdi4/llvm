@@ -34,6 +34,7 @@
 
 #include "llvm-c/Types.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/BitmaskEnum.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
@@ -59,6 +60,18 @@ class FoldingSetNodeID;
 class Function;
 class LLVMContext;
 class Type;
+
+enum class AllocFnKind : uint64_t {
+  Unknown = 0,
+  Alloc = 1 << 0,         // Allocator function returns a new allocation
+  Realloc = 1 << 1,       // Allocator function resizes the `allocptr` argument
+  Free = 1 << 2,          // Allocator function frees the `allocptr` argument
+  Uninitialized = 1 << 3, // Allocator function returns uninitialized memory
+  Zeroed = 1 << 4,        // Allocator function returns zeroed memory
+  Aligned = 1 << 5,       // Allocator function aligns allocations per the
+                          // `allocalign` argument
+  LLVM_MARK_AS_BITMASK_ENUM(/* LargestValue = */ Aligned)
+};
 
 //===----------------------------------------------------------------------===//
 /// \class
@@ -255,6 +268,9 @@ public:
   // Returns the unwind table kind.
   UWTableKind getUWTableKind() const;
 
+  // Returns the allocator function kind.
+  AllocFnKind getAllocKind() const;
+
   /// The Attribute is converted to a string of equivalent mnemonic. This
   /// is, presumably, for writing out the mnemonics for the assembly writer.
   std::string getAsString(bool InAttrGrp = false) const;
@@ -386,6 +402,7 @@ public:
   unsigned getVScaleRangeMin() const;
   Optional<unsigned> getVScaleRangeMax() const;
   UWTableKind getUWTableKind() const;
+  AllocFnKind getAllocKind() const;
   std::string getAsString(bool InAttrGrp = false) const;
 
   /// Return true if this attribute set belongs to the LLVMContext.
@@ -877,6 +894,8 @@ public:
   /// Get the unwind table kind requested for the function.
   UWTableKind getUWTableKind() const;
 
+  AllocFnKind getAllocKind() const;
+
   /// Return the attributes at the index as a string.
   std::string getAsString(unsigned Index, bool InAttrGrp = false) const;
 
@@ -1246,6 +1265,9 @@ public:
   /// This turns the unwind table kind into the form used internally in
   /// Attribute.
   AttrBuilder &addUWTableAttr(UWTableKind Kind);
+
+  // This turns the allocator kind into the form used internally in Attribute.
+  AttrBuilder &addAllocKindAttr(AllocFnKind Kind);
 
   ArrayRef<Attribute> attrs() const { return Attrs; }
 
