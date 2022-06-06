@@ -229,21 +229,6 @@ bool VPlanAllZeroBypass::isStricterOrEqualPred(const VPValue *MaybePred,
       VPValue *PreheaderPred = Preheader->getBlockPredicate();
       if (PreheaderPred == BaseCond)
         return HeaderPhi->getIncomingValue(Preheader) == BaseCond;
-    } else {
-      // Handle case where we have a divergent loop made uniform. In those
-      // cases, the allzerocheck at the loop exit condition would be the
-      // base condition for all bypass regions, so there's no need to insert
-      // non-loop bypass regions. If any incoming values to the phi are
-      // this condition, then return true.
-      auto *ExitCond = loopWasMadeUniform(VPLp);
-      auto *VPPhi = cast<VPPHINode>(MaybePredInst);
-      if (ExitCond && ExitCond == BaseCond) {
-        if (any_of(VPPhi->incoming_values(),
-                   [BaseCond] (const VPValue *IncomingVal) {
-                     return IncomingVal == BaseCond;
-                 }))
-          return true;
-      }
     }
   }
   if (MaybePredInst && MaybePredInst->getOpcode() == Instruction::And) {
@@ -491,15 +476,23 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
     VPLoop *VPLp = VPLI->getLoopFor(Block);
     if (auto *ExitCond = loopWasMadeUniform(VPLp)) {
       // Filter out any candidates where any blocks inside loops that have been
-      // made uniform by loopcfu have a block-predicate that isStricterOrEqual
-      // to the condition of the all-zero check at the latch. It should be all
-      // of them, but check just to make sure. There is no reason to insert
-      // bypasses for these blocks because the loop body is already controlled
-      // by the same base condition. Since this function collects non-loop
+      // made uniform by loopcfu have a block-predicate that is the same as the
+      // the condition of the all-zero check at the latch. There is no reason
+      // to insert bypasses for these blocks because the loop body is already
+      // controlled by the same condition. Since this function collects non-loop
       // regions only, this will not prevent a loop bypass from being inserted
       // where these massaged loops have a divergent top test.
-      if (isStricterOrEqualPred(BlockPred, ExitCond))
-          continue;
+      // BlockPred should be phi for loops made uniform, but this check
+      // shouldn't harm anything.
+      if (BlockPred == ExitCond)
+        continue;
+
+      auto *VPPhi = dyn_cast<VPPHINode>(BlockPred);
+      if (VPPhi && any_of(VPPhi->incoming_values(),
+                          [ExitCond] (const VPValue *IncomingVal) {
+                              return IncomingVal == ExitCond;
+                         }))
+        continue;
     }
     CandidateBlocks.push_back(Block);
   }
