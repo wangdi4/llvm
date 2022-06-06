@@ -10,6 +10,7 @@
 ; CHECK-NEXT: Running pass: SPIRV::SPIRVLowerConstExprPass
 ; CHECK-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
+; CHECK-NEXT: Running pass: SpecializeConstantPass
 
 #ifndef NDEBUG
 ; CHECK-NEXT: Running pass: VerifierPass
@@ -142,6 +143,7 @@
 ; QUIET-NEXT: Running pass: SPIRV::SPIRVLowerConstExprPass
 ; QUIET-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
 ; QUIET-NEXT: Running pass: NameAnonGlobalPass
+; QUIET-NEXT: Running pass: SpecializeConstantPass
 ; QUIET-NEXT: Running pass: VerifierPass
 ; QUIET-NEXT: Running pass: InferAddressSpacesPass
 ; QUIET-NEXT: Running pass: DPCPPEqualizerPass
@@ -483,6 +485,8 @@
 ; VERIFY-EACH-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
 ; VERIFY-EACH-NEXT: Verifying module main
 ; VERIFY-EACH-NEXT: Running pass: NameAnonGlobalPass
+; VERIFY-EACH-NEXT: Verifying module main
+; VERIFY-EACH-NEXT: Running pass: SpecializeConstantPass
 ; VERIFY-EACH-NEXT: Verifying module main
 ; VERIFY-EACH-NEXT: Running pass: VerifierPass
 ; VERIFY-EACH-NEXT: Running analysis: VerifierAnalysis
