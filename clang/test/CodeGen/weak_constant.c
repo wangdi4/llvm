@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 // INTEL RUN: %clang_cc1 -w -opaque-pointers -emit-llvm %s -O1 -o - | FileCheck %s
+=======
+// RUN: %clang_cc1 -w -opaque-pointers -emit-llvm %s -O1 -o - | FileCheck %s
+>>>>>>> 230c5b1664de28b6efa684a66a77f006cb01e2c2
 // This used to "check for bug compatibility with gcc".
 // Now it checks that that the "weak" declaration makes the value
 // fully interposable whereas a "selectany" one is handled as constant
