@@ -1644,10 +1644,20 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
 #if INTEL_CUSTOMIZATION
   // In LTO mode, loopopt runs in link phase along with community vectorizer
   // after it.
-  if (EnableLV && (!PrepareForLTO || !isLoopOptEnabled(Level)))
+  // Call InjectTLIMappings only when the community loop vectorizer or SLP
+  // vectorizer is run. Running this can add symbols to @llvm.compile.used,
+  // which will inhibit whole program detection in the link step of a -flto
+  // compilation.
+  if (!PrepareForLTO || !isLoopOptEnabled(Level)) {
+    if (EnableLV) {
+      FPM.addPass(InjectTLIMappings());
+      FPM.addPass(LoopVectorizePass(
+          LoopVectorizeOptions(!PTO.LoopInterleaving, !PTO.LoopVectorization)));
+    } else if (PTO.SLPVectorization) {
+      FPM.addPass(InjectTLIMappings());
+    }
+  }
 #endif // INTEL_CUSTOMIZATION
-  FPM.addPass(LoopVectorizePass(
-      LoopVectorizeOptions(!PTO.LoopInterleaving, !PTO.LoopVectorization)));
 
   if (IsFullLTO) {
     // The vectorizer may have significantly shortened a loop body; unroll
@@ -1976,7 +1986,7 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, FunctionPassManager &FPM,
     if (!RunVec && OptLevel > 0) {
 #if INTEL_CUSTOMIZATION
 #else // INTEL_CUSTOMIZATION
-      MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM));
+      MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
 #endif // INTEL_CUSTOMIZATION
       MPM.addPass(OpenMPOptPass());
     }
@@ -2444,11 +2454,7 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
     // Populates the VFABI attribute with the scalar-to-vector mappings
     // from the TargetLibraryInfo.
 #if INTEL_CUSTOMIZATION
-    // Call InjectTLIMappings only when the community vectorizer is run.
-    // Running this can add symbols to @llvm.compile.used, which will inhibit
-    // whole program detection in the link step of a -flto compilation.
-    if (!PrepareForLTO || !isLoopOptEnabled(Level))
-      OptimizePM.addPass(InjectTLIMappings());
+    // Adding InjectTLIMappings is sunken into addVectorPasses
 #endif // INTEL_CUSTOMIZATION
 
     addVectorPasses(Level, OptimizePM, /* IsFullLTO */ false);
