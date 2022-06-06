@@ -325,8 +325,11 @@
 ; END INTEL_CUSTOMIZATION
 
 ; CHECK-O-NEXT: Running pass: LoopDistributePass
-; CHECK-O-NEXT: Running pass: InjectTLIMappings
 ; INTEL_CUSTOMIZATION
+; InjectTLIMappings invocation is in sync with SLPVectorizerPass
+; CHECK-O2-NEXT: Running pass: InjectTLIMappings
+; CHECK-O3-NEXT: Running pass: InjectTLIMappings
+; CHECK-Os-NEXT: Running pass: InjectTLIMappings
 ; Removed LoopVectorizePass pass as it is disabled by default
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: LoopLoadEliminationPass

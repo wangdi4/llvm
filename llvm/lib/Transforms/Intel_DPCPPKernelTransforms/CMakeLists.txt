@@ -71,6 +71,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   SetVectorizationFactor.cpp
   SinCosFold.cpp
   SoaAllocaAnalysis.cpp
+  SpecializeConstant.cpp
   SplitBBonBarrierPass.cpp
   SplitBBonBarrierPass.cpp
   SubgroupEmulation/SGBarrierPropagate.cpp

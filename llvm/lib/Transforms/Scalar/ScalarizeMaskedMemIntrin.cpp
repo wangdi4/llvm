@@ -45,6 +45,7 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/PatternMatch.h" //INTEL
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 #include "llvm/InitializePasses.h"
@@ -70,9 +71,9 @@ static cl::opt<unsigned>
                       "tryScalarizeGEP. (default = 1)"));
 
 static cl::opt<unsigned>
-MaxConst("scalarize-masked-mem-intrin-max-const", cl::Hidden, cl::init(1),
+MaxConst("scalarize-masked-mem-intrin-max-const", cl::Hidden, cl::init(3),
   cl::desc("Maximum constant count in GEP's elements when it can do "
-    "tryScalarizeGEP. (default = 1)"));
+    "tryScalarizeGEP. (default = 3)"));
 
 static cl::opt<unsigned>
 MaxScalar("scalarize-masked-mem-intrin-max-scalar", cl::Hidden, cl::init(10),
@@ -712,6 +713,32 @@ static Value *createSplatAndConstExpr(Value *V, unsigned Element,
   return nullptr;
 }
 
+// Get splat value if the input is a splat vector or return nullptr.
+// The value may be extracted from a splat constants vector or from
+// a sequence of instructions that broadcast a single value into a vector.
+// If there is BitCast for the splat value return the type after BitCast.
+static Value *getSplatValueBitCast(const Value *V, Type *&CastType) {
+  using namespace llvm;
+  using namespace llvm::PatternMatch;
+  CastType = nullptr;
+  Value *Splat = getSplatValue(V);
+  if (Splat)
+    return Splat;
+
+  auto VecType = cast<FixedVectorType>(V->getType());
+  if (VecType) {
+    // shuf (bitcast (inselt ?, Splat, 0)), ?, <0, undef, 0, ...>
+    if (match(V,
+              m_Shuffle(m_BitCast(m_InsertElt(m_Value(),
+                  m_Value(Splat), m_ZeroInt())),
+                        m_Value(), m_ZeroMask()))) {
+      CastType = VecType->getElementType();
+      return Splat;
+    }
+  }
+  return nullptr;
+}
+
 // Look for GEP where the base pointer and all indices are made of scalars,
 // splats of scalars, or constant ints. These GEPs are trivially scalarizable.
 // This creates opportunities for the arithmetic to be folded into the address
@@ -724,16 +751,37 @@ static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
                               const TargetTransformInfo &TTI) {
   Value *Base = GEP->getPointerOperand();
   Type *BasePtrTy = GEP->getSourceElementType();
+  BitCastInst *BC = nullptr;
 
   // Base should be a scalar, or a splatted scalar.
   if (Base->getType()->isVectorTy()) {
-    Value *Splat = getSplatValue(Base);
+    Type *CastType;
+    Value *Splat = getSplatValueBitCast(Base, CastType);
     if (Splat) {
+      if (CastType) {
+        // handle following example:
+        //   %t1 = insertelement <2 x float*> poison, float* %Splat, i64 0
+        //   %t2 = bitcast <2 x float*> %t1 to <2 x i8*>
+        //   %Base = shufflevector <2 x i8*> %t2, <2 x i8*> poison, <2 x i32> zeroinitializer
+        Splat = Builder.CreateBitCast(Splat, CastType);
+      }
       Base = Splat;
     } else {
       auto NGEP = dyn_cast<GetElementPtrInst>(Base);
-      if (!NGEP)
-        return nullptr;
+      if (!NGEP) {
+        BC = dyn_cast<BitCastInst>(Base);
+        if (BC) {
+          // handle following example:
+          //   %NGEP = getelementptr inbounds i8, <2 x i8*> %4, <2 x i64> %12
+          //   %BC = bitcast <2 x i8*> %NGEP to <2 x float*>
+          //   %GP = getelementptr inbounds float, <2 x float*> %14, <2 x i64> %BC
+          NGEP = dyn_cast<GetElementPtrInst>(BC->getOperand(0));
+          if (!NGEP)
+            return nullptr;
+        } else {
+          return nullptr;
+        }
+      }
       Base = tryScalarizeGEP(NGEP, Element, Builder, LoadCount,
                              ConstCount, ScalarCount, TTI);
       if (!Base)
@@ -787,6 +835,10 @@ static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
   }
 
   // Create a GEP from the scalar components.
+  if (BC) {
+    auto BCTy = cast<FixedVectorType>(BC->getType());
+    Base = Builder.CreateBitCast(Base, BCTy->getElementType());
+  }
   return Builder.CreateGEP(BasePtrTy, Base, Indices, "Ptr" + Twine(Element));
 }
 
