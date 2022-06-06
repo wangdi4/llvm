@@ -13,6 +13,9 @@
 ; RUN: llvm-lto2 run %t2.o -save-temps -pass-remarks=. \
 ; RUN:   -opaque-pointers \
 ; RUN:	 -wholeprogramdevirt-check=trap \
+; INTEL_CUSTOMIZATON
+; RUN:   %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -o %t3 \
 ; RUN:   -r=%t2.o,test,px \
 ; RUN:   -r=%t2.o,_ZN1A1nEi,p \
@@ -24,6 +27,9 @@
 ; RUN: llvm-lto2 run %t2.o -save-temps -pass-remarks=. \
 ; RUN:   -opaque-pointers \
 ; RUN:	 -wholeprogramdevirt-check=fallback \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_devirt_options \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -o %t3 \
 ; RUN:   -r=%t2.o,test,px \
 ; RUN:   -r=%t2.o,_ZN1A1nEi,p \
