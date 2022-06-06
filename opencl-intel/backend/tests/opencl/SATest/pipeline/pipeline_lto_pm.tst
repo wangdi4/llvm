@@ -327,7 +327,6 @@
 ; QUIET-NEXT: Running pass: AlwaysInlinerPass
 ; QUIET-NEXT: Running pass: VPODirectiveCleanupPass
 ; QUIET-NEXT: Running pass: LoopDistributePass
-; QUIET-NEXT: Running pass: InjectTLIMappings
 ; QUIET-NEXT: Running pass: LoopLoadEliminationPass
 ; QUIET-NEXT: Running pass: InstCombinePass
 ; QUIET-NEXT: Running pass: SimplifyCFGPass
@@ -348,7 +347,6 @@
 ; QUIET-NEXT: Running pass: SimplifyCFGPass
 ; QUIET-NEXT: Running pass: VPODirectiveCleanupPass
 ; QUIET-NEXT: Running pass: LoopDistributePass
-; QUIET-NEXT: Running pass: InjectTLIMappings
 ; QUIET-NEXT: Running pass: LoopLoadEliminationPass
 ; QUIET-NEXT: Running pass: InstCombinePass
 ; QUIET-NEXT: Running pass: SimplifyCFGPass
@@ -369,7 +367,6 @@
 ; QUIET-NEXT: Running pass: SimplifyCFGPass
 ; QUIET-NEXT: Running pass: VPODirectiveCleanupPass
 ; QUIET-NEXT: Running pass: LoopDistributePass
-; QUIET-NEXT: Running pass: InjectTLIMappings
 ; QUIET-NEXT: Running pass: LoopLoadEliminationPass
 ; QUIET-NEXT: Running pass: InstCombinePass
 ; QUIET-NEXT: Running pass: SimplifyCFGPass

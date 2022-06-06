@@ -294,7 +294,13 @@
 ; end INTEL_CUSTOMIZATION
 
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopDistributePass
-; CHECK-POSTLINK-O-NEXT: Running pass: InjectTLIMappings
+; INTEL_CUSTOMIZATION
+; LoopVectorizePass is disabled by default
+; InjectTLIMappings invocation is in sync with SLPVectorizerPass
+; CHECK-POSTLINK-O2-NEXT: Running pass: InjectTLIMappings
+; CHECK-POSTLINK-O3-NEXT: Running pass: InjectTLIMappings
+; CHECK-POSTLINK-Os-NEXT: Running pass: InjectTLIMappings
+; END INTEL_CUSTOMIZATION
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopLoadEliminationPass
 ; CHECK-POSTLINK-O-NEXT: Running analysis: LoopAccessAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running pass: InstCombinePass

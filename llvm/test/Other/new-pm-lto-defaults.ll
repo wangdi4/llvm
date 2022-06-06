@@ -306,6 +306,12 @@
 ; END INTEL_CUSTOMIZATION
 
 ; CHECK-O23SZ-NEXT: Running pass: LoopDistributePass on foo
+; INTEL_CUSTOMIZATION
+; InjectTLIMappings invocation is in sync with SLPVectorizerPass
+; CHECK-O2-NEXT: Running pass: InjectTLIMappings on foo
+; CHECK-O3-NEXT: Running pass: InjectTLIMappings on foo
+; CHECK-OS-NEXT: Running pass: InjectTLIMappings on foo
+; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: LoopUnrollPass on foo
 ; CHECK-O23SZ-NEXT: WarnMissedTransformationsPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: InstCombinePass on foo
