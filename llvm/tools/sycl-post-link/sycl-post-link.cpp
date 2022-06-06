@@ -986,6 +986,7 @@ processInputModule(std::unique_ptr<Module> M) {
     Modified |= MMs.size() > 1;
 #ifndef _NDEBUG
     bool NoSplitOccurred = (MMs.size() == 1) && (Table->getNumRows() == 0);
+    (void)NoSplitOccurred; // INTEL
 #endif // _NDEBUG
 
     if (!SplitEsimd && (MMs.size() > 1)) {

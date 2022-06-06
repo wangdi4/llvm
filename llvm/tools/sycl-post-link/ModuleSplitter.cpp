@@ -527,6 +527,7 @@ void ModuleDesc::verifyESIMDProperty() const {
   // Verify entry points:
   for (const auto *F : entries()) {
     const bool IsESIMDFunction = isESIMDFunction(*F);
+    (void)IsESIMDFunction; // INTEL
 
     switch (Props.HasEsimd) {
     case SyclEsimdSplitStatus::ESIMD_ONLY:

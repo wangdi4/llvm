@@ -860,14 +860,14 @@ bool isSubGroupUniform(StringRef S) {
   return isGetSubGroupSize(S) || isGetSubGroupId(S) ||
          isGetMaxSubGroupSize(S) || isGetNumSubGroups(S) ||
          isGetEnqueuedNumSubGroups(S) || isSubGroupAll(S) || isSubGroupAny(S) ||
-         isSubGroupBroadCast(S) || isSubGroupBallot(S) ||
-         isSubGroupReduceAdd(S) || isSubGroupReduceMin(S) ||
-         isSubGroupReduceMax(S);
+         isSubGroupBroadCast(S) || isSubGroupReduceAdd(S) ||
+         isSubGroupReduceMin(S) || isSubGroupReduceMax(S);
 }
 
 bool isSubGroupDivergent(StringRef S) {
-  return isGetSubGroupLocalId(S) || isSubGroupScan(S) || isSubGroupShuffle(S) ||
-         isSubGroupBlockRead(S) || isSubGroupBlockWrite(S);
+  return isSubGroupBallot(S) || isGetSubGroupLocalId(S) || isSubGroupScan(S) ||
+         isSubGroupShuffle(S) || isSubGroupBlockRead(S) ||
+         isSubGroupBlockWrite(S);
 }
 
 bool isSubGroupBuiltin(StringRef S) {
