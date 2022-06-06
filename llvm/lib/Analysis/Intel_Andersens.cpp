@@ -2283,8 +2283,10 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
     if (!BC)
       return false;
     // Check source type of Bitcast is pointer to pointer to some type.
+    // Check getPointerElementType only when typed pointers are available.
     if (!BC->getSrcTy()->isPointerTy() ||
-       !BC->getSrcTy()->getPointerElementType()->isPointerTy())
+        BC->getSrcTy()->isOpaquePointerTy() ||
+        !BC->getSrcTy()->getNonOpaquePointerElementType()->isPointerTy())
       return false;
     return true;
   };
