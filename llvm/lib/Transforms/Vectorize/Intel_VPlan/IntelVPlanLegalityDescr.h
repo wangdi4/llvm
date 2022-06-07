@@ -1,6 +1,6 @@
-//===-- IntelVPlanEntityDescr.h --------------------------------*- C++ -*-===//
+//===-- IntelVPlanLegalityDescr.h -------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2021 Intel Corporation. All rights reserved.
+//   Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -9,9 +9,10 @@
 //
 //===----------------------------------------------------------------------===//
 ///
-/// \file
-/// This file defines whiole hierarchy required for classes used as containers
-/// for privates values. class DescrValue
+/// This file defines hierarchy of classes required to capture loop/SIMD
+//  entities like reductions/inductions/privates in vectorizer frontend.
+//
+//  class DescrValue
 ///          |
 ///          |
 /// class DescrWithAliases
@@ -24,8 +25,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANENTITYDESCR_H
-#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANENTITYDESCR_H
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANLEGALITYDESCR_H
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANLEGALITYDESCR_H
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include <type_traits>
@@ -38,8 +39,9 @@ template <typename T, typename = void> struct InstructionTypeDeducer {
 };
 
 template <typename T>
-struct InstructionTypeDeducer<T, typename std::enable_if<std::is_base_of<
-                                     loopopt::DDRef, T>::value>::type> {
+struct InstructionTypeDeducer<
+    T,
+    typename std::enable_if<std::is_base_of<loopopt::DDRef, T>::value>::type> {
   using Instruction = loopopt::HLInst;
 };
 
@@ -67,8 +69,9 @@ template <typename T, typename = void> struct CustomCompareDeducer {
 };
 
 template <typename T>
-struct CustomCompareDeducer<T, typename std::enable_if<std::is_base_of<
-                                   loopopt::DDRef, T>::value>::type> {
+struct CustomCompareDeducer<
+    T,
+    typename std::enable_if<std::is_base_of<loopopt::DDRef, T>::value>::type> {
   using CustomCompare = CustomCompareRef;
 };
 
@@ -162,7 +165,8 @@ public:
       OS.indent(Indent + 2) << "none\n";
     else
       for (auto &V : UpdateInstructions) {
-        OS.indent(Indent + 2); V->dump();
+        OS.indent(Indent + 2);
+        V->dump();
       }
   }
   void dump() const { print(errs()); }
@@ -296,13 +300,13 @@ private:
 public:
   // Value can be of type llvm::Value or loopopt::DDRef
   PrivDescr(Value *RegV, Type *Ty, PrivateKind KindV)
-    : DescrWithAliases<Value>(RegV, DescrKind::DK_WithAliases),
-    PrivKind(KindV), Ty(Ty) {}
+      : DescrWithAliases<Value>(RegV, DescrKind::DK_WithAliases),
+        PrivKind(KindV), Ty(Ty) {}
 
   // Copy constructor
   PrivDescr(const PrivDescr &Other)
-      : DescrWithAliases<Value>(Other), PrivKind(Other.PrivKind),
-        Ty(Other.Ty) {}
+      : DescrWithAliases<Value>(Other), PrivKind(Other.PrivKind), Ty(Other.Ty) {
+  }
 
   // Move constructor
   PrivDescr(PrivDescr &&Other)
@@ -334,7 +338,7 @@ public:
   /// Check if private is for non-POD data type.
   virtual bool isNonPOD() const { return false; }
   /// Get the private Type.
-  Type* getType() const { return Ty; }
+  Type *getType() const { return Ty; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, unsigned Indent = 0) const override {
@@ -349,8 +353,8 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
-// Specialized class to represent non-POD private descriptors specified explicitly via
-// SIMD private clause.
+// Specialized class to represent non-POD private descriptors specified
+// explicitly via SIMD private clause.
 template <typename Value> class PrivDescrNonPOD : public PrivDescr<Value> {
   using PrivateKind = typename PrivDescr<Value>::PrivateKind;
   Function *Ctor;
@@ -361,10 +365,10 @@ public:
   // Value can be of type llvm::Value or loopopt::DDRef
   PrivDescrNonPOD(Value *RegV, Type *Ty, PrivateKind KindV, Function *Ctor,
                   Function *Dtor, Function *CopyAssign)
-    : PrivDescr<Value>(RegV, Ty, KindV), Ctor(Ctor), Dtor(Dtor),
-      CopyAssign(CopyAssign) {
-        assert(KindV != PrivateKind::Conditional &&
-               "Non POD privates cannot be conditional last privates.");
+      : PrivDescr<Value>(RegV, Ty, KindV), Ctor(Ctor), Dtor(Dtor),
+        CopyAssign(CopyAssign) {
+    assert(KindV != PrivateKind::Conditional &&
+           "Non POD privates cannot be conditional last privates.");
   }
 
   // Copy constructor
@@ -429,4 +433,4 @@ public:
 
 } // End namespace llvm
 
-#endif
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANLEGALITYDESCR_H
