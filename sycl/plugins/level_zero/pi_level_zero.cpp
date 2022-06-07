@@ -2794,6 +2794,7 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     return ReturnValue(pi_uint64{DoubleFPValue});
   }
   case PI_DEVICE_INFO_IMAGE2D_MAX_WIDTH:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SHARED_SW_ADVANCED
     // TODO: https://gitlab.devtools.intel.com/one-api/level_zero/issues/288
@@ -2838,6 +2839,17 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     // Until Level Zero provides needed info, hardcode default minimum values
     // required by the SYCL specification.
     return ReturnValue(size_t{2048});
+=======
+    return ReturnValue(size_t{Device->ZeDeviceImageProperties->maxImageDims2D});
+  case PI_DEVICE_INFO_IMAGE2D_MAX_HEIGHT:
+    return ReturnValue(size_t{Device->ZeDeviceImageProperties->maxImageDims2D});
+  case PI_DEVICE_INFO_IMAGE3D_MAX_WIDTH:
+    return ReturnValue(size_t{Device->ZeDeviceImageProperties->maxImageDims3D});
+  case PI_DEVICE_INFO_IMAGE3D_MAX_HEIGHT:
+    return ReturnValue(size_t{Device->ZeDeviceImageProperties->maxImageDims3D});
+  case PI_DEVICE_INFO_IMAGE3D_MAX_DEPTH:
+    return ReturnValue(size_t{Device->ZeDeviceImageProperties->maxImageDims3D});
+>>>>>>> 9ecc74bcfc6ac1af8f016edfa22a24601ce165a2
   case PI_DEVICE_INFO_IMAGE_MAX_BUFFER_SIZE:
     return ReturnValue(
         size_t{Device->ZeDeviceImageProperties->maxImageBufferSize});
