@@ -67,8 +67,6 @@ attributes #1 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "
 !8 = !{}
 !9 = !{!"clang version 3.6.2 "}
 
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %call4 = alloca i32, align 4
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %done.addr = alloca i32*, align 8
 ;; barrier key values
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %pCurrBarrier = alloca i32, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %pCurrSBIndex = alloca i64, align 8
