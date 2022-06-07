@@ -1,5 +1,5 @@
-; RUN: SATest -BUILD -pass-manager-type=lto -llvm-option=-debug-pass-manager -config=%S/pipeline_lto_O0.tst.cfg 2>&1 | FileCheck %s
-; RUN: SATest -BUILD -llvm-option=-debug-pass-manager -config=%S/pipeline_lto_O0.tst.cfg 2>&1 | FileCheck %s
+; RUN: SATest -BUILD -pass-manager-type=lto -llvm-option=-debug-pass-manager -config=%S/pipeline_lto_g_O0.tst.cfg 2>&1 | FileCheck %s
+; RUN: SATest -BUILD -llvm-option=-debug-pass-manager -config=%S/pipeline_lto_g_O0.tst.cfg 2>&1 | FileCheck %s
 ; TODO:
 ;   check CoerceWin64Types pass when SATest is enabled
 
@@ -49,7 +49,10 @@
 ; CHECK:      Running pass: DPCPPKernelPostVecPass
 ; CHECK-NEXT: Running pass: HandleVPlanMask
 ; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass
+; CHECK-NEXT: Running pass: ImplicitGIDPass
+; CHECK-NEXT: Running analysis: Intel Kernel DataPerBarrier Analysis
 ; CHECK-NEXT: Running pass: DPCPPKernelWGLoopCreatorPass
+; CHECK-NEXT: Invalidating analysis: Intel Kernel DataPerBarrier Analysis
 ; CHECK-NEXT: Running pass: IndirectCallLowering
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
 ; CHECK-NEXT: Skipping pass PhiCanonicalization
@@ -65,9 +68,9 @@
 ; CHECK-NEXT: Running analysis: Intel Kernel DataPerBarrier Analysis
 ; CHECK-NEXT: Running analysis: Intel Kernel DataPerValue Analysis
 ; CHECK-NEXT: Running analysis: Intel Kernel WIRelatedValue Analysis
-; CHECK-NEXT: Running pass: AddImplicitArgsPass
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
+; CHECK-NEXT: Running pass: AddTLSGlobalsPass
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
+; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
 ; CHECK-NEXT: Invalidating analysis: Intel Kernel DataPerBarrier Analysis
 ; CHECK-NEXT: Invalidating analysis: Intel Kernel WIRelatedValue Analysis

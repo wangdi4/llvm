@@ -1,7 +1,7 @@
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64_x86_64-unknown-unknown"
 
-; Function Attrs: convergent norecurse nounwind
+; Function Attrs: convergent norecurse nounwind optnone noinline
 define dso_local spir_kernel void @test(i32 addrspace(1)* noundef align 4 %a, i32 addrspace(1)* noundef align 4 %b) #0 !dbg !6 !kernel_arg_addr_space !19 !kernel_arg_access_qual !20 !kernel_arg_type !21 !kernel_arg_base_type !21 !kernel_arg_type_qual !22 !kernel_arg_name !23 !kernel_arg_host_accessible !24 !kernel_arg_pipe_depth !25 !kernel_arg_pipe_io !22 !kernel_arg_buffer_location !22 {
 entry:
   call void @llvm.dbg.value(metadata i32 addrspace(1)* %a, metadata !13, metadata !DIExpression()), !dbg !26
@@ -22,7 +22,7 @@ declare spir_func i64 @_Z13get_global_idj(i32 noundef) #1
 ; Function Attrs: nocallback nofree nosync nounwind readnone speculatable willreturn
 declare void @llvm.dbg.value(metadata, metadata, metadata) #2
 
-attributes #0 = { convergent norecurse nounwind "frame-pointer"="none" "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "stackrealign" "uniform-work-group-size"="false" }
+attributes #0 = { convergent norecurse nounwind optnone noinline "frame-pointer"="none" "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "stackrealign" "uniform-work-group-size"="false" }
 attributes #1 = { convergent nounwind readnone willreturn "frame-pointer"="none" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "stackrealign" }
 attributes #2 = { nocallback nofree nosync nounwind readnone speculatable willreturn }
 attributes #3 = { convergent nounwind readnone willreturn }
