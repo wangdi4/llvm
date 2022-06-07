@@ -637,6 +637,7 @@ void WGLoopCreatorImpl::processFunction(Function *F, Function *VectorF,
   VectorizedDim = KIMD.VectorizationDimension.hasValue()
                       ? KIMD.VectorizationDimension.get()
                       : 0;
+  Builder.SetCurrentDebugLocation(DebugLoc());
 
   // generate constants.
   ConstVF = ConstantInt::get(IndTy, VF);
