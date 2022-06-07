@@ -19,8 +19,8 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPLANHCFGBUILDER_HIR_H
 
 #include "../IntelLoopVectorizationLegality.h"
-#include "../IntelVPlanEntityDescr.h"
 #include "../IntelVPlanHCFGBuilder.h"
+#include "../IntelVPlanLegalityDescr.h"
 #include "IntelVPlanVerifierHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRVecIdioms.h"
 
