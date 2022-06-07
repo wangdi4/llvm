@@ -595,6 +595,8 @@ public:
     InductionInitStep,
     InductionFinal,
     ReductionInit,
+    ReductionInitScalar, // Initializes scalar inscan reduction accumulator
+                         // with an Identity value.
     ReductionFinal,
     AllocatePrivate,
     Subscript,
@@ -649,6 +651,25 @@ public:
     TreeConflict,
     CvtMaskToInt,
     Permute,
+    RunningInclusiveReduction, // Represents running inclusive reduction for
+                               // inscan reduction vectorization:
+                               // E.g., operation for type T:
+                               // T4 running-inclusive-reduction(T4 vx, T x) {
+                               //   return [vx3 + vx2 + vx1 + vx0 + x,
+                               //           vx2 + vx1 + vx0 + x,
+                               //           vx1 + vx0 + x,
+                               //           vx0 + x];
+                               // }
+    RunningExclusiveReduction, // Represents running exclusive reduction for
+                               // inscan reduction vectorization:
+                               // e.g, operation for type T:
+                               // T4 running-exclusive-reduction(T4 vx, T x) {
+                               //   return [vx2 + vx1 + vx0 + x,
+                               //           vx1 + vx0 +x,
+                               //           vx0 + x,
+                               //           x];
+                               // }
+    ExtractLastVectorLane, // Extract a scalar from the lane VF-1.
   };
 
 private:
