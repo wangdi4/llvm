@@ -947,12 +947,6 @@ macro(add_llvm_executable name)
     # end INTEL_CUSTOMIZATION
   endif()
 
-  # INTEL_CUSTOMIZATION
-  if(NOT ARG_CUSTOM_WIN_VER)
-    add_windows_version_resource_file(ALL_FILES ${ALL_FILES})
-  endif()
-  # end INTEL_CUSTOMIZATION
-
   if (ARG_GENERATE_DRIVER)
     string(REPLACE "-" "_" TOOL_NAME ${name})
     configure_file(
@@ -970,7 +964,11 @@ macro(add_llvm_executable name)
     llvm_config(${obj_name} ${USE_SHARED} ${LLVM_LINK_COMPONENTS} )
   endif()
 
-  add_windows_version_resource_file(ALL_FILES ${ALL_FILES})
+  # INTEL_CUSTOMIZATION
+  if(NOT ARG_CUSTOM_WIN_VER)
+    add_windows_version_resource_file(ALL_FILES ${ALL_FILES})
+  endif()
+  # end INTEL_CUSTOMIZATION
 
   if(XCODE)
     # Note: the dummy.cpp source file provides no definitions. However,
