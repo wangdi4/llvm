@@ -5,11 +5,11 @@ add_definitions( -DUSE_ITT )
 
 # disable "implicit-fallthrough", "self-assign" and "static-in-inline"(windows only) warnings in
 # itt/ittnotify/ittnotify_static.c
-if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang|IntelLLVM")
 set_source_files_properties(${OCL_SOURCE_DIR}/externals/itt/ittnotify/ittnotify_static.c
                             PROPERTIES COMPILE_FLAGS
                             "-Wno-implicit-fallthrough -Wno-self-assign -Wno-static-in-inline")
-endif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+endif(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang|IntelLLVM")
 
 add_opencl_library( ${TARGET_NAME} STATIC
   plugin_manager.h
