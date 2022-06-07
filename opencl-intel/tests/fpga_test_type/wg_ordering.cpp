@@ -103,6 +103,7 @@ TEST_F(TestWGOrdering, Channels) {
 }
 
 TEST_F(TestWGOrdering, Pipes) {
+  GTEST_SKIP();
   const std::string programSources = "                                       \n\
       atomic_int counter = ATOMIC_VAR_INIT(0);                               \n\
                                                                              \n\

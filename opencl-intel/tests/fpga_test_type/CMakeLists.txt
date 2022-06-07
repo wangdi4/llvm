@@ -10,9 +10,8 @@ add_ocl_unittest(fpga_test_type
     ${TARGET_SOURCES}
     ${OCL_SOURCE_DIR}/tests/framework_test_type/TestsHelpClasses.cpp
   LINK_LIBRARIES
-    OpenCL-ICD
     test_utils
-    intelocl${BUILD_PLATFORM}
+    intelocl${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF}
 )
 
 if (WIN32)
