@@ -1968,6 +1968,10 @@ static void updateDebugPostExtraction(Function *OldF, Function *NewF,
   DISubprogram *NSP = NewF->getSubprogram();
   assert(NSP && "Expected the new function to have debug info");
 
+  LLVM_DEBUG(dbgs() << "\nupdateDebugPostExtraction:\n");
+  LLVM_DEBUG(dbgs() << "  OldF = " << OldF->getName() << "\n");
+  LLVM_DEBUG(dbgs() << "  NewF = " << NewF->getName() << "\n");
+
   DICompileUnit *Unit = OSP->getUnit();
   Module *M = NewF->getParent();
   DIBuilder DIB (*M, true, Unit);
@@ -2109,14 +2113,16 @@ static void updateDebugPostExtraction(Function *OldF, Function *NewF,
       LLVM_DEBUG(dbgs() << "      Skipping derived type.\n");
       continue;
     }
+    // Reset global types or types nested within global types.
     DIScope *S = T->getScope();
-    if (!S) {
-      LLVM_DEBUG(dbgs() << "      No scope, reset.\n");
-      MDMap[T].reset(T);
-      continue;
+    while (S) {
+      if (isa<DILocalScope>(S))
+        break;
+      S = S->getScope();
     }
-    if (DIType *P = dyn_cast<DIType>(S)) {
-      LLVM_DEBUG(dbgs() << "      Skipping nested type.\n");
+    if (!S) {
+      LLVM_DEBUG(dbgs() << "      Not a local type, reset.\n");
+      MDMap[T].reset(T);
       continue;
     }
     DILocalScope *LS = dyn_cast<DILocalScope>(S);
