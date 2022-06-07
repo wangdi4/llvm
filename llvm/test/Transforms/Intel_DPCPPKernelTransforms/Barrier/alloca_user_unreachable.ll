@@ -93,8 +93,6 @@ attributes #2 = { convergent }
 !5 = !{i32 8}
 !6 = !{i1 false}
 
-;; addr of alloca
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main_kernel -- %g.addr = alloca i32*, align 8
 ;; barrier key values
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main_kernel -- %pCurrBarrier = alloca i32, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main_kernel -- %pCurrSBIndex = alloca i64, align 8

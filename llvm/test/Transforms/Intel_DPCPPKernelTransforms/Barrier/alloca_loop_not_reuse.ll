@@ -142,10 +142,6 @@ attributes #2 = { convergent "kernel-call-once" "kernel-convergent-call" }
 !6 = !{i1 true}
 !7 = !{i1 false}
 
-;; addr of alloca
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %i.addr = alloca i32*, align 8
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %j.addr = alloca i32*, align 8
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pp.addr = alloca i32*, align 8
 ;; barrier key values
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pCurrBarrier = alloca i32, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pCurrSBIndex = alloca i64, align 8

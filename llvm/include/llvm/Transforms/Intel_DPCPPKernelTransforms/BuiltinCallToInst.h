@@ -28,6 +28,8 @@ public:
   // Glue for old PM.
   bool runImpl(Function &F);
 
+  static bool isRequired() { return true; }
+
 private:
   /// Built-in function type.
   enum BuiltinType {

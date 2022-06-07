@@ -7,29 +7,31 @@
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
-; CHECK-NEXT: Running pass: FMASplitterPass
+; CHECK-NEXT: Skipping pass FMASplitterPass
+; CHECK-NEXT: Skipping pass: FMASplitterPass
 ; CHECK-NEXT: Running pass: AddFunctionAttrsPass
 ; CHECK-NEXT: Running pass: LinearIdResolverPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
-; CHECK-NEXT: Running pass: InferAddressSpacesPass
-; CHECK-NEXT: Running analysis: AssumptionAnalysis
-; CHECK-NEXT: Running analysis: TargetIRAnalysis
+; CHECK-NEXT: Skipping pass InferAddressSpacesPass
+; CHECK-NEXT: Skipping pass: InferAddressSpacesPass
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
 ; CHECK-NEXT: Running pass: DetectRecursionPass
 ; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::ImplicitArgsAnalysis, llvm::Module>
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
-; CHECK-NEXT: Running pass: InferAddressSpacesPass
+; CHECK-NEXT: Skipping pass InferAddressSpacesPass
+; CHECK-NEXT: Skipping pass: InferAddressSpacesPass
 ; CHECK-NEXT: Running pass: ResolveVarTIDCallPass
 ; CHECK-NEXT: Running pass: TaskSeqAsyncHandling
 ; CHECK-NEXT: Running pass: ResolveMatrixFillPass
 ; CHECK-NEXT: Running pass: ResolveMatrixLayoutPass
 ; CHECK-NEXT: Running pass: ResolveMatrixWISlicePass
 ; CHECK-NEXT: Running pass: InferArgumentAliasPass
-; CHECK-NEXT: Running pass: UnifyFunctionExitNodesPass
+; CHECK-NEXT: Skipping pass UnifyFunctionExitNodesPass
+; CHECK-NEXT: Skipping pass: UnifyFunctionExitNodesPass
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
 ; CHECK-NEXT: Running pass: DuplicateCalledKernels
 ; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
-; CHECK-NEXT: Running analysis: LoopAnalysis on test
+; CHECK-NEXT: Running analysis: LoopAnalysis
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-NEXT: Running pass: ReqdSubGroupSizePass
 ; CHECK-NEXT: Running pass: SetVectorizationFactorPass
@@ -38,13 +40,17 @@
 ; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
 ; CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-NEXT: Running analysis: TargetLibraryAnalysis
+; CHECK-NEXT: Running analysis: AssumptionAnalysis
+; CHECK-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
 ; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass
-; CHECK-NEXT: Running pass: LoopUnrollPass
-; CHECK-NEXT: Running pass: OptimizeIDivAndIRemPass
-; CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<llvm::ModuleAnalysisManager, llvm::Function>
-; CHECK-NEXT: Running pass: PreventDivCrashesPass
+; CHECK-NEXT: Skipping pass LoopUnrollPass
+; CHECK-NEXT: Skipping pass: LoopUnrollPass
+; CHECK-NEXT: Skipping pass OptimizeIDivAndIRemPass
+; CHECK-NEXT: Skipping pass: OptimizeIDivAndIRemPass
+; CHECK-NEXT: Skipping pass PreventDivCrashesPass
+; CHECK-NEXT: Skipping pass: PreventDivCrashesPass
 ; CHECK-NEXT: Running pass: ImplicitGIDPass
 ; CHECK-NEXT: Running analysis: Intel Kernel DataPerBarrier Analysis
 ; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
@@ -56,12 +62,14 @@
 ; CHECK-NEXT: Invalidating analysis: Intel Kernel DataPerBarrier Analysis
 ; CHECK-NEXT: Running pass: IndirectCallLowering
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
-; CHECK-NEXT: Running pass: RemoveRegionDirectivesPass
-; CHECK-NEXT: Running pass: UnifyFunctionExitNodesPass
-; CHECK-NEXT: Running pass: PhiCanonicalization
-; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
-; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
-; CHECK-NEXT: Running pass: Intel Kernel RedundantPhiNode
+; CHECK-NEXT: Skipping pass RemoveRegionDirectivesPass
+; CHECK-NEXT: Skipping pass: RemoveRegionDirectivesPass
+; CHECK-NEXT: Skipping pass UnifyFunctionExitNodesPass
+; CHECK-NEXT: Skipping pass: UnifyFunctionExitNodesPass
+; CHECK-NEXT: Skipping pass PhiCanonicalization
+; CHECK-NEXT: Skipping pass: PhiCanonicalization
+; CHECK-NEXT: Skipping pass Intel Kernel RedundantPhiNode
+; CHECK-NEXT: Skipping pass: Intel Kernel RedundantPhiNode
 ; CHECK-NEXT: Running pass: GroupBuiltinPass
 ; CHECK-NEXT: Running pass: Intel Kernel BarrierInFunction
 ; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>

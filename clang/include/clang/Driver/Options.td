@@ -7286,6 +7286,11 @@ def fintel_advanced_optim : Flag<["-"], "fintel-advanced-optim">,
 def fintel_spill_params : Flag<["-"], "fintel-spill-parms">,
   HelpText<"Enable Intel specific parameters spill">,
   MarshallingInfoFlag<CodeGenOpts<"IntelSpillParms">>;
+defm assume_counted_loops : BoolFOption<"assume-counted-loops",
+  CodeGenOpts<"AssumeCountedLoops">, DefaultFalse,
+  PosFlag<SetTrue, [], "Treat">, NegFlag<SetFalse, [], "Do not treat">,
+  BothFlags<[CC1Option, NoArgumentUnused],
+            " simple for loops in C/C++ as counted loops">>;
 // CQ#366796 - support '--no_expr_source_pos' option.
 def no_expr_source_pos : Flag<["--"], "no_expr_source_pos">,
   HelpText<"Disable emitting debug source positions for expressions">,

@@ -467,7 +467,10 @@ void KernelBarrier::fixAllocaValues(Function &F) {
   DIBuilder DIB(*F.getParent(), /*AllowUnresolved*/ false);
   const DataLayout &DL = F.getParent()->getDataLayout();
   Instruction *AddrInsertBefore = &*F.getEntryBlock().begin();
-
+  DISubprogram *SP = F.getSubprogram();
+  DebugLoc DB;
+  if (SP) 
+     DB = DILocation::get(SP->getContext(), SP->getScopeLine(), 0, SP);  
   // Reset containers for the current function.
   SyncPerBB.clear();
   SyncBBSuccessors.clear();
@@ -496,6 +499,7 @@ void KernelBarrier::fixAllocaValues(Function &F) {
     StringRef AllocaName = AI->getName();
     AllocaInst *AddrAI = new AllocaInst(AI->getType(), DL.getAllocaAddrSpace(),
                                         AllocaName + ".addr", AddrInsertBefore);
+    AddrAI->setDebugLoc(AI->getDebugLoc());
     uint64_t ASize = AddrAI->getAllocationSizeInBits(DL).getValue() / 8;
     AddrAI->setAlignment(assumeAligned(ASize));
     AddrAllocaSize[&F] += ASize;
@@ -564,8 +568,9 @@ void KernelBarrier::fixAllocaValues(Function &F) {
       assert(InsertBefore && "InsertBefore is invalid");
       // Calculate the pointer of the current alloca in the special buffer.
       Value *AddrInSpecialBuffer = getAddressInSpecialBuffer(
-          Offset, AI->getType(), InsertBefore, &InsertBefore->getDebugLoc());
+          Offset, AI->getType(), InsertBefore, &DB);
       IRBuilder<> Builder(InsertBefore);
+      Builder.SetCurrentDebugLocation(DB);
       Builder.CreateStore(AddrInSpecialBuffer, AddrAI);
       LoadInst *LI = Builder.CreateLoad(AddrAI->getAllocatedType(), AddrAI);
       for (Instruction *UI : BBUser.second) {
@@ -578,9 +583,9 @@ void KernelBarrier::fixAllocaValues(Function &F) {
       // Store the new addr in special buffer into AddrAI to preserve debug
       // info.
       Value *AddrInSpecialBuffer = getAddressInSpecialBuffer(
-          Offset, AI->getType(), AI, &AI->getDebugLoc());
+          Offset, AI->getType(), AI, &DB);
       auto *SI = new StoreInst(AddrInSpecialBuffer, AddrAI, AI);
-      SI->setDebugLoc(AI->getDebugLoc());
+      SI->setDebugLoc(DB);
     }
     InstructionsToRemove.push_back(AI);
 

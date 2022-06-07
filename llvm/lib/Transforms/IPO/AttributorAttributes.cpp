@@ -5433,14 +5433,16 @@ struct AAValueSimplifyImpl : AAValueSimplify {
   static Value *reproduceInst(Attributor &A,
                               const AbstractAttribute &QueryingAA,
                               Instruction &I, Type &Ty, Instruction *CtxI,
-                              bool Check, ValueToValueMapTy &VMap) {
+                              bool Check, ValueToValueMapTy &VMap,  // INTEL
+                              ValueToValueMapTy &VisitedMap) {      // INTEL
     assert(CtxI && "Cannot reproduce an instruction without context!");
     if (Check && (I.mayReadFromMemory() ||
                   !isSafeToSpeculativelyExecute(&I, CtxI, /* DT */ nullptr,
                                                 /* TLI */ nullptr)))
       return nullptr;
     for (Value *Op : I.operands()) {
-      Value *NewOp = reproduceValue(A, QueryingAA, *Op, Ty, CtxI, Check, VMap);
+      Value *NewOp = reproduceValue(A, QueryingAA, *Op, Ty, CtxI,   // INTEL
+                                    Check, VMap, VisitedMap);       // INTEL
       if (!NewOp) {
         assert(Check && "Manifest of new value unexpectedly failed!");
         return nullptr;
@@ -5465,7 +5467,9 @@ struct AAValueSimplifyImpl : AAValueSimplify {
   static Value *reproduceValue(Attributor &A,
                                const AbstractAttribute &QueryingAA, Value &V,
                                Type &Ty, Instruction *CtxI, bool Check,
-                               ValueToValueMapTy &VMap) {
+                               ValueToValueMapTy &VMap,           // INTEL
+                               ValueToValueMapTy &VisitedMap) {   // INTEL
+
     if (const auto &NewV = VMap.lookup(&V))
       return NewV;
     bool UsedAssumedInformation = false;
@@ -5481,9 +5485,36 @@ struct AAValueSimplifyImpl : AAValueSimplify {
         return C;
     if (CtxI && AA::isValidAtPosition(*EffectiveV, *CtxI, A.getInfoCache()))
       return ensureType(A, *EffectiveV, Ty, CtxI, Check);
-    if (auto *I = dyn_cast<Instruction>(EffectiveV))
-      if (Value *NewV = reproduceInst(A, QueryingAA, *I, Ty, CtxI, Check, VMap))
+#if INTEL_CUSTOMIZATION
+    if (auto *I = dyn_cast<Instruction>(EffectiveV)) {
+      // If the input Value was visited already and collecting the assumed
+      // simplified Value is the same result as the value stored in the map,
+      // then it means that there is a some form of recursion. For example:
+      //
+      //   %vect = phi <2 x float> [ undef, %bb ], [ %vect1, %bb2 ]
+      //   ...
+      //   %vect.insert = insertelement <2 x float> %vect, float %conv.i.i, i32 0
+      //   %vect1 = phi <2 x float> [ %vect, %bb3 ], [ %vect.insert, %bb4 ]
+      //
+      // From the example above, %vect1 is an incoming Value of %vect and
+      // vice-versa. This will produce an infinite loop because analyzing %vect
+      // will lead to %vect1. Then traversing the operands of %vect1 will go
+      // back to %vect, which will be analyzed again. If the Value was visited
+      // before and mapped to the simplified form, then we found a possible
+      // recursion. Return the simplified value since there won't be any other
+      // simplification.
+      if (Check) {
+        if (const auto &VisitedV = VisitedMap.lookup(&V))
+          if (VisitedV == EffectiveV)
+            return ensureType(A, *EffectiveV, Ty, CtxI, Check);
+
+        VisitedMap[&V] = EffectiveV;
+      }
+      if (Value *NewV = reproduceInst(A, QueryingAA, *I, Ty, CtxI, Check,
+                                      VMap, VisitedMap))
         return ensureType(A, *NewV, Ty, CtxI, Check);
+    }
+#endif // INTEL_CUSTOMIZATION
     return nullptr;
   }
 
@@ -5493,15 +5524,22 @@ struct AAValueSimplifyImpl : AAValueSimplify {
     Value *NewV = SimplifiedAssociatedValue.hasValue()
                       ? SimplifiedAssociatedValue.getValue()
                       : UndefValue::get(getAssociatedType());
-    if (NewV && NewV != &getAssociatedValue()) {
+#if INTEL_CUSTOMIZATION
+    // If the simplified Value is the same as the CtxI then don't apply the
+    // instruction folding. The function isValidAtPosition will return that
+    // NewV dominates itself (CtxI) and it may it can break the SSA form
+    // during the instruction folding process.
+    if (NewV && NewV != &getAssociatedValue() && NewV != CtxI) {
+      ValueToValueMapTy VisitedMap;
       ValueToValueMapTy VMap;
       // First verify we can reprduce the value with the required type at the
       // context location before we actually start modifying the IR.
       if (reproduceValue(A, *this, *NewV, *getAssociatedType(), CtxI,
-                         /* CheckOnly */ true, VMap))
+                         /* CheckOnly */ true, VMap, VisitedMap))
         return reproduceValue(A, *this, *NewV, *getAssociatedType(), CtxI,
-                              /* CheckOnly */ false, VMap);
+                              /* CheckOnly */ false, VMap, VisitedMap);
     }
+#endif // INTEL_CUSTOMIZATION
     return nullptr;
   }
 

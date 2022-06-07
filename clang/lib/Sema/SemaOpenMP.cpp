@@ -2248,7 +2248,7 @@ bool Sema::isOpenMPTargetLastPrivate(ValueDecl *D) {
   auto *VD = dyn_cast<VarDecl>(D);
 
   bool IsMapVar =
-      !VD || !VD->getType()->isScalarType() || VD->getType()->isPointerType();
+      !D->getType()->isScalarType() || D->getType()->isPointerType();
   if (VD && OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD))
     if (VD->hasGlobalStorage() &&
         getLangOpts().OpenMPDeclareTargetGlobalDefaultNoMap) {

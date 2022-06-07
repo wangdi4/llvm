@@ -105,6 +105,15 @@
 // = 0001 1100 0000 workshare construct not supported by cmplr
 #define KMP_IDENT_BARRIER_IMPL_WORKSHARE 0x01C0
 
+// = 0010 0000 0000 workshare loop construct
+#define KMP_IDENT_WORK_LOOP              0x0200
+
+// = 0100 0000 0000
+#define KMP_IDENT_WORK_SECTIONS          0x0400
+
+// = 1000 0000 0000
+#define KMP_IDENT_WORK_DISTRIBUTE        0x0800
+
 namespace llvm {
 
 class Value;

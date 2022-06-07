@@ -193,7 +193,7 @@ static cl::opt<bool>
                                 cl::desc("Enable canonicalization of groups."));
 
 static cl::opt<unsigned> MemCanonicalizationMaxGroupSize(
-    "addsub-reassoc-memcan-max-group-size", cl::init(64), cl::Hidden,
+    "addsub-reassoc-memcan-max-group-size", cl::init(8), cl::Hidden,
     cl::desc(
         "The maximum group size to be considered for mem canonicalization."));
 

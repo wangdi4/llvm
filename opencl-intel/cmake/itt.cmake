@@ -19,12 +19,11 @@ endif()
 
 # disable "implicit-fallthrough", "self-assign" and "static-in-inline"(windows only) warnings in
 # itt/ittnotify/ittnotify_static.c
-# For 32bit build on Windows, the warnings are suppressed by top-level CMake build system
-if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang|IntelLLVM")
 set_source_files_properties(${EXTERNALS_DIR}/itt/ittnotify/ittnotify_static.c
                             PROPERTIES COMPILE_FLAGS
                             "-Wno-implicit-fallthrough -Wno-self-assign -Wno-static-in-inline")
-endif()
+endif(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang|IntelLLVM")
 
 include_directories( SYSTEM ${EXTERNALS_DIR}/itt/include
                      ${EXTERNALS_DIR}/itt/ittnotify/ )

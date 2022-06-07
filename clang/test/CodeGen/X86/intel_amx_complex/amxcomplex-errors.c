@@ -4,6 +4,32 @@
 
 #include <immintrin.h>
 #include <stddef.h>
+void test_tile_cmmimfp16ps() {
+  _tile_cmmimfp16ps(16, 2, 3); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
+  _tile_cmmimfp16ps(1, 26, 3); // expected-error {{argument value 26 is outside the valid range [0, 7]}}
+  _tile_cmmimfp16ps(1, 2, 36); // expected-error {{argument value 36 is outside the valid range [0, 7]}}
+  _tile_cmmimfp16ps(1, 1, 3);  // expected-error {{tile arguments must refer to different tiles}}
+}
+
+void test_tile_cmmrlfp16ps() {
+  _tile_cmmrlfp16ps(16, 2, 3); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
+  _tile_cmmrlfp16ps(1, 26, 3); // expected-error {{argument value 26 is outside the valid range [0, 7]}}
+  _tile_cmmrlfp16ps(1, 2, 36); // expected-error {{argument value 36 is outside the valid range [0, 7]}}
+  _tile_cmmrlfp16ps(1, 1, 3);  // expected-error {{tile arguments must refer to different tiles}}
+}
+
+void test_tile_conjtcmmimfp16ps() {
+  _tile_conjtcmmimfp16ps(16, 2, 3); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
+  _tile_conjtcmmimfp16ps(1, 26, 3); // expected-error {{argument value 26 is outside the valid range [0, 7]}}
+  _tile_conjtcmmimfp16ps(1, 2, 36); // expected-error {{argument value 36 is outside the valid range [0, 7]}}
+  _tile_conjtcmmimfp16ps(1, 2, 1);  // expected-error {{tile arguments must refer to different tiles}}
+}
+
+void test_tile_conjtfp16() {
+  _tile_conjtfp16(16, 2); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
+  _tile_conjtfp16(1, 26); // expected-error {{argument value 26 is outside the valid range [0, 7]}}
+}
+
 void test_tile_tcmmimfp16ps() {
   _tile_tcmmimfp16ps(16, 2, 3); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
   _tile_tcmmimfp16ps(1, 26, 3); // expected-error {{argument value 26 is outside the valid range [0, 7]}}
@@ -16,31 +42,5 @@ void test_tile_tcmmrlfp16ps() {
   _tile_tcmmrlfp16ps(1, 26, 3); // expected-error {{argument value 26 is outside the valid range [0, 7]}}
   _tile_tcmmrlfp16ps(1, 2, 36); // expected-error {{argument value 36 is outside the valid range [0, 7]}}
   _tile_tcmmrlfp16ps(1, 1, 3);  // expected-error {{tile arguments must refer to different tiles}}
-}
-
-void test_tile_tconjtcmmimfp16ps() {
-  _tile_tconjtcmmimfp16ps(16, 2, 3); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
-  _tile_tconjtcmmimfp16ps(1, 26, 3); // expected-error {{argument value 26 is outside the valid range [0, 7]}}
-  _tile_tconjtcmmimfp16ps(1, 2, 36); // expected-error {{argument value 36 is outside the valid range [0, 7]}}
-  _tile_tconjtcmmimfp16ps(1, 2, 1);  // expected-error {{tile arguments must refer to different tiles}}
-}
-
-void test_tile_tconjtfp16() {
-  _tile_tconjtfp16(16, 2); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
-  _tile_tconjtfp16(1, 26); // expected-error {{argument value 26 is outside the valid range [0, 7]}}
-}
-
-void test_tile_ttcmmimfp16ps() {
-  _tile_ttcmmimfp16ps(16, 2, 3); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
-  _tile_ttcmmimfp16ps(1, 26, 3); // expected-error {{argument value 26 is outside the valid range [0, 7]}}
-  _tile_ttcmmimfp16ps(1, 2, 36); // expected-error {{argument value 36 is outside the valid range [0, 7]}}
-  _tile_ttcmmimfp16ps(1, 1, 3);  // expected-error {{tile arguments must refer to different tiles}}
-}
-
-void test_tile_ttcmmrlfp16ps() {
-  _tile_ttcmmrlfp16ps(16, 2, 3); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
-  _tile_ttcmmrlfp16ps(1, 26, 3); // expected-error {{argument value 26 is outside the valid range [0, 7]}}
-  _tile_ttcmmrlfp16ps(1, 2, 36); // expected-error {{argument value 36 is outside the valid range [0, 7]}}
-  _tile_ttcmmrlfp16ps(1, 1, 3);  // expected-error {{tile arguments must refer to different tiles}}
 }
 
