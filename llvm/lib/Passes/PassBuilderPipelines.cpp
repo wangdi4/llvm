@@ -682,7 +682,14 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
       LPM1.addPass(LoopFlattenPass());
 
     LPM2.addPass(LoopIdiomRecognizePass());
+#if INTEL_COLLAB
+    if (!SPIRVOptimizationMode)
+      LPM2.addPass(IndVarSimplifyPass());
+    else
+      LPM2.addPass(IndVarSimplifyPass(false /* WidenIndVars */));
+#else // INTEL_COLLAB
     LPM2.addPass(IndVarSimplifyPass());
+#endif // INTEL_COLLAB
 
     for (auto &C : LateLoopOptimizationsEPCallbacks)
       C(LPM2, Level);
@@ -924,7 +931,14 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
       LPM1.addPass(LoopFlattenPass());
 
     LPM2.addPass(LoopIdiomRecognizePass());
+#if INTEL_COLLAB
+    if (!SPIRVOptimizationMode)
+      LPM2.addPass(IndVarSimplifyPass());
+    else
+      LPM2.addPass(IndVarSimplifyPass(false /* WidenIndVars */));
+#else // INTEL_COLLAB
     LPM2.addPass(IndVarSimplifyPass());
+#endif // INTEL_COLLAB
 
     for (auto &C : LateLoopOptimizationsEPCallbacks)
       C(LPM2, Level);
@@ -3216,7 +3230,14 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   LoopPassManager LPM;
   if (EnableLoopFlatten && Level.getSpeedupLevel() > 1)
     LPM.addPass(LoopFlattenPass());
+#if INTEL_COLLAB
+  if (!SPIRVOptimizationMode)
+    LPM.addPass(IndVarSimplifyPass());
+  else
+    LPM.addPass(IndVarSimplifyPass(false /* WidenIndVars */));
+#else // INTEL_COLLAB
   LPM.addPass(IndVarSimplifyPass());
+#endif // INTEL_COLLAB
   LPM.addPass(LoopDeletionPass());
   // FIXME: Add loop interchange.
 
