@@ -1379,7 +1379,8 @@ bool llvm::unswitchingMayAffectPerfectLoopnest(LoopInfo &LI, const Loop &Lp,
   //
   // The heuristics reflect the fact that we are trying to suppress this
   // particularly for fortran benchmarks which have loopnest heavy code.
-  bool MayBeInlined = Func->hasExternalLinkage() && Func->isFortran();
+  bool IsFortran = Func->isFortran();
+  bool MayBeInlined = IsFortran && Func->hasExternalLinkage();
 
   // Let unswitching happen for outermost loops.
   if (!MayBeInlined && !Lp.getParentLoop())
@@ -1409,7 +1410,7 @@ bool llvm::unswitchingMayAffectPerfectLoopnest(LoopInfo &LI, const Loop &Lp,
         BrInst->getSuccessor(1) != SubLoopPreheader)
       return false;
 
-    if (!isLoopHandledByLoopOpt(SubLoop, LI, TLI, MayBeInlined))
+    if (!isLoopHandledByLoopOpt(SubLoop, LI, TLI, IsFortran))
       return false;
   }
 
@@ -1418,10 +1419,10 @@ bool llvm::unswitchingMayAffectPerfectLoopnest(LoopInfo &LI, const Loop &Lp,
   if (!MayBeInlined && !ParentLp)
     return false;
 
-  if (!isLoopHandledByLoopOpt(CondLp, LI, TLI, MayBeInlined))
+  if (!isLoopHandledByLoopOpt(CondLp, LI, TLI, IsFortran))
     return false;
 
-  if (ParentLp && !isLoopHandledByLoopOpt(ParentLp, LI, TLI, MayBeInlined))
+  if (ParentLp && !isLoopHandledByLoopOpt(ParentLp, LI, TLI, IsFortran))
     return false;
 
   return true;
