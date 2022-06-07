@@ -62,7 +62,8 @@ TEST_F(CheckExtensions, FPGADevice) {
                                       "cl_khr_global_int32_base_atomics",
                                       "cl_khr_global_int32_extended_atomics",
                                       "cl_khr_local_int32_base_atomics",
-                                      "cl_khr_local_int32_extended_atomics"};
+                                      "cl_khr_local_int32_extended_atomics",
+                                      "cl_khr_spirv_linkonce_odr"};
 
   // Remove trailing '\0'
   extensions.erase(std::find(extensions.begin(), extensions.end(), '\0'),
