@@ -3141,8 +3141,14 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
 #if INTEL_CUSTOMIZATION
   FPM.addPass(CorrelatedValuePropagationPass());
-  if (EnableMultiVersioning)
+  if (EnableMultiVersioning) {
     FPM.addPass(MultiVersioningPass());
+
+#if INTEL_FEATURE_SW_DTRANS
+    if (DTransEnabled)
+      FPM.addPass(SimplifyCFGPass(SimplifyCFGOptions().hoistCommonInsts(true)));
+#endif // INTEL_FEATURE_SW_DTRANS
+  }
 #endif // INTEL_CUSTOMIZATION
   // LTO provides additional opportunities for tailcall elimination due to
   // link-time inlining, and visibility of nocapture attribute.
