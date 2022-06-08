@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===----------- Intel_TileMVInlMarker.cpp --------------------------------===//
 //
 // Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
@@ -83,7 +84,10 @@ static Function *uniqueCaller(Function &F) {
     auto BCO = dyn_cast<BitCastOperator>(U);
     if (BCO && BCO->hasNUses(0))
       continue;
-    auto CB = dyn_cast<CallInst>(U);
+    Value *V = U;
+    if (BCO && BCO->hasOneUser())
+      V = BCO->user_back();
+    auto CB = dyn_cast<CallInst>(V);
     if (!CB || Caller)
       return nullptr;
     Caller = CB->getCaller();
@@ -1252,7 +1256,10 @@ bool TileMVInlMarker::validateGVM() {
             return false;
           AS.insert(SI->getFunction());
         } else if (auto CB = dyn_cast<CallBase>(V)) {
-          Function *Callee = CB->getCalledFunction();
+          Value *CO = CB->getCalledOperand();
+          if (auto BO = dyn_cast<BitCastOperator>(CO))
+            CO = BO->getOperand(0);
+          auto Callee = dyn_cast<Function>(CO);
           if (!Callee)
             return false;
           AS.insert(Callee);
@@ -1279,8 +1286,17 @@ bool TileMVInlMarker::validateGVM() {
         auto BCO = dyn_cast<BitCastOperator>(U);
         if (BCO && BCO->hasNUses(0))
           continue;
-        auto CB = dyn_cast<CallBase>(U);
-        if (!CB || CB->getCalledFunction() != G)
+        Value *V = U;
+        if (BCO && BCO->hasOneUser())
+          V = BCO->user_back();
+        auto CB = dyn_cast<CallInst>(V);
+        if (!CB)
+          return false;
+        Value *CO = CB->getCalledOperand();
+        if (auto BO = dyn_cast<BitCastOperator>(CO))
+          CO = BO->getOperand(0);
+        auto Callee = dyn_cast<Function>(CO);
+        if (Callee != G)
           return false;
         Function *Caller = CB->getCaller();
         if (Caller == &Root)
@@ -1851,3 +1867,4 @@ PreservedAnalyses TileMVInlMarkerPass::run(Module &M,
   PA.preserve<WholeProgramAnalysis>();
   return PA;
 }
+#endif // INTEL_FEATURE_SW_ADVANCED

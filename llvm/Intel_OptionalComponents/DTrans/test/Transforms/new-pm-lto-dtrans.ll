@@ -72,7 +72,6 @@
 ; CHECK-NEXT: Running pass: dtrans::EliminateROFieldAccessPass
 ; CHECK-NEXT: Running pass: dtransOP::DynClonePass
 ; CHECK-NEXT: Running pass: dtrans::AnnotatorCleaner
-; CHECK-NEXT: Running pass: DopeVectorConstProp
 ; CHECK: Running pass: ArgumentPromotionPass on (foo)
 ; CHECK: Running pass: ArgumentPromotionPass on (main)
 

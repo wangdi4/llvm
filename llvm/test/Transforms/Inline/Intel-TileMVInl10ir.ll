@@ -1,15 +1,17 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -S -tilemvinlmarker -tile-candidate-mark -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes='tilemvinlmarker' -tile-candidate-mark -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
+; RUN: opt < %s -S -tilemvinlmarker -inline -tile-candidate-mark -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
+; RUN: opt < %s -S -passes='tilemvinlmarker,cgscc(inline)' -tile-candidate-mark -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
 
-; This is the same test as Intel-TileMVInl07.ll, but does not require asserts
+; This is the same test as Intel-TileMVInl10.ll, but does not require asserts
 ; and checks the IR only.
+
+; Check the IR (There isn't much to check beyond the condition, as everything
+; gets inlined into @MAIN__.)
 
 ; CHECK: define{{.*}}@MAIN__({{.*}})
 ; CHECK: br label %.clone.tile.cond
 ; CHECK: [[L2:[0-9]+]]:
-; CHECK: call{{.*}}@leapfrog_({{.*}})
 ; CHECK: br label %[[L1:[0-9]+]]
 ; CHECK: .clone.tile.cond:
 ; CHECK: %[[V1:[0-9]+]] = load i32, i32* @mymod_mp_mytester_, align 8
@@ -26,42 +28,6 @@
 ; CHECK: %.clone.tile.cmp = icmp ne i1 %clone.tile.cmp, false
 ; CHECK: br i1 %.clone.tile.cmp, label %[[L2]], label %.clone.tile.call
 ; CHECK: .clone.tile.call:
-; CHECK: call{{.*}}@leapfrog_.1({{.*}}){{ *$}}
-; CHECK: define{{.*}}@leapfrog_({{.*}})
-; CHECK: %t5 = load i32, i32* @mymod_mp_mytester_, align 8
-; CHECK: icmp sgt i32 %t5, 5
-; CHECK: br i1 true, label %{{.*}}, label %{{.*}}
-; CHECK: call{{.*}}@fun0_({{.*}}) #1{{ *$}}
-; CHECK: %t51 = load i32, i32* @mymod_mp_myglobal_, align 8
-; CHECK: icmp eq i32 %t51, 1
-; CHECK: br i1 true, label %{{.*}}, label %{{.*}}
-; CHECK: call{{.*}}@fun1_({{.*}}) #1{{ *$}}
-; CHECK: %t52 = load i32, i32* @mymod_mp_myglobal_, align 8
-; CHECK: icmp sge i32 %t52, 1
-; CHECK: br i1 true, label %{{.*}}, label %{{.*}}
-; CHECK: call{{.*}}@fun2_({{.*}}) #1{{ *$}}
-; CHECK: %t53 = load i1, i1* @mymod_mp_mybool_, align 8
-; CHECK: br i1 true, label %{{.*}}, label %{{.*}}
-; CHECK: call{{.*}}@extra_({{.*}}) #1{{ *$}}
-; CHECK: call{{.*}}@switch_({{.*}}) #1{{ *$}}
-; CHECK: %t7 = load i32, i32* @mymod_mp_mynnodes_, align 8
-; CHECK: icmp eq i32 %t7, -2
-; CHECK: br i1 false, label %{{.*}}, label %{{.*}}
-; CHECK: define{{.*}}@switch_({{.*}})
-; CHECK: %4 = load i1, i1* @mymod_mp_mybool_, align 4
-; CHECK: br i1 true, label %6, label %7
-; CHECK: call{{.*}}@fun00_({{.*}}) #1{{ *$}}
-; CHECK: call{{.*}}@fun01_({{.*}}) #1{{ *$}}
-; CHECK: define{{.*}}@leapfrog_.1({{.*}})
-; CHECK: call{{.*}}@fun0_({{.*}}){{ *$}}
-; CHECK: call{{.*}}@fun1_({{.*}}){{ *$}}
-; CHECK: call{{.*}}@fun2_({{.*}}){{ *$}}
-; CHECK: call{{.*}}@extra_({{.*}}){{ *$}}
-; CHECK: call{{.*}}@switch_.2({{.*}}){{ *$}}
-; CHECK: define{{.*}}@switch_.2({{.*}})
-; CHECK: call{{.*}}@fun00_({{.*}}){{ *$}}
-; CHECK: call{{.*}}@fun01_({{.*}}){{ *$}}
-; CHECK: attributes #1 = { "prefer-inline-tile-choice" }
 
 @"main_$A" = internal global [100 x double] zeroinitializer, align 16
 @"main_$B" = internal global [100 x double] zeroinitializer, align 16
@@ -159,7 +125,7 @@ define dso_local void @MAIN__() local_unnamed_addr #2 {
   %21 = bitcast { i8* }* %6 to i8*
   %22 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_read_seq_lis(i8* nonnull %13, i32 5, i64 1239157112576, i8* nonnull %16, i8* nonnull %21)
   call fastcc void @init_() #3
-  call fastcc void @leapfrog_(double* getelementptr inbounds ([100 x double], [100 x double]* @"main_$A", i64 0, i64 0), double* getelementptr inbounds ([100 x double], [100 x double]* @"main_$B", i64 0, i64 0), i32* nonnull @anon.2, i32* nonnull %2) #3
+  call void (...) bitcast (void (double*, double*, i32*, i32*)* @leapfrog_ to void (...)*)(double* getelementptr inbounds ([100 x double], [100 x double]* @"main_$A", i64 0, i64 0), double* getelementptr inbounds ([100 x double], [100 x double]* @"main_$B", i64 0, i64 0), i32* nonnull @anon.1, i32* nonnull %2)
   ret void
 }
 
@@ -191,7 +157,7 @@ L76:                                               ; preds = %L75
   tail call fastcc void @extra_(double* %0, i32* %2)
   br label %L77
 L77:                                               ; preds = %l75, %L76
-  tail call fastcc void @switch_(double* %0, double* %1, i32* %2)
+  tail call fastcc void @switch_(double* %0, double* %1, i32* %2, i32* %3)
   br label %L8
 L8:                                                ; preds = %L77
   br label %L9
@@ -206,19 +172,21 @@ L14:                                               ; preds = %L12, %L9
   ret void
 }
 
-define internal fastcc void @switch_(double* noalias nocapture %0, double* noalias nocapture %1, i32* noalias nocapture readonly %2) unnamed_addr #0 {
-  %4 = load i1, i1* @mymod_mp_mybool_, align 4
-  br i1 %4, label %6, label %7
+define internal fastcc void @switch_(double* noalias nocapture %0, double* noalias nocapture %1, i32* noalias nocapture readonly %2, i32* noalias nocapture readonly %3) unnamed_addr #0 {
+  %5 = load i32, i32* %3, align 4
+  %6 = and i32 %5, 1
+  %7 = icmp eq i32 %6, 0
+  br i1 %7, label %9, label %8
 
-5:                                                ; preds = %3
+8:                                                ; preds = %4
   tail call fastcc void @fun00_(double* %0, double* %1, i32* %2)
-  br label %7
+  br label %10
 
-6:                                                ; preds = %3
+9:                                                ; preds = %4
   tail call fastcc void @fun01_(double* %0, double* %1, i32* %2)
-  br label %7
+  br label %10
 
-7:                                               ; preds = %6, %7
+10:                                               ; preds = %9, %8
   ret void
 }
 

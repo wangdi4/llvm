@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt -opaque-pointers < %s -S -tilemvinlmarker -tile-candidate-mark -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers < %s -S -passes='tilemvinlmarker' -tile-candidate-mark -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
 
@@ -405,3 +407,4 @@ attributes #0 = { nounwind readnone speculatable }
 !55 = !DILocation(line: 52, column: 1, scope: !53)
 !56 = !DILocation(line: 53, column: 1, scope: !53)
 !57 = !DILocation(line: 54, column: 1, scope: !53)
+; end INTEL_FEATURE_SW_ADVANCED

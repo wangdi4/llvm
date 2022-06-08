@@ -412,11 +412,11 @@ ModulePass *createAggInlinerLegacyPass(void);
 #if INTEL_FEATURE_SW_ADVANCED
 /// \brief This pass eliminates dead array element operations.
 ModulePass *createDeadArrayOpsEliminationLegacyPass(void);
-#endif // INTEL_FEATURE_SW_ADVANCED
 
 /// \brief This pass multiversions for tiling and marks tiled functions for
 /// inlining.
 ModulePass *createTileMVInlMarkerLegacyPass(void);
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 /// This pass adds noalias attribute to function arguments where it is safe
 /// to do so.
