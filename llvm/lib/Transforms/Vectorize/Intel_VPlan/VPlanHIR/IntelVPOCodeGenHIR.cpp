@@ -4568,7 +4568,7 @@ bool VPOCodeGenHIR::serializeDivRem(const VPInstruction *VPInst, RegDDRef *Mask,
     if (Plan->getVPlanDA()->isUniform(*VPInst)) {
       scalarizePredicatedUniformInst(VPInst, Mask);
       return true;
-    } else {
+    } else if (!EnableIntDivRemBlendWithSafeValue) {
       serializeInstruction(VPInst, Mask);
       // Remark: division was scalarized due to fp-model requirements
       OptRptStats.SerializedInstRemarks.emplace_back(
