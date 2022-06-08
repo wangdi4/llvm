@@ -49,6 +49,7 @@ typedef struct _cl_dev_internal_subdevice_id
     //Arch. data
     cl_uint  num_compute_units;
     bool     is_by_names;
+    bool     is_by_numa;
     cl_uint* legal_core_ids;
 
     //Task dispatcher for this sub-device
