@@ -66,6 +66,7 @@ extern unsigned DefaultTripCount;
 extern bool VPlanEnablePeeling;
 // Flag to indicate if peeling is enabled in general, including static peeling.
 extern bool VPlanEnableGeneralPeeling;
+extern bool EnableIntDivRemBlendWithSafeValue;
 
 /// Auxiliary class to keep vectorization scenario for a single loop
 /// vectorization. It describes which variants of the loops are selected for
@@ -440,6 +441,10 @@ public:
 
   /// Insert all-zero bypasses for \p Plan.
   void insertAllZeroBypasses(VPlanVector *Plan, unsigned VF);
+
+  /// Transform integer div/rem masked instructions blending
+  /// the second operand with 1.
+  void blendWithSafeValue(void);
 
   /// Return Loop Unroll Factor either forced by option or pragma
   /// or advised by optimizations.

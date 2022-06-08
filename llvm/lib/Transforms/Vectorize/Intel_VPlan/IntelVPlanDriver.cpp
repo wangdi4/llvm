@@ -428,6 +428,9 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 
   assert((WRLp || VPlanVectCand) && "WRLp can be null in stress testing only!");
 
+  // Transform masked integer div/rem before CM.
+  LVP.blendWithSafeValue();
+
   unsigned VF;
   VPlanVector *Plan;
   std::tie(VF, Plan) = LVP.selectBestPlan();
@@ -1564,6 +1567,9 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     LLVM_DEBUG(dbgs() << "VConflict idiom is not supported.\n");
     return false;
   }
+
+  // Transform masked integer div/rem before CM.
+  LVP.blendWithSafeValue();
 
   // TODO: don't force vectorization if getIsAutoVec() is set to true.
   unsigned VF;

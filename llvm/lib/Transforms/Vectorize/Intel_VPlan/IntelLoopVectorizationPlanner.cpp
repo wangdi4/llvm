@@ -103,6 +103,11 @@ static cl::opt<unsigned> FavorAlignedMultiplierDefaultTCEst(
   "vplan-favor-aligned-multiplier-default-tc", cl::init(2), cl::Hidden,
   cl::desc("Favour aligned tolerance multiplier for default TC estimation"));
 
+static cl::opt<bool, true> EnableIntDivRemBlendWithSafeValueOpt(
+    "vplan-enable-int-divrem-blend-with-safe-value", cl::Hidden,
+    cl::location(EnableIntDivRemBlendWithSafeValue),
+        cl::desc("Enable blend with safe value for integer div/rem."));
+
 static LoopVPlanDumpControl LCSSADumpControl("lcssa", "LCSSA transformation");
 static LoopVPlanDumpControl LoopCFUDumpControl("loop-cfu",
                                                "LoopCFU transformation");
@@ -120,6 +125,10 @@ static LoopVPlanDumpControl
 static LoopVPlanDumpControl
     InitialTransformsDumpControl("initial-transforms",
                                  "initial VPlan transforms");
+static LoopVPlanDumpControl
+    BlendWithSafeValueDumpControl("blend-with-safe-value",
+                                 "blend integer div/rem with safe value");
+
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::list<unsigned> VPlanCostModelPrintAnalysisForVF(
@@ -226,6 +235,7 @@ bool EnableNewCFGMerge = true;
 bool EnableNewCFGMergeHIR = true;
 bool VPlanEnablePeeling = false;
 bool VPlanEnableGeneralPeeling = true;
+bool EnableIntDivRemBlendWithSafeValue = true;
 } // namespace vpo
 } // namespace llvm
 
@@ -2011,4 +2021,73 @@ bool LoopVectorizationPlanner::hasLoopNormalizedInduction(const VPLoop *Loop,
     return supportedCmpBranch(Header, Latch, Cond, AddI, ExactUB);
   }
   return false;
+}
+
+// Transforms the integer masked div/rem instructions blending the divisor with
+// a safe value (1). The transformation looks like below:
+//   %p = block-predicate i1 ...
+//   ...
+//   %r = idiv i32 %a, %b
+// ==>
+//   %p = block-predicate i1 ...
+//   ...
+//   %safe_divisor = select i1 %p, i32 %b, 1
+//   %r = idiv i32 %a, %safe_divisor
+//
+void LoopVectorizationPlanner::blendWithSafeValue() {
+
+  if (!EnableIntDivRemBlendWithSafeValue)
+    return;
+
+  SmallPtrSet<VPlan *, 2> Visited;
+
+  auto ProcessVPlan = [&Visited](VPlan &P) -> void {
+    if (!Visited.insert(&P).second)
+      return;
+
+    auto NeedProcessInst = [&P](const VPInstruction &Inst) {
+      auto Opcode = Inst.getOpcode();
+      if (Opcode != Instruction::SDiv && Opcode != Instruction::UDiv &&
+          Opcode != Instruction::SRem && Opcode != Instruction::URem)
+        return false;
+
+      // Skipping non masked div/rem.
+      if (!Inst.getParent()->getPredicate())
+        return false;
+
+      // And uniform too, they are processed in a special way in CG.
+      if (P.getVPlanDA()->isUniform(Inst))
+        return false;
+
+      // When the divisor is unsafe we blend with safe value.
+      return !isDivisorSpeculationSafeForDivRem(Inst.getOpcode(),
+                                                Inst.getOperand(1));
+    };
+
+    SmallVector<VPInstruction *, 4> InstrToProcess(
+        map_range(make_filter_range(vpinstructions(&P), NeedProcessInst),
+                  [](VPInstruction &I) { return &I; }));
+    VPBuilder Builder;
+    for (auto *Inst : InstrToProcess) {
+      Builder.setInsertPoint(Inst);
+      // Get divisor and insert 1 in masked off lanes, to ensure we don't have
+      // unwanted exception raised.
+      auto *Op = Inst->getOperand(1);
+      auto *VPOne = P.getVPConstant(ConstantInt::get(Op->getType(), 1));
+      VPValue *SafeOp =
+          Builder.createSelect(Inst->getParent()->getPredicate(), Op, VPOne);
+      P.getVPlanDA()->updateDivergence(*SafeOp);
+      Inst->replaceUsesOfWith(Op, SafeOp);
+    }
+    VPLAN_DUMP(BlendWithSafeValueDumpControl, P);
+  };
+
+  for (auto &Pair : VPlans) {
+    if (Pair.first == 1) // VF
+      continue;
+
+    ProcessVPlan(*Pair.second.MainPlan);
+    if (Pair.second.MaskedModeLoop)
+      ProcessVPlan(*Pair.second.MaskedModeLoop);
+  }
 }

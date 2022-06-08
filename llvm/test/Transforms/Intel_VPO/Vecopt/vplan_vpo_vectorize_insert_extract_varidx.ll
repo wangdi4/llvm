@@ -351,31 +351,33 @@ define dso_local float @maskedGetElement(<4 x float>* %vec, float %val, i32 %i) 
 ; CHECK:         [[WIDE_MASKED_LOAD:%.*]] = call <8 x float> @llvm.masked.load.v8f32.p0v8f32(<8 x float>* [[POINTER:%.*]], i32 16, <8 x i1> [[LOADMASK:%.*]], <8 x float> undef)
 ; CHECK-NEXT:    [[EXTRACTSUBVEC_7:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD]], <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
 ; CHECK-NEXT:    [[EXTRACTSUBVEC_:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK:         [[TMP8:%.*]] = srem i32 [[CONV:%.*]], [[DOTEXTRACT_0_6:%.*]]
-; CHECK:         [[TMP12:%.*]] = srem i32 [[CONV]], [[DOTEXTRACT_1_:%.*]]
-; CHECK:         [[PREDICATE8:%.*]] = extractelement <2 x i1> [[TMP3:%.*]], i64 0
-; CHECK-NEXT:    [[TMP15:%.*]] = icmp eq i1 [[PREDICATE8]], true
-; CHECK-NEXT:    br i1 [[TMP15]], label [[PRED_EXTRACTELEMENT_IF:%.*]], label [[TMP18:%.*]]
+; CHECK:         [[TMP7:%.*]] = select <2 x i1> [[TMP5:%.*]], <2 x i32> [[TMP3:%.*]], <2 x i32> <i32 1, i32 1>
+; CHECK-NEXT:    [[TMP8:%.*]] = srem <2 x i32> [[BROADCAST_SPLAT:%.*]], [[TMP7]]
+; CHECK-NEXT:    [[DOTEXTRACT_1_:%.*]] = extractelement <2 x i32> [[TMP8]], i32 1
+; CHECK-NEXT:    [[DOTEXTRACT_0_6:%.*]] = extractelement <2 x i32> [[TMP8]], i32 0
+; CHECK-NEXT:    [[PREDICATE:%.*]] = extractelement <2 x i1> [[TMP5]], i64 0
+; CHECK-NEXT:    [[TMP9:%.*]] = icmp eq i1 [[PREDICATE]], true
+; CHECK-NEXT:    br i1 [[TMP9]], label [[PRED_EXTRACTELEMENT_IF:%.*]], label [[TMP12:%.*]]
 ; CHECK:       pred.extractelement.if:
-; CHECK-NEXT:    [[TMP16:%.*]] = extractelement <4 x float> [[EXTRACTSUBVEC_]], i32 [[TMP10]]
-; CHECK-NEXT:    [[TMP17:%.*]] = insertelement <2 x float> undef, float [[TMP16]], i32 0
-; CHECK-NEXT:    br label [[TMP18]]
-; CHECK:       18:
-; CHECK-NEXT:    [[TMP19:%.*]] = phi <2 x float> [ undef, [[PRED_SREM_CONTINUE21:%.*]] ], [ [[TMP17]], [[PRED_EXTRACTELEMENT_IF]] ]
+; CHECK-NEXT:    [[TMP10:%.*]] = extractelement <4 x float> [[EXTRACTSUBVEC_]], i32 [[DOTEXTRACT_0_6]]
+; CHECK-NEXT:    [[TMP11:%.*]] = insertelement <2 x float> undef, float [[TMP10]], i32 0
+; CHECK-NEXT:    br label [[TMP12]]
+; CHECK:       12:
+; CHECK-NEXT:    [[TMP13:%.*]] = phi <2 x float> [ undef, [[VPLANNEDBB5:%.*]] ], [ [[TMP11]], [[PRED_EXTRACTELEMENT_IF]] ]
 ; CHECK-NEXT:    br label [[PRED_EXTRACTELEMENT_CONTINUE:%.*]]
 ; CHECK:       pred.extractelement.continue:
-; CHECK-NEXT:    [[PREDICATE9:%.*]] = extractelement <2 x i1> [[TMP3]], i64 1
-; CHECK-NEXT:    [[TMP20:%.*]] = icmp eq i1 [[PREDICATE9]], true
-; CHECK-NEXT:    br i1 [[TMP20]], label [[PRED_EXTRACTELEMENT_IF22:%.*]], label [[TMP23:%.*]]
-; CHECK:       pred.extractelement.if22:
-; CHECK-NEXT:    [[TMP21:%.*]] = extractelement <4 x float> [[EXTRACTSUBVEC_10:%.*]], i32 [[TMP14]]
-; CHECK-NEXT:    [[TMP22:%.*]] = insertelement <2 x float> [[TMP19]], float [[TMP21]], i32 1
-; CHECK-NEXT:    br label [[TMP23]]
-; CHECK:       23:
-; CHECK-NEXT:    [[TMP24:%.*]] = phi <2 x float> [ [[TMP19]], [[PRED_EXTRACTELEMENT_CONTINUE]] ], [ [[TMP22]], [[PRED_EXTRACTELEMENT_IF22]] ]
-; CHECK-NEXT:    br label [[PRED_EXTRACTELEMENT_CONTINUE23:%.*]]
-; CHECK:       pred.extractelement.continue23:
-; CHECK-NEXT:    [[TMP25:%.*]] = fadd <2 x float> [[VEC_PHI4:%.*]], [[TMP24]]
+; CHECK-NEXT:    [[PREDICATE7:%.*]] = extractelement <2 x i1> [[TMP5]], i64 1
+; CHECK-NEXT:    [[TMP14:%.*]] = icmp eq i1 [[PREDICATE7]], true
+; CHECK-NEXT:    br i1 [[TMP14]], label [[PRED_EXTRACTELEMENT_IF18:%.*]], label [[TMP17:%.*]]
+; CHECK:       pred.extractelement.if18:
+; CHECK-NEXT:    [[TMP15:%.*]] = extractelement <4 x float> [[EXTRACTSUBVEC_8:%.*]], i32 [[DOTEXTRACT_1_]]
+; CHECK-NEXT:    [[TMP16:%.*]] = insertelement <2 x float> [[TMP13]], float [[TMP15]], i32 1
+; CHECK-NEXT:    br label [[TMP17]]
+; CHECK:       17:
+; CHECK-NEXT:    [[TMP18:%.*]] = phi <2 x float> [ [[TMP13]], [[PRED_EXTRACTELEMENT_CONTINUE]] ], [ [[TMP16]], [[PRED_EXTRACTELEMENT_IF18]] ]
+; CHECK-NEXT:    br label [[PRED_EXTRACTELEMENT_CONTINUE19:%.*]]
+; CHECK:       pred.extractelement.continue19:
+; CHECK-NEXT:    [[TMP19:%.*]] = fadd <2 x float> [[VEC_PHI4:%.*]], [[TMP18]]
 ;
 omp.inner.for.body.lr.ph:
   %conv = fptosi float %val to i32
