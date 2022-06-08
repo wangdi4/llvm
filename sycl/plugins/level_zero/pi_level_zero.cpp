@@ -4288,12 +4288,7 @@ pi_result piProgramLink(pi_context Context, pi_uint32 NumDevices,
     if (DeviceEntry == Context->Devices.end())
       return PI_ERROR_INVALID_DEVICE;
   }
-<<<<<<< HEAD
-  PI_ASSERT(!PFnNotify && !UserData, PI_INVALID_VALUE);
-
-=======
   PI_ASSERT(!PFnNotify && !UserData, PI_ERROR_INVALID_VALUE);
->>>>>>> 3fcf84847df31a943db2ad45f6dc3fcc8d8ea5bd
   if (NumInputPrograms == 0 || InputPrograms == nullptr)
     return PI_ERROR_INVALID_VALUE;
 
@@ -7296,14 +7291,8 @@ static pi_result USMSharedAllocImpl(void **ResultPtr, pi_context Context,
                                     pi_device Device,
                                     pi_usm_mem_properties *,
                                     size_t Size, pi_uint32 Alignment) {
-<<<<<<< HEAD
-  PI_ASSERT(Context, PI_INVALID_CONTEXT);
-  PI_ASSERT(Device, PI_INVALID_DEVICE);
-=======
-  (void)Properties;
   PI_ASSERT(Context, PI_ERROR_INVALID_CONTEXT);
   PI_ASSERT(Device, PI_ERROR_INVALID_DEVICE);
->>>>>>> 3fcf84847df31a943db2ad45f6dc3fcc8d8ea5bd
 
   // TODO: translate PI properties to Level Zero flags
   ZeStruct<ze_host_mem_alloc_desc_t> ZeHostDesc;
