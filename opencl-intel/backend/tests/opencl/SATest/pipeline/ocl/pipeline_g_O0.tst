@@ -49,8 +49,7 @@
 ; CHECK-NEXT: Skipping pass: LoopUnrollPass
 ; CHECK-NEXT: Skipping pass OptimizeIDivAndIRemPass
 ; CHECK-NEXT: Skipping pass: OptimizeIDivAndIRemPass
-; CHECK-NEXT: Skipping pass PreventDivCrashesPass
-; CHECK-NEXT: Skipping pass: PreventDivCrashesPass
+; CHECK-NEXT: Running pass: PreventDivCrashesPass
 ; CHECK-NEXT: Running pass: ImplicitGIDPass
 ; CHECK-NEXT: Running analysis: Intel Kernel DataPerBarrier Analysis
 ; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
