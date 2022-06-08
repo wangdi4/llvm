@@ -1925,8 +1925,8 @@ private:
                           ParsedAttributes &Attrs);
   bool ParseLoopHintValueList(LoopHint &Hint, ParsedAttributes &Attrs);
   bool ParseLoopCountClause(LoopHint &Hint, ParsedAttributes &Attrs);
-  bool HandlePragmaLoopCount(LoopHint &Hint,
-                             ParsedAttributes &Attrs);
+  bool HandlePragmaLoopCount(LoopHint &Hint, ParsedAttributes &Attrs);
+  bool HandlePragmaVector(LoopHint &Hint, ParsedAttributes &Attrs);
 #endif // INTEL_CUSTOMIZATION
 
   ExprResult ParseObjCBoolLiteral();
@@ -2235,6 +2235,9 @@ private:
                                   ParsedStmtContext StmtCtx,
                                   SourceLocation *TrailingElseLoc,
                                   ParsedAttributes &Attrs);
+  StmtResult ParsePragmaVector(StmtVector &Stmts, ParsedStmtContext StmtCtx,
+                               SourceLocation *TrailingElseLoc,
+                               ParsedAttributes &Attrs);
   // Pragma prefetch
   std::unique_ptr<PragmaHandler> PrefetchHandler;
   // Pragma noprefetch

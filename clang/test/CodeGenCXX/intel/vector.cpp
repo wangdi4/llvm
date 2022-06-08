@@ -160,6 +160,15 @@ void foo4() {
   for(int i = 0;i < n; ++i) {
     // CHECK: br label %{{.*}}, !llvm.loop ![[LOOP_33:[0-9]+]]
   }
+  #pragma vector always assert
+  for(int i = 0;i < n; ++i) {
+    // CHECK: br label %{{.*}}, !llvm.loop ![[LOOP_34:[0-9]+]]
+  }
+  #pragma vector always assert
+  #pragma vector aligned
+  for(int i = 0;i < n; ++i) {
+    // CHECK: br label %{{.*}}, !llvm.loop ![[LOOP_35:[0-9]+]]
+  }
 }
 
 // CHECK: ![[LOOP_2]] = distinct !{![[LOOP_2]], ![[LOOP_MUSTPROGRESS:[0-9]+]], ![[NOVECTOR:[0-9]+]]}
@@ -190,3 +199,6 @@ void foo4() {
 // CHECK: ![[LOOP_33]] = distinct !{![[LOOP_33]], ![[LOOP_MUSTPROGRESS]], ![[NODYNAMICALIGN:[0-9]+]], ![[NOVECREMAINDER:[0-9]+]]}
 // CHECK: ![[NODYNAMICALIGN]] = !{!"llvm.loop.intel.vector.nodynamic_align", !"true"}
 // CHECK: ![[NOVECREMAINDER]] = !{!"llvm.loop.intel.vector.novecremainder", !"true"}
+// CHECK: ![[LOOP_34]] = distinct !{![[LOOP_34]], ![[LOOP_MUSTPROGRESS]], ![[VALWAYS]], ![[VENABLE]], ![[ALWAYSASSERT:[0-9]+]]}
+// CHECK: ![[ALWAYSASSERT]] = !{!"llvm.loop.vectorize.assert"}
+// CHECK: ![[LOOP_35]] = distinct !{![[LOOP_35]], ![[LOOP_MUSTPROGRESS]], ![[VALWAYS]], ![[VENABLE]], ![[ALWAYSASSERT]], ![[VALIGNED]]}

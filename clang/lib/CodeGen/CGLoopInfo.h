@@ -124,6 +124,9 @@ struct LoopAttributes {
   /// Value for llvm.loop.vector_always.enable metadata.
   bool VectorizeAlwaysEnable;
 
+  /// Value for llvm.loop.vector_always_assert.enable metadata.
+  bool VectorizeAlwaysAssertEnable;
+
   /// Value for llvm.loop.intel.vector.aligned.enable metadata.
   bool VectorizeAlignedEnable;
 
@@ -487,6 +490,10 @@ public:
   /// Set next pushed loop  'vector_always.enable'
   void setVectorizeAlwaysEnable() {
     StagedAttrs.VectorizeAlwaysEnable = true;
+  }
+  /// Set next pushed loop  'vector_always.enable'
+  void setVectorizeAlwaysAssertEnable() {
+    StagedAttrs.VectorizeAlwaysAssertEnable = true;
   }
   /// Set next pushed loop  'vector_aligned.enable'
   void setVectorizeAlignedEnable() {

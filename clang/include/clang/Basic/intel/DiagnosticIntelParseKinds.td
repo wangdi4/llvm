@@ -48,9 +48,11 @@ def warn_multiple_ivdep_clause : Warning<
 def warn_invalid_ivdep_combination : Warning<
   "%select{'loop'|'back'}0 may not appear in '#pragma ivdep' here - ignored">,
   InGroup<IgnoredPragmas>;
-def warn_pragma_vector_invalid_option : Warning<
-  "%select{invalid|missing}0 option%select{ %1|}0; expected always - ignored">,
-  InGroup<IgnoredPragmas>;
+def warn_pragma_vector_invalid_option
+    : Warning<"%select{invalid|missing}0 option%select{ %1|}0; "
+              "%select{expected always|always must precede assert qualifier}0 "
+              "- ignored">,
+      InGroup<IgnoredPragmas>;
 def warn_pragma_block_loop_invalid_option : Warning<
   "invalid option%select{ %1|}0; expected factor, level or private - ignored">,
   InGroup<IgnoredPragmas>;
