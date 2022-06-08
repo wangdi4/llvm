@@ -1410,6 +1410,7 @@ void ModuleBitcodeWriter::writeModuleInfo() {
         GV.getUnnamedAddr() != GlobalValue::UnnamedAddr::None ||
         GV.isExternallyInitialized() ||
         GV.getDLLStorageClass() != GlobalValue::DefaultStorageClass ||
+<<<<<<< HEAD
         GV.hasComdat() ||
         GV.hasAttributes() ||
 #if INTEL_COLLAB
@@ -1417,6 +1418,9 @@ void ModuleBitcodeWriter::writeModuleInfo() {
         GV.isTargetDeclare() ||
 #endif // INTEL_COLLAB
         GV.isDSOLocal() ||
+=======
+        GV.hasComdat() || GV.hasAttributes() || GV.isDSOLocal() ||
+>>>>>>> 5d9de5f446601d80ebbe5e281f783912b3585bad
         GV.hasPartition()) {
       Vals.push_back(getEncodedVisibility(GV));
       Vals.push_back(getEncodedThreadLocalMode(GV));
