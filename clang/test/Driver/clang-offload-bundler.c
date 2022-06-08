@@ -114,23 +114,39 @@
 // RUN: not clang-offload-bundler -type=a -targets=hxst-powerpcxxle-ibm-linux-gnu,openxp-pxxerpc64le-ibm-linux-gnu,xpenmp-x86_xx-pc-linux-gnu -input=%t.i -input=%t.tgt1 -input=%t.tgt2 -output=%t.bundle.i 2>&1 | FileCheck %s --check-prefix CK-ERR10A
 // CK-ERR10A: error: Archive files are only supported for unbundling
 
+<<<<<<< HEAD
 // RUN: not clang-offload-bundler -type=i -targets=host-%itanium_abi_triple,openmp-powerpc64le-ibm-linux-gnu -output=%t.i -output=%t.tgt1 -output=%t.tgt2 -input=%t.bundle.i -unbundle -check-section 2>&1 | FileCheck %s --check-prefix CK-ERR10
+=======
+// RUN: not clang-offload-bundler -type=i -targets=host-%itanium_abi_triple,openmp-powerpc64le-ibm-linux-gnu -outputs=%t.i,%t.tgt1,%t.tgt2 -inputs=%t.bundle.i -unbundle -check-section 2>&1 | FileCheck %s --check-prefix CK-ERR10
+>>>>>>> 25249ababa14fdece5973c05eeb6e7049a3867c8
 // CK-ERR10: error: -unbundle and -check-section are not compatible options
 
 // RUN: not clang-offload-bundler -type=i -targets=host-%itanium_abi_triple,openmp-powerpc64le-ibm-linux-gnu -input=%t.bundle.i,%t.i  -check-section 2>&1 | FileCheck %s --check-prefix CK-ERR11
 // CK-ERR11: error: only one target supported in checking mode
 
+<<<<<<< HEAD
+=======
+// RUN: not clang-offload-bundler -type=i -targets=host-%itanium_abi_triple,openmp-powerpc64le-ibm-linux-gnu -inputs=%t.bundle.i  -check-section 2>&1 | FileCheck %s --check-prefix CK-ERR12
+// CK-ERR12: error: only one target supported in checking mode
+
+// RUN: not clang-offload-bundler -type=i -targets=openmp-powerpc64le-ibm-linux-gnu -inputs=%t.bundle.i -outputs=%t.r  -check-section 2>&1 | FileCheck %s --check-prefix CK-ERR13
+// CK-ERR13: error: no output file supported in checking mode
+
+>>>>>>> 25249ababa14fdece5973c05eeb6e7049a3867c8
 // RUN: not clang-offload-bundler -type=i -targets=host-%itanium_abi_triple,openmp-powerpc64le-ibm-linux-gnu,openmp-x86_64-pc-linux-gnu -input=%t.i -inputs=%t.tgt1,%t.tgt2 -output=%t.bundle.i -unbundle 2>&1 | FileCheck %s --check-prefix CK-ERR11A
 // CK-ERR11A: error: -inputs and -input cannot be used together, use only -input instead
 
 // RUN: not clang-offload-bundler -type=i -targets=host-%itanium_abi_triple,openmp-powerpc64le-ibm-linux-gnu -output=%t.i -outputs=%t.tgt1,%t.tgt2 -input=%t.bundle.i -unbundle 2>&1 | FileCheck %s --check-prefix CK-ERR11B
 // CK-ERR11B: error: -outputs and -output cannot be used together, use only -output instead
+<<<<<<< HEAD
 
 // RUN: not clang-offload-bundler -type=i -targets=host-%itanium_abi_triple,openmp-powerpc64le-ibm-linux-gnu -input=%t.bundle.i  -check-section 2>&1 | FileCheck %s --check-prefix CK-ERR12
 // CK-ERR12: error: only one target supported in checking mode
 
 // RUN: not clang-offload-bundler -type=i -targets=openmp-powerpc64le-ibm-linux-gnu -input=%t.bundle.i -output=%t.r  -check-section 2>&1 | FileCheck %s --check-prefix CK-ERR13
 // CK-ERR13: error: no output file supported in checking mode
+=======
+>>>>>>> 25249ababa14fdece5973c05eeb6e7049a3867c8
 
 //
 // Check text bundle. This is a readable format, so we check for the format we expect to find.
