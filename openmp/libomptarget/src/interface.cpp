@@ -750,13 +750,17 @@ EXTERN int __tgt_get_interop_property(
     *property_value = (void *) omp_get_interop_ptr(interop_obj, omp_ipr_targetsync, &ret_code);
     break;
   case INTEROP_PLATFORM_HANDLE:
-    *property_value = (void *) omp_get_interop_ptr(interop_obj, omp_ipr_platform, &ret_code);
+    // FOr level 0 return PLATFORM_HANDLE  for  OpenCL return CONTEXT_HANDLE
+    if (ext_obj->plugin_interface == INTEROP_PLUGIN_LEVEL0) { 
+       *property_value = (void *) omp_get_interop_ptr(interop_obj, omp_ipr_platform, &ret_code);
+       break;
+    }
+    [[fallthrough]];
+  case INTEROP_CONTEXT_HANDLE:
+    *property_value = (void *) omp_get_interop_ptr(interop_obj, omp_ipr_device_context, &ret_code);
     break;
   case INTEROP_DEVICE_HANDLE:
     *property_value = (void *) omp_get_interop_ptr(interop_obj, omp_ipr_device, &ret_code);
-    break;
-  case INTEROP_CONTEXT_HANDLE:
-    *property_value = (void *) omp_get_interop_ptr(interop_obj, omp_ipr_device_context, &ret_code);
     break;
   default:
     DP("Invalid interop property name " PRId32 "\n");

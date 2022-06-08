@@ -439,6 +439,10 @@ Retry:
     ProhibitAttributes(Attrs);
     return ParsePragmaLoopCount(Stmts, StmtCtx, TrailingElseLoc, Attrs);
 
+  case tok::annot_pragma_vector:
+    ProhibitAttributes(Attrs);
+    return ParsePragmaVector(Stmts, StmtCtx, TrailingElseLoc, Attrs);
+
   case tok::annot_pragma_loop_fuse:
     ProhibitAttributes(Attrs);
     return HandlePragmaLoopFuse();

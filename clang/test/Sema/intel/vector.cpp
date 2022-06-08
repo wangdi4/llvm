@@ -47,6 +47,19 @@ void zoo(int i, int *x, int *y) {
   for (i = 0; i < 10; ++i) {  // this is OK
     x[i] = y[i];
   }
+
+  // CHECK: AttributedStmt
+  // CHECK-NEXT: LoopHintAttr{{.*}}VectorizeAlways Enable
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: LoopHintAttr{{.*}}VectorizeAlwaysAssert Enable
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: ForStmt
+  #pragma vector always assert
+  for (i = 0; i < 10; ++i) {  // this is OK
+    x[i] = y[i];
+  }
 }
 
 void goo(int i, int *x, int *y) {
