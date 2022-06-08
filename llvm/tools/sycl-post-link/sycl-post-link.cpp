@@ -99,7 +99,7 @@ using string_vector = std::vector<std::string>;
 
 namespace {
 
-#ifdef _NDEBUG
+#ifdef NDEBUG
 #define DUMP_ENTRY_POINTS(args...)
 #else
 constexpr int DebugPostLink = 0;
@@ -108,7 +108,7 @@ constexpr int DebugPostLink = 0;
   if (DebugPostLink > 0) {                                                     \
     llvm::module_split::dumpEntryPoints(__VA_ARGS__);                          \
   }
-#endif
+#endif // NDEBUG
 
 cl::OptionCategory PostLinkCat{"sycl-post-link options"};
 
@@ -658,7 +658,7 @@ std::string saveModuleProperties(module_split::ModuleDesc &MD,
 // Saves specified collection of symbols to a file.
 std::string saveModuleSymbolTable(const module_split::EntryPointVec &Es, int I,
                                   StringRef Suffix) {
-#ifndef _NDEBUG
+#ifndef NDEBUG
   if (DebugPostLink > 0) {
     llvm::errs() << "ENTRY POINTS saving Sym table {\n";
     for (const auto *F : Es) {
@@ -666,7 +666,7 @@ std::string saveModuleSymbolTable(const module_split::EntryPointVec &Es, int I,
     }
     llvm::errs() << "}\n";
   }
-#endif
+#endif // NDEBUG
   // Concatenate names of the input entry points with "\n".
   std::string SymT;
 
@@ -984,10 +984,14 @@ processInputModule(std::unique_ptr<Module> M) {
       MMs.emplace_back(std::move(MDesc1));
     }
     Modified |= MMs.size() > 1;
-#ifndef _NDEBUG
+#ifndef NDEBUG
     bool NoSplitOccurred = (MMs.size() == 1) && (Table->getNumRows() == 0);
+<<<<<<< HEAD
     (void)NoSplitOccurred; // INTEL
 #endif // _NDEBUG
+=======
+#endif // NDEBUG
+>>>>>>> d1f4a9d56ff5fed06e3aae8552f63d1c1d4c7974
 
     if (!SplitEsimd && (MMs.size() > 1)) {
       // SYCL/ESIMD splitting is not requested, link back into single module.
