@@ -11,7 +11,7 @@ include_directories(
     ${LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR}/lib )
 
 # Generate SPIR-V input for tests
-set( INPUT_FILE test.cl )
+set( INPUT_FILE data/test.cl )
 set( SPIRV_OUTPUT_FILE test.spv )
 set(TEST_SPV_FILE ${TARGET}_test_spv)
 compile_spv(${INPUT_FILE} ${SPIRV_OUTPUT_FILE}
@@ -32,3 +32,8 @@ add_ocl_unittest( ${TARGET}
 )
 
 add_dependencies(${TARGET} ${TEST_SPV_FILE})
+
+add_ocl_unittest_artifacts(
+  FILES
+    data/opencl.cts.spir.test_atomic_fn.atomic_and_local_int.bc64
+)
