@@ -1723,6 +1723,28 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
     unsigned Prev;
     bool XOffloadTargetNoTriple;
 
+#if INTEL_CUSTOMIZATION
+    auto parseTriple = [&](Arg *A) {
+      StringRef Val(A->getValue());
+      std::pair<StringRef, StringRef> T = Val.split('=');
+      if (!T.second.empty()) {
+        // Add the the original -fopenmp-targets option without the additional
+        // arguments, then add the arguments.
+        Arg *ArgReplace =
+            new Arg(A->getOption(), Args.MakeArgString(A->getSpelling()),
+                    Args.getBaseArgs().MakeIndex(A->getSpelling()),
+                    Args.MakeArgString(T.first));
+        std::unique_ptr<llvm::opt::Arg> OffloadTargetArg(ArgReplace);
+        OffloadTargetArg->setBaseArg(A);
+        Arg *A4 = OffloadTargetArg.release();
+        AllocatedArgs.push_back(A4);
+        DAL->append(A4);
+        Modified = true;
+      } else
+        DAL->append(A);
+    };
+#endif // INTEL_CUSTOMIZATION
+
     // TODO: functionality between OpenMP offloading and SYCL offloading
     // is similar, can be improved
     if (DeviceOffloadKind == Action::OFK_OpenMP) {
@@ -1739,23 +1761,7 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
 #if INTEL_CUSTOMIZATION
       } else if (A->getOption().matches(options::OPT_fopenmp_targets_EQ)) {
         // Capture options from -fopenmp-targets=<triple>=<opts>
-        StringRef Val(A->getValue());
-        std::pair<StringRef, StringRef> T = Val.split('=');
-        if (!T.second.empty()) {
-          // Add the the original -fopenmp-targets option without the additional
-          // arguments, then add the arguments.
-          Arg *ArgReplace =
-              new Arg(A->getOption(), Args.MakeArgString(A->getSpelling()),
-                      Args.getBaseArgs().MakeIndex(A->getSpelling()),
-                      Args.MakeArgString(T.first));
-          std::unique_ptr<llvm::opt::Arg> OffloadTargetArg(ArgReplace);
-          OffloadTargetArg->setBaseArg(A);
-          Arg *A4 = OffloadTargetArg.release();
-          AllocatedArgs.push_back(A4);
-          DAL->append(A4);
-          Modified = true;
-        } else
-          DAL->append(A);
+        parseTriple(A);
         continue;
 #endif // INTEL_CUSTOMIZATION
       } else if (XOffloadTargetNoTriple) {
@@ -1774,6 +1780,12 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
           Index = Args.getBaseArgs().MakeIndex(A->getValue(1));
         else
           continue;
+#if INTEL_CUSTOMIZATION
+      } else if (A->getOption().matches(options::OPT_fsycl_targets_EQ)) {
+        // Capture options from -fsycl-targets=<triple>=<opts>
+        parseTriple(A);
+        continue;
+#endif // INTEL_CUSTOMIZATION
       } else if (XOffloadTargetNoTriple) {
         // Passing device args: -Xsycl-target-frontend -opt=val.
         Index = Args.getBaseArgs().MakeIndex(A->getValue(0));
@@ -1828,49 +1840,54 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
     Modified = true;
   }
 #if INTEL_CUSTOMIZATION
-  // -fopenmp-targets=<triple>=<opts> support parsing.
-  for (StringRef Val : Args.getAllArgValues(options::OPT_fopenmp_targets_EQ)) {
-    // Capture options from -fopenmp-targets=<triple>=<opts>
-    std::pair<StringRef, StringRef> T = Val.split('=');
-    if (T.second.empty())
-      continue;
-    // Tokenize the string.
-    SmallVector<const char *, 8> TargetArgs;
-    llvm::BumpPtrAllocator BPA;
-    llvm::StringSaver S(BPA);
-    llvm::cl::TokenizeGNUCommandLine(T.second, S, TargetArgs);
-    // Setup masks so Windows options aren't picked up for parsing
-    // Linux options
-    unsigned IncludedFlagsBitmask = 0;
-    unsigned ExcludedFlagsBitmask = options::NoDriverOption;
-    if (getDriver().IsCLMode()) {
-      // Include CL and Core options.
-      IncludedFlagsBitmask |= options::CLOption;
-      IncludedFlagsBitmask |= options::CoreOption;
-    } else
-      ExcludedFlagsBitmask |= options::CLOption;
-    unsigned MissingArgIndex, MissingArgCount;
-    InputArgList NewArgs =
-        Opts.ParseArgs(TargetArgs, MissingArgIndex, MissingArgCount,
-                       IncludedFlagsBitmask, ExcludedFlagsBitmask);
-    for (Arg *NA : NewArgs) {
-      // Add the new arguments.
-      Arg *OffloadArg;
-      if (NA->getNumValues()) {
-        StringRef Value(NA->getValue());
-        OffloadArg = new Arg(
-            NA->getOption(), Args.MakeArgString(NA->getSpelling()),
-            Args.getBaseArgs().MakeIndex(NA->getSpelling()),
-            Args.MakeArgString(Value.data()));
-      } else {
-        OffloadArg = new Arg(
-            NA->getOption(), Args.MakeArgString(NA->getSpelling()),
-            Args.getBaseArgs().MakeIndex(NA->getSpelling()));
+  auto parseTargetOpts = [&](OptSpecifier Id) {
+    for (StringRef Val : Args.getAllArgValues(Id)) {
+      std::pair<StringRef, StringRef> T = Val.split('=');
+      if (T.second.empty())
+        continue;
+      // Tokenize the string.
+      SmallVector<const char *, 8> TargetArgs;
+      llvm::BumpPtrAllocator BPA;
+      llvm::StringSaver S(BPA);
+      llvm::cl::TokenizeGNUCommandLine(T.second, S, TargetArgs);
+      // Setup masks so Windows options aren't picked up for parsing
+      // Linux options
+      unsigned IncludedFlagsBitmask = 0;
+      unsigned ExcludedFlagsBitmask = options::NoDriverOption;
+      if (getDriver().IsCLMode()) {
+        // Include CL and Core options.
+        IncludedFlagsBitmask |= options::CLOption;
+        IncludedFlagsBitmask |= options::CoreOption;
+      } else
+        ExcludedFlagsBitmask |= options::CLOption;
+      unsigned MissingArgIndex, MissingArgCount;
+      InputArgList NewArgs =
+          Opts.ParseArgs(TargetArgs, MissingArgIndex, MissingArgCount,
+                         IncludedFlagsBitmask, ExcludedFlagsBitmask);
+      for (Arg *NA : NewArgs) {
+        // Add the new arguments.
+        Arg *OffloadArg;
+        if (NA->getNumValues()) {
+          StringRef Value(NA->getValue());
+          OffloadArg = new Arg(
+              NA->getOption(), Args.MakeArgString(NA->getSpelling()),
+              Args.getBaseArgs().MakeIndex(NA->getSpelling()),
+              Args.MakeArgString(Value.data()));
+        } else {
+          OffloadArg = new Arg(
+              NA->getOption(), Args.MakeArgString(NA->getSpelling()),
+              Args.getBaseArgs().MakeIndex(NA->getSpelling()));
+        }
+        DAL->append(OffloadArg);
+        Modified = true;
       }
-      DAL->append(OffloadArg);
-      Modified = true;
     }
-  }
+  };
+
+  // -fopenmp-targets=<triple>=<opts> support parsing.
+  parseTargetOpts(options::OPT_fopenmp_targets_EQ);
+  // -fsycl-targets=<triple>=<opts> support parsing.
+  parseTargetOpts(options::OPT_fsycl_targets_EQ);
 #endif // INTEL_CUSTOMIZATION
   if (Modified)
     return DAL;

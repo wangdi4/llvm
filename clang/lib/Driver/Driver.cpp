@@ -1369,6 +1369,12 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
     if (SYCLTargetsValues) {
       if (SYCLTargetsValues->getNumValues()) {
         for (StringRef Val : SYCLTargetsValues->getValues()) {
+#if INTEL_CUSTOMIZATION
+          // Strip off any trailing options from the triple which come from
+          // -fsycl-targets=<triple>="opts" usage.
+          if (SYCLTargets)
+            Val = Val.split('=').first;
+#endif // INTEL_CUSTOMIZATION
           llvm::Triple TT(MakeSYCLDeviceTriple(Val));
           if (!isValidSYCLTriple(TT)) {
             Diag(clang::diag::err_drv_invalid_sycl_target) << Val;
