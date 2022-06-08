@@ -543,7 +543,10 @@ extern CallInst *uniqueCallSite(Function &F) {
     auto BCO = dyn_cast<BitCastOperator>(U);
     if (BCO && BCO->hasNUses(0))
       continue;
-    auto CI = dyn_cast<CallInst>(U);
+    Value *V = U;
+    if (BCO && BCO->hasOneUser())
+      V = BCO->user_back();
+    auto CI = dyn_cast<CallInst>(V);
     if (!CI || CISave)
       return nullptr;
     CISave = CI;

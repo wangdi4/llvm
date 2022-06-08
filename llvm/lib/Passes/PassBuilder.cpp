@@ -170,8 +170,8 @@
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_PartialInline.h"
 #include "llvm/Transforms/IPO/Intel_QsortRecognizer.h"
-#endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_TileMVInlMarker.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_VTableFixup.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO/Internalize.h"

@@ -33,7 +33,6 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   Intel_IPODeadArgElimination.cpp
   Intel_MathLibrariesDeclaration.cpp
   Intel_OptimizeDynamicCasts.cpp
-  Intel_TileMVInlMarker.cpp
   Intel_VTableFixup.cpp
   Utils/Intel_IPOUtils.cpp
   )
@@ -48,6 +47,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   Intel_IPOPrefetch.cpp
   Intel_IPPredOpt.cpp
   Intel_PartialInline.cpp
+  Intel_TileMVInlMarker.cpp
   )
 # end INTEL_FEATURE_SW_ADVANCED
 

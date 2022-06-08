@@ -108,8 +108,8 @@
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_PartialInline.h"
 #include "llvm/Transforms/IPO/Intel_QsortRecognizer.h"
-#endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_TileMVInlMarker.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_VTableFixup.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO/Internalize.h"
@@ -2975,6 +2975,10 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     // This call adds the DTrans passes.
     addDTransPasses(MPM);
 #endif // INTEL_FEATURE_SW_DTRANS
+#if INTEL_FEATURE_SW_ADVANCED
+  if (DTransEnabled)
+    MPM.addPass(TileMVInlMarkerPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
   MPM.addPass(DopeVectorConstPropPass());
   MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(
               ArgumentPromotionPass()));
@@ -3023,7 +3027,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   if (DTransEnabled) {
     MPM.addPass(IntelArgumentAlignmentPass());
     MPM.addPass(QsortRecognizerPass());
-    MPM.addPass(TileMVInlMarkerPass());
   }
 
   bool EnableIntelPartialInlining = EnableIntelPI && DTransEnabled;
