@@ -106,6 +106,12 @@ static bool isTypeOfInterest(llvm::Type *Ty) {
   return false;
 }
 
+// Return 'true' if the Function is marked with the attribute that indicates it
+// is a function created by PAROPT to be used as callback target.
+static bool isPAROPTCreatedFunction(Function &F) {
+  return F.hasFnAttribute("processed-by-vpo");
+}
+
 // Helper to get the base object type that makes up an array/vector/array nest
 // type.
 static DTransType *getSequentialObjectBaseType(DTransSequentialType *Ty) {
@@ -579,6 +585,13 @@ public:
       }
 
       ValueTypeInfo *Info = PTA.getOrCreateValueTypeInfo(&F);
+
+      // We can skip marking the Function type info as 'unhandled' when
+      // encountering PAROPT created functions that don't have metadata, because
+      // they are not directly called.
+      if (isPAROPTCreatedFunction(F))
+        continue;
+
       Info->setUnhandled();
       LLVM_DEBUG(dbgs() << "Unable to set declared type for function: "
                         << F.getName() << "\n");
@@ -2278,6 +2291,27 @@ private:
         ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, *UseAliasSet.begin());
         ResultInfo->setCompletelyAnalyzed();
       } else {
+        // It may be possible to allow this to handle non-PAROPT created
+        // functions, but for now just handle PAROPT functions that do not get
+        // DTrans metadata information, since they will just be called as
+        // callback functions.
+        if (isPAROPTCreatedFunction(*F)) {
+          ResultInfo->setCompletelyAnalyzed();
+
+          // If there is a dominant pointer to structure type, we can treat
+          // that as the incoming argument type. This allows for a pointer to
+          // a structure to be passed in that is also used as a pointer to
+          // the element zero element.
+          if (ResultInfo->canAliasToAggregatePointer()) {
+            DTransType *DomTy = PTA.getDominantAggregateType(
+                *ResultInfo, ValueTypeInfo::VAT_Use);
+            if (DomTy)
+              ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, DomTy);
+          }
+
+          return;
+        }
+      
         ResultInfo->setUnhandled();
       }
       return;
