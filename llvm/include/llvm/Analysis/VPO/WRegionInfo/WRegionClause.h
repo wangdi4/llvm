@@ -1181,6 +1181,13 @@ class MapItem : public Item
 {
 private:
   unsigned MapKind;                 // bit vector for map kind and modifiers
+  // True for map-chains with function pointers as their base. e.g.:
+  //   void (*fptr)(void);
+  //   #pragma omp target firstprivate(fptr)
+  //
+  // %0 = load void ()*, void ()** %fptr, align 8
+  // "QUAL.OMP.MAP.TOFROM:FPTR"(void ()* %0, void ()* %0, i64 0, i64 32, ...)
+  bool IsFunctionPointer = false;
   FirstprivateItem *InFirstprivate; // FirstprivateItem with the same opnd
   UseDevicePtrItem *InUseDevicePtr; // The map is for a use-device-ptr clause
   MapChainTy MapChain;
@@ -1283,6 +1290,7 @@ public:
   void setIsMapAlways()  { MapKind |= WRNMapAlways; }
   void setIsMapClose()   { MapKind |= WRNMapClose; }
   void setIsMapPresent() { MapKind |= WRNMapPresent; }
+  void setIsFunctionPointer(bool Flag) { IsFunctionPointer = Flag; }
   void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
   void setInUseDevicePtr(UseDevicePtrItem *UDPI) { InUseDevicePtr = UDPI; }
   void setBasePtrGEPForOrig(Instruction *GEP) { BasePtrGEPForOrig = GEP; }
@@ -1301,6 +1309,7 @@ public:
   bool getIsMapPresent()    const { return MapKind & WRNMapPresent; }
   bool getIsMapUpdateTo()   const { return MapKind & WRNMapUpdateTo; }
   bool getIsMapUpdateFrom() const { return MapKind & WRNMapUpdateFrom; }
+  bool getIsFunctionPointer() const { return IsFunctionPointer; }
   FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }
   UseDevicePtrItem *getInUseDevicePtr() const { return InUseDevicePtr; }
   Instruction *getBasePtrGEPForOrig() const { return BasePtrGEPForOrig; }
@@ -1313,7 +1322,7 @@ public:
 
   void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
     if (getIsMapChain()) {
-      OS << "CHAIN(" ;
+      OS << "CHAIN" << (getIsFunctionPointer() ? ",FPTR" : "") << "(";
       for (unsigned I=0; I < MapChain.size(); ++I) {
         MapAggrTy *Aggr = MapChain[I];
         Value *BasePtr = Aggr->getBasePtr();
@@ -1350,6 +1359,8 @@ public:
       ArrSecInfo.print(OS, PrintType);
       OS << " ";
     } else {
+      if (getIsFunctionPointer())
+        OS << "FPTR";
       OS << "(" ;
       getOrig()->printAsOperand(OS, PrintType);
       OS << ") ";

@@ -57,14 +57,14 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
       IsF90DopeVector(false), IsF90NonPod(false), IsCptr(false),
       IsWILocal(false), IsAllocatable(false),
 #endif // INTEL_CUSTOMIZATION
-      IsAggregate(false), IsPointer(false), IsPointerToPointer(false),
-      IsScalar(false), IsAlways(false), IsClose(false), IsPresent(false),
-      IsUnsigned(false), IsComplex(false), IsConditional(false),
-      IsScheduleMonotonic(false), IsScheduleNonmonotonic(false),
-      IsScheduleSimd(false), IsMapAggrHead(false), IsMapAggr(false),
-      IsMapChainLink(false), IsIV(false), IsInitTarget(false),
-      IsInitTargetSync(false), IsInitPrefer(false), IsTask(false),
-      IsInscan(false), IsTyped(false) {
+      IsAggregate(false), IsPointer(false), IsFunctionPointer(false),
+      IsPointerToPointer(false), IsScalar(false), IsAlways(false),
+      IsClose(false), IsPresent(false), IsUnsigned(false), IsComplex(false),
+      IsConditional(false), IsScheduleMonotonic(false),
+      IsScheduleNonmonotonic(false), IsScheduleSimd(false),
+      IsMapAggrHead(false), IsMapAggr(false), IsMapChainLink(false),
+      IsIV(false), IsInitTarget(false), IsInitTargetSync(false),
+      IsInitPrefer(false), IsTask(false), IsInscan(false), IsTyped(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
   // Split Name into the BaseName and Modifier substrings
@@ -196,9 +196,10 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
           setIsMapChainLink();
         else if (ModSubString[i] == "IV")          // for linear clause
           setIsIV();
-        else if (ModSubString[i] == "PTR_TO_PTR") // For use_device_ptr operands
-                                                  // which need a dereference
-          setIsPointerToPointer();
+        else if (ModSubString[i] == "PTR_TO_PTR") // For operands like "int *x"
+          setIsPointerToPointer(); // (i32**) on linear, is/use_device_ptr etc.
+        else if (ModSubString[i] == "FPTR") // map chain whose base is a
+          setIsFunctionPointer();           // function pointer
         else
           llvm_unreachable("Unknown modifier string for clause");
       }
