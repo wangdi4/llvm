@@ -3,6 +3,7 @@
 
 #include <stdio.h> // INTEL_CUSTOMIZATION
 #include <stdlib.h>
+#include <stdio.h>
 
 int *allocate(size_t n) {
   int *ptr = malloc(sizeof(int) * n);
