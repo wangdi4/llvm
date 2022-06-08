@@ -953,6 +953,7 @@ public:
                                        unsigned CUID = 0);
 
   virtual void emitCFIBKeyFrame();
+  virtual void emitCFIMTETaggedFrame();
 
   /// This implements the DWARF2 '.loc fileno lineno ...' assembler
   /// directive.
