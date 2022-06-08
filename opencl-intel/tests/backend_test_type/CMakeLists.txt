@@ -11,7 +11,6 @@ set(BACKEND_ROOT_DIR ${OCL_SOURCE_DIR}/backend)
 include_directories(
     ${LLVM_INCLUDE_DIRS}
     ${OCL_SOURCE_DIR}/cl_api
-    ${OCL_SOURCE_DIR}/tests/test_utils/export
     ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
     ${CL_API_HEADERS}
     ${BACKEND_ROOT_DIR}/utils
