@@ -66,7 +66,6 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
       # Statically link C run-time library on Windows.
       # Otherwise, we cannot use LLVMObject and LLVMSupport.
       set_msvc_crt_flags(omptarget.rtl.level0)
-      set_msvc_crt_flags(omptarget.sycl.wrap)
     endif()
 
     if(NOT OPENMP_STANDALONE_BUILD)
@@ -125,12 +124,11 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
       # Compilation of the sycl wrapper requires runtime type information and
       # exceptions enabled
       target_compile_options(omptarget.sycl.wrap PRIVATE
-          -GR -EHsc -DSYCL_DISABLE_CPP_VERSION_CHECK_WARNING)
-      if (CMAKE_BUILD_TYPE MATCHES Debug)
-        target_link_libraries(omptarget.sycl.wrap PRIVATE sycld)
-      else()
-        target_link_libraries(omptarget.sycl.wrap PRIVATE sycl)
-      endif()
+          -GR -EHsc -MD -DSYCL_DISABLE_CPP_VERSION_CHECK_WARNING)
+      # We cannot provide the behavior how sycl and sycld is choosed since the
+      # wrapper is dynamically loaded (LoadLibrary). Fixing it to sycl is the
+      # best we can do now.
+      target_link_libraries(omptarget.sycl.wrap PRIVATE sycl)
       libomptarget_add_resource_file(omptarget.rtl.level0)
       libomptarget_add_resource_file(omptarget.sycl.wrap)
     else()
