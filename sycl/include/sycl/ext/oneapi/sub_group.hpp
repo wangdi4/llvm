@@ -147,7 +147,7 @@ struct sub_group {
 /* end INTEL_CUSTOMIZATION */
 #else
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -156,7 +156,7 @@ struct sub_group {
     return static_cast<linear_id_type>(get_local_id()[0]);
 #else
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -165,7 +165,7 @@ struct sub_group {
     return __spirv_SubgroupSize();
 #else
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -178,7 +178,7 @@ struct sub_group {
 /* end INTEL_CUSTOMIZATION */
 #else
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -187,7 +187,7 @@ struct sub_group {
     return __spirv_SubgroupId();
 #else
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -196,7 +196,7 @@ struct sub_group {
     return static_cast<linear_id_type>(get_group_id()[0]);
 #else
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -205,7 +205,7 @@ struct sub_group {
     return __spirv_NumSubgroups();
 #else
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -224,7 +224,7 @@ struct sub_group {
     (void)x;
     (void)local_id;
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -235,7 +235,7 @@ struct sub_group {
     (void)x;
     (void)delta;
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -246,7 +246,7 @@ struct sub_group {
     (void)x;
     (void)delta;
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -257,7 +257,7 @@ struct sub_group {
     (void)x;
     (void)value;
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -302,7 +302,7 @@ struct sub_group {
   T load(CVT *src) const {
     (void)src;
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
   }
 #endif //__SYCL_DEVICE_ONLY__
 
@@ -321,7 +321,7 @@ struct sub_group {
 #else
     (void)src;
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -336,7 +336,7 @@ struct sub_group {
 #else
     (void)src;
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 #ifdef __SYCL_DEVICE_ONLY__
@@ -412,7 +412,7 @@ struct sub_group {
   load(const multi_ptr<CVT, Space> src) const {
     (void)src;
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
   }
 #endif // __SYCL_DEVICE_ONLY__
 
@@ -432,7 +432,7 @@ struct sub_group {
 #else
     (void)src;
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -479,7 +479,7 @@ struct sub_group {
     (void)dst;
     (void)x;
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
   }
 #endif //__SYCL_DEVICE_ONLY__
 
@@ -497,7 +497,7 @@ struct sub_group {
     (void)dst;
     (void)x;
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -511,7 +511,7 @@ struct sub_group {
     (void)dst;
     (void)x;
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -569,7 +569,7 @@ struct sub_group {
     (void)dst;
     (void)x;
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
   }
 #endif // __SYCL_DEVICE_ONLY__
 
@@ -585,7 +585,7 @@ struct sub_group {
     (void)dst;
     (void)x;
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -600,7 +600,7 @@ struct sub_group {
             __spv::MemorySemanticsMask::CrossWorkgroupMemory);
 #else
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -614,7 +614,7 @@ struct sub_group {
 #else
     (void)accessSpace;
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -629,7 +629,7 @@ struct sub_group {
     (void)x;
     (void)local_id;
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -645,7 +645,7 @@ struct sub_group {
     (void)x;
     (void)op;
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -660,7 +660,7 @@ struct sub_group {
     (void)init;
     (void)op;
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -676,7 +676,7 @@ struct sub_group {
     (void)x;
     (void)op;
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -699,7 +699,7 @@ struct sub_group {
     (void)init;
     (void)op;
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -715,7 +715,7 @@ struct sub_group {
     (void)x;
     (void)op;
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -734,7 +734,7 @@ struct sub_group {
     (void)op;
     (void)init;
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -743,7 +743,7 @@ struct sub_group {
     return static_cast<linear_id_type>(get_group_range()[0]);
 #else
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -752,7 +752,7 @@ struct sub_group {
     return static_cast<linear_id_type>(get_local_range()[0]);
 #else
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -761,7 +761,7 @@ struct sub_group {
     return get_local_linear_id() == 0;
 #else
     throw runtime_error("Sub-groups are not supported on host device.",
-                        PI_INVALID_DEVICE);
+                        PI_ERROR_INVALID_DEVICE);
 #endif
   }
 
@@ -779,7 +779,7 @@ inline sub_group this_sub_group() {
   return sub_group();
 #else
   throw runtime_error("Sub-groups are not supported on host device.",
-                      PI_INVALID_DEVICE);
+                      PI_ERROR_INVALID_DEVICE);
 #endif
 }
 
