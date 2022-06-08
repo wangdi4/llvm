@@ -57,7 +57,14 @@ class VPLoopEntity {
 public:
   using LinkedVPValuesTy = SetVector<VPValue *>;
 
-  enum { Reduction, IndexReduction, Induction, Private, PrivateNonPOD };
+  enum {
+    Reduction,
+    IndexReduction,
+    InscanReduction,
+    Induction,
+    Private,
+    PrivateNonPOD
+  };
   unsigned char getID() const { return SubclassID; }
 
   virtual ~VPLoopEntity() = 0;
@@ -131,6 +138,35 @@ public:
   virtual void dump(raw_ostream &OS) const override;
 #endif
   static unsigned getReductionOpcode(RecurKind K);
+};
+
+/// Descriptor for inscan reduction.
+class VPInscanReduction : public VPReduction {
+public:
+  VPInscanReduction(unsigned InscanId, VPValue *Start, VPInstruction *Exit,
+                    RecurKind RdxKind, FastMathFlags FMF, Type *RT, bool Signed,
+                    bool IsMemOnly = false)
+    : VPReduction(Start, Exit, RdxKind, FMF, RT, Signed, IsMemOnly,
+                  InscanReduction),
+      InscanId(InscanId) {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPLoopEntity *V) {
+    return V->getID() == InscanReduction;
+  }
+
+  unsigned getInscanId() const { return InscanId; }
+
+  virtual StringRef getNameSuffix() const override {
+    return "inscan.red";
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(raw_ostream &OS) const override;
+#endif
+
+private:
+  uint64_t InscanId;
 };
 
 /// Descriptor of the index part of min/max+index reduction.
@@ -491,6 +527,7 @@ public:
   VPReduction *addReduction(VPInstruction *Instr, VPValue *Incoming,
                             VPInstruction *Exit, RecurKind K,
                             FastMathFlags FMF, Type *RT, bool Signed,
+                            bool Inscan = false, uint64_t InscanId = 0,
                             VPValue *AI = nullptr, bool ValidMemOnly = false);
   /// Add index part of min/max+index reduction with parent (min/max) reduction
   /// \p Parent, starting instruction \pInstr, incoming value \p Incoming,
@@ -715,6 +752,8 @@ public:
     if (auto Red = dyn_cast<VPReduction>(E))
       linkValue(ReductionMap, Red, Val);
     else if (auto Red = dyn_cast<VPIndexReduction>(E))
+      linkValue(ReductionMap, Red, Val);
+    else if (auto Red = dyn_cast<VPInscanReduction>(E))
       linkValue(ReductionMap, Red, Val);
     else if (auto Ind = dyn_cast<VPInduction>(E))
       linkValue(InductionMap, Ind, Val);
@@ -1016,6 +1055,8 @@ public:
   bool getSigned() const { return Signed; }
   VPInstruction *getLinkPhi() const { return LinkPhi; }
   bool getLinearIndex() const { return IsLinearIndex; }
+  bool getIsInscan() const { return IsInscan; }
+  uint64_t getInscanId() const { return InscanId; }
 
   void setStartPhi(VPInstruction *V) { StartPhi = V; }
   void setStart(VPValue *V) { Start = V; }
@@ -1025,6 +1066,8 @@ public:
   void setSigned(bool V) { Signed = V; }
   void setLinkPhi(VPInstruction *V) { LinkPhi = V; }
   void setIsLinearIndex(bool V) { IsLinearIndex = V; }
+  void setIsInscan(bool V) { IsInscan = V; }
+  void setInscanId(uint64_t V) { InscanId = V; }
   void addLinkedVPValue(VPValue *V) { LinkedVPVals.push_back(V); }
 
   /// Clear the content.
@@ -1039,6 +1082,8 @@ public:
     LinkPhi = nullptr;
     LinkedVPVals.clear();
     IsLinearIndex = false;
+    IsInscan = false;
+    InscanId = 0;
   }
   /// Check for that all non-null VPInstructions in the descriptor are in the \p
   /// Loop.
@@ -1081,6 +1126,8 @@ private:
   bool Signed = false;
   VPInstruction *LinkPhi = nullptr; // TODO: Consider changing to VPPHINode.
   bool IsLinearIndex = false;
+  bool IsInscan = false;
+  uint64_t InscanId = 0;
 
   /// VPValues that are associated with reduction variable
   /// NOTE: This list is accessed and populated internally within the descriptor

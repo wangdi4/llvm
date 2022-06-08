@@ -96,6 +96,11 @@ void VPIndexReduction::dump(raw_ostream &OS) const {
   ParentRed->getLoopExitInstr()->printAsOperand(OS);
 }
 
+void VPInscanReduction::dump(raw_ostream &OS) const {
+  VPReduction::dump(OS);
+  OS << " inscan InscanId: " << InscanId << '\n';
+}
+
 void VPInduction::dump(raw_ostream &OS) const {
   switch (getKind()) {
   default:
@@ -326,9 +331,11 @@ VPReduction *VPLoopEntityList::addReduction(VPInstruction *Instr,
                                             VPValue *Incoming,
                                             VPInstruction *Exit, RecurKind Kind,
                                             FastMathFlags FMF, Type *RedTy,
-                                            bool Signed, VPValue *AI,
-                                            bool ValidMemOnly) {
-  VPReduction *Red =
+                                            bool Signed, bool Inscan,
+                                            uint64_t InscanId,
+                                            VPValue *AI, bool ValidMemOnly) {
+  VPReduction *Red = Inscan ?
+      new VPInscanReduction(InscanId, Incoming, Exit, Kind, FMF, RedTy, Signed, ValidMemOnly) :
       new VPReduction(Incoming, Exit, Kind, FMF, RedTy, Signed, ValidMemOnly);
   ReductionList.emplace_back(Red);
   linkValue(ReductionMap, Red, Instr);
@@ -850,6 +857,7 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
     Final->setFastMathFlags(FMF);
 
   processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
+
 
   if (PrivateMem) {
     assert(AI && "Expected non-null original pointer");
@@ -2105,7 +2113,7 @@ void ReductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
 
   if (LinkPhi == nullptr)
     VPRed = LE->addReduction(StartPhi, Start, Exit, K, RedFMF, RT, Signed,
-                             AllocaInst, ValidMemOnly);
+                             IsInscan, InscanId, AllocaInst, ValidMemOnly);
   else {
     const VPReduction *Parent = LE->getReduction(LinkPhi);
     assert(Parent && "nullptr is unexpected");

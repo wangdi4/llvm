@@ -301,14 +301,14 @@ public:
                   const InMemoryReductionList::value_type &CurValue) {
     Descriptor.clear();
     auto *RednUpdate = cast<VPInstruction>(
-        Builder.getOrCreateVPOperand(CurValue.second.second));
+        Builder.getOrCreateVPOperand(CurValue.second.UpdateInst));
     assertIsSingleElementAlloca(CurValue.first);
     VPValue *OrigAlloca = Builder.getOrCreateVPOperand(CurValue.first);
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(OrigAlloca);
     Descriptor.addUpdateVPInst(RednUpdate);
     Descriptor.setExit(nullptr);
-    Descriptor.setKind(CurValue.second.first);
+    Descriptor.setKind(CurValue.second.Kind);
     // According to discussion with paropt team, we can have either alloca
     // or cast<>(alloca) or addrspace_cast<>(alloca) in the reduction clause for
     // non-arrays.
@@ -317,6 +317,8 @@ public:
     Descriptor.setSigned(false);
     Descriptor.setAllocaInst(OrigAlloca); // Keep original value from clause.
     Descriptor.setLinkPhi(nullptr);
+    Descriptor.setIsInscan(CurValue.second.Inscan);
+    Descriptor.setInscanId(CurValue.second.InscanId);
   }
 };
 
