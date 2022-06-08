@@ -4946,6 +4946,79 @@ BoUpSLP::findReusedOrderedScalars(const BoUpSLP::TreeEntry &TE) {
   return None;
 }
 
+#if INTEL_CUSTOMIZATION
+// Check whether we can issue smaller-wide loads to build up the entire
+// vector (split-load).
+static bool canVectorizeSplitLoads(
+    Type *ScalarTy, unsigned VF, const DataLayout &DL, ScalarEvolution &SE,
+    ArrayRef<Value *> PointerOps, ArrayRef<unsigned> Order,
+    SmallVectorImpl<std::tuple<unsigned, unsigned, BoUpSLP::OrdersType>>
+        &LoadGroups) {
+
+  if (MaxSplitLoads == 0 || (!Order.empty() && Order.size() != VF))
+    return false;
+
+  // Each consecutive group is represented by
+  // starting index, load size (number of consecutive scalar
+  // elements) and re-ordering information (if any).
+  LoadGroups.clear();
+  unsigned MaxSplitNums = Log2_32(MaxSplitLoads);
+
+  auto IsConsecutive = [ScalarTy, &DL, &SE](Value *Ptr0, Value *PtrN,
+                                            int Size) {
+    Optional<int> Dist = getPointersDiff(ScalarTy, Ptr0, ScalarTy, PtrN, DL, SE,
+                                         /*StrictCheck=*/true);
+    return Dist && *Dist == Size - 1;
+  };
+
+  // Find out if we are able to build up the entire vector load with
+  // multiple smaller size vector loads (of GroupSize elements each).
+  // Populates LoadGroups with loads information.
+  auto TryGroupSize = [ScalarTy, VF, &DL, &SE, &LoadGroups,
+                       &IsConsecutive](ArrayRef<Value *> Pointers,
+                                       ArrayRef<unsigned> PointersOrder,
+                                       unsigned GroupSize) {
+    LoadGroups.clear();
+    for (unsigned N = 0; N < VF / GroupSize; N++) {
+      BoUpSLP::OrdersType GroupOrder;
+      unsigned First = N * GroupSize;
+      unsigned Idx0, IdxN;
+      if (!PointersOrder.empty()) {
+        Idx0 = PointersOrder[First];
+        IdxN = PointersOrder[First + GroupSize - 1];
+      } else {
+        ArrayRef<Value *> Slice =
+            makeArrayRef(Pointers).slice(First, GroupSize);
+        if (!llvm::sortPtrAccesses(Slice, ScalarTy, DL, SE, GroupOrder) ||
+            (!GroupOrder.empty() && GroupOrder.size() != GroupSize))
+          return false;
+
+        Idx0 = First + (GroupOrder.empty() ? 0 : GroupOrder[0]);
+        IdxN = First +
+               (GroupOrder.empty() ? GroupSize - 1 : GroupOrder[GroupSize - 1]);
+      }
+      Value *Ptr0 = Pointers[Idx0];
+      Value *PtrN = Pointers[IdxN];
+      if (!IsConsecutive(Ptr0, PtrN, GroupSize))
+        return false;
+      LoadGroups.emplace_back(First, GroupSize, GroupOrder);
+    }
+    return true;
+  };
+
+  for (unsigned Split = 1; Split <= MaxSplitNums; ++Split) {
+    unsigned GroupSize = VF / (1 << Split);
+    if (GroupSize < 2)
+      break;
+    if (TryGroupSize(PointerOps, Order, GroupSize))
+        return true;
+    }
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
+
 namespace {
 /// Tracks the state we can represent the loads in the given sequence.
 #if INTEL_CUSTOMIZATION
@@ -5012,66 +5085,11 @@ static LoadsState canVectorizeLoads(
     CandidateForGatherLoad =
         CompatibilitySLPMode || VL.size() >= MinGatherLoadSize;
   }
-  // Check whether we can issue smaller-wide loads to build up the entire
-  // vector (split-load).
-  if (MaxSplitLoads > 0 && (Order.empty() || Order.size() == VL.size())) {
-    // Each consecutive group is represented by
-    // starting index, load size (number of consecutive scalar
-    // elements) and re-ordering information (if any).
-    LoadGroups.clear();
-    unsigned VF = VL.size();
-    unsigned MaxSplitNums = Log2_32(MaxSplitLoads);
 
-    auto IsConsecutive = [ScalarTy, &DL, &SE](Value *Ptr0, Value *PtrN,
-                                              int Size) {
-      Optional<int> Dist = getPointersDiff(ScalarTy, Ptr0, ScalarTy, PtrN, DL,
-                                           SE, /*StrictCheck=*/true);
-      return Dist && *Dist == Size - 1;
-    };
+  if (canVectorizeSplitLoads(ScalarTy, VL.size(), DL, SE, PointerOps, Order,
+                             LoadGroups))
+    return LoadsState::SplitLoads;
 
-    // Find out if we are able to build up the entire vector load with
-    // multiple smaller size vector loads (of GroupSize elements each).
-    // Populates LoadGroups with loads information.
-    auto TryGroupSize = [ScalarTy, VF, &DL, &SE, &LoadGroups,
-                         &IsConsecutive](ArrayRef<Value *> Pointers,
-                                         ArrayRef<unsigned> PointersOrder,
-                                         unsigned GroupSize) {
-      LoadGroups.clear();
-      for (unsigned N = 0; N < VF / GroupSize; N++) {
-        BoUpSLP::OrdersType GroupOrder;
-        unsigned First = N * GroupSize;
-        unsigned Idx0, IdxN;
-        if (!PointersOrder.empty()) {
-          Idx0 = PointersOrder[First];
-          IdxN = PointersOrder[First + GroupSize - 1];
-        } else {
-          ArrayRef<Value *> Slice =
-              makeArrayRef(Pointers).slice(First, GroupSize);
-          if (!llvm::sortPtrAccesses(Slice, ScalarTy, DL, SE, GroupOrder) ||
-              (!GroupOrder.empty() && GroupOrder.size() != GroupSize))
-            return false;
-
-          Idx0 = First + (GroupOrder.empty() ? 0 : GroupOrder[0]);
-          IdxN = First + (GroupOrder.empty() ? GroupSize - 1
-                                             : GroupOrder[GroupSize - 1]);
-        }
-        Value *Ptr0 = Pointers[Idx0];
-        Value *PtrN = Pointers[IdxN];
-        if (!IsConsecutive(Ptr0, PtrN, GroupSize))
-          return false;
-        LoadGroups.emplace_back(First, GroupSize, GroupOrder);
-      }
-      return true;
-    };
-
-    for (unsigned Split = 1; Split <= MaxSplitNums; ++Split) {
-      unsigned GroupSize = VF / (1 << Split);
-      if (GroupSize < 2)
-        break;
-      if (TryGroupSize(PointerOps, Order, GroupSize))
-        return LoadsState::SplitLoads;
-    }
-  }
   // We might want to issue gather load only if split load fails.
   // Do not consider to issue gather for vectors having
   // less then MinGatherLoadSize elements.
