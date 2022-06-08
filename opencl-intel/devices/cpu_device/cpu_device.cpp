@@ -2587,6 +2587,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
 
                 pNewsubdeviceId->legal_core_ids     = nullptr;
                 pNewsubdeviceId->is_by_names        = false;
+                pNewsubdeviceId->is_by_numa         = false;
                 pNewsubdeviceId->num_compute_units  = (cl_uint)partitionSize;
                 pNewsubdeviceId->is_acquired        = false;
                 pNewsubdeviceId->ref_count          = 0;
@@ -2646,6 +2647,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
 
                 pNewsubdeviceId->legal_core_ids     = nullptr;
                 pNewsubdeviceId->is_by_names        = false;
+                pNewsubdeviceId->is_by_numa         = false;
                 pNewsubdeviceId->num_compute_units  = (cl_uint)partitionSizes[i];
                 pNewsubdeviceId->is_acquired        = false;
                 pNewsubdeviceId->ref_count          = 0;
@@ -2692,6 +2694,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
             }
 
             pNewsubdeviceId->is_by_names       = true;
+            pNewsubdeviceId->is_by_numa        = false;
             pNewsubdeviceId->num_compute_units = (cl_uint)totalNumUnits;
             for (cl_uint core = 0; core < totalNumUnits; ++core)
             {
@@ -2762,6 +2765,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
                 // bound to, each subdevice is allocated according to the name
                 // of cpu cores.
                 pNewsubdeviceId->is_by_names = true;
+                pNewsubdeviceId->is_by_numa  = true;
                 pNewsubdeviceId->num_compute_units = numUnits[i];
                 std::copy(index.begin(), index.end(),
                           pNewsubdeviceId->legal_core_ids);
@@ -2875,9 +2879,11 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
         long prev = pSubdeviceData->ref_count++;
         if (0 == prev)
         {
-            //When fissioned by name, need first to acquire the required cores
-            // Not used in other fission modes
-            if ( (nullptr != pSubdeviceData->legal_core_ids) )
+            // When fissioned by name, need first to acquire the required cores
+            // Not used in other fission modes. We can safely escape this
+            // acquiring for by_numa since the cores allocation is fixed and
+            // by_numa is not allowed mixing with other modes.
+            if (nullptr != pSubdeviceData->legal_core_ids && !pSubdeviceData->is_by_numa)
             {
                 if ( !AcquireComputeUnits(pSubdeviceData->legal_core_ids, pSubdeviceData->num_compute_units) )
                 {
