@@ -452,6 +452,25 @@ void WGLoopBoundariesImpl::collectTIDData() {
   ProcessTIDCalls(false);
 }
 
+// Freeze on TID call can hurt WGLoopBoundaries and DPCPPKernelVecClone.
+// TID call won't generate undef or poison, so we remove the FreezeInst.
+static void
+removeFreezeOnTID(DenseMap<Value *, std::pair<unsigned, bool>> &TIDs) {
+  SmallVector<Instruction *, 2> WorkList;
+  for (auto &Pair : TIDs) {
+    WorkList.clear();
+    auto *CI = cast<CallInst>(Pair.first);
+    for (auto *U : CI->users())
+      if (auto *Freeze = dyn_cast<FreezeInst>(U))
+        WorkList.push_back(Freeze);
+
+    for (auto *I : WorkList) {
+      I->replaceAllUsesWith(CI);
+      I->eraseFromParent();
+    }
+  }
+}
+
 bool WGLoopBoundariesImpl::runOnFunction(Function &F) {
   if (F.hasOptNone())
     return false;
@@ -468,6 +487,8 @@ bool WGLoopBoundariesImpl::runOnFunction(Function &F) {
   collectTIDData();
   // Collect uniform data from the current basic block.
   collectBlockData(&F.getEntryBlock());
+
+  removeFreezeOnTID(TIDs);
 
   // Iteratively examines if the entry block branch is early exit branch,
   // min/max with uniform value.
@@ -1450,7 +1471,8 @@ bool WGLoopBoundariesImpl::hasSideEffectInst(BasicBlock *BB) {
   return false;
 }
 
-static Value *getMin(bool IsSigned, Value *A, Value *B, BasicBlock *BB) {
+static Value *getMin(bool IsSigned, Value *A, Value *B, BasicBlock *BB,
+                     StringRef Name) {
   assert(A->getType()->isIntegerTy() && B->getType()->isIntegerTy() &&
          "expect integer type");
   CmpInst::Predicate Pred = IsSigned ? CmpInst::ICMP_SLT : CmpInst::ICMP_ULT;
@@ -1463,15 +1485,16 @@ static Value *getMin(bool IsSigned, Value *A, Value *B, BasicBlock *BB) {
                                            Compare, "", BB);
     return SelectInst::Create(SelectA, A, B, "", BB);
   }
-  return SelectInst::Create(Compare, A, B, "", BB);
+  return SelectInst::Create(Compare, A, B, Name, BB);
 }
 
-static Value *getMax(bool IsSigned, Value *A, Value *B, BasicBlock *BB) {
+static Value *getMax(bool IsSigned, Value *A, Value *B, BasicBlock *BB,
+                     StringRef Name) {
   assert(A->getType()->isIntegerTy() && B->getType()->isIntegerTy() &&
          "expect integer type");
   CmpInst::Predicate Pred = IsSigned ? CmpInst::ICMP_SGT : CmpInst::ICMP_UGT;
   auto *Compare = new ICmpInst(*BB, Pred, A, B, "");
-  return SelectInst::Create(Compare, A, B, "", BB);
+  return SelectInst::Create(Compare, A, B, Name, BB);
 }
 
 Value *WGLoopBoundariesImpl::correctBound(TIDDesc &TD, BasicBlock *BB,
@@ -1493,7 +1516,11 @@ Value *WGLoopBoundariesImpl::correctBound(TIDDesc &TD, BasicBlock *BB,
   // Thus in case border is crossed, we take the original bound instead. We
   // will avoid using it since it is compared after the original boundaries.
   if (NewBound != Bound)
-    NewBound = getMax(TD.IsSigned, Bound, NewBound, BB);
+    NewBound =
+        getMax(TD.IsSigned, Bound, NewBound, BB,
+               AppendWithDimension(TD.IsUpperBound ? "upper.bound.correct"
+                                                   : "lower.bound.correct",
+                                   TD.Dim));
 
   return NewBound;
 }
@@ -1506,8 +1533,10 @@ void WGLoopBoundariesImpl::fillInitialBoundaries(BasicBlock *BB) {
   StringRef BaseGIDName = nameGetBaseGID();
   for (unsigned Dim = 0; Dim < NumDim; ++Dim) {
     CallInst *LocalSize =
-        LoopUtils::getWICall(&M, mangledGetLocalSize(), IndTy, Dim, BB);
-    CallInst *BaseGID = LoopUtils::getWICall(&M, BaseGIDName, IndTy, Dim, BB);
+        LoopUtils::getWICall(&M, mangledGetLocalSize(), IndTy, Dim, BB,
+                             AppendWithDimension("local.size", Dim));
+    CallInst *BaseGID = LoopUtils::getWICall(
+        &M, BaseGIDName, IndTy, Dim, BB, AppendWithDimension("base.gid", Dim));
     LocalSizes.push_back(LocalSize);
     BaseGIDs.push_back(BaseGID);
     LowerBounds.push_back(BaseGID);
@@ -1547,12 +1576,15 @@ void WGLoopBoundariesImpl::obtainEEBoundaries(BasicBlock *BB, VMap &ValueMap) {
     // trivial one (local_size + base_gid).
     if (!UpperBounds[Dim])
       UpperBounds[Dim] = BinaryOperator::Create(
-          Instruction::Add, LocalSizes[Dim], BaseGIDs[Dim], "", BB);
+          Instruction::Add, LocalSizes[Dim], BaseGIDs[Dim],
+          AppendWithDimension("init.upper.bound", Dim), BB);
     // Create min/max between the bound and previous upper/lower bound.
     if (TD.IsUpperBound)
-      UpperBounds[Dim] = getMin(TD.IsSigned, UpperBounds[Dim], EEVal, BB);
+      UpperBounds[Dim] = getMin(TD.IsSigned, UpperBounds[Dim], EEVal, BB,
+                                AppendWithDimension("upper.bound", Dim));
     else
-      LowerBounds[Dim] = getMax(TD.IsSigned, LowerBounds[Dim], EEVal, BB);
+      LowerBounds[Dim] = getMax(TD.IsSigned, LowerBounds[Dim], EEVal, BB,
+                                AppendWithDimension("lower.bound", Dim));
   }
 
   // If there is early exit on dimension i, set the loop size as the
@@ -1561,7 +1593,8 @@ void WGLoopBoundariesImpl::obtainEEBoundaries(BasicBlock *BB, VMap &ValueMap) {
   for (unsigned Dim = 0; Dim < NumDim; ++Dim)
     if (HasEE[Dim])
       LoopSizes[Dim] = BinaryOperator::Create(
-          Instruction::Sub, UpperBounds[Dim], LowerBounds[Dim], "", BB);
+          Instruction::Sub, UpperBounds[Dim], LowerBounds[Dim],
+          AppendWithDimension("loop.size", Dim), BB);
 }
 
 Value *WGLoopBoundariesImpl::obtainUniformCond(BasicBlock *BB, VMap &ValueMap) {
