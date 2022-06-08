@@ -402,6 +402,10 @@ def warn_ignored_gcc_optimization : Warning<"optimization flag '%0' is not suppo
 def warn_ignored_clang_option : Warning<"the flag '%0' has been deprecated and will be ignored">,
   InGroup<UnusedCommandLineArgument>;
 #if INTEL_CUSTOMIZATION
+def warn_use_of_debug_turn_off_optimization_level : Warning<
+  "Note that use of '%0' without any optimization-level option will turn off "
+  "most compiler optimizations similar to use of '%1'">,
+  InGroup<DebugDisablesOptimization>;
 def warn_invalid_num_qopt : Warning<"Invalid number(%0) of arguments for the -Qoption, option ignored">,
   InGroup<UnusedCommandLineArgument>;
 def warn_invalid_tool : Warning<"Invalid tool(%0) for the -Qoption, option ignored">,
