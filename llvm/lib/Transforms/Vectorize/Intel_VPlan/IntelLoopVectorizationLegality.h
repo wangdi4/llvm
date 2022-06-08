@@ -327,7 +327,7 @@ private:
 
     ValueTy *Val = Item->getOrig<IR>();
     RecurKind Kind = getReductionRecurKind(Item, Type);
-    addReduction(Val, Kind);
+    addReduction(Val, Kind, Item->getIsInscan(), Item->getInscanIdx());
     return true;
   }
 
@@ -350,8 +350,10 @@ private:
     return static_cast<LegalityTy *>(this)->addLinear(Val, Ty, Step);
   }
 
-  void addReduction(ValueTy *V, RecurKind Kind) {
-    return static_cast<LegalityTy *>(this)->addReduction(V, Kind);
+  void addReduction(ValueTy *V, RecurKind Kind,
+                    bool Inscan = false, uint64_t InscanId = 0) {
+    return static_cast<LegalityTy *>(this)->addReduction(
+      V, Kind, Inscan, InscanId);
   }
 };
 
@@ -364,6 +366,13 @@ class VPOVectorizationLegality final
 public:
   VPOVectorizationLegality(Loop *L, PredicatedScalarEvolution &PSE, Function *F)
       : TheLoop(L), PSE(PSE), Induction(nullptr), WidestIndTy(nullptr) {}
+
+  struct InMemoryReductionDescr {
+    RecurKind Kind;
+    bool Inscan;
+    uint64_t InscanId;
+    Instruction *UpdateInst;
+  };
 
   /// Returns true if it is legal to vectorize this loop.
   bool canVectorize(DominatorTree &DT, const WRNVecLoopNode *WRLp);
@@ -385,8 +394,7 @@ public:
       MapVector<PHINode *, std::pair<RecurrenceDescriptor, Value *>>;
   /// The list of in-memory reductions. Store instruction that updates the
   /// reduction is also tracked.
-  using InMemoryReductionList =
-      MapVector<Value *, std::pair<RecurKind, Instruction *>>;
+  using InMemoryReductionList = MapVector<Value *, InMemoryReductionDescr>;
 
   /// InductionList saves induction variables and maps them to the
   /// induction descriptor.
@@ -594,12 +602,14 @@ private:
   }
 
   /// Add an explicit reduction variable \p V and the reduction recurrence kind.
-  void addReduction(Value *V, RecurKind Kind);
+  void addReduction(Value *V, RecurKind Kind,
+                    bool Inscan = false, uint64_t InscanId = 0);
 
   /// Parsing Min/Max reduction patterns.
   void parseMinMaxReduction(Value *V, RecurKind Kind);
   /// Parsing arithmetic reduction patterns.
-  void parseBinOpReduction(Value *V, RecurKind Kind);
+  void parseBinOpReduction(Value *V, RecurKind Kind,
+                           bool Inscan, uint64_t InscanId = 0);
 
   /// Return true if the explicit reduction uses Phi nodes.
   bool doesReductionUsePhiNodes(Value *RedVarPtr, PHINode *&LoopHeaderPhiNode,
