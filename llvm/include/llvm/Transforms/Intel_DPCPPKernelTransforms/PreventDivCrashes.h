@@ -32,6 +32,7 @@ namespace llvm {
 class PreventDivCrashesPass : public PassInfoMixin<PreventDivCrashesPass> {
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static bool isRequired() { return true; }
 
   // Glue for old PM.
   bool runImpl(Function &F);
