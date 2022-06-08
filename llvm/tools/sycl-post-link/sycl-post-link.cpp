@@ -986,12 +986,7 @@ processInputModule(std::unique_ptr<Module> M) {
     Modified |= MMs.size() > 1;
 #ifndef NDEBUG
     bool NoSplitOccurred = (MMs.size() == 1) && (Table->getNumRows() == 0);
-<<<<<<< HEAD
-    (void)NoSplitOccurred; // INTEL
-#endif // _NDEBUG
-=======
 #endif // NDEBUG
->>>>>>> d1f4a9d56ff5fed06e3aae8552f63d1c1d4c7974
 
     if (!SplitEsimd && (MMs.size() > 1)) {
       // SYCL/ESIMD splitting is not requested, link back into single module.
