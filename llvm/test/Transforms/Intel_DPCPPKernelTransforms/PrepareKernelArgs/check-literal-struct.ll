@@ -7,7 +7,7 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 
 ;; Make sure parseKernelArguments doesn't crash on literal struct args.
 ; CHECK: @t1
-define void @t1({ float, float }* %arg1) {
+define void @t1({ float, float }* %arg0) {
 entry:
   ret void
 }
@@ -16,5 +16,5 @@ entry:
 !0 = !{void ({ float, float }*)* @t1}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-35: WARNING: Instruction with empty DebugLoc in function {{.*}}
+; DEBUGIFY-COUNT-36: WARNING: Instruction with empty DebugLoc in function {{.*}}
 ; DEBUGIFY-NOT: WARNING
