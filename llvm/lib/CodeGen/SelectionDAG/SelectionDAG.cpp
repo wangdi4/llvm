@@ -7409,21 +7409,6 @@ SDValue SelectionDAG::getMemset(SDValue Chain, const SDLoc &dl, SDValue Dst,
   auto &Ctx = *getContext();
   const auto& DL = getDataLayout();
 
-#if INTEL_CUSTOMIZATION
-  // Determine the RTL::Libcall to use based upon whether or not
-  // the corresponding standard library function is available in the
-  // targeted environment and Intel's libirc can be used and opt
-  // level is higher than O1.
-  RTLIB::Libcall libcall = RTLIB::MEMSET;
-#if INTEL_FEATURE_SW_ADVANCED
-  if (LibInfo->has(LibFunc_memset) &&
-      OptLevel > CodeGenOpt::Less &&
-      MF->getTarget().Options.IntelLibIRCAllowed) {
-    libcall = RTLIB::INTEL_MEMSET;
-  }
-#endif // INTEL_FEATURE_SW_ADVANCED
-#endif // INTEL_CUSTOMIZATION
-
   TargetLowering::CallLoweringInfo CLI(*this);
   // FIXME: pass in SDLoc
   CLI.setDebugLoc(dl).setChain(Chain);
@@ -7449,13 +7434,26 @@ SDValue SelectionDAG::getMemset(SDValue Chain, const SDLoc &dl, SDValue Dst,
         TLI->getLibcallCallingConv(RTLIB::BZERO), Type::getVoidTy(Ctx),
         getExternalSymbol(BzeroName, TLI->getPointerTy(DL)), std::move(Args));
   } else {
+#if INTEL_CUSTOMIZATION
+    // Determine the RTL::Libcall to use based upon whether or not
+    // the corresponding standard library function is available in the
+    // targeted environment and Intel's libirc can be used and opt
+    // level is higher than O1.
+    RTLIB::Libcall libcall = RTLIB::MEMSET;
+#if INTEL_FEATURE_SW_ADVANCED
+    if (LibInfo->has(LibFunc_memset) && OptLevel > CodeGenOpt::Less &&
+        MF->getTarget().Options.IntelLibIRCAllowed) {
+      libcall = RTLIB::INTEL_MEMSET;
+    }
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
     TargetLowering::ArgListTy Args;
     Args.push_back(CreateEntry(Dst, Type::getInt8PtrTy(Ctx)));
     Args.push_back(CreateEntry(Src, Src.getValueType().getTypeForEVT(Ctx)));
     Args.push_back(CreateEntry(Size, DL.getIntPtrType(Ctx)));
-    CLI.setLibCallee(TLI->getLibcallCallingConv(RTLIB::MEMSET),
+    CLI.setLibCallee(TLI->getLibcallCallingConv(libcall), // INTEL
                      Dst.getValueType().getTypeForEVT(Ctx),
-                     getExternalSymbol(TLI->getLibcallName(RTLIB::MEMSET),
+                     getExternalSymbol(TLI->getLibcallName(libcall), // INTEL
                                        TLI->getPointerTy(DL)),
                      std::move(Args));
   }
