@@ -7409,9 +7409,6 @@ SDValue SelectionDAG::getMemset(SDValue Chain, const SDLoc &dl, SDValue Dst,
   auto &Ctx = *getContext();
   const auto& DL = getDataLayout();
 
-<<<<<<< HEAD
-  // FIXME: pass in SDLoc
-
 #if INTEL_CUSTOMIZATION
   // Determine the RTL::Libcall to use based upon whether or not
   // the corresponding standard library function is available in the
@@ -7428,17 +7425,6 @@ SDValue SelectionDAG::getMemset(SDValue Chain, const SDLoc &dl, SDValue Dst,
 #endif // INTEL_CUSTOMIZATION
 
   TargetLowering::CallLoweringInfo CLI(*this);
-  CLI.setDebugLoc(dl)
-      .setChain(Chain)
-      .setLibCallee(TLI->getLibcallCallingConv(libcall), // INTEL
-                    Dst.getValueType().getTypeForEVT(*getContext()),
-                    getExternalSymbol(TLI->getLibcallName(libcall), // INTEL
-                                      TLI->getPointerTy(getDataLayout())),
-                    std::move(Args))
-      .setDiscardResult()
-      .setTailCall(isTailCall);
-=======
-  TargetLowering::CallLoweringInfo CLI(*this);
   // FIXME: pass in SDLoc
   CLI.setDebugLoc(dl).setChain(Chain);
 
@@ -7453,7 +7439,6 @@ SDValue SelectionDAG::getMemset(SDValue Chain, const SDLoc &dl, SDValue Dst,
     Entry.Ty = Ty;
     return Entry;
   };
->>>>>>> dc3367970e9bdd9ce2a47efd080ed493ed4e8f4b
 
   // If zeroing out and bzero is present, use it.
   if (SrcIsZero && BzeroName) {
