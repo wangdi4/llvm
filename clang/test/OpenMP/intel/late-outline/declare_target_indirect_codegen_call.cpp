@@ -76,7 +76,7 @@ int *const *f5(float add, int * const &res)
 // TARG-NEXT:    [[TMP0:%.*]] = load ptr addrspace(4), ptr addrspace(4) [[RETPCP_ASCAST]], align 8
 // TARG-NEXT:    [[TMP1:%.*]] = load ptr, ptr addrspace(4) [[G_ASCAST]], align 8
 // TARG-NEXT:    [[TMP2:%.*]] = load ptr addrspace(4), ptr addrspace(4) [[CP_ASCAST]], align 8
-// TARG-NEXT:    [[TMP3:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 4), "QUAL.OMP.MAP.TOFROM"(ptr addrspace(4) [[TMP0]], ptr addrspace(4) [[TMP0]], i64 0, i64 544, ptr null, ptr null), "QUAL.OMP.MAP.TOFROM"(ptr [[TMP1]], ptr [[TMP1]], i64 0, i64 544, ptr null, ptr null), "QUAL.OMP.MAP.TOFROM"(ptr addrspace(4) [[TMP2]], ptr addrspace(4) [[TMP2]], i64 0, i64 544, ptr null, ptr null), "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[RETPCP_MAP_PTR_TMP_ASCAST]], ptr addrspace(4) null, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[G_MAP_PTR_TMP_ASCAST]], ptr null, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[CP_MAP_PTR_TMP_ASCAST]], ptr addrspace(4) null, i32 1) ]
+// TARG-NEXT:    [[TMP3:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 4), "QUAL.OMP.MAP.TOFROM"(ptr addrspace(4) [[TMP0]], ptr addrspace(4) [[TMP0]], i64 0, i64 544, ptr null, ptr null), "QUAL.OMP.MAP.TOFROM:FPTR"(ptr [[TMP1]], ptr [[TMP1]], i64 0, i64 544, ptr null, ptr null), "QUAL.OMP.MAP.TOFROM"(ptr addrspace(4) [[TMP2]], ptr addrspace(4) [[TMP2]], i64 0, i64 544, ptr null, ptr null), "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[RETPCP_MAP_PTR_TMP_ASCAST]], ptr addrspace(4) null, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[G_MAP_PTR_TMP_ASCAST]], ptr null, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[CP_MAP_PTR_TMP_ASCAST]], ptr addrspace(4) null, i32 1) ]
 // TARG-NEXT:    store ptr addrspace(4) [[TMP0]], ptr addrspace(4) [[RETPCP_MAP_PTR_TMP_ASCAST]], align 8
 // TARG-NEXT:    store ptr [[TMP1]], ptr addrspace(4) [[G_MAP_PTR_TMP_ASCAST]], align 8
 // TARG-NEXT:    store ptr addrspace(4) [[TMP2]], ptr addrspace(4) [[CP_MAP_PTR_TMP_ASCAST]], align 8
@@ -88,7 +88,7 @@ int *const *f5(float add, int * const &res)
 // TARG-NEXT:    store ptr addrspace(4) [[TMP8]], ptr addrspace(4) [[RETPCP_MAP_PTR_TMP_ASCAST]], align 8
 // TARG-NEXT:    call void @llvm.directive.region.exit(token [[TMP3]]) [ "DIR.OMP.END.TARGET"() ]
 // TARG-NEXT:    [[TMP9:%.*]] = load ptr, ptr addrspace(4) addrspacecast (ptr addrspace(1) @two to ptr addrspace(4)), align 8
-// TARG-NEXT:    [[TMP10:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 5), "QUAL.OMP.MAP.TOFROM"(ptr [[TMP9]], ptr [[TMP9]], i64 0, i64 544, ptr null, ptr null), "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[TWO_MAP_PTR_TMP_ASCAST]], ptr null, i32 1) ]
+// TARG-NEXT:    [[TMP10:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 5), "QUAL.OMP.MAP.TOFROM:FPTR"(ptr [[TMP9]], ptr [[TMP9]], i64 0, i64 544, ptr null, ptr null), "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[TWO_MAP_PTR_TMP_ASCAST]], ptr null, i32 1) ]
 // TARG-NEXT:    store ptr [[TMP9]], ptr addrspace(4) [[TWO_MAP_PTR_TMP_ASCAST]], align 8
 // TARG-NEXT:    [[TMP11:%.*]] = load ptr, ptr addrspace(4) [[TWO_MAP_PTR_TMP_ASCAST]], align 8
 // TARG-NEXT:    [[TMP12:%.*]] = addrspacecast ptr [[TMP11]] to ptr addrspace(4)
@@ -102,7 +102,7 @@ int *const *f5(float add, int * const &res)
 // TARG-NEXT:    [[COND:%.*]] = select i1 [[TOBOOL]], ptr @_Z3mooi, ptr @_Z3zooi
 // TARG-NEXT:    store ptr [[COND]], ptr addrspace(4) [[ONE_ASCAST]], align 8
 // TARG-NEXT:    [[TMP18:%.*]] = load ptr, ptr addrspace(4) [[ONE_ASCAST]], align 8
-// TARG-NEXT:    [[TMP19:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 6), "QUAL.OMP.MAP.TOFROM"(ptr [[TMP18]], ptr [[TMP18]], i64 0, i64 544, ptr null, ptr null), "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[ONE_MAP_PTR_TMP_ASCAST]], ptr null, i32 1) ]
+// TARG-NEXT:    [[TMP19:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 6), "QUAL.OMP.MAP.TOFROM:FPTR"(ptr [[TMP18]], ptr [[TMP18]], i64 0, i64 544, ptr null, ptr null), "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) [[ONE_MAP_PTR_TMP_ASCAST]], ptr null, i32 1) ]
 // TARG-NEXT:    store ptr [[TMP18]], ptr addrspace(4) [[ONE_MAP_PTR_TMP_ASCAST]], align 8
 // TARG-NEXT:    [[TMP20:%.*]] = load ptr, ptr addrspace(4) [[ONE_MAP_PTR_TMP_ASCAST]], align 8
 // TARG-NEXT:    [[TMP21:%.*]] = addrspacecast ptr [[TMP20]] to ptr addrspace(4)
