@@ -271,6 +271,10 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   return DeviceInfo.getOffloadEntriesTable(device_id);
 }
 
+void __tgt_rtl_print_device_info(int32_t device_id) {
+  printf("    This is a generic-elf-64bit device\n");
+}
+
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
