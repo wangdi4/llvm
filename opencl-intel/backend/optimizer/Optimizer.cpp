@@ -47,29 +47,25 @@
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinLibInfoAnalysis.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VFAnalysis.h"
+#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
+#include "llvm/Transforms/Intel_OpenCLTransforms/Passes.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/InstSimplifyPass.h"
 #include "llvm/Transforms/Utils.h"
-#include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-
-#include "LLVMSPIRVLib.h"
-
-// TODO:
-// #include "llvm/Transforms/Intel_OpenCLTransforms/Passes.h"
-llvm::FunctionPass* createFMASplitterPass();
-
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
-#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
+#include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
 #include "llvm/Transforms/VPO/VPOPasses.h"
 #include "llvm/Transforms/Vectorize.h"
 #include "llvm/Transforms/Vectorize/VectorCombine.h"
+
+#include "LLVMSPIRVLib.h"
 
 cl::opt<bool>
     DisableVPlanCM("disable-ocl-vplan-cost-model", cl::init(false), cl::Hidden,
@@ -291,7 +287,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   if (OptLevel > 0)
     PM.add(llvm::createInternalizeNonKernelFuncLegacyPass());
 
-  PM.add(createFMASplitterPass());
+  PM.add(llvm::createFMASplitterPass());
   PM.add(llvm::createAddFunctionAttrsLegacyPass());
 
   if (OptLevel > 0) {
