@@ -659,22 +659,30 @@ EXTERN void *__tgt_create_interop_obj(
   int64_t device_id = EXTRACT_BITS(device_code, 31, 0);
   int plugin_type;
 
-  omp_interop_t Interop = __tgt_create_interop(device_id, 
+  omp_interop_t Interop = __tgt_create_interop(device_id,
                               OMP_INTEROP_CONTEXT_TARGETSYNC, 0, NULL);
-  __tgt_interop_obj *intel_ext_obj = (__tgt_interop_obj *)malloc(sizeof(__tgt_interop_obj));
+  if (!Interop)
+    return NULL;
+
+  __tgt_interop_obj *intel_ext_obj =
+      (__tgt_interop_obj *)malloc(sizeof(__tgt_interop_obj));
+  if (!intel_ext_obj)
+    return NULL;
+
   ((__tgt_interop *)Interop)->intel_tmp_ext = intel_ext_obj;
 
   intel_ext_obj->is_async = is_async;
   intel_ext_obj->async_obj = async_obj;
   intel_ext_obj->async_handler = &__tgt_offload_proxy_task_complete_ooo;
   int ret_code = OFFLOAD_FAIL;
-  intel_ext_obj->device_id = omp_get_interop_int(Interop, omp_ipr_device_num, &ret_code);
-  plugin_type= (int) omp_get_interop_int(Interop, omp_ipr_fr_id, &ret_code);
+  intel_ext_obj->device_id =
+      omp_get_interop_int(Interop, omp_ipr_device_num, &ret_code);
+  plugin_type = (int)omp_get_interop_int(Interop, omp_ipr_fr_id, &ret_code);
   if (plugin_type == 6)
     plugin_type = INTEROP_PLUGIN_LEVEL0;
-  else if (plugin_type == 3) 
+  else if (plugin_type == 3)
     plugin_type = INTEROP_PLUGIN_OPENCL;
-  else 
+  else
     DP("%d does not support interop plugin type \n", plugin_type);
   intel_ext_obj->plugin_interface = plugin_type;
   return Interop;
