@@ -1546,9 +1546,22 @@ void OpenMPLateOutliner::emitOMPFirstprivateClause(
 
   auto *IPriv = Cl->private_copies().begin();
   for (auto *E : Cl->varlists()) {
+    const VarDecl *VD = getExplicitVarDecl(E);
+    if (CurrentDirectiveKind == OMPD_target &&
+        VD->getType()->isAnyPointerType() &&
+        VD->getType()->getPointeeType()->isFunctionType()) {
+      if (const auto *DRE = dyn_cast<DeclRefExpr>(E)) {
+        // Add variable with function ptr type to ImplicitMap, if var is
+        // getting mapped, the firstprivate clause will not be emitted
+        // when emitting Implicit clause at end.
+        ImplicitMap.insert(std::make_pair(cast<VarDecl>(DRE->getDecl()),
+                                          ICK_specified_firstprivate));
+        addFirstPrivateVars(cast<VarDecl>(DRE->getDecl()));
+        continue;
+      }
+    }
     ClauseEmissionHelper CEH(*this, OMPC_firstprivate, "QUAL.OMP.FIRSTPRIVATE");
     ClauseStringBuilder &CSB = CEH.getBuilder();
-    const VarDecl *VD = getExplicitVarDecl(E);
     assert(VD && "expected VarDecl in firstprivate clause");
     addExplicit(VD, OMPC_firstprivate);
     bool IsPODType = E->getType().isPODType(CGF.getContext());
@@ -2338,6 +2351,10 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
     ClauseEmissionHelper CEH(*this, CK);
     ClauseStringBuilder &CSB = CEH.getBuilder();
     buildMapQualifier(CSB, I.MapType, I.Modifiers, I.Var);
+    if (!I.IsChain && I.Var)
+      if (I.Var->getType()->isAnyPointerType() &&
+          I.Var->getType()->getPointeeType()->isFunctionType())
+        CSB.setFptr();
     if (I.IsChain)
       CSB.setChain();
     addArg(CSB.getString());
