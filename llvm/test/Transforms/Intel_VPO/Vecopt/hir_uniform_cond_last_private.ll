@@ -2,9 +2,8 @@
 ; Test to check stability of VPlan HIR vectorizer in handling uniform
 ; conditional last privates.
 
-; FIXME: Remove CHECKs for VPlan IR after removing temporary hack.
-; RUN: opt -enable-new-pm=0 -disable-output %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -vplan-print-after-ssa-deconstruction -print-after=hir-vplan-vec 2>&1 | FileCheck %s
-; RUN: opt -disable-output %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -vplan-print-after-ssa-deconstruction 2>&1 | FileCheck %s
+; RUN: opt -enable-new-pm=0  -disable-output %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec 2>&1 | FileCheck %s
+; RUN: opt -disable-output %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>" -vplan-force-vf=4 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -16,83 +15,10 @@ declare token @llvm.directive.region.entry() #0
 declare void @llvm.directive.region.exit(token) #0
 
 define void @foo(i1 %cond, i32* %val) #1 {
-; CHECK-LABEL:  VPlan after SSA deconstruction:
-; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
-; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:     [[VP0:%.*]] = {if (%cond != 0)}
-; CHECK-DAG:     [[VP1:%.*]] = {%priv}
-; CHECK-NEXT:  External Defs End:
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
-; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
-; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
-; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
-; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; FIXME: Temporary hack by marking VP2 as Div for uniform phi VP4.
-; CHECK-NEXT:     [DA: Div] i32 [[VP2:%.*]] = hir-copy i32 [[PRIV0:%.*]] , OriginPhiId: 0
-; CHECK-NEXT:     [DA: Div] i64 [[VP3:%.*]] = hir-copy i64 -1 , OriginPhiId: 1
-; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP4:%.*]] = phi  [ i32 [[VP2]], [[BB1]] ],  [ i32 [[VP5:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_PRIV_IDX_HDR:%.*]] = phi  [ i64 [[VP3]], [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i64 [[VP7:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP8:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i64 [[VP9:%.*]] = hir-copy i64 [[VP_PRIV_IDX_HDR]] , OriginPhiId: 2
-; CHECK-NEXT:     [DA: Div] i32 [[VP10:%.*]] = hir-copy i32 [[VP4]] , OriginPhiId: 3
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP0]], [[BB4:BB[0-9]+]], [[BB3]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:       [DA: Uni] i32 [[VP11:%.*]] = hir-copy i32 1 , OriginPhiId: -1
-; CHECK-NEXT:       [DA: Div] i64 [[VP12:%.*]] = hir-copy i64 [[VP7]] , OriginPhiId: 2
-; CHECK-NEXT:       [DA: Div] i32 [[VP13:%.*]] = hir-copy i32 [[VP11]] , OriginPhiId: 3
-; CHECK-NEXT:       [DA: Uni] br [[BB3]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB2]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_PRIV_IDX_BB5:%.*]] = phi  [ i64 [[VP12]], [[BB4]] ],  [ i64 [[VP9]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP14:%.*]] = phi  [ i32 [[VP13]], [[BB4]] ],  [ i32 [[VP10]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] i64 [[VP8]] = add i64 [[VP7]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP15:%.*]] = icmp slt i64 [[VP8]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; FIXME: Temporary hack by marking VP5 as Div for uniform phi VP4.
-; CHECK-NEXT:     [DA: Div] i32 [[VP5]] = hir-copy i32 [[VP14]] , OriginPhiId: 0
-; CHECK-NEXT:     [DA: Div] i64 [[VP6]] = hir-copy i64 [[VP_PRIV_IDX_BB5]] , OriginPhiId: 1
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP15]], [[BB2]], [[BB5:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:     [DA: Div] i1 [[VP16:%.*]] = icmp ne i64 [[VP_PRIV_IDX_BB5]] i64 -1
-; CHECK-NEXT:     [DA: Uni] i1 [[VP17:%.*]] = all-zero-check i1 [[VP16]]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP18:%.*]] = hir-copy i32 [[PRIV0]] , OriginPhiId: 4
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP17]], [[BB6:BB[0-9]+]], [[BB7:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB7]]: # preds: [[BB5]]
-; CHECK-NEXT:       [DA: Uni] i32 [[VP__PRIV_FINAL:%.*]] = private-final-c i32 [[VP14]] i64 [[VP_PRIV_IDX_BB5]] i32 [[PRIV0]]
-; CHECK-NEXT:       [DA: Uni] i32 [[VP19:%.*]] = hir-copy i32 [[VP__PRIV_FINAL]] , OriginPhiId: 4
-; CHECK-NEXT:       [DA: Uni] br [[BB6]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]: # preds: [[BB7]], [[BB5]]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP20:%.*]] = phi  [ i32 [[VP18]], [[BB5]] ],  [ i32 [[VP19]], [[BB7]] ]
-; CHECK-NEXT:     [DA: Uni] br [[BB8:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB8]]: # preds: [[BB6]]
-; CHECK-NEXT:     [DA: Uni] popvf
-; CHECK-NEXT:     [DA: Uni] br final.merge
-; CHECK-EMPTY:
-; CHECK-NEXT:    final.merge: # preds: [[BB8]]
-; CHECK-NEXT:     [DA: Uni] popvf
-; CHECK-NEXT:     [DA: Uni] br <External Block>
-; CHECK-EMPTY:
-; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0   i32 live-out0 -> [[VP21:%.*]] = {%priv}
-; CHECK-EMPTY:
-; CHECK-NEXT:  Id: 1   no underlying for i64 [[VP__IND_FINAL]]
-
 ; CHECK-LABEL: Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  BEGIN REGION { modified }
-; CHECK-NEXT:        [[PRIV0]] = undef
+; CHECK-NEXT:        [[PRIV0:%.*]] = undef
 ; CHECK-NEXT:        [[PHI_TEMP0:%.*]] = [[PRIV0]]
 ; CHECK-NEXT:        [[PHI_TEMP30:%.*]] = -1
 
@@ -116,7 +42,7 @@ define void @foo(i1 %cond, i32* %val) #1 {
 ; CHECK-NEXT:        [[PHI_TEMP140:%.*]] = [[PRIV0]]
 ; CHECK-NEXT:        if ([[CMP0]] == 1)
 ; CHECK-NEXT:        {
-; CHECK-NEXT:           goto [[BB6]].54
+; CHECK-NEXT:           goto [[BB6:BB.*]];
 ; CHECK-NEXT:        }
 ; CHECK-NEXT:        [[PRIV_IDX_MAX0:%.*]] = @llvm.vector.reduce.smax.v4i64([[PHI_TEMP50]])
 ; CHECK-NEXT:        [[PRIV_IDX_CMP0:%.*]] = [[PHI_TEMP50]] == [[PRIV_IDX_MAX0]]
@@ -124,7 +50,7 @@ define void @foo(i1 %cond, i32* %val) #1 {
 ; CHECK-NEXT:        [[BSF0:%.*]] = @llvm.cttz.i4([[BSFINTMASK0]],  1)
 ; CHECK-NEXT:        [[PRIV0]] = extractelement [[PHI_TEMP70]],  [[BSF0]]
 ; CHECK-NEXT:        [[PHI_TEMP140]] = [[PRIV0]]
-; CHECK-NEXT:        [[BB6]].54:
+; CHECK-NEXT:        [[BB6]]:
 ; CHECK-NEXT:        [[PRIV0]] = [[PHI_TEMP140]]
 ; CHECK-NEXT:        ([[VAL0:%.*]])[0] = [[PRIV0]]
 ; CHECK-NEXT:        ret

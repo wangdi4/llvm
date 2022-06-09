@@ -46,7 +46,7 @@ define dso_local void @foo(i64 %n1, i64 %n2) local_unnamed_addr #0 {
 ; CHECK:       |   %phi.temp = %.copy;
 ; CHECK:       |   <LVAL-REG> NON-LINEAR <4 x i64> %phi.temp {sb:23}
 ; CHECK:       |   %phi.temp4 = 0;
-; CHECK:       |   <LVAL-REG> NON-LINEAR <4 x i64> %phi.temp4 {sb:24}
+; CHECK:       |   <LVAL-REG> NON-LINEAR i64 %phi.temp4 {sb:24}
 ; CHECK:       |   + LiveIn symbases: 9, 10, 23, 24
 ; CHECK:       |   + LiveOut symbases: 23, 27
 ; CHECK:       |   + Loop metadata:
@@ -58,7 +58,7 @@ define dso_local void @foo(i64 %n1, i64 %n2) local_unnamed_addr #0 {
 ; CHECK:       |   |   <LVAL-REG> NON-LINEAR <4 x i64> %phi.temp {sb:23}
 ; CHECK:       |   |      <BLOB> NON-LINEAR <4 x i64> %phi.temp {sb:23}
 ; CHECK:       |   |   %phi.temp4 = i2 + 1;
-; CHECK:       |   |   <LVAL-REG> NON-LINEAR <4 x i64> %phi.temp4 {sb:24}
+; CHECK:       |   |   <LVAL-REG> NON-LINEAR i64 %phi.temp4 {sb:24}
 ; CHECK:       |   + END LOOP
 ; CHECK:       |   (<4 x i64>*)(@larr1)[0][i1 + 2 * %n2 + %n1] = %phi.temp + %.vec;
 ; CHECK:       |      <BLOB> LINEAR [100 x i64]* @larr1 {sb:16}
