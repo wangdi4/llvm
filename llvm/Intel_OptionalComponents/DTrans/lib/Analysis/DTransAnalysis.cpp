@@ -79,6 +79,9 @@ using namespace llvm::PatternMatch;
 // Debug type for verbose field single alloc function analysis output.
 #define DTRANS_FSAF "dtrans-fsaf"
 
+// Debug type for verbose C-rule compatibility testing
+#define DTRANS_CRC "dtrans-crc"
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool> DTransPrintAllocations("dtrans-print-allocations",
                                             cl::ReallyHidden);
@@ -2572,7 +2575,15 @@ public:
   static bool typesMayBeCRuleCompatible(llvm::Type *T1, llvm::Type *T2,
                                         bool IgnorePointees = false) {
     SmallPtrSet<llvm::Type *, 4> Tstack;
-    return typesMayBeCRuleCompatibleX(T1, T2, Tstack, IgnorePointees);
+    bool RV = typesMayBeCRuleCompatibleX(T1, T2, Tstack, IgnorePointees);
+    DEBUG_WITH_TYPE(DTRANS_CRC, {
+          dbgs() << "dtrans-crc: " << (RV ? "YES " : "NO  ");
+          T1->print(dbgs(), true);
+          dbgs() << " ";
+          T2->print(dbgs(), true);
+          dbgs()  << "\n";
+    });
+    return RV;
   }
 
   // Return true if the Type T may have a distinct compatible Type by
