@@ -23,6 +23,7 @@ define dso_local i32 @_Z3foov(i32 %t) {
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]]
 ; CHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB1]]: base cost: 0
+; CHECK-NEXT:  Cost Model for Loop preheader [[BB0]] : [[BB1]] for VF = 1 resulted Cost = 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP0:%.*]] = phi  [ i32 [[S_0100:%.*]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ] *PSADBW*, CarryOut: [[VP1]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
@@ -40,15 +41,16 @@ define dso_local i32 @_Z3foov(i32 %t) {
 ; CHECK-NEXT:    Cost 1 for i1 [[VP9:%.*]] = icmp slt i64 [[VP3]] i64 1024
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB2]]: base cost: 11
+; CHECK-NEXT:  Base Cost: 11
+; CHECK-NEXT:  Cost decrease due to psadbw pattern heuristic is 11
+; CHECK-NEXT:  Total Cost: 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB3]]: base cost: 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CHECK-NEXT:    Cost 0 for br <External Block>
 ; CHECK-NEXT:  [[BB4]]: base cost: 0
-; CHECK-NEXT:  Base Cost: 11
-; CHECK-NEXT:  Cost decrease due to psadbw pattern heuristic is 11
-; CHECK-NEXT:  Total Cost: 0
+; CHECK-NEXT:  Cost Model for Loop postexit [[BB3]] : [[BB4]] for VF = 1 resulted Cost = 0
 ;
 entry:
   br label %for.body
@@ -87,6 +89,7 @@ define dso_local i32 @_Z3goov() {
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]]
 ; CHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB1]]: base cost: 0
+; CHECK-NEXT:  Cost Model for Loop preheader [[BB0]] : [[BB1]] for VF = 1 resulted Cost = 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[S_0620:%.*]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ] *PSADBW*, CarryOut: [[VP1]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
@@ -153,15 +156,16 @@ define dso_local i32 @_Z3goov() {
 ; CHECK-NEXT:    Cost 1 for i1 [[VP46:%.*]] = icmp slt i64 [[VP3]] i64 256
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP46]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB2]]: base cost: 60
+; CHECK-NEXT:  Base Cost: 60
+; CHECK-NEXT:  Cost decrease due to psadbw pattern heuristic is 53
+; CHECK-NEXT:  Total Cost: 7
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB3]]: base cost: 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CHECK-NEXT:    Cost 0 for br <External Block>
 ; CHECK-NEXT:  [[BB4]]: base cost: 0
-; CHECK-NEXT:  Base Cost: 60
-; CHECK-NEXT:  Cost decrease due to psadbw pattern heuristic is 53
-; CHECK-NEXT:  Total Cost: 7
+; CHECK-NEXT:  Cost Model for Loop postexit [[BB3]] : [[BB4]] for VF = 1 resulted Cost = 0
 ;
 entry:
   br label %for.body
@@ -240,6 +244,7 @@ define dso_local i32 @_Z3toov(i32 %t) {
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]]
 ; CHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB1]]: base cost: 0
+; CHECK-NEXT:  Cost Model for Loop preheader [[BB0]] : [[BB1]] for VF = 1 resulted Cost = 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP0:%.*]] = phi  [ i32 [[S_0100:%.*]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
@@ -257,13 +262,14 @@ define dso_local i32 @_Z3toov(i32 %t) {
 ; CHECK-NEXT:    Cost 1 for i1 [[VP9:%.*]] = icmp slt i64 [[VP3]] i64 16
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB2]]: base cost: 11
+; CHECK-NEXT:  Base Cost: 11
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB3]]: base cost: 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CHECK-NEXT:    Cost 0 for br <External Block>
 ; CHECK-NEXT:  [[BB4]]: base cost: 0
-; CHECK-NEXT:  Base Cost: 11
+; CHECK-NEXT:  Cost Model for Loop postexit [[BB3]] : [[BB4]] for VF = 1 resulted Cost = 0
 ;
 entry:
   br label %for.body
@@ -302,6 +308,7 @@ define dso_local i32 @full_unroll_with_slp(i32 %t) {
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]]
 ; CHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB1]]: base cost: 0
+; CHECK-NEXT:  Cost Model for Loop preheader [[BB0]] : [[BB1]] for VF = 1 resulted Cost = 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP0:%.*]] = phi  [ i32 [[S_0100:%.*]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ] *PSADBW*, CarryOut: [[VP1]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
@@ -349,15 +356,16 @@ define dso_local i32 @full_unroll_with_slp(i32 %t) {
 ; CHECK-NEXT:    Cost 1 for i1 [[VP27:%.*]] = icmp slt i64 [[VP3]] i64 16
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP27]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB2]]: base cost: 38
+; CHECK-NEXT:  Base Cost: 38
+; CHECK-NEXT:  Cost decrease due to psadbw pattern heuristic is 38
+; CHECK-NEXT:  Total Cost: 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB3]]: base cost: 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CHECK-NEXT:    Cost 0 for br <External Block>
 ; CHECK-NEXT:  [[BB4]]: base cost: 0
-; CHECK-NEXT:  Base Cost: 38
-; CHECK-NEXT:  Cost decrease due to psadbw pattern heuristic is 38
-; CHECK-NEXT:  Total Cost: 0
+; CHECK-NEXT:  Cost Model for Loop postexit [[BB3]] : [[BB4]] for VF = 1 resulted Cost = 0
 ;
 entry:
   br label %for.body
