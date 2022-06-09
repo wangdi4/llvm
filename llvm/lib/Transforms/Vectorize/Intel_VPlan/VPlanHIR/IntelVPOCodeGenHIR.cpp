@@ -3502,7 +3502,7 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
   // Adjust the memory reference for the negative one stride case so that
   // the client can do a wide load/store.
   if (IsNegOneStride)
-    MemRef->shift(MainLoop->getNestingLevel(), (int64_t)VF - 1);
+    MemRef->shift(getNestingLevelFromInsertPoint(), (int64_t)VF - 1);
 
   // Set ref alignment using original alignment.
   MemRef->setAlignment(Alignment.value());
@@ -5429,7 +5429,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // unnecessary HLInsts. This is limited to instructions inside a VPLoop.
     auto *ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(1));
     if (Plan->getVPLoopInfo()->getLoopFor(VPInst->getParent()) &&
-        CE1->isLinearAtLevel(MainLoop->getNestingLevel()) &&
+        CE1->isLinearAtLevel(getNestingLevelFromInsertPoint()) &&
         CE1->getDenominator() == 1 && ConstOp) {
       auto *CI = cast<ConstantInt>(ConstOp->getConstant());
 
@@ -5469,8 +5469,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
     if (Plan->getVPLoopInfo()->getLoopFor(VPInst->getParent()) &&
         !ReductionVPInsts.count(VPInst) &&
-        CE1->isLinearAtLevel(MainLoop->getNestingLevel()) &&
-        CE2->isLinearAtLevel(MainLoop->getNestingLevel())) {
+        CE1->isLinearAtLevel(getNestingLevelFromInsertPoint()) &&
+        CE2->isLinearAtLevel(getNestingLevelFromInsertPoint())) {
       if ((ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(0))))
         NonConstIndex = 1;
       else if ((ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(1))))
