@@ -130,15 +130,14 @@ bool VPOCodeGenHIR::isMergedCFG() {
   return !isSearchLoop() && EnableNewCFGMerge && EnableNewCFGMergeHIR;
 }
 
-// Helper method to determine if instruction should be scalarized. This is
-// currently done only for uniform instructions outside vector loops. TODO: This
-// decision should be SVA-driven in the future.
-static bool instShouldBeScalar(const VPInstruction *VPInst) {
+// Helper method to determine if instruction is strictly identified as being
+// scalar for first lane by SVA.
+static bool instIsStrictlyFirstScalar(const VPInstruction *VPInst) {
   auto *Plan = cast<VPlanVector>(VPInst->getParent()->getParent());
-  auto *VPLI = Plan->getVPLoopInfo();
-  bool IsUni = Plan->getVPlanDA()->isUniform(*VPInst);
-  bool IsOutsideLp = VPLI->getLoopFor(VPInst->getParent()) == nullptr;
-  return IsUni && IsOutsideLp;
+  auto *SVA = Plan->getVPlanSVA();
+  return SVA->instNeedsFirstScalarCode(VPInst) &&
+         !SVA->instNeedsVectorCode(VPInst) &&
+         !SVA->instNeedsLastScalarCode(VPInst);
 }
 
 static RegDDRef *getConstantSplatDDRef(DDRefUtils &DDRU, Constant *ConstVal,
@@ -3647,14 +3646,14 @@ void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
 
   // Update mapping in scalar/vector maps based on nature of deconstructed
   // copies created for the PHI.
-  if (instShouldBeScalar(HIRCopy))
+  if (instIsStrictlyFirstScalar(HIRCopy))
     addVPValueScalRefMapping(VPPhi, PhiTemp, 0 /*Lane*/);
   else
     addVPValueWideRefMapping(VPPhi, PhiTemp);
 
   if (!hasNoExternalUsers(VPPhi)) {
     // If it's used by an external, copy it to that temp.
-    assert(instShouldBeScalar(HIRCopy) && "Expected scalar");
+    assert(instIsStrictlyFirstScalar(HIRCopy) && "Expected scalar");
     const VPExternalUse *ExtUse = getSingleExternalUse(VPPhi, Plan);
     auto PhiExtUse = getUniformScalarRef(ExtUse);
     HLInst *NewInst =
@@ -6164,8 +6163,9 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask) {
       return;
   }
 
-  // Scalarize HIR copy instructions that are outside vector loops.
-  if (isa<VPHIRCopyInst>(VPInst) && instShouldBeScalar(VPInst)) {
+  // Use SVA knowledge to scalarize HIR copy instructions. This is part of
+  // initial efforts to keep instructions outside vector loops scalar.
+  if (isa<VPHIRCopyInst>(VPInst) && instIsStrictlyFirstScalar(VPInst)) {
     generateHIR(VPInst, Mask, false /*Widen*/, 0 /*LaneID*/);
     return;
   }
