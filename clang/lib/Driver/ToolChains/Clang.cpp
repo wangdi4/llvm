@@ -5264,16 +5264,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     bool WantToDisableEarlyOptimizations = false;
 #if INTEL_COLLAB
     // Default value for FPGA is false, for all other targets is true.
-    if (Triple.getSubArch() == llvm::Triple::SPIRSubArch_fpga)
+    if (IsFPGASYCLOffloadDevice)
       WantToDisableEarlyOptimizations = true;
 #endif // INTEL_COLLAB
     if (!Args.hasFlag(options::OPT_fsycl_early_optimizations,
                       options::OPT_fno_sycl_early_optimizations,
-<<<<<<< HEAD
                       !WantToDisableEarlyOptimizations))
-=======
-                      !IsFPGASYCLOffloadDevice))
->>>>>>> 5ffb2ee8cd2fffe0aa90e413a487d5e6a223efe1
       CmdArgs.push_back("-fno-sycl-early-optimizations");
     else if (RawTriple.isSPIR()) {
       // Set `sycl-opt` option to configure LLVM passes for SPIR target
