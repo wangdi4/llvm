@@ -45,6 +45,9 @@
 // Debug type for verbose call graph computations.
 #define DTRANS_CG "dtrans-cg"
 
+// Debug type for verbose C-rule compatibility testing
+#define DTRANS_CRC "dtrans-crc"
+
 // Print the result for structures with fields that are arrays with constant
 // entries
 #define ARRAYS_WITH_CONST_ENTRIES "dtrans-arrays-with-const-entries"
@@ -3774,7 +3777,15 @@ public:
   static bool typesMayBeCRuleCompatible(DTransType *T1, DTransType *T2,
                                         bool IgnorePointees = false) {
     SmallPtrSet<DTransType *, 4> Tstack;
-    return typesMayBeCRuleCompatibleX(T1, T2, Tstack, IgnorePointees);
+    bool RV = typesMayBeCRuleCompatibleX(T1, T2, Tstack, IgnorePointees);
+    DEBUG_WITH_TYPE(DTRANS_CRC, {
+          dbgs() << "dtrans-crc: " << (RV ? "YES " : "NO  ");
+          T1->print(dbgs(), true);
+          dbgs() << " ";
+          T2->print(dbgs(), true);
+          dbgs()  << "\n";
+    });
+    return RV;
   }
 
   // Return true if the Type T may have a distinct compatible Type by
