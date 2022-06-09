@@ -5646,6 +5646,11 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
 
   DeviceInfo->initMemAllocator(DeviceId);
 
+  // Create command queue early to address performance regression reported in
+  // CMPLRLIBS-33758.
+  auto Q = DeviceInfo->getCmdQueue(DeviceId);
+  (void)Q;
+
   if (DeviceInfo->Option.Flags.UseImmCmdList)
     DeviceInfo->initImmCmdList(DeviceId);
 
