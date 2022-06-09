@@ -2058,6 +2058,7 @@ if (INTEL_CUSTOMIZATION)
       # If we are building shared libraries, we need to install
       # LLVM_LIBS.
       list(APPEND INTEL_DEPLOY_COMPONENTS ${LLVM_LIBS})
+      list(APPEND INTEL_DEPLOY_COMPONENTS lldCommon lldELF lldCOFF)
 
       # clang libraries are in CLANG_EXPORTS list.
       # Hopefully, the extra tools, which are also in the list,
