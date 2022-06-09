@@ -7406,18 +7406,8 @@ SDValue SelectionDAG::getMemset(SDValue Chain, const SDLoc &dl, SDValue Dst,
   checkAddrSpaceIsValidForLibcall(TLI, DstPtrInfo.getAddrSpace());
 
   // Emit a library call.
-  TargetLowering::ArgListTy Args;
-  TargetLowering::ArgListEntry Entry;
-  Entry.Node = Dst; Entry.Ty = Type::getInt8PtrTy(*getContext());
-  Args.push_back(Entry);
-  Entry.Node = Src;
-  Entry.Ty = Src.getValueType().getTypeForEVT(*getContext());
-  Args.push_back(Entry);
-  Entry.Node = Size;
-  Entry.Ty = getDataLayout().getIntPtrType(*getContext());
-  Args.push_back(Entry);
-
-  // FIXME: pass in SDLoc
+  auto &Ctx = *getContext();
+  const auto& DL = getDataLayout();
 
 #if INTEL_CUSTOMIZATION
   // Determine the RTL::Libcall to use based upon whether or not
@@ -7435,17 +7425,44 @@ SDValue SelectionDAG::getMemset(SDValue Chain, const SDLoc &dl, SDValue Dst,
 #endif // INTEL_CUSTOMIZATION
 
   TargetLowering::CallLoweringInfo CLI(*this);
-  CLI.setDebugLoc(dl)
-      .setChain(Chain)
-      .setLibCallee(TLI->getLibcallCallingConv(libcall), // INTEL
-                    Dst.getValueType().getTypeForEVT(*getContext()),
-                    getExternalSymbol(TLI->getLibcallName(libcall), // INTEL
-                                      TLI->getPointerTy(getDataLayout())),
-                    std::move(Args))
-      .setDiscardResult()
-      .setTailCall(isTailCall);
+  // FIXME: pass in SDLoc
+  CLI.setDebugLoc(dl).setChain(Chain);
 
-  std::pair<SDValue,SDValue> CallResult = TLI->LowerCallTo(CLI);
+  ConstantSDNode *ConstantSrc = dyn_cast<ConstantSDNode>(Src);
+  const bool SrcIsZero = ConstantSrc && ConstantSrc->isZero();
+  const char *BzeroName = getTargetLoweringInfo().getLibcallName(RTLIB::BZERO);
+
+  // Helper function to create an Entry from Node and Type.
+  const auto CreateEntry = [](SDValue Node, Type *Ty) {
+    TargetLowering::ArgListEntry Entry;
+    Entry.Node = Node;
+    Entry.Ty = Ty;
+    return Entry;
+  };
+
+  // If zeroing out and bzero is present, use it.
+  if (SrcIsZero && BzeroName) {
+    TargetLowering::ArgListTy Args;
+    Args.push_back(CreateEntry(Dst, Type::getInt8PtrTy(Ctx)));
+    Args.push_back(CreateEntry(Size, DL.getIntPtrType(Ctx)));
+    CLI.setLibCallee(
+        TLI->getLibcallCallingConv(RTLIB::BZERO), Type::getVoidTy(Ctx),
+        getExternalSymbol(BzeroName, TLI->getPointerTy(DL)), std::move(Args));
+  } else {
+    TargetLowering::ArgListTy Args;
+    Args.push_back(CreateEntry(Dst, Type::getInt8PtrTy(Ctx)));
+    Args.push_back(CreateEntry(Src, Src.getValueType().getTypeForEVT(Ctx)));
+    Args.push_back(CreateEntry(Size, DL.getIntPtrType(Ctx)));
+    CLI.setLibCallee(TLI->getLibcallCallingConv(RTLIB::MEMSET),
+                     Dst.getValueType().getTypeForEVT(Ctx),
+                     getExternalSymbol(TLI->getLibcallName(RTLIB::MEMSET),
+                                       TLI->getPointerTy(DL)),
+                     std::move(Args));
+  }
+
+  CLI.setDiscardResult().setTailCall(isTailCall);
+
+  std::pair<SDValue, SDValue> CallResult = TLI->LowerCallTo(CLI);
   return CallResult.second;
 }
 
