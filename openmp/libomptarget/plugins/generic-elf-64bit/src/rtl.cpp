@@ -271,16 +271,13 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   return DeviceInfo.getOffloadEntriesTable(device_id);
 }
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-=======
 void __tgt_rtl_print_device_info(int32_t device_id) {
   printf("    This is a generic-elf-64bit device\n");
 }
 
->>>>>>> 15ed5c0a07a2495996b66bc56e94c01eea10816f
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 // Sample implementation of explicit memory allocator. For this plugin all kinds
 // are equivalent to each other.
 void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr,
