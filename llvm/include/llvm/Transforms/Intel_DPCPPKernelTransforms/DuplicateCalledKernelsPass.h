@@ -22,8 +22,6 @@ namespace llvm {
 class DuplicateCalledKernelsPass
     : public PassInfoMixin<DuplicateCalledKernelsPass> {
 public:
-  static StringRef name() { return "DuplicateCalledKernels"; }
-
   bool runImpl(Module &M);
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);

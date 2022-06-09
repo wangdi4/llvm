@@ -24,7 +24,6 @@ namespace llvm {
 class AddFunctionAttrsPass : public PassInfoMixin<AddFunctionAttrsPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
-  static StringRef name() { return "AddFunctionAttrsPass"; }
 
   bool runImpl(Module &M);
 };

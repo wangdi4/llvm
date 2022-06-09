@@ -67,11 +67,12 @@ struct ArgData {
 };
 
 static const ArgData ImpArgs[ImplicitArgsUtils::IA_NUMBER] = {
-    {"pLocalMemBase", true},                           // IA_SLM_BUFFER,
-    {"pWorkDim", false},                               // IA_WORK_GROUP_INFO
-    {"pWGId", true},                                   // IA_WORK_GROUP_ID
-    {"BaseGlbId", true},                               // IA_GLOBAL_BASE_ID
-    {"pSpecialBuf", true},   {"RuntimeHandle", true}}; // IA_RUNTIME_HANDLE
+    {"pLocalMemBase", true},  // IA_SLM_BUFFER,
+    {"pWorkDim", false},      // IA_WORK_GROUP_INFO
+    {"pWGId", true},          // IA_WORK_GROUP_ID
+    {"BaseGlbId", true},      // IA_GLOBAL_BASE_ID
+    {"pSpecialBuf", true},    // IA_BARRIER_BUFFER
+    {"RuntimeHandle", true}}; // IA_RUNTIME_HANDLE
 
 const char *ImplicitArgsUtils::getArgName(unsigned Idx) {
   // TODO: maybe we don't need impargs?

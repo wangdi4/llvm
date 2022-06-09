@@ -30,7 +30,10 @@ namespace llvm {
 /// Collect data on Values (instructions) that needs special handling.
 class DataPerValue {
 public:
-  typedef MapVector<Function *, ValueVector> ValuesPerFunctionMap;
+  using InstSet = CompilationUtils::InstSet;
+  using ValueVec = CompilationUtils::ValueVec;
+
+  typedef MapVector<Function *, ValueVec> ValuesPerFunctionMap;
   typedef DenseMap<Value *, unsigned int> ValueToOffsetMap;
   typedef SetVector<Value *> ValueSet;
   typedef SetVector<Use *> UseSet;
@@ -46,21 +49,21 @@ public:
   /// Return all values to handle in given function.
   /// F pointer to Function,
   /// Returns container of values to handle in F.
-  ValueVector &getValuesToHandle(Function *F) {
+  ValueVec &getValuesToHandle(Function *F) {
     return SpecialValuesPerFuncMap[F];
   }
 
   /// Return all alloca values to handle in given function.
   /// F pointer to Function,
   /// Returns container of alloca values to handle in F.
-  ValueVector &getAllocaValuesToHandle(Function *F) {
+  ValueVec &getAllocaValuesToHandle(Function *F) {
     return AllocaValuesPerFuncMap[F];
   }
 
   /// Return all uniform values to handle in given function.
   /// F pointer to Function,
   /// Returns container of uniform values to handle in F.
-  ValueVector &getUniformValuesToHandle(Function *F) {
+  ValueVec &getUniformValuesToHandle(Function *F) {
     return CrossBarrierValuesPerFuncMap[F];
   }
 
@@ -251,7 +254,6 @@ class DataPerValueAnalysis : public AnalysisInfoMixin<DataPerValueAnalysis> {
 public:
   using Result = DataPerValue;
   Result run(Module &M, ModuleAnalysisManager &);
-  static StringRef name() { return "Intel Kernel DataPerValue Analysis"; }
 };
 
 /// Printer pass for DataPerValue.

@@ -1,4 +1,4 @@
-//===- OptimizeIDivAndIRem.h - OptimizeIDivAndIRem pass C++ -*-------------===//
+//===- OptimizeIDivAndIRem.h - OptimizeIDivAndIRem pass ---------*- C++ -*-===//
 //
 // Copyright (C) 2022 Intel Corporation. All rights reserved.
 //
@@ -28,7 +28,7 @@ public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 
   // Glue for old PM.
-  bool runImpl(Function &F, RuntimeService *RTS);
+  bool runImpl(Function &F, RuntimeService &RTS);
 };
 
 } // namespace llvm

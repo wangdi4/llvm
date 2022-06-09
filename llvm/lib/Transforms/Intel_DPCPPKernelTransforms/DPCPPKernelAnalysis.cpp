@@ -46,15 +46,14 @@ public:
   StringRef getPassName() const override { return "DPCPPKernelAnalysisLegacy"; }
 
   bool runOnModule(Module &M) override {
-    auto *RTService = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
-                          .getResult()
-                          .getRuntimeService();
-    assert(RTService && "invalid runtime service");
+    auto &RTS = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
+                    .getResult()
+                    .getRuntimeService();
     auto GetLI = [&](Function &F) -> LoopInfo & {
       return getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
     };
     return Impl.runImpl(M, getAnalysis<CallGraphWrapperPass>().getCallGraph(),
-                        RTService, GetLI);
+                        RTS, GetLI);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -135,7 +134,7 @@ void DPCPPKernelAnalysisPass::fillSubgroupCallingFuncs(CallGraph &CG) {
   }
 }
 
-static bool hasAtomicBuiltinCall(CallGraph &CG, const RuntimeService *RTS,
+static bool hasAtomicBuiltinCall(CallGraph &CG, const RuntimeService &RTS,
                                  Function *F) {
   auto *Node = CG[F];
   for (auto It = df_begin(Node), E = df_end(Node); It != E; ++It) {
@@ -144,7 +143,7 @@ static bool hasAtomicBuiltinCall(CallGraph &CG, const RuntimeService *RTS,
         continue;
       CallInst *CI = cast<CallInst>(*Pair.first);
       Function *CalledFunc = Pair.second->getFunction();
-      if (!CalledFunc || !RTS->isAtomicBuiltin(CalledFunc->getName()))
+      if (!CalledFunc || !RTS.isAtomicBuiltin(CalledFunc->getName()))
         continue;
       Value *Arg0 = CI->getOperand(0);
 
@@ -200,7 +199,7 @@ static size_t getExecutionLength(Function *F, LoopInfo &LI) {
 }
 
 bool DPCPPKernelAnalysisPass::runImpl(
-    Module &M, CallGraph &CG, const RuntimeService *RTS,
+    Module &M, CallGraph &CG, const RuntimeService &RTS,
     function_ref<LoopInfo &(Function &)> GetLI) {
   this->M = &M;
   UnsupportedFuncs.clear();
@@ -256,9 +255,8 @@ void DPCPPKernelAnalysisPass::print(raw_ostream &OS, const Module *M) const {
 
 PreservedAnalyses DPCPPKernelAnalysisPass::run(Module &M,
                                                ModuleAnalysisManager &AM) {
-  RuntimeService *RTS =
+  RuntimeService &RTS =
       AM.getResult<BuiltinLibInfoAnalysis>(M).getRuntimeService();
-  assert(RTS && "invalid runtime service");
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto GetLI = [&](Function &F) -> LoopInfo & {
     return FAM.getResult<LoopAnalysis>(F);

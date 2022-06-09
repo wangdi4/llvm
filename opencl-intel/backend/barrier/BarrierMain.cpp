@@ -22,17 +22,15 @@ using namespace llvm;
 
 namespace intel {
 
-void addBarrierMainPasses(llvm::legacy::PassManagerBase &PM,
-                          SmallVector<Module *, 2> &RtlModuleList,
-                          unsigned OptLevel,
+void addBarrierMainPasses(llvm::legacy::PassManagerBase &PM, unsigned OptLevel,
                           intel::DebuggingServiceType DebugType,
                           bool UseTLSGlobals, ArrayRef<VectItem> VectInfos) {
   if (OptLevel > 0) {
     // Currently, vectorizer is enabled only when OptLevel > 0.
     PM.add(createReplaceScalarWithMaskLegacyPass());
     // Reslove sub_group call introduced by ReplaceScalarWithMask pass.
-    PM.add(createResolveSubGroupWICallLegacyPass(RtlModuleList,
-                                                 /*ResolveSGBarrier*/ false));
+    PM.add(createResolveSubGroupWICallLegacyPass(
+        /*ResolveSGBarrier*/ false));
 
     PM.add(createDeadCodeEliminationPass());
     PM.add(createCFGSimplificationPass());
@@ -72,8 +70,8 @@ void addBarrierMainPasses(llvm::legacy::PassManagerBase &PM,
 
   // Since previous passes didn't resolve sub-group barriers, we need to
   // resolve them here.
-  PM.add(createResolveSubGroupWICallLegacyPass(RtlModuleList,
-                                               /*ResolveSGBarrier*/ true));
+  PM.add(createResolveSubGroupWICallLegacyPass(
+      /*ResolveSGBarrier*/ true));
 
   PM.add(createSplitBBonBarrierLegacyPass());
 

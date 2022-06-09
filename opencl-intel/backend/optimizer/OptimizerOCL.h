@@ -26,7 +26,7 @@ namespace DeviceBackend {
 class OptimizerOCL : public Optimizer {
 public:
   OptimizerOCL(llvm::Module &M,
-               llvm::SmallVector<llvm::Module *, 2> &RtlModules,
+               llvm::SmallVectorImpl<llvm::Module *> &RtlModules,
                const intel::OptimizerConfig &Config);
 
   /// Run pass manager on a module.

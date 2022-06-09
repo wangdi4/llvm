@@ -25,8 +25,6 @@ public:
   explicit LocalBuffersPass(bool UseTLSGlobals = false)
       : UseTLSGlobals(UseTLSGlobals) {}
 
-  static StringRef name() { return "LocalBuffersPass"; }
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // Glue for old PM.

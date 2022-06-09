@@ -682,6 +682,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
                  .Case("nodynamic_align", LoopHintAttr::VectorizeNoDynamicAlign)
                  .Case("vecremainder", LoopHintAttr::VectorizeVecremainder)
                  .Case("novecremainder", LoopHintAttr::VectorizeNoVecremainder)
+                 .Case("assert", LoopHintAttr::VectorizeAlwaysAssert)
                  .Default(LoopHintAttr::Vectorize);
     SetHints(Option, LoopHintAttr::Enable);
   } else if (PragmaName == "loop_count") {
@@ -1260,6 +1261,7 @@ CheckForIncompatibleAttributes(Sema &S,
                    {nullptr, nullptr}, // VectorNoDynamicAlign
                    {nullptr, nullptr}, // VectorVecremainder
                    {nullptr, nullptr}, // VectorNoVecremainder
+                   {nullptr, nullptr}, // VectorAlwaysAssert
                    {nullptr, nullptr}, // LoopCount
                    {nullptr, nullptr}, // LoopCountMin
                    {nullptr, nullptr}, // LoopCountMax
@@ -1295,6 +1297,7 @@ CheckForIncompatibleAttributes(Sema &S,
       VectorNoDynamicAlign,
       VectorVecremainder,
       VectorNoVecremainder,
+      VectorAlwaysAssert,
       LoopCount,
       LoopCountMin,
       LoopCountMax,
@@ -1348,6 +1351,9 @@ CheckForIncompatibleAttributes(Sema &S,
       break;
     case LoopHintAttr::VectorizeNoVecremainder:
       Category = VectorVecremainder;
+      break;
+    case LoopHintAttr::VectorizeAlwaysAssert:
+      Category = VectorAlwaysAssert;
       break;
     case LoopHintAttr::LoopCount:
       Category = LoopCount;
@@ -1456,6 +1462,7 @@ CheckForIncompatibleAttributes(Sema &S,
                Option == LoopHintAttr::VectorizeNoDynamicAlign ||
                Option == LoopHintAttr::VectorizeVecremainder ||
                Option == LoopHintAttr::VectorizeNoVecremainder ||
+               Option == LoopHintAttr::VectorizeAlwaysAssert ||
                Option == LoopHintAttr::LoopCount ||
                Option == LoopHintAttr::LoopCountMin ||
                Option == LoopHintAttr::LoopCountMax ||

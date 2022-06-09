@@ -21,6 +21,7 @@ define void @test(i8 *%p) local_unnamed_addr {
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB1]]: base cost: 0
+; CHECK-NEXT:  Cost Model for Loop preheader [[BB0]] : [[BB1]] for VF = 8 resulted Cost = 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    Cost 12 for i64 [[VP2:%.*]] = mul i64 4 i64 [[VP0]]
@@ -53,6 +54,7 @@ define void @test(i8 *%p) local_unnamed_addr {
 ; CHECK-NEXT:    Cost 8 for i1 [[VP20:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP20]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB2]]: base cost: 127
+; CHECK-NEXT:  Base Cost: 127
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
@@ -60,7 +62,7 @@ define void @test(i8 *%p) local_unnamed_addr {
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CHECK-NEXT:    Cost 0 for br <External Block>
 ; CHECK-NEXT:  [[BB4]]: base cost: 0
-; CHECK-NEXT:  Base Cost: 127
+; CHECK-NEXT:  Cost Model for Loop postexit [[BB3]] : [[BB4]] for VF = 8 resulted Cost = 0
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

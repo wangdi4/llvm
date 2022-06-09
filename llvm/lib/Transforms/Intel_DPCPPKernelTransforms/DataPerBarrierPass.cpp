@@ -41,7 +41,8 @@ void DataPerBarrier::InitSynchronizeData() {
   unsigned int CurrentAvailableID = 0;
 
   // Find all synchronize instructions.
-  InstVector SyncInstructions = Utils.getAllSynchronizeInstructions();
+  CompilationUtils::InstVec SyncInstructions =
+      Utils.getAllSynchronizeInstructions();
 
   for (Instruction *I : SyncInstructions) {
     SyncType InstSyncType = Utils.getSyncType(I);
@@ -73,8 +74,8 @@ bool DataPerBarrier::runOnFunction(Function &F) {
   return false;
 }
 
-BasicBlockSet &DataPerBarrier::FindPredecessors(BasicBlock *BB) {
-  BasicBlockSet &Predecessors = PredecessorMap[BB];
+CompilationUtils::BBSet &DataPerBarrier::FindPredecessors(BasicBlock *BB) {
+  BBSet &Predecessors = PredecessorMap[BB];
   std::vector<BasicBlock *> BasicBlocksToHandle;
 
   Predecessors.clear();
@@ -99,7 +100,7 @@ BasicBlockSet &DataPerBarrier::FindPredecessors(BasicBlock *BB) {
 }
 
 void DataPerBarrier::FindSuccessors(BasicBlock *BB) {
-  BasicBlockSet &Successors = SuccessorMap[BB];
+  BBSet &Successors = SuccessorMap[BB];
   std::vector<BasicBlock *> BasicBlocksToHandle;
 
   Successors.clear();
@@ -126,11 +127,12 @@ void DataPerBarrier::FindSuccessors(BasicBlock *BB) {
 void DataPerBarrier::FindBarrierPredecessors(Instruction *I) {
   BasicBlock *BB = I->getParent();
   Function *F = BB->getParent();
-  InstSet &BarrierBBSet = SyncsPerFuncMap[F];
+  CompilationUtils::InstSet &BarrierBBSet = SyncsPerFuncMap[F];
   BarrierRelated &InstBarrierRelated = BarrierPredecessorsMap[I];
-  InstSet &BarrierPredecessors = InstBarrierRelated.RelatedBarriers;
+  CompilationUtils::InstSet &BarrierPredecessors =
+      InstBarrierRelated.RelatedBarriers;
   std::vector<BasicBlock *> BasicBlocksToHandle;
-  BasicBlockSet BasicBlocksAddedForHandle;
+  CompilationUtils::BBSet BasicBlocksAddedForHandle;
 
   BarrierPredecessors.clear();
   BasicBlocksToHandle.push_back(BB);
@@ -187,7 +189,7 @@ void DataPerBarrier::print(raw_ostream &OS, const Module *M) const {
     const BasicBlock *BBB = KV.first;
     // Print barrier basic block name
     OS << "+" << BBB->getName() << "\n";
-    const BasicBlockSet &BBSet = KV.second;
+    const BBSet &BBSet = KV.second;
     for (const BasicBlock *BB : BBSet) {
       // Print successor basic block name
       OS << "\t-" << BB->getName() << "\n";

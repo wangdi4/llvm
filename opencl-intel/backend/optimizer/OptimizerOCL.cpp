@@ -80,7 +80,7 @@ namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
 
-OptimizerOCL::OptimizerOCL(Module &M, SmallVector<Module *, 2> &RtlModuleList,
+OptimizerOCL::OptimizerOCL(Module &M, SmallVectorImpl<Module *> &RtlModuleList,
                            const intel::OptimizerConfig &Config)
     : Optimizer(M, RtlModuleList, Config) {
   Level =
@@ -546,8 +546,8 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
 #endif
 
   if (EnableNativeOpenCLSubgroups)
-    MPM.addPass(ResolveSubGroupWICallPass(m_RtlModules,
-                                          /*ResolveSGBarrier*/ false));
+    MPM.addPass(ResolveSubGroupWICallPass(
+        /*ResolveSGBarrier*/ false));
 
   // Unroll small loops with unknown trip count.
   FunctionPassManager FPM1;
@@ -660,7 +660,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
 
   if (!m_RtlModules.empty()) {
     // Inline BI function
-    MPM.addPass(BuiltinImportPass(m_RtlModules, CPUPrefix));
+    MPM.addPass(BuiltinImportPass(CPUPrefix));
     if (Level != OptimizationLevel::O0) {
       // After the globals used in built-ins are imported - we can internalize
       // them with further wiping them out with GlobalDCE pass
@@ -758,8 +758,7 @@ void OptimizerOCL::addBarrierPasses(ModulePassManager &MPM) const {
     // Currently, vectorizer is enabled only when Level > O0.
     MPM.addPass(ReplaceScalarWithMaskPass());
     // Reslove sub_group call introduced by ReplaceScalarWithMask pass.
-    MPM.addPass(
-        ResolveSubGroupWICallPass(m_RtlModules, /*ResolveSGBarrier*/ false));
+    MPM.addPass(ResolveSubGroupWICallPass(/*ResolveSGBarrier*/ false));
   }
 
   FunctionPassManager FPM;
@@ -802,8 +801,7 @@ void OptimizerOCL::addBarrierPasses(ModulePassManager &MPM) const {
 
   // Since previous passes didn't resolve sub-group barriers, we need to
   // resolve them here.
-  MPM.addPass(
-      ResolveSubGroupWICallPass(m_RtlModules, /*ResolveSGBarrier*/ true));
+  MPM.addPass(ResolveSubGroupWICallPass(/*ResolveSGBarrier*/ true));
 
   MPM.addPass(SplitBBonBarrier());
   if (Level != OptimizationLevel::O0) {

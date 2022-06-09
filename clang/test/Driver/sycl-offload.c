@@ -1140,3 +1140,10 @@
 // RUN: %clang -### -fsycl  %s 2>&1 | FileCheck -check-prefix FSYCL-CHECK %s
 // RUN: %clang_cl -### -fsycl  %s 2>&1 | FileCheck -check-prefix FSYCL-CHECK %s
 // FSYCL-CHECK: warning: treating 'c' input as 'c++' when -fsycl is used [-Wexpected-file-type]
+
+// INTEL_CUSTOMIZATION
+// -fsycl-targets=<triple>=<opts> usage should be supported
+// RUN: %clang -### -fsycl -fsycl-targets=spir64="-DFOO -DBAR -mllvm -dummy-opt" %s 2>&1 | FileCheck -check-prefix FSYCL-CHECK-TARGOPTS %s
+// RUN: %clang_cl -### -fsycl -fsycl-targets=spir64="-DFOO -DBAR -mllvm -dummy-opt" %s 2>&1 | FileCheck -check-prefix FSYCL-CHECK-TARGOPTS %s
+// FSYCL-CHECK-TARGOPTS: clang{{.*}} "-triple" "spir64-unknown-unknown" {{.*}} "-D" "FOO" "-D" "BAR" {{.*}} "-mllvm" "-dummy-opt"
+// end INTEL_CUSTOMIZATION

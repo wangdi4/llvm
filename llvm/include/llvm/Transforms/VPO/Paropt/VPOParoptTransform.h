@@ -1185,6 +1185,10 @@ private:
   /// __private storage class vs __global storage class.
   /// \p IsWILocalFirstprivate is used only for SPIR-V targets.
 #endif // INTEL_CUSTOMIZATION
+  /// \p IsFunctionPtr holds 'true' for pointers to functions.
+  /// The result is used to create pointer-to-int (and back) casts for
+  /// function pointers passed into kernel functions for SPIR-V targets (to
+  /// align with the OpenCL convention).
   /// \p HasRuntimeEvaluationCaptureSize is set to true
   /// iff any of the mappings requires dynamically computed size,
   /// otherwise, it is set to false.
@@ -1198,6 +1202,7 @@ private:
 #if INTEL_CUSTOMIZATION
       SmallVectorImpl<bool> &IsWILocalFirstprivate,
 #endif // INTEL_CUSTOMIZATION
+      SmallVectorImpl<bool> &IsFunctionPtr,
       bool &HasRuntimeEvaluationCaptureSize) const;
 
   /// Generate the initialization code for the directive omp target
@@ -1262,6 +1267,12 @@ private:
   ///                 storage class vs __global storage class.
   ///                 This result is used only for SPIR-V targets.
 #endif // INTEL_CUSTOMIZATION
+  /// \param [out]    IsFunctionPtr
+  ///                 'true' for pointers to functions. The result is
+  ///                 used to create pointer-to-int (and back) casts
+  ///                 for function pointers passed into kernel functions
+  ///                 for SPIR-V targets (to align with the OpenCL
+  ///                 convention).
   /// \param [out]    hasRuntimeEvaluationCaptureSize
   ///                 size cannot be determined at compile time.
   /// \param [in] VIsTargetKernelArg `true` iff \p V is a kernel
@@ -1274,6 +1285,7 @@ private:
 #if INTEL_CUSTOMIZATION
                                 SmallVectorImpl<bool> &IsWILocalFirstprivate,
 #endif // INTEL_CUSTOMIZATION
+                                SmallVectorImpl<bool> &IsFunctionPtr,
                                 bool &hasRuntimeEvaluationCaptureSize,
                                 bool VIsTargetKernelArg = false) const;
 
@@ -2062,6 +2074,7 @@ private:
 #if INTEL_CUSTOMIZATION
       const SmallVectorImpl<bool> &IsWILocalFirstprivate,
 #endif // INTEL_CUSTOMIZATION
+      const SmallVectorImpl<bool> &IsFunctionPtr,
       const SmallVectorImpl<Constant *> &ConstSizes);
 
   ///  Generate the iteration space partitioning code based on OpenCL.

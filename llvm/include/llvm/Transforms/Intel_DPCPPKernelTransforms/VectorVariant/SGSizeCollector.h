@@ -21,8 +21,6 @@ public:
   SGSizeCollectorPass(VectorVariant::ISAClass ISA = VectorVariant::XMM)
       : ISA(ISA) {}
 
-  static StringRef name() { return "SGSizeCollectorPass"; }
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
   bool runImpl(Module &M);

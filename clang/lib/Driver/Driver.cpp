@@ -541,7 +541,19 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
                                    options::OPT_fno_slp_vectorize))
         if (A->getOption().matches(options::OPT_fno_slp_vectorize))
           addClaim(options::OPT_fno_slp_vectorize);
-    }
+    } else if (!Args.hasArgNoClaim(options::OPT_O_Group, options::OPT__SLASH_O))
+        // Users may inadvertently use debug options without adding any
+        // optimization level options. Thus, users are not aware of most
+        // optimization are disabled, which may take considerable time to
+        // track down compilation issues.
+        // To improve user experience, warn users in this scenario.
+        if (Arg *A = Args.getLastArgNoClaim(options::OPT_g_Group,
+                                            options::OPT_intel_debug_Group,
+                                            options::OPT__SLASH_Z7))
+          Diag(clang::diag::warn_use_of_debug_turn_off_optimization_level)
+              << A->getSpelling().split('=').first
+              << (IsCLMode() ? "/Od" : "-O0");
+
     // For LTO on Windows, use -fuse-ld=lld when /Qipo or /fast is used.
     if (Args.hasFlag(options::OPT_flto_EQ, options::OPT_fno_lto, false)) {
       if (Arg *A = Args.getLastArg(options::OPT_flto_EQ)) {
@@ -1369,6 +1381,12 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
     if (SYCLTargetsValues) {
       if (SYCLTargetsValues->getNumValues()) {
         for (StringRef Val : SYCLTargetsValues->getValues()) {
+#if INTEL_CUSTOMIZATION
+          // Strip off any trailing options from the triple which come from
+          // -fsycl-targets=<triple>="opts" usage.
+          if (SYCLTargets)
+            Val = Val.split('=').first;
+#endif // INTEL_CUSTOMIZATION
           llvm::Triple TT(MakeSYCLDeviceTriple(Val));
           if (!isValidSYCLTriple(TT)) {
             Diag(clang::diag::err_drv_invalid_sycl_target) << Val;

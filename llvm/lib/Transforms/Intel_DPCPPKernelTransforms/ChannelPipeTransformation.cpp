@@ -246,7 +246,7 @@ static void initializeGlobalPipeArray(GlobalVariable *PipeGV,
 
 static bool replaceGlobalChannels(Module &M, Type *ChannelTy, Type *PipeTy,
                                   ValueToValueStableMap &VMap,
-                                  RuntimeService *RTService) {
+                                  RuntimeService &RTS) {
   bool Changed = false;
   Function *GlobalCtor = nullptr;
   for (auto &ChannelGV : M.globals()) {
@@ -266,13 +266,12 @@ static bool replaceGlobalChannels(Module &M, Type *ChannelTy, Type *PipeTy,
       PipeGV = createGlobalPipeArray(M, PipeTy, Dimensions,
                                      ChannelGV.getName() + ".pipe");
       Function *PipeInitFunc = importFunctionDecl(
-          &M,
-          RTService->findFunctionInBuiltinModules("__pipe_init_array_fpga"));
+          &M, RTS.findFunctionInBuiltinModules("__pipe_init_array_fpga"));
       initializeGlobalPipeArray(PipeGV, MD, GlobalCtor, PipeInitFunc);
     } else {
       PipeGV = createGlobalPipeScalar(M, PipeTy, ChannelGV.getName() + ".pipe");
       Function *PipeInitFunc = importFunctionDecl(
-          &M, RTService->findFunctionInBuiltinModules("__pipe_init_fpga"));
+          &M, RTS.findFunctionInBuiltinModules("__pipe_init_fpga"));
       initializeGlobalPipeScalar(PipeGV, MD, GlobalCtor, PipeInitFunc);
     }
 
@@ -533,7 +532,7 @@ static void replaceChannelCallResult(CallInst *ChannelCall, ChannelKind CK,
 static void replaceChannelBuiltinCall(Module &M, CallInst *ChannelCall,
                                       Value *GlobalPipe, Value *Pipe,
                                       AllocaMapType &AllocaMap,
-                                      RuntimeService *RTService) {
+                                      RuntimeService &RTS) {
   assert(GlobalPipe && "Failed to find corresponding global pipe");
   assert(ChannelCall && "ChannelCall should be null");
   assert(ChannelCall->getCalledFunction() && "Indirect function is unexpected");
@@ -549,7 +548,7 @@ static void replaceChannelBuiltinCall(Module &M, CallInst *ChannelCall,
   PK.FPGA = true;
 
   Value *PacketPtr = getPacketPtr(M, ChannelCall, CK, AllocaMap);
-  Function *Builtin = getPipeBuiltin(M, RTService, PK);
+  Function *Builtin = getPipeBuiltin(M, RTS, PK);
   FunctionType *FTy = Builtin->getFunctionType();
 
   auto PipeMD = GlobalVariableMetadataAPI(cast<GlobalVariable>(GlobalPipe));
@@ -705,7 +704,7 @@ static void cleanup(Module &M, SmallPtrSetImpl<Instruction *> &ToDelete,
 
 static void replaceGlobalChannelUses(Module &M, Type *ChannelTy,
                                      ValueToValueStableMap &GlobalVMap,
-                                     RuntimeService *RTService) {
+                                     RuntimeService &RTS) {
   ValueToValueMap VMap;
   SmallPtrSet<Instruction *, 32> ToDelete;
   // See comments about WorkListType typedef for explanations
@@ -734,8 +733,7 @@ static void replaceGlobalChannelUses(Module &M, Type *ChannelTy,
       if (CallInst *Call = dyn_cast<CallInst>(ChannelUser)) {
         ToDelete.insert(Call);
         if (isChannelBuiltinCall(Call)) {
-          replaceChannelBuiltinCall(M, Call, GlobalPipe, Pipe, AllocaMap,
-                                    RTService);
+          replaceChannelBuiltinCall(M, Call, GlobalPipe, Pipe, AllocaMap, RTS);
         } else {
           // handle calls to user-functions here
           assert(Call->getCalledFunction() && "Indirect function call?");
@@ -795,8 +793,7 @@ ChannelPipeTransformationPass::run(Module &M, ModuleAnalysisManager &MAM) {
 }
 
 bool ChannelPipeTransformationPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
-  RuntimeService *RTService = BLI->getRuntimeService();
-  assert(RTService && "Invalid runtime service");
+  RuntimeService &RTS = BLI->getRuntimeService();
   auto *ChannelValueTy = getStructByName("opencl.channel_t", &M);
   if (!ChannelValueTy)
     return false;
@@ -809,9 +806,9 @@ bool ChannelPipeTransformationPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
   auto *PipeTy = PointerType::get(PipeValueTy, ADDRESS_SPACE_GLOBAL);
 
   ValueToValueStableMap GlobalVMap;
-  if (!replaceGlobalChannels(M, ChannelTy, PipeTy, GlobalVMap, RTService))
+  if (!replaceGlobalChannels(M, ChannelTy, PipeTy, GlobalVMap, RTS))
     return false;
-  replaceGlobalChannelUses(M, ChannelTy, GlobalVMap, RTService);
+  replaceGlobalChannelUses(M, ChannelTy, GlobalVMap, RTS);
 
   return true;
 }

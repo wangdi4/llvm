@@ -9,6 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveSubGroupWICall.h"
+#include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
@@ -38,9 +39,7 @@ class ResolveSubGroupWICallLegacy : public ModulePass {
 public:
   static char ID;
 
-  ResolveSubGroupWICallLegacy(const SmallVector<Module *, 2> &BuiltinModules =
-                                  SmallVector<Module *, 2>(),
-                              bool ResolveSGBarrier = true);
+  ResolveSubGroupWICallLegacy(bool ResolveSGBarrier = true);
 
   StringRef getPassName() const override {
     return "ResolveSubGroupWICallLegacy";
@@ -65,9 +64,8 @@ INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
 INITIALIZE_PASS_END(ResolveSubGroupWICallLegacy, DEBUG_TYPE,
                     "Resolve Sub Group WI functions", false, false)
 
-ResolveSubGroupWICallLegacy::ResolveSubGroupWICallLegacy(
-    const SmallVector<Module *, 2> &BuiltinModules, bool ResolveSGBarrier)
-    : ModulePass(ID), Impl(BuiltinModules, ResolveSGBarrier) {
+ResolveSubGroupWICallLegacy::ResolveSubGroupWICallLegacy(bool ResolveSGBarrier)
+    : ModulePass(ID), Impl(ResolveSGBarrier) {
   initializeResolveSubGroupWICallLegacyPass(*PassRegistry::getPassRegistry());
 }
 
@@ -77,13 +75,11 @@ bool ResolveSubGroupWICallLegacy::runOnModule(Module &M) {
   return Impl.runImpl(M, BLI);
 }
 
-ModulePass *llvm::createResolveSubGroupWICallLegacyPass(
-    const SmallVector<Module *, 2> &BuiltinModules, bool ResolveSGBarrier) {
-  return new ResolveSubGroupWICallLegacy(BuiltinModules, ResolveSGBarrier);
+ModulePass *llvm::createResolveSubGroupWICallLegacyPass(bool ResolveSGBarrier) {
+  return new ResolveSubGroupWICallLegacy(ResolveSGBarrier);
 }
 
-ResolveSubGroupWICallPass::ResolveSubGroupWICallPass(
-    const SmallVector<Module *, 2> &, bool ResolveSGBarrier)
+ResolveSubGroupWICallPass::ResolveSubGroupWICallPass(bool ResolveSGBarrier)
     : ResolveSGBarrier(ResolveSGBarrier) {}
 
 PreservedAnalyses ResolveSubGroupWICallPass::run(Module &M,
@@ -95,8 +91,7 @@ PreservedAnalyses ResolveSubGroupWICallPass::run(Module &M,
 }
 
 bool ResolveSubGroupWICallPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
-  RTService = BLI->getRuntimeService();
-  assert(RTService && "Invalid runtime service");
+  RTS = &BLI->getRuntimeService();
 
   // Get all kernels.
   FuncSet Kernels = getAllKernels(M);
@@ -495,8 +490,7 @@ ResolveSubGroupWICallPass::replaceSubGroupBarrier(Instruction *InsertBefore,
   IRBuilder<> Builder(InsertBefore);
   CallInst *CI = cast<CallInst>(InsertBefore);
   std::string AtomicWIFenceName = mangledAtomicWorkItemFence();
-  auto *AtomicWIFenceBIF =
-      RTService->findFunctionInBuiltinModules(AtomicWIFenceName);
+  auto *AtomicWIFenceBIF = RTS->findFunctionInBuiltinModules(AtomicWIFenceName);
   assert(AtomicWIFenceBIF && "atomic_work_item_fence not found in BI library!");
 
   auto *AtomicWIFenceF = importFunctionDecl(M, AtomicWIFenceBIF);
@@ -561,6 +555,7 @@ void ResolveSubGroupWICallPass::resolveGetSubGroupRowSliceId(
   //   %58 = phi i64 [ undef, %VPlannedBB30vector_func ], [ %57, %pred.call.if69vector_func ]
   //   %59 = call <8 x i32> @_ZGVbM8u_sub_group_rowslice_extractelement.i32(i64 %58, <8 x i32> %maskext32vector_func) #10
   // clang-format on
+  BasicBlock *RowSliceIdContainingBB = nullptr;
   if (auto *PHI = dyn_cast<PHINode>(RowSliceId)) {
     // If we ignore the undef value, the result of the PHI must be the the
     // get_sub_group_rowslice_id call,
@@ -575,6 +570,7 @@ void ResolveSubGroupWICallPass::resolveGetSubGroupRowSliceId(
     // We need to remove the PHI node (before removing the
     // get_sub_group_rowslice_id call inst).
     ExtraInstToRemove.push_back(PHI);
+    RowSliceIdContainingBB = CI->getParent();
   } else {
     CI = cast<CallInst>(RowSliceId);
   }
@@ -589,6 +585,30 @@ void ResolveSubGroupWICallPass::resolveGetSubGroupRowSliceId(
   unsigned R = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
   unsigned C = cast<ConstantInt>(CI->getArgOperand(2))->getZExtValue();
   auto *Index = CI->getArgOperand(3);
+
+  // If the get_sub_group_rowslice_id is proxied by a PHI node (so it lies in a
+  // different BB), then we need to create PHI nodes for Matrix and Index values
+  // as well to guarantee the correct instruction dominance.
+  if (RowSliceIdContainingBB) {
+    auto CreatePHI = [&](Value *V) {
+      auto *CurrentBB = Builder.GetInsertBlock();
+      auto *PHI = PHINode::Create(V->getType(), pred_size(CurrentBB), "",
+                                  CurrentBB->getFirstNonPHI());
+      for (auto *BB : predecessors(CurrentBB)) {
+        if (BB == RowSliceIdContainingBB)
+          PHI->addIncoming(V, BB);
+        else
+          PHI->addIncoming(UndefValue::get(V->getType()), BB);
+      }
+      assert(PHI->getIncomingValueForBlock(RowSliceIdContainingBB) == V &&
+             "The PHI must have the get_sub_group_rowslice_id containing block "
+             "as an incoming block!");
+      return PHI;
+    };
+
+    Matrix = CreatePHI(Matrix);
+    Index = CreatePHI(Index);
+  }
   auto *Index32 = Builder.CreateSExtOrTrunc(Index, Builder.getInt32Ty());
   auto *BaseId = Builder.CreateNSWMul(Index32, Builder.getInt32(RowSliceLength),
                                       "rowslice.baseid");

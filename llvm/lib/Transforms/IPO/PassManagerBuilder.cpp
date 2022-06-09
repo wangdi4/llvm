@@ -1939,6 +1939,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     addDTransLegacyPasses(PM);
   }
 #endif // INTEL_FEATURE_SW_DTRANS
+#if INTEL_FEATURE_SW_ADVANCED
+  // Multiversion and mark for inlining functions for tiling
+  if (DTransEnabled)
+    PM.add(createTileMVInlMarkerLegacyPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
   PM.add(createDopeVectorConstPropLegacyPass());
   PM.add(createArgumentPromotionPass());
 #endif // INTEL_CUSTOMIZATION
@@ -1984,8 +1989,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createIntelArgumentAlignmentLegacyPass());
     // Recognize Functions that implement qsort
     PM.add(createQsortRecognizerLegacyPass());
-    // Multiversion and mark for inlining functions for tiling
-    PM.add(createTileMVInlMarkerLegacyPass());
   }
 
   bool EnableIntelPartialInlining = EnableIntelPI && DTransEnabled;

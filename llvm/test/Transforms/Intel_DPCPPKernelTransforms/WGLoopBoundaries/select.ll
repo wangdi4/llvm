@@ -68,80 +68,79 @@ if.end:
   ret void
 }
 
-; CHECK-LABEL: define [7 x i64] @WG.boundaries.test_and
+; CHECK-LABEL: @WG.boundaries.test_and
 ; CHECK-NEXT: entry:
-; CHECK-NEXT:  %2 = call i64 @_Z14get_local_sizej(i32 0)
-; CHECK-NEXT:  %3 = call i64 @get_base_global_id.(i32 0)
-; CHECK-NEXT:  %4 = call i64 @_Z14get_local_sizej(i32 1)
-; CHECK-NEXT:  %5 = call i64 @get_base_global_id.(i32 1)
-; CHECK-NEXT:  %6 = call i64 @_Z14get_local_sizej(i32 2)
-; CHECK-NEXT:  %7 = call i64 @get_base_global_id.(i32 2)
-; CHECK-NEXT:  %8 = xor i32 %1, -1
-; CHECK-NEXT:  %9 = add i32 %8, %0
-; CHECK-NEXT:  %10 = sext i32 %9 to i64
-; CHECK-NEXT:  %11 = sub nsw i32 %0, %1
-; CHECK-NEXT:  %12 = sext i32 %11 to i64
-; CHECK-NEXT:  %13 = add i64 %4, %5
-; CHECK-NEXT:  %14 = icmp slt i64 %13, %12
-; CHECK-NEXT:  %15 = icmp slt i64 %12, 0
-; CHECK-NEXT:  %16 = or i1 %15, %14
-; CHECK-NEXT:  %17 = select i1 %16, i64 %13, i64 %12
-; CHECK-NEXT:  %18 = add i64 %2, %3
-; CHECK-NEXT:  %19 = icmp slt i64 %18, %10
-; CHECK-NEXT:  %20 = icmp slt i64 %10, 0
-; CHECK-NEXT:  %21 = or i1 %20, %19
-; CHECK-NEXT:  %22 = select i1 %21, i64 %18, i64 %10
-; CHECK-NEXT:  %23 = sub i64 %22, %3
-; CHECK-NEXT:  %24 = sub i64 %17, %5
-; CHECK-NEXT:  %25 = icmp slt i64 0, %23
-; CHECK-NEXT:  %26 = and i1 true, %25
-; CHECK-NEXT:  %27 = icmp slt i64 0, %24
-; CHECK-NEXT:  %28 = and i1 %26, %27
-; CHECK-NEXT:  %zext_cast = zext i1 %28 to i64
-; CHECK-NEXT:  %29 = insertvalue [7 x i64] undef, i64 %23, 2
-; CHECK-NEXT:  %30 = insertvalue [7 x i64] %29, i64 %3, 1
-; CHECK-NEXT:  %31 = insertvalue [7 x i64] %30, i64 %24, 4
-; CHECK-NEXT:  %32 = insertvalue [7 x i64] %31, i64 %5, 3
-; CHECK-NEXT:  %33 = insertvalue [7 x i64] %32, i64 %6, 6
-; CHECK-NEXT:  %34 = insertvalue [7 x i64] %33, i64 %7, 5
-; CHECK-NEXT:  %35 = insertvalue [7 x i64] %34, i64 %zext_cast, 0
-; CHECK-NEXT:  ret [7 x i64] %35
+; CHECK-NEXT:  %local.size0 = call i64 @_Z14get_local_sizej(i32 0)
+; CHECK-NEXT:  %base.gid0 = call i64 @get_base_global_id.(i32 0)
+; CHECK-NEXT:  %local.size1 = call i64 @_Z14get_local_sizej(i32 1)
+; CHECK-NEXT:  %base.gid1 = call i64 @get_base_global_id.(i32 1)
+; CHECK-NEXT:  %local.size2 = call i64 @_Z14get_local_sizej(i32 2)
+; CHECK-NEXT:  %base.gid2 = call i64 @get_base_global_id.(i32 2)
+; CHECK-NEXT:  xor i32
+; CHECK-NEXT:  add i32
+; CHECK-NEXT:  sext i32
+; CHECK-NEXT:  sub nsw i32
+; CHECK-NEXT:  sext i32
+; CHECK-NEXT:  %init.upper.bound1 = add i64 %local.size1, %base.gid1
+; CHECK-NEXT:  icmp slt i64 %init.upper.bound1
+; CHECK-NEXT:  icmp slt i64
+; CHECK-NEXT:  or i1
+; CHECK-NEXT:  select i1 {{.*}}, i64 %init.upper.bound1
+; CHECK-NEXT:  %init.upper.bound0 = add i64 %local.size0, %base.gid0
+; CHECK-NEXT:  icmp slt i64 %init.upper.bound0
+; CHECK-NEXT:  icmp slt i64
+; CHECK-NEXT:  or i1
+; CHECK-NEXT:  select i1 {{.*}}, i64 %init.upper.bound0, i64 %4
+; CHECK-NEXT:  %loop.size0 = sub i64 {{.*}}, %base.gid0
+; CHECK-NEXT:  %loop.size1 = sub i64 {{.*}}, %base.gid1
+; CHECK-NEXT:  icmp slt i64 0, %loop.size0
+; CHECK-NEXT:  and i1 true
+; CHECK-NEXT:  icmp slt i64 0, %loop.size1
+; CHECK-NEXT:  and i1
+; CHECK-NEXT:  %zext_cast = zext i1
+; CHECK-NEXT:  insertvalue [7 x i64] undef, i64 %loop.size0, 2
+; CHECK-NEXT:  insertvalue [7 x i64] {{.*}}, i64 %base.gid0, 1
+; CHECK-NEXT:  insertvalue [7 x i64] {{.*}}, i64 %loop.size1, 4
+; CHECK-NEXT:  insertvalue [7 x i64] {{.*}}, i64 %base.gid1, 3
+; CHECK-NEXT:  insertvalue [7 x i64] {{.*}}, i64 %local.size2, 6
+; CHECK-NEXT:  insertvalue [7 x i64] {{.*}}, i64 %base.gid2, 5
+; CHECK-NEXT:  insertvalue [7 x i64] {{.*}}, i64 %zext_cast, 0
+; CHECK-NEXT:  ret [7 x i64]
 
-
-; CHECK-LABEL: define [7 x i64] @WG.boundaries.test_or
+; CHECK-LABEL: @WG.boundaries.test_or
 ; CHECK-NEXT: entry:
-; CHECK-NEXT:  %2 = call i64 @_Z14get_local_sizej(i32 0)
-; CHECK-NEXT:  %3 = call i64 @get_base_global_id.(i32 0)
-; CHECK-NEXT:  %4 = call i64 @_Z14get_local_sizej(i32 1)
-; CHECK-NEXT:  %5 = call i64 @get_base_global_id.(i32 1)
-; CHECK-NEXT:  %6 = call i64 @_Z14get_local_sizej(i32 2)
-; CHECK-NEXT:  %7 = call i64 @get_base_global_id.(i32 2)
-; CHECK-NEXT:  %8 = xor i32 %1, -1
-; CHECK-NEXT:  %9 = add i32 %8, %0
-; CHECK-NEXT:  %10 = sext i32 %9 to i64
-; CHECK-NEXT:  %11 = sub nsw i32 %0, %1
-; CHECK-NEXT:  %12 = sext i32 %11 to i64
-; CHECK-NEXT:  %13 = add i64 %4, %5
-; CHECK-NEXT:  %14 = icmp sgt i64 %5, %12
-; CHECK-NEXT:  %15 = select i1 %14, i64 %5, i64 %12
-; CHECK-NEXT:  %16 = add i64 %2, %3
-; CHECK-NEXT:  %17 = icmp sgt i64 %3, %10
-; CHECK-NEXT:  %18 = select i1 %17, i64 %3, i64 %10
-; CHECK-NEXT:  %19 = sub i64 %16, %18
-; CHECK-NEXT:  %20 = sub i64 %13, %15
-; CHECK-NEXT:  %21 = icmp slt i64 0, %19
-; CHECK-NEXT:  %22 = and i1 true, %21
-; CHECK-NEXT:  %23 = icmp slt i64 0, %20
-; CHECK-NEXT:  %24 = and i1 %22, %23
-; CHECK-NEXT:  %zext_cast = zext i1 %24 to i64
-; CHECK-NEXT:  %25 = insertvalue [7 x i64] undef, i64 %19, 2
-; CHECK-NEXT:  %26 = insertvalue [7 x i64] %25, i64 %18, 1
-; CHECK-NEXT:  %27 = insertvalue [7 x i64] %26, i64 %20, 4
-; CHECK-NEXT:  %28 = insertvalue [7 x i64] %27, i64 %15, 3
-; CHECK-NEXT:  %29 = insertvalue [7 x i64] %28, i64 %6, 6
-; CHECK-NEXT:  %30 = insertvalue [7 x i64] %29, i64 %7, 5
-; CHECK-NEXT:  %31 = insertvalue [7 x i64] %30, i64 %zext_cast, 0
-; CHECK-NEXT:  ret [7 x i64] %31
+; CHECK-NEXT:   %local.size0 = call i64 @_Z14get_local_sizej(i32 0)
+; CHECK-NEXT:   %base.gid0 = call i64 @get_base_global_id.(i32 0)
+; CHECK-NEXT:   %local.size1 = call i64 @_Z14get_local_sizej(i32 1)
+; CHECK-NEXT:   %base.gid1 = call i64 @get_base_global_id.(i32 1)
+; CHECK-NEXT:   %local.size2 = call i64 @_Z14get_local_sizej(i32 2)
+; CHECK-NEXT:   %base.gid2 = call i64 @get_base_global_id.(i32 2)
+; CHECK-NEXT:   xor i32
+; CHECK-NEXT:   add i32
+; CHECK-NEXT:   sext i32
+; CHECK-NEXT:   sub nsw i32
+; CHECK-NEXT:   sext i32
+; CHECK-NEXT:   %init.upper.bound1 = add i64 %local.size1, %base.gid1
+; CHECK-NEXT:   icmp sgt i64 %base.gid1
+; CHECK-NEXT:   %lower.bound1 = select i1 {{.*}}, i64 %base.gid1, i64
+; CHECK-NEXT:   %init.upper.bound0 = add i64 %local.size0, %base.gid0
+; CHECK-NEXT:   icmp sgt i64 %base.gid0
+; CHECK-NEXT:   %lower.bound0 = select i1 {{.*}}, i64 %base.gid0, i64
+; CHECK-NEXT:   %loop.size0 = sub i64 %init.upper.bound0, %lower.bound0
+; CHECK-NEXT:   %loop.size1 = sub i64 %init.upper.bound1, %lower.bound1
+; CHECK-NEXT:   icmp slt i64 0, %loop.size0
+; CHECK-NEXT:   and i1 true
+; CHECK-NEXT:   icmp slt i64 0, %loop.size1
+; CHECK-NEXT:   and i1
+; CHECK-NEXT:   %zext_cast = zext i1
+; CHECK-NEXT:   insertvalue [7 x i64] undef, i64 %loop.size0, 2
+; CHECK-NEXT:   insertvalue [7 x i64] {{.*}}, i64 %lower.bound0, 1
+; CHECK-NEXT:   insertvalue [7 x i64] {{.*}}, i64 %loop.size1, 4
+; CHECK-NEXT:   insertvalue [7 x i64] {{.*}}, i64 %lower.bound1, 3
+; CHECK-NEXT:   insertvalue [7 x i64] {{.*}}, i64 %local.size2, 6
+; CHECK-NEXT:   insertvalue [7 x i64] {{.*}}, i64 %base.gid2, 5
+; CHECK-NEXT:   insertvalue [7 x i64] {{.*}}, i64 %zext_cast, 0
+; CHECK-NEXT:   ret [7 x i64]
 
 !sycl.kernels = !{!1}
 

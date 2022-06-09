@@ -276,10 +276,10 @@ public:
   /// Get Cost for the range of basic blocks specified through \p Begin and
   /// \p End with optionally specified peeling \p PeelingVariant and optionally
   /// specified pointer to output stream \p OS if debug output is requested.
-  virtual VPInstructionCost getBlockRangeCost(
-    const VPBasicBlock *Begin, const VPBasicBlock *End,
-    VPlanPeelingVariant *PeelingVariant = nullptr,
-    raw_ostream *OS = nullptr) = 0;
+  virtual VPInstructionCost
+  getBlockRangeCost(const VPBasicBlock *Begin, const VPBasicBlock *End,
+                    VPlanPeelingVariant *PeelingVariant = nullptr,
+                    raw_ostream *OS = nullptr, StringRef RangeName = "") = 0;
 
   /// Get Cost for VPlan with optionally specified peeling \p PeelingVariant
   /// and optionally specified pointer to output stream \p OS if debug output
@@ -318,6 +318,8 @@ template <typename HeuristicsListVPInstTy,
 class VPlanCostModelWithHeuristics :
     public VPlanTTICostModel, public VPlanCostModelInterface {
 private:
+  using BlockPair = std::pair<const VPBasicBlock*, const VPBasicBlock*>;
+
   HeuristicsListVPInstTy HeuristicsListVPInst;
   HeuristicsListVPBlockTy HeuristicsListVPBlock;
   HeuristicsListVPlanTy HeuristicsListVPlan;
@@ -405,6 +407,40 @@ private:
     return Cost;
   }
 
+  inline BlockPair getVPlanPreLoopBeginEndBlocks() const {
+    const VPLoop *L = Plan->getMainLoop(true);
+    const VPBasicBlock *Preheader = L->getLoopPreheader();
+    return std::make_pair(&Plan->getEntryBlock(), Preheader);
+  }
+
+  inline BlockPair getVPlanAfterLoopBeginEndBlocks() const {
+    const VPLoop *L = Plan->getMainLoop(true);
+
+    const VPBasicBlock *Latch = L->getLoopLatch();
+    assert(Latch->getNumSuccessors() == 2 && "Expected two latch successors");
+
+    const VPBasicBlock *ExitBB = Latch->getSuccessor(0);
+    if (ExitBB == L->getHeader())
+      ExitBB = Latch->getSuccessor(1);
+
+    const VPBasicBlock *LastBB = &*Plan->getExitBlock();
+    return std::make_pair(ExitBB, LastBB);
+  }
+
+  inline decltype(auto) getVPlanLoopRange() const {
+    const VPLoop *L = Plan->getMainLoop(true);
+    return sese_depth_first(L->getHeader(), L->getLoopLatch());
+  }
+
+  VPInstructionCost
+  getBlockRangeCost(BlockPair BeginEnd,
+                    VPlanPeelingVariant *PeelingVariant = nullptr,
+                    raw_ostream *OS = nullptr, StringRef RangeName = "") {
+    return getBlockRangeCost(BeginEnd.first, BeginEnd.second, PeelingVariant,
+                             OS, RangeName);
+  }
+
+
   // Ctor is private.
   // CM objects should be created using special interface of planner class
   // rather than created directly through the ctor.
@@ -437,20 +473,21 @@ protected:
 
 public:
   VPlanCostModelWithHeuristics() = delete;
-  VPInstructionCost getBlockRangeCost(
-    const VPBasicBlock *Begin,
-    const VPBasicBlock *End,
-    VPlanPeelingVariant *PeelingVariant = nullptr,
-    raw_ostream *OS = nullptr) final {
+  VPInstructionCost
+  getBlockRangeCost(const VPBasicBlock *Begin, const VPBasicBlock *End,
+                    VPlanPeelingVariant *PeelingVariant = nullptr,
+                    raw_ostream *OS = nullptr, StringRef RangeName = "") final {
     // Assume no peeling if it is not specified.
     SaveAndRestore<VPlanPeelingVariant*> RestoreOnExit(
         DefaultPeelingVariant,
         PeelingVariant ? PeelingVariant : &VPlanStaticPeeling::NoPeelLoop);
 
     VPInstructionCost Cost = getRangeCost(sese_depth_first(Begin, End), OS);
-    CM_DEBUG(OS, *OS << "Cost Model for Block range " <<
-             Begin->getName() << " : " << End->getName() <<
-             " for VF = " << VF << " resulted Cost = " << Cost << '\n';);
+    CM_DEBUG(OS,
+             StringRef Hdr = RangeName.empty() ? "Block range" : RangeName;
+             *OS << "Cost Model for " << Hdr << " " << Begin->getName() << " : "
+                 << End->getName() << " for VF = " << VF
+                 << " resulted Cost = " << Cost << '\n';);
 
     // TODO: Consider which (and how) VPlan heuristics we should run here.
     return Cost;
@@ -472,8 +509,11 @@ public:
     CM_DEBUG(OS, *OS << "Cost Model for VPlan " << Plan->getName() <<
              " with VF = " <<VF << ":\n";);
 
-    VPInstructionCost BaseCost =
-      getRangeCost(depth_first(&Plan->getEntryBlock()), OS);
+    VPInstructionCost PreHdrCost =
+        getBlockRangeCost(getVPlanPreLoopBeginEndBlocks(),
+                          nullptr /* peeling */, OS, "Loop preheader");
+
+    VPInstructionCost BaseCost = getRangeCost(getVPlanLoopRange(), OS);
 
     CM_DEBUG(OS, *OS << "Base Cost: " << BaseCost << '\n';);
 
@@ -483,6 +523,10 @@ public:
     CM_DEBUG(OS, dumpAllHeuristics(*OS, Plan);
              if (BaseCost != TotCost)
                *OS << "Total Cost: " << TotCost << '\n';);
+
+    VPInstructionCost PostExitCost =
+        getBlockRangeCost(getVPlanAfterLoopBeginEndBlocks(),
+                          nullptr /* peeling */, OS, "Loop postexit");
 
     return TotCost;
   }

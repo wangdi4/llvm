@@ -254,7 +254,7 @@ private:
 using UseSet = DataPerValue::UseSet;
 using InstMap = DenseMap<Instruction *, Instruction *>;
 
-static bool isSafeToCopy(Instruction *Inst, RuntimeService *RTS) {
+static bool isSafeToCopy(Instruction *Inst, RuntimeService &RTS) {
   // Alloca can't be copied.
   if (isa<AllocaInst>(Inst))
     return false;
@@ -273,7 +273,7 @@ static bool isSafeToCopy(Instruction *Inst, RuntimeService *RTS) {
 
   if (auto *Call = dyn_cast<CallBase>(Inst)) {
     Function *CalledFunc = Call->getCalledFunction();
-    if (CalledFunc && RTS->isSafeToSpeculativeExecute(CalledFunc->getName()))
+    if (CalledFunc && RTS.isSafeToSpeculativeExecute(CalledFunc->getName()))
       return true;
 
     // For other function calls, cloning them can be more expensive than save
@@ -288,7 +288,7 @@ static bool isSafeToCopy(Instruction *Inst, RuntimeService *RTS) {
 /// user of \p TheUse. All dependencies are saved into \p Uses.
 static bool collectDependencies(Use *TheUse, size_t Threshold,
                                 DataPerBarrier *DPB, WIRelatedValue *WIRV,
-                                RuntimeService *RTS,
+                                RuntimeService &RTS,
                                 SmallVectorImpl<Use *> &Uses) {
   auto *User = TheUse->getUser();
 
@@ -445,8 +445,7 @@ static bool runOnFunction(Function &F, BuiltinLibInfo *BLI, DataPerValue *DPV,
   if (!CrossBarrierUseMap || CrossBarrierUseMap->empty())
     return false;
 
-  auto *RTS = BLI->getRuntimeService();
-  assert(RTS && "Invalid runtime services");
+  auto &RTS = BLI->getRuntimeService();
   BarrierRegionInfo BRI(&F, DF, DT);
 
   bool Changed = false;

@@ -28,7 +28,7 @@ define void @foo(<2 x i64> *%p, i1 %uniform) #0 {
 ; HIR-CG-NEXT:    [[EXTRACT1:%.*]] = extractelement [[VAL]],  [[ADD1]];
 ; HIR-CG-NEXT:    [[RESULT]] = insertelement [[RESULT]],  [[EXTRACT1]],  1;
 ; HIR-CG-NEXT:    [[REPLICATED:%.*]] = shufflevector [[RESULT]],  undef,  <i32 0, i32 1, i32 0, i32 1>;
-; HIR-CG-NEXT:    [[USE:%.*]] = [[REPLICATED]] + <i64 1, i64 1, i64 1, i64 1>;
+; HIR-CG-NEXT:    [[USE:%.*]] = <i64 1, i64 1> + [[RESULT]];
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

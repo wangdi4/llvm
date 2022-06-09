@@ -1002,6 +1002,8 @@ ANNOTATION(pragma_end)
 // handles them.
 ANNOTATION(pragma_inline)
 ANNOTATION(pragma_blockloop)
+ANNOTATION(pragma_vector)
+ANNOTATION(pragma_vector_end)
 ANNOTATION(pragma_loop_count)
 ANNOTATION(pragma_loop_count_end)
 ANNOTATION(pragma_prefetch)

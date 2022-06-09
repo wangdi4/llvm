@@ -1113,7 +1113,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
       if (DA->isUniform(*VPInst)) {
         serializePredicatedUniformInstruction(VPInst);
         return;
-      } else {
+      } else if (!EnableIntDivRemBlendWithSafeValue) {
         serializeWithPredication(VPInst);
         // Remark: division was scalarized due to fp-model requirements
         OptRptStats.SerializedInstRemarks.emplace_back(

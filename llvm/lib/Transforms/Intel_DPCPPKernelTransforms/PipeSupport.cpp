@@ -147,9 +147,9 @@ static PipeArrayView createPipeArray(Function &F, int Size) {
 
 static CallInst *createFlushCall(Module *M, StringRef Name,
                                  PipeArrayView PipeStorage,
-                                 RuntimeService *RTService) {
+                                 RuntimeService &RTS) {
   Function *FlushF =
-      importFunctionDecl(M, RTService->findFunctionInBuiltinModules(Name));
+      importFunctionDecl(M, RTS.findFunctionInBuiltinModules(Name));
   return CallInst::Create(FlushF, {PipeStorage.Ptr, PipeStorage.Size});
 }
 
@@ -175,11 +175,10 @@ static void insertFlushAtExit(Function &F, Instruction *FlushReadCall,
 }
 
 static void insertStorePipeCall(Module *M, StringRef Name, CallInst *Call,
-                                PipeArrayView StoreA,
-                                RuntimeService *RTService) {
+                                PipeArrayView StoreA, RuntimeService &RTS) {
   IRBuilder<> Builder(Call);
   Function *StoreF =
-      importFunctionDecl(M, RTService->findFunctionInBuiltinModules(Name));
+      importFunctionDecl(M, RTS.findFunctionInBuiltinModules(Name));
   auto *Pipe = Call->getOperand(0);
 
   Value *StoreArgs[] = {StoreA.Ptr, StoreA.Size, Pipe};
@@ -202,12 +201,12 @@ static Value *getPipeCallRetcode(const PipeCallInfo &PC) {
 }
 
 static PipeCallInfo replaceBlockingCall(Module *M, const PipeCallInfo &PC,
-                                        RuntimeService *RTService) {
+                                        RuntimeService &RTS) {
   PipeKind NonBlockingKind = PC.Kind;
   NonBlockingKind.Blocking = false;
 
   Function *NonBlockingFun = importFunctionDecl(
-      M, RTService->findFunctionInBuiltinModules(getPipeName(NonBlockingKind)));
+      M, RTS.findFunctionInBuiltinModules(getPipeName(NonBlockingKind)));
 
   SmallVector<Value *, 4> NewArgs(PC.Call->args());
 
@@ -265,10 +264,10 @@ static BasicBlock *insertFlushAtNonBlockingCall(const PipeCallInfo &PC,
 static BasicBlock *insertFlushAtBlockingCall(Module *M, const PipeCallInfo &PC,
                                              Instruction *FlushReadCall,
                                              Instruction *FlushWriteCall,
-                                             RuntimeService *RTService) {
+                                             RuntimeService &RTS) {
   // Blocking BIs are the same as non-blocking but with a spin-loop over
   // We can easily replace them here to get flushes into the spin-loop
-  PipeCallInfo NonBlockingPC = replaceBlockingCall(M, PC, RTService);
+  PipeCallInfo NonBlockingPC = replaceBlockingCall(M, PC, RTS);
 
   BasicBlock *FlushBB = insertFlushAtNonBlockingCall(
       NonBlockingPC, FlushReadCall, FlushWriteCall);
@@ -279,8 +278,7 @@ static BasicBlock *insertFlushAtBlockingCall(Module *M, const PipeCallInfo &PC,
   return FlushBB;
 }
 
-static bool addImplicitFlushCalls(Module *M, Function &F,
-                                  RuntimeService *RTService,
+static bool addImplicitFlushCalls(Module *M, Function &F, RuntimeService &RTS,
                                   const PipeTypesHelper &PipeTypes) {
 
   SmallVector<PipeCallInfo, 16> PipeCalls;
@@ -300,23 +298,22 @@ static bool addImplicitFlushCalls(Module *M, Function &F,
   PipeArrayView WriteArray = createPipeArray(F, NumPipes);
 
   CallInst *FlushReadCall =
-      createFlushCall(M, "__flush_pipe_read_array", ReadArray, RTService);
+      createFlushCall(M, "__flush_pipe_read_array", ReadArray, RTS);
   CallInst *FlushWriteCall =
-      createFlushCall(M, "__flush_pipe_write_array", WriteArray, RTService);
+      createFlushCall(M, "__flush_pipe_write_array", WriteArray, RTS);
 
   // Insert store pipe and flushes BI calls at every pipe BI call
   for (const auto &PC : PipeCalls) {
 
     if (PC.Kind.Access == PipeKind::AccessKind::Write)
       insertStorePipeCall(M, "__store_write_pipe_use", PC.Call, WriteArray,
-                          RTService);
+                          RTS);
     else
-      insertStorePipeCall(M, "__store_read_pipe_use", PC.Call, ReadArray,
-                          RTService);
+      insertStorePipeCall(M, "__store_read_pipe_use", PC.Call, ReadArray, RTS);
 
     if (PC.Kind.Blocking)
       insertFlushAtBlockingCall(M, PC, FlushReadCall->clone(),
-                                FlushWriteCall->clone(), RTService);
+                                FlushWriteCall->clone(), RTS);
     else
       insertFlushAtNonBlockingCall(PC, FlushReadCall->clone(),
                                    FlushWriteCall->clone());
@@ -340,8 +337,7 @@ PreservedAnalyses PipeSupportPass::run(Module &M, ModuleAnalysisManager &MAM) {
 
 bool PipeSupportPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
   assert(BLI && "Invalid builtin lib info!");
-  RuntimeService *RTService = BLI->getRuntimeService();
-  assert(RTService && "Invalid runtime service!");
+  RuntimeService &RTS = BLI->getRuntimeService();
 
   bool Changed = false;
 
@@ -353,7 +349,7 @@ bool PipeSupportPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
   for (auto &F : M) {
     if (F.isDeclaration())
       continue;
-    bool FuncUseFPGAPipes = addImplicitFlushCalls(&M, F, RTService, PipeTypes);
+    bool FuncUseFPGAPipes = addImplicitFlushCalls(&M, F, RTS, PipeTypes);
     Changed |= FuncUseFPGAPipes;
 
     DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F).UseFPGAPipes.set(

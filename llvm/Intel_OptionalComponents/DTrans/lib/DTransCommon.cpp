@@ -374,8 +374,11 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
     addPass(PM, deletefield, createDTransDeleteFieldWrapperPass());
   addPass(PM, reorderfields, createDTransReorderFieldsWrapperPass());
   addPass(PM, aostosoa, createDTransAOSToSOAWrapperPass());
-    if (EnableReuseFields)
-      addPass(PM, reusefield, createDTransReuseFieldWrapperPass());
+  if (EnableReuseFields)
+    addPass(PM, reusefield, createDTransReuseFieldWrapperPass());
+  if (EnableDeleteFields)
+    addPass(PM, deletefield, createDTransDeleteFieldWrapperPass());
+
   addPass(PM, elimrofieldaccess,
           createDTransEliminateROFieldAccessWrapperPass());
   addPass(PM, dynclone, createDTransDynCloneWrapperPass());

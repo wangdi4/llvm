@@ -78,7 +78,7 @@ define float @foo(float **%a, i1 %c, i1 %c2) {
 ; CHECK-NEXT:        |   |   <RVAL-REG> NON-LINEAR <16 x i1> [[DOTVEC90]] {sb:33}
 ; CHECK-NEXT:        |   |
 ; CHECK-NEXT:        |   |   [[DOTCOPY110:%.*]] = 2
-; CHECK-NEXT:        |   |   <LVAL-REG> NON-LINEAR <16 x i32> [[DOTCOPY110]] {sb:35}
+; CHECK-NEXT:        |   |   <LVAL-REG> NON-LINEAR i32 [[DOTCOPY110]] {sb:35}
 ; CHECK-NEXT:        |   |
 ; CHECK-NEXT:        |   |   [[DOTCOPY120:%.*]] = [[DOTVEC80]]
 ; CHECK-NEXT:        |   |   <LVAL-REG> NON-LINEAR <16 x float> [[DOTCOPY120]] {sb:36}

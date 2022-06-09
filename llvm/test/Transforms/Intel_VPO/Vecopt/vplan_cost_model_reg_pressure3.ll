@@ -31,6 +31,7 @@ define dso_local void @foo() {
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB1]]: base cost: 0
+; CHECK-NEXT:  Cost Model for Loop preheader [[BB0]] : [[BB1]] for VF = 8 resulted Cost = 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP0]]
@@ -84,6 +85,9 @@ define dso_local void @foo() {
 ; CHECK-NEXT:    Cost 32 for i1 [[VP17:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP17]], [[BB2]], [[BB5:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB3]]: base cost: 38.375
+; CHECK-NEXT:  Base Cost: 92.4375
+; CHECK-NEXT:  Extra cost due to Spill/Fill heuristic is 56
+; CHECK-NEXT:  Total Cost: 148.4375
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB5]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB6:BB[0-9]+]]
@@ -91,9 +95,7 @@ define dso_local void @foo() {
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB6]]
 ; CHECK-NEXT:    Cost 0 for br <External Block>
 ; CHECK-NEXT:  [[BB6]]: base cost: 0
-; CHECK-NEXT:  Base Cost: 92.4375
-; CHECK-NEXT:  Extra cost due to Spill/Fill heuristic is 56
-; CHECK-NEXT:  Total Cost: 148.4375
+; CHECK-NEXT:  Cost Model for Loop postexit [[BB5]] : [[BB6]] for VF = 8 resulted Cost = 0
 ;
 entry:
   br label %for.body

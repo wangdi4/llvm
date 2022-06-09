@@ -21,9 +21,7 @@
 
 namespace intel {
 
-void addBarrierMainPasses(llvm::legacy::PassManagerBase &PM,
-                          llvm::SmallVector<llvm::Module *, 2> &RtlModuleList,
-                          unsigned OptLevel,
+void addBarrierMainPasses(llvm::legacy::PassManagerBase &PM, unsigned OptLevel,
                           intel::DebuggingServiceType DebugType,
                           bool UseTLSGlobals,
                           llvm::ArrayRef<llvm::VectItem> VectInfos);

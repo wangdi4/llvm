@@ -754,7 +754,7 @@ Syntax:
 Currently we only support ``pragma vector``, ``pragma vector always``,
 ``pragma vector aligned``, ``pragma vector dynamic_align``,
 ``pragma vector nodynamic_align``, ``pragma vector vecremainder`` and
-``pragma vector novecremainder``.
+``pragma vector novecremainder``, ``pragma vector always assert``.
 When the 'aligned' keyword is used, it indicates to the compiler that the loop
 should be vectorized using aligned data movement instructions for all array
 references inside the loop.
@@ -777,6 +777,8 @@ Example:
     #pragma vector vecremainder
     for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
     #pragma vector novecremainder
+    for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+    #pragma vector always assert
     for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
   }
 
@@ -825,6 +827,11 @@ AST:
   | |-<<<NULL>>>
   | `-<<<NULL>>>
 
+  -AttributedStmt 0x120c38f8 <<invalid sloc>, line:17:48>
+      |-LoopHintAttr 0x120c38b8 <line:16:13, col:27> Implicit vector VectorizeAlwaysAssert Enable
+      | |-<<<NULL>>>
+      | `-<<<NULL>>>
+
 Note that ``#pragma vector always`` and ``#pragma vector aligned`` are
 represented as two LoopHint attributes.
 
@@ -859,7 +866,8 @@ IR:
   !14 = !{!"llvm.loop.intel.vector.vecremainder", !"true"}
   !15 = distinct !{!15, !3, !16}
   !16 = !{!"llvm.loop.intel.vector.novecremainder", !"true"}
-
+  17 = distinct !{!17, !3, !5, !18, !6}
+  !18 = !{!"llvm.loop.vectorize.assert"}
   }];
   let UserContent = [{
 Accept #pragma vector - indicates a loop should be vectorized according to the

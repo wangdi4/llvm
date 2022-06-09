@@ -24,8 +24,6 @@ class LinearIdResolverPass : public PassInfoMixin<LinearIdResolverPass> {
 public:
   explicit LinearIdResolverPass() {}
 
-  static StringRef name() { return "LinearIdResolverPass"; }
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // Glue for old PM.

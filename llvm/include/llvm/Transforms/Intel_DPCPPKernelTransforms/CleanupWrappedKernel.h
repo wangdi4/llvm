@@ -18,8 +18,6 @@ namespace llvm {
 class CleanupWrappedKernelPass
     : public PassInfoMixin<CleanupWrappedKernelPass> {
 public:
-  static StringRef name() { return "CleanupWrappedKernelPass"; }
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 };
 

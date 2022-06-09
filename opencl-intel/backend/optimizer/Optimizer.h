@@ -45,7 +45,7 @@ namespace DeviceBackend {
 
 class Optimizer {
 public:
-  Optimizer(llvm::Module &M, llvm::SmallVector<llvm::Module *, 2> &RtlModules,
+  Optimizer(llvm::Module &M, llvm::SmallVectorImpl<llvm::Module *> &RtlModules,
             const intel::OptimizerConfig &Config);
 
   virtual ~Optimizer() {}
@@ -140,7 +140,7 @@ protected:
 class OptimizerOCLLegacy : public Optimizer {
 public:
   OptimizerOCLLegacy(llvm::Module &pModule,
-                     llvm::SmallVector<llvm::Module *, 2> &RtlModules,
+                     llvm::SmallVectorImpl<llvm::Module *> &RtlModules,
                      const intel::OptimizerConfig &pConfig);
 
   void Optimize(llvm::raw_ostream &LogStream) override;

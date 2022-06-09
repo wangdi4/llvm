@@ -33,9 +33,8 @@ namespace {
 
 class BuiltinLICMImpl {
 public:
-  BuiltinLICMImpl(Loop &L, LoopInfo &LI, DominatorTree &DT,
-                  RuntimeService &RTService)
-      : L(L), LI(LI), DT(DT), RTService(RTService), CurLoop(&L),
+  BuiltinLICMImpl(Loop &L, LoopInfo &LI, DominatorTree &DT, RuntimeService &RTS)
+      : L(L), LI(LI), DT(DT), RTS(RTS), CurLoop(&L),
         PreHeader(L.getLoopPreheader()){};
 
   bool run();
@@ -47,7 +46,7 @@ private:
 
   DominatorTree &DT;
 
-  RuntimeService &RTService;
+  RuntimeService &RTS;
 
   Loop *CurLoop;
 
@@ -68,7 +67,7 @@ bool BuiltinLICMImpl::canHoistBuiltin(CallInst *CI) {
 
   StringRef funcName = CI->getCalledFunction()->getName();
   // To hoist the call it should have no side effect.
-  if (!RTService.isSafeToSpeculativeExecute(funcName))
+  if (!RTS.isSafeToSpeculativeExecute(funcName))
     return false;
 
   // All it's operands should be invariant.
@@ -142,7 +141,7 @@ public:
     LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     BuiltinLibInfo &BLI =
         getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
-    BuiltinLICMImpl Impl(*L, LI, DT, *BLI.getRuntimeService());
+    BuiltinLICMImpl Impl(*L, LI, DT, BLI.getRuntimeService());
     return Impl.run();
   }
 
@@ -180,7 +179,7 @@ PreservedAnalyses BuiltinLICMPass::run(Loop &L, LoopAnalysisManager &AM,
   auto &FAMProxy = AM.getResult<FunctionAnalysisManagerLoopProxy>(L, AR);
   auto *MAMProxy = FAMProxy.getCachedResult<ModuleAnalysisManagerFunctionProxy>(*F);
   BuiltinLibInfo *BLI = MAMProxy->getCachedResult<BuiltinLibInfoAnalysis>(*M);
-  BuiltinLICMImpl Impl(L, AR.LI, AR.DT, *BLI->getRuntimeService());
+  BuiltinLICMImpl Impl(L, AR.LI, AR.DT, BLI->getRuntimeService());
   if (!Impl.run())
     return PreservedAnalyses::all();
 

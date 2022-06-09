@@ -1253,6 +1253,7 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
       MI = new MapItem(Aggr);
       MI->setOrig(BasePtr);
       MI->setIsByRef(ClauseInfo.getIsByRef());
+      MI->setIsFunctionPointer(ClauseInfo.getIsFunctionPointer());
       C.add(MI);
     } else {         // Continue the chain for the last MapItem
       MI = C.back(); // Get the last MapItem in the MapClause

@@ -1089,11 +1089,14 @@ LoopRegion WGLoopCreatorImpl::createMaskedLoop() {
   Value *IndVars = Builder.CreateNUWAdd(Splat, StepVec, "ind.var.vec");
   Value *MaxGIDSplat =
       Builder.CreateVectorSplat(VF, MaxGIDs[VectorizedDim], "max.gid");
-  auto *MaskI1 = Builder.CreateICmpULT(IndVars, MaxGIDSplat, "ind.var.mask.i1");
-  auto *Mask = Builder.CreateZExt(
-      MaskI1, FixedVectorType::get(Builder.getInt32Ty(), VF), "ind.var.mask");
+  Value *Mask = Builder.CreateICmpULT(IndVars, MaxGIDSplat, "ind.var.mask.i1");
 
-  auto MaskArg = MaskedF->arg_end() - 1;
+  Value *MaskArg = &*(MaskedF->arg_end() - 1);
+  if (Mask->getType() != MaskArg->getType()) {
+    assert(cast<FixedVectorType>(Mask->getType())->getNumElements() == VF &&
+           "number of elements doesn't match");
+    Mask = Builder.CreateZExt(Mask, MaskArg->getType(), "ind.var.mask");
+  }
   MaskArg->replaceAllUsesWith(Mask);
 
   return MaskedBlocks;
@@ -1398,8 +1401,7 @@ std::pair<LoopRegion, Value *> WGLoopCreatorImpl::addWGLoops(
         return true;
       auto *AI = dyn_cast<AllocaInst>(cast<ValueAsMetadata>(Meta)->getValue());
       // Don't move implicit gid llvm.dbg.declare.
-      if (!AI || !isImplicitGID(AI))
-        return true;
+      return !AI || !isImplicitGID(AI);
     }
     auto *GEP = dyn_cast<GetElementPtrInst>(&I);
     return GEP && GEP->getPointerOperand()->getName() == PatchLocalIDsName;

@@ -763,6 +763,17 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
     dbgs() << "\n";
   });
 
+
+  //  Save UBs to be passed to makeConsistent
+  //  Make a copy to avoid overlay 
+
+  SmallVector<const RegDDRef *, MaxLoopNestLevel> UpperBoundRefs;
+  for (unsigned Level = OrigInnermostLevel, EndLevel = OrigOutermostLevel;
+       Level >= EndLevel; --Level) {
+    UpperBoundRefs.push_back((LoopNest[Level]->getUpperDDRef())->clone());
+  }
+
+
   OrigOutermostLp->extractPreheaderAndPostexit();
   SmallVector<PredicateTuple, 8> ZTTs;
   SmallSet<unsigned, 8> ZTTLiveInSBs;
@@ -772,7 +783,9 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
   // *** Accumulate and update TripCount ***
 
   // Base case: from the innermost loop
+
   CanonExpr *AccumulatedTripCountCE = ToCollapseLp->getUpperCanonExpr();
+
   AccumulatedTripCountCE->addConstant(1, false);
 
   // Accumulate TripCount over each loop in the collapse-able loop nest
@@ -790,16 +803,9 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
 
   AccumulatedTripCountCE->addConstant(-1, false);
 
-  // Force Ref to be consistent w.r.t. the LoopNest over all loops being
-  // collapsed, not including the loop with accumulated UpperDDRef
-  SmallVector<const RegDDRef *, MaxLoopNestLevel> UpperBoundRefs;
-  for (unsigned Level = OrigInnermostLevel - 1, EndLevel = OrigOutermostLevel;
-       Level >= EndLevel; --Level) {
-    UpperBoundRefs.push_back(LoopNest[Level]->getUpperDDRef());
-  }
-
   auto *UBRef = ToCollapseLp->getUpperDDRef();
   UBRef->makeConsistent(UpperBoundRefs, OrigOutermostLevel);
+
 
   // *** DO Collapsing ***
   // Move loop:

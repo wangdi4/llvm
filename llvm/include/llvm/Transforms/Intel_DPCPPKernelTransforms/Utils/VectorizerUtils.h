@@ -24,7 +24,7 @@ public:
   /// Checks whether we can (as opposed to should) vectorize this function
   /// for VPO. \param F Function to check. \param UnsupportedFuncs
   /// Unsupported function obtained from getNonInlineUnsupportedFunctions.
-  /// \param RTService Runtime service.
+  /// \param RTS Runtime service.
   /// \param EnableDirectCallVectorization Whether to enable direct function
   /// call vectorization.
   /// \param EnableSGDirectCallVectorization Whether to enable direct

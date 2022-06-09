@@ -273,12 +273,9 @@ class DPCPPEqualizerLegacy : public ModulePass {
 public:
   static char ID;
 
-  DPCPPEqualizerLegacy(ArrayRef<Module *> BuiltinModules = {})
-      : ModulePass(ID), Impl(BuiltinModules) {
+  DPCPPEqualizerLegacy() : ModulePass(ID) {
     initializeDPCPPEqualizerLegacyPass(*PassRegistry::getPassRegistry());
   }
-
-  ~DPCPPEqualizerLegacy() {}
 
   StringRef getPassName() const override { return "DPCPPEqualizerLegacy"; }
 
@@ -305,9 +302,8 @@ INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
 INITIALIZE_PASS_END(DPCPPEqualizerLegacy, DEBUG_TYPE,
                     "Setup kernel attribute and metadata", false, false)
 
-ModulePass *
-llvm::createDPCPPEqualizerLegacyPass(ArrayRef<Module *> BuiltinModules) {
-  return new DPCPPEqualizerLegacy(BuiltinModules);
+ModulePass *llvm::createDPCPPEqualizerLegacyPass() {
+  return new DPCPPEqualizerLegacy();
 }
 
 void DPCPPEqualizerPass::setBlockLiteralSizeMetadata(Function &F) {

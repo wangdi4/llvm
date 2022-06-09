@@ -46,7 +46,7 @@ public:
   }
 
   bool runOnFunction(Function &F) override {
-    RuntimeService *RTS = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
+    RuntimeService &RTS = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
                               .getResult()
                               .getRuntimeService();
 
@@ -77,7 +77,7 @@ char OptimizeIDivAndIRemLegacy::ID = 0;
 PreservedAnalyses OptimizeIDivAndIRemPass::run(Function &F,
                                                FunctionAnalysisManager &FAM) {
 
-  RuntimeService *RTS =
+  RuntimeService &RTS =
       FAM.getResult<ModuleAnalysisManagerFunctionProxy>(F)
           .getCachedResult<BuiltinLibInfoAnalysis>(*F.getParent())
           ->getRuntimeService();
@@ -90,7 +90,7 @@ PreservedAnalyses OptimizeIDivAndIRemPass::run(Function &F,
 /// possible)
 /// @returns true if instructin was replaced
 static bool replaceWithBuiltInCall(BinaryOperator *DivInst,
-                                   const RuntimeService *RTService) {
+                                   const RuntimeService &RTS) {
   Type *DivisorType = DivInst->getType();
 
   // Performance measurements show that such replacement is good only for
@@ -155,7 +155,7 @@ static bool replaceWithBuiltInCall(BinaryOperator *DivInst,
   // get name of the built-in function
   std::string FuncName = NameMangleAPI::mangle(FuncDesc);
 
-  Function *DivFuncRT = RTService->findFunctionInBuiltinModules(FuncName);
+  Function *DivFuncRT = RTS.findFunctionInBuiltinModules(FuncName);
   if (!DivFuncRT)
     return false;
 
@@ -186,7 +186,7 @@ static bool replaceWithBuiltInCall(BinaryOperator *DivInst,
   return true;
 }
 
-bool OptimizeIDivAndIRemPass::runImpl(Function &F, RuntimeService *RTS) {
+bool OptimizeIDivAndIRemPass::runImpl(Function &F, RuntimeService &RTS) {
   std::vector<BinaryOperator *> DivInstructions;
   for (auto &I : instructions(F)) {
     // Div and rem instructions are of type BinaryOperator

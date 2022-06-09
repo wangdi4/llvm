@@ -18,18 +18,19 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly.
 
+#include "FrontendDriver.h"
+#include "FrontendDriverFixture.h"
+#include "clang_device_info.h"
 #include "common_clang.h"
+#include "common_utils.h"
+#include "frontend_api.h"
 #include "gtest_wrapper.h"
 #include <CL/cl.h>
-#include <FrontendDriver.h>
-#include <clang_device_info.h>
-#include <frontend_api.h>
-
-#include "FrontendDriverFixture.h"
 
 #include "SPIRV/libSPIRV/spirv_internal.hpp"
 
-#include <llvm/Support/SwapByteOrder.h>
+#include "llvm/IR/InstIterator.h"
+#include "llvm/Support/SwapByteOrder.h"
 
 #include <string>
 #include <fstream>
@@ -121,6 +122,33 @@ TEST_F(ClangCompilerTestType, Test_OptNone) {
   ASSERT_EQ(CL_SUCCESS, err) << "Optnone attribute is supported." << std::endl
                              << "The log: " << std::endl
                              << m_binary_result->GetErrorLog() << std::endl;
+}
+
+TEST_F(ClangCompilerTestType, Test_CTSSPIR12) {
+  std::string FileName =
+      get_exe_dir() +
+      "opencl.cts.spir.test_atomic_fn.atomic_and_local_int.bc64";
+  std::vector<unsigned char> SpirBinary;
+  ASSERT_NO_FATAL_FAILURE(readBinary(FileName, SpirBinary));
+  FESPIRProgramDescriptor SpirDesc{SpirBinary.data(),
+                                   (unsigned)SpirBinary.size()};
+
+  int Err = GetFECompiler()->MaterializeSPIR(&SpirDesc, &m_binary_result);
+  ASSERT_EQ(Err, 0) << "Failed to parse SPIR 1.2 binary:\n"
+                    << m_binary_result->GetErrorLog() << "\n";
+
+  auto ModuleOrError = ExtractModule(m_binary_result);
+  ASSERT_TRUE(bool(ModuleOrError))
+      << ModuleOrError.getError().message() << "\n";
+
+  // Check that opencl.kernels metadata is dropped.
+  Module &M = **ModuleOrError;
+  ASSERT_EQ(M.getNamedMetadata("opencl.kernels"), nullptr);
+
+  // Check that TBAA metadata are all dropped.
+  for (auto &F : **ModuleOrError)
+    for (auto &I : instructions(&F))
+      ASSERT_EQ(I.getMetadata(LLVMContext::MD_tbaa), nullptr);
 }
 
 TEST_F(ClangCompilerTestType, Test_PlainSpirvConversion)

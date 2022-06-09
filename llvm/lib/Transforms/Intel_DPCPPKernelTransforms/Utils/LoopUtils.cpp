@@ -189,11 +189,11 @@ std::pair<LoopRegion, PHINode *> createLoop(BasicBlock *Head, BasicBlock *Latch,
   return {LoopRegion{PreHead, Head, Exit}, IndVar};
 }
 
-void fillAtomicBuiltinUsers(Module &M, RuntimeService *RTService,
+void fillAtomicBuiltinUsers(Module &M, RuntimeService &RTS,
                             FuncSet &UserFuncs) {
   FuncSet AtomicFuncs;
   for (Function &F : M)
-    if (F.isDeclaration() && RTService->isAtomicBuiltin(F.getName()))
+    if (F.isDeclaration() && RTS.isAtomicBuiltin(F.getName()))
       AtomicFuncs.insert(&F);
 
   fillFuncUsersSet(AtomicFuncs, UserFuncs);

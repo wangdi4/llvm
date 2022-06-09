@@ -44,14 +44,15 @@ bool BarrierInFunction::runImpl(Module &M) {
   Utils.init(&M);
 
   // Find all the kernel functions.
-  FuncVector KernelFunctions = Utils.getAllKernelsWithBarrier();
+  CompilationUtils::FuncVec KernelFunctions = Utils.getAllKernelsWithBarrier();
 
   // Find all functions that call synchronize instructions.
-  FuncSet FunctionsWithSync = Utils.getAllFunctionsWithSynchronization();
+  CompilationUtils::FuncSet FunctionsWithSync =
+      Utils.getAllFunctionsWithSynchronization();
 
   // Set of all functions that allready added to handle container.
   // Will be used to prevent handling functions more than once.
-  FuncSet FunctionsAddedToHandle;
+  CompilationUtils::FuncSet FunctionsAddedToHandle;
   // Add all kernel functions.
   FunctionsAddedToHandle.insert(KernelFunctions.begin(), KernelFunctions.end());
   // Add all functions with barriers (the set will assure no duplication).
@@ -59,7 +60,7 @@ bool BarrierInFunction::runImpl(Module &M) {
                                 FunctionsWithSync.end());
 
   // Vector of all functions to handle.
-  FuncVector FunctionsToHandle;
+  CompilationUtils::FuncVec FunctionsToHandle;
   // It will be initialized with all above function we just added to the set.
   FunctionsToHandle.assign(FunctionsAddedToHandle.begin(),
                            FunctionsAddedToHandle.end());
@@ -113,7 +114,7 @@ void BarrierInFunction::addBarrierCallsToFunctionBody(Function *Func) {
   Utils.createDummyBarrier(FirstInst);
 
   // Find all reachable return instructions in Func.
-  InstVector RetInstructions;
+  CompilationUtils::InstVec RetInstructions;
   for (auto &BB : *Func) {
     Instruction *Term = BB.getTerminator();
     if (isa<ReturnInst>(Term) &&

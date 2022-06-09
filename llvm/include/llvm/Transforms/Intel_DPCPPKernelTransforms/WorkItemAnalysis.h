@@ -36,7 +36,7 @@ class SoaAllocaInfo;
 /// WorkItemInfo provides work item dependency info.
 class WorkItemInfo {
 public:
-  explicit WorkItemInfo(const Function &F, RuntimeService *RTService,
+  explicit WorkItemInfo(const Function &F, RuntimeService &RTService,
                         DominatorTree *DT, PostDominatorTree *PDT, LoopInfo *LI,
                         SoaAllocaInfo *SA)
       : F(F), DT(DT), PDT(PDT), LI(LI), SA(SA), RTService(RTService),
@@ -152,7 +152,7 @@ private:
   LoopInfo *LI;
   SoaAllocaInfo *SA;
 
-  RuntimeService *RTService;
+  RuntimeService &RTService;
 
   /// The dimension over which we vectorize (usually 0).
   unsigned VectorizeDim;

@@ -248,14 +248,7 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
     std::unique_ptr<KernelSet> spKernels(new KernelSet);
 
     llvm::Module* pModule = pProgram->GetModule();
-    auto Kernels = KernelList(pModule).getList();
-    // TODO [CMPLRLLVM-27268] replace opencl.kernels metadata with attribute so
-    // that CompilationUtils::getKernels query is enough.
-    if (Kernels.empty()) {
-      auto FSet = llvm::CompilationUtils::getKernels(*pModule);
-      for (auto *F : FSet)
-        Kernels.push_back(F);
-    }
+    auto Kernels = llvm::CompilationUtils::getKernels(*pModule);
     for (auto *pFunc : Kernels) {
       llvm::Function *pWrapperFunc = nullptr;
       // Obtain kernel function from annotation

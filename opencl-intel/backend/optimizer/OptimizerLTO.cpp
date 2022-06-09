@@ -77,7 +77,7 @@ namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
 
-OptimizerLTO::OptimizerLTO(Module &M, SmallVector<Module *, 2> &RtlModuleList,
+OptimizerLTO::OptimizerLTO(Module &M, SmallVectorImpl<Module *> &RtlModuleList,
                            const intel::OptimizerConfig &Config)
     : Optimizer(M, RtlModuleList, Config) {}
 
@@ -273,8 +273,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       MPM.addPass(HandleVPlanMask(&getVPlanMaskedFuncs()));
     }
 
-    MPM.addPass(
-        ResolveSubGroupWICallPass(m_RtlModules, /*ResolveSGBarrier*/ false));
+    MPM.addPass(ResolveSubGroupWICallPass(/*ResolveSGBarrier*/ false));
     if (Level != OptimizationLevel::O0 && Config.GetStreamingAlways())
       MPM.addPass(createModuleToFunctionPassAdaptor(AddNTAttrPass()));
     if (m_debugType == intel::Native)
@@ -301,7 +300,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       MPM.addPass(AddImplicitArgsPass());
     MPM.addPass(ResolveWICallPass(Config.GetUniformWGSize(), m_UseTLSGlobals));
     MPM.addPass(LocalBuffersPass(m_UseTLSGlobals));
-    MPM.addPass(BuiltinImportPass(m_RtlModules, CPUPrefix));
+    MPM.addPass(BuiltinImportPass(CPUPrefix));
     if (Level != OptimizationLevel::O0)
       MPM.addPass(GlobalDCEPass());
     MPM.addPass(createModuleToFunctionPassAdaptor(BuiltinCallToInstPass()));
@@ -351,8 +350,7 @@ void OptimizerLTO::addBarrierPasses(ModulePassManager &MPM, OptimizationLevel Le
   if (Level != OptimizationLevel::O0) {
     // TODO: insert ReplaceScalarWithMask pass here
     // Resolve subgreoup call introduced by ReplaceScalarWithMask pass.
-    MPM.addPass(
-        ResolveSubGroupWICallPass(m_RtlModules, /*ResolveSGBarrier*/ false));
+    MPM.addPass(ResolveSubGroupWICallPass(/*ResolveSGBarrier*/ false));
   }
   FunctionPassManager FPM;
   FPM.addPass(PhiCanonicalization());
@@ -361,8 +359,7 @@ void OptimizerLTO::addBarrierPasses(ModulePassManager &MPM, OptimizationLevel Le
   MPM.addPass(GroupBuiltinPass());
   MPM.addPass(BarrierInFunction());
    // Resolve subgroup barriers after subgroup emulation passes
-  MPM.addPass(
-      ResolveSubGroupWICallPass(m_RtlModules, /*ResolveSGBarrier*/ true));
+  MPM.addPass(ResolveSubGroupWICallPass(/*ResolveSGBarrier*/ true));
   MPM.addPass(SplitBBonBarrier());
   if (Level != OptimizationLevel::O0)
     MPM.addPass(ReduceCrossBarrierValuesPass());

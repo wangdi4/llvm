@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -S -tilemvinlmarker -tile-candidate-mark -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -passes='tilemvinlmarker' -tile-candidate-mark -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
 
@@ -388,5 +390,4 @@ define internal fastcc void @fun0_(double* noalias nocapture %0, double* noalias
 !57 = !DILocation(line: 57, column: 1, scope: !13)
 !58 = !DILocation(line: 58, column: 1, scope: !13)
 !59 = !DILocation(line: 59, column: 1, scope: !13)
-
-
+; end INTEL_FEATURE_SW_ADVANCED

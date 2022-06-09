@@ -1758,7 +1758,8 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
       }
 
       Type *Ty = PTy->getContainedType(0);
-      if (Ty->isStructTy()) // struct or struct*
+      // Calculate size for a struct pointer with byval attribute
+      if (pArg->hasByValAttr() && Ty->isStructTy()) // struct or struct*
       {
         // Deal with structs passed by value. These are user-defined structs and
         // ndrange_t.

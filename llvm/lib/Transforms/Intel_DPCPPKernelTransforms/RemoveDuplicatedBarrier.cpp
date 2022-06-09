@@ -72,10 +72,11 @@ bool RemoveDuplicatedBarrierPass::runImpl(Module &M) {
   BarrierUtil.init(&M);
 
   // Find all synchronize instructions
-  InstVector syncInstructions = BarrierUtil.getAllSynchronizeInstructions();
+  CompilationUtils::InstVec syncInstructions =
+      BarrierUtil.getAllSynchronizeInstructions();
 
   // This will hold all synchronize instructions that will be removed
-  InstVector InstrsRemove;
+  CompilationUtils::InstVec InstrsRemove;
 
   for (auto &Inst : syncInstructions) {
     BasicBlock::iterator BIPrev(Inst);

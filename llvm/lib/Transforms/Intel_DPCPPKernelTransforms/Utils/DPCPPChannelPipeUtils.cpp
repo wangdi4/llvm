@@ -351,8 +351,7 @@ bool PipeTypesHelper::isPipeArrayType(Type *Ty) const {
   return isa<ArrayType>(Ty) && getArrayElementType(cast<ArrayType>(Ty));
 }
 
-Function *getPipeBuiltin(Module &M, RuntimeService *RTS, const PipeKind &Kind) {
-  assert(RTS && "Invalid runtime service!");
+Function *getPipeBuiltin(Module &M, RuntimeService &RTS, const PipeKind &Kind) {
   if (Kind.Blocking) {
     // There are no declarations and definitions of blocking pipe built-ins in
     // RTL's.
@@ -362,7 +361,7 @@ Function *getPipeBuiltin(Module &M, RuntimeService *RTS, const PipeKind &Kind) {
     NonBlockingKind.Blocking = false;
 
     Function *NonBlockingBuiltin = importFunctionDecl(
-        &M, RTS->findFunctionInBuiltinModules(getPipeName(NonBlockingKind)));
+        &M, RTS.findFunctionInBuiltinModules(getPipeName(NonBlockingKind)));
     Function *BlockingBuiltin = cast<Function>(
         M.getOrInsertFunction(getPipeName(Kind),
                               NonBlockingBuiltin->getFunctionType())
@@ -371,7 +370,7 @@ Function *getPipeBuiltin(Module &M, RuntimeService *RTS, const PipeKind &Kind) {
   }
 
   return importFunctionDecl(
-      &M, RTS->findFunctionInBuiltinModules(getPipeName(Kind)));
+      &M, RTS.findFunctionInBuiltinModules(getPipeName(Kind)));
 }
 
 } // namespace DPCPPChannelPipeUtils

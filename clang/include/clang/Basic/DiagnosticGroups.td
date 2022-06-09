@@ -738,6 +738,7 @@ def Uninitialized  : DiagGroup<"uninitialized", [UninitializedSometimes,
 def MaybeUninitialized
     : DiagGroup<"maybe-uninitialized",
                 [ UninitializedMaybe, UninitializedSometimes ]>;
+def DebugDisablesOptimization : DiagGroup<"debug-disables-optimization">;
 //#endif // INTEL_CUSTOMIZATION
 def IgnoredPragmaIntrinsic : DiagGroup<"ignored-pragma-intrinsic">;
 // #pragma optimize is often used to avoid to work around MSVC codegen bugs or

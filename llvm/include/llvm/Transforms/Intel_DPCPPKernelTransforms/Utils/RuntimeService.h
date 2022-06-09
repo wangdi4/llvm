@@ -22,6 +22,10 @@ namespace llvm {
 class RuntimeService {
 public:
   RuntimeService(ArrayRef<Module *> BuiltinModules) {
+    setBuiltinModules(BuiltinModules);
+  }
+
+  void setBuiltinModules(ArrayRef<Module *> BuiltinModules) {
     this->BuiltinModules.assign(BuiltinModules.begin(), BuiltinModules.end());
   }
 

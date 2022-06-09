@@ -33,7 +33,7 @@ namespace {
 
 class WGLoopBoundariesImpl {
 public:
-  explicit WGLoopBoundariesImpl(Module &M, const RuntimeService *RTService)
+  explicit WGLoopBoundariesImpl(Module &M, const RuntimeService &RTService)
       : M(M), RTService(RTService),
         DPCPP_STAT_INIT(CreatedEarlyExit,
                         "one if early exit (or late start) was done for the "
@@ -71,7 +71,7 @@ private:
   Function *F;
 
   LLVMContext *Ctx;
-  const RuntimeService *RTService;
+  const RuntimeService &RTService;
 
   /// size_t type.
   Type *IndTy;
@@ -333,7 +333,7 @@ bool WGLoopBoundariesImpl::run() {
     return Changed;
 
   Ctx = &M.getContext();
-  NumDim = RTService->getNumJitDimensions();
+  NumDim = RTService.getNumJitDimensions();
   IndTy = LoopUtils::getIndTy(&M);
   ConstOne = ConstantInt::get(IndTy, 1);
   ConstZero = ConstantInt::get(IndTy, 0);
@@ -360,7 +360,7 @@ void WGLoopBoundariesImpl::collectWIUniqueFuncUsers() {
   FuncSet WIUniqueFuncs;
   for (Function &F : M) {
     StringRef Name = F.getName();
-    if (RTService->isAtomicBuiltin(Name) || isWorkItemPipeBuiltin(Name))
+    if (RTService.isAtomicBuiltin(Name) || isWorkItemPipeBuiltin(Name))
       WIUniqueFuncs.insert(&F);
   }
 
@@ -452,6 +452,25 @@ void WGLoopBoundariesImpl::collectTIDData() {
   ProcessTIDCalls(false);
 }
 
+// Freeze on TID call can hurt WGLoopBoundaries and DPCPPKernelVecClone.
+// TID call won't generate undef or poison, so we remove the FreezeInst.
+static void
+removeFreezeOnTID(DenseMap<Value *, std::pair<unsigned, bool>> &TIDs) {
+  SmallVector<Instruction *, 2> WorkList;
+  for (auto &Pair : TIDs) {
+    WorkList.clear();
+    auto *CI = cast<CallInst>(Pair.first);
+    for (auto *U : CI->users())
+      if (auto *Freeze = dyn_cast<FreezeInst>(U))
+        WorkList.push_back(Freeze);
+
+    for (auto *I : WorkList) {
+      I->replaceAllUsesWith(CI);
+      I->eraseFromParent();
+    }
+  }
+}
+
 bool WGLoopBoundariesImpl::runOnFunction(Function &F) {
   if (F.hasOptNone())
     return false;
@@ -468,6 +487,8 @@ bool WGLoopBoundariesImpl::runOnFunction(Function &F) {
   collectTIDData();
   // Collect uniform data from the current basic block.
   collectBlockData(&F.getEntryBlock());
+
+  removeFreezeOnTID(TIDs);
 
   // Iteratively examines if the entry block branch is early exit branch,
   // min/max with uniform value.
@@ -587,7 +608,7 @@ bool WGLoopBoundariesImpl::handleBuiltinBoundMinMax(Instruction *TidInst) {
   StringRef CalleeName = Callee->getName();
   bool IsMinBuiltin;
   bool IsSigned;
-  if (!RTService->isScalarMinMaxBuiltin(CalleeName, IsMinBuiltin, IsSigned))
+  if (!RTService.isScalarMinMaxBuiltin(CalleeName, IsMinBuiltin, IsSigned))
     return false;
   assert(CI->arg_size() == 2 && "bad min,max signature");
 
@@ -1441,7 +1462,7 @@ bool WGLoopBoundariesImpl::hasSideEffectInst(BasicBlock *BB) {
       Function *Callee = cast<CallInst>(&I)->getCalledFunction();
       if (!Callee)
         return true; // Indirect call may have side effect.
-      if (!RTService->hasNoSideEffect(Callee->getName()))
+      if (!RTService.hasNoSideEffect(Callee->getName()))
         return true;
       break;
     }
@@ -1450,7 +1471,8 @@ bool WGLoopBoundariesImpl::hasSideEffectInst(BasicBlock *BB) {
   return false;
 }
 
-static Value *getMin(bool IsSigned, Value *A, Value *B, BasicBlock *BB) {
+static Value *getMin(bool IsSigned, Value *A, Value *B, BasicBlock *BB,
+                     StringRef Name) {
   assert(A->getType()->isIntegerTy() && B->getType()->isIntegerTy() &&
          "expect integer type");
   CmpInst::Predicate Pred = IsSigned ? CmpInst::ICMP_SLT : CmpInst::ICMP_ULT;
@@ -1463,15 +1485,16 @@ static Value *getMin(bool IsSigned, Value *A, Value *B, BasicBlock *BB) {
                                            Compare, "", BB);
     return SelectInst::Create(SelectA, A, B, "", BB);
   }
-  return SelectInst::Create(Compare, A, B, "", BB);
+  return SelectInst::Create(Compare, A, B, Name, BB);
 }
 
-static Value *getMax(bool IsSigned, Value *A, Value *B, BasicBlock *BB) {
+static Value *getMax(bool IsSigned, Value *A, Value *B, BasicBlock *BB,
+                     StringRef Name) {
   assert(A->getType()->isIntegerTy() && B->getType()->isIntegerTy() &&
          "expect integer type");
   CmpInst::Predicate Pred = IsSigned ? CmpInst::ICMP_SGT : CmpInst::ICMP_UGT;
   auto *Compare = new ICmpInst(*BB, Pred, A, B, "");
-  return SelectInst::Create(Compare, A, B, "", BB);
+  return SelectInst::Create(Compare, A, B, Name, BB);
 }
 
 Value *WGLoopBoundariesImpl::correctBound(TIDDesc &TD, BasicBlock *BB,
@@ -1493,7 +1516,11 @@ Value *WGLoopBoundariesImpl::correctBound(TIDDesc &TD, BasicBlock *BB,
   // Thus in case border is crossed, we take the original bound instead. We
   // will avoid using it since it is compared after the original boundaries.
   if (NewBound != Bound)
-    NewBound = getMax(TD.IsSigned, Bound, NewBound, BB);
+    NewBound =
+        getMax(TD.IsSigned, Bound, NewBound, BB,
+               AppendWithDimension(TD.IsUpperBound ? "upper.bound.correct"
+                                                   : "lower.bound.correct",
+                                   TD.Dim));
 
   return NewBound;
 }
@@ -1506,8 +1533,10 @@ void WGLoopBoundariesImpl::fillInitialBoundaries(BasicBlock *BB) {
   StringRef BaseGIDName = nameGetBaseGID();
   for (unsigned Dim = 0; Dim < NumDim; ++Dim) {
     CallInst *LocalSize =
-        LoopUtils::getWICall(&M, mangledGetLocalSize(), IndTy, Dim, BB);
-    CallInst *BaseGID = LoopUtils::getWICall(&M, BaseGIDName, IndTy, Dim, BB);
+        LoopUtils::getWICall(&M, mangledGetLocalSize(), IndTy, Dim, BB,
+                             AppendWithDimension("local.size", Dim));
+    CallInst *BaseGID = LoopUtils::getWICall(
+        &M, BaseGIDName, IndTy, Dim, BB, AppendWithDimension("base.gid", Dim));
     LocalSizes.push_back(LocalSize);
     BaseGIDs.push_back(BaseGID);
     LowerBounds.push_back(BaseGID);
@@ -1547,12 +1576,15 @@ void WGLoopBoundariesImpl::obtainEEBoundaries(BasicBlock *BB, VMap &ValueMap) {
     // trivial one (local_size + base_gid).
     if (!UpperBounds[Dim])
       UpperBounds[Dim] = BinaryOperator::Create(
-          Instruction::Add, LocalSizes[Dim], BaseGIDs[Dim], "", BB);
+          Instruction::Add, LocalSizes[Dim], BaseGIDs[Dim],
+          AppendWithDimension("init.upper.bound", Dim), BB);
     // Create min/max between the bound and previous upper/lower bound.
     if (TD.IsUpperBound)
-      UpperBounds[Dim] = getMin(TD.IsSigned, UpperBounds[Dim], EEVal, BB);
+      UpperBounds[Dim] = getMin(TD.IsSigned, UpperBounds[Dim], EEVal, BB,
+                                AppendWithDimension("upper.bound", Dim));
     else
-      LowerBounds[Dim] = getMax(TD.IsSigned, LowerBounds[Dim], EEVal, BB);
+      LowerBounds[Dim] = getMax(TD.IsSigned, LowerBounds[Dim], EEVal, BB,
+                                AppendWithDimension("lower.bound", Dim));
   }
 
   // If there is early exit on dimension i, set the loop size as the
@@ -1561,7 +1593,8 @@ void WGLoopBoundariesImpl::obtainEEBoundaries(BasicBlock *BB, VMap &ValueMap) {
   for (unsigned Dim = 0; Dim < NumDim; ++Dim)
     if (HasEE[Dim])
       LoopSizes[Dim] = BinaryOperator::Create(
-          Instruction::Sub, UpperBounds[Dim], LowerBounds[Dim], "", BB);
+          Instruction::Sub, UpperBounds[Dim], LowerBounds[Dim],
+          AppendWithDimension("loop.size", Dim), BB);
 }
 
 Value *WGLoopBoundariesImpl::obtainUniformCond(BasicBlock *BB, VMap &ValueMap) {
@@ -1667,9 +1700,10 @@ public:
   StringRef getPassName() const override { return "WGLoopBoundariesLegacy"; }
 
   bool runOnModule(Module &M) override {
-    BuiltinLibInfo *BLI =
-        &getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
-    WGLoopBoundariesImpl Impl(M, BLI->getRuntimeService());
+    auto &RTService = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
+                          .getResult()
+                          .getRuntimeService();
+    WGLoopBoundariesImpl Impl(M, RTService);
     return Impl.run();
   }
 
@@ -1694,7 +1728,7 @@ ModulePass *llvm::createWGLoopBoundariesLegacyPass() {
 
 PreservedAnalyses WGLoopBoundariesPass::run(Module &M,
                                             ModuleAnalysisManager &AM) {
-  BuiltinLibInfo *BLI = &AM.getResult<BuiltinLibInfoAnalysis>(M);
-  WGLoopBoundariesImpl Impl(M, BLI->getRuntimeService());
+  auto &RTService = AM.getResult<BuiltinLibInfoAnalysis>(M).getRuntimeService();
+  WGLoopBoundariesImpl Impl(M, RTService);
   return Impl.run() ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
