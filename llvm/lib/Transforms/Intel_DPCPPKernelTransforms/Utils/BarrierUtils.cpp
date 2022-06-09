@@ -88,12 +88,12 @@ SyncType BarrierUtils::getSyncType(BasicBlock *BB) {
   return getSyncType(&*BB->begin());
 }
 
-InstVector BarrierUtils::getAllSynchronizeInstructions() {
+CompilationUtils::InstVec BarrierUtils::getAllSynchronizeInstructions() {
   // Initialize sync data if it is not done yet
   initializeSyncData();
 
   // Clear old collected data!
-  InstVector SyncInstructions;
+  CompilationUtils::InstVec SyncInstructions;
 
   SyncInstructions.insert(SyncInstructions.end(), Barriers.begin(),
                           Barriers.end());
@@ -103,8 +103,8 @@ InstVector BarrierUtils::getAllSynchronizeInstructions() {
   return SyncInstructions;
 }
 
-InstVector BarrierUtils::getWGCallInstructions(CALL_BI_TYPE Ty) {
-  InstVector WGcallInstructions;
+CompilationUtils::InstVec BarrierUtils::getWGCallInstructions(CALL_BI_TYPE Ty) {
+  CompilationUtils::InstVec WGcallInstructions;
 
   // Scan external function definitions in the module
   for (auto &F : *M) {
@@ -129,18 +129,19 @@ InstVector BarrierUtils::getWGCallInstructions(CALL_BI_TYPE Ty) {
   return WGcallInstructions;
 }
 
-FuncSet BarrierUtils::getAllFunctionsWithSynchronization() {
+CompilationUtils::FuncSet BarrierUtils::getAllFunctionsWithSynchronization() {
   auto SyncInstructions = getAllSynchronizeInstructions();
 
-  FuncSet SyncFunctions;
+  CompilationUtils::FuncSet SyncFunctions;
   for (auto *Inst : SyncInstructions)
     SyncFunctions.insert(Inst->getFunction());
   return SyncFunctions;
 }
 
-FuncSet BarrierUtils::getRecursiveFunctionsWithSync() {
-  FuncSet SyncFunctions = getAllFunctionsWithSynchronization();
-  FuncSet RecursiveFunctions;
+CompilationUtils::FuncSet BarrierUtils::getRecursiveFunctionsWithSync() {
+  CompilationUtils::FuncSet SyncFunctions =
+      getAllFunctionsWithSynchronization();
+  CompilationUtils::FuncSet RecursiveFunctions;
   for (Function *F : SyncFunctions) {
     auto FMD = FunctionMetadataAPI(F);
     if (FMD.RecursiveCall.hasValue() && FMD.RecursiveCall.get())
@@ -149,9 +150,9 @@ FuncSet BarrierUtils::getRecursiveFunctionsWithSync() {
   return RecursiveFunctions;
 }
 
-FuncVector BarrierUtils::getAllKernelsAndVectorizedCounterparts(
+CompilationUtils::FuncVec BarrierUtils::getAllKernelsAndVectorizedCounterparts(
     const SmallVectorImpl<Function *> &KernelList) {
-  FuncVector Result;
+  CompilationUtils::FuncVec Result;
 
   for (auto *F : KernelList) {
     Result.push_back(F);
@@ -164,10 +165,10 @@ FuncVector BarrierUtils::getAllKernelsAndVectorizedCounterparts(
   return Result;
 }
 
-FuncVector BarrierUtils::getAllKernelsWithBarrier() {
+CompilationUtils::FuncVec BarrierUtils::getAllKernelsWithBarrier() {
   auto Kernels = KernelList(M);
 
-  FuncVector KernelFunctions;
+  CompilationUtils::FuncVec KernelFunctions;
   if (Kernels.empty())
     return KernelFunctions;
 
@@ -283,7 +284,7 @@ Instruction *BarrierUtils::createGetSpecialBuffer(Instruction *InsertBefore) {
   return CallInst::Create(GetSpecialBufferFunc, "pSB", InsertBefore);
 }
 
-InstVector &BarrierUtils::getAllGetLocalId() {
+CompilationUtils::InstVec &BarrierUtils::getAllGetLocalId() {
   if (!LIDInitialized) {
     GetLIDInstructions.clear();
     auto CIs = CompilationUtils::getCallInstUsersOfFunc(
@@ -294,7 +295,7 @@ InstVector &BarrierUtils::getAllGetLocalId() {
   return GetLIDInstructions;
 }
 
-InstVector &BarrierUtils::getAllGetGlobalId() {
+CompilationUtils::InstVec &BarrierUtils::getAllGetGlobalId() {
   if (!GIDInitialized) {
     GetGIDInstructions.clear();
     auto CIs = CompilationUtils::getCallInstUsersOfFunc(
@@ -475,7 +476,7 @@ bool BarrierUtils::isCrossedByBarrier(const InstSet &SyncInstructions,
     return false;
   }
 
-  BasicBlockSet Predecessors;
+  CompilationUtils::BBSet Predecessors;
   SmallVector<BasicBlock *, 8> BasicBlocksToHandle;
   BasicBlocksToHandle.push_back(ValUsageBB);
 

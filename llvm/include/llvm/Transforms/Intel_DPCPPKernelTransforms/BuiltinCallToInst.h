@@ -21,8 +21,6 @@ class BuiltinCallToInstPass : public PassInfoMixin<BuiltinCallToInstPass> {
 public:
   explicit BuiltinCallToInstPass() {}
 
-  static StringRef name() { return "BuiltinCallToInstPass"; }
-
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 
   // Glue for old PM.

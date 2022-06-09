@@ -26,9 +26,7 @@ class RuntimeService;
 class ResolveSubGroupWICallPass
     : public PassInfoMixin<ResolveSubGroupWICallPass> {
 public:
-  ResolveSubGroupWICallPass(const SmallVector<Module *, 2> &BuiltinModules =
-                                SmallVector<Module *, 2>(),
-                            bool ResolveSGBarrier = true);
+  ResolveSubGroupWICallPass(bool ResolveSGBarrier = true);
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
@@ -146,7 +144,7 @@ private:
   // must be visible to emulation passes.
   bool ResolveSGBarrier;
 
-  RuntimeService *RTService;
+  RuntimeService *RTS;
 
   SmallVector<Instruction *, 8> ExtraInstToRemove;
 };

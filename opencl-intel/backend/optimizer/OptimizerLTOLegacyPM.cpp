@@ -220,8 +220,8 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
     MPM.add(createPromoteMemoryToRegisterPass());
     MPM.add(createAggressiveDCEPass());
   }
-  MPM.add(createResolveSubGroupWICallLegacyPass(m_RtlModules,
-                                                /*ResolveSGBarrier*/ false));
+  MPM.add(createResolveSubGroupWICallLegacyPass(
+      /*ResolveSGBarrier*/ false));
   if (OptLevel > 0 && Config.GetStreamingAlways())
     MPM.add(createAddNTAttrLegacyPass());
   if (m_debugType == intel::Native)
@@ -247,7 +247,7 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
   MPM.add(createResolveWICallLegacyPass(Config.GetUniformWGSize(),
                                         m_UseTLSGlobals));
   MPM.add(createLocalBuffersLegacyPass(m_UseTLSGlobals));
-  MPM.add(createBuiltinImportLegacyPass(m_RtlModules, CPUPrefix));
+  MPM.add(createBuiltinImportLegacyPass(CPUPrefix));
   if (OptLevel > 0)
     MPM.add(createGlobalDCEPass());
   MPM.add(createBuiltinCallToInstLegacyPass());
@@ -302,8 +302,8 @@ void OptimizerLTOLegacyPM::addBarrierPasses(unsigned OptLevel, legacy::PassManag
   if (OptLevel > 0) {
     // TODO: insert ReplaceScalarWithMask pass here
     // Resolve subgreoup call introduced by ReplaceScalarWithMask pass.
-    MPM.add(createResolveSubGroupWICallLegacyPass(m_RtlModules,
-                                                  /*ResolveSGBarrier*/ false));
+    MPM.add(createResolveSubGroupWICallLegacyPass(
+        /*ResolveSGBarrier*/ false));
   }
   MPM.add(createPhiCanonicalizationLegacyPass());
   MPM.add(createRedundantPhiNodeLegacyPass());
@@ -311,8 +311,8 @@ void OptimizerLTOLegacyPM::addBarrierPasses(unsigned OptLevel, legacy::PassManag
   MPM.add(createBarrierInFunctionLegacyPass());
 
   // Resolve subgroup barriers after subgroup emulation passes
-  MPM.add(createResolveSubGroupWICallLegacyPass(m_RtlModules,
-                                                /*ResolveSGBarrier*/ true));
+  MPM.add(createResolveSubGroupWICallLegacyPass(
+      /*ResolveSGBarrier*/ true));
   MPM.add(createSplitBBonBarrierLegacyPass());
   if (OptLevel > 0)
     MPM.add(createReduceCrossBarrierValuesLegacyPass());

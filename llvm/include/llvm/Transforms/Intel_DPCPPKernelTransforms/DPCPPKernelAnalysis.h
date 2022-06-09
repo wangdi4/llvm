@@ -29,12 +29,10 @@ class RuntimeService;
 ///      instructions in the kernel.
 class DPCPPKernelAnalysisPass : public PassInfoMixin<DPCPPKernelAnalysisPass> {
 public:
-  static StringRef name() { return "DPCPPKernelAnalysisPass"; }
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   /// Glue for old PM.
-  bool runImpl(Module &M, CallGraph &CG, const RuntimeService *RTS,
+  bool runImpl(Module &M, CallGraph &CG, const RuntimeService &RTS,
                function_ref<LoopInfo &(Function &)> GetLI);
 
   void print(raw_ostream &OS, const Module *M) const;

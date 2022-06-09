@@ -31,8 +31,6 @@ class BarrierUtils;
 /// barrier.
 class BarrierInFunction : public PassInfoMixin<BarrierInFunction> {
 public:
-  static StringRef name() { return "Intel Kernel BarrierInFunction"; }
-
   bool runImpl(Module &M);
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);

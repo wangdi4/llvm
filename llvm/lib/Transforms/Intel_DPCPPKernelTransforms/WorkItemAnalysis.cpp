@@ -115,7 +115,7 @@ WorkItemAnalysisLegacy::WorkItemAnalysisLegacy(unsigned VectorizeDim)
 }
 
 bool WorkItemAnalysisLegacy::runOnFunction(Function &F) {
-  auto *RTS = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
+  auto &RTS = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
                   .getResult()
                   .getRuntimeService();
   auto *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
@@ -143,7 +143,7 @@ FunctionPass *llvm::createWorkItemAnalysisLegacyPass(unsigned VectorizeDim) {
 AnalysisKey WorkItemAnalysis::Key;
 
 WorkItemInfo WorkItemAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
-  auto *RTS = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F)
+  auto &RTS = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F)
                   .getCachedResult<BuiltinLibInfoAnalysis>(*F.getParent())
                   ->getRuntimeService();
   auto *DT = &AM.getResult<DominatorTreeAnalysis>(F);
@@ -563,7 +563,7 @@ WorkItemInfo::Dependency WorkItemInfo::calculateDep(const CallInst *I) {
   // get_local_id, since on dimension 0 the isTIDGenerator should answer true,
   // and we will say the value is Consecutive. So here we cover dimension 1,2
   // which are uniform.
-  bool UniformByOps = RTService->hasNoSideEffect(ScalarFuncName);
+  bool UniformByOps = RTService.hasNoSideEffect(ScalarFuncName);
   // Look for the function in the builtin functions hash.
   if (!MaskedMemOp && !IsTidGen && !UniformByOps)
     return RANDOM;

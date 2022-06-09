@@ -66,7 +66,7 @@ void BuiltinLibInfo::loadBuiltinModules(Module &M) {
     BM->setDataLayout(M.getDataLayout());
   }
 
-  RTService.reset(new RuntimeService(BuiltinModuleRawPtrs));
+  RTS.setBuiltinModules(BuiltinModuleRawPtrs);
 }
 
 bool BuiltinLibInfo::invalidate(Module &, const PreservedAnalyses &PA,

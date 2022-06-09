@@ -17,8 +17,6 @@ namespace llvm {
 
 class VectorVariantFillIn : public PassInfoMixin<VectorVariantFillIn> {
 public:
-  static StringRef name() { return "VectorVariantFillIn"; }
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
   bool runImpl(Module &M);

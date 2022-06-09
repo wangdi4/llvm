@@ -46,7 +46,7 @@ public:
   StringRef getPassName() const override { return "SinCosFoldLegacy"; }
 
   bool runOnFunction(Function &F) override {
-    auto *RTS = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
+    auto &RTS = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
                     .getResult()
                     .getRuntimeService();
     return Impl.runImpl(F, RTS);
@@ -156,7 +156,7 @@ static void collectSinCosPairs(Function &F, ArgToPairsType &ArgToSinCosPairs) {
 
 static bool foldSinCosPairs(ArgToPairsType &ArgToSinCosPairs,
                             BasicBlock &EntryBlock, Module *M,
-                            RuntimeService *RTS) {
+                            RuntimeService &RTS) {
   bool Changed = false;
   for (auto &Item : ArgToSinCosPairs) {
     Value *Arg = Item.first;
@@ -177,7 +177,7 @@ static bool foldSinCosPairs(ArgToPairsType &ArgToSinCosPairs,
       std::string MangledSincosFuncName = NameMangleAPI::mangle(FDesc);
 
       Function *SincosF =
-          RTS->findFunctionInBuiltinModules(MangledSincosFuncName);
+          RTS.findFunctionInBuiltinModules(MangledSincosFuncName);
       assert(SincosF && "sincos function not found in builtin modules!");
 
       SincosF = CompilationUtils::importFunctionDecl(M, SincosF);
@@ -202,7 +202,7 @@ static bool foldSinCosPairs(ArgToPairsType &ArgToSinCosPairs,
   return Changed;
 }
 
-bool SinCosFoldPass::runImpl(Function &F, RuntimeService *RTS) {
+bool SinCosFoldPass::runImpl(Function &F, RuntimeService &RTS) {
   ArgToPairsType ArgToSinCosPairs;
   collectSinCosPairs(F, ArgToSinCosPairs);
   return foldSinCosPairs(ArgToSinCosPairs, F.getEntryBlock(), F.getParent(),
@@ -211,10 +211,9 @@ bool SinCosFoldPass::runImpl(Function &F, RuntimeService *RTS) {
 
 PreservedAnalyses SinCosFoldPass::run(Function &F,
                                       FunctionAnalysisManager &FAM) {
-  auto *RTS = FAM.getResult<ModuleAnalysisManagerFunctionProxy>(F)
+  auto &RTS = FAM.getResult<ModuleAnalysisManagerFunctionProxy>(F)
                   .getCachedResult<BuiltinLibInfoAnalysis>(*F.getParent())
                   ->getRuntimeService();
-  assert(RTS && "Runtime service is not valid");
   if (!runImpl(F, RTS))
     return PreservedAnalyses::all();
   return PreservedAnalyses::none();

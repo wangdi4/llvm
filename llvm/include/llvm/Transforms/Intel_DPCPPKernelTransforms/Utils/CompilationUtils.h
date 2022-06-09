@@ -179,9 +179,9 @@ using FuncSet = SetVector<Function *>;
 using InstSet = SetVector<Instruction *>;
 using BBVec = SmallVector<BasicBlock *, 16>;
 using FuncVec = SmallVector<Function *, 16>;
-using InstVec = SmallVector<Instruction *, 4>;
+using InstVec = SmallVector<Instruction *, 8>;
 using InstVecVec = SmallVector<InstVec, 4>;
-using ValueVec = SmallVector<Value *, 4>;
+using ValueVec = SmallVector<Value *, 8>;
 
 /// Return true if this alloca instruction is created by ImplicitGID Pass.
 bool isImplicitGID(AllocaInst *AI);

@@ -23,8 +23,6 @@ namespace llvm {
 /// module.
 class AddImplicitArgsPass : public PassInfoMixin<AddImplicitArgsPass> {
 public:
-  static StringRef name() { return "AddImplicitArgsPass"; }
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // Glue for old PM.

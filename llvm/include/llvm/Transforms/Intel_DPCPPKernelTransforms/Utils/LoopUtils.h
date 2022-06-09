@@ -96,7 +96,7 @@ void collectTIDCallInst(StringRef TIDName,
                         CompilationUtils::InstVecVec &TidCalls, Function *F);
 
 /// Fill atomic builtin user functions.
-void fillAtomicBuiltinUsers(Module &M, RuntimeService *RTService,
+void fillAtomicBuiltinUsers(Module &M, RuntimeService &RTS,
                             CompilationUtils::FuncSet &UserFunc);
 
 /// Fills the users function through call instructions of roots

@@ -40,13 +40,11 @@ createBuiltinLibInfoPass(ArrayRef<llvm::Module *> pRtlModuleList,
 
 namespace intel {
 
-  Vectorizer::Vectorizer(llvm::SmallVector<llvm::Module*, 2> rtList, const OptimizerConfig* pConfig) :
-  ModulePass(ID),
-  m_pConfig(pConfig),
-  m_optimizerFunctions(nullptr),
-  m_optimizerWidths(nullptr)
-{
-  m_runtimeModuleList = rtList;
+Vectorizer::Vectorizer(llvm::SmallVectorImpl<llvm::Module *> &rtList,
+                       const OptimizerConfig *pConfig)
+    : ModulePass(ID), m_runtimeModuleList(rtList.begin(), rtList.end()),
+      m_pConfig(pConfig), m_optimizerFunctions(nullptr),
+      m_optimizerWidths(nullptr) {
   // init debug prints
   initializeLoopInfoWrapperPassPass(*PassRegistry::getPassRegistry());
   V_INIT_PRINT;
@@ -227,9 +225,8 @@ bool Vectorizer::runOnModule(Module &M)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Interface functions for vectorizer
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-extern "C"
-  Pass *createVectorizerPass(llvm::SmallVector<llvm::Module*, 2> runtimeModuleList, const intel::OptimizerConfig* pConfig)
-{
+extern "C" Pass *
+createVectorizerPass(llvm::SmallVectorImpl<llvm::Module *> runtimeModuleList,
+                     const intel::OptimizerConfig *pConfig) {
   return new intel::Vectorizer(runtimeModuleList, pConfig);
 }
-

@@ -57,14 +57,15 @@ INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
 INITIALIZE_PASS_END(GroupBuiltinLegacy, DEBUG_TYPE, "Handle WorkGroup BI calls",
                     false, false)
 
-GroupBuiltinLegacy::GroupBuiltinLegacy(ArrayRef<Module *>) : ModulePass(ID) {
+GroupBuiltinLegacy::GroupBuiltinLegacy() : ModulePass(ID) {
   initializeGroupBuiltinLegacyPass(*PassRegistry::getPassRegistry());
 }
 
 bool GroupBuiltinLegacy::runOnModule(Module &M) {
-  BuiltinLibInfo *BLI =
-      &getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
-  return Impl.runImpl(M, BLI);
+  auto &RTS = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
+                  .getResult()
+                  .getRuntimeService();
+  return Impl.runImpl(M, RTS);
 }
 
 void GroupBuiltinLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
@@ -72,8 +73,8 @@ void GroupBuiltinLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 PreservedAnalyses GroupBuiltinPass::run(Module &M, ModuleAnalysisManager &MAM) {
-  BuiltinLibInfo *BLI = &MAM.getResult<BuiltinLibInfoAnalysis>(M);
-  return runImpl(M, BLI) ? PreservedAnalyses::none() : PreservedAnalyses::all();
+  auto &RTS = MAM.getResult<BuiltinLibInfoAnalysis>(M).getRuntimeService();
+  return runImpl(M, RTS) ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
 
 Constant *GroupBuiltinPass::getInitializationValue(Function *Func) {
@@ -423,7 +424,7 @@ Value *GroupBuiltinPass::calculateLinearIDForBroadcast(CallInst *WGCallInstr) {
   return RetVal;
 }
 
-bool GroupBuiltinPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
+bool GroupBuiltinPass::runImpl(Module &M, RuntimeService &RTS) {
   this->M = &M;
   Context = &M.getContext();
   auto DL = M.getDataLayout();
@@ -432,14 +433,11 @@ bool GroupBuiltinPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
          "Unsupported pointer size");
   SizeT = IntegerType::get(*Context, PointerSizeInBits);
 
-  RTService = BLI->getRuntimeService();
-  assert(RTService && "Invalid runtime service");
-
   // Initialize barrier utils class with current module.
   Utils.init(&M);
 
   // Handle async and pipe work-group built-ins.
-  InstVector CallWGSimpleFunc =
+  InstVec CallWGSimpleFunc =
       Utils.getWGCallInstructions(CALL_BI_TYPE_WG_ASYNC_OR_PIPE);
   for (auto *I : CallWGSimpleFunc) {
     CallInst *WGSimpleCallInst = cast<CallInst>(I);
@@ -451,7 +449,7 @@ bool GroupBuiltinPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
   }
 
   // Handle WorkGroup built-ins.
-  InstVector CallWgFunc = Utils.getWGCallInstructions(CALL_BI_TYPE_WG);
+  InstVec CallWgFunc = Utils.getWGCallInstructions(CALL_BI_TYPE_WG);
   FuncSet VisitedFunctions;
   for (auto *I : CallWgFunc) {
     CallInst *WGCallInst = cast<CallInst>(I);
@@ -560,7 +558,7 @@ bool GroupBuiltinPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
     // c. Create function declaration object (unless the module contains it
     // already)
     // Get the new function declaration out of built-in module list.
-    Function *LibFunc = RTService->findFunctionInBuiltinModules(newFuncName);
+    Function *LibFunc = RTS.findFunctionInBuiltinModules(newFuncName);
     assert(LibFunc && "WG builtin is not supported in built-in module");
     Function *NewFunc = importFunctionDecl(this->M, LibFunc);
     assert(NewFunc && "Non-function object with the same signature "
@@ -596,8 +594,7 @@ bool GroupBuiltinPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
       std::string FinalizeFuncName = appendWorkGroupFinalizePrefix(FuncName);
       // Create function
       // Get the new function declaration out of built-in modules list.
-      Function *LibFunc =
-          RTService->findFunctionInBuiltinModules(FinalizeFuncName);
+      Function *LibFunc = RTS.findFunctionInBuiltinModules(FinalizeFuncName);
       assert(LibFunc && "WG builtin is not supported in built-in module");
       Function *FinalizeFunc = importFunctionDecl(this->M, LibFunc);
       assert(FinalizeFunc && "Non-function object with the same signature "
@@ -630,6 +627,6 @@ bool GroupBuiltinPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
   return !CallWGSimpleFunc.empty() || !CallWgFunc.empty();
 }
 
-ModulePass *llvm::createGroupBuiltinLegacyPass(ArrayRef<Module *> Modules) {
-  return new llvm::GroupBuiltinLegacy(Modules);
+ModulePass *llvm::createGroupBuiltinLegacyPass() {
+  return new llvm::GroupBuiltinLegacy();
 }

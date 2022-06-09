@@ -1,4 +1,4 @@
-//==--- DPCPPKernelAnalysis.cpp - Remove redundant Phi nodes- C++ -*--------==//
+//==--- RedundantPhiNodePass.cpp - Remove redundant Phi nodes ------ C++ -*-==//
 //
 // Copyright (C) 2020 Intel Corporation. All rights reserved.
 //

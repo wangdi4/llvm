@@ -33,7 +33,7 @@ namespace {
 
 class WGLoopBoundariesImpl {
 public:
-  explicit WGLoopBoundariesImpl(Module &M, const RuntimeService *RTService)
+  explicit WGLoopBoundariesImpl(Module &M, const RuntimeService &RTService)
       : M(M), RTService(RTService),
         DPCPP_STAT_INIT(CreatedEarlyExit,
                         "one if early exit (or late start) was done for the "
@@ -71,7 +71,7 @@ private:
   Function *F;
 
   LLVMContext *Ctx;
-  const RuntimeService *RTService;
+  const RuntimeService &RTService;
 
   /// size_t type.
   Type *IndTy;
@@ -333,7 +333,7 @@ bool WGLoopBoundariesImpl::run() {
     return Changed;
 
   Ctx = &M.getContext();
-  NumDim = RTService->getNumJitDimensions();
+  NumDim = RTService.getNumJitDimensions();
   IndTy = LoopUtils::getIndTy(&M);
   ConstOne = ConstantInt::get(IndTy, 1);
   ConstZero = ConstantInt::get(IndTy, 0);
@@ -360,7 +360,7 @@ void WGLoopBoundariesImpl::collectWIUniqueFuncUsers() {
   FuncSet WIUniqueFuncs;
   for (Function &F : M) {
     StringRef Name = F.getName();
-    if (RTService->isAtomicBuiltin(Name) || isWorkItemPipeBuiltin(Name))
+    if (RTService.isAtomicBuiltin(Name) || isWorkItemPipeBuiltin(Name))
       WIUniqueFuncs.insert(&F);
   }
 
@@ -608,7 +608,7 @@ bool WGLoopBoundariesImpl::handleBuiltinBoundMinMax(Instruction *TidInst) {
   StringRef CalleeName = Callee->getName();
   bool IsMinBuiltin;
   bool IsSigned;
-  if (!RTService->isScalarMinMaxBuiltin(CalleeName, IsMinBuiltin, IsSigned))
+  if (!RTService.isScalarMinMaxBuiltin(CalleeName, IsMinBuiltin, IsSigned))
     return false;
   assert(CI->arg_size() == 2 && "bad min,max signature");
 
@@ -1462,7 +1462,7 @@ bool WGLoopBoundariesImpl::hasSideEffectInst(BasicBlock *BB) {
       Function *Callee = cast<CallInst>(&I)->getCalledFunction();
       if (!Callee)
         return true; // Indirect call may have side effect.
-      if (!RTService->hasNoSideEffect(Callee->getName()))
+      if (!RTService.hasNoSideEffect(Callee->getName()))
         return true;
       break;
     }
@@ -1700,9 +1700,10 @@ public:
   StringRef getPassName() const override { return "WGLoopBoundariesLegacy"; }
 
   bool runOnModule(Module &M) override {
-    BuiltinLibInfo *BLI =
-        &getAnalysis<BuiltinLibInfoAnalysisLegacy>().getResult();
-    WGLoopBoundariesImpl Impl(M, BLI->getRuntimeService());
+    auto &RTService = getAnalysis<BuiltinLibInfoAnalysisLegacy>()
+                          .getResult()
+                          .getRuntimeService();
+    WGLoopBoundariesImpl Impl(M, RTService);
     return Impl.run();
   }
 
@@ -1727,7 +1728,7 @@ ModulePass *llvm::createWGLoopBoundariesLegacyPass() {
 
 PreservedAnalyses WGLoopBoundariesPass::run(Module &M,
                                             ModuleAnalysisManager &AM) {
-  BuiltinLibInfo *BLI = &AM.getResult<BuiltinLibInfoAnalysis>(M);
-  WGLoopBoundariesImpl Impl(M, BLI->getRuntimeService());
+  auto &RTService = AM.getResult<BuiltinLibInfoAnalysis>(M).getRuntimeService();
+  WGLoopBoundariesImpl Impl(M, RTService);
   return Impl.run() ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }

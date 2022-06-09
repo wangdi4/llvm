@@ -88,7 +88,7 @@ private:
 
   /// This is a list of all functions to be fixed in processed module
   /// that are ordered according to call graph from leaf to root.
-  FuncVector OrderedFunctionsToAnalyze;
+  CompilationUtils::FuncVec OrderedFunctionsToAnalyze;
 
   /// Internal Data used to calculate user Analysis Data.
   /// Saves which values changed in this round.
@@ -108,7 +108,6 @@ class WIRelatedValueAnalysis
 public:
   using Result = WIRelatedValue;
   Result run(Module &M, ModuleAnalysisManager &AM);
-  static StringRef name() { return "Intel Kernel WIRelatedValue Analysis"; }
 };
 
 /// Printer pass for WIRelatedValue.

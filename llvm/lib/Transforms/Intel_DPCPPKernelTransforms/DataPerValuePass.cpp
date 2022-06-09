@@ -73,7 +73,8 @@ void DataPerValue::analyze(Module &M) {
     runOnFunction(F);
 
   // Find all functions that call synchronize instructions.
-  FuncSet FunctionsWithSync = Utils.getAllFunctionsWithSynchronization();
+  CompilationUtils::FuncSet FunctionsWithSync =
+      Utils.getAllFunctionsWithSynchronization();
 
   // Collect data for each function with synchronize instruction.
   for (Function *F : FunctionsWithSync)
@@ -272,7 +273,7 @@ DataPerValue::SpecialValueType DataPerValue::isSpecialValue(Instruction *Inst,
 
 void DataPerValue::calculateOffsets(Function &F) {
 
-  ValueVector &SpecialValues = SpecialValuesPerFuncMap[&F];
+  CompilationUtils::ValueVec &SpecialValues = SpecialValuesPerFuncMap[&F];
   SpecialBufferData &BufferData = getSpecialBufferData(&F);
 
   // Run over all special values in function.
@@ -281,7 +282,7 @@ void DataPerValue::calculateOffsets(Function &F) {
     ValueOffsetMap[Val] = getValueOffset(Val, Val->getType(), 0, BufferData);
   }
 
-  ValueVector &AllocaValues = AllocaValuesPerFuncMap[&F];
+  CompilationUtils::ValueVec &AllocaValues = AllocaValuesPerFuncMap[&F];
 
   // Run over all alloca values in function.
   for (Value *Val : AllocaValues) {
@@ -449,7 +450,7 @@ void DataPerValue::print(raw_ostream &OS, const Module *M) const {
   OS << "\nGroup-A Values\n";
   for (const auto &KV : AllocaValuesPerFuncMap) {
     const Function *F = KV.first;
-    const ValueVector &VV = KV.second;
+    const ValueVec &VV = KV.second;
     if (VV.empty()) {
       // Function has no values of Group-A.
       continue;
@@ -470,7 +471,7 @@ void DataPerValue::print(raw_ostream &OS, const Module *M) const {
   OS << "\nGroup-B.1 Values\n";
   for (const auto &KV : SpecialValuesPerFuncMap) {
     const Function *F = KV.first;
-    const ValueVector &VV = KV.second;
+    const ValueVec &VV = KV.second;
     if (VV.empty()) {
       // Function has no values of Group-B.1.
       continue;
@@ -491,7 +492,7 @@ void DataPerValue::print(raw_ostream &OS, const Module *M) const {
   OS << "\nGroup-B.2 Values\n";
   for (const auto &KV : CrossBarrierValuesPerFuncMap) {
     Function *F = KV.first;
-    const ValueVector &VV = KV.second;
+    const ValueVec &VV = KV.second;
     if (VV.empty()) {
       // Function has no values of Group-B.2.
       continue;

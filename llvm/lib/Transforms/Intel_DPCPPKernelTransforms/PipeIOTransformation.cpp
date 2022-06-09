@@ -93,7 +93,7 @@ static bool isPipeGV(const GlobalValue &GV, const PipeTypesHelper &PipeTypes) {
 
 static bool processGlobalIOPipes(Module &M, const PipeTypesHelper &PipeTypes,
                                  PipesWithIdVector &PipesWithIdVec,
-                                 RuntimeService *RTS, unsigned &PipeId,
+                                 RuntimeService &RTS, unsigned &PipeId,
                                  PipeNameIdMap &PipeNameIds) {
   bool Changed = false;
   Function *GlobalDtor = nullptr;
@@ -112,7 +112,7 @@ static bool processGlobalIOPipes(Module &M, const PipeTypesHelper &PipeTypes,
       GlobalDtor = createPipeGlobalDtor(M);
 
     auto *PipeReleaseFunc = importFunctionDecl(
-        &M, RTS->findFunctionInBuiltinModules("__pipe_release_fpga"));
+        &M, RTS.findFunctionInBuiltinModules("__pipe_release_fpga"));
     initializeGlobalPipeReleaseCall(GlobalDtor, PipeReleaseFunc, &PipeGV);
 
     ChannelPipeMD MD = getChannelPipeMetadata(&PipeGV);
@@ -323,7 +323,7 @@ static GlobalVariable *createGlobalTextConstant(Module &M, StringRef Name) {
 }
 
 static void replacePipeBuiltinCall(CallInst *PipeCall, GlobalVariable *TC,
-                                   RuntimeService *RTS) {
+                                   RuntimeService &RTS) {
   IRBuilder<NoFolder> Builder(PipeCall);
   Function *CF = PipeCall->getCalledFunction();
   assert(CF && "Indirect function call");
@@ -355,8 +355,7 @@ bool PipeIOTransformationPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
   // Map from io pipe name to its id.
   PipeNameIdMap PipeNameIds;
   assert(BLI && "Invalid builtin lib info!");
-  auto *RTS = BLI->getRuntimeService();
-  assert(RTS && "Invalid runtime service!");
+  auto &RTS = BLI->getRuntimeService();
   Changed |=
       processGlobalIOPipes(M, PipeTypes, GlobalPipes, RTS, PipeId, PipeNameIds);
 

@@ -20,8 +20,6 @@ namespace llvm {
 /// such that return same value for each entry block.
 class RedundantPhiNode : public PassInfoMixin<RedundantPhiNode> {
 public:
-  static StringRef name() { return "Intel Kernel RedundantPhiNode"; }
-
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM);
 
   bool runImpl(Function &F);

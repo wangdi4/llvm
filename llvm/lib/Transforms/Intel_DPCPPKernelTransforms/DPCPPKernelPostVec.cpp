@@ -145,9 +145,10 @@ bool DPCPPKernelPostVecPass::runImpl(Module &M) {
       Changed = true;
     };
     auto FMD = KernelInternalMetadataAPI(F);
-    RemoveNotVectorizedClone(FMD.VectorizedKernel.get(), "vectorized_kernel");
+    RemoveNotVectorizedClone(FMD.VectorizedKernel.get(),
+                             FMD.VectorizedKernel.getID());
     RemoveNotVectorizedClone(FMD.VectorizedMaskedKernel.get(),
-                             "vectorized_masked_kernel");
+                             FMD.VectorizedMaskedKernel.getID());
   }
 
   return Changed;

@@ -28,8 +28,6 @@ using namespace llvm;
 #define CHECK_IF_INITIALIZED                                                   \
   assert(Initialized && "SGHelper is called before initialized");
 
-namespace llvm {
-
 const char *SGHelper::DummyBarrierName = "dummy_sg_barrier";
 const char *SGHelper::BarrierNameNoScope = "_Z17sub_group_barrierj";
 const char *SGHelper::BarrierNameWithScope =
@@ -128,34 +126,35 @@ void SGHelper::findDummyBarriers() {
   }
 }
 
-const InstSet &SGHelper::getBarriersForFunction(Function *F) {
+const CompilationUtils::InstSet &SGHelper::getBarriersForFunction(Function *F) {
   CHECK_IF_INITIALIZED
   return FuncToBarriers[F];
 }
 
-const InstSet &SGHelper::getDummyBarriersForFunction(Function *F) {
+const CompilationUtils::InstSet &
+SGHelper::getDummyBarriersForFunction(Function *F) {
   CHECK_IF_INITIALIZED
   return FuncToDummyBarriers[F];
 }
 
-FuncSet SGHelper::getAllFunctionsNeedEmulation() {
+CompilationUtils::FuncSet SGHelper::getAllFunctionsNeedEmulation() {
   CHECK_IF_INITIALIZED
-  FuncSet FuncsNeedEmuation;
+  CompilationUtils::FuncSet FuncsNeedEmuation;
   // Only functions to be emulated have dummy_sg_barrier calls.
   for (auto &Item : FuncToDummyBarriers)
     FuncsNeedEmuation.insert(Item.first);
   return FuncsNeedEmuation;
 }
 
-InstSet SGHelper::getSyncInstsForFunction(Function *F) {
+CompilationUtils::InstSet SGHelper::getSyncInstsForFunction(Function *F) {
   CHECK_IF_INITIALIZED
-  InstSet SyncInsts = FuncToBarriers[F];
+  CompilationUtils::InstSet SyncInsts = FuncToBarriers[F];
   for (auto *I : FuncToDummyBarriers[F])
     SyncInsts.insert(I);
   return SyncInsts;
 }
 
-const FuncSet &SGHelper::getAllSyncFunctions() const {
+const CompilationUtils::FuncSet &SGHelper::getAllSyncFunctions() const {
   CHECK_IF_INITIALIZED
   return SGSyncFunctions;
 }
@@ -333,5 +332,3 @@ Value *SGHelper::createZExtOrTruncProxy(Value *From, Type *ToType, IRBuilder<> &
     return From;
   return Builder.CreateZExtOrTrunc(From, ToType);
 }
-
-} // namespace llvm
