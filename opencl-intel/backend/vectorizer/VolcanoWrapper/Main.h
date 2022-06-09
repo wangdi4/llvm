@@ -37,7 +37,8 @@ public:
     static char ID;
     /// @brief C'tor
     /// @param rt Runtime module (contains declarations of all builtin funcs)
-    Vectorizer(llvm::SmallVector<llvm::Module*, 2> rtList, const OptimizerConfig* pConfig);
+    Vectorizer(llvm::SmallVectorImpl<llvm::Module *> &rtList,
+               const OptimizerConfig *pConfig);
     /// @brief D'tor
     ~Vectorizer();
     /// @brief Provides name of pass

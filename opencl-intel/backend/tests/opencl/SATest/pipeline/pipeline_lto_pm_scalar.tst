@@ -58,19 +58,19 @@
 ; CHECK:      Running pass: PhiCanonicalization
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
-; CHECK:      Running pass: Intel Kernel RedundantPhiNode
+; CHECK:      Running pass: RedundantPhiNode
 ; CHECK:      Running pass: GroupBuiltinPass
-; CHECK-NEXT: Running pass: Intel Kernel BarrierInFunction
+; CHECK-NEXT: Running pass: BarrierInFunction
 ; CHECK:      Running pass: ResolveSubGroupWICallPass
-; CHECK:      Running pass: Intel Kernel SplitBBonBarrier
+; CHECK:      Running pass: SplitBBonBarrier
 ; CHECK-NEXT: Running pass: ReduceCrossBarrierValues
-; CHECK-NEXT: Running analysis: Intel Kernel DataPerValue Analysis
-; CHECK-NEXT: Running analysis: Intel Kernel DataPerBarrier Analysis
-; CHECK-NEXT: Running analysis: Intel Kernel WIRelatedValue
+; CHECK-NEXT: Running analysis: DataPerValueAnalysis
+; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
+; CHECK-NEXT: Running analysis: WIRelatedValueAnalysis
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
 ; CHECK-NEXT: Running analysis: DominanceFrontierAnalysis
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
-; CHECK:      Running pass: Intel Kernel Barrier
+; CHECK:      Running pass: KernelBarrier
 
 ; CHECK:      Running pass: AddImplicitArgsPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis

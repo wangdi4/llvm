@@ -39,10 +39,8 @@ class BuiltinImportLegacy : public ModulePass {
 public:
   static char ID;
 
-  BuiltinImportLegacy(const SmallVector<Module *, 2> &BuiltinModules =
-                          SmallVector<Module *, 2>(),
-                      StringRef CPUPrefix = "")
-      : ModulePass(ID), Impl(BuiltinModules, CPUPrefix) {
+  BuiltinImportLegacy(StringRef CPUPrefix = "")
+      : ModulePass(ID), Impl(CPUPrefix) {
     initializeBuiltinImportLegacyPass(*PassRegistry::getPassRegistry());
   }
 
@@ -70,9 +68,8 @@ INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
 INITIALIZE_PASS_END(BuiltinImportLegacy, DEBUG_TYPE,
                     "DPCPP builtin import pass", false, false)
 
-ModulePass *llvm::createBuiltinImportLegacyPass(
-    const SmallVector<Module *, 2> &BuiltinModules, StringRef CPUPrefix) {
-  return new BuiltinImportLegacy(BuiltinModules, CPUPrefix);
+ModulePass *llvm::createBuiltinImportLegacyPass(StringRef CPUPrefix) {
+  return new BuiltinImportLegacy(CPUPrefix);
 }
 
 static Function *FindFunctionDef(const Function *F,
@@ -104,8 +101,7 @@ static GlobalVariable *FindGlobalDef(const GlobalVariable *GV,
   return nullptr;
 }
 
-BuiltinImportPass::BuiltinImportPass(const SmallVector<Module *, 2> &,
-                                     StringRef CPUPrefix)
+BuiltinImportPass::BuiltinImportPass(StringRef CPUPrefix)
     : CPUPrefix(CPUPrefix) {
   initializeBuiltinImportLegacyPass(*PassRegistry::getPassRegistry());
 }

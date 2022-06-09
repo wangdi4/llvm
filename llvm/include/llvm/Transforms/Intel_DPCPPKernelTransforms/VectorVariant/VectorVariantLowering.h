@@ -22,8 +22,6 @@ class VectorVariantLowering : public PassInfoMixin<VectorVariantLowering> {
 public:
   VectorVariantLowering(VectorVariant::ISAClass ISA = VectorVariant::XMM) : ISA(ISA){};
 
-  static StringRef name() { return "VectorVariantLowering"; }
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
   bool runImpl(Module &M, CallGraph &CG);

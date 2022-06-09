@@ -25,7 +25,7 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // Glue for old PM.
-  bool runImpl(Module &M, RuntimeService *RTService);
+  bool runImpl(Module &M, RuntimeService &RTS);
 
 private:
   bool runOnFunction(Function &F);

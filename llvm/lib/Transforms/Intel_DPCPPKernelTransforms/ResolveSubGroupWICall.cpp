@@ -39,9 +39,7 @@ class ResolveSubGroupWICallLegacy : public ModulePass {
 public:
   static char ID;
 
-  ResolveSubGroupWICallLegacy(const SmallVector<Module *, 2> &BuiltinModules =
-                                  SmallVector<Module *, 2>(),
-                              bool ResolveSGBarrier = true);
+  ResolveSubGroupWICallLegacy(bool ResolveSGBarrier = true);
 
   StringRef getPassName() const override {
     return "ResolveSubGroupWICallLegacy";
@@ -66,9 +64,8 @@ INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfoAnalysisLegacy)
 INITIALIZE_PASS_END(ResolveSubGroupWICallLegacy, DEBUG_TYPE,
                     "Resolve Sub Group WI functions", false, false)
 
-ResolveSubGroupWICallLegacy::ResolveSubGroupWICallLegacy(
-    const SmallVector<Module *, 2> &BuiltinModules, bool ResolveSGBarrier)
-    : ModulePass(ID), Impl(BuiltinModules, ResolveSGBarrier) {
+ResolveSubGroupWICallLegacy::ResolveSubGroupWICallLegacy(bool ResolveSGBarrier)
+    : ModulePass(ID), Impl(ResolveSGBarrier) {
   initializeResolveSubGroupWICallLegacyPass(*PassRegistry::getPassRegistry());
 }
 
@@ -78,13 +75,11 @@ bool ResolveSubGroupWICallLegacy::runOnModule(Module &M) {
   return Impl.runImpl(M, BLI);
 }
 
-ModulePass *llvm::createResolveSubGroupWICallLegacyPass(
-    const SmallVector<Module *, 2> &BuiltinModules, bool ResolveSGBarrier) {
-  return new ResolveSubGroupWICallLegacy(BuiltinModules, ResolveSGBarrier);
+ModulePass *llvm::createResolveSubGroupWICallLegacyPass(bool ResolveSGBarrier) {
+  return new ResolveSubGroupWICallLegacy(ResolveSGBarrier);
 }
 
-ResolveSubGroupWICallPass::ResolveSubGroupWICallPass(
-    const SmallVector<Module *, 2> &, bool ResolveSGBarrier)
+ResolveSubGroupWICallPass::ResolveSubGroupWICallPass(bool ResolveSGBarrier)
     : ResolveSGBarrier(ResolveSGBarrier) {}
 
 PreservedAnalyses ResolveSubGroupWICallPass::run(Module &M,
@@ -96,8 +91,7 @@ PreservedAnalyses ResolveSubGroupWICallPass::run(Module &M,
 }
 
 bool ResolveSubGroupWICallPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
-  RTService = BLI->getRuntimeService();
-  assert(RTService && "Invalid runtime service");
+  RTS = &BLI->getRuntimeService();
 
   // Get all kernels.
   FuncSet Kernels = getAllKernels(M);
@@ -496,8 +490,7 @@ ResolveSubGroupWICallPass::replaceSubGroupBarrier(Instruction *InsertBefore,
   IRBuilder<> Builder(InsertBefore);
   CallInst *CI = cast<CallInst>(InsertBefore);
   std::string AtomicWIFenceName = mangledAtomicWorkItemFence();
-  auto *AtomicWIFenceBIF =
-      RTService->findFunctionInBuiltinModules(AtomicWIFenceName);
+  auto *AtomicWIFenceBIF = RTS->findFunctionInBuiltinModules(AtomicWIFenceName);
   assert(AtomicWIFenceBIF && "atomic_work_item_fence not found in BI library!");
 
   auto *AtomicWIFenceF = importFunctionDecl(M, AtomicWIFenceBIF);

@@ -132,7 +132,7 @@ collectSYCLPipeStorageGlobals(SmallVectorImpl<Function *> &CreatePipeFuncs,
 static void
 rewritePipeStorageVars(Module &M,
                        SmallVectorImpl<GlobalVariable *> &StorageVars,
-                       RuntimeService *RTS) {
+                       RuntimeService &RTS) {
   if (StorageVars.empty())
     return;
 
@@ -170,9 +170,8 @@ rewritePipeStorageVars(Module &M,
       GlobalCtor = createPipeGlobalCtor(M);
 
     // Emit a code that adds necessary initialization to the global ctor.
-    assert(RTS && "Invalid runtime service!");
     Function *PipeInitFunc = importFunctionDecl(
-        &M, RTS->findFunctionInBuiltinModules("__pipe_init_fpga"));
+        &M, RTS.findFunctionInBuiltinModules("__pipe_init_fpga"));
     initializeGlobalPipeScalar(OCLPipeGV, PipeMD, GlobalCtor, PipeInitFunc);
 
     // Finally we replace all usages of {i32, i32, i32} struct with our new

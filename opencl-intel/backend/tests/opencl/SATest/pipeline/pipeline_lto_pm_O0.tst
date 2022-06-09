@@ -54,24 +54,24 @@
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
 ; CHECK-NEXT: Skipping pass PhiCanonicalization
 ; CHECK-NEXT: Skipping pass: PhiCanonicalization
-; CHECK-NEXT: Skipping pass Intel Kernel RedundantPhiNode
-; CHECK-NEXT: Skipping pass: Intel Kernel RedundantPhiNode
+; CHECK-NEXT: Skipping pass RedundantPhiNode
+; CHECK-NEXT: Skipping pass: RedundantPhiNode
 ; CHECK-NEXT: Running pass: GroupBuiltinPass
-; CHECK-NEXT: Running pass: Intel Kernel BarrierInFunction
+; CHECK-NEXT: Running pass: BarrierInFunction
 ; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
 ; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass
-; CHECK-NEXT: Running pass: Intel Kernel SplitBBonBarrier
-; CHECK-NEXT: Running pass: Intel Kernel Barrier
-; CHECK-NEXT: Running analysis: Intel Kernel DataPerBarrier Analysis
-; CHECK-NEXT: Running analysis: Intel Kernel DataPerValue Analysis
-; CHECK-NEXT: Running analysis: Intel Kernel WIRelatedValue Analysis
+; CHECK-NEXT: Running pass: SplitBBonBarrier
+; CHECK-NEXT: Running pass: KernelBarrier
+; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
+; CHECK-NEXT: Running analysis: DataPerValueAnalysis
+; CHECK-NEXT: Running analysis: WIRelatedValueAnalysis
 ; CHECK-NEXT: Running pass: AddImplicitArgsPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
-; CHECK-NEXT: Invalidating analysis: Intel Kernel DataPerBarrier Analysis
-; CHECK-NEXT: Invalidating analysis: Intel Kernel WIRelatedValue Analysis
-; CHECK-NEXT: Invalidating analysis: Intel Kernel DataPerValue Analysis
+; CHECK-NEXT: Invalidating analysis: DataPerBarrierAnalysis
+; CHECK-NEXT: Invalidating analysis: WIRelatedValueAnalysis
+; CHECK-NEXT: Invalidating analysis: DataPerValueAnalysis
 ; CHECK-NEXT: Invalidating analysis: CallGraphAnalysis
 ; CHECK-NEXT: Invalidating analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running pass: ResolveWICallPass

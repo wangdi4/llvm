@@ -143,7 +143,7 @@ inline bool isPipeBuiltin(StringRef Name) {
   return CompilationUtils::getPipeKind(Name);
 }
 
-Function *getPipeBuiltin(Module &M, RuntimeService *RTS,
+Function *getPipeBuiltin(Module &M, RuntimeService &RTS,
                          const CompilationUtils::PipeKind &Kind);
 
 } // namespace DPCPPChannelPipeUtils

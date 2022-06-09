@@ -49,8 +49,6 @@ class PhiCanonicalization : public PassInfoMixin<PhiCanonicalization> {
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM);
 
-  static StringRef name() { return "PhiCanonicalization"; }
-
   bool runImpl(Function &F, DominatorTree *DT, PostDominatorTree *PDT);
 };
 

@@ -21,8 +21,6 @@ class InternalizeNonKernelFuncPass
 public:
   explicit InternalizeNonKernelFuncPass() {}
 
-  static StringRef name() { return "InternalizeNonKernelFuncPass"; }
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // Glue for old PM.

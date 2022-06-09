@@ -44,15 +44,19 @@ public:
   explicit KernelBarrier(bool IsNativeDebug = false,
                          bool useTLSGlobals = false);
 
-  static StringRef name() { return "Intel Kernel Barrier"; }
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
   bool runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV);
 
 private:
+  using BBSet = CompilationUtils::BBSet;
+  using FuncSet = CompilationUtils::FuncSet;
+  using InstSet = CompilationUtils::InstSet;
+  using InstVec = CompilationUtils::InstVec;
+  using ValueVec = CompilationUtils::ValueVec;
+
   using BasicBlockToBasicBlockTy = DenseMap<BasicBlock *, BasicBlock *>;
-  using BasicBlockToBasicBlockSetTy = DenseMap<BasicBlock *, BasicBlockSet>;
+  using BasicBlockToBasicBlockSetTy = DenseMap<BasicBlock *, BBSet>;
   using BasicBlockToBasicBlockVectorTy =
       DenseMap<BasicBlock *, SmallVector<BasicBlock *, 8>>;
   using BasicBlockToInstructionMapVectorTy =
@@ -279,8 +283,6 @@ private:
   void calculatePrivateSize(Module &M, FuncSet &FnsWithSync,
                             DenseMap<Function *, size_t> &PrivateSizeMap);
 
-  static const unsigned MaxNumDims = 3;
-
   const DataLayout *DL;
 
   /// This is barrier utility class.
@@ -303,20 +305,20 @@ private:
   /// This holds type of the TLS global containing local ids.
   ArrayType *LocalIdArrayTy;
   /// This holds cached GEP instructions for local ids.
-  Value *PtrLocalId[MaxNumDims];
+  Value *PtrLocalId[MAX_WORK_DIM];
 
   Value *ConstZero;
   Value *ConstOne;
 
   /// This holds instruction to be removed in the processed function/module.
-  InstVector InstructionsToRemove;
+  InstVec InstructionsToRemove;
 
   /// This holds the container of all Group-A values in processed function.
-  ValueVector *AllocaValues;
+  ValueVec *AllocaValues;
   /// This holds the container of all Group-B.1 values in processed function.
-  ValueVector *SpecialValues;
+  ValueVec *SpecialValues;
   /// This holds the container of all Group-B.2 values in processed function.
-  ValueVector *CrossBarrierValues;
+  ValueVec *CrossBarrierValues;
 
   /// This holds the container of all sync instructions in processed function.
   InstSet *SyncInstructions;
@@ -333,17 +335,17 @@ private:
           SpecialBufferValue(0), CurrSBIndex(0), StructureSizeValue(0),
           CurrentVectorizedWidthValue(0) {
       Value *V = 0;
-      std::fill(PtrLocalId, LocalSize + MaxNumDims, V);
-      std::fill(LocalSize, LocalSize + MaxNumDims, V);
+      std::fill(PtrLocalId, LocalSize + MAX_WORK_DIM, V);
+      std::fill(LocalSize, LocalSize + MAX_WORK_DIM, V);
     }
     /// Pointer to function is needed because it is not always known how a
     /// BarrierKeyValues was obtained.
     Function *TheFunction;
     unsigned NumDims;
-    /// This value is an array of size_t with MaxNumDims elements.
+    /// This value is an array of size_t with MAX_WORK_DIM elements.
     Value *LocalIdValues;
     /// This array of pointers is used to cache GEP instructions.
-    Value *PtrLocalId[MaxNumDims];
+    Value *PtrLocalId[MAX_WORK_DIM];
 
     /// This holds the alloca value of processed barrier id.
     Value *CurrBarrierId;
@@ -351,7 +353,7 @@ private:
     Value *SpecialBufferValue;
     /// This holds the alloca value of current stride offset in Special Buffer.
     Value *CurrSBIndex;
-    Value *LocalSize[MaxNumDims];
+    Value *LocalSize[MAX_WORK_DIM];
     /// This holds the constant value of structure size of Special Buffer.
     Value *StructureSizeValue;
     Value *CurrentVectorizedWidthValue;

@@ -51,7 +51,7 @@ KernelBarrier::KernelBarrier(bool IsNativeDebug, bool UseTLSGlobals)
       SyncInstructions(nullptr), DPV(nullptr), DPB(nullptr),
       CurrentFunction(nullptr), CurrentBarrierKeyValues(nullptr),
       IsNativeDBG(IsNativeDebug || OptEnableNativeDebug) {
-  std::fill(PtrLocalId, PtrLocalId + MaxNumDims, nullptr);
+  std::fill(PtrLocalId, PtrLocalId + MAX_WORK_DIM, nullptr);
 }
 
 PreservedAnalyses KernelBarrier::run(Module &M, ModuleAnalysisManager &MAM) {
@@ -81,7 +81,7 @@ bool KernelBarrier::runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV) {
   SizeT = M.getDataLayout().getPointerSizeInBits(0);
   SizeTTy = IntegerType::get(*Context, SizeT);
   I32Ty = IntegerType::get(*Context, 32);
-  LocalIdArrayTy = ArrayType::get(SizeTTy, MaxNumDims);
+  LocalIdArrayTy = ArrayType::get(SizeTTy, MAX_WORK_DIM);
   LocalIdAllocTy = PointerType::get(LocalIdArrayTy, 0);
   ConstZero = ConstantInt::get(SizeTTy, 0);
   ConstOne = ConstantInt::get(SizeTTy, 1);
@@ -96,7 +96,8 @@ bool KernelBarrier::runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV) {
   }
 
   // Find all functions that call synchronize instructions.
-  FuncSet FunctionsWithSync = Utils.getAllFunctionsWithSynchronization();
+  CompilationUtils::FuncSet FunctionsWithSync =
+      Utils.getAllFunctionsWithSynchronization();
   Changed |= !FunctionsWithSync.empty();
 
   // TODO if we factor private memory calculation out of barrier pass and
@@ -104,7 +105,8 @@ bool KernelBarrier::runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV) {
 
   // Note: We can't early exit here, otherwise, optimizer will claim the
   // functions to be resolved in this pass are undefined.
-  FuncSet RecursiveFunctions = Utils.getRecursiveFunctionsWithSync();
+  CompilationUtils::FuncSet RecursiveFunctions =
+      Utils.getRecursiveFunctionsWithSync();
   for (Function *F : RecursiveFunctions)
     F->addFnAttr(KernelAttribute::RecursionWithBarrier);
   Changed |= !RecursiveFunctions.empty();
@@ -373,7 +375,7 @@ void KernelBarrier::bindUsersToBasicBlock(
   }
 
   DenseMap<Instruction *, BasicBlock *> UIToInsertPointBB;
-  BasicBlockSet BBs;
+  CompilationUtils::BBSet BBs;
   for (Instruction *UI : UIs) {
     Instruction *InsertBefore = getInstructionToInsertBefore(AI, UI, false);
     // If UI is PHINode, BB is PHINode's previous basic block, otherwise
@@ -387,7 +389,7 @@ void KernelBarrier::bindUsersToBasicBlock(
 
     // Collect BB's predecessors that are SyncBB.
     if (!BBToPredSyncBB.count(BB) && DPB->hasPredecessors(BB)) {
-      BasicBlockSet &Preds = DPB->getPredecessors(BB);
+      CompilationUtils::BBSet &Preds = DPB->getPredecessors(BB);
       for (BasicBlock *Pred : Preds) {
         if (SyncPerBB.count(Pred))
           BBToPredSyncBB[BB].push_back(Pred);
@@ -794,7 +796,7 @@ BasicBlock *KernelBarrier::createBarrierLatch(BasicBlock *PreSyncBB,
   BasicBlock *Dispatch = BasicBlock::Create(*Context, "Dispatch", F, SyncBB);
   BasicBlock *InnerMost = PreSyncBB;
   assert(CurrentBarrierKeyValues->CurrentVectorizedWidthValue);
-  Value *LoopSteps[MaxNumDims] = {
+  Value *LoopSteps[MAX_WORK_DIM] = {
       CurrentBarrierKeyValues->CurrentVectorizedWidthValue, ConstOne, ConstOne};
   for (unsigned I = 0; I < NumDims; ++I)
     InnerMost = createLatchNesting(I, InnerMost, Dispatch, LoopSteps[I], DL);
@@ -1039,7 +1041,7 @@ Instruction *KernelBarrier::createOOBCheckGetLocalId(CallInst *Call) {
     IRBuilder<> B(Block);
     B.SetCurrentDebugLocation(Call->getDebugLoc());
     ConstantInt *MaxWorkDimI32 =
-        ConstantInt::get(*Context, APInt(32U, uint64_t(MaxNumDims), false));
+        ConstantInt::get(*Context, APInt(32U, uint64_t(MAX_WORK_DIM), false));
     Value *CheckIndex = B.CreateICmpULT(Call->getArgOperand(0), MaxWorkDimI32,
                                         "check.index.inbound");
     B.CreateCondBr(CheckIndex, GetWIProperties, SplitContinue);
@@ -1073,7 +1075,7 @@ Value *KernelBarrier::resolveGetLocalIDCall(CallInst *Call) {
   Value *Dimension = Call->getOperand(0);
   if (ConstantInt *C = dyn_cast<ConstantInt>(Dimension)) {
     uint64_t Dim = C->getZExtValue();
-    if (Dim >= MaxNumDims) {
+    if (Dim >= MAX_WORK_DIM) {
       // OpenCL Spec says to return zero for OOB dim value.
       return ConstZero;
     }
@@ -1081,7 +1083,7 @@ Value *KernelBarrier::resolveGetLocalIDCall(CallInst *Call) {
     IRBuilder<> B(Call);
     return createGetLocalId(Dim, B);
   }
-  // assert(BarrierKeyValuesPerFunction[Func].NumDims == MaxNumDims);
+  // assert(BarrierKeyValuesPerFunction[Func].NumDims == MAX_WORK_DIM);
   return createOOBCheckGetLocalId(Call);
 }
 
@@ -1091,7 +1093,7 @@ bool KernelBarrier::fixGetWIIdFunctions(Module & /*M*/) {
 
   std::string Name;
   // Find all get_local_id instructions.
-  InstVector &GetLIDInstructions = Utils.getAllGetLocalId();
+  CompilationUtils::InstVec &GetLIDInstructions = Utils.getAllGetLocalId();
   for (Instruction *I : GetLIDInstructions) {
     CallInst *OldCall = cast<CallInst>(I);
     Function *Func = OldCall->getFunction();
@@ -1108,7 +1110,7 @@ bool KernelBarrier::fixGetWIIdFunctions(Module & /*M*/) {
   typedef std::pair<Function *, ConstantInt *> FuncDimPair;
   std::map<FuncDimPair, Value *> FuncToBaseGID;
   // Find all get_global_id instructions.
-  InstVector &GetGIDInstructions = Utils.getAllGetGlobalId();
+  CompilationUtils::InstVec &GetGIDInstructions = Utils.getAllGetGlobalId();
   for (auto *I : GetGIDInstructions) {
     CallInst *OldCall = cast<CallInst>(I);
     Function *Func = OldCall->getFunction();
@@ -1389,7 +1391,7 @@ unsigned KernelBarrier::computeNumDim(Function *F) {
   if (MaxWGDimMDApi.hasValue()) {
     return MaxWGDimMDApi.get();
   }
-  return MaxNumDims;
+  return MAX_WORK_DIM;
 }
 
 static size_t

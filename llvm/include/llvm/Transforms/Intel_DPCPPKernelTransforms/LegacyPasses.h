@@ -47,9 +47,7 @@ ModulePass *createAddImplicitArgsLegacyPass();
 ModulePass *createAddTLSGlobalsLegacyPass();
 ModulePass *createAutorunReplicatorLegacyPass();
 ModulePass *createBarrierInFunctionLegacyPass();
-ModulePass *createBuiltinImportLegacyPass(
-    const SmallVector<Module *, 2> &BuiltinModules = SmallVector<Module *, 2>(),
-    StringRef CPUPrefix = "");
+ModulePass *createBuiltinImportLegacyPass(StringRef CPUPrefix = "");
 ModulePass *createChannelPipeTransformationLegacyPass();
 ModulePass *createCleanupWrappedKernelLegacyPass();
 ModulePass *createCoerceTypesLegacyPass();
@@ -59,8 +57,7 @@ ModulePass *createDataPerBarrierWrapperPass();
 ModulePass *createDataPerValueWrapperPass();
 ModulePass *createDeduceMaxWGDimLegacyPass();
 ModulePass *createDetectRecursionLegacyPass();
-ModulePass *
-createDPCPPEqualizerLegacyPass(ArrayRef<Module *> BuiltinModules = {});
+ModulePass *createDPCPPEqualizerLegacyPass();
 ModulePass *createDPCPPKernelAnalysisLegacyPass();
 ModulePass *createDPCPPKernelPostVecPass();
 ModulePass *createDPCPPKernelVecClonePass(
@@ -73,8 +70,7 @@ ModulePass *createDPCPPPreprocessSPIRVFriendlyIRLegacyPass();
 ModulePass *createDPCPPRewritePipesLegacyPass();
 ModulePass *createDuplicateCalledKernelsLegacyPass();
 ModulePass *createExternalizeGlobalVariablesLegacyPass();
-ModulePass *
-createGroupBuiltinLegacyPass(ArrayRef<Module *> BuiltinModules = {});
+ModulePass *createGroupBuiltinLegacyPass();
 ModulePass *
 createHandleVPlanMaskLegacyPass(const StringSet<> *VPlanMaskedFuncs);
 ModulePass *createImplicitArgsAnalysisLegacyPass();
@@ -106,9 +102,7 @@ ModulePass *createReqdSubGroupSizeLegacyPass();
 ModulePass *createResolveMatrixFillLegacyPass();
 ModulePass *createResolveMatrixLayoutLegacyPass();
 ModulePass *createResolveMatrixWISliceLegacyPass();
-ModulePass *createResolveSubGroupWICallLegacyPass(
-    const SmallVector<Module *, 2> &BuiltinModules = SmallVector<Module *, 2>(),
-    bool ResolveSGBarrier = true);
+ModulePass *createResolveSubGroupWICallLegacyPass(bool ResolveSGBarrier = true);
 ModulePass *createResolveVarTIDCallLegacyPass();
 ModulePass *createResolveWICallLegacyPass(bool IsUniformWGSize,
                                           bool UseTLSGlobals);

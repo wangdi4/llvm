@@ -68,8 +68,8 @@ ModulePass *llvm::createDeduceMaxWGDimLegacyPass() {
   return new DeduceMaxWGDimLegacy();
 }
 
-bool DeduceMaxWGDimPass::runImpl(Module &M, RuntimeService *RTService) {
-  LoopUtils::fillAtomicBuiltinUsers(M, RTService, ForbiddenFuncUsers);
+bool DeduceMaxWGDimPass::runImpl(Module &M, RuntimeService &RTS) {
+  LoopUtils::fillAtomicBuiltinUsers(M, RTS, ForbiddenFuncUsers);
   LoopUtils::fillInternalFuncUsers(M, ForbiddenFuncUsers);
   LoopUtils::fillWorkItemPipeBuiltinUsers(M, ForbiddenFuncUsers);
   LoopUtils::fillPrintfs(M, ForbiddenFuncUsers);

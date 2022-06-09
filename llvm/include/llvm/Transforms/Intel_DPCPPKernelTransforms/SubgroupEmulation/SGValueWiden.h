@@ -102,7 +102,8 @@ private:
   void setVectorValue(Value *Data, Value *V, unsigned Size, Instruction *IP);
 
   /// Check whether Def I is cross by sub_group_barrier / dummy_sg_barrier.
-  bool isCrossBarrier(Instruction *I, const InstSet &SyncInsts) const;
+  bool isCrossBarrier(Instruction *I,
+                      const CompilationUtils::InstSet &SyncInsts) const;
 
   /// Chekc if V is uniform in sub-group.
   bool isWIRelated(Value *V);
@@ -118,10 +119,10 @@ private:
   void setWIValue(Value *Val);
 
   /// Calls to be widened.
-  InstSet WideCalls;
+  CompilationUtils::InstSet WideCalls;
 
   /// All functions need to be widened.
-  FuncSet FunctionsToBeWidened;
+  CompilationUtils::FuncSet FunctionsToBeWidened;
 
   /// Map from Function to Widend Function.
   DenseMap<Function *, std::set<Function *>> FuncMap;

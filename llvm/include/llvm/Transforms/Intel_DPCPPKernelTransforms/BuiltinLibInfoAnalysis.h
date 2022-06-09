@@ -19,10 +19,8 @@ namespace llvm {
 /// BuiltinLibInfo holds builtin modules and runtime service.
 class BuiltinLibInfo {
 public:
-  BuiltinLibInfo(ArrayRef<Module *> BuiltinModules) {
+  BuiltinLibInfo(ArrayRef<Module *> BuiltinModules) : RTS(BuiltinModules) {
     BuiltinModuleRawPtrs.assign(BuiltinModules.begin(), BuiltinModules.end());
-    if (!BuiltinModuleRawPtrs.empty())
-      RTService.reset(new RuntimeService(BuiltinModuleRawPtrs));
   }
 
   /// Load builtin modules from path specified by command line option.
@@ -31,8 +29,8 @@ public:
 
   ArrayRef<Module *> getBuiltinModules() { return BuiltinModuleRawPtrs; };
 
-  const RuntimeService *getRuntimeService() const { return RTService.get(); }
-  RuntimeService *getRuntimeService() { return RTService.get(); }
+  const RuntimeService &getRuntimeService() const { return RTS; }
+  RuntimeService &getRuntimeService() { return RTS; }
 
   /// Handle invalidation events in the new pass manager.
   bool invalidate(Module &M, const PreservedAnalyses &PA,
@@ -46,7 +44,7 @@ private:
   SmallVector<Module *, 2> BuiltinModuleRawPtrs;
 
   /// Runtime service.
-  std::unique_ptr<RuntimeService> RTService;
+  RuntimeService RTS;
 };
 
 /// Analysis pass which loads builtin runtime library.

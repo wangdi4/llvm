@@ -51,21 +51,18 @@ typedef enum {
   CALL_BI_NUM
 } CALL_BI_TYPE;
 
-using InstVector = SmallVector<Instruction *, 8>;
-using ValueVector = SmallVector<Value *, 8>;
-using FuncVector = SmallVector<Function *, 8>;
-using BasicBlockVector = SmallVector<BasicBlock *, 8>;
-
-using InstSet = SetVector<Instruction *>;
-using FuncSet = SetVector<Function *>;
-using BasicBlockSet = SetVector<BasicBlock *>;
-
 using FunctionToUnsigned = std::map<const Function *, unsigned>;
 
 /// \brief BarrierUtils is utility class that collects several data
 /// and processes several functionality on a given module
 class BarrierUtils {
 public:
+  using BBVec = CompilationUtils::BBVec;
+  using FuncSet = CompilationUtils::FuncSet;
+  using FuncVec = CompilationUtils::FuncVec;
+  using InstSet = CompilationUtils::InstSet;
+  using InstVec = CompilationUtils::InstVec;
+
   BarrierUtils();
 
   ~BarrierUtils() {}
@@ -94,7 +91,7 @@ public:
 
   /// \brief return all synchronize instructions in the module
   /// \returns container with all synchronize instructions
-  InstVector getAllSynchronizeInstructions();
+  InstVec getAllSynchronizeInstructions();
 
   /// \brief Find all functions  in the module that contain synchronize
   /// instructions \returns InstSet container with found functions
@@ -107,17 +104,17 @@ public:
   /// \brief Find calls to WG functions upon their type
   /// \param type - type of WG functions to find
   /// \returns container with calls to WG functions of requested type
-  InstVector getWGCallInstructions(CALL_BI_TYPE type);
+  InstVec getWGCallInstructions(CALL_BI_TYPE type);
 
   /// \brief Collect all kernels and vectorized counterparts
   /// \param KernelList - list of kernels
   /// \param List - out list with collected functions
-  static FuncVector getAllKernelsAndVectorizedCounterparts(
+  static FuncVec getAllKernelsAndVectorizedCounterparts(
       const SmallVectorImpl<Function *> &KernelList);
 
   /// \brief Find all kernel functions in the module
-  /// \returns FuncVector container with found functions
-  FuncVector getAllKernelsWithBarrier();
+  /// \returns FuncVec container with found functions
+  FuncVec getAllKernelsWithBarrier();
 
   unsigned getFunctionVectorizationWidth(const Function *F) const;
 
@@ -155,11 +152,11 @@ public:
 
   /// \brief return all get_local_id call instructions in the module
   /// \returns container with all get_local_id call instructions
-  InstVector &getAllGetLocalId();
+  InstVec &getAllGetLocalId();
 
   /// \brief return all get_global_id call instructions in the module
   /// \returns container with all get_global_id call instructions
-  InstVector &getAllGetGlobalId();
+  InstVec &getAllGetGlobalId();
 
   /// \brief Create new call instruction to get_global_id
   /// \param Dim argument of get_global_id call
@@ -249,7 +246,7 @@ private:
   Function *GetBaseGIDFunc;
 
   /// This holds the all sync basic blocks of the module
-  BasicBlockVector SyncBasicBlocks;
+  BBVec SyncBasicBlocks;
   FunctionToUnsigned KernelVectorizationWidths;
 
   /// This indecator for synchronize data initialization
@@ -262,12 +259,12 @@ private:
   /// This indecator for get_local_id data initialization
   bool LIDInitialized;
   /// This holds the all get_local_id instructions of the module
-  InstVector GetLIDInstructions;
+  InstVec GetLIDInstructions;
 
   /// This indecator for get_global_id data initialization
   bool GIDInitialized;
   /// This holds the all get_global_id instructions of the module
-  InstVector GetGIDInstructions;
+  InstVec GetGIDInstructions;
 
   /// This indecator for functions with internal calls initialization
   bool NonInlinedCallsInitialized;

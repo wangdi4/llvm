@@ -28,16 +28,11 @@ class GroupBuiltinPass : public PassInfoMixin<GroupBuiltinPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
-  bool runImpl(Module &M, BuiltinLibInfo *BLI);
-
-  explicit GroupBuiltinPass(ArrayRef<Module *> BuiltinModuleList = {}){};
+  bool runImpl(Module &M, RuntimeService &RTS);
 
 private:
   /// This module
   Module *M;
-
-  /// Runtime service.
-  RuntimeService *RTService;
 
   /// This context
   LLVMContext *Context;
@@ -69,7 +64,7 @@ public:
   static char ID;
 
   /// \brief C'tor
-  explicit GroupBuiltinLegacy(ArrayRef<Module *> BuiltinModuleList = {});
+  explicit GroupBuiltinLegacy();
 
   /// \brief Provides name of pass
   StringRef getPassName() const override {

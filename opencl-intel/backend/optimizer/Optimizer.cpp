@@ -106,7 +106,7 @@ using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 
 extern "C"{
 
-llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
+llvm::Pass *createVectorizerPass(SmallVectorImpl<Module *> &builtinModules,
                                  const intel::OptimizerConfig *pConfig);
 llvm::Pass *createCLStreamSamplerPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
@@ -375,10 +375,10 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 
 static void populatePassesPostFailCheck(
     llvm::legacy::PassManagerBase &PM, llvm::Module &M,
-    SmallVector<Module *, 2> &pRtlModuleList, unsigned OptLevel,
-    const intel::OptimizerConfig &pConfig, bool isOcl20,
-    bool isFpgaEmulator, bool isEyeQEmulator, bool UnrollLoops, bool UseVplan,
-    bool IsSPIRV, bool IsSYCL, bool IsOMP, DebuggingServiceType debugType,
+    SmallVectorImpl<Module *> &pRtlModuleList, unsigned OptLevel,
+    const intel::OptimizerConfig &pConfig, bool isOcl20, bool isFpgaEmulator,
+    bool isEyeQEmulator, bool UnrollLoops, bool UseVplan, bool IsSPIRV,
+    bool IsSYCL, bool IsOMP, DebuggingServiceType debugType,
     bool UseTLSGlobals) {
   bool isProfiling = pConfig.GetProfilingFlag();
   bool HasGatherScatter = pConfig.GetCpuId()->HasGatherScatter();
@@ -582,8 +582,8 @@ static void populatePassesPostFailCheck(
 #endif
 
   if (EnableNativeOpenCLSubgroups)
-    PM.add(createResolveSubGroupWICallLegacyPass(pRtlModuleList,
-                                                 /*ResolveSGBarrier*/ false));
+    PM.add(createResolveSubGroupWICallLegacyPass(
+        /*ResolveSGBarrier*/ false));
 
   // Unroll small loops with unknown trip count.
   PM.add(llvm::createLoopUnrollPass(OptLevel, false, false, 16, 0, 0, 1));
@@ -634,7 +634,7 @@ static void populatePassesPostFailCheck(
   PM.add(llvm::createRemoveRegionDirectivesLegacyPass());
 
   PM.add(createUnifyFunctionExitNodesPass());
-  addBarrierMainPasses(PM, pRtlModuleList, OptLevel, debugType, UseTLSGlobals,
+  addBarrierMainPasses(PM, OptLevel, debugType, UseTLSGlobals,
                        Optimizer::getVectInfos());
 
   // After adding loops run loop optimizations.
@@ -687,7 +687,7 @@ static void populatePassesPostFailCheck(
     // Inline BI function
     const char *CPUPrefix = pConfig.GetCpuId()->GetCPUPrefix();
     assert(CPUPrefix && "CPU Prefix should not be null");
-    PM.add(llvm::createBuiltinImportLegacyPass(pRtlModuleList, CPUPrefix));
+    PM.add(llvm::createBuiltinImportLegacyPass(CPUPrefix));
     if (OptLevel > 0) {
       // After the globals used in built-ins are imported - we can internalize
       // them with further wiping them out with GlobalDCE pass
@@ -777,7 +777,7 @@ static void populatePassesPostFailCheck(
 }
 
 OptimizerOCLLegacy::OptimizerOCLLegacy(
-    llvm::Module &pModule, llvm::SmallVector<llvm::Module *, 2> &RtlModules,
+    llvm::Module &pModule, llvm::SmallVectorImpl<llvm::Module *> &RtlModules,
     const intel::OptimizerConfig &pConfig)
     : Optimizer(pModule, RtlModules, pConfig) {
   TargetMachine* targetMachine = pConfig.GetTargetMachine();
@@ -879,9 +879,10 @@ void OptimizerOCLLegacy::Optimize(llvm::raw_ostream &LogStream) {
 }
 
 Optimizer::Optimizer(llvm::Module &M,
-                     llvm::SmallVector<llvm::Module *, 2> &RtlModules,
+                     llvm::SmallVectorImpl<llvm::Module *> &RtlModules,
                      const intel::OptimizerConfig &OptConfig)
-    : m_M(M), m_RtlModules(RtlModules), Config(OptConfig),
+    : m_M(M), m_RtlModules(RtlModules.begin(), RtlModules.end()),
+      Config(OptConfig),
       m_IsSPIRV(llvm::CompilationUtils::generatedFromSPIRV(M)),
       m_IsSYCL(llvm::CompilationUtils::isGeneratedFromOCLCPP(M)),
       m_IsOMP(llvm::CompilationUtils::isGeneratedFromOMP(M)),

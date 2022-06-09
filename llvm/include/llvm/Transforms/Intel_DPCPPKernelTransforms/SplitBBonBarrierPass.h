@@ -24,8 +24,6 @@ class BarrierUtils;
 /// and not more than once in each basic block.
 class SplitBBonBarrier : public PassInfoMixin<SplitBBonBarrier> {
 public:
-  static StringRef name() { return "Intel Kernel SplitBBonBarrier"; }
-
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
   bool runImpl(Module &M);

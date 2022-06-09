@@ -100,7 +100,7 @@ private:
   SGHelper SGH;
 
   /// This holds the set of functions containing subgroup barrier.
-  FuncSet SGSyncFuncSet;
+  CompilationUtils::FuncSet SGSyncFuncSet;
 
   /// This holds the insert point at entry block for the running function.
   Instruction *InsertPoint;
@@ -121,9 +121,9 @@ private:
 static bool noBarrierPath(SmallPtrSetImpl<Function *> &Kernels,
                           DenseMap<Function *, bool> &KernelsNoBarrierPath,
                           Function &F) {
-  FuncSet FS;
+  CompilationUtils::FuncSet FS;
   FS.insert(&F);
-  FuncSet FuncUsers;
+  CompilationUtils::FuncSet FuncUsers;
   LoopUtils::fillFuncUsersSet(FS, FuncUsers);
   return all_of(FuncUsers, [&](Function *FuncUser) {
     return Kernels.count(FuncUser) ? KernelsNoBarrierPath[FuncUser] : true;
@@ -150,7 +150,7 @@ bool ImplicitGIDImpl::run() {
   bool Changed = false;
 
   // Use worklist since this pass may insert TID function declarations.
-  FuncSet AllKernels = CompilationUtils::getAllKernels(M);
+  CompilationUtils::FuncSet AllKernels = CompilationUtils::getAllKernels(M);
   SmallVector<Function *, 16> NonKernelFuncs;
   for (auto &F : M)
     if (!F.isDeclaration() && !AllKernels.contains(&F))
@@ -297,7 +297,7 @@ void ImplicitGIDImpl::insertGIDStore(Function &F, bool HasSyncInst,
     return;
   }
 
-  InstSet GenericSyncInsts;
+  CompilationUtils::InstSet GenericSyncInsts;
   if (HasSGSyncInst) {
     // We don't have to consider HasSyncInst in this situation,
     // since subgroup emulation loops are inside barrier loop,
