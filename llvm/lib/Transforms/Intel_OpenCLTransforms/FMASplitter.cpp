@@ -13,6 +13,7 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
+#include "llvm/Transforms/Intel_OpenCLTransforms/Passes.h"
 
 using namespace llvm;
 
@@ -73,7 +74,6 @@ INITIALIZE_PASS(FMASplitterLegacyPass, "fma-splitter",
                 "Split fmuladd to fmul + fadd", false, false)
 char FMASplitterLegacyPass::ID = 0;
 
-llvm::FunctionPass *createFMASplitterPass() {
+FunctionPass *llvm::createFMASplitterPass() {
   return new FMASplitterLegacyPass();
 }
-
