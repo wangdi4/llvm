@@ -7266,7 +7266,7 @@ static pi_result USMDeviceAllocImpl(void **ResultPtr, pi_context Context,
   PI_ASSERT(Device, PI_INVALID_DEVICE);
 
   // Check that incorrect bits are not set in the properties.
-  PI_ASSERT(!Properties ||
+  PI_ASSERT(!Properties || *Properties == 0 ||
                 (*Properties == PI_MEM_ALLOC_FLAGS && *(Properties + 2) == 0),
             PI_INVALID_VALUE);
 
@@ -7329,7 +7329,7 @@ static pi_result USMHostAllocImpl(void **ResultPtr, pi_context Context,
   PI_ASSERT(Context, PI_INVALID_CONTEXT);
 
   // Check that incorrect bits are not set in the properties.
-  PI_ASSERT(!Properties ||
+  PI_ASSERT(!Properties || *Properties == 0 ||
                 (*Properties == PI_MEM_ALLOC_FLAGS && *(Properties + 2) == 0),
             PI_INVALID_VALUE);
 
