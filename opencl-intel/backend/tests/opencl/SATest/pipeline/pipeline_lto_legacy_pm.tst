@@ -15,40 +15,74 @@
 
 ; CHECK:        FunctionPass Manager
 ; CHECK-NEXT:     Unify function exit nodes
-; CHECK-NEXT:     Infer address spaces
 
 ; CHECK:        BuiltinLibInfoAnalysisLegacy
 
 ; CHECK:        ModulePass Manager
 ; CHECK:          DPCPPEqualizerLegacy
-; CHECK-NEXT:     DuplicateCalledKernels
+; CHECK:          DuplicateCalledKernels
 ; CHECK-NEXT:     InternalizeNonKernelFuncLegacy
+; CHECK-NEXT:     FunctionPass Manager
+; CHECK-NEXT:       FMASplitter
 ; CHECK-NEXT:     AddFunctionAttrs
-; CHECK-NEXT:     CallGraph Construction
+; CHECK-NEXT:     FunctionPass Manager
+; CHECK-NEXT:       Simplify the CFG
+; CHECK:            SROA
+; CHECK:            Combine redundant instructions
+; CHECK:            Remove redundant instructions
+; CHECK:          CallGraph Construction
 ; CHECK-NEXT:     LinearIdResolverLegacy
 ; CHECK-NEXT:     FunctionPass Manager
-; CHECK-NEXT:       BuiltinCallToInstLegacy
+; CHECK:            Promote Memory to Register
+; CHECK:            Infer address spaces
+; CHECK:            BuiltinCallToInstLegacy
 
-; CHECK:          Call Graph SCC Pass Manager
-; CHECK:            FunctionPass Manager
-; CHECK:              Loop Pass Manager
-; CHECK:                Unroll loops
-
-; CHECK:          Reassociate expressions
-; CHECK:          Infer address spaces
-; CHECK:          DPCPPKernelAnalysisLegacy
-; CHECK:          WGLoopBoundariesLegacy
-; CHECK:          DeduceMaxWGDimLegacy
+; CHECK:          DetectRecursionLegacy
+; CHECK:          FunctionPass Manager
+; CHECK-NEXT:       Reassociate expressions
+; CHECK:            Infer address spaces
+; CHECK:            Simplify the CFG
+; CHECK:            SROA
+; CHECK:            Early CSE
+; CHECK:            Promote Memory to Register
+; CHECK:            Combine redundant instructions
+; CHECK:          ResolveVarTIDCallLegacy
+; CHECK-NEXT:     InferArgumentAlias
+; CHECK-NEXT:     FunctionPass Manager
+; CHECK-NEXT:       Unify function exit nodes
 ; CHECK:          InstToFuncCallLegacy
+; CHECK-NEXT:     CallGraph Construction
+; CHECK-NEXT:     DPCPPKernelAnalysisLegacy
+; CHECK:          FunctionPass Manager
+; CHECK:            Simplify the CFG
+; CHECK-NEXT:     WGLoopBoundariesLegacy
+; CHECK-NEXT:     FunctionPass Manager
+; CHECK-NEXT:       Dead Code Elimination
+; CHECK-NEXT:       Simplify the CFG
+; CHECK-NEXT:     DeduceMaxWGDimLegacy
 ; CHECK:          FunctionPass Manager
 ; CHECK-NEXT:       SinCosFoldLegacy
-; CHECK:          Replace known math operations with optimized library functions
+; CHECK:            Replace known math operations with optimized library functions
+; CHECK:            Unify function exit nodes
+; CHECK:            Simplify the CFG
+; CHECK:            Combine redundant instructions
+; CHECK:            Early GVN Hoisting of Expressions
+; CHECK:            Dead Code Elimination
+; CHECK:          Intel DPCPP Kernel ReqdSubGroupSize Pass
 ; CHECK:          VFAnalysisLegacy
+; CHECK-NEXT:       FunctionPass Manager
+; CHECK:              WeightedInstCountAnalysisLegacy
 ; CHECK:          SetVectorizationFactorLegacy
-; CHECK:          VectorVariantLoweringLegacy
-; CHECK:          CreateSimdVariantPropagationLegacy
-; CHECK:          SGSizeCollectorLegacy
-; CHECK:          SGSizeCollectorIndirectLegacy
+; CHECK-NEXT:     CallGraph Construction
+; CHECK-NEXT:     VectorVariantLoweringLegacy
+; CHECK-NEXT:     CreateSimdVariantPropagationLegacy
+; CHECK-NEXT:     SGSizeCollectorLegacy
+; CHECK-NEXT:     CallGraph Construction
+; CHECK-NEXT:     SGSizeCollectorIndirectLegacy
+; CHECK-NEXT:     VectorizationDimensionAnalysisLegacy
+; CHECK-NEXT:       FunctionPass Manager
+; CHECK:              SoaAllocaAnalysisLegacy
+; CHECK:              WorkItemAnalysisLegacy
 ; CHECK:          DPCPPKernelVecCloneLegacy
 ; CHECK-NEXT:     Fill-in addresses of vector variants
 ; CHECK-NEXT:     UpdateCallAttrs
@@ -60,17 +94,46 @@
 ; CHECK:          FunctionPass Manager
 ; CHECK:            VPlan Vectorizer
 ; CHECK:          VPlan post vectorization pass for DPCPP kernels
-; CHECK:          HandleVPlanMask
+; CHECK-NEXT:     FunctionPass Manager
+; CHECK:            Combine redundant instructions
+; CHECK:            Simplify the CFG
+; CHECK:            Promote Memory to Register
+; CHECK:            Aggressive Dead Code Elimination
+; CHECK:          VectorKernelEliminationLegacy
+; CHECK:            FunctionPass Manager
+; CHECK:              WeightedInstCountAnalysisLegacy
+; CHECK:          HandleVPlanMask pass
 ; CHECK:          ResolveSubGroupWICallLegacy
+; CHECK:          FunctionPass Manager
+; CHECK-NEXT:       Intel DPCPP Kernel OptimizeIDivAndIRem Pass
+; CHECK-NEXT:       Intel DPCPP Kernel PreventDivCrashes Pass
+; CHECK:            Combine redundant instructions
+; CHECK:            Global Value Numbering
+; CHECK:            Optimize scalar/vector ops
+; CHECK:            Jump Threading
 ; CHECK:          WGLoopCreatorLegacy
-; CHECK:          Unroll loops
-; CHECK:          Lowering __intel_indirect_call scalar calls
-; CHECK:          ResolveSubGroupWICallLegacy
 ; CHECK-NEXT:       FunctionPass Manager
-; CHECK:              PhiCanonicalization
-; CHECK-NEXT:         Intel Kernel RedundantPhiNode
+; CHECK-NEXT:         Unify function exit nodes
+; CHECK-NEXT:     FunctionPass Manager
+; CHECK:            Loop Pass Manager
+; CHECK:              Unroll loops
+; CHECK:          Lowering __intel_indirect_call scalar calls
+; CHECK-NEXT:     FunctionPass Manager
+; CHECK-NEXT:       Dead Code Elimination
+; CHECK-NEXT:       Simplify the CFG
+; CHECK-NEXT:       Remove llvm.directive.region.*
+; CHECK-NEXT:       Unify function exit nodes
+; CHECK-NEXT:     Intel DPCPP Kernel ReplaceScalarWithMask Pass
+; CHECK:          ResolveSubGroupWICallLegacy
+; CHECK-NEXT:     FunctionPass Manager
+; CHECK-NEXT:       Dead Code Elimination
+; CHECK-NEXT:       Simplify the CFG
+; CHECK:            Promote Memory to Register
+; CHECK:            PhiCanonicalization
+; CHECK-NEXT:       Intel Kernel RedundantPhiNode
 ; CHECK-NEXT:     GroupBuiltin
 ; CHECK-NEXT:     Intel Kernel BarrierInFunction
+; CHECK-NEXT:     Intel DPCPP Kernel RemoveDuplicatedBarrier Pass
 ; CHECK-NEXT:     ResolveSubGroupWICallLegacy
 ; CHECK-NEXT:     Intel Kernel SplitBBonBarrier
 ; CHECK-NEXT:     Intel Kernel DataPerBarrier Analysis
@@ -82,30 +145,50 @@
 ; CHECK-NEXT:         Dominance Frontier Construction
 ; CHECK-NEXT:     Intel Kernel DataPerValue Analysis
 ; CHECK-NEXT:     Intel Kernel Barrier
-; CHECK:          ImplicitArgsAnalysisLegacy
-; CHECK:          LocalBufferAnalysisLegacy
+; CHECK:          FunctionPass Manager
+; CHECK:            Promote Memory to Register
+; CHECK:            Canonicalize natural loops
+; CHECK:            Loop Pass Manager
+; CHECK:              hoist known uniform dpcpp builtins out of loops
+; CHECK:            Loop Pass Manager
+; CHECK-NEXT:         Loop Invariant Code Motion
+; CHECK-NEXT:       Loop Pass Manager
+; CHECK-NEXT:         LoopWIAnalysisLegacy
+; CHECK-NEXT:         Hoist strided values out of loops
+; CHECK:          CallGraph Construction
+; CHECK-NEXT:     ImplicitArgsAnalysisLegacy
+; CHECK-NEXT:     LocalBufferAnalysisLegacy
 ; CHECK-NEXT:     AddImplicitArgsLegacy
 ; CHECK-NEXT:     ResolveWICallLegacy
-; CHECK:          CallGraph Construction
+; CHECK-NEXT:     CallGraph Construction
 ; CHECK-NEXT:     LocalBufferAnalysisLegacy
 ; CHECK-NEXT:     LocalBuffersLegacy
-; CHECK-NEXT:     BuiltinImportLegacy
-; CHECK:          FunctionPass Manager
+; CHECK-NEXT:     Global Variable Optimizer
+; CHECK:          BuiltinImportLegacy
+; CHECK-NEXT:     InternalizeGlobalVariablesLegacy
+; CHECK-NEXT:     Dead Global Elimination
+; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
 ; CHECK:          Function Integration/Inlining
 ; CHECK:          Dead Argument Elimination
-; CHECK:          SROA
-; CHECK:          Loop Invariant Code Motion
-; CHECK:          Recognize loop idioms
-; CHECK:          Delete dead loops
-; CHECK:          Hoist strided values out of loops
-; CHECK:          Simplify the CFG
+; CHECK-NEXT:     FunctionPass Manager
+; CHECK:            SROA
+; CHECK:            Canonicalize natural loops
+; CHECK:            Loop Invariant Code Motion
+; CHECK:            Recognize loop idioms
+; CHECK:            Delete dead loops
+; CHECK:            Hoist strided values out of loops
+; CHECK:            Simplify the CFG
+; CHECK:          ImplicitArgsAnalysisLegacy
+; CHECK-NEXT:     PatchCallBackArgs
 ; CHECK:          PrepareKernelArgsLegacy
-; CHECK:          Simplify the CFG
-; CHECK:          SROA
-; CHECK:          Combine redundant instructions
-; CHECK:          Global Value Numbering
-; CHECK:          Dead Store Elimination
-; CHECK:          Aggressive Dead Code Elimination
-; CHECK:          Early CSE
+; CHECK-NEXT:     FunctionPass Manager
+; CHECK:            Simplify the CFG
+; CHECK:            SROA
+; CHECK:            Combine redundant instructions
+; CHECK:            Global Value Numbering
+; CHECK:            Dead Store Elimination
+; CHECK:            Aggressive Dead Code Elimination
+; CHECK:            Early CSE
+; CHECK:            Combine redundant instructions
 ; CHECK:          CleanupWrappedKernelLegacy
