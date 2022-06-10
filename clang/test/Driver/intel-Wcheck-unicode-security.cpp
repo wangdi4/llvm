@@ -47,3 +47,10 @@
 // RUN: %clang_cl /Wcheck-unicode-security --intel-config %S/Inputs/empty.cfg -### %s 2>&1 \
 // RUN:   | FileCheck --check-prefix=NO_CONFIG_OPT %s
 // NO_CONFIG_OPT-NOT: clang-tidy{{.*}} {{.*}}--intel-config
+
+// -fsycl needs to be passed to clang-tidy for DPC++
+// RUN: %clangxx -Wcheck-unicode-security -fsycl -### %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=SYCL %s
+// RUN: %clang_cl /Wcheck-unicode-security -fsycl -### %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=SYCL %s
+// SYCL: clang-tidy{{.*}} "-fsycl"
