@@ -58,6 +58,11 @@ static cl::opt<unsigned> VPlanTargetVF(
     "vplan-target-vf", cl::init(0),
     cl::desc("When simdlen is not set force VPlan to use given VF"));
 
+static cl::opt<unsigned> VPlanSearchLpPtrEqForceVF(
+    "vplan-search-lp-ptr-eq-force-vf", cl::init(4),
+    cl::desc("Force VPlan to use given VF to vectorize all search loops that "
+             "match the SearchLoopPtrEq idiom."));
+
 static cl::opt<bool>
     DisableVPlanPredicator("disable-vplan-predicator", cl::init(false),
                            cl::Hidden, cl::desc("Disable VPlan predicator."));
@@ -854,7 +859,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
         SearchLoopPreferredVF = 32;
         break;
       case VPlanIdioms::SearchLoopPtrEq:
-        SearchLoopPreferredVF = 4;
+        SearchLoopPreferredVF = VPlanSearchLpPtrEqForceVF;
         break;
       default:
         break;
