@@ -884,11 +884,19 @@ void FuseGraph::updateNeighbors(FuseEdgeHeap &Heap, unsigned NodeV,
         Heap.reheapEdge<false, false>(NodeV, NodeY, Edge.Weight);
         Heap.remove<true>(NodeX, NodeY);
       } else {
-        // No direct edge, create one.
-        // Note on this call in updateSuccessors()
-        auto &FEdge = getOrCreateFuseEdge(NodeV, NodeY);
-        FEdge = getFuseEdge(NodeX, NodeY);
-        Heap.replaceEdge<true, false>(NodeX, NodeY, NodeV, NodeY);
+        if (Neighbors[NodeV].count(NodeY)) {
+          // V and Y are already neighbors, merge edges.
+          auto &FEdge = getFuseEdge(NodeV, NodeY);
+          FEdge.merge(getFuseEdge(NodeX, NodeY));
+          Heap.reheapEdge<true, false>(NodeV, NodeY, FEdge.Weight);
+          Heap.remove<true>(NodeX, NodeY);
+        } else {
+          // No direct edge, create one.
+          // Note on this call in updateSuccessors()
+          auto &FEdge = getOrCreateFuseEdge(NodeV, NodeY);
+          FEdge = getFuseEdge(NodeX, NodeY);
+          Heap.replaceEdge<true, false>(NodeX, NodeY, NodeV, NodeY);
+        }
 
         addDirectedEdgeInternal(NodeV, NodeY);
       }
@@ -903,11 +911,19 @@ void FuseGraph::updateNeighbors(FuseEdgeHeap &Heap, unsigned NodeV,
         Heap.reheapEdge<false, false>(NodeY, NodeV, Edge.Weight);
         Heap.remove<true>(NodeX, NodeY);
       } else {
-        // No direct edge, create one.
-        // Note on this call in updateSuccessors()
-        auto &FEdge = getOrCreateFuseEdge(NodeY, NodeV);
-        FEdge = getFuseEdge(NodeY, NodeX);
-        Heap.replaceEdge<true, false>(NodeX, NodeY, NodeY, NodeV);
+        if (Neighbors[NodeY].count(NodeV)) {
+          // V and Y are already neighbors, merge edges.
+          auto &FEdge = getFuseEdge(NodeY, NodeV);
+          FEdge.merge(getFuseEdge(NodeY, NodeX));
+          Heap.reheapEdge<true, false>(NodeY, NodeV, FEdge.Weight);
+          Heap.remove<true>(NodeX, NodeY);
+        } else {
+          // No direct edge, create one.
+          // Note on this call in updateSuccessors()
+          auto &FEdge = getOrCreateFuseEdge(NodeY, NodeV);
+          FEdge = getFuseEdge(NodeY, NodeX);
+          Heap.replaceEdge<true, false>(NodeX, NodeY, NodeY, NodeV);
+        }
 
         addDirectedEdgeInternal(NodeY, NodeV);
       }
