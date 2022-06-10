@@ -86,6 +86,13 @@
 ; CG-CHECK-NEXT:           }
 ; CG-CHECK-NEXT:     END REGION
 
+; Check that VF can be tuned using command line option.
+; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
+; RUN:      -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec \
+; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -disable-output -vplan-search-lp-ptr-eq-force-vf=16 < %s 2>&1 | FileCheck --check-prefix=VF16-CHECK %s
+; VF16-CHECK:           BEGIN REGION { modified }
+; VF16-CHECK:                 + DO i1 = 0, 16 * %tgu + -1, 16   <DO_MULTI_EXIT_LOOP> <auto-vectorized> <nounroll> <novectorize>
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
