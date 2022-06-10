@@ -508,9 +508,8 @@ Type *InstCountResultImpl::estimateDominantType(
 int InstCountResultImpl::estimateCall(CallInst *CI) {
   // TID generators are extremely common and very cheap.
   bool IsTidGen;
-  bool Err;
   unsigned Dim;
-  std::tie(IsTidGen, Err, Dim) = isTIDGenerator(CI);
+  std::tie(IsTidGen, Dim) = isTIDGenerator(CI);
   if (IsTidGen)
     return DefaultWeight;
 
@@ -1223,14 +1222,10 @@ void InstCountResultImpl::estimateMemOpCosts(
       StringRef Name = CI->getCalledFunction()->getName();
       // get_group_id() is not a TID generator, but plays the same role here.
       bool IsTidGen;
-      bool Err;
       unsigned Dim;
-      std::tie(IsTidGen, Err, Dim) = isTIDGenerator(CI);
-
-      if (IsTidGen || Name.equals("get_group_id")) {
-        assert(!Err && "Should not have variable TID access at this stage");
+      std::tie(IsTidGen, Dim) = isTIDGenerator(CI);
+      if (IsTidGen || isGetGroupId(Name))
         addUsersToWorklist(CI, Visited, TIDUsers);
-      }
     }
   }
 

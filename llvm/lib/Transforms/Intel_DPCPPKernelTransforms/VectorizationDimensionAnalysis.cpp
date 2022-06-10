@@ -166,11 +166,10 @@ bool VectorizeDimInfo::hasDim(Function *F, unsigned Dim) const {
     }
 
     bool IsTidGen;
-    bool Err;
     unsigned Dimension;
-    std::tie(IsTidGen, Err, Dimension) = isTIDGenerator(CI);
+    std::tie(IsTidGen, Dimension) = isTIDGenerator(CI);
     // KernelAnalysis should have set NobarrierPath to false if err is true.
-    assert(IsTidGen && !Err &&
+    assert(IsTidGen &&
            "TIDGen inst receives non-constant input. Cannot vectorize!");
     if (Dim == Dimension)
       return true;

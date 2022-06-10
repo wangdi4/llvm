@@ -35,9 +35,6 @@ public:
                                  bool EnableDirectCallVectorization = false,
                                  bool EnableSGDirectCallVectorization = false);
 
-  // Check if the function has variable access to get_global/loval_id(X)
-  static bool hasVariableGetTIDAccess(Function &F);
-
   // Get unsupported function in a module.
   // An unsupported function is function that contains
   // barrier/get_local_id/get_global_id or a call to unsupported function.

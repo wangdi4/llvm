@@ -98,10 +98,6 @@ private:
   TIDDescVec TIDDescs;
   /// Vector of uniform early exit descriptions.
   SmallVector<UniformDesc, 4> UniDescs;
-  /// Indicate whether there are calls to get***id with non-constant argument.
-  bool HasVariableTid;
-  /// Contains calls to get***id with variable argument.
-  SmallPtrSet<CallInst *, 2> VariableTIDCalls;
   /// The dim's entry holds the get***id of dimension dim.
   SmallVector<SmallVector<CallInst *, 4>, 4> TIDByDim;
   /// Holds instruction marked for removal.
@@ -391,7 +387,6 @@ void WGLoopBoundariesImpl::collectBlockData(BasicBlock *BB) {
       // If the function is defined in the module, it is not uniform.
       // If the function is ID generator, it is not uniform.
       if (!Callee || !Callee->isDeclaration() ||
-          VariableTIDCalls.contains(CI) ||
           isWorkGroupDivergent(Callee->getName()) || TIDs.count(CI)) {
         Uni[I] = false;
         LLVM_DEBUG(dbgs() << "Callee " << Callee->getName()
@@ -417,11 +412,8 @@ void WGLoopBoundariesImpl::collectBlockData(BasicBlock *BB) {
 void WGLoopBoundariesImpl::processTIDCall(CallInst *CI, bool IsGID) {
   assert(CI->getType() == IndTy && "mismatch get***id type");
   auto *DimC = dyn_cast<ConstantInt>(CI->getArgOperand(0));
-  if (!DimC) {
-    HasVariableTid = true;
-    VariableTIDCalls.insert(CI);
-    return;
-  }
+  assert(DimC && "unexpected variable TID");
+
   unsigned Dim = static_cast<unsigned>(DimC->getValue().getZExtValue());
   assert(Dim < MAX_WORK_DIM && "get***id with dim > (MAX_WORK_DIM-1)");
   // All dimension above NumDim are uniform so we don't need to add them.
@@ -433,7 +425,6 @@ void WGLoopBoundariesImpl::processTIDCall(CallInst *CI, bool IsGID) {
 
 void WGLoopBoundariesImpl::collectTIDData() {
   // First clear the tids data structures.
-  HasVariableTid = false;
   TIDs.clear();
   TIDByDim.clear();
   TIDByDim.resize(NumDim); // allocate vector for each dimension
@@ -725,11 +716,6 @@ bool WGLoopBoundariesImpl::obtainBoundaryCmpSelect(ICmpInst *Cmp, Value *Bound,
 }
 
 bool WGLoopBoundariesImpl::findAndHandleTIDMinMaxBound() {
-  // In case there are get***id with variable argument, we can not know who
-  // are the users of each dimension.
-  if (HasVariableTid)
-    return false;
-
   // In case there is an atomic/pipe call we cannot avoid running two work items
   // that use essentially the same id (due to min(get***id(),uniform) as the
   // atomic/pipe call may have different consequences for the same id.

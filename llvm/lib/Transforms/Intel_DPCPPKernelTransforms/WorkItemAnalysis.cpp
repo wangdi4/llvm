@@ -454,10 +454,8 @@ WorkItemInfo::Dependency WorkItemInfo::calculateDep(const CallInst *I) {
 
   // Check if call is TID-generator.
   bool IsTidGen;
-  bool Err;
   unsigned Dim;
-  std::tie(IsTidGen, Err, Dim) = isTIDGenerator(I);
-  assert(!Err && "TIDGen inst receives non-constant input. Cannot vectorize!");
+  std::tie(IsTidGen, Dim) = isTIDGenerator(I);
   // All WorkItem's are consecutive along the dimension.
   if (IsTidGen && Dim == VectorizeDim)
     return CONSECUTIVE;
