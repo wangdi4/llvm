@@ -512,11 +512,10 @@ bool isSubGroupRowSliceInsertElement(StringRef S);
 bool isSubGroupInsertRowSliceToMatrix(StringRef S);
 
 /// Check if \p CI is an TID generator with constant operator.
-/// \returns a tuple of
+/// \returns a pair of
 ///   * true if \p CI is TID generator.
-///   * true if there is an error that its argument is not constant.
 ///   * dimension of the TID generator.
-std::tuple<bool, bool, unsigned> isTIDGenerator(const CallInst *CI);
+std::pair<bool, unsigned> isTIDGenerator(const CallInst *CI);
 
 /// Collect all kernel functions.
 inline auto getKernels(Module &M) {
