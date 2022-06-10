@@ -13,54 +13,65 @@
 ; CHECK-NEXT:     Module Verifier
 #endif // #ifndef NDEBUG
 
-; CHECK:        Unify function exit nodes
-; CHECK-NOT:    Infer address spaces
+; CHECK:        FunctionPass Manager
+; CHECK:          Unify function exit nodes
 
 ; CHECK:        BuiltinLibInfoAnalysisLegacy
 
 ; CHECK:        ModulePass Manager
 ; CHECK:          DPCPPEqualizerLegacy
-; CHECK-NEXT:     DuplicateCalledKernels
-; CHECK-NOT:      InternalizeNonKernelFuncLegacy
+; CHECK:          DuplicateCalledKernels
+; CHECK-NEXT:     FunctionPass Manager
+; CHECK-NEXT:       FMASplitter
 ; CHECK-NEXT:     AddFunctionAttrs
 ; CHECK-NEXT:     CallGraph Construction
 ; CHECK-NEXT:     LinearIdResolverLegacy
 ; CHECK-NEXT:     FunctionPass Manager
-; CHECK-NEXT:       BuiltinCallToInstLegacy
-; CHECK-NOT:      VFAnalysisLegacy
-; CHECK-NOT:      SetVectorizationFactorLegacy
-; CHECK-NOT:      VectorVariantLoweringLegacy
-; CHECK-NOT:      CreateSimdVariantPropagationLegacy
-; CHECK-NOT:      SGSizeCollectorLegacy
-; CHECK-NOT:      SGSizeCollectorIndirectLegacy
+; CHECK:            BuiltinCallToInstLegacy
 ; CHECK-NOT:      DPCPPKernelVecCloneLegacy
 ; CHECK-NOT:      VecClone
-; CHECK:          DPCPPKernelAnalysisLegacy
-; CHECK:          ResolveSubGroupWICallLegacy
-; CHECK:          WGLoopCreatorLegacy
-; CHECK:          Lowering __intel_indirect_call scalar calls
-; CHECK-NOT:      ResolveSubGroupWICallLegacy
+; CHECK:          CallGraph Construction
+; CHECK-NEXT:     DPCPPKernelAnalysisLegacy
+; CHECK:          Intel DPCPP Kernel ReqdSubGroupSize Pass
+; CHECK-NEXT:     VFAnalysisLegacy
 ; CHECK-NEXT:       FunctionPass Manager
-; CHECK:              PhiCanonicalization
-; CHECK-NEXT:         Intel Kernel RedundantPhiNode
+; CHECK:              WeightedInstCountAnalysisLegacy
+; CHECK:          SetVectorizationFactorLegacy
+; CHECK:          ResolveSubGroupWICallLegacy
+; CHECK-NEXT:     FunctionPass Manager
+; CHECK-NEXT:       Intel DPCPP Kernel OptimizeIDivAndIRem Pass
+; CHECK-NEXT:       Intel DPCPP Kernel PreventDivCrashes Pass
+; CHECK-NEXT:     WGLoopCreatorLegacy
+; CHECK-NEXT:       FunctionPass Manager
+; CHECK-NEXT:         Unify function exit nodes
+; CHECK-NEXT:     Lowering __intel_indirect_call scalar calls
+; CHECK-NEXT:     FunctionPass Manager
+; CHECK:            PhiCanonicalization
+; CHECK-NEXT:       Intel Kernel RedundantPhiNode
 ; CHECK-NEXT:     GroupBuiltin
 ; CHECK-NEXT:     Intel Kernel BarrierInFunction
+; CHECK-NEXT:     Intel DPCPP Kernel RemoveDuplicatedBarrier Pass
 ; CHECK-NEXT:     ResolveSubGroupWICallLegacy
 ; CHECK-NEXT:     Intel Kernel SplitBBonBarrier
 ; CHECK-NEXT:     Intel Kernel DataPerBarrier Analysis
 ; CHECK-NEXT:     Intel Kernel WIRelatedValue Analysis
 ; CHECK-NEXT:     Intel Kernel DataPerValue Analysis
 ; CHECK-NEXT:     Intel Kernel Barrier
-; CHECK:          ImplicitArgsAnalysisLegacy
-; CHECK:          LocalBufferAnalysisLegacy
+; CHECK:          CallGraph Construction
+; CHECK-NEXT:     ImplicitArgsAnalysisLegacy
+; CHECK-NEXT:     LocalBufferAnalysisLegacy
 ; CHECK-NEXT:     AddImplicitArgsLegacy
 ; CHECK-NEXT:     ResolveWICallLegacy
-; CHECK:          CallGraph Construction
+; CHECK-NEXT:     CallGraph Construction
 ; CHECK-NEXT:     LocalBufferAnalysisLegacy
 ; CHECK-NEXT:     LocalBuffersLegacy
-; CHECK-NEXT:     BuiltinImportLegacy
+; CHECK-NEXT:     Global Variable Optimizer
+; CHECK:          BuiltinImportLegacy
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
-; CHECK:          Inliner for always_inline functions
-; CHECK:          PrepareKernelArgsLegacy
+; CHECK:          Call Graph SCC Pass Manager
+; CHECK:            Inliner for always_inline functions
+; CHECK-NEXT:     ImplicitArgsAnalysisLegacy
+; CHECK-NEXT:     PatchCallBackArgs
+; CHECK-NEXT:     PrepareKernelArgsLegacy
 ; CHECK-NEXT:     CleanupWrappedKernelLegacy
