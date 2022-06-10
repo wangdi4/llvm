@@ -4,35 +4,43 @@
 ;
 ; Test src:
 ;
+; #include <stdio.h>
+;
 ; int main() {
 ;   int a = 10;
-;
-; //#pragma omp target data map(a) use_device_addr(a)
+; // #pragma omp target data map(a) use_device_addr(a)
 ; #pragma omp target has_device_addr(a)
-;   { printf("%d %p\n", a, &a); a = 100; }
-;
-; //  printf("%d %p\n", a, &a);
+;   {
+;     printf("%d %p\n", a, &a);
+;     a = 100;
+;   }
+;   // printf("%d %p\n", a, &a);
 ; }
 
 ; Check that has_device_addr was parsed as is_device_ptr
-; CHECK: IS_DEVICE_PTR clause (size=1): (i32* %a)
+; CHECK: IS_DEVICE_PTR clause (size=1): (ptr %a)
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64"
-target device_triples = "x86_64"
+target triple = "x86_64-unknown-linux-gnu"
 
 @.str = private unnamed_addr constant [7 x i8] c"%d %p\0A\00", align 1
 
 ; Function Attrs: noinline nounwind optnone uwtable
-define hidden i32 @main() #0 {
+define dso_local i32 @main() #0 {
 entry:
   %a = alloca i32, align 4
-  store i32 10, i32* %a, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.HAS_DEVICE_ADDR"(i32* %a) ]
-  %1 = load i32, i32* %a, align 4
-  %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 %1, i32* %a) #1
-  store i32 100, i32* %a, align 4
-  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
+  %a.casted = alloca i64, align 8
+  store i32 10, ptr %a, align 4
+  %0 = load i32, ptr %a, align 4
+  store i32 %0, ptr %a.casted, align 4
+  %1 = load i64, ptr %a.casted, align 8
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.HAS_DEVICE_ADDR"(ptr %a) ]
+  %3 = load i32, ptr %a, align 4
+  %call = call i32 (ptr, ...) @printf(ptr noundef @.str, i32 noundef %3, ptr noundef %a) #1
+  store i32 100, ptr %a, align 4
+  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.TARGET"() ]
   ret i32 0
 }
 
@@ -42,15 +50,17 @@ declare token @llvm.directive.region.entry() #1
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #1
 
-declare i32 @printf(i8*, ...) #2
+declare dso_local i32 @printf(ptr noundef, ...) #2
 
-attributes #0 = { noinline nounwind optnone uwtable "contains-openmp-target"="true" "disable-tail-calls"="false" "frame-pointer"="all" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { noinline nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 attributes #1 = { nounwind }
-attributes #2 = { "disable-tail-calls"="false" "frame-pointer"="all" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "openmp-target-declare"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #2 = { "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 
 !omp_offload.info = !{!0}
-!llvm.module.flags = !{!1, !2}
+!llvm.module.flags = !{!1, !2, !3, !4}
 
-!0 = !{i32 0, i32 2055, i32 154474779, !"_Z4main", i32 7, i32 0, i32 0}
+!0 = !{i32 0, i32 52, i32 -1927830713, !"_Z4main", i32 6, i32 0, i32 0}
 !1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{i32 7, !"PIC Level", i32 2}
+!2 = !{i32 7, !"openmp", i32 51}
+!3 = !{i32 7, !"uwtable", i32 2}
+!4 = !{i32 7, !"frame-pointer", i32 2}
