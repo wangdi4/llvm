@@ -4185,8 +4185,11 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     // Scalar result of registerized private finalization should be written back
     // to original private descriptor variable.
     RegDDRef *OrigPrivDescr = nullptr;
-    if (VPInst->getOpcode() == VPInstruction::PrivateFinalMasked)
+    if (VPInst->getOpcode() == VPInstruction::PrivateFinalMasked) {
       OrigPrivDescr = getUniformScalarRef(VPInst->getOperand(2));
+      if (OrigPrivDescr->isConstant())
+        OrigPrivDescr = nullptr;
+    }
 
     RegDDRef *VecExit = widenRef(VPInst->getOperand(0), getVF());
 
