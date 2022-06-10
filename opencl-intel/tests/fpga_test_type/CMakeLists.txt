@@ -27,3 +27,10 @@ add_ocl_unittest_artifacts(
     data/internal-ctor-lib.cpp.ioc.obj
     data/atomics64.spv
 )
+
+add_dependencies(fpga_test_type
+  clang_compiler${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF}
+  OclCpuBackEnd${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF}
+  cpu_device${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF}
+  ${OCL_RT_TEST_DEPS}
+)
