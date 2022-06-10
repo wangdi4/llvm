@@ -4877,6 +4877,11 @@ void Clang::ClangTidySourceCheck(Compilation &C, const JobAction &JA,
     ClangTidyArgs.push_back(
         TCArgs.MakeArgString(A->getBaseArg().getAsString(TCArgs)));
   }
+  // DPC++ compilations require resolution of the headers, add -fsycl so the
+  // headers are pulled in as expected. This is done due to the fact that -fsycl
+  // is filtered out for the device compilation.
+  if (JA.isDeviceOffloading(Action::OFK_SYCL))
+    ClangTidyArgs.push_back("-fsycl");
 
   // Find clang-tidy.
   SmallString<128> ClangTidyPath(C.getDriver().Dir);
