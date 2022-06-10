@@ -5,34 +5,38 @@
 ; This code tests TYPED clause
 ; The test is passed if COPYPRIVATE:TYPED clauses are parsed correctly
 
-target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
-
+; Test src:
+;
 ; #include <omp.h>
 ; int nder;
 ; int priv;
 ; #pragma omp threadprivate(nder, priv)
 ; void foo() {
 ; #pragma omp parallel copyin(nder)
-;       nder = 12;
+;   nder = 12;
 ; #pragma omp single copyprivate(priv)
-;       priv = 13;
+;   priv = 13;
 ; }
 
-; CHECK: COPYPRIVATE clause (size=1): i32* @priv, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1)
+; CHECK: COPYPRIVATE clause (size=1): ptr @priv, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1)
+
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
 
 @nder = dso_local thread_private global i32 0, align 4
 @priv = dso_local thread_private global i32 0, align 4
 
-; Function Attrs: nounwind uwtable
+; Function Attrs: noinline nounwind optnone uwtable
 define dso_local void @foo() #0 {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.COPYIN"(i32* @nder) ]
-  store i32 12, i32* @nder, align 4, !tbaa !4
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
+    "QUAL.OMP.COPYIN:TYPED"(ptr @nder, i32 0, i32 1) ]
+  store i32 12, ptr @nder, align 4
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ]
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SINGLE"(), "QUAL.OMP.COPYPRIVATE:TYPED"(i32* @priv, i32 0, i32 1) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SINGLE"(),
+    "QUAL.OMP.COPYPRIVATE:TYPED"(ptr @priv, i32 0, i32 1) ]
   fence acquire
-  store i32 13, i32* @priv, align 4, !tbaa !4
+  store i32 13, ptr @priv, align 4
   fence release
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.SINGLE"() ]
   ret void
@@ -44,17 +48,12 @@ declare token @llvm.directive.region.entry() #1
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #1
 
-attributes #0 = { nounwind uwtable "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #0 = { noinline nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 attributes #1 = { nounwind }
 
-!llvm.module.flags = !{!0, !1, !2}
-!llvm.ident = !{!3}
+!llvm.module.flags = !{!0, !1, !2, !3}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 7, !"openmp", i32 50}
-!2 = !{i32 7, !"uwtable", i32 1}
-!3 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2021.4.0 (2021.x.0.YYYYMMDD)"}
-!4 = !{!5, !5, i64 0}
-!5 = !{!"int", !6, i64 0}
-!6 = !{!"omnipotent char", !7, i64 0}
-!7 = !{!"Simple C/C++ TBAA"}
+!2 = !{i32 7, !"uwtable", i32 2}
+!3 = !{i32 7, !"frame-pointer", i32 2}
