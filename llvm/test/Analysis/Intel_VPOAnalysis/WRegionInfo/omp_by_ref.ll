@@ -1,9 +1,6 @@
 ; RUN: opt -enable-new-pm=0 -vpo-wrncollection -analyze %s | FileCheck %s
 ; RUN: opt -passes='function(print<vpo-wrncollection>)' -disable-output %s 2>&1 | FileCheck %s
 
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
-
 ; CMPLRLLVM_901: BY-REF support
 ; In the test below, bbb is passed by reference, so its representation
 ; in the firstprivate clause has the BYREF modifier, resulting
@@ -27,43 +24,52 @@ target triple = "x86_64-unknown-linux-gnu"
 ;   PROCBIND: UNSPECIFIED
 ;   SHARED clause: UNSPECIFIED
 ;   PRIVATE clause: UNSPECIFIED
-;   FIRSTPRIVATE clause (size=2): (i32* %aaa.addr) BYREF(i32* %0) <- CHECK THIS
+;   FIRSTPRIVATE clause (size=2): (ptr %aaa.addr) , TYPED (TYPE: i32, NUM_ELEMENTS: i32 1)BYREF(ptr %bbb.addr) , TYPED (TYPE: i32, NUM_ELEMENTS: i32 1) <- CHECK THIS
 ;   REDUCTION clause: UNSPECIFIED
+;   ALLOCATE clause: UNSPECIFIED
 ;   COPYIN clause: UNSPECIFIED
 ;
-;   EntryBB: DIR.OMP.PARALLEL.1
-;   ExitBB: DIR.OMP.END.PARALLEL.3
+;   EntryBB: DIR.OMP.PARALLEL.2
+;   ExitBB: DIR.OMP.END.PARALLEL.4
 ;
 ; } END PARALLEL ID=1
 
-; CHECK: FIRSTPRIVATE clause (size=2):{{.*}} BYREF(i32* {{.*}})
+; CHECK: FIRSTPRIVATE clause (size=2):{{.*}}BYREF(ptr {{.*}})
 
-; Function Attrs: nounwind uwtable
-define dso_local void @_Z3fooiRi(i32 %aaa, i32* dereferenceable(4) %bbb) #0 {
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+; Function Attrs: mustprogress noinline nounwind optnone uwtable
+define dso_local void @_Z3fooiRi(i32 noundef %aaa, ptr noundef nonnull align 4 dereferenceable(4) %bbb) #0 {
 entry:
   %aaa.addr = alloca i32, align 4
-  %bbb.addr = alloca i32*, align 8
-  store i32 %aaa, i32* %aaa.addr, align 4, !tbaa !2
-  store i32* %bbb, i32** %bbb.addr, align 8, !tbaa !6
-  %0 = load i32*, i32** %bbb.addr, align 8, !tbaa !6
+  %bbb.addr = alloca ptr, align 8
+  store i32 %aaa, ptr %aaa.addr, align 4
+  store ptr %bbb, ptr %bbb.addr, align 8
+  %0 = load ptr, ptr %bbb.addr, align 8
   br label %DIR.OMP.PARALLEL.1
 
 DIR.OMP.PARALLEL.1:                               ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %aaa.addr), "QUAL.OMP.FIRSTPRIVATE:BYREF"(i32* %0) ]
   br label %DIR.OMP.PARALLEL.2
 
 DIR.OMP.PARALLEL.2:                               ; preds = %DIR.OMP.PARALLEL.1
-  %2 = load i32, i32* %aaa.addr, align 4, !tbaa !2
-  %add = add nsw i32 %2, 123
-  %3 = load i32*, i32** %bbb.addr, align 8, !tbaa !6
-  store i32 %add, i32* %3, align 4, !tbaa !2
-  br label %DIR.OMP.END.PARALLEL.3
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %aaa.addr, i32 0, i32 1),
+    "QUAL.OMP.FIRSTPRIVATE:BYREF.TYPED"(ptr %bbb.addr, i32 0, i32 1) ]
+  br label %DIR.OMP.PARALLEL.3
 
-DIR.OMP.END.PARALLEL.3:                           ; preds = %DIR.OMP.PARALLEL.2
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.PARALLEL"() ]
+DIR.OMP.PARALLEL.3:                               ; preds = %DIR.OMP.PARALLEL.2
+  %2 = load i32, ptr %aaa.addr, align 4
+  %add = add nsw i32 %2, 123
+  %3 = load ptr, ptr %bbb.addr, align 8
+  store i32 %add, ptr %3, align 4
   br label %DIR.OMP.END.PARALLEL.4
 
-DIR.OMP.END.PARALLEL.4:                           ; preds = %DIR.OMP.END.PARALLEL.3
+DIR.OMP.END.PARALLEL.4:                           ; preds = %DIR.OMP.PARALLEL.3
+  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.PARALLEL"() ]
+  br label %DIR.OMP.END.PARALLEL.5
+
+DIR.OMP.END.PARALLEL.5:                           ; preds = %DIR.OMP.END.PARALLEL.4
   ret void
 }
 
@@ -73,17 +79,12 @@ declare token @llvm.directive.region.entry() #1
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #1
 
-attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { mustprogress noinline nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 attributes #1 = { nounwind }
 
-!llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
+!llvm.module.flags = !{!0, !1, !2, !3}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 5be402b1c6a5f2f334635d9257915bd7c3f4b734) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm d4632b6348b82823479bab9a392d33ce89e0f8e3)"}
-!2 = !{!3, !3, i64 0}
-!3 = !{!"int", !4, i64 0}
-!4 = !{!"omnipotent char", !5, i64 0}
-!5 = !{!"Simple C++ TBAA"}
-!6 = !{!7, !7, i64 0}
-!7 = !{!"any pointer", !4, i64 0}
+!1 = !{i32 7, !"openmp", i32 51}
+!2 = !{i32 7, !"uwtable", i32 2}
+!3 = !{i32 7, !"frame-pointer", i32 2}

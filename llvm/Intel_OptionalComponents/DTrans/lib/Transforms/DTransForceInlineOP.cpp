@@ -16,6 +16,7 @@
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/DTransCommon.h"
+#include "Intel_DTrans/Transforms/MemManageInfoOPImpl.h"
 #include "Intel_DTrans/Transforms/StructOfArraysOPInfoImpl.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
@@ -152,7 +153,29 @@ bool DTransForceInlineOP::run(Module &M) {
     if (!IsEmptyFunction(F))
       F->addFnAttr("noinline-dtrans");
 
-  // TODO: MEMMANAGETRANS: Code needs to be ported to opaque pointers.
+  // TODO: MEMMANAGETRANS: Code to mark inlining preferences needs to be ported
+  // for opaque pointers.
+  // - Force inlining for all inner functions of Allocator.
+  // - Suppress inlining for interface functions, StringAllocator functions and
+  //   StringObject functions.
+
+  for (auto *Str : M.getIdentifiedStructTypes()) {
+    if (!Str->hasName())
+      continue;
+    dtransOP::DTransStructType *StrType = TM.getStructType(Str->getName());
+    assert(StrType && "Expected DTransStructType");
+
+    // Determine whether this is the "StringAllocator" struct.
+    dtransOP::MemManageCandidateInfo MemManageInfo(M);
+    if (!MemManageInfo.isCandidateType(StrType))
+      continue;
+
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFOOP, {
+      dbgs() << "MemManageTrans considering candidate: ";
+      Str->print(dbgs(), true, true);
+      dbgs() << "\n";
+    });
+  }
   return true;
 }
 
