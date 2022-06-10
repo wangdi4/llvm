@@ -8,96 +8,67 @@
 ; CHECK-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
 ; CHECK-NEXT: Running pass: SpecializeConstantPass
+
+#ifndef NDEBUG
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
-; CHECK-NEXT: Running pass: DPCPPEqualizerPass
+#endif // #ifndef NDEBUG
+
+; CHECK:      Running pass: DPCPPEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
-; CHECK-NEXT: Running pass: DuplicateCalledKernels
-; CHECK-NEXT: Running pass: AddFunctionAttrsPass
-; CHECK-NEXT: Running pass: LinearIdResolverPass
+; CHECK:      Running pass: DuplicateCalledKernels
+; CHECK:      Skipping pass FMASplitterPass
+; CHECK:      Running pass: AddFunctionAttrsPass
+; CHECK:      Running pass: LinearIdResolverPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
-; CHECK-NEXT: Running pass: BuiltinCallToInstPass
+; CHECK:      Running pass: BuiltinCallToInstPass
 
-; CHECK:      Running pass: DPCPPKernelAnalysisPass
-; CHECK-NEXT: Running analysis: LoopAnalysis
-; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
-; CHECK-NEXT: Running pass: InstToFuncCallPass
+; CHECK:      Running pass: DetectRecursionPass
+; CHECK-NEXT: Running pass: ResolveVarTIDCallPass
+; CHECK-NEXT: Running pass: InferArgumentAliasPass
+; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
+; CHECK:      Running pass: InstToFuncCallPass
+; CHECK:      Running pass: ReqdSubGroupSizePass
 ; CHECK-NEXT: Running pass: SetVectorizationFactorPass
-; CHECK-NEXT: Running analysis: VFAnalysis
-; CHECK-NEXT: Running analysis: WeightedInstCountAnalysis
-; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
-; CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis
-; CHECK-NEXT: Running analysis: TargetLibraryAnalysis
-; CHECK-NEXT: Running analysis: AssumptionAnalysis
-; CHECK-NEXT: Running analysis: TargetIRAnalysis
-; CHECK-NEXT: Running pass: VectorVariantLowering
-; CHECK-NEXT: Running pass: CreateSimdVariantPropagation
-; CHECK-NEXT: Running pass: SGSizeCollectorPass
-; CHECK-NEXT: Running pass: SGSizeCollectorIndirectPass
-; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::VectorizationDimensionAnalysis, llvm::Module>
-; CHECK-NEXT: Running analysis: VectorizationDimensionAnalysis
-; CHECK-NEXT: Running pass: DPCPPKernelVecClonePass
-; CHECK-NEXT: Invalidating analysis: VerifierAnalysis
-; CHECK-NEXT: Invalidating analysis: CallGraphAnalysis
-; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
-; CHECK-NEXT: Invalidating analysis: VFAnalysis
-; CHECK-NEXT: Invalidating analysis: VectorizationDimensionAnalysis
-; CHECK-NEXT: Running pass: VectorVariantFillIn
-; CHECK-NEXT: Running pass: UpdateCallAttrs
+; CHECK:      Running analysis: VFAnalysis
+; CHECK:      Running analysis: WeightedInstCountAnalysis
 
-; CHECK:      Running pass: DPCPPKernelPostVecPass
-; CHECK-NEXT: Running pass: HandleVPlanMask
-; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass
+; CHECK:      Running pass: ResolveSubGroupWICallPass
+; CHECK-NEXT: Skipping pass OptimizeIDivAndIRemPass
+; CHECK:      Running pass: PreventDivCrashesPass
 ; CHECK-NEXT: Running pass: ImplicitGIDPass
 ; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
-; CHECK-NEXT: Running pass: DPCPPKernelWGLoopCreatorPass
-; CHECK-NEXT: Invalidating analysis: DataPerBarrierAnalysis
-; CHECK-NEXT: Running pass: IndirectCallLowering
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
-; CHECK-NEXT: Skipping pass PhiCanonicalization
-; CHECK-NEXT: Skipping pass: PhiCanonicalization
-; CHECK-NEXT: Skipping pass RedundantPhiNode
-; CHECK-NEXT: Skipping pass: RedundantPhiNode
-; CHECK-NEXT: Running pass: GroupBuiltinPass
+; CHECK:      Running pass: DPCPPKernelWGLoopCreatorPass
+; CHECK:      Running pass: IndirectCallLowering
+; CHECK:      Skipping pass RemoveRegionDirectivesPass
+; CHECK:      Skipping pass UnifyFunctionExitNodesPass
+
+; CHECK:      Skipping pass PhiCanonicalization
+; CHECK:      Skipping pass RedundantPhiNode
+; CHECK:      Running pass: GroupBuiltinPass
 ; CHECK-NEXT: Running pass: BarrierInFunction
-; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
-; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass
+; CHECK:      Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: SplitBBonBarrier
 ; CHECK-NEXT: Running pass: KernelBarrier
-; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
-; CHECK-NEXT: Running analysis: DataPerValueAnalysis
-; CHECK-NEXT: Running analysis: WIRelatedValueAnalysis
-; CHECK-NEXT: Running pass: AddTLSGlobalsPass
+; CHECK:      Running analysis: DataPerBarrierAnalysis
+; CHECK:      Running analysis: DataPerValueAnalysis
+; CHECK:      Running analysis: WIRelatedValueAnalysis
+
+; CHECK:      Running pass: AddTLSGlobalsPass
+; CHECK:      Running analysis: LocalBufferAnalysis
+; CHECK:      Running analysis: ImplicitArgsAnalysis
+; CHECK:      Running pass: ResolveWICallPass
+; CHECK-NEXT: Running analysis: CallGraphAnalysis
+; CHECK:      Running pass: LocalBuffersPass
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
+; CHECK:      Running pass: BuiltinImportPass
+; CHECK:      Running pass: BuiltinCallToInstPass
+; CHECK:      Running pass: AlwaysInlinerPass
+; CHECK-NEXT: Running pass: PatchCallbackArgsPass
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
-; CHECK-NEXT: Invalidating analysis: DataPerBarrierAnalysis
-; CHECK-NEXT: Invalidating analysis: WIRelatedValueAnalysis
-; CHECK-NEXT: Invalidating analysis: DataPerValueAnalysis
-; CHECK-NEXT: Invalidating analysis: CallGraphAnalysis
-; CHECK-NEXT: Invalidating analysis: LocalBufferAnalysis
-; CHECK-NEXT: Running pass: ResolveWICallPass
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
-; CHECK-NEXT: Invalidating analysis: CallGraphAnalysis
-; CHECK-NEXT: Running pass: LocalBuffersPass
-; CHECK-NEXT: Running analysis: LocalBufferAnalysis
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
-; CHECK-NEXT: Invalidating analysis: ImplicitArgsAnalysis
-; CHECK-NEXT: Invalidating analysis: LocalBufferAnalysis
-; CHECK-NEXT: Running pass: BuiltinImportPass
-; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
-; CHECK-NEXT: Running pass: BuiltinCallToInstPass
-; CHECK-NEXT: Running pass: AlwaysInlinerPass
-; CHECK-NEXT: Running pass: PrepareKernelArgsPass
-; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
-; CHECK-NEXT: Running analysis: AssumptionAnalysis
-; CHECK-NEXT: Running analysis: TargetIRAnalysis
-; CHECK-NEXT: Invalidating analysis: CallGraphAnalysis
-; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
-; CHECK-NEXT: Invalidating analysis: ImplicitArgsAnalysis
+; CHECK:      Running pass: PrepareKernelArgsPass
 
 ; CHECK:      Running pass: CleanupWrappedKernelPass
-; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
 
 ; CHECK: Test program was successfully built.

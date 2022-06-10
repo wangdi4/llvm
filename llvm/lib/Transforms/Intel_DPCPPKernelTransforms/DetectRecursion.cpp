@@ -34,6 +34,8 @@ public:
 
   DetectRecursionLegacy();
 
+  StringRef getPassName() const override { return "DetectRecursionLegacy"; }
+
   bool runOnModule(Module &M) override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {

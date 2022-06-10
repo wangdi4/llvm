@@ -108,10 +108,7 @@ llvm::Pass *createCLStreamSamplerPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
 llvm::Pass *createBuiltinLibInfoPass(ArrayRef<Module *> pRtlModuleList,
                                      std::string type);
-llvm::ModulePass *createKernelSubGroupInfoPass();
 llvm::ModulePass *createRemovePrefetchPass();
-llvm::ModulePass *createPrintIRPass(int option, int optionLocation,
-                                    std::string dumpDir);
 llvm::ModulePass *createDebugInfoPass();
 llvm::Pass *createSmartGVNPass(bool);
 
