@@ -74,6 +74,7 @@ protected:
   cl_context m_context;
 };
 
+#if 0
 /// This test checks that there is no divide by zero in
 /// CPUDevice::calculateComputeUnitMap.
 TEST_F(SingleThreadTest, AffinityClosePlacesCores) {
@@ -84,5 +85,5 @@ TEST_F(SingleThreadTest, AffinityClosePlacesCores) {
   m_context = clCreateContext(NULL, 1, &m_device, NULL, NULL, &err);
   ASSERT_OCL_SUCCESS(err, "clCreateContext");
 }
-
+#endif
 #endif // #ifndef _WIN32
