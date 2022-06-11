@@ -565,8 +565,7 @@ bool enablePerfectLPLegalityCheckPre(
     SmallPtrSetImpl<HLInst *> &TmpInitializationInsts) {
 
   RegDDRef *LRef, *RRef;
-  for (auto It = PreLoopInsts.begin(), End = PreLoopInsts.end(); It != End;
-       ++It) {
+  for (auto It = PreLoopInsts.begin(); It != PreLoopInsts.end();) {
     HLInst *Inst = (*It);
     //  t = A[x]  ( LRef = RRef )
     //   RRef:     No edge to the innermost loop
@@ -581,7 +580,7 @@ bool enablePerfectLPLegalityCheckPre(
                                  PostLoopStoreInst)) {
         // If there is no PreLoopStoreInst and no PostLoopStoreInst, the
         // pre-loop inst will not be the sinking candidate
-        PreLoopInsts.erase(It);
+        It = PreLoopInsts.erase(It);
         continue;
       } else {
         assert(PostLoopStoreInst && "PostLoopStoreInst is not found!");
@@ -634,6 +633,7 @@ bool enablePerfectLPLegalityCheckPre(
     if (StoreInst) {
       ValidatedStores.push_back(StoreInst);
     }
+    ++It;
   }
 
   return true;
