@@ -48,7 +48,6 @@ add_llvm_component_library(LLVMIntel_DTransAnalysis
   LLVMObject
   LLVMProfileData
   LLVMSupport
-  LLVMTransformUtils
 
   LINK_COMPONENTS
   Analysis
@@ -56,5 +55,4 @@ add_llvm_component_library(LLVMIntel_DTransAnalysis
   Object
   ProfileData
   Support
-  TransformUtils
 )
