@@ -42,7 +42,15 @@ static cl::opt<bool> DVGlobalConstProp("dope-vector-global-const-prop",
 
 // Enable the local dope vector constant propagation
 static cl::opt<bool> DVLocalConstProp("dope-vector-local-const-prop",
-                                      cl::init(false), cl::ReallyHidden);
+                                      cl::init(true), cl::ReallyHidden);
+
+#if INTEL_FEATURE_SW_ADVANCED
+// Lowest number of call instructions with the attribute
+// "prefer-inline-tile-choice" in a function.
+static cl::opt<unsigned> MinNumInlineTileMVCalls("dvcp-tile-mv-min-calls",
+                                                 cl::init(7),
+                                                 cl::ReallyHidden);
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 //
 // Return 'true' if the formal argument 'Arg' of Function 'F' is a pointer
@@ -295,6 +303,35 @@ static bool replaceDopeVectorConstants(Argument &Arg,
   return Change;
 }
 
+#if INTEL_FEATURE_SW_ADVANCED
+// Return true if there is any condition in function F that should disable
+// DVCP for the lowerbound field in the case of global dope vectors. The
+// reason is that DVCP simplifies the instructions and makes difficult the
+// analysis process in loopopt.
+static bool disableDVCPForLowerBound(Function *F) {
+  if (!F)
+    return false;
+
+  // Conditions to disable DVCP for lowerbounds:
+  //   1) The number of calls set as "prefer-inline-tile-choice" is equal
+  //      or higher than MinNumInlineTileMVCalls
+  //
+  // TODO: List will be expanded as other conditions are identified.
+
+  unsigned NumCallsForInlineTile = 0;
+  for (Instruction &I : instructions(F)) {
+    auto *Call = dyn_cast<CallBase>(&I);
+    if (!Call)
+      continue;
+
+    if (Call->hasFnAttr("prefer-inline-tile-choice"))
+      NumCallsForInlineTile++;
+  }
+
+  return MinNumInlineTileMVCalls <= NumCallsForInlineTile;
+}
+#endif // INTEL_FEATURE_SW_ADVANCED
+
 // Actual function that propagates the constants for the input dope
 // vector field
 static bool propagateFieldConstant(DopeVectorFieldUse *DVField) {
@@ -332,7 +369,6 @@ static bool propagateFieldConstant(DopeVectorFieldUse *DVField) {
 
 // Return true if the constants collected for the input GlobDV were propagated
 static bool propagateGlobalDopeVectorConstants(GlobalDopeVector &GlobDV) {
-
   // Propagate the constants in the extent, stride and lower bound for the
   // input dope vector info
   auto PropagateDVConstant =[](DopeVectorInfo *DVInfo) -> bool {
@@ -401,6 +437,23 @@ static bool collectAndTransformDopeVectorGlobals(Module &M,
     return false;
 
   bool Change = false;
+#if INTEL_FEATURE_SW_ADVANCED
+  // Check if we need to disable DVCP for the lower bounds
+  //
+  // TODO: This is conservative. We can relax this in the future by just
+  // turning off the propagation in the functions we care about.
+  bool DisableLBDVCP = false;
+  for (auto &F : M.functions()) {
+    if (disableDVCPForLowerBound(&F)) {
+      DisableLBDVCP = true;
+      break;
+    }
+  }
+  DEBUG_WITH_TYPE(DEBUG_GLOBAL_CONSTPROP, {
+    if (DisableLBDVCP)
+      dbgs() << "DVCP FOR LOWER BOUND FIELD IS DISABLED\n";
+  });
+#endif // INTEL_FEATURE_SW_ADVANCED
   for (auto &Glob : M.globals()) {
     Type *GlobType = Glob.getValueType();
 
@@ -409,6 +462,11 @@ static bool collectAndTransformDopeVectorGlobals(Module &M,
 
     GlobalDopeVector GlobDV(&Glob, GlobType, GetTLI);
     GlobDV.collectAndValidate(DL, /*ForDVCP=*/true);
+
+#if INTEL_FEATURE_SW_ADVANCED
+    if (DisableLBDVCP)
+      GlobDV.disableLowerBound();
+#endif // INTEL_FEATURE_SW_ADVANCED
 
     // Propagate the constants
     Change |= propagateGlobalDopeVectorConstants(GlobDV);
