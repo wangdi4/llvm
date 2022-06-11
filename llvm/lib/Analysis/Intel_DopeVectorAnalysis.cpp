@@ -32,7 +32,7 @@ using namespace llvm;
 // TODO: This option is turned off until the issues with HIRInterLoopBlocking
 // and HIROptPredicate are fixed.
 static cl::opt<bool> EnabledRelaxedConditions("intel-dvcp-relaxed",
-                                              cl::init(false),
+                                              cl::init(true),
                                               cl::ReallyHidden);
 
 #if INTEL_FEATURE_SW_ADVANCED
@@ -565,6 +565,11 @@ void DopeVectorFieldUse::analyzeSubscriptsUses() {
 void DopeVectorFieldUse::identifyConstantValue() {
   if (!getIsSingleValue())
     return;
+
+#if INTEL_FEATURE_SW_ADVANCED
+  if (IsConstantDisabled)
+    return;
+#endif // INTEL_FEATURE_SW_ADVANCED
 
   StoreInst *SI = *Stores.begin();
   ConstantInt *Const = dyn_cast<ConstantInt>(SI->getValueOperand());
@@ -1983,6 +1988,50 @@ void DopeVectorInfo::validateSingleNonNullValue(DopeVectorFieldType DVFT) {
   if (!DVFU->getIsSingleNonNullValue())
     AnalysisRes = DopeVectorInfo::AnalysisResult::AR_NoSingleNonNullValue;
 }
+
+#if INTEL_FEATURE_SW_ADVANCED
+// Disable the constant collected for the given dope vector field.
+void DopeVectorInfo::disableDVField(DopeVectorFieldType DVField) {
+  switch(DVField) {
+  case DopeVectorFieldType::DV_ArrayPtr:
+    PtrAddr.disableConstantValue();
+    return;
+  case DopeVectorFieldType::DV_ElementSize:
+    ElementSizeAddr.disableConstantValue();
+    return;
+  case DopeVectorFieldType::DV_Codim:
+    CodimAddr.disableConstantValue();
+    return;
+  case DopeVectorFieldType::DV_Flags:
+    FlagsAddr.disableConstantValue();
+    return;
+  case DopeVectorFieldType::DV_Dimensions:
+    DimensionsAddr.disableConstantValue();
+    return;
+  case DopeVectorFieldType::DV_Reserved:
+  case DopeVectorFieldType::DV_PerDimensionArray:
+    return;
+  default:
+    break;
+  }
+
+  for (unsigned long I = 0; I < Rank; I++) {
+    switch(DVField) {
+    case DopeVectorFieldType::DV_ExtentBase:
+      ExtentAddr[I].disableConstantValue();
+      break;
+    case DopeVectorFieldType::DV_StrideBase:
+      StrideAddr[I].disableConstantValue();
+      break;
+    case DopeVectorFieldType::DV_LowerBoundBase:
+      LowerBoundAddr[I].disableConstantValue();
+      break;
+    default:
+      llvm_unreachable("Incorrect field while disabling constants");
+    }
+  }
+}
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 // Return true if all pointers that access the dope vector fields were
 // collected correctly by tracing the users of V, else return false. V
@@ -3987,6 +4036,17 @@ void GlobalDopeVector::collectAndValidate(const DataLayout &DL,
   // Validate that the data was collected correctly
   validateGlobalDopeVector(DL);
 }
+
+#if INTEL_FEATURE_SW_ADVANCED
+void GlobalDopeVector::disableLowerBound() {
+  if (AnalysisRes != GlobalDopeVector::AnalysisResult::AR_Pass)
+    return;
+
+  GlobalDVInfo->disableDVField(DopeVectorFieldType::DV_LowerBoundBase);
+  for (auto *NestedDV : NestedDopeVectors)
+    NestedDV->disableDVField(DopeVectorFieldType::DV_LowerBoundBase);
+}
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void DopeVectorInfo::print(uint64_t Indent) {

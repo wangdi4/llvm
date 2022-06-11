@@ -152,7 +152,11 @@ public:
       : IsBottom(false), IsRead(false), IsWritten(false),
         IsOnlyWrittenWithNull(false), ConstantValue(nullptr),
         RequiresSingleNonNullValue(false),
-        AllowMultipleFieldAddresses(AllowMultipleFieldAddresses) {}
+        AllowMultipleFieldAddresses(AllowMultipleFieldAddresses) {
+#if INTEL_FEATURE_SW_ADVANCED
+    IsConstantDisabled = false;
+#endif // INTEL_FEATURE_SW_ADVANCED
+  }
 
   DopeVectorFieldUse(const DopeVectorFieldUse &) = delete;
   DopeVectorFieldUse(DopeVectorFieldUse &&) = default;
@@ -255,6 +259,15 @@ public:
 
   bool isNotForDVCPLoad(LoadInst *LI) { return NotForDVCPLoads.contains(LI); }
 
+#if INTEL_FEATURE_SW_ADVANCED
+  // Set the value of the constant collected as nullptr and lock that the value
+  // can't be used.
+  void disableConstantValue() {
+    IsConstantDisabled = true;
+    ConstantValue = nullptr;
+  }
+#endif // INTEL_FEATURE_SW_ADVANCED
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
   void print(raw_ostream &OS, const Twine &Header) const;
@@ -266,6 +279,10 @@ private:
   bool IsRead;
   bool IsWritten;
   bool IsOnlyWrittenWithNull;
+#if INTEL_FEATURE_SW_ADVANCED
+  // If true, then the constant collected can't be used for DVCP
+  bool IsConstantDisabled;
+#endif // INTEL_FEATURE_SW_ADVANCED
 
   // SetVector that contains the addresses for the field.
   SetVector<Value *> FieldAddr;
@@ -870,6 +887,11 @@ public:
   // Return true if the current dope vector is a copy dope vector
   bool getIsCopyDopeVector() const { return IsCopyDopeVector; }
 
+#if INTEL_FEATURE_SW_ADVANCED
+  // Disable the constant collected for the given dope vector field.
+  void disableDVField(DopeVectorFieldType DVField);
+#endif // INTEL_FEATURE_SW_ADVANCED
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Print the analysis results for debug purposes
   void print(uint64_t Indent);
@@ -1047,6 +1069,12 @@ public:
   void collectAndValidate(const DataLayout &DL, bool ForDVCP);
 
   AnalysisResult getAnalysisResult() { return AnalysisRes; }
+
+#if INTEL_FEATURE_SW_ADVANCED
+  // Disable the constant propagation for the lower bound field in the global
+  // global dope vector, and the nested dope vectors.
+  void disableLowerBound();
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Print the information for debug purposes.
