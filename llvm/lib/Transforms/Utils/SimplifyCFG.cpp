@@ -3159,7 +3159,7 @@ FoldCondBranchOnValueKnownInPredecessorImpl(BranchInst *BI, DomTreeUpdater *DTU,
       }
 
       // Check for trivial simplification.
-      if (Value *V = SimplifyInstruction(N, {DL, nullptr, nullptr, AC})) {
+      if (Value *V = simplifyInstruction(N, {DL, nullptr, nullptr, AC})) {
         if (!BBI->use_empty())
           TranslateMap[&*BBI] = V;
         if (!N->mayHaveSideEffects()) {
@@ -3320,6 +3320,7 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
       Value *TrueVal = PN->getIncomingValueForBlock(IfTrue);
       Value *FalseVal = PN->getIncomingValueForBlock(IfFalse);
 
+<<<<<<< HEAD
       if (TrueVal != FalseVal) {
         if (!CanDominateConditionalBranch(TrueVal, BB, AggressiveInsts,
                                           Cost, Budget, TTI) ||
@@ -3334,6 +3335,15 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
 
     if (!CanBeSimplified) {
       // Continue to look for next "if condition".
+=======
+  bool Changed = false;
+  for (BasicBlock::iterator II = BB->begin(); isa<PHINode>(II);) {
+    PHINode *PN = cast<PHINode>(II++);
+    if (Value *V = simplifyInstruction(PN, {DL, PN})) {
+      PN->replaceAllUsesWith(V);
+      PN->eraseFromParent();
+      Changed = true;
+>>>>>>> e2614cf9b1984dfcff4111dcbe7ec63e21c4f607
       continue;
     }
 
@@ -5761,7 +5771,7 @@ bool SimplifyCFGOpt::tryToSimplifyUncondBranchWithICmpInIt(
     assert(VVal && "Should have a unique destination value");
     ICI->setOperand(0, VVal);
 
-    if (Value *V = SimplifyInstruction(ICI, {DL, ICI})) {
+    if (Value *V = simplifyInstruction(ICI, {DL, ICI})) {
       ICI->replaceAllUsesWith(V);
       ICI->eraseFromParent();
     }
