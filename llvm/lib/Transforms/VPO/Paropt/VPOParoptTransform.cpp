@@ -8495,7 +8495,7 @@ void VPOParoptTransform::simplifyLoopPHINodes(
       if (!PN)
         // Stop processing the block at the first non-PHINode instruction.
         break;
-      if (auto *V = SimplifyInstruction(PN, SQ)) {
+      if (auto *V = simplifyInstruction(PN, SQ)) {
         PN->replaceAllUsesWith(V);
         PHIsToDelete.push_back(PN);
       }

@@ -1798,7 +1798,7 @@ void LoopUnswitch::simplifyCode(std::vector<Instruction *> &Worklist, Loop *L) {
     // See if instruction simplification can hack this up.  This is common for
     // things like "select false, X, Y" after unswitching made the condition be
     // 'false'.  TODO: update the domtree properly so we can pass it here.
-    if (Value *V = SimplifyInstruction(I, DL))
+    if (Value *V = simplifyInstruction(I, DL))
       if (LI->replacementPreservesLCSSAForm(I, V)) {
         replaceUsesOfWith(I, V, Worklist, L, LPM, MSSAU.get());
         continue;
