@@ -44,10 +44,10 @@ if (NOT TARGET LLVMGenXIntrinsics)
       # default repo path for public xmain builds, not using ICS
       set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel-innersource)
       set(LLVMGenXIntrinsics_GIT_REPO_NAME applications.compilers.source.vc-intrinsics.git)
-      # Author: Victor Mustya <victor.mustya@intel.com>
-      # Date:   Tue, 3 May 2022 17:56:40 +0000
-      # Remove default switch labels for LSC-related functions
-      set(LLVMGenXIntrinsics_GIT_TAG 561f4ff575a198b36a72fcb790e1997d7d6d6c91)
+      # Author: Haohai Wen <haohai.wen@intel.com>
+      # Date:   Fri Jun 10 03:46:22 2022 +0000
+      # Format InstructionSimplify names
+      set(LLVMGenXIntrinsics_GIT_TAG abce9184b7a3a7fe1b02289b9285610d9dc45465)
 
       # Determine if the build is embargo and provide specific settings.
       set(IS_INTERNAL_ESIMD_BUILD FALSE)

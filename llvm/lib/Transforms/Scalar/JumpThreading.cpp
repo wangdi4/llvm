@@ -1119,7 +1119,6 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
           LHS = CmpLHS->DoPHITranslation(BB, PredBB);
           RHS = PN->getIncomingValue(i);
         }
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
         // When BB is a loop header, LHS can be derived from a Value, %V,
@@ -1144,10 +1143,7 @@ bool JumpThreadingPass::computeValueKnownInPredecessorsImpl(
           continue;
 #endif // INTEL_CUSTOMIZATION
 
-        Value *Res = SimplifyCmpInst(Pred, LHS, RHS, {DL});
-=======
         Value *Res = simplifyCmpInst(Pred, LHS, RHS, {DL});
->>>>>>> e2614cf9b1984dfcff4111dcbe7ec63e21c4f607
         if (!Res) {
           if (!isa<Constant>(RHS))
             continue;

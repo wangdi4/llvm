@@ -6627,8 +6627,8 @@ InstCombinerImpl::foldNotCmpOverTwoSelects(ICmpInst &I,
   unsigned Pred = I.getPredicate();
 
   // check A PRED C, B PRED D
-  Value *LeftCmp = SimplifyICmpInst(Pred, A, C, Q);
-  Value *RightCmp = SimplifyICmpInst(Pred, B, D, Q);
+  Value *LeftCmp = simplifyICmpInst(Pred, A, C, Q);
+  Value *RightCmp = simplifyICmpInst(Pred, B, D, Q);
   if (!LeftCmp || !RightCmp)
     return nullptr;
 
