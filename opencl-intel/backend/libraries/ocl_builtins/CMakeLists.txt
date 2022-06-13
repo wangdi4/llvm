@@ -93,9 +93,6 @@ endif (WIN32)
 # llvm-opt
 set (LLVM_OPT_PARAMS -verify -sroa -function-attrs)
 
-# images optimization options
-set (LLVM_IMAGES_OPT_PARAMS -verify -dpcpp-kernel-builtin-import -dpcpp-kernel-builtin-call-to-inst -verify -O3 -disable-intel-proprietary-opts)
-
 #------------------- Utility functions ---------------------------
 
 #
@@ -205,8 +202,8 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR CLANG_COMP
 
     add_custom_command(OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
       COMMENT "Optimizing ${OUTPUT_FILE}_noopt"
-      COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt -infer-address-spaces -o ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas
-      COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas ${LLVM_IMAGES_OPT_PARAMS} -dpcpp-kernel-builtin-lib=${RTL_TO_LINK} -dpcpp-kernel-cpu-prefix=${ARCH} -o ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
+      COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt -infer-address-spaces -dpcpp-kernel-builtin-lib=${RTL_TO_LINK} -dpcpp-kernel-cpu-prefix=${ARCH} -dpcpp-kernel-builtin-import -dpcpp-kernel-builtin-call-to-inst -verify -o ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas
+      COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas -O3 -disable-intel-proprietary-opts -o ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
       DEPENDS ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt ${RTL_TO_LINK}
       VERBATIM
       )
@@ -477,8 +474,9 @@ add_custom_command(OUTPUT clbltpipe.obj
   COMMAND ${LLVM_LINK} pipes1.bc pipes2.bc -o pipes.bc
 
   COMMAND ${OPT} -dpcpp-kernel-builtin-lib=${RTL_MINIMAL},${RTL_SHARED}
-  -dpcpp-kernel-builtin-import -O3 -disable-intel-proprietary-opts pipes.bc
-  -o pipes-opt.bc
+  -dpcpp-kernel-builtin-import pipes.bc -o pipes-builtin.bc
+
+  COMMAND ${OPT} -O3 -disable-intel-proprietary-opts pipes-builtin.bc -o pipes-opt.bc
 
   COMMAND ${LLC} ${LLC_PARAMS} -mcpu=corei7 pipes-opt.bc
   -o clbltpipe.obj)
@@ -488,36 +486,3 @@ add_dependencies(clbltpipe clbltpipe_target)
 set_target_properties(clbltpipe
   PROPERTIES
   IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/clbltpipe.obj)
-
-# We have another object for several functions that return pipe size:
-# that is because this object file will be linked into oclopt
-# (ChannelPipeTransformation pass), but the main pipe object file
-# depends on oclopt, resulting in circular dependency:
-#
-# oclopt -> ChannelPipeTransformation -> clbltpipe.obj
-#        -> clbltshared.rtl -> oclopt
-#
-# Functions that required for ChannelPipeTransformation are not using
-# any built-ins, so they are split into separate object file. This
-# breaks the circular dependency.
-#
-add_custom_target(clbltpipeinfo_target
-  DEPENDS clbltpipeinfo.obj)
-
-add_custom_command(OUTPUT clbltpipeinfo.obj
-  DEPENDS pipes-info.cl pipes-internal.h pipes-defines.h
-  DEPENDS ${CLANG} process-intrin-headers
-
-  # Use host triple to let llc produce object file in a native format.
-  COMMAND ${CLANG} ${CLANG_CL_COMMON_COMPILER_FLAGS} -triple ${HOST_TRIPLE}
-  ${CMAKE_CURRENT_SOURCE_DIR}/pipes-info.cl -o pipes-info.bc
-
-  COMMAND ${LLC} ${LLC_PARAMS} -mcpu=corei7 pipes-info.bc -o clbltpipeinfo.obj
-  COMMENT "Compiling clbltpipeinfo.obj"
-)
-
-add_library(clbltpipeinfo STATIC IMPORTED GLOBAL)
-add_dependencies(clbltpipeinfo clbltpipeinfo_target)
-set_target_properties(clbltpipeinfo
-  PROPERTIES
-  IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/clbltpipeinfo.obj)
