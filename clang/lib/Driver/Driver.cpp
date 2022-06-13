@@ -2372,7 +2372,18 @@ void Driver::setUpResponseFiles(Compilation &C, Command &Cmd) {
 int Driver::ExecuteCompilation(
     Compilation &C,
     SmallVectorImpl<std::pair<int, const Command *>> &FailingCommands) {
-<<<<<<< HEAD
+  if (C.getArgs().hasArg(options::OPT_fdriver_only)) {
+    if (C.getArgs().hasArg(options::OPT_v))
+      C.getJobs().Print(llvm::errs(), "\n", true);
+
+    C.ExecuteJobs(C.getJobs(), FailingCommands, /*LogOnly=*/true);
+
+    // If there were errors building the compilation, quit now.
+    if (!FailingCommands.empty() || Diags.hasErrorOccurred())
+      return 1;
+
+    return 0;
+  }
 
 #if INTEL_CUSTOMIZATION
   // Generate Arg files when -i_keep opt is specified
@@ -2386,20 +2397,6 @@ int Driver::ExecuteCompilation(
     }
   }
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (C.getArgs().hasArg(options::OPT_fdriver_only)) {
-    if (C.getArgs().hasArg(options::OPT_v))
-      C.getJobs().Print(llvm::errs(), "\n", true);
-
-    C.ExecuteJobs(C.getJobs(), FailingCommands, /*LogOnly=*/true);
-
-    // If there were errors building the compilation, quit now.
-    if (!FailingCommands.empty() || Diags.hasErrorOccurred())
-      return 1;
-
-    return 0;
-  }
->>>>>>> 86c7a74d84163f89518ac1008a1608331e4e28a6
 
   // Just print if -### was present.
   if (C.getArgs().hasArg(options::OPT__HASH_HASH_HASH)) {
