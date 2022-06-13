@@ -1,13 +1,11 @@
 project(libraries)
 
-# In this project we use binaries from OpenCL project (e.g. oclopt), LLVM for
-# front-end compiler (e.g. clang) and LLVM for back-end compiler (e.g. llc).
-# oclopt utility is built with LLVM version for the back-end compiler, so when
-# applies passes to the RTL it converts LLVM IR to newer version. This restrict
-# the tools we use after oclopt to the tools from LLVM for back-end compiler.
+# In this project we use binaries from OpenCL project (e.g. ocl-tblgen), LLVM
+# for front-end compiler (e.g. clang) and LLVM for optimizer (opt), and LLVM for
+# back-end compiler (e.g. llc).
 # So we have to set path to tools directory for BE version of LLVM.
 # We know that LLVM for the back-end compiler is already configured, so just
-# save LLVM_BINARY_DIR for later use by LLVM tools running after oclopt.
+# save LLVM_BINARY_DIR for later use by LLVM tools.
 # TODO: to make this file more self contained we should not rely on the
 # assumption above and configure LLVM for the back-end right here.
 set(BE_LLVM_BINARY_DIR ${LLVM_BINARY_DIR})
@@ -54,15 +52,16 @@ if(NOT OPENCL_INTREE_BUILD)
   else()
     set (CLANG ${OCL_HOST_CLANG})
   endif()
+  if(NOT DEFINED OCL_HOST_OPT)
+    set(OPT "${LLVM_BINARY_DIR}/opt")
+  else()
+    set(OPT OCL_HOST_OPT)
+  endif()
 else()
   set(CLANG clang)
+  set(OPT opt)
 endif()
 
-if(NOT DEFINED OCL_HOST_OPT)
-  set(OPT ${OCL_OPT})
-else()
-  set(OPT OCL_HOST_OPT)
-endif()
 set(OCL_TBLGEN ocl-tblgen)
 set(LLVM_TBLGEN llvm-tblgen)
 

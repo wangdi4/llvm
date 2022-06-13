@@ -101,7 +101,7 @@ else()
 endif()
 # end INTEL_FEATURE_SW_DTRANS
 
-add_opencl_executable(${OCL_OPT}
+add_opencl_executable(oclopt
   AnalysisWrappers.cpp
   BreakpointPrinter.cpp
   GraphPrinters.cpp
