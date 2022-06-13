@@ -407,6 +407,7 @@ static InstructionCost computeSpeculationCost(const User *I,
   return TTI.getUserCost(I, TargetTransformInfo::TCK_SizeAndLatency);
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// CanDominateConditionalBranch is an Intel customized routine that
 /// replaces the LLVM open source routine called DominatesMergePoint.
@@ -425,6 +426,19 @@ static InstructionCost computeSpeculationCost(const User *I,
 /// CanDominateConditionalBranch - If we have a merge point of an
 /// "if condition" as accepted by GetIfConditon(), return true if the
 /// specified value dominates or can dominate the conditional branch.
+=======
+/// Check whether this is a potentially trapping constant.
+static bool canTrap(const Value *V) {
+  if (auto *C = dyn_cast<Constant>(V))
+    return C->canTrap();
+  return false;
+}
+
+/// If we have a merge point of an "if condition" as accepted above,
+/// return true if the specified value dominates the block.  We
+/// don't handle the true generality of domination here, just a special case
+/// which works well enough for us.
+>>>>>>> 571c7131444d6e4e92f002e4f136d26087f36810
 ///
 /// If AggressiveInsts is non-null, and if V does not dominate BB, we check to
 /// see if V (which must be an instruction) and its recursive operands
@@ -456,10 +470,7 @@ CanDominateConditionalBranch(Value *V, BasicBlock *BB,
   if (!I) {
     // Non-instructions dominate all instructions , but not all constantexprs
     // can be executed unconditionally.
-    if (ConstantExpr *C = dyn_cast<ConstantExpr>(V))
-      if (C->canTrap())
-        return false;
-    return true;
+    return !canTrap(V);
   }
   BasicBlock *PBB = I->getParent();
 
@@ -2725,15 +2736,15 @@ static bool validateAndCostRequiredSelects(BasicBlock *BB, BasicBlock *ThenBB,
         passingValueIsAlwaysUndefined(ThenV, &PN))
       return false;
 
+    if (canTrap(OrigV) || canTrap(ThenV))
+      return false;
+
     HaveRewritablePHIs = true;
     ConstantExpr *OrigCE = dyn_cast<ConstantExpr>(OrigV);
     ConstantExpr *ThenCE = dyn_cast<ConstantExpr>(ThenV);
     if (!OrigCE && !ThenCE)
-      continue; // Known safe and cheap.
+      continue; // Known cheap (FIXME: Maybe not true for aggregates).
 
-    if ((ThenCE && !isSafeToSpeculativelyExecute(ThenCE)) ||
-        (OrigCE && !isSafeToSpeculativelyExecute(OrigCE)))
-      return false;
     InstructionCost OrigCost = OrigCE ? computeSpeculationCost(OrigCE, TTI) : 0;
     InstructionCost ThenCost = ThenCE ? computeSpeculationCost(ThenCE, TTI) : 0;
     InstructionCost MaxCost =
@@ -4853,12 +4864,19 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
 
   // Cond is known to be a compare or binary operator.  Check to make sure that
   // neither operand is a potentially-trapping constant expression.
+<<<<<<< HEAD
   if (ConstantExpr *CE = dyn_cast<ConstantExpr>(Operands[0]))  // INTEL
     if (CE->canTrap())
       return false;
   if (ConstantExpr *CE = dyn_cast<ConstantExpr>(Operands[1]))  // INTEL
     if (CE->canTrap())
       return false;
+=======
+  if (canTrap(Cond->getOperand(0)))
+    return false;
+  if (canTrap(Cond->getOperand(1)))
+    return false;
+>>>>>>> 571c7131444d6e4e92f002e4f136d26087f36810
 
   // Finally, don't infinitely unroll conditional loops.
   if (is_contained(successors(BB), BB))
@@ -5377,9 +5395,8 @@ static bool SimplifyCondBranchToCondBranch(BranchInst *PBI, BranchInst *BI,
   if (tryWidenCondBranchToCondBranch(PBI, BI, DTU))
     return true;
 
-  if (auto *CE = dyn_cast<ConstantExpr>(BI->getCondition()))
-    if (CE->canTrap())
-      return false;
+  if (canTrap(BI->getCondition()))
+    return false;
 
   // If both branches are conditional and both contain stores to the same
   // address, remove the stores from the conditionals and create a conditional
@@ -5436,15 +5453,13 @@ static bool SimplifyCondBranchToCondBranch(BranchInst *PBI, BranchInst *BI,
 
     PHINode *PN = cast<PHINode>(II);
     Value *BIV = PN->getIncomingValueForBlock(BB);
-    if (ConstantExpr *CE = dyn_cast<ConstantExpr>(BIV))
-      if (CE->canTrap())
-        return false;
+    if (canTrap(BIV))
+      return false;
 
     unsigned PBBIdx = PN->getBasicBlockIndex(PBI->getParent());
     Value *PBIV = PN->getIncomingValue(PBBIdx);
-    if (ConstantExpr *CE = dyn_cast<ConstantExpr>(PBIV))
-      if (CE->canTrap())
-        return false;
+    if (canTrap(PBIV))
+      return false;
   }
 
   // Finally, if everything is ok, fold the branches to logical ops.
