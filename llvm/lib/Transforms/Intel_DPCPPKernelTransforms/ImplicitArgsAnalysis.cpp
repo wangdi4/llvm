@@ -28,7 +28,7 @@ using namespace llvm::CompilationUtils;
 
 ImplicitArgsInfo::ImplicitArgsInfo(Module &M)
     : ArgTypes(ImplicitArgsUtils::IA_NUMBER, 0),
-      WGInfoMembersTypes(NDInfo::LAST, 0), InitializedTo(0) {
+      WGInfoMembersTypes(NDInfo::LAST, 0), M(&M), InitializedTo(0) {
   init(&M.getContext(), M.getDataLayout().getPointerSizeInBits());
 }
 
@@ -62,9 +62,9 @@ void ImplicitArgsInfo::init(LLVMContext *LC, unsigned PointerSizeInBits) {
   assert(NDInfo::BLOCK2KERNEL_MAPPER + 1 == NDInfo::LAST);
   // Initialize the implicit argument types
   ArgTypes[ImplicitArgsUtils::IA_SLM_BUFFER] =
-      PointerType::get(IntegerType::get(*C, 8), 3);
-  ArgTypes[ImplicitArgsUtils::IA_WORK_GROUP_INFO] =
-      PointerType::get(StructType::get(*C, WGInfoMembersTypes, false), 0);
+      PointerType::get(CompilationUtils::getSLMBufferElementType(*C), 3);
+  ArgTypes[ImplicitArgsUtils::IA_WORK_GROUP_INFO] = PointerType::get(
+      CompilationUtils::getWorkGroupInfoElementType(*C, WGInfoMembersTypes), 0);
   ArgTypes[ImplicitArgsUtils::IA_WORK_GROUP_ID] = SizetPtrTy;
   ArgTypes[ImplicitArgsUtils::IA_GLOBAL_BASE_ID] = PaddedDimIdTy;
   ArgTypes[ImplicitArgsUtils::IA_BARRIER_BUFFER] =
@@ -93,8 +93,8 @@ Value *ImplicitArgsInfo::GenerateGetFromWorkInfo(unsigned RecordID,
   Params.push_back(ConstantInt::get(Type::getInt32Ty(*C), RecordID));
   Params.push_back(Dimension);
   auto *Addr = cast<GEPOperator>(Builder.CreateGEP(
-      WorkInfo->getType()->getScalarType()->getPointerElementType(), WorkInfo,
-      ArrayRef<Value *>(Params)));
+      CompilationUtils::getWorkGroupInfoElementType(*C, WGInfoMembersTypes),
+      WorkInfo, ArrayRef<Value *>(Params)));
   StringRef Name(NDInfo::getRecordName(RecordID));
   std::string NameWithDim = AppendWithDimension(Name, Dimension);
   return Builder.Insert(new LoadInst(Addr->getResultElementType(), Addr, "",
@@ -110,8 +110,8 @@ Value *ImplicitArgsInfo::GenerateGetFromWorkInfo(unsigned RecordID,
   Params.push_back(ConstantInt::get(Int32Ty, 0));
   Params.push_back(ConstantInt::get(Int32Ty, RecordID));
   auto *Addr = cast<GEPOperator>(Builder.CreateGEP(
-      WorkInfo->getType()->getScalarType()->getPointerElementType(), WorkInfo,
-      ArrayRef<Value *>(Params)));
+      CompilationUtils::getWorkGroupInfoElementType(*C, WGInfoMembersTypes),
+      WorkInfo, ArrayRef<Value *>(Params)));
   StringRef Name(NDInfo::getRecordName(RecordID));
   Value *V = Builder.Insert(new LoadInst(Addr->getResultElementType(), Addr, "",
                                          /*volatile*/ false, Align()));
@@ -191,8 +191,8 @@ Value *ImplicitArgsInfo::GenerateGetLocalSizeGeneric(Value *WorkInfo,
   Params.push_back(LocalSizeIdx);
   Params.push_back(Dimension);
   auto *Addr = cast<GEPOperator>(Builder.CreateGEP(
-      WorkInfo->getType()->getScalarType()->getPointerElementType(), WorkInfo,
-      ArrayRef<Value *>(Params)));
+      CompilationUtils::getWorkGroupInfoElementType(*C, WGInfoMembersTypes),
+      WorkInfo, ArrayRef<Value *>(Params)));
   StringRef Name(NDInfo::getRecordName(NDInfo::LOCAL_SIZE));
   std::string NameWithDim = AppendWithDimension(Name, Dimension);
   return Builder.Insert(new LoadInst(Addr->getResultElementType(), Addr, "",
@@ -207,9 +207,22 @@ Value *ImplicitArgsInfo::GenerateGetGroupID(Value *GroupID, unsigned Dimension,
 }
 Value *ImplicitArgsInfo::GenerateGetGroupID(Value *GroupID, Value *Dimension,
                                             IRBuilder<> &Builder) {
-  auto *IdAddr = cast<GEPOperator>(Builder.CreateGEP(
-      GroupID->getType()->getScalarType()->getPointerElementType(), GroupID,
-      Dimension));
+  // TODO: Remove the non-opaque code when OpaquePtr is fully enabled on OpenCL.
+  // Function GetElementPtrInst *Create(Type *PointeeType, Value *Ptr, ...)
+  // calls isOpaqueOrPointeeTypeMatches which requires that parameter
+  // PointeeType is equal to Ptr->PointeeTy when Ptr is non-opaque. It is not
+  // vey reasonable to do such check, only make sure there are right type ID for
+  // PointeeType will work well. So there are build errors when use
+  // CompilationUtils:: getWorkGroupIDElementType(..) as PointeeType. And
+  // function isOpaqueOrPointeeTypeMatches will be useless after non-opaque
+  // pointers are removed.
+  Type *Ty =
+      GroupID->getType()->getScalarType()->isOpaquePointerTy()
+          ? CompilationUtils::getWorkGroupIDElementType(M)
+          : GroupID->getType()
+                ->getScalarType()
+                ->getNonOpaquePointerElementType();
+  auto *IdAddr = cast<GEPOperator>(Builder.CreateGEP(Ty, GroupID, Dimension));
   StringRef Name("GroupID_");
   std::string NameWithDim = AppendWithDimension(Name, Dimension);
   return Builder.Insert(new LoadInst(IdAddr->getResultElementType(), IdAddr, "",
