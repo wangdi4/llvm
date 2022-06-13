@@ -608,6 +608,16 @@ void getImplicitArgs(Function *F, Value **LocalMem, Value **WorkDim,
                      Value **WGId, Value **BaseGlbId, Value **SpecialBuf,
                      Value **RunTimeHandle);
 
+/// Get implicit arguments SLM_BUFFER element type.
+Type *getSLMBufferElementType(LLVMContext &C);
+
+/// Get implicit arguments WORK_GROUP_INFO element type.
+Type *getWorkGroupInfoElementType(LLVMContext &C,
+                                  ArrayRef<Type *> WGInfoMembersTypes);
+
+/// Get implicit arguments IA_WORK_GROUP_ID element type.
+Type *getWorkGroupIDElementType(Module *M);
+
 /// Retrieves requested TLS global variable in the given module
 /// \param M The module for which global variable needs to be retrieved.
 /// \param Idx The ImplicitArgsUtils::ImplicitArg index of the requested global.

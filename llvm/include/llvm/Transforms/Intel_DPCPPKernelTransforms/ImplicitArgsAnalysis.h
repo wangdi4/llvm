@@ -85,6 +85,7 @@ private:
   // Breakdown of WORK_GROUP_INFO which is a structure
   SmallVector<Type *, 16> WGInfoMembersTypes;
   LLVMContext *C;
+  Module *M;
   unsigned InitializedTo;
 };
 
