@@ -2332,7 +2332,7 @@ private:
   ///    move as a side-effect of reordering the leaves.
   ///
   /// Here is a summary of the above:
-  ///
+  /// \verbatim
   /// Leaf1 Leaf2 Leaf3 Leaf4 Leaf5
   ///   +--\---/-----\---/----/---+
   ///   | Trunk1     Trunk2  /    |
@@ -2341,49 +2341,8 @@ private:
   ///   |        \   / +----------+
   ///   |       Trunk5 |Multi-Node|
   ///   +--------------+----------+
-  ///
+  /// \endverbatim
   class MultiNode {
-    /// Path steering helps builTree_rec() follow the best path through the
-    /// Multi-Node. The 'best' path is the one with the highest probability of
-    /// succeeding in vectorizing the code. Since the Multi-Node operand
-    /// reordering is based on evaluating the score of each operand, we already
-    /// know which operand is the best one. Using this best operand we guide
-    /// buildTree_rec() through the Multi-Node trunk nodes.
-    ///
-    /// For example, given the following Multi-Node with Operands Op1-4 and
-    /// Trunk nodes T1-3, we may find that Op3 is the operand with the best
-    /// score. We therefore make sure that the path T3->T2->Op3 is marked as the
-    /// highest priority one that, such that buildTree_rec() follows it first,
-    /// before any other path.
-    ///
-    ///        Best Score
-    ///           |
-    ///           v
-    ///  Op1 Op2 Op3 Op4
-    /// +--\-/----\-/--+
-    /// |  T1     T2   |
-    /// |    \   /     |
-    /// |     T3       |
-    /// +------|-------+
-    ///
-    /// Path steering will guide buildTree_rec() towards T3->T2->Op3.
-    struct SteerTowardsData {
-      // The frontier instruction is found as MN.get(Lane, OpI).
-      // We don't keep a pointer here, because it may get updated in codegen if
-      // we update the opcode.
-      int OpI = -1;
-      // The operand number.
-      int OperandNum = -1;
-      // The best score so far.
-      int Score = -1;
-      void set(int OpIdx, int OpNum, int S) {
-        OpI = OpIdx;
-        OperandNum = OpNum;
-        Score = S;
-      }
-      bool isUninit() const { return Score == -1; }
-    };
-
     class MNOperands {
       // TODO: make LeafData class private once we get rid of reordering
       // directly on LLVM IR
@@ -2920,7 +2879,7 @@ private:
       ///   +   C1  +   B2
       ///    \ /     \ /
       ///     +       +
-        bool reorder(int RootIdx, SteerTowardsData &SteerTowards) {
+      bool reorder(int RootIdx, SmallVectorImpl<int> &OperandScores) {
         // Early exit if no more than one operand.
         if (getNumOperands() <= 1)
           return false;
@@ -2992,12 +2951,7 @@ private:
             // iii. Mark as 'used'.
             getData(OpI, Lane).setUsed();
           }
-          // If we are steering the SLP path, steer it towards the group with
-          // the best score. This must be done before the MN reordering, as this
-          // will mess up some of BestGroup's data.
-          if (EnablePathSteering && BestGroup.getScore() > SteerTowards.Score)
-            SteerTowards.set(OpI, getData(OpI, 0).getOperandNum(),
-                             BestGroup.getScore());
+          OperandScores[OpI] = BestGroup.getScore();
         }
 
         // Perform the code transformation only if it leads to a better score.
@@ -3061,41 +3015,63 @@ private:
     /// steering.
     bool DisableReorder = false;
 
-    /// Used for path steering. The key is the TreeEntry.Scalars[0] and the
-    /// value is the operand to follow, where 0 means left and 1 right operand.
-    DenseMap<Value *, int> PreferredOperandMap;
+    /// Data used for path steering.
+    /// Path steering helps buildTree_rec() follow the best path through the
+    /// Multi-Node. The 'best' means towards its operand with highest score.
+    /// Scores are collected during multi-node operands reordering.
+    /// buildTree_rec() normally processes tree entry operands in order.
+    /// To steer we check a lane 0 instruction. If the instruction is found
+    /// in the set then we first visit right operand of a tree entry.
+    DenseSet<Value *> SteeringData;
 
-    void steerPath(SteerTowardsData &SteerTowards) {
+    /// Populate steering data along path from the best score operand towards
+    /// Multi-node root.
+    /// For example, given the following Multi-Node with Op3 evaluated with
+    /// highest score. We therefore make sure that the path T3->T2->Op3
+    /// is taken, tag T3 node as one where we need to process its right
+    /// operand first:
+    /// \verbatim
+    ///        Best Score
+    ///           |
+    ///           v
+    ///  Op1 Op2 Op3 Op4
+    /// +--\-/----\-/--+
+    /// |  T1     T2   |
+    /// |    \   /     |
+    /// |     T3       |
+    /// +------|-------+
+    /// \endverbatim
+    ///
+    void steerPath(int BestOp) {
       auto GetOperandIndex = [](Instruction *I, Value *Op) {
         for (int Idx = 0, E = I->getNumOperands(); Idx != E; ++Idx)
           if (I->getOperand(Idx) == Op)
             return Idx;
         llvm_unreachable("'Op' not an operand of 'I' !");
       };
-      Value *Root0 = R.VectorizableTree[getRoot()]->Scalars[0];
+      auto getUser = [this](Instruction *I) -> Instruction * {
+        for (User *U : I->users()) {
+          if (const TreeEntry *TE = R.getTreeEntry(U))
+            return cast<Instruction>(TE->Scalars[0]);
+          assert(R.getTreeEntry(I)->Idx == getRoot() &&
+                 "If no users found, 'I' must be the root of the MultiNode");
+        }
+        // Return null if 'I' is at the root of the MultiNode.
+        return nullptr;
+      };
 
-      Instruction *Runner = getData(SteerTowards.OpI, 0).getFrontier();
-      Value *Operand = Runner->getOperand(SteerTowards.OperandNum);
-      assert(Operand != Runner && "Self referencing instruction?");
-      // Follow the path to the root node of the MultiNode, tagging each
-      // instruction at lane 0 with the preferred operand direction.
-      while (Operand != Root0 && Runner) {
-        // Mark the path.
-        PreferredOperandMap[Runner] = GetOperandIndex(Runner, Operand);
-        // Prepare Operand and Runner for next iteration.
-        Operand = Runner;
-        auto getUser = [this](Instruction *I) -> Value * {
-          for (User *U : I->users()) {
-            if (const TreeEntry *TE = R.getTreeEntry(U))
-              return TE->Scalars[0];
-            assert(R.getTreeEntry(I)->Idx == getRoot() &&
-                   "If no users found, 'I' must be the root of the MultiNode");
-          }
-          // Return null if 'I' is at the root of the MultiNode.
-          return nullptr;
-        };
-        Value *RunnerUser = getUser(Runner);
-        Runner = (RunnerUser) ? dyn_cast<Instruction>(RunnerUser) : nullptr;
+      // Populate steering data. We use an instruction at lane 0 for marking a
+      // node for steering. Follow path towards the MultiNode root, tagging an
+      // instruction if an operand is the second one.
+      Instruction *I = getData(BestOp, 0).getFrontier();
+      Value *Operand = I->getOperand(getData(BestOp, 0).getOperandNum());
+      Value *Root0 = R.VectorizableTree[getRoot()]->Scalars[0];
+      while (Operand != Root0 && I) {
+        assert(Operand != I && "Self referencing instruction?");
+        if (GetOperandIndex(I, Operand) == 1)
+          SteeringData.insert(I);
+        Operand = I;
+        I = getUser(I);
       }
     }
 
@@ -3233,14 +3209,20 @@ private:
     ///    \ /     \ /
     ///     +       +
     bool findMultiNodeOrder() {
-      // Holds the hint that will help steer SLP through the multi-node.
-      SteerTowardsData SteerTowards;
-      bool DoCodeGen = Operands.reorder(getRoot(), SteerTowards);
+      // When reordering we collect operands scores.
+      // That will help to steer SLP through the multi-node.
+      SmallVector<int> OperandScores(getNumOperands(), 0);
+      bool DoCodeGen = Operands.reorder(getRoot(), OperandScores);
 
-      // Steer the SLP direction to always start from the best path first.
-      if (EnablePathSteering && !SteerTowards.isUninit())
-        steerPath(SteerTowards);
+      if (EnablePathSteering) {
+        // Find the highest non-zero score operand and steer SLP vectorizer
+        // to follow best score path first.
 
+        auto MaxScore =
+            std::max_element(OperandScores.begin(), OperandScores.end());
+        if (*MaxScore > 0)
+          steerPath(std::distance(OperandScores.begin(), MaxScore));
+      }
       if (DisableReorder)
         return false;
 
@@ -3248,8 +3230,7 @@ private:
     }
 
     bool visitRightOperandFirst(const Value *V) const {
-      auto It = PreferredOperandMap.find(V);
-      return It != PreferredOperandMap.end() && It->second == 1;
+      return SteeringData.count(V);
     }
 
     void disableReorder() { DisableReorder = true; }
@@ -3325,7 +3306,7 @@ private:
   bool BuildingMultiNode = false;
 
   bool visitRightOperandFirst(const Value *V) const {
-    if (!EnablePathSteering || !CurrentMultiNode)
+    if (!CurrentMultiNode)
       return false;
     return CurrentMultiNode->visitRightOperandFirst(V);
   }
@@ -10321,7 +10302,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
         }
 
         // If we are about to generate finalizing shuffle
-        // apply reording idices directly to the shuffle mask
+        // apply reordering indices directly to the shuffle mask
         // rather than generate another one afterwards.
         if (WorkList.empty() && !E->ReorderIndices.empty()) {
           assert(ShuffleMask.size() == E->ReorderIndices.size() &&
