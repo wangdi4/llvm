@@ -54,6 +54,7 @@ enum ClangFlags {
   FlangOnlyOption = (1 << 16),
   DXCOption = (1 << 17),
   Ignored = (1 << 18),
+  Deprecated = (1 << 19),
 #if INTEL_CUSTOMIZATION
   DpcppUnsupported = (1 << 19),
   DpcppHidden = (1 << 20),
