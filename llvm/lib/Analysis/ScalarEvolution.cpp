@@ -6471,7 +6471,14 @@ const SCEV *ScalarEvolution::createNodeForPHI(PHINode *PN) {
     return S;
 
   if (Value *V = simplifyInstruction(PN, {getDataLayout(), &TLI, &DT, &AC}))
-    return getSCEV(V);
+#if INTEL_CUSTOMIZATION
+    // HIR depends on ScalarEvolution preserving LCSSA form as it allows us to
+    // from 'independantly optimizable' regions. This logic has been removed in
+    // the community so reverting it for ScopedScalarEvolution(HIR).
+    if (!isa<ScopedScalarEvolution>(this) ||
+        LI.replacementPreservesLCSSAForm(PN, V))
+      return getSCEV(V);
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   if (const SCEV *S = createNodeForIdenticalOperandsPHI(PN))
