@@ -242,8 +242,7 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
     Twine ValName = "LocalMem_" + Name;
     Value *NewLocalMemOffset = ConstantInt::get(
         IntegerType::get(F->getContext(), 32), DirectLocalSize);
-    // pLocalMemBase is a pointer to i8
-    Type *Ty = IntegerType::get(F->getContext(), 8);
+    Type *Ty = CompilationUtils::getSLMBufferElementType(F->getContext());
     auto *NewLocalMem =
         Builder.CreateGEP(Ty, LocalMem, NewLocalMemOffset, ValName);
     CallArgs[ImplicitArgsUtils::IA_SLM_BUFFER] = NewLocalMem;

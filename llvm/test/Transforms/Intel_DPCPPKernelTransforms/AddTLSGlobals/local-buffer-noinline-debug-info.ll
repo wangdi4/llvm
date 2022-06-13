@@ -2,9 +2,13 @@
 ; the same as the call instruction.
 
 ; RUN: opt -dpcpp-kernel-add-tls-globals %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-add-tls-globals %s -S | FileCheck %s
+; RUN: opt -opaque-pointers -dpcpp-kernel-add-tls-globals %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-kernel-add-tls-globals %s -S | FileCheck %s -check-prefix=CHECK-NONOPAQUE
+; RUN: opt -opaque-pointers -dpcpp-kernel-add-tls-globals %s -S | FileCheck %s -check-prefix=CHECK-OPAQUE
 ; RUN: opt -passes=dpcpp-kernel-add-tls-globals %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-add-tls-globals %s -S | FileCheck %s
+; RUN: opt -opaque-pointers -passes=dpcpp-kernel-add-tls-globals %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-add-tls-globals %s -S | FileCheck %s -check-prefix=CHECK-NONOPAQUE
+; RUN: opt -opaque-pointers -passes=dpcpp-kernel-add-tls-globals %s -S | FileCheck %s -check-prefix=CHECK-OPAQUE
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -12,12 +16,19 @@ target triple = "x86_64-pc-linux"
 define dso_local void @foo() #0 !dbg !6 {
 entry:
 
-; CHECK-LABEL: foo
-; CHECK: [[LI:%[0-9]+]] = load i8 addrspace(3)*, i8 addrspace(3)** @pLocalMemBase, align 8, !dbg [[DIL:![0-9]+]]
-; CHECK-NEXT: %pLocalMem_bar = getelementptr i8, i8 addrspace(3)* [[LI]], i32 0, !dbg [[DIL]]
-; CHECK-NEXT: store i8 addrspace(3)* %pLocalMem_bar, i8 addrspace(3)** @pLocalMemBase, align 8, !dbg [[DIL]]
-; CHECK-NEXT: call void @bar(), !dbg [[DIL]]
-; CHECK-NEXT: store i8 addrspace(3)* [[LI]], i8 addrspace(3)** @pLocalMemBase, align 8, !dbg [[DIL]]
+; CHECK-NONOPAQUE-LABEL: foo
+; CHECK-NONOPAQUE: [[LI:%[0-9]+]] = load i8 addrspace(3)*, i8 addrspace(3)** @pLocalMemBase, align 8, !dbg [[DIL:![0-9]+]]
+; CHECK-NONOPAQUE-NEXT: %pLocalMem_bar = getelementptr i8, i8 addrspace(3)* [[LI]], i32 0, !dbg [[DIL]]
+; CHECK-NONOPAQUE-NEXT: store i8 addrspace(3)* %pLocalMem_bar, i8 addrspace(3)** @pLocalMemBase, align 8, !dbg [[DIL]]
+; CHECK-NONOPAQUE-NEXT: call void @bar(), !dbg [[DIL]]
+; CHECK-NONOPAQUE-NEXT: store i8 addrspace(3)* [[LI]], i8 addrspace(3)** @pLocalMemBase, align 8, !dbg [[DIL]]
+;; Check OpaquePtr
+; CHECK-OPAQUE-LABEL: foo
+; CHECK-OPAQUE: [[LI:%[0-9]+]] = load ptr addrspace(3), ptr @pLocalMemBase, align 8, !dbg [[DIL:![0-9]+]]
+; CHECK-OPAQUE-NEXT: %pLocalMem_bar = getelementptr i8, ptr addrspace(3) [[LI]], i32 0, !dbg [[DIL]]
+; CHECK-OPAQUE-NEXT: store ptr addrspace(3) %pLocalMem_bar, ptr @pLocalMemBase, align 8, !dbg [[DIL]]
+; CHECK-OPAQUE-NEXT: call void @bar(), !dbg [[DIL]]
+; CHECK-OPAQUE-NEXT: store ptr addrspace(3) [[LI]], ptr @pLocalMemBase, align 8, !dbg [[DIL]]
 
   call void @bar(), !dbg !10
   ret void, !dbg !11

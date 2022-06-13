@@ -144,7 +144,8 @@ void AddTLSGlobalsPass::runOnFunction(Function *Func) {
           std::string ValName("pLocalMem_");
           ValName += Callee->getName();
           Value *NewLocalMem = B.CreateGEP(
-              Load->getType()->getScalarType()->getPointerElementType(), Load,
+              CompilationUtils::getSLMBufferElementType(Func->getContext()),
+              Load,
               ConstantInt::get(IntegerType::get(*Ctx, 32), DirectLocalSize),
               ValName);
 
@@ -155,7 +156,7 @@ void AddTLSGlobalsPass::runOnFunction(Function *Func) {
           // base, and then callee can access local values via the pointers.
           auto &CalleeLocalSet = LBInfo->getDirectLocals(Callee);
           Type *Ty =
-              NewLocalMem->getType()->getScalarType()->getPointerElementType();
+              cast<GetElementPtrInst>(NewLocalMem)->getSourceElementType();
           unsigned int CurrLocalOffset = 0;
           for (auto *Local : CalleeLocalSet) {
             GlobalVariable *GV = cast<GlobalVariable>(Local);

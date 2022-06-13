@@ -18,6 +18,7 @@
 #include "llvm/IR/Intel_VectorVariant.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
@@ -1591,6 +1592,17 @@ void getImplicitArgs(Function *pFunc, Value **LocalMem, Value **WorkDim,
     *RunTimeHandle = &*DestI;
   ++DestI;
   assert(DestI == pFunc->arg_end());
+}
+
+Type *getSLMBufferElementType(LLVMContext &C) { return IntegerType::get(C, 8); }
+
+Type *getWorkGroupInfoElementType(LLVMContext &C,
+                                  ArrayRef<Type *> WGInfoMembersTypes) {
+  return StructType::get(C, WGInfoMembersTypes, false);
+}
+
+Type *getWorkGroupIDElementType(Module *M) {
+  return PointerType::get(LoopUtils::getIndTy(M), 0);
 }
 
 GlobalVariable *getTLSGlobal(Module *M, unsigned Idx) {
