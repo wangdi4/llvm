@@ -1404,6 +1404,8 @@ void Cost::RateFormula(const Formula &F,
                        const DenseSet<const SCEV *> &VisitedRegs,
                        const LSRUse &LU,
                        SmallPtrSetImpl<const SCEV *> *LoserRegs) {
+  if (isLoser())
+    return;
   assert(F.isCanonical(*L) && "Cost is accurate only for canonical formula");
   // Tally up the registers.
   unsigned PrevAddRecCost = C.AddRecCost;

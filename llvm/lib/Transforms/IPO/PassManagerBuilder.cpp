@@ -151,8 +151,7 @@ cl::opt<ThroughputMode> ThroughputModeOpt(
 #endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
-cl::opt<bool> RunPartialInlining("enable-partial-inlining", cl::init(false),
-                                 cl::Hidden, cl::ZeroOrMore,
+cl::opt<bool> RunPartialInlining("enable-partial-inlining", cl::Hidden,
                                  cl::desc("Run Partial inlinining pass"));
 
 #if INTEL_CUSTOMIZATION
@@ -403,8 +402,8 @@ static cl::opt<bool>
     EnablePerformThinLTO("perform-thinlto", cl::init(false), cl::Hidden,
                          cl::desc("Enable performing ThinLTO."));
 
-cl::opt<bool> EnableHotColdSplit("hot-cold-split", cl::init(false),
-    cl::ZeroOrMore, cl::desc("Enable hot-cold splitting pass"));
+cl::opt<bool> EnableHotColdSplit("hot-cold-split",
+                                 cl::desc("Enable hot-cold splitting pass"));
 
 cl::opt<bool> EnableIROutliner("ir-outliner", cl::init(false), cl::Hidden,
     cl::desc("Enable ir outliner pass"));
@@ -418,12 +417,12 @@ cl::opt<bool>
                       cl::desc("Disable pre-instrumentation inliner"));
 
 cl::opt<int> PreInlineThreshold(
-    "preinline-threshold", cl::Hidden, cl::init(75), cl::ZeroOrMore,
+    "preinline-threshold", cl::Hidden, cl::init(75),
     cl::desc("Control the amount of inlining in pre-instrumentation inliner "
              "(default = 75)"));
 
 cl::opt<bool>
-    EnableGVNHoist("enable-gvn-hoist", cl::init(false), cl::ZeroOrMore,
+    EnableGVNHoist("enable-gvn-hoist",
                    cl::desc("Enable the GVN hoisting pass (default = off)"));
 
 static cl::opt<bool>
@@ -441,7 +440,7 @@ static cl::opt<bool> EnableSimpleLoopUnswitch(
 #endif // INTEL_CUSTOMIZATION
 
 cl::opt<bool>
-    EnableGVNSink("enable-gvn-sink", cl::init(false), cl::ZeroOrMore,
+    EnableGVNSink("enable-gvn-sink",
                   cl::desc("Enable the GVN sinking pass (default = off)"));
 
 // This option is used in simplifying testing SampleFDO optimizations for

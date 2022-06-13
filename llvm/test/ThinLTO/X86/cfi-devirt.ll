@@ -9,6 +9,7 @@
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
+; RUN:   -opaque-pointers \
 ; RUN:   -o %t3 \
 ; RUN:   -r=%t.o,test,px \
 ; RUN:   -r=%t.o,_ZN1A1nEi,p \
@@ -36,6 +37,7 @@
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
+; RUN:   -opaque-pointers \
 ; RUN:   -o %t3 \
 ; RUN:   -r=%t.o,test,px \
 ; RUN:   -r=%t.o,_ZN1A1nEi,p \
@@ -100,7 +102,7 @@ cont2:
   ; CHECK-IR: br i1 {{.*}}, label %trap, label %cont2
 
   ; We still have to call it as virtual.
-  ; CHECK-IR: %call3 = tail call i32 %7
+  ; CHECK-IR: %call3 = tail call i32 %5
   %call3 = tail call i32 %8(%struct.A* nonnull %obj, i32 %call)
   ret i32 %call3
 }

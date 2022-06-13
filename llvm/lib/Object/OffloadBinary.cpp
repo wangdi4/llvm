@@ -14,9 +14,8 @@
 #include "llvm/Object/Error.h"
 #include "llvm/Support/FileOutputBuffer.h"
 
-namespace llvm {
-
-namespace object {
+using namespace llvm;
+using namespace llvm::object;
 
 Expected<std::unique_ptr<OffloadBinary>>
 OffloadBinary::create(MemoryBufferRef Buf) {
@@ -49,14 +48,17 @@ OffloadBinary::write(const OffloadingImage &OffloadingData) {
   uint64_t StringEntrySize =
       sizeof(StringEntry) * OffloadingData.StringData.size();
 
+  // Make sure the image we're wrapping around is aligned as well.
+  uint64_t BinaryDataSize = alignTo(sizeof(Header) + sizeof(Entry) +
+                                        StringEntrySize + StrTab.getSize(),
+                                    getAlignment());
+
   // Create the header and fill in the offsets. The entry will be directly
   // placed after the header in memory. Align the size to the alignment of the
   // header so this can be placed contiguously in a single section.
   Header TheHeader;
-  TheHeader.Size =
-      alignTo(sizeof(Header) + sizeof(Entry) + StringEntrySize +
-                  OffloadingData.Image.getBufferSize() + StrTab.getSize(),
-              getAlignment());
+  TheHeader.Size = alignTo(
+      BinaryDataSize + OffloadingData.Image->getBufferSize(), getAlignment());
   TheHeader.EntryOffset = sizeof(Header);
   TheHeader.EntrySize = sizeof(Entry);
 
@@ -69,9 +71,8 @@ OffloadBinary::write(const OffloadingImage &OffloadingData) {
   TheEntry.StringOffset = sizeof(Header) + sizeof(Entry);
   TheEntry.NumStrings = OffloadingData.StringData.size();
 
-  TheEntry.ImageOffset =
-      sizeof(Header) + sizeof(Entry) + StringEntrySize + StrTab.getSize();
-  TheEntry.ImageSize = OffloadingData.Image.getBufferSize();
+  TheEntry.ImageOffset = BinaryDataSize;
+  TheEntry.ImageSize = OffloadingData.Image->getBufferSize();
 
   SmallVector<char, 1024> Data;
   raw_svector_ostream OS(Data);
@@ -84,7 +85,9 @@ OffloadBinary::write(const OffloadingImage &OffloadingData) {
     OS << StringRef(reinterpret_cast<char *>(&Map), sizeof(StringEntry));
   }
   StrTab.write(OS);
-  OS << OffloadingData.Image.getBuffer();
+  // Add padding to required image alignment.
+  OS.write_zeros(TheEntry.ImageOffset - OS.tell());
+  OS << OffloadingData.Image->getBuffer();
 
   // Add final padding to required alignment.
   assert(TheHeader.Size >= OS.tell() && "Too much data written?");
@@ -94,7 +97,7 @@ OffloadBinary::write(const OffloadingImage &OffloadingData) {
   return MemoryBuffer::getMemBufferCopy(OS.str());
 }
 
-OffloadKind getOffloadKind(StringRef Name) {
+OffloadKind object::getOffloadKind(StringRef Name) {
   return llvm::StringSwitch<OffloadKind>(Name)
       .Case("openmp", OFK_OpenMP)
       .Case("cuda", OFK_Cuda)
@@ -102,7 +105,7 @@ OffloadKind getOffloadKind(StringRef Name) {
       .Default(OFK_None);
 }
 
-StringRef getOffloadKindName(OffloadKind Kind) {
+StringRef object::getOffloadKindName(OffloadKind Kind) {
   switch (Kind) {
   case OFK_OpenMP:
     return "openmp";
@@ -115,7 +118,7 @@ StringRef getOffloadKindName(OffloadKind Kind) {
   }
 }
 
-ImageKind getImageKind(StringRef Name) {
+ImageKind object::getImageKind(StringRef Name) {
   return llvm::StringSwitch<ImageKind>(Name)
       .Case("o", IMG_Object)
       .Case("bc", IMG_Bitcode)
@@ -125,7 +128,7 @@ ImageKind getImageKind(StringRef Name) {
       .Default(IMG_None);
 }
 
-StringRef getImageKindName(ImageKind Kind) {
+StringRef object::getImageKindName(ImageKind Kind) {
   switch (Kind) {
   case IMG_Object:
     return "o";
@@ -141,7 +144,3 @@ StringRef getImageKindName(ImageKind Kind) {
     return "";
   }
 }
-
-} // namespace object
-
-} // namespace llvm

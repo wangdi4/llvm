@@ -5,6 +5,7 @@
 ; Note that gold picks the first copy of a function as the prevailing one,
 ; so listing %t.o first is sufficient to ensure that its copies are prevailing.
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
+; INTEL RUN: -plugin-opt=opaque-pointers \
 ; RUN:     --plugin-opt=thinlto \
 ; RUN:     --plugin-opt=save-temps \
 ; RUN:     -shared \
@@ -43,15 +44,15 @@ entry:
 
 ; Alias are resolved to weak_odr in prevailing module, but left as linkonce_odr
 ; in non-prevailing module (illegal to have an available_externally alias).
-; IMPORT: @linkonceodralias = weak_odr alias void (), void ()* @linkonceodrfuncwithalias
-; IMPORT2: @linkonceodralias = linkonce_odr alias void (), void ()* @linkonceodrfuncwithalias
-@linkonceodralias = linkonce_odr alias void (), void ()* @linkonceodrfuncwithalias
+; IMPORT: @linkonceodralias = weak_odr alias void (), ptr @linkonceodrfuncwithalias
+; IMPORT2: @linkonceodralias = linkonce_odr alias void (), ptr @linkonceodrfuncwithalias
+@linkonceodralias = linkonce_odr alias void (), ptr @linkonceodrfuncwithalias
 
 ; Alias are resolved in prevailing module, but not optimized in
 ; non-prevailing module (illegal to have an available_externally alias).
-; IMPORT: @linkoncealias = weak alias void (), void ()* @linkoncefuncwithalias
-; IMPORT2: @linkoncealias = linkonce alias void (), void ()* @linkoncefuncwithalias
-@linkoncealias = linkonce alias void (), void ()* @linkoncefuncwithalias
+; IMPORT: @linkoncealias = weak alias void (), ptr @linkoncefuncwithalias
+; IMPORT2: @linkoncealias = linkonce alias void (), ptr @linkoncefuncwithalias
+@linkoncealias = linkonce alias void (), ptr @linkoncefuncwithalias
 
 ; Function with an alias are resolved in prevailing module, but
 ; not optimized in non-prevailing module (illegal to have an

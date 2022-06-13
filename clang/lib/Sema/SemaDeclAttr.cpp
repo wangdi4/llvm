@@ -1525,9 +1525,9 @@ static void handlePackedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
                                 FD->isBitField() &&
                                 S.Context.getTypeAlign(FD->getType()) <= 8);
 
-    if (S.getASTContext().getTargetInfo().getTriple().isPS4()) {
+    if (S.getASTContext().getTargetInfo().getTriple().isPS()) {
       if (BitfieldByteAligned)
-        // The PS4 target needs to maintain ABI backwards compatibility.
+        // The PS4/PS5 targets need to maintain ABI backwards compatibility.
         S.Diag(AL.getLoc(), diag::warn_attribute_ignored_for_field_of_type)
             << AL << FD->getType();
       else
@@ -3280,6 +3280,14 @@ static void handleWarnUnusedResult(Sema &S, Decl *D, const ParsedAttr &AL) {
       S.Diag(AL.getLoc(), diag::ext_cxx17_attr) << AL;
   }
 
+  if ((!AL.isGNUAttribute() &&
+       !(AL.isStandardAttributeSyntax() && AL.isClangScope())) &&
+      isa<TypedefNameDecl>(D)) {
+    S.Diag(AL.getLoc(), diag::warn_unused_result_typedef_unsupported_spelling)
+        << AL.isGNUScope();
+    return;
+  }
+
   D->addAttr(::new (S.Context) WarnUnusedResultAttr(S.Context, AL, Str));
 }
 
@@ -4711,6 +4719,10 @@ void Sema::AddIntelReqdSubGroupSize(Decl *D, const AttributeCommonInfo &CI,
           << CI << /*positive*/ 0;
       return;
     }
+    if (Context.getTargetInfo().getTriple().isNVPTX() && ArgVal != 32) {
+      Diag(E->getExprLoc(), diag::warn_reqd_sub_group_attribute_cuda_n_32)
+          << ArgVal.getSExtValue();
+    }
 
     // Check to see if there's a duplicate attribute with different values
     // already applied to the declaration.
@@ -5574,7 +5586,7 @@ bool Sema::checkTargetClonesAttrString(SourceLocation LiteralLoc, StringRef Str,
       return Diag(CurLoc, diag::warn_unsupported_target_attribute)
              << Unsupported << None << Cur << TargetClones;
 
-    if (llvm::find(Strings, Cur) != Strings.end() || DefaultIsDupe)
+    if (llvm::is_contained(Strings, Cur) || DefaultIsDupe)
       Diag(CurLoc, diag::warn_target_clone_duplicate_options);
     // Note: Add even if there are duplicates, since it changes name mangling.
     Strings.push_back(Cur);

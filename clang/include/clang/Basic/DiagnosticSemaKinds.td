@@ -3334,6 +3334,10 @@ def err_attribute_argument_is_zero : Error<
 def warn_attribute_argument_n_negative : Warning<
   "%0 attribute parameter %1 is negative and will be ignored">,
   InGroup<CudaCompat>;
+def warn_reqd_sub_group_attribute_cuda_n_32
+    : Warning<"attribute argument %0 is invalid and will be ignored; CUDA "
+              "requires sub_group size 32">,
+      InGroup<CudaCompat>;
 def err_property_function_in_objc_container : Error<
   "use of Objective-C property in function nested in Objective-C "
   "container not supported, move function outside its container">;
@@ -6248,6 +6252,9 @@ def note_exits_block_captures_non_trivial_c_struct : Note<
 def note_exits_compound_literal_scope : Note<
   "jump exits lifetime of a compound literal that is non-trivial to destruct">;
 
+def err_func_returning_qualified_void : ExtWarn<
+  "function cannot return qualified void type %0">,
+  InGroup<DiagGroup<"qualified-void-return-type">>;
 def err_func_returning_array_function : Error<
   "function cannot return %select{array|function}0 type %1">;
 def err_field_declared_as_function : Error<"field %0 declared as a function">;
@@ -8865,6 +8872,10 @@ def warn_unused_result : Warning<
 def warn_unused_result_msg : Warning<
   "ignoring return value of function declared with %0 attribute: %1">,
   InGroup<UnusedResult>;
+def warn_unused_result_typedef_unsupported_spelling : Warning<
+  "'[[%select{nodiscard|gnu::warn_unused_result}0]]' attribute ignored when "
+  "applied to a typedef; consider using '__attribute__((warn_unused_result))' "
+  "or '[[clang::warn_unused_result]]' instead">, InGroup<IgnoredAttributes>;
 def warn_unused_volatile : Warning<
   "expression result unused; assign into a variable to force a volatile load">,
   InGroup<DiagGroup<"unused-volatile-lvalue">>;

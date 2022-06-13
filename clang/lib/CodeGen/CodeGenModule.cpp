@@ -99,9 +99,8 @@ using namespace clang;
 using namespace CodeGen;
 
 static llvm::cl::opt<bool> LimitedCoverage(
-    "limited-coverage-experimental", llvm::cl::ZeroOrMore, llvm::cl::Hidden,
-    llvm::cl::desc("Emit limited coverage mapping information (experimental)"),
-    llvm::cl::init(false));
+    "limited-coverage-experimental", llvm::cl::Hidden,
+    llvm::cl::desc("Emit limited coverage mapping information (experimental)"));
 
 static const char AnnotationSection[] = "llvm.metadata";
 
@@ -651,10 +650,8 @@ void CodeGenModule::Release() {
     CodeGenFunction(*this).EmitCfiCheckStub();
   }
   emitAtAvailableLinkGuard();
-  if (Context.getTargetInfo().getTriple().isWasm() &&
-      !Context.getTargetInfo().getTriple().isOSEmscripten()) {
+  if (Context.getTargetInfo().getTriple().isWasm())
     EmitMainVoidAlias();
-  }
 
   if (getTriple().isAMDGPU()) {
     // Emit reference of __amdgpu_device_library_preserve_asan_functions to
@@ -1406,22 +1403,12 @@ void CodeGenModule::setDLLImportDLLExport(llvm::GlobalValue *GV,
   setDLLImportDLLExport(GV, D);
 }
 
-bool CodeGenModule::shouldMapVisibilityToDLLExport(const NamedDecl *D) const {
-  return D &&
-         (D->getLinkageAndVisibility().getVisibility() == DefaultVisibility) &&
-         ((D->getLinkageAndVisibility().isVisibilityExplicit() &&
-           getLangOpts().isExplicitDefaultVisibilityExportMapping()) ||
-          getLangOpts().isAllDefaultVisibilityExportMapping());
-}
-
 void CodeGenModule::setDLLImportDLLExport(llvm::GlobalValue *GV,
                                           const NamedDecl *D) const {
   if (D && D->isExternallyVisible()) {
     if (D->hasAttr<DLLImportAttr>())
       GV->setDLLStorageClass(llvm::GlobalVariable::DLLImportStorageClass);
-    else if ((D->hasAttr<DLLExportAttr>() ||
-              shouldMapVisibilityToDLLExport(D)) &&
-             !GV->isDeclarationForLinker())
+    else if (D->hasAttr<DLLExportAttr>() && !GV->isDeclarationForLinker())
       GV->setDLLStorageClass(llvm::GlobalVariable::DLLExportStorageClass);
   }
 }
@@ -1980,11 +1967,7 @@ void CodeGenModule::GenOpenCLArgMetadata(llvm::Function *Fn,
 
   // MDNode for listing SYCL kernel pointer arguments originating from
   // accessors.
-  SmallVector<llvm::Metadata *, 8> argSYCLKernelRuntimeAligned;
-
-  // MDNode for listing ESIMD kernel pointer arguments originating from
-  // accessors.
-  SmallVector<llvm::Metadata *, 8> argESIMDAccPtrs;
+  SmallVector<llvm::Metadata *, 8> argSYCLAccessorPtrs;
 
   bool isKernelArgAnAccessor = false;
 
@@ -2121,23 +2104,26 @@ void CodeGenModule::GenOpenCLArgMetadata(llvm::Function *Fn,
               : llvm::ConstantAsMetadata::get(CGF->Builder.getInt32(-1)));
 
       // If a kernel pointer argument comes from an accessor, we generate
-      // a new metadata(kernel_arg_runtime_aligned) to the kernel to indicate
-      // that this pointer has runtime allocated alignment. The value of any
-      // "kernel_arg_runtime_aligned" metadata element is 'true' for any kernel
-      // arguments that corresponds to the base pointer of an accessor and
-      // 'false' otherwise.
+      // the following metadata :
+      // 1. kernel_arg_runtime_aligned - To indicate that this pointer has
+      // runtime allocated alignment.
+      // 2. kernel_arg_exclusive_ptr - To indicate that it is illegal to
+      // dereference the pointer from outside current invocation of the
+      // kernel.
+      // In both cases, the value of metadata element is 'true' for any
+      // kernel arguments that corresponds to the base pointer of an accessor
+      // and 'false' otherwise.
+      // Note: Although both metadata apply only to the base pointer of an
+      // accessor currently, it is possible that one or both may be extended
+      // to include other pointers. Therefore, both metadata are required.
       if (parm->hasAttr<SYCLAccessorPtrAttr>()) {
         isKernelArgAnAccessor = true;
-        argSYCLKernelRuntimeAligned.push_back(
+        argSYCLAccessorPtrs.push_back(
             llvm::ConstantAsMetadata::get(CGF->Builder.getTrue()));
       } else {
-        argSYCLKernelRuntimeAligned.push_back(
+        argSYCLAccessorPtrs.push_back(
             llvm::ConstantAsMetadata::get(CGF->Builder.getFalse()));
       }
-
-      if (FD->hasAttr<SYCLSimdAttr>())
-        argESIMDAccPtrs.push_back(llvm::ConstantAsMetadata::get(
-            CGF->Builder.getInt1(parm->hasAttr<SYCLAccessorPtrAttr>())));
     }
 
   bool IsEsimdFunction = FD && FD->hasAttr<SYCLSimdAttr>();
@@ -2147,10 +2133,12 @@ void CodeGenModule::GenOpenCLArgMetadata(llvm::Function *Fn,
                     llvm::MDNode::get(VMContext, argSYCLBufferLocationAttr));
     // Generate this metadata only if atleast one kernel argument is an
     // accessor.
-    if (isKernelArgAnAccessor)
-      Fn->setMetadata(
-          "kernel_arg_runtime_aligned",
-          llvm::MDNode::get(VMContext, argSYCLKernelRuntimeAligned));
+    if (isKernelArgAnAccessor) {
+      Fn->setMetadata("kernel_arg_runtime_aligned",
+                      llvm::MDNode::get(VMContext, argSYCLAccessorPtrs));
+      Fn->setMetadata("kernel_arg_exclusive_ptr",
+                      llvm::MDNode::get(VMContext, argSYCLAccessorPtrs));
+    }
   } else {
     Fn->setMetadata("kernel_arg_addr_space",
                     llvm::MDNode::get(VMContext, addressQuals));
@@ -2162,9 +2150,11 @@ void CodeGenModule::GenOpenCLArgMetadata(llvm::Function *Fn,
                     llvm::MDNode::get(VMContext, argBaseTypeNames));
     Fn->setMetadata("kernel_arg_type_qual",
                     llvm::MDNode::get(VMContext, argTypeQuals));
+    // FIXME: What is the purpose of this metadata for ESIMD? Can we
+    // reuse kernel_arg_exclusive_ptr or kernel_arg_runtime_aligned ?
     if (IsEsimdFunction)
       Fn->setMetadata("kernel_arg_accessor_ptr",
-                      llvm::MDNode::get(VMContext, argESIMDAccPtrs));
+                      llvm::MDNode::get(VMContext, argSYCLAccessorPtrs));
     if (getCodeGenOpts().EmitOpenCLArgMetadata)
       Fn->setMetadata("kernel_arg_name",
                       llvm::MDNode::get(VMContext, argNames));
@@ -4602,8 +4592,7 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
 #endif // INTEL_COLLAB
 
     // Handle dropped DLL attributes.
-    if (D && !D->hasAttr<DLLImportAttr>() && !D->hasAttr<DLLExportAttr>() &&
-        !shouldMapVisibilityToDLLExport(cast_or_null<NamedDecl>(D))) {
+    if (D && !D->hasAttr<DLLImportAttr>() && !D->hasAttr<DLLExportAttr>()) {
       Entry->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
       setDSOLocal(Entry);
     }
@@ -4982,8 +4971,7 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName, llvm::Type *Ty,
     }
 
     // Handle dropped DLL attributes.
-    if (D && !D->hasAttr<DLLImportAttr>() && !D->hasAttr<DLLExportAttr>() &&
-        !shouldMapVisibilityToDLLExport(D))
+    if (D && !D->hasAttr<DLLImportAttr>() && !D->hasAttr<DLLExportAttr>())
       Entry->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
 
     if (LangOpts.OpenMP && !LangOpts.OpenMPSimd && D)
@@ -6180,12 +6168,8 @@ llvm::GlobalValue::LinkageTypes CodeGenModule::getLLVMLinkageForDeclarator(
   if (Linkage == GVA_Internal)
     return llvm::Function::InternalLinkage;
 
-  if (D->hasAttr<WeakAttr>()) {
-    if (IsConstantVariable)
-      return llvm::GlobalVariable::WeakODRLinkage;
-    else
-      return llvm::GlobalVariable::WeakAnyLinkage;
-  }
+  if (D->hasAttr<WeakAttr>())
+    return llvm::GlobalVariable::WeakAnyLinkage;
 
   if (const auto *FD = D->getAsFunction())
     if (FD->isMultiVersion() && Linkage == GVA_AvailableExternally)
@@ -7668,8 +7652,10 @@ void CodeGenModule::EmitMainVoidAlias() {
   // new-style no-argument main is in used.
   if (llvm::Function *F = getModule().getFunction("main")) {
     if (!F->isDeclaration() && F->arg_size() == 0 && !F->isVarArg() &&
-        F->getReturnType()->isIntegerTy(Context.getTargetInfo().getIntWidth()))
-      addUsedGlobal(llvm::GlobalAlias::create("__main_void", F));
+        F->getReturnType()->isIntegerTy(Context.getTargetInfo().getIntWidth())) {
+      auto *GA = llvm::GlobalAlias::create("__main_void", F);
+      GA->setVisibility(llvm::GlobalValue::HiddenVisibility);
+    }
   }
 }
 
@@ -7707,6 +7693,10 @@ bool CodeGenModule::CheckAndReplaceExternCIFuncs(llvm::GlobalValue *Elem,
   // List of ConstantExprs that we should be able to delete when we're done
   // here.
   llvm::SmallVector<llvm::ConstantExpr *> CEs;
+
+  // It isn't valid to replace the extern-C ifuncs if all we find is itself!
+  if (Elem == CppFunc)
+    return false;
 
   // First make sure that all users of this are ifuncs (or ifuncs via a
   // bitcast), and collect the list of ifuncs and CEs so we can work on them
@@ -7776,7 +7766,7 @@ void CodeGenModule::EmitStaticExternCAliases() {
 
     // If Val is null, that implies there were multiple declarations that each
     // had a claim to the unmangled name. In this case, generation of the alias
-    // is suppressed. See CodeGenModule::MaybeHandleStaticInExterC.
+    // is suppressed. See CodeGenModule::MaybeHandleStaticInExternC.
     if (!Val)
       break;
 

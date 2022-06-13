@@ -2335,7 +2335,8 @@ private:
     DSC_template_param, // template parameter context
     DSC_template_type_arg, // template type argument context
     DSC_objc_method_result, // ObjC method result context, enables 'instancetype'
-    DSC_condition // condition declaration context
+    DSC_condition, // condition declaration context
+    DSC_association // A _Generic selection expression's type association
   };
 
   /// Is this a context in which we are parsing just a type-specifier (or
@@ -2354,6 +2355,7 @@ private:
     case DeclSpecContext::DSC_type_specifier:
     case DeclSpecContext::DSC_trailing:
     case DeclSpecContext::DSC_alias_declaration:
+    case DeclSpecContext::DSC_association:
       return true;
     }
     llvm_unreachable("Missing DeclSpecContext case");
@@ -2378,7 +2380,7 @@ private:
   /// so permit class and enum definitions in addition to non-defining class and
   /// enum elaborated-type-specifiers)?
   static AllowDefiningTypeSpec
-  isDefiningTypeSpecifierContext(DeclSpecContext DSC) {
+  isDefiningTypeSpecifierContext(DeclSpecContext DSC, bool IsCPlusPlus) {
     switch (DSC) {
     case DeclSpecContext::DSC_normal:
     case DeclSpecContext::DSC_class:
@@ -2394,6 +2396,10 @@ private:
     case DeclSpecContext::DSC_template_type_arg:
     case DeclSpecContext::DSC_type_specifier:
       return AllowDefiningTypeSpec::NoButErrorRecovery;
+
+    case DeclSpecContext::DSC_association:
+      return IsCPlusPlus ? AllowDefiningTypeSpec::NoButErrorRecovery
+                         : AllowDefiningTypeSpec::Yes;
 
     case DeclSpecContext::DSC_trailing:
       return AllowDefiningTypeSpec::No;
@@ -2416,6 +2422,7 @@ private:
     case DeclSpecContext::DSC_template_type_arg:
     case DeclSpecContext::DSC_type_specifier:
     case DeclSpecContext::DSC_trailing:
+    case DeclSpecContext::DSC_association:
       return false;
     }
     llvm_unreachable("Missing DeclSpecContext case");
@@ -2431,6 +2438,7 @@ private:
     case DeclSpecContext::DSC_top_level:
     case DeclSpecContext::DSC_condition:
     case DeclSpecContext::DSC_type_specifier:
+    case DeclSpecContext::DSC_association:
       return true;
 
     case DeclSpecContext::DSC_objc_method_result:

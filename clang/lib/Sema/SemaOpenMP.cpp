@@ -12804,11 +12804,11 @@ bool OpenMPAtomicCompareChecker::checkCondUpdateStmt(IfStmt *S,
   switch (Cond->getOpcode()) {
   case BO_EQ: {
     C = Cond;
-    D = BO->getRHS()->IgnoreImpCasts();
+    D = BO->getRHS();
     if (checkIfTwoExprsAreSame(ContextRef, X, Cond->getLHS())) {
-      E = Cond->getRHS()->IgnoreImpCasts();
+      E = Cond->getRHS();
     } else if (checkIfTwoExprsAreSame(ContextRef, X, Cond->getRHS())) {
-      E = Cond->getLHS()->IgnoreImpCasts();
+      E = Cond->getLHS();
     } else {
       ErrorInfo.Error = ErrorTy::InvalidComparison;
       ErrorInfo.ErrorLoc = ErrorInfo.NoteLoc = Cond->getExprLoc();
@@ -12819,7 +12819,7 @@ bool OpenMPAtomicCompareChecker::checkCondUpdateStmt(IfStmt *S,
   }
   case BO_LT:
   case BO_GT: {
-    E = BO->getRHS()->IgnoreImpCasts();
+    E = BO->getRHS();
     if (checkIfTwoExprsAreSame(ContextRef, X, Cond->getLHS()) &&
         checkIfTwoExprsAreSame(ContextRef, E, Cond->getRHS())) {
       C = Cond;
@@ -12899,11 +12899,11 @@ bool OpenMPAtomicCompareChecker::checkCondExprStmt(Stmt *S,
   switch (Cond->getOpcode()) {
   case BO_EQ: {
     C = Cond;
-    D = CO->getTrueExpr()->IgnoreImpCasts();
+    D = CO->getTrueExpr();
     if (checkIfTwoExprsAreSame(ContextRef, X, Cond->getLHS())) {
-      E = Cond->getRHS()->IgnoreImpCasts();
+      E = Cond->getRHS();
     } else if (checkIfTwoExprsAreSame(ContextRef, X, Cond->getRHS())) {
-      E = Cond->getLHS()->IgnoreImpCasts();
+      E = Cond->getLHS();
     } else {
       ErrorInfo.Error = ErrorTy::InvalidComparison;
       ErrorInfo.ErrorLoc = ErrorInfo.NoteLoc = Cond->getExprLoc();
@@ -12914,7 +12914,7 @@ bool OpenMPAtomicCompareChecker::checkCondExprStmt(Stmt *S,
   }
   case BO_LT:
   case BO_GT: {
-    E = CO->getTrueExpr()->IgnoreImpCasts();
+    E = CO->getTrueExpr();
     if (checkIfTwoExprsAreSame(ContextRef, X, Cond->getLHS()) &&
         checkIfTwoExprsAreSame(ContextRef, E, Cond->getRHS())) {
       C = Cond;
@@ -13007,6 +13007,7 @@ public:
   Expr *getV() const { return V; }
   Expr *getR() const { return R; }
   bool isFailOnly() const { return IsFailOnly; }
+  bool isPostfixUpdate() const { return IsPostfixUpdate; }
 
   /// Check if statement \a S is valid for <tt>atomic compare capture</tt>.
   bool checkStmt(Stmt *S, ErrorInfoTy &ErrorInfo);
@@ -13036,6 +13037,8 @@ private:
   Expr *R = nullptr;
   /// If 'v' is only updated when the comparison fails.
   bool IsFailOnly = false;
+  /// If original value of 'x' must be stored in 'v', not an updated one.
+  bool IsPostfixUpdate = false;
 };
 
 bool OpenMPAtomicCompareCaptureChecker::checkType(ErrorInfoTy &ErrorInfo) {
@@ -13341,6 +13344,8 @@ bool OpenMPAtomicCompareCaptureChecker::checkStmt(Stmt *S,
       if (dyn_cast<BinaryOperator>(BO->getRHS()->IgnoreImpCasts()) &&
           dyn_cast<IfStmt>(S2))
         return checkForm45(CS, ErrorInfo);
+      // It cannot be set before we the check for form45.
+      IsPostfixUpdate = true;
     } else {
       // { cond-update-stmt v = x; }
       UpdateStmt = S2;
@@ -13516,8 +13521,10 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
   Expr *UE = nullptr;
   Expr *D = nullptr;
   Expr *CE = nullptr;
+  Expr *R = nullptr;
   bool IsXLHSInRHSPart = false;
   bool IsPostfixUpdate = false;
+  bool IsFailOnly = false;
 #if INTEL_COLLAB
   Expr *Result = nullptr;
   Expr *Expected = nullptr;
@@ -13959,8 +13966,16 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
             << ErrorInfo.Error << ErrorInfo.NoteRange;
         return StmtError();
       }
-      // TODO: We don't set X, D, E, etc. here because in code gen we will emit
-      // error directly.
+      X = Checker.getX();
+      E = Checker.getE();
+      D = Checker.getD();
+      CE = Checker.getCond();
+      V = Checker.getV();
+      R = Checker.getR();
+      // We reuse IsXLHSInRHSPart to tell if it is in the form 'x ordop expr'.
+      IsXLHSInRHSPart = Checker.isXBinopExpr();
+      IsFailOnly = Checker.isFailOnly();
+      IsPostfixUpdate = Checker.isPostfixUpdate();
     } else {
       OpenMPAtomicCompareChecker::ErrorInfoTy ErrorInfo;
       OpenMPAtomicCompareChecker Checker(*this);
@@ -13968,7 +13983,7 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
         Diag(ErrorInfo.ErrorLoc, diag::err_omp_atomic_compare)
             << ErrorInfo.ErrorRange;
         Diag(ErrorInfo.NoteLoc, diag::note_omp_atomic_compare)
-            << ErrorInfo.Error << ErrorInfo.NoteRange;
+          << ErrorInfo.Error << ErrorInfo.NoteRange;
         return StmtError();
       }
       X = Checker.getX();
@@ -13985,10 +14000,10 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
   return OMPAtomicDirective::Create(
       Context, StartLoc, EndLoc, Clauses, AStmt,
 #if INTEL_COLLAB
-      {X, V, E, Expected, Result, UE, D, CE, IsXLHSInRHSPart, IsPostfixUpdate,
+      {X, V, R, E, Expected, Result, UE, D, CE, IsXLHSInRHSPart, IsPostfixUpdate, IsFailOnly,
        IsCompareMin, IsCompareMax, IsConditionalCapture});
 #else // INTEL_COLLAB
-      {X, V, E, UE, D, CE, IsXLHSInRHSPart, IsPostfixUpdate});
+      {X, V, R, E, UE, D, CE, IsXLHSInRHSPart, IsPostfixUpdate, IsFailOnly});
 #endif // INTEL_COLLAB
 }
 

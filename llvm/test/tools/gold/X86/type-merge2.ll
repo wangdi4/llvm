@@ -2,6 +2,7 @@
 ; RUN: llvm-as %p/Inputs/type-merge2.ll -o %t2.o
 ; RUN: %gold -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:    -m elf_x86_64 \
+; INTEL RUN: -plugin-opt=opaque-pointers \
 ; RUN:    --plugin-opt=save-temps \
 ; RUN:    -shared %t.o %t2.o -o %t3.o
 ; RUN: llvm-dis %t3.o.0.2.internalize.bc -o - | FileCheck %s
@@ -16,15 +17,14 @@ define void @foo()  {
 }
 declare void @bar(%zed*)
 
-; CHECK:      %zed = type { i8 }
-; CHECK-NEXT: %zed.0 = type { i16 }
+; CHECK-NOT:  %zed
 
 ; CHECK:      define void @foo() {
-; CHECK-NEXT:   call void bitcast (void (%zed.0*)* @bar to void (%zed*)*)(%zed* null)
+; CHECK-NEXT:   call void @bar(ptr null)
 ; CHECK-NEXT:   ret void
 ; CHECK-NEXT: }
 
-; CHECK:      define void @bar(%zed.0* %this) {
-; CHECK-NEXT:   store %zed.0* %this, %zed.0** null
+; CHECK:      define void @bar(ptr %this) {
+; CHECK-NEXT:   store ptr %this, ptr null
 ; CHECK-NEXT:   ret void
 ; CHECK-NEXT: }

@@ -2513,6 +2513,8 @@ def fms_memptr_rep_EQ : Joined<["-"], "fms-memptr-rep=">, Group<f_Group>, Flags<
   NormalizedValues<["PPTMK_FullGeneralitySingleInheritance", "PPTMK_FullGeneralityMultipleInheritance",
                     "PPTMK_FullGeneralityVirtualInheritance"]>,
   MarshallingInfoEnum<LangOpts<"MSPointerToMemberRepresentationMethod">, "PPTMK_BestCase">;
+def fms_kernel : Flag<["-"], "fms-kernel">, Group<f_Group>, Flags<[CC1Option, NoDriverOption]>,
+  MarshallingInfoFlag<LangOpts<"Kernel">>;
 // __declspec is enabled by default for the PS4 by the driver, and also
 // enabled for Microsoft Extensions or Borland Extensions, here.
 //
@@ -3259,7 +3261,8 @@ defm strict_vtable_pointers : BoolFOption<"strict-vtable-pointers",
 def fstrict_overflow : Flag<["-"], "fstrict-overflow">, Group<f_Group>;
 #if INTEL_CUSTOMIZATION
 def fintelfpga : Flag<["-"], "fintelfpga">, Group<f_Group>,
-  Flags<[CC1Option, CoreOption, DpcppOption]>, HelpText<"Perform ahead of time compilation for FPGA">;
+  Flags<[CC1Option, CoreOption, DpcppOption]>,
+  HelpText<"Perform ahead-of-time compilation for FPGA">;
 def fsycl_device_only : Flag<["-"], "fsycl-device-only">, Flags<[CoreOption, DpcppOption]>,
   HelpText<"Compile SYCL kernels for device">;
 def fsycl_targets_EQ : CommaJoined<["-"], "fsycl-targets=">, Flags<[NoXarchOption, CC1Option, CoreOption, DpcppOption]>,
@@ -3275,10 +3278,18 @@ def fsycl_device_code_split_EQ : Joined<["-"], "fsycl-device-code-split=">,
 def fsycl_device_code_split : Flag<["-"], "fsycl-device-code-split">, Alias<fsycl_device_code_split_EQ>,
   AliasArgs<["auto"]>, Flags<[CC1Option, CoreOption, DpcppOption]>,
   HelpText<"Perform SYCL device code split in the 'auto' mode, i.e. use heuristic to distribute device code across modules">;
-defm sycl_instrument_device_code : BoolFOption<"sycl-instrument-device-code",
-  CodeGenOpts<"SPIRITTAnnotations">, DefaultFalse,
-  PosFlag<SetTrue, [], "Add">, NegFlag<SetFalse, [], "Do not add">,
-  BothFlags<[CC1Option, CoreOption], " ITT instrumentation intrinsics calls">>;
+def fsycl_device_code_split_esimd : Flag<["-"], "fsycl-device-code-split-esimd">,
+  Flags<[CoreOption]>, HelpText<"split ESIMD device code from SYCL into a separate device binary image (default). Has effect only for SPIR-based targets. (experimental)">;
+def fno_sycl_device_code_split_esimd : Flag<["-"], "fno-sycl-device-code-split-esimd">,
+  Flags<[CoreOption]>, HelpText<"do not split ESIMD and SYCL device code into separate device binary images. Has effect only for SPIR-based targets. (experimental)">;
+defm sycl_instrument_device_code
+    : BoolFOption<"sycl-instrument-device-code",
+          CodeGenOpts<"SPIRITTAnnotations">, DefaultFalse,
+          PosFlag<SetTrue, [], "Add">,
+          NegFlag<SetFalse, [], "Do not add">,
+          BothFlags<[CC1Option, CoreOption], " Instrumentation and Tracing "
+                    "Technology (ITT) instrumentation intrinsics calls "
+                    "(experimental)">>;
 defm sycl_id_queries_fit_in_int: BoolFOption<"sycl-id-queries-fit-in-int",
   LangOpts<"SYCLValueFitInMaxInt">, DefaultTrue,
   PosFlag<SetTrue, [], "Assume">, NegFlag<SetFalse, [], "Do not assume">,
@@ -3508,13 +3519,6 @@ def fvisibility_ms_compat : Flag<["-"], "fvisibility-ms-compat">, Group<f_Group>
 def fvisibility_global_new_delete_hidden : Flag<["-"], "fvisibility-global-new-delete-hidden">, Group<f_Group>,
   HelpText<"Give global C++ operator new and delete declarations hidden visibility">, Flags<[CC1Option]>,
   MarshallingInfoFlag<LangOpts<"GlobalAllocationFunctionVisibilityHidden">>;
-def mdefault_visibility_export_mapping_EQ : Joined<["-"], "mdefault-visibility-export-mapping=">,
-  Values<"none,explicit,all">,
-  NormalizedValuesScope<"LangOptions::DefaultVisiblityExportMapping">,
-  NormalizedValues<["None", "Explicit", "All"]>,
-  HelpText<"Mapping between default visibility and export">,
-  Group<m_Group>, Flags<[CC1Option]>,
-  MarshallingInfoEnum<LangOpts<"DefaultVisibilityExportMapping">,"None">;
 defm new_infallible : BoolFOption<"new-infallible",
   LangOpts<"NewInfallible">, DefaultFalse,
   PosFlag<SetTrue, [], "Enable">, NegFlag<SetFalse, [], "Disable">,
@@ -5916,12 +5920,12 @@ def fsycl_fp32_prec_sqrt : Flag<["-"], "fsycl-fp32-prec-sqrt">, Group<sycl_Group
   HelpText<"SYCL only. Specify that single precision floating-point sqrt is correctly rounded.">,
   MarshallingInfoFlag<CodeGenOpts<"SYCLFp32PrecSqrt">>;
 #endif // INTEL_CUSTOMIZATION
-  def fsycl_device_lib_online_link : Flag<["-"], "fsycl-device-lib-online-link">,
+def fsycl_device_lib_jit_link : Flag<["-"], "fsycl-device-lib-jit-link">,
   Group<sycl_Group>, Flags<[NoArgumentUnused, CoreOption]>, HelpText<"Enables "
-  "sycl device library online link (experimental)">;
-def fno_sycl_device_lib_online_link : Flag<["-"], "fno-sycl-device-lib-online-link">,
+  "sycl device library jit link (experimental)">;
+def fno_sycl_device_lib_jit_link : Flag<["-"], "fno-sycl-device-lib-jit-link">,
   Group<sycl_Group>, Flags<[NoArgumentUnused, CoreOption]>, HelpText<"Disables "
-  "sycl device library online link (experimental)">;
+  "sycl device library jit link (experimental)">;
 
 //===----------------------------------------------------------------------===//
 // FLangOption + NoXarchOption

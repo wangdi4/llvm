@@ -4965,8 +4965,7 @@ bool X86AsmParser::parseDirectiveNops(SMLoc L) {
     if (getParser().parseAbsoluteExpression(Control))
       return true;
   }
-  if (getParser().parseToken(AsmToken::EndOfStatement,
-                             "unexpected token in '.nops' directive"))
+  if (getParser().parseEOL())
     return true;
 
   if (NumBytes <= 0) {
@@ -4988,7 +4987,7 @@ bool X86AsmParser::parseDirectiveNops(SMLoc L) {
 /// parseDirectiveEven
 ///  ::= .even
 bool X86AsmParser::parseDirectiveEven(SMLoc L) {
-  if (parseToken(AsmToken::EndOfStatement, "unexpected token in directive"))
+  if (parseEOL())
     return false;
 
   const MCSection *Section = getStreamer().getCurrentSectionOnly();

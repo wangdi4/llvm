@@ -10,7 +10,6 @@
 #include "../ClangTidyModule.h"
 #include "../ClangTidyModuleRegistry.h"
 #include "DefinitionsInHeadersCheck.h"
-#include "Homoglyph.h" // INTEL
 #include "MisleadingBidirectional.h"
 #include "MisleadingIdentifier.h"
 #include "MisplacedConstCheck.h"

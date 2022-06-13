@@ -132,7 +132,7 @@ public:
 
   /// Update streamer for a new active section.
   ///
-  /// This is called by PopSection and SwitchSection, if the current
+  /// This is called by popSection and SwitchSection, if the current
   /// section changes.
   virtual void changeSection(const MCSection *CurSection, MCSection *Section,
                              const MCExpr *SubSection, raw_ostream &OS);
@@ -184,7 +184,7 @@ public:
   virtual void finishAttributeSection();
   virtual void emitInst(uint32_t Inst, char Suffix = '\0');
 
-  virtual void AnnotateTLSDescriptorSequence(const MCSymbolRefExpr *SRE);
+  virtual void annotateTLSDescriptorSequence(const MCSymbolRefExpr *SRE);
 
   virtual void emitThumbSet(MCSymbol *Symbol, const MCExpr *Value);
 
@@ -247,7 +247,7 @@ class MCStreamer {
   DenseMap<const MCSymbol *, unsigned> SymbolOrdering;
 
   /// This is stack of current and previous section values saved by
-  /// PushSection.
+  /// pushSection.
   SmallVector<std::pair<MCSectionSubPair, MCSectionSubPair>, 4> SectionStack;
 
   /// Pointer to the parser's SMLoc if available. This is used to provide
@@ -376,7 +376,7 @@ public:
   /// Return a raw_ostream that comments can be written to. Unlike
   /// AddComment, you are required to terminate comments with \n if you use this
   /// method.
-  virtual raw_ostream &GetCommentOS();
+  virtual raw_ostream &getCommentOS();
 
   /// Print T and prefix it with the comment string (normally #) and
   /// optionally a tab. This prints the comment immediately, not at the end of
@@ -391,8 +391,8 @@ public:
   /// Emit added explicit comments.
   virtual void emitExplicitComments();
 
-  /// AddBlankLine - Emit a blank line to a .s file to pretty it up.
-  virtual void AddBlankLine() {}
+  /// Emit a blank line to a .s file to pretty it up.
+  virtual void addBlankLine() {}
 
   /// @}
 
@@ -416,18 +416,18 @@ public:
 
   /// Returns an index to represent the order a symbol was emitted in.
   /// (zero if we did not emit that symbol)
-  unsigned GetSymbolOrder(const MCSymbol *Sym) const {
+  unsigned getSymbolOrder(const MCSymbol *Sym) const {
     return SymbolOrdering.lookup(Sym);
   }
 
   /// Update streamer for a new active section.
   ///
-  /// This is called by PopSection and SwitchSection, if the current
+  /// This is called by popSection and SwitchSection, if the current
   /// section changes.
   virtual void changeSection(MCSection *, const MCExpr *);
 
   /// Save the current and previous section on the section stack.
-  void PushSection() {
+  void pushSection() {
     SectionStack.push_back(
         std::make_pair(getCurrentSection(), getPreviousSection()));
   }
@@ -436,7 +436,7 @@ public:
   /// Calls changeSection as needed.
   ///
   /// Returns false if the stack was empty.
-  bool PopSection() {
+  bool popSection() {
     if (SectionStack.size() <= 1)
       return false;
     auto I = SectionStack.end();
@@ -451,7 +451,7 @@ public:
     return true;
   }
 
-  bool SubSection(const MCExpr *Subsection) {
+  bool subSection(const MCExpr *Subsection) {
     if (SectionStack.empty())
       return false;
 
@@ -469,7 +469,7 @@ public:
   /// Set the current section where code is being emitted to \p Section.
   /// This is required to update CurSection. This version does not call
   /// changeSection.
-  void SwitchSectionNoChange(MCSection *Section,
+  void switchSectionNoChange(MCSection *Section,
                              const MCExpr *Subsection = nullptr) {
     assert(Section && "Cannot switch to a null section!");
     MCSectionSubPair curSection = SectionStack.back().first;
@@ -487,7 +487,7 @@ public:
   ///
   /// Each emitted symbol will be tracked in the ordering table,
   /// so we can sort on them later.
-  void AssignFragment(MCSymbol *Symbol, MCFragment *Fragment);
+  void assignFragment(MCSymbol *Symbol, MCFragment *Fragment);
 
   /// Returns the mnemonic for \p MI, if the streamer has access to a
   /// instruction printer and returns an empty string otherwise.
@@ -582,7 +582,7 @@ public:
   /// Start emitting COFF symbol definition
   ///
   /// \param Symbol - The symbol to have its External & Type fields set.
-  virtual void BeginCOFFSymbolDef(const MCSymbol *Symbol);
+  virtual void beginCOFFSymbolDef(const MCSymbol *Symbol);
 
   /// Emit the storage class of the symbol.
   ///
@@ -595,7 +595,7 @@ public:
   virtual void emitCOFFSymbolType(int Type);
 
   /// Marks the end of the symbol definition.
-  virtual void EndCOFFSymbolDef();
+  virtual void endCOFFSymbolDef();
 
   virtual void emitCOFFSafeSEH(MCSymbol const *Symbol);
 
@@ -1150,7 +1150,7 @@ public:
   /// Streamer specific finalization.
   virtual void finishImpl();
   /// Finish emission of machine code.
-  void Finish(SMLoc EndLoc = SMLoc());
+  void finish(SMLoc EndLoc = SMLoc());
 
   virtual bool mayHaveInstructions(MCSection &Sec) const { return true; }
 

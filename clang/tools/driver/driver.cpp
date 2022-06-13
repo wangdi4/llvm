@@ -356,7 +356,7 @@ static int ExecuteCC1Tool(SmallVectorImpl<const char *> &ArgV) {
   return 1;
 }
 
-int main(int Argc, const char **Argv) {
+int clang_main(int Argc, char **Argv) {
   noteBottomOfStack();
   llvm::InitLLVM X(Argc, Argv);
   SmallVector<const char *, 256> Args(Argv, Argv + Argc);

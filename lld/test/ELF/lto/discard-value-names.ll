@@ -1,13 +1,13 @@
 ; REQUIRES: x86
 ; RUN: llvm-as %s -o %t.o
 
-; RUN: ld.lld -shared -save-temps %t.o -o %t2.o
+; INTEL RUN: ld.lld -mllvm -opaque-pointers -shared -save-temps %t.o -o %t2.o
 ; RUN: llvm-dis < %t2.o.0.0.preopt.bc | FileCheck %s
 
 ; CHECK: @GlobalValueName
 ; CHECK: @foo(i32 %in)
 ; CHECK: somelabel:
-; CHECK:  %GV = load i32, i32* @GlobalValueName
+; CHECK:  %GV = load i32, ptr @GlobalValueName
 ; CHECK:  %add = add i32 %in, %GV
 ; CHECK:  ret i32 %add
 
