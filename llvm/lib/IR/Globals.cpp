@@ -84,17 +84,14 @@ void GlobalValue::copyAttributesFrom(const GlobalValue *Src) {
   setDLLStorageClass(Src->getDLLStorageClass());
   setDSOLocal(Src->isDSOLocal());
   setPartition(Src->getPartition());
-<<<<<<< HEAD
 #if INTEL_COLLAB
   setThreadPrivate(Src->isThreadPrivate());
   setTargetDeclare(Src->isTargetDeclare());
 #endif  // INTEL_COLLAB
-=======
   if (Src->hasSanitizerMetadata())
     setSanitizerMetadata(Src->getSanitizerMetadata());
   else
     removeSanitizerMetadata();
->>>>>>> 8db981d463ee266919907f2554194d05f96f7191
 }
 
 void GlobalValue::removeFromParent() {

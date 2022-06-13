@@ -3615,25 +3615,22 @@ Error BitcodeReader::parseGlobalVarRecord(ArrayRef<uint64_t> Record) {
   if (Record.size() > 15)
     NewGV->setPartition(StringRef(Strtab.data() + Record[14], Record[15]));
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
-  if (Record.size() > 16) {
-    NewGV->setThreadPrivate(getDecodedThreadPrivate(Record[16]));
-  }
-
-  if (Record.size() > 17) {
-    NewGV->setTargetDeclare(getDecodedTargetDeclare(Record[17]));
-  }
-#endif // INTEL_COLLAB
-
-=======
   if (Record.size() > 16 && Record[16] != UINT_MAX) {
     llvm::GlobalValue::SanitizerMetadata Meta =
         deserializeSanitizerMetadata(Record[16]);
     NewGV->setSanitizerMetadata(Meta);
   }
 
->>>>>>> 8db981d463ee266919907f2554194d05f96f7191
+#if INTEL_COLLAB
+  if (Record.size() > 17) {
+    NewGV->setThreadPrivate(getDecodedThreadPrivate(Record[17]));
+  }
+
+  if (Record.size() > 18) {
+    NewGV->setTargetDeclare(getDecodedTargetDeclare(Record[18]));
+  }
+#endif // INTEL_COLLAB
+
   return Error::success();
 }
 

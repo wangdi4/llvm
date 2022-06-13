@@ -1397,16 +1397,12 @@ void ModuleBitcodeWriter::writeModuleInfo() {
     // GLOBALVAR: [strtab offset, strtab size, type, isconst, initid,
     //             linkage, alignment, section, visibility, threadlocal,
     //             unnamed_addr, externally_initialized, dllstorageclass,
-<<<<<<< HEAD
 #if INTEL_COLLAB
-    //             comdat, attributes, DSO_Local, thread_private,
-    //             target_declare]
+    //             comdat, attributes, DSO_Local, GlobalVariable,
+    //             thread_private, target_declare]
 #else // INTEL_COLLAB
-    //             comdat, attributes, DSO_Local]
+    //             comdat, attributes, DSO_Local, GlobalVariable]
 #endif // INTEL_COLLAB
-=======
-    //             comdat, attributes, DSO_Local, GlobalSanitizer]
->>>>>>> 8db981d463ee266919907f2554194d05f96f7191
     Vals.push_back(addToStrtab(GV.getName()));
     Vals.push_back(GV.getName().size());
     Vals.push_back(VE.getTypeID(GV.getValueType()));
@@ -1423,15 +1419,11 @@ void ModuleBitcodeWriter::writeModuleInfo() {
         GV.isExternallyInitialized() ||
         GV.getDLLStorageClass() != GlobalValue::DefaultStorageClass ||
         GV.hasComdat() || GV.hasAttributes() || GV.isDSOLocal() ||
-<<<<<<< HEAD
 #if INTEL_COLLAB
         GV.isThreadPrivate() ||
         GV.isTargetDeclare() ||
 #endif // INTEL_COLLAB
-        GV.hasPartition()) {
-=======
         GV.hasPartition() || GV.hasSanitizerMetadata()) {
->>>>>>> 8db981d463ee266919907f2554194d05f96f7191
       Vals.push_back(getEncodedVisibility(GV));
       Vals.push_back(getEncodedThreadLocalMode(GV));
       Vals.push_back(getEncodedUnnamedAddr(GV));
@@ -1445,18 +1437,16 @@ void ModuleBitcodeWriter::writeModuleInfo() {
       Vals.push_back(GV.isDSOLocal());
       Vals.push_back(addToStrtab(GV.getPartition()));
       Vals.push_back(GV.getPartition().size());
-<<<<<<< HEAD
-#if INTEL_COLLAB
-      Vals.push_back(GV.isThreadPrivate());
-      Vals.push_back(GV.isTargetDeclare());
-#endif // INTEL_COLLAB
-=======
 
       if (GV.hasSanitizerMetadata())
         Vals.push_back(serializeSanitizerMetadata(GV.getSanitizerMetadata()));
       else
         Vals.push_back(UINT_MAX);
->>>>>>> 8db981d463ee266919907f2554194d05f96f7191
+
+#if INTEL_COLLAB
+      Vals.push_back(GV.isThreadPrivate());
+      Vals.push_back(GV.isTargetDeclare());
+#endif // INTEL_COLLAB
     } else {
       AbbrevToUse = SimpleGVarAbbrev;
     }

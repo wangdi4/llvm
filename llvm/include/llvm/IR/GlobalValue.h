@@ -79,33 +79,25 @@ protected:
         ValueType(Ty), Visibility(DefaultVisibility),
         UnnamedAddrVal(unsigned(UnnamedAddr::None)),
         DllStorageClass(DefaultStorageClass), ThreadLocal(NotThreadLocal),
-<<<<<<< HEAD
 #if INTEL_COLLAB
         ThreadPrivate(0), TargetDeclare(0),
 #endif // INTEL_COLLAB
-        HasLLVMReservedName(false), IsDSOLocal(false), HasPartition(false) {
-=======
         HasLLVMReservedName(false), IsDSOLocal(false), HasPartition(false),
         HasSanitizerMetadata(false) {
->>>>>>> 8db981d463ee266919907f2554194d05f96f7191
     setLinkage(Linkage);
     setName(Name);
   }
 
   Type *ValueType;
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   // This needs to be two less than it is in the community version to
   // account for the ThreadPrivate bit and TargetDeclare bit.  See also
   // the comment at the SubClassData declaration.
-  static const unsigned GlobalValueSubClassDataBits = 14;
+  static const unsigned GlobalValueSubClassDataBits = 13;
 #else // INTEL_COLLAB
-  static const unsigned GlobalValueSubClassDataBits = 16;
-#endif // INTEL_COLLAB
-=======
   static const unsigned GlobalValueSubClassDataBits = 15;
->>>>>>> 8db981d463ee266919907f2554194d05f96f7191
+#endif // INTEL_COLLAB
 
   // All bitfields use unsigned as the underlying type so that MSVC will pack
   // them.
@@ -146,12 +138,8 @@ protected:
 
 private:
   // Give subclasses access to what otherwise would be wasted padding.
-<<<<<<< HEAD
-  // INTEL - (14 + 4 + 2 + 2 + 2 + 3 + 1 + 1 + 1 + 1 + 1) == 32.  Extra two bits for
-  // ThreadPrivate and TargetDeclare.
-=======
-  // (15 + 4 + 2 + 2 + 2 + 3 + 1 + 1 + 1 + 1) == 32.
->>>>>>> 8db981d463ee266919907f2554194d05f96f7191
+  // INTEL - (13 + 4 + 2 + 2 + 2 + 3 + 1 + 1 + 1 + 1 + 1 + 1) == 32.  Extra two
+  // bits for ThreadPrivate and TargetDeclare.
   unsigned SubClassData : GlobalValueSubClassDataBits;
 
   friend class Constant;
