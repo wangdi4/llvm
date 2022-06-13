@@ -4,7 +4,7 @@
 # INTEL_CUSTOMIZATION
 # This test started failing when we moved to a new test system which appears
 # not to recognize the TZ=UTC variable.
-# UNSUPPORTED: TRUE
+# UNSUPPORTED: true
 # end INTEL_CUSTOMIZATION
 # RUN: yaml2obj %S/../llvm-ar/Inputs/add-lib1.yaml -o %t.o
 # RUN: env TZ=UTC touch -t 200001020304 %t.o
