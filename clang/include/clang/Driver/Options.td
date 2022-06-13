@@ -3264,7 +3264,12 @@ defm strict_vtable_pointers : BoolFOption<"strict-vtable-pointers",
             " overwriting polymorphic C++ objects">,
   NegFlag<SetFalse>>;
 def fstrict_overflow : Flag<["-"], "fstrict-overflow">, Group<f_Group>;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+def fdriver_only : Flag<["-"], "fdriver-only">, Flags<[NoXarchOption, CoreOption]>,
+  Group<Action_Group>, HelpText<"Only run the driver.">;
+>>>>>>> 86c7a74d84163f89518ac1008a1608331e4e28a6
 def fintelfpga : Flag<["-"], "fintelfpga">, Group<f_Group>,
   Flags<[CC1Option, CoreOption, DpcppOption]>,
   HelpText<"Perform ahead-of-time compilation for FPGA">;
