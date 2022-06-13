@@ -44,7 +44,6 @@ public:
   int64_t getLocalCalls(Function &F);
   const MLModelRunner &getModelRunner() const { return *ModelRunner.get(); }
   FunctionPropertiesInfo &getCachedFPI(Function &) const;
-  const LoopInfo &getLoopInfo(Function &F) const;
 
 protected:
 #if INTEL_CUSTOMIZATION
@@ -73,10 +72,7 @@ protected:
 private:
   int64_t getModuleIRSize() const;
 
-  void print(raw_ostream &OS) const override {
-    OS << "[MLInlineAdvisor] Nodes: " << NodeCount << " Edges: " << EdgeCount
-       << "\n";
-  }
+  void print(raw_ostream &OS) const override;
 
   mutable DenseMap<const Function *, FunctionPropertiesInfo> FPICache;
 
@@ -113,10 +109,10 @@ public:
   const int64_t CallerIRSize;
   const int64_t CalleeIRSize;
   const int64_t CallerAndCalleeEdges;
+  void updateCachedCallerFPI(const LoopInfo &LI) const;
 
 private:
   void reportContextForRemark(DiagnosticInfoOptimizationBase &OR);
-  void updateCachedCallerFPI();
   MLInlineAdvisor *getAdvisor() const {
     return static_cast<MLInlineAdvisor *>(Advisor);
   };
