@@ -36,6 +36,9 @@ class GetElementPtrInst;
 class InsertElementInst;
 class InsertValueInst;
 class Instruction;
+#ifdef INTEL_COLLAB
+class InstructionCost;
+#endif // INTEL_COLLAB
 class LoopInfo;
 class OptimizationRemarkEmitter;
 class PHINode;
@@ -87,6 +90,11 @@ private:
   /// TODO: We can further reduce this cost if we flush the chain creation
   ///       every time we run into a memory barrier.
   void collectSeedInstructions(BasicBlock *BB);
+
+#ifdef INTEL_COLLAB
+  /// Adjust cost if vectorizing a tree will lose FMA opportunities.
+  void adjustForFMAs(InstructionCost &Cost, ArrayRef<Value *> &VL);
+#endif // INTEL_COLLAB
 
   /// Try to vectorize a chain that starts at two arithmetic instrs.
   bool tryToVectorizePair(Value *A, Value *B, slpvectorizer::BoUpSLP &R);

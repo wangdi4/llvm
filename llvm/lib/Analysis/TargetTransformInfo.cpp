@@ -983,6 +983,35 @@ TargetTransformInfo::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
   return Cost;
 }
 
+#ifdef INTEL_COLLAB
+InstructionCost
+TargetTransformInfo::getFMACostSavings(Type *Ty, FastMathFlags FMF) const {
+
+  if (!FMF.allowContract())
+    return 0;
+
+  // Savings = Cost(FMul) + Cost(FAdd) - Cost(FMA).
+  TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
+  InstructionCost MulCost =
+    getArithmeticInstrCost(Instruction::FMul, Ty, CostKind);
+  InstructionCost AddCost =
+    getArithmeticInstrCost(Instruction::FAdd, Ty, CostKind);
+
+  Intrinsic::ID ID = Intrinsic::fmuladd;
+  SmallVector<Type *, 2> Tys;
+  Tys.push_back(Ty);
+  Tys.push_back(Ty);
+  ArrayRef<Type *> ArgTys(Tys);
+  IntrinsicCostAttributes CostAttrs(ID, Ty, ArgTys);
+  InstructionCost FMACost = getIntrinsicInstrCost(CostAttrs, CostKind);
+
+  InstructionCost Savings = MulCost + AddCost - FMACost;
+  if (Savings < 0)
+    Savings = 0;
+  return Savings;
+}
+#endif // INTEL_COLLAB
+
 InstructionCost
 TargetTransformInfo::getCallInstrCost(Function *F, Type *RetTy,
                                       ArrayRef<Type *> Tys,

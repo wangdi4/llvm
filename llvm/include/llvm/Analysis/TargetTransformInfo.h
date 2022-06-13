@@ -1321,6 +1321,12 @@ public:
   InstructionCost getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
                                         TTI::TargetCostKind CostKind) const;
 
+#ifdef INTEL_COLLAB
+  /// \returns The cost savings from using a floating-point contract
+  /// instead of separate multiply and add/subtract.
+  InstructionCost getFMACostSavings(Type *Ty, FastMathFlags FMF) const;
+#endif // INTEL_COLLAB
+
   /// \returns The cost of Call instructions.
   InstructionCost getCallInstrCost(
       Function *F, Type *RetTy, ArrayRef<Type *> Tys,
