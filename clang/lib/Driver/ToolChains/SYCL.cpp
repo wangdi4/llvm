@@ -772,6 +772,12 @@ SYCLToolChain::SYCLToolChain(const Driver &D, const llvm::Triple &Triple,
   llvm::sys::path::remove_dots(Bin, /*remove_dot_dot=*/ true);
   getProgramPaths().push_back(std::string(Bin));
 #endif // INTEL_CUSTOMIZATION
+
+  // Diagnose unsupported options only once.
+  // All sanitizer options are not currently supported.
+  for (auto A : Args.filtered(options::OPT_fsanitize_EQ))
+    D.getDiags().Report(clang::diag::warn_drv_unsupported_option_for_target)
+        << A->getAsString(Args) << getTriple().str();
 }
 
 void SYCLToolChain::addClangTargetOptions(
@@ -793,6 +799,8 @@ SYCLToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
       // Filter out any options we do not want to pass along to the device
       // compilation.
       switch ((options::ID)A->getOption().getID()) {
+      case options::OPT_fsanitize_EQ:
+        break;
       default:
         DAL->append(A);
         break;
