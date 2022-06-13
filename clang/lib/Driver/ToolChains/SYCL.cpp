@@ -763,7 +763,6 @@ SYCLToolChain::SYCLToolChain(const Driver &D, const llvm::Triple &Triple,
   // Lookup binaries into the driver directory, this is used to
   // discover the clang-offload-bundler executable.
   getProgramPaths().push_back(getDriver().Dir);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // getDriver() returns clang, which is not the Intel driver and may not be in
   // "bin". Ensure that we look in "bin" for programs. This is Intel-specific
@@ -773,14 +772,12 @@ SYCLToolChain::SYCLToolChain(const Driver &D, const llvm::Triple &Triple,
   llvm::sys::path::remove_dots(Bin, /*remove_dot_dot=*/ true);
   getProgramPaths().push_back(std::string(Bin));
 #endif // INTEL_CUSTOMIZATION
-=======
 
   // Diagnose unsupported options only once.
   // All sanitizer options are not currently supported.
   for (auto A : Args.filtered(options::OPT_fsanitize_EQ))
     D.getDiags().Report(clang::diag::warn_drv_unsupported_option_for_target)
         << A->getAsString(Args) << getTriple().str();
->>>>>>> 9397cbcf0babd109d525e0a191d1f80d268a855c
 }
 
 void SYCLToolChain::addClangTargetOptions(
