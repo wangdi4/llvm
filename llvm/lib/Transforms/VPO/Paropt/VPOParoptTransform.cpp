@@ -6111,9 +6111,10 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
 #if INTEL_CUSTOMIZATION
     // For dope vectors we need to add base pointer users to the work list.
     if (NtmpItem->getIsF90DopeVector()) {
-      assert(cast<PointerType>(Val->getType())
-                 ->getPointerElementType()
-                 ->isStructTy() &&
+      assert((Val->getType()->isOpaquePointerTy() ||
+              cast<PointerType>(Val->getType())
+                  ->getNonOpaquePointerElementType()
+                  ->isStructTy()) &&
              "pointer to struct is expected");
       for (auto *U : Val->users())
         if (auto *GEP = dyn_cast<GEPOperator>(U))

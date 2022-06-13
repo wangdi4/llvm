@@ -940,6 +940,8 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
     ClauseID = QUAL_OMP_USE_DEVICE_PTR;
     IsUseDeviceAddr = true;
     if (ClauseInfo.getIsArraySection())
+      // TODO: OPAQUEPOINTER: Need typed use_device_addr/has_device_addr
+      // to handle array sections?
       if (PointerType *PtrTy = cast<PointerType>(Args[0]->getType()))
         if (isa<PointerType>(PtrTy->getPointerElementType()))
           IsPointerToPointer = true;
@@ -2053,13 +2055,12 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
         // IVs are all null or nonnull; cannot have some null and some nonnull
         break;
       }
-      // TODO: OPAQUEPOINTER: Add this information in the clause
       Type *VTy = nullptr;
       if (ClauseInfo.getIsTyped())
         VTy = Args[++I]->getType();
       else
         VTy = isa<PointerType>(V->getType())
-                  ? V->getType()->getPointerElementType()
+                  ? V->getType()->getNonOpaquePointerElementType()
                   : V->getType();
       getWRNLoopInfo().addNormIV(V, VTy);
     }
@@ -2072,13 +2073,12 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
         assert(I==0 && "malformed NORMALIZED_UB clause");
         break;
       }
-      // TODO: OPAQUEPOINTER: Add this information in the clause
       Type *VTy = nullptr;
       if (ClauseInfo.getIsTyped())
         VTy = Args[++I]->getType();
       else
         VTy = isa<PointerType>(V->getType())
-                  ? V->getType()->getPointerElementType()
+                  ? V->getType()->getNonOpaquePointerElementType()
                   : V->getType();
       getWRNLoopInfo().addNormUB(V, VTy);
     }
@@ -2118,7 +2118,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
         // OPAQUEPOINTER: replace this with llvm_unreachable.
         assert(!PtrTy->isOpaque() &&
                "NUM_TEAMS must be typed, when opaque pointers are enabled.");
-        ItemTy = PtrTy->getPointerElementType();
+        ItemTy = PtrTy->getNonOpaquePointerElementType();
       }
       setNumTeamsType(ItemTy);
       break;
@@ -2136,7 +2136,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
         // OPAQUEPOINTER: replace this with llvm_unreachable.
         assert(!PtrTy->isOpaque() &&
                "THREAD_LIMIT must be typed, when opaque pointers are enabled.");
-        ItemTy = PtrTy->getPointerElementType();
+        ItemTy = PtrTy->getNonOpaquePointerElementType();
       }
       setThreadLimitType(ItemTy);
       break;
