@@ -3322,6 +3322,15 @@ Generic_GCC::Generic_GCC(const Driver &D, const llvm::Triple &Triple,
   getProgramPaths().push_back(getDriver().getInstalledDir());
   if (getDriver().getInstalledDir() != getDriver().Dir)
     getProgramPaths().push_back(getDriver().Dir);
+#if INTEL_CUSTOMIZATION
+  // Diagnose unsupported options only once.
+  if (Triple.isSPIR()) {
+    // All sanitizer options are not currently supported for spir64.
+    for (auto A : Args.filtered(options::OPT_fsanitize_EQ))
+      D.getDiags().Report(clang::diag::warn_drv_unsupported_option_for_target)
+          << A->getAsString(Args) << Triple.str();
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 Generic_GCC::~Generic_GCC() {}
@@ -3804,6 +3813,14 @@ Generic_GCC::TranslateArgs(const llvm::opt::DerivedArgList &Args, StringRef,
       case options::OPT_fpie:
       case options::OPT_fno_pie:
         break;
+#if INTEL_CUSTOMIZATION
+      case options::OPT_fsanitize_EQ:
+        // -fsanitize is not valid for spir64 targets, restrict it from being
+        // used during the device compilation.
+        if (!getTriple().isSPIR())
+          DAL->append(A);
+        break;
+#endif // INTEL_CUSTOMIZATION
       }
     }
     return DAL;
