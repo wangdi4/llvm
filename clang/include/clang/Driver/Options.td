@@ -3272,21 +3272,14 @@ def fsycl_device_only : Flag<["-"], "fsycl-device-only">, Flags<[CoreOption, Dpc
   HelpText<"Compile SYCL kernels for device">;
 def fsycl_targets_EQ : CommaJoined<["-"], "fsycl-targets=">, Flags<[NoXarchOption, CC1Option, CoreOption, DpcppOption]>,
   HelpText<"Specify comma-separated list of triples SYCL offloading targets to be supported">;
-<<<<<<< HEAD
-def fsycl_add_targets_EQ : CommaJoined<["-"], "fsycl-add-targets=">, Flags<[NoXarchOption, CoreOption, DpcppOption]>,
-  HelpText<"Specify comma-separated list of triple and device binary image pairs to add to the final SYCL binary">;
-def fsycl_link_targets_EQ : CommaJoined<["-"], "fsycl-link-targets=">, Flags<[NoXarchOption, CC1Option, CoreOption, DpcppOption]>,
-  HelpText<"Specify comma-separated list of triples SYCL offloading targets to produce linked device images">;
-=======
 def fsycl_add_targets_EQ : CommaJoined<["-"], "fsycl-add-targets=">,
-  Flags<[NoXarchOption, CoreOption, Deprecated]>,
+  Flags<[NoXarchOption, CoreOption, Deprecated, DpcppOption]>,
   HelpText<"Specify comma-separated list of triple and device binary image "
            "pairs to add to the final SYCL binary (deprecated)">;
 def fsycl_link_targets_EQ : CommaJoined<["-"], "fsycl-link-targets=">,
-  Flags<[NoXarchOption, CC1Option, CoreOption, Deprecated]>,
+  Flags<[NoXarchOption, CC1Option, CoreOption, Deprecated, DpcppOption]>,
   HelpText<"Specify comma-separated list of triples SYCL offloading targets "
            "to produce linked device images (deprecated)">;
->>>>>>> f0b65a1159bb1d07edb29e1e21ef28c71c3ce078
 def fsycl_device_code_split_EQ : Joined<["-"], "fsycl-device-code-split=">,
    Flags<[CC1Option, CoreOption, DpcppOption]>, HelpText<"Perform SYCL device code split: per_kernel (device code module is "
   "created for each SYCL kernel) | per_source (device code module is created for each source (translation unit)) | off (no device code split). | auto (use heuristic to select the best way of splitting device code). "
