@@ -79,16 +79,22 @@ protected:
         ValueType(Ty), Visibility(DefaultVisibility),
         UnnamedAddrVal(unsigned(UnnamedAddr::None)),
         DllStorageClass(DefaultStorageClass), ThreadLocal(NotThreadLocal),
+<<<<<<< HEAD
 #if INTEL_COLLAB
         ThreadPrivate(0), TargetDeclare(0),
 #endif // INTEL_COLLAB
         HasLLVMReservedName(false), IsDSOLocal(false), HasPartition(false) {
+=======
+        HasLLVMReservedName(false), IsDSOLocal(false), HasPartition(false),
+        HasSanitizerMetadata(false) {
+>>>>>>> 8db981d463ee266919907f2554194d05f96f7191
     setLinkage(Linkage);
     setName(Name);
   }
 
   Type *ValueType;
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
   // This needs to be two less than it is in the community version to
   // account for the ThreadPrivate bit and TargetDeclare bit.  See also
@@ -97,6 +103,9 @@ protected:
 #else // INTEL_COLLAB
   static const unsigned GlobalValueSubClassDataBits = 16;
 #endif // INTEL_COLLAB
+=======
+  static const unsigned GlobalValueSubClassDataBits = 15;
+>>>>>>> 8db981d463ee266919907f2554194d05f96f7191
 
   // All bitfields use unsigned as the underlying type so that MSVC will pack
   // them.
@@ -130,10 +139,19 @@ protected:
   /// https://lld.llvm.org/Partitions.html).
   unsigned HasPartition : 1;
 
+  /// True if this symbol has sanitizer metadata available. Should only happen
+  /// if sanitizers were enabled when building the translation unit which
+  /// contains this GV.
+  unsigned HasSanitizerMetadata : 1;
+
 private:
   // Give subclasses access to what otherwise would be wasted padding.
+<<<<<<< HEAD
   // INTEL - (14 + 4 + 2 + 2 + 2 + 3 + 1 + 1 + 1 + 1 + 1) == 32.  Extra two bits for
   // ThreadPrivate and TargetDeclare.
+=======
+  // (15 + 4 + 2 + 2 + 2 + 3 + 1 + 1 + 1 + 1) == 32.
+>>>>>>> 8db981d463ee266919907f2554194d05f96f7191
   unsigned SubClassData : GlobalValueSubClassDataBits;
 
   friend class Constant;
@@ -315,6 +333,39 @@ public:
   }
   StringRef getPartition() const;
   void setPartition(StringRef Part);
+
+  // ASan, HWASan and Memtag sanitizers have some instrumentation that applies
+  // specifically to global variables. This instrumentation is implicitly
+  // applied to all global variables when built with -fsanitize=*. What we need
+  // is a way to persist the information that a certain global variable should
+  // *not* have sanitizers applied, which occurs if:
+  //   1. The global variable is in the sanitizer ignore list, or
+  //   2. The global variable is created by the sanitizers itself for internal
+  //      usage, or
+  //   3. The global variable has __attribute__((no_sanitize("..."))) or
+  //      __attribute__((disable_sanitizer_instrumentation)).
+  //
+  // This is important, a some IR passes like GlobalMerge can delete global
+  // variables and replace them with new ones. If the old variables were marked
+  // to be unsanitized, then the new ones should also be.
+  struct SanitizerMetadata {
+    SanitizerMetadata()
+        : NoAddress(false), NoHWAddress(false), NoMemtag(false),
+          IsDynInit(false) {}
+    unsigned NoAddress : 1;
+    unsigned NoHWAddress : 1;
+    unsigned NoMemtag : 1;
+
+    // ASan-specific metadata. Is this global variable dynamically initialized
+    // (from a C++ language perspective), and should therefore be checked for
+    // ODR violations.
+    unsigned IsDynInit : 1;
+  };
+
+  bool hasSanitizerMetadata() const { return HasSanitizerMetadata; }
+  const SanitizerMetadata &getSanitizerMetadata() const;
+  void setSanitizerMetadata(const SanitizerMetadata &Meta);
+  void removeSanitizerMetadata();
 
   static LinkageTypes getLinkOnceLinkage(bool ODR) {
     return ODR ? LinkOnceODRLinkage : LinkOnceAnyLinkage;
