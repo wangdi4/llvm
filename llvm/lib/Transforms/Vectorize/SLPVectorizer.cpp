@@ -12662,6 +12662,40 @@ bool SLPVectorizerPass::tryToVectorizePair(Value *A, Value *B, BoUpSLP &R) {
   return tryToVectorizeList(VL, R);
 }
 
+#ifdef INTEL_COLLAB
+void SLPVectorizerPass::adjustForFMAs(InstructionCost &Cost,
+                                      ArrayRef<Value *> &VL) {
+  FastMathFlags FMF;
+  FMF.set();
+
+  // Only increase cost if every scalar in VL is a floating multiply feeding
+  // exactly one floating add/subtract, and contracts are enabled.
+  for (Value *U : VL) {
+    auto *FPMO = dyn_cast<FPMathOperator>(U);
+    if (!(FPMO &&
+          FPMO->getOpcode() == Instruction::FMul &&
+          FPMO->hasAllowContract() &&
+          FPMO->hasOneUse()))
+      return;
+    auto *I = dyn_cast<Instruction>(FPMO->user_back());
+    if (!(I &&
+          (I->getOpcode() == Instruction::FAdd ||
+           I->getOpcode() == Instruction::FSub) &&
+          I->hasAllowContract()))
+      return;
+    FMF &= FPMO->getFastMathFlags();
+  }
+
+  InstructionCost FMASavings = TTI->getFMACostSavings(VL[0]->getType(), FMF);
+
+  if (FMASavings > 0) {
+    LLVM_DEBUG(dbgs() << "SLP: Adding cost " << VL.size() * FMASavings
+               << " for vectorization that breaks " << VL.size() << " FMAs\n");
+    Cost += FMASavings * VL.size();
+  }
+}
+#endif // INTEL_COLLAB
+
 bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
                                            bool LimitForRegisterSize) {
   if (VL.size() < 2)
@@ -12767,6 +12801,9 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
 
       R.computeMinimumValueSizes();
       InstructionCost Cost = R.getTreeCost();
+#ifdef INTEL_COLLAB
+      adjustForFMAs(Cost, Ops);
+#endif // INTEL_COLLAB
       CandidateFound = true;
       MinCost = std::min(MinCost, Cost);
 
@@ -13822,9 +13859,21 @@ private:
             TTI->getArithmeticReductionCost(RdxOpcode, VectorTy, FMF, CostKind);
       ScalarCost = TTI->getArithmeticInstrCost(RdxOpcode, ScalarTy, CostKind);
 #if INTEL_COLLAB
-      if (RdxKind == RecurKind::FAdd)
-	VectorCost += getFMALossCost(TTI, FirstReducedVal, FMF, ReduxWidth);
-#endif
+      if (RdxKind == RecurKind::FAdd) {
+        auto *I = dyn_cast<Instruction>(FirstReducedVal);
+        if (I &&
+            I->getOpcode() == Instruction::FMul &&
+            I->hasAllowContract()) {
+          InstructionCost FMASavings = TTI->getFMACostSavings(ScalarTy, FMF);
+          if (FMASavings > 0) {
+            LLVM_DEBUG(dbgs() << "SLP: Adding cost " << ReduxWidth * FMASavings
+                       << " for horizontal reduction that breaks "
+                       << ReduxWidth << " FMAs\n");
+            VectorCost += FMASavings * ReduxWidth;
+          }
+        }
+      }
+#endif // INTEL_COLLAB
       break;
     }
     case RecurKind::FMax:
@@ -13875,36 +13924,6 @@ private:
                       << " (It is a splitting reduction)\n");
     return VectorCost - ScalarCost;
   }
-
-#if INTEL_COLLAB
-  /// Calculate cost of losing FMA contraction opportunities when an fadd
-  /// reduction is fed by an SLP tree rooted at an fmul bundle.
-
-  // When a bundle of multiplies feeds a bundle of adds, and floating-point
-  // contracts are enabled, it may be more profitable to allow those to
-  // combine into FMAs than to perform a horizontal reduction.
-  InstructionCost getFMALossCost(const TargetTransformInfo *TTI,
-				 Value *TreeRootOp, FastMathFlags FMF,
-				 unsigned ReduxWidth) {
-    if (!FMF.allowContract())
-      return 0;
-
-    auto *MainInstr = dyn_cast<Instruction>(TreeRootOp);
-    if (!MainInstr
-	|| MainInstr->getOpcode() != Instruction::FMul
-	|| !MainInstr->hasAllowContract())
-      return 0;
-
-    // Preference would be to estimate the cost as adding a scalar add and a
-    // scalar multiply, and removing a scalar FMA; then scale by the number of
-    // reduction ops.  Without a good cost estimate for the FMA, use the
-    // cost of a scalar multiply and scale that.
-    TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
-    Type *ScalarTy = MainInstr->getType();
-    return ReduxWidth *
-      TTI->getArithmeticInstrCost(Instruction::FMul, ScalarTy, CostKind);
-  }
-#endif // INTEL_COLLAB
 
   /// Emit a horizontal reduction of the vectorized value.
   Value *emitReduction(Value *VectorizedValue, IRBuilder<> &Builder,
