@@ -2090,6 +2090,9 @@ class MemAllocatorTy {
     std::vector<std::pair<size_t, size_t>> BucketParams;
     /// Map from allocated pointer to corresponding block.
     std::unordered_map<void *, BlockTy *> PtrToBlock;
+    /// Simple stats counting miss/hit in each bucket.
+    std::vector<std::pair<uint64_t, uint64_t>> BucketStats;
+
     /// Get bucket ID from the specified allocation size.
     uint32_t getBucketId(size_t Size) {
       uint32_t Count = 0;
@@ -2147,6 +2150,7 @@ class MemAllocatorTy {
       auto MinSize = getBucketId(AllocMin);
       auto MaxSize = getBucketId(AllocMax);
       Buckets.resize(MaxSize - MinSize + 1);
+      BucketStats.resize(Buckets.size(), {0, 0});
       assert(AllocMin < AllocMax && AllocMax < PoolSizeMax &&
              "Invalid parameters while initializing memory pool");
 
@@ -2165,8 +2169,41 @@ class MemAllocatorTy {
          BlockCapacity, PoolSizeMax);
     }
 
+    void printUsage() {
+      auto PrintNum = [](uint64_t Num) {
+        if (Num > 1e9)
+          fprintf(stderr, "%11.2e", float(Num));
+        else
+          fprintf(stderr, "%11" PRIu64, Num);
+      };
+      DP("MemPool usage for %s, device " DPxMOD "\n",
+         ALLOC_KIND_TO_STR(AllocKind), DPxPTR(Allocator->Device));
+      if (Allocator->Stats.count(AllocKind) > 0 &&
+          Allocator->Stats[AllocKind].NumAllocs[1] > 0) {
+        // Has allocation from pool
+        DP("-- AllocMax=%zu(MB), Capacity=%" PRIu32
+           ", PoolSizeMax=%zu(MB)\n", AllocMax >> 20, BlockCapacity,
+           PoolSizeMax >> 20);
+        DP("-- %18s:%11s%11s%11s\n", "", "NewAlloc", "Reuse", "Hit(%)");
+      } else {
+        DP("-- Not used\n");
+      }
+      for (auto I = 0; I < Buckets.size(); I++) {
+        auto &Stat = BucketStats[I];
+        if (Stat.first > 0 || Stat.second > 0) {
+          DP("-- Bucket[%10zu]:", BucketParams[I].first);
+          PrintNum(Stat.first);
+          PrintNum(Stat.second);
+          fprintf(stderr, "%11.2f\n",
+                  float(Stat.second) / float(Stat.first + Stat.second) * 100);
+        }
+      }
+    }
+
     /// Release resources used in the pool.
     ~MemPoolTy() {
+      if (DebugLevel > 0)
+        printUsage();
       for (auto &Bucket : Buckets) {
         for (auto *Block : Bucket) {
           if (DebugLevel > 0)
@@ -2210,6 +2247,9 @@ class MemAllocatorTy {
         DP("New block allocation for %s pool: base = " DPxMOD
            ", size = %zu, pool size = %zu\n", ALLOC_KIND_TO_STR(AllocKind),
            DPxPTR(Base), BlockSize, PoolSize);
+        BucketStats[BucketId].first++;
+      } else {
+        BucketStats[BucketId].second++;
       }
 
       AllocSize = (AllocMin << BucketId);
