@@ -351,7 +351,7 @@ bool LUAnalysisCache::countLoop(const Loop *L, const TargetTransformInfo &TTI,
     for (BasicBlock *BB : L->blocks())
       Metrics.analyzeBasicBlock(BB, TTI, EphValues);
 
-    Props.SizeEstimation = Metrics.NumInsts;
+    Props.SizeEstimation = *Metrics.NumInsts.getValue();
     Props.CanBeUnswitchedCount = MaxSize / (Props.SizeEstimation);
     Props.WasUnswitchedCount = 0;
     MaxSize -= Props.SizeEstimation * Props.CanBeUnswitchedCount;
