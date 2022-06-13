@@ -6936,7 +6936,7 @@ VPOParoptUtils::getItemInfo(const Item *I) {
     //                to TYPED clauses.
     Type *OrigElemTy = I->getOrig()->getType();
     assert(isa<PointerType>(OrigElemTy) && "Item must have a pointer type.");
-    OrigElemTy = OrigElemTy->getPointerElementType();
+    OrigElemTy = OrigElemTy->getNonOpaquePointerElementType();
     getItemInfoFromValue(Orig, OrigElemTy, ElementType, NumElements, AddrSpace);
     assert(ElementType && "Failed to find element type for reduction operand.");
 
@@ -6946,7 +6946,7 @@ VPOParoptUtils::getItemInfo(const Item *I) {
       assert(!NumElements &&
              "Unexpected number of elements for byref pointer.");
 
-      ElementType = ElementType->getPointerElementType();
+      ElementType = ElementType->getNonOpaquePointerElementType();
     }
   }
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Local Element Info for '";

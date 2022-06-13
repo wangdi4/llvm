@@ -1576,12 +1576,15 @@ void VPOParoptTransform::renameDuplicateBasesInMapClauses(WRegionNode *W) {
       W->populateBBSet(true);
     }
 
-    // Add noop GEP that renames the value.
-    auto *Ty = Orig->getType()->getScalarType()->getPointerElementType();
-    auto *Copy = GetElementPtrInst::CreateInBounds(
-        Ty, Orig, ConstantInt::get(Type::getInt32Ty(F->getContext()), 0),
-        Orig->getName() + ".copy", CopyBlock->getTerminator());
+    // Add noop cast that renames the value.
+    auto *Copy = CastInst::CreateBitOrPointerCast(Orig, Orig->getType(),
+                                                  Orig->getName() + ".copy",
+                                                  CopyBlock->getTerminator());
 
+    LLVM_DEBUG(dbgs() << "renameDuplicateBasesInMapClauses: Renamed map item's "
+                         "base from '";
+               Orig->printAsOperand(dbgs(), false); dbgs() << "' to '";
+               Copy->printAsOperand(dbgs(), false); dbgs() << "'.");
     Item->setOrig(Copy);
     Base.set(Copy);
   };
@@ -2893,6 +2896,9 @@ bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
 #if INTEL_CUSTOMIZATION
   auto addFirstprivateForValue = [&](Value *V) {
     FirstprivateC.add(new FirstprivateItem(V));
+    // TODO: OPAQUEPOINTER: We can remove this, since FFE is now emitting
+    // FIRSTPRIVATE clause directly instead of IS_DEVICE_PTR:F90_DV for target
+    // construct.
     NewClauses.push_back({FPrivateClauseName, ClauseBundleTy({V})});
     LLVM_DEBUG(dbgs() << "addFirstprivateForValue: Converted 'IS_DEVICE_PTR(";
                V->printAsOperand(dbgs()); dbgs() << ")' to 'FIRSTPRIVATE(";
@@ -2983,6 +2989,9 @@ bool VPOParoptTransform::addMapAndPrivateForIsDevicePtr(WRegionNode *W) {
     Value *IDPLoad = LoadBuilder.CreateLoad(LoadedValType, LoadSrc, //  (2)
                                             IDP->getName() + ".load");
     addMapForValue(IDPLoad); //                                         (3)
+    // TODO: OPAQUEPOINTER: This code is obsolete. We would have to add a TYPED
+    // clause here for opaque pointers, but this code path is now obsolete, as
+    // clang FE directly emits map-chains for the is_device_ptr clause.
     PC.add(IDP); //                                                     (4)
     StoreBuilder.CreateStore(IDPLoad, StoreDst); //                     (5)
     LLVM_DEBUG(dbgs() << "addMapAndPrivateForIDP: Converted 'IS_DEVICE_PTR:";
@@ -5156,6 +5165,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
         if (BaseArg == WrapperArg) {
           Type *ArgType = WrapperFnTy->getParamType(WrapperArgNum);
           assert(isa<PointerType>(ArgType) && "Byval expects a pointer type");
+          // TODO: OPAQUEPOINTER: Use BaseArg's byval attribute type here.
           VariantWrapperCall->addParamAttr(
               WrapperArgNum,
               Attribute::getWithByValType(C, ArgType->getPointerElementType()));
