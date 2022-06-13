@@ -1438,21 +1438,14 @@ void ModuleBitcodeWriter::writeModuleInfo() {
       Vals.push_back(addToStrtab(GV.getPartition()));
       Vals.push_back(GV.getPartition().size());
 
-<<<<<<< HEAD
-      if (GV.hasSanitizerMetadata())
-        Vals.push_back(serializeSanitizerMetadata(GV.getSanitizerMetadata()));
-      else
-        Vals.push_back(UINT_MAX);
+      Vals.push_back((GV.hasSanitizerMetadata() ? serializeSanitizerMetadata(
+                                                      GV.getSanitizerMetadata())
+                                                : 0));
 
 #if INTEL_COLLAB
       Vals.push_back(GV.isThreadPrivate());
       Vals.push_back(GV.isTargetDeclare());
 #endif // INTEL_COLLAB
-=======
-      Vals.push_back((GV.hasSanitizerMetadata() ? serializeSanitizerMetadata(
-                                                      GV.getSanitizerMetadata())
-                                                : 0));
->>>>>>> 665617182c453ec7fa088501fa37eb1ede8550f1
     } else {
       AbbrevToUse = SimpleGVarAbbrev;
     }
