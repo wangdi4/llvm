@@ -381,17 +381,17 @@ public:
       else {
         Value *Addr;
         Type *ElemTy;
-        unsigned Alignment = 0;
+        MaybeAlign Alignment;
         if (auto *LI = dyn_cast<LoadInst>(Inst)) {
           Addr = LI->getPointerOperand();
           ElemTy = cast<VectorType>(LI->getType())->getElementType();
-          Alignment = LI->getAlignment();
+          Alignment = LI->getAlign();
         } else {
           auto *SI = cast<StoreInst>(Inst);
           Addr = SI->getPointerOperand();
           ElemTy = cast<VectorType>(SI->getValueOperand()->getType())
                        ->getElementType();
-          Alignment = SI->getAlignment();
+          Alignment = SI->getAlign();
         }
         // Translate the optimized-sequence(from OVLS-pseudo instruction type )
         // to LLVM-IR instruction type.

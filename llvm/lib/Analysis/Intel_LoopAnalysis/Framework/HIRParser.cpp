@@ -4345,7 +4345,7 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
       Ref->setBitCastDestVecOrElemType(LoadTy);
     }
 
-    Ref->setAlignment(LInst->getAlignment());
+    Ref->setAlignment(LInst->getAlign().value());
 
     parseMetadata(LInst, Ref);
 
@@ -4397,7 +4397,7 @@ RegDDRef *HIRParser::createLvalDDRef(HLInst *HInst, unsigned Level) {
       Ref->setBitCastDestVecOrElemType(StoreValTy);
     }
 
-    Ref->setAlignment(SInst->getAlignment());
+    Ref->setAlignment(SInst->getAlign().value());
 
     parseMetadata(Inst, Ref);
 
