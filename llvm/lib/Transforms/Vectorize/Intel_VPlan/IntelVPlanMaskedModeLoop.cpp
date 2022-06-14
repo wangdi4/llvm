@@ -282,29 +282,44 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   assert(ExitBB && "Expected non-null exit block.");
   // Get instructions to process in advance as we will add/remove instructions.
   SmallVector<VPInstruction *, 4> ToProcess(map_range(
-      make_filter_range(*ExitBB,
-                        [](VPInstruction &I) {
-                          return I.getOpcode() ==
-                                     VPInstruction::PrivateFinalUncond ||
-                                 I.getOpcode() ==
-                                     VPInstruction::PrivateFinalUncondMem;
-                        }),
+      make_filter_range(
+          *ExitBB,
+          [](VPInstruction &I) {
+            return I.getOpcode() == VPInstruction::PrivateFinalUncond ||
+                   I.getOpcode() == VPInstruction::PrivateFinalUncondMem ||
+                   I.getOpcode() == VPInstruction::PrivateLastValueNonPOD;
+          }),
       [](VPInstruction &I) { return &I; }));
 
-  // Replace PrivateFinalUncond[Mem] with PrivateFinalMasked[Mem]
+  // Replace non-masked to masked instruction
   for (VPInstruction *I : ToProcess) {
     VPBldr.setInsertPoint(&*I);
     VPInstruction *NewPriv;
-    if (I->getOpcode() == VPInstruction::PrivateFinalUncond) {
+    switch (I->getOpcode()) {
+    case VPInstruction::PrivateFinalUncond: {
       VPValue *Incoming = PrivFinalLiveInMap[I];
       assert(Incoming && "Expected non-null incoming value");
       NewPriv =
           VPBldr.createNaryOp(VPInstruction::PrivateFinalMasked, I->getType(),
                               {I->getOperand(0), NewHeaderCond, Incoming});
-    } else {
+      break;
+    }
+    case VPInstruction::PrivateLastValueNonPOD: {
+      NewPriv = VPBldr.create<VPPrivateLastValueNonPODMaskedInst>(
+          ".priv.lastval.nonpod.masked", I->getType(),
+          ArrayRef<VPValue *>{I->getOperand(0), I->getOperand(1),
+                              NewHeaderCond},
+          cast<VPPrivateLastValueNonPODInst>(I)->getCopyAssign());
+      break;
+    }
+    case VPInstruction::PrivateFinalUncondMem: {
       NewPriv =
           VPBldr.createNaryOp(VPInstruction::PrivateFinalMaskedMem,
                               I->getType(), {I->getOperand(0), NewHeaderCond});
+      break;
+    }
+    default:
+      llvm_unreachable("Unexpected opcode");
     }
     NewPriv->setName(I->getName());
     NewPriv->setDebugLocation(I->getDebugLocation());

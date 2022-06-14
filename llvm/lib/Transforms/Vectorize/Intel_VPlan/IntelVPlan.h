@@ -646,6 +646,7 @@ public:
                            // mask.
     PrivateFinalArray,
     PrivateLastValueNonPOD,
+    PrivateLastValueNonPODMasked,
     GeneralMemOptConflict,
     ConflictInsn,
     TreeConflict,
@@ -1017,16 +1018,16 @@ private:
   }
 };
 
-/// Concrete class to represent last value calculation for private nonPODs in
-/// VPlan.
-class VPPrivateLastValueNonPODInst : public VPInstruction {
+/// Concrete class to represent last value calculation for masked and non-masked
+/// private nonPODs in VPlan.
+template <unsigned InstOpcode>
+class VPPrivateLastValueNonPODTemplInst : public VPInstruction {
 public:
-  /// Create VPPrivateLastValueNonPODInst with its BaseType, operands and
+  /// Create VPPrivateLastValueNonPODTemplInst with its BaseType, operands and
   /// private object copyassign function pointer.
-  VPPrivateLastValueNonPODInst(Type *BaseTy, ArrayRef<VPValue *> Operands,
-                               Function *CopyAssign)
-      : VPInstruction(VPInstruction::PrivateLastValueNonPOD, BaseTy, Operands),
-        CopyAssign(CopyAssign) {}
+  VPPrivateLastValueNonPODTemplInst(Type *BaseTy, ArrayRef<VPValue *> Operands,
+                                    Function *CopyAssign)
+      : VPInstruction(InstOpcode, BaseTy, Operands), CopyAssign(CopyAssign) {}
 
   /// Return the copyassign function stored by this instruction
   Function *getCopyAssign() const { return CopyAssign; }
@@ -1034,23 +1035,27 @@ public:
   /// Methods for supporting type inquiry through isa, cast, and
   /// dyn_cast:
   static bool classof(const VPInstruction *VPI) {
-    return VPI->getOpcode() == VPInstruction::PrivateLastValueNonPOD;
+    return VPI->getOpcode() == InstOpcode;
   }
   static bool classof(const VPValue *V) {
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
 protected:
-  virtual VPPrivateLastValueNonPODInst *cloneImpl() const final {
-    SmallVector<VPValue *, 2> Ops;
-    for (auto &O : operands())
-      Ops.push_back(O);
-    return new VPPrivateLastValueNonPODInst(getType(), Ops, getCopyAssign());
+  virtual VPInstruction *cloneImpl() const final {
+    SmallVector<VPValue *, 3> Ops(operands());
+    return new VPPrivateLastValueNonPODTemplInst<InstOpcode>(getType(), Ops,
+                                                             getCopyAssign());
   }
 
 private:
   Function *CopyAssign = nullptr;
 };
+
+using VPPrivateLastValueNonPODMaskedInst = VPPrivateLastValueNonPODTemplInst<
+    VPInstruction::PrivateLastValueNonPODMasked>;
+using VPPrivateLastValueNonPODInst =
+    VPPrivateLastValueNonPODTemplInst<VPInstruction::PrivateLastValueNonPOD>;
 
 /// Concrete class to represent branch instruction in VPlan.
 class VPBranchInst : public VPInstruction {

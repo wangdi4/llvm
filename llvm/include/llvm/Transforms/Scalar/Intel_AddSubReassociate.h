@@ -48,7 +48,8 @@ class AssocOpcodeData {
   Constant *Const;
 
 public:
-  AssocOpcodeData(const Instruction *I);
+  AssocOpcodeData() = delete;
+  AssocOpcodeData(unsigned Opc, Constant *C) : Opcode(Opc), Const(C) {}
   unsigned getOpcode() const { return Opcode; }
   Constant *getConst() const { return Const; }
   hash_code getHash() const { return hash_combine(Opcode, Const); }
@@ -71,7 +72,7 @@ class OpcodeData {
   using AssocDataTy = SmallVector<AssocOpcodeData, 1>;
 
   unsigned Opcode;
-  // The Unary associative opcodes that apply to the leaf.
+  // Additional operations applied to the leaf as a result of distribution.
   AssocDataTy AssocOpcodeVec;
 
 public:
@@ -108,8 +109,18 @@ public:
     Opc.reverse();
     return Opc;
   }
-  void appendAssocInstr(Instruction *I) {
-    AssocOpcodeVec.push_back(AssocOpcodeData(I));
+  /// Distribute operation of instruction \p I. It means that the operation
+  /// to be applied to a leaf prior to attaching the leaf to expression tree.
+  /// Return operand number of the instruction which is going to be RHS operand
+  /// of the distributed operation (LHS is a leaf).
+  unsigned addDistributedOp(Instruction *I) {
+    assert(isa<BinaryOperator>(I) && "Expected binary op to pull in");
+    unsigned OpN = 0;
+    Constant *C = dyn_cast<Constant>(I->getOperand(OpN));
+    if (!C)
+      C = cast<Constant>(I->getOperand(++OpN));
+    AssocOpcodeVec.emplace_back(I->getOpcode(), C);
+    return OpN;
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
@@ -132,7 +143,12 @@ public:
   Value *getLeaf() const { return Leaf; }
   const OpcodeData &getOpcodeData() const { return Opcode; }
 
-  void appendAssocInstruction(Instruction *I) { Opcode.appendAssocInstr(I); }
+  /// Add instruction \p I operation as a distributed op for the Leaf.
+  /// Return operand number of the instruction pulled into the Node
+  /// which is going to be RHS operand of the distributed op.
+  unsigned addDistributedOp(Instruction *I) {
+    return Opcode.addDistributedOp(I);
+  }
   void reverseOpcode() { Opcode.reverse(); }
   hash_code getHash() const {
     return hash_combine(Leaf.getValPtr(), Opcode.getHash());

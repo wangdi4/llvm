@@ -1735,7 +1735,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     //   %priv.final = private-final-masked %exit, %mask, %orig
     //   %br label %mask_zero
     // mask_zero:
-    //   %last_v = phi [%priv_final, %b_nz], [%orig, %orig_bb]
+    //   %last_v = phi [%priv.final, %mask_nonzero], [%orig, %orig_bb]
     //
     Value *VecMask = getVectorValue(VPInst->getOperand(1));
     Type *IntTy = IntegerType::get(Builder.getContext(), VF);
@@ -1829,6 +1829,49 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     return;
   }
 
+  case VPInstruction::PrivateLastValueNonPODMasked: {
+    // Pseudo IR generated to last non-POD private in masked mode
+    // loop.
+    // private-last-value-nonpod-masked %exit, %orig, %mask
+    //  ==>
+    // %bsfintmask = bitcast.<2 x i1>.i2(%mask); Obtain lane for extraction
+    // %lz = @llvm.ctlz.i2(%bsfintmask, 1);
+    // %lane = VF - 1 - %lz;
+    // %priv_extract = extractelement %exit, %lane ; extract final value
+    // call omp.copy_assign(%orig, %priv_extract)
+    //
+    // NOTE: The block above is encapsulated into the check of mask is zero in
+    // VPlan, before CG, so the code will be generated in the mask_nonzero block
+    // below.
+    //
+    // orig_bb:
+    //   %pred = all_zero_check(%mask)
+    //   br %pred label %mask_zero, label %mask_nonzero
+    // mask_nonzero:
+    //   ; this one is transformed by this routine.
+    //   private-last-value-nonpod-masked %exit, %orig, %mask
+    //   %br label %mask_zero
+    // mask_zero:
+    //
+    Value *Orig = getScalarValue(VPInst->getOperand(1), 0);
+    Value *VecMask = getVectorValue(VPInst->getOperand(2));
+    Type *IntTy = IntegerType::get(Builder.getContext(), VF);
+    Value *CastedMask = Builder.CreateBitCast(VecMask, IntTy);
+
+    Module *M = OrigLoop->getHeader()->getModule();
+    Function *CTLZ =
+        Intrinsic::getDeclaration(M, Intrinsic::ctlz, CastedMask->getType());
+    Value *BsfCall =
+        Builder.CreateCall(CTLZ, {CastedMask, Builder.getTrue()}, "ctlz");
+    Value *Lane = Builder.CreateSub(ConstantInt::get(IntTy, VF - 1), BsfCall);
+    Value *VecExit = getVectorValue(VPInst->getOperand(0));
+    Value *PrivExtract =
+        Builder.CreateExtractElement(VecExit, Lane, "priv.extract");
+    auto *CopyAssignFn =
+        cast<VPPrivateLastValueNonPODMaskedInst>(VPInst)->getCopyAssign();
+    Builder.CreateCall(CopyAssignFn, {Orig, PrivExtract});
+    return;
+  }
   case VPInstruction::VLSLoad: {
     auto *VLSLoad = cast<VPVLSLoad>(VPInst);
     assert(DA->isUniform(*VLSLoad) &&
@@ -4307,9 +4350,14 @@ void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
     // when we know the upper bound is equal to VF. That means we don't create
     // peel/remainder loops and have only one main loop.
     // Then make the calculations by the formula above.
-    VPBasicBlock *VPIndFinalBB = VPInst->getParent()->getSinglePredecessor();
-    VPLoop *L = Plan->getVPLoopInfo()->getLoopFor(VPIndFinalBB);
-    assert(L && "Expect the loop to be found");
+    VPLoop *L = nullptr;
+    VPBasicBlock *VPIndFinalBB =
+        *VPInst->getParent()->getPredecessors().begin();
+    L = Plan->getVPLoopInfo()->getLoopFor(VPIndFinalBB);
+    while (!L) {
+      VPIndFinalBB = *VPIndFinalBB->getPredecessors().begin();
+      L = Plan->getVPLoopInfo()->getLoopFor(VPIndFinalBB);
+    }
     bool ExactUB = L->exactUB();
     VPCmpInst *Cond = L->getLatchComparison();
     Value *TripCnt = VectorTripCount;
