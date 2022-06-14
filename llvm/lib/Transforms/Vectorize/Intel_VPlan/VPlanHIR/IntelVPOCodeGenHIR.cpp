@@ -6043,7 +6043,10 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
   case VPInstruction::ConflictInsn: {
     auto *VPConflict = cast<VPConflictInsn>(VPInst);
-    Intrinsic::ID ConflictIntrin = VPConflict->getConflictIntrinsic(getVF());
+    unsigned TypeSize =
+        VPConflict->getOperand(0)->getType()->getPrimitiveSizeInBits();
+    Intrinsic::ID ConflictIntrin =
+        VPConflict->getConflictIntrinsic(getVF(), TypeSize);
     assert(ConflictIntrin != Intrinsic::not_intrinsic &&
            "Valid conflict intrinsic expected here.");
     Function *ConflictFunc =
@@ -6056,7 +6059,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
   case VPInstruction::Permute: {
     auto *Permute = cast<VPPermute>(VPInst);
-    Intrinsic::ID PermuteIntrin = Permute->getPermuteIntrinsic(getVF());
+    Intrinsic::ID PermuteIntrin =
+        Permute->getPermuteIntrinsic(getVF());
     assert(PermuteIntrin != Intrinsic::not_intrinsic &&
            "Valid permute intrinsic expected here.");
     Function *PermuteFunc =

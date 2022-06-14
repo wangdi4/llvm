@@ -76,6 +76,9 @@ public:
   /// Get TTI based cost of a single instruction \p VPInst.
   VPInstructionCost getTTICost(const VPInstruction *VPInst);
 
+  /// Return cost of all-zero check instruction
+  VPInstructionCost getAllZeroCheckInstrCost(Type *VecSrcTy, Type *DestTy);
+
   // getLoadStoreCost(LoadOrStore, Alignment, VF) interface returns the Cost
   // of Load/Store VPInstruction given VF and Alignment on input.
   VPInstructionCost getLoadStoreCost(
@@ -193,6 +196,9 @@ private:
     unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
     TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
     const Instruction *I = nullptr) const;
+
+  // Return cost of VPConflictInsn
+  VPInstructionCost getConflictInsnCost(unsigned VF, unsigned ElementSizeBits);
 };
 
 // Class HeuristicsList is designed to hold Heuristics objects. It is a

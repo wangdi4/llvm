@@ -4133,8 +4133,7 @@ public:
   // Utility to obtain the LLVM X86 conflict intrinsic that this VPInstruction
   // will be lowered to. Returns Intrinsic::not_intrinsic if input size is
   // unexpected.
-  Intrinsic::ID getConflictIntrinsic(unsigned VF) const {
-    unsigned TypeSize = getOperand(0)->getType()->getPrimitiveSizeInBits();
+  Intrinsic::ID getConflictIntrinsic(unsigned VF, unsigned TypeSize) const {
     unsigned InputSize = TypeSize * VF;
     if (TypeSize == 32) {
       switch (InputSize) {
