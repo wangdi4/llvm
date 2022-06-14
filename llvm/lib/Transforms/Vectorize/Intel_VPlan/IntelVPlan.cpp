@@ -419,6 +419,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "vpconflict-insn";
   case VPInstruction::PrivateLastValueNonPOD:
     return "private-last-value-nonpod";
+  case VPInstruction::PrivateLastValueNonPODMasked:
+    return "private-last-value-nonpod-masked";
   case VPInstruction::CvtMaskToInt:
     return "convert-mask-to-int";
 #endif

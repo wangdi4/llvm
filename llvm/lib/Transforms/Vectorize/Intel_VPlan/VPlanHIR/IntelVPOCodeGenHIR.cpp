@@ -4258,6 +4258,46 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     return;
   }
 
+  case VPInstruction::PrivateLastValueNonPODMasked: {
+    // Pseudo HIR generated to non-POD masked last private entity,
+    // private-last-value-nonpod-masked %exit, %orig, %mask
+    // ==>
+    // ; Obtain lane for extraction
+    // %bsfintmask = bitcast.<2 x i1>.i2(%mask);
+    // %lz = @llvm.ctlz.i2(%bsfintmask,  1);
+    // %lane = VF - 1 - %lz;
+    // ; Extract final value and store back to original
+    // %priv_extract = extractelement %exit, %lane
+    // call omp.copy_assign(%orig, %priv_extract)
+    //
+    HLContainerTy PrivLastValNonPODInsts;
+    RegDDRef *VecMask = widenRef(VPInst->getOperand(2), getVF());
+    HLInst *BsfCall = createCTZCall(VecMask->clone(), Intrinsic::ctlz, true,
+                                    &PrivLastValNonPODInsts);
+    RegDDRef *OrigPrivDescr = getOrCreateScalarRef(VPInst->getOperand(1), 0);
+    RegDDRef *VecExit = widenRef(VPInst->getOperand(0), getVF());
+    RegDDRef *BsfLhs = BsfCall->getLvalDDRef();
+
+    HLInst *SubInst = HLNodeUtilities.createSub(
+        DDRefUtilities.createConstDDRef(BsfLhs->getDestType(), VF - 1),
+        BsfLhs->clone(), "ext.lane");
+    PrivLastValNonPODInsts.push_back(*SubInst);
+
+    HLInst *PrivExtract = HLNodeUtilities.createExtractElementInst(
+        VecExit->clone(), SubInst->getLvalDDRef()->clone(), "priv.extract",
+        nullptr);
+    PrivLastValNonPODInsts.push_back(*PrivExtract);
+
+    auto *CopyAssignFn =
+        cast<VPPrivateLastValueNonPODMaskedInst>(VPInst)->getCopyAssign();
+    HLInst *PrivCopyAssign = HLNodeUtilities.createCall(
+        CopyAssignFn,
+        {OrigPrivDescr->clone(), PrivExtract->getLvalDDRef()->clone()});
+    PrivLastValNonPODInsts.push_back(*PrivCopyAssign);
+    addInst(&PrivLastValNonPODInsts);
+    return;
+  }
+
   default:
     llvm_unreachable("Unsupported VPLoopEntity instruction.");
   }
@@ -4662,6 +4702,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::PrivateFinalMasked:
   case VPInstruction::PrivateFinalArray:
   case VPInstruction::PrivateLastValueNonPOD:
+  case VPInstruction::PrivateLastValueNonPODMasked:
     widenLoopEntityInst(VPInst);
     return;
   case Instruction::ShuffleVector: {
@@ -6689,9 +6730,20 @@ void VPOCodeGenHIR::setBoundsForVectorLoop(VPLoop *VPLp) {
                                                                getUF());
 
   // TODO: Dirty hack to map induction-final -> vector HLLoop's UB.
-  for (auto &I : *VPLp->getExitBlock())
-    if (isa<VPInductionFinal>(&I))
-      addVPValueScalRefMapping(&I, getScalRefForVPVal(VectorTC, 0), 0);
+  ReversePostOrderTraversal<VPBasicBlock *> RPOT(VPLp->getExitBlock());
+  bool Finish = false;
+  for (VPBasicBlock *BB : RPOT) {
+    for (auto &I : *BB) {
+      if (isa<VPInductionFinal>(&I))
+        addVPValueScalRefMapping(&I, getScalRefForVPVal(VectorTC, 0), 0);
+      else if (I.getOpcode() == VPInstruction::PopVF) {
+        Finish = true;
+        break;
+      }
+    }
+    if (Finish)
+      break;
+  }
 }
 
 void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
