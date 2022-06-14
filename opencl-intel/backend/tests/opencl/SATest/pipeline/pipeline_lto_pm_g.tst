@@ -144,11 +144,11 @@
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: BuiltinImportPass
 ; CHECK:      Running pass: InternalizeGlobalVariablesPass
-; CHECK:      Running pass: GlobalDCEPass
 ; CHECK:      Running pass: BuiltinCallToInstPass
 ; CHECK:      Running pass: ModuleInlinerWrapperPass
 ; CHECK:      Running pass: InlinerPass
 ; CHECK:      Running pass: PatchCallbackArgsPass
+; CHECK:      Running pass: GlobalDCEPass
 ; CHECK:      Running pass: DeadArgumentEliminationPass
 ; CHECK:      Running pass: SROAPass
 ; CHECK:      Running pass: LoopSimplifyPass

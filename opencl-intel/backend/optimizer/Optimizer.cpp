@@ -685,8 +685,6 @@ static void populatePassesPostFailCheck(
       // After the globals used in built-ins are imported - we can internalize
       // them with further wiping them out with GlobalDCE pass
       PM.add(llvm::createInternalizeGlobalVariablesLegacyPass());
-      // Cleaning up internal globals
-      PM.add(llvm::createGlobalDCEPass());
     }
     // Need to convert shuffle calls to shuffle IR before running inline pass
     // on built-ins
@@ -722,6 +720,8 @@ static void populatePassesPostFailCheck(
     PM.add(llvm::createPatchCallbackArgsLegacyPass(UseTLSGlobals));
 
   if (OptLevel > 0) {
+    // Cleaning up internal globals
+    PM.add(llvm::createGlobalDCEPass());
     // AddImplicitArgs pass may create dead implicit arguments.
     PM.add(llvm::createDeadArgEliminationPass());
     PM.add(llvm::createArgumentPromotionPass()); // Scalarize uninlined fn args
