@@ -518,8 +518,6 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       // After the globals used in built-ins are imported - we can internalize
       // them with further wiping them out with GlobalDCE pass
       MPM.addPass(InternalizeGlobalVariablesPass());
-      // Cleaning up internal globals
-      MPM.addPass(GlobalDCEPass());
     }
     // Need to convert shuffle calls to shuffle IR before running inline pass
     // on built-ins
@@ -545,6 +543,9 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       MPM.addPass(PatchCallbackArgsPass(m_UseTLSGlobals));
 
     if (Level != OptimizationLevel::O0) {
+      // Clean up internal globals. ModuleInlinerWrapperPass doesn't discard
+      // internal lib function, e.g. udiv, which is inlined and now unused.
+      MPM.addPass(GlobalDCEPass());
       // AddImplicitArgs pass may create dead implicit arguments.
       MPM.addPass(DeadArgumentEliminationPass());
       FunctionPassManager FPM;

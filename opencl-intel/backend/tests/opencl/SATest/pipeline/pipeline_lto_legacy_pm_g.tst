@@ -167,10 +167,10 @@
 ; CHECK-NEXT:     LocalBuffersLegacy
 ; CHECK:          BuiltinImportLegacy
 ; CHECK-NEXT:     InternalizeGlobalVariablesLegacy
-; CHECK-NEXT:     Dead Global Elimination
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
 ; CHECK:          Function Integration/Inlining
+; CHECK:          Dead Global Elimination
 ; CHECK:          Dead Argument Elimination
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK:            SROA

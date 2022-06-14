@@ -665,8 +665,6 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
       // After the globals used in built-ins are imported - we can internalize
       // them with further wiping them out with GlobalDCE pass
       MPM.addPass(InternalizeGlobalVariablesPass());
-      // Cleaning up internal globals
-      MPM.addPass(GlobalDCEPass());
     }
     // Need to convert shuffle calls to shuffle IR before running inline pass
     // on built-ins
@@ -693,6 +691,8 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     MPM.addPass(PatchCallbackArgsPass(m_UseTLSGlobals));
 
   if (Level != OptimizationLevel::O0) {
+    // Cleaning up internal globals
+    MPM.addPass(GlobalDCEPass());
     // AddImplicitArgs pass may create dead implicit arguments.
     MPM.addPass(DeadArgumentEliminationPass());
     MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(

@@ -451,8 +451,6 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
     // After the globals used in built-ins are imported - we can internalize
     // them with further wiping them out with GlobalDCE pass
     MPM.add(createInternalizeGlobalVariablesLegacyPass());
-    // Cleaning up internal globals
-    MPM.add(createGlobalDCEPass());
   }
   MPM.add(createBuiltinCallToInstLegacyPass());
 
@@ -462,6 +460,8 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
 
   if (OptLevel > 0) {
     MPM.add(createFunctionInliningPass(4096));
+    // Cleaning up internal globals
+    MPM.add(createGlobalDCEPass());
     // AddImplicitArgs pass may create dead implicit arguments.
     MPM.add(createDeadArgEliminationPass());
     MPM.add(createSROAPass());

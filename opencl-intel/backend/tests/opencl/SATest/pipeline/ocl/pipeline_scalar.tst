@@ -276,26 +276,18 @@
 ; CHECK-NEXT: Running pass: BuiltinImportPass
 ; CHECK-NEXT: Invalidating analysis: VerifierAnalysis
 ; CHECK-NEXT: Running pass: InternalizeGlobalVariablesPass
-; CHECK-NEXT: Running pass: GlobalDCEPass
 
 ; CHECK: Running pass: BuiltinCallToInstPass
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
 ; CHECK-NEXT: Running pass: VerifierPass
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
 ; CHECK-NEXT: Running pass: ModuleInlinerWrapperPass
-
 ; CHECK: Running pass: InlinerPass
-
-; CHECK: Running pass: InlinerPass
-
-; CHECK: Running pass: InlinerPass
-
-; CHECK: Running pass: InlinerPass
-
 ; CHECK: Running analysis: DPCPPAliasAnalysis
 
 ; CHECK: Running pass: PatchCallbackArgsPass
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
+; CHECK-NEXT: Running pass: GlobalDCEPass
 ; CHECK-NEXT: Running pass: DeadArgumentEliminationPass
 ; CHECK-NEXT: Running pass: ArgumentPromotionPass
 ; CHECK-NEXT: Running pass: InstCombinePass
