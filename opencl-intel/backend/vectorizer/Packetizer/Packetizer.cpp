@@ -52,12 +52,13 @@ EnableScatterGather_v4i8("gather-scatter-v4i8", cl::init(false), cl::Hidden,
 
 // Before packetizing memory operations, replace aligment of zero with an
 // explicit value, otherwise we will be erroneously increasing the alignment while packetizing
-static unsigned generateExplicitAlignment(unsigned Alignment, const PointerType* PT) {
+static Align generateExplicitAlignment(MaybeAlign Alignment,
+                                       const PointerType *PT) {
   if (!Alignment)
-    Alignment = std::max(
+    return Align(std::max(
         uint64_t(1U),
-        PT->getElementType()->getPrimitiveSizeInBits().getKnownMinSize() / 8);
-  return Alignment;
+        PT->getElementType()->getPrimitiveSizeInBits().getKnownMinSize() / 8));
+  return *Alignment;
 }
 
 namespace intel {
@@ -1330,15 +1331,15 @@ Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &M
   switch (MO.type) {
   case LOAD: {
     // Create a "vectorized" load
-    return new LoadInst(vectorElementType, bitCastPtr, MO.Orig->getName(), false,
-                        MO.Alignment? Align(MO.Alignment): Align(), MO.Orig);
+    return new LoadInst(vectorElementType, bitCastPtr, MO.Orig->getName(),
+                        false, MO.Alignment.valueOrOne(), MO.Orig);
   }
   case STORE: {
     Value *vData;
     obtainVectorizedValue(&vData, MO.Data, MO.Orig);
     // Create a "vectorized" store
-    return new StoreInst(vData, bitCastPtr, false,
-                         MO.Alignment ? Align(MO.Alignment) : Align(), MO.Orig);
+    return new StoreInst(vData, bitCastPtr, false, MO.Alignment.valueOrOne(),
+                         MO.Orig);
   }
   case PREFETCH: {
     // Leave the scalar pointer as prefetch argument, but increase number of elements in 16 times.
@@ -1367,8 +1368,10 @@ Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &M
 Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO) {
 
   V_ASSERT(MO.Mask && "expected masked operation");
-  std::string name = (MO.Data? Mangler::getStoreName(MO.Alignment):
-                               Mangler::getLoadName(MO.Alignment));
+  std::string name =
+      (MO.Data
+           ? Mangler::getStoreName(MO.Alignment ? MO.Alignment->value() : 0)
+           : Mangler::getLoadName(MO.Alignment ? MO.Alignment->value() : 0));
   WorkItemInfo::Dependency MaskDep = WIInfo->whichDepend(MO.Mask);
 
   // Set the mask. We are free to generate scalar or vector masks.
@@ -1751,20 +1754,22 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
         }
       }
       MO.Data = 0;
-      MO.Alignment = 0;
+      MO.Alignment = None;
       MO.Mask = (isMangled) ? CI->getArgOperand(0) : 0;
       MO.type = PREFETCH;
     } else if (Mangler::isMangledStore(scalarFuncName)) {
       MO.Mask = CI->getArgOperand(0);
       MO.Ptr = CI->getArgOperand(2);
       MO.Data = CI->getArgOperand(1);
-      MO.Alignment = Mangler::getMangledStoreAlignment(scalarFuncName);
+      MO.Alignment =
+          MaybeAlign(Mangler::getMangledStoreAlignment(scalarFuncName));
       MO.type = STORE;
     } else {
       MO.Mask = CI->getArgOperand(0);
       MO.Ptr = CI->getArgOperand(1);
       MO.Data = 0;
-      MO.Alignment = Mangler::getMangledLoadAlignment(scalarFuncName);
+      MO.Alignment =
+          MaybeAlign(Mangler::getMangledLoadAlignment(scalarFuncName));
       MO.type = LOAD;
     }
 
@@ -2977,11 +2982,11 @@ void PacketizeFunction::packetizeInstruction(AllocaInst *AI) {
   if (m_soaAllocaInfo->isSoaAllocaScalarRelated(AI)) {
     // AllocaInst is supported as SOA-alloca, handle it.
     Type* allocaType = VectorizerUtils::convertSoaAllocaType(AI->getAllocatedType(), m_packetWidth);
-    unsigned int alignment = AI->getAlignment() * m_packetWidth;
+    Align alignment = AI->getAlign() * m_packetWidth;
 
-    AllocaInst *newAlloca = new AllocaInst(
-        allocaType, m_pDL->getAllocaAddrSpace(), 0,
-        alignment ? Align(alignment) : Align(), "PackedAlloca", AI);
+    AllocaInst *newAlloca =
+        new AllocaInst(allocaType, m_pDL->getAllocaAddrSpace(), 0, alignment,
+                       "PackedAlloca", AI);
 
     Instruction *duplicateInsts[MAX_PACKET_WIDTH];
     // Set the new SOA-alloca instruction as scalar multi instructions
@@ -3218,7 +3223,7 @@ void PacketizeFunction::packetizeInstruction(LoadInst *LI) {
   MO.Mask = 0;
   MO.Ptr = LI->getPointerOperand();
   MO.Data = nullptr;
-  MO.Alignment = LI->getAlignment();
+  MO.Alignment = LI->getAlign();
   MO.Base = 0;
   MO.Index = 0;
   MO.Orig = LI;
@@ -3238,7 +3243,7 @@ void PacketizeFunction::packetizeInstruction(StoreInst *SI) {
   MO.Mask = 0;
   MO.Ptr = SI->getPointerOperand();
   MO.Data = SI->getValueOperand();
-  MO.Alignment = SI->getAlignment();
+  MO.Alignment = SI->getAlign();
   MO.Base = 0;
   MO.Index = 0;
   MO.Orig = SI;

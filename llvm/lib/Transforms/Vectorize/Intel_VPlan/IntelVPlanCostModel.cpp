@@ -51,12 +51,12 @@ static cl::opt<float>
                          cl::desc("Load cost adjustment on top of TTI value"));
 
 /// A helper function that returns the alignment of load or store instruction.
-static unsigned getMemInstAlignment(const Value *I) {
+static Align getMemInstAlignment(const Value *I) {
   assert((isa<LoadInst>(I) || isa<StoreInst>(I)) &&
          "Expected Load or Store instruction");
   if (auto *LI = dyn_cast<LoadInst>(I))
-    return LI->getAlignment();
-  return cast<StoreInst>(I)->getAlignment();
+    return LI->getAlign();
+  return cast<StoreInst>(I)->getAlign();
 }
 
 #if INTEL_CUSTOMIZATION
@@ -111,8 +111,8 @@ VPlanVLSCostModel::getGatherScatterOpCost(const OVLSMemref &Memref) const {
 }
 #endif // INTEL_CUSTOMIZATION
 
-unsigned
-VPlanTTICostModel::getMemInstAlignment(const VPLoadStoreInst *LoadStore) const {
+Align VPlanTTICostModel::getMemInstAlignment(
+    const VPLoadStoreInst *LoadStore) const {
   // getMemInstAlignment is invoked from getLoadStoreCost() when no Alignment
   // is passed to getLoadStoreCost(), which means getLoadStoreCost() is invoked
   // during getCost() pass though every Instruction. In such scenario
@@ -124,8 +124,7 @@ VPlanTTICostModel::getMemInstAlignment(const VPLoadStoreInst *LoadStore) const {
     // VPAA method takes alignment from IR as a base.
     // Alignment computed by VPAA in most cases is not guaranteed if we skip
     // the peel loop at runtime.
-    return VPAA.getAlignmentUnitStride(*LoadStore, DefaultPeelingVariant)
-        .value();
+    return VPAA.getAlignmentUnitStride(*LoadStore, DefaultPeelingVariant);
   }
 
   // TODO:
@@ -134,23 +133,21 @@ VPlanTTICostModel::getMemInstAlignment(const VPLoadStoreInst *LoadStore) const {
   // once VPAA.getAlignment is ready.
 
   if (const Instruction *Inst = LoadStore->getInstruction())
-    if (unsigned Align = ::getMemInstAlignment(Inst))
-      return Align;
+    return ::getMemInstAlignment(Inst);
 
 #if INTEL_CUSTOMIZATION
   if (LoadStore->HIR().isMaster()) {
     const HLDDNode *DDNode = cast<HLDDNode>(LoadStore->HIR().getUnderlyingNode());
     if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode)) {
       if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst)) {
-        if (unsigned Align = ::getMemInstAlignment(Inst))
-          return Align;
+        return ::getMemInstAlignment(Inst);
       } else {
         // Handle cases such as a[i] = b + c, the store to a[i] will be the
         // master VPInst. However, Inst will be an add instruction.
         const RegDDRef *LvalRef = DDNode->getLvalDDRef();
         if (LvalRef && LvalRef->isMemRef())
-          if (unsigned Align = LvalRef->getAlignment())
-            return Align;
+          if (unsigned Alignment = LvalRef->getAlignment())
+            return Align(Alignment);
       }
     }
   }
@@ -159,7 +156,7 @@ VPlanTTICostModel::getMemInstAlignment(const VPLoadStoreInst *LoadStore) const {
   // If underlying instruction had default alignment (0) we need to query
   // DataLayout what it is, because default alignment for the widened type will
   // be different.
-  return DL->getABITypeAlignment(LoadStore->getValueType());
+  return DL->getABITypeAlign(LoadStore->getValueType());
 }
 
 bool VPlanTTICostModel::isUnitStrideLoadStore(const VPLoadStoreInst *LoadStore,
@@ -287,8 +284,8 @@ VPInstructionCost VPlanTTICostModel::getArithmeticInstructionCost(
 
 VPInstructionCost VPlanTTICostModel::getLoadStoreCost(
   const VPLoadStoreInst *LoadStore, unsigned VF) const {
-  unsigned Alignment = getMemInstAlignment(LoadStore);
-  return getLoadStoreCost(LoadStore, Align(Alignment), VF);
+  Align Alignment = getMemInstAlignment(LoadStore);
+  return getLoadStoreCost(LoadStore, Alignment, VF);
 }
 
 VPInstructionCost VPlanTTICostModel::getLoadStoreCost(

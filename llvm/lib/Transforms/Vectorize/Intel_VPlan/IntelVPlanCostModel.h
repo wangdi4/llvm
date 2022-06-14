@@ -99,7 +99,7 @@ public:
   /// This method guarantees to never return zero by returning default alignment
   /// for the base type in case of zero alignment in the underlying IR, so this
   /// method can freely be used even for widening of the \p VPInst.
-  unsigned getMemInstAlignment(const VPLoadStoreInst *LoadStore) const;
+  Align getMemInstAlignment(const VPLoadStoreInst *LoadStore) const;
 
   /// \Returns True iff \p VPInst is Unit Strided load or store.
   /// When load/store is strided NegativeStride is set to true if the stride is
