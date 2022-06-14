@@ -97,8 +97,8 @@ define void @test_load_store_different_addrspace(i32 addrspace(4)* %ptr, i64 %st
 ; CHECK-NEXT:    ret void
 ;
 enrty:
-  %0 = call <8 x i8> @llvm.experimental.matrix.load.v8i8.p4i8(i32 addrspace(4)* %ptr,  i64 %stride, i1 false, i32 4, i32 2, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup")
-  call void @llvm.experimental.matrix.store.v8i8.p4i8(<8 x i8> %0, i32 addrspace(4)* %dst,  i64 %stride, i1 false, i32 4, i32 2, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup")
+  %0 = call <8 x i8> @llvm.experimental.matrix.load.v8i8.p4i8(i32 addrspace(4)* %ptr,  i64 %stride, i1 false, i32 4, i32 2, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+  call void @llvm.experimental.matrix.store.v8i8.p4i8(<8 x i8> %0, i32 addrspace(4)* %dst,  i64 %stride, i1 false, i32 4, i32 2, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   ret void
 }
 
@@ -110,7 +110,7 @@ define <16 x i8> @test_fill_int8_rowmajor() {
 ; CHECK-NEXT:    ret <16 x i8> [[TMP1]]
 ;
 enrty:
-  %0 = call <16 x i8> @llvm.experimental.matrix.fill.v16i8(i8 0, i32 4, i32 4, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+  %0 = call <16 x i8> @llvm.experimental.matrix.fill.v16i8(i8 0, i32 4, i32 4, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   ret <16 x i8> %0
 }
 
@@ -122,7 +122,7 @@ define <16 x i8> @test_fill_int8_packedb() {
 ; CHECK-NEXT:    ret <16 x i8> [[TMP1]]
 ;
 enrty:
-  %0 = call <16 x i8> @llvm.experimental.matrix.fill.v16i8(i8 0, i32 4, i32 4, metadata !"matrix.packed.b", metadata !"scope.subgroup")
+  %0 = call <16 x i8> @llvm.experimental.matrix.fill.v16i8(i8 0, i32 4, i32 4, metadata !"matrix.packed.b", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   ret <16 x i8> %0
 }
 
@@ -134,7 +134,7 @@ define <16 x i16> @test_fill_bf16_rowmajor() {
 ; CHECK-NEXT:    ret <16 x i16> [[TMP1]]
 ;
 enrty:
-  %0 = call <16 x i16> @llvm.experimental.matrix.fill.v16i16(i16 0, i32 4, i32 4, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+  %0 = call <16 x i16> @llvm.experimental.matrix.fill.v16i16(i16 0, i32 4, i32 4, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   ret <16 x i16> %0
 }
 
@@ -146,7 +146,7 @@ define <16 x i16> @test_fill_bf16_packedb() {
 ; CHECK-NEXT:    ret <16 x i16> [[TMP1]]
 ;
 enrty:
-  %0 = call <16 x i16> @llvm.experimental.matrix.fill.v16i16(i16 0, i32 4, i32 4, metadata !"matrix.packed.b", metadata !"scope.subgroup")
+  %0 = call <16 x i16> @llvm.experimental.matrix.fill.v16i16(i16 0, i32 4, i32 4, metadata !"matrix.packed.b", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   ret <16 x i16> %0
 }
 
@@ -158,7 +158,7 @@ define <16 x float> @test_fill_float_rowmajor() {
 ; CHECK-NEXT:    ret <16 x float> [[TMP1]]
 ;
 enrty:
-  %0 = call <16 x float> @llvm.experimental.matrix.fill.v16f32(float 0.0, i32 4, i32 4, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+  %0 = call <16 x float> @llvm.experimental.matrix.fill.v16f32(float 0.0, i32 4, i32 4, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   ret <16 x float> %0
 }
 
@@ -170,7 +170,7 @@ define <16 x i32> @test_fill_i32_rowmajor() {
 ; CHECK-NEXT:    ret <16 x i32> [[TMP1]]
 ;
 enrty:
-  %0 = call <16 x i32> @llvm.experimental.matrix.fill.v16i32(i32 0, i32 4, i32 4, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+  %0 = call <16 x i32> @llvm.experimental.matrix.fill.v16i32(i32 0, i32 4, i32 4, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   ret <16 x i32> %0
 }
 
@@ -188,8 +188,8 @@ define void @test_load_store_same_addrspace(i32* %ptr, i64 %stride, i32* %dst) {
 ; CHECK-NEXT:    ret void
 ;
 enrty:
-  %0 = call <8 x i8> @llvm.experimental.matrix.load.v8i8.p4i8.v2(i32* %ptr,  i64 %stride, i1 false, i32 4, i32 2, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup")
-  call void @llvm.experimental.matrix.store.v8i8.p4i8.v2(<8 x i8> %0, i32* %dst,  i64 %stride, i1 false, i32 4, i32 2, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup")
+  %0 = call <8 x i8> @llvm.experimental.matrix.load.v8i8.p4i8.v2(i32* %ptr,  i64 %stride, i1 false, i32 4, i32 2, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+  call void @llvm.experimental.matrix.store.v8i8.p4i8.v2(<8 x i8> %0, i32* %dst,  i64 %stride, i1 false, i32 4, i32 2, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   ret void
 }
 
@@ -233,14 +233,14 @@ define void @load_mad_store_int8(i32 addrspace(4)* %ptr, i64 %Stride) {
 ; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 3, i16 20, i8* [[TMP33]], i64 [[TMP34]], x86_amx [[TMP35]])
 ; CHECK-NEXT:    ret void
 ;
-  %A = call <12 x i8> @llvm.experimental.matrix.load.v12i8(i32 addrspace(4)* %ptr, i64 %Stride, i1 false, i32 3, i32 4, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
-  %B = call <20 x i8> @llvm.experimental.matrix.load.v20i8(i32 addrspace(4)* %ptr, i64 %Stride, i1 false, i32 4, i32 5, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup")
-  %C = call <15 x i32> @llvm.experimental.matrix.load.v15i32(i32 addrspace(4)* %ptr, i64 %Stride, i1 false, i32 3, i32 5, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+  %A = call <12 x i8> @llvm.experimental.matrix.load.v12i8(i32 addrspace(4)* %ptr, i64 %Stride, i1 false, i32 3, i32 4, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+  %B = call <20 x i8> @llvm.experimental.matrix.load.v20i8(i32 addrspace(4)* %ptr, i64 %Stride, i1 false, i32 4, i32 5, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+  %C = call <15 x i32> @llvm.experimental.matrix.load.v15i32(i32 addrspace(4)* %ptr, i64 %Stride, i1 false, i32 3, i32 5, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   %D = call <15 x i32> @llvm.experimental.matrix.mad.v12i32.v20i32.v15i32(<12 x i8> %A, metadata !"matrix.rowmajor", <20 x i8> %B, metadata !"matrix.packed.b", <15 x i32> %C, metadata !"matrix.rowmajor", i32 3, i32 4, i32 5, metadata !"scope.subgroup")
   %E = call <15 x i32> @llvm.experimental.matrix.sumad.v12i32.v20i32.v15i32(<12 x i8> %A, metadata !"matrix.rowmajor", <20 x i8> %B, metadata !"matrix.packed.b", <15 x i32> %C, metadata !"matrix.rowmajor", i32 3, i32 4, i32 5, metadata !"scope.subgroup")
   %F = call <15 x i32> @llvm.experimental.matrix.usmad.v12i32.v20i32.v15i32(<12 x i8> %A, metadata !"matrix.rowmajor", <20 x i8> %B, metadata !"matrix.packed.b", <15 x i32> %C, metadata !"matrix.rowmajor", i32 3, i32 4, i32 5, metadata !"scope.subgroup")
   %G = call <15 x i32> @llvm.experimental.matrix.uumad.v12i32.v20i32.v15i32(<12 x i8> %A, metadata !"matrix.rowmajor", <20 x i8> %B, metadata !"matrix.packed.b", <15 x i32> %C, metadata !"matrix.rowmajor", i32 3, i32 4, i32 5, metadata !"scope.subgroup")
-  call void @llvm.experimental.matrix.store.v15i32(<15 x i32> %D, i32 addrspace(4)* %ptr, i64 %Stride, i1 0, i32 3, i32 5, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+  call void @llvm.experimental.matrix.store.v15i32(<15 x i32> %D, i32 addrspace(4)* %ptr, i64 %Stride, i1 0, i32 3, i32 5, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   ret void
 }
 
@@ -269,38 +269,38 @@ define void @load_mad_store_bf16(i16 addrspace(4)* %ptrA, i16 addrspace(4)* %ptr
 ; CHECK-NEXT:    call void @llvm.x86.tilestored64.internal(i16 15, i16 60, i8* [[TMP18]], i64 [[TMP19]], x86_amx [[TMP20]])
 ; CHECK-NEXT:    ret void
 ;
-  %A = call <450 x i16> @llvm.experimental.matrix.load.v450i16.p4i16(i16 addrspace(4)* %ptrA, i64 %Stride, i1 false, i32 15, i32 30, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
-  %B = call <450 x i16> @llvm.experimental.matrix.load.v450i16.p4i16(i16 addrspace(4)* %ptrB, i64 %Stride, i1 false, i32 30, i32 15, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup")
-  %C = call <225 x float> @llvm.experimental.matrix.load.v225f32.p4f32(float addrspace(4)* %ptrC, i64 %Stride, i1 false, i32 15, i32 15, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+  %A = call <450 x i16> @llvm.experimental.matrix.load.v450i16.p4i16(i16 addrspace(4)* %ptrA, i64 %Stride, i1 false, i32 15, i32 30, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+  %B = call <450 x i16> @llvm.experimental.matrix.load.v450i16.p4i16(i16 addrspace(4)* %ptrB, i64 %Stride, i1 false, i32 30, i32 15, metadata !"matrix.packed.b", metadata !"matrix.packed.b", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+  %C = call <225 x float> @llvm.experimental.matrix.load.v225f32.p4f32(float addrspace(4)* %ptrC, i64 %Stride, i1 false, i32 15, i32 15, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   %D = call <225 x float> @llvm.experimental.matrix.mad.v225f32.v450i16.v450i16(<450 x i16> %A, metadata !"matrix.rowmajor", <450 x i16> %B, metadata !"matrix.packed.b", <225 x float> %C, metadata !"matrix.rowmajor", i32 15, i32 30, i32 15, metadata !"scope.subgroup")
-  call void @llvm.experimental.matrix.store.v225f32.p4f32(<225 x float> %D, float addrspace(4)* %ptrD, i64 %Stride, i1 false, i32 15, i32 15, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+  call void @llvm.experimental.matrix.store.v225f32.p4f32(<225 x float> %D, float addrspace(4)* %ptrD, i64 %Stride, i1 false, i32 15, i32 15, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   ret void
 }
 
-declare <12 x i8> @llvm.experimental.matrix.load.v12i8(i32 addrspace(4)*, i64, i1, i32, i32, metadata, metadata, metadata);
-declare <20 x i8> @llvm.experimental.matrix.load.v20i8(i32 addrspace(4)*, i64, i1, i32, i32, metadata, metadata, metadata);
-declare <15 x i32> @llvm.experimental.matrix.load.v15i32(i32 addrspace(4)*, i64, i1, i32, i32, metadata, metadata, metadata);
+declare <12 x i8> @llvm.experimental.matrix.load.v12i8(i32 addrspace(4)*, i64, i1, i32, i32, metadata, metadata, metadata, metadata);
+declare <20 x i8> @llvm.experimental.matrix.load.v20i8(i32 addrspace(4)*, i64, i1, i32, i32, metadata, metadata, metadata, metadata);
+declare <15 x i32> @llvm.experimental.matrix.load.v15i32(i32 addrspace(4)*, i64, i1, i32, i32, metadata, metadata, metadata, metadata);
 declare <15 x i32> @llvm.experimental.matrix.mad.v12i32.v20i32.v15i32(<12 x i8>, metadata, <20 x i8>, metadata, <15 x i32>, metadata, i32, i32, i32, metadata)
 declare <15 x i32> @llvm.experimental.matrix.sumad.v12i32.v20i32.v15i32(<12 x i8>, metadata, <20 x i8>, metadata, <15 x i32>, metadata, i32, i32, i32, metadata)
 declare <15 x i32> @llvm.experimental.matrix.usmad.v12i32.v20i32.v15i32(<12 x i8>, metadata, <20 x i8>, metadata, <15 x i32>, metadata, i32, i32, i32, metadata)
 declare <15 x i32> @llvm.experimental.matrix.uumad.v12i32.v20i32.v15i32(<12 x i8>, metadata, <20 x i8>, metadata, <15 x i32>, metadata, i32, i32, i32, metadata)
-declare void @llvm.experimental.matrix.store.v15i32(<15 x i32>, i32 addrspace(4)*, i64, i1, i32, i32, metadata, metadata, metadata);
+declare void @llvm.experimental.matrix.store.v15i32(<15 x i32>, i32 addrspace(4)*, i64, i1, i32, i32, metadata, metadata, metadata, metadata);
 
-declare <8 x i8> @llvm.experimental.matrix.load.v8i8.p4i8(i32 addrspace(4)*, i64, i1, i32, i32, metadata, metadata, metadata);
-declare void @llvm.experimental.matrix.store.v8i8.p4i8(<8 x i8>, i32 addrspace(4)*, i64, i1, i32, i32, metadata, metadata, metadata);
-declare <8 x i8> @llvm.experimental.matrix.load.v8i8.p4i8.v2(i32*, i64, i1, i32, i32, metadata, metadata, metadata);
-declare void @llvm.experimental.matrix.store.v8i8.p4i8.v2(<8 x i8>, i32*, i64, i1, i32, i32, metadata, metadata, metadata);
+declare <8 x i8> @llvm.experimental.matrix.load.v8i8.p4i8(i32 addrspace(4)*, i64, i1, i32, i32, metadata, metadata, metadata, metadata);
+declare void @llvm.experimental.matrix.store.v8i8.p4i8(<8 x i8>, i32 addrspace(4)*, i64, i1, i32, i32, metadata, metadata, metadata, metadata);
+declare <8 x i8> @llvm.experimental.matrix.load.v8i8.p4i8.v2(i32*, i64, i1, i32, i32, metadata, metadata, metadata, metadata);
+declare void @llvm.experimental.matrix.store.v8i8.p4i8.v2(<8 x i8>, i32*, i64, i1, i32, i32, metadata, metadata, metadata, metadata);
 
-declare <225 x float> @llvm.experimental.matrix.load.v225f32.p4f32(float addrspace(4)*, i64, i1, i32, i32, metadata, metadata, metadata)
-declare <450 x i16> @llvm.experimental.matrix.load.v450i16.p4i16(i16 addrspace(4)*, i64, i1, i32, i32, metadata, metadata, metadata)
+declare <225 x float> @llvm.experimental.matrix.load.v225f32.p4f32(float addrspace(4)*, i64, i1, i32, i32, metadata, metadata, metadata, metadata)
+declare <450 x i16> @llvm.experimental.matrix.load.v450i16.p4i16(i16 addrspace(4)*, i64, i1, i32, i32, metadata, metadata, metadata, metadata)
 declare <225 x float> @llvm.experimental.matrix.mad.v225f32.v450i16.v450i16(<450 x i16>, metadata, <450 x i16>, metadata, <225 x float>, metadata, i32, i32, i32, metadata)
-declare void @llvm.experimental.matrix.store.v225f32.p4f32(<225 x float>, float addrspace(4)*, i64, i1, i32, i32, metadata, metadata, metadata)
+declare void @llvm.experimental.matrix.store.v225f32.p4f32(<225 x float>, float addrspace(4)*, i64, i1, i32, i32, metadata, metadata, metadata, metadata)
 declare <4 x i32> @llvm.experimental.matrix.extract.row.slice.v16i32(<16 x i32>, i32, i32, i32, i32, i32, metadata)
 declare <4 x i32> @llvm.experimental.matrix.extract.row.slice.v15i32(<15 x i32>, i32, i32, i32, i32, i32, metadata)
 declare <16 x i32> @llvm.experimental.matrix.insert.row.slice.v16i32(<16 x i32>, <4 x i32>, i32, i32, i32, i32, i32, metadata)
 declare <15 x i32> @llvm.experimental.matrix.insert.row.slice.v15i32(<15 x i32>, <4 x i32>, i32, i32, i32, i32, i32, metadata)
 
-declare <16 x i8> @llvm.experimental.matrix.fill.v16i8(i8, i32, i32, metadata, metadata)
-declare <16 x i16> @llvm.experimental.matrix.fill.v16i16(i16, i32, i32, metadata, metadata)
-declare <16 x float> @llvm.experimental.matrix.fill.v16f32(float, i32, i32, metadata, metadata)
-declare <16 x i32> @llvm.experimental.matrix.fill.v16i32(i32, i32, i32, metadata, metadata)
+declare <16 x i8> @llvm.experimental.matrix.fill.v16i8(i8, i32, i32, metadata, metadata, metadata)
+declare <16 x i16> @llvm.experimental.matrix.fill.v16i16(i16, i32, i32, metadata, metadata, metadata)
+declare <16 x float> @llvm.experimental.matrix.fill.v16f32(float, i32, i32, metadata, metadata, metadata)
+declare <16 x i32> @llvm.experimental.matrix.fill.v16i32(i32, i32, i32, metadata, metadata, metadata)

@@ -59,6 +59,7 @@ static Value *createFillZeroCall(unsigned Rows, unsigned Cols,
                                  FixedVectorType *MatrixType,
                                  MetadataAsValue *Layout,
                                  MetadataAsValue *Scope,
+                                 MetadataAsValue *Use,
                                  Instruction *InsertPoint) {
   IRBuilder<> B(InsertPoint);
   assert(MatrixType->getNumElements() == (Rows * Cols));
@@ -72,7 +73,7 @@ static Value *createFillZeroCall(unsigned Rows, unsigned Cols,
     Zero = ConstantFP::get(DataType, 0);
   Value *ZeroMat = B.CreateIntrinsic(
       Intrinsic::experimental_matrix_fill, {MatrixType, DataType},
-      {Zero, B.getInt32(Rows), B.getInt32(Cols), Layout, Scope}, nullptr,
+      {Zero, B.getInt32(Rows), B.getInt32(Cols), Layout, Scope, Use}, nullptr,
       "mat.init");
   return ZeroMat;
 }
@@ -81,6 +82,7 @@ static Value *createFillSliceLoop(Value *InitMatrix, unsigned Rows,
                                   unsigned Cols, Value *Data,
                                   MetadataAsValue *Layout,
                                   MetadataAsValue *Scope,
+                                  MetadataAsValue *Use,
                                   Instruction *InsertPoint) {
   IRBuilder<> B(InsertPoint);
   BasicBlock *OriginalBB = InsertPoint->getParent();
@@ -89,7 +91,7 @@ static Value *createFillSliceLoop(Value *InitMatrix, unsigned Rows,
   auto *ColVal = B.getInt32(Cols);
   Value *SliceLength = B.CreateIntrinsic(
       Intrinsic::experimental_matrix_wi_slice_length, {MatrixType},
-      {InitMatrix, RowVal, ColVal, Layout, Scope}, nullptr, "slice.length");
+      {InitMatrix, RowVal, ColVal, Layout, Scope, Use}, nullptr, "slice.length");
   BasicBlock *LoopHeader =
       OriginalBB->splitBasicBlock(InsertPoint, "matrix.fill.slice.loop.header");
   BasicBlock *LoopBody =
@@ -112,7 +114,7 @@ static Value *createFillSliceLoop(Value *InitMatrix, unsigned Rows,
   auto *UpdatedMatrix = B.CreateIntrinsic(
       Intrinsic::experimental_matrix_wi_slice_insertelement,
       {MatrixType, I->getType()},
-      {Matrix, RowVal, ColVal, Data, I, Layout, Scope}, nullptr, "mat.update");
+      {Matrix, RowVal, ColVal, Data, I, Layout, Scope, Use}, nullptr, "mat.update");
   auto *Inc = B.CreateAdd(I, ConstantInt::get(I->getType(), 1),
                           "element.index.inc", true);
   I->addIncoming(Inc, LoopBody);
@@ -150,13 +152,14 @@ static std::pair<bool, Value *> resolveMatrixFillCall(CallInst *CI) {
              ->getString()
              .equals("scope.subgroup") &&
          "Only supports subgroup scope for now");
+  auto *Use = cast<MetadataAsValue>(CI->getArgOperand(5));
 
   Changed = true;
   // Initialize the matrix with zeros.
   auto *Matrix = createFillZeroCall(
-      Rows, Cols, cast<FixedVectorType>(CI->getType()), Layout, Scope, CI);
+      Rows, Cols, cast<FixedVectorType>(CI->getType()), Layout, Scope, Use, CI);
   // Fill the matrix with a loop of @llvm.experimental.wi.slice.insertelement
-  Matrix = createFillSliceLoop(Matrix, Rows, Cols, Data, Layout, Scope, CI);
+  Matrix = createFillSliceLoop(Matrix, Rows, Cols, Data, Layout, Scope, Use, CI);
   return std::make_pair(Changed, Matrix);
 }
 
