@@ -8681,7 +8681,7 @@ def _SLASH_external_env : CLJoined<"external:env:">,
 def _SLASH_F : CLJoinedOrSeparate<"F">, HelpText<"Set the stack reserve amount "
   "specified to the linker">;
 #endif // INTEL_CUSTOMIZATION
-def _SLASH_FA : CLFlag<"FA">,
+def _SLASH_FA : CLJoined<"FA">,
   HelpText<"Output assembly code file during compilation">;
 def _SLASH_Fa : CLJoined<"Fa">,
   HelpText<"Set assembly output file name (with /FA)">,
@@ -8858,7 +8858,6 @@ def _SLASH_doc : CLJoined<"doc">;
 def _SLASH_experimental : CLJoined<"experimental:">;
 def _SLASH_exportHeader : CLFlag<"exportHeader">;
 def _SLASH_external : CLJoined<"external:">;
-def _SLASH_FA_joined : CLJoined<"FA">;
 def _SLASH_favor : CLJoined<"favor">;
 def _SLASH_fsanitize_address_use_after_return : CLJoined<"fsanitize-address-use-after-return">;
 def _SLASH_fno_sanitize_address_vcasan_lib : CLJoined<"fno-sanitize-address-vcasan-lib">;
