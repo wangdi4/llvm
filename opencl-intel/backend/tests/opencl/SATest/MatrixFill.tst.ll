@@ -5,7 +5,7 @@ target triple = "spir64-unknown-unknown"
 define spir_kernel void @_ZTSZZ16fill_and_extractvENKUlRN2cl4sycl7handlerEE_clES2_E10MatrixTest(i32 addrspace(1)* %add.ptr.i) #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !intel_reqd_sub_group_size !9 {
 entry:
   %i3 = call spir_func i64 @_Z33__spirv_BuiltInGlobalInvocationIdi(i32 0) #4
-  %call.i19.i = call <256 x i32> @llvm.experimental.matrix.fill.v256i32.i32(i32 42, i32 16, i32 16, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+  %call.i19.i = call <256 x i32> @llvm.experimental.matrix.fill.v256i32.i32(i32 42, i32 16, i32 16, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   %cmp.i.i = icmp ult i64 %i3, 2147483648
   %arrayidx.i.i = getelementptr inbounds i32, i32 addrspace(1)* %add.ptr.i, i64 %i3
   %arrayidx.ascast.i.i = addrspacecast i32 addrspace(1)* %arrayidx.i.i to i32 addrspace(4)*
@@ -14,13 +14,13 @@ entry:
 for.cond.i:                                       ; preds = %for.body.i, %entry
   %i.0.i = phi i32 [ 0, %entry ], [ %inc.i, %for.body.i ]
   %conv11.i = zext i32 %i.0.i to i64
-  %call.i17.i = call i64 @llvm.experimental.matrix.wi.slice.length.v256i32(<256 x i32> %call.i19.i, i32 16, i32 16, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+  %call.i17.i = call i64 @llvm.experimental.matrix.wi.slice.length.v256i32(<256 x i32> %call.i19.i, i32 16, i32 16, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   %cmp.i = icmp ugt i64 %call.i17.i, %conv11.i
   br i1 %cmp.i, label %for.body.i, label %_ZZZ16fill_and_extractvENKUlRN2cl4sycl7handlerEE_clES2_ENKUlNS0_7nd_itemILi1EEEE_clES5_.exit
 
 for.body.i:                                       ; preds = %for.cond.i
   %conv.i = sext i32 %i.0.i to i64
-  %call.i.i = call i32 @llvm.experimental.matrix.wi.slice.extractelement.v256i32.i64(<256 x i32> %call.i19.i, i32 16, i32 16, i64 %conv.i, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+  %call.i.i = call i32 @llvm.experimental.matrix.wi.slice.extractelement.v256i32.i64(<256 x i32> %call.i19.i, i32 16, i32 16, i64 %conv.i, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   call void @llvm.assume(i1 %cmp.i.i)
   store i32 %call.i.i, i32 addrspace(4)* %arrayidx.ascast.i.i, align 4
   %inc.i = add nuw nsw i32 %i.0.i, 1
@@ -31,13 +31,13 @@ _ZZZ16fill_and_extractvENKUlRN2cl4sycl7handlerEE_clES2_ENKUlNS0_7nd_itemILi1EEEE
 }
 
 ; Function Attrs: nofree nosync nounwind readnone willreturn
-declare <256 x i32> @llvm.experimental.matrix.fill.v256i32.i32(i32, i32, i32, metadata, metadata) #1
+declare <256 x i32> @llvm.experimental.matrix.fill.v256i32.i32(i32, i32, i32, metadata, metadata, metadata) #1
 
 ; Function Attrs: nofree nosync nounwind willreturn
-declare i64 @llvm.experimental.matrix.wi.slice.length.v256i32(<256 x i32>, i32, i32, metadata, metadata) #2
+declare i64 @llvm.experimental.matrix.wi.slice.length.v256i32(<256 x i32>, i32, i32, metadata, metadata, metadata) #2
 
 ; Function Attrs: nofree nosync nounwind willreturn
-declare i32 @llvm.experimental.matrix.wi.slice.extractelement.v256i32.i64(<256 x i32>, i32, i32, i64, metadata, metadata) #2
+declare i32 @llvm.experimental.matrix.wi.slice.extractelement.v256i32.i64(<256 x i32>, i32, i32, i64, metadata, metadata, metadata) #2
 
 ; Function Attrs: inaccessiblememonly nofree nosync nounwind willreturn
 declare void @llvm.assume(i1 noundef) #3

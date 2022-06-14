@@ -19,16 +19,16 @@ namespace llvm {
 /// # Pass description
 /// Resolve matrix WI slicing intrinsics to backend internal builtins.
 /// 1.
-///   call i64 @llvm.experimental.matrix.wi.slice.length.v144i32(<144 x i32> %mat, i32 12, i32 12, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+///   call i64 @llvm.experimental.matrix.wi.slice.length.v144i32(<144 x i32> %mat, i32 12, i32 12, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
 /// -->
 ///   call i64 @get_sub_group_slice_length.(i32 144)
 /// 2.
-///   call i32 @llvm.experimental.matrix.wi.slice.extractelement.v144i32.i64(<144 x i32> %mat, i32 12, i32 12, i64 %element.index, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+///   call i32 @llvm.experimental.matrix.wi.slice.extractelement.v144i32.i64(<144 x i32> %mat, i32 12, i32 12, i64 %element.index, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
 /// -->
 ///   %id = call i64 @get_sub_group_rowslice_id.v144i32.i64(<144 x i32> %mat, i32 12, i32 12, i64 %element.index)
 ///   %elem = call i32 @sub_group_rowslice_extractelement.i32(i64 %id)
 /// 3.
-///   call <144 x i32> @llvm.experimental.matrix.wi.slice.insertelement.v144i32.i64(<144 x i32> %mat, i32 12, i32 12, i32 %val, i64 %element.index, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+///   call <144 x i32> @llvm.experimental.matrix.wi.slice.insertelement.v144i32.i64(<144 x i32> %mat, i32 12, i32 12, i32 %val, i64 %element.index, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
 /// -->
 ///   %id = call i64 @get_sub_group_rowslice_id.v144i32.i64(<144 x i32> %mat, i32 12, i32 12, i64 %element.index)
 ///   call void @sub_group_rowslice_insertelement.i32(i64 %id, i32 %val)
@@ -64,7 +64,7 @@ namespace llvm {
 /// The length of a rowslice, is equal to the subgroup size.
 ///
 /// # Input intrinsic semantics
-/// - i32 @llvm.experimental.matrix.wi.slice.extractelement.v144i32.i64(<144 x i32> %mat, i32 12, i32 12, i64 %element.index, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+/// - i32 @llvm.experimental.matrix.wi.slice.extractelement.v144i32.i64(<144 x i32> %mat, i32 12, i32 12, i64 %element.index, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
 ///     The argument %element.index represents the element index in the slice
 ///     owned by the current workitem.
 ///     e.g.

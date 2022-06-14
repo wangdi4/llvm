@@ -104,7 +104,8 @@ static std::pair<bool, Value *> resolveMatrixLayoutLoadHelper(
                                             CI->getOperand(4),
                                             CI->getOperand(5),
                                             NewMemL,
-                                            CI->getOperand(7)};
+                                            CI->getOperand(7),
+                                            CI->getOperand(8)};
   SmallVector<Type *, 2> TypesForNewLoad = {MatrixType, Dst->getType()};
   CallInst *NewMatrixLoad = Builder.CreateIntrinsic(
       Intrinsic::experimental_matrix_load, TypesForNewLoad, ArgsForNewLoad);
@@ -131,7 +132,7 @@ resolveMatrixLayoutLoad(CallInst *CI, SmallVector<User *> &WorkList) {
     // %res = call <8 x i8> @llvm.experimental.matrix.load.v8i8.p4i8(
     //   i32* addressspace(4) %ptr, i64 stride, i1 false, i32 4, i32 2,
     //   metadata !"matrix.packed_b", metadata !"matrix.rowmajor", metadata
-    //   !"scope.subgroup")
+    //   !"scope.subgroup", metadata !"matrix.use.unnecessary")
     // =>
     // %alloc = alloca [i8 x 8]
     // %ptr2 = bitcast %alloc to i8*

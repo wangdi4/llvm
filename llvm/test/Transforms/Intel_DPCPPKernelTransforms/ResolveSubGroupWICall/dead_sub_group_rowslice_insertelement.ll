@@ -32,7 +32,7 @@ WGLoopsEntry:                                     ; preds = %bb
 entryvector_func:                                 ; preds = %VPlannedBB45vector_func, %WGLoopsEntry
   %dim_0_vector_ind_var = phi i64 [ %dim_0_vector_inc_ind_var, %VPlannedBB45vector_func ], [ 0, %WGLoopsEntry ]
   %dim_0_vector_tid = phi i64 [ %dim_0_vector_inc_tid, %VPlannedBB45vector_func ], [ %init.gid.dim0, %WGLoopsEntry ]
-  %mat.initvector_func = call <256 x i32> @llvm.experimental.matrix.fill.v256i32.i32(i32 0, i32 16, i32 16, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+  %mat.initvector_func = call <256 x i32> @llvm.experimental.matrix.fill.v256i32.i32(i32 0, i32 16, i32 16, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   %broadcast.splatinsertvector_func = insertelement <8 x i64> poison, i64 %dim_0_vector_tid, i64 0
   %broadcast.splatvector_func = shufflevector <8 x i64> %broadcast.splatinsertvector_func, <8 x i64> poison, <8 x i32> zeroinitializer
   %i3 = add nuw <8 x i64> %broadcast.splatvector_func, <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>
@@ -277,7 +277,7 @@ scalar_if:                                        ; preds = %VPlannedBB45vector_
 scalar_kernel_entry:                              ; preds = %_ZZZ16fill_and_extractvENKUlRN2cl4sycl7handlerEE_clES2_ENKUlNS0_7nd_itemILi1EEEE_clES5_.exit, %scalar_if
   %dim_0_ind_var = phi i64 [ %dim_0_inc_ind_var, %_ZZZ16fill_and_extractvENKUlRN2cl4sycl7handlerEE_clES2_ENKUlNS0_7nd_itemILi1EEEE_clES5_.exit ], [ 0, %scalar_if ]
   %dim_0_tid = phi i64 [ %dim_0_inc_tid, %_ZZZ16fill_and_extractvENKUlRN2cl4sycl7handlerEE_clES2_ENKUlNS0_7nd_itemILi1EEEE_clES5_.exit ], [ %max.vector.gid, %scalar_if ]
-  %mat.init = call <256 x i32> @llvm.experimental.matrix.fill.v256i32.i32(i32 0, i32 16, i32 16, metadata !"matrix.rowmajor", metadata !"scope.subgroup")
+  %mat.init = call <256 x i32> @llvm.experimental.matrix.fill.v256i32.i32(i32 0, i32 16, i32 16, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
   %i62 = call i64 @get_sub_group_slice_length.(i32 256) #7
   br label %matrix.fill.slice.loop.header
 
@@ -324,13 +324,13 @@ exit:                                             ; preds = %_ZZZ16fill_and_extr
 }
 
 ; Function Attrs: nofree nosync nounwind readnone willreturn
-declare <256 x i32> @llvm.experimental.matrix.fill.v256i32.i32(i32, i32, i32, metadata, metadata) #1
+declare <256 x i32> @llvm.experimental.matrix.fill.v256i32.i32(i32, i32, i32, metadata, metadata, metadata) #1
 
 ; Function Attrs: nofree nosync nounwind willreturn
-declare i64 @llvm.experimental.matrix.wi.slice.length.v256i32(<256 x i32>, i32, i32, metadata, metadata) #2
+declare i64 @llvm.experimental.matrix.wi.slice.length.v256i32(<256 x i32>, i32, i32, metadata, metadata, metadata) #2
 
 ; Function Attrs: nofree nosync nounwind willreturn
-declare i32 @llvm.experimental.matrix.wi.slice.extractelement.v256i32.i64(<256 x i32>, i32, i32, i64, metadata, metadata) #2
+declare i32 @llvm.experimental.matrix.wi.slice.extractelement.v256i32.i64(<256 x i32>, i32, i32, i64, metadata, metadata, metadata) #2
 
 ; Function Attrs: inaccessiblememonly nofree nosync nounwind willreturn
 declare void @llvm.assume(i1 noundef) #3
@@ -339,7 +339,7 @@ declare void @llvm.assume(i1 noundef) #3
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #4
 
 ; Function Attrs: nofree nosync nounwind willreturn
-declare <256 x i32> @llvm.experimental.matrix.wi.slice.insertelement.v256i32.i64(<256 x i32>, i32, i32, i32, i64, metadata, metadata) #2
+declare <256 x i32> @llvm.experimental.matrix.wi.slice.insertelement.v256i32.i64(<256 x i32>, i32, i32, i32, i64, metadata, metadata, metadata) #2
 
 declare i64 @get_sub_group_slice_length.(i32)
 

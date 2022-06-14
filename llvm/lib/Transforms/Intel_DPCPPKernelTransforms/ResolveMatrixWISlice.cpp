@@ -73,11 +73,13 @@ static Value *resolveSliceLengthCall(CallInst *CI) {
 // Create @get_sub_group_rowslice_id call for either
 // - call i32 @llvm.experimental.matrix.wi.slice.extractelement.v144i32.i64(<144
 //   x i32> %mat, i32 12, i32 12, i64 %element.index, metadata
-//   !"matrix.rowmajor", metadata !"scope.subgroup")
+//   !"matrix.rowmajor", metadata !"scope.subgroup", metadata
+//   !"matrix.use.unnecessary")
 // - call <144 x i32>
 //   @llvm.experimental.matrix.wi.slice.insertelement.v144i32.i64(<144 x i32>
 //   %mat, i32 12, i32 12, i32 %val, i64 %element.index, metadata
-//   !"matrix.rowmajor", metadata !"scope.subgroup")
+//   !"matrix.rowmajor", metadata !"scope.subgroup", metadata
+//   !"matrix.use.unnecessary")
 static Value *createGetSubGroupRowSliceIdFromExtractOrInsert(CallInst *CI) {
   // Matrix is always the first arg.
   auto *Matrix = CI->getArgOperand(0);
@@ -88,7 +90,7 @@ static Value *createGetSubGroupRowSliceIdFromExtractOrInsert(CallInst *CI) {
   unsigned Rows = cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
   unsigned Cols = cast<ConstantInt>(CI->getArgOperand(2))->getZExtValue();
   // Element index is always the third last arg.
-  auto *Index = CI->getArgOperand(CI->arg_size() - 3);
+  auto *Index = CI->getArgOperand(CI->arg_size() - 4);
   return CompilationUtils::createGetSubGroupRowSliceIdCall(
       Matrix, Rows, Cols, Index, CI, "rowslice.id");
 }
