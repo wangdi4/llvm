@@ -4090,6 +4090,24 @@ bool InstCombinerImpl::freezeOtherUses(FreezeInst &FI) {
     assert(!I->isTerminator() && "Cannot be a terminator");
     MoveBefore = I->getNextNode();
   }
+#if INTEL_CUSTOMIZATION
+  // The above code freezes values at the definition, conservatively forcing
+  // all uses to become frozen. The unneeded freezing is causing problems
+  // with loop- and pattern-based optimizations.
+  // We don't do this for Fortran, as we need to reduce codesize to squeeze
+  // exchange2 under the inlining limits.
+  // TODO: Investigate removal of the freezes at their source, 2fa8fc3d.
+  auto &TTI = getTargetTransformInfo();
+  auto *F = FI.getFunction();
+  bool isFortran = F->isFortran();
+  auto HasAVX512 =
+      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512;
+  auto HasAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
+  bool HasVecWidth = F->getFnAttribute("prefer-vector-width").isValid();
+  if (!isFortran && (TTI.isAdvancedOptEnabled(HasAVX2) ||
+                     TTI.isAdvancedOptEnabled(HasAVX512) || HasVecWidth))
+    MoveBefore = &FI;
+#endif // INTEL_CUSTOMIZATION
 
   bool Changed = false;
   if (&FI != MoveBefore) {
