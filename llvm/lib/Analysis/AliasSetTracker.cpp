@@ -279,6 +279,7 @@ bool AliasSet::aliasesUnknownInst(const Instruction *Inst,
   return false;
 }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 bool AliasSet::aliases(const AliasSet &AS, AliasAnalysis &AA) const {
   if (AliasAny)
@@ -323,6 +324,8 @@ Instruction* AliasSet::getUniqueInstruction() {
   return cast<Instruction>(UnknownInsts[0]);
 }
 
+=======
+>>>>>>> 5c41b0f429652ef50b9378e890f17a1426958e17
 void AliasSetTracker::clear() {
   // Delete all the PointerRec entries.
   for (auto &I : PointerMap)
