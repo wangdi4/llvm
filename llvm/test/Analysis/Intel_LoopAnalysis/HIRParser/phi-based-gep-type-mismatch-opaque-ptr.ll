@@ -1,21 +1,16 @@
 ; RUN: opt < %s -opaque-pointers -hir-ssa-deconstruction -hir-framework -analyze -enable-new-pm=0 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -passes="hir-ssa-deconstruction,print<hir>" 2>&1 -disable-output | FileCheck %s
 
-; Verify that the the GEP %3 is conservatively parsed as (%g.addr.04)[0].1
-; because of mismatch between its base ptr element type ({ i32, i32 }) and the
+; Verify that the the GEP %3 can be parsed as (%g)[i1].1 even though there is
+; a mismatch between its base ptr element type ({ i32, i32 }) and the
 ; type obtained from %incdec.ptr (%struct.a) which is the update value of
 ; inductive phi %g.addr.04.
-
-; Before this change it was being parsed as (%g)[i1].1.
-
-; This mismatch can only happen with opaque ptrs.
 
 ; CHECK: + DO i1 = 0, (-1 * ptrtoint.ptr.i64(%g) + ptrtoint.ptr.i64(%h) + -8)/u8, 1   <DO_LOOP>
 ; CHECK: |   %2 = (i32*)(%g)[i1];
 ; CHECK: |   (%o)[0].0 = %2;
-; CHECK: |   %4 = (%g.addr.04)[0].1;
+; CHECK: |   %4 = (%g)[i1].1;
 ; CHECK: |   (%o)[0].1 = %4;
-; CHECK: |   %g.addr.04 = &((%g)[i1 + 1]);
 ; CHECK: + END LOOP
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
