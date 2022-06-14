@@ -8677,15 +8677,11 @@ def _SLASH_EP : CLFlag<"EP">,
 def _SLASH_external_env : CLJoined<"external:env:">,
   HelpText<"Add dirs in env var <var> to include search path with warnings suppressed">,
   MetaVarName<"<var>">;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 def _SLASH_F : CLJoinedOrSeparate<"F">, HelpText<"Set the stack reserve amount "
   "specified to the linker">;
 #endif // INTEL_CUSTOMIZATION
-def _SLASH_FA : CLFlag<"FA">,
-=======
 def _SLASH_FA : CLJoined<"FA">,
->>>>>>> d4245ed67ce44188714e6b29a0b45e860619bcf2
   HelpText<"Output assembly code file during compilation">;
 def _SLASH_Fa : CLJoined<"Fa">,
   HelpText<"Set assembly output file name (with /FA)">,
