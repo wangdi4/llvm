@@ -57,10 +57,10 @@ if (NOT TARGET LLVMGenXIntrinsics)
       if (IS_INTERNAL_ESIMD_BUILD)
         # override git repo name and tag for the internal ESIMD EMBARGO build
         set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
-        # Author: Victor Mustya <victor.mustya@intel.com>
-        # Date:   Tue, 3 May 2022 12:36:29 -0700
-        # [ESIMD BugFix]: Remove default switch labels for LSC-related functions
-        set(LLVMGenXIntrinsics_GIT_TAG 25f6effcba269d4b9df02a527cfcaf33992391ee)
+        # Author: HaohaiWen <haohai.wen@intel.com>
+        # Date:   Fri Jun 10 23:43:35 2022 +0800
+        # [VC BugFix]: Format InstructionSimplify names (#202)
+        set(LLVMGenXIntrinsics_GIT_TAG 6bef8e76ec6a39c324c8fa350580f9a55e661656)
 
         add_compile_definitions(__INTEL_EMBARGO__)
         # LLVM_CMAKE_DIR is required by the internal vc-intrinsics repo, but is
