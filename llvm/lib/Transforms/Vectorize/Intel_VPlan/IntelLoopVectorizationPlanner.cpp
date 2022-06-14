@@ -264,6 +264,14 @@ static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
 
 int LoopVectorizationPlanner::setDefaultVectorFactors() {
   unsigned ForcedVF = getForcedVF(WRLp);
+  if (ForcedVF && !isPowerOf2_64(ForcedVF)) {
+    LLVM_DEBUG(
+        dbgs()
+        << "LVP: The forced VF is not power of two, skipping the loop\n");
+    VFs.push_back(0);
+    return 0;
+  }
+
 
 #if INTEL_CUSTOMIZATION
   unsigned Safelen = getSafelen(WRLp);
@@ -579,6 +587,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
   // Always capture scalar VPlan to handle cases where vectorization
   // is not possible with VF > 1 (such as when forced VF greater than TC).
   VPlans[1] = VPlans[VFs[0] /*MinVF*/];
+  assert(VPlans[1].MainPlan != nullptr && "expected non-null VPlan");
 
   return 1;
 }
