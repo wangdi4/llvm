@@ -2598,6 +2598,15 @@ void AndersensAAResult::AddConstraintsForCall(CallBase *CB, Function *F) {
 }
 
 void AndersensAAResult::checkCall(CallBase &CB) {
+  // Treat InlineAsm as unhandled instruction for now. Skip Andersens
+  // completely if InlineAsm instrucion is noticed since it is rarely used
+  // in regular applications. If needed, InlineAsm instruction can be
+  // modeled by using "ParseConstraints()".
+  if (CB.isInlineAsm()) {
+    SkipAndersensAnalysis = true;
+    return;
+  }
+
   Function *F = CB.getCalledFunction();
   if (F && findNameInTable(F->getName(), Andersens_Alloc_Intrinsics)) {
       unsigned ObjectIndex = getObject(&CB);
@@ -6590,9 +6599,7 @@ void AndersensAAResult::AnalyzeCalls() {
     ProcessCall(IndirectCallList[i]);
   for (unsigned i = 0, e = DirectCallList.size(); i != e; ++i) {
     CallBase *CB = DirectCallList[i];
-    const Value *V = CB->getCalledOperand();
-    if (isa<InlineAsm>(*V))
-      continue;
+    assert(!isa<InlineAsm>(*CB->getCalledOperand()) && "No InlineAsm call expected");
 
     Instruction *II = CB;
     if (isa<DbgInfoIntrinsic>(II))
