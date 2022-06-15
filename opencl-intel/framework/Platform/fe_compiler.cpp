@@ -296,7 +296,8 @@ cl_err_code FrontEndCompiler::LinkProgram(
     const void **ppBinaries, unsigned int uiNumInputBinaries,
     const size_t *puiBinariesSizes, const char *szOptions, OUT char **ppBinary,
     OUT size_t *puiBinarySize, OUT std::vector<char> &linkLog,
-    OUT bool *pbIsLibrary) const {
+    OUT bool *pbIsLibrary,
+    vector<vector<string>>* pWithSourceKernelsName) const {
   LOG_DEBUG(
       TEXT("Enter CompileProgram(ppBinaries=%d, uiNumInputBinaries=%d, "
            "puiBinariesSizes=%d, szOptions=%d, ppBinary=%d, puiBinarySize=%d)"),
@@ -310,6 +311,7 @@ cl_err_code FrontEndCompiler::LinkProgram(
   linkDesc.uiNumBinaries = uiNumInputBinaries;
   linkDesc.puiBinariesSizes = puiBinariesSizes;
   linkDesc.pszOptions = szOptions;
+  linkDesc.pKernelNames = pWithSourceKernelsName;
 
   int Error = m_pFECompiler->LinkPrograms(&linkDesc, &Result);
 
