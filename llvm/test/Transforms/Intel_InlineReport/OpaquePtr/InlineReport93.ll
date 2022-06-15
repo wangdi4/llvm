@@ -27,7 +27,7 @@ define void @foo(i32 %n) {
   ret void
 }
 
-define void @no_suspends(i32 %n) "coroutine.presplit"="1" {
+define void @no_suspends(i32 %n) presplitcoroutine {
 entry:
   %id = call token @llvm.coro.id(i32 0, ptr null, ptr null, ptr null)
   %need.dyn.alloc = call i1 @llvm.coro.alloc(token %id)
