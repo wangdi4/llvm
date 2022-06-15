@@ -48,6 +48,7 @@ endif()
 include(SetPlatformToolchainTools)
 include(base-config-ix)
 include(CompilerRTUtils)
+include(CMakeDependentOption)
 
 option(COMPILER_RT_BUILD_BUILTINS "Build builtins" ON)
 mark_as_advanced(COMPILER_RT_BUILD_BUILTINS)
@@ -249,6 +250,11 @@ endif()
 string(APPEND CMAKE_C_FLAGS " -i_no-use-libirc")
 string(APPEND CMAKE_CXX_FLAGS " -i_no-use-libirc")
 # end INTEL_CUSTOMIZATION
+
+option(COMPILER_RT_USE_LLVM_UNWINDER "Use the LLVM unwinder." OFF)
+cmake_dependent_option(COMPILER_RT_ENABLE_STATIC_UNWINDER
+  "Statically link the LLVM unwinder." OFF
+  "COMPILER_RT_USE_LLVM_UNWINDER" OFF)
 
 set(DEFAULT_SANITIZER_USE_STATIC_LLVM_UNWINDER OFF)
 if (FUCHSIA)
@@ -528,6 +534,15 @@ endif()
 # Revert "[CMake] Avoid accidental C++ standard library dependency in sanitizers"
 # See https://jira.devtools.intel.com/browse/CMPLRLLVM-24531.
 # end INTEL_CUSTOMIZATION
+
+if(COMPILER_RT_USE_LLVM_UNWINDER)
+  if (COMPILER_RT_ENABLE_STATIC_UNWINDER)
+    set(unwinder_target unwind_static)
+  else()
+    set(unwinder_target unwind_shared)
+  endif()
+  list(APPEND SANITIZER_CXX_ABI_LIBRARIES "$<$<TARGET_EXISTS:${unwinder_target}>:$<TARGET_LINKER_FILE:${unwinder_target}>>")
+endif()
 
 macro(append_libcxx_libs var)
   if (${var}_INTREE)
