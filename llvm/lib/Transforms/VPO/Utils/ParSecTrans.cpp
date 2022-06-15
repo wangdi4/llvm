@@ -782,6 +782,9 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
   auto *OldSucc = BeforeBB->getTerminator()->getSuccessor(0);
   BeforeBB->getTerminator()->setSuccessor(0, PreHeaderBB);
 
+  if (DT)
+    DT->deleteEdge(BeforeBB, OldSucc);
+
   Builder.SetInsertPoint(PreHeaderBB);
   Builder.CreateBr(HeaderBB);
 
@@ -865,10 +868,10 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
                                 F->getBasicBlockList(),
                                 HeaderBB->getIterator(),
                                 F->end());
-
-  if (DT) {
-    DT->deleteEdge(BeforeBB, OldSucc);
-    DT->addNewBlock(PreHeaderBB, BeforeBB);
+   if (DT) {
+    // "deleteEdge" may have added the ph already.
+    if (!DT->getNode(PreHeaderBB))
+      DT->addNewBlock(PreHeaderBB, BeforeBB);
     DT->addNewBlock(HeaderBB, PreHeaderBB);
     DT->addNewBlock(BodyBB, HeaderBB);
     DT->insertEdge(BodyBB, HeaderBB);
@@ -881,8 +884,8 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
     if (ParentLoop) {
       ParentLoop->addChildLoop(NewLoop);
       ParentLoop->addBasicBlockToLoop(PreHeaderBB, *LI);
-    }
-    else {
+      ParentLoop->addBasicBlockToLoop(ExitBB, *LI);
+    } else {
       LI->addTopLevelLoop(NewLoop);
     }
     NewLoop->addBasicBlockToLoop(HeaderBB, *LI);
@@ -894,6 +897,21 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
 
   // Return the loop PHI instruction
   return IV;
+}
+
+// Adds all the blocks in the region Entry/Exit, to the given Loop.
+// Detaches the blocks from any existing loop first.
+static void addRegionToLoop(BasicBlock *Entry, BasicBlock *Exit,
+                            Loop *RegionLoop, LoopInfo *LI) {
+  df_iterator_default_set<BasicBlock *> Visited;
+  Visited.insert(Exit);
+  for (auto *BB : depth_first_ext(Entry, Visited)) {
+    // this is OK if BB is not a loop member
+    LI->removeBlock(BB);
+    RegionLoop->addBasicBlockToLoop(BB, *LI);
+  }
+  LI->removeBlock(Exit);
+  RegionLoop->addBasicBlockToLoop(Exit, *LI);
 }
 
 // Insert a switch statement at the SwitchInsertPoint in SwitchBB:
@@ -1008,14 +1026,7 @@ void VPOUtils::genParSectSwitch(Value *SwitchCond, Type *SwitchCondTy,
       for (unsigned i = 0, e = NumCases; i != e; ++i) {
         BasicBlock *SectionEntryBB = Node->Children[i]->EntryBB;
         BasicBlock *SectionExitBB = Node->Children[i]->ExitBB;
-        // These blocks were pre-existing and may be in a loop already.
-        // Remove and re-add them to the new inner loop.
-        // removeBlock will ignore the block if it is not in a loop.
-        // We do not use changeLoopFor, as it only works on top-level loops.
-        LI->removeBlock(SectionEntryBB);
-        LI->removeBlock(SectionExitBB);
-        RegionLoop->addBasicBlockToLoop(SectionEntryBB, *LI);
-        RegionLoop->addBasicBlockToLoop(SectionExitBB, *LI);
+        addRegionToLoop(SectionEntryBB, SectionExitBB, RegionLoop, LI);
       }
     }
   }
