@@ -3907,65 +3907,7 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
     }
   }
 
-<<<<<<< HEAD
   switch (Inst.getOpcode()) {
-  case X86::VGATHERDPDYrm:
-  case X86::VGATHERDPDrm:
-  case X86::VGATHERDPSYrm:
-  case X86::VGATHERDPSrm:
-  case X86::VGATHERQPDYrm:
-  case X86::VGATHERQPDrm:
-  case X86::VGATHERQPSYrm:
-  case X86::VGATHERQPSrm:
-  case X86::VPGATHERDDYrm:
-  case X86::VPGATHERDDrm:
-  case X86::VPGATHERDQYrm:
-  case X86::VPGATHERDQrm:
-  case X86::VPGATHERQDYrm:
-  case X86::VPGATHERQDrm:
-  case X86::VPGATHERQQYrm:
-  case X86::VPGATHERQQrm: {
-    unsigned Dest = MRI->getEncodingValue(Inst.getOperand(0).getReg());
-    unsigned Mask = MRI->getEncodingValue(Inst.getOperand(1).getReg());
-    unsigned Index =
-      MRI->getEncodingValue(Inst.getOperand(3 + X86::AddrIndexReg).getReg());
-    if (Dest == Mask || Dest == Index || Mask == Index)
-      return Warning(Ops[0]->getStartLoc(), "mask, index, and destination "
-                                            "registers should be distinct");
-    break;
-  }
-  case X86::VGATHERDPDZ128rm:
-  case X86::VGATHERDPDZ256rm:
-  case X86::VGATHERDPDZrm:
-  case X86::VGATHERDPSZ128rm:
-  case X86::VGATHERDPSZ256rm:
-  case X86::VGATHERDPSZrm:
-  case X86::VGATHERQPDZ128rm:
-  case X86::VGATHERQPDZ256rm:
-  case X86::VGATHERQPDZrm:
-  case X86::VGATHERQPSZ128rm:
-  case X86::VGATHERQPSZ256rm:
-  case X86::VGATHERQPSZrm:
-  case X86::VPGATHERDDZ128rm:
-  case X86::VPGATHERDDZ256rm:
-  case X86::VPGATHERDDZrm:
-  case X86::VPGATHERDQZ128rm:
-  case X86::VPGATHERDQZ256rm:
-  case X86::VPGATHERDQZrm:
-  case X86::VPGATHERQDZ128rm:
-  case X86::VPGATHERQDZ256rm:
-  case X86::VPGATHERQDZrm:
-  case X86::VPGATHERQQZ128rm:
-  case X86::VPGATHERQQZ256rm:
-  case X86::VPGATHERQQZrm: {
-    unsigned Dest = MRI->getEncodingValue(Inst.getOperand(0).getReg());
-    unsigned Index =
-      MRI->getEncodingValue(Inst.getOperand(4 + X86::AddrIndexReg).getReg());
-    if (Dest == Index)
-      return Warning(Ops[0]->getStartLoc(), "index and destination registers "
-                                            "should be distinct");
-    break;
-  }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   //E11x
@@ -4014,9 +3956,6 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
 #endif // INTEL_CUSTOMIZATION
   }
 
-  const MCInstrDesc &MCID = MII.get(Inst.getOpcode());
-=======
->>>>>>> 5965878d4dec9fba68136e776f71213186c1d443
   // Check that we aren't mixing AH/BH/CH/DH with REX prefix. We only need to
   // check this with the legacy encoding, VEX/EVEX/XOP don't use REX.
   if ((TSFlags & X86II::EncodingMask) == 0) {
