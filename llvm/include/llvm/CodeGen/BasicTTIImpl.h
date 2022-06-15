@@ -1675,8 +1675,6 @@ public:
 
     // Library call cost - other than size, make it expensive.
     unsigned SingleCallCost = CostKind == TTI::TCK_CodeSize ? 1 : 10;
-<<<<<<< HEAD
-    SmallVector<unsigned, 2> ISDs;
 #if INTEL_CUSTOMIZATION
     // According to Numerics team data float data type Low Accuracy math
     // functions have 20 instructions on average.  Double data type Low
@@ -1689,9 +1687,7 @@ public:
     else if (RetTy->getScalarType()->isDoubleTy())
       SingleCallCost = 41;
 #endif // #if INTEL_CUSTOMIZATION
-=======
     unsigned ISD;
->>>>>>> 800d222e53dabfe1e242bd06ab70f58c36e768ed
     switch (IID) {
     default: {
       // Scalable vectors cannot be scalarized, so return Invalid.
