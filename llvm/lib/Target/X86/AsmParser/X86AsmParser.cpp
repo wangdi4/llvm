@@ -3860,6 +3860,13 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
       if (Inst.getOperand(i).isReg() && Dest == Inst.getOperand(i).getReg())
         return Warning(Ops[0]->getStartLoc(), "Destination register should be "
                                               "distinct from source registers");
+  } else if (isVFCMULCPH(Opcode) || isVFCMULCSH(Opcode) || isVFMULCPH(Opcode) ||
+             isVFMULCSH(Opcode)) {
+    unsigned Dest = Inst.getOperand(0).getReg();
+    for (unsigned i = 1; i < Inst.getNumOperands(); i++)
+      if (Inst.getOperand(i).isReg() && Dest == Inst.getOperand(i).getReg())
+        return Warning(Ops[0]->getStartLoc(), "Destination register should be "
+                                              "distinct from source registers");
   }
 
   switch (Inst.getOpcode()) {
@@ -3953,6 +3960,7 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
     }
     break;
   }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   //E11x
@@ -4084,6 +4092,8 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
                                               "distinct from source registers");
     break;
   }
+=======
+>>>>>>> df16c077dce737ebd8370cf816ff0a45f8aeb272
   }
 
   const MCInstrDesc &MCID = MII.get(Inst.getOpcode());
