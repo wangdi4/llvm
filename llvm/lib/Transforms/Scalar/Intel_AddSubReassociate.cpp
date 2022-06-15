@@ -220,7 +220,7 @@ static cl::opt<int> MaxScoringSearchDepth(
 // represented by form: +x, +y, +z, +a*, +b*, +c*,
 // where "*" means additional (distributed) operation over these operands.
 // This in theory may enable finding more common subexpressions.
-// MaxDistributedOps parameter specifes how many ops can be subsumed for
+// MaxDistributedOps parameter specifies how many ops can be subsumed for
 // distribution. Value of 0 disables the feature.
 static cl::opt<unsigned> MaxDistributedOps(
     "addsub-reassoc-max-distributed-instructions", cl::init(1), cl::Hidden,
@@ -309,7 +309,7 @@ LLVM_DUMP_METHOD static const char *getOpcodeSymbol(unsigned Opcode) {
 #endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Return true if we can distribute the instruction operation on
-// on a tree leaf. Thus far we can only distribute left shift by a constant.
+// a tree leaf. Thus far we can only distribute left shift by a constant.
 static inline bool canBeDistributed(const Instruction *I) {
   if (MaxDistributedOps == 0)
     return false;
@@ -400,23 +400,16 @@ static bool areInSameBB(Instruction *I1, Instruction *I2) {
   return true;
 }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-LLVM_DUMP_METHOD void AssocOpcodeData::dump() const {
-  dbgs() << "(" << getOpcodeSymbol(Opcode);
-  if (Const)
-    dbgs() << " " << *Const;
-  dbgs() << ")";
-}
-#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
 // Begin of AddSubReassociatePass::OpcodeData
+
 void OpcodeData::reverse() { Opcode = ReverseOpcode(Opcode); }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD void OpcodeData::dump() const {
   dbgs() << "(" << getOpcodeSymbol(Opcode) << ")";
-  for (auto &AssocOpcode : AssocOpcodeVec)
-    AssocOpcode.dump();
+
+  for (const DistributedOp &Op : getDistributedOps())
+    dbgs() << "(" << getOpcodeSymbol(Op.first) << " " << *Op.second << ")";
 }
 
 LLVM_DUMP_METHOD void CanonNode::dump(unsigned Padding) const {
@@ -463,17 +456,15 @@ Instruction *CanonForm::generateInstruction(const OpcodeData &Opcode,
   // Currently we only apply optimization for "fast" math operations only.
   MathFlags.setFast(true);
 
-  // First emit all associative instructions if any.
-  for (const AssocOpcodeData &Data : llvm::reverse(Opcode)) {
-    Instruction::BinaryOps BinOpcode =
-        static_cast<Instruction::BinaryOps>(Data.getOpcode());
-    Instruction *NewAssocI =
-        BinaryOperator::Create(BinOpcode, Leaf, Data.getConst());
-    NewAssocI->insertBefore(IP);
+  // First emit distributed operations (if any).
+  for (const OpcodeData::DistributedOp &Op : Opcode.getDistributedOps()) {
+    auto Opcode = static_cast<Instruction::BinaryOps>(Op.first);
+    Instruction *I = BinaryOperator::Create(Opcode, Leaf, Op.second);
+    I->insertBefore(IP);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    NewAssocI->setName(Name);
+    I->setName(Name);
 #endif
-    Leaf = NewAssocI;
+    Leaf = I;
   }
 
   // Second generate resulting instruction itself.
@@ -1021,8 +1012,9 @@ LLVM_DUMP_METHOD void dumpGroupAndTrees(const Group &G,
 
 static auto findCompatibleOpcode(const OpcodeData &Opc,
                                  ArrayRef<const OpcodeData *> Opcodes) {
-  return find_if(
-      Opcodes, [&Opc](const OpcodeData *OD) { return OD->isAssocEqual(Opc); });
+  return find_if(Opcodes, [&Opc](const OpcodeData *OD) {
+    return OD->areDistributedOpsEqual(Opc);
+  });
 }
 
 static auto findMatchingOpcode(const OpcodeData &Opc,
@@ -1764,11 +1756,12 @@ bool AddSubReassociate::run() {
         // Compute difference in instruction count for each group.
         for (std::pair<Group, TreeSignVecTy> &GroupAndTrees : BestGroups) {
           Group &G = GroupAndTrees.first;
-          int UniqAssocInsrs, TotalAssocInsrs;
-          std::tie(UniqAssocInsrs, TotalAssocInsrs) = G.getAssocInstrCnt();
+          int UniqDistributions, TotalDistributions;
+          std::tie(UniqDistributions, TotalDistributions) =
+              G.collectDistributedOpsStatistics();
           int TreeNum = GroupAndTrees.second.size();
-          int OrigCost = (G.size() + UniqAssocInsrs) * TreeNum;
-          int NewCost = (G.size() - 1 + TotalAssocInsrs + TreeNum);
+          int OrigCost = (G.size() + UniqDistributions) * TreeNum;
+          int NewCost = (G.size() - 1 + TotalDistributions + TreeNum);
           Score += OrigCost - NewCost;
         }
 
@@ -1787,6 +1780,7 @@ bool AddSubReassociate::run() {
         // For each tree in AffectedTrees remove its IR representation.
         for (Tree *T : AffectedTrees)
           T->removeTreeFromIR();
+
         removeCommonNodes();
 
         // 4. Now that we've got the best groups we can generate code.
