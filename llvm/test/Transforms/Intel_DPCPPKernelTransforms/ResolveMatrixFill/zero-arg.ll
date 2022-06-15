@@ -1,7 +1,11 @@
 ; RUN: opt -dpcpp-kernel-resolve-matrix-fill -S %s | FileCheck %s
+; RUN: opt -opaque-pointers -dpcpp-kernel-resolve-matrix-fill -S %s | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-resolve-matrix-fill -S %s | FileCheck %s
+; RUN: opt -opaque-pointers -passes=dpcpp-kernel-resolve-matrix-fill -S %s | FileCheck %s
 ; RUN: opt -dpcpp-kernel-resolve-matrix-fill -enable-debugify -S %s 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -opaque-pointers -dpcpp-kernel-resolve-matrix-fill -enable-debugify -S %s 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=dpcpp-kernel-resolve-matrix-fill -enable-debugify -S %s 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -opaque-pointers -passes=dpcpp-kernel-resolve-matrix-fill -enable-debugify -S %s 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 
 define void @test() {
 entry:

@@ -272,10 +272,23 @@ static bool checkAndThrowIfCallFuncCast(const llvm::Module& linkedModule,
   return funcCallsValid;
 }
 
-OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
-                                unsigned int uiNumBinaries,
-                                const size_t *puiBinariesSizes,
-                                const char *pszOptions) {
+static void
+saveKernelNames(llvm::Module *M,
+                std::vector<std::vector<std::string>> *KernelsName) {
+  if (KernelsName == NULL)
+    return;
+
+  vector<string> KernelsNameInProg;
+  for (auto &F : M->getFunctionList())
+    if (F.getCallingConv() == llvm::CallingConv::SPIR_KERNEL)
+      KernelsNameInProg.push_back(F.getName().data());
+  KernelsName->push_back(KernelsNameInProg);
+}
+
+OCLFEBinaryResult *
+LinkInternal(const void **pInputBinaries, unsigned int uiNumBinaries,
+             const size_t *puiBinariesSizes, const char *pszOptions,
+             std::vector<std::vector<std::string>> *pKernelsName) {
 
   std::unique_ptr<OCLFEBinaryResult> pResult;
 
@@ -299,6 +312,9 @@ OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
       throw ModuleOr.takeError();
     }
     std::unique_ptr<llvm::Module> composite = std::move(ModuleOr.get());
+
+    saveKernelNames(composite.get(), pKernelsName);
+
     // Add not-ocl-dpcpp attribute to functions from neither ocl nor dpcpp
     // binary.
     addAttrForNoneOCLDPCPPCode(composite.get());
@@ -315,6 +331,9 @@ OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
         throw ModuleOr.takeError();
       }
       std::unique_ptr<llvm::Module> module = std::move(ModuleOr.get());
+
+      saveKernelNames(module.get(), pKernelsName);
+
       // Add not-ocl-dpcpp attribute to functions from neither ocl nor dpcpp
       // binary.
       addAttrForNoneOCLDPCPPCode(module.get());
@@ -398,7 +417,8 @@ int ClangFECompilerLinkTask::Link(IOCLFEBinaryResult **pBinaryResult) {
   try {
     pResult.reset(LinkInternal(m_Binaries.data(), m_pProgDesc->uiNumBinaries,
                                m_BinariesSizes.data(),
-                               m_pProgDesc->pszOptions));
+                               m_pProgDesc->pszOptions,
+                               m_pProgDesc->pKernelNames));
     resultCode = pResult->getResult();
   } catch (std::bad_alloc &) {
     resultCode = CL_OUT_OF_HOST_MEMORY;
