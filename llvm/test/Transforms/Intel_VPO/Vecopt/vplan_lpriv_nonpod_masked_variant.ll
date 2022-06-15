@@ -31,9 +31,9 @@ define dso_local i32 @_Z3foov() local_unnamed_addr {
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP7]], [[BB4:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: new_latch
+; CHECK-NEXT:     [DA: Uni] i32 [[VP8:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Uni] private-last-value-nonpod-masked %struct.str* [[VP0:%.*]] %struct.str* [[X_LPRIV0:%.*]] i1 [[VP5:%.*]]
 ; CHECK-NEXT:     [DA: Div] call %struct.str* [[VP0]] void (%struct.str*)* @_ZTS3str.omp.destr
-; CHECK-NEXT:     [DA: Uni] i32 [[VP8:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Div] i8* [[VP9:%.*]] = bitcast %struct.str* [[VP0]]
 ; CHECK-NEXT:     [DA: Div] call i64 4 i8* [[VP9]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
@@ -49,6 +49,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr {
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP7]], [[BB4]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: new_latch
+; CHECK-NEXT:       [DA: Uni] i32 [[VP8]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP16:%.*]] = all-zero-check i1 [[VP5]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP16]], [[BB12:BB[0-9]+]], [[BB13:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -58,7 +59,6 @@ define dso_local i32 @_Z3foov() local_unnamed_addr {
 ; CHECK-NEXT:         [DA: Uni] br [[BB12]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB12]]: # preds: [[BB13]], [[BB4]]
-; CHECK-NEXT:       [DA: Uni] i32 [[VP8]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:       [DA: Div] i8* [[VP9]] = bitcast %struct.str* [[VP0]]
 ; CHECK-NEXT:       [DA: Div] call i64 4 i8* [[VP9]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:       [DA: Uni] br [[BB5]]
