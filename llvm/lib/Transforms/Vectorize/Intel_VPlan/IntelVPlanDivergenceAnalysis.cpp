@@ -1406,6 +1406,9 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForCallInst(
 // Computes vector shape for AllocatePrivate instruction.
 VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForAllocatePrivateInst(
     const VPAllocatePrivate *AI) {
+  if (AI->getIsScalar())
+    return getUniformVectorShape();
+
   // Allocate-private is of a pointer type. Get the pointee size and set a
   // tentative shape.
   Type *PointeeTy = AI->getAllocatedType();
