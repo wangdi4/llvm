@@ -21,7 +21,6 @@ class CallGraph;
 class CallGraphSCC;
 class PassRegistry;
 
-<<<<<<< HEAD
 void initializeCoroEarlyLegacyPass(PassRegistry &);   // INTEL
 void initializeCoroSplitLegacyPass(PassRegistry &);   // INTEL
 void initializeCoroElideLegacyPass(PassRegistry &);   // INTEL
@@ -43,8 +42,6 @@ void initializeCoroCleanupLegacyPass(PassRegistry &); // INTEL
 #define CORO_DEVIRT_TRIGGER_FN "coro.devirt.trigger"
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 735e6c40b5e9a128820f009595de4728e5d6b3d5
 namespace coro {
 
 bool declaresAnyIntrinsic(const Module &M);
