@@ -5642,6 +5642,9 @@ bool DDTest::adjustDVforIVDEP(Dependences &Result, bool SameBase) {
     if (Lp->hasVectorizeIVDepPragma()) {
       IVDEPFound = true;
       if (!SameBase) {
+        // Do not change the result if it was already better than '='
+        if (Result.getDirection(II) == DVKind::NONE)
+          continue;
         Result.setDirection(II, DVKind::EQ);
         continue;
       }

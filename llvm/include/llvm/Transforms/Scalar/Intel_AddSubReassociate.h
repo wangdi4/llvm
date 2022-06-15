@@ -13,7 +13,6 @@
 #define LLVM_TRANSFORMS_SCALAR_ADDSUBREASSOCIATE_H
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
@@ -22,14 +21,8 @@
 #include "llvm/IR/PassManager.h"
 #include <atomic>
 #include <memory>
-#include <unordered_set>
 
 namespace llvm {
-
-template <typename T> struct HashIt {
-  size_t operator()(const T &Obj) const { return Obj.getHash(); }
-};
-
 namespace intel_addsubreassoc {
 
 // You can't just cast away constness of an iterator since they are different
@@ -42,68 +35,36 @@ typename Container::iterator remove_constness(Container &c, ConstIterator it) {
 // Maximum distance between two Values.
 constexpr auto MAX_DISTANCE = LONG_MAX;
 
-// This represents the associative instruction that applies to this leaf.
-class AssocOpcodeData {
-  unsigned Opcode;
-  Constant *Const;
-
-public:
-  AssocOpcodeData() = delete;
-  AssocOpcodeData(unsigned Opc, Constant *C) : Opcode(Opc), Const(C) {}
-  unsigned getOpcode() const { return Opcode; }
-  Constant *getConst() const { return Const; }
-  hash_code getHash() const { return hash_combine(Opcode, Const); }
-  bool operator==(const AssocOpcodeData &Other) const {
-    return Opcode == Other.Opcode && Const == Other.Const;
-  }
-  bool operator!=(const AssocOpcodeData &Other) const {
-    return !(*this == Other);
-  }
-  // Comparator used for sorting.
-  bool operator<(const AssocOpcodeData &Other) const {
-    return std::tie(Opcode, Const) < std::tie(Other.Opcode, Other.Const);
-  }
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump() const;
-#endif
-};
-
 class OpcodeData {
-  using AssocDataTy = SmallVector<AssocOpcodeData, 1>;
-
-  unsigned Opcode;
-  // Additional operations applied to the leaf as a result of distribution.
-  AssocDataTy AssocOpcodeVec;
-
 public:
-  OpcodeData() = delete;
-  OpcodeData(unsigned Opcode) : Opcode(Opcode), AssocOpcodeVec() {}
+  // A pair describes a distributed operation applied to a leaf before it is
+  // used in the tree.
+  using DistributedOp = std::pair<unsigned /*Opcode*/, Constant * /*Const*/>;
 
-  // The Add/Sub opcode of the leaf.
+  OpcodeData() = delete;
+  OpcodeData(unsigned Opcode) : Opcode(Opcode), DistributedOps() {}
+
   unsigned getOpcode() const { return Opcode; }
-  AssocDataTy::const_iterator begin() const { return AssocOpcodeVec.begin(); }
-  AssocDataTy::const_iterator end() const { return AssocOpcodeVec.end(); }
-  hash_code getHash() const {
-    hash_code Hash = hash_combine(Opcode);
-    for (const auto &Data : AssocOpcodeVec)
-      Hash = hash_combine(Hash, Data.getHash());
-    return Hash;
+
+  ArrayRef<DistributedOp> getDistributedOps() const {
+    return makeArrayRef(DistributedOps);
   }
-  bool isAssocEqual(const OpcodeData &Other) const {
-    return AssocOpcodeVec == Other.AssocOpcodeVec;
+
+  bool areDistributedOpsEqual(const OpcodeData &Other) const {
+    return DistributedOps == Other.DistributedOps;
   }
-  // Compare the whole data.
+  /// Compare the whole data.
   bool operator==(const OpcodeData &Other) const {
-    return Opcode == Other.Opcode && isAssocEqual(Other);
+    return Opcode == Other.Opcode && areDistributedOpsEqual(Other);
   }
-  // Comparator used for sorting.
+  /// Comparator for sorting.
   bool operator<(const OpcodeData &Other) const {
-    return std::tie(Opcode, AssocOpcodeVec) <
-           std::tie(Other.Opcode, Other.AssocOpcodeVec);
+    return std::tie(Opcode, DistributedOps) <
+           std::tie(Other.Opcode, Other.DistributedOps);
   }
-  // Reverse the opcode
+  /// Reverse the opcode
   void reverse();
-  // Take a copy with the reversed opcode
+  /// Take a copy with the reversed opcode
   OpcodeData getReversed() const {
     OpcodeData Opc = *this;
     Opc.reverse();
@@ -119,12 +80,18 @@ public:
     Constant *C = dyn_cast<Constant>(I->getOperand(OpN));
     if (!C)
       C = cast<Constant>(I->getOperand(++OpN));
-    AssocOpcodeVec.emplace_back(I->getOpcode(), C);
+    DistributedOps.emplace_back(I->getOpcode(), C);
     return OpN;
   }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
 #endif
+private:
+  // Opcode a leaf attached with to a tree.
+  unsigned Opcode;
+  // Additional operations applied to the leaf as a result of distributions.
+  SmallVector<DistributedOp, 1> DistributedOps;
 };
 
 /// This is a single node of a canonical form (see CanonForm for more details).
@@ -133,8 +100,8 @@ public:
 class CanonNode {
   /// Incoming value called a leaf.
   TrackingVH<Value> Leaf;
-  /// The canonicalized opcode. In addition it keeps associative instructions
-  /// like '<< 4' as well.
+  /// The canonicalized opcode. In addition it keeps pulled in instructions
+  /// like '<< 4'.
   OpcodeData Opcode;
 
 public:
@@ -149,10 +116,8 @@ public:
   unsigned addDistributedOp(Instruction *I) {
     return Opcode.addDistributedOp(I);
   }
+  /// Reverse the Opcode;
   void reverseOpcode() { Opcode.reverse(); }
-  hash_code getHash() const {
-    return hash_combine(Leaf.getValPtr(), Opcode.getHash());
-  }
   /// Two nodes are equal if they have the same incoming leaf. Please note that
   /// we don't take opcode into account.
   bool operator==(const CanonNode &Pair2) const { return Leaf == Pair2.Leaf; }
@@ -362,19 +327,19 @@ public:
   /// of the entire group and update related information in \p GroupTrees.
   bool simplify(TreeSignVecTy &GroupTrees);
 
-  /// Returns a pair of unique and total number of associative instructions in
+  /// Returns a pair of unique and total number of distributed operations
   /// the group.
-  std::pair<int /*unique*/, int /*total*/> getAssocInstrCnt() const {
-    std::unordered_set<AssocOpcodeData, HashIt<AssocOpcodeData>> Set;
-
+  std::pair<int /*unique*/, int /*total*/>
+  collectDistributedOpsStatistics() const {
+    SmallSet<OpcodeData::DistributedOp, 4> Unique;
     int Total = 0;
-    for (const CanonNode &TreeLeaf : *this) {
-      for (const AssocOpcodeData &AOD : TreeLeaf.getOpcodeData()) {
+    for (const CanonNode &TreeLeaf : *this)
+      for (const OpcodeData::DistributedOp &Op :
+           TreeLeaf.getOpcodeData().getDistributedOps()) {
         ++Total;
-        Set.insert(AOD);
+        Unique.insert(Op);
       }
-    }
-    return {Set.size(), Total};
+    return {Unique.size(), Total};
   }
   /// Returns true if groups have equal sizes and all common opcodes only.
   bool isSimilar(const Group &G2);

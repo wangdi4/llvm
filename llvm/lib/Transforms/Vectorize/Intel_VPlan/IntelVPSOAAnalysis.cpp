@@ -222,6 +222,10 @@ bool VPSOAAnalysis::memoryEscapes(const VPAllocatePrivate *Alloca) {
   WL.clear();
   AnalyzedInsts.clear();
 
+  // If the alloca is marked as scalar, SOA does not make sense.
+  if (Alloca->getIsScalar())
+    return true;
+
   // If this is a scalar-private, just return. The real memory layout for simple
   // scalars is identical for both SOA and AOS, it's just vector of elements.
   Type *AllocatedType = Alloca->getAllocatedType();
