@@ -26,6 +26,7 @@
 #include "MCTargetDesc/X86BaseInfo.h"
 #include "MCTargetDesc/X86IntelInstPrinter.h"
 #include "MCTargetDesc/X86MCExpr.h"
+#include "MCTargetDesc/X86MCTargetDesc.h"
 #include "MCTargetDesc/X86TargetStreamer.h"
 #include "TargetInfo/X86TargetInfo.h"
 #include "X86AsmParserCommon.h"
@@ -3849,7 +3850,17 @@ bool X86AsmParser::processInstruction(MCInst &Inst, const OperandVector &Ops) {
 }
 
 bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
+  using namespace X86;
   const MCRegisterInfo *MRI = getContext().getRegisterInfo();
+  unsigned Opcode = Inst.getOpcode();
+  if (isVFCMADDCPH(Opcode) || isVFCMADDCSH(Opcode) || isVFMADDCPH(Opcode) ||
+      isVFMADDCSH(Opcode)) {
+    unsigned Dest = Inst.getOperand(0).getReg();
+    for (unsigned i = 2; i < Inst.getNumOperands(); i++)
+      if (Inst.getOperand(i).isReg() && Dest == Inst.getOperand(i).getReg())
+        return Warning(Ops[0]->getStartLoc(), "Destination register should be "
+                                              "distinct from source registers");
+  }
 
   switch (Inst.getOpcode()) {
   case X86::VGATHERDPDYrm:
@@ -3942,6 +3953,7 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
     }
     break;
   }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   //E11x
@@ -4073,6 +4085,8 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
                                               "distinct from source registers");
     break;
   }
+=======
+>>>>>>> 4bf928bce44adda059aba715664c41462536d483
   case X86::VFCMULCPHZ128rm:
   case X86::VFCMULCPHZ256rm:
   case X86::VFCMULCPHZrm:
