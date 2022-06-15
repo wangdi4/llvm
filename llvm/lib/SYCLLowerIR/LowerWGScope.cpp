@@ -382,11 +382,7 @@ static void copyBetweenPrivateAndShadow(Value *L, GlobalVariable *Shadow,
 
   if (const auto *AI = dyn_cast<AllocaInst>(L)) {
     T = AI->getAllocatedType();
-<<<<<<< HEAD
-    LocAlign = MaybeAlign(AI->getAlign());
-=======
     LocAlign = AI->getAlign();
->>>>>>> 2f0faf7beef2e3228e3d218a9d69439c8bca58a7
   } else {
     auto Arg = cast<Argument>(L);
     if (Arg->hasByValAttr()) {
