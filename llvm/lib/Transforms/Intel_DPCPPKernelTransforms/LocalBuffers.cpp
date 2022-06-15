@@ -322,7 +322,7 @@ void LocalBuffersPass::parseLocalBuffers(Function *F, Value *LocalMem) {
     size_t ArraySize = DL.getTypeAllocSize(GV->getValueType());
     assert(0 != ArraySize && "zero array size!");
     // Now retrieve to the offset of the local buffer
-    Type *Ty = LocalMem->getType()->getScalarType()->getPointerElementType();
+    Type *Ty = CompilationUtils::getSLMBufferElementType(F->getContext());
     auto *Idx = ConstantInt::get(IntegerType::get(*Context, 32),
                                  CurrLocalOffset);
     auto *pLocalAddr = Builder.CreateGEP(Ty, LocalMem, Idx, "");
@@ -363,8 +363,9 @@ void LocalBuffersPass::runOnFunction(Function *F) {
     assert(LocalMem && "TLS LocalMem is not found.");
     // Load the LocalMem pointer from TLS GlobalVariable
     IRBuilder<> Builder(InsertPoint);
-    LocalMem = Builder.CreateLoad(LocalMem->getType()->getPointerElementType(),
-                                  LocalMem, "LocalMemBase");
+    LocalMem =
+        Builder.CreateLoad(cast<GlobalVariable>(LocalMem)->getValueType(),
+                           LocalMem, "LocalMemBase");
   } else {
     CompilationUtils::getImplicitArgs(F, &LocalMem, nullptr, nullptr, nullptr,
                                       nullptr, nullptr);

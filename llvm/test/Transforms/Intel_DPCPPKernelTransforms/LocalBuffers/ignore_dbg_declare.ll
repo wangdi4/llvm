@@ -1,3 +1,5 @@
+;; TODO: Add opaque pointer check when PrepareKernelArgs removes typed
+;; pointer API call.
 ; RUN: opt -dpcpp-kernel-add-implicit-args -debugify -dpcpp-kernel-local-buffers -check-debugify -dpcpp-kernel-prepare-args -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes='dpcpp-kernel-add-implicit-args,debugify,dpcpp-kernel-local-buffers,check-debugify,dpcpp-kernel-prepare-args' -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -dpcpp-kernel-add-implicit-args -dpcpp-kernel-local-buffers -dpcpp-kernel-prepare-args -S < %s | FileCheck %s
