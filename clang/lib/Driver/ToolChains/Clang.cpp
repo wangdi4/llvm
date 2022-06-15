@@ -8709,6 +8709,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       // TODO: enable them, when support is added.
       CmdArgs.push_back("-fintel-compatibility-disable=FakeLoad");
     }
+    if (!Args.hasArg(options::OPT_ffreestanding,
+                     options::OPT_i_no_use_libirc) &&
+        TC.CheckAddIntelLib("libirc", Args))
+      CmdArgs.push_back("-fintel-libirc-allowed");
   }
 
   if (Args.hasFlag(options::OPT_intel_mintrinsic_promote,

@@ -80,11 +80,6 @@ static cl::opt<bool> DisableMapIntrinToIml("disable-iml-trans",
   cl::init(false), cl::Hidden,
   cl::desc("Disable mapping vectorized math intrinsic calls to svml/libm."));
 
-cl::opt<bool>
-IntelLibIRCAllowed("intel-libirc-allowed",
-                    cl::desc("Allow the generation of calls to libirc."),
-                    cl::init(false));
-
 static cl::opt<bool> EnableRAReport("enable-ra-report",
   cl::init(false), cl::Hidden,
   cl::desc("Enable register allocation report."));
@@ -669,7 +664,6 @@ TargetPassConfig::TargetPassConfig(LLVMTargetMachine &TM, PassManagerBase &pm)
   initializeAAResultsWrapperPassPass(*PassRegistry::getPassRegistry());
 
 #if INTEL_CUSTOMIZATION
-  TM.Options.IntelLibIRCAllowed = IntelLibIRCAllowed;
   TM.Options.IntelABICompatible = IntelABICompatible;
 #endif // INTEL_CUSTOMIZATION
 

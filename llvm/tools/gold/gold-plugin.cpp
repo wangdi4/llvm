@@ -145,6 +145,7 @@ namespace options {
 
 #if INTEL_CUSTOMIZATION
   static bool AdvOptim = false;
+  static bool LibIRCAllowed = false;
 #endif // INTEL_CUSTOMIZATION
 
   static unsigned OptLevel = 2;
@@ -256,6 +257,8 @@ namespace options {
 #if INTEL_CUSTOMIZATION
     } else if (opt.startswith("fintel-advanced-optim")) {
       AdvOptim = true;
+    } else if (opt == "fintel-libirc-allowed") {
+      LibIRCAllowed = true;
 #endif // INTEL_CUSTOMIZATION
     } else if (opt.consume_front("obj-path=")) {
       obj_path = std::string(opt);
@@ -913,6 +916,7 @@ static std::unique_ptr<LTO> createLTO(IndexWriteCallback OnIndexWrite,
 
 #if INTEL_CUSTOMIZATION
   Conf.Options.IntelAdvancedOptim = options::AdvOptim;
+  Conf.Options.IntelLibIRCAllowed = options::LibIRCAllowed;
 #endif // INTEL_CUSTOMIZATION
 
   // Disable the new X86 relax relocations since gold might not support them.

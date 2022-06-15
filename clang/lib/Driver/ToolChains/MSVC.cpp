@@ -510,10 +510,16 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back(Args.MakeArgString(Twine("-opt:lldlto=") + OOpt));
     }
     // Add any Intel defaults.
-    if (C.getDriver().IsIntelMode())
+    if (C.getDriver().IsIntelMode()) {
       if (Arg * A = Args.getLastArg(options::OPT_fveclib))
         CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:-vector-library=") +
                                              A->getValue()));
+      // -fintel-libirc-allowed
+      if (!Args.hasArg(options::OPT_ffreestanding,
+                       options::OPT_i_no_use_libirc) &&
+          TC.CheckAddIntelLib("libirc", Args))
+        CmdArgs.push_back("-opt:fintel-libirc-allowed");
+    }
     auto addAdvancedOptimFlag = [&](const Arg &OptArg, OptSpecifier Opt) {
       if (OptArg.getOption().matches(Opt) &&
           x86::isValidIntelCPU(OptArg.getValue(), TC.getTriple()))

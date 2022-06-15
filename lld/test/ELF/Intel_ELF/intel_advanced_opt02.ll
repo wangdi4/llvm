@@ -5,7 +5,7 @@
 ; RUN: not ld.lld --lto-O2 -e main \
 ; RUN:    -plugin-opt=fintel-advanced-optim \
 ; RUN:    -plugin-opt=legacy-pass-manager \
-; RUN:    -plugin-opt=-intel-libirc-allowed \
+; RUN:    -plugin-opt=fintel-libirc-allowed \
 ; RUN:    -mllvm -debug-only=whole-program-analysis \
 ; RUN:    -mllvm -whole-program-advanced-opt-trace \
 ; RUN:    -mllvm -print-after-all \
@@ -16,7 +16,7 @@
 ; RUN: not ld.lld --lto-O2 -e main \
 ; RUN:    -plugin-opt=fintel-advanced-optim \
 ; RUN:    -plugin-opt=new-pass-manager  \
-; RUN:    -plugin-opt=-intel-libirc-allowed \
+; RUN:    -plugin-opt=fintel-libirc-allowed \
 ; RUN:    -mllvm -debug-only=whole-program-analysis \
 ; RUN:    -mllvm -whole-program-advanced-opt-trace \
 ; RUN:    -mllvm -print-after-all \

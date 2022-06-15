@@ -276,6 +276,9 @@ defm init: Eq<"init", "Specify an initializer function">,
 // Option for -plugin-opt=fintel-advanced-optim
 def plugin_opt_intel_advanced_optim: F<"plugin-opt=fintel-advanced-optim">;
 
+// Option for enabling libirc library calls
+def plugin_opt_intel_libirc_allowed: F<"plugin-opt=fintel-libirc-allowed">;
+
 // Option for debugging the memory freeing process when
 // shutting down LLD
 def intel_debug_mem: F<"intel-debug=mem">;

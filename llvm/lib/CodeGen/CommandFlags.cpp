@@ -113,6 +113,7 @@ CGOPT(bool, EnableStackSizeSection)
 CGOPT(bool, EnableAddrsig)
 #if INTEL_CUSTOMIZATION
 CGOPT(bool, EnableIntelAdvancedOpts)
+CGOPT(bool, IntelLibIRCAllowed)
 CGOPT(int, X87Precision)
 CGOPT(bool, DoFMAOpt)
 CGOPT(bool, IntelSpillParms)
@@ -127,7 +128,6 @@ CGOPT(unsigned, AlignLoops)
 CGOPT(bool, JMCInstrument)
 
 #if INTEL_CUSTOMIZATION
-extern cl::opt<bool> IntelLibIRCAllowed;
 extern cl::opt<bool> IntelABICompatible;
 #endif // INTEL_CUSTOMIZATION
 
@@ -477,6 +477,12 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
       cl::init(false));
   CGBINDOPT(EnableIntelAdvancedOpts);
 
+  /// This internal switch can be used to turn on libirc usage.
+  static cl::opt<bool> IntelLibIRCAllowed("intel-libirc-allowed",
+                                          cl::desc("Enable libirc usage."),
+                                          cl::init(false), cl::Hidden);
+  CGBINDOPT(IntelLibIRCAllowed);
+
   static cl::opt<int> X87Precision(
       "x87-precision", cl::desc("Set X87 internal precision"),
       cl::init(0));
@@ -611,7 +617,7 @@ codegen::InitTargetOptionsFromCodeGenFlags(const Triple &TheTriple) {
   Options.EmitAddrsig = getEnableAddrsig();
 #if INTEL_CUSTOMIZATION
   Options.IntelAdvancedOptim = getEnableIntelAdvancedOpts();
-  Options.IntelLibIRCAllowed = IntelLibIRCAllowed;
+  Options.IntelLibIRCAllowed = getIntelLibIRCAllowed();
   Options.X87Precision = getX87Precision();
   Options.DoFMAOpt = getDoFMAOpt();
   Options.IntelSpillParms = getIntelSpillParms();

@@ -13,8 +13,8 @@
 // CHECK-INTEL-LIN: "-fheinous-gnu-extensions"
 // CHECK-INTEL: "-vectorize-loops"
 // CHECK-INTEL: "-fintel-compatibility"
+// CHECK-INTEL: "-fintel-libirc-allowed"
 // CHECK-INTEL: "-mllvm" "-disable-hir-generate-mkl-call"
-// CHECK-INTEL: "-mllvm" "-intel-libirc-allowed"
 // CHECK-INTEL: "-mllvm" "-intel-abi-compatible=true"
 
 // RUN: %clang -### -c --intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-ZP-LIN %s
@@ -251,4 +251,4 @@
 // RUN: %clang -### -c -ffreestanding --intel %s 2>&1 | FileCheck -check-prefixes=CHECK_FREESTANDING %s
 // RUN: %clang_cl -### -c -Qfreestanding --intel %s 2>&1 | FileCheck -check-prefixes=CHECK_FREESTANDING %s
 // CHECK_FREESTANDING-NOT: "-fveclib=SVML"
-// CHECK-FREESTANDING-NOT: "-mllvm" "-intel-libirc-allowed"
+// CHECK-FREESTANDING-NOT: "-fintel-libirc-allowed"
