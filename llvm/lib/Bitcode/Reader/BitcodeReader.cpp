@@ -1687,6 +1687,8 @@ static Attribute::AttrKind getAttrFromCode(uint64_t Code) {
   case bitc::ATTR_KIND_INLINE_HINT_RECURSIVE:
     return Attribute::InlineHintRecursive;
 #endif // INTEL_CUSTOMIZATION
+  case bitc::ATTR_KIND_PRESPLIT_COROUTINE:
+    return Attribute::PresplitCoroutine;
   }
 }
 

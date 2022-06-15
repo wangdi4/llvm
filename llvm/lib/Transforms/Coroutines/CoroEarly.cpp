@@ -181,9 +181,7 @@ bool Lowerer::lowerEarlyIntrinsics(Function &F) { // INTEL
       case Intrinsic::coro_id:
         if (auto *CII = cast<CoroIdInst>(&I)) {
           if (CII->getInfo().isPreSplit()) {
-            assert(F.hasFnAttribute(CORO_PRESPLIT_ATTR) &&
-                   F.getFnAttribute(CORO_PRESPLIT_ATTR).getValueAsString() == // INTEL
-                       UNPREPARED_FOR_SPLIT && // INTEL
+            assert(F.isPresplitCoroutine() &&
                    "The frontend uses Swtich-Resumed ABI should emit "
                    "\"coroutine.presplit\" attribute for the coroutine.");
             setCannotDuplicate(CII);
@@ -195,9 +193,7 @@ bool Lowerer::lowerEarlyIntrinsics(Function &F) { // INTEL
       case Intrinsic::coro_id_retcon:
       case Intrinsic::coro_id_retcon_once:
       case Intrinsic::coro_id_async:
-        // TODO: Remove the line once we support it in the corresponding
-        // frontend.
-        F.addFnAttr(CORO_PRESPLIT_ATTR, PREPARED_FOR_SPLIT); // INTEL
+        F.setPresplitCoroutine();
         break;
       case Intrinsic::coro_resume:
         lowerResumeOrDestroy(*CB, CoroSubFnInst::ResumeIndex);
