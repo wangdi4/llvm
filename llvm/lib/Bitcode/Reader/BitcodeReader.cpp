@@ -1681,12 +1681,17 @@ static Attribute::AttrKind getAttrFromCode(uint64_t Code) {
     return Attribute::MustProgress;
   case bitc::ATTR_KIND_HOT:
     return Attribute::Hot;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case bitc::ATTR_KIND_ALWAYS_INLINE_RECURSIVE:
     return Attribute::AlwaysInlineRecursive;
   case bitc::ATTR_KIND_INLINE_HINT_RECURSIVE:
     return Attribute::InlineHintRecursive;
 #endif // INTEL_CUSTOMIZATION
+=======
+  case bitc::ATTR_KIND_PRESPLIT_COROUTINE:
+    return Attribute::PresplitCoroutine;
+>>>>>>> 735e6c40b5e9a128820f009595de4728e5d6b3d5
   }
 }
 
