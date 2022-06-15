@@ -55,10 +55,10 @@ define dso_local void @_Z4funcPiS_i(i32* nocapture %dst, i32* nocapture readonly
 ; CHECK-NEXT:    [[TMP4:%.*]] = and i64 [[WIDE_TRIP_COUNT27:%.*]], 4294967294
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       VPlannedBB8:
-; CHECK-NEXT:    call void @_ZTS6ClassA.omp.destr(%struct.ClassA* [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_0_]])
-; CHECK-NEXT:    call void @_ZTS6ClassA.omp.destr(%struct.ClassA* [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_1_]])
 ; CHECK-NEXT:    [[TMP15:%.*]] = mul i64 1, [[TMP4]]
 ; CHECK-NEXT:    [[TMP16:%.*]] = add i64 0, [[TMP15]]
+; CHECK-NEXT:    call void @_ZTS6ClassA.omp.destr(%struct.ClassA* [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_0_]])
+; CHECK-NEXT:    call void @_ZTS6ClassA.omp.destr(%struct.ClassA* [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_1_]])
 ;
 
 

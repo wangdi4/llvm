@@ -1396,19 +1396,11 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
       if (auto *CtorFn = PrivateNonPOD->getCtor())
         createNonPODPrivateCtorDtorCalls(CtorFn, PrivateMem, Builder, Plan);
 
-      if (auto *DtorFn = PrivateNonPOD->getDtor()) {
-        // Destructor calls should be emitted in PostExit BB, set insert point
-        // of Builder accordingly.
-        VPBuilder::InsertPointGuard Guard(Builder);
-        Builder.setInsertPoint(PostExit, PostExit->begin());
-        createNonPODPrivateCtorDtorCalls(DtorFn, PrivateMem, Builder, Plan);
-      }
-
       if (PrivateNonPOD->isLast()) {
         assert(PrivateNonPOD->getCopyAssign() &&
                "CopyAssign cannot be nullptr");
         VPBuilder::InsertPointGuard Guard(Builder);
-        Builder.setInsertPoint(PostExit, PostExit->begin());
+        Builder.setInsertPoint(PostExit);
         // Below instruction creates call for CopyAssign function. It requires pointer
         // to CopyAssign function to be passed, hence new Instruction type had
         // to be used. Example IR generrated with -vplan-print-after-vpentity-instrs:
@@ -1425,6 +1417,14 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
             ".priv.lastval.nonpod", Type::getVoidTy(*Plan.getLLVMContext()),
             ArrayRef<VPValue *>{PrivateMem, AI},
             PrivateNonPOD->getCopyAssign());
+      }
+
+      if (auto *DtorFn = PrivateNonPOD->getDtor()) {
+        // Destructor calls should be emitted in PostExit BB, set insert point
+        // of Builder accordingly.
+        VPBuilder::InsertPointGuard Guard(Builder);
+        Builder.setInsertPoint(PostExit);
+        createNonPODPrivateCtorDtorCalls(DtorFn, PrivateMem, Builder, Plan);
       }
 
     } else if (Private->isLast()) {
@@ -1573,7 +1573,7 @@ static bool checkUncondLastPrivOperands(const VPInstruction *ExitI,
       continue;
     for (auto *Op : Cur->operands())
       if (auto *VInst = dyn_cast<VPInstruction>(Op)) {
-        if (VInst->getOpcode() == Instruction::Load) {
+        if (VPLoadStoreInst::isLoadOpcode(VInst->getOpcode())) {
           // Skip a load, it produces a new value that does not use operands
           // directly.
           continue;

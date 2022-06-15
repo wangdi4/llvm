@@ -53,12 +53,13 @@
 ; CHECK:        |      |   (<4 x i64>*)([[TMP0]])[i2] = i2 + <i64 0, i64 1, i64 2, i64 3>
 ; CHECK:        |      + END LOOP
 ; CHECK:        |
+; CHECK:        |      [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
 ; CHECK:        |      [[DOTVEC40:%.*]] = [[TMP1]] == [[VEC_TC30]]
-; CHECK:        |      <LVAL-REG> NON-LINEAR <4 x i1> [[DOTVEC40]] {sb:30}
+; CHECK:        |      <LVAL-REG> NON-LINEAR <4 x i1> [[DOTVEC40]] {sb:31}
 ; CHECK:        |      <RVAL-REG> NON-LINEAR <4 x i64> [[TMP1]] {sb:9}
 ; CHECK:        |      <RVAL-REG> NON-LINEAR <4 x i64> [[VEC_TC30]] {sb:26}
-; CHECK:        |      [[PHI_TEMP0]] = [[VEC_TC30]]
-; CHECK:        |      [[PHI_TEMP60:%.*]] = [[VEC_TC30]]
+; CHECK:        |      [[PHI_TEMP0]] = [[IND_FINAL0]]
+; CHECK:        |      [[PHI_TEMP60:%.*]] = [[IND_FINAL0]]
 ; CHECK:        |      [[EXTRACT_0_80:%.*]] = extractelement [[DOTVEC40]],  0
 ; CHECK:        |      if ([[EXTRACT_0_80]] == 1)
 ; CHECK:        |      {
@@ -71,7 +72,7 @@
 ; CHECK:        |      + END LOOP
 ; CHECK:        |
 ; CHECK:        |      [[PHI_TEMP60]] = [[TMP1]] + -1
-; CHECK:        |      <LVAL-REG> NON-LINEAR i64 [[PHI_TEMP60]] {sb:31}
+; CHECK:        |      <LVAL-REG> NON-LINEAR i64 [[PHI_TEMP60]] {sb:32}
 ; CHECK:        |      <RVAL-REG> NON-LINEAR i64 [[TMP1]] + -1 {sb:2}
 ; CHECK:        |         <BLOB> NON-LINEAR i64 [[TMP1]] {sb:9}
 ; CHECK:        |      [[FINAL_MERGE]]:

@@ -423,6 +423,24 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "private-last-value-nonpod-masked";
   case VPInstruction::CvtMaskToInt:
     return "convert-mask-to-int";
+  case VPInstruction::ExpandLoad:
+    return "expand-load";
+  case VPInstruction::ExpandLoadNonu:
+    return "expand-load-nonu";
+  case VPInstruction::CompressStore:
+    return "compress-store";
+  case VPInstruction::CompressStoreNonu:
+    return "compress-store-nonu";
+  case VPInstruction::CompressExpandIndexInit:
+    return "compress-expand-index-init";
+  case VPInstruction::CompressExpandIndexFinal:
+    return "compress-expand-index-final";
+  case VPInstruction::CompressExpandIndex:
+    return "compress-expand-index";
+  case VPInstruction::CompressExpandIndexUnit:
+    return "compress-expand-index-unit";
+  case VPInstruction::CompressExpandIndexInc:
+    return "compress-expand-index-inc";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);
