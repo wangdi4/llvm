@@ -202,6 +202,7 @@ struct Configuration {
   bool ignoreFunctionAddressEquality;
 # if INTEL_CUSTOMIZATION
   bool intelAdvancedOptim = false;
+  bool intelLibIRCAllowed = false;
 #endif // INTEL_CUSTOMIZATION
   bool ltoCSProfileGenerate;
   bool ltoPGOWarnMismatch;

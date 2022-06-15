@@ -1902,6 +1902,7 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
   unsigned tailMerge = 1;
   bool ltoNewPM = LLVM_ENABLE_NEW_PASS_MANAGER; // INTEL
   bool ltoDebugPM = false;
+  bool intelLibIRCAllowed = false; // INTEL
   for (auto *arg : args.filtered(OPT_opt)) {
     std::string str = StringRef(arg->getValue()).lower();
     SmallVector<StringRef, 1> vec;
@@ -1926,6 +1927,8 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
         ltoNewPM = true;
       } else if (s == "noltonewpassmanager") {
         ltoNewPM = false;
+      } else if (s == "fintel-libirc-allowed") {
+        intelLibIRCAllowed = true;
 #endif // INTEL_CUSTOMIZATION
       } else if (s == "ltodebugpassmanager") {
         ltoDebugPM = true;
@@ -1958,6 +1961,7 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
       (tailMerge == 1 && config->doICF != ICFLevel::None) || tailMerge == 2;
   config->ltoNewPassManager = ltoNewPM; // INTEL
   config->ltoDebugPassManager = ltoDebugPM;
+  config->intelLibIRCAllowed = intelLibIRCAllowed; // INTEL
 
   // Handle /lldsavetemps
   if (args.hasArg(OPT_lldsavetemps))

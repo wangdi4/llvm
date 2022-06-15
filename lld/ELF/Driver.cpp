@@ -1358,6 +1358,10 @@ static void readConfigs(opt::InputArgList &args) {
   // Handle -plugin-opt=fintel-advanced-optim
   if (args.hasArg(OPT_plugin_opt_intel_advanced_optim))
     config->intelAdvancedOptim = true;
+
+  // Handle -plugin-opt=fintel-libirc-allowed
+  if (args.hasArg(OPT_plugin_opt_intel_libirc_allowed))
+    config->intelLibIRCAllowed = true;
 #endif // INTEL_CUSTOMIZATION
 
   if (opt::Arg *arg = args.getLastArg(OPT_eb, OPT_el)) {

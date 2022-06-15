@@ -7,8 +7,8 @@
 // CHECK_LTO: ld{{.*}} "-plugin-opt=mcpu=x86-64"
 // CHECK_LTO: "-plugin-opt=O2"
 // CHECK_LTO: "-plugin-opt=-vector-library=SVML"
+// CHECK_LTO: "-plugin-opt=fintel-libirc-allowed"
 // CHECK_LTO: "-plugin-opt=-disable-hir-generate-mkl-call"
-// CHECK_LTO: "-plugin-opt=-intel-libirc-allowed"
 // CHECK_LTO: "-plugin-opt=-intel-abi-compatible=true"
 // CHECK_LTO: "-plugin-opt=-dummy-option"
 
@@ -21,8 +21,8 @@
 // CHECK_LTO_WIN: lld-link{{.*}} "-mllvm:-mcpu=x86-64"
 // CHECK_LTO_WIN: "-opt:lldlto=2"
 // CHECK_LTO_WIN: "-mllvm:-vector-library=SVML"
+// CHECK_LTO_WIN: "-opt:fintel-libirc-allowed"
 // CHECK_LTO_WIN: "-mllvm:-disable-hir-generate-mkl-call"
-// CHECK_LTO_WIN: "-mllvm:-intel-libirc-allowed"
 // CHECK_LTO_WIN: "-mllvm:-intel-abi-compatible=true"
 // CHECK_LTO_WIN: "-mllvm:-dummy-option"
 

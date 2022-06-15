@@ -103,6 +103,7 @@ static lto::Config createConfig() {
   c.Options.DataSections = true;
 #if INTEL_CUSTOMIZATION
   c.Options.IntelAdvancedOptim = config->intelAdvancedOptim;
+  c.Options.IntelLibIRCAllowed = config->intelLibIRCAllowed;
 
   // Linking for an executable
   if (!config->relocatable)

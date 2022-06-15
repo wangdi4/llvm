@@ -7285,6 +7285,10 @@ def fintel_compatibility_doc
 def fintel_advanced_optim : Flag<["-"], "fintel-advanced-optim">,
   HelpText<"Enable Intel specific advanced optimizations">,
   MarshallingInfoFlag<CodeGenOpts<"IntelAdvancedOptim">>;
+def fintel_libirc_allowed
+    : Flag<["-"], "fintel-libirc-allowed">,
+      HelpText<"Enable Intel specific behaviors dependent on libirc">,
+      MarshallingInfoFlag<CodeGenOpts<"IntelLibIRCAllowed">>;
 def fintel_spill_params : Flag<["-"], "fintel-spill-parms">,
   HelpText<"Enable Intel specific parameters spill">,
   MarshallingInfoFlag<CodeGenOpts<"IntelSpillParms">>;
