@@ -3867,6 +3867,22 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
       if (Inst.getOperand(i).isReg() && Dest == Inst.getOperand(i).getReg())
         return Warning(Ops[0]->getStartLoc(), "Destination register should be "
                                               "distinct from source registers");
+  } else if (isV4FMADDPS(Opcode) || isV4FMADDSS(Opcode) ||
+             isV4FNMADDPS(Opcode) || isV4FNMADDSS(Opcode) ||
+             isVP4DPWSSDS(Opcode) || isVP4DPWSSD(Opcode)) {
+    unsigned Src2 = Inst.getOperand(Inst.getNumOperands() -
+                                    X86::AddrNumOperands - 1).getReg();
+    unsigned Src2Enc = MRI->getEncodingValue(Src2);
+    if (Src2Enc % 4 != 0) {
+      StringRef RegName = X86IntelInstPrinter::getRegisterName(Src2);
+      unsigned GroupStart = (Src2Enc / 4) * 4;
+      unsigned GroupEnd = GroupStart + 3;
+      return Warning(Ops[0]->getStartLoc(),
+                     "source register '" + RegName + "' implicitly denotes '" +
+                     RegName.take_front(3) + Twine(GroupStart) + "' to '" +
+                     RegName.take_front(3) + Twine(GroupEnd) +
+                     "' source group");
+    }
   }
 
   switch (Inst.getOpcode()) {
@@ -3927,6 +3943,7 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
                                             "should be distinct");
     break;
   }
+<<<<<<< HEAD
   case X86::V4FMADDPSrm:
   case X86::V4FMADDPSrmk:
   case X86::V4FMADDPSrmkz:
@@ -4006,6 +4023,8 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
   }
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 6226e46c5f1113e8680496a92a4868b6ce3ca829
   }
 
   const MCInstrDesc &MCID = MII.get(Inst.getOpcode());
