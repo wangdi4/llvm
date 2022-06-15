@@ -1687,7 +1687,7 @@ public:
     else if (RetTy->getScalarType()->isDoubleTy())
       SingleCallCost = 41;
 #endif // #if INTEL_CUSTOMIZATION
-    unsigned ISD;
+    unsigned ISD = 0;
     switch (IID) {
     default: {
       // Scalable vectors cannot be scalarized, so return Invalid.
