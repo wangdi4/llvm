@@ -3853,6 +3853,7 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
   using namespace X86;
   const MCRegisterInfo *MRI = getContext().getRegisterInfo();
   unsigned Opcode = Inst.getOpcode();
+  uint64_t TSFlags = MII.get(Opcode).TSFlags;
   if (isVFCMADDCPH(Opcode) || isVFCMADDCSH(Opcode) || isVFMADDCPH(Opcode) ||
       isVFMADDCSH(Opcode)) {
     unsigned Dest = Inst.getOperand(0).getReg();
@@ -3883,8 +3884,30 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
                      RegName.take_front(3) + Twine(GroupEnd) +
                      "' source group");
     }
+  } else if (isVGATHERDPD(Opcode) || isVGATHERDPS(Opcode) ||
+             isVGATHERQPD(Opcode) || isVGATHERQPS(Opcode) ||
+             isVPGATHERDD(Opcode) || isVPGATHERDQ(Opcode) ||
+             isVPGATHERQD(Opcode) || isVPGATHERQQ(Opcode)) {
+    bool HasEVEX = (TSFlags & X86II::EncodingMask) == X86II::EVEX;
+    if (HasEVEX) {
+      unsigned Dest = MRI->getEncodingValue(Inst.getOperand(0).getReg());
+      unsigned Index = MRI->getEncodingValue(
+          Inst.getOperand(4 + X86::AddrIndexReg).getReg());
+      if (Dest == Index)
+        return Warning(Ops[0]->getStartLoc(), "index and destination registers "
+                                              "should be distinct");
+    } else {
+      unsigned Dest = MRI->getEncodingValue(Inst.getOperand(0).getReg());
+      unsigned Mask = MRI->getEncodingValue(Inst.getOperand(1).getReg());
+      unsigned Index = MRI->getEncodingValue(
+          Inst.getOperand(3 + X86::AddrIndexReg).getReg());
+      if (Dest == Mask || Dest == Index || Mask == Index)
+        return Warning(Ops[0]->getStartLoc(), "mask, index, and destination "
+                                              "registers should be distinct");
+    }
   }
 
+<<<<<<< HEAD
   switch (Inst.getOpcode()) {
   case X86::VGATHERDPDYrm:
   case X86::VGATHERDPDrm:
@@ -3992,11 +4015,13 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
   }
 
   const MCInstrDesc &MCID = MII.get(Inst.getOpcode());
+=======
+>>>>>>> 5965878d4dec9fba68136e776f71213186c1d443
   // Check that we aren't mixing AH/BH/CH/DH with REX prefix. We only need to
   // check this with the legacy encoding, VEX/EVEX/XOP don't use REX.
-  if ((MCID.TSFlags & X86II::EncodingMask) == 0) {
+  if ((TSFlags & X86II::EncodingMask) == 0) {
     MCPhysReg HReg = X86::NoRegister;
-    bool UsesRex = MCID.TSFlags & X86II::REX_W;
+    bool UsesRex = TSFlags & X86II::REX_W;
     unsigned NumOps = Inst.getNumOperands();
     for (unsigned i = 0; i != NumOps; ++i) {
       const MCOperand &MO = Inst.getOperand(i);
