@@ -2869,7 +2869,7 @@ void VPOParoptTransform::genReductionUdrInit(ReductionItem *RedI,
       uint64_t Size = DL.getTypeAllocSize(ScalarTy);
       unsigned Alignment = 0;
       if (auto *AI = dyn_cast<AllocaInst>(RedI->getNew()->stripPointerCasts()))
-        Alignment = AI->getAlignment();
+        Alignment = AI->getAlign().value();
       VPOUtils::genMemset(ReductionValueLoc, V, Size, Alignment, Builder);
     }
   }

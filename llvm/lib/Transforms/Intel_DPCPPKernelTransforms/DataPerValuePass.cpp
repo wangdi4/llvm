@@ -290,7 +290,7 @@ void DataPerValue::calculateOffsets(Function &F) {
     // Get Offset of alloca instruction contained type.
     ValueOffsetMap[Val] =
         getValueOffset(Val, Val->getType()->getContainedType(0),
-                       AI->getAlignment(), BufferData);
+                       AI->getAlign().value(), BufferData);
   }
 }
 
