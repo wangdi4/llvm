@@ -233,7 +233,6 @@ set(CXXLIBS none default libstdc++ libc++)
 set_property(CACHE SANITIZER_TEST_CXX PROPERTY STRINGS ;${CXXLIBS})
 handle_default_cxx_lib(SANITIZER_TEST_CXX)
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # Since we only need to collect code coverage info for our release scope, we
 # remove ccov build flags from cxx/c flags here to avoid them being included
@@ -251,12 +250,11 @@ endif()
 string(APPEND CMAKE_C_FLAGS " -i_no-use-libirc")
 string(APPEND CMAKE_CXX_FLAGS " -i_no-use-libirc")
 # end INTEL_CUSTOMIZATION
-=======
+
 option(COMPILER_RT_USE_LLVM_UNWINDER "Use the LLVM unwinder." OFF)
 cmake_dependent_option(COMPILER_RT_ENABLE_STATIC_UNWINDER
   "Statically link the LLVM unwinder." OFF
   "COMPILER_RT_USE_LLVM_UNWINDER" OFF)
->>>>>>> 18a1fc8459b7fa8ca639d53e4aa5e5f5d68e8407
 
 set(DEFAULT_SANITIZER_USE_STATIC_LLVM_UNWINDER OFF)
 if (FUCHSIA)
