@@ -4041,7 +4041,53 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   }
 
   case VPInstruction::InductionFinal: {
-    // TODO: Add codegen for induction finalization
+    if (!isMergedCFG()) {
+      // We use another mechanism to set upper bounds so that does not work w/o
+      // CFG merger.
+      return;
+    }
+    // Get upper bound of the loop that is preceding to the parent of the
+    // instruction.
+    VPLoop *L = nullptr;
+    VPBasicBlock *VPIndFinalBB =
+        *VPInst->getParent()->getPredecessors().begin();
+    L = Plan->getVPLoopInfo()->getLoopFor(VPIndFinalBB);
+    while (!L) {
+      VPIndFinalBB = *VPIndFinalBB->getPredecessors().begin();
+      L = Plan->getVPLoopInfo()->getLoopFor(VPIndFinalBB);
+    }
+    HLLoop *VecLoop = VPLoopHLLoopMap[L];
+    RegDDRef *UBRef = VecLoop->getUpperDDRef()->clone();
+    auto *UBCanonExpr = UBRef->getSingleCanonExpr();
+
+    // Add 1 to the upper bound.
+    // We exploit here the fact that we don't have inductions other than the
+    // main induction. Its last value is equal to the loop upper bound.
+    // TODO: account starting value and stride for other inductions.
+#if !defined(NDEBUG)
+    VPConstantInt *StartV = dyn_cast<VPConstantInt>(
+        cast<VPInductionFinal>(VPInst)->getInitOperand());
+    VPConstantInt *StepV = dyn_cast<VPConstantInt>(
+        cast<VPInductionFinal>(VPInst)->getStepOperand());
+    assert((StartV && StartV->getConstantInt()->isZero() && StepV &&
+            StepV->getConstantInt()->isOne()) &&
+           "unexpected induction final");
+#endif
+    if (!UBCanonExpr->isIntConstant()) {
+      // Drop linearity - we don't need it here, more over that leads to
+      // verification errors due to it might have definedAtLevel set to the
+      // value which is incorrect to be used here.
+      UBCanonExpr->setNonLinear();
+      HLInst *AddInst = HLNodeUtilities.createAdd(
+          UBRef, DDRefUtilities.createConstDDRef(UBRef->getDestType(), 1),
+          "ind.final");
+      addInstUnmasked(AddInst);
+      UBRef = AddInst->getLvalDDRef()->clone();
+      UBRef->getSingleCanonExpr()->setNonLinear();
+    } else {
+      UBCanonExpr->addConstant(1, true);
+    }
+    addVPValueScalRefMapping(VPInst, UBRef, 0);
     return;
   }
 
@@ -6729,20 +6775,13 @@ void VPOCodeGenHIR::setBoundsForVectorLoop(VPLoop *VPLp) {
   VecLoop->getStrideDDRef()->getSingleCanonExpr()->setConstant(getVF() *
                                                                getUF());
 
-  // TODO: Dirty hack to map induction-final -> vector HLLoop's UB.
-  ReversePostOrderTraversal<VPBasicBlock *> RPOT(VPLp->getExitBlock());
-  bool Finish = false;
-  for (VPBasicBlock *BB : RPOT) {
-    for (auto &I : *BB) {
+  if (!isMergedCFG()) {
+    // TODO: Dirty hack to map induction-final -> vector HLLoop's UB.
+    // This does not work with cfg merger as VectorTC became an instruction
+    // (if not constant) and VPValScalRefMap does not keep it.
+    for (auto &I : *VPLp->getExitBlock())
       if (isa<VPInductionFinal>(&I))
         addVPValueScalRefMapping(&I, getScalRefForVPVal(VectorTC, 0), 0);
-      else if (I.getOpcode() == VPInstruction::PopVF) {
-        Finish = true;
-        break;
-      }
-    }
-    if (Finish)
-      break;
   }
 }
 

@@ -53,9 +53,10 @@
 ; CHECK-NEXT:        |   (<4 x i64>*)([[LP0]])[i1] = [[DOTVEC170]] + 1
 ; CHECK-NEXT:        + END LOOP
 
-; CHECK:             [[DOTVEC180:%.*]] = 400 == [[ADJ_TC160]]
-; CHECK-NEXT:        [[PHI_TEMP60]] = [[ADJ_TC160]]
-; CHECK-NEXT:        [[PHI_TEMP200:%.*]] = [[ADJ_TC160]]
+; CHECK:             [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
+; CHECK-NEXT:        [[DOTVEC180:%.*]] = 400 == [[ADJ_TC160]]
+; CHECK-NEXT:        [[PHI_TEMP60]] = [[IND_FINAL0]]
+; CHECK-NEXT:        [[PHI_TEMP200:%.*]] = [[IND_FINAL0]]
 ; CHECK-NEXT:        [[EXTRACT_0_220:%.*]] = extractelement [[DOTVEC180]],  0
 ; CHECK-NEXT:        if ([[EXTRACT_0_220]] == 1)
 ; CHECK-NEXT:        {

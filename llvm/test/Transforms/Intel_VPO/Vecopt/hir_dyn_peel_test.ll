@@ -149,9 +149,10 @@ define void @foo(i64* %lp, i64 %n1) {
 ; CHECK:             |   <LVAL-REG> {al:8}(<4 x i64>*)(LINEAR i64* [[LP0]])[LINEAR i64 i1] inbounds  !tbaa !4 !intel.preferred_alignment <{{.*}}>
 ; CHECK:             + END LOOP
 
+; CHECK:             [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
 ; CHECK:             [[DOTVEC170:%.*]] = [[N10]] == [[ADJ_TC160]]
-; CHECK:             [[PHI_TEMP60]] = [[ADJ_TC160]]
-; CHECK:             [[PHI_TEMP190:%.*]] = [[ADJ_TC160]]
+; CHECK:             [[PHI_TEMP60]] = [[IND_FINAL0]]
+; CHECK:             [[PHI_TEMP190:%.*]] = [[IND_FINAL0]]
 ; CHECK:             [[EXTRACT_0_210:%.*]] = extractelement [[DOTVEC170]],  0
 ; CHECK:             if ([[EXTRACT_0_210]] == 1)
 ; CHECK:             {

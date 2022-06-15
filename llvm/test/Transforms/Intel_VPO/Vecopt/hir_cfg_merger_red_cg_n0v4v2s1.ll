@@ -45,17 +45,18 @@ define float @foo(float* nocapture readonly %A, i64 %N, float %init) {
 ; CHECK-NEXT:        |   [[PHI_TEMP140]] = [[DOTVEC170]]
 ; CHECK-NEXT:        + END LOOP
 ; CHECK:             [[SUM_070]] = @llvm.vector.reduce.fadd.v4f32([[SUM_070]],  [[DOTVEC170]])
+; CHECK-NEXT:        [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
 ; CHECK-NEXT:        [[TGU190:%.*]] = [[N0]]  /u  2
 ; CHECK-NEXT:        [[VEC_TC200:%.*]] = [[TGU190]]  *  2
 ; CHECK-NEXT:        [[DOTVEC210:%.*]] = [[VEC_TC200]] == [[VEC_TC130]]
 ; CHECK-NEXT:        [[PHI_TEMP70]] = [[SUM_070]]
-; CHECK-NEXT:        [[PHI_TEMP90]] = [[VEC_TC130]]
+; CHECK-NEXT:        [[PHI_TEMP90]] = [[IND_FINAL0]]
 ; CHECK-NEXT:        [[PHI_TEMP240:%.*]] = [[SUM_070]]
-; CHECK-NEXT:        [[PHI_TEMP260:%.*]] = [[VEC_TC130]]
+; CHECK-NEXT:        [[PHI_TEMP260:%.*]] = [[IND_FINAL0]]
 ; CHECK-NEXT:        [[EXTRACT_0_280:%.*]] = extractelement [[DOTVEC210]],  0
 ; CHECK-NEXT:        if ([[EXTRACT_0_280]] == 1)
 ; CHECK-NEXT:        {
-; CHECK-NEXT:           goto [[MERGE_BLK2:merge.blk[0-9]+]].72
+; CHECK-NEXT:           goto [[MERGE_BLK2:merge.blk[0-9]+]].73
 ; CHECK-NEXT:        }
 ; CHECK-NEXT:        [[MERGE_BLK1]].42:
 ; CHECK-NEXT:        [[TGU290:%.*]] = [[N0]]  /u  2
@@ -69,20 +70,21 @@ define float @foo(float* nocapture readonly %A, i64 %N, float %init) {
 ; CHECK-NEXT:        |   [[PHI_TEMP320]] = [[DOTVEC360]]
 ; CHECK-NEXT:        + END LOOP
 ; CHECK:             [[SUM_070]] = @llvm.vector.reduce.fadd.v2f32([[PHI_TEMP70]],  [[DOTVEC360]])
+; CHECK-NEXT:        [[IND_FINAL390:%.*]] = [[LOOP_UB340]]  +  1
 ; CHECK-NEXT:        [[PHI_TEMP240]] = [[SUM_070]]
-; CHECK-NEXT:        [[PHI_TEMP260]] = [[VEC_TC300]]
-; CHECK-NEXT:        [[MERGE_BLK2]].72:
-; CHECK-NEXT:        [[TGU410:%.*]] = [[N0]]  /u  2
-; CHECK-NEXT:        [[VEC_TC420:%.*]] = [[TGU410]]  *  2
-; CHECK-NEXT:        [[DOTVEC430:%.*]] = [[N0]] == [[VEC_TC420]]
+; CHECK-NEXT:        [[PHI_TEMP260]] = [[IND_FINAL390]]
+; CHECK-NEXT:        [[MERGE_BLK2]].73:
+; CHECK-NEXT:        [[TGU420:%.*]] = [[N0]]  /u  2
+; CHECK-NEXT:        [[VEC_TC430:%.*]] = [[TGU420]]  *  2
+; CHECK-NEXT:        [[DOTVEC440:%.*]] = [[N0]] == [[VEC_TC430]]
 ; CHECK-NEXT:        [[PHI_TEMP0]] = [[PHI_TEMP240]]
 ; CHECK-NEXT:        [[PHI_TEMP20]] = [[PHI_TEMP260]]
-; CHECK-NEXT:        [[PHI_TEMP460:%.*]] = [[PHI_TEMP240]]
-; CHECK-NEXT:        [[PHI_TEMP480:%.*]] = [[PHI_TEMP260]]
-; CHECK-NEXT:        [[EXTRACT_0_500:%.*]] = extractelement [[DOTVEC430]],  0
-; CHECK-NEXT:        if ([[EXTRACT_0_500]] == 1)
+; CHECK-NEXT:        [[PHI_TEMP470:%.*]] = [[PHI_TEMP240]]
+; CHECK-NEXT:        [[PHI_TEMP490:%.*]] = [[PHI_TEMP260]]
+; CHECK-NEXT:        [[EXTRACT_0_510:%.*]] = extractelement [[DOTVEC440]],  0
+; CHECK-NEXT:        if ([[EXTRACT_0_510]] == 1)
 ; CHECK-NEXT:        {
-; CHECK-NEXT:           goto final.merge.107
+; CHECK-NEXT:           goto final.merge.109
 ; CHECK-NEXT:        }
 ; CHECK-NEXT:        [[MERGE_BLK0]].31:
 ; CHECK-NEXT:        [[LB_TMP0:%.*]] = [[PHI_TEMP20]]
@@ -91,9 +93,9 @@ define float @foo(float* nocapture readonly %A, i64 %N, float %init) {
 ; CHECK-NEXT:        |   [[A_I0:%.*]] = ([[A0]])[i1]
 ; CHECK-NEXT:        |   [[SUM_070]] = [[A_I0]]  +  [[SUM_070]]
 ; CHECK-NEXT:        + END LOOP
-; CHECK:             [[PHI_TEMP460]] = [[SUM_070]]
-; CHECK-NEXT:        [[PHI_TEMP480]] = [[N0]] + -1
-; CHECK-NEXT:        final.merge.107:
+; CHECK:             [[PHI_TEMP470]] = [[SUM_070]]
+; CHECK-NEXT:        [[PHI_TEMP490]] = [[N0]] + -1
+; CHECK-NEXT:        final.merge.109:
 ; CHECK-NEXT:  END REGION
 ;
 entry:
