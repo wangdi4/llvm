@@ -1573,7 +1573,7 @@ static bool checkUncondLastPrivOperands(const VPInstruction *ExitI,
       continue;
     for (auto *Op : Cur->operands())
       if (auto *VInst = dyn_cast<VPInstruction>(Op)) {
-        if (VInst->getOpcode() == Instruction::Load) {
+        if (VPLoadStoreInst::isLoadOpcode(VInst->getOpcode())) {
           // Skip a load, it produces a new value that does not use operands
           // directly.
           continue;
