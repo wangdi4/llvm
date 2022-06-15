@@ -3943,40 +3943,6 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
                                             "should be distinct");
     break;
   }
-<<<<<<< HEAD
-  case X86::V4FMADDPSrm:
-  case X86::V4FMADDPSrmk:
-  case X86::V4FMADDPSrmkz:
-  case X86::V4FMADDSSrm:
-  case X86::V4FMADDSSrmk:
-  case X86::V4FMADDSSrmkz:
-  case X86::V4FNMADDPSrm:
-  case X86::V4FNMADDPSrmk:
-  case X86::V4FNMADDPSrmkz:
-  case X86::V4FNMADDSSrm:
-  case X86::V4FNMADDSSrmk:
-  case X86::V4FNMADDSSrmkz:
-  case X86::VP4DPWSSDSrm:
-  case X86::VP4DPWSSDSrmk:
-  case X86::VP4DPWSSDSrmkz:
-  case X86::VP4DPWSSDrm:
-  case X86::VP4DPWSSDrmk:
-  case X86::VP4DPWSSDrmkz: {
-    unsigned Src2 = Inst.getOperand(Inst.getNumOperands() -
-                                    X86::AddrNumOperands - 1).getReg();
-    unsigned Src2Enc = MRI->getEncodingValue(Src2);
-    if (Src2Enc % 4 != 0) {
-      StringRef RegName = X86IntelInstPrinter::getRegisterName(Src2);
-      unsigned GroupStart = (Src2Enc / 4) * 4;
-      unsigned GroupEnd = GroupStart + 3;
-      return Warning(Ops[0]->getStartLoc(),
-                     "source register '" + RegName + "' implicitly denotes '" +
-                     RegName.take_front(3) + Twine(GroupStart) + "' to '" +
-                     RegName.take_front(3) + Twine(GroupEnd) +
-                     "' source group");
-    }
-    break;
-  }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   //E11x
@@ -4023,8 +3989,6 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
   }
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 6226e46c5f1113e8680496a92a4868b6ce3ca829
   }
 
   const MCInstrDesc &MCID = MII.get(Inst.getOpcode());
