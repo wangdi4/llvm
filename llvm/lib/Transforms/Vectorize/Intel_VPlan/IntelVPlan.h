@@ -646,6 +646,29 @@ public:
                            // mask.
     PrivateFinalArray,
     PrivateLastValueNonPOD,
+    CompressStore, // generate llvm.masked.compressstore intrinsic, for
+                   // unit stride stores
+
+    CompressStoreNonu, // generate vcompress intrinsic and masked scatter
+                       // mask for scatter: (-1 >> popcnt(exec_mask))
+
+    ExpandLoad, // generate llvm.masked.expandload intrinsic, for unit stride
+                // loads
+
+    ExpandLoadNonu, // generate masked gather, and vexpand intrinsic mask for
+                    // gather: (-1 >> popcnt(exec_mask))
+
+    CompressExpandIndexInit,  // placeholder for initial value of index
+    CompressExpandIndexFinal, // placeholder for the final value of index
+
+    CompressExpandIndex,     // calculate vector of indexes for non-unit stride
+                             // compress/expand
+    CompressExpandIndexUnit, // calculate scalar index for unit stride
+                             // compress/expand
+
+    CompressExpandIndexInc, // compress/expand index increment
+                            // operands: index, stride, mask
+                            // generate: index += stride * pocnt(mask);
     PrivateLastValueNonPODMasked,
     GeneralMemOptConflict,
     ConflictInsn,
@@ -670,7 +693,7 @@ public:
                                //           vx0 + x,
                                //           x];
                                // }
-    ExtractLastVectorLane, // Extract a scalar from the lane VF-1.
+    ExtractLastVectorLane,     // Extract a scalar from the lane VF-1.
   };
 
 private:
@@ -1681,7 +1704,7 @@ public:
 
   VPLoadStoreInst(unsigned Opcode, Type *Ty, ArrayRef<VPValue *> Operands)
       : VPInstruction(Opcode, Ty, Operands) {
-    assert((Opcode == Instruction::Load || Opcode == Instruction::Store) &&
+    assert((isLoadOpcode(Opcode) || isStoreOpcode(Opcode)) &&
            "Invalid opcode for load/store instruction.");
   }
 
@@ -1768,10 +1791,20 @@ public:
       RDDR->getAllMetadataOtherThanDebugLoc(MDs);
   }
 
+  static bool isLoadOpcode(unsigned Opcode) {
+    return (Opcode == Instruction::Load || Opcode == ExpandLoad ||
+            Opcode == ExpandLoadNonu);
+  }
+
+  static bool isStoreOpcode(unsigned Opcode) {
+    return (Opcode == Instruction::Store || Opcode == CompressStore ||
+            Opcode == CompressStoreNonu);
+  }
+
   unsigned getPointerOperandIndex() const {
-    if (getOpcode() == Instruction::Load)
+    if (isLoadOpcode(getOpcode()))
       return 0;
-    assert(getOpcode() == Instruction::Store && "Unknown LoadStore opcode");
+    assert(isStoreOpcode(getOpcode()) && "Unknown LoadStore opcode");
     return 1;
   }
 
@@ -1788,15 +1821,14 @@ public:
   }
 
   Type *getValueType() const {
-    if (getOpcode() == Instruction::Load)
+    if (isLoadOpcode(getOpcode()))
       return getType();
     return getOperand(0)->getType();
   }
 
   /// Methods for supporting type inquiry through isa, cast and dyn_cast:
   static bool classof(const VPInstruction *VPI) {
-    return VPI->getOpcode() == Instruction::Load ||
-           VPI->getOpcode() == Instruction::Store;
+    return isLoadOpcode(VPI->getOpcode()) || isStoreOpcode(VPI->getOpcode());
   }
 
   static bool classof(const VPValue *V) {

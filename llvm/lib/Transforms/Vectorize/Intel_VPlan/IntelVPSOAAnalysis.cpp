@@ -105,8 +105,7 @@ bool VPSOAAnalysis::isSafeLoadStore(const VPLoadStoreInst *LSI,
 
   // In addition, we consider stores unsafe when the private-pointer or its
   // alias escapes via a write to external memory.
-  if (LSI->getOpcode() == Instruction::Store &&
-      LSI->getOperand(0) == CurrentI)
+  if (LSI->getOpcode() == Instruction::Store && LSI->getOperand(0) == CurrentI)
     return false;
 
   // Non-scalar types are not supported yet.
@@ -189,6 +188,14 @@ bool VPSOAAnalysis::isSafeUse(const VPInstruction *UseInst,
                                  AllocatedType, PrivElemSize);
   case Instruction::Call:
     return isSafePointerEscapeFunction(cast<VPCallInstruction>(UseInst));
+
+  case VPInstruction::ExpandLoad:
+  case VPInstruction::ExpandLoadNonu:
+  case VPInstruction::CompressStore:
+  case VPInstruction::CompressStoreNonu:
+    // compress/expand is not supported for SOA layout
+    return false;
+
   case Instruction::Load:
   case Instruction::Store:
     return isSafeLoadStore(cast<VPLoadStoreInst>(UseInst),

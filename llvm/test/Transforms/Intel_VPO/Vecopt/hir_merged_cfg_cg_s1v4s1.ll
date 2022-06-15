@@ -62,11 +62,12 @@
 ; CHECK-NEXT:        + END LOOP
 
 ; CHECK:             [[SUM_070]] = @llvm.vector.reduce.add.v4i32([[DOTVEC120]])
+; CHECK:             [[IND_FINAL0:%.*]] = [[LOOP_UB0]]  +  1
 ; CHECK-NEXT:        [[DOTVEC140:%.*]] = [[N0]] == [[ADJ_TC80]]
 ; CHECK-NEXT:        [[PHI_TEMP0]] = [[SUM_070]]
-; CHECK-NEXT:        [[PHI_TEMP20]] = [[ADJ_TC80]]
+; CHECK-NEXT:        [[PHI_TEMP20]] = [[IND_FINAL0]]
 ; CHECK-NEXT:        [[PHI_TEMP170:%.*]] = [[SUM_070]]
-; CHECK-NEXT:        [[PHI_TEMP190:%.*]] = [[ADJ_TC80]]
+; CHECK-NEXT:        [[PHI_TEMP190:%.*]] = [[IND_FINAL0]]
 ; CHECK-NEXT:        [[EXTRACT_0_210:%.*]] = extractelement [[DOTVEC140]],  0
 ; CHECK-NEXT:        if ([[EXTRACT_0_210]] == 1)
 ; CHECK-NEXT:        {

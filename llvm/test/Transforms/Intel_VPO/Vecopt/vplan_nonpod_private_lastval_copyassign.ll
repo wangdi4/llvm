@@ -31,9 +31,9 @@
 ; CHECK-NEXT:   i1 [[TMP5:%.*]] = icmp eq i32 [[TMP4]] i32 10000
 ; CHECK-NEXT:   br i1 [[TMP5]], BB3, BB2
 ; CHECK:  BB3: # preds: BB2
+; CHECK-NEXT:   i32 [[TMP6:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:   private-last-value-nonpod CopyAssign: _ZTS3str.omp.copy_assign %struct.str* [[VP_LPRIV]] %struct.str* [[X_LPRIV:%.*]]
 ; CHECK-NEXT:   call %struct.str* [[VP_LPRIV]] void (%struct.str*)* @_ZTS3str.omp.destr
-; CHECK-NEXT:   i32 [[TMP6:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:   i8* [[VP_LPRIV_BCAST:%.*]] = bitcast %struct.str* [[VP_LPRIV]]
 ; CHECK-NEXT:   call i64 4 i8* [[VP_LPRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.end.p0i8 
 ; CHECK-NEXT:   br BB5
