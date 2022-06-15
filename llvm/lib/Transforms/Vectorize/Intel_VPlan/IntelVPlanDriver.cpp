@@ -234,6 +234,11 @@ static bool canProcessMaskedVariant(const VPlan &P) {
     // the lane defined by the execution mask.
     case VPInstruction::PrivateFinalArray:
       return false;
+    case VPInstruction::PrivateFinalUncond:
+    case VPInstruction::PrivateFinalUncondMem:
+      // Until CG for extract vector by non-const index is implemented.
+      if (I.getType()->isVectorTy())
+        return false;
     }
   return true;
 }

@@ -1705,8 +1705,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     Value *BsfCall =
         Builder.CreateCall(CTTZ, {CastedMask, Builder.getTrue()}, "cttz");
 
-    // Scalar result of private finalization should be written back to original
-    // private descriptor variable.
+    // TODO:  if (VPInst->getOperand(0)->getType()->isVectorTy())
     Value *PrivExtract =
         Builder.CreateExtractElement(VecExit, BsfCall, "priv.extract");
     VPScalarMap[VPInst][0] = PrivExtract;
@@ -1748,6 +1747,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
         Builder.CreateCall(CTLZ, {CastedMask, Builder.getTrue()}, "ctlz");
     Value *Lane = Builder.CreateSub(ConstantInt::get(IntTy, VF - 1), BsfCall);
     Value *VecExit = getVectorValue(VPInst->getOperand(0));
+    // TODO:  if (VPInst->getOperand(0)->getType()->isVectorTy())
     Value *PrivExtract =
         Builder.CreateExtractElement(VecExit, Lane, "priv.extract");
     VPScalarMap[VPInst][0] = PrivExtract;
