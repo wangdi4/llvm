@@ -1699,6 +1699,11 @@ void VPLoopEntityList::analyzeImplicitLastPrivates() {
       VPValue *HeaderPhi;
       std::tie(HeaderPhi, Kind) = *PrivPair;
 
+      if (Kind == VPPrivate::PrivateKind::Conditional &&
+          Inst.getType()->isVectorTy())
+        // Until CG to extract vector by non-const index is implemented.
+        continue;
+
       // Add new private with empty alias list
       VPEntityAliasesTy EmptyAliases;
       VPPrivate *Priv =
@@ -2288,6 +2293,9 @@ bool PrivateDescr::updateKind(VPLoopEntityList *LE) {
     std::tie(std::ignore, Kind) = *PrivPair;
     IsLast = Kind >= VPPrivate::PrivateKind::Last;
     IsConditional = Kind == VPPrivate::PrivateKind::Conditional;
+    if (IsConditional && ExitInst->getType()->isVectorTy())
+      // Until CG to extract vector by non-const index is implemented.
+      return false;
   }
   return true;
 }

@@ -69,6 +69,7 @@ public:
     UserDefinedReduction,
     UnsupportedReductionOp,
     InscanReduction,
+    VectorCondLastPrivate, // need CG implementation
     // TODO: Temporary bailout for F90_NONPOD directive
     F90NonPod
   };
@@ -94,6 +95,8 @@ public:
       return "A reduction of this operation is not supported.\n";
     case BailoutReason::InscanReduction:
       return "Inscan reduction is not supported.\n";
+    case BailoutReason::VectorCondLastPrivate:
+      return "Conditional lastprivate of a vector type is not supported.\n";
     case BailoutReason::F90NonPod:
       return "F90 non-POD privates are not supported.\n";
     }
@@ -281,6 +284,10 @@ private:
                      Item->getCopyAssign(), PrivateKindTy::Last);
       return true;
     }
+
+    // Until CG to extract vector by non-const index is implemented.
+    if (Item->getIsConditional() && Type->isVectorTy())
+      return bailout(BailoutReason::VectorCondLastPrivate);
 
     addLoopPrivate(Val, Type,
                    Item->getIsConditional() ? PrivateKindTy::Conditional
