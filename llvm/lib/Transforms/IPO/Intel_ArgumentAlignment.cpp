@@ -630,7 +630,7 @@ isValidAllocSite(Value *AllocSite,
   }
 
   else if (AllocaInst *Alloca = dyn_cast<AllocaInst>(AllocSite)) {
-    unsigned Alignment = Alloca->getAlignment();
+    unsigned Alignment = Alloca->getAlign().value();
 
     return (int)Alignment;
   }

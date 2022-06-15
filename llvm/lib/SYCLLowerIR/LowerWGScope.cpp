@@ -382,7 +382,7 @@ static void copyBetweenPrivateAndShadow(Value *L, GlobalVariable *Shadow,
 
   if (const auto *AI = dyn_cast<AllocaInst>(L)) {
     T = AI->getAllocatedType();
-    LocAlign = MaybeAlign(AI->getAlignment());
+    LocAlign = MaybeAlign(AI->getAlign());
   } else {
     auto Arg = cast<Argument>(L);
     if (Arg->hasByValAttr()) {
@@ -402,7 +402,7 @@ static void copyBetweenPrivateAndShadow(Value *L, GlobalVariable *Shadow,
   if (T->isAggregateType()) {
     // TODO: we should use methods which directly return MaybeAlign once such
     // are added to LLVM for AllocaInst and GlobalVariable
-    auto ShdAlign = MaybeAlign(Shadow->getAlignment());
+    auto ShdAlign = MaybeAlign(Shadow->getAlign());
     Module &M = *Shadow->getParent();
     auto SizeVal = M.getDataLayout().getTypeStoreSize(T);
     auto Size = ConstantInt::get(getSizeTTy(M), SizeVal);
