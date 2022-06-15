@@ -97,6 +97,21 @@ namespace {
     }
   };
 
+  class DefaultTemplateArgsPolicyRAII {
+    PrintingPolicy &Policy;
+    bool Old;
+
+  public:
+    explicit DefaultTemplateArgsPolicyRAII(PrintingPolicy &Policy)
+        : Policy(Policy), Old(Policy.SuppressDefaultTemplateArgs) {
+      Policy.SuppressDefaultTemplateArgs = false;
+    }
+
+    ~DefaultTemplateArgsPolicyRAII() {
+      Policy.SuppressDefaultTemplateArgs = Old;
+    }
+  };
+
   class ElaboratedTypePolicyRAII {
     PrintingPolicy &Policy;
     bool SuppressTagKeyword;
@@ -1520,6 +1535,7 @@ void TypePrinter::printTemplateId(const TemplateSpecializationType *T,
   IncludeStrongLifetimeRAII Strong(Policy);
 
   TemplateDecl *TD = T->getTemplateName().getAsTemplateDecl();
+  // FIXME: Null TD never excercised in test suite.
   if (FullyQualify && TD) {
     if (!Policy.SuppressScope)
       AppendScope(TD->getDeclContext(), OS, TD->getDeclName());
@@ -1529,7 +1545,9 @@ void TypePrinter::printTemplateId(const TemplateSpecializationType *T,
     T->getTemplateName().print(OS, Policy);
   }
 
-  printTemplateArgumentList(OS, T->template_arguments(), Policy);
+  DefaultTemplateArgsPolicyRAII TemplateArgs(Policy);
+  const TemplateParameterList *TPL = TD ? TD->getTemplateParameters() : nullptr;
+  printTemplateArgumentList(OS, T->template_arguments(), Policy, TPL);
   spaceBeforePlaceHolder(OS);
 }
 

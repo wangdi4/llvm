@@ -26,6 +26,7 @@
 #ifndef LLVM_ANALYSIS_INLINEADVISOR_H
 #define LLVM_ANALYSIS_INLINEADVISOR_H
 
+#include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/Config/llvm-config.h"
@@ -313,6 +314,9 @@ public:
   explicit InlineAdvisorAnalysisPrinterPass(raw_ostream &OS) : OS(OS) {}
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
+
+  PreservedAnalyses run(LazyCallGraph::SCC &InitialC, CGSCCAnalysisManager &AM,
+                        LazyCallGraph &CG, CGSCCUpdateResult &UR);
 };
 
 std::unique_ptr<InlineAdvisor>

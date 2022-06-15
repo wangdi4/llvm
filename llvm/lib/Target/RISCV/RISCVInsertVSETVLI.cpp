@@ -701,13 +701,12 @@ static VSETVLIInfo getInfoForVSETVLI(const MachineInstr &MI) {
   return NewInfo;
 }
 
-bool canSkipVSETVLIForLoadStore(const MachineInstr &MI,
-                                const VSETVLIInfo &Require,
-                                const VSETVLIInfo &CurInfo) {
-  unsigned EEW;
+/// Get the EEW for a load or store instruction.  Return None if MI is not
+/// a load or store which ignores SEW.
+static Optional<unsigned> getEEWForLoadStore(const MachineInstr &MI) {
   switch (MI.getOpcode()) {
   default:
-    return false;
+    return None;
   case RISCV::PseudoVLE8_V_M1:
   case RISCV::PseudoVLE8_V_M1_MASK:
   case RISCV::PseudoVLE8_V_M2:
@@ -764,8 +763,7 @@ bool canSkipVSETVLIForLoadStore(const MachineInstr &MI,
   case RISCV::PseudoVSSE8_V_MF4_MASK:
   case RISCV::PseudoVSSE8_V_MF8:
   case RISCV::PseudoVSSE8_V_MF8_MASK:
-    EEW = 8;
-    break;
+    return 8;
   case RISCV::PseudoVLE16_V_M1:
   case RISCV::PseudoVLE16_V_M1_MASK:
   case RISCV::PseudoVLE16_V_M2:
@@ -814,8 +812,7 @@ bool canSkipVSETVLIForLoadStore(const MachineInstr &MI,
   case RISCV::PseudoVSSE16_V_MF2_MASK:
   case RISCV::PseudoVSSE16_V_MF4:
   case RISCV::PseudoVSSE16_V_MF4_MASK:
-    EEW = 16;
-    break;
+    return 16;
   case RISCV::PseudoVLE32_V_M1:
   case RISCV::PseudoVLE32_V_M1_MASK:
   case RISCV::PseudoVLE32_V_M2:
@@ -856,8 +853,7 @@ bool canSkipVSETVLIForLoadStore(const MachineInstr &MI,
   case RISCV::PseudoVSSE32_V_M8_MASK:
   case RISCV::PseudoVSSE32_V_MF2:
   case RISCV::PseudoVSSE32_V_MF2_MASK:
-    EEW = 32;
-    break;
+    return 32;
   case RISCV::PseudoVLE64_V_M1:
   case RISCV::PseudoVLE64_V_M1_MASK:
   case RISCV::PseudoVLE64_V_M2:
@@ -890,16 +886,23 @@ bool canSkipVSETVLIForLoadStore(const MachineInstr &MI,
   case RISCV::PseudoVSSE64_V_M4_MASK:
   case RISCV::PseudoVSSE64_V_M8:
   case RISCV::PseudoVSSE64_V_M8_MASK:
-    EEW = 64;
-    break;
+    return 64;
   }
+}
+
+static bool canSkipVSETVLIForLoadStore(const MachineInstr &MI,
+                                       const VSETVLIInfo &Require,
+                                       const VSETVLIInfo &CurInfo) {
+  Optional<unsigned> EEW = getEEWForLoadStore(MI);
+  if (!EEW)
+    return false;
 
   // Stores can ignore the tail and mask policies.
   const bool StoreOp = MI.getNumExplicitDefs() == 0;
   if (!StoreOp && !CurInfo.hasSamePolicy(Require))
     return false;
 
-  return CurInfo.isCompatibleWithLoadStoreEEW(EEW, Require);
+  return CurInfo.isCompatibleWithLoadStoreEEW(*EEW, Require);
 }
 
 /// Return true if a VSETVLI is required to transition from CurInfo to Require
@@ -1074,7 +1077,10 @@ bool RISCVInsertVSETVLI::needVSETVLIPHI(const VSETVLIInfo &Require,
 }
 
 void RISCVInsertVSETVLI::emitVSETVLIs(MachineBasicBlock &MBB) {
-  VSETVLIInfo CurInfo;
+  VSETVLIInfo CurInfo = BlockInfo[MBB.getNumber()].Pred;
+  // Track whether the prefix of the block we've scanned is transparent
+  // (meaning has not yet changed the abstract state).
+  bool PrefixTransparent = true;
   for (MachineInstr &MI : MBB) {
     // If this is an explicit VSETVLI or VSETIVLI, update our state.
     if (isVectorConfigInstr(MI)) {
@@ -1085,39 +1091,28 @@ void RISCVInsertVSETVLI::emitVSETVLIs(MachineBasicBlock &MBB) {
       MI.getOperand(3).setIsDead(false);
       MI.getOperand(4).setIsDead(false);
       CurInfo = getInfoForVSETVLI(MI);
+      PrefixTransparent = false;
       continue;
     }
 
     uint64_t TSFlags = MI.getDesc().TSFlags;
     if (RISCVII::hasSEWOp(TSFlags)) {
       VSETVLIInfo NewInfo = computeInfoForInstr(MI, TSFlags, MRI);
-      if (!CurInfo.isValid()) {
-        // We haven't found any vector instructions or VL/VTYPE changes yet,
-        // use the predecessor information.
-        CurInfo = BlockInfo[MBB.getNumber()].Pred;
-        assert(CurInfo.isValid() && "Expected a valid predecessor state.");
-        if (needVSETVLI(MI, NewInfo, CurInfo)) {
-          // If this is the first implicit state change, and the state change
-          // requested can be proven to produce the same register contents, we
-          // can skip emitting the actual state change and continue as if we
-          // had since we know the GPR result of the implicit state change
-          // wouldn't be used and VL/VTYPE registers are correct.  Note that
-          // we *do* need to model the state as if it changed as while the
-          // register contents are unchanged, the abstract model can change.
-          if (needVSETVLIPHI(NewInfo, MBB))
-            insertVSETVLI(MBB, MI, NewInfo, CurInfo);
-          CurInfo = NewInfo;
-        }
-      } else {
-        // If this instruction isn't compatible with the previous VL/VTYPE
-        // we need to insert a VSETVLI.
-        // NOTE: We can't use predecessor information for the store. We must
-        // treat it the same as the first phase so that we produce the correct
-        // vl/vtype for succesor blocks.
-        if (needVSETVLI(MI, NewInfo, CurInfo)) {
+
+      // If this instruction isn't compatible with the previous VL/VTYPE
+      // we need to update the abstract state, and possibly insert a VSETVLI.
+      if (needVSETVLI(MI, NewInfo, CurInfo)) {
+        // If this is the first implicit state change, and the state change
+        // requested can be proven to produce the same register contents, we
+        // can skip emitting the actual state change and continue as if we
+        // had since we know the GPR result of the implicit state change
+        // wouldn't be used and VL/VTYPE registers are correct.  Note that
+        // we *do* need to model the state as if it changed as while the
+        // register contents are unchanged, the abstract model can change.
+        if (!PrefixTransparent || needVSETVLIPHI(NewInfo, MBB))
           insertVSETVLI(MBB, MI, NewInfo, CurInfo);
-          CurInfo = NewInfo;
-        }
+        PrefixTransparent = false;
+        CurInfo = NewInfo;
       }
 
       if (RISCVII::hasVLOp(TSFlags)) {
@@ -1139,6 +1134,7 @@ void RISCVInsertVSETVLI::emitVSETVLIs(MachineBasicBlock &MBB) {
     if (MI.isCall() || MI.isInlineAsm() || MI.modifiesRegister(RISCV::VL) ||
         MI.modifiesRegister(RISCV::VTYPE)) {
       CurInfo = VSETVLIInfo::getUnknown();
+      PrefixTransparent = false;
     }
   }
 
