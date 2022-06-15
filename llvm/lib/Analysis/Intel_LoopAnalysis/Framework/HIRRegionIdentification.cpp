@@ -379,6 +379,14 @@ void HIRRegionIdentification::computeLoopSpansForFusion(
         break;
       }
 
+      if (!DT.dominates(Lp1EB, Lp2->getHeader())) {
+        break;
+      }
+
+      if (!PDT.dominates(Lp2->getHeader(), Lp1EB)) {
+        break;
+      }
+
       const SCEV *Lp2TC = SE.getBackedgeTakenCount(Lp2);
       if (isa<SCEVCouldNotCompute>(Lp2TC)) {
         break;
@@ -403,14 +411,6 @@ void HIRRegionIdentification::computeLoopSpansForFusion(
 
       const auto *Diff = dyn_cast<SCEVConstant>(SE.getMinusSCEV(Lp1TC, Lp2TC));
       if (!Diff || Diff->getAPInt().abs().ugt(MaxFusionTripCountDiff)) {
-        break;
-      }
-
-      if (!DT.dominates(Lp1EB, Lp2->getHeader())) {
-        break;
-      }
-
-      if (!PDT.dominates(Lp2->getHeader(), Lp1EB)) {
         break;
       }
 
