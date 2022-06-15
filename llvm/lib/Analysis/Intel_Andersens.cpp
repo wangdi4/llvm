@@ -1006,6 +1006,17 @@ bool AndersensAAResult::isPointsToType(Type *Ty) const {
   return false;
 }
 
+// Returns true if Ty can be used to hold pointer value.
+// For now, returns false if Ty is either floating point type
+// or integer type that is smaller than size of pointer.
+bool  AndersensAAResult::isPtrCompatibleTy(Type *Ty) const {
+  if (Ty->isFloatingPointTy())
+    return false;
+  if (Ty->isIntegerTy() && Ty->getIntegerBitWidth() < PointerSizeInBits)
+    return false;
+  return true;
+}
+
 /// getNode - Return the node corresponding to the specified pointer scalar.
 ///
 unsigned AndersensAAResult::getNode(Value *V) {
@@ -2291,27 +2302,21 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
     return true;
   };
 
-  // Returns true if Ty can be used to hold pointer value.
-  // For now, returns false if Ty is either floating point type
-  // or integer type that is smaller than size of pointer.
-  auto IsPtrCompatibleTy = [this](Type *Ty) {
-    if (Ty->isFloatingPointTy())
-      return false;
-    if (Ty->isIntegerTy() && Ty->getIntegerBitWidth() < PointerSizeInBits)
-      return false;
-    return true;
-  };
-
   ConstantExpr *CE;
-  if (Constant *C = dyn_cast<Constant>(SI.getOperand(0))) {
-    if (!isPointsToType(SI.getOperand(0)->getType()) &&
-        (!isa<ConstantPointerNull>(C) || !isa<UndefValue>(C) ||
-         dyn_cast<GlobalValue>(C) == nullptr ||
-         dyn_cast<ConstantExpr>(C) == nullptr || !isa<BlockAddress>(C)))
+
+  Value *ValOp = SI.getValueOperand();
+  Value *PtrOp = SI.getPointerOperand();
+  if (Constant *C = dyn_cast<Constant>(ValOp)) {
+    // Conservatively skip only if value is Undef/Nullptr/ConstantFP/
+    // ConstantInt.
+    if (isa<UndefValue>(C) ||
+        isa<ConstantPointerNull>(C) ||
+        (!isPtrCompatibleTy(ValOp->getType()) &&
+        (isa<ConstantFP>(C) || isa<ConstantInt>(C))))
       return;
   }
 
-  if (isPointsToType(SI.getOperand(0)->getType()) ||
+  if (isPointsToType(ValOp->getType()) ||
       NonPointerAssignments.count(&SI)) {
   // CQ377860: So far, “value to store” operand of “Instruction::Store”
   // is treated as either “value” or constant expression. But, it is
@@ -2323,17 +2328,16 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
   // (i64 3 to void (i8*)*), void (i8*)* @DeleteScriptLimitCallback),
   // void (i8*)* @Tcl_Free, void (i8*)* @DeleteScriptLimitCallback),
   // void (i8*)** %18
-    if ((CE = dyn_cast<ConstantExpr>(SI.getOperand(0))) &&
+    if ((CE = dyn_cast<ConstantExpr>(ValOp)) &&
         (CE->getOpcode() == Instruction::Select)) {
       // Store (Select C1, C2), P2  -- <Store/P2/C1> and <Store/P2/C2> 
-      unsigned SIN = getNode(SI.getOperand(1));
+      unsigned SIN = getNode(PtrOp);
       CreateConstraint(Constraint::Store, SIN, getNode(CE->getOperand(1)));
       CreateConstraint(Constraint::Store, SIN, getNode(CE->getOperand(2)));
     }
     else {
       // store P1, P2  -->  <Store/P2/P1>
-      CreateConstraint(Constraint::Store, getNode(SI.getOperand(1)),
-                       getNode(SI.getOperand(0)));
+      CreateConstraint(Constraint::Store, getNode(PtrOp), getNode(ValOp));
     }
   }
   // CMPLRLLVM-8888: Analysis shouldn't ignore non-pointer store
@@ -2348,7 +2352,6 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
   // TODO: Analysis needs to be improved to compute more accurate
   // points-to info by analyzing the non-pointer value that is being
   // stored.
-  Value *ValOp = SI.getValueOperand();
   if (!isPointsToType(ValOp->getType())) {
     if (IsLoadingPtrAsInt(ValOp)) {
       //      %5 = bitcast %struct.p** %0 to i64*
@@ -2361,15 +2364,14 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
       else
         LN = getNodeValue(*LI);
       CreateConstraint(Constraint::Load, LN, getNode(LI->getPointerOperand()));
-      CreateConstraint(Constraint::Store, getNode(SI.getPointerOperand()), LN);
+      CreateConstraint(Constraint::Store, getNode(PtrOp), LN);
     } else {
       Type *Ty = ValOp->getType();
       // Some stores can be ignored based on type of stored value.
       // Assuming that pointers are not converted to floating point
       // types or integer types that are smaller than pointer size.
-      if (IsPtrCompatibleTy(Ty))
-        CreateConstraint(Constraint::Store, getNode(SI.getPointerOperand()),
-                         UniversalSet);
+      if (isPtrCompatibleTy(Ty))
+        CreateConstraint(Constraint::Store, getNode(PtrOp), UniversalSet);
     }
   }
 }
@@ -2405,12 +2407,15 @@ void AndersensAAResult::visitPHINode(PHINode &PN) {
       NonPointerAssignments.count(&PN)) {
     unsigned PNN = getNodeValue(PN);
     for (unsigned i = 0, e = PN.getNumIncomingValues(); i != e; ++i) {
-    // P1 = phi P2, P3  -->  <Copy/P1/P2>, <Copy/P1/P3>, ...
-      if (Constant *C = dyn_cast<Constant>(PN.getIncomingValue(i))) {
-        if (!isPointsToType(PN.getType()) &&
-            (!isa<ConstantPointerNull>(C) || !isa<UndefValue>(C) ||
-            dyn_cast<GlobalValue>(C) == nullptr ||
-            dyn_cast<ConstantExpr>(C) == nullptr || !isa<BlockAddress>(C)))
+      Value *V = PN.getIncomingValue(i);
+      // P1 = phi P2, P3  -->  <Copy/P1/P2>, <Copy/P1/P3>, ...
+      if (Constant *C = dyn_cast<Constant>(V)) {
+        // Conservatively skip only if value is Undef/Nullptr/ConstantFP/
+        // ConstantInt.
+        if (isa<UndefValue>(C) ||
+            isa<ConstantPointerNull>(C) ||
+            (!isPtrCompatibleTy(V->getType()) &&
+            (isa<ConstantFP>(C) || isa<ConstantInt>(C))))
           continue;
       }
       CreateConstraint(Constraint::Copy, PNN, getNode(PN.getIncomingValue(i)));
