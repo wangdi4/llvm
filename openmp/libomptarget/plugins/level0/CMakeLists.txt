@@ -58,8 +58,12 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
         ${LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS}
         ${LLVM_BINARY_DIR}/include/sycl)
     # Need to silence deprecated-declarations for the sycl wrapper
-    target_compile_options(omptarget.sycl.wrap PRIVATE
-        -Wno-deprecated-declarations)
+    check_cxx_compiler_flag(-Wno-deprecated-declarations
+                            LIBOMPTARGET_HAVE_WNO_DEPRECATED_DECLARATIONS)
+    if(LIBOMPTARGET_HAVE_WNO_DEPRECATED_DECLARATIONS)
+      target_compile_options(omptarget.sycl.wrap PRIVATE
+                             -Wno-deprecated-declarations)
+    endif()
     set_property(TARGET omptarget.sycl.wrap PROPERTY CXX_STANDARD 17)
 
     if(NOT LIBOMPTARGET_DEP_LIBELF_FOUND OR LIBOMPTARGET_FORCE_LLVM_ELF)
