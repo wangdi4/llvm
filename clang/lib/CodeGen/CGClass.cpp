@@ -2783,11 +2783,15 @@ void CodeGenFunction::EmitTypeMetadataCodeForVCall(const CXXRecordDecl *RD,
     }
 #else  // INTEL_FEATURE_SW_DTRANS
   else if (CGM.getCodeGenOpts().WholeProgramVTables &&
-           // Don't insert type test assumes if we are forcing public std
+           // Don't insert type test assumes if we are forcing public
            // visibility.
+<<<<<<< HEAD
            !CGM.HasLTOVisibilityPublicStd(RD)) {
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+=======
+           !CGM.AlwaysHasLTOVisibilityPublic(RD)) {
+>>>>>>> a70b39abffb42eb85fd2dd7960ec9dc7ae38510c
     llvm::Metadata *MD =
         CGM.CreateMetadataIdentifierForType(QualType(RD->getTypeForDecl(), 0));
     llvm::Value *TypeId =
