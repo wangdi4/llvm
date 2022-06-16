@@ -13163,18 +13163,12 @@ void Sema::ProcessDeclAttributes(Scope *S, Decl *D, const Declarator &PD) {
   // position to the decl itself.  This handles cases like:
   //   int *__attr__(x)** D;
   // when X is a decl attribute.
-<<<<<<< HEAD
-  for (unsigned i = 0, e = PD.getNumTypeObjects(); i != e; ++i)
-     ProcessDeclAttributeList(S, D, PD.getTypeObject(i).getAttrs(),
-                             /*IncludeCXX11Attributes=*/false);
-=======
   for (unsigned i = 0, e = PD.getNumTypeObjects(); i != e; ++i) {
     ProcessDeclAttributeList(S, D, PD.getTypeObject(i).getAttrs(),
                              ProcessDeclAttributeOptions()
                                  .WithIncludeCXX11Attributes(false)
                                  .WithIgnoreTypeAttributes(true));
   }
->>>>>>> 1a42fca455b3c128e70bf819649a5c7e7903192c
 
   // Finally, apply any attributes on the decl itself.
   ProcessDeclAttributeList(S, D, PD.getAttributes());

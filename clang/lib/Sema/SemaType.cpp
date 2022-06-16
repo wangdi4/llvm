@@ -1836,11 +1836,9 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
   // list of type attributes to be temporarily saved while the type
   // attributes are pushed around.
   // pipe attributes will be handled later ( at GetFullTypeForDeclarator )
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (!DS.isTypeSpecPipe() && !DS.isTypeSpecChannel())
 #endif // INTEL_CUSTOMIZATION
-=======
   if (!DS.isTypeSpecPipe()) {
     // We also apply declaration attributes that "slide" to the decl spec.
     // Ordering can be important for attributes. The decalaration attributes
@@ -1875,7 +1873,6 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
     // to another. Declaration attributes are always C++11 attributes, and these
     // are never distributed.
     processTypeAttrs(state, Result, TAL_DeclSpec, SlidingAttrs);
->>>>>>> 1a42fca455b3c128e70bf819649a5c7e7903192c
     processTypeAttrs(state, Result, TAL_DeclSpec, DS.getAttributes());
   }
 

@@ -2182,7 +2182,8 @@ private:
   StmtResult ParsePragmaIntelFPGALoop(StmtVector &Stmts,
                                       ParsedStmtContext StmtCtx,
                                       SourceLocation *TrailingElseLoc,
-                                      ParsedAttributes &Attrs);
+                                      ParsedAttributes &DeclAttrs,
+                                      ParsedAttributes &DeclSpecAttrs);
   // HLS loop pragmas
   std::unique_ptr<PragmaHandler> LoopCoalesceHandler;
   std::unique_ptr<PragmaHandler> IIHandler;
@@ -2210,7 +2211,8 @@ private:
   StmtResult ParsePragmaInline(StmtVector &Stmts,
                                ParsedStmtContext StmtCtx,
                                SourceLocation *TrailingElseLoc,
-                               ParsedAttributes &Attrs);
+                               ParsedAttributes &DeclAttrs,
+                               ParsedAttributes &DeclSpecAttrs);
   // Pragma distribute_point
   std::unique_ptr<PragmaHandler> DistributePointHandler;
   // Pragma nofusion
@@ -2230,15 +2232,18 @@ private:
   StmtResult ParsePragmaBlockLoop(StmtVector &Stmts,
                                   ParsedStmtContext StmtCtx,
                                   SourceLocation *TrailingElseLoc,
-                                  ParsedAttributes &Attrs);
+                                  ParsedAttributes &DeclAttrs,
+                                  ParsedAttributes &DeclSpecAttrs);
   bool HandlePragmaBlockLoop(ArgsVector *ArgExprs);
   StmtResult ParsePragmaLoopCount(StmtVector &Stmts,
                                   ParsedStmtContext StmtCtx,
                                   SourceLocation *TrailingElseLoc,
-                                  ParsedAttributes &Attrs);
+                                  ParsedAttributes &DeclAttrs,
+                                  ParsedAttributes &DeclSpecAttrs);
   StmtResult ParsePragmaVector(StmtVector &Stmts, ParsedStmtContext StmtCtx,
                                SourceLocation *TrailingElseLoc,
-                               ParsedAttributes &Attrs);
+                               ParsedAttributes &DeclAttrs,
+                               ParsedAttributes &DeclSpecAttrs);
   // Pragma prefetch
   std::unique_ptr<PragmaHandler> PrefetchHandler;
   // Pragma noprefetch
@@ -2246,7 +2251,8 @@ private:
   StmtResult ParsePragmaPrefetch(StmtVector &Stmts,
                                  ParsedStmtContext StmtCtx,
                                  SourceLocation *TrailingElseLoc,
-                                 ParsedAttributes &Attrs);
+                                 ParsedAttributes &DeclAttrs,
+                                 ParsedAttributes &DeclSpecAttrs);
   bool HandlePragmaPrefetch(ArgsVector *ArgExprs);
 #endif // INTEL_CUSTOMIZATION
 

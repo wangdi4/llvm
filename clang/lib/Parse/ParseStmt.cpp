@@ -469,28 +469,39 @@ Retry:
 
 #if INTEL_CUSTOMIZATION
   case tok::annot_pragma_inline:
-    ProhibitAttributes(Attrs);
-    return ParsePragmaInline(Stmts, StmtCtx, TrailingElseLoc, Attrs);
+    ProhibitAttributes(CXX11Attrs);
+    ProhibitAttributes(GNUAttrs);
+    return ParsePragmaInline(Stmts, StmtCtx, TrailingElseLoc, CXX11Attrs,
+                             GNUAttrs);
 
   case tok::annot_pragma_blockloop:
-    ProhibitAttributes(Attrs);
-    return ParsePragmaBlockLoop(Stmts, StmtCtx, TrailingElseLoc, Attrs);
+    ProhibitAttributes(CXX11Attrs);
+    ProhibitAttributes(GNUAttrs);
+    return ParsePragmaBlockLoop(Stmts, StmtCtx, TrailingElseLoc, CXX11Attrs,
+                                GNUAttrs);
 
   case tok::annot_pragma_loop_count:
-    ProhibitAttributes(Attrs);
-    return ParsePragmaLoopCount(Stmts, StmtCtx, TrailingElseLoc, Attrs);
+    ProhibitAttributes(CXX11Attrs);
+    ProhibitAttributes(GNUAttrs);
+    return ParsePragmaLoopCount(Stmts, StmtCtx, TrailingElseLoc, CXX11Attrs,
+                                GNUAttrs);
 
   case tok::annot_pragma_vector:
-    ProhibitAttributes(Attrs);
-    return ParsePragmaVector(Stmts, StmtCtx, TrailingElseLoc, Attrs);
+    ProhibitAttributes(CXX11Attrs);
+    ProhibitAttributes(GNUAttrs);
+    return ParsePragmaVector(Stmts, StmtCtx, TrailingElseLoc, CXX11Attrs,
+                             GNUAttrs);
 
   case tok::annot_pragma_loop_fuse:
-    ProhibitAttributes(Attrs);
+    ProhibitAttributes(CXX11Attrs);
+    ProhibitAttributes(GNUAttrs);
     return HandlePragmaLoopFuse();
 
   case tok::annot_pragma_prefetch:
-    ProhibitAttributes(Attrs);
-    return ParsePragmaPrefetch(Stmts, StmtCtx, TrailingElseLoc, Attrs);
+    ProhibitAttributes(CXX11Attrs);
+    ProhibitAttributes(GNUAttrs);
+    return ParsePragmaPrefetch(Stmts, StmtCtx, TrailingElseLoc, CXX11Attrs,
+                               GNUAttrs);
 
 #endif // INTEL_CUSTOMIZATION
   case tok::annot_pragma_openmp:
@@ -525,9 +536,10 @@ Retry:
 
 #if INTEL_CUSTOMIZATION
   case tok::annot_pragma_intel_fpga_loop:
-    ProhibitAttributes(Attrs);
+    ProhibitAttributes(CXX11Attrs);
+    ProhibitAttributes(GNUAttrs);
     return ParsePragmaIntelFPGALoop(Stmts, StmtCtx, TrailingElseLoc,
-                                    Attrs);
+                                    CXX11Attrs, GNUAttrs);
 #endif // INTEL_CUSTOMIZATION
 
   case tok::annot_pragma_loop_hint:
@@ -2464,7 +2476,8 @@ StmtResult Parser::ParseReturnStatement() {
 StmtResult Parser::ParsePragmaIntelFPGALoop(StmtVector &Stmts,
                                             ParsedStmtContext StmtCtx,
                                             SourceLocation *TrailingElseLoc,
-                                            ParsedAttributes &Attrs) {
+                                            ParsedAttributes &DeclAttrs,
+                                            ParsedAttributes &DeclSpecAttrs) {
   // Create temporary attribute list.
   ParsedAttributes TempAttrs(AttrFactory);
 
@@ -2488,17 +2501,17 @@ StmtResult Parser::ParsePragmaIntelFPGALoop(StmtVector &Stmts,
   }
 
   // Get the next statement.
-  MaybeParseCXX11Attributes(Attrs);
+  MaybeParseCXX11Attributes(DeclAttrs);
 
   StmtResult S = ParseStatementOrDeclarationAfterAttributes(
-      Stmts, StmtCtx, TrailingElseLoc, Attrs);
+      Stmts, StmtCtx, TrailingElseLoc, DeclAttrs, DeclSpecAttrs);
 
-  Attrs.takeAllFrom(TempAttrs);
+  DeclAttrs.takeAllFrom(TempAttrs);
 
   // Start of attribute range may already be set for some invalid input.
   // See PR46336.
-  if (Attrs.Range.getBegin().isInvalid())
-    Attrs.Range.setBegin(StartLoc);
+  if (DeclAttrs.Range.getBegin().isInvalid())
+    DeclAttrs.Range.setBegin(StartLoc);
 
   return S;
 }
