@@ -3332,12 +3332,6 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       if (!AttrsLastTime)
         ProhibitAttributes(attrs);
       else {
-<<<<<<< HEAD
-        // Reject C++11 attributes that appertain to decl specifiers as
-        // we don't support any C++11 attributes that appertain to decl
-        // specifiers. This also conforms to what g++ 4.8 is doing.
-	ProhibitCXX11Attributes(attrs, diag::err_attribute_not_type_attr);
-=======
         // Reject most C++11 / C2x attributes on the decl-specifier-seq, but
         // allow `annotate_type` as a special case.
         // FIXME: We should more generally allow type attributes to be placed
@@ -3356,7 +3350,6 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
           PA.setInvalid();
         }
 
->>>>>>> 006f67b440d1ab570822ac751b192436c65deb40
         DS.takeAttributesFrom(attrs);
       }
 
