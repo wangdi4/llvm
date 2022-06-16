@@ -28,7 +28,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: define dso_local i32 @main.V()
 ; CHECK: define dso_local i32 ()* @main.resolver()
 
-; Function Attrs: mustprogress noinline nounwind optnone uwtable
+; Function Attrs: mustprogress noinline nounwind uwtable
 define dso_local i32 @_Z3bariz(i32 %Size, ...) #0 !llvm.auto.cpu.dispatch !4 {
 entry:
   %Size.addr = alloca i32, align 4
@@ -36,7 +36,7 @@ entry:
   ret i32 33
 }
 
-; Function Attrs: mustprogress noinline norecurse nounwind optnone uwtable
+; Function Attrs: mustprogress noinline norecurse nounwind uwtable
 define dso_local i32 @main() #1 !llvm.auto.cpu.dispatch !4 {
 entry:
   %retval = alloca i32, align 4
@@ -45,8 +45,8 @@ entry:
   ret i32 %call
 }
 
-attributes #0 = { mustprogress noinline nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #1 = { mustprogress noinline norecurse nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #0 = { mustprogress noinline nounwind uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #1 = { mustprogress noinline norecurse nounwind uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 
 !llvm.module.flags = !{!0, !1, !2}
 !llvm.ident = !{!3}
