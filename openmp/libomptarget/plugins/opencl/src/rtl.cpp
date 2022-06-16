@@ -71,9 +71,7 @@
 // FIXME: when this is upstreamed for OpenCL.
 #define CL_MEM_FLAGS_INTEL                                               0x10001
 #define CL_MEM_ALLOW_UNRESTRICTED_SIZE_INTEL                           (1 << 23)
-#endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
 #ifdef _WIN32
 // TODO: enable again if XDEPS-3027 is resolved
 #define OCL_KERNEL_BEGIN(ID)
@@ -434,10 +432,11 @@ struct PlatformInfoTy {
       CALL_CL_RV(ExtensionFunctionPointers[i],
                  clGetExtensionFunctionAddressForPlatform, platform,
                  ExtensionFunctionNames[i]);
-      if (ExtensionFunctionPointers[i])
+      if (ExtensionFunctionPointers[i]) {
         DP("Extension %s is found.\n", ExtensionFunctionNames[i]);
-      else
+      } else {
         DP("Warning: Extension %s is not found.\n", ExtensionFunctionNames[i]);
+      }
     }
   }
 };
@@ -2432,8 +2431,10 @@ static void decideKernelGroupArguments(
 
   auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
   size_t kernelWidth = KernelProperty.Width;
+#if INTEL_CUSTOMIZATION
   size_t simdWidth = KernelProperty.SIMDWidth;
   DP("Assumed kernel SIMD width is %zu\n", simdWidth);
+#endif // INTEL_CUSTOMIZATION
   DP("Preferred group size is multiple of %zu\n", kernelWidth);
 
   size_t kernelMaxThreadGroupSize = KernelProperty.MaxThreadGroupSize;
@@ -2706,6 +2707,7 @@ static inline int32_t runTargetTeamNDRegion(
   };
   auto &AllocInfos = DeviceInfo->MemAllocInfo;
 
+#if INTEL_CUSTOMIZATION
   // Kernel dynamic memory is indirect access
   // FIXME: handle cases with multiple OpenCLProgramTy objects.
   auto KernelDynamicMem =
@@ -2714,6 +2716,7 @@ static inline int32_t runTargetTeamNDRegion(
     ImplicitUSMArgs.push_back((void *)KernelDynamicMem);
     HasUSMArgs[TARGET_ALLOC_DEVICE] = true;
   }
+#endif // INTEL_CUSTOMIZATION
 
   /// Kernel-dependent implicit arguments
   for (auto Ptr : KernelProperty.ImplicitArgs) {
@@ -2923,8 +2926,8 @@ const KernelInfoTy *RTLDeviceInfoTy::getKernelInfo(
 std::unique_ptr<std::vector<cl_mem_properties_intel>>
 RTLDeviceInfoTy::getAllocMemProperties(int32_t DeviceId, size_t Size) {
   std::vector<cl_mem_properties_intel> Properties;
-  size_t MaxSize = MaxMemAllocSize[DeviceId];
 #if INTEL_CUSTOMIZATION
+  size_t MaxSize = MaxMemAllocSize[DeviceId];
   if (Option.DeviceType == CL_DEVICE_TYPE_GPU && Size > MaxSize) {
     Properties.push_back(CL_MEM_FLAGS_INTEL);
     Properties.push_back(CL_MEM_ALLOW_UNRESTRICTED_SIZE_INTEL);
@@ -3393,7 +3396,7 @@ int32_t OpenCLProgramTy::buildKernels() {
   EntriesTimer.stop();
 
   // We are supposed to have a single final program at this point
-  for (auto I = 0; I < NumEntries; I++) {
+  for (size_t I = 0; I < NumEntries; I++) {
     // Size is 0 means that it is kernel function.
     auto Size = Image->EntriesBegin[I].size;
     char *Name = Image->EntriesBegin[I].name;
@@ -3482,8 +3485,8 @@ int32_t OpenCLProgramTy::buildKernels() {
       cl_uint NumArgs = 0;
       CALL_CL_RET_FAIL(clGetKernelInfo, Kernel, CL_KERNEL_NUM_ARGS,
                        sizeof(cl_uint), &NumArgs, nullptr);
-      DP("Kernel %d: Name = %s, NumArgs = %d\n", I, Name, NumArgs);
-      for (auto J = 0; J < NumArgs; J++) {
+      DP("Kernel %zu: Name = %s, NumArgs = %" PRIu32 "\n", I, Name, NumArgs);
+      for (cl_uint J = 0; J < NumArgs; J++) {
         CALL_CL_RET_FAIL(clGetKernelArgInfo, Kernel, J,
                          CL_KERNEL_ARG_TYPE_NAME, 0, nullptr, &BufSize);
         Buf.resize(BufSize);
@@ -3495,8 +3498,8 @@ int32_t OpenCLProgramTy::buildKernels() {
         Buf.resize(BufSize);
         CALL_CL_RET_FAIL(clGetKernelArgInfo, Kernel, J, CL_KERNEL_ARG_NAME,
                          BufSize, Buf.data(), nullptr);
-        const char *ArgName = Buf.data() ? Buf.data() : "undefined";
-        DP("  Arg %2d: %s %s\n", J, TypeName.c_str(), ArgName);
+        DP("  Arg %2" PRIu32 ": %s %s\n", J, TypeName.c_str(),
+           Buf.data() ? Buf.data() : "undefined");
       }
     }
   }
@@ -3807,12 +3810,13 @@ void *OpenCLProgramTy::getVarDeviceAddr(const char *Name, size_t *SizePtr) {
   void *TgtAddr = nullptr;
   size_t Size = *SizePtr;
   bool SizeIsKnown = (Size != 0);
-  if (SizeIsKnown)
+  if (SizeIsKnown) {
     DP("Looking up device global variable '%s' of size %zu bytes "
        "on device %d.\n", Name, Size, DeviceId);
-  else
+  } else {
     DP("Looking up device global variable '%s' of unknown size "
        "on device %d.\n", Name, DeviceId);
+  }
 
   if (!DeviceInfo->isExtensionFunctionEnabled(
           DeviceId, clGetDeviceGlobalVariablePointerINTELId))
@@ -3917,8 +3921,8 @@ int32_t __tgt_rtl_number_of_devices() {
     if (RC != CL_SUCCESS || NumDevices == 0)
       continue;
 
-    const char *PlatformName = Buf.data() ? Buf.data() : "undefined";
-    DP("Platform %s has %" PRIu32 " Devices\n", PlatformName, NumDevices);
+    DP("Platform %s has %" PRIu32 " Devices\n",
+       Buf.data() ? Buf.data() : "undefined", NumDevices);
     std::vector<cl_device_id> Devices(NumDevices);
     CALL_CL_RET_ZERO(clGetDeviceIDs, ID, DeviceInfo->Option.DeviceType,
                      NumDevices, Devices.data(), nullptr);
@@ -4089,6 +4093,7 @@ __tgt_target_table *__tgt_rtl_load_binary(
 
   size_t ImageSize = (size_t)Image->ImageEnd - (size_t)Image->ImageStart;
   size_t NumEntries = (size_t)(Image->EntriesEnd - Image->EntriesBegin);
+  (void)NumEntries;
 
   DP("Expecting to have %zu entries defined\n", NumEntries);
 
@@ -4158,8 +4163,10 @@ __tgt_target_table *__tgt_rtl_load_binary(
   if (RC != OFFLOAD_SUCCESS)
     return nullptr;
 
+#if INTEL_CUSTOMIZATION
   if (Program.initProgramData() != OFFLOAD_SUCCESS)
     return nullptr;
+#endif // INTEL_CUSTOMIZATION
 
   auto *Table = Program.getTablePtr();
 
@@ -4443,6 +4450,7 @@ char *__tgt_rtl_get_device_name(int32_t DeviceId, char *Buf, size_t BufMax) {
   return Buf;
 }
 
+#if INTEL_CUSTOMIZATION
 int32_t __tgt_rtl_get_data_alloc_info(
     int32_t DeviceId, int32_t NumPtrs, void *TgtPtrs, void *AllocInfo) {
   void **Ptrs = static_cast<void **>(TgtPtrs);
@@ -4460,6 +4468,7 @@ int32_t __tgt_rtl_get_data_alloc_info(
   }
   return OFFLOAD_SUCCESS;
 }
+#endif // INTEL_CUSTOMIZATION
 
 void __tgt_rtl_add_build_options(
     const char *CompileOptions, const char *LinkOptions) {
@@ -4681,6 +4690,7 @@ int32_t __tgt_rtl_is_private_arg_on_host(
   return 0;
 }
 
+#if INTEL_CUSTOMIZATION
 int32_t __tgt_rtl_set_function_ptr_map(
     int32_t DeviceId, uint64_t Size,
     const __omp_offloading_fptr_map_t *FnPtrs) {
@@ -4777,6 +4787,7 @@ int32_t __tgt_rtl_set_function_ptr_map(
 
   return OFFLOAD_SUCCESS;
 }
+#endif // INTEL_CUSTOMIZATION
 
 void *__tgt_rtl_alloc_per_hw_thread_scratch(
     int32_t DeviceId, size_t ObjSize, int32_t AllocKind) {
