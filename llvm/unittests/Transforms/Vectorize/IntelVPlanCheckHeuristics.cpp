@@ -110,8 +110,10 @@ declare i32 @llvm.abs.i32(i32, i1))";
   std::unique_ptr<VPlanCostModelInterface> CMFull =
     LVP.createCostModel(Plan.get(), 1);
 
-  VPInstructionCost BaseCost = CMBase.get()->getCost();
-  VPInstructionCost FullCost = CMFull.get()->getCost();
+  VPInstructionCost BaseCost;
+  std::tie(BaseCost, std::ignore) = CMBase.get()->getCost();
+  VPInstructionCost FullCost;
+  std::tie(FullCost, std::ignore) = CMFull.get()->getCost();
   // psadbw heuristics should be a part of Full CM and expected to trigger on
   // input in this test. The output Cost for Full CM is expected to be reduced
   // by the heuristic.
