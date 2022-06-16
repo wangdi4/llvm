@@ -186,6 +186,7 @@ struct Configuration {
   SectionRenameMap sectionRenameMap;
   SegmentRenameMap segmentRenameMap;
 
+  bool hasExplicitExports = false;
   SymbolPatterns exportedSymbols;
   SymbolPatterns unexportedSymbols;
   SymbolPatterns whyLive;
