@@ -13110,7 +13110,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     auto *UBVal = BeforeRegBuilder.CreateLoad(
         UBType, UBPtrDef, Twine(UBPtrDef->getName()) + Twine(".val"));
     auto *UBValExt =
-        BeforeRegBuilder.CreateZExtOrTrunc(UBVal, CombinedUBType, ".zext");
+        BeforeRegBuilder.CreateSExtOrTrunc(UBVal, CombinedUBType, ".sext");
     MulOperands.push_back(
         BeforeRegBuilder.CreateAdd(UBValExt,
                                    ConstantInt::get(CombinedUBType, 1),
