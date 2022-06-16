@@ -149,7 +149,7 @@ unreach2:
 
 define void @pr53208_single_reachable_dest(i8 %sw, i32* %p0) {
 ; CHECK-LABEL: @pr53208_single_reachable_dest(
-; CHECK-NEXT:  group2:
+; INTEL CHECK-NEXT:  exit:
 ; CHECK-NEXT:    call void @bar(i32* [[P0:%.*]])
 ; CHECK-NEXT:    ret void
 ;
