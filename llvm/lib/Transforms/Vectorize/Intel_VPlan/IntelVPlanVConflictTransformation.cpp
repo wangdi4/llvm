@@ -398,11 +398,12 @@ VPValue* createPermuteIntrinsic(StringRef Name, Type *Ty, VPValue *PermuteVals,
     return VPBldr.create<VPPermute>(Name, Ty, PermuteVals, Control);
 }
 
-// Do the actual tree conflict lowering using the double permute tree reduction
-// algorithm described in <TODO: put link location here>. Due to the size of
-// the IR generated, please refer to vplan_lower_tree_conflict*.ll tests. The
-// Vlan dump can also be used with these tests through
-// VPlanLowerTreeConflictControl (-vplan-print-after-lower-tree-conflict)
+// llvm/test/Transforms/Intel_VPO/Vecopt/vplan_tree_conflict_verify.ll can
+// be used as a reference for the final output of the double permute tree
+// reduction algorithm.
+//
+// For a tutorial on how the double permute tree reduction algorithm works,
+// please visit the VPO Team Wiki page.
 bool lowerTreeConflictsToDoublePermuteTreeReduction(VPlanVector *Plan,
                                                     unsigned VF, Function &Fn) {
 
@@ -432,7 +433,44 @@ bool lowerTreeConflictsToDoublePermuteTreeReduction(VPlanVector *Plan,
     auto *TreeConflictParent = TreeConflict->getParent();
     auto *Pred = TreeConflictItem.second;
 
-    // Generate the conflict loop.
+    // The tree conflict lowering performs the following transformation on the
+    // VPlan.
+    //
+    // Incoming VPlan:
+    //
+    // VectorLoopPreheader
+    //         |
+    //         |      -------------------------
+    //         |      |                        |
+    //         |      v                        |
+    // TreeConflictParent (vector loop header) |
+    // (contains tree-conflict instruction) --->
+    //         |
+    //         |
+    //   VectorLoopExit
+    //
+    //
+    // TreeConflictParent is transformed to:
+    //
+    //
+    //                Conflict pre-check:
+    //       (contains vconflict, initial mask check)
+    //             /                      \
+    //            /                        |
+    //            |            Conflict loop preheader (empty)
+    //            |                        |
+    //            |                        |
+    //            |                Conflict loop header
+    //            |           (compute running sum, next mask)
+    //            |                        |
+    //            |                        |
+    //            |              Conflict loop exit (empty)
+    //             \                      /
+    //              \                    /
+    //                   PostConflict
+    //          (final update of reduction op)
+
+    // Generate the conflict loop structure.
     auto SplitIt = TreeConflict->getIterator();
     auto *ConflictPreheader =
         VPBlockUtils::splitBlock(TreeConflictParent, SplitIt, VPLI,
