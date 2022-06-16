@@ -188,7 +188,7 @@ enum ExtensionIdTy {
 
 #define CASE_TO_STRING(s) case s: return #s;
 
-static const char *getCLErrorName(int error) {
+const char *getCLErrorName(int error) {
   switch (error) {
     FOREACH_CL_ERROR_CODE(CASE_TO_STRING)
   default:
