@@ -39,16 +39,12 @@
 ; CHECK:          SetVectorizationFactorLegacy
 ; CHECK:          ResolveSubGroupWICallLegacy
 ; CHECK-NEXT:     FunctionPass Manager
-; CHECK-NEXT:       Intel DPCPP Kernel OptimizeIDivAndIRem Pass
 ; CHECK-NEXT:       Intel DPCPP Kernel PreventDivCrashes Pass
 ; CHECK-NEXT:     WGLoopCreatorLegacy
 ; CHECK-NEXT:       FunctionPass Manager
 ; CHECK-NEXT:         Unify function exit nodes
 ; CHECK-NEXT:     Lowering __intel_indirect_call scalar calls
-; CHECK-NEXT:     FunctionPass Manager
-; CHECK:            PhiCanonicalization
-; CHECK-NEXT:       Intel Kernel RedundantPhiNode
-; CHECK-NEXT:     GroupBuiltin
+; CHECK:          GroupBuiltin
 ; CHECK-NEXT:     Intel Kernel BarrierInFunction
 ; CHECK-NEXT:     Intel DPCPP Kernel RemoveDuplicatedBarrier Pass
 ; CHECK-NEXT:     ResolveSubGroupWICallLegacy
@@ -65,7 +61,6 @@
 ; CHECK-NEXT:     CallGraph Construction
 ; CHECK-NEXT:     LocalBufferAnalysisLegacy
 ; CHECK-NEXT:     LocalBuffersLegacy
-; CHECK-NEXT:     Global Variable Optimizer
 ; CHECK:          BuiltinImportLegacy
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       BuiltinCallToInstLegacy

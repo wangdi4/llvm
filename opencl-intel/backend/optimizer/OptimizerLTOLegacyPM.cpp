@@ -350,7 +350,7 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
 
   MPM.add(createResolveSubGroupWICallLegacyPass(
       /*ResolveSGBarrier*/ false));
-  if (!m_IsEyeQEmulator)
+  if (OptLevel > 0 && !m_IsEyeQEmulator)
     MPM.add(createOptimizeIDivAndIRemLegacyPass());
 
   MPM.add(createPreventDivCrashesLegacyPass());
@@ -430,7 +430,7 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
   // The next pass createGlobalOptimizerPass cleans the unused global
   // allocation in order to make sure we will not allocate redundant space on
   // the jit
-  if (m_debugType != intel::Native)
+  if (OptLevel > 0 && m_debugType != intel::Native)
     MPM.add(createGlobalOptimizerPass());
 
 #ifdef _DEBUG
@@ -526,12 +526,12 @@ void OptimizerLTOLegacyPM::addBarrierPasses(unsigned OptLevel, legacy::PassManag
     if (OptLevel > 0) {
       MPM.add(createDeadCodeEliminationPass());
       MPM.add(createCFGSimplificationPass());
-
       MPM.add(createPromoteMemoryToRegisterPass());
+      MPM.add(createPhiCanonicalizationLegacyPass());
+      MPM.add(createRedundantPhiNodeLegacyPass());
     }
   }
-  MPM.add(createPhiCanonicalizationLegacyPass());
-  MPM.add(createRedundantPhiNodeLegacyPass());
+
   MPM.add(createGroupBuiltinLegacyPass());
   MPM.add(createBarrierInFunctionLegacyPass());
 

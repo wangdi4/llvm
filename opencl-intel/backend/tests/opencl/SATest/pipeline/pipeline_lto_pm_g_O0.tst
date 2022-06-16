@@ -25,7 +25,6 @@
 
 ; CHECK:      Running pass: DetectRecursionPass
 ; CHECK-NEXT: Running pass: ResolveVarTIDCallPass
-; CHECK-NEXT: Running pass: InferArgumentAliasPass
 ; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
 ; CHECK:      Running pass: InstToFuncCallPass
 ; CHECK:      Running pass: ReqdSubGroupSizePass
@@ -34,7 +33,6 @@
 ; CHECK:      Running analysis: WeightedInstCountAnalysis
 
 ; CHECK:      Running pass: ResolveSubGroupWICallPass
-; CHECK-NEXT: Skipping pass OptimizeIDivAndIRemPass
 ; CHECK:      Running pass: PreventDivCrashesPass
 ; CHECK-NEXT: Running pass: ImplicitGIDPass
 ; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
@@ -43,8 +41,6 @@
 ; CHECK:      Skipping pass RemoveRegionDirectivesPass
 ; CHECK:      Skipping pass UnifyFunctionExitNodesPass
 
-; CHECK:      Skipping pass PhiCanonicalization
-; CHECK:      Skipping pass RedundantPhiNode
 ; CHECK:      Running pass: GroupBuiltinPass
 ; CHECK-NEXT: Running pass: BarrierInFunction
 ; CHECK:      Running pass: ResolveSubGroupWICallPass
