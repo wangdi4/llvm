@@ -2144,7 +2144,8 @@ private:
       SourceLocation *TrailingElseLoc = nullptr);
   StmtResult ParseStatementOrDeclarationAfterAttributes(
       StmtVector &Stmts, ParsedStmtContext StmtCtx,
-      SourceLocation *TrailingElseLoc, ParsedAttributes &Attrs);
+      SourceLocation *TrailingElseLoc, ParsedAttributes &DeclAttrs,
+      ParsedAttributes &DeclSpecAttrs);
   StmtResult ParseExprStatement(ParsedStmtContext StmtCtx);
   StmtResult ParseLabeledStatement(ParsedAttributes &Attrs,
                                    ParsedStmtContext StmtCtx);
@@ -2181,7 +2182,8 @@ private:
   StmtResult ParsePragmaIntelFPGALoop(StmtVector &Stmts,
                                       ParsedStmtContext StmtCtx,
                                       SourceLocation *TrailingElseLoc,
-                                      ParsedAttributes &Attrs);
+                                      ParsedAttributes &DeclAttrs,
+                                      ParsedAttributes &DeclSpecAttrs);
   // HLS loop pragmas
   std::unique_ptr<PragmaHandler> LoopCoalesceHandler;
   std::unique_ptr<PragmaHandler> IIHandler;
@@ -2209,7 +2211,8 @@ private:
   StmtResult ParsePragmaInline(StmtVector &Stmts,
                                ParsedStmtContext StmtCtx,
                                SourceLocation *TrailingElseLoc,
-                               ParsedAttributes &Attrs);
+                               ParsedAttributes &DeclAttrs,
+                               ParsedAttributes &DeclSpecAttrs);
   // Pragma distribute_point
   std::unique_ptr<PragmaHandler> DistributePointHandler;
   // Pragma nofusion
@@ -2229,15 +2232,18 @@ private:
   StmtResult ParsePragmaBlockLoop(StmtVector &Stmts,
                                   ParsedStmtContext StmtCtx,
                                   SourceLocation *TrailingElseLoc,
-                                  ParsedAttributes &Attrs);
+                                  ParsedAttributes &DeclAttrs,
+                                  ParsedAttributes &DeclSpecAttrs);
   bool HandlePragmaBlockLoop(ArgsVector *ArgExprs);
   StmtResult ParsePragmaLoopCount(StmtVector &Stmts,
                                   ParsedStmtContext StmtCtx,
                                   SourceLocation *TrailingElseLoc,
-                                  ParsedAttributes &Attrs);
+                                  ParsedAttributes &DeclAttrs,
+                                  ParsedAttributes &DeclSpecAttrs);
   StmtResult ParsePragmaVector(StmtVector &Stmts, ParsedStmtContext StmtCtx,
                                SourceLocation *TrailingElseLoc,
-                               ParsedAttributes &Attrs);
+                               ParsedAttributes &DeclAttrs,
+                               ParsedAttributes &DeclSpecAttrs);
   // Pragma prefetch
   std::unique_ptr<PragmaHandler> PrefetchHandler;
   // Pragma noprefetch
@@ -2245,7 +2251,8 @@ private:
   StmtResult ParsePragmaPrefetch(StmtVector &Stmts,
                                  ParsedStmtContext StmtCtx,
                                  SourceLocation *TrailingElseLoc,
-                                 ParsedAttributes &Attrs);
+                                 ParsedAttributes &DeclAttrs,
+                                 ParsedAttributes &DeclSpecAttrs);
   bool HandlePragmaPrefetch(ArgsVector *ArgExprs);
 #endif // INTEL_CUSTOMIZATION
 
@@ -2464,15 +2471,18 @@ private:
 
   DeclGroupPtrTy ParseDeclaration(DeclaratorContext Context,
                                   SourceLocation &DeclEnd,
-                                  ParsedAttributes &Attrs,
+                                  ParsedAttributes &DeclAttrs,
+                                  ParsedAttributes &DeclSpecAttrs,
                                   SourceLocation *DeclSpecStart = nullptr);
   DeclGroupPtrTy
   ParseSimpleDeclaration(DeclaratorContext Context, SourceLocation &DeclEnd,
-                         ParsedAttributes &Attrs, bool RequireSemi,
+                         ParsedAttributes &DeclAttrs,
+                         ParsedAttributes &DeclSpecAttrs, bool RequireSemi,
                          ForRangeInit *FRI = nullptr,
                          SourceLocation *DeclSpecStart = nullptr);
   bool MightBeDeclarator(DeclaratorContext Context);
   DeclGroupPtrTy ParseDeclGroup(ParsingDeclSpec &DS, DeclaratorContext Context,
+                                ParsedAttributes &Attrs,
                                 SourceLocation *DeclEnd = nullptr,
                                 ForRangeInit *FRI = nullptr);
   Decl *ParseDeclarationAfterDeclarator(Declarator &D,
