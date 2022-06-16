@@ -13121,10 +13121,14 @@
 ; CHECK-NEXT: _Z4exp2Dv64_f
 ; CHECK-NEXT: _Z4exp2Dv64_fS_
 ; CHECK-NEXT: _Z4exp2Dv8_d
+; CHECK-NEXT: _Z4fabsDv32_Dh
+; CHECK-NEXT: _Z4fabsDv32_DhS_
 ; CHECK-NEXT: _Z4fabsDv32_d
 ; CHECK-NEXT: _Z4fabsDv32_dS_
 ; CHECK-NEXT: _Z4fabsDv32_f
 ; CHECK-NEXT: _Z4fabsDv32_fS_
+; CHECK-NEXT: _Z4fabsDv64_Dh
+; CHECK-NEXT: _Z4fabsDv64_DhS_
 ; CHECK-NEXT: _Z4fabsDv64_d
 ; CHECK-NEXT: _Z4fabsDv64_dS_
 ; CHECK-NEXT: _Z4fabsDv64_f
