@@ -5009,23 +5009,15 @@ enum class LoadsState { Gather, Vectorize, ScatterVectorize, SplitLoads };
 
 /// Checks if the given array of loads can be represented as a vectorized,
 /// scatter or just simple gather.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static LoadsState canVectorizeLoads(
     ArrayRef<Value *> VL, const Value *VL0, const TargetTransformInfo &TTI,
-    const DataLayout &DL, ScalarEvolution &SE, SmallVectorImpl<unsigned> &Order,
+    const DataLayout &DL, ScalarEvolution &SE, LoopInfo &LI,
+    SmallVectorImpl<unsigned> &Order,
     SmallVectorImpl<Value *> &PointerOps,
     SmallVectorImpl<std::tuple<unsigned, unsigned, BoUpSLP::OrdersType>>
         &LoadGroups) {
 #endif // INTEL_CUSTOMIZATION
-=======
-static LoadsState canVectorizeLoads(ArrayRef<Value *> VL, const Value *VL0,
-                                    const TargetTransformInfo &TTI,
-                                    const DataLayout &DL, ScalarEvolution &SE,
-                                    LoopInfo &LI,
-                                    SmallVectorImpl<unsigned> &Order,
-                                    SmallVectorImpl<Value *> &PointerOps) {
->>>>>>> 7236d49fd5f9fd6510a511ce66b778b9ed29dcc8
   // Check that a vectorized load would load the same memory as a scalar
   // load. For example, we don't want to vectorize loads that are smaller
   // than 8-bit. Even though we have a packed struct {<i2, i2, i2, i2>} LLVM
@@ -5091,32 +5083,19 @@ static LoadsState canVectorizeLoads(ArrayRef<Value *> VL, const Value *VL0,
         static_cast<unsigned>(count_if(PointerOps, [L](Value *V) {
           return L && L->isLoopInvariant(V);
         })) <= VL.size() / 2 && VL.size() > 2;
-    if (ProfitableGatherPointers || all_of(PointerOps, [IsSorted](Value *P) {
-          auto *GEP = dyn_cast<GetElementPtrInst>(P);
-          return (IsSorted && !GEP && doesNotNeedToBeScheduled(P)) ||
-                 (GEP && GEP->getNumOperands() == 2);
-        })) {
-      Align CommonAlignment = cast<LoadInst>(VL0)->getAlign();
-      for (Value *V : VL)
-        CommonAlignment =
-            commonAlignment(CommonAlignment, cast<LoadInst>(V)->getAlign());
-      auto *VecTy = FixedVectorType::get(ScalarTy, VL.size());
-      if (TTI.isLegalMaskedGather(VecTy, CommonAlignment) &&
-          !TTI.forceScalarizeMaskedGather(VecTy, CommonAlignment))
-        return LoadsState::ScatterVectorize;
-    }
-<<<<<<< HEAD
-    Optional<int> Diff =
-        getPointersDiff(ScalarTy, Ptr0, ScalarTy, PtrN, DL, SE);
-    // Check that the sorted loads are consecutive.
-    if (static_cast<unsigned>(*Diff) == VL.size() - 1)
-      return LoadsState::Vectorize;
 #if INTEL_CUSTOMIZATION
     // We might want to issue gather load only if split load fails.
     // Do not consider to issue gather for vectors having less then
-    // MinGatherLoadSize elements.
+    // MinGatherLoadSize elements, unless in compatibility mode.
     CandidateForGatherLoad =
-        CompatibilitySLPMode || VL.size() >= MinGatherLoadSize;
+        ProfitableGatherPointers || all_of(PointerOps, [IsSorted](Value *P) {
+          auto *GEP = dyn_cast<GetElementPtrInst>(P);
+          return (IsSorted && !GEP && doesNotNeedToBeScheduled(P)) ||
+                 (GEP && GEP->getNumOperands() == 2);
+        });
+    if (!CompatibilitySLPMode)
+      CandidateForGatherLoad =
+          CandidateForGatherLoad && VL.size() >= MinGatherLoadSize;
   }
 
   if (canVectorizeSplitLoads(ScalarTy, VL.size(), DL, SE, PointerOps, Order,
@@ -5127,7 +5106,6 @@ static LoadsState canVectorizeLoads(ArrayRef<Value *> VL, const Value *VL0,
   // Do not consider to issue gather for vectors having
   // less then MinGatherLoadSize elements.
   if (CandidateForGatherLoad) {
-#endif // INTEL_CUSTOMIZATION
     Align CommonAlignment = cast<LoadInst>(VL0)->getAlign();
     for (Value *V : VL)
       CommonAlignment =
@@ -5136,9 +5114,8 @@ static LoadsState canVectorizeLoads(ArrayRef<Value *> VL, const Value *VL0,
     if (TTI.isLegalMaskedGather(VecTy, CommonAlignment) &&
         !TTI.forceScalarizeMaskedGather(VecTy, CommonAlignment))
       return LoadsState::ScatterVectorize;
-=======
->>>>>>> 7236d49fd5f9fd6510a511ce66b778b9ed29dcc8
   }
+#endif // INTEL_CUSTOMIZATION
 
   return LoadsState::Gather;
 }
@@ -6551,16 +6528,11 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     }
     return true;
   };
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  if (allConstant(VL) || isSplat(VL) || !allSameBlock(VL) ||
-      (S.getOpcode() &&
-       isa<InsertElementInst, ExtractValueInst, ExtractElementInst>(S.MainOp) &&
-=======
   SmallVector<unsigned> SortedIndices;
   BasicBlock *BB = nullptr;
+#if INTEL_CUSTOMIZATION
   bool AreAllSameInsts =
-      (S.getOpcode() && allSameBlock(VL)) ||
+      allSameBlock(VL) ||
       (S.OpValue->getType()->isPointerTy() && UserTreeIdx.UserTE &&
        UserTreeIdx.UserTE->State == TreeEntry::ScatterVectorize &&
        VL.size() > 2 &&
@@ -6577,9 +6549,8 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
        sortPtrAccesses(VL, UserTreeIdx.UserTE->getMainOp()->getType(), *DL, *SE,
                        SortedIndices));
   if (allConstant(VL) || isSplat(VL) || !AreAllSameInsts ||
-      (isa<InsertElementInst, ExtractValueInst, ExtractElementInst>(
-           S.OpValue) &&
->>>>>>> 7236d49fd5f9fd6510a511ce66b778b9ed29dcc8
+      (S.getOpcode() &&
+       isa<InsertElementInst, ExtractValueInst, ExtractElementInst>(S.MainOp) &&
        !all_of(VL, isVectorLikeInstWithConstOps)) ||
 #endif // INTEL_CUSTOMIZATION
       NotProfitableForVectorization(VL)) {
@@ -7058,19 +7029,14 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       SmallVector<Value *> PointerOps;
       OrdersType CurrentOrder;
       TreeEntry *TE = nullptr;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       // Each consecutive group is represented by starting index, load size
       // (number of consecutive scalar elements) and re-ordering information (if
       // any).
       SmallVector<std::tuple<unsigned, unsigned, OrdersType>, 1> LoadGroups;
-      switch (canVectorizeLoads(VL, VL0, *TTI, *DL, *SE, CurrentOrder,
+      switch (canVectorizeLoads(VL, VL0, *TTI, *DL, *SE, *LI, CurrentOrder,
                                 PointerOps, LoadGroups)) {
 #endif // INTEL_CUSTOMIZATION
-=======
-      switch (canVectorizeLoads(VL, VL0, *TTI, *DL, *SE, *LI, CurrentOrder,
-                                PointerOps)) {
->>>>>>> 7236d49fd5f9fd6510a511ce66b778b9ed29dcc8
       case LoadsState::Vectorize:
         if (CurrentOrder.empty()) {
           // Original loads are consecutive and does not require reordering.
@@ -8106,7 +8072,6 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
               !VectorizedLoads.count(Slice.back()) && allSameBlock(Slice)) {
             SmallVector<Value *> PointerOps;
             OrdersType CurrentOrder;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
             // Each consecutive group is represented by starting index, load
             // size (number of consecutive scalar elements) and re-ordering
@@ -8114,14 +8079,9 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
             SmallVector<std::tuple<unsigned, unsigned, OrdersType>, 1>
                 LoadGroups;
             LoadsState LS =
-                canVectorizeLoads(Slice, Slice.front(), *TTI, *DL, *SE,
+                canVectorizeLoads(Slice, Slice.front(), *TTI, *DL, *SE, *LI,
                                   CurrentOrder, PointerOps, LoadGroups);
 #endif // INTEL_CUSTOMIZATION
-=======
-            LoadsState LS =
-                canVectorizeLoads(Slice, Slice.front(), *TTI, *DL, *SE, *LI,
-                                  CurrentOrder, PointerOps);
->>>>>>> 7236d49fd5f9fd6510a511ce66b778b9ed29dcc8
             switch (LS) {
             case LoadsState::Vectorize:
             case LoadsState::ScatterVectorize:
