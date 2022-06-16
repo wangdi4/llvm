@@ -303,7 +303,8 @@ void OptimizerLTO::registerOptimizerEarlyCallback(PassBuilder &PB) {
           MPM.addPass(ResolveMatrixWISlicePass());
         }
 
-        MPM.addPass(InferArgumentAliasPass());
+        if (Level != OptimizationLevel::O0)
+          MPM.addPass(InferArgumentAliasPass());
 
         MPM.addPass(DPCPPKernelAnalysisPass());
 
@@ -405,7 +406,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     MPM.addPass(ResolveSubGroupWICallPass(/*ResolveSGBarrier*/ false));
 
     FunctionPassManager FPM;
-    if (!m_IsEyeQEmulator)
+    if (Level != OptimizationLevel::O0 && !m_IsEyeQEmulator)
       FPM.addPass(OptimizeIDivAndIRemPass());
     FPM.addPass(PreventDivCrashesPass());
     if (Level != OptimizationLevel::O0) {
@@ -497,7 +498,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     // The next pass GlobalOptPass cleans the unused global
     // allocation in order to make sure we will not allocate redundant space on
     // the jit
-    if (m_debugType != intel::Native)
+    if (Level != OptimizationLevel::O0 && m_debugType != intel::Native)
       MPM.addPass(GlobalOptPass());
 
 #ifdef _DEBUG
@@ -595,13 +596,12 @@ void OptimizerLTO::addBarrierPasses(ModulePassManager &MPM, OptimizationLevel Le
       FPM.addPass(DCEPass());
       FPM.addPass(SimplifyCFGPass());
       FPM.addPass(PromotePass());
+      FPM.addPass(PhiCanonicalization());
+      FPM.addPass(RedundantPhiNode());
       MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
     }
   }
-  FunctionPassManager FPM;
-  FPM.addPass(PhiCanonicalization());
-  FPM.addPass(RedundantPhiNode());
-  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+
   MPM.addPass(GroupBuiltinPass());
   MPM.addPass(BarrierInFunction());
   // Only run this when not debugging or when not in native (gdb) debugging

@@ -36,11 +36,12 @@ void addBarrierMainPasses(llvm::legacy::PassManagerBase &PM, unsigned OptLevel,
     PM.add(createCFGSimplificationPass());
 
     PM.add(createPromoteMemoryToRegisterPass());
+
+    PM.add(createPhiCanonicalizationLegacyPass());
+    PM.add(createRedundantPhiNodeLegacyPass());
   }
 
-  PM.add(createPhiCanonicalizationLegacyPass());
   // Register barrier module passes
-  PM.add(createRedundantPhiNodeLegacyPass());
   PM.add(createGroupBuiltinLegacyPass());
   PM.add(createBarrierInFunctionLegacyPass());
 
