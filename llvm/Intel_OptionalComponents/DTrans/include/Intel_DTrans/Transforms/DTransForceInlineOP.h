@@ -15,6 +15,9 @@
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
+
+class TargetLibraryInfo;
+
 namespace dtransOP {
 
 // This pass will force inline or noinline on Functions to support
@@ -25,7 +28,9 @@ class DTransForceInlineOPPass
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
-  bool runImpl(Module &M);
+  bool
+  runImpl(Module &M,
+          std::function<const TargetLibraryInfo &(const Function &)> GetTLI);
 };
 
 } // end namespace dtransOP
