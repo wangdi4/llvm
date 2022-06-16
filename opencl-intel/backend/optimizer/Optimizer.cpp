@@ -320,11 +320,9 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   // OCL2.0 add Generic Address Resolution
   // LLVM IR converted from any version of SPIRV may have Generic
   // adress space pointers.
-  if (isOcl20 || isSPIRV) {
+  if ((isOcl20 || isSPIRV) && OptLevel > 0) {
     // Static resolution of generic address space pointers
-    if (OptLevel > 0) {
-      PM.add(llvm::createPromoteMemoryToRegisterPass());
-    }
+    PM.add(llvm::createPromoteMemoryToRegisterPass());
     PM.add(llvm::createInferAddressSpacesPass(
         llvm::CompilationUtils::ADDRESS_SPACE_GENERIC));
   }
@@ -387,19 +385,17 @@ static void populatePassesPostFailCheck(
 
   PM.add(createImplicitArgsAnalysisLegacyPass());
 
-  if (isOcl20 || IsSPIRV) {
+  if ((isOcl20 || IsSPIRV) && OptLevel > 0) {
     // Repeat resolution of generic address space pointers after LLVM
     // IR was optimized
     PM.add(llvm::createInferAddressSpacesPass(
         llvm::CompilationUtils::ADDRESS_SPACE_GENERIC));
     // Cleanup after InferAddressSpacesPass
-    if (OptLevel > 0) {
-      PM.add(llvm::createCFGSimplificationPass());
-      PM.add(llvm::createSROAPass());
-      PM.add(llvm::createEarlyCSEPass());
-      PM.add(llvm::createPromoteMemoryToRegisterPass());
-      PM.add(llvm::createInstructionCombiningPass());
-    }
+    PM.add(llvm::createCFGSimplificationPass());
+    PM.add(llvm::createSROAPass());
+    PM.add(llvm::createEarlyCSEPass());
+    PM.add(llvm::createPromoteMemoryToRegisterPass());
+    PM.add(llvm::createInstructionCombiningPass());
     // No need to run function inlining pass here, because if there are still
     // non-inlined functions left - then we don't have to inline new ones.
   }
@@ -417,7 +413,8 @@ static void populatePassesPostFailCheck(
   }
 
   // Run few more passes after GenericAddressStaticResolution
-  PM.add(llvm::createInferArgumentAliasLegacyPass());
+  if (OptLevel > 0)
+    PM.add(llvm::createInferArgumentAliasLegacyPass());
   PM.add(llvm::createUnifyFunctionExitNodesPass());
 
 
@@ -579,10 +576,11 @@ static void populatePassesPostFailCheck(
         /*ResolveSGBarrier*/ false));
 
   // Unroll small loops with unknown trip count.
-  PM.add(llvm::createLoopUnrollPass(OptLevel, false, false, 16, 0, 0, 1));
-  if (!isEyeQEmulator)
-    PM.add(createOptimizeIDivAndIRemLegacyPass());
-
+  if (OptLevel > 0) {
+    PM.add(llvm::createLoopUnrollPass(OptLevel, false, false, 16, 0, 0, 1));
+    if (!isEyeQEmulator)
+      PM.add(createOptimizeIDivAndIRemLegacyPass());
+  }
   PM.add(createPreventDivCrashesLegacyPass());
   // We need InstructionCombining and GVN passes after PreventDivCrashes
   // passes to optimize redundancy introduced by those passes
@@ -660,7 +658,7 @@ static void populatePassesPostFailCheck(
   // The next pass createGlobalOptimizerPass cleans the unused global
   // allocation in order to make sure we will not allocate redundant space on
   // the jit
-  if (debugType != Native)
+  if (OptLevel > 0 && debugType != Native)
     PM.add(llvm::createGlobalOptimizerPass());
 
 #ifdef _DEBUG

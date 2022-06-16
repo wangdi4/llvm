@@ -359,11 +359,10 @@ void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
   // OCL2.0 add Generic Address Resolution
   // LLVM IR converted from any version of SPIRV may have Generic
   // adress space pointers.
-  if (m_IsOcl20 || m_IsSPIRV) {
+  if ((m_IsOcl20 || m_IsSPIRV) && Level != OptimizationLevel::O0) {
     FunctionPassManager FPM;
     // Static resolution of generic address space pointers
-    if (Level != OptimizationLevel::O0)
-      FPM.addPass(PromotePass());
+    FPM.addPass(PromotePass());
     FPM.addPass(
         InferAddressSpacesPass(CompilationUtils::ADDRESS_SPACE_GENERIC));
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
@@ -390,20 +389,18 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
 
   MPM.addPass(RequireAnalysisPass<ImplicitArgsAnalysis, Module>());
 
-  if (m_IsOcl20 || m_IsSPIRV) {
+  if ((m_IsOcl20 || m_IsSPIRV) && Level != OptimizationLevel::O0) {
     FunctionPassManager FPM;
     // Repeat resolution of generic address space pointers after LLVM
     // IR was optimized
     FPM.addPass(
         InferAddressSpacesPass(CompilationUtils::ADDRESS_SPACE_GENERIC));
     // Cleanup after InferAddressSpacesPass
-    if (Level != OptimizationLevel::O0) {
-      FPM.addPass(SimplifyCFGPass());
-      FPM.addPass(SROAPass());
-      FPM.addPass(EarlyCSEPass());
-      FPM.addPass(PromotePass());
-      FPM.addPass(InstCombinePass());
-    }
+    FPM.addPass(SimplifyCFGPass());
+    FPM.addPass(SROAPass());
+    FPM.addPass(EarlyCSEPass());
+    FPM.addPass(PromotePass());
+    FPM.addPass(InstCombinePass());
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
     // No need to run function inlining pass here, because if there are still
     // non-inlined functions left - then we don't have to inline new ones.
@@ -422,7 +419,8 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   }
 
   // Run few more passes after GenericAddressStaticResolution
-  MPM.addPass(InferArgumentAliasPass());
+  if (Level != OptimizationLevel::O0)
+    MPM.addPass(InferArgumentAliasPass());
   MPM.addPass(createModuleToFunctionPassAdaptor(UnifyFunctionExitNodesPass()));
 
   // Should be called before vectorizer!
@@ -551,12 +549,14 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
 
   // Unroll small loops with unknown trip count.
   FunctionPassManager FPM1;
-  LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
-  UnrollOpts.setPartial(false).setRuntime(false).setThreshold(16);
-  FPM1.addPass(LoopUnrollPass(UnrollOpts));
-  if (!m_IsEyeQEmulator)
-    FPM1.addPass(OptimizeIDivAndIRemPass());
+  if (Level != OptimizationLevel::O0) {
+    LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
+    UnrollOpts.setPartial(false).setRuntime(false).setThreshold(16);
+    FPM1.addPass(LoopUnrollPass(UnrollOpts));
 
+    if (!m_IsEyeQEmulator)
+      FPM1.addPass(OptimizeIDivAndIRemPass());
+  }
   FPM1.addPass(PreventDivCrashesPass());
   // We need InstructionCombining and GVN passes after PreventDivCrashes
   // passes to optimize redundancy introduced by those passes
@@ -642,7 +642,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   // The next pass GlobalOptPass cleans the unused global
   // allocation in order to make sure we will not allocate redundant space on
   // the jit
-  if (m_debugType != intel::Native)
+  if (Level != OptimizationLevel::O0 && m_debugType != intel::Native)
     MPM.addPass(GlobalOptPass());
 
 #ifdef _DEBUG
@@ -761,16 +761,15 @@ void OptimizerOCL::addBarrierPasses(ModulePassManager &MPM) const {
     MPM.addPass(ResolveSubGroupWICallPass(/*ResolveSGBarrier*/ false));
   }
 
-  FunctionPassManager FPM;
   if (Level != OptimizationLevel::O0) {
+    FunctionPassManager FPM;
     FPM.addPass(DCEPass());
     FPM.addPass(SimplifyCFGPass());
     FPM.addPass(PromotePass());
+    FPM.addPass(PhiCanonicalization());
+    FPM.addPass(RedundantPhiNode());
+    MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
   }
-
-  FPM.addPass(PhiCanonicalization());
-  FPM.addPass(RedundantPhiNode());
-  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
 
   MPM.addPass(GroupBuiltinPass());
   MPM.addPass(BarrierInFunction());
