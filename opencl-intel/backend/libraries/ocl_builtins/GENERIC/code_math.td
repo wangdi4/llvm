@@ -14,7 +14,7 @@ defvar copysign_code = [{
   }];
 
 defvar fabs_code = [{
-    return __builtin_astype((__builtin_astype(($Arg0VarName), $Arg0igentype) & $ReturnBaseType_const_signMask), $Arg0Type);
+    return __builtin_astype(($Arg0igentype)(__builtin_astype($Arg0VarName, $Arg0igentype) & $ReturnBaseType_const_signMask), $Arg0Type);
   }];
 
 defvar fdim_code_vec = [{

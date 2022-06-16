@@ -26,6 +26,7 @@ extern const constant float generic_inv_pi_180f;
 extern const constant double generic_inv_pi_180;
 
 // common - math
+extern const constant short  half_const_signMask;
 extern const constant int    float_const_signMask;
 extern const constant long   double_const_signMask;
 extern const constant int    float_const_nanStorage;
