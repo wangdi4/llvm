@@ -177,3 +177,12 @@ foreach is_masked = [true, false] in {
     def : OclBuiltinImpl<builtin, v32v64F32Types, /*IsDeclOnly*/false, impl_code, [["$FUNC", "sincos_rm"]]>;
   } // foreach name
 } // foreach is_masked
+
+// Masked half
+defvar v32v64F16Types = ExpandTypesByVFAndFlatten<[v1f16], [32, 64]>.Tout;
+foreach name = ["fabs"] in {
+  defvar mask_code = masked_impl_code_G_G_M;
+  defvar def0 = "0";
+  defvar builtin = !cast<OclBuiltin>(name # "_mask");
+  def : OclBuiltinImpl<builtin, v32v64F16Types, 0, mask_code, [["$DEF0", def0]]>;
+}
