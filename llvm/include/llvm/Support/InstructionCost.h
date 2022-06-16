@@ -559,6 +559,12 @@ inline VPInstructionCost operator/(const VPInstructionCost &LHS,
   LHS2 /= RHS;
   return LHS2;
 }
+
+// The getCost() for VPlan returns a pair of costs, first is a loop iteration
+// cost and the second is cost of preheader/postexit blocks where the vector
+// initiliazations/finalizations reside.
+using VPlanCostPair = std::pair<VPInstructionCost, VPInstructionCost>;
+
 } // namespace vpo
 #endif // INTEL_CUSTOMIZATION
 

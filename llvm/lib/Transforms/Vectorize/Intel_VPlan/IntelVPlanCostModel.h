@@ -287,12 +287,11 @@ public:
                     VPlanPeelingVariant *PeelingVariant = nullptr,
                     raw_ostream *OS = nullptr, StringRef RangeName = "") = 0;
 
-  /// Get Cost for VPlan with optionally specified peeling \p PeelingVariant
-  /// and optionally specified pointer to output stream \p OS if debug output
-  /// is requested.
-  virtual VPInstructionCost getCost(
-    VPlanPeelingVariant *PeelingVariant = nullptr,
-    raw_ostream *OS = nullptr) = 0;
+  /// Get the pair of Costs (iteration cost and preheader/postexit cost) for
+  /// VPlan with optionally specified peeling \p PeelingVariant and optionally
+  /// specified pointer to output stream \p OS if debug output is requested.
+  virtual VPlanCostPair getCost(VPlanPeelingVariant *PeelingVariant = nullptr,
+                                 raw_ostream *OS = nullptr) = 0;
 
   /// Return the cost of Load/Store VPInstruction given VF and Alignment
   /// on input.
@@ -479,6 +478,7 @@ protected:
 
 public:
   VPlanCostModelWithHeuristics() = delete;
+
   VPInstructionCost
   getBlockRangeCost(const VPBasicBlock *Begin, const VPBasicBlock *End,
                     VPlanPeelingVariant *PeelingVariant = nullptr,
@@ -499,8 +499,8 @@ public:
     return Cost;
   }
 
-  VPInstructionCost getCost(VPlanPeelingVariant *PeelingVariant = nullptr,
-                            raw_ostream *OS = nullptr) final {
+  VPlanCostPair getCost(VPlanPeelingVariant *PeelingVariant = nullptr,
+                        raw_ostream *OS = nullptr) final {
     // Assume no peeling if it is not specified.
     SaveAndRestore<VPlanPeelingVariant*> RestoreOnExit(
         DefaultPeelingVariant,
@@ -508,7 +508,7 @@ public:
 
     // Initialize heuristics VPlan level data for each VPlan level getCost
     // call.
-    // Note that VPBlack and VPInstruction level getCost interfaces and
+    // Note that VPBlock and VPInstruction level getCost interfaces and
     // getBlockRangeCost interface bypass the initialization call.
     HeuristicsListVPlan.initForVPlan();
 
@@ -534,7 +534,7 @@ public:
         getBlockRangeCost(getVPlanAfterLoopBeginEndBlocks(),
                           nullptr /* peeling */, OS, "Loop postexit");
 
-    return TotCost;
+    return std::make_pair(TotCost, PostExitCost + PreHdrCost);
   }
 
   /// This method is proxy to implementation in TTI cost model, which returns
