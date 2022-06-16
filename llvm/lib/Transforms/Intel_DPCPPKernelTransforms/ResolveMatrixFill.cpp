@@ -135,8 +135,10 @@ static std::pair<bool, Value *> resolveMatrixFillCall(CallInst *CI) {
 
   // Handle the first arg, if it's a pointer.
   if (Data->getType()->isPointerTy()) {
-    auto *LI = new LoadInst(Data->getType()->getPointerElementType(), Data,
-                            "loaded.fill.data", CI);
+    // Get load type info from intrinsics return type
+    auto *LI =
+        new LoadInst(cast<FixedVectorType>(CI->getType())->getElementType(),
+                     Data, "loaded.fill.data", CI);
     LI->setDebugLoc(CI->getDebugLoc());
     Data = LI;
   }

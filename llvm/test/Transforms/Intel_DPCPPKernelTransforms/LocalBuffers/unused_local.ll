@@ -1,7 +1,11 @@
 ; RUN: opt -dpcpp-kernel-add-implicit-args -debugify -dpcpp-kernel-local-buffers -check-debugify -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers -dpcpp-kernel-add-implicit-args -debugify -dpcpp-kernel-local-buffers -check-debugify -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes='dpcpp-kernel-add-implicit-args,debugify,dpcpp-kernel-local-buffers,check-debugify' -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-add-implicit-args -dpcpp-kernel-local-buffers -S < %s | FileCheck %s
-; RUN: opt -passes='dpcpp-kernel-add-implicit-args,dpcpp-kernel-local-buffers' -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers -passes='dpcpp-kernel-add-implicit-args,debugify,dpcpp-kernel-local-buffers,check-debugify' -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-kernel-add-implicit-args -dpcpp-kernel-local-buffers -S < %s | FileCheck %s -check-prefixes=CHECK,NONOPAQUE
+; RUN: opt -opaque-pointers -dpcpp-kernel-add-implicit-args -dpcpp-kernel-local-buffers -S < %s | FileCheck %s -check-prefixes=CHECK,OPAQUE
+; RUN: opt -passes='dpcpp-kernel-add-implicit-args,dpcpp-kernel-local-buffers' -S < %s | FileCheck %s -check-prefixes=CHECK,NONOPAQUE
+; RUN: opt -opaque-pointers -passes='dpcpp-kernel-add-implicit-args,dpcpp-kernel-local-buffers' -S < %s | FileCheck %s -check-prefixes=CHECK,OPAQUE
 
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32-S32"
 
@@ -35,26 +39,38 @@ entry:
 
 
 
-; CHECK:        define void @foo(i32 addrspace(1)* %pInt, i8 addrspace(1)* %pChar, float addrspace(1)* %pFloat,
+; NONOPAQUE:        define void @foo(i32 addrspace(1)* %pInt, i8 addrspace(1)* %pChar, float addrspace(1)* %pFloat,
+; OPAQUE:           define void @foo(ptr addrspace(1) %pInt, ptr addrspace(1) %pChar, ptr addrspace(1) %pFloat,
 ; CHECK-NEXT:   entry:
-; CHECK-NEXT:   [[VAR0:%[a-zA-Z0-9]+]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
-; CHECK-NEXT:   [[VAR1:%[a-zA-Z0-9]+]] = addrspacecast i8 addrspace(3)* [[VAR0]] to i32 addrspace(3)**
-; CHECK-NEXT:   [[VAR2:%[a-zA-Z0-9]+]] = load i32 addrspace(3)*, i32 addrspace(3)** [[VAR1]]
+; NONOPAQUE-NEXT:   [[VAR0:%[a-zA-Z0-9]+]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
+; NONOPAQUE-NEXT:   [[VAR1:%[a-zA-Z0-9]+]] = addrspacecast i8 addrspace(3)* [[VAR0]] to i32 addrspace(3)**
+; NONOPAQUE-NEXT:   [[VAR2:%[a-zA-Z0-9]+]] = load i32 addrspace(3)*, i32 addrspace(3)** [[VAR1]]
+; OPAQUE-NEXT:   [[VAR0:%[a-zA-Z0-9]+]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 0
+; OPAQUE-NEXT:   [[VAR1:%[a-zA-Z0-9]+]] = addrspacecast ptr addrspace(3) [[VAR0]] to ptr
+; OPAQUE-NEXT:   [[VAR2:%[a-zA-Z0-9]+]] = load ptr addrspace(3), ptr [[VAR1]]
 
 
-; CHECK-NEXT:   %dummyInt = load i32, i32 addrspace(3)* [[VAR2]], align 4
-; CHECK-NEXT:   store i32 %dummyInt, i32 addrspace(1)* %pInt
+; NONOPAQUE-NEXT:   %dummyInt = load i32, i32 addrspace(3)* [[VAR2]], align 4
+; NONOPAQUE-NEXT:   store i32 %dummyInt, i32 addrspace(1)* %pInt
+; OPAQUE-NEXT:   %dummyInt = load i32, ptr addrspace(3) [[VAR2]], align 4
+; OPAQUE-NEXT:   store i32 %dummyInt, ptr addrspace(1) %pInt
 ; CHECK-NEXT:   ret void
 
 
-; CHECK:        define void @bar(<4 x i32> addrspace(1)* %pInt4, <16 x i64> addrspace(1)* %pLong16,
+; NONOPAQUE:        define void @bar(<4 x i32> addrspace(1)* %pInt4, <16 x i64> addrspace(1)* %pLong16,
+; OPAQUE:           define void @bar(ptr addrspace(1) %pInt4, ptr addrspace(1) %pLong16,
 ; CHECK-NEXT:   entry:
-; CHECK-NEXT:   [[VAR10:%[a-zA-Z0-9]+]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
-; CHECK-NEXT:   [[VAR11:%[a-zA-Z0-9]+]] = addrspacecast i8 addrspace(3)* [[VAR10]] to <16 x i64> addrspace(3)**
-; CHECK-NEXT:   [[VAR12:%[a-zA-Z0-9]+]] = load <16 x i64> addrspace(3)*, <16 x i64> addrspace(3)** [[VAR11]]
+; NONOPAQUE-NEXT:   [[VAR10:%[a-zA-Z0-9]+]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
+; NONOPAQUE-NEXT:   [[VAR11:%[a-zA-Z0-9]+]] = addrspacecast i8 addrspace(3)* [[VAR10]] to <16 x i64> addrspace(3)**
+; NONOPAQUE-NEXT:   [[VAR12:%[a-zA-Z0-9]+]] = load <16 x i64> addrspace(3)*, <16 x i64> addrspace(3)** [[VAR11]]
+; OPAQUE-NEXT:   [[VAR10:%[a-zA-Z0-9]+]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 0
+; OPAQUE-NEXT:   [[VAR11:%[a-zA-Z0-9]+]] = addrspacecast ptr addrspace(3) [[VAR10]] to ptr
+; OPAQUE-NEXT:   [[VAR12:%[a-zA-Z0-9]+]] = load ptr addrspace(3), ptr [[VAR11]]
 
-; CHECK-NEXT:   %dummyLong16 = load <16 x i64>, <16 x i64> addrspace(3)* [[VAR12]], align 128
-; CHECK-NEXT:   store <16 x i64> %dummyLong16, <16 x i64> addrspace(1)* %pLong16
+; NONOPAQUE-NEXT:   %dummyLong16 = load <16 x i64>, <16 x i64> addrspace(3)* [[VAR12]], align 128
+; NONOPAQUE-NEXT:   store <16 x i64> %dummyLong16, <16 x i64> addrspace(1)* %pLong16
+; OPAQUE-NEXT:   %dummyLong16 = load <16 x i64>, ptr addrspace(3) [[VAR12]], align 128
+; OPAQUE-NEXT:   store <16 x i64> %dummyLong16, ptr addrspace(1) %pLong16
 ; CHECK-NEXT:   ret void
 
 ; DEBUGIFY-NOT: WARNING
