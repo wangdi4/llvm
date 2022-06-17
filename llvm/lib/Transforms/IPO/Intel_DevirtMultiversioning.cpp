@@ -201,6 +201,58 @@ void IntelDevirtMultiversion::resetData() {
   VCallsData.HasLibFuncAsTarget = false;
 }
 
+// Return true if the type of the target function is the same as the virtual
+// call function's type. If they aren't the same, then check if the return
+// type, number of arguments, and all the arguments except arg 0 are the same.
+// The reason we can skip arg 0 is because it represents the '*this' pointer,
+// and we know that the target function is in the derived class, and the
+// virtual call is using a base class.
+//
+// NOTE: This function assumes that the target belongs to a derived structure
+// and the virtual call uses its base structure. If this function returns true
+// for a particular case where it shouldn't, the it means that the target
+// function was collected incorrectly.
+bool IntelDevirtMultiversion::
+basedDerivedFunctionTypeMatches(FunctionType *VCallType,
+                                FunctionType *TargetFuncType) {
+
+  if (!VCallType || !TargetFuncType)
+    return false;
+
+  if (VCallType == TargetFuncType)
+    return true;
+
+  if (VCallType->isVarArg() != TargetFuncType->isVarArg())
+    return false;
+
+  unsigned VCallNumParams = VCallType->getNumParams();
+  unsigned TargetFuncNumParams = TargetFuncType->getNumParams();
+  if (VCallNumParams != TargetFuncNumParams)
+    return false;
+
+  // Return type must be the same
+  auto *VCallRetType = VCallType->getReturnType();
+  auto *TargetFuncRetType = TargetFuncType->getReturnType();
+  if (VCallRetType != TargetFuncRetType)
+    return false;
+
+  // If there is no parameter to check then return.
+  if (VCallNumParams == 0)
+    return true;
+
+  // We can skip parameter 0, which represents the '*this' pointer, since we
+  // know at this point that the target function belongs to a derived
+  // structure, and the virtual call to the base structure.
+
+  // The rest of the parameters should be the same
+  for (unsigned I = 1, E = TargetFuncNumParams; I < E; I++) {
+    if (VCallType->getParamType(I) != TargetFuncType->getParamType(I))
+      return false;
+  }
+
+  return true;
+}
+
 // Create the BasicBlocks with the direct call sites.
 //   TargetVector:    a TargetData vector that will be used to store the
 //                      information related to the targets
@@ -208,7 +260,7 @@ void IntelDevirtMultiversion::resetData() {
 //   TargetFunctions: possible targets to the current virtual callsite
 //   MDNode:          node containing the metadata information for the
 //                      target functions
-void IntelDevirtMultiversion::createCallSiteBasicBlocks(
+bool IntelDevirtMultiversion::createCallSiteBasicBlocks(
     Module &M, std::vector<TargetData *> &TargetVector, CallBase *VCallSite,
     const SetVector<Function *> &TargetFunctions, MDNode *Node) {
 
@@ -217,6 +269,7 @@ void IntelDevirtMultiversion::createCallSiteBasicBlocks(
   Instruction *CSInst = VCallSite;
   Function *Func = CSInst->getFunction();
   SmallPtrSet<Function *, 10> FuncsProcessed;
+  bool AllTargetsAreNotTheSame = false;
 
   // Add all the function addresses and create the BasicBlocks
   // with the direct calls
@@ -230,6 +283,20 @@ void IntelDevirtMultiversion::createCallSiteBasicBlocks(
     // function.
     if (!FuncsProcessed.insert(TargetFunc).second)
       continue;
+
+    // If the function type doesn't match then don't generate a multiversion
+    // target for it, but we are going to include the default case.
+    //
+    // NOTE: We use basedDerivedFunctionTypeMatches to identify if the *this
+    // pointers for the virtual call and the target function are the same or
+    // derived. Once we fully move to opaque pointers then this function is not
+    // needed and we can have direct comparison
+    // (VCallSite->getFunctionType() == TargetFunc->getFunctionType()).
+    if (!basedDerivedFunctionTypeMatches(VCallSite->getFunctionType(),
+                                         TargetFunc->getFunctionType())) {
+      AllTargetsAreNotTheSame = true;
+      continue;
+    }
 
     Builder.SetInsertPoint(CSInst);
 
@@ -281,6 +348,8 @@ void IntelDevirtMultiversion::createCallSiteBasicBlocks(
 
     TargetVector.push_back(NewTarget);
   }
+
+  return AllTargetsAreNotTheSame;
 }
 
 // Create a BasicBlock that will be the merge point for all targets.
@@ -383,7 +452,7 @@ IntelDevirtMultiversion::buildDefaultCase(Module &M, CallBase *VCallSite) {
 void IntelDevirtMultiversion::fixUnwindPhiNodes(
     CallBase *VCallSite, BasicBlock *MergePointBB,
     std::vector<TargetData *> &TargetsVector, TargetData *DefaultTarget,
-    bool LibFuncFound) {
+    bool DefaultTargetNeeded) {
 
   if (!isa<InvokeInst>(VCallSite))
     return;
@@ -420,9 +489,8 @@ void IntelDevirtMultiversion::fixUnwindPhiNodes(
         PhiNode.addIncoming(Val, Target->TargetBasicBlock);
     }
 
-    // Add the default case into the PHINode if whole program is not safe or
-    // at least one of the targets is a LibFunc
-    if (!WPInfo.isWholeProgramSafe() || LibFuncFound)
+    // Add the default case into the PHINode if it is needed
+    if (DefaultTargetNeeded)
       PhiNode.addIncoming(Val, DefaultTarget->TargetBasicBlock);
   }
 }
@@ -445,7 +513,7 @@ void IntelDevirtMultiversion::fixUnwindPhiNodes(
 void IntelDevirtMultiversion::generateBranching(
     Module &M, BasicBlock *MainBB, BasicBlock *MergePointBB, bool IsCallInst,
     std::vector<TargetData *> &TargetsVector, TargetData *DefaultTarget,
-    bool LibFuncFound) {
+    bool DefaultTargetNeeded) {
 
   unsigned int TargetI = 0;
   StringRef ElseBaseName = StringRef("ElseDevirt_");
@@ -471,7 +539,7 @@ void IntelDevirtMultiversion::generateBranching(
 
   // If whole program safe is achieved, then we are going to traverse until
   // the second to last
-  if (WPInfo.isWholeProgramSafe() && !LibFuncFound)
+  if (WPInfo.isWholeProgramSafe() && !DefaultTargetNeeded)
     EndTarget--;
 
   // Create the branching and connect the whole structure
@@ -485,7 +553,7 @@ void IntelDevirtMultiversion::generateBranching(
 
       // If whole program safe is achieved then the last target will
       // be the else case
-      if (WPInfo.isWholeProgramSafe() && !LibFuncFound)
+      if (WPInfo.isWholeProgramSafe() && !DefaultTargetNeeded)
         LastTarget = TargetsVector[TargetI + 1];
       // Else, the virtual call will be added as default case
       else
@@ -534,7 +602,7 @@ void IntelDevirtMultiversion::generateBranching(
   }
 
   // Rearrange the basic blocks
-  if (!WPInfo.isWholeProgramSafe() || LibFuncFound)
+  if (DefaultTargetNeeded)
     DefaultTarget->TargetBasicBlock->moveAfter(InsertPointBB);
 
   MergePointBB->moveAfter(LastTarget->TargetBasicBlock);
@@ -551,7 +619,7 @@ void IntelDevirtMultiversion::generateBranching(
 void IntelDevirtMultiversion::generatePhiNodes(
     Module &M, BasicBlock *MergePointBB,
     std::vector<TargetData *> TargetsVector, TargetData *DefaultTarget,
-    bool LibFuncFound) {
+    bool DefaultTargetNeeded) {
 
   Instruction *CSInst = DefaultTarget->CallInstruction;
 
@@ -578,10 +646,8 @@ void IntelDevirtMultiversion::generatePhiNodes(
     Phi->addIncoming(Target->CallInstruction, Target->TargetBasicBlock);
   }
 
-  // Insert the incoming Value from the default case if
-  // whole program is not safe or at least one target is
-  // a LibFunc
-  if (!WPInfo.isWholeProgramSafe() || LibFuncFound)
+  // If the default target is needed then insert it.
+  if (DefaultTargetNeeded)
     Phi->addIncoming(CSInst, DefaultTarget->TargetBasicBlock);
 }
 
@@ -605,7 +671,21 @@ void IntelDevirtMultiversion::multiversionVCallSite(
   std::vector<TargetData *> TargetsVector;
 
   // Generate the BasicBlocks that contain the direct call sites
-  createCallSiteBasicBlocks(M, TargetsVector, VCallSite, TargetFunctions, Node);
+  bool DefaultTargetNeeded = createCallSiteBasicBlocks(M, TargetsVector,
+                                                       VCallSite,
+                                                       TargetFunctions, Node);
+
+  // If TargetsVector is empty then it means that the virtual call collected
+  // doesn't match the target functions. In this case return because there
+  // is nothing to do.
+  if (TargetsVector.empty())
+    return;
+
+  // Insert the incoming Value from the default case if whole program is not
+  // safe, at least one target is a LibFunc, or at least the type of one
+  // function in the targets list doesn't match the virtual call.
+  if (!DefaultTargetNeeded)
+    DefaultTargetNeeded = !WPInfo.isWholeProgramSafe() || LibFuncFound;
 
   // Compute the merge point
   BasicBlock *MergePoint = getMergePoint(M, VCallSite);
@@ -615,19 +695,20 @@ void IntelDevirtMultiversion::multiversionVCallSite(
 
   // Fix the PHINodes in the unwind destinations
   fixUnwindPhiNodes(VCallSite, MergePoint, TargetsVector, DefaultTarget,
-                    LibFuncFound);
+                    DefaultTargetNeeded);
 
   // Build the branches that will do the multiversioning
   generateBranching(M, MainBB, MergePoint, isa<CallInst>(VCallSite),
-                    TargetsVector, DefaultTarget, LibFuncFound);
+                    TargetsVector, DefaultTarget, DefaultTargetNeeded);
 
   // Build the PHINode and the replacement in case there is any use
-  generatePhiNodes(M, MergePoint, TargetsVector, DefaultTarget, LibFuncFound);
+  generatePhiNodes(M, MergePoint, TargetsVector, DefaultTarget,
+                   DefaultTargetNeeded);
 
   // Destroy the default case since we have whole program and there is no
   // LibFunc in the list of targets, or the virtual call is not inside a
   // LibFunc with IR.
-  if (WPInfo.isWholeProgramSafe() && !LibFuncFound) {
+  if (WPInfo.isWholeProgramSafe() && !DefaultTargetNeeded) {
     DefaultTarget->CallInstruction->eraseFromParent();
     DefaultTarget->TargetBasicBlock->eraseFromParent();
   }
