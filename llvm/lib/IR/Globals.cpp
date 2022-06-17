@@ -255,7 +255,7 @@ const SanitizerMetadata &GlobalValue::getSanitizerMetadata() const {
   return getContext().pImpl->GlobalValueSanitizerMetadata[this];
 }
 
-void GlobalValue::setSanitizerMetadata(const SanitizerMetadata &Meta) {
+void GlobalValue::setSanitizerMetadata(SanitizerMetadata Meta) {
   getContext().pImpl->GlobalValueSanitizerMetadata[this] = Meta;
   HasSanitizerMetadata = true;
 }
