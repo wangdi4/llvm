@@ -2243,21 +2243,18 @@ define void @test_concat_v2i1(<2 x half>* %arg, <2 x half>* %arg1, <2 x half>* %
 ; KNL-NEXT:    kandw %k1, %k0, %k0
 ; KNL-NEXT:    kshiftrw $1, %k0, %k1
 ; KNL-NEXT:    kmovw %k0, %edi ;INTEL
-; KNL-NEXT:    kmovw %k1, %ecx
-; KNL-NEXT:    xorl %eax, %eax
-; KNL-NEXT:    testb $1, %cl
-; KNL-NEXT:    movl $0, %ecx
+; KNL-NEXT:    kmovw %k1, %edi
+; KNL-NEXT:    movzwl 2(%rsi), %eax
+; KNL-NEXT:    xorl %ecx, %ecx
+; KNL-NEXT:    testb $1, %dil
+; KNL-NEXT:    cmovel %ecx, %eax
+; KNL-NEXT:    testb $1, %dil
 ; KNL-NEXT:    je LBB85_2
 ; KNL-NEXT:  ## %bb.1:
-; KNL-NEXT:    movzwl 2(%rsi), %ecx
+; KNL-NEXT:    movl (%rsi), %ecx
 ; KNL-NEXT:  LBB85_2:
-; KNL-NEXT:    testb $1, %dil
-; KNL-NEXT:    je LBB85_4
-; KNL-NEXT:  ## %bb.3:
-; KNL-NEXT:    movzwl (%rsi), %eax
-; KNL-NEXT:  LBB85_4:
-; KNL-NEXT:    movw %ax, (%rdx)
-; KNL-NEXT:    movw %cx, 2(%rdx)
+; KNL-NEXT:    movw %cx, (%rdx)
+; KNL-NEXT:    movw %ax, 2(%rdx)
 ; KNL-NEXT:    retq
 ;
 ; SKX-LABEL: test_concat_v2i1:
@@ -2293,21 +2290,18 @@ define void @test_concat_v2i1(<2 x half>* %arg, <2 x half>* %arg1, <2 x half>* %
 ; SKX-NEXT:    kandw %k1, %k0, %k0
 ; SKX-NEXT:    kshiftrb $1, %k0, %k1
 ; SKX-NEXT:    kmovd %k0, %edi ;INTEL
-; SKX-NEXT:    kmovd %k1, %ecx
-; SKX-NEXT:    xorl %eax, %eax
-; SKX-NEXT:    testb $1, %cl
-; SKX-NEXT:    movl $0, %ecx
+; SKX-NEXT:    kmovd %k1, %edi
+; SKX-NEXT:    movzwl 2(%rsi), %eax
+; SKX-NEXT:    xorl %ecx, %ecx
+; SKX-NEXT:    testb $1, %dil
+; SKX-NEXT:    cmovel %ecx, %eax
+; SKX-NEXT:    testb $1, %dil
 ; SKX-NEXT:    je LBB85_2
 ; SKX-NEXT:  ## %bb.1:
-; SKX-NEXT:    movzwl 2(%rsi), %ecx
+; SKX-NEXT:    movl (%rsi), %ecx
 ; SKX-NEXT:  LBB85_2:
-; SKX-NEXT:    testb $1, %dil
-; SKX-NEXT:    je LBB85_4
-; SKX-NEXT:  ## %bb.3:
-; SKX-NEXT:    movzwl (%rsi), %eax
-; SKX-NEXT:  LBB85_4:
-; SKX-NEXT:    movw %ax, (%rdx)
-; SKX-NEXT:    movw %cx, 2(%rdx)
+; SKX-NEXT:    movw %cx, (%rdx)
+; SKX-NEXT:    movw %ax, 2(%rdx)
 ; SKX-NEXT:    retq
   %tmp = load <2 x half>, <2 x half>* %arg, align 8
   %tmp3 = fcmp fast olt <2 x half> %tmp, <half 0xH4600, half 0xH4600>
