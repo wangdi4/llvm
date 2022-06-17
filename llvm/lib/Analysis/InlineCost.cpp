@@ -106,6 +106,7 @@ static InlineReason bestInlineReason(const InlineReasonVector& ReasonVector,
 extern cl::opt<bool> InlineForXmain;
 extern cl::opt<bool> DTransInlineHeuristics;
 extern cl::opt<bool> EnablePreLTOInlineCost;
+extern cl::opt<bool> EnableLTOInlineCost;
 extern cl::opt<unsigned> IntelInlineReportLevel;
 
 // Threshold to use when optsize is specified (and there is no -inline-limit).
@@ -3472,6 +3473,7 @@ InlineResult llvm::isInlineViable(Function &F) {
 InlineParams llvm::getInlineParams(int Threshold) {
   InlineParams Params;
   Params.PrepareForLTO = EnablePreLTOInlineCost; // INTEL
+  Params.LinkForLTO = EnableLTOInlineCost; // INTEL
 
   // This field is the threshold to use for a callee by default. This is
   // derived from one or more of:
@@ -3586,7 +3588,7 @@ InlineParams llvm::getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
   else
     InlParams = getInlineParams(OptLevel, SizeOptLevel);
   InlParams.PrepareForLTO = PrepareForLTO || EnablePreLTOInlineCost;
-  InlParams.LinkForLTO = LinkForLTO;
+  InlParams.LinkForLTO = LinkForLTO || EnableLTOInlineCost;
   //
   // Note that the InlineOptLevel is not being set to the OptLevel in all
   // cases right now in the inliner, only when this version of getInlineParams

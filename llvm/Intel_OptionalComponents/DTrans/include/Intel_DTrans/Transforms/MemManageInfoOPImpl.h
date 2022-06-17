@@ -20,15 +20,114 @@
 #ifndef INTEL_DTRANS_TRANSFORMS_MEMMANAGEINFOOPIMPL_H
 #define INTEL_DTRANS_TRANSFORMS_MEMMANAGEINFOOPIMPL_H
 
+#include "Intel_DTrans/Analysis/DTransLibraryInfo.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
+#include "Intel_DTrans/Analysis/DTransUtils.h"
+#include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/Transforms/ClassInfoOPUtils.h"
+
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/IntrinsicInst.h"
 
 #define DTRANS_MEMMANAGEINFOOP "dtrans-memmanageinfoop"
 
 namespace llvm {
 
 namespace dtransOP {
+
+// This is a helper class resolve a function type. Currently, it supports
+// looking up the type based on metadata, or by using internal table that is
+// used to describe intrinsics and library functions.
+class FunctionTypeResolver {
+public:
+  FunctionTypeResolver(TypeMetadataReader &MDReader,
+                       DTransLibraryInfo &DTransLibInfo)
+      : MDReader(MDReader), DTransLibInfo(DTransLibInfo) {}
+
+  inline DTransFunctionType *getFunctionType(const Function *F) const;
+
+private:
+  TypeMetadataReader &MDReader;
+  DTransLibraryInfo &DTransLibInfo;
+};
+
+DTransFunctionType *FunctionTypeResolver::getFunctionType(const Function *F) const {
+  auto *DFnTy =
+      dyn_cast_or_null<DTransFunctionType>(MDReader.getDTransTypeFromMD(F));
+  if (DFnTy)
+    return DFnTy;
+
+  DFnTy = DTransLibInfo.getDTransFunctionType(F);
+  if (DFnTy)
+    return DFnTy;
+
+  return nullptr;
+}
+
+// This is similar to the function getClassType() in ClassInfoOPUtils.cpp, but
+// the return value indicates whether type returned is 'nullptr' due to arg 0
+// being an unknown type, or whether it is nullptr because the type of arg 0 is
+// not a pointer to structure type.
+//
+// If the argument type is unknown due to the function type not being able to be
+// determined, such as if the DTrans metadata is not available, the return value
+// will be: {null, true}.
+//
+// However, if the type returned is nullptr, and the type is known not to be a
+// pointer to a structure type (or if there is no argument 0) then the return
+// value will be: {null, false}
+//
+// When the type of argument 0 is a pointer to a structure, the return value
+// will be: {StructType, false}
+static std::pair<DTransStructType *, bool>
+getClassTypeOrUnknown(const Function *F, FunctionTypeResolver &TypeResolver) {
+  if (F->arg_size() < 1)
+    return {nullptr, false};
+
+  // We can ignore intrinsics for this analysis because they will not be using
+  // the class types. This is necessary to handle the 'fakeload' intrinsic which
+  // takes a pointer to the class and returns it.
+  if (F->isIntrinsic())
+    return {nullptr, false};
+
+  llvm::FunctionType *Ty = F->getFunctionType();
+  if (!Ty->getParamType(0)->isPointerTy())
+    return {nullptr, false};
+
+  // Get the class type of the "this" pointer that is used in argument 0.
+  DTransFunctionType *DFnTy = TypeResolver.getFunctionType(F);
+  if (!DFnTy)
+    return {nullptr, true};
+
+  DTransType *ArgTy = DFnTy->getArgType(0);
+  if (!ArgTy)
+    return {nullptr, true};
+
+  if (auto *PTy = dyn_cast<DTransPointerType>(ArgTy))
+    if (auto *STy = dyn_cast<DTransStructType>(PTy->getPointerElementType()))
+      return {STy, false};
+  return {nullptr, false};
+}
+
 class MemManageCandidateInfo {
+
+  // Max limit: Number of StringAllocator functions.
+  constexpr static int MaxNumStringAllocatorFuncs = 5;
+
+  // Max limit: Size of StringAllocator function.
+  constexpr static int MaxSizeStringAllocatorFunc = 1;
+
+  // Max limit: Number of Interface functions of Allocator.
+  constexpr static int MaxNumAllocatorInterfaceFuncs = 7;
+
+  // Max Pre-LTO limit: Size of interface functions of Allocator.
+  constexpr static int MaxPreLTOSizeAllocatorInterfaceFunc = 30;
+
+  // Max LTO limit: Size of interface functions of Allocator.
+  constexpr static int MaxLTOSizeAllocatorInterfaceFunc = 100;
+
+  // Max limit: Number of StringObject functions.
+  constexpr static int MaxNumStringObjectFuncs = 2;
 
   // Min Limit: StringObject size.
   constexpr static int MinStringObjectSize = 64;
@@ -36,10 +135,28 @@ class MemManageCandidateInfo {
   // Limit: Number of StringObject elements.
   constexpr static int NumStringObjectElems = 2;
 
+  // Max pre-LTO limit: Number of inner functions of Allocator.
+  constexpr static int MaxPreLTONumAllocatorInnerFuncs = 90;
+
+  // Max LTO limit: Number of inner functions of Allocator.
+  constexpr static int MaxLTONumAllocatorInnerFuncs = 15;
+
+  // Max pre-LTO limit: Number of inner function uses.
+  constexpr static int MaxPreLTONumInnerFuncUses = 12;
+
+  // Max pre-LTO limit: Size of inner function.
+  constexpr static int MaxPreLTOInnerFuncSize = 22;
+
+  // Max pre-LTO limit: Total inline size of all inner functions.
+  constexpr static int MaxPreLTOInnerFuncTotalInlSize = 375;
+
 public:
   MemManageCandidateInfo(Module &M) : M(M){};
 
   inline bool isCandidateType(DTransType *Ty);
+  inline bool collectMemberFunctions(FunctionTypeResolver &TypeResolver, bool AtLTO);
+  inline bool collectInlineNoInlineMethods(std::set<Function *> *,
+                                           SmallSet<Function *, 16> *) const;
 
 private:
   Module &M;
@@ -72,6 +189,25 @@ private:
 
   // Type of List class.
   DTransStructType *ListType = nullptr;
+
+  // Member functions of StringAllocatorType.
+  SmallPtrSet<Function *, 8> StringAllocatorFunctions;
+
+  // Member functions of StringObjectType that are used by
+  // StringAllocatorType.
+  SmallPtrSet<Function *, 8> StringObjectFunctions;
+
+  // Member functions of ArenaAllocatorType and ReusableArenaAllocatorType
+  // that are called from StringAllocatorType.
+  SmallPtrSet<Function *, 8> AllocatorInterfaceFunctions;
+
+  // Functions that are called to implement AllocatorInterfaceFunctions
+  // functions.
+  std::set<Function *> AllocatorInnerFunctions;
+
+  // Function Calls that are called to implement AllocatorInterfaceFunctions
+  // functions.
+  std::set<const CallBase *> AllocatorInnerCalls;
 
   // Index of ArenaAllocator in ReusableArenaAllocator
   int32_t ArenaAllocatorObjectIndex = -1;
@@ -595,6 +731,259 @@ bool MemManageCandidateInfo::isStringAllocatorType(DTransType *Ty) {
 bool MemManageCandidateInfo::isCandidateType(DTransType *Ty) {
   if (!isStringAllocatorType(Ty))
     return false;
+  return true;
+}
+
+// Collect member functions that are related to candidate.
+// 1. All member functions of StringAllocator
+// 2. StringObject functions that are used by StringAllocator
+// 3. Main interface functions of Allocator that are used
+//    by StringAllocator.
+// 4. All inner functions that are used to implement the interface
+//    functions.
+bool MemManageCandidateInfo::collectMemberFunctions(
+    FunctionTypeResolver &TypeResolver, bool AtLTO) {
+
+  std::function<bool(Function * F, bool AtLTO,
+                     SmallPtrSet<Function *, 32> &ProcessedFuncs)>
+      CollectMemberFunctions;
+
+  // Add "F" to AllocatorInnerFunctions if "F" is not in
+  // AllocatorInterfaceFunctions/StringObjectFunctions/
+  // StringAllocatorFunctions.
+  // Returns true if "F" is added to AllocatorInnerFunctions.
+  auto CheckInlMemberFunction = [&](Function *F) -> bool {
+    if (!F)
+      return false;
+    // Check if "F" is candidate for NoInlFuncsForDtrans.
+    if (AllocatorInterfaceFunctions.count(F) ||
+        StringObjectFunctions.count(F) || StringAllocatorFunctions.count(F))
+      return false;
+
+    AllocatorInnerFunctions.insert(F);
+    return true;
+  };
+
+  // Recursively walks CallGraph to detect all functions called from "F".
+  CollectMemberFunctions =
+      [this, &CollectMemberFunctions, &CheckInlMemberFunction](
+          Function *F, bool AtLTO,
+          SmallPtrSet<Function *, 32> &ProcessedFunctions) -> bool {
+    if (!F || F->isDeclaration())
+      return true;
+
+    // Check if it is already processed.
+    if (!ProcessedFunctions.insert(F).second)
+      return true;
+    for (const auto &I : instructions(F))
+      if (auto *CB = dyn_cast<CallBase>(&I)) {
+        if (isa<IntrinsicInst>(*CB))
+          continue;
+        auto *Callee = dtrans::getCalledFunction(*CB);
+        // At LTO, only direct calls are expected in the member functions.
+        if (AtLTO && !Callee) {
+          DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFOOP, {
+            dbgs() << "  Failed: No indirect call is allowed.\n";
+          });
+          return false;
+        }
+        if (!CheckInlMemberFunction(Callee))
+          continue;
+        if (AtLTO)
+          AllocatorInnerCalls.insert(CB);
+
+        if (!CollectMemberFunctions(Callee, AtLTO, ProcessedFunctions))
+          return false;
+      }
+    return true;
+  };
+
+  // Collect member functions of StringAllocatorType.
+  for (auto &F : M) {
+    DTransStructType *ThisTy = nullptr;
+    bool UnknownType = false;
+    std::tie(ThisTy, UnknownType) = getClassTypeOrUnknown(&F, TypeResolver);
+    if (UnknownType) {
+      DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFOOP, {
+        dbgs() << "  Failed: Unknown type for argument 0: " << F.getName()
+               << "\n";
+      });
+      return false;
+    }
+
+    if (!ThisTy)
+      continue;
+    if (StringAllocatorType == ThisTy)
+      StringAllocatorFunctions.insert(&F);
+  }
+  DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFOOP, {
+    dbgs() << "String Allocator functions:\n";
+    for (auto *F : StringAllocatorFunctions)
+      dbgs() << "    " << F->getName() << "\n";
+  });
+  if (StringAllocatorFunctions.size() > MaxNumStringAllocatorFuncs)
+    return false;
+
+  // Collect interface and StringObject functions.
+  for (auto *F : StringAllocatorFunctions) {
+    if (F->isDeclaration() || F->size() > MaxSizeStringAllocatorFunc)
+      return false;
+
+    for (const auto &I : instructions(F))
+      if (auto *CB = dyn_cast<CallBase>(&I)) {
+        if (isa<DbgInfoIntrinsic>(*CB))
+          continue;
+        if (CB->isLifetimeStartOrEnd())
+          continue;
+        auto *Callee = dtrans::getCalledFunction(*CB);
+        if (!Callee)
+          return false;
+
+        DTransStructType *ThisTy = nullptr;
+        bool UnknownType = false;
+        std::tie(ThisTy, UnknownType) =
+            getClassTypeOrUnknown(Callee, TypeResolver);
+        if (!ThisTy)
+          return false;
+
+        if (ThisTy == ReusableArenaAllocatorType ||
+            ThisTy == ArenaAllocatorType) {
+          AllocatorInterfaceFunctions.insert(Callee);
+        } else if (ThisTy == StringObjectType) {
+          StringObjectFunctions.insert(Callee);
+        } else {
+          DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFOOP, {
+            dbgs() << "  Failed: Unexpected call in StringAllocator\n";
+          });
+          return false;
+        }
+      }
+  }
+  DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFOOP, {
+    dbgs() << "Allocator Interface functions:\n";
+    for (auto *F : AllocatorInterfaceFunctions)
+      dbgs() << "    " << F->getName() << "\n";
+  });
+  if (AllocatorInterfaceFunctions.size() > MaxNumAllocatorInterfaceFuncs)
+    return false;
+
+  // Collect StringObject functions.
+  for (auto *F : AllocatorInterfaceFunctions) {
+    if (F->isDeclaration() || F->isVarArg())
+      return false;
+    if (!AtLTO) {
+      if (F->size() > MaxPreLTOSizeAllocatorInterfaceFunc)
+        return false;
+    } else {
+      // After pre-LTO inlining, sizes of interface functions will be
+      // increased at LTO.
+      if (F->size() > MaxLTOSizeAllocatorInterfaceFunc)
+        return false;
+    }
+
+    for (const auto &I : instructions(F)) {
+      if (auto *CB = dyn_cast<CallBase>(&I)) {
+        if (isa<DbgInfoIntrinsic>(*CB))
+          continue;
+        auto *Callee = dtrans::getCalledFunction(*CB);
+        if (!Callee)
+          continue;
+
+        DTransStructType *ThisTy = nullptr;
+        bool UnknownType = false;
+        std::tie(ThisTy, UnknownType) =
+            getClassTypeOrUnknown(Callee, TypeResolver);
+        if (UnknownType) {
+          DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFOOP, {
+            dbgs() << "  Failed: Unknown type for argument 0: "
+                   << Callee->getName() << "\n";
+          });
+          return false;
+        }
+
+        if (!ThisTy)
+          continue;
+        if (ThisTy == StringObjectType)
+          StringObjectFunctions.insert(Callee);
+      }
+    }
+  }
+  DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFOOP, {
+    dbgs() << "String Object functions:\n";
+    for (auto *F : StringObjectFunctions)
+      dbgs() << "    " << F->getName() << "\n";
+  });
+
+  if (StringObjectFunctions.size() > MaxNumStringObjectFuncs)
+    return false;
+  if (AtLTO && StringObjectFunctions.size() != MaxNumStringObjectFuncs)
+    return false;
+
+  // Collect inner functions.
+  SmallPtrSet<Function *, 32> ProcessedFunctions;
+  for (auto *F : AllocatorInterfaceFunctions) {
+    if (!CollectMemberFunctions(F, AtLTO, ProcessedFunctions)) {
+      DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFOOP, {
+        dbgs() << "  Failed: Collecting Allocator Inner function\n";
+      });
+      return false;
+    }
+  }
+  DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFOOP, {
+    dbgs() << "Allocator Inner functions:\n";
+    for (auto *F : AllocatorInnerFunctions)
+      dbgs() << "    " << F->getName() << "\n";
+  });
+
+  if (!AtLTO) {
+    if (AllocatorInnerFunctions.size() > MaxPreLTONumAllocatorInnerFuncs)
+      return false;
+  } else {
+    // After pre-LTO inlining, number of calls is expected to be reduced
+    // at LTO.
+    if (AllocatorInnerFunctions.size() > MaxLTONumAllocatorInnerFuncs)
+      return false;
+  }
+
+  return true;
+}
+
+bool MemManageCandidateInfo::collectInlineNoInlineMethods(
+    std::set<Function *> *InlFuncsForDtrans,
+    SmallSet<Function *, 16> *NoInlFuncsForDtrans) const {
+
+  // First, check basic heuristics.
+  unsigned TotalInlBBSize = 0;
+  for (auto *F : AllocatorInnerFunctions) {
+    unsigned FSize = F->size();
+    unsigned FUse = F->getNumUses();
+    if (FSize > MaxPreLTOInnerFuncSize || FUse > MaxPreLTONumInnerFuncUses) {
+      DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFOOP,
+                      { dbgs() << "  Failed: size or use limit.\n"; });
+      return false;
+    }
+    TotalInlBBSize += FSize * FUse;
+  }
+
+  if (TotalInlBBSize > MaxPreLTOInnerFuncTotalInlSize) {
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFOOP,
+                    { dbgs() << "  Failed: Total inline size limit.\n"; });
+    return false;
+  }
+
+  // All inner functions will be marked as "inline"
+  for (auto *F : AllocatorInnerFunctions)
+    InlFuncsForDtrans->insert(F);
+
+  // All Interface/StringObject/StringALlocation functions will be
+  // marked as "NoInline".
+  for (auto *F : AllocatorInterfaceFunctions)
+    NoInlFuncsForDtrans->insert(F);
+  for (auto *F : StringObjectFunctions)
+    NoInlFuncsForDtrans->insert(F);
+  for (auto *F : StringAllocatorFunctions)
+    NoInlFuncsForDtrans->insert(F);
+
   return true;
 }
 

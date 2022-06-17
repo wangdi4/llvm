@@ -18,9 +18,11 @@
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/MemManageInfoOPImpl.h"
 #include "Intel_DTrans/Transforms/StructOfArraysOPInfoImpl.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 
@@ -35,10 +37,12 @@ using namespace dtransOP;
 namespace {
 class DTransForceInlineOP {
 public:
-  bool run(Module &M);
+  bool run(Module &M, std::function<const TargetLibraryInfo& (const Function&)> GetTLI);
 };
 
-bool DTransForceInlineOP::run(Module &M) {
+bool DTransForceInlineOP::run(
+    Module &M,
+    std::function<const TargetLibraryInfo &(const Function &)> GetTLI) {
 
   // Returns true if “Fn” is empty.
   auto IsEmptyFunction = [] (Function *Fn) {
@@ -153,12 +157,16 @@ bool DTransForceInlineOP::run(Module &M) {
     if (!IsEmptyFunction(F))
       F->addFnAttr("noinline-dtrans");
 
-  // TODO: MEMMANAGETRANS: Code to mark inlining preferences needs to be ported
-  // for opaque pointers.
-  // - Force inlining for all inner functions of Allocator.
-  // - Suppress inlining for interface functions, StringAllocator functions and
-  //   StringObject functions.
+  // MEMMANAGETRANS:
+  // Force inlining for all inner functions of Allocator.
+  std::set<Function *> MemManageInlineMethods;
+  // Suppress inlining for interface functions, StringAllocator
+  // functions and StringObject functions.
+  SmallSet<Function *, 16> MemManageNoInlineMethods;
 
+  DTransLibraryInfo DTransLibInfo(TM, GetTLI);
+  DTransLibInfo.initialize(M);
+  FunctionTypeResolver TypeResolver(MDReader, DTransLibInfo);
   for (auto *Str : M.getIdentifiedStructTypes()) {
     if (!Str->hasName())
       continue;
@@ -175,7 +183,38 @@ bool DTransForceInlineOP::run(Module &M) {
       Str->print(dbgs(), true, true);
       dbgs() << "\n";
     });
+    if (!MemManageInfo.collectMemberFunctions(TypeResolver, false)) {
+      DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFOOP, {
+        dbgs() << "  Failed: member functions collections.\n";
+      });
+      continue;
+    }
+
+    if (!MemManageInlineMethods.empty() || !MemManageNoInlineMethods.empty()) {
+      DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFOOP, {
+        dbgs() << "  Failed: More than one candidate found.\n";
+      });
+      MemManageInlineMethods.clear();
+      MemManageNoInlineMethods.clear();
+      break;
+    }
+
+    if (!MemManageInfo.collectInlineNoInlineMethods(
+            &MemManageInlineMethods, &MemManageNoInlineMethods)) {
+      DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFOOP,
+                      { dbgs() << "  Failed: Heuristics\n"; });
+      MemManageInlineMethods.clear();
+      MemManageNoInlineMethods.clear();
+      break;
+    }
   }
+  // Suppress inlining.
+  for (Function *F : MemManageNoInlineMethods)
+    if (!IsEmptyFunction(F))
+      F->addFnAttr("noinline-dtrans");
+  // Force inlining.
+  for (Function *F : MemManageInlineMethods)
+    F->addFnAttr("prefer-inline-dtrans");
   return true;
 }
 
@@ -188,7 +227,11 @@ public:
         *PassRegistry::getPassRegistry());
   }
 
-  bool runOnModule(Module &M) override { return Impl.runImpl(M); }
+  bool runOnModule(Module &M) override {
+    auto GetTLI = [this](const Function& F) -> TargetLibraryInfo& {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
+    return Impl.runImpl(M, GetTLI); }
 
 private:
   DTransForceInlineOPPass Impl;
@@ -201,23 +244,32 @@ namespace dtransOP {
 
 PreservedAnalyses
 DTransForceInlineOPPass::run(Module &M, ModuleAnalysisManager &MAM) {
-  runImpl(M);
+  auto& FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetTLI = [&FAM](const Function& F) -> TargetLibraryInfo& {
+    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function*>(&F)));
+  };
+  runImpl(M, GetTLI);
   return PreservedAnalyses::all();
 }
 
-bool DTransForceInlineOPPass::runImpl(Module &M) {
+bool DTransForceInlineOPPass::runImpl(
+    Module &M,
+    std::function<const TargetLibraryInfo &(const Function &)> GetTLI) {
   DTransForceInlineOP Transform;
-  return Transform.run(M);
+  return Transform.run(M, GetTLI);
 }
 
 } // end namespace dtransOP
 } // end namespace llvm
 
 char DTransForceInlineOPWrapper::ID = 0;
-INITIALIZE_PASS(DTransForceInlineOPWrapper,
+INITIALIZE_PASS_BEGIN(DTransForceInlineOPWrapper,
                 "dtrans-force-inline-op",
                 "DTrans force inline and noinline", false, false)
-
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_END(DTransForceInlineOPWrapper,
+                "dtrans-force-inline-op",
+                "DTrans force inline and noinline", false, false)
 ModulePass *llvm::createDTransForceInlineOPWrapperPass() {
   return new DTransForceInlineOPWrapper();
 }
