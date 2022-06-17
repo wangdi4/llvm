@@ -12110,7 +12110,6 @@ defm VPINSRWZ : avx512_insert_elt_bw<0xC4, "vpinsrw", X86pinsrw, v8i16x_info,
 defm VPINSRDZ : avx512_insert_elt_dq<0x22, "vpinsrd", v4i32x_info, GR32>;
 defm VPINSRQZ : avx512_insert_elt_dq<0x22, "vpinsrq", v2i64x_info, GR64>, VEX_W;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_VPINSR_VPEXTR
 // FIXME: Renaming these record when upstream. The 128bit version should end
@@ -12133,7 +12132,7 @@ let Predicates = [HasVPINSRVPEXTR, In64BitMode] in {
 }
 #endif // INTEL_FEATURE_ISA_VPINSR_VPEXTR
 #endif // INTEL_CUSTOMIZATION
-=======
+
 // Always select FP16 instructions if available.
 let Predicates = [HasBWI], AddedComplexity = -10 in {
   def : Pat<(f16 (load addr:$src)), (COPY_TO_REGCLASS (VPINSRWZrm (v8i16 (IMPLICIT_DEF)), addr:$src, 0), FR16X)>;
@@ -12141,7 +12140,6 @@ let Predicates = [HasBWI], AddedComplexity = -10 in {
   def : Pat<(i16 (bitconvert f16:$src)), (EXTRACT_SUBREG (VPEXTRWZrr (v8i16 (COPY_TO_REGCLASS FR16X:$src, VR128X)), 0), sub_16bit)>;
   def : Pat<(f16 (bitconvert i16:$src)), (COPY_TO_REGCLASS (VPINSRWZrr (v8i16 (IMPLICIT_DEF)), (INSERT_SUBREG (IMPLICIT_DEF), GR16:$src, sub_16bit), 0), FR16X)>;
 }
->>>>>>> 04a3d5f3a1193fb87576425a385aa0a6115b1e7c
 
 //===----------------------------------------------------------------------===//
 // VSHUFPS - VSHUFPD Operations
