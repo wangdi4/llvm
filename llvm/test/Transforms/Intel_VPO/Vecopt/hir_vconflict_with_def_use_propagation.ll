@@ -16,7 +16,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM1:[0-9]+]]>          (%A)[%0] = %add;
 ; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM2:[0-9]+]]>          %add = (%A)[%0]  +  2.000000e+00;
-; CHECK-VCONFLICT: [VConflict Idiom] Detected!
+; CHECK-VCONFLICT: [VConflict Idiom] Detected, legality pending further dependence checking!
 
 ; CHECK-NO-VCONFLICT: No idioms detected.
 

@@ -24,7 +24,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: [VConflict Idiom] Skipped: Store memory ref is linear
 ; CHECK: [VConflict Idiom] Looking at store candidate:<[[N5:[0-9]+]]>          (%B)[(i1)/u3] = %add5;
 ; CHECK: [VConflict Idiom] Depends(WAR) on:<[[N6:[0-9]+]]>          %ld3 = (%B)[(i1)/u3];
-; CHECK: [VConflict Idiom] Detected!
+; CHECK: [VConflict Idiom] Detected, legality pending further dependence checking!
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
 define dso_local void @_Z4foo3PfPi(float* noalias nocapture %A, float* noalias nocapture readonly %B) local_unnamed_addr #0 {
