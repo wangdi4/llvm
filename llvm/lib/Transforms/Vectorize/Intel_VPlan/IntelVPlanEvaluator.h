@@ -58,7 +58,7 @@ public:
 protected:
   // Calculates the cost of VPlan, without calculating peel/remainder cost. If
   // there is not a VPlan, returns MAX cost.
-  VPInstructionCost calculatePlanCost(unsigned VF, VPlanVector *Plan);
+  VPlanCostPair calculatePlanCost(unsigned VF, VPlanVector *Plan);
 
   LoopVectorizationPlanner &Planner;
   VPInstructionCost ScalarIterCost;

@@ -38,6 +38,7 @@
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Config/llvm-config.h"
+#include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/DataLayout.h"
@@ -83,12 +84,9 @@ cl::opt<bool> DTransInlineHeuristics(
     "dtrans-inline-heuristics", cl::Hidden, cl::init(false),
     cl::desc("inlining heuristics controlled under -qopt-mem-layout-trans"));
 
-#if INTEL_FEATURE_SW_ADVANCED
-static cl::opt<bool> EnableLTOInlineCost("lto-inline-cost", cl::Hidden,
-                                         cl::init(false),
-                                         cl::desc("Enable LTO inline cost"));
-#endif // INTEL_FEATURE_SW_ADVANCED
-
+cl::opt<bool> EnableLTOInlineCost("lto-inline-cost", cl::Hidden,
+                                   cl::init(false),
+                                   cl::desc("Enable LTO inline cost"));
 
 namespace llvm {
 
@@ -361,6 +359,52 @@ static cl::opt<unsigned> ExposeLocalArraysMinDims(
 static cl::opt<unsigned> ExposeLocalArraysMaxDepth(
     "inline-expose-local-arrays-max-depth", cl::init(5), cl::ReallyHidden,
     cl::desc("Maximum traversal depth for expose local arrays candidate"));
+
+// worthInliningUnderTBBParallelFor()
+// 
+// The idea is to match a series of TBBParallelForMinCallBaseMatch calls
+// to a Function which have not yet been inlined and are under a TBB parallel
+// for. The calls must have at least TBBParallelForMinArgTotal actual
+// arguments of which at least TBBParallelForMinArgMatch must match.
+// The calls must be no more than TBBParallelForMaxDepth levels down the
+// call graph from the TBB parallel for. While traversing up the call graph
+// from the candidate CallBase, give up if the fan out from Function to
+// CallBase users is more than TBBParallelForMaxWidth.
+//
+// For now, we apply this heuristic on the link step of an -flto compilation.
+// Also we limit it to Modules that have at least TBBParallelForMinFuncs
+// Functions. This can be loosened later, if we think that is beneficial.
+//
+// The goal is to provide extra inlining for Functions called under a TBB
+// parallel for, because they are likely to be hot.
+//
+static cl::opt<unsigned> TBBParallelForMinCallBaseMatch(
+    "inline-tbb-parallel-min-callbase-match", cl::init(3), cl::ReallyHidden,
+    cl::desc("Min CallBase match for preferred inline under tbb parallel for"));
+
+static cl::opt<unsigned> TBBParallelForMaxCallBaseMatch(
+    "inline-tbb-parallel-max-callbase-match", cl::init(3), cl::ReallyHidden,
+    cl::desc("Max CallBase match for preferred inline under tbb parallel for"));
+
+static cl::opt<unsigned> TBBParallelForMinArgMatch(
+    "inline-tbb-parallel-for-min-arg-match", cl::init(2), cl::ReallyHidden,
+    cl::desc("Minimum arg match for preferred inline under tbb parallel for"));
+
+static cl::opt<unsigned> TBBParallelForMinArgTotal(
+    "inline-tbb-parallel-for-min-arg-total", cl::init(4), cl::ReallyHidden,
+    cl::desc("Minimum arg total for preferred inline under tbb parallel for"));
+
+static cl::opt<unsigned> TBBParallelForMaxDepth(
+    "inline-tbb-parallel-max-depth", cl::init(2), cl::ReallyHidden,
+    cl::desc("Max depth for preferred inline under tbb parallel for"));
+
+static cl::opt<unsigned> TBBParallelForMaxWidth(
+    "inline-tbb-parallel-for-max-width", cl::init(2), cl::ReallyHidden,
+    cl::desc("Max width for preferred inline under tbb parallel for"));
+
+static cl::opt<unsigned> TBBParallelForMinFuncs(
+    "inline-tbb-parallel-for-min-funcs", cl::init(75000), cl::ReallyHidden,
+    cl::desc("Min functions for preferred inline under tbb parallel for"));
 
 #endif // INTEL_FEATURE_SW_ADVANCED
 
@@ -3868,6 +3912,163 @@ static bool worthInliningExposesLocalArrays(Function &F,
 }
 
 //
+// Return 'true' if 'CB' should be inlined because it is under a TBB parallel
+// for and therefore likely to be hot.
+//
+static bool worthInliningUnderTBBParallelFor(CallBase &CB,
+                                             bool LinkForLTO) {
+
+  // 
+  // Return 'true' if 'F' is a TBB parallel for.
+  // We use the demangler to look for a Function with the name:
+  //   tbb::detail::d1::start_for<...>::execute(
+  //       tbb::detail::d1::execution_data&)
+  // for Linux and the name:
+  //   public: virtual class tbb::detail::d1::task *__cdecl
+  //       tbb::detail::d1::start_for<...>execute(
+  //       struct tbb::detail::d1::execution_data &)
+  // for Windows.
+  //
+  auto IsTBBParallelFor = [](Function &F) -> bool {
+    std::string Name = demangle(F.getName().str());
+    StringRef DemangledName(Name);
+    char StartString[] =
+#ifndef _WIN32
+      "tbb::detail::d1::start_for<";
+#else
+      "public: virtual class tbb::detail::d1::task * "
+          "__cdecl tbb::detail::d1::start_for<";
+#endif // _WIN32
+    char EndString[] =
+#ifndef _WIN32
+      ">::execute(tbb::detail::d1::execution_data&)";
+#else
+      ">::execute(struct tbb::detail::d1::execution_data &)";
+#endif // _WIN32
+    if (!DemangledName.startswith(StartString))
+      return false;
+    if (!DemangledName.endswith(EndString))
+      return false;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'M' has a TBB parallel for. Also, set the attribute
+  // "tbb-parallel-for" on each TBB parallel for.
+  //
+  auto HasTBBParallelFor = [&IsTBBParallelFor](Module &M) -> bool {
+    // To save compile time.
+    auto NumFxns = std::distance(M.functions().begin(), M.functions().end());
+    if (NumFxns < TBBParallelForMinFuncs)
+      return false;
+    bool RV = false;
+    for (auto &F : M.functions())
+      if (IsTBBParallelFor(F)) {
+        F.addFnAttr("tbb-parallel-for");
+        RV = true;
+      }
+    return RV;
+  };
+
+  //
+  // Return 'true' if 'CB and 'CBU' have at least TBBParallelForMinArgTotal
+  // actual arguments, have the same number of arguments, and have at least
+  // TBBParallelForMinArgMatch matching arguments.
+  //
+  auto HasMatchingArgs = [](CallBase &CB, CallBase &CBU) -> bool {
+    unsigned AS = CB.arg_size();
+    if (AS != CBU.arg_size() || AS < TBBParallelForMinArgTotal)
+      return false;
+    unsigned Count = 0;
+    for (unsigned I = 0; I < AS; ++I)
+      if (CB.getArgOperand(I) == CBU.getArgOperand(I))
+        if (++Count >= TBBParallelForMinArgMatch)
+          return true;
+    return false;
+  };
+
+  //
+  // Return 'true' if 'CB' is not more than 'Depth' levels under a TBB
+  // parallel for. While traversing up the call graph, limit the fan out
+  // from Function to Callbase Users to be no more than TBBParallelForMaxWidth.
+  //
+  std::function<bool(CallBase &, unsigned)> IsUnderTBBParallelFor =
+      [&IsUnderTBBParallelFor](CallBase &CB, unsigned Depth) {
+    if (Depth == 0)
+      return false;
+    unsigned Width = 0;
+    Function *Caller = CB.getCaller();
+    if (Caller->hasFnAttribute("tbb-parallel-for"))
+      return true;
+    for (User *U : Caller->users())
+      if (auto CBU = dyn_cast<CallBase>(U)) {
+        if (++Width > TBBParallelForMaxWidth)
+          return false;
+        if (IsUnderTBBParallelFor(*CBU, Depth-1))
+          return true;
+      }
+    return false;
+  }; 
+
+  //
+  // Return 'true' if 'CB' is prefered for inlining under the TBB parallel
+  // for heuristic. The caller of 'CB' should have at least
+  // TBBParallelForMinCallBaseMatch calls but no more than
+  // TBBParallelForMaxCallBaseMatch calls to the callee of 'CB' with
+  // matching arguments.
+  //
+  auto PreferForInlining = [&HasMatchingArgs](CallBase &CB) -> bool {
+    CallBase *PatternCB = nullptr;
+    Function *PatternCallee = nullptr;
+    SmallVector <CallBase *, 4> PreferInlineVector; 
+    for (auto &I : instructions(*CB.getCaller()))
+      if (auto CBU = dyn_cast<CallBase>(&I))
+        if (!isa<IntrinsicInst>(CBU))
+          if (auto Callee = CBU->getCalledFunction())
+            if (!Callee->isDeclaration()) {
+              // Skip candidates that do not have enough args
+              if (Callee->arg_size() < TBBParallelForMinArgTotal)
+                continue;
+              if (!PatternCallee) {
+                PatternCallee = Callee;
+                PatternCB = CBU;
+                PreferInlineVector.push_back(CBU);
+              } else if (Callee == PatternCallee &&
+                  HasMatchingArgs(*PatternCB, *CBU)) {
+                PreferInlineVector.push_back(CBU);
+                if (PreferInlineVector.size() > TBBParallelForMaxCallBaseMatch)
+                  return false;
+              } else {
+                return false;
+              }
+            }
+    if (PreferInlineVector.size() < TBBParallelForMinCallBaseMatch)
+      return false;
+    for (CallBase *CBU : PreferInlineVector)
+      CBU->addFnAttr("prefer-inline-tbb");
+    return CB.hasFnAttr("prefer-inline-tbb");
+  };
+
+  // Main code for worthInliningUnderTBBParallelFor
+  static bool MarkedTBBParallelFor = false;
+  static bool DoesHaveTBBParallelFor = true;
+  if (!LinkForLTO)
+    return false;
+
+  if (!MarkedTBBParallelFor) {
+    DoesHaveTBBParallelFor = HasTBBParallelFor(*CB.getFunction()->getParent());
+    MarkedTBBParallelFor = true;
+  }
+  if (!DoesHaveTBBParallelFor)
+    return false;
+  if (CB.hasFnAttr("prefer-inline-tbb"))
+    return true;
+  if (!IsUnderTBBParallelFor(CB, TBBParallelForMaxDepth))
+    return false;
+  return PreferForInlining(CB);
+}
+
+//
 // Test a series of special conditions to determine if it is worth inlining
 // if any of them appear. (These have been gathered together into a single
 // function to make an early exit easy to accomplish and save compile time.)
@@ -3980,6 +4181,10 @@ extern int intelWorthInlining(CallBase &CB, const InlineParams &Params,
   }
   if (worthInliningExposesLocalArrays(*F, PrepareForLTO, WPI)) {
     YesReasonVector.push_back(InlrExposesLocalArrays);
+    return -InlineConstants::InliningHeuristicBonus;
+  }
+  if (worthInliningUnderTBBParallelFor(CB, LinkForLTO)) {
+    YesReasonVector.push_back(InlrUnderTBBParallelFor);
     return -InlineConstants::InliningHeuristicBonus;
   }
   return 0;

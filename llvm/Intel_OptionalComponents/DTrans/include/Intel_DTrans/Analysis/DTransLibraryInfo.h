@@ -1,6 +1,6 @@
 //===---------DTransLibraryInfo.h - Library function information-----------===//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -47,14 +47,14 @@ public:
 
   void initialize(Module &M);
 
-  DTransFunctionType *getDTransFunctionType(Function *F);
-  DTransType *getFunctionReturnType(Function *F);
-  DTransType *getFunctionArgumentType(Function *F, unsigned Idx);
+  DTransFunctionType *getDTransFunctionType(const Function *F);
+  DTransType *getFunctionReturnType(const Function *F);
+  DTransType *getFunctionArgumentType(const Function *F, unsigned Idx);
 
   DTransPointerType *getDTransIOPtrType() const { return DTransIOPtrType; }
 
 private:
-  DTransFunctionType *getDTransFunctionTypeImpl(Function *F);
+  DTransFunctionType *getDTransFunctionTypeImpl(const Function *F);
   DTransFunctionType *getDTransFunctionTypeImpl(LibFunc TheLibFunc);
   DTransFunctionType *getDTransFunctionTypeImpl(Intrinsic::ID Id);
 
@@ -70,6 +70,7 @@ private:
   DTransType *DTransI32Type = nullptr;
   DTransType *DTransI64Type = nullptr;
   DTransType *DTransSizeType = nullptr;
+  DTransType* DTransMDType = nullptr;
 
   DTransType *DTransVoidType = nullptr;
 
@@ -91,7 +92,7 @@ private:
   DTransPointerType *DTransKMPCriticalNamePtrType = nullptr;
 
   // Cache of computed Function -> DTransFunctionType entries.
-  std::map<Function *, DTransFunctionType *> FunctionCache;
+  std::map<const Function *, DTransFunctionType *> FunctionCache;
 };
 
 } // end namespace dtransOP

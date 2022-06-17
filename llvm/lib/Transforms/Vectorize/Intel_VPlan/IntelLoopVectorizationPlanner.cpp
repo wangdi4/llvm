@@ -411,8 +411,8 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
   OS = is_contained(VPlanCostModelPrintAnalysisForVF, 1) ? &outs() : nullptr;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  ScalarIterationCost = createCostModel(Plan.get(), 1)->getCost(
-   nullptr /* PeelingVariant */, OS);
+  std::tie(ScalarIterationCost, std::ignore) =
+      createCostModel(Plan.get(), 1)->getCost(nullptr /* PeelingVariant */, OS);
 
   // FIXME: Should we really prefer VF=1 Plan with unknown cost?
   if (ScalarIterationCost.isUnknown())
@@ -981,10 +981,12 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       &outs() : nullptr;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-    VPInstructionCost MainLoopIterationCost =
+    VPInstructionCost MainLoopIterationCost, MainLoopOverhead;
+
+    std::tie(MainLoopIterationCost, MainLoopOverhead) =
         MainLoopCM->getCost(PeelingVariant, OS);
 
-    if (MainLoopIterationCost.isUnknown()) {
+    if (MainLoopIterationCost.isUnknown() || MainLoopOverhead.isUnknown()) {
       LLVM_DEBUG(dbgs() << "Cost for VF = " << VF << " is unknown. Skip it.\n");
       if (VF == ForcedVF || VF == SearchLoopPreferredVF) {
         // If the VF is forced and loop cost for it is unknown select the
@@ -1023,17 +1025,22 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
 
     // The total vector cost is calculated by adding the total cost of peel,
     // main and remainder loops.
-    VPInstructionCost VectorCost = PeelEvaluator.getLoopCost() +
-                                   MainLoopIterationCost * MainLoopTripCount +
-                                   RemainderEvaluator.getLoopCost();
+    VPInstructionCost VectorCost =
+      PeelEvaluator.getLoopCost() +
+      MainLoopIterationCost * MainLoopTripCount + MainLoopOverhead +
+      RemainderEvaluator.getLoopCost();
 
     // Calculate cost of one iteration of the main loop without preferred
     // alignment.
     // This getCost() call leaves no traces in CM dumps enabled by
     // VPlanCostModelPrintAnalysisForVF for now. May want to reconsider in
     // future.
-    VPInstructionCost MainLoopIterationCostWithoutPeel = MainLoopCM->getCost();
-    if (MainLoopIterationCostWithoutPeel.isUnknown()) {
+    VPInstructionCost MainLoopIterationCostWithoutPeel,
+        MainLoopOverheadWithoutPeel;
+    std::tie(MainLoopIterationCostWithoutPeel, MainLoopOverheadWithoutPeel) =
+        MainLoopCM->getCost();
+    if (MainLoopIterationCostWithoutPeel.isUnknown() ||
+        MainLoopOverheadWithoutPeel.isUnknown()) {
       LLVM_DEBUG(dbgs() << "Cost for VF = " << VF <<
                  " without peel is unknown. Skip it.\n");
       continue;
@@ -1047,8 +1054,9 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     const decltype(TripCount) MainLoopTripCountWithoutPeel =
         TripCount / (VF * BestUF);
     VPInstructionCost VectorCostWithoutPeel =
-      MainLoopIterationCostWithoutPeel * MainLoopTripCountWithoutPeel +
-      RemainderEvaluatorWithoutPeel.getLoopCost();
+        MainLoopIterationCostWithoutPeel * MainLoopTripCountWithoutPeel +
+        MainLoopOverheadWithoutPeel +
+        RemainderEvaluatorWithoutPeel.getLoopCost();
 
     if (0 < VecThreshold && VecThreshold < 100) {
       LLVM_DEBUG(dbgs() << "Applying threshold " << VecThreshold << " for VF "
@@ -1087,28 +1095,30 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
                << " = " << ScalarCost << ' ' << CmpChar
                << " VectorCost = " << PeelEvaluator.getLoopCost() << " + "
                << MainLoopTripCount << " x " << MainLoopIterationCost << " + "
-               << RemainderEvaluator.getLoopCost() << " = " << VectorCost
-               << '\n'
+               << MainLoopOverhead << " + " << RemainderEvaluator.getLoopCost()
+               << " = " << VectorCost << '\n'
                << "Peel loop cost = " << PeelEvaluator.getLoopCost() << " ("
                << PeelEvaluator.getPeelLoopKindStr() << ")"
                << "\n"
                << "Main loop vector cost = "
-               << MainLoopTripCount * MainLoopIterationCost << "\n"
+               << MainLoopTripCount * MainLoopIterationCost << " + "
+               << MainLoopOverhead << "\n"
                << "Remainder loop cost = " << RemainderEvaluator.getLoopCost()
                << " (" << RemainderEvaluator.getRemainderLoopKindStr() << ")"
                << "\n"
                // Print out costs without peel.
-               << " VectorCostWithoutPeel = "
-               << MainLoopTripCountWithoutPeel << " x "
-               << MainLoopIterationCostWithoutPeel
-               << " = " << VectorCostWithoutPeel
+               << " VectorCostWithoutPeel = " << MainLoopTripCountWithoutPeel
+               << " x " << MainLoopIterationCostWithoutPeel << " + "
+               << MainLoopOverheadWithoutPeel << " = " << VectorCostWithoutPeel
                << "\n"
                << "Main loop vector cost without peel = "
-               << MainLoopIterationCostWithoutPeel * MainLoopTripCountWithoutPeel
+               << MainLoopIterationCostWithoutPeel *
+                          MainLoopTripCountWithoutPeel +
+                      MainLoopOverheadWithoutPeel
                << "\n"
                << "Remainder loop cost without peel = "
-               << RemainderEvaluatorWithoutPeel.getLoopCost()
-               << " (" << RemainderEvaluatorWithoutPeel.getRemainderLoopKindStr() << ")"
+               << RemainderEvaluatorWithoutPeel.getLoopCost() << " ("
+               << RemainderEvaluatorWithoutPeel.getRemainderLoopKindStr() << ")"
                << "\n";);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1117,8 +1127,9 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       PeelEvaluator.dump();
       dbgs() << "The main loop is vectorized with vector factor " << VF
              << ". The vector cost is "
-             << MainLoopTripCount * MainLoopIterationCost << "("
-             << MainLoopTripCount << " x " << MainLoopIterationCost << "). \n";
+             << MainLoopTripCount * MainLoopIterationCost + MainLoopOverhead
+             << "(" << MainLoopTripCount << " x " << MainLoopIterationCost
+             << " + " << MainLoopOverhead << "). \n";
       RemainderEvaluator.dump();
     }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
