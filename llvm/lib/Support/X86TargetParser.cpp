@@ -287,6 +287,15 @@ constexpr FeatureBitset FeaturesCommonAVX256 =
 #if INTEL_FEATURE_ISA_AVX512_SAT_CVT
     FeatureAVX512SATCVT |
 #endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
+#if INTEL_FEATURE_ISA_AVX512_MINMAX
+    FeatureAVX512MINMAX |
+#endif // INTEL_FEATURE_ISA_AVX512_MINMAX
+#if INTEL_FEATURE_ISA_AVX512_COMPLEX
+    FeatureAVX512COMPLEX |
+#endif // INTEL_FEATURE_ISA_AVX512_COMPLEX
+#if INTEL_FEATURE_ISA_AVX512_REDUCTION
+    FeatureAVX512REDUCTION |
+#endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
 #endif // ENABLE_ISA_AVX256
 #if INTEL_FEATURE_ISA_AVX256
     FeaturesSapphireRapids;
@@ -875,8 +884,17 @@ static constexpr FeatureBitset ImpliedFeaturesPREFETCHST2 = {};
 static constexpr FeatureBitset ImpliedFeaturesPREFETCHI = {};
 #endif // INTEL_FEATURE_ISA_PREFETCHI
 #if INTEL_FEATURE_ISA_AVX512_SAT_CVT
-static constexpr FeatureBitset ImpliedFeaturesAVX512SATCVT = FeatureAVX512F | FeatureAVX512FP16;
+static constexpr FeatureBitset ImpliedFeaturesAVX512SATCVT = FeatureAVX512BF16 | FeatureAVX512FP16;
 #endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
+#if INTEL_FEATURE_ISA_AVX512_MINMAX
+static constexpr FeatureBitset ImpliedFeaturesAVX512MINMAX = FeatureAVX512BF16 | FeatureAVX512FP16;
+#endif // INTEL_FEATURE_ISA_AVX512_MINMAX
+#if INTEL_FEATURE_ISA_AVX512_COMPLEX
+static constexpr FeatureBitset ImpliedFeaturesAVX512COMPLEX = FeatureAVX512FP16;
+#endif // INTEL_FEATURE_ISA_AVX512_COMPLEX
+#if INTEL_FEATURE_ISA_AVX512_REDUCTION
+static constexpr FeatureBitset ImpliedFeaturesAVX512REDUCTION = FeatureAVX512F;
+#endif // INTEL_FEATURE_ISA_AVX512_REDUCTION
 #endif // INTEL_CUSTOMIZATION
 static constexpr FeatureBitset ImpliedFeaturesAVX512FP16 =
     FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL;
