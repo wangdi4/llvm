@@ -280,6 +280,8 @@ static const DenseMap<unsigned, opt_report_proto::BinOptReport::Property>
         {25518, opt_report_proto::BinOptReport::C_LOOP_VEC_PEEL},
         {25519, opt_report_proto::BinOptReport::C_LOOP_VEC_REMAINDER},
         {15301, opt_report_proto::BinOptReport::C_LOOP_VEC_SIMD},
+        {25588, opt_report_proto::BinOptReport::C_LOOP_HAS_SIMD_REDUCTION},
+        {25587, opt_report_proto::BinOptReport::C_LOOP_VEC_HAS_REDUCTION},
 };
 #endif // INTEL_ENABLE_PROTO_BIN_OPTRPT
 
