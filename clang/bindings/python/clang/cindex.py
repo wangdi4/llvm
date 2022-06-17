@@ -1312,16 +1312,8 @@ CursorKind.OMP_TEAMS_DISTRIBUTE_DIRECTIVE = CursorKind(271)
 #
 # The translation unit cursor exists primarily to act as the root cursor for
 # traversing the contents of a translation unit.
-<<<<<<< HEAD
-# INTEL_COLLAB
-CursorKind.TRANSLATION_UNIT = CursorKind(350)
-# else
-#UNCOMMENT# CursorKind.TRANSLATION_UNIT = CursorKind(300)
-# end INTEL_COLLAB
-=======
 CursorKind.TRANSLATION_UNIT = CursorKind(350)
 
->>>>>>> bb83f8e70bd1d56152f02307adacd718cd67e312
 ###
 # Attributes
 
