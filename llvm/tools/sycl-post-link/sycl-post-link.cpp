@@ -902,7 +902,6 @@ processInputModule(std::unique_ptr<Module> M) {
 
   DUMP_ENTRY_POINTS(*M, EmitOnlyKernelsAsEntryPoints, "Input");
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   bool DoLinkOmpOffloadEntries =
       OmpOffloadEntriesSymbol.getNumOccurrences() > 0;
@@ -934,10 +933,7 @@ processInputModule(std::unique_ptr<Module> M) {
 #endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
 
-  // --ir-output-only assumes single module output thus no code splitting.
-=======
   // -ir-output-only assumes single module output thus no code splitting.
->>>>>>> 9a55da536b1455cfa5257ded077f2b6322332357
   // Violation of this invariant is user error and must've been reported.
   // However, if split mode is "auto", then entry point filtering is still
   // performed.
