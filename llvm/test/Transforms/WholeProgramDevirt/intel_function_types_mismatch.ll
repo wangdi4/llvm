@@ -1,186 +1,11 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans
 
-; This test case checks that the partial inliner was executed for functions that are virtual
-; function targets. The test cases translates the following example:
-;
-; #include <iostream>
-;
-; class cObject {
-; public:
-;   virtual ~cObject() {};
-;
-; };
-;
-; class Base : public cObject {
-; public:
-;   virtual bool foo(void *arr, int size) = 0;
-; };
-;
-; class Derived : public Base {
-; public:
-;   bool foo(void *arr, int size) {
-;
-;     int *arr_new = (int *)arr;
-;
-;     if (arr_new == NULL) {
-;       return false;
-;     }
-;
-;     for(int i = 0; i < size; i++)
-;       arr_new[i] = i;
-;
-;     return true;
-;   }
-; };
-;
-; class Derived2 : public Base {
-; public:
-;   bool foo(void *arr, int size) {
-;
-;     int *arr_new = (int *)arr;
-;
-;     if (arr_new == NULL) {
-;       return false;
-;     }
-;
-;     for(int i = 0; i < size; i++)
-;       arr_new[i] = i+1;
-;
-;     return true;
-;   }
-; };
-;
-; class ClassFactory {
-; private:
-;   cObject **Classes;
-;
-; public:
-;   ClassFactory() {
-;     Classes = new cObject*[2];
-;     Classes[0] = new Derived();
-;     Classes[1] = new Derived2();
-;   }
-;
-;   cObject *getPointer(int i) {
-;     return Classes[i];
-;   }
-; };
-;
-; class Manager {
-; protected:
-;   int *a;
-;   Base *b;
-;   int size;
-;   ClassFactory Factory;
-;
-; public:
-;   Manager(int inSize) {
-;     a = new int[inSize];
-;     size = inSize;
-;   }
-;   void printer() {
-;     for (int i = 0; i < 10; i++)
-;       std::cout << a[i] << "\n";
-;   }
-;
-;   void setup(int val) {
-;     if (val == 0)
-;       b = dynamic_cast<Derived *>(Factory.getPointer(0));
-;     else
-;       b = dynamic_cast<Derived2 *>(Factory.getPointer(1));
-;   }
-;
-;   virtual bool runner(int *A, int Size) {
-;     return b->foo(A,Size);
-;   }
-;
-;   void run() {
-;      bool res = runner(a, size);
-;      if (res)
-;        printer();
-;   }
-; };
-;
-; int main(int argc, char** argv) {
-;
-;   Manager *m = new Manager(10);
-;   m->setup(argc);
-;   m->run();
-;
-;   return 0;
-; }
-;
-; In this example we have a class called ClassFactory that have an array with multiple
-; types. The field Base *b in the class Manager will take the derived pointer depending
-; on the input. The function runner will call foo depending on which derived class was
-; used. The goal of this test case is to make sure that the devirtualization was done
-; correctly and then the partial inliner will partially inline the calls to foo.
-;
-; The whole program devirtualization will convert Manager::runner as follow (pseudocode):
-;
-; Manager::runner(int *A, int Size) {
-;  bool c;
-;  if (&b->foo == &Derived::foo)
-;    c = Derived::foo(A,Size);
-;  else
-;    c = Derived2::foo(A,Size);
-;
-;  return c;
-; }
-;
-; Then the partial inliner will take care of converting the function as follow:
-;
-; Manager::runner(int *A, int Size) {
-;
-;   bool c;
-;
-;   if (&b->foo == &Derived::foo) {
-;     if (A == NULL)
-;       c = false;
-;     else if (Size == 0)
-;       c = true;
-;     else
-;       c = Derived::foo_outline_function(A,Size);
-;   }
-;
-;   else {
-;     if (A == NULL)
-;       c = false;
-;     else if (Size == 0)
-;       c = true;
-;     else
-;       c =Derived2::foo_outline_function(A,Size);
-;   }
-;   return c;
-; }
-;
-; Derived::foo_outline_function(int *A, int Size) {
-;   for (int i = 0; i < Size; i++) {
-;     A[i] = i;
-;   }
-;   return true;
-; }
-;
-; Derived2::foo_outline_function(int *A, int Size) {
-;   for (int i = 0; i < Size; i++) {
-;     A[i] = i+1;
-;   }
-;   return true;
-; }
-;
-; The calls to foo were partially inlined and replaced with the outline versions.
-; The important functions of this test case are Manager::runner, Derived::foo and
-; Derived2::foo. The test case will go though the following passes:
-;
-; 1) Whole program analysis: -wholeprogramanalysis -whole-program-assume -internalize -intel-fold-wp-intrinsic
-; 2) Simplify call graph: -simplifycfg
-; 3) Whole program devirtualization: -wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion
-;                                    -wholeprogramdevirt-multiversion-verify -wholeprogramdevirt-assume-safe
-; 4) Partial inliner: -partial-inliner -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions
+; This test case checks that devirtualization didn't run when the function type
+; of the virtual call mismatches the function type of target function.
 
-; RUN: opt < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -enable-new-pm=0 -wholeprogramanalysis -whole-program-assume -intel-fold-wp-intrinsic -internalize -simplifycfg -wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -instnamer -partial-inliner -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -S 2>&1 | FileCheck %s
-; RUN: opt < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes='require<wholeprogram>,module(intel-fold-wp-intrinsic),module(internalize),function(simplifycfg),module(wholeprogramdevirt),function(instnamer),module(partial-inliner)' -whole-program-assume -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -skip-partial-inlining-cost-analysis -partial-inline-virtual-functions -S 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -enable-new-pm=0 -wholeprogramanalysis -whole-program-assume -intel-fold-wp-intrinsic -internalize -simplifycfg -wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -instnamer -S 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes='require<wholeprogram>,module(intel-fold-wp-intrinsic),module(internalize),function(simplifycfg),module(wholeprogramdevirt),function(instnamer)' -whole-program-assume -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -S 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -569,52 +394,30 @@ attributes #12 = { builtin nounwind }
 !26 = !{!23, !23, i64 0}
 
 
-; Check that function Manager::runner was devirtualized correctly. Also check that both targets were
-; partially inlined correctly.
+; Check that devirtualization didn't kick in @main since the function types mismatches.
+
+; CHECK:  %i[[V0:[0-9]+]] = load i1 (%class.Base*, i8*, i32)*, i1 (%class.Base*, i8*, i32)** %vfn.i, align 8
+; CHECK:  %call.i[[V3:[0-9]+]] = tail call zeroext i1 %i[[V0]](%class.Base* %i[[V1:[0-9]+]], i8* nonnull %call.i[[V2:[0-9]+]], i32 10)
+
+; Check that function Manager::runner was devirtualized correctly.
 ;
 ; CHECK: define internal zeroext i1 @_ZN7Manager6runnerEPii(%class.Manager* %this, i32* %A, i32 %Size)
-; CHECK: br i1 %{{.*}}, label %BBDevirt__ZN7Derived3fooEPvi, label %BBDevirt__ZN8Derived23fooEPvi
-;
-; Partially inline (A == null) in Derived::foo
-; CHECK-LABEL: BBDevirt__ZN7Derived3fooEPvi:                 ; preds = %entry
-; CHECK:         %cmp.i[[V0:[0-9]+]] = icmp eq i8* %i1, null
-; CHECK-NEXT:    br i1 %cmp.i[[V0]], label %_ZN7Derived3fooEPvi.2.exit, label %for.cond.preheader.i[[V5:[0-9]+]]
-;
-; Partially inline (Size = 0) in Derived::foo
-; CHECK: for.cond.preheader.i[[V5]]:                           ; preds = %BBDevirt__ZN7Derived3fooEPvi
-; CHECK:         %cmp29.i[[V1:[0-9]+]] = icmp sgt i32 %Size, 0
-; CHECK-NEXT:    br i1 %cmp29.i[[V1]], label %codeRepl.i[[V2:[0-9]+]], label %_ZN7Derived3fooEPvi.2.exit
-;
-; Call the outline function of Derived::foo
-; CHECK: codeRepl.i[[V2]]:                                     ; preds = %for.cond.preheader.i[[V5]]
-; CHECK:         call void @_ZN7Derived3fooEPvi.2.for.body.preheader(i32 %Size, i32* %A)
-; CHECK-NEXT:    br label %_ZN7Derived3fooEPvi.2.exit
-;
-; CHECK: _ZN7Derived3fooEPvi.2.exit:                       ; preds = %BBDevirt__ZN7Derived3fooEPvi, %for.cond.preheader.i[[V5]], %codeRepl.i[[V2]]
-; CHECK:        %retval.0.i[[V3:[0-9]+]] = phi i1 [ false, %BBDevirt__ZN7Derived3fooEPvi ], [ true, %for.cond.preheader.i[[V5]] ], [ true, %codeRepl.i[[V2]] ]
-; CHECK-NEXT:    br label %MergeBB
-;
-; Partially inline (A == null) in Derived2::foo
-; CHECK-LABEL: BBDevirt__ZN8Derived23fooEPvi:                ; preds = %entry
-; CHECK:         %cmp.i = icmp eq i8* %i1, null
-; CHECK-NEXT:    br i1 %cmp.i, label %_ZN8Derived23fooEPvi.1.exit, label %for.cond.preheader.i
-;
-; Partially inline (Size == 0) in Derived2::foo
-; CHECK-LABEL: for.cond.preheader.i:                             ; preds = %BBDevirt__ZN8Derived23fooEPvi
-; CHECK:         %cmp29.i = icmp sgt i32 %Size, 0
-; CHECK-NEXT:    br i1 %cmp29.i, label %codeRepl.i, label %_ZN8Derived23fooEPvi.1.exit
-;
-; Call the outline function of Derived2:foo
-; CHECK-LABEL: codeRepl.i:                                       ; preds = %for.cond.preheader.i
-; CHECK:         call void @_ZN8Derived23fooEPvi.1.for.body.preheader(i32 %Size, i32* %A)
-; CHECK-NEXT:    br label %_ZN8Derived23fooEPvi.1.exit
-;
-; CHECK-LABEL: _ZN8Derived23fooEPvi.1.exit:
-; CHECK:    %retval.0.i = phi i1 [ false, %BBDevirt__ZN8Derived23fooEPvi ], [ true, %for.cond.preheader.i ], [ true, %codeRepl.i ]
-; CHECK-NEXT:    br label %MergeBB
-;
-; CHECK-LABEL: MergeBB:                                      ; preds = %_ZN8Derived23fooEPvi.1.exit, %_ZN7Derived3fooEPvi.2.exit
-; CHECK-NEXT:    %i[[V4:[0-9]+]] = phi i1 [ %retval.0.i[[V3]], %_ZN7Derived3fooEPvi.2.exit ], [ %retval.0.i, %_ZN8Derived23fooEPvi.1.exit ]
-; CHECK-NEXT:    br label %bb
+
+; CHECK: %i[[I0:[0-9]+]] = bitcast i32* %A to i8*
+; CHECK: %i[[I1:[0-9]+]] = bitcast i1 (i8*, i32)* @_ZN7Derived3fooEPvi to i8*
+; CHECK: %i[[I2:[0-9]+]] = icmp eq i8* %i[[I6:[0-9]+]], %i[[I1]]
+; CHECK: br i1 %i[[I2]], label %BBDevirt__ZN7Derived3fooEPvi, label %BBDevirt__ZN8Derived23fooEPvi
+
+; CHECK: BBDevirt__ZN7Derived3fooEPvi:
+; CHECK:   %i[[I3:[0-9]+]] = tail call zeroext i1 @_ZN7Derived3fooEPvi(i8* %i[[I0]], i32 %Size)
+; CHECK:   br label %MergeBB
+
+; CHECK: BBDevirt__ZN8Derived23fooEPvi:
+; CHECK:   %i[[I4:[0-9]+]] = tail call zeroext i1 @_ZN8Derived23fooEPvi(i8* %i[[I0]], i32 %Size)
+; CHECK:   br label %MergeBB
+
+; CHECK: MergeBB:
+; CHECK:   %i[[I7:[0-9]+]] = phi i1 [ %i[[I3]], %BBDevirt__ZN7Derived3fooEPvi ], [ %i[[I4]], %BBDevirt__ZN8Derived23fooEPvi ]
+; CHECK:   br label %bb
 
 ; end INTEL_FEATURE_SW_DTRANS

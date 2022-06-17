@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_DTRANS
 //=-- Intel_DevirtMultiversioning.h - Intel Devirtualization Multiversion -*-=//
 //
-// Copyright (C) 2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -105,8 +105,10 @@ private:
   // the call instruction
   BasicBlock *getMergePoint(Module &M, CallBase *VCallSite);
 
-  // Create the call sites and basic blocks for each target
-  void createCallSiteBasicBlocks(
+  // Create the call sites and basic blocks for each target. Return false if
+  // all the target functions have the same llvm::FunctionType as VCallSite,
+  // else return true.
+  bool createCallSiteBasicBlocks(
       Module &M, std::vector<TargetData *> &TargetVector, CallBase *VCallSite,
       const SetVector<Function *> &TargetFunctions, MDNode *Node);
 
@@ -131,6 +133,11 @@ private:
 
   // Return true if the input function is a libfunc
   bool functionIsLibFuncOrExternal(Function *F);
+
+  // Return true if the target function's type is the same as the virtual call
+  // function's type.
+  bool basedDerivedFunctionTypeMatches(FunctionType *VCallType,
+                                       FunctionType *TargetFuncType);
 
   // Structure to store the basic information needed by the multiversioning
   struct VirtualCallsDataForMV {
