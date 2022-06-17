@@ -2598,6 +2598,7 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
 #if INTEL_COLLAB
   if (hoistAlloca) {
     // Hoist and privatize allocas in the new function.
+    assert(DT && "Dominator tree required to hoist allocas in CodeExtractor.");
     DominatorTree ChildDT(*newFunction);
     doHoistAlloca(*newFunction, ChildDT);
 
