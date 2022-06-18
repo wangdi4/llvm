@@ -17,7 +17,7 @@
 ; CHECK:      Reduction list
 ; CHECK-NEXT:  (+) Start: float* %x.red
 ; CHECK-NEXT:   Linked values:
-; CHECK-NEXT:   inscan InscanId: 1
+; CHECK-NEXT:   inscan ReductionKind: inclusive
 ; CHECK-NEXT:   Memory: float* %x.red
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

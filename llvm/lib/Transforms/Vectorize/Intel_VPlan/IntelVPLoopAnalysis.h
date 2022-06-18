@@ -143,19 +143,19 @@ public:
 /// Descriptor for inscan reduction.
 class VPInscanReduction : public VPReduction {
 public:
-  VPInscanReduction(unsigned InscanId, VPValue *Start, VPInstruction *Exit,
-                    RecurKind RdxKind, FastMathFlags FMF, Type *RT, bool Signed,
-                    bool IsMemOnly = false)
+  VPInscanReduction(InscanReductionKind InscanRedKind, VPValue *Start,
+                    VPInstruction *Exit, RecurKind RdxKind, FastMathFlags FMF,
+                    Type *RT, bool Signed, bool IsMemOnly = false)
     : VPReduction(Start, Exit, RdxKind, FMF, RT, Signed, IsMemOnly,
                   InscanReduction),
-      InscanId(InscanId) {}
+      InscanRedKind(InscanRedKind) {}
+
+  InscanReductionKind getInscanKind() const { return InscanRedKind; }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPLoopEntity *V) {
     return V->getID() == InscanReduction;
   }
-
-  unsigned getInscanId() const { return InscanId; }
 
   virtual StringRef getNameSuffix() const override {
     return "inscan.red";
@@ -166,7 +166,7 @@ public:
 #endif
 
 private:
-  uint64_t InscanId;
+  InscanReductionKind InscanRedKind;
 };
 
 /// Descriptor of the index part of min/max+index reduction.
@@ -527,7 +527,7 @@ public:
   VPReduction *addReduction(VPInstruction *Instr, VPValue *Incoming,
                             VPInstruction *Exit, RecurKind K,
                             FastMathFlags FMF, Type *RT, bool Signed,
-                            bool Inscan = false, uint64_t InscanId = 0,
+                            Optional<InscanReductionKind> InscanRedKind,
                             VPValue *AI = nullptr, bool ValidMemOnly = false);
   /// Add index part of min/max+index reduction with parent (min/max) reduction
   /// \p Parent, starting instruction \pInstr, incoming value \p Incoming,
@@ -1055,8 +1055,9 @@ public:
   bool getSigned() const { return Signed; }
   VPInstruction *getLinkPhi() const { return LinkPhi; }
   bool getLinearIndex() const { return IsLinearIndex; }
-  bool getIsInscan() const { return IsInscan; }
-  uint64_t getInscanId() const { return InscanId; }
+  Optional<InscanReductionKind> getInscanReductionKind() const {
+    return InscanRedKind;
+  }
 
   void setStartPhi(VPInstruction *V) { StartPhi = V; }
   void setStart(VPValue *V) { Start = V; }
@@ -1066,8 +1067,9 @@ public:
   void setSigned(bool V) { Signed = V; }
   void setLinkPhi(VPInstruction *V) { LinkPhi = V; }
   void setIsLinearIndex(bool V) { IsLinearIndex = V; }
-  void setIsInscan(bool V) { IsInscan = V; }
-  void setInscanId(uint64_t V) { InscanId = V; }
+  void setInscanReductionKind(Optional<InscanReductionKind> V) {
+    InscanRedKind = V;
+  }
   void addLinkedVPValue(VPValue *V) { LinkedVPVals.push_back(V); }
 
   /// Clear the content.
@@ -1082,8 +1084,7 @@ public:
     LinkPhi = nullptr;
     LinkedVPVals.clear();
     IsLinearIndex = false;
-    IsInscan = false;
-    InscanId = 0;
+    InscanRedKind = None;
   }
   /// Check for that all non-null VPInstructions in the descriptor are in the \p
   /// Loop.
@@ -1126,8 +1127,9 @@ private:
   bool Signed = false;
   VPInstruction *LinkPhi = nullptr; // TODO: Consider changing to VPPHINode.
   bool IsLinearIndex = false;
-  bool IsInscan = false;
-  uint64_t InscanId = 0;
+  // To avoid having 'None' inscan reduction kind in an enum, use Optional.
+  // If set, this means this is an inscan reduction.
+  Optional<InscanReductionKind> InscanRedKind;
 
   /// VPValues that are associated with reduction variable
   /// NOTE: This list is accessed and populated internally within the descriptor
