@@ -98,7 +98,16 @@ void VPIndexReduction::dump(raw_ostream &OS) const {
 
 void VPInscanReduction::dump(raw_ostream &OS) const {
   VPReduction::dump(OS);
-  OS << " inscan InscanId: " << InscanId << '\n';
+  OS << "  inscan ReductionKind: ";
+  switch (InscanRedKind) {
+  case InscanReductionKind::Inclusive:
+    OS << "inclusive";
+    break;
+  case InscanReductionKind::Exclusive:
+    OS << "exclusive";
+    break;
+  }
+  OS << '\n';
 }
 
 void VPInduction::dump(raw_ostream &OS) const {
@@ -327,15 +336,14 @@ void VPLoopEntityList::replaceDuplicateInductionPHIs() {
   DuplicateInductionPHIs.clear();
 }
 
-VPReduction *VPLoopEntityList::addReduction(VPInstruction *Instr,
-                                            VPValue *Incoming,
-                                            VPInstruction *Exit, RecurKind Kind,
-                                            FastMathFlags FMF, Type *RedTy,
-                                            bool Signed, bool Inscan,
-                                            uint64_t InscanId,
-                                            VPValue *AI, bool ValidMemOnly) {
-  VPReduction *Red = Inscan ?
-      new VPInscanReduction(InscanId, Incoming, Exit, Kind, FMF, RedTy, Signed, ValidMemOnly) :
+VPReduction *VPLoopEntityList::addReduction(
+    VPInstruction *Instr, VPValue *Incoming, VPInstruction *Exit,
+    RecurKind Kind, FastMathFlags FMF, Type *RedTy, bool Signed,
+    Optional<InscanReductionKind> InscanRedKind,
+    VPValue *AI, bool ValidMemOnly) {
+  VPReduction *Red = InscanRedKind.hasValue() ?
+      new VPInscanReduction(InscanRedKind.getValue(), Incoming, Exit, Kind,
+                            FMF, RedTy, Signed, ValidMemOnly) :
       new VPReduction(Incoming, Exit, Kind, FMF, RedTy, Signed, ValidMemOnly);
   ReductionList.emplace_back(Red);
   linkValue(ReductionMap, Red, Instr);
@@ -2118,7 +2126,7 @@ void ReductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
 
   if (LinkPhi == nullptr)
     VPRed = LE->addReduction(StartPhi, Start, Exit, K, RedFMF, RT, Signed,
-                             IsInscan, InscanId, AllocaInst, ValidMemOnly);
+                             InscanRedKind, AllocaInst, ValidMemOnly);
   else {
     const VPReduction *Parent = LE->getReduction(LinkPhi);
     assert(Parent && "nullptr is unexpected");
