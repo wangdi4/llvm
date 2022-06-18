@@ -232,7 +232,7 @@ private:
   }
   /// Add an explicit reduction variable
   void addReduction(RegDDRef *V, RecurKind Kind,
-                    bool Inscan = false, uint64_t InscanId = 0) {
+                    Optional<InscanReductionKind> InscanDescr) {
     assert(V->isAddressOf() && "Reduction ref is not an address-of type.");
 
     // TODO: Consider removing IsSigned field from RedDescr struct since it is

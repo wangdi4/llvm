@@ -191,6 +191,12 @@ protected:
 
 typedef TrackingVH<Value> DescriptorValueStorage;
 
+/// This enumeration lists possible inscan reduction types.
+enum class InscanReductionKind {
+  Inclusive,
+  Exclusive
+};
+
 /// This struct holds information about recurrence variables.
 class RecurrenceDescriptor
     : public RecurrenceDescriptorTempl<Value, Instruction,

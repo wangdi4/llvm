@@ -317,8 +317,7 @@ public:
     Descriptor.setSigned(false);
     Descriptor.setAllocaInst(OrigAlloca); // Keep original value from clause.
     Descriptor.setLinkPhi(nullptr);
-    Descriptor.setIsInscan(CurValue.second.Inscan);
-    Descriptor.setInscanId(CurValue.second.InscanId);
+    Descriptor.setInscanReductionKind(CurValue.second.InscanRedKind);
   }
 };
 
