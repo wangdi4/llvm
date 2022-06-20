@@ -1260,12 +1260,8 @@ bool BranchProbabilityInfo::calcEstimatedHeuristics(const BasicBlock *BB) {
       uint32_t ADILFactor = (IsADIL && L->isLoopLatch(BB)) ? 4 : 1;
       Weight = std::max(
           static_cast<uint32_t>(BlockExecWeight::LOWEST_NON_ZERO),
-<<<<<<< HEAD
-          Weight.getValueOr(static_cast<uint32_t>(BlockExecWeight::DEFAULT) *
-                            ADILFactor) /
-=======
-          Weight.value_or(static_cast<uint32_t>(BlockExecWeight::DEFAULT)) /
->>>>>>> 129b531c9c67fc50ef9dcb7d28d7081546213ac1
+          Weight.value_or(static_cast<uint32_t>(BlockExecWeight::DEFAULT) *
+                          ADILFactor) /
               TC);
 #endif // INTEL_CUSTOMIZATION
     }
