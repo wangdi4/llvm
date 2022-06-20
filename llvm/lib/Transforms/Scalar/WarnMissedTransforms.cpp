@@ -102,8 +102,12 @@ static void warnAboutLeftoverTransformations(Loop *L,
           << "loop not vectorized: the optimizer was unable to perform the "
              "requested transformation; the transformation might be disabled "
              "or specified as part of an unsupported transformation ordering");
+<<<<<<< HEAD
     } // INTEL
     else if (InterleaveCount.getValueOr(0) != 1)
+=======
+    else if (InterleaveCount.value_or(0) != 1)
+>>>>>>> 129b531c9c67fc50ef9dcb7d28d7081546213ac1
       ORE->emit(
           DiagnosticInfoOptimizationFailure(DEBUG_TYPE,
                                             "FailedRequestedInterleaving",

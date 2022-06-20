@@ -2010,7 +2010,7 @@ static void updateCallProfile(Function *Callee, const ValueToValueMapTy &VMap,
   }
 #endif // INTEL_CUSTOMIZATION
   int64_t CallCount =
-      std::min(CallSiteCount.getValueOr(0), CalleeEntryCount.getCount());
+      std::min(CallSiteCount.value_or(0), CalleeEntryCount.getCount());
   updateProfileCallee(Callee, -CallCount, &VMap);
 }
 

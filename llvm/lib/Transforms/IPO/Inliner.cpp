@@ -1117,7 +1117,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       int CBCostMult =
           getStringFnAttrAsInt(
               *CB, InlineConstants::FunctionInlineCostMultiplierAttributeName)
-              .getValueOr(1);
+              .value_or(1);
 
       // Setup the data structure used to plumb customization into the
       // `InlineFunction` routine.
