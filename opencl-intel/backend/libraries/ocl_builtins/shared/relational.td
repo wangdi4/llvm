@@ -1,3 +1,15 @@
+// Copyright (C) 2014-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 include "ssse3/code_relational.td"
 //==============================================================
 
@@ -214,49 +226,14 @@ OclBuiltinImpl uselect_vector = OclBuiltinImpl<uselect, select_vector_types, 0, 
 
 //======v4f32 and v2f64 implementation===============================
 
-OclBuiltinImpl isfinite_v4f32 = OclBuiltinImpl<isfinite, [v4f32, v8f32, v16f32], 0, [{
-    //calculate abs($Arg0VarName)
-    //Remove sign bit of the float
-    $Arg0VarName = as_$Arg0Type(as_$Arg0igentype($Arg0VarName) & ($Arg0igentype)abs_inf);
-    return isless($Arg0VarName, as_$Arg0Type(($Arg0igentype)fnan_min));
-  }]>;
+OclBuiltinImpl isfinite_v4f32 = OclBuiltinImpl<isfinite, [v4f32, v8f32, v16f32], 0, isfinite_f32_code>;
+OclBuiltinImpl isfinite_v2f64 = OclBuiltinImpl<isfinite, [v2f64, v4f64, v8f64, v16f64], 0, isfinite_f64_code>;
 
-OclBuiltinImpl isfinite_v2f64 = OclBuiltinImpl<isfinite, [v2f64, v4f64, v8f64, v16f64], 0, [{
-    $Arg0VarName = as_$Arg0Type(as_$Arg0igentype($Arg0VarName) & ($Arg0igentype)dnan_min);
-    $Arg0Type dRes = as_$Arg0Type( as_$Arg0igentype($Arg0VarName) != ($Arg0igentype)dnan_min);
-    $ReturnType res = as_$ReturnType(dRes);
-    return res;
-  }]>;
+OclBuiltinImpl isinf_v4f32 = OclBuiltinImpl<isinf, [v4f32, v8f32, v16f32], 0, isinf_f32_code>;
+OclBuiltinImpl isinf_v2f64 = OclBuiltinImpl<isinf, [v2f64, v4f64, v8f64, v16f64], 0, isinf_f64_code>;
 
-OclBuiltinImpl isinf_v4f32 = OclBuiltinImpl<isinf, [v4f32, v8f32, v16f32], 0, [{
-    //calculate abs($Arg0VarName)
-    //Remove sign bit of the float
-    $Arg0VarName = as_$Arg0Type(as_$Arg0igentype($Arg0VarName) &  ($Arg0igentype)abs_inf);
-    return (isgreaterequal($Arg0VarName, (as_$Arg0Type(($Arg0igentype)fnan_min))));
-  }]>;
-
-OclBuiltinImpl isinf_v2f64 = OclBuiltinImpl<isinf, [v2f64, v4f64, v8f64, v16f64], 0, [{
-    //calculate abs($Arg0VarName)
-    //Remove sign bit of the float
-    $Arg0VarName = as_$Arg0Type( as_$Arg0igentype($Arg0VarName) & ($Arg0igentype)dnan_max);
-    $Arg0Type dRes = as_$Arg0Type( as_$Arg0igentype($Arg0VarName) == ($Arg0igentype)dnan_min);
-    return as_$ReturnType(dRes);
-  }]>;
-
-OclBuiltinImpl isnormal_v4f32 = OclBuiltinImpl<isnormal, [v4f32, v8f32, v16f32], 0, [{
-    $Arg0VarName = as_$Arg0Type(as_$Arg0igentype($Arg0VarName) &  ($Arg0igentype)abs_inf);
-    $Arg0igentype res = as_$Arg0igentype(isless($Arg0VarName, as_$Arg0Type(($Arg0igentype)fnan_min))); //$Arg0VarName<INFINITY
-    $Arg0igentype res1 = as_$Arg0igentype(isgreaterequal($Arg0VarName, ($Arg0Type)fltm)); //$Arg0VarName >= FLT_MIN 
-    return as_$ReturnType(res & res1);
-  }]>;
-
-OclBuiltinImpl isnormal_v2f64 = OclBuiltinImpl<isnormal, [v2f64, v4f64, v8f64, v16f64], 0, [{
-    $Arg0igentype exp = (as_$Arg0igentype($Arg0VarName) & ($Arg0igentype)dexp_mask);
-    $ReturnType NaNorINF = as_$ReturnType(exp == ($Arg0igentype)dexp_mask);
-    $ReturnType denom = as_$ReturnType(exp == ($Arg0igentype)0);
-    $ReturnType res = (NaNorINF | denom);
-    return (res ^ ($Arg0igentype)FF);
-  }]>;
+OclBuiltinImpl isnormal_v4f32 = OclBuiltinImpl<isnormal, [v4f32, v8f32, v16f32], 0, isnormal_f32_code>;
+OclBuiltinImpl isnormal_v2f64 = OclBuiltinImpl<isnormal, [v2f64, v4f64, v8f64, v16f64], 0, isnormal_f64_code>;
 
 OclBuiltinImpl isordered_v4f32 = OclBuiltinImpl<isordered, [v4f32], 0, [{
     $Arg0Type res = _mm_cmpord_ps($Arg0VarName, $Arg1VarName);
