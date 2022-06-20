@@ -2281,10 +2281,10 @@ static Value *simplifyAndInst(Value *Op0, Value *Op1, const SimplifyQuery &Q,
 
   if (Op0->getType()->isIntOrIntVectorTy(1)) {
     // Op0&Op1 -> Op0 where Op0 implies Op1
-    if (isImpliedCondition(Op0, Op1, Q.DL).getValueOr(false))
+    if (isImpliedCondition(Op0, Op1, Q.DL).value_or(false))
       return Op0;
     // Op0&Op1 -> Op1 where Op1 implies Op0
-    if (isImpliedCondition(Op1, Op0, Q.DL).getValueOr(false))
+    if (isImpliedCondition(Op1, Op0, Q.DL).value_or(false))
       return Op1;
   }
 
@@ -2521,10 +2521,10 @@ static Value *simplifyOrInst(Value *Op0, Value *Op1, const SimplifyQuery &Q,
 
   if (Op0->getType()->isIntOrIntVectorTy(1)) {
     // Op0|Op1 -> Op1 where Op0 implies Op1
-    if (isImpliedCondition(Op0, Op1, Q.DL).getValueOr(false))
+    if (isImpliedCondition(Op0, Op1, Q.DL).value_or(false))
       return Op1;
     // Op0|Op1 -> Op0 where Op1 implies Op0
-    if (isImpliedCondition(Op1, Op0, Q.DL).getValueOr(false))
+    if (isImpliedCondition(Op1, Op0, Q.DL).value_or(false))
       return Op0;
   }
 
@@ -2937,7 +2937,7 @@ static Value *simplifyICmpOfBools(CmpInst::Predicate Pred, Value *LHS,
   default:
     break;
   case ICmpInst::ICMP_UGE:
-    if (isImpliedCondition(RHS, LHS, Q.DL).getValueOr(false))
+    if (isImpliedCondition(RHS, LHS, Q.DL).value_or(false))
       return getTrue(ITy);
     break;
   case ICmpInst::ICMP_SGE:
@@ -2948,11 +2948,11 @@ static Value *simplifyICmpOfBools(CmpInst::Predicate Pred, Value *LHS,
     ///  0  |  1  |  1 (0 >= -1)  |  1
     ///  1  |  0  |  0 (-1 >= 0)  |  0
     ///  1  |  1  |  1 (-1 >= -1) |  1
-    if (isImpliedCondition(LHS, RHS, Q.DL).getValueOr(false))
+    if (isImpliedCondition(LHS, RHS, Q.DL).value_or(false))
       return getTrue(ITy);
     break;
   case ICmpInst::ICMP_ULE:
-    if (isImpliedCondition(LHS, RHS, Q.DL).getValueOr(false))
+    if (isImpliedCondition(LHS, RHS, Q.DL).value_or(false))
       return getTrue(ITy);
     break;
   }

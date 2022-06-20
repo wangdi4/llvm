@@ -178,7 +178,7 @@ llvm::InlineCost static getDefaultInlineAdvice(
   return llvm::shouldInline(
       CB, GetInlineCost, ORE,
 #if INTEL_CUSTOMIZATION
-      Params.EnableDeferral.getValueOr(EnableInlineDeferral)
+      Params.EnableDeferral.value_or(EnableInlineDeferral)
 #if INTEL_FEATURE_SW_ADVANCED
           || intelEnableInlineDeferral()
 #endif // INTEL_FEATURE_SW_ADVANCED
