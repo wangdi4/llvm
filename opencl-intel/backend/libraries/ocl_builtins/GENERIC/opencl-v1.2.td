@@ -734,17 +734,12 @@ def fast_normalize : OclBuiltin<"fast_normalize", (outs gentype:$ret), (ins gent
 }
 
 // OpenCL 1.2 rev 15, Table 6.14
+// Note that isequal, isnotequal, isgreater, isgreaterequal, isless, islessequal
+// and islessgreater are handled in BuiltinCallToInst pass, so they are not
+// defined here.
 let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
-//def isequal         : OclBuiltin<"isequal",         (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-//def isnotequal      : OclBuiltin<"isnotequal",      (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-//def isgreater       : OclBuiltin<"isgreater",       (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-//def isgreaterequal  : OclBuiltin<"isgreaterequal",  (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-//def isless          : OclBuiltin<"isless",          (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-//def islessequal     : OclBuiltin<"islessequal",     (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-def islessgreater   : OclBuiltin<"islessgreater",   (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 1>;
-let NeedForwardDecl = 1 in {
 def isfinite        : OclBuiltin<"isfinite",        (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def isinf           : OclBuiltin<"isinf",           (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def isnan           : OclBuiltin<"isnan",           (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
@@ -752,7 +747,6 @@ def isnormal        : OclBuiltin<"isnormal",        (outs rf2igentype:$ret), (in
 def isordered       : OclBuiltin<"isordered",       (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
 def isunordered     : OclBuiltin<"isunordered",     (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
 def signbit         : OclBuiltin<"signbit",         (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
-}
 }
 let Types = [v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,   v32i8,  v64i8,
              v1i16, v2i16, v3i16, v4i16, v8i16, v16i16, v32i16, v64i16,
@@ -773,15 +767,8 @@ def uselect     : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, 
 // OpenCL 1.2 rev 15, Table 6.14, masked version
 let Types = [v2f32, v3f32, v4f32, v8f32, v16f32, v32f32, v64f32,
              v2f64, v3f64, v4f64, v8f64, v16f64, v32f64, v64f64],
-    Attrs = [CONSTFUNC, OVERLOADABLE] in {
-//def isequal         : OclBuiltin<"isequal",         (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-//def isnotequal      : OclBuiltin<"isnotequal",      (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-//def isgreater       : OclBuiltin<"isgreater",       (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-//def isgreaterequal  : OclBuiltin<"isgreaterequal",  (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-//def isless          : OclBuiltin<"isless",          (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-//def islessequal     : OclBuiltin<"islessequal",     (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-def islessgreater_mask   : OclBuiltin<"islessgreater",   (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 1>;
-let NeedForwardDecl = 1 in {
+    Attrs = [CONSTFUNC, OVERLOADABLE],
+    NeedForwardDecl = 1 in {
 def isfinite_mask        : OclBuiltin<"isfinite",        (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
 def isinf_mask           : OclBuiltin<"isinf",           (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
 def isnan_mask           : OclBuiltin<"isnan",           (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
@@ -789,7 +776,6 @@ def isnormal_mask        : OclBuiltin<"isnormal",        (outs rf2igentype:$ret)
 def isordered_mask       : OclBuiltin<"isordered",       (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 0>;
 def isunordered_mask     : OclBuiltin<"isunordered",     (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 0>;
 def signbit_mask         : OclBuiltin<"signbit",         (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
-}
 }
 
 // VectInfo for OclVecClone
@@ -1358,90 +1344,6 @@ def soa_all16 : OclBuiltin<"soa_all16", (outs i32gentype:$ret), (ins gentype:$x0
 
 def downConvert : OclBuiltin<"downConvert", (outs downgentype:$ret), (ins gentype:$p),
   [v4i64, v8i64, v16i64], [OVERLOADABLE], 0, 0>;
-
-//
-//vectorized versions declaraions for ralational functions
-//
-foreach relationf = [/*"isless", "isgreater", "isequal", "isnotequal", "isgreaterequal", "islessequal",*/
-  "islessgreater"/*, "isfinite"*/] in {
-  //scalar
-  def scalar_#relationf : OclBuiltin<"scalar_"#relationf, (outs igentype:$res),
-    (ins gentype:$l, gentype:$r), [v1f32, v1f64], [OVERLOADABLE], 0, 0>;
-  //
-  //generating an vecroization map entries, for the auto-code gen for the reflection module
-  //
-  //
-  //entries for scalarizing packed versions
-  //
-  //floats:
-  def map_cell_scalar_#relationf#1 : MapCell<!cast<OclBuiltin>("scalar_"#relationf), v1f32>;
-  def map_cell#relationf#2 : MapCell<!cast<OclBuiltin>(relationf), v2f32>;
-  def map_cell#relationf#3 : MapCell<!cast<OclBuiltin>(relationf), v3f32>;
-  def map_cell#relationf#4 : MapCell<!cast<OclBuiltin>(relationf), v4f32>;
-  def map_cell#relationf#8 : MapCell<!cast<OclBuiltin>(relationf), v8f32>;
-  def map_cell#relationf#16 :MapCell<!cast<OclBuiltin>(relationf), v16f32>;
-  def relationf#"_scalar": MapRow<[
-    !cast<MapCell>("map_cell_scalar_"#relationf#1), //scalar version
-    !cast<MapCell>("map_cell"#relationf#2), //v2
-    !cast<MapCell>("map_cell"#relationf#4), //v4
-    !cast<MapCell>("map_cell"#relationf#8), //v8
-    !cast<MapCell>("map_cell"#relationf#16),//v16
-    !cast<MapCell>("map_cell"#relationf#3)],//v3
-    1, 1>; //scalarizable, packetizable
-  //
-  //doubles:
-  //
-  def map_cell64_scalar_#relationf : MapCell<!cast<OclBuiltin>("scalar_"#relationf), v1f64>;
-  def map_cell64#relationf#2 : MapCell<!cast<OclBuiltin>(relationf), v2f64>;
-  def map_cell64#relationf#3 : MapCell<!cast<OclBuiltin>(relationf), v3f64>;
-  def map_cell64#relationf#4 : MapCell<!cast<OclBuiltin>(relationf), v4f64>;
-  def map_cell64#relationf#8 : MapCell<!cast<OclBuiltin>(relationf), v8f64>;
-  def map_cell64#relationf#16 :MapCell<!cast<OclBuiltin>(relationf), v16f64>;
-  def relationf#"64_scalar": MapRow<[
-    !cast<MapCell>("map_cell64_scalar_"#relationf), //scalar version
-    !cast<MapCell>("map_cell64"#relationf#2), //v2
-    !cast<MapCell>("map_cell64"#relationf#4), //v4
-    !cast<MapCell>("map_cell64"#relationf#8), //v8
-    !cast<MapCell>("map_cell64"#relationf#16),//v16
-    !cast<MapCell>("map_cell64"#relationf#3)],//v3
-    1, 1>; //scalarizable, packetizable
-  //
-  //entries for packetizing scalar versions
-  //
-  def map_cell_#relationf#1 : MapCell<!cast<OclBuiltin>(relationf), v1f32>;
-  def v_#relationf : OclBuiltin<"v_"#relationf, (outs i32gentype:$res),
-    (ins gentype:$l, gentype:$r), [v4f32, v4f64, v8f32, v8f64, v16f32, v16f64], [OVERLOADABLE], 0, 0>;
-  //
-  //floats
-  //
-  def map_cell_v#relationf#4 : MapCell<!cast<OclBuiltin>("v_"#relationf), v4f32>;
-  def map_cell_v#relationf#8 : MapCell<!cast<OclBuiltin>("v_"#relationf), v8f32>;
-  def map_cell_v#relationf#16: MapCell<!cast<OclBuiltin>("v_"#relationf),v16f32>;
-  def relationf#_nullentry: MapRow<[
-    !cast<MapCell>("map_cell_"#relationf#1),
-    nullCell, //v2
-    !cast<MapCell>("map_cell_v"#relationf#4), //v4
-    !cast<MapCell>("map_cell_v"#relationf#8), //v8
-    !cast<MapCell>("map_cell_v"#relationf#16),//v16
-    nullCell],//v3
-    0,1>; //not scalarizable, packetizable
-  //
-  //doubles
-  //
-  def map_cell_64#relationf#1 : MapCell<!cast<OclBuiltin>(relationf), v1f64>;
-  def map_cell_64v#relationf#4 : MapCell<!cast<OclBuiltin>("v_"#relationf), v4f64>;
-  def map_cell_64v#relationf#8 : MapCell<!cast<OclBuiltin>("v_"#relationf), v8f64>;
-  def map_cell_64v#relationf#16: MapCell<!cast<OclBuiltin>("v_"#relationf),v16f64>;
-  def relationf#64_nullentry: MapRow<[
-    !cast<MapCell>("map_cell_64"#relationf#1),
-    nullCell, //v2
-    !cast<MapCell>("map_cell_64v"#relationf#4), //v4
-    !cast<MapCell>("map_cell_64v"#relationf#8), //v8
-    !cast<MapCell>("map_cell_64v"#relationf#16),//v16
-    nullCell],//v3
-    0,1>; //not scalarizable, packetizable
-}
-
 
 let Types = [v1i64],
     Attrs = [OVERLOADABLE] in {

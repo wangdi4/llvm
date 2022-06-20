@@ -115,6 +115,7 @@ bool BuiltinCallToInstPass::handleSupportedBuiltinCalls() {
       break;
     case BI_REL_IS_LESS:
     case BI_REL_IS_LESS_EQUAL:
+    case BI_REL_IS_LESS_GREATER:
     case BI_REL_IS_GREATER:
     case BI_REL_IS_GREATER_EQUAL:
     case BI_REL_IS_EQUAL:
@@ -281,6 +282,9 @@ void BuiltinCallToInstPass::handleRelationalCalls(CallInst *RelationalCall,
   case BI_REL_IS_LESS_EQUAL:
     CmpOpcode = CmpInst::FCMP_OLE;
     break;
+  case BI_REL_IS_LESS_GREATER:
+    CmpOpcode = CmpInst::FCMP_ONE;
+    break;
   case BI_REL_IS_GREATER:
     CmpOpcode = CmpInst::FCMP_OGT;
     break;
@@ -336,6 +340,7 @@ BuiltinCallToInstPass::isSupportedBuiltin(CallInst *CI) {
       .Case("__ocl_helper_shuffle2", BI_SHUFFLE2)
       .Case("isless", BI_REL_IS_LESS)
       .Case("islessequal", BI_REL_IS_LESS_EQUAL)
+      .Case("islessgreater", BI_REL_IS_LESS_GREATER)
       .Case("isgreater", BI_REL_IS_GREATER)
       .Case("isgreaterequal", BI_REL_IS_GREATER_EQUAL)
       .Case("isequal", BI_REL_IS_EQUAL)

@@ -36,12 +36,6 @@ OclBuiltinImpl all_expand6           =  OclBuiltinImpl  <all,  [v2i32],         
 OclBuiltinImpl all_expand7           =  OclBuiltinImpl  <all,  [v3i32],                                                    0,Expand_3i32 >;
 OclBuiltinImpl bitselect_promote     =  OclBuiltinImpl  <bitselect,  [v3f32, v3i32, v3u32, v3i8, v3u8, v3i16, v3u16],      0, Promote3>;
 
-OclBuiltinImpl islessgreater1        =   OclBuiltinImpl  <islessgreater,  [v1f32, v1f64,  v2f64, v4f32], 0, [{
-    return (($Arg0VarName < $Arg1VarName) | ($Arg0VarName > $Arg1VarName)) ;
-  }]>;
-OclBuiltinImpl islessgreater_E       =  OclBuiltinImpl  <islessgreater, [ v8f32, v16f64],     0, Expand2>;
-OclBuiltinImpl islessgreater_P       =  OclBuiltinImpl  <islessgreater, [v2f32,  v3f32],     0, Promote2>;
-
 OclBuiltinImpl isnan_v4f32_v2f64 = OclBuiltinImpl<isnan, [v4f32, v2f64, v1f32, v1f64], 0, [{
     return as_$ReturnType($Arg0VarName != $Arg0VarName);
   }]>;

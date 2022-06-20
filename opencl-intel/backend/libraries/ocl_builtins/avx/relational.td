@@ -8,10 +8,6 @@ OclBuiltinImpl signbit_promote        =    OclBuiltinImpl    <signbit,        [v
 //OclBuiltinImpl any_promote          =    OclBuiltinImpl    <any,            [v3i64],                  0, Promote1>;
 //OclBuiltinImpl all_promote          =    OclBuiltinImpl    <all,            [v3i64],                  0, Promote1>;
 OclBuiltinImpl bitselect_promote      =    OclBuiltinImpl    <bitselect,      [v3f64, v3i64, v3u64],    0, Promote3>;
-OclBuiltinImpl islessgreater2         =    OclBuiltinImpl    <islessgreater,  [v3f64, v16f32],          0, Promote2>;
-OclBuiltinImpl islessgreater2         =    OclBuiltinImpl    <islessgreater,  [v4f64, v8f64],           0, [{
-    return (($Arg0VarName < $Arg1VarName) | ($Arg0VarName > $Arg1VarName)) ;
-  }]>;
 
 //======v8f32 and v4f64 implementation=============================== 
 
