@@ -121,6 +121,72 @@
 ; CHECK-O23SZ-NEXT: Running pass: SimplifyCFGPass ;INTEL
 ; CHECK-O-NEXT: Running pass: GlobalSplitPass
 ; CHECK-O-NEXT: Running pass: WholeProgramDevirtPass
+
+; INTEL_CUSTOMIZATION
+; CHECK-O1-NEXT: Running pass: VecClonePass
+; CHECK-O1-NEXT: Running analysis: OptReportOptionsAnalysis
+; CHECK-O1-NEXT: Invalidating analysis: InnerAnalysisManagerProxy
+; CHECK-O1-NEXT: Invalidating analysis: LazyCallGraphAnalysis
+; CHECK-O1-NEXT: Invalidating analysis: InnerAnalysisManagerProxy
+; CHECK-O1-NEXT: Invalidating analysis: CallGraphAnalysis
+; CHECK-O1-NEXT: Running analysis: InnerAnalysisManagerProxy
+; CHECK-O1-NEXT: Running pass: EarlyCSEPass
+; CHECK-O1-NEXT: Running analysis: TargetLibraryAnalysis
+; CHECK-O1-NEXT: Running analysis: TargetIRAnalysis
+; CHECK-O1-NEXT: Running analysis: DominatorTreeAnalysis
+; CHECK-O1-NEXT: Running analysis: AssumptionAnalysis
+; CHECK-O1-NEXT: Running pass: VPlanPragmaOmpSimdIfPass on foo
+; CHECK-O1-NEXT: Running analysis: LoopAnalysis
+; CHECK-O1-NEXT: Running pass: LoopSimplifyPass
+; CHECK-O1-NEXT: Running pass: LowerSwitchPass
+; CHECK-O1-NEXT: Running analysis: LazyValueAnalysis
+; CHECK-O1-NEXT: Running pass: LCSSAPass
+; CHECK-O1-NEXT: Running pass: VPOCFGRestructuringPass
+; CHECK-O1-NEXT: Running pass: VPlanPragmaOmpOrderedSimdExtractPass
+; CHECK-O1-NEXT: Running analysis: WRegionInfoAnalysis
+; CHECK-O1-NEXT: Running analysis: WRegionCollectionAnalysis
+; CHECK-O1-NEXT: Running analysis: ScalarEvolutionAnalysis
+; CHECK-O1-NEXT: Running analysis: AAManager
+; CHECK-O1-NEXT: Running analysis: BasicAA
+; CHECK-O1-NEXT: Running analysis: XmainOptLevelAnalysis
+; CHECK-O1-NEXT: Running analysis: OuterAnalysisManagerProxy
+; CHECK-O1-NEXT: Running analysis: ScopedNoAliasAA
+; CHECK-O1-NEXT: Running analysis: TypeBasedAA
+; CHECK-O1-NEXT: Running analysis: StdContainerAA
+; CHECK-O1-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
+; CHECK-O1-NEXT: Invalidating analysis: InnerAnalysisManagerProxy
+; CHECK-O1-NEXT: Running analysis: InnerAnalysisManagerProxy
+; CHECK-O1-NEXT: Running pass: VPOCFGRestructuringPass
+; CHECK-O1-NEXT: Running analysis: DominatorTreeAnalysis
+; CHECK-O1-NEXT: Running analysis: LoopAnalysis
+; CHECK-O1-NEXT: Running pass: MathLibraryFunctionsReplacementPass
+; CHECK-O1-NEXT: Running pass: vpo::VPlanDriverPass
+; CHECK-O1-NEXT: Running analysis: ScalarEvolutionAnalysis
+; CHECK-O1-DAG:  Running analysis: TargetLibraryAnalysis
+; CHECK-O1-DAG:  Running analysis: AssumptionAnalysis
+; CHECK-O1-DAG:  Running analysis: TargetIRAnalysis
+; CHECK-O1:      Running analysis: AAManager
+; CHECK-O1-NEXT: Running analysis: BasicAA
+; CHECK-O1-NEXT: Running analysis: XmainOptLevelAnalysis
+; CHECK-O1-NEXT: Running analysis: OuterAnalysisManagerProxy
+; CHECK-O1-NEXT: Running analysis: ScopedNoAliasAA
+; CHECK-O1-NEXT: Running analysis: TypeBasedAA
+; CHECK-O1-NEXT: Running analysis: StdContainerAA
+; CHECK-O1-NEXT: Running analysis: DemandedBitsAnalysis
+; CHECK-O1-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
+; CHECK-O1-NEXT: Running analysis: OptReportOptionsAnalysis
+; CHECK-O1-NEXT: Running analysis: WRegionInfoAnalysis
+; CHECK-O1-NEXT: Running analysis: WRegionCollectionAnalysis
+; CHECK-O1-NEXT: Running analysis: BlockFrequencyAnalysis
+; CHECK-O1-NEXT: Running analysis: BranchProbabilityAnalysis
+; CHECK-O1-NEXT: Running analysis: PostDominatorTreeAnalysis
+; CHECK-O1-NEXT: Running analysis: InnerAnalysisManagerProxy
+; CHECK-O1-NEXT: Running pass: MathLibraryFunctionsReplacementPass
+; CHECK-O1-NEXT: Running pass: AlwaysInlinerPass
+; CHECK-O1-NEXT: Running analysis: ProfileSummaryAnalysis on [module]
+; CHECK-O1-NEXT: Running pass: VPODirectiveCleanupPass
+; END INTEL_CUSTOMIZATION
+
 ; CHECK-O1-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-O23SZ-NEXT: Running pass: DopeVectorConstPropPass ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: ArgumentPromotionPass on (foo) ;INTEL
