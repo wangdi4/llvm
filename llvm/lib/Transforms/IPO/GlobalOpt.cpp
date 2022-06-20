@@ -1733,6 +1733,37 @@ static bool tryToReplaceGlobalWithMSVCStdout(
 }
 #endif // INTEL_CUSTOMIZATION
 
+// For a global variable with one store, if the store dominates any loads,
+// those loads will always load the stored value (as opposed to the
+// initializer), even in the presence of recursion.
+static bool forwardStoredOnceStore(
+    GlobalVariable *GV, const StoreInst *StoredOnceStore,
+    function_ref<DominatorTree &(Function &)> LookupDomTree) {
+  const Value *StoredOnceValue = StoredOnceStore->getValueOperand();
+  SmallVector<LoadInst *> Loads;
+  const Function *F = StoredOnceStore->getFunction();
+  for (User *U : GV->users()) {
+    if (auto *LI = dyn_cast<LoadInst>(U)) {
+      if (LI->getFunction() == F &&
+          LI->getType() == StoredOnceValue->getType() && LI->isSimple())
+        Loads.push_back(LI);
+    }
+  }
+  // Only compute DT if we have any loads to examine.
+  bool MadeChange = false;
+  if (!Loads.empty()) {
+    auto &DT = LookupDomTree(*const_cast<Function *>(F));
+    for (auto *LI : Loads) {
+      if (DT.dominates(StoredOnceStore, LI)) {
+        LI->replaceAllUsesWith(const_cast<Value *>(StoredOnceValue));
+        LI->eraseFromParent();
+        MadeChange = true;
+      }
+    }
+  }
+  return MadeChange;
+}
+
 /// Analyze the specified global variable and optimize
 /// it if possible.  If we make a change, return true.
 static bool
@@ -1941,6 +1972,10 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
     return true;
   }
 #endif // INTEL_CUSTOMIZATION
+
+    // Try to forward the store to any loads.
+    if (forwardStoredOnceStore(GV, GS.StoredOnceStore, LookupDomTree))
+      return true;
 
     // Otherwise, if the global was not a boolean, we can shrink it to be a
     // boolean. Skip this optimization for AS that doesn't allow an initializer.
