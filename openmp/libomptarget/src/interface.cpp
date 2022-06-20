@@ -652,17 +652,37 @@ EXTERN omp_intptr_t omp_get_interop_int(const omp_interop_t interop,
     omp_interop_property_t property_id, int *ret_code);
 EXTERN void *omp_get_interop_ptr(const omp_interop_t interop,
     omp_interop_property_t property_id, int *ret_code);
+
+ // Use single queue for Intel dispatch when is_async is false
+static std::map<int32_t, void *> interop_obj_queue_lists;
+
 // END TEMPORARY
 
 EXTERN void *__tgt_create_interop_obj(
     int64_t device_code, bool is_async, void *async_obj) {
   int64_t device_id = EXTRACT_BITS(device_code, 31, 0);
   int plugin_type;
+  omp_interop_t Interop;
 
-  omp_interop_t Interop = __tgt_create_interop(device_id,
+  bool queue_found = interop_obj_queue_lists.find(device_id) != interop_obj_queue_lists.end();
+  
+  if (is_async || !queue_found)
+     Interop = __tgt_create_interop(device_id,
                               OMP_INTEROP_CONTEXT_TARGETSYNC, 0, NULL);
+  else
+     Interop = __tgt_create_interop(device_id,
+                              OMP_INTEROP_CONTEXT_TARGET, 0, NULL);
   if (!Interop)
     return NULL;
+
+  // Save the queue created for reuse  later
+  if (!is_async && !queue_found) {
+     // Save the queue for reuse and set TargetSync to NULL so the queue
+     // is not destroyed in plugin when interop obj is released.
+     int ret_code = OFFLOAD_FAIL;
+     interop_obj_queue_lists[device_id]  = (void *) omp_get_interop_ptr(Interop, omp_ipr_targetsync, &ret_code);
+     ((__tgt_interop *)Interop)->TargetSync= NULL;
+  }
 
   __tgt_interop_obj *intel_ext_obj =
       (__tgt_interop_obj *)malloc(sizeof(__tgt_interop_obj));
@@ -755,7 +775,10 @@ EXTERN int __tgt_get_interop_property(
     ret_code = OFFLOAD_SUCCESS;
     break;
   case INTEROP_OFFLOAD_QUEUE:
-    *property_value = (void *) omp_get_interop_ptr(interop_obj, omp_ipr_targetsync, &ret_code);
+    if (ext_obj->is_async)
+       *property_value = (void *) omp_get_interop_ptr(interop_obj, omp_ipr_targetsync, &ret_code);
+    else
+       *property_value = interop_obj_queue_lists.at(ext_obj->device_id);
     break;
   case INTEROP_PLATFORM_HANDLE:
     // FOr level 0 return PLATFORM_HANDLE  for  OpenCL return CONTEXT_HANDLE
