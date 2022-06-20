@@ -33,16 +33,3 @@ defvar downCvt16 = [{
 OclBuiltinImpl downConvertImpl4 = OclBuiltinImpl<downConvert, [v4i64], 0, downCvt4>;
 OclBuiltinImpl downConvertImpl8 = OclBuiltinImpl<downConvert, [v8i64], 0, downCvt8>;
 OclBuiltinImpl downConvertImpl16= OclBuiltinImpl<downConvert, [v16i64], 0, downCvt16>;
-//
-//Scalar
-//
-OclBuiltinImpl islessgreater1impl = OclBuiltinImpl<scalar_islessgreater, [v1f32, v1f64]
-  , 0, v1_relational>;
-//
-//Vectors
-//
-OclBuiltinImpl islessgreater1impl_f = OclBuiltinImpl<v_islessgreater, [v4f32, v8f32, v16f32]
-  , 0, v_relational_f>;
-OclBuiltinImpl islessgreater1impl_d = OclBuiltinImpl<v_islessgreater, [v4f64, v8f64, v16f64]
-  , 0, v_relational_d>;
-

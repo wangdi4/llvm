@@ -697,10 +697,6 @@
 ; CHECK-NEXT: _Z13get_image_dim26ocl_image2d_array_depth_ro
 ; CHECK-NEXT: _Z13get_image_dim26ocl_image2d_array_depth_rw
 ; CHECK-NEXT: _Z13get_image_dim26ocl_image2d_array_depth_wo
-; CHECK-NEXT: _Z13islessgreaterDv16_fS_
-; CHECK-NEXT: _Z13islessgreaterDv3_dS_
-; CHECK-NEXT: _Z13islessgreaterDv4_dS_
-; CHECK-NEXT: _Z13islessgreaterDv8_dS_
 ; CHECK-NEXT: _Z13native_acospiDv16_d
 ; CHECK-NEXT: _Z13native_acospiDv16_f
 ; CHECK-NEXT: _Z13native_acospiDv8_d
@@ -1042,12 +1038,6 @@
 ; CHECK-NEXT: _Z15get_image_width26ocl_image2d_array_depth_ro
 ; CHECK-NEXT: _Z15get_image_width26ocl_image2d_array_depth_rw
 ; CHECK-NEXT: _Z15get_image_width26ocl_image2d_array_depth_wo
-; CHECK-NEXT: _Z15v_islessgreaterDv16_dS_
-; CHECK-NEXT: _Z15v_islessgreaterDv16_fS_
-; CHECK-NEXT: _Z15v_islessgreaterDv4_dS_
-; CHECK-NEXT: _Z15v_islessgreaterDv4_fS_
-; CHECK-NEXT: _Z15v_islessgreaterDv8_dS_
-; CHECK-NEXT: _Z15v_islessgreaterDv8_fS_
 ; CHECK-NEXT: _Z15vstore_half_rtedmPDh
 ; CHECK-NEXT: _Z15vstore_half_rtedmPU3AS1Dh
 ; CHECK-NEXT: _Z15vstore_half_rtedmPU3AS3Dh
@@ -2421,8 +2411,6 @@
 ; CHECK-NEXT: _Z20read_imagef_2d_arrayP15_image_aux_data11ocl_samplerDv4_f
 ; CHECK-NEXT: _Z20read_imagef_2d_arrayP15_image_aux_data11ocl_samplerDv4_i
 ; CHECK-NEXT: _Z20read_imagef_2d_arrayP15_image_aux_dataDv4_i
-; CHECK-NEXT: _Z20scalar_islessgreaterdd
-; CHECK-NEXT: _Z20scalar_islessgreaterff
 ; CHECK-NEXT: _Z20soa4_get_image_depth14ocl_image3d_ro
 ; CHECK-NEXT: _Z20soa4_get_image_depth14ocl_image3d_rw
 ; CHECK-NEXT: _Z20soa4_get_image_depth14ocl_image3d_wo

@@ -28,10 +28,6 @@ OclBuiltinImpl all_expand2           =  OclBuiltinImpl  <all,  [v8i32, v4i64],  
 
 OclBuiltinImpl bitselect_expand      =  OclBuiltinImpl  <bitselect,  [v3f64, v3i64, v3u64], 0, Expand3>;
 
-OclBuiltinImpl islessgreater_E       =  OclBuiltinImpl  <islessgreater, [v4f64, v8f64, v16f32],     0, Expand2>;
-
-OclBuiltinImpl islessgreater_3f64    =  OclBuiltinImpl  <islessgreater, [v3f64],     0, v3_double_2arg>;
-
  //===============any & all==============
 
 OclBuiltinImpl any_3i64 = OclBuiltinImpl  <any,  [v3i64], 0, [{
