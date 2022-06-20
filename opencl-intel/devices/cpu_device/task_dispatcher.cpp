@@ -260,7 +260,6 @@ TaskDispatcher::~TaskDispatcher()
             m_pRootDevice->ShutDown();
             m_pRootDevice->ResetObserver();
             m_pRootDevice = nullptr;
-            m_pTaskExecutor->DestroyDebugDeviceQueue();
         }
     }
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("TaskDispatcher Released"));
@@ -311,8 +310,6 @@ cl_dev_err_code TaskDispatcher::init()
     }
     m_pOMPExecutionThread->Start();
 #endif
-
-    m_pTaskExecutor->CreateDebugDeviceQueue(m_pRootDevice);
 
     bool bInitTasksRequired = isDestributedAllocationRequired() || isThreadAffinityRequired();
 
