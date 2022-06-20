@@ -101,8 +101,7 @@ public:
      * @param pMyTaskBase		a pointer to itself as ITaskBase or NULL if the concrete class does not inherit from ITaskBase
      */
     KernelCommand(ITaskList* pList, KernelCommand* parent, ITaskBase* pMyTaskBase) :
-         DeviceCommand(pList, pMyTaskBase), m_parent(parent), m_childrenTaskGroup(nullptr != pList ? pList->GetNDRangeChildrenTaskGroup().GetPtr() : nullptr),
-         m_bIsDebugMode(false)
+         DeviceCommand(pList, pMyTaskBase), m_parent(parent), m_childrenTaskGroup(nullptr != pList ? pList->GetNDRangeChildrenTaskGroup().GetPtr() : nullptr)
        { m_waitingChildrenForKernelGlobal = nullptr; }
 
     // Enqueued command list definition
@@ -145,7 +144,6 @@ public:
     SharedPtr<KernelCommand>       m_parent;
     SharedPtr<Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup> m_childrenTaskGroup;
     Intel::OpenCL::Utils::AtomicPointer<CommandToExecuteList_t> m_waitingChildrenForKernelGlobal;
-    volatile bool                  m_bIsDebugMode;
 };
 
 }}}

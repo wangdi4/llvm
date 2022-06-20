@@ -479,21 +479,7 @@ TBBTaskExecutor::CreateRootDevice( const RootDeviceCreationParam& device_desc, v
     {
         LOG_INFO(TEXT("Root device created with %d threads"), overall_threads);
     }
-    const CommandListCreationParam param(TE_CMD_LIST_IN_ORDER);
-    m_pDebugInOrderDeviceQueue = in_order_command_list::Allocate(*this, root, param);
     return root;
-}
-
-void TBBTaskExecutor::CreateDebugDeviceQueue(
-    const SharedPtr<ITEDevice> &rootDevice) {
-  const CommandListCreationParam param(TE_CMD_LIST_IN_ORDER);
-  m_pDebugInOrderDeviceQueue = in_order_command_list::Allocate(
-      *this, rootDevice.StaticCast<TEDevice>(), param, true, true);
-}
-
-void TBBTaskExecutor::DestroyDebugDeviceQueue()
-{
-    m_pDebugInOrderDeviceQueue = NULL;
 }
 
 unsigned int TBBTaskExecutor::GetMaxNumOfConcurrentThreads() const
