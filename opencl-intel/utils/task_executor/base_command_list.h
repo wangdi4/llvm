@@ -175,8 +175,6 @@ public:
       return m_bProfilingEnabled;
     }
 
-    virtual ITaskList *GetDebugInOrderDeviceQueue() override;
-
   protected:
     friend class in_order_executor_task;
     friend class out_of_order_executor_task;
@@ -237,19 +235,16 @@ public:
     static SharedPtr<in_order_command_list> Allocate(
         TBBTaskExecutor &pTBBExec,
         const Intel::OpenCL::Utils::SharedPtr<TEDevice> &device,
-        const CommandListCreationParam &param, bool bIsDebugList = false,
+        const CommandListCreationParam &param,
         bool bProfilingEnabled = false) {
-      return new in_order_command_list(pTBBExec, device, param, bIsDebugList,
+      return new in_order_command_list(pTBBExec, device, param,
                                        bProfilingEnabled);
     }
 
     // This is an optimization: since only one NDRange command can Simultaneously run, all NDRange commands can share the same TaskGroup, without the need to allocate a new one for each of them.
     virtual SharedPtr<IThreadLibTaskGroup>
     GetNDRangeChildrenTaskGroup() override {
-      if (0 != m_ndrangeChildrenTaskGroup) {
-        return m_ndrangeChildrenTaskGroup;
-      }
-      return TbbTaskGroup::Allocate();
+      return m_ndrangeChildrenTaskGroup;
     }
 
     virtual bool DoesSupportDeviceSideCommandEnqueue() const override {
@@ -273,12 +268,10 @@ public:
     in_order_command_list(
         TBBTaskExecutor &pTBBExec,
         const Intel::OpenCL::Utils::SharedPtr<TEDevice> &device,
-        const CommandListCreationParam &param, bool bIsDebugList,
+        const CommandListCreationParam &param,
         bool bProfilingEnabled)
         : base_command_list(pTBBExec, device, param, bProfilingEnabled),
-          m_ndrangeChildrenTaskGroup(bIsDebugList
-                                         ? SharedPtr<TbbTaskGroup>(nullptr)
-                                         : TbbTaskGroup::Allocate()) {}
+          m_ndrangeChildrenTaskGroup(TbbTaskGroup::Allocate()) {}
 };
 
 class out_of_order_command_list : public base_command_list

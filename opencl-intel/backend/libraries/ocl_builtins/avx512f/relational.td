@@ -1,7 +1,3 @@
-OclBuiltinImpl islessgreater2         =    OclBuiltinImpl    <islessgreater,  [v8f64, v16f32],           0, [{
-    return (($Arg0VarName < $Arg1VarName) | ($Arg0VarName > $Arg1VarName)) ;
-  }]>;
-
 //======v16f32 and v8f64 implementation===============================
 
 OclBuiltinImpl isnan_v16f32 = OclBuiltinImpl<isnan, [v16f32], 0, [{

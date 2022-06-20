@@ -424,7 +424,6 @@ defvar masked_impl_code_RF2I_G2_M = [{
     return $Func(m$Arg0VarName, m$Arg1VarName);
   }];
 
-OclBuiltinImpl islessgreater_mask_svml = OclBuiltinImpl<islessgreater_mask, math_all_types, 0, masked_impl_code_RF2I_G2_M, [["$DEF0", "0"], ["$DEF1", "0"]]>;
 OclBuiltinImpl isfinite_mask_svml = OclBuiltinImpl<isfinite_mask, math_all_types, 0, masked_impl_code_RF2I_G_M, [["$DEF0", "0"]]>;
 OclBuiltinImpl isinf_mask_svml = OclBuiltinImpl<isinf_mask, math_all_types, 0, masked_impl_code_RF2I_G_M, [["$DEF0", "0"]]>;
 OclBuiltinImpl isnan_mask_svml = OclBuiltinImpl<isnan_mask, math_all_types, 0, masked_impl_code_RF2I_G_M, [["$DEF0", "0"]]>;

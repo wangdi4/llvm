@@ -2276,10 +2276,33 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C), 0));
         MapTypes.push_back(TGT_MAP_TARGET_PARAM);
       } else {
-        // TODO: OPAQUEPOINTER: element type must be taken from the clause.
-        Type *ObjectTy = ItemTy->getPointerElementType();
-        ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
-                                              DL.getTypeAllocSize(ObjectTy)));
+        auto getFPItemConstSize = [&DL](FirstprivateItem *FprivI) {
+          Type *ElementTy;
+          Value *NumElements;
+          std::tie(ElementTy, NumElements, std::ignore) =
+              VPOParoptUtils::getItemInfo(FprivI);
+          auto ElementSize = DL.getTypeAllocSize(ElementTy);
+          if (!NumElements)
+            return ElementSize;
+
+          if (!isa<ConstantInt>(NumElements)) {
+            // FIXME: This needs to be changed into an assert. It doesn't affect
+            // user code since the frontends send in map-chains for VLAs, but
+            // we have LIT tests that are entering this code path, which should
+            // be updated in a separate NFC change.
+            return ElementSize;
+          }
+
+          auto NumElementsV = cast<ConstantInt>(NumElements)->getZExtValue();
+          return NumElementsV * ElementSize;
+        };
+
+        auto FPSize = getFPItemConstSize(FprivI);
+        LLVM_DEBUG(dbgs() << __FUNCTION__
+                          << ": map-size for firstprivate var '";
+                   FprivI->getOrig()->printAsOperand(dbgs(), false);
+                   dbgs() << "' = " << FPSize << ".\n");
+        ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C), FPSize));
         MapTypes.push_back(TGT_MAP_TARGET_PARAM | TGT_MAP_TO | TGT_MAP_PRIVATE);
       }
 #if INTEL_CUSTOMIZATION

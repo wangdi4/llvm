@@ -91,13 +91,6 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
         virtual SharedPtr<IThreadLibTaskGroup>
         CreateTaskGroup(const SharedPtr<ITEDevice> &device) override;
 
-        ITaskList* GetDebugInOrderDeviceQueue() { return m_pDebugInOrderDeviceQueue.GetPtr(); }
-
-        virtual void
-        CreateDebugDeviceQueue(const SharedPtr<ITEDevice> &rootDevice) override;
-
-        virtual void DestroyDebugDeviceQueue() override;
-
         int GetErrorCode() override { return m_err; }
 
     protected:
@@ -115,8 +108,6 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
         // whether TBB NUMA API is enabled
         bool                                   m_tbbNumaEnabled;
         std::vector<int>                       m_tbbNumaNodes;
-
-        SharedPtr<ITaskList>                m_pDebugInOrderDeviceQueue;
 
         // Logger
         DECLARE_LOGGER_CLIENT;

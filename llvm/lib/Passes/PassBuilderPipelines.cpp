@@ -2951,6 +2951,14 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   // Stop here at -O1.
   if (Level == OptimizationLevel::O1) {
+#if INTEL_CUSTOMIZATION
+    // Adding VPO Passes at O1 optimization level. Note: addLoopOptPasses() is
+    // guarded under isLoopOptEnabled() so loopopt will not be invoked at O1.
+    FunctionPassManager FPM;
+    addLoopOptAndAssociatedVPOPasses(MPM, FPM, Level, true);
+    MPM.addPass(createModuleToFunctionPassAdaptor(
+        std::move(FPM), PTO.EagerlyInvalidateAnalyses));
+#endif // INTEL_CUSTOMIZATION
     // The LowerTypeTestsPass needs to run to lower type metadata and the
     // type.test intrinsics. The pass does nothing if CFI is disabled.
     MPM.addPass(LowerTypeTestsPass(ExportSummary, nullptr));
