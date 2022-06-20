@@ -2287,7 +2287,8 @@ OptimizeFunctions(Module &M,
                   function_ref<TargetTransformInfo &(Function &)> GetTTI,
                   function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
                   function_ref<DominatorTree &(Function &)> LookupDomTree,
-                  SmallPtrSetImpl<const Comdat *> &NotDiscardableComdats) {
+                  SmallPtrSetImpl<const Comdat *> &NotDiscardableComdats,
+                  function_ref<void(Function &F)> ChangedCFGCallback) {
 
   bool Changed = false;
 
@@ -2320,13 +2321,11 @@ OptimizeFunctions(Module &M,
     // So, remove unreachable blocks from the function, because a) there's
     // no point in analyzing them and b) GlobalOpt should otherwise grow
     // some more complicated logic to break these cycles.
-    // Removing unreachable blocks might invalidate the dominator so we
-    // recalculate it.
+    // Notify the analysis manager that we've modified the function's CFG.
     if (!F.isDeclaration()) {
       if (removeUnreachableBlocks(F)) {
-        auto &DT = LookupDomTree(F);
-        DT.recalculate(F);
         Changed = true;
+        ChangedCFGCallback(F);
       }
     }
 
@@ -2885,13 +2884,14 @@ static bool optimizeEmptyGlobalAtexitDtors(
 }
 #endif // INTEL_CUSTOMIZATION
 
-static bool optimizeGlobalsInModule(
-    Module &M, const DataLayout &DL,
-    function_ref<TargetLibraryInfo &(Function &)> GetTLI,
-    function_ref<TargetTransformInfo &(Function &)> GetTTI,
-    function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
-    WholeProgramInfo *WPInfo,                                  // INTEL
-    function_ref<DominatorTree &(Function &)> LookupDomTree) {
+static bool
+optimizeGlobalsInModule(Module &M, const DataLayout &DL,
+                        function_ref<TargetLibraryInfo &(Function &)> GetTLI,
+                        function_ref<TargetTransformInfo &(Function &)> GetTTI,
+                        function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
+                        WholeProgramInfo *WPInfo,  // INTEL
+                        function_ref<DominatorTree &(Function &)> LookupDomTree,
+                        function_ref<void(Function &F)> ChangedCFGCallback) {
   SmallPtrSet<const Comdat *, 8> NotDiscardableComdats;
   bool Changed = false;
   bool LocalChange = true;
@@ -2916,7 +2916,7 @@ static bool optimizeGlobalsInModule(
 
     // Delete functions that are trivially dead, ccc -> fastcc
     LocalChange |= OptimizeFunctions(M, GetTLI, GetTTI, GetBFI, LookupDomTree,
-                                     NotDiscardableComdats);
+                                     NotDiscardableComdats, ChangedCFGCallback);
 
     // Optimize global_ctors list.
     LocalChange |=
@@ -2973,17 +2973,25 @@ PreservedAnalyses GlobalOptPass::run(Module &M, ModuleAnalysisManager &AM) {
     auto GetBFI = [&FAM](Function &F) -> BlockFrequencyInfo & {
       return FAM.getResult<BlockFrequencyAnalysis>(F);
     };
+    auto ChangedCFGCallback = [&FAM](Function &F) {
+      FAM.invalidate(F, PreservedAnalyses::none());
+    };
 
     auto *WPInfo = AM.getCachedResult<WholeProgramAnalysis>(M);         // INTEL
     if (!optimizeGlobalsInModule(M, DL, GetTLI, GetTTI, GetBFI, WPInfo, // INTEL
-                                 LookupDomTree))                        // INTEL
+                                 LookupDomTree, ChangedCFGCallback))    // INTEL
       return PreservedAnalyses::all();
 
-    auto PA = PreservedAnalyses();        // INTEL
+    PreservedAnalyses PA = PreservedAnalyses::none();
+    // We have not removed or replaced any functions.
+    PA.preserve<FunctionAnalysisManagerModuleProxy>();
+    // The only place we modify the CFG is when calling
+    // removeUnreachableBlocks(), but there we make sure to invalidate analyses
+    // for modified functions.
+    PA.preserveSet<CFGAnalyses>();
     PA.preserve<WholeProgramAnalysis>();  // INTEL
     PA.preserve<AndersensAA>();           // INTEL
-
-    return PA;                            // INTEL
+    return PA;
 }
 
 namespace {
@@ -3025,10 +3033,15 @@ struct GlobalOptLegacyPass : public ModulePass {
       return this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
     };
 
+    auto ChangedCFGCallback = [&LookupDomTree](Function &F) {
+      auto &DT = LookupDomTree(F);
+      DT.recalculate(F);
+    };
+
     auto *WPA = getAnalysisIfAvailable<WholeProgramWrapperPass>();        // INTEL
     WholeProgramInfo *WPInfo = WPA ? &WPA->getResult() : nullptr;         // INTEL
     return optimizeGlobalsInModule(M, DL, GetTLI, GetTTI, GetBFI, WPInfo, // INTEL
-                                   LookupDomTree);                        // INTEL
+                                   LookupDomTree, ChangedCFGCallback);    // INTEL
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
