@@ -33,9 +33,14 @@ add_llvm_component_library(LLVMMC
   MCCodeView.cpp
   MCContext.cpp
   MCDwarf.cpp
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
   Intel_MCTrace.cpp
 # end INTEL_CUSTOMIZATION
+=======
+  MCDXContainerStreamer.cpp
+  MCDXContainerWriter.cpp
+>>>>>>> 3adc908b26857f8d3e1e8aed46c1102edc0244e1
   MCELFObjectTargetWriter.cpp
   MCELFStreamer.cpp
   MCExpr.cpp
@@ -58,6 +63,7 @@ add_llvm_component_library(LLVMMC
   MCSchedule.cpp
   MCSection.cpp
   MCSectionCOFF.cpp
+  MCSectionDXContainer.cpp
   MCSectionELF.cpp
   MCSectionMachO.cpp
   MCSectionWasm.cpp
