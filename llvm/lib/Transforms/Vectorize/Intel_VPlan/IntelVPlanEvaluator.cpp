@@ -73,7 +73,8 @@ unsigned VPlanPeelEvaluator::getScalarPeelTripCount(unsigned MainLoopVF) const {
 // Selects the best peeling variant (none, scalar, masked vector).
 VPlanPeelEvaluator::PeelLoopKind VPlanPeelEvaluator::calculateBestVariant() {
 
-  if (!PeelingVariant || getScalarPeelTripCount(MainLoopVF) == 0) {
+  if (!PeelingVariant || !ScalarIterCost.isValid() ||
+      getScalarPeelTripCount(MainLoopVF) == 0) {
     PeelKind = PeelLoopKind::None;
     LoopCost = 0;
     PeelTC = 0;
@@ -216,9 +217,8 @@ VPlanRemainderEvaluator::calculateBestVariant() {
   VPInstructionCost MaskedVectorIterCost, MaskedOverhead;
   std::tie(MaskedVectorIterCost, MaskedOverhead) =
       calculatePlanCost(MainLoopVF, MaskedModePlan);
-  VPInstructionCost MaskedVectorCost = VPInstructionCost::getInvalid();
-  if (MaskedVectorIterCost.isValid() && MaskedOverhead.isValid())
-    MaskedVectorCost = MaskedOverhead + MaskedVectorIterCost * MainLoopUF;
+  VPInstructionCost MaskedVectorCost = MaskedOverhead +
+    MaskedVectorIterCost * MainLoopUF;
 
   // Calculate VF and the total cost for vector variant with possible scalar
   // remainder.
@@ -253,12 +253,14 @@ VPlanRemainderEvaluator::calculateBestVariant() {
   if (Planner.isVecRemainderEnforced())
     LoopCost = VPInstructionCost::getMax();
 
-  if (MaskedVectorCost.isValid() && LoopCost > MaskedVectorCost &&
+  if (MaskedVectorCost.isValid() && LoopCost.isValid() &&
+      LoopCost > MaskedVectorCost &&
       (Planner.isVecRemainderEnforced() || EnableMaskedVectorizedRemainder)) {
     RemainderKind = RemainderLoopKind::MaskedVector;
     LoopCost = MaskedVectorCost;
   }
-  if (UnMaskedVectorCost.isValid() && LoopCost > UnMaskedVectorCost &&
+  if (UnMaskedVectorCost.isValid() && LoopCost.isValid() &&
+      LoopCost > UnMaskedVectorCost &&
       (Planner.isVecRemainderEnforced() ||
        EnableNonMaskedVectorizedRemainder)) {
     RemainderKind = RemainderLoopKind::VectorScalar;

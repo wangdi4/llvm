@@ -101,7 +101,7 @@ void HeuristicBase::printCostChange(
 void HeuristicBase::printCostChange(
   const VPInstructionCost &RefCost, const VPInstructionCost &NewCost,
   const VPInstruction *, raw_ostream *OS) const {
-  if (!OS || NewCost == RefCost || NewCost.isUnknown())
+  if (!OS || NewCost == RefCost)
     return;
 
   *OS << " *" << getName() << "*(" <<
@@ -870,8 +870,10 @@ void HeuristicPsadbw::apply(
 
     for (const VPInstruction *VPInst : PatternInstructions) {
       VPInstructionCost InstCost = CM->getTTICost(VPInst);
-      if (InstCost.isValid())
-        CurrentPatternCost += InstCost;
+      if (InstCost.isUnknown())
+        continue;
+
+      CurrentPatternCost += InstCost;
 
       if ((VPInst == SumCarryOut && VPInst->getNumUsers() > 2) ||
           (VPInst != SumCarryOut && VPInst->getNumUsers() > 1))
@@ -886,9 +888,14 @@ void HeuristicPsadbw::apply(
     // Cost = Cost / (2 ^ NumberOfExternalUses)
     CurrentPatternCost /= (1 << NumberOfExternalUses);
 
-    if (CurrentPatternCost > PsadbwCost)
+    if (CurrentPatternCost.isValid() && CurrentPatternCost > PsadbwCost)
       PatternCost += CurrentPatternCost - PsadbwCost;
   }
+
+  // Unsupported instruction within the pattern generally are not expected,
+  // but in the heuristics we don't want to assert on that rather bail out.
+  if (!PatternCost.isValid())
+    return;
 
   if (PatternCost > Cost)
     // TODO:
@@ -978,7 +985,7 @@ void HeuristicSVMLIDivIRem::apply(
   VPInstructionCost ScalarCost = CM->getArithmeticInstructionCost(
     Opcode, VPInst->getOperand(0), VPInst->getOperand(1), ScalarTy, /*VF*/ 1);
 
-  if (ScalarCost.isUnknown())
+  if (!ScalarCost.isValid())
     return;
 
   VPInstructionCost VectorCost;

@@ -311,9 +311,10 @@ public:
     Invalid   // The cost is invalid: overflow (or another irreversible
               // condition) occurred.
               //
-              // Both Unknown and Invalid costs are not allowed to participate
-              // in arithmetic operations, some relationship operations are
-              // allowed for them though.
+              // Both Unknown and Invalid costs are poisonous and result Unknown
+              // or Invalid cost in arithmetic operations. Some relationship
+              // operations such as == and != are allowed for them but other
+              // relation operations asserts that input values are Valid.
   };
 
 private:
@@ -359,6 +360,15 @@ private:
     return FixedPointSemantics {
       64 /* Width */, 6 /* Scale */, true /* IsSigned */,
         false /* IsSaturated */, false /* HasUnsignedPadding */};
+  }
+
+  // This method defines the rules how poisonous states (Invalid, Unknown)
+  // propagate from RHS to the result of an operation.
+  void propagateState(const VPInstructionCost &RHS) {
+    if (RHS.isInvalid())
+      setInvalid();
+    else if (RHS.isUnknown() && !isInvalid())
+      setUnknown();
   }
 
 public:
@@ -433,10 +443,13 @@ public:
   /// or Unknown it stays Invalid/Unknown, and it also inherits any Invalid/
   /// Unknown state from the RHS.
   ///
-  /// If arithmetic work on the actual values overflows the result has Invalid
-  /// state. All of arithmetic operators assert when applied on Invalid/Unknown
-  /// costs.
+  /// If arithmetic operation on the actual values overflows the result has
+  /// Invalid state.
   VPInstructionCost &operator+=(const VPInstructionCost &RHS) {
+    propagateState(RHS);
+    if (!isValid())
+      return *this;
+
     bool Overflow = false;
     Value = getValue().add(RHS.getValue(), &Overflow);
     if (Overflow)
@@ -445,6 +458,10 @@ public:
   }
 
   VPInstructionCost &operator*=(const VPInstructionCost &RHS) {
+    propagateState(RHS);
+    if (!isValid())
+      return *this;
+
     bool Overflow = false;
     Value = getValue().mul(RHS.getValue(), &Overflow);
     if (Overflow)
@@ -453,6 +470,10 @@ public:
   }
 
   VPInstructionCost &operator-=(const VPInstructionCost &RHS) {
+    propagateState(RHS);
+    if (!isValid())
+      return *this;
+
     bool Overflow = false;
     Value = getValue().sub(RHS.getValue(), &Overflow);
     if (Overflow)
@@ -461,6 +482,10 @@ public:
   }
 
   VPInstructionCost &operator/=(const VPInstructionCost &RHS) {
+    propagateState(RHS);
+    if (!isValid())
+      return *this;
+
     bool Overflow = false;
     Value = getValue().div(RHS.getValue(), &Overflow);
     if (Overflow)
