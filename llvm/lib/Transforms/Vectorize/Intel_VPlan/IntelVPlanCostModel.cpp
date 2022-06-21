@@ -443,7 +443,7 @@ VPInstructionCost VPlanTTICostModel::getIntrinsicInstrCost(
       VPInstructionCost Cost =
           // The sum of costs of 'devectorizing' all args of the call.
           std::accumulate(
-            CB.arg_begin(), CB.arg_end(), VPInstructionCost(),
+            CB.arg_begin(), CB.arg_end(), VPInstructionCost(0),
             [=](VPInstructionCost Cost, const Use &Arg) {
               Type *ArgTy = Arg.get()->getType();
               // If Arg is not expected to be vectorized

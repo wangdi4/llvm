@@ -239,9 +239,9 @@ public:
     H.printCostChange(RefCost, Cost, S, OS);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-    // Once any heuristics in the pipeline returns Unknown cost
+    // Once any heuristics in the pipeline returns Unknown/Invalid cost
     // return it immediately.
-    if (Cost.isUnknown())
+    if (!Cost.isValid())
       return;
     this->Base::apply(TTICost, Cost, S, OS);
   }
@@ -380,9 +380,10 @@ private:
     for (const VPInstruction &VPInst : *VPBB) {
       VPInstructionCost InstCost = getCostImpl(&VPInst, OS);
       // TODO:
-      // For now we skip unknown and invalid costs. Eventually we might want to
-      // assert that we don't have Invalid or Unknown costs for instructions.
-      if (!InstCost.isValid())
+      // For now we skip Unknown costs. Eventually we may want to allow Unknown
+      // cost to propage to the final VPlan cost once every instructions
+      // is modelled.
+      if (InstCost.isUnknown())
         continue;
       BaseCost += InstCost;
     }
@@ -402,14 +403,11 @@ private:
   // Internal helper function to reduce code duplication.
   template <typename RangeTy>
   VPInstructionCost getRangeCost(RangeTy Range, raw_ostream *OS) {
-    VPInstructionCost Cost = 0;
-    for (auto *Block : Range) {
-      VPInstructionCost BlkCost = getCostImpl(Block, OS);
-      if (BlkCost.isUnknown())
-        continue;
-      Cost += BlkCost;
-    }
-    return Cost;
+    VPInstructionCost RangeCost =
+      std::accumulate(Range.begin(), Range.end(), VPInstructionCost(0),
+                      [=](VPInstructionCost Cost, const VPBasicBlock *VPBlk) {
+                        return Cost + getCostImpl(VPBlk, OS);});
+    return RangeCost;
   }
 
   inline BlockPair getVPlanPreLoopBeginEndBlocks() const {

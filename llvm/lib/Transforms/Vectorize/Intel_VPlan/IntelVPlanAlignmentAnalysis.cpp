@@ -224,7 +224,7 @@ VPlanPeelingAnalysis::selectBestStaticPeelingVariant(
       // Compute the difference between the previous and the new costs. Update
       // the cost basis.
       auto Profit = CostBasis - NewCost;
-      assert(Profit > 0 && "Broken cost model");
+      assert(Profit.isValid() && Profit > 0 && "Broken cost model");
       CostBasis = NewCost;
 
       // Compute the peel count to make the memref aligned by TgtAlign.

@@ -414,10 +414,6 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
   std::tie(ScalarIterationCost, std::ignore) =
       createCostModel(Plan.get(), 1)->getCost(nullptr /* PeelingVariant */, OS);
 
-  // FIXME: Should we really prefer VF=1 Plan with unknown cost?
-  if (ScalarIterationCost.isUnknown())
-    ScalarIterationCost = 0;
-
   // Reset the results of SVA that are set as a side effect of CM invocation.
   // The results are dummy (specific to VF = 1) and may not be automatically
   // reused in general.
@@ -908,11 +904,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   }
 
   raw_ostream *OS = nullptr;
-
   VPInstructionCost ScalarCost = ScalarIterationCost * TripCount;
-  // Cap ScalarCost and max value if * TripCount overflows.
-  if (!ScalarCost.isValid())
-    ScalarCost = VPInstructionCost::getMax();
 
   if (ForcedVF > 0 || SearchLoopPreferredVF > 0) {
     assert((VFs.size() == 1 &&
@@ -935,7 +927,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   bool IsVectorAlways = ShouldIgnoreProfitability || VecThreshold == 0;
 
   if (IsVectorAlways) {
-    BestCost = VPInstructionCost::getMax();
+    BestCost = VPInstructionCost::getInvalid();
     LLVM_DEBUG(dbgs() << "'#pragma vector always'/ '#pragma omp simd' is used "
                          "for the given loop\n");
   }
@@ -959,6 +951,20 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   // Please note that best peeling variant is expected to be selected up to
   // this moment.  Now we check whether the best peeling is profitable VS no
   // peeling.
+  //
+  // The rules for picking best VF follows:
+  // 1. ForcedVF / SearchLoopPreferredVF wins always even the corresponding Plan
+  //    is of Unknown/Invalid cost.
+  // 2. IsVectorAlways = true gives preference to VF > 1 Plans.
+  // 3. The least valid cost wins.
+  // 4. Unknown cost wins over Invalid cost.
+  // 5. The cases of tie:
+  //      *) all costs are valid and equal.
+  //      *) all costs are Unknown.
+  //      *) all costs are Invalid.
+  //    In case of tie VF = 1 wins unless IsVectorAlways is true.
+  //    In case of tie and IsVectorAlways is true the first avaiable VF
+  //    is selected.
   for (unsigned VF : getVectorFactors()) {
     assert(hasVPlanForVF(VF) && "expected non-null VPlan");
     if (TripCount < VF * BestUF)
@@ -986,13 +992,16 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     std::tie(MainLoopIterationCost, MainLoopOverhead) =
         MainLoopCM->getCost(PeelingVariant, OS);
 
-    if (MainLoopIterationCost.isUnknown() || MainLoopOverhead.isUnknown()) {
+    if (!MainLoopIterationCost.isValid() || !MainLoopOverhead.isValid()) {
       LLVM_DEBUG(dbgs() << "Cost for VF = " << VF << " is unknown. Skip it.\n");
       if (VF == ForcedVF || VF == SearchLoopPreferredVF) {
-        // If the VF is forced and loop cost for it is unknown select the
-        // simplest configuration: non-masked main loop + scalar remainder.
+        // If the VF is forced and loop cost for it is unknown/invalid select
+        // the simplest configuration: non-masked main loop + scalar remainder.
         selectSimplestVecScenario(VF, BestUF);
       }
+      else
+        LLVM_DEBUG(dbgs() << "Cost for VF = " << VF << " is " <<
+                   MainLoopIterationCost << ". Skip it.\n");
       continue;
     }
     LLVM_DEBUG(dbgs() << "Selected peeling: ";
@@ -1143,7 +1152,15 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       LLVM_DEBUG(dbgs() << "Peeling will be performed.\n");
     }
 
-    if (VectorCost < BestCost ||
+    // Current VF is invalid to vectorize with so skip it.
+    if (VectorCost.isInvalid())
+      continue;
+
+    // The checks below implement the rules for selecting the best VF.
+    if ((VectorCost.isUnknown() && BestCost.isInvalid()) ||
+        (VectorCost.isValid() && !BestCost.isValid())    ||
+        (VectorCost.isValid() && BestCost.isValid() &&
+         VectorCost < BestCost)                          ||
         VF == ForcedVF || VF == SearchLoopPreferredVF) {
       BestCost = VectorCost;
       updateVecScenario(PeelEvaluator,
@@ -1159,12 +1176,11 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     }
   }
 #if INTEL_CUSTOMIZATION
-  // Corner case: all available VPlans have UMAX cost.
+  // Corner case: all available VPlans have Invalid cost.
   // With 'vector always' we have to vectorize with some VF, so select first
   // available VF.
-  if (VecScenario.getMainVF() == 1 && IsVectorAlways) {
+  if (VecScenario.getMainVF() == 1 && IsVectorAlways)
     selectSimplestVecScenario(VFs[0], 1);
-  }
 
   // Workaround for using DefaultTripCount: in some cases we can have situation
   // when static peeling and current value of DefaultTripCount can lead to
