@@ -657,7 +657,7 @@ std::string llvm::AnnotateInlinePassName(InlineContext IC) {
 }
 
 const char *InlineAdvisor::getAnnotatedInlinePassName() {
-  if (!IC.hasValue())
+  if (!IC)
     return DEBUG_TYPE;
 
   // IC is constant and initialized in constructor, so compute the annotated
@@ -682,7 +682,7 @@ InlineAdvisor::getMandatoryKind(CallBase &CB, FunctionAnalysisManager &FAM,
   auto TrivialDecision =
       llvm::getAttributeBasedInliningDecision(CB, &Callee, TIR, GetTLI);
 
-  if (TrivialDecision.hasValue()) {
+  if (TrivialDecision) {
     if (TrivialDecision->isSuccess())
       return MandatoryInliningKind::Always;
     else

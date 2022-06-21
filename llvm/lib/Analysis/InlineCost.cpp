@@ -3342,6 +3342,7 @@ InlineCost llvm::getInlineCost(
   auto UserDecision =
       llvm::getAttributeBasedInliningDecision(Call, Callee, CalleeTTI, GetTLI);
 
+<<<<<<< HEAD
   if (UserDecision.hasValue()) {
 #if INTEL_CUSTOMIZATION
     if (UserDecision->isSuccess()) {
@@ -3354,6 +3355,12 @@ InlineCost llvm::getInlineCost(
     return llvm::InlineCost::getNever(UserDecision->getFailureReason(),
                                       UserDecision->getIntelInlReason());
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (UserDecision) {
+    if (UserDecision->isSuccess())
+      return llvm::InlineCost::getAlways("always inline attribute");
+    return llvm::InlineCost::getNever(UserDecision->getFailureReason());
+>>>>>>> e0e687a615c1fdb6ba034fc2e48b0834a372706f
   }
 
   LLVM_DEBUG(llvm::dbgs() << "      Analyzing call of " << Callee->getName()
