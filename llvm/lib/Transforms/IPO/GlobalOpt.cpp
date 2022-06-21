@@ -1476,6 +1476,7 @@ static void makeAllConstantUsesInstructions(Constant *C) {
   }
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Replace all uses of "GV" with "StoredOnceVal" in "F" if all uses of
 // GV are dominated by store to GV using "LookupDomTree".
@@ -1764,6 +1765,8 @@ static bool forwardStoredOnceStore(
   return MadeChange;
 }
 
+=======
+>>>>>>> 13ff7d6f393da07c285c710beaa93b6ac3a276fb
 /// Analyze the specified global variable and optimize
 /// it if possible.  If we make a change, return true.
 static bool
@@ -1932,6 +1935,7 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
     if (optimizeOnceStoredGlobal(GV, StoredOnceValue, DL, GetTLI))
       return true;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // If a global variable is accessed only in one routine and all uses
   // of the global variable is dominated by single store with a constant
@@ -1977,6 +1981,8 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
     if (forwardStoredOnceStore(GV, GS.StoredOnceStore, LookupDomTree))
       return true;
 
+=======
+>>>>>>> 13ff7d6f393da07c285c710beaa93b6ac3a276fb
     // Otherwise, if the global was not a boolean, we can shrink it to be a
     // boolean. Skip this optimization for AS that doesn't allow an initializer.
     if (SOVConstant && GS.Ordering == AtomicOrdering::NotAtomic &&
