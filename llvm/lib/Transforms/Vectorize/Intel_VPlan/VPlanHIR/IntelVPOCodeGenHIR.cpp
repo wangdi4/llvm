@@ -6769,7 +6769,8 @@ void VPOCodeGenHIR::setBoundsForVectorLoop(VPLoop *VPLp) {
   if (LBRef) {
     VecLoop->setLowerDDRef(LBRef);
     auto *LBCanonExpr = LBRef->getSingleCanonExpr();
-    LBCanonExpr->setDefinedAtLevel(LoopLevel - 1);
+    if (!LBRef->isIntConstant())
+      LBCanonExpr->setDefinedAtLevel(LoopLevel - 1);
   }
 
   // TODO: Use PH induction-init-step to set stride? Currently we are assuming
