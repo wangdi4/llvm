@@ -835,8 +835,10 @@ public:
       if (ExitCond(AtBB))
         return;
 
-      VPBasicBlock *IDom = VPDomTree.getNode(AtBB)->getIDom()->getBlock();
-      AtBB = IDom; // Repeat the same with updated AtBB.
+      assert(VPDomTree.getNode(AtBB) && "Invalid Dominator Tree.");
+      auto *IDom = VPDomTree.getNode(AtBB)->getIDom();
+      assert(IDom && "Block does not have immediate dominator.");
+      AtBB = IDom->getBlock(); // Repeat the same with updated AtBB.
     }
   }
 

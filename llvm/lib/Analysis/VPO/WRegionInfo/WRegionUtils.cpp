@@ -1094,14 +1094,19 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
     collectIfNotAlreadyCollected(V);
   };
 
-  auto collectSizeIfVLA = [&](Value *V) {
+  auto collectSizeIfVLA = [&](Value *V, bool OnlyIfUsedInRegion) {
     // Skip AddrSpaceCastInsts in hope to reach the underlying value.
     while (auto *ASCI = dyn_cast<AddrSpaceCastInst>(V))
       V = ASCI->getPointerOperand();
 
-    if (AllocaInst *AI = dyn_cast<AllocaInst>(V))
-      if (AI->isArrayAllocation())
-        collectIfNonPointerNonConstant(AI->getArraySize());
+    if (AllocaInst *AI = dyn_cast<AllocaInst>(V)) {
+      if (AI->isArrayAllocation()) {
+        if (OnlyIfUsedInRegion)
+          collectIfUsedInRegion(AI->getArraySize());
+        else
+          collectIfNonPointerNonConstant(AI->getArraySize());
+      }
+    }
   };
 
   auto collectArraySectionBounds = [&](const ArraySectionInfo &ASI) {
@@ -1113,46 +1118,49 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
     }
   };
 
-  auto collectNumElementsIfTyped = [&](Item *I) {
-    if (I->getIsTyped())
+  auto collectTypedNumElementsOrVlaSize = [&](Item *I) {
+    if (I->getIsTyped()) {
       collectIfNonPointerNonConstant(I->getNumElements());
+      return;
+    }
+    // We need to capture VLA size even if it's not currently used
+    // in the region because we'll use it for the allocation of
+    // the private copy of the clause operand.
+    collectSizeIfVLA(I->getOrig(), /*OnlyIfUsedInRegion=*/false);
   };
 
   if (W->canHavePrivate()) {
     PrivateClause &PrivClause = W->getPriv();
-    for (PrivateItem *PrivI : PrivClause.items()) {
-      collectNumElementsIfTyped(PrivI);
-      collectSizeIfVLA(PrivI->getOrig());
-    }
+    for (PrivateItem *PrivI : PrivClause.items())
+      collectTypedNumElementsOrVlaSize(PrivI);
   }
 
   if (W->canHaveFirstprivate()) {
     FirstprivateClause &FprivClause = W->getFpriv();
-    for (FirstprivateItem *FprivI : FprivClause.items()) {
-      collectNumElementsIfTyped(FprivI);
-      collectSizeIfVLA(FprivI->getOrig());
-    }
+    for (FirstprivateItem *FprivI : FprivClause.items())
+      collectTypedNumElementsOrVlaSize(FprivI);
   }
 
   if (W->canHaveReduction()) {
     ReductionClause &RedClause = W->getRed();
     for (ReductionItem *RedI : RedClause.items()) {
-      collectNumElementsIfTyped(RedI);
+      // TODO: This needs to be restructured when adding typed array-section
+      // reduction support.
+      if (RedI->getIsTyped())
+        collectIfNonPointerNonConstant(RedI->getNumElements());
       if (RedI->getIsArraySection())
         collectArraySectionBounds(RedI->getArraySectionInfo());
       else if (RedI->getIsTyped())
         collectIfNonPointerNonConstant(RedI->getArraySectionOffset());
       else
-        collectSizeIfVLA(RedI->getOrig());
+        collectSizeIfVLA(RedI->getOrig(), /*OnlyIfUsedInRegion=*/false);
     }
   }
 
   if (W->canHaveLastprivate()) {
     LastprivateClause &LprivClause = W->getLpriv();
-    for (LastprivateItem *LprivI : LprivClause.items()) {
-      collectNumElementsIfTyped(LprivI);
-      collectSizeIfVLA(LprivI->getOrig());
-    }
+    for (LastprivateItem *LprivI : LprivClause.items())
+      collectTypedNumElementsOrVlaSize(LprivI);
   }
 
   if (W->canHaveLinear()) {
@@ -1163,8 +1171,12 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
 
   if (W->canHaveMap()) {
     MapClause &MapClause = W->getMap();
+    // For map clause items, there is no private allocation needed inside the
+    // region for the item itself, but we may need to capture the base's VLA size
+    // if it is used inside the region, for example, for private initialization
+    // of a firstprivate clause on an inner parallel construct.
     for (MapItem *MapI : MapClause.items())
-      collectSizeIfVLA(MapI->getOrig());
+      collectSizeIfVLA(MapI->getOrig(), /*OnlyIfUsedInRegion=*/true);
   }
 
   if (W->canHaveIf())
