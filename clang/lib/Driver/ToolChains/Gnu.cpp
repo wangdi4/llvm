@@ -1128,7 +1128,11 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
           CmdArgs.push_back("-Bdynamic");
 #endif // INTEL_CUSTOMIZATION
         CmdArgs.push_back("-lsycl");
+<<<<<<< HEAD
         CmdArgs.push_back("-lsycl-devicelib-host");
+=======
+	CmdArgs.push_back("-lsycl-devicelib-host");
+>>>>>>> d094266ae1653e705c4c0e31e8e5a42fa0a5f095
         // Use of -fintelfpga implies -lOpenCL.
         // FIXME: Adjust to use plugin interface when available.
         if (Args.hasArg(options::OPT_fintelfpga))
