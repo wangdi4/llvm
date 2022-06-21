@@ -1662,7 +1662,8 @@ static Value *HandleByValArgument(Type *ByValType, Value *Arg,
   // If the byval had an alignment specified, we *must* use at least that
   // alignment, as it is required by the byval argument (and uses of the
   // pointer inside the callee).
-  Alignment = max(Alignment, MaybeAlign(ByValAlignment));
+  if (ByValAlignment > 0)
+    Alignment = std::max(Alignment, Align(ByValAlignment));
 
 #if INTEL_COLLAB
   Value *NewAlloca = new AllocaInst(
