@@ -92,7 +92,13 @@ UndefRegClearance("undef-reg-clearance",
                   cl::desc("How many idle instructions we would like before "
                            "certain undef register reads"),
                   cl::init(128), cl::Hidden);
-
+#if INTEL_CUSTOMIZATION
+static cl::opt<unsigned>
+MRNMaxDistance("mrn-max-distance",
+                  cl::desc("The max distance for checking if intruction is"
+                           "memory renaming-able."),
+                  cl::init(50), cl::Hidden);
+#endif // INTEL_CUSTOMIZATION
 
 // Pin the vtable to this file.
 void X86InstrInfo::anchor() {}
@@ -6227,12 +6233,213 @@ MachineInstr *X86InstrInfo::foldMemoryBroadcast(
     dbgs() << "We failed to fuse operand " << OpNum << " in " << MI;
   return nullptr;
 }
+
+// Return true if find the definition of Use in the distance of InspectionLimit.
+bool X86InstrInfo::findDefInDistance(MachineFunction &MF,
+                                     MachineBasicBlock &MBB,
+                                     MachineBasicBlock::reverse_iterator It,
+                                     Register Use,
+                                     unsigned InspectionLimit) const {
+  unsigned BlockCount = 0;
+  for (auto E = MBB.rend(); It != E; ++It) {
+    if (It->isMetaInstruction())
+      continue;
+    if (BlockCount++ >= InspectionLimit)
+      return false;
+    if (It->getDesc().isCall())
+      return false;
+    for (auto &MO : It->operands()) {
+      if (!MO.isReg() || !MO.isDef())
+        continue;
+      if (MO.getReg() == Use)
+        return true;
+    }
+  }
+
+  if (BlockCount < InspectionLimit) {
+    int LimitLeft = InspectionLimit - BlockCount;
+    for (MachineBasicBlock::pred_iterator PredB = MBB.pred_begin(),
+      PredE = MBB.pred_end();
+      PredB != PredE; ++PredB) {
+      MachineBasicBlock *PMBB = *PredB;
+      int SuccCount = 0;
+      for (auto PBIt = PMBB->rbegin(), E = PMBB->rend(); PBIt != E; ++PBIt) {
+        if (PBIt->isMetaInstruction())
+          continue;
+        if (SuccCount++ >= LimitLeft)
+          break;
+        if (PBIt->getDesc().isCall())
+          return false;
+        for (auto &MO : PBIt->operands()) {
+          if (!MO.isReg() || !MO.isDef())
+            continue;
+          if (MO.getReg() == Use)
+            return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+static bool unfoldRMW(const MachineInstr &MI) {
+  unsigned Opcode = MI.getOpcode();
+  switch (Opcode) {
+  case X86::ADC16rr:
+  case X86::ADC32rr:
+  case X86::ADC64rr:
+  case X86::ADC8rr:
+  case X86::ADD16rr:
+  case X86::ADD32rr:
+  case X86::ADD64rr:
+  case X86::ADD8rr:
+  case X86::AND16rr:
+  case X86::AND32rr:
+  case X86::AND64rr:
+  case X86::AND8rr:
+  case X86::OR16rr:
+  case X86::OR32rr:
+  case X86::OR64rr:
+  case X86::OR8rr:
+  case X86::RCL16rCL:
+  case X86::RCL32rCL:
+  case X86::RCL64rCL:
+  case X86::RCL8rCL:
+  case X86::RCR16rCL:
+  case X86::RCR32rCL:
+  case X86::RCR64rCL:
+  case X86::RCR8rCL:
+  case X86::ROL16rCL:
+  case X86::ROL32rCL:
+  case X86::ROL64rCL:
+  case X86::ROL8rCL:
+  case X86::ROR16rCL:
+  case X86::ROR32rCL:
+  case X86::ROR64rCL:
+  case X86::ROR8rCL:
+  case X86::SAR16rCL:
+  case X86::SAR32rCL:
+  case X86::SAR64rCL:
+  case X86::SAR8rCL:
+  case X86::SBB16rr:
+  case X86::SBB32rr:
+  case X86::SBB64rr:
+  case X86::SBB8rr:
+  case X86::SHL16rCL:
+  case X86::SHL32rCL:
+  case X86::SHL64rCL:
+  case X86::SHL8rCL:
+  case X86::SHLD16rrCL:
+  case X86::SHLD32rrCL:
+  case X86::SHLD64rrCL:
+  case X86::SHR16rCL:
+  case X86::SHR32rCL:
+  case X86::SHR64rCL:
+  case X86::SHR8rCL:
+  case X86::SHRD16rrCL:
+  case X86::SHRD32rrCL:
+  case X86::SHRD64rrCL:
+  case X86::SUB16rr:
+  case X86::SUB32rr:
+  case X86::SUB64rr:
+  case X86::SUB8rr:
+  case X86::XOR16rr:
+  case X86::XOR32rr:
+  case X86::XOR64rr:
+  case X86::XOR8rr:
+    return true;
+  }
+  return false;
+}
+
+static bool unfoldLoad(const MachineInstr &MI) {
+  unsigned Opcode = MI.getOpcode();
+  switch (Opcode) {
+  // 64-bit mul
+  case X86::MUL64r:
+  case X86::IMUL64r:
+
+  // Indirect branches.
+  case X86::CALL16r:
+  case X86::CALL16r_NT:
+  case X86::CALL32r:
+  case X86::CALL32r_NT:
+  case X86::CALL64r:
+  case X86::CALL64r_NT:
+  case X86::PUSH16r:
+  case X86::PUSH32r:
+  case X86::PUSH64r:
+  case X86::JMP16r:
+  case X86::JMP16r_NT:
+  case X86::JMP32r:
+  case X86::JMP32r_NT:
+  case X86::JMP64r:
+  case X86::JMP64r_NT:
+  case X86::TAILJMPr:
+  case X86::TAILJMPr64:
+  case X86::TAILJMPr64_REX:
+  case X86::TCRETURNri:
+  case X86::TCRETURNri64:
+
+  // 3 source operand
+  case X86::ADC16rr:
+  case X86::ADC32rr:
+  case X86::ADC64rr:
+  case X86::ADC8rr:
+  case X86::ADCX32rr:
+  case X86::ADCX64rr:
+  case X86::ADOX32rr:
+  case X86::ADOX64rr:
+  case X86::SBB16rr:
+  case X86::SBB32rr:
+  case X86::SBB64rr:
+  case X86::SBB8rr:
+
+  // Non-destructive dest.
+  case X86::TEST16ri:
+  case X86::TEST16rr:
+  case X86::TEST32ri:
+  case X86::TEST32rr:
+  case X86::TEST64ri32:
+  case X86::TEST64rr:
+  case X86::TEST8ri:
+  case X86::TEST8rr:
+  case X86::CMP16ri:
+  case X86::CMP16ri8:
+  case X86::CMP16rr:
+  case X86::CMP32ri:
+  case X86::CMP32ri8:
+  case X86::CMP32rr:
+  case X86::CMP64ri32:
+  case X86::CMP64ri8:
+  case X86::CMP64rr:
+  case X86::CMP8ri:
+  case X86::CMP8ri8:
+  case X86::CMP8rr:
+
+  // Sign extending loads
+  case X86::MOVSX64rr16:
+  case X86::MOVSX64rr32:
+  case X86::MOVSX64rr8:
+  case X86::MOVSX32rr16:
+  case X86::MOVSX32rr32:
+  case X86::MOVSX32rr8:
+  case X86::MOVSX32rr8_NOREX:
+  case X86::MOVSX16rr16:
+  case X86::MOVSX16rr32:
+  case X86::MOVSX16rr8:
+    return true;
+
+  default:
+    return false;
+  }
+}
 #endif
 
 MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
     MachineFunction &MF, MachineInstr &MI, unsigned OpNum,
     ArrayRef<MachineOperand> MOs, MachineBasicBlock::iterator InsertPt,
-    unsigned Size, Align Alignment, bool AllowCommute) const {
+    unsigned Size, Align Alignment, bool AllowCommute, bool SpillStage) const { // INTEL
   bool isSlowTwoMemOps = Subtarget.slowTwoMemOps();
   bool isTwoAddrFold = false;
 
@@ -6285,6 +6492,15 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
       MI.getOperand(1).isReg() &&
       MI.getOperand(0).getReg() == MI.getOperand(1).getReg()) {
     I = lookupTwoAddrFoldTable(MI.getOpcode());
+
+#if INTEL_CUSTOMIZATION
+    // RMW as load with registers remain not MRNable.
+    if (Subtarget.hasMRN() && SpillStage && unfoldRMW(MI))
+      if (findDefInDistance(MF, *MI.getParent(), ++MI.getReverseIterator(),
+                            MI.getOperand(0).getReg(), MRNMaxDistance))
+        I = nullptr;
+#endif // INTEL_CUSTOMIZATION
+
     isTwoAddrFold = true;
   } else {
     if (OpNum == 0) {
@@ -6314,6 +6530,21 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
     }
 
     I = lookupFoldTable(MI.getOpcode(), OpNum);
+#if INTEL_CUSTOMIZATION
+    if (Subtarget.hasMRN() && SpillStage && I != nullptr) {
+      bool FoldedLoad = (OpNum == 0 && I->Flags & TB_FOLDED_LOAD) || OpNum > 0;
+
+      assert(MI.getOperand(OpNum).isReg() &&
+             "Folded operand must be register.");
+
+      if (FoldedLoad) {
+        if (unfoldLoad(MI) &&
+            findDefInDistance(MF, *MI.getParent(), ++MI.getReverseIterator(),
+                              MI.getOperand(OpNum).getReg(), MRNMaxDistance))
+          I = nullptr;
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   if (I != nullptr) {
@@ -6405,7 +6636,8 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
 
       // Attempt to fold with the commuted version of the instruction.
       NewMI = foldMemoryOperandImpl(MF, MI, CommuteOpIdx2, MOs, InsertPt, Size,
-                                    Alignment, /*AllowCommute=*/false);
+                                    Alignment, /*AllowCommute=*/false,  // INTEL
+                                    SpillStage);                        // INTEL
       if (NewMI)
         return NewMI;
 
@@ -6484,6 +6716,11 @@ X86InstrInfo::foldMemoryOperandImpl(MachineFunction &MF, MachineInstr &MI,
     // narrower than the load width, then it's not.
     if (Size < RCSize)
       return nullptr;
+#if INTEL_CUSTOMIZATION
+    if (Subtarget.hasMRN() && LIS && findDefInDistance(MF, *MI.getParent(),
+         ++MI.getReverseIterator(), MI.getOperand(0).getReg(), MRNMaxDistance))
+      return nullptr;
+#endif // INTEL_CUSTOMIZATION
     // Change to CMPXXri r, 0 first.
     MI.setDesc(get(NewOpc));
     MI.getOperand(1).ChangeToImmediate(0);
@@ -6492,7 +6729,8 @@ X86InstrInfo::foldMemoryOperandImpl(MachineFunction &MF, MachineInstr &MI,
 
   return foldMemoryOperandImpl(MF, MI, Ops[0],
                                MachineOperand::CreateFI(FrameIndex), InsertPt,
-                               Size, Alignment, /*AllowCommute=*/true);
+                               Size, Alignment, /*AllowCommute=*/true,  // INTEL
+                               /*SpillStage*/ LIS != nullptr);          // INTEL
 }
 
 /// Check if \p LoadMI is a partial register load that we can't fold into \p MI
@@ -7005,7 +7243,8 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
   }
   }
   return foldMemoryOperandImpl(MF, MI, Ops[0], MOs, InsertPt,
-                               /*Size=*/0, Alignment, /*AllowCommute=*/true);
+                               /*Size=*/0, Alignment, /*AllowCommute=*/true, // INTEL
+                               LIS != nullptr);                              // INTEL
 }
 
 static SmallVector<MachineMemOperand *, 2>
