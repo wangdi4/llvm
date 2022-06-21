@@ -322,13 +322,11 @@ bool operator>=(MaybeAlign Lhs, MaybeAlign Rhs) = delete;
 bool operator<(MaybeAlign Lhs, MaybeAlign Rhs) = delete;
 bool operator>(MaybeAlign Lhs, MaybeAlign Rhs) = delete;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 inline Align operator*(Align Lhs, uint64_t Rhs) {
   assert(Rhs > 0 && "Rhs must be positive");
   return Align(Lhs.value() * Rhs);
 }
-#endif // INTEL_CUSTOMIZATION
 
 inline Align operator/(Align Lhs, uint64_t Divisor) {
   assert(llvm::isPowerOf2_64(Divisor) &&
@@ -336,9 +334,8 @@ inline Align operator/(Align Lhs, uint64_t Divisor) {
   assert(Lhs != 1 && "Can't halve byte alignment");
   return Align(Lhs.value() / Divisor);
 }
+#endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 03036061c7716f88cef32ebe16f2c10307383ef8
 #ifndef NDEBUG
 // For usage in LLVM_DEBUG macros.
 inline std::string DebugStr(const Align &A) {
