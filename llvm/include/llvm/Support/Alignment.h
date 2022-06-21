@@ -314,10 +314,12 @@ bool operator>=(MaybeAlign Lhs, MaybeAlign Rhs) = delete;
 bool operator<(MaybeAlign Lhs, MaybeAlign Rhs) = delete;
 bool operator>(MaybeAlign Lhs, MaybeAlign Rhs) = delete;
 
+#if INTEL_CUSTOMIZATION
 inline Align operator*(Align Lhs, uint64_t Rhs) {
   assert(Rhs > 0 && "Rhs must be positive");
   return Align(Lhs.value() * Rhs);
 }
+#endif // INTEL_CUSTOMIZATION
 
 inline Align operator/(Align Lhs, uint64_t Divisor) {
   assert(llvm::isPowerOf2_64(Divisor) &&
