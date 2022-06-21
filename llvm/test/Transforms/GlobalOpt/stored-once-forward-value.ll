@@ -11,11 +11,11 @@
 declare void @b()
 
 define i1 @dom_const() {
+; INTEL_CUSTOMIZATION
 ; CHECK-LABEL: @dom_const(
-; CHECK-NEXT:    store i1 true, ptr @g1, align 1
 ; CHECK-NEXT:    call void @b()
-; CHECK-NEXT:    [[R:%.*]] = load i1, ptr @g1, align 1
-; CHECK-NEXT:    ret i1 [[R]]
+; CHECK-NEXT:    ret i1 true
+; end INTEL_CUSTOMIZATION
 ;
   store i1 true, ptr @g1
   call void @b()
