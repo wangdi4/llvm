@@ -3341,19 +3341,57 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isPointerTy());
 
-  case LibFunc_intel_sinpi: // INTEL
-  case LibFunc_intel_cospi: // INTEL
+#if INTEL_CUSTOMIZATION
+  case LibFunc_intel_sinpi:
+  case LibFunc_intel_cospi:
+  case LibFunc_asinpi:
+  case LibFunc_acospi:
+  case LibFunc_atanpi:
+  case LibFunc_pow2o3:
+  case LibFunc_pow3o2:
+  case LibFunc_tanpi:
+#endif // INTEL_CUSTOMIZATION
   case LibFunc_sinpi:
   case LibFunc_cospi:
     return (NumParams == 1 && FTy.getReturnType()->isDoubleTy() &&
             FTy.getReturnType() == FTy.getParamType(0));
 
-  case LibFunc_intel_sinpif: // INTEL
-  case LibFunc_intel_cospif: // INTEL
+#if INTEL_CUSTOMIZATION
+  case LibFunc_intel_sinpif:
+  case LibFunc_intel_cospif:
+  case LibFunc_asinpif:
+  case LibFunc_acospif:
+  case LibFunc_atanpif:
+  case LibFunc_pow2o3f:
+  case LibFunc_pow3o2f:
+  case LibFunc_tanpif:
+#endif // INTEL_CUSTOMIZATION
   case LibFunc_sinpif:
   case LibFunc_cospif:
     return (NumParams == 1 && FTy.getReturnType()->isFloatTy() &&
             FTy.getReturnType() == FTy.getParamType(0));
+
+#if INTEL_CUSTOMIZATION
+  case LibFunc_atan2pi:
+  case LibFunc_fdim:
+  case LibFunc_maxmag:
+  case LibFunc_minmag:
+  case LibFunc_powr:
+  case LibFunc_nextafter:
+    return (NumParams == 2 && FTy.getReturnType()->isDoubleTy() &&
+            FTy.getReturnType() == FTy.getParamType(0) &&
+            FTy.getReturnType() == FTy.getParamType(1));
+
+  case LibFunc_fdimf:
+  case LibFunc_atan2pif:
+  case LibFunc_maxmagf:
+  case LibFunc_minmagf:
+  case LibFunc_powrf:
+  case LibFunc_nextafterf:
+    return (NumParams == 2 && FTy.getReturnType()->isFloatTy() &&
+            FTy.getReturnType() == FTy.getParamType(0) &&
+            FTy.getReturnType() == FTy.getParamType(1));
+#endif // INTEL_CUSTOMIZATION
 
   case LibFunc_strnlen:
     return (NumParams == 2 && FTy.getReturnType() == FTy.getParamType(1) &&
