@@ -2270,6 +2270,14 @@ TLI_DEFINE_STRING_INTERNAL("acoshl")
 /// long double acosl(long double x);
 TLI_DEFINE_ENUM_INTERNAL(acosl)
 TLI_DEFINE_STRING_INTERNAL("acosl")
+#if INTEL_CUSTOMIZATION
+/// double acospi(double x);
+TLI_DEFINE_ENUM_INTERNAL(acospi)
+TLI_DEFINE_STRING_INTERNAL("acospi")
+/// float acospif(float x);
+TLI_DEFINE_ENUM_INTERNAL(acospif)
+TLI_DEFINE_STRING_INTERNAL("acospif")
+#endif // INTEL_CUSTOMIZATION
 /// void *aligned_alloc(size_t alignment, size_t size);
 TLI_DEFINE_ENUM_INTERNAL(aligned_alloc)
 TLI_DEFINE_STRING_INTERNAL("aligned_alloc")
@@ -2303,6 +2311,13 @@ TLI_DEFINE_ENUM_INTERNAL(asinl)
 TLI_DEFINE_STRING_INTERNAL("asinl")
 
 #if INTEL_CUSTOMIZATION
+/// double asinpi(double x);
+TLI_DEFINE_ENUM_INTERNAL(asinpi)
+TLI_DEFINE_STRING_INTERNAL("asinpi")
+/// float asinpif(float x);
+TLI_DEFINE_ENUM_INTERNAL(asinpif)
+TLI_DEFINE_STRING_INTERNAL("asinpif")
+
 /// int asprintf(char **strp, const char *fmt, ...);
 TLI_DEFINE_ENUM_INTERNAL(asprintf)
 TLI_DEFINE_STRING_INTERNAL("asprintf")
@@ -2320,6 +2335,14 @@ TLI_DEFINE_STRING_INTERNAL("atan2f")
 /// long double atan2l(long double y, long double x);
 TLI_DEFINE_ENUM_INTERNAL(atan2l)
 TLI_DEFINE_STRING_INTERNAL("atan2l")
+#if INTEL_CUSTOMIZATION
+/// double atan2pi(double x, double y);
+TLI_DEFINE_ENUM_INTERNAL(atan2pi)
+TLI_DEFINE_STRING_INTERNAL("atan2pi")
+/// float atan2pif(float x, float y);
+TLI_DEFINE_ENUM_INTERNAL(atan2pif)
+TLI_DEFINE_STRING_INTERNAL("atan2pif")
+#endif // INTEL_CUSTOMIZATION
 /// float atanf(float x);
 TLI_DEFINE_ENUM_INTERNAL(atanf)
 TLI_DEFINE_STRING_INTERNAL("atanf")
@@ -2336,6 +2359,12 @@ TLI_DEFINE_STRING_INTERNAL("atanhl")
 TLI_DEFINE_ENUM_INTERNAL(atanl)
 TLI_DEFINE_STRING_INTERNAL("atanl")
 #if INTEL_CUSTOMIZATION
+/// double atanpi(double x);
+TLI_DEFINE_ENUM_INTERNAL(atanpi)
+TLI_DEFINE_STRING_INTERNAL("atanpi")
+/// float atanpif(float x);
+TLI_DEFINE_ENUM_INTERNAL(atanpif)
+TLI_DEFINE_STRING_INTERNAL("atanpif")
 /// int atexit(void (*func)(void))
 TLI_DEFINE_ENUM_INTERNAL(atexit)
 TLI_DEFINE_STRING_INTERNAL("atexit")
@@ -2608,6 +2637,13 @@ TLI_DEFINE_STRING_INTERNAL("fcntl")
 ///  int fcntl64(int fd, int cmd, ...);
 TLI_DEFINE_ENUM_INTERNAL(fcntl64)
 TLI_DEFINE_STRING_INTERNAL("fcntl64")
+
+/// double fdim(double x, double y);
+TLI_DEFINE_ENUM_INTERNAL(fdim)
+TLI_DEFINE_STRING_INTERNAL("fdim")
+/// float fdimf(float x, float y);
+TLI_DEFINE_ENUM_INTERNAL(fdimf)
+TLI_DEFINE_STRING_INTERNAL("fdimf")
 #endif // INTEL_CUSTOMIZATION
 
 /// FILE *fdopen(int fildes, const char *mode);
@@ -3289,6 +3325,12 @@ TLI_DEFINE_STRING_INTERNAL("malloc")
 /// int mallopt(int, int);
 TLI_DEFINE_ENUM_INTERNAL(mallopt)
 TLI_DEFINE_STRING_INTERNAL("mallopt")
+/// double maxmag(double x, double y);
+TLI_DEFINE_ENUM_INTERNAL(maxmag)
+TLI_DEFINE_STRING_INTERNAL("maxmag")
+/// float maxmagf(float x, float y);
+TLI_DEFINE_ENUM_INTERNAL(maxmagf)
+TLI_DEFINE_STRING_INTERNAL("maxmagf")
 /// int mblen( const char* s, size_t n );
 TLI_DEFINE_ENUM_INTERNAL(mblen)
 TLI_DEFINE_STRING_INTERNAL("mblen")
@@ -3333,6 +3375,14 @@ TLI_DEFINE_STRING_INTERNAL("memset_pattern4")
 /// void memset_pattern8(void *b, const void *pattern8, size_t len);
 TLI_DEFINE_ENUM_INTERNAL(memset_pattern8)
 TLI_DEFINE_STRING_INTERNAL("memset_pattern8")
+#if INTEL_CUSTOMIZATION
+/// double minmag(double x, double y);
+TLI_DEFINE_ENUM_INTERNAL(minmag)
+TLI_DEFINE_STRING_INTERNAL("minmag")
+/// float minmagf(float x, float y);
+TLI_DEFINE_ENUM_INTERNAL(minmagf)
+TLI_DEFINE_STRING_INTERNAL("minmagf")
+#endif // INTEL_CUSTOMIZATION
 /// int mkdir(const char *path, mode_t mode);
 TLI_DEFINE_ENUM_INTERNAL(mkdir)
 TLI_DEFINE_STRING_INTERNAL("mkdir")
@@ -3381,6 +3431,14 @@ TLI_DEFINE_STRING_INTERNAL("nearbyintf")
 /// long double nearbyintl(long double x);
 TLI_DEFINE_ENUM_INTERNAL(nearbyintl)
 TLI_DEFINE_STRING_INTERNAL("nearbyintl")
+#if INTEL_CUSTOMIZATION
+/// double nextafter(double x, double y);
+TLI_DEFINE_ENUM_INTERNAL(nextafter)
+TLI_DEFINE_STRING_INTERNAL("nextafter")
+/// float nextafterf(float x, float y);
+TLI_DEFINE_ENUM_INTERNAL(nextafterf)
+TLI_DEFINE_STRING_INTERNAL("nextafterf")
+#endif // INTEL_CUSTOMIZATION
 /// uint32_t ntohl(uint32_t netlong);
 TLI_DEFINE_ENUM_INTERNAL(ntohl)
 TLI_DEFINE_STRING_INTERNAL("ntohl")
@@ -3557,12 +3615,34 @@ TLI_DEFINE_STRING_INTERNAL("posix_memalign")
 /// double pow(double x, double y);
 TLI_DEFINE_ENUM_INTERNAL(pow)
 TLI_DEFINE_STRING_INTERNAL("pow")
+#if INTEL_CUSTOMIZATION
+/// double pow2o3(double x);
+TLI_DEFINE_ENUM_INTERNAL(pow2o3)
+TLI_DEFINE_STRING_INTERNAL("pow2o3")
+/// float pow2o3f(float x);
+TLI_DEFINE_ENUM_INTERNAL(pow2o3f)
+TLI_DEFINE_STRING_INTERNAL("pow2o3f")
+/// double pow3o2(double x);
+TLI_DEFINE_ENUM_INTERNAL(pow3o2)
+TLI_DEFINE_STRING_INTERNAL("pow3o2")
+/// float pow3o2f(float x);
+TLI_DEFINE_ENUM_INTERNAL(pow3o2f)
+TLI_DEFINE_STRING_INTERNAL("pow3o2f")
+#endif // INTEL_CUSTOMIZATION
 /// float powf(float x, float y);
 TLI_DEFINE_ENUM_INTERNAL(powf)
 TLI_DEFINE_STRING_INTERNAL("powf")
 /// long double powl(long double x, long double y);
 TLI_DEFINE_ENUM_INTERNAL(powl)
 TLI_DEFINE_STRING_INTERNAL("powl")
+#if INTEL_CUSTOMIZATION
+/// double powr(double x, double y);
+TLI_DEFINE_ENUM_INTERNAL(powr)
+TLI_DEFINE_STRING_INTERNAL("powr")
+/// float powrf(float x, float y);
+TLI_DEFINE_ENUM_INTERNAL(powrf)
+TLI_DEFINE_STRING_INTERNAL("powrf")
+#endif // INTEL_CUSTOMIZATION
 /// ssize_t pread(int fildes, void *buf, size_t nbyte, off_t offset);
 TLI_DEFINE_ENUM_INTERNAL(pread)
 TLI_DEFINE_STRING_INTERNAL("pread")
@@ -4032,6 +4112,13 @@ TLI_DEFINE_ENUM_INTERNAL(tanl)
 TLI_DEFINE_STRING_INTERNAL("tanl")
 
 #if INTEL_CUSTOMIZATION
+/// double tanpi(double x);
+TLI_DEFINE_ENUM_INTERNAL(tanpi)
+TLI_DEFINE_STRING_INTERNAL("tanpi")
+/// float tanpif(float x);
+TLI_DEFINE_ENUM_INTERNAL(tanpif)
+TLI_DEFINE_STRING_INTERNAL("tanpif")
+
 /// void terminate (void);
 TLI_DEFINE_ENUM_INTERNAL(terminate)
 TLI_DEFINE_STRING_INTERNAL("terminate")
