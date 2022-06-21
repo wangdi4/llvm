@@ -32,15 +32,11 @@
 #endif // __SPIR__ || __LIBDEVICE_HOST_IMPL__
 
 #ifdef __LIBDEVICE_HOST_IMPL__
-<<<<<<< HEAD
-#define DEVICE_EXTERN_C __attribute__((weak)) EXTERN_C
-=======
 // For host implementation, all functions will be located in a static library
 // and it will be linked with user's host code by default. If those functions
 // are decorated with "weak" attribute, compiler will use PLT entry to call
 // all __device_imf_* functions, this will lead to crash.
 #define DEVICE_EXTERN_C EXTERN_C
->>>>>>> d094266ae1653e705c4c0e31e8e5a42fa0a5f095
 #define DEVICE_EXTERN_C_INLINE DEVICE_EXTERN_C __attribute__((always_inline))
 #endif // __LIBDEVICE_HOST_IMPL__
 
