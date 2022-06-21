@@ -3487,8 +3487,14 @@ int32_t OpenCLProgramTy::buildKernels() {
                        sizeof(cl_uint), &NumArgs, nullptr);
       DP("Kernel %zu: Name = %s, NumArgs = %" PRIu32 "\n", I, Name, NumArgs);
       for (cl_uint J = 0; J < NumArgs; J++) {
-        CALL_CL_RET_FAIL(clGetKernelArgInfo, Kernel, J,
-                         CL_KERNEL_ARG_TYPE_NAME, 0, nullptr, &BufSize);
+        // clGetKernelArgInfo is not supposed to work unless the program is
+        // built with clCreateProgramWithSource according to the specification.
+        // We still allow this if the backend RT is capable of returning the
+        // argument information without using clCreateProgramWithSource.
+        CALL_CL_SILENT(RC, clGetKernelArgInfo, Kernel, J,
+                       CL_KERNEL_ARG_TYPE_NAME, 0, nullptr, &BufSize);
+        if (RC != CL_SUCCESS)
+          break; // Kernel argument info won't be available
         Buf.resize(BufSize);
         CALL_CL_RET_FAIL(clGetKernelArgInfo, Kernel, J,
                          CL_KERNEL_ARG_TYPE_NAME, BufSize, Buf.data(), nullptr);
