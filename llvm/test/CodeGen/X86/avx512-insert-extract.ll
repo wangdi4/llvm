@@ -2242,13 +2242,13 @@ define void @test_concat_v2i1(<2 x half>* %arg, <2 x half>* %arg1, <2 x half>* %
 ; KNL-NEXT:    korw %k2, %k1, %k1
 ; KNL-NEXT:    kandw %k1, %k0, %k0
 ; KNL-NEXT:    kshiftrw $1, %k0, %k1
-; KNL-NEXT:    kmovw %k0, %edi ;INTEL
+; KNL-NEXT:    kmovw %k0, %r8d ;INTEL
 ; KNL-NEXT:    kmovw %k1, %edi
 ; KNL-NEXT:    movzwl 2(%rsi), %eax
 ; KNL-NEXT:    xorl %ecx, %ecx
 ; KNL-NEXT:    testb $1, %dil
 ; KNL-NEXT:    cmovel %ecx, %eax
-; KNL-NEXT:    testb $1, %dil
+; KNL-NEXT:    testb $1, %r8b ;INTEL
 ; KNL-NEXT:    je LBB85_2
 ; KNL-NEXT:  ## %bb.1:
 ; KNL-NEXT:    movl (%rsi), %ecx
@@ -2289,13 +2289,13 @@ define void @test_concat_v2i1(<2 x half>* %arg, <2 x half>* %arg1, <2 x half>* %
 ; SKX-NEXT:    korw %k1, %k2, %k1
 ; SKX-NEXT:    kandw %k1, %k0, %k0
 ; SKX-NEXT:    kshiftrb $1, %k0, %k1
-; SKX-NEXT:    kmovd %k0, %edi ;INTEL
+; SKX-NEXT:    kmovd %k0, %r8d ;INTEL
 ; SKX-NEXT:    kmovd %k1, %edi
 ; SKX-NEXT:    movzwl 2(%rsi), %eax
 ; SKX-NEXT:    xorl %ecx, %ecx
 ; SKX-NEXT:    testb $1, %dil
 ; SKX-NEXT:    cmovel %ecx, %eax
-; SKX-NEXT:    testb $1, %dil
+; SKX-NEXT:    testb $1, %r8b ;INTEL
 ; SKX-NEXT:    je LBB85_2
 ; SKX-NEXT:  ## %bb.1:
 ; SKX-NEXT:    movl (%rsi), %ecx

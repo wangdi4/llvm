@@ -6584,6 +6584,12 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
       const TargetRegisterClass *RC = getRegClass(MI.getDesc(), OpNum,
                                                   &RI, MF);
       unsigned RCSize = TRI.getRegSizeInBits(*RC) / 8;
+#if INTEL_CUSTOMIZATION
+      // FIXME: Do we have a better way to distinguish the register size and
+      // spill size.
+      if (RC == &X86::FR16RegClass || RC == &X86::FR16XRegClass)
+        RCSize = 2;
+#endif // INTEL_CUSTOMIZATION
       // Check if it's safe to fold the load. If the size of the object is
       // narrower than the load width, then it's not.
       // FIXME: Allow scalar intrinsic instructions like ADDSSrm_Int.
@@ -6777,6 +6783,12 @@ static bool isNonFoldablePartialRegisterLoad(const MachineInstr &LoadMI,
   const TargetRegisterClass *RC =
       MF.getRegInfo().getRegClass(LoadMI.getOperand(0).getReg());
   unsigned RegSize = TRI.getRegSizeInBits(*RC);
+#if INTEL_CUSTOMIZATION
+  // FIXME: Do we have a better way to distinguish the register size and spill
+  // size.
+  if (RC == &X86::FR16RegClass || RC == &X86::FR16XRegClass)
+    RegSize = 16;
+#endif // INTEL_CUSTOMIZATION
 
   if ((Opc == X86::MOVSSrm || Opc == X86::VMOVSSrm || Opc == X86::VMOVSSZrm ||
        Opc == X86::MOVSSrm_alt || Opc == X86::VMOVSSrm_alt ||
