@@ -170,6 +170,8 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         Args.MakeArgString(Twine("-wholearchive:") + A->getValue()));
 
 #if INTEL_CUSTOMIZATION
+  if (C.getDriver().IsDPCPPMode())
+    CmdArgs.push_back("-defaultlib:sycl-devicelib-host.lib");
   // Add other Intel specific libraries (libirc, svml, libdecimal)
   if (!Args.hasArg(options::OPT_nostdlib) && !C.getDriver().IsCLMode() &&
       C.getDriver().IsIntelMode()) {
