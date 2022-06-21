@@ -156,9 +156,10 @@ static llvm::SmallVector<StringRef, 16> SYCLDeviceLibList {
 #if defined(_WIN32)
       "msvc-math",
 #endif
-      "itt-compiler-wrappers", "itt-stubs", "itt-user-wrappers",
-      "fallback-cassert", "fallback-cstring", "fallback-cmath",
-      "fallback-cmath-fp64", "fallback-complex", "fallback-complex-fp64"
+      "imf", "imf-fp64", "itt-compiler-wrappers", "itt-stubs",
+      "itt-user-wrappers", "fallback-cassert", "fallback-cstring",
+      "fallback-cmath", "fallback-cmath-fp64", "fallback-complex",
+      "fallback-complex-fp64", "fallback-imf", "fallback-imf-fp64"
 };
 
 #if INTEL_CUSTOMIZATION
