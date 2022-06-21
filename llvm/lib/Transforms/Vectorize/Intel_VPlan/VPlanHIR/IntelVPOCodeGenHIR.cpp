@@ -2734,6 +2734,8 @@ void VPOCodeGenHIR::widenLibraryCall(const VPCallInstruction *VPCall,
   // pointers as out-parameters. SVML sincos function, instead, returns them in
   // a struct directly. This bridges the gap between these two approaches.
   const class CallInst *Call = CallResults[0]->getCallInst();
+  assert(Call && Call->getCalledFunction() &&
+         "Unexpected null CalledFunction.");
   if (Call->getCalledFunction()->getName().startswith("__svml_sincos")) {
     // TODO: sincos handling uses underlying HLInst since it's designed to work
     // even for scalar remainder loop (replaceLibCallsInRemainderLoop).
