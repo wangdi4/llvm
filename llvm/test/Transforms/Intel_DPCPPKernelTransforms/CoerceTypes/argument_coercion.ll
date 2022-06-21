@@ -1,11 +1,20 @@
 ; RUN: opt -dpcpp-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefix=X64-LINUX
+; RUN: opt -dpcpp-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefixes=X64-LINUX,X64-LINUX-NONOPAQUE
 ; RUN: opt -passes=dpcpp-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefix=X64-LINUX
+; RUN: opt -passes=dpcpp-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefixes=X64-LINUX,X64-LINUX-NONOPAQUE
 ; RUN: opt -dpcpp-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefix=X64-WIN
+; RUN: opt -dpcpp-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefixes=X64-WIN,X64-WIN-NONOPAQUE
 ; RUN: opt -passes=dpcpp-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefix=X64-WIN
+; RUN: opt -passes=dpcpp-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefixes=X64-WIN,X64-WIN-NONOPAQUE
+
+; RUN: opt -dpcpp-kernel-coerce-types -opaque-pointers -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-kernel-coerce-types -opaque-pointers -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefixes=X64-LINUX,X64-LINUX-OPAQUE
+; RUN: opt -passes=dpcpp-kernel-coerce-types -opaque-pointers -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-coerce-types -opaque-pointers -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefixes=X64-LINUX,X64-LINUX-OPAQUE
+; RUN: opt -dpcpp-kernel-coerce-win64-types -opaque-pointers -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-kernel-coerce-win64-types -opaque-pointers -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefixes=X64-WIN,X64-WIN-OPAQUE
+; RUN: opt -passes=dpcpp-kernel-coerce-win64-types -opaque-pointers -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-coerce-win64-types -opaque-pointers -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefixes=X64-WIN,X64-WIN-OPAQUE
 
 ; This test checks function argument type coercion
 
@@ -105,73 +114,83 @@ declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
 
 ; Function Attrs: convergent
 declare void @singleInt(%struct.SingleInt* byval(%struct.SingleInt) align 4) #2
-; X64-LINUX: declare void @singleInt(i32) #2
-; X64-WIN:   declare void @singleInt(i32) #2
+; X64-LINUX: declare void @singleInt(i32)
+; X64-WIN:   declare void @singleInt(i32)
 
 ; Function Attrs: convergent
 declare void @singleFloat(%struct.SingleFloat* byval(%struct.SingleFloat) align 4) #2
-; X64-LINUX: declare void @singleFloat(float) #2
-; X64-WIN:   declare void @singleFloat(i32) #2
+; X64-LINUX: declare void @singleFloat(float)
+; X64-WIN:   declare void @singleFloat(i32)
 
 ; Function Attrs: convergent
 declare void @intAndSSE(%struct.IntAndSSE* byval(%struct.IntAndSSE) align 4) #2
-; X64-LINUX: declare void @intAndSSE(i64) #2
-; X64-WIN:   declare void @intAndSSE(i64) #2
+; X64-LINUX: declare void @intAndSSE(i64)
+; X64-WIN:   declare void @intAndSSE(i64)
 
 ; Function Attrs: convergent
 declare void @twoFloats(%struct.TwoFloats* byval(%struct.TwoFloats) align 4) #2
-; X64-LINUX: declare void @twoFloats(<2 x float>) #2
-; X64-WIN:   declare void @twoFloats(i64) #2
+; X64-LINUX: declare void @twoFloats(<2 x float>)
+; X64-WIN:   declare void @twoFloats(i64)
 
 ; Function Attrs: convergent
 declare void @twoDoubles(%struct.TwoDoubles* byval(%struct.TwoDoubles) align 8) #2
-; X64-LINUX: declare void @twoDoubles(double, double) #2
-; X64-WIN:   declare void @twoDoubles(%struct.TwoDoubles*) #2
+; X64-LINUX: declare void @twoDoubles(double, double)
+; X64-WIN-NONOPAQUE:   declare void @twoDoubles(%struct.TwoDoubles*)
+; X64-WIN-OPAQUE:   declare void @twoDoubles(ptr)
 
 ; Function Attrs: convergent
 declare void @twoInts(%struct.TwoInts* byval(%struct.TwoInts) align 4) #2
-; X64-LINUX: declare void @twoInts(i64) #2
-; X64-WIN:   declare void @twoInts(i64) #2
+; X64-LINUX: declare void @twoInts(i64)
+; X64-WIN:   declare void @twoInts(i64)
 
 ; Function Attrs: convergent
 declare void @twoLongs(%struct.TwoLongs* byval(%struct.TwoLongs) align 8) #2
-; X64-LINUX: declare void @twoLongs(i64, i64) #2
-; X64-WIN:   declare void @twoLongs(%struct.TwoLongs*) #2
+; X64-LINUX: declare void @twoLongs(i64, i64)
+; X64-WIN-NONOPAQUE:   declare void @twoLongs(%struct.TwoLongs*)
+; X64-WIN-OPAQUE:   declare void @twoLongs(ptr)
 
 ; Function Attrs: convergent
 declare void @twoDifferentWords(%struct.TwoDifferentWords* byval(%struct.TwoDifferentWords) align 8) #2
-; X64-LINUX: declare void @twoDifferentWords(double, i64) #2
-; X64-WIN:   declare void @twoDifferentWords(%struct.TwoDifferentWords*) #2
+; X64-LINUX: declare void @twoDifferentWords(double, i64)
+; X64-WIN-NONOPAQUE:   declare void @twoDifferentWords(%struct.TwoDifferentWords*)
+; X64-WIN-OPAQUE:   declare void @twoDifferentWords(ptr)
 
 ; Function Attrs: convergent
 declare void @twoWordWithArray(%struct.TwoWordWithArray* byval(%struct.TwoWordWithArray) align 4) #2
-; X64-LINUX: declare void @twoWordWithArray(i64, i64) #2
-; X64-WIN:   declare void @twoWordWithArray(%struct.TwoWordWithArray*) #2
+; X64-LINUX: declare void @twoWordWithArray(i64, i64)
+; X64-WIN-NONOPAQUE:   declare void @twoWordWithArray(%struct.TwoWordWithArray*)
+; X64-WIN-OPAQUE:   declare void @twoWordWithArray(ptr)
 
 ; Function Attrs: convergent
 declare void @threeIntegerMember(%struct.ThreeIntegerMember* byval(%struct.ThreeIntegerMember) align 4) #2
-; X64-LINUX: declare void @threeIntegerMember(i64, i32) #2
-; X64-WIN:   declare void @threeIntegerMember(%struct.ThreeIntegerMember*) #2
+; X64-LINUX: declare void @threeIntegerMember(i64, i32)
+; X64-WIN-NONOPAQUE:   declare void @threeIntegerMember(%struct.ThreeIntegerMember*)
+; X64-WIN-OPAQUE:   declare void @threeIntegerMember(ptr)
 
 ; Function Attrs: convergent
 declare void @nestedStruct(%struct.NestedStruct* byval(%struct.NestedStruct) align 4) #2
-; X64-LINUX: declare void @nestedStruct(i64, i64) #2
-; X64-WIN:   declare void @nestedStruct(%struct.NestedStruct*) #2
+; X64-LINUX: declare void @nestedStruct(i64, i64)
+; X64-WIN-NONOPAQUE:   declare void @nestedStruct(%struct.NestedStruct*)
+; X64-WIN-OPAQUE:   declare void @nestedStruct(ptr)
 
 ; Function Attrs: convergent
 declare void @oneElementFLoatArray(%struct.OneElementFloatArray* byval(%struct.OneElementFloatArray) align 4) #2
-; X64-LINUX: declare void @oneElementFLoatArray(float) #2
-; X64-WIN:   declare void @oneElementFLoatArray(i32) #2
+; X64-LINUX: declare void @oneElementFLoatArray(float)
+; X64-WIN:   declare void @oneElementFLoatArray(i32)
 
 ; Function Attrs: convergent
 declare void @outOfIntRegisters(%struct.TwoLongs* byval(%struct.TwoLongs) align 8, %struct.TwoLongs* byval(%struct.TwoLongs) align 8, %struct.SingleInt* byval(%struct.SingleInt) align 4, %struct.TwoLongs* byval(%struct.TwoLongs) align 8, %struct.SingleInt* byval(%struct.SingleInt) align 4, %struct.SingleInt* byval(%struct.SingleInt) align 4) #2
-; X64-LINUX: declare void @outOfIntRegisters(i64, i64, i64, i64, i32, %struct.TwoLongs*, i32, %struct.SingleInt*) #2
-; X64-WIN:   declare void @outOfIntRegisters(%struct.TwoLongs*, %struct.TwoLongs*, i32, %struct.TwoLongs*, i32, i32) #2
+; X64-LINUX-NONOPAQUE: declare void @outOfIntRegisters(i64, i64, i64, i64, i32, %struct.TwoLongs*, i32, %struct.SingleInt*)
+; X64-LINUX-OPAQUE: declare void @outOfIntRegisters(i64, i64, i64, i64, i32, ptr, i32, ptr)
+; X64-WIN-NONOPAQUE: declare void @outOfIntRegisters(%struct.TwoLongs*, %struct.TwoLongs*, i32, %struct.TwoLongs*, i32, i32)
+; X64-WIN-OPAQUE: declare void @outOfIntRegisters(ptr, ptr, i32, ptr, i32, i32)
 
 ; Function Attrs: convergent
 declare void @outOfSSERegisters(%struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, %struct.SingleFloat* byval(%struct.SingleFloat) align 4, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, %struct.SingleFloat* byval(%struct.SingleFloat) align 4, %struct.SingleFloat* byval(%struct.SingleFloat) align 4) #2
-; X64-LINUX: declare void @outOfSSERegisters(double, double, double, double, double, double, float, %struct.TwoDoubles*, float, %struct.SingleFloat*) #2
-; X64-WIN:   declare void @outOfSSERegisters(%struct.TwoDoubles*, %struct.TwoDoubles*, %struct.TwoDoubles*, i32, %struct.TwoDoubles*, i32, i32) #2
+; X64-LINUX-NONOPAQUE: declare void @outOfSSERegisters(double, double, double, double, double, double, float, %struct.TwoDoubles*, float, %struct.SingleFloat*)
+; X64-LINUX-OPAQUE: declare void @outOfSSERegisters(double, double, double, double, double, double, float, ptr, float, ptr)
+; X64-WIN-NONOPAQUE: declare void @outOfSSERegisters(%struct.TwoDoubles*, %struct.TwoDoubles*, %struct.TwoDoubles*, i32, %struct.TwoDoubles*, i32, i32)
+; X64-WIN-OPAQUE: declare void @outOfSSERegisters(ptr, ptr, ptr, i32, ptr, i32, i32)
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1

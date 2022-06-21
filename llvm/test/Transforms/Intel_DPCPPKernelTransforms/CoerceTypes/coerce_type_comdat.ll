@@ -1,11 +1,21 @@
 ; RUN: opt -dpcpp-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefix=X64-LINUX
+; RUN: opt -dpcpp-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefix=X64-LINUX-NONOPAQUE
 ; RUN: opt -passes=dpcpp-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefix=X64-LINUX
+; RUN: opt -passes=dpcpp-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefix=X64-LINUX-NONOPAQUE
 ; RUN: opt -dpcpp-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefix=X64-WIN
+; RUN: opt -dpcpp-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefix=X64-WIN-NONOPAQUE
 ; RUN: opt -passes=dpcpp-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=dpcpp-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefix=X64-WIN
+; RUN: opt -passes=dpcpp-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefix=X64-WIN-NONOPAQUE
+
+; RUN: opt -dpcpp-kernel-coerce-types -opaque-pointers -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-kernel-coerce-types -opaque-pointers -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefix=X64-LINUX-OPAQUE
+; RUN: opt -passes=dpcpp-kernel-coerce-types -opaque-pointers -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-coerce-types -opaque-pointers -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefix=X64-LINUX-OPAQUE
+; RUN: opt -dpcpp-kernel-coerce-win64-types -opaque-pointers -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-kernel-coerce-win64-types -opaque-pointers -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefix=X64-WIN-OPAQUE
+; RUN: opt -passes=dpcpp-kernel-coerce-win64-types -opaque-pointers -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-coerce-win64-types -opaque-pointers -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefix=X64-WIN-OPAQUE
+
 
 ; This test checks function comdat change
 
@@ -30,9 +40,12 @@ declare float @llvm.pow.f32(float, float) #0
 declare float @llvm.exp.f32(float) #0
 ; Function Attrs: nounwind
 
-; X64-LINUX: declare void @___ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE_before.CoerceTypes(%"class.ihc::hls_float"*, %class.ac_int.13* byval(%class.ac_int.13) align 1) align 2
-; X64-LINUX: define linkonce_odr void @_ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE(%"class.ihc::hls_float"* %this, i8 %bits.coerce.high) comdat {
-; X64-WIN: define linkonce_odr void @_ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE(%"class.ihc::hls_float"* %this, i8 %bits) comdat align 2 {
+; X64-LINUX-NONOPAQUE: declare void @___ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE_before.CoerceTypes(%"class.ihc::hls_float"*, %class.ac_int.13* byval(%class.ac_int.13) align 1) align 2
+; X64-LINUX-NONOPAQUE: define linkonce_odr void @_ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE(%"class.ihc::hls_float"* %this, i8 %bits.coerce.high) comdat {
+; X64-LINUX-OPAQUE: declare void @___ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE_before.CoerceTypes(ptr, ptr byval(%class.ac_int.13) align 1) align 2
+; X64-LINUX-OPAQUE: define linkonce_odr void @_ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE(ptr %this, i8 %bits.coerce.high) comdat {
+; X64-WIN-NONOPAQUE: define linkonce_odr void @_ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE(%"class.ihc::hls_float"* %this, i8 %bits) comdat align 2 {
+; X64-WIN-OPAQUE: define linkonce_odr void @_ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE(ptr %this, i8 %bits) comdat align 2 {
 
 define linkonce_odr void @_ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE(%"class.ihc::hls_float"* %this, %class.ac_int.13* byval(%class.ac_int.13) align 1 %bits) #2 comdat align 2 {
 entry:
