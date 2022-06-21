@@ -18,6 +18,8 @@ using namespace llvm;
 using namespace DPCPPKernelMetadataAPI;
 using namespace CompilationUtils;
 
+#define DEBUG_TYPE "dpcpp-kernel-coerce-types"
+
 namespace {
 
 class CoerceTypesLegacy : public ModulePass {
@@ -68,8 +70,12 @@ static Value *createAllocaInst(Type *Ty, Function *F, unsigned Alignment,
   // If the alignment is defined, set it.
   if (Alignment)
     AllocaRes->setAlignment(Align(Alignment));
-  if (AS != AllocaAS)
+  if (AS != AllocaAS) {
+    LLVM_DEBUG(dbgs() << "Create addrspacecast for alloca instruction ("
+                      << *AllocaRes << ")\n  from address space " << AllocaAS
+                      << " to " << AS << "\n");
     return Builder.CreateAddrSpaceCast(AllocaRes, PointerType::get(Ty, AS));
+  }
   return AllocaRes;
 }
 
@@ -200,34 +206,46 @@ bool CoerceTypesPass::runOnFunction(Function *F) {
           }
 
           auto *OldArgT = cast<PointerType>(OldArgTypes[I]);
-          auto *OldStructT = cast<StructType>(OldArgT->getElementType());
+          auto *OldStructT = cast<StructType>(CI->getParamByValType(I));
+          LLVM_DEBUG(dbgs()
+                     << "Old argument type: " << *(OldArgTypes[I])
+                     << ". Original struct type: " << *OldStructT << "\n");
           // Bitcast the original structure to the new coerced type (a struct if
           // there are 2 eightbytes), load values of the coerced type from it
           // and pass to the new function. Example for struct.coerced = {i64,
           // double}
+          // IR with opaque pointer disabled:
           // %1 = bitcast %struct.original* %0 to %struct.coerced*
           // %2 = getelementptr %struct.coerced, %1, i32 0, i32 0
           // %3 = load i64, i64* %2
           // %4 = getelementptr %struct.coerced, %1, i32 0, i32 1
           // %5 = load double, double* %4
           // call void @foo(i64 %3, double %5)
+          //
+          // IR with opaque pointer enabled:
+          // %1 = getelementptr %struct.coerced, ptr %0, i32 0, i32 0
+          // %2 = load i64, ptr %1
+          // %3 = getelementptr %struct.coerced, ptr %0, i32 0, i32 1
+          // %4 = load double, ptr %3
+          // call void @foo(i64 %2, double %4)
           Type *PointeeTy =
               getCombinedCoercedType(NewArgTypePair, OldStructT->getName());
           Value *BC = Builder.CreateBitCast(
               CI->getArgOperand(I),
               PointerType::get(PointeeTy, OldArgT->getAddressSpace()));
           Value *LoadSrc = BC;
-          SmallVector<Value *, 2> Indices(
-              2,
-              ConstantInt::get(IntegerType::get(PModule->getContext(), 32), 0));
+          SmallVector<Value *, 2> Indices(2, Builder.getInt32(0));
           if (NewArgTypePair.second)
             LoadSrc = Builder.CreateGEP(PointeeTy, BC, Indices);
 
+          LLVM_DEBUG(dbgs()
+                     << "New argument type: " << *(NewArgTypePair.first)
+                     << ".\nSource in load instruction: " << *LoadSrc << "\n");
           Value *Load = Builder.CreateLoad(NewArgTypePair.first, LoadSrc);
+          LLVM_DEBUG(dbgs() << "Load instruction: " << *Load << "\n");
           Args.push_back(Load);
           if (NewArgTypePair.second) {
-            Indices[1] = ConstantInt::get(
-                IntegerType::get(PModule->getContext(), 32), 1);
+            Indices[1] = Builder.getInt32(1);
             LoadSrc = Builder.CreateGEP(PointeeTy, BC, Indices);
             Load = Builder.CreateLoad(NewArgTypePair.second, LoadSrc);
             Args.push_back(Load);
@@ -260,11 +278,13 @@ CoerceTypesPass::TypePair
 CoerceTypesPass::getCoercedType(Argument *Arg, unsigned &FreeIntRegs,
                                 unsigned &FreeSSERegs) const {
   Type *T = Arg->getType();
+  LLVM_DEBUG(dbgs() << "Argument type: " << *T << "\n");
   if (auto *PtrT = dyn_cast<PointerType>(T)) {
+    if (!Arg->hasByValAttr())
+      return {T, nullptr};
+
     // TODO Handle empty structs by excluding them from the new argument list
-    if (auto *StructT = dyn_cast<StructType>(PtrT->getElementType())) {
-      if (!Arg->hasByValAttr())
-        return {T, nullptr};
+    if (auto *StructT = dyn_cast<StructType>(Arg->getParamByValType())) {
       ClassPair Classes = classifyStruct(StructT);
       // Leave MEMORY as-is to be passed on stack
       // TODO NO_CLASS is currently returned for empty structs, such structs
@@ -543,17 +563,21 @@ void CoerceTypesPass::moveFunctionBody(Function *OldF, Function *NewF,
     auto *OldArgT = cast<PointerType>(OldArgI->getType());
     Value *Alloca = [&]() -> Value * {
       AllocaInst *AllocaRes = Builder.CreateAlloca(
-          OldArgT->getElementType(), PDataLayout->getAllocaAddrSpace());
+          OldArgI->getParamByValType(), PDataLayout->getAllocaAddrSpace());
       MaybeAlign Alignment = OldArgI->getParamAlign();
       if (Alignment)
         AllocaRes->setAlignment(*Alignment);
-      if (PDataLayout->getAllocaAddrSpace() != OldArgT->getAddressSpace())
+      if (PDataLayout->getAllocaAddrSpace() != OldArgT->getAddressSpace()) {
+        LLVM_DEBUG(dbgs() << "Create addrspacecast from address space "
+                          << PDataLayout->getAllocaAddrSpace() << " to "
+                          << OldArgT->getAddressSpace() << "\n");
         return Builder.CreateAddrSpaceCast(
-            AllocaRes, PointerType::get(OldArgT->getElementType(),
-                                        OldArgT->getAddressSpace()));
+            AllocaRes, PointerType::getWithSamePointeeType(
+                           OldArgT, OldArgT->getAddressSpace()));
+      }
       return AllocaRes;
     }();
-    auto *OldStructT = cast<StructType>(OldArgT->getElementType());
+    auto *OldStructT = cast<StructType>(OldArgI->getParamByValType());
     Type *PointeeTy =
         getCombinedCoercedType(NewArgTypePair, OldStructT->getName());
     Value *BC = Builder.CreateBitCast(
@@ -561,16 +585,14 @@ void CoerceTypesPass::moveFunctionBody(Function *OldF, Function *NewF,
 
     // If the combined coerced type is a struct itself, insert GEPs
     Value *StoreDest = BC;
-    SmallVector<Value *, 2> Indices(
-        2, ConstantInt::get(IntegerType::get(PModule->getContext(), 32), 0));
+    SmallVector<Value *, 2> Indices(2, Builder.getInt32(0));
     if (NewArgTypePair.second)
       StoreDest = Builder.CreateGEP(PointeeTy, BC, Indices);
     Builder.CreateStore(&*NewArgI, StoreDest);
     ++NewArgI;
 
     if (NewArgTypePair.second) {
-      Indices[1] =
-          ConstantInt::get(IntegerType::get(PModule->getContext(), 32), 1);
+      Indices[1] = Builder.getInt32(1);
       StoreDest = Builder.CreateGEP(PointeeTy, BC, Indices);
       Builder.CreateStore(&*NewArgI, StoreDest);
       ++NewArgI;
