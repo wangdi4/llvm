@@ -96,6 +96,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare float @acoshf(float)\n"
       "declare x86_fp80 @acoshl(x86_fp80)\n"
       "declare x86_fp80 @acosl(x86_fp80)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @acospi(double)\n"
+      "declare float @acospif(float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare i8* @aligned_alloc(i64, i64)\n"
       "declare double @asin(double)\n"
       "declare float @asinf(float)\n"
@@ -103,16 +107,26 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare float @asinhf(float)\n"
       "declare x86_fp80 @asinhl(x86_fp80)\n"
       "declare x86_fp80 @asinl(x86_fp80)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @asinpi(double)\n"
+      "declare float @asinpif(float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare double @atan(double)\n"
       "declare double @atan2(double, double)\n"
       "declare float @atan2f(float, float)\n"
       "declare x86_fp80 @atan2l(x86_fp80, x86_fp80)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @atan2pi(double, double)\n"
+      "declare float @atan2pif(float, float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare float @atanf(float)\n"
       "declare double @atanh(double)\n"
       "declare float @atanhf(float)\n"
       "declare x86_fp80 @atanhl(x86_fp80)\n"
       "declare x86_fp80 @atanl(x86_fp80)\n"
 #if INTEL_CUSTOMIZATION
+      "declare double @atanpi(double)\n"
+      "declare float @atanpif(float)\n"
       "declare i32 @atexit(i8 *)\n"
 #endif // INTEL_CUSTOMIZATION
       "declare double @atof(i8*)\n"
@@ -170,6 +184,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare float @fabsf(float)\n"
       "declare x86_fp80 @fabsl(x86_fp80)\n"
       "declare i32 @fclose(%struct*)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @fdim(double, double)\n"
+      "declare float @fdimf(float, float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare i32 @feof(%struct*)\n"
       "declare i32 @ferror(%struct*)\n"
       "declare i32 @fflush(%struct*)\n"
@@ -249,6 +267,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare float @logf(float)\n"
       "declare x86_fp80 @logl(x86_fp80)\n"
       "declare i8* @malloc(i64)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @maxmag(double, double)\n"
+      "declare float @maxmagf(float, float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare i8* @memccpy(i8*, i8*, i32, i64)\n"
       "declare i8* @memchr(i8*, i32, i64)\n"
       "declare i32 @memcmp(i8*, i8*, i64)\n"
@@ -258,6 +280,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @memset_pattern16(i8*, i8*, i64)\n"
       "declare void @memset_pattern4(i8*, i8*, i64)\n"
       "declare void @memset_pattern8(i8*, i8*, i64)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @minmag(double, double)\n"
+      "declare float @minmagf(float, float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare i32 @mkdir(i8*, i16)\n"
       "declare double @modf(double, double*)\n"
       "declare float @modff(float, float*)\n"
@@ -265,12 +291,26 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare double @nearbyint(double)\n"
       "declare float @nearbyintf(float)\n"
       "declare x86_fp80 @nearbyintl(x86_fp80)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @nextafter(double, double)\n"
+      "declare float @nextafterf(float, float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare i32 @pclose(%struct*)\n"
       "declare void @perror(i8*)\n"
       "declare i32 @posix_memalign(i8**, i64, i64)\n"
       "declare double @pow(double, double)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @pow2o3(double)\n"
+      "declare float @pow2o3f(float)\n"
+      "declare double @pow3o2(double)\n"
+      "declare float @pow3o2f(float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare float @powf(float, float)\n"
       "declare x86_fp80 @powl(x86_fp80, x86_fp80)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @powr(double, double)\n"
+      "declare float @powrf(float, float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare i32 @printf(i8*, ...)\n"
       "declare i32 @putc(i32, %struct*)\n"
       "declare i32 @putc_unlocked(i32, %struct*)\n"
@@ -366,6 +406,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare float @tanhf(float)\n"
       "declare x86_fp80 @tanhl(x86_fp80)\n"
       "declare x86_fp80 @tanl(x86_fp80)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @tanpi(double)\n"
+      "declare float @tanpif(float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare i64 @times(%struct*)\n"
       "declare %struct* @tmpfile()\n"
       "declare i32 @_Z7toasciii(i32)\n"

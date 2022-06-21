@@ -9,8 +9,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/WGLoopBoundaries.h"
+#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -443,21 +445,66 @@ void WGLoopBoundariesImpl::collectTIDData() {
   ProcessTIDCalls(false);
 }
 
-// Freeze on TID call can hurt WGLoopBoundaries and DPCPPKernelVecClone.
-// TID call won't generate undef or poison, so we remove the FreezeInst.
-static void
-removeFreezeOnTID(DenseMap<Value *, std::pair<unsigned, bool>> &TIDs) {
-  SmallVector<Instruction *, 2> WorkList;
-  for (auto &Pair : TIDs) {
-    WorkList.clear();
-    auto *CI = cast<CallInst>(Pair.first);
-    for (auto *U : CI->users())
-      if (auto *Freeze = dyn_cast<FreezeInst>(U))
-        WorkList.push_back(Freeze);
+/// This is a relaxed version of llvm::isGuaranteedNotToBeUndefOrPoison.
+/// We assume
+///   * operations on kernel argument won't produce undef or poison.
+///   * a few other cases won't produce undef or poison. See the code blocks
+///     below with 'continue'.
+/// This is intended for better WG boundary computation and vectorization.
+static bool isNotUndefOrPoison(Use *FreezeOpUse) {
+  for (Use *U : make_range(po_begin(FreezeOpUse), po_end(FreezeOpUse))) {
+    Value *V = U->get();
+    assert(V && "invalid value");
 
-    for (auto *I : WorkList) {
-      I->replaceAllUsesWith(CI);
-      I->eraseFromParent();
+    if (isa<Argument>(V))
+      continue;
+
+    if (auto *C = dyn_cast<Constant>(V)) {
+      if (isa<UndefValue>(C))
+        return false;
+      if (isa<ConstantInt>(C) || isa<GlobalVariable>(C) || isa<ConstantFP>(C) ||
+          isa<ConstantPointerNull>(C) || isa<Function>(C))
+        continue;
+      if (C->getType()->isVectorTy() && !isa<ConstantExpr>(C) &&
+          (C->containsUndefOrPoisonElement() ||
+           C->containsConstantExpression()))
+        return false;
+    }
+
+    auto *StrippedV = V->stripPointerCastsSameRepresentation();
+    if (isa<AllocaInst>(StrippedV) || isa<GlobalVariable>(StrippedV) ||
+        isa<Function>(StrippedV) || isa<ConstantPointerNull>(StrippedV))
+      continue;
+
+    if (auto *Opr = dyn_cast<Operator>(V))
+      continue;
+
+    if (auto *LI = dyn_cast<LoadInst>(V))
+      if (LI->hasMetadata(LLVMContext::MD_noundef) ||
+          LI->hasMetadata(LLVMContext::MD_dereferenceable) ||
+          LI->hasMetadata(LLVMContext::MD_dereferenceable_or_null))
+        continue;
+
+    return false;
+  }
+  return true;
+}
+
+// Freeze on TID call or some values can hurt WGLoopBoundaries or divergence
+// analysis in vectorizer. So we attempt to remove the FreezeInst.
+//
+// TODO Removing Freeze on non-TID call values, which won't impact
+// WGLoopBoundaries computation, shall be moved elsewhere. Currently I don't
+// know the best place to put this functionality.
+static void removeFreeze(Function &F) {
+  for (auto &I : make_early_inc_range(instructions(&F))) {
+    if (!isa<FreezeInst>(&I))
+      continue;
+    Use *U = &I.getOperandUse(0);
+    if (isNotUndefOrPoison(U)) {
+      LLVM_DEBUG(dbgs() << "Remove Freeze: " << I << "\n");
+      I.replaceAllUsesWith(U->get());
+      I.eraseFromParent();
     }
   }
 }
@@ -479,7 +526,7 @@ bool WGLoopBoundariesImpl::runOnFunction(Function &F) {
   // Collect uniform data from the current basic block.
   collectBlockData(&F.getEntryBlock());
 
-  removeFreezeOnTID(TIDs);
+  removeFreeze(F);
 
   // Iteratively examines if the entry block branch is early exit branch,
   // min/max with uniform value.
