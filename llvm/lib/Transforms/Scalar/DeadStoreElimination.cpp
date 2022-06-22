@@ -1032,7 +1032,8 @@ struct DSEState {
       if (CB->isLifetimeStartOrEnd())
         return false;
 
-      return CB->use_empty() && CB->willReturn() && CB->doesNotThrow();
+      return CB->use_empty() && CB->willReturn() && CB->doesNotThrow() &&
+             !CB->isTerminator();
     }
 
     return false;

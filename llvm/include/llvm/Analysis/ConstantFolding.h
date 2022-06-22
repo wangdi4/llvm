@@ -36,6 +36,8 @@
 #ifndef LLVM_ANALYSIS_CONSTANTFOLDING_H
 #define LLVM_ANALYSIS_CONSTANTFOLDING_H
 
+#include <stdint.h>
+
 namespace llvm {
 class APInt;
 template <typename T> class ArrayRef;
@@ -45,6 +47,7 @@ class DSOLocalEquivalent;
 class DataLayout;
 class Function;
 class GlobalValue;
+class GlobalVariable;
 class Instruction;
 class TargetLibraryInfo;
 class Type;
@@ -218,6 +221,8 @@ Constant *ConstantFoldLoadThroughBitcast(Constant *C, Type *DestTy,
 /// Check whether the given call has no side-effects.
 /// Specifically checks for math routimes which sometimes set errno.
 bool isMathLibCallNoop(const CallBase *Call, const TargetLibraryInfo *TLI);
+
+Constant *ReadByteArrayFromGlobal(const GlobalVariable *GV, uint64_t Offset);
 }
 
 #endif
