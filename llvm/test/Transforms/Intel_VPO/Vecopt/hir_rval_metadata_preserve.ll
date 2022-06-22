@@ -4,7 +4,7 @@
 
 define internal fastcc void @shell_(double %0, double %1, i32 %2, i32 %3, i32 %4, i32 %5, i32 %6, double %7, double %8, double %9, double %10, i32 %11, i32 %12, i32 %13) #0 {
 ;
-; CHECK:       + DO i64 i1 = 0, 3, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK:       + DO i64 i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:  |   [[NSBGEPCOPY0:%.*]] = undef
 ; CHECK-NEXT:  |   <LVAL-REG> NON-LINEAR <4 x double*> [[NSBGEPCOPY0]]
 ; CHECK-NEXT:  |
@@ -31,7 +31,7 @@ define internal fastcc void @shell_(double %0, double %1, i32 %2, i32 %3, i32 %4
 ; CHECK-NEXT:  |
 ; CHECK-NEXT:  + END LOOP
 ;
-; CHECK:       + DO i64 i1 = {{.*}}, 4, 1   <DO_LOOP>
+; CHECK:       + DO i64 i1 = {{.*}}, 100, 1   <DO_LOOP>
 ; CHECK:       |   (undef)[0][%18 + -1][i1] = (undef)[0][%18 + -1][i1]
 ; CHECK-NEXT:  |   <LVAL-REG> {al:1}(double* undef)[i64 0][LINEAR i64 [[TMP18]] + -1][LINEAR i64 i1] inbounds  !alias.scope !1 !noalias !4 {undefined} 
 ; CHECK-NEXT:  |      <BLOB> LINEAR i64 [[TMP18]] 
@@ -58,7 +58,7 @@ define internal fastcc void @shell_(double %0, double %1, i32 %2, i32 %3, i32 %4
   %25 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %20, i64 %22)
   store double %24, double* %25, align 1, !alias.scope !0, !noalias !3
   %26 = add nuw nsw i64 %22, 1
-  %27 = icmp eq i64 %26, 6
+  %27 = icmp eq i64 %26, 102
   br i1 %27, label %28, label %21
 
 28:                                               ; preds = %21
