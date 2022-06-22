@@ -10079,7 +10079,7 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeShiftCompareExitLimit(
 #endif // INTEL_CUSTOMIZATION
         // and the kind of shift should be match the kind of shift we peeled
         // off, if any.
-        (!PostShiftOpCode.hasValue() || *PostShiftOpCode == OpCodeOut);
+        (!PostShiftOpCode || *PostShiftOpCode == OpCodeOut);
   };
 
 #if INTEL_CUSTOMIZATION
