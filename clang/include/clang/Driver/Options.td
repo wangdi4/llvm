@@ -3274,9 +3274,6 @@ def fintelfpga : Flag<["-"], "fintelfpga">, Group<f_Group>,
   HelpText<"Perform ahead-of-time compilation for FPGA">;
 def fsycl_device_only : Flag<["-"], "fsycl-device-only">, Flags<[CoreOption, DpcppOption]>,
   HelpText<"Compile SYCL kernels for device">;
-<<<<<<< HEAD
-def fsycl_targets_EQ : CommaJoined<["-"], "fsycl-targets=">, Flags<[NoXarchOption, CC1Option, CoreOption, DpcppOption]>,
-=======
 defm sycl_esimd_force_stateless_mem : BoolFOption<"sycl-esimd-force-stateless-mem",
     LangOpts<"SYCLESIMDForceStatelessMem">, DefaultFalse,
     PosFlag<SetTrue, [], "Enforce using stateless memory accesses. "
@@ -3285,8 +3282,7 @@ defm sycl_esimd_force_stateless_mem : BoolFOption<"sycl-esimd-force-stateless-me
     NegFlag<SetFalse, [], "Do not enforce using stateless memory accesses. (experimental)">,
     BothFlags<[CC1Option, CoreOption], "">>;
 
-def fsycl_targets_EQ : CommaJoined<["-"], "fsycl-targets=">, Flags<[NoXarchOption, CC1Option, CoreOption]>,
->>>>>>> 181116231188dd9b8079c98c958ddaf0cf5e8beb
+def fsycl_targets_EQ : CommaJoined<["-"], "fsycl-targets=">, Flags<[NoXarchOption, CC1Option, CoreOption, DpcppOption]>,
   HelpText<"Specify comma-separated list of triples SYCL offloading targets to be supported">;
 def fsycl_add_targets_EQ : CommaJoined<["-"], "fsycl-add-targets=">,
   Flags<[NoXarchOption, CoreOption, Deprecated, DpcppOption]>,
