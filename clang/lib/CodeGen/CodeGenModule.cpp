@@ -5391,7 +5391,7 @@ LangAS CodeGenModule::GetGlobalConstantAddressSpace() const {
     return LangAS::sycl_global;
 #endif // INTEL_COLLAB
   if (auto AS = getTarget().getConstantAddressSpace())
-    return AS.getValue();
+    return *AS;
   return LangAS::Default;
 }
 
@@ -5997,7 +5997,7 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
   // Check for alignment specifed in an 'omp allocate' directive.
   if (llvm::Optional<CharUnits> AlignValFromAllocate =
           getOMPAllocateAlignment(D))
-    AlignVal = AlignValFromAllocate.getValue();
+    AlignVal = *AlignValFromAllocate;
   GV->setAlignment(AlignVal.getAsAlign());
 
   // On Darwin, unlike other Itanium C++ ABI platforms, the thread-wrapper
