@@ -2761,7 +2761,6 @@ static bool OptimizeEmptyGlobalCXXDtors(Function *CXAAtExitFn) {
   return Changed;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Similar to OptimizeEmptyGlobalCXXDtors, this function also tries to
 // optimize destructors. On Windows, a termination function is registered
@@ -2857,23 +2856,15 @@ static bool optimizeEmptyGlobalAtexitDtors(
 }
 #endif // INTEL_CUSTOMIZATION
 
-static bool optimizeGlobalsInModule(
-    Module &M, const DataLayout &DL,
-    function_ref<TargetLibraryInfo &(Function &)> GetTLI,
-    function_ref<TargetTransformInfo &(Function &)> GetTTI,
-    function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
-    WholeProgramInfo *WPInfo,  // INTEL
-    function_ref<DominatorTree &(Function &)> LookupDomTree) {
-=======
 static bool
 optimizeGlobalsInModule(Module &M, const DataLayout &DL,
                         function_ref<TargetLibraryInfo &(Function &)> GetTLI,
                         function_ref<TargetTransformInfo &(Function &)> GetTTI,
                         function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
+                        WholeProgramInfo *WPInfo,  // INTEL
                         function_ref<DominatorTree &(Function &)> LookupDomTree,
                         function_ref<void(Function &F)> ChangedCFGCallback,
                         function_ref<void(Function &F)> DeleteFnCallback) {
->>>>>>> b5db65e0da1748d58b0657b4ffb3a41d7fd58449
   SmallPtrSet<const Comdat *, 8> NotDiscardableComdats;
   bool Changed = false;
   bool LocalChange = true;
@@ -2961,17 +2952,9 @@ PreservedAnalyses GlobalOptPass::run(Module &M, ModuleAnalysisManager &AM) {
     };
     auto DeleteFnCallback = [&FAM](Function &F) { FAM.clear(F, F.getName()); };
 
-<<<<<<< HEAD
     auto *WPInfo = AM.getCachedResult<WholeProgramAnalysis>(M);         // INTEL
     if (!optimizeGlobalsInModule(M, DL, GetTLI, GetTTI, GetBFI, WPInfo, // INTEL
-                                 LookupDomTree))                        // INTEL
-      return PreservedAnalyses::all();
-
-    PreservedAnalyses PA = PreservedAnalyses::none();
-    PA.preserve<WholeProgramAnalysis>();  // INTEL
-    PA.preserve<AndersensAA>();           // INTEL
-=======
-    if (!optimizeGlobalsInModule(M, DL, GetTLI, GetTTI, GetBFI, LookupDomTree,
+                                 LookupDomTree,                         // INTEL
                                  ChangedCFGCallback, DeleteFnCallback))
       return PreservedAnalyses::all();
 
@@ -2982,7 +2965,8 @@ PreservedAnalyses GlobalOptPass::run(Module &M, ModuleAnalysisManager &AM) {
     // removeUnreachableBlocks(), but there we make sure to invalidate analyses
     // for modified functions.
     PA.preserveSet<CFGAnalyses>();
->>>>>>> b5db65e0da1748d58b0657b4ffb3a41d7fd58449
+    PA.preserve<WholeProgramAnalysis>();  // INTEL
+    PA.preserve<AndersensAA>();           // INTEL
     return PA;
 }
 
@@ -3025,20 +3009,16 @@ struct GlobalOptLegacyPass : public ModulePass {
       return this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
     };
 
-<<<<<<< HEAD
-    auto *WPA = getAnalysisIfAvailable<WholeProgramWrapperPass>();        // INTEL
-    WholeProgramInfo *WPInfo = WPA ? &WPA->getResult() : nullptr;         // INTEL
-    return optimizeGlobalsInModule(M, DL, GetTLI, GetTTI, GetBFI, WPInfo, // INTEL
-                                   LookupDomTree);                        // INTEL
-=======
     auto ChangedCFGCallback = [&LookupDomTree](Function &F) {
       auto &DT = LookupDomTree(F);
       DT.recalculate(F);
     };
 
-    return optimizeGlobalsInModule(M, DL, GetTLI, GetTTI, GetBFI, LookupDomTree,
+    auto *WPA = getAnalysisIfAvailable<WholeProgramWrapperPass>();        // INTEL
+    WholeProgramInfo *WPInfo = WPA ? &WPA->getResult() : nullptr;         // INTEL
+    return optimizeGlobalsInModule(M, DL, GetTLI, GetTTI, GetBFI, WPInfo, // INTEL
+                                   LookupDomTree,                         // INTEL
                                    ChangedCFGCallback, nullptr);
->>>>>>> b5db65e0da1748d58b0657b4ffb3a41d7fd58449
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
