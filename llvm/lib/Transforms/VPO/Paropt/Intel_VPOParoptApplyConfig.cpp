@@ -62,6 +62,19 @@ public:
   }
 };
 
+// Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
+// (DFS) to gather all WRegion Nodes;
+class VPOWRegionVisitor {
+public:
+  WRegionListTy &WRNList;
+
+  VPOWRegionVisitor(WRegionListTy &WL) : WRNList(WL) {}
+  void preVisit(WRegionNode *W) {}
+  // Use DFS visiting of WRegionNodes.
+  void postVisit(WRegionNode *W) { WRNList.push_back(W); }
+  bool quitVisit(WRegionNode *W) { return false; }
+};
+
 static bool applyConfig(Function &F, WRegionInfo &WI,
                         const llvm::VPOParoptConfig *VPC) {
   bool Changed = false;
@@ -78,8 +91,12 @@ static bool applyConfig(Function &F, WRegionInfo &WI,
   if (OffloadEntries.empty())
     return Changed;
 
-  for (auto I = WI.begin(), IE = WI.end(); I != IE; ++I) {
-    WRegionNode *WT = *I;
+  // Collect a list of regions that can be looped-over in a depth-first manner.
+  WRegionListTy WRegionList;
+  VPOWRegionVisitor Visitor(WRegionList);
+  WRegionUtils::forwardVisit(Visitor, WI.getWRGraph());
+
+  for (auto *WT : WRegionList) {
     if (!isa<WRNTargetNode>(WT))
       continue;
 
