@@ -13,6 +13,7 @@ set(TARGET_INCLUDE_FILES
 
 set(TARGET_SOURCE_FILES
   extendhfsf2.c
+  extendhftf2.c
   int_util.c
   truncdfhf2.c
   truncsfhf2.c

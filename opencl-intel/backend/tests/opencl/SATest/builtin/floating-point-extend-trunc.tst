@@ -8,7 +8,8 @@
 ; CHECK-DAG: __trunctfsf2
 ; CHECK-DAG: __trunctfhf2
 ; CHECK-DAG: __truncdfhf2
-; CHECK-DAG: __gnu_f2h_ieee
-; CHECK-DAG: __gnu_h2f_ieee
+; CHECK-DAG: __truncsfhf2
+; CHECK-DAG: __extendhfsf2
+; CHECK-DAG: __extendhftf2
 ; CHECK-DAG: __extendsftf2
 ; CHECK-DAG: __extenddftf2
