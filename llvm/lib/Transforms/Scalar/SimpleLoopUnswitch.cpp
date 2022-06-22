@@ -3171,17 +3171,11 @@ PreservedAnalyses SimpleLoopUnswitchPass::run(Loop &L, LoopAnalysisManager &AM,
     if (VerifyMemorySSA)
       AR.MSSA->verifyMemorySSA();
   }
-<<<<<<< HEAD
-
 #if INTEL_CUSTOMIZATION
   if (!unswitchLoop(L, AR.DT, AR.LI, AR.AC, AR.AA, AR.TLI, AR.TTI, Trivial,
-                    NonTrivial, UnswitchCB, &AR.SE,
+                    NonTrivial,
 #endif // INTEL_CUSTOMIZATION
-                    MSSAU.hasValue() ? MSSAU.getPointer() : nullptr,
-=======
-  if (!unswitchLoop(L, AR.DT, AR.LI, AR.AC, AR.AA, AR.TTI, Trivial, NonTrivial,
                     UnswitchCB, &AR.SE, MSSAU ? MSSAU.getPointer() : nullptr,
->>>>>>> d66cbc565adbea8b7362349e527ac7aa2c75788f
                     DestroyLoopCB))
     return PreservedAnalyses::all();
 
