@@ -1193,15 +1193,10 @@ public:
         Params(Params), Threshold(Params.DefaultThreshold),
         BoostIndirectCalls(BoostIndirect), IgnoreThreshold(IgnoreThreshold),
         CostBenefitAnalysisEnabled(isCostBenefitAnalysisEnabled()),
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         EarlyExitThreshold(INT_MAX), EarlyExitCost(INT_MAX), TLI(TLI),
         ILIC(ILIC), WPI(WPI), SubtractedBonus(false), Writer(this) {
-    AllowRecursiveCall = Params.AllowRecursiveCall.getValue();
-=======
-        Writer(this) {
     AllowRecursiveCall = *Params.AllowRecursiveCall;
->>>>>>> 7a47ee51a145a40332311330ef45b5d62d8ae023
   }
 
   // The cost and the threshold used for early exit during usual
@@ -2139,8 +2134,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
       // current threshold, but AutoFDO + ThinLTO currently relies on this
       // behavior to prevent inlining of hot callsites during ThinLTO
       // compile phase.
-<<<<<<< HEAD
-      Threshold = HotCallSiteThreshold.getValue();
+      Threshold = *HotCallSiteThreshold;
       YesReasonVector.push_back(InlrHotCallsite); // INTEL
 #if INTEL_CUSTOMIZATION
     } else if (isColdCallSite(Call, CallerBFI)
@@ -2153,10 +2147,6 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
 #endif // INTEL_FEATURE_SW_ADVANCED
         ) {
 #endif // INTEL_CUSTOMIZATION
-=======
-      Threshold = *HotCallSiteThreshold;
-    } else if (isColdCallSite(Call, CallerBFI)) {
->>>>>>> 7a47ee51a145a40332311330ef45b5d62d8ae023
       LLVM_DEBUG(dbgs() << "Cold callsite.\n");
       // Do not apply bonuses for a cold callsite including the
       // LastCallToStatic bonus. While this bonus might result in code size
