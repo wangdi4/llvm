@@ -294,7 +294,6 @@ public:
   bool isLegalMaskedScatter(Type *DataType, Align Alignment);
   bool isLegalMaskedExpandLoad(Type *DataType);
   bool isLegalMaskedCompressStore(Type *DataType);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const;
   bool isLibIRCAllowed() const;
@@ -312,10 +311,8 @@ public:
   bool hasVLX() const;
   bool displacementFoldable() const;
 #endif // INTEL_CUSTOMIZATION
-=======
   bool isLegalAltInstr(VectorType *VecTy, unsigned Opcode0, unsigned Opcode1,
                        const SmallBitVector &OpcodeMask) const;
->>>>>>> 7a9ad257694c04f2f5f0ce9cb89a8cb103020571
   bool hasDivRemOp(Type *DataType, bool IsSigned);
   bool isFCmpOrdCheaperThanFCmpZero(Type *Ty);
   bool areInlineCompatible(const Function *Caller,
