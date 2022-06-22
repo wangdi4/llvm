@@ -6822,15 +6822,18 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       return;
     }
 
+    auto &&GetBlockSize = [this](const Instruction *I0) {
+      auto *BB = I0->getParent();
+      return BB->size() -
+             count_if(DeletedInstructions, [BB](const Instruction *I) {
+               return I->getParent() == BB;
+             });
+    };
+
     // No Multi-Node is being built, try to see if we can build one.
-    auto *BB = cast<Instruction>(VL[0])->getParent();
     bool CanBeginNewMultiNode =
         MultiNodeCompatibleInstructions &&
-        (BB->size() - llvm::count_if(DeletedInstructions,
-                                     [BB](const auto *I) {
-                                       return I->getParent() == BB;
-                                     }) <=
-         MaxBBSizeForMultiNodeSLP) &&
+        GetBlockSize(cast<Instruction>(VL[0])) <= MaxBBSizeForMultiNodeSLP &&
         // Disable overlapping Multi-Nodes
         llvm::none_of(
             VL, [this](Value *V) { return AllMultiNodeValues.count(V); }) &&
