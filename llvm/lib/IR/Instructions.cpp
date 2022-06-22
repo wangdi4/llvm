@@ -4566,7 +4566,7 @@ SwitchInstProfUpdateWrapper::CaseWeightOpt
 SwitchInstProfUpdateWrapper::getSuccessorWeight(unsigned idx) {
   if (!Weights)
     return None;
-  return Weights.getValue()[idx];
+  return (*Weights)[idx];
 }
 
 void SwitchInstProfUpdateWrapper::setSuccessorWeight(
@@ -4578,7 +4578,7 @@ void SwitchInstProfUpdateWrapper::setSuccessorWeight(
     Weights = SmallVector<uint32_t, 8>(SI.getNumSuccessors(), 0);
 
   if (Weights) {
-    auto &OldW = Weights.getValue()[idx];
+    auto &OldW = (*Weights)[idx];
     if (*W != OldW) {
       Changed = true;
       OldW = *W;
