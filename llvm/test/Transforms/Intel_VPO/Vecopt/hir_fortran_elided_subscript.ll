@@ -21,7 +21,7 @@
 ; The Fortran all function elides the specified dimension(1) of array a. This generates
 ; incoming HIR that looks like the following:
 ;
-;         + DO i2 = 0, 2, 1   <DO_LOOP>
+;         + DO i2 = 0, 100, 1   <DO_LOOP>
 ;         |   %"check_$A_entry[][]_fetch.4" = (%"check_$A")[0:i1:12(i32*:0)][0:i2:4(i32*:3)];
 ;         |   %"var$1110[][]_fetch.24" = (%"var$111034.sub")[0:i1:4(i32*:0)][0:i2:0(i32*:0)];
 ;         |   %and.1 = %"var$1110[][]_fetch.24"  &  %"check_$A_entry[][]_fetch.4";
@@ -32,7 +32,7 @@
 ; value is zero, DA fix effectively treats the corresponding dimension as uniform. Test checks
 ; for successful vectorization.
 ;
-; CHECK: DO i2 = 0, 1, 2   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK: DO i2 = 0, 99, 2   <DO_LOOP> <auto-vectorized> <novectorize>
 ;
 define i32 @check_(i32* noalias nocapture readonly dereferenceable(4) %"check_$A") {
 bb9:
@@ -64,7 +64,7 @@ loop_body12:                                      ; preds = %loop_test11.prehead
   %and.1 = and i32 %"var$1110[][]_fetch.24", %"check_$A_entry[][]_fetch.4"
   store i32 %and.1, i32* %"var$1110[][]", align 4
   %add.6 = add nuw nsw i64 %"$loop_ctr1.037", 1
-  %exitcond40.not = icmp eq i64 %add.6, 4
+  %exitcond40.not = icmp eq i64 %add.6, 102
   br i1 %exitcond40.not, label %loop_exit13, label %loop_body12
 
 loop_exit13:                                      ; preds = %loop_body12
