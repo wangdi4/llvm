@@ -14,14 +14,10 @@
 @SyFgets.yank = external global [512 x i8], align 16
 @syCTRO = external global i32, align 4
 
-<<<<<<< HEAD
-define i8* @SyFgets(i8* %line, i64 %length, i64 %fid) {
+define i8* @SyFgets(ptr %line, i64 %length, i64 %fid) {
 ; INTEL_CUSTOMIZATION
 ; Checks are auto-generated, there is no sense to have fine-grained markup for
 ; them, just wrap the whole section with the marker.
-=======
-define ptr @SyFgets(ptr %line, i64 %length, i64 %fid) {
->>>>>>> 2f448bf509432c1a19ec46ab8cbc7353c03c6280
 ; CHECK-LABEL: SyFgets:
 ; CHECK:       ## %bb.0: ## %entry
 ; CHECK-NEXT:    pushq %rbp

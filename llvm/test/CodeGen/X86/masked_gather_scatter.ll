@@ -496,12 +496,8 @@ define <16 x i32> @test8(<16 x ptr> %ptr.random, <16 x i32> %ind, i16 %mask) {
 ; Test9 and Test10 should give the same result (scalar and vector indices in GEP)
 
 
-<<<<<<< HEAD
-define <8 x i32> @test9(%struct.ST* %base, <8 x i64> %ind1, <8 x i32>%ind5) {
-; INTEL_CUSTOMIZATION
-=======
 define <8 x i32> @test9(ptr %base, <8 x i64> %ind1, <8 x i32>%ind5) {
->>>>>>> 2f448bf509432c1a19ec46ab8cbc7353c03c6280
+; INTEL_CUSTOMIZATION
 ; KNL_64-LABEL: test9:
 ; KNL_64:       # %bb.0: # %entry
 ; KNL_64-NEXT:    vpbroadcastq {{.*#+}} zmm2 = [824,824,824,824,824,824,824,824]
@@ -586,12 +582,8 @@ entry:
   ret <8 x i32> %res
 }
 
-<<<<<<< HEAD
-define <8 x i32> @test10(%struct.ST* %base, <8 x i64> %i1, <8 x i32>%ind5) {
-; INTEL_CUSTOMIZATION
-=======
 define <8 x i32> @test10(ptr %base, <8 x i64> %i1, <8 x i32>%ind5) {
->>>>>>> 2f448bf509432c1a19ec46ab8cbc7353c03c6280
+; INTEL_CUSTOMIZATION
 ; KNL_64-LABEL: test10:
 ; KNL_64:       # %bb.0: # %entry
 ; KNL_64-NEXT:    vpbroadcastq {{.*#+}} zmm2 = [824,824,824,824,824,824,824,824]

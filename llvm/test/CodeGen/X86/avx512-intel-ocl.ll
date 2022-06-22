@@ -79,13 +79,8 @@ define <16 x float> @testf16_inp(<16 x float> %a, <16 x float> %b) nounwind {
 ; X64-NEXT:    retq
   %y = alloca <16 x float>, align 64
   %x = fadd <16 x float> %a, %b
-<<<<<<< HEAD
-  %1 = call intel_ocl_bicc_avx512 <16 x float> @func_float16_ptr(<16 x float> %x, <16 x float>* %y) ;INTEL
-  %2 = load <16 x float>, <16 x float>* %y, align 16
-=======
-  %1 = call intel_ocl_bicc <16 x float> @func_float16_ptr(<16 x float> %x, ptr %y)
+  %1 = call intel_ocl_bicc_avx512 <16 x float> @func_float16_ptr(<16 x float> %x, ptr %y) ;INTEL
   %2 = load <16 x float>, ptr %y, align 16
->>>>>>> 2f448bf509432c1a19ec46ab8cbc7353c03c6280
   %3 = fadd <16 x float> %2, %1
   ret <16 x float> %3
 }
@@ -165,13 +160,8 @@ define <16 x float> @testf16_regs(<16 x float> %a, <16 x float> %b) nounwind {
 ; X64-NEXT:    retq
   %y = alloca <16 x float>, align 64
   %x = fadd <16 x float> %a, %b
-<<<<<<< HEAD
-  %1 = call intel_ocl_bicc_avx512 <16 x float> @func_float16_ptr(<16 x float> %x, <16 x float>* %y) ;INTEL
-  %2 = load <16 x float>, <16 x float>* %y, align 16
-=======
-  %1 = call intel_ocl_bicc <16 x float> @func_float16_ptr(<16 x float> %x, ptr %y)
+  %1 = call intel_ocl_bicc_avx512 <16 x float> @func_float16_ptr(<16 x float> %x, ptr %y) ;INTEL
   %2 = load <16 x float>, ptr %y, align 16
->>>>>>> 2f448bf509432c1a19ec46ab8cbc7353c03c6280
   %3 = fadd <16 x float> %1, %b
   %4 = fadd <16 x float> %2, %3
   ret <16 x float> %4
