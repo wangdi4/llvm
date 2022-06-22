@@ -439,6 +439,7 @@ bool TargetTransformInfo::isLegalMaskedGather(Type *DataType,
                                               Align Alignment) const {
   return TTIImpl->isLegalMaskedGather(DataType, Alignment);
 }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 bool TargetTransformInfo::shouldScalarizeMaskedGather(CallInst *CI) const {
   return TTIImpl->shouldScalarizeMaskedGather(CI);
@@ -464,6 +465,15 @@ bool TargetTransformInfo::isLegalToTransformGather2PermuteLoad(
       GatherNum, WidenNum);
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+
+bool TargetTransformInfo::isLegalAltInstr(
+    VectorType *VecTy, unsigned Opcode0, unsigned Opcode1,
+    const SmallBitVector &OpcodeMask) const {
+  return TTIImpl->isLegalAltInstr(VecTy, Opcode0, Opcode1, OpcodeMask);
+}
+
+>>>>>>> 6f88acf410b48f3e6c1526df2dc32ed86f249685
 bool TargetTransformInfo::isLegalMaskedScatter(Type *DataType,
                                                Align Alignment) const {
   return TTIImpl->isLegalMaskedScatter(DataType, Alignment);
