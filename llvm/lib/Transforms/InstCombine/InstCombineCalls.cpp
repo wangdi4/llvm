@@ -698,7 +698,7 @@ static Instruction *simplifyForCpyStr(ForCpyStrInst *FCSI, InstCombiner &IC) {
     const int64_t PaddingLen = DestLen - SrcLen;
     MaybeAlign PaddingAlign;
     if (DestAlign)
-      PaddingAlign = commonAlignment(DestAlign, SrcLen);
+      PaddingAlign = commonAlignment(*DestAlign, SrcLen);
     Builder.CreateMemMove(Dest, DestAlign, Src, SrcAlign, SrcLen, IsVol);
     Builder.CreateMemSet(PaddingAddr, PaddingVal, PaddingLen, PaddingAlign,
                          IsVol);
