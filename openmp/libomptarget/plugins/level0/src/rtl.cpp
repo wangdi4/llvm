@@ -1425,7 +1425,7 @@ struct RTLOptionTy {
   std::map<int32_t, std::vector<int32_t>> MemPoolInfo = {
       {TARGET_ALLOC_DEVICE, {1, 4, 256}},
       {TARGET_ALLOC_HOST, {1, 4, 256}},
-      {TARGET_ALLOC_SHARED, {1, 4, 256}}
+      {TARGET_ALLOC_SHARED, {8, 4, 256}}
   };
 
   /// User-directed allocation kind

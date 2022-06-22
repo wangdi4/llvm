@@ -1,5 +1,20 @@
 .. INTEL_CUSTOMIZATION
 
+..
+  INTEL CONFIDENTIAL
+ 
+  Modifications, Copyright (C) 2022 Intel Corporation
+ 
+  This software and the related documents are Intel copyrighted materials, and
+  your use of them is governed by the express license under which they were
+  provided to you ("License"). Unless the License provides otherwise, you may not
+  use, modify, copy, publish, distribute, disclose or transmit this software or
+  the related documents without Intel's prior written permission.
+ 
+  This software and the related documents are provided as is, with no express
+  or implied warranties, other than those that are expressly stated in the
+  License.
+
 Offload Runtime Environment Variables
 =====================================
 
@@ -316,7 +331,7 @@ Pool is a list of memory blocks that can serve at least ``<Capacity>``
 allocations of up to ``<AllocMax>`` size from a single block, with total size
 not exceeding ``<PoolSize>``.
 
-**Default**: Equivalent to ``<Option>=all,1,4,256``
+**Default**: Equivalent to ``<Option>=device,1,4,256,host,1,4,256,shared,8,4,256``
 
 ``LIBOMPTARGET_LEVEL0_USE_COPY_ENGINE=<Value>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -363,7 +378,7 @@ size/counts for a target region.
 **Default**: 4
 
 ``LIBOMPTARGET_ONEAPI_REDUCTION_SUBSCRIPTION_RATE=<Num>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Sets under-subscription parameter that is used when computing the team
 counts for a target region that requires cross-team reduction updates.
 
@@ -467,7 +482,7 @@ size/counts for a target region.
 **Default**: 4
 
 ``LIBOMPTARGET_ONEAPI_REDUCTION_SUBSCRIPTION_RATE=<Num>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Sets under-subscription parameter that is used when computing the team
 counts for a target region that requires cross-team reduction updates.
 
