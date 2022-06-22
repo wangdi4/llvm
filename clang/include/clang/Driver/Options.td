@@ -1808,8 +1808,7 @@ def ffp_exception_behavior_EQ : Joined<["-"], "ffp-exception-behavior=">, Group<
   HelpText<"Specifies the exception behavior of floating-point operations.">,
   Values<"ignore,maytrap,strict">, NormalizedValuesScope<"LangOptions">,
   NormalizedValues<["FPE_Ignore", "FPE_MayTrap", "FPE_Strict"]>,
-<<<<<<< HEAD
-  MarshallingInfoEnum<LangOpts<"FPExceptionMode">, "FPE_Ignore">;
+  MarshallingInfoEnum<LangOpts<"FPExceptionMode">, "FPE_Default">;
 #if INTEL_CUSTOMIZATION
 def fp_model_EQ : Joined<["-"], "fp-model=">, Alias<ffp_model_EQ>,
   HelpText<"Controls the semantics of floating-point calculations.">;
@@ -1825,9 +1824,6 @@ def fno_honor_nan_compares : Flag<["-"], "fno-honor-nan-compares">,
   Flags<[NoXarchOption, CC1Option]>,
   HelpText<"Do not honor NaN compares with fast math">;
 #endif // INTEL_CUSTOMIZATION
-=======
-  MarshallingInfoEnum<LangOpts<"FPExceptionMode">, "FPE_Default">;
->>>>>>> 706e89db97d3dea63dac1ee2c5a26cb2af9651a2
 defm fast_math : BoolFOption<"fast-math",
   LangOpts<"FastMath">, DefaultFalse,
   PosFlag<SetTrue, [CC1Option, CoreOption], "Allow aggressive, lossy floating-point optimizations",
@@ -2160,15 +2156,10 @@ def : Flag<["-"], "fhonor-infinites">, Alias<fhonor_infinities>;
 def : Flag<["-"], "fno-honor-infinites">, Alias<fno_honor_infinities>;
 #if INTEL_CUSTOMIZATION
 def frounding_math : Flag<["-"], "frounding-math">, Group<f_Group>, Flags<[CC1Option]>,
-<<<<<<< HEAD
-  MarshallingInfoFlag<LangOpts<"FPRoundingMode">, "llvm::RoundingMode::NearestTiesToEven">,
+  MarshallingInfoFlag<LangOpts<"RoundingMath">>,
   Normalizer<"makeFlagToValueNormalizer(llvm::RoundingMode::Dynamic)">,
   HelpText<"Disable floating point optimizations that assume the default rounding mode.">;
 #endif // INTEL_CUSTOMIZATION
-=======
-  MarshallingInfoFlag<LangOpts<"RoundingMath">>,
-  Normalizer<"makeFlagToValueNormalizer(llvm::RoundingMode::Dynamic)">;
->>>>>>> 706e89db97d3dea63dac1ee2c5a26cb2af9651a2
 def fno_rounding_math : Flag<["-"], "fno-rounding-math">, Group<f_Group>, Flags<[CC1Option]>;
 def ftrapping_math : Flag<["-"], "ftrapping-math">, Group<f_Group>;
 def fno_trapping_math : Flag<["-"], "fno-trapping-math">, Group<f_Group>;

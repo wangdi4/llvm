@@ -2569,6 +2569,7 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
 
       PreferredType.enterVariableInit(Tok.getLocation(), ThisDecl);
 
+#if INTEL_CUSTOMIZATION
       Sema::FPFeaturesStateRAII FPO(Actions);
       if (auto VD = dyn_cast_or_null<VarDecl>(ThisDecl))
         if (!VD->isInvalidDecl()) {
@@ -2582,11 +2583,12 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
               // line option line like `-ffpmodel=strict` is in effect. Set
               // constant rounding to default in this case.
               FPOptions NewFPO = Actions.getCurFPFeatures();
-              NewFPO.setRoundingMode(llvm::RoundingMode::NearestTiesToEven);
+              NewFPO.setConstRoundingMode(llvm::RoundingMode::NearestTiesToEven);
               Actions.setCurFPFeatures(NewFPO);
             }
           }
         }
+#endif // INTEL_CUSTOMIZATION
 
       ExprResult Init = ParseInitializer();
 
