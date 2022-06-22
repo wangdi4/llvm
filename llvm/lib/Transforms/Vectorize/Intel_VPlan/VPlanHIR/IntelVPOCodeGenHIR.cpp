@@ -1454,25 +1454,26 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
       HIRLoopVisitor LV(OrigLoop, this);
       LV.replaceCalls();
     }
-  } else {
-    // NeedRemainderLoop is false so trip count % VF == 0. Also check to see
-    // that the trip count is small and the loop body is small. If so, do
-    // complete unroll of the vector loop. We can only use the original
-    // trip count when a peel loop is not needed. A generated peel loop
-    // will lead to a non-constant lower bound leading to a crash in the
-    // complete unroller.
-    uint64_t TripCount = getTripCount();
-    bool KnownTripCount = TripCount > 0 ? true : false;
-    if (!NeedPeelLoop && KnownTripCount && TripCount <= SmallTripThreshold &&
-        OrigLoop->isInnermost() && !getTreeConflictsLowered()) {
-      HLInstCounter InstCounter;
-      HLNodeUtils::visitRange(InstCounter, OrigLoop->child_begin(),
-                              OrigLoop->child_end());
-      if (InstCounter.getNumInsts() <= SmallLoopBodyThreshold)
-        HIRTransformUtils::completeUnroll(MainLoop);
-    }
-    HLNodeUtils::remove(OrigLoop);
   }
+
+  // Complete unroll optimization for small trip count vector loops. Also check
+  // to see that the loop body is small. If so, do complete unroll of the vector
+  // loop. We can only use the original trip count when a peel loop is not
+  // needed. A generated peel loop will lead to a non-constant lower bound
+  // leading to a crash in the complete unroller.
+  bool KnownTripCount = getTripCount() > 0;
+  if (!NeedPeelLoop && KnownTripCount && TripCount <= SmallTripThreshold &&
+      OrigLoop->isInnermost() && !getTreeConflictsLowered()) {
+    HLInstCounter InstCounter;
+    HLNodeUtils::visitRange(InstCounter, OrigLoop->child_begin(),
+                            OrigLoop->child_end());
+    if (InstCounter.getNumInsts() <= SmallLoopBodyThreshold)
+      HIRTransformUtils::completeUnroll(MainLoop);
+  }
+
+  // Remove the OrigLoop for merged CFG approach or if remainder is not needed.
+  if ((isMergedCFG() && OrigLoop->isAttached()) || !NeedRemainderLoop)
+    HLNodeUtils::remove(OrigLoop);
 }
 
 // This function replaces scalar math lib calls in the remainder loop with

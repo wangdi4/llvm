@@ -1,5 +1,5 @@
-; Test for basic functionality of HIR vectorizer CG for parity between merged CFG
-; based CG and legacy CG approaches.
+; Test to verify that small trip count vector loop is completely
+; unrolled even when remainder loop is generated.
 
 ; Input HIR
 ; BEGIN REGION { }
@@ -18,9 +18,8 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-enable-new-cfg-merge-hir -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK:                BEGIN REGION { modified }
-; CHECK-NEXT:                 + DO i1 = 0, 7, 4   <DO_LOOP> <simd-vectorized> <novectorize>
-; CHECK-NEXT:                 |   (<4 x i64>*)(%A)[i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
-; CHECK-NEXT:                 + END LOOP
+; CHECK-NEXT:                 (<4 x i64>*)(%A)[0] = <i64 0, i64 1, i64 2, i64 3>;
+; CHECK-NEXT:                 (<4 x i64>*)(%A)[4] = <i64 0, i64 1, i64 2, i64 3> + 4;
 
 ; CHECK:                      + DO i1 = 8, 9, 1   <DO_LOOP> <novectorize>
 ; CHECK-NEXT:                 |   (%A)[i1] = i1;

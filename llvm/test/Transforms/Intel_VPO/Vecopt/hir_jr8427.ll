@@ -6,14 +6,14 @@
 
 ; HIR Loop before vectorization:
 ;
-; DO i2 = 0, 10, 1   <DO_LOOP>  <MVTag: 25>
+; DO i2 = 0, 100, 1   <DO_LOOP>  <MVTag: 25>
 ;   %and = %limm  &&  i2;
 ;   %limm3 = 2 * i1 + %and * i2 + 2;
 ; END LOOP
 ;
 ; HIR Loop after vectorization:
 ;
-; DO i2 = 0, 7, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; DO i2 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ;   %and.vec = %limm  &&  i2 + <i32 0, i32 1, i32 2, i32 3>;
 ;   %.BlobMul = %and.vec  *  <i32 0, i32 1, i32 2, i32 3>;
 ;   %copy.vec = 2 * i1 + %and.vec * i2 + %.BlobMul + 2;
@@ -55,7 +55,7 @@ for.body3:                                        ; preds = %for.body3, %for.con
   %add = add i32 %mul, %storemerge12
   store i32 %add, i32* @a, align 4, !tbaa !2
   %inc = add nuw nsw i32 %e.011, 1
-  %exitcond = icmp eq i32 %inc, 11
+  %exitcond = icmp eq i32 %inc, 101
   br i1 %exitcond, label %for.end, label %for.body3
 
 for.end:                                          ; preds = %for.body3
