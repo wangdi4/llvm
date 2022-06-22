@@ -17,6 +17,9 @@ inline const char *GetBackendString(cl::sycl::backend backend) {
     PI_BACKEND_STR(host);
     PI_BACKEND_STR(opencl);
     PI_BACKEND_STR(level_zero);
+#if INTEL_CUSTOMIZATION
+    PI_BACKEND_STR(ext_intel_esimd_emulator);
+#endif // INTEL_CUSTOMIZATION
 #undef PI_BACKEND_STR
   default:
     return "Unknown Plugin";
