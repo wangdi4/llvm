@@ -33,11 +33,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-<<<<<<< HEAD
-#include "llvm/Transforms/IPO/DeadArgumentElimination.h"
-
-=======
->>>>>>> 9065cb2d282065af673730d1bc166e75966857ec
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_WP.h"          // INTEL
@@ -66,15 +61,11 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO.h"
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
 #endif //INTEL_CUSTOMIZATION
-=======
 #include "llvm/Transforms/IPO/DeadArgumentElimination.h"
->>>>>>> 9065cb2d282065af673730d1bc166e75966857ec
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-
 #include <cassert>
 #include <utility>
 #include <vector>
@@ -103,23 +94,12 @@ public:
     initializeDAEPass(*PassRegistry::getPassRegistry());
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 #endif // INTEL_CUSTOMIZATION
 
-    bool runOnModule(Module &M) override {
-      if (skipModule(M))
-        return false;
-      DeadArgumentEliminationPass DAEP(ShouldHackArguments(),
-                                       CheckSYCLKernels());
-      ModuleAnalysisManager DummyMAM;
-      PreservedAnalyses PA = DAEP.run(M, DummyMAM);
-      return !PA.areAllPreserved();
-    }
-=======
   bool runOnModule(Module &M) override {
     if (skipModule(M))
       return false;
@@ -129,7 +109,6 @@ public:
     PreservedAnalyses PA = DAEP.run(M, DummyMAM);
     return !PA.areAllPreserved();
   }
->>>>>>> 9065cb2d282065af673730d1bc166e75966857ec
 
   virtual bool shouldHackArguments() const { return false; }
   virtual bool CheckSYCLKernels() const { return false; }
@@ -196,23 +175,15 @@ ModulePass *llvm::createDeadArgHackingPass() { return new DAH(); }
 
 ModulePass *llvm::createDeadArgEliminationSYCLPass() { return new DAESYCL(); }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-/// DeleteDeadVarargs - If this is an function that takes a ... list, and if
-/// llvm.va_start, llvm.va_arg_pack and llvm.va_arg_pack_len are never called, 
-// the varargs list is dead for the function.
+/// If this is an function that takes a ... list, and if llvm.va_start,
+/// llvm.va_arg_pack and llvm.va_arg_pack_len are never called, the varargs
+/// list is dead for the function.
 #endif // INTEL_CUSTOMIZATION
-bool DeadArgumentEliminationPass::DeleteDeadVarargs(Function &Fn) {
-  assert(Fn.getFunctionType()->isVarArg() && "Function isn't varargs!");
-  if (Fn.isDeclaration() || !Fn.hasLocalLinkage()) return false;
-=======
-/// If this is an function that takes a ... list, and if llvm.vastart is never
-/// called, the varargs list is dead for the function.
 bool DeadArgumentEliminationPass::deleteDeadVarargs(Function &F) {
   assert(F.getFunctionType()->isVarArg() && "Function isn't varargs!");
   if (F.isDeclaration() || !F.hasLocalLinkage())
     return false;
->>>>>>> 9065cb2d282065af673730d1bc166e75966857ec
 
   // Ensure that the function is only directly called.
   if (F.hasAddressTaken())
@@ -597,7 +568,6 @@ void DeadArgumentEliminationPass::surveyFunction(const Function &F) {
     return;
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // CMPLRLLVM-25906: For now, exclude vector variants, as the variant
   // encoding requires the clones to be made based on the original
@@ -606,15 +576,12 @@ void DeadArgumentEliminationPass::surveyFunction(const Function &F) {
   if (F.hasFnAttribute("vector-variants")) {
     LLVM_DEBUG(dbgs() << "DeadArgumentEliminationPass - " << F.getName()
                       << " has vector variants\n");
-    MarkLive(F);
+    markLive(F);
     return;
   }
 #endif // INTEL_CUSTOMIZATION
 
-  unsigned RetCount = NumRetVals(&F);
-=======
   unsigned RetCount = numRetVals(&F);
->>>>>>> 9065cb2d282065af673730d1bc166e75966857ec
 
   // Assume all return values are dead
   using RetVals = SmallVector<Liveness, 5>;
