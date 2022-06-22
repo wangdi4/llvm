@@ -346,27 +346,6 @@ typedef enum {
 } _pi_kernel_group_info;
 
 typedef enum {
-<<<<<<< HEAD
-  PI_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT = (1 << 7),
-  PI_FP_ROUND_TO_NEAREST = (1 << 2),
-  PI_FP_ROUND_TO_ZERO = (1 << 3),
-  PI_FP_ROUND_TO_INF = (1 << 4),
-  PI_FP_INF_NAN = (1 << 1),
-  PI_FP_DENORM = (1 << 0),
-  PI_FP_FMA = (1 << 5)
-} _pi_fp_capabilities;
-=======
-  PI_IMAGE_INFO_FORMAT = 0x1110,
-  PI_IMAGE_INFO_ELEMENT_SIZE = 0x1111,
-  PI_IMAGE_INFO_ROW_PITCH = 0x1112,
-  PI_IMAGE_INFO_SLICE_PITCH = 0x1113,
-  PI_IMAGE_INFO_WIDTH = 0x1114,
-  PI_IMAGE_INFO_HEIGHT = 0x1115,
-  PI_IMAGE_INFO_DEPTH = 0x1116
-} _pi_image_info;
->>>>>>> 78bd66a8f46f319a8ecb473cc427c7c8ddd70ac9
-
-typedef enum {
   PI_KERNEL_MAX_SUB_GROUP_SIZE = 0x2033,
   PI_KERNEL_MAX_NUM_SUB_GROUPS = 0x11B9,
   PI_KERNEL_COMPILE_NUM_SUB_GROUPS = 0x11BA,

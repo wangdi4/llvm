@@ -39,15 +39,6 @@ template <info::kernel Param> struct get_kernel_info<std::string, Param> {
   }
 };
 
-<<<<<<< HEAD
-template <info::kernel Param> struct get_kernel_info<cl_uint, Param> {
-  static cl_uint get(RT::PiKernel Kernel, const plugin &Plugin) {
-    pi_uint32 Result;
-
-    // TODO catch an exception and put it to list of asynchronous exceptions
-    Plugin.call<PiApiKind::piKernelGetInfo>(Kernel, pi_kernel_info(Param),
-                                            sizeof(pi_uint32), &Result, nullptr);
-=======
 template <info::kernel Param> struct get_kernel_info<uint32_t, Param> {
   static uint32_t get(RT::PiKernel Kernel, const plugin &Plugin) {
     uint32_t Result;
@@ -55,7 +46,6 @@ template <info::kernel Param> struct get_kernel_info<uint32_t, Param> {
     // TODO catch an exception and put it to list of asynchronous exceptions
     Plugin.call<PiApiKind::piKernelGetInfo>(Kernel, pi_kernel_info(Param),
                                             sizeof(uint32_t), &Result, nullptr);
->>>>>>> 78bd66a8f46f319a8ecb473cc427c7c8ddd70ac9
     return Result;
   }
 };

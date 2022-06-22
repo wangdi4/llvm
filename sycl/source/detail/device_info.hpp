@@ -618,13 +618,8 @@ template <> inline uint32_t get_device_info_host<info::device::vendor_id>() {
 }
 
 template <>
-<<<<<<< HEAD
-inline cl_uint get_device_info_host<info::device::max_compute_units>() {
-  return 1;
-=======
 inline uint32_t get_device_info_host<info::device::max_compute_units>() {
-  return std::thread::hardware_concurrency();
->>>>>>> 78bd66a8f46f319a8ecb473cc427c7c8ddd70ac9
+  return 1;
 }
 
 template <>
