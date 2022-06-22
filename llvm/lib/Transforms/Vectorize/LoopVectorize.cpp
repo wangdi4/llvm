@@ -958,7 +958,7 @@ void InnerLoopVectorizer::setDebugLocFromInst(
       auto NewDIL =
           DIL->cloneByMultiplyingDuplicationFactor(UF * VF.getKnownMinValue());
       if (NewDIL)
-        Builder.SetCurrentDebugLocation(NewDIL.getValue());
+        Builder.SetCurrentDebugLocation(*NewDIL);
       else
         LLVM_DEBUG(dbgs()
                    << "Failed to create new discriminator: "
@@ -5366,7 +5366,7 @@ VectorizationFactor LoopVectorizationCostModel::selectVectorizationFactor(
 #ifndef NDEBUG
     unsigned AssumedMinimumVscale = 1;
     if (Optional<unsigned> VScale = getVScaleForTuning())
-      AssumedMinimumVscale = VScale.getValue();
+      AssumedMinimumVscale = *VScale;
     unsigned Width =
         Candidate.Width.isScalable()
             ? Candidate.Width.getKnownMinValue() * AssumedMinimumVscale
@@ -5584,7 +5584,7 @@ LoopVectorizationCostModel::selectEpilogueVectorizationFactor(
   if (MainLoopVF.isScalable()) {
     EstimatedRuntimeVF = ElementCount::getFixed(MainLoopVF.getKnownMinValue());
     if (Optional<unsigned> VScale = getVScaleForTuning())
-      EstimatedRuntimeVF *= VScale.getValue();
+      EstimatedRuntimeVF *= *VScale;
   }
 
   for (auto &NextVF : ProfitableVFs)

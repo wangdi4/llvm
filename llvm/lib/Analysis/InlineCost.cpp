@@ -969,7 +969,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     auto *CallerBB = CandidateCall.getParent();
     BlockFrequencyInfo *CallerBFI = &(GetBFI(*(CallerBB->getParent())));
     CycleSavings += getCallsiteCost(this->CandidateCall, DL);
-    CycleSavings *= CallerBFI->getBlockProfileCount(CallerBB).getValue();
+    CycleSavings *= *CallerBFI->getBlockProfileCount(CallerBB);
 
     // Remove the cost of the cold basic blocks.
     int Size = Cost - ColdSize;
@@ -1043,7 +1043,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 
     if (auto Result = costBenefitAnalysis()) {
       DecidedByCostBenefit = true;
-      if (Result.getValue())
+      if (*Result)
         return InlineResult::success();
       else
         return InlineResult::failure("Cost over threshold.");
@@ -1193,10 +1193,15 @@ public:
         Params(Params), Threshold(Params.DefaultThreshold),
         BoostIndirectCalls(BoostIndirect), IgnoreThreshold(IgnoreThreshold),
         CostBenefitAnalysisEnabled(isCostBenefitAnalysisEnabled()),
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         EarlyExitThreshold(INT_MAX), EarlyExitCost(INT_MAX), TLI(TLI),
         ILIC(ILIC), WPI(WPI), SubtractedBonus(false), Writer(this) {
     AllowRecursiveCall = Params.AllowRecursiveCall.getValue();
+=======
+        Writer(this) {
+    AllowRecursiveCall = *Params.AllowRecursiveCall;
+>>>>>>> 7a47ee51a145a40332311330ef45b5d62d8ae023
   }
 
   // The cost and the threshold used for early exit during usual
@@ -1498,7 +1503,7 @@ void InlineCostAnnotationWriter::emitInstructionAnnot(
   auto C = ICCA->getSimplifiedValue(const_cast<Instruction *>(I));
   if (C) {
     OS << ", simplified to ";
-    C.getValue()->print(OS, true);
+    (*C)->print(OS, true);
   }
   OS << "\n";
 }
@@ -2134,6 +2139,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
       // current threshold, but AutoFDO + ThinLTO currently relies on this
       // behavior to prevent inlining of hot callsites during ThinLTO
       // compile phase.
+<<<<<<< HEAD
       Threshold = HotCallSiteThreshold.getValue();
       YesReasonVector.push_back(InlrHotCallsite); // INTEL
 #if INTEL_CUSTOMIZATION
@@ -2147,6 +2153,10 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
 #endif // INTEL_FEATURE_SW_ADVANCED
         ) {
 #endif // INTEL_CUSTOMIZATION
+=======
+      Threshold = *HotCallSiteThreshold;
+    } else if (isColdCallSite(Call, CallerBFI)) {
+>>>>>>> 7a47ee51a145a40332311330ef45b5d62d8ae023
       LLVM_DEBUG(dbgs() << "Cold callsite.\n");
       // Do not apply bonuses for a cold callsite including the
       // LastCallToStatic bonus. While this bonus might result in code size

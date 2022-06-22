@@ -401,7 +401,7 @@ ElementCount VPIntrinsic::getStaticVectorLength() const {
 
 Value *VPIntrinsic::getMaskParam() const {
   if (auto MaskPos = getMaskParamPos(getIntrinsicID()))
-    return getArgOperand(MaskPos.getValue());
+    return getArgOperand(*MaskPos);
   return nullptr;
 }
 
@@ -412,7 +412,7 @@ void VPIntrinsic::setMaskParam(Value *NewMask) {
 
 Value *VPIntrinsic::getVectorLengthParam() const {
   if (auto EVLPos = getVectorLengthParamPos(getIntrinsicID()))
-    return getArgOperand(EVLPos.getValue());
+    return getArgOperand(*EVLPos);
   return nullptr;
 }
 
