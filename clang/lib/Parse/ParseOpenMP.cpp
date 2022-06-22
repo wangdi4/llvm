@@ -1944,17 +1944,13 @@ void Parser::ParseOMPDeclareTargetClauses(
 
       bool IsIndirectClause = getLangOpts().OpenMP >= 51 &&
                               getOpenMPClauseKind(ClauseName) == OMPC_indirect;
-<<<<<<< HEAD
 #if INTEL_COLLAB
       if (!HasToClause)
         HasToClause = getOpenMPClauseKind(ClauseName) == OMPC_to;
       if (!HasDeviceTypeClause)
         HasDeviceTypeClause = IsDeviceTypeClause;
 #endif // INTEL_COLLAB
-      if (DTCI.Indirect.hasValue() && IsIndirectClause) {
-=======
       if (DTCI.Indirect && IsIndirectClause) {
->>>>>>> 452db157c963b2897a0882e3bb05ef845b9e4015
         Diag(Tok, diag::err_omp_more_one_clause)
             << getOpenMPDirectiveName(OMPD_declare_target)
             << getOpenMPClauseName(OMPC_indirect) << 0;
