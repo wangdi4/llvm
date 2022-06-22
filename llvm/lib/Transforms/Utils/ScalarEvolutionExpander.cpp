@@ -2747,16 +2747,26 @@ void SCEVExpanderCleaner::cleanup() {
     return;
 
   auto InsertedInstructions = Expander.getAllInsertedInstructions();
-#ifndef NDEBUG
+#if INTEL_CUSTOMIZATION
   SmallPtrSet<Instruction *, 8> InsertedSet(InsertedInstructions.begin(),
                                             InsertedInstructions.end());
   (void)InsertedSet;
-#endif
+#endif // INTEL_CUSTOMIZATION
   // Remove sets with value handles.
   Expander.clear();
 
   // Remove all inserted instructions.
   for (Instruction *I : reverse(InsertedInstructions)) {
+#if INTEL_CUSTOMIZATION
+    // An expansion may cross between loops because of aggressive phi analysis.
+    // LCSAA fixup will create a liveout from the loop which cannot just be
+    // deleted blindly here.
+    if (any_of(I->users(),
+               [&InsertedSet](Value *U) {
+                 return !InsertedSet.contains(cast<Instruction>(U));
+               }))
+      continue;
+#endif // INTEL_CUSTOMIZATION
 #ifndef NDEBUG
     assert(all_of(I->users(),
                   [&InsertedSet](Value *U) {
