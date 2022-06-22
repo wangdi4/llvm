@@ -3342,7 +3342,7 @@ InlineCost llvm::getInlineCost(
   auto UserDecision =
       llvm::getAttributeBasedInliningDecision(Call, Callee, CalleeTTI, GetTLI);
 
-  if (UserDecision.hasValue()) {
+  if (UserDecision) {
 #if INTEL_CUSTOMIZATION
     if (UserDecision->isSuccess()) {
       if (UserDecision->getIntelInlReason() == InlrAlwaysInlineRecursive)
