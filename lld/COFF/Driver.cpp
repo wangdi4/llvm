@@ -649,7 +649,7 @@ void LinkerDriver::addWinSysRootLibSearchPaths() {
 // Parses LIB environment which contains a list of search paths.
 void LinkerDriver::addLibSearchPaths() {
   Optional<std::string> envOpt = Process::GetEnv("LIB");
-  if (!envOpt.hasValue())
+  if (!envOpt)
     return;
   StringRef env = saver().save(*envOpt);
   while (!env.empty()) {
