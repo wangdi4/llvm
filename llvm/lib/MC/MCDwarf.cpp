@@ -625,7 +625,7 @@ MCDwarfLineTableHeader::tryGetFile(StringRef &Directory,
   // Keep track of whether any or all files have an MD5 checksum.
   // If any files have embedded source, they all must.
   if (MCDwarfFiles.empty()) {
-    trackMD5Usage(Checksum.hasValue());
+    trackMD5Usage(Checksum.has_value());
     HasSource = (Source != None);
   }
   if (DwarfVersion >= 5 && isRootFile(RootFile, Directory, FileName, Checksum))
@@ -688,7 +688,7 @@ MCDwarfLineTableHeader::tryGetFile(StringRef &Directory,
   File.Name = std::string(FileName);
   File.DirIndex = DirIndex;
   File.Checksum = Checksum;
-  trackMD5Usage(Checksum.hasValue());
+  trackMD5Usage(Checksum.has_value());
   File.Source = Source;
   if (Source)
     HasSource = true;

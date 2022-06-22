@@ -171,11 +171,16 @@ public:
   DefaultInlineAdvice(InlineAdvisor *Advisor, CallBase &CB, InlineCost IC,
                       OptimizationRemarkEmitter &ORE, // INTEL
                       bool EmitRemarks = true)
+<<<<<<< HEAD
       : InlineAdvice(Advisor, CB, IC, ORE, IC.getIsRecommended()), // INTEL
         OriginalCB(&CB), IC(IC), EmitRemarks(EmitRemarks) {}
 
   InlineCost *getInlineCost() { return  &IC; }
 #endif // INTEL_CUSTOMIZATION
+=======
+      : InlineAdvice(Advisor, CB, ORE, OIC.has_value()), OriginalCB(&CB),
+        OIC(OIC), EmitRemarks(EmitRemarks) {}
+>>>>>>> 0916d96d12fda355933a8f66ed2a1ccc855cab9c
 
 private:
   void recordUnsuccessfulInliningImpl(const InlineResult &Result) override;
