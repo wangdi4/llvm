@@ -65,7 +65,11 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/raw_ostream.h"
+<<<<<<< HEAD
 #include "llvm/Transforms/IPO/Intel_InlineReportCommon.h" // INTEL
+=======
+#include <limits>
+>>>>>>> c50e6f590cd42aa739cc469341721ff443c35c36
 
 using namespace llvm;
 using namespace InlineReportTypes;  // INTEL
@@ -197,6 +201,13 @@ static cl::opt<int> HotCallSiteRelFreq(
 static cl::opt<int> CallPenalty(
     "inline-call-penalty", cl::Hidden, cl::init(25),
     cl::desc("Call penalty that is applied per callsite when inlining"));
+
+static cl::opt<size_t>
+    StackSizeThreshold("inline-max-stacksize", cl::Hidden,
+                       cl::init(std::numeric_limits<size_t>::max()),
+                       cl::ZeroOrMore,
+                       cl::desc("Do not inline functions with a stack size "
+                                "that exceeds the specified limit"));
 
 static cl::opt<bool> OptComputeFullInlineCost(
     "inline-cost-full", cl::Hidden,
@@ -3047,6 +3058,11 @@ CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI) { // INTEL
   if (!OnlyOneCallAndLocalLinkage && ContainsNoDuplicateCall)
     return InlineResult::failure("noduplicate") // INTEL
         .setIntelInlReason(NinlrDuplicateCall); // INTEL
+
+  // If the callee's stack size exceeds the user-specified threshold,
+  // do not let it be inlined.
+  if (AllocatedSize > StackSizeThreshold)
+    return InlineResult::failure("stacksize");
 
   return finalizeAnalysis();
 }
