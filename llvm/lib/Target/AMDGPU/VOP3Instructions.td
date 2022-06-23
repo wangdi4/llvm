@@ -410,7 +410,7 @@ defm: Ternary_i16_Pats_gfx9<mul, add, V_MAD_I16_gfx9_e64>;
 
 } // End Predicates = [Has16BitInsts, isGFX10Plus]
 
-class ThreeOpFrag<SDPatternOperator op1, SDPatternOperator op2> : PatFrag<
+class ThreeOpFragSDAG<SDPatternOperator op1, SDPatternOperator op2> : PatFrag<
   (ops node:$x, node:$y, node:$z),
   // When the inner operation is used multiple times, selecting 3-op
   // instructions may still be beneficial -- if the other users can be
@@ -440,7 +440,9 @@ class ThreeOpFrag<SDPatternOperator op1, SDPatternOperator op2> : PatFrag<
     return true;
   }]> {
   let PredicateCodeUsesOperands = 1;
+}
 
+class ThreeOpFrag<SDPatternOperator op1, SDPatternOperator op2> : ThreeOpFragSDAG<op1, op2> {
   // The divergence predicate is irrelevant in GlobalISel, as we have
   // proper register bank checks. We just need to verify the constant
   // bus restriction when all the sources are considered.
@@ -567,6 +569,33 @@ class OpSelBinOpClampPat<SDPatternOperator node,
 def : OpSelBinOpClampPat<saddsat, V_ADD_I16_e64>;
 def : OpSelBinOpClampPat<ssubsat, V_SUB_I16_e64>;
 } // End SubtargetPredicate = isGFX9Plus
+
+// FIXME: GlobalISel in general does not handle instructions with 2 results,
+// so it cannot use these patterns.
+multiclass IMAD32_Pats <VOP3_Pseudo inst> {
+  def : GCNPat <
+        (ThreeOpFrag<mul, add> i32:$src0, i32:$src1, i32:$src2),
+        (EXTRACT_SUBREG (inst $src0, $src1,
+                              (REG_SEQUENCE SReg_64, // Use scalar and let it be legalized
+                                            $src2, sub0,
+                                            (i32 (IMPLICIT_DEF)), sub1),
+                                            0 /* clamp */),
+                        sub0)
+        >;
+  // Immediate src2 in the pattern above will not fold because it would be partially
+  // undef. Hence define specialized pattern for this case.
+  // FIXME: GlobalISel pattern exporter fails to export a pattern like this and asserts,
+  // make it SDAG only.
+  def : GCNPat <
+        (ThreeOpFragSDAG<mul, add> i32:$src0, i32:$src1, (i32 imm:$src2)),
+        (EXTRACT_SUBREG (inst $src0, $src1, (i64 (as_i64imm $src2)), 0 /* clamp */), sub0)
+        >;
+}
+
+let SubtargetPredicate = isGFX9GFX10 in // exclude pre-GFX9 where it was slow
+defm : IMAD32_Pats<V_MAD_U64_U32_e64>;
+let SubtargetPredicate = isGFX11Only in
+defm : IMAD32_Pats<V_MAD_U64_U32_gfx11_e64>;
 
 def VOP3_PERMLANE_Profile : VOP3_Profile<VOPProfile <[i32, i32, i32, i32]>, VOP3_OPSEL> {
   let Src0RC64 = VRegSrc_32;
@@ -826,8 +855,15 @@ defm V_DIV_SCALE_F32       : VOP3be_Real_gfx11<0x2fc, "V_DIV_SCALE_F32", "v_div_
 defm V_DIV_SCALE_F64       : VOP3be_Real_gfx11<0x2fd, "V_DIV_SCALE_F64", "v_div_scale_f64">;
 defm V_MAD_U64_U32_gfx11   : VOP3be_Real_gfx11<0x2fe, "V_MAD_U64_U32_gfx11", "v_mad_u64_u32">;
 defm V_MAD_I64_I32_gfx11   : VOP3be_Real_gfx11<0x2ff, "V_MAD_I64_I32_gfx11", "v_mad_i64_i32">;
+defm V_ADD_NC_U16          : VOP3Only_Realtriple_gfx11<0x303>;
+defm V_SUB_NC_U16          : VOP3Only_Realtriple_gfx11<0x304>;
+defm V_MUL_LO_U16          : VOP3Only_Realtriple_gfx11<0x305>;
 defm V_CVT_PK_I16_F32      : VOP3_Realtriple_gfx11<0x306>;
 defm V_CVT_PK_U16_F32      : VOP3_Realtriple_gfx11<0x307>;
+defm V_MAX_U16             : VOP3Only_Realtriple_gfx11<0x309>;
+defm V_MAX_I16             : VOP3Only_Realtriple_gfx11<0x30a>;
+defm V_MIN_U16             : VOP3Only_Realtriple_gfx11<0x30b>;
+defm V_MIN_I16             : VOP3Only_Realtriple_gfx11<0x30c>;
 defm V_ADD_NC_I16          : VOP3_Realtriple_with_name_gfx11<0x30d, "V_ADD_I16", "v_add_nc_i16">;
 defm V_SUB_NC_I16          : VOP3_Realtriple_with_name_gfx11<0x30e, "V_SUB_I16", "v_sub_nc_i16">;
 defm V_PACK_B32_F16        : VOP3_Realtriple_gfx11<0x311>;
@@ -844,6 +880,9 @@ defm V_MUL_LO_U32          : VOP3_Real_Base_gfx11<0x32c>;
 defm V_MUL_HI_U32          : VOP3_Real_Base_gfx11<0x32d>;
 defm V_MUL_HI_I32          : VOP3_Real_Base_gfx11<0x32e>;
 defm V_TRIG_PREOP_F64      : VOP3_Real_Base_gfx11<0x32f>;
+defm V_LSHLREV_B16         : VOP3Only_Realtriple_gfx11<0x338>;
+defm V_LSHRREV_B16         : VOP3Only_Realtriple_gfx11<0x339>;
+defm V_ASHRREV_I16         : VOP3Only_Realtriple_gfx11<0x33a>;
 defm V_LSHLREV_B64         : VOP3_Real_Base_gfx11<0x33c>;
 defm V_LSHRREV_B64         : VOP3_Real_Base_gfx11<0x33d>;
 defm V_ASHRREV_I64         : VOP3_Real_Base_gfx11<0x33e>;
@@ -851,6 +890,9 @@ defm V_READLANE_B32        : VOP3_Real_No_Suffix_gfx11<0x360>; // Pseudo in VOP2
 let InOperandList = (ins SSrcOrLds_b32:$src0, SCSrc_b32:$src1, VGPR_32:$vdst_in) in {
   defm V_WRITELANE_B32     : VOP3_Real_No_Suffix_gfx11<0x361>; // Pseudo in VOP2
 } // End InOperandList = (ins SSrcOrLds_b32:$src0, SCSrc_b32:$src1, VGPR_32:$vdst_in)
+defm V_AND_B16             : VOP3Only_Realtriple_gfx11<0x362>;
+defm V_OR_B16              : VOP3Only_Realtriple_gfx11<0x363>;
+defm V_XOR_B16             : VOP3Only_Realtriple_gfx11<0x364>;
 
 //===----------------------------------------------------------------------===//
 // GFX10.

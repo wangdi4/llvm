@@ -1658,7 +1658,6 @@ Value *SCEVExpander::visitAddRecExpr(const SCEVAddRecExpr *S) {
     NewS = Ext;
 
   const SCEV *V = cast<SCEVAddRecExpr>(NewS)->evaluateAtIteration(IH, SE);
-  //cerr << "Evaluated: " << *this << "\n     to: " << *V << "\n";
 
   // Truncate the result down to the original type, if needed.
   const SCEV *T = SE.getTruncateOrNoop(V, Ty);
@@ -2021,7 +2020,7 @@ SCEVExpander::replaceCongruentIVs(Loop *L, const DominatorTree *DT,
   // so narrow phis can reuse them.
   for (PHINode *Phi : Phis) {
     auto SimplifyPHINode = [&](PHINode *PN) -> Value * {
-      if (Value *V = SimplifyInstruction(PN, {DL, &SE.TLI, &SE.DT, &SE.AC}))
+      if (Value *V = simplifyInstruction(PN, {DL, &SE.TLI, &SE.DT, &SE.AC}))
         return V;
       if (!SE.isSCEVable(PN->getType()))
         return nullptr;
@@ -2748,16 +2747,26 @@ void SCEVExpanderCleaner::cleanup() {
     return;
 
   auto InsertedInstructions = Expander.getAllInsertedInstructions();
-#ifndef NDEBUG
+#if INTEL_CUSTOMIZATION
   SmallPtrSet<Instruction *, 8> InsertedSet(InsertedInstructions.begin(),
                                             InsertedInstructions.end());
   (void)InsertedSet;
-#endif
+#endif // INTEL_CUSTOMIZATION
   // Remove sets with value handles.
   Expander.clear();
 
   // Remove all inserted instructions.
   for (Instruction *I : reverse(InsertedInstructions)) {
+#if INTEL_CUSTOMIZATION
+    // An expansion may cross between loops because of aggressive phi analysis.
+    // LCSAA fixup will create a liveout from the loop which cannot just be
+    // deleted blindly here.
+    if (any_of(I->users(),
+               [&InsertedSet](Value *U) {
+                 return !InsertedSet.contains(cast<Instruction>(U));
+               }))
+      continue;
+#endif // INTEL_CUSTOMIZATION
 #ifndef NDEBUG
     assert(all_of(I->users(),
                   [&InsertedSet](Value *U) {

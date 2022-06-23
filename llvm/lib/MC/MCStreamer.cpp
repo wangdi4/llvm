@@ -286,6 +286,13 @@ void MCStreamer::emitCFIBKeyFrame() {
   CurFrame->IsBKeyFrame = true;
 }
 
+void MCStreamer::emitCFIMTETaggedFrame() {
+  MCDwarfFrameInfo *CurFrame = getCurrentDwarfFrameInfo();
+  if (!CurFrame)
+    return;
+  CurFrame->IsMTETaggedFrame = true;
+}
+
 void MCStreamer::emitDwarfLocDirective(unsigned FileNo, unsigned Line,
                                        unsigned Column, unsigned Flags,
                                        unsigned Isa, unsigned Discriminator,
@@ -435,7 +442,7 @@ void MCStreamer::emitEHSymAttributes(const MCSymbol *Symbol,
 }
 
 void MCStreamer::initSections(bool NoExecStack, const MCSubtargetInfo &STI) {
-  SwitchSection(getContext().getObjectFileInfo()->getTextSection());
+  switchSection(getContext().getObjectFileInfo()->getTextSection());
 }
 
 void MCStreamer::assignFragment(MCSymbol *Symbol, MCFragment *Fragment) {
@@ -766,7 +773,7 @@ void MCStreamer::emitWinCFIEndProc(SMLoc Loc) {
   for (size_t I = CurrentProcWinFrameInfoStartIndex, E = WinFrameInfos.size();
        I != E; ++I)
     emitWindowsUnwindTables(WinFrameInfos[I].get());
-  SwitchSection(CurFrame->TextSection);
+  switchSection(CurFrame->TextSection);
 }
 
 void MCStreamer::emitWinCFIFuncletOrFuncEnd(SMLoc Loc) {
@@ -1249,7 +1256,7 @@ void MCStreamer::emitBundleLock(bool AlignToEnd) {}
 void MCStreamer::finishImpl() {}
 void MCStreamer::emitBundleUnlock() {}
 
-void MCStreamer::SwitchSection(MCSection *Section, const MCExpr *Subsection) {
+void MCStreamer::switchSection(MCSection *Section, const MCExpr *Subsection) {
   assert(Section && "Cannot switch to a null section!");
   MCSectionSubPair curSection = SectionStack.back().first;
   SectionStack.back().second = curSection;
@@ -1270,7 +1277,7 @@ MCSymbol *MCStreamer::endSection(MCSection *Section) {
   if (Sym->isInSection())
     return Sym;
 
-  SwitchSection(Section);
+  switchSection(Section);
   emitLabel(Sym);
   return Sym;
 }

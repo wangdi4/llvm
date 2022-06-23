@@ -3436,6 +3436,9 @@ function, or in conjunction with ``max_interleaving``,
 ``speculated_iterations``, ``max_concurrency``, ``initiation_interval``,
 or ``ivdep``.
 
+The ``[[intel::disable_loop_pipelining]]`` attribute spelling is a deprecated
+synonym for ``[[[intel::fpga_pipeline]]`` and will be removed in the future.
+
 .. code-block:: c++
 
   void foo() {
@@ -3444,6 +3447,58 @@ or ``ivdep``.
   }
 
   [[intel::disable_loop_pipelining]] void foo1() { }
+
+  }];
+}
+
+def SYCLIntelFPGAPipelineAttrDocs : Documentation {
+  let Category = DocCatVariable;
+  let Heading = "intel::fpga_pipeline";
+  let Content = [{
+The ``intel::fpga_pipeline(N)`` attribute applies to a loop and it allows users
+to disable or enable pipelining iterations of a loop. The attribute optionally
+accepts an integer constant expression that is converted to `bool`. A `true`
+value enables pipelining while a `false` value disables pipelining. The
+optional argument defaults to `true`. This attribute cannot be applied to a
+loop in conjunction with the  ``max_interleaving``, ``speculated_iterations``,
+``max_concurrency``, ``initiation_interval``, or ``ivdep`` attributes.
+
+.. code-block:: c++
+
+  // Disable loop pipelining
+  void bar() {
+    int a[10];
+    [[[intel::fpga_pipeline(0)]] for (int i = 0; i != 10; ++i) a[i] = 0;
+  }
+
+  // Enable loop pipelining
+  void foo() {
+    int var = 0;
+    [[intel::fpga_pipeline(1)]] for (int i = 0; i < 10; ++i) var++;
+  }
+
+  void Array(int *array, size_t n) {
+    // identical to [[intel::fpga_pipeline(1)]]
+    [[intel::fpga_pipeline]] for (int i = 0; i < n; ++i) array[i] = 0;
+  }
+
+  void count () {
+  int a1[10], int i = 0;
+  [[intel::fpga_pipeline(1)]] while (i < 10) {
+    a1[i] += 3;
+  }
+
+  void check() {
+    int a = 10;
+    [[intel::fpga_pipeline(1)]] do {
+      a = a + 1;
+    } while (a < 20);
+  }
+
+  template<int A>
+  void func() {
+    [[intel::fpga_pipeline(A)]] for(;;) { }
+  }
 
   }];
 }
@@ -7589,6 +7644,15 @@ from the routine. The attribute can be applied to C++ methods, and in this case
 it will be automatically applied to overrides if the method is virtual. The
 attribute can also be written using C++11 syntax: ``[[mig::server_routine]]``.
 }];
+}
+
+def MinSizeDocs : Documentation {
+  let Category = DocCatFunction;
+  let Content = [{
+This function attribute indicates that optimization passes and code generator passes
+make choices that keep the function code size as small as possible. Optimizations may
+also sacrifice runtime performance in order to minimize the size of the generated code.
+  }];
 }
 
 def MSAllocatorDocs : Documentation {

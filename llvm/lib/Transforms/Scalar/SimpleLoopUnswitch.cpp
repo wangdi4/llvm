@@ -2810,8 +2810,7 @@ static bool unswitchBestCondition(
       PartialIVInfo = *Info;
       PartialIVCondBranch = L.getHeader()->getTerminator();
       TinyPtrVector<Value *> ValsToDuplicate;
-      for (auto *Inst : Info->InstToDuplicate)
-        ValsToDuplicate.push_back(Inst);
+      llvm::append_range(ValsToDuplicate, Info->InstToDuplicate);
       UnswitchCandidates.push_back(
           {L.getHeader()->getTerminator(), std::move(ValsToDuplicate)});
     }

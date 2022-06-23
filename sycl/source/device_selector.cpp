@@ -130,7 +130,7 @@ device device_selector::select_device() const {
       "No device of requested type available. Please check "
       "https://software.intel.com/content/www/us/en/develop/articles/"
       "intel-oneapi-dpcpp-system-requirements.html",
-      PI_DEVICE_NOT_FOUND);
+      PI_ERROR_DEVICE_NOT_FOUND);
 #endif // INTEL_CUSTOMIZATION
 }
 

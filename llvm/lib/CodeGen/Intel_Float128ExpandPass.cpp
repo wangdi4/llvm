@@ -257,7 +257,7 @@ void Float128Expand::PostTransformFP128PHI() {
         AllocaInst *AllocaForPhi =
             CreateFP128AllocaInst(Builder, NewPhi->getParent());
         Builder.CreateAlignedStore(OldPhi, AllocaForPhi,
-                                   MaybeAlign(AllocaForPhi->getAlignment()));
+                                   MaybeAlign(AllocaForPhi->getAlign()));
         NewPhi->replaceAllUsesWith(AllocaForPhi);
         // Update the Value2Ptr by Replacing NewPhi in Value2Ptr with
         // AllocaForPhi
@@ -394,7 +394,7 @@ Value *Float128Expand::expandToLibCall(IRBuilder<> &Builder, Instruction *I,
       AllocaInst *AllocaOp0 = CreateFP128AllocaInst(Builder, I->getParent());
       CreateFP128LifetimeStart(Builder, AllocaOp0, *I->getFunction());
       Builder.CreateAlignedStore(Ops[0], AllocaOp0,
-                                 MaybeAlign(AllocaOp0->getAlignment()));
+                                 MaybeAlign(AllocaOp0->getAlign()));
       Args.push_back(AllocaOp0);
       VNT.insert(Ops[0], AllocaOp0);
       Value2Ptr.insert({Ops[0], AllocaOp0});
@@ -420,7 +420,7 @@ Value *Float128Expand::expandToLibCall(IRBuilder<> &Builder, Instruction *I,
       AllocaInst *AllocaOp1 = CreateFP128AllocaInst(Builder, I->getParent());
       CreateFP128LifetimeStart(Builder, AllocaOp1, *I->getFunction());
       Builder.CreateAlignedStore(Ops[1], AllocaOp1,
-                                 MaybeAlign(AllocaOp1->getAlignment()));
+                                 MaybeAlign(AllocaOp1->getAlign()));
       Args.push_back(AllocaOp1);
       VNT.insert(Ops[1], AllocaOp1);
       Value2Ptr.insert({Ops[1], AllocaOp1});
@@ -452,7 +452,7 @@ Value *Float128Expand::expandToLibCall(IRBuilder<> &Builder, Instruction *I,
 
   if (AllocaDst) {
     Result = Builder.CreateAlignedLoad(FP128Ty, AllocaDst,
-                                       MaybeAlign(AllocaDst->getAlignment()));
+                                       MaybeAlign(AllocaDst->getAlign()));
     // Record the Result maping to AllocaDst so that we can resue it later.
     VNT.insert(Result, AllocaDst);
     LastUse[{I->getParent(), AllocaDst}] = Result;
@@ -711,7 +711,7 @@ bool Float128Expand::ProcessBlock(BasicBlock *BB) {
       AllocaInst *AllocaArg = CreateFP128AllocaInst(Builder, BB);
       CreateFP128LifetimeStart(Builder, AllocaArg, *BB->getParent());
       Builder.CreateAlignedStore(&Arg, AllocaArg,
-                                 MaybeAlign(AllocaArg->getAlignment()));
+                                 MaybeAlign(AllocaArg->getAlign()));
       VNT.insert(&Arg, AllocaArg);
       Value2Ptr.insert({&Arg, AllocaArg});
       if (!isUsedbyPHI(&Arg))

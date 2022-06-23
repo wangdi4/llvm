@@ -1687,6 +1687,8 @@ static Attribute::AttrKind getAttrFromCode(uint64_t Code) {
   case bitc::ATTR_KIND_INLINE_HINT_RECURSIVE:
     return Attribute::InlineHintRecursive;
 #endif // INTEL_CUSTOMIZATION
+  case bitc::ATTR_KIND_PRESPLIT_COROUTINE:
+    return Attribute::PresplitCoroutine;
   }
 }
 
@@ -3494,6 +3496,19 @@ static void inferDSOLocal(GlobalValue *GV) {
     GV->setDSOLocal(true);
 }
 
+GlobalValue::SanitizerMetadata deserializeSanitizerMetadata(unsigned V) {
+  GlobalValue::SanitizerMetadata Meta;
+  if (V & (1 << 0))
+    Meta.NoAddress = true;
+  if (V & (1 << 1))
+    Meta.NoHWAddress = true;
+  if (V & (1 << 2))
+    Meta.NoMemtag = true;
+  if (V & (1 << 3))
+    Meta.IsDynInit = true;
+  return Meta;
+}
+
 Error BitcodeReader::parseGlobalVarRecord(ArrayRef<uint64_t> Record) {
   // v1: [pointer type, isconst, initid, linkage, alignment, section,
   // visibility, threadlocal, unnamed_addr, externally_initialized,
@@ -3602,13 +3617,19 @@ Error BitcodeReader::parseGlobalVarRecord(ArrayRef<uint64_t> Record) {
   if (Record.size() > 15)
     NewGV->setPartition(StringRef(Strtab.data() + Record[14], Record[15]));
 
-#if INTEL_COLLAB
-  if (Record.size() > 16) {
-    NewGV->setThreadPrivate(getDecodedThreadPrivate(Record[16]));
+  if (Record.size() > 16 && Record[16]) {
+    llvm::GlobalValue::SanitizerMetadata Meta =
+        deserializeSanitizerMetadata(Record[16]);
+    NewGV->setSanitizerMetadata(Meta);
   }
 
+#if INTEL_COLLAB
   if (Record.size() > 17) {
-    NewGV->setTargetDeclare(getDecodedTargetDeclare(Record[17]));
+    NewGV->setThreadPrivate(getDecodedThreadPrivate(Record[17]));
+  }
+
+  if (Record.size() > 18) {
+    NewGV->setTargetDeclare(getDecodedTargetDeclare(Record[18]));
   }
 #endif // INTEL_COLLAB
 

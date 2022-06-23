@@ -1129,7 +1129,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
           CmdArgs.push_back("-Bdynamic");
 #endif // INTEL_CUSTOMIZATION
         CmdArgs.push_back("-lsycl");
-	CmdArgs.push_back("-lsycl-devicelib-host");
+        CmdArgs.push_back("-lsycl-devicelib-host");
         // Use of -fintelfpga implies -lOpenCL.
         // FIXME: Adjust to use plugin interface when available.
         if (Args.hasArg(options::OPT_fintelfpga))
@@ -2699,7 +2699,7 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
     }
 
     if (ChosenToolsetVersion > 0)
-      Prefixes.push_back(ChosenToolsetDir);
+      Prefixes.push_back(ChosenToolsetDir + "/root/usr");
   }
 
   // Fall back to /usr which is used by most non-Solaris systems.

@@ -2869,7 +2869,7 @@ void VPOParoptTransform::genReductionUdrInit(ReductionItem *RedI,
       uint64_t Size = DL.getTypeAllocSize(ScalarTy);
       unsigned Alignment = 0;
       if (auto *AI = dyn_cast<AllocaInst>(RedI->getNew()->stripPointerCasts()))
-        Alignment = AI->getAlignment();
+        Alignment = AI->getAlign().value();
       VPOUtils::genMemset(ReductionValueLoc, V, Size, Alignment, Builder);
     }
   }
@@ -8496,7 +8496,7 @@ void VPOParoptTransform::simplifyLoopPHINodes(
       if (!PN)
         // Stop processing the block at the first non-PHINode instruction.
         break;
-      if (auto *V = SimplifyInstruction(PN, SQ)) {
+      if (auto *V = simplifyInstruction(PN, SQ)) {
         PN->replaceAllUsesWith(V);
         PHIsToDelete.push_back(PN);
       }

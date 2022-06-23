@@ -3247,11 +3247,10 @@ define void @i8_7x(<7 x i8>* %in, <7 x i8>* %out) {
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-AVX512-VL-NEXT:    movl (%ecx), %edx
-; X86-AVX512-VL-NEXT:    vmovd %edx, %xmm0
-; X86-AVX512-VL-NEXT:    vpinsrd $1, 4(%ecx), %xmm0, %xmm0
-; X86-AVX512-VL-NEXT:    movl %edx, (%eax)
+; X86-AVX512-VL-NEXT:    vmovq {{.*#+}} xmm0 = mem[0],zero
 ; X86-AVX512-VL-NEXT:    vpextrb $6, %xmm0, 6(%eax)
 ; X86-AVX512-VL-NEXT:    vpextrw $2, %xmm0, 4(%eax)
+; X86-AVX512-VL-NEXT:    movl %edx, (%eax)
 ; X86-AVX512-VL-NEXT:    retl
 ;
 ; X86-AVX512-VL-BW-LABEL: i8_7x:

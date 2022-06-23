@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <iterator>
 #include <type_traits>
 
 struct S {
@@ -109,4 +110,6 @@ constexpr bool test() {
 int main(int, char**) {
   test();
   static_assert(test());
+
+  return 0;
 }
