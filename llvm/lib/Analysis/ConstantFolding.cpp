@@ -1410,6 +1410,12 @@ Constant *FlushFPConstant(Constant *Operand, const llvm::Function *F,
     DenormalMode DenormMode = F->getDenormalMode(Ty->getFltSemantics());
     DenormalMode::DenormalModeKind Mode =
         IsOutput ? DenormMode.Output : DenormMode.Input;
+#if INTEL_CUSTOMIZATION
+    // If the IR creator used an invalid string, ignore it and use our xmain
+    // default (preserve-sign)
+    if (Mode == DenormalMode::Invalid)
+      Mode = DenormalMode::PreserveSign;
+#endif // INTEL_CUSTOMIZATION
     switch (Mode) {
     default:
       llvm_unreachable("unknown denormal mode");
