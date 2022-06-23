@@ -3273,15 +3273,9 @@ def fdriver_only : Flag<["-"], "fdriver-only">, Flags<[NoXarchOption, CoreOption
   Group<Action_Group>, HelpText<"Only run the driver.">;
 #if INTEL_CUSTOMIZATION
 def fintelfpga : Flag<["-"], "fintelfpga">, Group<f_Group>,
-<<<<<<< HEAD
-  Flags<[CC1Option, CoreOption, DpcppOption]>,
+  Flags<[CC1Option, CoreOption, DpcppOption]>, MarshallingInfoFlag<LangOpts<"IntelFPGA">>,
   HelpText<"Perform ahead-of-time compilation for FPGA">;
 def fsycl_device_only : Flag<["-"], "fsycl-device-only">, Flags<[CoreOption, DpcppOption]>,
-=======
-  Flags<[CC1Option, CoreOption]>, MarshallingInfoFlag<LangOpts<"IntelFPGA">>,
-  HelpText<"Perform ahead-of-time compilation for FPGA">;
-def fsycl_device_only : Flag<["-"], "fsycl-device-only">, Flags<[CoreOption]>,
->>>>>>> db5f72a8167ddebe0e722f02511885ea4b497369
   HelpText<"Compile SYCL kernels for device">;
 defm sycl_esimd_force_stateless_mem : BoolFOption<"sycl-esimd-force-stateless-mem",
     LangOpts<"SYCLESIMDForceStatelessMem">, DefaultFalse,
