@@ -3303,6 +3303,9 @@ is unspecified and is therefore considered infinite.
 In case of ivdep being applied both w/o an array variable and for a particular
 array, the array variables that were not designated a separate ivdep will receive
 the no-array ivdep's safelen, with the correspondent treatment by the backend.
+The ``[[intel::ivdep]]`` attribute applies a safelen value of 0 or 1 that has
+no effect on the loop and emits a suppressible warning when safelen value of 0
+or 1 is used.
 // INTEL_CUSTOMIZATION
 Note: this version of the attribute is not fully supported by the backend yet.
 // end INTEL_CUSTOMIZATION
