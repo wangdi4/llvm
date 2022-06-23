@@ -662,6 +662,8 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
   }
   case llvm::Triple::spir64: {
     llvm::Triple HT(Opts.HostTriple);
+    bool IsFPGASubArch = Triple.getSubArch() == llvm::Triple::SPIRSubArch_fpga;
+
     switch (HT.getOS()) {
     case llvm::Triple::Win32:
       switch (HT.getEnvironment()) {
@@ -679,8 +681,11 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
 #endif // INTEL_CUSTOMIZATION
       }
     case llvm::Triple::Linux:
+      if (IsFPGASubArch)
+        return new LinuxTargetInfo<SPIR64FPGATargetInfo>(Triple, Opts);
       return new LinuxTargetInfo<SPIR64TargetInfo>(Triple, Opts);
     default:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       switch (Triple.getEnvironment()) {
       case llvm::Triple::IntelFPGA:
@@ -693,6 +698,11 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
         return nullptr;
       }
 #endif // INTEL_CUSTOMIZATION
+=======
+      if (IsFPGASubArch)
+        return new SPIR64FPGATargetInfo(Triple, Opts);
+      return new SPIR64TargetInfo(Triple, Opts);
+>>>>>>> db5f72a8167ddebe0e722f02511885ea4b497369
     }
   }
 

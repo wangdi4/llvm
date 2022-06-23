@@ -260,6 +260,7 @@ public:
                         MacroBuilder &Builder) const override;
 };
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 class LLVM_LIBRARY_VISIBILITY SPIR32INTELFpgaTargetInfo
     : public SPIR32TargetInfo {
@@ -319,6 +320,15 @@ public:
       : WindowsX86_64_SPIR64INTELFpgaTargetInfo(Triple, Opts) {}
 };
 #endif // INTEL_CUSTOMIZATION
+=======
+// spir64_fpga target
+class LLVM_LIBRARY_VISIBILITY SPIR64FPGATargetInfo : public SPIR64TargetInfo {
+public:
+  SPIR64FPGATargetInfo(const llvm::Triple &Triple, const TargetOptions &Opts)
+      : SPIR64TargetInfo(Triple, Opts) {}
+  virtual size_t getMaxBitIntWidth() const override { return 2048; }
+};
+>>>>>>> db5f72a8167ddebe0e722f02511885ea4b497369
 
 // x86-32 SPIR Windows target
 class LLVM_LIBRARY_VISIBILITY WindowsX86_32SPIRTargetInfo
