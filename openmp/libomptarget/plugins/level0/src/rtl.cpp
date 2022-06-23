@@ -2147,12 +2147,17 @@ class MemAllocatorTy {
 
       // Convert MB to B and round up to power of 2
       AllocMax = AllocMin << getBucketId(UserAllocMax * (1 << 20));
+      if (AllocMin >= AllocMax) {
+        AllocMax = 2 * AllocMin;
+        DP("Warning: Adjusting pool's AllocMax to %zu for %s due to device "
+           "requirements.\n", AllocMax, ALLOC_KIND_TO_STR(AllocKind));
+      }
+      assert(AllocMin < AllocMax && AllocMax < PoolSizeMax &&
+             "Invalid parameters while initializing memory pool");
       auto MinSize = getBucketId(AllocMin);
       auto MaxSize = getBucketId(AllocMax);
       Buckets.resize(MaxSize - MinSize + 1);
       BucketStats.resize(Buckets.size(), {0, 0});
-      assert(AllocMin < AllocMax && AllocMax < PoolSizeMax &&
-             "Invalid parameters while initializing memory pool");
 
       // Set bucket parameters
       for (size_t I = 0; I < Buckets.size(); I++) {
