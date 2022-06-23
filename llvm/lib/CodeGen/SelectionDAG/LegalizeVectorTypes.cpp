@@ -4071,7 +4071,7 @@ SDValue DAGTypeLegalizer::WidenVecRes_BinaryCanTrap(SDNode *N) {
   EVT WidenVT = TLI.getTypeToTransformTo(*DAG.getContext(), N->getValueType(0));
   EVT WidenEltVT = WidenVT.getVectorElementType();
   EVT VT = WidenVT;
-  unsigned NumElts =  VT.getVectorNumElements();
+  unsigned NumElts = VT.getVectorMinNumElements();
   const SDNodeFlags Flags = N->getFlags();
   while (!TLI.isTypeLegal(VT) && NumElts != 1) {
     NumElts = NumElts / 2;
@@ -4084,6 +4084,9 @@ SDValue DAGTypeLegalizer::WidenVecRes_BinaryCanTrap(SDNode *N) {
     SDValue InOp2 = GetWidenedVector(N->getOperand(1));
     return DAG.getNode(N->getOpcode(), dl, WidenVT, InOp1, InOp2, Flags);
   }
+
+  // FIXME: Improve support for scalable vectors.
+  assert(!VT.isScalableVector() && "Scalable vectors not handled yet.");
 
   // No legal vector version so unroll the vector operation and then widen.
   if (NumElts == 1)
