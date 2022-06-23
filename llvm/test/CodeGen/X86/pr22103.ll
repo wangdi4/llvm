@@ -1,4 +1,4 @@
-; RUN: llc < %s | FileCheck %s
+; RUN: llc -opaque-pointers < %s | FileCheck %s
 ; Don't try to emit a direct call through a TLS global.
 ; This fixes PR22103
 
