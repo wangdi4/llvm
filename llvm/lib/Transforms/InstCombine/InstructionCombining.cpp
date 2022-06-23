@@ -219,6 +219,23 @@ MaxArraySize("instcombine-maxarray-size", cl::init(1024),
 static cl::opt<unsigned> ShouldLowerDbgDeclare("instcombine-lower-dbg-declare",
                                                cl::Hidden, cl::init(true));
 
+#if INTEL_CUSTOMIZATION
+// Returns true if the code is targeted to "advanced" vector architectures:
+// prefer-vector-width is on the function (used for OpenCL targets), OR
+// enable-intel-advanced-opts is true and AVX2 or AVX512 is enabled on the
+// target.
+static bool TargetIsAVX(TargetTransformInfo &TTI, Function *F) {
+  auto HasAVX512 =
+      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512;
+  auto HasAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
+  bool HasVecWidth = false;
+  if (F)
+    HasVecWidth = F->getFnAttribute("prefer-vector-width").isValid();
+  return TTI.isAdvancedOptEnabled(HasAVX2) ||
+         TTI.isAdvancedOptEnabled(HasAVX512) || HasVecWidth;
+}
+#endif // INTEL_CUSTOMIZATION
+
 Optional<Instruction *>
 InstCombiner::targetInstCombineIntrinsic(IntrinsicInst &II) {
   // Handle target specific intrinsics
@@ -4049,6 +4066,32 @@ InstCombinerImpl::pushFreezeToPreventPoisonFromPropagating(FreezeInst &OrigFI) {
       return nullptr;
   }
 
+#if INTEL_CUSTOMIZATION
+  if (MaybePoisonOperand)
+    if (auto *Phi = dyn_cast<PHINode>(MaybePoisonOperand->get())) {
+      // In cases where we care about vectorization, do not spread freeze to
+      // phis used by math instructions, which may be IVs, complex math, etc.
+      //
+      // %iv = phi (...)
+      // %r1 = mul %iv, ...
+      // %r2 = add %iv, ...
+      // %fr = freeze %r2
+      // ... cmp %fr ...
+      //    => NO
+      // %iv = phi (...)
+      // %fr.1 = freeze %iv ; IV is replaced by frozen version
+      // %r1 = mul %fr.1, ...
+      // %r2 = add %fr.1
+      // ... cmp %fr.1
+      auto &TTI = getTargetTransformInfo();
+      if (TargetIsAVX(TTI, Phi->getFunction()))
+        if (!Phi->hasOneUse())
+          for (auto *UserI : Phi->users())
+            if (isa<BinaryOperator>(UserI))
+              return nullptr;
+    }
+#endif // INTEL_CUSTOMIZATION
+
   OrigOpInst->dropPoisonGeneratingFlags();
 
   // If all operands are guaranteed to be non-poison, we can drop freeze.
@@ -4099,13 +4142,7 @@ bool InstCombinerImpl::freezeOtherUses(FreezeInst &FI) {
   // TODO: Investigate removal of the freezes at their source, 2fa8fc3d.
   auto &TTI = getTargetTransformInfo();
   auto *F = FI.getFunction();
-  bool isFortran = F->isFortran();
-  auto HasAVX512 =
-      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512;
-  auto HasAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
-  bool HasVecWidth = F->getFnAttribute("prefer-vector-width").isValid();
-  if (!isFortran && (TTI.isAdvancedOptEnabled(HasAVX2) ||
-                     TTI.isAdvancedOptEnabled(HasAVX512) || HasVecWidth))
+  if (!F->isFortran() && TargetIsAVX(TTI, F))
     MoveBefore = &FI;
 #endif // INTEL_CUSTOMIZATION
 
