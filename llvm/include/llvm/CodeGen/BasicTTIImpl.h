@@ -1225,7 +1225,7 @@ public:
            EI != EE; ++EI) {
         MaybeAlign ElementAlignment =
             Alignment
-                ? commonAlignment(Alignment, SL->getElementOffset(EI - EB))
+                ? commonAlignment(*Alignment, SL->getElementOffset(EI - EB))
                 : Alignment;
         Cost += static_cast<T *>(this)->getMemoryOpCost(
             Opcode, *EI, ElementAlignment, AddressSpace, CostKind, I);
@@ -1240,7 +1240,7 @@ public:
       uint64_t EltSize = DL.getTypeAllocSize(EltTy);
       for (unsigned i = 0, e = ATy->getNumElements(); i != e; ++i) {
         MaybeAlign ElementAlignment =
-            Alignment ? commonAlignment(Alignment, i * EltSize) : Alignment;
+            Alignment ? commonAlignment(*Alignment, i * EltSize) : Alignment;
         Cost += static_cast<T *>(this)->getMemoryOpCost(
             Opcode, EltTy, ElementAlignment, AddressSpace, CostKind, I);
       }
