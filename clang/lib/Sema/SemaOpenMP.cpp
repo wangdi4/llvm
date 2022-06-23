@@ -6708,6 +6708,7 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
 #endif // INTEL_CUSTOMIZATION
       case OMPC_affinity:
       case OMPC_bind:
+      case OMPC_filter:
         continue;
       case OMPC_allocator:
       case OMPC_flush:
