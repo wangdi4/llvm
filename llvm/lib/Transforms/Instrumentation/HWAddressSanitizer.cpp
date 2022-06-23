@@ -262,9 +262,7 @@ public:
 
   void setSSI(const StackSafetyGlobalInfo *S) { SSI = S; }
 
-  bool sanitizeFunction(Function &F,
-                        llvm::function_ref<const DominatorTree &()> GetDT,
-                        llvm::function_ref<const PostDominatorTree &()> GetPDT);
+  bool sanitizeFunction(Function &F, FunctionAnalysisManager &FAM);
   void initializeModule();
   void createHwasanCtorComdat();
 
@@ -297,8 +295,7 @@ public:
   Value *tagPointer(IRBuilder<> &IRB, Type *Ty, Value *PtrLong, Value *Tag);
   Value *untagPointer(IRBuilder<> &IRB, Value *PtrLong);
   bool instrumentStack(memtag::StackInfo &Info, Value *StackTag,
-                       llvm::function_ref<const DominatorTree &()> GetDT,
-                       llvm::function_ref<const PostDominatorTree &()> GetPDT);
+                       const DominatorTree &DT, const PostDominatorTree &PDT);
   Value *readRegister(IRBuilder<> &IRB, StringRef Name);
   bool instrumentLandingPads(SmallVectorImpl<Instruction *> &RetVec);
   Value *getNextTagWithCall(IRBuilder<> &IRB);
@@ -388,96 +385,7 @@ private:
   GlobalValue *ThreadPtrGlobal = nullptr;
 };
 
-#if INTEL_CUSTOMIZATION
-class HWAddressSanitizerLegacyPass : public FunctionPass {
-public:
-  // Pass identification, replacement for typeid.
-  static char ID;
-
-  explicit HWAddressSanitizerLegacyPass(bool CompileKernel = false,
-                                        bool Recover = false,
-                                        bool DisableOptimization = false)
-      : FunctionPass(ID), CompileKernel(CompileKernel), Recover(Recover),
-        DisableOptimization(DisableOptimization) {
-    initializeHWAddressSanitizerLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "HWAddressSanitizer"; }
-
-  bool doInitialization(Module &M) override {
-    HWASan = std::make_unique<HWAddressSanitizer>(M, CompileKernel, Recover,
-                                                  /*SSI=*/nullptr);
-    return true;
-  }
-
-  bool runOnFunction(Function &F) override {
-    auto TargetTriple = Triple(F.getParent()->getTargetTriple());
-    if (shouldUseStackSafetyAnalysis(TargetTriple, DisableOptimization)) {
-      // We cannot call getAnalysis in doInitialization, that would cause a
-      // crash as the required analyses are not initialized yet.
-      HWASan->setSSI(
-          &getAnalysis<StackSafetyGlobalInfoWrapperPass>().getResult());
-    }
-    return HWASan->sanitizeFunction(
-        F,
-        [&]() -> const DominatorTree & {
-          return getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-        },
-        [&]() -> const PostDominatorTree & {
-          return getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
-        });
-  }
-
-  bool doFinalization(Module &M) override {
-    HWASan.reset();
-    return false;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    // This is an over-estimation of, in case we are building for an
-    // architecture that doesn't allow stack tagging we will still load the
-    // analysis.
-    // This is so we don't need to plumb TargetTriple all the way to here.
-    if (mightUseStackSafetyAnalysis(DisableOptimization))
-      AU.addRequired<StackSafetyGlobalInfoWrapperPass>();
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<PostDominatorTreeWrapperPass>();
-  }
-
-private:
-  std::unique_ptr<HWAddressSanitizer> HWASan;
-  bool CompileKernel;
-  bool Recover;
-  bool DisableOptimization;
-};
-#endif // INTEL_CUSTOMIZATION
-
 } // end anonymous namespace
-
-#if INTEL_CUSTOMIZATION
-char HWAddressSanitizerLegacyPass::ID = 0;
-
-INITIALIZE_PASS_BEGIN(
-    HWAddressSanitizerLegacyPass, "hwasan",
-    "HWAddressSanitizer: detect memory bugs using tagged addressing.", false,
-    false)
-INITIALIZE_PASS_DEPENDENCY(StackSafetyGlobalInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
-INITIALIZE_PASS_END(
-    HWAddressSanitizerLegacyPass, "hwasan",
-    "HWAddressSanitizer: detect memory bugs using tagged addressing.", false,
-    false)
-
-FunctionPass *
-llvm::createHWAddressSanitizerLegacyPassPass(bool CompileKernel, bool Recover,
-                                             bool DisableOptimization) {
-  assert(!CompileKernel || Recover);
-  return new HWAddressSanitizerLegacyPass(CompileKernel, Recover,
-                                          DisableOptimization);
-}
-#endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses HWAddressSanitizerPass::run(Module &M,
                                               ModuleAnalysisManager &MAM) {
@@ -489,16 +397,8 @@ PreservedAnalyses HWAddressSanitizerPass::run(Module &M,
   HWAddressSanitizer HWASan(M, Options.CompileKernel, Options.Recover, SSI);
   bool Modified = false;
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-  for (Function &F : M) {
-    Modified |= HWASan.sanitizeFunction(
-        F,
-        [&]() -> const DominatorTree & {
-          return FAM.getResult<DominatorTreeAnalysis>(F);
-        },
-        [&]() -> const PostDominatorTree & {
-          return FAM.getResult<PostDominatorTreeAnalysis>(F);
-        });
-  }
+  for (Function &F : M)
+    Modified |= HWASan.sanitizeFunction(F, FAM);
   if (Modified)
     return PreservedAnalyses::none();
   return PreservedAnalyses::all();
@@ -1317,10 +1217,10 @@ static bool isLifetimeIntrinsic(Value *V) {
   return II && II->isLifetimeStartOrEnd();
 }
 
-bool HWAddressSanitizer::instrumentStack(
-    memtag::StackInfo &SInfo, Value *StackTag,
-    llvm::function_ref<const DominatorTree &()> GetDT,
-    llvm::function_ref<const PostDominatorTree &()> GetPDT) {
+bool HWAddressSanitizer::instrumentStack(memtag::StackInfo &SInfo,
+                                         Value *StackTag,
+                                         const DominatorTree &DT,
+                                         const PostDominatorTree &PDT) {
   // Ideally, we want to calculate tagged stack base pointer, and rewrite all
   // alloca addresses using that. Unfortunately, offsets are not known yet
   // (unless we use ASan-style mega-alloca). Instead we keep the base tag in a
@@ -1396,16 +1296,15 @@ bool HWAddressSanitizer::instrumentStack(
     // statement if return_twice functions are called.
     bool StandardLifetime =
         SInfo.UnrecognizedLifetimes.empty() &&
-        memtag::isStandardLifetime(Info.LifetimeStart, Info.LifetimeEnd,
-                                   &GetDT(), ClMaxLifetimes) &&
+        memtag::isStandardLifetime(Info.LifetimeStart, Info.LifetimeEnd, &DT,
+                                   ClMaxLifetimes) &&
         !SInfo.CallsReturnTwice;
     if (DetectUseAfterScope && StandardLifetime) {
       IntrinsicInst *Start = Info.LifetimeStart[0];
       IRB.SetInsertPoint(Start->getNextNode());
       tagAlloca(IRB, AI, Tag, Size);
-      if (!memtag::forAllReachableExits(GetDT(), GetPDT(), Start,
-                                        Info.LifetimeEnd, SInfo.RetVec,
-                                        TagEnd)) {
+      if (!memtag::forAllReachableExits(DT, PDT, Start, Info.LifetimeEnd,
+                                        SInfo.RetVec, TagEnd)) {
         for (auto *End : Info.LifetimeEnd)
           End->eraseFromParent();
       }
@@ -1445,9 +1344,8 @@ bool HWAddressSanitizer::isInterestingAlloca(const AllocaInst &AI) {
          !(SSI && SSI->isSafe(AI));
 }
 
-bool HWAddressSanitizer::sanitizeFunction(
-    Function &F, llvm::function_ref<const DominatorTree &()> GetDT,
-    llvm::function_ref<const PostDominatorTree &()> GetPDT) {
+bool HWAddressSanitizer::sanitizeFunction(Function &F,
+                                          FunctionAnalysisManager &FAM) {
   if (&F == HwasanCtorFunction)
     return false;
 
@@ -1508,9 +1406,11 @@ bool HWAddressSanitizer::sanitizeFunction(
                    !SInfo.AllocasToInstrument.empty());
 
   if (!SInfo.AllocasToInstrument.empty()) {
+    const DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+    const PostDominatorTree &PDT = FAM.getResult<PostDominatorTreeAnalysis>(F);
     Value *StackTag =
         ClGenerateTagsWithCalls ? nullptr : getStackBaseTag(EntryIRB);
-    instrumentStack(SInfo, StackTag, GetDT, GetPDT);
+    instrumentStack(SInfo, StackTag, DT, PDT);
   }
 
   // If we split the entry block, move any allocas that were originally in the
