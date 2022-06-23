@@ -1,4 +1,4 @@
-; RUN: llc < %s -O1 -mcpu=atom -mtriple=i686-linux  | FileCheck %s
+; RUN: llc -opaque-pointers < %s -O1 -mcpu=atom -mtriple=i686-linux  | FileCheck %s
 
 declare void @external_function(...)
 

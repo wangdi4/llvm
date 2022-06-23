@@ -5736,7 +5736,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BI__builtin_thread_pointer: {
     if (!getContext().getTargetInfo().isTLSSupported())
       CGM.ErrorUnsupported(E, "__builtin_thread_pointer");
-    // Fall through - it's already mapped to the intrinsic by GCCBuiltin.
+    // Fall through - it's already mapped to the intrinsic by ClangBuiltin.
     break;
   }
   case Builtin::BI__builtin_os_log_format:
@@ -5898,6 +5898,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   StringRef Prefix =
       llvm::Triple::getArchTypePrefix(getTarget().getTriple().getArch());
   if (!Prefix.empty()) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (getContext().getLangOpts().IntelCompat && BuiltinID == X86::BI_rdtsc) {
       // Alias _rdtsc to __builtin_ia32_rdtsc for ICC compatibility.  ICC's
@@ -5906,6 +5907,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     }
 #endif // INTEL_CUSTOMIZATION
     IntrinsicID = Intrinsic::getIntrinsicForGCCBuiltin(Prefix.data(), Name);
+=======
+    IntrinsicID = Intrinsic::getIntrinsicForClangBuiltin(Prefix.data(), Name);
+>>>>>>> 8b3bcfdbbc1265369bb9a7b72af1770fc7960b41
     // NOTE we don't need to perform a compatibility flag check here since the
     // intrinsics are declared in Builtins*.def via LANGBUILTIN which filter the
     // MS builtins via ALL_MS_LANGUAGES and are filtered earlier.
@@ -22574,7 +22578,7 @@ Value *CodeGenFunction::EmitWebAssemblyBuiltinExpr(unsigned BuiltinID,
 }
 
 static std::pair<Intrinsic::ID, unsigned>
-getIntrinsicForHexagonNonGCCBuiltin(unsigned BuiltinID) {
+getIntrinsicForHexagonNonClangBuiltin(unsigned BuiltinID) {
   struct Info {
     unsigned BuiltinID;
     Intrinsic::ID IntrinsicID;
@@ -22634,7 +22638,7 @@ Value *CodeGenFunction::EmitHexagonBuiltinExpr(unsigned BuiltinID,
                                                const CallExpr *E) {
   Intrinsic::ID ID;
   unsigned VecLen;
-  std::tie(ID, VecLen) = getIntrinsicForHexagonNonGCCBuiltin(BuiltinID);
+  std::tie(ID, VecLen) = getIntrinsicForHexagonNonClangBuiltin(BuiltinID);
 
   auto MakeCircOp = [this, E](unsigned IntID, bool IsLoad) {
     // The base pointer is passed by address, so it needs to be loaded.
