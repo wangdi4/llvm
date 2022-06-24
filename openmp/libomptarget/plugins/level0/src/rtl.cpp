@@ -3602,8 +3602,9 @@ static int32_t decideLoopKernelGroupArguments(
 
   for (int32_t i = 0; i < numLoopLevels; i++) {
     assert(level[i].Stride > 0 && "Invalid loop stride for ND partitioning");
-    DP("Level %" PRIu32 ": Lb = %" PRId64 ", Ub = %" PRId64 ", Stride = %"
-       PRId64 "\n", i, level[i].Lb, level[i].Ub, level[i].Stride);
+    DP("Loop %" PRIu32 ": lower bound = %" PRId64 ", upper bound = %" PRId64
+       ", Stride = %" PRId64 "\n",
+       i, level[i].Lb, level[i].Ub, level[i].Stride);
     if (level[i].Ub < level[i].Lb)
       tripCounts[i] = 0;
     else
@@ -3976,9 +3977,9 @@ static int32_t runTargetTeamRegion(
   forceGroupSizes(GroupSizes, GroupCounts);
 #endif // INTEL_INTERNAL_BUILD
 
-  DP("Group sizes = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
+  DP("Team sizes = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
      GroupSizes[0], GroupSizes[1], GroupSizes[2]);
-  DP("Group counts = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
+  DP("Number of teams = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
      GroupCounts.groupCountX, GroupCounts.groupCountY, GroupCounts.groupCountZ);
 
   if (OMPT_ENABLED) {
