@@ -1484,10 +1484,14 @@ optimizations on adjacent loops.
 
 def PragmaIVDepDocs : Documentation {
   let Category = DocCatIntelLoops;
-  let Owner = "mprice1,pmrao";
+  let Owner = "mprice1,pmrao,smanna";
   let Content = [{
 The ``ivdep`` pragma instructs the compiler to ignore assumed vector
 dependencies in a loop.
+
+The ``ivdep`` pragma applies a safelen value of 0 or 1 that has
+no effect on the loop and emits a suppressible warning when safelen
+value of 0 or 1 is used.
 
 Intel form (enabled with -fintel-compatibility) syntax:
 
