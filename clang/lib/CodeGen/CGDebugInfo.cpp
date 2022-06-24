@@ -44,7 +44,6 @@
 #include "clang/AST/RecordLayout.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Basic/CodeGenOptions.h"
-#include "clang/Basic/DebugInfoOptions.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/Version.h"
@@ -622,6 +621,7 @@ void CGDebugInfo::CreateCompileUnit() {
   case codegenoptions::DebugDirectivesOnly:
     EmissionKind = llvm::DICompileUnit::DebugDirectivesOnly;
     break;
+  case codegenoptions::DebugInfoConstructor:
   case codegenoptions::LimitedDebugInfo:
   case codegenoptions::FullDebugInfo:
   case codegenoptions::UnusedTypeInfo:
@@ -1924,7 +1924,7 @@ llvm::DISubprogram *CGDebugInfo::CreateCXXMemberFunction(
 
   // In this debug mode, emit type info for a class when its constructor type
   // info is emitted.
-  if (DebugKind == codegenoptions::LimitedDebugInfo)
+  if (DebugKind == codegenoptions::DebugInfoConstructor)
     if (const CXXConstructorDecl *CD = dyn_cast<CXXConstructorDecl>(Method))
       completeUnusedClass(*CD->getParent());
 
@@ -2606,7 +2606,7 @@ static bool shouldOmitDefinition(codegenoptions::DebugInfoKind DebugKind,
 
   // In constructor homing mode, only emit complete debug info for a class
   // when its constructor is emitted.
-  if ((DebugKind == codegenoptions::LimitedDebugInfo) &&
+  if ((DebugKind == codegenoptions::DebugInfoConstructor) &&
       canUseCtorHoming(CXXDecl))
     return true;
 
@@ -3439,7 +3439,7 @@ void CGDebugInfo::completeTemplateDefinition(
 }
 
 void CGDebugInfo::completeUnusedClass(const CXXRecordDecl &D) {
-  if (DebugKind <= codegenoptions::DebugLineTablesOnly || D.isDynamicClass())
+  if (DebugKind <= codegenoptions::DebugLineTablesOnly)
     return;
 
   completeClassData(&D);
