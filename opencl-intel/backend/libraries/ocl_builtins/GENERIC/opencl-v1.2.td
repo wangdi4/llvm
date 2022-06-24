@@ -1189,20 +1189,35 @@ def _convert_f64_sat_rtn : OclBuiltin<"convert_$ReturnType_sat_rtn", (outs f64ge
 
 // VectInfo for OclVecClone
 // conversion to integer has satured mode.
-let Types = [ v1i8, v1u8, v1i16, v1u16, v1i32,
-              v1u32, v1i64, v1u64, v1f32, v1f64] in {
+let Types = [ v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f16, v1f32, v1f64] in {
   foreach type = ["u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64"] in {
-    def intel_convert_#type : VectInfo<[], !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type)>;
-    def intel_convert_#type#_sat : VectInfo<[], !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat")>;
+    def intel_convert_#type : VectInfo<[], !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type),
+                                           !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type)>;
+    def intel_convert_#type#_sat : VectInfo<[], !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat"),
+                                                !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat"), !cast<OclBuiltin>("convert_"#type#"_sat")>;
   }
 }
 
 // conversions from floating to integer also honor rounding mode as well as saturated mode.
-let Types = [v1f32, v1f64] in {
+let Types = [v1f16, v1f32, v1f64] in {
   foreach type = ["u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64"] in {
     foreach op = ["rte", "rtz", "rtp", "rtn"] in {
-      def intel_convert_#type#_#op : VectInfo<[], !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op)>;
-      def intel_convert_#type#_sat_#op : VectInfo<[], !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op)>;
+      def intel_convert_#type#_#op : VectInfo<[], !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op),
+                                                  !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op)>;
+      def intel_convert_#type#_sat_#op : VectInfo<[], !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op),
+                                                      !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op), !cast<OclBuiltin>("convert_"#type#"_sat_"#op)>;
+    }
+  }
+}
+
+// conversions to floating point
+let Types = [ v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f16, v1f32, v1f64] in {
+  foreach type = ["f16", "f32", "f64"] in {
+    def : VectInfo<[], !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type),
+                       !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type), !cast<OclBuiltin>("convert_"#type)>;
+    foreach op = ["rte", "rtz", "rtp", "rtn"] in {
+      def : VectInfo<[], !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op),
+                         !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op), !cast<OclBuiltin>("convert_"#type#_#op)>;
     }
   }
 }
