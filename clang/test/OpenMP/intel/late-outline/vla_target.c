@@ -14,6 +14,7 @@ void foo(int nx, int ny, float* restrict array) {
   float (* restrict xp)[nx][ny] = (void*)array;
 
   //CHECK: TEAMS{{.*}}FIRSTPRIVATE{{.*}}xp
+  //CHECK: DIR.OMP.END.TEAMS
   #pragma omp target
   #pragma omp teams firstprivate (xp) // ok, because it's just firstprivatizing
                                       // a pointer, so no pointee memory
@@ -22,7 +23,8 @@ void foo(int nx, int ny, float* restrict array) {
     xp[0][0][0] = 1.0f;
   }
 
-  //CHECK: TEAMS{{.*}}FIRSTPRIVATE{{.*}}xp
+  //CHECK: TEAMS{{.*}}SHARED{{.*}}xp
+  //CHECK: DIR.OMP.END.TEAMS
   #pragma omp target
   #pragma omp teams distribute firstprivate (xp)
   for (int i=0; i<nx; ++i)
@@ -30,7 +32,8 @@ void foo(int nx, int ny, float* restrict array) {
     xp[i][0][0] = 1.0f;
   }
 
-  //CHECK: TEAMS{{.*}}FIRSTPRIVATE{{.*}}xp
+  //CHECK: TEAMS{{.*}}SHARED{{.*}}xp
+  //CHECK: DIR.OMP.END.TEAMS
   #pragma omp target
   #pragma omp teams distribute simd firstprivate (xp)
   for (int i=0; i<nx; ++i)
@@ -38,7 +41,8 @@ void foo(int nx, int ny, float* restrict array) {
     xp[i][0][0] = 1.0f;
   }
 
-  //CHECK: TEAMS{{.*}}FIRSTPRIVATE{{.*}}xp
+  //CHECK: TEAMS{{.*}}SHARED{{.*}}xp
+  //CHECK: DIR.OMP.END.TEAMS
   #pragma omp target
   #pragma omp teams distribute parallel for simd firstprivate (xp)
   for (int i=0; i<nx; ++i)
@@ -46,7 +50,8 @@ void foo(int nx, int ny, float* restrict array) {
     xp[i][0][0] = 1.0f;
   }
 
-  //CHECK: TEAMS{{.*}}FIRSTPRIVATE{{.*}}xp
+  //CHECK: TEAMS{{.*}}SHARED{{.*}}xp
+  //CHECK: DIR.OMP.END.TEAMS
   #pragma omp target
   #pragma omp teams distribute parallel for firstprivate (xp)
   for (int i=0; i<nx; ++i)
@@ -55,6 +60,7 @@ void foo(int nx, int ny, float* restrict array) {
   }
 
   //CHECK: TEAMS{{.*}}FIRSTPRIVATE{{.*}}xp
+  //CHECK: DIR.OMP.END.TEAMS
   #pragma omp target
   #pragma omp teams loop firstprivate (xp)
   for (int i=0; i<nx; ++i)
