@@ -2347,6 +2347,10 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
     MPM.addPass(PartialInlinerPass());
 
 #if INTEL_CUSTOMIZATION
+  // Propagate noalias attribute to function arguments.
+  if (EnableArgNoAliasProp && Level.getSpeedupLevel() > 2)
+    MPM.addPass(ArgNoAliasPropPass());
+
   FunctionPassManager FakeLoadFPM;
   if (EnableStdContainerOpt)
     FakeLoadFPM.addPass(StdContainerOptPass());
@@ -2368,12 +2372,6 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
 
   if (EnableOrderFileInstrumentation)
     MPM.addPass(InstrOrderFilePass());
-
-#if INTEL_CUSTOMIZATION
-  // Propagate noalias attribute to function arguments.
-  if (EnableArgNoAliasProp && Level.getSpeedupLevel() > 2)
-    MPM.addPass(ArgNoAliasPropPass());
-#endif // INTEL_CUSTOMIZATION
 
   // Do RPO function attribute inference across the module to forward-propagate
   // attributes where applicable.
