@@ -61,10 +61,16 @@ STATISTIC(NumNotCapturedBefore, "Number of pointers not captured before");
 /// TODO: we should probably introduce a caching CaptureTracking analysis and
 /// use it where possible. The caching version can use much higher limit or
 /// don't have this cap at all.
+#if INTEL_CUSTOMIZATION
+// Setting limit back to 20, after reverting back to previous algorithm before
+// D126236.
+// TODO: Opaque pointers increases the number of uses. We may need to increase
+// this default, and/or the override value (80) from the AA passes.
 static cl::opt<unsigned>
     DefaultMaxUsesToExplore("capture-tracking-max-uses-to-explore", cl::Hidden,
                             cl::desc("Maximal number of uses to explore."),
-                            cl::init(100));
+                            cl::init(20));
+#endif // INTEL_CUSTOMIZATION
 
 unsigned llvm::getDefaultMaxUsesToExploreForCaptureTracking() {
   return DefaultMaxUsesToExplore;
@@ -509,10 +515,21 @@ void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker,
   SmallSet<const Use *, 20> Visited;
 
   auto AddUses = [&](const Value *V) {
+#if INTEL_CUSTOMIZATION
+    // llorg is counting the total visited values from multiple calls to
+    // AddUses (D126236). FORTRAN programs like 554.roms have very large
+    // use-def chains and may need a limit >1500 for this new algorithm.
+    // We revert back to the old algorithm (count the uses of the given value).
+    // Also, in xmain, the client of CaptureTracking may pass in a MaxUses
+    // limit, which must be recalibrated if the limit algorithm is changed.
+    unsigned Count = 0;
+#endif // INTEL_CUSTOMIZATION
     for (const Use &U : V->uses()) {
       // If there are lots of uses, conservatively say that the value
       // is captured to avoid taking too much compile time.
-      if (Visited.size()  >= MaxUsesToExplore) {
+#if INTEL_CUSTOMIZATION
+      if (Count++ >= MaxUsesToExplore) {
+#endif // INTEL_CUSTOMIZATION
         Tracker->tooManyUses();
         return false;
       }
