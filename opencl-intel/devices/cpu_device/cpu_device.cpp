@@ -2398,7 +2398,8 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
             const static cl_uint NumPhysicalCores =
                 (cl_uint)GetNumberOfProcessors() / ThreadsPerCore;
             const static cl_uint PhysicalCoresPerNode =
-                NumPhysicalCores / (cl_uint)GetMaxNumaNode();
+                NumPhysicalCores /
+                std::max((cl_uint)GetMaxNumaNode(), (cl_uint)1);
             *reinterpret_cast<cl_uint *>(paramVal) = PhysicalCoresPerNode;
           }
           return CL_DEV_SUCCESS;
