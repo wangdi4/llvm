@@ -2252,8 +2252,9 @@ static void decideLoopKernelGroupArguments(
 
   for (int32_t i = 0; i < numLoopLevels; i++) {
     assert(level[i].Stride > 0 && "Invalid loop stride for ND partitioning");
-    DP("Level %" PRIu32 ": Lb = %" PRId64 ", Ub = %" PRId64 ", Stride = %"
-       PRId64 "\n", i, level[i].Lb, level[i].Ub, level[i].Stride);
+    DP("Loop %" PRIu32 ": lower bound = %" PRId64 ", upper bound = %" PRId64
+       ", Stride = %" PRId64 "\n",
+       i, level[i].Lb, level[i].Ub, level[i].Stride);
     if (level[i].Ub < level[i].Lb)
       tripCounts[i] = 0;
     else
@@ -2648,10 +2649,10 @@ static inline int32_t runTargetTeamNDRegion(
   }
 #endif // INTEL_INTERNAL_BUILD
 
-  DP("Group sizes = {%zu, %zu, %zu}\n", LocalWorkSize[0], LocalWorkSize[1],
+  DP("Team sizes = {%zu, %zu, %zu}\n", LocalWorkSize[0], LocalWorkSize[1],
      LocalWorkSize[2]);
-  DP("Group counts = {%zu, %zu, %zu}\n", GlobalWorkSize[0] / LocalWorkSize[0],
-     GlobalWorkSize[1] / LocalWorkSize[1],
+  DP("Number of teams = {%zu, %zu, %zu}\n",
+     GlobalWorkSize[0] / LocalWorkSize[0], GlobalWorkSize[1] / LocalWorkSize[1],
      GlobalWorkSize[2] / LocalWorkSize[2]);
 
   // Protect thread-unsafe OpenCL API calls
