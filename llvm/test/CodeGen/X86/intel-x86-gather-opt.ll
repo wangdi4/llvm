@@ -174,7 +174,7 @@ define dso_local noundef <2 x i64> @_Z10s1p64i32v2Dv2_x(<2 x i64> noundef %index
 ; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds i8, i8* bitcast ([0 x i32]* @int_base to i8*), <2 x i64> [[INDEX:%.*]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <2 x i8*> [[TMP0]] to <2 x i32*>
 ; CHECK-NEXT:    [[TMP2:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[TMP1]], i32 1, <2 x i1> <i1 true, i1 true>, <2 x i32> zeroinitializer)
-; CHECK-NEXT:    [[A:%.*]] = shufflevector <2 x i32> [[TMP2]], <2 x i32> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+; CHECK-NEXT:    [[A:%.*]] = shufflevector <2 x i32> [[TMP2]], <2 x i32> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 2, i32 2>
 ; CHECK-NEXT:    [[B:%.*]] = bitcast <4 x i32> [[A]] to <2 x i64>
 ; CHECK-NEXT:    ret <2 x i64> [[B]]
 ;
@@ -200,7 +200,7 @@ define dso_local noundef <2 x i64> @_Z12s1p64i32v2m0Dv2_xS_S_(<2 x i64> noundef 
 ; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i8, i8* bitcast ([0 x i32]* @int_base to i8*), <2 x i64> [[INDEX:%.*]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <2 x i8*> [[TMP4]] to <2 x i32*>
 ; CHECK-NEXT:    [[TMP6:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[TMP5]], i32 1, <2 x i1> [[TMP2]], <2 x i32> [[TMP3]])
-; CHECK-NEXT:    [[C:%.*]] = shufflevector <2 x i32> [[TMP6]], <2 x i32> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+; CHECK-NEXT:    [[C:%.*]] = shufflevector <2 x i32> [[TMP6]], <2 x i32> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 2, i32 2>
 ; CHECK-NEXT:    [[D:%.*]] = bitcast <4 x i32> [[C]] to <2 x i64>
 ; CHECK-NEXT:    ret <2 x i64> [[D]]
 ;
@@ -484,7 +484,7 @@ define dso_local noundef <4 x float> @_Z10s1p64f32v2Dv2_x(<2 x i64> noundef %ind
 ; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds i8, i8* bitcast ([0 x i32]* @int_base to i8*), <2 x i64> [[INDEX:%.*]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <2 x i8*> [[TMP0]] to <2 x float*>
 ; CHECK-NEXT:    [[TMP2:%.*]] = call <2 x float> @llvm.masked.gather.v2f32.v2p0f32(<2 x float*> [[TMP1]], i32 1, <2 x i1> <i1 true, i1 true>, <2 x float> zeroinitializer)
-; CHECK-NEXT:    [[A:%.*]] = shufflevector <2 x float> [[TMP2]], <2 x float> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+; CHECK-NEXT:    [[A:%.*]] = shufflevector <2 x float> [[TMP2]], <2 x float> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 2, i32 2>
 ; CHECK-NEXT:    ret <4 x float> [[A]]
 ;
 entry:
@@ -508,7 +508,7 @@ define dso_local noundef <4 x float> @_Z12s1p64f32v2m0Dv2_xDv4_fS_(<2 x i64> nou
 ; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i8, i8* bitcast ([0 x i32]* @int_base to i8*), <2 x i64> [[INDEX:%.*]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = bitcast <2 x i8*> [[TMP5]] to <2 x float*>
 ; CHECK-NEXT:    [[TMP7:%.*]] = call <2 x float> @llvm.masked.gather.v2f32.v2p0f32(<2 x float*> [[TMP6]], i32 1, <2 x i1> [[TMP3]], <2 x float> [[TMP4]])
-; CHECK-NEXT:    [[B:%.*]] = shufflevector <2 x float> [[TMP7]], <2 x float> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+; CHECK-NEXT:    [[B:%.*]] = shufflevector <2 x float> [[TMP7]], <2 x float> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 2, i32 2>
 ; CHECK-NEXT:    ret <4 x float> [[B]]
 ;
 entry:
@@ -782,7 +782,7 @@ define dso_local noundef <2 x i64> @_Z10s2p64i32v2Dv2_x(<2 x i64> noundef %index
 ; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds i16, i16* bitcast ([0 x i32]* @int_base to i16*), <2 x i64> [[INDEX:%.*]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <2 x i16*> [[TMP0]] to <2 x i32*>
 ; CHECK-NEXT:    [[TMP2:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[TMP1]], i32 1, <2 x i1> <i1 true, i1 true>, <2 x i32> zeroinitializer)
-; CHECK-NEXT:    [[A:%.*]] = shufflevector <2 x i32> [[TMP2]], <2 x i32> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+; CHECK-NEXT:    [[A:%.*]] = shufflevector <2 x i32> [[TMP2]], <2 x i32> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 2, i32 2>
 ; CHECK-NEXT:    [[B:%.*]] = bitcast <4 x i32> [[A]] to <2 x i64>
 ; CHECK-NEXT:    ret <2 x i64> [[B]]
 ;
@@ -805,7 +805,7 @@ define dso_local noundef <2 x i64> @_Z12s2p64i32v2m0Dv2_xS_S_(<2 x i64> noundef 
 ; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i16, i16* bitcast ([0 x i32]* @int_base to i16*), <2 x i64> [[INDEX:%.*]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <2 x i16*> [[TMP4]] to <2 x i32*>
 ; CHECK-NEXT:    [[TMP6:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[TMP5]], i32 1, <2 x i1> [[TMP2]], <2 x i32> [[TMP3]])
-; CHECK-NEXT:    [[C:%.*]] = shufflevector <2 x i32> [[TMP6]], <2 x i32> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+; CHECK-NEXT:    [[C:%.*]] = shufflevector <2 x i32> [[TMP6]], <2 x i32> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 2, i32 2>
 ; CHECK-NEXT:    [[D:%.*]] = bitcast <4 x i32> [[C]] to <2 x i64>
 ; CHECK-NEXT:    ret <2 x i64> [[D]]
 ;
@@ -1068,7 +1068,7 @@ define dso_local noundef <4 x float> @_Z10s2p64f32v2Dv2_x(<2 x i64> noundef %ind
 ; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds i16, i16* bitcast ([0 x i32]* @int_base to i16*), <2 x i64> [[INDEX:%.*]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <2 x i16*> [[TMP0]] to <2 x float*>
 ; CHECK-NEXT:    [[TMP2:%.*]] = call <2 x float> @llvm.masked.gather.v2f32.v2p0f32(<2 x float*> [[TMP1]], i32 1, <2 x i1> <i1 true, i1 true>, <2 x float> zeroinitializer)
-; CHECK-NEXT:    [[A:%.*]] = shufflevector <2 x float> [[TMP2]], <2 x float> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+; CHECK-NEXT:    [[A:%.*]] = shufflevector <2 x float> [[TMP2]], <2 x float> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 2, i32 2>
 ; CHECK-NEXT:    ret <4 x float> [[A]]
 ;
 entry:
@@ -1089,7 +1089,7 @@ define dso_local noundef <4 x float> @_Z12s2p64f32v2m0Dv2_xDv4_fS_(<2 x i64> nou
 ; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i16, i16* bitcast ([0 x i32]* @int_base to i16*), <2 x i64> [[INDEX:%.*]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = bitcast <2 x i16*> [[TMP5]] to <2 x float*>
 ; CHECK-NEXT:    [[TMP7:%.*]] = call <2 x float> @llvm.masked.gather.v2f32.v2p0f32(<2 x float*> [[TMP6]], i32 1, <2 x i1> [[TMP3]], <2 x float> [[TMP4]])
-; CHECK-NEXT:    [[B:%.*]] = shufflevector <2 x float> [[TMP7]], <2 x float> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+; CHECK-NEXT:    [[B:%.*]] = shufflevector <2 x float> [[TMP7]], <2 x float> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 2, i32 2>
 ; CHECK-NEXT:    ret <4 x float> [[B]]
 ;
 entry:
@@ -1349,7 +1349,7 @@ define dso_local noundef <2 x i64> @_Z10s4p64i32v2Dv2_x(<2 x i64> noundef %index
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds i32, i32* getelementptr inbounds ([0 x i32], [0 x i32]* @int_base, i32 0, i32 0), <2 x i64> [[INDEX:%.*]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[TMP0]], i32 1, <2 x i1> <i1 true, i1 true>, <2 x i32> zeroinitializer)
-; CHECK-NEXT:    [[A:%.*]] = shufflevector <2 x i32> [[TMP1]], <2 x i32> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+; CHECK-NEXT:    [[A:%.*]] = shufflevector <2 x i32> [[TMP1]], <2 x i32> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 2, i32 2>
 ; CHECK-NEXT:    [[B:%.*]] = bitcast <4 x i32> [[A]] to <2 x i64>
 ; CHECK-NEXT:    ret <2 x i64> [[B]]
 ;
@@ -1371,7 +1371,7 @@ define dso_local noundef <2 x i64> @_Z12s4p64i32v2m0Dv2_xS_S_(<2 x i64> noundef 
 ; CHECK-NEXT:    [[TMP3:%.*]] = shufflevector <4 x i32> [[A]], <4 x i32> poison, <2 x i32> <i32 0, i32 1>
 ; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, i32* getelementptr inbounds ([0 x i32], [0 x i32]* @int_base, i32 0, i32 0), <2 x i64> [[INDEX:%.*]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[TMP4]], i32 1, <2 x i1> [[TMP2]], <2 x i32> [[TMP3]])
-; CHECK-NEXT:    [[C:%.*]] = shufflevector <2 x i32> [[TMP5]], <2 x i32> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+; CHECK-NEXT:    [[C:%.*]] = shufflevector <2 x i32> [[TMP5]], <2 x i32> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 2, i32 2>
 ; CHECK-NEXT:    [[D:%.*]] = bitcast <4 x i32> [[C]] to <2 x i64>
 ; CHECK-NEXT:    ret <2 x i64> [[D]]
 ;
@@ -1632,7 +1632,7 @@ define dso_local noundef <4 x float> @_Z10s4p64f32v2Dv2_x(<2 x i64> noundef %ind
 ; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds i32, i32* getelementptr inbounds ([0 x i32], [0 x i32]* @int_base, i32 0, i32 0), <2 x i64> [[INDEX:%.*]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <2 x i32*> [[TMP0]] to <2 x float*>
 ; CHECK-NEXT:    [[TMP2:%.*]] = call <2 x float> @llvm.masked.gather.v2f32.v2p0f32(<2 x float*> [[TMP1]], i32 1, <2 x i1> <i1 true, i1 true>, <2 x float> zeroinitializer)
-; CHECK-NEXT:    [[A:%.*]] = shufflevector <2 x float> [[TMP2]], <2 x float> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+; CHECK-NEXT:    [[A:%.*]] = shufflevector <2 x float> [[TMP2]], <2 x float> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 2, i32 2>
 ; CHECK-NEXT:    ret <4 x float> [[A]]
 ;
 entry:
@@ -1653,7 +1653,7 @@ define dso_local noundef <4 x float> @_Z12s4p64f32v2m0Dv2_xDv4_fS_(<2 x i64> nou
 ; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, i32* getelementptr inbounds ([0 x i32], [0 x i32]* @int_base, i32 0, i32 0), <2 x i64> [[INDEX:%.*]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = bitcast <2 x i32*> [[TMP5]] to <2 x float*>
 ; CHECK-NEXT:    [[TMP7:%.*]] = call <2 x float> @llvm.masked.gather.v2f32.v2p0f32(<2 x float*> [[TMP6]], i32 1, <2 x i1> [[TMP3]], <2 x float> [[TMP4]])
-; CHECK-NEXT:    [[B:%.*]] = shufflevector <2 x float> [[TMP7]], <2 x float> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+; CHECK-NEXT:    [[B:%.*]] = shufflevector <2 x float> [[TMP7]], <2 x float> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 2, i32 2>
 ; CHECK-NEXT:    ret <4 x float> [[B]]
 ;
 entry:
@@ -1914,7 +1914,7 @@ define dso_local noundef <2 x i64> @_Z10s8p64i32v2Dv2_x(<2 x i64> noundef %index
 ; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds i64, i64* bitcast ([0 x i32]* @int_base to i64*), <2 x i64> [[INDEX:%.*]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <2 x i64*> [[TMP0]] to <2 x i32*>
 ; CHECK-NEXT:    [[TMP2:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[TMP1]], i32 1, <2 x i1> <i1 true, i1 true>, <2 x i32> zeroinitializer)
-; CHECK-NEXT:    [[A:%.*]] = shufflevector <2 x i32> [[TMP2]], <2 x i32> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+; CHECK-NEXT:    [[A:%.*]] = shufflevector <2 x i32> [[TMP2]], <2 x i32> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 2, i32 2>
 ; CHECK-NEXT:    [[B:%.*]] = bitcast <4 x i32> [[A]] to <2 x i64>
 ; CHECK-NEXT:    ret <2 x i64> [[B]]
 ;
@@ -1937,7 +1937,7 @@ define dso_local noundef <2 x i64> @_Z12s8p64i32v2m0Dv2_xS_S_(<2 x i64> noundef 
 ; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i64, i64* bitcast ([0 x i32]* @int_base to i64*), <2 x i64> [[INDEX:%.*]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <2 x i64*> [[TMP4]] to <2 x i32*>
 ; CHECK-NEXT:    [[TMP6:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[TMP5]], i32 1, <2 x i1> [[TMP2]], <2 x i32> [[TMP3]])
-; CHECK-NEXT:    [[C:%.*]] = shufflevector <2 x i32> [[TMP6]], <2 x i32> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+; CHECK-NEXT:    [[C:%.*]] = shufflevector <2 x i32> [[TMP6]], <2 x i32> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 2, i32 2>
 ; CHECK-NEXT:    [[D:%.*]] = bitcast <4 x i32> [[C]] to <2 x i64>
 ; CHECK-NEXT:    ret <2 x i64> [[D]]
 ;
@@ -2196,7 +2196,7 @@ define dso_local noundef <4 x float> @_Z10s8p64f32v2Dv2_x(<2 x i64> noundef %ind
 ; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds i64, i64* bitcast ([0 x i32]* @int_base to i64*), <2 x i64> [[INDEX:%.*]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <2 x i64*> [[TMP0]] to <2 x float*>
 ; CHECK-NEXT:    [[TMP2:%.*]] = call <2 x float> @llvm.masked.gather.v2f32.v2p0f32(<2 x float*> [[TMP1]], i32 1, <2 x i1> <i1 true, i1 true>, <2 x float> zeroinitializer)
-; CHECK-NEXT:    [[A:%.*]] = shufflevector <2 x float> [[TMP2]], <2 x float> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+; CHECK-NEXT:    [[A:%.*]] = shufflevector <2 x float> [[TMP2]], <2 x float> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 2, i32 2>
 ; CHECK-NEXT:    ret <4 x float> [[A]]
 ;
 entry:
