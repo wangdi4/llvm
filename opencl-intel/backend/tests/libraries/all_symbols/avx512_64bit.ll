@@ -1048,8 +1048,6 @@
 ; CHECK-NEXT: _Z12write_imagei21ocl_image1d_buffer_woiDv4_i
 ; CHECK-NEXT: _Z13GetImagePtr2dP15_image_aux_dataf
 ; CHECK-NEXT: _Z13GetImagePtr2dP15_image_aux_datai
-; CHECK-NEXT: _Z13convert_int32Dv32_i
-; CHECK-NEXT: _Z13convert_int64Dv64_i
 ; CHECK-NEXT: _Z13convert_long8Dv8_d
 ; CHECK-NEXT: _Z13extract_pixel14ocl_image1d_roi
 ; CHECK-NEXT: _Z13extract_pixel14ocl_image1d_rwi

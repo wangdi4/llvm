@@ -1,5 +1,5 @@
-; RUN: SATest -BUILD --config=%s.cfg --dump-llvm-file - | FileCheck %s
-
+; RUN: SATest -BUILD --config=%s.cfg -cpuarch="skx" ---dump-llvm-file - | FileCheck %s
+; XFAIL: *
 ; Check that the loop invariant builtin call is hoisted out of loop body.
 
 ; CHECK: entryvector_func.preheader

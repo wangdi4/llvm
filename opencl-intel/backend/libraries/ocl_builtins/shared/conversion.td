@@ -1,3 +1,15 @@
+// Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 list<OclType> conversion_fp_types  = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
                                       v1f64, v2f64, v3f64, v4f64, v8f64, v16f64];
 
@@ -319,77 +331,6 @@ OclBuiltinImpl sse42_fp2int_i16_f32f64_rtn = OclBuiltinImpl<convert_i16_rtn,
     return as_$ReturnType(
             __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
               convert_$Arg0i32gentype_rtn($Arg0VarName)));
-  }]>;
-
-// 16-bit unsign integer output
-/*****************************************************************\
- * convert_ushort:                                               *
- *   shortn convert_ushortn (floatn x)                           *
- *   shortn convert_ushortn (doublen x)                          *
-\*****************************************************************/
-
-OclBuiltinImpl sse42_fp2int_u16_f32f64 = OclBuiltinImpl<convert_u16,
-                                                    conversion_fp_types, 0, [{
-    return as_$ReturnType(
-            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
-              as_$Arg0i32gentype(
-                convert_$Arg0i32gentype($Arg0VarName))));
-  }]>;
-
-/*****************************************************************\
- * convert_ushort_rte:                                           *
- *   shortn convert_ushortn_rte (floatn x)                       *
- *   shortn convert_ushortn_rte (doublen x)                      *
-\*****************************************************************/
-
-OclBuiltinImpl sse42_fp2int_u16_f32f64_rte = OclBuiltinImpl<convert_u16_rte,
-                                                   conversion_fp_types, 0, [{
-    return as_$ReturnType(
-            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
-              as_$Arg0i32gentype(
-                convert_$Arg0i32gentype_rte($Arg0VarName))));
-  }]>;
-
-/*****************************************************************\
- * convert_ushort_rtz:                                           *
- *   shortn convert_ushortn_rtz (floatn x)                       *
- *   shortn convert_ushortn_rtz (doublen x)                      *
-\*****************************************************************/
-
-OclBuiltinImpl sse42_fp2int_u16_f32f64_rtz = OclBuiltinImpl<convert_u16_rtz,
-                                                   conversion_fp_types, 0, [{
-    return as_$ReturnType(
-            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
-              as_$Arg0i32gentype(
-                convert_$Arg0i32gentype_rtz($Arg0VarName))));
-  }]>;
-  
-/*****************************************************************\
- * convert_ushort_rtp:                                           *
- *   shortn convert_ushortn_rtp (floatn x)                       *
- *   shortn convert_ushortn_rtp (doublen x)                      *
-\*****************************************************************/
-
-OclBuiltinImpl sse42_fp2int_u16_f32f64_rtp = OclBuiltinImpl<convert_u16_rtp,
-                                                   conversion_fp_types, 0, [{
-    return as_$ReturnType(
-            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
-              as_$Arg0i32gentype(
-                convert_$Arg0i32gentype_rtp($Arg0VarName))));
-  }]>;
-  
-/*****************************************************************\
- * convert_ushort_rtn:                                           *
- *   shortn convert_ushortn_rtn (floatn x)                       *
- *   shortn convert_ushortn_rtn (doublen x)                      *
-\*****************************************************************/
-
-OclBuiltinImpl sse42_fp2int_u16_f32f64_rtn = OclBuiltinImpl<convert_u16_rtn,
-                                                   conversion_fp_types, 0, [{
-    return as_$ReturnType(
-            __ocl_trunc_$Arg0Symi32gentype_$ReturnSymigentype(
-              as_$Arg0i32gentype(
-                convert_$Arg0i32gentype_rtn($Arg0VarName))));
   }]>;
 
 // 32-bit integer output
