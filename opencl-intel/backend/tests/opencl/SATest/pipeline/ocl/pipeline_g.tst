@@ -33,8 +33,6 @@
 
 ; CHECK:      Running pass: InstCombinePass
 
-; CHECK:      Running analysis: DPCPPAliasAnalysis
-
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK-NEXT: Running pass: InferFunctionAttrsPass
 
