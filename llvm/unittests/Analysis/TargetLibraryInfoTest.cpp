@@ -1,4 +1,21 @@
 //===--- TargetLibraryInfoTest.cpp - TLI/LibFunc unit tests ---------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -74,7 +91,16 @@ TEST_F(TargetLibraryInfoTest, InvalidProto) {
 
 // Check that we do accept know-correct prototypes.
 TEST_F(TargetLibraryInfoTest, ValidProto) {
+#if INTEL_CUSTOMIZATION
+  // The string containing test asm, was split in 2 parts since the length
+  // of the string constant exceeded C++ limitation.
+  // TODO: It looks reasonable to move all INTEL_CUSTOMIZATION related functions
+  // to a single chunk, which would improve the maintainability. 
+  std::string TestAsm = ""
+#else // INTEL_CUSTOMIZATION
   parseAssembly(
+#endif // INTEL_CUSTOMIZATION
+
       // These functions use a 64-bit size_t; use the appropriate datalayout.
       "target datalayout = \"p:64:64:64\"\n"
 
@@ -1440,9 +1466,18 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i16* @wcsncat(i16*, i16*, i64)\n"
       "declare i64 @wcstombs(i8*, i8*, i64)\n"
       "declare i32 @WideCharToMultiByte(i32, i32, i16*, i32, i8*, i32, i8*, i32*)\n"
-      "declare i32 @WriteFile(i8*, i8*, i32, i32*, %struct*)\n"
+      "declare i32 @WriteFile(i8*, i8*, i32, i32*, %struct*)\n";
+#else // INTEL_CUSTOMIZATION
+  );
 #endif // INTEL_CUSTOMIZATION
-      );
+
+
+#if INTEL_CUSTOMIZATION
+  TestAsm += ""
+      "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2EOS4_(%struct*, %struct*)\n"
+      "declare %struct* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6appendERKS4_(%struct*, %struct*)\n";
+  parseAssembly(TestAsm.c_str());
+#endif // INTEL_CUSTOMIZATION
 
   for (unsigned FI = 0; FI != LibFunc::NumLibFuncs; ++FI) {
     LibFunc LF = (LibFunc)FI;
