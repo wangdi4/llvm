@@ -36,12 +36,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ;   OFFLOAD_ENTRY_IDX: 0
 ;   PRIVATE clause: UNSPECIFIED
 ;   FIRSTPRIVATE clause: UNSPECIFIED
-;   MAP clause (size=1): (i32* %x)
+;   MAP clause (size=1): CHAIN(<ptr %x, ptr %x, i64 4, 35 (0x0000000000000023), null, null> )
 ;   IS_DEVICE_PTR clause: UNSPECIFIED
 ;   DEPEND clause: UNSPECIFIED
 ;
-;   EntryBB: DIR.OMP.TARGET.1
-;   ExitBB: DIR.OMP.END.TARGET.3
+;   EntryBB: DIR.OMP.TARGET.2
+;   ExitBB: DIR.OMP.END.TARGET.4
 ;
 ; } END TARGET ID=1
 ;
@@ -61,8 +61,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ;   REDUCTION clause: UNSPECIFIED
 ;   COPYIN clause: UNSPECIFIED
 ;
-;   EntryBB: entry
-;   ExitBB: DIR.OMP.END.PARALLEL.2
+;   EntryBB: DIR.OMP.PARALLEL.2
+;   ExitBB: DIR.OMP.END.PARALLEL.4
 ;
 ; } END PARALLEL ID=2
 
@@ -70,90 +70,89 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: Function contains OpenMP Target
 ; CHECK: Function does not contain OpenMP Target
 
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; FUNCTION WITH A TARGET CONSTRUCT ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
-; Function Attrs: nounwind uwtable
-define dso_local i32 @fn_with_target() local_unnamed_addr #0 {
+; Function Attrs: noinline nounwind optnone uwtable
+define dso_local i32 @fn_with_target() #0 {
 entry:
   %x = alloca i32, align 4
-  %0 = bitcast i32* %x to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #2
-  store i32 123, i32* %x, align 4, !tbaa !3
+  store i32 123, ptr %x, align 4
   br label %DIR.OMP.TARGET.1
 
 DIR.OMP.TARGET.1:                                 ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM"(i32* %x) ]
-  br label %DIR.OMP.TARGET.11
+  br label %DIR.OMP.TARGET.2
 
-DIR.OMP.TARGET.11:                                ; preds = %DIR.OMP.TARGET.1
-  %2 = load i32, i32* %x, align 4, !tbaa !3
-  %add = add nsw i32 %2, 456
-  store i32 %add, i32* %x, align 4, !tbaa !3
-  br label %DIR.OMP.END.TARGET.3
+DIR.OMP.TARGET.2:                                 ; preds = %DIR.OMP.TARGET.1
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.MAP.TOFROM"(ptr %x, ptr %x, i64 4, i64 35, ptr null, ptr null) ]
+  br label %DIR.OMP.TARGET.3
 
-DIR.OMP.END.TARGET.3:                             ; preds = %DIR.OMP.TARGET.11
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TARGET"() ]
-  br label %DIR.OMP.END.TARGET.2
+DIR.OMP.TARGET.3:                                 ; preds = %DIR.OMP.TARGET.2
+  %1 = load i32, ptr %x, align 4
+  %add = add nsw i32 %1, 456
+  store i32 %add, ptr %x, align 4
+  br label %DIR.OMP.END.TARGET.4
 
-DIR.OMP.END.TARGET.2:                             ; preds = %DIR.OMP.END.TARGET.3
-  %3 = load i32, i32* %x, align 4, !tbaa !3
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %0) #2
-  ret i32 %3
+DIR.OMP.END.TARGET.4:                             ; preds = %DIR.OMP.TARGET.3
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
+  br label %DIR.OMP.END.TARGET.5
+
+DIR.OMP.END.TARGET.5:                             ; preds = %DIR.OMP.END.TARGET.4
+  %2 = load i32, ptr %x, align 4
+  ret i32 %2
 }
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry() #1
 
 ; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #2
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #2
-
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
-
+declare void @llvm.directive.region.exit(token) #1
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; FUNCTION WITH NO TARGET CONSTRUCTS ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
-; Function Attrs: nounwind uwtable
-define dso_local void @fn_without_target() local_unnamed_addr #0 {
+; Function Attrs: noinline nounwind optnone uwtable
+define dso_local void @fn_without_target() #0 {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"() ]
   br label %DIR.OMP.PARALLEL.1
 
 DIR.OMP.PARALLEL.1:                               ; preds = %entry
-  call void (...) @bar() #2
-  br label %DIR.OMP.END.PARALLEL.2
+  br label %DIR.OMP.PARALLEL.2
 
-DIR.OMP.END.PARALLEL.2:                           ; preds = %DIR.OMP.PARALLEL.1
+DIR.OMP.PARALLEL.2:                               ; preds = %DIR.OMP.PARALLEL.1
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"() ]
+  br label %DIR.OMP.PARALLEL.3
+
+DIR.OMP.PARALLEL.3:                               ; preds = %DIR.OMP.PARALLEL.2
+  call void (...) @bar() #1
+  br label %DIR.OMP.END.PARALLEL.4
+
+DIR.OMP.END.PARALLEL.4:                           ; preds = %DIR.OMP.PARALLEL.3
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ]
-  br label %DIR.OMP.END.PARALLEL.21
+  br label %DIR.OMP.END.PARALLEL.5
 
-DIR.OMP.END.PARALLEL.21:                          ; preds = %DIR.OMP.END.PARALLEL.2
+DIR.OMP.END.PARALLEL.5:                           ; preds = %DIR.OMP.END.PARALLEL.4
   ret void
 }
 
-declare dso_local void @bar(...) #3
+declare dso_local void @bar(...) #2
 
-attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { argmemonly nounwind }
-attributes #2 = { nounwind }
-attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { noinline nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #1 = { nounwind }
+attributes #2 = { "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 
 !omp_offload.info = !{!0}
-!llvm.module.flags = !{!1}
-!llvm.ident = !{!2}
+!llvm.module.flags = !{!1, !2, !3, !4}
 
-!0 = !{i32 0, i32 84, i32 -672425036, !"fn_with_target", i32 3, i32 0}
+!0 = !{i32 0, i32 53, i32 -1941482902, !"_Z14fn_with_target", i32 3, i32 0, i32 0}
 !1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 5ce3ba55ac0820d6015de166c9df98f8074a8b8a) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 8388a769ba89cd5885402ed875319f2f43272f7d)"}
-!3 = !{!4, !4, i64 0}
-!4 = !{!"int", !5, i64 0}
-!5 = !{!"omnipotent char", !6, i64 0}
-!6 = !{!"Simple C/C++ TBAA"}
+!2 = !{i32 7, !"openmp", i32 51}
+!3 = !{i32 7, !"uwtable", i32 2}
+!4 = !{i32 7, !"frame-pointer", i32 2}
