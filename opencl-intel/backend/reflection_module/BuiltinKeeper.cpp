@@ -110,6 +110,7 @@ static FunctionDescriptor createDescriptorVP_P (
   fd.Parameters.push_back(pVectorTy);
   fd.Parameters.push_back(
       llvm::IntrusiveRefCntPtr<PrimitiveType>(new PrimitiveType(PTy)));
+  fd.Width = width::NONE;
   return fd;
 }
 
