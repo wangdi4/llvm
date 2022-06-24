@@ -1955,6 +1955,8 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
     return Changed;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEED2Ev:
     return Changed;
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2EOS4:
+    return Changed;
   case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE6setbufEPcl:
     return Changed;
   case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm:
@@ -2007,6 +2009,8 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2ERKS4_:
     return Changed;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6appendEPKc:
+    return Changed;
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6appendERKS4:
     return Changed;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6assignEPKc:
     return Changed;
