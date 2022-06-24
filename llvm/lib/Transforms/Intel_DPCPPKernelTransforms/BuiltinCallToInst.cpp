@@ -157,7 +157,7 @@ void BuiltinCallToInstPass::handleShuffleCalls(CallInst *ShuffleCall,
     if (!isa<PointerType>(RetPtr->getType()))
       return;
 
-    Type *DesiredTy = (cast<PointerType>(RetPtr->getType()))->getElementType();
+    Type *DesiredTy = ShuffleCall->getFunctionType();
 
     RetVal = VectorizerUtils::rootReturnValue(RetPtr, DesiredTy, ShuffleCall);
     if (!RetVal)
