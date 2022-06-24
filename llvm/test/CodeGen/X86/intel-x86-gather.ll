@@ -138,10 +138,10 @@ entry:
 define dso_local noundef <2 x i64> @_Z10s1p64i32v2Dv2_x(<2 x i64> noundef %index) local_unnamed_addr {
 ; CHECK-LABEL: _Z10s1p64i32v2Dv2_x:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vmovdqa {{.*#+}} xmm2 = [4294967295,4294967295,0,0]
-; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
-; CHECK-NEXT:    vpgatherqd %xmm2, int_base(,%xmm0), %xmm1
-; CHECK-NEXT:    vmovdqa %xmm1, %xmm0
+; CHECK-NEXT:    vmovdqa {{.*#+}} xmm1 = [4294967295,4294967295,0,0]
+; CHECK-NEXT:    vpxor %xmm2, %xmm2, %xmm2
+; CHECK-NEXT:    vpgatherqd %xmm1, int_base(,%xmm0), %xmm2
+; CHECK-NEXT:    vmovq {{.*#+}} xmm0 = xmm2[0],zero
 ; CHECK-NEXT:    retq
 entry:
   %a = tail call <4 x i32> @llvm.x86.avx2.gather.q.d(<4 x i32> zeroinitializer, i8* bitcast ([0 x i32]* @int_base to i8*), <2 x i64> %index, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>, i8 1)
@@ -157,7 +157,7 @@ define dso_local noundef <2 x i64> @_Z12s1p64i32v2m0Dv2_xS_S_(<2 x i64> noundef 
 ; CHECK-LABEL: _Z12s1p64i32v2m0Dv2_xS_S_:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    vpgatherqd %xmm2, int_base(,%xmm0), %xmm1
-; CHECK-NEXT:    vmovdqa %xmm1, %xmm0
+; CHECK-NEXT:    vmovq {{.*#+}} xmm0 = xmm1[0],zero
 ; CHECK-NEXT:    retq
 entry:
   %a = bitcast <2 x i64> %src to <4 x i32>
@@ -392,10 +392,10 @@ entry:
 define dso_local noundef <4 x float> @_Z10s1p64f32v2Dv2_x(<2 x i64> noundef %index) local_unnamed_addr {
 ; CHECK-LABEL: _Z10s1p64f32v2Dv2_x:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vmovaps {{.*#+}} xmm2 = [4294967295,4294967295,0,0]
-; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
-; CHECK-NEXT:    vgatherqps %xmm2, int_base(,%xmm0), %xmm1
-; CHECK-NEXT:    vmovaps %xmm1, %xmm0
+; CHECK-NEXT:    vmovaps {{.*#+}} xmm1 = [4294967295,4294967295,0,0]
+; CHECK-NEXT:    vxorps %xmm2, %xmm2, %xmm2
+; CHECK-NEXT:    vgatherqps %xmm1, int_base(,%xmm0), %xmm2
+; CHECK-NEXT:    vmovq {{.*#+}} xmm0 = xmm2[0],zero
 ; CHECK-NEXT:    retq
 entry:
   %a = tail call fast <4 x float> @llvm.x86.avx2.gather.q.ps(<4 x float> zeroinitializer, i8* bitcast ([0 x i32]* @int_base to i8*), <2 x i64> %index, <4 x float> <float 0xFFFFFFFFE0000000, float 0xFFFFFFFFE0000000, float 0xFFFFFFFFE0000000, float 0xFFFFFFFFE0000000>, i8 1)
@@ -410,7 +410,7 @@ define dso_local noundef <4 x float> @_Z12s1p64f32v2m0Dv2_xDv4_fS_(<2 x i64> nou
 ; CHECK-LABEL: _Z12s1p64f32v2m0Dv2_xDv4_fS_:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    vgatherqps %xmm2, int_base(,%xmm0), %xmm1
-; CHECK-NEXT:    vmovaps %xmm1, %xmm0
+; CHECK-NEXT:    vmovq {{.*#+}} xmm0 = xmm1[0],zero
 ; CHECK-NEXT:    retq
 entry:
   %a = bitcast <2 x i64> %mask to <4 x float>
@@ -634,10 +634,10 @@ entry:
 define dso_local noundef <2 x i64> @_Z10s2p64i32v2Dv2_x(<2 x i64> noundef %index) local_unnamed_addr {
 ; CHECK-LABEL: _Z10s2p64i32v2Dv2_x:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vmovdqa {{.*#+}} xmm2 = [4294967295,4294967295,0,0]
-; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
-; CHECK-NEXT:    vpgatherqd %xmm2, int_base(,%xmm0,2), %xmm1
-; CHECK-NEXT:    vmovdqa %xmm1, %xmm0
+; CHECK-NEXT:    vmovdqa {{.*#+}} xmm1 = [4294967295,4294967295,0,0]
+; CHECK-NEXT:    vpxor %xmm2, %xmm2, %xmm2
+; CHECK-NEXT:    vpgatherqd %xmm1, int_base(,%xmm0,2), %xmm2
+; CHECK-NEXT:    vmovq {{.*#+}} xmm0 = xmm2[0],zero
 ; CHECK-NEXT:    retq
 entry:
   %a = tail call <4 x i32> @llvm.x86.avx2.gather.q.d(<4 x i32> zeroinitializer, i8* bitcast ([0 x i32]* @int_base to i8*), <2 x i64> %index, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>, i8 2)
@@ -650,7 +650,7 @@ define dso_local noundef <2 x i64> @_Z12s2p64i32v2m0Dv2_xS_S_(<2 x i64> noundef 
 ; CHECK-LABEL: _Z12s2p64i32v2m0Dv2_xS_S_:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    vpgatherqd %xmm2, int_base(,%xmm0,2), %xmm1
-; CHECK-NEXT:    vmovdqa %xmm1, %xmm0
+; CHECK-NEXT:    vmovq {{.*#+}} xmm0 = xmm1[0],zero
 ; CHECK-NEXT:    retq
 entry:
   %a = bitcast <2 x i64> %src to <4 x i32>
@@ -864,10 +864,10 @@ entry:
 define dso_local noundef <4 x float> @_Z10s2p64f32v2Dv2_x(<2 x i64> noundef %index) local_unnamed_addr {
 ; CHECK-LABEL: _Z10s2p64f32v2Dv2_x:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vmovaps {{.*#+}} xmm2 = [4294967295,4294967295,0,0]
-; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
-; CHECK-NEXT:    vgatherqps %xmm2, int_base(,%xmm0,2), %xmm1
-; CHECK-NEXT:    vmovaps %xmm1, %xmm0
+; CHECK-NEXT:    vmovaps {{.*#+}} xmm1 = [4294967295,4294967295,0,0]
+; CHECK-NEXT:    vxorps %xmm2, %xmm2, %xmm2
+; CHECK-NEXT:    vgatherqps %xmm1, int_base(,%xmm0,2), %xmm2
+; CHECK-NEXT:    vmovq {{.*#+}} xmm0 = xmm2[0],zero
 ; CHECK-NEXT:    retq
 entry:
   %a = tail call fast <4 x float> @llvm.x86.avx2.gather.q.ps(<4 x float> zeroinitializer, i8* bitcast ([0 x i32]* @int_base to i8*), <2 x i64> %index, <4 x float> <float 0xFFFFFFFFE0000000, float 0xFFFFFFFFE0000000, float 0xFFFFFFFFE0000000, float 0xFFFFFFFFE0000000>, i8 2)
@@ -879,7 +879,7 @@ define dso_local noundef <4 x float> @_Z12s2p64f32v2m0Dv2_xDv4_fS_(<2 x i64> nou
 ; CHECK-LABEL: _Z12s2p64f32v2m0Dv2_xDv4_fS_:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    vgatherqps %xmm2, int_base(,%xmm0,2), %xmm1
-; CHECK-NEXT:    vmovaps %xmm1, %xmm0
+; CHECK-NEXT:    vmovq {{.*#+}} xmm0 = xmm1[0],zero
 ; CHECK-NEXT:    retq
 entry:
   %a = bitcast <2 x i64> %mask to <4 x float>
@@ -1094,10 +1094,10 @@ entry:
 define dso_local noundef <2 x i64> @_Z10s4p64i32v2Dv2_x(<2 x i64> noundef %index) local_unnamed_addr {
 ; CHECK-LABEL: _Z10s4p64i32v2Dv2_x:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vmovdqa {{.*#+}} xmm2 = [4294967295,4294967295,0,0]
-; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
-; CHECK-NEXT:    vpgatherqd %xmm2, int_base(,%xmm0,4), %xmm1
-; CHECK-NEXT:    vmovdqa %xmm1, %xmm0
+; CHECK-NEXT:    vmovdqa {{.*#+}} xmm1 = [4294967295,4294967295,0,0]
+; CHECK-NEXT:    vpxor %xmm2, %xmm2, %xmm2
+; CHECK-NEXT:    vpgatherqd %xmm1, int_base(,%xmm0,4), %xmm2
+; CHECK-NEXT:    vmovq {{.*#+}} xmm0 = xmm2[0],zero
 ; CHECK-NEXT:    retq
 entry:
   %a = tail call <4 x i32> @llvm.x86.avx2.gather.q.d(<4 x i32> zeroinitializer, i8* bitcast ([0 x i32]* @int_base to i8*), <2 x i64> %index, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>, i8 4)
@@ -1110,7 +1110,7 @@ define dso_local noundef <2 x i64> @_Z12s4p64i32v2m0Dv2_xS_S_(<2 x i64> noundef 
 ; CHECK-LABEL: _Z12s4p64i32v2m0Dv2_xS_S_:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    vpgatherqd %xmm2, int_base(,%xmm0,4), %xmm1
-; CHECK-NEXT:    vmovdqa %xmm1, %xmm0
+; CHECK-NEXT:    vmovq {{.*#+}} xmm0 = xmm1[0],zero
 ; CHECK-NEXT:    retq
 entry:
   %a = bitcast <2 x i64> %src to <4 x i32>
@@ -1324,10 +1324,10 @@ entry:
 define dso_local noundef <4 x float> @_Z10s4p64f32v2Dv2_x(<2 x i64> noundef %index) local_unnamed_addr {
 ; CHECK-LABEL: _Z10s4p64f32v2Dv2_x:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vmovaps {{.*#+}} xmm2 = [4294967295,4294967295,0,0]
-; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
-; CHECK-NEXT:    vgatherqps %xmm2, int_base(,%xmm0,4), %xmm1
-; CHECK-NEXT:    vmovaps %xmm1, %xmm0
+; CHECK-NEXT:    vmovaps {{.*#+}} xmm1 = [4294967295,4294967295,0,0]
+; CHECK-NEXT:    vxorps %xmm2, %xmm2, %xmm2
+; CHECK-NEXT:    vgatherqps %xmm1, int_base(,%xmm0,4), %xmm2
+; CHECK-NEXT:    vmovq {{.*#+}} xmm0 = xmm2[0],zero
 ; CHECK-NEXT:    retq
 entry:
   %a = tail call fast <4 x float> @llvm.x86.avx2.gather.q.ps(<4 x float> zeroinitializer, i8* bitcast ([0 x i32]* @int_base to i8*), <2 x i64> %index, <4 x float> <float 0xFFFFFFFFE0000000, float 0xFFFFFFFFE0000000, float 0xFFFFFFFFE0000000, float 0xFFFFFFFFE0000000>, i8 4)
@@ -1339,7 +1339,7 @@ define dso_local noundef <4 x float> @_Z12s4p64f32v2m0Dv2_xDv4_fS_(<2 x i64> nou
 ; CHECK-LABEL: _Z12s4p64f32v2m0Dv2_xDv4_fS_:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    vgatherqps %xmm2, int_base(,%xmm0,4), %xmm1
-; CHECK-NEXT:    vmovaps %xmm1, %xmm0
+; CHECK-NEXT:    vmovq {{.*#+}} xmm0 = xmm1[0],zero
 ; CHECK-NEXT:    retq
 entry:
   %a = bitcast <2 x i64> %mask to <4 x float>
@@ -1554,10 +1554,10 @@ entry:
 define dso_local noundef <2 x i64> @_Z10s8p64i32v2Dv2_x(<2 x i64> noundef %index) local_unnamed_addr {
 ; CHECK-LABEL: _Z10s8p64i32v2Dv2_x:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vmovdqa {{.*#+}} xmm2 = [4294967295,4294967295,0,0]
-; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
-; CHECK-NEXT:    vpgatherqd %xmm2, int_base(,%xmm0,8), %xmm1
-; CHECK-NEXT:    vmovdqa %xmm1, %xmm0
+; CHECK-NEXT:    vmovdqa {{.*#+}} xmm1 = [4294967295,4294967295,0,0]
+; CHECK-NEXT:    vpxor %xmm2, %xmm2, %xmm2
+; CHECK-NEXT:    vpgatherqd %xmm1, int_base(,%xmm0,8), %xmm2
+; CHECK-NEXT:    vmovq {{.*#+}} xmm0 = xmm2[0],zero
 ; CHECK-NEXT:    retq
 entry:
   %a = tail call <4 x i32> @llvm.x86.avx2.gather.q.d(<4 x i32> zeroinitializer, i8* bitcast ([0 x i32]* @int_base to i8*), <2 x i64> %index, <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>, i8 8)
@@ -1570,7 +1570,7 @@ define dso_local noundef <2 x i64> @_Z12s8p64i32v2m0Dv2_xS_S_(<2 x i64> noundef 
 ; CHECK-LABEL: _Z12s8p64i32v2m0Dv2_xS_S_:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    vpgatherqd %xmm2, int_base(,%xmm0,8), %xmm1
-; CHECK-NEXT:    vmovdqa %xmm1, %xmm0
+; CHECK-NEXT:    vmovq {{.*#+}} xmm0 = xmm1[0],zero
 ; CHECK-NEXT:    retq
 entry:
   %a = bitcast <2 x i64> %src to <4 x i32>
@@ -1784,10 +1784,10 @@ entry:
 define dso_local noundef <4 x float> @_Z10s8p64f32v2Dv2_x(<2 x i64> noundef %index) local_unnamed_addr {
 ; CHECK-LABEL: _Z10s8p64f32v2Dv2_x:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vmovaps {{.*#+}} xmm2 = [4294967295,4294967295,0,0]
-; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
-; CHECK-NEXT:    vgatherqps %xmm2, int_base(,%xmm0,8), %xmm1
-; CHECK-NEXT:    vmovaps %xmm1, %xmm0
+; CHECK-NEXT:    vmovaps {{.*#+}} xmm1 = [4294967295,4294967295,0,0]
+; CHECK-NEXT:    vxorps %xmm2, %xmm2, %xmm2
+; CHECK-NEXT:    vgatherqps %xmm1, int_base(,%xmm0,8), %xmm2
+; CHECK-NEXT:    vmovq {{.*#+}} xmm0 = xmm2[0],zero
 ; CHECK-NEXT:    retq
 entry:
   %a = tail call fast <4 x float> @llvm.x86.avx2.gather.q.ps(<4 x float> zeroinitializer, i8* bitcast ([0 x i32]* @int_base to i8*), <2 x i64> %index, <4 x float> <float 0xFFFFFFFFE0000000, float 0xFFFFFFFFE0000000, float 0xFFFFFFFFE0000000, float 0xFFFFFFFFE0000000>, i8 8)

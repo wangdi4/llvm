@@ -268,8 +268,11 @@ static Value* replaceX86GatherToGather(IntrinsicInst* II) {
     for (unsigned I = 0, E = IndexElemCount; I < E; ++I)
       ShufMask.push_back(I);
     for (unsigned I = IndexElemCount, E = RetElemCount; I < E; ++I)
-      ShufMask.push_back(-1);
-    NewGather = Builder.CreateShuffleVector(NewGather, ShufMask);
+      ShufMask.push_back(IndexElemCount);
+
+    auto *ZeroInitializer = ConstantDataVector::getSplat(
+        IndexElemCount, Constant::getNullValue(RetTy->getElementType()));
+    NewGather = Builder.CreateShuffleVector(NewGather, ZeroInitializer, ShufMask);
   }
 
   return NewGather;
