@@ -284,6 +284,8 @@ class OpenMPLateOutliner {
                    bool NeedsTypedElements = true);
 
   void addFenceCalls(bool IsBegin);
+  bool isAllowedClauseForDirectiveFull(OpenMPDirectiveKind DKind,
+                                       OpenMPClauseKind CK);
   void getApplicableDirectives(OpenMPClauseKind CK,
                                ImplicitClauseKind ICK,
                                SmallVector<DirectiveIntrinsicSet *, 4> &Dirs);
