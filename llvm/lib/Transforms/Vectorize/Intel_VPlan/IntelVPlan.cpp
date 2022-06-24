@@ -1110,6 +1110,8 @@ void VPlan::print(raw_ostream &OS, unsigned Indent) const {
 }
 
 void VPlan::dump(raw_ostream &OS) const {
+  if (!isPrintingEnabled())
+    return;
   formatted_raw_ostream FOS(OS);
   if (!getName().empty())
     FOS << "VPlan IR for: " << getName() << "\n";
@@ -1174,6 +1176,8 @@ void VPlan::printLiveOuts(raw_ostream &OS) const {
 }
 
 void VPlanPrinter::dump(bool CFGOnly) {
+  if (!Plan.isPrintingEnabled())
+    return;
 #if INTEL_CUSTOMIZATION
   if (DumpPlainVPlanIR) {
     Plan.dump(OS);
@@ -1666,6 +1670,9 @@ void VPlanVector::copyData(VPAnalysesFactoryBase &VPAF, UpdateDA UDA,
 
   // Copy loop nesting level
   TargetPlan->setOrigLoopNestingLevel(getOrigLoopNestingLevel());
+
+  // Copy PrintingEnabled flag
+  TargetPlan->setPrintingEnabled(isPrintingEnabled());
 }
 
 VPlanVector *VPlanMasked::clone(VPAnalysesFactoryBase &VPAF, UpdateDA UDA) {
