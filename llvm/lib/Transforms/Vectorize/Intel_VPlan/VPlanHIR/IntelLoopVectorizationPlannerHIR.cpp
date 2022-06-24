@@ -104,6 +104,9 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlannerHIR::buildInitialVPlan(
   Plan->setName(VPlanName);
   Plan->setOrigLoopNestingLevel(TheLoop->getNestingLevel());
 
+  const Function* F = &TheLoop->getHLNodeUtils().getFunction();
+  Plan->setPrintingEnabled(llvm::isFunctionInPrintList(F->getName()));
+
   // Enable SOA-analysis if enabled in the header.
   if (EnableSOAAnalysisHIR)
     Plan->enableSOAAnalysis();

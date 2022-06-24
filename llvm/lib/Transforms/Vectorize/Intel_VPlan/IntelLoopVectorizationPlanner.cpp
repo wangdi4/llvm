@@ -1509,6 +1509,9 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlanner::buildInitialVPlan(
   VPlanVector *Plan = SharedPlan.get();
   Plan->setName(VPlanName);
 
+  const Function* F = TheLoop->getHeader()->getParent();
+  Plan->setPrintingEnabled(llvm::isFunctionInPrintList(F->getName()));
+
   if (EnableSOAAnalysis)
     // Enable SOA-analysis.
     Plan->enableSOAAnalysis();

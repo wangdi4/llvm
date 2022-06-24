@@ -4602,6 +4602,9 @@ public:
 
   unsigned getOrigLoopNestingLevel() const { return OrigLoopNestingLevel; }
 
+  void setPrintingEnabled(bool V) { PrintingEnabled = V;}
+  bool isPrintingEnabled() const { return PrintingEnabled;}
+
 private:
   void addLiveInValue(VPLiveInValue *V) {
     assert(V->getMergeId() == LiveInValues.size() &&
@@ -4648,6 +4651,9 @@ private:
   /// Flag showing that a new scheme of CG for loops and basic blocks
   /// should be used.
   bool ExplicitRemainderUsed = false;
+
+  /// Set to false when printing is not enabled, e.g. by -filter-print-funcs.
+  bool PrintingEnabled = true;
 
   /// Nesting level of outermost loop being vectorized. VPlan transformations
   /// may generated additional loops and we cannot exceed the maximum
@@ -5140,6 +5146,8 @@ public:
 // Several inline functions to hide the #if machinery from the callers.
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 inline void VPLAN_DUMP(bool Cond, StringRef Transformation, const VPlan *Plan) {
+  if (!Plan->isPrintingEnabled()) // to not print string headers
+    return;
   DEBUG_WITH_TYPE("vplan-dumps",
                   dbgs() << "VPlan after " << Transformation << ":\n";
                   Plan->dump(dbgs()));
@@ -5235,6 +5243,8 @@ struct FuncVecVPlanDumpControl : public VPlanDumpControl {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 inline void VPLAN_DUMP(const VPlanDumpControl &Control, const VPlan &Plan) {
+  if (!Plan.isPrintingEnabled()) // to not print string headers
+    return;
   DEBUG_WITH_TYPE("vplan-dumps", dbgs()
                                      << "VPlan after "
                                      << Control.getPassDescription() << ":\n";
