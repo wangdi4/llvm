@@ -58,7 +58,7 @@ static cl::opt<bool> EnableDeleteFields("enable-dtrans-deletefield",
                                         cl::desc("Enable DTrans delete field"));
 // Reuse fields transformation.
 static cl::opt<bool> EnableReuseFields("enable-dtrans-reusefield",
-                                       cl::init(false), cl::Hidden,
+                                       cl::init(true), cl::Hidden,
                                        cl::desc("Enable DTrans reuse field"));
 // Valid values for the dump-module-after-dtrans and dump-module-before-dtrans
 // options:
@@ -304,6 +304,10 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
     addPass(MPM, deletefield, dtrans::DeleteFieldPass());
   addPass(MPM, reorderfields, dtrans::ReorderFieldsPass());
   addPass(MPM, aostosoa, dtrans::AOSToSOAPass());
+  if (EnableReuseFields)
+    addPass(MPM, reusefield, dtrans::ReuseFieldPass());
+  if (EnableDeleteFields)
+    addPass(MPM, deletefield, dtrans::DeleteFieldPass());
   addPass(MPM, elimrofieldaccess, dtrans::EliminateROFieldAccessPass());
   addPass(MPM, dynclone, dtrans::DynClonePass());
   // End of typed pointer passes
