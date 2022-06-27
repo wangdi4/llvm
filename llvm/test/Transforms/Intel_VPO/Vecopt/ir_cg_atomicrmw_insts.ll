@@ -127,3 +127,40 @@ for.end:
 exit:
   ret void
 }
+
+define void @test2(double* %arr, double* nocapture %asum) {
+; LLVM-CG:  define void @test2(double* [[ARR0:%.*]], double* nocapture [[ASUM0:%.*]]) {
+; LLVM-CG:       vector.body:
+; LLVM-CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB20:%.*]] ], [ [[TMP4:%.*]], [[VECTOR_BODY0:%.*]] ]
+; LLVM-CG-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB20]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0]] ]
+; LLVM-CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds double, double* [[ARR0]], i64 [[UNI_PHI0]]
+; LLVM-CG-NEXT:    [[TMP0:%.*]] = bitcast double* [[SCALAR_GEP0]] to <2 x double>*
+; LLVM-CG-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x double>, <2 x double>* [[TMP0]], align 8
+; LLVM-CG-NEXT:    [[WIDE_LOAD_EXTRACT_1_0:%.*]] = extractelement <2 x double> [[WIDE_LOAD0]], i32 1
+; LLVM-CG-NEXT:    [[WIDE_LOAD_EXTRACT_0_0:%.*]] = extractelement <2 x double> [[WIDE_LOAD0]], i32 0
+; LLVM-CG-NEXT:    [[TMP1:%.*]] = atomicrmw fadd double* [[ASUM0]], double [[WIDE_LOAD_EXTRACT_0_0]] monotonic, align 8
+; LLVM-CG-NEXT:    [[TMP2:%.*]] = atomicrmw fadd double* [[ASUM0]], double [[WIDE_LOAD_EXTRACT_1_0]] monotonic, align 8
+;
+entry:
+  br label %for.body.lr.ph
+
+for.body.lr.ph:
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+  br label %for.body
+
+for.body:
+  %iv = phi i64 [ 0, %for.body.lr.ph ], [ %iv.next, %for.body ]
+  %arrayidx = getelementptr inbounds double, double* %arr, i64 %iv
+  %ld = load double, double* %arrayidx, align 8
+  %atomic.inst = atomicrmw fadd double* %asum, double %ld monotonic, align 8
+  %iv.next = add nuw nsw i64 %iv, 1
+  %exitcond = icmp eq i64 %iv.next, 127
+  br i1 %exitcond, label %for.end, label %for.body
+
+for.end:
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"()]
+  br label %exit
+
+exit:
+  ret void
+}
