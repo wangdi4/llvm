@@ -86,13 +86,14 @@ static void warnAboutLeftoverTransformations(Loop *L,
     if (!VectorizeWidth || VectorizeWidth->isVector())
 #if INTEL_CUSTOMIZATION
     {
-      if (VPlanSIMDAssertDefault)
+      if (VPlanSIMDAssertDefault ||
+          getBooleanLoopAttribute(L, "llvm.loop.intel.vector.assert"))
         F->getContext().diagnose(DiagnosticInfoUnsupported(
             *F,
-             "loop not vectorized: the optimizer was unable to perform the "
-             "requested transformation; the transformation might be disabled "
-             "or specified as part of an unsupported transformation ordering",
-             L->getStartLoc()));
+            "loop not vectorized: the optimizer was unable to perform the "
+            "requested transformation; the transformation might be disabled "
+            "or specified as part of an unsupported transformation ordering",
+            L->getStartLoc()));
       else
 #endif // INTEL_CUSTOMIZATION
       ORE->emit(

@@ -626,7 +626,7 @@ MDNode *LoopInfo::createMetadata(
                           ConstantAsMetadata::get(ConstantInt::get(
                               llvm::Type::getInt1Ty(Ctx), true))}));
     if (Attrs.VectorizeAlwaysAssertEnable) {
-      Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.vectorize.assert")};
+      Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.intel.vector.assert")};
       LoopProperties.push_back(MDNode::get(Ctx, Vals));
     }
   }

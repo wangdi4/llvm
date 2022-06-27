@@ -867,7 +867,7 @@ IR:
   !15 = distinct !{!15, !3, !16}
   !16 = !{!"llvm.loop.intel.vector.novecremainder", !"true"}
   17 = distinct !{!17, !3, !5, !18, !6}
-  !18 = !{!"llvm.loop.vectorize.assert"}
+  !18 = !{!"llvm.loop.intel.vector.assert"}
   }];
   let UserContent = [{
 Accept #pragma vector - indicates a loop should be vectorized according to the

@@ -200,5 +200,5 @@ void foo4() {
 // CHECK: ![[NODYNAMICALIGN]] = !{!"llvm.loop.intel.vector.nodynamic_align", !"true"}
 // CHECK: ![[NOVECREMAINDER]] = !{!"llvm.loop.intel.vector.novecremainder", !"true"}
 // CHECK: ![[LOOP_34]] = distinct !{![[LOOP_34]], ![[LOOP_MUSTPROGRESS]], ![[VALWAYS]], ![[VENABLE]], ![[ALWAYSASSERT:[0-9]+]]}
-// CHECK: ![[ALWAYSASSERT]] = !{!"llvm.loop.vectorize.assert"}
+// CHECK: ![[ALWAYSASSERT]] = !{!"llvm.loop.intel.vector.assert"}
 // CHECK: ![[LOOP_35]] = distinct !{![[LOOP_35]], ![[LOOP_MUSTPROGRESS]], ![[VALWAYS]], ![[VENABLE]], ![[ALWAYSASSERT]], ![[VALIGNED]]}
