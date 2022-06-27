@@ -768,13 +768,13 @@ def signbit         : OclBuiltin<"signbit",         (outs rf2igentype:$ret), (in
 let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
-def isfinite_v1widen        : OclBuiltin<"isfinite_v1widen",        (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
-def isinf_v1widen           : OclBuiltin<"isinf_v1widen",           (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
-def isnan_v1widen           : OclBuiltin<"isnan_v1widen",           (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
-def isnormal_v1widen        : OclBuiltin<"isnormal_v1widen",        (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
-def isordered_v1widen       : OclBuiltin<"isordered_v1widen",       (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-def isunordered_v1widen     : OclBuiltin<"isunordered_v1widen",     (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
-def signbit_v1widen         : OclBuiltin<"signbit_v1widen",         (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
+def isfinite_v1widen        : OclBuiltin<"isfinite_v1widen",        (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
+def isinf_v1widen           : OclBuiltin<"isinf_v1widen",           (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
+def isnan_v1widen           : OclBuiltin<"isnan_v1widen",           (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
+def isnormal_v1widen        : OclBuiltin<"isnormal_v1widen",        (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
+def isordered_v1widen       : OclBuiltin<"isordered_v1widen",       (outs i32gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
+def isunordered_v1widen     : OclBuiltin<"isunordered_v1widen",     (outs i32gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
+def signbit_v1widen         : OclBuiltin<"signbit_v1widen",         (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 }
 let Types = ExpandTypesByVFAndFlatten<[v1i8, v1i16, v1i32, v1i64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
@@ -806,13 +806,13 @@ def signbit_mask         : OclBuiltin<"signbit",         (outs rf2igentype:$ret)
 let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
-def isfinite_v1widen_mask        : OclBuiltin<"isfinite_v1widen",        (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
-def isinf_v1widen_mask           : OclBuiltin<"isinf_v1widen",           (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
-def isnan_v1widen_mask           : OclBuiltin<"isnan_v1widen",           (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
-def isnormal_v1widen_mask        : OclBuiltin<"isnormal_v1widen",        (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
-def isordered_v1widen_mask       : OclBuiltin<"isordered_v1widen",       (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 0>;
-def isunordered_v1widen_mask     : OclBuiltin<"isunordered_v1widen",     (outs rf2igentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 0>;
-def signbit_v1widen_mask         : OclBuiltin<"signbit_v1widen",         (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
+def isfinite_v1widen_mask        : OclBuiltin<"isfinite_v1widen",        (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
+def isinf_v1widen_mask           : OclBuiltin<"isinf_v1widen",           (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
+def isnan_v1widen_mask           : OclBuiltin<"isnan_v1widen",           (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
+def isnormal_v1widen_mask        : OclBuiltin<"isnormal_v1widen",        (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
+def isordered_v1widen_mask       : OclBuiltin<"isordered_v1widen",       (outs i32gentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 0>;
+def isunordered_v1widen_mask     : OclBuiltin<"isunordered_v1widen",     (outs i32gentype:$ret), (ins gentype:$x, gentype:$y, rf2igentype:$mask), [], [], 0, 0>;
+def signbit_v1widen_mask         : OclBuiltin<"signbit_v1widen",         (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
 }
 let Types = ExpandTypesByVFAndFlatten<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f16, v1f32, v1f64], [2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],

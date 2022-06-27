@@ -25,7 +25,7 @@ defvar isfinite_f64_code = [{
   }];
 
 defvar isfinite_v1widen_code = [{
-    return ($ReturnType)0 - isfinite($Arg0VarName);
+    return ($ReturnType)0 - convert_$ReturnType(isfinite($Arg0VarName));
   }];
 
 defvar isinf_f32_code = [{
@@ -44,11 +44,11 @@ defvar isinf_f64_code = [{
   }];
 
 defvar isinf_v1widen_code = [{
-    return ($ReturnType)0 - isinf($Arg0VarName);
+    return ($ReturnType)0 - convert_$ReturnType(isinf($Arg0VarName));
   }];
 
 defvar isnan_v1widen_code = [{
-    return ($ReturnType)0 - isnan($Arg0VarName);
+    return ($ReturnType)0 - convert_$ReturnType(isnan($Arg0VarName));
   }];
 
 defvar isnormal_f32_code = [{
@@ -67,19 +67,19 @@ defvar isnormal_f64_code = [{
   }];
 
 defvar isnormal_v1widen_code = [{
-    return ($ReturnType)0 - isnormal($Arg0VarName);
+    return ($ReturnType)0 - convert_$ReturnType(isnormal($Arg0VarName));
   }];
 
 defvar isordered_v1widen_code = [{
-    return ($ReturnType)0 - isordered($Arg0VarName, $Arg1VarName);
+    return ($ReturnType)0 - convert_$ReturnType(isordered($Arg0VarName, $Arg1VarName));
   }];
 
 defvar isunordered_v1widen_code = [{
-    return ($ReturnType)0 - isunordered($Arg0VarName, $Arg1VarName);
+    return ($ReturnType)0 - convert_$ReturnType(isunordered($Arg0VarName, $Arg1VarName));
   }];
 
 defvar signbit_v1widen_code = [{
-    return ($ReturnType)0 - signbit($Arg0VarName);
+    return ($ReturnType)0 - convert_$ReturnType(signbit($Arg0VarName));
   }];
 
 defvar bitselect_f_code = [{
@@ -99,12 +99,12 @@ defvar bitselect_i_code = [{
 // masked
 // Please refer to masked_math.td for naming convention.
 
-defvar masked_impl_code_RF2I_G_M = [{
+defvar masked_impl_code_I32_G_M = [{
     $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, $Arg1VarName);
     return $Func(m$Arg0VarName);
   }];
 
-defvar masked_impl_code_RF2I_G2_M = [{
+defvar masked_impl_code_I32_G2_M = [{
     $Arg0VecType m$Arg0VarName = select(($Arg0VecType)($DEF0), $Arg0VarName, $Arg2VarName);
     $Arg1VecType m$Arg1VarName = select(($Arg1VecType)($DEF1), $Arg1VarName, $Arg2VarName);
     return $Func(m$Arg0VarName, m$Arg1VarName);
