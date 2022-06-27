@@ -1,7 +1,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2021-2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -437,6 +437,8 @@ endif()
 # Therefore, it must be added to the include directories only after
 # the tests subdirectory has been added.
 include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
+
+add_subdirectory(externals)
 
 # Compiler
 add_subdirectory( FrontendDriver )

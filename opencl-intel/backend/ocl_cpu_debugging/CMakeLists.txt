@@ -1,3 +1,15 @@
+# Copyright (C) 2011-2022 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may
+# not use, modify, copy, publish, distribute, disclose or transmit this
+# software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+
 if (WIN32)
 
 use_rtti(TRUE)
@@ -13,8 +25,6 @@ set(TARGET_NAME "${DEBUGGING_DLL_NAME}${DEBUGGING_DLL_VERSION}")
 
 project(${TARGET_NAME})
 
-add_subdirectory( protobuf )
-
 if( CMAKE_SIZEOF_VOID_P EQUAL 4)
     # 32 bit
     set (PLATFORM 32)
@@ -26,7 +36,7 @@ endif( CMAKE_SIZEOF_VOID_P EQUAL 4)
 set(OCL_CPU_DEBUGGING_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(OCL_CPU_DEBUGGING_IMPORT_DIRS
-    ${OCL_CPU_DEBUGGING_DIR}/protobuf/include
+    ${OCL_SOURCE_DIR}/externals/protobuf/include
     ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export
     ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
 )

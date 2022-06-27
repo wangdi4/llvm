@@ -1,3 +1,15 @@
+# Copyright (C) 2022 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may
+# not use, modify, copy, publish, distribute, disclose or transmit this
+# software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+
 #
 # Project variables:
 #  OCL_SOURCE_DIR    - points to the top src directory
@@ -80,6 +92,8 @@ if (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang|IntelLLVM")
 else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -wd4018 -wd4125 -wd4065 -wd4062 -wd4506 -wd4305")
 endif(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang|IntelLLVM")
+else(MSVC)
+  add_definitions(-w)
 endif(MSVC)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "Backend" )
