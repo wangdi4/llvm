@@ -207,11 +207,11 @@ private:
   /// Add an explicit non-POD private to PrivatesList
   /// TODO: Use Constr, Destr and CopyAssign for non-POD privates.
   void addLoopPrivate(RegDDRef *PrivVal, Type *PrivTy, Function *Constr,
-                      Function *Destr, Function *CopyAssign,
-                      PrivateKindTy Kind) {
+                      Function *Destr, Function *CopyAssign, PrivateKindTy Kind,
+                      bool IsF90NonPod) {
     assert(PrivVal->isAddressOf() && "Private ref is not address of type.");
     PrivatesNonPODList.emplace_back(PrivVal, PrivTy, Kind, Constr, Destr,
-                                    CopyAssign);
+                                    CopyAssign, IsF90NonPod);
   }
 
   /// Add an explicit POD private to PrivatesList

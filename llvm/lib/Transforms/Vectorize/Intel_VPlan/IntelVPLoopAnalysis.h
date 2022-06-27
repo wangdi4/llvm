@@ -439,14 +439,16 @@ class VPPrivateNonPOD : public VPPrivate {
 public:
   VPPrivateNonPOD(VPEntityAliasesTy &&InAliases, PrivateKind K, bool IsExplicit,
                   Function *Ctor, Function *Dtor, Type *AllocatedTy,
-                  Function *CopyAssign)
+                  Function *CopyAssign, bool IsF90NonPod)
       : VPPrivate(PrivateTag::PTNonPod, std::move(InAliases), K, IsExplicit,
                   AllocatedTy, true /*IsMemOnly*/, PrivateNonPOD),
-        Ctor(Ctor), Dtor(Dtor), CopyAssign(CopyAssign) {}
+        Ctor(Ctor), Dtor(Dtor), CopyAssign(CopyAssign),
+        IsF90NonPod(IsF90NonPod) {}
 
   Function *getCtor() const { return Ctor; }
   Function *getDtor() const { return Dtor; }
   Function *getCopyAssign() const { return CopyAssign; }
+  bool isF90NonPod() const { return IsF90NonPod; }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPLoopEntity *V) {
@@ -461,6 +463,7 @@ private:
   Function *Ctor;
   Function *Dtor;
   Function *CopyAssign;
+  bool IsF90NonPod;
 };
 
 /// Complimentary class that describes memory locations of the loop entities.
@@ -571,7 +574,7 @@ public:
   VPPrivateNonPOD *addNonPODPrivate(VPEntityAliasesTy &PtrAliases,
                                     VPPrivate::PrivateKind K, bool Explicit,
                                     Function *Ctor, Function *Dtor,
-                                    Function *CopyAssign,
+                                    Function *CopyAssign, bool IsF90NonPod,
                                     Type *AllocatedTy = nullptr,
                                     VPValue *AI = nullptr);
 
@@ -1281,6 +1284,7 @@ public:
     IsConditional = false;
     IsLast = false;
     IsExplicit = false;
+    IsF90NonPod = false;
     PTag = VPPrivate::PrivateTag::PTRegisterized;
   }
   /// Check for all non-null VPInstructions in the descriptor are in the \p
@@ -1308,6 +1312,7 @@ public:
   void setCtor(Function *CtorFn) { Ctor = CtorFn; }
   void setDtor(Function *DtorFn) { Dtor = DtorFn; }
   void setCopyAssign(Function *CopyAssignFn) { CopyAssign = CopyAssignFn; }
+  void setIsF90NonPod(bool F90NonPod) { IsF90NonPod = F90NonPod; }
 
 private:
   /// Set fields to define PrivateKind for the imported private.
@@ -1331,6 +1336,7 @@ private:
   bool IsConditional = false;
   bool IsLast = false;
   bool IsExplicit = false;
+  bool IsF90NonPod = false;
   Function *Ctor = nullptr;
   Function *Dtor = nullptr;
   Function *CopyAssign = nullptr;

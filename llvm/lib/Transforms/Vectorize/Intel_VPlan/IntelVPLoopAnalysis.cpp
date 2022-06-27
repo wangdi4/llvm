@@ -417,10 +417,11 @@ VPPrivate *VPLoopEntityList::addPrivate(VPPrivate::PrivateTag Tag,
 
 VPPrivateNonPOD *VPLoopEntityList::addNonPODPrivate(
     VPEntityAliasesTy &Aliases, VPPrivate::PrivateKind K, bool Explicit,
-    Function *Ctor, Function *Dtor, Function *CopyAssign, Type *AllocatedTy,
-    VPValue *AI) {
-  VPPrivateNonPOD *Priv = new VPPrivateNonPOD(
-    std::move(Aliases), K, Explicit, Ctor, Dtor, AllocatedTy, CopyAssign);
+    Function *Ctor, Function *Dtor, Function *CopyAssign, bool IsF90NonPod,
+    Type *AllocatedTy, VPValue *AI) {
+  VPPrivateNonPOD *Priv =
+      new VPPrivateNonPOD(std::move(Aliases), K, Explicit, Ctor, Dtor,
+                          AllocatedTy, CopyAssign, IsF90NonPod);
   PrivatesList.emplace_back(Priv);
   linkValue(PrivateMap, Priv, AI);
   createMemDescFor(Priv, AI);
@@ -1145,17 +1146,21 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
 }
 
 // Helper method to create ctor/dtor VPCalls for given non-POD private memory.
-static void createNonPODPrivateCtorDtorCalls(Function *F, VPValue *NonPODMemory,
+static void createNonPODPrivateCtorDtorCalls(Function *F,
+                                             ArrayRef<VPValue *> Args,
                                              VPBuilder &Builder,
                                              VPlanVector &Plan) {
-  assert(F->arg_size() == 1 &&
-         "Expected ctor/dtor functions to accept single argument.");
-  assert(NonPODMemory &&
-         "Expected private memory allocated for non-POD private.");
+  assert(
+      F->arg_size() == Args.size() && Args.size() >= 1 &&
+      "Number of input arguments should match number of Function arguments.");
+
+  assert(llvm::all_of(Args, [](VPValue *Arg) { return Arg != nullptr; }) &&
+         "All of input args are expected to be non-null.");
+
   auto *VPFunc = Plan.getVPConstant(cast<Constant>(F));
 
-  auto *VPCall =
-      new VPCallInstruction(VPFunc, F->getFunctionType(), {NonPODMemory});
+  auto *VPCall = new VPCallInstruction(VPFunc, F->getFunctionType(), Args);
+
   Builder.insert(VPCall);
 }
 
@@ -1401,8 +1406,13 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
     // destructor functions using the new memory created for the private as
     // operand.
     if (auto *PrivateNonPOD = dyn_cast<VPPrivateNonPOD>(Private)) {
-      if (auto *CtorFn = PrivateNonPOD->getCtor())
-        createNonPODPrivateCtorDtorCalls(CtorFn, PrivateMem, Builder, Plan);
+      if (auto *CtorFn = PrivateNonPOD->getCtor()) {
+        if (PrivateNonPOD->isF90NonPod())
+          createNonPODPrivateCtorDtorCalls(CtorFn, {PrivateMem, AI}, Builder,
+                                           Plan);
+        else
+          createNonPODPrivateCtorDtorCalls(CtorFn, {PrivateMem}, Builder, Plan);
+      }
 
       if (PrivateNonPOD->isLast()) {
         assert(PrivateNonPOD->getCopyAssign() &&
@@ -2323,7 +2333,7 @@ void PrivateDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
   Type *AllocatedTy = getAllocatedType();
   if (Ctor || Dtor)
     LE->addNonPODPrivate(PtrAliases, K, IsExplicit, Ctor, Dtor, CopyAssign,
-                         AllocatedTy, AllocaInst);
+                         IsF90NonPod, AllocatedTy, AllocaInst);
   else if (PTag == VPPrivate::PrivateTag::PTRegisterized) {
     assert(ExitInst && "ExitInst is expected to be non-null here.");
     if (LE->getReduction(ExitInst)) {
