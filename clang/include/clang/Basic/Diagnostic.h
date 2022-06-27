@@ -564,10 +564,14 @@ public:
   DiagnosticsEngine &operator=(const DiagnosticsEngine &) = delete;
   ~DiagnosticsEngine();
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   OpenMPOptReportHandler OpenMPOptReport;
 #endif // INTEL_CUSTOMIZATION
 
+=======
+  friend void DiagnosticsTestHelper(DiagnosticsEngine &);
+>>>>>>> 946c45a4ed5d5e2f262110a27390369f0d8fc3eb
   LLVM_DUMP_METHOD void dump() const;
   LLVM_DUMP_METHOD void dump(StringRef DiagName) const;
 
@@ -918,9 +922,9 @@ public:
     LastDiagLevel = Other.LastDiagLevel;
   }
 
-  /// Reset the state of the diagnostic object to its initial
-  /// configuration.
-  void Reset();
+  /// Reset the state of the diagnostic object to its initial configuration.
+  /// \param[in] soft - if true, doesn't reset the diagnostic mappings and state
+  void Reset(bool soft = false);
 
   //===--------------------------------------------------------------------===//
   // DiagnosticsEngine classification and reporting interfaces.
