@@ -1165,6 +1165,8 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     if (F.getCallingConv() == CallingConv::Cold)
       Cost += InlineConstants::ColdccPenalty;
 
+    LLVM_DEBUG(dbgs() << "      Initial cost: " << Cost << "\n");
+
     // Check if we're done. This can happen due to bonuses and penalties.
 #if INTEL_CUSTOMIZATION
     if (Cost >= Threshold) {
