@@ -48,8 +48,8 @@ foreach name = ["bitselect", "iselect", "uselect"] in {
 foreach name = ["isfinite", "isinf", "isnan", "isnormal", "isordered", "isunordered", "signbit"] in {
   defvar builtin = !cast<OclBuiltin>(name # "_mask");
   defvar types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [2, 3, 4, 8, 16]>.Tout;
-  defvar mask_code = !cond(!or(!eq(name, "isordered"), !eq(name, "isunordered")) : masked_impl_code_RF2I_G2_M,
-                           true: masked_impl_code_RF2I_G_M);
+  defvar mask_code = !cond(!or(!eq(name, "isordered"), !eq(name, "isunordered")) : masked_impl_code_I32_G2_M,
+                           true: masked_impl_code_I32_G_M);
   def name # _mask_impl: OclBuiltinImpl<builtin, types, 0, mask_code, [["$DEF0", "0"], ["$DEF1", "0"]]>;
 
   defvar builtin_v1widen = !cast<OclBuiltin>(name # "_v1widen_mask");

@@ -65,8 +65,8 @@ foreach name = ["isfinite", "isinf", "isnan", "isnormal", "isordered", "isunorde
 foreach name = ["isfinite", "isinf", "isnan", "isnormal", "isordered", "isunordered", "signbit"] in {
   defvar builtin = !cast<OclBuiltin>(name # "_mask");
   defvar mask_code = !cond(
-      !or(!eq(name, "isordered"), !eq(name, "isunordered")): masked_impl_code_RF2I_G2_M,
-      true: masked_impl_code_RF2I_G_M);
+      !or(!eq(name, "isordered"), !eq(name, "isunordered")): masked_impl_code_I32_G2_M,
+      true: masked_impl_code_I32_G_M);
   def name # _mask_impl : OclBuiltinImpl<builtin, [v32f32, v64f32, v32f64, v64f64], 0, mask_code, [["$DEF0", "0"], ["$DEF1", "0"]]>;
 
   defvar builtin_v1widen = !cast<OclBuiltin>(name # "_v1widen_mask");
