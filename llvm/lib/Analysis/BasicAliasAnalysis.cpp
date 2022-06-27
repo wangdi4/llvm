@@ -168,34 +168,7 @@ static bool isEscapeArgDereference(const Value *V) {
   }
   return false;
 }
-#endif // INTEL_CUSTOMIZATION
 
-<<<<<<< HEAD
-/// Returns true if the pointer is one which would have been considered an
-/// escape by isNonEscapingLocalObject.
-static bool isEscapeSource(const Value *V) {
-  if (auto *CB = dyn_cast<CallBase>(V))
-    return !isIntrinsicReturningPointerAliasingArgumentWithoutCapturing(CB,
-                                                                        true);
-
-  // The load case works because isNonEscapingLocalObject considers all
-  // stores to be escapes (it passes true for the StoreCaptures argument
-  // to PointerMayBeCaptured).
-  if (isa<LoadInst>(V))
-    return true;
-
-  // The inttoptr case works because isNonEscapingLocalObject considers all
-  // means of converting or equating a pointer to an int (ptrtoint, ptr store
-  // which could be followed by an integer load, ptr<->int compare) as
-  // escaping, and objects located at well-known addresses via platform-specific
-  // means cannot be considered non-escaping local objects.
-  if (isa<IntToPtrInst>(V))
-    return true;
-
-  return false;
-}
-
-#ifdef INTEL_CUSTOMIZATION
 static bool isNonEscapingPtrNoAliasLoad(const Value *V, const DataLayout &DL,
                                         const Value **BasePtr) {
   auto *LI = dyn_cast<LoadInst>(V);
@@ -237,8 +210,6 @@ static bool checkPtrNoAlias(const Value *V1, const Value *V2,
 }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 54eff7da3c6147451b0fd4defb1421db167dc9c6
 /// Returns the size of the object specified by V or UnknownSize if unknown.
 static uint64_t getObjectSize(const Value *V, const DataLayout &DL,
                               const TargetLibraryInfo &TLI,
