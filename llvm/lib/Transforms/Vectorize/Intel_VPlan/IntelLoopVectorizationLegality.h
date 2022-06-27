@@ -70,8 +70,6 @@ public:
     UnsupportedReductionOp,
     InscanReduction,
     VectorCondLastPrivate, // need CG implementation
-    // TODO: Temporary bailout for F90_NONPOD directive
-    F90NonPod
   };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -97,8 +95,6 @@ public:
       return "Inscan reduction is not supported.\n";
     case BailoutReason::VectorCondLastPrivate:
       return "Conditional lastprivate of a vector type is not supported.\n";
-    case BailoutReason::F90NonPod:
-      return "F90 non-POD privates are not supported.\n";
     }
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -131,8 +127,6 @@ private:
     for (LastprivateItem *Item : WRLp->getLpriv().items()) {
       if (Item->getIsF90DopeVector())
         return bailout(BailoutReason::F90DopeVectorPrivate);
-      if (Item->getIsF90NonPod())
-        return bailout(BailoutReason::F90NonPod);
       if (!visitLastPrivate(Item))
         return false;
     }
@@ -140,8 +134,6 @@ private:
     for (PrivateItem *Item : WRLp->getPriv().items()) {
       if (Item->getIsF90DopeVector())
         return bailout(BailoutReason::F90DopeVectorPrivate);
-      if (Item->getIsF90NonPod())
-        return bailout(BailoutReason::F90NonPod);
       if (!visitPrivate(Item))
         return false;
     }
@@ -281,7 +273,8 @@ private:
 
     if (Item->getIsNonPod()) {
       addLoopPrivate(Val, Type, Item->getConstructor(), Item->getDestructor(),
-                     nullptr /* no CopyAssign */, PrivateKindTy::NonLast);
+                     nullptr /* no CopyAssign */, PrivateKindTy::NonLast,
+                     Item->getIsF90NonPod());
       return true;
     }
     addLoopPrivate(Val, Type, PrivateKindTy::NonLast);
@@ -307,7 +300,8 @@ private:
       if (isa<ArrayType>(Type) || NumElements)
         return bailout(BailoutReason::ArrayLastprivateNonPod);
       addLoopPrivate(Val, Type, Item->getConstructor(), Item->getDestructor(),
-                     Item->getCopyAssign(), PrivateKindTy::Last);
+                     Item->getCopyAssign(), PrivateKindTy::Last,
+                     Item->getIsF90NonPod());
       return true;
     }
 
@@ -376,9 +370,10 @@ private:
   }
 
   void addLoopPrivate(ValueTy *Val, Type *Ty, Function *Constr, Function *Destr,
-                      Function *CopyAssign, PrivateKindTy Kind) {
+                      Function *CopyAssign, PrivateKindTy Kind,
+                      bool IsF90NonPod) {
     return static_cast<LegalityTy *>(this)->addLoopPrivate(
-        Val, Ty, Constr, Destr, CopyAssign, Kind);
+        Val, Ty, Constr, Destr, CopyAssign, Kind, IsF90NonPod);
   }
 
   void addLoopPrivate(ValueTy *Val, Type *Ty, PrivateKindTy Kind) {
@@ -619,11 +614,11 @@ private:
 
   /// Add an in memory non-POD private to the vector of private values.
   void addLoopPrivate(Value *PrivVal, Type *PrivTy, Function *Constr,
-                      Function *Destr, Function *CopyAssign,
-                      PrivateKindTy Kind) {
-    Privates.insert(
-        {PrivVal, std::make_unique<PrivDescrNonPODTy>(
-                      PrivVal, PrivTy, Kind, Constr, Destr, CopyAssign)});
+                      Function *Destr, Function *CopyAssign, PrivateKindTy Kind,
+                      bool IsF90NonPod) {
+    Privates.insert({PrivVal, std::make_unique<PrivDescrNonPODTy>(
+                                  PrivVal, PrivTy, Kind, Constr, Destr,
+                                  CopyAssign, IsF90NonPod)});
   }
 
   /// Add an in memory POD private to the vector of private values.

@@ -56,9 +56,9 @@ enum ClangFlags {
   Ignored = (1 << 18),
   Deprecated = (1 << 19),
 #if INTEL_CUSTOMIZATION
-  DpcppUnsupported = (1 << 19),
-  DpcppHidden = (1 << 20),
-  DpcppOption = (1 << 21)
+  DpcppUnsupported = (1 << 20),
+  DpcppHidden = (1 << 21),
+  DpcppOption = (1 << 22)
 #endif // INTEL_CUSTOMIZATION
 };
 
