@@ -264,8 +264,6 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
         OrigAtomicRMW->getAlign(), OrigAtomicRMW->getOrdering(),
         OrigAtomicRMW->getSyncScopeID());
     SerialAtomicRMW->setVolatile(OrigAtomicRMW->isVolatile());
-    if (SerialAtomicRMW->isFloatingPointOperation())
-      SerialAtomicRMW->setFastMathFlags(OrigAtomicRMW->getFastMathFlags());
     SerialInst = SerialAtomicRMW;
   } else if (VPInst->getOpcode() == Instruction::AtomicCmpXchg) {
     assert(Ops.size() == 3 &&
