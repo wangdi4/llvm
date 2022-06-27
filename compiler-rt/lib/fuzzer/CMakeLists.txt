@@ -59,12 +59,18 @@ CHECK_CXX_SOURCE_COMPILES("
 
 set(LIBFUZZER_CFLAGS ${SANITIZER_COMMON_CFLAGS})
 
+<<<<<<< HEAD
 if(OS_NAME MATCHES "Linux|Fuchsia" AND
    COMPILER_RT_LIBCXX_PATH AND
    COMPILER_RT_LIBCXXABI_PATH)
   list(APPEND LIBFUZZER_CFLAGS -nostdinc++ -D_LIBCPP_ABI_VERSION=Fuzzer)
   # Remove -stdlib= which is unused when passing -nostdinc++.
   string(REGEX REPLACE "-stdlib=[a-zA-Z+]*" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+=======
+if(OS_NAME MATCHES "Linux|Fuchsia" AND COMPILER_RT_USE_LIBCXX)
+  list(APPEND LIBFUZZER_CFLAGS -D_LIBCPP_ABI_VERSION=Fuzzer)
+  append_list_if(COMPILER_RT_HAS_NOSTDINCXX_FLAG -nostdinc++ LIBFUZZER_CFLAGS)
+>>>>>>> c0d4f2282d8335cd15338663b18cd7f22155456e
 elseif(TARGET cxx-headers OR HAVE_LIBCXX)
   # libFuzzer uses C++ standard library headers.
   set(LIBFUZZER_DEPS cxx-headers)
@@ -135,9 +141,7 @@ add_compiler_rt_runtime(clang_rt.fuzzer_interceptors
   CFLAGS ${LIBFUZZER_CFLAGS}
   PARENT_TARGET fuzzer)
 
-if(OS_NAME MATCHES "Linux|Fuchsia" AND
-   COMPILER_RT_LIBCXX_PATH AND
-   COMPILER_RT_LIBCXXABI_PATH)
+if(OS_NAME MATCHES "Linux|Fuchsia" AND COMPILER_RT_USE_LIBCXX)
   macro(partially_link_libcxx name dir arch)
     get_target_flags_for_arch(${arch} target_cflags)
     if(CMAKE_CXX_COMPILER_ID MATCHES Clang)
