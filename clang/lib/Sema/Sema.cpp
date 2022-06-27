@@ -516,7 +516,8 @@ void Sema::Initialize() {
     PushOnScopeChains(Context.getBuiltinVaListDecl(), TUScope);
 
 #if INTEL_CUSTOMIZATION
-  if (PP.getLangOpts().CPlusPlus && PP.getLangOpts().AlignedAllocation &&
+  if (PP.getLangOpts().CPlusPlus && !PP.getLangOpts().CPlusPlus17 &&
+      PP.getLangOpts().AlignedAllocation &&
       PP.getLangOpts().isIntelCompat(LangOptions::PredeclareAlignValT)) {
     NamespaceDecl *StdNamespace = getOrCreateStdNamespace();
     if (StdNamespace->isImplicit()) {

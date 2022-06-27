@@ -2326,7 +2326,8 @@ See https://software.intel.com/en-us/node/522531 for a description.  This
 is now part of C++17 but the Intel compiler supported it earlier.
 
 In C++17 std::align_val_t will be defined in <new> but this extension
-predeclares it to enable earlier code.
+predeclares it to enable earlier code. This extension will not be
+enabled in C++17 and later modes.
 
 Note that in clang the LangOpt AlignedAllocation (-faligned-allocation)
 controls whether this feature is enabled.  In C++17 mode it is enabled
