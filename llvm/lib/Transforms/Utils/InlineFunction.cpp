@@ -1269,35 +1269,21 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
       // must always check for prior capture.
 #if INTEL_CUSTOMIZATION
       auto MayAssumeNoAlias = [&](const Value *V) {
-        return !ObjSet.count(V) &&
-               (!CanDeriveViaCapture ||
-                // It might be tempting to skip the
-                // PointerMayBeCapturedBefore check if
-                // A->hasNoCaptureAttr() is true, but this is
-                // incorrect because nocapture only guarantees
-                // that no copies outlive the function, not
-                // that the value cannot be locally captured.
-                !PointerMayBeCapturedBefore(V,
-                                            /* ReturnCaptures */ false,
-                                            /* StoreCaptures */ false, I, &DT));
-      };
-#endif // INTEL_CUSTOMIZATION
-
-      for (const Argument *A : NoAliasArgs) {
-<<<<<<< HEAD
-        if (MayAssumeNoAlias(A)) // INTEL
-=======
-        if (ObjSet.contains(A))
-          continue; // May be based on a noalias argument.
+        if (ObjSet.contains(V))
+          return false; // May be based on a noalias argument.
 
         // It might be tempting to skip the PointerMayBeCapturedBefore check if
         // A->hasNoCaptureAttr() is true, but this is incorrect because
         // nocapture only guarantees that no copies outlive the function, not
         // that the value cannot be locally captured.
-        if (!RequiresNoCaptureBefore ||
-            !PointerMayBeCapturedBefore(A, /* ReturnCaptures */ false,
-                                        /* StoreCaptures */ false, I, &DT))
->>>>>>> e523baa664b7fc678aa1c0963980a70af161469d
+        return !RequiresNoCaptureBefore ||
+            !PointerMayBeCapturedBefore(V, /* ReturnCaptures */ false,
+                                        /* StoreCaptures */ false, I, &DT);
+      };
+#endif // INTEL_CUSTOMIZATION
+
+      for (const Argument *A : NoAliasArgs) {
+        if (MayAssumeNoAlias(A)) // INTEL
           NoAliases.push_back(NewScopes[A]);
       }
 
