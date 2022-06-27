@@ -3273,7 +3273,8 @@ def fdriver_only : Flag<["-"], "fdriver-only">, Flags<[NoXarchOption, CoreOption
   Group<Action_Group>, HelpText<"Only run the driver.">;
 #if INTEL_CUSTOMIZATION
 def fintelfpga : Flag<["-"], "fintelfpga">, Group<f_Group>,
-  Flags<[CC1Option, CoreOption, DpcppOption]>, MarshallingInfoFlag<LangOpts<"IntelFPGA">>,
+  Flags<[CC1Option, CoreOption, DpcppOption]>,
+  MarshallingInfoFlag<LangOpts<"IntelFPGA">>,
   HelpText<"Perform ahead-of-time compilation for FPGA">;
 def fsycl_device_only : Flag<["-"], "fsycl-device-only">, Flags<[CoreOption, DpcppOption]>,
   HelpText<"Compile SYCL kernels for device">;

@@ -681,8 +681,10 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
 #endif // INTEL_CUSTOMIZATION
       }
     case llvm::Triple::Linux:
-      if (IsFPGASubArch)
-        return new LinuxTargetInfo<SPIR64FPGATargetInfo>(Triple, Opts);
+#if INTEL_CUSTOMIZATION
+     if (IsFPGASubArch)
+        return new LinuxTargetInfo<SPIR64INTELFpgaTargetInfo>(Triple, Opts);
+#endif // INTEL_CUSTOMIZATION
       return new LinuxTargetInfo<SPIR64TargetInfo>(Triple, Opts);
     default:
 #if INTEL_CUSTOMIZATION
@@ -693,7 +695,7 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
         return new SPIR64TargetInfo(Triple, Opts);
       case llvm::Triple::UnknownEnvironment:
         if (IsFPGASubArch)
-          return new SPIR64FPGATargetInfo(Triple, Opts);
+          return new SPIR64INTELFpgaTargetInfo(Triple, Opts);
         return new SPIR64TargetInfo(Triple, Opts);
       default:
         return nullptr;
