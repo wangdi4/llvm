@@ -1829,6 +1829,8 @@ void OpenMPLateOutliner::emitOMPDeviceClause(const OMPDeviceClause *Cl) {
 
 void OpenMPLateOutliner::emitOMPIsDevicePtrClause(
     const OMPIsDevicePtrClause *Cl) {
+  if (CurrentDirectiveKind == OMPD_target)
+    return;
   ClauseEmissionHelper CEH(*this, OMPC_is_device_ptr);
   ClauseStringBuilder &CSB = CEH.getBuilder();
   CSB.add("QUAL.OMP.IS_DEVICE_PTR");

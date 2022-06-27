@@ -16,10 +16,9 @@ struct S {
 //CHECK-LABEL: S3foo
 void S::foo(float *&refptr) {
   //CHECK: [[REFPTR:%refptr.*]] = alloca ptr, align 8
-  //CHECK: [[LREFPTR:%[0-9]+]] = load ptr, ptr [[REFPTR]]
 
   //CHECK: "DIR.OMP.TARGET"()
-  //CHECK: QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(ptr %ptr, ptr [[LREFPTR]], ptr %aaptr, ptr %arr)
+  //CHECK: "QUAL.OMP.MAP.TOFROM"(ptr %this
   #pragma omp target is_device_ptr(ptr, refptr, aaptr, arr)
   ++a, ++*ptr, ++ref, ++arr[0];
   //CHECK: "DIR.OMP.END.TARGET"()
@@ -32,9 +31,10 @@ void foo() {
   int &j = i;
   int *k = &j;
   //CHECK-DAG: [[K:%k.*]] = alloca ptr,
+  //CHECK: [[L:%[0-9]+]] = load ptr, ptr %k
 
   //CHECK: "DIR.OMP.TARGET"()
-  //CHECK: QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(ptr %k)
+  //CHECK: "QUAL.OMP.MAP.TOFROM"(ptr [[L]]
   #pragma omp target map(tofrom: i) is_device_ptr(k)
   {
     i++; j++; k++;
@@ -52,6 +52,7 @@ struct SomeKernel {
   void apply() {
     #pragma omp target teams is_device_ptr(devPtr) device(targetDev)
     {
+      devPtr++;
     }
   }
 };
@@ -66,7 +67,7 @@ void use_template() {
 //CHECK: [[THIS:%this.*]] = load ptr, ptr %this.addr,
 //CHECK: [[DEVPTR:%devPtr.*]] = getelementptr inbounds %struct.SomeKernel, ptr [[THIS]], i32 0, i32 1
 //CHECK: "DIR.OMP.TARGET"()
-//CHECK: QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(ptr [[DEVPTR]])
+//CHECK: "QUAL.OMP.MAP.TOFROM"(ptr %this
 
 //CHECK-LABEL: main
 int main() {
@@ -80,17 +81,31 @@ int main() {
   //CHECK: [[PTR:%ptr.*]] = alloca ptr,
   //CHECK: [[REF:%ref.*]] = alloca ptr,
   //CHECK: [[ARR:%arr.*]] = alloca [4 x float],
+  //CHECK: [[FPTR:%fptr.*]] = alloca ptr
   //CHECK: [[VLA:%vla.*]] = alloca float, i64
+  //CHECK: [[L:%[0-9]+]] = load ptr, ptr [[PTR]]
 
   S s;
   s.foo(ptr);
 
   //CHECK: "DIR.OMP.TARGET"()
-  //CHECK: QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(ptr %ptr, ptr %arr, ptr %vla)
+  //CHECK: "QUAL.OMP.MAP.TOFROM"(ptr [[L]]
+  //CHECK: "QUAL.OMP.MAP.TO"(ptr [[ARR]]
+  //CHECK: "QUAL.OMP.MAP.TO"(ptr [[VLA]]
   #pragma omp target \
                is_device_ptr(ptr, arr, vla)
   ++a, ++*ptr, ++ref, ++arr[0], ++vla[0];
   //CHECK: "DIR.OMP.END.TARGET"()
+
+  void (*fptr)(void) = foo;
+  //CHECK: store ptr @_Z3foov, ptr [[FPTR]]
+  //CHECK: [[L14:%[0-9]+]] = load ptr, ptr [[FPTR]]
+  //CHECK: "DIR.OMP.TARGET"()
+  //CHECK-SAME: "QUAL.OMP.MAP.TOFROM:FPTR"(ptr [[L14]]
+  #pragma omp target is_device_ptr(fptr)
+    fptr();
+  //CHECK: "DIR.OMP.END.TARGET"()
+
   return a;
 }
 
