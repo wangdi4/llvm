@@ -170,6 +170,7 @@ static bool isEscapeArgDereference(const Value *V) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+<<<<<<< HEAD
 /// Returns true if the pointer is one which would have been considered an
 /// escape by isNonEscapingLocalObject.
 static bool isEscapeSource(const Value *V) {
@@ -236,6 +237,8 @@ static bool checkPtrNoAlias(const Value *V1, const Value *V2,
 }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 54eff7da3c6147451b0fd4defb1421db167dc9c6
 /// Returns the size of the object specified by V or UnknownSize if unknown.
 static uint64_t getObjectSize(const Value *V, const DataLayout &DL,
                               const TargetLibraryInfo &TLI,
