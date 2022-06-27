@@ -11,6 +11,7 @@
 #include "../ClangTidyModuleRegistry.h"
 #include "ConfusableIdentifierCheck.h"
 #include "DefinitionsInHeadersCheck.h"
+#include "Homoglyph.h" // INTEL
 #include "MisleadingBidirectional.h"
 #include "MisleadingIdentifier.h"
 #include "MisplacedConstCheck.h"
@@ -38,6 +39,7 @@ public:
         "misc-confusable-identifiers");
     CheckFactories.registerCheck<DefinitionsInHeadersCheck>(
         "misc-definitions-in-headers");
+    CheckFactories.registerCheck<Homoglyph>("misc-homoglyph"); // INTEL
     CheckFactories.registerCheck<MisleadingBidirectionalCheck>(
         "misc-misleading-bidirectional");
     CheckFactories.registerCheck<MisleadingIdentifierCheck>(
