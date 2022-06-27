@@ -351,6 +351,7 @@ LANGOPT(SYCLIsHost        , 1, 0, "SYCL host compilation")
 LANGOPT(IntelFPGA         , 1, 0, "Perform ahead-of-time compilation for FPGA")
 LANGOPT(SYCLAllowFuncPtr  , 1, 0, "Allow function pointers in SYCL device code")
 #if INTEL_CUSTOMIZATION
+LANGOPT(IntelFPGA         , 1, 0, "Perform ahead-of-time compilation for FPGA")
 LANGOPT(EnableVariantVirtualCalls , 1, 0, "Allow Virtual function call with vecttor variants")
 LANGOPT(EnableVariantFunctionPointers, 1, 0, "Allow function pointers with vector variants")
 #endif // INTEL_CUSTOMIZATION

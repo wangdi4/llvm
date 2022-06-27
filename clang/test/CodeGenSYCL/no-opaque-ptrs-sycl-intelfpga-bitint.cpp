@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+// INTEL_CUSTOMIZATION
+>>>>>>> 7294cccc6fb5747a06aefb0795d4c9d0b9aa4937
 // RUN: %clang_cc1 -no-opaque-pointers -fsycl-is-device -fintelfpga -triple spir64_fpga -aux-triple x86_64-unknown-linux-gnu -IInputs -emit-llvm %s -o - | FileCheck %s
 
 // This test checks that we generate appropriate code for division
@@ -25,3 +29,7 @@ int main() {
   };
   h.single_task(lambda);
 }
+<<<<<<< HEAD
+=======
+// end INTEL_CUSTOMIZATION
+>>>>>>> 7294cccc6fb5747a06aefb0795d4c9d0b9aa4937
