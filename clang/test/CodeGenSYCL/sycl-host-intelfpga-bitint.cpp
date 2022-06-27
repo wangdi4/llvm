@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-=======
-// INTEL_CUSTOMIZATION
->>>>>>> 7294cccc6fb5747a06aefb0795d4c9d0b9aa4937
 // RUN: %clang_cc1 -opaque-pointers -fsycl-is-host -fintelfpga -triple x86_64 -aux-triple spir64_fpga -emit-llvm %s -o - | FileCheck %s
 
 // This test checks that we generate appropriate code for division
@@ -26,7 +22,3 @@ signed _BitInt(2048) foo(signed _BitInt(2048) a, signed _BitInt(2048) b) {
   // CHECK: ret void
   return a / b;
 }
-<<<<<<< HEAD
-=======
-// end INTEL_CUSTOMIZATION
->>>>>>> 7294cccc6fb5747a06aefb0795d4c9d0b9aa4937

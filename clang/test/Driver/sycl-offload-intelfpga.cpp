@@ -26,12 +26,6 @@
 // CHK-HOST-DEVICE: clang{{.*}} "-cc1"{{.*}} "-fsycl-is-device"{{.*}} "-fintelfpga"
 // CHK-HOST-DEVICE: clang{{.*}} "-cc1"{{.*}} "-fintelfpga"{{.*}} "-fsycl-is-host"
 
-/// -fintelfpga passes it to host and device cc1 compilations
-// RUN:   %clangxx -### -fsycl -fintelfpga %s 2>&1 \
-// RUN:   | FileCheck -check-prefix=CHK-HOST-DEVICE %s
-// CHK-HOST-DEVICE: clang{{.*}} "-cc1"{{.*}} "-fsycl-is-device"{{.*}} "-fintelfpga"
-// CHK-HOST-DEVICE: clang{{.*}} "-cc1"{{.*}} "-fintelfpga"{{.*}} "-fsycl-is-host"
-
 /// FPGA target implies -fsycl-disable-range-rounding
 // RUN:   %clangxx -### -target x86_64-unknown-linux-gnu -fsycl -fintelfpga %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-RANGE-ROUNDING %s
