@@ -127,6 +127,7 @@ protected:
 /// passes be composed to achieve the same end result.
 class InlinerPass : public PassInfoMixin<InlinerPass> {
 public:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   InlinerPass(bool OnlyMandatory = false);
 #endif // INTEL_CUSTOMIZATION
@@ -136,6 +137,12 @@ public:
       : OnlyMandatory(Arg.OnlyMandatory), Report(std::move(Arg.Report)),
         MDReport(std::move(Arg.MDReport)) {}
 #endif // INTEL_CUSTOMIZATION
+=======
+  InlinerPass(bool OnlyMandatory = false,
+              ThinOrFullLTOPhase LTOPhase = ThinOrFullLTOPhase::None)
+      : OnlyMandatory(OnlyMandatory), LTOPhase(LTOPhase) {}
+  InlinerPass(InlinerPass &&Arg) = default;
+>>>>>>> e0d069598bc8c147c8b6625253c1f32f26baaab1
 
   PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,
                         LazyCallGraph &CG, CGSCCUpdateResult &UR);
@@ -154,11 +161,15 @@ private:
                             FunctionAnalysisManager &FAM, Module &M);
   std::unique_ptr<InlineAdvisor> OwnedAdvisor;
   const bool OnlyMandatory;
+<<<<<<< HEAD
 
   // INTEL The inline report
   InlineReport *Report; // INTEL
   InlineReportBuilder *MDReport; // INTEL
   bool IsAlwaysInline; // INTEL
+=======
+  const ThinOrFullLTOPhase LTOPhase;
+>>>>>>> e0d069598bc8c147c8b6625253c1f32f26baaab1
 };
 
 /// Module pass, wrapping the inliner pass. This works in conjunction with the
@@ -171,6 +182,7 @@ class ModuleInlinerWrapperPass
 public:
   ModuleInlinerWrapperPass(
       InlineParams Params = getInlineParams(), bool MandatoryFirst = true,
+      InlineContext IC = {},
       InliningAdvisorMode Mode = InliningAdvisorMode::Default,
       unsigned MaxDevirtIterations = 0);
   ModuleInlinerWrapperPass(ModuleInlinerWrapperPass &&Arg) = default;
@@ -196,6 +208,7 @@ public:
 
 private:
   const InlineParams Params;
+  const InlineContext IC;
   const InliningAdvisorMode Mode;
   const unsigned MaxDevirtIterations;
   // TODO: Clean this up so we only have one ModulePassManager.

@@ -266,8 +266,8 @@ private:
 class DefaultInlineAdvisor : public InlineAdvisor {
 public:
   DefaultInlineAdvisor(Module &M, FunctionAnalysisManager &FAM,
-                       InlineParams Params)
-      : InlineAdvisor(M, FAM), Params(Params) {}
+                       InlineParams Params, InlineContext IC)
+      : InlineAdvisor(M, FAM, IC), Params(Params) {}
 
 private:
 #if INTEL_CUSTOMIZATION
@@ -296,7 +296,8 @@ public:
       return !PAC.preservedWhenStateless();
     }
     bool tryCreate(InlineParams Params, InliningAdvisorMode Mode,
-                   const ReplayInlinerSettings &ReplaySettings);
+                   const ReplayInlinerSettings &ReplaySettings,
+                   InlineContext IC);
     InlineAdvisor *getAdvisor() const { return Advisor.get(); }
 
   private:
