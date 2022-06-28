@@ -18,7 +18,10 @@ define i1 @dom_const() {
 ; CHECK-LABEL: @dom_const(
 ; CHECK-NEXT:    call void @b()
 ; CHECK-NEXT:    ret i1 true
+<<<<<<< HEAD
 ; end INTEL_CUSTOMIZATION
+=======
+>>>>>>> e422c0d3b26eaf3e5646960351d4fe6ff7c0b573
 ;
   store i1 true, ptr @g1
   call void @b()
@@ -90,8 +93,7 @@ define i1 @dom_multiple_function_loads() {
 ; CHECK-LABEL: @dom_multiple_function_loads(
 ; CHECK-NEXT:    store i1 true, ptr @g6, align 1
 ; CHECK-NEXT:    call void @b()
-; CHECK-NEXT:    [[R:%.*]] = load i1, ptr @g6, align 1
-; CHECK-NEXT:    ret i1 [[R]]
+; CHECK-NEXT:    ret i1 true
 ;
   store i1 true, ptr @g6
   call void @b()
