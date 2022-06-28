@@ -333,12 +333,8 @@ bool llvm::isAllocationFn(
 bool llvm::isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
 #else
 static bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
-<<<<<<< HEAD
 #endif
-  return getAllocationData(V, MallocOrOpNewLike, TLI).hasValue();
-=======
   return getAllocationData(V, MallocOrOpNewLike, TLI).has_value();
->>>>>>> 00e9e2084cd7d3e59104699897a578453b56109d
 }
 
 #if INTEL_CUSTOMIZATION
@@ -364,13 +360,8 @@ static bool isAlignedAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
 #if INTEL_CUSTOMIZATION
 /// Tests if a value is a call or invoke to a library function that
 /// allocates zero-filled memory (such as calloc).
-<<<<<<< HEAD
 bool llvm::isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
-  return getAllocationData(V, CallocLike, TLI).hasValue();
-=======
-static bool isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
   return getAllocationData(V, CallocLike, TLI).has_value();
->>>>>>> 00e9e2084cd7d3e59104699897a578453b56109d
 }
 
 /// Tests if a function is a call or invoke to a library function that
@@ -655,12 +646,7 @@ Optional<StringRef> llvm::getAllocationFamily(const Value *I,
 /// end INTEL_CUSTOMIZATION
 bool llvm::isLibFreeFunction(const Function *F, const LibFunc TLIFn) {
   Optional<FreeFnsTy> FnData = getFreeFunctionDataForFunction(F, TLIFn);
-<<<<<<< HEAD
-
-  if (!FnData.hasValue())
-=======
   if (!FnData)
->>>>>>> 00e9e2084cd7d3e59104699897a578453b56109d
     return false;
 
   // Check free prototype.
