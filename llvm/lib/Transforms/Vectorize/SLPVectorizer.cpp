@@ -3972,8 +3972,8 @@ private:
     // First check if the result is already in the cache.
     AliasCacheKey key = std::make_pair(Inst1, Inst2);
     Optional<bool> &result = AliasCache[key];
-    if (result.hasValue()) {
-      return result.getValue();
+    if (result) {
+      return *result;
     }
     bool aliased = true;
     if (Loc1.Ptr && isSimple(Inst1))
