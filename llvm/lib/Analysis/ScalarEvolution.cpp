@@ -1686,7 +1686,7 @@ ScalarEvolution::getZeroExtendExpr(const SCEV *Op, Type *Ty, unsigned Depth) {
       unsigned BitWidth = getTypeSizeInBits(AR->getType());
       const Loop *L = AR->getLoop();
 
-      if (!AR->hasNoUnsignedWrap()) {
+      if (!AR->hasNoUnsignedWrap() || !AR->hasNoSignedWrap()) { // INTEL
         auto NewFlags = proveNoWrapViaConstantRanges(AR);
         setNoWrapFlags(const_cast<SCEVAddRecExpr *>(AR), NewFlags);
       }
@@ -2026,7 +2026,7 @@ ScalarEvolution::getSignExtendExpr(const SCEV *Op, Type *Ty, unsigned Depth) {
       unsigned BitWidth = getTypeSizeInBits(AR->getType());
       const Loop *L = AR->getLoop();
 
-      if (!AR->hasNoSignedWrap()) {
+      if (!AR->hasNoSignedWrap() || !AR->hasNoUnsignedWrap()) { // INTEL
         auto NewFlags = proveNoWrapViaConstantRanges(AR);
         setNoWrapFlags(const_cast<SCEVAddRecExpr *>(AR), NewFlags);
       }
