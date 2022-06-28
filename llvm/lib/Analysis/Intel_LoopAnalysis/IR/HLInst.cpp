@@ -838,24 +838,25 @@ bool HLInst::isSameOperationAs(const HLInst *HInst, bool Relaxed) const {
   // Instruction::isSameOperationAs() will check opcodes, type, operand
   // types and haveSameSpecialState() of the underlying LLVMInstruction
   if (!Inst1->isSameOperationAs(Inst2)) {
-    // If not relaxed mod, return false if underlying LLVMInst is not the same
-    if (!Relaxed) {
-      return false;
-    }
 
     // GEP/Subscript and copy instructions can correspond to each other in HIR
     // so we should allow them. Inside HIR clients create copy instructions
-    // instead of GEPs due to its ease.
+    // instead of GEPs due to its ease. Allow correspondance in relaxed mode
+    // when the operand types are equal.
     //
     // For example-
     //
     // %t1 = &(%A)[4*i1]  // can be copy inst
     //
     // %t2 = &(%A)[4*i1 + 1] // can be GEP inst
-    if ((!this->isCopyInst() || !isa<GEPOrSubsOperator>(Inst2)) &&
-        (!HInst->isCopyInst() || !isa<GEPOrSubsOperator>(Inst1))) {
+    if (!Relaxed ||
+        (!this->isCopyInst() || !isa<GEPOrSubsOperator>(Inst2)) &&
+            (!HInst->isCopyInst() || !isa<GEPOrSubsOperator>(Inst1))) {
       return false;
     }
+
+    // Do type check here and do not continue for Relaxed mode.
+    return (Inst1->getType() == Inst2->getType());
   }
 
   if (isa<CmpInst>(Inst1) || isa<SelectInst>(Inst1)) {
