@@ -634,7 +634,6 @@ CodeGenFunction::DecodeAddrUsedInPrologue(llvm::Value *F,
                             "decoded_addr");
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 void CodeGenFunction::EmitOpenCLHLSComponentMetadata(const FunctionDecl *FD,
                                                      llvm::Function *Fn) {
@@ -739,16 +738,10 @@ void CodeGenFunction::EmitOpenCLHLSComponentMetadata(const FunctionDecl *FD,
 }
 #endif // INTEL_CUSTOMIZATION
 
-void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
-                                               llvm::Function *Fn)
-{
-  if (!FD->hasAttr<OpenCLKernelAttr>() && !FD->hasAttr<SYCLDeviceAttr>())
-=======
 void CodeGenFunction::EmitKernelMetadata(const FunctionDecl *FD,
                                          llvm::Function *Fn) {
   if (!FD->hasAttr<OpenCLKernelAttr>() && !FD->hasAttr<CUDAGlobalAttr>()
     && !FD->hasAttr<SYCLDeviceAttr>())
->>>>>>> 2cde267e0a50f26067cc67eccea9b6456b6100c6
     return;
 
   // TODO Module identifier is not reliable for this purpose since two modules
