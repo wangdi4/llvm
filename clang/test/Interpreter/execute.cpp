@@ -1,9 +1,4 @@
-<<<<<<< HEAD
-// INTEL UNSUPPORTED: intel_opencl && i686-pc-windows
-
-=======
 // clang-format off
->>>>>>> 9de8b05bfe0de2915d2443d06159396c5f9d389f
 // RUN: clang-repl "int x = 10;" "int y=7; err;" "int y = 10;"
 // RUN: clang-repl "int i = 10;" 'extern "C" int printf(const char*,...);' \
 // RUN:            'auto r1 = printf("i = %d\n", i);' | FileCheck --check-prefix=CHECK-DRIVER %s
@@ -11,6 +6,9 @@
 // UNSUPPORTED: system-aix
 // CHECK-DRIVER: i = 10
 // RUN: cat %s | clang-repl | FileCheck %s
+
+// INTEL UNSUPPORTED: intel_opencl && i686-pc-windows
+
 extern "C" int printf(const char *, ...);
 int i = 42;
 auto r1 = printf("i = %d\n", i);
