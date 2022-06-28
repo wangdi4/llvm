@@ -122,6 +122,8 @@ static bool analyzeGlobalAux(const Value *V, GlobalStatus &GS,
         if (SI->isVolatile())
           return true;
 
+        ++GS.NumStores;
+
         GS.Ordering = strongerOrdering(GS.Ordering, SI->getOrdering());
 
         // If this is a direct store to the global (i.e., the global is a scalar
