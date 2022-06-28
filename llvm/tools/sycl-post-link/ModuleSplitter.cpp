@@ -37,6 +37,9 @@ namespace {
 constexpr char GLOBAL_SCOPE_NAME[] = "<GLOBAL>";
 constexpr char SYCL_SCOPE_NAME[] = "<SYCL>";
 constexpr char ESIMD_SCOPE_NAME[] = "<ESIMD>";
+#if INTEL_COLLAB
+constexpr char OMP_GLOBAL_VARS_NAME[] = "<OMP_GLOBAL_VARS>";
+#endif // INTEL_COLLAB
 constexpr char ESIMD_MARKER_MD[] = "sycl_explicit_simd";
 
 constexpr char ATTR_SYCL_MODULE_ID[] = "sycl-module-id";
@@ -183,9 +186,25 @@ groupEntryPointsByKernelType(const ModuleDesc &MD,
 // which contains pairs of group id and entry points for that group. Each such
 // group along with IR it depends on (globals, functions from its call graph,
 // ...) will constitute a separate module.
+<<<<<<< HEAD
 EntryPointGroupVec groupEntryPointsByScope(const ModuleDesc &MD,
+=======
+#if INTEL_COLLAB
+// There is a special case for some compilation flows where all global
+// variables definitions are extracted into a single module. This module must
+// be listed first in the output table. For the special case, this function is
+// called with AddSeparateGroupForGlobals set to 'true'
+EntryPointGroupVec groupEntryPointsByScope(const Module &M,
+                                           EntryPointsGroupScope EntryScope,
+                                           bool EmitOnlyKernelsAsEntryPoints,
+                                           bool AddSeparateGroupForGlobals
+                                               = false) {
+#else // INTEL_COLLAB
+EntryPointGroupVec groupEntryPointsByScope(const Module &M,
+>>>>>>> 96f47248b3470c3a7b4872ca587257c4c3102057
                                            EntryPointsGroupScope EntryScope,
                                            bool EmitOnlyKernelsAsEntryPoints) {
+#endif // INTEL_COLLAB
   EntryPointGroupVec EntryPointGroups{};
   // Use MapVector for deterministic order of traversal (helps tests).
   MapVector<StringRef, EntryPointSet> EntryPointMap;
@@ -225,7 +244,14 @@ EntryPointGroupVec groupEntryPointsByScope(const ModuleDesc &MD,
   }
 
   if (!EntryPointMap.empty()) {
+#if INTEL_COLLAB
+    if (AddSeparateGroupForGlobals)
+      EntryPointGroups.reserve(EntryPointMap.size() + 1);
+    else
+      EntryPointGroups.reserve(EntryPointMap.size());
+#else // INTEL_COLLAB
     EntryPointGroups.reserve(EntryPointMap.size());
+<<<<<<< HEAD
     for (auto &EPG : EntryPointMap) {
       EntryPointGroups.emplace_back(EntryPointGroup{
           EPG.first, std::move(EPG.second), MD.getEntryPointGroup().Props});
@@ -268,6 +294,16 @@ groupEntryPointsByAttribute(const ModuleDesc &MD, StringRef AttrName,
           EPG.first, std::move(EPG.second), MD.getEntryPointGroup().Props});
       F(EntryPointGroups.back());
     }
+=======
+#endif // INTEL_COLLAB
+    for (auto &EPG : EntryPointMap)
+      EntryPointGroups.push_back({EPG.first, std::move(EPG.second)});
+#if INTEL_COLLAB
+    // last module should contain global variables definitions if needed.
+    if (AddSeparateGroupForGlobals && EntryScope == Scope_PerKernel)
+      EntryPointGroups.push_back({OMP_GLOBAL_VARS_NAME, {}});
+#endif // INTEL_COLLAB
+>>>>>>> 96f47248b3470c3a7b4872ca587257c4c3102057
   } else {
     // No entry points met, record this.
     EntryPointGroups.push_back({GLOBAL_SCOPE_NAME, {}});
@@ -389,6 +425,40 @@ ModuleDesc extractCallGraph(const ModuleDesc &MD,
   return SplitM;
 }
 
+#if INTEL_COLLAB
+void externalizeGlobalVars(Module &M) {
+  for (GlobalVariable &GV : M.globals()) {
+    if (GV.hasLocalLinkage())
+      GV.setLinkage(GlobalValue::ExternalLinkage);
+  }
+}
+
+// The function produces a copy of input LLVM IR module M with only those entry
+// points that are specified in ModuleEntryPoints vector.
+// There is a special case for OpenMP offload compilation:
+// - first split module contains global variables which are externalized
+// - other split modules contain entry points with dependencies
+ModuleDesc extractOMPCallGraph(const Module &M,
+                               EntryPointGroup &&ModuleEntryPoints) {
+  bool IsGlobalsModule = (ModuleEntryPoints.GroupId == OMP_GLOBAL_VARS_NAME);
+  SetVector<const GlobalValue *> GVs;
+
+  if (!IsGlobalsModule)
+    collectFunctionsToExtract(GVs, ModuleEntryPoints);
+  else
+    collectGlobalVarsToExtract(GVs, M);
+
+  ModuleDesc SplitM = extractSubModule(M, GVs, std::move(ModuleEntryPoints));
+
+  if (IsGlobalsModule)
+    externalizeGlobalVars(SplitM.getModule());
+
+  cleanupSplitModule(SplitM.getModule());
+
+  return SplitM;
+}
+
+#endif // INTEL_COLLAB
 class ModuleCopier : public ModuleSplitterBase {
 public:
   using ModuleSplitterBase::ModuleSplitterBase; // to inherit base constructors
@@ -407,6 +477,17 @@ public:
     return extractCallGraph(Input, nextGroup());
   }
 };
+
+#if INTEL_COLLAB
+class OMPModuleSplitter : public ModuleSplitterBase {
+public:
+  using ModuleSplitterBase::ModuleSplitterBase; // to inherit base constructors
+
+  ModuleDesc nextSplit() override {
+    return extractOMPCallGraph(getInputModule(), nextGroup());
+  }
+};
+#endif // INTEL_COLLAB
 
 } // namespace
 
@@ -428,15 +509,34 @@ getSplitterByKernelType(ModuleDesc &&MD, bool EmitOnlyKernelsAsEntryPoints) {
 std::unique_ptr<ModuleSplitterBase>
 getSplitterByMode(ModuleDesc &&MD, IRSplitMode Mode,
                   bool AutoSplitIsGlobalScope,
+#if INTEL_COLLAB
+                  bool EmitOnlyKernelsAsEntryPoints, bool IsOMPOffload) {
+#else  // INTEL_COLLAB
                   bool EmitOnlyKernelsAsEntryPoints) {
+#endif // INTEL_COLLAB
   EntryPointsGroupScope Scope =
+<<<<<<< HEAD
       selectDeviceCodeGroupScope(MD.getModule(), Mode, AutoSplitIsGlobalScope);
   EntryPointGroupVec Groups =
       groupEntryPointsByScope(MD, Scope, EmitOnlyKernelsAsEntryPoints);
+=======
+      selectDeviceCodeGroupScope(*M, Mode, AutoSplitIsGlobalScope);
+#if INTEL_COLLAB
+  EntryPointGroupVec Groups =
+      groupEntryPointsByScope(*M, Scope, EmitOnlyKernelsAsEntryPoints,
+                              IsOMPOffload);
+#else  // INTEL_COLLAB
+  EntryPointGroupVec Groups =
+      groupEntryPointsByScope(*M, Scope, EmitOnlyKernelsAsEntryPoints);
+#endif // INTEL_COLLAB
+>>>>>>> 96f47248b3470c3a7b4872ca587257c4c3102057
   assert(!Groups.empty() && "At least one group is expected");
   bool DoSplit = (Mode != SPLIT_NONE &&
                   (Groups.size() > 1 || !Groups.cbegin()->Functions.empty()));
-
+#if INTEL_COLLAB
+  if (IsOMPOffload && (Scope == Scope_PerKernel))
+    return std::make_unique<OMPModuleSplitter>(std::move(M), std::move(Groups));
+#endif // INTEL_COLLAB
   if (DoSplit)
     return std::make_unique<ModuleSplitter>(std::move(MD), std::move(Groups));
   else
