@@ -18,10 +18,7 @@ define i1 @dom_const() {
 ; CHECK-LABEL: @dom_const(
 ; CHECK-NEXT:    call void @b()
 ; CHECK-NEXT:    ret i1 true
-<<<<<<< HEAD
 ; end INTEL_CUSTOMIZATION
-=======
->>>>>>> e422c0d3b26eaf3e5646960351d4fe6ff7c0b573
 ;
   store i1 true, ptr @g1
   call void @b()

@@ -9,13 +9,10 @@
 define i32 @main() {
 ; CHECK-LABEL: @main(
 ; CHECK-NEXT:  entry:
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; globalopt removes this store, @a is not loaded anywhere
 ; CHECK-NOT:     store i1 true, i1* @a, align 4
 ; end INTEL_CUSTOMIZATION
-=======
->>>>>>> e422c0d3b26eaf3e5646960351d4fe6ff7c0b573
 ; CHECK-NEXT:    [[TMP0:%.*]] = load i32*, i32** @e, align 8
 ; CHECK-NEXT:    store i32 0, i32* [[TMP0]], align 4
 ; CHECK-NEXT:    store i32* null, i32** @e, align 8
