@@ -4484,6 +4484,14 @@ bool llvm::getConstantDataArrayInfo(const Value *V,
     uint64_t StartIdx = Off.getLimitedValue();
     if (StartIdx == UINT64_MAX)
       return false;
+#if INTEL_CUSTOMIZATION
+    // Temporary fix for 38615. accumulateConstantOffset is in bytes, must be
+    // converted to elements for "StartIdx".
+    uint64_t ElementBSize = ElementSize / 8;
+    if ((ElementBSize == 0) || (StartIdx % ElementBSize != 0))
+      return false;
+    StartIdx = StartIdx / ElementBSize;
+#endif // INTEL_CUSTOMIZATION
 
     return getConstantDataArrayInfo(Op0, Slice, ElementSize, StartIdx + Offset);
   }
