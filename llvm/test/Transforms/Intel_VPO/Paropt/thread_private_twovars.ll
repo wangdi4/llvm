@@ -18,12 +18,14 @@
 ;   return 0;
 ; }
 ;
+; CHECK: @__tpv_ptr_i = internal global i8** null, align 64
+; CHECK: @__tpv_ptr_j = internal global i8** null, align 64
 ; CHECK: [[BC_I:%[0-9]+]] = bitcast i32* @i to i8*
-; CHECK: [[TPV_CALL_I:%[0-9]+]] = call i8* @__kmpc_threadprivate_cached({{.*}}, i8* [[BC_I]], {{.*}})
+; CHECK: [[TPV_CALL_I:%[0-9]+]] = call i8* @__kmpc_threadprivate_cached({{.*}}, i8* [[BC_I]], {{.*}}@__tpv_ptr_i)
 ; CHECK: store i8* [[TPV_CALL_I]], i8** [[TPV_ALLOCA_I:%[0-9]+]]
 
 ; CHECK: [[BC_J:%[0-9]+]] = bitcast i32* @j to i8*
-; CHECK: [[TPV_CALL_J:%[0-9]+]] = call i8* @__kmpc_threadprivate_cached({{.*}}, i8* [[BC_J]], {{.*}})
+; CHECK: [[TPV_CALL_J:%[0-9]+]] = call i8* @__kmpc_threadprivate_cached({{.*}}, i8* [[BC_J]], {{.*}}@__tpv_ptr_j)
 ; CHECK: store i8* [[TPV_CALL_J]], i8** [[TPV_ALLOCA_J:%[0-9]+]]
 
 ; CHECK: [[TPV_LOAD_I:%[0-9]+]] = load i8*, i8** [[TPV_ALLOCA_I]]

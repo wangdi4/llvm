@@ -33,9 +33,9 @@ void foo() {
   #pragma omp target
   arr[0] = 1;
 }
-//HOST: [[ARR:@arr]] = global i32* null, align 8
+//HOST: [[ARR:@arr]] = target_declare global i32* null, align 8
 //HOST: [[ATAG:@arr_decl_tgt_ref_ptr]] = weak target_declare global i32** [[ARR]]
-//HOST: [[ARRAY:@array]] = global [256 x float] zeroinitializer, align 16
+//HOST: [[ARRAY:@array]] = target_declare global [256 x float] zeroinitializer, align 16
 //HOST: [[ARRTAG:@array_decl_tgt_ref_ptr]] = weak target_declare global [256 x float]* [[ARRAY]]
 //HOST: !{i32 1, !"array_decl_tgt_ref_ptr", i32 0, i32 1, [256 x float]** [[ARRTAG]]}
 //HOST: !{i32 1, !"arr_decl_tgt_ref_ptr", i32 0, i32 0, i32*** [[ATAG]]}

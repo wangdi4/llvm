@@ -29,6 +29,11 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "VPOParoptTpv"
 
+static cl::opt<unsigned> VpoCacheLineSize(
+    "vpo-tpv-cache-line-size", cl::Hidden, cl::init(64),
+    cl::desc("Cache line size in bytes, used for "
+             "thread private cache allocation"));
+
 // The driver to support the threadprivate intel legacy mode.
 
 class VPOParoptTpvLegacy {
@@ -161,6 +166,11 @@ Value *VPOParoptTpvLegacy::getTpvPtr(Value *V, Function *F, PointerType *GlobalT
                             GlobalValue::InternalLinkage,
                             Constant::getNullValue(GlobalType),
                             "__tpv_ptr_"+V->getName(), nullptr);
+    
+    // Align cache variable to cache line boundary to reduce probability
+    // of cache conflicts in multi-thread environment
+    NewGV->setAlignment(Align(VpoCacheLineSize));
+
     TpvTable[V] = NewGV;
   }
   return TpvTable[V];

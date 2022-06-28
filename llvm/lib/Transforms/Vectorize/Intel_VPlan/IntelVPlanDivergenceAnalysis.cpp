@@ -1548,7 +1548,11 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::ReductionInit)
     NewShape = getRandomVectorShape();
+  else if (Opcode == VPInstruction::ReductionInitScalar)
+    NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::ReductionFinal)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::ReductionFinalInscan)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::PrivateFinalMasked)
     NewShape = getUniformVectorShape();
@@ -1609,6 +1613,12 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::Blend)
     NewShape = getRandomVectorShape();
+  else if (Opcode == VPInstruction::RunningInclusiveReduction)
+    NewShape = getRandomVectorShape();
+  else if (Opcode == VPInstruction::RunningExclusiveReduction)
+    NewShape = getRandomVectorShape();
+  else if (Opcode == VPInstruction::ExtractLastVectorLane)
+    NewShape = getUniformVectorShape();
   else {
     LLVM_DEBUG(dbgs() << "Instruction not supported: " << *I);
     NewShape = getRandomVectorShape();

@@ -677,26 +677,25 @@ void VPOParoptUtils::genSPIRVPrefetchBuiltIn(
       SPIRVPrefetchTy;
 
   // TODO: check if DenseMap<SPIRVPrefetchTy, StringRef> works here
-  static const std::map<SPIRVPrefetchTy, const std::string>
-      SPIRVPrefetchMap = {
-        { { I8,  32 }, "__builtin_spirv_OpenCL_prefetch_p1i8_i32"  },
-        { { I16, 32 }, "__builtin_spirv_OpenCL_prefetch_p1i16_i32" },
-        { { I32, 32 }, "__builtin_spirv_OpenCL_prefetch_p1i32_i32" },
-        { { I64, 32 }, "__builtin_spirv_OpenCL_prefetch_p1i64_i32" },
+  static const std::map<SPIRVPrefetchTy, const std::string> SPIRVPrefetchMap = {
+      {{I8, 32}, "__builtin_spirv_OpenCL_prefetch_p1i8_i32"},
+      {{I16, 32}, "__builtin_spirv_OpenCL_prefetch_p1i16_i32"},
+      {{I32, 32}, "__builtin_spirv_OpenCL_prefetch_p1i32_i32"},
+      {{I64, 32}, "__builtin_spirv_OpenCL_prefetch_p1i64_i32"},
 
-        { { F16, 32 }, "__builtin_spirv_OpenCL_prefetch_p1f16_i32" },
-        { { F32, 32 }, "__builtin_spirv_OpenCL_prefetch_p1f32_i32" },
-        { { F64, 32 }, "__builtin_spirv_OpenCL_prefetch_p1f64_i32" },
+      {{F16, 32}, "__builtin_spirv_OpenCL_prefetch_p1f16_i32"},
+      {{F32, 32}, "__builtin_spirv_OpenCL_prefetch_p1f32_i32"},
+      {{F64, 32}, "__builtin_spirv_OpenCL_prefetch_p1f64_i32"},
 
-        { { I8,  64 }, "__builtin_spirv_OpenCL_prefetch_p1i8_i64"  },
-        { { I16, 64 }, "__builtin_spirv_OpenCL_prefetch_p1i16_i64" },
-        { { I32, 64 }, "__builtin_spirv_OpenCL_prefetch_p1i32_i64" },
-        { { I64, 64 }, "__builtin_spirv_OpenCL_prefetch_p1i64_i64" },
+      {{I8, 64}, "__builtin_spirv_OpenCL_prefetch_p1i8_i64"},
+      {{I16, 64}, "__builtin_spirv_OpenCL_prefetch_p1i16_i64"},
+      {{I32, 64}, "__builtin_spirv_OpenCL_prefetch_p1i32_i64"},
+      {{I64, 64}, "__builtin_spirv_OpenCL_prefetch_p1i64_i64"},
 
-        { { F16, 64 }, "__builtin_spirv_OpenCL_prefetch_p1f16_i64" },
-        { { F32, 64 }, "__builtin_spirv_OpenCL_prefetch_p1f32_i64" },
-        { { F64, 64 }, "__builtin_spirv_OpenCL_prefetch_p1f64_i64" },
-      };
+      {{F16, 64}, "__builtin_spirv_OpenCL_prefetch_p1f16_i64"},
+      {{F32, 64}, "__builtin_spirv_OpenCL_prefetch_p1f32_i64"},
+      {{F64, 64}, "__builtin_spirv_OpenCL_prefetch_p1f64_i64"},
+  };
 
   if (!W->canHaveData())
     return;
@@ -711,20 +710,17 @@ void VPOParoptUtils::genSPIRVPrefetchBuiltIn(
   for (DataItem *DI : DataC.items()) {
     Value *V = DI->getOrig();
 
-    // TODO: OPAQUEPOINTER: to be changed to support opaque pointer
-    auto PtrTy = V->getType()->getScalarType()->getPointerElementType();
-    auto DataTy = PtrTy->getPointerElementType();
+    Type *DataTy = DI->getPointeeElementType();
 
     // TODO: GPU prefetch API supports i32 and i64, we may change to
     // allow both 32-bit and 64-bit, We need type info from Front-End.
-    auto NumElemTy = Type::getInt64Ty(C);
-    int NumElemTySize = 64;
+    auto NumElementsTy = Type::getInt64Ty(C);
+    unsigned NumElementsTySize = NumElementsTy->getIntegerBitWidth();
 
     IntrinsicOperandTy DataElemTyID = {DataTy->getTypeID(),
                                        DataTy->getPrimitiveSizeInBits()};
 
-    auto MapEntry = SPIRVPrefetchMap.find(
-           { DataElemTyID, NumElemTySize });
+    auto MapEntry = SPIRVPrefetchMap.find({DataElemTyID, NumElementsTySize});
 
     if (MapEntry == SPIRVPrefetchMap.end())
       continue;
@@ -732,8 +728,8 @@ void VPOParoptUtils::genSPIRVPrefetchBuiltIn(
     StringRef FnName = MapEntry->second;
 
     IRBuilder<> Builder(InsertPt);
-    Value *NumElements = Builder.CreateSExtOrTrunc(
-                           Builder.getInt64(DI->getNumElem()), NumElemTy);
+    Value *NumElements =
+        Builder.CreateSExtOrTrunc(DI->getNumElements(), NumElementsTy);
 
     SmallVector<Value *, 2> FnArgs = {V, NumElements};
     Type *RetTy = Type::getVoidTy(C);
@@ -786,14 +782,12 @@ void VPOParoptUtils::genSPIRVLscPrefetchBuiltIn(
   for (DataItem *DI : DataC.items()) {
     Value *V = DI->getOrig();
 
-    // TODO: OPAQUEPOINTER: to be changed to support opaque pointer
-    auto PtrTy = V->getType()->getScalarType()->getPointerElementType();
-    auto DataTy = PtrTy->getPointerElementType();
+    Type *DataTy = DI->getPointeeElementType();
 
     // TODO: LSC prefetch API supports i32 and i64, we may change to
     // allow both 32-bit and 64-bit, We need type info from Front-End.
     auto ElemOffsetTy = Type::getInt32Ty(C);
-    int ElemOffsetTySize = 32;
+    unsigned ElemOffsetTySize = ElemOffsetTy->getIntegerBitWidth();
 
     auto HintTy = Type::getInt32Ty(C);
 
@@ -809,8 +803,8 @@ void VPOParoptUtils::genSPIRVLscPrefetchBuiltIn(
     StringRef FnName = MapEntry->second;
 
     IRBuilder<> Builder(InsertPt);
-    Value *ElemOffset = Builder.CreateSExtOrTrunc(
-                          Builder.getInt32(DI->getNumElem()), ElemOffsetTy);
+    Value *ElemOffset =
+        Builder.CreateSExtOrTrunc(DI->getNumElements(), ElemOffsetTy);
 
     Value *CacheHint = Builder.CreateSExtOrTrunc(
                          Builder.getInt32(DI->getHint()), HintTy);

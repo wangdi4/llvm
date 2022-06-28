@@ -43,6 +43,7 @@
 #include "Intel_DTrans/Transforms/MemInitTrimDown.h"
 #include "Intel_DTrans/Transforms/MemInitTrimDownOP.h"
 #include "Intel_DTrans/Transforms/MemManageTrans.h"
+#include "Intel_DTrans/Transforms/MemManageTransOP.h"
 #include "Intel_DTrans/Transforms/PaddedPointerPropagation.h"
 #include "Intel_DTrans/Transforms/RemoveDTransTypeMetadata.h"
 #include "Intel_DTrans/Transforms/ReorderFields.h"

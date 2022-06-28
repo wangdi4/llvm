@@ -696,10 +696,13 @@ VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
 void VPLoopEntityList::processInitValue(VPLoopEntity &E, VPValue *AI,
                                         VPValue *PrivateMem, VPBuilder &Builder,
                                         VPValue &Init, Type *Ty,
-                                        VPValue &Start) {
+                                        VPValue &Start, bool IsInscanInit) {
   if (PrivateMem) {
     assert(AI && "Expected non-null original pointer");
-    Builder.createStore(&Init, PrivateMem);
+    // If we deal with inscan initialization, no need to issue a store,
+    // as the reduction is initialized in the loop header.
+    if (!IsInscanInit)
+      Builder.createStore(&Init, PrivateMem);
     AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
   }
   // Now replace Start by Init inside the loop. It may be a
@@ -748,11 +751,144 @@ void VPLoopEntityList::processFinalValue(VPLoopEntity &E, VPValue *AI,
   linkValue(&E, &Final);
 }
 
+void VPLoopEntityList::insertRunningInscanReductionInstrs(
+    const SmallVectorImpl<const VPInscanReduction *> &InscanReductions,
+    const DenseMap<const VPReduction *, VPValue *> &RedPrivateMap,
+    const DenseMap<const VPReduction *, VPValue *> &RedInitMap,
+    VPBuilder &Builder) {
+  // Nothing to do if no inscan reductions present.
+  if (InscanReductions.empty())
+    return;
+
+  // Remove the pragmas and fence instruction.
+  // Note the insertion point for RunningReduction instructions.
+
+  // Locate the separating pragma directives.
+  VPInstruction *PragmaBegin = nullptr;
+  VPInstruction *PragmaEnd = nullptr;
+  for (auto &I : vpinstructions(&Plan)) {
+    if (VPCallInstruction *Call = dyn_cast<VPCallInstruction>(&I))
+     if (Call->isIntrinsicFromList({Intrinsic::directive_region_entry}))
+       PragmaBegin = Call;
+     else if (Call->isIntrinsicFromList({Intrinsic::directive_region_exit})) {
+       PragmaEnd = Call;
+       break;
+     }
+  }
+  assert(PragmaBegin && PragmaEnd &&
+         "Separating pragma directives were not found!");
+  VPBasicBlock *BeginBlock = PragmaBegin->getParent();
+  VPBasicBlock *EndBlock = PragmaEnd->getParent();
+  assert(BeginBlock && EndBlock && "Separating scan pragma was not found!");
+  assert(BeginBlock->getSingleSuccessor() && EndBlock->getSinglePredecessor() &&
+         "Separating pragma directives must have one successor/predecessor!");
+  assert(BeginBlock->getSingleSuccessor() == EndBlock->getSinglePredecessor() &&
+         "Separating pragma directives must be one basic block away!");
+  VPBasicBlock *FenceBlock = BeginBlock->getSingleSuccessor();
+
+  // Remove the compiler generated fence instruction.
+  VPInstruction *Fence = nullptr;
+  for (auto &I : *FenceBlock) {
+    if (I.getOpcode() == Instruction::Fence) {
+      Fence = &I;
+      break;
+    }
+  }
+  assert(Fence && "Compiler generated fence is expected in scan region!");
+  FenceBlock->eraseInstruction(Fence);
+
+  // Remove the directives.
+  EndBlock->eraseInstruction(PragmaEnd);
+  BeginBlock->eraseInstruction(PragmaBegin);
+
+  // Assert that all inscan reductions are of the same inscan kind,
+  // like all inclusive, or all exclusive.
+  assert((all_of(InscanReductions, [](const VPInscanReduction *InscanRed) {
+           return InscanRed->getInscanKind() == InscanReductionKind::Inclusive;
+         }) ||
+         all_of(InscanReductions, [](const VPInscanReduction *InscanRed) {
+           return InscanRed->getInscanKind() == InscanReductionKind::Exclusive;
+         })) && "Expect inscan reductions of the same kind!");
+
+  // Process each inscan reduction one by one.
+  // The following needs to happen for in-memory reduction:
+  // 1. Reset the reduction at the loop header with identity value.
+  // 2. Create carry-over phi. One edge is initialized with start value.
+  // 3. Insert running reduction for loaded reduction value and carry-over.
+  // 4. Extract last lane from the running reduction. This will be the second
+  //    edge for carry-over phi.
+  //
+  // pre.header:
+  //   float* %red = allocate-priv float*
+  //   float %red_load = load float* %red
+  //   float %red_init = reduction-init-scalar float 0.0 float %red_load
+  //   store float %red_init float* %red
+  // header:
+  //   float %carry-over = phi [ %red_init, %extract_last_lane ]
+  //   store float -0.000000e+00 float* %red
+  // separating pragma block:
+  //   float %running_red = running-inclusive-reduction float* %red %carry-over
+  //   store float %running_red float* %red
+  //   %extract_last_lane = extract-last-vector-lane float %running_red
+  // post.exit:
+  //   float %red_pre_final = load float* %red
+  //   float %final_red = reduction-final-inscan float %red_pre_final
+
+  VPBuilder::InsertPointGuard Guard(Builder);
+  for (const VPInscanReduction *InscanRed : InscanReductions) {
+    auto *Private = RedPrivateMap.lookup(InscanRed);
+
+    // Initalize the reduction with Identity value in the loop header.
+    VPValue *Identity = getReductionIdentity(InscanRed);
+    VPBasicBlock *Header = Loop.getHeader();
+    Builder.setInsertPointFirstNonPhi(Header);
+    Builder.setCurrentDebugLocation(
+      Header->getTerminator()->getDebugLocation());
+    Builder.createStore(Identity, Private);
+
+    VPValue *StartValue = RedInitMap.lookup(InscanRed);
+    // Create a phi for the carry-over value.
+    Builder.setInsertPointFirstNonPhi(Header);
+    auto *InscanAccumPhi =
+      Builder.createPhiInstruction(Identity->getType(), "inscan.accum");
+    // This phi must be initialized with the reduction start value,
+    // for correct results for each iteration of running reduction.
+    InscanAccumPhi->addIncoming(StartValue, Loop.getLoopPreheader());
+
+    // Set insertion to fence block, it could as well be either
+    // pragma begin or end block.
+    Builder.setInsertPoint(FenceBlock);
+    Builder.setCurrentDebugLocation(
+      FenceBlock->getTerminator()->getDebugLocation());
+
+    // Issue the running reduction instruction based on the inscan kind.
+    // Generate load for running reduction instruction.
+    Type *Ty = InscanRed->getRecurrenceType();
+    auto *InscanInput = Builder.createLoad(Ty, Private);
+    auto Opcode = InscanRed->getInscanKind() == InscanReductionKind::Inclusive ?
+      VPInstruction::RunningInclusiveReduction :
+      VPInstruction::RunningExclusiveReduction;
+    auto *RunningReduction = Builder.createNaryOp(
+      Opcode, Identity->getType(), {InscanInput, InscanAccumPhi, Identity});
+    Builder.createStore(RunningReduction, Private);
+    // Extract last lane for the next iteration.
+    auto *CarryOver = Builder.createNaryOp(
+      VPInstruction::ExtractLastVectorLane, RunningReduction->getType(),
+      {RunningReduction});
+
+    // Initialize the accumulator with the last lane of running
+    // reduction for the next iteration.
+    InscanAccumPhi->addIncoming(CarryOver, Loop.getLoopLatch());
+  }
+}
+
 void VPLoopEntityList::insertOneReductionVPInstructions(
     VPReduction *Reduction, VPBuilder &Builder, VPBasicBlock *PostExit,
     VPBasicBlock *Preheader,
     DenseMap<const VPReduction *,
              std::pair<VPReductionFinal *, VPInstruction *>> &RedFinalMap,
+    DenseMap<const VPReduction *, VPValue *> &RedPrivateMap,
+    DenseMap<const VPReduction *, VPValue *> &RedInitMap,
     SmallPtrSetImpl<const VPReduction *> &ProcessedReductions) {
 
   // Note: the insert location guard also guards builder debug location.
@@ -766,12 +902,16 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   VPValue *Identity = getReductionIdentity(Reduction);
   Type *Ty = Reduction->getRecurrenceType();
   VPValue *PrivateMem = createPrivateMemory(*Reduction, Builder, AI, Preheader);
+  RedPrivateMap[Reduction] = PrivateMem;
   if (Reduction->getIsMemOnly() && !isa<VPConstant>(Identity)) {
     // min/max in-memory reductions. Need to generate a load.
     VPLoadStoreInst *V = Builder.createLoad(Ty, AI);
     updateHIROperand(AI, V); // INTEL
     Identity = V;
   }
+
+  bool IsInscan = isa<VPInscanReduction>(Reduction);
+
   // We can initialize reduction either with broadcasted identity only or
   // inserting additionally the initial value into 0th element. In the
   // second case we don't need an additional instruction when reducing.
@@ -785,7 +925,8 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
     VPPHINode *PhiN = getRecurrentVPHINode(*Reduction);
     Name = PhiN ? PhiN->getName() : "";
   }
-  bool StartIncluded = !Ty->isFloatingPointTy() && !Reduction->isMinMax();
+  bool StartIncluded = (!Ty->isFloatingPointTy() && !Reduction->isMinMax()) ||
+                        IsInscan;
   VPValue *StartValue =
       StartIncluded ? Reduction->getRecurrenceStartValue() : nullptr;
   bool UseStart = StartValue != nullptr || Reduction->isMinMax();
@@ -801,12 +942,21 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
     StartValue = V;
   }
 
-  VPInstruction *Init =
-      Builder.createReductionInit(Identity, StartValue, UseStart,
-                                  Name + Reduction->getNameSuffix() + ".init");
+  VPInstruction *Init = nullptr;
+  if (!IsInscan) {
+    Init = Builder.createReductionInit(
+      Identity, StartValue, UseStart,
+      Name + Reduction->getNameSuffix() + ".init");
+  } else {
+    Init = Builder.create<VPReductionInitScalar>(
+      Name + Reduction->getNameSuffix() + "inscan.init",
+      // Always use start value for inscan reduction initialization.
+      Identity, StartValue);
+  }
+  RedInitMap[Reduction] = Init;
 
   processInitValue(*Reduction, AI, PrivateMem, Builder, *Init, Ty,
-                   *Reduction->getRecurrenceStartValue());
+                   *Reduction->getRecurrenceStartValue(), IsInscan);
 
   // Create instruction for last value. If a register reduction does not have
   // a liveout loop exit instruction (store to reduction variable after
@@ -841,6 +991,9 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
         Reduction->isSigned());
     if (IndexRed->isLinearIndex())
       Final->setIsLinearIndex();
+  } else if (IsInscan) {
+      Final = Builder.create<VPReductionFinalInscan>(
+        FinName, Reduction->getReductionOpcode(), Exit);
   } else {
     if (StartIncluded || Reduction->isMinMax()) {
       Final = Builder.create<VPReductionFinal>(
@@ -868,6 +1021,7 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
 
 
+
   if (PrivateMem) {
     assert(AI && "Expected non-null original pointer");
     auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
@@ -889,7 +1043,10 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
 
   DenseMap<const VPReduction *, std::pair<VPReductionFinal *, VPInstruction *>>
       RedFinalMap;
+  DenseMap<const VPReduction *, VPValue *> RedPrivateMap;
+  DenseMap<const VPReduction *, VPValue *> RedInitMap;
   SmallPtrSet<const VPReduction *, 4> ProcessedReductions;
+  SmallVector<const VPInscanReduction *, 2> InscanReductions;
 
   // Set the insert-guard-point.
   VPBuilder::InsertPointGuard Guard(Builder);
@@ -910,10 +1067,19 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
       Reduction = const_cast<VPReduction *>(IndexRed->getParentReduction());
     }
 
+    // Inscan reductions require additional procesing of
+    // inclusive/exclusive pragmas in the loop body.
+    if (auto InscanReduction = dyn_cast<VPInscanReduction>(Reduction))
+      InscanReductions.push_back(InscanReduction);
+
     for (auto *Reduction : reverse(WorkList))
-      insertOneReductionVPInstructions(Reduction, Builder, PostExit, Preheader,
-                                       RedFinalMap, ProcessedReductions);
+      insertOneReductionVPInstructions(
+        Reduction, Builder, PostExit, Preheader, RedFinalMap, RedPrivateMap,
+        RedInitMap, ProcessedReductions);
   }
+
+  insertRunningInscanReductionInstrs(
+    InscanReductions, RedPrivateMap, RedInitMap, Builder);
 }
 
 void VPLoopEntityList::preprocess() {

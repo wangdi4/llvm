@@ -39,6 +39,7 @@ add_llvm_component_library(LLVMIntel_DTransOpt
   MemInitTrimDown.cpp
   MemInitTrimDownOP.cpp
   MemManageTrans.cpp
+  MemManageTransOP.cpp
   PaddedPtrPropagation.cpp
   RemoveDTransTypeMetadata.cpp
   SOAToAOS.cpp

@@ -856,7 +856,7 @@ private:
   // the new \p Init.
   void processInitValue(VPLoopEntity &E, VPValue *AI, VPValue *PrivateMem,
                         VPBuilder &Builder, VPValue &Init, Type *Ty,
-                        VPValue &Start);
+                        VPValue &Start, bool IsInscanInit = false);
 
   // Process final value \p Final of entity \p E. The store to original memory
   // \p AI is created and original exit value \p Exit ocurrences are replaced by
@@ -946,7 +946,21 @@ private:
       // the index part of min/max+index last value code generation.
       DenseMap<const VPReduction *,
                std::pair<VPReductionFinal *, VPInstruction *>> &RedFinalMap,
+      // This map contains a corresponding VPAllocatePrivate for each Reduction
+      // and is used to reset the reduction with identity on each iteration.
+      DenseMap<const VPReduction *, VPValue *> &RedPrivateMap,
+      // This map contains a corresponding VPReductionInit for each reduction.
+      // Is used to intialize the reduction with correct start value.
+      DenseMap<const VPReduction *, VPValue *> &RedInitMap,
       SmallPtrSetImpl<const VPReduction *> &ProcessedReductions);
+
+  // Insert inscan-related reduction instructions and process
+  // inclusive/exclusive pragmas in the loop body.
+  void insertRunningInscanReductionInstrs(
+    const SmallVectorImpl<const VPInscanReduction *> &InscanReductions,
+    const DenseMap<const VPReduction *, VPValue *> &RedPrivateMap,
+    const DenseMap<const VPReduction *, VPValue *> &RedInitMap,
+    VPBuilder &Builder);
 
   // Look through min/max+index reductions and identify which ones
   // are linears. See comment for VPIndexReduction::isLinearIndex().
