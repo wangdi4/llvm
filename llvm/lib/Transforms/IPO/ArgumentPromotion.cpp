@@ -581,7 +581,7 @@ static Function *doPromotion(
     }
 
     for (Instruction *I : DeadInsts) {
-      I->replaceAllUsesWith(UndefValue::get(I->getType()));
+      I->replaceAllUsesWith(PoisonValue::get(I->getType()));
       I->eraseFromParent();
     }
   }

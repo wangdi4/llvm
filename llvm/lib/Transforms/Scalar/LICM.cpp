@@ -1627,7 +1627,7 @@ static bool sink(Instruction &I, LoopInfo *LI, DominatorTree *DT,
       continue;
 
     if (!DT->isReachableFromEntry(User->getParent())) {
-      U = UndefValue::get(I.getType());
+      U = PoisonValue::get(I.getType());
       Changed = true;
       continue;
     }
@@ -1640,7 +1640,7 @@ static bool sink(Instruction &I, LoopInfo *LI, DominatorTree *DT,
     // unreachable.
     BasicBlock *BB = PN->getIncomingBlock(U);
     if (!DT->isReachableFromEntry(BB)) {
-      U = UndefValue::get(I.getType());
+      U = PoisonValue::get(I.getType());
       Changed = true;
       continue;
     }
