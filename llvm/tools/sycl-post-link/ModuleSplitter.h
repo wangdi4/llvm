@@ -183,7 +183,11 @@ getSplitterByKernelType(std::unique_ptr<Module> M,
 std::unique_ptr<ModuleSplitterBase>
 getSplitterByMode(std::unique_ptr<Module> M, IRSplitMode Mode,
                   bool AutoSplitIsGlobalScope,
+#if INTEL_COLLAB
+                  bool EmitOnlyKernelsAsEntryPoints, bool DoOmpOffload = false);
+#else  // INTEL_COLLAB
                   bool EmitOnlyKernelsAsEntryPoints);
+#endif // INTEL_COLLAB
 
 #ifndef NDEBUG
 void dumpEntryPoints(const EntryPointVec &C, const char *msg = "", int Tab = 0);
