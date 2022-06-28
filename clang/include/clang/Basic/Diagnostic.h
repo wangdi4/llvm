@@ -564,14 +564,11 @@ public:
   DiagnosticsEngine &operator=(const DiagnosticsEngine &) = delete;
   ~DiagnosticsEngine();
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   OpenMPOptReportHandler OpenMPOptReport;
 #endif // INTEL_CUSTOMIZATION
 
-=======
   friend void DiagnosticsTestHelper(DiagnosticsEngine &);
->>>>>>> 946c45a4ed5d5e2f262110a27390369f0d8fc3eb
   LLVM_DUMP_METHOD void dump() const;
   LLVM_DUMP_METHOD void dump(StringRef DiagName) const;
 
