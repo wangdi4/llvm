@@ -11649,6 +11649,15 @@ bool CGOpenMPRuntime::emitTargetGlobalVariable(GlobalDecl GD) {
 
 void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
                                                    llvm::Constant *Addr) {
+#if INTEL_COLLAB
+  // For OpenMP backend outlining, the globals in a declare target region must
+  // be marked with the target_declare attribute so they're not optimized away
+  // by backend optimizations.
+  if (CGM.getLangOpts().OpenMPLateOutline &&
+      VD->hasAttr<OMPDeclareTargetDeclAttr>())
+    cast<llvm::GlobalVariable>(Addr)->setTargetDeclare(true);
+#endif // INTEL_COLLAB
+
   if (CGM.getLangOpts().OMPTargetTriples.empty() &&
       !CGM.getLangOpts().OpenMPIsDevice)
     return;

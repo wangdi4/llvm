@@ -11,5 +11,18 @@ int corners[27] = {1,0,1,0,0,0,1,0,1, 0,0,0,0,0,0,0,0,0, 1,0,1,0,0,0,1,0,1};
 // CHECK-DAG: @faces = {{.*}}target_declare global
 // CHECK-DAG: @edges = {{.*}}target_declare global
 // CHECK-DAG: @corners = {{.*}}target_declare global
+// CHECK-DAG: @x = {{.*}}target_declare global
+// CHECK-DAG: @y = {{.*}}target_declare global
+
+extern int x, y;
+int main()
+{
+   x = 333;
+}
+
+#pragma omp declare target
+int x = 111;
+int y = 222;
+#pragma omp end declare target
 
 // end INTEL_COLLAB
