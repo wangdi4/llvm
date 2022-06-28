@@ -2383,8 +2383,7 @@ private:
 
   /// Add OpenCL kernel arg metadata and the kernel attribute metadata to
   /// the function metadata.
-  void EmitOpenCLKernelMetadata(const FunctionDecl *FD,
-                                llvm::Function *Fn);
+  void EmitKernelMetadata(const FunctionDecl *FD, llvm::Function *Fn);
 
 #if INTEL_CUSTOMIZATION
   /// Add metadata for HLS component functions.
