@@ -375,7 +375,11 @@ std::vector<uint32_t> getKernelReqdWorkGroupSizeMetadata(const Function &Func) {
 
 // Creates a filename based on current output filename, given extension,
 // sequential ID and suffix.
+#if INTEL_COLLAB
+std::string makeResultFileName(StringRef Ext, int I, StringRef Suffix) {
+#else // INTEL_COLLAB
 std::string makeResultFileName(Twine Ext, int I, StringRef Suffix) {
+#endif // INTEL_COLLAB
   const StringRef Dir0 = OutputDir.getNumOccurrences() > 0
                              ? OutputDir
                              : sys::path::parent_path(OutputFilename);
@@ -737,6 +741,9 @@ bool lowerEsimdConstructs(module_split::ModuleDesc &MD) {
 // @return a triple of files where IR, Property and Symbols components of the
 //   Module descriptor are written respectively.
 IrPropSymFilenameTriple saveModule(module_split::ModuleDesc &MD, int I,
+#ifdef INTEL_COLLAB
+                                   bool OMPOffloadParallelCompile,
+#endif // INTEL_COLLAB
                                    StringRef IRFilename = "") {
   IrPropSymFilenameTriple Res;
   StringRef Suffix =
@@ -746,8 +753,25 @@ IrPropSymFilenameTriple saveModule(module_split::ModuleDesc &MD, int I,
     // don't save IR, just record the filename
     Res.Ir = IRFilename.str();
   } else {
+#if INTEL_COLLAB
+    // All global variables' definitions are extracted into a single module,
+    // which by convention must be listed first in the output table if
+    // OpenMP offload Ahead-Of-Time compilation is performed.
+    if (OMPOffloadParallelCompile && (I == 0)) {
+      SmallString<256> Temp;
+      if (!Suffix.empty())
+        Suffix = Twine(Suffix.str() + "_globals").toStringRef(Temp);
+      else
+        Suffix = Twine("_globals").toStringRef(Temp);
+    }
+#endif // INTEL_COLLAB
     Res.Ir = saveModuleIR(MD.getModule(), I, Suffix);
   }
+#if INTEL_COLLAB
+  // Generate file table only with IR files for OMP offload
+  if (OMPOffloadParallelCompile)
+    return Res;
+#endif // INTEL_COLLAB
   GlobalBinImageProps Props = {EmitKernelParamInfo, EmitProgramMetadata,
                                EmitExportedSymbols, DeviceGlobals};
   Res.Prop = saveModuleProperties(MD, Props, I, Suffix);
@@ -856,6 +880,7 @@ static bool removeSYCLKernelsConstRefArray(Module &M) {
 
 std::unique_ptr<util::SimpleTable>
 processInputModule(std::unique_ptr<Module> M) {
+#if !INTEL_COLLAB
   // Construct the resulting table which will accumulate all the outputs.
   SmallVector<StringRef, MAX_COLUMNS_IN_FILE_TABLE> ColumnTitles{
       StringRef(COL_CODE), StringRef(COL_PROPS)};
@@ -868,6 +893,7 @@ processInputModule(std::unique_ptr<Module> M) {
   CHECK_AND_EXIT(TableE.takeError());
   std::unique_ptr<util::SimpleTable> Table = std::move(TableE.get());
 
+#endif // !INTEL_COLLAB
   // Used in output filenames generation.
   int ID = 0;
 
@@ -931,6 +957,7 @@ processInputModule(std::unique_ptr<Module> M) {
     (void) RunVTableFixup.run(*M, MAM);
   }
 #endif // INTEL_CUSTOMIZATION
+  bool DoOmpOffload = (DoLinkOmpOffloadEntries || DoMakeOmpGlobalsStatic);
 #endif // INTEL_COLLAB
 
   // -ir-output-only assumes single module output thus no code splitting.
@@ -946,7 +973,12 @@ processInputModule(std::unique_ptr<Module> M) {
   std::unique_ptr<module_split::ModuleSplitterBase> ScopedSplitter =
       module_split::getSplitterByMode(module_split::ModuleDesc{std::move(M)},
                                       SplitMode, IROutputOnly,
+#if INTEL_COLLAB
+                                      EmitOnlyKernelsAsEntryPoints,
+                                      DoOmpOffload);
+#else  // INTEL_COLLAB
                                       EmitOnlyKernelsAsEntryPoints);
+#endif // INTEL_COLLAB
   const bool SplitByScope = ScopedSplitter->totalSplits() > 1;
   Modified |= SplitByScope;
 
@@ -960,6 +992,23 @@ processInputModule(std::unique_ptr<Module> M) {
   // "leaf" ModuleDesc's resulted from splitting. Some bookkeeping is needed for
   // ESIMD splitter to link back needed modules.
 
+#if INTEL_COLLAB
+  bool OMPOffloadParallelCompile =
+      (DoOmpOffload && ScopedSplitter->totalSplits() > 1);
+  // Construct the resulting table which will accumulate all the outputs.
+  SmallVector<StringRef, MAX_COLUMNS_IN_FILE_TABLE> ColumnTitles{
+      StringRef(COL_CODE)};
+  if (!OMPOffloadParallelCompile) {
+    ColumnTitles.push_back(StringRef(COL_PROPS));
+  }
+  if (!OMPOffloadParallelCompile && DoSymGen) {
+    ColumnTitles.push_back(StringRef(COL_SYM));
+  }
+  Expected<std::unique_ptr<util::SimpleTable>> TableE =
+      util::SimpleTable::create(ColumnTitles);
+  CHECK_AND_EXIT(TableE.takeError());
+  std::unique_ptr<util::SimpleTable> Table = std::move(TableE.get());
+#endif // INTEL_COLLAB
   // Proceed with top-level splitting.
   while (ScopedSplitter->hasMoreSplits()) {
     module_split::ModuleDesc MDesc = ScopedSplitter->nextSplit();
@@ -1053,7 +1102,12 @@ processInputModule(std::unique_ptr<Module> M) {
                   "have been made\n";
       }
       for (module_split::ModuleDesc &IrMD : MMs) {
+#if INTEL_COLLAB
+        IrPropSymFilenameTriple T =
+            saveModule(IrMD, ID, OMPOffloadParallelCompile, OutIRFileName);
+#else // INTEL_COLLAB
         IrPropSymFilenameTriple T = saveModule(IrMD, ID, OutIRFileName);
+#endif
         addTableRow(*Table, T);
       }
     }
@@ -1154,10 +1208,12 @@ int main(int argc, char **argv) {
       OmpOffloadEntriesSymbol.getNumOccurrences() > 0;
   bool DoMakeOmpGlobalsStatic = MakeOmpGlobalsStatic.getNumOccurrences() > 0;
 
-  if (DoLinkOmpOffloadEntries && !IROutputOnly)
-    // OpenMP offload works with IR output only currently.
-    error(Twine("-") + OmpOffloadEntriesSymbol.ArgStr +
-          Twine(" can only be used with -") + IROutputOnly.ArgStr);
+  if (DoLinkOmpOffloadEntries && !IROutputOnly &&
+      !(DoSplit && SplitMode == module_split::SPLIT_PER_KERNEL))
+    // OpenMP offload works with either IR output or per kernel split currently.
+    errs() << "error: -" << OmpOffloadEntriesSymbol.ArgStr
+           << " can only be used with -" << IROutputOnly.ArgStr << " or -"
+           << SplitMode.ArgStr << "=kernel\n";
   if (SortOmpOffloadEntries && !DoLinkOmpOffloadEntries)
     errs() << "warning: -" << SortOmpOffloadEntries.ArgStr
            << " ignored without -" << OmpOffloadEntriesSymbol.ArgStr << "\n";
