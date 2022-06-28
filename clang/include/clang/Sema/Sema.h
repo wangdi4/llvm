@@ -2102,9 +2102,9 @@ public:
     template <typename T>
     friend const SemaDiagnosticBuilder &
     operator<<(const SemaDiagnosticBuilder &Diag, const T &Value) {
-      if (Diag.ImmediateDiag)
+      if (Diag.ImmediateDiag.hasValue())
         *Diag.ImmediateDiag << Value;
-      else if (Diag.PartialDiagId)
+      else if (Diag.PartialDiagId.hasValue())
         Diag.S.DeviceDeferredDiags[Diag.Fn][*Diag.PartialDiagId]
                 .getDiag()
                 .second
@@ -2118,9 +2118,9 @@ public:
     template <typename T, typename = typename std::enable_if<
                               !std::is_lvalue_reference<T>::value>::type>
     const SemaDiagnosticBuilder &operator<<(T &&V) const {
-      if (ImmediateDiag)
+      if (ImmediateDiag.hasValue())
         *ImmediateDiag << std::move(V);
-      else if (PartialDiagId)
+      else if (PartialDiagId.hasValue())
         S.DeviceDeferredDiags[Fn][*PartialDiagId].getDiag().second
             << std::move(V);
       return *this;
@@ -2128,9 +2128,9 @@ public:
 
     friend const SemaDiagnosticBuilder &
     operator<<(const SemaDiagnosticBuilder &Diag, const PartialDiagnostic &PD) {
-      if (Diag.ImmediateDiag)
+      if (Diag.ImmediateDiag.hasValue())
         PD.Emit(*Diag.ImmediateDiag);
-      else if (Diag.PartialDiagId)
+      else if (Diag.PartialDiagId.hasValue())
         Diag.S.DeviceDeferredDiags[Diag.Fn][*Diag.PartialDiagId]
             .getDiag()
             .second = PD;
@@ -2138,9 +2138,9 @@ public:
     }
 
     void AddFixItHint(const FixItHint &Hint) const {
-      if (ImmediateDiag)
+      if (ImmediateDiag.hasValue())
         ImmediateDiag->AddFixItHint(Hint);
-      else if (PartialDiagId)
+      else if (PartialDiagId.hasValue())
         S.DeviceDeferredDiags[Fn][*PartialDiagId].getDiag().second.AddFixItHint(
             Hint);
     }
