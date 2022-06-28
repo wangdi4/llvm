@@ -856,15 +856,16 @@ bool LegacyInlinerBase::removeDeadFunctions(CallGraph &CG,
 }
 
 #if INTEL_CUSTOMIZATION
-InlinerPass::InlinerPass(bool OnlyMandatory): OnlyMandatory(OnlyMandatory) {
+InlinerPass::InlinerPass(bool OnlyMandatory, ThinOrFullLTOPhase LTOPhase)
+    : OnlyMandatory(OnlyMandatory), LTOPhase(LTOPhase) {
   Report = getInlineReport();
   MDReport = getMDInlineReport();
 }
-#endif  // INTEL_CUSTOMIZATION
 
 InlinerPass::~InlinerPass() {
   getReport()->testAndPrint(this);
 }
+#endif // INTEL_CUSTOMIZATION
 
 InlineAdvisor &
 InlinerPass::getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,

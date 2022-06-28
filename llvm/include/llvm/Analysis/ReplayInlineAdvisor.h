@@ -85,18 +85,15 @@ public:
                       LLVMContext &Context,
                       std::unique_ptr<InlineAdvisor> OriginalAdvisor,
                       const ReplayInlinerSettings &ReplaySettings,
-<<<<<<< HEAD
-                      bool EmitRemarks);
+                      bool EmitRemarks, InlineContext IC);
+
 #if INTEL_CUSTOMIZATION
   std::unique_ptr<InlineAdvice>
   getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC = nullptr,
                 WholeProgramInfo *WPI = nullptr,
                 InlineCost **IC = nullptr) override;
 #endif // INTEL_CUSTOMIZATION
-=======
-                      bool EmitRemarks, InlineContext IC);
-  std::unique_ptr<InlineAdvice> getAdviceImpl(CallBase &CB) override;
->>>>>>> e0d069598bc8c147c8b6625253c1f32f26baaab1
+
   bool areReplayRemarksLoaded() const { return HasReplayRemarks; }
 
 private:

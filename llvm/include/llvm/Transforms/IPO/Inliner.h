@@ -127,22 +127,14 @@ protected:
 /// passes be composed to achieve the same end result.
 class InlinerPass : public PassInfoMixin<InlinerPass> {
 public:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  InlinerPass(bool OnlyMandatory = false);
-#endif // INTEL_CUSTOMIZATION
-  ~InlinerPass();
-#if INTEL_CUSTOMIZATION
-  InlinerPass(InlinerPass &&Arg)
-      : OnlyMandatory(Arg.OnlyMandatory), Report(std::move(Arg.Report)),
-        MDReport(std::move(Arg.MDReport)) {}
-#endif // INTEL_CUSTOMIZATION
-=======
   InlinerPass(bool OnlyMandatory = false,
-              ThinOrFullLTOPhase LTOPhase = ThinOrFullLTOPhase::None)
-      : OnlyMandatory(OnlyMandatory), LTOPhase(LTOPhase) {}
-  InlinerPass(InlinerPass &&Arg) = default;
->>>>>>> e0d069598bc8c147c8b6625253c1f32f26baaab1
+              ThinOrFullLTOPhase LTOPhase = ThinOrFullLTOPhase::None);
+  ~InlinerPass();
+  InlinerPass(InlinerPass &&Arg)
+      : OnlyMandatory(Arg.OnlyMandatory), LTOPhase(std::move(Arg.LTOPhase)),
+        Report(std::move(Arg.Report)), MDReport(std::move(Arg.MDReport)) {}
+#endif // INTEL_CUSTOMIZATION
 
   PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,
                         LazyCallGraph &CG, CGSCCUpdateResult &UR);
@@ -161,15 +153,12 @@ private:
                             FunctionAnalysisManager &FAM, Module &M);
   std::unique_ptr<InlineAdvisor> OwnedAdvisor;
   const bool OnlyMandatory;
-<<<<<<< HEAD
+  const ThinOrFullLTOPhase LTOPhase;
 
   // INTEL The inline report
   InlineReport *Report; // INTEL
   InlineReportBuilder *MDReport; // INTEL
   bool IsAlwaysInline; // INTEL
-=======
-  const ThinOrFullLTOPhase LTOPhase;
->>>>>>> e0d069598bc8c147c8b6625253c1f32f26baaab1
 };
 
 /// Module pass, wrapping the inliner pass. This works in conjunction with the

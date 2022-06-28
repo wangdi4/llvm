@@ -1116,7 +1116,6 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM,
     // performance testing.
     // FIXME: this comment is cargo culted from the old pass manager, revisit).
     IP.HintThreshold = Level.isOptimizingForSize() ? PreInlineThreshold : 325;
-<<<<<<< HEAD
     IP.PrepareForLTO = PrepareForLTO; // INTEL
 
 #if INTEL_CUSTOMIZATION
@@ -1124,12 +1123,9 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM,
     MPM.addPass(InlineListsPass());
 #endif //INTEL_CUSTOMIZATION
 
-    ModuleInlinerWrapperPass MIWP(IP);
-=======
     ModuleInlinerWrapperPass MIWP(
         IP, /* MandatoryFirst */ true,
         InlineContext{LTOPhase, InlinePass::EarlyInliner});
->>>>>>> e0d069598bc8c147c8b6625253c1f32f26baaab1
     CGSCCPassManager &CGPipeline = MIWP.getPM();
 
     FunctionPassManager FPM;
@@ -1244,19 +1240,15 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   if (PGOOpt)
     IP.EnableDeferral = EnablePGOInlineDeferral;
 
-<<<<<<< HEAD
-  ModuleInlinerWrapperPass MIWP(IP, PerformMandatoryInliningsFirst,
-                                UseInlineAdvisor, MaxDevirtIterations);
-#if INTEL_COLLAB
-  auto AddPreCGSCCModulePasses = [&](ModuleInlinerWrapperPass& MIWP) {
-#endif // INTEL_COLLAB
-=======
   ModuleInlinerWrapperPass MIWP(
       IP, PerformMandatoryInliningsFirst,
       InlineContext{Phase, InlinePass::CGSCCInliner},
       UseInlineAdvisor, MaxDevirtIterations);
 
->>>>>>> e0d069598bc8c147c8b6625253c1f32f26baaab1
+#if INTEL_COLLAB
+  auto AddPreCGSCCModulePasses = [&](ModuleInlinerWrapperPass& MIWP) {
+#endif // INTEL_COLLAB
+
   // Require the GlobalsAA analysis for the module so we can query it within
   // the CGSCC pipeline.
   MIWP.addModulePass(RequireAnalysisPass<GlobalsAA, Module>());
@@ -1285,21 +1277,21 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   // valuable as the inliner doesn't currently care whether it is inlining an
   // invoke or a call.
 #if INTEL_COLLAB
-
   if (RunVPOParopt && RunVPOOpt == InvokeParoptAfterInliner) {
     assert(MPM && "Need MPM to insert inliner + paropt before the full inliner "
                   "+ cgscc pass pipeline");
     // Run Inliner once before Paropt to align with the legacy pass manager, and
     // leave the full inliner+CGSCC pipeline unbroken for a subsequent run after
     // Paropt.
-    ModuleInlinerWrapperPass PMIWP(IP,
-                                   // This can be set to false if always inliner
-                                   // is not needed before Paropt.
-                                   PerformMandatoryInliningsFirst,
-                                   UseInlineAdvisor,
-                                   // Don't use DevirtSCCRepeatedPass to track
-                                   // indirect -> direct call conversions.
-                                   /*MaxDevirtIterations=*/0);
+    ModuleInlinerWrapperPass PMIWP(
+        IP,
+        // This can be set to false if always inliner
+        // is not needed before Paropt.
+        PerformMandatoryInliningsFirst,
+        InlineContext{Phase, InlinePass::CGSCCInliner}, UseInlineAdvisor,
+        // Don't use DevirtSCCRepeatedPass to track
+        // indirect -> direct call conversions.
+        /*MaxDevirtIterations=*/0);
     // Process OpenMP directives at -O1 and above.
     AddPreCGSCCModulePasses(PMIWP);
     MPM->addPass(std::move(PMIWP));
@@ -3085,11 +3077,12 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // valuable as the inliner doesn't currently care whether it is inlining an
   // invoke or a call.
   // Run the inliner now.
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  MPM.addPass(ModuleInlinerWrapperPass(getInlineParamsFromOptLevel(Level,
-                                           PrepareForLTO, LinkForLTO)));
-#endif // INTEL_CUSTOMIZATION
+  MPM.addPass(ModuleInlinerWrapperPass(
+      getInlineParamsFromOptLevel(Level, PrepareForLTO, LinkForLTO), // INTEL
+      /* MandatoryFirst */ true,
+      InlineContext{ThinOrFullLTOPhase::FullLTOPostLink,
+                          InlinePass::CGSCCInliner}));
+
 #if INTEL_FEATURE_SW_DTRANS
   // The global optimizer pass can convert function calls to use
   // the 'fastcc' calling convention. The following pass enables more
@@ -3103,13 +3096,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-=======
-  MPM.addPass(ModuleInlinerWrapperPass(
-      getInlineParamsFromOptLevel(Level),
-      /* MandatoryFirst */ true,
-      InlineContext{ThinOrFullLTOPhase::FullLTOPostLink,
-                          InlinePass::CGSCCInliner}));
->>>>>>> e0d069598bc8c147c8b6625253c1f32f26baaab1
 
   // Optimize globals again after we ran the inliner.
   MPM.addPass(GlobalOptPass());
