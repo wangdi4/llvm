@@ -31,15 +31,10 @@
 // RUN:             | FileCheck --check-prefix=CHECK-WITH-G-DWARF2 %s
 
 // CHECK-WITHOUT-G-NOT: -debug-info-kind
-<<<<<<< HEAD
-// CHECK-WITH-G: "-debug-info-kind=limited"
+// CHECK-WITH-G: "-debug-info-kind=constructor"
 // INTEL_CUSTOMIZATION
 // CHECK-WITH-G: "-dwarf-version=4"
 // end INTEL_CUSTOMIZATION
-=======
-// CHECK-WITH-G: "-debug-info-kind=constructor"
-// CHECK-WITH-G: "-dwarf-version=5"
->>>>>>> 971047bd1b5f05be009ff62942a8399008dc223b
 // CHECK-WITH-G-DWARF2: "-dwarf-version=2"
 
 // CHECK-WITH-G-STANDALONE: "-debug-info-kind=standalone"
