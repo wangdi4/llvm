@@ -11,7 +11,7 @@
 
 ; CHECK: BEGIN PREFETCH
 ; CHECK: IF_EXPR:
-; CHECK: DATA clause (size=2): (i32** %{{.*}} : 1 : 10) (float** %{{.*}} : 2 : 20)
+; CHECK: DATA clause (size=2): (i32** %{{.*}}, NUM_ELEMENTS: i64 10, HINT: 1) (float** %{{.*}}, NUM_ELEMENTS: i64 20, HINT: 2)
 
 ; ModuleID = 't.c'
 source_filename = "t.c"
