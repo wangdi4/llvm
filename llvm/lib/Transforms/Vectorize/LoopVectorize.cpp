@@ -7702,7 +7702,7 @@ void LoopVectorizationPlanner::executePlan(ElementCount BestVF, unsigned BestUF,
   VPBasicBlock *HeaderVPBB =
       BestVPlan.getVectorLoopRegion()->getEntryBasicBlock();
   Loop *L = LI->getLoopFor(State.CFG.VPBB2IRBB[HeaderVPBB]);
-  if (VectorizedLoopID.hasValue())
+  if (VectorizedLoopID)
     L->setLoopID(VectorizedLoopID.getValue());
   else {
     // Keep all loop hints from the original loop on the vector loop (we'll
@@ -10713,7 +10713,7 @@ bool LoopVectorizePass::processLoop(Loop *L) {
   Optional<MDNode *> RemainderLoopID =
       makeFollowupLoopID(OrigLoopID, {LLVMLoopVectorizeFollowupAll,
                                       LLVMLoopVectorizeFollowupEpilogue});
-  if (RemainderLoopID.hasValue()) {
+  if (RemainderLoopID) {
     L->setLoopID(RemainderLoopID.getValue());
   } else {
     if (DisableRuntimeUnroll)
