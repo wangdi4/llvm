@@ -70,10 +70,12 @@ struct ReplayInlinerSettings {
 /// Get call site location as a string with the given format
 std::string formatCallSiteLocation(DebugLoc DLoc, const CallSiteFormat &Format);
 
-std::unique_ptr<InlineAdvisor> getReplayInlineAdvisor(
-    Module &M, FunctionAnalysisManager &FAM, LLVMContext &Context,
-    std::unique_ptr<InlineAdvisor> OriginalAdvisor,
-    const ReplayInlinerSettings &ReplaySettings, bool EmitRemarks);
+std::unique_ptr<InlineAdvisor>
+getReplayInlineAdvisor(Module &M, FunctionAnalysisManager &FAM,
+                       LLVMContext &Context,
+                       std::unique_ptr<InlineAdvisor> OriginalAdvisor,
+                       const ReplayInlinerSettings &ReplaySettings,
+                       bool EmitRemarks, InlineContext IC);
 
 /// Replay inline advisor that uses optimization remarks from inlining of
 /// previous build to guide current inlining. This is useful for inliner tuning.
@@ -83,13 +85,15 @@ public:
                       LLVMContext &Context,
                       std::unique_ptr<InlineAdvisor> OriginalAdvisor,
                       const ReplayInlinerSettings &ReplaySettings,
-                      bool EmitRemarks);
+                      bool EmitRemarks, InlineContext IC);
+
 #if INTEL_CUSTOMIZATION
   std::unique_ptr<InlineAdvice>
   getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC = nullptr,
                 WholeProgramInfo *WPI = nullptr,
                 InlineCost **IC = nullptr) override;
 #endif // INTEL_CUSTOMIZATION
+
   bool areReplayRemarksLoaded() const { return HasReplayRemarks; }
 
 private:

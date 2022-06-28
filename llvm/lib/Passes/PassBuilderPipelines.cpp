@@ -1103,7 +1103,8 @@ void PassBuilder::addRequiredLTOPreLinkPasses(ModulePassManager &MPM) {
 void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM,
                                     OptimizationLevel Level, bool RunProfileGen,
                                     bool IsCS, std::string ProfileFile,
-                                    std::string ProfileRemappingFile) {
+                                    std::string ProfileRemappingFile,
+                                    ThinOrFullLTOPhase LTOPhase) {
   assert(Level != OptimizationLevel::O0 && "Not expecting O0 here!");
   if (!IsCS && !DisablePreInliner) {
     InlineParams IP;
@@ -1122,7 +1123,9 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM,
     MPM.addPass(InlineListsPass());
 #endif //INTEL_CUSTOMIZATION
 
-    ModuleInlinerWrapperPass MIWP(IP);
+    ModuleInlinerWrapperPass MIWP(
+        IP, /* MandatoryFirst */ true,
+        InlineContext{LTOPhase, InlinePass::EarlyInliner});
     CGSCCPassManager &CGPipeline = MIWP.getPM();
 
     FunctionPassManager FPM;
@@ -1237,11 +1240,15 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   if (PGOOpt)
     IP.EnableDeferral = EnablePGOInlineDeferral;
 
-  ModuleInlinerWrapperPass MIWP(IP, PerformMandatoryInliningsFirst,
-                                UseInlineAdvisor, MaxDevirtIterations);
+  ModuleInlinerWrapperPass MIWP(
+      IP, PerformMandatoryInliningsFirst,
+      InlineContext{Phase, InlinePass::CGSCCInliner},
+      UseInlineAdvisor, MaxDevirtIterations);
+
 #if INTEL_COLLAB
   auto AddPreCGSCCModulePasses = [&](ModuleInlinerWrapperPass& MIWP) {
 #endif // INTEL_COLLAB
+
   // Require the GlobalsAA analysis for the module so we can query it within
   // the CGSCC pipeline.
   MIWP.addModulePass(RequireAnalysisPass<GlobalsAA, Module>());
@@ -1270,21 +1277,21 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   // valuable as the inliner doesn't currently care whether it is inlining an
   // invoke or a call.
 #if INTEL_COLLAB
-
   if (RunVPOParopt && RunVPOOpt == InvokeParoptAfterInliner) {
     assert(MPM && "Need MPM to insert inliner + paropt before the full inliner "
                   "+ cgscc pass pipeline");
     // Run Inliner once before Paropt to align with the legacy pass manager, and
     // leave the full inliner+CGSCC pipeline unbroken for a subsequent run after
     // Paropt.
-    ModuleInlinerWrapperPass PMIWP(IP,
-                                   // This can be set to false if always inliner
-                                   // is not needed before Paropt.
-                                   PerformMandatoryInliningsFirst,
-                                   UseInlineAdvisor,
-                                   // Don't use DevirtSCCRepeatedPass to track
-                                   // indirect -> direct call conversions.
-                                   /*MaxDevirtIterations=*/0);
+    ModuleInlinerWrapperPass PMIWP(
+        IP,
+        // This can be set to false if always inliner
+        // is not needed before Paropt.
+        PerformMandatoryInliningsFirst,
+        InlineContext{Phase, InlinePass::CGSCCInliner}, UseInlineAdvisor,
+        // Don't use DevirtSCCRepeatedPass to track
+        // indirect -> direct call conversions.
+        /*MaxDevirtIterations=*/0);
     // Process OpenMP directives at -O1 and above.
     AddPreCGSCCModulePasses(PMIWP);
     MPM->addPass(std::move(PMIWP));
@@ -1381,7 +1388,7 @@ PassBuilder::buildModuleInlinerPipeline(OptimizationLevel Level,
   // inline deferral logic in module inliner.
   IP.EnableDeferral = false;
 
-  MPM.addPass(ModuleInlinerPass(IP, UseInlineAdvisor));
+  MPM.addPass(ModuleInlinerPass(IP, UseInlineAdvisor, Phase));
 
   MPM.addPass(createModuleToFunctionPassAdaptor(
       buildFunctionSimplificationPipeline(Level, Phase),
@@ -1609,7 +1616,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
     addPGOInstrPasses(MPM, Level,
                       /* RunProfileGen */ PGOOpt->Action == PGOOptions::IRInstr,
                       /* IsCS */ false, PGOOpt->ProfileFile,
-                      PGOOpt->ProfileRemappingFile);
+                      PGOOpt->ProfileRemappingFile, Phase);
     MPM.addPass(PGOIndirectCallPromotion(false, false));
   }
   if (PGOOpt && Phase != ThinOrFullLTOPhase::ThinLTOPostLink &&
@@ -2334,7 +2341,9 @@ void PassBuilder::addLoopOptAndAssociatedVPOPasses(ModulePassManager &MPM,
 
 ModulePassManager
 PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
-                                             bool LTOPreLink) {
+                                             ThinOrFullLTOPhase LTOPhase) {
+  const bool LTOPreLink = (LTOPhase == ThinOrFullLTOPhase::ThinLTOPreLink ||
+                           LTOPhase == ThinOrFullLTOPhase::FullLTOPreLink);
   ModulePassManager MPM;
 
   // Optimize globals now that the module is fully simplified.
@@ -2386,11 +2395,11 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
     if (PGOOpt->CSAction == PGOOptions::CSIRInstr)
       addPGOInstrPasses(MPM, Level, /* RunProfileGen */ true,
                         /* IsCS */ true, PGOOpt->CSProfileGenFile,
-                        PGOOpt->ProfileRemappingFile);
+                        PGOOpt->ProfileRemappingFile, LTOPhase);
     else if (PGOOpt->CSAction == PGOOptions::CSIRUse)
       addPGOInstrPasses(MPM, Level, /* RunProfileGen */ false,
                         /* IsCS */ true, PGOOpt->ProfileFile,
-                        PGOOpt->ProfileRemappingFile);
+                        PGOOpt->ProfileRemappingFile, LTOPhase);
   }
 
 #if INTEL_CUSTOMIZATION
@@ -2567,13 +2576,14 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
   if (PGOOpt && PGOOpt->DebugInfoForProfiling)
     MPM.addPass(createModuleToFunctionPassAdaptor(AddDiscriminatorsPass()));
 
+  const ThinOrFullLTOPhase LTOPhase = LTOPreLink
+                                          ? ThinOrFullLTOPhase::FullLTOPreLink
+                                          : ThinOrFullLTOPhase::None;
   // Add the core simplification pipeline.
-  MPM.addPass(buildModuleSimplificationPipeline(
-      Level, LTOPreLink ? ThinOrFullLTOPhase::FullLTOPreLink
-                        : ThinOrFullLTOPhase::None));
+  MPM.addPass(buildModuleSimplificationPipeline(Level, LTOPhase));
 
   // Now add the optimization pipeline.
-  MPM.addPass(buildModuleOptimizationPipeline(Level, LTOPreLink));
+  MPM.addPass(buildModuleOptimizationPipeline(Level, LTOPhase));
 
   if (PGOOpt && PGOOpt->PseudoProbeForProfiling &&
       PGOOpt->Action == PGOOptions::SampleUse)
@@ -2692,7 +2702,8 @@ ModulePassManager PassBuilder::buildThinLTODefaultPipeline(
       Level, ThinOrFullLTOPhase::ThinLTOPostLink));
 
   // Now add the optimization pipeline.
-  MPM.addPass(buildModuleOptimizationPipeline(Level));
+  MPM.addPass(buildModuleOptimizationPipeline(
+      Level, ThinOrFullLTOPhase::ThinLTOPostLink));
 
   // Emit annotation remarks.
   addAnnotationRemarksPass(MPM);
@@ -3066,10 +3077,12 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // valuable as the inliner doesn't currently care whether it is inlining an
   // invoke or a call.
   // Run the inliner now.
-#if INTEL_CUSTOMIZATION
-  MPM.addPass(ModuleInlinerWrapperPass(getInlineParamsFromOptLevel(Level,
-                                           PrepareForLTO, LinkForLTO)));
-#endif // INTEL_CUSTOMIZATION
+  MPM.addPass(ModuleInlinerWrapperPass(
+      getInlineParamsFromOptLevel(Level, PrepareForLTO, LinkForLTO), // INTEL
+      /* MandatoryFirst */ true,
+      InlineContext{ThinOrFullLTOPhase::FullLTOPostLink,
+                          InlinePass::CGSCCInliner}));
+
 #if INTEL_FEATURE_SW_DTRANS
   // The global optimizer pass can convert function calls to use
   // the 'fastcc' calling convention. The following pass enables more
@@ -3138,11 +3151,13 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     if (PGOOpt->CSAction == PGOOptions::CSIRInstr)
       addPGOInstrPasses(MPM, Level, /* RunProfileGen */ true,
                         /* IsCS */ true, PGOOpt->CSProfileGenFile,
-                        PGOOpt->ProfileRemappingFile);
+                        PGOOpt->ProfileRemappingFile,
+                        ThinOrFullLTOPhase::FullLTOPostLink);
     else if (PGOOpt->CSAction == PGOOptions::CSIRUse)
       addPGOInstrPasses(MPM, Level, /* RunProfileGen */ false,
                         /* IsCS */ true, PGOOpt->ProfileFile,
-                        PGOOpt->ProfileRemappingFile);
+                        PGOOpt->ProfileRemappingFile,
+                        ThinOrFullLTOPhase::FullLTOPostLink);
   }
 
   // Break up allocas
