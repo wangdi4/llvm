@@ -18,4 +18,7 @@ entry:
   ret void
 }
 
-; CHECK:  %{{.*}} = call i8* @__kmpc_threadprivate_cached({{.*}})
+; CHECK: @__tpv_ptr_a = internal global i8** null, align 64
+; CHECK: @__tpv_ptr_b = internal global i8** null, align 64
+; CHECK:  %{{.*}} = call i8* @__kmpc_threadprivate_cached({{.*}}@__tpv_ptr_a)
+; CHECK:  %{{.*}} = call i8* @__kmpc_threadprivate_cached({{.*}}@__tpv_ptr_b)
