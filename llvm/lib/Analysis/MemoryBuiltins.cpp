@@ -333,7 +333,6 @@ bool llvm::isAllocationFn(
 bool llvm::isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
 #else
 static bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
-<<<<<<< HEAD
 #endif
   return getAllocationData(V, MallocOrOpNewLike, TLI).has_value();
 }
@@ -342,16 +341,13 @@ static bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
 bool llvm::isMallocLikeFn(
     const Value *V, function_ref<const TargetLibraryInfo &(Function &)> GetTLI) {
   return getAllocationData(V, MallocOrOpNewLike, GetTLI)
-      .hasValue();
+      .has_value();
 }
 
 /// Tests if a function is a call or invoke to a library function that
 /// allocates memory (e.g., malloc).
 bool llvm::isMallocLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
-  return getAllocationDataForFunction(F, MallocLike, TLI).hasValue();
-=======
-  return getAllocationData(V, MallocOrOpNewLike, TLI).has_value();
->>>>>>> a81b64a1fbff689a37f55a9b5e44a66f5b7f9a5c
+  return getAllocationDataForFunction(F, MallocLike, TLI).has_value();
 }
 #endif
 
@@ -364,7 +360,6 @@ static bool isAlignedAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
 #if INTEL_CUSTOMIZATION
 /// Tests if a value is a call or invoke to a library function that
 /// allocates zero-filled memory (such as calloc).
-<<<<<<< HEAD
 bool llvm::isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
   return getAllocationData(V, CallocLike, TLI).has_value();
 }
@@ -372,7 +367,7 @@ bool llvm::isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
 /// Tests if a function is a call or invoke to a library function that
 /// allocates memory (e.g., calloc).
 bool llvm::isCallocLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
-  return getAllocationDataForFunction(F, CallocLike, TLI).hasValue();
+  return getAllocationDataForFunction(F, CallocLike, TLI).has_value();
 }
 
 /// Tests if a value is a call or invoke to a library function that returns
@@ -390,7 +385,7 @@ bool llvm::isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
 /// Tests if a function is a call or invoke to a library function that
 /// allocates memory (e.g., new).
 bool llvm::isNewLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
-  return getAllocationDataForFunction(F, OpNewLike, TLI).hasValue();
+  return getAllocationDataForFunction(F, OpNewLike, TLI).has_value();
 }
 
 /// Tests if a function is a call or invoke to free() (specifically).
@@ -411,10 +406,6 @@ bool llvm::isFreeFn(const Function *F, const TargetLibraryInfo *TLI) {
   if (FTy->getParamType(0) != Type::getInt8PtrTy(F->getContext()))
     return false;
   return true;
-=======
-static bool isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
-  return getAllocationData(V, CallocLike, TLI).has_value();
->>>>>>> a81b64a1fbff689a37f55a9b5e44a66f5b7f9a5c
 }
 
 /// Tests if a function is a call or invoke to a function in the
