@@ -126,15 +126,12 @@
 // RUN: not clang-offload-bundler -type=i -targets=host-%itanium_abi_triple,openmp-powerpc64le-ibm-linux-gnu -output=%t.i -outputs=%t.tgt1,%t.tgt2 -input=%t.bundle.i -unbundle 2>&1 | FileCheck %s --check-prefix CK-ERR11B
 // CK-ERR11B: error: -outputs and -output cannot be used together, use only -output instead
 
-<<<<<<< HEAD
 // RUN: not clang-offload-bundler -type=i -targets=host-%itanium_abi_triple,openmp-powerpc64le-ibm-linux-gnu -input=%t.bundle.i  -check-section 2>&1 | FileCheck %s --check-prefix CK-ERR12
 // CK-ERR12: error: only one target supported in checking mode
 
 // RUN: not clang-offload-bundler -type=i -targets=openmp-powerpc64le-ibm-linux-gnu -input=%t.bundle.i -output=%t.r  -check-section 2>&1 | FileCheck %s --check-prefix CK-ERR13
 // CK-ERR13: error: no output file supported in checking mode
 
-=======
->>>>>>> 9d2b21559cbe478389d857fb5406544c34ac50f8
 //
 // Check text bundle. This is a readable format, so we check for the format we expect to find.
 //
@@ -343,23 +340,13 @@
 
 //
 // Check target checking
-<<<<<<< HEAD
-
+//
 // RUN: clang-offload-bundler -type=bc -targets=host-%itanium_abi_triple -input=%t.bundle3.bc -check-section
 // RUN: clang-offload-bundler -type=bc -targets=openmp-powerpc64le-ibm-linux-gnu -input=%t.bundle3.bc -check-section
 // RUN: clang-offload-bundler -type=bc -targets=openmp-x86_64-pc-linux-gnu -input=%t.bundle3.bc -check-section
 // RUN: not clang-offload-bundler -type=bc -targets=fpga-fpga_aocr-intel-linux -input=%t.bundle3.bc -check-section
 // RUN: not clang-offload-bundler -type=bc -targets=fpga-fpga_aoco-intel-linux -input=%t.bundle3.bc -check-section
 // RUN: not clang-offload-bundler -type=bc -targets=fpga-fpga_aocx-intel-linux -input=%t.bundle3.bc -check-section
-=======
-//
-// RUN: clang-offload-bundler -type=bc -targets=host-%itanium_abi_triple -inputs=%t.bundle3.bc -check-section
-// RUN: clang-offload-bundler -type=bc -targets=openmp-powerpc64le-ibm-linux-gnu -inputs=%t.bundle3.bc -check-section
-// RUN: clang-offload-bundler -type=bc -targets=openmp-x86_64-pc-linux-gnu -inputs=%t.bundle3.bc -check-section
-// RUN: not clang-offload-bundler -type=bc -targets=fpga-fpga_aocr-intel-linux -inputs=%t.bundle3.bc -check-section
-// RUN: not clang-offload-bundler -type=bc -targets=fpga-fpga_aoco-intel-linux -inputs=%t.bundle3.bc -check-section
-// RUN: not clang-offload-bundler -type=bc -targets=fpga-fpga_aocx-intel-linux -inputs=%t.bundle3.bc -check-section
->>>>>>> 9d2b21559cbe478389d857fb5406544c34ac50f8
 
 //
 // Check archive bundle.

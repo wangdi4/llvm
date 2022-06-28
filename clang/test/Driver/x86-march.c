@@ -112,7 +112,6 @@
 // RUN:   | FileCheck %s -check-prefix=tremont
 // tremont: "-target-cpu" "tremont"
 //
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // RUN: %clang -target x86_64-unknown-unknown -c -### %s -march=gracemont 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=gracemont
@@ -120,8 +119,6 @@
 // end INTEL_CUSTOMIZATION
 //
 
-=======
->>>>>>> 9d2b21559cbe478389d857fb5406544c34ac50f8
 // RUN: %clang -target x86_64-unknown-unknown -c -### %s -march=sapphirerapids 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=sapphirerapids
 // sapphirerapids: "-target-cpu" "sapphirerapids"
