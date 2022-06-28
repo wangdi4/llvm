@@ -598,6 +598,7 @@ public:
     ReductionInitScalar, // Initializes scalar inscan reduction accumulator
                          // with an Identity value.
     ReductionFinal,
+    ReductionFinalInscan, // Reduction finalization (noop for scan).
     AllocatePrivate,
     Subscript,
     Blend,
@@ -2571,8 +2572,9 @@ public:
       : VPInstruction(VPInstruction::ReductionInit, Identity->getType(),
                       {Identity}), UsesStartValue(UseStart) {}
 
-  VPReductionInit(VPValue *Identity, VPValue *StartValue)
-      : VPInstruction(VPInstruction::ReductionInit, Identity->getType(),
+  VPReductionInit(VPValue *Identity, VPValue *StartValue,
+                  unsigned Opcode = VPInstruction::ReductionInit)
+      : VPInstruction(Opcode, Identity->getType(),
                       {Identity, StartValue}), UsesStartValue(true) {}
 
   /// Return operand that corresponds to the indentity value.
@@ -2615,13 +2617,28 @@ protected:
     if (getNumOperands() == 1)
       return new VPReductionInit(getIdentityOperand(), UsesStartValue);
     else if (getNumOperands() == 2)
-      return new VPReductionInit(getIdentityOperand(), getStartValueOperand());
+      return new VPReductionInit(getIdentityOperand(), getStartValueOperand(),
+                                 getOpcode());
     else
       llvm_unreachable("Too many operands.");
   }
 
 private:
   bool UsesStartValue;
+};
+
+// Initialize a scalar reduction, like inscan reduction.
+// The start value is always used.
+// Identity is not needed, use it for consistency.
+class VPReductionInitScalar : public VPReductionInit {
+public:
+  VPReductionInitScalar(VPValue *Identity, VPValue *StartValue) :
+    VPReductionInit(Identity, StartValue, VPInstruction::ReductionInitScalar) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::ReductionInitScalar;
+  }
 };
 
 // VPInstruction for reduction last value calculation.
@@ -2653,9 +2670,9 @@ public:
         BinOpcode(BinOp), Signed(Sign), IsLinearIndex(false) {}
 
   /// Constructor for optimized summation
-  VPReductionFinal(unsigned BinOp, VPValue *ReducVec)
-      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getType(),
-                      {ReducVec}),
+  VPReductionFinal(unsigned BinOp, VPValue *ReducVec,
+                   unsigned Opcode = VPInstruction::ReductionFinal)
+      : VPInstruction(Opcode, ReducVec->getType(), {ReducVec}),
         BinOpcode(BinOp), Signed(false), IsLinearIndex(false) {}
 
   /// Constructor for index part of min/max+index reduction.
@@ -2762,7 +2779,8 @@ protected:
           getBinOpcode(), getReducingOperand(), getParentExitValOperand(),
           cast<VPReductionFinal>(getParentFinalValOperand()), isSigned());
     else if (getStartValueOperand() == nullptr)
-      return new VPReductionFinal(getBinOpcode(), getReducingOperand());
+      return new VPReductionFinal(getBinOpcode(), getReducingOperand(),
+                                  getOpcode());
     else
       return new VPReductionFinal(getBinOpcode(), getReducingOperand(),
                                   getStartValueOperand(), isSigned());
@@ -2772,6 +2790,20 @@ private:
   unsigned BinOpcode;
   bool Signed;
   bool IsLinearIndex;
+};
+
+
+/// Finalization of inscan reduction is not required.
+/// Returns the input operand.
+class VPReductionFinalInscan : public VPReductionFinal {
+public:
+  VPReductionFinalInscan(unsigned BinOp, VPValue *ReducVec)
+    : VPReductionFinal(BinOp, ReducVec, VPInstruction::ReductionFinalInscan) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::ReductionFinalInscan;
+  }
 };
 
 /// Concrete class for representing a vector of steps of arithmetic progression.

@@ -234,6 +234,7 @@ private:
   void addReduction(RegDDRef *V, RecurKind Kind,
                     Optional<InscanReductionKind> InscanDescr) {
     assert(V->isAddressOf() && "Reduction ref is not an address-of type.");
+    assert(!InscanDescr && "TODO: Inscan for HIR is not supported!");
 
     // TODO: Consider removing IsSigned field from RedDescr struct since it is
     // unused and can basically be deducted from the recurrence kind.

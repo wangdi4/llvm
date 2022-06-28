@@ -345,8 +345,12 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "induction-final";
   case VPInstruction::ReductionInit:
     return "reduction-init";
+  case VPInstruction::ReductionInitScalar:
+    return "reduction-init-scalar";
   case VPInstruction::ReductionFinal:
     return "reduction-final";
+  case VPInstruction::ReductionFinalInscan:
+    return "reduction-final-inscan";
   case VPInstruction::AllocatePrivate:
     return "allocate-priv";
   case VPInstruction::Subscript:
@@ -441,6 +445,12 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "compress-expand-index-unit";
   case VPInstruction::CompressExpandIndexInc:
     return "compress-expand-index-inc";
+  case VPInstruction::RunningInclusiveReduction:
+    return "running-inclusive-reduction";
+  case VPInstruction::RunningExclusiveReduction:
+    return "running-exclusive-reduction";
+  case VPInstruction::ExtractLastVectorLane:
+    return "extract-last-vector-lane";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);
