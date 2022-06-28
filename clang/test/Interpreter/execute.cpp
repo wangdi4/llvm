@@ -1,5 +1,4 @@
-// INTEL UNSUPPORTED: intel_opencl && i686-pc-windows
-
+// clang-format off
 // RUN: clang-repl "int x = 10;" "int y=7; err;" "int y = 10;"
 // RUN: clang-repl "int i = 10;" 'extern "C" int printf(const char*,...);' \
 // RUN:            'auto r1 = printf("i = %d\n", i);' | FileCheck --check-prefix=CHECK-DRIVER %s
@@ -7,6 +6,9 @@
 // UNSUPPORTED: system-aix
 // CHECK-DRIVER: i = 10
 // RUN: cat %s | clang-repl | FileCheck %s
+
+// INTEL UNSUPPORTED: intel_opencl && i686-pc-windows
+
 extern "C" int printf(const char *, ...);
 int i = 42;
 auto r1 = printf("i = %d\n", i);
@@ -19,5 +21,8 @@ auto r2 = printf("S[f=%f, m=0x%llx]\n", s.f, reinterpret_cast<unsigned long long
 
 inline int foo() { return 42; }
 int r3 = foo();
+
+struct D { float f = 1.0; D *m = nullptr; D(){} ~D() { printf("D[f=%f, m=0x%llx]\n", f, reinterpret_cast<unsigned long long>(m)); }} d;
+// CHECK: D[f=1.000000, m=0x0]
 
 quit
