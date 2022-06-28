@@ -320,11 +320,11 @@ bool llvm::isAllocationLibFunc(LibFunc LF) {
 /// allocates or reallocates memory (either malloc, calloc, realloc, or strdup
 /// like).
 bool llvm::isAllocationFn(const Value *V, const TargetLibraryInfo *TLI) {
-  return getAllocationData(V, AnyAlloc, TLI).hasValue();
+  return getAllocationData(V, AnyAlloc, TLI).has_value();
 }
 bool llvm::isAllocationFn(
     const Value *V, function_ref<const TargetLibraryInfo &(Function &)> GetTLI) {
-  return getAllocationData(V, AnyAlloc, GetTLI).hasValue();
+  return getAllocationData(V, AnyAlloc, GetTLI).has_value();
 }
 
 /// Tests if a value is a call or invoke to a library function that
@@ -333,6 +333,7 @@ bool llvm::isAllocationFn(
 bool llvm::isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
 #else
 static bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
+<<<<<<< HEAD
 #endif
   return getAllocationData(V, MallocOrOpNewLike, TLI).has_value();
 }
@@ -348,19 +349,22 @@ bool llvm::isMallocLikeFn(
 /// allocates memory (e.g., malloc).
 bool llvm::isMallocLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
   return getAllocationDataForFunction(F, MallocLike, TLI).hasValue();
+=======
+  return getAllocationData(V, MallocOrOpNewLike, TLI).has_value();
+>>>>>>> a81b64a1fbff689a37f55a9b5e44a66f5b7f9a5c
 }
 #endif
 
 /// Tests if a value is a call or invoke to a library function that
 /// allocates uninitialized memory with alignment (such as aligned_alloc).
 static bool isAlignedAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
-  return getAllocationData(V, AlignedAllocLike, TLI)
-      .hasValue();
+  return getAllocationData(V, AlignedAllocLike, TLI).has_value();
 }
 
 #if INTEL_CUSTOMIZATION
 /// Tests if a value is a call or invoke to a library function that
 /// allocates zero-filled memory (such as calloc).
+<<<<<<< HEAD
 bool llvm::isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
   return getAllocationData(V, CallocLike, TLI).has_value();
 }
@@ -407,6 +411,10 @@ bool llvm::isFreeFn(const Function *F, const TargetLibraryInfo *TLI) {
   if (FTy->getParamType(0) != Type::getInt8PtrTy(F->getContext()))
     return false;
   return true;
+=======
+static bool isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
+  return getAllocationData(V, CallocLike, TLI).has_value();
+>>>>>>> a81b64a1fbff689a37f55a9b5e44a66f5b7f9a5c
 }
 
 /// Tests if a function is a call or invoke to a function in the
@@ -423,25 +431,25 @@ bool llvm::isDeleteFn(const Function *F, const TargetLibraryInfo *TLI) {
 /// Tests if a value is a call or invoke to a library function that
 /// allocates memory similar to malloc or calloc.
 bool llvm::isMallocOrCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
-  return getAllocationData(V, MallocOrCallocLike, TLI).hasValue();
+  return getAllocationData(V, MallocOrCallocLike, TLI).has_value();
 }
 
 /// Tests if a value is a call or invoke to a library function that
 /// allocates memory (either malloc, calloc, or strdup like).
 bool llvm::isAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
-  return getAllocationData(V, AllocLike, TLI).hasValue();
+  return getAllocationData(V, AllocLike, TLI).has_value();
 }
 
 /// Tests if a value is a call or invoke to a library function that
 /// reallocates memory (e.g., realloc).
 bool llvm::isReallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
-  return getAllocationData(V, ReallocLike, TLI).hasValue();
+  return getAllocationData(V, ReallocLike, TLI).has_value();
 }
 
 /// Tests if a functions is a call or invoke to a library function that
 /// reallocates memory (e.g., realloc).
 bool llvm::isReallocLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
-  return getAllocationDataForFunction(F, ReallocLike, TLI).hasValue();
+  return getAllocationDataForFunction(F, ReallocLike, TLI).has_value();
 }
 
 bool llvm::isAllocRemovable(const CallBase *CB, const TargetLibraryInfo *TLI) {
