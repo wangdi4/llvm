@@ -198,7 +198,7 @@ struct VerifyingConsumer {
       if (result())
         return *result();
 
-      ResultIsReady.wait(L, [this]() { return result().hasValue(); });
+      ResultIsReady.wait(L, [this]() { return result().has_value(); });
     }
     return false; // Just to make compiler happy.
   }
