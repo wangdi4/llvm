@@ -2500,7 +2500,6 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
     Sema::DeclareTargetContextInfo DTCI(DKind, DTLoc);
     if (HasClauses)
       ParseOMPDeclareTargetClauses(DTCI);
-<<<<<<< HEAD
 #if INTEL_COLLAB
     bool HasImplicitMappings =
         DKind == OMPD_begin_declare_target || !HasClauses ||
@@ -2508,15 +2507,10 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
          (DTCI.DT == clang::OMPDeclareTargetDeclAttr::DT_NoHost ||
           DTCI.Indirect.hasValue()));
 #else  // INTEL_COLLAB
-    bool HasImplicitMappings = DKind == OMPD_begin_declare_target ||
-                               !HasClauses ||
-                               (DTCI.ExplicitlyMapped.empty() && DTCI.Indirect);
-#endif // INTEL_COLLAB
-=======
     bool HasImplicitMappings =
         DKind == OMPD_begin_declare_target || !HasClauses ||
         (DTCI.ExplicitlyMapped.empty() && DTCI.Indirect.hasValue());
->>>>>>> 710e82944e3b3da33b09326dd6c24c6135f818dd
+#endif // INTEL_COLLAB
 
     // Skip the last annot_pragma_openmp_end.
     ConsumeAnyToken();

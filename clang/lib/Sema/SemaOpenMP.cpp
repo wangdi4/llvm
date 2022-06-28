@@ -24030,7 +24030,6 @@ void Sema::ActOnOpenMPDeclareTargetName(NamedDecl *ND, SourceLocation Loc,
     return;
   }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   if (getLangOpts().OpenMPLateOutline && ActiveAttr.hasValue() &&
       ActiveAttr.getValue()->getDevType() != DTCI.DT &&
@@ -24050,10 +24049,7 @@ void Sema::ActOnOpenMPDeclareTargetName(NamedDecl *ND, SourceLocation Loc,
   }
 #endif // INTEL_COLLAB
 
-  if (ActiveAttr && (*ActiveAttr)->getLevel() == Level)
-=======
   if (ActiveAttr.hasValue() && ActiveAttr.getValue()->getLevel() == Level)
->>>>>>> 710e82944e3b3da33b09326dd6c24c6135f818dd
     return;
 
   Expr *IndirectE = nullptr;
