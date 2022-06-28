@@ -334,7 +334,11 @@ bool llvm::isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
 #else
 static bool isMallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
 #endif
+<<<<<<< HEAD
   return getAllocationData(V, MallocOrOpNewLike, TLI).has_value();
+=======
+  return getAllocationData(V, MallocOrOpNewLike, TLI).hasValue();
+>>>>>>> 0e009836c4f21c57974857892fe5fbe2caa28877
 }
 
 #if INTEL_CUSTOMIZATION
@@ -362,7 +366,11 @@ static bool isAlignedAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
 /// Tests if a value is a call or invoke to a library function that
 /// allocates zero-filled memory (such as calloc).
 bool llvm::isCallocLikeFn(const Value *V, const TargetLibraryInfo *TLI) {
+<<<<<<< HEAD
   return getAllocationData(V, CallocLike, TLI).has_value();
+=======
+  return getAllocationData(V, CallocLike, TLI).hasValue();
+>>>>>>> 0e009836c4f21c57974857892fe5fbe2caa28877
 }
 
 /// Tests if a function is a call or invoke to a library function that

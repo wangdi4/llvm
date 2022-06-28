@@ -24049,7 +24049,11 @@ void Sema::ActOnOpenMPDeclareTargetName(NamedDecl *ND, SourceLocation Loc,
   }
 #endif // INTEL_COLLAB
 
+<<<<<<< HEAD
   if (ActiveAttr && (*ActiveAttr)->getLevel() == Level)
+=======
+  if (ActiveAttr.hasValue() && ActiveAttr.getValue()->getLevel() == Level)
+>>>>>>> 0e009836c4f21c57974857892fe5fbe2caa28877
     return;
 
   Expr *IndirectE = nullptr;
