@@ -1,4 +1,21 @@
 //===-- IPO/OpenMPOpt.cpp - Collection of OpenMP specific optimizations ---===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -4987,6 +5004,27 @@ PreservedAnalyses OpenMPOptPass::run(Module &M, ModuleAnalysisManager &AM) {
       }
 
     Attributor::internalizeFunctions(InternalizeFns, InternalizedMap);
+#if INTEL_CUSTOMIZATION
+    // Attributor::internalizeFunctions call clones InternalizeFns functions
+    // adding ".internalized" suffix to their names. If one of the functions
+    // has vector-variants attribute, it becomes invalid since function name is
+    // not consistent with it anymore. So we need to update all vector-variants
+    // attributes to be consistent with the function name changes.
+    for (auto It = InternalizedMap.begin(); It != InternalizedMap.end(); It++) {
+      Function *F = It->second;
+      if (F->hasFnAttribute("vector-variants")) {
+        Attribute Attr = F->getFnAttribute("vector-variants");
+        std::string OrigName = It->first->getName().str();
+        std::string NewName = F->getName().str();
+        std::string S = Attr.getValueAsString().str();
+        for (size_t Index = 0;
+             (Index = S.find(OrigName, Index)) != std::string::npos;
+             Index += NewName.length())
+          S.replace(Index, OrigName.length(), NewName);
+        F->addFnAttr("vector-variants", S);
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Look at every function in the Module unless it was internalized.
