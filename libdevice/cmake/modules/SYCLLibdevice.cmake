@@ -160,12 +160,9 @@ set(imf_fallback_fp64_deps device.h device_imf.hpp imf_half.hpp
 set(imf_fp32_fallback_src ${imf_fallback_src_dir}/imf_fp32_fallback.cpp)
 set(imf_fp64_fallback_src ${imf_fallback_src_dir}/imf_fp64_fallback.cpp)
 set(imf_host_cxx_flags -c
-<<<<<<< HEAD
   # INTEL_CUSTOMIZATION
   -DINTEL_CUSTOMIZATION
   # end INTEL_CUSTOMIZATION
-=======
->>>>>>> 40b78de2699cabb4483b4e7ea1cc4618d5f019cb
   -D__LIBDEVICE_HOST_IMPL__
 )
 add_custom_command(OUTPUT ${imf_fp32_fallback_src}
