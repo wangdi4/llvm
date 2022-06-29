@@ -1,3 +1,15 @@
+# Copyright (C) 2022 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may
+# not use, modify, copy, publish, distribute, disclose or transmit this
+# software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+
 import argparse
 import json
 from typing import Any, List
@@ -65,7 +77,15 @@ class Record(PrintableData):
 
 
 class LLType(Record):
-    pass
+
+    def __init__(self, builder: LLBuilder, name: str) -> None:
+        super().__init__(builder, name)
+
+        self.min_legal_vector_width = 0
+        if "Len" in self.data:
+            element_type = builder.get(self.data.get("ElementType")["def"])
+            if "BitWidth" in element_type:
+                self.min_legal_vector_width = element_type.get("BitWidth") * self.data.get("Len")
 
 
 class LLOpaqueType(LLType):
@@ -118,14 +138,19 @@ class LLDeclare(Record):
         return self.data["FuncAttrs"]
 
     def get_attrs_suffix(self) -> str:
+        attrs_suffix = ""
         if self.func_attrs:
-            return " {}".format(" ".join(self.func_attrs))
-        return ""
+            attrs_suffix += " {}".format(" ".join(self.func_attrs))
+        min_legal_vector_width = max(self.ret_type.min_legal_vector_width,
+            max(t.min_legal_vector_width for t in self.param_types))
+        if min_legal_vector_width > 0:
+            attrs_suffix += ' "min-legal-vector-width"="{}"'.format(min_legal_vector_width)
+        return attrs_suffix
 
     def emit(self) -> str:
         if self.has_define:
             return ""
-        return "declare {ret_type} @{func_name}({param_list}){attr_suffix}".format(
+        return 'declare {ret_type} @{func_name}({param_list}){attr_suffix}'.format(
             ret_type=self.ret_type.emit(),
             func_name=self.name,
             param_list=", ".join(t.emit() for t in self.param_types),

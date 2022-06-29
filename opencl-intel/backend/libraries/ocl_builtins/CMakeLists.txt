@@ -1,3 +1,15 @@
+# Copyright (C) 2022 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may
+# not use, modify, copy, publish, distribute, disclose or transmit this
+# software or the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+
 #--------------------------- Settings ----------------------------------------------------------
 #-- All Win32/Win64/Linux32/Linux64-dependent definitions should be placed here
 
@@ -290,7 +302,7 @@ function(tblgenllblt OUTPUT_VAR OUTPUT_DIR INPUT_FILE)
   add_custom_command(
     OUTPUT ${LL_FILE}
     COMMAND python ${CL_BUILTIN_SOURCE_DIR}/utils/LLTableGen/emit_ll.py ${JSON_FILE} -o ${LL_FILE}
-    DEPENDS ${LLVM_TBLGEN} ${JSON_FILE}
+    DEPENDS ${LLVM_TBLGEN} ${JSON_FILE} ${CL_BUILTIN_SOURCE_DIR}/utils/LLTableGen/emit_ll.py
     COMMENT "Generating ${LL_FILE}"
   )
   set_source_files_properties(${LL_FILE} PROPERTIES GENERATED 1)
