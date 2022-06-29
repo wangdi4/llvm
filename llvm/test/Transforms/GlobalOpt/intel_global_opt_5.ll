@@ -1,11 +1,13 @@
 ; This test verifies that GlobalOpt shouldn't crash when types of
 ; store and loads instructions of a global variable are not same.
-; Also verifies that GlobalOpt is not triggered.
+; Also verifies that GlobalOpt is not triggered to replace use of GV in
+; @foo32.
 
 ; RUN: opt < %s -S -globalopt | FileCheck %s
 ; RUN: opt < %s -S -passes='globalopt' | FileCheck %s
 
-; CHECK-NOT: %call1 = tail call i32 @foo64(i64 12345)
+; CHECK: %call1 = tail call i32 @foo64(i64 12345)
+; CHECK-NOT: %call2 = tail call i32 @foo32(i64 12345)
 
 @GV = internal dso_local local_unnamed_addr global i64 0, align 8
 
