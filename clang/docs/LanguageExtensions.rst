@@ -3865,6 +3865,7 @@ all optimizations, ``s``, ``g``, ``t``, and ``y``. An empty optimization and
 commandline.
 
 .. list-table:: Parameters (unsupported by Clang)
+
    * - Parameter
      - Type of optimization
    * - g
