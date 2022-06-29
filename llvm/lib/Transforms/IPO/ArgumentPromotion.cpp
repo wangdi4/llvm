@@ -46,6 +46,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO/ArgumentPromotion.h"
+
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/Optional.h"
@@ -76,6 +77,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstrTypes.h"
@@ -95,8 +97,12 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO.h"
+<<<<<<< HEAD
 #include "llvm/Transforms/IPO/Intel_InlineReport.h"      // INTEL
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h"    // INTEL
+=======
+#include "llvm/Transforms/Utils/PromoteMemToReg.h"
+>>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -108,7 +114,6 @@ using namespace llvm;
 #define DEBUG_TYPE "argpromotion"
 
 STATISTIC(NumArgumentsPromoted, "Number of pointer arguments promoted");
-STATISTIC(NumByValArgsPromoted, "Number of byval arguments promoted");
 STATISTIC(NumArgumentsDead, "Number of dead pointer args eliminated");
 #if INTEL_CUSTOMIZATION
 // Force removal of homed arguments. Primarily intended for LIT tests.
@@ -128,9 +133,9 @@ namespace {
 struct ArgPart {
   Type *Ty;
   Align Alignment;
-  /// A representative guaranteed-executed load instruction for use by
+  /// A representative guaranteed-executed load or store instruction for use by
   /// metadata transfer.
-  LoadInst *MustExecLoad;
+  Instruction *MustExecInstr;
 };
 
 using OffsetAndArgPart = std::pair<int64_t, ArgPart>;
@@ -188,10 +193,14 @@ static Value *createByteGEP(IRBuilderBase &IRB, const DataLayout &DL,
 /// arguments, and returns the new function.  At this point, we know that it's
 /// safe to do so.
 static Function *doPromotion(
-    Function *F,
+    Function *F, function_ref<DominatorTree &(Function &F)> DTGetter,
+    function_ref<AssumptionCache *(Function &F)> ACGetter,
     const DenseMap<Argument *, SmallVector<OffsetAndArgPart, 4>> &ArgsToPromote,
+<<<<<<< HEAD
     SmallPtrSetImpl<Argument *> &ByValArgsToTransform,
     bool isCallback, // INTEL
+=======
+>>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
     Optional<function_ref<void(CallBase &OldCS, CallBase &NewCS)>>
         ReplaceCallSite) {
   getInlineReport()->initFunctionClosure(F); // INTEL
@@ -211,15 +220,7 @@ static Function *doPromotion(
   unsigned ArgNo = 0;
   for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end(); I != E;
        ++I, ++ArgNo) {
-    if (ByValArgsToTransform.count(&*I)) {
-      // Simple byval argument? Just add all the struct element types.
-      Type *AgTy = I->getParamByValType();
-      StructType *STy = cast<StructType>(AgTy);
-      llvm::append_range(Params, STy->elements());
-      ArgAttrVec.insert(ArgAttrVec.end(), STy->getNumElements(),
-                        AttributeSet());
-      ++NumByValArgsPromoted;
-    } else if (!ArgsToPromote.count(&*I)) {
+    if (!ArgsToPromote.count(&*I)) {
       // Unchanged argument
       Params.push_back(I->getType());
       ArgAttrVec.push_back(PAL.getParamAttrs(ArgNo));
@@ -321,6 +322,7 @@ static Function *doPromotion(
     // appropriate.
 #if INTEL_CUSTOMIZATION
     ArgNo = 0;
+<<<<<<< HEAD
     for (auto *AI = CB.arg_begin(), *E = CB.arg_end(); AI != E; ++AI, ++ArgNo) {
       if (ACS.isCallbackCall() &&
           static_cast<unsigned>(ACS.getCallArgOperandNoForCallee()) == ArgNo) {
@@ -351,27 +353,13 @@ static Function *doPromotion(
           continue;
         }
 #endif // INTEL_CUSTOMIZATION
+=======
+    for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end(); I != E;
+         ++I, ++AI, ++ArgNo) {
+      if (!ArgsToPromote.count(&*I)) {
+>>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
         Args.push_back(*AI); // Unmodified argument
         ArgAttrVec.push_back(CallPAL.getParamAttrs(ArgNo));
-      } else if (ByValArgsToTransform.count(&*I)) {
-        // Emit a GEP and load for each element of the struct.
-        Type *AgTy = I->getParamByValType();
-        StructType *STy = cast<StructType>(AgTy);
-        Value *Idxs[2] = {
-            ConstantInt::get(Type::getInt32Ty(F->getContext()), 0), nullptr};
-        const StructLayout *SL = DL.getStructLayout(STy);
-        Align StructAlign = *I->getParamAlign();
-        for (unsigned J = 0, Elems = STy->getNumElements(); J != Elems; ++J) {
-          Idxs[1] = ConstantInt::get(Type::getInt32Ty(F->getContext()), J);
-          auto *Idx =
-              IRB.CreateGEP(STy, *AI, Idxs, (*AI)->getName() + "." + Twine(J));
-          // TODO: Tell AA about the new values?
-          Align Alignment =
-              commonAlignment(StructAlign, SL->getElementOffset(J));
-          Args.push_back(IRB.CreateAlignedLoad(
-              STy->getElementType(J), Idx, Alignment, Idx->getName() + ".val"));
-          ArgAttrVec.push_back(AttributeSet());
-        }
       } else if (!I->use_empty()) {
         Value *V = *AI;
         const auto &ArgParts = ArgsToPromote.find(&*I)->second;
@@ -380,9 +368,9 @@ static Function *doPromotion(
               Pair.second.Ty,
               createByteGEP(IRB, DL, V, Pair.second.Ty, Pair.first),
               Pair.second.Alignment, V->getName() + ".val");
-          if (Pair.second.MustExecLoad) {
-            LI->setAAMetadata(Pair.second.MustExecLoad->getAAMetadata());
-            LI->copyMetadata(*Pair.second.MustExecLoad,
+          if (Pair.second.MustExecInstr) {
+            LI->setAAMetadata(Pair.second.MustExecInstr->getAAMetadata());
+            LI->copyMetadata(*Pair.second.MustExecInstr,
                              {LLVMContext::MD_range, LLVMContext::MD_nonnull,
                               LLVMContext::MD_dereferenceable,
                               LLVMContext::MD_dereferenceable_or_null,
@@ -392,6 +380,15 @@ static Function *doPromotion(
           ArgAttrVec.push_back(AttributeSet());
         }
       }
+<<<<<<< HEAD
+=======
+    }
+
+    // Push any varargs arguments on the list.
+    for (; AI != CB.arg_end(); ++AI, ++ArgNo) {
+      Args.push_back(*AI);
+      ArgAttrVec.push_back(CallPAL.getParamAttrs(ArgNo));
+>>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
     }
 
     SmallVector<OperandBundleDef, 1> OpBundles;
@@ -491,47 +488,20 @@ static Function *doPromotion(
   };
 #endif // INTEL_CUSTOMIZATION
 
+  // We will collect all the new created allocas to promote them into registers
+  // after the following loop
+  SmallVector<AllocaInst *, 4> Allocas;
+
   // Loop over the argument list, transferring uses of the old arguments over to
   // the new arguments, also transferring over the names as well.
   Function::arg_iterator I2 = NF->arg_begin();
   for (Argument &Arg : F->args()) {
-    if (!ArgsToPromote.count(&Arg) && !ByValArgsToTransform.count(&Arg)) {
+    if (!ArgsToPromote.count(&Arg)) {
       // If this is an unmodified argument, move the name and users over to the
       // new version.
       Arg.replaceAllUsesWith(&*I2);
       I2->takeName(&Arg);
       ++I2;
-      continue;
-    }
-
-    if (ByValArgsToTransform.count(&Arg)) {
-      // In the callee, we create an alloca, and store each of the new incoming
-      // arguments into the alloca.
-      Instruction *InsertPt = &NF->begin()->front();
-
-      // Just add all the struct element types.
-      Type *AgTy = Arg.getParamByValType();
-      Align StructAlign = *Arg.getParamAlign();
-      Value *TheAlloca = new AllocaInst(AgTy, DL.getAllocaAddrSpace(), nullptr,
-                                        StructAlign, "", InsertPt);
-      StructType *STy = cast<StructType>(AgTy);
-      Value *Idxs[2] = {ConstantInt::get(Type::getInt32Ty(F->getContext()), 0),
-                        nullptr};
-      const StructLayout *SL = DL.getStructLayout(STy);
-
-      for (unsigned J = 0, Elems = STy->getNumElements(); J != Elems; ++J) {
-        Idxs[1] = ConstantInt::get(Type::getInt32Ty(F->getContext()), J);
-        Value *Idx = GetElementPtrInst::Create(
-            AgTy, TheAlloca, Idxs, TheAlloca->getName() + "." + Twine(J),
-            InsertPt);
-        I2->setName(Arg.getName() + "." + Twine(J));
-        Align Alignment = commonAlignment(StructAlign, SL->getElementOffset(J));
-        new StoreInst(&*I2++, Idx, false, Alignment, InsertPt);
-      }
-
-      // Anything that used the arg should now use the alloca.
-      Arg.replaceAllUsesWith(TheAlloca);
-      TheAlloca->takeName(&Arg);
       continue;
     }
 
@@ -543,16 +513,45 @@ static Function *doPromotion(
     if (Arg.use_empty())
       continue;
 
-    SmallDenseMap<int64_t, Argument *> OffsetToArg;
+    // Otherwise, if we promoted this argument, we have to create an alloca in
+    // the callee for every promotable part and store each of the new incoming
+    // arguments into the corresponding alloca, what lets the old code (the
+    // store instructions if they are allowed especially) a chance to work as
+    // before.
+    assert(Arg.getType()->isPointerTy() &&
+           "Only arguments with a pointer type are promotable");
+
+    IRBuilder<NoFolder> IRB(&NF->begin()->front());
+
+    // Add only the promoted elements, so parts from ArgsToPromote
+    SmallDenseMap<int64_t, AllocaInst *> OffsetToAlloca;
     for (const auto &Pair : ArgsToPromote.find(&Arg)->second) {
-      Argument &NewArg = *I2++;
-      NewArg.setName(Arg.getName() + "." + Twine(Pair.first) + ".val");
-      OffsetToArg.insert({Pair.first, &NewArg});
+      int64_t Offset = Pair.first;
+      const ArgPart &Part = Pair.second;
+
+      Argument *NewArg = I2++;
+      NewArg->setName(Arg.getName() + "." + Twine(Offset) + ".val");
+
+      AllocaInst *NewAlloca = IRB.CreateAlloca(
+          Part.Ty, nullptr, Arg.getName() + "." + Twine(Offset) + ".allc");
+      NewAlloca->setAlignment(Pair.second.Alignment);
+      IRB.CreateAlignedStore(NewArg, NewAlloca, Pair.second.Alignment);
+
+      // Collect the alloca to retarget the users to
+      OffsetToAlloca.insert({Offset, NewAlloca});
     }
 
-    // Otherwise, if we promoted this argument, then all users are load
-    // instructions (with possible casts and GEPs in between).
+    auto GetAlloca = [&](Value *Ptr) {
+      APInt Offset(DL.getIndexTypeSizeInBits(Ptr->getType()), 0);
+      Ptr = Ptr->stripAndAccumulateConstantOffsets(DL, Offset,
+                                                   /* AllowNonInbounds */ true);
+      assert(Ptr == &Arg && "Not constant offset from arg?");
+      return OffsetToAlloca.lookup(Offset.getSExtValue());
+    };
 
+    // Cleanup the code from the dead instructions: GEPs and BitCasts in between
+    // the original argument and its users: loads and stores. Retarget every
+    // user to the new created alloca.
     SmallVector<Value *, 16> Worklist;
     SmallVector<Instruction *, 16> DeadInsts;
     append_range(Worklist, Arg.users());
@@ -566,6 +565,7 @@ static Function *doPromotion(
 
       if (auto *LI = dyn_cast<LoadInst>(V)) {
         Value *Ptr = LI->getPointerOperand();
+<<<<<<< HEAD
         APInt Offset(DL.getIndexTypeSizeInBits(Ptr->getType()), 0);
         Ptr =
             Ptr->stripAndAccumulateConstantOffsets(DL, Offset,
@@ -574,6 +574,16 @@ static Function *doPromotion(
         LI->replaceAllUsesWith(                                     // INTEL
             MaybeCastFrom(OffsetToArg[Offset.getSExtValue()], LI)); // INTEL
         DeadInsts.push_back(LI);
+=======
+        LI->setOperand(LoadInst::getPointerOperandIndex(), GetAlloca(Ptr));
+        continue;
+      }
+
+      if (auto *SI = dyn_cast<StoreInst>(V)) {
+        assert(!SI->isVolatile() && "Volatile operations can't be promoted.");
+        Value *Ptr = SI->getPointerOperand();
+        SI->setOperand(StoreInst::getPointerOperandIndex(), GetAlloca(Ptr));
+>>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
         continue;
       }
 
@@ -584,6 +594,23 @@ static Function *doPromotion(
       I->replaceAllUsesWith(PoisonValue::get(I->getType()));
       I->eraseFromParent();
     }
+
+    // Collect the allocas for promotion
+    for (const auto &Pair : OffsetToAlloca) {
+      assert(isAllocaPromotable(Pair.second) &&
+             "By design, only promotable allocas should be produced.");
+      Allocas.push_back(Pair.second);
+    }
+  }
+
+  LLVM_DEBUG(dbgs() << "ARG PROMOTION: " << Allocas.size()
+                    << " alloca(s) are promotable by Mem2Reg\n");
+
+  if (!Allocas.empty()) {
+    // And we are able to call the `promoteMemoryToRegister()` function.
+    // Our earlier checks have ensured that PromoteMemToReg() will
+    // succeed.
+    PromoteMemToReg(Allocas, DTGetter(*NF), ACGetter(*NF));
   }
 
   return NF;
@@ -602,6 +629,7 @@ static bool allCallersPassValidPointerForArgument(Argument *Arg,
   if (isDereferenceableAndAlignedPointer(Arg, NeededAlign, Bytes, DL))
     return true;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // direct or callback callees.
   return all_of(Callee->uses(), [&](const Use &U) {
@@ -611,6 +639,14 @@ static bool allCallersPassValidPointerForArgument(Argument *Arg,
     Value *ArgOp = CS.getCallArgOperand(Arg->getArgNo());
     return ArgOp &&
            isDereferenceableAndAlignedPointer(ArgOp, NeededAlign, Bytes, DL);
+=======
+  // Look at all call sites of the function.  At this point we know we only have
+  // direct callees.
+  return all_of(Callee->users(), [&](User *U) {
+    CallBase &CB = cast<CallBase>(*U);
+    return isDereferenceableAndAlignedPointer(CB.getArgOperand(Arg->getArgNo()),
+                                              NeededAlign, Bytes, DL);
+>>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
   });
 #endif // INTEL_CUSTOMIZATION
 }
@@ -671,7 +707,7 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
   if (Arg->use_empty())
     return !isCallback; // INTEL
 
-  // We can only promote this argument if all of the uses are loads at known
+  // We can only promote this argument if all the uses are loads at known
   // offsets.
   //
   // Promoting the argument causes it to be loaded in the caller
@@ -688,15 +724,22 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
   Align NeededAlign(1);
   uint64_t NeededDerefBytes = 0;
 
-  // Returns None if this load is not based on the argument. Return true if
-  // we can promote the load, false otherwise.
-  auto HandleLoad = [&](LoadInst *LI,
-                        bool GuaranteedToExecute) -> Optional<bool> {
-    // Don't promote volatile or atomic loads.
-    if (!LI->isSimple())
+  // And if this is a byval argument we also allow to have store instructions.
+  // Only handle in such way arguments with specified alignment;
+  // if it's unspecified, the actual alignment of the argument is
+  // target-specific.
+  bool AreStoresAllowed = Arg->getParamByValType() && Arg->getParamAlign();
+
+  // An end user of a pointer argument is a load or store instruction.
+  // Returns None if this load or store is not based on the argument. Return
+  // true if we can promote the instruction, false otherwise.
+  auto HandleEndUser = [&](auto *I, Type *Ty,
+                           bool GuaranteedToExecute) -> Optional<bool> {
+    // Don't promote volatile or atomic instructions.
+    if (!I->isSimple())
       return false;
 
-    Value *Ptr = LI->getPointerOperand();
+    Value *Ptr = I->getPointerOperand();
     APInt Offset(DL.getIndexTypeSizeInBits(Ptr->getType()), 0);
     Ptr = Ptr->stripAndAccumulateConstantOffsets(DL, Offset,
                                                  /* AllowNonInbounds */ true);
@@ -706,7 +749,6 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
     if (Offset.getSignificantBits() >= 64)
       return false;
 
-    Type *Ty = LI->getType();
     TypeSize Size = DL.getTypeStoreSize(Ty);
     // Don't try to promote scalable types.
     if (Size.isScalable())
@@ -728,7 +770,7 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
 
     int64_t Off = Offset.getSExtValue();
     auto Pair = ArgParts.try_emplace(
-        Off, ArgPart{Ty, LI->getAlign(), GuaranteedToExecute ? LI : nullptr});
+        Off, ArgPart{Ty, I->getAlign(), GuaranteedToExecute ? I : nullptr});
     ArgPart &Part = Pair.first->second;
     bool OffsetNotSeenBefore = Pair.second;
 
@@ -740,44 +782,49 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
       return false;
     }
 
-    // For now, we only support loading one specific type at a given offset.
+    // For now, we only support loading/storing one specific type at a given
+    // offset.
     if (Part.Ty != Ty) {
       LLVM_DEBUG(dbgs() << "ArgPromotion of " << *Arg << " failed: "
-                        << "loaded via both " << *Part.Ty << " and " << *Ty
+                        << "accessed as both " << *Part.Ty << " and " << *Ty
                         << " at offset " << Off << "\n");
       return false;
     }
 
-    // If this load is not guaranteed to execute, and we haven't seen a load at
-    // this offset before (or it had lower alignment), then we need to remember
-    // that requirement.
-    // Note that skipping loads of previously seen offsets is only correct
-    // because we only allow a single type for a given offset, which also means
-    // that the number of accessed bytes will be the same.
+    // If this instruction is not guaranteed to execute, and we haven't seen a
+    // load or store at this offset before (or it had lower alignment), then we
+    // need to remember that requirement.
+    // Note that skipping instructions of previously seen offsets is only
+    // correct because we only allow a single type for a given offset, which
+    // also means that the number of accessed bytes will be the same.
     if (!GuaranteedToExecute &&
-        (OffsetNotSeenBefore || Part.Alignment < LI->getAlign())) {
+        (OffsetNotSeenBefore || Part.Alignment < I->getAlign())) {
       // We won't be able to prove dereferenceability for negative offsets.
       if (Off < 0)
         return false;
 
       // If the offset is not aligned, an aligned base pointer won't help.
-      if (!isAligned(LI->getAlign(), Off))
+      if (!isAligned(I->getAlign(), Off))
         return false;
 
       NeededDerefBytes = std::max(NeededDerefBytes, Off + Size.getFixedValue());
-      NeededAlign = std::max(NeededAlign, LI->getAlign());
+      NeededAlign = std::max(NeededAlign, I->getAlign());
     }
 
-    Part.Alignment = std::max(Part.Alignment, LI->getAlign());
+    Part.Alignment = std::max(Part.Alignment, I->getAlign());
     return true;
   };
 
-  // Look for loads that are guaranteed to execute on entry.
+  // Look for loads and stores that are guaranteed to execute on entry.
   for (Instruction &I : Arg->getParent()->getEntryBlock()) {
+    Optional<bool> Res{};
     if (LoadInst *LI = dyn_cast<LoadInst>(&I))
-      if (Optional<bool> Res = HandleLoad(LI, /* GuaranteedToExecute */ true))
-        if (!*Res)
-          return false;
+      Res = HandleEndUser(LI, LI->getType(), /* GuaranteedToExecute */ true);
+    else if (StoreInst *SI = dyn_cast<StoreInst>(&I))
+      Res = HandleEndUser(SI, SI->getValueOperand()->getType(),
+                          /* GuaranteedToExecute */ true);
+    if (Res && !*Res)
+      return false;
 
     if (!isGuaranteedToTransferExecutionToSuccessor(&I))
       break;
@@ -785,42 +832,56 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
 
   // Now look at all loads of the argument. Remember the load instructions
   // for the aliasing check below.
-  SmallVector<Value *, 16> Worklist;
-  SmallPtrSet<Value *, 16> Visited;
+  SmallVector<const Use *, 16> Worklist;
+  SmallPtrSet<const Use *, 16> Visited;
   SmallVector<LoadInst *, 16> Loads;
-  auto AppendUsers = [&](Value *V) {
-    for (User *U : V->users())
-      if (Visited.insert(U).second)
-        Worklist.push_back(U);
+  auto AppendUses = [&](const Value *V) {
+    for (const Use &U : V->uses())
+      if (Visited.insert(&U).second)
+        Worklist.push_back(&U);
   };
-  AppendUsers(Arg);
+  AppendUses(Arg);
   while (!Worklist.empty()) {
-    Value *V = Worklist.pop_back_val();
+    const Use *U = Worklist.pop_back_val();
+    Value *V = U->getUser();
     if (isa<BitCastInst>(V)) {
-      AppendUsers(V);
+      AppendUses(V);
       continue;
     }
 
     if (auto *GEP = dyn_cast<GetElementPtrInst>(V)) {
       if (!GEP->hasAllConstantIndices())
         return false;
-      AppendUsers(V);
+      AppendUses(V);
       continue;
     }
 
     if (auto *LI = dyn_cast<LoadInst>(V)) {
-      if (!*HandleLoad(LI, /* GuaranteedToExecute */ false))
+      if (!*HandleEndUser(LI, LI->getType(), /* GuaranteedToExecute */ false))
         return false;
       Loads.push_back(LI);
       continue;
     }
 
+<<<<<<< HEAD
     if (RemoveHomedArguments) {
       if (auto LI = UniqueLoadInst(Arg, V)) {
         RemoveHomedStore(Worklist, LI, cast<StoreInst>(V));
         continue;
       }
       return false;
+=======
+    // Stores are allowed for byval arguments
+    auto *SI = dyn_cast<StoreInst>(V);
+    if (AreStoresAllowed && SI &&
+        U->getOperandNo() == StoreInst::getPointerOperandIndex()) {
+      if (!*HandleEndUser(SI, SI->getValueOperand()->getType(),
+                          /* GuaranteedToExecute */ false))
+        return false;
+      continue;
+      // Only stores TO the argument is allowed, all the other stores are
+      // unknown users
+>>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
     }
 
     // Unknown user.
@@ -856,8 +917,6 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
        [](const auto &A, const auto &B) { return A.first < B.first; });
 
   // Make sure the parts are non-overlapping.
-  // TODO: As we're doing pure load promotion here, overlap should be fine from
-  // a correctness perspective. Profitability is less obvious though.
   int64_t Offset = ArgPartsVec[0].first;
   for (const auto &Pair : ArgPartsVec) {
     if (Pair.first < Offset)
@@ -866,6 +925,7 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
     Offset = Pair.first + DL.getTypeStoreSize(Pair.second.Ty);
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Since the argument is only used by load instructions (i.e not escaped)
   // and the argument is marked with NoAlias, we don't need to prove that
@@ -874,6 +934,13 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
   if (isNoAliasOrByValArgument(Arg))
     return true;
 #endif // INTEL_CUSTOMIZATION
+=======
+  // If store instructions are allowed, the path from the entry of the function
+  // to each load may be not free of instructions that potentially invalidate
+  // the load, and this is an admissible situation.
+  if (AreStoresAllowed)
+    return true;
+>>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
 
   // Okay, now we know that the argument is only used by load instructions, and
   // it is safe to unconditionally perform all of them. Use alias analysis to
@@ -947,40 +1014,6 @@ bool ArgumentPromotionPass::isDenselyPacked(Type *Ty, const DataLayout &DL) {
   return true;
 }
 
-/// Checks if the padding bytes of an argument could be accessed.
-static bool canPaddingBeAccessed(Argument *Arg) {
-  assert(Arg->hasByValAttr());
-
-  // Track all the pointers to the argument to make sure they are not captured.
-  SmallPtrSet<Value *, 16> PtrValues;
-  PtrValues.insert(Arg);
-
-  // Track all of the stores.
-  SmallVector<StoreInst *, 16> Stores;
-
-  // Scan through the uses recursively to make sure the pointer is always used
-  // sanely.
-  SmallVector<Value *, 16> WorkList(Arg->users());
-  while (!WorkList.empty()) {
-    Value *V = WorkList.pop_back_val();
-    if (isa<GetElementPtrInst>(V) || isa<PHINode>(V)) {
-      if (PtrValues.insert(V).second)
-        append_range(WorkList, V->users());
-    } else if (StoreInst *Store = dyn_cast<StoreInst>(V)) {
-      Stores.push_back(Store);
-    } else if (!isa<LoadInst>(V)) {
-      return true;
-    }
-  }
-
-  // Check to make sure the pointers aren't captured
-  for (StoreInst *Store : Stores)
-    if (PtrValues.count(Store->getValueOperand()))
-      return true;
-
-  return false;
-}
-
 /// Check if callers and callee agree on how promoted arguments would be
 /// passed.
 static bool areTypesABICompatible(ArrayRef<Type *> Types, const Function &F,
@@ -1003,7 +1036,13 @@ static bool areTypesABICompatible(ArrayRef<Type *> Types, const Function &F,
 /// calls the DoPromotion method.
 static Function *
 promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
+<<<<<<< HEAD
                  bool RemoveHomedArguments, unsigned MaxElements, // INTEL
+=======
+                 function_ref<DominatorTree &(Function &F)> DTGetter,
+                 function_ref<AssumptionCache *(Function &F)> ACGetter,
+                 unsigned MaxElements,
+>>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
                  Optional<function_ref<void(CallBase &OldCS, CallBase &NewCS)>>
                      ReplaceCallSite,
                  const TargetTransformInfo &TTI, bool &IsRecursive) { // INTEL
@@ -1011,7 +1050,7 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
   // Don't perform argument promotion for naked functions; otherwise we can end
   // up removing parameters that are seemingly 'not used' as they are referred
   // to in the assembly.
-  if(F->hasFnAttribute(Attribute::Naked))
+  if (F->hasFnAttribute(Attribute::Naked))
     return nullptr;
 
   // Make sure that it is local to this module.
@@ -1085,7 +1124,6 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
   // Check to see which arguments are promotable.  If an argument is promotable,
   // add it to ArgsToPromote.
   DenseMap<Argument *, SmallVector<OffsetAndArgPart, 4>> ArgsToPromote;
-  SmallPtrSet<Argument *, 8> ByValArgsToTransform;
   for (Argument *PtrArg : PointerArgs) {
     // Replace sret attribute with noalias. This reduces register pressure by
     // avoiding a register copy.
@@ -1127,20 +1165,25 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
 
     // If we can promote the pointer to its value.
     SmallVector<OffsetAndArgPart, 4> ArgParts;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (findArgParts(PtrArg, DL, AAR, MaxElements, IsRecursive,
                      IsSelfRecursive, isCallback, RemoveHomedArguments,
                      ArgParts)) {
 #endif // INTEL_CUSTOMIZATION
+=======
+
+    if (findArgParts(PtrArg, DL, AAR, MaxElements, IsRecursive, ArgParts)) {
+>>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
       SmallVector<Type *, 4> Types;
       for (const auto &Pair : ArgParts)
         Types.push_back(Pair.second.Ty);
 
       if (areTypesABICompatible(Types, *F, TTI)) {
         ArgsToPromote.insert({PtrArg, std::move(ArgParts)});
-        continue;
       }
     }
+<<<<<<< HEAD
 
     // Otherwise, if this is a byval argument, and if the aggregate type is
     // small, just pass the elements, which is always safe, if the passed value
@@ -1199,12 +1242,15 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
       if (AllSimple && areTypesABICompatible(Types, *F, TTI))
         ByValArgsToTransform.insert(PtrArg);
     }
+=======
+>>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
   }
 
   // No promotable pointer arguments.
-  if (ArgsToPromote.empty() && ByValArgsToTransform.empty())
+  if (ArgsToPromote.empty())
     return nullptr;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
   // CMPLRLLVM-37247: Inhibit argument promotion on split functions
@@ -1215,6 +1261,9 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
 #endif // INTEL_CUSTOMIZATION
   return doPromotion(F, ArgsToPromote, ByValArgsToTransform, // INTEL
                      isCallback, ReplaceCallSite);           // INTEL
+=======
+  return doPromotion(F, DTGetter, ACGetter, ArgsToPromote, ReplaceCallSite);
+>>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
 }
 
 PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
@@ -1253,12 +1302,28 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
         return FAM.getResult<AAManager>(F);
       };
 
+<<<<<<< HEAD
       const TargetTransformInfo &TTI = FAM.getResult<TargetIRAnalysis>(OldF);
 #if INTEL_CUSTOMIZATION
       Function *NewF =
           promoteArguments(&OldF, AARGetter, RemoveHomedArguments, MaxElements,
                            None, TTI, IsRecursive);
 #endif // INTEL_CUSTOMIZATION
+=======
+      auto DTGetter = [&](Function &F) -> DominatorTree & {
+        assert(&F != &OldF && "Called with the obsolete function!");
+        return FAM.getResult<DominatorTreeAnalysis>(F);
+      };
+
+      auto ACGetter = [&](Function &F) -> AssumptionCache * {
+        assert(&F != &OldF && "Called with the obsolete function!");
+        return &FAM.getResult<AssumptionAnalysis>(F);
+      };
+
+      const auto &TTI = FAM.getResult<TargetIRAnalysis>(OldF);
+      Function *NewF = promoteArguments(&OldF, AARGetter, DTGetter, ACGetter,
+                                        MaxElements, None, TTI, IsRecursive);
+>>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
       if (!NewF)
         continue;
       LocalChange = true;
