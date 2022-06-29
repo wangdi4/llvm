@@ -5092,6 +5092,7 @@ static LoadsState canVectorizeLoads(
           auto *GEP = dyn_cast<GetElementPtrInst>(P);
           return (IsSorted && !GEP && doesNotNeedToBeScheduled(P)) ||
                  (GEP && GEP->getNumOperands() == 2);
+<<<<<<< HEAD
         });
     if (!CompatibilitySLPMode)
       CandidateForGatherLoad =
@@ -5114,6 +5115,18 @@ static LoadsState canVectorizeLoads(
     if (TTI.isLegalMaskedGather(VecTy, CommonAlignment) &&
         !TTI.forceScalarizeMaskedGather(VecTy, CommonAlignment))
       return LoadsState::ScatterVectorize;
+=======
+        })) {
+      Align CommonAlignment = cast<LoadInst>(VL0)->getAlign();
+      for (Value *V : VL)
+        CommonAlignment =
+            std::min(CommonAlignment, cast<LoadInst>(V)->getAlign());
+      auto *VecTy = FixedVectorType::get(ScalarTy, VL.size());
+      if (TTI.isLegalMaskedGather(VecTy, CommonAlignment) &&
+          !TTI.forceScalarizeMaskedGather(VecTy, CommonAlignment))
+        return LoadsState::ScatterVectorize;
+    }
+>>>>>>> 3c126d5fe468e703ee3eacfcfc3641879b4fb281
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -8604,7 +8617,7 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
         Align CommonAlignment = Alignment;
         for (Value *V : VL)
           CommonAlignment =
-              commonAlignment(CommonAlignment, cast<LoadInst>(V)->getAlign());
+              std::min(CommonAlignment, cast<LoadInst>(V)->getAlign());
         VecLdCost = TTI->getGatherScatterOpCost(
             Instruction::Load, VecTy, cast<LoadInst>(VL0)->getPointerOperand(),
             /*VariableMask=*/false, CommonAlignment, CostKind, VL0);
@@ -10348,7 +10361,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
         Align CommonAlignment = LI->getAlign();
         for (Value *V : E->Scalars)
           CommonAlignment =
-              commonAlignment(CommonAlignment, cast<LoadInst>(V)->getAlign());
+              std::min(CommonAlignment, cast<LoadInst>(V)->getAlign());
         NewLI = Builder.CreateMaskedGather(VecTy, VecPtr, CommonAlignment);
       }
       Value *V = propagateMetadata(NewLI, E->Scalars);
