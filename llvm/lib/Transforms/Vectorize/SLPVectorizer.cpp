@@ -5092,7 +5092,6 @@ static LoadsState canVectorizeLoads(
           auto *GEP = dyn_cast<GetElementPtrInst>(P);
           return (IsSorted && !GEP && doesNotNeedToBeScheduled(P)) ||
                  (GEP && GEP->getNumOperands() == 2);
-<<<<<<< HEAD
         });
     if (!CompatibilitySLPMode)
       CandidateForGatherLoad =
@@ -5110,23 +5109,11 @@ static LoadsState canVectorizeLoads(
     Align CommonAlignment = cast<LoadInst>(VL0)->getAlign();
     for (Value *V : VL)
       CommonAlignment =
-            commonAlignment(CommonAlignment, cast<LoadInst>(V)->getAlign());
+            std::min(CommonAlignment, cast<LoadInst>(V)->getAlign());
     auto *VecTy = FixedVectorType::get(ScalarTy, VL.size());
     if (TTI.isLegalMaskedGather(VecTy, CommonAlignment) &&
         !TTI.forceScalarizeMaskedGather(VecTy, CommonAlignment))
       return LoadsState::ScatterVectorize;
-=======
-        })) {
-      Align CommonAlignment = cast<LoadInst>(VL0)->getAlign();
-      for (Value *V : VL)
-        CommonAlignment =
-            std::min(CommonAlignment, cast<LoadInst>(V)->getAlign());
-      auto *VecTy = FixedVectorType::get(ScalarTy, VL.size());
-      if (TTI.isLegalMaskedGather(VecTy, CommonAlignment) &&
-          !TTI.forceScalarizeMaskedGather(VecTy, CommonAlignment))
-        return LoadsState::ScatterVectorize;
-    }
->>>>>>> 3c126d5fe468e703ee3eacfcfc3641879b4fb281
   }
 #endif // INTEL_CUSTOMIZATION
 
