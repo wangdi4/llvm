@@ -61,14 +61,11 @@
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
-#include "llvm/Analysis/Intel_Andersens.h"      // INTEL
-#include "llvm/Analysis/Intel_WP.h"             // INTEL
 #include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/IR/AbstractCallSite.h" // INTEL
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
@@ -97,17 +94,20 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO.h"
-<<<<<<< HEAD
-#include "llvm/Transforms/IPO/Intel_InlineReport.h"      // INTEL
-#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"    // INTEL
-=======
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
->>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <utility>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_WP.h"
+#include "llvm/IR/AbstractCallSite.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -196,11 +196,7 @@ static Function *doPromotion(
     Function *F, function_ref<DominatorTree &(Function &F)> DTGetter,
     function_ref<AssumptionCache *(Function &F)> ACGetter,
     const DenseMap<Argument *, SmallVector<OffsetAndArgPart, 4>> &ArgsToPromote,
-<<<<<<< HEAD
-    SmallPtrSetImpl<Argument *> &ByValArgsToTransform,
     bool isCallback, // INTEL
-=======
->>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
     Optional<function_ref<void(CallBase &OldCS, CallBase &NewCS)>>
         ReplaceCallSite) {
   getInlineReport()->initFunctionClosure(F); // INTEL
@@ -318,11 +314,10 @@ static Function *doPromotion(
     };
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
     // Loop over the operands, inserting GEP and loads in the caller as
     // appropriate.
-#if INTEL_CUSTOMIZATION
     ArgNo = 0;
-<<<<<<< HEAD
     for (auto *AI = CB.arg_begin(), *E = CB.arg_end(); AI != E; ++AI, ++ArgNo) {
       if (ACS.isCallbackCall() &&
           static_cast<unsigned>(ACS.getCallArgOperandNoForCallee()) == ArgNo) {
@@ -344,7 +339,9 @@ static Function *doPromotion(
       Function::arg_iterator I =
           std::next(F->arg_begin(), Actual2Formal[ArgNo]);
 #endif // INTEL_CUSTOMIZATION
-      if (!ArgsToPromote.count(&*I) && !ByValArgsToTransform.count(&*I)) {
+
+      if (!ArgsToPromote.count(&*I)) {
+
 #if INTEL_CUSTOMIZATION
         if (isCallback && I->use_empty()) {
           // Argument with no uses. Pass undef value for callbacks.
@@ -353,11 +350,7 @@ static Function *doPromotion(
           continue;
         }
 #endif // INTEL_CUSTOMIZATION
-=======
-    for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end(); I != E;
-         ++I, ++AI, ++ArgNo) {
-      if (!ArgsToPromote.count(&*I)) {
->>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
+
         Args.push_back(*AI); // Unmodified argument
         ArgAttrVec.push_back(CallPAL.getParamAttrs(ArgNo));
       } else if (!I->use_empty()) {
@@ -380,15 +373,6 @@ static Function *doPromotion(
           ArgAttrVec.push_back(AttributeSet());
         }
       }
-<<<<<<< HEAD
-=======
-    }
-
-    // Push any varargs arguments on the list.
-    for (; AI != CB.arg_end(); ++AI, ++ArgNo) {
-      Args.push_back(*AI);
-      ArgAttrVec.push_back(CallPAL.getParamAttrs(ArgNo));
->>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
     }
 
     SmallVector<OperandBundleDef, 1> OpBundles;
@@ -472,10 +456,10 @@ static Function *doPromotion(
 
 
 #if INTEL_CUSTOMIZATION
-  auto MaybeCastFrom = [&](Value *Val, Instruction *Inst) {
+  auto MaybeCastFrom = [&](Value *Val, AllocaInst *Inst) {
     if (isCallback && !isa<PointerType>(Val->getType())) {
       IRBuilder<> IRB(Inst);
-      Type *Ty = Inst->getType();
+      Type *Ty = Inst->getAllocatedType();
 
       // Truncate to type-sized integer.
       Value *IntVal =
@@ -535,7 +519,11 @@ static Function *doPromotion(
       AllocaInst *NewAlloca = IRB.CreateAlloca(
           Part.Ty, nullptr, Arg.getName() + "." + Twine(Offset) + ".allc");
       NewAlloca->setAlignment(Pair.second.Alignment);
-      IRB.CreateAlignedStore(NewArg, NewAlloca, Pair.second.Alignment);
+
+#if INTEL_CUSTOMIZATION
+      IRB.CreateAlignedStore(MaybeCastFrom(NewArg, NewAlloca), NewAlloca,
+        Pair.second.Alignment);
+#endif // INTEL_CUSTOMIZATION
 
       // Collect the alloca to retarget the users to
       OffsetToAlloca.insert({Offset, NewAlloca});
@@ -565,16 +553,6 @@ static Function *doPromotion(
 
       if (auto *LI = dyn_cast<LoadInst>(V)) {
         Value *Ptr = LI->getPointerOperand();
-<<<<<<< HEAD
-        APInt Offset(DL.getIndexTypeSizeInBits(Ptr->getType()), 0);
-        Ptr =
-            Ptr->stripAndAccumulateConstantOffsets(DL, Offset,
-                                                   /* AllowNonInbounds */ true);
-        assert(Ptr == &Arg && "Not constant offset from arg?");
-        LI->replaceAllUsesWith(                                     // INTEL
-            MaybeCastFrom(OffsetToArg[Offset.getSExtValue()], LI)); // INTEL
-        DeadInsts.push_back(LI);
-=======
         LI->setOperand(LoadInst::getPointerOperandIndex(), GetAlloca(Ptr));
         continue;
       }
@@ -583,7 +561,6 @@ static Function *doPromotion(
         assert(!SI->isVolatile() && "Volatile operations can't be promoted.");
         Value *Ptr = SI->getPointerOperand();
         SI->setOperand(StoreInst::getPointerOperandIndex(), GetAlloca(Ptr));
->>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
         continue;
       }
 
@@ -629,7 +606,6 @@ static bool allCallersPassValidPointerForArgument(Argument *Arg,
   if (isDereferenceableAndAlignedPointer(Arg, NeededAlign, Bytes, DL))
     return true;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // direct or callback callees.
   return all_of(Callee->uses(), [&](const Use &U) {
@@ -639,14 +615,6 @@ static bool allCallersPassValidPointerForArgument(Argument *Arg,
     Value *ArgOp = CS.getCallArgOperand(Arg->getArgNo());
     return ArgOp &&
            isDereferenceableAndAlignedPointer(ArgOp, NeededAlign, Bytes, DL);
-=======
-  // Look at all call sites of the function.  At this point we know we only have
-  // direct callees.
-  return all_of(Callee->users(), [&](User *U) {
-    CallBase &CB = cast<CallBase>(*U);
-    return isDereferenceableAndAlignedPointer(CB.getArgOperand(Arg->getArgNo()),
-                                              NeededAlign, Bytes, DL);
->>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
   });
 #endif // INTEL_CUSTOMIZATION
 }
@@ -690,12 +658,12 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
   // AllocaInst to enable argument promotion and update 'TestUsers' with new
   // Users that now have 'Arg' as their pointer operand.
   //
-  auto RemoveHomedStore = [](SmallVectorImpl<Value *> &Worklist, LoadInst *LI,
+  auto RemoveHomedStore = [](SmallVectorImpl<const Use *> &Worklist, LoadInst *LI,
                              StoreInst *SI) {
     auto Arg = cast<Argument>(SI->getValueOperand());
     auto AI = cast<AllocaInst>(SI->getPointerOperand());
-    for (User *U : LI->users())
-      Worklist.push_back(U);
+    for (Use& U : LI->uses())
+      Worklist.push_back(&U);
     LI->replaceAllUsesWith(Arg);
     LI->eraseFromParent();
     SI->eraseFromParent();
@@ -863,14 +831,6 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
       continue;
     }
 
-<<<<<<< HEAD
-    if (RemoveHomedArguments) {
-      if (auto LI = UniqueLoadInst(Arg, V)) {
-        RemoveHomedStore(Worklist, LI, cast<StoreInst>(V));
-        continue;
-      }
-      return false;
-=======
     // Stores are allowed for byval arguments
     auto *SI = dyn_cast<StoreInst>(V);
     if (AreStoresAllowed && SI &&
@@ -881,8 +841,17 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
       continue;
       // Only stores TO the argument is allowed, all the other stores are
       // unknown users
->>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
     }
+
+#if INTEL_CUSTOMIZATION
+    if (RemoveHomedArguments) {
+      if (auto LI = UniqueLoadInst(Arg, V)) {
+        RemoveHomedStore(Worklist, LI, cast<StoreInst>(V));
+        continue;
+      }
+      return false;
+    }
+#endif // INTEL_CUSTOMIZATION
 
     // Unknown user.
     LLVM_DEBUG(dbgs() << "ArgPromotion of " << *Arg << " failed: "
@@ -925,7 +894,6 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
     Offset = Pair.first + DL.getTypeStoreSize(Pair.second.Ty);
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Since the argument is only used by load instructions (i.e not escaped)
   // and the argument is marked with NoAlias, we don't need to prove that
@@ -934,13 +902,12 @@ static bool findArgParts(Argument *Arg, const DataLayout &DL, AAResults &AAR,
   if (isNoAliasOrByValArgument(Arg))
     return true;
 #endif // INTEL_CUSTOMIZATION
-=======
+
   // If store instructions are allowed, the path from the entry of the function
   // to each load may be not free of instructions that potentially invalidate
   // the load, and this is an admissible situation.
   if (AreStoresAllowed)
     return true;
->>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
 
   // Okay, now we know that the argument is only used by load instructions, and
   // it is safe to unconditionally perform all of them. Use alias analysis to
@@ -1036,13 +1003,9 @@ static bool areTypesABICompatible(ArrayRef<Type *> Types, const Function &F,
 /// calls the DoPromotion method.
 static Function *
 promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
-<<<<<<< HEAD
-                 bool RemoveHomedArguments, unsigned MaxElements, // INTEL
-=======
                  function_ref<DominatorTree &(Function &F)> DTGetter,
                  function_ref<AssumptionCache *(Function &F)> ACGetter,
-                 unsigned MaxElements,
->>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
+                 bool RemoveHomedArguments, unsigned MaxElements, // INTEL
                  Optional<function_ref<void(CallBase &OldCS, CallBase &NewCS)>>
                      ReplaceCallSite,
                  const TargetTransformInfo &TTI, bool &IsRecursive) { // INTEL
@@ -1165,16 +1128,13 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
 
     // If we can promote the pointer to its value.
     SmallVector<OffsetAndArgPart, 4> ArgParts;
-<<<<<<< HEAD
+
 #if INTEL_CUSTOMIZATION
     if (findArgParts(PtrArg, DL, AAR, MaxElements, IsRecursive,
                      IsSelfRecursive, isCallback, RemoveHomedArguments,
                      ArgParts)) {
 #endif // INTEL_CUSTOMIZATION
-=======
 
-    if (findArgParts(PtrArg, DL, AAR, MaxElements, IsRecursive, ArgParts)) {
->>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
       SmallVector<Type *, 4> Types;
       for (const auto &Pair : ArgParts)
         Types.push_back(Pair.second.Ty);
@@ -1183,74 +1143,12 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
         ArgsToPromote.insert({PtrArg, std::move(ArgParts)});
       }
     }
-<<<<<<< HEAD
-
-    // Otherwise, if this is a byval argument, and if the aggregate type is
-    // small, just pass the elements, which is always safe, if the passed value
-    // is densely packed or if we can prove the padding bytes are never
-    // accessed.
-    //
-    // Only handle arguments with specified alignment; if it's unspecified, the
-    // actual alignment of the argument is target-specific.
-    Type *ByValTy = PtrArg->getParamByValType();
-    bool IsSafeToPromote =
-        ByValTy && PtrArg->getParamAlign() && !isCallback && // INTEL
-        (ArgumentPromotionPass::isDenselyPacked(ByValTy, DL) ||
-         !canPaddingBeAccessed(PtrArg));
-#if INTEL_COLLAB
-    if (cast<PointerType>(PtrArg->getType())->getAddressSpace() !=
-        DL.getAllocaAddrSpace()) {
-      // Replacing arguments with non-default address space is incorrect:
-      //   define void @foo(
-      //       %struct.ty addrspace(4)* byval(%struct.ty) %x' argument) {
-      //   entry:
-      //     <use of %struct.ty addrspace(4)* %x>
-      //   }
-      //
-      // The following alloca will be created to replace %x:
-      //   %new.x = alloca %struct.ty
-      //
-      // Since the new value's type is '%struct.ty*' the RAUW will fail.
-      IsSafeToPromote = false;
-    }
-#endif // INTEL_COLLAB
-     if (!IsSafeToPromote) {
-      LLVM_DEBUG(dbgs() << "ArgPromotion disables passing the elements of"
-                        << " the argument '" << PtrArg->getName()
-                        << "' because it is not safe.\n");
-      continue;
-    }
-
-    if (StructType *STy = dyn_cast<StructType>(ByValTy)) {
-      if (MaxElements > 0 && STy->getNumElements() > MaxElements) {
-        LLVM_DEBUG(dbgs() << "ArgPromotion disables passing the elements of"
-                          << " the argument '" << PtrArg->getName()
-                          << "' because it would require adding more"
-                          << " than " << MaxElements
-                          << " arguments to the function.\n");
-        continue;
-      }
-      SmallVector<Type *, 4> Types;
-      append_range(Types, STy->elements());
-
-      // If all the elements are single-value types, we can promote it.
-      bool AllSimple =
-          all_of(Types, [](Type *Ty) { return Ty->isSingleValueType(); });
-
-      // Safe to transform. Passing the elements as a scalar will allow sroa to
-      // hack on the new alloca we introduce.
-      if (AllSimple && areTypesABICompatible(Types, *F, TTI))
-        ByValArgsToTransform.insert(PtrArg);
-    }
-=======
->>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
   }
 
   // No promotable pointer arguments.
   if (ArgsToPromote.empty())
     return nullptr;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
   // CMPLRLLVM-37247: Inhibit argument promotion on split functions
@@ -1259,11 +1157,9 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
     return nullptr;
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
-  return doPromotion(F, ArgsToPromote, ByValArgsToTransform, // INTEL
-                     isCallback, ReplaceCallSite);           // INTEL
-=======
-  return doPromotion(F, DTGetter, ACGetter, ArgsToPromote, ReplaceCallSite);
->>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
+
+  return doPromotion(F, DTGetter, ACGetter, ArgsToPromote, // INTEL
+                     isCallback, ReplaceCallSite);         // INTEL
 }
 
 PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
@@ -1302,14 +1198,6 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
         return FAM.getResult<AAManager>(F);
       };
 
-<<<<<<< HEAD
-      const TargetTransformInfo &TTI = FAM.getResult<TargetIRAnalysis>(OldF);
-#if INTEL_CUSTOMIZATION
-      Function *NewF =
-          promoteArguments(&OldF, AARGetter, RemoveHomedArguments, MaxElements,
-                           None, TTI, IsRecursive);
-#endif // INTEL_CUSTOMIZATION
-=======
       auto DTGetter = [&](Function &F) -> DominatorTree & {
         assert(&F != &OldF && "Called with the obsolete function!");
         return FAM.getResult<DominatorTreeAnalysis>(F);
@@ -1320,10 +1208,13 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
         return &FAM.getResult<AssumptionAnalysis>(F);
       };
 
+#if INTEL_CUSTOMIZATION
       const auto &TTI = FAM.getResult<TargetIRAnalysis>(OldF);
       Function *NewF = promoteArguments(&OldF, AARGetter, DTGetter, ACGetter,
-                                        MaxElements, None, TTI, IsRecursive);
->>>>>>> 170c4d21bd94d4f183c2fec1dd7d261360df7bae
+                                        RemoveHomedArguments, MaxElements, None,
+                                        TTI, IsRecursive);
+#endif // INTEL_CUSTOMIZATION
+
       if (!NewF)
         continue;
       LocalChange = true;
