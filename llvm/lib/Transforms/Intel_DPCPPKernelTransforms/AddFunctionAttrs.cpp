@@ -132,25 +132,6 @@ static bool handleSyncBuiltinAttributes(Module &M) {
   return true;
 }
 
-/// This function adds alwaysinline attribute to internal function based on
-/// heuristic: the number of users is less than or equal to a threshold.
-/// This is intended to improve performance.
-static bool addAlwaysInlineAttribute(Module &M) {
-  bool Changed = false;
-  constexpr unsigned MaxNumUses = 2;
-  for (auto &F : M) {
-    if (F.isDeclaration() || !F.hasInternalLinkage() ||
-        F.hasFnAttribute(Attribute::NoInline) ||
-        F.hasFnAttribute(Attribute::AlwaysInline))
-      continue;
-    if (F.getNumUses() <= MaxNumUses) {
-      F.addFnAttr(Attribute::AlwaysInline);
-      Changed = true;
-    }
-  }
-  return Changed;
-}
-
 bool AddFunctionAttrsPass::runImpl(Module &M) {
   bool Changed = false;
 
@@ -161,8 +142,6 @@ bool AddFunctionAttrsPass::runImpl(Module &M) {
   Changed |= handlePrintfBuiltinAttributes(M);
 
   Changed |= handleSyncBuiltinAttributes(M);
-
-  Changed |= addAlwaysInlineAttribute(M);
 
   return Changed;
 }
