@@ -178,9 +178,6 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   // Set readonly/readnone attrs
   if (UnitAtATime)
     PM->add(llvm::createInferFunctionAttrsLegacyPass());
-  // FIXME: createArgumentPromotionPass was removed in llorg.
-  // if (OptLevel > 2)
-  //  PM->add(llvm::createArgumentPromotionPass()); // Scalarize uninlined fn args
 
   // Break up aggregate allocas
   PM->add(llvm::createSROAPass());
@@ -724,8 +721,6 @@ static void populatePassesPostFailCheck(
     PM.add(llvm::createGlobalDCEPass());
     // AddImplicitArgs pass may create dead implicit arguments.
     PM.add(llvm::createDeadArgEliminationPass());
-    // FIXME: createArgumentPromotionPass was removed in llorg.
-    // PM.add(llvm::createArgumentPromotionPass()); // Scalarize uninlined fn args
     PM.add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
     PM.add(llvm::createDeadStoreEliminationPass()); // Delete dead stores
     PM.add(llvm::createAggressiveDCEPass());        // Delete dead instructions
