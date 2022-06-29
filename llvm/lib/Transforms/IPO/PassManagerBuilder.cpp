@@ -1479,7 +1479,8 @@ void PassManagerBuilder::populateModulePassManager(
   // Additionally adding SROA after the argument promotion to cleanup allocas
   // allows to get more accurate attributes for the promoted arguments.
   if (OptLevel > 1) {
-    MPM.add(createArgumentPromotionPass(true)); // Scalarize uninlined fn args
+    // FIXME: createArgumentPromotionPass was removed in llorg.
+    // MPM.add(createArgumentPromotionPass(true)); // Scalarize uninlined fn args
     MPM.add(createSROALegacyCGSCCAdaptorPass());
   }
 #endif // INTEL_CUSTOMIZATION
@@ -1945,7 +1946,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createTileMVInlMarkerLegacyPass());
 #endif // INTEL_FEATURE_SW_ADVANCED
   PM.add(createDopeVectorConstPropLegacyPass());
-  PM.add(createArgumentPromotionPass());
+  // FIXME: createArgumentPromotionPass was removed in llorg.
+  // PM.add(createArgumentPromotionPass());
 #endif // INTEL_CUSTOMIZATION
 
   // Now that we internalized some globals, see if we can hack on them!
@@ -2091,10 +2093,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   }
 #endif // INTEL_CUSTOMIZATION
   PM.add(createGlobalDCEPass()); // Remove dead functions.
-
-  // If we didn't decide to inline a function, check to see if we can
-  // transform it to pass arguments by value instead of by reference.
-  PM.add(createArgumentPromotionPass());
 
   // The IPO passes may leave cruft around.  Clean up after them.
   addInstructionCombiningPass(PM, !DTransEnabled);  // INTEL

@@ -2,7 +2,7 @@
 ; INTEL_CUSTOMIZATION
 ;; INTEL: Added -argpro-single-level-recursive=false to test llorg technique
 ;; INTEL: to inhibit infinite recursion.
-; RUN: opt -S < %s -argpromotion -argpro-single-level-recursive=false | FileCheck %s
+; RUN: opt -S < %s -passes=argpromotion -argpro-single-level-recursive=false | FileCheck %s
 ; end INTEL_CUSTOMIZATION
 
 ; This shouldn't get infinitely promoted.
