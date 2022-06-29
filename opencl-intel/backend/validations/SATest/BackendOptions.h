@@ -36,9 +36,8 @@ public:
                 RC_BR_TRANSPOSE_SIZE, TRANSPOSE_SIZE_NOT_SET);
         m_TimePasses = runConfig.GetValue<std::string>(RC_BR_TIME_PASSES, "");
         m_DisableStackDump = runConfig.GetValue<bool>(RC_BR_USE_PIN_TRACE_MARKS, false);
-        m_vectorizerType =
-          runConfig.GetValue<VectorizerType>(RC_BR_VECTORIZER_TYPE, DEFAULT_VECTORIZER);
-        m_nativeSubgroups = runConfig.GetValue<bool>(RC_BR_NATIVE_SUBGROUPS, false);
+        m_vectorizerType = runConfig.GetValue<VectorizerType>(
+            RC_BR_VECTORIZER_TYPE, DEFAULT_VECTORIZER);
         m_enableSubgroupEmulation = runConfig.GetValue<bool>(RC_BR_ENABLE_SUBGROUP_EMULATION, true);
         m_passManagerType = runConfig.GetValue<PassManagerType>(
             RC_BR_PASS_MANAGER_TYPE, PM_NONE);
@@ -65,8 +64,6 @@ public:
       switch (optionId) {
       case CL_DEV_BACKEND_OPTION_DISABLE_STACKDUMP:
         return m_DisableStackDump;
-      case CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS:
-        return m_nativeSubgroups;
       case CL_DEV_BACKEND_OPTION_SUBGROUP_EMULATION:
         return m_enableSubgroupEmulation;
       default:
@@ -101,7 +98,6 @@ private:
     PassManagerType m_passManagerType;
     std::string m_debugPassManager;
     std::string m_llvmOption;
-    bool        m_nativeSubgroups;
     bool        m_enableSubgroupEmulation;
 };
 
@@ -123,8 +119,8 @@ public:
 
         m_deviceMode = static_cast<DeviceMode>(runConfig.GetValue<int>(RC_BR_DEVICE_MODE, CPU_DEVICE));
         m_dumpHeuristcIR = runConfig.GetValue<bool>(RC_BR_DUMP_HEURISTIC_IR, false);
-        m_vectorizerType = runConfig.GetValue<VectorizerType>(RC_BR_VECTORIZER_TYPE, DEFAULT_VECTORIZER);
-        m_nativeSubgroups = runConfig.GetValue<bool>(RC_BR_NATIVE_SUBGROUPS, false);
+        m_vectorizerType = runConfig.GetValue<VectorizerType>(
+            RC_BR_VECTORIZER_TYPE, DEFAULT_VECTORIZER);
         m_expensiveMemOpts = runConfig.GetValue<unsigned>(RC_BR_EXPENSIVE_MEM_OPT, false);
         m_passManagerType = runConfig.GetValue<PassManagerType>(
             RC_BR_PASS_MANAGER_TYPE, PM_NONE);
@@ -144,8 +140,6 @@ public:
         return m_useVTune;
       case CL_DEV_BACKEND_OPTION_DUMP_HEURISTIC_IR:
         return m_dumpHeuristcIR;
-      case CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS:
-        return m_nativeSubgroups;
       case CL_DEV_BACKEND_OPTION_SERIALIZE_WORK_GROUPS:
         return m_serializeWorkGroups;
       default:
@@ -207,7 +201,6 @@ protected:
     VectorizerType m_vectorizerType;
     PassManagerType m_passManagerType;
     std::string m_debugPassManager;
-    bool m_nativeSubgroups;
     bool m_serializeWorkGroups;
 };
 

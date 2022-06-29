@@ -24,7 +24,6 @@ set(OCL_BE_PASSES
     DebugInfoPass
     LLVMBarrier
     LLVMVectorizer
-    SubGroupAdaptation
     Prefetch
     SmartGVN
     StripIntelIP

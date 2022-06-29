@@ -25,10 +25,6 @@
 using namespace llvm;
 using namespace CompilationUtils;
 
-static cl::opt<bool> DPCPPEnableNativeSubgroups(
-    "dpcpp-enable-native-subgroups", cl::init(true), cl::Hidden,
-    cl::desc("Enable native subgroup functionality"));
-
 namespace {
 
 /// Legacy DPCPPKernel analysis pass.
@@ -208,15 +204,13 @@ bool DPCPPKernelAnalysisPass::runImpl(
 
   fillKernelCallers();
   fillSyncUsersFuncs();
-  if (DPCPPEnableNativeSubgroups)
-    fillSubgroupCallingFuncs(CG);
+  fillSubgroupCallingFuncs(CG);
 
   for (Function *Kernel : Kernels) {
     assert(Kernel && "nullptr is not expected in KernelList!");
     DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
     KIMD.NoBarrierPath.set(!UnsupportedFuncs.contains(Kernel));
-    if (DPCPPEnableNativeSubgroups)
-      KIMD.KernelHasSubgroups.set(SubgroupCallingFuncs.contains(Kernel));
+    KIMD.KernelHasSubgroups.set(SubgroupCallingFuncs.contains(Kernel));
     KIMD.KernelHasGlobalSync.set(hasAtomicBuiltinCall(CG, RTS, Kernel));
     KIMD.KernelExecutionLength.set(getExecutionLength(Kernel, GetLI(*Kernel)));
   }
