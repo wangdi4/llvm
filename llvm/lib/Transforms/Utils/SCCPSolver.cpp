@@ -1711,6 +1711,24 @@ bool SCCPInstVisitor::resolvedUndefsIn(Function &F) {
       markOverdefined(&I);
       MadeChange = true;
     }
+#if INTEL_CUSTOMIZATION
+    Instruction *TI = BB.getTerminator();
+    if (auto *BI = dyn_cast<BranchInst>(TI)) {
+      if (!BI->isConditional())
+        continue;
+      if (!getValueState(BI->getCondition()).isUnknownOrUndef())
+        continue;
+
+      // If the input to SCCP is actually branch on undef, fix the
+      // undef to false.
+      if (isa<UndefValue>(BI->getCondition())) {
+        BI->setCondition(ConstantInt::getFalse(BI->getContext()));
+        markEdgeExecutable(&BB, TI->getSuccessor(1));
+        MadeChange = true;
+        continue;
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   return MadeChange;

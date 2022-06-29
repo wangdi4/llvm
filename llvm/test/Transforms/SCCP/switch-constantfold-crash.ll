@@ -93,7 +93,9 @@ define void @pr49573_main() {
 ; CHECK-LABEL: define {{[^@]+}}@pr49573_main() {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TGT:%.*]] = call i16 @pr49573_fn()
-; CHECK-NEXT:    unreachable
+; INTEL_CUSTOMIZATION
+; workaround CMPLRLLVM-38653
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   %tgt = call i16 @pr49573_fn()
@@ -128,7 +130,9 @@ define void @pr49573_main_2() {
 ; CHECK-LABEL: define {{[^@]+}}@pr49573_main_2() {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TGT:%.*]] = call i16 @pr49573_fn()
-; CHECK-NEXT:    unreachable
+; INTEL_CUSTOMIZATION
+; workaround CMPLRLLVM-38653
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   %tgt = call i16 @pr49573_fn()
@@ -154,7 +158,9 @@ case.2:
 define internal i16 @pr49573_fn() {
 ; CHECK-LABEL: define {{[^@]+}}@pr49573_fn() {
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    unreachable
+; INTEL_CUSTOMIZATION
+; workaround CMPLRLLVM-38653
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   br i1 undef, label %then, label %else
@@ -169,7 +175,9 @@ else:
 define internal i16 @pr49573_fn_2() {
 ; CHECK-LABEL: define {{[^@]+}}@pr49573_fn_2() {
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    unreachable
+; INTEL_CUSTOMIZATION
+; workaround CMPLRLLVM-38653
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   br i1 undef, label %then, label %else

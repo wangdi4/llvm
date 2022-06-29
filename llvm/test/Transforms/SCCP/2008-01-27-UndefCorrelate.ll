@@ -2,21 +2,29 @@
 ; RUN: opt < %s -passes=sccp -S | FileCheck %s
 ; PR1938
 
+; INTEL_CUSTOMIZATION
+; Too many changes to merge individually. If this test fails, run
+; update_test_checks again.
 define i32 @main() {
 ; CHECK-LABEL: @main(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[BB:%.*]]
 ; CHECK:       bb:
-; CHECK-NEXT:    br i1 undef, label [[COND_TRUE:%.*]], label [[COND_FALSE:%.*]]
+; CHECK-NEXT:    [[INDVAR:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[K:%.*]], [[BB_BACKEDGE:%.*]] ]
+; CHECK-NEXT:    [[K]] = add i32 [[INDVAR]], 1
+; CHECK-NEXT:    br i1 false, label [[COND_TRUE:%.*]], label [[COND_FALSE:%.*]]
 ; CHECK:       cond_true:
-; CHECK-NEXT:    br i1 undef, label [[BB_BACKEDGE:%.*]], label [[BB12:%.*]]
+; CHECK-NEXT:    br i1 undef, label [[BB_BACKEDGE]], label [[BB12:%.*]]
 ; CHECK:       bb.backedge:
 ; CHECK-NEXT:    br label [[BB]]
 ; CHECK:       cond_false:
-; CHECK-NEXT:    br i1 undef, label [[BB_BACKEDGE]], label [[BB12]]
+; CHECK-NEXT:    [[TMP9:%.*]] = icmp slt i32 [[K]], 10
+; CHECK-NEXT:    br i1 [[TMP9]], label [[BB_BACKEDGE]], label [[BB12]]
 ; CHECK:       bb12:
-; CHECK-NEXT:    br i1 undef, label [[COND_NEXT18:%.*]], label [[COND_TRUE17:%.*]]
+; CHECK-NEXT:    [[TMP14:%.*]] = icmp eq i32 [[K]], 10
+; CHECK-NEXT:    br i1 [[TMP14]], label [[COND_NEXT18:%.*]], label [[COND_TRUE17:%.*]]
 ; CHECK:       cond_true17:
+; CHECK-NEXT:    tail call void @abort()
 ; CHECK-NEXT:    unreachable
 ; CHECK:       cond_next18:
 ; CHECK-NEXT:    ret i32 0
@@ -53,3 +61,4 @@ cond_next18:
 }
 
 declare void @abort()
+; end INTEL_CUSTOMIZATION
