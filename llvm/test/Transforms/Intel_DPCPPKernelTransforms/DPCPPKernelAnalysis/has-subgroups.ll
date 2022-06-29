@@ -1,10 +1,10 @@
-; RUN: opt -dpcpp-enable-native-subgroups -passes=dpcpp-kernel-analysis %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-enable-native-subgroups -dpcpp-kernel-analysis %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -dpcpp-enable-native-subgroups -passes=dpcpp-kernel-analysis %s -S | FileCheck %s
-; RUN: opt -dpcpp-enable-native-subgroups -dpcpp-kernel-analysis %s -S | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-analysis %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-kernel-analysis %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-analysis %s -S | FileCheck %s
+; RUN: opt -dpcpp-kernel-analysis %s -S | FileCheck %s
 
-; RUN: opt -dpcpp-enable-native-subgroups -passes=dpcpp-kernel-analysis %s -S -debug -disable-output 2>&1| FileCheck %s -check-prefix=CHECK-DEBUG
-; RUN: opt -dpcpp-enable-native-subgroups -dpcpp-kernel-analysis %s -S -debug -disable-output 2>&1| FileCheck %s -check-prefix=CHECK-DEBUG
+; RUN: opt -passes=dpcpp-kernel-analysis %s -S -debug -disable-output 2>&1| FileCheck %s -check-prefix=CHECK-DEBUG
+; RUN: opt -dpcpp-kernel-analysis %s -S -debug -disable-output 2>&1| FileCheck %s -check-prefix=CHECK-DEBUG
 
 ; CHECK-DEBUG: DPCPPKernelAnalysisPass
 ; CHECK-DEBUG: Kernel <test1>:

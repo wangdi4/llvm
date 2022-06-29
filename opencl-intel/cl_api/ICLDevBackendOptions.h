@@ -18,12 +18,13 @@
 #include <cstdlib>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-
 /*! \enum cl_dev_backend_options
- * Defines possible values of the backend options
- */
-enum cl_dev_backend_options                            // Description                           | Type                   | Values/Format/Exampl
-{                                                      // --------------------------------------+------------------------+----------------------
+   * Defines possible values of the backend
+ * options
+   */
+// clang-format off
+  enum cl_dev_backend_options                          // Description                           | Type                   | Values/Format/Exampl
+  {                                                    // --------------------------------------+------------------------+----------------------
     CL_DEV_BACKEND_OPTION_DEVICE,                      //!< Device selection                    |DeviceMode              | "CPU_DEVICE","FPGA_EMU_DEVICE","EYEQ_EMU_DEVICE"
     CL_DEV_BACKEND_OPTION_SUBDEVICE,                   //!< Sub-device selection                |string                  | "corei7","sandybride" for cpu or "knc" for mic
     CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES,          //!< Enable/Disable specific CPU features|string                  | "+avx,-avx256"
@@ -50,14 +51,14 @@ enum cl_dev_backend_options                            // Description           
                                                        //!< automatically (FPGA Only)           |
     CL_DEV_BACKEND_OPTION_CHANNEL_DEPTH_EMULATION_MODE,//!< Set channel depth emulation mode    |int                     |
     CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE,             //!< Select vectorizer                   |VectorizerType          | VOLCANO_VECTORIZER,VPO_VECTORIZER
-    CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS,            //!< Enable native subgroups             |boolean                 |
     CL_DEV_BACKEND_OPTION_SUBGROUP_EMULATION,          //!< Enable subgroup emulation           |boolean                 |
     CL_DEV_BACKEND_OPTION_SERIALIZE_WORK_GROUPS,       //!< Serialize work-groups execution     |boolean                 |
     CL_DEV_BACKEND_OPTION_CPU_MAX_WG_SIZE,             //!< Max work-group size for cpu device  |size_t                  |
     CL_DEV_BACKEND_OPTION_STREAMING_ALWAYS,            //!< Use Non-Temporal instruction        |boolean                 |
     CL_DEV_BACKEND_OPTION_EXPENSIVE_MEM_OPTS,          //!< Enable expensive memory optimization|unsigned                | See cl.cfg for value explanation
     CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE            //!< Select pass manager                 |PassManagerType
-};
+  };
+// clang-format on
 
 /*! \enum cl_dev_backend_dump_options
  * Defines the options ids used during the compile service dump method

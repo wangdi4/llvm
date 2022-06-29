@@ -42,9 +42,6 @@ extern llvm::cl::opt<uint32_t>
 BuildIterations;
 
 extern llvm::cl::opt<bool>
-NativeSubgroups;
-
-extern llvm::cl::opt<bool>
 EnableSubgroupEmulation;
 
 extern llvm::cl::opt<VectorizerType>
@@ -120,72 +117,58 @@ extern llvm::cl::opt<bool> SerializeWorkGroups;
 
 namespace Validation
 {
-    BERunOptions::BERunOptions():
-        m_measurePerformance(::TestMode==PERFORMANCE),
-        m_useSDE(::SDEEnabled),
-        m_useTraceMarks(::TraceMarks),
-        m_useVTune(::UseVTune),
-        m_printBuildLog(::PrintBuildLog),
-        m_runSingleWG(::RunSingleWG),
-        m_buildOnly(::TestMode==BUILD),
-        m_expensiveMemOpts(::ExpensiveMemOpts),
-        m_defaultLocalWGSize(::DefaultLocalWGSize),
-        m_buildIterationsCount(::BuildIterations),
-        m_executeIterationsCount(::ExecuteIterations),
-        m_cpuArch(::CPUArch),
-        m_cpuFeatures(::CPUFeatures),
-        m_optimizedLLVMIRDumpFile(::OptimizedLLVMIRDumpFile),
-        m_transposeSize(::TransposeSize),
-        m_DumpJIT(::DumpJIT),
-        m_TimePasses(::TimePasses),
-        m_DebugPassManager(::DebugPassManager),
-        m_LLVMOption(::LLVMOption),
-        m_dumpHeuristcIR(::DumpHeuristicIR),
-        m_dumpKernelProperty(::DumpKernelProperty),
-        m_vectorizerType(::OptVectorizerType),
-        m_nativeSubgroups(::NativeSubgroups),
-        m_enableSubgroupEmulation(::EnableSubgroupEmulation),
-        m_passManagerType(::OptPassManagerType),
-        m_serializeWorkGroups(::SerializeWorkGroups)
-    {
-    }
+BERunOptions::BERunOptions()
+    : m_measurePerformance(::TestMode == PERFORMANCE), m_useSDE(::SDEEnabled),
+      m_useTraceMarks(::TraceMarks), m_useVTune(::UseVTune),
+      m_printBuildLog(::PrintBuildLog), m_runSingleWG(::RunSingleWG),
+      m_buildOnly(::TestMode == BUILD), m_expensiveMemOpts(::ExpensiveMemOpts),
+      m_defaultLocalWGSize(::DefaultLocalWGSize),
+      m_buildIterationsCount(::BuildIterations),
+      m_executeIterationsCount(::ExecuteIterations), m_cpuArch(::CPUArch),
+      m_cpuFeatures(::CPUFeatures),
+      m_optimizedLLVMIRDumpFile(::OptimizedLLVMIRDumpFile),
+      m_transposeSize(::TransposeSize), m_DumpJIT(::DumpJIT),
+      m_TimePasses(::TimePasses), m_DebugPassManager(::DebugPassManager),
+      m_LLVMOption(::LLVMOption), m_dumpHeuristcIR(::DumpHeuristicIR),
+      m_dumpKernelProperty(::DumpKernelProperty),
+      m_vectorizerType(::OptVectorizerType),
+      m_enableSubgroupEmulation(::EnableSubgroupEmulation),
+      m_passManagerType(::OptPassManagerType),
+      m_serializeWorkGroups(::SerializeWorkGroups) {}
 
-    template<>
-    bool BERunOptions::GetValue<bool>(RunConfigurationOption rc, bool defaultValue) const
-    {
-        switch(rc)
-        {
-        case RC_COMMON_RUN_SINGLE_WG :
-            return m_runSingleWG;
-        case RC_BR_USE_SDE :
-            return m_useSDE;
-        case RC_BR_USE_PIN_TRACE_MARKS :
-            return m_useTraceMarks;
-        case RC_BR_USE_VTUNE :
-            return m_useVTune;
-        case RC_BR_PRINT_BUILD_LOG :
-            return m_printBuildLog;
-        case RC_BR_VERBOSE:
-            return m_verbose;
-        case RC_BR_MEASURE_PERFORMANCE :
-            return m_measurePerformance;
-        case RC_BR_BUILD_ONLY :
-            return m_buildOnly;
-        case RC_BR_STOP_BEFORE_JIT:
-            return m_stopBeforeJIT;
-        case RC_BR_DUMP_HEURISTIC_IR :
-            return m_dumpHeuristcIR;
-        case RC_BR_DUMP_KERNEL_PROPERTY:
-            return m_dumpKernelProperty;
-        case RC_BR_NATIVE_SUBGROUPS :
-            return m_nativeSubgroups;
-        case RC_BR_ENABLE_SUBGROUP_EMULATION:
-            return m_enableSubgroupEmulation;
-        case RC_BR_SERIALIZE_WORK_GROUPS:
-            return m_serializeWorkGroups;
-        default:
-            return defaultValue;
-        }
+template <>
+bool BERunOptions::GetValue<bool>(RunConfigurationOption rc,
+                                  bool defaultValue) const {
+  switch (rc) {
+  case RC_COMMON_RUN_SINGLE_WG:
+    return m_runSingleWG;
+  case RC_BR_USE_SDE:
+    return m_useSDE;
+  case RC_BR_USE_PIN_TRACE_MARKS:
+    return m_useTraceMarks;
+  case RC_BR_USE_VTUNE:
+    return m_useVTune;
+  case RC_BR_PRINT_BUILD_LOG:
+    return m_printBuildLog;
+  case RC_BR_VERBOSE:
+    return m_verbose;
+  case RC_BR_MEASURE_PERFORMANCE:
+    return m_measurePerformance;
+  case RC_BR_BUILD_ONLY:
+    return m_buildOnly;
+  case RC_BR_STOP_BEFORE_JIT:
+    return m_stopBeforeJIT;
+  case RC_BR_DUMP_HEURISTIC_IR:
+    return m_dumpHeuristcIR;
+  case RC_BR_DUMP_KERNEL_PROPERTY:
+    return m_dumpKernelProperty;
+  case RC_BR_ENABLE_SUBGROUP_EMULATION:
+    return m_enableSubgroupEmulation;
+  case RC_BR_SERIALIZE_WORK_GROUPS:
+    return m_serializeWorkGroups;
+  default:
+    return defaultValue;
+  }
     }
 
     template<>
@@ -339,7 +322,6 @@ namespace Validation
         m_dumpKernelProperty = ::DumpKernelProperty;
         m_verbose = ::Verbose;
         m_vectorizerType = ::OptVectorizerType;
-        m_nativeSubgroups = ::NativeSubgroups;
         m_enableSubgroupEmulation = ::EnableSubgroupEmulation;
     }
 

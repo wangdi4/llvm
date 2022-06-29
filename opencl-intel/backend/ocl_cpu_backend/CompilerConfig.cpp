@@ -173,13 +173,6 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
         m_LLVMOptions.emplace_back("-enable-vplan-kernel-vectorizer=0");
     }
 
-    bool EnableNativeSubgroups =
-      pBackendOptions->GetBooleanValue(
-        (int)CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS, false);
-    if (EnableNativeSubgroups) {
-        m_LLVMOptions.emplace_back("-enable-native-opencl-subgroups");
-    }
-
     bool EnableSubgroupEmulation =
       pBackendOptions->GetBooleanValue(
         (int)CL_DEV_BACKEND_OPTION_SUBGROUP_EMULATION, true);

@@ -21,27 +21,17 @@
 class NativeSubgroupsTest : public ::CL_base {
 protected:
   virtual void SetUp() override {
-    m_extentionName = "CL_CONFIG_CPU_ENABLE_NATIVE_SUBGROUPS";
-    if (!SETENV(m_extentionName.c_str(), "True"))
-      FAIL() << "Failed to set env " << m_extentionName;
     CL_base::SetUp();
     ASSERT_LE(OPENCL_VERSION::OPENCL_VERSION_2_1, m_version)
         << "Test required OpenCL2.1 version at least";
   }
 
-  virtual void TearDown() override {
-    CL_base::TearDown();
-    if (!UNSETENV(m_extentionName.c_str()))
-      FAIL() << "Failed to unset env " << m_extentionName;
-  }
+  virtual void TearDown() override { CL_base::TearDown(); }
 
   void GetDummySubgroupKernel(cl_kernel &kern) const;
 
   void CheckSGCount(cl_device_id device, cl_kernel kern,
                     const std::vector<size_t> &local_work_sizes);
-
-protected:
-  std::string m_extentionName;
 };
 
 #endif // _INTEL_SUBGROUPS___
