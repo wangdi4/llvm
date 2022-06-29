@@ -637,9 +637,7 @@ def OMP_Target : Directive<"target"> {
     VersionedClause<OMPC_IsDevicePtr>,
     VersionedClause<OMPC_HasDeviceAddr, 51>,
     VersionedClause<OMPC_Reduction>,
-#if INTEL_COLLAB
     VersionedClause<OMPC_InReduction, 50>,
-#endif // INTEL_COLLAB
     VersionedClause<OMPC_Allocate>,
     VersionedClause<OMPC_UsesAllocators, 50>
   ];
