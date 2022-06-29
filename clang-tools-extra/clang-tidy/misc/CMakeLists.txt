@@ -3,6 +3,7 @@ set(LLVM_LINK_COMPONENTS
   Support
   )
 
+<<<<<<< HEAD
 if(LLVM_USE_HOST_TOOLS)
   build_native_tool(make-confusable-table make_confusable_table)
   set(make_confusable_table_target "${make_confusable_table}")
@@ -24,6 +25,10 @@ add_custom_target(genconfusable DEPENDS Confusables.inc)
 add_clang_library(clangTidyMiscModule
   DefinitionsInHeadersCheck.cpp
   ConfusableIdentifierCheck.cpp
+=======
+add_clang_library(clangTidyMiscModule
+  DefinitionsInHeadersCheck.cpp
+>>>>>>> 5fea31aaed3157a9e8db7bf97d0902d74d3dfadf
   MiscTidyModule.cpp
   MisleadingBidirectional.cpp
   MisleadingIdentifier.cpp
@@ -47,7 +52,10 @@ add_clang_library(clangTidyMiscModule
 
   DEPENDS
   omp_gen
+<<<<<<< HEAD
   genconfusable
+=======
+>>>>>>> 5fea31aaed3157a9e8db7bf97d0902d74d3dfadf
   )
 
 clang_target_link_libraries(clangTidyMiscModule
