@@ -5032,7 +5032,7 @@ class OffloadingActionBuilder final {
             ExtractIRFilesAction->addExtractColumnTform(
                 FileTableTformJobAction::COL_CODE, false /*drop titles*/);
             SPIRVTranslateAction = C.MakeAction<SPIRVTranslatorJobAction>(
-                ExtractIRFilesAction, types::TY_SPIRV);
+                ExtractIRFilesAction, types::TY_Tempfilelist);
           } else
             SPIRVTranslateAction = C.MakeAction<SPIRVTranslatorJobAction>(
                 PostLinkAction, types::TY_SPIRV);
