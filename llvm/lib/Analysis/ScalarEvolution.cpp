@@ -8150,17 +8150,15 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
     // to obey basic rules for definitions dominating uses which this
     // analysis depends on.
     if (!DT.isReachableFromEntry(I->getParent()))
-<<<<<<< HEAD
-      return getUnknown(UndefValue::get(V->getType()));
+      return getUnknown(PoisonValue::get(V->getType()));
+
 #if INTEL_CUSTOMIZATION // HIR parsing
     // Suppress traceback for instructions indicating possible live
     // range violation.
     if (getHIRMetadata(I, HIRLiveKind::LiveRange))
       return getUnknown(V);
 #endif // INTEL_CUSTOMIZATION
-=======
-      return getUnknown(PoisonValue::get(V->getType()));
->>>>>>> e4e22b6d80385feb0a8353e1302fa117d3a7240a
+
   } else if (ConstantInt *CI = dyn_cast<ConstantInt>(V))
     return getConstant(CI);
   else if (GlobalAlias *GA = dyn_cast<GlobalAlias>(V))
