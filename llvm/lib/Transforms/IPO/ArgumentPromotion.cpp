@@ -1313,6 +1313,7 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
   PA.preserveSet<AllAnalysesOn<Function>>();
   return PA;
 }
+<<<<<<< HEAD
 
 namespace {
 
@@ -1458,3 +1459,5 @@ bool ArgPromotion::runOnSCC(CallGraphSCC &SCC) {
 bool ArgPromotion::doInitialization(CallGraph &CG) {
   return CallGraphSCCPass::doInitialization(CG);
 }
+=======
+>>>>>>> 57a6eed556f3b69fabe46945e6db8797bc64e0b6
