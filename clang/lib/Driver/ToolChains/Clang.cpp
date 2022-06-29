@@ -9127,7 +9127,9 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
                        false))
         CmdArgs.push_back("--dependent-lib=libmatmul");
     }
-    CmdArgs.push_back(FlagForIntelMathLib.data());
+    if (getToolChain().CheckAddIntelLib("libm", Args) &&
+        getToolChain().CheckAddIntelLib("libimf", Args))
+      CmdArgs.push_back(FlagForIntelMathLib.data());
 #endif // INTEL_CUSTOMIZATION
 
     // This provides POSIX compatibility (maps 'open' to '_open'), which most

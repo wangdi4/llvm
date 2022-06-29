@@ -1154,7 +1154,7 @@ static StringRef getIntelLibArgVal(StringRef LibName) {
           .Cases("libimf", "-limf", "libimf")
           .Cases("libsvml", "-lsvml", "libsvml")
           .Cases("libirng", "-lirng", "libirng")
-          .Default("");
+          .Default(LibName);
   return LibArg;
 }
 
