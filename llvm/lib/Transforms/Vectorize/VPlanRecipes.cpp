@@ -1,4 +1,21 @@
 //===- VPlanRecipes.cpp - Implementations for VPlan recipes ---------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -414,7 +431,13 @@ void VPWidenCallRecipe::print(raw_ostream &O, const Twine &Indent,
     O << " = ";
   }
 
+#if INTEL_CUSTOMIZATION
+  Function *F = CI->getCalledFunction();
+  assert(F && "Called fucntion is expected to be exist");
+  O << "call @" << F->getName() << "(";
+#else
   O << "call @" << CI->getCalledFunction()->getName() << "(";
+#endif // INTEL_CUSTOMIZATION
   printOperands(O, SlotTracker);
   O << ")";
 }

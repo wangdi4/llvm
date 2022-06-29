@@ -1,21 +1,4 @@
 //===- VPlan.cpp - Vectorizer Plan ----------------------------------------===//
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2021 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -920,77 +903,6 @@ void VPlanIngredient::print(raw_ostream &O) const {
     V->printAsOperand(O, false);
 }
 
-<<<<<<< HEAD
-void VPWidenCallRecipe::print(raw_ostream &O, const Twine &Indent,
-                              VPSlotTracker &SlotTracker) const {
-  O << Indent << "WIDEN-CALL ";
-
-  auto *CI = cast<CallInst>(getUnderlyingInstr());
-  if (CI->getType()->isVoidTy())
-    O << "void ";
-  else {
-    printAsOperand(O, SlotTracker);
-    O << " = ";
-  }
-
-#if INTEL_CUSTOMIZATION
-  Function *F = CI->getCalledFunction();
-  assert(F && "Called fucntion is expected to be exist");
-  O << "call @" << F->getName() << "(";
-#else
-  O << "call @" << CI->getCalledFunction()->getName() << "(";
-#endif // INTEL_CUSTOMIZATION
-  printOperands(O, SlotTracker);
-  O << ")";
-}
-
-void VPWidenSelectRecipe::print(raw_ostream &O, const Twine &Indent,
-                                VPSlotTracker &SlotTracker) const {
-  O << Indent << "WIDEN-SELECT ";
-  printAsOperand(O, SlotTracker);
-  O << " = select ";
-  getOperand(0)->printAsOperand(O, SlotTracker);
-  O << ", ";
-  getOperand(1)->printAsOperand(O, SlotTracker);
-  O << ", ";
-  getOperand(2)->printAsOperand(O, SlotTracker);
-  O << (InvariantCond ? " (condition is loop invariant)" : "");
-}
-
-void VPWidenRecipe::print(raw_ostream &O, const Twine &Indent,
-                          VPSlotTracker &SlotTracker) const {
-  O << Indent << "WIDEN ";
-  printAsOperand(O, SlotTracker);
-  O << " = " << getUnderlyingInstr()->getOpcodeName() << " ";
-  printOperands(O, SlotTracker);
-}
-
-void VPWidenIntOrFpInductionRecipe::print(raw_ostream &O, const Twine &Indent,
-                                          VPSlotTracker &SlotTracker) const {
-  O << Indent << "WIDEN-INDUCTION";
-  if (getTruncInst()) {
-    O << "\\l\"";
-    O << " +\n" << Indent << "\"  " << VPlanIngredient(IV) << "\\l\"";
-    O << " +\n" << Indent << "\"  ";
-    getVPValue(0)->printAsOperand(O, SlotTracker);
-  } else
-    O << " " << VPlanIngredient(IV);
-
-  O << ", ";
-  getStepValue()->printAsOperand(O, SlotTracker);
-}
-
-void VPWidenPointerInductionRecipe::print(raw_ostream &O, const Twine &Indent,
-                                          VPSlotTracker &SlotTracker) const {
-  O << Indent << "EMIT ";
-  printAsOperand(O, SlotTracker);
-  O << " = WIDEN-POINTER-INDUCTION ";
-  getStartValue()->printAsOperand(O, SlotTracker);
-  O << ", " << *IndDesc.getStep();
-}
-
-=======
->>>>>>> 03975b7f0e5a5176bcb876080a4864e993ebd74c
 #endif
 
 template void DomTreeBuilder::Calculate<VPDominatorTree>(VPDominatorTree &DT);
