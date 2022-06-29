@@ -11,7 +11,10 @@ define void @test1() {
 ; CHECK-NEXT:    br label [[IF_THEN:%.*]]
 ; CHECK:       if.then:
 ; CHECK-NEXT:    [[CALL:%.*]] = call i1 @testf()
-; CHECK-NEXT:    unreachable
+; INTEL_CUSTOMIZATION
+; workaround CMPLRLLVM-38653
+; CHECK-NEXT: br label %if.end
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   br label %if.then
@@ -28,7 +31,10 @@ if.end:                                           ; preds = %if.then, %entry
 define internal i1 @testf() {
 ; CHECK-LABEL: define {{[^@]+}}@testf() {
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    unreachable
+; INTEL_CUSTOMIZATION
+; workaround CMPLRLLVM-38653
+; CHECK-NEXT: br label %if.end3
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   br i1 undef, label %if.then1, label %if.end3
@@ -47,7 +53,9 @@ define i1 @test2() {
 ; CHECK-NEXT:    br label [[IF_END:%.*]]
 ; CHECK:       if.end:
 ; CHECK-NEXT:    [[CALL2:%.*]] = call i1 @testf()
-; CHECK-NEXT:    ret i1 undef
+; INTEL_CUSTOMIZATION
+; workaround CMPLRLLVM-38653
+; end INTEL_CUSTOMIZATION
 ;
 entry:
   br label %if.end
