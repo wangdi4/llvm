@@ -233,20 +233,6 @@
 
 ; CHECK:      Running analysis: DPCPPAliasAnalysis
 
-<<<<<<< HEAD
-; CHECK:      Running pass: LICMPass
-; CHECK-NEXT: Running pass: LoopStridedCodeMotionPass
-; CHECK-NEXT: Running analysis: LoopWIAnalysis
-; CHECK-NEXT: Running pass: LoopSimplifyPass
-
-; CHECK:      Running pass: LoopSimplifyPass
-; CHECK-NEXT: Running pass: LCSSAPass
-; CHECK:      Invalidating analysis: SGSizeAnalysisPass
-; CHECK:      Invalidating analysis: DataPerBarrierAnalysis
-; CHECK:      Invalidating analysis: WIRelatedValueAnalysis
-; CHECK:      Invalidating analysis: DataPerValueAnalysis
-; CHECK:      Running pass: AddImplicitArgsPass
-=======
 ; CHECK: Running pass: LICMPass
 ; CHECK: Running pass: BuiltinLICMPass
 ; CHECK: Running pass: LoopStridedCodeMotionPass
@@ -260,7 +246,6 @@
 ; CHECK-NEXT: Invalidating analysis: WIRelatedValueAnalysis
 ; CHECK-NEXT: Invalidating analysis: DataPerValueAnalysis
 ; CHECK-NEXT: Running pass: AddImplicitArgsPass
->>>>>>> 5dad014173577878ad9d10470fbc8223c06ada23
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
