@@ -406,8 +406,8 @@ void OptimizerLTOLegacyPM::addLastPassesImpl(unsigned OptLevel,
     // Add LoopSimplify pass before CLBuiltinLICM pass as CLBuiltinLICM pass
     // requires loops in Simplified Form.
     MPM.add(createLoopSimplifyPass());
-    MPM.add(createBuiltinLICMLegacyPass());
     MPM.add(createLICMPass());
+    MPM.add(createBuiltinLICMLegacyPass());
     MPM.add(createLoopStridedCodeMotionLegacyPass());
   }
 
