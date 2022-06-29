@@ -233,18 +233,19 @@
 
 ; CHECK:      Running analysis: DPCPPAliasAnalysis
 
-; CHECK:      Running pass: LICMPass
-; CHECK-NEXT: Running pass: LoopStridedCodeMotionPass
+; CHECK: Running pass: LICMPass
+; CHECK: Running pass: BuiltinLICMPass
+; CHECK: Running pass: LoopStridedCodeMotionPass
 ; CHECK-NEXT: Running analysis: LoopWIAnalysis
-; CHECK-NEXT: Running pass: LoopSimplifyPass
-
-; CHECK:      Running pass: LoopSimplifyPass
-; CHECK-NEXT: Running pass: LCSSAPass
-; CHECK:      Invalidating analysis: SGSizeAnalysisPass
-; CHECK:      Invalidating analysis: DataPerBarrierAnalysis
-; CHECK:      Invalidating analysis: WIRelatedValueAnalysis
-; CHECK:      Invalidating analysis: DataPerValueAnalysis
-; CHECK:      Running pass: AddImplicitArgsPass
+; CHECK: Running pass: LoopSimplifyPass
+; CHECK: Running pass: LoopSimplifyPass
+; CHECK: Running pass: LCSSAPass
+; CHECK-NEXT: Invalidating analysis: SGSizeAnalysisPass
+; CHECK-NEXT: Invalidating analysis: VerifierAnalysis
+; CHECK-NEXT: Invalidating analysis: DataPerBarrierAnalysis
+; CHECK-NEXT: Invalidating analysis: WIRelatedValueAnalysis
+; CHECK-NEXT: Invalidating analysis: DataPerValueAnalysis
+; CHECK-NEXT: Running pass: AddImplicitArgsPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
