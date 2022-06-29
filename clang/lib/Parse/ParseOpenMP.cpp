@@ -2509,7 +2509,7 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
 #else  // INTEL_COLLAB
     bool HasImplicitMappings =
         DKind == OMPD_begin_declare_target || !HasClauses ||
-        (DTCI.ExplicitlyMapped.empty() && DTCI.Indirect.hasValue());
+        (DTCI.ExplicitlyMapped.empty() && DTCI.Indirect);
 #endif // INTEL_COLLAB
 
     // Skip the last annot_pragma_openmp_end.
