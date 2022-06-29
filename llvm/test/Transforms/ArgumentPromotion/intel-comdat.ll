@@ -1,4 +1,3 @@
-; RUN: opt -S -argpromotion < %s | FileCheck %s
 ; RUN: opt -S -passes=argpromotion < %s | FileCheck %s
 
 ; This test case checks that the COMDAT was preserved after argument promotion.

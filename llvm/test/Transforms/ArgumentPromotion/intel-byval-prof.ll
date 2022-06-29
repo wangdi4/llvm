@@ -1,4 +1,3 @@
-; RUN: opt < %s -argpromotion -S | FileCheck %s
 ; RUN: opt < %s -passes=argpromotion -S | FileCheck %s
 
 ; This test is to verify that functions and calls created by argument

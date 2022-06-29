@@ -1,7 +1,4 @@
-; RUN: opt -inline -argpromotion -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-NO-MD
 ; RUN: opt -passes='cgscc(inline)',argpromotion -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-NO-MD
-
-; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -argpromotion -inline-report=0xe886 -S | opt  -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-MD
 ; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)',argpromotion -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-MD
 
 ; This test case checks that the result for the inline report is correct

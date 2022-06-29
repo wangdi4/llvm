@@ -1,4 +1,3 @@
-; RUN: opt -enable-new-pm=0 -argpromotion -S < %s | FileCheck %s
 ; RUN: opt -passes=argpromotion -S < %s | FileCheck %s
 
 ; CHECK: define dso_local noundef i32 @_Z3fooR8MYSTRUCT(%struct.MYSTRUCT* noundef nonnull align 4 dereferenceable(16) %myarg) #0 {

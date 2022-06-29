@@ -1,6 +1,5 @@
 ; CMPLRLLVM-35006: Test to make sure compiler doesn't fail with assertion.
 
-; RUN: opt < %s -argpromotion -instcombine -disable-output
 ; RUN: opt < %s -passes='cgscc(argpromotion),function(instcombine)' -disable-output
 
 %"struct.omnetpp::cComponent::SignalListenerList" = type { i32, %"class.omnetpp::cIListener"** }

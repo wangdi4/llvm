@@ -1,4 +1,3 @@
-; RUN: opt < %s -argpromotion -S | FileCheck %s
 ; RUN: opt < %s -passes=argpromotion -S | FileCheck %s
 
 ; CHECK-DAG: define{{.*}}@b

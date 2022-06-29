@@ -1470,20 +1470,8 @@ void PassManagerBuilder::populateModulePassManager(
                  /* AddNoOpBarrierPassBeforeRestore= */ true);
   }
 #endif // INTEL_COLLAB
-#if INTEL_CUSTOMIZATION
-  // Argument promotion pass was originally added after passes which compute
-  // attribues for functions and arguments, but such ordering is not good
-  // because argument promotion changes function arguments. As a result
-  // promoted arguments do not get any attributes. Reordering argument
-  // promotion pass and the passes computing attributes fixes this problem.
-  // Additionally adding SROA after the argument promotion to cleanup allocas
-  // allows to get more accurate attributes for the promoted arguments.
-  if (OptLevel > 1) {
-    // FIXME: createArgumentPromotionPass was removed in llorg.
-    // MPM.add(createArgumentPromotionPass(true)); // Scalarize uninlined fn args
+  if (OptLevel > 1)
     MPM.add(createSROALegacyCGSCCAdaptorPass());
-  }
-#endif // INTEL_CUSTOMIZATION
 
   // Infer attributes on declarations, call sites, arguments, etc. for an SCC.
   if (AttributorRun & AttributorRunOption::CGSCC)
@@ -1946,8 +1934,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createTileMVInlMarkerLegacyPass());
 #endif // INTEL_FEATURE_SW_ADVANCED
   PM.add(createDopeVectorConstPropLegacyPass());
-  // FIXME: createArgumentPromotionPass was removed in llorg.
-  // PM.add(createArgumentPromotionPass());
 #endif // INTEL_CUSTOMIZATION
 
   // Now that we internalized some globals, see if we can hack on them!
