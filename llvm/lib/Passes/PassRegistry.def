@@ -65,8 +65,6 @@ MODULE_ANALYSIS("wholeprogram", WholeProgramAnalysis(WPUtils))     // INTEL
 MODULE_ANALYSIS("xm-module-opt-level", XmainOptLevelAnalysis()) // INTEL
 MODULE_ANALYSIS("verify", VerifierAnalysis())
 MODULE_ANALYSIS("pass-instrumentation", PassInstrumentationAnalysis(PIC))
-<<<<<<< HEAD
-MODULE_ANALYSIS("asan-globals-md", ASanGlobalsMetadataAnalysis())
 #if INTEL_CUSTOMIZATION
 MODULE_ANALYSIS("xm-optreport-options", OptReportOptionsAnalysis())
 MODULE_ANALYSIS("dpcpp-kernel-builtin-info-analysis", BuiltinLibInfoAnalysis())
@@ -80,8 +78,6 @@ MODULE_ANALYSIS("dpcpp-kernel-vf-analysis", VFAnalysis())
 MODULE_ANALYSIS("dpcpp-kernel-vec-dim-analysis", VectorizationDimensionAnalysis())
 MODULE_ANALYSIS("vpo-paropt-config-analysis", VPOParoptConfigAnalysis())
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> dacfa24f75c328ae30b710ecadaa18e4ba10cdc6
 MODULE_ANALYSIS("inline-advisor", InlineAdvisorAnalysis())
 MODULE_ANALYSIS("ir-similarity", IRSimilarityAnalysis())
 
