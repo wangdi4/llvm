@@ -62,13 +62,10 @@ LLVM_FIXED_MD_KIND(MD_vcall_visibility, "vcall_visibility", 28)
 LLVM_FIXED_MD_KIND(MD_noundef, "noundef", 29)
 LLVM_FIXED_MD_KIND(MD_annotation, "annotation", 30)
 LLVM_FIXED_MD_KIND(MD_nosanitize, "nosanitize", 31)
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-LLVM_FIXED_MD_KIND(MD_std_container_ptr, "std.container.ptr", 32)
-LLVM_FIXED_MD_KIND(MD_std_container_ptr_iter, "std.container.ptr.iter", 33)
-LLVM_FIXED_MD_KIND(MD_intel_tbaa, "intel-tbaa", 34)
-LLVM_FIXED_MD_KIND(MD_intel_profx, "intel-profx", 35)
-#endif
-=======
 LLVM_FIXED_MD_KIND(MD_func_sanitize, "func_sanitize", 32)
->>>>>>> 5330250e815f08d40bf5d5ad5fee818f02cea63a
+#if INTEL_CUSTOMIZATION
+LLVM_FIXED_MD_KIND(MD_std_container_ptr, "std.container.ptr", 33)
+LLVM_FIXED_MD_KIND(MD_std_container_ptr_iter, "std.container.ptr.iter", 34)
+LLVM_FIXED_MD_KIND(MD_intel_tbaa, "intel-tbaa", 35)
+LLVM_FIXED_MD_KIND(MD_intel_profx, "intel-profx", 36)
+#endif
