@@ -160,7 +160,7 @@ public:
         return true;
    }
    return false;
- }
+  }
 #endif // INTEL_CUSTOMIZATION
   Instruction *FoldShiftByConstant(Value *Op0, Constant *Op1,
                                    BinaryOperator &I);
@@ -416,6 +416,10 @@ private:
   /// Hoist instruction before BinOp and exchange uses of this fcmp
   /// and use of Op operand in BinOp.
   bool hoistFcmpAndExchangeUses(Instruction *I1, Value *Op, Instruction *BinOp);
+
+  /// Returns a new GEP if \p GEP's src element type can be converted to the
+  /// type used in load/store uses, otherwise returns nullptr.
+  GetElementPtrInst *convertOpaqueGEPToLoadStoreType(GetElementPtrInst &GEP);
 #endif // INTEL_CUSTOMIZATION
   Value *foldAndOrOfICmpsOfAndWithPow2(ICmpInst *LHS, ICmpInst *RHS,
                                        Instruction *CxtI, bool IsAnd,
