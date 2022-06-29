@@ -613,9 +613,9 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     // requires loops in Simplified Form.
     FPM2.addPass(LoopSimplifyPass());
     LoopPassManager LPM;
-    LPM.addPass(BuiltinLICMPass());
     LPM.addPass(LICMPass(SetLicmMssaOptCap, SetLicmMssaNoAccForPromotionCap,
                          /*AllowSpeculation*/ true));
+    LPM.addPass(BuiltinLICMPass());
     LPM.addPass(LoopStridedCodeMotionPass());
     //    LPM.addPass(CLStreamSamplerPass());
     FPM2.addPass(

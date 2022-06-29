@@ -633,8 +633,8 @@ static void populatePassesPostFailCheck(
     // Add LoopSimplify pass before CLBuiltinLICM pass as CLBuiltinLICM pass
     // requires loops in Simplified Form.
     PM.add(createLoopSimplifyPass());
-    PM.add(llvm::createBuiltinLICMLegacyPass());
     PM.add(llvm::createLICMPass());
+    PM.add(llvm::createBuiltinLICMLegacyPass());
     PM.add(llvm::createLoopStridedCodeMotionLegacyPass());
     PM.add(createCLStreamSamplerPass());
   }

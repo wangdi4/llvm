@@ -329,6 +329,7 @@
 
 ; CHECK:      Running analysis: DPCPPAliasAnalysis
 
+<<<<<<< HEAD
 ; CHECK:      Running pass: BuiltinLICMPass
 ; CHECH-NEXT: Running analysis: OuterAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Loop, llvm::LoopStandardAnalysisResults &>
 
@@ -346,6 +347,21 @@
 
 ; CHECK:      Running pass: LoopSimplifyPass
 ; CHECK-NEXT: Running pass: LCSSAPass
+=======
+; CHECK: Running pass: LICMPass
+; CHECK: Running pass: BuiltinLICMPass
+; CHECK: Running pass: LoopStridedCodeMotionPass
+; CHECK-NEXT: Running analysis: LoopWIAnalysis
+
+; CHECK: Running pass: LICMPass
+; CHECK: Running pass: BuiltinLICMPass
+; CHECK: Running pass: LoopStridedCodeMotionPass
+; CHECK-NEXT: Running analysis: LoopWIAnalysis
+; CHECK: Running pass: LoopSimplifyPass
+; CHECK: Running pass: LoopSimplifyPass
+; CHECK: Running pass: LCSSAPass
+
+>>>>>>> 5dad014173577878ad9d10470fbc8223c06ada23
 ; CHECK-NEXT: Invalidating analysis: SGSizeAnalysisPass
 ; CHECK-NEXT: Invalidating analysis: VerifierAnalysis
 ; CHECK-NEXT: Invalidating analysis: DataPerBarrierAnalysis

@@ -93,8 +93,8 @@
 
 ; CHECK:      Running pass: PromotePass
 ; CHECK:      Running pass: LoopSimplifyPass
-; CHECK:      Running pass: BuiltinLICMPass
 ; CHECK:      Running pass: LICMPass
+; CHECK:      Running pass: BuiltinLICMPass
 ; CHECK:      Running pass: LoopStridedCodeMotionPass
 ; CHECK:      Running analysis: LoopWIAnalysis
 
