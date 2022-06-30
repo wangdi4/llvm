@@ -4605,6 +4605,11 @@ static void renderDebugOptions(const ToolChain &TC, const Driver &D,
       DebugInfoKind = codegenoptions::FullDebugInfo;
   }
 
+#if INTEL_CUSTOMIZATION
+  if (D.IsIntelMode() && DebugInfoKind == codegenoptions::DebugInfoConstructor)
+    DebugInfoKind = codegenoptions::LimitedDebugInfo;
+#endif // INTEL_CUSTOMIZATION
+
   if (Args.hasFlag(options::OPT_gembed_source, options::OPT_gno_embed_source,
                    false)) {
     // Source embedding is a vendor extension to DWARF v5. By now we have
