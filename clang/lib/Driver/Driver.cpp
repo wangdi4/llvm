@@ -3349,7 +3349,12 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
           if (Ty == types::TY_INVALID) {
             if (IsCLMode() && (Args.hasArgNoClaim(options::OPT_E) || CCGenDiagnostics))
               Ty = types::TY_CXX;
-            else if (CCCIsCPP() || CCGenDiagnostics)
+#if INTEL_CUSTOMIZATION
+            // For Intel Classic compatibility, assume that any unknown
+            // extensions when used to preprocess, we perform preprocessing.
+            else if (CCCIsCPP() || CCGenDiagnostics ||
+                     (IsIntelMode() && Args.hasArgNoClaim(options::OPT_E)))
+#endif // INTEL_CUSTOMIZATION
               Ty = CType;
             else
               Ty = types::TY_Object;
