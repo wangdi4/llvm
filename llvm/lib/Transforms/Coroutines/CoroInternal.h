@@ -13,7 +13,6 @@
 
 #include "CoroInstr.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/Transforms/Coroutines.h" // INTEL
 
 namespace llvm {
 
@@ -21,35 +20,12 @@ class CallGraph;
 class CallGraphSCC;
 class PassRegistry;
 
-void initializeCoroEarlyLegacyPass(PassRegistry &);   // INTEL
-void initializeCoroSplitLegacyPass(PassRegistry &);   // INTEL
-void initializeCoroElideLegacyPass(PassRegistry &);   // INTEL
-void initializeCoroCleanupLegacyPass(PassRegistry &); // INTEL
-
-// CoroEarly pass marks every function that has coro.begin with a string
-// attribute "coroutine.presplit". CoroSplit pass would processes the 
-// function marked as "coroutine.presplit" only.
-//
-// FIXME: Refactor these attributes as LLVM attributes instead of string
-// attributes since these attributes are already used outside LLVM's
-// coroutine module.
-#define CORO_PRESPLIT_ATTR "coroutine.presplit"
-#if INTEL_CUSTOMIZATION
-#define CORO_DEVIRT_TRIGGER_FN "coro.devirt.trigger"
-#define UNPREPARED_FOR_SPLIT "0"
-#define PREPARED_FOR_SPLIT "1"
-#define ASYNC_RESTART_AFTER_SPLIT "2"
-#define CORO_DEVIRT_TRIGGER_FN "coro.devirt.trigger"
-#endif // INTEL_CUSTOMIZATION
-
 namespace coro {
 
 bool declaresAnyIntrinsic(const Module &M);
 bool declaresIntrinsics(const Module &M,
                         const std::initializer_list<StringRef>);
 void replaceCoroFree(CoroIdInst *CoroId, bool Elide);
-void updateCallGraph(Function &Caller, ArrayRef<Function *> Funcs, // INTEL
-                     CallGraph &CG, CallGraphSCC &SCC);            // INTEL
 
 /// Recover a dbg.declare prepared by the frontend and emit an alloca
 /// holding a pointer to the coroutine frame.

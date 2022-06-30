@@ -75,8 +75,6 @@ void initializeGlobalISel(PassRegistry&);
 void initializeTarget(PassRegistry&);
 
 #if INTEL_CUSTOMIZATION
-/// Initialize all passes linked into the Coroutines library.
-void initializeCoroutines(PassRegistry&);
 
 /// initializeIntel_LoopAnalysis - Initialize all passes linked into the
 /// Intel_LoopAnalysis library.
