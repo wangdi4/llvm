@@ -227,10 +227,14 @@ static bool simplifyInstsInBlock(SCCPSolver &Solver, BasicBlock &BB,
   return MadeChanges;
 }
 
+static bool removeNonFeasibleEdges(const SCCPSolver &Solver, BasicBlock *BB,
+                                   DomTreeUpdater &DTU,
+                                   BasicBlock *&NewUnreachableBB);
+
 // runSCCP() - Run the Sparse Conditional Constant Propagation algorithm,
 // and return true if the function was modified.
 static bool runSCCP(Function &F, const DataLayout &DL,
-                    const TargetLibraryInfo *TLI) {
+                    const TargetLibraryInfo *TLI, DomTreeUpdater &DTU) {
   LLVM_DEBUG(dbgs() << "SCCP on function '" << F.getName() << "'\n");
   SCCPSolver Solver(
       DL, [TLI](Function &F) -> const TargetLibraryInfo & { return *TLI; },
@@ -258,13 +262,12 @@ static bool runSCCP(Function &F, const DataLayout &DL,
   // as we cannot modify the CFG of the function.
 
   SmallPtrSet<Value *, 32> InsertedValues;
+  SmallVector<BasicBlock *, 8> BlocksToErase;
   for (BasicBlock &BB : F) {
     if (!Solver.isBlockExecutable(&BB)) {
       LLVM_DEBUG(dbgs() << "  BasicBlock Dead:" << BB);
-
       ++NumDeadBlocks;
-      NumInstRemoved += removeAllNonTerminatorAndEHPadInstructions(&BB).first;
-
+      BlocksToErase.push_back(&BB);
       MadeChanges = true;
       continue;
     }
@@ -273,19 +276,38 @@ static bool runSCCP(Function &F, const DataLayout &DL,
                                         NumInstRemoved, NumInstReplaced);
   }
 
+  // Remove unreachable blocks and non-feasible edges.
+  for (BasicBlock *DeadBB : BlocksToErase)
+    NumInstRemoved += changeToUnreachable(DeadBB->getFirstNonPHI(),
+                                          /*PreserveLCSSA=*/false, &DTU);
+
+  BasicBlock *NewUnreachableBB = nullptr;
+  for (BasicBlock &BB : F)
+    MadeChanges |= removeNonFeasibleEdges(Solver, &BB, DTU, NewUnreachableBB);
+
+  for (BasicBlock *DeadBB : BlocksToErase)
+    if (!DeadBB->hasAddressTaken())
+      DTU.deleteBB(DeadBB);
+
   return MadeChanges;
 }
 
 PreservedAnalyses SCCPPass::run(Function &F, FunctionAnalysisManager &AM) {
   const DataLayout &DL = F.getParent()->getDataLayout();
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
-  if (!runSCCP(F, DL, &TLI))
+  auto *DT = AM.getCachedResult<DominatorTreeAnalysis>(F);
+  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
+  if (!runSCCP(F, DL, &TLI, DTU))
     return PreservedAnalyses::all();
 
   auto PA = PreservedAnalyses();
+<<<<<<< HEAD
   PA.preserveSet<CFGAnalyses>();
   PA.preserve<AndersensAA>();     // INTEL
   PA.preserve<WholeProgramAnalysis>();  // INTEL
+=======
+  PA.preserve<DominatorTreeAnalysis>();
+>>>>>>> 10c531cd5bf0166ce5bf42736506733b2285fdf8
   return PA;
 }
 
@@ -308,9 +330,13 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
+<<<<<<< HEAD
     AU.setPreservesCFG();
     AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
     AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
+=======
+    AU.addPreserved<DominatorTreeWrapperPass>();
+>>>>>>> 10c531cd5bf0166ce5bf42736506733b2285fdf8
   }
 
   // runOnFunction - Run the Sparse Conditional Constant Propagation
@@ -321,7 +347,10 @@ public:
     const DataLayout &DL = F.getParent()->getDataLayout();
     const TargetLibraryInfo *TLI =
         &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    return runSCCP(F, DL, TLI);
+    auto *DTWP = getAnalysisIfAvailable<DominatorTreeWrapperPass>();
+    DomTreeUpdater DTU(DTWP ? &DTWP->getDomTree() : nullptr,
+                       DomTreeUpdater::UpdateStrategy::Lazy);
+    return runSCCP(F, DL, TLI, DTU);
   }
 };
 

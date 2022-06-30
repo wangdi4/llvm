@@ -6,10 +6,14 @@
 
 define i32 @foo() {
 ; CHECK-LABEL: @foo(
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; workaround CMPLRLLVM-38653
 ; CHECK-NEXT:    br i1 false, label [[T:%.*]], label [[T]]
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-NEXT:    unreachable
+>>>>>>> 10c531cd5bf0166ce5bf42736506733b2285fdf8
 ;
   br i1 undef, label %T, label %T
 T:
