@@ -309,7 +309,7 @@ applyBuildProgramLLVMOptions(PassManagerType PMType,
   // inline threshold is not exposed by standard new pass manager pipeline, so
   // we have to set threshold globally here.
   if (PMType == PM_LTO)
-    Args.push_back("-inline-threshold=4096");
+    Args.push_back("-inline-threshold=16384");
 
   Args.push_back(nullptr);
   cl::ParseCommandLineOptions(Args.size() - 1, Args.data());

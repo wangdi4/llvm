@@ -89,7 +89,7 @@ void OptimizerLTOLegacyPM::CreatePasses() {
     auto Params =
         getInlineParams(PMBuilder.OptLevel, PMBuilder.SizeLevel,
                         PMBuilder.PrepareForThinLTO, PMBuilder.PrepareForLTO);
-    Params.DefaultThreshold = 4096;
+    Params.DefaultThreshold = 16384;
     PMBuilder.Inliner = createFunctionInliningPass(Params);
   }
 

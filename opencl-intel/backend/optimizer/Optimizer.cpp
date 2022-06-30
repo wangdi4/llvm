@@ -196,8 +196,8 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   // If a function appeared in a loop is a candidate to be inlined,
   // LoopUnroll pass refuses to unroll the loop, so we should inline the function
   // first to help unroller to decide if it's worthy to unroll the loop.
-  PM->add(llvm::createFunctionInliningPass(4096)); // Inline (not only small)
-                                                   // functions
+  PM->add(llvm::createFunctionInliningPass(16384)); // Inline (not only small)
+                                                    // functions
   if (UnrollLoops) {
     // Unroll small loops
     // Parameters for unrolling are as follows:
