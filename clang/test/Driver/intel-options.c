@@ -30,7 +30,7 @@
 // -ZI support (same as /Zi and /Z7)
 // RUN: %clang_cl -### /c /ZI %s 2>&1 | FileCheck -check-prefix=CHECK-ZI %s
 // CHECK-ZI: "-gcodeview"
-// CHECK-ZI: "-debug-info-kind=limited"
+// CHECK-ZI: "-debug-info-kind=constructor"
 
 // RUN: %clang -### -axbroadwell  %s -c 2>&1 | \
 // RUN:  FileCheck %s -check-prefixes=CHECK-AX-BROADWELL
@@ -313,7 +313,7 @@
 
 // Behavior with -femit-class-debug-always option maps to -fstandalone-debug
 // RUN: %clang -### -c -g %s 2>&1 | FileCheck -check-prefix CHECK-DEBUG-INFO-KIND-DEFAULT %s
-// CHECK-DEBUG-INFO-KIND-DEFAULT: "-debug-info-kind=limited"
+// CHECK-DEBUG-INFO-KIND-DEFAULT: "-debug-info-kind=constructor"
 // RUN: %clang -### -c -g -femit-class-debug-always %s 2>&1 | FileCheck -check-prefix CHECK-DEBUG-INFO-KIND %s
 // CHECK-DEBUG-INFO-KIND: "-debug-info-kind=standalone"
 
