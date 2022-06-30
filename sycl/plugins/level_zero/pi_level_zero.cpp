@@ -1298,11 +1298,8 @@ _pi_context::getAvailableCommandList(pi_queue Queue,
       CleanupEventListFromResetCmdList(EventListToCleanup,
                                        true /* QueueLocked */);
       CommandList = it;
-<<<<<<< HEAD
       CommandList->second.ZeFenceInUse = true;
-=======
       CommandList->second.InUse = true;
->>>>>>> 7b0a86d7174c95f66a76f722222161dbce904ca8
       return PI_SUCCESS;
     }
   }
