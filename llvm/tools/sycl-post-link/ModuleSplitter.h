@@ -231,7 +231,11 @@ getSplitterByKernelType(ModuleDesc &&MD, bool EmitOnlyKernelsAsEntryPoints);
 std::unique_ptr<ModuleSplitterBase>
 getSplitterByMode(ModuleDesc &&MD, IRSplitMode Mode,
                   bool AutoSplitIsGlobalScope,
+#if INTEL_COLLAB
+                  bool EmitOnlyKernelsAsEntryPoints, bool DoOmpOffload = false);
+#else  // INTEL_COLLAB
                   bool EmitOnlyKernelsAsEntryPoints);
+#endif // INTEL_COLLAB
 
 std::unique_ptr<ModuleSplitterBase>
 getESIMDDoubleGRFSplitter(ModuleDesc &&MD, bool EmitOnlyKernelsAsEntryPoints);
