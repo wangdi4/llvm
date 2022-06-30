@@ -1299,7 +1299,6 @@ _pi_context::getAvailableCommandList(pi_queue Queue,
                                        true /* QueueLocked */);
       CommandList = it;
       CommandList->second.ZeFenceInUse = true;
-      CommandList->second.InUse = true;
       return PI_SUCCESS;
     }
   }
