@@ -610,12 +610,6 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
       << "}";
     break;
   }
-  case VPInstruction::AllocatePrivate: {
-    O << getOpcodeName(getOpcode());
-    if (cast<const VPAllocatePrivate>(this)->getIsScalar())
-      O << "-scalar";
-    break;
-  }
   case Instruction::ICmp:
   case Instruction::FCmp: {
     O << getOpcodeName(getOpcode()) << ' '

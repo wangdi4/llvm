@@ -379,7 +379,7 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   if (VPCall->isLifetimeStartOrEndIntrinsic()) {
     auto *PrivPtr = dyn_cast_or_null<VPAllocatePrivate>(
         getVPValuePrivateMemoryPtr(VPCall->getOperand(1)));
-    if (PrivPtr && (PrivPtr->isSOALayout() || PrivPtr->getIsScalar())) {
+    if (PrivPtr && PrivPtr->isSOALayout()) {
       VPCall->setShouldNotBeWidened();
       return;
     }

@@ -451,15 +451,9 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   }
 
   case VPInstruction::AllocatePrivate: {
-    // Mark as scalar if explicitly marked.
-    auto *VPAlloca = cast<VPAllocatePrivate>(Inst);
-    if (VPAlloca->getIsScalar()) {
-      setSVAKindForInst(Inst, SVAKind::FirstScalar);
-      return true;
-    }
-    // Otherwise, we don't set any specific bits for the allocate-private
-    // instruction, it will decided only based on uses of the instruction.
-    // If there are no users, set Vector conservatively.
+    // We don't set any specific bits for the allocate-private instruction, it
+    // will decided only based on uses of the instruction. If there are no
+    // users, set Vector conservatively.
     SVABits SetBits = getAllSetBitsFromUsers(Inst);
     setSVABitsForInst(Inst, SetBits);
     return true;
