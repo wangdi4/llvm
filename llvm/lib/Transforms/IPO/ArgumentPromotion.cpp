@@ -182,21 +182,11 @@ static Value *createByteGEP(IRBuilderBase &IRB, const DataLayout &DL,
 /// DoPromotion - This method actually performs the promotion of the specified
 /// arguments, and returns the new function.  At this point, we know that it's
 /// safe to do so.
-<<<<<<< HEAD
-static Function *doPromotion(
-    Function *F, function_ref<DominatorTree &(Function &F)> DTGetter,
-    function_ref<AssumptionCache *(Function &F)> ACGetter,
-    const DenseMap<Argument *, SmallVector<OffsetAndArgPart, 4>> &ArgsToPromote,
-    bool isCallback, // INTEL
-    Optional<function_ref<void(CallBase &OldCS, CallBase &NewCS)>>
-        ReplaceCallSite) {
-  getInlineReport()->initFunctionClosure(F); // INTEL
-=======
 static Function *
 doPromotion(Function *F, FunctionAnalysisManager &FAM,
             const DenseMap<Argument *, SmallVector<OffsetAndArgPart, 4>>
-                &ArgsToPromote) {
->>>>>>> 3d9ce9e43d07bbd3ab5c25ee36f417e3d372b94b
+                &ArgsToPromote, bool isCallback) { // INTEL
+  getInlineReport()->initFunctionClosure(F); // INTEL
   // Start by computing a new prototype for the function, which is the same as
   // the old function, but has modified arguments.
   FunctionType *FTy = F->getFunctionType();
@@ -957,20 +947,12 @@ static bool areTypesABICompatible(ArrayRef<Type *> Types, const Function &F,
 /// are any promotable arguments and if it is safe to promote the function (for
 /// example, all callers are direct).  If safe to promote some arguments, it
 /// calls the DoPromotion method.
-<<<<<<< HEAD
-static Function *
-promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
-                 function_ref<DominatorTree &(Function &F)> DTGetter,
-                 function_ref<AssumptionCache *(Function &F)> ACGetter,
-                 bool RemoveHomedArguments, unsigned MaxElements, // INTEL
-                 Optional<function_ref<void(CallBase &OldCS, CallBase &NewCS)>>
-                     ReplaceCallSite,
-                 const TargetTransformInfo &TTI, bool &IsRecursive) { // INTEL
-  RemoveHomedArguments |= ForceRemoveHomedArguments; // INTEL
-=======
+#if INTEL_CUSTOMIZATION
 static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
-                                  unsigned MaxElements, bool IsRecursive) {
->>>>>>> 3d9ce9e43d07bbd3ab5c25ee36f417e3d372b94b
+                                  bool RemoveHomedArguments,
+                                  unsigned MaxElements, bool &IsRecursive) {
+  RemoveHomedArguments |= ForceRemoveHomedArguments;
+#endif // INTEL_CUSTOMIZATION
   // Don't perform argument promotion for naked functions; otherwise we can end
   // up removing parameters that are seemingly 'not used' as they are referred
   // to in the assembly.
@@ -1110,7 +1092,6 @@ static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
   if (ArgsToPromote.empty())
     return nullptr;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
   // CMPLRLLVM-37247: Inhibit argument promotion on split functions
@@ -1120,11 +1101,7 @@ static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
 
-  return doPromotion(F, DTGetter, ACGetter, ArgsToPromote, // INTEL
-                     isCallback, ReplaceCallSite);         // INTEL
-=======
-  return doPromotion(F, FAM, ArgsToPromote);
->>>>>>> 3d9ce9e43d07bbd3ab5c25ee36f417e3d372b94b
+  return doPromotion(F, FAM, ArgsToPromote, isCallback); // INTEL
 }
 
 PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
@@ -1151,39 +1128,14 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
     bool IsRecursive = C.size() > 1;
     for (LazyCallGraph::Node &N : C) {
       Function &OldF = N.getFunction();
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       if (RecursiveFunctions.count(&OldF))
         continue;
+
+      Function *NewF = promoteArguments(&OldF, FAM, RemoveHomedArguments,
+                                        MaxElements, IsRecursive);
 #endif // INTEL_CUSTOMIZATION
 
-      // FIXME: This lambda must only be used with this function. We should
-      // skip the lambda and just get the AA results directly.
-      auto AARGetter = [&](Function &F) -> AAResults & {
-        assert(&F == &OldF && "Called with an unexpected function!");
-        return FAM.getResult<AAManager>(F);
-      };
-
-      auto DTGetter = [&](Function &F) -> DominatorTree & {
-        assert(&F != &OldF && "Called with the obsolete function!");
-        return FAM.getResult<DominatorTreeAnalysis>(F);
-      };
-
-      auto ACGetter = [&](Function &F) -> AssumptionCache * {
-        assert(&F != &OldF && "Called with the obsolete function!");
-        return &FAM.getResult<AssumptionAnalysis>(F);
-      };
-
-#if INTEL_CUSTOMIZATION
-      const auto &TTI = FAM.getResult<TargetIRAnalysis>(OldF);
-      Function *NewF = promoteArguments(&OldF, AARGetter, DTGetter, ACGetter,
-                                        RemoveHomedArguments, MaxElements, None,
-                                        TTI, IsRecursive);
-#endif // INTEL_CUSTOMIZATION
-
-=======
-      Function *NewF = promoteArguments(&OldF, FAM, MaxElements, IsRecursive);
->>>>>>> 3d9ce9e43d07bbd3ab5c25ee36f417e3d372b94b
       if (!NewF)
         continue;
       LocalChange = true;
