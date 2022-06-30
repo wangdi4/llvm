@@ -48,8 +48,6 @@
 #include "llvm/Transforms/IPO/ArgumentPromotion.h"
 
 #include "llvm/ADT/DepthFirstIterator.h"
-#include "llvm/ADT/None.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -58,13 +56,9 @@
 #include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
-#include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/Analysis/CallGraph.h"
-#include "llvm/Analysis/CallGraphSCCPass.h"
-#include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/MemoryLocation.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Argument.h"
@@ -81,19 +75,15 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Metadata.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/NoFolder.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Use.h"
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include <algorithm>
 #include <cassert>
@@ -192,6 +182,7 @@ static Value *createByteGEP(IRBuilderBase &IRB, const DataLayout &DL,
 /// DoPromotion - This method actually performs the promotion of the specified
 /// arguments, and returns the new function.  At this point, we know that it's
 /// safe to do so.
+<<<<<<< HEAD
 static Function *doPromotion(
     Function *F, function_ref<DominatorTree &(Function &F)> DTGetter,
     function_ref<AssumptionCache *(Function &F)> ACGetter,
@@ -200,6 +191,12 @@ static Function *doPromotion(
     Optional<function_ref<void(CallBase &OldCS, CallBase &NewCS)>>
         ReplaceCallSite) {
   getInlineReport()->initFunctionClosure(F); // INTEL
+=======
+static Function *
+doPromotion(Function *F, FunctionAnalysisManager &FAM,
+            const DenseMap<Argument *, SmallVector<OffsetAndArgPart, 4>>
+                &ArgsToPromote) {
+>>>>>>> 3d9ce9e43d07bbd3ab5c25ee36f417e3d372b94b
   // Start by computing a new prototype for the function, which is the same as
   // the old function, but has modified arguments.
   FunctionType *FTy = F->getFunctionType();
@@ -278,9 +275,8 @@ static Function *doPromotion(
   F->getParent()->getFunctionList().insert(F->getIterator(), NF);
   NF->takeName(F);
 
-  // Loop over all of the callers of the function, transforming the call sites
-  // to pass in the loaded pointers.
-  //
+  // Loop over all the callers of the function, transforming the call sites to
+  // pass in the loaded pointers.
   SmallVector<Value *, 16> Args;
   while (!F->use_empty()) {
 #if INTEL_CUSTOMIZATION
@@ -412,10 +408,6 @@ static Function *doPromotion(
 
     AttributeFuncs::updateMinLegalVectorWidthAttr(*CB.getCaller(),
                                                   LargestVectorWidth);
-
-    // Update the callgraph to know that the callsite has been transformed.
-    if (ReplaceCallSite)
-      (*ReplaceCallSite)(CB, *NewCS);
 
     if (!CB.use_empty()) {
       CB.replaceAllUsesWith(NewCS);
@@ -587,7 +579,9 @@ static Function *doPromotion(
     // And we are able to call the `promoteMemoryToRegister()` function.
     // Our earlier checks have ensured that PromoteMemToReg() will
     // succeed.
-    PromoteMemToReg(Allocas, DTGetter(*NF), ACGetter(*NF));
+    auto &DT = FAM.getResult<DominatorTreeAnalysis>(*NF);
+    auto &AC = FAM.getResult<AssumptionAnalysis>(*NF);
+    PromoteMemToReg(Allocas, DT, &AC);
   }
 
   return NF;
@@ -963,6 +957,7 @@ static bool areTypesABICompatible(ArrayRef<Type *> Types, const Function &F,
 /// are any promotable arguments and if it is safe to promote the function (for
 /// example, all callers are direct).  If safe to promote some arguments, it
 /// calls the DoPromotion method.
+<<<<<<< HEAD
 static Function *
 promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
                  function_ref<DominatorTree &(Function &F)> DTGetter,
@@ -972,6 +967,10 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
                      ReplaceCallSite,
                  const TargetTransformInfo &TTI, bool &IsRecursive) { // INTEL
   RemoveHomedArguments |= ForceRemoveHomedArguments; // INTEL
+=======
+static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
+                                  unsigned MaxElements, bool IsRecursive) {
+>>>>>>> 3d9ce9e43d07bbd3ab5c25ee36f417e3d372b94b
   // Don't perform argument promotion for naked functions; otherwise we can end
   // up removing parameters that are seemingly 'not used' as they are referred
   // to in the assembly.
@@ -1043,8 +1042,8 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
       return nullptr;
 
   const DataLayout &DL = F->getParent()->getDataLayout();
-
-  AAResults &AAR = AARGetter(*F);
+  auto &AAR = FAM.getResult<AAManager>(*F);
+  const auto &TTI = FAM.getResult<TargetIRAnalysis>(*F);
 
   // Check to see which arguments are promotable.  If an argument is promotable,
   // add it to ArgsToPromote.
@@ -1111,6 +1110,7 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
   if (ArgsToPromote.empty())
     return nullptr;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
   // CMPLRLLVM-37247: Inhibit argument promotion on split functions
@@ -1122,6 +1122,9 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
 
   return doPromotion(F, DTGetter, ACGetter, ArgsToPromote, // INTEL
                      isCallback, ReplaceCallSite);         // INTEL
+=======
+  return doPromotion(F, FAM, ArgsToPromote);
+>>>>>>> 3d9ce9e43d07bbd3ab5c25ee36f417e3d372b94b
 }
 
 PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
@@ -1148,6 +1151,7 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
     bool IsRecursive = C.size() > 1;
     for (LazyCallGraph::Node &N : C) {
       Function &OldF = N.getFunction();
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       if (RecursiveFunctions.count(&OldF))
         continue;
@@ -1177,6 +1181,9 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
                                         TTI, IsRecursive);
 #endif // INTEL_CUSTOMIZATION
 
+=======
+      Function *NewF = promoteArguments(&OldF, FAM, MaxElements, IsRecursive);
+>>>>>>> 3d9ce9e43d07bbd3ab5c25ee36f417e3d372b94b
       if (!NewF)
         continue;
       LocalChange = true;
