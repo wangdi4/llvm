@@ -206,6 +206,8 @@ def Builtin_DenseArrayBase : Builtin_Attr<
     /// Print the short form `42, 100, -1` without any braces or prefix.
     void printWithoutBraces(raw_ostream &os) const;
   }];
+  // Do not generate the storage class, we need to handle custom storage alignment.
+  let genStorageClass = 0;
   let genAccessors = 0;
   let skipDefaultBuilders = 1;
 }

@@ -669,6 +669,46 @@ DenseElementsAttr::ComplexIntElementIterator::operator*() const {
 // DenseArrayAttr
 //===----------------------------------------------------------------------===//
 
+/// Custom storage to ensure proper memory alignment for the allocation of
+/// DenseArray of any element type.
+struct mlir::detail::DenseArrayBaseAttrStorage : public AttributeStorage {
+  using KeyTy = std::tuple<ShapedType, DenseArrayBaseAttr::EltType,
+                           ::llvm::ArrayRef<char>>;
+  DenseArrayBaseAttrStorage(ShapedType type,
+                            DenseArrayBaseAttr::EltType eltType,
+                            ::llvm::ArrayRef<char> elements)
+      : AttributeStorage(type), eltType(eltType), elements(elements) {}
+
+  bool operator==(const KeyTy &tblgenKey) const {
+    return (getType() == std::get<0>(tblgenKey)) &&
+           (eltType == std::get<1>(tblgenKey)) &&
+           (elements == std::get<2>(tblgenKey));
+  }
+
+  static ::llvm::hash_code hashKey(const KeyTy &tblgenKey) {
+    return ::llvm::hash_combine(std::get<0>(tblgenKey), std::get<1>(tblgenKey),
+                                std::get<2>(tblgenKey));
+  }
+
+  static DenseArrayBaseAttrStorage *
+  construct(AttributeStorageAllocator &allocator, const KeyTy &tblgenKey) {
+    auto type = std::get<0>(tblgenKey);
+    auto eltType = std::get<1>(tblgenKey);
+    auto elements = std::get<2>(tblgenKey);
+    if (!elements.empty()) {
+      char *alloc = static_cast<char *>(
+          allocator.allocate(elements.size(), alignof(uint64_t)));
+      std::uninitialized_copy(elements.begin(), elements.end(), alloc);
+      elements = ArrayRef<char>(alloc, elements.size());
+    }
+    return new (allocator.allocate<DenseArrayBaseAttrStorage>())
+        DenseArrayBaseAttrStorage(type, eltType, elements);
+  }
+
+  DenseArrayBaseAttr::EltType eltType;
+  ::llvm::ArrayRef<char> elements;
+};
+
 DenseArrayBaseAttr::EltType DenseArrayBaseAttr::getElementType() const {
   return getImpl()->eltType;
 }
