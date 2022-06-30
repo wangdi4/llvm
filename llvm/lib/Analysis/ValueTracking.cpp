@@ -4477,10 +4477,8 @@ bool llvm::getConstantDataArrayInfo(const Value *V,
   uint64_t StartIdx = Off.getLimitedValue();
   if (StartIdx == UINT64_MAX)
     // Fail if the constant offset is excessive.
-<<<<<<< HEAD
-    uint64_t StartIdx = Off.getLimitedValue();
-    if (StartIdx == UINT64_MAX)
-      return false;
+    return false;
+
 #if INTEL_CUSTOMIZATION
     // Temporary fix for 38615. accumulateConstantOffset is in bytes, must be
     // converted to elements for "StartIdx".
@@ -4489,18 +4487,6 @@ bool llvm::getConstantDataArrayInfo(const Value *V,
       return false;
     StartIdx = StartIdx / ElementBSize;
 #endif // INTEL_CUSTOMIZATION
-
-    return getConstantDataArrayInfo(Op0, Slice, ElementSize, StartIdx + Offset);
-  }
-
-  // The GEP instruction, constant or instruction, must reference a global
-  // variable that is a constant and is initialized. The referenced constant
-  // initializer is the array that we'll use for optimization.
-  const GlobalVariable *GV = dyn_cast<GlobalVariable>(V);
-  if (!GV || !GV->isConstant() || !GV->hasDefinitiveInitializer())
-=======
->>>>>>> e263a7670e28d880ec45971f91fa88de01fc51e1
-    return false;
 
   Offset += StartIdx;
 
