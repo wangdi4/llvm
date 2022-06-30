@@ -2642,15 +2642,16 @@ enum CXCursorKind {
   /** OpenMP target parallel loop directive.
    */
   CXCursor_OMPTargetParallelGenericLoopDirective = 299,
-  
+
   /** OpenMP parallel masked directive.
    */
   CXCursor_OMPParallelMaskedDirective = 300,
-  
+
   /** OpenMP masked taskloop directive.
    */
   CXCursor_OMPMaskedTaskLoopDirective = 301,
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
   CXCursor_OMPTargetVariantDispatchDirective = 302,
   CXCursor_OMPPrefetchDirective = 303,
@@ -2659,6 +2660,13 @@ enum CXCursorKind {
 #else /* INTEL_COLLAB */
   CXCursor_LastStmt = CXCursor_OMPMaskedTaskLoopDirective,
 #endif /* INTEL_COLLAB */
+=======
+  /** OpenMP masked taskloop simd directive.
+   */
+  CXCursor_OMPMaskedTaskLoopSimdDirective = 302,
+
+  CXCursor_LastStmt = CXCursor_OMPMaskedTaskLoopSimdDirective,
+>>>>>>> 73e5d7bdff51bdcce8100feff0008a154e8e02bc
 
   /**
    * Cursor that represents the translation unit itself.
