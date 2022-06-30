@@ -116,17 +116,6 @@ bool elf::link(ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
   ctx->e.cleanupCallback = []() {
     inputSections.clear();
     outputSections.clear();
-<<<<<<< HEAD
-    memoryBuffers.clear();
-    binaryFiles.clear();
-    bitcodeFiles.clear();
-    lazyBitcodeFiles.clear();
-    objectFiles.clear();
-    sharedFiles.clear();
-    gnuLTOFiles.clear();  // INTEL
-    lazyGNULTOFiles.clear();  // INTEL
-=======
->>>>>>> 9a572164d592ec439fea6b635c28698e5b194546
     symAux.clear();
 
     tar = nullptr;
@@ -292,7 +281,7 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
             magic == file_magic::elf_relocatable) {
           auto *lazyFile = createLazyFile(p.first, path, p.second);
           if (lazyFile->isGNULTOFile)
-            lazyGNULTOFiles.push_back(lazyFile);
+            ctx->lazyGNULTOFiles.push_back(lazyFile);
           else
             files.push_back(lazyFile);
         } else {
@@ -339,7 +328,7 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
         // files.push_back(createLazyFile(p.first, path, p.second));
         auto *lazyFile = createLazyFile(p.first, path, p.second);
         if (lazyFile->isGNULTOFile)
-          lazyGNULTOFiles.push_back(lazyFile);
+          ctx->lazyGNULTOFiles.push_back(lazyFile);
         else
           files.push_back(lazyFile);
       }
@@ -387,14 +376,14 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
     if (inLib) {
       auto *lazyFile = createLazyFile(mbref, "", 0);
       if (lazyFile->isGNULTOFile)
-        lazyGNULTOFiles.push_back(lazyFile);
+        ctx->lazyGNULTOFiles.push_back(lazyFile);
       else
         files.push_back(lazyFile);
     }
     else {
       auto *objFile = createObjectFile(mbref);
       if (objFile->isGNULTOFile)
-        gnuLTOFiles.push_back(objFile);
+        ctx->gnuLTOFiles.push_back(objFile);
       else
         files.push_back(objFile);
     }
@@ -1790,13 +1779,13 @@ void LinkerDriver::createFiles(opt::InputArgList &args) {
 
 #if INTEL_CUSTOMIZATION
   // Process the GNU LTO files
-  if (!gnuLTOFiles.empty())
-    finalizeGNULTO(gnuLTOFiles, /* isLazyFile */ false);
+  if (!ctx->gnuLTOFiles.empty())
+    finalizeGNULTO(ctx->gnuLTOFiles, /* isLazyFile */ false);
 
   // If there are GNU LTO files in archives then we need to do a partial
   // linking in order to preserve the the lazy symbols.
-  if (!lazyGNULTOFiles.empty())
-    finalizeGNULTO(lazyGNULTOFiles, /* isLazyFile */ true);
+  if (!ctx->lazyGNULTOFiles.empty())
+    finalizeGNULTO(ctx->lazyGNULTOFiles, /* isLazyFile */ true);
 #endif // INTEL_CUSTOMIZATION
 
   if (files.empty() && !hasInput && errorCount() == 0)

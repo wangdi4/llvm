@@ -60,18 +60,6 @@ using namespace lld::elf;
 bool InputFile::isInGroup;
 uint32_t InputFile::nextGroupId;
 
-<<<<<<< HEAD
-SmallVector<std::unique_ptr<MemoryBuffer>> elf::memoryBuffers;
-SmallVector<BinaryFile *, 0> elf::binaryFiles;
-SmallVector<BitcodeFile *, 0> elf::bitcodeFiles;
-SmallVector<BitcodeFile *, 0> elf::lazyBitcodeFiles;
-SmallVector<ELFFileBase *, 0> elf::objectFiles;
-SmallVector<SharedFile *, 0> elf::sharedFiles;
-SmallVector<InputFile *, 0> elf::gnuLTOFiles; // INTEL
-SmallVector<InputFile *, 0> elf::lazyGNULTOFiles; // INTEL
-
-=======
->>>>>>> 9a572164d592ec439fea6b635c28698e5b194546
 std::unique_ptr<TarWriter> elf::tar;
 
 // Returns "<internal>", "foo.a(bar.o)" or "baz.o".
