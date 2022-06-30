@@ -5738,6 +5738,53 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
           ItemIndex++;
           continue;
         }
+
+#if INTEL_CUSTOMIZATION
+        // CMPLRLLVM-36083: Code path for atomic-free reduction of full array
+        // for teams global update is currently problematic. For this case we
+        // reparse full array as an array section. In the future We may consider
+        // doing this universally (maybe even from FE) so we don't have to
+        // maintain two separate code paths (array vs array section) that does
+        // essentially the same thing.
+#endif // INTEL_CUSTOMIZATION
+        auto Parse1DArrayAsArraySection = [&RedI](LLVMContext &C) {
+          Type *RedElemType = nullptr;
+          Value *NumElements = nullptr;
+          std::tie(RedElemType, NumElements, std::ignore) =
+              VPOParoptUtils::getItemInfo(RedI);
+
+          if (NumElements || !RedElemType || !RedElemType->isArrayTy())
+            return; // bail out if not array type
+
+          ArrayType *ArrayTy = cast<ArrayType>(RedElemType);
+          uint64_t NumArrayElements = ArrayTy->getNumElements();
+          Type *ArrayElementType = ArrayTy->getElementType();
+          if (ArrayElementType->isArrayTy()) {
+            // TODO: For now exclude arrays with >1 dimensions.
+            // For n-dim arrays it may be OK to fold the n dimensions
+            // into a 1-d array section but needs more experimentation.
+            return;
+          }
+
+          Type *Int64Ty = Type::getInt64Ty(C);
+          Value *LB     = ConstantInt::get(Int64Ty, 0);
+          Value *Size   = ConstantInt::get(Int64Ty, NumArrayElements);
+          Value *Stride = ConstantInt::get(Int64Ty, 1);
+
+          std::tuple<Value *, Value *, Value *> Dim = {LB, Size, Stride};
+          ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
+          ArrSecInfo.addDimension(Dim);
+
+          LLVM_DEBUG(
+              dbgs() << "Atomic-free reduction global update: Parsed array ";
+              RedI->getOrig()->printAsOperand(dbgs());
+              dbgs() << *RedElemType
+                     << " as an array section [0 : " << NumArrayElements
+                     << "] of " << *ArrayElementType << "\n");
+        };
+
+        Parse1DArrayAsArraySection(F->getContext());
+
         if (auto *WTarget =
                 WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget)) {
           auto &MapClause = WTarget->getMap();
