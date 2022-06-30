@@ -301,13 +301,9 @@ PreservedAnalyses SCCPPass::run(Function &F, FunctionAnalysisManager &AM) {
     return PreservedAnalyses::all();
 
   auto PA = PreservedAnalyses();
-<<<<<<< HEAD
-  PA.preserveSet<CFGAnalyses>();
+  PA.preserve<DominatorTreeAnalysis>();
   PA.preserve<AndersensAA>();     // INTEL
   PA.preserve<WholeProgramAnalysis>();  // INTEL
-=======
-  PA.preserve<DominatorTreeAnalysis>();
->>>>>>> 10c531cd5bf0166ce5bf42736506733b2285fdf8
   return PA;
 }
 
@@ -330,13 +326,9 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
-<<<<<<< HEAD
-    AU.setPreservesCFG();
+    AU.addPreserved<DominatorTreeWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
     AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
-=======
-    AU.addPreserved<DominatorTreeWrapperPass>();
->>>>>>> 10c531cd5bf0166ce5bf42736506733b2285fdf8
   }
 
   // runOnFunction - Run the Sparse Conditional Constant Propagation
