@@ -3514,8 +3514,6 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   // Not yet implemented with FE outlining. BE outlining only.
   if (!getLangOpts().OpenMPLateOutline) {
     bool IsUnsupportedClause = (DKind == OMPD_taskwait && CKind == OMPC_nowait);
-    IsUnsupportedClause |= isOpenMPTargetExecutionDirective(DKind) &&
-        CKind == OMPC_in_reduction;
     if (IsUnsupportedClause) {
       Diag(Tok, diag::err_omp_unexpected_clause)
           << getOpenMPClauseName(CKind) << getOpenMPDirectiveName(DKind);

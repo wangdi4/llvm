@@ -4747,7 +4747,12 @@ StmtResult Sema::ActOnOpenMPRegionEnd(StmtResult S,
   for (OMPClause *Clause : Clauses) {
     if (!LangOpts.OpenMPSimd &&
         (isOpenMPTaskingDirective(DSAStack->getCurrentDirective()) ||
+#if INTEL_COLLAB
+         (!LangOpts.OpenMPLateOutline &&
+          DSAStack->getCurrentDirective() == OMPD_target)) &&
+#else // INTEL_COLLAB
          DSAStack->getCurrentDirective() == OMPD_target) &&
+#endif // INTEL_COLLAB
         Clause->getClauseKind() == OMPC_in_reduction) {
       // Capture taskgroup task_reduction descriptors inside the tasking regions
       // with the corresponding in_reduction items.
