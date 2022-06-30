@@ -1,4 +1,21 @@
 //===--------- device.cpp - Target independent OpenMP target RTL ----------===//
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2022 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -918,6 +935,20 @@ void *DeviceTy::dataAlignedAlloc(size_t Align, size_t Size, int32_t Kind) {
     return RTL->data_aligned_alloc(RTLDeviceID, Align, Size, Kind);
   else
     return allocData(Size, nullptr, Kind);
+}
+
+bool DeviceTy::registerHostPointer(void *Ptr, size_t Size) {
+  if (RTL->register_host_pointer)
+    return RTL->register_host_pointer(RTLDeviceID, Ptr,Size);
+  else
+    return false;
+}
+
+bool DeviceTy::unregisterHostPointer(void *Ptr) {
+  if (RTL->unregister_host_pointer)
+    return RTL->unregister_host_pointer(DeviceID, Ptr);
+  else
+    return false;
 }
 
 int32_t DeviceTy::get_data_alloc_info(

@@ -1,4 +1,21 @@
 //===-------- omptarget.h - Target independent OpenMP target RTL -- C++ -*-===//
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2022 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -449,6 +466,11 @@ EXTERN void *ompx_target_aligned_alloc_host(
     size_t align, size_t size, int device_num);
 EXTERN void *ompx_target_aligned_alloc_shared(
     size_t align, size_t size, int device_num);
+/// Register/unregister Host Pointer
+EXTERN int ompx_target_register_host_pointer(
+    void *ptr, size_t size, int device_num);
+EXTERN void ompx_target_unregister_host_pointer(
+    void *ptr, int device_num);
 
 /// Get number of subdevices supported by the given device ID at the specified
 /// level

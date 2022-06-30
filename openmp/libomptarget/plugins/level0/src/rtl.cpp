@@ -2759,6 +2759,10 @@ struct RTLDeviceInfoTy {
   /// GITS function address for notifying indirect accesses
   void *GitsIndirectAllocationOffsets = nullptr;
 
+  /// function addresses for registering and unregistering host pointer
+  void *RegisterHostPointer = nullptr;
+  void *UnRegisterHostPointer = nullptr;
+
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
 
   /// RTL option
@@ -2948,6 +2952,25 @@ struct RTLDeviceInfoTy {
 
   void setSubDeviceCode(int64_t Code) {
     getTLS()->setSubDeviceCode(Code);
+  }
+
+  bool registerHostPointer(int32_t DeviceId, void *Ptr, size_t Size) {
+     if (RegisterHostPointer) {
+       using FnTy = int (*)(ze_driver_handle_t, void *, size_t);
+       auto Fn = reinterpret_cast<FnTy>(RegisterHostPointer);
+       return  Fn(Driver, Ptr, Size);
+     }
+     return false;
+  }
+
+  bool unRegisterHostPointer(int32_t DeviceId, void *Ptr) {
+     if (UnRegisterHostPointer) {
+       using FnTy = void(*)(ze_driver_handle_t, void *);
+       auto Fn = reinterpret_cast<FnTy>(UnRegisterHostPointer);
+       Fn(Driver, Ptr);
+       return true;
+     }
+     return false;
   }
 
   /// Reset program data
@@ -4790,6 +4813,17 @@ int32_t RTLDeviceInfoTy::findDevices() {
   if (Rc != ZE_RESULT_SUCCESS)
     GitsIndirectAllocationOffsets = nullptr;
 
+  // Look up Driver Import and Release  External Pointer
+  CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
+          "zexDriverImportExternalPointer", &RegisterHostPointer);
+  if (Rc != ZE_RESULT_SUCCESS)
+     RegisterHostPointer = nullptr;
+
+  CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, Driver,
+          "zexDriverReleaseImportExternalPointer", &UnRegisterHostPointer);
+  if (Rc != ZE_RESULT_SUCCESS)
+     UnRegisterHostPointer = nullptr;
+
   return NumRootDevices;
 }
 
@@ -6128,6 +6162,15 @@ void *__tgt_rtl_data_aligned_alloc(int32_t DeviceId, size_t Align, size_t Size,
     return nullptr;
   }
   return DeviceInfo->dataAlloc(DeviceId, Size, Align, Kind, 0, true);
+}
+
+bool __tgt_rtl_register_host_pointer(int32_t DeviceId, void *Ptr, size_t Size) {
+
+  return DeviceInfo->registerHostPointer(DeviceId, Ptr, Size);
+}
+
+bool __tgt_rtl_unregister_host_pointer(int32_t DeviceId, void *Ptr) {
+    return DeviceInfo->unRegisterHostPointer(DeviceId, Ptr);
 }
 
 int32_t __tgt_rtl_requires_mapping(int32_t DeviceId, void *Ptr, int64_t Size) {

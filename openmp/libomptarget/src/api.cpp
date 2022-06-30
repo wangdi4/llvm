@@ -1,4 +1,21 @@
 //===----------- api.cpp - Target independent OpenMP target RTL -----------===//
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2022 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -704,6 +721,44 @@ EXTERN void *ompx_target_aligned_alloc_shared(
     size_t Align, size_t Size, int DeviceNum) {
   return targetAlignedAlloc(Align, Size, DeviceNum, TARGET_ALLOC_SHARED,
                             __func__);
+}
+
+EXTERN int ompx_target_register_host_pointer(void * HostPtr, size_t Size,
+             int DeviceNum) {
+  DP("Call to %s for device %d requesting registering " DPxMOD " of %zu bytes\n",
+     __func__, DeviceNum, DPxPTR(HostPtr),  Size);
+
+  if (Size <= 0) {
+    DP("Call to %s with non-positive length\n", __func__);
+    return false;
+  }
+
+  if (DeviceNum == omp_get_initial_device()) {
+    DP("Cannot register host pointer " DPxMOD " with host device\n",DPxPTR(HostPtr));
+    return false;
+  }
+
+  if (!device_is_ready(DeviceNum)) {
+    DP("Cannot register host pointer as Device not ready\n");
+    return false;
+  }
+
+  DeviceTy &Device = *PM->Devices[DeviceNum];
+
+  int retval = Device.registerHostPointer(HostPtr, Size);
+  if (!retval)
+    DP("Register host pointer failed\n");
+  return retval;
+}
+
+EXTERN void ompx_target_unregister_host_pointer(void * HostPtr, int DeviceNum) {
+  DP("Call to %s for device %d requesting unregistering " DPxMOD " \n",
+       __func__, DeviceNum, DPxPTR(HostPtr));
+  DeviceTy &Device = *PM->Devices[DeviceNum];
+
+  bool retval = Device.unregisterHostPointer(HostPtr);
+  if (!retval)
+    DP("UnRegister host pointer failed\n");
 }
 
 EXTERN void *omp_target_get_context(int device_num) {
