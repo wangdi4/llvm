@@ -5013,15 +5013,6 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName, llvm::Type *Ty,
       getModule(), Ty, false, llvm::GlobalValue::ExternalLinkage, nullptr,
       MangledName, nullptr, llvm::GlobalVariable::NotThreadLocal,
       getContext().getTargetAddressSpace(DAddrSpace));
-#if INTEL_COLLAB
-
-  // For OpenMP backend outlining, the globals in a declare target region must
-  // be marked with the target_declare attribute so they're not optimized away
-  // by backend optimizations.
-  if (getLangOpts().OpenMPLateOutline && D &&
-      D->hasAttr<OMPDeclareTargetDeclAttr>())
-    GV->setTargetDeclare(true);
-#endif // INTEL_COLLAB
 
   // If we already created a global with the same mangled name (but different
   // type) before, take its name and remove it from its parent.

@@ -1757,29 +1757,60 @@ class AllocateItem
 };
 
 // DATA clause for PREFETCH construct is of the form
-//   DATA(Ptr:Hint:NumElem)
+// "QUAL.OMP.DATA"(ptr %ptr, TYPE null, i64 <NumElements>, i32 <hint>)
 class DataItem {
 private:
   VAR Ptr;
-  unsigned Hint;    // Valid values are 1 to 4
-  uint64_t NumElem;
+  Type *PointeeElementTypeFromIR =
+      nullptr;                  // Pointee element type of a pointer item
+  Value *NumElements = nullptr; // Number of elements of this item
+  unsigned Hint; // Valid values are 0 to 6
+  bool IsTyped = false; // true if type is transfered thru arguments
 
 public:
-  DataItem(VAR V, unsigned H, uint64_t N) : Ptr(V), Hint(H), NumElem(N) {}
+  DataItem(VAR V, Type *Ty, Value *N, unsigned H)
+      : Ptr(V), PointeeElementTypeFromIR(Ty), NumElements(N), Hint(H) {}
+
   void setOrig(VAR V) { Ptr = V; }
+  void setPointeeElementTypeFromIR(Type *Ty) { PointeeElementTypeFromIR = Ty; }
+  void setNumElements(Value *N) { NumElements = N; }
   void setHint(unsigned H) { Hint = H; }
-  void setNumElem(uint64_t N) { NumElem = N; }
+  void setIsTyped(bool Flag) { IsTyped = Flag; }
+
   VAR getOrig() const { return Ptr; }
+  Type *getPointeeElementTypeFromIR() const { return PointeeElementTypeFromIR; }
+  Value *getNumElements() const { return NumElements; }
   unsigned getHint() const { return Hint; }
-  uint64_t getNumElem() const { return NumElem; }
+  bool getIsTyped() const { return IsTyped; }
+
+  Type *getPointeeElementType() const {
+    if (!getIsTyped()) {
+      // This branch is for the old IR of DATA clause, which is obsolete.
+      // It won't be reachable with opaque pointers.
+      assert(!Ptr->getType()->isOpaquePointerTy() &&
+             "Need typed DATA clause for opaque pointers.");
+      auto PtrTy =
+          Ptr->getType()->getScalarType()->getNonOpaquePointerElementType();
+      return PtrTy->getNonOpaquePointerElementType();
+    }
+    return getPointeeElementTypeFromIR();
+  }
+
+  void printIfTyped(formatted_raw_ostream &OS) const {
+    if (!getIsTyped())
+      return;
+    OS << ", TYPE: ";
+    getPointeeElementTypeFromIR()->print(OS);
+  }
 
   void print(formatted_raw_ostream &OS, bool PrintType = true) const {
     OS << "(";
     getOrig()->printAsOperand(OS, PrintType);
-    OS << " : ";
+    printIfTyped(OS);
+    OS << ", NUM_ELEMENTS: ";
+    getNumElements()->printAsOperand(OS, PrintType);
+    OS << ", HINT: ";
     OS << getHint();
-    OS << " : ";
-    OS << getNumElem();
     OS << ") ";
   }
 };

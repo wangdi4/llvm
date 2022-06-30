@@ -1,4 +1,21 @@
 //==----- SYCLDeviceLibReqMask.cpp - get SYCL devicelib required Info ------==//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -191,6 +208,9 @@ SYCLDeviceLibFuncMap SDLMap = {
     {"__devicelib_imf_umulhi", DeviceLibExt::cl_intel_devicelib_imf},
     {"__devicelib_imf_mul64hi", DeviceLibExt::cl_intel_devicelib_imf},
     {"__devicelib_imf_umul64hi", DeviceLibExt::cl_intel_devicelib_imf},
+#ifdef INTEL_CUSTOMIZATION
+    {"__devicelib_imf_erfinvf", DeviceLibExt::cl_intel_devicelib_imf},
+#endif
     {"__devicelib_imf_saturatef", DeviceLibExt::cl_intel_devicelib_imf},
     {"__devicelib_imf_fmaf", DeviceLibExt::cl_intel_devicelib_imf},
     {"__devicelib_imf_floorf", DeviceLibExt::cl_intel_devicelib_imf},
@@ -254,6 +274,9 @@ SYCLDeviceLibFuncMap SDLMap = {
     {"__devicelib_imf_fmaxf16", DeviceLibExt::cl_intel_devicelib_imf},
     {"__devicelib_imf_fminf16", DeviceLibExt::cl_intel_devicelib_imf},
     {"__devicelib_imf_copysignf16", DeviceLibExt::cl_intel_devicelib_imf},
+#ifdef INTEL_CUSTOMIZATION
+    {"__devicelib_imf_erfinv", DeviceLibExt::cl_intel_devicelib_imf_fp64},
+#endif
     {"__devicelib_imf_fma", DeviceLibExt::cl_intel_devicelib_imf_fp64},
     {"__devicelib_imf_floor", DeviceLibExt::cl_intel_devicelib_imf_fp64},
     {"__devicelib_imf_ceil", DeviceLibExt::cl_intel_devicelib_imf_fp64},

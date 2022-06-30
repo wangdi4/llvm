@@ -1938,17 +1938,28 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   }
   case QUAL_OMP_DATA: {
-    // "QUAL.OMP.DATA"(TYPE** %ptr, i32 <hint>, size_t <NumElem>)
-    assert(NumArgs == 3 && "Expected 3 arguments for DATA clause");
+    // "QUAL.OMP.DATA"(ptr %ptr, TYPE null, i64 <NumElements>, i32 <hint>)
+    assert((NumArgs == 3 || NumArgs == 4) &&
+           "Expected 3 or 4 arguments for DATA clause");
+    bool IsTyped = false;
+    int Offset = 0;
+    Type *DataTy = nullptr;
     Value *Ptr = Args[0];
-    assert(isa<ConstantInt>(Args[1]) && "Hint must be a constant integer");
-    assert(isa<ConstantInt>(Args[2]) &&
-           "Number of elements must be a constant integer");
-    ConstantInt *CI = cast<ConstantInt>(Args[1]);
+    if (NumArgs == 4) {
+      Offset = 1;
+      DataTy = Args[1]->getType();
+      IsTyped = true;
+    }
+    assert(isa<ConstantInt>(Args[1 + Offset]) &&
+           "Hint must be a constant integer");
+    ConstantInt *CI = cast<ConstantInt>(Args[1 + Offset]);
     unsigned Hint = CI->getZExtValue();
-    CI = cast<ConstantInt>(Args[2]);
-    uint64_t NumElem = CI->getZExtValue();
-    DataItem *Item = new DataItem(Ptr, Hint, NumElem);
+    Value *NumElements = Args[2 + Offset];
+    assert((NumElements->getType()->isIntegerTy(32) ||
+            NumElements->getType()->isIntegerTy(64)) &&
+           "Number of elements must be an integer");
+    DataItem *Item = new DataItem(Ptr, DataTy, NumElements, Hint);
+    Item->setIsTyped(IsTyped);
     DataClause &C = getData();
     C.add(Item);
     break;

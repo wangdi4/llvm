@@ -363,6 +363,13 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::ReductionInitScalar: {
+    // All operands of reduction-init-scalar should be scalar strictly.
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
   case VPInstruction::ReductionFinal: {
     auto *RedFinal = cast<VPReductionFinal>(Inst);
     // Special processing for each operand of reduction-final.
@@ -387,6 +394,15 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     // return value.
     setSVAKindForInst(RedFinal, SVAKind::Vector);
     setSVAKindForReturnValue(RedFinal, SVAKind::FirstScalar);
+    return true;
+  }
+
+  case VPInstruction::ReductionFinalInscan: {
+    setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    // The instruction itself is vectorized, although it produces a scalar
+    // return value.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
     return true;
   }
 
@@ -636,6 +652,24 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     setSVAKindForInst(Inst, SVAKind::Vector);
     // Each lanes has its own value.
     setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    return true;
+  }
+
+  case VPInstruction::ExtractLastVectorLane: {
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    // Each lanes has its own value.
+    setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    return true;
+  }
+
+  case VPInstruction::RunningInclusiveReduction:
+  case VPInstruction::RunningExclusiveReduction: {
+    // Instruction is vector.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    // First operand is vector, but the second and third are scalar.
+    setSVAKindForOperand(Inst, 0 /*FirstArg*/, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 1 /*SecondArg*/, SVAKind::FirstScalar);
+    setSVAKindForOperand(Inst, 2 /*ThirdArg*/, SVAKind::FirstScalar);
     return true;
   }
 
@@ -914,7 +948,9 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::InductionInitStep:
   case VPInstruction::InductionFinal:
   case VPInstruction::ReductionInit:
+  case VPInstruction::ReductionInitScalar:
   case VPInstruction::ReductionFinal:
+  case VPInstruction::ReductionFinalInscan:
   case VPInstruction::Pred:
   case VPInstruction::AllocatePrivate:
   case VPInstruction::AllZeroCheck:
@@ -951,6 +987,9 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::TreeConflict:
   case VPInstruction::Permute:
   case VPInstruction::CvtMaskToInt:
+  case VPInstruction::ExtractLastVectorLane:
+  case VPInstruction::RunningInclusiveReduction:
+  case VPInstruction::RunningExclusiveReduction:
     return true;
   default:
     return false;
