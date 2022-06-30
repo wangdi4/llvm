@@ -2651,22 +2651,17 @@ enum CXCursorKind {
    */
   CXCursor_OMPMaskedTaskLoopDirective = 301,
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
-  CXCursor_OMPTargetVariantDispatchDirective = 302,
-  CXCursor_OMPPrefetchDirective = 303,
-  CXCursor_OMPScopeDirective = 304,
-  CXCursor_LastStmt = CXCursor_OMPScopeDirective,
-#else /* INTEL_COLLAB */
-  CXCursor_LastStmt = CXCursor_OMPMaskedTaskLoopDirective,
-#endif /* INTEL_COLLAB */
-=======
   /** OpenMP masked taskloop simd directive.
    */
   CXCursor_OMPMaskedTaskLoopSimdDirective = 302,
-
+#if INTEL_COLLAB
+  CXCursor_OMPTargetVariantDispatchDirective = 303,
+  CXCursor_OMPPrefetchDirective = 304,
+  CXCursor_OMPScopeDirective = 305,
+  CXCursor_LastStmt = CXCursor_OMPScopeDirective,
+#else /* INTEL_COLLAB */
   CXCursor_LastStmt = CXCursor_OMPMaskedTaskLoopSimdDirective,
->>>>>>> 73e5d7bdff51bdcce8100feff0008a154e8e02bc
+#endif /* INTEL_COLLAB */
 
   /**
    * Cursor that represents the translation unit itself.
