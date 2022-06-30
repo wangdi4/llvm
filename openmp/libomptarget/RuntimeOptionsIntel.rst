@@ -182,7 +182,6 @@ is present in the program, and ``omp_target_alloc`` routine is invoked.
 ``LIBOMPTARGET_DYNAMIC_MEMORY_SIZE=<Num>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Sets the size (in megabyte) of dynamic memory allocatable within a kernel.
-Current experimental implementation does not support "free" operation.
 
 **Default**: 0 (disabled)
 

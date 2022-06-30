@@ -244,11 +244,19 @@
 // CHECK_NOVECLIB-NOT: "-fveclib=SVML"
 
 // -Qno-intel-lib
-// RUN: %clang_cl -### --intel -Qno-intel-lib --target=x86_64-unknown-windows-msvc %s 2>&1 | FileCheck -check-prefixes=CHECK_INTEL_LIB_WIN_NOIRC,CHECK_INTEL_LIB_WIN_NOSVML %s
-// RUN: %clang_cl -### --intel -Qno-intel-lib:libirc --target=x86_64-unknown-windows-msvc %s 2>&1 | FileCheck -check-prefix CHECK_INTEL_LIB_WIN_NOIRC %s
-// RUN: %clang_cl -### --intel -Qno-intel-lib:libsvml --target=x86_64-unknown-windows-msvc %s 2>&1 | FileCheck -check-prefix CHECK_INTEL_LIB_WIN_NOSVML %s
+// RUN: %clang_cl -### --intel -Qno-intel-lib --target=x86_64-unknown-windows-msvc %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=CHECK_INTEL_LIB_WIN_NOIRC,CHECK_INTEL_LIB_WIN_NOSVML,CHECK_INTEL_LIB_WIN_NOLIBM %s
+// RUN: %clang_cl -### --intel -Qno-intel-lib:libirc --target=x86_64-unknown-windows-msvc %s 2>&1 \
+// RUN:  | FileCheck -check-prefix CHECK_INTEL_LIB_WIN_NOIRC %s
+// RUN: %clang_cl -### --intel -Qno-intel-lib:libsvml --target=x86_64-unknown-windows-msvc %s 2>&1 \
+// RUN:  | FileCheck -check-prefix CHECK_INTEL_LIB_WIN_NOSVML %s
+// RUN: %clang_cl -### --intel -Qno-intel-lib:libm --target=x86_64-unknown-windows-msvc %s 2>&1 \
+// RUN:  | FileCheck -check-prefix CHECK_INTEL_LIB_WIN_NOLIBM %s
+// RUN: %clang_cl -### --intel -Qno-intel-lib:libimf --target=x86_64-unknown-windows-msvc %s 2>&1 \
+// RUN:  | FileCheck -check-prefix CHECK_INTEL_LIB_WIN_NOLIBM %s
 // CHECK_INTEL_LIB_WIN_NOIRC-NOT: "--dependent-lib=libircmt"
 // CHECK_INTEL_LIB_WIN_NOSVML-NOT: "--dependent-lib=svml.*"
+// CHECK_INTEL_LIB_WIN_NOLIBM-NOT: "--dependent-lib=libmmt"
 
 // Behavior with Qvla and Qvla- option
 // RUN: %clang_cl -### -c /Qvla- %s 2>&1 | FileCheck -check-prefix CHECK-QNO-VLA %s

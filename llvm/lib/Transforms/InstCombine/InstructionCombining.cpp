@@ -2500,6 +2500,76 @@ Instruction *InstCombinerImpl::visitGEPOfBitcast(BitCastInst *BCI,
   return nullptr;
 }
 
+#if INTEL_CUSTOMIZATION
+// Transform:
+// %V = mul i64 %N, 4
+// %gep = getelementptr i8, ptr %p, i64 %V
+// %ld = load i32, ptr %gep
+//
+// Into:
+// %newgep = getelementptr i32, ptr %p, i64 %N
+// %ld = load i32, ptr %newgep
+GetElementPtrInst *
+InstCombinerImpl::convertOpaqueGEPToLoadStoreType(GetElementPtrInst &GEP) {
+  assert(cast<PointerType>(GEP.getType())->isOpaque() &&
+         "Opaque ptr expected!");
+
+  Type *LoadStoreTy = nullptr;
+  Type *SrcElemTy = GEP.getSourceElementType();
+
+  // Check whether all users of GEP are load or store insts and all of them use
+  // the same type which is not GEP's src element type.
+  for (const auto *U : GEP.users()) {
+    Type *FoundTy = nullptr;
+
+    if (auto *LI = dyn_cast<LoadInst>(U)) {
+      FoundTy = LI->getType();
+
+    } else if (auto *SI = dyn_cast<StoreInst>(U)) {
+      FoundTy = SI->getValueOperand()->getType();
+
+    } else {
+      return nullptr;
+    }
+
+    if (!LoadStoreTy) {
+      // Don't bother converting scalar GEPs to vector GEPs.
+      if (FoundTy == SrcElemTy || isa<VectorType>(FoundTy)) {
+        return nullptr;
+      }
+
+      LoadStoreTy = FoundTy;
+
+    } else if (LoadStoreTy != FoundTy) {
+      return nullptr;
+    }
+  }
+
+  // Convert GEP's src element type to load/store type.
+  uint64_t LoadStoreSize = DL.getTypeAllocSize(LoadStoreTy).getFixedSize();
+  uint64_t SrcElemSize = DL.getTypeAllocSize(SrcElemTy).getFixedSize();
+
+  if (SrcElemSize && (LoadStoreSize % SrcElemSize == 0)) {
+
+    Value *Idx = GEP.getOperand(1);
+    unsigned BitWidth = Idx->getType()->getPrimitiveSizeInBits();
+    uint64_t Scale = LoadStoreSize / SrcElemSize;
+
+    bool NSW;
+    if (Value *NewIdx = Descale(Idx, APInt(BitWidth, Scale), NSW)) {
+      auto *NewGEP = GetElementPtrInst::Create(LoadStoreTy, GEP.getOperand(0),
+                                               NewIdx, GEP.getName());
+
+      if (GEP.isInBounds() && NSW)
+        NewGEP->setIsInBounds();
+
+      return NewGEP;
+    }
+  }
+
+  return nullptr;
+}
+#endif // INTEL_CUSTOMIZATION
 Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   Value *PtrOp = GEP.getOperand(0);
   SmallVector<Value *, 8> Indices(GEP.indices());
@@ -2741,6 +2811,15 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   // Handle gep(bitcast x) and gep(gep x, 0, 0, 0).
   Value *StrippedPtr = PtrOp->stripPointerCasts();
   PointerType *StrippedPtrTy = cast<PointerType>(StrippedPtr->getType());
+
+#if INTEL_CUSTOMIZATION
+  // This is opaque ptr version of some of the code inside the section below
+  // which optimizes bitcasts + geps using Descale().
+  if (StrippedPtrTy->isOpaque() && (GEP.getNumOperands() == 2) &&
+      !IsGEPSrcEleScalable && GEPEltType->isSized())
+    if (auto *NewGEP = convertOpaqueGEPToLoadStoreType(GEP))
+      return NewGEP;
+#endif // INTEL_CUSTOMIZATION
 
   // TODO: The basic approach of these folds is not compatible with opaque
   // pointers, because we can't use bitcasts as a hint for a desirable GEP

@@ -33,7 +33,7 @@
 // CHK-PHASES: 18: linker, {9, 11, 13, 15, 17}, ir, (device-openmp)
 // CHK-PHASES: 19: sycl-post-link, {18}, tempfiletable, (device-openmp)
 // CHK-PHASES: 20: file-table-tform, {19}, tempfilelist, (device-openmp)
-// CHK-PHASES: 21: llvm-spirv, {20}, spirv, (device-openmp)
+// CHK-PHASES: 21: llvm-spirv, {20}, tempfilelist, (device-openmp)
 // CHK-PHASES: 22: file-table-tform, {19, 21}, tempfiletable, (device-openmp)
 // CHK-PHASES: 23: offload, "device-openmp (spir64)" {22}, ir
 // CHK-PHASES: 24: clang-offload-wrapper, {23}, ir, (host-openmp)
@@ -57,7 +57,7 @@
 // CHK-COMMANDS: llvm-link{{.*}} "--only-needed" "[[UNBUNDLED]]" "[[ITT1TGT]]" "[[ITT2TGT]]" "[[ITT3TGT]]" "-o" "[[LINKEDBCFILE:.+\.bc]]"
 // CHK-COMMANDS: sycl-post-link{{.*}} "-split=kernel" "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-symbols" "-emit-exported-symbols" "-split-esimd" "-lower-esimd" "-O2" "-spec-const=rt" "-o" "[[POSTLINKFILE:.+\.table]]" "[[LINKEDBCFILE]]"
 // CHK-COMMANDS: file-table-tform{{.*}} "-extract=Code" "-drop_titles" "-o" "[[TABLEOUT:.+\.txt]]" "[[POSTLINKFILE]]"
-// CHK-COMMANDS: llvm-foreach{{.*}} "--in-file-list=[[TABLEOUT]]" "--in-replace=[[TABLEOUT]]" "--out-ext=spv" "--out-file-list=[[OUTFILESPV:.+\.spv]]" "--out-replace=[[OUTFILESPV]]" "--"
+// CHK-COMMANDS: llvm-foreach{{.*}} "--in-file-list=[[TABLEOUT]]" "--in-replace=[[TABLEOUT]]" "--out-ext=spv" "--out-file-list=[[OUTFILESPV:.+\.txt]]" "--out-replace=[[OUTFILESPV]]" "--"
 // CHK-COMMANDS-SAME: llvm-spirv{{.*}}" "-o" "[[OUTFILESPV]]" {{.*}} "[[TABLEOUT]]"
 // CHK-COMMANDS: file-table-tform{{.*}} "-replace=Code,Code" "-o" "[[TABLEOUT2:.+\.table]]" "[[POSTLINKFILE]]" "[[OUTFILESPV]]"
 // CHK-COMMANDS: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[WRAPPERBC:.+\.bc]]" "-split-batch" "-kind=openmp" "-target=spir64" "[[TABLEOUT2]]"
@@ -84,7 +84,7 @@
 // CHK-UBACTIONS: 11: linker, {2, 4, 6, 8, 10}, ir, (device-openmp)
 // CHK-UBACTIONS: 12: sycl-post-link, {11}, tempfiletable, (device-openmp)
 // CHK-UBACTIONS: 13: file-table-tform, {12}, tempfilelist, (device-openmp)
-// CHK-UBACTIONS: 14: llvm-spirv, {13}, spirv, (device-openmp)
+// CHK-UBACTIONS: 14: llvm-spirv, {13}, tempfilelist, (device-openmp)
 // CHK-UBACTIONS: 15: file-table-tform, {12, 14}, tempfiletable, (device-openmp)
 // CHK-UBACTIONS: 16: offload, "device-openmp (spir64)" {15}, ir
 // CHK-UBACTIONS: 17: clang-offload-wrapper, {16}, ir, (host-openmp)
@@ -108,7 +108,7 @@
 // CHK-UBJOBS: llvm-link{{.*}} "--only-needed" "[[UNBUNDLED]]" "[[ITT1TGT]]" "[[ITT2TGT]]" "[[ITT3TGT]]" "-o" "[[LINKEDBCFILE:.+\.bc]]"
 // CHK-UBJOBS: sycl-post-link{{.*}} "-split=kernel" "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-symbols" "-emit-exported-symbols" "-split-esimd" "-lower-esimd" "-O2" "-spec-const=rt" "-o" "[[POSTLINKFILE:.+\.table]]" "[[LINKEDBCFILE]]"
 // CHK-UBJOBS: file-table-tform{{.*}} "-extract=Code" "-drop_titles" "-o" "[[TABLEOUT:.+\.txt]]" "[[POSTLINKFILE]]"
-// CHK-UBJOBS: llvm-foreach{{.*}} "--in-file-list=[[TABLEOUT]]" "--in-replace=[[TABLEOUT]]" "--out-ext=spv" "--out-file-list=[[OUTFILESPV:.+\.spv]]" "--out-replace=[[OUTFILESPV]]" "--"
+// CHK-UBJOBS: llvm-foreach{{.*}} "--in-file-list=[[TABLEOUT]]" "--in-replace=[[TABLEOUT]]" "--out-ext=spv" "--out-file-list=[[OUTFILESPV:.+\.txt]]" "--out-replace=[[OUTFILESPV]]" "--"
 // CHK-UBJOBS-SAME: llvm-spirv{{.*}}" "-o" "[[OUTFILESPV]]" {{.*}} "[[TABLEOUT]]"
 // CHK-UBJOBS: file-table-tform{{.*}} "-replace=Code,Code" "-o" "[[TABLEOUT2:.+\.table]]" "[[POSTLINKFILE]]" "[[OUTFILESPV]]"
 // CHK-UBJOBS: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[WRAPPERBC:.+\.bc]]" "-split-batch" "-kind=openmp" "-target=spir64" "[[TABLEOUT2]]"
