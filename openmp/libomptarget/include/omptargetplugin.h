@@ -1,4 +1,21 @@
 //===-- omptargetplugin.h - Target dependent OpenMP Plugin API --*- C++ -*-===//
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2022 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may not
+ * use, modify, copy, publish, distribute, disclose or transmit this software or
+ * the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -221,6 +238,14 @@ EXTERN void *__tgt_rtl_data_realloc(
 // Entry for supporting aligned_alloc
 EXTERN void *__tgt_rtl_data_aligned_alloc(
     int32_t ID, size_t Align, size_t Size, int32_t Kind);
+
+// Entry for supporting registering of host_pointer
+EXTERN bool __tgt_rtl_register_host_pointer(
+    int32_t ID, void *Ptr, size_t Size);
+
+// Entry for supporting unregistering of host pointer
+EXTERN bool __tgt_rtl_unregister_host_pointer(
+    int32_t ID, void *Ptr);
 
 // Returns implementation defined device name for the given device number,
 // using provided Buffer. Buffer must be able to hold at least BufferMaxSize
